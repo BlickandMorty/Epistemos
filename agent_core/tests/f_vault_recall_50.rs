@@ -156,6 +156,19 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_arabic.md",
             "Mamba كاش Mamba كاش architecture notes",
         ),
+        // Row 23 (pure-CJK) expected — two CJK tokens with whitespace
+        // between so they tokenize distinctly. 缓存 = cache, 架构 =
+        // architecture.
+        (
+            "notes/pure_chinese.md",
+            "缓存 架构 缓存 架构 笔记 notes",
+        ),
+        // Row 23 forbidden — Latin equivalent only; AND on CJK
+        // tokens cannot match.
+        (
+            "notes/latin_only_ssm.md",
+            "Mamba SSM cache architecture notes English equivalent",
+        ),
         // Row 17 (single-term SignalOnly) expected — contains
         // "Hamiltonian" multiple times so AND-on-one-token matches
         // and BM25 ranks it high.

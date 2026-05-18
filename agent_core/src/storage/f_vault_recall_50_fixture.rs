@@ -459,6 +459,28 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                the specific deferred work.",
     },
     FVaultRecallRow {
+        // Pure-CJK variant (iter-53): no Latin component. Two CJK
+        // tokens with whitespace between so Tantivy's default
+        // SimpleTokenizer keeps them as distinct tokens.
+        // 缓存 = "cache", 架构 = "architecture".
+        query: "缓存 架构",
+        expected_paths: &["notes/pure_chinese.md"],
+        forbidden_paths: &["notes/latin_only_ssm.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Pure-CJK Unicode variant (iter-53): no Latin tokens — \
+               distinct from iter-19's mixed Latin+CJK and iter-8's \
+               Latin diacritic. Tests Tantivy's SimpleTokenizer on \
+               pure non-Latin script: whitespace-separated CJK tokens \
+               must be kept distinct from each other, AND-conjunction \
+               (2 surviving terms ≤ 3) must match a doc containing \
+               both. A Latin-only forbidden doc with the same concept \
+               in English (\"Mamba SSM cache architecture\") must be \
+               rejected — proves no script-fold from CJK → Latin. \
+               Unicode category now at depth 5 (deepest in the \
+               fixture).",
+    },
+    FVaultRecallRow {
         // Arabic multilingual variant (axis #3 final script): Latin
         // "Mamba" + Arabic "كاش" (kash — cache transliterated). Arabic
         // is RTL in rendering but Tantivy's SimpleTokenizer is
