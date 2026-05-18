@@ -18,7 +18,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 | Failure meaning | The state-plane kernel is numerically untrusted; Mamba-2/SSD long-context and LocalRecallIsland downstream claims cannot cite semiseparable acceleration. |
 | Fallback route | Keep the Rust scalar reference and ordinary model path authoritative; do not promote Metal SSD acceleration or 128K stretch until the 32K Core artifact passes. |
 | Product lane | MAS-safe Tier-1/Core only after 32K M2 Pro proof; 128K Stretch remains Research until measured. |
-| Exact command | `tools/falsifiers/f_semiseparable_block_scan.sh` |
+| Exact command | NOT IMPLEMENTED: `tools/falsifiers/f_semiseparable_block_scan.sh` |
 | Expected artifact | `artifacts/falsifiers/semiseparable_block_scan/result.json` with seed-wise max-diff, final-state diff, chunk/ngroups metadata, Core-vs-Stretch labels, and oracle commit/source reference. |
 
 ## Failure Criterion
