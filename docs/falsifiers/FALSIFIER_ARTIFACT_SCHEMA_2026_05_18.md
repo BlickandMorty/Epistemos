@@ -7,7 +7,7 @@ hardware_floor: M2 Pro 14-inch 2023, 12-core CPU, 19-core GPU, 16 GB UMA, approx
 
 # Falsifier Artifact Schema - 2026-05-18
 
-This schema defines the canonical witness artifact contract for every T23B F-* falsifier. It generalizes the T12 F-ULP witness pattern into a shared document shape. A row in the M2 Pro Verified Floor Handbook may not claim runtime evidence unless its artifact uses this contract or a documented successor.
+This schema defines the canonical witness artifact contract for every T23B F-* falsifier. It generalizes the T12 [F-ULP-Oracle](F_ULP_ORACLE_2026_05_18.md) witness pattern into a shared document shape. A row in the M2 Pro Verified Floor Handbook may not claim runtime evidence unless its artifact uses this contract or a documented successor.
 
 ## Initial Fields
 
