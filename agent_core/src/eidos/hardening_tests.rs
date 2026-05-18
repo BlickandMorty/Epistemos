@@ -6812,6 +6812,24 @@ fn closed_citation_structural_shape_locks_are_all_present() {
          contract surface; update this count + the prefix list + \
          STATUS.md catalog in lock-step."
     );
+    // Prefix-shape locks: each entry must start with `fn ` (Rust
+    // function-declaration prefix) and be pairwise distinct so the
+    // `any(starts_with)` check below isn't undermined by redundant
+    // or malformed entries.
+    let prefix_set: HashSet<&str> = SHAPE_LOCK_FN_PREFIXES.iter().copied().collect();
+    assert_eq!(
+        prefix_set.len(),
+        SHAPE_LOCK_FN_PREFIXES.len(),
+        "SHAPE_LOCK_FN_PREFIXES has duplicate entries — each canonical \
+         type-prefix must appear exactly once."
+    );
+    for p in SHAPE_LOCK_FN_PREFIXES {
+        assert!(
+            p.starts_with("fn "),
+            "SHAPE_LOCK_FN_PREFIXES entry {p:?} must start with `fn ` \
+             to match Rust function declarations."
+        );
+    }
     for (label, needle) in required_shape_locks {
         assert!(
             needle.starts_with("fn "),
