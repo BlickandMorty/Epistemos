@@ -275,6 +275,27 @@ mod tests {
         pv.admit(EidosChunkId::new("note-a::lex").unwrap());
         retrievers.push(Box::new(pv));
 
+        // --- HybridRetrieverN (3-way fusion: lex + sem + recency, all
+        //     sharing the fixture manifest)
+        let mut lex_n = InMemoryLexicalIndex::new(manifest());
+        lex_n.insert(doc("note-a"), "tropical hybrid_n", EidosSourceKind::Note).unwrap();
+        let mut sem_n = InMemorySemanticIndex::new(manifest(), 2);
+        sem_n.insert(doc("note-a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+        let mut recency_n = InMemoryRecencyIndex::new(manifest());
+        recency_n.insert(
+            doc("note-a"),
+            "tropical hybrid_n recent",
+            1_700_000_000_000,
+            EidosSourceKind::Note,
+        );
+        let hybrid_n = crate::eidos::hybrid_n::HybridRetrieverN::new(vec![
+            Box::new(lex_n),
+            Box::new(sem_n),
+            Box::new(recency_n),
+        ])
+        .unwrap();
+        retrievers.push(Box::new(hybrid_n));
+
         retrievers
     }
 
@@ -308,11 +329,12 @@ mod tests {
             f_eidos_closed_citation_falsifier(&retrievers, &queries, 1_700_000_000_000)
                 .expect("F-Eidos-ClosedCitation must pass on canonical fixture");
 
-        // Witness counts are deterministic and exact.
-        assert_eq!(witness.retrievers_checked, 9);
+        // Witness counts are deterministic and exact. 10 retrievers now
+        // that HybridRetrieverN joined the fixture.
+        assert_eq!(witness.retrievers_checked, 10);
         assert_eq!(witness.queries_per_retriever, 6);
-        // 9 retrievers × 6 queries = 54 fake-citation rejection sites.
-        assert_eq!(witness.fake_citation_rejections, 54);
+        // 10 retrievers × 6 queries = 60 fake-citation rejection sites.
+        assert_eq!(witness.fake_citation_rejections, 60);
         // At least SOME hits validated (every retriever's positive query
         // contributes at least one hit; exact count depends on dedup +
         // top_k semantics per mode).
