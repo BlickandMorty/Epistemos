@@ -825,6 +825,16 @@ mod tests {
     }
 
     #[test]
+    fn wbo_term_code_round_trips_json() {
+        let encoded = serde_json::to_string(&WboTermCode::ALL).expect("serialize wbo terms");
+        let decoded: [WboTermCode; 7] =
+            serde_json::from_str(&encoded).expect("deserialize wbo terms");
+
+        assert_eq!(decoded, WboTermCode::ALL);
+        assert_eq!(decoded[6].code(), "T_num");
+    }
+
+    #[test]
     fn lattice_error_contribution_round_trips_json() {
         let value =
             LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "L1 residual gap", 0.05)
