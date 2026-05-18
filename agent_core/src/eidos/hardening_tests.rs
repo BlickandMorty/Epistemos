@@ -6800,6 +6800,18 @@ fn closed_citation_structural_shape_locks_are_all_present() {
         "fn id_error_",
         "fn closed_citation_",
     ];
+    // Prefix-count lock: SHAPE_LOCK_FN_PREFIXES is the canonical
+    // type-prefix vocabulary. Adding a 5th prefix means a new
+    // top-level type entered the contract surface — surface that
+    // change deliberately.
+    assert_eq!(
+        SHAPE_LOCK_FN_PREFIXES.len(),
+        4,
+        "SHAPE_LOCK_FN_PREFIXES count drifted from 4. A new prefix \
+         means a new top-level type entered the closed-citation \
+         contract surface; update this count + the prefix list + \
+         STATUS.md catalog in lock-step."
+    );
     for (label, needle) in required_shape_locks {
         assert!(
             needle.starts_with("fn "),
