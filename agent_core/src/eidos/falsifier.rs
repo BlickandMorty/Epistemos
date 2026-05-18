@@ -582,6 +582,38 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_witness_is_invariant_to_retrieved_at_unix_ms() {
+        // The witness fields are pure counts (retrievers_checked,
+        // queries_per_retriever, total_hits_validated, fake_citation_rejections).
+        // None of them is timestamp-derived. Pin this explicitly so a
+        // future change that started folding retrieved_at into the
+        // witness (e.g., a "verified_at" timestamp field on the witness
+        // itself) surfaces here — the Brain Panel surface and stored-
+        // `.epbundle` reproducibility both rely on the witness being
+        // bit-for-bit byte-equal across two falsifier runs that differ
+        // only in retrieved_at_unix_ms.
+        let retrievers = build_fixture_corpus();
+        let queries = fixture_queries();
+        let w_t0 =
+            f_eidos_closed_citation_falsifier(&retrievers, &queries, 1_700_000_000_000).unwrap();
+        let w_t1 =
+            f_eidos_closed_citation_falsifier(&retrievers, &queries, 1_900_000_000_000).unwrap();
+        let w_zero =
+            f_eidos_closed_citation_falsifier(&retrievers, &queries, 0).unwrap();
+        let w_max = f_eidos_closed_citation_falsifier(&retrievers, &queries, u64::MAX).unwrap();
+        assert_eq!(w_t0, w_t1, "witness drifted across 200B-ms apart timestamps");
+        assert_eq!(w_t0, w_zero, "witness drifted between t=now and t=0");
+        assert_eq!(w_t0, w_max, "witness drifted between t=now and t=u64::MAX");
+
+        // Same invariant on the canonical JSON encoding — catches a
+        // future case where Serialize started emitting a derived field
+        // computed from ts.
+        let j_t0 = serde_json::to_string(&w_t0).unwrap();
+        let j_t1 = serde_json::to_string(&w_t1).unwrap();
+        assert_eq!(j_t0, j_t1, "witness JSON drifted across timestamps");
+    }
+
+    #[test]
     fn falsifier_witness_byte_equal_across_20_freshly_built_fixtures() {
         // Tighter sibling of the run-only stability test above: rebuild
         // the full 12-retriever corpus from scratch on every iteration
