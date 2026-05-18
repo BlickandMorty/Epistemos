@@ -699,6 +699,30 @@ pub fn closure_poisson_log_likelihood(k_slot: u32, lambda_slot: u32) -> EmlClosu
     EmlClosureExpr::minus(k_log_lambda, EmlClosureExpr::slot(lambda_slot))
 }
 
+/// Absolute value `closure_abs(slot) = |slot| = exp(½ · ln(slot²))`.
+///
+/// Composed entirely from the EML alphabet (exp, ln, mul,
+/// divide, plus). The identity uses
+///   |x| = exp(½ · ln(x²))    (defined for `x ≠ 0`).
+///
+/// At `x = 0` the closure surfaces the `ln(0)` evaluator error
+/// (no defined value); callers needing a total fallback must
+/// guard `x = 0` separately. For all non-zero `x` this is exact.
+///
+/// Iter-271 — surfaces |·| as an EML-native primitive, plumbing
+/// the previously missing absolute-value operation onto the
+/// closure DSL. Pairs with `closure_squared` (iter-241) and
+/// `closure_diff_squared` (iter-265) to give all (x², (a−b)²,
+/// |x|) building blocks for L¹/L² robust losses.
+pub fn closure_abs(slot_idx: u32) -> EmlClosureExpr {
+    let two = EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one());
+    let sq = closure_squared(slot_idx);
+    let ln_sq = closure_ln(sq);
+    let half_ln_sq = EmlClosureExpr::divide(ln_sq, two);
+    // exp(arg) = eml(arg, One) — same trick as closure_exp on an arbitrary expr.
+    EmlClosureExpr::eml(half_ln_sq, EmlClosureExpr::one())
+}
+
 /// Squared difference `closure_diff_squared(a, b) = (slot(a) − slot(b))²`.
 ///
 /// Closure form: `closure_mul(Minus(slot(a), slot(b)),
@@ -3239,6 +3263,28 @@ mod tests {
         let at_4 = eval_with_slots(closure_poisson_log_likelihood(0, 1), vec![5.0, 4.0]);
         let at_6 = eval_with_slots(closure_poisson_log_likelihood(0, 1), vec![5.0, 6.0]);
         assert!(at_5 >= at_4 - 1e-9 && at_5 >= at_6 - 1e-9, "MLE not at k=5");
+    }
+
+    // ── closure_abs (iter-271) ────────────────────────────────────
+
+    #[test]
+    fn closure_abs_positive_passes_through() {
+        let v = eval_with_slots(closure_abs(0), vec![3.0]);
+        assert!((v - 3.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn closure_abs_negative_returns_magnitude() {
+        let v = eval_with_slots(closure_abs(0), vec![-5.0]);
+        assert!((v - 5.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn closure_abs_matches_native_on_sweep() {
+        for x in [-100.0_f64, -1.0, 0.5, 2.5, 100.0] {
+            let v = eval_with_slots(closure_abs(0), vec![x]);
+            assert!((v - x.abs()).abs() < 1e-7, "x={}: closure={} expected={}", x, v, x.abs());
+        }
     }
 
     // ── closure_diff_squared (iter-265) ───────────────────────────
