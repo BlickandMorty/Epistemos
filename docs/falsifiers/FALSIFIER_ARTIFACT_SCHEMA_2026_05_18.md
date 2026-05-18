@@ -210,7 +210,7 @@ When an anomaly has an `axis`, that axis must appear in the artifact's `measurem
 
 ## Notes Rule
 
-`notes` is for replay caveats, rig observations, and summaries that do not fit a numeric or boolean axis. Use `none` only when the run has no caveat. Notes cannot add hidden thresholds, override failed axes, replace raw measurements, replace the structured anomaly ledger, or turn fallback evidence into a primary pass claim.
+`notes` is for replay caveats, rig observations, and summaries that do not fit a numeric or boolean axis. Use `none` only when the run has no caveat. Notes cannot add hidden thresholds, override failed axes, replace raw measurements, replace the structured anomaly ledger, embed fenced JSON, begin with an object payload, or turn fallback evidence into a primary pass claim.
 
 ## Axis Consistency Rule
 
@@ -630,7 +630,10 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
     },
     "notes": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "not": {
+        "pattern": "```|^\\s*\\{"
+      }
     }
   },
   "additionalProperties": false
