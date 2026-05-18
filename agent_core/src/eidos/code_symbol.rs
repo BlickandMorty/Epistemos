@@ -304,6 +304,36 @@ mod tests {
     }
 
     #[test]
+    fn dedup_key_is_doc_plus_byte_start_only_first_write_wins_on_byte_end_conflict() {
+        // Audit per "audit existing claims first":
+        //   - `idempotent_reinsertion_at_same_offset` covers exact-tuple
+        //     re-insertion (same byte_start AND same byte_end → coalesced).
+        //   - `multiple_occurrences_in_same_document_distinct` covers
+        //     DISTINCT byte_starts → distinct hits.
+        //
+        // Gap: what happens when (document_id, byte_start) collides but
+        // byte_end DIFFERS? The dedup check at insert() only matches on
+        // (document_id, byte_start) — so the second insert is silently
+        // dropped and the first byte_end "wins". Pin this asymmetry
+        // explicitly so a future change to "last-write-wins" or
+        // "reject conflicting byte_end" surfaces here.
+        let mut idx = InMemoryCodeSymbolIndex::new(manifest());
+        idx.insert("foo", doc("a.rs"), 0, 3); // first wins
+        idx.insert("foo", doc("a.rs"), 0, 5); // silently dropped
+        idx.insert("foo", doc("a.rs"), 0, 99); // also silently dropped
+        let q = EidosQuery::new("foo", EidosRetrievalMode::CodeSymbol, 8);
+        let packet = idx.retrieve(&q, 0);
+
+        assert_eq!(packet.hits.len(), 1, "dedup must coalesce same-offset inserts");
+        let span = packet.hits[0].span.expect("span must be present");
+        assert_eq!(span.byte_start, 0);
+        assert_eq!(
+            span.byte_end, 3,
+            "first-write-wins: byte_end from the FIRST insert must be preserved",
+        );
+    }
+
+    #[test]
     fn multiple_occurrences_in_same_document_distinct() {
         let mut idx = InMemoryCodeSymbolIndex::new(manifest());
         idx.insert("helper", doc("a.rs"), 100, 106);
