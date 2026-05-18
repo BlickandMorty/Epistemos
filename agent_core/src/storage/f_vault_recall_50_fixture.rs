@@ -2945,6 +2945,33 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 24th Synthesis row (iter-221). SECOND 2-term-AND subset
+        // on the iter-19 hardware-falsifier pair: {hardware,
+        // falsifier}. Both pair-partners carry both;
+        // user_hardware.md has hardware only (no falsifier); no
+        // other seed has "falsifier" token at all. AND on
+        // {hardware, falsifier} matches only the pair. iter-214
+        // started the hardware-pair C(4,2)=6 survey with
+        // {hardware, floor}; iter-221 = 2 of 6.
+        query: "hardware falsifier",
+        expected_paths: &[
+            "notes/m2_pro_hardware_floor.md",
+            "notes/falsifier_handbook.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Twenty-fourth Synthesis row (iter-221): second \
+               2-term-AND subset on iter-19 hardware-falsifier \
+               pair. {hardware, falsifier} — both pair-partners \
+               have both; user_hardware.md has hardware only; no \
+               other seed has \"falsifier\" at all. Two of \
+               C(4,2)=6 subsets on the hardware pair now \
+               surveyed (iter-214 {hardware, floor} + iter-221 \
+               {hardware, falsifier}). Brings Synthesis to \
+               depth 24. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 23rd Synthesis row (iter-214). FIRST 2-term-AND subset
         // on the iter-19 hardware-falsifier pair (until now only
         // the C(4,3) survey ran on this pair). Pair-partner
