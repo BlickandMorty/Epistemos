@@ -2933,3 +2933,44 @@ fn design_doc_section_12_wire_format_summary_lists_all_four_contract_types() {
         );
     }
 }
+
+/// Module docstring count drift detector. Iters 119 (lexical) and 121
+/// (semantic) corrected stale "of seven Eidos V0 modes" claims to "of
+/// nine" — matching `EidosRetrievalMode::CANON_ALL.len() == 9`. Pin
+/// the corrected state so a future copy-paste regression or partial
+/// docstring edit that re-introduced the stale count would surface
+/// at test time.
+///
+/// Asserts:
+///   1. Neither lexical.rs nor semantic.rs contains "of seven" (the
+///      stale phrase from before iters 119/121).
+///   2. Both files contain "nine canonical Eidos V0 modes" — the
+///      corrected anchor that links to CANON_ALL.
+#[test]
+fn lexical_and_semantic_module_docstrings_reference_nine_canonical_modes() {
+    let lex_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/lexical.rs");
+    let sem_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/semantic.rs");
+    let lex = std::fs::read_to_string(lex_path).expect("read lexical.rs");
+    let sem = std::fs::read_to_string(sem_path).expect("read semantic.rs");
+
+    // Restrict the check to the leading module docstring block so an
+    // unrelated body comment that happens to say "of seven Xs" doesn't
+    // false-positive.
+    let lex_head: String = lex.lines().take(5).collect::<Vec<_>>().join("\n");
+    let sem_head: String = sem.lines().take(5).collect::<Vec<_>>().join("\n");
+
+    for (name, head) in [("lexical.rs", &lex_head), ("semantic.rs", &sem_head)] {
+        assert!(
+            !head.contains("of seven"),
+            "{name} docstring re-introduced stale 'of seven Eidos V0 modes' \
+             claim (fixed iters 119/121); EidosRetrievalMode::CANON_ALL has 9 \
+             variants and the docstring must say 'nine canonical Eidos V0 modes'"
+        );
+        assert!(
+            head.contains("nine canonical Eidos V0 modes"),
+            "{name} docstring must anchor to 'nine canonical Eidos V0 modes' \
+             so a future canon expansion surfaces here in lock-step with \
+             the CANON_ALL drift detector"
+        );
+    }
+}
