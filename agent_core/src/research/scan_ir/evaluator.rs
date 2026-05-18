@@ -167,6 +167,42 @@ pub fn running_count_strict_decrease(program: &ScanProgram<f64>) -> Vec<u64> {
     out
 }
 
+/// Running count of consecutive ties between elements: number of
+/// indices `i ≤ t` with `x_i == x_{i-1}` (IEEE-754 equality on
+/// the f64 components).
+///
+/// First emit is 0 (no prior element). Monotonically non-
+/// decreasing. Together with `running_count_strict_increase` (up)
+/// and `running_count_strict_decrease` (down), this third
+/// component closes the directional event triple — for every t,
+///   `up_t + down_t + tie_t = t`
+/// exactly.
+///
+/// Iter-327 — completes the triple alongside iter-315 and
+/// iter-321. NaN handling: any NaN in the prev or current slot
+/// makes `==` false, so NaN ties never count. This matches IEEE-
+/// 754 ordering semantics consistently with the strict_increase /
+/// strict_decrease siblings.
+///
+/// Source. Standard tie / "flat-step" counter; the up + down +
+/// tie partition is documented in time-series turning-point
+/// literature, cf. Hyndman & Athanasopoulos, "Forecasting:
+/// Principles and Practice" (3rd ed., 2021) §2.8.
+pub fn running_count_consecutive_ties(program: &ScanProgram<f64>) -> Vec<u64> {
+    let mut prev = program.initial;
+    let mut count: u64 = 0;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        if x == prev {
+            count += 1;
+        }
+        out.push(count);
+        prev = x;
+    }
+    out
+}
+
 /// Per-step absolute first difference: `|x_t − x_{t-1}|` (not
 /// cumulative).
 ///
@@ -1467,6 +1503,65 @@ mod tests {
         let out = running_count_strict_decrease(&p);
         // (4→4): no, (4→3): yes, (3→3): no, (3→2): yes.
         assert_eq!(out, vec![0, 0, 1, 1, 2]);
+    }
+
+    // ── iter-327: running_count_consecutive_ties ──────────────────
+
+    #[test]
+    fn ties_all_equal_increments_each_step() {
+        let p = ScanProgram::new(7.0_f64, vec![7.0, 7.0, 7.0]);
+        let out = running_count_consecutive_ties(&p);
+        assert_eq!(out, vec![0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn ties_strictly_monotone_stays_zero() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0]);
+        let out = running_count_consecutive_ties(&p);
+        for v in &out {
+            assert_eq!(*v, 0);
+        }
+    }
+
+    #[test]
+    fn ties_partition_identity_holds_exactly() {
+        // Closing identity: up + down + tie ≡ t for every t.
+        let p = ScanProgram::new(
+            0.0_f64,
+            vec![1.0, 1.0, 0.0, 2.0, 2.0, -1.0, 3.0],
+        );
+        let up = running_count_strict_increase(&p);
+        let down = running_count_strict_decrease(&p);
+        let ties = running_count_consecutive_ties(&p);
+        for t in 0..up.len() {
+            assert_eq!(
+                up[t] + down[t] + ties[t],
+                t as u64,
+                "t={}: up={} down={} tie={}",
+                t,
+                up[t],
+                down[t],
+                ties[t]
+            );
+        }
+    }
+
+    #[test]
+    fn ties_count_specific_pairs() {
+        // initial=4, inputs=[4, 3, 3, 2]:
+        // (4→4): tie, (4→3): no, (3→3): tie, (3→2): no.
+        let p = ScanProgram::new(4.0_f64, vec![4.0, 3.0, 3.0, 2.0]);
+        let out = running_count_consecutive_ties(&p);
+        assert_eq!(out, vec![0, 1, 1, 2, 2]);
+    }
+
+    #[test]
+    fn ties_nan_never_counts() {
+        // NaN != NaN per IEEE-754, so NaN-adjacent pairs never tie.
+        let p = ScanProgram::new(f64::NAN, vec![f64::NAN, 1.0, 1.0]);
+        let out = running_count_consecutive_ties(&p);
+        // (NaN→NaN): NaN==NaN is false, (NaN→1): false, (1→1): true.
+        assert_eq!(out, vec![0, 0, 0, 1]);
     }
 
     #[test]
