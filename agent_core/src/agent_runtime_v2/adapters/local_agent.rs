@@ -769,6 +769,41 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_tier_owner_surface_are_copy_clone_send_sync_for_propagation_safety() {
+        // Phase 1 hardening — trait-bound pin (companion to budget_gate,
+        // mode iter-366, StopReason iter-367, VariantTier iter-368).
+        // All three LocalAgent enums (Tier 3v / Owner 4v / Surface 10v)
+        // are unit enums marked Copy via derive (lines 27/92/126).
+        // No interior mutability, no heap, no Drop.
+        //
+        // The Copy + Clone + Send + Sync bounds are load-bearing for:
+        //   - LocalAgentCapability::tier/owner/surface fields: stored
+        //     by value (not behind a Box / Rc) so the struct stays
+        //     Copy-friendly for cheap propagation through the dispatcher.
+        //   - Cross-thread routing: the dispatcher reads tier/owner/
+        //     surface to decide routing without coordination.
+        //   - HashMap dispatch caches (iter-327 pins HashMap usability).
+        //
+        // A future refactor that made any of these carry a non-Copy
+        // payload would silently force a Box/Rc indirection on the
+        // hot path — surface here.
+        fn assert_copy_clone_send_sync<T: Copy + Clone + Send + Sync>() {}
+        assert_copy_clone_send_sync::<LocalAgentCapabilityTier>();
+        assert_copy_clone_send_sync::<LocalAgentCapabilityOwner>();
+        assert_copy_clone_send_sync::<LocalAgentCapabilitySurface>();
+
+        // Runtime sanity: copy + use both bindings for each enum.
+        let t = LocalAgentCapabilityTier::Pro;
+        let _ta = t; let _tb = t; assert_eq!(t, t);
+
+        let o = LocalAgentCapabilityOwner::NativeCore;
+        let _oa = o; let _ob = o; assert_eq!(o, o);
+
+        let s = LocalAgentCapabilitySurface::AgentTask;
+        let _sa = s; let _sb = s; assert_eq!(s, s);
+    }
+
+    #[test]
     fn local_agent_tier_owner_surface_hash_consistent_with_eq_usable_as_hashmap_key() {
         // Phase 1 hardening — Hash-derive consistency pin (companion
         // to mode_hash_is_consistent_with_eq_usable_as_hashmap_key
