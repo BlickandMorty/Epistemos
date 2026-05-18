@@ -730,6 +730,51 @@ Ordered by leverage:
 | **Falsifier** | `F-AppLayer-NoDualComposition` (NOT IMPLEMENTED): static check that `AppCoordinator` and `AppBootstrap` don't both wire the same service. `F-AppSupervisor-CatchAllExceptionPath` (NOT IMPLEMENTED): instrumentation test asserting every uncaught error reaches `AppSupervisor.handleFailure(_:)` or equivalent. `F-AmbientCapture-ConsentGate` (NOT IMPLEMENTED): test that AmbientCaptureService.start() fails if user-consent flag is unset. |
 | **Cross-links** | [[AppBootstrap]] (canonical composition root); [[Computer Use stack]] (AmbientCaptureService is the 4th member of the Screen → AX → VisualVerify → Ambient chain at AppBootstrap:815-850); CLAUDE.md Wave 2026-04-29 §`AppBootstrap.swift:815-850`. |
 
+## §19. iMessage Driver (Pro tier — App-Store excluded)
+
+### Subsystem: IMessageDriverService
+
+| Field | Value |
+|---|---|
+| **Status** | `feature-gated` |
+| **Lane** | `Pro` (direct distribution only — explicitly excluded from App Store builds via `EPISTEMOS_APP_STORE` conditional) |
+| **User entry / caller chain** | Pro-tier user enables iMessage agent surface → `IMessageDriverService.swift:772` `final class IMessageDriverService` (1711 lines) drives iMessage-via-osascript integration. Wired into `withAppEnvironment` ONLY when `#if !EPISTEMOS_APP_STORE` (`AppEnvironment.swift:39-41`). Settings detail view: `IMessageDriverSettingsView.swift`. |
+| **Evidence** | `Epistemos/Omega/iMessageDriver/IMessageDriverService.swift:772` `final class IMessageDriverService` (1711 lines). Conditional binding at `AppEnvironment.swift:39-41` `#if !EPISTEMOS_APP_STORE … #endif`. Subprocess hardening: per CLAUDE.md §"Subprocess Hardening" the iMessage osascript spawn site invokes `harden_cli_subprocess` from `agent_core/src/tools/imessage.rs`. CLAUDE.md FILE MAP §"Swift Computer Use" + AGENTS.md "Patterns to Follow". |
+| **Missing proof** | (a) The App Store / direct-distribution split is enforced at compile time via `EPISTEMOS_APP_STORE` — verify the CI matrix builds BOTH flavors green so the conditional doesn't silently rot; (b) iMessage via osascript needs Automation entitlements (Messages.app + System Events) on macOS 14+ — verify the user-consent prompt is documented and the failure path is graceful; (c) `IMessageDriverService` at 1711 lines is the largest single Omega/* file — likely contains many sub-concerns that warrant splitting in future hardening (out of T09 scope). |
+| **Next action** | Out of T09 scope. The `EPISTEMOS_APP_STORE` matrix build validation is a CI concern best lived next to `DeploymentProfileHealthRow`. |
+| **Falsifier** | `F-iMessage-AppStoreExcluded` (NOT IMPLEMENTED): build-matrix test asserting `iMessageDriverService` symbol is absent from `EPISTEMOS_APP_STORE` builds and present in direct builds. `F-iMessage-AutomationEntitlement` (NOT IMPLEMENTED): test that startup with missing Automation entitlement shows a clear remediation surface. `F-iMessage-SubprocessHardening` (PARTIAL — covered by `F-Security-SubprocessHardeningGate` in [[agent_core::security::harden_cli_subprocess]]). |
+| **Cross-links** | [[AppEnvironment]] (conditional binding at 39-41); [[agent_core::security::harden_cli_subprocess]] (osascript spawn hardening); [[Computer Use stack]] (AXorcist / AXUIElement parallel — both lanes touch macOS automation entitlements); CLAUDE.md FILE MAP §"Subprocess Hardening" §"apple/imessage osascript". |
+
+## §4a. Query runtime (above SearchIndexService)
+
+### Subsystem: QueryEngine + QueryRuntime
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` |
+| **Lane** | `MAS` |
+| **User entry / caller chain** | User types in a search input → `QueryEngine.swift:11` `final class QueryEngine` (217 lines) is the SwiftUI-facing query coordinator → delegates to `QueryRuntime.swift:498` `final class QueryRuntime` (994 lines) which runs the actual search → uses `SearchIndexService.search` / `fusedSearch` (flag-aware fused path per CLAUDE.md). Wired into `withAppEnvironment` at line 29 (`.environment(bootstrap.queryEngine)`). Tests: `QueryRuntimeTests.swift`. |
+| **Evidence** | `Epistemos/Engine/QueryEngine.swift:11` `final class QueryEngine` (217 lines — lightweight coordinator). `Epistemos/Engine/QueryRuntime.swift:498` `final class QueryRuntime` (994 lines — heavier per-query orchestration; `fullText` method is flag-aware fused path per CLAUDE.md Phase-4 wiring). |
+| **Missing proof** | (a) QueryEngine + QueryRuntime + SearchIndexService form a 3-layer stack — verify the layering is clean (no QueryEngine→SearchIndexService bypass that skips QueryRuntime); (b) Flag-aware fused path: `QueryRuntime.fullText` consults `RRFFusionFlags.isEnabled` → if flag off, fused path silently inactive. The user has no visibility into this state outside `SearchFusionHealthRow`. (c) The cross-row [[ChatCoordinator]] retrieval gap (W-19 Vault Context Contract) is *upstream* of QueryRuntime — fixing QueryRuntime alone wouldn't close W-19. |
+| **Next action** | Out of T09 scope. T21 (Vault Recall Contract) owns the upstream wiring; W-32 (Experimental Features panel) surfaces the flag. |
+| **Falsifier** | `F-QueryStack-LayeringClean` (NOT IMPLEMENTED): static check that QueryEngine never imports / references `SearchIndexService` directly — must route through QueryRuntime. `F-QueryRuntime-FlagVisibility` (PARTIAL — `SearchFusionHealthRow` partially covers; W-32 fully closes). |
+| **Cross-links** | [[SearchIndexService]] (downstream); [[VaultSyncService]] (parallel API for vault-scoped searches); [[ChatCoordinator]] (upstream consumer for vault context); [[AppEnvironment]] (binding at line 29); CLAUDE.md "Phase-4 wiring: VaultSyncService.searchFull/searchFullAsync/searchIndex (flag-aware), QueryRuntime.fullText (flag-aware fused path)". |
+
+## §3e. Model lifecycle management
+
+### Subsystem: ModelDownloadManager
+
+| Field | Value |
+|---|---|
+| **Status** | `current-wired` |
+| **Lane** | `MAS` (model lifecycle is core; downloads bridge to local-only inference) |
+| **User entry / caller chain** | User picks an MLX-Swift model not yet on disk → `ModelDownloadManager.swift:4` `actor ModelDownloadManager: LocalModelArtifactInstalling` (149 lines) downloads from Hugging Face via configured URLSession → installs into local model cache → notifies `LocalModelManager` → eligible for inference. CLAUDE.md Wave 2026-04-29 §`ModelDownloadManager.swift:12-22` — `configuration.urlCache = nil` (the default 20 MB cache header table was wasted memory; HF downloads use `.reloadIgnoringLocalCacheData`). |
+| **Evidence** | `Epistemos/Engine/ModelDownloadManager.swift:4` `actor ModelDownloadManager: LocalModelArtifactInstalling` (149 lines). CLAUDE.md FILE MAP does not name this explicitly but the perf-wave §"`ModelDownloadManager.swift:12-22`" entry confirms the URLSession configuration discipline. |
+| **Missing proof** | (a) `LocalModelArtifactInstalling` protocol seam — verify a mock implementation exists for tests; (b) Download integrity: large model files should be checksummed against published SHAs — no falsifier currently asserts this; (c) Download cancellation: long-running download should be user-cancellable without leaving partial files (cleanup discipline). |
+| **Next action** | Out of T09 scope. Future hardening: per-download checksum verification + cancel-cleanup test. |
+| **Falsifier** | `F-ModelDownload-ChecksumVerify` (NOT IMPLEMENTED): test that a downloaded artifact's BLAKE3 / SHA256 hash matches the manifest entry before being marked `installed`. `F-ModelDownload-CancelLeavesNoPartial` (NOT IMPLEMENTED): test that mid-download cancel produces an empty cache, not a half-written file. |
+| **Cross-links** | [[MLXInferenceService]] (consumer of installed models); [[AppBootstrap]] (instantiation site); CLAUDE.md Wave 2026-04-29 §`ModelDownloadManager.swift:12-22`. |
+
 ## §15. Cross-doc references
 
 - `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` — prompt deck (mission source-of-truth).
@@ -794,3 +839,6 @@ Ordered by leverage:
 | 2026-05-18 | iter-47 | Classified §3d HardwareTierManager (272 lines) as `current-wired` / `Infrastructure`; named F-HardwareTier-M2ProMemoryCeiling — pins documented hardware floor as the binding constraint, not CPU/GPU cores. | T09 loop |
 | 2026-05-18 | iter-48 | Classified §1c App-layer plumbing (AppCoordinator 376 + AppSupervisor 740 + AppGroupContainer 197 + StatusBar 142 + AmbientCaptureService 250 = 1705 lines) as `current-wired` / `Infrastructure` (mostly) + `Pro` (AmbientCapture); flagged AppCoordinator/AppBootstrap composition-overlap risk + AmbientCapture consent gate. | T09 loop |
 | 2026-05-18 | iter-49 | Discovery: `AgentBlueprint` class is NOT present in current main checkout — only referenced in W-15 (T2 deliverable, unmerged). T09 leaves it unclassified pending T2 merge; W-15 covers the wiring. | T09 loop |
+| 2026-05-18 | iter-50 | Classified §19 `IMessageDriverService` (1711 lines) as `feature-gated` / `Pro`; verified `EPISTEMOS_APP_STORE` conditional at AppEnvironment:39-41 excludes it from MAS builds; F-iMessage-AppStoreExcluded + F-iMessage-AutomationEntitlement named. | T09 loop |
+| 2026-05-18 | iter-51 | Classified §4a `QueryEngine` (217) + `QueryRuntime` (498-line `final class`, 994 lines total) as `current-wired` / `MAS`; flagged 3-layer stack (QueryEngine → QueryRuntime → SearchIndexService) discipline + flag-visibility gap (W-32 closes). | T09 loop |
+| 2026-05-18 | iter-52 | Classified §3e `ModelDownloadManager` (actor at line 4, 149 lines) as `current-wired` / `MAS`; URLSession discipline per CLAUDE.md Wave 2026-04-29; F-ModelDownload-ChecksumVerify + F-ModelDownload-CancelLeavesNoPartial named. | T09 loop |
