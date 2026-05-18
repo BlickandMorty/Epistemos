@@ -802,6 +802,16 @@ fn require_answer_packet_label_consistency(
         });
     }
 
+    if packet
+        .residency_signals
+        .iter()
+        .any(|signal| signal.verification_score < 0.5)
+    {
+        return Err(ACSAdmissionInputError::Forged {
+            field: "answer_packet.ui_label",
+        });
+    }
+
     if packet.claims.iter().any(|claim| {
         claim.status == ClaimStatus::Active
             && matches!(
@@ -6800,6 +6810,38 @@ mod tests {
                     "safety_risk": 0.71,
                     "privacy": 0.0,
                     "verification_score": 1.0,
+                    "repeat_count": 3,
+                    "gain": 0.0,
+                    "forgetting": 0.0
+                }],
+                "ui_label": "verified",
+                "attention_mode": "dynamic",
+                "witnessed_state_ref": "state-1",
+                "semantic_delta_ref": null,
+                "mutation_envelope_ref": "mutation-1"
+            }
+        });
+
+        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+    }
+
+    #[test]
+    fn acs_admission_answer_packet_rejects_verified_label_with_unverified_signal() {
+        let value = serde_json::json!({
+            "kind": "answer_packet",
+            "packet": {
+                "id": "answer-1",
+                "claims": [{
+                    "id": "claim-1",
+                    "text": "verified by test",
+                    "status": "active",
+                    "created_at_ms": 1_001,
+                    "kind": "code_invariant"
+                }],
+                "residency_signals": [{
+                    "safety_risk": 0.0,
+                    "privacy": 0.0,
+                    "verification_score": 0.49,
                     "repeat_count": 3,
                     "gain": 0.0,
                     "forgetting": 0.0
