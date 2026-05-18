@@ -366,6 +366,23 @@ impl EvidenceStrength {
             EvidenceStrength::Strong => "strong",
         }
     }
+
+    /// T21 iter-55: convenience predicate — is this verdict at the floor
+    /// (Weak)? The W-19 ChatCoordinator wiring asks "below floor → ask
+    /// or broaden" semantics, and this helper avoids spreading the
+    /// `== Weak` literal across consumers. Future verdict levels (e.g.
+    /// `VeryWeak`) could broaden this without touching every caller.
+    pub fn is_at_floor(&self) -> bool {
+        matches!(self, EvidenceStrength::Weak)
+    }
+
+    /// T21 iter-55: convenience predicate — is this verdict strong
+    /// enough to inject a context pack? Mirror of `is_at_floor`. The
+    /// W-19 ChatCoordinator uses this to gate "answer with retrieved
+    /// context" vs "ask user to clarify or broaden."
+    pub fn is_strong(&self) -> bool {
+        matches!(self, EvidenceStrength::Strong)
+    }
 }
 
 #[cfg(test)]
@@ -627,6 +644,24 @@ mod tests {
         assert!(trace.all_chatter_fallback);
         trace.record_all_chatter_fallback();
         assert!(trace.all_chatter_fallback);
+    }
+
+    /// T21 iter-55: `is_at_floor()` returns true only for Weak; mirrors
+    /// `is_strong()` which returns true only for Strong. Moderate is
+    /// neither at-floor nor strong — sits in the middle. The W-19
+    /// ChatCoordinator uses these predicates to decide between
+    /// inject / ask-or-broaden without spreading enum-variant checks
+    /// across consumers.
+    #[test]
+    fn evidence_strength_predicates_partition_the_three_variants() {
+        assert!(EvidenceStrength::Weak.is_at_floor());
+        assert!(!EvidenceStrength::Weak.is_strong());
+
+        assert!(!EvidenceStrength::Moderate.is_at_floor());
+        assert!(!EvidenceStrength::Moderate.is_strong());
+
+        assert!(!EvidenceStrength::Strong.is_at_floor());
+        assert!(EvidenceStrength::Strong.is_strong());
     }
 
     /// EvidenceStrength slugs are stable lowercase + disjoint. Used as
