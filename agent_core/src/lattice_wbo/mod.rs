@@ -2494,6 +2494,25 @@ mod tests {
     #[test]
     fn falsifier_hook_registry_owns_every_f_hook_named_by_catalogs() {
         let owners = falsifier_hook_owners();
+        let owner_rows = owners
+            .iter()
+            .map(|owner| (owner.hook, owner.owner))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            owner_rows,
+            vec![
+                (
+                    "F-WBO-DriftLedger",
+                    "docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md",
+                ),
+                ("F-ULP-Oracle", "agent_core/src/research/eml/ulp_oracle.rs"),
+                (
+                    "F-KV-Direct-Gate",
+                    "agent_core/src/scope_rex/kv/direct_gate.rs",
+                ),
+                ("F-ACS-AnchorLookup", "agent_core/src/research/acs/mod.rs"),
+            ]
+        );
         for (index, owner) in owners.iter().enumerate() {
             assert!(owner.hook.starts_with("F-"));
             assert!(
