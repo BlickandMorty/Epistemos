@@ -3296,6 +3296,29 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 27th Synthesis row (iter-243). FIFTH 2-term-AND subset
+        // on iter-19 hardware-falsifier pair: {floor, handbook}.
+        // m2_pro_hardware_floor has both (handbook at tail);
+        // falsifier_handbook has both. No other seed has either
+        // "floor" or "handbook". AND matches only the pair. Five
+        // of C(4,2)=6 surveyed. Only {falsifier, handbook}
+        // remains for full C(4,2) closure on the hardware pair.
+        query: "floor handbook",
+        expected_paths: &[
+            "notes/m2_pro_hardware_floor.md",
+            "notes/falsifier_handbook.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Twenty-seventh Synthesis row (iter-243): fifth \
+               2-term-AND subset on hardware pair. {floor, \
+               handbook} — both tokens unique-to-pair. Five of \
+               C(4,2)=6 surveyed. Only {falsifier, handbook} \
+               remains. Brings Synthesis to depth 27. Zero new \
+               seeds.",
+    },
+    FVaultRecallRow {
         // 26th Synthesis row (iter-236). FOURTH 2-term-AND
         // subset on iter-19 hardware-falsifier pair: {floor,
         // falsifier}. Both pair-partners have both tokens. No
