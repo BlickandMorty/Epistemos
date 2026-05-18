@@ -1226,6 +1226,20 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_audit_record_round_trips() {
+        let record = audit_record_fixture(ACSAdmissionVerdict::AllowWithWarning);
+
+        let json = serde_json::to_string(&record).expect("audit record must serialize");
+        let decoded: ACSAuditRecord =
+            serde_json::from_str(&json).expect("audit record must deserialize");
+
+        assert_eq!(decoded, record);
+        assert_eq!(decoded.operation, ACSOperationKind::MemoryWrite);
+        assert_eq!(decoded.verdict, ACSAdmissionVerdict::AllowWithWarning);
+        assert!(decoded.validate().is_ok());
+    }
+
+    #[test]
     fn acs_admission_verdict_monotonicity_property() {
         let thresholds = ACSRiskThresholds::standard();
 
