@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 71
+invalid_example_count: 72
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -2448,3 +2448,88 @@ Violates: [Provider Receipt Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#provid
 ```
 
 Rejection reason: cloud or hosted reference evidence requires `provider_receipts`; notes cannot substitute for a replay receipt.
+
+## N72 - Scatter Missing Baseline Artifact
+
+Violates: [Falsifier Dependency Graph](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#falsifier-dependency-graph), [Acceptance Thresholds Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#acceptance-thresholds-rule), and [Artifact Reference Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#artifact-reference-rule).
+
+```json
+{
+  "falsifier_id": "F-PageGather-Scatter",
+  "schema_version": "2026-05-18.2",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "tools/falsifiers/f_page_gather_scatter.sh",
+  "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+  "fixture_id": "page-gather-scatter-256m-512m-v1",
+  "timestamp_utc": "2026-05-18T15:20:00Z",
+  "measurements": {
+    "scatter_bw_256mb": {
+      "value": 45.0,
+      "unit": "GB/s"
+    },
+    "scatter_bw_512mb": {
+      "value": 45.0,
+      "unit": "GB/s"
+    },
+    "baseline_ratio": {
+      "value": 0.70,
+      "unit": "ratio"
+    },
+    "correctness_digest": {
+      "value": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "unit": "sha256",
+      "statistic": "digest"
+    },
+    "window_seconds": {
+      "value": 1.0,
+      "unit": "s"
+    }
+  },
+  "acceptance_thresholds": {
+    "scatter_bw_256mb": {
+      "operator": ">=",
+      "value": 45.0,
+      "unit": "GB/s"
+    },
+    "scatter_bw_512mb": {
+      "operator": ">=",
+      "value": 45.0,
+      "unit": "GB/s"
+    },
+    "baseline_ratio": {
+      "operator": ">=",
+      "value": 0.70,
+      "unit": "ratio"
+    },
+    "correctness_digest": {
+      "operator": "==",
+      "value": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "unit": "sha256"
+    },
+    "window_seconds": {
+      "operator": ">=",
+      "value": 1.0,
+      "unit": "s"
+    }
+  },
+  "pass_per_axis": {
+    "scatter_bw_256mb": true,
+    "scatter_bw_512mb": true,
+    "baseline_ratio": true,
+    "correctness_digest": true,
+    "window_seconds": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "none"
+}
+```
+
+Rejection reason: `F-PageGather-Scatter` thresholds must link the baseline calibration artifact and axis instead of embedding a private ratio.
