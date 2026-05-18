@@ -1420,10 +1420,12 @@ mod tests {
         let contribution =
             LatticeErrorContribution::new(WboTermCode::Quantization, "finite budget", 1.0)
                 .expect("finite budget should be valid");
-        assert_eq!(
-            contribution.with_measured(f64::NAN),
-            Err(LatticeWboError::InvalidBudget)
-        );
+        for measured in [-0.01, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert_eq!(
+                contribution.clone().with_measured(measured),
+                Err(LatticeWboError::InvalidBudget)
+            );
+        }
     }
 
     #[test]
