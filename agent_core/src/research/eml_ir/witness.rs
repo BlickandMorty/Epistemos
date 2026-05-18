@@ -809,6 +809,17 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
                 kind: FulpInvalidJsonKind::TypeMismatch,
             });
         }
+        if !matches!(
+            gate_tier_value.as_str(),
+            Some("Primary" | "Fallback" | "Fail")
+        ) {
+            return Err(FulpReplayError::InvalidJson {
+                message: format!(
+                    "unknown variant for stats[{operation_index}].gate_tier, expected Primary, Fallback, or Fail"
+                ),
+                kind: FulpInvalidJsonKind::Malformed,
+            });
+        }
         let Some(axis_stats_value) = stat.get("axis_stats") else {
             return Err(FulpReplayError::InvalidJson {
                 message: format!("missing field stats[{operation_index}].axis_stats"),
@@ -2026,6 +2037,24 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats[0].gate_tier"));
+    }
+
+    #[test]
+    fn replay_rejects_operation_gate_tier_unknown_variant_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["gate_tier"] = serde_json::Value::String("UnexpectedGate".to_string());
+        let json = serde_json::to_string(&value).unwrap();
+        let error =
+            replay_witness_json(&json).expect_err("unknown operation gate tier must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::Malformed)
         );
         assert!(error
             .invalid_json_message()
