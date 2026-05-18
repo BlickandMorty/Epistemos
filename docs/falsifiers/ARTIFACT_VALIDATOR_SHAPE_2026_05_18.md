@@ -91,6 +91,7 @@ assert provider_receipts_absent_means_no_cloud_hosted_or_external_provider_evide
 assert provider_receipts_match_schema_definition_when_present(artifact)
 assert provider_receipt_artifact_refs_exist_under_falsifier_root(artifact)
 assert provider_receipt_artifact_ref_digests_match(artifact)
+assert provider_receipt_artifact_refs_have_no_dot_segments(artifact)
 assert provider_receipts_do_not_embed_raw_prompts_api_keys_or_payloads(artifact)
 assert provider_threshold_refs_match_provider_receipts(artifact)
 assert local_reference_notes_have_artifact_ref_and_digest(artifact.notes)
@@ -234,6 +235,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 
 ```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); abort("provider artifact_ref_sha256 not required") unless schema.dig("$defs","provider_receipt","required").include?("artifact_ref_sha256"); abort("raw_artifact_sha256 missing") unless schema.dig("properties","measurements","patternProperties","^[a-z][a-z0-9_]*$","properties","raw_artifact_sha256","pattern") == "^sha256:[a-f0-9]{64}$"; abort("upstream_artifact_sha256 missing") unless schema.dig("properties","acceptance_thresholds","patternProperties","^[a-z][a-z0-9_]*$","properties","upstream_artifact_sha256","pattern") == "^sha256:[a-f0-9]{64}$"; puts "sidecar digest fields ok"'
+```
+
+```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); pat=schema.dig("$defs","provider_receipt","properties","artifact_ref","pattern") || abort("provider artifact_ref pattern missing"); abort("provider dot-segment rule missing") unless pat.include?("?!.*?/\\.\\.?(?:/|$)"); puts "provider artifact dot segment ok"'
 ```
 
 ```bash
