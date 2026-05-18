@@ -3320,11 +3320,7 @@ mod tests {
             budget.validate(),
             Err(LatticeWboError::MissingNumericalPostCorrectionTerm)
         );
-        assert_eq!(budget.measured_pre_softmax_total(), None);
-        assert_eq!(budget.measured_semantic_wbo6_pre_softmax_total(), None);
-        assert_eq!(budget.measured_numerical_post_correction_total(), None);
-        assert_eq!(budget.measured_softmax_half_corrected_total(), None);
-        assert_eq!(budget.measured_within_budget(), None);
+        assert_budget_measurements_pending(&budget);
     }
 
     #[test]
@@ -3353,11 +3349,7 @@ mod tests {
             budget.validate(),
             Err(LatticeWboError::InvalidSideInformation)
         );
-        assert_eq!(budget.measured_pre_softmax_total(), None);
-        assert_eq!(budget.measured_semantic_wbo6_pre_softmax_total(), None);
-        assert_eq!(budget.measured_numerical_post_correction_total(), None);
-        assert_eq!(budget.measured_softmax_half_corrected_total(), None);
-        assert_eq!(budget.measured_within_budget(), None);
+        assert_budget_measurements_pending(&budget);
     }
 
     #[test]
@@ -3567,11 +3559,7 @@ mod tests {
         );
 
         assert_eq!(budget.validate(), Err(LatticeWboError::EmptyContributions));
-        assert_eq!(budget.measured_pre_softmax_total(), None);
-        assert_eq!(budget.measured_semantic_wbo6_pre_softmax_total(), None);
-        assert_eq!(budget.measured_numerical_post_correction_total(), None);
-        assert_eq!(budget.measured_softmax_half_corrected_total(), None);
-        assert_eq!(budget.measured_within_budget(), None);
+        assert_budget_measurements_pending(&budget);
     }
 
     #[test]
@@ -3597,11 +3585,7 @@ mod tests {
             budget.validate_composition(),
             Err(LatticeWboError::InvalidBudgetComposition)
         );
-        assert_eq!(budget.measured_pre_softmax_total(), None);
-        assert_eq!(budget.measured_semantic_wbo6_pre_softmax_total(), None);
-        assert_eq!(budget.measured_numerical_post_correction_total(), None);
-        assert_eq!(budget.measured_softmax_half_corrected_total(), None);
-        assert_eq!(budget.measured_within_budget(), None);
+        assert_budget_measurements_pending(&budget);
     }
 
     #[test]
@@ -3668,11 +3652,7 @@ mod tests {
         );
 
         assert_eq!(budget.validate(), Err(LatticeWboError::InvalidBudget));
-        assert_eq!(budget.measured_pre_softmax_total(), None);
-        assert_eq!(budget.measured_semantic_wbo6_pre_softmax_total(), None);
-        assert_eq!(budget.measured_numerical_post_correction_total(), None);
-        assert_eq!(budget.measured_softmax_half_corrected_total(), None);
-        assert_eq!(budget.measured_within_budget(), None);
+        assert_budget_measurements_pending(&budget);
     }
 
     #[test]
