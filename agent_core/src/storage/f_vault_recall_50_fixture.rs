@@ -1929,6 +1929,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                not runtime/substrate). Zero new seeds.",
     },
     FVaultRecallRow {
+        // 13th Synthesis row (iter-144): alt-subset on iter-19
+        // hardware-falsifier pair. iter-45 used {hardware, floor,
+        // falsifier}; iter-144 uses {hardware, falsifier,
+        // handbook}. Both canonicals (m2_pro_hardware_floor +
+        // falsifier_handbook) carry all 3 terms — the token
+        // "handbook" appears in both seeds. AND-conjunction
+        // matches both; other seeds have none of these terms.
+        // Zero new seeds.
+        query: "hardware falsifier handbook",
+        expected_paths: &[
+            "notes/m2_pro_hardware_floor.md",
+            "notes/falsifier_handbook.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 3,
+        note: "Thirteenth Synthesis row (iter-144): alt-subset on \
+               iter-19 hardware-falsifier pair. iter-45 surveys \
+               {hardware, floor, falsifier}; iter-144 surveys \
+               {hardware, falsifier, handbook}. Both canonicals \
+               carry all 3 terms (handbook appears in both seeds \
+               by design: \"falsifier handbook\" is the iter-19 \
+               pair-partner's name, and m2_pro_hardware_floor's \
+               body references it). Demonstrates pair-retention \
+               robustness on iter-19 pair across alternate 3-term \
+               subsets. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 9th Synthesis row (iter-118): alternate 3-term subset on
         // the iter-43 + iter-75 agent-runtime pair. iter-75 uses
         // {agent, runtime, substrate}; iter-118 uses {agent,
