@@ -963,6 +963,44 @@ pub fn closure_exponential_log_likelihood(
     EmlClosureExpr::minus(log_lambda, lambda_x)
 }
 
+/// Uniform-distribution log-likelihood (bounded support):
+/// `ln p(x; a, b) = −ln(b − a)` for `x ∈ [a, b]`, undefined
+/// elsewhere.
+///
+/// The indicator on `[a, b]` is the caller's responsibility (the
+/// EML closure DSL has no native indicator function; matching
+/// the convention of every other distribution closure that
+/// trusts the support).
+///
+/// Closure form:
+///   `Minus(Zero, closure_ln(Minus(slot(b_slot), slot(a_slot))))`.
+///
+/// Requires `b > a` strictly (else `ln(0)` or `ln(negative)` is
+/// surfaced by the evaluator).
+///
+/// Iter-385 — bounded-support continuous log-likelihood that
+/// completes the EML distribution family alongside:
+/// - Bernoulli / Categorical (discrete bounded).
+/// - Poisson / Geometric (discrete unbounded).
+/// - Gaussian / Exponential / Pareto (continuous unbounded /
+///   heavy-tail).
+/// - Uniform (this iter) — continuous bounded.
+///
+/// Source. Uniform distribution PDF: standard probability
+/// textbook; e.g., Casella & Berger, "Statistical Inference"
+/// (2nd ed., 2002) §3.6.
+pub fn closure_uniform_log_likelihood(
+    a_slot: u32,
+    b_slot: u32,
+) -> EmlClosureExpr {
+    let width = EmlClosureExpr::minus(
+        EmlClosureExpr::slot(b_slot),
+        EmlClosureExpr::slot(a_slot),
+    );
+    let log_width = closure_ln(width);
+    EmlClosureExpr::minus(closure_zero(), log_width)
+}
+
 /// Geometric-distribution log-likelihood (zero-indexed convention):
 /// `ln p(k; p) = ln(p) + k · ln(1 − p)` for `k ∈ {0, 1, 2, …}`,
 /// `0 < p < 1`.
@@ -4131,6 +4169,31 @@ mod tests {
         let xmin = 2.0_f64;
         let expected = alpha.ln() + alpha * xmin.ln() - (alpha + 1.0) * x.ln();
         assert!((v - expected).abs() < 1e-9, "v={} expected={}", v, expected);
+    }
+
+    // ── closure_uniform_log_likelihood (iter-385) ─────────────────
+
+    #[test]
+    fn closure_uniform_log_likelihood_unit_width_is_zero() {
+        // [a, b] = [0, 1] → b - a = 1 → log p = -ln(1) = 0.
+        let v = eval_with_slots(closure_uniform_log_likelihood(0, 1), vec![0.0, 1.0]);
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_uniform_log_likelihood_width_two_is_minus_ln_two() {
+        // [a, b] = [1, 3] → width 2 → log p = -ln(2).
+        let v = eval_with_slots(closure_uniform_log_likelihood(0, 1), vec![1.0, 3.0]);
+        let expected = -2.0_f64.ln();
+        assert!((v - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_uniform_log_likelihood_invariant_under_shift() {
+        // log p depends only on width = b − a, not on the location.
+        let v1 = eval_with_slots(closure_uniform_log_likelihood(0, 1), vec![0.0, 1.5]);
+        let v2 = eval_with_slots(closure_uniform_log_likelihood(0, 1), vec![100.0, 101.5]);
+        assert!((v1 - v2).abs() < 1e-12);
     }
 
     // ── closure_l1_distance (iter-283) ────────────────────────────
