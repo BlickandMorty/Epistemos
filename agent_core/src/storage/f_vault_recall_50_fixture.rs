@@ -1365,6 +1365,31 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 13th PureChatter row (iter-145): infinitive-led shape —
+        // "to find some notes" leads with a bare infinitive
+        // marker. Distinct from the 12 prior shapes: no
+        // imperative (no finite verb at lead), no wh, no modal,
+        // no pronoun, no BE-verb, no possessive, no chain, no
+        // single-token, no disjunction. All 4 tokens in
+        // QUERY_CHATTER_WORDS (to + find + some + notes).
+        query: "to find some notes",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Thirteenth PureChatter row (iter-145): infinitive-\
+               led shape (\"to find some notes\"). Bare \
+               infinitive marker leads instead of a finite verb. \
+               Distinct grammatical class from imperative \
+               (iter-16/30/49), modal (iter-83), need-led \
+               (iter-94), and possessive-led (iter-132) — those \
+               start with verb-forms or pronouns. All 4 tokens \
+               in QUERY_CHATTER_WORDS.",
+    },
+    FVaultRecallRow {
         // 12th PureChatter row (iter-136): disjunction-only shape
         // — "files or notes" uses OR-connective between generic
         // referents. Distinct from all 11 prior PureChatter
