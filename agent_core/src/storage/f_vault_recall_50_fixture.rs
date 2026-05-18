@@ -278,6 +278,26 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                the specific deferred work.",
     },
     FVaultRecallRow {
+        // Arabic multilingual variant (axis #3 final script): Latin
+        // "Mamba" + Arabic "كاش" (kash — cache transliterated). Arabic
+        // is RTL in rendering but Tantivy's SimpleTokenizer is
+        // direction-agnostic: it tokenizes on whitespace and keeps
+        // Arabic codepoints as a single token, same as CJK + Cyrillic.
+        query: "Mamba كاش",
+        expected_paths: &["notes/mamba_arabic.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Arabic multilingual variant (axis: Chinese / Cyrillic / \
+               Arabic mixed scripts — completes the 3-script trifecta). \
+               RTL display is a rendering concern, not a tokenization \
+               one; Tantivy treats Arabic codepoints (U+0600..U+06FF) \
+               the same as Cyrillic / CJK — whitespace-tokenized, no \
+               script-folding. The iter-19 + iter-28 + iter-32 trio \
+               proves the multilingual axis works uniformly across all \
+               three operator-prompt-named non-Latin scripts.",
+    },
+    FVaultRecallRow {
         // Cyrillic multilingual variant: Latin "Mamba" + Cyrillic
         // "кэш" (cache). Extends iter-19's CJK coverage to a second
         // non-Latin script.
@@ -694,6 +714,30 @@ mod tests {
             "multilingual row needs at least one forbidden Latin-only \
              decoy to pin the no-script-fold contract"
         );
+    }
+
+    /// Iter-32: the Arabic multilingual row must be present and carry
+    /// at least one Arabic codepoint (Unicode range U+0600..U+06FF).
+    /// Completes the 3-script trifecta (CJK + Cyrillic + Arabic) for
+    /// the multilingual deep-hardening axis.
+    #[test]
+    fn arabic_multilingual_row_present_with_arabic_codepoint() {
+        let ar = load_canonical()
+            .iter()
+            .find(|row| row.query == "Mamba كاش")
+            .expect("F-VaultRecall-50 must contain the Arabic multilingual row");
+        assert_eq!(ar.category, FVaultRecallCategory::Unicode);
+        let has_arabic = ar
+            .query
+            .chars()
+            .any(|c| matches!(c as u32, 0x0600..=0x06FF));
+        assert!(
+            has_arabic,
+            "Arabic row must carry an Arabic codepoint in the query; \
+             got query = {:?}",
+            ar.query
+        );
+        assert!(!ar.forbidden_paths.is_empty());
     }
 
     /// Iter-28: the Cyrillic multilingual row must be present and

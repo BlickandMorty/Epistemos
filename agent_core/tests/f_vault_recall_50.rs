@@ -150,6 +150,12 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_cyrillic.md",
             "Mamba кэш Mamba кэш architecture notes",
         ),
+        // Row 16 (Arabic multilingual) expected — Latin "Mamba" +
+        // Arabic "كاش" (kash) with whitespace between tokens.
+        (
+            "notes/mamba_arabic.md",
+            "Mamba كاش Mamba كاش architecture notes",
+        ),
         // Row 11 (near-duplicate Synthesis): pair of near-identical
         // docs. Both carry all 3 of {specific, design, pattern} with
         // equal frequency so BM25 ranks them similarly; AND-conjunction
