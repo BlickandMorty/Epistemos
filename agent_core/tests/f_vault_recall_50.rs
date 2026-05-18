@@ -375,6 +375,16 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "machine learning inference cache machine learning \
              inference cache architecture notes",
         ),
+        // Iter-88 (2nd exact-quote PhraseQuery — design-system domain):
+        // forbidden decoy carries BOTH "design" and "system" but with
+        // intervening tokens so the PhraseQuery `"design system"`
+        // (adjacent bigram required) does NOT match. The expected doc
+        // (notes/design_system_hover_spec.md, already seeded for iter-15)
+        // carries the bigram adjacent.
+        (
+            "notes/design_general_system.md",
+            "design general overview system notes architecture",
+        ),
     ];
     for (path, content) in seeds {
         store

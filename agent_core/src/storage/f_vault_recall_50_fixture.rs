@@ -1004,6 +1004,42 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL and the diagnostics surface flags the \
                regression at the ranker-tuning layer specifically.",
     },
+    FVaultRecallRow {
+        // 2nd exact-quote PhraseQuery row (iter-88): extends the
+        // exact-quote axis (axis #2) to a 2nd domain — the iter-15
+        // design-system corpus, distinct from iter-7's residency-
+        // governance domain. Pins position-sensitivity: PhraseQuery
+        // requires the bigram at ADJACENT positions; a forbidden
+        // decoy carries both tokens but with intervening text and
+        // must NOT match. With both rows the axis is no longer a
+        // single example — it generalizes across two domains.
+        query: "\"design system\"",
+        expected_paths: &["notes/design_system_hover_spec.md"],
+        forbidden_paths: &["notes/design_general_system.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        // top_n = 5 mirrors iter-7's pattern — PhraseQuery + AND
+        // already cuts the candidate pool to docs containing the
+        // exact bigram; top-5 gives slack for any other adjacent-
+        // bigram doc to land without breaking the forbidden
+        // contract on the non-adjacent decoy.
+        top_n: 5,
+        note: "Second exact-quote PhraseQuery row (iter-88): \
+               design-system domain — distinct from iter-7's \
+               residency-governance domain. Same shape: literal \
+               `\"…\"` quotes in the query become a Tantivy \
+               PhraseQuery; expected doc carries the bigram at \
+               adjacent token positions, forbidden decoy carries \
+               both tokens but with intervening text so the phrase \
+               does NOT match. Reuses iter-15's canonical \
+               (design_system_hover_spec.md: \"design system hover \
+               specification design system hover specification\" — \
+               two adjacent occurrences of the bigram) and adds \
+               one new forbidden seed (design_general_system.md: \
+               \"design general overview system notes architecture\" \
+               — both tokens present, non-adjacent). Two rows now \
+               prove the exact-quote axis works across two \
+               domains, not just one example.",
+    },
 ];
 
 /// Load the canonical fixture. Returns the static slice in a typed wrapper
