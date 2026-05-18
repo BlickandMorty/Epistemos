@@ -699,6 +699,25 @@ pub fn closure_poisson_log_likelihood(k_slot: u32, lambda_slot: u32) -> EmlClosu
     EmlClosureExpr::minus(k_log_lambda, EmlClosureExpr::slot(lambda_slot))
 }
 
+/// L¹ norm of a slot list `Σᵢ |xᵢ|`.
+///
+/// Composes [`closure_abs`] over each slot and folds with
+/// `closure_sum_slots`-style addition. The standard LASSO
+/// regularizer term in EML closure form.
+///
+/// Caller must guarantee every `slot[i] ≠ 0` (else `closure_abs`
+/// surfaces `ln(0)`); the empty list returns `One − eml(0, One) = 0`
+/// via the empty-fold convention.
+///
+/// Iter-277 — surfaces L¹ regularization in closure form.
+pub fn closure_l1_norm(slot_indices: &[u32]) -> EmlClosureExpr {
+    let terms: Vec<EmlClosureExpr> = slot_indices
+        .iter()
+        .map(|&i| closure_abs(i))
+        .collect();
+    fold_plus_left(terms)
+}
+
 /// Absolute value `closure_abs(slot) = |slot| = exp(½ · ln(slot²))`.
 ///
 /// Composed entirely from the EML alphabet (exp, ln, mul,
@@ -3263,6 +3282,31 @@ mod tests {
         let at_4 = eval_with_slots(closure_poisson_log_likelihood(0, 1), vec![5.0, 4.0]);
         let at_6 = eval_with_slots(closure_poisson_log_likelihood(0, 1), vec![5.0, 6.0]);
         assert!(at_5 >= at_4 - 1e-9 && at_5 >= at_6 - 1e-9, "MLE not at k=5");
+    }
+
+    // ── closure_l1_norm (iter-277) ────────────────────────────────
+
+    #[test]
+    fn closure_l1_norm_all_positive() {
+        // |1| + |2| + |3| = 6.
+        let v = eval_with_slots(closure_l1_norm(&[0, 1, 2]), vec![1.0, 2.0, 3.0]);
+        assert!((v - 6.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn closure_l1_norm_signed_uses_magnitudes() {
+        // |1| + |-2| + |3| = 6.
+        let v = eval_with_slots(closure_l1_norm(&[0, 1, 2]), vec![1.0, -2.0, 3.0]);
+        assert!((v - 6.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn closure_l1_norm_at_least_max_abs() {
+        // L¹ ≥ max |xᵢ| (norm inequality).
+        let slots = vec![3.0_f64, -7.0, 2.0];
+        let l1 = eval_with_slots(closure_l1_norm(&[0, 1, 2]), slots.clone());
+        let max_abs = slots.iter().map(|x| x.abs()).fold(0.0_f64, f64::max);
+        assert!(l1 >= max_abs - 1e-9);
     }
 
     // ── closure_abs (iter-271) ────────────────────────────────────
