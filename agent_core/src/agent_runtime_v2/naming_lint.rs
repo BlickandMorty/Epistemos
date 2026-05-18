@@ -236,6 +236,57 @@ mod tests {
     }
 
     #[test]
+    fn lint_catches_aegis_inside_git_commit_message_text() {
+        // Phase 1 hardening — user's explicit Aegis-lint list:
+        // "git commit messages". Synthetic commit-message style text
+        // including a Co-Authored-By trailer. The lint must flag any
+        // occurrence regardless of position.
+        let commit_msg = "feat: introduce Aegis-style executor stub\n\
+                          \n\
+                          This commit experiments with the rejected name.\n\
+                          \n\
+                          Co-Authored-By: someone <x@y.z>\n";
+        let hits = scan_text(commit_msg);
+        assert!(!hits.is_empty(), "lint must flag Aegis in commit subject");
+        assert!(text_contains_rejected_name(commit_msg));
+    }
+
+    #[test]
+    fn lint_catches_aegis_inside_branch_name_text() {
+        // Phase 1 hardening — user's explicit Aegis-lint list:
+        // "branch names". A branch name with Aegis in any case must
+        // be flagged.
+        for branch in [
+            "feature/Aegis-experiments",
+            "feature/aegis-executor",
+            "fix/AEGIS-bug",
+            "release/v1.0-aegis",
+            "claude/aegis-prep",
+        ] {
+            assert!(
+                text_contains_rejected_name(branch),
+                "lint must flag branch name: {branch}"
+            );
+        }
+    }
+
+    #[test]
+    fn lint_does_not_flag_legitimate_branch_names() {
+        for branch in [
+            "feature/system-g-executor",
+            "feature/invader-agent",
+            "feature/agent_runtime_v2",
+            "claude/t11-agent-runtime-v2-2026-05-18",
+            "main",
+        ] {
+            assert!(
+                !text_contains_rejected_name(branch),
+                "lint must NOT flag legitimate branch: {branch}"
+            );
+        }
+    }
+
+    #[test]
     fn short_text_path_does_not_match() {
         // Inputs shorter than the rejected name can never contain it.
         assert!(!text_contains_rejected_name("a"));

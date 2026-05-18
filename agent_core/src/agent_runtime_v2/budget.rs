@@ -40,10 +40,18 @@ pub struct BudgetSpec {
     /// MAS observes this as 0 and the Subprocess mode is unreachable).
     /// 0 = unbounded.
     pub max_subprocess_ms: u64,
+    /// Maximum cumulative memory bytes consumed by run-private buffers
+    /// (KV cache snapshots, intermediate tensors, context windows held
+    /// past compaction). 0 = unbounded. Phase 1 hardening per user's
+    /// explicit list: "memory-byte axes".
+    #[serde(default)]
+    pub max_memory_bytes: u64,
 }
 
 impl BudgetSpec {
     /// Convenience constructor for tests and typical Pro defaults.
+    /// `max_memory_bytes` defaults to 0 (unbounded); use
+    /// [`Self::with_memory_bytes`] to set it.
     #[must_use]
     pub const fn new(
         max_tokens: u64,
@@ -56,7 +64,17 @@ impl BudgetSpec {
             max_wall_ms,
             max_tool_calls,
             max_subprocess_ms,
+            max_memory_bytes: 0,
         }
+    }
+
+    /// Builder helper: clone `self` with `max_memory_bytes` set. Lets
+    /// callers opt into the memory cap without breaking the
+    /// 4-positional `::new` signature.
+    #[must_use]
+    pub const fn with_memory_bytes(mut self, max_memory_bytes: u64) -> Self {
+        self.max_memory_bytes = max_memory_bytes;
+        self
     }
 }
 
@@ -68,6 +86,8 @@ pub struct BudgetLedger {
     pub wall_used_ms: u64,
     pub tool_calls_used: u64,
     pub subprocess_used_ms: u64,
+    #[serde(default)]
+    pub memory_bytes_used: u64,
 }
 
 /// A proposed debit. The executor builds this from an `AgentEvent` and
@@ -80,6 +100,8 @@ pub struct BudgetDebit {
     pub wall_ms: u64,
     pub tool_calls: u64,
     pub subprocess_ms: u64,
+    #[serde(default)]
+    pub memory_bytes: u64,
 }
 
 /// Which WBO-6 / v2 term tripped the rejection. Surfaced so the
@@ -90,6 +112,7 @@ pub enum BudgetTerm {
     WallMs,
     ToolCalls,
     SubprocessMs,
+    MemoryBytes,
 }
 
 impl BudgetTerm {
@@ -101,6 +124,7 @@ impl BudgetTerm {
             Self::WallMs => "wall_ms",
             Self::ToolCalls => "tool_calls",
             Self::SubprocessMs => "subprocess_ms",
+            Self::MemoryBytes => "memory_bytes",
         }
     }
 }
@@ -139,6 +163,7 @@ impl BudgetDebit {
             wall_ms: 0,
             tool_calls: 1,
             subprocess_ms: 0,
+            memory_bytes: 0,
         }
     }
 
@@ -152,6 +177,7 @@ impl BudgetDebit {
             wall_ms: 0,
             tool_calls: 0,
             subprocess_ms: 0,
+            memory_bytes: 0,
         }
     }
 }
@@ -178,6 +204,9 @@ impl BudgetLedger {
             subprocess_used_ms: self
                 .subprocess_used_ms
                 .saturating_sub(debit.subprocess_ms),
+            memory_bytes_used: self
+                .memory_bytes_used
+                .saturating_sub(debit.memory_bytes),
         }
     }
 }
@@ -242,11 +271,21 @@ impl BudgetGate {
                 cap: self.spec.max_subprocess_ms,
             });
         }
+        // Memory bytes — Phase 1 hardening axis.
+        let mem_total = ledger.memory_bytes_used.saturating_add(debit.memory_bytes);
+        if self.spec.max_memory_bytes > 0 && mem_total > self.spec.max_memory_bytes {
+            return Err(BudgetError::Exhausted {
+                term: BudgetTerm::MemoryBytes,
+                attempted_total: mem_total,
+                cap: self.spec.max_memory_bytes,
+            });
+        }
         Ok(BudgetLedger {
             tokens_used: tokens_total,
             wall_used_ms: wall_total,
             tool_calls_used: tool_total,
             subprocess_used_ms: sub_total,
+            memory_bytes_used: mem_total,
         })
     }
 }
@@ -329,6 +368,7 @@ mod tests {
             wall_ms: u64::MAX / 2,
             tool_calls: u64::MAX / 2,
             subprocess_ms: u64::MAX / 2,
+            memory_bytes: u64::MAX / 2,
         };
         let ledger = BudgetLedger::default();
         gate.check_and_debit(ledger, huge).expect("unbounded gate must accept any debit");
@@ -432,6 +472,7 @@ mod tests {
             wall_used_ms: 5_000,
             tool_calls_used: 3,
             subprocess_used_ms: 10_000,
+            ..Default::default()
         };
         let r = l.refund(BudgetDebit { tokens: 25, ..Default::default() });
         assert_eq!(r.tokens_used, 75);
@@ -494,5 +535,59 @@ mod tests {
         assert_eq!(BudgetTerm::WallMs.code(), "wall_ms");
         assert_eq!(BudgetTerm::ToolCalls.code(), "tool_calls");
         assert_eq!(BudgetTerm::SubprocessMs.code(), "subprocess_ms");
+        assert_eq!(BudgetTerm::MemoryBytes.code(), "memory_bytes");
+    }
+
+    #[test]
+    fn memory_bytes_cap_enforced_independently() {
+        // Phase 1 hardening — user's explicit list: "memory-byte axes".
+        let gate = BudgetGate::new(BudgetSpec::default().with_memory_bytes(1_024 * 1_024));
+        let near_cap = BudgetLedger {
+            memory_bytes_used: 1_024 * 1_024 - 100,
+            ..Default::default()
+        };
+        let err = gate
+            .check_and_debit(
+                near_cap,
+                BudgetDebit { memory_bytes: 200, ..Default::default() },
+            )
+            .expect_err("memory cap exceeded");
+        assert!(matches!(
+            err,
+            BudgetError::Exhausted { term: BudgetTerm::MemoryBytes, .. }
+        ));
+    }
+
+    #[test]
+    fn memory_bytes_under_cap_advances_ledger() {
+        let gate = BudgetGate::new(BudgetSpec::default().with_memory_bytes(10 * 1_024));
+        let advanced = gate
+            .check_and_debit(
+                BudgetLedger::default(),
+                BudgetDebit { memory_bytes: 4_096, ..Default::default() },
+            )
+            .expect("under-cap memory debit");
+        assert_eq!(advanced.memory_bytes_used, 4_096);
+    }
+
+    #[test]
+    fn memory_bytes_refund_restores_cap() {
+        let gate = BudgetGate::new(BudgetSpec::default().with_memory_bytes(1_024));
+        let ledger = BudgetLedger::default();
+        let debit = BudgetDebit { memory_bytes: 900, ..Default::default() };
+        let after = gate.check_and_debit(ledger, debit).expect("fits");
+        assert_eq!(after.memory_bytes_used, 900);
+        let refunded = after.refund(debit);
+        assert_eq!(refunded.memory_bytes_used, 0);
+    }
+
+    #[test]
+    fn with_memory_bytes_builder_preserves_other_caps() {
+        let s = BudgetSpec::new(1_000, 60_000, 5, 30_000).with_memory_bytes(1_048_576);
+        assert_eq!(s.max_tokens, 1_000);
+        assert_eq!(s.max_wall_ms, 60_000);
+        assert_eq!(s.max_tool_calls, 5);
+        assert_eq!(s.max_subprocess_ms, 30_000);
+        assert_eq!(s.max_memory_bytes, 1_048_576);
     }
 }
