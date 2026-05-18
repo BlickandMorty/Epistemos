@@ -20,6 +20,7 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
 | `commit_sha` | string | yes | Git commit SHA for the repo state that produced the artifact. Short SHAs are allowed only if unambiguous in the repo. |
 | `fixture_id` | string | yes | Stable fixture identifier for the input set, including dataset/config version when applicable. |
 | `timestamp_utc` | string | yes | UTC timestamp for artifact creation in RFC 3339 date-time form. Local time zones fail the artifact. |
+| `measurements` | object | yes | Per-axis measured values from the run. Each axis must be named and must include a value plus unit. |
 
 ## JSON Schema Fragment
 
@@ -29,7 +30,7 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
   "$id": "docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.json",
   "title": "T23B Falsifier Artifact",
   "type": "object",
-  "required": ["falsifier_id", "schema_version", "hardware_pin", "command", "commit_sha", "fixture_id", "timestamp_utc"],
+  "required": ["falsifier_id", "schema_version", "hardware_pin", "command", "commit_sha", "fixture_id", "timestamp_utc", "measurements"],
   "properties": {
     "falsifier_id": {
       "type": "string",
@@ -81,6 +82,33 @@ This schema defines the canonical witness artifact contract for every T23B F-* f
     "timestamp_utc": {
       "type": "string",
       "format": "date-time"
+    },
+    "measurements": {
+      "type": "object",
+      "minProperties": 1,
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*$": {
+          "type": "object",
+          "required": ["value", "unit"],
+          "properties": {
+            "value": {
+              "type": ["number", "string", "boolean"]
+            },
+            "unit": {
+              "type": "string",
+              "minLength": 1
+            },
+            "samples": {
+              "type": "array",
+              "items": {
+                "type": ["number", "string", "boolean"]
+              }
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": true
