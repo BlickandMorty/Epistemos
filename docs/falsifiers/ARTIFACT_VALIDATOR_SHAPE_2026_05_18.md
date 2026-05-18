@@ -22,6 +22,7 @@ This is the doc-only shape for a future validator. It is not an executable harne
 
 ```text
 load_json_schema_fragment(schema_doc)
+assert exactly_one_fenced_json_block(schema_doc)
 load_axis_floor_table(schema_doc)
 load_command_path_map(schema_doc)
 load_hardware_pin_migration_mapping(schema_doc)
