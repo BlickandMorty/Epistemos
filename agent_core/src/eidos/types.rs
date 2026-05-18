@@ -296,6 +296,16 @@ pub struct EidosQuery {
     /// retriever's index dimension or the retriever returns an empty packet.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub query_vector: Option<Vec<f32>>,
+    /// Time-window floor in unix-millis. Consumed by `Recency`; ignored by
+    /// every other mode. When set, Recency drops documents whose
+    /// `created_at_unix_ms < since_unix_ms` before the recency sort. Lets
+    /// the chat layer answer "what did I capture in the last 24h?" without
+    /// inventing a substring proxy. `None` means "no time floor."
+    ///
+    /// Backwards-compatible at the wire: omitted when `None`. Packets
+    /// produced before this field existed deserialize cleanly.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub since_unix_ms: Option<u64>,
 }
 
 impl EidosQuery {
@@ -305,6 +315,7 @@ impl EidosQuery {
             mode,
             top_k,
             query_vector: None,
+            since_unix_ms: None,
         }
     }
 
@@ -322,7 +333,14 @@ impl EidosQuery {
             mode,
             top_k,
             query_vector: Some(vector),
+            since_unix_ms: None,
         }
+    }
+
+    /// Attach a time-window floor to a Recency query.
+    pub fn with_since(mut self, since_unix_ms: u64) -> Self {
+        self.since_unix_ms = Some(since_unix_ms);
+        self
     }
 }
 
