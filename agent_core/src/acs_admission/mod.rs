@@ -811,6 +811,7 @@ pub trait ACSAuditSink {
 pub enum ACSAuditError {
     SinkUnavailable,
     EncodeRecord,
+    InvalidRunEventLogChain,
     DuplicateRecord,
     CorruptRecord { field: &'static str },
 }
@@ -820,6 +821,7 @@ impl ACSAuditError {
         match self {
             Self::SinkUnavailable => "acs_audit_sink_unavailable",
             Self::EncodeRecord => "acs_audit_record_encode_failed",
+            Self::InvalidRunEventLogChain => "invalid_run_event_log_chain",
             Self::DuplicateRecord => "duplicate_acs_audit_record",
             Self::CorruptRecord { .. } => "corrupt_acs_audit_record",
         }
@@ -827,6 +829,7 @@ impl ACSAuditError {
 
     pub const fn field(&self) -> Option<&'static str> {
         match self {
+            Self::InvalidRunEventLogChain => Some("run_event_log"),
             Self::DuplicateRecord => Some("record_id"),
             Self::CorruptRecord { field } => Some(field),
             Self::SinkUnavailable | Self::EncodeRecord => None,
@@ -851,6 +854,9 @@ impl ACSAuditSink for ACSRunEventLogSink<'_> {
             .validate()
             .map_err(|err| ACSAuditError::CorruptRecord { field: err.field() })?;
         let node_id = record.record_id.clone();
+        if !self.run_event_log.verify_chain(None).valid {
+            return Err(ACSAuditError::InvalidRunEventLogChain);
+        }
         if run_event_log_contains_acs_record(self.run_event_log, &node_id) {
             return Err(ACSAuditError::DuplicateRecord);
         }
@@ -2652,6 +2658,41 @@ mod tests {
         assert_eq!(err.cause(), "duplicate_acs_audit_record");
         assert_eq!(err.field(), Some("record_id"));
         assert_eq!(run_event_log.len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_run_event_log_sink_requires_valid_chain() {
+        let temp_dir = tempfile::tempdir().expect("temporary ACS OpLog directory");
+        let db_path = temp_dir.path().join("acs-run-event-sink-chain.sqlite");
+        {
+            let run_event_log =
+                crate::oplog::OpLog::open_persistent("acs-admission-sink-chain-test", &db_path)
+                    .expect("persistent RunEventLog opens");
+            let sink = ACSRunEventLogSink::new(&run_event_log);
+            sink.record(audit_record_fixture(ACSAdmissionVerdict::Allow))
+                .expect("initial audit record writes");
+            assert!(run_event_log.verify_chain(None).valid);
+        }
+
+        let conn = rusqlite::Connection::open(&db_path).expect("tamper connection opens");
+        conn.execute(
+            "UPDATE epistemos_oplog SET prev_hash = ? WHERE seq = 0",
+            rusqlite::params![vec![7u8; 32]],
+        )
+        .expect("tamper write succeeds");
+        drop(conn);
+
+        let reopened = crate::oplog::OpLog::open_persistent("acs-admission-sink-chain-test", &db_path)
+            .expect("tampered RunEventLog reopens");
+        assert!(!reopened.verify_chain(None).valid);
+        let sink = ACSRunEventLogSink::new(&reopened);
+        let mut record = audit_record_fixture(ACSAdmissionVerdict::AllowWithWarning);
+        record.record_id = "acs:req:after-tamper".to_string();
+
+        let err = sink.record(record).unwrap_err();
+
+        assert_eq!(err.cause(), "invalid_run_event_log_chain");
+        assert_eq!(err.field(), Some("run_event_log"));
     }
 
     #[test]
