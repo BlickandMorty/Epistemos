@@ -3822,3 +3822,81 @@ fn citation_error_variant_count_is_two() {
         }
     }
 }
+
+/// `CitationError`'s `Display` (via `thiserror`) is a user-facing
+/// diagnostic surface: chat-layer error banners, agent-runtime logs,
+/// and replay-bundle audit records all render this string. Pin the
+/// exact format so silent drift (someone tweaks an `#[error("…")]`
+/// literal, or `{0:?}` becomes `{0}`, or a punctuation change)
+/// surfaces here in lock-step with the consuming UIs.
+///
+/// The `EidosChunkId` and `EidosIndexManifestId` payloads are
+/// rendered via their `Debug` impl (the `{:?}` formatter inside
+/// thiserror's literal). Derived `Debug` on a tuple-newtype produces
+/// `EidosChunkId("the-id")` shape — the Debug form, not the inner
+/// string raw. This is the existing observed format and is pinned as
+/// such.
+///
+/// Pins:
+///   - `FabricatedSourceId(id).to_string()` exact format
+///   - `ManifestMismatch { packet, citation }.to_string()` exact format
+///   - both messages include the offending id payload byte-for-byte
+///     (no silent stripping of e.g. invisible chars from iter 133's
+///     smuggling vectors)
+#[test]
+fn citation_error_display_format_is_stable() {
+    use super::types::{CitationError, EidosChunkId};
+
+    let fab = CitationError::FabricatedSourceId(
+        EidosChunkId::new("ghost-id::lex").unwrap(),
+    );
+    assert_eq!(
+        fab.to_string(),
+        r#"fabricated source_id rejected by closed-citation contract: EidosChunkId("ghost-id::lex")"#,
+        "FabricatedSourceId Display format drift — chat-layer error \
+         banner + replay-bundle audit records must update in lock-step"
+    );
+
+    let mm = CitationError::ManifestMismatch {
+        packet: EidosIndexManifestId::new("snap-current").unwrap(),
+        citation: EidosIndexManifestId::new("snap-stale").unwrap(),
+    };
+    assert_eq!(
+        mm.to_string(),
+        r#"manifest mismatch: packet retrieved against EidosIndexManifestId("snap-current"), citation references EidosIndexManifestId("snap-stale")"#,
+        "ManifestMismatch Display format drift — chat-layer error \
+         banner + replay-bundle audit records must update in lock-step"
+    );
+
+    // Composability check: the Display surface must surface smuggled
+    // invisible chars (iter 133's vectors are a real surface, not
+    // theoretical). Critically, Rust's Debug formatter for `String`
+    // ESCAPES invisible characters into `\u{xxxx}` form rather than
+    // emitting the raw byte. This is the safer behavior: operators
+    // reading a log line for the diagnostic see the escape sequence
+    // (visible text) and can spot the attack, where a raw ZWSP byte
+    // in the log would render as nothing and hide the smuggling.
+    //
+    // Pin the escape-form behavior, NOT the raw-byte echo. If a
+    // future change replaces `{0:?}` with `{0}` (which would invoke
+    // a custom Display, not yet implemented), the escape would
+    // collapse and invisible smuggling would silently disappear from
+    // diagnostics — this test trips first.
+    let smuggled = CitationError::FabricatedSourceId(
+        EidosChunkId::new("note\u{200B}-a::lex").unwrap(),
+    );
+    let rendered = smuggled.to_string();
+    assert!(
+        rendered.contains("\\u{200b}"),
+        "FabricatedSourceId Display must surface smuggled invisible chars \
+         via Debug-escape `\\u{{200b}}` — operators can spot the attack in \
+         logs that would otherwise render the raw ZWSP as nothing. \
+         Got: {rendered:?}"
+    );
+    assert!(
+        !rendered.contains('\u{200B}'),
+        "Display must NOT echo the raw ZWSP byte (which would render \
+         invisibly in logs and hide the smuggling vector); Debug-escape \
+         is the safer rendering. Got: {rendered:?}"
+    );
+}
