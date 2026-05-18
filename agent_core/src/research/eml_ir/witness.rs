@@ -115,6 +115,7 @@ pub enum FulpUnsupportedEvaluatorKind {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum FulpInvalidJsonKind {
     DuplicateField,
+    EmptyInput,
     InvalidLength,
     Malformed,
     MissingField,
@@ -503,6 +504,13 @@ pub fn acceptance_witness_json() -> Result<String, FulpReplayError> {
 }
 
 pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
+    if json.trim().is_empty() {
+        return Err(FulpReplayError::InvalidJson {
+            message: "empty witness JSON".to_string(),
+            kind: FulpInvalidJsonKind::EmptyInput,
+        });
+    }
+
     let expected: FulpWitness = serde_json::from_str(json).map_err(invalid_json_error)?;
     if expected.config != FulpRunConfig::ACCEPTANCE {
         let kind = if expected.config.ulp_tolerance != FulpRunConfig::ACCEPTANCE.ulp_tolerance {
@@ -1282,6 +1290,15 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::Malformed)
+        );
+    }
+
+    #[test]
+    fn replay_rejects_empty_witness_json() {
+        let error = replay_witness_json("").expect_err("empty JSON must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::EmptyInput)
         );
     }
 
