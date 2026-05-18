@@ -7,7 +7,10 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::effect::receipt::Capability;
+use crate::{
+    effect::receipt::Capability, mutations::MutationEnvelope,
+    scope_rex::answer_packet::AnswerPacket,
+};
 
 /// Risk vector evaluated by ACS admission before a request can become
 /// durable or promote into a stronger runtime lane.
@@ -107,12 +110,146 @@ pub enum ACSOperationKind {
     ModelAdaptation,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "kind")]
+pub enum ACSAdmissionPayload {
+    MutationEnvelope { envelope: Box<MutationEnvelope> },
+    ActiveAssemblyPacket { packet: ActiveAssemblyPacket },
+    AnswerPacket { packet: Box<AnswerPacket> },
+    MemoryWrite { request: ACSMemoryWriteRequest },
+    ToolAction { request: ACSToolActionRequest },
+    KernelPromotion { request: ACSKernelPromotionRequest },
+    ModelAdaptation { request: ACSModelAdaptationRequest },
+}
+
+impl ACSAdmissionPayload {
+    pub const fn operation(&self) -> ACSOperationKind {
+        match self {
+            Self::MutationEnvelope { .. } => ACSOperationKind::MutationEnvelope,
+            Self::ActiveAssemblyPacket { .. } => ACSOperationKind::ActiveAssemblyPacket,
+            Self::AnswerPacket { .. } => ACSOperationKind::AnswerPacket,
+            Self::MemoryWrite { .. } => ACSOperationKind::MemoryWrite,
+            Self::ToolAction { .. } => ACSOperationKind::ToolAction,
+            Self::KernelPromotion { .. } => ACSOperationKind::KernelPromotion,
+            Self::ModelAdaptation { .. } => ACSOperationKind::ModelAdaptation,
+        }
+    }
+
+    fn validate(&self) -> Result<(), ACSAdmissionInputError> {
+        match self {
+            Self::MutationEnvelope { envelope } => {
+                require_non_empty(&envelope.mutation_id, "mutation_envelope.mutation_id")
+            }
+            Self::ActiveAssemblyPacket { packet } => packet.validate(),
+            Self::AnswerPacket { packet } => {
+                require_non_empty(&packet.id.0, "answer_packet.id")?;
+                require_non_empty(
+                    &packet.mutation_envelope_ref.0,
+                    "answer_packet.mutation_envelope_ref",
+                )
+            }
+            Self::MemoryWrite { request } => request.validate(),
+            Self::ToolAction { request } => request.validate(),
+            Self::KernelPromotion { request } => request.validate(),
+            Self::ModelAdaptation { request } => request.validate(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ActiveAssemblyPacket {
+    pub assembly_id: String,
+    #[serde(default)]
+    pub active_support_ids: Vec<String>,
+    pub witness_hash: String,
+}
+
+impl ActiveAssemblyPacket {
+    fn validate(&self) -> Result<(), ACSAdmissionInputError> {
+        require_non_empty(&self.assembly_id, "active_assembly.assembly_id")?;
+        require_non_empty(&self.witness_hash, "active_assembly.witness_hash")?;
+        if self.active_support_ids.is_empty() {
+            return Err(ACSAdmissionInputError::Forged {
+                field: "active_assembly.active_support_ids",
+            });
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ACSMemoryWriteRequest {
+    pub address: String,
+    pub content_hash: String,
+    pub durable: bool,
+    pub mutation_envelope_id: Option<String>,
+}
+
+impl ACSMemoryWriteRequest {
+    fn validate(&self) -> Result<(), ACSAdmissionInputError> {
+        require_non_empty(&self.address, "memory_write.address")?;
+        require_non_empty(&self.content_hash, "memory_write.content_hash")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ACSToolActionRequest {
+    pub tool_name: String,
+    pub target: String,
+    pub mutation_envelope_id: Option<String>,
+}
+
+impl ACSToolActionRequest {
+    fn validate(&self) -> Result<(), ACSAdmissionInputError> {
+        require_non_empty(&self.tool_name, "tool_action.tool_name")?;
+        require_non_empty(&self.target, "tool_action.target")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ACSKernelPromotionRequest {
+    pub kernel_id: String,
+    pub signed_plan_hash: String,
+    pub mutation_envelope_id: Option<String>,
+}
+
+impl ACSKernelPromotionRequest {
+    fn validate(&self) -> Result<(), ACSAdmissionInputError> {
+        require_non_empty(&self.kernel_id, "kernel_promotion.kernel_id")?;
+        require_non_empty(&self.signed_plan_hash, "kernel_promotion.signed_plan_hash")
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ACSModelAdaptationRequest {
+    pub adapter_id: String,
+    pub model_id: String,
+    pub checkpoint_hash: String,
+    pub mutation_envelope_id: Option<String>,
+}
+
+impl ACSModelAdaptationRequest {
+    fn validate(&self) -> Result<(), ACSAdmissionInputError> {
+        require_non_empty(&self.adapter_id, "model_adaptation.adapter_id")?;
+        require_non_empty(&self.model_id, "model_adaptation.model_id")?;
+        require_non_empty(&self.checkpoint_hash, "model_adaptation.checkpoint_hash")
+    }
+}
+
+fn require_non_empty(value: &str, field: &'static str) -> Result<(), ACSAdmissionInputError> {
+    if value.trim().is_empty() {
+        Err(ACSAdmissionInputError::Forged { field })
+    } else {
+        Ok(())
+    }
+}
+
 /// Data-only ACS request envelope. It carries the caller's declared operation,
 /// risk vector, and already-granted capabilities without applying any state.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ACSAdmissionInput {
     pub request_id: String,
-    pub operation: ACSOperationKind,
+    pub payload: ACSAdmissionPayload,
     pub submitted_at_ms: i64,
     pub risk: ACSRiskVector,
     #[serde(default)]
@@ -128,7 +265,12 @@ impl ACSAdmissionInput {
         }
         self.risk
             .validate()
-            .map_err(|_| ACSAdmissionInputError::Forged { field: "risk" })
+            .map_err(|_| ACSAdmissionInputError::Forged { field: "risk" })?;
+        self.payload.validate()
+    }
+
+    pub const fn operation(&self) -> ACSOperationKind {
+        self.payload.operation()
     }
 }
 
@@ -249,7 +391,7 @@ pub fn admit(input: &ACSAdmissionInput, policy: &ACSPolicy, now_ms: i64) -> ACSA
     }
 
     if policy
-        .required_for(input.operation)
+        .required_for(input.operation())
         .iter()
         .any(|capability| !input.granted_capabilities.contains(capability))
     {
@@ -280,7 +422,7 @@ fn decision(
             request_id: input.request_id.clone(),
             policy_id: policy.policy_id.clone(),
             policy_version: policy.version,
-            operation: input.operation,
+            operation: input.operation(),
             verdict,
             reason: reason.to_string(),
             risk_max: input.risk.max_axis(),
@@ -439,6 +581,10 @@ impl ACSPolicyError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{
+        mutations::types::{MutationActor, Reversibility, Sensitivity, SourceOp},
+        scope_rex::answer_packet::{AnswerPacketId, MutationEnvelopeId, WitnessedStateId},
+    };
 
     #[test]
     fn acs_admission_forged_risk_vector_is_rejected() {
@@ -497,7 +643,7 @@ mod tests {
     fn acs_admission_forged_input_is_rejected() {
         let input = ACSAdmissionInput {
             request_id: "   ".to_string(),
-            operation: ACSOperationKind::ToolAction,
+            payload: tool_action_payload(),
             submitted_at_ms: 1_000,
             risk: ACSRiskVector::neutral(),
             granted_capabilities: Vec::new(),
@@ -518,7 +664,7 @@ mod tests {
             .require_capability(ACSOperationKind::ToolAction, required);
         let input = ACSAdmissionInput {
             request_id: "req-tool-1".to_string(),
-            operation: ACSOperationKind::ToolAction,
+            payload: tool_action_payload(),
             submitted_at_ms: 1_001,
             risk: ACSRiskVector::neutral(),
             granted_capabilities: Vec::new(),
@@ -531,5 +677,97 @@ mod tests {
         assert_eq!(decision.audit_record.reason, "missing_capability");
         assert_eq!(audit_log.len(), 1);
         assert_eq!(audit_log[0].verdict, ACSAdmissionVerdict::Reject);
+    }
+
+    #[test]
+    fn acs_admission_input_accepts_all_canonical_payloads() {
+        let payloads = vec![
+            ACSAdmissionPayload::MutationEnvelope {
+                envelope: Box::new(mutation_envelope_fixture()),
+            },
+            ACSAdmissionPayload::ActiveAssemblyPacket {
+                packet: ActiveAssemblyPacket {
+                    assembly_id: "assembly-1".to_string(),
+                    active_support_ids: vec!["note-1".to_string()],
+                    witness_hash: "witness-hash".to_string(),
+                },
+            },
+            ACSAdmissionPayload::AnswerPacket {
+                packet: Box::new(AnswerPacket::new(
+                    AnswerPacketId::new("answer-1"),
+                    WitnessedStateId::new("state-1"),
+                    MutationEnvelopeId::new("mutation-1"),
+                )),
+            },
+            ACSAdmissionPayload::MemoryWrite {
+                request: ACSMemoryWriteRequest {
+                    address: "uas://note/1".to_string(),
+                    content_hash: "content-hash".to_string(),
+                    durable: false,
+                    mutation_envelope_id: None,
+                },
+            },
+            tool_action_payload(),
+            ACSAdmissionPayload::KernelPromotion {
+                request: ACSKernelPromotionRequest {
+                    kernel_id: "kernel-1".to_string(),
+                    signed_plan_hash: "plan-hash".to_string(),
+                    mutation_envelope_id: Some("mutation-1".to_string()),
+                },
+            },
+            ACSAdmissionPayload::ModelAdaptation {
+                request: ACSModelAdaptationRequest {
+                    adapter_id: "adapter-1".to_string(),
+                    model_id: "local-helper-1".to_string(),
+                    checkpoint_hash: "checkpoint-hash".to_string(),
+                    mutation_envelope_id: Some("mutation-1".to_string()),
+                },
+            },
+        ];
+        let expected = [
+            ACSOperationKind::MutationEnvelope,
+            ACSOperationKind::ActiveAssemblyPacket,
+            ACSOperationKind::AnswerPacket,
+            ACSOperationKind::MemoryWrite,
+            ACSOperationKind::ToolAction,
+            ACSOperationKind::KernelPromotion,
+            ACSOperationKind::ModelAdaptation,
+        ];
+
+        for (idx, payload) in payloads.into_iter().enumerate() {
+            let input = ACSAdmissionInput {
+                request_id: format!("req-{idx}"),
+                payload,
+                submitted_at_ms: 1_001,
+                risk: ACSRiskVector::neutral(),
+                granted_capabilities: Vec::new(),
+            };
+            assert!(input.validate().is_ok());
+            assert_eq!(input.operation(), expected[idx]);
+        }
+    }
+
+    fn tool_action_payload() -> ACSAdmissionPayload {
+        ACSAdmissionPayload::ToolAction {
+            request: ACSToolActionRequest {
+                tool_name: "vault.write".to_string(),
+                target: "uas://note/1".to_string(),
+                mutation_envelope_id: Some("mutation-1".to_string()),
+            },
+        }
+    }
+
+    fn mutation_envelope_fixture() -> MutationEnvelope {
+        MutationEnvelope::pending(
+            "mutation-1".to_string(),
+            1,
+            MutationActor::User,
+            SourceOp::ArtifactUpdate {
+                artifact_id: "artifact-1".to_string(),
+            },
+            Sensitivity::Internal,
+            Reversibility::Reversible,
+            1_000,
+        )
     }
 }
