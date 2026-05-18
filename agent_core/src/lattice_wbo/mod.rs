@@ -3383,6 +3383,8 @@ mod tests {
             "FalsifierHookOwner JSON rejects unknown fields",
             "exactly one owner row",
             "`codec_falsifier_catalogs_name_owned_f_hooks_for_every_codec`",
+            "`codec_falsifier_catalogs_cover_every_owned_f_hook`",
+            "every owned `F-*` hook appears in at least one codec falsifier row",
             "`residency_primary_falsifiers_name_owned_f_hooks_for_every_tier`",
             "`falsifier_hook_registry_owner_paths_exist`",
             "each falsifier owner path resolves to an existing repo file",
@@ -4671,6 +4673,24 @@ mod tests {
                     "{coder:?} names unowned falsifier hook {hook}"
                 );
             }
+        }
+    }
+
+    #[test]
+    fn codec_falsifier_catalogs_cover_every_owned_f_hook() {
+        let mut codec_hooks = Vec::new();
+        for coder in LatticeCoderKind::ALL {
+            codec_hooks.extend(f_hooks_in(coder.falsifier()));
+        }
+        codec_hooks.sort_unstable();
+        codec_hooks.dedup();
+
+        for owner in falsifier_hook_owners() {
+            assert!(
+                codec_hooks.contains(&owner.hook),
+                "{} owner hook must be emitted by at least one codec falsifier row",
+                owner.hook
+            );
         }
     }
 
