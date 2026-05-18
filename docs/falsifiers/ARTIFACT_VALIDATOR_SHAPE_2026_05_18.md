@@ -195,6 +195,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 ```
 
 ```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); t=schema.dig("properties","acceptance_thresholds","patternProperties","^[a-z][a-z0-9_]*$") || abort("threshold shape missing"); abort("threshold_source not required") unless t["required"].include?("threshold_source"); expected=%w[handbook_row fragment_contract upstream_artifact provider_receipt]; abort("threshold_source enum drift") unless t.dig("properties","threshold_source","enum") == expected; upstream=t["allOf"].any? { |rule| rule.dig("if","properties","threshold_source","const") == "upstream_artifact" && (rule.dig("then","required") || []).include?("upstream_artifact_sha256") }; abort("upstream threshold_source rule missing") unless upstream; puts "threshold source ok"'
+```
+
+```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); m=schema.dig("properties","measurements","patternProperties","^[a-z][a-z0-9_]*$"); abort("evidence_kind not required") unless m["required"].include?("evidence_kind"); expected=%w[direct_measurement aggregate_statistic digest classification reference_link]; abort("evidence_kind enum drift") unless m.dig("properties","evidence_kind","enum") == expected; puts "measurement evidence kind ok"'
 ```
 
