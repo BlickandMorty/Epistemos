@@ -1953,3 +1953,15 @@ Validator input path: `artifacts/falsifiers/wbo_drift_ledger/result.jsonl`
 ```
 
 Rejection reason: JSONL rows cannot add undeclared top-level keys.
+
+## N56 - JSONL Row Falsifier Drift
+
+Violates: [JSONL Witness Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#jsonl-witness-rule).
+
+Validator input path: `artifacts/falsifiers/wbo_drift_ledger/result.jsonl`
+
+```jsonl
+{"schema_version":"2026-05-18.2","falsifier_id":"F-ULP-Oracle","row_index":0,"prompt_id":"wbo-fixture-0001","token_index":0,"axis":"envelope_bound","measurement":{"value":0.03,"unit":"nats"},"acceptance_threshold":{"operator":"<=","value":0.05,"unit":"nats"},"pass":true,"anomalies":[]}
+```
+
+Rejection reason: row `falsifier_id` must equal the artifact manifest falsifier ID.
