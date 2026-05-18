@@ -243,6 +243,19 @@ pub fn adversarial_fixture(index: usize) -> AdversarialFixture {
     }
 }
 
+#[cfg(test)]
+fn adversarial_negative_zero_fixture_count() -> usize {
+    (0..ADVERSARIAL_FIXTURE_COUNT)
+        .map(adversarial_fixture)
+        .filter(|fixture| is_negative_zero(fixture.x) || is_negative_zero(fixture.y))
+        .count()
+}
+
+#[cfg(test)]
+fn is_negative_zero(value: f64) -> bool {
+    value == 0.0 && value.is_sign_negative()
+}
+
 fn adversarial(
     index: usize,
     label: &'static str,
@@ -449,6 +462,11 @@ mod tests {
                 fixture.y.is_subnormal() || Fp16Bits::from_f64(fixture.y).bits() == 0x0001;
         }
         assert!(coverage.into_iter().all(|covered| covered), "{coverage:?}");
+    }
+
+    #[test]
+    fn adversarial_fixtures_pin_negative_zero_count() {
+        assert_eq!(adversarial_negative_zero_fixture_count(), 4);
     }
 
     #[test]
