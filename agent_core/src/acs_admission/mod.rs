@@ -1046,6 +1046,25 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_future_policy_rejects_and_logs() {
+        let policy = ACSPolicy::strict("policy-future", 2_000);
+        let input = ACSAdmissionInput {
+            request_id: "req-future-policy".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "policy_not_yet_valid");
+        assert_eq!(audit_log.len(), 1);
+    }
+
+    #[test]
     fn acs_admission_model_adaptation_bypass_attempt_is_rejected() {
         for mutation_envelope_id in [None, Some(String::new()), Some("  ".to_string())] {
             let input = ACSAdmissionInput {
