@@ -149,6 +149,10 @@ For numeric threshold operators, the matching measurement `value` must also be n
 
 `overall_pass` is the conjunction of all required `pass_per_axis` values for the artifact's selected tier. It may be `true` with `fallback_tier: Fallback` only as fallback-route evidence; primary row promotion still requires `overall_pass: true` and `fallback_tier: Primary`. If any required axis is `false`, missing, or replay-ineligible, `overall_pass` must be `false`.
 
+## Pass-Affecting Anomaly Rule
+
+If any anomaly has `affects_pass: true`, the artifact cannot be a primary pass. It may still record fallback evidence only when `fallback_tier` is `Fallback` and the anomaly ledger names the fallback route.
+
 ## Anomalies Rule
 
 `anomalies` records structured facts about unexpected rig, input, output, timing, memory, thermal, power, disk, permission, fallback, or unsupported-case behavior. Each anomaly must say whether it affects pass eligibility. An empty array means no anomaly occurred; it does not mean anomalies were uninspected.
