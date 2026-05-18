@@ -736,6 +736,88 @@ fn ledger_accepts_empty_evidence_id_at_commit_time() {
     let _ = result;
 }
 
+/// `EidosRetrievalMode::CANON_ALL` enumerates every variant once and only
+/// once. If a new variant is added without being appended to CANON_ALL,
+/// the count test fires; if duplicates appear, the dedup HashSet check
+/// fires. This is the single source of truth for "the canonical mode
+/// roster" that other tests (drift detector, falsifier fixture, etc.)
+/// can rely on.
+#[test]
+fn canon_all_covers_every_variant_uniquely() {
+    use std::collections::HashSet;
+
+    let all = EidosRetrievalMode::CANON_ALL;
+    // Count check: 9 canonical modes (per the prompt-deck §4 floor +
+    // operator-added Recency + ProvenanceVerified).
+    assert_eq!(all.len(), 9);
+
+    // Uniqueness check: every variant appears exactly once.
+    let dedup: HashSet<EidosRetrievalMode> = all.iter().copied().collect();
+    assert_eq!(dedup.len(), all.len(), "CANON_ALL contains duplicate variants");
+
+    // Spot-check the boundary variants are present.
+    assert!(all.contains(&EidosRetrievalMode::Lexical));
+    assert!(all.contains(&EidosRetrievalMode::ProvenanceVerified));
+}
+
+/// ClaimLedger lifecycle through LedgerBackedClaimEvidence: commit a
+/// piece of evidence + claim, retrieve, retract the evidence, commit
+/// a NEW evidence supporting a NEW claim, and retrieve again. Pins:
+///
+///   - The retracted evidence stays retracted across the cycle —
+///     once Retracted, it never re-appears.
+///   - A new claim with new evidence is independently retrievable.
+///   - The original at-risk claim still has zero active evidence.
+#[test]
+fn ledger_commit_retract_recommit_full_lifecycle() {
+    use super::ledger_backed_claim_evidence::LedgerBackedClaimEvidence;
+    use crate::provenance::ledger::{Claim, ClaimId, ClaimLedger, Evidence, EvidenceId};
+
+    let mut led = ClaimLedger::new();
+
+    // Phase 1: commit ev-1 + claim c-1 supported by ev-1.
+    led.commit_evidence(Evidence::new(EvidenceId("ev-1".to_string()), "s", 0)).unwrap();
+    led.commit_claim(
+        Claim::new(ClaimId("c-1".to_string()), "claim one", 0),
+        vec![],
+        vec![EvidenceId("ev-1".to_string())],
+    )
+    .unwrap();
+
+    let r1 = LedgerBackedClaimEvidence::from_ledger(&led, manifest());
+    let q1 = EidosQuery::new("c-1", EidosRetrievalMode::ClaimEvidence, 16);
+    let p1 = r1.retrieve(&q1, 1_700_000_000_000);
+    assert_eq!(p1.hits.len(), 1, "phase 1: ev-1 should appear");
+
+    // Phase 2: retract ev-1. claim c-1's active evidence drops to zero.
+    led.retract_evidence(&EvidenceId("ev-1".to_string())).unwrap();
+    let r2 = LedgerBackedClaimEvidence::from_ledger(&led, manifest());
+    let p2 = r2.retrieve(&q1, 1_700_000_000_000);
+    assert!(p2.hits.is_empty(), "phase 2: ev-1 retracted, no active evidence");
+
+    // Phase 3: commit a NEW evidence supporting a NEW claim. ev-1 stays
+    // retracted (ClaimLedger does NOT support un-retraction).
+    led.commit_evidence(Evidence::new(EvidenceId("ev-2".to_string()), "s2", 0)).unwrap();
+    led.commit_claim(
+        Claim::new(ClaimId("c-2".to_string()), "claim two", 0),
+        vec![],
+        vec![EvidenceId("ev-2".to_string())],
+    )
+    .unwrap();
+
+    let r3 = LedgerBackedClaimEvidence::from_ledger(&led, manifest());
+    let p3_c1 = r3.retrieve(&q1, 1_700_000_000_000);
+    assert!(p3_c1.hits.is_empty(), "phase 3: c-1 still empty (ev-1 stays retracted)");
+
+    let q2 = EidosQuery::new("c-2", EidosRetrievalMode::ClaimEvidence, 16);
+    let p3_c2 = r3.retrieve(&q2, 1_700_000_000_000);
+    assert_eq!(p3_c2.hits.len(), 1, "phase 3: c-2 has fresh ev-2 evidence");
+    assert_eq!(
+        p3_c2.hits[0].source_id.as_str(),
+        "ev-2::claim::c-2::supports"
+    );
+}
+
 /// All-empty HybridRetrieverN — every inner retriever returns an empty
 /// packet. The outer fusion must produce an empty packet too, without
 /// panic. The max_rrf normalization formula uses `N / (k + 1)` which
