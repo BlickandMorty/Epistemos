@@ -1266,6 +1266,28 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 19th Unicode row (iter-191): Cherokee-script extension.
+        // Adds a 17th non-Latin script (Cherokee, U+13A0–U+13FF).
+        // Cherokee is a 19th-century syllabary invented by
+        // Sequoyah — distinct from any prior script. Brings
+        // syllabaries-with-syllabic-blocks count to 3 (Japanese-
+        // katakana + Korean-Hangul + Cherokee). Latin "Mamba" +
+        // Cherokee "Ꭽ" (ga, U+13BD) + Latin "cache".
+        query: "Mamba Ꭽ cache",
+        expected_paths: &["notes/mamba_cherokee.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Nineteenth Unicode row (iter-191): Cherokee-script \
+               extension. SEVENTEEN non-Latin scripts pinned. \
+               Cherokee is a 19th-century syllabary distinct \
+               from any prior script (invented by Sequoyah). \
+               Brings the syllabary count to 3 (Japanese-katakana \
+               + Korean-Hangul + Cherokee), demonstrating the \
+               no-script-fold contract holds across both ancient \
+               and modern syllabaries.",
+    },
+    FVaultRecallRow {
         // 18th Unicode row (iter-179): Myanmar-script extension.
         // Adds a 16th non-Latin script (Myanmar/Burmese, U+1000–
         // U+109F). Sixth Brahmic abugida — Devanagari + Thai +
