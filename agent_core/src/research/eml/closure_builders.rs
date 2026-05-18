@@ -635,6 +635,29 @@ pub fn closure_arithmetic_mean(slot_indices: &[u32], n_slot: u32) -> EmlClosureE
     EmlClosureExpr::divide(closure_sum_slots(slot_indices), EmlClosureExpr::slot(n_slot))
 }
 
+/// Poisson log-likelihood contribution (data-dependent part):
+///
+///   ln P(k | λ) − ln(k!) = k · ln(λ) − λ.
+///
+/// The `ln(k!)` term is a λ-independent constant and is dropped
+/// (standard convention in MLE / Poisson regression training).
+/// Closure form: `Minus(closure_mul(slot(k), closure_ln(slot(λ))),
+/// slot(λ))`.
+///
+/// Caller must supply `λ > 0`; the closure evaluator surfaces
+/// the usual `ln(0)` error otherwise.
+///
+/// Iter-253 — Poisson-regression building block. Pairs with
+/// `closure_categorical_log_prob_pinned` (categorical) and
+/// `closure_logistic_loss` (Bernoulli) to give all three of the
+/// canonical exponential-family log-likelihoods in EML form
+/// without the partition-function constants.
+pub fn closure_poisson_log_likelihood(k_slot: u32, lambda_slot: u32) -> EmlClosureExpr {
+    let log_lambda = closure_ln(EmlClosureExpr::slot(lambda_slot));
+    let k_log_lambda = closure_mul(EmlClosureExpr::slot(k_slot), log_lambda);
+    EmlClosureExpr::minus(k_log_lambda, EmlClosureExpr::slot(lambda_slot))
+}
+
 /// Cubed slot value `closure_cube(i) = slot(i)³`.
 ///
 /// Closure form: `closure_mul(slot(i), closure_squared(i))`. The
@@ -3094,6 +3117,38 @@ mod tests {
             assert!((l1 - (-sigma.ln())).abs() < 1e-9, "y=1: {} vs {}", l1, -sigma.ln());
             assert!((l0 - (-(1.0 - sigma).ln())).abs() < 1e-9, "y=0");
         }
+    }
+
+    // ── closure_poisson_log_likelihood (iter-253) ─────────────────
+
+    #[test]
+    fn poisson_log_likelihood_k_zero_is_negative_lambda() {
+        // k=0: log p = 0·ln(λ) - λ = -λ.
+        let v = eval_with_slots(
+            closure_poisson_log_likelihood(0, 1),
+            vec![0.0, 2.5],
+        );
+        assert!((v - (-2.5)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn poisson_log_likelihood_k_one_lambda_one_is_minus_one() {
+        // k=1, λ=1: log p = 1·ln(1) - 1 = -1.
+        let v = eval_with_slots(
+            closure_poisson_log_likelihood(0, 1),
+            vec![1.0, 1.0],
+        );
+        assert!((v - (-1.0)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn poisson_log_likelihood_maximized_when_lambda_equals_k() {
+        // For fixed k, the MLE for λ is k (the Poisson MLE). Verify
+        // by comparing k=5 with λ=5 vs nearby values.
+        let at_5 = eval_with_slots(closure_poisson_log_likelihood(0, 1), vec![5.0, 5.0]);
+        let at_4 = eval_with_slots(closure_poisson_log_likelihood(0, 1), vec![5.0, 4.0]);
+        let at_6 = eval_with_slots(closure_poisson_log_likelihood(0, 1), vec![5.0, 6.0]);
+        assert!(at_5 >= at_4 - 1e-9 && at_5 >= at_6 - 1e-9, "MLE not at k=5");
     }
 
     // ── closure_cube (iter-247) ───────────────────────────────────
