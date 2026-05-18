@@ -4778,6 +4778,37 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 29th Adversarial row (iter-259): MLX-Swift alt-query
+        // {mlx, swift, model, local} — keeps both BOUNDARY
+        // primaries (mlx + swift), drops both MIDDLE primaries
+        // (inference + backend), adds 2 context tokens (model +
+        // local). Fourth MLX-Swift Adversarial row: iter-100
+        // (4/4 primaries), iter-207 (3/4 primaries — drops mlx),
+        // iter-237 (2/4 primaries — drops mlx + backend, keeps
+        // swift + inference), iter-259 (2/4 primaries — drops
+        // inference + backend, keeps mlx + swift). Together
+        // they pin BM25 across every distinct (2,2)-split of
+        // the 4 primaries on MLX-Swift.
+        query: "mlx swift model local",
+        expected_paths: &["notes/mlx_swift_inference_backend.md"],
+        forbidden_paths: &[
+            "notes/mlx_archive.md",
+            "notes/swift_brainstorm.md",
+            "notes/inference_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Twenty-ninth Adversarial row (iter-259): MLX-\
+               Swift alt-query \"mlx swift model local\" — keeps \
+               BOUNDARY primaries (mlx + swift), drops MIDDLE \
+               primaries (inference + backend). Fourth MLX-Swift \
+               row. Together iter-100 + iter-207 + iter-237 + \
+               iter-259 pin BM25 across distinct 2-of-4-keep \
+               configurations on MLX-Swift. Canonical 4/4; \
+               decoys ≤1 of 4. Brings Adversarial to depth 29. \
+               Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 28th Adversarial row (iter-252): BM25/IR alt-query
         // {saturation, length, ranking, scoring} — drops both
         // "bm25" and "penalty" primaries, keeps saturation +
