@@ -238,6 +238,26 @@ pub fn running_sign_changes(program: &ScanProgram<f64>) -> Vec<u64> {
     out
 }
 
+/// Running mean of squared values: `Σ_{i≤t} xᵢ² / (t+1)`.
+///
+/// Sqrt-free companion to [`running_quadratic_mean`]: the second
+/// raw moment, useful when downstream code wants the variance
+/// formula `Var = E[X²] − (E[X])²` or where sqrt is irrelevant.
+///
+/// Iter-279 — second-moment online aggregator.
+pub fn running_mean_squared(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut count = 1.0_f64;
+    let mut sum_sq = program.initial * program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(sum_sq / count);
+    for &x in &program.inputs {
+        count += 1.0;
+        sum_sq += x * x;
+        out.push(sum_sq / count);
+    }
+    out
+}
+
 /// Running root-mean-square (quadratic mean):
 /// `RMS_t = √((1/t) · Σ_{i ≤ t} xᵢ²)`.
 ///
@@ -1300,6 +1320,36 @@ mod tests {
         let out = running_sign_changes(&p);
         for win in out.windows(2) {
             assert!(win[1] >= win[0]);
+        }
+    }
+
+    // ── iter-279: running_mean_squared ────────────────────────────
+
+    #[test]
+    fn running_mean_squared_constant_stream() {
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0]);
+        let out = running_mean_squared(&p);
+        for v in &out {
+            assert!((v - 9.0).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn running_mean_squared_3_4_known() {
+        // initial = 3, input = 4 → (9 + 16) / 2 = 12.5.
+        let p = ScanProgram::new(3.0_f64, vec![4.0]);
+        let out = running_mean_squared(&p);
+        assert!((out[1] - 12.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn running_mean_squared_is_quadratic_mean_squared() {
+        // E[X²] = (QM)².
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 3.0, 4.0]);
+        let ms = running_mean_squared(&p);
+        let qm = running_quadratic_mean(&p);
+        for (m, q) in ms.iter().zip(qm.iter()) {
+            assert!((m - q * q).abs() < 1e-9);
         }
     }
 
