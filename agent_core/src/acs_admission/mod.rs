@@ -1317,6 +1317,7 @@ fn audit_risk_max(risk: &ACSRiskVector) -> f32 {
 
 /// Risk thresholds for policy verdict selection.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ACSRiskThresholds {
     pub warn_at: f32,
     pub defer_at: f32,
@@ -3599,6 +3600,17 @@ mod tests {
         value["shadow_risk"] = serde_json::json!(1.0);
 
         let decoded = serde_json::from_value::<ACSRiskVector>(value);
+
+        assert!(decoded.is_err());
+    }
+
+    #[test]
+    fn acs_admission_shadow_threshold_axis_is_rejected_on_decode() {
+        let mut value =
+            serde_json::to_value(ACSRiskThresholds::standard()).expect("thresholds encode");
+        value["escalate_at"] = serde_json::json!(0.95);
+
+        let decoded = serde_json::from_value::<ACSRiskThresholds>(value);
 
         assert!(decoded.is_err());
     }
