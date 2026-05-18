@@ -1086,20 +1086,35 @@ fn contains_any_falsifier_hook(candidate: &str, canonical: &str) -> bool {
 
 fn f_hooks_in(candidate: &str) -> Vec<&str> {
     let mut hooks = Vec::new();
-    for (start, _) in candidate.match_indices("F-") {
+    let bytes = candidate.as_bytes();
+    let mut start = 0;
+
+    while start + 1 < bytes.len() {
+        if !((bytes[start] == b'F' || bytes[start] == b'f') && bytes[start + 1] == b'-') {
+            start += 1;
+            continue;
+        }
+        if !is_falsifier_hook_boundary(candidate[..start].chars().next_back()) {
+            start += 1;
+            continue;
+        }
+
         let rest = &candidate[start..];
         let end = rest
             .find(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '-' || ch == '_'))
             .unwrap_or(rest.len());
         hooks.push(&rest[..end]);
+        start += end;
     }
     hooks
 }
 
 fn falsifier_hooks_are_owned(candidate: &str) -> bool {
-    f_hooks_in(candidate)
-        .into_iter()
-        .all(|hook| FALSIFIER_HOOK_OWNERS.iter().any(|owner| owner.hook == hook))
+    f_hooks_in(candidate).into_iter().all(|hook| {
+        FALSIFIER_HOOK_OWNERS
+            .iter()
+            .any(|owner| owner.hook.eq_ignore_ascii_case(hook))
+    })
 }
 
 #[cfg(test)]
@@ -4642,27 +4657,35 @@ mod tests {
 
     #[test]
     fn ledger_validation_rejects_unowned_falsifier_hooks() {
-        let contribution =
-            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
-                .expect("valid contribution");
-        let budget = LatticeBudget::new(
-            LatticeCoderKind::ExactHot,
-            None,
-            SideInformationKind::None,
-            vec![contribution],
-        );
-        let entry = WboLedgerEntry::new_for_tier(
-            ResidencyTier::L0RamHot,
-            budget,
-            None,
+        for falsifier in [
             "F-WBO-DriftLedger; F-ULP-Oracle; F-Imaginary-Probe",
-            "Extra falsifier hooks must still have owners.",
-        );
+            "F-WBO-DriftLedger; F-ULP-Oracle; f-imaginary-probe",
+        ] {
+            let contribution = LatticeErrorContribution::new(
+                WboTermCode::NumericalPostCorrection,
+                "numerics",
+                0.0,
+            )
+            .expect("valid contribution");
+            let budget = LatticeBudget::new(
+                LatticeCoderKind::ExactHot,
+                None,
+                SideInformationKind::None,
+                vec![contribution],
+            );
+            let entry = WboLedgerEntry::new_for_tier(
+                ResidencyTier::L0RamHot,
+                budget,
+                None,
+                falsifier,
+                "Extra falsifier hooks must still have owners.",
+            );
 
-        assert_eq!(
-            entry.validate(),
-            Err(LatticeWboError::MissingCanonicalFalsifier)
-        );
+            assert_eq!(
+                entry.validate(),
+                Err(LatticeWboError::MissingCanonicalFalsifier)
+            );
+        }
     }
 
     #[test]
