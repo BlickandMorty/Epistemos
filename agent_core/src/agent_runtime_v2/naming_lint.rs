@@ -503,6 +503,34 @@ mod tests {
     }
 
     #[test]
+    fn is_path_exempt_loops_every_canonical_entry_through_the_matcher() {
+        // Phase 1 hardening — completeness companion to
+        // is_path_exempt_matches_known_canonical_docs (which exercises
+        // only 4 of the 6 entries). Every entry in AEGIS_LINT_EXEMPT_DOCS
+        // MUST be reachable through is_path_exempt — both as a raw
+        // entry AND as an absolute-path-prefixed suffix.
+        //
+        // Defends against a future "let me filter exempt paths by
+        // file extension first" optimisation that would silently drop
+        // a subset of entries (e.g., the .rs entry but not the .md
+        // entries) from the matcher's view.
+        for &entry in AEGIS_LINT_EXEMPT_DOCS {
+            // Raw entry must be self-exempt.
+            assert!(
+                is_path_exempt(entry),
+                "raw exempt entry {entry} must match is_path_exempt"
+            );
+            // Same suffix under an absolute prefix must also match
+            // (production CI feeds absolute paths from `find`).
+            let abs = format!("/Users/jojo/Downloads/Epistemos-x/{entry}");
+            assert!(
+                is_path_exempt(&abs),
+                "absolute-prefixed {abs} must match is_path_exempt"
+            );
+        }
+    }
+
+    #[test]
     fn is_path_exempt_preserves_byte_suffix_matching_through_unicode_prefixes() {
         // Phase 1 hardening — Unicode safety pin for the
         // exempt-doc matcher. is_path_exempt uses
