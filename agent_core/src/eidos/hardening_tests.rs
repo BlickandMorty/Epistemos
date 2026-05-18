@@ -4338,3 +4338,85 @@ fn eidos_citation_json_wire_format_is_stable_and_round_trips() {
         }
     }
 }
+
+/// Closed-citation contract rejects **whitespace-padding smuggling**:
+/// citations whose source_id has trailing/leading whitespace,
+/// newlines, or tabs that the visible UI strips during render but
+/// the bytes preserve. This is the 4th distinct adversarial vector
+/// pinned in this session, complementing the three named vectors:
+///
+///   - NFC/NFD     (iter 127): same character, two encodings
+///   - ZWSP        (iter 133): invisible codepoints injected
+///   - Homoglyph   (iter 137): visually-equivalent different scripts
+///   - Whitespace  (this iter): renderable padding that UIs collapse
+///
+/// Why whitespace deserves its own pin: most terminals, web views,
+/// and chat UIs collapse trailing whitespace at render time, so a
+/// trailing-space-padded citation renders identical to its clean
+/// counterpart in a "review the citation before submitting" UI.
+/// Browsers wrap lines on whitespace and may visually elide a
+/// trailing space. A sloppy model that copy-pastes with a trailing
+/// space (or a chat-layer regex with `\s*` quantifiers) could
+/// silently break byte-equality if the validator weren't strict.
+///
+/// Pins (all rejected as FabricatedSourceId):
+///   - trailing space:    "note-a::lex "
+///   - leading space:     " note-a::lex"
+///   - trailing newline:  "note-a::lex\n"
+///   - trailing tab:      "note-a::lex\t"
+///   - embedded run of spaces (internal padding): "note-a ::lex"
+///
+/// Positive control: the clean id IS accepted. Each smuggled variant
+/// must surface its actual padded bytes in the diagnostic so the
+/// operator can see what was injected.
+#[test]
+fn validate_citation_rejects_whitespace_padding_smuggling() {
+    use super::types::{CitationError, EidosCitation, EidosChunkId};
+
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("note-a"), "alpha rambutan content", EidosSourceKind::Note).unwrap();
+    let q = EidosQuery::new("rambutan", EidosRetrievalMode::Lexical, 16);
+    let packet = lex.retrieve(&q, 1_700_000_000_000);
+    assert_eq!(packet.hits.len(), 1);
+    let clean = packet.hits[0].source_id.as_str().to_string();
+    assert_eq!(clean, "note-a::lex");
+
+    let variants: &[(&str, String)] = &[
+        ("trailing-space",   format!("{clean} ")),
+        ("leading-space",    format!(" {clean}")),
+        ("trailing-newline", format!("{clean}\n")),
+        ("trailing-tab",     format!("{clean}\t")),
+        ("embedded-space",   "note-a ::lex".to_string()),
+    ];
+
+    for (label, padded) in variants {
+        assert_ne!(
+            padded.as_bytes(),
+            clean.as_bytes(),
+            "{label}: padded variant must differ in bytes from the clean id"
+        );
+
+        let cite = EidosCitation {
+            source_id: EidosChunkId::new(padded.clone()).unwrap(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        match packet.validate_citation(&cite).unwrap_err() {
+            CitationError::FabricatedSourceId(returned) => {
+                assert_eq!(
+                    returned.as_str(),
+                    padded,
+                    "{label}: diagnostic must preserve the padded bytes — \
+                     silent .trim() would hide the smuggling vector"
+                );
+            }
+            other => panic!("{label}: expected FabricatedSourceId, got {other:?}"),
+        }
+    }
+
+    // Positive control: the clean id IS accepted.
+    let legit = EidosCitation {
+        source_id: packet.hits[0].source_id.clone(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert_eq!(packet.validate_citation(&legit), Ok(()));
+}
