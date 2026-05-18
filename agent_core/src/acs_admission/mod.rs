@@ -2229,7 +2229,7 @@ impl ACSPolicy {
             policy_id: policy_id.into(),
             version: 1,
             valid_from_ms,
-            expires_at_ms: Some(valid_from_ms.saturating_add(60_000)),
+            expires_at_ms: valid_from_ms.checked_add(60_000),
             thresholds: ACSRiskThresholds::standard(),
             required_capabilities: Vec::new(),
             operation_thresholds: Vec::new(),
@@ -3000,7 +3000,8 @@ mod tests {
     fn acs_admission_policy_strict_saturates_max_expiration_window() {
         let policy = ACSPolicy::strict("policy-max-window", i64::MAX);
 
-        assert_eq!(policy.expires_at_ms, Some(i64::MAX));
+        assert_eq!(policy.expires_at_ms, None);
+        assert!(policy.validate_at(i64::MAX).is_ok());
     }
 
     #[test]
