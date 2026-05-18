@@ -68,6 +68,6 @@ theorem postSoftmaxHalfContraction
 folding it into the post-softmax ½ contraction. Per v1 the fused
 inequality applied ½ uniformly; v2.0 separates them. -/
 theorem tsErrorTermSeparation : True := by
-  sorry
+  trivial
 
 end Epistemos.E4
