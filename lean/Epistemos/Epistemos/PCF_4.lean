@@ -29,7 +29,8 @@ structure ComponentRoute where
 def ComponentRoute.length (r : ComponentRoute) : Nat :=
   r.component_path.length
 
-theorem componentRouteSchemaIsFrozenUntilPcf1 : True := by
-  sorry
+theorem emptyComponentRouteLengthIsZero :
+    ({ route_id := "pcf-4-deferred", component_path := [] } : ComponentRoute).length = 0 := by
+  rfl
 
 end Epistemos.PCF4
