@@ -24,3 +24,7 @@ Handbook row: [M2 Pro Verified Floor Handbook](M2_PRO_VERIFIED_FLOOR_HANDBOOK_20
 ## Failure Criterion
 
 This falsifier fails if any tensor/data copy occurs after shared backing is created, if copy sites are not byte-counted with stack labels, if metadata copies are not explicitly separated from data copies, or if there is no artifact from Jojo's M2 Pro 16 GB UMA floor.
+
+## Artifact Schema Axes
+
+The expected `result.json` must conform to [Falsifier Artifact Schema](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md) and include these minimum axes in `measurements`, `acceptance_thresholds`, and `pass_per_axis`: `tensor_copy_count`, `data_copy_bytes`, `metadata_copy_ledger`, and `stack_label_coverage`.
