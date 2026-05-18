@@ -3789,7 +3789,17 @@ mod tests {
                 Some(tier)
             );
         }
-        assert_eq!(ResidencyTier::from_canonical_name("L6 Unknown"), None);
+        for alias in [
+            "L6 Unknown",
+            " L0 RAM hot",
+            "L0 RAM hot ",
+            "l0 RAM hot",
+            "LSE Self-Evolving",
+            "L_SE self-evolving",
+            "L4 Network Cascade",
+        ] {
+            assert_eq!(ResidencyTier::from_canonical_name(alias), None);
+        }
     }
 
     #[test]
