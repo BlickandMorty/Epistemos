@@ -120,6 +120,10 @@ impl FulpReplayError {
         matches!(self, Self::PassMismatch { .. })
     }
 
+    pub fn is_shader_mismatch(&self) -> bool {
+        matches!(self, Self::ShaderMismatch { .. })
+    }
+
     pub fn is_fingerprint_mismatch(&self, expected_kind: FingerprintKind) -> bool {
         matches!(self, Self::FingerprintMismatch { kind, .. } if kind == &expected_kind)
     }
@@ -461,6 +465,16 @@ mod tests {
             error,
             FulpReplayError::ShaderEntrypointMismatch { .. }
         ));
+    }
+
+    #[test]
+    fn replay_rejects_shader_fingerprint_drift() {
+        let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
+            .expect("acceptance witness json");
+        witness.shader_fingerprint = "0".repeat(64);
+        let json = serde_json::to_string(&witness).unwrap();
+        let error = replay_witness_json(&json).expect_err("shader drift must fail replay");
+        assert!(error.is_shader_mismatch());
     }
 
     #[test]
