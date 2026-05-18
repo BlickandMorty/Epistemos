@@ -1572,6 +1572,61 @@ pub fn apply_layer_argmin_value_pair(
     Ok(Some((best_idx, best_val)))
 }
 
+/// Apply a layer then softmax-with-temperature over the output
+/// coordinates: `y_j = exp(β·L(x)[j]) / Σ_k exp(β·L(x)[k])`.
+///
+/// Numerically stable via max-shift before exp. Returns a valid
+/// probability distribution.
+///
+/// Behavior:
+/// - β ≤ 0 / non-finite → `BranchInputDimMismatch` error
+///   (parameter-validation channel; matches the convention of
+///   apply_layer_logsumexp_pool / apply_layer_neg_logsumexp_pool).
+///
+/// Iter-425 — temperature-controlled generalization of
+/// [`apply_layer_softmax`] (iter-365). β = 1 recovers standard
+/// softmax; β → ∞ approaches the hard one-hot argmax; β → 0
+/// approaches uniform. Useful for:
+/// - Temperature-scaled classifier calibration.
+/// - Soft-attention with a tunable concentration parameter.
+/// - Annealing schedules in optimization.
+///
+/// Source. Softmax-with-temperature: standard in modern deep
+/// learning, cf. Hinton, Vinyals, Dean, "Distilling the
+/// Knowledge in a Neural Network", arXiv:1503.02531 (2015) §2
+/// — knowledge-distillation temperature parameterization.
+pub fn apply_layer_softmax_temperature(
+    layer: &LinearNetwork,
+    input: &[f64],
+    beta: f64,
+) -> Result<Vec<f64>, OperatorEvalError> {
+    if beta <= 0.0 || !beta.is_finite() {
+        return Err(OperatorEvalError::BranchInputDimMismatch {
+            expected: 1,
+            actual: 0,
+        });
+    }
+    let v = evaluate_linear(layer, input)?;
+    if v.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut max_v = f64::NEG_INFINITY;
+    for &x in &v {
+        if x > max_v {
+            max_v = x;
+        }
+    }
+    let mut weights: Vec<f64> = v.iter().map(|&x| (beta * (x - max_v)).exp()).collect();
+    let z: f64 = weights.iter().sum();
+    if z <= 0.0 {
+        return Ok(vec![0.0; weights.len()]);
+    }
+    for w in weights.iter_mut() {
+        *w /= z;
+    }
+    Ok(weights)
+}
+
 /// Gated linear combination — softmax-gated mixture of experts.
 ///
 /// Given logits `g`, computes `w = softmax(g)`, then returns
@@ -4649,6 +4704,47 @@ mod tests {
             .unwrap();
         assert_eq!(min_idx, max_idx);
         assert!((min_val + max_val).abs() < 1e-12);
+    }
+
+    // ── iter-425: apply_layer_softmax_temperature ─────────────────
+
+    #[test]
+    fn apply_layer_softmax_temperature_beta_one_matches_softmax() {
+        let l = lin_const(vec![1.0, 5.0, 3.0, 2.0]);
+        let with_beta = apply_layer_softmax_temperature(&l, &[0.0, 0.0], 1.0).unwrap();
+        let plain = apply_layer_softmax(&l, &[0.0, 0.0]).unwrap();
+        for (a, b) in with_beta.iter().zip(plain.iter()) {
+            assert!((a - b).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn apply_layer_softmax_temperature_high_beta_concentrates_on_argmax() {
+        let l = lin_const(vec![1.0, 5.0, 2.0, 3.0]);
+        let w = apply_layer_softmax_temperature(&l, &[0.0, 0.0], 50.0).unwrap();
+        assert!(w[1] > 0.99);
+        for (i, wi) in w.iter().enumerate() {
+            if i != 1 {
+                assert!(*wi < 0.01);
+            }
+        }
+    }
+
+    #[test]
+    fn apply_layer_softmax_temperature_low_beta_approaches_uniform() {
+        let l = lin_const(vec![1.0, 5.0, 2.0, 3.0]);
+        let w = apply_layer_softmax_temperature(&l, &[0.0, 0.0], 0.01).unwrap();
+        let uniform = 0.25_f64;
+        for wi in w {
+            assert!((wi - uniform).abs() < 0.05);
+        }
+    }
+
+    #[test]
+    fn apply_layer_softmax_temperature_invalid_beta_is_err() {
+        let l = lin_const(vec![1.0, 2.0]);
+        assert!(apply_layer_softmax_temperature(&l, &[0.0, 0.0], 0.0).is_err());
+        assert!(apply_layer_softmax_temperature(&l, &[0.0, 0.0], -1.0).is_err());
     }
 
     #[test]
