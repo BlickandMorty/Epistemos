@@ -2886,7 +2886,9 @@ fn decision(
 }
 
 fn audit_request_id(value: &str) -> String {
-    if is_canonical_audit_token(value) {
+    if is_canonical_audit_token(value)
+        && !is_reserved_malformed_audit_token(value, MALFORMED_REQUEST_AUDIT_PREFIX)
+    {
         value.to_string()
     } else {
         malformed_audit_token(MALFORMED_REQUEST_AUDIT_PREFIX, value)
@@ -6214,6 +6216,38 @@ mod tests {
             .expect("first malformed request records");
         let second = admit_and_record(&second_input, &policy, 1_001, &sink)
             .expect("second malformed request records");
+
+        assert_ne!(first.audit_record.record_id, second.audit_record.record_id);
+        assert!(first.audit_record.validate().is_ok());
+        assert!(second.audit_record.validate().is_ok());
+        assert_eq!(run_event_log.len(), 2);
+    }
+
+    #[test]
+    fn acs_admission_run_event_log_sink_records_reserved_malformed_request_without_collision() {
+        let run_event_log =
+            crate::oplog::OpLog::new("acs-admission-sink-reserved-malformed-request-test");
+        let sink = ACSRunEventLogSink::new(&run_event_log);
+        let policy = ACSPolicy::strict("policy-run-event-log-reserved-malformed-request", 1_000);
+        let first_input = ACSAdmissionInput {
+            request_id: " ".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+        let second_input = ACSAdmissionInput {
+            request_id: audit_request_id(" "),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: Vec::new(),
+        };
+
+        let first = admit_and_record(&first_input, &policy, 1_001, &sink)
+            .expect("first malformed request records");
+        let second = admit_and_record(&second_input, &policy, 1_001, &sink)
+            .expect("reserved malformed request records");
 
         assert_ne!(first.audit_record.record_id, second.audit_record.record_id);
         assert!(first.audit_record.validate().is_ok());
