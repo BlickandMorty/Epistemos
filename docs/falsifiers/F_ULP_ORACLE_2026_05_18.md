@@ -65,6 +65,17 @@ freezes treat Metal output itself as proven.
 |---|---|---|---|---|---|---|
 | F-ULP-Oracle | Research | M2 Pro numeric falsifier | implemented-not-wired | `agent_core/src/research/eml_ir/`, `Epistemos/Shaders/morph_eval_reduced.metal`, `cargo test --features research research::eml_ir` | live Metal dispatch capture from `morphOracleFp16` | harden with GPU capture, subnormal/signed-zero diagnostics, WBO numerics cross-link, and Helios v3 §3.5/F7a reference |
 
+## Adversarial Reference Stats
+
+`adversarial_reference_stats` records `finite_count = 12` and
+`rejected_count = 8` over the 20-fixture adversarial set, so a candidate
+cannot collapse the rejected-by-IEEE branch (NaN inputs, signed-infinity
+inputs, exact `ln(0)` branches, and so on) into a finite ULP measurement.
+Replay rejects a witness whose `adversarial_reference_stats` disagree with
+the recomputed deterministic reference, which guarantees that the
+`finite_count` and `rejected_count` partition is itself part of the
+fingerprint chain rather than an opaque pre-computed claim.
+
 ## Scope Lock and Frozen Terminals
 
 The T12 F-ULP-Oracle lane only writes to

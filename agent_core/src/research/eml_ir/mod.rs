@@ -84,6 +84,16 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_doc_documents_adversarial_reference_stats() {
+        assert!(FULP_FALSIFIER_DOC.contains("## Adversarial Reference Stats"));
+        assert!(FULP_FALSIFIER_DOC.contains("`adversarial_reference_stats`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`finite_count = 12`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`rejected_count = 8`"));
+        assert!(FULP_FALSIFIER_DOC.contains("collapse the rejected-by-IEEE"));
+        assert!(FULP_FALSIFIER_DOC.contains("part of the\nfingerprint chain"));
+    }
+
+    #[test]
     fn falsifier_doc_documents_scope_lock_and_frozen_terminals() {
         assert!(FULP_FALSIFIER_DOC.contains("## Scope Lock and Frozen Terminals"));
         assert!(FULP_FALSIFIER_DOC.contains("`agent_core/src/research/operator_ir/`"));
