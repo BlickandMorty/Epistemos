@@ -41,9 +41,12 @@ structure AutogenousKernelClaim where
   alpha      : Float    -- 2-cell size scalar
   k_i        : Float    -- per-template ULP coefficient
 
+/-- E7 ULP multiplier in the per-template bound `K_i · 2 ULP`. -/
+def ulpBoundMultiplier : Float := 2.0
+
 /-- ULP bound for a template = `K_i · 2`. -/
 def AutogenousKernelClaim.ulpBound (c : AutogenousKernelClaim) : Float :=
-  c.k_i * 2.0
+  c.k_i * ulpBoundMultiplier
 
 /-- Kernel-vs-controller equivalence within ULP bound (the EB
 defensible form). For per-sample inputs, kernel + controller
@@ -71,6 +74,10 @@ theorem strongFormRemainsConjectural :
 
 theorem dependencyDirectionLocked :
     t7SitsOnTopOfT1ThroughT6 = true := by
+  rfl
+
+theorem ulpBoundMultiplierPinned :
+    ulpBoundMultiplier = 2.0 := by
   rfl
 
 end Epistemos.E7
