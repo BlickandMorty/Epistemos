@@ -157,7 +157,7 @@ fn assert_iter_format_canonical_panics_on_out_of_range() {
     assert_iter_format_canonical("iter 099", "MY_SOURCE_LABEL");
 }
 
-/// Iter 711 — catalog range continuation pin.
+/// Iter 712 — catalog range continuation pin.
 /// STATUS.md is the contributor-facing catalog for the closed-citation
 /// hardening arc. When new pins land after the previous range tip, the
 /// range must advance in lock-step so future readers can tell the arc is
@@ -167,9 +167,9 @@ fn status_md_closed_citation_iter_range_tip_tracks_latest_catalog_pin() {
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Closed-citation contract hardening (iters 127-711)"),
+        status.contains("Closed-citation contract hardening (iters 127-712)"),
         "STATUS.md closed-citation hardening catalog must advance its iter \
-         range tip to iter 711 when the catalog-continuation pin lands"
+         range tip to iter 712 when the catalog-continuation pin lands"
     );
 }
 
@@ -1109,6 +1109,31 @@ fn adversarial_query_fixture_lookup_by_expected_outcome_is_exact() {
         AdversarialQueryExpectedOutcome::DeterministicTieBreak,
     )
     .expect("deterministic-tie-break fixture exists");
+    assert_eq!(tie.label, "near-duplicate-paragraph-tie");
+}
+
+#[test]
+fn adversarial_query_fixture_lookup_by_kind_is_exact() {
+    use super::adversarial::{
+        adversarial_query_fixture_for_kind, AdversarialQueryFixtureKind,
+    };
+
+    let typo = adversarial_query_fixture_for_kind(
+        AdversarialQueryFixtureKind::TypoTransposition,
+    )
+    .expect("typo-transposition fixture exists");
+    assert_eq!(typo.label, "typo-transposition");
+
+    let saturation = adversarial_query_fixture_for_kind(
+        AdversarialQueryFixtureKind::Bm25Saturation,
+    )
+    .expect("bm25-saturation fixture exists");
+    assert_eq!(saturation.label, "bm25-saturation");
+
+    let tie = adversarial_query_fixture_for_kind(
+        AdversarialQueryFixtureKind::NearDuplicateParagraphTie,
+    )
+    .expect("near-duplicate paragraph tie fixture exists");
     assert_eq!(tie.label, "near-duplicate-paragraph-tie");
 }
 
