@@ -164,6 +164,14 @@ The command string is normalized only by removing the handbook's leading `NOT IM
 
 `timestamp_utc` must record the artifact creation time in RFC 3339 UTC form ending in `Z`, with bounded month, day, hour, minute, and second fields. Local timezone strings, date-only values, offset timestamps, leap-second spellings, or timestamps captured before the falsifier command completed fail replay eligibility because they cannot anchor the witness to the produced payload.
 
+The canonical `timestamp_utc` validator regex is:
+
+```
+^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?Z$
+```
+
+The regex rejects fractional offsets, non-`Z` zones, two-digit years, month 13, day 32, hour 24, minute 60, second 61, and any trailing characters. Validators may treat this regex as the single source of truth for the timestamp field across the catalog; receipts and migration notes reuse it via `$ref` rather than redeclaring it.
+
 ## Fixture Identity Rule
 
 `fixture_id` must be a replay-safe lowercase slug matching `^[a-z0-9][a-z0-9._-]*$` and stable enough to recover the input corpus, generated-case grid, seed, configuration, and dataset version used by the run. A fixture label that cannot distinguish regenerated inputs from the original witness input set fails replay eligibility.
