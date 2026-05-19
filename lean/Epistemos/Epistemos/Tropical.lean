@@ -224,6 +224,10 @@ structure RationalCertificateTarget where
 
 namespace RationalCertificateTarget
 
+theorem representationCarries (c : RationalCertificateTarget) :
+    RationalRepresentationObligation c.rational := by
+  exact c.representation
+
 theorem numeratorShape (c : RationalCertificateTarget) :
     c.rational.numerator = c.rational.numerator := by
   exact c.representation.numeratorShape
