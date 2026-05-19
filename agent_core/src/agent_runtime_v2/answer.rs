@@ -893,6 +893,43 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_and_citation_are_clone_send_sync_but_not_copy() {
+        // Phase 1 hardening — trait-bound pin for the String/Vec-bearing
+        // structs in answer.rs. Companion to AgentBlueprintId iter-375
+        // and MissionPacket + ToolCall iter-376.
+        //
+        //   - AnswerPacket: 7 fields (id + String + Vec<Citation> + ...),
+        //     Clone by derive but NOT Copy (heap allocations).
+        //   - Citation: 2 String fields, Clone by derive but NOT Copy.
+        //
+        // Send + Sync are load-bearing — AnswerPackets stream across
+        // the dispatcher's background-actor boundary and into the UI
+        // thread; Citation vectors must not pin to a single thread
+        // either.
+        //
+        // A future "let me cache a Weak<RunEventLog> inside AnswerPacket"
+        // refactor that introduced a non-Send field would silently
+        // break cross-thread propagation — surface here.
+        fn assert_clone_send_sync<T: Clone + Send + Sync>() {}
+        assert_clone_send_sync::<AnswerPacket>();
+        assert_clone_send_sync::<Citation>();
+
+        // Sanity: Clone yields equal value.
+        let c = Citation::from_tuple("s", "l");
+        assert_eq!(c.clone(), c);
+        let log = RunEventLog::new();
+        let p = AnswerPacket::emit(
+            AgentBlueprintId("a".into()),
+            "x".into(),
+            vec![c.clone()],
+            StopReason::EndTurn,
+            BudgetLedger::default(),
+            &log,
+        );
+        assert_eq!(p.clone(), p);
+    }
+
+    #[test]
     fn citation_serde_tolerates_unknown_extra_fields_per_current_doctrine() {
         // Phase 1 hardening — DOCTRINE PIN with forward-compat teeth.
         // Companion to the serde-tolerance pin family across
