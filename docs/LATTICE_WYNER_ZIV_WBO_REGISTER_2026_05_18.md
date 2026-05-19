@@ -181,6 +181,7 @@ so compound verifier strings such as `F-KV-Direct-Gate; F-WBO-DriftLedger`
 can name multiple canonical hooks; punctuation-delimited canonical hooks remain valid
 while prefix, suffix, slash-suffixed, and capitalized spoof variants are rejected.
 The ledger owner path guarantees that canonical hook slash-suffix and non-ASCII adjacency variants are rejected by the ledger owner path.
+Falsifier owner JSON rejects unicode-adjacent owner hook keys.
 
 ## Measured Budget Semantics
 

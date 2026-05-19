@@ -4015,6 +4015,7 @@ mod tests {
             "FalsifierHookOwner JSON rejects unknown fields",
             "`falsifier_hook_owner_json_rejects_unregistered_public_rows`",
             "owner JSON rejects unowned hooks, blank owners, and hook/owner mismatches while accepting exact registry rows",
+            "owner JSON rejects unicode-adjacent owner hook keys",
             "exactly one owner row",
             "`codec_falsifier_catalogs_name_owned_f_hooks_for_every_codec`",
             "`codec_falsifier_catalogs_cover_every_owned_f_hook`",
@@ -5333,6 +5334,20 @@ mod tests {
                 r#"{
                     "hook": "F-NOT-OWNED",
                     "owner": "docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md"
+                }"#,
+            ),
+            (
+                "unicode-adjacent hook suffix",
+                r#"{
+                    "hook": "F-ULP-Oracleβ",
+                    "owner": "agent_core/src/research/eml/ulp_oracle.rs"
+                }"#,
+            ),
+            (
+                "unicode-adjacent hook prefix",
+                r#"{
+                    "hook": "βF-ULP-Oracle",
+                    "owner": "agent_core/src/research/eml/ulp_oracle.rs"
                 }"#,
             ),
             (
