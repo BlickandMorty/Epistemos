@@ -160,6 +160,7 @@ assert anomaly_inspection_token_is_semicolon_delimited(artifact.notes)
 assert non_none_notes_include_lowercase_slug_reviewer_token(artifact.notes)
 assert notes_reviewer_token_is_semicolon_delimited(artifact.notes)
 assert non_none_notes_include_review_timestamp_token(artifact.notes)
+assert notes_review_timestamp_token_is_semicolon_delimited(artifact.notes)
 assert notes_reviewer_token_not_reserved_anonymous_identity(artifact.notes)
 assert notes_required_tokens_are_semicolon_delimited(artifact.notes)
 assert notes_length_within_schema_cap(artifact.notes)
@@ -220,6 +221,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 
 ```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); notes=schema.dig("properties","notes") || abort("notes missing"); rule=notes["allOf"].find { |r| r.dig("then","pattern")&.include?("reviewed_at_utc=") && r.dig("then","pattern")&.include?("reviewer=") }; abort("notes review timestamp rule missing") unless rule; puts "notes review timestamp ok"'
+```
+
+```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); notes=schema.dig("properties","notes") || abort("notes missing"); rule=notes["allOf"].find { |r| r.dig("then","pattern")&.include?("reviewed_at_utc=") } || abort("notes review timestamp rule missing"); pat=rule.dig("then","pattern") || abort("notes review timestamp pattern missing"); abort("notes review timestamp delimiter missing") unless pat.include?("(?:^|;\\\\s*)reviewed_at_utc=\\\\d{4}-") && s.include?("embedded `reviewed_at_utc=<RFC3339Z>` substring inside another value is not timestamp evidence"); puts "notes review timestamp delimiter ok"'
 ```
 
 ```bash
@@ -488,6 +493,7 @@ Implementation owner is TBD: merge-phase if artifact validation becomes part of 
 | `W-Validator-NotesReviewerDelimiter` | TBD validator-implementation terminal | Any executable validator accepts non-`none` falsifier `notes`. | Reject embedded `reviewer=<id>` substrings that are not bounded by note start/end or semicolon delimiters before anomaly or migration review. |
 | `W-Validator-NotesAnomalyInspectionDelimiter` | TBD validator-implementation terminal | Any executable validator accepts non-`none` falsifier `notes`. | Reject embedded `anomaly_inspection=complete` substrings that are not bounded by note start/end or semicolon delimiters before anomaly review. |
 | `W-Validator-NotesReviewTimestamp` | TBD validator-implementation terminal | Any executable validator accepts non-`none` falsifier `notes`. | Reject non-`none` notes missing `reviewed_at_utc=<RFC3339Z>` or using an offset/local timestamp before replay promotion. |
+| `W-Validator-NotesReviewTimestampDelimiter` | TBD validator-implementation terminal | Any executable validator accepts non-`none` falsifier `notes`. | Reject embedded `reviewed_at_utc=<RFC3339Z>` substrings that are not bounded by note start/end or semicolon delimiters before replay promotion. |
 | `W-Validator-NotesReviewerSentinel` | TBD validator-implementation terminal | Any executable validator accepts reviewer tokens in falsifier `notes`. | Reject reserved reviewer identities `anonymous`, `unknown`, `tbd`, and `none` before anomaly or migration review. |
 | `W-Validator-NotesTokenDelimiter` | TBD validator-implementation terminal | Any executable validator accepts machine-readable tokens in falsifier `notes`. | Reject whitespace-separated required notes tokens and require semicolon-delimited `key=value` parsing before replay promotion. |
 | `W-Validator-NotesLengthCap` | TBD validator-implementation terminal | Any executable validator accepts falsifier `notes`. | Reject notes longer than 1536 characters before replay promotion or migration acceptance, while preserving room for the full migration gap-token set. |
