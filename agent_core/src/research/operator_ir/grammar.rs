@@ -167,6 +167,9 @@ pub enum OperatorExprError {
     OutputDimMismatch { branch_dim: usize, trunk_dim: usize },
     /// Fourier kernel `modes` must be ≤ trunk's output dim.
     FourierModesTooLarge { modes: usize, trunk_output_dim: usize },
+    /// Fourier kernel needs at least one retained mode for Lean's
+    /// positive-mode isometry obligation.
+    FourierModesZero,
     LinearNetwork(LinearNetworkError),
 }
 
@@ -184,6 +187,9 @@ impl OperatorExpr {
             });
         }
         if let KernelTransform::Fourier { modes } = &kernel {
+            if *modes == 0 {
+                return Err(OperatorExprError::FourierModesZero);
+            }
             if *modes > trunk.output_dim() {
                 return Err(OperatorExprError::FourierModesTooLarge {
                     modes: *modes,
@@ -315,6 +321,19 @@ mod tests {
             err,
             OperatorExprError::FourierModesTooLarge { .. }
         ));
+    }
+
+    #[test]
+    fn operator_rejects_zero_fourier_modes() {
+        let branch = linear_2_to_3();
+        let trunk = linear_2_to_3();
+        let err = OperatorExpr::new(
+            branch,
+            trunk,
+            KernelTransform::Fourier { modes: 0 },
+        )
+        .unwrap_err();
+        assert_eq!(err, OperatorExprError::FourierModesZero);
     }
 
     #[test]
