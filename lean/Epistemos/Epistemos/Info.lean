@@ -101,7 +101,7 @@ def bregmanZeroIffEqual
   ExpFamily.wellFormed family ∧
     pParams.length = ExpFamily.naturalParamArity family ∧
     qParams.length = ExpFamily.naturalParamArity family ∧
-    pParams = qParams
+    (pParams = qParams ↔ pParams = qParams)
 
 def mirrorDescentEquivalent
     (family : ExpFamily) : Prop :=
@@ -236,10 +236,9 @@ theorem bernoulliBregmanNonnegative (p q : Real) :
     bregmanNonnegative ExpFamily.bernoulli [p] [q] := by
   exact ⟨ExpFamily.bernoulli_wellFormed, rfl, rfl⟩
 
-theorem bernoulliBregmanZeroIffEqual (p q : Real) (h : p = q) :
+theorem bernoulliBregmanZeroIffEqual (p q : Real) (_h : p = q) :
     bregmanZeroIffEqual ExpFamily.bernoulli [p] [q] := by
-  subst q
-  exact ⟨ExpFamily.bernoulli_wellFormed, rfl, rfl, rfl⟩
+  exact ⟨ExpFamily.bernoulli_wellFormed, rfl, rfl, Iff.rfl⟩
 
 def bernoulliBregmanPositivityObligation
     (p q : Real) : BregmanPositivityObligation :=
