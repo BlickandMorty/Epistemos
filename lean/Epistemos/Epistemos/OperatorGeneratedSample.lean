@@ -47,6 +47,7 @@ def operator_certificate_sample : Epistemos.Operator.CertificateTarget :=
   { expr := operator_expr_sample
     dim_consistent := operator_dim_match_schema_sample
     fno_equivalence := operator_fno_obligation_sample
+    fno_expr_matches := rfl
     fourier_isometry := some operator_fourier_obligation_sample }
 
 theorem operator_fourier_option_sample :

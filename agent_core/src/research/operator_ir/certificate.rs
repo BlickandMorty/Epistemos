@@ -137,12 +137,18 @@ pub fn lean_certificate(op: &OperatorExpr) -> String {
          \x20   {{ expr := operator_expr_{suffix}\n\
          \x20     dim_consistent := operator_dim_match_schema_{suffix}\n\
          \x20     fno_equivalence := operator_fno_obligation_{suffix}\n\
+         \x20     fno_expr_matches := rfl\n\
          \x20     fourier_isometry := {fourier_certificate_field} }}\n\
          \n\
          {fourier_option_theorem}\
          theorem operator_certificate_fno_{suffix} :\n\
          \x20   operator_certificate_{suffix}.fno_equivalence = operator_fno_obligation_{suffix} := by\n\
          \x20 rfl\n\
+         \n\
+         theorem operator_certificate_fno_expr_match_{suffix} :\n\
+         \x20   operator_certificate_{suffix}.fno_equivalence.expr = operator_certificate_{suffix}.expr := by\n\
+         \x20 exact Epistemos.Operator.CertificateTarget.fnoExprMatchesCarries\n\
+         \x20   operator_certificate_{suffix}\n\
          \n\
          theorem operator_certificate_dim_consistency_{suffix} :\n\
          \x20   operator_certificate_{suffix}.expr.branch.outputDim = operator_certificate_{suffix}.expr.trunk.outputDim := by\n\
@@ -282,6 +288,15 @@ mod tests {
         assert!(c.contains("theorem operator_certificate_fno_statement_"));
         assert!(c.contains("exact Epistemos.Operator.CertificateTarget.fnoStatementCarries"));
         assert!(c.contains("operator_certificate_"));
+    }
+
+    #[test]
+    fn certificate_carries_target_fno_expression_match() {
+        let op = fixture(KernelTransform::Identity);
+        let c = lean_certificate(&op);
+        assert!(c.contains("fno_expr_matches := rfl"));
+        assert!(c.contains("theorem operator_certificate_fno_expr_match_"));
+        assert!(c.contains("exact Epistemos.Operator.CertificateTarget.fnoExprMatchesCarries"));
     }
 
     #[test]

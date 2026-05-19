@@ -124,6 +124,7 @@ structure CertificateTarget where
   expr : Expr
   dim_consistent : expr.branch.outputDim = expr.trunk.outputDim
   fno_equivalence : FNOEquivalenceObligation
+  fno_expr_matches : fno_equivalence.expr = expr
   fourier_isometry : Option FourierIsometryObligation
 
 namespace CertificateTarget
@@ -137,6 +138,11 @@ theorem fnoStatementCarries
     (statementWitness : c.fno_equivalence.statement) :
     c.fno_equivalence.statement := by
   exact statementWitness
+
+theorem fnoExprMatchesCarries
+    (c : CertificateTarget) :
+    c.fno_equivalence.expr = c.expr := by
+  exact c.fno_expr_matches
 
 theorem fourierSomeCarries
     (c : CertificateTarget)
