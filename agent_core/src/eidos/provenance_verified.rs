@@ -33,7 +33,8 @@ use std::collections::BTreeSet;
 
 use super::retriever::EidosRetriever;
 use super::types::{
-    EidosChunkId, EidosContextPacket, EidosIndexManifestId, EidosQuery, EidosRetrievalMode,
+    is_blank_query_text, EidosChunkId, EidosContextPacket, EidosIndexManifestId, EidosQuery,
+    EidosRetrievalMode,
 };
 
 /// Wraps any [`EidosRetriever`] and filters its output to chunk ids that
@@ -79,7 +80,7 @@ impl<R: EidosRetriever> EidosRetriever for ProvenanceVerifiedRetriever<R> {
         query: &EidosQuery,
         retrieved_at_unix_ms: u64,
     ) -> EidosContextPacket {
-        if query.text.trim().is_empty() || query.top_k == 0 {
+        if is_blank_query_text(&query.text) || query.top_k == 0 {
             return EidosContextPacket {
                 query: query.clone(),
                 manifest_id: self.manifest_id().clone(),
@@ -201,6 +202,20 @@ mod tests {
         assert!(
             packet.hits.is_empty(),
             "PV must fail closed on blank query before trusting inner hits"
+        );
+    }
+
+    #[test]
+    fn invisible_only_query_defers_before_verified_filter_even_if_inner_leaks() {
+        let mut pv = ProvenanceVerifiedRetriever::new(BlankLeakingRetriever {
+            manifest_id: manifest(),
+        });
+        pv.admit(chunk("leak::lex"));
+        let q = EidosQuery::new("\u{200B}", EidosRetrievalMode::ProvenanceVerified, 16);
+        let packet = pv.retrieve(&q, 1_700_000_000_000);
+        assert!(
+            packet.hits.is_empty(),
+            "PV must fail closed on invisible-only query before trusting inner hits"
         );
     }
 
