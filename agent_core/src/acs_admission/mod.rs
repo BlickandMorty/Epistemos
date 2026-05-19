@@ -2607,7 +2607,7 @@ where
     let serde_json::Value::Object(object) = value else {
         return Err(E::custom("malformed_acs_admission_proof field=proof"));
     };
-    if object.contains_key(field) {
+    if object.get(field).is_some_and(serde_json::Value::is_string) {
         return Ok(());
     }
     let record_id = object
@@ -7670,6 +7670,25 @@ mod tests {
             "{message}"
         );
         assert!(message.contains("operation"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_scope_rex_proof_typed_verdict_names_malformed_proof_field() {
+        let encoded = serde_json::json!({
+            "verdict": true,
+            "operation": "memory_write",
+            "record_id": "acs:req:1001",
+            "signature": "00".repeat(CAPABILITY_SIGNATURE_BYTES),
+        });
+
+        let err = serde_json::from_value::<SCOPERexAdmissionProof>(encoded).unwrap_err();
+        let message = err.to_string();
+
+        assert!(
+            message.contains("malformed_acs_admission_proof"),
+            "{message}"
+        );
+        assert!(message.contains("verdict"), "{message}");
     }
 
     #[test]
