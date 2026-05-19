@@ -46,6 +46,7 @@ noncomputable def tropical_rational_certificate_sample :
   { rational := tropical_rational_form_sample
     numeratorHash := "sample-num"
     denominatorHash := "sample-den"
+    sourceRow := "docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Tropical-IR rational-form"
     representation := tropical_rational_obligation_sample }
 
 theorem tropical_rational_certificate_hash_fields_sample :
@@ -99,6 +100,21 @@ theorem tropical_rational_certificate_source_row_sample :
   exact Epistemos.Tropical.RationalCertificateTarget.sourceRowMatches
     tropical_rational_certificate_sample
     "docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Tropical-IR rational-form"
+    rfl
+
+theorem tropical_rational_certificate_target_source_row_sample :
+    tropical_rational_certificate_sample.sourceRow =
+      "docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Tropical-IR rational-form" := by
+  exact Epistemos.Tropical.RationalCertificateTarget.targetSourceRowMatches
+    tropical_rational_certificate_sample
+    "docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Tropical-IR rational-form"
+    rfl
+
+theorem tropical_rational_certificate_source_rows_match_sample :
+    tropical_rational_certificate_sample.sourceRow =
+      tropical_rational_certificate_sample.representation.sourceRow := by
+  exact Epistemos.Tropical.RationalCertificateTarget.sourceRowsMatch
+    tropical_rational_certificate_sample
     rfl
 
 theorem tropical_rational_certificate_target_hashes_from_representation_sample :

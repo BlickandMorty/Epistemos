@@ -268,6 +268,7 @@ structure RationalCertificateTarget where
   rational : RationalForm
   numeratorHash : String
   denominatorHash : String
+  sourceRow : String
   representation : RationalRepresentationObligation rational
 
 namespace RationalCertificateTarget
@@ -330,6 +331,19 @@ theorem sourceRowMatches
     (sourceRow : String)
     (stored : c.representation.sourceRow = sourceRow) :
     c.representation.sourceRow = sourceRow := by
+  exact stored
+
+theorem targetSourceRowMatches
+    (c : RationalCertificateTarget)
+    (sourceRow : String)
+    (stored : c.sourceRow = sourceRow) :
+    c.sourceRow = sourceRow := by
+  exact stored
+
+theorem sourceRowsMatch
+    (c : RationalCertificateTarget)
+    (stored : c.sourceRow = c.representation.sourceRow) :
+    c.sourceRow = c.representation.sourceRow := by
   exact stored
 
 theorem targetHashFieldsFromRepresentation
