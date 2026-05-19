@@ -258,9 +258,13 @@ is expected, and so on), an out-of-range unsigned integer for any numeric
 path, a missing required field, or a stats array whose length is not the
 expected three per-operation rows is rejected with a typed `FulpReplayError`
 so a corruption-after-emit attack cannot pass replay even when the
-high-level numbers superficially match. A compact reserialized witness with an unknown nested field
-is rejected by path after JSON repacking, so removing pretty-print whitespace
-cannot hide a nested schema extension.
+high-level numbers superficially match. A missing `rejected_count` inside
+`adversarial_reference_stats` is rejected at
+`adversarial_reference_stats.rejected_count`, so a candidate cannot drop the
+rejected side of the adversarial split while preserving `finite_count`.
+A compact reserialized witness with an unknown nested field is rejected by
+path after JSON repacking, so removing pretty-print whitespace cannot hide a
+nested schema extension.
 
 ## Wall-Clock Budget
 
