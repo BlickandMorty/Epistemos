@@ -65,6 +65,40 @@ freezes treat Metal output itself as proven.
 |---|---|---|---|---|---|---|
 | F-ULP-Oracle | Research | M2 Pro numeric falsifier | implemented-not-wired | `agent_core/src/research/eml_ir/`, `Epistemos/Shaders/morph_eval_reduced.metal`, `cargo test --features research research::eml_ir` | live Metal dispatch capture from `morphOracleFp16` | harden with GPU capture, subnormal/signed-zero diagnostics, WBO numerics cross-link, and Helios v3 §3.5/F7a reference |
 
+## Adversarial Fixture Purposes
+
+The 20 adversarial fixtures live outside the closed-interval acceptance grid
+and witness the kernel's signed-zero, NaN, infinity, and subnormal behavior so
+that the bulk ULP statistic on `[0.5, 2]` does not hide a discontinuity.
+
+- `exp_positive_zero` / `exp_negative_zero`: probes `exp(±0) = 1` so the
+  candidate cannot encode an unsigned-zero fast path that swallows the sign
+  bit and rounds inconsistently against `f64::exp` rounded to binary16.
+- `ln_positive_zero` / `ln_negative_zero`: probes `ln(+0)` and `ln(-0)`, the
+  IEEE-defined negative-infinity branch, so the candidate is rejected if it
+  silently substitutes an `fp16` MAX or clamps to a finite value.
+- `ln_f64_min_positive_subnormal`: anchors the smallest positive `f64`
+  subnormal `f64::from_bits(1)` to catch a candidate that flushes the input
+  before computing `ln`.
+- `ln_fp16_min_positive_subnormal` / `ln_fp16_max_positive_subnormal` /
+  `ln_fp16_min_positive_normal`: span the fp16 subnormal / normal boundary
+  for the `ln` operand so a kernel that flushes-to-zero on fp16 inputs is
+  caught at the boundary.
+- `nan_x` / `nan_y` / `nan_payload_x` / `nan_payload_y`: probes both quiet
+  NaN inputs and explicit IEEE NaN payload bits so a candidate cannot
+  silently canonicalize the NaN payload during fp16 rounding.
+- `positive_infinity_y` / `negative_infinity_x`: probes the well-defined
+  infinity branches of `ln` and `exp` so a candidate cannot replace either
+  with a finite saturating value.
+- `eml_fp16_max_positive_subnormal` / `eml_fp16_min_positive_normal`: same
+  fp16 subnormal / normal boundary applied to `eml(x, y) = exp(x) - ln(y)`
+  so the subtraction does not paper over a `ln` subnormal handling drift.
+- `eml_ln_negative_zero` / `eml_exp_positive_zero` / `eml_exp_negative_zero`:
+  combine signed-zero exact branches with `eml` so a kernel that loses the
+  sign bit inside the subtraction is rejected.
+- `ln_one_exact_zero`: anchors the exact `ln(1) = +0` branch so a
+  candidate cannot return `-0` and pass the bulk grid.
+
 ## Stress Fixture Axes
 
 The 2,048-point stress block is split into four axes of 512 points each, plus

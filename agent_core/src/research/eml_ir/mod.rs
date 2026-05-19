@@ -84,6 +84,18 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_doc_documents_adversarial_fixture_purposes() {
+        assert!(FULP_FALSIFIER_DOC.contains("## Adversarial Fixture Purposes"));
+        assert!(FULP_FALSIFIER_DOC.contains("`exp_positive_zero`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`ln_negative_zero`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`ln_fp16_min_positive_subnormal`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`nan_payload_x`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`positive_infinity_y`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`eml_fp16_max_positive_subnormal`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`ln_one_exact_zero`"));
+    }
+
+    #[test]
     fn falsifier_doc_documents_stress_fixture_axes() {
         assert!(FULP_FALSIFIER_DOC.contains("## Stress Fixture Axes"));
         assert!(FULP_FALSIFIER_DOC.contains("`log_sampled`"));
