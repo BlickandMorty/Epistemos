@@ -4179,10 +4179,7 @@ mod tests {
         assert_eq!(
             rows,
             vec![
-                (
-                    LatticeCoderKind::ExactHot,
-                    Some(ResidencyTier::L0RamHot)
-                ),
+                (LatticeCoderKind::ExactHot, Some(ResidencyTier::L0RamHot)),
                 (
                     LatticeCoderKind::LatticeWynerZivResidual,
                     Some(ResidencyTier::L1CompressedResidual)
@@ -5319,8 +5316,14 @@ mod tests {
                 "missing WBO term doc row for {}",
                 term.code()
             );
-            let row_count = register
+            let term_rows = register
                 .lines()
+                .skip_while(|line| *line != "## WBO Term Obligation Map")
+                .skip(1)
+                .take_while(|line| *line != "### WBO Witness Contracts")
+                .collect::<Vec<_>>();
+            let row_count = term_rows
+                .iter()
                 .filter(|line| line.starts_with(&needle))
                 .count();
             assert_eq!(
@@ -5329,8 +5332,8 @@ mod tests {
                 "{} must name one WBO term obligation row",
                 term.code()
             );
-            let row = register
-                .lines()
+            let row = term_rows
+                .iter()
                 .find(|line| line.starts_with(&needle))
                 .expect("term row should exist");
             let cells = row
@@ -5410,6 +5413,34 @@ mod tests {
                 "{} must have exactly one witness-contract row",
                 term.code()
             );
+        }
+    }
+
+    #[test]
+    fn register_doc_wbo_witness_contracts_name_term_f_hooks() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        let witness_contract_rows = register
+            .lines()
+            .skip_while(|line| *line != "### WBO Witness Contracts")
+            .skip(1)
+            .take_while(|line| !line.starts_with("## "))
+            .collect::<Vec<_>>();
+
+        for term in WboTermCode::ALL {
+            let needle = format!("| `{}` |", term.code());
+            let row = witness_contract_rows
+                .iter()
+                .find(|line| line.starts_with(&needle))
+                .unwrap_or_else(|| panic!("missing witness-contract row for {}", term.code()));
+            let row_hooks = f_hooks_in(row);
+
+            for hook in f_hooks_in(term.falsifier()) {
+                assert!(
+                    row_hooks.contains(&hook),
+                    "{} witness contract must name typed falsifier hook {hook}",
+                    term.code()
+                );
+            }
         }
     }
 
@@ -5545,7 +5576,7 @@ mod tests {
             .lines()
             .skip_while(|line| *line != "## WBO Term Obligation Map")
             .skip(1)
-            .take_while(|line| !line.starts_with("## "))
+            .take_while(|line| *line != "### WBO Witness Contracts")
             .filter_map(|line| {
                 line.strip_prefix("| `")
                     .and_then(|tail| tail.split_once("` |"))
@@ -7938,14 +7969,11 @@ mod tests {
                 .expect("valid residual")
                 .with_measured(0.18)
                 .expect("valid residual measurement");
-        let numerics = LatticeErrorContribution::new(
-            WboTermCode::NumericalPostCorrection,
-            "numerics",
-            0.04,
-        )
-        .expect("valid numerics")
-        .with_measured(0.03)
-        .expect("valid numerics measurement");
+        let numerics =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.04)
+                .expect("valid numerics")
+                .with_measured(0.03)
+                .expect("valid numerics measurement");
         let budget = LatticeBudget::new(
             LatticeCoderKind::LatticeWynerZivResidual,
             Some(1250),

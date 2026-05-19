@@ -42,11 +42,11 @@ UAS §2, §4, and §5 line anchors are checked against current headings.
 
 | Serialized surface | Source anchor | Register obligation |
 |---|---|---|
-| `FalsifierHookOwner` | `agent_core/src/lattice_wbo/mod.rs:719` `FalsifierHookOwner` | Falsifier hook owner rows remain strict `hook` / `owner` public JSON evidence. |
-| `LatticeErrorContribution` | `agent_core/src/lattice_wbo/mod.rs:771` `LatticeErrorContribution` | Per-axis budget and measured contribution keys remain the canonical WBO evidence atom. |
-| `LatticeBudget` | `agent_core/src/lattice_wbo/mod.rs:852` `LatticeBudget` | Codec, rate, side-information, and contribution vectors remain one validated public budget envelope. |
-| `ActiveSupportBudget` | `agent_core/src/lattice_wbo/mod.rs:1115` `ActiveSupportBudget` | Active-support caps remain a secondary residency budget only for tiers that explicitly allow it. |
-| `WboLedgerEntry` | `agent_core/src/lattice_wbo/mod.rs:1183` `WboLedgerEntry` | Memory tier, budget, optional active support, falsifier, and caveat stay bound as one ledger row. |
+| `FalsifierHookOwner` | `agent_core/src/lattice_wbo/mod.rs:737` `FalsifierHookOwner` | Falsifier hook owner rows remain strict `hook` / `owner` public JSON evidence. |
+| `LatticeErrorContribution` | `agent_core/src/lattice_wbo/mod.rs:789` `LatticeErrorContribution` | Per-axis budget and measured contribution keys remain the canonical WBO evidence atom. |
+| `LatticeBudget` | `agent_core/src/lattice_wbo/mod.rs:870` `LatticeBudget` | Codec, rate, side-information, and contribution vectors remain one validated public budget envelope. |
+| `ActiveSupportBudget` | `agent_core/src/lattice_wbo/mod.rs:1149` `ActiveSupportBudget` | Active-support caps remain a secondary residency budget only for tiers that explicitly allow it. |
+| `WboLedgerEntry` | `agent_core/src/lattice_wbo/mod.rs:1217` `WboLedgerEntry` | Memory tier, budget, optional active support, falsifier, and caveat stay bound as one ledger row. |
 
 ## Invariants
 
@@ -84,12 +84,12 @@ UAS §2, §4, and §5 line anchors are checked against current headings.
 
 | Term | Witness contract |
 |---|---|
-| `T_W` | Weight/runtime rows must carry a layerwise reconstruction or logit-drift witness tied to the exact promoted weight delta or quantized block; adapter rows must also carry replayable mutation provenance before promotion. |
-| `T_K` | KV/cache rows must carry runtime attention/KV curvature, an active-support mask or page oracle, and a `F-KV-Direct-Gate` witness whenever reconstruction or restore equivalence is claimed. |
-| `T_R` | Residual rows must carry decoder LM state plus residual-stream evidence and a residual KL slice; calibration Hessians from weight codecs cannot witness residual transfer. |
-| `T_Q` | Quantization rows must name the exact codec family, rate or codebook where applicable, and a layerwise reconstruction or logit-drift witness for that codec's quantized blocks. |
-| `T_S` | Substrate-boundary rows must carry the concrete boundary witness: nonzero `ActiveSupportBudget`, provenance edge, oracle page, or signed teacher output, plus `F-ACS-AnchorLookup` when lookup or anchoring is claimed. |
-| `T_SE` | Self-evolving/security rows must carry a mutation envelope, signed claim ledger or capability witness, and replayable adapter or provider provenance before any changed authority is promoted. |
+| `T_W` | Weight/runtime rows must carry `F-WBO-DriftLedger` plus a layerwise reconstruction or logit-drift witness tied to the exact promoted weight delta or quantized block; adapter rows must also carry replayable mutation provenance before promotion. |
+| `T_K` | KV/cache rows must carry runtime attention/KV curvature, an active-support mask or page oracle, `F-KV-Direct-Gate`, and `F-WBO-DriftLedger` whenever reconstruction or restore equivalence is claimed. |
+| `T_R` | Residual rows must carry `F-WBO-DriftLedger`, decoder LM state plus residual-stream evidence, and a residual KL slice; calibration Hessians from weight codecs cannot witness residual transfer. |
+| `T_Q` | Quantization rows must name `F-WBO-DriftLedger`, the exact codec family, rate or codebook where applicable, and a layerwise reconstruction or logit-drift witness for that codec's quantized blocks. |
+| `T_S` | Substrate-boundary rows must carry `F-WBO-DriftLedger` plus the concrete boundary witness: nonzero `ActiveSupportBudget`, provenance edge, oracle page, or signed teacher output, plus `F-ACS-AnchorLookup` when lookup or anchoring is claimed. |
+| `T_SE` | Self-evolving/security rows must carry `F-WBO-DriftLedger`, a mutation envelope, signed claim ledger or capability witness, and replayable adapter or provider provenance before any changed authority is promoted. |
 | `T_num` | Numerical rows must carry IEEE/fp mode, per-token KL or ULP evidence, and `F-ULP-Oracle`; `F-WBO-DriftLedger` alone is not a numerical witness. |
 
 ## Side-Information Decoding Kinds
