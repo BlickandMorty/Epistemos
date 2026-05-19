@@ -929,6 +929,28 @@ mod tests {
     }
 
     #[test]
+    fn mission_packet_display_with_empty_fields_produces_terse_layout() {
+        // Phase 1 hardening — boundary pin for MissionPacket Display
+        // with empty blueprint_id + vault_scope (companion to
+        // answer_packet_display_with_empty_blueprint_id_produces_terse_output
+        // iter-428).
+        //
+        // Both fields are user-supplied free-form Strings; empty
+        // values must not panic and must produce
+        //   "MissionPacket{blueprint=, scope=}"
+        // with the layout intact.
+        let mp = MissionPacket {
+            blueprint_id: AgentBlueprintId(String::new()),
+            user_prompt: "hidden".to_string(),
+            vault_scope: String::new(),
+        };
+        let display = format!("{mp}");
+        assert_eq!(display, "MissionPacket{blueprint=, scope=}");
+        // Prompt absent.
+        assert!(!display.contains("hidden"));
+    }
+
+    #[test]
     fn mission_packet_display_writes_special_chars_verbatim_no_escaping() {
         // Phase 1 hardening — Display vs serde behaviour pin.
         // mission.rs §21 Display impl writes:
