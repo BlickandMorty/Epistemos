@@ -2815,6 +2815,40 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 41st PureChatter row (iter-350, milestone iteration):
+        // 16-token long-input shape — "please can you tell me
+        // what where when how some of my notes are about stuff".
+        // Extends the long-input cardinality progression to 16
+        // (iter-342 was 15). LONGEST PureChatter query in the
+        // fixture. Mixes 13 chatter sub-classes (politeness +
+        // modal + 2 pronouns + imperative + 4 wh-words +
+        // quantifier + preposition + chatter-noun + be-verb +
+        // preposition-trail + 2nd chatter-noun). All 16 tokens
+        // (please / can / you / tell / me / what / where / when
+        // / how / some / of / my / notes / are / about / stuff)
+        // are in QUERY_CHATTER_WORDS. Four wh-words + dual
+        // chatter-nouns + trailing preposition. iter-350
+        // milestone.
+        query: "please can you tell me what where when how some of my notes are about stuff",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Forty-first PureChatter row (iter-350, milestone): \
+               16-token long-input (\"please can you tell me \
+               what where when how some of my notes are about \
+               stuff\"). Extends cardinality to 16 (iter-342 = \
+               15). LONGEST PureChatter query in the fixture. \
+               Mixes 13 chatter sub-classes. Four wh-words + \
+               dual chatter-nouns (notes + stuff) + trailing \
+               \"about\". All 16 tokens in QUERY_CHATTER_WORDS. \
+               iter-350 milestone. Brings PureChatter to depth \
+               41 — first category past depth-40 horizon.",
+    },
+    FVaultRecallRow {
         // 40th PureChatter row (iter-342): 15-token long-input
         // shape — "please can you tell me what where when how
         // some of my notes are about". Extends the long-input
