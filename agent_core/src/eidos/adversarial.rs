@@ -243,6 +243,14 @@ pub fn adversarial_query_fixture_kind_tokens_are_ascii_lowercase_kebab_case() ->
         .all(|kind| is_ascii_lowercase_kebab_case(kind.token()))
 }
 
+pub fn adversarial_query_fixture_kind_tokens_match_fixture_labels() -> bool {
+    ADVERSARIAL_QUERY_FIXTURE_KINDS.len() == ADVERSARIAL_QUERY_FIXTURES.len()
+        && ADVERSARIAL_QUERY_FIXTURE_KINDS
+            .iter()
+            .zip(ADVERSARIAL_QUERY_FIXTURES.iter())
+            .all(|(kind, fixture)| kind.token() == fixture.label)
+}
+
 pub fn adversarial_query_fixture_expected_outcome_tokens_are_ascii_lowercase_kebab_case(
 ) -> bool {
     ADVERSARIAL_QUERY_FIXTURE_EXPECTED_OUTCOMES
@@ -270,6 +278,7 @@ pub fn adversarial_query_fixture_catalog_static_surface_is_wire_safe() -> bool {
     adversarial_query_fixture_catalog_static_surface_is_complete()
         && adversarial_query_fixture_labels_are_ascii_lowercase_kebab_case()
         && adversarial_query_fixture_kind_tokens_are_ascii_lowercase_kebab_case()
+        && adversarial_query_fixture_kind_tokens_match_fixture_labels()
         && adversarial_query_fixture_expected_outcome_tokens_are_ascii_lowercase_kebab_case()
         && adversarial_query_fixture_query_texts_are_nonempty_trimmed_and_control_free()
         && adversarial_query_fixture_descriptions_are_trimmed_and_control_free()
