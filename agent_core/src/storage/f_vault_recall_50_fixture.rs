@@ -6823,6 +6823,36 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 45th ChattyPrefix row (iter-377): Bopomofo-multilingual
+        // signal domain — 35th distinct lexical universe.
+        // Survivors after strip {Mamba, ㄎ}. 2-term AND matches
+        // only iter-227's mamba_bopomofo.md. TWENTY-FOURTH non-
+        // ASCII ChattyPrefix domain. SECOND East-Asian script
+        // in ChattyPrefix (after CJK 缓存). Bopomofo (Zhuyin)
+        // is the Mandarin Chinese phonetic-alphabet script —
+        // ChattyPrefix now covers BOTH typological branches of
+        // Chinese-language writing: ideographic Han + phonetic
+        // Bopomofo. Parallels iter-375 SignalOnly Bopomofo
+        // single-term-AND.
+        query: "Show me my Mamba ㄎ notes",
+        expected_paths: &["notes/mamba_bopomofo.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Forty-fifth ChattyPrefix row (iter-377): Bopomofo-\
+               multilingual signal domain — 35th distinct \
+               lexical universe. Survivors {Mamba, ㄎ} after \
+               strip. 2-term AND matches only iter-227 \
+               mamba_bopomofo.md. Twenty-fourth non-ASCII \
+               ChattyPrefix domain. SECOND East-Asian script in \
+               ChattyPrefix. ChattyPrefix now covers BOTH \
+               typological branches of Chinese-language writing: \
+               ideographic Han + phonetic Bopomofo. Parallels \
+               iter-375 SignalOnly Bopomofo. Brings ChattyPrefix \
+               to depth 45 — first category past depth-44 \
+               horizon. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 44th ChattyPrefix row (iter-370, milestone iteration):
         // Vai-multilingual signal domain — 34th distinct lexical
         // universe. Survivors after strip {Mamba, ꕞ}. 2-term AND
