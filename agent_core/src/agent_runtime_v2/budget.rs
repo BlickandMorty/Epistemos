@@ -2883,6 +2883,90 @@ mod tests {
     }
 
     #[test]
+    fn check_and_debit_sequencing_is_associative_when_combined_debit_fits_cap() {
+        // Phase 1 hardening — algebraic-property pin (companion to
+        // refund_is_left_inverse_of_check_and_debit). For any ledger L
+        // and debits d1, d2 where (d1 + d2) also fits the gate's spec:
+        //
+        //   gate.check_and_debit(gate.check_and_debit(L, d1)?, d2)?
+        //   == gate.check_and_debit(L, d1+d2)?                  (byte-equal)
+        //
+        // The two-step sequencing must produce the same ledger as the
+        // single combined debit. This is the canonical property the
+        // dispatcher relies on when batching multiple tool calls under
+        // the same gate (apply one big aggregate debit OR apply each
+        // tool's individual debit; ledger must agree). A future
+        // "let me charge a sequencing-overhead per call" tweak would
+        // silently introduce a divergence between the two paths and
+        // break replay parity for batched runs.
+        let gate = BudgetGate::new(
+            BudgetSpec::new(10_000, 60_000, 20, 30_000).with_memory_bytes(1_000_000),
+        );
+        let initial = BudgetLedger::default();
+        // 5 (d1, d2) fixture pairs covering single-axis + multi-axis.
+        let pairs: &[(BudgetDebit, BudgetDebit)] = &[
+            // Single-axis tokens.
+            (
+                BudgetDebit { tokens: 100, ..Default::default() },
+                BudgetDebit { tokens: 200, ..Default::default() },
+            ),
+            // Single-axis tool_calls.
+            (
+                BudgetDebit { tool_calls: 1, ..Default::default() },
+                BudgetDebit { tool_calls: 2, ..Default::default() },
+            ),
+            // Disjoint axes.
+            (
+                BudgetDebit { tokens: 50, ..Default::default() },
+                BudgetDebit { wall_ms: 100, ..Default::default() },
+            ),
+            // Multi-axis: each debit non-zero on every axis.
+            (
+                BudgetDebit {
+                    tokens: 100,
+                    wall_ms: 50,
+                    tool_calls: 1,
+                    subprocess_ms: 100,
+                    memory_bytes: 100,
+                },
+                BudgetDebit {
+                    tokens: 50,
+                    wall_ms: 75,
+                    tool_calls: 2,
+                    subprocess_ms: 150,
+                    memory_bytes: 150,
+                },
+            ),
+            // d1 = zero (identity), d2 = non-zero — proves zero-identity
+            // is consistent with sequencing.
+            (
+                BudgetDebit::default(),
+                BudgetDebit { tokens: 500, ..Default::default() },
+            ),
+        ];
+        for (idx, (d1, d2)) in pairs.iter().enumerate() {
+            let combined = BudgetDebit {
+                tokens: d1.tokens + d2.tokens,
+                wall_ms: d1.wall_ms + d2.wall_ms,
+                tool_calls: d1.tool_calls + d2.tool_calls,
+                subprocess_ms: d1.subprocess_ms + d2.subprocess_ms,
+                memory_bytes: d1.memory_bytes + d2.memory_bytes,
+            };
+            // Two-step path.
+            let after_d1 = gate.check_and_debit(initial, *d1).expect("d1 fits");
+            let after_d1_d2 = gate.check_and_debit(after_d1, *d2).expect("d2 fits");
+            // Single-step path.
+            let after_combined = gate
+                .check_and_debit(initial, combined)
+                .expect("d1+d2 fits");
+            assert_eq!(
+                after_d1_d2, after_combined,
+                "fixture {idx}: two-step debit must equal single-step combined"
+            );
+        }
+    }
+
+    #[test]
     fn refund_is_left_inverse_of_check_and_debit_across_5_axis_field_space() {
         // Phase 1 hardening — algebraic-property pin (companion to the
         // refund pin family at iter-326..iter-329). For any ledger L
