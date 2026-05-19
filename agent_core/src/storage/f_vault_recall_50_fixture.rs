@@ -7428,6 +7428,42 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 44th Adversarial row (iter-367): BM25/IR 7-term long-
+        // query — {bm25, saturation, length, penalty, ranking,
+        // ir, search}. Keeps all 4 canonical primaries + 3
+        // IR-context tail tokens (ranking + ir + search from
+        // canonical's tail "...ranking ir search relevance
+        // scoring notes"). 7 terms OR. Canonical body has all
+        // 7 (2-3× primaries + 1× each of ranking/ir/search);
+        // saturation_stuffed_decoy has only "saturation" → 1
+        // of 7; other decoys ≤1 of 7. THIRD 7-term Adversarial
+        // row in fixture (after iter-353 agent-runtime + iter-
+        // 360 vault). BM25/IR corpus now exercised at 4-term +
+        // 5-term + 6-term + 7-term — SECOND canonical at FOUR
+        // query-length coverage points.
+        query: "bm25 saturation length penalty ranking ir search",
+        expected_paths: &["notes/bm25_saturation_length_penalty.md"],
+        forbidden_paths: &[
+            "notes/saturation_stuffed_decoy.md",
+            "notes/bm25_overview.md",
+            "notes/length_archive.md",
+            "notes/penalty_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Forty-fourth Adversarial row (iter-367): BM25/IR \
+               7-term long-query \"bm25 saturation length \
+               penalty ranking ir search\". Keeps all 4 \
+               primaries + 3 IR-context tail tokens. THIRD 7-\
+               term Adversarial (after iter-353 agent-runtime + \
+               iter-360 vault). BM25/IR now exercised at 4-\
+               term + 5-term + 6-term + 7-term — SECOND \
+               canonical at FOUR query-length coverage points. \
+               Canonical 7/7; decoys ≤1 of 7. Brings Adversarial \
+               to depth 44 — first category past depth-43 \
+               horizon. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 43rd Adversarial row (iter-360, milestone iteration):
         // vault-canon 7-term long-query — {vault, index, reload,
         // tantivy, vaultstore, reader, visibility}. Keeps all 4
