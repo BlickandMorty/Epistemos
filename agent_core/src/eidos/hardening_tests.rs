@@ -8169,6 +8169,144 @@ fn hashset_dedup_follows_eidos_citation_full_truth_table() {
     );
 }
 
+/// Multilingual `HashSet<EidosCitation>` dedup pin. The iter 181
+/// 2×2 truth table was on ASCII. The byte-strict floor (iters 658-
+/// 661) requires that NFC and NFD forms of the same visual identifier
+/// are DISTINCT keys, while two byte-equal non-Latin ids dedup to one.
+///
+/// If a future custom Hash impl (or `BuildHasher` change) ever ran
+/// Unicode canonicalization on the source_id payload before
+/// hashing, NFC and NFD Hangul forms would hash to the same bucket
+/// and dedup would silently collapse vault entries authored in
+/// different normalization forms — the exact gap the byte-strict
+/// closed-citation floor is meant to prevent.
+///
+/// Pins:
+///   - HashSet of {Han NFC, Han NFC duplicate, Hangul NFC, Hangul NFD,
+///     Arabic legitimate, Arabic harakat-mutated, Latin baseline} →
+///     final size 6 (the NFC duplicate dedups to its sibling, every
+///     other pair stays distinct)
+///   - Lookup `set.contains(&original)` returns true; lookup of a
+///     byte-different NFD variant returns false (the byte-strict
+///     floor at the HashSet boundary)
+///   - All non-Latin entries are non-ASCII (fixture sanity)
+///
+/// Companion to:
+///   - iter 145 (EQ conjunctive on (source_id, manifest_id))
+///   - iter 181 (HashSet 2×2 truth table on ASCII)
+///   - iter 661 (NFC/NFD byte-strict at validate_citation)
+///   - this iter (HashSet dedup byte-strict across non-Latin scripts)
+#[test]
+fn hashset_dedup_is_byte_strict_for_multilingual_non_latin_ids() {
+    use super::types::{EidosChunkId, EidosCitation};
+    use std::collections::HashSet;
+
+    let m = manifest();
+
+    // Build the citation lattice. Each entry is distinct in bytes
+    // EXCEPT the Han-NFC-duplicate which is byte-equal to Han-NFC.
+    let han_nfc = EidosCitation {
+        source_id: EidosChunkId::new("笔记-a::lex").unwrap(),
+        manifest_id: m.clone(),
+    };
+    let han_nfc_dup = EidosCitation {
+        source_id: EidosChunkId::new("笔记-a::lex").unwrap(),
+        manifest_id: m.clone(),
+    };
+    let hangul_nfc = EidosCitation {
+        source_id: EidosChunkId::new("\u{B178}트-a::lex").unwrap(),
+        manifest_id: m.clone(),
+    };
+    let hangul_nfd = EidosCitation {
+        source_id: EidosChunkId::new("\u{1102}\u{1169}트-a::lex").unwrap(),
+        manifest_id: m.clone(),
+    };
+    let arabic_legit = EidosCitation {
+        source_id: EidosChunkId::new("ملاحظة-a::lex").unwrap(),
+        manifest_id: m.clone(),
+    };
+    let arabic_mutated = EidosCitation {
+        source_id: EidosChunkId::new("ملاحضة-a::lex").unwrap(),
+        manifest_id: m.clone(),
+    };
+    let latin_baseline = EidosCitation {
+        source_id: EidosChunkId::new("note-a::lex").unwrap(),
+        manifest_id: m.clone(),
+    };
+
+    // Fixture sanity: every non-Latin source_id is genuinely non-ASCII.
+    for (label, cite) in [
+        ("Han NFC", &han_nfc),
+        ("Hangul NFC", &hangul_nfc),
+        ("Hangul NFD", &hangul_nfd),
+        ("Arabic legit", &arabic_legit),
+        ("Arabic mutated", &arabic_mutated),
+    ] {
+        assert!(
+            !cite.source_id.as_str().is_ascii(),
+            "{label}: fixture sanity — must be non-ASCII"
+        );
+    }
+    // Han NFC and its duplicate are BYTE-EQUAL (the dedup case).
+    assert_eq!(
+        han_nfc.source_id.as_str().as_bytes(),
+        han_nfc_dup.source_id.as_str().as_bytes(),
+        "Han NFC duplicate must be byte-equal to its sibling (this is \
+         the only pair in the lattice that should collapse to one \
+         HashSet bucket)"
+    );
+    // Hangul NFC and NFD are BYTE-DIFFERENT (the NFC/NFD case).
+    assert_ne!(
+        hangul_nfc.source_id.as_str().as_bytes(),
+        hangul_nfd.source_id.as_str().as_bytes(),
+        "Hangul NFC vs NFD must differ in bytes (the NFC/NFD pair \
+         must NOT collapse in HashSet — byte-strict)"
+    );
+
+    let mut set: HashSet<EidosCitation> = HashSet::new();
+    set.insert(han_nfc.clone());
+    set.insert(han_nfc_dup); // byte-equal → dedups
+    set.insert(hangul_nfc.clone());
+    set.insert(hangul_nfd.clone()); // NFD ≠ NFC bytes → stays distinct
+    set.insert(arabic_legit.clone());
+    set.insert(arabic_mutated.clone());
+    set.insert(latin_baseline.clone());
+
+    assert_eq!(
+        set.len(),
+        6,
+        "HashSet must contain exactly 6 distinct multilingual citations \
+         (one Han NFC collapsed with its duplicate; every other entry \
+         stays distinct by byte-strict Hash). A future Hash impl that \
+         canonicalized unicode on the source_id payload would collapse \
+         Hangul NFC + NFD into one bucket and silently break the byte-\
+         strict floor pinned in iter 661."
+    );
+
+    // Membership queries: byte-equal lookup hits; NFD lookup misses
+    // when NFC is in the set and vice versa.
+    assert!(
+        set.contains(&han_nfc),
+        "byte-equal multilingual lookup must hit the existing bucket"
+    );
+    assert!(
+        set.contains(&hangul_nfc) && set.contains(&hangul_nfd),
+        "both NFC and NFD Hangul forms are in the set as distinct entries"
+    );
+    // Remove just NFC; NFD must remain (proves they're distinct
+    // buckets at the HashSet level, not just iter-counted as
+    // distinct).
+    let mut set2 = set.clone();
+    let removed = set2.remove(&hangul_nfc);
+    assert!(removed, "remove NFC must succeed");
+    assert!(
+        set2.contains(&hangul_nfd),
+        "NFD Hangul entry must survive after NFC sibling is removed — \
+         proves the two are distinct HashSet buckets, not aliased via \
+         a normalized Hash"
+    );
+}
+
 /// `EidosContextPacket::clone()` is byte-perfect — completes the
 /// Clone byte-perfect contract trilogy across the closed-citation
 /// surface (iter 190 citation, iter 193 hit, this iter packet).
