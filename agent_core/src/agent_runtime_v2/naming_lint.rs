@@ -728,4 +728,25 @@ mod tests {
         assert!(!text_contains_rejected_name("aeg"));
         assert!(!text_contains_rejected_name("aegi"));
     }
+
+    #[test]
+    fn scan_text_and_count_hits_return_zero_for_shorter_than_needle_inputs() {
+        // Phase 1 hardening — short-input boundary pin for scan_text +
+        // count_hits (companion to short_text_path_does_not_match for
+        // text_contains_rejected_name).
+        //
+        // Inputs whose length is less than REJECTED_NAME_LOWERCASE.len()
+        // (= 5) cannot contain the needle. Both scan_text and
+        // count_hits MUST return the empty result without panic.
+        //
+        // count_hits has an explicit early-return; scan_text loops over
+        // lines whose length is checked individually. A future
+        // refactor that dropped the early-return on either helper
+        // would slip past the per-line empty case but would surface
+        // here on the under-length probe.
+        for short in ["", "a", "ae", "aeg", "aegi"] {
+            assert_eq!(scan_text(short), vec![], "scan_text({short:?}) must be empty");
+            assert_eq!(count_hits(short), 0, "count_hits({short:?}) must be 0");
+        }
+    }
 }
