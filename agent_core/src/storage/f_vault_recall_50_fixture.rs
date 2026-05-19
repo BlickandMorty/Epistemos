@@ -8499,6 +8499,53 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 49th Adversarial row (iter-402): MLX-Swift 8-term
+        // long-query — {mlx, swift, inference, backend, local,
+        // model, pipeline, notes}. Keeps all 4 canonical
+        // primaries + ALL 4 tail context tokens from canonical's
+        // body "...local model pipeline notes". 8 terms OR.
+        // Canonical body has all 8 (2× primaries + 1× each
+        // tail). Decoys carry at most TWO of the 8 (mlx_archive
+        // has mlx + notes; inference_misc_notes has inference +
+        // notes; swift_brainstorm has swift only) — canonical's
+        // 8/8 accumulated BM25 outranks the 2/8 ceiling on every
+        // decoy. SECOND MLX-Swift extension past 7-term (after
+        // iter-374's 7-term row); MLX-Swift now exercised at
+        // 4/5/6/7/8-term — SECOND canonical at FIVE query-
+        // length coverage points (joining BM25/IR's six points).
+        // Together with iter-381 (BM25/IR 8-term) + iter-388
+        // (agent-runtime 8-term) + iter-402 (MLX-Swift 8-term),
+        // the fixture now pins 8-term Adversarial discrimination
+        // across THREE distinct canonical domains — proves BM25
+        // ranking holds under 2× query-length expansion (4 → 8)
+        // regardless of corpus topic.
+        query: "mlx swift inference backend local model pipeline notes",
+        expected_paths: &["notes/mlx_swift_inference_backend.md"],
+        forbidden_paths: &[
+            "notes/mlx_archive.md",
+            "notes/swift_brainstorm.md",
+            "notes/inference_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Forty-ninth Adversarial row (iter-402): MLX-\
+               Swift 8-term long-query \"mlx swift inference \
+               backend local model pipeline notes\". Keeps all \
+               4 primaries + ALL 4 tail context tokens. SECOND \
+               MLX-Swift extension past 7-term (after iter-374). \
+               MLX-Swift now exercised at 4/5/6/7/8-term — \
+               SECOND canonical at FIVE query-length coverage \
+               points. Decoys ≤2 of 8 (canonical 8/8). Together \
+               with iter-381 BM25/IR + iter-388 agent-runtime + \
+               iter-402 MLX-Swift, 8-term Adversarial \
+               discrimination pinned across THREE distinct \
+               canonical domains — proves BM25 ranking holds \
+               under 2× query-length expansion regardless of \
+               corpus topic. Brings Adversarial to depth 49 — \
+               first category past depth-48 horizon. Zero new \
+               seeds.",
+    },
+    FVaultRecallRow {
         // 48th Adversarial row (iter-395): BM25/IR 9-term long-
         // query — {bm25, saturation, length, penalty, ranking,
         // ir, search, relevance, scoring}. Keeps all 4 canonical
