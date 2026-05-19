@@ -186,7 +186,7 @@ Last audited: 2026-05-18. [Artifact Negative Examples](ARTIFACT_NEGATIVE_EXAMPLE
 
 ## Identity Slug Negative Audit
 
-Last audited: 2026-05-18. The schema's [Identity Gap Slug Catalog](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#identity-gap-slug-catalog) owns the lowercase hyphenated vocabulary for validator identity-gap families. Negative examples N197 through N210 and N213 through N220 reject underscore, case drift, boundary punctuation, empty-token, numeric-leading, dotted, spaced, comma, slash, colon, plus, ampersand, at-sign, question-mark, hash-sign, dollar-sign, percent-sign, caret, asterisk, tilde, and backtick aliases before any handbook row or validator work item may reference an uncataloged slug.
+Last audited: 2026-05-18. The schema's [Identity Gap Slug Catalog](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#identity-gap-slug-catalog) owns the lowercase hyphenated vocabulary for validator identity-gap families. Negative examples N197 through N210 and N213 through N221 reject underscore, case drift, boundary punctuation, empty-token, numeric-leading, dotted, spaced, comma, slash, colon, plus, ampersand, at-sign, question-mark, hash-sign, dollar-sign, percent-sign, caret, asterisk, tilde, backtick, and pipe aliases before any handbook row or validator work item may reference an uncataloged slug.
 
 ## Artifact Axis Floor Audit
 
