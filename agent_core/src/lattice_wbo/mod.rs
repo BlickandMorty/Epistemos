@@ -899,6 +899,14 @@ impl LatticeBudget {
         0.5 * self.pre_softmax_budget()
     }
 
+    pub fn softmax_half_pre_correction_budget(&self) -> f64 {
+        self.pre_softmax_budget()
+    }
+
+    pub fn softmax_half_post_correction_budget(&self) -> f64 {
+        self.softmax_half_corrected_budget()
+    }
+
     fn measured_pre_softmax_sum_after_value_validation(
         &self,
         include: impl Fn(WboTermCode) -> bool,
@@ -952,6 +960,14 @@ impl LatticeBudget {
 
     pub fn measured_softmax_half_corrected_total(&self) -> Option<f64> {
         self.measured_pre_softmax_total().map(|total| 0.5 * total)
+    }
+
+    pub fn measured_softmax_half_pre_correction_total(&self) -> Option<f64> {
+        self.measured_pre_softmax_total()
+    }
+
+    pub fn measured_softmax_half_post_correction_total(&self) -> Option<f64> {
+        self.measured_softmax_half_corrected_total()
     }
 
     pub fn measured_within_budget(&self) -> Option<bool> {
@@ -7796,6 +7812,60 @@ mod tests {
         assert_eq!(max_budget.validate(), Ok(()));
         assert!(max_budget.softmax_half_corrected_budget().is_finite());
         assert_eq!(max_budget.measured_within_budget(), Some(true));
+    }
+
+    #[test]
+    fn lattice_budget_softmax_half_pre_post_helpers_match_canonical_totals() {
+        let residual =
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual", 0.20)
+                .expect("valid residual")
+                .with_measured(0.18)
+                .expect("valid residual measurement");
+        let numerics = LatticeErrorContribution::new(
+            WboTermCode::NumericalPostCorrection,
+            "numerics",
+            0.04,
+        )
+        .expect("valid numerics")
+        .with_measured(0.03)
+        .expect("valid numerics measurement");
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::LatticeWynerZivResidual,
+            Some(1250),
+            SideInformationKind::ResidualStream,
+            vec![residual, numerics],
+        );
+
+        assert_eq!(budget.validate(), Ok(()));
+        assert_eq!(
+            budget.softmax_half_pre_correction_budget(),
+            budget.pre_softmax_budget()
+        );
+        assert_eq!(
+            budget.softmax_half_post_correction_budget(),
+            budget.softmax_half_corrected_budget()
+        );
+        assert_eq!(budget.softmax_half_pre_correction_budget(), 0.20 + 0.04);
+        assert_eq!(
+            budget.softmax_half_post_correction_budget(),
+            0.5 * (0.20 + 0.04)
+        );
+        assert_eq!(
+            budget.measured_softmax_half_pre_correction_total(),
+            budget.measured_pre_softmax_total()
+        );
+        assert_eq!(
+            budget.measured_softmax_half_post_correction_total(),
+            budget.measured_softmax_half_corrected_total()
+        );
+        assert_eq!(
+            budget.measured_softmax_half_pre_correction_total(),
+            Some(0.18 + 0.03)
+        );
+        assert_eq!(
+            budget.measured_softmax_half_post_correction_total(),
+            Some(0.5 * (0.18 + 0.03))
+        );
     }
 
     #[test]
