@@ -2677,6 +2677,40 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 39th PureChatter row (iter-335): 14-token long-input
+        // shape — "please can you tell me what where when how
+        // some of my notes are". Extends long-input cardinality
+        // progression to 14 (iter-328 was 13). LONGEST
+        // PureChatter query in the fixture. Mixes 11 chatter
+        // sub-classes (politeness + modal + 2 pronouns +
+        // imperative + 4 wh-words + quantifier + preposition +
+        // chatter-noun + be-verb). All 14 tokens (please / can
+        // / you / tell / me / what / where / when / how / some
+        // / of / my / notes / are) are in QUERY_CHATTER_WORDS.
+        // FOUR distinct wh-words in one query — densest wh-
+        // stack of any PureChatter row.
+        query: "please can you tell me what where when how some of my notes are",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Thirty-ninth PureChatter row (iter-335): 14-\
+               token long-input (\"please can you tell me what \
+               where when how some of my notes are\"). Extends \
+               cardinality to 14 (iter-328 = 13). LONGEST \
+               PureChatter query in the fixture. Mixes 11 \
+               chatter sub-classes (politeness + modal + 2 \
+               pronouns + imperative + 4 wh-words + quantifier \
+               + preposition + chatter-noun + be-verb). FOUR \
+               distinct wh-words in one query — densest wh-\
+               stack of any PureChatter row. All 14 tokens in \
+               QUERY_CHATTER_WORDS. Brings PureChatter to \
+               depth 39 — first category past depth-38 horizon.",
+    },
+    FVaultRecallRow {
         // 38th PureChatter row (iter-328): 13-token long-input
         // shape — "please can you tell me what where when some
         // of my notes are". Extends the long-input cardinality
