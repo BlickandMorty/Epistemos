@@ -865,6 +865,19 @@ mod tests {
     }
 
     #[test]
+    fn para_seq_all_failed_rev_surfaces_outer_error_first() {
+        let seq = ParaSeq::new(&InnerRevFails, &OuterRevFails);
+        let out = seq.fwd(&0, "hello").expect("fwd ok");
+        let err = seq
+            .rev(&0, &out)
+            .expect_err("outer rev failure must win when both rev legs fail");
+        assert!(
+            matches!(err, ParaError::Transport(ref s) if s == "outer rev refuses"),
+            "expected outer rev error to win, got {err:?}"
+        );
+    }
+
+    #[test]
     fn para_seq_short_circuits_on_inner_fwd_error() {
         // §3.5 deep-hardening edge case: composed fwd must NOT invoke
         // outer.fwd when inner.fwd returned Err. MustNotBeCalled
