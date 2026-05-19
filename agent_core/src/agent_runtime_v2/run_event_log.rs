@@ -1248,6 +1248,36 @@ mod tests {
     }
 
     #[test]
+    fn log_validation_error_ordinal_mismatch_field_shape_pinned() {
+        // Phase 1 hardening — field-shape pin for
+        // LogValidationError::OrdinalMismatch (companion to
+        // mission_prompt_error iter-454, budget_error::exhausted iter-455).
+        // The variant carries EXACTLY 3 named fields
+        // (position: usize, expected: u64, actual: u64).
+        //
+        // A future "let me add a 4th field like {position, expected,
+        // actual, entry_kind}" refactor would silently change the
+        // error payload size — surface here via the destructure match
+        // arm.
+        let err = LogValidationError::OrdinalMismatch {
+            position: 7,
+            expected: 7,
+            actual: 999,
+        };
+        match err {
+            LogValidationError::OrdinalMismatch { position, expected, actual } => {
+                // Exactly 3 fields. Type assertions verify the typed shape.
+                let _: usize = position;
+                let _: u64 = expected;
+                let _: u64 = actual;
+                assert_eq!(position, 7);
+                assert_eq!(expected, 7);
+                assert_eq!(actual, 999);
+            }
+        }
+    }
+
+    #[test]
     fn log_validation_error_ordinal_mismatch_inner_fields_are_identity_load_bearing() {
         // Phase 1 hardening — inner-field distinctness pin
         // (companion to iter-197/198 error inner-pins).
