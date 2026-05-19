@@ -127,14 +127,19 @@ pub fn lean_certificate(rotor: &Multivector) -> String {
          \x20   basisAnticommutativeWitness\n\
          \n\
          theorem rotor_sandwich_isometry_{suffix}\n\
-         \x20   (sandwichWitness : geometry_sandwich_obligation_{suffix}.preservesNorm) :\n\
+         \x20   (candidateWitness : geometry_rotor_{suffix}.isRotorCandidate)\n\
+         \x20   (unitNormWitness : geometry_rotor_{suffix}.unitNorm) :\n\
          \x20   geometry_sandwich_obligation_{suffix}.preservesNorm := by\n\
-         \x20 exact sandwichWitness\n\
+         \x20 exact Epistemos.Geometry.RotorSchema.sandwichFromWitnesses\n\
+         \x20   geometry_rotor_{suffix} candidateWitness unitNormWitness\n\
          \n\
          theorem rotor_composition_{suffix}\n\
-         \x20   (compositionWitness : geometry_composition_obligation_{suffix}.associativeSandwich) :\n\
+         \x20   (candidateWitness : geometry_rotor_{suffix}.isRotorCandidate)\n\
+         \x20   (unitNormWitness : geometry_rotor_{suffix}.unitNorm) :\n\
          \x20   geometry_composition_obligation_{suffix}.associativeSandwich := by\n\
-         \x20 exact compositionWitness\n\
+         \x20 exact Epistemos.Geometry.RotorSchema.compositionFromWitnesses\n\
+         \x20   geometry_rotor_{suffix} geometry_rotor_{suffix}\n\
+         \x20   candidateWitness candidateWitness unitNormWitness unitNormWitness\n\
          \n\
          end Epistemos.Geometry.Generated\n\
          \n",
@@ -216,11 +221,13 @@ mod tests {
         assert!(c.contains("(basisAnticommutativeWitness :"));
         assert!(c.contains("exact And.intro basisSquaresWitness"));
         assert!(!c.contains("exact And.intro geometry_clifford_obligation_"));
-        assert!(c.contains("(sandwichWitness :"));
-        assert!(c.contains("exact sandwichWitness"));
+        assert!(c.contains("Epistemos.Geometry.RotorSchema.sandwichFromWitnesses"));
+        assert!(!c.contains("(sandwichWitness :"));
+        assert!(!c.contains("exact sandwichWitness"));
         assert!(!c.contains("exact geometry_sandwich_obligation_"));
-        assert!(c.contains("(compositionWitness :"));
-        assert!(c.contains("exact compositionWitness"));
+        assert!(c.contains("Epistemos.Geometry.RotorSchema.compositionFromWitnesses"));
+        assert!(!c.contains("(compositionWitness :"));
+        assert!(!c.contains("exact compositionWitness"));
         assert!(!c.contains("exact geometry_composition_obligation_"));
     }
 
