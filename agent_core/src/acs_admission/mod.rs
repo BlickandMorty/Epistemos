@@ -7126,6 +7126,35 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_shadow_input_risk_axis_names_input_risk_namespace() {
+        let mut risk = serde_json::to_value(ACSRiskVector::neutral()).expect("risk encodes");
+        risk["shadow_risk"] = serde_json::json!(1.0);
+        let value = serde_json::json!({
+            "request_id": "req-shadow-input-risk",
+            "payload": {
+                "kind": "tool_action",
+                "request": {
+                    "tool_name": "vault.write",
+                    "target": "uas://note/1",
+                    "mutation_envelope_id": "mutation-1"
+                }
+            },
+            "submitted_at_ms": 1_001,
+            "risk": risk,
+            "granted_capabilities": []
+        });
+
+        let err = serde_json::from_value::<ACSAdmissionInput>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("forged_admission_input"), "{message}");
+        assert!(
+            message.contains("admission_input.risk.shadow_risk"),
+            "{message}"
+        );
+    }
+
+    #[test]
     fn acs_admission_forged_input_request_id_decode_names_input_namespace() {
         let value = serde_json::json!({
             "request_id": " req-forged ",
