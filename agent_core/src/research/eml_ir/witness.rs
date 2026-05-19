@@ -1827,6 +1827,26 @@ fn reject_raw_object_unknown_json_fields(
     Ok(())
 }
 
+fn reject_raw_object_missing_json_fields(
+    raw_json: &str,
+    path: &str,
+    required_fields: &[&str],
+) -> Result<(), FulpReplayError> {
+    let Ok(object) = serde_json::from_str::<BTreeMap<String, Box<RawValue>>>(raw_json) else {
+        return Ok(());
+    };
+    if let Some(field) = required_fields
+        .iter()
+        .find(|field| !object.contains_key(**field))
+    {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("missing field {path}.{field}"),
+            kind: FulpInvalidJsonKind::MissingField,
+        });
+    }
+    Ok(())
+}
+
 struct RawDuplicateFieldVisitor<'a> {
     path: &'a str,
 }
@@ -1990,6 +2010,11 @@ fn reject_raw_stats_number_json(json: &str) -> Result<(), FulpReplayError> {
         let operation_path = format!("stats[{operation_index}]");
         reject_raw_object_duplicate_json(stat.get(), &operation_path)?;
         reject_raw_object_unknown_json_fields(
+            stat.get(),
+            &operation_path,
+            OPERATION_STATS_JSON_FIELDS,
+        )?;
+        reject_raw_object_missing_json_fields(
             stat.get(),
             &operation_path,
             OPERATION_STATS_JSON_FIELDS,
@@ -4877,6 +4902,33 @@ mod tests {
         let json = serde_json::to_string(&value).unwrap();
         let error =
             replay_witness_json(&json).expect_err("missing operation gate tier must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::MissingField)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats[0].gate_tier"));
+    }
+
+    #[test]
+    fn replay_rejects_missing_operation_gate_tier_before_raw_overflow() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]
+            .as_object_mut()
+            .expect("operation stats object")
+            .remove("gate_tier")
+            .expect("operation gate tier field");
+        value["stats"][0]["max_ulp"] =
+            serde_json::Value::Number(serde_json::Number::from(123_456_789_u64));
+        let json = serde_json::to_string(&value).unwrap();
+        let needle = "\"max_ulp\":123456789";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(needle, "\"max_ulp\":1e999999", 1);
+        let error = replay_witness_json(&json)
+            .expect_err("missing operation gate tier must fail before raw overflow");
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::MissingField)
