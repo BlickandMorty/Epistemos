@@ -2943,6 +2943,13 @@ mod tests {
             "residency_tier": "L0RamHot",
         });
         assert_json_unknown_field_rejected::<WboLedgerEntry>(entry, "residency_tier");
+
+        let owner = serde_json::json!({
+            "hook": "F-ULP-Oracle",
+            "owner": "agent_core/src/research/eml/ulp_oracle.rs",
+            "debug": "borrowed owner",
+        });
+        assert_json_unknown_field_rejected::<FalsifierHookOwner>(owner, "debug");
     }
 
     #[test]
@@ -4421,7 +4428,7 @@ mod tests {
             "`wbo_ledger_entry_serializes_absent_active_support_as_null`",
             "ledger rows without secondary active support keep `active_support` as null",
             "`public_accounting_json_rejects_unknown_fields`",
-            "public accounting JSON rejects unknown fields on contribution, budget, active-support budget, and ledger-entry surfaces",
+            "public accounting JSON rejects unknown fields on contribution, budget, active-support budget, ledger-entry, and owner surfaces",
             "`public_accounting_json_rejects_nested_unknown_fields`",
             "public accounting JSON rejects nested unknown fields inside budget contributions and ledger active-support budgets",
             "`public_accounting_json_rejects_duplicate_public_keys`",
