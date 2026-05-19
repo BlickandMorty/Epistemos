@@ -2549,6 +2549,48 @@ mod tests {
     }
 
     #[test]
+    fn append_methods_returned_ordinal_equals_log_len_minus_one_invariant() {
+        // Phase 1 hardening MILESTONE iter-500 — fundamental
+        // log-growth invariant pin. For ANY append_*() call, the
+        // returned ordinal MUST equal log.len() - 1 AFTER the append
+        // — because the ordinal is the position the entry just took
+        // (0-indexed; log.len() == ordinal + 1 after the append).
+        //
+        // Companion to append_methods_return_ordinal_matching_stored_entry_position
+        // (iter-? returned-vs-stored consistency).
+        //
+        // A future "let me batch-buffer appends" refactor that
+        // returned the FUTURE ordinal (i.e., the ordinal of the
+        // next call) would silently break the dispatcher's foreign-key
+        // pattern: dispatcher uses returned ordinal as the cross-reference
+        // into the log, but the entry might not actually exist yet
+        // at that ordinal.
+        //
+        // Pin across all 3 append paths over 100 calls.
+        let mut log = RunEventLog::new();
+        for i in 0..100 {
+            let ord = match i % 3 {
+                0 => log.append_event(AgentEvent::ReasoningDelta {
+                    text: format!("d{i}"),
+                }),
+                1 => log.append_sealed_mutation(
+                    Hash::from_bytes([(i % 256) as u8; 32]),
+                    BudgetDebit::default(),
+                ),
+                _ => log.append_ledger_snapshot(BudgetLedger::default()),
+            };
+            assert_eq!(
+                ord,
+                (log.len() - 1) as u64,
+                "iteration {i}: returned ordinal {ord} must equal log.len()-1 = {}",
+                log.len() - 1,
+            );
+        }
+        // Final invariant: log.len() == 100.
+        assert_eq!(log.len(), 100);
+    }
+
+    #[test]
     fn append_methods_return_ordinal_matching_stored_entry_position() {
         // Phase 1 hardening — return-vs-store consistency pin.
         // All three append_* methods (append_event, append_sealed_mutation,
