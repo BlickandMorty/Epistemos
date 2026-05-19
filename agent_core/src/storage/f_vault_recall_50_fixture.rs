@@ -4699,6 +4699,58 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 49th Paraphrase row (iter-404): NEW axis — FOUR-
+        // MORPHEME AGGLUTINATIVE STACKING (extends iter-390's
+        // 3-morpheme circumfix to 4). User wraps stem with
+        // derivational PREFIX + stem + derivational SUFFIX +
+        // derivational SUFFIX: "cache" → "uncacheabilities"
+        // (un- + cache + -abilit + -ies). FOUR morphemes
+        // stacked on one base (negation + stem + ability-
+        // nominalization + plural). Tantivy keeps
+        // "uncacheabilities" as one alphanumeric token. 3-term
+        // AND on {mamba, ssm, uncacheabilities} blocks the
+        // canonical (has "cache" not "uncacheabilities").
+        // Distinct from:
+        //   • iter-376 SUFFIX-ONLY -er (1 morpheme + stem)
+        //   • iter-383 PREFIX-ONLY re- (1 morpheme + stem)
+        //   • iter-369 COMPOUND-NOUN (2 free nouns)
+        //   • iter-390 CIRCUMFIX un-…-able (3-morpheme stack:
+        //     prefix + stem + suffix): iter-404 extends to
+        //     4-morpheme stack — adds a second derivational
+        //     suffix that does nominalization (-ity) followed
+        //     by inflectional plural (-ies)
+        //   • iter-86 ACRONYM (multi-word → initials)
+        //   • iter-397 REDUPLICATION (stem self-duplication)
+        // Pins deferred MULTI-MORPHEME-CHAIN decomposition
+        // retrieval — the agglutinative-language failure mode
+        // (Turkish "evlerimizden" = "from our houses" stacks
+        // 5+ morphemes on one base). Forty-sixth named failure
+        // subclass. Demonstrates the chain-length axis: iter-
+        // 376 (1) → iter-390 (3) → iter-404 (4) — each step
+        // up requires deeper morphological awareness.
+        query: "Mamba SSM uncacheabilities",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Four-morpheme-agglutinative-stack Paraphrase axis \
+               (axis #46): user stacks 4 morphemes on one stem \
+               — \"cache\" → \"uncacheabilities\" (un- + cache + \
+               -abilit + -ies). Extends iter-390's 3-morpheme \
+               circumfix to 4 morphemes. 3-term AND on {mamba, \
+               ssm, uncacheabilities} blocks. Distinct from \
+               iter-376 (1-morpheme suffix), iter-383 (1-\
+               morpheme prefix), iter-390 (3-morpheme \
+               circumfix), iter-369 compound-noun, iter-86 \
+               acronym, iter-397 reduplication. Pins deferred \
+               MULTI-MORPHEME-CHAIN decomposition retrieval \
+               (the agglutinative-language failure mode, e.g. \
+               Turkish 5+-morpheme stacks). Forty-sixth named \
+               failure subclass. Chain-length axis: 1 → 3 → 4 \
+               morphemes. Brings Paraphrase to depth 49 — first \
+               category past depth-48 horizon.",
+    },
+    FVaultRecallRow {
         // 48th Paraphrase row (iter-397): NEW axis — STEM
         // REDUPLICATION. User duplicates the stem itself as a
         // morphological process (intensification, plurality,
