@@ -96,7 +96,7 @@ pub fn lean_certificate(op: &OperatorExpr) -> String {
          -- Operator shape: branch {b_in}→{b_out}, trunk {t_in}→{t_out}, kernel {kernel}\n\
          -- Schema: lean/Epistemos/Epistemos/Operator.lean\n\
          -- Schema module built with explicit ~/.elan/bin PATH; obligations sharpened through iter-700.\n\
-         -- Generated dimension/FNO/Fourier proofs close from schema fields.\n\
+         -- Generated dimension/FNO/Fourier proofs expose schema witnesses and carry lemmas.\n\
          import Epistemos.Operator\n\
          \n\
          namespace Epistemos.Operator.Generated\n\
@@ -331,7 +331,10 @@ mod tests {
         assert!(c.contains(
             "Schema module built with explicit ~/.elan/bin PATH; obligations sharpened through iter-700"
         ));
-        assert!(c.contains("Generated dimension/FNO/Fourier proofs close from schema fields"));
+        assert!(c.contains(
+            "Generated dimension/FNO/Fourier proofs expose schema witnesses and carry lemmas"
+        ));
+        assert!(!c.contains("Generated dimension/FNO/Fourier proofs close from schema fields"));
         assert_eq!(c.matches("sorry").count(), 0);
     }
 
