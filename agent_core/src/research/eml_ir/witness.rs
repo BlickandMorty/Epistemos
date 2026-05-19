@@ -1780,6 +1780,8 @@ struct RawWorstCaseNumbers<'a> {
     reference_fp16_bits: Option<&'a RawValue>,
     #[serde(default, borrow)]
     candidate_fp16_bits: Option<&'a RawValue>,
+    #[serde(default, borrow)]
+    ulp_error: Option<&'a RawValue>,
     #[serde(borrow)]
     x: &'a RawValue,
     #[serde(borrow)]
@@ -1831,6 +1833,9 @@ fn reject_raw_worst_case_numbers_json(
     }
     if let Some(value) = worst_case.candidate_fp16_bits {
         raw_u16_json(value, &format!("{path}.candidate_fp16_bits"))?;
+    }
+    if let Some(value) = worst_case.ulp_error {
+        raw_u32_json(value, &format!("{path}.ulp_error"))?;
     }
     raw_finite_f64_json(worst_case.x, path, "x")?;
     raw_finite_f64_json(worst_case.y, path, "y")?;
@@ -5186,6 +5191,28 @@ mod tests {
             .invalid_json_message()
             .expect("invalid json message")
             .contains("stats[0].worst_case.ulp_error"));
+    }
+
+    #[test]
+    fn replay_rejects_operation_worst_case_ulp_error_json_raw_overflow_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["worst_case"]["ulp_error"] =
+            serde_json::Value::Number(serde_json::Number::from(123_456_789_u64));
+        let json = serde_json::to_string(&value).unwrap();
+        let needle = "\"ulp_error\":123456789";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(needle, "\"ulp_error\":1e999999", 1);
+        let error =
+            replay_witness_json(&json).expect_err("worst case ulp error overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("number out of range for stats[0].worst_case.ulp_error, expected u32")
+        );
     }
 
     #[test]
