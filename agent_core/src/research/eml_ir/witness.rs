@@ -4091,6 +4091,38 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_doc_records_rejected_count_corruption_replay() {
+        let doc_path = format!(
+            "{}/../docs/falsifiers/F_ULP_ORACLE_2026_05_18.md",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let doc = std::fs::read_to_string(doc_path).expect("f-ulp falsifier doc");
+        assert!(doc.contains("missing `rejected_count`"));
+        assert!(doc.contains("adversarial_reference_stats.rejected_count"));
+    }
+
+    #[test]
+    fn replay_rejects_missing_adversarial_reference_rejected_count_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["adversarial_reference_stats"]
+            .as_object_mut()
+            .expect("adversarial reference stats object")
+            .remove("rejected_count");
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("missing adversarial reference rejected count must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::MissingField)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("missing field adversarial_reference_stats.rejected_count")
+        );
+    }
+
+    #[test]
     fn replay_rejects_unknown_adversarial_reference_stats_json_field_with_path() {
         let mut value: serde_json::Value =
             serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
