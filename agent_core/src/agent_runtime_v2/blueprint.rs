@@ -1369,6 +1369,25 @@ mod tests {
     }
 
     #[test]
+    fn cli_adapter_debug_repr_is_stable_for_subprocess_audit_logs() {
+        let cases = [
+            (CliAdapter::ClaudeCode, "ClaudeCode"),
+            (CliAdapter::Codex, "Codex"),
+            (CliAdapter::Goose, "Goose"),
+            (CliAdapter::Aider, "Aider"),
+            (CliAdapter::OpenHands, "OpenHands"),
+            (CliAdapter::SweAgent, "SweAgent"),
+        ];
+        for (adapter, expected) in cases {
+            assert_eq!(
+                format!("{adapter:?}"),
+                expected,
+                "Debug repr drift for {adapter:?} would break subprocess audit greps"
+            );
+        }
+    }
+
+    #[test]
     fn cli_adapter_serde_charset_is_lowercase_snake_case_only() {
         // Phase 1 hardening — charset pin for CliAdapter serde forms.
         // Extends the [a-z_] charset-pin family to the 6-variant
