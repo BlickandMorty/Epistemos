@@ -6515,6 +6515,15 @@ mod tests {
     }
 
     #[test]
+    fn register_doc_cross_links_duplicate_axis_order_invariance() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("lattice_budget_duplicate_axis_measured_totals_are_order_invariant"),
+            "register must cross-link duplicate-axis measured order invariance"
+        );
+    }
+
+    #[test]
     fn typed_catalogs_assign_every_wbo_term_to_codec_and_residency_rows() {
         for term in WboTermCode::ALL {
             assert!(
@@ -9628,6 +9637,74 @@ mod tests {
             Some(0.1171875)
         );
         assert_eq!(budget.measured_within_budget(), Some(true));
+    }
+
+    #[test]
+    fn lattice_budget_duplicate_axis_measured_totals_are_order_invariant() {
+        let residual_a =
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual a", 0.25)
+                .expect("valid residual contribution")
+                .with_measured(0.125)
+                .expect("valid residual measurement");
+        let residual_b =
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual b", 0.125)
+                .expect("valid residual contribution")
+                .with_measured(0.0625)
+                .expect("valid residual measurement");
+        let numerics_a = LatticeErrorContribution::new(
+            WboTermCode::NumericalPostCorrection,
+            "numerics a",
+            0.0625,
+        )
+        .expect("valid numerical contribution")
+        .with_measured(0.03125)
+        .expect("valid numerical measurement");
+        let numerics_b = LatticeErrorContribution::new(
+            WboTermCode::NumericalPostCorrection,
+            "numerics b",
+            0.03125,
+        )
+        .expect("valid numerical contribution")
+        .with_measured(0.015625)
+        .expect("valid numerical measurement");
+
+        for contributions in [
+            vec![
+                residual_a.clone(),
+                residual_b.clone(),
+                numerics_a.clone(),
+                numerics_b.clone(),
+            ],
+            vec![
+                numerics_b.clone(),
+                residual_b.clone(),
+                numerics_a.clone(),
+                residual_a.clone(),
+            ],
+            vec![residual_b, numerics_a, residual_a, numerics_b],
+        ] {
+            let budget = LatticeBudget::new(
+                LatticeCoderKind::LatticeWynerZivResidual,
+                Some(1250),
+                SideInformationKind::ResidualStream,
+                contributions,
+            );
+
+            assert_eq!(
+                budget.measured_semantic_wbo6_pre_softmax_total(),
+                Some(0.1875)
+            );
+            assert_eq!(
+                budget.measured_numerical_post_correction_total(),
+                Some(0.046875)
+            );
+            assert_eq!(budget.measured_pre_softmax_total(), Some(0.234375));
+            assert_eq!(
+                budget.measured_softmax_half_corrected_total(),
+                Some(0.1171875)
+            );
+            assert_eq!(budget.measured_within_budget(), Some(true));
+        }
     }
 
     #[test]
