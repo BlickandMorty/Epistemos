@@ -69,4 +69,25 @@ theorem scan_certificate_output_sequential_sample
   exact Epistemos.Scan.CertificateTarget.outputMatchesSequential
     (scan_certificate_target_sample T w program output h)
 
+theorem scan_certificate_output_length_sample
+    (T : Type) (w : Epistemos.Scan.MonoidWitness T)
+    (program : Epistemos.Scan.Program T) (output : List T)
+    (h : output =
+      Epistemos.Scan.sequentialScan w.op program.initial program.inputs) :
+    (scan_certificate_target_sample T w program output h).output.length =
+      program.inputs.length + 1 := by
+  exact Epistemos.Scan.CertificateTarget.outputLengthMatches
+    (scan_certificate_target_sample T w program output h)
+
+theorem scan_certificate_monoid_laws_sample
+    (T : Type) (w : Epistemos.Scan.MonoidWitness T)
+    (program : Epistemos.Scan.Program T) (output : List T)
+    (h : output =
+      Epistemos.Scan.sequentialScan w.op program.initial program.inputs) :
+    Epistemos.Scan.scanAssociativeOp w.op ∧
+      Epistemos.Scan.scanLeftIdentity w.op w.identity ∧
+      Epistemos.Scan.scanRightIdentity w.op w.identity := by
+  exact Epistemos.Scan.CertificateTarget.monoidLawWitnesses
+    (scan_certificate_target_sample T w program output h)
+
 end Epistemos.Scan.Generated
