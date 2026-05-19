@@ -1501,6 +1501,70 @@ mod tests {
     }
 
     #[test]
+    fn concurrent_refund_on_cancel_restores_cap_after_burst() {
+        // Phase 1 hardening — work-queue B refund-on-cancel race.
+        // Multiple in-flight debits can land before the user cancels
+        // them; each cancel handler refunds its own debit under the
+        // same ledger lock. After every refund joins, the cap must be
+        // fully restored and reusable at the exact boundary.
+        use std::sync::{Arc, Mutex};
+        use std::thread;
+
+        const N: u64 = 8;
+        const TOKENS_PER_CALL: u64 = 125;
+        let gate = BudgetGate::new(BudgetSpec::new(N * TOKENS_PER_CALL, 0, N, 0));
+        let debit = BudgetDebit {
+            tokens: TOKENS_PER_CALL,
+            tool_calls: 1,
+            ..Default::default()
+        };
+        let ledger = Arc::new(Mutex::new(BudgetLedger::default()));
+
+        let mut debit_handles = Vec::with_capacity(N as usize);
+        for _ in 0..N {
+            let l = Arc::clone(&ledger);
+            debit_handles.push(thread::spawn(move || {
+                let mut guard = l.lock().expect("lock");
+                *guard = gate.check_and_debit(*guard, debit).expect("debit fits");
+            }));
+        }
+        for handle in debit_handles {
+            handle.join().expect("debit join");
+        }
+
+        let after_burst = *ledger.lock().expect("lock");
+        assert_eq!(after_burst.tokens_used, N * TOKENS_PER_CALL);
+        assert_eq!(after_burst.tool_calls_used, N);
+
+        let mut refund_handles = Vec::with_capacity(N as usize);
+        for _ in 0..N {
+            let l = Arc::clone(&ledger);
+            refund_handles.push(thread::spawn(move || {
+                let mut guard = l.lock().expect("lock");
+                *guard = guard.refund(debit);
+            }));
+        }
+        for handle in refund_handles {
+            handle.join().expect("refund join");
+        }
+
+        let after_cancel = *ledger.lock().expect("lock");
+        assert_eq!(after_cancel, BudgetLedger::default());
+        let final_ = gate
+            .check_and_debit(
+                after_cancel,
+                BudgetDebit {
+                    tokens: N * TOKENS_PER_CALL,
+                    tool_calls: N,
+                    ..Default::default()
+                },
+            )
+            .expect("post-cancel cap boundary must be reusable");
+        assert_eq!(final_.tokens_used, N * TOKENS_PER_CALL);
+        assert_eq!(final_.tool_calls_used, N);
+    }
+
+    #[test]
     fn zero_debit_refund_is_identity_companion_to_zero_debit_check_and_debit() {
         // Phase 1 hardening — symmetric companion to
         // zero_debit_is_identity_through_check_and_debit. Both
