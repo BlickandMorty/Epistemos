@@ -64,6 +64,19 @@ theorem scanTail_one {α : Type}
     (op : α -> α -> α) (initial x : α) :
     scanTail op initial [x] = [op initial x] := rfl
 
+theorem scanTail_length {α : Type}
+    (op : α -> α -> α) (state : α) (inputs : List α) :
+    (scanTail op state inputs).length = inputs.length := by
+  induction inputs generalizing state with
+  | nil => rfl
+  | cons x xs ih =>
+      simp [scanTail, ih]
+
+theorem sequentialScan_length {α : Type}
+    (op : α -> α -> α) (initial : α) (inputs : List α) :
+    (sequentialScan op initial inputs).length = inputs.length + 1 := by
+  simp [sequentialScan, scanTail_length]
+
 theorem monoidLawCountPinned :
     monoidLawCount = 3 := by
   rfl
@@ -147,6 +160,12 @@ theorem CertificateTarget.outputMatchesSequential {α : Type}
     (c : CertificateTarget α) :
     c.output = sequentialScan c.monoid.op c.program.initial c.program.inputs :=
   c.output_matches
+
+theorem CertificateTarget.outputLengthMatches {α : Type}
+    (c : CertificateTarget α) :
+    c.output.length = c.program.inputs.length + 1 := by
+  rw [c.output_matches]
+  exact sequentialScan_length c.monoid.op c.program.initial c.program.inputs
 
 theorem CertificateTarget.monoidLawWitnesses {α : Type}
     (c : CertificateTarget α) :

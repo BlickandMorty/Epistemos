@@ -140,6 +140,15 @@ pub fn lean_certificate<T: Debug>(program: &ScanProgram<T>) -> String {
          \x20 exact Epistemos.Scan.CertificateTarget.outputMatchesSequential\n\
          \x20   (scan_certificate_target_{suffix} T w program output h)\n\
          \n\
+         theorem scan_certificate_output_length_{suffix}\n\
+         \x20   (T : Type) (w : Epistemos.Scan.MonoidWitness T)\n\
+         \x20   (program : Epistemos.Scan.Program T) (output : List T)\n\
+         \x20   (h : output = Epistemos.Scan.sequentialScan w.op program.initial program.inputs) :\n\
+         \x20   (scan_certificate_target_{suffix} T w program output h).output.length =\n\
+         \x20     program.inputs.length + 1 := by\n\
+         \x20 exact Epistemos.Scan.CertificateTarget.outputLengthMatches\n\
+         \x20   (scan_certificate_target_{suffix} T w program output h)\n\
+         \n\
          theorem scan_certificate_monoid_laws_{suffix}\n\
          \x20   (T : Type) (w : Epistemos.Scan.MonoidWitness T)\n\
          \x20   (program : Epistemos.Scan.Program T) (output : List T)\n\
@@ -221,6 +230,15 @@ mod tests {
         assert!(c.contains(".output_matches = h := by"));
         assert!(c.contains("theorem scan_certificate_output_sequential_"));
         assert!(c.contains("Epistemos.Scan.CertificateTarget.outputMatchesSequential"));
+    }
+
+    #[test]
+    fn certificate_projects_scan_target_output_length() {
+        let p = ScanProgram::new(0i64, vec![1, 2, 3]);
+        let c = lean_certificate(&p);
+        assert!(c.contains("theorem scan_certificate_output_length_"));
+        assert!(c.contains("Epistemos.Scan.CertificateTarget.outputLengthMatches"));
+        assert!(c.contains("scan_certificate_target_"));
     }
 
     #[test]
