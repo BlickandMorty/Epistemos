@@ -1403,6 +1403,23 @@ mod tests {
     }
 
     #[test]
+    fn citation_struct_field_shape_pinned_to_exactly_source_and_locator() {
+        // Phase 1 hardening — struct-field-shape pin for Citation
+        // (companion to AnswerPacket iter-464, AgentBlueprint iter-465,
+        // MissionPacket + ToolCall iter-466, MutationEnvelope iter-467).
+        //
+        // Citation: EXACTLY 2 String fields (source, locator).
+        //
+        // A future "let me add a `confidence: f64` field" extension
+        // would silently change the on-disk JSON shape — surface here
+        // via destructure compile-fail + per-field type assertions.
+        let c = Citation::from_tuple("s", "l");
+        let Citation { source, locator } = c;
+        let _: String = source;
+        let _: String = locator;
+    }
+
+    #[test]
     fn every_citation_field_is_identity_load_bearing() {
         // Phase 1 hardening — twelfth leg of the identity-pin
         // pattern. Citation has 2 fields (source, locator); each
