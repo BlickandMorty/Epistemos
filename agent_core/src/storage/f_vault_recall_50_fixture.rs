@@ -4390,6 +4390,38 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 37th Synthesis row (iter-316). FIRST 2-term-AND subset
+        // on iter-11 design-pattern near-duplicate pair:
+        // {specific, design}. iter-11 pair-partners design_
+        // pattern_v1.md + design_pattern_v1_copy.md both have
+        // both tokens. "specific" appears only in iter-11 pair-
+        // partners among all corpus. AND-on-2 matches only the
+        // pair (design_system_hover_spec.md has "design" but no
+        // "specific"; design_general_system.md has "design" but
+        // no "specific"). Opens C(3,2) survey on the FOURTH 3-
+        // element pair (after Metal + neural-cache-layer + tier-
+        // compression). All 3 subsets expected to be achievable
+        // since each pair token has at least one seed where the
+        // 2-subset is exclusive.
+        query: "specific design",
+        expected_paths: &[
+            "notes/design_pattern_v1.md",
+            "notes/design_pattern_v1_copy.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Thirty-seventh Synthesis row (iter-316): FIRST 2-\
+               term-AND subset on iter-11 design-pattern near-\
+               duplicate pair. {specific, design} — \"specific\" \
+               unique to pair. AND-on-2 matches only the pair. \
+               Opens C(3,2) survey on the FOURTH 3-element pair \
+               (after Metal + neural-cache-layer + tier-\
+               compression). Brings Synthesis to depth 37 — \
+               first category past depth-36 horizon. Zero new \
+               seeds.",
+    },
+    FVaultRecallRow {
         // 36th Synthesis row (iter-309). THIRD and FINAL 2-term-
         // AND subset on iter-4 tier-compression pair:
         // {compression, governance}. Both pair-partners have
