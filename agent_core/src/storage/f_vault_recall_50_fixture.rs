@@ -2497,6 +2497,33 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 36th PureChatter row (iter-314): 11-token long-input
+        // shape — "please can you tell me what where some of my
+        // notes". Extends long-input cardinality progression to
+        // 11 (iter-307 was 10). LONGEST PureChatter query in
+        // the fixture. Mixes 9 chatter sub-classes (politeness +
+        // modal + 2 pronouns + imperative + 2 wh-words +
+        // quantifier + preposition + chatter-noun).
+        query: "please can you tell me what where some of my notes",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Thirty-sixth PureChatter row (iter-314): 11-\
+               token long-input (\"please can you tell me what \
+               where some of my notes\"). Extends cardinality \
+               to 11 (iter-307 = 10). LONGEST PureChatter \
+               query. Mixes 9 chatter sub-classes (politeness + \
+               modal + pronouns + imperative + 2 wh-words + \
+               quantifier + preposition + chatter-noun). Brings \
+               PureChatter to depth 36 — first category past \
+               depth-35 horizon. All 11 tokens in QUERY_CHATTER_\
+               WORDS.",
+    },
+    FVaultRecallRow {
         // 35th PureChatter row (iter-307): 10-token long-input
         // shape — "please can you tell me what some of my
         // notes". Extends long-input cardinality progression
