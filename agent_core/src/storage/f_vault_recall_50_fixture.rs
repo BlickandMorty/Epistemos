@@ -4101,6 +4101,49 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 43rd Paraphrase row (iter-362): NEW axis — REVERSE-
+        // DIRECTION TRANSLITERATION (Latin→non-Latin phonetic).
+        // User types the Chinese phonetic transliteration of
+        // "Mamba" — 曼巴 (mànbā) — as the canonical concept
+        // name rendered in a non-Latin script via sound-
+        // preservation. Tokens: {曼巴, ssm, cache} — 3-term
+        // AND. Canonical (Latin "mamba ssm cache") lacks the
+        // CJK token → blocked.
+        // Distinct from:
+        //   • iter-232 ROMANIZATION (non-Latin source → Latin
+        //     query, preserves sound): iter-362 reverses
+        //     direction (Latin source → non-Latin query)
+        //   • iter-326 CROSS-LANGUAGE TRANSLATION (Speicher,
+        //     semantic equivalent, no sound overlap): iter-362
+        //     preserves SOUND, not meaning
+        //   • Unicode/multilingual rows (Mamba 缓存): query
+        //     and doc BOTH carry the non-Latin token — those
+        //     PASS via no-fold contract. Iter-362 has the
+        //     non-Latin token ONLY in the query, doc is Latin-
+        //     only → FAILS by design.
+        // Pins deferred bidirectional-transliteration retrieval.
+        // Fortieth named failure subclass.
+        query: "曼巴 SSM cache",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Reverse-transliteration Paraphrase axis (axis \
+               #40): user renders Latin canonical name in non-\
+               Latin script via sound (Mamba → 曼巴 / mànbā). \
+               3-term AND on {曼巴, ssm, cache} blocks Latin-\
+               only canonical. Distinct from iter-232 \
+               ROMANIZATION (opposite direction non-Latin→\
+               Latin), iter-326 CROSS-LANGUAGE TRANSLATION \
+               (semantic not phonetic equivalent), Unicode/\
+               multilingual rows (those have non-Latin in BOTH \
+               query and doc → pass). Pins deferred \
+               bidirectional-transliteration retrieval. \
+               Fortieth named failure subclass. Brings \
+               Paraphrase to depth 43 — first category past \
+               depth-42 horizon.",
+    },
+    FVaultRecallRow {
         // 42nd Paraphrase row (iter-355): NEW axis — SYLLABLE-
         // DOUBLING / STUTTER. User repeats the initial syllable
         // of a word — "Mamba" → "Mamamba" (double "ma"). This
