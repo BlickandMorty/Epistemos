@@ -212,6 +212,7 @@ mod tests {
         assert!(FULP_FALSIFIER_DOC.contains("## Live Metal Dispatch Capture (Deferred)"));
         assert!(FULP_FALSIFIER_DOC.contains("does not execute the Metal"));
         assert!(FULP_FALSIFIER_DOC.contains("deferred until the GPU evidence harness"));
+        assert!(FULP_FALSIFIER_DOC.contains("no `MTLCommandBuffer` dispatch transcript"));
         assert!(FULP_FALSIFIER_DOC.contains("the surrogate is the floor, not the ceiling"));
     }
 

@@ -231,9 +231,10 @@ rounding for `exp`, `ln`, and `eml`), but it does not execute the Metal
 kernel itself. Live `morphOracleFp16` dispatch capture on the M2 Pro is
 deferred until the GPU evidence harness exists in this terminal; downstream
 schema freezes must not treat Metal output itself as proven by the CPU
-surrogate alone. The shader entrypoint and fingerprint are pinned in the
-witness so that a future GPU capture lands against the exact source pinned
-here; the surrogate is the floor, not the ceiling.
+surrogate alone. There is currently no `MTLCommandBuffer` dispatch transcript,
+captured GPU result buffer, or device-local timing evidence attached to this
+falsifier. The shader entrypoint and fingerprint are pinned in the witness so
+that a future GPU capture lands against the exact source pinned here; the surrogate is the floor, not the ceiling.
 
 ## Per-Axis Regression Detection
 
