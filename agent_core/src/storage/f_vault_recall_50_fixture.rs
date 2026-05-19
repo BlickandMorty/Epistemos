@@ -4287,6 +4287,35 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 36th Synthesis row (iter-309). THIRD and FINAL 2-term-
+        // AND subset on iter-4 tier-compression pair:
+        // {compression, governance}. Both pair-partners have
+        // both tokens. Other seeds with "compression":
+        // compression_doctrine_canon_v1/v2 (lack "governance" →
+        // blocked). "governance" is pair-unique. AND matches
+        // only the iter-4 pair. CLOSES C(3,2)=3 on iter-4
+        // tier-compression pair. THIRD 3-element pair to
+        // achieve full C(3,2) closure (after iter-91 Metal +
+        // iter-108 neural-cache-layer).
+        query: "compression governance",
+        expected_paths: &[
+            "MASTER_FUSION/3_2_residency_governor.md",
+            "MASTER_FUSION/4_compression_tier_doctrine.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Thirty-sixth Synthesis row (iter-309): THIRD and \
+               FINAL 2-term-AND subset on iter-4 tier-\
+               compression pair. {compression, governance} — \
+               \"governance\" is pair-unique. AND matches only \
+               the pair. CLOSES C(3,2)=3 on iter-4 pair. THIRD \
+               3-element pair to achieve full C(3,2) closure \
+               (after iter-91 Metal + iter-108 neural-cache-\
+               layer). Brings Synthesis to depth 36. Zero new \
+               seeds.",
+    },
+    FVaultRecallRow {
         // 35th Synthesis row (iter-302). SECOND 2-term-AND subset
         // on iter-4 tier-compression pair: {tier, governance}.
         // Both tokens are pair-unique (only iter-4 pair-partners
