@@ -4516,6 +4516,8 @@ mod tests {
             "`ResidencyTier::side_information_witnesses()`",
             "`residency_tier_catalog_maps_every_tier_to_side_information_witnesses`",
             "`residency_tier_side_information_witnesses_match_primary_codec_catalog`",
+            "`register_doc_residency_side_information_cells_follow_witness_order`",
+            "residency register side-information cells preserve `ResidencyTier::side_information_witnesses()` order",
             "every residency side-information witness is accepted by that tier's primary codec",
             "`ledger_validation_allows_mixed_side_information_with_valid_active_support_budget`",
             "mixed primary side-information rows with valid secondary `ActiveSupportBudget` validate",
@@ -5156,6 +5158,50 @@ mod tests {
                     term.code()
                 );
             }
+        }
+    }
+
+    #[test]
+    fn register_doc_residency_side_information_cells_follow_witness_order() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+
+        for tier in ResidencyTier::ALL {
+            let needle = format!("| {} |", tier.canonical_name());
+            let row = register
+                .lines()
+                .find(|line| line.starts_with(&needle))
+                .unwrap_or_else(|| {
+                    panic!("missing register doc row for {}", tier.canonical_name())
+                });
+            let side_information_cell = row
+                .trim_matches('|')
+                .split('|')
+                .map(str::trim)
+                .nth(2)
+                .unwrap_or_else(|| {
+                    panic!(
+                        "{} row must have side-information cell",
+                        tier.canonical_name()
+                    )
+                });
+            let actual_witnesses = side_information_cell
+                .split('`')
+                .skip(1)
+                .step_by(2)
+                .filter_map(|witness| {
+                    SideInformationKind::ALL
+                        .iter()
+                        .copied()
+                        .find(|kind| format!("{kind:?}") == witness)
+                })
+                .collect::<Vec<_>>();
+
+            assert_eq!(
+                actual_witnesses,
+                tier.side_information_witnesses(),
+                "{} row side-information keys must preserve ResidencyTier::side_information_witnesses() order",
+                tier.canonical_name()
+            );
         }
     }
 
