@@ -7838,6 +7838,43 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 46th Adversarial row (iter-381): BM25/IR 8-term
+        // long-query — {bm25, saturation, length, penalty,
+        // ranking, ir, search, relevance}. Keeps all 4 canonical
+        // primaries + 4 IR-context tail tokens (ranking + ir
+        // + search + relevance from canonical's tail
+        // "...ranking ir search relevance scoring notes"). 8
+        // terms OR. Canonical body has all 8 (2-3× primaries +
+        // 1× each tail); decoys ≤1 of 8. FIRST 8-term
+        // Adversarial row in fixture — extends long-query
+        // coverage past the 7-term boundary (four prior 7-
+        // term rows: iter-353 + iter-360 + iter-367 + iter-
+        // 374). BM25/IR corpus now exercised at 4/5/6/7/8-term
+        // — FIRST canonical at FIVE query-length coverage
+        // points.
+        query: "bm25 saturation length penalty ranking ir search relevance",
+        expected_paths: &["notes/bm25_saturation_length_penalty.md"],
+        forbidden_paths: &[
+            "notes/saturation_stuffed_decoy.md",
+            "notes/bm25_overview.md",
+            "notes/length_archive.md",
+            "notes/penalty_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Forty-sixth Adversarial row (iter-381): BM25/IR \
+               8-term long-query \"bm25 saturation length \
+               penalty ranking ir search relevance\". Keeps \
+               all 4 primaries + 4 IR-context tail tokens. \
+               FIRST 8-term Adversarial — extends long-query \
+               coverage past the 7-term boundary. BM25/IR now \
+               exercised at 4-term + 5-term + 6-term + 7-term \
+               + 8-term — FIRST canonical at FIVE query-length \
+               coverage points. Canonical 8/8; decoys ≤1 of 8. \
+               Brings Adversarial to depth 46 — first category \
+               past depth-45 horizon. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 45th Adversarial row (iter-374): MLX-Swift 7-term
         // long-query — {mlx, swift, inference, backend,
         // pipeline, local, model}. Keeps all 4 canonical
