@@ -1369,6 +1369,24 @@ mod tests {
     }
 
     #[test]
+    fn agent_blueprint_id_newtype_field_shape_pinned_via_destructure() {
+        // Phase 1 hardening — newtype field-shape pin for
+        // AgentBlueprintId (companion to the struct destructure pin
+        // family iter-464..iter-470). AgentBlueprintId is a
+        // 1-tuple-field newtype wrapping String:
+        //
+        //   pub struct AgentBlueprintId(pub String);
+        //
+        // A future "let me add a hash field for cache lookups"
+        // refactor that changed it to {String, [u8; 32]} would
+        // silently break the #[serde(transparent)] doctrine + every
+        // call site that uses `bid.0` to access the inner string.
+        let bid = AgentBlueprintId("research-assistant".to_string());
+        let AgentBlueprintId(inner) = bid;
+        let _: String = inner;
+    }
+
+    #[test]
     fn agent_blueprint_struct_field_shape_pinned_to_exactly_five_typed_fields() {
         // Phase 1 hardening — struct-field-shape pin for AgentBlueprint
         // (companion to AnswerPacket struct destructure iter-464).
