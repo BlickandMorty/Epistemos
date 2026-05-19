@@ -1273,6 +1273,13 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_hiragana_hebrew.md",
             "Mamba ひらがな זיכרון Mamba ひらがな זיכרון mixed script notes",
         ),
+        // Iter-441 (64th Unicode): mixed Armenian + Hebrew in one
+        // <=3-token AND query. Distinct from iter-138's standalone
+        // Armenian row because it pairs Armenian with RTL Hebrew.
+        (
+            "notes/mamba_armenian_hebrew.md",
+            "Mamba կեշ זיכרון Mamba կեշ זיכרון mixed script notes",
+        ),
     ];
     for (path, content) in seeds {
         store
