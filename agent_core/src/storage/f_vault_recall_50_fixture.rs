@@ -2531,6 +2531,23 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                term.",
     },
     FVaultRecallRow {
+        // Iter-436: mixed Hangul + Hebrew interaction. This pairs a
+        // Korean syllable-block token with an RTL Hebrew word in one
+        // <=3-token AND query.
+        query: "Mamba 캐시 זיכרון",
+        expected_paths: &["notes/mamba_hangul_hebrew.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Sixty-first Unicode row (iter-436): mixed-script \
+               Hangul+Hebrew query — \"Mamba 캐시 זיכרון\". \
+               Extends the post-floor Unicode interaction matrix \
+               to a Korean Hangul syllable-block token plus an RTL \
+               Hebrew word in one top-5 membership contract. The \
+               English-only Mamba decoy carries the Latin anchor but \
+               neither non-Latin term.",
+    },
+    FVaultRecallRow {
         // 49th Unicode row (iter-407): Meroitic Cursive
         // extension. Adds a 47th non-Latin script (Meroitic
         // Cursive, U+109A0-U+109FF) — the EVERYDAY/CURSIVE
