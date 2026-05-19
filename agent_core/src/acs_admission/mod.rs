@@ -3665,6 +3665,7 @@ impl<'de> Deserialize<'de> for ACSOperationThresholdRule {
         D: serde::Deserializer<'de>,
     {
         let value = serde_json::Value::deserialize(deserializer)?;
+        require_operation_threshold_rule_known_fields::<D::Error>(&value)?;
         require_operation_threshold_rule_field::<D::Error>(
             &value,
             "operation",
@@ -3725,6 +3726,25 @@ where
             },
         ))),
     }
+}
+
+fn require_operation_threshold_rule_known_fields<E>(value: &serde_json::Value) -> Result<(), E>
+where
+    E: serde::de::Error,
+{
+    let serde_json::Value::Object(object) = value else {
+        return Err(E::custom(acs_policy_decode_error(
+            &ACSPolicyError::Malformed {
+                field: "operation_thresholds",
+            },
+        )));
+    };
+    for field in object.keys() {
+        if !matches!(field.as_str(), "operation" | "thresholds") {
+            return Err(E::custom(format!("malformed_policy field={field}")));
+        }
+    }
+    Ok(())
 }
 
 impl ACSOperationThresholdRule {
@@ -7960,6 +7980,22 @@ mod tests {
         let decoded = serde_json::from_value::<ACSOperationThresholdRule>(value);
 
         assert!(decoded.is_err());
+    }
+
+    #[test]
+    fn acs_admission_shadow_operation_threshold_rule_field_names_malformed_policy_field() {
+        let rule = ACSOperationThresholdRule::new(
+            ACSOperationKind::KernelPromotion,
+            ACSRiskThresholds::standard(),
+        );
+        let mut value = serde_json::to_value(rule).expect("threshold rule encodes");
+        value["shadow_operation"] = serde_json::json!("model_adaptation");
+
+        let err = serde_json::from_value::<ACSOperationThresholdRule>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(message.contains("shadow_operation"), "{message}");
     }
 
     #[test]
