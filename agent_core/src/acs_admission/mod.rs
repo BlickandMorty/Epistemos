@@ -1947,6 +1947,7 @@ impl<'de> Deserialize<'de> for ACSAdmissionInput {
             "admission_input.granted_capabilities",
             serde_json::Value::is_array,
         )?;
+        require_granted_capability_envelopes::<D::Error>(&value)?;
         let wire = ACSAdmissionInputWire::deserialize(value).map_err(serde::de::Error::custom)?;
         let input = Self {
             request_id: wire.request_id,
@@ -1998,6 +1999,36 @@ where
         ))),
         _ => Err(E::custom("forged_admission_input field=admission_input")),
     }
+}
+
+fn require_granted_capability_envelopes<E>(value: &serde_json::Value) -> Result<(), E>
+where
+    E: serde::de::Error,
+{
+    let Some(serde_json::Value::Array(capabilities)) = value.get("granted_capabilities") else {
+        return Ok(());
+    };
+    for capability in capabilities {
+        let serde_json::Value::Object(capability) = capability else {
+            continue;
+        };
+        let Some(kind) = capability.get("kind").and_then(serde_json::Value::as_str) else {
+            continue;
+        };
+        let Some(serde_json::Value::Object(capability_value)) = capability.get("value") else {
+            continue;
+        };
+        for field in capability_value.keys() {
+            if let Some(shadow_field) =
+                capability_value_shadow_field(kind, field, GRANTED_CAPABILITY_SHADOW_FIELDS)
+            {
+                return Err(E::custom(format!(
+                    "forged_admission_input field={shadow_field}"
+                )));
+            }
+        }
+    }
+    Ok(())
 }
 
 impl ACSAdmissionInput {
@@ -3891,7 +3922,9 @@ where
         )));
     };
     for field in capability_value.keys() {
-        if let Some(shadow_field) = capability_value_shadow_field(kind, field) {
+        if let Some(shadow_field) =
+            capability_value_shadow_field(kind, field, REQUIRED_CAPABILITY_SHADOW_FIELDS)
+        {
             return Err(E::custom(acs_policy_decode_error(
                 &ACSPolicyError::Malformed {
                     field: shadow_field,
@@ -3939,26 +3972,52 @@ where
     Ok(())
 }
 
-fn capability_value_shadow_field(kind: &str, field: &str) -> Option<&'static str> {
+#[derive(Debug, Clone, Copy)]
+struct CapabilityShadowFieldNames {
+    vault_path_shadow_path: &'static str,
+    vault_path_shadow_verb: &'static str,
+    network_host_shadow_host: &'static str,
+    biometric_session_shadow_ttl_secs: &'static str,
+    other_shadow_name: &'static str,
+    generic_capability: &'static str,
+}
+
+const REQUIRED_CAPABILITY_SHADOW_FIELDS: CapabilityShadowFieldNames = CapabilityShadowFieldNames {
+    vault_path_shadow_path: "required_capabilities.vault_path.shadow_path",
+    vault_path_shadow_verb: "required_capabilities.vault_path.shadow_verb",
+    network_host_shadow_host: "required_capabilities.network_host.shadow_host",
+    biometric_session_shadow_ttl_secs: "required_capabilities.biometric_session.shadow_ttl_secs",
+    other_shadow_name: "required_capabilities.other.shadow_name",
+    generic_capability: "required_capabilities.capability",
+};
+
+const GRANTED_CAPABILITY_SHADOW_FIELDS: CapabilityShadowFieldNames = CapabilityShadowFieldNames {
+    vault_path_shadow_path: "granted_capabilities.vault_path.shadow_path",
+    vault_path_shadow_verb: "granted_capabilities.vault_path.shadow_verb",
+    network_host_shadow_host: "granted_capabilities.network_host.shadow_host",
+    biometric_session_shadow_ttl_secs: "granted_capabilities.biometric_session.shadow_ttl_secs",
+    other_shadow_name: "granted_capabilities.other.shadow_name",
+    generic_capability: "granted_capabilities.capability",
+};
+
+fn capability_value_shadow_field(
+    kind: &str,
+    field: &str,
+    fields: CapabilityShadowFieldNames,
+) -> Option<&'static str> {
     match kind {
         "vault_path" if matches!(field, "path" | "verb") => None,
-        "vault_path" if field == "shadow_path" => {
-            Some("required_capabilities.vault_path.shadow_path")
-        }
-        "vault_path" if field == "shadow_verb" => {
-            Some("required_capabilities.vault_path.shadow_verb")
-        }
+        "vault_path" if field == "shadow_path" => Some(fields.vault_path_shadow_path),
+        "vault_path" if field == "shadow_verb" => Some(fields.vault_path_shadow_verb),
         "network_host" if field == "host" => None,
-        "network_host" if field == "shadow_host" => {
-            Some("required_capabilities.network_host.shadow_host")
-        }
+        "network_host" if field == "shadow_host" => Some(fields.network_host_shadow_host),
         "biometric_session" if field == "ttl_secs" => None,
         "biometric_session" if field == "shadow_ttl_secs" => {
-            Some("required_capabilities.biometric_session.shadow_ttl_secs")
+            Some(fields.biometric_session_shadow_ttl_secs)
         }
         "other" if field == "name" => None,
-        "other" if field == "shadow_name" => Some("required_capabilities.other.shadow_name"),
-        _ => Some("required_capabilities.capability"),
+        "other" if field == "shadow_name" => Some(fields.other_shadow_name),
+        _ => Some(fields.generic_capability),
     }
 }
 
@@ -6708,6 +6767,41 @@ mod tests {
         assert!(message.contains("forged_admission_input"), "{message}");
         assert!(
             message.contains("granted_capabilities.other.name"),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn acs_admission_input_decode_names_shadow_granted_capability_field() {
+        let value = serde_json::json!({
+            "request_id": "req-shadow-granted-capability-field",
+            "payload": {
+                "kind": "tool_action",
+                "request": {
+                    "tool_name": "vault.write",
+                    "target": "uas://note/1",
+                    "mutation_envelope_id": "mutation-1"
+                }
+            },
+            "submitted_at_ms": 1_001,
+            "risk": ACSRiskVector::neutral(),
+            "granted_capabilities": [
+                {
+                    "kind": "other",
+                    "value": {
+                        "name": "ToolExec",
+                        "shadow_name": "KernelPromote"
+                    }
+                }
+            ]
+        });
+
+        let err = serde_json::from_value::<ACSAdmissionInput>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("forged_admission_input"), "{message}");
+        assert!(
+            message.contains("granted_capabilities.other.shadow_name"),
             "{message}"
         );
     }
