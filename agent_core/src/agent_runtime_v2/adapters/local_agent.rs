@@ -918,6 +918,17 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_owner_non_string_json_shapes_fail_to_deserialise() {
+        for bad in ["null", "true", "42", "[]", r#"{"owner":"nativeCore"}"#] {
+            let parsed: Result<LocalAgentCapabilityOwner, _> = serde_json::from_str(bad);
+            assert!(
+                parsed.is_err(),
+                "non-string LocalAgentCapabilityOwner JSON shape must fail: {bad}"
+            );
+        }
+    }
+
+    #[test]
     fn owner_round_trips_through_json() {
         for o in LocalAgentCapabilityOwner::ALL {
             let s = serde_json::to_string(&o).expect("serialize");
