@@ -81,6 +81,15 @@ def fullGeneratorList : List AMorphGenerator :=
    .eml_eval,
    .conjugation]
 
+/-- The restricted C-grade generator set named by the F7e falsifier:
+constant one plus EML evaluation only. -/
+def emlAloneGeneratorList : List AMorphGenerator :=
+  [.constant_one, .eml_eval]
+
+/-- EML-alone density remains conjectural until the F7e falsifier
+surface is closed. -/
+def emlAloneDensityIsConjecture : Bool := true
+
 /-- Generator-completeness surface for the P-scoped density theorem. -/
 theorem density_with_full_generators (X : Set Chart6) (_hX : X.Nonempty) :
     -- Real Stone-Weierstrass elaboration lands per W24.b.
@@ -88,5 +97,13 @@ theorem density_with_full_generators (X : Set Chart6) (_hX : X.Nonempty) :
     -- to {.constant_one, .eml_eval} yields the C conjecture.
     fullGeneratorList.length = 15 := by
   native_decide
+
+theorem emlAloneGeneratorListHasTwoGenerators :
+    emlAloneGeneratorList.length = 2 := by
+  native_decide
+
+theorem emlAloneDensityRemainsConjectural :
+    emlAloneDensityIsConjecture = true := by
+  rfl
 
 end Epistemos.E1
