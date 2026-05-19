@@ -743,6 +743,7 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
     required_nested_u8_json(&value, "hardware", "gpu_cores")?;
     required_nested_u16_json(&value, "hardware", "memory_gb")?;
     required_nested_bool_json(&value, "hardware", "uma")?;
+    required_nested_u16_json(&value, "hardware", "memory_bandwidth_gb_s")?;
     required_top_level_string_json(&value, "mission")?;
     required_top_level_string_json(&value, "evaluator_variant")?;
     required_top_level_string_json(&value, "shader_entrypoint")?;
@@ -2385,6 +2386,43 @@ mod tests {
         assert_eq!(
             error.invalid_json_message(),
             Some("invalid type for hardware.uma, expected boolean")
+        );
+    }
+
+    #[test]
+    fn replay_rejects_hardware_memory_bandwidth_json_type_drift_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["hardware"]["memory_bandwidth_gb_s"] = serde_json::Value::Bool(false);
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("hardware memory bandwidth type drift must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("invalid type for hardware.memory_bandwidth_gb_s, expected unsigned integer")
+        );
+    }
+
+    #[test]
+    fn replay_rejects_hardware_memory_bandwidth_json_u16_overflow_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["hardware"]["memory_bandwidth_gb_s"] =
+            serde_json::Value::Number(serde_json::Number::from(u64::from(u16::MAX) + 1));
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("hardware memory bandwidth overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("number out of range for hardware.memory_bandwidth_gb_s, expected u16")
         );
     }
 
