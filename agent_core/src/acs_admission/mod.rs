@@ -2324,12 +2324,22 @@ impl SCOPERexAdmissionProof {
             ));
         }
         self.validate()
-            .map_err(SCOPERexAdmissionProofVerificationError::Proof)?;
+            .map_err(|err| self.proof_verification_error(err))?;
         let record = resolve_acs_audit_record(run_event_log, &self.record_id)
             .map_err(SCOPERexAdmissionProofVerificationError::Lookup)?;
         self.verify_against_record(&record, key)
-            .map_err(SCOPERexAdmissionProofVerificationError::Proof)?;
+            .map_err(|err| self.proof_verification_error(err))?;
         Ok(record)
+    }
+
+    fn proof_verification_error(
+        &self,
+        error: ACSAdmissionProofError,
+    ) -> SCOPERexAdmissionProofVerificationError {
+        SCOPERexAdmissionProofVerificationError::Proof {
+            error,
+            record_id: self.record_id.0.clone(),
+        }
     }
 
     pub fn from_record(
@@ -2453,28 +2463,31 @@ impl ACSAdmissionProofError {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SCOPERexAdmissionProofVerificationError {
     Lookup(ACSAuditLookupError),
-    Proof(ACSAdmissionProofError),
+    Proof {
+        error: ACSAdmissionProofError,
+        record_id: String,
+    },
 }
 
 impl SCOPERexAdmissionProofVerificationError {
     pub const fn cause(&self) -> &'static str {
         match self {
             Self::Lookup(err) => err.cause(),
-            Self::Proof(err) => err.cause(),
+            Self::Proof { error, .. } => error.cause(),
         }
     }
 
     pub const fn field(&self) -> Option<&'static str> {
         match self {
             Self::Lookup(err) => err.field(),
-            Self::Proof(err) => err.field(),
+            Self::Proof { error, .. } => error.field(),
         }
     }
 
     pub fn record_id(&self) -> Option<&str> {
         match self {
             Self::Lookup(err) => err.record_id(),
-            Self::Proof(_) => None,
+            Self::Proof { record_id, .. } => Some(record_id.as_str()),
         }
     }
 }
@@ -6266,6 +6279,7 @@ mod tests {
             .unwrap_err();
         assert_eq!(err.cause(), "invalid_capability_signature");
         assert_eq!(err.field(), Some("signature"));
+        assert_eq!(err.record_id(), Some(proof.record_id.0.as_str()));
 
         let missing_record_id = "acs:req:404";
         let missing_record = SCOPERexAdmissionProof::new(
