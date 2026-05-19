@@ -255,6 +255,14 @@ pub fn lean_certificate(expr: &InfoExpr) -> String {
          \x20   info_bregman_zero_witness_{suffix}\n\
          \x20   \"Amari 2016 Ch. 6 §6.2\"\n\
          \n\
+         theorem info_certificate_bregman_obligations_{suffix} :\n\
+         \x20   info_certificate_{suffix}.positivity.nonnegative ∧\n\
+         \x20     info_certificate_{suffix}.positivity.zeroIffEqual := by\n\
+         \x20 exact Epistemos.Info.CertificateTarget.bregmanObligations\n\
+         \x20   info_certificate_{suffix}\n\
+         \x20   info_bregman_positivity_{suffix}\n\
+         \x20   info_bregman_non_degeneracy_{suffix}\n\
+         \n\
          theorem info_mirror_descent_equivalence_{suffix} :\n\
          \x20   info_mirror_descent_obligation_{suffix}.statement := by\n\
          \x20 exact Epistemos.Info.mirrorDescentEquivalenceObligationCarries {family_term}\n\
@@ -337,6 +345,15 @@ mod tests {
         assert!(c.contains(".convexity = some info_convexity_obligation_"));
         assert!(c.contains(".positivity = info_bregman_obligation_"));
         assert!(c.contains(".mirrorEquivalence = info_mirror_descent_obligation_"));
+    }
+
+    #[test]
+    fn certificate_projects_target_bregman_pair() {
+        let e = InfoExpr::log_partition(ExpFamily::Bernoulli, vec![0.0]).unwrap();
+        let c = lean_certificate(&e);
+        assert!(c.contains("theorem info_certificate_bregman_obligations_"));
+        assert!(c.contains("exact Epistemos.Info.CertificateTarget.bregmanObligations"));
+        assert!(c.contains("info_certificate_"));
     }
 
     #[test]
