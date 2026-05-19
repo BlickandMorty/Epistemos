@@ -3016,6 +3016,44 @@ mod tests {
     }
 
     #[test]
+    fn entry_count_by_kind_tuple_position_is_events_sealed_snapshots_with_asymmetric_counts() {
+        // Phase 1 hardening — tuple-position pin with strictly-asymmetric
+        // counts. The existing rolls-up test uses (3, 2, 1) which would
+        // not catch every swap (it would catch most), but an asymmetric
+        // (5, 3, 7) eliminates ALL position-swap ambiguity: no two
+        // positions hold equal values, so any variant->counter binding
+        // mistake immediately surfaces. Documents the canonical position
+        // order: index 0 = events, index 1 = sealed mutations, index 2 =
+        // ledger snapshots.
+        let mut log = RunEventLog::new();
+        // 5 events.
+        for i in 0..5u64 {
+            log.append_event(AgentEvent::ReasoningDelta {
+                text: format!("e{i}"),
+            });
+        }
+        // 3 sealed mutations.
+        for i in 0..3u8 {
+            log.append_sealed_mutation(Hash::from_bytes([i; 32]), BudgetDebit::default());
+        }
+        // 7 ledger snapshots.
+        for _ in 0..7 {
+            log.append_ledger_snapshot(BudgetLedger::default());
+        }
+
+        let (events, sealed, snapshots) = log.entry_count_by_kind();
+        assert_eq!(events, 5, "tuple.0 must count Event entries");
+        assert_eq!(sealed, 3, "tuple.1 must count SealedMutation entries");
+        assert_eq!(snapshots, 7, "tuple.2 must count LedgerSnapshot entries");
+        // Sum invariant.
+        assert_eq!(events + sealed + snapshots, log.len());
+        // Asymmetry pin: no two counts are equal, so a swap is detectable.
+        assert_ne!(events, sealed);
+        assert_ne!(sealed, snapshots);
+        assert_ne!(events, snapshots);
+    }
+
+    #[test]
     fn detect_capability_reuse_matches_find_capability_hash_len_minus_cap() {
         // Phase 1 hardening — cross-helper consistency pin.
         // detect_capability_reuse is documented as
