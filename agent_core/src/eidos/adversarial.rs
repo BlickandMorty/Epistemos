@@ -170,3 +170,11 @@ pub fn adversarial_query_fixture_catalog_expected_outcomes_match_fixture_rows() 
                 *expected_outcome == fixture.expected_outcome
             })
 }
+
+pub fn adversarial_query_fixture_catalog_descriptions_match_fixture_rows() -> bool {
+    ADVERSARIAL_QUERY_FIXTURE_DESCRIPTIONS.len() == ADVERSARIAL_QUERY_FIXTURES.len()
+        && ADVERSARIAL_QUERY_FIXTURE_DESCRIPTIONS
+            .iter()
+            .zip(ADVERSARIAL_QUERY_FIXTURES.iter())
+            .all(|(description, fixture)| *description == fixture.description)
+}
