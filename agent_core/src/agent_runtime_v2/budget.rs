@@ -996,6 +996,71 @@ mod tests {
     }
 
     #[test]
+    fn concurrent_over_budget_debits_leave_ledger_at_cap() {
+        use std::sync::{Arc, Barrier, Mutex};
+        use std::thread;
+
+        const THREADS: usize = 32;
+        const CAP: u64 = 16;
+        const DEBIT: BudgetDebit = BudgetDebit {
+            tokens: 1,
+            wall_ms: 0,
+            tool_calls: 0,
+            subprocess_ms: 0,
+            memory_bytes: 0,
+        };
+
+        let gate = Arc::new(BudgetGate::new(BudgetSpec::new(CAP, 0, 0, 0)));
+        let ledger = Arc::new(Mutex::new(BudgetLedger::default()));
+        let barrier = Arc::new(Barrier::new(THREADS));
+
+        let mut handles = Vec::with_capacity(THREADS);
+        for _ in 0..THREADS {
+            let gate = Arc::clone(&gate);
+            let ledger = Arc::clone(&ledger);
+            let barrier = Arc::clone(&barrier);
+            handles.push(thread::spawn(move || {
+                barrier.wait();
+                let mut locked = ledger.lock().expect("ledger lock");
+                match gate.check_and_debit(*locked, DEBIT) {
+                    Ok(next) => {
+                        *locked = next;
+                        Ok(())
+                    }
+                    Err(err) => Err(err),
+                }
+            }));
+        }
+
+        let mut accepted = 0usize;
+        let mut rejected = 0usize;
+        for handle in handles {
+            match handle.join().expect("worker thread joins") {
+                Ok(()) => accepted += 1,
+                Err(BudgetError::Exhausted {
+                    term: BudgetTerm::Tokens,
+                    attempted_total,
+                    cap,
+                }) => {
+                    rejected += 1;
+                    assert_eq!(attempted_total, CAP + 1);
+                    assert_eq!(cap, CAP);
+                }
+                Err(other) => panic!("expected Exhausted(Tokens), got {other:?}"),
+            }
+        }
+
+        assert_eq!(accepted, CAP as usize);
+        assert_eq!(rejected, THREADS - CAP as usize);
+        let final_ledger = *ledger.lock().expect("ledger lock");
+        assert_eq!(final_ledger.tokens_used, CAP);
+        assert_eq!(final_ledger.wall_used_ms, 0);
+        assert_eq!(final_ledger.tool_calls_used, 0);
+        assert_eq!(final_ledger.subprocess_used_ms, 0);
+        assert_eq!(final_ledger.memory_bytes_used, 0);
+    }
+
+    #[test]
     fn budget_gate_spec_getter_returns_construction_spec() {
         // Phase 1 hardening — defensive: the spec() getter has been
         // present since the gate landed (iter-3). Pin its behaviour
