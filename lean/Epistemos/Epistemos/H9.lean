@@ -35,7 +35,14 @@ structure CorticalPacket where
   cortex : CortexKind
   payload_hash : String
 
+/-- H9 targets the Foundational Seven theorem invariants E1-E7. -/
+def foundationalTheoremTargetCount : Nat := 7
+
 theorem corticalPacketRuntimeExpressesE1ThroughE7 : CortexKind.all.length = 3 := by
+  rfl
+
+theorem foundationalTargetCountPinned :
+    foundationalTheoremTargetCount = 7 := by
   rfl
 
 end Epistemos.H9
