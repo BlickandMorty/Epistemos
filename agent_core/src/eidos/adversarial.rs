@@ -12,6 +12,16 @@ pub enum AdversarialQueryFixtureKind {
     NearDuplicateParagraphTie,
 }
 
+impl AdversarialQueryFixtureKind {
+    pub fn token(self) -> &'static str {
+        match self {
+            Self::TypoTransposition => "typo-transposition",
+            Self::Bm25Saturation => "bm25-saturation",
+            Self::NearDuplicateParagraphTie => "near-duplicate-paragraph-tie",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AdversarialQueryExpectedOutcome {
     NoFuzzyMatch,
@@ -220,6 +230,19 @@ pub fn adversarial_query_fixture_labels_are_ascii_lowercase_kebab_case() -> bool
             && !label.starts_with('-')
             && !label.ends_with('-')
             && !label.contains("--")
+    })
+}
+
+pub fn adversarial_query_fixture_kind_tokens_are_ascii_lowercase_kebab_case() -> bool {
+    ADVERSARIAL_QUERY_FIXTURE_KINDS.iter().all(|kind| {
+        let token = kind.token();
+        !token.is_empty()
+            && token.bytes().all(|byte| {
+                byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-'
+            })
+            && !token.starts_with('-')
+            && !token.ends_with('-')
+            && !token.contains("--")
     })
 }
 
