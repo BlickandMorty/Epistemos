@@ -6645,6 +6645,41 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 44th ChattyPrefix row (iter-370, milestone iteration):
+        // Vai-multilingual signal domain — 34th distinct lexical
+        // universe. Survivors after strip {Mamba, ꕞ}. 2-term AND
+        // matches only iter-220's mamba_vai.md. TWENTY-THIRD
+        // non-ASCII ChattyPrefix domain. FIRST modern-single-
+        // inventor African syllabary in ChattyPrefix (Vai =
+        // Bukɛlɛ 1830s, Liberia / Sierra Leone). SECOND
+        // African-origin script in ChattyPrefix (after iter-
+        // 363 Tifinagh traditional Berber/Amazigh). Parallels
+        // iter-368 SignalOnly Vai single-term-AND. ChattyPrefix
+        // now covers SIX distinct script-family branches at
+        // multilingual-signal: Brahmic + Aramaic + Latin-
+        // diacritic + Greek-descendant + Berber/Amazigh +
+        // modern-African-syllabary. iter-370 milestone.
+        query: "Show me my Mamba ꕞ notes",
+        expected_paths: &["notes/mamba_vai.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Forty-fourth ChattyPrefix row (iter-370, \
+               milestone): Vai-multilingual signal domain — \
+               34th distinct lexical universe. Survivors \
+               {Mamba, ꕞ} after strip. 2-term AND matches \
+               only iter-220 mamba_vai.md. Twenty-third non-\
+               ASCII ChattyPrefix domain. FIRST modern-single-\
+               inventor African syllabary in ChattyPrefix. \
+               SECOND African-origin script in ChattyPrefix \
+               (after iter-363 Tifinagh). ChattyPrefix now \
+               covers SIX distinct script-family branches at \
+               multilingual-signal. Parallels iter-368 \
+               SignalOnly Vai. iter-370 milestone. Brings \
+               ChattyPrefix to depth 44 — first category past \
+               depth-43 horizon. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 43rd ChattyPrefix row (iter-363): Tifinagh-multilingual
         // signal domain — 33rd distinct lexical universe.
         // Survivors after strip {Mamba, ⴽ}. 2-term AND matches
