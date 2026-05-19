@@ -1915,7 +1915,9 @@ impl<'de> Deserialize<'de> for ACSAdmissionInput {
     where
         D: serde::Deserializer<'de>,
     {
-        let wire = ACSAdmissionInputWire::deserialize(deserializer)?;
+        let value = serde_json::Value::deserialize(deserializer)?;
+        require_admission_input_known_fields::<D::Error>(&value)?;
+        let wire = ACSAdmissionInputWire::deserialize(value).map_err(serde::de::Error::custom)?;
         let input = Self {
             request_id: wire.request_id,
             payload: wire.payload,
@@ -1928,6 +1930,26 @@ impl<'de> Deserialize<'de> for ACSAdmissionInput {
             .map_err(|err| serde::de::Error::custom(acs_admission_input_decode_error(&err)))?;
         Ok(input)
     }
+}
+
+fn require_admission_input_known_fields<E>(value: &serde_json::Value) -> Result<(), E>
+where
+    E: serde::de::Error,
+{
+    let serde_json::Value::Object(object) = value else {
+        return Ok(());
+    };
+    for field in object.keys() {
+        if !matches!(
+            field.as_str(),
+            "request_id" | "payload" | "submitted_at_ms" | "risk" | "granted_capabilities"
+        ) {
+            return Err(E::custom(format!(
+                "forged_admission_input field=admission_input.{field}"
+            )));
+        }
+    }
+    Ok(())
 }
 
 impl ACSAdmissionInput {
@@ -6207,6 +6229,34 @@ mod tests {
         assert!(message.contains("forged_admission_input"), "{message}");
         assert!(
             message.contains("model_adaptation.shadow_adapter"),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn acs_admission_shadow_input_field_names_forged_admission_input_field() {
+        let value = serde_json::json!({
+            "request_id": "req-shadow",
+            "payload": {
+                "kind": "memory_write",
+                "request": {
+                    "address": "uas://note/1",
+                    "content_hash": "blake3:abc",
+                    "durable": false
+                }
+            },
+            "submitted_at_ms": 1_001,
+            "risk": ACSRiskVector::neutral(),
+            "granted_capabilities": [],
+            "shadow_policy_id": "policy-smuggled"
+        });
+
+        let err = serde_json::from_value::<ACSAdmissionInput>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("forged_admission_input"), "{message}");
+        assert!(
+            message.contains("admission_input.shadow_policy_id"),
             "{message}"
         );
     }
