@@ -157,7 +157,7 @@ fn assert_iter_format_canonical_panics_on_out_of_range() {
     assert_iter_format_canonical("iter 099", "MY_SOURCE_LABEL");
 }
 
-/// Iter 721 — catalog range continuation pin.
+/// Iter 722 — catalog range continuation pin.
 /// STATUS.md is the contributor-facing catalog for the closed-citation
 /// hardening arc. When new pins land after the previous range tip, the
 /// range must advance in lock-step so future readers can tell the arc is
@@ -167,9 +167,9 @@ fn status_md_closed_citation_iter_range_tip_tracks_latest_catalog_pin() {
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Closed-citation contract hardening (iters 127-721)"),
+        status.contains("Closed-citation contract hardening (iters 127-722)"),
         "STATUS.md closed-citation hardening catalog must advance its iter \
-         range tip to iter 721 when the catalog-continuation pin lands"
+         range tip to iter 722 when the catalog-continuation pin lands"
     );
 }
 
@@ -1345,6 +1345,22 @@ fn adversarial_query_fixture_description_slice_matches_fixture_rows() {
     assert!(
         adversarial_query_fixture_catalog_descriptions_match_fixture_rows(),
         "fixture description enumerator must remain byte-equal to fixture row description values"
+    );
+}
+
+#[test]
+fn adversarial_query_fixture_count_matches_catalog_rows() {
+    use super::adversarial::{adversarial_query_fixture_count, ADVERSARIAL_QUERY_FIXTURES};
+
+    assert_eq!(
+        adversarial_query_fixture_count(),
+        3,
+        "adversarial fixture count is a stable harness preallocation contract"
+    );
+    assert_eq!(
+        adversarial_query_fixture_count(),
+        ADVERSARIAL_QUERY_FIXTURES.len(),
+        "fixture count accessor must remain equal to catalog row count"
     );
 }
 
