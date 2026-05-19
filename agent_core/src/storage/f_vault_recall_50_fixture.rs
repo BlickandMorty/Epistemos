@@ -1005,6 +1005,46 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 50th SignalOnly row (iter-410, MILESTONE — SignalOnly
+        // category THIRD after Synthesis + Adversarial to reach
+        // the F-VaultRecall-50 target). Single-term query in
+        // Ogham-script domain — "ᚅ" (nion, U+1685, single
+        // codepoint). FORTY-FIRST single-term-AND domain.
+        // TWENTY-EIGHTH non-ASCII script-block. FIRST historical
+        // Celtic script in SignalOnly. Ogham (attested 4th-9th
+        // c CE) is the Old Irish stem-line script — inscribed
+        // along edges of standing stones across Ireland and
+        // western Britain (Cornwall, Wales, Isle of Man).
+        // Distinct typology: stem-line incisions rather than
+        // glyphs. SECOND ancient European script in SignalOnly
+        // (after iter-403 Runic Germanic), completing the
+        // historical-European-bracket: Slavic (iter-396
+        // Glagolitic) + Germanic (iter-403 Runic) + Celtic
+        // (iter-410 Ogham). THREE distinct ancient-European
+        // language communities at single-term-AND granularity.
+        // Token unique to iter-264's mamba_ogham.md.
+        query: "ᚅ",
+        expected_paths: &["notes/mamba_ogham.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Fiftieth SignalOnly row (iter-410, MILESTONE — \
+               SignalOnly category THIRD to reach the F-\
+               VaultRecall-50 target). Single-term Ogham-script \
+               query — \"ᚅ\" (U+1685). Forty-first domain for \
+               single-term-AND. Twenty-eighth non-ASCII script-\
+               block. FIRST historical Celtic script in \
+               SignalOnly. Ogham (4th-9th c CE) is the Old \
+               Irish stem-line script. SECOND ancient European \
+               script in SignalOnly — with iter-396 Glagolitic \
+               (Slavic) + iter-403 Runic (Germanic) + iter-410 \
+               Ogham (Celtic) the historical-European-bracket \
+               is now complete at THREE distinct ancient \
+               language communities. Sixteenth single-codepoint \
+               non-ASCII token. Brings SignalOnly to depth 50 — \
+               F-VaultRecall-50 target reached.",
+    },
+    FVaultRecallRow {
         // 49th SignalOnly row (iter-403): single-term query in
         // Runic-script domain — "ᚲ" (kauna, U+16B2, single
         // codepoint). FORTIETH single-term-AND domain.
