@@ -3797,6 +3797,48 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 40th Paraphrase row (iter-340): NEW axis — VOWEL-
+        // DROP / ABJAD-STYLE. User strips ALL vowels from every
+        // word — "Mamba SSM cache" → "Mmb SSM cch". This is
+        // how consonantal abjad scripts (Hebrew, Arabic,
+        // Aramaic) traditionally render written text — vowels
+        // are not represented in the base graphemes. Tokens:
+        // {mmb, ssm, cch} — 3-term AND. Canonical lacks both
+        // "mmb" and "cch" → blocked. Distinct from:
+        //   • iter-20 single-char typo (deliberate systematic
+        //     vowel-strip, not random edit)
+        //   • iter-239 SUFFIX truncation and iter-333 PREFIX
+        //     truncation (those preserved one boundary; this
+        //     strips INTERIOR vowels symmetrically)
+        //   • iter-140 concatenation / iter-166 whitespace-
+        //     insertion (those changed token boundaries; this
+        //     keeps boundaries but mutates token interiors)
+        //   • iter-86 acronym (multi-word collapse, single
+        //     letters each; this keeps multi-letter tokens)
+        // Pins deferred consonantal-skeleton retrieval (the
+        // analogue of soundex / Metaphone for abjad-style
+        // queries). Thirty-seventh named failure subclass.
+        query: "Mmb SSM cch",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Vowel-drop / abjad-style Paraphrase axis (axis \
+               #37): user strips ALL vowels from every word — \
+               \"Mamba SSM cache\" → \"Mmb SSM cch\". Mimics \
+               consonantal abjad scripts (Hebrew, Arabic, \
+               Aramaic). 3-term AND on {mmb, ssm, cch} blocks. \
+               Distinct from typo (deliberate systematic \
+               strip), prefix/suffix truncation (boundary-\
+               clip), concatenation (whitespace mutation), \
+               acronym (multi-word collapse). Pins deferred \
+               consonantal-skeleton retrieval (analogue of \
+               soundex / Metaphone for abjad-style queries). \
+               Thirty-seventh named failure subclass. Brings \
+               Paraphrase to depth 40 — first category past \
+               depth-39 horizon.",
+    },
+    FVaultRecallRow {
         // 39th Paraphrase row (iter-333): NEW axis — PREFIX
         // TRUNCATION (head-clipping). User keeps the TAIL of
         // a word and drops the prefix — "Mamba" → "ba" (keep
