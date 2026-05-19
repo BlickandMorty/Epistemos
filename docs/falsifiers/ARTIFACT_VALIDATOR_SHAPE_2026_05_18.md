@@ -318,6 +318,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_
 ```
 
 ```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md"); block=s[/## N193 - .*?```json\n(.*?)\n```/m,1] || abort("N193 missing"); notes=JSON.parse(block).fetch("notes"); abort("N193 duplicate numeric transition missing") unless notes.include?("identity_sentinel_gap_report=validator:old-1-new-2,reviewer:old-1-new-2"); puts "migration identity duplicate numeric negative case ok"'
+```
+
+```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md"); block=s[/## N170 - Paired Reserved Migration Identities.*?```json\n(.*?)\n```/m,1] || abort("N170 missing"); artifact=JSON.parse(block); notes=artifact.fetch("notes"); abort("shared sentinel negative pair missing") unless notes.include?("validator=none") && notes.include?("reviewer=unknown"); puts "migration identity sentinel negative pair ok"'
 ```
 
