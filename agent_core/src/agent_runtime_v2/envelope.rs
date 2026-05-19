@@ -2366,6 +2366,27 @@ mod tests {
     }
 
     #[test]
+    fn mutation_envelope_missing_required_fields_fail_to_deserialise() {
+        let envelope = MutationEnvelope::new(
+            Hash::from_bytes([1u8; 32]),
+            BudgetDebit::default(),
+            "payload".to_string(),
+        );
+        let value = serde_json::to_value(&envelope).expect("serialise");
+        let obj = value.as_object().expect("envelope serialises as JSON object");
+        for missing in ["capability_hash", "debit", "payload"] {
+            let mut tampered = obj.clone();
+            tampered.remove(missing);
+            let parsed: Result<MutationEnvelope<String>, _> =
+                serde_json::from_value(serde_json::Value::Object(tampered));
+            assert!(
+                parsed.is_err(),
+                "MutationEnvelope missing required field {missing:?} must fail"
+            );
+        }
+    }
+
+    #[test]
     fn mutation_envelope_serde_value_payload_round_trips_through_serde() {
         // Phase 1 hardening — generic-payload pin for
         // MutationEnvelope<serde_json::Value>. Companion to
