@@ -65,6 +65,25 @@ freezes treat Metal output itself as proven.
 |---|---|---|---|---|---|---|
 | F-ULP-Oracle | Research | M2 Pro numeric falsifier | implemented-not-wired | `agent_core/src/research/eml_ir/`, `Epistemos/Shaders/morph_eval_reduced.metal`, `cargo test --features research research::eml_ir` | live Metal dispatch capture from `morphOracleFp16` | harden with GPU capture, subnormal/signed-zero diagnostics, WBO numerics cross-link, and Helios v3 §3.5/F7a reference |
 
+## Scope Lock and Frozen Terminals
+
+The T12 F-ULP-Oracle lane only writes to
+`agent_core/src/research/eml_ir/`,
+`Epistemos/Shaders/morph_eval_reduced.metal`, and
+`docs/falsifiers/F_ULP_ORACLE_2026_05_18.md`. The following neighbor
+terminals are explicitly frozen for this lane and must not be edited by
+F-ULP-Oracle iterations:
+
+- `agent_core/src/research/operator_ir/` (T5 operator IR).
+- `agent_core/src/research/scan_ir/` (T5 scan IR).
+- `agent_core/src/research/tropical_ir/` (T5 tropical IR).
+- `agent_core/src/lattice_wbo/` (T17B WBO lattice).
+- `agent_core/src/acs_admission/` (T18B ACS admission).
+
+A scope drift into any of these directories must be reverted before the
+witness is re-emitted, so the F-ULP-Oracle witness can never depend on
+behavior from a frozen neighbor terminal.
+
 ## Fixture Fingerprint Chain
 
 The witness chains six SHA-256 fingerprints that the replay path

@@ -84,6 +84,17 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_doc_documents_scope_lock_and_frozen_terminals() {
+        assert!(FULP_FALSIFIER_DOC.contains("## Scope Lock and Frozen Terminals"));
+        assert!(FULP_FALSIFIER_DOC.contains("`agent_core/src/research/operator_ir/`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`agent_core/src/research/scan_ir/`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`agent_core/src/research/tropical_ir/`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`agent_core/src/lattice_wbo/`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`agent_core/src/acs_admission/`"));
+        assert!(FULP_FALSIFIER_DOC.contains("must be reverted"));
+    }
+
+    #[test]
     fn falsifier_doc_documents_fixture_fingerprint_chain() {
         assert!(FULP_FALSIFIER_DOC.contains("## Fixture Fingerprint Chain"));
         assert!(FULP_FALSIFIER_DOC.contains("SHA-256"));
