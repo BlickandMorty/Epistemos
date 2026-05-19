@@ -73,7 +73,7 @@ impl<'de> Deserialize<'de> for ACSRiskVector {
         require_risk_number_field::<D::Error>(&value, "scope_rex_risk")?;
         require_risk_number_field::<D::Error>(&value, "kernel_promotion_risk")?;
         require_risk_number_field::<D::Error>(&value, "model_adaptation_risk")?;
-        require_risk_vector_field::<D::Error>(&value, "evidence_present")?;
+        require_risk_bool_field::<D::Error>(&value, "evidence_present")?;
         let wire = ACSRiskVectorWire::deserialize(value).map_err(serde::de::Error::custom)?;
         let risk = Self {
             truth_risk: wire.truth_risk,
@@ -110,15 +110,18 @@ where
     }
 }
 
-fn require_risk_vector_field<E>(value: &serde_json::Value, field: &'static str) -> Result<(), E>
+fn require_risk_bool_field<E>(value: &serde_json::Value, field: &'static str) -> Result<(), E>
 where
     E: serde::de::Error,
 {
     match value {
         serde_json::Value::Object(object)
-            if object.get(field).is_some_and(|value| !value.is_null()) =>
+            if object.get(field).is_some_and(serde_json::Value::is_boolean) =>
         {
             Ok(())
+        }
+        serde_json::Value::Object(object) if object.contains_key(field) => {
+            Err(E::custom(format!("malformed_risk_field field={field}")))
         }
         serde_json::Value::Object(_) => Err(E::custom(format!("missing_risk_axis field={field}"))),
         _ => Err(E::custom("malformed_risk_vector field=risk")),
@@ -7305,6 +7308,19 @@ mod tests {
 
         assert!(message.contains("malformed_risk_vector"), "{message}");
         assert!(message.contains("risk"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_typed_evidence_field_names_decode_field() {
+        let mut value =
+            serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
+        value["evidence_present"] = serde_json::json!("true");
+
+        let err = serde_json::from_value::<ACSRiskVector>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_risk_field"), "{message}");
+        assert!(message.contains("evidence_present"), "{message}");
     }
 
     #[test]
