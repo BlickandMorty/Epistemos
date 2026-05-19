@@ -2930,6 +2930,50 @@ mod tests {
     }
 
     #[test]
+    fn find_capability_hash_isolates_needles_no_cross_contamination() {
+        // Phase 1 hardening — needle-isolation pin. Companion to
+        // find_capability_hash_returns_empty_when_needle_not_present_in_nonempty_log
+        // (which pins the no-false-positives case).
+        //
+        // With 3 distinct capability_hash needles interleaved in the
+        // same log, find_capability_hash(A) must NOT see B-rows or
+        // C-rows in its result, and vice versa. The 3 result Vecs
+        // must be DISJOINT — no ordinal appears in more than one
+        // result.
+        //
+        // A future "let me use prefix matching on capability_hash for
+        // approximate-match audit queries" refactor would silently
+        // cross-contaminate the results — surface here.
+        let mut log = RunEventLog::new();
+        let a = Hash::from_bytes([0xAA; 32]);
+        let b = Hash::from_bytes([0xBB; 32]);
+        let c = Hash::from_bytes([0xCC; 32]);
+        // 6 sealed mutations: A at 0,3; B at 1,4; C at 2,5.
+        log.append_sealed_mutation(a, BudgetDebit::default()); // 0
+        log.append_sealed_mutation(b, BudgetDebit::default()); // 1
+        log.append_sealed_mutation(c, BudgetDebit::default()); // 2
+        log.append_sealed_mutation(a, BudgetDebit::default()); // 3
+        log.append_sealed_mutation(b, BudgetDebit::default()); // 4
+        log.append_sealed_mutation(c, BudgetDebit::default()); // 5
+
+        let hits_a = log.find_capability_hash(&a);
+        let hits_b = log.find_capability_hash(&b);
+        let hits_c = log.find_capability_hash(&c);
+        assert_eq!(hits_a, vec![0, 3]);
+        assert_eq!(hits_b, vec![1, 4]);
+        assert_eq!(hits_c, vec![2, 5]);
+
+        // Disjoint: no ordinal appears in more than one result.
+        use std::collections::HashSet;
+        let set_a: HashSet<u64> = hits_a.iter().copied().collect();
+        let set_b: HashSet<u64> = hits_b.iter().copied().collect();
+        let set_c: HashSet<u64> = hits_c.iter().copied().collect();
+        assert!(set_a.is_disjoint(&set_b), "A and B results must be disjoint");
+        assert!(set_b.is_disjoint(&set_c), "B and C results must be disjoint");
+        assert!(set_a.is_disjoint(&set_c), "A and C results must be disjoint");
+    }
+
+    #[test]
     fn find_capability_hash_returns_empty_when_needle_not_present_in_nonempty_log() {
         // Phase 1 hardening — negative-search-result pin. Companion
         // to find_capability_hash_matches_zero_hash_needle... (which
