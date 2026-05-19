@@ -2237,6 +2237,21 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                underscore splitting.",
     },
     FVaultRecallRow {
+        // Iter-424: exact-quote PhraseQuery across slash boundaries.
+        // The expected doc writes "quartz/ledger"; the forbidden
+        // decoy contains both words but non-adjacent.
+        query: "\"quartz ledger\"",
+        expected_paths: &["notes/quartz_ledger_slash.md"],
+        forbidden_paths: &["notes/quartz_general_ledger.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Exact-quote slash-boundary row (iter-424): quoted \
+               PhraseQuery \"quartz ledger\" must match an expected \
+               doc containing `quartz/ledger`, while rejecting a \
+               decoy with non-adjacent `quartz ... ledger`. Pins \
+               phrase adjacency through tokenizer slash splitting.",
+    },
+    FVaultRecallRow {
         // 9th SignalOnly row (iter-102) — **50th fixture row,
         // landing the F-VaultRecall-50 falsifier-name target.**
         // 3rd exact-quote PhraseQuery row, in the storage/vault

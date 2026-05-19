@@ -540,6 +540,18 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/graph_general_recall.md",
             "graph general recall notes archive",
         ),
+        // Iter-424 exact-quote slash boundary: the expected document
+        // writes quartz/ledger, which Tantivy tokenizes as adjacent
+        // quartz + ledger. The decoy has both terms but with an
+        // intervening token, so PhraseQuery must reject it.
+        (
+            "notes/quartz_ledger_slash.md",
+            "quartz/ledger phrase boundary notes",
+        ),
+        (
+            "notes/quartz_general_ledger.md",
+            "quartz general ledger notes archive",
+        ),
         // Iter-108 (3rd near-duplicate Synthesis — neural-cache-layer
         // domain): pair of near-identical docs each carry all 3 of
         // {neural, cache, layer} with equal frequency. AND-
