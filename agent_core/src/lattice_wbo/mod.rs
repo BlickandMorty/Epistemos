@@ -4505,6 +4505,7 @@ mod tests {
             "wrong side-information is rejected before a simultaneous foreign-term mismatch",
             "`budget_validation_rejects_every_wrong_side_information_before_term_mismatch`",
             "every noncanonical side-information witness is rejected before simultaneous codec-term mismatches",
+            "wrong-side-info adversarial family covers direct, full, composition, and measured-status pending paths",
             "measured invalid-side-information fixtures also exercise public `validate_composition()` rejection",
             "`ledger_validation_rejects_side_information_outside_residency_primary`",
             "`ledger_validation_rejects_every_nonprimary_side_information_for_every_residency_tier`",
