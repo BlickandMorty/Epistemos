@@ -80,6 +80,12 @@ UAS §2, §4, and §5 line anchors are checked against current headings.
 | `T_SE` | Self-evolving or security enforcement, including sovereign enforcement owed when state changes authority or crosses protected execution | L_SE adapters; L5 teacher path; Sovereign/security gate | Surprise gradient, mutation envelope, signed claim ledger, capability witness | adapter replay/provenance verifier; provider/provenance replay; `F-WBO-DriftLedger` |
 | `T_num` | Numerical guard before softmax half-contraction, applied before the post-softmax 1/2 contraction | Every tier, including exact hot L0 | IEEE/fp mode, softmax correction, per-token KL witness | `F-ULP-Oracle`; `F-WBO-DriftLedger` |
 
+### WBO Witness Contracts
+
+| Term | Witness contract |
+|---|---|
+| `T_W` | Weight/runtime rows must carry a layerwise reconstruction or logit-drift witness tied to the exact promoted weight delta or quantized block; adapter rows must also carry replayable mutation provenance before promotion. |
+
 ## Side-Information Decoding Kinds
 
 | Rust kind | Decoding meaning | Codec owner(s) | Must not be confused with |
