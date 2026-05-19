@@ -38,6 +38,10 @@ structure VpdExtraction where
 not a user-visible runtime feature. -/
 def researchOnlyTrainingTime : Bool := true
 
+/-- PCF-1 falsifier tolerance: reconstruction MSE within 10 percent
+of the SPD/APD toy-model paper result on M2 Max. -/
+def falsifierMseTolerancePercent : Nat := 10
+
 /-- The reconstruction-error → 0 limit holds as #components
 approaches the ground-truth count. -/
 theorem reconstructionErrorVanishesAtGroundTruth
@@ -50,6 +54,10 @@ theorem reconstructionErrorVanishesAtGroundTruth
 
 theorem researchOnlyTrainingTimePinned :
     researchOnlyTrainingTime = true := by
+  rfl
+
+theorem falsifierMseTolerancePercentPinned :
+    falsifierMseTolerancePercent = 10 := by
   rfl
 
 end Epistemos.PCF1
