@@ -9801,6 +9801,44 @@ mod tests {
     }
 
     #[test]
+    fn ledger_validation_rejects_standalone_codecs_for_every_residency_tier() {
+        let mut checked = 0;
+        for tier in ResidencyTier::ALL {
+            for coder in LatticeCoderKind::ALL
+                .into_iter()
+                .filter(|coder| coder.primary_residency_tier().is_none())
+            {
+                let budget =
+                    side_information_probe_budget(coder, coder.canonical_side_information()[0]);
+                let entry = WboLedgerEntry::new_for_tier(
+                    tier,
+                    budget,
+                    None,
+                    coder.falsifier(),
+                    "Standalone codec rows cannot promote into product residency lanes.",
+                );
+
+                assert_eq!(
+                    entry.validate(),
+                    Err(LatticeWboError::ResidencyCodecMismatch),
+                    "{} accepted standalone codec {:?}",
+                    tier.canonical_name(),
+                    coder
+                );
+                checked += 1;
+            }
+        }
+
+        assert_eq!(checked, ResidencyTier::ALL.len() * 6);
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register
+                .contains("`ledger_validation_rejects_standalone_codecs_for_every_residency_tier`"),
+            "register doc must cross-link standalone product-lane rejection"
+        );
+    }
+
+    #[test]
     fn residency_nonprimary_codec_rejection_matrix_counts_are_pinned() {
         let rows = ResidencyTier::ALL
             .iter()
