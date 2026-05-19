@@ -6890,6 +6890,173 @@ fn closed_citation_contract_holds_across_retrieval_modes() {
     }
 }
 
+/// Cross-mode multilingual sweep — the byte-strict
+/// `validate_citation` floor holds identically across every direct
+/// retriever (Lexical / Semantic / Recency / CodeSymbol / RawArchive)
+/// when the document_id carries non-Latin bytes. Parallel to iter
+/// 147's ASCII cross-mode sweep.
+///
+/// Each retriever has its own source_id template:
+///   - Lexical:    `{doc}::lex`
+///   - Semantic:   `{doc}::sem`
+///   - Recency:    `{doc}::recency`
+///   - CodeSymbol: `{doc}::sym@{byte_start}`
+///   - RawArchive: `{doc}::raw`
+///
+/// The byte-strict floor requires that every retriever's source_id
+/// template flows non-Latin document_id bytes through verbatim — no
+/// retriever-side canonicalization, no template-time normalization.
+///
+/// If a future retriever change ever ran `to_ascii_lowercase()` or
+/// `normalize_id()` on the document_id half of the template (a
+/// natural temptation when refactoring multiple templates into a
+/// shared helper), one or more of these 5 modes would surface as a
+/// fabrication error here while the ASCII-only iter 147 sweep stays
+/// green.
+///
+/// Pins per retriever (each uses a distinct non-Latin doc_id so a
+/// regression in ONE retriever's template doesn't get masked by
+/// another's correctness):
+///   - retriever emits a hit whose source_id contains the non-Latin
+///     bytes verbatim
+///   - byte-equal multilingual citation accepted (Ok(()))
+///   - byte-different multilingual variant (script-internal mutation
+///     same shape as iter 658) rejected as FabricatedSourceId,
+///     diagnostic preserves the smuggled bytes verbatim
+///   - fixture sanity: emitted source_id is non-ASCII
+#[test]
+fn closed_citation_contract_holds_across_modes_for_multilingual_ids() {
+    use super::code_symbol::InMemoryCodeSymbolIndex;
+    use super::raw_archive::InMemoryRawArchive;
+    use super::recency::InMemoryRecencyIndex;
+    use super::semantic::InMemorySemanticIndex;
+    use super::types::{CitationError, EidosChunkId, EidosCitation};
+
+    let m = manifest();
+    let ts = 1_700_000_000_000;
+
+    // Sweep helper: given a non-empty packet and a smuggled doc-id
+    // variant, exercise the three contract assertions: positive,
+    // negative (fabricated via mutation), and the non-ASCII sanity.
+    let sweep = |label: &str,
+                 packet: super::types::EidosContextPacket,
+                 expected_src_substring: &str,
+                 smuggled_src: String| {
+        assert!(
+            !packet.hits.is_empty(),
+            "{label}: sweep requires a non-empty packet"
+        );
+        let real_src = packet.hits[0].source_id.as_str().to_string();
+        assert!(
+            real_src.contains(expected_src_substring),
+            "{label}: emitted source_id ({real_src:?}) must contain \
+             the multilingual document_id substring \
+             ({expected_src_substring:?})"
+        );
+        assert!(
+            !real_src.is_ascii(),
+            "{label}: emitted source_id must be non-ASCII \
+             (multilingual fixture sanity)"
+        );
+
+        // (1) Byte-equal citation accepted.
+        let legit = EidosCitation {
+            source_id: packet.hits[0].source_id.clone(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        assert_eq!(
+            packet.validate_citation(&legit),
+            Ok(()),
+            "{label}: byte-equal multilingual citation must validate Ok"
+        );
+
+        // (2) Byte-different multilingual variant rejected as
+        // fabricated (script-internal mutation).
+        assert_ne!(
+            smuggled_src.as_bytes(),
+            real_src.as_bytes(),
+            "{label}: smuggled variant must differ in bytes (fixture sanity)"
+        );
+        let smuggled = EidosCitation {
+            source_id: EidosChunkId::new(smuggled_src.clone()).unwrap(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        match packet.validate_citation(&smuggled).unwrap_err() {
+            CitationError::FabricatedSourceId(returned) => {
+                assert_eq!(
+                    returned.as_str(),
+                    &smuggled_src,
+                    "{label}: diagnostic must preserve the multilingual \
+                     smuggled bytes verbatim — any retriever-template \
+                     canonicalization would silently break the byte-strict \
+                     floor that iter 658 pinned for Lexical"
+                );
+            }
+            other => panic!("{label}: expected FabricatedSourceId, got {other:?}"),
+        }
+    };
+
+    // (1) Lexical — Han doc_id.
+    {
+        let mut lex = InMemoryLexicalIndex::new(m.clone());
+        lex.insert(doc("笔记-a"), "alpha durian content", EidosSourceKind::Note).unwrap();
+        let q = EidosQuery::new("durian", EidosRetrievalMode::Lexical, 8);
+        sweep("Lexical-Han", lex.retrieve(&q, ts), "笔记-a", "筆記-a::lex".to_string());
+    }
+
+    // (2) Semantic — Hangul doc_id.
+    {
+        let mut sem = InMemorySemanticIndex::new(m.clone(), 3);
+        sem.insert(doc("노트-a"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note).unwrap();
+        let q = EidosQuery::with_vector(
+            "anything",
+            EidosRetrievalMode::Semantic,
+            8,
+            vec![1.0, 0.0, 0.0],
+        );
+        sweep("Semantic-Hangul", sem.retrieve(&q, ts), "노트-a", "노드-a::sem".to_string());
+    }
+
+    // (3) Recency — Arabic doc_id.
+    {
+        let mut rec = InMemoryRecencyIndex::new(m.clone());
+        rec.insert(doc("ملاحظة-a"), "any body", ts - 1000, EidosSourceKind::Note);
+        let q = EidosQuery::new("", EidosRetrievalMode::Recency, 8);
+        sweep("Recency-Arabic", rec.retrieve(&q, ts), "ملاحظة-a", "ملاحضة-a::recency".to_string());
+    }
+
+    // (4) CodeSymbol — Devanagari doc_id (the SYMBOL stays ASCII;
+    // only the file path goes non-Latin, which is the realistic
+    // case for a vault that mixes English code files with Hindi
+    // documentation in their path names).
+    {
+        let mut cs = InMemoryCodeSymbolIndex::new(m.clone());
+        cs.insert("my_function", doc("नोट-a"), 0, 11);
+        let q = EidosQuery::new("my_function", EidosRetrievalMode::CodeSymbol, 8);
+        // CodeSymbol template: "{doc}::sym@{byte_start}".
+        sweep(
+            "CodeSymbol-Devanagari",
+            cs.retrieve(&q, ts),
+            "नोट-a",
+            "नौट-a::sym@0".to_string(),
+        );
+    }
+
+    // (5) RawArchive — mixed Han+Latin doc_id (the query text IS the
+    // document_id for RawArchive, so the query is also multilingual).
+    {
+        let mut raw = InMemoryRawArchive::new(m.clone());
+        raw.insert(doc("笔note-a"), "raw body content", EidosSourceKind::RawArchive);
+        let q = EidosQuery::new("笔note-a", EidosRetrievalMode::RawArchive, 8);
+        sweep(
+            "RawArchive-MixedHanLatin",
+            raw.retrieve(&q, ts),
+            "笔note-a",
+            "笔nоte-a::raw".to_string(),
+        );
+    }
+}
+
 /// `validate_citation`'s result is **independent of hit position**
 /// within the packet's `hits` Vec. Permuting the hits arbitrarily
 /// does not change which citations validate Ok vs error.
