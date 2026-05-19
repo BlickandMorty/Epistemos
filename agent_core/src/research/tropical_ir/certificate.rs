@@ -260,6 +260,7 @@ pub fn lean_certificate_rational(r: &TropicalRational) -> String {
          -- Source: docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §3 + §5\n\
          -- Schema: lean/Epistemos/Epistemos/Tropical.lean\n\
          -- TropicalRational schema: numerator hash {n_suffix}, denominator hash {d_suffix}\n\
+         -- Rational hash obligations carried through Lean schema fields as of T5 iter-933.\n\
          import Epistemos.Tropical\n\
          \n\
          namespace Epistemos.Tropical.Generated\n\
@@ -605,6 +606,9 @@ mod tests {
         let c = lean_certificate_rational(&r);
         assert!(c.contains("numerator hash"));
         assert!(c.contains("denominator hash"));
+        assert!(c.contains(
+            "Rational hash obligations carried through Lean schema fields as of T5 iter-933"
+        ));
         assert!(c.contains("theorem tropical_rational_certificate_hash_fields_"));
         assert!(c.contains("Epistemos.Tropical.RationalCertificateTarget.hashFieldsMatch"));
         assert!(c.contains("theorem tropical_rational_certificate_numerator_hash_"));
