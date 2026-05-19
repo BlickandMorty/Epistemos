@@ -97,7 +97,11 @@ where
     E: serde::de::Error,
 {
     match value {
-        serde_json::Value::Object(object) if object.contains_key(field) => Ok(()),
+        serde_json::Value::Object(object)
+            if object.get(field).is_some_and(|value| !value.is_null()) =>
+        {
+            Ok(())
+        }
         serde_json::Value::Object(_) => Err(E::custom(format!("missing_risk_axis field={field}"))),
         _ => Err(E::custom("risk vector must be an object")),
     }
@@ -7245,6 +7249,19 @@ mod tests {
 
         assert!(message.contains("missing_risk_axis"), "{message}");
         assert!(message.contains("model_adaptation_risk"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_null_risk_axis_names_decode_field() {
+        let mut value =
+            serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
+        value["truth_risk"] = serde_json::json!(null);
+
+        let err = serde_json::from_value::<ACSRiskVector>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("missing_risk_axis"), "{message}");
+        assert!(message.contains("truth_risk"), "{message}");
     }
 
     #[test]
