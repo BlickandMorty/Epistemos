@@ -215,6 +215,15 @@ pub fn adversarial_query_fixture_catalog_expected_outcomes_match_fixture_rows() 
             })
 }
 
+pub fn adversarial_query_fixture_catalog_expected_outcome_tokens_match_outcomes() -> bool {
+    ADVERSARIAL_QUERY_FIXTURE_EXPECTED_OUTCOME_TOKENS.len()
+        == ADVERSARIAL_QUERY_FIXTURE_EXPECTED_OUTCOMES.len()
+        && ADVERSARIAL_QUERY_FIXTURE_EXPECTED_OUTCOME_TOKENS
+            .iter()
+            .zip(ADVERSARIAL_QUERY_FIXTURE_EXPECTED_OUTCOMES.iter())
+            .all(|(token, outcome)| *token == outcome.token())
+}
+
 pub fn adversarial_query_fixture_catalog_descriptions_match_fixture_rows() -> bool {
     ADVERSARIAL_QUERY_FIXTURE_DESCRIPTIONS.len() == ADVERSARIAL_QUERY_FIXTURES.len()
         && ADVERSARIAL_QUERY_FIXTURE_DESCRIPTIONS
@@ -290,6 +299,7 @@ pub fn adversarial_query_fixture_catalog_static_surface_is_wire_safe() -> bool {
         && adversarial_query_fixture_kind_tokens_are_ascii_lowercase_kebab_case()
         && adversarial_query_fixture_kind_tokens_match_fixture_labels()
         && adversarial_query_fixture_expected_outcome_tokens_are_ascii_lowercase_kebab_case()
+        && adversarial_query_fixture_catalog_expected_outcome_tokens_match_outcomes()
         && adversarial_query_fixture_query_texts_are_nonempty_trimmed_and_control_free()
         && adversarial_query_fixture_descriptions_are_trimmed_and_control_free()
 }
