@@ -1005,6 +1005,30 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 33rd SignalOnly row (iter-289): single-term query in
+        // Ethiopic-script domain — "ካሽ" (Amharic for cache,
+        // U+12AB U+1238). TWENTY-FOURTH single-term-AND domain.
+        // TWELFTH non-ASCII script-block. FIRST Ethiopic
+        // abugida in SignalOnly — Ethiopic syllabic glyphs
+        // encode both consonant and vowel in one character,
+        // distinct typology from Brahmic (vowel-mark cluster)
+        // and Hangul (precomposed syllabic block). Token unique
+        // to iter-153's mamba_ethiopic.md.
+        query: "ካሽ",
+        expected_paths: &["notes/mamba_ethiopic.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Thirty-third SignalOnly row (iter-289): single-\
+               term Ethiopic-script query — \"ካሽ\" (U+12AB \
+               U+1238). Twenty-fourth domain for single-term-\
+               AND. Twelfth non-ASCII script-block. First \
+               Ethiopic abugida — distinct typology from \
+               Brahmic vowel-mark cluster and Hangul \
+               precomposed-syllabic-block. Brings SignalOnly \
+               to depth 33.",
+    },
+    FVaultRecallRow {
         // 32nd SignalOnly row (iter-282): single-term query in
         // Georgian-script domain — "ქეში" (Georgian for cache,
         // U+10E5 U+10D4 U+10E8 U+10D8). TWENTY-THIRD single-
