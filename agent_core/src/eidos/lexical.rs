@@ -22,9 +22,9 @@
 
 use super::retriever::EidosRetriever;
 use super::types::{
-    EidosChunkId, EidosContextPacket, EidosDocumentId, EidosHit, EidosIndexManifestId,
-    EidosProvenance, EidosQuery, EidosRetrievalMode, EidosScoreComponents, EidosSourceKind,
-    EidosSpan, IdError,
+    is_blank_query_text, EidosChunkId, EidosContextPacket, EidosDocumentId, EidosHit,
+    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode,
+    EidosScoreComponents, EidosSourceKind, EidosSpan, IdError,
 };
 
 /// One indexed document for [`InMemoryLexicalIndex`]. The body is stored
@@ -134,7 +134,7 @@ impl EidosRetriever for InMemoryLexicalIndex {
         query: &EidosQuery,
         retrieved_at_unix_ms: u64,
     ) -> EidosContextPacket {
-        if query.text.trim().is_empty() || query.top_k == 0 {
+        if is_blank_query_text(&query.text) || query.top_k == 0 {
             return EidosContextPacket {
                 query: query.clone(),
                 manifest_id: self.manifest_id.clone(),
@@ -259,6 +259,23 @@ mod tests {
         let query = EidosQuery::new("doesnotappear", EidosRetrievalMode::Lexical, 8);
         let packet = idx.retrieve(&query, 1_700_000_000_000);
         assert!(packet.hits.is_empty());
+    }
+
+    #[test]
+    fn invisible_only_query_returns_empty_packet() {
+        let mut idx = InMemoryLexicalIndex::new(manifest());
+        idx.insert(
+            doc("zwsp-body"),
+            "alpha\u{200B}beta",
+            EidosSourceKind::Note,
+        )
+        .unwrap();
+        let query = EidosQuery::new("\u{200B}", EidosRetrievalMode::Lexical, 8);
+        let packet = idx.retrieve(&query, 1_700_000_000_000);
+        assert!(
+            packet.hits.is_empty(),
+            "invisible-only text is not a stable lexical query"
+        );
     }
 
     #[test]

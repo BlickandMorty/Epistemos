@@ -158,6 +158,16 @@ impl EidosRetrievalMode {
     ];
 }
 
+pub(crate) fn is_blank_query_text(text: &str) -> bool {
+    text.chars().all(|ch| {
+        ch.is_whitespace()
+            || matches!(
+                ch,
+                '\u{200B}' | '\u{200C}' | '\u{200D}' | '\u{2060}' | '\u{FEFF}'
+            )
+    })
+}
+
 /// What kind of substrate a hit came from. Recorded alongside the hit so the
 /// Brain Panel can surface a "Retrieved by Eidos · Note / Code / Graph"
 /// breakdown without a separate metadata round-trip.
