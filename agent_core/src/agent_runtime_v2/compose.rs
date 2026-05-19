@@ -1217,4 +1217,23 @@ mod tests {
         assert_eq!(inner_ref.value, 2);
         assert_eq!(outer_ref.value, "len=2");
     }
+
+    #[test]
+    fn para_seq_feedback_fields_are_pub_per_field_visibility_doctrine() {
+        // ParaSeqFeedback<P> has 2 pub fields: outer (ParaFeedback<P>),
+        // inner (ParaFeedback<P>). Chain-rule ordering (outer runs first on
+        // the reverse leg) is part of the struct's documented contract, and
+        // production reverse-leg consumers destructure both fields directly.
+        // Pin guards against a getter-only narrowing that would silently
+        // hide the stage-order contract.
+        let seq = ParaSeq::new(&LenStage, &LabelStage);
+        let out = seq.fwd(&0, "xy").expect("fwd ok");
+        let fb: ParaSeqFeedback<u32> = seq.rev(&0, &out).expect("rev ok");
+        let outer_ref: &ParaFeedback<u32> = &fb.outer;
+        let inner_ref: &ParaFeedback<u32> = &fb.inner;
+        // Both reverse-leg deltas surface; we only assert reachability —
+        // the values themselves are pinned elsewhere.
+        let _ = outer_ref;
+        let _ = inner_ref;
+    }
 }
