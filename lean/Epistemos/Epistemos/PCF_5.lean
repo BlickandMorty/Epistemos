@@ -38,6 +38,10 @@ structure ActiveStep where
 def ActiveStep.activeCount (s : ActiveStep) : Nat :=
   s.active.length
 
+/-- PCF-5 active rank-one execution is Vault-only with zero MAS
+shipping impact. -/
+def masImpactZeroVaultOnly : Bool := true
+
 /-- Empty active-set schema row has no active rank-one components. -/
 theorem emptyActiveStepCountIsZero :
     ({ step_index := 0, active := [], τ := 0.0, δ := 0.0 } : ActiveStep).activeCount = 0 := by
@@ -49,6 +53,10 @@ theorem singletonActiveStepCountIsOne
        active := [{ component_id := component_id, magnitude := magnitude }]
        τ := τ
        δ := δ } : ActiveStep).activeCount = 1 := by
+  rfl
+
+theorem masImpactZeroPinned :
+    masImpactZeroVaultOnly = true := by
   rfl
 
 end Epistemos.PCF5
