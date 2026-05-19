@@ -1249,6 +1249,31 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_capability_fields_are_pub_per_field_visibility_doctrine() {
+        // Phase 1 hardening — field-visibility pin for
+        // LocalAgentCapability (companion to the field-visibility pin
+        // family iter-505..iter-510).
+        //
+        // All 10 fields are pub. The Swift⇄Rust mirror requires
+        // direct field access for byte-equal JSON marshaling. A
+        // future "let me hide requires_subprocess behind a getter
+        // for policy safety" refactor would silently break the
+        // bridge layer.
+        let cap = ask_capability();
+        // Direct field reads on all 10 fields.
+        assert!(!cap.command_pattern.is_empty());
+        let _: &LocalAgentCapabilitySurface = &cap.surface;
+        let _: &LocalAgentCapabilityTier = &cap.tier;
+        let _: &LocalAgentCapabilityOwner = &cap.owner;
+        let _: bool = cap.requires_network;
+        let _: bool = cap.requires_subprocess;
+        let _: bool = cap.requires_approval;
+        let _: bool = cap.structured_evidence;
+        assert!(!cap.native_equivalent.is_empty());
+        let _: bool = cap.local_agent_passthrough;
+    }
+
+    #[test]
     fn local_agent_capability_struct_field_shape_pinned_to_exactly_ten_typed_fields() {
         // Phase 1 hardening — struct-field-shape pin for
         // LocalAgentCapability (companion to the struct destructure
