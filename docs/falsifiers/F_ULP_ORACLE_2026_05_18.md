@@ -45,12 +45,12 @@ ad8e99b40e8c673bb255cdc4dfa10905479e6d8b8a5c6f1ac47809e247b0bc37`;
 f0c1ec3142aafa93170de35d02e561368206e745aad481f7e32d865c5ee71537`;
 `grid_fingerprint =
 4a83ee96a1dffd0251307ebca42c33eb8982992a641dd641c540fd560a42bdb3`;
-`adversarial_fixture_count = 21`;
+`adversarial_fixture_count = 23`;
 `adversarial_fixture_fingerprint =
-032b96f1ce47ceac73092bb7ac8d1132c204eafb1154c183a9f42a04e8d44f4f`;
-`adversarial_reference_stats = { finite_count = 12, rejected_count = 9 }`;
+78c5d0adee288b449acebb9e16324e64e6c648ecc036a82df3bc3b5b06539339`;
+`adversarial_reference_stats = { finite_count = 12, rejected_count = 11 }`;
 `adversarial_reference_fingerprint =
-6a663455cbf2cfa678aa25f3bba1a9daa138817dddb51ef86061d5617899d8da`;
+5624f053ca313b514e32d2965434fe1a77cd1fcfaa13a0c58ebe18003c220db4`;
 `shader_fingerprint =
 17f0b3f9de6cf7398e54c242397b833e88a8d39b5c1b07a99085cae5717ac871`.
 
@@ -153,7 +153,7 @@ inside the dense interior of the log-sampled grid.
 ## Adversarial Reference Stats
 
 `adversarial_reference_stats` records `finite_count = 12` and
-`rejected_count = 9` over the 21-fixture adversarial set, so a candidate
+`rejected_count = 11` over the 23-fixture adversarial set, so a candidate
 cannot collapse the rejected-by-IEEE branch (NaN inputs, signed-infinity
 inputs, exact `ln(0)` branches, and so on) into a finite ULP measurement.
 Replay rejects a witness whose `adversarial_reference_stats` disagree with
@@ -191,7 +191,7 @@ recomputes from canonical sources before any ULP comparison:
    labels plus their stable indices.
 3. `grid_fingerprint` over the 412,000-log-sampled-plus-2,048-stress grid
    captured as serialized `FixtureInput` rows.
-4. `adversarial_fixture_fingerprint` over the 21-element adversarial fixture
+4. `adversarial_fixture_fingerprint` over the 23-element adversarial fixture
    list including each fixture's label, operation, x, and y.
 5. `adversarial_reference_fingerprint` over the deterministic
    `f64`-then-rounded fp16 reference values for the adversarial set,
@@ -308,7 +308,7 @@ so a candidate that fudges the label without moving the float cannot pass.
 
 ## Adversarial Fixture Purposes
 
-The 21 adversarial fixtures live outside the closed-interval acceptance grid
+The 23 adversarial fixtures live outside the closed-interval acceptance grid
 and witness the kernel's signed-zero, NaN, infinity, and subnormal behavior so
 that the bulk ULP statistic on `[0.5, 2]` does not hide a discontinuity.
 
@@ -318,6 +318,9 @@ that the bulk ULP statistic on `[0.5, 2]` does not hide a discontinuity.
 - `ln_positive_zero` / `ln_negative_zero`: probes `ln(+0)` and `ln(-0)`, the
   IEEE-defined negative-infinity branch, so the candidate is rejected if it
   silently substitutes an `fp16` MAX or clamps to a finite value.
+- `ln_negative_one` / `eml_ln_negative_one`: probes an ordinary finite
+  negative branch-cut input so the candidate cannot special-case only zero,
+  infinity, NaN, or subnormal invalid operands.
 - `ln_f64_min_positive_subnormal`: anchors the smallest positive `f64`
   subnormal `f64::from_bits(1)` to catch a candidate that flushes the input
   before computing `ln`.
