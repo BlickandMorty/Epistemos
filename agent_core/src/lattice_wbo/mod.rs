@@ -6534,6 +6534,17 @@ mod tests {
     }
 
     #[test]
+    fn register_doc_cross_links_residency_wrong_side_information_matrix_counts() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains(
+                "residency_nonprimary_side_information_rejection_matrix_counts_are_pinned"
+            ),
+            "register must cross-link residency wrong-side-information matrix counts"
+        );
+    }
+
+    #[test]
     fn typed_catalogs_assign_every_wbo_term_to_codec_and_residency_rows() {
         for term in WboTermCode::ALL {
             assert!(
@@ -9481,6 +9492,55 @@ mod tests {
         assert!(
             primary_codec_accepted_but_tier_nonprimary > 0,
             "side-information fixture must include witnesses accepted by a primary codec but nonprimary for its residency tier"
+        );
+    }
+
+    #[test]
+    fn residency_nonprimary_side_information_rejection_matrix_counts_are_pinned() {
+        let rows = ResidencyTier::ALL
+            .iter()
+            .map(|tier| {
+                let rejected = SideInformationKind::ALL
+                    .iter()
+                    .filter(|side_information| {
+                        **side_information != tier.primary_side_information()
+                    })
+                    .count();
+                let codec_accepted_borrowed = SideInformationKind::ALL
+                    .iter()
+                    .filter(|side_information| {
+                        **side_information != tier.primary_side_information()
+                            && tier
+                                .primary_coder()
+                                .canonical_side_information()
+                                .contains(side_information)
+                    })
+                    .count();
+                (tier.canonical_name(), rejected, codec_accepted_borrowed)
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            rows,
+            vec![
+                ("L0 RAM hot", 9, 0),
+                ("L1 Compressed Residual", 9, 3),
+                ("L2 Shadow Sketch", 9, 2),
+                ("L3 SSD Oracle", 9, 2),
+                ("L4 Engram", 9, 0),
+                ("L5 Network Cascade", 9, 0),
+                ("L_SE Self-Evolving", 9, 0),
+            ]
+        );
+        assert_eq!(
+            rows.iter().map(|(_, rejected, _)| rejected).sum::<usize>(),
+            63
+        );
+        assert_eq!(
+            rows.iter()
+                .map(|(_, _, codec_accepted)| codec_accepted)
+                .sum::<usize>(),
+            7
         );
     }
 
