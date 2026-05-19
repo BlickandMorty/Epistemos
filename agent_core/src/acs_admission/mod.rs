@@ -3227,7 +3227,7 @@ impl<'de> Deserialize<'de> for ACSRiskThresholds {
         };
         thresholds
             .validate()
-            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+            .map_err(|err| serde::de::Error::custom(acs_policy_decode_error(&err)))?;
         Ok(thresholds)
     }
 }
@@ -3264,6 +3264,13 @@ impl ACSRiskThresholds {
         }
 
         Ok(())
+    }
+}
+
+fn acs_policy_decode_error(error: &ACSPolicyError) -> String {
+    match error.field() {
+        Some(field) => format!("{} field={field}", error.cause()),
+        None => error.cause().to_string(),
     }
 }
 
@@ -7094,9 +7101,11 @@ mod tests {
             serde_json::to_value(ACSRiskThresholds::standard()).expect("thresholds encode");
         value["quarantine_at"] = serde_json::json!(0.4);
 
-        let decoded = serde_json::from_value::<ACSRiskThresholds>(value);
+        let err = serde_json::from_value::<ACSRiskThresholds>(value).unwrap_err();
+        let message = err.to_string();
 
-        assert!(decoded.is_err());
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(message.contains("risk_threshold_order"), "{message}");
     }
 
     #[test]
