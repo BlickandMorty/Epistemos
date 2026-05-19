@@ -4663,6 +4663,35 @@ mod tests {
     }
 
     #[test]
+    fn residency_tier_primary_codecs_are_unique_and_round_trip_to_tiers() {
+        for (index, tier) in ResidencyTier::ALL.iter().enumerate() {
+            let primary_coder = tier.primary_coder();
+            assert_eq!(
+                primary_coder.primary_residency_tier(),
+                Some(*tier),
+                "{} primary codec must round-trip to its tier",
+                tier.canonical_name()
+            );
+            for prior_tier in &ResidencyTier::ALL[..index] {
+                assert_ne!(
+                    primary_coder,
+                    prior_tier.primary_coder(),
+                    "{} and {} share primary codec {:?}",
+                    tier.canonical_name(),
+                    prior_tier.canonical_name(),
+                    primary_coder
+                );
+            }
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`residency_tier_primary_codecs_are_unique_and_round_trip_to_tiers`"),
+            "register doc must cross-link residency primary-codec uniqueness"
+        );
+    }
+
+    #[test]
     fn lattice_coder_primary_residency_tier_rejects_standalone_codec_promotion() {
         let rows = LatticeCoderKind::ALL
             .iter()
