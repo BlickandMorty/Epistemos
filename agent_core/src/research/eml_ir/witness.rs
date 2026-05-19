@@ -1558,6 +1558,8 @@ struct RawTopLevelUnsigned<'a> {
     #[serde(default, borrow)]
     schema_version: Option<&'a RawValue>,
     #[serde(default, borrow)]
+    hardware: Option<&'a RawValue>,
+    #[serde(default, borrow)]
     config: Option<&'a RawValue>,
     #[serde(default, borrow)]
     adversarial_reference_stats: Option<&'a RawValue>,
@@ -1582,6 +1584,9 @@ fn reject_raw_top_level_unsigned_json(json: &str) -> Result<(), FulpReplayError>
     if let Some(value) = raw_witness.schema_version {
         raw_u32_json(value, "schema_version")?;
     }
+    if let Some(value) = raw_witness.hardware {
+        reject_raw_hardware_unsigned_json(value)?;
+    }
     if let Some(value) = raw_witness.config {
         reject_raw_config_unsigned_json(value)?;
     }
@@ -1605,6 +1610,30 @@ fn reject_raw_top_level_unsigned_json(json: &str) -> Result<(), FulpReplayError>
     }
     if let Some(value) = raw_witness.observed_wall_clock_millis {
         raw_unsigned_integer_json(value, "observed_wall_clock_millis")?;
+    }
+    Ok(())
+}
+
+fn reject_raw_hardware_unsigned_json(raw_hardware: &RawValue) -> Result<(), FulpReplayError> {
+    if !raw_hardware.get().trim_start().starts_with('{') {
+        return Ok(());
+    }
+    let Ok(raw_hardware) =
+        serde_json::from_str::<BTreeMap<String, Box<RawValue>>>(raw_hardware.get())
+    else {
+        return Ok(());
+    };
+    if let Some(value) = raw_hardware.get("cpu_cores") {
+        raw_u8_json(value, "hardware.cpu_cores")?;
+    }
+    if let Some(value) = raw_hardware.get("gpu_cores") {
+        raw_u8_json(value, "hardware.gpu_cores")?;
+    }
+    if let Some(value) = raw_hardware.get("memory_gb") {
+        raw_u16_json(value, "hardware.memory_gb")?;
+    }
+    if let Some(value) = raw_hardware.get("memory_bandwidth_gb_s") {
+        raw_u16_json(value, "hardware.memory_bandwidth_gb_s")?;
     }
     Ok(())
 }
@@ -1689,6 +1718,10 @@ fn raw_u32_json(raw_value: &RawValue, field: &str) -> Result<u32, FulpReplayErro
 
 fn raw_u16_json(raw_value: &RawValue, field: &str) -> Result<u16, FulpReplayError> {
     Ok(raw_bounded_unsigned_integer_json(raw_value, field, u64::from(u16::MAX), "u16")? as u16)
+}
+
+fn raw_u8_json(raw_value: &RawValue, field: &str) -> Result<u8, FulpReplayError> {
+    Ok(raw_bounded_unsigned_integer_json(raw_value, field, u64::from(u8::MAX), "u8")? as u8)
 }
 
 fn raw_bounded_unsigned_integer_json(
@@ -2511,6 +2544,28 @@ mod tests {
         value["hardware"]["cpu_cores"] =
             serde_json::Value::Number(serde_json::Number::from(u64::from(u8::MAX) + 1));
         let json = serde_json::to_string(&value).unwrap();
+        let error =
+            replay_witness_json(&json).expect_err("hardware cpu cores overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("number out of range for hardware.cpu_cores, expected u8")
+        );
+    }
+
+    #[test]
+    fn replay_rejects_hardware_cpu_cores_json_raw_overflow_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["hardware"]["cpu_cores"] =
+            serde_json::Value::Number(serde_json::Number::from(123_456_789_u64));
+        let json = serde_json::to_string(&value).unwrap();
+        let needle = "\"cpu_cores\":123456789";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(needle, "\"cpu_cores\":1e999999", 1);
         let error =
             replay_witness_json(&json).expect_err("hardware cpu cores overflow must fail replay");
         assert_eq!(
