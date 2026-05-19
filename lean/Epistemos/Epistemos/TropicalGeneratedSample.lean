@@ -93,6 +93,14 @@ theorem tropical_rational_certificate_representation_hash_values_sample :
     rfl
     rfl
 
+theorem tropical_rational_certificate_source_row_sample :
+    tropical_rational_certificate_sample.representation.sourceRow =
+      "docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Tropical-IR rational-form" := by
+  exact Epistemos.Tropical.RationalCertificateTarget.sourceRowMatches
+    tropical_rational_certificate_sample
+    "docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Tropical-IR rational-form"
+    rfl
+
 theorem tropical_rational_certificate_target_hashes_from_representation_sample :
     tropical_rational_certificate_sample.numeratorHash = "sample-num" ∧
       tropical_rational_certificate_sample.denominatorHash = "sample-den" := by

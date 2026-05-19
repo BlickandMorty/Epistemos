@@ -325,6 +325,13 @@ theorem representationHashFieldsCarry
     Eq.trans representationNumeratorMatches targetNumeratorMatches,
     Eq.trans representationDenominatorMatches targetDenominatorMatches⟩
 
+theorem sourceRowMatches
+    (c : RationalCertificateTarget)
+    (sourceRow : String)
+    (stored : c.representation.sourceRow = sourceRow) :
+    c.representation.sourceRow = sourceRow := by
+  exact stored
+
 theorem targetHashFieldsFromRepresentation
     (c : RationalCertificateTarget)
     (numeratorHash denominatorHash : String)

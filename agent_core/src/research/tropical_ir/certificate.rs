@@ -375,6 +375,14 @@ pub fn lean_certificate_rational(r: &TropicalRational) -> String {
          \x20   rfl\n\
          \x20   rfl\n\
          \n\
+         theorem tropical_rational_certificate_source_row_{suffix} :\n\
+         \x20   tropical_rational_certificate_{suffix}.representation.sourceRow =\n\
+         \x20     \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Tropical-IR rational-form\" := by\n\
+         \x20 exact Epistemos.Tropical.RationalCertificateTarget.sourceRowMatches\n\
+         \x20   tropical_rational_certificate_{suffix}\n\
+         \x20   \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Tropical-IR rational-form\"\n\
+         \x20   rfl\n\
+         \n\
          theorem tropical_rational_certificate_target_hashes_from_representation_{suffix} :\n\
          \x20   tropical_rational_certificate_{suffix}.numeratorHash = \"{n_suffix}\" ∧\n\
          \x20     tropical_rational_certificate_{suffix}.denominatorHash = \"{d_suffix}\" := by\n\
@@ -698,6 +706,8 @@ mod tests {
         assert!(c.contains(
             "Epistemos.Tropical.RationalCertificateTarget.representationHashFieldsCarry"
         ));
+        assert!(c.contains("theorem tropical_rational_certificate_source_row_"));
+        assert!(c.contains("Epistemos.Tropical.RationalCertificateTarget.sourceRowMatches"));
         assert!(c.contains(
             "theorem tropical_rational_certificate_target_hashes_from_representation_"
         ));
