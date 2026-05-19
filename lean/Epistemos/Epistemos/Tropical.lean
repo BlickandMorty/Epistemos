@@ -238,6 +238,15 @@ theorem representationMatches
     c.representation = obligation := by
   exact stored
 
+theorem hashFieldsMatch
+    (c : RationalCertificateTarget)
+    (numeratorHash denominatorHash : String)
+    (numeratorMatches : c.numeratorHash = numeratorHash)
+    (denominatorMatches : c.denominatorHash = denominatorHash) :
+    c.numeratorHash = numeratorHash ∧
+      c.denominatorHash = denominatorHash := by
+  exact ⟨numeratorMatches, denominatorMatches⟩
+
 theorem representationCarries (c : RationalCertificateTarget) :
     RationalRepresentationObligation c.rational := by
   exact c.representation

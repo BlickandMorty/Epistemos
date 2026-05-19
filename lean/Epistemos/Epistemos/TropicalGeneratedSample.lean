@@ -45,6 +45,13 @@ noncomputable def tropical_rational_certificate_sample :
     denominatorHash := "sample-den"
     representation := tropical_rational_obligation_sample }
 
+theorem tropical_rational_certificate_hash_fields_sample :
+    tropical_rational_certificate_sample.numeratorHash = "sample-num" ∧
+      tropical_rational_certificate_sample.denominatorHash = "sample-den" := by
+  exact Epistemos.Tropical.RationalCertificateTarget.hashFieldsMatch
+    tropical_rational_certificate_sample
+    "sample-num" "sample-den" rfl rfl
+
 theorem tropical_rational_certificate_representation_sample :
     tropical_rational_certificate_sample.representation =
       tropical_rational_obligation_sample := by

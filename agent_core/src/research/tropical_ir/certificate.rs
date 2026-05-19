@@ -294,6 +294,13 @@ pub fn lean_certificate_rational(r: &TropicalRational) -> String {
          \x20     denominatorHash := \"{d_suffix}\"\n\
          \x20     representation := tropical_rational_obligation_{suffix} }}\n\
          \n\
+         theorem tropical_rational_certificate_hash_fields_{suffix} :\n\
+         \x20   tropical_rational_certificate_{suffix}.numeratorHash = \"{n_suffix}\" ∧\n\
+         \x20     tropical_rational_certificate_{suffix}.denominatorHash = \"{d_suffix}\" := by\n\
+         \x20 exact Epistemos.Tropical.RationalCertificateTarget.hashFieldsMatch\n\
+         \x20   tropical_rational_certificate_{suffix}\n\
+         \x20   \"{n_suffix}\" \"{d_suffix}\" rfl rfl\n\
+         \n\
          theorem tropical_rational_certificate_representation_{suffix} :\n\
          \x20   tropical_rational_certificate_{suffix}.representation = tropical_rational_obligation_{suffix} := by\n\
          \x20 exact Epistemos.Tropical.RationalCertificateTarget.representationMatches\n\
@@ -523,7 +530,8 @@ mod tests {
         let c = lean_certificate_rational(&r);
         assert!(c.contains("numerator hash"));
         assert!(c.contains("denominator hash"));
-        assert!(c.contains("rfl"));
+        assert!(c.contains("theorem tropical_rational_certificate_hash_fields_"));
+        assert!(c.contains("Epistemos.Tropical.RationalCertificateTarget.hashFieldsMatch"));
     }
 
     #[test]
