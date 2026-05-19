@@ -1735,7 +1735,7 @@ impl<'de> Deserialize<'de> for ACSAdmissionInput {
         };
         input
             .validate()
-            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+            .map_err(|err| serde::de::Error::custom(acs_admission_input_decode_error(&err)))?;
         Ok(input)
     }
 }
@@ -5512,6 +5512,37 @@ mod tests {
             serde_json::to_value(&input).expect("admission input must encode to JSON object");
         forged_request_id["request_id"] = serde_json::json!(" req-round-trip ");
         assert!(serde_json::from_value::<ACSAdmissionInput>(forged_request_id).is_err());
+    }
+
+    #[test]
+    fn acs_admission_input_decode_names_malformed_granted_capability() {
+        let value = serde_json::json!({
+            "request_id": "req-granted-capability-field",
+            "payload": {
+                "kind": "tool_action",
+                "request": {
+                    "tool_name": "vault.write",
+                    "target": "uas://note/1",
+                    "mutation_envelope_id": "mutation-1"
+                }
+            },
+            "submitted_at_ms": 1_001,
+            "risk": ACSRiskVector::neutral(),
+            "granted_capabilities": [
+                {
+                    "kind": "other",
+                    "value": {
+                        "name": "Tool Exec"
+                    }
+                }
+            ]
+        });
+
+        let err = serde_json::from_value::<ACSAdmissionInput>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("forged_admission_input"), "{message}");
+        assert!(message.contains("granted_capabilities.other.name"), "{message}");
     }
 
     #[test]
