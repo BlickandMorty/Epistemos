@@ -1268,6 +1268,8 @@ struct RawTopLevelUnsigned<'a> {
     #[serde(default, borrow)]
     schema_version: Option<&'a RawValue>,
     #[serde(default, borrow)]
+    config: Option<&'a RawValue>,
+    #[serde(default, borrow)]
     point_count: Option<&'a RawValue>,
     #[serde(default, borrow)]
     operation_evaluations: Option<&'a RawValue>,
@@ -1288,6 +1290,9 @@ fn reject_raw_top_level_unsigned_json(json: &str) -> Result<(), FulpReplayError>
     if let Some(value) = raw_witness.schema_version {
         raw_unsigned_integer_json(value, "schema_version")?;
     }
+    if let Some(value) = raw_witness.config {
+        reject_raw_config_unsigned_json(value)?;
+    }
     if let Some(value) = raw_witness.point_count {
         raw_unsigned_integer_json(value, "point_count")?;
     }
@@ -1305,6 +1310,22 @@ fn reject_raw_top_level_unsigned_json(json: &str) -> Result<(), FulpReplayError>
     }
     if let Some(value) = raw_witness.observed_wall_clock_millis {
         raw_unsigned_integer_json(value, "observed_wall_clock_millis")?;
+    }
+    Ok(())
+}
+
+#[derive(Deserialize)]
+struct RawConfigUnsigned<'a> {
+    #[serde(default, borrow)]
+    ulp_tolerance: Option<&'a RawValue>,
+}
+
+fn reject_raw_config_unsigned_json(raw_config: &RawValue) -> Result<(), FulpReplayError> {
+    let Ok(raw_config) = serde_json::from_str::<RawConfigUnsigned<'_>>(raw_config.get()) else {
+        return Ok(());
+    };
+    if let Some(value) = raw_config.ulp_tolerance {
+        raw_unsigned_integer_json(value, "config.ulp_tolerance")?;
     }
     Ok(())
 }
@@ -2046,6 +2067,28 @@ mod tests {
             error.config_mismatch_kind(),
             Some(FulpConfigMismatchKind::UlpTolerance)
         );
+    }
+
+    #[test]
+    fn replay_rejects_config_ulp_tolerance_json_raw_overflow_with_path() {
+        let json = acceptance_witness_json().unwrap();
+        let tolerance = serde_json::from_str::<serde_json::Value>(&json).expect("witness json")
+            ["config"]["ulp_tolerance"]
+            .as_u64()
+            .expect("ulp tolerance");
+        let needle = format!("\"ulp_tolerance\": {tolerance}");
+        assert_eq!(json.matches(&needle).count(), 1);
+        let json = json.replacen(&needle, "\"ulp_tolerance\": 1e999999", 1);
+        let error =
+            replay_witness_json(&json).expect_err("ulp tolerance raw overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("config.ulp_tolerance"));
     }
 
     #[test]
