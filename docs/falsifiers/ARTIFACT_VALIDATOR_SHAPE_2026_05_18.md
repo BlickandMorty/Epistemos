@@ -302,6 +302,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 ```
 
 ```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); pat=schema.dig("properties","notes","allOf",1,"then","pattern") || abort("migration note pattern missing"); abort("internal-hyphen identity states no longer fit grammar") unless "identity_sentinel_gap_report=validator:old-anonymous-v1-new-blocked,reviewer:old-unknown-v1-new-blocked".match?(Regexp.new(pat[/identity_sentinel_gap_report=validator:old-.*?\\(\\?:;\\|\\$\\)/] || "a^")); puts "migration identity internal-hyphen states ok"'
+```
+
+```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); pat=schema.dig("properties","notes","allOf",1,"then","pattern") || abort("migration note pattern missing"); abort("identity sentinel gap delimiter missing") unless pat.include?("(?:^|;\\s*)identity_sentinel_gap_report=validator:old-[a-z0-9][a-z0-9._-]*-new-[a-z0-9][a-z0-9._-]*,reviewer:old-[a-z0-9][a-z0-9._-]*-new-[a-z0-9][a-z0-9._-]*(?:;|$)") && s.include?("embedded substrings do not satisfy version, path, command, mapping, digest, notes-cap, identity, sentinel-gap, or review-time attestation"); puts "migration identity sentinel gap delimiter ok"'
 ```
 
@@ -600,6 +604,7 @@ Implementation owner is TBD: merge-phase if artifact validation becomes part of 
 | `W-Validator-MigrationIdentitySentinelGapNumericOnly` | TBD validator-implementation terminal | Any executable validator rejects numeric-only old/new state atoms. | Preserve numeric-only state atoms as valid identity transition labels while still enforcing old/new structure. |
 | `W-Validator-MigrationIdentitySentinelGapInternalDot` | TBD validator-implementation terminal | Any executable validator rejects dot-separated identity state atoms. | Preserve internal dots inside state atoms while still rejecting leading or trailing dots. |
 | `W-Validator-MigrationIdentitySentinelGapInternalUnderscore` | TBD validator-implementation terminal | Any executable validator rejects underscore-separated identity state atoms. | Preserve internal underscores inside state atoms while still rejecting leading or trailing underscores. |
+| `W-Validator-MigrationIdentitySentinelGapInternalHyphen` | TBD validator-implementation terminal | Any executable validator rejects hyphen-separated identity state atoms. | Preserve internal hyphens inside state atoms while still rejecting leading or trailing hyphens. |
 | `W-Validator-MigrationIdentitySentinelGapDistinct` | TBD validator-implementation terminal | Any executable validator accepts identical validator/reviewer identity sentinel impacts. | Reject `identity_sentinel_gap_report` when validator and reviewer role-impact values are identical before migration acceptance. |
 | `W-Validator-MigrationIdentitySentinelGapDelimiter` | TBD validator-implementation terminal | Any executable validator accepts embedded `identity_sentinel_gap_report` substrings. | Reject identity sentinel gap-report token substrings that are not bounded by note start/end or semicolon delimiters before migration acceptance. |
 | `W-Validator-MigrationIdentitySentinelGapArtifactPath` | TBD validator-implementation terminal | Any executable validator accepts identity sentinel gap reports without an affected artifact path. | Bind every `identity_sentinel_gap_report` to the migration note `artifact_path` before migration acceptance. |
