@@ -32,6 +32,9 @@ def ComponentRoute.length (r : ComponentRoute) : Nat :=
 def ComponentRoute.requiresPCF1Gate (_r : ComponentRoute) : Bool :=
   true
 
+/-- PCF-4 ComponentRoute remains a Lane 3 research-only schema. -/
+def lane3ResearchOnly : Bool := true
+
 def emptyPCF1GatedRoute : ComponentRoute :=
   { route_id := "pcf-4-empty-route-pcf1-gated", component_path := [] }
 
@@ -49,6 +52,10 @@ theorem singletonComponentRouteLengthIsOne (route_id : String) (component : Nat)
 
 theorem componentRouteRequiresPCF1Gate (r : ComponentRoute) :
     r.requiresPCF1Gate = true := by
+  rfl
+
+theorem lane3ResearchOnlyPinned :
+    lane3ResearchOnly = true := by
   rfl
 
 end Epistemos.PCF4
