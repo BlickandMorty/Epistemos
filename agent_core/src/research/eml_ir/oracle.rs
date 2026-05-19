@@ -715,7 +715,7 @@ mod tests {
         assert_eq!(adversarial_fixture_fingerprint().len(), 64);
         assert_eq!(
             adversarial_fixture_fingerprint(),
-            "31785206461ee0c47016ab91bac98ac05dc099108485633ba363abefba5210e8"
+            "5ed199d16e26fe7ee521977bb162c35b1f99684bb41fc42b465353b9d8add309"
         );
     }
 
@@ -732,7 +732,7 @@ mod tests {
         }
         assert_eq!(
             adversarial_fixture_label_fingerprint(),
-            "bbff9984c3a87572b6340a5503f3be04455e25a26081381f82a73dd0c3f91c3e"
+            "0f2bfce176e052967c1ea1bef30ddd567a5e8d343cc634f1186da87c11655aed"
         );
     }
 
@@ -759,7 +759,7 @@ mod tests {
         assert_eq!(adversarial_reference_fingerprint().len(), 64);
         assert_eq!(
             adversarial_reference_fingerprint(),
-            "e15b0a03b4ee8ea906bcdde227f3bcc08093768865fa0f8d68d9807ca3421aaa"
+            "7ca787fe5e8239a27430fa814ed9d1d4f4724dbd384125b58be16fe60079c3c1"
         );
     }
 
@@ -796,6 +796,9 @@ mod tests {
                         Fp16Bits::from_f64(result.unwrap()).bits(),
                         Fp16Bits::from_f64(1.0f64.exp()).bits()
                     );
+                }
+                "eml_ln_fp16_one_minus_ulp" => {
+                    assert!(result.unwrap().is_finite());
                 }
                 _ => {
                     assert!(result.is_err(), "{} should reject", fixture.label);

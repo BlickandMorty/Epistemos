@@ -45,12 +45,12 @@ ad8e99b40e8c673bb255cdc4dfa10905479e6d8b8a5c6f1ac47809e247b0bc37`;
 f0c1ec3142aafa93170de35d02e561368206e745aad481f7e32d865c5ee71537`;
 `grid_fingerprint =
 4a83ee96a1dffd0251307ebca42c33eb8982992a641dd641c540fd560a42bdb3`;
-`adversarial_fixture_count = 26`;
+`adversarial_fixture_count = 27`;
 `adversarial_fixture_fingerprint =
-31785206461ee0c47016ab91bac98ac05dc099108485633ba363abefba5210e8`;
-`adversarial_reference_stats = { finite_count = 13, rejected_count = 13 }`;
+5ed199d16e26fe7ee521977bb162c35b1f99684bb41fc42b465353b9d8add309`;
+`adversarial_reference_stats = { finite_count = 14, rejected_count = 13 }`;
 `adversarial_reference_fingerprint =
-e15b0a03b4ee8ea906bcdde227f3bcc08093768865fa0f8d68d9807ca3421aaa`;
+7ca787fe5e8239a27430fa814ed9d1d4f4724dbd384125b58be16fe60079c3c1`;
 `shader_fingerprint =
 17f0b3f9de6cf7398e54c242397b833e88a8d39b5c1b07a99085cae5717ac871`.
 
@@ -152,8 +152,8 @@ inside the dense interior of the log-sampled grid.
 
 ## Adversarial Reference Stats
 
-`adversarial_reference_stats` records `finite_count = 13` and
-`rejected_count = 13` over the 26-fixture adversarial set, so a candidate
+`adversarial_reference_stats` records `finite_count = 14` and
+`rejected_count = 13` over the 27-fixture adversarial set, so a candidate
 cannot collapse the rejected-by-IEEE branch (NaN inputs, signed-infinity
 inputs, exact `ln(0)` branches, and so on) into a finite ULP measurement.
 Replay rejects a witness whose `adversarial_reference_stats` disagree with
@@ -198,7 +198,7 @@ recomputes from canonical sources before any ULP comparison:
    labels plus their stable indices.
 3. `grid_fingerprint` over the 412,000-log-sampled-plus-2,048-stress grid
    captured as serialized `FixtureInput` rows.
-4. `adversarial_fixture_fingerprint` over the 26-element adversarial fixture
+4. `adversarial_fixture_fingerprint` over the 27-element adversarial fixture
    list including each fixture's label, operation, x, and y.
 5. `adversarial_reference_fingerprint` over the deterministic
    `f64`-then-rounded fp16 reference values for the adversarial set,
@@ -366,6 +366,8 @@ that the bulk ULP statistic on `[0.5, 2]` does not hide a discontinuity.
 - `ln_one_exact_zero` / `eml_ln_one_exact_zero`: anchor the exact
   `ln(1) = +0` branch both standalone and inside `eml`, so a candidate
   cannot return `-0` and pass the bulk grid.
+- `eml_ln_fp16_one_minus_ulp`: exercises the finite `eml` branch just below
+  `ln(1) = 0`, using the largest binary16 value below one as the log input.
 
 ## Stress Fixture Axes
 
