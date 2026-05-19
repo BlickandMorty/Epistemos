@@ -769,6 +769,34 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_capability_is_clone_send_sync_but_not_copy() {
+        // Phase 1 hardening — trait-bound pin for the multi-String
+        // capability struct. Companion to the Clone + Send + Sync (not
+        // Copy) pin family (AgentBlueprintId iter-375 → MissionPacket +
+        // ToolCall iter-376 → AnswerPacket + Citation iter-377 →
+        // AgentBlueprint + ProviderPolicy iter-378).
+        //
+        // LocalAgentCapability: 10 fields including 2 Strings
+        // (command_pattern, native_equivalent) and 8 Copy fields
+        // (3 enum tier/owner/surface + 4 booleans + 1 String). Clone
+        // by derive but NOT Copy (Strings allocate).
+        //
+        // Send + Sync are load-bearing — Swift⇄Rust bridge marshalls
+        // capabilities across the FFI boundary, which the runtime
+        // treats as the same as crossing a thread boundary for safety.
+        //
+        // A future "let me hold a SwiftClosure callback inside
+        // LocalAgentCapability" refactor that introduced a non-Send
+        // type would silently break cross-bridge propagation —
+        // surface here.
+        fn assert_clone_send_sync<T: Clone + Send + Sync>() {}
+        assert_clone_send_sync::<LocalAgentCapability>();
+
+        let cap = shell_capability();
+        assert_eq!(cap.clone(), cap);
+    }
+
+    #[test]
     fn local_agent_tier_owner_surface_are_copy_clone_send_sync_for_propagation_safety() {
         // Phase 1 hardening — trait-bound pin (companion to budget_gate,
         // mode iter-366, StopReason iter-367, VariantTier iter-368).
