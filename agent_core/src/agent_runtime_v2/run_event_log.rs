@@ -524,6 +524,34 @@ mod tests {
     }
 
     #[test]
+    fn log_entries_slice_yields_rows_in_strictly_ascending_ordinal_order() {
+        // Phase 1 hardening — ordering pin for log.entries(). Companion
+        // to the per-helper ordering pins (find_capability_hash iter-476,
+        // find_tool_calls iter-477, sealed_mutations iter-478).
+        //
+        // entries() returns &[RunEventEntry]; every row's stored ordinal
+        // must appear in strict-ascending order (dense 0..N, no gaps).
+        // This is the foundational invariant the per-helper ordering
+        // pins rely on.
+        let mut log = RunEventLog::new();
+        // 7 mixed-variant entries.
+        log.append_event(AgentEvent::ReasoningDelta { text: "a".into() });   // 0
+        log.append_sealed_mutation(Hash::zero(), BudgetDebit::default());     // 1
+        log.append_ledger_snapshot(BudgetLedger::default());                  // 2
+        log.append_event(AgentEvent::FinalText { text: "b".into() });        // 3
+        log.append_sealed_mutation(Hash::from_bytes([1; 32]), BudgetDebit::default()); // 4
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });   // 5
+        log.append_ledger_snapshot(BudgetLedger { tokens_used: 100, ..Default::default() }); // 6
+
+        let ordinals: Vec<u64> = log.entries().iter().map(|e| e.ordinal()).collect();
+        assert_eq!(ordinals, vec![0, 1, 2, 3, 4, 5, 6], "dense 0..N");
+        // Strict-ascending invariant via windowed comparison.
+        for pair in ordinals.windows(2) {
+            assert!(pair[0] < pair[1], "ordinals must be strictly ascending");
+        }
+    }
+
+    #[test]
     fn log_len_and_entries_slice_len_and_is_empty_agree() {
         // Phase 1 hardening — cross-helper consistency pin among
         // the trivial size-querying methods on RunEventLog:
