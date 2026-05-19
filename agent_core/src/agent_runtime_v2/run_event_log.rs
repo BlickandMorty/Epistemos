@@ -4428,6 +4428,20 @@ mod tests {
     }
 
     #[test]
+    fn corrupted_run_event_log_entries_array_empty_object_row_fails_to_deserialise() {
+        for bad in [
+            r#"{"entries":[{}]}"#,
+            r#"{"entries":[{"ordinal":0}]}"#,
+        ] {
+            let parsed: Result<RunEventLog, _> = serde_json::from_str(bad);
+            assert!(
+                parsed.is_err(),
+                "corrupted RunEventLog object row without kind must fail: {bad}"
+            );
+        }
+    }
+
+    #[test]
     fn corrupted_run_event_log_mixed_valid_and_invalid_rows_fail_entire_load() {
         for bad in [
             r#"{"entries":[{"kind":"event","ordinal":0,"event":{"event_type":"final_text","text":"x"}},null]}"#,
