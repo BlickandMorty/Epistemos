@@ -5481,6 +5481,142 @@ fn validate_citation_holds_byte_strict_with_both_non_latin_axes() {
     }
 }
 
+/// NFC vs NFD canonical-equivalence drift, evaluated on non-Latin
+/// scripts. Iter 127's NFC/NFD pin used a Latin/Hebrew composed-vs-
+/// decomposed pair. That establishes the byte-strict floor at one
+/// script. This pin extends the floor across the three non-Latin
+/// scripts most likely to surface NFC/NFD ambiguity in practice:
+///
+///   - Hangul precomposed syllable U+B178 ('노') vs decomposed
+///     jamo U+1102 U+1169 (CHOSEONG NIEUN + JUNGSEONG O). Visually
+///     identical; bytes differ (3 bytes precomposed vs 6 bytes
+///     decomposed for one syllable).
+///   - Devanagari precomposed U+0915 U+093E ('का' KA + AA sign)
+///     keeps the same combining mark structure but iter pin
+///     exercises a composed vowel sign vs a decomposed equivalent:
+///     'ी' (U+0940) vs ' ि' + virama-less variation — here we use
+///     U+0915 U+0940 (KA + I-sign-long) vs U+0915 U+093F U+0901
+///     (KA + I-sign-short + chandrabindu) — distinct semantics but
+///     visually plausible-similar. The point is byte-strictness,
+///     not semantic equivalence.
+///   - Latin extended: 'café' as NFC ('é' = U+00E9, 4 bytes) vs
+///     NFD ('e' + combining acute U+0301 = 5 bytes). Anchor with
+///     the original iter-127-style baseline so the test demonstrates
+///     the same vector across composed/decomposed Latin too.
+///
+/// For each pair (NFC form, NFD form):
+///
+///   - retriever emits the NFC form verbatim (the doc_id flows into
+///     the source_id byte-for-byte)
+///   - byte-equal NFC citation accepted (Ok(()))
+///   - byte-different NFD citation rejected with FabricatedSourceId,
+///     diagnostic preserves the NFD bytes verbatim
+///   - sanity: bytes differ on the two sides (rules out the fixture
+///     silently producing identical bytes — same shape as iter 127)
+///   - sanity: NFD form is LONGER than NFC form (the combining-mark
+///     decomposition adds bytes; visible proof the strings differ
+///     and a future "byte-length-equal" optimization would not
+///     paper over the test)
+///
+/// Companion to iter 127 (Latin/Hebrew baseline) + iter 658
+/// (multilingual acceptance) + iter 659 (manifest-axis multilingual)
+/// + iter 660 (combined axes). Together those five tests close the
+/// NFC/NFD floor at five distinct script families.
+#[test]
+fn validate_citation_is_byte_strict_against_non_latin_nfc_nfd() {
+    use super::types::{CitationError, EidosChunkId, EidosCitation};
+
+    // (label, NFC form of the doc_id, NFD form of the doc_id).
+    //
+    // NFC bytes flow into the source_id verbatim. The NFD variant
+    // must be visually plausible (operators reading logs can't tell
+    // them apart) but byte-different.
+    let cases: &[(&str, &str, &str)] = &[
+        // Hangul: '노' as precomposed U+B178 (3 bytes) vs decomposed
+        // U+1102 + U+1169 (6 bytes).
+        (
+            "Hangul (precomposed vs jamo)",
+            "\u{B178}트-a",                    // 노트-a NFC
+            "\u{1102}\u{1169}트-a",            // 노트-a NFD (first syllable only)
+        ),
+        // Devanagari: 'का' precomposed = U+0915 U+093E (4 bytes
+        // total, 2 codepoints). Decomposed equivalent forms exist
+        // via the schwa-encoding; we use U+0915 U+093D (avagraha) to
+        // force a byte-distinct variant that still renders Devanagari-
+        // shaped. Strict byte-strictness is the contract under test;
+        // semantic equivalence is not.
+        (
+            "Devanagari (composed vs decomposed-ish)",
+            "\u{0915}\u{0940}-a",              // की-a NFC (KA + I-sign-long)
+            "\u{0915}\u{093F}\u{0901}-a",      // कि‌ँ-a (KA + I-sign-short + candrabindu)
+        ),
+        // Latin extended: 'é' precomposed U+00E9 (2 bytes) vs
+        // decomposed 'e' + combining acute U+0301 (3 bytes).
+        // Anchors back to iter 127's vector style on Latin extended.
+        (
+            "Latin extended (é precomposed vs decomposed)",
+            "caf\u{00E9}-a",                   // café-a NFC
+            "cafe\u{0301}-a",                  // café-a NFD
+        ),
+    ];
+
+    for (label, nfc_doc, nfd_doc) in cases {
+        let mut lex = InMemoryLexicalIndex::new(manifest());
+        lex.insert(doc(*nfc_doc), "alpha durian content", EidosSourceKind::Note).unwrap();
+        let q = EidosQuery::new("durian", EidosRetrievalMode::Lexical, 16);
+        let packet = lex.retrieve(&q, 1_700_000_000_000);
+        assert_eq!(packet.hits.len(), 1, "{label}: retriever must find the doc");
+
+        let nfc_src = packet.hits[0].source_id.as_str().to_string();
+        assert_eq!(
+            nfc_src,
+            format!("{nfc_doc}::lex"),
+            "{label}: source_id carries the NFC bytes verbatim"
+        );
+
+        // (1) Byte-equal NFC citation accepted.
+        let legit_cite = EidosCitation {
+            source_id: packet.hits[0].source_id.clone(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        assert_eq!(
+            packet.validate_citation(&legit_cite),
+            Ok(()),
+            "{label}: byte-equal NFC citation accepted"
+        );
+
+        // (2) NFD-form citation must be rejected as fabricated.
+        let nfd_src = format!("{nfd_doc}::lex");
+        assert_ne!(
+            nfd_src.as_bytes(),
+            nfc_src.as_bytes(),
+            "{label}: fixture sanity — NFD form must differ in bytes from \
+             NFC form; otherwise the test silently passes via equality"
+        );
+        assert!(
+            nfd_src.len() > nfc_src.len(),
+            "{label}: NFD decomposition adds bytes vs precomposed NFC \
+             (visible proof the strings differ at the byte level)"
+        );
+        let smuggled = EidosCitation {
+            source_id: EidosChunkId::new(nfd_src.clone()).unwrap(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        match packet.validate_citation(&smuggled).unwrap_err() {
+            CitationError::FabricatedSourceId(returned) => {
+                assert_eq!(
+                    returned.as_str(),
+                    &nfd_src,
+                    "{label}: diagnostic must preserve the NFD bytes verbatim \
+                     — silent canonical-equivalence folding at the validator \
+                     would hide the NFD smuggling attempt"
+                );
+            }
+            other => panic!("{label}: expected FabricatedSourceId, got {other:?}"),
+        }
+    }
+}
+
 /// `EidosChunkId::new` and `EidosIndexManifestId::new` reject empty
 /// payloads at the Rust-side construction API (`IdError::EmptyPayload`),
 /// but the `#[derive(Deserialize)]` on the newtype tuple struct does
