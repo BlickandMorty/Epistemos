@@ -2803,6 +2803,41 @@ mod tests {
     }
 
     #[test]
+    fn find_capability_hash_returns_ordinals_in_strictly_ascending_order() {
+        // Phase 1 hardening — ordering pin for find_capability_hash.
+        // Companion to find_capability_hash_returns_matching_ordinals_in_order
+        // (which only asserts the SPECIFIC ordinals [o1, o4]); this
+        // adds a 4-row spread covering an interleaved-needle scenario
+        // and asserts STRICTLY ASCENDING order on the result.
+        //
+        // The implementation walks entries in append order; since
+        // ordinals are dense + monotonic (append always appends), the
+        // result vec is naturally strict-ascending. A future "let me
+        // index by capability_hash and serve from a sorted set"
+        // refactor could silently break the strict-ascending guarantee
+        // (HashMap iteration order is non-deterministic in Rust) —
+        // surface here.
+        let mut log = RunEventLog::new();
+        let needle = Hash::from_bytes([0x77; 32]);
+        let other = Hash::from_bytes([0x88; 32]);
+        // Sealed mutations at ordinals 0, 2, 3, 5, with non-matching
+        // rows at 1 and 4.
+        log.append_sealed_mutation(needle, BudgetDebit::default());      // 0
+        log.append_event(AgentEvent::ReasoningDelta { text: "a".into() });// 1
+        log.append_sealed_mutation(needle, BudgetDebit::default());      // 2
+        log.append_sealed_mutation(needle, BudgetDebit::default());      // 3
+        log.append_sealed_mutation(other, BudgetDebit::default());       // 4
+        log.append_sealed_mutation(needle, BudgetDebit::default());      // 5
+
+        let hits = log.find_capability_hash(&needle);
+        assert_eq!(hits, vec![0, 2, 3, 5], "ordinals must appear in append order");
+        // Strict-ascending: each ordinal > the previous.
+        for pair in hits.windows(2) {
+            assert!(pair[0] < pair[1], "ordinals must be strictly ascending");
+        }
+    }
+
+    #[test]
     fn find_capability_hash_is_idempotent_across_multiple_calls() {
         // Phase 1 hardening — pure-function pin (companion to
         // iter-217 sealed_mutations idempotency + iter-168
