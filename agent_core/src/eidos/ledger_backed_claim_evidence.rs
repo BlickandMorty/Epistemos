@@ -97,6 +97,17 @@ impl EidosRetriever for LedgerBackedClaimEvidence {
             return empty_packet(query, &self.manifest_id);
         };
 
+        let claim_is_retracted = self
+            .snapshot
+            .claims
+            .iter()
+            .find(|claim| claim.id == link.claim)
+            .map(|claim| claim.status == ClaimStatus::Retracted)
+            .unwrap_or(true);
+        if claim_is_retracted {
+            return empty_packet(query, &self.manifest_id);
+        }
+
         // Filter out retracted evidence — once retracted, the evidence no
         // longer supports the claim and must not appear in the closed-
         // citation set.
@@ -259,6 +270,26 @@ mod tests {
             manifest_id: packet.manifest_id.clone(),
         };
         assert!(packet.validate_citation(&forged).is_err());
+    }
+
+    #[test]
+    fn retracted_claim_returns_empty_packet() {
+        let mut led = build_ledger();
+        led.retract_claim(&ClaimId("claim:tropical-is-convex".to_string()))
+            .unwrap();
+
+        let r = LedgerBackedClaimEvidence::from_ledger(&led, manifest());
+        let q = EidosQuery::new(
+            "claim:tropical-is-convex",
+            EidosRetrievalMode::ClaimEvidence,
+            16,
+        );
+        let packet = r.retrieve(&q, 1_700_000_000_000);
+        assert!(
+            packet.hits.is_empty(),
+            "directly retracted claims must not surface any evidence into \
+             the closed-citation set"
+        );
     }
 
     #[test]
