@@ -374,6 +374,14 @@ theorem bernoulliCertificateTargetMirrorEquivalent (p q : Real) :
     (bernoulliCertificateTarget p q).mirrorEquivalence.statement := by
   exact bernoulliMirrorDescentEquivalenceObligationCarries
 
+theorem bernoulliCertificateTargetSourceRow (p q : Real) :
+    (bernoulliCertificateTarget p q).sourceRow =
+      "Info-IR.bernoulliCertificateTarget" := by
+  exact CertificateTarget.sourceRowMatches
+    (bernoulliCertificateTarget p q)
+    "Info-IR.bernoulliCertificateTarget"
+    rfl
+
 theorem bernoulliCertificateTargetConvexity (p q : Real) :
     (bernoulliCertificateTarget p q).convexity =
         some (bernoulliConvexLogPartitionObligation p) ∧
