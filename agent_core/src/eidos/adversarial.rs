@@ -238,3 +238,10 @@ pub fn adversarial_query_fixture_descriptions_are_trimmed_and_control_free() -> 
             && !description.chars().any(char::is_control)
     })
 }
+
+pub fn adversarial_query_fixture_catalog_static_surface_is_wire_safe() -> bool {
+    adversarial_query_fixture_catalog_static_surface_is_complete()
+        && adversarial_query_fixture_labels_are_ascii_lowercase_kebab_case()
+        && adversarial_query_fixture_query_texts_are_nonempty_trimmed_and_control_free()
+        && adversarial_query_fixture_descriptions_are_trimmed_and_control_free()
+}
