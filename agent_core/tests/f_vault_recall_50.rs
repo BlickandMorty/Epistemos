@@ -968,6 +968,26 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_linear_a.md",
             "Mamba 𐘀 cache Mamba 𐘀 cache architecture notes linear_a",
         ),
+        // Iter-365 (43rd Unicode — Osmanya extension): Latin
+        // "Mamba" + Osmanya "𐒀" (letter alif, U+10480) + Latin
+        // "cache". Osmanya (1920s) is a modern script invented
+        // by Osman Yusuf Kenadid for the Somali language. It
+        // was used as the official Somali script briefly
+        // (1972) before Latin script was adopted. ELEVENTH
+        // SMP-plane codepoint. THIRD modern single-inventor
+        // African script in the pin set (after Vai-Bukɛlɛ
+        // 1830s, N'Ko-Kanté 1949, Adlam-Barry brothers 1989).
+        // Together the four modern African scripts span the
+        // continent: Vai (Liberia/Sierra Leone, West) + N'Ko
+        // (Mali/Guinea, West) + Adlam (Guinea/Senegal, West)
+        // + Osmanya (Somalia, East). The pin set now covers
+        // both halves of African modern-invented-script
+        // geography. Forty-one non-Latin scripts pinned (+
+        // Osmanya).
+        (
+            "notes/mamba_osmanya.md",
+            "Mamba 𐒀 cache Mamba 𐒀 cache architecture notes osmanya",
+        ),
     ];
     for (path, content) in seeds {
         store

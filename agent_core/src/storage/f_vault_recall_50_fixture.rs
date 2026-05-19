@@ -1922,6 +1922,38 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 43rd Unicode row (iter-365): Osmanya extension.
+        // Adds a 41st non-Latin script (Osmanya, U+10480–
+        // U+104AF) — a modern script (1920s) invented by
+        // Osman Yusuf Kenadid for the Somali language. Used
+        // briefly as the official Somali script in 1972 before
+        // Latin adoption. ELEVENTH SMP-plane codepoint. THIRD
+        // modern single-inventor African script in the pin
+        // set (after Vai 1830s + N'Ko 1949 + Adlam 1989).
+        // Together the four modern African scripts span the
+        // continent — three West African (Vai/N'Ko/Adlam) +
+        // one East African (Osmanya). Pin set now covers BOTH
+        // halves of African modern-invented-script geography.
+        // Latin "Mamba" + Osmanya "𐒀" (letter alif, U+10480)
+        // + Latin "cache".
+        query: "Mamba 𐒀 cache",
+        expected_paths: &["notes/mamba_osmanya.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Forty-third Unicode row (iter-365): Osmanya \
+               extension. FORTY-ONE non-Latin scripts pinned. \
+               Osmanya (1920s) — modern script invented by \
+               Osman Yusuf Kenadid for Somali. Used as official \
+               Somali script briefly (1972) before Latin \
+               adoption. Eleventh SMP-plane codepoint. THIRD \
+               modern single-inventor African script (after \
+               Vai + N'Ko + Adlam). Four modern African scripts \
+               now span the continent: three West African + \
+               one East African. Brings Unicode to depth 43 — \
+               first category past depth-42 horizon.",
+    },
+    FVaultRecallRow {
         // 42nd Unicode row (iter-358): Linear A extension.
         // Adds a 40th non-Latin script (Linear A, U+10600–
         // U+1077F) — the UNDECIPHERED Minoan script ca. 1800–
