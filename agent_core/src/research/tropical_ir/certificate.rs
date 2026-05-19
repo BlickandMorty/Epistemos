@@ -282,6 +282,18 @@ pub fn lean_certificate_rational(r: &TropicalRational) -> String {
          \x20   tropical_rational_certificate_{suffix}.representation = tropical_rational_obligation_{suffix} := by\n\
          \x20 rfl\n\
          \n\
+         theorem tropical_rational_certificate_numerator_shape_{suffix} :\n\
+         \x20   tropical_rational_certificate_{suffix}.rational.numerator =\n\
+         \x20     tropical_rational_certificate_{suffix}.rational.numerator := by\n\
+         \x20 exact Epistemos.Tropical.RationalCertificateTarget.numeratorShape\n\
+         \x20   tropical_rational_certificate_{suffix}\n\
+         \n\
+         theorem tropical_rational_certificate_denominator_shape_{suffix} :\n\
+         \x20   tropical_rational_certificate_{suffix}.rational.denominator =\n\
+         \x20     tropical_rational_certificate_{suffix}.rational.denominator := by\n\
+         \x20 exact Epistemos.Tropical.RationalCertificateTarget.denominatorShape\n\
+         \x20   tropical_rational_certificate_{suffix}\n\
+         \n\
          theorem tropical_rational_certificate_shapes_{suffix} :\n\
          \x20   tropical_rational_certificate_{suffix}.rational.numerator = tropical_rational_certificate_{suffix}.rational.numerator ∧\n\
          \x20     tropical_rational_certificate_{suffix}.rational.denominator = tropical_rational_certificate_{suffix}.rational.denominator := by\n\
@@ -526,6 +538,10 @@ mod tests {
             TropicalExpr::constant(1.0),
         );
         let c = lean_certificate_rational(&r);
+        assert!(c.contains("theorem tropical_rational_certificate_numerator_shape_"));
+        assert!(c.contains("exact Epistemos.Tropical.RationalCertificateTarget.numeratorShape"));
+        assert!(c.contains("theorem tropical_rational_certificate_denominator_shape_"));
+        assert!(c.contains("exact Epistemos.Tropical.RationalCertificateTarget.denominatorShape"));
         assert!(c.contains("theorem tropical_rational_certificate_shapes_"));
         assert!(c.contains("exact Epistemos.Tropical.RationalCertificateTarget.representationShapes"));
         assert!(c.contains("tropical_rational_certificate_"));
