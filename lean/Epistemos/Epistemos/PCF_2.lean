@@ -44,6 +44,10 @@ theorem qkDecompositionMatchesAtFrobenius1e5
     frobenius_distance ≤ qkFrobeniusTolerance := by
   exact h_distance
 
+theorem qkFrobeniusTolerancePinned :
+    qkFrobeniusTolerance = 0.00001 := by
+  rfl
+
 theorem lane3ResearchOnlyPinned :
     lane3ResearchOnly = true := by
   rfl
