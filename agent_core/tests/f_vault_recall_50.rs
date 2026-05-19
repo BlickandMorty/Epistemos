@@ -1266,6 +1266,13 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_katakana_hebrew.md",
             "Mamba メモリ זיכרון Mamba メモリ זיכרון mixed script notes",
         ),
+        // Iter-440 (63rd Unicode): mixed hiragana + Hebrew in one
+        // <=3-token AND query. Adjacent to iter-437's katakana row,
+        // but using the distinct hiragana syllabary block.
+        (
+            "notes/mamba_hiragana_hebrew.md",
+            "Mamba ひらがな זיכרון Mamba ひらがな זיכרון mixed script notes",
+        ),
     ];
     for (path, content) in seeds {
         store
