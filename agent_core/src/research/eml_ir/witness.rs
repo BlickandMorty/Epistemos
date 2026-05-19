@@ -3170,6 +3170,27 @@ mod tests {
     }
 
     #[test]
+    fn replay_rejects_witness_after_compact_reserialization_with_unknown_key() {
+        let original = acceptance_witness_json().expect("acceptance witness json");
+        let mut value: serde_json::Value =
+            serde_json::from_str(&original).expect("witness json value");
+        let object = value
+            .as_object_mut()
+            .expect("witness json root must be object");
+        object.insert(
+            "unrecognized_top_level".to_string(),
+            serde_json::Value::Number(serde_json::Number::from(1u64)),
+        );
+        let json = serde_json::to_string(&value).expect("compact witness json");
+        let error = replay_witness_json(&json)
+            .expect_err("witness with injected top-level key must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::UnknownField)
+        );
+    }
+
+    #[test]
     fn replay_accepts_witness_after_compact_reserialization() {
         let original = acceptance_witness_json().expect("acceptance witness json");
         let value: serde_json::Value = serde_json::from_str(&original).expect("witness json value");
