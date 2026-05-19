@@ -2611,6 +2611,43 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 38th PureChatter row (iter-328): 13-token long-input
+        // shape — "please can you tell me what where when some
+        // of my notes are". Extends the long-input cardinality
+        // progression to 13 (iter-321 was 12). LONGEST
+        // PureChatter query in the fixture. Mixes 10 chatter
+        // sub-classes (politeness + modal + 2 pronouns +
+        // imperative + 3 wh-words + quantifier + preposition +
+        // chatter-noun + be-verb). All 13 tokens (please / can
+        // / you / tell / me / what / where / when / some / of
+        // / my / notes / are) are in QUERY_CHATTER_WORDS.
+        // Three distinct wh-words in one query — densest
+        // wh-stack of any PureChatter row. Strip empties →
+        // all_chatter_fallback → evidence Weak → PureChatter
+        // contract passes. Reuses iter-16 decoys; zero new
+        // seeds.
+        query: "please can you tell me what where when some of my notes are",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Thirty-eighth PureChatter row (iter-328): 13-\
+               token long-input (\"please can you tell me what \
+               where when some of my notes are\"). Extends \
+               cardinality to 13 (iter-321 = 12). LONGEST \
+               PureChatter query in the fixture. Mixes 10 \
+               chatter sub-classes (politeness + modal + 2 \
+               pronouns + imperative + 3 wh-words + quantifier \
+               + preposition + chatter-noun + be-verb). Three \
+               distinct wh-words in one query — densest wh-\
+               stack of any PureChatter row. All 13 tokens in \
+               QUERY_CHATTER_WORDS. Brings PureChatter to \
+               depth 38 — first category past depth-37 horizon.",
+    },
+    FVaultRecallRow {
         // 37th PureChatter row (iter-321): 12-token long-input
         // shape — "please can you tell me where some of my notes
         // are about". Extends the long-input cardinality
