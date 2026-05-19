@@ -38,8 +38,11 @@ structure HopfieldStore where
 /-- Capacity bound: N ≤ 2^(d/2). For d=64 this gives 2^32 ≈
 4.3 billion patterns — far more than typical use cases. -/
 def HopfieldStore.capacityBound (s : HopfieldStore) : Nat :=
-  -- 2^(d/2) — Float-truncated for stub.
   Nat.pow 2 (s.dim / 2)
+
+theorem capacityBoundExpands (s : HopfieldStore) :
+    s.capacityBound = Nat.pow 2 (s.dim / 2) := by
+  rfl
 
 def HopfieldStore.withinCapacity (s : HopfieldStore) : Bool :=
   s.num_patterns ≤ s.capacityBound
