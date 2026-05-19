@@ -2671,6 +2671,43 @@ mod tests {
     }
 
     #[test]
+    fn budget_debit_and_ledger_struct_literal_with_u64_max_does_not_panic() {
+        // Phase 1 hardening — max-value-boundary pin for BudgetDebit
+        // and BudgetLedger struct literals (companion to
+        // budget_spec_new_accepts_u64_max_per_axis iter-484).
+        //
+        // Struct literal construction is field assignment; should
+        // round-trip u64::MAX values without panic. The gate path
+        // uses saturating_add for safety, but the struct construction
+        // itself must accept any u64.
+        let debit = BudgetDebit {
+            tokens: u64::MAX,
+            wall_ms: u64::MAX,
+            tool_calls: u64::MAX,
+            subprocess_ms: u64::MAX,
+            memory_bytes: u64::MAX,
+        };
+        assert_eq!(debit.tokens, u64::MAX);
+        assert_eq!(debit.wall_ms, u64::MAX);
+        assert_eq!(debit.tool_calls, u64::MAX);
+        assert_eq!(debit.subprocess_ms, u64::MAX);
+        assert_eq!(debit.memory_bytes, u64::MAX);
+
+        let ledger = BudgetLedger {
+            tokens_used: u64::MAX,
+            wall_used_ms: u64::MAX,
+            tool_calls_used: u64::MAX,
+            subprocess_used_ms: u64::MAX,
+            memory_bytes_used: u64::MAX,
+        };
+        assert_eq!(ledger.tokens_used, u64::MAX);
+        assert_eq!(ledger.wall_used_ms, u64::MAX);
+        assert_eq!(ledger.tool_calls_used, u64::MAX);
+        assert_eq!(ledger.subprocess_used_ms, u64::MAX);
+        assert_eq!(ledger.memory_bytes_used, u64::MAX);
+    }
+
+    #[test]
     fn budget_spec_new_accepts_u64_max_per_axis() {
         // Phase 1 hardening — max-value-boundary pin for BudgetSpec::new.
         // Companion to budget_spec_new_4_arg_constructor_defaults_max_memory_bytes_to_zero
