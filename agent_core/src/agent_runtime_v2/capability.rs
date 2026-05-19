@@ -1819,6 +1819,34 @@ mod tests {
     }
 
     #[test]
+    fn replayed_macaroon_json_expired_rejected_for_every_caveat_type() {
+        let key = root_key_a();
+        for (caveat, mut ctx) in caveat_replay_cases() {
+            let base = issue_tool_macaroon(&key, Some(1_000));
+            let narrowed = restrict(&base, caveat.clone());
+            let json = serde_json::to_string(&narrowed).expect("serialise macaroon");
+            let replayed: Macaroon =
+                serde_json::from_str(&json).expect("deserialise macaroon");
+
+            assert_eq!(replayed.signature, narrowed.signature);
+            assert_eq!(replayed.capability_hash(), narrowed.capability_hash());
+
+            ctx.now_ms = 2_000;
+            let err = match MacaroonCapability::new(replayed, key).verify(&ctx) {
+                Ok(()) => panic!("replayed expired {caveat:?} must reject"),
+                Err(err) => err,
+            };
+            assert!(
+                matches!(
+                    err,
+                    CapabilityError::Violated(CaveatViolation::Expired { .. })
+                ),
+                "expected replayed expired {caveat:?} to reject as Expired, got {err:?}"
+            );
+        }
+    }
+
+    #[test]
     fn replayed_macaroon_file_round_trip_verifies_with_every_caveat_type() {
         let key = root_key_a();
         for (caveat, ctx) in caveat_replay_cases() {
