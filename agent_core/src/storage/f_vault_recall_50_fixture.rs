@@ -6986,6 +6986,35 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 46th ChattyPrefix row (iter-384): Yi-multilingual
+        // signal domain — 36th distinct lexical universe.
+        // Survivors after strip {Mamba, ꀀ}. 2-term AND matches
+        // only iter-244's mamba_yi.md. TWENTY-FIFTH non-ASCII
+        // ChattyPrefix domain. THIRD East-Asian script in
+        // ChattyPrefix (after CJK + Bopomofo). ChattyPrefix
+        // now covers BOTH typology-pair coverage of Chinese-
+        // region writing (ideographic Han + phonetic Bopomofo +
+        // syllabic Yi) — same three-typology completion as
+        // iter-382 SignalOnly Yi. Parallels iter-382.
+        query: "Show me my Mamba ꀀ notes",
+        expected_paths: &["notes/mamba_yi.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Forty-sixth ChattyPrefix row (iter-384): Yi-\
+               multilingual signal domain — 36th distinct \
+               lexical universe. Survivors {Mamba, ꀀ} after \
+               strip. 2-term AND matches only iter-244 \
+               mamba_yi.md. Twenty-fifth non-ASCII ChattyPrefix \
+               domain. THIRD East-Asian script in ChattyPrefix. \
+               Pin set's East-Asian ChattyPrefix coverage now \
+               spans three distinct typologies: ideographic + \
+               phonetic + syllabic. Parallels iter-382 \
+               SignalOnly Yi. Brings ChattyPrefix to depth 46 \
+               — first category past depth-45 horizon. Zero \
+               new seeds.",
+    },
+    FVaultRecallRow {
         // 45th ChattyPrefix row (iter-377): Bopomofo-multilingual
         // signal domain — 35th distinct lexical universe.
         // Survivors after strip {Mamba, ㄎ}. 2-term AND matches
