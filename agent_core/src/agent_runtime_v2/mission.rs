@@ -929,6 +929,41 @@ mod tests {
     }
 
     #[test]
+    fn mission_packet_display_writes_special_chars_verbatim_no_escaping() {
+        // Phase 1 hardening — Display vs serde behaviour pin.
+        // mission.rs §21 Display impl writes:
+        //   "MissionPacket{blueprint={}, scope={}}"
+        // using {} (Display) — NOT {:?} (Debug). Display writes
+        // strings VERBATIM without JSON-escaping; if the
+        // blueprint_id or vault_scope carries a quote, backslash,
+        // or newline, it appears RAW in the log line.
+        //
+        // This is the correct semantic — Display is for human-readable
+        // log lines, not JSON-parseable persistence. The user_prompt
+        // is intentionally OMITTED from Display (already pinned in
+        // mission_packet_display_omits_prompt_for_log_concision); the
+        // remaining 2 fields appear verbatim.
+        //
+        // Pin this behaviour so a future "let me JSON-escape the
+        // Display fields for log safety" refactor surfaces at PR
+        // review (since it would silently change the appearance for
+        // tail-following log readers).
+        let mp = MissionPacket {
+            blueprint_id: AgentBlueprintId(r#"agent "with quotes""#.to_string()),
+            user_prompt: "hidden body".to_string(),
+            vault_scope: "vault\\windows\\style".to_string(),
+        };
+        let display = format!("{mp}");
+        // Quotes and backslashes appear RAW (no JSON-escape).
+        assert!(display.contains(r#"agent "with quotes""#),
+            "blueprint_id quotes must appear raw, got {display}");
+        assert!(display.contains(r#"vault\windows\style"#),
+            "vault_scope backslashes must appear raw, got {display}");
+        // Prompt absent.
+        assert!(!display.contains("hidden body"));
+    }
+
+    #[test]
     fn mission_packet_display_preserves_unicode_in_blueprint_id_and_vault_scope() {
         // Phase 1 hardening — Unicode safety pin for Display
         // (companion to iter-206 AnswerPacket Display Unicode pin).
