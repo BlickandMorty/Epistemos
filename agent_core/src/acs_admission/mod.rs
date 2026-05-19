@@ -3289,7 +3289,11 @@ where
     E: serde::de::Error,
 {
     match value {
-        serde_json::Value::Object(object) if object.contains_key(field) => Ok(()),
+        serde_json::Value::Object(object)
+            if object.get(field).is_some_and(|value| !value.is_null()) =>
+        {
+            Ok(())
+        }
         serde_json::Value::Object(_) => Err(E::custom(acs_policy_decode_error(
             &ACSPolicyError::Malformed { field },
         ))),
@@ -7251,6 +7255,19 @@ mod tests {
 
         assert!(message.contains("malformed_policy"), "{message}");
         assert!(message.contains("defer_at"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_null_threshold_axis_names_malformed_policy_field() {
+        let mut value =
+            serde_json::to_value(ACSRiskThresholds::standard()).expect("thresholds encode");
+        value["warn_at"] = serde_json::json!(null);
+
+        let err = serde_json::from_value::<ACSRiskThresholds>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(message.contains("warn_at"), "{message}");
     }
 
     #[test]
