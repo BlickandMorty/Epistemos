@@ -1369,6 +1369,37 @@ mod tests {
     }
 
     #[test]
+    fn agent_blueprint_struct_field_shape_pinned_to_exactly_five_typed_fields() {
+        // Phase 1 hardening — struct-field-shape pin for AgentBlueprint
+        // (companion to AnswerPacket struct destructure iter-464).
+        // AgentBlueprint carries EXACTLY 5 named fields with specific
+        // types:
+        //
+        //   - id: AgentBlueprintId
+        //   - display_name: String
+        //   - provider_policy: ProviderPolicy
+        //   - budget: BudgetSpec
+        //   - capability_root_hash: Hash
+        //
+        // A future "let me add a `created_at` timestamp field" would
+        // silently change the vault/agents/<id>.json shape — surface
+        // here via destructure compile-fail + per-field type assertions.
+        let bp = local_blueprint();
+        let AgentBlueprint {
+            id,
+            display_name,
+            provider_policy,
+            budget,
+            capability_root_hash,
+        } = bp;
+        let _: AgentBlueprintId = id;
+        let _: String = display_name;
+        let _: ProviderPolicy = provider_policy;
+        let _: BudgetSpec = budget;
+        let _: Hash = capability_root_hash;
+    }
+
+    #[test]
     fn every_blueprint_field_is_identity_load_bearing() {
         // Phase 1 hardening — companion to changing_capability_root_hash.
         // That test proves capability_root_hash diff breaks equality.
