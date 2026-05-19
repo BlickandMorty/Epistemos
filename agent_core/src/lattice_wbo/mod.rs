@@ -4575,6 +4575,7 @@ mod tests {
             "combined budget guard fixture rejects empty, invalid-rate, and invalid side-information rows independently",
             "`lattice_budget_composition_handles_signed_max_and_mixed_axes`",
             "signed, max, and mixed semantic/numerical axes are validated together",
+            "single finite max mixed-axis fixture pins semantic and `T_num` measured partitions before overflow guard",
             "signed mixed-axis invalid public fields keep every measured-status surface pending",
             "`lattice_budget_validation_accepts_zero_and_single_max_budget_edges`",
             "`lattice_budget_validation_rejects_signed_contribution_fields_even_when_totals_cancel`",
@@ -7233,6 +7234,18 @@ mod tests {
             single_max_mixed_axis.measured_pre_softmax_total(),
             Some(f64::MAX)
         );
+        assert_eq!(
+            single_max_mixed_axis.measured_semantic_wbo6_pre_softmax_total(),
+            Some(f64::MAX)
+        );
+        assert_eq!(
+            single_max_mixed_axis.measured_numerical_post_correction_total(),
+            Some(0.0)
+        );
+        assert_eq!(
+            single_max_mixed_axis.measured_softmax_half_corrected_total(),
+            Some(0.5 * f64::MAX)
+        );
         assert_eq!(single_max_mixed_axis.measured_within_budget(), Some(true));
 
         let overflowed_mixed_axes = LatticeBudget::new(
@@ -7256,8 +7269,7 @@ mod tests {
             overflowed_mixed_axes.validate(),
             Err(LatticeWboError::InvalidBudgetComposition)
         );
-        assert_eq!(overflowed_mixed_axes.measured_pre_softmax_total(), None);
-        assert_eq!(overflowed_mixed_axes.measured_within_budget(), None);
+        assert_budget_measurements_pending(&overflowed_mixed_axes);
 
         let signed_mixed_axis = LatticeBudget::new(
             LatticeCoderKind::LatticeWynerZivResidual,
