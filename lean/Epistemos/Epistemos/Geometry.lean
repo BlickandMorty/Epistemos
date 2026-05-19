@@ -189,6 +189,10 @@ theorem identityRotorCarriesObligations :
   · simp [identityRotor, identityRotorValue, Multivector.scalar, rotorCandidate]
   · norm_num [identityRotor, identityRotorValue, Multivector.scalar, rotorUnitNorm]
 
+theorem identityRotorSandwichPreservesNorm :
+    rotorSandwichPreservesNorm identityRotor := by
+  exact identityRotorCarriesObligations
+
 theorem geometrySchemaCountsPinned :
     multivectorCoordinateCount = 8 ∧ exprConstructorCount = 4 := by
   exact ⟨rfl, rfl⟩
