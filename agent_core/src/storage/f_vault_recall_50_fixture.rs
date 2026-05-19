@@ -7356,6 +7356,46 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 48th ChattyPrefix row (iter-398): Glagolitic-
+        // multilingual signal domain — 38th distinct lexical
+        // universe. Survivors after strip {Mamba, ⰽ}. 2-term
+        // AND matches only iter-249's mamba_glagolitic.md.
+        // TWENTY-SEVENTH non-ASCII ChattyPrefix domain. FIRST
+        // historical Slavic script in ChattyPrefix. Glagolitic
+        // (9th c CE, Cyril + Methodius) is the oldest Slavic
+        // alphabet — predates Cyrillic. ChattyPrefix's Slavic
+        // language community now triangulated: Cyrillic (iter-
+        // 28 кэш multilingual chatter query) + Glagolitic
+        // (iter-398 single-codepoint chatter query) — same
+        // language community, distinct writing systems.
+        // Parallels iter-396 SignalOnly Glagolitic single-term-
+        // AND. ChattyPrefix now covers SEVEN distinct script-
+        // family branches at multilingual-signal: Brahmic +
+        // Aramaic + Latin-diacritic + Greek-descendant +
+        // Berber/Amazigh + modern-African-syllabary + Slavic-
+        // historical. Strip-robust × seven script-family
+        // branches.
+        query: "Show me my Mamba ⰽ notes",
+        expected_paths: &["notes/mamba_glagolitic.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Forty-eighth ChattyPrefix row (iter-398): \
+               Glagolitic-multilingual signal domain — 38th \
+               distinct lexical universe. Survivors {Mamba, ⰽ} \
+               after strip. 2-term AND matches only iter-249 \
+               mamba_glagolitic.md. Twenty-seventh non-ASCII \
+               ChattyPrefix domain. FIRST historical Slavic \
+               script in ChattyPrefix. Glagolitic (9th c CE) \
+               predates Cyrillic. Slavic language community \
+               triangulated: Cyrillic кэш (iter-28) + Glagolitic \
+               ⰽ (iter-398). Parallels iter-396 SignalOnly \
+               Glagolitic. ChattyPrefix now covers SEVEN \
+               distinct script-family branches at multilingual-\
+               signal. Brings ChattyPrefix to depth 48 — first \
+               category past depth-47 horizon. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 47th ChattyPrefix row (iter-391): N'Ko-multilingual
         // signal domain — 37th distinct lexical universe.
         // Survivors after strip {Mamba, ߞ}. 2-term AND matches
