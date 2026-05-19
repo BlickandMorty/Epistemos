@@ -2167,6 +2167,53 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_struct_field_shape_pinned_to_exactly_seven_typed_fields() {
+        // Phase 1 hardening — struct-field-shape pin for AnswerPacket
+        // (companion to the destructure pin family iter-454..iter-463
+        // which covers enums). AnswerPacket carries EXACTLY 7 named
+        // fields with specific types:
+        //
+        //   - blueprint_id: AgentBlueprintId
+        //   - final_text: String
+        //   - citations: Vec<Citation>
+        //   - stop_reason: StopReason
+        //   - final_ledger: BudgetLedger
+        //   - run_event_log_root: Hash
+        //   - thinking_digest: Hash
+        //
+        // A future "let me add an `execution_time_ms` field" extension
+        // would silently change the on-disk JSON shape and break
+        // cross-version replay parity — surface here via destructure
+        // compile-fail + per-field type assertions.
+        let log = RunEventLog::new();
+        let packet = AnswerPacket::emit_with_thinking(
+            AgentBlueprintId("p".into()),
+            "x".into(),
+            vec![],
+            StopReason::EndTurn,
+            BudgetLedger::default(),
+            &log,
+            Hash::zero(),
+        );
+        let AnswerPacket {
+            blueprint_id,
+            final_text,
+            citations,
+            stop_reason,
+            final_ledger,
+            run_event_log_root,
+            thinking_digest,
+        } = packet;
+        let _: AgentBlueprintId = blueprint_id;
+        let _: String = final_text;
+        let _: Vec<Citation> = citations;
+        let _: StopReason = stop_reason;
+        let _: BudgetLedger = final_ledger;
+        let _: Hash = run_event_log_root;
+        let _: Hash = thinking_digest;
+    }
+
+    #[test]
     fn every_answer_packet_field_is_identity_load_bearing() {
         // Phase 1 hardening — symmetric companion to
         // every_blueprint_field_is_identity_load_bearing (blueprint.rs).
