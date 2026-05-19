@@ -4346,6 +4346,8 @@ mod tests {
             "`falsifier_hook_owner_json_rejects_unregistered_public_rows`",
             "owner JSON rejects unowned hooks, blank owners, and hook/owner mismatches while accepting exact registry rows",
             "owner JSON rejects unicode-adjacent owner hook keys",
+            "`falsifier_hook_owner_json_rejects_cross_owner_borrowing`",
+            "owner JSON rejects cross-owner hook and owner-path borrowing",
             "exactly one owner row",
             "`codec_falsifier_catalogs_name_owned_f_hooks_for_every_codec`",
             "`codec_falsifier_catalogs_cover_every_owned_f_hook`",
@@ -5709,6 +5711,39 @@ mod tests {
         )
         .expect("canonical falsifier owner row should deserialize");
         assert_eq!(ulp_owner, FALSIFIER_HOOK_OWNERS[1]);
+    }
+
+    #[test]
+    fn falsifier_hook_owner_json_rejects_cross_owner_borrowing() {
+        for owner in falsifier_hook_owners() {
+            for other in falsifier_hook_owners() {
+                if owner == other {
+                    continue;
+                }
+
+                let borrowed_owner = serde_json::json!({
+                    "hook": owner.hook,
+                    "owner": other.owner,
+                });
+                assert!(
+                    serde_json::from_value::<FalsifierHookOwner>(borrowed_owner).is_err(),
+                    "{} must not borrow {}",
+                    owner.hook,
+                    other.owner
+                );
+
+                let borrowed_hook = serde_json::json!({
+                    "hook": other.hook,
+                    "owner": owner.owner,
+                });
+                assert!(
+                    serde_json::from_value::<FalsifierHookOwner>(borrowed_hook).is_err(),
+                    "{} must not borrow {}",
+                    owner.owner,
+                    other.hook
+                );
+            }
+        }
     }
 
     #[test]
