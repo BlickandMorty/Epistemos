@@ -712,6 +712,7 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
 }
 
 fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
+    reject_raw_top_level_unsigned_json(json)?;
     reject_raw_float_number_json(json)?;
     let value: serde_json::Value = serde_json::from_str(json).map_err(invalid_json_error)?;
     let Some(stats_value) = value.get("stats") else {
@@ -1260,6 +1261,42 @@ fn nested_finite_f64_json(
         });
     }
     Ok(field_value)
+}
+
+#[derive(Deserialize)]
+struct RawTopLevelUnsigned<'a> {
+    #[serde(default, borrow)]
+    budget_target_millis: Option<&'a RawValue>,
+}
+
+fn reject_raw_top_level_unsigned_json(json: &str) -> Result<(), FulpReplayError> {
+    let Ok(raw_witness) = serde_json::from_str::<RawTopLevelUnsigned<'_>>(json) else {
+        return Ok(());
+    };
+    if let Some(value) = raw_witness.budget_target_millis {
+        raw_unsigned_integer_json(value, "budget_target_millis")?;
+    }
+    Ok(())
+}
+
+fn raw_unsigned_integer_json(raw_value: &RawValue, field: &str) -> Result<u64, FulpReplayError> {
+    match serde_json::from_str::<u64>(raw_value.get()) {
+        Ok(value) => Ok(value),
+        Err(error) => {
+            let message = error.to_string();
+            if message.contains("number out of range") {
+                Err(FulpReplayError::InvalidJson {
+                    message: format!("number out of range for {field}, expected unsigned integer"),
+                    kind: FulpInvalidJsonKind::NumberOutOfRange,
+                })
+            } else {
+                Err(FulpReplayError::InvalidJson {
+                    message: format!("invalid type for {field}, expected unsigned integer"),
+                    kind: FulpInvalidJsonKind::TypeMismatch,
+                })
+            }
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -1884,6 +1921,24 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("budget_target_millis"));
+    }
+
+    #[test]
+    fn replay_rejects_budget_target_millis_json_overflow_with_path() {
+        let json = acceptance_witness_json().unwrap();
+        let needle = "\"budget_target_millis\": 90000";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(needle, "\"budget_target_millis\": 1e999999", 1);
+        let error =
+            replay_witness_json(&json).expect_err("budget target millis overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
         );
         assert!(error
             .invalid_json_message()
