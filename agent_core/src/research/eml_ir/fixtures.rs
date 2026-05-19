@@ -6,7 +6,7 @@ pub const CLOSED_INTERVAL_MAX: f64 = 2.0;
 pub const LOG_SAMPLED_POINT_COUNT: usize = 412_000;
 pub const STRESS_POINT_COUNT: usize = 2_048;
 pub const TOTAL_FIXTURE_COUNT: usize = LOG_SAMPLED_POINT_COUNT + STRESS_POINT_COUNT;
-pub const ADVERSARIAL_FIXTURE_COUNT: usize = 25;
+pub const ADVERSARIAL_FIXTURE_COUNT: usize = 26;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum FixtureKind {
@@ -268,12 +268,19 @@ pub fn adversarial_fixture(index: usize) -> AdversarialFixture {
             1.0,
             Fp16Bits::from_bits(0x8001).to_f64(),
         ),
-        _ => adversarial(
+        24 => adversarial(
             index,
             "eml_ln_positive_zero",
             AdversarialOperation::Eml,
             1.0,
             0.0,
+        ),
+        _ => adversarial(
+            index,
+            "eml_ln_one_exact_zero",
+            AdversarialOperation::Eml,
+            1.0,
+            1.0,
         ),
     }
 }
@@ -700,7 +707,7 @@ mod tests {
 
     #[test]
     fn adversarial_fixtures_cover_eml_exact_zero_exp_branch() {
-        assert_eq!(ADVERSARIAL_FIXTURE_COUNT, 25);
+        assert_eq!(ADVERSARIAL_FIXTURE_COUNT, 26);
 
         let positive_zero = adversarial_fixture(17);
         assert_eq!(positive_zero.label, "eml_exp_positive_zero");
@@ -728,7 +735,7 @@ mod tests {
 
     #[test]
     fn adversarial_fixtures_cover_ln_negative_fp16_subnormal() {
-        assert_eq!(ADVERSARIAL_FIXTURE_COUNT, 25);
+        assert_eq!(ADVERSARIAL_FIXTURE_COUNT, 26);
         let negative_subnormal = adversarial_fixture(20);
         assert_eq!(negative_subnormal.label, "ln_fp16_min_negative_subnormal");
         assert_eq!(negative_subnormal.operation, AdversarialOperation::Ln);
@@ -739,7 +746,7 @@ mod tests {
 
     #[test]
     fn adversarial_fixtures_cover_eml_negative_fp16_subnormal() {
-        assert_eq!(ADVERSARIAL_FIXTURE_COUNT, 25);
+        assert_eq!(ADVERSARIAL_FIXTURE_COUNT, 26);
         let negative_subnormal = adversarial_fixture(23);
         assert_eq!(
             negative_subnormal.label,
@@ -753,7 +760,7 @@ mod tests {
 
     #[test]
     fn adversarial_fixtures_cover_eml_ln_positive_zero() {
-        assert_eq!(ADVERSARIAL_FIXTURE_COUNT, 25);
+        assert_eq!(ADVERSARIAL_FIXTURE_COUNT, 26);
         let positive_zero = adversarial_fixture(24);
         assert_eq!(positive_zero.label, "eml_ln_positive_zero");
         assert_eq!(positive_zero.operation, AdversarialOperation::Eml);
@@ -763,8 +770,18 @@ mod tests {
     }
 
     #[test]
+    fn adversarial_fixtures_cover_eml_ln_one_exact_zero() {
+        assert_eq!(ADVERSARIAL_FIXTURE_COUNT, 26);
+        let ln_one = adversarial_fixture(25);
+        assert_eq!(ln_one.label, "eml_ln_one_exact_zero");
+        assert_eq!(ln_one.operation, AdversarialOperation::Eml);
+        assert_eq!(ln_one.x, 1.0);
+        assert_eq!(ln_one.y, 1.0);
+    }
+
+    #[test]
     fn adversarial_fixtures_cover_finite_negative_ln_branch_cut() {
-        assert_eq!(ADVERSARIAL_FIXTURE_COUNT, 25);
+        assert_eq!(ADVERSARIAL_FIXTURE_COUNT, 26);
         let ln_negative_one = adversarial_fixture(21);
         assert_eq!(ln_negative_one.label, "ln_negative_one");
         assert_eq!(ln_negative_one.operation, AdversarialOperation::Ln);
