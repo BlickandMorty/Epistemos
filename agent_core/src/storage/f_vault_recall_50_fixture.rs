@@ -4779,6 +4779,37 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 40th Synthesis row (iter-337). FIRST 2-term-AND
+        // subset on iter-85 tokenizer-indexing pair:
+        // {tokenizer, indexing}. Both pair-partners carry both
+        // tokens. "tokenizer" is pair-unique (no other seed has
+        // it). "indexing" is pair-unique (vault_index_reload_
+        // canon has "index" — a distinct token from "indexing"
+        // under no-stem SimpleTokenizer). AND-on-2 matches only
+        // the pair. Opens C(3,2) survey on the FIFTH 3-element
+        // pair (after Metal + neural-cache-layer + tier-
+        // compression + design-pattern, all closed). Zero new
+        // seeds.
+        query: "tokenizer indexing",
+        expected_paths: &[
+            "notes/tokenizer_indexing_tantivy_overview.md",
+            "notes/tokenizer_indexing_tantivy_internals.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Fortieth Synthesis row (iter-337): FIRST 2-term-\
+               AND subset on iter-85 tokenizer-indexing pair. \
+               {tokenizer, indexing} — both tokens pair-unique. \
+               \"index\" vs \"indexing\" stay distinct under no-\
+               stem SimpleTokenizer. AND matches only the pair. \
+               Opens C(3,2) survey on the FIFTH 3-element pair \
+               (after Metal + neural-cache-layer + tier-\
+               compression + design-pattern). Brings Synthesis \
+               to depth 40 — first category past depth-39 \
+               horizon. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 39th Synthesis row (iter-330). THIRD and FINAL 2-term-
         // AND subset on iter-11 design-pattern near-duplicate
         // pair: {design, pattern}. Both pair-partners carry both
