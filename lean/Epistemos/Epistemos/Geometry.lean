@@ -156,6 +156,27 @@ def rotorCompositionAssociativeSandwich
     (lhs rhs : RotorSchema) : Prop :=
   lhs.isRotorCandidate ∧ rhs.isRotorCandidate ∧ lhs.unitNorm ∧ rhs.unitNorm
 
+namespace RotorSchema
+
+theorem sandwichFromWitnesses
+    (rotor : RotorSchema)
+    (candidateWitness : rotor.isRotorCandidate)
+    (unitNormWitness : rotor.unitNorm) :
+    rotorSandwichPreservesNorm rotor := by
+  exact ⟨candidateWitness, unitNormWitness⟩
+
+theorem compositionFromWitnesses
+    (lhs rhs : RotorSchema)
+    (lhsCandidateWitness : lhs.isRotorCandidate)
+    (rhsCandidateWitness : rhs.isRotorCandidate)
+    (lhsUnitNormWitness : lhs.unitNorm)
+    (rhsUnitNormWitness : rhs.unitNorm) :
+    rotorCompositionAssociativeSandwich lhs rhs := by
+  exact ⟨lhsCandidateWitness, rhsCandidateWitness,
+    lhsUnitNormWitness, rhsUnitNormWitness⟩
+
+end RotorSchema
+
 structure CliffordAxiomObligation where
   basisSquares : Prop
   basisAnticommutative : Prop
