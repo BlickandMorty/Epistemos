@@ -12,11 +12,14 @@ Source doctrine:
 * `docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md` §3
 * `agent_core/src/research/geometry_ir/certificate.rs`
 
-Tooling status at iter-593:
+Tooling status:
 `PATH="$HOME/.elan/bin:$PATH"; cd lean/Epistemos && lake build`
-completed successfully, and `Tools/sorry-budget/sorry-budget.sh`
-reported 0 total sorries. Geometry certificates target this schema
-module through `Epistemos.Geometry.CertificateTarget`.
+first completed successfully at iter-593; rotor-shape, unit-norm,
+Clifford, sandwich, and composition obligations were sharpened
+through iter-701; the iter-723 cadence retry also completed successfully.
+`Tools/sorry-budget/sorry-budget.sh` reported 0 total sorries.
+Geometry certificates target this schema module through
+`Epistemos.Geometry.CertificateTarget`.
 -/
 
 namespace Epistemos.Geometry
