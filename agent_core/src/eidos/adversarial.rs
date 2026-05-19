@@ -160,6 +160,10 @@ pub fn adversarial_query_fixture_kinds() -> &'static [AdversarialQueryFixtureKin
     ADVERSARIAL_QUERY_FIXTURE_KINDS
 }
 
+pub fn adversarial_query_fixture_kind_tokens() -> &'static [&'static str] {
+    ADVERSARIAL_QUERY_FIXTURE_LABELS
+}
+
 pub fn adversarial_query_fixture_expected_outcomes(
 ) -> &'static [AdversarialQueryExpectedOutcome] {
     ADVERSARIAL_QUERY_FIXTURE_EXPECTED_OUTCOMES
