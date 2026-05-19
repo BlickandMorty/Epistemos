@@ -208,6 +208,10 @@ Last audited: 2026-05-18. The schema axis-floor table, the 15 fragment `Artifact
 
 Last audited: 2026-05-18. [F-Eidos-ClosedCitation](F_EIDOS_CLOSED_CITATION_2026_05_18.md) maps to schema axes `citation_membership`, `fake_citation_rejection`, `empty_vault_deferral`, and `source_trace_visible`; the row requires returned context membership, fake-citation rejection, empty/no-result deferral, and visible source trace before its expected artifact can satisfy the [Cross-Gate Axis Floors](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#cross-gate-axis-floors).
 
+## F-VaultRecall Axis Floor Audit
+
+Last audited: 2026-05-18. [F-VaultRecall-50](F_VAULT_RECALL_50_2026_05_18.md) maps to schema axes `target_recall`, `distractor_suppression`, `candidate_count`, `trace_components`, and `weak_evidence_behavior`; the row requires target residency-governance recall, index-order distractor suppression, 50-200 candidate gathering, visible trace components, and honest weak-evidence broadening before its expected trace artifact can satisfy the [Cross-Gate Axis Floors](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#cross-gate-axis-floors).
+
 ## Replay Eligibility Audit
 
 Last audited: 2026-05-18. The schema replay-ineligibility checklist now fails artifacts linearly for missing command digests, missing fixture-manifest digests, missing sidecar digests, mismatched sidecar bytes, missing JSONL manifests, invalid JSONL manifest envelopes, `jsonl_file_sha256` drift from `result_digest`, runner-environment drift from the closed execution pin, missing OS build, missing toolchain identity, or missing thermal/power capture, blocking anomalies without evidence refs, missing threshold-source provenance, provider threshold refs without matching receipts, thermal-pressure timing passes without blocking anomalies, battery/unknown-power timing passes without blocking anomalies, measurement `evidence_kind` drift from the measurement source shape, and aggregate `sample_count` drift from embedded or sidecar samples.

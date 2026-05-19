@@ -398,6 +398,10 @@ ruby -e 'h=File.read("docs/falsifiers/M2_PRO_VERIFIED_FLOOR_HANDBOOK_2026_05_18.
 ```
 
 ```bash
+ruby -e 'h=File.read("docs/falsifiers/M2_PRO_VERIFIED_FLOOR_HANDBOOK_2026_05_18.md"); s=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); f=File.read("docs/falsifiers/F_VAULT_RECALL_50_2026_05_18.md"); expected=%w[target_recall distractor_suppression candidate_count trace_components weak_evidence_behavior]; expected.each { |axis| abort("F-VaultRecall axis #{axis} missing") unless h.include?(axis) && s.include?(axis) && f.include?(axis) }; puts "F-VaultRecall axis floor audit ok"'
+```
+
+```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); pat=schema.dig("properties","notes","allOf",1,"then","pattern") || abort("migration note pattern missing"); abort("internal-hyphen identity states no longer fit grammar") unless "identity_sentinel_gap_report=validator:old-anonymous-v1-new-blocked,reviewer:old-unknown-v1-new-blocked".match?(Regexp.new(pat[/identity_sentinel_gap_report=validator:old-.*?\\(\\?:;\\|\\$\\)/] || "a^")); puts "migration identity internal-hyphen states ok"'
 ```
 
