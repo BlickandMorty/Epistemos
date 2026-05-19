@@ -905,6 +905,26 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_adlam.md",
             "Mamba 𞤀 cache Mamba 𞤀 cache architecture notes adlam",
         ),
+        // Iter-343 (40th Unicode — Canadian Aboriginal Syllabics
+        // extension): Latin "Mamba" + UCAS "ᐱ" (Cree pi,
+        // U+1431) + Latin "cache". Canadian Aboriginal
+        // Syllabics (UCAS, 1840) is a featural-syllabic script
+        // invented by Methodist missionary James Evans for the
+        // Cree language. Adapted to ~15 First Nations languages
+        // (Cree, Ojibwe, Inuktitut, Naskapi, Carrier, etc.).
+        // SECOND Indigenous American script in the pin set
+        // (after Cherokee iter-191) — fills the geographic gap
+        // between Sequoyah's Cherokee (1819, Southeast US) and
+        // Adlam (1989, West Africa). Featural typology (glyph
+        // orientation encodes vowel) is unique — neither pure
+        // syllabic (like Cherokee/Vai) nor alphabetic.
+        // Demonstrates a fourth typology in the modern-
+        // invented-script cluster. Thirty-eight non-Latin
+        // scripts pinned (+ UCAS).
+        (
+            "notes/mamba_ucas.md",
+            "Mamba ᐱ cache Mamba ᐱ cache architecture notes ucas",
+        ),
     ];
     for (path, content) in seeds {
         store
