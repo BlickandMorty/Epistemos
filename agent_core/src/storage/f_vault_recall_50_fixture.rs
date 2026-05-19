@@ -1005,6 +1005,37 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 45th SignalOnly row (iter-375): single-term query in
+        // Bopomofo-script domain — "ㄎ" (Bopomofo letter K,
+        // U+310E, single codepoint). THIRTY-SIXTH single-term-
+        // AND domain. TWENTY-THIRD non-ASCII script-block.
+        // SECOND East-Asian script in SignalOnly (after iter-?
+        // CJK 笔记). Bopomofo (also called Zhuyin) is the
+        // Mandarin Chinese phonetic-alphabet script developed
+        // early-20th-century, used primarily in Taiwan for
+        // teaching pronunciation. Distinct typology from Han
+        // ideographs (alphabetic-phonetic vs ideographic).
+        // Pin set now covers BOTH typological branches of
+        // Chinese-language writing: ideographic Han (笔记) +
+        // phonetic Bopomofo (ㄎ). Token unique to iter-227's
+        // mamba_bopomofo.md.
+        query: "ㄎ",
+        expected_paths: &["notes/mamba_bopomofo.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Forty-fifth SignalOnly row (iter-375): single-\
+               term Bopomofo-script query — \"ㄎ\" (U+310E). \
+               Thirty-sixth domain for single-term-AND. \
+               Twenty-third non-ASCII script-block. SECOND \
+               East-Asian script in SignalOnly. Pin set now \
+               covers BOTH typological branches of Chinese-\
+               language writing: ideographic Han + phonetic \
+               Bopomofo. Eleventh single-codepoint non-ASCII \
+               token. Brings SignalOnly to depth 45 — first \
+               category past depth-44 horizon.",
+    },
+    FVaultRecallRow {
         // 44th SignalOnly row (iter-368): single-term query in
         // Vai-script domain — "ꕞ" (Vai syllable lhi, U+255E,
         // single codepoint). THIRTY-FIFTH single-term-AND
