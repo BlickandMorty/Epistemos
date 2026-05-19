@@ -2169,6 +2169,57 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 50th Unicode row (iter-414, MILESTONE — Unicode is the
+        // SEVENTH AND FINAL category to reach the F-VaultRecall-
+        // 50 target. ALL 7 CATEGORIES NOW AT DEPTH 50 — the
+        // falsifier-name floor is met PER-CATEGORY, not just
+        // overall). Pahawh Hmong extension. Adds a 48th non-
+        // Latin script (Pahawh Hmong, U+16B00-U+16B8F) — modern
+        // semi-syllabic script invented 1959 by Shong Lue Yang
+        // for the Hmong language of southern China + SE Asia
+        // (Vietnam, Laos, Thailand). FOURTH modern single-
+        // inventor script in the pin set (after Vai-Bukɛlɛ
+        // 1830s, N'Ko-Kanté 1949, Adlam-Barry brothers 1989,
+        // Osmanya-Kenadid 1920s) — and the FIRST ASIAN modern
+        // single-inventor script. The pin set's modern-
+        // invented-script axis now spans THREE CONTINENTS:
+        // Africa (Vai + N'Ko + Adlam + Osmanya = 4), Americas
+        // (Cherokee-Sequoyah 1819 + Canadian Aboriginal
+        // Syllabics-Evans 1840 = 2), Asia (Pahawh Hmong-Yang
+        // 1959 = 1). SEVENTEENTH SMP-plane codepoint. Latin
+        // "Mamba" + Pahawh Hmong "𖬀" (vowel keeb, U+16B00) +
+        // Latin "cache". Demonstrates the no-script-fold
+        // contract on a script with NO etymological connection
+        // to any prior pinned script — Pahawh Hmong is one of
+        // the few modern writing systems with NO clear glyph-
+        // shape ancestry; Yang reported it came to him in
+        // visions. Independent grapheme inventory pins
+        // Tantivy's UTF-8 codepoint-handling at maximum
+        // genealogical distance from Latin.
+        query: "Mamba 𖬀 cache",
+        expected_paths: &["notes/mamba_pahawh_hmong.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Fiftieth Unicode row (iter-414, MILESTONE — \
+               Unicode SEVENTH AND FINAL category to reach the \
+               F-VaultRecall-50 target. ALL 7 CATEGORIES AT \
+               DEPTH 50). Pahawh Hmong extension. 48 non-Latin \
+               scripts pinned. Pahawh Hmong (Shong Lue Yang \
+               1959) is the modern Hmong semi-syllabic script \
+               of southern China + SE Asia. FOURTH modern \
+               single-inventor script (after Vai + N'Ko + \
+               Adlam + Osmanya) and FIRST ASIAN modern single-\
+               inventor script. Modern-invented-script axis \
+               now spans THREE CONTINENTS: Africa (4) + \
+               Americas (2) + Asia (1). 17th SMP-plane \
+               codepoint. Independent grapheme inventory pins \
+               Tantivy's UTF-8 codepoint-handling at maximum \
+               genealogical distance from Latin. Brings \
+               Unicode to depth 50 — F-VaultRecall-50 target \
+               reached. ALL 7 CATEGORIES NOW AT DEPTH 50.",
+    },
+    FVaultRecallRow {
         // 49th Unicode row (iter-407): Meroitic Cursive
         // extension. Adds a 47th non-Latin script (Meroitic
         // Cursive, U+109A0-U+109FF) — the EVERYDAY/CURSIVE

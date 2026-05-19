@@ -1093,6 +1093,28 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_meroitic_cursive.md",
             "Mamba 𐦠 cache Mamba 𐦠 cache architecture notes meroitic_cursive",
         ),
+        // Iter-414 (50th Unicode — MILESTONE — Pahawh Hmong
+        // extension; Unicode SEVENTH AND FINAL category to
+        // reach the F-VaultRecall-50 target. ALL 7 CATEGORIES
+        // NOW AT DEPTH 50):
+        // Latin "Mamba" + Pahawh Hmong "𖬀" (vowel keeb, U+16B00)
+        // + Latin "cache". Pahawh Hmong (Shong Lue Yang 1959)
+        // is the modern Hmong semi-syllabic script of southern
+        // China + SE Asia (Vietnam / Laos / Thailand). FOURTH
+        // modern single-inventor script in pin set; FIRST
+        // ASIAN modern single-inventor script. Modern-
+        // invented-script axis now spans THREE CONTINENTS:
+        // Africa (Vai + N'Ko + Adlam + Osmanya = 4) + Americas
+        // (Cherokee + UCAS = 2) + Asia (Pahawh Hmong = 1).
+        // 17th SMP-plane codepoint. 48 non-Latin scripts.
+        // No clear etymological connection to any prior pinned
+        // script — independent grapheme inventory pins UTF-8
+        // codepoint-handling at maximum genealogical distance
+        // from Latin.
+        (
+            "notes/mamba_pahawh_hmong.md",
+            "Mamba 𖬀 cache Mamba 𖬀 cache architecture notes pahawh_hmong",
+        ),
     ];
     for (path, content) in seeds {
         store
