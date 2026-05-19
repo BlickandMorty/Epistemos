@@ -157,7 +157,7 @@ fn assert_iter_format_canonical_panics_on_out_of_range() {
     assert_iter_format_canonical("iter 099", "MY_SOURCE_LABEL");
 }
 
-/// Iter 714 — catalog range continuation pin.
+/// Iter 715 — catalog range continuation pin.
 /// STATUS.md is the contributor-facing catalog for the closed-citation
 /// hardening arc. When new pins land after the previous range tip, the
 /// range must advance in lock-step so future readers can tell the arc is
@@ -167,9 +167,9 @@ fn status_md_closed_citation_iter_range_tip_tracks_latest_catalog_pin() {
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Closed-citation contract hardening (iters 127-714)"),
+        status.contains("Closed-citation contract hardening (iters 127-715)"),
         "STATUS.md closed-citation hardening catalog must advance its iter \
-         range tip to iter 714 when the catalog-continuation pin lands"
+         range tip to iter 715 when the catalog-continuation pin lands"
     );
 }
 
@@ -1191,6 +1191,16 @@ fn adversarial_query_fixture_query_texts_are_ordered_unique_and_lookup_complete(
             "every enumerated fixture query text must resolve through exact lookup"
         );
     }
+}
+
+#[test]
+fn adversarial_query_fixture_query_text_slice_matches_fixture_rows() {
+    use super::adversarial::adversarial_query_fixture_catalog_query_texts_match_fixture_rows;
+
+    assert!(
+        adversarial_query_fixture_catalog_query_texts_match_fixture_rows(),
+        "fixture query-text enumerator must remain byte-equal to fixture row query_text values"
+    );
 }
 
 #[test]
