@@ -2600,6 +2600,21 @@ mod tests {
     }
 
     #[test]
+    fn budget_debit_debug_repr_is_stable_for_audit_logs() {
+        let debit = BudgetDebit {
+            tokens: 1,
+            wall_ms: 2,
+            tool_calls: 3,
+            subprocess_ms: 4,
+            memory_bytes: 5,
+        };
+        assert_eq!(
+            format!("{debit:?}"),
+            "BudgetDebit { tokens: 1, wall_ms: 2, tool_calls: 3, subprocess_ms: 4, memory_bytes: 5 }"
+        );
+    }
+
+    #[test]
     fn budget_debit_serde_json_preserves_struct_field_declaration_order() {
         // Phase 1 hardening — wire-shape pin extending iter-159
         // (presence + count) with field-order. BudgetDebit declares
