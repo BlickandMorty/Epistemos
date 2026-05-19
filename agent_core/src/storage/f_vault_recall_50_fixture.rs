@@ -3270,6 +3270,36 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 34th Paraphrase row (iter-298): NEW axis —
+        // PARENTHETICAL VERSION ANNOTATION. User types
+        // "Mamba (v2) SSM" with version annotation in parens.
+        // Tantivy splits on non-alphanumerics (parens) leaving
+        // {mamba, v2, ssm} as 3 surviving tokens. 3-term AND
+        // blocks the canonical (lacks "v2"). Distinct from
+        // iter-147 attached-version-suffix "Mamba2" (digit fused
+        // into one token), iter-178 interior-noise "Mamba new
+        // SSM" (random noise word), and iter-283 standalone-
+        // numeric-token (just a digit, not version annotation).
+        // Thirty-first named failure subclass; pins deferred
+        // parenthetical-version-stripping normalization.
+        query: "Mamba (v2) SSM",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Parenthetical-version-annotation Paraphrase axis \
+               (axis #31): user inserts version marker in parens \
+               (\"(v2)\"). Tantivy strips parens (non-\
+               alphanumeric) leaving \"v2\" as standalone token. \
+               3-term AND on {mamba, v2, ssm} blocks. Distinct \
+               from iter-147 attached-version-suffix (digit-\
+               fused), iter-178 interior-noise (random word), \
+               iter-283 standalone-numeric-token (just digit). \
+               Thirty-first named failure subclass; pins \
+               deferred parenthetical-stripping normalization. \
+               Brings Paraphrase to depth 34.",
+    },
+    FVaultRecallRow {
         // 33rd Paraphrase row (iter-290, milestone iteration):
         // NEW axis — PHONETIC MISSPELLING. User types "kashe"
         // (k-a-sh-e) as English phonetic-spelling of "cache".
