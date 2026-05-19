@@ -1286,6 +1286,44 @@ mod tests {
     }
 
     #[test]
+    fn mission_packet_preserves_json_special_chars_in_user_prompt_through_serde() {
+        // Phase 1 hardening — adversarial JSON pin. The user_prompt
+        // field is a String that frequently carries JSON-flavoured
+        // content (the user is asking the model to write JSON, or
+        // pasting a JSON sample). Serde MUST escape these correctly
+        // through round-trip: quotes, backslashes, embedded newlines,
+        // control characters in the C0 range, tabs.
+        //
+        // Companion to:
+        //   - mission_packet_preserves_unicode_in_user_prompt_and_vault_scope_through_serde
+        //   - thinking_bytes_with_embedded_nuls_and_non_utf8_preserved_through_digest
+        //
+        // A future #[serde(serialize_with = ...)] that applied lossy
+        // sanitisation would silently change the persisted prompt.
+        // Pin the JSON-escape transparency invariant.
+        let adversarial_prompts = [
+            r#"Write JSON: {"key": "value", "nested": {"a": [1, 2, 3]}}"#,
+            "literal\nnewline\nin\nprompt",
+            "literal\ttab\tin\tprompt",
+            r#"backslash \ and quote " characters"#,
+            "control\x01char\x02prompt",
+            r#"Unicode + JSON: {"年": "2026年", "🚀": "emoji"}"#,
+        ];
+        for prompt in adversarial_prompts {
+            let mp = MissionPacket {
+                blueprint_id: AgentBlueprintId("json-edge".into()),
+                user_prompt: prompt.to_string(),
+                vault_scope: "vault".into(),
+            };
+            let s = serde_json::to_string(&mp).expect("serialise");
+            let back: MissionPacket =
+                serde_json::from_str(&s).expect("deserialise");
+            assert_eq!(back.user_prompt, prompt, "prompt must round-trip byte-equal");
+            assert_eq!(back, mp);
+        }
+    }
+
+    #[test]
     fn mission_packet_preserves_unicode_in_user_prompt_and_vault_scope_through_serde() {
         // Phase 1 hardening — Unicode-safety pin. MissionPacket carries
         // a free-form user_prompt (the user's text — emoji, CJK,
