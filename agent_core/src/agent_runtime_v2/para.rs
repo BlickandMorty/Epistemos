@@ -323,6 +323,41 @@ mod tests {
     }
 
     #[test]
+    fn stop_reason_serde_forms_are_pairwise_distinct_across_all_seven_variants() {
+        // Phase 1 hardening MILESTONE iter-540 — pairwise-distinct
+        // serde-tag pin for StopReason (companion to the serde-pairwise-
+        // distinct pin family iter-533/537/538/539). StopReason has 7
+        // snake_case variants persisted into AnswerPacket and RunEventLog;
+        // an 8th variant added with #[serde(rename = "error")] would
+        // silently collide with an existing tag and misroute deserialised
+        // payloads on replay — the run would appear to have a different
+        // termination reason than it actually had. Pin asserts all 7
+        // serialized forms are pairwise-distinct.
+        let variants = [
+            StopReason::EndTurn,
+            StopReason::ToolUse,
+            StopReason::MaxTokens,
+            StopReason::Refusal,
+            StopReason::BudgetExhausted,
+            StopReason::CapabilityDenied,
+            StopReason::Error,
+        ];
+        let serde_forms: Vec<String> = variants
+            .iter()
+            .map(|v| serde_json::to_string(v).expect("serialize"))
+            .collect();
+        for i in 0..serde_forms.len() {
+            for j in (i + 1)..serde_forms.len() {
+                assert_ne!(
+                    serde_forms[i], serde_forms[j],
+                    "StopReason serde forms collide at [{i}] = {:?} and [{j}] = {:?}",
+                    serde_forms[i], serde_forms[j]
+                );
+            }
+        }
+    }
+
+    #[test]
     fn stop_reason_serde_values_are_stable() {
         // Phase 1 hardening — cross-version replay parity guardrail.
         // StopReason carries #[serde(rename_all = "snake_case")];
