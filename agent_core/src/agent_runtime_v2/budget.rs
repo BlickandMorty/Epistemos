@@ -2541,6 +2541,35 @@ mod tests {
     }
 
     #[test]
+    fn with_memory_bytes_chained_twice_with_nonzero_replaces_not_accumulates() {
+        // Phase 1 hardening — builder semantic pin. Companion to
+        // with_memory_bytes_zero_resets_to_unbounded_per_doctrine
+        // (which covers `N → 0` reset). This pins the canonical
+        // `N → M` (both non-zero) replacement semantic: the SECOND
+        // call REPLACES the first value, it does NOT accumulate or
+        // saturate.
+        //
+        // A future "let me min/max-clamp on the builder" optimisation
+        // would silently change the doctrine — surface here.
+        let base = BudgetSpec::default()
+            .with_memory_bytes(1_024)
+            .with_memory_bytes(4_096);
+        assert_eq!(
+            base.max_memory_bytes, 4_096,
+            "second call must REPLACE the first (not accumulate to 5120 or clamp to 1024)"
+        );
+
+        // Decreasing chain: 4_096 → 1_024 must also replace.
+        let decreasing = BudgetSpec::default()
+            .with_memory_bytes(4_096)
+            .with_memory_bytes(1_024);
+        assert_eq!(
+            decreasing.max_memory_bytes, 1_024,
+            "decreasing chain must REPLACE to lower (not saturate at higher)"
+        );
+    }
+
+    #[test]
     fn with_memory_bytes_builder_preserves_other_caps() {
         let s = BudgetSpec::new(1_000, 60_000, 5, 30_000).with_memory_bytes(1_048_576);
         assert_eq!(s.max_tokens, 1_000);
