@@ -5655,6 +5655,26 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_out_of_order_operation_threshold_names_threshold_namespace() {
+        let mut policy = ACSPolicy::strict("policy-out-of-order-operation-threshold", 1_000);
+        let mut thresholds = ACSRiskThresholds::standard();
+        thresholds.quarantine_at = 0.40;
+        thresholds.reject_at = 0.30;
+        policy.operation_thresholds = vec![ACSOperationThresholdRule::new(
+            ACSOperationKind::ToolAction,
+            thresholds,
+        )];
+
+        let err = policy.validate_at(1_001).unwrap_err();
+
+        assert_eq!(err.cause(), "malformed_policy");
+        assert_eq!(
+            err.field(),
+            Some("operation_thresholds.thresholds.risk_threshold_order")
+        );
+    }
+
+    #[test]
     fn acs_admission_duplicate_required_capability_is_malformed_policy() {
         let capability = Capability::Other {
             name: "ToolExec".to_string(),
