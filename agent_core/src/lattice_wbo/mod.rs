@@ -6545,6 +6545,15 @@ mod tests {
     }
 
     #[test]
+    fn register_doc_cross_links_residency_foreign_term_matrix_counts() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("residency_foreign_wbo_term_rejection_matrix_counts_are_pinned"),
+            "register must cross-link residency foreign-term matrix counts"
+        );
+    }
+
+    #[test]
     fn typed_catalogs_assign_every_wbo_term_to_codec_and_residency_rows() {
         for term in WboTermCode::ALL {
             assert!(
@@ -9289,6 +9298,50 @@ mod tests {
         assert!(
             primary_codec_owned_but_tier_foreign > 0,
             "term fixture must include terms owned by a primary codec but foreign to its residency tier"
+        );
+    }
+
+    #[test]
+    fn residency_foreign_wbo_term_rejection_matrix_counts_are_pinned() {
+        let rows = ResidencyTier::ALL
+            .iter()
+            .map(|tier| {
+                let rejected = WboTermCode::ALL
+                    .iter()
+                    .filter(|term| !tier.canonical_register_terms().contains(term))
+                    .count();
+                let codec_owned_foreign = WboTermCode::ALL
+                    .iter()
+                    .filter(|term| {
+                        !tier.canonical_register_terms().contains(term)
+                            && tier.primary_coder().canonical_wbo_terms().contains(term)
+                    })
+                    .count();
+                (tier.canonical_name(), rejected, codec_owned_foreign)
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            rows,
+            vec![
+                ("L0 RAM hot", 6, 0),
+                ("L1 Compressed Residual", 4, 2),
+                ("L2 Shadow Sketch", 4, 0),
+                ("L3 SSD Oracle", 3, 0),
+                ("L4 Engram", 5, 0),
+                ("L5 Network Cascade", 4, 0),
+                ("L_SE Self-Evolving", 4, 0),
+            ]
+        );
+        assert_eq!(
+            rows.iter().map(|(_, rejected, _)| rejected).sum::<usize>(),
+            30
+        );
+        assert_eq!(
+            rows.iter()
+                .map(|(_, _, codec_owned)| codec_owned)
+                .sum::<usize>(),
+            2
         );
     }
 
