@@ -158,6 +158,25 @@ mod tests {
     }
 
     #[test]
+    fn rejected_name_match_struct_field_shape_pinned_via_destructure() {
+        // Phase 1 hardening — struct-field-shape pin for
+        // RejectedNameMatch (companion to the struct destructure pin
+        // family iter-464..iter-471).
+        //
+        // RejectedNameMatch: EXACTLY 2 fields
+        //   - line: usize
+        //   - column: usize
+        //
+        // A future "let me add a file_path field" extension would
+        // silently change the CI lint output JSON shape — surface
+        // here via destructure compile-fail + per-field type assertions.
+        let m = RejectedNameMatch { line: 5, column: 3 };
+        let RejectedNameMatch { line, column } = m;
+        let _: usize = line;
+        let _: usize = column;
+    }
+
+    #[test]
     fn every_rejected_name_match_field_is_identity_load_bearing() {
         // Phase 1 hardening — thirteenth leg of the identity-pin
         // pattern. RejectedNameMatch is a Copy struct with 2 fields
