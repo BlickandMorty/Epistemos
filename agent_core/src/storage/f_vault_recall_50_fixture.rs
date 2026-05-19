@@ -3902,6 +3902,42 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 41st Paraphrase row (iter-348): NEW axis — FULL
+        // 1337-SPEAK / MULTI-CHARACTER ALPHANUMERIC
+        // SUBSTITUTION. User does the full leet-speak
+        // transformation: "Mamba SSM cache" → "M4mb4 SSM
+        // c4ch3" — multiple letters replaced with visually-
+        // similar digits in EVERY non-acronym token (a→4,
+        // e→3 across BOTH "Mamba" and "cache"). Distinct
+        // from iter-235 SINGLE-character 1337 ("M4mba" with
+        // just one a→4 sub) — iter-348 substitutes EVERY
+        // matching letter, across MULTIPLE tokens, with
+        // MULTIPLE digit families (4, 3). 3-term AND on
+        // {m4mb4, ssm, c4ch3} blocks the canonical. Pins
+        // deferred multi-glyph alphanumeric normalization /
+        // homoglyph-table-based query expansion (the soundex
+        // of the digital era). Thirty-eighth named failure
+        // subclass.
+        query: "M4mb4 SSM c4ch3",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Full-1337-speak Paraphrase axis (axis #38): \
+               user does the full multi-character alphanumeric \
+               leet substitution — \"Mamba SSM cache\" → \
+               \"M4mb4 SSM c4ch3\". Distinct from iter-235 \
+               single-char 1337 (M4mba, one a→4 sub) — iter-\
+               348 substitutes EVERY matching letter, ACROSS \
+               multiple tokens, with MULTIPLE digit families \
+               (4, 3). 3-term AND on {m4mb4, ssm, c4ch3} \
+               blocks. Pins deferred multi-glyph alphanumeric \
+               normalization / homoglyph-table query expansion. \
+               Thirty-eighth named failure subclass. Brings \
+               Paraphrase to depth 41 — first category past \
+               depth-40 horizon.",
+    },
+    FVaultRecallRow {
         // 40th Paraphrase row (iter-340): NEW axis — VOWEL-
         // DROP / ABJAD-STYLE. User strips ALL vowels from every
         // word — "Mamba SSM cache" → "Mmb SSM cch". This is
