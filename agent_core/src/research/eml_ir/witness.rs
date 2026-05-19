@@ -1902,7 +1902,7 @@ fn raw_unsigned_integer_json(raw_value: &RawValue, field: &str) -> Result<u64, F
 #[derive(Deserialize)]
 struct RawWitnessWorstCases<'a> {
     #[serde(borrow)]
-    stats: [RawOperationWorstCases<'a>; 3],
+    stats: [&'a RawValue; 3],
 }
 
 #[derive(Deserialize)]
@@ -1955,6 +1955,10 @@ fn reject_raw_stats_number_json(json: &str) -> Result<(), FulpReplayError> {
     };
     for (operation_index, stat) in raw_witness.stats.iter().enumerate() {
         let operation_path = format!("stats[{operation_index}]");
+        reject_raw_object_duplicate_json(stat.get(), &operation_path)?;
+        let Ok(stat) = serde_json::from_str::<RawOperationWorstCases<'_>>(stat.get()) else {
+            continue;
+        };
         if let Some(value) = stat.evaluated {
             raw_unsigned_integer_json(value, &format!("{operation_path}.evaluated"))?;
         }
@@ -4682,6 +4686,24 @@ mod tests {
         assert_eq!(
             error.invalid_json_message(),
             Some("number out of range for stats[0].max_ulp, expected u32")
+        );
+    }
+
+    #[test]
+    fn replay_rejects_duplicate_operation_stat_field_before_numeric_payload() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["max_ulp"] =
+            serde_json::Value::Number(serde_json::Number::from(123_456_789_u64));
+        let json = serde_json::to_string(&value).unwrap();
+        let needle = "\"max_ulp\":123456789";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(needle, "\"max_ulp\":123456789,\"max_ulp\":1e999999", 1);
+        let error = replay_witness_json(&json)
+            .expect_err("duplicate operation stat field must fail before numeric payload");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::DuplicateField)
         );
     }
 
