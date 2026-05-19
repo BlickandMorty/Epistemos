@@ -98,6 +98,7 @@ Identity gap validator work uses stable slugs so schema prose, validator-shape r
 | `nested-transition-marker` | State atoms may not contain nested `old-` or `-new-` transition delimiters. | [N185](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n185---nested-old-marker-identity-gap), [N186](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n186---nested-new-marker-identity-gap) |
 | `transition-order` | Role-impact values must use the exact `old-<state>-new-<state>` transition order. | [N179](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n179---identity-gap-missing-old-new-states), [N180](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n180---half-old-new-identity-gap), [N181](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n181---swapped-half-old-new-identity-gap), [N184](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n184---reversed-old-new-identity-gap) |
 | `empty-state` | Old-state and new-state atoms must be nonempty. | [N182](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n182---empty-old-state-identity-gap), [N183](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n183---empty-new-state-identity-gap) |
+| `role-labels` | Identity gap reports must name validator and reviewer role labels explicitly. | [N173](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n173---unlabeled-identity-sentinel-gap-report), [N174](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n174---reserved-identity-gap-role-value) |
 
 ## Pre-Witness Tightening Rule
 
