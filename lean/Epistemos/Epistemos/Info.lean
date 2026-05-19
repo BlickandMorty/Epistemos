@@ -167,6 +167,17 @@ theorem bregmanPositivityObligationZeroIffEqual
       nonnegative zeroIffEqual sourceRow).zeroIffEqual := by
   exact zeroIffEqual
 
+theorem bregmanPositivityObligationCarries
+    (family : ExpFamily) (pParams qParams : List Real)
+    (nonnegative : bregmanNonnegative family pParams qParams)
+    (zeroIffEqual : bregmanZeroIffEqual family pParams qParams)
+    (sourceRow : String) :
+    (bregmanPositivityObligation family pParams qParams
+      nonnegative zeroIffEqual sourceRow).nonnegative ∧
+      (bregmanPositivityObligation family pParams qParams
+        nonnegative zeroIffEqual sourceRow).zeroIffEqual := by
+  exact ⟨nonnegative, zeroIffEqual⟩
+
 structure MirrorDescentEquivalenceObligation where
   family : ExpFamily
   statement : Prop
