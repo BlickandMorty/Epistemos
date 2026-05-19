@@ -1953,6 +1953,39 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 44th Unicode row (iter-372): Tagalog/Baybayin
+        // extension. Adds a 42nd non-Latin script (Baybayin,
+        // U+1700–U+171F) — the pre-colonial writing system of
+        // the Tagalog language of the Philippines, ca. 14th-
+        // 17th c CE. EIGHTH Brahmic descendant in the pin set
+        // (after Devanagari + Thai + Khmer + Tibetan + Lao +
+        // Myanmar + Sinhala) — descends Brahmi → Pallava →
+        // Kawi → Baybayin. The Brahmic family now extends from
+        // the Indian subcontinent (Devanagari/Sinhala) through
+        // Southeast Asia (Thai/Khmer/Lao/Myanmar) up to
+        // maritime Southeast Asia (Baybayin) and the Tibetan
+        // plateau (Tibetan) — full geographic diaspora. BMP-
+        // plane codepoint (U+170A). Latin "Mamba" + Baybayin
+        // "ᜊ" (letter ba, U+170A) + Latin "cache".
+        query: "Mamba ᜊ cache",
+        expected_paths: &["notes/mamba_baybayin.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Forty-fourth Unicode row (iter-372): Tagalog/\
+               Baybayin extension. FORTY-TWO non-Latin scripts \
+               pinned. Baybayin (ca. 14th-17th c CE) is the \
+               pre-colonial writing system of Tagalog \
+               (Philippines). EIGHTH Brahmic descendant in pin \
+               set — extends Brahmic family to maritime \
+               Southeast Asia. Brahmic genealogy: Brahmi → \
+               Pallava → Kawi → Baybayin. The Brahmic family \
+               now spans Indian subcontinent + Southeast Asia \
+               + Tibetan plateau + maritime SE Asia. BMP-plane \
+               codepoint. Brings Unicode to depth 44 — first \
+               category past depth-43 horizon.",
+    },
+    FVaultRecallRow {
         // 43rd Unicode row (iter-365): Osmanya extension.
         // Adds a 41st non-Latin script (Osmanya, U+10480–
         // U+104AF) — a modern script (1920s) invented by
