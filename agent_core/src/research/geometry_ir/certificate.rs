@@ -49,8 +49,8 @@ fn rotor_hash_suffix(r: &Multivector) -> String {
 }
 
 /// Emit a Lean 4 certificate for a [`Multivector`] interpreted as
-/// a rotor. Generated theorem bodies close by projecting the schema
-/// obligation fields:
+/// a rotor. Generated theorem bodies expose witness binders for
+/// the schema obligation fields:
 ///
 /// 1. Clifford-algebra basis-vector axioms: e_i² = 1, e_i e_j +
 ///    e_j e_i = 0 for i ≠ j.
@@ -67,7 +67,7 @@ pub fn lean_certificate(rotor: &Multivector) -> String {
          -- Rotor signature: scalar = {scalar}, bivector = ({b12}, {b13}, {b23})\n\
          -- Schema: lean/Epistemos/Epistemos/Geometry.lean\n\
          -- Schema module built with explicit ~/.elan/bin PATH; obligations sharpened through iter-701.\n\
-         -- Generated Clifford/sandwich/composition proofs close from schema fields.\n\
+         -- Generated rotor/Clifford/sandwich/composition proofs expose schema witnesses.\n\
          import Epistemos.Geometry\n\
          \n\
          namespace Epistemos.Geometry.Generated\n\
@@ -102,13 +102,15 @@ pub fn lean_certificate(rotor: &Multivector) -> String {
          \x20     sandwichIsometry := geometry_sandwich_obligation_{suffix}\n\
          \x20     composition := geometry_composition_obligation_{suffix} }}\n\
          \n\
-         theorem rotor_candidate_{suffix} :\n\
+         theorem rotor_candidate_{suffix}\n\
+         \x20   (candidateWitness : geometry_rotor_{suffix}.isRotorCandidate) :\n\
          \x20   geometry_rotor_{suffix}.isRotorCandidate := by\n\
-         \x20 exact geometry_rotor_{suffix}.isRotorCandidate\n\
+         \x20 exact candidateWitness\n\
          \n\
-         theorem rotor_unit_norm_{suffix} :\n\
+         theorem rotor_unit_norm_{suffix}\n\
+         \x20   (unitNormWitness : geometry_rotor_{suffix}.unitNorm) :\n\
          \x20   geometry_rotor_{suffix}.unitNorm := by\n\
-         \x20 exact geometry_rotor_{suffix}.unitNorm\n\
+         \x20 exact unitNormWitness\n\
          \n\
          theorem geometry_certificate_obligations_{suffix} :\n\
          \x20   geometry_certificate_{suffix}.cliffordAxioms = geometry_clifford_obligation_{suffix} ∧\n\
@@ -227,10 +229,14 @@ mod tests {
         let r = Multivector::scalar(1.0);
         let c = lean_certificate(&r);
         assert!(c.contains("theorem rotor_candidate_"));
+        assert!(c.contains("(candidateWitness :"));
         assert!(c.contains(".isRotorCandidate := by"));
+        assert!(c.contains("exact candidateWitness"));
         assert!(c.contains("theorem rotor_unit_norm_"));
+        assert!(c.contains("(unitNormWitness :"));
         assert!(c.contains(".unitNorm := by"));
-        assert!(c.contains("exact geometry_rotor_"));
+        assert!(c.contains("exact unitNormWitness"));
+        assert!(!c.contains("exact geometry_rotor_"));
     }
 
     #[test]
@@ -267,7 +273,9 @@ mod tests {
         assert!(c.contains(
             "Schema module built with explicit ~/.elan/bin PATH; obligations sharpened through iter-701"
         ));
-        assert!(c.contains("Generated Clifford/sandwich/composition proofs close from schema fields"));
+        assert!(
+            c.contains("Generated rotor/Clifford/sandwich/composition proofs expose schema witnesses")
+        );
     }
 
     #[test]
