@@ -20,7 +20,7 @@ pub const REJECTED_NAME_LOWERCASE: &str = "aegis";
 /// the docs that legitimately mention "Aegis" in the context of
 /// explaining the rejection. Listed in alphabetical order so reviewer
 /// diff churn stays minimal. Patterns are exact path-suffix matches
-/// for simplicity; the CI driver normalises path separators.
+/// for simplicity; path separators are normalized before matching.
 pub const AEGIS_LINT_EXEMPT_DOCS: &[&str] = &[
     // This module is exempt because it constructs the rejected name
     // as a constant + tests use it in synthetic strings. The CI
@@ -40,6 +40,12 @@ pub const AEGIS_LINT_EXEMPT_DOCS: &[&str] = &[
 /// same name.
 #[must_use]
 pub fn is_path_exempt(path: &str) -> bool {
+    if path.contains('\\') {
+        let normalized = path.replace('\\', "/");
+        return AEGIS_LINT_EXEMPT_DOCS
+            .iter()
+            .any(|p| normalized.ends_with(p));
+    }
     AEGIS_LINT_EXEMPT_DOCS.iter().any(|p| path.ends_with(p))
 }
 
@@ -154,7 +160,9 @@ mod tests {
         assert_copy_clone_send_sync::<RejectedNameMatch>();
 
         let m = RejectedNameMatch { line: 5, column: 3 };
-        let _a = m; let _b = m; assert_eq!(m, m);
+        let _a = m;
+        let _b = m;
+        assert_eq!(m, m);
     }
 
     #[test]
@@ -389,7 +397,8 @@ mod tests {
             let contains = text_contains_rejected_name(input);
             let count_nonzero = count_hits(input) > 0;
             assert_eq!(
-                contains, count_nonzero,
+                contains,
+                count_nonzero,
                 "text_contains vs count_hits>0 disagreement for input: {input:?} \
                  (contains={contains}, count_hits={})",
                 count_hits(input)
@@ -602,8 +611,12 @@ mod tests {
 
     #[test]
     fn is_path_exempt_matches_known_canonical_docs() {
-        assert!(is_path_exempt("docs/HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md"));
-        assert!(is_path_exempt("docs/AGENT_RUNTIME_V2_SYSTEM_G_DOCTRINE_2026_05_18.md"));
+        assert!(is_path_exempt(
+            "docs/HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md"
+        ));
+        assert!(is_path_exempt(
+            "docs/AGENT_RUNTIME_V2_SYSTEM_G_DOCTRINE_2026_05_18.md"
+        ));
         // Absolute-path suffix also matches.
         assert!(is_path_exempt(
             "/Users/jojo/Downloads/Epistemos/docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md"
@@ -675,6 +688,24 @@ mod tests {
     }
 
     #[test]
+    fn is_path_exempt_normalizes_backslash_separators_before_suffix_match() {
+        // Phase 1 hardening — Aegis CI lint exhaustive path coverage.
+        // The helper is the canonical exemption contract, so it must
+        // own separator normalization instead of relying on every CI
+        // caller to remember to pre-normalize paths before scanning.
+        //
+        // Without this pin, a backslash-separated path to an exempt
+        // doctrine doc would miss the allow-list and fail the lint
+        // even though the exact same path with slashes is allowed.
+        assert!(is_path_exempt(
+            r"docs\AGENT_RUNTIME_V2_SYSTEM_G_DOCTRINE_2026_05_18.md"
+        ));
+        assert!(is_path_exempt(
+            r"C:\repo\Epistemos\agent_core\src\agent_runtime_v2\naming_lint.rs"
+        ));
+    }
+
+    #[test]
     fn is_path_exempt_does_not_match_unrelated_paths() {
         assert!(!is_path_exempt("agent_core/src/agent_runtime_v2/mode.rs"));
         assert!(!is_path_exempt("README.md"));
@@ -696,11 +727,11 @@ mod tests {
             "\n".repeat(1024),
             "\0".repeat(1024),
             "\r\n".repeat(512),
-            "x".repeat(10_000),                  // long pure-ASCII, no hit
+            "x".repeat(10_000),                   // long pure-ASCII, no hit
             ("日本語".to_string()).repeat(2_000), // long pure-CJK
-            "𐀀𐀁𐀂𐀃".repeat(500),                // non-BMP code points
-            "🚫🔥🤖✓".repeat(500),               // emoji
-            "Aegis\0Aegis\0Aegis".to_string(),  // NUL between matches
+            "𐀀𐀁𐀂𐀃".repeat(500),                   // non-BMP code points
+            "🚫🔥🤖✓".repeat(500),                // emoji
+            "Aegis\0Aegis\0Aegis".to_string(),    // NUL between matches
         ];
         // Long mixed-Unicode line with one Aegis hit.
         fuzz_inputs.push(format!("{}Aegis{}", "日".repeat(500), "本".repeat(500)));
@@ -736,9 +767,9 @@ mod tests {
         for input in [
             "Aegis 🚫",
             "🚫 Aegis 🚫",
-            "AEGIS\u{0301}",            // combining acute on the S
-            "\u{1F600}\u{1F600}",        // pure emoji, no Aegis
-            "AÉgis",                     // É has accent, breaks ASCII match
+            "AEGIS\u{0301}",      // combining acute on the S
+            "\u{1F600}\u{1F600}", // pure emoji, no Aegis
+            "AÉgis",              // É has accent, breaks ASCII match
         ] {
             // Call must complete without panic. Return values are
             // asserted only where we have a clear expectation.
@@ -910,7 +941,11 @@ mod tests {
         // would slip past the per-line empty case but would surface
         // here on the under-length probe.
         for short in ["", "a", "ae", "aeg", "aegi"] {
-            assert_eq!(scan_text(short), vec![], "scan_text({short:?}) must be empty");
+            assert_eq!(
+                scan_text(short),
+                vec![],
+                "scan_text({short:?}) must be empty"
+            );
             assert_eq!(count_hits(short), 0, "count_hits({short:?}) must be 0");
         }
     }
