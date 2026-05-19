@@ -2515,6 +2515,15 @@ mod tests {
     }
 
     #[test]
+    fn witness_json_excludes_apple_chip_id_text() {
+        let json = acceptance_witness_json().unwrap();
+        let lower = json.to_ascii_lowercase();
+        assert!(!lower.contains("chip_id"));
+        assert!(!lower.contains("chipid"));
+        assert!(!lower.contains("apchipid"));
+    }
+
+    #[test]
     fn witness_json_excludes_ethernet_mac_address_pattern() {
         let json = acceptance_witness_json().unwrap();
         let lower = json.to_ascii_lowercase();
