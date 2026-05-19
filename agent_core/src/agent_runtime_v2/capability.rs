@@ -241,6 +241,36 @@ mod tests {
     }
 
     #[test]
+    fn capability_error_is_clone_send_sync_for_propagation_safety() {
+        // Phase 1 hardening — trait-bound pin for CapabilityError.
+        // Companion to the broader Clone + Send + Sync sweep
+        // (AgentBlueprintId iter-375 through ParaSeqOutput iter-383).
+        //
+        // CapabilityError: 2-variant enum (Forged / Violated) wrapping
+        // payloads from cognitive_dag::macaroons (VerifyError +
+        // CaveatViolation). Clone + PartialEq by derive
+        // (capability.rs §21).
+        //
+        // Send + Sync are load-bearing — capability rejections cross
+        // executor → dispatcher → audit-log boundaries and must
+        // propagate safely across thread boundaries.
+        //
+        // Notably NOT Copy (CaveatViolation carries String for some
+        // variants), so the pin is Clone + Send + Sync — same shape
+        // as the String-bearing pin family from iter-375 onward.
+        //
+        // A future "let me hold a Box<dyn StdError>" inside
+        // CapabilityError refactor that introduced a non-Send field
+        // would silently break cross-thread propagation — surface here.
+        fn assert_clone_send_sync<T: Clone + Send + Sync>() {}
+        assert_clone_send_sync::<CapabilityError>();
+
+        use crate::cognitive_dag::macaroons::VerifyError;
+        let e = CapabilityError::Forged(VerifyError::SignatureMismatch);
+        assert_eq!(e.clone(), e);
+    }
+
+    #[test]
     fn capability_trait_and_implementor_carry_send_sync_bounds_compile_pin() {
         // Phase 1 hardening — compile-time pin for the Send+Sync
         // contract on AgentRuntimeV2Capability and its canonical
