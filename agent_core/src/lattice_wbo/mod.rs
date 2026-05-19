@@ -6563,6 +6563,15 @@ mod tests {
     }
 
     #[test]
+    fn register_doc_cross_links_rate_ownership_matrix_counts() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("rate_parameter_ownership_matrix_counts_are_pinned"),
+            "register must cross-link rate-ownership matrix counts"
+        );
+    }
+
+    #[test]
     fn typed_catalogs_assign_every_wbo_term_to_codec_and_residency_rows() {
         for term in WboTermCode::ALL {
             assert!(
@@ -6956,6 +6965,66 @@ mod tests {
                 LatticeCoderKind::SelfEvolvingAdapter,
             ]
         );
+    }
+
+    #[test]
+    fn rate_parameter_ownership_matrix_counts_are_pinned() {
+        let rate_bearing_codecs = LatticeCoderKind::ALL
+            .iter()
+            .copied()
+            .filter(|coder| coder.allows_rate_parameter())
+            .collect::<Vec<_>>();
+        let non_rate_codecs = LatticeCoderKind::ALL
+            .iter()
+            .copied()
+            .filter(|coder| !coder.allows_rate_parameter())
+            .collect::<Vec<_>>();
+        let primary_rate_rows = ResidencyTier::ALL
+            .iter()
+            .copied()
+            .filter_map(|tier| {
+                tier.primary_rate_milli_bits_per_symbol()
+                    .map(|rate| (tier, rate))
+            })
+            .collect::<Vec<_>>();
+        let non_rate_rows = ResidencyTier::ALL
+            .iter()
+            .copied()
+            .filter(|tier| tier.primary_rate_milli_bits_per_symbol().is_none())
+            .collect::<Vec<_>>();
+
+        assert_eq!(LatticeCoderKind::ALL.len(), 13);
+        assert_eq!(
+            rate_bearing_codecs,
+            vec![
+                LatticeCoderKind::LatticeWynerZivResidual,
+                LatticeCoderKind::SherryTernary3Of4,
+                LatticeCoderKind::NestedE8,
+                LatticeCoderKind::NestedLeech24,
+                LatticeCoderKind::QuipE8,
+                LatticeCoderKind::Nf4SsdOracle,
+                LatticeCoderKind::ResidualSketch,
+            ]
+        );
+        assert_eq!(
+            non_rate_codecs,
+            vec![
+                LatticeCoderKind::ExactHot,
+                LatticeCoderKind::BabaiGptqNearestPlane,
+                LatticeCoderKind::ShadowKvSketch,
+                LatticeCoderKind::EngramHashRecall,
+                LatticeCoderKind::NetworkCascade,
+                LatticeCoderKind::SelfEvolvingAdapter,
+            ]
+        );
+        assert_eq!(
+            primary_rate_rows,
+            vec![
+                (ResidencyTier::L1CompressedResidual, 1250),
+                (ResidencyTier::L3SsdOracle, 4000),
+            ]
+        );
+        assert_eq!(non_rate_rows.len(), 5);
     }
 
     #[test]
