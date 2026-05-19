@@ -4136,6 +4136,13 @@ where
             },
         )));
     };
+    for field in capability.keys() {
+        if !matches!(field.as_str(), "kind" | "value") {
+            return Err(E::custom(format!(
+                "malformed_policy field=required_capabilities.{field}"
+            )));
+        }
+    }
 
     let Some(kind) = capability.get("kind").and_then(serde_json::Value::as_str) else {
         return Err(E::custom(acs_policy_decode_error(
@@ -9986,6 +9993,29 @@ mod tests {
         let decoded = serde_json::from_value::<ACSCapabilityRule>(value);
 
         assert!(decoded.is_err());
+    }
+
+    #[test]
+    fn acs_admission_shadow_capability_envelope_field_names_malformed_policy_field() {
+        let value = serde_json::json!({
+            "operation": "tool_action",
+            "capability": {
+                "kind": "other",
+                "value": {
+                    "name": "ToolExec"
+                },
+                "shadow_kind": "network_host"
+            }
+        });
+
+        let err = serde_json::from_value::<ACSCapabilityRule>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(
+            message.contains("required_capabilities.shadow_kind"),
+            "{message}"
+        );
     }
 
     #[test]
