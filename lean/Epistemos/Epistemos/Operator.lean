@@ -151,6 +151,13 @@ theorem fnoExprMatchesCarries
     c.fno_equivalence.expr = c.expr := by
   exact c.fno_expr_matches
 
+theorem fourierOptionMatches
+    (c : CertificateTarget)
+    (storedValue : Option FourierIsometryObligation)
+    (stored : c.fourier_isometry = storedValue) :
+    c.fourier_isometry = storedValue := by
+  exact stored
+
 theorem fourierSomeCarries
     (c : CertificateTarget)
     (obligation : FourierIsometryObligation)

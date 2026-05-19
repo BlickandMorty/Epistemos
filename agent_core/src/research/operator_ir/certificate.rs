@@ -88,14 +88,20 @@ pub fn lean_certificate(op: &OperatorExpr) -> String {
         KernelTransform::Identity => format!(
             "theorem operator_fourier_option_{suffix} :\n\
              \x20   operator_certificate_{suffix}.fourier_isometry = none := by\n\
-             \x20 rfl\n\
+             \x20 exact Epistemos.Operator.CertificateTarget.fourierOptionMatches\n\
+             \x20   operator_certificate_{suffix}\n\
+             \x20   none\n\
+             \x20   rfl\n\
              \n",
             suffix = suffix,
         ),
         KernelTransform::Fourier { .. } => format!(
             "theorem operator_fourier_option_{suffix} :\n\
              \x20   operator_certificate_{suffix}.fourier_isometry = some operator_fourier_obligation_{suffix} := by\n\
-             \x20 rfl\n\
+             \x20 exact Epistemos.Operator.CertificateTarget.fourierOptionMatches\n\
+             \x20   operator_certificate_{suffix}\n\
+             \x20   (some operator_fourier_obligation_{suffix})\n\
+             \x20   rfl\n\
              \n",
             suffix = suffix,
         ),
@@ -352,11 +358,13 @@ mod tests {
         let id_c = lean_certificate(&id_op);
         assert!(id_c.contains("theorem operator_fourier_option_"));
         assert!(id_c.contains(".fourier_isometry = none := by"));
+        assert!(id_c.contains("Epistemos.Operator.CertificateTarget.fourierOptionMatches"));
 
         let fou_op = fixture(KernelTransform::Fourier { modes: 1 });
         let fou_c = lean_certificate(&fou_op);
         assert!(fou_c.contains("theorem operator_fourier_option_"));
         assert!(fou_c.contains(".fourier_isometry = some operator_fourier_obligation_"));
+        assert!(fou_c.contains("Epistemos.Operator.CertificateTarget.fourierOptionMatches"));
     }
 
     #[test]

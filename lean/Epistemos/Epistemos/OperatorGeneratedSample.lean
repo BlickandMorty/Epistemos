@@ -53,7 +53,10 @@ def operator_certificate_sample : Epistemos.Operator.CertificateTarget :=
 theorem operator_fourier_option_sample :
     operator_certificate_sample.fourier_isometry =
       some operator_fourier_obligation_sample := by
-  rfl
+  exact Epistemos.Operator.CertificateTarget.fourierOptionMatches
+    operator_certificate_sample
+    (some operator_fourier_obligation_sample)
+    rfl
 
 theorem operator_certificate_fno_sample :
     operator_certificate_sample.fno_equivalence =
