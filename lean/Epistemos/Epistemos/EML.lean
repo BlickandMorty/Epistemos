@@ -128,6 +128,12 @@ theorem CertificateTarget.branchSafeAndEvalMatches (c : CertificateTarget) :
     BranchSafe c.expr ∧ Expr.eval c.expr = c.value := by
   exact ⟨c.branch_safe, c.value_matches⟩
 
+theorem CertificateTarget.fullObligations (c : CertificateTarget) :
+    BranchSafe c.expr ∧
+      Expr.eval c.expr = c.value ∧
+        0 < Expr.eval c.expr := by
+  exact ⟨c.branch_safe, c.value_matches, CertificateTarget.eval_positive c⟩
+
 def oneCertificateTarget : CertificateTarget :=
   { expr := Expr.one
     value := 1
