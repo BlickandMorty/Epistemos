@@ -846,6 +846,31 @@ mod tests {
     }
 
     #[test]
+    fn scan_text_reports_commit_message_match_positions_for_ci_diagnostics() {
+        let commit_msg = "feat(t11): preserve System G\n\
+                          \n\
+                          Body mentions Aegis in a rejected context.\n\
+                          Reviewed-For: AEGIS rejection\n";
+        let hits = scan_text(commit_msg);
+        assert_eq!(
+            hits,
+            vec![
+                RejectedNameMatch {
+                    line: 3,
+                    column: commit_msg.lines().nth(2).unwrap().find("Aegis").unwrap(),
+                },
+                RejectedNameMatch {
+                    line: 4,
+                    column: commit_msg.lines().nth(3).unwrap().find("AEGIS").unwrap(),
+                },
+            ],
+            "commit-message diagnostic positions must stay line/column exact"
+        );
+        assert_eq!(count_hits(commit_msg), hits.len());
+        assert!(text_contains_rejected_name(commit_msg));
+    }
+
+    #[test]
     fn lint_catches_aegis_inside_branch_name_text() {
         // Phase 1 hardening — user's explicit Aegis-lint list:
         // "branch names". A branch name with Aegis in any case must
