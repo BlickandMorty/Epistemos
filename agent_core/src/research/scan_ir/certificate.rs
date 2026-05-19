@@ -21,8 +21,9 @@
 //!
 //! 1. **Monoid associativity** closed from `MonoidWitness.assoc`
 //!    through `Epistemos.Scan.scanAssociativeOp`.
-//! 2. **Left-identity** closed from `MonoidWitness.left_identity`
-//!    through `Epistemos.Scan.scanLeftIdentity`.
+//! 2. **Identity laws** closed from `MonoidWitness.left_identity`
+//!    and `MonoidWitness.right_identity` through the Scan schema
+//!    predicates.
 //! 3. **SSD parallel-block scan equivalence**: under the witness,
 //!    routed through `Epistemos.Scan.ssdEquivalentToSequential`.
 //! 4. **Certificate target construction**: a direct
@@ -80,6 +81,12 @@ pub fn lean_certificate<T: Debug>(program: &ScanProgram<T>) -> String {
          \x20     Epistemos.Scan.scanLeftIdentity w.op w.identity := by\n\
          \x20 intro T w\n\
          \x20 exact w.left_identity\n\
+         \n\
+         theorem scan_right_identity_{suffix} :\n\
+         \x20   ∀ (T : Type) (w : Epistemos.Scan.MonoidWitness T),\n\
+         \x20     Epistemos.Scan.scanRightIdentity w.op w.identity := by\n\
+         \x20 intro T w\n\
+         \x20 exact w.right_identity\n\
          \n\
          theorem scan_ssd_equivalence_{suffix} :\n\
          \x20   ∀ (T : Type) (ssdLemma : Epistemos.Scan.SSDEquivalenceLemma T)\n\
@@ -196,6 +203,8 @@ mod tests {
         assert!(c.contains("w : Epistemos.Scan.MonoidWitness T"));
         assert!(c.contains("exact w.assoc"));
         assert!(c.contains("exact w.left_identity"));
+        assert!(c.contains("Epistemos.Scan.scanRightIdentity w.op w.identity"));
+        assert!(c.contains("exact w.right_identity"));
         assert!(!c.contains("caller-supplied op MUST"));
         assert_eq!(proof_body_sorry_count(&c), 0);
     }
