@@ -66,6 +66,8 @@ pub fn lean_certificate<T: Debug>(program: &ScanProgram<T>) -> String {
          -- Schema: lean/Epistemos/Epistemos/Scan.lean\n\
          -- Schema module built with explicit ~/.elan/bin PATH; obligations sharpened through iter-698.\n\
          -- Generated SSD proof body closes from explicit SSDEquivalenceLemma.\n\
+         -- Generated monoid law bundle closes from MonoidWitness.scanLawWitnesses.\n\
+         -- Generated SSD obligation predicate closes from SSDEquivalenceObligation.toSchemaPredicate.\n\
          import Epistemos.Scan\n\
          \n\
          namespace Epistemos.Scan.Generated\n\
@@ -289,6 +291,12 @@ mod tests {
             "Schema module built with explicit ~/.elan/bin PATH; obligations sharpened through iter-698"
         ));
         assert!(c.contains("Generated SSD proof body closes from explicit SSDEquivalenceLemma"));
+        assert!(c.contains(
+            "Generated monoid law bundle closes from MonoidWitness.scanLawWitnesses"
+        ));
+        assert!(c.contains(
+            "Generated SSD obligation predicate closes from SSDEquivalenceObligation.toSchemaPredicate"
+        ));
         assert!(!c.contains("lake build remains gated"));
     }
 
