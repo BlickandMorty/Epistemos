@@ -2884,6 +2884,38 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 42nd PureChatter row (iter-357): 17-token long-input
+        // shape — "please can you tell me what where when how
+        // some of my notes are about stuff things". Extends
+        // long-input cardinality progression to 17 (iter-350
+        // was 16). LONGEST PureChatter query in the fixture.
+        // Mixes 13 chatter sub-classes including triple
+        // chatter-nouns (notes + stuff + things — the FULL
+        // QUERY_CHATTER_WORDS noun-class). All 17 tokens
+        // (please / can / you / tell / me / what / where / when
+        // / how / some / of / my / notes / are / about / stuff
+        // / things) are in QUERY_CHATTER_WORDS. Four wh-words
+        // + triple chatter-nouns + trailing prepositions.
+        query: "please can you tell me what where when how some of my notes are about stuff things",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Forty-second PureChatter row (iter-357): 17-\
+               token long-input (\"please can you tell me what \
+               where when how some of my notes are about stuff \
+               things\"). Extends cardinality to 17 (iter-350 \
+               = 16). LONGEST PureChatter query in the fixture. \
+               Mixes 13 chatter sub-classes including triple \
+               chatter-nouns (notes + stuff + things — full \
+               noun-class coverage). All 17 tokens in QUERY_\
+               CHATTER_WORDS. Brings PureChatter to depth 42 \
+               — first category past depth-41 horizon.",
+    },
+    FVaultRecallRow {
         // 41st PureChatter row (iter-350, milestone iteration):
         // 16-token long-input shape — "please can you tell me
         // what where when how some of my notes are about stuff".
