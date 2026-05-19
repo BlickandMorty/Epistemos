@@ -156,6 +156,7 @@ assert anomaly_axis_refs subset_of keys(artifact.measurements)
 assert notes_do_not_override_schema(artifact.notes)
 assert notes_do_not_embed_json_payloads(artifact.notes)
 assert non_none_notes_include_anomaly_inspection_token(artifact.notes)
+assert anomaly_inspection_token_is_semicolon_delimited(artifact.notes)
 assert non_none_notes_include_lowercase_slug_reviewer_token(artifact.notes)
 assert non_none_notes_include_review_timestamp_token(artifact.notes)
 assert notes_reviewer_token_not_reserved_anonymous_identity(artifact.notes)
@@ -206,6 +207,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 
 ```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); notes=schema.dig("properties","notes") || abort("notes missing"); rule=notes["allOf"].find { |r| r.dig("then","pattern")&.include?("reviewer=[a-z0-9][a-z0-9._-]*") && r.dig("then","pattern")&.include?("anomaly_inspection=complete") }; abort("notes lowercase reviewer rule missing") unless rule; puts "notes reviewer token ok"'
+```
+
+```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); notes=schema.dig("properties","notes") || abort("notes missing"); rule=notes["allOf"].find { |r| r.dig("then","pattern")&.include?("anomaly_inspection=complete") } || abort("notes anomaly inspection rule missing"); pat=rule.dig("then","pattern") || abort("notes anomaly inspection pattern missing"); abort("anomaly inspection delimiter missing") unless pat.include?("(?:^|;\\\\s*)anomaly_inspection=complete(?:;|$)") && s.include?("embedded `anomaly_inspection=complete` substring inside another value is not inspection evidence"); puts "notes anomaly inspection delimiter ok"'
 ```
 
 ```bash
@@ -475,6 +480,7 @@ Implementation owner is TBD: merge-phase if artifact validation becomes part of 
 | `W-Validator-CommandDigest` | TBD validator-implementation terminal | Any executable validator accepts falsifier artifacts with `command_digest`. | Recompute `sha256:` over the normalized command string and reject missing, mismatched, or manifest-drifted command digests before script replay. |
 | `W-Validator-FixtureLineageDigest` | TBD validator-implementation terminal | Any executable validator accepts falsifier artifacts with `fixture_lineage.fixture_manifest`. | Recompute `fixture_manifest_sha256`, reject missing or mismatched manifest bytes, and require retained fixture manifests before generated-fixture replay. |
 | `W-Validator-NotesReviewerToken` | TBD validator-implementation terminal | Any executable validator accepts non-`none` falsifier `notes`. | Reject non-`none` notes missing `anomaly_inspection=complete` or lowercase-slug `reviewer=<id>` before anomaly or migration review. |
+| `W-Validator-NotesAnomalyInspectionDelimiter` | TBD validator-implementation terminal | Any executable validator accepts non-`none` falsifier `notes`. | Reject embedded `anomaly_inspection=complete` substrings that are not bounded by note start/end or semicolon delimiters before anomaly review. |
 | `W-Validator-NotesReviewTimestamp` | TBD validator-implementation terminal | Any executable validator accepts non-`none` falsifier `notes`. | Reject non-`none` notes missing `reviewed_at_utc=<RFC3339Z>` or using an offset/local timestamp before replay promotion. |
 | `W-Validator-NotesReviewerSentinel` | TBD validator-implementation terminal | Any executable validator accepts reviewer tokens in falsifier `notes`. | Reject reserved reviewer identities `anonymous`, `unknown`, `tbd`, and `none` before anomaly or migration review. |
 | `W-Validator-NotesTokenDelimiter` | TBD validator-implementation terminal | Any executable validator accepts machine-readable tokens in falsifier `notes`. | Reject whitespace-separated required notes tokens and require semicolon-delimited `key=value` parsing before replay promotion. |
