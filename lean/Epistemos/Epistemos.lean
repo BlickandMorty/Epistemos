@@ -7,6 +7,7 @@ import Epistemos.EML
 import Epistemos.Tropical
 import Epistemos.Scan
 import Epistemos.Operator
+import Epistemos.OperatorGeneratedSample
 import Epistemos.Info
 import Epistemos.InfoGeneratedSample
 import Epistemos.Geometry
