@@ -211,6 +211,7 @@ the row has a measurement:
 | `WboTermCode::SEMANTIC_WBO6` | The six semantic terms `T_W` / `T_K` / `T_R` / `T_Q` / `T_S` / `T_SE`; excludes `T_num`. |
 | `WboTermCode::is_semantic_wbo6()` | Returns false for `T_num` so numerical post-correction cannot become a seventh semantic term. |
 | `WboTermCode::falsifier()` | Names the verifier hook for each WBO term, including `F-KV-Direct-Gate` for `T_K` and `F-ULP-Oracle` for `T_num`. |
+| `LatticeCoderKind::primary_residency_tier()` | Returns a product residency tier only for the seven primary residency codecs; standalone weight/sketch codec rows return `None` so research-only rows cannot silently promote into product lanes. |
 | `pre_softmax_budget()` | Sum of reserved pre-softmax contribution budgets. |
 | `semantic_wbo6_pre_softmax_budget()` | Sum of reserved pre-softmax contribution budgets whose terms are in semantic WBO-6 only. |
 | `numerical_post_correction_budget()` | Sum of reserved `T_num` guard budget before the softmax-1/2 correction; not a semantic WBO-6 term. |
