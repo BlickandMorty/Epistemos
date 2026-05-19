@@ -2278,6 +2278,77 @@ mod tests {
     }
 
     #[test]
+    fn sealer_success_then_writer_failure_retry_preserves_committed_ledger() {
+        // Phase 1 hardening — partial-failure idempotency after a
+        // prior successful mutation. A flapping writer must not erase
+        // or double-spend the ledger from already-committed work.
+        #[derive(Debug, PartialEq, Eq)]
+        struct Transient;
+        struct FlappingWriter {
+            calls: usize,
+        }
+        impl MutationWriter<String> for FlappingWriter {
+            type Receipt = u64;
+            type WriteError = Transient;
+            fn write(&mut self, payload: &String) -> Result<u64, Transient> {
+                self.calls += 1;
+                match self.calls {
+                    2 => Err(Transient),
+                    _ => Ok(payload.len() as u64),
+                }
+            }
+        }
+
+        let cap = valid_capability(Some(10_000));
+        let sealer = Sealer {
+            capability: &cap,
+            gate: BudgetGate::new(
+                BudgetSpec::new(1_000, 10_000, 10, 5_000).with_memory_bytes(1_000_000),
+            ),
+        };
+        let envelope = || {
+            MutationEnvelope::new(
+                cap.macaroon().capability_hash(),
+                BudgetDebit {
+                    tokens: 30,
+                    wall_ms: 40,
+                    tool_calls: 1,
+                    subprocess_ms: 50,
+                    memory_bytes: 60,
+                },
+                "flapping-writer-retry".to_string(),
+            )
+        };
+        let mut writer = FlappingWriter { calls: 0 };
+
+        let (ledger_after_first, first_receipt) = sealer
+            .seal_and_apply(&ctx(), BudgetLedger::default(), envelope(), &mut writer)
+            .expect("first write succeeds");
+        assert_eq!(first_receipt, "flapping-writer-retry".len() as u64);
+        assert_eq!(ledger_after_first.tokens_used, 30);
+        assert_eq!(ledger_after_first.tool_calls_used, 1);
+
+        let err = sealer
+            .seal_and_apply(&ctx(), ledger_after_first, envelope(), &mut writer)
+            .expect_err("second write fails after prior success");
+        assert!(
+            matches!(err, SealError::Write(Transient)),
+            "expected write failure, got {err:?}"
+        );
+
+        let (ledger_after_retry, retry_receipt) = sealer
+            .seal_and_apply(&ctx(), ledger_after_first, envelope(), &mut writer)
+            .expect("retry after flapping failure succeeds");
+        assert_eq!(writer.calls, 3);
+        assert_eq!(retry_receipt, "flapping-writer-retry".len() as u64);
+        assert_eq!(ledger_after_retry.tokens_used, 60);
+        assert_eq!(ledger_after_retry.wall_used_ms, 80);
+        assert_eq!(ledger_after_retry.tool_calls_used, 2);
+        assert_eq!(ledger_after_retry.subprocess_used_ms, 100);
+        assert_eq!(ledger_after_retry.memory_bytes_used, 120);
+    }
+
+    #[test]
     fn mutation_envelope_serde_tolerates_unknown_extra_fields_per_current_doctrine() {
         // Phase 1 hardening — fourth leg of the unknown-fields
         // tolerance pattern (AgentBlueprint iter-121, AnswerPacket
