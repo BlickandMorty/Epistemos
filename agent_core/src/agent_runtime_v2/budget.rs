@@ -1165,6 +1165,26 @@ mod tests {
     }
 
     #[test]
+    fn debit_for_tool_call_with_zero_zero_still_sets_tool_calls_to_one() {
+        // Phase 1 hardening — boundary pin. for_tool_call(0, 0) is
+        // a legitimate call (a tool that took zero prompt + zero
+        // completion tokens — e.g., a deterministic T1 tool returning
+        // a precomputed result). The tokens axis correctly sums to 0,
+        // BUT the tool_calls counter MUST still increment to 1 because
+        // the helper's contract is "one tool call's worth of debit".
+        //
+        // A future "let me skip tool_calls=1 when tokens are zero as
+        // an optimisation" refactor would silently undercount tool
+        // calls for deterministic-tier tools.
+        let d = BudgetDebit::for_tool_call(0, 0);
+        assert_eq!(d.tokens, 0);
+        assert_eq!(d.tool_calls, 1, "for_tool_call ALWAYS bumps tool_calls regardless of token cost");
+        assert_eq!(d.wall_ms, 0);
+        assert_eq!(d.subprocess_ms, 0);
+        assert_eq!(d.memory_bytes, 0);
+    }
+
+    #[test]
     fn debit_for_tool_call_saturates_on_overflow() {
         let d = BudgetDebit::for_tool_call(u64::MAX, 1);
         // saturating_add prevents wrap.
