@@ -10319,6 +10319,28 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_typed_operation_threshold_axis_names_threshold_namespace() {
+        let value = serde_json::json!({
+            "operation": "tool_action",
+            "thresholds": {
+                "warn_at": 0.35,
+                "defer_at": 0.55,
+                "quarantine_at": 0.75,
+                "reject_at": "0.90"
+            }
+        });
+
+        let err = serde_json::from_value::<ACSOperationThresholdRule>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(
+            message.contains("operation_thresholds.thresholds.reject_at"),
+            "{message}"
+        );
+    }
+
+    #[test]
     fn acs_admission_unknown_operation_threshold_operation_names_malformed_policy_field() {
         let value = serde_json::json!({
             "operation": "quantum_commit",
