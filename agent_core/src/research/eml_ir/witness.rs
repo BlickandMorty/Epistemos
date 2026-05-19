@@ -783,12 +783,25 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
     };
     let expected_len = StressAxis::ALL.len();
     for (operation_index, stat) in stats.iter().enumerate() {
-        if !stat.is_object() {
+        let Some(stat_object) = stat.as_object() else {
             return Err(FulpReplayError::InvalidJson {
                 message: format!("invalid type for stats[{operation_index}], expected object"),
                 kind: FulpInvalidJsonKind::TypeMismatch,
             });
-        }
+        };
+        reject_unknown_object_json_fields(
+            stat_object,
+            &format!("stats[{operation_index}]"),
+            &[
+                "operation",
+                "evaluated",
+                "max_ulp",
+                "gate_tier",
+                "mean_ulp",
+                "axis_stats",
+                "worst_case",
+            ],
+        )?;
         let Some(operation_value) = stat.get("operation") else {
             return Err(FulpReplayError::InvalidJson {
                 message: format!("missing field stats[{operation_index}].operation"),
@@ -1229,12 +1242,20 @@ fn reject_unknown_nested_json_fields(
             kind: FulpInvalidJsonKind::TypeMismatch,
         });
     };
-    if let Some(field) = parent_object
+    reject_unknown_object_json_fields(parent_object, parent, allowed_fields)
+}
+
+fn reject_unknown_object_json_fields(
+    object: &serde_json::Map<String, serde_json::Value>,
+    path: &str,
+    allowed_fields: &[&str],
+) -> Result<(), FulpReplayError> {
+    if let Some(field) = object
         .keys()
         .find(|field| !allowed_fields.contains(&field.as_str()))
     {
         return Err(FulpReplayError::InvalidJson {
-            message: format!("unknown field {parent}.{field}"),
+            message: format!("unknown field {path}.{field}"),
             kind: FulpInvalidJsonKind::UnknownField,
         });
     }
@@ -3631,6 +3652,24 @@ mod tests {
             .invalid_json_message()
             .expect("invalid json message")
             .contains("stats[0]"));
+    }
+
+    #[test]
+    fn replay_rejects_unknown_operation_stats_json_field_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["corrupted_extra_field"] = serde_json::Value::Bool(true);
+        let json = serde_json::to_string(&value).unwrap();
+        let error =
+            replay_witness_json(&json).expect_err("unknown operation stats field must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::UnknownField)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("unknown field stats[0].corrupted_extra_field")
+        );
     }
 
     #[test]
