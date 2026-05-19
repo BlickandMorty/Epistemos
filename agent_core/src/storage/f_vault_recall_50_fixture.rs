@@ -5749,6 +5749,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 47th Synthesis row (iter-387). THIRD new C(5,2)
+        // subset on agent-runtime 5-element pair vocab.
+        // {substrate, system} 2-term-AND. Both pair-partners
+        // carry both tokens. substrate_concepts has substrate
+        // only (1/2). design_system_hover_spec + system_overview
+        // have system only (1/2). All blocked at AND-on-2.
+        // iter-373 + iter-380 + iter-387 = 3 of 4 new C(5,2)
+        // subsets surveyed; only {canon, system} remains. Zero
+        // new seeds.
+        query: "substrate system",
+        expected_paths: &[
+            "notes/agent_runtime_v2_substrate.md",
+            "notes/agent_runtime_substrate_v3.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Forty-seventh Synthesis row (iter-387): THIRD \
+               new C(5,2) subset on agent-runtime 5-element \
+               pair. {substrate, system}. Pair-unique AND \
+               match: substrate_concepts has substrate only, \
+               design_system + system_overview have system \
+               only. 3 of 4 new C(5,2) subsets surveyed; only \
+               {canon, system} remains. Brings Synthesis to \
+               depth 47 — first category past depth-46 horizon. \
+               Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 46th Synthesis row (iter-380, milestone iteration).
         // SECOND new C(5,2) subset on agent-runtime 5-element
         // pair vocab {agent, runtime, substrate, canon, system}.
