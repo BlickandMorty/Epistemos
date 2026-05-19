@@ -126,4 +126,12 @@ structure CertificateTarget where
   fno_equivalence : FNOEquivalenceObligation
   fourier_isometry : Option FourierIsometryObligation
 
+namespace CertificateTarget
+
+theorem dimConsistentCarries (c : CertificateTarget) :
+    c.expr.branch.outputDim = c.expr.trunk.outputDim := by
+  exact c.dim_consistent
+
+end CertificateTarget
+
 end Epistemos.Operator
