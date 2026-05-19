@@ -19,9 +19,9 @@ use std::collections::BTreeMap;
 
 use super::retriever::EidosRetriever;
 use super::types::{
-    EidosChunkId, EidosContextPacket, EidosDocumentId, EidosHit, EidosIndexManifestId,
-    EidosProvenance, EidosQuery, EidosRetrievalMode, EidosScoreComponents, EidosSourceKind,
-    EidosSpan,
+    is_blank_query_text, EidosChunkId, EidosContextPacket, EidosDocumentId, EidosHit,
+    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode,
+    EidosScoreComponents, EidosSourceKind, EidosSpan,
 };
 
 /// One occurrence of a symbol in a document. The (`document_id`, `byte_start`)
@@ -91,7 +91,7 @@ impl EidosRetriever for InMemoryCodeSymbolIndex {
         query: &EidosQuery,
         retrieved_at_unix_ms: u64,
     ) -> EidosContextPacket {
-        if query.text.trim().is_empty() || query.top_k == 0 {
+        if is_blank_query_text(&query.text) || query.top_k == 0 {
             return empty_packet(query, &self.manifest_id);
         }
 
@@ -236,6 +236,18 @@ mod tests {
         assert!(
             packet.hits.is_empty(),
             "whitespace-only text is not a code symbol query and must defer"
+        );
+    }
+
+    #[test]
+    fn invisible_only_query_text_returns_empty_packet() {
+        let mut idx = InMemoryCodeSymbolIndex::new(manifest());
+        idx.insert("\u{200B}", doc("invalid-symbol.rs"), 0, 3);
+        let q = EidosQuery::new("\u{200B}", EidosRetrievalMode::CodeSymbol, 8);
+        let packet = idx.retrieve(&q, 1_700_000_000_000);
+        assert!(
+            packet.hits.is_empty(),
+            "invisible-only text is not a code symbol query and must defer"
         );
     }
 
