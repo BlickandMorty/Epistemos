@@ -3300,7 +3300,7 @@ impl<'de> Deserialize<'de> for ACSCapabilityRule {
             capability: wire.capability,
         };
         rule.validate()
-            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+            .map_err(|err| serde::de::Error::custom(acs_policy_decode_error(&err)))?;
         Ok(rule)
     }
 }
@@ -7168,9 +7168,11 @@ mod tests {
             }
         });
 
-        let decoded = serde_json::from_value::<ACSCapabilityRule>(value);
+        let err = serde_json::from_value::<ACSCapabilityRule>(value).unwrap_err();
+        let message = err.to_string();
 
-        assert!(decoded.is_err());
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(message.contains("required_capabilities.other.name"), "{message}");
     }
 
     #[test]
