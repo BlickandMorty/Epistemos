@@ -4195,6 +4195,53 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 44th Paraphrase row (iter-369): NEW axis — COMPOUND-
+        // NOUN AGGLUTINATION (suffix-NOUN concatenation). User
+        // appends a second noun directly to a token without
+        // whitespace — "cache" → "cachefile" (cache + file as
+        // a single compound). Tantivy SimpleTokenizer keeps
+        // "cachefile" as one alphanumeric token. 3-term AND on
+        // {mamba, ssm, cachefile} blocks canonical (lacks
+        // "cachefile" — has "cache").
+        // Distinct from:
+        //   • iter-140 CONCATENATION ("Mambacache SSM" — joins
+        //     TWO ORIGINAL query tokens by deleting whitespace
+        //     between them): iter-369 ADDS a NEW noun morpheme
+        //     to an existing token, not joining two existing
+        //     query terms
+        //   • iter-216 PARTIAL-CONCATENATION ("MambaSSMcache" —
+        //     full triple concat): iter-369 keeps token
+        //     boundaries except for the cache+file fusion
+        //   • iter-86 ACRONYM (multi-word collapse to initials,
+        //     e.g., "ml" for "machine learning"): iter-369
+        //     keeps full token + appends noun, not initials
+        //   • iter-340 vowel-drop / iter-? letter-tripling /
+        //     iter-? prefix-truncation (all mutate INSIDE one
+        //     token; iter-369 EXTENDS the token with a new
+        //     morpheme)
+        // Pins deferred compound-word decomposition retrieval
+        // (German-style Komposita-splitting). Forty-first named
+        // failure subclass.
+        query: "Mamba SSM cachefile",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Compound-noun-agglutination Paraphrase axis (axis \
+               #41): user appends a second noun morpheme to a \
+               token — \"cache\" → \"cachefile\". Tantivy keeps \
+               compound as one token. 3-term AND on {mamba, \
+               ssm, cachefile} blocks. Distinct from iter-140 \
+               concatenation (joins two existing query tokens), \
+               iter-216 partial-concat (full triple), iter-86 \
+               acronym (multi-word→initials), and in-token \
+               mutations (vowel-drop/tripling/clip). Pins \
+               deferred Komposita-splitting / compound-word \
+               decomposition retrieval. Forty-first named \
+               failure subclass. Brings Paraphrase to depth 44 \
+               — first category past depth-43 horizon.",
+    },
+    FVaultRecallRow {
         // 43rd Paraphrase row (iter-362): NEW axis — REVERSE-
         // DIRECTION TRANSLITERATION (Latin→non-Latin phonetic).
         // User types the Chinese phonetic transliteration of
