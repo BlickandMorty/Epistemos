@@ -206,7 +206,7 @@ Last audited: 2026-05-18. Validator design is doc-only: [Artifact Negative Examp
 
 ## Artifact Schema Integrity Batch Audit
 
-Last audited: 2026-05-18. The schema JSON fragment parses, the falsifier enum aligns with 15 axis-floor rows, 15 axis-floor conditionals, 15 command-map rows, and 15 expected-artifact-root rows, all 15 F-* fragments carry an `Artifact Schema Axes` section, and the negative catalog frontmatter declares the same 179 examples as its section count. The only `2026-05-18.1` reference is the intentional migration-table source version.
+Last audited: 2026-05-18. The schema JSON fragment parses, the falsifier enum aligns with 15 axis-floor rows, 15 axis-floor conditionals, 15 command-map rows, and 15 expected-artifact-root rows, all 15 F-* fragments carry an `Artifact Schema Axes` section, and the negative catalog frontmatter declares the same 192 examples as its section count. The only `2026-05-18.1` reference is the intentional migration-table source version.
 
 ## Artifact Schema Migration Audit
 
