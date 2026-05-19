@@ -105,6 +105,13 @@ pub fn lean_certificate<T: Debug>(program: &ScanProgram<T>) -> String {
          \x20 intro T ssdLemma w initial inputs B hB\n\
          \x20 exact Epistemos.Scan.SSDEquivalenceLemma.discharge ssdLemma w initial inputs B hB\n\
          \n\
+         theorem scan_ssd_obligation_predicate_{suffix} :\n\
+         \x20   ∀ (T : Type) (o : Epistemos.Scan.SSDEquivalenceObligation T),\n\
+         \x20     Epistemos.Scan.ssdEquivalentToSequential\n\
+         \x20       o.monoid.op o.monoid.identity o.initial o.inputs o.blockSize := by\n\
+         \x20 intro T o\n\
+         \x20 exact Epistemos.Scan.SSDEquivalenceObligation.toSchemaPredicate o\n\
+         \n\
          def scan_certificate_target_{suffix}\n\
          \x20   (T : Type) (w : Epistemos.Scan.MonoidWitness T)\n\
          \x20   (program : Epistemos.Scan.Program T) (output : List T)\n\
@@ -249,6 +256,15 @@ mod tests {
             "exact Epistemos.Scan.SSDEquivalenceLemma.discharge ssdLemma w initial inputs B hB"
         ));
         assert!(!c.contains("exact ssdLemma.statement w initial inputs B hB"));
+    }
+
+    #[test]
+    fn certificate_routes_ssd_obligation_to_schema_predicate() {
+        let p = ScanProgram::new(0i64, vec![]);
+        let c = lean_certificate(&p);
+        assert!(c.contains("theorem scan_ssd_obligation_predicate_"));
+        assert!(c.contains("(o : Epistemos.Scan.SSDEquivalenceObligation T)"));
+        assert!(c.contains("exact Epistemos.Scan.SSDEquivalenceObligation.toSchemaPredicate o"));
     }
 
     #[test]
