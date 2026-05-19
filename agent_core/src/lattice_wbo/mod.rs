@@ -4233,6 +4233,37 @@ mod tests {
     }
 
     #[test]
+    fn lattice_coder_canonical_side_information_lists_are_dedup_and_canonical() {
+        for coder in LatticeCoderKind::ALL {
+            let witnesses = coder.canonical_side_information();
+            assert!(
+                !witnesses.is_empty(),
+                "{coder:?} must declare at least one canonical side-information witness"
+            );
+            for (index, witness) in witnesses.iter().enumerate() {
+                assert!(
+                    !witnesses[index + 1..].contains(witness),
+                    "{coder:?} must not duplicate witness {:?}",
+                    witness
+                );
+                assert!(
+                    SideInformationKind::ALL.contains(witness),
+                    "{coder:?} witness {:?} must remain in SideInformationKind::ALL",
+                    witness
+                );
+            }
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains(
+                "`lattice_coder_canonical_side_information_lists_are_dedup_and_canonical`"
+            ),
+            "register doc must cross-link codec side-info dedup invariant"
+        );
+    }
+
+    #[test]
     fn lattice_coder_canonical_wbo_terms_end_with_t_num() {
         for coder in LatticeCoderKind::ALL {
             let terms = coder.canonical_wbo_terms();
