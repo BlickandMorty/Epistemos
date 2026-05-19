@@ -38,7 +38,7 @@ import Foundation
 // MARK: - Identifier types
 
 /// Opaque, Eidos-issued document identifier. Mirrors Rust `EidosDocumentId`.
-public struct EidosDocumentId: Codable, Hashable, Sendable {
+nonisolated public struct EidosDocumentId: Codable, Hashable, Sendable {
     public let raw: String
 
     /// Returns nil for empty payloads — matches Rust's `IdError::EmptyPayload`.
@@ -47,7 +47,7 @@ public struct EidosDocumentId: Codable, Hashable, Sendable {
         self.raw = raw
     }
 
-    public init(from decoder: Decoder) throws {
+    nonisolated public init(from decoder: Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
         guard !raw.isEmpty else {
             throw DecodingError.dataCorruptedError(
@@ -58,14 +58,14 @@ public struct EidosDocumentId: Codable, Hashable, Sendable {
         self.raw = raw
     }
 
-    public func encode(to encoder: Encoder) throws {
+    nonisolated public func encode(to encoder: Encoder) throws {
         var c = encoder.singleValueContainer()
         try c.encode(raw)
     }
 }
 
 /// Opaque, Eidos-issued chunk identifier — the **only** citable token.
-public struct EidosChunkId: Codable, Hashable, Sendable {
+nonisolated public struct EidosChunkId: Codable, Hashable, Sendable {
     public let raw: String
 
     public init?(_ raw: String) {
@@ -73,7 +73,7 @@ public struct EidosChunkId: Codable, Hashable, Sendable {
         self.raw = raw
     }
 
-    public init(from decoder: Decoder) throws {
+    nonisolated public init(from decoder: Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
         guard !raw.isEmpty else {
             throw DecodingError.dataCorruptedError(
@@ -84,14 +84,14 @@ public struct EidosChunkId: Codable, Hashable, Sendable {
         self.raw = raw
     }
 
-    public func encode(to encoder: Encoder) throws {
+    nonisolated public func encode(to encoder: Encoder) throws {
         var c = encoder.singleValueContainer()
         try c.encode(raw)
     }
 }
 
 /// Snapshot id pinning a retrieval to a specific corpus state.
-public struct EidosIndexManifestId: Codable, Hashable, Sendable {
+nonisolated public struct EidosIndexManifestId: Codable, Hashable, Sendable {
     public let raw: String
 
     public init?(_ raw: String) {
@@ -99,7 +99,7 @@ public struct EidosIndexManifestId: Codable, Hashable, Sendable {
         self.raw = raw
     }
 
-    public init(from decoder: Decoder) throws {
+    nonisolated public init(from decoder: Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
         guard !raw.isEmpty else {
             throw DecodingError.dataCorruptedError(
@@ -110,7 +110,7 @@ public struct EidosIndexManifestId: Codable, Hashable, Sendable {
         self.raw = raw
     }
 
-    public func encode(to encoder: Encoder) throws {
+    nonisolated public func encode(to encoder: Encoder) throws {
         var c = encoder.singleValueContainer()
         try c.encode(raw)
     }
@@ -120,7 +120,7 @@ public struct EidosIndexManifestId: Codable, Hashable, Sendable {
 
 /// The nine canonical retrieval modes. Mirrors Rust `EidosRetrievalMode`
 /// (the seven canon modes plus Recency + ProvenanceVerified additions).
-public enum EidosRetrievalMode: String, Codable, Hashable, Sendable, CaseIterable {
+nonisolated public enum EidosRetrievalMode: String, Codable, Hashable, Sendable, CaseIterable {
     case lexical = "Lexical"
     case semantic = "Semantic"
     case hybrid = "Hybrid"
@@ -133,7 +133,7 @@ public enum EidosRetrievalMode: String, Codable, Hashable, Sendable, CaseIterabl
 }
 
 /// Discriminator for the substrate kind a hit came from.
-public enum EidosSourceKind: String, Codable, Hashable, Sendable, CaseIterable {
+nonisolated public enum EidosSourceKind: String, Codable, Hashable, Sendable, CaseIterable {
     case note = "Note"
     case epdoc = "Epdoc"
     case chat = "Chat"
@@ -145,7 +145,7 @@ public enum EidosSourceKind: String, Codable, Hashable, Sendable, CaseIterable {
 }
 
 /// Byte span within a document body. Optional on the hit.
-public struct EidosSpan: Codable, Hashable, Sendable {
+nonisolated public struct EidosSpan: Codable, Hashable, Sendable {
     public let byteStart: UInt32
     public let byteEnd: UInt32
 
@@ -161,7 +161,7 @@ public struct EidosSpan: Codable, Hashable, Sendable {
 }
 
 /// Per-component score breakdown. Diagnostic, not normalized weights.
-public struct EidosScoreComponents: Codable, Hashable, Sendable {
+nonisolated public struct EidosScoreComponents: Codable, Hashable, Sendable {
     public let lexical: Float
     public let semantic: Float
     public let recency: Float
@@ -176,7 +176,7 @@ public struct EidosScoreComponents: Codable, Hashable, Sendable {
 }
 
 /// Retrieval provenance — which manifest, which mode, when retrieved.
-public struct EidosProvenance: Codable, Hashable, Sendable {
+nonisolated public struct EidosProvenance: Codable, Hashable, Sendable {
     public let manifestId: EidosIndexManifestId
     public let mode: EidosRetrievalMode
     public let retrievedAtUnixMs: UInt64
@@ -191,7 +191,7 @@ public struct EidosProvenance: Codable, Hashable, Sendable {
 // MARK: - Hit + packet + citation
 
 /// One retrieved chunk. The `sourceId` is the only citable token.
-public struct EidosHit: Codable, Hashable, Sendable {
+nonisolated public struct EidosHit: Codable, Hashable, Sendable {
     public let sourceId: EidosChunkId
     public let documentId: EidosDocumentId
     public let kind: EidosSourceKind
@@ -213,7 +213,7 @@ public struct EidosHit: Codable, Hashable, Sendable {
 
 /// A query against an Eidos manifest. `queryVector` is consumed by Semantic
 /// and Hybrid; ignored elsewhere.
-public struct EidosQuery: Codable, Hashable, Sendable {
+nonisolated public struct EidosQuery: Codable, Hashable, Sendable {
     public let text: String
     public let mode: EidosRetrievalMode
     public let topK: UInt16
@@ -236,7 +236,7 @@ public struct EidosQuery: Codable, Hashable, Sendable {
 
 /// Sealed query → hits packet. The `hits[*].sourceId` set is the closed
 /// citation universe for any answer that uses this packet.
-public struct EidosContextPacket: Codable, Hashable, Sendable {
+nonisolated public struct EidosContextPacket: Codable, Hashable, Sendable {
     public let query: EidosQuery
     public let manifestId: EidosIndexManifestId
     public let hits: [EidosHit]
@@ -249,7 +249,7 @@ public struct EidosContextPacket: Codable, Hashable, Sendable {
 }
 
 /// A chat-layer reference back to one chunk in a packet.
-public struct EidosCitation: Codable, Hashable, Sendable {
+nonisolated public struct EidosCitation: Codable, Hashable, Sendable {
     public let sourceId: EidosChunkId
     public let manifestId: EidosIndexManifestId
 
@@ -265,7 +265,7 @@ public struct EidosCitation: Codable, Hashable, Sendable {
 }
 
 /// Snapshot descriptor. Live Files binding lands under W-row backlog.
-public struct EidosIndexManifest: Codable, Hashable, Sendable {
+nonisolated public struct EidosIndexManifest: Codable, Hashable, Sendable {
     public let id: EidosIndexManifestId
     public let createdAtUnixMs: UInt64
     public let corpusDigestHex: String
@@ -303,12 +303,12 @@ public struct EidosIndexManifest: Codable, Hashable, Sendable {
 /// Internal-tagging (`#[serde(tag = "...")]`) isn't an option on the
 /// Rust side because tuple-newtype variants can't carry a tag inline;
 /// the Swift side matches that constraint with this custom Codable.
-public enum EidosCitationError: Error, Hashable, Sendable {
+nonisolated public enum EidosCitationError: Error, Hashable, Sendable {
     case fabricatedSourceId(EidosChunkId)
     case manifestMismatch(packet: EidosIndexManifestId, citation: EidosIndexManifestId)
 }
 
-extension EidosCitationError: Codable {
+nonisolated extension EidosCitationError: Codable {
     private struct ManifestMismatchPayload: Codable {
         let packet: EidosIndexManifestId
         let citation: EidosIndexManifestId
@@ -319,7 +319,7 @@ extension EidosCitationError: Codable {
         case manifestMismatch = "ManifestMismatch"
     }
 
-    public init(from decoder: Decoder) throws {
+    nonisolated public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: WireKey.self)
         if let chunk = try container.decodeIfPresent(EidosChunkId.self, forKey: .fabricatedSourceId) {
             self = .fabricatedSourceId(chunk)
@@ -339,7 +339,7 @@ extension EidosCitationError: Codable {
         )
     }
 
-    public func encode(to encoder: Encoder) throws {
+    nonisolated public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: WireKey.self)
         switch self {
         case .fabricatedSourceId(let chunk):
@@ -358,7 +358,7 @@ extension EidosCitationError: Codable {
 /// `Codable` is a custom unkeyed 2-element array `[index, error]` to
 /// match Rust's `(usize, CitationError)` tuple wire shape under
 /// `serde_json::to_string`.
-public struct EidosIndexedCitationError: Hashable, Sendable, Codable {
+nonisolated public struct EidosIndexedCitationError: Hashable, Sendable, Codable {
     public let index: Int
     public let error: EidosCitationError
 
@@ -367,14 +367,14 @@ public struct EidosIndexedCitationError: Hashable, Sendable, Codable {
         self.error = error
     }
 
-    public init(from decoder: Decoder) throws {
+    nonisolated public init(from decoder: Decoder) throws {
         var container = try decoder.unkeyedContainer()
         let index = try container.decode(Int.self)
         let error = try container.decode(EidosCitationError.self)
         self.init(index: index, error: error)
     }
 
-    public func encode(to encoder: Encoder) throws {
+    nonisolated public func encode(to encoder: Encoder) throws {
         var container = encoder.unkeyedContainer()
         try container.encode(index)
         try container.encode(error)
@@ -389,20 +389,44 @@ public struct EidosIndexedCitationError: Hashable, Sendable, Codable {
 /// `Codable` is implemented as a transparent passthrough of `errors` so
 /// the wire shape matches Rust's `Vec<(usize, CitationError)>` exactly:
 /// `[[index, citationError], ...]`.
-public struct EidosBatchCitationError: Error, Hashable, Sendable, Codable {
+nonisolated public struct EidosBatchCitationError: Error, Hashable, Sendable, Codable {
     public let errors: [EidosIndexedCitationError]
 
     public init(errors: [EidosIndexedCitationError]) {
         self.errors = errors
     }
 
-    public init(from decoder: Decoder) throws {
+    nonisolated public init(from decoder: Decoder) throws {
         let errors = try [EidosIndexedCitationError](from: decoder)
         self.init(errors: errors)
     }
 
-    public func encode(to encoder: Encoder) throws {
+    nonisolated public func encode(to encoder: Encoder) throws {
         try errors.encode(to: encoder)
+    }
+}
+
+/// Successful result from the named closed-citation validator harness.
+/// Mirrors Rust `ClosedCitationValidation`.
+nonisolated public struct EidosClosedCitationValidation: Codable, Hashable, Sendable {
+    public let acceptedCount: Int
+
+    public init(acceptedCount: Int) {
+        self.acceptedCount = acceptedCount
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case acceptedCount = "accepted_count"
+    }
+}
+
+/// Rejection result from the named closed-citation validator harness.
+/// Mirrors Rust `ClosedCitationValidationError`.
+nonisolated public struct EidosClosedCitationValidationError: Error, Codable, Hashable, Sendable {
+    public let errors: [EidosIndexedCitationError]
+
+    public init(errors: [EidosIndexedCitationError]) {
+        self.errors = errors
     }
 }
 
@@ -436,6 +460,21 @@ extension EidosContextPacket {
         return errors.isEmpty ? .success(()) : .failure(EidosBatchCitationError(errors: errors))
     }
 
+    /// Named chat/bridge emit gate. Mirrors Rust
+    /// `enforce_closed_citation_contract`: every citation must validate
+    /// against this packet or the answer is rejected wholesale with
+    /// per-index diagnostics.
+    public func enforceClosedCitationContract(
+        citations: [EidosCitation]
+    ) -> Result<EidosClosedCitationValidation, EidosClosedCitationValidationError> {
+        switch validate(citations: citations) {
+        case .success:
+            return .success(EidosClosedCitationValidation(acceptedCount: citations.count))
+        case .failure(let batch):
+            return .failure(EidosClosedCitationValidationError(errors: batch.errors))
+        }
+    }
+
     /// Citable source ids in deterministic hit order. The chat layer can
     /// use this to gate model output BEFORE asking for full validation.
     public var citableSourceIds: [EidosChunkId] {
@@ -461,7 +500,7 @@ extension EidosContextPacket {
 /// `EidosFalsifierFailure` — a hand-rolled Codable that consumes the
 /// exact `serde(tag = "variant")` internal-tag JSON bytes Rust
 /// produces.
-public struct EidosFalsifierWitness: Codable, Hashable, Sendable {
+nonisolated public struct EidosFalsifierWitness: Codable, Hashable, Sendable {
     public let retrieversChecked: UInt32
     public let queriesPerRetriever: UInt32
     public let totalHitsValidated: UInt32
@@ -507,7 +546,7 @@ public struct EidosFalsifierWitness: Codable, Hashable, Sendable {
 /// Rust side (per serde_json convention) and decoding `null` into a
 /// `Float` fails by design — same asymmetry as the Rust side
 /// (`falsifier::tests::failure_hit_confidence_nan_serializes_to_null_and_decode_errors`).
-public enum EidosFalsifierFailure: Error, Hashable, Sendable {
+nonisolated public enum EidosFalsifierFailure: Error, Hashable, Sendable {
     case packetManifestDriftsFromRetriever(
         retrieverMode: EidosRetrievalMode,
         retrieverManifest: EidosIndexManifestId,

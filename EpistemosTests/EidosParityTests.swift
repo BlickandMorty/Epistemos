@@ -194,6 +194,24 @@ struct EidosParityTests {
         #expect(back == original)
     }
 
+    @Test("closed-citation validator harness outputs decode Rust-pinned JSON")
+    func closedCitationValidatorHarnessOutputsDecodeRustWireShape() throws {
+        let acceptedJson = #"{"accepted_count":1}"#.data(using: .utf8)!
+        let accepted = try JSONDecoder().decode(EidosClosedCitationValidation.self, from: acceptedJson)
+        #expect(accepted.acceptedCount == 1)
+
+        let rejectedJson = #"{"errors":[[0,{"FabricatedSourceId":"ghost::lex"}]]}"#
+            .data(using: .utf8)!
+        let rejected = try JSONDecoder().decode(EidosClosedCitationValidationError.self, from: rejectedJson)
+        #expect(rejected.errors.count == 1)
+        #expect(rejected.errors[0].index == 0)
+        if case .fabricatedSourceId(let chunk) = rejected.errors[0].error {
+            #expect(chunk.raw == "ghost::lex")
+        } else {
+            Issue.record("expected .fabricatedSourceId in closed-citation validator rejection")
+        }
+    }
+
     @Test("EidosCitationError encode round-trips through JSON")
     func citationErrorEncodeRoundTrip() throws {
         // Encode-decode round-trip on the Swift side. Combined with the
