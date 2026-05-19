@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 282
+invalid_example_count: 283
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -13193,3 +13193,19 @@ Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-
 ```
 
 Rejection reason: blob objects can be regex-shaped object IDs, but they cannot identify the repository state that produced a falsifier artifact.
+
+## N283 - Unreachable Commit SHA
+
+Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-identity-rule) and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "field": "commit_sha",
+  "commit_sha": "ffffffffffffffffffffffffffffffffffffffff",
+  "schema_pattern": "^[0-9a-f]{40}$",
+  "semantic_rule": "commit_reachable_from_branch",
+  "repo_lookup_result": "commit_exists_unreachable"
+}
+```
+
+Rejection reason: a commit object that exists only as unreachable history is not a stable replay pin for the branch's falsifier evidence.
