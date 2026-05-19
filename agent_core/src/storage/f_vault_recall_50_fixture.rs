@@ -1005,6 +1005,38 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 47th SignalOnly row (iter-389): single-term query in
+        // N'Ko-script domain — "ߞ" (N'Ko letter KA, U+07DE,
+        // single codepoint). THIRTY-EIGHTH single-term-AND
+        // domain. TWENTY-FIFTH non-ASCII script-block. THIRD
+        // African-origin script in SignalOnly (after Tifinagh
+        // iter-361 traditional Berber/Amazigh + Vai iter-368
+        // syllabary). N'Ko is a modern (1949) RTL alphabetic
+        // script created by Solomana Kanté for the Manding
+        // languages (Bambara, Dyula, Maninka) of West Africa
+        // (Mali, Guinea, Côte d'Ivoire, Burkina Faso). FIRST
+        // RTL non-Latin script with a known single inventor —
+        // distinct from Tifinagh (traditional consonantal
+        // alphabet) and Vai (LTR syllabary). Token unique to
+        // iter-220's mamba_nko.md.
+        query: "ߞ",
+        expected_paths: &["notes/mamba_nko.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Forty-seventh SignalOnly row (iter-389): single-\
+               term N'Ko-script query — \"ߞ\" (U+07DE). \
+               Thirty-eighth domain for single-term-AND. \
+               Twenty-fifth non-ASCII script-block. THIRD \
+               African-origin script in SignalOnly (after \
+               Tifinagh + Vai). N'Ko (1949) is a modern RTL \
+               alphabetic script by Solomana Kanté for the \
+               Manding languages. FIRST modern-single-inventor \
+               RTL script. Thirteenth single-codepoint non-\
+               ASCII token. Brings SignalOnly to depth 47 — \
+               first category past depth-46 horizon.",
+    },
+    FVaultRecallRow {
         // 46th SignalOnly row (iter-382): single-term query in
         // Yi-script domain — "ꀀ" (Yi syllable IT, U+A000,
         // single codepoint). THIRTY-SEVENTH single-term-AND
