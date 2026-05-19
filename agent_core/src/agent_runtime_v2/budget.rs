@@ -2037,6 +2037,57 @@ mod tests {
     }
 
     #[test]
+    fn concurrent_multi_axis_debits_hit_exact_cap_without_cross_axis_drift() {
+        use std::sync::{Arc, Mutex};
+        use std::thread;
+
+        const N: u64 = 12;
+        let per_call = BudgetDebit {
+            tokens: 3,
+            wall_ms: 5,
+            tool_calls: 7,
+            subprocess_ms: 11,
+            memory_bytes: 13,
+        };
+        let gate = BudgetGate::new(
+            BudgetSpec::new(
+                N * per_call.tokens,
+                N * per_call.wall_ms,
+                N * per_call.tool_calls,
+                N * per_call.subprocess_ms,
+            )
+            .with_memory_bytes(N * per_call.memory_bytes),
+        );
+        let ledger = Arc::new(Mutex::new(BudgetLedger::default()));
+        let mut handles = Vec::with_capacity(N as usize);
+        for _ in 0..N {
+            let ledger = Arc::clone(&ledger);
+            handles.push(thread::spawn(move || {
+                let mut guard = ledger.lock().expect("lock");
+                let advanced = gate
+                    .check_and_debit(*guard, per_call)
+                    .expect("multi-axis debit fits");
+                *guard = advanced;
+            }));
+        }
+        for handle in handles {
+            handle.join().expect("join");
+        }
+
+        let final_ledger = *ledger.lock().expect("lock");
+        assert_eq!(final_ledger.tokens_used, N * per_call.tokens);
+        assert_eq!(final_ledger.wall_used_ms, N * per_call.wall_ms);
+        assert_eq!(final_ledger.tool_calls_used, N * per_call.tool_calls);
+        assert_eq!(final_ledger.subprocess_used_ms, N * per_call.subprocess_ms);
+        assert_eq!(final_ledger.memory_bytes_used, N * per_call.memory_bytes);
+
+        let err = gate
+            .check_and_debit(final_ledger, BudgetDebit { tokens: 1, ..Default::default() })
+            .expect_err("post-burst debit must trip exact cap");
+        assert!(matches!(err, BudgetError::Exhausted { term: BudgetTerm::Tokens, .. }));
+    }
+
+    #[test]
     fn budget_gate_concurrency_no_over_debit() {
         // Concurrency property: N threads each call check_and_debit
         // through a shared Mutex<BudgetLedger>. The cap is exactly
