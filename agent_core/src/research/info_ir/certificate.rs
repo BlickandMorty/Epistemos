@@ -239,6 +239,13 @@ pub fn lean_certificate(expr: &InfoExpr) -> String {
          \x20   info_bregman_obligation_{suffix}\n\
          \x20   rfl\n\
          \n\
+         theorem info_certificate_convexity_field_{suffix} :\n\
+         \x20   info_certificate_{suffix}.convexity = some info_convexity_obligation_{suffix} := by\n\
+         \x20 exact Epistemos.Info.CertificateTarget.convexityOptionMatches\n\
+         \x20   info_certificate_{suffix}\n\
+         \x20   info_convexity_obligation_{suffix}\n\
+         \x20   rfl\n\
+         \n\
          theorem info_log_partition_convexity_{suffix} :\n\
          \x20   info_convexity_obligation_{suffix}.convexOnNaturalDomain := by\n\
          \x20 exact Epistemos.Info.convexLogPartitionObligationCarries {family_term} {p_term}\n\
@@ -391,6 +398,8 @@ mod tests {
     fn certificate_projects_target_convexity_witness() {
         let e = InfoExpr::log_partition(ExpFamily::Bernoulli, vec![0.0]).unwrap();
         let c = lean_certificate(&e);
+        assert!(c.contains("theorem info_certificate_convexity_field_"));
+        assert!(c.contains("Epistemos.Info.CertificateTarget.convexityOptionMatches"));
         assert!(c.contains("theorem info_certificate_convexity_target_"));
         assert!(c.contains(
             "exact Epistemos.Info.CertificateTarget.convexityObligationCarries"

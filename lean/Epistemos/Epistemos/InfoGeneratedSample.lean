@@ -92,6 +92,13 @@ theorem info_certificate_positivity_field_sample :
     info_bregman_obligation_sample
     rfl
 
+theorem info_certificate_convexity_field_sample :
+    info_certificate_sample.convexity = some info_convexity_obligation_sample := by
+  exact Epistemos.Info.CertificateTarget.convexityOptionMatches
+    info_certificate_sample
+    info_convexity_obligation_sample
+    rfl
+
 theorem info_certificate_convexity_target_sample :
     ∃ targetObligation,
       info_certificate_sample.convexity = some targetObligation ∧

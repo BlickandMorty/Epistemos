@@ -224,6 +224,13 @@ theorem positivityObligationMatches
     c.positivity = obligation := by
   exact stored
 
+theorem convexityOptionMatches
+    (c : CertificateTarget)
+    (obligation : ConvexLogPartitionObligation)
+    (stored : c.convexity = some obligation) :
+    c.convexity = some obligation := by
+  exact stored
+
 theorem convexityObligationCarries
     (c : CertificateTarget)
     (obligation : ConvexLogPartitionObligation)
