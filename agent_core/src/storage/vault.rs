@@ -665,6 +665,36 @@ impl VaultBackend for VaultStore {
             query_parser.set_conjunction_by_default();
         }
 
+        let build_trace = |pool_size| {
+            let mut trace = RetrievalTrace::new(query, effective_query).with_pool_size(pool_size);
+            trace.record_signal(RetrievalSignal::Lexical);
+            if all_chatter_fallback {
+                trace.record_all_chatter_fallback();
+                trace.add_note(format!(
+                    "Fix-B all-chatter fallback: query {query:?} stripped to empty; falling back to raw input (consumers SHOULD treat trace as weak evidence)"
+                ));
+            }
+            if chatter_stripped {
+                trace.add_note(format!(
+                    "Fix-B chatter strip: {query:?} → {effective_query:?} ({surviving_terms} surviving terms)"
+                ));
+            }
+            if and_conjunction_applied {
+                trace.add_note(format!(
+                    "AND conjunction applied (surviving_terms = {surviving_terms} ≤ 3)"
+                ));
+            }
+            trace
+        };
+
+        if limit == 0 {
+            let mut trace = build_trace(0);
+            trace.add_note(
+                "Zero-result guard: limit = 0; skipped Tantivy collection".to_string(),
+            );
+            return Ok((Vec::new(), trace));
+        }
+
         let parsed_query = query_parser
             .parse_query(effective_query)
             .map_err(|error| VaultError::IndexError(error.to_string()))?;
@@ -719,24 +749,7 @@ impl VaultBackend for VaultStore {
             }
         }
 
-        let mut trace = RetrievalTrace::new(query, effective_query).with_pool_size(pool_size);
-        trace.record_signal(RetrievalSignal::Lexical);
-        if all_chatter_fallback {
-            trace.record_all_chatter_fallback();
-            trace.add_note(format!(
-                "Fix-B all-chatter fallback: query {query:?} stripped to empty; falling back to raw input (consumers SHOULD treat trace as weak evidence)"
-            ));
-        }
-        if chatter_stripped {
-            trace.add_note(format!(
-                "Fix-B chatter strip: {query:?} → {effective_query:?} ({surviving_terms} surviving terms)"
-            ));
-        }
-        if and_conjunction_applied {
-            trace.add_note(format!(
-                "AND conjunction applied (surviving_terms = {surviving_terms} ≤ 3)"
-            ));
-        }
+        let mut trace = build_trace(pool_size);
         for (result, excerpt) in results.iter().zip(trace_excerpts.into_iter()) {
             let mut candidate = RetrievalCandidate::new(result.path.clone(), result.score)
                 .with_signal(RetrievalSignalScore::new(
@@ -1239,6 +1252,95 @@ mod tests {
             EvidenceStrength::Weak,
             "all-chatter fallback MUST force Weak verdict regardless of count"
         );
+    }
+
+    /// T21 iter-426: zero-result graceful behavior for the degenerate
+    /// empty-query / empty-vault case. The backend must return an empty
+    /// weak trace, not bubble Tantivy's empty-query parse error.
+    #[tokio::test]
+    async fn vaultstore_hybrid_search_with_trace_empty_query_empty_vault_is_weak_empty_ok() {
+        use super::VaultBackend;
+        use crate::storage::retrieval_trace::EvidenceStrength;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
+            .expect("open vault");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace("", 5, &[])
+            .await
+            .expect("empty query must not error");
+
+        assert!(
+            results.is_empty(),
+            "empty query on empty vault must return no results"
+        );
+        assert_eq!(trace.query, "");
+        assert_eq!(trace.effective_query, "");
+        assert_eq!(trace.candidate_pool_size, 0);
+        assert_eq!(trace.candidates_retained, 0);
+        assert_eq!(trace.evidence_strength(), EvidenceStrength::Weak);
+    }
+
+    /// T21 iter-426: all-stopword queries should be graceful even when
+    /// the raw fallback contains parser operator words. This pins the
+    /// no-error surface before consumers decide whether to ask the user
+    /// to clarify or broaden the search.
+    #[tokio::test]
+    async fn vaultstore_hybrid_search_with_trace_all_stopword_query_is_weak_empty_ok() {
+        use super::VaultBackend;
+        use crate::storage::retrieval_trace::EvidenceStrength;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
+            .expect("open vault");
+
+        store
+            .write("signal.md", "residency governance unrelated content", None, false)
+            .await
+            .expect("write note");
+        store.reload_index().expect("reload index");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace("the and or", 5, &[])
+            .await
+            .expect("all-stopword query must not error");
+
+        assert!(
+            results.is_empty(),
+            "all-stopword query must not retain lexical candidates"
+        );
+        assert_eq!(trace.query, "the and or");
+        assert_eq!(trace.effective_query, "the and or");
+        assert!(trace.all_chatter_fallback);
+        assert_eq!(trace.candidate_pool_size, 0);
+        assert_eq!(trace.candidates_retained, 0);
+        assert_eq!(trace.evidence_strength(), EvidenceStrength::Weak);
+    }
+
+    /// T21 iter-426: `limit = 0` is another zero-result surface. It
+    /// must not retain one candidate just because the Tantivy collector
+    /// internally needs a positive limit.
+    #[tokio::test]
+    async fn vaultstore_hybrid_search_with_trace_zero_limit_retains_zero_candidates() {
+        use super::VaultBackend;
+        use crate::storage::retrieval_trace::EvidenceStrength;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
+            .expect("open vault");
+
+        store
+            .write("signal.md", "residency governance signal", None, false)
+            .await
+            .expect("write note");
+        store.reload_index().expect("reload index");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace("residency governance", 0, &[])
+            .await
+            .expect("zero limit must not error");
+
+        assert!(results.is_empty(), "limit = 0 must retain no results");
+        assert_eq!(trace.candidates_retained, 0);
+        assert_eq!(trace.evidence_strength(), EvidenceStrength::Weak);
     }
 
     /// T21 iter-64 (2026-05-18): DOCUMENTING test for the Q2 gap.
