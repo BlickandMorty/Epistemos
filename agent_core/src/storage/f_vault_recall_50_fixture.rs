@@ -5439,6 +5439,29 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 37th ChattyPrefix row (iter-320, milestone iteration):
+        // Myanmar-multilingual signal domain — 27th distinct
+        // lexical universe. Survivors after strip {Mamba, က}.
+        // 2-term AND matches only iter-179's mamba_myanmar.md.
+        // SIXTEENTH non-ASCII ChattyPrefix domain. SIXTH
+        // Brahmic-family ChattyPrefix (after Devanagari + Thai +
+        // Tibetan + Khmer + Lao).
+        query: "Show me my Mamba က notes",
+        expected_paths: &["notes/mamba_myanmar.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Thirty-seventh ChattyPrefix row (iter-320, \
+               milestone): Myanmar-multilingual signal domain — \
+               27th distinct lexical universe. Survivors \
+               {Mamba, က} after strip. 2-term AND matches only \
+               iter-179 mamba_myanmar.md. Sixteenth non-ASCII \
+               ChattyPrefix domain. Sixth Brahmic-family \
+               ChattyPrefix. Brings ChattyPrefix to depth 37 — \
+               first category past depth-36 horizon. Zero new \
+               seeds.",
+    },
+    FVaultRecallRow {
         // 36th ChattyPrefix row (iter-313): Lao-multilingual
         // signal domain — 26th distinct lexical universe.
         // Survivors after strip {Mamba, ແຄ}. 2-term AND matches
