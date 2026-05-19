@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 268
+invalid_example_count: 269
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -12988,3 +12988,17 @@ Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-
 ```
 
 Rejection reason: `commit_sha` must store the resolved 40-character lowercase hex commit, not a tag alias that can be moved or reissued.
+
+## N269 - Trailing Space Commit SHA
+
+Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-identity-rule) and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "field": "commit_sha",
+  "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ",
+  "schema_pattern": "^[0-9a-f]{40}$"
+}
+```
+
+Rejection reason: `commit_sha` must contain exactly 40 lowercase hex characters; trailing whitespace from copy-paste makes the artifact replay-ineligible.
