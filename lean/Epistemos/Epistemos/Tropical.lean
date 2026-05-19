@@ -231,6 +231,13 @@ structure RationalCertificateTarget where
 
 namespace RationalCertificateTarget
 
+theorem representationMatches
+    (c : RationalCertificateTarget)
+    (obligation : RationalRepresentationObligation c.rational)
+    (stored : c.representation = obligation) :
+    c.representation = obligation := by
+  exact stored
+
 theorem representationCarries (c : RationalCertificateTarget) :
     RationalRepresentationObligation c.rational := by
   exact c.representation

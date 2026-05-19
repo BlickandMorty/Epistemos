@@ -296,7 +296,10 @@ pub fn lean_certificate_rational(r: &TropicalRational) -> String {
          \n\
          theorem tropical_rational_certificate_representation_{suffix} :\n\
          \x20   tropical_rational_certificate_{suffix}.representation = tropical_rational_obligation_{suffix} := by\n\
-         \x20 rfl\n\
+         \x20 exact Epistemos.Tropical.RationalCertificateTarget.representationMatches\n\
+         \x20   tropical_rational_certificate_{suffix}\n\
+         \x20   tropical_rational_obligation_{suffix}\n\
+         \x20   rfl\n\
          \n\
          theorem tropical_rational_certificate_representation_obligation_{suffix} :\n\
          \x20   Epistemos.Tropical.RationalRepresentationObligation\n\
@@ -566,7 +569,7 @@ mod tests {
         let c = lean_certificate_rational(&r);
         assert!(c.contains("theorem tropical_rational_certificate_representation_"));
         assert!(c.contains(".representation = tropical_rational_obligation_"));
-        assert!(c.contains("rfl"));
+        assert!(c.contains("Epistemos.Tropical.RationalCertificateTarget.representationMatches"));
     }
 
     #[test]

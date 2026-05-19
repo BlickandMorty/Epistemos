@@ -48,7 +48,10 @@ noncomputable def tropical_rational_certificate_sample :
 theorem tropical_rational_certificate_representation_sample :
     tropical_rational_certificate_sample.representation =
       tropical_rational_obligation_sample := by
-  rfl
+  exact Epistemos.Tropical.RationalCertificateTarget.representationMatches
+    tropical_rational_certificate_sample
+    tropical_rational_obligation_sample
+    rfl
 
 theorem tropical_rational_certificate_representation_obligation_sample :
     Epistemos.Tropical.RationalRepresentationObligation
