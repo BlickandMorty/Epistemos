@@ -3442,11 +3442,12 @@ fn run_event_log_corrupt_acs_record(run_event_log: &OpLog) -> Option<ACSAuditErr
                 let fallback_record_id = audit_record_value_id(&value)
                     .unwrap_or(&node_id)
                     .to_string();
+                let malformed_field = audit_record_value_malformed_field(&value);
                 let record = match serde_json::from_value::<ACSAuditRecord>(value) {
                     Ok(record) => record,
                     Err(_) => {
                         return Some(ACSAuditError::CorruptRecord {
-                            field: "record",
+                            field: malformed_field.unwrap_or("record"),
                             record_id: fallback_record_id,
                         });
                     }
@@ -3461,6 +3462,88 @@ fn run_event_log_corrupt_acs_record(run_event_log: &OpLog) -> Option<ACSAuditErr
             }
             _ => None,
         })
+}
+
+fn audit_record_value_malformed_field(value: &serde_json::Value) -> Option<&'static str> {
+    let serde_json::Value::Object(object) = value else {
+        return Some("record");
+    };
+    for field in object.keys() {
+        if !matches!(
+            field.as_str(),
+            "record_id"
+                | "request_id"
+                | "policy_id"
+                | "policy_version"
+                | "operation"
+                | "verdict"
+                | "reason"
+                | "risk_max"
+                | "emitted_at_ms"
+        ) {
+            return Some("record");
+        }
+    }
+    if !object
+        .get("record_id")
+        .is_some_and(serde_json::Value::is_string)
+    {
+        return Some("record_id");
+    }
+    if !object
+        .get("request_id")
+        .is_some_and(serde_json::Value::is_string)
+    {
+        return Some("request_id");
+    }
+    if !object
+        .get("policy_id")
+        .is_some_and(serde_json::Value::is_string)
+    {
+        return Some("policy_id");
+    }
+    if !object
+        .get("policy_version")
+        .and_then(serde_json::Value::as_u64)
+        .is_some_and(|value| value <= u32::MAX as u64)
+    {
+        return Some("policy_version");
+    }
+    if !object
+        .get("operation")
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(is_canonical_operation_kind_code)
+    {
+        return Some("operation");
+    }
+    if !object
+        .get("verdict")
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(is_canonical_admission_verdict_code)
+    {
+        return Some("verdict");
+    }
+    if !object
+        .get("reason")
+        .is_some_and(serde_json::Value::is_string)
+    {
+        return Some("reason");
+    }
+    if !object
+        .get("risk_max")
+        .and_then(serde_json::Value::as_f64)
+        .is_some_and(|value| value.is_finite() && (0.0..=1.0).contains(&value))
+    {
+        return Some("risk_max");
+    }
+    if !object
+        .get("emitted_at_ms")
+        .and_then(serde_json::Value::as_i64)
+        .is_some_and(|value| value >= 0)
+    {
+        return Some("emitted_at_ms");
+    }
+    None
 }
 
 fn run_event_log_max_acs_emitted_at_ms(run_event_log: &OpLog) -> Option<i64> {
@@ -9487,7 +9570,45 @@ mod tests {
             .expect_err("RunEventLog sink must reject existing corrupt ACS audit record");
 
         assert_eq!(err.cause(), "corrupt_acs_audit_record");
-        assert_eq!(err.field(), Some("record"));
+        assert_eq!(err.field(), Some("risk_max"));
+        assert_eq!(err.record_id(), Some(corrupt.record_id.as_str()));
+        assert_eq!(run_event_log.len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_run_event_log_sink_names_existing_corrupt_audit_field() {
+        let run_event_log = crate::oplog::OpLog::new("acs-admission-sink-corrupt-field");
+        let sink = ACSRunEventLogSink::new(&run_event_log);
+        let corrupt = audit_record_fixture(ACSAdmissionVerdict::Allow);
+        let mut value = serde_json::to_value(&corrupt).expect("audit record encodes");
+        value
+            .as_object_mut()
+            .expect("audit record encodes as object")
+            .remove("request_id");
+        run_event_log.append(crate::oplog::OpPayload::PropSet {
+            node_id: corrupt.record_id.clone(),
+            key: ACS_AUDIT_RUN_EVENT_KEY.to_string(),
+            value,
+        });
+
+        let next = ACSAuditRecord {
+            record_id: "acs:req-run-event-after-corrupt-field:1002".to_string(),
+            request_id: "req-run-event-after-corrupt-field".to_string(),
+            policy_id: "policy".to_string(),
+            policy_version: 1,
+            operation: ACSOperationKind::MemoryWrite,
+            verdict: ACSAdmissionVerdict::Allow,
+            reason: ACSAdmissionVerdict::Allow.code().to_string(),
+            risk_max: 0.0,
+            emitted_at_ms: 1_002,
+        };
+
+        let err = sink
+            .record(next)
+            .expect_err("RunEventLog sink must name existing corrupt ACS audit field");
+
+        assert_eq!(err.cause(), "corrupt_acs_audit_record");
+        assert_eq!(err.field(), Some("request_id"));
         assert_eq!(err.record_id(), Some(corrupt.record_id.as_str()));
         assert_eq!(run_event_log.len(), 1);
     }
