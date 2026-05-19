@@ -65,9 +65,9 @@ pub use recency::InMemoryRecencyIndex;
 pub use retriever::EidosRetriever;
 pub use semantic::{InMemorySemanticIndex, SemanticIndexError};
 pub use types::{
-    CitationError, EidosChunkId, EidosCitation, EidosContextPacket, EidosDocumentId, EidosHit,
-    EidosIndexManifest, EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode,
-    EidosScoreComponents, EidosSourceKind, EidosSpan,
+    CitationError, EidosChunkId, EidosCitation, EidosCitationEnvelope, EidosContextPacket,
+    EidosDocumentId, EidosHit, EidosIndexManifest, EidosIndexManifestId, EidosProvenance,
+    EidosQuery, EidosRetrievalMode, EidosScoreComponents, EidosSourceKind, EidosSpan,
 };
 pub use validator::{
     enforce_closed_citation_contract, ClosedCitationValidation, ClosedCitationValidationError,
