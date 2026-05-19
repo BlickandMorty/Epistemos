@@ -3170,6 +3170,17 @@ mod tests {
     }
 
     #[test]
+    fn replay_accepts_witness_after_pretty_print_reformat() {
+        let original = acceptance_witness_json().expect("acceptance witness json");
+        let value: serde_json::Value = serde_json::from_str(&original).expect("witness json value");
+        let pretty = serde_json::to_string_pretty(&value).expect("pretty witness json");
+        assert_ne!(original, pretty);
+        let parsed_original = replay_witness_json(&original).expect("original replay");
+        let parsed_pretty = replay_witness_json(&pretty).expect("pretty replay");
+        assert_eq!(parsed_original, parsed_pretty);
+    }
+
+    #[test]
     fn replay_round_trips_acceptance_witness_byte_equal_after_two_serializations() {
         let original = acceptance_witness_json().expect("acceptance witness json");
         let parsed = replay_witness_json(&original).expect("acceptance witness replay");
