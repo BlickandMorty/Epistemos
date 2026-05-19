@@ -3115,6 +3115,25 @@ mod tests {
     }
 
     #[test]
+    fn replay_rejects_hardware_source_with_mac_address_shape() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["hardware"]["source"] =
+            serde_json::Value::String("capture host 01:23:45:ab:cd:ef redacted".to_string());
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("hardware MAC-shaped text must fail replay before pin comparison");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::ForbiddenHardwareIdentifier)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("forbidden hardware identifier token in hardware.source")
+        );
+    }
+
+    #[test]
     fn replay_rejects_unknown_hardware_json_field_with_path() {
         let mut value: serde_json::Value =
             serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
