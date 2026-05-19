@@ -1577,6 +1577,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 30th Unicode row (iter-271): Sinhala-script extension.
+        // Adds a 28th non-Latin script (Sinhala, U+0D80–U+0DFF)
+        // — the Brahmic abugida for the Sinhala language (Sri
+        // Lanka). SEVENTH Brahmic abugida in the pin set (after
+        // Devanagari + Thai + Khmer + Tibetan + Lao + Myanmar).
+        // The Brahmic family now covers seven distinct
+        // descendant scripts — a single ancestral family
+        // demonstrated against the no-script-fold contract
+        // across most of its diaspora. Latin "Mamba" + Sinhala
+        // "ක" (ka, U+0D9A) + Latin "cache".
+        query: "Mamba ක cache",
+        expected_paths: &["notes/mamba_sinhala.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Thirtieth Unicode row (iter-271): Sinhala-script \
+               extension. TWENTY-EIGHT non-Latin scripts \
+               pinned. Sinhala is the Brahmic abugida for Sinhala \
+               (Sri Lanka). SEVENTH Brahmic descendant in the \
+               pin set — the Brahmic family alone now covers 7 \
+               distinct scripts (Devanagari + Thai + Khmer + \
+               Tibetan + Lao + Myanmar + Sinhala), demonstrating \
+               the no-script-fold contract across most of one \
+               ancestral family's diaspora. Brings Unicode to \
+               depth 30 — closes **uniform-≥-30 milestone**: \
+               every category at depth 30.",
+    },
+    FVaultRecallRow {
         // 29th Unicode row (iter-264): Ogham-script extension.
         // Adds a 27th non-Latin script (Ogham, U+1680–U+169F) —
         // the Old Irish script (4th-9th century CE), incised
