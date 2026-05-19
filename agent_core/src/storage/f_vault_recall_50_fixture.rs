@@ -4074,6 +4074,35 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 34th Synthesis row (iter-294). FIRST 2-term-AND subset
+        // on iter-4 tier-compression pair (the original
+        // Synthesis seed pair): {tier, compression}. Both
+        // MASTER_FUSION/3_2_residency_governor.md and
+        // MASTER_FUSION/4_compression_tier_doctrine.md have both
+        // tokens. "tier" appears only in the iter-4 pair seeds
+        // among all corpus; "compression" appears in iter-89
+        // compression_doctrine_canon docs too — but those lack
+        // "tier", so AND-on-2 still blocks them. Opens C(3,2)
+        // survey on iter-4 tier-compression pair (third 3-
+        // element pair after Metal + neural-cache-layer).
+        query: "tier compression",
+        expected_paths: &[
+            "MASTER_FUSION/3_2_residency_governor.md",
+            "MASTER_FUSION/4_compression_tier_doctrine.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Thirty-fourth Synthesis row (iter-294): FIRST 2-\
+               term-AND subset on iter-4 tier-compression pair \
+               (the original Synthesis pair). {tier, \
+               compression} — both pair-partners have both; \
+               \"tier\" appears only in iter-4 pair seeds among \
+               all corpus. Opens C(3,2) survey on the third 3-\
+               element pair (after Metal + neural-cache-layer). \
+               Brings Synthesis to depth 34. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 33rd Synthesis row (iter-287). THIRD and FINAL 2-term-
         // AND subset on iter-108 neural-cache-layer pair:
         // {cache, layer}. Both pair-partners have both; "cache"
