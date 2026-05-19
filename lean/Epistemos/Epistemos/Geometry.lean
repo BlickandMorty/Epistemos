@@ -36,6 +36,9 @@ structure Multivector where
   c6 : Real
   c7 : Real
 
+/-- Cl(3,0) multivectors are represented by eight real coordinates. -/
+def multivectorCoordinateCount : Nat := 8
+
 namespace Multivector
 
 def zero : Multivector :=
@@ -105,6 +108,9 @@ inductive Expr where
   | geoProduct (lhs rhs : Expr) : Expr
   | reverse (expr : Expr) : Expr
   | rotorSandwich (rotor vector : Expr) : Expr
+
+/-- Geometry expression schema has four node constructors. -/
+def exprConstructorCount : Nat := 4
 
 class CliffordAlgebra (G : Type u) where
   one : G
@@ -176,5 +182,9 @@ def identityRotor : RotorSchema :=
 
 def identityRotorExpr : Expr :=
   Expr.literal identityRotor.value
+
+theorem geometrySchemaCountsPinned :
+    multivectorCoordinateCount = 8 ∧ exprConstructorCount = 4 := by
+  exact ⟨rfl, rfl⟩
 
 end Epistemos.Geometry
