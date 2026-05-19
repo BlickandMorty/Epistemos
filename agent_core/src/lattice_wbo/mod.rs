@@ -2173,6 +2173,78 @@ mod tests {
                     "measured": null,
                 }),
             ),
+            (
+                "string budget",
+                serde_json::json!({
+                    "term": "T_num",
+                    "source": "exact ULP guard",
+                    "budget": "0.0",
+                    "measured": null,
+                }),
+            ),
+            (
+                "boolean budget",
+                serde_json::json!({
+                    "term": "T_num",
+                    "source": "exact ULP guard",
+                    "budget": true,
+                    "measured": null,
+                }),
+            ),
+            (
+                "object budget",
+                serde_json::json!({
+                    "term": "T_num",
+                    "source": "exact ULP guard",
+                    "budget": { "value": 0.0 },
+                    "measured": null,
+                }),
+            ),
+            (
+                "array budget",
+                serde_json::json!({
+                    "term": "T_num",
+                    "source": "exact ULP guard",
+                    "budget": [0.0],
+                    "measured": null,
+                }),
+            ),
+            (
+                "string measured value",
+                serde_json::json!({
+                    "term": "T_num",
+                    "source": "exact ULP guard",
+                    "budget": 0.0,
+                    "measured": "0.0",
+                }),
+            ),
+            (
+                "boolean measured value",
+                serde_json::json!({
+                    "term": "T_num",
+                    "source": "exact ULP guard",
+                    "budget": 0.0,
+                    "measured": false,
+                }),
+            ),
+            (
+                "object measured value",
+                serde_json::json!({
+                    "term": "T_num",
+                    "source": "exact ULP guard",
+                    "budget": 0.0,
+                    "measured": { "value": 0.0 },
+                }),
+            ),
+            (
+                "array measured value",
+                serde_json::json!({
+                    "term": "T_num",
+                    "source": "exact ULP guard",
+                    "budget": 0.0,
+                    "measured": [0.0],
+                }),
+            ),
         ] {
             assert!(
                 serde_json::from_value::<LatticeErrorContribution>(contribution).is_err(),
@@ -4288,7 +4360,7 @@ mod tests {
             "`lattice_error_contribution_serializes_public_accounting_keys`",
             "LatticeErrorContribution serializes only `term`, `source`, `budget`, and `measured` public keys",
             "`lattice_error_contribution_json_rejects_invalid_public_fields`",
-            "contribution JSON rejects negative budget, negative measured, and blank source fields",
+            "contribution JSON rejects negative budget, negative measured, blank source, and wrong-type budget/measured fields",
             "`contribution_measured_status_returns_none_for_invalid_public_fields`",
             "`lattice_budget_measured_status_returns_none_for_invalid_public_fields`",
             "semantic and numerical measured slices also remain pending when public fields are invalid",
