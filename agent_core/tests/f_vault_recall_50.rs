@@ -757,6 +757,22 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_sinhala.md",
             "Mamba ක cache Mamba ක cache architecture notes sinhala",
         ),
+        // Iter-279 (31st Unicode — Coptic-script extension):
+        // Latin "Mamba" + Coptic "ⲕ" (kapa, U+2CB1) + Latin
+        // "cache". Coptic descends from the Greek alphabet —
+        // used historically for the Egyptian language during
+        // the Christian era. Adds the Greek-descendant branch
+        // to the pin set (Coptic + Latin Latin-with-marks +
+        // Cyrillic + Glagolitic are all Greek-influenced or
+        // Greek-derived). Twenty-nine non-Latin scripts pinned
+        // (+ Coptic). Adds a SECOND African-origin language
+        // community via a non-African-typology script: Egyptian
+        // Christian use of Greek-derived Coptic, contrasting
+        // with iter-153 Ethiopic abugida and iter-213 Tifinagh.
+        (
+            "notes/mamba_coptic.md",
+            "Mamba ⲕ cache Mamba ⲕ cache architecture notes coptic",
+        ),
     ];
     for (path, content) in seeds {
         store
