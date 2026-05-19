@@ -65,6 +65,19 @@ freezes treat Metal output itself as proven.
 |---|---|---|---|---|---|---|
 | F-ULP-Oracle | Research | M2 Pro numeric falsifier | implemented-not-wired | `agent_core/src/research/eml_ir/`, `Epistemos/Shaders/morph_eval_reduced.metal`, `cargo test --features research research::eml_ir` | live Metal dispatch capture from `morphOracleFp16` | harden with GPU capture, subnormal/signed-zero diagnostics, WBO numerics cross-link, and Helios v3 §3.5/F7a reference |
 
+## Hardware Identifier Exclusion
+
+The witness JSON records the M2 Pro hardware pin (`MacBook Pro 14-inch 2023`,
+`Mac14,9`, `Apple M2 Pro`, 12 CPU cores, 19 GPU cores, 16 GB UMA,
+about 200 GB/s memory bandwidth) without serial number, software UUID,
+hardware UUID, ECID, hardware UUID `hwid`, board id, `ioplatform` token,
+IMEI, MEID, UDID, IDFA, IDFV, host id, Apple chip id, Apple boot nonce,
+or provisioning enrollment id, and without any ethernet MAC-shaped
+colon-separated hex pattern. Replay rejects a witness whose hardware pin
+diverges from the M2 Pro canon, so a candidate cannot pass by claiming
+different silicon while still publishing a hardware-identifying string the
+canon never emits.
+
 ## Reference Methodology
 
 Per-point ULP distance is measured against `f64::exp(x) - f64::ln(y)` rounded

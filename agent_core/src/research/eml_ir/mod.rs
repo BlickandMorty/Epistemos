@@ -84,6 +84,28 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_doc_documents_hardware_identifier_exclusion() {
+        assert!(FULP_FALSIFIER_DOC.contains("## Hardware Identifier Exclusion"));
+        assert!(FULP_FALSIFIER_DOC.contains("serial number"));
+        assert!(FULP_FALSIFIER_DOC.contains("software UUID"));
+        assert!(FULP_FALSIFIER_DOC.contains("hardware UUID"));
+        assert!(FULP_FALSIFIER_DOC.contains("ECID"));
+        assert!(FULP_FALSIFIER_DOC.contains("`hwid`"));
+        assert!(FULP_FALSIFIER_DOC.contains("board id"));
+        assert!(FULP_FALSIFIER_DOC.contains("`ioplatform`"));
+        assert!(FULP_FALSIFIER_DOC.contains("IMEI"));
+        assert!(FULP_FALSIFIER_DOC.contains("MEID"));
+        assert!(FULP_FALSIFIER_DOC.contains("UDID"));
+        assert!(FULP_FALSIFIER_DOC.contains("IDFA"));
+        assert!(FULP_FALSIFIER_DOC.contains("IDFV"));
+        assert!(FULP_FALSIFIER_DOC.contains("host id"));
+        assert!(FULP_FALSIFIER_DOC.contains("Apple chip id"));
+        assert!(FULP_FALSIFIER_DOC.contains("Apple boot nonce"));
+        assert!(FULP_FALSIFIER_DOC.contains("provisioning enrollment id"));
+        assert!(FULP_FALSIFIER_DOC.contains("ethernet MAC-shaped"));
+    }
+
+    #[test]
     fn falsifier_doc_documents_reference_methodology() {
         assert!(FULP_FALSIFIER_DOC.contains("## Reference Methodology"));
         assert!(FULP_FALSIFIER_DOC.contains("`f64::exp(x) - f64::ln(y)` rounded"));
