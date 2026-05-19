@@ -338,6 +338,10 @@ This backlog **only exists because of scope-lock**. Each terminal individually s
 
 The wiring phase is what turns "47K LOC of compiling substrate" into "the substrate is the moat" — the museum-piece-bar promise from the deep-investigation prompt's Manifesto. **Don't merge and then walk away.** Land the merges, then immediately enter Phase ε. The substrate is only as visible as the user-facing surfaces that consume it.
 
+## T18B ACS Admission Field append — 2026-05-19
+
+W-46/W-47 doc-only refresh: T18B owns the L/M shape contracts in `docs/ACS_ADMISSION_FIELD_2026_05_18.md` (`ACSAuditSink trait shape`, `InMemoryACSAuditSink for testing`, and `SCOPERexAdmissionProof shape`). T11 owns RunEventLog wire in `agent_runtime_v2/`; do not implement that wire from T18B Phase 1.
+
 ---
 
 *Authored 2026-05-17 in response to the user's directive: "make sure u are keeping track of all the things we did not do because of forcing them to be isolated. make sure its comprehensive to make sure that you build merge and connect and wire and code the user facing stuff and connection between features when they are done with what they can do." This doc is the comprehensive ledger that directive asks for.*

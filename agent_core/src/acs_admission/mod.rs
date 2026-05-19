@@ -7236,6 +7236,28 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_doc_pins_phase2_doc_only_contracts() {
+        let doc = include_str!("../../../docs/ACS_ADMISSION_FIELD_2026_05_18.md");
+        let backlog =
+            include_str!("../../../docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md");
+
+        for needle in [
+            "Phase 2 doc-only contracts",
+            "ACSAuditSink trait shape",
+            "InMemoryACSAuditSink for testing",
+            "SCOPERexAdmissionProof shape",
+            "T11 owns RunEventLog wire",
+        ] {
+            assert!(doc.contains(needle), "missing doc-only anchor: {needle}");
+        }
+
+        assert!(
+            backlog.contains("T11 owns RunEventLog wire"),
+            "missing W-row T11 wire ownership anchor"
+        );
+    }
+
+    #[test]
     fn acs_admission_all_verdict_paths_are_logged() {
         let cases = [
             (0.1, ACSAdmissionVerdict::Allow),

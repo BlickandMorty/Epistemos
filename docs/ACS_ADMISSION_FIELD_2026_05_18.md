@@ -63,6 +63,16 @@ Owner: T11 / SCOPE-Rex fusion consumer.
 
 Contract: SCOPE-Rex receives `SCOPERexAdmissionProof`, not the full audit body. The proof carries `ACSAdmissionVerdict`, `ACSOperationKind`, canonical `AuditRecordId` shaped as `acs:<request>:<decimal-suffix>` where `<request>` uses the canonical ACS audit-token alphabet and `<decimal-suffix>` has no leading-zero aliases, and `CapabilitySignature`; `AuditRecordId` decoding rejects non-canonical references, `CapabilitySignature` decoding rejects non-canonical lowercase-hex signatures, and proof decoding rejects non-allowing verdicts plus unknown fields so a full `ACSAuditRecord` cannot be smuggled into the proof envelope. Proof construction and validation reject non-allowing verdicts before signing and reject non-canonical lowercase-hex signatures. `signed_from_record` signs a domain-separated payload containing the verdict, operation, and record reference so tampering with any of them invalidates `verify_signature`. `verify_against_run_event_log` resolves the referenced RunEventLog record and verifies it in one call; `verify_against_record` remains the lower-level primitive. Mismatched record IDs, mismatched operations, mismatched verdicts, missing records, and invalid signatures fail closed. The `ACSAuditRecord` remains in RunEventLog; SCOPE-Rex consumes the signed record reference.
 
+## Phase 2 doc-only contracts
+
+T18B defines shapes only here; T11 owns RunEventLog wire in `agent_runtime_v2/`.
+
+L. `ACSAuditSink trait shape`: `record(&self, record: ACSAuditRecord) -> Result<(), ACSAuditError>`. Implementations must validate the record before accepting it, reject duplicate `record_id` values, preserve per-request verdict monotonicity, and never mutate durable app state directly from ACS admission. `InMemoryACSAuditSink for testing` mirrors those invariants without touching RunEventLog.
+
+M. `SCOPERexAdmissionProof shape`: `{ verdict: ACSAdmissionVerdict, operation: ACSOperationKind, record_id: AuditRecordId, signature: CapabilitySignature }`. The signature binds the domain, verdict, operation, and record reference; SCOPE-Rex receives the proof, then resolves the full `ACSAuditRecord` from RunEventLog through the T11-owned seam.
+
+N. W-row refresh remains doc-only until T11 fusion: W-46 consumes L, W-47 consumes M, and T11 owns RunEventLog wire plus UI propagation. T18B must not implement additional `agent_runtime_v2/` wiring in Phase 1.
+
 ## Layer Cross-Link
 
 ACS-L0 is current event/governance admission for MAS-shippable durable flow: `MutationEnvelope`, `MemoryWrite`, and `AnswerPacket`.
