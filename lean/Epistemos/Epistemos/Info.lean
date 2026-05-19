@@ -214,6 +214,21 @@ theorem bernoulliMirrorDescentEquivalenceObligationCarries :
     bernoulliMirrorDescentEquivalenceObligation.statement := by
   exact bernoulliMirrorDescentEquivalent
 
+def bernoulliCertificateTarget (p q : Real) : CertificateTarget :=
+  { expr := bernoulliKlProjection p q
+    convexity := some (bernoulliConvexLogPartitionObligation p)
+    positivity := bernoulliBregmanPositivityObligation p q
+    mirrorEquivalence := bernoulliMirrorDescentEquivalenceObligation }
+
+theorem bernoulliCertificateTargetFields (p q : Real) :
+    (bernoulliCertificateTarget p q).convexity =
+        some (bernoulliConvexLogPartitionObligation p) ∧
+      (bernoulliCertificateTarget p q).positivity =
+        bernoulliBregmanPositivityObligation p q ∧
+      (bernoulliCertificateTarget p q).mirrorEquivalence =
+        bernoulliMirrorDescentEquivalenceObligation := by
+  exact ⟨rfl, rfl, rfl⟩
+
 theorem schemaConstructorCountsPinned :
     expFamilyConstructorCount = 3 ∧ exprConstructorCount = 3 := by
   exact ⟨rfl, rfl⟩
