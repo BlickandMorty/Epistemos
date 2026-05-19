@@ -1266,6 +1266,8 @@ fn nested_finite_f64_json(
 #[derive(Deserialize)]
 struct RawTopLevelUnsigned<'a> {
     #[serde(default, borrow)]
+    point_count: Option<&'a RawValue>,
+    #[serde(default, borrow)]
     budget_target_millis: Option<&'a RawValue>,
     #[serde(default, borrow)]
     observed_wall_clock_millis: Option<&'a RawValue>,
@@ -1275,6 +1277,9 @@ fn reject_raw_top_level_unsigned_json(json: &str) -> Result<(), FulpReplayError>
     let Ok(raw_witness) = serde_json::from_str::<RawTopLevelUnsigned<'_>>(json) else {
         return Ok(());
     };
+    if let Some(value) = raw_witness.point_count {
+        raw_unsigned_integer_json(value, "point_count")?;
+    }
     if let Some(value) = raw_witness.budget_target_millis {
         raw_unsigned_integer_json(value, "budget_target_millis")?;
     }
@@ -2047,6 +2052,27 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("point_count"));
+    }
+
+    #[test]
+    fn replay_rejects_point_count_json_overflow_with_path() {
+        let json = acceptance_witness_json().unwrap();
+        let point_count = serde_json::from_str::<serde_json::Value>(&json).expect("witness json")
+            ["point_count"]
+            .as_u64()
+            .expect("point count");
+        let needle = format!("\"point_count\": {point_count}");
+        assert_eq!(json.matches(&needle).count(), 1);
+        let json = json.replacen(&needle, "\"point_count\": 1e999999", 1);
+        let error = replay_witness_json(&json).expect_err("point count overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
         );
         assert!(error
             .invalid_json_message()
