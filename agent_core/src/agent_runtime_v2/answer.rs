@@ -1061,6 +1061,40 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_display_field_order_is_blueprint_stop_tokens_citations() {
+        // Phase 1 hardening — Display field-ORDER pin. AnswerPacket
+        // Display format (answer.rs §107):
+        //   "AnswerPacket{{blueprint={}, stop={:?}, tokens={}, citations={}}}"
+        //
+        // The 4 fields appear in EXACTLY this order:
+        //   1. blueprint
+        //   2. stop
+        //   3. tokens
+        //   4. citations
+        //
+        // A future "let me reorder for alphabetical hygiene" refactor
+        // would silently break grep-based audit pipelines that key
+        // on positional offsets. Pin via find-position comparison.
+        let log = RunEventLog::new();
+        let packet = AnswerPacket::emit(
+            AgentBlueprintId("a".into()),
+            "x".into(),
+            vec![Citation::from_tuple("s", "l")],
+            StopReason::EndTurn,
+            BudgetLedger { tokens_used: 42, ..Default::default() },
+            &log,
+        );
+        let display = format!("{packet}");
+        let blueprint_pos = display.find("blueprint=").expect("blueprint field");
+        let stop_pos = display.find("stop=").expect("stop field");
+        let tokens_pos = display.find("tokens=").expect("tokens field");
+        let citations_pos = display.find("citations=").expect("citations field");
+        assert!(blueprint_pos < stop_pos, "blueprint must precede stop");
+        assert!(stop_pos < tokens_pos, "stop must precede tokens");
+        assert!(tokens_pos < citations_pos, "tokens must precede citations");
+    }
+
+    #[test]
     fn answer_packet_display_starts_with_literal_struct_name_prefix() {
         // Phase 1 hardening — wire-shape pin. AnswerPacket::Display
         // uses the format string
