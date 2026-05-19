@@ -1940,6 +1940,42 @@ mod tests {
     }
 
     #[test]
+    fn find_tool_calls_returns_ordinals_in_strictly_ascending_order() {
+        // Phase 1 hardening — ordering pin for find_tool_calls.
+        // Companion to find_capability_hash_returns_ordinals_in_strictly_ascending_order
+        // (iter-476).
+        //
+        // find_tool_calls walks entries in append order; the result
+        // ordinals must be strict-ascending (no equal, no descending).
+        // A future "let me index by tool_name and serve from a sorted
+        // set" refactor would silently fork the order.
+        use crate::agent_runtime_v2::mission::ToolCall;
+        let mut log = RunEventLog::new();
+        // 4 tool calls interleaved with other events.
+        log.append_event(AgentEvent::ToolCall {
+            call: ToolCall { name: "a".into(), arguments: serde_json::json!({}) },
+        }); // 0
+        log.append_event(AgentEvent::ReasoningDelta { text: "x".into() }); // 1
+        log.append_event(AgentEvent::ToolCall {
+            call: ToolCall { name: "b".into(), arguments: serde_json::json!({}) },
+        }); // 2
+        log.append_sealed_mutation(Hash::zero(), BudgetDebit::default()); // 3
+        log.append_event(AgentEvent::ToolCall {
+            call: ToolCall { name: "c".into(), arguments: serde_json::json!({}) },
+        }); // 4
+        log.append_event(AgentEvent::ToolCall {
+            call: ToolCall { name: "d".into(), arguments: serde_json::json!({}) },
+        }); // 5
+
+        let hits = log.find_tool_calls();
+        let ordinals: Vec<u64> = hits.iter().map(|(o, _)| *o).collect();
+        assert_eq!(ordinals, vec![0, 2, 4, 5]);
+        for pair in ordinals.windows(2) {
+            assert!(pair[0] < pair[1], "ordinals must be strictly ascending");
+        }
+    }
+
+    #[test]
     fn find_tool_calls_is_pure_deterministic_across_multiple_calls() {
         // Phase 1 hardening — pure-function determinism pin
         // (companion to the purity series). find_tool_calls walks
