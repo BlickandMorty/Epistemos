@@ -238,6 +238,47 @@ mod tests {
     use crate::agent_runtime_v2::event::AgentEvent;
 
     #[test]
+    fn answer_packet_emit_with_thinking_preserves_each_of_seven_stop_reasons() {
+        // Phase 1 hardening — completeness companion to
+        // answer_packet_emit_preserves_each_of_seven_stop_reasons
+        // (iter-448 emit variant). emit_with_thinking adds the
+        // thinking_digest pass-through; pin that every one of the 7
+        // StopReason variants AND a non-zero thinking_digest both
+        // survive the call.
+        //
+        // A future refactor that, e.g., zeroed thinking_digest for
+        // non-EndTurn variants ("thinking blocks only matter for
+        // successful runs") would silently strip the audit trail for
+        // error-path runs.
+        let log = RunEventLog::new();
+        let thinking = Hash::from_bytes([0xCD; 32]);
+        for reason in [
+            StopReason::EndTurn,
+            StopReason::ToolUse,
+            StopReason::MaxTokens,
+            StopReason::Refusal,
+            StopReason::BudgetExhausted,
+            StopReason::CapabilityDenied,
+            StopReason::Error,
+        ] {
+            let packet = AnswerPacket::emit_with_thinking(
+                AgentBlueprintId("multi-stop-with-thinking".into()),
+                "x".into(),
+                vec![],
+                reason,
+                BudgetLedger::default(),
+                &log,
+                thinking,
+            );
+            assert_eq!(packet.stop_reason, reason, "stop_reason pass-through");
+            assert_eq!(
+                packet.thinking_digest, thinking,
+                "thinking_digest must NOT be zeroed for {reason:?}"
+            );
+        }
+    }
+
+    #[test]
     fn answer_packet_emit_preserves_each_of_seven_stop_reasons() {
         // Phase 1 hardening — completeness companion to
         // answer_packet_emitted_with_typed_stop_reason (which only
