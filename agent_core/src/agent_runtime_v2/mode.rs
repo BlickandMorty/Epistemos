@@ -398,6 +398,17 @@ mod tests {
     }
 
     #[test]
+    fn mode_non_string_json_shapes_fail_to_deserialise() {
+        for bad in ["null", "true", "42", "[]", r#"{"mode":"disabled"}"#] {
+            let parsed: Result<AgentRuntimeV2Mode, _> = serde_json::from_str(bad);
+            assert!(
+                parsed.is_err(),
+                "non-string AgentRuntimeV2Mode JSON shape must fail: {bad}"
+            );
+        }
+    }
+
+    #[test]
     fn mode_helpers_are_pure_deterministic_across_multiple_calls() {
         // Phase 1 hardening — runtime determinism pin (companion to
         // iter-101 const-fn compile pin). allows_execution /
