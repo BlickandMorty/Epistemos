@@ -2298,6 +2298,33 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 32nd PureChatter row (iter-285): pure-chatter-noun-
+        // cluster shape — "notes files things". Three chatter-
+        // nouns stacked (the noun-class tokens within
+        // QUERY_CHATTER_WORDS: note/notes/file/files/stuff/
+        // thing/things). SEVENTH pure-vocabulary-cluster shape
+        // (wh / pronoun / preposition / be-verb / modal /
+        // conjunction / chatter-noun). All 3 tokens in
+        // QUERY_CHATTER_WORDS.
+        query: "notes files things",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Thirty-second PureChatter row (iter-285): pure-\
+               chatter-noun-cluster shape (\"notes files \
+               things\"). Three chatter-nouns from the QUERY_\
+               CHATTER_WORDS noun-class (notes/files/things). \
+               SEVENTH pure-vocabulary-cluster shape (wh / \
+               pronoun / preposition / be-verb / modal / \
+               conjunction / chatter-noun). Brings PureChatter \
+               to depth 32 — second category past depth-31 \
+               horizon. All 3 tokens in QUERY_CHATTER_WORDS.",
+    },
+    FVaultRecallRow {
         // 31st PureChatter row (iter-278): 9-token long-input
         // shape — "please can you give me all of my notes".
         // Extends the long-input cardinality progression to 9
