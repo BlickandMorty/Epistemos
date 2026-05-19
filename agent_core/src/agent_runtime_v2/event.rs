@@ -1013,6 +1013,37 @@ mod tests {
     }
 
     #[test]
+    fn stop_helper_produces_correct_variant_for_every_seven_stop_reasons() {
+        // Phase 1 hardening — variant-completeness companion to
+        // stop_helper_produces_correct_variant (which only exercises
+        // BudgetExhausted). The AgentEvent::stop helper must wrap
+        // every one of the 7 StopReason variants into AgentEvent::Stop
+        // verbatim AND the resulting event must be is_terminal().
+        //
+        // A future "let me filter stop helper to ONLY accept EndTurn
+        // for production safety" tightening would silently break the
+        // error-path stop construction (BudgetExhausted, CapabilityDenied,
+        // etc).
+        for reason in [
+            StopReason::EndTurn,
+            StopReason::ToolUse,
+            StopReason::MaxTokens,
+            StopReason::Refusal,
+            StopReason::BudgetExhausted,
+            StopReason::CapabilityDenied,
+            StopReason::Error,
+        ] {
+            let ev = AgentEvent::stop(reason);
+            match ev {
+                AgentEvent::Stop { reason: r } => assert_eq!(r, reason),
+                other => panic!("expected Stop variant for {reason:?}, got {other:?}"),
+            }
+            assert!(AgentEvent::stop(reason).is_terminal(),
+                "stop event for {reason:?} must be terminal");
+        }
+    }
+
+    #[test]
     fn agent_event_unknown_event_type_tag_fails_to_deserialise() {
         // Phase 1 hardening — closed-taxonomy guardrail symmetric to
         // mode::unknown_mode_string_fails_to_deserialise. The
