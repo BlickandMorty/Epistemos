@@ -197,7 +197,11 @@ mod tests {
             arguments: serde_json::json!({}),
         };
         match bad.validate() {
-            Err(ToolCallError::BadName { name, bad_char, index }) => {
+            Err(ToolCallError::BadName {
+                name,
+                bad_char,
+                index,
+            }) => {
                 assert_eq!(name, "vault read");
                 assert_eq!(bad_char, ' ');
                 assert_eq!(index, 5);
@@ -228,11 +232,8 @@ mod tests {
         // validate() and reach the variant_ladder dispatcher with
         // attacker-controlled separators.
         let adversarial_chars = [
-            '/', '\\',
-            ';', '&', '|', '$', '!', '*', '?', '<', '>',
-            '"', '\'', '`',
-            '(', ')', '{', '}', '[', ']',
-            ':', ',', '=',
+            '/', '\\', ';', '&', '|', '$', '!', '*', '?', '<', '>', '"', '\'', '`', '(', ')', '{',
+            '}', '[', ']', ':', ',', '=',
         ];
         for ch in adversarial_chars {
             let name = format!("vault{ch}read");
@@ -241,7 +242,11 @@ mod tests {
                 arguments: serde_json::json!({}),
             };
             match bad.validate() {
-                Err(ToolCallError::BadName { name: n, bad_char, index }) => {
+                Err(ToolCallError::BadName {
+                    name: n,
+                    bad_char,
+                    index,
+                }) => {
                     assert_eq!(n, name, "BadName.name must echo input for {ch}");
                     assert_eq!(
                         bad_char, ch,
@@ -252,9 +257,7 @@ mod tests {
                         "BadName.index must locate the offending char position for {ch:?}"
                     );
                 }
-                other => panic!(
-                    "expected BadName for adversarial char {ch:?}, got {other:?}"
-                ),
+                other => panic!("expected BadName for adversarial char {ch:?}, got {other:?}"),
             }
         }
     }
@@ -291,7 +294,10 @@ mod tests {
             name: "vault.read.".to_string(),
             arguments: serde_json::json!({}),
         };
-        assert!(matches!(bad2.validate(), Err(ToolCallError::BadName { .. })));
+        assert!(matches!(
+            bad2.validate(),
+            Err(ToolCallError::BadName { .. })
+        ));
         // Single-char "." is both leading and trailing — must reject
         // (already implicitly covered by starts_with, but pin
         // explicitly for the boundary).
@@ -299,7 +305,10 @@ mod tests {
             name: ".".to_string(),
             arguments: serde_json::json!({}),
         };
-        assert!(matches!(single_dot.validate(), Err(ToolCallError::BadName { .. })));
+        assert!(matches!(
+            single_dot.validate(),
+            Err(ToolCallError::BadName { .. })
+        ));
     }
 
     #[test]
@@ -349,7 +358,9 @@ mod tests {
                 name,
                 arguments: serde_json::json!({}),
             };
-            let err = bad.validate().expect_err(&format!("char {ch:?} must reject"));
+            let err = bad
+                .validate()
+                .expect_err(&format!("char {ch:?} must reject"));
             assert!(
                 matches!(err, ToolCallError::BadName { .. }),
                 "expected BadName for char {ch:?}, got {err:?}"
@@ -399,7 +410,9 @@ mod tests {
             arguments: serde_json::json!({"path": "a"}),
         };
         let json = serde_json::to_value(&call).expect("serialise");
-        let obj = json.as_object().expect("ToolCall serialises as JSON object");
+        let obj = json
+            .as_object()
+            .expect("ToolCall serialises as JSON object");
         for key in ["name", "arguments"] {
             assert!(
                 obj.contains_key(key),
@@ -447,8 +460,7 @@ mod tests {
             // the validator, only size matters and these are tiny).
             call.validate().expect("validation passes");
             let s = serde_json::to_string(&call).expect("serialise");
-            let back: ToolCall =
-                serde_json::from_str(&s).expect("deserialise");
+            let back: ToolCall = serde_json::from_str(&s).expect("deserialise");
             assert_eq!(back, call, "tool call arguments must round-trip byte-equal");
             // Spot-check the round-tripped arguments deep-equal.
             assert_eq!(back.arguments, args);
@@ -519,8 +531,7 @@ mod tests {
         let mut augmented = String::with_capacity(s.len() + 50);
         augmented.push_str(&s[..last_brace]);
         augmented.push_str(r#","future_field":"some-experimental-value"}"#);
-        let parsed: ToolCall =
-            serde_json::from_str(&augmented).expect("unknown field tolerated");
+        let parsed: ToolCall = serde_json::from_str(&augmented).expect("unknown field tolerated");
         assert_eq!(parsed, call);
     }
 
@@ -550,7 +561,11 @@ mod tests {
             index: 5,
         };
         match bad_name {
-            ToolCallError::BadName { name, bad_char, index } => {
+            ToolCallError::BadName {
+                name,
+                bad_char,
+                index,
+            } => {
                 let _: String = name;
                 let _: char = bad_char;
                 let _: usize = index;
@@ -558,7 +573,10 @@ mod tests {
             _ => unreachable!(),
         }
 
-        let oversize_name = ToolCallError::OversizeName { size: 999, cap: 256 };
+        let oversize_name = ToolCallError::OversizeName {
+            size: 999,
+            cap: 256,
+        };
         match oversize_name {
             ToolCallError::OversizeName { size, cap } => {
                 let _: usize = size;
@@ -664,9 +682,15 @@ mod tests {
                 bad_char: ' ',
                 index: 0,
             },
-            ToolCallError::OversizeName { size: 999, cap: 256 },
+            ToolCallError::OversizeName {
+                size: 999,
+                cap: 256,
+            },
             ToolCallError::BadArguments("parse fail".into()),
-            ToolCallError::OversizeArguments { size: 99_999, cap: 65_536 },
+            ToolCallError::OversizeArguments {
+                size: 99_999,
+                cap: 65_536,
+            },
         ];
         assert_eq!(variants.len(), 5);
         for i in 0..variants.len() {
@@ -696,7 +720,10 @@ mod tests {
         let dbg = format!("{err:?}");
         assert!(dbg.starts_with("BadName"), "got {dbg}");
 
-        let err = ToolCallError::OversizeName { size: 1000, cap: 256 };
+        let err = ToolCallError::OversizeName {
+            size: 1000,
+            cap: 256,
+        };
         let dbg = format!("{err:?}");
         assert!(dbg.starts_with("OversizeName"), "got {dbg}");
 
@@ -704,7 +731,10 @@ mod tests {
         let dbg = format!("{err:?}");
         assert!(dbg.starts_with("BadArguments"), "got {dbg}");
 
-        let err = ToolCallError::OversizeArguments { size: 1_000_000, cap: 65_536 };
+        let err = ToolCallError::OversizeArguments {
+            size: 1_000_000,
+            cap: 65_536,
+        };
         let dbg = format!("{err:?}");
         assert!(dbg.starts_with("OversizeArguments"), "got {dbg}");
     }
@@ -747,10 +777,10 @@ mod tests {
             "-experimental",
             "__init__",
             "--reset",
-            "-",          // pure hyphen — single char
-            "_",          // pure underscore — single char
-            "-1",         // leading hyphen + digit
-            "_v2.read",   // leading underscore + dot + word
+            "-",        // pure hyphen — single char
+            "_",        // pure underscore — single char
+            "-1",       // leading hyphen + digit
+            "_v2.read", // leading underscore + dot + word
         ] {
             let call = ToolCall {
                 name: name.to_string(),
@@ -775,13 +805,13 @@ mod tests {
         // strips the 'v'). Pin current behaviour so the doctrine
         // call is visible at PR review.
         for name in [
-            "9",           // pure single digit
-            "9.read",      // digit + dot + word
-            "123",         // pure digits
-            "v2.search",   // starts with letter, contains digit
-            "2.search",    // starts with digit
-            "0.0.1",       // version-like
-            "abc-1",       // alphanumeric + hyphen
+            "9",         // pure single digit
+            "9.read",    // digit + dot + word
+            "123",       // pure digits
+            "v2.search", // starts with letter, contains digit
+            "2.search",  // starts with digit
+            "0.0.1",     // version-like
+            "abc-1",     // alphanumeric + hyphen
         ] {
             let call = ToolCall {
                 name: name.to_string(),
@@ -827,19 +857,20 @@ mod tests {
         // Test fixtures pick canonical-looking uppercase / mixed-case
         // names a Claude / OpenAI provider might emit:
         for name in [
-            "Vault.Read",           // PascalCase namespace + verb
-            "VAULT.READ",           // SCREAMING_CASE
-            "vault.READ",           // mixed case in verb
-            "Vault_search",         // PascalCase namespace + snake verb
-            "VaultSearch",          // no separator, pascal
-            "ABC123.xyz",           // alphanumeric mixed
+            "Vault.Read",   // PascalCase namespace + verb
+            "VAULT.READ",   // SCREAMING_CASE
+            "vault.READ",   // mixed case in verb
+            "Vault_search", // PascalCase namespace + snake verb
+            "VaultSearch",  // no separator, pascal
+            "ABC123.xyz",   // alphanumeric mixed
         ] {
             let call = ToolCall {
                 name: name.to_string(),
                 arguments: serde_json::json!({}),
             };
-            call.validate()
-                .unwrap_or_else(|e| panic!("uppercase name {name:?} currently accepted but got {e:?}"));
+            call.validate().unwrap_or_else(|e| {
+                panic!("uppercase name {name:?} currently accepted but got {e:?}")
+            });
         }
         // Sanity preserved — the lowercase-only doctrine still
         // accepts every name in the documented charset.
@@ -847,7 +878,9 @@ mod tests {
             name: "vault.read".into(),
             arguments: serde_json::json!({}),
         };
-        lowercase.validate().expect("lowercase canonical name accepted");
+        lowercase
+            .validate()
+            .expect("lowercase canonical name accepted");
     }
 
     #[test]
@@ -871,9 +904,8 @@ mod tests {
                 name: name.to_string(),
                 arguments: serde_json::json!({}),
             };
-            call.validate().unwrap_or_else(|e| {
-                panic!("single-char name {name:?} must validate, got {e:?}")
-            });
+            call.validate()
+                .unwrap_or_else(|e| panic!("single-char name {name:?} must validate, got {e:?}"));
         }
     }
 
@@ -956,20 +988,19 @@ mod tests {
         // object" tightening would silently break callers that pass
         // null/bool/number-only arguments.
         for args in [
-            serde_json::json!({}),       // empty object: "{}" (2 bytes)
-            serde_json::json!(null),     // JSON null: "null" (4 bytes)
-            serde_json::json!(false),    // JSON false: "false" (5 bytes)
-            serde_json::json!(0),        // integer zero: "0" (1 byte)
-            serde_json::json!(""),       // empty string: "\"\"" (2 bytes)
-            serde_json::json!([]),       // empty array: "[]" (2 bytes)
+            serde_json::json!({}),    // empty object: "{}" (2 bytes)
+            serde_json::json!(null),  // JSON null: "null" (4 bytes)
+            serde_json::json!(false), // JSON false: "false" (5 bytes)
+            serde_json::json!(0),     // integer zero: "0" (1 byte)
+            serde_json::json!(""),    // empty string: "\"\"" (2 bytes)
+            serde_json::json!([]),    // empty array: "[]" (2 bytes)
         ] {
             let call = ToolCall {
                 name: "vault.read".into(),
                 arguments: args.clone(),
             };
-            call.validate().unwrap_or_else(|e| {
-                panic!("minimum arguments {args:?} must validate, got {e:?}")
-            });
+            call.validate()
+                .unwrap_or_else(|e| panic!("minimum arguments {args:?} must validate, got {e:?}"));
         }
     }
 
@@ -1075,8 +1106,10 @@ mod tests {
             ("research-assistant", "vault/notes"),
             ("a", "b"),
             ("agent_with_underscore", "vault/with/slashes"),
-            ("a-very-long-distinctive-blueprint-identifier-12345",
-             "another-very-long-scope-string-abcdef"),
+            (
+                "a-very-long-distinctive-blueprint-identifier-12345",
+                "another-very-long-scope-string-abcdef",
+            ),
         ] {
             let mp = MissionPacket {
                 blueprint_id: AgentBlueprintId(blueprint.to_string()),
@@ -1157,10 +1190,14 @@ mod tests {
             vault_scope: "s".into(),
         };
         let display = format!("{mp}");
-        assert!(display.starts_with("MissionPacket{"),
-            "Display must start with literal 'MissionPacket{{', got: {display}");
-        assert!(display.ends_with('}'),
-            "Display must end with literal '}}', got: {display}");
+        assert!(
+            display.starts_with("MissionPacket{"),
+            "Display must start with literal 'MissionPacket{{', got: {display}"
+        );
+        assert!(
+            display.ends_with('}'),
+            "Display must end with literal '}}', got: {display}"
+        );
     }
 
     #[test]
@@ -1190,10 +1227,14 @@ mod tests {
         };
         let display = format!("{mp}");
         // Quotes and backslashes appear RAW (no JSON-escape).
-        assert!(display.contains(r#"agent "with quotes""#),
-            "blueprint_id quotes must appear raw, got {display}");
-        assert!(display.contains(r#"vault\windows\style"#),
-            "vault_scope backslashes must appear raw, got {display}");
+        assert!(
+            display.contains(r#"agent "with quotes""#),
+            "blueprint_id quotes must appear raw, got {display}"
+        );
+        assert!(
+            display.contains(r#"vault\windows\style"#),
+            "vault_scope backslashes must appear raw, got {display}"
+        );
         // Prompt absent.
         assert!(!display.contains("hidden body"));
     }
@@ -1264,22 +1305,14 @@ mod tests {
 
     #[test]
     fn mission_packet_new_constructor_validates_and_constructs() {
-        let ok = MissionPacket::new(
-            AgentBlueprintId("a".into()),
-            "small prompt",
-            "vault/notes",
-        )
-        .expect("under-cap prompt accepted");
+        let ok = MissionPacket::new(AgentBlueprintId("a".into()), "small prompt", "vault/notes")
+            .expect("under-cap prompt accepted");
         assert_eq!(ok.user_prompt, "small prompt");
         assert_eq!(ok.vault_scope, "vault/notes");
 
         let too_big_prompt = "x".repeat(MissionPacket::MAX_PROMPT_BYTES + 1);
-        let err = MissionPacket::new(
-            AgentBlueprintId("a".into()),
-            too_big_prompt,
-            "vault",
-        )
-        .expect_err("over-cap prompt rejected");
+        let err = MissionPacket::new(AgentBlueprintId("a".into()), too_big_prompt, "vault")
+            .expect_err("over-cap prompt rejected");
         assert!(matches!(err, MissionPromptError::OversizePrompt { .. }));
     }
 
@@ -1327,22 +1360,14 @@ mod tests {
         // payload behind an opaque message" refactor.
         // At exactly MAX_PROMPT_BYTES: must accept.
         let at_cap_prompt = "x".repeat(MissionPacket::MAX_PROMPT_BYTES);
-        let ok = MissionPacket::new(
-            AgentBlueprintId("a".into()),
-            at_cap_prompt.clone(),
-            "vault",
-        )
-        .expect("at-cap prompt must accept through new()");
+        let ok = MissionPacket::new(AgentBlueprintId("a".into()), at_cap_prompt.clone(), "vault")
+            .expect("at-cap prompt must accept through new()");
         assert_eq!(ok.user_prompt.len(), MissionPacket::MAX_PROMPT_BYTES);
 
         // Over-by-one: must reject with EXACT (size, cap) attribution.
         let over_by_one = "x".repeat(MissionPacket::MAX_PROMPT_BYTES + 1);
-        let err = MissionPacket::new(
-            AgentBlueprintId("a".into()),
-            over_by_one.clone(),
-            "vault",
-        )
-        .expect_err("over-by-one prompt must reject through new()");
+        let err = MissionPacket::new(AgentBlueprintId("a".into()), over_by_one.clone(), "vault")
+            .expect_err("over-by-one prompt must reject through new()");
         assert_eq!(
             err,
             MissionPromptError::OversizePrompt {
@@ -1350,6 +1375,40 @@ mod tests {
                 cap: MissionPacket::MAX_PROMPT_BYTES,
             },
             "new() must surface the exact (size, cap) attribution, not just the variant shape"
+        );
+    }
+
+    #[test]
+    fn mission_packet_new_constructor_rejects_unicode_prompt_by_exact_byte_size() {
+        // Phase 1 hardening — MissionPromptError::OversizePrompt
+        // fixture for the ergonomic constructor path. The direct
+        // validate_prompt path already proves bytes-not-chars for
+        // Unicode; this pins that MissionPacket::new preserves the
+        // same exact (size, cap) error attribution after consuming
+        // impl Into<String>.
+        let prompt = "🚀".repeat(MissionPacket::MAX_PROMPT_BYTES / 4 + 1);
+        assert!(
+            prompt.len() > MissionPacket::MAX_PROMPT_BYTES,
+            "fixture must exceed byte cap"
+        );
+        assert!(
+            prompt.chars().count() < MissionPacket::MAX_PROMPT_BYTES,
+            "fixture must stay under a mistaken char-count cap"
+        );
+
+        let err = MissionPacket::new(
+            AgentBlueprintId("unicode-oversize".into()),
+            prompt.clone(),
+            "vault",
+        )
+        .expect_err("unicode prompt over byte cap must reject through new()");
+        assert_eq!(
+            err,
+            MissionPromptError::OversizePrompt {
+                size: prompt.len(),
+                cap: MissionPacket::MAX_PROMPT_BYTES,
+            },
+            "new() must report exact byte size for Unicode prompts"
         );
     }
 
@@ -1439,7 +1498,9 @@ mod tests {
             size: 200_000,
             cap: 131_072,
         };
-        let _a = e; let _b = e; assert_eq!(e, e);
+        let _a = e;
+        let _b = e;
+        assert_eq!(e, e);
     }
 
     #[test]
@@ -1558,12 +1619,8 @@ mod tests {
         // that the runtime doesn't enforce a non-empty lower bound
         // on either; vault_scope is intentionally allowed to be ""
         // (a fully unbounded vault read). Pin the current doctrine.
-        let ok = MissionPacket::new(
-            AgentBlueprintId("probe".into()),
-            "",
-            "",
-        )
-        .expect("both empty fields accepted today");
+        let ok = MissionPacket::new(AgentBlueprintId("probe".into()), "", "")
+            .expect("both empty fields accepted today");
         assert_eq!(ok.user_prompt, "");
         assert_eq!(ok.vault_scope, "");
         // validate_prompt agrees.
@@ -1579,12 +1636,8 @@ mod tests {
         // MissionPromptError::Empty variant, this test surfaces the
         // behaviour change at PR review rather than letting it slip
         // silently into release.
-        let ok = MissionPacket::new(
-            AgentBlueprintId("probe".into()),
-            "",
-            "vault/probe",
-        )
-        .expect("empty prompt is currently allowed");
+        let ok = MissionPacket::new(AgentBlueprintId("probe".into()), "", "vault/probe")
+            .expect("empty prompt is currently allowed");
         ok.validate_prompt()
             .expect("validate_prompt agrees: no lower bound");
         assert_eq!(ok.user_prompt, "");
@@ -1642,7 +1695,9 @@ mod tests {
             user_prompt: too_big,
             vault_scope: "vault".into(),
         };
-        let err = mp.validate_prompt().expect_err("over-cap prompt must reject");
+        let err = mp
+            .validate_prompt()
+            .expect_err("over-cap prompt must reject");
         assert_eq!(
             err,
             MissionPromptError::OversizePrompt {
@@ -1764,9 +1819,11 @@ mod tests {
                 vault_scope: "vault".into(),
             };
             let s = serde_json::to_string(&mp).expect("serialise");
-            let back: MissionPacket =
-                serde_json::from_str(&s).expect("deserialise");
-            assert_eq!(back.user_prompt, prompt, "prompt must round-trip byte-equal");
+            let back: MissionPacket = serde_json::from_str(&s).expect("deserialise");
+            assert_eq!(
+                back.user_prompt, prompt,
+                "prompt must round-trip byte-equal"
+            );
             assert_eq!(back, mp);
         }
     }
@@ -1801,8 +1858,7 @@ mod tests {
                 vault_scope: scope.into(),
             };
             let s = serde_json::to_string(&mp).expect("serialise unicode");
-            let back: MissionPacket =
-                serde_json::from_str(&s).expect("deserialise unicode");
+            let back: MissionPacket = serde_json::from_str(&s).expect("deserialise unicode");
             assert_eq!(back, mp, "round-trip drift on {prompt:?} / {scope:?}");
             assert_eq!(back.user_prompt, prompt);
             assert_eq!(back.vault_scope, scope);
@@ -1868,7 +1924,10 @@ mod tests {
         // Argument-shape changes also count: same key, different value type.
         let mut diff_args_shape = base.clone();
         diff_args_shape.arguments = serde_json::json!({"path": 42});
-        assert_ne!(diff_args_shape, base, "argument-type changes must change identity");
+        assert_ne!(
+            diff_args_shape, base,
+            "argument-type changes must change identity"
+        );
 
         // Sanity preserved.
         assert_eq!(base.clone(), base);
@@ -1928,7 +1987,11 @@ mod tests {
             user_prompt: "u".into(),
             vault_scope: "v".into(),
         };
-        let MissionPacket { blueprint_id, user_prompt, vault_scope } = mp;
+        let MissionPacket {
+            blueprint_id,
+            user_prompt,
+            vault_scope,
+        } = mp;
         let _: AgentBlueprintId = blueprint_id;
         let _: String = user_prompt;
         let _: String = vault_scope;
@@ -1964,11 +2027,17 @@ mod tests {
 
         let mut diff_prompt = base.clone();
         diff_prompt.user_prompt.push_str("X");
-        assert_ne!(diff_prompt, base, "user_prompt must participate in PartialEq");
+        assert_ne!(
+            diff_prompt, base,
+            "user_prompt must participate in PartialEq"
+        );
 
         let mut diff_scope = base.clone();
         diff_scope.vault_scope = "vault/other".into();
-        assert_ne!(diff_scope, base, "vault_scope must participate in PartialEq");
+        assert_ne!(
+            diff_scope, base,
+            "vault_scope must participate in PartialEq"
+        );
 
         // Sanity preserved: unmodified clone still equals base.
         assert_eq!(base.clone(), base);
@@ -1992,9 +2061,7 @@ mod tests {
             vault_scope: "vault/notes".into(),
         };
         let s = serde_json::to_string(&base).expect("serialise");
-        let augmented = s
-            .trim_end_matches('}')
-            .to_string()
+        let augmented = s.trim_end_matches('}').to_string()
             + r#","future_routing_hint":"experimental-tier-3-prep"}"#;
         let parsed: MissionPacket =
             serde_json::from_str(&augmented).expect("unknown field tolerated");
@@ -2016,14 +2083,12 @@ mod tests {
             vault_scope: "v".into(),
         };
         let s = serde_json::to_string(&mp).expect("serialise");
-        let expected_keys_in_order = [
-            "\"blueprint_id\":",
-            "\"user_prompt\":",
-            "\"vault_scope\":",
-        ];
+        let expected_keys_in_order = ["\"blueprint_id\":", "\"user_prompt\":", "\"vault_scope\":"];
         let mut last_idx: Option<usize> = None;
         for key in expected_keys_in_order {
-            let pos = s.find(key).unwrap_or_else(|| panic!("key {key} not found in {s}"));
+            let pos = s
+                .find(key)
+                .unwrap_or_else(|| panic!("key {key} not found in {s}"));
             if let Some(prev) = last_idx {
                 assert!(
                     pos > prev,
@@ -2048,7 +2113,9 @@ mod tests {
             vault_scope: "v".into(),
         };
         let json = serde_json::to_value(&mp).expect("serialise");
-        let obj = json.as_object().expect("MissionPacket serialises as JSON object");
+        let obj = json
+            .as_object()
+            .expect("MissionPacket serialises as JSON object");
         for key in ["blueprint_id", "user_prompt", "vault_scope"] {
             assert!(
                 obj.contains_key(key),
@@ -2094,7 +2161,11 @@ mod tests {
         // Unicode, special chars, leading/trailing whitespace,
         // multi-byte tabs.
         let fixtures: &[(&str, &str, &str)] = &[
-            ("research-assistant", "Summarise the May notes", "vault/notes"),
+            (
+                "research-assistant",
+                "Summarise the May notes",
+                "vault/notes",
+            ),
             ("a", "", ""),
             ("b", "  leading whitespace", "vault/notes  "),
             ("c", "tab\there", "\tindented\t"),
@@ -2102,12 +2173,8 @@ mod tests {
             ("d", "\"quoted\"\nlines", "vault\\\\path"),
         ];
         for (bid, prompt, scope) in fixtures {
-            let via_new = MissionPacket::new(
-                AgentBlueprintId((*bid).to_string()),
-                *prompt,
-                *scope,
-            )
-            .expect("under-cap fixture must accept");
+            let via_new = MissionPacket::new(AgentBlueprintId((*bid).to_string()), *prompt, *scope)
+                .expect("under-cap fixture must accept");
             let via_struct = MissionPacket {
                 blueprint_id: AgentBlueprintId((*bid).to_string()),
                 user_prompt: (*prompt).to_string(),
