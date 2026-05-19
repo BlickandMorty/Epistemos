@@ -758,6 +758,11 @@ impl VaultBackend for VaultStore {
             trace.add_note(format!(
                 "Zero-result guard: tag filter culled {pool_size} lexical matches"
             ));
+        } else if !tag_filter.is_empty() && results.len() < pool_size {
+            trace.add_note(format!(
+                "Tag filter retained {} of {pool_size} lexical matches",
+                results.len()
+            ));
         }
         for (result, excerpt) in results.iter().zip(trace_excerpts.into_iter()) {
             let mut candidate = RetrievalCandidate::new(result.path.clone(), result.score)
@@ -1199,6 +1204,14 @@ mod tests {
             "tag_filter must reveal a pool > retained delta: pool = {}, retained = {}",
             trace.candidate_pool_size,
             trace.candidates_retained
+        );
+        assert!(
+            trace
+                .notes
+                .iter()
+                .any(|note| note.contains("Tag filter retained")),
+            "trace must explain partial tag culling: {:?}",
+            trace.notes
         );
     }
 
