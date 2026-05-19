@@ -1987,6 +1987,39 @@ mod tests {
     }
 
     #[test]
+    fn mutation_envelope_vec_u8_payload_round_trips_through_serde_byte_for_byte() {
+        // Phase 1 hardening — binary-payload pin for MutationEnvelope<Vec<u8>>.
+        // Companion to the String-payload Unicode + JSON-special pins.
+        //
+        // serde_json's default Vec<u8> serialise is as a JSON ARRAY of
+        // numbers (e.g., [0, 1, 255, 254]), NOT a base64 string —
+        // pin this lossless representation.
+        //
+        // Binary payloads cover: thinking-block bytes serialised into
+        // an envelope, image bytes for vision tools, raw protobuf
+        // bytes, etc. A future #[serde(with = "...")] base64 escape
+        // would silently change the on-disk representation.
+        let payload: Vec<u8> = (0..=255u8).collect();
+        let envelope = MutationEnvelope::new(
+            Hash::zero(),
+            BudgetDebit::default(),
+            payload.clone(),
+        );
+        let s = serde_json::to_string(&envelope).expect("serialise");
+        let back: MutationEnvelope<Vec<u8>> =
+            serde_json::from_str(&s).expect("deserialise");
+        assert_eq!(back.payload.len(), 256);
+        assert_eq!(back.payload, payload, "Vec<u8> payload must round-trip byte-equal");
+        assert_eq!(back, envelope);
+
+        // Serialised form contains the JSON-array literal (no base64).
+        // Spot-check: 0 + 255 + 128 all appear as bare numerals.
+        assert!(s.contains("0"));
+        assert!(s.contains("255"));
+        assert!(s.contains("128"));
+    }
+
+    #[test]
     fn mutation_envelope_preserves_json_special_chars_in_payload_through_serde() {
         // Phase 1 hardening — adversarial JSON pin for MutationEnvelope<String>
         // (companion to mission_packet iter-413, answer_packet iter-414,
