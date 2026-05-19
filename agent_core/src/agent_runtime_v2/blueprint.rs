@@ -492,6 +492,64 @@ mod tests {
     }
 
     #[test]
+    fn aggregate_required_modes_holds_for_100_blueprint_batch_and_returns_ordered_set(
+    ) {
+        // Phase 1 hardening MILESTONE iter-400 — scale + ordering pin
+        // for the batch aggregator. Existing tests cover small fixtures
+        // (0/1/3 blueprints). This pin scales to 100 blueprints
+        // alternating local + cli + local + ... and asserts:
+        //
+        //   1) The result set has cardinality 2 (both modes appear).
+        //   2) BTreeSet ordering: Disabled < IpcBounded < Subprocess.
+        //   3) Pure determinism: 3 successive calls produce byte-equal sets.
+        //   4) Empty subset / homogeneous subset preserved (50 of each
+        //      half produce the same final union).
+        //
+        // Defends against a future "let me hash-dedup with FxHasher
+        // for 'speed'" refactor that would silently break BTreeSet
+        // ordering — audit dashboards may rely on the
+        // privilege-ascending walk through the result.
+        let mut batch = Vec::with_capacity(100);
+        for i in 0..100 {
+            if i % 2 == 0 {
+                batch.push(local_blueprint());
+            } else {
+                batch.push(cli_blueprint());
+            }
+        }
+
+        let result1 = AgentBlueprint::aggregate_required_modes(&batch);
+        let result2 = AgentBlueprint::aggregate_required_modes(&batch);
+        let result3 = AgentBlueprint::aggregate_required_modes(&batch);
+        assert_eq!(result1, result2, "determinism");
+        assert_eq!(result2, result3, "determinism");
+
+        // Cardinality.
+        assert_eq!(result1.len(), 2);
+
+        // Privilege-ascending order via BTreeSet's Ord-driven iter.
+        let walk: Vec<AgentRuntimeV2Mode> = result1.iter().copied().collect();
+        assert_eq!(
+            walk,
+            vec![AgentRuntimeV2Mode::IpcBounded, AgentRuntimeV2Mode::Subprocess],
+            "BTreeSet must walk privilege-ascending"
+        );
+
+        // Disabled NEVER appears regardless of batch size.
+        assert!(!result1.contains(&AgentRuntimeV2Mode::Disabled));
+
+        // Two halves (locals-only + clis-only) UNION should equal the
+        // alternating-batch result.
+        let locals_only: Vec<_> = (0..50).map(|_| local_blueprint()).collect();
+        let clis_only: Vec<_> = (0..50).map(|_| cli_blueprint()).collect();
+        let half_a = AgentBlueprint::aggregate_required_modes(&locals_only);
+        let half_b = AgentBlueprint::aggregate_required_modes(&clis_only);
+        let union: std::collections::BTreeSet<_> =
+            half_a.union(&half_b).copied().collect();
+        assert_eq!(union, result1, "union of halves must equal alternating result");
+    }
+
+    #[test]
     fn aggregate_required_modes_returns_minimum_set_for_batch() {
         // Empty batch → empty set.
         let empty = AgentBlueprint::aggregate_required_modes(&[]);
