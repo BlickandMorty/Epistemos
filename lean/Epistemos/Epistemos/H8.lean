@@ -36,7 +36,17 @@ inductive OspcOp : Type
 def OspcOp.all : List OspcOp :=
   [.bind, .unbind, .gate, .route, .commit, .reorder, .merge, .split, .quarantine]
 
+/-- The currently shipped 4-mirror dispatch subset. -/
+def shippedMirrorDispatchCount : Nat := 4
+
+/-- Remaining OSPC arms reserved for Lane 3 follow-up. -/
+def lane3FollowupDispatchCount : Nat := 5
+
 theorem ospcSubstrateComplete : OspcOp.all.length = 9 := by
+  rfl
+
+theorem ospcDispatchSplitPinned :
+    shippedMirrorDispatchCount + lane3FollowupDispatchCount = OspcOp.all.length := by
   rfl
 
 end Epistemos.H8
