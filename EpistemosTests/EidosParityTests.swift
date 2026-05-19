@@ -212,6 +212,29 @@ struct EidosParityTests {
         }
     }
 
+    @Test("EidosCitationEnvelope decodes Rust validated citation + provenance wire shape")
+    func citationEnvelopeDecodesRustWireShape() throws {
+        let json = #"""
+        {"citation":{"source_id":"envelope-src","manifest_id":"hardening-manifest"},"provenance":{"manifest_id":"hardening-manifest","mode":"Lexical","retrieved_at_unix_ms":1700000000681}}
+        """#.data(using: .utf8)!
+        let envelope = try JSONDecoder().decode(EidosCitationEnvelope.self, from: json)
+
+        #expect(envelope.citation.sourceId.raw == "envelope-src")
+        #expect(envelope.citation.manifestId.raw == "hardening-manifest")
+        #expect(envelope.provenance.manifestId.raw == "hardening-manifest")
+        #expect(envelope.provenance.mode == .lexical)
+        #expect(envelope.provenance.retrievedAtUnixMs == 1_700_000_000_681)
+
+        let packet = try JSONDecoder().decode(EidosContextPacket.self, from: canonicalParityPacketJson.data(using: .utf8)!)
+        let citation = EidosCitation(
+            sourceId: EidosChunkId("doc-1::lex")!,
+            manifestId: EidosIndexManifestId("parity-snap")!
+        )
+        let packetEnvelope = try packet.citationEnvelope(for: citation).get()
+        #expect(packetEnvelope.citation == citation)
+        #expect(packetEnvelope.provenance == packet.hits[0].provenance)
+    }
+
     @Test("EidosCitationError encode round-trips through JSON")
     func citationErrorEncodeRoundTrip() throws {
         // Encode-decode round-trip on the Swift side. Combined with the

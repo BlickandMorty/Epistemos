@@ -264,6 +264,19 @@ nonisolated public struct EidosCitation: Codable, Hashable, Sendable {
     }
 }
 
+/// A validated citation plus the hit provenance that authorized it.
+/// Mirrors Rust `EidosCitationEnvelope`; construct through
+/// `EidosContextPacket.citationEnvelope(for:)` when deriving from a packet.
+nonisolated public struct EidosCitationEnvelope: Codable, Hashable, Sendable {
+    public let citation: EidosCitation
+    public let provenance: EidosProvenance
+
+    public init(citation: EidosCitation, provenance: EidosProvenance) {
+        self.citation = citation
+        self.provenance = provenance
+    }
+}
+
 /// Snapshot descriptor. Live Files binding lands under W-row backlog.
 nonisolated public struct EidosIndexManifest: Codable, Hashable, Sendable {
     public let id: EidosIndexManifestId
@@ -443,6 +456,21 @@ extension EidosContextPacket {
             return .success(())
         }
         return .failure(.fabricatedSourceId(citation.sourceId))
+    }
+
+    /// Build a typed citation envelope only after the citation passes the
+    /// closed-citation gate. Mirrors Rust
+    /// `EidosContextPacket::citation_envelope`.
+    public func citationEnvelope(
+        for citation: EidosCitation
+    ) -> Result<EidosCitationEnvelope, EidosCitationError> {
+        if case .failure(let error) = validate(citation: citation) {
+            return .failure(error)
+        }
+        guard let hit = hits.first(where: { $0.sourceId == citation.sourceId }) else {
+            return .failure(.fabricatedSourceId(citation.sourceId))
+        }
+        return .success(EidosCitationEnvelope(citation: citation, provenance: hit.provenance))
     }
 
     /// Batch-validate a list of citations. Returns success only if EVERY
