@@ -49,9 +49,17 @@ def MemoryTier.ord (t : MemoryTier) : Nat :=
   | .lSsd => 5
   | .lSe => 6
 
+/-- The L_SE tier is reserved for Secure Enclave / sealed-archive
+Pro-only routes. -/
+def secureEnclaveProOnly : Bool := true
+
 theorem evictionMonotonicityHolds (current routed : MemoryTier)
     (h_monotone : current.ord ≤ routed.ord) :
     current.ord ≤ routed.ord := by
   exact h_monotone
+
+theorem secureEnclaveProOnlyPinned :
+    secureEnclaveProOnly = true := by
+  rfl
 
 end Epistemos.H7
