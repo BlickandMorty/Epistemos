@@ -100,6 +100,7 @@ Identity gap validator work uses stable slugs so schema prose, validator-shape r
 | `empty-state` | Old-state and new-state atoms must be nonempty. | [N182](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n182---empty-old-state-identity-gap), [N183](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n183---empty-new-state-identity-gap) |
 | `role-labels` | Identity gap reports must name validator and reviewer role labels explicitly. | [N173](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n173---unlabeled-identity-sentinel-gap-report), [N174](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n174---reserved-identity-gap-role-value) |
 | `comma-bearing-impact` | Role-impact values may not contain commas because comma separates validator and reviewer roles. | [N175](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n175---comma-bearing-identity-gap-value) |
+| `lowercase-impact` | Role-impact values must remain lowercase old/new atoms. | [N176](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n176---uppercase-identity-gap-atom) |
 
 ## Pre-Witness Tightening Rule
 
