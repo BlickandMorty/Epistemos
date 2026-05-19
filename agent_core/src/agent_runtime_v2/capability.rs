@@ -1628,6 +1628,75 @@ mod tests {
     }
 
     #[test]
+    fn replayed_macaroon_json_verifies_with_every_caveat_type() {
+        // Phase 1 hardening — work-queue A/H bridge: every caveat
+        // type x replay combo. Forged and expired paths are pinned
+        // above for every caveat type; this pins the positive replay
+        // path for each individual caveat after JSON persistence.
+        //
+        // A future serde migration that skipped one caveat payload
+        // field would still compile but would either change the
+        // signature/capability_hash or fail caveat evaluation after
+        // a process-boundary replay.
+        use std::collections::BTreeMap;
+
+        let key = root_key_a();
+        let mut ctx_with_additional = ctx_now_at(1_000);
+        ctx_with_additional.additional = {
+            let mut m = BTreeMap::new();
+            m.insert("principal".to_string(), "trusted".to_string());
+            m
+        };
+        let cases: Vec<(Caveat, RuntimeContext)> = vec![
+            (
+                Caveat::ScopePrefix {
+                    prefix: "vault/notes".into(),
+                },
+                ctx_now_at(1_000),
+            ),
+            (
+                Caveat::ExpiryAfter {
+                    until_ts_ms: 10_000,
+                },
+                ctx_now_at(1_000),
+            ),
+            (
+                Caveat::ToolNameEq {
+                    name: "vault.read".into(),
+                },
+                ctx_now_at(1_000),
+            ),
+            (
+                Caveat::AdditionalContext {
+                    key: "principal".into(),
+                    value: "trusted".into(),
+                },
+                ctx_with_additional,
+            ),
+        ];
+
+        for (caveat, ctx) in cases {
+            let base = issue_tool_macaroon(&key, Some(10_000));
+            let narrowed = restrict(&base, caveat.clone());
+            let json = serde_json::to_string(&narrowed).expect("serialise macaroon");
+            let replayed: Macaroon =
+                serde_json::from_str(&json).expect("deserialise macaroon");
+
+            assert_eq!(
+                replayed.caveats,
+                vec![caveat.clone()],
+                "replayed macaroon must preserve caveat payload exactly"
+            );
+            assert_eq!(replayed.signature, narrowed.signature);
+            assert_eq!(replayed.capability_hash(), narrowed.capability_hash());
+
+            let cap = MacaroonCapability::new(replayed, key);
+            cap.verify(&ctx)
+                .unwrap_or_else(|err| panic!("replayed {caveat:?} must verify, got {err:?}"));
+        }
+    }
+
+    #[test]
     fn capability_hash_distinguishes_macaroons_under_different_root_keys() {
         // Phase 1 hardening — security property pin (caveat-property
         // class). Two macaroons with byte-identical (location, base_kind,
