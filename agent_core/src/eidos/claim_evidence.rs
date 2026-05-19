@@ -28,8 +28,9 @@ use std::collections::BTreeMap;
 
 use super::retriever::EidosRetriever;
 use super::types::{
-    EidosChunkId, EidosContextPacket, EidosDocumentId, EidosHit, EidosIndexManifestId,
-    EidosProvenance, EidosQuery, EidosRetrievalMode, EidosScoreComponents, EidosSourceKind,
+    is_blank_query_text, EidosChunkId, EidosContextPacket, EidosDocumentId, EidosHit,
+    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode,
+    EidosScoreComponents, EidosSourceKind,
 };
 
 /// Whether a piece of evidence supports or contradicts a claim. Mirrors the
@@ -112,7 +113,7 @@ impl EidosRetriever for InMemoryClaimEvidence {
         query: &EidosQuery,
         retrieved_at_unix_ms: u64,
     ) -> EidosContextPacket {
-        if query.text.trim().is_empty() || query.top_k == 0 {
+        if is_blank_query_text(&query.text) || query.top_k == 0 {
             return empty_packet(query, &self.manifest_id);
         }
 
@@ -287,6 +288,23 @@ mod tests {
         assert!(
             packet.hits.is_empty(),
             "whitespace-only text is not a stable claim id"
+        );
+    }
+
+    #[test]
+    fn invisible_only_query_returns_empty_packet() {
+        let mut idx = InMemoryClaimEvidence::new(manifest());
+        idx.add_evidence(
+            "\u{200B}",
+            doc("note-invisible"),
+            EvidenceStance::Supports,
+            EidosSourceKind::Note,
+        );
+        let q = EidosQuery::new("\u{200B}", EidosRetrievalMode::ClaimEvidence, 8);
+        let packet = idx.retrieve(&q, 1_700_000_000_000);
+        assert!(
+            packet.hits.is_empty(),
+            "invisible-only text is not a stable claim id"
         );
     }
 
