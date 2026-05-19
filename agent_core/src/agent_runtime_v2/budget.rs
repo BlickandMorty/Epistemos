@@ -2883,6 +2883,77 @@ mod tests {
     }
 
     #[test]
+    fn refund_is_left_inverse_of_check_and_debit_across_5_axis_field_space() {
+        // Phase 1 hardening — algebraic-property pin (companion to the
+        // refund pin family at iter-326..iter-329). For any ledger L
+        // and debit d that fits the gate's spec:
+        //
+        //   gate.check_and_debit(L, d).refund(d) == L     (byte-equal)
+        //
+        // Refund is a LEFT inverse of check_and_debit modulo saturation
+        // — the test bounds d so saturation never kicks in. The
+        // existing refund_restores_cap_after_cancel pin covers ONE
+        // fixture; this pin sweeps the 5-axis combinatoric space:
+        // single-axis debits + multi-axis debits + at-boundary debits.
+        // A future "let me track implicit overhead on every refund"
+        // refactor would silently break the inverse property and
+        // surface here deterministically.
+        let gate = BudgetGate::new(
+            BudgetSpec::new(10_000, 60_000, 20, 30_000).with_memory_bytes(1_000_000),
+        );
+        let initial = BudgetLedger {
+            tokens_used: 1_000,
+            wall_used_ms: 5_000,
+            tool_calls_used: 2,
+            subprocess_used_ms: 1_000,
+            memory_bytes_used: 100_000,
+        };
+        // 5 single-axis debits + 1 multi-axis debit + 1 saturation-safe debit.
+        let debits = [
+            BudgetDebit { tokens: 100, ..Default::default() },
+            BudgetDebit { wall_ms: 200, ..Default::default() },
+            BudgetDebit { tool_calls: 1, ..Default::default() },
+            BudgetDebit { subprocess_ms: 300, ..Default::default() },
+            BudgetDebit { memory_bytes: 500, ..Default::default() },
+            // Multi-axis: every axis non-zero, all fit.
+            BudgetDebit {
+                tokens: 50,
+                wall_ms: 50,
+                tool_calls: 1,
+                subprocess_ms: 50,
+                memory_bytes: 50,
+            },
+            // At-boundary: spend exactly the headroom on every axis.
+            BudgetDebit {
+                tokens: 9_000,
+                wall_ms: 55_000,
+                tool_calls: 18,
+                subprocess_ms: 29_000,
+                memory_bytes: 900_000,
+            },
+        ];
+        for (idx, d) in debits.iter().enumerate() {
+            let after_apply = gate
+                .check_and_debit(initial, *d)
+                .expect("debit must fit gate spec");
+            let after_refund = after_apply.refund(*d);
+            assert_eq!(
+                after_refund, initial,
+                "fixture {idx}: refund must left-invert check_and_debit"
+            );
+            // Each field independently restored.
+            assert_eq!(after_refund.tokens_used, initial.tokens_used);
+            assert_eq!(after_refund.wall_used_ms, initial.wall_used_ms);
+            assert_eq!(after_refund.tool_calls_used, initial.tool_calls_used);
+            assert_eq!(
+                after_refund.subprocess_used_ms,
+                initial.subprocess_used_ms
+            );
+            assert_eq!(after_refund.memory_bytes_used, initial.memory_bytes_used);
+        }
+    }
+
+    #[test]
     fn budget_debit_for_tool_call_and_for_thinking_turn_equal_struct_literal_byte_for_byte() {
         // Phase 1 hardening — thin-wrapper equivalence pin (companion
         // to the equivalence-pin family iter-518..iter-524). Both
