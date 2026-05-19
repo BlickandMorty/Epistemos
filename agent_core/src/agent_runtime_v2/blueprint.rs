@@ -1232,6 +1232,23 @@ mod tests {
     }
 
     #[test]
+    fn provider_policy_non_string_kind_tags_fail_to_deserialise() {
+        for bad in [
+            r#"{"kind":null,"model_id":"m"}"#,
+            r#"{"kind":true,"model_id":"m"}"#,
+            r#"{"kind":42,"model_id":"m"}"#,
+            r#"{"kind":["local_mlx"],"model_id":"m"}"#,
+            r#"{"kind":{"tag":"local_mlx"},"model_id":"m"}"#,
+        ] {
+            let parsed: Result<ProviderPolicy, _> = serde_json::from_str(bad);
+            assert!(
+                parsed.is_err(),
+                "non-string ProviderPolicy kind must fail to deserialise: {bad}"
+            );
+        }
+    }
+
+    #[test]
     fn provider_policy_valid_kinds_with_missing_payload_fields_fail_to_deserialise() {
         for bad in [
             r#"{"kind":"local_mlx"}"#,
