@@ -1110,6 +1110,28 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                category count, not milestone prose.",
     },
     FVaultRecallRow {
+        // 52nd SignalOnly row (iter-416): single-term query in
+        // Meroitic Cursive script domain — "𐦠" (letter A,
+        // U+109A0). The Unicode row already proves mixed Latin +
+        // Meroitic + Latin retrieval; this row removes Latin
+        // scaffolding and pins a bare SMP-plane historical script
+        // token in the SignalOnly path. Reuses the existing
+        // notes/mamba_meroitic_cursive.md seed.
+        query: "𐦠",
+        expected_paths: &["notes/mamba_meroitic_cursive.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Fifty-second SignalOnly row (iter-416): bare \
+               Meroitic Cursive single-codepoint query — \"𐦠\" \
+               (U+109A0). Complements the Unicode mixed-script row \
+               by forcing the no-chatter, one-token AND path to \
+               retrieve an SMP-plane historical script token without \
+               Latin support terms. This is the first typed \
+               SignalOnly row strictly beyond the per-category \
+               F-VaultRecall-50 floor.",
+    },
+    FVaultRecallRow {
         // 48th SignalOnly row (iter-396): single-term query in
         // Glagolitic-script domain — "ⰽ" (kako, U+2C2D, single
         // codepoint). THIRTY-NINTH single-term-AND domain.
@@ -11138,6 +11160,23 @@ mod tests {
              ({} × {F_VAULT_RECALL_50_TARGET_ROWS}); per-category \
              checks should have caught this — investigate.",
             canonical_categories.len()
+        );
+    }
+
+    /// Iter-416 (2026-05-19): once the per-category floor is pinned,
+    /// SignalOnly must keep growing past 50 rather than treating the
+    /// floor as a ceiling. This deliberately targets a concrete category
+    /// count so the next beyond-50 row is visible as typed data.
+    #[test]
+    fn signal_only_category_has_beyond_floor_depth() {
+        let count = load_canonical()
+            .iter()
+            .filter(|row| row.category == FVaultRecallCategory::SignalOnly)
+            .count();
+        assert!(
+            count > F_VAULT_RECALL_50_TARGET_ROWS,
+            "SignalOnly must continue beyond the F-VaultRecall-50 floor; \
+             got {count}, expected > {F_VAULT_RECALL_50_TARGET_ROWS}"
         );
     }
 
