@@ -86,6 +86,14 @@ Every `*_gap_report` migration token follows the same delimiter rule; a gap repo
 
 The reserved identity set for `validator` and `reviewer` is shared: `anonymous`, `unknown`, `tbd`, and `none`. A future schema edit that changes one list without the other is invalid until the migration note gap report names the divergence and every affected witness.
 
+## Identity Gap Slug Catalog
+
+Identity gap validator work uses stable slugs so schema prose, validator-shape rows, handbook audits, and negative examples refer to the same failure family without prose drift.
+
+| Slug | Rule surface | Negative examples |
+|---|---|---|
+| `reserved-state` | Reserved sentinel words may not appear as old-state or new-state atoms inside `identity_sentinel_gap_report`. | [N194](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n194---reserved-word-identity-gap-state-atom), [N195](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n195---reserved-word-identity-gap-new-state-atom) |
+
 ## Pre-Witness Tightening Rule
 
 While no real T23B artifact exists under schema `2026-05-18.2`, this document may tighten the `.2` fragment to close obvious validation gaps. After the first real `.2` witness lands, any further change to field presence, axis floors, anomaly requirements, JSONL row shape, command paths, artifact roots, or hardware-pin structure must bump the schema version.
