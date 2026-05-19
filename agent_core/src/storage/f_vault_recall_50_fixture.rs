@@ -4638,6 +4638,25 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 31st ChattyPrefix row (iter-277): Armenian-multilingual
+        // signal domain — 21st distinct lexical universe.
+        // Survivors after strip {Mamba, կեշ}. 2-term AND matches
+        // only iter-138's mamba_armenian.md. TENTH non-ASCII
+        // ChattyPrefix domain.
+        query: "Show me my Mamba կեշ notes",
+        expected_paths: &["notes/mamba_armenian.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Thirty-first ChattyPrefix row (iter-277): \
+               Armenian-multilingual signal domain — 21st \
+               distinct lexical universe. Survivors {Mamba, \
+               կեշ} after strip. 2-term AND matches only \
+               iter-138 mamba_armenian.md. Tenth non-ASCII \
+               ChattyPrefix domain. Brings ChattyPrefix to \
+               depth 31. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 30th ChattyPrefix row (iter-269): Korean-Hangul-
         // multilingual signal domain — 20th distinct lexical
         // universe. Survivors after strip {Mamba, 캐시}. 2-term
