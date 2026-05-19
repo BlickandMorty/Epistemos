@@ -9513,6 +9513,158 @@ fn closed_citation_contract_holds_for_multilingual_fusion_retrievers() {
     }
 }
 
+/// Multilingual GraphNeighborhood closed-citation sweep — extends
+/// iter 150's ASCII graph_neighborhood contract pin to the
+/// multilingual axis. The graph_neighborhood retriever uses the
+/// most-complex source_id template of any backend:
+/// `{neighbor_doc}::graph::from::{seed_doc}`. BOTH the neighbor and
+/// the seed flow into the source_id verbatim, so a multilingual
+/// graph (Han notes linked to Hangul translations) produces a
+/// source_id with TWO non-Latin segments concatenated through the
+/// template.
+///
+/// This is the most-likely surface for a future "let's normalize
+/// graph document_ids before formatting the template" regression,
+/// because the template concatenates two ids and is a natural
+/// place to add a normalization helper for "deduplication across
+/// graph edges". The byte-strict floor must hold.
+///
+/// Pins:
+///   - 5 multilingual document_ids forming a connected graph
+///     (Han 笔记-a → Hangul 노트-a, Han 笔记-a → Arabic ملاحظة-a)
+///   - retrieve with a Han seed surfaces hits whose source_ids
+///     contain BOTH the neighbor bytes AND the seed bytes verbatim
+///     in the canonical `{neighbor}::graph::from::{seed}` template
+///   - byte-equal multilingual citation accepted
+///   - smuggled variant with Han-traditional substitution in EITHER
+///     the neighbor half OR the seed half rejected as fabricated
+///     (independent byte-strictness on both segments of the
+///     concatenated template)
+#[test]
+fn closed_citation_contract_holds_for_multilingual_graph_neighborhood() {
+    use super::graph_neighborhood::InMemoryGraphNeighborhood;
+    use super::types::{CitationError, EidosChunkId, EidosCitation};
+
+    let m = manifest();
+    let ts = 1_700_000_000_000;
+
+    let han_seed = doc("笔记-a");
+    let hangul_neighbor = doc("노트-a");
+    let arabic_neighbor = doc("ملاحظة-a");
+
+    let mut graph = InMemoryGraphNeighborhood::new(m.clone());
+    graph.add_edge(han_seed.clone(), hangul_neighbor.clone());
+    graph.add_edge(han_seed.clone(), arabic_neighbor.clone());
+
+    // Query with the Han seed.
+    let q = EidosQuery::new(
+        han_seed.as_str(),
+        EidosRetrievalMode::GraphNeighborhood,
+        8,
+    );
+    let packet = graph.retrieve(&q, ts);
+    assert_eq!(packet.hits.len(), 2, "graph must surface both neighbors");
+
+    // Verify both source_ids carry the concatenated multilingual
+    // template verbatim. BTreeSet iteration in the retriever sorts
+    // ascending — Arabic comes first because the first byte of 'م'
+    // (U+0645, UTF-8: D9 85) is less than first byte of '노' (U+B178,
+    // UTF-8: EB 85 B8).
+    let actual_srcs: Vec<&str> = packet
+        .hits
+        .iter()
+        .map(|h| h.source_id.as_str())
+        .collect();
+
+    let expected_arabic = "ملاحظة-a::graph::from::笔记-a";
+    let expected_hangul = "노트-a::graph::from::笔记-a";
+
+    assert!(
+        actual_srcs.contains(&expected_arabic),
+        "graph source_id for Arabic neighbor must be {expected_arabic:?}, \
+         got {actual_srcs:?}"
+    );
+    assert!(
+        actual_srcs.contains(&expected_hangul),
+        "graph source_id for Hangul neighbor must be {expected_hangul:?}, \
+         got {actual_srcs:?}"
+    );
+
+    // Both source_ids must be non-ASCII (fixture sanity).
+    for src in &actual_srcs {
+        assert!(
+            !src.is_ascii(),
+            "graph source_id must be non-ASCII (multilingual fixture): {src:?}"
+        );
+    }
+
+    // Positive control: byte-equal citation accepted for each neighbor.
+    for hit in &packet.hits {
+        let legit = EidosCitation {
+            source_id: hit.source_id.clone(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        assert_eq!(
+            packet.validate_citation(&legit),
+            Ok(()),
+            "graph: byte-equal multilingual citation accepted for hit {:?}",
+            hit.source_id.as_str()
+        );
+    }
+
+    // Negative controls — smuggle Han-traditional substitution into
+    // EITHER half of the template independently. Both must be rejected.
+
+    // (1) Smuggle the SEED half (笔记 → 筆記).
+    let smuggled_seed = "노트-a::graph::from::筆記-a";
+    assert_ne!(
+        smuggled_seed.as_bytes(),
+        expected_hangul.as_bytes(),
+        "smuggled-seed variant must differ in bytes (fixture sanity)"
+    );
+    let cite_seed_smuggle = EidosCitation {
+        source_id: EidosChunkId::new(smuggled_seed).unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    match packet.validate_citation(&cite_seed_smuggle).unwrap_err() {
+        CitationError::FabricatedSourceId(returned) => {
+            assert_eq!(
+                returned.as_str(),
+                smuggled_seed,
+                "graph: smuggled-seed variant rejected with diagnostic \
+                 preserving the smuggled bytes verbatim — any seed-half \
+                 normalization in the template would break this pin"
+            );
+        }
+        other => panic!("graph: expected FabricatedSourceId (seed smuggle), got {other:?}"),
+    }
+
+    // (2) Smuggle the NEIGHBOR half — replace Hangul 노트 with
+    // Hangul-jamo-NFD form. Cross-references iter 661 at the
+    // graph-template boundary.
+    let smuggled_neighbor = "\u{1102}\u{1169}트-a::graph::from::笔记-a";
+    assert_ne!(
+        smuggled_neighbor.as_bytes(),
+        expected_hangul.as_bytes(),
+        "smuggled-neighbor variant must differ in bytes"
+    );
+    let cite_neighbor_smuggle = EidosCitation {
+        source_id: EidosChunkId::new(smuggled_neighbor).unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    match packet.validate_citation(&cite_neighbor_smuggle).unwrap_err() {
+        CitationError::FabricatedSourceId(returned) => {
+            assert_eq!(
+                returned.as_str(),
+                smuggled_neighbor,
+                "graph: smuggled-neighbor (Hangul NFD) variant rejected — \
+                 any neighbor-half NFC-fold in the template would break"
+            );
+        }
+        other => panic!("graph: expected FabricatedSourceId (neighbor smuggle), got {other:?}"),
+    }
+}
+
 /// `EidosHit::clone()` is byte-perfect — parallel to iter 190's
 /// EidosCitation Clone pin, but for the OUTPUT type (retriever-
 /// emitted hits) rather than the INPUT type (chat-layer citations).
