@@ -1005,6 +1005,46 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 49th SignalOnly row (iter-403): single-term query in
+        // Runic-script domain — "ᚲ" (kauna, U+16B2, single
+        // codepoint). FORTIETH single-term-AND domain.
+        // TWENTY-SEVENTH non-ASCII script-block. FIRST
+        // historical Germanic script in SignalOnly. Runic
+        // (Elder Futhark attested ca. 150-800 CE; Younger
+        // Futhark 800-1100 CE) is the historical writing
+        // system of the Germanic peoples — Vikings, Anglo-
+        // Saxons, Goths, etc. Distinct from every prior
+        // SignalOnly script: not Latin-diacritic, not Brahmic,
+        // not Aramaic-family, not Greek-descendant, not
+        // Berber/Amazigh, not modern-African-syllabary, not
+        // East-Asian, not Slavic-historical. Adds an ARCHAIC
+        // EUROPEAN-PRE-LATIN branch — sister to the iter-396
+        // Glagolitic (Slavic-historical) on the "historical
+        // European script" macro-axis. With Glagolitic + Runic
+        // SignalOnly now contains TWO archaic European scripts
+        // for distinct language communities (Slavic +
+        // Germanic). Token unique to iter-257's mamba_runic.md.
+        query: "ᚲ",
+        expected_paths: &["notes/mamba_runic.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Forty-ninth SignalOnly row (iter-403): single-\
+               term Runic-script query — \"ᚲ\" (U+16B2). \
+               Fortieth domain for single-term-AND. Twenty-\
+               seventh non-ASCII script-block. FIRST historical \
+               Germanic script in SignalOnly. Runic (Elder \
+               Futhark ca. 150-800 CE; Younger Futhark 800-\
+               1100 CE) — historical Germanic script (Vikings, \
+               Anglo-Saxons, Goths). With iter-396 Glagolitic + \
+               iter-403 Runic, SignalOnly now contains TWO \
+               archaic European scripts for distinct language \
+               communities (Slavic + Germanic). Fifteenth \
+               single-codepoint non-ASCII token. Brings \
+               SignalOnly to depth 49 — first category past \
+               depth-48 horizon.",
+    },
+    FVaultRecallRow {
         // 48th SignalOnly row (iter-396): single-term query in
         // Glagolitic-script domain — "ⰽ" (kako, U+2C2D, single
         // codepoint). THIRTY-NINTH single-term-AND domain.
