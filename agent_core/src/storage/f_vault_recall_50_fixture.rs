@@ -5203,6 +5203,38 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 43rd Synthesis row (iter-359). C(4,4) ALL-TERMS subset
+        // on hardware-floor pair: {hardware, floor, falsifier,
+        // handbook}. 4-term query. Both pair-partners carry all
+        // 4 tokens. No other seed has all 4 (or even any 2 of
+        // these 4 — these are pair-unique tokens). AND-on-4
+        // matches only the pair. Together with iter-19 C(4,3)=4
+        // + iter-214/221/229/236/243/250 C(4,2)=6, hardware
+        // pair now has FULL closure on ALL three subset sizes
+        // C(4,2) + C(4,3) + C(4,4) = 6+4+1 = 11 reachable
+        // subsets on the 4-element vocab. FIRST 4-element pair
+        // with complete (C(4,k))-for-k∈{2,3,4} closure. Zero
+        // new seeds.
+        query: "hardware floor falsifier handbook",
+        expected_paths: &[
+            "notes/m2_pro_hardware_floor.md",
+            "notes/falsifier_handbook.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Forty-third Synthesis row (iter-359): C(4,4) ALL-\
+               TERMS subset on hardware-floor pair. {hardware, \
+               floor, falsifier, handbook} — 4-term AND. All 4 \
+               tokens pair-unique. AND matches only the pair. \
+               Hardware pair now has FULL closure on ALL three \
+               subset sizes C(4,2)+C(4,3)+C(4,4) = 6+4+1 = 11 \
+               reachable subsets on the 4-element vocab. FIRST \
+               4-element pair with complete (C(4,k))-for-k≥2 \
+               closure. Brings Synthesis to depth 43 — first \
+               category past depth-42 horizon. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 42nd Synthesis row (iter-352). THIRD and FINAL 2-
         // term-AND subset on iter-85 tokenizer-indexing pair:
         // {indexing, tantivy}. Both pair-partners carry both
