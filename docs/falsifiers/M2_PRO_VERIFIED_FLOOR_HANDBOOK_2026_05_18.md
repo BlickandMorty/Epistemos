@@ -216,6 +216,10 @@ Last audited: 2026-05-18. [F-VaultRecall-50](F_VAULT_RECALL_50_2026_05_18.md) ma
 
 Last audited: 2026-05-18. [F-PageGather-Baseline](F_PAGE_GATHER_BASELINE_2026_05_18.md) maps to schema axes `median_bw_256mb`, `median_bw_512mb`, `median_bw_1gb`, and `window_seconds`; the row requires median contiguous-memory bandwidth for 256 MB, 512 MB, and 1 GB buffers over at least 1.0 second windows before its calibration artifact can satisfy the [Cross-Gate Axis Floors](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#cross-gate-axis-floors).
 
+## F-PageGather Scatter Axis Floor Audit
+
+Last audited: 2026-05-18. [F-PageGather-Scatter](F_PAGE_GATHER_SCATTER_2026_05_18.md) maps to schema axes `scatter_bw_256mb`, `scatter_bw_512mb`, `baseline_ratio`, `correctness_digest`, and `window_seconds`; the row requires sustained scatter throughput at 256 MB and 512 MB, a baseline ratio of at least 70% against the F-PageGather-Baseline artifact, a CPU-vs-Metal correctness digest, and at-least-one-second timing windows before its scatter artifact can satisfy the [Cross-Gate Axis Floors](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#cross-gate-axis-floors).
+
 ## Replay Eligibility Audit
 
 Last audited: 2026-05-18. The schema replay-ineligibility checklist now fails artifacts linearly for missing command digests, missing fixture-manifest digests, missing sidecar digests, mismatched sidecar bytes, missing JSONL manifests, invalid JSONL manifest envelopes, `jsonl_file_sha256` drift from `result_digest`, runner-environment drift from the closed execution pin, missing OS build, missing toolchain identity, or missing thermal/power capture, blocking anomalies without evidence refs, missing threshold-source provenance, provider threshold refs without matching receipts, thermal-pressure timing passes without blocking anomalies, battery/unknown-power timing passes without blocking anomalies, measurement `evidence_kind` drift from the measurement source shape, and aggregate `sample_count` drift from embedded or sidecar samples.
