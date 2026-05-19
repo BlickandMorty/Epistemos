@@ -6,8 +6,16 @@
 //! human-readable catalog notes.
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AdversarialQueryFixtureKind {
+    TypoTransposition,
+    Bm25Saturation,
+    NearDuplicateParagraphTie,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AdversarialQueryFixture {
     pub label: &'static str,
+    pub kind: AdversarialQueryFixtureKind,
     pub query_text: &'static str,
     pub description: &'static str,
 }
@@ -15,16 +23,19 @@ pub struct AdversarialQueryFixture {
 pub const ADVERSARIAL_QUERY_FIXTURES: &[AdversarialQueryFixture] = &[
     AdversarialQueryFixture {
         label: "typo-transposition",
+        kind: AdversarialQueryFixtureKind::TypoTransposition,
         query_text: "tropcial",
         description: "misspelled transposition of tropical; must not fuzzy-match by accident",
     },
     AdversarialQueryFixture {
         label: "bm25-saturation",
+        kind: AdversarialQueryFixtureKind::Bm25Saturation,
         query_text: "tropical",
         description: "high-frequency lexical needle for score saturation and overflow pins",
     },
     AdversarialQueryFixture {
         label: "near-duplicate-paragraph-tie",
+        kind: AdversarialQueryFixtureKind::NearDuplicateParagraphTie,
         query_text: "near duplicate paragraph",
         description: "same-count near-duplicate paragraphs force deterministic tie-breaks",
     },
