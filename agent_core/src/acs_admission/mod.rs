@@ -3890,6 +3890,16 @@ pub fn admit(input: &ACSAdmissionInput, policy: &ACSPolicy, now_ms: i64) -> ACSA
         );
     }
 
+    if has_replayed_lower_lane_capability(policy, input.operation(), &input.granted_capabilities) {
+        return decision(
+            input,
+            policy,
+            now_ms,
+            ACSAdmissionVerdict::Reject,
+            "capability_scope_creep",
+        );
+    }
+
     if input.operation().lane() == ACSLane::L2 && !input.risk.evidence_present {
         return decision(
             input,
@@ -3916,6 +3926,24 @@ fn has_missing_required_capability(
         .any(|capability| !granted_capabilities.contains(capability))
         || canonical_l2_capability(operation)
             .is_some_and(|capability| !granted_capabilities.contains(&capability))
+}
+
+fn has_replayed_lower_lane_capability(
+    policy: &ACSPolicy,
+    operation: ACSOperationKind,
+    granted_capabilities: &[Capability],
+) -> bool {
+    if operation.lane() != ACSLane::L2 {
+        return false;
+    }
+    let required_for_operation = policy.required_for(operation);
+    [ACSLane::L0, ACSLane::L1]
+        .into_iter()
+        .flat_map(|lane| policy.required_for_lane(lane))
+        .any(|capability| {
+            !required_for_operation.contains(&capability)
+                && granted_capabilities.contains(&capability)
+        })
 }
 
 fn canonical_l2_capability(operation: ACSOperationKind) -> Option<Capability> {
@@ -5719,14 +5747,6 @@ mod tests {
             quarantine_at: 0.30,
             reject_at: 0.40,
         };
-        let granted_capabilities = vec![
-            named_capability("VaultWrite"),
-            named_capability("ToolExec"),
-            named_capability("Assembly"),
-            named_capability("KernelPromote"),
-            named_capability("ModelAdapt"),
-        ];
-
         for operation in [
             ACSOperationKind::MemoryWrite,
             ACSOperationKind::ToolAction,
@@ -5744,7 +5764,7 @@ mod tests {
                 payload: high_risk_operation_payload(operation),
                 submitted_at_ms: 1_001,
                 risk,
-                granted_capabilities: granted_capabilities.clone(),
+                granted_capabilities: policy.required_for(operation),
             };
 
             let decision = admit(&input, &policy, 1_001);
@@ -5781,13 +5801,6 @@ mod tests {
             .copied()
             .map(|operation| ACSOperationThresholdRule::new(operation, override_thresholds))
             .collect();
-        let granted_capabilities = vec![
-            named_capability("VaultWrite"),
-            named_capability("ToolExec"),
-            named_capability("Assembly"),
-            named_capability("KernelPromote"),
-            named_capability("ModelAdapt"),
-        ];
 
         for operation in override_operations {
             let input = ACSAdmissionInput {
@@ -5795,7 +5808,7 @@ mod tests {
                 payload: high_risk_operation_payload(operation),
                 submitted_at_ms: 1_001,
                 risk,
-                granted_capabilities: granted_capabilities.clone(),
+                granted_capabilities: policy.required_for(operation),
             };
 
             let decision = admit(&input, &policy, 1_001);
@@ -11926,6 +11939,55 @@ mod tests {
             assert_eq!(decision.audit_record.reason, "missing_capability");
             assert_eq!(decision.lane(), ACSLane::L2);
             assert_eq!(decision.product_lane_code(), "self_healing_research");
+            assert_eq!(audit_log.len(), 1);
+            assert!(decision.audit_record.validate().is_ok());
+        }
+    }
+
+    #[test]
+    fn acs_admission_l2_rejects_lower_lane_capability_scope_creep() {
+        let cases = [
+            (
+                ACSAdmissionPayload::KernelPromotion {
+                    request: ACSKernelPromotionRequest {
+                        kernel_id: "kernel-1".to_string(),
+                        signed_plan_hash: "plan-hash".to_string(),
+                        mutation_envelope_id: Some("mutation-1".to_string()),
+                    },
+                },
+                named_capability("KernelPromote"),
+                named_capability("ToolExec"),
+            ),
+            (
+                ACSAdmissionPayload::ModelAdaptation {
+                    request: ACSModelAdaptationRequest {
+                        adapter_id: "adapter-1".to_string(),
+                        model_id: "local-helper-1".to_string(),
+                        checkpoint_hash: "checkpoint-hash".to_string(),
+                        mutation_envelope_id: Some("mutation-1".to_string()),
+                    },
+                },
+                named_capability("ModelAdapt"),
+                named_capability("Assembly"),
+            ),
+        ];
+        let policy = ACSPolicy::strict_default(1_000);
+
+        for (idx, (payload, l2_capability, replayed_capability)) in cases.into_iter().enumerate() {
+            let input = ACSAdmissionInput {
+                request_id: format!("req-l2-capability-scope-creep-{idx}"),
+                payload,
+                submitted_at_ms: 1_001,
+                risk: ACSRiskVector::neutral(),
+                granted_capabilities: vec![l2_capability, replayed_capability],
+            };
+            let mut audit_log = Vec::new();
+
+            let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+            assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+            assert_eq!(decision.audit_record.reason, "capability_scope_creep");
+            assert_eq!(decision.lane(), ACSLane::L2);
             assert_eq!(audit_log.len(), 1);
             assert!(decision.audit_record.validate().is_ok());
         }
