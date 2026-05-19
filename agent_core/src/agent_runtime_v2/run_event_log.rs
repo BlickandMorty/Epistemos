@@ -2333,6 +2333,53 @@ mod tests {
     }
 
     #[test]
+    fn find_capability_hash_len_matches_sealed_mutations_filter_count() {
+        // Phase 1 hardening — cross-helper consistency pin extending
+        // the entry-counting trinity (total_tokens_debited /
+        // sealed_mutations / entry_count_by_kind) with the
+        // needle-specific path:
+        //
+        //   find_capability_hash(needle).len()
+        //   == sealed_mutations().filter(|(_, c, _)| **c == needle).count()
+        //
+        // Both helpers walk the entries vector and filter by
+        // capability_hash. A regression in either (e.g., find_capability_hash
+        // missing rows the iterator surfaces, or vice versa) would
+        // slip past the individual tests but break the cross-invariant
+        // that audit dashboards rely on.
+        let mut log = RunEventLog::new();
+        let needle_a = Hash::from_bytes([0xAA; 32]);
+        let needle_b = Hash::from_bytes([0xBB; 32]);
+
+        log.append_sealed_mutation(needle_a, BudgetDebit::default());
+        log.append_event(AgentEvent::ReasoningDelta { text: "r".into() });
+        log.append_sealed_mutation(needle_b, BudgetDebit::default());
+        log.append_sealed_mutation(needle_a, BudgetDebit::default());
+        log.append_sealed_mutation(needle_a, BudgetDebit::default());
+        log.append_ledger_snapshot(BudgetLedger::default());
+
+        // For each of the 2 needles, the two helpers must agree on
+        // count.
+        for needle in [needle_a, needle_b] {
+            let via_find = log.find_capability_hash(&needle).len();
+            let via_iter = log
+                .sealed_mutations()
+                .filter(|(_, c, _)| **c == needle)
+                .count();
+            assert_eq!(
+                via_find, via_iter,
+                "needle {:?}: find_capability_hash.len {} != filter.count {}",
+                needle, via_find, via_iter,
+            );
+        }
+        // Specific values (independent witness).
+        assert_eq!(log.find_capability_hash(&needle_a).len(), 3);
+        assert_eq!(log.find_capability_hash(&needle_b).len(), 1);
+        // Zero-needle (never appears).
+        assert_eq!(log.find_capability_hash(&Hash::zero()).len(), 0);
+    }
+
+    #[test]
     fn total_tokens_debited_count_matches_sealed_mutations_count_and_entry_count_by_kind() {
         // Phase 1 hardening — cross-helper consistency pin (third
         // leg of the entry-counting trinity, complementing
