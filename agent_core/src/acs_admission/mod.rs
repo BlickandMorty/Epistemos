@@ -3444,7 +3444,11 @@ where
     E: serde::de::Error,
 {
     match value {
-        serde_json::Value::Object(object) if object.contains_key(field) => Ok(()),
+        serde_json::Value::Object(object)
+            if object.get(field).is_some_and(|value| !value.is_null()) =>
+        {
+            Ok(())
+        }
         serde_json::Value::Object(_) => Err(E::custom(acs_policy_decode_error(
             &ACSPolicyError::Malformed {
                 field: policy_field,
@@ -7505,6 +7509,23 @@ mod tests {
         assert!(message.contains("malformed_policy"), "{message}");
         assert!(
             message.contains("required_capabilities.operation"),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn acs_admission_null_capability_rule_capability_names_malformed_policy_field() {
+        let value = serde_json::json!({
+            "operation": "tool_action",
+            "capability": null
+        });
+
+        let err = serde_json::from_value::<ACSCapabilityRule>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(
+            message.contains("required_capabilities.capability"),
             "{message}"
         );
     }
