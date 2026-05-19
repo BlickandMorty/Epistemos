@@ -46,6 +46,10 @@ def refinedConjectureCitation : String :=
 def negativeResultAcknowledgement : String :=
   "H14_NEGATIVE_RESULT_ACKNOWLEDGED"
 
+/-- Claims must not depend on the false local-global conjecture as
+a hypothesis; they must use the refined conjecture instead. -/
+def legacyLocalGlobalHypothesisDisallowed : Bool := true
+
 theorem refinedConjectureCitationPinned :
     refinedConjectureCitation =
       "arXiv:2307.02749v3 (Annals of Mathematics 200(2):749-770, 2024)" := by
@@ -53,6 +57,10 @@ theorem refinedConjectureCitationPinned :
 
 theorem negativeResultAcknowledged :
     negativeResultAcknowledgement = "H14_NEGATIVE_RESULT_ACKNOWLEDGED" := by
+  rfl
+
+theorem legacyLocalGlobalHypothesisDisallowedPinned :
+    legacyLocalGlobalHypothesisDisallowed = true := by
   rfl
 
 end Epistemos.H14
