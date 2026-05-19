@@ -4903,6 +4903,28 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 33rd ChattyPrefix row (iter-291): Ethiopic-multilingual
+        // signal domain — 23rd distinct lexical universe.
+        // Survivors after strip {Mamba, ካሽ}. 2-term AND matches
+        // only iter-153's mamba_ethiopic.md. TWELFTH non-ASCII
+        // ChattyPrefix domain. FIRST Ethiopic-abugida
+        // ChattyPrefix — parallels iter-289 SignalOnly.
+        query: "Show me my Mamba ካሽ notes",
+        expected_paths: &["notes/mamba_ethiopic.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Thirty-third ChattyPrefix row (iter-291): \
+               Ethiopic-multilingual signal domain — 23rd \
+               distinct lexical universe. Survivors {Mamba, \
+               ካሽ} after strip. 2-term AND matches only iter-\
+               153 mamba_ethiopic.md. Twelfth non-ASCII \
+               ChattyPrefix and FIRST Ethiopic-abugida \
+               ChattyPrefix (parallels iter-289 SignalOnly). \
+               Brings ChattyPrefix to depth 33 — second \
+               category past depth-32 horizon. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 32nd ChattyPrefix row (iter-284): Georgian-multilingual
         // signal domain — 22nd distinct lexical universe.
         // Survivors after strip {Mamba, ქეში}. 2-term AND
