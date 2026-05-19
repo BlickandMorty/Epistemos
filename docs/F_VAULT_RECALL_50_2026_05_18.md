@@ -351,20 +351,81 @@ accumulates the following commits since `main`:
 | 293  | `e43514a777`  | Fixture row 230 — 33rd Unicode, Old Italic-script (2nd SMP-plane codepoint, direct ancestor of Latin). **Uniform-≥-33 milestone**. 31 non-Latin scripts. |
 | 294  | `98d2103094`  | Fixture row 231 — 34th Synthesis, opens C(3,2) on iter-4 tier-compression pair (the original Synthesis seed pair). Zero new seeds. |
 | 295  | `cd2e449a7f`  | Fixture row 232 — 34th Adversarial, 5-term graph-event long-query (4 canonicals now at 4/5-term coverage). Zero new seeds. |
+| 296  | `27a646a68c`  | Docs refresh — log iters 272-295 in §3 + uniform-≥-33 + 31 non-Latin scripts annotation. |
+| 297  | `1264774e00`  | Fixture row 233 — 34th SignalOnly, Tibetan-script single-term-AND (`ཀེ`). 25 domains. Zero new seeds. |
+| 298  | `393920b33f`  | Fixture row 234 — 34th Paraphrase, NEW parenthetical-version-annotation axis (`Mamba (v2) SSM`). 31st named subclass. Zero new seeds. |
+| 299  | `300bde07fb`  | Fixture row 235 — 34th ChattyPrefix, Tibetan-multilingual signal domain. Zero new seeds. |
+| 300  | `9cb23d626f`  | Fixture row 236 — 34th PureChatter, three-sub-class-mix shape (`the a i can`). iter-300 milestone — completes sub-class-cardinality gradient (1/2/3/4-class). Zero new seeds. |
+| 301  | `a48ecfef5a`  | Fixture row 237 — 34th Unicode, Brahmi-script (3rd SMP-plane codepoint, common ancestor of entire Brahmic family). **Uniform-≥-34 milestone**. 32 non-Latin scripts. |
+| 302  | `6eed77790b`  | Fixture row 238 — 35th Synthesis, 2nd 2-term-AND on iter-4 tier-compression pair (`tier governance`). Zero new seeds. |
+| 303  | `41a19be49d`  | Fixture row 239 — 35th Adversarial, 5-term agent-runtime long-query (`agent runtime substrate trace invader`). 5 canonicals at 5-term. Zero new seeds. |
+| 304  | `47bb0a63f4`  | Fixture row 240 — 35th SignalOnly, Khmer-script single-term-AND (`ខែ`). 26 domains. Zero new seeds. |
+| 305  | `344bf7bcac`  | Fixture row 241 — 35th Paraphrase, NEW hyponym/hypernym semantic-similarity axis (`Mamba SSM buffer`). 32nd named subclass. Zero new seeds. |
+| 306  | `42aa09fb7c`  | Fixture row 242 — 35th ChattyPrefix, Khmer-multilingual signal domain. Zero new seeds. |
+| 307  | `57bff62fe1`  | Fixture row 243 — 35th PureChatter, 10-token long-input. Zero new seeds. |
+| 308  | `04c06ebb8b`  | Fixture row 244 — 35th Unicode, Egyptian Hieroglyph (4th SMP-plane codepoint, oldest script in pin set ca. 3200 BCE). **Uniform-≥-35 milestone**. 33 non-Latin scripts. |
+| 309  | `31b31e8794`  | Fixture row 245 — 36th Synthesis, closes C(3,2) on iter-4 tier-compression pair (3rd 3-element pair with full closure). Zero new seeds. |
+| 310  | `eb46cb45c8`  | Fixture row 246 — 36th Adversarial, 5-term Metal-compute long-query (`metal compute shader kernel pipeline`). 6 canonicals at 5-term. iter-310 milestone. Zero new seeds. |
+| 311  | `e262ee3a43`  | Fixture row 247 — 36th SignalOnly, Lao-script single-term-AND (`ແຄ`). 27 domains. Zero new seeds. |
+| 312  | `805cfaa87e`  | Fixture row 248 — 36th Paraphrase, NEW ROT13 / cipher-transformation axis (`Znzon FFZ pnpur`). 33rd named subclass. Zero new seeds. |
+| 313  | `dd73e71028`  | Fixture row 249 — 36th ChattyPrefix, Lao-multilingual signal domain. Zero new seeds. |
+| 314  | `a3de438c8f`  | Fixture row 250 — 36th PureChatter, 11-token long-input. Zero new seeds. |
+| 315  | `360824d6cf`  | Fixture row 251 — 36th Unicode, Cuneiform-script (5th SMP-plane codepoint, joint-oldest with Egyptian ca. 3200 BCE). **Uniform-≥-36 milestone**. 34 non-Latin scripts. |
+| 316  | `7f96897295`  | Fixture row 252 — 37th Synthesis, opens C(3,2) on iter-11 design-pattern pair (`specific design`). 4th 3-element pair surveyed. Zero new seeds. |
+| 317  | `0266157583`  | Fixture row 253 — 37th Adversarial, 6-term vault-canon long-query (`vault index reload tantivy vaultstore reader`). 1st canonical with 4/5/6-term coverage. Zero new seeds. |
+| 318  | `964a5af760`  | Fixture row 254 — 37th SignalOnly, Myanmar-script single-term-AND (`က`). 28 domains. Zero new seeds. |
+| 319  | `e35b2cd8b0`  | Fixture row 255 — 37th Paraphrase, NEW character-reversal / palindrome-like axis (`abmaM SSM cache`). 34th named subclass. Zero new seeds. |
+| 320  | `9ca41e0cef`  | Fixture row 256 — 37th ChattyPrefix, Myanmar-multilingual signal domain. iter-320 milestone. Zero new seeds. |
+| 321  | `a241c29cf0`  | Fixture row 257 — 37th PureChatter, 12-token long-input. Zero new seeds. |
+| 322  | `a7e1d5710d`  | Fixture row 258 — 37th Unicode, Linear B-script (6th SMP-plane codepoint, oldest deciphered Greek script ca. 1450 BCE). **Uniform-≥-37 milestone**. 35 non-Latin scripts. |
+| 323  | `86d41a9b12`  | Fixture row 259 — 38th Synthesis, 2nd 2-term-AND on iter-11 design-pattern pair (`specific pattern`). Zero new seeds. |
+| 324  | `1eee5051aa`  | Fixture row 260 — 38th Adversarial, 6-term BM25/IR long-query (`bm25 saturation length penalty ranking ir`). 2nd canonical with 4/5/6-term coverage. Zero new seeds. |
+| 325  | `99e5593bb7`  | Fixture row 261 — 38th SignalOnly, Sinhala-script single-term-AND (`ක`). 29 domains. **Completes Brahmic family in SignalOnly.** Zero new seeds. |
+| 326  | `f852ee1922`  | Fixture row 262 — 38th Paraphrase, NEW cross-language-translation axis (`Mamba SSM Speicher`, German). 35th named subclass. Zero new seeds. |
+| 327  | `eba985b265`  | Fixture row 263 — 38th ChattyPrefix, Sinhala-multilingual signal domain. **Completes Brahmic family in ChattyPrefix.** Zero new seeds. |
+| 328  | `d44e985edb`  | Fixture row 264 — 38th PureChatter, 13-token long-input (3 wh-word stack). Zero new seeds. |
+| 329  | `2cbf39fd5f`  | Fixture row 265 — 38th Unicode, Imperial Aramaic-script (7th SMP-plane codepoint, lingua franca of Achaemenid Persia ca. 700 BCE). **Uniform-≥-38 milestone**. 36 non-Latin scripts. |
+| 330  | `d22d26ed79`  | Fixture row 266 — 39th Synthesis, closes C(3,2) on iter-11 design-pattern pair (4th 3-element pair with full closure). Zero new seeds. |
+| 331  | `e949708cda`  | Fixture row 267 — 39th Adversarial, 6-term MLX-Swift long-query (`mlx swift inference backend pipeline local`). 3rd canonical with 4/5/6-term coverage. Zero new seeds. |
+| 332  | `4c1704c7df`  | Fixture row 268 — 39th SignalOnly, Syriac-script single-term-AND (`ܟ`). 30 domains. **First Aramaic-family in SignalOnly.** Zero new seeds. |
+| 333  | `3a7313560b`  | Fixture row 269 — 39th Paraphrase, NEW prefix-truncation / head-clipping axis (`ba SSM cache`). 36th named subclass. Zero new seeds. |
+| 334  | `a469cd0062`  | Fixture row 270 — 39th ChattyPrefix, Syriac-multilingual signal domain. **First Aramaic-family in ChattyPrefix.** Zero new seeds. |
+| 335  | `c7f44f36f0`  | Fixture row 271 — 39th PureChatter, 14-token long-input (4 wh-word stack). Zero new seeds. |
+| 336  | `cba113ca91`  | Fixture row 272 — 39th Unicode, Adlam-script (8th SMP-plane codepoint, youngest pin set entry ca. 1989 CE). **Uniform-≥-39 milestone**. 37 non-Latin scripts. |
+| 337  | `247a60d5a4`  | Fixture row 273 — 40th Synthesis, opens C(3,2) on iter-85 tokenizer-indexing pair (`tokenizer indexing`). 5th 3-element pair surveyed. Zero new seeds. |
+| 338  | `8e19737313`  | Fixture row 274 — 40th Adversarial, 6-term graph-event long-query (`graph node update event session log`). 5th canonical at 6-term; 4 canonicals with 4/5/6-term coverage. Zero new seeds. |
+| 339  | `76dfe7d3b3`  | Fixture row 275 — 40th SignalOnly, Mongolian-script single-term-AND (`ᠺ`). 31 domains. **2nd Aramaic-family in SignalOnly — triangulates Aramaic family tree.** Zero new seeds. |
+| 340  | `c672f37559`  | Fixture row 276 — 40th Paraphrase, NEW vowel-drop / abjad-style axis (`Mmb SSM cch`). 37th named subclass. Zero new seeds. |
+| 341  | `701bd878da`  | Fixture row 277 — 40th ChattyPrefix, Mongolian-multilingual signal domain. **2nd Aramaic-family in ChattyPrefix.** Zero new seeds. |
+| 342  | `3eab911a30`  | Fixture row 278 — 40th PureChatter, 15-token long-input (wh-stack + preposition closure). Zero new seeds. |
+| 343  | `4bc1303efb`  | Fixture row 279 — 40th Unicode, Canadian Aboriginal Syllabics (UCAS, 2nd Indigenous American script after Cherokee, featural-syllabic typology ca. 1840 CE). **Uniform-≥-40 milestone**. 38 non-Latin scripts. |
 
 ## 4. Fixture row inventory
 
-**232 fixture rows shipped (464% of 50-row floor) — F-VaultRecall-50
-target met at iter-102 (`a9a6ab55a`), 182 rows past floor as of
-iter-295. Spanning 7 of 7 canonical categories at uniform per-
-category depth ≥ 33 (iter-293 milestone), with Synthesis +
-Adversarial already at depth 34 (iter-294/295). Hardware pair
-+ neural-cache-layer pair have full closure; compression-doctrine
-and agent-runtime pairs ceiling-capped; iter-4 tier-compression
-pair survey opened. 31 non-Latin scripts across Unicode BMP +
-SMP planes including 2 ancient-ancestor scripts (Phoenician,
-Old Italic) and three named script-family diasporas (Aramaic,
-Brahmic, Greek-descendant) plus the 7-Brahmic descendant fan.** Adversarial × 24 (7 cross-domain families + 17
+**279 fixture rows shipped (558% of 50-row floor) — F-VaultRecall-50
+target met at iter-102 (`a9a6ab55a`), 177 rows past floor as of
+iter-343. Spanning 7 of 7 canonical categories at uniform per-
+category depth ≥ 40 (iter-343 milestone — every category at 40).
+FOUR 3-element Synthesis pairs with full C(3,2) closure (Metal +
+neural-cache-layer + iter-4 tier-compression + iter-11 design-
+pattern); 1-of-3 C(3,2) survey opened on iter-85 tokenizer-
+indexing pair (iter-337). 38 non-Latin scripts across Unicode
+BMP + SMP planes spanning 5,200 years of writing history
+(Cuneiform ~3200 BCE → Adlam 1989 CE → UCAS 1840). 8 SMP-plane
+codepoints (Phoenician + Old Italic + Brahmi + Egyptian + Cuneiform
++ Linear B + Imperial Aramaic + Adlam). Aramaic family
+triangulated at single-term-AND (Syriac iter-332 + Mongolian
+iter-339) AND multilingual-signal (Syriac iter-334 + Mongolian
+iter-341), pairing with iter-329 Unicode Imperial Aramaic ancestor.
+Brahmic family completes in BOTH SignalOnly (iter-325) AND
+ChattyPrefix (iter-327) at all 7 descendants. FIVE canonicals at
+6-term Adversarial coverage (vault iter-317 + BM25-IR iter-324 +
+MLX-Swift iter-331 + agent-runtime iter-120 + graph-event
+iter-338); FOUR canonicals with full 4/5/6-term coverage.
+Paraphrase axes named through subclass 37 (latest: vowel-drop /
+abjad-style iter-340). PureChatter long-input cardinality
+progression extended to 15 tokens (iter-342, densest wh-stack +
+preposition closure).** Adversarial × 24 (7 cross-domain families + 17
 alt-query reuse rows including missing-primary-token rows across
 5 domains, non-primary-only queries, context-vocab mixes, 6-term
 long-query, canonical-vs-pair-partner discrimination, two-way
