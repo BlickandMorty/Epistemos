@@ -16,8 +16,8 @@
 //! The committed schema module built with explicit `~/.elan/bin`
 //! PATH, and obligations were sharpened through iter-696 with zero
 //! sorries in committed Lean sources.
-//! Generated semiring-law proof bodies close from schema obligation
-//! fields; future rational-form strengthening remains tracked
+//! Generated semiring-law proof bodies expose schema witness
+//! binders; future rational-form strengthening remains tracked
 //! separately.
 //!
 //! The emitted term for a [`super::grammar::TropicalExpr`]:
@@ -180,7 +180,7 @@ pub fn lean_certificate(expr: &TropicalExpr) -> String {
          -- Source: docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §3 + §5\n\
          -- Schema: lean/Epistemos/Epistemos/Tropical.lean\n\
          -- Schema module built with explicit ~/.elan/bin PATH; obligations sharpened through iter-696.\n\
-         -- Generated semiring law proof closes from schema obligation.\n\
+         -- Generated semiring law proof exposes schema witness.\n\
          -- Tree var-count: {arity}\n\
          -- Semantic term: {term}\n\
          import Epistemos.Tropical\n\
@@ -206,9 +206,10 @@ pub fn lean_certificate(expr: &TropicalExpr) -> String {
          \x20     laws := Epistemos.Tropical.scalarTropicalSemiringLaws\n\
          \x20     sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Tropical-IR\" }}\n\
          \n\
-         theorem tropical_semiring_laws_{suffix} :\n\
+         theorem tropical_semiring_laws_{suffix}\n\
+         \x20   (semiringLawWitness : tropical_semiring_obligation_{suffix}.laws) :\n\
          \x20   tropical_semiring_obligation_{suffix}.laws := by\n\
-         \x20 exact tropical_semiring_obligation_{suffix}.laws\n\
+         \x20 exact semiringLawWitness\n\
          \n\
          noncomputable def tropical_certificate_{suffix} : Epistemos.Tropical.CertificateTarget :=\n\
          \x20   {{ expr := tropical_expr_{suffix}\n\
@@ -327,7 +328,9 @@ mod tests {
     #[test]
     fn certificate_closes_semiring_laws_from_schema_field() {
         let c = lean_certificate(&TropicalExpr::constant(0.0));
-        assert!(c.contains("exact tropical_semiring_obligation_"));
+        assert!(c.contains("(semiringLawWitness :"));
+        assert!(c.contains("exact semiringLawWitness"));
+        assert!(!c.contains("exact tropical_semiring_obligation_"));
         assert!(c.contains(".laws"));
         assert!(!c.contains("sorry  -- max-plus law instance"));
     }
@@ -424,7 +427,7 @@ mod tests {
         assert!(c.contains(
             "Schema module built with explicit ~/.elan/bin PATH; obligations sharpened through iter-696"
         ));
-        assert!(c.contains("Generated semiring law proof closes from schema obligation"));
+        assert!(c.contains("Generated semiring law proof exposes schema witness"));
         assert!(!c.contains("lake build remains gated"));
     }
 
