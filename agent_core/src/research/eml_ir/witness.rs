@@ -712,7 +712,7 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
 }
 
 fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
-    reject_raw_worst_case_number_json(json)?;
+    reject_raw_float_number_json(json)?;
     let value: serde_json::Value = serde_json::from_str(json).map_err(invalid_json_error)?;
     let Some(stats_value) = value.get("stats") else {
         return Ok(());
@@ -1172,6 +1172,8 @@ struct RawWitnessWorstCases<'a> {
 #[derive(Deserialize)]
 struct RawOperationWorstCases<'a> {
     #[serde(borrow)]
+    mean_ulp: &'a RawValue,
+    #[serde(borrow)]
     axis_stats: [RawAxisWorstCase<'a>; StressAxis::ALL.len()],
     #[serde(borrow)]
     worst_case: RawWorstCaseNumbers<'a>,
@@ -1179,6 +1181,8 @@ struct RawOperationWorstCases<'a> {
 
 #[derive(Deserialize)]
 struct RawAxisWorstCase<'a> {
+    #[serde(borrow)]
+    mean_ulp: &'a RawValue,
     #[serde(borrow)]
     worst_case: RawWorstCaseNumbers<'a>,
 }
@@ -1193,17 +1197,21 @@ struct RawWorstCaseNumbers<'a> {
     reference: &'a RawValue,
 }
 
-fn reject_raw_worst_case_number_json(json: &str) -> Result<(), FulpReplayError> {
+fn reject_raw_float_number_json(json: &str) -> Result<(), FulpReplayError> {
     let Ok(raw_witness) = serde_json::from_str::<RawWitnessWorstCases<'_>>(json) else {
         return Ok(());
     };
     for (operation_index, stat) in raw_witness.stats.iter().enumerate() {
+        let operation_path = format!("stats[{operation_index}]");
+        raw_finite_f64_json(stat.mean_ulp, &operation_path, "mean_ulp")?;
         for (axis_index, axis_stat) in stat.axis_stats.iter().enumerate() {
-            let path = format!("stats[{operation_index}].axis_stats[{axis_index}].worst_case");
-            reject_raw_worst_case_numbers_json(&axis_stat.worst_case, &path)?;
+            let axis_path = format!("stats[{operation_index}].axis_stats[{axis_index}]");
+            raw_finite_f64_json(axis_stat.mean_ulp, &axis_path, "mean_ulp")?;
+            let worst_case_path = format!("{axis_path}.worst_case");
+            reject_raw_worst_case_numbers_json(&axis_stat.worst_case, &worst_case_path)?;
         }
-        let path = format!("stats[{operation_index}].worst_case");
-        reject_raw_worst_case_numbers_json(&stat.worst_case, &path)?;
+        let worst_case_path = format!("{operation_path}.worst_case");
+        reject_raw_worst_case_numbers_json(&stat.worst_case, &worst_case_path)?;
     }
     Ok(())
 }
@@ -2741,6 +2749,29 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats[0].mean_ulp"));
+    }
+
+    #[test]
+    fn replay_rejects_operation_mean_ulp_json_f64_overflow_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["mean_ulp"] = serde_json::Number::from_f64(123456789.125)
+            .expect("finite sentinel")
+            .into();
+        let json = serde_json::to_string(&value).unwrap();
+        let needle = "\"mean_ulp\":123456789.125";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(needle, "\"mean_ulp\":1e999999", 1);
+        let error =
+            replay_witness_json(&json).expect_err("operation mean ulp overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
         );
         assert!(error
             .invalid_json_message()
