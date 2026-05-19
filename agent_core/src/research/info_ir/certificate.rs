@@ -193,14 +193,18 @@ pub fn lean_certificate(expr: &InfoExpr) -> String {
          \x20   {{ family := {family_term}\n\
          \x20     pParams := {p_term}\n\
          \x20     qParams := {q_term}\n\
-         \x20     nonnegative := Epistemos.Info.bregmanNonnegative {family_term} {p_term} {q_term}\n\
-         \x20     zeroIffEqual := Epistemos.Info.bregmanZeroIffEqual {family_term} {p_term} {q_term}\n\
-         \x20     sourceRow := \"Amari 2016 Ch. 6 §6.2\" }}\n\
+        \x20     nonnegative := Epistemos.Info.bregmanNonnegative {family_term} {p_term} {q_term}\n\
+        \x20     zeroIffEqual := Epistemos.Info.bregmanZeroIffEqual {family_term} {p_term} {q_term}\n\
+        \x20     sourceRow := \"Amari 2016 Ch. 6 §6.2\" }}\n\
+         \n\
+         theorem info_mirror_descent_witness_{suffix} :\n\
+         \x20   Epistemos.Info.mirrorDescentEquivalent {family_term} := by\n\
+         \x20 exact {family_well_formed}\n\
          \n\
          def info_mirror_descent_obligation_{suffix} : Epistemos.Info.MirrorDescentEquivalenceObligation :=\n\
-         \x20   {{ family := {family_term}\n\
-         \x20     statement := Epistemos.Info.mirrorDescentEquivalent {family_term}\n\
-         \x20     sourceRow := \"Beck-Teboulle 2003 §2\" }}\n\
+         \x20   Epistemos.Info.mirrorDescentEquivalenceObligation {family_term}\n\
+         \x20     info_mirror_descent_witness_{suffix}\n\
+         \x20     \"Beck-Teboulle 2003 §2\"\n\
          \n\
          def info_certificate_{suffix} : Epistemos.Info.CertificateTarget :=\n\
          \x20   {{ expr := info_expr_{suffix}\n\
@@ -228,7 +232,9 @@ pub fn lean_certificate(expr: &InfoExpr) -> String {
          \n\
          theorem info_mirror_descent_equivalence_{suffix} :\n\
          \x20   info_mirror_descent_obligation_{suffix}.statement := by\n\
-         \x20 exact info_mirror_descent_obligation_{suffix}.statement\n\
+         \x20 exact Epistemos.Info.mirrorDescentEquivalenceObligationCarries {family_term}\n\
+         \x20   info_mirror_descent_witness_{suffix}\n\
+         \x20   \"Beck-Teboulle 2003 §2\"\n\
          \n\
          end Epistemos.Info.Generated\n\
          \n",
@@ -238,6 +244,7 @@ pub fn lean_certificate(expr: &InfoExpr) -> String {
         p_term = p_term,
         q_term = q_term,
         suffix = suffix,
+        family_well_formed = family_well_formed_proof(expr.family()),
     )
 }
 
@@ -266,7 +273,8 @@ mod tests {
         let c = lean_certificate(&e);
         assert!(c.contains("Epistemos.Info.bregmanNonnegative"));
         assert!(c.contains("Epistemos.Info.bregmanZeroIffEqual"));
-        assert!(c.contains("Epistemos.Info.mirrorDescentEquivalent"));
+        assert!(c.contains("Epistemos.Info.mirrorDescentEquivalenceObligation"));
+        assert!(!c.contains("statement := Epistemos.Info.mirrorDescentEquivalent"));
         assert!(!c.contains("nonnegative := True"));
         assert!(!c.contains("zeroIffEqual := True"));
         assert!(!c.contains("statement := True"));
@@ -344,7 +352,9 @@ mod tests {
         assert!(c.contains("exact info_bregman_obligation_"));
         assert!(c.contains(".nonnegative"));
         assert!(c.contains(".zeroIffEqual"));
-        assert!(c.contains("exact info_mirror_descent_obligation_"));
+        assert!(c.contains(
+            "exact Epistemos.Info.mirrorDescentEquivalenceObligationCarries"
+        ));
     }
 
     #[test]
