@@ -957,14 +957,19 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
             });
         }
         for (axis_index, axis_stat) in axis_stats.iter().enumerate() {
-            if !axis_stat.is_object() {
+            let Some(axis_stat_object) = axis_stat.as_object() else {
                 return Err(FulpReplayError::InvalidJson {
                     message: format!(
                         "invalid type for stats[{operation_index}].axis_stats[{axis_index}], expected object"
                     ),
                     kind: FulpInvalidJsonKind::TypeMismatch,
                 });
-            }
+            };
+            reject_unknown_object_json_fields(
+                axis_stat_object,
+                &format!("stats[{operation_index}].axis_stats[{axis_index}]"),
+                &["axis", "evaluated", "max_ulp", "mean_ulp", "worst_case"],
+            )?;
             let Some(axis_value) = axis_stat.get("axis") else {
                 return Err(FulpReplayError::InvalidJson {
                     message: format!(
@@ -4999,7 +5004,17 @@ mod tests {
         let mut value: serde_json::Value =
             serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
         value["stats"][0]["axis_stats"][0]["corrupted_extra_field"] = serde_json::Value::Bool(true);
-        assert_invalid_witness_json_value(value);
+        let json = serde_json::to_string(&value).unwrap();
+        let error =
+            replay_witness_json(&json).expect_err("unknown axis stats field must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::UnknownField)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("unknown field stats[0].axis_stats[0].corrupted_extra_field")
+        );
     }
 
     #[test]
@@ -5138,15 +5153,5 @@ mod tests {
             error.operation_stats_mismatch(),
             Some((FulpOperation::Ln, FulpOperation::Exp))
         );
-    }
-
-    fn assert_invalid_witness_json(json: &str) {
-        let error = replay_witness_json(json).expect_err("invalid JSON must fail replay");
-        assert!(error.is_invalid_json());
-    }
-
-    fn assert_invalid_witness_json_value(value: serde_json::Value) {
-        let json = serde_json::to_string(&value).expect("corrupted JSON value");
-        assert_invalid_witness_json(&json);
     }
 }
