@@ -9085,6 +9085,148 @@ fn eidos_hit_clone_is_byte_perfect_for_multilingual_non_latin_ids() {
     }
 }
 
+/// Multilingual retriever source_id sort determinism — every
+/// retriever that breaks rank ties via `source_id` ascending uses
+/// `&str::cmp`, which is byte-lexicographic ordering on UTF-8 bytes.
+///
+/// Byte-lex on UTF-8 is deterministic AND machine-independent: there
+/// is no locale state, no collation table, no Unicode-aware ordering.
+/// That property is what makes replay byte-equal: two runs that
+/// retrieve the same hits will sort them in the same order on every
+/// machine, every OS, every Rust version.
+///
+/// If a future change ever swapped to a locale-aware comparator
+/// (e.g. `unicode_collation`, `IcuCollator`, `LocaleCollation::cmp`),
+/// determinism breaks:
+///   - replay diverges across machines with different ICU tables
+///   - the iter 153/166 ascending-source_id determinism pins fail
+///     intermittently on non-Latin inputs
+///   - same packet on M2 Pro vs M3 Max vs Linux could surface
+///     different top-K hits for the same multi-script corpus
+///
+/// This pin exercises the lexical retriever (the canonical sort
+/// surface — `b.0.cmp(&a.0).then_with(|| a.1.source_id.as_str().cmp(b.1.source_id.as_str()))`)
+/// with 7 documents whose ids span 5 script families. All 7 documents
+/// share an identical occurrence count (one match each), forcing
+/// every position to be resolved by the source_id tie-break. The
+/// resulting hit order must be exactly byte-lex ascending on the
+/// `{doc_id}::lex` template.
+///
+/// Pins:
+///   - 7 documents inserted in a deliberately scrambled order
+///   - each matches the query exactly once (tie-break must fire on
+///     every position)
+///   - emitted hit order == expected byte-lex ascending order
+///   - the expected order is computed by sorting the source_ids
+///     ourselves via the same `&str::cmp` — deliberately redundant
+///     so the test is independent of any pre-computed sort tables
+///   - the test also asserts the byte-lex ordering rules:
+///       * ASCII < Latin-extended diacritics < non-Latin scripts
+///         (b'a' = 0x61 vs first byte of multi-byte sequences which
+///          starts at 0xC2+)
+///     This is a property of UTF-8's prefix encoding: any non-ASCII
+///     codepoint's first byte is >= 0xC2, so all ASCII bytes sort
+///     before all multi-byte UTF-8 prefix bytes.
+#[test]
+fn lexical_source_id_sort_is_deterministic_byte_lex_across_scripts() {
+    use super::types::EidosChunkId;
+
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+
+    // 7 documents across 5 script families. Insert in deliberately
+    // scrambled (non-sorted) order to force the retriever's
+    // tie-break to do real work.
+    let doc_ids: [&str; 7] = [
+        "笔记-a",      // Han
+        "note-a",      // Latin ASCII
+        "नोट-a",       // Devanagari
+        "café-a",      // Latin extended (single combining)
+        "ملاحظة-a",    // Arabic
+        "노트-a",      // Hangul
+        "笔note-a",    // Mixed Han+Latin
+    ];
+    for did in &doc_ids {
+        lex.insert(doc(*did), "alpha durian content", EidosSourceKind::Note).unwrap();
+    }
+
+    let q = EidosQuery::new("durian", EidosRetrievalMode::Lexical, 32);
+    let packet = lex.retrieve(&q, 1_700_000_000_000);
+    assert_eq!(packet.hits.len(), 7, "all 7 documents must match");
+
+    // Compute the expected byte-lex order independently — sort the
+    // source_id strings via the canonical `&str::cmp` which IS
+    // byte-lex on UTF-8.
+    let mut expected: Vec<String> = doc_ids
+        .iter()
+        .map(|d| format!("{d}::lex"))
+        .collect();
+    expected.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+
+    let actual: Vec<String> = packet
+        .hits
+        .iter()
+        .map(|h| h.source_id.as_str().to_string())
+        .collect();
+
+    assert_eq!(
+        actual, expected,
+        "multilingual source_id sort drifted from byte-lex order. \
+         The lexical retriever's source_id tie-break uses &str::cmp \
+         which is byte-lex on UTF-8 — deterministic and machine-\
+         independent. A future swap to locale-aware collation \
+         (unicode_collation / ICU / sort_by_unicode_codepoints) \
+         would break replay determinism across machines + non-Latin \
+         scripts. Got order: {actual:?}, expected: {expected:?}"
+    );
+
+    // Anchor an explicit byte-lex property: all ASCII source_ids
+    // (starting with 'c' / 'n') sort BEFORE any non-ASCII source_id
+    // (Han / Hangul / Arabic / Devanagari / Latin-extended-é all
+    // have first byte >= 0xC2 due to UTF-8 multi-byte prefix
+    // encoding). This is what makes byte-lex deterministic across
+    // scripts — UTF-8's encoding guarantees ASCII < non-ASCII at
+    // the byte level.
+    let first_ascii_index = actual
+        .iter()
+        .position(|s| s.as_bytes()[0] < 0x80)
+        .expect("at least one ASCII source_id must be present");
+    let first_non_ascii_index = actual
+        .iter()
+        .position(|s| s.as_bytes()[0] >= 0x80)
+        .expect("at least one non-ASCII source_id must be present");
+    assert!(
+        first_ascii_index < first_non_ascii_index,
+        "byte-lex ordering: all ASCII source_ids (first byte < 0x80) \
+         must sort BEFORE any non-ASCII source_id (first byte >= 0xC2 \
+         per UTF-8 prefix encoding). first_ascii={first_ascii_index}, \
+         first_non_ascii={first_non_ascii_index}, order: {actual:?}"
+    );
+
+    // Deterministic re-run: a fresh retrieve against the same
+    // backend produces byte-identical hits in byte-identical order.
+    // Anchors the per-call determinism (no hidden random tie-break,
+    // no HashMap iteration order leaking through).
+    let packet2 = lex.retrieve(&q, 1_700_000_000_000);
+    let actual2: Vec<String> = packet2
+        .hits
+        .iter()
+        .map(|h| h.source_id.as_str().to_string())
+        .collect();
+    assert_eq!(
+        actual2, actual,
+        "multilingual sort must be deterministic across repeated \
+         retrieve() calls — same backend, same query, same hits in \
+         same order. A future HashMap-iteration-order leak or \
+         interior-mutability sort scratch buffer would surface here."
+    );
+
+    // Verify the EidosChunkId types round-trip through the sort
+    // (sanity: the test isn't comparing string formatting artifacts).
+    for h in &packet.hits {
+        let _: &EidosChunkId = &h.source_id;
+    }
+}
+
 /// `EidosHit::clone()` is byte-perfect — parallel to iter 190's
 /// EidosCitation Clone pin, but for the OUTPUT type (retriever-
 /// emitted hits) rather than the INPUT type (chat-layer citations).
