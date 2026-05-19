@@ -612,6 +612,35 @@ mod tests {
     }
 
     #[test]
+    fn para_output_fields_are_pub_per_field_visibility_doctrine() {
+        // Phase 1 hardening — field-visibility pin for ParaOutput<B>
+        // (companion to para_feedback_delta_field_is_pub iter-505).
+        // All 5 fields are pub:
+        //   - value: B
+        //   - stop_reason: StopReason
+        //   - stop_reason_digest: [u8; 32]
+        //   - thinking_digest: [u8; 32]
+        //   - thinking: Option<Vec<u8>>
+        //
+        // A future "let me hide stop_reason_digest behind a getter for
+        // mutation safety" refactor would silently break call sites
+        // that compare digests via direct field access.
+        let out: ParaOutput<u32> =
+            ParaOutput::new(42, StopReason::EndTurn, Some(b"x".to_vec()));
+        // Direct read access on every field.
+        assert_eq!(out.value, 42);
+        assert_eq!(out.stop_reason, StopReason::EndTurn);
+        assert!(out.stop_reason_digest.iter().any(|&b| b != 0));
+        assert!(out.thinking_digest.iter().any(|&b| b != 0));
+        assert!(out.thinking.is_some());
+        // Mutate via &mut self (also pub).
+        let mut out2: ParaOutput<u32> =
+            ParaOutput::new(0, StopReason::EndTurn, None);
+        out2.value = 99;
+        assert_eq!(out2.value, 99);
+    }
+
+    #[test]
     fn para_feedback_delta_field_is_pub_per_field_visibility_doctrine() {
         // Phase 1 hardening — field-visibility pin for ParaFeedback<P>.
         // The delta field is pub (para.rs §144-146), accessible from
