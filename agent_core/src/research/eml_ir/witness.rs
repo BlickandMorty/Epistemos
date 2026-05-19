@@ -1188,10 +1188,16 @@ fn reject_worst_case_fields_json(
             kind: FulpInvalidJsonKind::MissingField,
         });
     };
-    if ulp_error_value.as_u64().is_none() {
+    let Some(ulp_error) = ulp_error_value.as_u64() else {
         return Err(FulpReplayError::InvalidJson {
             message: format!("invalid type for {path}.ulp_error, expected unsigned integer"),
             kind: FulpInvalidJsonKind::TypeMismatch,
+        });
+    };
+    if ulp_error > u64::from(u32::MAX) {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("number out of range for {path}.ulp_error, expected u32"),
+            kind: FulpInvalidJsonKind::NumberOutOfRange,
         });
     }
     Ok(())
@@ -2984,6 +2990,25 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats[0].worst_case.ulp_error"));
+    }
+
+    #[test]
+    fn replay_rejects_operation_worst_case_ulp_error_u32_overflow_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["worst_case"]["ulp_error"] =
+            serde_json::Value::Number(serde_json::Number::from(u64::from(u32::MAX) + 1));
+        let json = serde_json::to_string(&value).unwrap();
+        let error =
+            replay_witness_json(&json).expect_err("worst case ulp error overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
         );
         assert!(error
             .invalid_json_message()
