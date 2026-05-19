@@ -2846,6 +2846,57 @@ mod tests {
     }
 
     #[test]
+    fn run_event_entry_variants_field_shapes_pinned_via_destructure() {
+        // Phase 1 hardening — field-shape pin for RunEventEntry's 3
+        // variants (companion to AgentEvent iter-461 and the broader
+        // destructure pin family iter-454..iter-461).
+        //
+        // Per-variant field shapes:
+        //   - Event { ordinal: u64, event: AgentEvent }                   → 2 named
+        //   - SealedMutation { ordinal: u64, capability_hash: Hash,
+        //                      debit: BudgetDebit }                      → 3 named
+        //   - LedgerSnapshot { ordinal: u64, ledger: BudgetLedger }       → 2 named
+        //
+        // RunEventEntry is the persistent witness row; a field change
+        // here forks every persisted RunEventLog.
+        let event = RunEventEntry::Event {
+            ordinal: 7,
+            event: AgentEvent::ReasoningDelta { text: "x".into() },
+        };
+        match event {
+            RunEventEntry::Event { ordinal, event } => {
+                let _: u64 = ordinal;
+                let _: AgentEvent = event;
+            }
+            _ => unreachable!(),
+        }
+        let sealed = RunEventEntry::SealedMutation {
+            ordinal: 8,
+            capability_hash: Hash::zero(),
+            debit: BudgetDebit::default(),
+        };
+        match sealed {
+            RunEventEntry::SealedMutation { ordinal, capability_hash, debit } => {
+                let _: u64 = ordinal;
+                let _: Hash = capability_hash;
+                let _: BudgetDebit = debit;
+            }
+            _ => unreachable!(),
+        }
+        let snapshot = RunEventEntry::LedgerSnapshot {
+            ordinal: 9,
+            ledger: BudgetLedger::default(),
+        };
+        match snapshot {
+            RunEventEntry::LedgerSnapshot { ordinal, ledger } => {
+                let _: u64 = ordinal;
+                let _: BudgetLedger = ledger;
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    #[test]
     fn run_event_entry_variant_count_is_three() {
         // Phase 1 hardening — cardinality pin completing the
         // count-pin series with the most replay-critical enum.
