@@ -163,6 +163,7 @@ assert non_none_notes_include_review_timestamp_token(artifact.notes)
 assert notes_review_timestamp_token_is_semicolon_delimited(artifact.notes)
 assert notes_reviewer_token_not_reserved_anonymous_identity(artifact.notes)
 assert notes_reviewer_sentinels_are_semicolon_delimited(artifact.notes)
+assert migration_validator_sentinels_are_semicolon_delimited(artifact.notes)
 assert notes_required_tokens_are_semicolon_delimited(artifact.notes)
 assert notes_length_within_schema_cap(artifact.notes)
 assert migration_notes_parse_positive_increasing_notes_cap_tokens(artifact.notes)
@@ -233,7 +234,7 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 ```
 
 ```bash
-ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); pat=schema.dig("properties","notes","not","pattern") || abort("notes not pattern missing"); abort("validator sentinel rule missing") unless pat.include?("validator=(?:anonymous|unknown|tbd|none)"); puts "migration validator sentinel ok"'
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); pat=schema.dig("properties","notes","not","pattern") || abort("notes not pattern missing"); abort("validator sentinel rule missing") unless pat.include?("(?:^|;\\\\s*)validator=(?:anonymous|unknown|tbd|none)(?:;|$)") && s.include?("Reserved validator sentinels are evaluated only on bounded validator tokens"); puts "migration validator sentinel ok"'
 ```
 
 ```bash
@@ -509,7 +510,7 @@ Implementation owner is TBD: merge-phase if artifact validation becomes part of 
 | `W-Validator-MigrationDigestDelimiter` | TBD validator-implementation terminal | Any executable validator accepts schema fragment digest tokens in migration notes. | Reject embedded schema-fragment digest token substrings that are not bounded by note start/end or semicolon delimiters before migration acceptance. |
 | `W-Validator-MigrationValidatorIdentity` | TBD validator-implementation terminal | Any executable validator accepts `from_schema=` migration notes. | Reject migration notes missing a lowercase-slug `validator` token, missing a lowercase-slug human `reviewer` token, or using the same value for both before migration acceptance. |
 | `W-Validator-MigrationIdentityDelimiter` | TBD validator-implementation terminal | Any executable validator accepts `validator`, `reviewer`, or `reviewed_at_utc` tokens in migration notes. | Reject embedded identity or review-time token substrings that are not bounded by note start/end or semicolon delimiters before migration acceptance. |
-| `W-Validator-MigrationValidatorSentinel` | TBD validator-implementation terminal | Any executable validator accepts `validator` tokens in migration notes. | Reject reserved validator identities `anonymous`, `unknown`, `tbd`, and `none` before migration acceptance. |
+| `W-Validator-MigrationValidatorSentinel` | TBD validator-implementation terminal | Any executable validator accepts `validator` tokens in migration notes. | Reject reserved validator identities `anonymous`, `unknown`, `tbd`, and `none` only when they appear as bounded validator tokens before migration acceptance. |
 | `W-Validator-MigrationReviewerSentinel` | TBD validator-implementation terminal | Any executable validator accepts `reviewer` tokens in migration notes. | Reject reserved reviewer identities `anonymous`, `unknown`, `tbd`, and `none` before migration acceptance. |
 | `W-Validator-MigrationIdentitySentinelParity` | TBD validator-implementation terminal | Any executable validator accepts reserved identity changes for migration note tokens. | Reject schema edits that change validator and reviewer reserved identity sets independently before migration acceptance. |
 | `W-Validator-LocalReferenceNotes` | TBD validator-implementation terminal | Any executable validator accepts `local_reference_only=true` in falsifier `notes`. | Reject missing `local_reference_artifact` or `local_reference_artifact_sha256`, and verify the retained artifact digest before replay promotion. |
