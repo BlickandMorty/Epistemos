@@ -201,6 +201,13 @@ structure CertificateTarget where
 
 namespace CertificateTarget
 
+theorem rotorSchemaCarries
+    (c : CertificateTarget)
+    (candidateWitness : c.rotor.isRotorCandidate)
+    (unitNormWitness : c.rotor.unitNorm) :
+    c.rotor.isRotorCandidate ∧ c.rotor.unitNorm := by
+  exact ⟨candidateWitness, unitNormWitness⟩
+
 theorem rotorObligations
     (c : CertificateTarget)
     (sandwichWitness : c.sandwichIsometry.preservesNorm)
