@@ -84,6 +84,17 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_doc_documents_closed_interval_semantics() {
+        assert!(FULP_FALSIFIER_DOC.contains("## Closed Interval Semantics"));
+        assert!(FULP_FALSIFIER_DOC.contains("closed at both endpoints"));
+        assert!(FULP_FALSIFIER_DOC.contains("first input to `0.5`"));
+        assert!(FULP_FALSIFIER_DOC.contains("last input to `2`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`0x3800`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`0x4000`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`± 1 ULP`"));
+    }
+
+    #[test]
     fn falsifier_doc_documents_mission_identity_pin() {
         assert!(FULP_FALSIFIER_DOC.contains("## Mission Identity Pin"));
         assert!(FULP_FALSIFIER_DOC.contains("`mission` field"));

@@ -65,6 +65,18 @@ freezes treat Metal output itself as proven.
 |---|---|---|---|---|---|---|
 | F-ULP-Oracle | Research | M2 Pro numeric falsifier | implemented-not-wired | `agent_core/src/research/eml_ir/`, `Epistemos/Shaders/morph_eval_reduced.metal`, `cargo test --features research research::eml_ir` | live Metal dispatch capture from `morphOracleFp16` | harden with GPU capture, subnormal/signed-zero diagnostics, WBO numerics cross-link, and Helios v3 §3.5/F7a reference |
 
+## Closed Interval Semantics
+
+The acceptance interval `[0.5, 2]` is closed at both endpoints. The
+log-sampled grid pins the first input to `0.5` and the last input to `2`
+exactly, so a candidate that opens the interval on either side
+(`(0.5, 2)`, `[0.5, 2)`, or `(0.5, 2]`) is rejected by the
+`closed_interval_edge` axis. The `0.5` endpoint is the binary representation
+`0x3800` in fp16, and `2.0` is `0x4000`; the `closed_interval_edge` anchor
+list explicitly includes both endpoints alongside their `± 1 ULP`
+neighbors so a candidate cannot drop either endpoint without lighting up a
+worst-case row pinned to that side of the interval.
+
 ## Mission Identity Pin
 
 The witness `mission` field is the exact string `F-ULP-Oracle T12`,
