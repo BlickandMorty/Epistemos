@@ -29,6 +29,9 @@
 
 // Phase 2F: bridge legacy ToolHandler into the new Tool trait surface.
 pub mod legacy_adapter;
+pub mod breaker;
+pub mod runner;
+pub mod reason_think;
 pub mod v2_catalog;
 
 /// Phase 2G-4 helper macro — wires a `ToolHandler` into a `Tool` impl

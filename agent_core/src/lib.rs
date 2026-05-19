@@ -9,6 +9,7 @@ pub mod artifacts;
 pub mod bootstrap;
 pub mod bridge;
 pub mod browser_engine;
+pub mod cache;
 pub mod canon;
 #[cfg(feature = "pro-build")]
 pub mod channel_relay;
