@@ -968,6 +968,25 @@ mod tests {
     }
 
     #[test]
+    fn lint_catches_rejected_doc_filenames_with_windows_separators() {
+        for path in [
+            r"docs\Aegis-rationale.md",
+            r"docs\handoff\2026-05-AEGIS-resume.md",
+            r"docs\sprint-sessions\aegis-iter-3.md",
+        ] {
+            assert!(
+                text_contains_rejected_name(path),
+                "lint must flag backslash-separated doc filename: {path}"
+            );
+            assert_eq!(
+                count_hits(path),
+                1,
+                "backslash-separated doc filename should produce one diagnostic: {path}"
+            );
+        }
+    }
+
+    #[test]
     fn scan_text_reports_doc_filename_match_positions_for_ci_diagnostics() {
         for path in [
             "docs/Aegis-rationale.md",
