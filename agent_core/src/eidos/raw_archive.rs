@@ -80,7 +80,7 @@ impl EidosRetriever for InMemoryRawArchive {
     ) -> EidosContextPacket {
         // Empty query text is *not* a wildcard. Treat as no-result defer so
         // callers cannot accidentally bulk-fetch the archive.
-        if query.text.is_empty() {
+        if query.text.trim().is_empty() {
             return empty_packet(query, &self.manifest_id);
         }
         if query.top_k == 0 {
@@ -203,6 +203,18 @@ mod tests {
         let q = EidosQuery::new("", EidosRetrievalMode::RawArchive, 8);
         let packet = archive.retrieve(&q, 1_700_000_000_000);
         assert!(packet.hits.is_empty());
+    }
+
+    #[test]
+    fn whitespace_only_query_text_returns_empty_packet() {
+        let mut archive = InMemoryRawArchive::new(manifest());
+        archive.insert(doc("   "), "blank id body", EidosSourceKind::RawArchive);
+        let q = EidosQuery::new("   ", EidosRetrievalMode::RawArchive, 8);
+        let packet = archive.retrieve(&q, 1_700_000_000_000);
+        assert!(
+            packet.hits.is_empty(),
+            "whitespace-only text is not a stable raw archive document id"
+        );
     }
 
     #[test]
