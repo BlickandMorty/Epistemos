@@ -302,6 +302,10 @@ ruby -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md");
 ```
 
 ```bash
+ruby -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); section=s[/## Identity Gap Slug Catalog\n(.*?)\n## /m,1] || abort("identity slug catalog missing"); abort("identity slug grammar missing") unless section.include?("^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"); slugs=section.scan(/^\\| `([^`]+)` \\|/).flatten; bad=slugs.grep_v(/\\A[a-z][a-z0-9]*(?:-[a-z0-9]+)*\\z/); abort("bad identity slugs: #{bad.join(",")}") unless bad.empty?; puts "identity gap slug grammar ok"'
+```
+
+```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md"); block=s[/## N196 - .*?```json\n(.*?)\n```/m,1] || abort("N196 missing"); x=JSON.parse(block); abort("N196 catalog flag mismatch") unless x["catalog_slug"] == "missing-validator-role-impact" && x["schema_catalog_present"] == false; puts "identity gap slug catalog negative case ok"'
 ```
 
