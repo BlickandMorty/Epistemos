@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 260
+invalid_example_count: 261
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -12872,3 +12872,18 @@ Violates: [Identity Gap Slug Catalog](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#id
 ```
 
 Rejection reason: identity-gap slugs may use lowercase ASCII alphanumerics and internal hyphens only; a `U+3000` ideographic space between `reserved` and `state` extends the validator vocabulary beyond `[a-z0-9-]` and is invalid.
+
+## N261 - Right-To-Left Override Identity Gap Slug
+
+Violates: [Identity Gap Slug Catalog](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#identity-gap-slug-catalog).
+
+```json
+{
+  "catalog_slug": "reserved\u202estate",
+  "negative_examples": ["N194", "N195"],
+  "schema_catalog_present": true,
+  "slug_grammar": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+}
+```
+
+Rejection reason: identity-gap slugs may use lowercase ASCII alphanumerics and internal hyphens only; a `U+202E` right-to-left override between `reserved` and `state` is a bidi-direction control that extends the validator vocabulary beyond `[a-z0-9-]` and can spoof readers, so it is rejected.
