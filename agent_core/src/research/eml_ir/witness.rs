@@ -741,7 +741,7 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
     top_level_u32_json(&value, "budget_target_seconds")?;
     top_level_unsigned_integer_json(&value, "budget_target_millis")?;
     top_level_unsigned_integer_json(&value, "observed_wall_clock_millis")?;
-    top_level_bool_json(&value, "pass")?;
+    required_top_level_bool_json(&value, "pass")?;
     reject_adversarial_reference_stats_json(&value, adversarial_fixture_count)?;
     let Some(max_point_index_exclusive) = point_count else {
         return Ok(());
@@ -1120,12 +1120,15 @@ fn top_level_u32_json(
     Ok(Some(field_value as u32))
 }
 
-fn top_level_bool_json(
+fn required_top_level_bool_json(
     value: &serde_json::Value,
     field: &str,
-) -> Result<Option<bool>, FulpReplayError> {
+) -> Result<bool, FulpReplayError> {
     let Some(field_value) = value.get(field) else {
-        return Ok(None);
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("missing field {field}"),
+            kind: FulpInvalidJsonKind::MissingField,
+        });
     };
     let Some(field_value) = field_value.as_bool() else {
         return Err(FulpReplayError::InvalidJson {
@@ -1133,7 +1136,7 @@ fn top_level_bool_json(
             kind: FulpInvalidJsonKind::TypeMismatch,
         });
     };
-    Ok(Some(field_value))
+    Ok(field_value)
 }
 
 fn reject_adversarial_reference_stats_json(
@@ -1905,6 +1908,23 @@ mod tests {
             .invalid_json_message()
             .expect("invalid json message")
             .contains("pass"));
+    }
+
+    #[test]
+    fn replay_rejects_missing_pass_json_field_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value
+            .as_object_mut()
+            .expect("witness object")
+            .remove("pass");
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json).expect_err("missing pass must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::MissingField)
+        );
+        assert_eq!(error.invalid_json_message(), Some("missing field pass"));
     }
 
     #[test]
