@@ -1892,6 +1892,40 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 42nd Unicode row (iter-358): Linear A extension.
+        // Adds a 40th non-Latin script (Linear A, U+10600–
+        // U+1077F) — the UNDECIPHERED Minoan script ca. 1800–
+        // 1450 BCE, parent (or older sibling) of Linear B
+        // (already pinned iter-322). Both are Aegean scripts;
+        // Linear B was adapted from Linear A for Mycenaean
+        // Greek. Pin set now contains BOTH halves of the
+        // Aegean pair: deciphered descendant (Linear B) +
+        // undeciphered ancestor (Linear A). TENTH SMP-plane
+        // codepoint. FIRST undeciphered script in the pin
+        // set — demonstrates the no-script-fold contract on
+        // a writing system with NO known phonetic / semantic
+        // mapping (Tantivy treats Linear A codepoints purely
+        // as tokenization units, agnostic to language).
+        // Latin "Mamba" + Linear A "𐘀" (sign A, U+10600) +
+        // Latin "cache".
+        query: "Mamba 𐘀 cache",
+        expected_paths: &["notes/mamba_linear_a.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Forty-second Unicode row (iter-358): Linear A \
+               extension. FORTY non-Latin scripts pinned. \
+               Linear A (ca. 1800-1450 BCE) is the UNDECIPHERED \
+               Minoan script — parent / older sibling of Linear \
+               B (iter-322 deciphered descendant). Pin set now \
+               contains BOTH halves of the Aegean pair. Tenth \
+               SMP-plane codepoint. FIRST undeciphered script \
+               in pin set — demonstrates no-script-fold contract \
+               on a writing system with NO known phonetic / \
+               semantic mapping. Brings Unicode to depth 42 — \
+               first category past depth-41 horizon.",
+    },
+    FVaultRecallRow {
         // 41st Unicode row (iter-351): Avestan extension.
         // Adds a 39th non-Latin script (Avestan, U+10B00–
         // U+10B3F) — the liturgical script created in the
