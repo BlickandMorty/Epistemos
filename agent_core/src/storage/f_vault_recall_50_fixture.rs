@@ -5481,6 +5481,46 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 45th Synthesis row (iter-373). NEWLY-DISCOVERED 5-
+        // ELEMENT vocab on agent-runtime pair: {agent, runtime,
+        // substrate, canon, system}. iter-43 + iter-75 both
+        // carry "System" (Tantivy lowercases to "system") in
+        // addition to the previously-noted 4 tokens. Prior
+        // iters framed the pair as 4-element {agent, runtime,
+        // substrate, canon} (ceilings at iter-214). The 5th
+        // token "system" was overlooked — it widens the pair
+        // vocab from C(4,*) to C(5,*) and opens FOUR new C(5,2)
+        // subsets ({agent, system}, {runtime, system},
+        // {substrate, system}, {canon, system}) beyond the
+        // surveyed 4-element subsets. iter-373 opens the
+        // expanded C(5,2) survey with the FIRST new subset:
+        // {agent, system} 2-term-AND. Other seeds carrying
+        // "system": design_system_hover_spec, system_overview
+        // (system only, 1/2). agent_brainstorm has "agent"
+        // only. AND-on-2 matches only the pair. Zero new seeds.
+        query: "agent system",
+        expected_paths: &[
+            "notes/agent_runtime_v2_substrate.md",
+            "notes/agent_runtime_substrate_v3.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Forty-fifth Synthesis row (iter-373): NEWLY-\
+               DISCOVERED 5-element vocab on agent-runtime pair \
+               — {agent, runtime, substrate, canon, system}. \
+               \"system\" was overlooked in prior framing — \
+               iter-43 + iter-75 both carry it in their bodies. \
+               Widens pair vocab from C(4,*) to C(5,*), opens \
+               FOUR new C(5,2) subsets. iter-373 = FIRST new \
+               C(5,2) subset {agent, system}. design_system_\
+               hover_spec + system_overview have system only \
+               (1/2); agent_brainstorm has agent only (1/2). \
+               AND-on-2 matches only the pair. Brings Synthesis \
+               to depth 45 — first category past depth-44 \
+               horizon. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 44th Synthesis row (iter-366). C(4,4) ALL-TERMS subset
         // on agent-runtime 4-element pair: {agent, runtime,
         // substrate, canon}. 4-term query (above the ≤3 AND
