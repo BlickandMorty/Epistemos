@@ -294,6 +294,22 @@ mod tests {
     }
 
     #[test]
+    fn variant_tier_debug_repr_is_stable_for_routing_audit_logs() {
+        let cases = [
+            (VariantTier::T1Deterministic, "T1Deterministic"),
+            (VariantTier::T2Heuristic, "T2Heuristic"),
+            (VariantTier::T3LlmBound, "T3LlmBound"),
+        ];
+        for (tier, expected) in cases {
+            assert_eq!(
+                format!("{tier:?}"),
+                expected,
+                "Debug repr drift for {tier:?} would break routing audit greps"
+            );
+        }
+    }
+
+    #[test]
     fn next_higher_walks_the_cost_ladder() {
         // Phase 1 hardening — pin the auto-promotion edges.
         assert_eq!(
