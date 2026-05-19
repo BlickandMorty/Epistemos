@@ -888,6 +888,63 @@ mod tests {
     }
 
     #[test]
+    fn root_hash_is_sensitive_to_reasoning_delta_and_final_text_payload_strings() {
+        // Phase 1 hardening — closes the text-payload sensitivity duo
+        // (companion to iter-548 StopReason + iter-549 ErrorKind +
+        // iter-550 Error message). Two logs that differ ONLY in the
+        // `text` field of a ReasoningDelta (or FinalText) row must
+        // produce DIFFERENT root_hashes — every text byte participates
+        // in the chain. A future "let me hash only the first N chars
+        // of streaming deltas for speed" tweak would silently let
+        // distinct reasoning traces collide on chain hash — replay
+        // parity would break for the reasoning/final text streams
+        // that motivate the audit log in the first place.
+        //
+        // Pin checks 4 representative text variants for BOTH variants.
+        let reasoning_texts = ["", "thought-a", "thought-b", "勉強します"];
+        let r_hashes: Vec<Hash> = reasoning_texts
+            .iter()
+            .map(|t| {
+                let mut log = RunEventLog::new();
+                log.append_event(AgentEvent::ReasoningDelta {
+                    text: (*t).to_string(),
+                });
+                log.root_hash()
+            })
+            .collect();
+        for i in 0..r_hashes.len() {
+            for j in (i + 1)..r_hashes.len() {
+                assert_ne!(
+                    r_hashes[i], r_hashes[j],
+                    "ReasoningDelta texts {:?} vs {:?} collided on root_hash",
+                    reasoning_texts[i], reasoning_texts[j]
+                );
+            }
+        }
+
+        let final_texts = ["", "answer-a", "answer-b", "結論 📝"];
+        let f_hashes: Vec<Hash> = final_texts
+            .iter()
+            .map(|t| {
+                let mut log = RunEventLog::new();
+                log.append_event(AgentEvent::FinalText {
+                    text: (*t).to_string(),
+                });
+                log.root_hash()
+            })
+            .collect();
+        for i in 0..f_hashes.len() {
+            for j in (i + 1)..f_hashes.len() {
+                assert_ne!(
+                    f_hashes[i], f_hashes[j],
+                    "FinalText texts {:?} vs {:?} collided on root_hash",
+                    final_texts[i], final_texts[j]
+                );
+            }
+        }
+    }
+
+    #[test]
     fn root_hash_is_sensitive_to_error_message_field_within_error_event_row() {
         // Phase 1 hardening MILESTONE iter-550 — closes the
         // Error-row root_hash sensitivity duo (iter-549 covers kind,
