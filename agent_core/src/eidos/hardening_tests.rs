@@ -157,7 +157,7 @@ fn assert_iter_format_canonical_panics_on_out_of_range() {
     assert_iter_format_canonical("iter 099", "MY_SOURCE_LABEL");
 }
 
-/// Iter 733 — catalog range continuation pin.
+/// Iter 734 — catalog range continuation pin.
 /// STATUS.md is the contributor-facing catalog for the closed-citation
 /// hardening arc. When new pins land after the previous range tip, the
 /// range must advance in lock-step so future readers can tell the arc is
@@ -167,9 +167,9 @@ fn status_md_closed_citation_iter_range_tip_tracks_latest_catalog_pin() {
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Closed-citation contract hardening (iters 127-733)"),
+        status.contains("Closed-citation contract hardening (iters 127-734)"),
         "STATUS.md closed-citation hardening catalog must advance its iter \
-         range tip to iter 733 when the catalog-continuation pin lands"
+         range tip to iter 734 when the catalog-continuation pin lands"
     );
 }
 
@@ -1352,6 +1352,34 @@ fn adversarial_query_fixture_expected_outcome_tokens_are_ascii_lowercase_kebab_c
     assert!(
         adversarial_query_fixture_expected_outcome_tokens_are_ascii_lowercase_kebab_case(),
         "fixture expected-outcome wire tokens must remain lowercase ASCII kebab-case"
+    );
+}
+
+#[test]
+fn adversarial_query_fixture_expected_outcome_tokens_are_ordered_unique_and_complete() {
+    use super::adversarial::{
+        adversarial_query_fixture_expected_outcome_tokens,
+        adversarial_query_fixture_expected_outcomes, ADVERSARIAL_QUERY_FIXTURES,
+    };
+
+    let tokens = adversarial_query_fixture_expected_outcome_tokens();
+    assert_eq!(
+        tokens,
+        [
+            "no-fuzzy-match",
+            "finite-saturating-score",
+            "deterministic-tie-break",
+        ],
+        "fixture expected-outcome tokens are a stable behavior wire contract"
+    );
+    assert_eq!(tokens.len(), adversarial_query_fixture_expected_outcomes().len());
+    assert_eq!(tokens.len(), ADVERSARIAL_QUERY_FIXTURES.len());
+
+    let unique: std::collections::BTreeSet<&str> = tokens.iter().copied().collect();
+    assert_eq!(
+        unique.len(),
+        tokens.len(),
+        "fixture expected-outcome tokens must remain pairwise unique"
     );
 }
 
