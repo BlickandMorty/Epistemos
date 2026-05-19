@@ -1263,6 +1263,54 @@ mod tests {
     }
 
     #[test]
+    fn run_event_log_and_entry_are_clone_send_sync_but_not_copy() {
+        // Phase 1 hardening MILESTONE iter-380 — closes the
+        // Clone + Send + Sync (not Copy) pin family across the
+        // append-only witness-trail types.
+        //
+        // RunEventLog: holds Vec<RunEventEntry>. Clone by derive but
+        // NOT Copy (heap).
+        // RunEventEntry: 3-variant enum with String/Hash/BudgetLedger/
+        // BudgetDebit payloads + ordinal. Clone by derive but NOT Copy
+        // (Event variant carries AgentEvent which has Strings).
+        //
+        // Send + Sync are load-bearing — RunEventLog is built by the
+        // dispatcher on a background actor and read by the UI thread
+        // for the Provenance Console.
+        //
+        // A future "let me hold a Cell<usize> next_ordinal cache" on
+        // RunEventLog refactor that introduced a non-Send type would
+        // silently break cross-thread propagation — surface here.
+        //
+        // The series total now covers (Clone+Send+Sync only):
+        //   - AgentBlueprintId (iter-375)
+        //   - MissionPacket + ToolCall (iter-376)
+        //   - AnswerPacket + Citation (iter-377)
+        //   - AgentBlueprint + ProviderPolicy (iter-378)
+        //   - LocalAgentCapability + VariantLadderSpec (iter-379)
+        //   - RunEventLog + RunEventEntry (this commit)
+        // → 10 String/Vec-bearing types pinned, on top of the 18
+        // unit-enum + Copy-struct types from iter-366..iter-374.
+        fn assert_clone_send_sync<T: Clone + Send + Sync>() {}
+        assert_clone_send_sync::<RunEventLog>();
+        assert_clone_send_sync::<RunEventEntry>();
+
+        // Sanity. RunEventLog does NOT derive PartialEq (Vec of
+        // enum entries with String content; the structural-equality
+        // surface uses log root_hash for replay-equality semantics).
+        // Clone preserves entry count + root_hash.
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
+        let cloned = log.clone();
+        assert_eq!(cloned.len(), log.len());
+        assert_eq!(cloned.root_hash(), log.root_hash());
+
+        // RunEventEntry DOES derive PartialEq via downstream variants.
+        let entry = log.entries()[0].clone();
+        assert_eq!(entry, entry.clone());
+    }
+
+    #[test]
     fn log_validation_error_is_copy_clone_send_sync_for_propagation_safety() {
         // Phase 1 hardening — trait-bound pin (companion to budget_gate,
         // mode iter-366, StopReason iter-367, VariantTier iter-368,
