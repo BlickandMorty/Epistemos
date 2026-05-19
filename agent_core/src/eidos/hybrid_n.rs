@@ -142,6 +142,14 @@ impl EidosRetriever for HybridRetrieverN {
         query: &EidosQuery,
         retrieved_at_unix_ms: u64,
     ) -> EidosContextPacket {
+        if query.text.trim().is_empty() || query.top_k == 0 {
+            return EidosContextPacket {
+                query: query.clone(),
+                manifest_id: self.manifest_id.clone(),
+                hits: vec![],
+            };
+        }
+
         let k = self.k as f32;
         let n = self.inner.len() as f32;
         let mut acc: BTreeMap<EidosDocumentId, NAccumulator> = BTreeMap::new();
@@ -240,6 +248,72 @@ mod tests {
 
     fn doc(id: &str) -> EidosDocumentId {
         EidosDocumentId::new(id).unwrap()
+    }
+
+    struct BlankLeakingRetriever {
+        manifest_id: EidosIndexManifestId,
+        document_id: EidosDocumentId,
+    }
+
+    impl EidosRetriever for BlankLeakingRetriever {
+        fn mode(&self) -> EidosRetrievalMode {
+            EidosRetrievalMode::Lexical
+        }
+
+        fn manifest_id(&self) -> &EidosIndexManifestId {
+            &self.manifest_id
+        }
+
+        fn retrieve(
+            &self,
+            query: &EidosQuery,
+            retrieved_at_unix_ms: u64,
+        ) -> EidosContextPacket {
+            EidosContextPacket {
+                query: query.clone(),
+                manifest_id: self.manifest_id.clone(),
+                hits: vec![EidosHit {
+                    source_id: EidosChunkId::new(format!("{}::lex", self.document_id.as_str()))
+                        .unwrap(),
+                    document_id: self.document_id.clone(),
+                    kind: EidosSourceKind::Note,
+                    span: None,
+                    confidence: 1.0,
+                    score: EidosScoreComponents {
+                        lexical: 1.0,
+                        semantic: 0.0,
+                        recency: 0.0,
+                        graph: 0.0,
+                    },
+                    provenance: EidosProvenance {
+                        manifest_id: self.manifest_id.clone(),
+                        mode: EidosRetrievalMode::Lexical,
+                        retrieved_at_unix_ms,
+                    },
+                }],
+            }
+        }
+    }
+
+    #[test]
+    fn blank_query_defers_before_n_way_fusion_even_if_inner_leaks() {
+        let h = HybridRetrieverN::new(vec![
+            Box::new(BlankLeakingRetriever {
+                manifest_id: manifest(),
+                document_id: doc("a-leak"),
+            }),
+            Box::new(BlankLeakingRetriever {
+                manifest_id: manifest(),
+                document_id: doc("b-leak"),
+            }),
+        ])
+        .unwrap();
+        let q = EidosQuery::new("   ", EidosRetrievalMode::Hybrid, 16);
+        let packet = h.retrieve(&q, T0);
+        assert!(
+            packet.hits.is_empty(),
+            "Hybrid_N must fail closed on blank query before fusing inner hits"
+        );
     }
 
     const T0: u64 = 1_700_000_000_000;
