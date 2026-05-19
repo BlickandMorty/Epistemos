@@ -84,6 +84,15 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_doc_documents_witness_schema_version_gate() {
+        assert!(FULP_FALSIFIER_DOC.contains("## Witness Schema Version"));
+        assert!(FULP_FALSIFIER_DOC.contains("`schema_version = 12`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`FULP_WITNESS_SCHEMA_VERSION`"));
+        assert!(FULP_FALSIFIER_DOC.contains("before any\nfingerprint check"));
+        assert!(FULP_FALSIFIER_DOC.contains("fast-forward the schema"));
+    }
+
+    #[test]
     fn falsifier_doc_documents_live_metal_dispatch_capture_deferred() {
         assert!(FULP_FALSIFIER_DOC.contains("## Live Metal Dispatch Capture (Deferred)"));
         assert!(FULP_FALSIFIER_DOC.contains("does not execute the Metal"));
