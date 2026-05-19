@@ -29,6 +29,16 @@ pub enum AdversarialQueryExpectedOutcome {
     DeterministicTieBreak,
 }
 
+impl AdversarialQueryExpectedOutcome {
+    pub fn token(self) -> &'static str {
+        match self {
+            Self::NoFuzzyMatch => "no-fuzzy-match",
+            Self::FiniteSaturatingScore => "finite-saturating-score",
+            Self::DeterministicTieBreak => "deterministic-tie-break",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AdversarialQueryFixture {
     pub label: &'static str,
@@ -222,28 +232,22 @@ pub fn adversarial_query_fixture_catalog_static_surface_is_complete() -> bool {
 }
 
 pub fn adversarial_query_fixture_labels_are_ascii_lowercase_kebab_case() -> bool {
-    ADVERSARIAL_QUERY_FIXTURE_LABELS.iter().all(|label| {
-        !label.is_empty()
-            && label.bytes().all(|byte| {
-                byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-'
-            })
-            && !label.starts_with('-')
-            && !label.ends_with('-')
-            && !label.contains("--")
-    })
+    ADVERSARIAL_QUERY_FIXTURE_LABELS
+        .iter()
+        .all(|label| is_ascii_lowercase_kebab_case(label))
 }
 
 pub fn adversarial_query_fixture_kind_tokens_are_ascii_lowercase_kebab_case() -> bool {
-    ADVERSARIAL_QUERY_FIXTURE_KINDS.iter().all(|kind| {
-        let token = kind.token();
-        !token.is_empty()
-            && token.bytes().all(|byte| {
-                byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-'
-            })
-            && !token.starts_with('-')
-            && !token.ends_with('-')
-            && !token.contains("--")
-    })
+    ADVERSARIAL_QUERY_FIXTURE_KINDS
+        .iter()
+        .all(|kind| is_ascii_lowercase_kebab_case(kind.token()))
+}
+
+pub fn adversarial_query_fixture_expected_outcome_tokens_are_ascii_lowercase_kebab_case(
+) -> bool {
+    ADVERSARIAL_QUERY_FIXTURE_EXPECTED_OUTCOMES
+        .iter()
+        .all(|outcome| is_ascii_lowercase_kebab_case(outcome.token()))
 }
 
 pub fn adversarial_query_fixture_query_texts_are_nonempty_trimmed_and_control_free() -> bool {
@@ -265,6 +269,18 @@ pub fn adversarial_query_fixture_descriptions_are_trimmed_and_control_free() -> 
 pub fn adversarial_query_fixture_catalog_static_surface_is_wire_safe() -> bool {
     adversarial_query_fixture_catalog_static_surface_is_complete()
         && adversarial_query_fixture_labels_are_ascii_lowercase_kebab_case()
+        && adversarial_query_fixture_kind_tokens_are_ascii_lowercase_kebab_case()
+        && adversarial_query_fixture_expected_outcome_tokens_are_ascii_lowercase_kebab_case()
         && adversarial_query_fixture_query_texts_are_nonempty_trimmed_and_control_free()
         && adversarial_query_fixture_descriptions_are_trimmed_and_control_free()
+}
+
+fn is_ascii_lowercase_kebab_case(value: &str) -> bool {
+    !value.is_empty()
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+        && !value.starts_with('-')
+        && !value.ends_with('-')
+        && !value.contains("--")
 }
