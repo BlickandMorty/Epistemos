@@ -301,6 +301,20 @@ pub fn lean_certificate_rational(r: &TropicalRational) -> String {
          \x20   tropical_rational_certificate_{suffix}\n\
          \x20   \"{n_suffix}\" \"{d_suffix}\" rfl rfl\n\
          \n\
+         theorem tropical_rational_certificate_numerator_hash_{suffix} :\n\
+         \x20   tropical_rational_certificate_{suffix}.numeratorHash = \"{n_suffix}\" := by\n\
+         \x20 exact Epistemos.Tropical.RationalCertificateTarget.numeratorHashMatches\n\
+         \x20   tropical_rational_certificate_{suffix}\n\
+         \x20   \"{n_suffix}\"\n\
+         \x20   rfl\n\
+         \n\
+         theorem tropical_rational_certificate_denominator_hash_{suffix} :\n\
+         \x20   tropical_rational_certificate_{suffix}.denominatorHash = \"{d_suffix}\" := by\n\
+         \x20 exact Epistemos.Tropical.RationalCertificateTarget.denominatorHashMatches\n\
+         \x20   tropical_rational_certificate_{suffix}\n\
+         \x20   \"{d_suffix}\"\n\
+         \x20   rfl\n\
+         \n\
          theorem tropical_rational_certificate_representation_{suffix} :\n\
          \x20   tropical_rational_certificate_{suffix}.representation = tropical_rational_obligation_{suffix} := by\n\
          \x20 exact Epistemos.Tropical.RationalCertificateTarget.representationMatches\n\
@@ -532,6 +546,12 @@ mod tests {
         assert!(c.contains("denominator hash"));
         assert!(c.contains("theorem tropical_rational_certificate_hash_fields_"));
         assert!(c.contains("Epistemos.Tropical.RationalCertificateTarget.hashFieldsMatch"));
+        assert!(c.contains("theorem tropical_rational_certificate_numerator_hash_"));
+        assert!(c.contains("Epistemos.Tropical.RationalCertificateTarget.numeratorHashMatches"));
+        assert!(c.contains("theorem tropical_rational_certificate_denominator_hash_"));
+        assert!(c.contains(
+            "Epistemos.Tropical.RationalCertificateTarget.denominatorHashMatches"
+        ));
     }
 
     #[test]
