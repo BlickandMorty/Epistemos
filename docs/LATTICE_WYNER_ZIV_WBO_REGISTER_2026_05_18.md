@@ -90,6 +90,7 @@ UAS §2, §4, and §5 line anchors are checked against current headings.
 | `T_Q` | Quantization rows must name the exact codec family, rate or codebook where applicable, and a layerwise reconstruction or logit-drift witness for that codec's quantized blocks. |
 | `T_S` | Substrate-boundary rows must carry the concrete boundary witness: nonzero `ActiveSupportBudget`, provenance edge, oracle page, or signed teacher output, plus `F-ACS-AnchorLookup` when lookup or anchoring is claimed. |
 | `T_SE` | Self-evolving/security rows must carry a mutation envelope, signed claim ledger or capability witness, and replayable adapter or provider provenance before any changed authority is promoted. |
+| `T_num` | Numerical rows must carry IEEE/fp mode, per-token KL or ULP evidence, and `F-ULP-Oracle`; `F-WBO-DriftLedger` alone is not a numerical witness. |
 
 ## Side-Information Decoding Kinds
 
