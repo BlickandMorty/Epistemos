@@ -256,6 +256,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 ```
 
 ```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); notes=schema.dig("properties","notes") || abort("notes missing"); rule=notes["allOf"].find { |r| r.dig("if","pattern") == "from_schema=" } || abort("migration note rule missing"); pat=rule.dig("then","pattern") || abort("migration note pattern missing"); abort("migration path command delimiter rule missing") unless pat.include?("(?:^|;\\\\s*)artifact_path=") && pat.include?("(?:^|;\\\\s*)migration_command=") && s.include?("embedded substrings do not satisfy version, path, command, identity, or review-time attestation"); puts "migration path command delimiters ok"'
+```
+
+```bash
 ruby -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); abort("migration validator slug rule missing") unless s.include?("validator` names the tool or terminal") && s.include?("^[a-z0-9][a-z0-9._-]*$"); abort("migration reviewer slug rule missing") unless s.include?("reviewer` names the human or accountable review identity and must use the same lowercase-slug grammar"); abort("migration validator distinctness rule missing") unless s.include?("If `validator` equals `reviewer`, the migration note is invalid"); puts "migration validator distinctness ok"'
 ```
 
@@ -466,6 +470,7 @@ Implementation owner is TBD: merge-phase if artifact validation becomes part of 
 | `W-Validator-NotesTokenKeyAllowlist` | TBD validator-implementation terminal | Any executable validator accepts machine-readable `key=value` tokens in falsifier `notes`. | Reject note tokens whose keys are not schema-owned before replay promotion or migration acceptance. |
 | `W-Validator-MigrationGapTokens` | TBD validator-implementation terminal | Any executable validator accepts `from_schema=` migration notes. | Reject migration notes missing any schema-table gap token, reject gap tokens absent from both the notes key allowlist and the `from_schema=` regex, and reject whitespace-bearing gap-token values before migration acceptance. |
 | `W-Validator-MigrationVersionDelimiter` | TBD validator-implementation terminal | Any executable validator accepts `from_schema` or `to_schema` tokens in migration notes. | Reject embedded version-token substrings that are not bounded by note start/end or semicolon delimiters before migration acceptance. |
+| `W-Validator-MigrationPathCommandDelimiter` | TBD validator-implementation terminal | Any executable validator accepts `artifact_path` or `migration_command` tokens in migration notes. | Reject embedded path or command token substrings that are not bounded by note start/end or semicolon delimiters before migration acceptance. |
 | `W-Validator-MigrationValidatorIdentity` | TBD validator-implementation terminal | Any executable validator accepts `from_schema=` migration notes. | Reject migration notes missing a lowercase-slug `validator` token, missing a lowercase-slug human `reviewer` token, or using the same value for both before migration acceptance. |
 | `W-Validator-MigrationIdentityDelimiter` | TBD validator-implementation terminal | Any executable validator accepts `validator`, `reviewer`, or `reviewed_at_utc` tokens in migration notes. | Reject embedded identity or review-time token substrings that are not bounded by note start/end or semicolon delimiters before migration acceptance. |
 | `W-Validator-MigrationValidatorSentinel` | TBD validator-implementation terminal | Any executable validator accepts `validator` tokens in migration notes. | Reject reserved validator identities `anonymous`, `unknown`, `tbd`, and `none` before migration acceptance. |
