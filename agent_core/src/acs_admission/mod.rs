@@ -3636,7 +3636,7 @@ impl<'de> Deserialize<'de> for ACSOperationThresholdRule {
             &value,
             "operation",
             "operation_thresholds.operation",
-            serde_json::Value::is_string,
+            is_operation_kind_wire_value,
         )?;
         require_operation_threshold_rule_field::<D::Error>(
             &value,
@@ -3651,6 +3651,23 @@ impl<'de> Deserialize<'de> for ACSOperationThresholdRule {
             thresholds: wire.thresholds,
         })
     }
+}
+
+fn is_operation_kind_wire_value(value: &serde_json::Value) -> bool {
+    value.as_str().is_some_and(is_canonical_operation_kind_code)
+}
+
+fn is_canonical_operation_kind_code(value: &str) -> bool {
+    matches!(
+        value,
+        "mutation_envelope"
+            | "active_assembly_packet"
+            | "answer_packet"
+            | "memory_write"
+            | "tool_action"
+            | "kernel_promotion"
+            | "model_adaptation"
+    )
 }
 
 fn require_operation_threshold_rule_field<E>(
@@ -7610,6 +7627,23 @@ mod tests {
     #[test]
     fn acs_admission_missing_operation_threshold_operation_names_malformed_policy_field() {
         let value = serde_json::json!({
+            "thresholds": ACSRiskThresholds::standard()
+        });
+
+        let err = serde_json::from_value::<ACSOperationThresholdRule>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(
+            message.contains("operation_thresholds.operation"),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn acs_admission_unknown_operation_threshold_operation_names_malformed_policy_field() {
+        let value = serde_json::json!({
+            "operation": "quantum_commit",
             "thresholds": ACSRiskThresholds::standard()
         });
 
