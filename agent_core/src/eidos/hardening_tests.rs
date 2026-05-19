@@ -5344,6 +5344,143 @@ fn validate_citation_accepts_multilingual_non_latin_manifest_ids() {
     }
 }
 
+/// Combined-axis multilingual pin — when BOTH the source_id AND the
+/// manifest_id carry non-Latin bytes simultaneously, the byte-strict
+/// gate must continue to hold independently on each axis. This
+/// stresses any future "normalize all id fields uniformly" pass that
+/// might inadvertently couple the two byte paths (e.g. a shared
+/// `normalize_id()` helper applied to both fields, or a `Hash` trait
+/// that canonicalizes during comparison).
+///
+/// Iters 658 and 659 each held one axis ASCII while varying the
+/// other. This iter exercises both axes non-ASCII simultaneously,
+/// closing the 2x2 truth table over the byte-script dimension:
+///
+///   - 658: source_id non-Latin,  manifest_id ASCII       (one-axis)
+///   - 659: source_id ASCII,      manifest_id non-Latin   (one-axis)
+///   - 660: source_id non-Latin,  manifest_id non-Latin   (both)
+///   - 127/137/195/...: both ASCII baseline               (zero-axis)
+///
+/// Pins, for each of the same five script families:
+///   - retriever emits a non-ASCII source_id under a non-ASCII
+///     manifest_id (both flow through verbatim)
+///   - byte-equal citation accepted (Ok(()))
+///   - source_id-mutated citation rejected with FabricatedSourceId
+///     (manifest_id is the legit non-Latin one, so manifest
+///     precedence does NOT fire; this confirms the gate compares
+///     each axis independently)
+///   - manifest_id-mutated citation rejected with ManifestMismatch
+///     (source_id is the legit non-Latin one)
+///   - BOTH-mutated citation surfaces as ManifestMismatch (iter 130
+///     precedence holds: manifest check fires first even when both
+///     halves are off; the operator gets the most-actionable
+///     diagnostic, the smuggled manifest tag they can trace back to
+///     a snapshot)
+///
+/// The pin establishes that the gate's two axes are byte-strictly
+/// orthogonal — a regression that fused them into a combined
+/// "normalize the whole id" pass would surface here.
+#[test]
+fn validate_citation_holds_byte_strict_with_both_non_latin_axes() {
+    use super::types::{CitationError, EidosChunkId, EidosCitation};
+
+    // (label, legit doc_id non-Latin, legit manifest non-Latin,
+    //  smuggled doc_id variant, smuggled manifest variant)
+    let cases: &[(&str, &str, &str, &str, &str)] = &[
+        ("Han (Chinese)",   "笔记-a",       "快照-α",       "筆記-a",       "快照-β"),
+        ("Hangul (Korean)", "노트-a",       "스냅샷-a",     "노드-a",       "스냅숏-a"),
+        ("Arabic",          "ملاحظة-a",     "لقطة-a",       "ملاحضة-a",     "لقطه-a"),
+        ("Devanagari",      "नोट-a",        "स्नैपशॉट-a",  "नौट-a",        "स्नैपशौट-a"),
+        ("Mixed Han+Latin", "笔note-a",     "快照-snap",    "笔nоte-a",     "快照-snар"),
+    ];
+
+    for (label, legit_doc, legit_manifest, smug_doc, smug_manifest) in cases {
+        let m = EidosIndexManifestId::new(*legit_manifest).unwrap();
+        let mut lex = InMemoryLexicalIndex::new(m.clone());
+        lex.insert(doc(*legit_doc), "alpha durian content", EidosSourceKind::Note).unwrap();
+        let q = EidosQuery::new("durian", EidosRetrievalMode::Lexical, 16);
+        let packet = lex.retrieve(&q, 1_700_000_000_000);
+        assert_eq!(packet.hits.len(), 1, "{label}: retriever must find the doc");
+        let legit_src = packet.hits[0].source_id.clone();
+        assert!(
+            !legit_src.as_str().is_ascii(),
+            "{label}: legitimate source_id must be non-ASCII (fixture sanity)"
+        );
+        assert!(
+            !packet.manifest_id.as_str().is_ascii(),
+            "{label}: legitimate manifest_id must be non-ASCII (fixture sanity)"
+        );
+
+        // (1) Both axes byte-equal → accepted.
+        let legit_cite = EidosCitation {
+            source_id: legit_src.clone(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        assert_eq!(
+            packet.validate_citation(&legit_cite),
+            Ok(()),
+            "{label}: byte-equal (non-Latin source, non-Latin manifest) accepted"
+        );
+
+        // (2) Source mutated, manifest legit → FabricatedSourceId
+        // (manifest precedence does NOT fire because manifest IS legit).
+        let smug_src = format!("{smug_doc}::lex");
+        assert_ne!(smug_src.as_bytes(), legit_src.as_str().as_bytes());
+        let cite_src_only = EidosCitation {
+            source_id: EidosChunkId::new(smug_src.clone()).unwrap(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        match packet.validate_citation(&cite_src_only).unwrap_err() {
+            CitationError::FabricatedSourceId(returned) => {
+                assert_eq!(returned.as_str(), &smug_src, "{label}: src-only mutation");
+            }
+            other => panic!("{label}: expected FabricatedSourceId (src-only mutation), got {other:?}"),
+        }
+
+        // (3) Source legit, manifest mutated → ManifestMismatch
+        // (iter 130 precedence holds).
+        let smug_mid = EidosIndexManifestId::new(*smug_manifest).unwrap();
+        assert_ne!(smug_mid.as_str().as_bytes(), packet.manifest_id.as_str().as_bytes());
+        let cite_manifest_only = EidosCitation {
+            source_id: legit_src.clone(),
+            manifest_id: smug_mid.clone(),
+        };
+        match packet.validate_citation(&cite_manifest_only).unwrap_err() {
+            CitationError::ManifestMismatch { packet: pm, citation: cm } => {
+                assert_eq!(pm, packet.manifest_id);
+                assert_eq!(cm.as_str(), *smug_manifest, "{label}: manifest-only mutation");
+            }
+            other => panic!("{label}: expected ManifestMismatch (manifest-only mutation), got {other:?}"),
+        }
+
+        // (4) BOTH axes mutated → ManifestMismatch (iter 130 precedence
+        // wins: even though the source_id is also fabricated, the
+        // manifest check fires first and shadows the source check).
+        let cite_both = EidosCitation {
+            source_id: EidosChunkId::new(smug_src.clone()).unwrap(),
+            manifest_id: smug_mid.clone(),
+        };
+        match packet.validate_citation(&cite_both).unwrap_err() {
+            CitationError::ManifestMismatch { packet: pm, citation: cm } => {
+                assert_eq!(pm, packet.manifest_id);
+                assert_eq!(
+                    cm.as_str(), *smug_manifest,
+                    "{label}: both-axis mutation must surface as ManifestMismatch \
+                     by iter 130 precedence — even though source_id is ALSO \
+                     fabricated, the manifest check fires first and shadows it"
+                );
+            }
+            CitationError::FabricatedSourceId(_) => {
+                panic!(
+                    "{label}: iter 130 precedence violation — both-axis \
+                     mutation surfaced FabricatedSourceId, but ManifestMismatch \
+                     must fire first whenever manifests differ"
+                );
+            }
+        }
+    }
+}
+
 /// `EidosChunkId::new` and `EidosIndexManifestId::new` reject empty
 /// payloads at the Rust-side construction API (`IdError::EmptyPayload`),
 /// but the `#[derive(Deserialize)]` on the newtype tuple struct does
