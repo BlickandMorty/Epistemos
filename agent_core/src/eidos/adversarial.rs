@@ -64,6 +64,12 @@ pub const ADVERSARIAL_QUERY_FIXTURE_QUERY_TEXTS: &[&str] = &[
     "near duplicate paragraph",
 ];
 
+pub const ADVERSARIAL_QUERY_FIXTURE_KINDS: &[AdversarialQueryFixtureKind] = &[
+    AdversarialQueryFixtureKind::TypoTransposition,
+    AdversarialQueryFixtureKind::Bm25Saturation,
+    AdversarialQueryFixtureKind::NearDuplicateParagraphTie,
+];
+
 pub fn adversarial_query_fixture(label: &str) -> Option<AdversarialQueryFixture> {
     ADVERSARIAL_QUERY_FIXTURES
         .iter()
@@ -104,6 +110,10 @@ pub fn adversarial_query_fixture_labels() -> &'static [&'static str] {
 
 pub fn adversarial_query_fixture_query_texts() -> &'static [&'static str] {
     ADVERSARIAL_QUERY_FIXTURE_QUERY_TEXTS
+}
+
+pub fn adversarial_query_fixture_kinds() -> &'static [AdversarialQueryFixtureKind] {
+    ADVERSARIAL_QUERY_FIXTURE_KINDS
 }
 
 pub fn adversarial_query_fixture_catalog_labels_match_fixture_rows() -> bool {
