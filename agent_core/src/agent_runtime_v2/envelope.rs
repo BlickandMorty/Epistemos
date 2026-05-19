@@ -2336,4 +2336,45 @@ mod tests {
         let _cap_ref: &MacaroonCapability = sealer.capability;
         let _gate_ref: &BudgetGate = &sealer.gate;
     }
+
+    #[test]
+    fn mutation_envelope_new_equals_struct_literal_byte_for_byte() {
+        // Phase 1 hardening — thin-wrapper equivalence pin (companion
+        // to the equivalence-pin family at iter-518/519/520/521).
+        // MutationEnvelope::new is the canonical ergonomic constructor;
+        // it MUST produce an envelope byte-equal to the direct
+        // struct-literal form across representative payload shapes.
+        // A future "let me canonicalise the payload" or "let me hash
+        // it pre-storage" tweak in the helper that diverged from
+        // struct construction would silently introduce two distinct
+        // envelope byte forms depending on call site — breaking
+        // RunEventLog row equality + replay parity downstream.
+        //
+        // Sweep: empty, minimal, Unicode, special chars, multi-byte.
+        let cap_hash = Hash::from_bytes([0x77; 32]);
+        let payloads: &[&str] = &[
+            "",
+            "p",
+            "Hello, world",
+            "勉強します 📝",
+            "with\nnewline",
+            "with\"quote\"",
+        ];
+        for &p in payloads {
+            let debit = BudgetDebit {
+                tokens: p.len() as u64,
+                ..Default::default()
+            };
+            let via_new = MutationEnvelope::new(cap_hash, debit, p.to_string());
+            let via_struct: MutationEnvelope<String> = MutationEnvelope {
+                capability_hash: cap_hash,
+                debit,
+                payload: p.to_string(),
+            };
+            assert_eq!(via_new, via_struct, "new vs struct for payload {p:?}");
+            let j_new = serde_json::to_string(&via_new).expect("serialize new");
+            let j_struct = serde_json::to_string(&via_struct).expect("serialize struct");
+            assert_eq!(j_new, j_struct);
+        }
+    }
 }
