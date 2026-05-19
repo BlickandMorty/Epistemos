@@ -384,6 +384,172 @@ mod tests {
     }
 
     #[test]
+    fn forged_macaroon_rejected_with_every_caveat_type_restrict_property() {
+        // Phase 1 hardening — work-queue item A: macaroon caveat
+        // property tests, every caveat type × forged combo.
+        //
+        // The existing forged_macaroon_rejected pin (line 359) covers
+        // a macaroon with NO caveats. This pin extends to a macaroon
+        // narrowed by EACH of the 4 Caveat variants
+        // (cognitive_dag/macaroons.rs §42-57):
+        //   ScopePrefix, ExpiryAfter, ToolNameEq, AdditionalContext
+        //
+        // For every caveat type:
+        //   1. Issue base macaroon under key A
+        //   2. Restrict with the caveat (extends HMAC chain)
+        //   3. Construct MacaroonCapability with WRONG root key B
+        //   4. verify() must reject with CapabilityError::Forged(
+        //      VerifyError::SignatureMismatch)
+        //
+        // A future "let me skip HMAC verification on caveat-bearing
+        // macaroons for hot-path speed" optimisation would silently
+        // bypass forgery detection for delegated tokens — exactly
+        // the path where forgery is most likely to surface (a
+        // delegated macaroon traverses more code).
+        //
+        // Property-style invariant: the rejection is uniform across
+        // all caveat types — no caveat shape is "less forge-able"
+        // than another.
+        let key_a = root_key_a();
+        let key_b = root_key_b();
+        let ctx = ctx_now_at(1_000);
+        let caveats: Vec<Caveat> = vec![
+            Caveat::ScopePrefix {
+                prefix: "vault/notes".to_string(),
+            },
+            Caveat::ExpiryAfter {
+                until_ts_ms: 10_000,
+            },
+            Caveat::ToolNameEq {
+                name: "vault.read".to_string(),
+            },
+            Caveat::AdditionalContext {
+                key: "principal".to_string(),
+                value: "trusted".to_string(),
+            },
+        ];
+        for caveat in caveats {
+            let base = issue_tool_macaroon(&key_a, Some(10_000));
+            let narrowed = restrict(&base, caveat.clone());
+            // Forgery: wrap with WRONG root key B.
+            let forged_cap = MacaroonCapability::new(narrowed, key_b);
+            let err = forged_cap
+                .verify(&ctx)
+                .expect_err(&format!("forged macaroon with {caveat:?} must reject"));
+            assert!(
+                matches!(
+                    err,
+                    CapabilityError::Forged(VerifyError::SignatureMismatch)
+                ),
+                "expected Forged(SignatureMismatch) for caveat {caveat:?}, got {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn expired_macaroon_rejected_with_every_caveat_type_restrict_property() {
+        // Phase 1 hardening — work-queue item A: every caveat type ×
+        // expired combo. Companion to the just-shipped
+        // forged_macaroon_rejected_with_every_caveat_type_restrict_property.
+        //
+        // The existing expired_macaroon_rejected pin (line 373) covers
+        // a macaroon with NO caveats whose base_expiry_ms is < now.
+        // This pin extends to a macaroon ALSO narrowed by EACH of the
+        // 4 Caveat variants — the expiry rejection must surface
+        // uniformly regardless of which other caveats decorate the
+        // macaroon.
+        //
+        // The base expiry is set to 1_000 ms; restrict adds another
+        // caveat (which is satisfied by the runtime ctx); verify at
+        // now_ms = 2_000 must still surface CapabilityError::Violated(
+        // CaveatViolation::Expired).
+        //
+        // A future "let me let macaroons with at least one
+        // satisfying caveat bypass expiry for usability" pivot
+        // would silently widen the time horizon — surface here.
+        let key_a = root_key_a();
+        let satisfying_caveats: Vec<Caveat> = vec![
+            // Scope must match ctx scope_path "vault/notes/2026" via
+            // starts_with semantics (cognitive_dag/macaroons.rs §263).
+            Caveat::ScopePrefix {
+                prefix: "vault".to_string(),
+            },
+            // Expiry caveat WIDER than base — won't trigger Expired
+            // itself; base still triggers.
+            Caveat::ExpiryAfter {
+                until_ts_ms: 999_999,
+            },
+            // Tool name matches ctx tool_name "vault.read".
+            Caveat::ToolNameEq {
+                name: "vault.read".to_string(),
+            },
+            // Additional context — ctx.additional is empty so this
+            // caveat would normally fail; use empty key+value so
+            // the .get("") returns None and the eval would fail.
+            // To keep the test focused on expiry, use a caveat that
+            // the empty ctx satisfies — there isn't one, so we use a
+            // ScopePrefix variant. Just re-use ScopePrefix to round
+            // out coverage and document the constraint.
+        ];
+
+        // The expected behaviour: base_expiry of 1000 + ctx.now_ms of
+        // 2000 → expired regardless of which other caveat decorates.
+        let ctx = ctx_now_at(2_000);
+
+        for caveat in satisfying_caveats {
+            let base = issue_tool_macaroon(&key_a, Some(1_000));
+            let narrowed = restrict(&base, caveat.clone());
+            let cap = MacaroonCapability::new(narrowed, key_a);
+            let err = cap
+                .verify(&ctx)
+                .expect_err(&format!(
+                    "expired macaroon with {caveat:?} must reject"
+                ));
+            assert!(
+                matches!(
+                    err,
+                    CapabilityError::Violated(CaveatViolation::Expired { .. })
+                ),
+                "expected Violated(Expired) for caveat {caveat:?}, got {err:?}"
+            );
+        }
+
+        // The AdditionalContext caveat needs a positive ctx fixture
+        // (the empty ctx.additional fails the caveat itself, which
+        // would mask the expiry rejection). Pin separately so the
+        // expiry-vs-additional precedence is explicit.
+        let base_ac = issue_tool_macaroon(&key_a, Some(1_000));
+        let narrowed_ac = restrict(
+            &base_ac,
+            Caveat::AdditionalContext {
+                key: "principal".to_string(),
+                value: "trusted".to_string(),
+            },
+        );
+        let ctx_with_additional = RuntimeContext {
+            now_ms: 2_000,
+            scope_path: "vault/notes/2026".to_string(),
+            tool_name: "vault.read".to_string(),
+            additional: {
+                let mut m = std::collections::BTreeMap::new();
+                m.insert("principal".to_string(), "trusted".to_string());
+                m
+            },
+        };
+        let cap_ac = MacaroonCapability::new(narrowed_ac, key_a);
+        let err_ac = cap_ac
+            .verify(&ctx_with_additional)
+            .expect_err("expired macaroon with AdditionalContext must reject");
+        assert!(
+            matches!(
+                err_ac,
+                CapabilityError::Violated(CaveatViolation::Expired { .. })
+            ),
+            "AdditionalContext caveat must NOT mask the Expired surface, got {err_ac:?}"
+        );
+    }
+
+    #[test]
     fn macaroon_capability_verify_is_pure_deterministic_across_multiple_calls() {
         // Phase 1 hardening — pure-function determinism pin
         // (companion to iter-220 BudgetGate purity pin, iter-217/218/219
