@@ -1638,6 +1638,36 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_capability_missing_required_fields_fail_to_deserialise() {
+        let cap = shell_capability();
+        let value = serde_json::to_value(&cap).expect("serialise");
+        let obj = value
+            .as_object()
+            .expect("LocalAgentCapability serialises as JSON object");
+        for missing in [
+            "command_pattern",
+            "surface",
+            "tier",
+            "owner",
+            "requires_network",
+            "requires_subprocess",
+            "requires_approval",
+            "structured_evidence",
+            "native_equivalent",
+            "local_agent_passthrough",
+        ] {
+            let mut tampered = obj.clone();
+            tampered.remove(missing);
+            let parsed: Result<LocalAgentCapability, _> =
+                serde_json::from_value(serde_json::Value::Object(tampered));
+            assert!(
+                parsed.is_err(),
+                "LocalAgentCapability missing required field {missing:?} must fail"
+            );
+        }
+    }
+
+    #[test]
     fn local_agent_capability_preserves_json_special_chars_through_serde() {
         // Phase 1 hardening MILESTONE iter-420 — closes the
         // JSON-special-char preservation pin family across the 2
