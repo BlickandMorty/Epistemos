@@ -538,6 +538,58 @@ mod tests {
     }
 
     #[test]
+    fn stop_reason_canonical_bytes_charset_is_lowercase_snake_case_only() {
+        // Phase 1 hardening — character-set pin extending the canonical_bytes
+        // line of work (companion to iter-450 exact-bytes pin, the const-fn
+        // promotion pin, the serde-tag byte-equal pin, the uniqueness +
+        // no-prefix pins). The canonical_bytes function (para.rs §60)
+        // returns &'static [u8] literals that participate in:
+        //   - BLAKE3 stop_reason_digest (ParaOutput::new / digest_intact)
+        //   - byte-equal alignment with the snake_case serde tag
+        //     (stop_reason_canonical_bytes_match_serde_tag_byte_for_byte)
+        //
+        // The doctrine across the agent_runtime_v2 codebase pins identifier
+        // strings to [a-z_]: BudgetTerm::code (budget.rs §2090), AgentEvent
+        // event_type tags (event.rs §940). StopReason::canonical_bytes was
+        // missed during the initial charset-pin sweep. A future variant
+        // added with mixed case (e.g., `b"ToolUse"`) or a hyphen (e.g.,
+        // `b"tool-use"`) would silently:
+        //   1. break the byte-equal alignment with the serde-snake_case tag
+        //   2. mint a new stop_reason_digest that doesn't match any persisted
+        //      RunEventLog (replay parity loss)
+        //   3. break grep tooling that filters audit logs by /[a-z_]+/
+        //
+        // Pin charset to lowercase ASCII letters + underscore, non-empty,
+        // for every one of the 7 StopReason variants.
+        for reason in [
+            StopReason::EndTurn,
+            StopReason::ToolUse,
+            StopReason::MaxTokens,
+            StopReason::Refusal,
+            StopReason::BudgetExhausted,
+            StopReason::CapabilityDenied,
+            StopReason::Error,
+        ] {
+            let bytes = reason.canonical_bytes();
+            assert!(!bytes.is_empty(), "canonical_bytes for {reason:?} must be non-empty");
+            for &b in bytes {
+                assert!(
+                    b.is_ascii_lowercase() || b == b'_',
+                    "canonical_bytes for {reason:?} byte {b:#x} must be ASCII lowercase or '_'"
+                );
+            }
+            // Belt-and-braces: the underscore must not anchor (no leading /
+            // trailing _ in snake_case identifiers per doctrine).
+            assert_ne!(bytes[0], b'_', "canonical_bytes for {reason:?} must not start with '_'");
+            assert_ne!(
+                *bytes.last().unwrap(),
+                b'_',
+                "canonical_bytes for {reason:?} must not end with '_'"
+            );
+        }
+    }
+
+    #[test]
     fn stop_reason_variant_count_is_seven() {
         // Phase 1 hardening — cardinality pin completing the
         // count-pin series across the agent_runtime_v2 enums. The
