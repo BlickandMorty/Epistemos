@@ -87,6 +87,7 @@ UAS §2, §4, and §5 line anchors are checked against current headings.
 | `T_W` | Weight/runtime rows must carry a layerwise reconstruction or logit-drift witness tied to the exact promoted weight delta or quantized block; adapter rows must also carry replayable mutation provenance before promotion. |
 | `T_K` | KV/cache rows must carry runtime attention/KV curvature, an active-support mask or page oracle, and a `F-KV-Direct-Gate` witness whenever reconstruction or restore equivalence is claimed. |
 | `T_R` | Residual rows must carry decoder LM state plus residual-stream evidence and a residual KL slice; calibration Hessians from weight codecs cannot witness residual transfer. |
+| `T_Q` | Quantization rows must name the exact codec family, rate or codebook where applicable, and a layerwise reconstruction or logit-drift witness for that codec's quantized blocks. |
 
 ## Side-Information Decoding Kinds
 
