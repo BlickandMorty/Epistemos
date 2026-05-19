@@ -2856,6 +2856,63 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_emit_equals_struct_literal_with_zero_thinking_digest_and_log_root() {
+        // Phase 1 hardening — thin-wrapper equivalence pin (companion
+        // to citation_from_tuple_equals_struct_literal at this file +
+        // mission_packet_new_under_cap_equals_struct_literal at mission.rs).
+        // AnswerPacket::emit is the ergonomic constructor for the
+        // no-thinking-content path; it MUST produce a packet byte-equal
+        // to the direct struct-literal form with:
+        //   thinking_digest = Hash::zero()
+        //   run_event_log_root = run_event_log.root_hash()
+        // A future "let me compute the digest myself" optimisation that
+        // diverged from this exact mapping would silently produce a
+        // distinct packet byte form per call site, breaking replay
+        // bundle integrity for runs assembled through the emit() path
+        // vs. direct struct construction. Pin freezes both fields.
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
+        let captured_root = log.root_hash();
+
+        let bid = AgentBlueprintId("emit-pin".into());
+        let final_text = "Final answer".to_string();
+        let citations = vec![
+            Citation::from_tuple("vault/notes/a.md", "L1-L10"),
+            Citation::from_tuple("vault/notes/b.md", "L11-L20"),
+        ];
+        let stop = StopReason::EndTurn;
+        let ledger = BudgetLedger::default();
+
+        let via_emit = AnswerPacket::emit(
+            bid.clone(),
+            final_text.clone(),
+            citations.clone(),
+            stop,
+            ledger,
+            &log,
+        );
+        let via_struct = AnswerPacket {
+            blueprint_id: bid,
+            final_text,
+            citations,
+            stop_reason: stop,
+            final_ledger: ledger,
+            run_event_log_root: captured_root,
+            thinking_digest: Hash::zero(),
+        };
+        assert_eq!(via_emit, via_struct);
+        // Byte-equal JSON serialisation — the packet is persisted
+        // through the provenance path.
+        let j_emit = serde_json::to_string(&via_emit).expect("serialize emit");
+        let j_struct = serde_json::to_string(&via_struct).expect("serialize struct");
+        assert_eq!(j_emit, j_struct);
+        // The thinking_digest field is specifically zero on the emit() path.
+        assert_eq!(via_emit.thinking_digest, Hash::zero());
+        // The root hash specifically matches the log's root.
+        assert_eq!(via_emit.run_event_log_root, captured_root);
+    }
+
+    #[test]
     fn citation_from_tuple_equals_struct_literal_byte_for_byte() {
         // Phase 1 hardening — cross-helper-equivalence pin. Citation::
         // from_tuple is the canonical ergonomic constructor; it MUST
