@@ -9665,6 +9665,134 @@ fn closed_citation_contract_holds_for_multilingual_graph_neighborhood() {
     }
 }
 
+/// Multilingual ProvenanceVerified closed-citation sweep — extends
+/// iter 149's ASCII PV contract pin to the multilingual axis.
+///
+/// `ProvenanceVerifiedRetriever` wraps an inner retriever and:
+///   - retrieves via the inner retriever
+///   - filters hits to the admitted source_id set (PV admit set)
+///   - rewrites `provenance.mode` to `ProvenanceVerified` but
+///     PRESERVES source_id and document_id verbatim from the inner
+///
+/// The "source_id preserved verbatim" property is the byte-strict
+/// surface under test. A future change that ever ran
+/// `verified.iter().find_map(|admitted| normalize_id(admitted, &h.source_id))`
+/// (a natural temptation if the PV admit set grew large enough to
+/// motivate a fuzzy-match index) would silently break the byte-strict
+/// floor — admitted Han ids would match Han-traditional smuggled
+/// hits.
+///
+/// Pins:
+///   - Lexical inner with Han doc_id (笔记-a)
+///   - PV admit-set includes the Han source_id `笔记-a::lex`
+///   - PV retrieve emits a hit with source_id == `笔记-a::lex`
+///     verbatim (no NFC fold, no Han-canonical fold)
+///   - hit's provenance.mode == ProvenanceVerified (the only field
+///     PV is allowed to mutate)
+///   - byte-equal multilingual citation accepted (Ok(()))
+///   - Han-traditional smuggled variant (筆記-a::lex) rejected
+///     even though the admit set EXISTS for the simplified form —
+///     no fuzzy-match across the admit set boundary
+///   - non-admitted Hangul source_id rejected as fabricated even
+///     if it would match a hit in the inner retriever (admit-set
+///     gate fires first)
+#[test]
+fn closed_citation_contract_holds_for_multilingual_provenance_verified() {
+    use super::provenance_verified::ProvenanceVerifiedRetriever;
+    use super::types::{CitationError, EidosChunkId, EidosCitation};
+
+    let m = manifest();
+    let ts = 1_700_000_000_000;
+
+    // Inner Lexical with Han doc_id.
+    let mut lex = InMemoryLexicalIndex::new(m.clone());
+    lex.insert(doc("笔记-a"), "alpha durian content", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("노트-a"), "alpha durian content", EidosSourceKind::Note).unwrap();
+
+    // PV wrapper — admit ONLY the Han source_id, NOT the Hangul one.
+    let mut pv = ProvenanceVerifiedRetriever::new(lex);
+    pv.admit(EidosChunkId::new("笔记-a::lex").unwrap());
+
+    let q = EidosQuery::new("durian", EidosRetrievalMode::Lexical, 8);
+    let packet = pv.retrieve(&q, ts);
+
+    // (1) Only the Han hit surfaces (Hangul not admitted).
+    assert_eq!(packet.hits.len(), 1, "PV admit-set must filter Hangul out");
+    let hit = &packet.hits[0];
+    assert_eq!(
+        hit.source_id.as_str(),
+        "笔记-a::lex",
+        "PV preserves the inner source_id bytes verbatim — Han doc \
+         flows through without canonicalization"
+    );
+    assert!(
+        !hit.source_id.as_str().is_ascii(),
+        "PV-emitted source_id must be non-ASCII (multilingual fixture)"
+    );
+
+    // (2) Provenance mode rewritten to ProvenanceVerified (the only
+    // mutation PV is allowed).
+    assert_eq!(
+        hit.provenance.mode,
+        EidosRetrievalMode::ProvenanceVerified,
+        "PV must rewrite provenance.mode while preserving source_id"
+    );
+
+    // (3) Byte-equal multilingual citation accepted.
+    let legit = EidosCitation {
+        source_id: hit.source_id.clone(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert_eq!(
+        packet.validate_citation(&legit),
+        Ok(()),
+        "PV: byte-equal Han citation accepted"
+    );
+
+    // (4) Han-traditional smuggled variant rejected even though the
+    // SIMPLIFIED form is in the admit set — no fuzzy-match across
+    // the admit set boundary.
+    let han_traditional = "筆記-a::lex";
+    let smuggled_han = EidosCitation {
+        source_id: EidosChunkId::new(han_traditional).unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    match packet.validate_citation(&smuggled_han).unwrap_err() {
+        CitationError::FabricatedSourceId(returned) => {
+            assert_eq!(
+                returned.as_str(),
+                han_traditional,
+                "PV: Han-traditional smuggled variant rejected with \
+                 diagnostic preserving the smuggled bytes verbatim — \
+                 admit-set lookup is byte-strict, NOT fuzzy"
+            );
+        }
+        other => panic!("PV: expected FabricatedSourceId (Han trad), got {other:?}"),
+    }
+
+    // (5) Hangul source_id rejected even though it EXISTS in the
+    // inner Lexical retriever — but is NOT in the PV admit set. The
+    // PV admit-set gate fires before the closed-citation gate sees
+    // the (now-empty-for-Hangul) hits list.
+    let non_admitted = "노트-a::lex";
+    let smuggled_hangul = EidosCitation {
+        source_id: EidosChunkId::new(non_admitted).unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    match packet.validate_citation(&smuggled_hangul).unwrap_err() {
+        CitationError::FabricatedSourceId(returned) => {
+            assert_eq!(
+                returned.as_str(),
+                non_admitted,
+                "PV: non-admitted Hangul citation rejected — the admit \
+                 set is the closed-citation universe for the PV-emitted \
+                 packet, regardless of inner-retriever content"
+            );
+        }
+        other => panic!("PV: expected FabricatedSourceId (non-admitted), got {other:?}"),
+    }
+}
+
 /// `EidosHit::clone()` is byte-perfect — parallel to iter 190's
 /// EidosCitation Clone pin, but for the OUTPUT type (retriever-
 /// emitted hits) rather than the INPUT type (chat-layer citations).
