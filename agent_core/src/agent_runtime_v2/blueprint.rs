@@ -2003,6 +2003,23 @@ mod tests {
     }
 
     #[test]
+    fn blueprint_missing_required_fields_fail_to_deserialise() {
+        let bp = local_blueprint();
+        let value = serde_json::to_value(&bp).expect("serialise blueprint");
+        let obj = value.as_object().expect("blueprint object");
+        for missing in ["id", "display_name", "provider_policy", "budget", "capability_root_hash"] {
+            let mut tampered = obj.clone();
+            tampered.remove(missing);
+            let parsed: Result<AgentBlueprint, _> =
+                serde_json::from_value(serde_json::Value::Object(tampered));
+            assert!(
+                parsed.is_err(),
+                "AgentBlueprint missing required field {missing:?} must fail"
+            );
+        }
+    }
+
+    #[test]
     fn blueprint_serde_json_preserves_struct_field_declaration_order() {
         // Phase 1 hardening — wire-shape pin. serde_json::to_string
         // preserves struct field DECLARATION ORDER. AgentBlueprint
