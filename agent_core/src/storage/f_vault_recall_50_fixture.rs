@@ -6605,6 +6605,41 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 40th Adversarial row (iter-338): graph-event 6-term
+        // long-query — {graph, node, update, event, session,
+        // log}. Keeps all 4 canonical primaries + 2 tail
+        // context tokens (session + log from canonical's
+        // "...event session graph node update event log").
+        // 6 terms OR. Canonical body has all 6 (3× primaries
+        // + 1× session + 1× log); decoys ≤1 of 6 (graph_
+        // brainstorm has "graph" only; old_node_design has
+        // "node" only; event_archive has "event" only).
+        // FIFTH canonical at 6-term coverage (after agent-
+        // runtime + vault + BM25-IR + MLX-Swift). Graph-event
+        // now exercised at 4-term + 5-term + 6-term — FOURTH
+        // canonical with 3 query-length coverage points.
+        query: "graph node update event session log",
+        expected_paths: &["notes/canonical_graph_event_v3.md"],
+        forbidden_paths: &[
+            "notes/graph_brainstorm.md",
+            "notes/old_node_design.md",
+            "notes/event_archive.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Fortieth Adversarial row (iter-338): graph-event \
+               6-term long-query \"graph node update event \
+               session log\". Keeps all 4 primaries + 2 tail \
+               context tokens. FIFTH canonical at 6-term \
+               coverage (after agent-runtime + vault + BM25-IR \
+               + MLX-Swift). Graph-event now exercised at 4-\
+               term + 5-term + 6-term — FOURTH canonical with \
+               3 query-length coverage points. Canonical 6/6; \
+               decoys ≤1 of 6. Brings Adversarial to depth 40 \
+               — first category past depth-39 horizon. Zero \
+               new seeds.",
+    },
+    FVaultRecallRow {
         // 39th Adversarial row (iter-331): MLX-Swift 6-term
         // long-query — {mlx, swift, inference, backend, pipeline,
         // local}. Keeps all 4 canonical primaries + 2 tail
