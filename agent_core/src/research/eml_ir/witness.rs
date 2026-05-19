@@ -734,7 +734,7 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
     let point_count = top_level_unsigned_integer_json(&value, "point_count")?;
     top_level_unsigned_integer_json(&value, "operation_evaluations")?;
     top_level_unsigned_integer_json(&value, "adversarial_fixture_count")?;
-    top_level_unsigned_integer_json(&value, "budget_target_seconds")?;
+    top_level_u32_json(&value, "budget_target_seconds")?;
     top_level_unsigned_integer_json(&value, "budget_target_millis")?;
     top_level_unsigned_integer_json(&value, "observed_wall_clock_millis")?;
     let Some(max_point_index_exclusive) = point_count else {
@@ -1076,6 +1076,22 @@ fn top_level_unsigned_integer_json(
         });
     };
     Ok(Some(field_value))
+}
+
+fn top_level_u32_json(
+    value: &serde_json::Value,
+    field: &str,
+) -> Result<Option<u32>, FulpReplayError> {
+    let Some(field_value) = top_level_unsigned_integer_json(value, field)? else {
+        return Ok(None);
+    };
+    if field_value > u64::from(u32::MAX) {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("number out of range for {field}, expected u32"),
+            kind: FulpInvalidJsonKind::NumberOutOfRange,
+        });
+    }
+    Ok(Some(field_value as u32))
 }
 
 fn reject_worst_case_fields_json(
@@ -2006,6 +2022,25 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("budget_target_seconds"));
+    }
+
+    #[test]
+    fn replay_rejects_budget_target_seconds_json_u32_overflow_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["budget_target_seconds"] =
+            serde_json::Value::Number(serde_json::Number::from(u64::from(u32::MAX) + 1));
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("budget target seconds overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
         );
         assert!(error
             .invalid_json_message()
