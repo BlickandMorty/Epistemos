@@ -7003,6 +7003,49 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_hook_registry_owner_paths_are_trimmed_ascii_unix_source_files() {
+        for owner in falsifier_hook_owners() {
+            let owner_path = owner.owner;
+            assert!(!owner_path.is_empty(), "{}", owner.hook);
+            assert_eq!(owner_path.trim(), owner_path, "{}", owner.hook);
+            assert!(owner_path.is_ascii(), "{}", owner.hook);
+            assert!(
+                !owner_path.contains('\\'),
+                "{} owner must use unix forward slashes: {owner_path}",
+                owner.hook
+            );
+            assert!(
+                !owner_path.contains(' '),
+                "{} owner must not contain whitespace: {owner_path}",
+                owner.hook
+            );
+            assert!(
+                !owner_path.starts_with('/'),
+                "{} owner must be a relative repo path: {owner_path}",
+                owner.hook
+            );
+            assert!(
+                !owner_path.contains("//"),
+                "{} owner must not double-slash: {owner_path}",
+                owner.hook
+            );
+            assert!(
+                owner_path.ends_with(".rs") || owner_path.ends_with(".md"),
+                "{} owner must end with .rs or .md: {owner_path}",
+                owner.hook
+            );
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains(
+                "`falsifier_hook_registry_owner_paths_are_trimmed_ascii_unix_source_files`"
+            ),
+            "register doc must cross-link falsifier owner path format safety"
+        );
+    }
+
+    #[test]
     fn falsifier_hook_registry_owner_paths_are_unique_files() {
         assert_unique_catalog_keys(
             falsifier_hook_owners()
