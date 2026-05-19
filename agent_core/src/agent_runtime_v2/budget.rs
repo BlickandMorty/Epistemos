@@ -441,6 +441,75 @@ mod tests {
     }
 
     #[test]
+    fn mixed_caps_one_axis_bounded_others_unbounded_isolates_enforcement() {
+        // Phase 1 hardening — independent-axis isolation pin. With
+        // mixed caps (one axis bounded, others zero/unbounded), the
+        // gate must enforce ONLY the bounded axis and accept any
+        // value on the unbounded axes.
+        //
+        // Pin per-axis: for each axis A, set max_A to a small value
+        // and leave the other 4 max_* at 0 (unbounded). Then:
+        //   - debit on axis A that exceeds cap → trips Exhausted(A).
+        //   - same debit with HUGE values on the OTHER 4 axes → still
+        //     accepted (the other axes are unbounded).
+        //
+        // Companion to budget_gate_new_with_default_spec_creates_fully_unbounded_gate
+        // (all-zero → all-unbounded) and zero_cap_means_unbounded
+        // (single-axis cap=0 unbounded). Catches a future "let me
+        // enforce a hidden cross-axis check" refactor.
+        let huge_on_others = |bounded_axis: char| {
+            let mut d = BudgetDebit {
+                tokens: 1_000_000,
+                wall_ms: 1_000_000,
+                tool_calls: 1_000,
+                subprocess_ms: 1_000_000,
+                memory_bytes: 1_000_000,
+            };
+            // Zero out the bounded axis so the WHOLE-debit test isn't
+            // tripped by the bounded axis itself.
+            match bounded_axis {
+                't' => d.tokens = 0,
+                'w' => d.wall_ms = 0,
+                'c' => d.tool_calls = 0,
+                's' => d.subprocess_ms = 0,
+                'm' => d.memory_bytes = 0,
+                _ => unreachable!(),
+            }
+            d
+        };
+
+        // tokens bounded, others unbounded.
+        let gate_t = BudgetGate::new(BudgetSpec::new(100, 0, 0, 0));
+        let _ = gate_t
+            .check_and_debit(BudgetLedger::default(), huge_on_others('t'))
+            .expect("non-tokens huge debits accepted under tokens-only cap");
+
+        // wall_ms bounded, others unbounded.
+        let gate_w = BudgetGate::new(BudgetSpec::new(0, 100, 0, 0));
+        let _ = gate_w
+            .check_and_debit(BudgetLedger::default(), huge_on_others('w'))
+            .expect("non-wall huge debits accepted under wall_ms-only cap");
+
+        // tool_calls bounded, others unbounded.
+        let gate_c = BudgetGate::new(BudgetSpec::new(0, 0, 5, 0));
+        let _ = gate_c
+            .check_and_debit(BudgetLedger::default(), huge_on_others('c'))
+            .expect("non-tool huge debits accepted under tool_calls-only cap");
+
+        // subprocess_ms bounded, others unbounded.
+        let gate_s = BudgetGate::new(BudgetSpec::new(0, 0, 0, 100));
+        let _ = gate_s
+            .check_and_debit(BudgetLedger::default(), huge_on_others('s'))
+            .expect("non-subprocess huge debits accepted under subprocess-only cap");
+
+        // memory_bytes bounded, others unbounded.
+        let gate_m = BudgetGate::new(BudgetSpec::default().with_memory_bytes(1024));
+        let _ = gate_m
+            .check_and_debit(BudgetLedger::default(), huge_on_others('m'))
+            .expect("non-memory huge debits accepted under memory_bytes-only cap");
+    }
+
+    #[test]
     fn zero_cap_means_unbounded() {
         // All caps zero → any debit succeeds.
         let gate = BudgetGate::new(BudgetSpec::default());
