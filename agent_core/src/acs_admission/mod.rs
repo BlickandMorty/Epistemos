@@ -4217,7 +4217,14 @@ mod tests {
         );
 
         let value = serde_json::to_value(&policy).expect("policy encodes");
-        assert!(serde_json::from_value::<ACSPolicy>(value).is_err());
+        let err = serde_json::from_value::<ACSPolicy>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(
+            message.contains("operation_thresholds.duplicate_operation"),
+            "{message}"
+        );
     }
 
     #[test]
