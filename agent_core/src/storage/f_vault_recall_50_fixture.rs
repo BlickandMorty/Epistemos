@@ -4181,6 +4181,28 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 35th Synthesis row (iter-302). SECOND 2-term-AND subset
+        // on iter-4 tier-compression pair: {tier, governance}.
+        // Both tokens are pair-unique (only iter-4 pair-partners
+        // have either "tier" or "governance" in their content).
+        // AND matches only the pair — cleanest discriminator
+        // available on iter-4. Two of C(3,2)=3 surveyed.
+        query: "tier governance",
+        expected_paths: &[
+            "MASTER_FUSION/3_2_residency_governor.md",
+            "MASTER_FUSION/4_compression_tier_doctrine.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Thirty-fifth Synthesis row (iter-302): second 2-\
+               term-AND subset on iter-4 tier-compression pair. \
+               {tier, governance} — both tokens unique to pair. \
+               Cleanest discriminator (zero competing docs). 2 \
+               of C(3,2)=3 surveyed. Brings Synthesis to depth \
+               35. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 34th Synthesis row (iter-294). FIRST 2-term-AND subset
         // on iter-4 tier-compression pair (the original
         // Synthesis seed pair): {tier, compression}. Both
