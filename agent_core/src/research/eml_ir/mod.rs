@@ -180,6 +180,13 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_doc_cross_links_t23b_artifact_schema() {
+        assert!(FULP_FALSIFIER_DOC.contains("T23B"));
+        assert!(FULP_FALSIFIER_DOC.contains("canonical falsifier artifact schema"));
+        assert!(FULP_FALSIFIER_DOC.contains("docs/F_ULP_ORACLE_2026_05_18.md"));
+    }
+
+    #[test]
     fn falsifier_doc_documents_fixture_fingerprint_chain() {
         assert!(FULP_FALSIFIER_DOC.contains("## Fixture Fingerprint Chain"));
         assert!(FULP_FALSIFIER_DOC.contains("SHA-256"));
