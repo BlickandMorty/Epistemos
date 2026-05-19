@@ -210,6 +210,14 @@ structure RationalCertificateTarget where
 
 namespace RationalCertificateTarget
 
+theorem numeratorShape (c : RationalCertificateTarget) :
+    c.rational.numerator = c.rational.numerator := by
+  exact c.representation.numeratorShape
+
+theorem denominatorShape (c : RationalCertificateTarget) :
+    c.rational.denominator = c.rational.denominator := by
+  exact c.representation.denominatorShape
+
 theorem representationShapes (c : RationalCertificateTarget) :
     c.rational.numerator = c.rational.numerator ∧
       c.rational.denominator = c.rational.denominator := by
