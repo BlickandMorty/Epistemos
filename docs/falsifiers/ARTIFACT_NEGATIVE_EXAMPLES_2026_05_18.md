@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 281
+invalid_example_count: 282
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -13177,3 +13177,19 @@ Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-
 ```
 
 Rejection reason: annotated tag objects are not replay pins; `commit_sha` must store the peeled commit object ID, not the tag object's ID.
+
+## N282 - Blob Object Commit SHA
+
+Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-identity-rule) and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "field": "commit_sha",
+  "commit_sha": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "schema_pattern": "^[0-9a-f]{40}$",
+  "semantic_rule": "commit_object_type",
+  "resolved_object_type": "blob"
+}
+```
+
+Rejection reason: blob objects can be regex-shaped object IDs, but they cannot identify the repository state that produced a falsifier artifact.
