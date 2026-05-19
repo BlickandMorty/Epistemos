@@ -3497,6 +3497,32 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 37th Paraphrase row (iter-319): NEW axis — CHARACTER
+        // REVERSAL (palindrome-like transformation). User types
+        // "abmaM SSM cache" — first word reversed character by
+        // character (Mamba → abmaM, lowercases to "abmam").
+        // Tokens: {abmam, ssm, cache} — 3-term AND. Canonical
+        // lacks "abmam" → blocked. Distinct from iter-312
+        // ROT13 (character SUBSTITUTION cipher) and from typo
+        // subclasses (random edits) — reversal is character
+        // PERMUTATION using same letter set. Thirty-fourth named
+        // failure subclass.
+        query: "abmaM SSM cache",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Character-reversal Paraphrase axis (axis #34): \
+               user types first word backwards (\"abmaM\" for \
+               Mamba). 3-term AND on {abmam, ssm, cache} blocks. \
+               Distinct from iter-312 ROT13 cipher (character \
+               SUBSTITUTION) and typo subclasses (random edits) \
+               — reversal is character PERMUTATION preserving \
+               the same letter multiset. Thirty-fourth named \
+               failure subclass. Brings Paraphrase to depth 37 \
+               — first category past depth-36 horizon.",
+    },
+    FVaultRecallRow {
         // 36th Paraphrase row (iter-312): NEW axis — ROT13 /
         // CIPHER TRANSFORMATION. User accidentally types into a
         // terminal with ROT13 input filter (or runs the query
