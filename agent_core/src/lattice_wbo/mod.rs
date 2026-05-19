@@ -7652,6 +7652,41 @@ mod tests {
     }
 
     #[test]
+    fn lattice_budget_composition_rejects_nan_axes_before_totals() {
+        let nan_budget_axis = LatticeBudget::new(
+            LatticeCoderKind::ExactHot,
+            None,
+            SideInformationKind::None,
+            vec![LatticeErrorContribution {
+                term: WboTermCode::NumericalPostCorrection,
+                source: "nan budget axis".to_string(),
+                budget: f64::NAN,
+                measured: Some(0.0),
+            }],
+        );
+        let nan_measured_axis = LatticeBudget::new(
+            LatticeCoderKind::ExactHot,
+            None,
+            SideInformationKind::None,
+            vec![LatticeErrorContribution {
+                term: WboTermCode::NumericalPostCorrection,
+                source: "nan measured axis".to_string(),
+                budget: 0.0,
+                measured: Some(f64::NAN),
+            }],
+        );
+
+        for budget in [nan_budget_axis, nan_measured_axis] {
+            assert_eq!(
+                budget.validate_composition(),
+                Err(LatticeWboError::InvalidBudget)
+            );
+            assert_eq!(budget.validate(), Err(LatticeWboError::InvalidBudget));
+            assert_budget_measurements_pending(&budget);
+        }
+    }
+
+    #[test]
     fn lattice_budget_measured_status_returns_none_for_invalid_public_fields() {
         let negative_measurement = LatticeErrorContribution {
             term: WboTermCode::NumericalPostCorrection,
