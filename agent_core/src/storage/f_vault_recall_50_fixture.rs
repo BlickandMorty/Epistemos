@@ -7570,6 +7570,46 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 49th ChattyPrefix row (iter-405): Runic-multilingual
+        // signal domain — 39th distinct lexical universe.
+        // Survivors after strip {Mamba, ᚲ}. 2-term AND matches
+        // only iter-257's mamba_runic.md. TWENTY-EIGHTH non-
+        // ASCII ChattyPrefix domain. FIRST historical Germanic
+        // script in ChattyPrefix. Runic (Elder Futhark ca. 150-
+        // 800 CE; Younger Futhark 800-1100 CE) is the
+        // historical writing system of the Germanic peoples.
+        // With iter-398 Glagolitic (Slavic-historical) + iter-
+        // 405 Runic (Germanic-historical), ChattyPrefix now
+        // contains TWO archaic European scripts for distinct
+        // language communities — same pattern as SignalOnly
+        // (iter-396 Glagolitic + iter-403 Runic). Parallels
+        // iter-403 SignalOnly Runic single-term-AND.
+        // ChattyPrefix now covers EIGHT distinct script-family
+        // branches at multilingual-signal: Brahmic + Aramaic +
+        // Latin-diacritic + Greek-descendant + Berber/Amazigh +
+        // modern-African-syllabary + Slavic-historical +
+        // Germanic-historical.
+        query: "Show me my Mamba ᚲ notes",
+        expected_paths: &["notes/mamba_runic.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Forty-ninth ChattyPrefix row (iter-405): Runic-\
+               multilingual signal domain — 39th distinct \
+               lexical universe. Survivors {Mamba, ᚲ} after \
+               strip. 2-term AND matches only iter-257 \
+               mamba_runic.md. Twenty-eighth non-ASCII \
+               ChattyPrefix domain. FIRST historical Germanic \
+               script in ChattyPrefix. With iter-398 Glagolitic \
+               (Slavic-historical) + iter-405 Runic (Germanic-\
+               historical), ChattyPrefix now contains TWO \
+               archaic European scripts. Parallels iter-403 \
+               SignalOnly Runic. ChattyPrefix now covers EIGHT \
+               distinct script-family branches at multilingual-\
+               signal. Brings ChattyPrefix to depth 49 — first \
+               category past depth-48 horizon. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 48th ChattyPrefix row (iter-398): Glagolitic-
         // multilingual signal domain — 38th distinct lexical
         // universe. Survivors after strip {Mamba, ⰽ}. 2-term
