@@ -216,6 +216,10 @@ Last audited: 2026-05-18. The schema migration table now separates pre-witness `
 
 Last audited: 2026-05-18. The schema identity-gap slug catalog starts with `reserved-state`, `duplicate-numeric-transition`, `punctuation-endpoint-state`, `nested-transition-marker`, `transition-order`, `empty-state`, `role-labels`, `comma-bearing-impact`, `lowercase-impact`, `identical-impact`, and `artifact-path-bound`, cross-linked to N173-N195. This is validator vocabulary only, not runtime evidence.
 
+## Identity Gap Slug Registration Audit
+
+Last audited: 2026-05-18. Identity-gap slugs are schema-first: validator-shape rows, handbook prose, and negative examples may only reference a family after [Falsifier Artifact Schema](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#identity-gap-slug-catalog) names it. N196 is the negative catalog guard for uncataloged slug references.
+
 ## Artifact Dependency Audit
 
 Last audited: 2026-05-18. The schema now records dependency edges for downstream falsifiers: PageGather Scatter must cite the PageGather Baseline artifact, state-kernel recall claims must cite SemiseparableBlockScan evidence, compressed KV claims must cite WBO drift evidence, and 70B cocktail artifacts must link every component artifact or provider receipt they depend on.
