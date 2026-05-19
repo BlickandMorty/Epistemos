@@ -1004,6 +1004,8 @@ Ordered by leverage (status notes refreshed iter-226):
 
 This subsection documents which falsifiers are **CI-gated on every PR** vs **local-only**. Built from `.github/workflows/ci.yml` (`build-and-test` job on `macos-15`, timeout 45 min) + the 4 sibling workflows (`ci-parallel-branches.yml`, `drift-detection.yml`, `lint.yml`, `release.yml`).
 
+**Iter-689 PR-trigger refresh:** `.github/workflows/ci.yml` still runs on `pull_request` to `main` and gates every PR through Rust build+test for `graph-engine`, `epistemos-core`, `omega-ax`, `omega-mcp`, `agent_core` default, `agent_core --features lsp-runtime`, `agent_core --no-default-features --features pro-build,lsp-runtime`, `agent_core --features pro-build,research`, `epistemos-research --features research`, and `epistemos-vault --features vault`; Swift `EpistemosTests` via `xcodebuild build-for-testing` + `test-without-building`; doctrine/replay/falsifier/perf gates (`epistemos_doctrine_lint`, `epistemos_trace verify-replay`, `halo_budget`, W24/W25/W26, HELIOS invariant smoke, clippy, rustfmt, App Store artifact scan, bundle-size gate, morning-session bench, perf budgets). `release.yml` is not PR-triggered; `lint.yml` is PR-triggered; `drift-detection.yml` is scheduled-only; `ci-parallel-branches.yml` is PR-triggered only for the named parallel branch set.
+
 **Per-crate cargo build + test (every PR)**:
 - `graph-engine` build/test at ci.yml:50-67
 - `epistemos-core` build/test at 53-70
