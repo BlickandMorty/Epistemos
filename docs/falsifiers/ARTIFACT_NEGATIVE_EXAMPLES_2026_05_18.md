@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 211
+invalid_example_count: 212
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -12138,3 +12138,17 @@ Violates: [Timestamp Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#timestamp-rul
 ```
 
 Rejection reason: `timestamp_utc` seconds must be bounded from `00` through `59`; leap-second spellings such as `2026-05-19T12:34:60Z` are replay-ineligible.
+
+## N212 - Uppercase Commit SHA
+
+Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-identity-rule) and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "field": "commit_sha",
+  "commit_sha": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+  "schema_pattern": "^[0-9a-f]{40}$"
+}
+```
+
+Rejection reason: `commit_sha` must be a full 40-character lowercase hex Git SHA; uppercase hex aliases are replay-ineligible even when the length is correct.
