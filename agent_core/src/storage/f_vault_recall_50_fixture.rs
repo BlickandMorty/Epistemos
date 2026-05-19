@@ -5042,6 +5042,28 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 34th ChattyPrefix row (iter-299): Tibetan-multilingual
+        // signal domain — 24th distinct lexical universe.
+        // Survivors after strip {Mamba, ཀེ}. 2-term AND matches
+        // only iter-167's mamba_tibetan.md. THIRTEENTH non-ASCII
+        // ChattyPrefix domain. Third Brahmic-family signal-
+        // domain in ChattyPrefix (after Devanagari + Thai).
+        query: "Show me my Mamba ཀེ notes",
+        expected_paths: &["notes/mamba_tibetan.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Thirty-fourth ChattyPrefix row (iter-299): \
+               Tibetan-multilingual signal domain — 24th \
+               distinct lexical universe. Survivors {Mamba, \
+               ཀེ} after strip. 2-term AND matches only iter-\
+               167 mamba_tibetan.md. Thirteenth non-ASCII \
+               ChattyPrefix domain. Third Brahmic-family \
+               ChattyPrefix (after Devanagari + Thai). Brings \
+               ChattyPrefix to depth 34 — second category past \
+               depth-33 horizon. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 33rd ChattyPrefix row (iter-291): Ethiopic-multilingual
         // signal domain — 23rd distinct lexical universe.
         // Survivors after strip {Mamba, ካሽ}. 2-term AND matches
