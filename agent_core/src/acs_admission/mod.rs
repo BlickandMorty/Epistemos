@@ -3890,11 +3890,7 @@ pub fn admit(input: &ACSAdmissionInput, policy: &ACSPolicy, now_ms: i64) -> ACSA
         );
     }
 
-    if has_cross_operation_capability_scope_creep(
-        policy,
-        input.operation(),
-        &input.granted_capabilities,
-    ) {
+    if has_capability_scope_creep(policy, input.operation(), &input.granted_capabilities) {
         return decision(
             input,
             policy,
@@ -3932,21 +3928,15 @@ fn has_missing_required_capability(
             .is_some_and(|capability| !granted_capabilities.contains(&capability))
 }
 
-fn has_cross_operation_capability_scope_creep(
+fn has_capability_scope_creep(
     policy: &ACSPolicy,
     operation: ACSOperationKind,
     granted_capabilities: &[Capability],
 ) -> bool {
     let required_for_operation = policy.required_for(operation);
-    [ACSLane::L0, ACSLane::L1, ACSLane::L2]
-        .into_iter()
-        .flat_map(ACSLane::operations)
-        .filter(|scoped_operation| **scoped_operation != operation)
-        .flat_map(|scoped_operation| policy.required_for(*scoped_operation))
-        .any(|capability| {
-            !required_for_operation.contains(&capability)
-                && granted_capabilities.contains(&capability)
-        })
+    granted_capabilities
+        .iter()
+        .any(|capability| !required_for_operation.contains(capability))
 }
 
 fn canonical_l2_capability(operation: ACSOperationKind) -> Option<Capability> {
@@ -5698,15 +5688,7 @@ mod tests {
             },
             submitted_at_ms: 1_001,
             risk,
-            granted_capabilities: vec![
-                Capability::VaultPath {
-                    path: "uas://note/1".to_string(),
-                    verb: "write".to_string(),
-                },
-                Capability::Other {
-                    name: "ToolExec".to_string(),
-                },
-            ],
+            granted_capabilities: Vec::new(),
         };
         let tool_action_decision =
             admit_and_log(&tool_action_input, &policy, 1_001, &mut tool_action_audit);
@@ -12016,6 +11998,37 @@ mod tests {
         assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
         assert_eq!(decision.audit_record.reason, "capability_scope_creep");
         assert_eq!(decision.lane(), ACSLane::L1);
+        assert_eq!(audit_log.len(), 1);
+        assert!(decision.audit_record.validate().is_ok());
+    }
+
+    #[test]
+    fn acs_admission_rejects_unscoped_granted_capability() {
+        let policy = ACSPolicy::strict_default(1_000);
+        let input = ACSAdmissionInput {
+            request_id: "req-unscoped-granted-capability".to_string(),
+            payload: ACSAdmissionPayload::MemoryWrite {
+                request: ACSMemoryWriteRequest {
+                    address: "uas://note/1".to_string(),
+                    content_hash: "content-hash".to_string(),
+                    durable: false,
+                    mutation_envelope_id: None,
+                },
+            },
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: vec![
+                named_capability("VaultWrite"),
+                named_capability("AmbientAdmin"),
+            ],
+        };
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "capability_scope_creep");
+        assert_eq!(decision.lane(), ACSLane::L0);
         assert_eq!(audit_log.len(), 1);
         assert!(decision.audit_record.validate().is_ok());
     }
