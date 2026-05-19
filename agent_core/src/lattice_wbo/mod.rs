@@ -2302,6 +2302,8 @@ mod tests {
             ("negative rate", serde_json::json!(-1)),
             ("fractional rate", serde_json::json!(1250.5)),
             ("string rate", serde_json::json!("1250")),
+            ("boolean rate", serde_json::json!(true)),
+            ("object rate", serde_json::json!({ "milli_bits": 1250 })),
             ("oversized rate", serde_json::json!((u32::MAX as u64) + 1)),
         ] {
             assert!(
@@ -2447,6 +2449,24 @@ mod tests {
                     "max_active_tokens": 1,
                     "max_active_pages": 1,
                     "max_resident_bytes": "1",
+                    "side_information": "ActiveSupport",
+                }),
+            ),
+            (
+                "boolean token axis",
+                serde_json::json!({
+                    "max_active_tokens": true,
+                    "max_active_pages": 1,
+                    "max_resident_bytes": 1,
+                    "side_information": "ActiveSupport",
+                }),
+            ),
+            (
+                "object resident-byte axis",
+                serde_json::json!({
+                    "max_active_tokens": 1,
+                    "max_active_pages": 1,
+                    "max_resident_bytes": { "bytes": 1 },
                     "side_information": "ActiveSupport",
                 }),
             ),
@@ -4050,7 +4070,7 @@ mod tests {
             "`lattice_budget_serializes_non_rate_rate_field_as_null`",
             "non-rate budget JSON keeps `rate_milli_bits_per_symbol` as null",
             "`lattice_budget_json_rejects_unsigned_rate_spoofs`",
-            "budget JSON rejects negative, fractional, string, and oversized rate fields",
+            "budget JSON rejects negative, fractional, string, boolean, object, and oversized rate fields",
             "`lattice_coder_catalog_marks_non_rate_codecs`",
             "the exact non-rate codec set is `ExactHot`, `BabaiGptqNearestPlane`, `ShadowKvSketch`, `EngramHashRecall`, `NetworkCascade`, and `SelfEvolvingAdapter`",
             "`lattice_budget_measured_status_returns_none_for_overflowed_totals`",
@@ -4162,7 +4182,7 @@ mod tests {
             "`active_support_budget_serializes_public_accounting_keys`",
             "ActiveSupportBudget serializes only `max_active_tokens`, `max_active_pages`, `max_resident_bytes`, and `side_information` public keys",
             "`active_support_budget_json_rejects_unsigned_axis_spoofs`",
-            "ActiveSupportBudget JSON rejects negative, fractional, string, and oversized axis values",
+            "ActiveSupportBudget JSON rejects negative, fractional, string, boolean, object, and oversized axis values",
             "`active_support_budget_json_rejects_invalid_public_budget`",
             "standalone active-support JSON rejects zero axes and non-`ActiveSupport` side information",
             "partial-zero active-support axis fixture covers every active-support-capable tier",
