@@ -6704,6 +6704,38 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_hook_owner_registry_hook_keys_are_trimmed_ascii_dash_format() {
+        for owner in falsifier_hook_owners() {
+            let hook = owner.hook;
+            assert!(!hook.is_empty(), "{hook}");
+            assert_eq!(hook.trim(), hook, "{hook}");
+            assert!(hook.is_ascii(), "{hook}");
+            assert!(hook.starts_with("F-"), "{hook} must use the F- prefix");
+            assert!(!hook.contains(' '), "{hook} must not contain whitespace");
+            assert!(!hook.contains('_'), "{hook} must not contain underscores");
+            assert!(!hook.contains("--"), "{hook} must not double-dash");
+            assert!(!hook.ends_with('-'), "{hook} must not end with a dash");
+            assert!(
+                hook.chars()
+                    .all(|ch| ch == '-' || ch.is_ascii_alphanumeric()),
+                "{hook} must use ASCII alphanumerics and dashes only"
+            );
+            assert!(
+                hook[2..].chars().any(|ch| ch.is_ascii_alphanumeric()),
+                "{hook} must name a body after the F- prefix"
+            );
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains(
+                "`falsifier_hook_owner_registry_hook_keys_are_trimmed_ascii_dash_format`"
+            ),
+            "register doc must cross-link falsifier hook key format safety"
+        );
+    }
+
+    #[test]
     fn falsifier_hook_owner_registry_has_unique_public_hooks() {
         assert_unique_catalog_keys(
             falsifier_hook_owners()
