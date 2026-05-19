@@ -18,9 +18,9 @@
 
 use super::retriever::EidosRetriever;
 use super::types::{
-    EidosChunkId, EidosContextPacket, EidosDocumentId, EidosHit, EidosIndexManifestId,
-    EidosProvenance, EidosQuery, EidosRetrievalMode, EidosScoreComponents, EidosSourceKind,
-    EidosSpan,
+    is_blank_query_text, EidosChunkId, EidosContextPacket, EidosDocumentId, EidosHit,
+    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode,
+    EidosScoreComponents, EidosSourceKind, EidosSpan,
 };
 
 /// One archived document in the toy raw-archive backend.
@@ -80,7 +80,7 @@ impl EidosRetriever for InMemoryRawArchive {
     ) -> EidosContextPacket {
         // Empty query text is *not* a wildcard. Treat as no-result defer so
         // callers cannot accidentally bulk-fetch the archive.
-        if query.text.trim().is_empty() {
+        if is_blank_query_text(&query.text) {
             return empty_packet(query, &self.manifest_id);
         }
         if query.top_k == 0 {
@@ -214,6 +214,18 @@ mod tests {
         assert!(
             packet.hits.is_empty(),
             "whitespace-only text is not a stable raw archive document id"
+        );
+    }
+
+    #[test]
+    fn invisible_only_query_text_returns_empty_packet() {
+        let mut archive = InMemoryRawArchive::new(manifest());
+        archive.insert(doc("\u{200B}"), "invisible id body", EidosSourceKind::RawArchive);
+        let q = EidosQuery::new("\u{200B}", EidosRetrievalMode::RawArchive, 8);
+        let packet = archive.retrieve(&q, 1_700_000_000_000);
+        assert!(
+            packet.hits.is_empty(),
+            "invisible-only text is not a stable raw archive document id"
         );
     }
 
