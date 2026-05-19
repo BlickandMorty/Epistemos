@@ -1345,6 +1345,12 @@ struct RawConfigUnsigned<'a> {
 }
 
 fn reject_raw_config_unsigned_json(raw_config: &RawValue) -> Result<(), FulpReplayError> {
+    if !raw_config.get().trim_start().starts_with('{') {
+        return Err(FulpReplayError::InvalidJson {
+            message: "invalid type for config, expected object".to_string(),
+            kind: FulpInvalidJsonKind::TypeMismatch,
+        });
+    }
     let Ok(raw_config) = serde_json::from_str::<RawConfigUnsigned<'_>>(raw_config.get()) else {
         return Ok(());
     };
@@ -2183,6 +2189,23 @@ mod tests {
             .invalid_json_message()
             .expect("invalid json message")
             .contains("config.ulp_tolerance"));
+    }
+
+    #[test]
+    fn replay_rejects_config_json_type_drift_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["config"] = serde_json::Value::Bool(false);
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json).expect_err("config type drift must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("invalid type for config, expected object")
+        );
     }
 
     #[test]
