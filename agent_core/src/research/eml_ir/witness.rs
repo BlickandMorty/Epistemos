@@ -2475,6 +2475,34 @@ mod tests {
     }
 
     #[test]
+    fn witness_json_excludes_ethernet_mac_address_pattern() {
+        let json = acceptance_witness_json().unwrap();
+        let lower = json.to_ascii_lowercase();
+        let bytes = lower.as_bytes();
+        for window in bytes.windows(17) {
+            let is_hex_pair = |slice: &[u8]| {
+                slice.len() == 2 && slice[0].is_ascii_hexdigit() && slice[1].is_ascii_hexdigit()
+            };
+            let candidate = is_hex_pair(&window[0..2])
+                && window[2] == b':'
+                && is_hex_pair(&window[3..5])
+                && window[5] == b':'
+                && is_hex_pair(&window[6..8])
+                && window[8] == b':'
+                && is_hex_pair(&window[9..11])
+                && window[11] == b':'
+                && is_hex_pair(&window[12..14])
+                && window[14] == b':'
+                && is_hex_pair(&window[15..17]);
+            assert!(
+                !candidate,
+                "witness json contains ethernet MAC-shaped substring {:?}",
+                std::str::from_utf8(window).unwrap_or("<non-utf8>")
+            );
+        }
+    }
+
+    #[test]
     fn witness_pins_morph_oracle_shader_source() {
         let witness =
             run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &CpuFloatIntrinsicEvaluator).unwrap();
