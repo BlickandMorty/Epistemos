@@ -1245,6 +1245,13 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_devanagari_hebrew.md",
             "Mamba कैश זיכרון Mamba कैश זיכרון mixed script notes",
         ),
+        // Iter-435 (60th Unicode): mixed Thai + Hebrew in one
+        // <=3-token AND query. The English-only Mamba decoy carries
+        // the Latin anchor but neither non-Latin token.
+        (
+            "notes/mamba_thai_hebrew.md",
+            "Mamba แคช זיכרון Mamba แคช זיכרון mixed script notes",
+        ),
     ];
     for (path, content) in seeds {
         store
