@@ -3342,6 +3342,15 @@ mod tests {
     }
 
     #[test]
+    fn public_key_registries_reject_wrong_type_json_values() {
+        assert_json_wrong_type_rejected::<ResidencyTier>(r#"["L0 RAM hot"]"#);
+        assert_json_wrong_type_rejected::<LatticeCoderKind>(r#"{"codec": "exact-hot"}"#);
+        assert_json_wrong_type_rejected::<SideInformationKind>(r#"0"#);
+        assert_json_wrong_type_rejected::<WboTermCode>(r#"true"#);
+        assert_json_wrong_type_rejected::<LatticeWboError>(r#"null"#);
+    }
+
+    #[test]
     fn public_key_registries_reject_cross_registry_keys() {
         fn reject_keys<T>(registry: &str, keys: Vec<&'static str>)
         where
@@ -4229,6 +4238,8 @@ mod tests {
             "explicit public key tables are exact, non-normalizing surfaces; padded, blank, case-shifted, or separator-shifted keys remain invalid",
             "`public_key_registries_deserialize_from_owned_json_values`",
             "public key registries deserialize from owned JSON values for residency, codec, side-information, WBO term, and error keys",
+            "`public_key_registries_reject_wrong_type_json_values`",
+            "public key registries reject wrong-type JSON values before string-key lookup",
             "`public_key_registries_reject_cross_registry_keys`",
             "public key registries reject keys owned by every other WBO registry",
             "`public_key_registries_reject_unicode_adjacent_public_keys`",
