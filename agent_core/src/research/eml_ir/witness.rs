@@ -1748,6 +1748,15 @@ fn reject_raw_adversarial_reference_stats_unsigned_json(
     else {
         return Ok(());
     };
+    if let Some(field) = raw_stats
+        .keys()
+        .find(|field| !matches!(field.as_str(), "finite_count" | "rejected_count"))
+    {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("unknown field adversarial_reference_stats.{field}"),
+            kind: FulpInvalidJsonKind::UnknownField,
+        });
+    }
     if let Some(value) = raw_stats.get("finite_count") {
         raw_unsigned_integer_json(value, "adversarial_reference_stats.finite_count")?;
     }
@@ -3558,6 +3567,28 @@ mod tests {
         value["adversarial_reference_stats"]["corrupted_extra_field"] =
             serde_json::Value::Bool(true);
         let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("unknown adversarial reference stats field must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::UnknownField)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("unknown field adversarial_reference_stats.corrupted_extra_field")
+        );
+    }
+
+    #[test]
+    fn replay_rejects_unknown_adversarial_reference_stats_json_field_before_raw_overflow() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["adversarial_reference_stats"]["corrupted_extra_field"] =
+            serde_json::Value::Number(serde_json::Number::from(123_456_789_u64));
+        let json = serde_json::to_string(&value).unwrap();
+        let needle = "\"corrupted_extra_field\":123456789";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(needle, "\"corrupted_extra_field\":1e999999", 1);
         let error = replay_witness_json(&json)
             .expect_err("unknown adversarial reference stats field must fail replay");
         assert_eq!(
