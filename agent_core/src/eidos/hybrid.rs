@@ -46,9 +46,9 @@ use std::collections::BTreeMap;
 
 use super::retriever::EidosRetriever;
 use super::types::{
-    EidosChunkId, EidosContextPacket, EidosDocumentId, EidosHit, EidosIndexManifestId,
-    EidosProvenance, EidosQuery, EidosRetrievalMode, EidosScoreComponents, EidosSourceKind,
-    EidosSpan,
+    is_blank_query_text, EidosChunkId, EidosContextPacket, EidosDocumentId, EidosHit,
+    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode,
+    EidosScoreComponents, EidosSourceKind, EidosSpan,
 };
 
 /// RRF constant. Matches `epistemos-shadow/src/backend/rrf.rs:22`
@@ -141,7 +141,7 @@ impl<L: EidosRetriever, S: EidosRetriever> EidosRetriever for HybridRetriever<L,
         query: &EidosQuery,
         retrieved_at_unix_ms: u64,
     ) -> EidosContextPacket {
-        if query.text.trim().is_empty() || query.top_k == 0 {
+        if is_blank_query_text(&query.text) || query.top_k == 0 {
             return EidosContextPacket {
                 query: query.clone(),
                 manifest_id: self.manifest_id.clone(),
@@ -331,6 +331,25 @@ mod tests {
         assert!(
             packet.hits.is_empty(),
             "Hybrid must fail closed on blank query before fusing inner hits"
+        );
+    }
+
+    #[test]
+    fn invisible_only_query_defers_before_inner_fusion_even_if_inner_leaks() {
+        let lexical = BlankLeakingRetriever {
+            manifest_id: manifest(),
+            document_id: doc("lex-leak"),
+        };
+        let semantic = BlankLeakingRetriever {
+            manifest_id: manifest(),
+            document_id: doc("sem-leak"),
+        };
+        let hybrid = HybridRetriever::new(lexical, semantic).unwrap();
+        let q = EidosQuery::new("\u{200B}", EidosRetrievalMode::Hybrid, 16);
+        let packet = hybrid.retrieve(&q, 1_700_000_000_000);
+        assert!(
+            packet.hits.is_empty(),
+            "Hybrid must fail closed on invisible-only query before fusing inner hits"
         );
     }
 
