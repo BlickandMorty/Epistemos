@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "epistemos://schemas/alias.v1.json",
+  "title": "Concept alias table (.alias.json)",
+  "description": "Plan §3.7 — per-concept-node alias table persisted as .alias.json next to the concept node. Aliases grow from (1) explicit user merges, (2) Variant B classifier `aliases:[...]` outputs. The canonicalizer in canon/mod.rs maps surface vocabulary to canonical_name; this table maps additional surface forms (e.g. `rematerialization` → `checkpoint-gradient`).",
+  "type": "object",
+  "required": ["$schema", "canonical_name", "aliases", "schema_version"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "const": "epistemos://schemas/alias.v1.json" },
+    "canonical_name": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]{1,64}$",
+      "description": "Canonical name from canon::canonicalize() — lowercase kebab-case stems."
+    },
+    "definition": {
+      "type": "string",
+      "description": "Optional human-readable definition of the concept; used for embedding tie-breakers per §3.7."
+    },
+    "aliases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "added_at", "via"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Surface form that maps to canonical_name. Stored as the user typed it (case + punctuation preserved); canonicalizer normalizes at lookup time."
+          },
+          "added_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "via": {
+            "enum": ["user_merge", "variant_b_output", "concept_extract", "manual_seed"],
+            "description": "Provenance per §3.7: the only auto-add paths are variant_b_output + concept_extract; user_merge requires explicit user action; manual_seed is for developer-shipped fixtures."
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Optional — confidence at the time of alias addition (Variant B / concept_extract surface this)."
+          }
+        }
+      }
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "last_modified": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
