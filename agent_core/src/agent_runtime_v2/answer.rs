@@ -1574,6 +1574,20 @@ mod tests {
     }
 
     #[test]
+    fn citation_fields_are_pub_per_field_visibility_doctrine() {
+        // Phase 1 hardening — field-visibility pin for Citation
+        // (companion to the field-visibility pin family iter-505..iter-510).
+        // 2 pub fields: source, locator.
+        //
+        // A future "let me hide source behind a getter for path-safety"
+        // refactor would silently break call sites that use direct
+        // field access for serialisation / rendering.
+        let c = Citation::from_tuple("s", "l");
+        assert_eq!(c.source, "s");
+        assert_eq!(c.locator, "l");
+    }
+
+    #[test]
     fn citation_struct_field_shape_pinned_to_exactly_source_and_locator() {
         // Phase 1 hardening — struct-field-shape pin for Citation
         // (companion to AnswerPacket iter-464, AgentBlueprint iter-465,

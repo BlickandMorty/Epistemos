@@ -1357,6 +1357,32 @@ mod tests {
     }
 
     #[test]
+    fn mutation_envelope_fields_are_pub_per_field_visibility_doctrine() {
+        // Phase 1 hardening MILESTONE iter-510 — field-visibility pin
+        // for MutationEnvelope<P>. Closes the field-visibility pin
+        // family across user-facing structs (ParaFeedback iter-505,
+        // ParaOutput iter-506, AnswerPacket iter-507, AgentBlueprint
+        // iter-508, MissionPacket+ToolCall iter-509).
+        //
+        // MutationEnvelope<P>: 3 pub fields
+        //   - capability_hash: Hash
+        //   - debit: BudgetDebit
+        //   - payload: P
+        //
+        // A future "let me hide capability_hash behind a getter for
+        // tamper safety" refactor would silently break SealedMutation
+        // row appending which reads envelope.capability_hash directly.
+        let envelope = MutationEnvelope::new(
+            Hash::from_bytes([0x42; 32]),
+            BudgetDebit { tokens: 100, ..Default::default() },
+            "payload".to_string(),
+        );
+        assert_eq!(envelope.capability_hash, Hash::from_bytes([0x42; 32]));
+        assert_eq!(envelope.debit.tokens, 100);
+        assert_eq!(envelope.payload, "payload");
+    }
+
+    #[test]
     fn mutation_envelope_struct_field_shape_pinned_via_destructure() {
         // Phase 1 hardening — struct-field-shape pin for
         // MutationEnvelope<P> (companion to AnswerPacket iter-464,
