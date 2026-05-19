@@ -2323,7 +2323,9 @@ impl SCOPERexAdmissionProof {
             });
         }
         if self.operation != record.operation {
-            return Err(ACSAdmissionProofError::OperationMismatch);
+            return Err(ACSAdmissionProofError::OperationMismatch {
+                record_id: self.record_id.0.clone(),
+            });
         }
         if !self.verify_signature(key) {
             return Err(ACSAdmissionProofError::InvalidCapabilitySignature {
@@ -2465,7 +2467,7 @@ pub enum ACSAdmissionProofError {
     InvalidCapabilitySignature { record_id: Option<String> },
     VerdictBlocksScopeRex { record_id: String },
     RecordIdMismatch { record_id: String },
-    OperationMismatch,
+    OperationMismatch { record_id: String },
     VerdictMismatch { record_id: String },
     CorruptAuditRecord {
         field: &'static str,
@@ -2482,7 +2484,7 @@ impl ACSAdmissionProofError {
             Self::InvalidCapabilitySignature { .. } => "invalid_capability_signature",
             Self::VerdictBlocksScopeRex { .. } => "proof_verdict_blocks_scope_rex",
             Self::RecordIdMismatch { .. } => "proof_record_id_mismatch",
-            Self::OperationMismatch => "proof_operation_mismatch",
+            Self::OperationMismatch { .. } => "proof_operation_mismatch",
             Self::VerdictMismatch { .. } => "proof_verdict_mismatch",
             Self::CorruptAuditRecord { .. } => "corrupt_acs_audit_record",
         }
@@ -2496,7 +2498,7 @@ impl ACSAdmissionProofError {
             }
             Self::VerdictBlocksScopeRex { .. } => Some("verdict"),
             Self::RecordIdMismatch { .. } => Some("record_id"),
-            Self::OperationMismatch => Some("operation"),
+            Self::OperationMismatch { .. } => Some("operation"),
             Self::VerdictMismatch { .. } => Some("verdict"),
             Self::MissingRecordId | Self::InvalidRecordId { .. } => Some("record_id"),
         }
@@ -2508,10 +2510,11 @@ impl ACSAdmissionProofError {
             Self::VerdictBlocksScopeRex { record_id } => Some(record_id.as_str()),
             Self::InvalidRecordId { record_id } => Some(record_id.as_str()),
             Self::RecordIdMismatch { record_id } => Some(record_id.as_str()),
+            Self::OperationMismatch { record_id } => Some(record_id.as_str()),
             Self::VerdictMismatch { record_id } => Some(record_id.as_str()),
             Self::MissingCapabilitySignature { record_id }
             | Self::InvalidCapabilitySignature { record_id } => record_id.as_deref(),
-            Self::MissingRecordId | Self::OperationMismatch => None,
+            Self::MissingRecordId => None,
         }
     }
 
@@ -6334,6 +6337,15 @@ mod tests {
             .unwrap_err();
         assert_eq!(err.cause(), "proof_verdict_mismatch");
         assert_eq!(err.field(), Some("verdict"));
+        assert_eq!(err.record_id(), Some(proof.record_id.0.as_str()));
+
+        let mut wrong_operation = record.clone();
+        wrong_operation.operation = ACSOperationKind::ToolAction;
+        let err = proof
+            .verify_against_record(&wrong_operation, &signing_key)
+            .unwrap_err();
+        assert_eq!(err.cause(), "proof_operation_mismatch");
+        assert_eq!(err.field(), Some("operation"));
         assert_eq!(err.record_id(), Some(proof.record_id.0.as_str()));
 
         let mut wrong_signature = proof.clone();
