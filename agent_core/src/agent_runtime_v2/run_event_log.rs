@@ -1700,6 +1700,52 @@ mod tests {
     }
 
     #[test]
+    fn validate_ordinal_density_catches_duplicate_and_descending_ordinals() {
+        // Phase 1 hardening — corruption shapes beyond high-number
+        // gaps. A tampered log can duplicate a prior ordinal or move
+        // a later row backward; both must fail the same dense-position
+        // check, not only ordinals forged upward.
+        let mut log = RunEventLog::new();
+        for text in ["a", "b", "c", "d"] {
+            log.append_event(AgentEvent::ReasoningDelta { text: text.into() });
+        }
+        log.validate_ordinal_density().expect("baseline dense");
+        let s = serde_json::to_string(&log).expect("serialise");
+
+        // Duplicate: [0, 1, 1, 3] at position 2.
+        let duplicate = s.replacen("\"ordinal\":2", "\"ordinal\":1", 1);
+        let duplicate_log: RunEventLog =
+            serde_json::from_str(&duplicate).expect("deserialise duplicate ordinal");
+        let duplicate_err = duplicate_log
+            .validate_ordinal_density()
+            .expect_err("duplicate ordinal must fail validation");
+        assert_eq!(
+            duplicate_err,
+            LogValidationError::OrdinalMismatch {
+                position: 2,
+                expected: 2,
+                actual: 1,
+            }
+        );
+
+        // Descending tail: [0, 1, 2, 0] at position 3.
+        let descending = s.replacen("\"ordinal\":3", "\"ordinal\":0", 1);
+        let descending_log: RunEventLog =
+            serde_json::from_str(&descending).expect("deserialise descending ordinal");
+        let descending_err = descending_log
+            .validate_ordinal_density()
+            .expect_err("descending ordinal must fail validation");
+        assert_eq!(
+            descending_err,
+            LogValidationError::OrdinalMismatch {
+                position: 3,
+                expected: 3,
+                actual: 0,
+            }
+        );
+    }
+
+    #[test]
     fn validate_ordinal_density_holds_for_1000_entry_log() {
         // Phase 1 hardening — scale pin. The existing
         // validate_ordinal_density tests cover small fixtures (0/2/3/5/
