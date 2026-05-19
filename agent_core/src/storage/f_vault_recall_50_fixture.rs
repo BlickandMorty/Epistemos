@@ -2309,6 +2309,26 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                satisfy the top-5 membership contract.",
     },
     FVaultRecallRow {
+        // 53rd Unicode row (iter-419): mixed Cyrillic + Devanagari
+        // script interaction. Prior rows pin both scripts independently;
+        // this row requires both in one <=3-token AND query. The
+        // English-only Mamba decoy carries the Latin anchor but neither
+        // non-Latin token.
+        query: "Mamba кэш कैश",
+        expected_paths: &["notes/mamba_cyrillic_devanagari.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Fifty-third Unicode row (iter-419): mixed-script \
+               Cyrillic+Devanagari query — \"Mamba кэш कैश\". \
+               Extends the post-floor Unicode interaction lane \
+               beyond CJK+Arabic by combining a Greek-descendant \
+               alphabetic token with a Brahmic abugida token in \
+               one top-5 contract. The AND path must require all \
+               three tokens, so the English-only Mamba decoy cannot \
+               satisfy retrieval.",
+    },
+    FVaultRecallRow {
         // 49th Unicode row (iter-407): Meroitic Cursive
         // extension. Adds a 47th non-Latin script (Meroitic
         // Cursive, U+109A0-U+109FF) — the EVERYDAY/CURSIVE
