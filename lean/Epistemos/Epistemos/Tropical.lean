@@ -171,6 +171,7 @@ structure CertificateTarget where
   eval_matches :
     ∀ env : Nat -> Scalar, poly.eval env = Expr.eval env expr
   semiringLaws : TropicalSemiringLawObligation
+  sourceRow : String
 
 namespace CertificateTarget
 
@@ -196,6 +197,13 @@ theorem semiringSourceRowMatches
     (sourceRow : String)
     (stored : c.semiringLaws.sourceRow = sourceRow) :
     c.semiringLaws.sourceRow = sourceRow := by
+  exact stored
+
+theorem sourceRowMatches
+    (c : CertificateTarget)
+    (sourceRow : String)
+    (stored : c.sourceRow = sourceRow) :
+    c.sourceRow = sourceRow := by
   exact stored
 
 end CertificateTarget
