@@ -113,6 +113,22 @@ structure ConvexLogPartitionObligation where
   convexOnNaturalDomain : Prop
   sourceRow : String
 
+def convexLogPartitionObligation
+    (family : ExpFamily) (naturalParams : List Real)
+    (_convex : logPartitionConvex family naturalParams)
+    (sourceRow : String) : ConvexLogPartitionObligation :=
+  { family := family
+    naturalParams := naturalParams
+    convexOnNaturalDomain := logPartitionConvex family naturalParams
+    sourceRow := sourceRow }
+
+theorem convexLogPartitionObligationCarries
+    (family : ExpFamily) (naturalParams : List Real)
+    (convex : logPartitionConvex family naturalParams)
+    (sourceRow : String) :
+    (convexLogPartitionObligation family naturalParams convex sourceRow).convexOnNaturalDomain := by
+  exact convex
+
 structure BregmanPositivityObligation where
   family : ExpFamily
   pParams : List Real
@@ -121,10 +137,53 @@ structure BregmanPositivityObligation where
   zeroIffEqual : Prop
   sourceRow : String
 
+def bregmanPositivityObligation
+    (family : ExpFamily) (pParams qParams : List Real)
+    (_nonnegative : bregmanNonnegative family pParams qParams)
+    (_zeroIffEqual : bregmanZeroIffEqual family pParams qParams)
+    (sourceRow : String) : BregmanPositivityObligation :=
+  { family := family
+    pParams := pParams
+    qParams := qParams
+    nonnegative := bregmanNonnegative family pParams qParams
+    zeroIffEqual := bregmanZeroIffEqual family pParams qParams
+    sourceRow := sourceRow }
+
+theorem bregmanPositivityObligationNonnegative
+    (family : ExpFamily) (pParams qParams : List Real)
+    (nonnegative : bregmanNonnegative family pParams qParams)
+    (zeroIffEqual : bregmanZeroIffEqual family pParams qParams)
+    (sourceRow : String) :
+    (bregmanPositivityObligation family pParams qParams
+      nonnegative zeroIffEqual sourceRow).nonnegative := by
+  exact nonnegative
+
+theorem bregmanPositivityObligationZeroIffEqual
+    (family : ExpFamily) (pParams qParams : List Real)
+    (nonnegative : bregmanNonnegative family pParams qParams)
+    (zeroIffEqual : bregmanZeroIffEqual family pParams qParams)
+    (sourceRow : String) :
+    (bregmanPositivityObligation family pParams qParams
+      nonnegative zeroIffEqual sourceRow).zeroIffEqual := by
+  exact zeroIffEqual
+
 structure MirrorDescentEquivalenceObligation where
   family : ExpFamily
   statement : Prop
   sourceRow : String
+
+def mirrorDescentEquivalenceObligation
+    (family : ExpFamily) (_statement : mirrorDescentEquivalent family)
+    (sourceRow : String) : MirrorDescentEquivalenceObligation :=
+  { family := family
+    statement := mirrorDescentEquivalent family
+    sourceRow := sourceRow }
+
+theorem mirrorDescentEquivalenceObligationCarries
+    (family : ExpFamily) (statement : mirrorDescentEquivalent family)
+    (sourceRow : String) :
+    (mirrorDescentEquivalenceObligation family statement sourceRow).statement := by
+  exact statement
 
 structure CertificateTarget where
   expr : Expr
