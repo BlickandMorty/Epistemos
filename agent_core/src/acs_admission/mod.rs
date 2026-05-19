@@ -3771,6 +3771,7 @@ impl<'de> Deserialize<'de> for ACSPolicy {
         D: serde::Deserializer<'de>,
     {
         let value = serde_json::Value::deserialize(deserializer)?;
+        require_policy_known_fields::<D::Error>(&value)?;
         require_policy_field::<D::Error>(
             &value,
             "policy_id",
@@ -3822,6 +3823,32 @@ impl<'de> Deserialize<'de> for ACSPolicy {
 
 fn is_i64_or_null(value: &serde_json::Value) -> bool {
     value.is_i64() || value.is_null()
+}
+
+fn require_policy_known_fields<E>(value: &serde_json::Value) -> Result<(), E>
+where
+    E: serde::de::Error,
+{
+    let serde_json::Value::Object(object) = value else {
+        return Err(E::custom(acs_policy_decode_error(
+            &ACSPolicyError::Malformed { field: "policy" },
+        )));
+    };
+    for field in object.keys() {
+        if !matches!(
+            field.as_str(),
+            "policy_id"
+                | "version"
+                | "valid_from_ms"
+                | "expires_at_ms"
+                | "thresholds"
+                | "required_capabilities"
+                | "operation_thresholds"
+        ) {
+            return Err(E::custom(format!("malformed_policy field={field}")));
+        }
+    }
+    Ok(())
 }
 
 fn is_u32_value(value: &serde_json::Value) -> bool {
@@ -7893,6 +7920,19 @@ mod tests {
 
         assert!(message.contains("malformed_policy"), "{message}");
         assert!(message.contains("operation_thresholds"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_shadow_policy_field_names_malformed_policy_field() {
+        let mut value = serde_json::to_value(ACSPolicy::strict("policy-shadow-field", 1_000))
+            .expect("policy encodes");
+        value["shadow_policy"] = serde_json::json!("allow");
+
+        let err = serde_json::from_value::<ACSPolicy>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(message.contains("shadow_policy"), "{message}");
     }
 
     #[test]
