@@ -65,6 +65,22 @@ freezes treat Metal output itself as proven.
 |---|---|---|---|---|---|---|
 | F-ULP-Oracle | Research | M2 Pro numeric falsifier | implemented-not-wired | `agent_core/src/research/eml_ir/`, `Epistemos/Shaders/morph_eval_reduced.metal`, `cargo test --features research research::eml_ir` | live Metal dispatch capture from `morphOracleFp16` | harden with GPU capture, subnormal/signed-zero diagnostics, WBO numerics cross-link, and Helios v3 §3.5/F7a reference |
 
+## ULP Gate Tier Ladder
+
+`classify_ulp_gate` partitions per-operation max-ULP into the three gate tiers
+that surface in the witness alongside the raw float. Replay rejects a witness
+whose gate-tier label drifts from the recomputed tier for the same max-ULP,
+so a candidate that fudges the label without moving the float cannot pass.
+
+- `Primary`: max-ULP `<= 2`. This is the acceptance tier and the only one
+  that satisfies the F-ULP-Oracle pass-threshold for the closed `[0.5, 2]`
+  interval over the 414,048-point fixture grid.
+- `Fallback`: max-ULP in `[3, 4]`. The candidate stays inside a degraded
+  band but is no longer ship-grade; the witness still records the worst-case
+  input so downstream tooling can drive an investigation without rerunning.
+- `Fail`: max-ULP `>= 5`. The candidate is rejected outright; the witness is
+  emitted for post-mortem but `pass` is `false` and the gate stops the lane.
+
 ## Adversarial Fixture Purposes
 
 The 20 adversarial fixtures live outside the closed-interval acceptance grid

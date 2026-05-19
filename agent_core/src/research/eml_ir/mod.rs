@@ -84,6 +84,17 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_doc_documents_ulp_gate_tier_ladder() {
+        assert!(FULP_FALSIFIER_DOC.contains("## ULP Gate Tier Ladder"));
+        assert!(FULP_FALSIFIER_DOC.contains("`Primary`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`Fallback`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`Fail`"));
+        assert!(FULP_FALSIFIER_DOC.contains("max-ULP `<= 2`"));
+        assert!(FULP_FALSIFIER_DOC.contains("max-ULP in `[3, 4]`"));
+        assert!(FULP_FALSIFIER_DOC.contains("max-ULP `>= 5`"));
+    }
+
+    #[test]
     fn falsifier_doc_documents_adversarial_fixture_purposes() {
         assert!(FULP_FALSIFIER_DOC.contains("## Adversarial Fixture Purposes"));
         assert!(FULP_FALSIFIER_DOC.contains("`exp_positive_zero`"));
