@@ -733,6 +733,7 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
     }
     let point_count = top_level_unsigned_integer_json(&value, "point_count")?;
     top_level_unsigned_integer_json(&value, "operation_evaluations")?;
+    top_level_unsigned_integer_json(&value, "adversarial_fixture_count")?;
     let Some(max_point_index_exclusive) = point_count else {
         return Ok(());
     };
@@ -1800,6 +1801,24 @@ mod tests {
             error.count_mismatch_kind(),
             Some(FulpCountMismatchKind::AdversarialFixtureCount)
         );
+    }
+
+    #[test]
+    fn replay_rejects_adversarial_fixture_count_json_type_drift_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["adversarial_fixture_count"] = serde_json::Value::String("bad-count".to_string());
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("adversarial fixture count type drift must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("adversarial_fixture_count"));
     }
 
     #[test]
