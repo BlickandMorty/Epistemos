@@ -1005,6 +1005,37 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 44th SignalOnly row (iter-368): single-term query in
+        // Vai-script domain — "ꕞ" (Vai syllable lhi, U+255E,
+        // single codepoint). THIRTY-FIFTH single-term-AND
+        // domain. TWENTY-SECOND non-ASCII script-block. FIRST
+        // MODERN SINGLE-INVENTOR AFRICAN syllabary in SignalOnly
+        // (Vai was created ca. 1830s by Mɔmɔlu Duwalu Bukɛlɛ
+        // for the Vai language of Liberia / Sierra Leone — one
+        // of the few writing systems with a known single
+        // inventor and one of the oldest indigenous African
+        // scripts in continuous use). Adds the modern-
+        // invented-African-script family to SignalOnly,
+        // joining Tifinagh (iter-361 traditional Berber/
+        // Amazigh) as the second African-origin script in
+        // SignalOnly. Token unique to iter-220's mamba_vai.md.
+        query: "ꕞ",
+        expected_paths: &["notes/mamba_vai.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Forty-fourth SignalOnly row (iter-368): single-\
+               term Vai-script query — \"ꕞ\" (U+255E). \
+               Thirty-fifth domain for single-term-AND. \
+               Twenty-second non-ASCII script-block. FIRST \
+               modern-single-inventor African syllabary in \
+               SignalOnly (Vai = Bukɛlɛ 1830s). SECOND \
+               African-origin script in SignalOnly (after iter-\
+               361 Tifinagh). Tenth single-codepoint non-ASCII \
+               token. Brings SignalOnly to depth 44 — first \
+               category past depth-43 horizon.",
+    },
+    FVaultRecallRow {
         // 43rd SignalOnly row (iter-361): single-term query in
         // Tifinagh-script domain — "ⴽ" (yak, U+2D3D, single
         // codepoint). THIRTY-FOURTH single-term-AND domain.
