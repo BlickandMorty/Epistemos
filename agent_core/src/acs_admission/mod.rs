@@ -5662,10 +5662,7 @@ mod tests {
         let err = policy.validate_at(1_001).unwrap_err();
 
         assert_eq!(err.cause(), "malformed_policy");
-        assert_eq!(
-            err.field(),
-            Some("operation_thresholds.thresholds.warn_at")
-        );
+        assert_eq!(err.field(), Some("operation_thresholds.thresholds.warn_at"));
     }
 
     #[test]
@@ -9000,6 +8997,63 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_scope_rex_proof_gap_precedes_invalid_signature() {
+        let temp_dir = tempfile::tempdir().expect("temporary ACS OpLog directory");
+        let db_path = temp_dir
+            .path()
+            .join("acs-proof-gap-invalid-signature.sqlite");
+        let signing_key = crate::effect::receipt::HmacSha256SigningKey::new([7; 32]);
+        let mut proof = {
+            let run_event_log =
+                crate::oplog::OpLog::open_persistent("acs-proof-gap-invalid-signature", &db_path)
+                    .expect("persistent RunEventLog opens");
+            let sink = ACSRunEventLogSink::new(&run_event_log);
+            let first_input = ACSAdmissionInput {
+                request_id: "req-proof-gap-signature-first".to_string(),
+                payload: tool_action_payload(),
+                submitted_at_ms: 1_000,
+                risk: ACSRiskVector::neutral(),
+                granted_capabilities: Vec::new(),
+            };
+            let second_input = ACSAdmissionInput {
+                request_id: "req-proof-gap-signature".to_string(),
+                payload: tool_action_payload(),
+                submitted_at_ms: 1_001,
+                risk: ACSRiskVector::neutral(),
+                granted_capabilities: Vec::new(),
+            };
+            let policy = ACSPolicy::strict("policy-proof-gap-signature", 1_000);
+            admit_and_record(&first_input, &policy, 1_000, &sink)
+                .expect("first RunEventLog sink record writes");
+            let second_decision = admit_and_record(&second_input, &policy, 1_001, &sink)
+                .expect("second RunEventLog sink record writes");
+            SCOPERexAdmissionProof::signed_from_record(&second_decision.audit_record, &signing_key)
+                .expect("audit record signs")
+        };
+
+        let conn = rusqlite::Connection::open(&db_path).expect("tamper connection opens");
+        conn.execute("DELETE FROM epistemos_oplog WHERE seq = 0", [])
+            .expect("tamper delete succeeds");
+        drop(conn);
+
+        let reopened =
+            crate::oplog::OpLog::open_persistent("acs-proof-gap-invalid-signature", &db_path)
+                .expect("gapped RunEventLog reopens");
+        let report = reopened.verify_chain(None);
+        assert!(!report.valid);
+        assert_eq!(report.failure_reason.as_deref(), Some("seq_gap"));
+        proof.signature = CapabilitySignature::new(" ");
+
+        let err = proof
+            .verify_against_run_event_log(&reopened, &signing_key)
+            .unwrap_err();
+
+        assert_eq!(err.cause(), "acs_audit_log_gap");
+        assert_eq!(err.field(), Some("run_event_log"));
+        assert_eq!(err.record_id(), Some(proof.record_id.0.as_str()));
+    }
+
+    #[test]
     fn acs_admission_in_memory_audit_sink_records_decisions() {
         let sink = InMemoryACSAuditSink::default();
         let input = ACSAdmissionInput {
@@ -9385,7 +9439,9 @@ mod tests {
     #[test]
     fn acs_admission_run_event_log_gap_precedes_corrupt_record() {
         let temp_dir = tempfile::tempdir().expect("temporary ACS OpLog directory");
-        let db_path = temp_dir.path().join("acs-run-event-gap-before-corrupt.sqlite");
+        let db_path = temp_dir
+            .path()
+            .join("acs-run-event-gap-before-corrupt.sqlite");
         let next_record_id = "acs:req-gap-before-corrupt:1003";
         {
             let run_event_log =
