@@ -1136,6 +1136,50 @@ mod tests {
     }
 
     #[test]
+    fn budget_term_code_aligns_with_budget_ledger_field_name_via_used_suffix() {
+        // Phase 1 hardening — naming-alignment pin (closes the
+        // 3-struct family: BudgetSpec [max_ prefix], BudgetDebit
+        // [no affix], BudgetLedger [_used suffix] at iter-557/558/559).
+        // BudgetLedger field names carry a "_used" suffix that
+        // BudgetDebit/BudgetSpec do not — but the STEM (the part
+        // between max_/empty and _used/empty) must match BudgetTerm
+        // .code() across all 5 axes. Specifically:
+        //   tokens_used      ↔ tokens
+        //   wall_used_ms     ↔ wall_ms
+        //   tool_calls_used  ↔ tool_calls
+        //   subprocess_used_ms ↔ subprocess_ms
+        //   memory_bytes_used ↔ memory_bytes
+        //
+        // Note the awkward "wall_used_ms" / "subprocess_used_ms" —
+        // the suffix lands inside the term name for the *_ms axes.
+        // That irregularity is itself doctrine and is worth pinning.
+        // A future rename to "wall_ms_used" / "subprocess_ms_used"
+        // (more consistent) would silently break the
+        // RunEventLog ledger snapshot persistence format.
+        let cases = [
+            (BudgetTerm::Tokens, "tokens_used"),
+            (BudgetTerm::WallMs, "wall_used_ms"),
+            (BudgetTerm::ToolCalls, "tool_calls_used"),
+            (BudgetTerm::SubprocessMs, "subprocess_used_ms"),
+            (BudgetTerm::MemoryBytes, "memory_bytes_used"),
+        ];
+        let ledger = BudgetLedger {
+            tokens_used: 1,
+            wall_used_ms: 2,
+            tool_calls_used: 3,
+            subprocess_used_ms: 4,
+            memory_bytes_used: 5,
+        };
+        let json = serde_json::to_string(&ledger).expect("serialize ledger");
+        for (_term, expected_field) in cases {
+            assert!(
+                json.contains(&format!("\"{expected_field}\":")),
+                "expected serialised ledger to contain field {expected_field:?}, got {json}"
+            );
+        }
+    }
+
+    #[test]
     fn budget_term_code_equals_budget_debit_field_name_exactly() {
         // Phase 1 hardening — naming-alignment pin (companion to
         // budget_term_code_equals_budget_spec_field_name_minus_max_prefix).
