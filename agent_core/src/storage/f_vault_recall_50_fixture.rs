@@ -1005,6 +1005,28 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 34th SignalOnly row (iter-297): single-term query in
+        // Tibetan-script domain — "ཀེ" (Tibetan for cache,
+        // U+0F40 U+0F7A). TWENTY-FIFTH single-term-AND domain.
+        // THIRTEENTH non-ASCII script-block. THIRD Brahmic
+        // descendant in single-term-AND (after Devanagari +
+        // Thai). Tibetan uses stacked consonants — distinct
+        // sub-typology within Brahmic family. Token unique to
+        // iter-167's mamba_tibetan.md.
+        query: "ཀེ",
+        expected_paths: &["notes/mamba_tibetan.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Thirty-fourth SignalOnly row (iter-297): single-\
+               term Tibetan-script query — \"ཀེ\" (U+0F40 \
+               U+0F7A). Twenty-fifth domain for single-term-\
+               AND. Thirteenth non-ASCII script-block. Third \
+               Brahmic descendant (after Devanagari + Thai) — \
+               Tibetan uses stacked consonants. Brings \
+               SignalOnly to depth 34.",
+    },
+    FVaultRecallRow {
         // 33rd SignalOnly row (iter-289): single-term query in
         // Ethiopic-script domain — "ካሽ" (Amharic for cache,
         // U+12AB U+1238). TWENTY-FOURTH single-term-AND domain.
