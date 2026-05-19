@@ -325,6 +325,28 @@ mod tests {
     }
 
     #[test]
+    fn identity_para_is_send_sync_for_propagation_safety() {
+        // Phase 1 hardening — compile-time pin for IdentityPara<P>.
+        // IdentityPara is a PhantomData<P> wrapper (compose.rs §21);
+        // its Send + Sync inheritance is determined by P alone.
+        //
+        // Pin the canonical IdentityPara<u32> Send + Sync — proves
+        // the PhantomData approach hasn't accidentally introduced a
+        // non-Send type when P itself is Send + Sync. A future
+        // refactor that embedded a !Send field (e.g., RefCell<usize>
+        // for some "skip counter") would silently break the property
+        // ParaSeq composition relies on.
+        //
+        // Companion to the broader trait-bound sweep
+        // (AgentRuntimeV2Capability trait Send+Sync iter-? and the
+        // Clone+Send+Sync sweep iter-375..iter-385).
+        fn assert_send_sync<T: Send + Sync>() {}
+        assert_send_sync::<IdentityPara<u32>>();
+        assert_send_sync::<IdentityPara<()>>();
+        assert_send_sync::<IdentityPara<String>>();
+    }
+
+    #[test]
     fn para_seq_output_is_clone_send_sync_and_feedback_is_send_sync() {
         // Phase 1 hardening — trait-bound pin for the ParaSeq surface
         // composite types. Companion to ParaError + ParaOutput +
