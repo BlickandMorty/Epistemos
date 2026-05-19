@@ -230,3 +230,11 @@ pub fn adversarial_query_fixture_query_texts_are_nonempty_trimmed_and_control_fr
             && !query_text.chars().any(char::is_control)
     })
 }
+
+pub fn adversarial_query_fixture_descriptions_are_trimmed_and_control_free() -> bool {
+    ADVERSARIAL_QUERY_FIXTURE_DESCRIPTIONS.iter().all(|description| {
+        !description.is_empty()
+            && description.trim() == *description
+            && !description.chars().any(char::is_control)
+    })
+}
