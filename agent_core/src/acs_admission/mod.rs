@@ -3890,6 +3890,15 @@ where
             },
         )));
     };
+    for field in capability_value.keys() {
+        if let Some(shadow_field) = capability_value_shadow_field(kind, field) {
+            return Err(E::custom(acs_policy_decode_error(
+                &ACSPolicyError::Malformed {
+                    field: shadow_field,
+                },
+            )));
+        }
+    }
 
     let required_field = match kind {
         "vault_path"
@@ -3928,6 +3937,29 @@ where
     };
 
     Ok(())
+}
+
+fn capability_value_shadow_field(kind: &str, field: &str) -> Option<&'static str> {
+    match kind {
+        "vault_path" if matches!(field, "path" | "verb") => None,
+        "vault_path" if field == "shadow_path" => {
+            Some("required_capabilities.vault_path.shadow_path")
+        }
+        "vault_path" if field == "shadow_verb" => {
+            Some("required_capabilities.vault_path.shadow_verb")
+        }
+        "network_host" if field == "host" => None,
+        "network_host" if field == "shadow_host" => {
+            Some("required_capabilities.network_host.shadow_host")
+        }
+        "biometric_session" if field == "ttl_secs" => None,
+        "biometric_session" if field == "shadow_ttl_secs" => {
+            Some("required_capabilities.biometric_session.shadow_ttl_secs")
+        }
+        "other" if field == "name" => None,
+        "other" if field == "shadow_name" => Some("required_capabilities.other.shadow_name"),
+        _ => Some("required_capabilities.capability"),
+    }
 }
 
 impl ACSCapabilityRule {
@@ -9190,6 +9222,29 @@ mod tests {
         let decoded = serde_json::from_value::<ACSCapabilityRule>(value);
 
         assert!(decoded.is_err());
+    }
+
+    #[test]
+    fn acs_admission_shadow_capability_value_field_names_malformed_policy_field() {
+        let value = serde_json::json!({
+            "operation": "tool_action",
+            "capability": {
+                "kind": "other",
+                "value": {
+                    "name": "ToolExec",
+                    "shadow_name": "KernelPromote"
+                }
+            }
+        });
+
+        let err = serde_json::from_value::<ACSCapabilityRule>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(
+            message.contains("required_capabilities.other.shadow_name"),
+            "{message}"
+        );
     }
 
     #[test]
