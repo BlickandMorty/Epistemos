@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 263
+invalid_example_count: 265
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -12917,3 +12917,32 @@ Violates: [Identity Gap Slug Catalog](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#id
 ```
 
 Rejection reason: identity-gap slugs may use lowercase ASCII alphanumerics and internal hyphens only; a `U+200D` zero-width joiner between `reserved` and `state` is an invisible cluster-binding control that extends the validator vocabulary beyond `[a-z0-9-]` and would collapse to a non-canonical glyph cluster, so it is rejected.
+
+## N264 - Zero Width Non Joiner Identity Gap Slug
+
+Violates: [Identity Gap Slug Catalog](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#identity-gap-slug-catalog).
+
+```json
+{
+  "catalog_slug": "reserved\u200cstate",
+  "negative_examples": ["N194", "N195"],
+  "schema_catalog_present": true,
+  "slug_grammar": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+}
+```
+
+Rejection reason: identity-gap slugs may use lowercase ASCII alphanumerics and internal hyphens only; a `U+200C` zero-width non-joiner between `reserved` and `state` is an invisible cluster-breaking control that extends the validator vocabulary beyond `[a-z0-9-]` and silently changes shaping, so it is rejected.
+
+## N265 - Refspec Commit SHA Alias
+
+Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-identity-rule) and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "field": "commit_sha",
+  "commit_sha": "HEAD~1",
+  "schema_pattern": "^[0-9a-f]{40}$"
+}
+```
+
+Rejection reason: `commit_sha` must store the resolved 40-character lowercase hex commit, not a moving refspec alias such as `HEAD~1`.
