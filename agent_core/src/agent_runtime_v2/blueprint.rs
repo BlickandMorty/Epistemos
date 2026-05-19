@@ -638,6 +638,41 @@ mod tests {
     }
 
     #[test]
+    fn vault_persistence_path_with_empty_blueprint_id_produces_trailing_dot_json() {
+        // Phase 1 hardening — boundary completeness companion to
+        // vault_persistence_path_with_empty_or_slash_only_root...
+        // The OTHER no-content edge — empty blueprint_id — wasn't pinned.
+        //
+        // Contract: vault_persistence_path is pure format!. With
+        // blueprint_id == "", the path becomes "<vault>/agents/.json".
+        // This is the function's current behaviour; a future refactor
+        // that introduced non-empty validation (e.g., returning a
+        // Result, panicking, or substituting a default) would
+        // silently change callers that rely on the "" → "/.json" shape.
+        //
+        // Pin current behaviour so the doctrine call is explicit at
+        // PR review when/if it's changed.
+        let bp = AgentBlueprint {
+            id: AgentBlueprintId(String::new()),
+            display_name: "edge-empty-id".to_string(),
+            provider_policy: ProviderPolicy::LocalMlx { model_id: "m".into() },
+            budget: BudgetSpec::default(),
+            capability_root_hash: Hash::zero(),
+        };
+        assert_eq!(
+            bp.vault_persistence_path("/Users/jojo/vault"),
+            "/Users/jojo/vault/agents/.json"
+        );
+        // Trailing-slash root + empty id collapses to the same suffix.
+        assert_eq!(
+            bp.vault_persistence_path("/Users/jojo/vault/"),
+            "/Users/jojo/vault/agents/.json"
+        );
+        // Empty root + empty id → "/agents/.json".
+        assert_eq!(bp.vault_persistence_path(""), "/agents/.json");
+    }
+
+    #[test]
     fn vault_persistence_path_with_empty_or_slash_only_root_produces_root_relative_path() {
         // Phase 1 hardening — defensive boundary pin. The existing
         // canonical-shape test covers /Users/jojo/vault and its
