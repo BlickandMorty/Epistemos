@@ -347,6 +347,57 @@ mod tests {
     }
 
     #[test]
+    fn text_contains_rejected_name_iff_count_hits_is_nonzero() {
+        // Phase 1 hardening — cross-helper consistency pin.
+        // text_contains_rejected_name is the cheap boolean-only path
+        // for hot loops; count_hits is the per-occurrence tally; both
+        // must agree on the binary "is there a match at all" question.
+        //
+        //   text_contains_rejected_name(t) == (count_hits(t) > 0)
+        //
+        // A future refactor that diverged the boolean path (e.g., "let
+        // me skip the lowercase fold on ASCII-only inputs because
+        // contains() can short-circuit on a literal needle") would
+        // silently miss case-mixed Aegis variants while count_hits
+        // still catches them — CI passes / fails inconsistently
+        // depending on which helper the driver picked. Pin the
+        // bi-conditional across positive + negative + tricky fixtures.
+        for input in [
+            // Negative cases (no Aegis).
+            "",
+            " ",
+            "no rejected name here",
+            "vault notes May 2026",
+            // Positive cases — all 3 capitalisations.
+            "Aegis",
+            "AEGIS",
+            "aegis",
+            "Hello Aegis World",
+            // Tricky: substring-of-token + multi-line + mixed.
+            "before-aegis-after",
+            "// comment about Aegis\nlet x = AEGIS;\nfn t() {}",
+            "Aegis Aegis AEGIS aegis",
+            // Almost-but-not: differ by one character.
+            "aegi",
+            "egis",
+            "aegisX", // still contains "aegis" — positive
+            "Xaegis", // still contains "aegis" — positive
+            // Pure punctuation / digits with no aegis.
+            "12345",
+            "()*&^%$#@!",
+        ] {
+            let contains = text_contains_rejected_name(input);
+            let count_nonzero = count_hits(input) > 0;
+            assert_eq!(
+                contains, count_nonzero,
+                "text_contains vs count_hits>0 disagreement for input: {input:?} \
+                 (contains={contains}, count_hits={})",
+                count_hits(input)
+            );
+        }
+    }
+
+    #[test]
     fn count_hits_matches_scan_text_length() {
         // Property: count_hits() must equal scan_text().len() for
         // every input. Pin the contract so the two impls don't drift.
