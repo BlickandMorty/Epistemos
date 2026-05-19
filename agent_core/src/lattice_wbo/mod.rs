@@ -7059,6 +7059,29 @@ mod tests {
     }
 
     #[test]
+    fn nested_lattice_codecs_are_not_quip_subfamilies() {
+        let quip_key = LatticeCoderKind::QuipE8.canonical_name();
+        for coder in [LatticeCoderKind::NestedE8, LatticeCoderKind::NestedLeech24] {
+            let nested_key = coder.canonical_name();
+            assert_ne!(nested_key, quip_key, "{coder:?} must keep a distinct key");
+            assert!(
+                !nested_key.contains("quip"),
+                "{coder:?} must not encode QuIP ancestry in its public key"
+            );
+            assert_eq!(
+                coder.primary_residency_tier(),
+                None,
+                "{coder:?} must remain standalone without product residency promotion"
+            );
+        }
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`nested_lattice_codecs_are_not_quip_subfamilies`"),
+            "register doc must cross-link the nested-vs-QuIP identity guard"
+        );
+    }
+
+    #[test]
     fn quip_e8_codec_pins_weight_quantization_terms_and_rate() {
         assert!(LatticeCoderKind::QuipE8.allows_rate_parameter());
         assert_eq!(
