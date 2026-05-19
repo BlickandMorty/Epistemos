@@ -116,6 +116,17 @@ theorem CertificateTarget.eval_positive (c : CertificateTarget) :
   rw [c.value_matches]
   exact c.positive_value
 
+def oneCertificateTarget : CertificateTarget :=
+  { expr := Expr.one
+    value := 1
+    branch_safe := one_branch_safe
+    value_matches := Expr.eval_one
+    positive_value := by norm_num }
+
+theorem oneCertificateTargetEvalPositive :
+    0 < Expr.eval oneCertificateTarget.expr :=
+  CertificateTarget.eval_positive oneCertificateTarget
+
 /-- A sharper named obligation for generated certificates: the only
 nontrivial branch condition at an EML node is positivity of the right
 child. -/
