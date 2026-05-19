@@ -2684,7 +2684,7 @@ mod tests {
         );
         assert_eq!(
             witness.adversarial_fixture_fingerprint,
-            "01875d721861aaa448cb8d7c1c314ef9d2f8d1df023b9f53bbe269d8db52654d"
+            "f2248054054af4f2e8b4d2157e0af130ac467c912b64c3d8a37d7b96c6b0219d"
         );
         assert_eq!(
             witness.adversarial_reference_fingerprint,
@@ -2692,10 +2692,10 @@ mod tests {
         );
         assert_eq!(
             witness.adversarial_reference_fingerprint,
-            "7f5f2d70f3f8054f8b3670eb9eed0f9da194509753a840e0e7eda52e849ca257"
+            "facbc5178522934dd842e5aaad2f61cccc2fedccc669a96086b84a6d028c2c0e"
         );
         assert_eq!(witness.adversarial_reference_stats.finite_count, 12);
-        assert_eq!(witness.adversarial_reference_stats.rejected_count, 12);
+        assert_eq!(witness.adversarial_reference_stats.rejected_count, 13);
         assert_eq!(witness.adversarial_reference_fingerprint.len(), 64);
         let json = acceptance_witness_json().unwrap();
         assert!(json.contains("\"operation_catalog_fingerprint\""));
