@@ -225,6 +225,9 @@ the row has a measurement:
 | `measured_softmax_half_post_correction_total()` | Explicit alias for complete measured post-correction total after the half contraction. |
 | `measured_within_budget()` | `Some(true/false)` only when measured data is complete; unmeasured rows stay pending instead of silently passing. `lattice_error_contribution_serializes_pending_measurement_as_null` asserts that unmeasured contribution JSON keeps `measured` as null. |
 
+`register_doc_names_softmax_half_pre_post_helpers` asserts that the explicit
+pre/post helper names stay documented.
+
 The reserved semantic WBO-6 slice plus the reserved `T_num` slice must conserve
 the full pre-softmax budget. `lattice_budget_slice_partition_is_order_invariant_across_all_axes`
 asserts that semantic plus numerical slices conserve the total across reordered and duplicated axes. `lattice_budget_slice_partition_conserves_every_codec_catalog` asserts that the codec-wide slice fixture preserves semantic plus numerical conservation for every codec catalog row. `T_num` is a numerical guard partition, not a semantic

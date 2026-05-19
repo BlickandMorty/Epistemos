@@ -5414,6 +5414,23 @@ mod tests {
     }
 
     #[test]
+    fn register_doc_names_softmax_half_pre_post_helpers() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+
+        for helper in [
+            "softmax_half_pre_correction_budget()",
+            "softmax_half_post_correction_budget()",
+            "measured_softmax_half_pre_correction_total()",
+            "measured_softmax_half_post_correction_total()",
+        ] {
+            assert!(
+                register.contains(helper),
+                "register must name explicit softmax-half helper {helper}"
+            );
+        }
+    }
+
+    #[test]
     fn register_doc_residency_side_information_cells_follow_witness_order() {
         let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
 
