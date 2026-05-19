@@ -6,6 +6,39 @@
 
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
+enum ExplicitPublicOption<T> {
+    Missing,
+    Present(Option<T>),
+}
+
+impl<T> Default for ExplicitPublicOption<T> {
+    fn default() -> Self {
+        Self::Missing
+    }
+}
+
+impl<T> ExplicitPublicOption<T> {
+    fn require<E>(self, field: &'static str) -> Result<Option<T>, E>
+    where
+        E: de::Error,
+    {
+        match self {
+            Self::Missing => Err(E::missing_field(field)),
+            Self::Present(value) => Ok(value),
+        }
+    }
+}
+
+fn deserialize_explicit_public_option<'de, D, T>(
+    deserializer: D,
+) -> Result<ExplicitPublicOption<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer).map(ExplicitPublicOption::Present)
+}
+
 /// Canonical residency tiers named by the lattice/WBO register.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum ResidencyTier {
@@ -789,15 +822,17 @@ impl<'de> Deserialize<'de> for LatticeErrorContribution {
             term: WboTermCode,
             source: String,
             budget: f64,
-            measured: Option<f64>,
+            #[serde(default, deserialize_with = "deserialize_explicit_public_option")]
+            measured: ExplicitPublicOption<f64>,
         }
 
         let raw = RawContribution::deserialize(deserializer)?;
+        let measured = raw.measured.require("measured")?;
         validate_nonnegative_finite(raw.budget).map_err(|error| de::Error::custom(error.key()))?;
         if raw.source.trim().is_empty() {
             return Err(de::Error::custom(LatticeWboError::EmptySource.key()));
         }
-        if let Some(measured) = raw.measured {
+        if let Some(measured) = measured {
             validate_nonnegative_finite(measured)
                 .map_err(|error| de::Error::custom(error.key()))?;
         }
@@ -806,7 +841,7 @@ impl<'de> Deserialize<'de> for LatticeErrorContribution {
             term: raw.term,
             source: raw.source,
             budget: raw.budget,
-            measured: raw.measured,
+            measured,
         })
     }
 }
@@ -1041,15 +1076,19 @@ impl<'de> Deserialize<'de> for LatticeBudget {
         #[serde(deny_unknown_fields)]
         struct RawBudget {
             coder: LatticeCoderKind,
-            rate_milli_bits_per_symbol: Option<u32>,
+            #[serde(default, deserialize_with = "deserialize_explicit_public_option")]
+            rate_milli_bits_per_symbol: ExplicitPublicOption<u32>,
             side_information: SideInformationKind,
             contributions: Vec<LatticeErrorContribution>,
         }
 
         let raw = RawBudget::deserialize(deserializer)?;
+        let rate_milli_bits_per_symbol = raw
+            .rate_milli_bits_per_symbol
+            .require("rate_milli_bits_per_symbol")?;
         let budget = Self::new(
             raw.coder,
-            raw.rate_milli_bits_per_symbol,
+            rate_milli_bits_per_symbol,
             raw.side_information,
             raw.contributions,
         );
@@ -1366,16 +1405,18 @@ impl<'de> Deserialize<'de> for WboLedgerEntry {
         struct RawEntry {
             memory_tier: String,
             budget: LatticeBudget,
-            active_support: Option<ActiveSupportBudget>,
+            #[serde(default, deserialize_with = "deserialize_explicit_public_option")]
+            active_support: ExplicitPublicOption<ActiveSupportBudget>,
             falsifier: String,
             caveat: String,
         }
 
         let raw = RawEntry::deserialize(deserializer)?;
+        let active_support = raw.active_support.require("active_support")?;
         let entry = Self::new(
             raw.memory_tier,
             raw.budget,
-            raw.active_support,
+            active_support,
             raw.falsifier,
             raw.caveat,
         );
@@ -3021,6 +3062,14 @@ mod tests {
             }"#,
             "source",
         );
+        assert_json_missing_field_rejected::<LatticeErrorContribution>(
+            r#"{
+                "term": "T_num",
+                "source": "exact ULP guard",
+                "budget": 0.0
+            }"#,
+            "measured",
+        );
         assert_json_missing_field_rejected::<LatticeBudget>(
             r#"{
                 "coder": "exact-hot",
@@ -3028,6 +3077,19 @@ mod tests {
                 "side_information": "None"
             }"#,
             "contributions",
+        );
+        assert_json_missing_field_rejected::<LatticeBudget>(
+            r#"{
+                "coder": "exact-hot",
+                "side_information": "None",
+                "contributions": [{
+                    "term": "T_num",
+                    "source": "exact ULP guard",
+                    "budget": 0.0,
+                    "measured": null
+                }]
+            }"#,
+            "rate_milli_bits_per_symbol",
         );
         assert_json_missing_field_rejected::<ActiveSupportBudget>(
             r#"{
@@ -3055,6 +3117,25 @@ mod tests {
                 "falsifier": "F-WBO-DriftLedger; F-ULP-Oracle"
             }"#,
             "caveat",
+        );
+        assert_json_missing_field_rejected::<WboLedgerEntry>(
+            r#"{
+                "memory_tier": "L0 RAM hot",
+                "budget": {
+                    "coder": "exact-hot",
+                    "rate_milli_bits_per_symbol": null,
+                    "side_information": "None",
+                    "contributions": [{
+                        "term": "T_num",
+                        "source": "exact ULP guard",
+                        "budget": 0.0,
+                        "measured": null
+                    }]
+                },
+                "falsifier": "F-WBO-DriftLedger; F-ULP-Oracle",
+                "caveat": "Exact hot rows still need numerical post-correction."
+            }"#,
+            "active_support",
         );
         assert_json_missing_field_rejected::<FalsifierHookOwner>(
             r#"{
@@ -4265,6 +4346,7 @@ mod tests {
             "public JSON rows reject duplicate public keys before validation",
             "`public_accounting_json_rejects_missing_required_keys`",
             "public JSON rows reject missing required keys before validation",
+            "optional public null keys must still be present explicitly",
             "`public_accounting_json_rejects_wrong_type_public_fields`",
             "public JSON rows reject wrong-type public fields before validation",
             "wrong-type caveat fields",
