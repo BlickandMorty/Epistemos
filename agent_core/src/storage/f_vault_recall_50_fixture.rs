@@ -3108,6 +3108,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 32nd Paraphrase row (iter-283): NEW axis — STANDALONE
+        // NUMERIC-TOKEN insertion. User types "Mamba 2 SSM" with
+        // digit "2" whitespace-separated. Tantivy tokenizes
+        // whitespace-bounded "2" as a standalone numeric token.
+        // 3-term AND on {mamba, 2, ssm} blocks the canonical
+        // (which lacks the standalone "2" token). Distinct from
+        // iter-147 ATTACHED-digit suffix "Mamba2" (digit fused
+        // with letters into one token) and iter-155 attached
+        // numeric prefix "1mamba" — iter-283 has digit as a
+        // SEPARATE whitespace-bounded token, not attached. Pins
+        // deferred number-form normalization / standalone-digit
+        // collapsing. Twenty-ninth named failure subclass.
+        query: "Mamba 2 SSM",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Standalone-numeric-token Paraphrase axis (axis \
+               #29): user inserts whitespace-separated digit \
+               (\"Mamba 2 SSM\"). 3-term AND on {mamba, 2, ssm} \
+               blocks the canonical (lacks the standalone \"2\" \
+               token). Distinct from iter-147 attached-digit \
+               suffix (Mamba2 fused) and iter-155 attached \
+               numeric prefix (1mamba fused) — iter-283 has \
+               digit as SEPARATE token. Twenty-ninth named \
+               failure subclass. Brings Paraphrase to depth 32.",
+    },
+    FVaultRecallRow {
         // 31st Paraphrase row (iter-276): NEW axis — COMBINING-
         // DIACRITIC INJECTION. User types "Mam̃ba" with combining
         // tilde (U+0303) over the second "m". Tantivy treats
