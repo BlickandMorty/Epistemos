@@ -1622,6 +1622,54 @@ mod tests {
     }
 
     #[test]
+    fn sealer_does_not_verify_envelope_cap_hash_matches_capability_macaroon() {
+        // Phase 1 hardening — DOCTRINE PIN. The Sealer verifies the
+        // CAPABILITY (via cap.verify(ctx)) and applies the BUDGET
+        // (via gate.check_and_debit) but does NOT cross-check that
+        // envelope.capability_hash equals cap.macaroon().capability_hash().
+        //
+        // This is by design: the dispatcher is the producer that
+        // populates envelope.capability_hash and is trusted to use
+        // the same capability it presents to the Sealer. The Sealer
+        // doesn't re-verify the link; it would be expensive (BLAKE3
+        // recompute on every seal) and the envelope→cap relationship
+        // is documented as a producer-side invariant.
+        //
+        // Pin the current behaviour so a future "let me belt-and-
+        // suspenders the cap hash" tightening surfaces at PR review
+        // as a deliberate doctrine change. Currently, an envelope with
+        // a DIFFERENT capability_hash than the cap's macaroon hash
+        // STILL seals successfully (the cap verifies; the budget
+        // applies; the write lands).
+        //
+        // The audit-trail downstream of the seal (SealedMutation row
+        // appended by the caller) records ENVELOPE.capability_hash,
+        // not the cap's actual hash — so the producer-side invariant
+        // is what audit dashboards rely on. This pin documents that
+        // contract.
+        let cap = valid_capability(Some(10_000));
+        let sealer = Sealer {
+            capability: &cap,
+            gate: BudgetGate::new(BudgetSpec::new(1_000, 0, 5, 0)),
+        };
+        // Envelope carries an INTENTIONALLY-WRONG capability_hash
+        // (zero) while the cap's macaroon hash is non-zero.
+        let actual_cap_hash = cap.macaroon().capability_hash();
+        assert_ne!(actual_cap_hash, Hash::zero());
+        let envelope = MutationEnvelope::new(
+            Hash::zero(),
+            BudgetDebit { tokens: 25, tool_calls: 1, ..Default::default() },
+            "payload".to_string(),
+        );
+        let mut writer = RecordingWriter::new();
+        let (ledger, _) = sealer
+            .seal_and_apply(&ctx(), BudgetLedger::default(), envelope, &mut writer)
+            .expect("envelope cap_hash mismatch does NOT block seal — producer-side invariant");
+        assert_eq!(writer.writes, 1);
+        assert_eq!(ledger.tokens_used, 25);
+    }
+
+    #[test]
     fn sealer_is_reusable_for_multiple_seal_and_apply_calls() {
         // Phase 1 hardening — Sealer doctrine pin. The Sealer struct
         // (envelope.rs §137) is documented as "Stateless; the caller
