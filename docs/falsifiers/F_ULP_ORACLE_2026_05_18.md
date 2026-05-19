@@ -65,6 +65,19 @@ freezes treat Metal output itself as proven.
 |---|---|---|---|---|---|---|
 | F-ULP-Oracle | Research | M2 Pro numeric falsifier | implemented-not-wired | `agent_core/src/research/eml_ir/`, `Epistemos/Shaders/morph_eval_reduced.metal`, `cargo test --features research research::eml_ir` | live Metal dispatch capture from `morphOracleFp16` | harden with GPU capture, subnormal/signed-zero diagnostics, WBO numerics cross-link, and Helios v3 §3.5/F7a reference |
 
+## Worst-Case Witness Surface
+
+`OperationStats` carries a `WorstCase` row for each of `exp`, `ln`, and
+`eml` that pins the input `(x, y)` that produced the per-operation
+worst-case ULP, the candidate fp16 output, the reference fp16 output, the
+recorded ULP distance, the stress axis the worst case landed in, and the
+gate tier the worst case mapped to. Replay rejects a witness whose
+`WorstCase` row disagrees with the recomputed value for the same fixture
+grid, so a candidate cannot publish a worst-case that does not match the
+inputs it claims to have run. The witness therefore stays replayable from
+the grid alone, with no hidden state, even when the worst-case input lives
+inside the dense interior of the log-sampled grid.
+
 ## Adversarial Reference Stats
 
 `adversarial_reference_stats` records `finite_count = 12` and

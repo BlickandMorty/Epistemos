@@ -84,6 +84,17 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_doc_documents_worst_case_witness_surface() {
+        assert!(FULP_FALSIFIER_DOC.contains("## Worst-Case Witness Surface"));
+        assert!(FULP_FALSIFIER_DOC.contains("`WorstCase`"));
+        assert!(FULP_FALSIFIER_DOC.contains("candidate fp16 output"));
+        assert!(FULP_FALSIFIER_DOC.contains("reference fp16 output"));
+        assert!(FULP_FALSIFIER_DOC.contains("stress axis"));
+        assert!(FULP_FALSIFIER_DOC.contains("gate tier the worst case mapped to"));
+        assert!(FULP_FALSIFIER_DOC.contains("no hidden state"));
+    }
+
+    #[test]
     fn falsifier_doc_documents_adversarial_reference_stats() {
         assert!(FULP_FALSIFIER_DOC.contains("## Adversarial Reference Stats"));
         assert!(FULP_FALSIFIER_DOC.contains("`adversarial_reference_stats`"));
