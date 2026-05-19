@@ -4823,6 +4823,8 @@ mod tests {
             "`lattice_budget_measured_total_sums_duplicate_semantic_and_numerical_axes`",
             "duplicate semantic and numerical measured slices stay separately summed",
             "`lattice_budget_measured_slices_require_complete_cross_axis_measurements`",
+            "`lattice_budget_measured_slices_require_complete_duplicate_axis_measurements`",
+            "duplicate semantic or numerical axes cannot produce measured slices until every duplicate carries measured data",
             "semantic and numerical measured slices remain pending when any contribution lacks measured data",
             "missing semantic or missing numerical measurements both keep every measured surface pending",
             "`lattice_error_contribution_serializes_pending_measurement_as_null`",
@@ -9501,6 +9503,57 @@ mod tests {
                 Some(1250),
                 SideInformationKind::ResidualStream,
                 vec![measured_residual, unmeasured_numerics],
+            ),
+        ] {
+            assert_eq!(budget.validate(), Ok(()));
+            assert_budget_measurements_pending(&budget);
+        }
+    }
+
+    #[test]
+    fn lattice_budget_measured_slices_require_complete_duplicate_axis_measurements() {
+        let measured_residual =
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "measured residual", 0.25)
+                .expect("valid residual contribution")
+                .with_measured(0.125)
+                .expect("valid residual measurement");
+        let unmeasured_residual = LatticeErrorContribution::new(
+            WboTermCode::ResidualWynerZiv,
+            "unmeasured residual",
+            0.125,
+        )
+        .expect("valid residual contribution");
+        let measured_numerics = LatticeErrorContribution::new(
+            WboTermCode::NumericalPostCorrection,
+            "measured numerics",
+            0.03125,
+        )
+        .expect("valid numerical contribution")
+        .with_measured(0.015625)
+        .expect("valid numerical measurement");
+        let unmeasured_numerics = LatticeErrorContribution::new(
+            WboTermCode::NumericalPostCorrection,
+            "unmeasured numerics",
+            0.03125,
+        )
+        .expect("valid numerical contribution");
+
+        for budget in [
+            LatticeBudget::new(
+                LatticeCoderKind::LatticeWynerZivResidual,
+                Some(1250),
+                SideInformationKind::ResidualStream,
+                vec![
+                    measured_residual.clone(),
+                    unmeasured_residual,
+                    measured_numerics.clone(),
+                ],
+            ),
+            LatticeBudget::new(
+                LatticeCoderKind::LatticeWynerZivResidual,
+                Some(1250),
+                SideInformationKind::ResidualStream,
+                vec![measured_residual, measured_numerics, unmeasured_numerics],
             ),
         ] {
             assert_eq!(budget.validate(), Ok(()));
