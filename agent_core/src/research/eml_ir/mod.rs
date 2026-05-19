@@ -84,6 +84,16 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_doc_documents_evaluator_variant_allowlist() {
+        assert!(FULP_FALSIFIER_DOC.contains("## Evaluator Variant Allowlist"));
+        assert!(FULP_FALSIFIER_DOC.contains("`evaluator_variant`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`cpu_float_intrinsic_morph_oracle_fp16_v1`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`ReferenceRoundedEvaluator`"));
+        assert!(FULP_FALSIFIER_DOC.contains("self-referential loop"));
+        assert!(FULP_FALSIFIER_DOC.contains("in lockstep with the\nschema version"));
+    }
+
+    #[test]
     fn falsifier_doc_documents_worst_case_witness_surface() {
         assert!(FULP_FALSIFIER_DOC.contains("## Worst-Case Witness Surface"));
         assert!(FULP_FALSIFIER_DOC.contains("`WorstCase`"));
