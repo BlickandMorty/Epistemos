@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 277
+invalid_example_count: 278
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -13114,3 +13114,18 @@ Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-
 ```
 
 Rejection reason: `commit_sha` is not a numeric literal; `0x` prefixes overrun the 40-byte Git object identity and fail replay validation.
+
+## N278 - All-Zero Commit SHA
+
+Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-identity-rule) and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "field": "commit_sha",
+  "commit_sha": "0000000000000000000000000000000000000000",
+  "schema_pattern": "^[0-9a-f]{40}$",
+  "semantic_rule": "commit_exists_in_repo"
+}
+```
+
+Rejection reason: the all-zero object ID is regex-shaped but does not identify a real replayable commit in the repository.
