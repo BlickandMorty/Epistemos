@@ -102,6 +102,7 @@ Identity gap validator work uses stable slugs so schema prose, validator-shape r
 | `comma-bearing-impact` | Role-impact values may not contain commas because comma separates validator and reviewer roles. | [N175](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n175---comma-bearing-identity-gap-value) |
 | `lowercase-impact` | Role-impact values must remain lowercase old/new atoms. | [N176](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n176---uppercase-identity-gap-atom) |
 | `identical-impact` | Validator and reviewer role-impact values must not be identical. | [N177](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n177---identical-identity-gap-impacts), [N193](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n193---duplicate-numeric-identity-gap-role-values) |
+| `artifact-path-bound` | Identity gap reports must be bound to the migrated artifact path. | [N178](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n178---detached-identity-gap-aggregate) |
 
 ## Pre-Witness Tightening Rule
 
