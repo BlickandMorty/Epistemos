@@ -527,6 +527,23 @@ mod tests {
     }
 
     #[test]
+    fn para_seq_forward_chains_empty_input_without_fabricating_output() {
+        let seq = ParaSeq::new(&LenStage, &LabelStage);
+        let out = seq.fwd(&0, "").expect("empty input still composes");
+        assert_eq!(out.inner.value, 0);
+        assert_eq!(out.outer.value, "len=0");
+        assert_eq!(out.inner.stop_reason, StopReason::EndTurn);
+        assert_eq!(out.outer.stop_reason, StopReason::EndTurn);
+        assert_eq!(out.inner.thinking.as_deref(), Some(b"len-thinking".as_slice()));
+        assert_eq!(
+            out.outer.thinking.as_deref(),
+            Some(b"label-thinking".as_slice())
+        );
+        assert!(out.inner.digest_intact());
+        assert!(out.outer.digest_intact());
+    }
+
+    #[test]
     fn triple_composition_value_associativity_holds_for_happy_path() {
         // Phase 1 hardening — ParaSeq is not itself a Para (its output
         // is a paired ParaSeqOutput<B,C>, not a ParaOutput<C>), so we
