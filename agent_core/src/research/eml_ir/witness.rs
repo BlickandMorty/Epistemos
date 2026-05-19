@@ -4098,6 +4098,7 @@ mod tests {
         );
         let doc = std::fs::read_to_string(doc_path).expect("f-ulp falsifier doc");
         assert!(doc.contains("missing `rejected_count`"));
+        assert!(doc.contains("raw-overflow `rejected_count`"));
         assert!(doc.contains("adversarial_reference_stats.rejected_count"));
     }
 
@@ -4119,6 +4120,26 @@ mod tests {
         assert_eq!(
             error.invalid_json_message(),
             Some("missing field adversarial_reference_stats.rejected_count")
+        );
+    }
+
+    #[test]
+    fn replay_rejects_adversarial_reference_rejected_count_json_raw_overflow_with_path() {
+        let json = acceptance_witness_json().unwrap();
+        let needle = "\"rejected_count\": 13";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(needle, "\"rejected_count\": 1e999999", 1);
+        let error = replay_witness_json(&json)
+            .expect_err("adversarial reference rejected count raw overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some(
+                "number out of range for adversarial_reference_stats.rejected_count, expected unsigned integer"
+            )
         );
     }
 
