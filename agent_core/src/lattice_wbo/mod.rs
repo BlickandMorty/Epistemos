@@ -4130,6 +4130,8 @@ mod tests {
             "`measured_semantic_wbo6_pre_softmax_total()`",
             "`measured_numerical_post_correction_total()`",
             "`lattice_budget_measured_slices_partition_complete_total`",
+            "`lattice_budget_measured_total_sums_duplicate_semantic_and_numerical_axes`",
+            "duplicate semantic and numerical measured slices stay separately summed",
             "`lattice_budget_measured_slices_require_complete_cross_axis_measurements`",
             "semantic and numerical measured slices remain pending when any contribution lacks measured data",
             "missing semantic or missing numerical measurements both keep every measured surface pending",
@@ -8514,6 +8516,14 @@ mod tests {
             vec![residual_a, numerics_a, residual_b, numerics_b],
         );
 
+        assert_eq!(
+            budget.measured_semantic_wbo6_pre_softmax_total(),
+            Some(0.1875)
+        );
+        assert_eq!(
+            budget.measured_numerical_post_correction_total(),
+            Some(0.046875)
+        );
         assert_eq!(budget.measured_pre_softmax_total(), Some(0.234375));
         assert_eq!(
             budget.measured_softmax_half_corrected_total(),
