@@ -1334,6 +1334,19 @@ mod tests {
     }
 
     #[test]
+    fn concat_streaming_text_preserves_unicode_and_embedded_nul_verbatim() {
+        let events = [
+            AgentEvent::ReasoningDelta { text: "考え\0".into() },
+            AgentEvent::FinalText { text: "答え\0".into() },
+            AgentEvent::ReasoningDelta { text: "🙂".into() },
+            AgentEvent::FinalText { text: "🚀".into() },
+            AgentEvent::Stop { reason: StopReason::EndTurn },
+        ];
+        assert_eq!(AgentEvent::concat_reasoning_text(&events), "考え\0🙂");
+        assert_eq!(AgentEvent::concat_final_text(&events), "答え\0🚀");
+    }
+
+    #[test]
     fn concat_reasoning_text_no_reasoning_returns_empty() {
         let events = [
             AgentEvent::FinalText { text: "answer".into() },
