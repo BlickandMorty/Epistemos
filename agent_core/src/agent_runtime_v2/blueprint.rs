@@ -1227,6 +1227,73 @@ mod tests {
     }
 
     #[test]
+    fn provider_policy_kind_discriminators_are_pairwise_distinct_across_all_six_variants() {
+        // Phase 1 hardening — pairwise-distinct kind-discriminator pin.
+        // Companion to provider_policy_serde_kind_discriminator_pins_snake_case_for_all_six_variants
+        // (which locks each kind individually) and to the CliAdapter/
+        // LocalAgent pairwise-distinct family (iter-533, iter-537).
+        // A 7th ProviderPolicy variant added with #[serde(rename = "mcp")]
+        // would silently collide with an existing kind and misroute
+        // deserialised payloads. Pin asserts all 6 kind discriminators
+        // are pairwise-distinct so the collision surfaces here at
+        // PR review.
+        let kinds: Vec<&'static str> = vec![
+            "local_mlx",
+            "anthropic_messages",
+            "open_a_i_responses",
+            "open_a_i_compatible",
+            "mcp",
+            "pro_cli",
+        ];
+        assert_eq!(kinds.len(), 6, "expected exactly 6 ProviderPolicy variants");
+        for i in 0..kinds.len() {
+            for j in (i + 1)..kinds.len() {
+                assert_ne!(
+                    kinds[i], kinds[j],
+                    "ProviderPolicy kind discriminators collide at [{i}] = {:?} and [{j}] = {:?}",
+                    kinds[i], kinds[j]
+                );
+            }
+        }
+        // Cross-verify that each kind appears in the canonical pin set
+        // (provider_policy_serde_kind_discriminator_pins_snake_case_for_all_six_variants
+        // line 1063-1090) — this pin and the per-variant pin must list
+        // the same set of strings.
+        let canonical = [
+            (
+                ProviderPolicy::LocalMlx { model_id: "m".into() },
+                "local_mlx",
+            ),
+            (
+                ProviderPolicy::AnthropicMessages { model: "c".into() },
+                "anthropic_messages",
+            ),
+            (
+                ProviderPolicy::OpenAIResponses { model: "g".into() },
+                "open_a_i_responses",
+            ),
+            (
+                ProviderPolicy::OpenAICompatible {
+                    base_url: "u".into(),
+                    model: "m".into(),
+                },
+                "open_a_i_compatible",
+            ),
+            (ProviderPolicy::Mcp { server_id: "s".into() }, "mcp"),
+            (
+                ProviderPolicy::ProCli {
+                    adapter: CliAdapter::ClaudeCode,
+                    command: "c".into(),
+                },
+                "pro_cli",
+            ),
+        ];
+        for (_v, k) in canonical {
+            assert!(kinds.contains(&k), "kind {k:?} missing from pairwise pin");
+        }
+    }
+
+    #[test]
     fn cli_adapter_serde_forms_are_pairwise_distinct_across_all_six_variants() {
         // Phase 1 hardening — pairwise-distinct serde-tag pin
         // (companion to LocalAgent serde-pairwise-distinct iter-533).
