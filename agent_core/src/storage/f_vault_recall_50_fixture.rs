@@ -1005,6 +1005,38 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 39th SignalOnly row (iter-332): single-term query in
+        // Syriac-script domain — "ܟ" (kaph, U+071F, single
+        // codepoint). THIRTIETH single-term-AND domain.
+        // SEVENTEENTH non-ASCII script-block (after Sinhala).
+        // FIRST Aramaic-family descendant in SignalOnly. Token
+        // unique to iter-206's mamba_syriac.md. Syriac descends
+        // directly from Aramaic and is the SISTER of Arabic
+        // (both Aramaic-derived but on different branches).
+        // Pairs with the iter-329 Unicode Imperial Aramaic pin:
+        // SignalOnly now exercises the ancestor's direct
+        // daughter at single-term granularity. Fifth single-
+        // codepoint non-ASCII token (after Greek λ + Hebrew ש
+        // + Myanmar က + Sinhala ක).
+        query: "ܟ",
+        expected_paths: &["notes/mamba_syriac.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Thirty-ninth SignalOnly row (iter-332): single-\
+               term Syriac-script query — \"ܟ\" (U+071F). \
+               Thirtieth domain for single-term-AND. Seventeenth \
+               non-ASCII script-block. FIRST Aramaic-family \
+               descendant in SignalOnly. Syriac descends \
+               directly from Aramaic (sister of Arabic). Pairs \
+               with iter-329 Unicode Imperial Aramaic pin: \
+               SignalOnly now exercises the ancestor's direct \
+               daughter at single-term granularity. Fifth \
+               single-codepoint non-ASCII token. Brings \
+               SignalOnly to depth 39 — first category past \
+               depth-38 horizon.",
+    },
+    FVaultRecallRow {
         // 38th SignalOnly row (iter-325): single-term query in
         // Sinhala-script domain — "ක" (ka, U+0D9A, single
         // codepoint). TWENTY-NINTH single-term-AND domain.
