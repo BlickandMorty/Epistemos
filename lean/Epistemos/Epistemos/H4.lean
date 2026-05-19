@@ -23,18 +23,25 @@ namespace Epistemos.H4
 structure BabaiBound where
   ldl_trace : Float    -- trace(diag(LDL(H)))
 
+/-- H4 no-clipping coefficient from the Babai/GPTQ lattice bound. -/
+def noClippingFactor : Float := 0.25
+
 def BabaiBound.weightDeltaUpperBound (b : BabaiBound) : Float :=
-  0.25 * b.ldl_trace
+  noClippingFactor * b.ldl_trace
 
 def BabaiBound.layerWiseErrorBound (b : BabaiBound) : Float :=
   b.weightDeltaUpperBound
 
 theorem babaiRoundTripBounded (b : BabaiBound) :
-    b.weightDeltaUpperBound = 0.25 * b.ldl_trace := by
+    b.weightDeltaUpperBound = noClippingFactor * b.ldl_trace := by
   rfl
 
 theorem layerWiseErrorBoundTight (b : BabaiBound) :
-    b.layerWiseErrorBound = 0.25 * b.ldl_trace := by
+    b.layerWiseErrorBound = noClippingFactor * b.ldl_trace := by
+  rfl
+
+theorem noClippingFactorPinned :
+    noClippingFactor = 0.25 := by
   rfl
 
 end Epistemos.H4
