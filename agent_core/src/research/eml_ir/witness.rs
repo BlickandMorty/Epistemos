@@ -741,6 +741,7 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
     top_level_u32_json(&value, "budget_target_seconds")?;
     top_level_unsigned_integer_json(&value, "budget_target_millis")?;
     top_level_unsigned_integer_json(&value, "observed_wall_clock_millis")?;
+    top_level_bool_json(&value, "pass")?;
     reject_adversarial_reference_stats_json(&value, adversarial_fixture_count)?;
     let Some(max_point_index_exclusive) = point_count else {
         return Ok(());
@@ -1117,6 +1118,22 @@ fn top_level_u32_json(
         });
     }
     Ok(Some(field_value as u32))
+}
+
+fn top_level_bool_json(
+    value: &serde_json::Value,
+    field: &str,
+) -> Result<Option<bool>, FulpReplayError> {
+    let Some(field_value) = value.get(field) else {
+        return Ok(None);
+    };
+    let Some(field_value) = field_value.as_bool() else {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("invalid type for {field}, expected boolean"),
+            kind: FulpInvalidJsonKind::TypeMismatch,
+        });
+    };
+    Ok(Some(field_value))
 }
 
 fn reject_adversarial_reference_stats_json(
@@ -1871,6 +1888,23 @@ mod tests {
         let json = serde_json::to_string(&witness).unwrap();
         let error = replay_witness_json(&json).expect_err("pass-bit drift must fail replay");
         assert_eq!(error.pass_mismatch_pair(), Some((false, true)));
+    }
+
+    #[test]
+    fn replay_rejects_pass_json_type_drift_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["pass"] = serde_json::Value::String("true".to_string());
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json).expect_err("pass type drift must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("pass"));
     }
 
     #[test]
