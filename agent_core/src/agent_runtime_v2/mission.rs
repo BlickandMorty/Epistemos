@@ -1060,6 +1060,42 @@ mod tests {
     }
 
     #[test]
+    fn mission_packet_display_blueprint_id_and_scope_reflect_field_values() {
+        // Phase 1 hardening — Display semantic pin (companion to
+        // answer_packet_display_citations_count_field_reflects_vec_len
+        // iter-488 + tokens iter-489 + stop iter-490). MissionPacket
+        // Display surfaces 2 fields:
+        //   "MissionPacket{blueprint={}, scope={}}"
+        //
+        // Pin that both values track the underlying field with
+        // distinctive payloads. A future "let me truncate
+        // blueprint_id to 8 chars for visual brevity" refactor
+        // would silently lose the distinctive identifier in log lines.
+        for (blueprint, scope) in [
+            ("research-assistant", "vault/notes"),
+            ("a", "b"),
+            ("agent_with_underscore", "vault/with/slashes"),
+            ("a-very-long-distinctive-blueprint-identifier-12345",
+             "another-very-long-scope-string-abcdef"),
+        ] {
+            let mp = MissionPacket {
+                blueprint_id: AgentBlueprintId(blueprint.to_string()),
+                user_prompt: "hidden".to_string(),
+                vault_scope: scope.to_string(),
+            };
+            let display = format!("{mp}");
+            assert!(
+                display.contains(&format!("blueprint={blueprint}")),
+                "Display must contain blueprint={blueprint}, got: {display}"
+            );
+            assert!(
+                display.contains(&format!("scope={scope}")),
+                "Display must contain scope={scope}, got: {display}"
+            );
+        }
+    }
+
+    #[test]
     fn mission_packet_display_with_empty_fields_produces_terse_layout() {
         // Phase 1 hardening — boundary pin for MissionPacket Display
         // with empty blueprint_id + vault_scope (companion to
