@@ -3954,8 +3954,8 @@ where
         {
             Ok(())
         }
-        serde_json::Value::Object(_) => Err(E::custom(acs_policy_decode_error(
-            &ACSPolicyError::Malformed { field },
+        serde_json::Value::Object(_) => Err(E::custom(format!(
+            "malformed_policy field=thresholds.{field}"
         ))),
         _ => Err(E::custom(acs_policy_decode_error(
             &ACSPolicyError::Malformed {
@@ -9482,6 +9482,22 @@ mod tests {
 
         assert!(message.contains("malformed_policy"), "{message}");
         assert!(message.contains("defer_at"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_missing_threshold_axis_names_threshold_namespace() {
+        let mut value =
+            serde_json::to_value(ACSRiskThresholds::standard()).expect("thresholds encode");
+        value
+            .as_object_mut()
+            .expect("thresholds encode as object")
+            .remove("defer_at");
+
+        let err = serde_json::from_value::<ACSRiskThresholds>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(message.contains("thresholds.defer_at"), "{message}");
     }
 
     #[test]
