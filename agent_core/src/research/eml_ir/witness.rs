@@ -21,6 +21,17 @@ const OPERATION_STATS_JSON_FIELDS: &[&str] = &[
     "worst_case",
 ];
 const AXIS_STATS_JSON_FIELDS: &[&str] = &["axis", "evaluated", "max_ulp", "mean_ulp", "worst_case"];
+const WORST_CASE_JSON_FIELDS: &[&str] = &[
+    "operation",
+    "point_index",
+    "axis",
+    "x",
+    "y",
+    "reference",
+    "reference_fp16_bits",
+    "candidate_fp16_bits",
+    "ulp_error",
+];
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -2026,6 +2037,7 @@ fn reject_raw_worst_case_numbers_raw_json(
     path: &str,
 ) -> Result<(), FulpReplayError> {
     reject_raw_object_duplicate_json(worst_case.get(), path)?;
+    reject_raw_object_unknown_json_fields(worst_case.get(), path, WORST_CASE_JSON_FIELDS)?;
     let Ok(worst_case) = serde_json::from_str::<RawWorstCaseNumbers<'_>>(worst_case.get()) else {
         return Ok(());
     };
@@ -2093,21 +2105,7 @@ fn reject_worst_case_fields_json(
             kind: FulpInvalidJsonKind::TypeMismatch,
         });
     };
-    reject_unknown_object_json_fields(
-        worst_case_object,
-        path,
-        &[
-            "operation",
-            "point_index",
-            "axis",
-            "x",
-            "y",
-            "reference",
-            "reference_fp16_bits",
-            "candidate_fp16_bits",
-            "ulp_error",
-        ],
-    )?;
+    reject_unknown_object_json_fields(worst_case_object, path, WORST_CASE_JSON_FIELDS)?;
     let Some(operation_value) = worst_case_value.get("operation") else {
         return Err(FulpReplayError::InvalidJson {
             message: format!("missing field {path}.operation"),
@@ -4973,6 +4971,29 @@ mod tests {
         let json = serde_json::to_string(&value).unwrap();
         let error = replay_witness_json(&json)
             .expect_err("unknown operation worst case field must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::UnknownField)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("unknown field stats[0].worst_case.corrupted_extra_field")
+        );
+    }
+
+    #[test]
+    fn replay_rejects_unknown_operation_worst_case_field_before_raw_overflow() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["worst_case"]["corrupted_extra_field"] = serde_json::Value::Bool(true);
+        value["stats"][0]["worst_case"]["point_index"] =
+            serde_json::Value::Number(serde_json::Number::from(123_456_789_u64));
+        let json = serde_json::to_string(&value).unwrap();
+        let needle = "\"point_index\":123456789";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(needle, "\"point_index\":1e999999", 1);
+        let error = replay_witness_json(&json)
+            .expect_err("unknown worst case field must fail before raw overflow");
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::UnknownField)
