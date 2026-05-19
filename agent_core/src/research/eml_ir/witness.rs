@@ -1734,6 +1734,8 @@ struct RawOperationWorstCases<'a> {
 
 #[derive(Deserialize)]
 struct RawAxisWorstCase<'a> {
+    #[serde(default, borrow)]
+    evaluated: Option<&'a RawValue>,
     #[serde(borrow)]
     mean_ulp: &'a RawValue,
     #[serde(borrow)]
@@ -1762,6 +1764,9 @@ fn reject_raw_stats_number_json(json: &str) -> Result<(), FulpReplayError> {
         raw_finite_f64_json(stat.mean_ulp, &operation_path, "mean_ulp")?;
         for (axis_index, axis_stat) in stat.axis_stats.iter().enumerate() {
             let axis_path = format!("stats[{operation_index}].axis_stats[{axis_index}]");
+            if let Some(value) = axis_stat.evaluated {
+                raw_unsigned_integer_json(value, &format!("{axis_path}.evaluated"))?;
+            }
             raw_finite_f64_json(axis_stat.mean_ulp, &axis_path, "mean_ulp")?;
             let worst_case_path = format!("{axis_path}.worst_case");
             reject_raw_worst_case_numbers_json(&axis_stat.worst_case, &worst_case_path)?;
@@ -3898,6 +3903,30 @@ mod tests {
             .invalid_json_message()
             .expect("invalid json message")
             .contains("stats[0].axis_stats[0].evaluated"));
+    }
+
+    #[test]
+    fn replay_rejects_axis_evaluated_json_raw_overflow_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["axis_stats"][0]["evaluated"] =
+            serde_json::Value::Number(serde_json::Number::from(123_456_789_u64));
+        let json = serde_json::to_string(&value).unwrap();
+        let needle = "\"evaluated\":123456789";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(needle, "\"evaluated\":1e999999", 1);
+        let error =
+            replay_witness_json(&json).expect_err("axis evaluated overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some(
+                "number out of range for stats[0].axis_stats[0].evaluated, expected unsigned integer"
+            )
+        );
     }
 
     #[test]
