@@ -148,6 +148,15 @@ pub fn adversarial_query_fixture_for_outcome(
         .find(|fixture| fixture.expected_outcome == expected_outcome)
 }
 
+pub fn adversarial_query_fixture_for_expected_outcome_token(
+    expected_outcome_token: &str,
+) -> Option<AdversarialQueryFixture> {
+    ADVERSARIAL_QUERY_FIXTURES
+        .iter()
+        .copied()
+        .find(|fixture| fixture.expected_outcome.token() == expected_outcome_token)
+}
+
 pub fn adversarial_query_fixture_for_query_text(
     query_text: &str,
 ) -> Option<AdversarialQueryFixture> {

@@ -157,7 +157,7 @@ fn assert_iter_format_canonical_panics_on_out_of_range() {
     assert_iter_format_canonical("iter 099", "MY_SOURCE_LABEL");
 }
 
-/// Iter 739 — catalog range continuation pin.
+/// Iter 740 — catalog range continuation pin.
 /// STATUS.md is the contributor-facing catalog for the closed-citation
 /// hardening arc. When new pins land after the previous range tip, the
 /// range must advance in lock-step so future readers can tell the arc is
@@ -167,9 +167,9 @@ fn status_md_closed_citation_iter_range_tip_tracks_latest_catalog_pin() {
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Closed-citation contract hardening (iters 127-739)"),
+        status.contains("Closed-citation contract hardening (iters 127-740)"),
         "STATUS.md closed-citation hardening catalog must advance its iter \
-         range tip to iter 739 when the catalog-continuation pin lands"
+         range tip to iter 740 when the catalog-continuation pin lands"
     );
 }
 
@@ -1460,6 +1460,38 @@ fn adversarial_query_fixture_expected_outcome_token_slice_matches_outcome_tokens
     assert!(
         adversarial_query_fixture_catalog_expected_outcome_tokens_match_outcomes(),
         "fixture expected-outcome token slice must remain byte-equal to enum token() output"
+    );
+}
+
+#[test]
+fn adversarial_query_fixture_lookup_by_expected_outcome_token_is_exact() {
+    use super::adversarial::adversarial_query_fixture_for_expected_outcome_token;
+
+    assert_eq!(
+        adversarial_query_fixture_for_expected_outcome_token("no-fuzzy-match")
+            .expect("no-fuzzy fixture")
+            .label,
+        "typo-transposition"
+    );
+    assert_eq!(
+        adversarial_query_fixture_for_expected_outcome_token("finite-saturating-score")
+            .expect("finite-score fixture")
+            .label,
+        "bm25-saturation"
+    );
+    assert_eq!(
+        adversarial_query_fixture_for_expected_outcome_token("deterministic-tie-break")
+            .expect("tie-break fixture")
+            .label,
+        "near-duplicate-paragraph-tie"
+    );
+    assert!(
+        adversarial_query_fixture_for_expected_outcome_token("NoFuzzyMatch").is_none(),
+        "expected-outcome token lookup must not case-fold enum names"
+    );
+    assert!(
+        adversarial_query_fixture_for_expected_outcome_token(" no-fuzzy-match ").is_none(),
+        "expected-outcome token lookup must not trim caller input"
     );
 }
 
