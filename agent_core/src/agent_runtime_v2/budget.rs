@@ -2671,6 +2671,33 @@ mod tests {
     }
 
     #[test]
+    fn budget_spec_new_accepts_u64_max_per_axis() {
+        // Phase 1 hardening — max-value-boundary pin for BudgetSpec::new.
+        // Companion to budget_spec_new_4_arg_constructor_defaults_max_memory_bytes_to_zero
+        // (which pins the min default) and budget_overflow_at_u64_max_boundary_does_not_panic
+        // (which exercises the GATE under u64::MAX debits).
+        //
+        // The constructor itself must accept u64::MAX for ANY axis
+        // without panic — the gate's check_and_debit relies on
+        // saturating_add for the overflow safety, but the constructor
+        // path is a plain field assignment. Pin that nothing panics
+        // and the fields round-trip the MAX value.
+        //
+        // Defends against a future "let me add overflow checks at
+        // construction" tightening that would silently reject the
+        // unbounded-cap-via-MAX-value pattern callers might use.
+        let s = BudgetSpec::new(u64::MAX, u64::MAX, u64::MAX, u64::MAX)
+            .with_memory_bytes(u64::MAX);
+        assert_eq!(s.max_tokens, u64::MAX);
+        assert_eq!(s.max_wall_ms, u64::MAX);
+        assert_eq!(s.max_tool_calls, u64::MAX);
+        assert_eq!(s.max_subprocess_ms, u64::MAX);
+        assert_eq!(s.max_memory_bytes, u64::MAX);
+        // Gate constructed from u64::MAX spec also doesn't panic.
+        let _gate = BudgetGate::new(s);
+    }
+
+    #[test]
     fn budget_spec_new_4_arg_constructor_positional_order_is_pinned() {
         // Phase 1 hardening — positional-order pin for BudgetSpec::new.
         // The signature is:
