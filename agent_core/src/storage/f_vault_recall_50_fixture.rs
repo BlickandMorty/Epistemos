@@ -4473,6 +4473,49 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 47th Paraphrase row (iter-390, milestone iteration):
+        // NEW axis — COMBINED PREFIX + SUFFIX MORPHEME-
+        // STACKING (English circumfix-like derivation). User
+        // wraps a stem with BOTH a derivational prefix AND a
+        // derivational suffix in one word: "cache" →
+        // "uncacheable" (un- + cache + -able). Three
+        // morphemes (negation + stem + ability) stacked on
+        // one base. Tantivy keeps "uncacheable" as one
+        // alphanumeric token. 3-term AND on {mamba, ssm,
+        // uncacheable} blocks canonical (has "cache" not
+        // "uncacheable").
+        // Distinct from:
+        //   • iter-376 SUFFIX-ONLY -er (cache → cacher, one
+        //     morpheme appended to tail)
+        //   • iter-383 PREFIX-ONLY re- (cache → recache, one
+        //     morpheme prepended to head)
+        //   • iter-369 COMPOUND-NOUN (cache → cachefile, two
+        //     free nouns joined)
+        //   • iter-86 ACRONYM (multi-word collapse to
+        //     initials)
+        // Pins deferred multi-morpheme decomposition retrieval
+        // (the "fully-affixed-stem" case where BOTH ends carry
+        // morphological load). Forty-fourth named failure
+        // subclass. iter-390 milestone.
+        query: "Mamba SSM uncacheable",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Combined-prefix-suffix Paraphrase axis (axis \
+               #44): user wraps stem with BOTH prefix AND \
+               suffix — \"cache\" → \"uncacheable\" (un- + \
+               cache + -able). Three morphemes stacked. 3-\
+               term AND on {mamba, ssm, uncacheable} blocks. \
+               Distinct from iter-376 suffix-only -er, iter-\
+               383 prefix-only re-, iter-369 compound-noun, \
+               iter-86 acronym. Pins deferred multi-morpheme \
+               decomposition retrieval (fully-affixed-stem \
+               case). Forty-fourth named failure subclass. \
+               iter-390 milestone. Brings Paraphrase to depth \
+               47 — first category past depth-46 horizon.",
+    },
+    FVaultRecallRow {
         // 46th Paraphrase row (iter-383): NEW axis — DERIVA-
         // TIONAL PREFIX (re-iteration / aspectual marker).
         // User adds the iterative-aspect prefix "re-" to a
