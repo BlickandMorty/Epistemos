@@ -1686,6 +1686,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 35th Unicode row (iter-308): Egyptian Hieroglyph
+        // extension. Adds a 33rd non-Latin script (Egyptian
+        // Hieroglyphs, U+13000–U+1342F) — the OLDEST writing
+        // system in the pin set (ca. 3200 BCE - 400 CE),
+        // predating Phoenician (1050 BCE) by 2+ millennia.
+        // Ideographic typology distinct from the alphabetic
+        // ancestor scripts already pinned (Phoenician/Old
+        // Italic/Brahmi). FOURTH SMP-plane codepoint. Latin
+        // "Mamba" + Egyptian Hieroglyph "𓀀" (A001 seated man,
+        // U+13000) + Latin "cache".
+        query: "Mamba 𓀀 cache",
+        expected_paths: &["notes/mamba_egyptian.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Thirty-fifth Unicode row (iter-308): Egyptian \
+               Hieroglyph extension. THIRTY-THREE non-Latin \
+               scripts pinned. Egyptian Hieroglyphs (ca. 3200 \
+               BCE - 400 CE) — the OLDEST writing system in the \
+               pin set, predating Phoenician (1050 BCE) by 2+ \
+               millennia. Ideographic typology distinct from \
+               alphabetic ancestors. Fourth SMP-plane codepoint. \
+               The no-script-fold contract now spans 5,000+ \
+               years of writing history across multiple script \
+               typologies. Brings Unicode to depth 35 — closes \
+               **uniform-≥-35 milestone**.",
+    },
+    FVaultRecallRow {
         // 34th Unicode row (iter-301): Brahmi-script extension.
         // Adds a 32nd non-Latin script (Brahmi, U+11000–U+1107F)
         // — the COMMON ANCESTOR of the entire Brahmic family
