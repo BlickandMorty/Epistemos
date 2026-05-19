@@ -2933,6 +2933,10 @@ pub enum ACSAuditError {
     InvalidRunEventLogChain {
         record_id: String,
     },
+    NonMonotonicAuditLog {
+        field: &'static str,
+        record_id: String,
+    },
     DuplicateRecord {
         record_id: String,
     },
@@ -2948,6 +2952,7 @@ impl ACSAuditError {
             Self::SinkUnavailable => "acs_audit_sink_unavailable",
             Self::EncodeRecord => "acs_audit_record_encode_failed",
             Self::InvalidRunEventLogChain { .. } => "invalid_run_event_log_chain",
+            Self::NonMonotonicAuditLog { .. } => "non_monotonic_acs_audit_log",
             Self::DuplicateRecord { .. } => "duplicate_acs_audit_record",
             Self::CorruptRecord { .. } => "corrupt_acs_audit_record",
         }
@@ -2956,6 +2961,7 @@ impl ACSAuditError {
     pub const fn field(&self) -> Option<&'static str> {
         match self {
             Self::InvalidRunEventLogChain { .. } => Some("run_event_log"),
+            Self::NonMonotonicAuditLog { field, .. } => Some(field),
             Self::DuplicateRecord { .. } => Some("record_id"),
             Self::CorruptRecord { field, .. } => Some(field),
             Self::SinkUnavailable | Self::EncodeRecord => None,
@@ -2965,6 +2971,7 @@ impl ACSAuditError {
     pub fn record_id(&self) -> Option<&str> {
         match self {
             Self::DuplicateRecord { record_id } => Some(record_id.as_str()),
+            Self::NonMonotonicAuditLog { record_id, .. } => Some(record_id.as_str()),
             Self::CorruptRecord { record_id, .. } => Some(record_id.as_str()),
             Self::InvalidRunEventLogChain { record_id } => Some(record_id.as_str()),
             Self::SinkUnavailable | Self::EncodeRecord => None,
@@ -3219,6 +3226,15 @@ impl ACSAuditSink for InMemoryACSAuditSink {
             .any(|existing| existing.record_id == record.record_id)
         {
             return Err(ACSAuditError::DuplicateRecord {
+                record_id: record.record_id,
+            });
+        }
+        if records
+            .last()
+            .is_some_and(|existing| record.emitted_at_ms < existing.emitted_at_ms)
+        {
+            return Err(ACSAuditError::NonMonotonicAuditLog {
+                field: "emitted_at_ms",
                 record_id: record.record_id,
             });
         }
@@ -4954,6 +4970,55 @@ mod tests {
             ACSAdmissionVerdict::AllowWithWarning,
             "global thresholds must still apply to operations without overrides"
         );
+    }
+
+    #[test]
+    fn acs_admission_per_operation_threshold_overrides_cover_high_risk_operations() {
+        let mut risk = ACSRiskVector::neutral();
+        risk.truth_risk = 0.35;
+        let override_thresholds = ACSRiskThresholds {
+            warn_at: 0.10,
+            defer_at: 0.20,
+            quarantine_at: 0.30,
+            reject_at: 0.40,
+        };
+        let granted_capabilities = vec![
+            named_capability("VaultWrite"),
+            named_capability("ToolExec"),
+            named_capability("Assembly"),
+            named_capability("KernelPromote"),
+            named_capability("ModelAdapt"),
+        ];
+
+        for operation in [
+            ACSOperationKind::MemoryWrite,
+            ACSOperationKind::ToolAction,
+            ACSOperationKind::ActiveAssemblyPacket,
+            ACSOperationKind::KernelPromotion,
+            ACSOperationKind::ModelAdaptation,
+        ] {
+            let mut policy = ACSPolicy::strict_default(1_000);
+            policy.operation_thresholds = vec![ACSOperationThresholdRule::new(
+                operation,
+                override_thresholds,
+            )];
+            let input = ACSAdmissionInput {
+                request_id: format!("req-{}-threshold-override", operation.code()),
+                payload: high_risk_operation_payload(operation),
+                submitted_at_ms: 1_001,
+                risk,
+                granted_capabilities: granted_capabilities.clone(),
+            };
+
+            let decision = admit(&input, &policy, 1_001);
+
+            assert_eq!(
+                decision.verdict,
+                ACSAdmissionVerdict::Quarantine,
+                "override threshold must apply to {}",
+                operation.code()
+            );
+        }
     }
 
     #[test]
@@ -7549,6 +7614,43 @@ mod tests {
         assert_eq!(err.cause(), "duplicate_acs_audit_record");
         assert_eq!(err.field(), Some("record_id"));
         assert_eq!(err.record_id(), Some(record_id.as_str()));
+        assert_eq!(sink.records().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_in_memory_audit_sink_rejects_non_monotonic_emitted_at_ms() {
+        let sink = InMemoryACSAuditSink::default();
+        let first = ACSAuditRecord {
+            record_id: "acs:req-first:2000".to_string(),
+            request_id: "req-first".to_string(),
+            policy_id: "policy".to_string(),
+            policy_version: 1,
+            operation: ACSOperationKind::MemoryWrite,
+            verdict: ACSAdmissionVerdict::Allow,
+            reason: ACSAdmissionVerdict::Allow.code().to_string(),
+            risk_max: 0.0,
+            emitted_at_ms: 2_000,
+        };
+        sink.record(first).expect("first record stored");
+
+        let regressing = ACSAuditRecord {
+            record_id: "acs:req-second:1500".to_string(),
+            request_id: "req-second".to_string(),
+            policy_id: "policy".to_string(),
+            policy_version: 1,
+            operation: ACSOperationKind::MemoryWrite,
+            verdict: ACSAdmissionVerdict::Allow,
+            reason: ACSAdmissionVerdict::Allow.code().to_string(),
+            risk_max: 0.0,
+            emitted_at_ms: 1_500,
+        };
+        let err = sink
+            .record(regressing.clone())
+            .expect_err("regressing emitted_at_ms must be rejected");
+
+        assert_eq!(err.cause(), "non_monotonic_acs_audit_log");
+        assert_eq!(err.field(), Some("emitted_at_ms"));
+        assert_eq!(err.record_id(), Some(regressing.record_id.as_str()));
         assert_eq!(sink.records().unwrap().len(), 1);
     }
 
@@ -10623,6 +10725,45 @@ mod tests {
                 target: "uas://note/1".to_string(),
                 mutation_envelope_id: Some("mutation-1".to_string()),
             },
+        }
+    }
+
+    fn high_risk_operation_payload(operation: ACSOperationKind) -> ACSAdmissionPayload {
+        match operation {
+            ACSOperationKind::MemoryWrite => ACSAdmissionPayload::MemoryWrite {
+                request: ACSMemoryWriteRequest {
+                    address: "uas://note/1".to_string(),
+                    content_hash: "content-hash".to_string(),
+                    durable: false,
+                    mutation_envelope_id: None,
+                },
+            },
+            ACSOperationKind::ToolAction => tool_action_payload(),
+            ACSOperationKind::ActiveAssemblyPacket => ACSAdmissionPayload::ActiveAssemblyPacket {
+                packet: ActiveAssemblyPacket {
+                    assembly_id: "assembly-1".to_string(),
+                    active_support_ids: vec!["note-1".to_string()],
+                    witness_hash: "witness-hash".to_string(),
+                },
+            },
+            ACSOperationKind::KernelPromotion => ACSAdmissionPayload::KernelPromotion {
+                request: ACSKernelPromotionRequest {
+                    kernel_id: "kernel-1".to_string(),
+                    signed_plan_hash: "plan-hash".to_string(),
+                    mutation_envelope_id: Some("mutation-1".to_string()),
+                },
+            },
+            ACSOperationKind::ModelAdaptation => ACSAdmissionPayload::ModelAdaptation {
+                request: ACSModelAdaptationRequest {
+                    adapter_id: "adapter-1".to_string(),
+                    model_id: "local-helper-1".to_string(),
+                    checkpoint_hash: "checkpoint-hash".to_string(),
+                    mutation_envelope_id: Some("mutation-1".to_string()),
+                },
+            },
+            ACSOperationKind::MutationEnvelope | ACSOperationKind::AnswerPacket => {
+                panic!("test helper only supports shipped high-risk operations")
+            }
         }
     }
 
