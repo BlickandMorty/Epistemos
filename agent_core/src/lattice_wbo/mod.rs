@@ -8490,6 +8490,56 @@ mod tests {
     }
 
     #[test]
+    fn engram_hash_recall_json_accepts_only_static_fact_key() {
+        fn engram_budget_with_side_information(side_information: &str) -> serde_json::Value {
+            serde_json::json!({
+                "coder": "engram-hash-recall",
+                "rate_milli_bits_per_symbol": null,
+                "side_information": side_information,
+                "contributions": [
+                    {
+                        "term": "T_S",
+                        "source": "Engram static-fact lookup",
+                        "budget": 0.01,
+                        "measured": null,
+                    },
+                    {
+                        "term": "T_num",
+                        "source": "softmax half correction",
+                        "budget": 0.0,
+                        "measured": null,
+                    },
+                ],
+            })
+        }
+
+        let valid = serde_json::from_value::<LatticeBudget>(engram_budget_with_side_information(
+            SideInformationKind::StaticFactKey.key(),
+        ))
+        .expect("StaticFactKey JSON must remain the only Engram witness");
+        assert!(valid.validate().is_ok());
+
+        for side_information in SideInformationKind::ALL {
+            if side_information == SideInformationKind::StaticFactKey {
+                continue;
+            }
+            assert!(
+                serde_json::from_value::<LatticeBudget>(engram_budget_with_side_information(
+                    side_information.key()
+                ))
+                .is_err(),
+                "Engram JSON accepted non-static side information {side_information:?}"
+            );
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`engram_hash_recall_json_accepts_only_static_fact_key`"),
+            "register doc must cross-link Engram JSON StaticFactKey boundary"
+        );
+    }
+
+    #[test]
     fn engram_hash_recall_rejects_active_support_budget_borrowing() {
         let budget = LatticeBudget::new(
             LatticeCoderKind::EngramHashRecall,
