@@ -829,6 +829,35 @@ mod tests {
     }
 
     #[test]
+    fn variant_tier_code_matches_serde_tag_byte_for_byte() {
+        // Phase 1 hardening — cross-consistency pin between
+        // VariantTier::code() (returns &'static str) and the
+        // #[serde(rename_all = "snake_case")] tag. Two existing pin
+        // families lock each separately:
+        //   - tier_codes_are_stable (per-variant code())
+        //   - variant_tier_serde_values_are_stable (per-variant serde)
+        // BUT neither pin asserts the two stay aligned. A future
+        // refactor that switched `rename_all` to `camelCase` would
+        // silently break the alignment without flagging the code()
+        // helper, and the FFI bridge that consumes either surface
+        // would silently miswire. Pin asserts the two helpers agree
+        // for all 3 variants.
+        for tier in [
+            VariantTier::T1Deterministic,
+            VariantTier::T2Heuristic,
+            VariantTier::T3LlmBound,
+        ] {
+            let serde_form = serde_json::to_string(&tier).expect("serialize");
+            let expected = format!("\"{}\"", tier.code());
+            assert_eq!(
+                serde_form, expected,
+                "tier {tier:?}: code() {:?} must byte-equal serde tag {serde_form:?}",
+                tier.code()
+            );
+        }
+    }
+
+    #[test]
     fn variant_tier_serde_values_are_stable() {
         // Phase 1 hardening — cross-version replay parity guardrail.
         // VariantTier carries #[serde(rename_all = "snake_case")];
