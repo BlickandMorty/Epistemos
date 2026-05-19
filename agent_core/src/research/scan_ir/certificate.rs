@@ -95,7 +95,7 @@ pub fn lean_certificate<T: Debug>(program: &ScanProgram<T>) -> String {
          \x20     B ≥ 1 →\n\
          \x20     Epistemos.Scan.ssdEquivalentToSequential w.op w.identity initial inputs B := by\n\
          \x20 intro T ssdLemma w initial inputs B hB\n\
-         \x20 exact ssdLemma.statement w initial inputs B hB\n\
+         \x20 exact Epistemos.Scan.SSDEquivalenceLemma.discharge ssdLemma w initial inputs B hB\n\
          \n\
          def scan_certificate_target_{suffix}\n\
          \x20   (T : Type) (w : Epistemos.Scan.MonoidWitness T)\n\
@@ -223,7 +223,10 @@ mod tests {
         let c = lean_certificate(&p);
         assert_eq!(proof_body_sorry_count(&c), 0);
         assert!(c.contains("Epistemos.Scan.SSDEquivalenceLemma T"));
-        assert!(c.contains("exact ssdLemma.statement w initial inputs B hB"));
+        assert!(c.contains(
+            "exact Epistemos.Scan.SSDEquivalenceLemma.discharge ssdLemma w initial inputs B hB"
+        ));
+        assert!(!c.contains("exact ssdLemma.statement w initial inputs B hB"));
     }
 
     #[test]
