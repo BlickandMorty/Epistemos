@@ -4411,6 +4411,21 @@ mod tests {
     }
 
     #[test]
+    fn corrupted_run_event_log_mixed_valid_and_invalid_rows_fail_entire_load() {
+        for bad in [
+            r#"{"entries":[{"kind":"event","ordinal":0,"event":{"event_type":"final_text","text":"x"}},null]}"#,
+            r#"{"entries":[{"kind":"event","ordinal":0,"event":{"event_type":"final_text","text":"x"}},{"kind":"event","event":{"event_type":"final_text","text":"y"}}]}"#,
+            r#"{"entries":[{"kind":"event","ordinal":0,"event":{"event_type":"final_text","text":"x"}},"not-a-row"]}"#,
+        ] {
+            let parsed: Result<RunEventLog, _> = serde_json::from_str(bad);
+            assert!(
+                parsed.is_err(),
+                "corrupted RunEventLog must not load a valid prefix and drop bad rows: {bad}"
+            );
+        }
+    }
+
+    #[test]
     fn run_event_log_top_level_tolerates_unknown_extra_fields_per_current_doctrine() {
         let parsed: RunEventLog = serde_json::from_str(
             r#"{
