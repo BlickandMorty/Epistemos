@@ -84,6 +84,16 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_doc_documents_apple_msl_spec_posture() {
+        assert!(FULP_FALSIFIER_DOC.contains("## Apple MSL Spec Posture"));
+        assert!(FULP_FALSIFIER_DOC.contains("Apple Metal Shading Language §6.5.4"));
+        assert!(FULP_FALSIFIER_DOC.contains("unverified"));
+        assert!(FULP_FALSIFIER_DOC.contains("`morphOracleFp16`"));
+        assert!(FULP_FALSIFIER_DOC
+            .contains("the floor of what the kernel can\nachieve, not the ceiling"));
+    }
+
+    #[test]
     fn falsifier_doc_documents_fp16_bit_pattern_pin() {
         assert!(FULP_FALSIFIER_DOC.contains("## Fp16 Bit Pattern Pin"));
         assert!(FULP_FALSIFIER_DOC.contains("`Fp16Bits`"));

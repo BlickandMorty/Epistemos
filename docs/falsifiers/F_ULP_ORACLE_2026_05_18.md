@@ -65,6 +65,18 @@ freezes treat Metal output itself as proven.
 |---|---|---|---|---|---|---|
 | F-ULP-Oracle | Research | M2 Pro numeric falsifier | implemented-not-wired | `agent_core/src/research/eml_ir/`, `Epistemos/Shaders/morph_eval_reduced.metal`, `cargo test --features research research::eml_ir` | live Metal dispatch capture from `morphOracleFp16` | harden with GPU capture, subnormal/signed-zero diagnostics, WBO numerics cross-link, and Helios v3 §3.5/F7a reference |
 
+## Apple MSL Spec Posture
+
+This terminal does not claim Apple Metal Shading Language §6.5.4 as a
+verified guarantee. The MSL spec describes general intrinsic behavior for
+`exp`, `log`, and related transcendental functions; this terminal treats
+that as unverified until repo-local evidence (a captured `morphOracleFp16`
+dispatch result over the canonical fixture grid) exists. The CPU
+float-intrinsic surrogate is therefore the floor of what the kernel can
+achieve, not the ceiling, and the witness explicitly distinguishes the
+candidate evaluator variant from any spec-derived claim that has not been
+verified by the harness in this terminal.
+
 ## Fp16 Bit Pattern Pin
 
 The candidate output and reference output are compared at the fp16 bit
