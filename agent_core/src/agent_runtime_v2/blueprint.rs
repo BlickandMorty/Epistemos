@@ -1227,6 +1227,40 @@ mod tests {
     }
 
     #[test]
+    fn cli_adapter_serde_forms_are_pairwise_distinct_across_all_six_variants() {
+        // Phase 1 hardening — pairwise-distinct serde-tag pin
+        // (companion to LocalAgent serde-pairwise-distinct iter-533).
+        // CliAdapter is a 6-variant snake_case enum embedded in
+        // ProviderPolicy::ProCli. A maintainer who accidentally added
+        // a 7th variant with rename "codex" (duplicating an existing
+        // tag) would silently introduce a collision — deserialised
+        // payloads would misroute to whichever variant the matcher
+        // picked first. Pin asserts all 6 serialized forms are
+        // pairwise-distinct so the collision surfaces here at PR
+        // review.
+        let serde_forms: Vec<String> = [
+            CliAdapter::ClaudeCode,
+            CliAdapter::Codex,
+            CliAdapter::Goose,
+            CliAdapter::Aider,
+            CliAdapter::OpenHands,
+            CliAdapter::SweAgent,
+        ]
+        .iter()
+        .map(|v| serde_json::to_string(v).expect("serialize"))
+        .collect();
+        for i in 0..serde_forms.len() {
+            for j in (i + 1)..serde_forms.len() {
+                assert_ne!(
+                    serde_forms[i], serde_forms[j],
+                    "CliAdapter serde forms collide at [{i}] = {:?} and [{j}] = {:?}",
+                    serde_forms[i], serde_forms[j]
+                );
+            }
+        }
+    }
+
+    #[test]
     fn cli_adapter_serde_snake_case_pins_all_six_adapter_strings() {
         // Phase 1 hardening — CliAdapter is a leaf enum embedded in
         // ProviderPolicy::ProCli. The snake_case JSON form is load-
