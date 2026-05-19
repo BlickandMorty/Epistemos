@@ -1357,9 +1357,8 @@ fn reject_raw_config_unsigned_json(raw_config: &RawValue) -> Result<(), FulpRepl
     let value =
         required_raw_json_field(raw_config.log_sampled_points, "config.log_sampled_points")?;
     raw_unsigned_integer_json(value, "config.log_sampled_points")?;
-    if let Some(value) = raw_config.stress_points {
-        raw_unsigned_integer_json(value, "config.stress_points")?;
-    }
+    let value = required_raw_json_field(raw_config.stress_points, "config.stress_points")?;
+    raw_unsigned_integer_json(value, "config.stress_points")?;
     let value = required_raw_json_field(raw_config.ulp_tolerance, "config.ulp_tolerance")?;
     raw_u32_json(value, "config.ulp_tolerance")?;
     Ok(())
@@ -2282,6 +2281,26 @@ mod tests {
             .invalid_json_message()
             .expect("invalid json message")
             .contains("config.log_sampled_points"));
+    }
+
+    #[test]
+    fn replay_rejects_missing_config_stress_points_json_field_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["config"]
+            .as_object_mut()
+            .expect("config object")
+            .remove("stress_points");
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json).expect_err("missing stress points must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::MissingField)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("missing field config.stress_points")
+        );
     }
 
     #[test]
