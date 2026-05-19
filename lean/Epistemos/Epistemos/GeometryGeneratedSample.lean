@@ -47,6 +47,12 @@ theorem rotor_unit_norm_sample :
   rcases Epistemos.Geometry.identityRotorCarriesObligations with ⟨_, unitNorm⟩
   exact unitNorm
 
+theorem geometry_certificate_rotor_schema_sample :
+    geometry_certificate_sample.rotor.isRotorCandidate ∧
+      geometry_certificate_sample.rotor.unitNorm := by
+  exact Epistemos.Geometry.CertificateTarget.rotorSchemaCarries
+    geometry_certificate_sample rotor_candidate_sample rotor_unit_norm_sample
+
 theorem geometry_certificate_obligations_sample :
     geometry_certificate_sample.cliffordAxioms =
         geometry_clifford_obligation_sample ∧
@@ -63,5 +69,24 @@ theorem rotor_sandwich_isometry_sample :
 theorem rotor_composition_sample :
     geometry_composition_obligation_sample.associativeSandwich := by
   exact Epistemos.Geometry.identityRotorCertificateObligations.right
+
+theorem geometry_certificate_clifford_axioms_sample :
+    geometry_certificate_sample.cliffordAxioms.basisSquares ->
+    geometry_certificate_sample.cliffordAxioms.basisAnticommutative ->
+    geometry_certificate_sample.cliffordAxioms.basisSquares ∧
+      geometry_certificate_sample.cliffordAxioms.basisAnticommutative := by
+  intro basisSquaresWitness basisAnticommutativeWitness
+  exact Epistemos.Geometry.CertificateTarget.cliffordObligations
+    geometry_certificate_sample
+    basisSquaresWitness
+    basisAnticommutativeWitness
+
+theorem geometry_certificate_rotor_obligations_sample :
+    geometry_certificate_sample.sandwichIsometry.preservesNorm ∧
+      geometry_certificate_sample.composition.associativeSandwich := by
+  exact Epistemos.Geometry.CertificateTarget.rotorObligations
+    geometry_certificate_sample
+    rotor_sandwich_isometry_sample
+    rotor_composition_sample
 
 end Epistemos.Geometry.Generated
