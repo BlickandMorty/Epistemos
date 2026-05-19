@@ -597,6 +597,50 @@ mod tests {
     }
 
     #[test]
+    fn ladder_with_t3_only_validates_and_defaults_to_t3_per_token_debit_doctrine() {
+        // Phase 1 hardening MILESTONE iter-430 — completeness companion
+        // to ladder_with_t1_only_validates. A single-tier ladder with
+        // ONLY T3LlmBound is valid (3 single-tier ladders × 3 tiers =
+        // 9 combinations; T1, T2, T3 each). T3 is the only token-debiting
+        // tier — a tool with NO deterministic / heuristic shortcut goes
+        // straight to LLM.
+        //
+        // Doctrine-pin extension: default_tier == Some(T3LlmBound),
+        // and debits_tokens() == true for the default tier (proves
+        // T3-only ladders are correctly classified as token-debiting
+        // by the dispatcher).
+        //
+        // Closes the 3-axis single-tier ladder coverage:
+        //   - [T1]: iter-? ladder_with_t1_only_validates
+        //   - [T2]: iter-? sparse-ladder pin includes [T2,T3] but no [T2]-only
+        //   - [T3]: this commit (T3-only single-tier)
+        let spec = VariantLadderSpec {
+            tool_name: "vault.semantic_search".into(),
+            tiers: vec![VariantTier::T3LlmBound],
+            auto_promote: false,
+        };
+        spec.validate().expect("single-T3 ladder valid");
+        assert_eq!(spec.default_tier(), Some(VariantTier::T3LlmBound));
+        assert!(
+            spec.default_tier().unwrap().debits_tokens(),
+            "T3-only default must be token-debiting"
+        );
+
+        // Also pin T2-only single-tier ladder.
+        let spec_t2 = VariantLadderSpec {
+            tool_name: "vault.bm25".into(),
+            tiers: vec![VariantTier::T2Heuristic],
+            auto_promote: false,
+        };
+        spec_t2.validate().expect("single-T2 ladder valid");
+        assert_eq!(spec_t2.default_tier(), Some(VariantTier::T2Heuristic));
+        assert!(
+            !spec_t2.default_tier().unwrap().debits_tokens(),
+            "T2-only default must NOT be token-debiting"
+        );
+    }
+
+    #[test]
     fn ladder_with_t1_only_validates() {
         let spec = VariantLadderSpec {
             tool_name: "vault.read".into(),
