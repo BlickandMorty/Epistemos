@@ -38,6 +38,12 @@ structure ActiveStep where
 def ActiveStep.activeCount (s : ActiveStep) : Nat :=
   s.active.length
 
+/-- PCF-5 falsifier requires at least 95 percent norm recovery. -/
+def normRecoveryThresholdPercent : Nat := 95
+
+/-- PCF-5 falsifier allows at most 5 percent active subcomponents. -/
+def activeSubcomponentBudgetPercent : Nat := 5
+
 /-- PCF-5 active rank-one execution is Vault-only with zero MAS
 shipping impact. -/
 def masImpactZeroVaultOnly : Bool := true
@@ -58,5 +64,9 @@ theorem singletonActiveStepCountIsOne
 theorem masImpactZeroPinned :
     masImpactZeroVaultOnly = true := by
   rfl
+
+theorem sparsityFalsifierThresholdsPinned :
+    normRecoveryThresholdPercent = 95 ∧ activeSubcomponentBudgetPercent = 5 := by
+  exact ⟨rfl, rfl⟩
 
 end Epistemos.PCF5
