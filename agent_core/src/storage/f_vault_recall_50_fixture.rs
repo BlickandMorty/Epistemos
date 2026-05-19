@@ -4508,6 +4508,36 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 38th Synthesis row (iter-323). SECOND 2-term-AND subset
+        // on iter-11 design-pattern near-duplicate pair:
+        // {specific, pattern}. Both pair-partners carry both
+        // tokens. "specific" appears only in iter-11 pair-
+        // partners (user_hardware.md has "specifications" — a
+        // distinct token under Tantivy's no-stem SimpleTokenizer;
+        // design_system_hover_spec.md has "specification" —
+        // also distinct). "pattern" appears only in iter-11
+        // pair-partners (no other seed has the token). AND-on-2
+        // matches only the pair. Two of C(3,2)=3 surveyed on
+        // iter-11 design-pattern pair. Zero new seeds.
+        query: "specific pattern",
+        expected_paths: &[
+            "notes/design_pattern_v1.md",
+            "notes/design_pattern_v1_copy.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Thirty-eighth Synthesis row (iter-323): SECOND \
+               2-term-AND subset on iter-11 design-pattern near-\
+               duplicate pair. {specific, pattern} — both \
+               tokens pair-unique. Tantivy SimpleTokenizer keeps \
+               \"specific\" / \"specifications\" / \"specification\" \
+               as distinct tokens (no stem). 2 of C(3,2)=3 \
+               surveyed on iter-11 pair. Brings Synthesis to \
+               depth 38 — first category past depth-37 horizon. \
+               Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 37th Synthesis row (iter-316). FIRST 2-term-AND subset
         // on iter-11 design-pattern near-duplicate pair:
         // {specific, design}. iter-11 pair-partners design_
