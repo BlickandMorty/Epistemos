@@ -2854,4 +2854,47 @@ mod tests {
         let back: AnswerPacket = serde_json::from_str(&s).expect("deserialize");
         assert_eq!(back, packet);
     }
+
+    #[test]
+    fn citation_from_tuple_equals_struct_literal_byte_for_byte() {
+        // Phase 1 hardening — cross-helper-equivalence pin. Citation::
+        // from_tuple is the canonical ergonomic constructor; it MUST
+        // produce a struct byte-equal to the direct struct-literal
+        // form. A future "let me normalise source paths" optimisation
+        // in the ergonomic helper that diverged from struct construction
+        // would silently introduce two distinct Citation byte forms
+        // depending on call site, which breaks RunEventLog row-equality
+        // and the PartialEq/Eq derive that downstream dedup relies on.
+        //
+        // Sweep over representative source/locator shapes: typical
+        // path+range, empty fields, Unicode, special chars, leading
+        // whitespace (load-bearing — must NOT be trimmed).
+        let fixtures = [
+            ("vault/notes/a.md", "L42-L57"),
+            ("", ""),
+            ("vault/notes/2026年5月/a.md", "L1-L10"),
+            ("src with spaces", "L1, L2"),
+            ("  leading-space.md", "  L1"),
+            ("trailing.md  ", "L1  "),
+            ("tab\there.md", "L\t1"),
+            ("\"quoted\".md", "\\backslash"),
+            ("emoji-📝.md", "🌸L1"),
+        ];
+        for (s, l) in fixtures {
+            let via_tuple = Citation::from_tuple(s, l);
+            let via_struct = Citation {
+                source: s.to_string(),
+                locator: l.to_string(),
+            };
+            assert_eq!(
+                via_tuple, via_struct,
+                "from_tuple({s:?}, {l:?}) must equal struct-literal form"
+            );
+            // Also assert byte-equal JSON serialisation — RunEventLog
+            // persists Citation rows and depends on byte-equality.
+            let j_tuple = serde_json::to_string(&via_tuple).expect("serialize tuple");
+            let j_struct = serde_json::to_string(&via_struct).expect("serialize struct");
+            assert_eq!(j_tuple, j_struct);
+        }
+    }
 }
