@@ -1027,6 +1027,25 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_cypriot.md",
             "Mamba 𐠀 cache Mamba 𐠀 cache architecture notes cypriot",
         ),
+        // Iter-386 (46th Unicode — Old Persian Cuneiform
+        // extension): Latin "Mamba" + Old Persian Cuneiform
+        // "𐎠" (letter a, U+103A0) + Latin "cache". Old Persian
+        // Cuneiform (ca. 525-330 BCE) is a semi-syllabic
+        // adaptation of Mesopotamian Cuneiform created
+        // specifically for writing Old Persian, the Achaemenid
+        // imperial language. 36 characters (vs Mesopotamian
+        // Cuneiform's hundreds), making it the simplest
+        // cuneiform-family script. Together with regular
+        // Cuneiform (iter-315 Sumerian/Akkadian) the pin set
+        // now contains TWO cuneiform-family scripts — the
+        // ancestor (Mesopotamian Cuneiform) and one of its
+        // major adaptations (Old Persian). THIRTEENTH SMP-
+        // plane codepoint. Forty-four non-Latin scripts pinned
+        // (+ Old Persian Cuneiform).
+        (
+            "notes/mamba_old_persian.md",
+            "Mamba 𐎠 cache Mamba 𐎠 cache architecture notes old_persian",
+        ),
     ];
     for (path, content) in seeds {
         store

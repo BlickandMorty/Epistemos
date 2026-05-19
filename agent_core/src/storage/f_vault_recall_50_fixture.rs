@@ -2015,6 +2015,36 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 46th Unicode row (iter-386): Old Persian Cuneiform
+        // extension. Adds a 44th non-Latin script (Old Persian
+        // Cuneiform, U+103A0–U+103DF) — a semi-syllabic
+        // adaptation of Mesopotamian Cuneiform created for
+        // Old Persian, ca. 525-330 BCE. Achaemenid imperial
+        // royal-inscription script. 36 characters (simplest
+        // cuneiform-family script vs Mesopotamian's hundreds).
+        // Together with regular Cuneiform (iter-315
+        // Sumerian/Akkadian), pin set now contains TWO
+        // cuneiform-family scripts — the ancestor + one of its
+        // major adaptations. THIRTEENTH SMP-plane codepoint.
+        // Latin "Mamba" + Old Persian Cuneiform "𐎠" (letter a,
+        // U+103A0) + Latin "cache".
+        query: "Mamba 𐎠 cache",
+        expected_paths: &["notes/mamba_old_persian.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Forty-sixth Unicode row (iter-386): Old Persian \
+               Cuneiform extension. FORTY-FOUR non-Latin \
+               scripts pinned. Old Persian Cuneiform (ca. 525-\
+               330 BCE) is the Achaemenid royal-inscription \
+               script — a 36-character semi-syllabic adaptation \
+               of Mesopotamian Cuneiform. Pin set now contains \
+               TWO cuneiform-family scripts (Mesopotamian \
+               ancestor + Old Persian adaptation). Thirteenth \
+               SMP-plane codepoint. Brings Unicode to depth \
+               46 — first category past depth-45 horizon.",
+    },
+    FVaultRecallRow {
         // 45th Unicode row (iter-379): Cypriot Syllabary
         // extension. Adds a 43rd non-Latin script (Cypriot
         // Syllabary, U+10800–U+1083F) — the syllabary used
