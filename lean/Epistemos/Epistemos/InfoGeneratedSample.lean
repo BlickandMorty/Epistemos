@@ -80,6 +80,16 @@ theorem info_log_partition_convexity_sample :
     info_convexity_witness_sample
     "docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §3 + §5 Info-IR"
 
+theorem info_certificate_convexity_target_sample :
+    ∃ targetObligation,
+      info_certificate_sample.convexity = some targetObligation ∧
+        targetObligation.convexOnNaturalDomain := by
+  exact Epistemos.Info.CertificateTarget.convexityObligationCarries
+    info_certificate_sample
+    info_convexity_obligation_sample
+    rfl
+    info_log_partition_convexity_sample
+
 theorem info_bregman_positivity_sample :
     info_bregman_obligation_sample.nonnegative := by
   exact Epistemos.Info.bregmanPositivityObligationNonnegative
@@ -96,11 +106,25 @@ theorem info_bregman_non_degeneracy_sample :
     info_bregman_zero_witness_sample
     "Amari 2016 Ch. 6 §6.2"
 
+theorem info_certificate_bregman_obligations_sample :
+    info_certificate_sample.positivity.nonnegative ∧
+      info_certificate_sample.positivity.zeroIffEqual := by
+  exact Epistemos.Info.CertificateTarget.bregmanObligations
+    info_certificate_sample
+    info_bregman_positivity_sample
+    info_bregman_non_degeneracy_sample
+
 theorem info_mirror_descent_equivalence_sample :
     info_mirror_descent_obligation_sample.statement := by
   exact Epistemos.Info.mirrorDescentEquivalenceObligationCarries
     Epistemos.Info.ExpFamily.bernoulli
     info_mirror_descent_witness_sample
     "Beck-Teboulle 2003 §2"
+
+theorem info_certificate_mirror_equivalence_sample :
+    info_certificate_sample.mirrorEquivalence.statement := by
+  exact Epistemos.Info.CertificateTarget.mirrorEquivalenceCarries
+    info_certificate_sample
+    info_mirror_descent_equivalence_sample
 
 end Epistemos.Info.Generated
