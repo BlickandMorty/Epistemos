@@ -2046,24 +2046,24 @@ where
     for capability in capabilities {
         let serde_json::Value::Object(capability) = capability else {
             return Err(E::custom(
-                "forged_admission_input field=granted_capabilities.capability",
+                "forged_admission_input field=admission_input.granted_capabilities.capability",
             ));
         };
         for field in capability.keys() {
             if !matches!(field.as_str(), "kind" | "value") {
                 return Err(E::custom(format!(
-                    "forged_admission_input field=granted_capabilities.{field}"
+                    "forged_admission_input field=admission_input.granted_capabilities.{field}"
                 )));
             }
         }
         let Some(kind) = capability.get("kind").and_then(serde_json::Value::as_str) else {
             return Err(E::custom(
-                "forged_admission_input field=granted_capabilities.capability",
+                "forged_admission_input field=admission_input.granted_capabilities.capability",
             ));
         };
         let Some(serde_json::Value::Object(capability_value)) = capability.get("value") else {
             return Err(E::custom(
-                "forged_admission_input field=granted_capabilities.capability",
+                "forged_admission_input field=admission_input.granted_capabilities.capability",
             ));
         };
         for field in capability_value.keys() {
@@ -2106,7 +2106,7 @@ where
                 .get("name")
                 .is_some_and(serde_json::Value::is_string))
             .then_some(GRANTED_CAPABILITY_FIELDS.other_name),
-            _ => Some("granted_capabilities.capability"),
+            _ => Some("admission_input.granted_capabilities.capability"),
         };
         if let Some(field) = required_field {
             return Err(E::custom(format!("forged_admission_input field={field}")));
@@ -4242,12 +4242,13 @@ const REQUIRED_CAPABILITY_SHADOW_FIELDS: CapabilityShadowFieldNames = Capability
 };
 
 const GRANTED_CAPABILITY_SHADOW_FIELDS: CapabilityShadowFieldNames = CapabilityShadowFieldNames {
-    vault_path_shadow_path: "granted_capabilities.vault_path.shadow_path",
-    vault_path_shadow_verb: "granted_capabilities.vault_path.shadow_verb",
-    network_host_shadow_host: "granted_capabilities.network_host.shadow_host",
-    biometric_session_shadow_ttl_secs: "granted_capabilities.biometric_session.shadow_ttl_secs",
-    other_shadow_name: "granted_capabilities.other.shadow_name",
-    generic_capability: "granted_capabilities.capability",
+    vault_path_shadow_path: "admission_input.granted_capabilities.vault_path.shadow_path",
+    vault_path_shadow_verb: "admission_input.granted_capabilities.vault_path.shadow_verb",
+    network_host_shadow_host: "admission_input.granted_capabilities.network_host.shadow_host",
+    biometric_session_shadow_ttl_secs:
+        "admission_input.granted_capabilities.biometric_session.shadow_ttl_secs",
+    other_shadow_name: "admission_input.granted_capabilities.other.shadow_name",
+    generic_capability: "admission_input.granted_capabilities.capability",
 };
 
 fn capability_value_shadow_field(
@@ -4307,11 +4308,11 @@ const REQUIRED_CAPABILITY_FIELDS: CapabilityFieldNames = CapabilityFieldNames {
 };
 
 const GRANTED_CAPABILITY_FIELDS: CapabilityFieldNames = CapabilityFieldNames {
-    vault_path_path: "granted_capabilities.vault_path.path",
-    vault_path_verb: "granted_capabilities.vault_path.verb",
-    network_host_host: "granted_capabilities.network_host.host",
-    biometric_session_ttl_secs: "granted_capabilities.biometric_session.ttl_secs",
-    other_name: "granted_capabilities.other.name",
+    vault_path_path: "admission_input.granted_capabilities.vault_path.path",
+    vault_path_verb: "admission_input.granted_capabilities.vault_path.verb",
+    network_host_host: "admission_input.granted_capabilities.network_host.host",
+    biometric_session_ttl_secs: "admission_input.granted_capabilities.biometric_session.ttl_secs",
+    other_name: "admission_input.granted_capabilities.other.name",
 };
 
 const MAX_BIOMETRIC_SESSION_TTL_SECS: u32 = 300;
@@ -7093,6 +7094,40 @@ mod tests {
         assert!(message.contains("forged_admission_input"), "{message}");
         assert!(
             message.contains("granted_capabilities.other.name"),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn acs_admission_input_decode_names_granted_capability_input_namespace() {
+        let value = serde_json::json!({
+            "request_id": "req-granted-capability-input-namespace",
+            "payload": {
+                "kind": "tool_action",
+                "request": {
+                    "tool_name": "vault.write",
+                    "target": "uas://note/1",
+                    "mutation_envelope_id": "mutation-1"
+                }
+            },
+            "submitted_at_ms": 1_001,
+            "risk": ACSRiskVector::neutral(),
+            "granted_capabilities": [
+                {
+                    "kind": "other",
+                    "value": {
+                        "name": "Tool Exec"
+                    }
+                }
+            ]
+        });
+
+        let err = serde_json::from_value::<ACSAdmissionInput>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("forged_admission_input"), "{message}");
+        assert!(
+            message.contains("admission_input.granted_capabilities.other.name"),
             "{message}"
         );
     }
