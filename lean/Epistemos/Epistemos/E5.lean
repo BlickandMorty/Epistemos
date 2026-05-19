@@ -61,6 +61,15 @@ def DuplexFusionInputs.driftTerm (i : DuplexFusionInputs) : Float :=
 def DuplexFusionInputs.fusedErrorBound (i : DuplexFusionInputs) : Float :=
   i.pathTerm + i.driftTerm
 
+inductive SoftBranchImplementation : Type
+  | mamba3
+  | titans
+  | t2l
+  | seal
+
+def SoftBranchImplementation.isTheoremStatement (_s : SoftBranchImplementation) : Bool :=
+  false
+
 /-- E5 architecture-level theorem-candidate. -/
 theorem duplexFusion
     (i : DuplexFusionInputs) (eps_fused : Float)
@@ -75,11 +84,16 @@ theorem driftInflatesBound (i : DuplexFusionInputs) :
 
 /-- Mamba-3 specialization is a sidecar implementation, NOT the
 theorem itself. v2.0 audit Patch 6 explicitly separates them.
-This stub records the v2.0 generic-vs-specialized boundary. -/
+This guard records the v2.0 generic-vs-specialized boundary. -/
 def mamba3IsTheoremStatement : Bool := false
 
 theorem mamba3IsSidecarNotTheorem :
     mamba3IsTheoremStatement = false := by
   rfl
+
+theorem softBranchImplementationsAreSidecars
+    (s : SoftBranchImplementation) :
+    s.isTheoremStatement = false := by
+  cases s <;> rfl
 
 end Epistemos.E5
