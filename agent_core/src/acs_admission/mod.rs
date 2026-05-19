@@ -3777,7 +3777,7 @@ impl<'de> Deserialize<'de> for ACSPolicy {
             "policy_id",
             serde_json::Value::is_string,
         )?;
-        require_policy_field::<D::Error>(&value, "version", "version", serde_json::Value::is_u64)?;
+        require_policy_field::<D::Error>(&value, "version", "version", is_u32_value)?;
         require_policy_field::<D::Error>(
             &value,
             "valid_from_ms",
@@ -3822,6 +3822,12 @@ impl<'de> Deserialize<'de> for ACSPolicy {
 
 fn is_i64_or_null(value: &serde_json::Value) -> bool {
     value.is_i64() || value.is_null()
+}
+
+fn is_u32_value(value: &serde_json::Value) -> bool {
+    value
+        .as_u64()
+        .is_some_and(|number| number <= u32::MAX as u64)
 }
 
 fn require_policy_field<E>(
@@ -7801,6 +7807,19 @@ mod tests {
             .as_object_mut()
             .expect("policy encodes as object")
             .remove("version");
+
+        let err = serde_json::from_value::<ACSPolicy>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(message.contains("version"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_oversized_policy_version_names_malformed_policy_field() {
+        let mut value = serde_json::to_value(ACSPolicy::strict("policy-oversized-version", 1_000))
+            .expect("policy encodes");
+        value["version"] = serde_json::json!(u64::MAX);
 
         let err = serde_json::from_value::<ACSPolicy>(value).unwrap_err();
         let message = err.to_string();
