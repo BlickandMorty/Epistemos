@@ -1371,10 +1371,16 @@ fn reject_adversarial_reference_stats_json(
             kind: FulpInvalidJsonKind::TypeMismatch,
         });
     }
-    let finite_count =
-        nested_unsigned_integer_json(stats_value, "adversarial_reference_stats", "finite_count")?;
-    let rejected_count =
-        nested_unsigned_integer_json(stats_value, "adversarial_reference_stats", "rejected_count")?;
+    let finite_count = Some(required_object_unsigned_integer_json(
+        stats_value,
+        "adversarial_reference_stats",
+        "finite_count",
+    )?);
+    let rejected_count = Some(required_object_unsigned_integer_json(
+        stats_value,
+        "adversarial_reference_stats",
+        "rejected_count",
+    )?);
     reject_nested_count_above(
         "adversarial_reference_stats",
         "finite_count",
@@ -1468,6 +1474,20 @@ fn nested_unsigned_integer_json(
         });
     };
     Ok(Some(field_value))
+}
+
+fn required_object_unsigned_integer_json(
+    value: &serde_json::Value,
+    path: &str,
+    field: &str,
+) -> Result<u64, FulpReplayError> {
+    let Some(value) = nested_unsigned_integer_json(value, path, field)? else {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("missing field {path}.{field}"),
+            kind: FulpInvalidJsonKind::MissingField,
+        });
+    };
+    Ok(value)
 }
 
 fn nested_finite_f64_json(
@@ -3211,6 +3231,27 @@ mod tests {
             .invalid_json_message()
             .expect("invalid json message")
             .contains("adversarial_reference_stats.finite_count"));
+    }
+
+    #[test]
+    fn replay_rejects_missing_adversarial_reference_finite_count_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["adversarial_reference_stats"]
+            .as_object_mut()
+            .expect("adversarial reference stats object")
+            .remove("finite_count");
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("missing adversarial reference finite count must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::MissingField)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("missing field adversarial_reference_stats.finite_count")
+        );
     }
 
     #[test]
