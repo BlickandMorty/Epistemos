@@ -141,6 +141,7 @@ pub enum FulpUnsupportedEvaluatorKind {
 pub enum FulpInvalidJsonKind {
     DuplicateField,
     EmptyInput,
+    ForbiddenHardwareIdentifier,
     InvalidLength,
     Malformed,
     MissingField,
@@ -783,6 +784,7 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
     required_nested_bool_json(&value, "hardware", "uma")?;
     required_nested_u16_json(&value, "hardware", "memory_bandwidth_gb_s")?;
     required_nested_string_json(&value, "hardware", "source")?;
+    reject_hardware_identifier_text_json(&value)?;
     required_top_level_string_json(&value, "mission")?;
     required_top_level_string_json(&value, "evaluator_variant")?;
     required_top_level_string_json(&value, "shader_entrypoint")?;
@@ -1313,6 +1315,73 @@ fn required_nested_string_json(
         });
     }
     Ok(())
+}
+
+fn reject_hardware_identifier_text_json(value: &serde_json::Value) -> Result<(), FulpReplayError> {
+    let Some(hardware) = value.get("hardware").and_then(serde_json::Value::as_object) else {
+        return Ok(());
+    };
+    for field in ["model", "model_identifier", "chip", "source"] {
+        let Some(text) = hardware.get(field).and_then(serde_json::Value::as_str) else {
+            continue;
+        };
+        if hardware_text_contains_identifier(text) || text_contains_ethernet_mac_shape(text) {
+            return Err(FulpReplayError::InvalidJson {
+                message: format!("forbidden hardware identifier token in hardware.{field}"),
+                kind: FulpInvalidJsonKind::ForbiddenHardwareIdentifier,
+            });
+        }
+    }
+    Ok(())
+}
+
+fn hardware_text_contains_identifier(text: &str) -> bool {
+    const FORBIDDEN: &[&str] = &[
+        "serial",
+        "uuid",
+        "ecid",
+        "hwid",
+        "board_id",
+        "board-id",
+        "ioplatform",
+        "imei",
+        "meid",
+        "udid",
+        "idfa",
+        "idfv",
+        "host_id",
+        "hostid",
+        "chip_id",
+        "chipid",
+        "apchipid",
+        "apnonce",
+        "sepnonce",
+        "provisioning",
+        "dep_enrollment",
+        "dep-enrollment",
+    ];
+    let lower = text.to_ascii_lowercase();
+    FORBIDDEN.iter().any(|token| lower.contains(token))
+}
+
+fn text_contains_ethernet_mac_shape(text: &str) -> bool {
+    let lower = text.to_ascii_lowercase();
+    lower.as_bytes().windows(17).any(|window| {
+        let is_hex_pair = |slice: &[u8]| {
+            slice.len() == 2 && slice[0].is_ascii_hexdigit() && slice[1].is_ascii_hexdigit()
+        };
+        is_hex_pair(&window[0..2])
+            && window[2] == b':'
+            && is_hex_pair(&window[3..5])
+            && window[5] == b':'
+            && is_hex_pair(&window[6..8])
+            && window[8] == b':'
+            && is_hex_pair(&window[9..11])
+            && window[11] == b':'
+            && is_hex_pair(&window[12..14])
+            && window[14] == b':'
+            && is_hex_pair(&window[15..17])
+    })
 }
 
 fn required_nested_bool_json(
@@ -3023,6 +3092,25 @@ mod tests {
         assert_eq!(
             error.invalid_json_message(),
             Some("invalid type for hardware.source, expected string")
+        );
+    }
+
+    #[test]
+    fn replay_rejects_hardware_source_with_identifier_text() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["hardware"]["source"] =
+            serde_json::Value::String("serial number and UUID redacted".to_string());
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("hardware identifier text must fail replay before pin comparison");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::ForbiddenHardwareIdentifier)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("forbidden hardware identifier token in hardware.source")
         );
     }
 

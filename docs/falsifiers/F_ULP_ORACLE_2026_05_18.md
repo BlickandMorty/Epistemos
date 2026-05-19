@@ -281,7 +281,9 @@ or provisioning enrollment id, and without any ethernet MAC-shaped
 colon-separated hex pattern. Replay rejects a witness whose hardware pin
 diverges from the M2 Pro canon, so a candidate cannot pass by claiming
 different silicon while still publishing a hardware-identifying string the
-canon never emits.
+canon never emits. Replay also rejects a forbidden hardware identifier token
+inside allowed hardware string fields before hardware-pin comparison, so a
+candidate cannot smuggle a serial or UUID through `hardware.source`.
 
 ## Reference Methodology
 

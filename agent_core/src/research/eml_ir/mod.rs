@@ -267,6 +267,7 @@ mod tests {
         assert!(FULP_FALSIFIER_DOC.contains("Apple boot nonce"));
         assert!(FULP_FALSIFIER_DOC.contains("provisioning enrollment id"));
         assert!(FULP_FALSIFIER_DOC.contains("ethernet MAC-shaped"));
+        assert!(FULP_FALSIFIER_DOC.contains("forbidden hardware identifier token"));
     }
 
     #[test]
