@@ -961,6 +961,39 @@ mod tests {
     }
 
     #[test]
+    fn citation_preserves_json_special_chars_through_serde_round_trip() {
+        // Phase 1 hardening — adversarial JSON pin for Citation
+        // (companion to mission_packet_preserves_json_special_chars
+        // iter-413, answer_packet_final_text_preserves_json_special_chars
+        // iter-414). Citation source/locator are Strings that may
+        // legitimately carry path separators, query strings, or
+        // structured locators with quotes/colons/embedded JSON.
+        //
+        // Serde must escape these correctly through round-trip without
+        // applying lossy sanitisation.
+        let adversarial = [
+            Citation::from_tuple(
+                r#"vault/notes/"quoted-name".md"#,
+                r#"L1-L10 {"selector": "h1"}"#,
+            ),
+            Citation::from_tuple(
+                "vault\\windows\\style.md",
+                "L42\twith\ttabs",
+            ),
+            Citation::from_tuple(
+                "vault/path\nwith\nnewlines.md",
+                "L1\x01control\x02char",
+            ),
+        ];
+        for case in adversarial {
+            let s = serde_json::to_string(&case).expect("serialise");
+            let back: Citation =
+                serde_json::from_str(&s).expect("deserialise");
+            assert_eq!(back, case, "citation must round-trip JSON-special chars");
+        }
+    }
+
+    #[test]
     fn citation_preserves_unicode_byte_for_byte_through_serde_round_trip() {
         // Phase 1 hardening — Unicode safety pin for Citation serde
         // (companion to citation_as_display_string_preserves_unicode...,
