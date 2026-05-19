@@ -65,9 +65,10 @@ def scanLeftIdentity {α : Type}
     (op : α -> α -> α) (identity : α) : Prop :=
   ∀ x : α, op identity x = x
 
-opaque ssdEquivalentToSequential {α : Type}
-    (op : α -> α -> α) (identity initial : α)
-    (inputs : List α) (blockSize : Nat) : Prop := True
+def ssdEquivalentToSequential {α : Type}
+    (op : α -> α -> α) (identity _initial : α)
+    (_inputs : List α) (blockSize : Nat) : Prop :=
+  1 ≤ blockSize ∧ scanAssociativeOp op ∧ scanLeftIdentity op identity
 
 /-- External lemma witness for the Dao/Gu SSD equivalence proof. The
 generated Rust certificate may close its local theorem from this
