@@ -9383,6 +9383,47 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_run_event_log_gap_precedes_corrupt_record() {
+        let temp_dir = tempfile::tempdir().expect("temporary ACS OpLog directory");
+        let db_path = temp_dir.path().join("acs-run-event-gap-before-corrupt.sqlite");
+        let next_record_id = "acs:req-gap-before-corrupt:1003";
+        {
+            let run_event_log =
+                crate::oplog::OpLog::open_persistent("acs-admission-gap-before-corrupt", &db_path)
+                    .expect("persistent RunEventLog opens");
+            let sink = ACSRunEventLogSink::new(&run_event_log);
+            sink.record(audit_record_fixture(ACSAdmissionVerdict::Allow))
+                .expect("first audit record writes");
+            let mut second = audit_record_fixture(ACSAdmissionVerdict::AllowWithWarning);
+            second.record_id = "acs:req-gap-before-corrupt-second:1002".to_string();
+            second.request_id = "req-gap-before-corrupt-second".to_string();
+            second.emitted_at_ms = 1_002;
+            sink.record(second).expect("second audit record writes");
+        }
+
+        let conn = rusqlite::Connection::open(&db_path).expect("tamper connection opens");
+        conn.execute("DELETE FROM epistemos_oplog WHERE seq = 0", [])
+            .expect("tamper delete succeeds");
+        drop(conn);
+
+        let reopened =
+            crate::oplog::OpLog::open_persistent("acs-admission-gap-before-corrupt", &db_path)
+                .expect("gapped RunEventLog reopens");
+        let sink = ACSRunEventLogSink::new(&reopened);
+        let mut corrupt = audit_record_fixture(ACSAdmissionVerdict::Allow);
+        corrupt.record_id = next_record_id.to_string();
+        corrupt.request_id = "req-gap-before-corrupt".to_string();
+        corrupt.reason = " ".to_string();
+        corrupt.emitted_at_ms = 1_003;
+
+        let err = sink.record(corrupt).unwrap_err();
+
+        assert_eq!(err.cause(), "acs_audit_log_gap");
+        assert_eq!(err.field(), Some("run_event_log"));
+        assert_eq!(err.record_id(), Some(next_record_id));
+    }
+
+    #[test]
     fn acs_admission_run_event_log_resolves_proof_record_refs() {
         let run_event_log = crate::oplog::OpLog::new("acs-admission-resolve-test");
         let sink = ACSRunEventLogSink::new(&run_event_log);
