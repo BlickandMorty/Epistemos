@@ -3698,6 +3698,39 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 39th Paraphrase row (iter-333): NEW axis — PREFIX
+        // TRUNCATION (head-clipping). User keeps the TAIL of
+        // a word and drops the prefix — "Mamba" → "ba" (keep
+        // last 2 letters). Tokens: {ba, ssm, cache} — 3-term
+        // AND. Canonical has "mamba" not "ba" → blocked.
+        // Distinct from iter-239 SUFFIX truncation
+        // (Mamba SSM ch — kept HEAD of "cache", dropped tail)
+        // which was 23rd subclass: iter-239 + iter-333 together
+        // pin both directional clipping axes. Distinct from
+        // iter-86 acronym (multi-word collapse, not single-word
+        // truncation). Pins deferred suffix-match retrieval
+        // work (analogue of iter-239's prefix-match pin).
+        // Thirty-sixth named failure subclass.
+        query: "ba SSM cache",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Prefix-truncation Paraphrase axis (axis #36): \
+               user keeps TAIL of word, drops prefix (\"Mamba\" \
+               → \"ba\"). 3-term AND on {ba, ssm, cache} blocks \
+               canonical (which has \"mamba\" not \"ba\"). \
+               Distinct from iter-239 SUFFIX truncation (kept \
+               head of word) which was 23rd subclass — iter-\
+               239 + iter-333 together pin both directional \
+               clipping axes (head-clip vs tail-clip). Distinct \
+               from iter-86 acronym. Pins deferred suffix-\
+               match retrieval (analogue of iter-239's prefix-\
+               match pin). Thirty-sixth named failure subclass. \
+               Brings Paraphrase to depth 39 — first category \
+               past depth-38 horizon.",
+    },
+    FVaultRecallRow {
         // 38th Paraphrase row (iter-326): NEW axis — CROSS-
         // LANGUAGE TRANSLATION. User types the German-language
         // semantic equivalent — "Speicher" means "cache /
