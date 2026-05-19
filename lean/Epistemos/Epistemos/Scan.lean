@@ -129,6 +129,12 @@ theorem SSDEquivalenceObligation.ssdOutputMatchesSequential {α : Type}
     o.ssdOutput = sequentialScan o.monoid.op o.initial o.inputs := by
   rw [o.equivalent, o.sequential_matches]
 
+theorem SSDEquivalenceObligation.toSchemaPredicate {α : Type}
+    (o : SSDEquivalenceObligation α) :
+    ssdEquivalentToSequential
+      o.monoid.op o.monoid.identity o.initial o.inputs o.blockSize := by
+  exact ⟨o.blockSize_positive, o.monoid.assoc, o.monoid.left_identity⟩
+
 /-- Target for a generated Scan expression/program certificate. -/
 structure CertificateTarget (α : Type) where
   monoid : MonoidWitness α
