@@ -58,6 +58,12 @@ pub const ADVERSARIAL_QUERY_FIXTURE_LABELS: &[&str] = &[
     "near-duplicate-paragraph-tie",
 ];
 
+pub const ADVERSARIAL_QUERY_FIXTURE_QUERY_TEXTS: &[&str] = &[
+    "tropcial",
+    "tropical",
+    "near duplicate paragraph",
+];
+
 pub fn adversarial_query_fixture(label: &str) -> Option<AdversarialQueryFixture> {
     ADVERSARIAL_QUERY_FIXTURES
         .iter()
@@ -94,6 +100,10 @@ pub fn adversarial_query_fixture_for_query_text(
 
 pub fn adversarial_query_fixture_labels() -> &'static [&'static str] {
     ADVERSARIAL_QUERY_FIXTURE_LABELS
+}
+
+pub fn adversarial_query_fixture_query_texts() -> &'static [&'static str] {
+    ADVERSARIAL_QUERY_FIXTURE_QUERY_TEXTS
 }
 
 pub fn adversarial_query_fixture_catalog_labels_match_fixture_rows() -> bool {
