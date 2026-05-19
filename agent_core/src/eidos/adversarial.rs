@@ -46,3 +46,11 @@ pub fn adversarial_query_fixture(label: &str) -> Option<AdversarialQueryFixture>
 pub fn adversarial_query_fixture_labels() -> &'static [&'static str] {
     ADVERSARIAL_QUERY_FIXTURE_LABELS
 }
+
+pub fn adversarial_query_fixture_catalog_labels_match_fixture_rows() -> bool {
+    ADVERSARIAL_QUERY_FIXTURE_LABELS.len() == ADVERSARIAL_QUERY_FIXTURES.len()
+        && ADVERSARIAL_QUERY_FIXTURE_LABELS
+            .iter()
+            .zip(ADVERSARIAL_QUERY_FIXTURES.iter())
+            .all(|(label, fixture)| *label == fixture.label)
+}
