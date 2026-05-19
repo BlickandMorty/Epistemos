@@ -1005,6 +1005,29 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 32nd SignalOnly row (iter-282): single-term query in
+        // Georgian-script domain — "ქეში" (Georgian for cache,
+        // U+10E5 U+10D4 U+10E8 U+10D8). TWENTY-THIRD single-
+        // term-AND domain. ELEVENTH non-ASCII script-block.
+        // Georgian Mkhedruli is its own LTR alphabet with no
+        // shared ancestry to Latin/Greek/Cyrillic/Armenian in
+        // the same genealogical-branch sense — distinct
+        // alphabetic typology. Token unique to iter-141's
+        // mamba_georgian.md.
+        query: "ქეში",
+        expected_paths: &["notes/mamba_georgian.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Thirty-second SignalOnly row (iter-282): single-\
+               term Georgian-script query — \"ქეში\" (U+10E5 \
+               U+10D4 U+10E8 U+10D8). Twenty-third domain for \
+               single-term-AND. Eleventh non-ASCII script-block. \
+               Georgian Mkhedruli is its own LTR alphabet with \
+               no shared ancestry to other alphabet pin members. \
+               Brings SignalOnly to depth 32.",
+    },
+    FVaultRecallRow {
         // 31st SignalOnly row (iter-275): single-term query in
         // Armenian-script domain — "կեշ" (Armenian for cache,
         // U+053D U+0565 U+0577). TWENTY-SECOND single-term-AND
