@@ -2333,6 +2333,52 @@ mod tests {
     }
 
     #[test]
+    fn total_tokens_debited_matches_post_mutation_ledger_snapshot_when_dispatcher_accounts_correctly() {
+        // Phase 1 hardening — cross-helper consistency pin between
+        // the witness-trail aggregator (total_tokens_debited) and the
+        // ledger-snapshot reading path (ledger_at_ordinal).
+        //
+        // Contract: if the dispatcher correctly debits tokens via
+        // sealed mutations and then appends a ledger snapshot, the
+        // snapshot's tokens_used field must equal the sum of all
+        // debit.tokens from prior SealedMutation rows.
+        //
+        // This is the "dispatcher must correctly account" invariant:
+        // the audit-trail sum (post-hoc) must reconcile with the
+        // ledger snapshot the dispatcher wrote (in-line). A
+        // dispatcher bug that, e.g., debited 100 tokens to the
+        // sealed mutation row but only 50 to the ledger snapshot,
+        // would silently underreport on the snapshot UI.
+        //
+        // Pin via a constructed log where we know the sum upfront.
+        let mut log = RunEventLog::new();
+        let cap = Hash::from_bytes([1u8; 32]);
+        // 4 sealed mutations: 25, 50, 75, 100 tokens.
+        log.append_sealed_mutation(cap, BudgetDebit { tokens: 25, ..Default::default() });
+        log.append_sealed_mutation(cap, BudgetDebit { tokens: 50, ..Default::default() });
+        log.append_sealed_mutation(cap, BudgetDebit { tokens: 75, ..Default::default() });
+        log.append_sealed_mutation(cap, BudgetDebit { tokens: 100, ..Default::default() });
+        // Post-mutation ledger snapshot: caller's dispatcher writes
+        // total tokens_used.
+        let snapshot_ordinal = log.append_ledger_snapshot(BudgetLedger {
+            tokens_used: 250, // sum: 25+50+75+100 = 250
+            ..Default::default()
+        });
+
+        let (total_via_aggregate, count) = log.total_tokens_debited();
+        assert_eq!(total_via_aggregate, 250, "aggregate sum must be 250");
+        assert_eq!(count, 4);
+
+        let snapshot_ledger = log
+            .ledger_at_ordinal(snapshot_ordinal)
+            .expect("snapshot at ordinal");
+        assert_eq!(
+            snapshot_ledger.tokens_used, total_via_aggregate,
+            "snapshot.tokens_used must equal total_tokens_debited.0 for a correctly-accounted log"
+        );
+    }
+
+    #[test]
     fn find_capability_hash_len_matches_sealed_mutations_filter_count() {
         // Phase 1 hardening — cross-helper consistency pin extending
         // the entry-counting trinity (total_tokens_debited /
