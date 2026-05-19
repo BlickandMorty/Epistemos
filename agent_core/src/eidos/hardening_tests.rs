@@ -7057,6 +7057,179 @@ fn closed_citation_contract_holds_across_modes_for_multilingual_ids() {
     }
 }
 
+/// Multilingual batch validation — `validate_citations` produces
+/// errors in input-index order across a mixed-script citation list.
+/// Parallel to iter 162's list-lift consistency pin (ASCII-only) and
+/// iter 131's mixed-variant ascending-index pin (ASCII-only).
+///
+/// The batch path is the canonical chat-layer entry point: a chat
+/// session typically emits a list of citations and asks the
+/// validator to flag every fabricated/manifest-mismatched entry in
+/// one pass. The byte-strict floor must hold IDENTICALLY on the
+/// batch path as on the singular path for non-Latin scripts.
+///
+/// Pins, against a batch of 7 citations with mixed Latin / Han /
+/// Hangul / Arabic / Devanagari payloads:
+///
+///   - index 0: legit Latin       → no error
+///   - index 1: smuggled Han      → FabricatedSourceId at index 1
+///   - index 2: legit Han         → no error
+///   - index 3: smuggled Hangul   → FabricatedSourceId at index 3
+///   - index 4: stale-manifest Arabic → ManifestMismatch at index 4
+///                                     (iter 130 precedence holds
+///                                      cross-batch and cross-
+///                                      script)
+///   - index 5: legit Devanagari  → no error
+///   - index 6: smuggled mixed    → FabricatedSourceId at index 6
+///
+/// Result: errors in ascending input-index order (1, 3, 4, 6) with
+/// the right CitationError variant at each. Catches:
+///
+///   - "collect into HashMap then iterate" regressions that lose
+///     input order across mixed-script inputs (Latin-only iter 131
+///     might not surface them if the iteration order happens to be
+///     stable on ASCII keys but not on multi-byte keys)
+///   - "skip duplicates" passes that fold script-internal variants
+///     together
+///   - any per-script fast-path that processes Latin and non-Latin
+///     in different code paths and loses ordering between them
+#[test]
+fn validate_citations_preserves_input_order_across_multilingual_batch() {
+    use super::types::{CitationError, EidosChunkId, EidosCitation};
+
+    let m = manifest();
+    let stale = EidosIndexManifestId::new("stale-snap").unwrap();
+    let ts = 1_700_000_000_000;
+
+    // Build a packet that contains the 4 legitimate ids (Latin,
+    // Han, Han-other, Devanagari). The Hangul + Arabic + mixed
+    // smuggled entries don't have corresponding hits — they should
+    // surface as fabricated or stale-manifest errors.
+    let mut lex = InMemoryLexicalIndex::new(m.clone());
+    lex.insert(doc("note-a"), "alpha durian", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("笔记-a"), "alpha durian", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("笔记-b"), "alpha durian", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("नोट-a"), "alpha durian", EidosSourceKind::Note).unwrap();
+    let q = EidosQuery::new("durian", EidosRetrievalMode::Lexical, 16);
+    let packet = lex.retrieve(&q, ts);
+    assert_eq!(packet.hits.len(), 4);
+
+    // Resolve real source_ids deterministically.
+    let legit_latin = packet
+        .hits
+        .iter()
+        .find(|h| h.source_id.as_str().starts_with("note-a"))
+        .expect("Latin hit must be present")
+        .source_id
+        .clone();
+    let legit_han_a = packet
+        .hits
+        .iter()
+        .find(|h| h.source_id.as_str().starts_with("笔记-a"))
+        .expect("Han-A hit must be present")
+        .source_id
+        .clone();
+    let legit_devanagari = packet
+        .hits
+        .iter()
+        .find(|h| h.source_id.as_str().starts_with("नोट-a"))
+        .expect("Devanagari hit must be present")
+        .source_id
+        .clone();
+
+    let batch: Vec<EidosCitation> = vec![
+        // 0: legit Latin (Ok)
+        EidosCitation {
+            source_id: legit_latin,
+            manifest_id: m.clone(),
+        },
+        // 1: smuggled Han (Han traditional variant of 笔记-a)
+        EidosCitation {
+            source_id: EidosChunkId::new("筆記-a::lex").unwrap(),
+            manifest_id: m.clone(),
+        },
+        // 2: legit Han (笔记-a::lex)
+        EidosCitation {
+            source_id: legit_han_a,
+            manifest_id: m.clone(),
+        },
+        // 3: smuggled Hangul (no corresponding hit in packet)
+        EidosCitation {
+            source_id: EidosChunkId::new("노트-a::lex").unwrap(),
+            manifest_id: m.clone(),
+        },
+        // 4: stale-manifest Arabic — source_id doesn't exist anyway
+        // but manifest precedence (iter 130) means ManifestMismatch
+        // fires FIRST.
+        EidosCitation {
+            source_id: EidosChunkId::new("ملاحظة-a::lex").unwrap(),
+            manifest_id: stale.clone(),
+        },
+        // 5: legit Devanagari (Ok)
+        EidosCitation {
+            source_id: legit_devanagari,
+            manifest_id: m.clone(),
+        },
+        // 6: smuggled mixed Han+Latin (no corresponding hit)
+        EidosCitation {
+            source_id: EidosChunkId::new("笔nоte-a::lex").unwrap(),
+            manifest_id: m.clone(),
+        },
+    ];
+
+    let errors = match packet.validate_citations(&batch) {
+        Ok(()) => panic!("mixed-script batch must produce errors, not Ok"),
+        Err(es) => es,
+    };
+    assert_eq!(
+        errors.len(),
+        4,
+        "exactly 4 errors expected (indices 1/3/4/6 across mixed-script batch)"
+    );
+
+    // Errors must come back in ascending input-index order
+    // regardless of script.
+    let indices: Vec<usize> = errors.iter().map(|(i, _)| *i).collect();
+    assert_eq!(
+        indices,
+        vec![1, 3, 4, 6],
+        "errors must be in ascending input-index order across mixed \
+         Latin/Han/Hangul/Arabic/Devanagari batch — iter 131's order \
+         contract holds cross-script"
+    );
+
+    // Variant at each index.
+    match &errors[0].1 {
+        CitationError::FabricatedSourceId(id) => {
+            assert_eq!(id.as_str(), "筆記-a::lex", "index 1: Han-traditional smuggled");
+        }
+        other => panic!("index 1: expected FabricatedSourceId, got {other:?}"),
+    }
+    match &errors[1].1 {
+        CitationError::FabricatedSourceId(id) => {
+            assert_eq!(id.as_str(), "노트-a::lex", "index 3: Hangul smuggled");
+        }
+        other => panic!("index 3: expected FabricatedSourceId, got {other:?}"),
+    }
+    match &errors[2].1 {
+        CitationError::ManifestMismatch { packet: pm, citation: cm } => {
+            assert_eq!(pm, &packet.manifest_id, "index 4: packet manifest preserved");
+            assert_eq!(cm, &stale, "index 4: stale manifest preserved (iter 130 precedence)");
+        }
+        other => panic!("index 4: expected ManifestMismatch, got {other:?}"),
+    }
+    match &errors[3].1 {
+        CitationError::FabricatedSourceId(id) => {
+            assert_eq!(
+                id.as_str(), "笔nоte-a::lex",
+                "index 6: mixed Han+Cyrillic-homoglyph smuggled — \
+                 diagnostic preserves the mixed-script bytes verbatim"
+            );
+        }
+        other => panic!("index 6: expected FabricatedSourceId, got {other:?}"),
+    }
+}
+
 /// `validate_citation`'s result is **independent of hit position**
 /// within the packet's `hits` Vec. Permuting the hits arbitrarily
 /// does not change which citations validate Ok vs error.
