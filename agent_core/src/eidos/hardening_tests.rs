@@ -5232,6 +5232,118 @@ fn validate_citation_accepts_multilingual_non_latin_source_ids() {
     }
 }
 
+/// Companion to iter 658: the same byte-strict floor must hold for
+/// the `manifest_id` half of the citation across non-Latin scripts.
+///
+/// `validate_citation` enforces a 2-part precedence: ManifestMismatch
+/// fires before FabricatedSourceId (iter 130). That precedence pin
+/// was set with ASCII manifest_ids only. If a future change ever
+/// normalized manifest_ids ("strip diacritics", "casefold", "NFKC")
+/// before the comparison, ASCII-only tests would still pass while
+/// non-Latin manifest_ids silently became ambiguous — a smuggled
+/// "snap-A" + diacritic could pass as "snap-A".
+///
+/// This pin loops the same five script families as iter 658 but
+/// inverts the gate axis: the source_id is held constant (Latin
+/// ASCII) and the MANIFEST_ID carries the non-Latin bytes. For each
+/// script:
+///
+///   - build an `EidosIndexManifestId` with a non-Latin payload,
+///     build a backend bound to that manifest, retrieve one hit
+///   - byte-equal citation (legit source_id + legit manifest_id)
+///     accepted (Ok(()))
+///   - byte-different MANIFEST variant (script-internal Han
+///     traditional/simplified, Hangul consonant swap, Arabic
+///     harakat swap, Devanagari vowel-sign swap, Cyrillic homoglyph
+///     inside Han prefix) → ManifestMismatch with the smuggled
+///     bytes preserved verbatim in the citation half of the
+///     diagnostic (iter 130 precedence holds)
+///   - sanity: byte-difference assertion before the validate call
+///
+/// Catches "case-fold manifest ids", "NFKC the manifest on
+/// compare", "trim diacritics from snapshot tags" regressions that
+/// the ASCII-only iter 130 precedence pin can't see.
+#[test]
+fn validate_citation_accepts_multilingual_non_latin_manifest_ids() {
+    use super::types::{CitationError, EidosCitation};
+
+    let cases: &[(&str, &str, &str)] = &[
+        ("Han (Chinese)",     "快照-α",        "快照-β"),
+        ("Hangul (Korean)",   "스냅샷-a",      "스냅숏-a"),
+        ("Arabic",            "لقطة-a",        "لقطه-a"),
+        ("Devanagari",        "स्नैपशॉट-a",   "स्नैपशौट-a"),
+        ("Mixed Han+Latin",   "快照-snap",     "快照-snар"),
+    ];
+
+    for (label, legit_manifest, smuggled_manifest) in cases {
+        let manifest = EidosIndexManifestId::new(*legit_manifest).unwrap();
+        let mut lex = InMemoryLexicalIndex::new(manifest.clone());
+        lex.insert(doc("note-a"), "alpha durian content", EidosSourceKind::Note).unwrap();
+        let q = EidosQuery::new("durian", EidosRetrievalMode::Lexical, 16);
+        let packet = lex.retrieve(&q, 1_700_000_000_000);
+        assert_eq!(packet.hits.len(), 1, "{label}: retriever must find the doc");
+        assert_eq!(
+            packet.manifest_id.as_str(),
+            *legit_manifest,
+            "{label}: packet manifest_id carries the non-Latin bytes verbatim"
+        );
+        assert!(
+            !packet.manifest_id.as_str().is_ascii(),
+            "{label}: legitimate manifest_id must contain non-ASCII bytes \
+             (the whole point of the multilingual-manifest pin)"
+        );
+
+        // Positive control: byte-equal manifest_id citation accepted.
+        let legit_cite = EidosCitation {
+            source_id: packet.hits[0].source_id.clone(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        assert_eq!(
+            packet.validate_citation(&legit_cite),
+            Ok(()),
+            "{label}: byte-equal legitimate non-Latin manifest must be accepted"
+        );
+
+        // Negative control: byte-different manifest_id surfaces as
+        // ManifestMismatch (iter 130 precedence — manifest check fires
+        // before fabrication check, so even if the source_id is
+        // legitimate the diagnostic must be ManifestMismatch).
+        let smuggled_mid = EidosIndexManifestId::new(*smuggled_manifest).unwrap();
+        assert_ne!(
+            smuggled_mid.as_str().as_bytes(),
+            packet.manifest_id.as_str().as_bytes(),
+            "{label}: smuggled manifest variant must differ in bytes \
+             from the legitimate manifest (fixture sanity)"
+        );
+        let smuggled_cite = EidosCitation {
+            source_id: packet.hits[0].source_id.clone(),
+            manifest_id: smuggled_mid.clone(),
+        };
+        match packet.validate_citation(&smuggled_cite).unwrap_err() {
+            CitationError::ManifestMismatch { packet: pm, citation: cm } => {
+                assert_eq!(
+                    pm, packet.manifest_id,
+                    "{label}: packet manifest preserved verbatim in diagnostic"
+                );
+                assert_eq!(
+                    cm.as_str(),
+                    *smuggled_manifest,
+                    "{label}: smuggled manifest bytes preserved verbatim in \
+                     diagnostic — silent NFKC-folding or diacritic-stripping \
+                     at the manifest comparator would hide the byte mismatch"
+                );
+            }
+            CitationError::FabricatedSourceId(_) => {
+                panic!(
+                    "{label}: ManifestMismatch must fire FIRST (iter 130 \
+                     precedence pin); the source_id is legitimate, only \
+                     the manifest_id differs"
+                );
+            }
+        }
+    }
+}
+
 /// `EidosChunkId::new` and `EidosIndexManifestId::new` reject empty
 /// payloads at the Rust-side construction API (`IdError::EmptyPayload`),
 /// but the `#[derive(Deserialize)]` on the newtype tuple struct does
