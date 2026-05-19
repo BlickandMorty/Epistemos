@@ -416,6 +416,46 @@ mod tests {
     }
 
     #[test]
+    fn tool_call_preserves_json_special_chars_in_arguments_through_serde() {
+        // Phase 1 hardening — adversarial JSON pin for ToolCall.arguments
+        // (companion to mission_packet iter-413, answer_packet iter-414,
+        // citation iter-415, mutation_envelope iter-416).
+        //
+        // ToolCall.arguments is serde_json::Value which can hold
+        // arbitrary JSON shapes — including string-valued fields with
+        // JSON-special characters (quotes, backslashes, newlines, etc).
+        // The Value type's own serde impl handles these correctly;
+        // pin the round-trip transparency.
+        //
+        // A future "let me cache the arguments as a String pre-parsed
+        // for speed" refactor would silently break the Value→Value
+        // round-trip semantics that the dispatcher relies on.
+        let adversarial = [
+            serde_json::json!({"json_string": r#"{"nested": "object"}"#}),
+            serde_json::json!({"multi_line": "a\nb\nc"}),
+            serde_json::json!({"escapes": r#"quote " backslash \ tab \t"#}),
+            serde_json::json!({"control": "x\x01y\x02z"}),
+            serde_json::json!({"unicode": "🚀年5月"}),
+            serde_json::json!([1, 2, "nested\narray", {"deep": {"k": "v"}}]),
+        ];
+        for args in adversarial {
+            let call = ToolCall {
+                name: "vault.read".into(),
+                arguments: args.clone(),
+            };
+            // Validation must still pass (arguments shape is opaque to
+            // the validator, only size matters and these are tiny).
+            call.validate().expect("validation passes");
+            let s = serde_json::to_string(&call).expect("serialise");
+            let back: ToolCall =
+                serde_json::from_str(&s).expect("deserialise");
+            assert_eq!(back, call, "tool call arguments must round-trip byte-equal");
+            // Spot-check the round-tripped arguments deep-equal.
+            assert_eq!(back.arguments, args);
+        }
+    }
+
+    #[test]
     fn tool_call_round_trips_through_json_with_nested_arguments() {
         // Phase 1 hardening — serde JSON round-trip with non-trivial
         // arguments (nested object + array). RunEventLog persists
