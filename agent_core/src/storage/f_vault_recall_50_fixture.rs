@@ -2565,6 +2565,23 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                neither non-Latin term.",
     },
     FVaultRecallRow {
+        // Iter-440: mixed Japanese hiragana + Hebrew interaction. This
+        // is adjacent to iter-437's katakana row but uses the separate
+        // hiragana syllabary block in one <=3-token AND query.
+        query: "Mamba ひらがな זיכרון",
+        expected_paths: &["notes/mamba_hiragana_hebrew.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Sixty-third Unicode row (iter-440): mixed-script \
+               hiragana+Hebrew query — \"Mamba ひらがな זיכרון\". \
+               Extends the post-floor Unicode interaction matrix \
+               from Japanese katakana to the distinct hiragana \
+               syllabary block plus an RTL Hebrew word in one top-5 \
+               membership contract. The English-only Mamba decoy \
+               carries the Latin anchor but neither non-Latin term.",
+    },
+    FVaultRecallRow {
         // 49th Unicode row (iter-407): Meroitic Cursive
         // extension. Adds a 47th non-Latin script (Meroitic
         // Cursive, U+109A0-U+109FF) — the EVERYDAY/CURSIVE
