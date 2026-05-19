@@ -1627,6 +1627,37 @@ mod tests {
     }
 
     #[test]
+    fn exceeds_recommended_citation_cap_returns_false_for_zero_citations() {
+        // Phase 1 hardening — boundary completeness companion to
+        // exceeds_recommended_citation_cap_flags_oversize_packet
+        // (which exercises 257 > 256 cap → true) and the at-cap pin
+        // (256 → false). The OTHER edge — zero citations — is unpinned:
+        //
+        //   0 citations → 0 > 256 == false (never flagged)
+        //
+        // A future "let me flag empty-citation packets as oversize for
+        // some 'no evidence' reason" refactor would silently change
+        // the contract for the most common no-citations case (most
+        // chat-style answers don't carry citations).
+        //
+        // Pin the boundary so it surfaces at PR review.
+        let log = RunEventLog::new();
+        let no_citations = AnswerPacket::emit(
+            AgentBlueprintId("a".into()),
+            "answer body".into(),
+            vec![],
+            StopReason::EndTurn,
+            BudgetLedger::default(),
+            &log,
+        );
+        assert_eq!(no_citations.citations.len(), 0);
+        assert!(
+            !no_citations.exceeds_recommended_citation_cap(),
+            "0 citations must not flag as oversize"
+        );
+    }
+
+    #[test]
     fn exceeds_recommended_citation_cap_flags_oversize_packet() {
         // Phase 1 hardening boundary — soft cap on citation list.
         let log = RunEventLog::new();
