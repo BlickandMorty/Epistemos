@@ -1272,6 +1272,38 @@ mod tests {
     }
 
     #[test]
+    fn mission_prompt_error_oversize_field_shape_pinned_to_exactly_size_and_cap() {
+        // Phase 1 hardening — field-shape pin for
+        // MissionPromptError::OversizePrompt. The variant carries
+        // EXACTLY 2 named fields (size + cap), both usize. Pin the
+        // field count + types via the Debug repr (already pinned by
+        // mission_prompt_error_oversize_debug_repr_is_stable_for_audit_persistence
+        // but that test only fixes the format STRING, not the SHAPE).
+        //
+        // A future "let me add a 3rd field like {size, cap, kind}"
+        // refactor would silently change the error payload size and
+        // break any audit log that keys on the (size, cap) tuple.
+        //
+        // Pin via struct-literal destructuring: if the field count
+        // changes, this match arm fails to compile.
+        let err = MissionPromptError::OversizePrompt {
+            size: 200_000,
+            cap: 131_072,
+        };
+        match err {
+            MissionPromptError::OversizePrompt { size, cap } => {
+                // Exactly 2 fields, both usize. The destructure
+                // compile-fails if more/fewer fields exist.
+                assert_eq!(size, 200_000);
+                assert_eq!(cap, 131_072);
+                // Type assertion: size and cap are both usize.
+                let _: usize = size;
+                let _: usize = cap;
+            }
+        }
+    }
+
+    #[test]
     fn mission_prompt_error_oversize_inner_fields_are_identity_load_bearing() {
         // Phase 1 hardening — closes the error inner-field distinctness
         // series across the codebase (iter-197 BadName, iter-198
