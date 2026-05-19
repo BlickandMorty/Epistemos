@@ -77,7 +77,7 @@ impl<'de> Deserialize<'de> for ACSRiskVector {
             evidence_present: wire.evidence_present,
         };
         risk.validate()
-            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+            .map_err(|err| serde::de::Error::custom(acs_risk_vector_decode_error(&err)))?;
         Ok(risk)
     }
 }
@@ -150,6 +150,10 @@ impl ACSRiskVectorError {
             Self::NonFinite { field } | Self::OutOfRange { field } => field,
         }
     }
+}
+
+fn acs_risk_vector_decode_error(error: &ACSRiskVectorError) -> String {
+    format!("{} field={}", error.cause(), error.field())
 }
 
 /// Admission operation family used by policy capability rules.
@@ -7066,9 +7070,11 @@ mod tests {
             serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
         value["safety_risk"] = serde_json::json!(1.01);
 
-        let decoded = serde_json::from_value::<ACSRiskVector>(value);
+        let err = serde_json::from_value::<ACSRiskVector>(value).unwrap_err();
+        let message = err.to_string();
 
-        assert!(decoded.is_err());
+        assert!(message.contains("risk_axis_out_of_range"), "{message}");
+        assert!(message.contains("safety_risk"), "{message}");
     }
 
     #[test]
