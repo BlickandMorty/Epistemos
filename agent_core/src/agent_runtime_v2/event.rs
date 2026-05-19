@@ -948,6 +948,39 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_error_kind_serde_forms_are_pairwise_distinct_across_all_four_variants() {
+        // Phase 1 hardening — pairwise-distinct serde-form pin for
+        // AgentEventErrorKind (companion to the serde-pairwise-distinct
+        // pin family iter-533/537/538/539/540). The 4 snake_case
+        // variants (malformed_tool_call, budget_exhausted,
+        // capability_denied, provider) are persisted into RunEventLog
+        // Error rows. A 5th variant added with #[serde(rename =
+        // "provider")] would silently collide and misroute deserialised
+        // payloads on replay — error dashboards would attribute the
+        // wrong root cause. Pin asserts all 4 serialized forms are
+        // pairwise-distinct.
+        let variants = [
+            AgentEventErrorKind::MalformedToolCall,
+            AgentEventErrorKind::BudgetExhausted,
+            AgentEventErrorKind::CapabilityDenied,
+            AgentEventErrorKind::Provider,
+        ];
+        let serde_forms: Vec<String> = variants
+            .iter()
+            .map(|v| serde_json::to_string(v).expect("serialize"))
+            .collect();
+        for i in 0..serde_forms.len() {
+            for j in (i + 1)..serde_forms.len() {
+                assert_ne!(
+                    serde_forms[i], serde_forms[j],
+                    "AgentEventErrorKind serde forms collide at [{i}] = {:?} and [{j}] = {:?}",
+                    serde_forms[i], serde_forms[j]
+                );
+            }
+        }
+    }
+
+    #[test]
     fn agent_event_error_kind_serde_values_are_stable() {
         // Same guardrail for AgentEventErrorKind — closed taxonomy
         // persisted in RunEventLog rows.
