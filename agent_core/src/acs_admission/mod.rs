@@ -5424,6 +5424,41 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_broader_vault_path_grant_does_not_satisfy_narrow_policy_scope() {
+        let required = Capability::VaultPath {
+            path: "/vault/project-a/note.md".to_string(),
+            verb: "write".to_string(),
+        };
+        let replayed_broader_scope = Capability::VaultPath {
+            path: "/vault".to_string(),
+            verb: "write".to_string(),
+        };
+        let policy = ACSPolicy::strict("policy-vault-scope-creep", 1_000)
+            .require_capability(ACSOperationKind::MemoryWrite, required);
+        let input = ACSAdmissionInput {
+            request_id: "req-vault-scope-creep".to_string(),
+            payload: ACSAdmissionPayload::MemoryWrite {
+                request: ACSMemoryWriteRequest {
+                    address: "uas://note/1".to_string(),
+                    content_hash: "content-hash".to_string(),
+                    durable: false,
+                    mutation_envelope_id: None,
+                },
+            },
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: vec![replayed_broader_scope],
+        };
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "missing_capability");
+        assert_eq!(audit_log.len(), 1);
+    }
+
+    #[test]
     fn acs_admission_capability_rules_are_operation_scoped() {
         let promotion_capability = Capability::Other {
             name: "kernel.promote".to_string(),
