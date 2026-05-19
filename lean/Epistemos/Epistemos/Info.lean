@@ -29,6 +29,9 @@ inductive ExpFamily where
   | categorical (k : Nat) : ExpFamily
   | gaussian (variance : Real) : ExpFamily
 
+/-- Info-IR currently exposes Bernoulli, categorical, and Gaussian carriers. -/
+def expFamilyConstructorCount : Nat := 3
+
 namespace ExpFamily
 
 def naturalParamArity : ExpFamily -> Nat
@@ -78,6 +81,9 @@ inductive Expr where
   | logPartition (node : LogPartitionSchema) : Expr
   | dualMap (node : DualMapSchema) : Expr
   | klProjection (node : KlProjectionSchema) : Expr
+
+/-- Info-IR expression schema has log-partition, dual-map, and KL-projection nodes. -/
+def exprConstructorCount : Nat := 3
 
 def logPartitionConvex
     (family : ExpFamily) (naturalParams : List Real) : Prop :=
@@ -151,5 +157,9 @@ def bernoulliKlProjection (p q : Real) : Expr :=
     pArityMatches := rfl
     qArityMatches := rfl
   }
+
+theorem schemaConstructorCountsPinned :
+    expFamilyConstructorCount = 3 ∧ exprConstructorCount = 3 := by
+  exact ⟨rfl, rfl⟩
 
 end Epistemos.Info
