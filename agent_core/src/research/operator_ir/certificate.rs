@@ -143,7 +143,8 @@ pub fn lean_certificate(op: &OperatorExpr) -> String {
          \x20   (dimMatchWitness :\n\
          \x20     operator_expr_{suffix}.branch.outputDim = operator_expr_{suffix}.trunk.outputDim) :\n\
          \x20   operator_expr_{suffix}.branch.outputDim = operator_expr_{suffix}.trunk.outputDim := by\n\
-         \x20 exact dimMatchWitness\n\
+         \x20 exact Epistemos.Operator.Expr.dimWitnessCarries\n\
+         \x20   operator_expr_{suffix} dimMatchWitness\n\
          \n\
          {fourier_theorem}\
          theorem operator_fno_equivalence_{suffix} :\n\
@@ -193,7 +194,8 @@ mod tests {
         let c = lean_certificate(&op);
         assert!(c.contains("operator_dim_consistency_"));
         assert!(c.contains("(dimMatchWitness :"));
-        assert!(c.contains("exact dimMatchWitness"));
+        assert!(c.contains("exact Epistemos.Operator.Expr.dimWitnessCarries"));
+        assert!(!c.contains("exact dimMatchWitness"));
         assert!(!c.contains("exact operator_expr_"));
         assert!(c.contains(".branch.outputDim = operator_expr_"));
         assert!(c.contains(".trunk.outputDim"));
