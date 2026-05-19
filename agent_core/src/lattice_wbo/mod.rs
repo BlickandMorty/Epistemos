@@ -4264,6 +4264,35 @@ mod tests {
     }
 
     #[test]
+    fn lattice_coder_canonical_wbo_terms_are_dedup_and_canonical() {
+        for coder in LatticeCoderKind::ALL {
+            let terms = coder.canonical_wbo_terms();
+            assert!(
+                !terms.is_empty(),
+                "{coder:?} must declare at least one canonical WBO term"
+            );
+            for (index, term) in terms.iter().enumerate() {
+                assert!(
+                    !terms[index + 1..].contains(term),
+                    "{coder:?} must not duplicate term {}",
+                    term.code()
+                );
+                assert!(
+                    WboTermCode::ALL.contains(term),
+                    "{coder:?} term {} must remain in WboTermCode::ALL",
+                    term.code()
+                );
+            }
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`lattice_coder_canonical_wbo_terms_are_dedup_and_canonical`"),
+            "register doc must cross-link codec term dedup invariant"
+        );
+    }
+
+    #[test]
     fn lattice_coder_canonical_wbo_terms_end_with_t_num() {
         for coder in LatticeCoderKind::ALL {
             let terms = coder.canonical_wbo_terms();
