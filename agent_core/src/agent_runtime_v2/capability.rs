@@ -131,6 +131,44 @@ mod tests {
         )
     }
 
+    fn caveat_replay_cases() -> Vec<(Caveat, RuntimeContext)> {
+        use std::collections::BTreeMap;
+
+        let mut ctx_with_additional = ctx_now_at(1_000);
+        ctx_with_additional.additional = {
+            let mut m = BTreeMap::new();
+            m.insert("principal".to_string(), "trusted".to_string());
+            m
+        };
+        vec![
+            (
+                Caveat::ScopePrefix {
+                    prefix: "vault/notes".into(),
+                },
+                ctx_now_at(1_000),
+            ),
+            (
+                Caveat::ExpiryAfter {
+                    until_ts_ms: 10_000,
+                },
+                ctx_now_at(1_000),
+            ),
+            (
+                Caveat::ToolNameEq {
+                    name: "vault.read".into(),
+                },
+                ctx_now_at(1_000),
+            ),
+            (
+                Caveat::AdditionalContext {
+                    key: "principal".into(),
+                    value: "trusted".into(),
+                },
+                ctx_with_additional,
+            ),
+        ]
+    }
+
     #[test]
     fn capability_error_violated_distinguishes_all_six_caveat_violation_variants() {
         // Phase 1 hardening — inner-variant distinctness pin
@@ -1716,44 +1754,8 @@ mod tests {
         // field would still compile but would either change the
         // signature/capability_hash or fail caveat evaluation after
         // a process-boundary replay.
-        use std::collections::BTreeMap;
-
         let key = root_key_a();
-        let mut ctx_with_additional = ctx_now_at(1_000);
-        ctx_with_additional.additional = {
-            let mut m = BTreeMap::new();
-            m.insert("principal".to_string(), "trusted".to_string());
-            m
-        };
-        let cases: Vec<(Caveat, RuntimeContext)> = vec![
-            (
-                Caveat::ScopePrefix {
-                    prefix: "vault/notes".into(),
-                },
-                ctx_now_at(1_000),
-            ),
-            (
-                Caveat::ExpiryAfter {
-                    until_ts_ms: 10_000,
-                },
-                ctx_now_at(1_000),
-            ),
-            (
-                Caveat::ToolNameEq {
-                    name: "vault.read".into(),
-                },
-                ctx_now_at(1_000),
-            ),
-            (
-                Caveat::AdditionalContext {
-                    key: "principal".into(),
-                    value: "trusted".into(),
-                },
-                ctx_with_additional,
-            ),
-        ];
-
-        for (caveat, ctx) in cases {
+        for (caveat, ctx) in caveat_replay_cases() {
             let base = issue_tool_macaroon(&key, Some(10_000));
             let narrowed = restrict(&base, caveat.clone());
             let json = serde_json::to_string(&narrowed).expect("serialise macaroon");
@@ -1771,6 +1773,33 @@ mod tests {
             let cap = MacaroonCapability::new(replayed, key);
             cap.verify(&ctx)
                 .unwrap_or_else(|err| panic!("replayed {caveat:?} must verify, got {err:?}"));
+        }
+    }
+
+    #[test]
+    fn replayed_macaroon_file_round_trip_verifies_with_every_caveat_type() {
+        let key = root_key_a();
+        for (caveat, ctx) in caveat_replay_cases() {
+            let base = issue_tool_macaroon(&key, Some(10_000));
+            let narrowed = restrict(&base, caveat.clone());
+
+            let file = tempfile::NamedTempFile::new().expect("temp capability file");
+            std::fs::write(
+                file.path(),
+                serde_json::to_vec(&narrowed).expect("serialise macaroon"),
+            )
+            .expect("write capability file");
+            let bytes = std::fs::read(file.path()).expect("read capability file");
+            let replayed: Macaroon =
+                serde_json::from_slice(&bytes).expect("deserialise macaroon");
+
+            assert_eq!(replayed.caveats, vec![caveat.clone()]);
+            assert_eq!(replayed.signature, narrowed.signature);
+            assert_eq!(replayed.capability_hash(), narrowed.capability_hash());
+
+            MacaroonCapability::new(replayed, key)
+                .verify(&ctx)
+                .unwrap_or_else(|err| panic!("file-replayed {caveat:?} must verify, got {err:?}"));
         }
     }
 
