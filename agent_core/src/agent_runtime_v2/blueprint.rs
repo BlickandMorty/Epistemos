@@ -271,6 +271,28 @@ mod tests {
     }
 
     #[test]
+    fn blueprint_mode_error_variants_field_shapes_pinned_via_destructure() {
+        // Phase 1 hardening — field-shape pin for BlueprintModeError's
+        // 2 unit variants (companion to the field-shape destructure
+        // pin family iter-454..iter-458).
+        //
+        // Both variants are unit: ModeDisabled, SubprocessNotAllowed.
+        // A future "let me add a context payload" extension to either
+        // variant would silently shuffle the error surface — surface
+        // here via the destructure match arm.
+        let cases = [
+            BlueprintModeError::ModeDisabled,
+            BlueprintModeError::SubprocessNotAllowed,
+        ];
+        for case in cases {
+            match case {
+                BlueprintModeError::ModeDisabled
+                | BlueprintModeError::SubprocessNotAllowed => {}
+            }
+        }
+    }
+
+    #[test]
     fn blueprint_mode_error_variant_count_is_two() {
         // Phase 1 hardening — cardinality pin. BlueprintModeError
         // has 2 variants (ModeDisabled, SubprocessNotAllowed)

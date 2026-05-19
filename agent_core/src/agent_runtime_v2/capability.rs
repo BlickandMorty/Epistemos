@@ -184,6 +184,39 @@ mod tests {
     }
 
     #[test]
+    fn capability_error_variants_field_shapes_pinned_via_destructure() {
+        // Phase 1 hardening — field-shape pin for CapabilityError's
+        // 2 tuple variants (companion to the field-shape destructure
+        // pin family iter-454..iter-458 + blueprint_mode_error iter-459).
+        //
+        // Variants:
+        //   - Forged(VerifyError) — tuple, 1 field of type VerifyError
+        //   - Violated(CaveatViolation) — tuple, 1 field of type CaveatViolation
+        //
+        // A future "let me add a recovery_hint field to Violated"
+        // would silently break the (1-field tuple) shape — surface
+        // here via destructure.
+        use crate::cognitive_dag::macaroons::{CaveatViolation, VerifyError};
+        let forged = CapabilityError::Forged(VerifyError::SignatureMismatch);
+        match forged {
+            CapabilityError::Forged(inner) => {
+                let _: VerifyError = inner;
+            }
+            _ => unreachable!(),
+        }
+        let violated = CapabilityError::Violated(CaveatViolation::Expired {
+            until_ts_ms: 100,
+            now_ms: 200,
+        });
+        match violated {
+            CapabilityError::Violated(inner) => {
+                let _: CaveatViolation = inner;
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    #[test]
     fn capability_error_variant_count_is_two() {
         // Phase 1 hardening — cardinality pin. CapabilityError has
         // 2 variants (Forged, Violated) covering the two macaroon-
