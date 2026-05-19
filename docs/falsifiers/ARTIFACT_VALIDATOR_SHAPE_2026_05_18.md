@@ -362,6 +362,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_
 ```
 
 ```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md"); block=s[/## N210 - .*?```json\n(.*?)\n```/m,1] || abort("N210 missing"); x=JSON.parse(block); abort("N210 at-sign slug missing") unless x["catalog_slug"] == "reserved@state"; abort("N210 unexpectedly matches slug grammar") if x["catalog_slug"].match?(/\A[a-z][a-z0-9]*(?:-[a-z0-9]+)*\z/); puts "identity gap at-sign slug negative case ok"'
+```
+
+```bash
 ruby -e 'h=File.read("docs/falsifiers/M2_PRO_VERIFIED_FLOOR_HANDBOOK_2026_05_18.md"); abort("identity slug registration audit missing") unless h.include?("## Identity Gap Slug Registration Audit") && h.include?("N196 is the negative catalog guard"); puts "identity slug registration audit ok"'
 ```
 
@@ -694,7 +698,7 @@ Implementation owner is TBD: merge-phase if artifact validation becomes part of 
 | `W-Validator-MigrationIdentitySentinelGapReservedNewState` | TBD validator-implementation terminal | Any executable validator only checks old-state atoms for reserved identity words. | Keep N195 failing: new-state atoms may not equal `anonymous`, `unknown`, `tbd`, or `none` either. |
 | `W-Validator-MigrationIdentitySlugCatalog` | TBD validator-implementation terminal | Any executable validator hard-codes identity gap families without schema catalog lookup. | Keep the schema identity-gap slug catalog as the vocabulary source for validator ownership, handbook audits, and negative examples. |
 | `W-Validator-MigrationIdentitySlugCatalogNegative` | TBD validator-implementation terminal | Any executable validator accepts validator-owned identity slugs missing from the schema catalog. | Keep N196 failing so validator-shape and handbook references cannot mint uncataloged identity-gap families. |
-| `W-Validator-MigrationIdentitySlugGrammarNegative` | TBD validator-implementation terminal | Any executable validator accepts ampersand-bearing, plus-bearing, colon-bearing, slash-bearing, comma-bearing, spaced, dotted, underscore, uppercase, title-case, boundary-punctuation, empty-token, or numeric-leading identity-gap slug aliases. | Keep N197/N198/N199/N200/N201/N202/N203/N204/N205/N206/N207/N208/N209 failing so identity-gap slug references use only lowercase hyphenated catalog tokens. |
+| `W-Validator-MigrationIdentitySlugGrammarNegative` | TBD validator-implementation terminal | Any executable validator accepts at-sign-bearing, ampersand-bearing, plus-bearing, colon-bearing, slash-bearing, comma-bearing, spaced, dotted, underscore, uppercase, title-case, boundary-punctuation, empty-token, or numeric-leading identity-gap slug aliases. | Keep N197/N198/N199/N200/N201/N202/N203/N204/N205/N206/N207/N208/N209/N210 failing so identity-gap slug references use only lowercase hyphenated catalog tokens. |
 | `W-Validator-MigrationIdentitySentinelGapDistinct` | TBD validator-implementation terminal | Any executable validator accepts identical validator/reviewer identity sentinel impacts. | Reject `identity_sentinel_gap_report` when validator and reviewer role-impact values are identical before migration acceptance. |
 | `W-Validator-MigrationIdentitySentinelGapDelimiter` | TBD validator-implementation terminal | Any executable validator accepts embedded `identity_sentinel_gap_report` substrings. | Reject identity sentinel gap-report token substrings that are not bounded by note start/end or semicolon delimiters before migration acceptance. |
 | `W-Validator-MigrationIdentitySentinelGapArtifactPath` | TBD validator-implementation terminal | Any executable validator accepts identity sentinel gap reports without an affected artifact path. | Bind every `identity_sentinel_gap_report` to the migration note `artifact_path` before migration acceptance. |
