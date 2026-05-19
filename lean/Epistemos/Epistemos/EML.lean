@@ -55,6 +55,9 @@ def depth : Expr -> Nat
 
 theorem eval_one : eval .one = (1 : ℝ) := rfl
 
+theorem eval_one_positive : 0 < eval .one := by
+  norm_num [eval]
+
 theorem eval_eml (x y : Expr) :
     eval (.eml x y) = Real.exp (eval x) - Real.log (eval y) := rfl
 
