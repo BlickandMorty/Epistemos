@@ -1387,6 +1387,29 @@ mod tests {
     }
 
     #[test]
+    fn agent_blueprint_fields_are_pub_per_field_visibility_doctrine() {
+        // Phase 1 hardening — field-visibility pin for AgentBlueprint
+        // (companion to ParaFeedback iter-505, ParaOutput iter-506,
+        // AnswerPacket iter-507). All 5 fields are pub:
+        //   - id: AgentBlueprintId
+        //   - display_name: String
+        //   - provider_policy: ProviderPolicy
+        //   - budget: BudgetSpec
+        //   - capability_root_hash: Hash
+        //
+        // A future "let me hide capability_root_hash behind a getter
+        // for security audit" refactor would silently break the
+        // vault file's #[serde] write-through path.
+        let bp = local_blueprint();
+        // Direct field reads.
+        assert_eq!(bp.id.0, "research-assistant");
+        assert!(!bp.display_name.is_empty());
+        let _: &ProviderPolicy = &bp.provider_policy;
+        let _: &BudgetSpec = &bp.budget;
+        let _: &Hash = &bp.capability_root_hash;
+    }
+
+    #[test]
     fn agent_blueprint_struct_field_shape_pinned_to_exactly_five_typed_fields() {
         // Phase 1 hardening — struct-field-shape pin for AgentBlueprint
         // (companion to AnswerPacket struct destructure iter-464).
