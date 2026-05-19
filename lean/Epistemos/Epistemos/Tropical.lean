@@ -172,6 +172,14 @@ structure CertificateTarget where
     ∀ env : Nat -> Scalar, poly.eval env = Expr.eval env expr
   semiringLaws : TropicalSemiringLawObligation
 
+namespace CertificateTarget
+
+theorem evalMatches (c : CertificateTarget) :
+    ∀ env : Nat -> Scalar, c.poly.eval env = Expr.eval env c.expr := by
+  exact c.eval_matches
+
+end CertificateTarget
+
 /-- Tropical rational form: a numerator and denominator expression.
 Rust certificates use this row for the Zhang/Naitzat/Lim rational-map
 shape before stronger ReLU-network equivalence lemmas are supplied. -/
