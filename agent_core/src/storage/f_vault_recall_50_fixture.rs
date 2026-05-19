@@ -3357,6 +3357,45 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 49th PureChatter row (iter-406): 24-token long-input
+        // shape — "please can you tell me what where when how
+        // some of my notes are about stuff things files thing
+        // note file would could should". Extends long-input
+        // cardinality progression to 24 (iter-399 was 23).
+        // LONGEST PureChatter query in the fixture. Adds the
+        // modal "should" past iter-399's "could" — modal-
+        // survey progression now covers THREE modals (would +
+        // could + should). QUERY_CHATTER_WORDS lists 5
+        // modals/discourse-particles (please / can / could /
+        // would / should); iter-406 brings ALL FIVE into one
+        // query (please + can + could + would + should = full
+        // modal-class coverage). CLOSES the chatter-modal-
+        // class survey alongside iter-385's closed noun-class
+        // survey. All 24 tokens in QUERY_CHATTER_WORDS.
+        query: "please can you tell me what where when how some of my notes are about stuff things files thing note file would could should",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Forty-ninth PureChatter row (iter-406): 24-\
+               token long-input. Extends cardinality to 24 \
+               (iter-399 = 23). LONGEST PureChatter query in \
+               the fixture. Adds modal \"should\" past iter-\
+               399's \"could\" — modal-survey progression now \
+               covers THREE modals (would + could + should). \
+               Query carries ALL FIVE modals/particles from \
+               QUERY_CHATTER_WORDS (please + can + could + \
+               would + should = full modal-class coverage). \
+               CLOSES the chatter-modal-class survey alongside \
+               iter-385's closed noun-class survey. All 24 \
+               tokens in QUERY_CHATTER_WORDS. Brings \
+               PureChatter to depth 49 — first category past \
+               depth-48 horizon.",
+    },
+    FVaultRecallRow {
         // 48th PureChatter row (iter-399): 23-token long-input
         // shape — "please can you tell me what where when how
         // some of my notes are about stuff things files thing
