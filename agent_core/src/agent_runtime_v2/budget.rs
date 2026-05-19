@@ -2541,6 +2541,35 @@ mod tests {
     }
 
     #[test]
+    fn budget_spec_new_4_arg_constructor_defaults_max_memory_bytes_to_zero() {
+        // Phase 1 hardening — constructor default pin. BudgetSpec::new
+        // takes 4 positional args (tokens / wall_ms / tool_calls /
+        // subprocess_ms) and sets max_memory_bytes = 0 implicitly
+        // (budget.rs §65). The 0 means "unbounded for memory" per the
+        // BudgetSpec doctrine.
+        //
+        // A future "let me add max_memory_bytes as a 5th positional
+        // arg" refactor or "let me default memory to a non-zero
+        // safe-default" refactor would silently change the
+        // BudgetSpec::new ergonomics for every call site.
+        //
+        // Pin via a sweep of non-trivial 4-arg constructions; every
+        // one must leave max_memory_bytes == 0.
+        let cases = [
+            BudgetSpec::new(0, 0, 0, 0),
+            BudgetSpec::new(1, 1, 1, 1),
+            BudgetSpec::new(1_000_000, 60_000, 5, 30_000),
+            BudgetSpec::new(u64::MAX, u64::MAX, u64::MAX, u64::MAX),
+        ];
+        for spec in cases {
+            assert_eq!(
+                spec.max_memory_bytes, 0,
+                "4-arg new() must leave max_memory_bytes == 0 unbounded"
+            );
+        }
+    }
+
+    #[test]
     fn with_memory_bytes_chained_twice_with_nonzero_replaces_not_accumulates() {
         // Phase 1 hardening — builder semantic pin. Companion to
         // with_memory_bytes_zero_resets_to_unbounded_per_doctrine
