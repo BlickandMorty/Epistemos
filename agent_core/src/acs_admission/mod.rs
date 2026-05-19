@@ -1472,7 +1472,7 @@ impl<'de> Deserialize<'de> for ACSMemoryWriteRequest {
         };
         request
             .validate()
-            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+            .map_err(|err| serde::de::Error::custom(acs_admission_input_decode_error(&err)))?;
         Ok(request)
     }
 }
@@ -5524,7 +5524,14 @@ mod tests {
             "mutation_envelope_id": " mutation-1",
         });
 
-        assert!(serde_json::from_value::<ACSMemoryWriteRequest>(value).is_err());
+        let err = serde_json::from_value::<ACSMemoryWriteRequest>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("forged_admission_input"), "{message}");
+        assert!(
+            message.contains("memory_write.mutation_envelope_id"),
+            "{message}"
+        );
     }
 
     #[test]
