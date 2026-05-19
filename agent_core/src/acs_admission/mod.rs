@@ -64,7 +64,17 @@ impl<'de> Deserialize<'de> for ACSRiskVector {
     where
         D: serde::Deserializer<'de>,
     {
-        let wire = ACSRiskVectorWire::deserialize(deserializer)?;
+        let value = serde_json::Value::deserialize(deserializer)?;
+        require_risk_vector_field::<D::Error>(&value, "truth_risk")?;
+        require_risk_vector_field::<D::Error>(&value, "safety_risk")?;
+        require_risk_vector_field::<D::Error>(&value, "privacy_risk")?;
+        require_risk_vector_field::<D::Error>(&value, "capability_risk")?;
+        require_risk_vector_field::<D::Error>(&value, "durability_risk")?;
+        require_risk_vector_field::<D::Error>(&value, "scope_rex_risk")?;
+        require_risk_vector_field::<D::Error>(&value, "kernel_promotion_risk")?;
+        require_risk_vector_field::<D::Error>(&value, "model_adaptation_risk")?;
+        require_risk_vector_field::<D::Error>(&value, "evidence_present")?;
+        let wire = ACSRiskVectorWire::deserialize(value).map_err(serde::de::Error::custom)?;
         let risk = Self {
             truth_risk: wire.truth_risk,
             safety_risk: wire.safety_risk,
@@ -79,6 +89,17 @@ impl<'de> Deserialize<'de> for ACSRiskVector {
         risk.validate()
             .map_err(|err| serde::de::Error::custom(acs_risk_vector_decode_error(&err)))?;
         Ok(risk)
+    }
+}
+
+fn require_risk_vector_field<E>(value: &serde_json::Value, field: &'static str) -> Result<(), E>
+where
+    E: serde::de::Error,
+{
+    match value {
+        serde_json::Value::Object(object) if object.contains_key(field) => Ok(()),
+        serde_json::Value::Object(_) => Err(E::custom(format!("missing_risk_axis field={field}"))),
+        _ => Err(E::custom("risk vector must be an object")),
     }
 }
 
@@ -7208,6 +7229,22 @@ mod tests {
         let decoded = serde_json::from_value::<ACSRiskVector>(malformed);
 
         assert!(decoded.is_err());
+    }
+
+    #[test]
+    fn acs_admission_missing_risk_axis_names_decode_field() {
+        let mut value =
+            serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
+        value
+            .as_object_mut()
+            .expect("risk vector encodes as object")
+            .remove("model_adaptation_risk");
+
+        let err = serde_json::from_value::<ACSRiskVector>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("missing_risk_axis"), "{message}");
+        assert!(message.contains("model_adaptation_risk"), "{message}");
     }
 
     #[test]
