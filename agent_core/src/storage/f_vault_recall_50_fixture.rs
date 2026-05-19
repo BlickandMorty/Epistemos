@@ -8751,6 +8751,56 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 50th Adversarial row (iter-409, MILESTONE — Adversarial
+        // category FIRST AFTER SYNTHESIS to reach the F-
+        // VaultRecall-50 target row count). BM25/IR 10-term
+        // long-query — {bm25, saturation, length, penalty,
+        // ranking, ir, search, relevance, scoring, notes}.
+        // Keeps all 4 canonical primaries + 6 IR-context tail
+        // tokens = ALL 10 unique tokens in canonical body
+        // "...ranking ir search relevance scoring notes". 10
+        // terms OR. Canonical 10/10; decoys carry ≤2 of 10
+        // ("notes" is in bm25_overview + length_archive +
+        // penalty_misc_notes; saturation_stuffed_decoy has
+        // ONLY saturation). FIRST 10-term Adversarial row in
+        // the fixture — extends long-query coverage past the
+        // 9-term boundary first reached at iter-395. BM25/IR
+        // corpus now exercised at 4/5/6/7/8/9/10-term — FIRST
+        // canonical at SEVEN query-length coverage points.
+        // Long-query length axis now spans 4 → 10 tokens (2.5×
+        // length ratio) — proves BM25's accumulated saturated
+        // contribution from 4 primaries (each 2-3×) +
+        // multiple tail tokens decisively outranks decoys'
+        // single primary at high TF + low-IDF "notes". The 10-
+        // term row is the BM25/IR canonical's exhaustive vocab
+        // exercise — every token in its body is now in a
+        // query.
+        query: "bm25 saturation length penalty ranking ir search relevance scoring notes",
+        expected_paths: &["notes/bm25_saturation_length_penalty.md"],
+        forbidden_paths: &[
+            "notes/saturation_stuffed_decoy.md",
+            "notes/bm25_overview.md",
+            "notes/length_archive.md",
+            "notes/penalty_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Fiftieth Adversarial row (iter-409, MILESTONE — \
+               Adversarial category SECOND to reach the F-\
+               VaultRecall-50 target row count). BM25/IR 10-\
+               term long-query \"bm25 saturation length penalty \
+               ranking ir search relevance scoring notes\". ALL \
+               10 unique canonical body tokens. FIRST 10-term \
+               Adversarial — extends long-query past the 9-term \
+               boundary (iter-395). BM25/IR now at SEVEN query-\
+               length coverage points (4/5/6/7/8/9/10-term). \
+               Length axis spans 4 → 10 tokens (2.5× ratio). \
+               Canonical 10/10; decoys ≤2 of 10. EXHAUSTIVE \
+               canonical-vocab exercise. Brings Adversarial to \
+               depth 50 — F-VaultRecall-50 target reached. \
+               Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 49th Adversarial row (iter-402): MLX-Swift 8-term
         // long-query — {mlx, swift, inference, backend, local,
         // model, pipeline, notes}. Keeps all 4 canonical
