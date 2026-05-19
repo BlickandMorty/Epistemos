@@ -3007,6 +3007,16 @@ mod tests {
             }"#,
             "source",
         );
+        assert_json_duplicate_field_rejected::<LatticeErrorContribution>(
+            r#"{
+                "term": "T_num",
+                "source": "exact ULP guard",
+                "budget": 0.0,
+                "measured": null,
+                "measured": 0.0
+            }"#,
+            "measured",
+        );
         assert_json_duplicate_field_rejected::<LatticeBudget>(
             r#"{
                 "coder": "exact-hot",
@@ -3021,6 +3031,21 @@ mod tests {
                 }]
             }"#,
             "coder",
+        );
+        assert_json_duplicate_field_rejected::<LatticeBudget>(
+            r#"{
+                "coder": "exact-hot",
+                "rate_milli_bits_per_symbol": null,
+                "rate_milli_bits_per_symbol": 1,
+                "side_information": "None",
+                "contributions": [{
+                    "term": "T_num",
+                    "source": "exact ULP guard",
+                    "budget": 0.0,
+                    "measured": null
+                }]
+            }"#,
+            "rate_milli_bits_per_symbol",
         );
         assert_json_duplicate_field_rejected::<ActiveSupportBudget>(
             r#"{
@@ -3053,6 +3078,32 @@ mod tests {
             }"#,
             "falsifier",
         );
+        assert_json_duplicate_field_rejected::<WboLedgerEntry>(
+            r#"{
+                "memory_tier": "L0 RAM hot",
+                "budget": {
+                    "coder": "exact-hot",
+                    "rate_milli_bits_per_symbol": null,
+                    "side_information": "None",
+                    "contributions": [{
+                        "term": "T_num",
+                        "source": "exact ULP guard",
+                        "budget": 0.0,
+                        "measured": null
+                    }]
+                },
+                "active_support": null,
+                "active_support": {
+                    "max_active_tokens": 1,
+                    "max_active_pages": 1,
+                    "max_resident_bytes": 1,
+                    "side_information": "ActiveSupport"
+                },
+                "falsifier": "F-WBO-DriftLedger; F-ULP-Oracle",
+                "caveat": "Exact hot rows still need numerical post-correction."
+            }"#,
+            "active_support",
+        );
         assert_json_duplicate_field_rejected::<FalsifierHookOwner>(
             r#"{
                 "hook": "F-ULP-Oracle",
@@ -3060,6 +3111,14 @@ mod tests {
                 "owner": "agent_core/src/research/eml/ulp_oracle.rs"
             }"#,
             "hook",
+        );
+        assert_json_duplicate_field_rejected::<FalsifierHookOwner>(
+            r#"{
+                "hook": "F-ULP-Oracle",
+                "owner": "agent_core/src/research/eml/ulp_oracle.rs",
+                "owner": "docs/fusion/HELIOS_WBO6_BUDGET_2026_05_03.md"
+            }"#,
+            "owner",
         );
     }
 
@@ -4336,6 +4395,7 @@ mod tests {
             "public accounting JSON rejects nested unknown fields inside budget contributions and ledger active-support budgets",
             "`public_accounting_json_rejects_duplicate_public_keys`",
             "public JSON rows reject duplicate public keys before validation",
+            "duplicate-key guard covers nullable public keys and owner paths",
             "`public_accounting_json_rejects_missing_required_keys`",
             "public JSON rows reject missing required keys before validation",
             "missing-key matrix removes every public top-level key",
