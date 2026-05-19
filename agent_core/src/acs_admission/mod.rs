@@ -2563,7 +2563,7 @@ pub trait ACSAuditSink {
 pub enum ACSAuditError {
     SinkUnavailable,
     EncodeRecord,
-    InvalidRunEventLogChain,
+    InvalidRunEventLogChain { record_id: String },
     DuplicateRecord { record_id: String },
     CorruptRecord {
         field: &'static str,
@@ -2576,7 +2576,7 @@ impl ACSAuditError {
         match self {
             Self::SinkUnavailable => "acs_audit_sink_unavailable",
             Self::EncodeRecord => "acs_audit_record_encode_failed",
-            Self::InvalidRunEventLogChain => "invalid_run_event_log_chain",
+            Self::InvalidRunEventLogChain { .. } => "invalid_run_event_log_chain",
             Self::DuplicateRecord { .. } => "duplicate_acs_audit_record",
             Self::CorruptRecord { .. } => "corrupt_acs_audit_record",
         }
@@ -2584,7 +2584,7 @@ impl ACSAuditError {
 
     pub const fn field(&self) -> Option<&'static str> {
         match self {
-            Self::InvalidRunEventLogChain => Some("run_event_log"),
+            Self::InvalidRunEventLogChain { .. } => Some("run_event_log"),
             Self::DuplicateRecord { .. } => Some("record_id"),
             Self::CorruptRecord { field, .. } => Some(field),
             Self::SinkUnavailable | Self::EncodeRecord => None,
@@ -2595,9 +2595,9 @@ impl ACSAuditError {
         match self {
             Self::DuplicateRecord { record_id } => Some(record_id.as_str()),
             Self::CorruptRecord { record_id, .. } => Some(record_id.as_str()),
+            Self::InvalidRunEventLogChain { record_id } => Some(record_id.as_str()),
             Self::SinkUnavailable
-            | Self::EncodeRecord
-            | Self::InvalidRunEventLogChain => None,
+            | Self::EncodeRecord => None,
         }
     }
 }
@@ -2616,7 +2616,9 @@ impl<'a> ACSRunEventLogSink<'a> {
 impl ACSAuditSink for ACSRunEventLogSink<'_> {
     fn record(&self, record: ACSAuditRecord) -> Result<(), ACSAuditError> {
         if !self.run_event_log.verify_chain(None).valid {
-            return Err(ACSAuditError::InvalidRunEventLogChain);
+            return Err(ACSAuditError::InvalidRunEventLogChain {
+                record_id: record.record_id,
+            });
         }
         let record_id = record.record_id.clone();
         record
@@ -6558,11 +6560,13 @@ mod tests {
         record.record_id = "acs:req:1002".to_string();
         record.emitted_at_ms = 1_002;
         record.policy_id = "policy forged".to_string();
+        let record_id = record.record_id.clone();
 
         let err = sink.record(record).unwrap_err();
 
         assert_eq!(err.cause(), "invalid_run_event_log_chain");
         assert_eq!(err.field(), Some("run_event_log"));
+        assert_eq!(err.record_id(), Some(record_id.as_str()));
     }
 
     #[test]
