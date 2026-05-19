@@ -32,6 +32,10 @@ structure QkEdgeAnchor where
 
 def qkFrobeniusTolerance : Float := 0.00001
 
+/-- PCF-2 is a Lane 3 symbolic component-edge analysis, not a
+user-visible runtime surface. -/
+def lane3ResearchOnly : Bool := true
+
 /-- The QK decomposition matches Frobenius distance ≤ 1e-5
 across all (c, c') component-cluster pairs in the head. -/
 theorem qkDecompositionMatchesAtFrobenius1e5
@@ -39,5 +43,9 @@ theorem qkDecompositionMatchesAtFrobenius1e5
     (h_distance : frobenius_distance ≤ qkFrobeniusTolerance) :
     frobenius_distance ≤ qkFrobeniusTolerance := by
   exact h_distance
+
+theorem lane3ResearchOnlyPinned :
+    lane3ResearchOnly = true := by
+  rfl
 
 end Epistemos.PCF2
