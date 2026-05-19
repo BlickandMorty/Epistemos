@@ -997,6 +997,39 @@ mod tests {
     }
 
     #[test]
+    fn scan_text_reports_multiple_rejected_names_in_branch_and_doc_paths() {
+        for input in [
+            "feature/Aegis-to-aegis-migration",
+            "docs/Aegis-to-aegis-transition.md",
+        ] {
+            let hits = scan_text(input);
+            let expected_columns: Vec<usize> = input
+                .to_ascii_lowercase()
+                .match_indices(REJECTED_NAME_LOWERCASE)
+                .map(|(idx, _)| idx)
+                .collect();
+            assert_eq!(
+                hits.len(),
+                2,
+                "fixture must contain two rejected names: {input}"
+            );
+            assert_eq!(hits.len(), expected_columns.len());
+            for (hit, expected_column) in hits.iter().zip(expected_columns) {
+                assert_eq!(
+                    *hit,
+                    RejectedNameMatch {
+                        line: 1,
+                        column: expected_column,
+                    },
+                    "diagnostic position drifted for {input}"
+                );
+            }
+            assert_eq!(count_hits(input), hits.len());
+            assert!(text_contains_rejected_name(input));
+        }
+    }
+
+    #[test]
     fn lint_does_not_flag_legitimate_doc_filename_variants() {
         // Phase 1 hardening — symmetric negative companion to the
         // doc-filename positive pin. Legitimate doctrine + handoff
