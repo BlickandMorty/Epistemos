@@ -1249,6 +1249,42 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_capability_struct_field_shape_pinned_to_exactly_ten_typed_fields() {
+        // Phase 1 hardening — struct-field-shape pin for
+        // LocalAgentCapability (companion to the struct destructure
+        // pin family iter-464..iter-467). 10 named fields, the
+        // largest user-facing struct in agent_runtime_v2.
+        //
+        // A future "let me add an `executor_id` field" extension
+        // would silently change the on-disk JSON shape AND fork
+        // Swift⇄Rust raw-value parity (since LocalAgentCapability
+        // is the Swift mirror).
+        let cap = ask_capability();
+        let LocalAgentCapability {
+            command_pattern,
+            surface,
+            tier,
+            owner,
+            requires_network,
+            requires_subprocess,
+            requires_approval,
+            structured_evidence,
+            native_equivalent,
+            local_agent_passthrough,
+        } = cap;
+        let _: String = command_pattern;
+        let _: LocalAgentCapabilitySurface = surface;
+        let _: LocalAgentCapabilityTier = tier;
+        let _: LocalAgentCapabilityOwner = owner;
+        let _: bool = requires_network;
+        let _: bool = requires_subprocess;
+        let _: bool = requires_approval;
+        let _: bool = structured_evidence;
+        let _: String = native_equivalent;
+        let _: bool = local_agent_passthrough;
+    }
+
+    #[test]
     fn every_local_agent_capability_field_is_identity_load_bearing() {
         // Phase 1 hardening — sixth leg of the identity-pin pattern
         // (AgentBlueprint 5, AnswerPacket 7, MissionPacket 3,

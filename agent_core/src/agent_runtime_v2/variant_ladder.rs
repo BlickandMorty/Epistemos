@@ -903,6 +903,34 @@ mod tests {
     }
 
     #[test]
+    fn variant_ladder_spec_struct_field_shape_pinned_to_exactly_three_typed_fields() {
+        // Phase 1 hardening — struct-field-shape pin for
+        // VariantLadderSpec (companion to the struct destructure pin
+        // family iter-464..iter-468).
+        //
+        // VariantLadderSpec: EXACTLY 3 fields
+        //   - tool_name: String
+        //   - tiers: Vec<VariantTier>
+        //   - auto_promote: bool
+        //
+        // A future "let me add a `confidence_threshold: f64`" extension
+        // would silently change the on-disk JSON shape.
+        let spec = VariantLadderSpec {
+            tool_name: "vault.read".into(),
+            tiers: vec![VariantTier::T1Deterministic],
+            auto_promote: false,
+        };
+        let VariantLadderSpec {
+            tool_name,
+            tiers,
+            auto_promote,
+        } = spec;
+        let _: String = tool_name;
+        let _: Vec<VariantTier> = tiers;
+        let _: bool = auto_promote;
+    }
+
+    #[test]
     fn every_variant_ladder_spec_field_is_identity_load_bearing() {
         // Phase 1 hardening — eighth leg of the identity-pin pattern
         // (AgentBlueprint 5, AnswerPacket 7, MissionPacket 3,
