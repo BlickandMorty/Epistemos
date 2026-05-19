@@ -3170,6 +3170,17 @@ mod tests {
     }
 
     #[test]
+    fn replay_accepts_witness_after_compact_reserialization() {
+        let original = acceptance_witness_json().expect("acceptance witness json");
+        let value: serde_json::Value = serde_json::from_str(&original).expect("witness json value");
+        let compact = serde_json::to_string(&value).expect("compact witness json");
+        assert_ne!(original, compact);
+        let parsed_original = replay_witness_json(&original).expect("original replay");
+        let parsed_compact = replay_witness_json(&compact).expect("compact replay");
+        assert_eq!(parsed_original, parsed_compact);
+    }
+
+    #[test]
     fn replay_accepts_witness_with_leading_whitespace() {
         let original = acceptance_witness_json().expect("acceptance witness json");
         let padded = format!("\n\n  \t{}", original);
