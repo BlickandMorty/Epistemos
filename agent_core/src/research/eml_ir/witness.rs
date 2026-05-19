@@ -734,6 +734,7 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
     let point_count = top_level_unsigned_integer_json(&value, "point_count")?;
     top_level_unsigned_integer_json(&value, "operation_evaluations")?;
     top_level_unsigned_integer_json(&value, "adversarial_fixture_count")?;
+    top_level_unsigned_integer_json(&value, "budget_target_millis")?;
     top_level_unsigned_integer_json(&value, "observed_wall_clock_millis")?;
     let Some(max_point_index_exclusive) = point_count else {
         return Ok(());
@@ -1627,6 +1628,24 @@ mod tests {
             error.budget_target_millis_mismatch(),
             Some((submitted_millis, regenerated_millis))
         );
+    }
+
+    #[test]
+    fn replay_rejects_budget_target_millis_json_type_drift_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["budget_target_millis"] = serde_json::Value::String("90000".to_string());
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("budget target millis type drift must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("budget_target_millis"));
     }
 
     #[test]
