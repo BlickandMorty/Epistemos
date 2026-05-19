@@ -65,6 +65,7 @@ impl<'de> Deserialize<'de> for ACSRiskVector {
         D: serde::Deserializer<'de>,
     {
         let value = serde_json::Value::deserialize(deserializer)?;
+        require_risk_vector_known_fields::<D::Error>(&value)?;
         require_risk_number_field::<D::Error>(&value, "truth_risk")?;
         require_risk_number_field::<D::Error>(&value, "safety_risk")?;
         require_risk_number_field::<D::Error>(&value, "privacy_risk")?;
@@ -126,6 +127,32 @@ where
         serde_json::Value::Object(_) => Err(E::custom(format!("missing_risk_axis field={field}"))),
         _ => Err(E::custom("malformed_risk_vector field=risk")),
     }
+}
+
+fn require_risk_vector_known_fields<E>(value: &serde_json::Value) -> Result<(), E>
+where
+    E: serde::de::Error,
+{
+    let serde_json::Value::Object(object) = value else {
+        return Err(E::custom("malformed_risk_vector field=risk"));
+    };
+    for field in object.keys() {
+        if !matches!(
+            field.as_str(),
+            "truth_risk"
+                | "safety_risk"
+                | "privacy_risk"
+                | "capability_risk"
+                | "durability_risk"
+                | "scope_rex_risk"
+                | "kernel_promotion_risk"
+                | "model_adaptation_risk"
+                | "evidence_present"
+        ) {
+            return Err(E::custom(format!("malformed_risk_vector field={field}")));
+        }
+    }
+    Ok(())
 }
 
 impl ACSRiskVector {
@@ -7778,6 +7805,19 @@ mod tests {
         let decoded = serde_json::from_value::<ACSRiskVector>(value);
 
         assert!(decoded.is_err());
+    }
+
+    #[test]
+    fn acs_admission_shadow_risk_axis_names_malformed_risk_vector_field() {
+        let mut value =
+            serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
+        value["shadow_risk"] = serde_json::json!(1.0);
+
+        let err = serde_json::from_value::<ACSRiskVector>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_risk_vector"), "{message}");
+        assert!(message.contains("shadow_risk"), "{message}");
     }
 
     #[test]
