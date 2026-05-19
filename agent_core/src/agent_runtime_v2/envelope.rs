@@ -2320,4 +2320,20 @@ mod tests {
         let back: MutationEnvelope<String> = serde_json::from_str(&s).expect("deserialize");
         assert_eq!(back, envelope);
     }
+
+    #[test]
+    fn sealer_fields_are_pub_per_field_visibility_doctrine() {
+        // Sealer<'a, C> has 2 pub fields: capability (&'a C) and gate
+        // (BudgetGate). Direct .capability / .gate access is part of the
+        // construction contract — callers build a Sealer via struct-literal
+        // syntax with named fields, and any narrowing to getter-only
+        // accessors would force a breaking-change rewrite of every call
+        // site. Pin guards against that accidental narrowing.
+        let cap = valid_capability(Some(10_000));
+        let spec = BudgetSpec::new(1_000, 100, 0, 0);
+        let gate = BudgetGate::new(spec);
+        let sealer = Sealer { capability: &cap, gate };
+        let _cap_ref: &MacaroonCapability = sealer.capability;
+        let _gate_ref: &BudgetGate = &sealer.gate;
+    }
 }
