@@ -4564,6 +4564,7 @@ mod tests {
             "exact term-to-falsifier `F-*` hook set",
             "WBO term falsifier cells match typed `F-*` hook sets exactly",
             "codec coverage term cells match typed `canonical_wbo_terms()` exactly",
+            "codec coverage term cells preserve `canonical_wbo_terms()` order",
             "exact codec-to-falsifier `F-*` hook set",
             "exact codec-to-side-information witness set",
             "side-information register owner cells match typed codec witness sets exactly",
@@ -5490,6 +5491,17 @@ mod tests {
             let term_cell = cells
                 .get(2)
                 .unwrap_or_else(|| panic!("{coder:?} doc row must have WBO term cell"));
+            let actual_terms = term_cell
+                .split('`')
+                .skip(1)
+                .step_by(2)
+                .filter_map(WboTermCode::from_code)
+                .collect::<Vec<_>>();
+            assert_eq!(
+                actual_terms,
+                coder.canonical_wbo_terms(),
+                "{coder:?} doc row term cell must preserve canonical_wbo_terms() order"
+            );
             for term in WboTermCode::ALL {
                 let term_name = format!("`{}`", term.code());
                 let expected = coder.canonical_wbo_terms().contains(&term);
