@@ -2403,6 +2403,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 34th PureChatter row (iter-300, milestone iteration):
+        // three-sub-class-mix shape — "the a i can" stacks 2
+        // articles + 1 pronoun + 1 modal. Fills the 3-sub-class
+        // slot in the cluster-cardinality progression: 1 (pure-
+        // cluster) / 2 (iter-292) / 3 (iter-300) / 4 (iter-234
+        // mixed-class). Together iter-197/205/212/219/226/263/
+        // 285 (1-class) + iter-292 (2-class) + iter-300 (3-
+        // class) + iter-234 (4-class) span the complete sub-
+        // class-cardinality gradient.
+        query: "the a i can",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Thirty-fourth PureChatter row (iter-300, \
+               milestone): three-sub-class-mix shape (\"the a i \
+               can\"). Fills the 3-sub-class slot in the sub-\
+               class-cardinality progression: 1-class (pure-\
+               vocabulary clusters iter-197/205/212/219/226/263/\
+               285) / 2-class (iter-292) / 3-class (iter-300) / \
+               4-class (iter-234). Complete sub-class-\
+               cardinality gradient now covered. iter-300 \
+               milestone. Brings PureChatter to depth 34.",
+    },
+    FVaultRecallRow {
         // 33rd PureChatter row (iter-292): two-sub-class-mix
         // shape — "is are what where" stacks 2 be-verb + 2 wh-
         // word tokens. Intermediate between single-sub-class
