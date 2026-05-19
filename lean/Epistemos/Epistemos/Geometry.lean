@@ -199,6 +199,18 @@ structure CertificateTarget where
   sandwichIsometry : RotorSandwichObligation
   composition : RotorCompositionObligation
 
+namespace CertificateTarget
+
+theorem rotorObligations
+    (c : CertificateTarget)
+    (sandwichWitness : c.sandwichIsometry.preservesNorm)
+    (compositionWitness : c.composition.associativeSandwich) :
+    c.sandwichIsometry.preservesNorm ∧
+      c.composition.associativeSandwich := by
+  exact ⟨sandwichWitness, compositionWitness⟩
+
+end CertificateTarget
+
 def identityRotorValue : Multivector :=
   Multivector.scalar 1
 
