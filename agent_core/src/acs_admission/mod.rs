@@ -2917,6 +2917,7 @@ pub fn guard_durable_commit(record: Option<&ACSAuditRecord>) -> Result<(), ACSDu
     if record.operation.lane() != ACSLane::L0 {
         return Err(ACSDurableCommitError::BlockedByOperation {
             operation: record.operation,
+            record_id: record.record_id.clone(),
         });
     }
     Ok(())
@@ -2929,7 +2930,10 @@ pub enum ACSDurableCommitError {
         field: &'static str,
         record_id: String,
     },
-    BlockedByOperation { operation: ACSOperationKind },
+    BlockedByOperation {
+        operation: ACSOperationKind,
+        record_id: String,
+    },
     BlockedByVerdict {
         verdict: ACSAdmissionVerdict,
         record_id: String,
@@ -2957,9 +2961,9 @@ impl ACSDurableCommitError {
     pub fn record_id(&self) -> Option<&str> {
         match self {
             Self::CorruptAuditRecord { record_id, .. } => Some(record_id.as_str()),
+            Self::BlockedByOperation { record_id, .. } => Some(record_id.as_str()),
             Self::BlockedByVerdict { record_id, .. } => Some(record_id.as_str()),
-            Self::MissingAuditRecord
-            | Self::BlockedByOperation { .. } => None,
+            Self::MissingAuditRecord => None,
         }
     }
 
@@ -2974,7 +2978,7 @@ impl ACSDurableCommitError {
 
     pub const fn operation(&self) -> Option<ACSOperationKind> {
         match self {
-            Self::BlockedByOperation { operation } => Some(*operation),
+            Self::BlockedByOperation { operation, .. } => Some(*operation),
             Self::MissingAuditRecord
             | Self::CorruptAuditRecord { .. }
             | Self::BlockedByVerdict { .. } => None,
@@ -8536,6 +8540,7 @@ mod tests {
             assert_eq!(err.operation(), Some(operation));
             assert_eq!(err.lane(), Some(operation.lane()));
             assert_eq!(err.product_lane_code(), Some(operation.lane().product_lane_code()));
+            assert_eq!(err.record_id(), Some(record.record_id.as_str()));
         }
     }
 
