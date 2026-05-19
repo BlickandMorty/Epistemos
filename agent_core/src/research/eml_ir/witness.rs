@@ -1916,7 +1916,7 @@ struct RawOperationWorstCases<'a> {
     #[serde(borrow)]
     axis_stats: [RawAxisWorstCase<'a>; StressAxis::ALL.len()],
     #[serde(borrow)]
-    worst_case: RawWorstCaseNumbers<'a>,
+    worst_case: &'a RawValue,
 }
 
 #[derive(Deserialize)]
@@ -1928,7 +1928,7 @@ struct RawAxisWorstCase<'a> {
     #[serde(borrow)]
     mean_ulp: &'a RawValue,
     #[serde(borrow)]
-    worst_case: RawWorstCaseNumbers<'a>,
+    worst_case: &'a RawValue,
 }
 
 #[derive(Deserialize)]
@@ -1972,12 +1972,23 @@ fn reject_raw_stats_number_json(json: &str) -> Result<(), FulpReplayError> {
             }
             raw_finite_f64_json(axis_stat.mean_ulp, &axis_path, "mean_ulp")?;
             let worst_case_path = format!("{axis_path}.worst_case");
-            reject_raw_worst_case_numbers_json(&axis_stat.worst_case, &worst_case_path)?;
+            reject_raw_worst_case_numbers_raw_json(axis_stat.worst_case, &worst_case_path)?;
         }
         let worst_case_path = format!("{operation_path}.worst_case");
-        reject_raw_worst_case_numbers_json(&stat.worst_case, &worst_case_path)?;
+        reject_raw_worst_case_numbers_raw_json(stat.worst_case, &worst_case_path)?;
     }
     Ok(())
+}
+
+fn reject_raw_worst_case_numbers_raw_json(
+    worst_case: &RawValue,
+    path: &str,
+) -> Result<(), FulpReplayError> {
+    reject_raw_object_duplicate_json(worst_case.get(), path)?;
+    let Ok(worst_case) = serde_json::from_str::<RawWorstCaseNumbers<'_>>(worst_case.get()) else {
+        return Ok(());
+    };
+    reject_raw_worst_case_numbers_json(&worst_case, path)
 }
 
 fn reject_raw_worst_case_numbers_json(
@@ -5011,6 +5022,28 @@ mod tests {
         assert_eq!(
             error.invalid_json_message(),
             Some("number out of range for stats[0].worst_case.point_index, expected unsigned integer")
+        );
+    }
+
+    #[test]
+    fn replay_rejects_duplicate_operation_worst_case_field_before_numeric_payload() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["worst_case"]["point_index"] =
+            serde_json::Value::Number(serde_json::Number::from(123_456_789_u64));
+        let json = serde_json::to_string(&value).unwrap();
+        let needle = "\"point_index\":123456789";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(
+            needle,
+            "\"point_index\":123456789,\"point_index\":1e999999",
+            1,
+        );
+        let error = replay_witness_json(&json)
+            .expect_err("duplicate worst case field must fail before numeric payload");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::DuplicateField)
         );
     }
 
