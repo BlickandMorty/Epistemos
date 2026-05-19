@@ -1106,6 +1106,46 @@ mod tests {
     }
 
     #[test]
+    fn provider_policy_debug_repr_starts_with_variant_name_for_audit_logs() {
+        let cases = [
+            (
+                "LocalMlx",
+                ProviderPolicy::LocalMlx { model_id: "m".into() },
+            ),
+            (
+                "AnthropicMessages",
+                ProviderPolicy::AnthropicMessages { model: "c".into() },
+            ),
+            (
+                "OpenAIResponses",
+                ProviderPolicy::OpenAIResponses { model: "g".into() },
+            ),
+            (
+                "OpenAICompatible",
+                ProviderPolicy::OpenAICompatible {
+                    base_url: "u".into(),
+                    model: "m".into(),
+                },
+            ),
+            ("Mcp", ProviderPolicy::Mcp { server_id: "s".into() }),
+            (
+                "ProCli",
+                ProviderPolicy::ProCli {
+                    adapter: CliAdapter::Codex,
+                    command: "codex".into(),
+                },
+            ),
+        ];
+        for (expected_prefix, policy) in cases {
+            let dbg = format!("{policy:?}");
+            assert!(
+                dbg.starts_with(expected_prefix),
+                "ProviderPolicy Debug repr {dbg:?} must start with {expected_prefix:?}"
+            );
+        }
+    }
+
+    #[test]
     fn provider_policy_unknown_kind_tag_fails_to_deserialise() {
         // Phase 1 hardening — eighth and final leg of the closed-
         // taxonomy guardrail series (mode iter-71, AgentEvent
