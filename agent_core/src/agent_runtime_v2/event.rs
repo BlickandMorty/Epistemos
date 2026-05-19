@@ -1539,6 +1539,23 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_non_string_event_type_tags_fail_to_deserialise() {
+        for bad in [
+            r#"{"event_type":null,"text":"x"}"#,
+            r#"{"event_type":true,"text":"x"}"#,
+            r#"{"event_type":42,"text":"x"}"#,
+            r#"{"event_type":["final_text"],"text":"x"}"#,
+            r#"{"event_type":{"tag":"final_text"},"text":"x"}"#,
+        ] {
+            let parsed: Result<AgentEvent, _> = serde_json::from_str(bad);
+            assert!(
+                parsed.is_err(),
+                "non-string AgentEvent event_type must fail to deserialise: {bad}"
+            );
+        }
+    }
+
+    #[test]
     fn agent_event_non_object_json_shapes_fail_to_deserialise() {
         for bad in [
             "null",
