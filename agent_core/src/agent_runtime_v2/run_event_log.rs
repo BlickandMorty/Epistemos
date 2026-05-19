@@ -888,6 +888,66 @@ mod tests {
     }
 
     #[test]
+    fn root_hash_is_sensitive_to_tool_result_name_and_result_payload_within_tool_result_row() {
+        // Phase 1 hardening — CLOSES the discriminator/payload
+        // sensitivity pin family at all 6 AgentEvent variants:
+        //   iter-548 StopReason within Stop
+        //   iter-549 AgentEventErrorKind within Error
+        //   iter-550 message string within Error
+        //   iter-551 text within ReasoningDelta + FinalText
+        //   iter-552 name+arguments within ToolCall
+        //   iter-553 name+result within ToolResult (THIS)
+        //
+        // Two logs that differ ONLY in the embedded ToolResult's name
+        // (or result JSON) must produce DIFFERENT root_hashes — both
+        // fields participate in the chain.
+        //
+        // A future "let me only hash the tool name on ToolResult and
+        // skip the payload" tweak would silently let runs with
+        // different result bodies collide on chain hash — replay would
+        // produce the WRONG result on a re-run despite a matching
+        // chain hash.
+        let fixtures = [
+            (
+                "vault.read",
+                serde_json::json!({"content": "result-a"}),
+            ),
+            (
+                "vault.read",
+                serde_json::json!({"content": "result-b"}),
+            ),
+            (
+                "vault.write",
+                serde_json::json!({"content": "result-a"}),
+            ),
+            (
+                "vault.write",
+                serde_json::json!({"content": "result-b"}),
+            ),
+        ];
+        let hashes: Vec<Hash> = fixtures
+            .iter()
+            .map(|(name, result)| {
+                let mut log = RunEventLog::new();
+                log.append_event(AgentEvent::ToolResult {
+                    name: (*name).to_string(),
+                    result: result.clone(),
+                });
+                log.root_hash()
+            })
+            .collect();
+        for i in 0..hashes.len() {
+            for j in (i + 1)..hashes.len() {
+                assert_ne!(
+                    hashes[i], hashes[j],
+                    "ToolResult ({:?}, {}) vs ({:?}, {}) collided on root_hash",
+                    fixtures[i].0, fixtures[i].1, fixtures[j].0, fixtures[j].1
+                );
+            }
+        }
+    }
+
+    #[test]
     fn root_hash_is_sensitive_to_tool_call_name_and_arguments_payload_within_tool_call_row() {
         // Phase 1 hardening — payload-sensitivity pin for the
         // ToolCall AgentEvent variant (companion to ReasoningDelta +
