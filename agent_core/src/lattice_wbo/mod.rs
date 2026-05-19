@@ -4561,6 +4561,7 @@ mod tests {
             "exact residency-to-falsifier `F-*` hook set",
             "residency register falsifier cells match primary and term `F-*` hook sets exactly",
             "exact term-to-falsifier `F-*` hook set",
+            "WBO term falsifier cells match typed `F-*` hook sets exactly",
             "exact codec-to-falsifier `F-*` hook set",
             "exact codec-to-side-information witness set",
             "`lattice_budget_serializes_public_accounting_keys`",
@@ -5110,6 +5111,18 @@ mod tests {
                 );
             }
             let expected_hooks = f_hooks_in(term.falsifier());
+            let mut expected_hook_set = expected_hooks.clone();
+            expected_hook_set.sort_unstable();
+            expected_hook_set.dedup();
+            let mut actual_hook_set = f_hooks_in(falsifier_cell);
+            actual_hook_set.sort_unstable();
+            actual_hook_set.dedup();
+            assert_eq!(
+                actual_hook_set,
+                expected_hook_set,
+                "{} doc falsifier cell must exactly match typed F-* hooks",
+                term.code()
+            );
             for hook in f_hooks_in(falsifier_cell) {
                 assert!(
                     expected_hooks.contains(&hook),
