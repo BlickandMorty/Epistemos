@@ -670,6 +670,38 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_serde_tags_are_pairwise_distinct_across_all_six_variants() {
+        // Phase 1 hardening — pairwise-distinct tag pin (companion to
+        // agent_event_serde_tag_values_are_stable below). The existing
+        // per-variant tag pin locks each event_type string individually,
+        // but a 7th variant added with #[serde(rename = "stop")] would
+        // silently collide with an existing tag and misroute
+        // deserialised payloads — replay of an old run log would
+        // produce the WRONG variant for the colliding tag. Pin
+        // asserts all 6 event_type tags are pairwise-distinct so
+        // any collision surfaces deterministically. Companion to
+        // ProviderPolicy + CliAdapter + LocalAgent pairwise-distinct
+        // pins (iter-533, iter-537, iter-538).
+        let tags = [
+            "reasoning_delta",
+            "final_text",
+            "tool_call",
+            "tool_result",
+            "stop",
+            "error",
+        ];
+        for i in 0..tags.len() {
+            for j in (i + 1)..tags.len() {
+                assert_ne!(
+                    tags[i], tags[j],
+                    "AgentEvent event_type tags collide at [{i}] = {:?} and [{j}] = {:?}",
+                    tags[i], tags[j]
+                );
+            }
+        }
+    }
+
+    #[test]
     fn agent_event_serde_tag_values_are_stable() {
         // Phase 1 hardening — replay parity guardrail. The serde
         // tag value for every AgentEvent variant must match a
