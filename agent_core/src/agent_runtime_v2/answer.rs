@@ -1961,6 +1961,40 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_emit_preserves_citations_in_insertion_order_byte_for_byte() {
+        // Phase 1 hardening — citation ordering pin. AnswerPacket::emit
+        // takes citations: Vec<Citation> verbatim; the result packet's
+        // citations Vec must preserve INSERTION ORDER (no silent
+        // sorting / dedup).
+        //
+        // A future "let me sort citations by source for visual
+        // consistency" refactor would silently reorder audit log
+        // entries — surface here.
+        let log = RunEventLog::new();
+        // Citations supplied in DELIBERATELY-UNSORTED order.
+        let citations = vec![
+            Citation::from_tuple("z-source", "L99"),
+            Citation::from_tuple("a-source", "L1"),
+            Citation::from_tuple("m-source", "L50"),
+        ];
+        let packet = AnswerPacket::emit(
+            AgentBlueprintId("a".into()),
+            "x".into(),
+            citations.clone(),
+            StopReason::EndTurn,
+            BudgetLedger::default(),
+            &log,
+        );
+        // citations preserved byte-equal in original insertion order.
+        assert_eq!(packet.citations, citations);
+        // Spot-check: first element is the z-prefixed (insertion-order),
+        // NOT the a-prefixed (sort-order).
+        assert_eq!(packet.citations[0].source, "z-source");
+        assert_eq!(packet.citations[1].source, "a-source");
+        assert_eq!(packet.citations[2].source, "m-source");
+    }
+
+    #[test]
     fn exceeds_recommended_citation_cap_returns_false_for_zero_citations() {
         // Phase 1 hardening — boundary completeness companion to
         // exceeds_recommended_citation_cap_flags_oversize_packet
