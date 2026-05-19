@@ -192,13 +192,19 @@ pub fn lean_certificate(expr: &InfoExpr) -> String {
          \x20     info_convexity_witness_{suffix}\n\
          \x20     \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §3 + §5 Info-IR\"\n\
          \n\
+         theorem info_bregman_nonnegative_witness_{suffix} :\n\
+         \x20   Epistemos.Info.bregmanNonnegative {family_term} {p_term} {q_term} := by\n\
+         \x20 exact ⟨{family_well_formed}, {family_arity}, {family_arity}⟩\n\
+         \n\
+         theorem info_bregman_zero_witness_{suffix} :\n\
+         \x20   Epistemos.Info.bregmanZeroIffEqual {family_term} {p_term} {q_term} := by\n\
+         \x20 exact ⟨{family_well_formed}, {family_arity}, {family_arity}, Iff.rfl⟩\n\
+         \n\
          def info_bregman_obligation_{suffix} : Epistemos.Info.BregmanPositivityObligation :=\n\
-         \x20   {{ family := {family_term}\n\
-         \x20     pParams := {p_term}\n\
-         \x20     qParams := {q_term}\n\
-        \x20     nonnegative := Epistemos.Info.bregmanNonnegative {family_term} {p_term} {q_term}\n\
-        \x20     zeroIffEqual := Epistemos.Info.bregmanZeroIffEqual {family_term} {p_term} {q_term}\n\
-        \x20     sourceRow := \"Amari 2016 Ch. 6 §6.2\" }}\n\
+         \x20   Epistemos.Info.bregmanPositivityObligation {family_term} {p_term} {q_term}\n\
+         \x20     info_bregman_nonnegative_witness_{suffix}\n\
+         \x20     info_bregman_zero_witness_{suffix}\n\
+         \x20     \"Amari 2016 Ch. 6 §6.2\"\n\
          \n\
          theorem info_mirror_descent_witness_{suffix} :\n\
          \x20   Epistemos.Info.mirrorDescentEquivalent {family_term} := by\n\
@@ -229,11 +235,17 @@ pub fn lean_certificate(expr: &InfoExpr) -> String {
          \n\
          theorem info_bregman_positivity_{suffix} :\n\
          \x20   info_bregman_obligation_{suffix}.nonnegative := by\n\
-         \x20 exact info_bregman_obligation_{suffix}.nonnegative\n\
+         \x20 exact Epistemos.Info.bregmanPositivityObligationNonnegative {family_term} {p_term} {q_term}\n\
+         \x20   info_bregman_nonnegative_witness_{suffix}\n\
+         \x20   info_bregman_zero_witness_{suffix}\n\
+         \x20   \"Amari 2016 Ch. 6 §6.2\"\n\
          \n\
          theorem info_bregman_non_degeneracy_{suffix} :\n\
          \x20   info_bregman_obligation_{suffix}.zeroIffEqual := by\n\
-         \x20 exact info_bregman_obligation_{suffix}.zeroIffEqual\n\
+         \x20 exact Epistemos.Info.bregmanPositivityObligationZeroIffEqual {family_term} {p_term} {q_term}\n\
+         \x20   info_bregman_nonnegative_witness_{suffix}\n\
+         \x20   info_bregman_zero_witness_{suffix}\n\
+         \x20   \"Amari 2016 Ch. 6 §6.2\"\n\
          \n\
          theorem info_mirror_descent_equivalence_{suffix} :\n\
          \x20   info_mirror_descent_obligation_{suffix}.statement := by\n\
@@ -278,10 +290,13 @@ mod tests {
         .unwrap();
         let c = lean_certificate(&e);
         assert!(c.contains("Epistemos.Info.convexLogPartitionObligation"));
+        assert!(c.contains("Epistemos.Info.bregmanPositivityObligation"));
         assert!(c.contains("Epistemos.Info.bregmanNonnegative"));
         assert!(c.contains("Epistemos.Info.bregmanZeroIffEqual"));
         assert!(c.contains("Epistemos.Info.mirrorDescentEquivalenceObligation"));
         assert!(!c.contains("convexOnNaturalDomain := Epistemos.Info.logPartitionConvex"));
+        assert!(!c.contains("nonnegative := Epistemos.Info.bregmanNonnegative"));
+        assert!(!c.contains("zeroIffEqual := Epistemos.Info.bregmanZeroIffEqual"));
         assert!(!c.contains("statement := Epistemos.Info.mirrorDescentEquivalent"));
         assert!(!c.contains("nonnegative := True"));
         assert!(!c.contains("zeroIffEqual := True"));
@@ -360,9 +375,12 @@ mod tests {
         assert!(c.contains(
             "exact Epistemos.Info.convexLogPartitionObligationCarries"
         ));
-        assert!(c.contains("exact info_bregman_obligation_"));
-        assert!(c.contains(".nonnegative"));
-        assert!(c.contains(".zeroIffEqual"));
+        assert!(c.contains(
+            "exact Epistemos.Info.bregmanPositivityObligationNonnegative"
+        ));
+        assert!(c.contains(
+            "exact Epistemos.Info.bregmanPositivityObligationZeroIffEqual"
+        ));
         assert!(c.contains(
             "exact Epistemos.Info.mirrorDescentEquivalenceObligationCarries"
         ));
