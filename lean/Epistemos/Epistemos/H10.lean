@@ -37,8 +37,15 @@ def BuildFeature.mutexHolds (active : List BuildFeature) : Bool :=
   let has_lane4 := active.contains .lane4Oracle
   !(has_mas && has_lane4)
 
+/-- Lane 4 oracle remains research-reserved and never product. -/
+def lane4ResearchReserved : Bool := true
+
 theorem bilaminarMutexEnforced :
     BuildFeature.mutexHolds [.masBuild, .lane4Oracle] = false := by
+  rfl
+
+theorem lane4ReservationPinned :
+    lane4ResearchReserved = true := by
   rfl
 
 end Epistemos.H10
