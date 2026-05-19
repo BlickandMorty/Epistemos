@@ -1808,6 +1808,123 @@ mod tests {
     }
 
     #[test]
+    fn validate_ordinal_density_catches_forgery_in_sealed_mutation_and_ledger_snapshot_rows() {
+        // Phase 1 hardening — variant-coverage completeness for
+        // validate_ordinal_density. The existing forgery pins
+        // (validate_ordinal_density_catches_gap line 1670,
+        // validate_ordinal_density_empty_log_accepts_and_position_0_forgery_caught
+        // line 1739, validate_ordinal_density_holds_for_1000_entry_log
+        // line 1703) ALL exclusively use RunEventEntry::Event rows
+        // for forgery — none exercises corruption in the
+        // SealedMutation or LedgerSnapshot variants.
+        //
+        // RunEventEntry has 3 variants, each carrying an ordinal
+        // field (run_event_log.rs §23-41). RunEventEntry::ordinal()
+        // is the projection used by validate_ordinal_density. A
+        // future refactor that, e.g., only validated Event rows
+        // (because they're the "main" stream) would silently miss
+        // corruption in the audit-load-bearing SealedMutation
+        // (capability_hash + debit) and LedgerSnapshot (ledger
+        // state) rows.
+        //
+        // Pin a mixed-variant log + forge ordinal in BOTH non-Event
+        // variants.
+        use crate::cognitive_dag::node::Hash;
+
+        // Build a mixed 5-entry log:
+        //   0 = Event::ReasoningDelta
+        //   1 = SealedMutation
+        //   2 = LedgerSnapshot
+        //   3 = Event::FinalText
+        //   4 = SealedMutation
+        let cap = Hash::from_bytes([7u8; 32]);
+        let debit = BudgetDebit {
+            tokens: 1_000,
+            wall_ms: 10,
+            tool_calls: 1,
+            subprocess_ms: 0,
+            memory_bytes: 0,
+        };
+        let make_mixed = || {
+            let mut log = RunEventLog::new();
+            log.append_event(AgentEvent::ReasoningDelta { text: "r".into() });
+            log.append_sealed_mutation(cap, debit);
+            log.append_ledger_snapshot(BudgetLedger::default());
+            log.append_event(AgentEvent::FinalText { text: "f".into() });
+            log.append_sealed_mutation(cap, debit);
+            log
+        };
+
+        // Sanity: the clean mixed log validates.
+        let clean = make_mixed();
+        clean
+            .validate_ordinal_density()
+            .expect("clean mixed-variant log must validate");
+
+        // Forgery 1: corrupt the SealedMutation row at position 1.
+        // The SealedMutation at index 1 holds ordinal 1; rewrite to
+        // 555 via JSON tamper.
+        let s = serde_json::to_string(&clean).expect("serialise mixed log");
+        // Replace only the FIRST "ordinal":1 occurrence so the
+        // tamper targets the SealedMutation row (which is at
+        // position 1).
+        let tamper_sealed = s.replacen("\"ordinal\":1", "\"ordinal\":555", 1);
+        let bad_sealed: RunEventLog =
+            serde_json::from_str(&tamper_sealed).expect("deserialise tampered SealedMutation log");
+        let err_sealed = bad_sealed
+            .validate_ordinal_density()
+            .expect_err("SealedMutation ordinal forgery must surface as OrdinalMismatch");
+        assert_eq!(
+            err_sealed,
+            LogValidationError::OrdinalMismatch {
+                position: 1,
+                expected: 1,
+                actual: 555,
+            },
+            "SealedMutation row forgery must report exact (position, expected, actual)"
+        );
+
+        // Forgery 2: corrupt the LedgerSnapshot row at position 2.
+        let s2 = serde_json::to_string(&clean).expect("serialise mixed log");
+        let tamper_snap = s2.replacen("\"ordinal\":2", "\"ordinal\":777", 1);
+        let bad_snap: RunEventLog = serde_json::from_str(&tamper_snap)
+            .expect("deserialise tampered LedgerSnapshot log");
+        let err_snap = bad_snap
+            .validate_ordinal_density()
+            .expect_err("LedgerSnapshot ordinal forgery must surface as OrdinalMismatch");
+        assert_eq!(
+            err_snap,
+            LogValidationError::OrdinalMismatch {
+                position: 2,
+                expected: 2,
+                actual: 777,
+            },
+            "LedgerSnapshot row forgery must report exact (position, expected, actual)"
+        );
+
+        // Forgery 3: corrupt the trailing SealedMutation at position 4.
+        // The ordinal-4 string only appears once across the canonical
+        // JSON (no other "ordinal":4 in the test fixtures), so replacen
+        // by 1 is safe.
+        let s3 = serde_json::to_string(&clean).expect("serialise mixed log");
+        let tamper_tail = s3.replacen("\"ordinal\":4", "\"ordinal\":999", 1);
+        let bad_tail: RunEventLog = serde_json::from_str(&tamper_tail)
+            .expect("deserialise tampered tail SealedMutation log");
+        let err_tail = bad_tail
+            .validate_ordinal_density()
+            .expect_err("tail SealedMutation forgery must surface as OrdinalMismatch");
+        assert_eq!(
+            err_tail,
+            LogValidationError::OrdinalMismatch {
+                position: 4,
+                expected: 4,
+                actual: 999,
+            },
+            "tail SealedMutation forgery must report exact (position, expected, actual)"
+        );
+    }
+
+    #[test]
     fn log_validation_error_ordinal_mismatch_field_shape_pinned() {
         // Phase 1 hardening — field-shape pin for
         // LogValidationError::OrdinalMismatch (companion to
