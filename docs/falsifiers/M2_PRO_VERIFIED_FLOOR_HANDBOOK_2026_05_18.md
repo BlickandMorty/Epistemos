@@ -212,6 +212,10 @@ Last audited: 2026-05-18. [F-Eidos-ClosedCitation](F_EIDOS_CLOSED_CITATION_2026_
 
 Last audited: 2026-05-18. [F-VaultRecall-50](F_VAULT_RECALL_50_2026_05_18.md) maps to schema axes `target_recall`, `distractor_suppression`, `candidate_count`, `trace_components`, and `weak_evidence_behavior`; the row requires target residency-governance recall, index-order distractor suppression, 50-200 candidate gathering, visible trace components, and honest weak-evidence broadening before its expected trace artifact can satisfy the [Cross-Gate Axis Floors](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#cross-gate-axis-floors).
 
+## F-PageGather Baseline Axis Floor Audit
+
+Last audited: 2026-05-18. [F-PageGather-Baseline](F_PAGE_GATHER_BASELINE_2026_05_18.md) maps to schema axes `median_bw_256mb`, `median_bw_512mb`, `median_bw_1gb`, and `window_seconds`; the row requires median contiguous-memory bandwidth for 256 MB, 512 MB, and 1 GB buffers over at least 1.0 second windows before its calibration artifact can satisfy the [Cross-Gate Axis Floors](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#cross-gate-axis-floors).
+
 ## Replay Eligibility Audit
 
 Last audited: 2026-05-18. The schema replay-ineligibility checklist now fails artifacts linearly for missing command digests, missing fixture-manifest digests, missing sidecar digests, mismatched sidecar bytes, missing JSONL manifests, invalid JSONL manifest envelopes, `jsonl_file_sha256` drift from `result_digest`, runner-environment drift from the closed execution pin, missing OS build, missing toolchain identity, or missing thermal/power capture, blocking anomalies without evidence refs, missing threshold-source provenance, provider threshold refs without matching receipts, thermal-pressure timing passes without blocking anomalies, battery/unknown-power timing passes without blocking anomalies, measurement `evidence_kind` drift from the measurement source shape, and aggregate `sample_count` drift from embedded or sidecar samples.
