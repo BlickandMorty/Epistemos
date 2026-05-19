@@ -9429,6 +9429,42 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_run_event_log_sink_accepts_same_request_verdict_escalation() {
+        let run_event_log = crate::oplog::OpLog::new("acs-admission-run-event-verdict-escalation");
+        let sink = ACSRunEventLogSink::new(&run_event_log);
+        let first = ACSAuditRecord {
+            record_id: "acs:req-run-event-escalate:2000".to_string(),
+            request_id: "req-run-event-escalate".to_string(),
+            policy_id: "policy".to_string(),
+            policy_version: 1,
+            operation: ACSOperationKind::MemoryWrite,
+            verdict: ACSAdmissionVerdict::Allow,
+            reason: ACSAdmissionVerdict::Allow.code().to_string(),
+            risk_max: 0.0,
+            emitted_at_ms: 2_000,
+        };
+        sink.record(first).expect("first record stored");
+
+        let escalating = ACSAuditRecord {
+            record_id: "acs:req-run-event-escalate:2001".to_string(),
+            request_id: "req-run-event-escalate".to_string(),
+            policy_id: "policy".to_string(),
+            policy_version: 1,
+            operation: ACSOperationKind::MemoryWrite,
+            verdict: ACSAdmissionVerdict::Reject,
+            reason: ACSAdmissionVerdict::Reject.code().to_string(),
+            risk_max: 0.95,
+            emitted_at_ms: 2_001,
+        };
+
+        sink.record(escalating)
+            .expect("same-request verdict escalation records");
+
+        assert_eq!(run_event_log.len(), 2);
+        assert!(run_event_log.verify_chain(None).valid);
+    }
+
+    #[test]
     fn acs_admission_run_event_log_sink_records_distinct_malformed_requests_same_tick() {
         let run_event_log = crate::oplog::OpLog::new("acs-admission-sink-malformed-request-test");
         let sink = ACSRunEventLogSink::new(&run_event_log);
