@@ -116,6 +116,14 @@ When a migration note names `schema_fragment_digest_before` or `schema_fragment_
 
 `command` must match the handbook row command after `NOT IMPLEMENTED:` is removed, and `commit_sha` must identify the repo state that produced the artifact with a full 40-character lowercase hex SHA. A witness with a stale command, missing commit, short SHA, or commit from another branch is replay-ineligible.
 
+The canonical `commit_sha` validator regex is:
+
+```
+^[0-9a-f]{40}$
+```
+
+The regex rejects short SHAs, uppercase hex, refspec aliases such as `HEAD~1` or `origin/main`, branch-name embedding, trailing whitespace, and any non-`[0-9a-f]` characters. Validators may treat this regex as the single source of truth for the `commit_sha` field across the catalog; provider receipts and migration notes reuse it via `$ref` rather than redeclaring it.
+
 ## Result Digest Rule
 
 `result_digest` must be a lowercase `sha256:` digest of the canonical result payload used by replay. For object artifacts, the validator computes it over the witness JSON after removing `result_digest` and canonicalizing object keys with LF line endings. For JSONL artifacts, the validator computes it over the full LF-normalized `result.jsonl` byte stream. A digest copied from a sidecar, raw stdout, or prose note cannot substitute for the canonical result digest.
