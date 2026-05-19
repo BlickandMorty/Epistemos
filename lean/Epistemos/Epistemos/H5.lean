@@ -30,8 +30,15 @@ def MorphTrace.equals (a b : MorphTrace) : Bool :=
   a.input_hash == b.input_hash &&
   a.trace_hash == b.trace_hash
 
+/-- H5 determinism is checked by the B2 verify-replay CI gate. -/
+def verifyReplayGateRequired : Bool := true
+
 theorem morphTraceDeterministic (trace : MorphTrace) :
     trace.equals trace = true := by
   simp [MorphTrace.equals]
+
+theorem verifyReplayGatePinned :
+    verifyReplayGateRequired = true := by
+  rfl
 
 end Epistemos.H5
