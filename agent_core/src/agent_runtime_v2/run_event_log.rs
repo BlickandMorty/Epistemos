@@ -1848,6 +1848,34 @@ mod tests {
     }
 
     #[test]
+    fn sealed_mutations_iterator_yields_ordinals_in_strictly_ascending_order() {
+        // Phase 1 hardening — ordering pin for sealed_mutations().
+        // Companion to:
+        //   - find_capability_hash_returns_ordinals_in_strictly_ascending_order (iter-476)
+        //   - find_tool_calls_returns_ordinals_in_strictly_ascending_order (iter-477)
+        //
+        // sealed_mutations() walks entries in append order via
+        // filter_map; the result iterator yields ordinals in
+        // strict-ascending order. A future "let me serve from a
+        // sorted-by-capability_hash side table" refactor would
+        // silently fork the order.
+        let mut log = RunEventLog::new();
+        // 4 sealed mutations interleaved with other events.
+        log.append_sealed_mutation(Hash::from_bytes([1u8; 32]), BudgetDebit::default()); // 0
+        log.append_event(AgentEvent::ReasoningDelta { text: "x".into() }); // 1
+        log.append_sealed_mutation(Hash::from_bytes([2u8; 32]), BudgetDebit::default()); // 2
+        log.append_ledger_snapshot(BudgetLedger::default()); // 3
+        log.append_sealed_mutation(Hash::from_bytes([3u8; 32]), BudgetDebit::default()); // 4
+        log.append_sealed_mutation(Hash::from_bytes([4u8; 32]), BudgetDebit::default()); // 5
+
+        let ordinals: Vec<u64> = log.sealed_mutations().map(|(o, _, _)| o).collect();
+        assert_eq!(ordinals, vec![0, 2, 4, 5]);
+        for pair in ordinals.windows(2) {
+            assert!(pair[0] < pair[1], "ordinals must be strictly ascending");
+        }
+    }
+
+    #[test]
     fn sealed_mutations_iterator_can_be_short_circuited() {
         let mut log = RunEventLog::new();
         for i in 0..10u64 {
