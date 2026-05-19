@@ -4233,6 +4233,38 @@ mod tests {
     }
 
     #[test]
+    fn lattice_coder_canonical_wbo_terms_end_with_t_num() {
+        for coder in LatticeCoderKind::ALL {
+            let terms = coder.canonical_wbo_terms();
+            assert!(
+                !terms.is_empty(),
+                "{coder:?} must declare at least one canonical WBO term"
+            );
+            let last = *terms.last().expect("nonempty canonical wbo terms");
+            assert_eq!(
+                last,
+                WboTermCode::NumericalPostCorrection,
+                "{coder:?} canonical wbo terms must end with T_num"
+            );
+            let t_num_index = terms
+                .iter()
+                .position(|term| *term == WboTermCode::NumericalPostCorrection)
+                .expect("T_num present in every codec canonical term row");
+            assert_eq!(
+                t_num_index,
+                terms.len() - 1,
+                "{coder:?} canonical wbo terms must place T_num exactly once at the end"
+            );
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`lattice_coder_canonical_wbo_terms_end_with_t_num`"),
+            "register doc must cross-link codec T_num closing-axis invariant"
+        );
+    }
+
+    #[test]
     fn residency_tier_canonical_register_terms_end_with_t_num() {
         for tier in ResidencyTier::ALL {
             let terms = tier.canonical_register_terms();
