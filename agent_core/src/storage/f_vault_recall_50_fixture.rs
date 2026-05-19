@@ -5339,6 +5339,48 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 44th Synthesis row (iter-366). C(4,4) ALL-TERMS subset
+        // on agent-runtime 4-element pair: {agent, runtime,
+        // substrate, canon}. 4-term query (above the ≤3 AND
+        // threshold → OR-conjunction). Both pair-partners
+        // (iter-43 canonical + iter-75 partner) carry all 4
+        // tokens. agent_brainstorm has only 2 of 4 (agent +
+        // canon), other agent-runtime seeds ≤1 of 4.
+        // compression_doctrine_canon_v1/v2 has canon only =
+        // 1/4. BM25 ranks pair-partners above all decoys —
+        // top_n=2 retains both. Together with the C(4,3)=4
+        // survey (iter-? earlier) and C(4,2) 5-of-6 (capped at
+        // iter-214), agent-runtime pair now has C(4,2)+C(4,3)+
+        // C(4,4) = 5+4+1 = 10 of 11 reachable subsets on the
+        // 4-element vocab. The single missing C(4,2) subset
+        // {agent, canon} remains capped by iter-214 ceiling
+        // (agent_brainstorm also has both tokens). SECOND 4-
+        // element pair to reach this near-complete-closure
+        // tier (after hardware-floor iter-359 with full 11/11).
+        // Zero new seeds.
+        query: "agent runtime substrate canon",
+        expected_paths: &[
+            "notes/agent_runtime_v2_substrate.md",
+            "notes/agent_runtime_substrate_v3.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Forty-fourth Synthesis row (iter-366): C(4,4) \
+               ALL-TERMS subset on agent-runtime pair. {agent, \
+               runtime, substrate, canon} — 4-term OR (>3 → \
+               above AND threshold). Both pair-partners carry \
+               all 4; agent_brainstorm 2/4, others ≤1 of 4. \
+               Top-2 BM25 retains both pair-partners. Agent-\
+               runtime pair now has C(4,2)+C(4,3)+C(4,4) = \
+               5+4+1 = 10 of 11 reachable subsets (missing \
+               {agent, canon} per iter-214 ceiling). SECOND \
+               4-element pair to reach near-complete closure \
+               (after hardware-floor iter-359 with full 11/11). \
+               Brings Synthesis to depth 44 — first category \
+               past depth-43 horizon. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 43rd Synthesis row (iter-359). C(4,4) ALL-TERMS subset
         // on hardware-floor pair: {hardware, floor, falsifier,
         // handbook}. 4-term query. Both pair-partners carry all
