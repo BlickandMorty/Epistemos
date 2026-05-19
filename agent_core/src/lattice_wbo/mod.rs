@@ -4700,6 +4700,8 @@ mod tests {
             "the exact active-support budget tier set is `L2 Shadow Sketch` and `L3 SSD Oracle`",
             "`residency_tier_catalog_distinguishes_required_and_secondary_active_support_budget`",
             "required active-support budget row is `L2 Shadow Sketch` and optional secondary active-support budget row is `L3 SSD Oracle`",
+            "`ResidencyTier::allows_secondary_active_support_budget()`",
+            "L3 optional secondary active-support path is method-pinned separately from L2 required active support",
             "`residency_tier_catalog_requires_substrate_boundary_for_active_support_budget_tiers`",
             "active-support-capable residency tiers must own `T_S`",
             "`ledger_validation_requires_active_support_for_active_support_rows`",
