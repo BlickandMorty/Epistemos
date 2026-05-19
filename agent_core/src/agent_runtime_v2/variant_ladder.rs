@@ -763,6 +763,31 @@ mod tests {
     }
 
     #[test]
+    fn variant_tier_serde_values_are_stable() {
+        // Phase 1 hardening — cross-version replay parity guardrail.
+        // VariantTier carries #[serde(rename_all = "snake_case")];
+        // every variant string is load-bearing for replay of older
+        // VariantLadderSpec JSONs.
+        //
+        // Companion to:
+        //   - mode_serde_discriminator_values_are_stable (3 modes)
+        //   - agent_event_error_kind_serde_values_are_stable (4 kinds)
+        //   - cli_adapter_serde_snake_case_pins_all_six_adapter_strings (6)
+        //   - agent_event_serde_tag_values_are_stable (6 event types)
+        //   - stop_reason_serde_values_are_stable (7 stop reasons)
+        for (variant, expected) in [
+            (VariantTier::T1Deterministic, "\"t1_deterministic\""),
+            (VariantTier::T2Heuristic, "\"t2_heuristic\""),
+            (VariantTier::T3LlmBound, "\"t3_llm_bound\""),
+        ] {
+            let s = serde_json::to_string(&variant).expect("serialise");
+            assert_eq!(s, expected, "variant_tier {variant:?} drifted serde form");
+            let back: VariantTier = serde_json::from_str(&s).expect("round-trip");
+            assert_eq!(back, variant);
+        }
+    }
+
+    #[test]
     fn variant_tier_unknown_serde_string_fails_to_deserialise() {
         // Phase 1 hardening — fifth leg of the closed-taxonomy
         // guardrail (mode iter-71, AgentEvent event_type iter-73,
