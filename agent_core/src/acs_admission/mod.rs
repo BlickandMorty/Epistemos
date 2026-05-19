@@ -4438,7 +4438,9 @@ where
     };
     for field in object.keys() {
         if !matches!(field.as_str(), "operation" | "thresholds") {
-            return Err(E::custom(format!("malformed_policy field={field}")));
+            return Err(E::custom(format!(
+                "malformed_policy field=operation_thresholds.{field}"
+            )));
         }
     }
     Ok(())
@@ -9686,6 +9688,25 @@ mod tests {
 
         assert!(message.contains("malformed_policy"), "{message}");
         assert!(message.contains("shadow_operation"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_shadow_operation_threshold_rule_field_names_threshold_namespace() {
+        let rule = ACSOperationThresholdRule::new(
+            ACSOperationKind::KernelPromotion,
+            ACSRiskThresholds::standard(),
+        );
+        let mut value = serde_json::to_value(rule).expect("threshold rule encodes");
+        value["shadow_operation"] = serde_json::json!("model_adaptation");
+
+        let err = serde_json::from_value::<ACSOperationThresholdRule>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(
+            message.contains("operation_thresholds.shadow_operation"),
+            "{message}"
+        );
     }
 
     #[test]
