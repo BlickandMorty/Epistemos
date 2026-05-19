@@ -15,7 +15,7 @@
 //! invisible-char, Cyrillic-Latin homoglyph, whitespace padding,
 //! low-codepoint control-character, bidirectional-text-override),
 //! across nine canonical retrieval modes + both ClaimEvidence concrete
-//! retrievers, with 11 parallel structural shape-locks (every public
+//! retrievers, with 12 parallel structural shape-locks (every public
 //! type in the contract surface), full Clone byte-perfect trilogy
 //! (citation/hit/packet), and lock-step drift detectors that catch
 //! catalog drift on the very next test run. See STATUS.md for the
@@ -157,7 +157,7 @@ fn assert_iter_format_canonical_panics_on_out_of_range() {
     assert_iter_format_canonical("iter 099", "MY_SOURCE_LABEL");
 }
 
-/// Iter 682 — catalog range continuation pin.
+/// Iter 683 — catalog range continuation pin.
 /// STATUS.md is the contributor-facing catalog for the closed-citation
 /// hardening arc. When new pins land after the previous range tip, the
 /// range must advance in lock-step so future readers can tell the arc is
@@ -167,9 +167,9 @@ fn status_md_closed_citation_iter_range_tip_tracks_latest_catalog_pin() {
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Closed-citation contract hardening (iters 127-682)"),
+        status.contains("Closed-citation contract hardening (iters 127-683)"),
         "STATUS.md closed-citation hardening catalog must advance its iter \
-         range tip to iter 682 when the catalog-continuation pin lands"
+         range tip to iter 683 when the catalog-continuation pin lands"
     );
 }
 
@@ -7923,12 +7923,12 @@ fn validate_citation_ignores_hit_provenance_manifest_id() {
     );
 }
 
-/// Doctrine-vs-code drift detector for the 11 structural shape-
+/// Doctrine-vs-code drift detector for the 12 structural shape-
 /// lock test functions added across iters 134/158/172-179/183.
 /// Parallel to iter 146's named-vector drift detector but for
 /// the shape-lock cluster.
 ///
-/// The closed-citation contract surface has 11 public types (or
+/// The closed-citation contract surface has 12 public types (or
 /// enum-variant collections) whose structural shape is pinned via
 /// exhaustive destructure with NO `..` wildcard:
 ///
@@ -7943,9 +7943,10 @@ fn validate_citation_ignores_hit_provenance_manifest_id() {
 ///   9. EidosQuery         5-field                       (iter 178)
 ///  10. IdError            1-variant                     (iter 179)
 ///  11. EidosIndexManifest 4-field                       (iter 183)
+///  12. EidosCitationEnvelope 2-field                    (iter 683)
 ///
 /// This drift detector reads its own source file and asserts the
-/// 11 corresponding `#[test] fn` declarations are present. If a
+/// 12 corresponding `#[test] fn` declarations are present. If a
 /// future refactor wholesale-deletes a shape-lock (e.g. "we
 /// consolidated several shape-locks into a property test"), this
 /// surfaces in lock-step rather than silently weakening the
@@ -7978,13 +7979,15 @@ fn closed_citation_structural_shape_locks_are_all_present() {
          "fn id_error_has_exactly_one_variant"),
         ("EidosIndexManifest 4-field (iter 183)",
          "fn eidos_index_manifest_has_exactly_four_public_fields"),
+        ("EidosCitationEnvelope 2-field (iter 683)",
+         "fn eidos_citation_envelope_has_exactly_two_public_fields"),
     ];
 
     assert_eq!(
         required_shape_locks.len(),
-        11,
-        "shape-lock count drifted from 11 — module docstring (iter \
-         207) + STATUS.md catalog (iter 184/188) claim '11 parallel \
+        12,
+        "shape-lock count drifted from 12 — module docstring (iter \
+         207) + STATUS.md catalog (iter 184/188) claim '12 parallel \
          shape-lock drift detectors'. Update in lock-step."
     );
 
@@ -7997,24 +8000,24 @@ fn closed_citation_structural_shape_locks_are_all_present() {
     assert!(
         missing.is_empty(),
         "closed-citation structural shape-lock test(s) MISSING: \
-         {missing:?}. The 11 shape-locks form the structural-doctrine \
+         {missing:?}. The 12 shape-locks form the structural-doctrine \
          surface of the closed-citation contract. If you removed one \
          deliberately, update STATUS.md + this drift detector + the \
          hardening_tests.rs module docstring (iter 207) together."
     );
 
-    // STATUS.md catalog cross-check: the canonical "Eleven parallel
+    // STATUS.md catalog cross-check: the canonical "Twelve parallel
     // shape-lock drift detectors" phrase must be present so the
     // catalog narrative stays in sync with iter 207's docstring +
     // this drift detector's array length.
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Eleven parallel shape-lock drift detectors")
-            || status.contains("eleven parallel shape-lock drift detectors"),
-        "STATUS.md must contain the canonical 'Eleven parallel shape-lock \
+        status.contains("Twelve parallel shape-lock drift detectors")
+            || status.contains("twelve parallel shape-lock drift detectors"),
+        "STATUS.md must contain the canonical 'Twelve parallel shape-lock \
          drift detectors' phrase, in lock-step with iter 207's module \
-         docstring and this drift detector's array length (11). If the \
+         docstring and this drift detector's array length (12). If the \
          count changed deliberately, update all three sites."
     );
 
@@ -8201,10 +8204,10 @@ fn closed_citation_structural_shape_locks_are_all_present() {
     // iter number on a relabeled entry (e.g. cloning "EidosCitation
     // 2-field (iter 172)" to "EidosHit 7-field (iter 172)" instead
     // of "(iter 174)").
-    const SHAPE_LOCK_ITER_NUMBERS: [&str; 11] = [
+    const SHAPE_LOCK_ITER_NUMBERS: [&str; 12] = [
         "iter 134", "iter 158", "iter 172", "iter 173", "iter 174",
         "iter 175", "iter 176", "iter 177", "iter 178", "iter 179",
-        "iter 183",
+        "iter 183", "iter 683",
     ];
     // Length-equality lock: parallel to iter 224 for vectors. The
     // zip silently truncates if the arrays differ in length.
@@ -8257,13 +8260,13 @@ fn closed_citation_structural_shape_locks_are_all_present() {
          historical iter reference in commits is broken."
     );
     // Canonical-last lock: SHAPE_LOCK_ITER_NUMBERS.last() must be
-    // "iter 183" (EidosIndexManifest 4-field, the most recently
-    // added shape-lock). When a 12th shape-lock is added, this
+    // "iter 683" (EidosCitationEnvelope 2-field, the most recently
+    // added shape-lock). When a 13th shape-lock is added, this
     // assertion fires and forces a deliberate update.
     assert_eq!(
-        SHAPE_LOCK_ITER_NUMBERS.last(), Some(&"iter 183"),
-        "shape-lock cluster tip is iter 183 (EidosIndexManifest 4-field). \
-         If a 12th shape-lock is added, update this assertion + the array \
+        SHAPE_LOCK_ITER_NUMBERS.last(), Some(&"iter 683"),
+        "shape-lock cluster tip is iter 683 (EidosCitationEnvelope 2-field). \
+         If a 13th shape-lock is added, update this assertion + the array \
          + the count + the module docstring + STATUS.md in lock-step."
     );
     for (i, ((label, _), expected_iter)) in required_shape_locks
@@ -8286,9 +8289,9 @@ fn closed_citation_structural_shape_locks_are_all_present() {
     // to iter 216's vector-STATUS.md iter-anchor lock.
     //
     // Iter 225: reuse SHAPE_LOCK_ITER_NUMBERS const declared above
-    // (iter 222) — single source of truth for the 11 iter anchors,
+    // (iter 222) — single source of truth for the 12 iter anchors,
     // eliminating the duplicate hardcoded list this iter 218 check
-    // previously maintained separately. Adding a 12th shape-lock
+    // previously maintained separately. Adding a 13th shape-lock
     // now requires updating ONE const, not two lists.
     for iter_num in &SHAPE_LOCK_ITER_NUMBERS {
         assert!(
@@ -8367,15 +8370,15 @@ fn module_docstring_describes_six_named_smuggling_vectors() {
         );
     }
 
-    // Cross-check: the module docstring's "11 parallel structural
+    // Cross-check: the module docstring's "12 parallel structural
     // shape-locks" claim must agree with iter 213's shape-lock array
-    // count. If iter 213 grows to 12 entries (a new shape-lock is
-    // added), the docstring's "11" becomes stale. Pin the explicit
-    // "11" substring in the docstring so the claim drifts in
+    // count. If iter 213 grows to 13 entries (a new shape-lock is
+    // added), the docstring's "12" becomes stale. Pin the explicit
+    // "12" substring in the docstring so the claim drifts in
     // lock-step with the actual structural-doctrine cluster.
     assert!(
-        normalized.contains("11 parallel structural shape-locks"),
-        "module docstring must claim '11 parallel structural shape-locks' \
+        normalized.contains("12 parallel structural shape-locks"),
+        "module docstring must claim '12 parallel structural shape-locks' \
          verbatim, in lock-step with iter 213's shape-lock drift detector. \
          If the count changed deliberately, update both sites and this \
          assertion."
@@ -11209,6 +11212,47 @@ fn eidos_citation_has_exactly_two_public_fields() {
          EQ truth-table + iter 161 size ceiling must update in \
          lock-step. See the docstring above for the full consumer \
          list."
+    );
+}
+
+/// Iter 683 — `EidosCitationEnvelope` has exactly TWO public
+/// fields (`citation`, `provenance`). Adding a third field must
+/// surface in lock-step at every bridge consumer because this is
+/// the closed-citation-approved handoff object: validated citation
+/// plus the provenance that authorized it.
+#[test]
+fn eidos_citation_envelope_has_exactly_two_public_fields() {
+    use super::types::{
+        EidosChunkId, EidosCitation, EidosCitationEnvelope, EidosProvenance,
+    };
+
+    let envelope = EidosCitationEnvelope {
+        citation: EidosCitation {
+            source_id: EidosChunkId::new("envelope-shape-src").unwrap(),
+            manifest_id: manifest(),
+        },
+        provenance: EidosProvenance {
+            manifest_id: manifest(),
+            mode: EidosRetrievalMode::Lexical,
+            retrieved_at_unix_ms: 1_700_000_000_683,
+        },
+    };
+
+    // Compile-time exhaustiveness — NO `..` wildcard.
+    let EidosCitationEnvelope {
+        citation,
+        provenance,
+    } = &envelope;
+    assert!(!citation.source_id.as_str().is_empty());
+    assert!(!provenance.manifest_id.as_str().is_empty());
+
+    const FIELD_COUNT: usize = 2;
+    assert_eq!(
+        FIELD_COUNT, 2,
+        "EidosCitationEnvelope field count drift — Rust serde pin + \
+         Swift EidosCitationEnvelope mirror + §12 wire table must update \
+         in lock-step. The envelope must remain exactly validated citation \
+         plus provenance unless every consumer is deliberately revised."
     );
 }
 
