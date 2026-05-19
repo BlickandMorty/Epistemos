@@ -14,6 +14,7 @@ import Epistemos.OperatorGeneratedSample
 import Epistemos.Info
 import Epistemos.InfoGeneratedSample
 import Epistemos.Geometry
+import Epistemos.GeometryGeneratedSample
 
 import Epistemos.E1
 import Epistemos.E2
