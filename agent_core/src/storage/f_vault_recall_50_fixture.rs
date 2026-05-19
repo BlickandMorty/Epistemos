@@ -6234,6 +6234,44 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 50th Synthesis row (iter-408, MILESTONE — Synthesis
+        // category lands the F-VaultRecall-50 target row count
+        // FIRST among all 7 categories). SECOND 2-term-AND
+        // subset on the storage/tokenizer pair's 4-element
+        // vocab {tokenizer, indexing, tantivy, simpletokenizer}:
+        // {tokenizer, tantivy}. Pair-partners each carry both
+        // tokens. Other "tantivy"-bearing seeds — iter-66
+        // vault_index_reload_canon.md (tantivy + vault + index +
+        // reload + vaultstore + reader + visibility) and
+        // iter-66 decoy tantivy_misc_notes.md (tantivy only) —
+        // do NOT carry "tokenizer". AND-on-2 matches only the
+        // pair. Together with iter-401 {tokenizer, indexing},
+        // 2 of 6 C(4,2) subsets surveyed on the storage/
+        // tokenizer pair. Zero new seeds. SYNTHESIS CATEGORY
+        // FIRST AT DEPTH 50 — proves the systematic 2-term-AND
+        // closure survey methodology scales beyond the agent-
+        // runtime pair to a second, structurally distinct pair.
+        query: "tokenizer tantivy",
+        expected_paths: &[
+            "notes/tokenizer_indexing_tantivy_overview.md",
+            "notes/tokenizer_indexing_tantivy_internals.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Fiftieth Synthesis row (iter-408, MILESTONE — \
+               Synthesis category FIRST to reach the F-VaultRecall-\
+               50 target row count). SECOND 2-term-AND subset on \
+               storage/tokenizer pair: {tokenizer, tantivy}. \
+               Other tantivy-bearing seeds (vault_index_reload_\
+               canon + tantivy_misc_notes) lack \"tokenizer\" — \
+               AND-on-2 matches only the pair. With iter-401 \
+               {tokenizer, indexing}, 2 of 6 C(4,2) subsets \
+               surveyed on second fully-tracked pair. Brings \
+               Synthesis to depth 50 — F-VaultRecall-50 target \
+               row count first reached. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 49th Synthesis row (iter-401). OPENS a NEW pair's
         // C(*,2) closure survey — storage/tokenizer pair
         // (iter-85's tokenizer_indexing_tantivy_overview +
