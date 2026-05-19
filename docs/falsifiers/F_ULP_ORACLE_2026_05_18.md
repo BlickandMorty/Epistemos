@@ -65,6 +65,20 @@ freezes treat Metal output itself as proven.
 |---|---|---|---|---|---|---|
 | F-ULP-Oracle | Research | M2 Pro numeric falsifier | implemented-not-wired | `agent_core/src/research/eml_ir/`, `Epistemos/Shaders/morph_eval_reduced.metal`, `cargo test --features research research::eml_ir` | live Metal dispatch capture from `morphOracleFp16` | harden with GPU capture, subnormal/signed-zero diagnostics, WBO numerics cross-link, and Helios v3 §3.5/F7a reference |
 
+## Reference Methodology
+
+Per-point ULP distance is measured against `f64::exp(x) - f64::ln(y)` rounded
+to binary16. The reference is never recomputed in fp32 because the rounding
+boundary moves: an fp32 reference that drifts by even one ULP relative to
+fp64-then-rounded would silently widen the acceptance band and let a
+non-compliant kernel through. The candidate is the CPU float-intrinsic
+surrogate `cpu_float_intrinsic_morph_oracle_fp16_v1`, which exercises the
+same float arithmetic shape the `morphOracleFp16` Metal kernel uses
+(fp32 intrinsics then `half(...)` rounding for each of `exp`, `ln`, and
+`eml`). Replay rejects a witness whose `evaluator_variant` is the fp64
+reference itself, so the reference cannot be smuggled in as its own
+candidate.
+
 ## ULP Gate Tier Ladder
 
 `classify_ulp_gate` partitions per-operation max-ULP into the three gate tiers
