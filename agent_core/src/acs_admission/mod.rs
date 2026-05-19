@@ -2870,9 +2870,19 @@ pub fn resolve_acs_audit_record(
         }
     }
 
-    let value = newest_value.ok_or_else(|| ACSAuditLookupError::NotFound {
-        record_id: record_id.0.clone(),
-    })?;
+    let value = match newest_value {
+        Some(value) => value,
+        None if aliased_count > 0 => {
+            return Err(ACSAuditLookupError::DuplicateRecord {
+                record_id: record_id.0.clone(),
+            });
+        }
+        None => {
+            return Err(ACSAuditLookupError::NotFound {
+                record_id: record_id.0.clone(),
+            });
+        }
+    };
     if !value.is_object() {
         if matched_count > 1 {
             return Err(ACSAuditLookupError::DuplicateRecord {
@@ -7294,6 +7304,26 @@ mod tests {
             value: duplicate_value,
         });
         let record_id = decision.audit_record.record_id.clone();
+
+        let err = resolve_acs_audit_record(&run_event_log, &AuditRecordId::new(record_id.clone()))
+            .unwrap_err();
+
+        assert_eq!(err.cause(), "duplicate_acs_audit_record");
+        assert_eq!(err.field(), Some("record_id"));
+        assert_eq!(err.record_id(), Some(record_id.as_str()));
+    }
+
+    #[test]
+    fn acs_admission_run_event_log_rejects_alias_only_record_refs() {
+        let run_event_log = crate::oplog::OpLog::new("acs-admission-alias-only-ref-test");
+        let record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+        let record_id = record.record_id.clone();
+        let aliased_value = serde_json::to_value(record).expect("audit record encodes");
+        run_event_log.append(crate::oplog::OpPayload::PropSet {
+            node_id: "acs:req-shadow:1001".to_string(),
+            key: ACS_AUDIT_RUN_EVENT_KEY.to_string(),
+            value: aliased_value,
+        });
 
         let err = resolve_acs_audit_record(&run_event_log, &AuditRecordId::new(record_id.clone()))
             .unwrap_err();
