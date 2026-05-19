@@ -731,14 +731,10 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
             kind: FulpInvalidJsonKind::InvalidLength,
         });
     }
-    let Some(point_count_value) = value.get("point_count") else {
+    let point_count = top_level_unsigned_integer_json(&value, "point_count")?;
+    top_level_unsigned_integer_json(&value, "operation_evaluations")?;
+    let Some(max_point_index_exclusive) = point_count else {
         return Ok(());
-    };
-    let Some(max_point_index_exclusive) = point_count_value.as_u64() else {
-        return Err(FulpReplayError::InvalidJson {
-            message: "invalid type for point_count, expected unsigned integer".to_string(),
-            kind: FulpInvalidJsonKind::TypeMismatch,
-        });
     };
     let expected_len = StressAxis::ALL.len();
     for (operation_index, stat) in stats.iter().enumerate() {
@@ -1060,6 +1056,22 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
         )?;
     }
     Ok(())
+}
+
+fn top_level_unsigned_integer_json(
+    value: &serde_json::Value,
+    field: &str,
+) -> Result<Option<u64>, FulpReplayError> {
+    let Some(field_value) = value.get(field) else {
+        return Ok(None);
+    };
+    let Some(field_value) = field_value.as_u64() else {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("invalid type for {field}, expected unsigned integer"),
+            kind: FulpInvalidJsonKind::TypeMismatch,
+        });
+    };
+    Ok(Some(field_value))
 }
 
 fn reject_worst_case_fields_json(
@@ -1689,6 +1701,24 @@ mod tests {
             error.count_mismatch_kind(),
             Some(FulpCountMismatchKind::OperationEvaluations)
         );
+    }
+
+    #[test]
+    fn replay_rejects_operation_evaluations_json_type_drift_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["operation_evaluations"] = serde_json::Value::String("bad-count".to_string());
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("operation evaluations type drift must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("operation_evaluations"));
     }
 
     #[test]
