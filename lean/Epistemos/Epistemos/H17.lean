@@ -47,6 +47,9 @@ theorem capacityBoundExpands (s : HopfieldStore) :
 def HopfieldStore.withinCapacity (s : HopfieldStore) : Bool :=
   s.num_patterns ≤ s.capacityBound
 
+/-- H17 remains behind the Verified Research Mode Tier-2 toggle. -/
+def tier2ResearchToggleRequired : Bool := true
+
 theorem zeroPatternsWithinCapacity (dim : Nat) (beta : Float) :
     ({ num_patterns := 0, dim := dim, beta := beta } : HopfieldStore).withinCapacity = true := by
   simp [HopfieldStore.withinCapacity, HopfieldStore.capacityBound]
@@ -56,6 +59,10 @@ def HopfieldStore.singleUpdateTargetDim (s : HopfieldStore) : Nat :=
 
 theorem singleUpdatePreservesStoreDim (s : HopfieldStore) :
     s.singleUpdateTargetDim = s.dim := by
+  rfl
+
+theorem tier2ResearchTogglePinned :
+    tier2ResearchToggleRequired = true := by
   rfl
 
 end Epistemos.H17
