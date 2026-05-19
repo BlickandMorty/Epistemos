@@ -4765,6 +4765,29 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 32nd ChattyPrefix row (iter-284): Georgian-multilingual
+        // signal domain — 22nd distinct lexical universe.
+        // Survivors after strip {Mamba, ქეში}. 2-term AND
+        // matches only iter-141's mamba_georgian.md. ELEVENTH
+        // non-ASCII ChattyPrefix domain. Together with iter-277
+        // Armenian, both Caucasus alphabets now pinned in
+        // ChattyPrefix.
+        query: "Show me my Mamba ქეში notes",
+        expected_paths: &["notes/mamba_georgian.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Thirty-second ChattyPrefix row (iter-284): \
+               Georgian-multilingual signal domain — 22nd \
+               distinct lexical universe. Survivors {Mamba, \
+               ქეში} after strip. 2-term AND matches only \
+               iter-141 mamba_georgian.md. Eleventh non-ASCII \
+               ChattyPrefix domain. Both Caucasus alphabets \
+               (Armenian iter-277 + Georgian iter-284) now \
+               pinned. Brings ChattyPrefix to depth 32. Zero \
+               new seeds.",
+    },
+    FVaultRecallRow {
         // 31st ChattyPrefix row (iter-277): Armenian-multilingual
         // signal domain — 21st distinct lexical universe.
         // Survivors after strip {Mamba, կեշ}. 2-term AND matches
