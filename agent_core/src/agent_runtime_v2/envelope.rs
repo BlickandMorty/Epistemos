@@ -1177,6 +1177,52 @@ mod tests {
     }
 
     #[test]
+    fn seal_error_variants_field_shapes_pinned_via_destructure() {
+        // Phase 1 hardening MILESTONE iter-460 — field-shape pin for
+        // SealError<W>'s 3 tuple variants (companion to the destructure
+        // pin family iter-454..iter-459).
+        //
+        // Variants:
+        //   - Capability(CapabilityError) — tuple, 1 field
+        //   - Budget(BudgetError) — tuple, 1 field
+        //   - Write(W) — tuple, 1 field of generic W
+        //
+        // The 3-variant shape is load-bearing — extending to 4 variants
+        // would require updating Sealer::seal_and_apply's match arms
+        // + the error attribution chain. Pin via destructure compile-fail.
+        use crate::cognitive_dag::macaroons::VerifyError;
+        let cap_err: SealError<std::convert::Infallible> =
+            SealError::Capability(CapabilityError::Forged(VerifyError::SignatureMismatch));
+        match cap_err {
+            SealError::Capability(inner) => {
+                let _: CapabilityError = inner;
+            }
+            _ => unreachable!(),
+        }
+        let bud_err: SealError<std::convert::Infallible> =
+            SealError::Budget(BudgetError::Exhausted {
+                term: BudgetTerm::Tokens,
+                attempted_total: 100,
+                cap: 50,
+            });
+        match bud_err {
+            SealError::Budget(inner) => {
+                let _: BudgetError = inner;
+            }
+            _ => unreachable!(),
+        }
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        struct LocalErr;
+        let write_err: SealError<LocalErr> = SealError::Write(LocalErr);
+        match write_err {
+            SealError::Write(inner) => {
+                let _: LocalErr = inner;
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    #[test]
     fn seal_error_variant_count_is_three() {
         // Phase 1 hardening — cardinality pin. SealError<W> has 3
         // variants (Capability, Budget, Write). Each surfaces a

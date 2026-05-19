@@ -677,6 +677,28 @@ mod tests {
     }
 
     #[test]
+    fn variant_ladder_error_variants_field_shapes_pinned_via_destructure() {
+        // Phase 1 hardening — field-shape pin for VariantLadderError's
+        // 2 unit variants (companion to the destructure pin family
+        // iter-454..iter-460).
+        //
+        // Variants: EmptyTiers, NonAscendingTiers (both unit).
+        //
+        // A future "let me add a context payload like {EmptyTiers,
+        // tool_name}" would silently break the unit-variant assumption.
+        let cases = [
+            VariantLadderError::EmptyTiers,
+            VariantLadderError::NonAscendingTiers,
+        ];
+        for case in cases {
+            match case {
+                VariantLadderError::EmptyTiers
+                | VariantLadderError::NonAscendingTiers => {}
+            }
+        }
+    }
+
+    #[test]
     fn variant_ladder_error_variant_count_is_two() {
         // Phase 1 hardening — cardinality pin. VariantLadderError
         // has 2 variants (EmptyTiers, NonAscendingTiers) covering
