@@ -776,6 +776,37 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_display_with_empty_blueprint_id_produces_terse_output() {
+        // Phase 1 hardening — boundary pin for AnswerPacket Display
+        // with an empty blueprint_id (companion to
+        // mission_packet_display_omits_prompt_for_log_concision which
+        // pins terseness). An empty blueprint_id is legal (the
+        // doctrine on AgentBlueprintId permits any String) and the
+        // Display rendering must remain parseable as
+        //   "AnswerPacket{blueprint=, stop=EndTurn, tokens=N, citations=M}"
+        // — the blueprint= field appears with an EMPTY value, not
+        // panicking and not collapsing the comma-separated layout.
+        let log = RunEventLog::new();
+        let packet = AnswerPacket::emit(
+            AgentBlueprintId(String::new()),
+            "x".into(),
+            vec![],
+            StopReason::EndTurn,
+            BudgetLedger::default(),
+            &log,
+        );
+        let display = format!("{packet}");
+        assert!(
+            display.starts_with("AnswerPacket{blueprint=, "),
+            "Display must produce `blueprint=, ` prefix for empty id, got {display}"
+        );
+        // The rest of the fields must still be present.
+        assert!(display.contains("stop=EndTurn"));
+        assert!(display.contains("tokens=0"));
+        assert!(display.contains("citations=0"));
+    }
+
+    #[test]
     fn answer_packet_display_writes_blueprint_id_verbatim_no_escaping() {
         // Phase 1 hardening — Display vs serde behaviour pin
         // (companion to mission_packet_display_writes_special_chars_verbatim_no_escaping
