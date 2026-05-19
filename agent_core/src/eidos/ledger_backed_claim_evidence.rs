@@ -88,14 +88,17 @@ impl EidosRetriever for LedgerBackedClaimEvidence {
         // Find the support_links entry whose claim id text matches the
         // query. The snapshot is already sorted by claim id at
         // construction time so iteration is deterministic.
-        let support_link = self
+        let mut matching_links = self
             .snapshot
             .support_links
             .iter()
-            .find(|link| link.claim.0 == query.text);
-        let Some(link) = support_link else {
+            .filter(|link| link.claim.0 == query.text);
+        let Some(link) = matching_links.next() else {
             return empty_packet(query, &self.manifest_id);
         };
+        if matching_links.next().is_some() {
+            return empty_packet(query, &self.manifest_id);
+        }
 
         let claim_is_retracted = self
             .snapshot
@@ -184,6 +187,7 @@ mod tests {
     use super::*;
     use crate::eidos::types::EidosCitation;
     use crate::provenance::ledger::{Claim, ClaimId, Evidence, EvidenceId};
+    use crate::provenance::replay::ClaimEvidenceLink;
 
     fn manifest() -> EidosIndexManifestId {
         EidosIndexManifestId::new("ledger-backed-test").unwrap()
@@ -289,6 +293,29 @@ mod tests {
             packet.hits.is_empty(),
             "directly retracted claims must not surface any evidence into \
              the closed-citation set"
+        );
+    }
+
+    #[test]
+    fn duplicate_snapshot_support_links_fail_closed() {
+        let led = build_ledger();
+        let mut snapshot = led.snapshot();
+        snapshot.support_links.push(ClaimEvidenceLink {
+            claim: ClaimId("claim:tropical-is-convex".to_string()),
+            evidence: vec![EvidenceId("ev-2".to_string())],
+        });
+
+        let r = LedgerBackedClaimEvidence::from_snapshot(snapshot, manifest());
+        let q = EidosQuery::new(
+            "claim:tropical-is-convex",
+            EidosRetrievalMode::ClaimEvidence,
+            16,
+        );
+        let packet = r.retrieve(&q, 1_700_000_000_000);
+        assert!(
+            packet.hits.is_empty(),
+            "duplicate claim support-link rows make replay snapshots \
+             ambiguous and must fail closed"
         );
     }
 
