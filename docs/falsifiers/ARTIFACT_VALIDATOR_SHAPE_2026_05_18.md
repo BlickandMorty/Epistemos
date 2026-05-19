@@ -156,7 +156,7 @@ assert anomaly_axis_refs subset_of keys(artifact.measurements)
 assert notes_do_not_override_schema(artifact.notes)
 assert notes_do_not_embed_json_payloads(artifact.notes)
 assert non_none_notes_include_anomaly_inspection_token(artifact.notes)
-assert non_none_notes_include_reviewer_token(artifact.notes)
+assert non_none_notes_include_lowercase_slug_reviewer_token(artifact.notes)
 assert non_none_notes_include_review_timestamp_token(artifact.notes)
 assert notes_reviewer_token_not_reserved_anonymous_identity(artifact.notes)
 assert notes_required_tokens_are_semicolon_delimited(artifact.notes)
@@ -204,7 +204,7 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 ```
 
 ```bash
-ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); notes=schema.dig("properties","notes") || abort("notes missing"); rule=notes["allOf"].find { |r| r.dig("then","pattern")&.include?("reviewer=") && r.dig("then","pattern")&.include?("anomaly_inspection=complete") }; abort("notes reviewer rule missing") unless rule; puts "notes reviewer token ok"'
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); notes=schema.dig("properties","notes") || abort("notes missing"); rule=notes["allOf"].find { |r| r.dig("then","pattern")&.include?("reviewer=[a-z0-9][a-z0-9._-]*") && r.dig("then","pattern")&.include?("anomaly_inspection=complete") }; abort("notes lowercase reviewer rule missing") unless rule; puts "notes reviewer token ok"'
 ```
 
 ```bash
@@ -240,11 +240,11 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 ```
 
 ```bash
-ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); notes=schema.dig("properties","notes") || abort("notes missing"); rule=notes["allOf"].find { |r| r.dig("if","pattern") == "from_schema=" } || abort("migration note rule missing"); pat=rule.dig("then","pattern") || abort("migration note pattern missing"); allow=notes.dig("not","pattern") || abort("notes allowlist missing"); abort("migration validator token missing") unless pat.include?("validator=[a-z0-9][a-z0-9._-]*") && allow.include?("validator"); abort("migration reviewer token missing") unless pat.include?("reviewer=[A-Za-z0-9._-]+"); puts "migration validator identity ok"'
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); notes=schema.dig("properties","notes") || abort("notes missing"); rule=notes["allOf"].find { |r| r.dig("if","pattern") == "from_schema=" } || abort("migration note rule missing"); pat=rule.dig("then","pattern") || abort("migration note pattern missing"); allow=notes.dig("not","pattern") || abort("notes allowlist missing"); abort("migration validator token missing") unless pat.include?("validator=[a-z0-9][a-z0-9._-]*") && allow.include?("validator"); abort("migration reviewer token missing") unless pat.include?("reviewer=[a-z0-9][a-z0-9._-]*"); puts "migration validator identity ok"'
 ```
 
 ```bash
-ruby -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); abort("migration validator slug rule missing") unless s.include?("validator` names the tool or terminal") && s.include?("^[a-z0-9][a-z0-9._-]*$"); abort("migration validator distinctness rule missing") unless s.include?("If `validator` equals `reviewer`, the migration note is invalid"); puts "migration validator distinctness ok"'
+ruby -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); abort("migration validator slug rule missing") unless s.include?("validator` names the tool or terminal") && s.include?("^[a-z0-9][a-z0-9._-]*$"); abort("migration reviewer slug rule missing") unless s.include?("reviewer` names the human or accountable review identity and must use the same lowercase-slug grammar"); abort("migration validator distinctness rule missing") unless s.include?("If `validator` equals `reviewer`, the migration note is invalid"); puts "migration validator distinctness ok"'
 ```
 
 ```bash
@@ -441,7 +441,7 @@ Implementation owner is TBD: merge-phase if artifact validation becomes part of 
 | `W-Validator-ThresholdSource` | TBD validator-implementation terminal | Any executable validator accepts falsifier artifacts with `acceptance_thresholds[*].threshold_source`. | Reject missing threshold sources, upstream/provider source mismatch, missing provider receipt refs, or provider refs not matching retained `provider_receipts[*].request_id_hash`. |
 | `W-Validator-CommandDigest` | TBD validator-implementation terminal | Any executable validator accepts falsifier artifacts with `command_digest`. | Recompute `sha256:` over the normalized command string and reject missing, mismatched, or manifest-drifted command digests before script replay. |
 | `W-Validator-FixtureLineageDigest` | TBD validator-implementation terminal | Any executable validator accepts falsifier artifacts with `fixture_lineage.fixture_manifest`. | Recompute `fixture_manifest_sha256`, reject missing or mismatched manifest bytes, and require retained fixture manifests before generated-fixture replay. |
-| `W-Validator-NotesReviewerToken` | TBD validator-implementation terminal | Any executable validator accepts non-`none` falsifier `notes`. | Reject non-`none` notes missing `anomaly_inspection=complete` or `reviewer=<id>` before anomaly or migration review. |
+| `W-Validator-NotesReviewerToken` | TBD validator-implementation terminal | Any executable validator accepts non-`none` falsifier `notes`. | Reject non-`none` notes missing `anomaly_inspection=complete` or lowercase-slug `reviewer=<id>` before anomaly or migration review. |
 | `W-Validator-NotesReviewTimestamp` | TBD validator-implementation terminal | Any executable validator accepts non-`none` falsifier `notes`. | Reject non-`none` notes missing `reviewed_at_utc=<RFC3339Z>` or using an offset/local timestamp before replay promotion. |
 | `W-Validator-NotesReviewerSentinel` | TBD validator-implementation terminal | Any executable validator accepts reviewer tokens in falsifier `notes`. | Reject reserved reviewer identities `anonymous`, `unknown`, `tbd`, and `none` before anomaly or migration review. |
 | `W-Validator-NotesTokenDelimiter` | TBD validator-implementation terminal | Any executable validator accepts machine-readable tokens in falsifier `notes`. | Reject whitespace-separated required notes tokens and require semicolon-delimited `key=value` parsing before replay promotion. |
@@ -449,7 +449,7 @@ Implementation owner is TBD: merge-phase if artifact validation becomes part of 
 | `W-Validator-NotesLengthMigrationReason` | TBD validator-implementation terminal | Any executable validator accepts schema migrations that alter `notes.maxLength`. | Reject length-cap migrations unless the migration note names positive `notes_length_old_cap`, greater positive `notes_length_new_cap`, and closed-enum `notes_length_reason` for the capacity change. |
 | `W-Validator-NotesTokenKeyAllowlist` | TBD validator-implementation terminal | Any executable validator accepts machine-readable `key=value` tokens in falsifier `notes`. | Reject note tokens whose keys are not schema-owned before replay promotion or migration acceptance. |
 | `W-Validator-MigrationGapTokens` | TBD validator-implementation terminal | Any executable validator accepts `from_schema=` migration notes. | Reject migration notes missing any schema-table gap token, reject gap tokens absent from both the notes key allowlist and the `from_schema=` regex, and reject whitespace-bearing gap-token values before migration acceptance. |
-| `W-Validator-MigrationValidatorIdentity` | TBD validator-implementation terminal | Any executable validator accepts `from_schema=` migration notes. | Reject migration notes missing a lowercase-slug `validator` token, missing a human `reviewer` token, or using the same value for both before migration acceptance. |
+| `W-Validator-MigrationValidatorIdentity` | TBD validator-implementation terminal | Any executable validator accepts `from_schema=` migration notes. | Reject migration notes missing a lowercase-slug `validator` token, missing a lowercase-slug human `reviewer` token, or using the same value for both before migration acceptance. |
 | `W-Validator-MigrationValidatorSentinel` | TBD validator-implementation terminal | Any executable validator accepts `validator` tokens in migration notes. | Reject reserved validator identities `anonymous`, `unknown`, `tbd`, and `none` before migration acceptance. |
 | `W-Validator-LocalReferenceNotes` | TBD validator-implementation terminal | Any executable validator accepts `local_reference_only=true` in falsifier `notes`. | Reject missing `local_reference_artifact` or `local_reference_artifact_sha256`, and verify the retained artifact digest before replay promotion. |
 | `W-Validator-LocalReferenceRoot` | TBD validator-implementation terminal | Any executable validator accepts local-reference artifacts in falsifier `notes`. | Reject `local_reference_artifact` paths outside the owning falsifier row root before digest verification. |
