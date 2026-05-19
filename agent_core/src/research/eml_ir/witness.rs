@@ -2615,7 +2615,7 @@ mod tests {
         );
         assert_eq!(
             witness.adversarial_fixture_fingerprint,
-            "207fffdef0c46b4d25e2568c2b8681b757c458f4de7cfcf9f3ea9e0b41afad19"
+            "032b96f1ce47ceac73092bb7ac8d1132c204eafb1154c183a9f42a04e8d44f4f"
         );
         assert_eq!(
             witness.adversarial_reference_fingerprint,
@@ -2623,10 +2623,10 @@ mod tests {
         );
         assert_eq!(
             witness.adversarial_reference_fingerprint,
-            "6a008162a85703828be3de70fd1268defeeb3ed44f389dc2bff034f0bf27d8c7"
+            "6a663455cbf2cfa678aa25f3bba1a9daa138817dddb51ef86061d5617899d8da"
         );
         assert_eq!(witness.adversarial_reference_stats.finite_count, 12);
-        assert_eq!(witness.adversarial_reference_stats.rejected_count, 8);
+        assert_eq!(witness.adversarial_reference_stats.rejected_count, 9);
         assert_eq!(witness.adversarial_reference_fingerprint.len(), 64);
         let json = acceptance_witness_json().unwrap();
         assert!(json.contains("\"operation_catalog_fingerprint\""));
@@ -3167,6 +3167,16 @@ mod tests {
             .invalid_json_message()
             .expect("invalid json message")
             .contains("budget_target_millis"));
+    }
+
+    #[test]
+    fn replay_rejects_witness_with_empty_object_root() {
+        let json = "{}";
+        let error = replay_witness_json(json).expect_err("empty object root must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::MissingField)
+        );
     }
 
     #[test]
