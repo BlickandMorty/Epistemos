@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 249
+invalid_example_count: 250
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -12707,3 +12707,18 @@ Violates: [Identity Gap Slug Catalog](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#id
 ```
 
 Rejection reason: identity-gap slugs may use lowercase alphanumerics and internal hyphens only; URL-encoded aliases such as `reserved%2Dstate` carry a percent character plus uppercase hex digits that the slug grammar does not accept even when the percent sequence decodes to a hyphen.
+
+## N250 - Mixed Case Identity Gap Slug
+
+Violates: [Identity Gap Slug Catalog](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#identity-gap-slug-catalog).
+
+```json
+{
+  "catalog_slug": "rEsErVeD-state",
+  "negative_examples": ["N194", "N195"],
+  "schema_catalog_present": true,
+  "slug_grammar": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+}
+```
+
+Rejection reason: identity-gap slugs must use lowercase ASCII alphanumerics only; mixed-case aliases such as `rEsErVeD-state` break the lowercase requirement even when the family meaning is otherwise preserved.
