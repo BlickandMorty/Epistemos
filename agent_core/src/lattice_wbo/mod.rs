@@ -2968,6 +2968,26 @@ mod tests {
         });
         assert_json_unknown_field_rejected::<LatticeBudget>(budget, "debug");
 
+        let ledger_contribution = serde_json::json!({
+            "memory_tier": "L0 RAM hot",
+            "budget": {
+                "coder": "exact-hot",
+                "rate_milli_bits_per_symbol": null,
+                "side_information": "None",
+                "contributions": [{
+                    "term": "T_num",
+                    "source": "exact ULP guard",
+                    "budget": 0.0,
+                    "measured": null,
+                    "debug": "nested field",
+                }],
+            },
+            "active_support": null,
+            "falsifier": "F-WBO-DriftLedger; F-ULP-Oracle",
+            "caveat": "Exact hot rows still need numerical post-correction.",
+        });
+        assert_json_unknown_field_rejected::<WboLedgerEntry>(ledger_contribution, "debug");
+
         let entry = serde_json::json!({
             "memory_tier": "L2 Shadow Sketch",
             "budget": {
@@ -4430,7 +4450,7 @@ mod tests {
             "`public_accounting_json_rejects_unknown_fields`",
             "public accounting JSON rejects unknown fields on contribution, budget, active-support budget, ledger-entry, and owner surfaces",
             "`public_accounting_json_rejects_nested_unknown_fields`",
-            "public accounting JSON rejects nested unknown fields inside budget contributions and ledger active-support budgets",
+            "public accounting JSON rejects nested unknown fields inside standalone and ledger budget contributions plus ledger active-support budgets",
             "`public_accounting_json_rejects_duplicate_public_keys`",
             "public JSON rows reject duplicate public keys before validation",
             "duplicate-key guard covers nullable public keys and owner paths",
