@@ -144,6 +144,17 @@ theorem bernoulliLogPartitionConvex (theta : Real) :
     logPartitionConvex ExpFamily.bernoulli [theta] := by
   exact ⟨ExpFamily.bernoulli_wellFormed, rfl⟩
 
+def bernoulliConvexLogPartitionObligation
+    (theta : Real) : ConvexLogPartitionObligation :=
+  { family := ExpFamily.bernoulli
+    naturalParams := [theta]
+    convexOnNaturalDomain := logPartitionConvex ExpFamily.bernoulli [theta]
+    sourceRow := "Info-IR.bernoulliLogPartitionConvex" }
+
+theorem bernoulliConvexLogPartitionObligationCarries (theta : Real) :
+    (bernoulliConvexLogPartitionObligation theta).convexOnNaturalDomain := by
+  exact bernoulliLogPartitionConvex theta
+
 def bernoulliDualMap (theta : Real) : Expr :=
   Expr.dualMap {
     family := ExpFamily.bernoulli
