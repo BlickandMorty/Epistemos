@@ -736,6 +736,39 @@ mod tests {
     }
 
     #[test]
+    fn para_output_new_constructor_positional_arg_order_is_pinned() {
+        // Phase 1 hardening — positional-order pin for ParaOutput::new
+        // (companion to the constructor-order pin family iter-433..
+        // iter-436).
+        //
+        // Signature: new(value, stop_reason, thinking) (para.rs §97).
+        //
+        // A reorder would silently shuffle every executor call site.
+        // The args have DIFFERENT types (B, StopReason, Option<Vec<u8>>)
+        // so a swap would be type-incompatible — BUT for the
+        // canonical B = String case, a `value <-> thinking-bytes`
+        // swap could be confusable. Pin via DISTINCT identifiable
+        // values per field.
+        let out: ParaOutput<String> = ParaOutput::new(
+            /*value=*/        "DISTINCT-VALUE-CONTENT".to_string(),
+            /*stop_reason=*/  StopReason::Refusal, // distinctive 4/7
+            /*thinking=*/     Some(b"DISTINCT-THINKING-BYTES".to_vec()),
+        );
+        assert_eq!(out.value, "DISTINCT-VALUE-CONTENT");
+        assert_eq!(out.stop_reason, StopReason::Refusal);
+        assert_eq!(
+            out.thinking.as_deref(),
+            Some(b"DISTINCT-THINKING-BYTES".as_slice())
+        );
+        // digest_intact holds (independent BLAKE3 over the supplied
+        // bytes; if value and thinking got swapped, the digest would
+        // hash the WRONG bytes and intact() would still pass — but
+        // the stored `thinking` field check above proves byte-equal
+        // preservation).
+        assert!(out.digest_intact());
+    }
+
+    #[test]
     fn fwd_output_digest_is_intact_immediately() {
         let exec = ToyExecutor;
         let out = exec.fwd(&0, "hello").expect("fwd ok");
