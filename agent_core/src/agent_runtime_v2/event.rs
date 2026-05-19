@@ -839,6 +839,46 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_debug_repr_starts_with_variant_name_for_audit_logs() {
+        let samples = [
+            (AgentEvent::ReasoningDelta { text: "think".into() }, "ReasoningDelta"),
+            (AgentEvent::FinalText { text: "final".into() }, "FinalText"),
+            (
+                AgentEvent::ToolCall {
+                    call: ToolCall {
+                        name: "vault.read".into(),
+                        arguments: serde_json::json!({ "path": "note.md" }),
+                    },
+                },
+                "ToolCall",
+            ),
+            (
+                AgentEvent::ToolResult {
+                    name: "vault.read".into(),
+                    result: serde_json::json!({ "ok": true }),
+                },
+                "ToolResult",
+            ),
+            (AgentEvent::Stop { reason: StopReason::EndTurn }, "Stop"),
+            (
+                AgentEvent::Error {
+                    kind: AgentEventErrorKind::Provider,
+                    message: "transport failed".into(),
+                },
+                "Error",
+            ),
+        ];
+        assert_eq!(samples.len(), AgentEvent::VARIANT_COUNT);
+        for (event, expected_prefix) in samples {
+            let got = format!("{event:?}");
+            assert!(
+                got.starts_with(expected_prefix),
+                "Debug repr drift for {event:?} would break audit log greps"
+            );
+        }
+    }
+
+    #[test]
     fn agent_event_is_clone_send_sync_but_not_copy() {
         // Phase 1 hardening — trait-bound pin for the executor-stream
         // event enum. Companion to AgentBlueprintId iter-375 through
