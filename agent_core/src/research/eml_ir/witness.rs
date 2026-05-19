@@ -1560,6 +1560,8 @@ struct RawTopLevelUnsigned<'a> {
     #[serde(default, borrow)]
     config: Option<&'a RawValue>,
     #[serde(default, borrow)]
+    adversarial_reference_stats: Option<&'a RawValue>,
+    #[serde(default, borrow)]
     point_count: Option<&'a RawValue>,
     #[serde(default, borrow)]
     operation_evaluations: Option<&'a RawValue>,
@@ -1582,6 +1584,9 @@ fn reject_raw_top_level_unsigned_json(json: &str) -> Result<(), FulpReplayError>
     }
     if let Some(value) = raw_witness.config {
         reject_raw_config_unsigned_json(value)?;
+    }
+    if let Some(value) = raw_witness.adversarial_reference_stats {
+        reject_raw_adversarial_reference_stats_unsigned_json(value)?;
     }
     if let Some(value) = raw_witness.point_count {
         raw_unsigned_integer_json(value, "point_count")?;
@@ -1643,6 +1648,25 @@ fn reject_raw_config_unsigned_json(raw_config: &RawValue) -> Result<(), FulpRepl
         "config.ulp_tolerance",
     )?;
     raw_u32_json(value, "config.ulp_tolerance")?;
+    Ok(())
+}
+
+fn reject_raw_adversarial_reference_stats_unsigned_json(
+    raw_stats: &RawValue,
+) -> Result<(), FulpReplayError> {
+    if !raw_stats.get().trim_start().starts_with('{') {
+        return Ok(());
+    }
+    let Ok(raw_stats) = serde_json::from_str::<BTreeMap<String, Box<RawValue>>>(raw_stats.get())
+    else {
+        return Ok(());
+    };
+    if let Some(value) = raw_stats.get("finite_count") {
+        raw_unsigned_integer_json(value, "adversarial_reference_stats.finite_count")?;
+    }
+    if let Some(value) = raw_stats.get("rejected_count") {
+        raw_unsigned_integer_json(value, "adversarial_reference_stats.rejected_count")?;
+    }
     Ok(())
 }
 
@@ -3283,6 +3307,26 @@ mod tests {
             .invalid_json_message()
             .expect("invalid json message")
             .contains("adversarial_reference_stats.finite_count"));
+    }
+
+    #[test]
+    fn replay_rejects_adversarial_reference_finite_count_json_raw_overflow_with_path() {
+        let json = acceptance_witness_json().unwrap();
+        let needle = "\"finite_count\": 12";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(needle, "\"finite_count\": 1e999999", 1);
+        let error = replay_witness_json(&json)
+            .expect_err("adversarial reference finite count raw overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some(
+                "number out of range for adversarial_reference_stats.finite_count, expected unsigned integer"
+            )
+        );
     }
 
     #[test]
