@@ -948,6 +948,38 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_stop_helper_equals_struct_literal_for_every_stop_reason() {
+        // Phase 1 hardening — thin-wrapper equivalence pin for the
+        // AgentEvent::stop helper (companion to
+        // agent_event_error_helper_equals_struct_literal at iter-544).
+        // AgentEvent::stop is a const constructor for the terminal
+        // Stop variant; it MUST produce an event byte-equal to the
+        // direct struct-literal form for every StopReason. A future
+        // "let me also log a synthetic 'finalising' delta before the
+        // Stop" tweak would silently introduce two distinct Stop byte
+        // forms — breaking RunEventLog row equality.
+        for reason in [
+            StopReason::EndTurn,
+            StopReason::ToolUse,
+            StopReason::MaxTokens,
+            StopReason::Refusal,
+            StopReason::BudgetExhausted,
+            StopReason::CapabilityDenied,
+            StopReason::Error,
+        ] {
+            let via_helper = AgentEvent::stop(reason);
+            let via_struct = AgentEvent::Stop { reason };
+            assert_eq!(
+                via_helper, via_struct,
+                "AgentEvent::stop({reason:?}) must equal struct-literal form"
+            );
+            let j_h = serde_json::to_string(&via_helper).expect("serialize helper");
+            let j_s = serde_json::to_string(&via_struct).expect("serialize struct");
+            assert_eq!(j_h, j_s);
+        }
+    }
+
+    #[test]
     fn agent_event_error_helper_equals_struct_literal_for_every_kind_and_message_shape() {
         // Phase 1 hardening — thin-wrapper equivalence pin for the
         // AgentEvent::error helper (companion to the equivalence-pin
