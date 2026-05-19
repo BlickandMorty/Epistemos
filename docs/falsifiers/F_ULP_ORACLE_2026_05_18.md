@@ -65,6 +65,19 @@ freezes treat Metal output itself as proven.
 |---|---|---|---|---|---|---|
 | F-ULP-Oracle | Research | M2 Pro numeric falsifier | implemented-not-wired | `agent_core/src/research/eml_ir/`, `Epistemos/Shaders/morph_eval_reduced.metal`, `cargo test --features research research::eml_ir` | live Metal dispatch capture from `morphOracleFp16` | harden with GPU capture, subnormal/signed-zero diagnostics, WBO numerics cross-link, and Helios v3 §3.5/F7a reference |
 
+## Pass Field Invariants
+
+The witness `pass` field is `true` only when every per-operation
+max-ULP maps to the `Primary` gate tier (`<= 2` fp16 ULP) and the observed
+wall clock is inside the millisecond budget. Replay rejects any witness
+whose `pass` field disagrees with the recomputed verdict from the per-axis
+and per-operation ULP statistics, so a candidate cannot publish `pass:
+true` while shipping a per-operation max that the gate tier ladder maps to
+`Fallback` or `Fail`, and a candidate cannot publish `pass: false` while
+hiding a passing measurement. The verdict is therefore reproducible from
+the grid, the catalog, the candidate evaluator, and the recorded wall
+clock; nothing else.
+
 ## Evaluator Variant Allowlist
 
 Replay rejects any witness whose `evaluator_variant` is not

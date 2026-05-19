@@ -84,6 +84,16 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_doc_documents_pass_field_invariants() {
+        assert!(FULP_FALSIFIER_DOC.contains("## Pass Field Invariants"));
+        assert!(FULP_FALSIFIER_DOC.contains("`pass` field"));
+        assert!(FULP_FALSIFIER_DOC.contains("`Primary` gate tier"));
+        assert!(FULP_FALSIFIER_DOC.contains("recomputed verdict"));
+        assert!(FULP_FALSIFIER_DOC.contains("`pass:\ntrue`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`pass: false`"));
+    }
+
+    #[test]
     fn falsifier_doc_documents_evaluator_variant_allowlist() {
         assert!(FULP_FALSIFIER_DOC.contains("## Evaluator Variant Allowlist"));
         assert!(FULP_FALSIFIER_DOC.contains("`evaluator_variant`"));
