@@ -2341,6 +2341,34 @@ mod tests {
     }
 
     #[test]
+    fn last_stop_event_surfaces_each_of_seven_stop_reason_variants() {
+        // Phase 1 hardening — variant-completeness pin for
+        // last_stop_event(). Companion to
+        // stop_count_counts_every_stop_regardless_of_stop_reason_variant
+        // (iter-501) and error_count_counts_every_error... (iter-502).
+        //
+        // last_stop_event() returns the MOST RECENT Stop event's
+        // reason (Option<StopReason>). It must surface every one of
+        // the 7 StopReason variants verbatim — no remapping, no
+        // normalization. Pin via 7 logs each containing a single Stop
+        // event for the variant.
+        for reason in [
+            StopReason::EndTurn,
+            StopReason::ToolUse,
+            StopReason::MaxTokens,
+            StopReason::Refusal,
+            StopReason::BudgetExhausted,
+            StopReason::CapabilityDenied,
+            StopReason::Error,
+        ] {
+            let mut log = RunEventLog::new();
+            log.append_event(AgentEvent::Stop { reason });
+            assert_eq!(log.last_stop_event(), Some(reason),
+                "last_stop_event must surface {reason:?} verbatim");
+        }
+    }
+
+    #[test]
     fn stop_count_zero_iff_last_stop_event_is_none_cross_helper_invariant() {
         // Phase 1 hardening — cross-helper consistency.
         //   stop_count() == 0  ↔  last_stop_event() == None
