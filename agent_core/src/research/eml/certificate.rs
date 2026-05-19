@@ -301,6 +301,14 @@ pub fn lean_certificate(p: &PositiveEmlExpr) -> String {
          \x20   0 < Epistemos.EML.Expr.eval eml_expr_{suffix} := by\n\
          \x20 exact Epistemos.EML.CertificateTarget.eval_positive (eml_certificate_{suffix}{branch_witness_arg}{eval_witness_arg})\n\
          \n\
+         theorem eml_full_obligations_{suffix}{branch_witness_binder}{eval_witness_binder} :\n\
+         \x20   Epistemos.EML.BranchSafe (eml_certificate_{suffix}{branch_witness_arg}{eval_witness_arg}).expr ∧\n\
+         \x20     Epistemos.EML.Expr.eval (eml_certificate_{suffix}{branch_witness_arg}{eval_witness_arg}).expr =\n\
+         \x20       (eml_certificate_{suffix}{branch_witness_arg}{eval_witness_arg}).value ∧\n\
+         \x20     0 < Epistemos.EML.Expr.eval (eml_certificate_{suffix}{branch_witness_arg}{eval_witness_arg}).expr := by\n\
+         \x20 exact Epistemos.EML.CertificateTarget.fullObligations\n\
+         \x20   (eml_certificate_{suffix}{branch_witness_arg}{eval_witness_arg})\n\
+         \n\
          end Epistemos.EML.Generated\n",
         value = value,
         suffix = suffix,
@@ -454,6 +462,15 @@ mod tests {
         let c = lean_certificate(&p);
         assert!(c.contains("theorem eml_branch_and_eval_"));
         assert!(c.contains("Epistemos.EML.CertificateTarget.branchSafeAndEvalMatches"));
+        assert!(c.contains("eml_certificate_"));
+    }
+
+    #[test]
+    fn certificate_projects_full_obligations_from_schema_target() {
+        let p = PositiveEmlExpr::one();
+        let c = lean_certificate(&p);
+        assert!(c.contains("theorem eml_full_obligations_"));
+        assert!(c.contains("Epistemos.EML.CertificateTarget.fullObligations"));
         assert!(c.contains("eml_certificate_"));
     }
 
