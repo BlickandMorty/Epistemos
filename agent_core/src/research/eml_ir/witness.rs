@@ -4,9 +4,11 @@ use super::oracle::{
     WorstCase, FULP_BUDGET_TARGET_MILLIS, FULP_BUDGET_TARGET_SECONDS,
 };
 use super::StressAxis;
+use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
 
 pub const FULP_WITNESS_SCHEMA_VERSION: u32 = 12;
 
@@ -1578,6 +1580,7 @@ struct RawTopLevelUnsigned<'a> {
 }
 
 fn reject_raw_top_level_unsigned_json(json: &str) -> Result<(), FulpReplayError> {
+    reject_raw_object_duplicate_json(json, "")?;
     reject_raw_top_level_unknown_json(json)?;
     let Ok(raw_witness) = serde_json::from_str::<RawTopLevelUnsigned<'_>>(json) else {
         return Ok(());
@@ -1657,6 +1660,7 @@ fn reject_raw_hardware_unsigned_json(raw_hardware: &RawValue) -> Result<(), Fulp
     if !raw_hardware.get().trim_start().starts_with('{') {
         return Ok(());
     }
+    reject_raw_object_duplicate_json(raw_hardware.get(), "hardware")?;
     let Ok(raw_hardware) =
         serde_json::from_str::<BTreeMap<String, Box<RawValue>>>(raw_hardware.get())
     else {
@@ -1703,6 +1707,7 @@ fn reject_raw_config_unsigned_json(raw_config: &RawValue) -> Result<(), FulpRepl
             kind: FulpInvalidJsonKind::TypeMismatch,
         });
     }
+    reject_raw_object_duplicate_json(raw_config.get(), "config")?;
     let Ok(raw_config) = serde_json::from_str::<BTreeMap<String, Box<RawValue>>>(raw_config.get())
     else {
         return Ok(());
@@ -1744,6 +1749,7 @@ fn reject_raw_adversarial_reference_stats_unsigned_json(
     if !raw_stats.get().trim_start().starts_with('{') {
         return Ok(());
     }
+    reject_raw_object_duplicate_json(raw_stats.get(), "adversarial_reference_stats")?;
     let Ok(raw_stats) = serde_json::from_str::<BTreeMap<String, Box<RawValue>>>(raw_stats.get())
     else {
         return Ok(());
@@ -1764,6 +1770,59 @@ fn reject_raw_adversarial_reference_stats_unsigned_json(
         raw_unsigned_integer_json(value, "adversarial_reference_stats.rejected_count")?;
     }
     Ok(())
+}
+
+fn reject_raw_object_duplicate_json(raw_json: &str, path: &str) -> Result<(), FulpReplayError> {
+    if !raw_json.trim_start().starts_with('{') {
+        return Ok(());
+    }
+    let mut deserializer = serde_json::Deserializer::from_str(raw_json);
+    match serde::Deserializer::deserialize_map(&mut deserializer, RawDuplicateFieldVisitor { path })
+    {
+        Ok(()) => Ok(()),
+        Err(error) => {
+            let message = error.to_string();
+            if message.contains("duplicate field") {
+                Err(FulpReplayError::InvalidJson {
+                    message,
+                    kind: FulpInvalidJsonKind::DuplicateField,
+                })
+            } else {
+                Ok(())
+            }
+        }
+    }
+}
+
+struct RawDuplicateFieldVisitor<'a> {
+    path: &'a str,
+}
+
+impl<'a, 'de> Visitor<'de> for RawDuplicateFieldVisitor<'a> {
+    type Value = ();
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("object")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<(), A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut seen = BTreeSet::new();
+        while let Some(field) = map.next_key::<String>()? {
+            if !seen.insert(field.clone()) {
+                let field_path = if self.path.is_empty() {
+                    field
+                } else {
+                    format!("{}.{}", self.path, field)
+                };
+                return Err(de::Error::custom(format!("duplicate field {field_path}")));
+            }
+            let _ = map.next_value::<&RawValue>()?;
+        }
+        Ok(())
+    }
 }
 
 fn required_raw_json_field<'a>(
@@ -5463,6 +5522,28 @@ mod tests {
         );
         assert_ne!(json, original);
         let error = replay_witness_json(&json).expect_err("duplicate field must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::DuplicateField)
+        );
+    }
+
+    #[test]
+    fn replay_rejects_duplicate_config_field_before_numeric_payload() {
+        let original = acceptance_witness_json().unwrap();
+        let log_sampled_points = serde_json::from_str::<serde_json::Value>(&original)
+            .expect("witness json")["config"]["log_sampled_points"]
+            .as_u64()
+            .expect("log sampled points");
+        let needle = format!("\"log_sampled_points\": {log_sampled_points}");
+        let json = original.replacen(
+            &needle,
+            "\"log_sampled_points\": 4096,\n    \"log_sampled_points\": 18446744073709551616",
+            1,
+        );
+        assert_ne!(json, original);
+        let error = replay_witness_json(&json)
+            .expect_err("duplicate field must fail before numeric payload");
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::DuplicateField)
