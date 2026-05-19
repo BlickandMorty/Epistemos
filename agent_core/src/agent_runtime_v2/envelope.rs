@@ -1251,6 +1251,41 @@ mod tests {
     }
 
     #[test]
+    fn mutation_envelope_is_clone_send_sync_but_not_copy_for_propagation_safety() {
+        // Phase 1 hardening — trait-bound pin for the mutation request
+        // envelope. Companion to AgentBlueprintId iter-375 through
+        // AgentEvent iter-381 (the Clone + Send + Sync — NOT Copy —
+        // variant of the sweep).
+        //
+        // MutationEnvelope<P>: 3 fields (capability_hash + debit +
+        // payload: P). Generic over P; the typical concrete instance
+        // MutationEnvelope<String> is Clone by derive but NOT Copy
+        // (String allocates).
+        //
+        // Send + Sync are load-bearing — MutationEnvelopes ride across
+        // the dispatcher's writer boundary; a non-Send payload would
+        // pin them to a single thread and break the batch-write path
+        // the Sealer feeds.
+        //
+        // Pin for both String (the canonical payload type covered by
+        // most tests) and Vec<u8> (the binary-payload future).
+        //
+        // A future "let me hold a !Send AsyncMutex<P>" wrapper inside
+        // MutationEnvelope refactor would silently break the
+        // cross-thread writer path — surface here.
+        fn assert_clone_send_sync<T: Clone + Send + Sync>() {}
+        assert_clone_send_sync::<MutationEnvelope<String>>();
+        assert_clone_send_sync::<MutationEnvelope<Vec<u8>>>();
+
+        let e = MutationEnvelope::new(
+            Hash::zero(),
+            BudgetDebit::default(),
+            "payload".to_string(),
+        );
+        assert_eq!(e.clone(), e);
+    }
+
+    #[test]
     fn mutation_envelope_clone_equals_original() {
         // Phase 1 hardening — Clone preserves PartialEq. A future
         // refactor that swaps Vec for SmallVec (or similar) must
