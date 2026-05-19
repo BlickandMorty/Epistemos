@@ -323,6 +323,49 @@ mod tests {
     }
 
     #[test]
+    fn stop_reason_canonical_bytes_match_serde_tag_byte_for_byte() {
+        // Phase 1 hardening — cross-consistency pin between
+        // StopReason::canonical_bytes() (the BLAKE3 hash input for
+        // ParaOutput::stop_reason_digest) and the
+        // #[serde(rename_all = "snake_case")] tag. Two existing pin
+        // families lock each separately:
+        //   - stop_reason_canonical_bytes_pinned_to_exact_byte_sequences
+        //   - stop_reason_serde_values_are_stable
+        // BUT neither pin asserts the two stay aligned. A future
+        // refactor that switched canonical_bytes to UPPER_SNAKE would
+        // silently produce different hashes than the serde-persisted
+        // form — so a saved run log's stop_reason field couldn't be
+        // matched back to its own digest. Pin asserts the two helpers
+        // agree byte-for-byte for all 7 StopReason variants.
+        let cases: &[(StopReason, &str)] = &[
+            (StopReason::EndTurn, "end_turn"),
+            (StopReason::ToolUse, "tool_use"),
+            (StopReason::MaxTokens, "max_tokens"),
+            (StopReason::Refusal, "refusal"),
+            (StopReason::BudgetExhausted, "budget_exhausted"),
+            (StopReason::CapabilityDenied, "capability_denied"),
+            (StopReason::Error, "error"),
+        ];
+        for (reason, expected) in cases {
+            let canon = reason.canonical_bytes();
+            assert_eq!(
+                canon, expected.as_bytes(),
+                "canonical_bytes for {reason:?} must equal {expected:?}"
+            );
+            let serde_form = serde_json::to_string(reason).expect("serialize");
+            let serde_inner = serde_form
+                .strip_prefix('"')
+                .and_then(|s| s.strip_suffix('"'))
+                .expect("serde form is a quoted string");
+            assert_eq!(
+                canon,
+                serde_inner.as_bytes(),
+                "canonical_bytes {canon:?} must byte-equal serde inner {serde_inner:?}"
+            );
+        }
+    }
+
+    #[test]
     fn stop_reason_serde_forms_are_pairwise_distinct_across_all_seven_variants() {
         // Phase 1 hardening MILESTONE iter-540 — pairwise-distinct
         // serde-tag pin for StopReason (companion to the serde-pairwise-
