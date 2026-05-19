@@ -888,6 +888,67 @@ mod tests {
     }
 
     #[test]
+    fn root_hash_is_sensitive_to_tool_call_name_and_arguments_payload_within_tool_call_row() {
+        // Phase 1 hardening — payload-sensitivity pin for the
+        // ToolCall AgentEvent variant (companion to ReasoningDelta +
+        // FinalText payload pin iter-551, StopReason pin iter-548,
+        // Error kind+message pins iter-549/550). Two logs that
+        // differ ONLY in the embedded ToolCall's name (or
+        // arguments) must produce DIFFERENT root_hashes — both
+        // fields of the inner ToolCall participate in the chain via
+        // the AgentEvent::ToolCall serde payload.
+        //
+        // A future "let me drop the arguments from the chain to
+        // shrink rows" tweak would silently let distinct tool
+        // invocations (same name, different args) collide on the
+        // chain hash — audit dashboards couldn't distinguish a
+        // vault.read of /a from a vault.read of /b.
+        //
+        // Pin checks 4 (name, args) fixtures produce pairwise-
+        // distinct root hashes.
+        let fixtures = [
+            (
+                "vault.read",
+                serde_json::json!({"path": "notes/a"}),
+            ),
+            (
+                "vault.read",
+                serde_json::json!({"path": "notes/b"}),
+            ),
+            (
+                "vault.write",
+                serde_json::json!({"path": "notes/a"}),
+            ),
+            (
+                "vault.write",
+                serde_json::json!({"path": "notes/b"}),
+            ),
+        ];
+        let hashes: Vec<Hash> = fixtures
+            .iter()
+            .map(|(name, args)| {
+                let mut log = RunEventLog::new();
+                log.append_event(AgentEvent::ToolCall {
+                    call: crate::agent_runtime_v2::mission::ToolCall {
+                        name: (*name).to_string(),
+                        arguments: args.clone(),
+                    },
+                });
+                log.root_hash()
+            })
+            .collect();
+        for i in 0..hashes.len() {
+            for j in (i + 1)..hashes.len() {
+                assert_ne!(
+                    hashes[i], hashes[j],
+                    "ToolCall ({:?}, {}) vs ({:?}, {}) collided on root_hash",
+                    fixtures[i].0, fixtures[i].1, fixtures[j].0, fixtures[j].1
+                );
+            }
+        }
+    }
+
+    #[test]
     fn root_hash_is_sensitive_to_reasoning_delta_and_final_text_payload_strings() {
         // Phase 1 hardening — closes the text-payload sensitivity duo
         // (companion to iter-548 StopReason + iter-549 ErrorKind +
