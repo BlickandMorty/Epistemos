@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 289
+invalid_example_count: 290
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -13306,3 +13306,19 @@ Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-
 ```
 
 Rejection reason: expected branch metadata must be a replay-safe Git branch token; whitespace-bearing branch labels cannot anchor semantic commit checks.
+
+## N290 - Missing Remote Metadata For Commit SHA
+
+Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-identity-rule) and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "field": "commit_sha",
+  "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "schema_pattern": "^[0-9a-f]{40}$",
+  "semantic_rule": "commit_remote_origin_recorded",
+  "remote_origin_url": null
+}
+```
+
+Rejection reason: replay receipts need the remote origin identity for provenance checks; a commit pin with missing remote metadata cannot distinguish local-only fork history from canonical branch evidence.
