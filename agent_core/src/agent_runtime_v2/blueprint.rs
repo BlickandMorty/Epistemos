@@ -1180,6 +1180,35 @@ mod tests {
     }
 
     #[test]
+    fn blueprint_id_display_writes_special_chars_verbatim_no_escaping() {
+        // Phase 1 hardening — Display vs serde behaviour pin
+        // (companion to mission_packet iter-424, answer_packet iter-425,
+        // citation::as_display_string iter-426 Display-verbatim pins).
+        //
+        // AgentBlueprintId::Display writes the inner String verbatim
+        // via f.write_str — no escaping, no quoting, no normalisation.
+        // The bare quoted/backslash/newline content surfaces RAW in
+        // log lines.
+        //
+        // A future "let me JSON-escape the Display output for log
+        // safety" refactor would silently change the AgentBlueprintId
+        // appearance everywhere it surfaces through Display (which
+        // includes MissionPacket Display + AnswerPacket Display).
+        let cases = [
+            r#"agent "with quotes""#,
+            "agent\\with\\backslashes",
+            "agent\nwith\nnewlines",
+            "agent\twith\ttabs",
+            r#"Bob's "Research" Agent"#,
+        ];
+        for raw in cases {
+            let id = AgentBlueprintId(raw.to_string());
+            let display = format!("{id}");
+            assert_eq!(display, raw, "blueprint id Display must write inner string verbatim");
+        }
+    }
+
+    #[test]
     fn blueprint_id_display_writes_inner_string_verbatim() {
         let id = AgentBlueprintId("research-assistant".to_string());
         assert_eq!(format!("{id}"), "research-assistant");
