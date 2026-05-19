@@ -1153,6 +1153,125 @@ mod tests {
     }
 
     #[test]
+    fn budget_gate_concurrency_no_over_debit_on_remaining_three_axes() {
+        // Phase 1 hardening MILESTONE iter-390 — closes the
+        // BudgetGate concurrency-pin coverage across all 5 WBO-6 axes.
+        // Existing pins:
+        //   - tokens: 2-thread + 32-thread
+        //   - memory_bytes: 16-thread (iter-313)
+        // This pin: wall_ms + tool_calls + subprocess_ms each under
+        // an 8-thread concurrent burst — proves the saturating_add
+        // hot-path holds independently for every axis.
+        //
+        // 8 threads is a deliberately-modest count; the property is
+        // "exactly hits the cap; one more debit trips Exhausted".
+        use std::sync::{Arc, Mutex};
+        use std::thread;
+
+        const N: u64 = 8;
+        const PER_CALL: u64 = 100;
+
+        // wall_ms axis.
+        {
+            let gate = BudgetGate::new(BudgetSpec::new(0, N * PER_CALL, 0, 0));
+            let ledger = Arc::new(Mutex::new(BudgetLedger::default()));
+            let mut handles = Vec::with_capacity(N as usize);
+            for _ in 0..N {
+                let l = Arc::clone(&ledger);
+                handles.push(thread::spawn(move || {
+                    let mut guard = l.lock().expect("lock");
+                    let advanced = gate
+                        .check_and_debit(
+                            *guard,
+                            BudgetDebit { wall_ms: PER_CALL, ..Default::default() },
+                        )
+                        .expect("wall_ms debit fits");
+                    *guard = advanced;
+                }));
+            }
+            for h in handles { h.join().expect("join"); }
+            let final_ledger = *ledger.lock().expect("lock");
+            assert_eq!(final_ledger.wall_used_ms, N * PER_CALL);
+            let err = gate
+                .check_and_debit(
+                    final_ledger,
+                    BudgetDebit { wall_ms: 1, ..Default::default() },
+                )
+                .expect_err("post-burst wall_ms debit must trip cap");
+            assert!(matches!(
+                err,
+                BudgetError::Exhausted { term: BudgetTerm::WallMs, .. }
+            ));
+        }
+
+        // tool_calls axis.
+        {
+            let gate = BudgetGate::new(BudgetSpec::new(0, 0, N * PER_CALL, 0));
+            let ledger = Arc::new(Mutex::new(BudgetLedger::default()));
+            let mut handles = Vec::with_capacity(N as usize);
+            for _ in 0..N {
+                let l = Arc::clone(&ledger);
+                handles.push(thread::spawn(move || {
+                    let mut guard = l.lock().expect("lock");
+                    let advanced = gate
+                        .check_and_debit(
+                            *guard,
+                            BudgetDebit { tool_calls: PER_CALL, ..Default::default() },
+                        )
+                        .expect("tool_calls debit fits");
+                    *guard = advanced;
+                }));
+            }
+            for h in handles { h.join().expect("join"); }
+            let final_ledger = *ledger.lock().expect("lock");
+            assert_eq!(final_ledger.tool_calls_used, N * PER_CALL);
+            let err = gate
+                .check_and_debit(
+                    final_ledger,
+                    BudgetDebit { tool_calls: 1, ..Default::default() },
+                )
+                .expect_err("post-burst tool_calls debit must trip cap");
+            assert!(matches!(
+                err,
+                BudgetError::Exhausted { term: BudgetTerm::ToolCalls, .. }
+            ));
+        }
+
+        // subprocess_ms axis.
+        {
+            let gate = BudgetGate::new(BudgetSpec::new(0, 0, 0, N * PER_CALL));
+            let ledger = Arc::new(Mutex::new(BudgetLedger::default()));
+            let mut handles = Vec::with_capacity(N as usize);
+            for _ in 0..N {
+                let l = Arc::clone(&ledger);
+                handles.push(thread::spawn(move || {
+                    let mut guard = l.lock().expect("lock");
+                    let advanced = gate
+                        .check_and_debit(
+                            *guard,
+                            BudgetDebit { subprocess_ms: PER_CALL, ..Default::default() },
+                        )
+                        .expect("subprocess_ms debit fits");
+                    *guard = advanced;
+                }));
+            }
+            for h in handles { h.join().expect("join"); }
+            let final_ledger = *ledger.lock().expect("lock");
+            assert_eq!(final_ledger.subprocess_used_ms, N * PER_CALL);
+            let err = gate
+                .check_and_debit(
+                    final_ledger,
+                    BudgetDebit { subprocess_ms: 1, ..Default::default() },
+                )
+                .expect_err("post-burst subprocess_ms debit must trip cap");
+            assert!(matches!(
+                err,
+                BudgetError::Exhausted { term: BudgetTerm::SubprocessMs, .. }
+            ));
+        }
+    }
+
+    #[test]
     fn budget_gate_concurrency_no_over_debit_on_memory_bytes_axis() {
         // Phase 1 hardening — concurrency completeness across the
         // non-tokens axes. The existing 2-thread + 32-thread tests
