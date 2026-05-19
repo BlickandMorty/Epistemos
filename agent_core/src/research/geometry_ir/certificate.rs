@@ -116,11 +116,13 @@ pub fn lean_certificate(rotor: &Multivector) -> String {
          \x20     geometry_certificate_{suffix}.composition = geometry_composition_obligation_{suffix} := by\n\
          \x20 exact And.intro rfl (And.intro rfl rfl)\n\
          \n\
-         theorem clifford_basis_axioms_{suffix} :\n\
+         theorem clifford_basis_axioms_{suffix}\n\
+         \x20   (basisSquaresWitness : geometry_clifford_obligation_{suffix}.basisSquares)\n\
+         \x20   (basisAnticommutativeWitness : geometry_clifford_obligation_{suffix}.basisAnticommutative) :\n\
          \x20   geometry_clifford_obligation_{suffix}.basisSquares ∧\n\
          \x20     geometry_clifford_obligation_{suffix}.basisAnticommutative := by\n\
-         \x20 exact And.intro geometry_clifford_obligation_{suffix}.basisSquares\n\
-         \x20   geometry_clifford_obligation_{suffix}.basisAnticommutative\n\
+         \x20 exact And.intro basisSquaresWitness\n\
+         \x20   basisAnticommutativeWitness\n\
          \n\
          theorem rotor_sandwich_isometry_{suffix} :\n\
          \x20   geometry_sandwich_obligation_{suffix}.preservesNorm := by\n\
@@ -206,7 +208,10 @@ mod tests {
         let r = Multivector::scalar(1.0);
         let c = lean_certificate(&r);
         assert_eq!(c.matches("sorry").count(), 0);
-        assert!(c.contains("exact And.intro geometry_clifford_obligation_"));
+        assert!(c.contains("(basisSquaresWitness :"));
+        assert!(c.contains("(basisAnticommutativeWitness :"));
+        assert!(c.contains("exact And.intro basisSquaresWitness"));
+        assert!(!c.contains("exact And.intro geometry_clifford_obligation_"));
         assert!(c.contains("exact geometry_sandwich_obligation_"));
         assert!(c.contains("exact geometry_composition_obligation_"));
     }
