@@ -82,6 +82,8 @@ pub const ADVERSARIAL_QUERY_FIXTURE_DESCRIPTIONS: &[&str] = &[
     "same-count near-duplicate paragraphs force deterministic tie-breaks",
 ];
 
+pub const ADVERSARIAL_QUERY_FIXTURE_INDICES: &[usize] = &[0, 1, 2];
+
 pub fn adversarial_query_fixture(label: &str) -> Option<AdversarialQueryFixture> {
     ADVERSARIAL_QUERY_FIXTURES
         .iter()
@@ -143,6 +145,10 @@ pub fn adversarial_query_fixture_descriptions() -> &'static [&'static str] {
 
 pub fn adversarial_query_fixture_count() -> usize {
     ADVERSARIAL_QUERY_FIXTURES.len()
+}
+
+pub fn adversarial_query_fixture_indices() -> &'static [usize] {
+    ADVERSARIAL_QUERY_FIXTURE_INDICES
 }
 
 pub fn adversarial_query_fixture_catalog_labels_match_fixture_rows() -> bool {
