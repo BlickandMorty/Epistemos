@@ -791,6 +791,85 @@ mod tests {
     }
 
     #[test]
+    fn lint_catches_aegis_inside_doc_filename_variants() {
+        // Phase 1 hardening — work-queue item D: Aegis CI lint
+        // exhaustive cases — "doc filenames (case-insensitive,
+        // every variant)". Companion to:
+        //   - catches_in_file_path_components (3 hard-coded file paths)
+        //   - lint_catches_aegis_inside_git_commit_message_text
+        //   - lint_catches_aegis_inside_branch_name_text
+        //
+        // Doctrine docs in docs/ have an EXEMPT allow-list at
+        // naming_lint.rs §29-33 — those 5 paths are intentionally
+        // allowed to discuss Aegis as a rejected name. But any
+        // OTHER doc file with Aegis in the name must be flagged so
+        // it doesn't sneak into the repo (especially in non-doctrine
+        // doc subdirs like docs/sprint-sessions/, docs/audits/,
+        // docs/handoff/).
+        //
+        // Pin a wide variety of doc filename shapes:
+        //   - common doc extensions (.md, .rst, .txt, .org, .adoc)
+        //   - case variants (Aegis / AEGIS / aegis)
+        //   - position variants (leading, trailing, middle of name)
+        //   - subdirectory paths
+        for path in [
+            // Common doc extensions, case-mixed
+            "docs/Aegis-rationale.md",
+            "docs/aegis-handoff.rst",
+            "docs/AEGIS-runtime.txt",
+            "docs/aegis_design.org",
+            "docs/Aegis-deep-analysis.adoc",
+            // Subdirectory positions
+            "docs/sprint-sessions/aegis-iter-3.md",
+            "docs/audits/Aegis-replay-bug.md",
+            "docs/handoff/2026-05-AEGIS-resume.md",
+            // Trailing-position name
+            "docs/agent_aegis.md",
+            // Embedded-position name
+            "docs/pre-AEGIS-substrate-2026-05-18.md",
+            // Bare README variants
+            "docs/aegis/README.md",
+            "AEGIS_README.md",
+            "docs/Aegis_NOTES.md",
+        ] {
+            assert!(
+                text_contains_rejected_name(path),
+                "lint must flag doc filename: {path}"
+            );
+        }
+    }
+
+    #[test]
+    fn lint_does_not_flag_legitimate_doc_filename_variants() {
+        // Phase 1 hardening — symmetric negative companion to the
+        // doc-filename positive pin. Legitimate doctrine + handoff
+        // docs that do NOT name Aegis must NOT trip the lint.
+        //
+        // Defends against a future false-positive regression that
+        // widened the matcher beyond the 5-char "aegis" needle.
+        for path in [
+            "docs/AGENT_RUNTIME_V2_SYSTEM_G_DOCTRINE_2026_05_18.md",
+            "docs/HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md",
+            "docs/audit-progress.md",
+            "docs/sprint-sessions/sprint-omega-1-foundation.md",
+            "docs/AGENT_PROGRESS.md",
+            "docs/EPISTEMOS_FUSED_v3.md",
+            "docs/agent-system/AGENT_ARCHITECTURE.md",
+            "README.md",
+            "AGENTS.md",
+            "CLAUDE.md",
+            // Adjacent-but-different vocab (no aegis substring)
+            "docs/aegean-sea-philosophy.md", // close vowels but no 'gis'
+            "docs/age-of-aquarius.md",       // shares 'age' prefix only
+        ] {
+            assert!(
+                !text_contains_rejected_name(path),
+                "lint must NOT flag legitimate doc filename: {path}"
+            );
+        }
+    }
+
+    #[test]
     fn lint_does_not_flag_legitimate_branch_names() {
         for branch in [
             "feature/system-g-executor",
