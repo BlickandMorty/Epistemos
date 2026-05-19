@@ -3418,7 +3418,7 @@ impl<'de> Deserialize<'de> for ACSCapabilityRule {
             &value,
             "operation",
             "required_capabilities.operation",
-            serde_json::Value::is_string,
+            is_operation_kind_wire_value,
         )?;
         require_capability_rule_field::<D::Error>(
             &value,
@@ -7715,6 +7715,28 @@ mod tests {
     fn acs_admission_typed_capability_rule_operation_names_malformed_policy_field() {
         let value = serde_json::json!({
             "operation": 7,
+            "capability": {
+                "kind": "other",
+                "value": {
+                    "name": "ToolExec"
+                }
+            }
+        });
+
+        let err = serde_json::from_value::<ACSCapabilityRule>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(
+            message.contains("required_capabilities.operation"),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn acs_admission_unknown_capability_rule_operation_names_malformed_policy_field() {
+        let value = serde_json::json!({
+            "operation": "quantum_commit",
             "capability": {
                 "kind": "other",
                 "value": {
