@@ -2456,6 +2456,12 @@ mod tests {
     }
 
     #[test]
+    fn witness_json_excludes_ecid_text() {
+        let json = acceptance_witness_json().unwrap();
+        assert!(!json.to_ascii_lowercase().contains("ecid"));
+    }
+
+    #[test]
     fn witness_pins_morph_oracle_shader_source() {
         let witness =
             run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &CpuFloatIntrinsicEvaluator).unwrap();
