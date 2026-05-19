@@ -30,8 +30,14 @@ structure AttributionEdge where
 structure ParamAttributionGraph where
   edges : List AttributionEdge
 
+/-- Lower endpoint for PCF-3 attribution weights. -/
+def attributionWeightLowerBound : Float := 0.0
+
+/-- Upper endpoint for PCF-3 attribution weights. -/
+def attributionWeightUpperBound : Float := 1.0
+
 def AttributionEdge.weightInUnitInterval (e : AttributionEdge) : Bool :=
-  e.weight ≥ 0.0 && e.weight ≤ 1.0
+  e.weight ≥ attributionWeightLowerBound && e.weight ≤ attributionWeightUpperBound
 
 def ParamAttributionGraph.allWeightsInUnitInterval (g : ParamAttributionGraph) : Bool :=
   g.edges.all AttributionEdge.weightInUnitInterval
@@ -47,5 +53,9 @@ theorem emptyGraphWeightsInUnitInterval :
 theorem analyticalSurfaceOnlyPinned :
     analyticalSurfaceOnly = true := by
   rfl
+
+theorem attributionWeightBoundsPinned :
+    attributionWeightLowerBound = 0.0 ∧ attributionWeightUpperBound = 1.0 := by
+  exact ⟨rfl, rfl⟩
 
 end Epistemos.PCF3
