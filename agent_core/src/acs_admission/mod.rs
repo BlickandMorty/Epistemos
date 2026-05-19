@@ -2272,7 +2272,7 @@ impl SCOPERexAdmissionProof {
     ) -> Result<Self, ACSAdmissionProofError> {
         record
             .validate()
-            .map_err(|err| ACSAdmissionProofError::CorruptAuditRecord { field: err.field() })?;
+            .map_err(corrupt_audit_record_proof_error)?;
         if !record.verdict.allows_durable_commit() {
             return Err(ACSAdmissionProofError::VerdictBlocksScopeRex);
         }
@@ -2301,7 +2301,7 @@ impl SCOPERexAdmissionProof {
         self.validate()?;
         record
             .validate()
-            .map_err(|err| ACSAdmissionProofError::CorruptAuditRecord { field: err.field() })?;
+            .map_err(corrupt_audit_record_proof_error)?;
         if self.record_id.0 != record.record_id {
             return Err(ACSAdmissionProofError::RecordIdMismatch);
         }
@@ -2365,13 +2365,20 @@ impl SCOPERexAdmissionProof {
     ) -> Result<Self, ACSAdmissionProofError> {
         record
             .validate()
-            .map_err(|err| ACSAdmissionProofError::CorruptAuditRecord { field: err.field() })?;
+            .map_err(corrupt_audit_record_proof_error)?;
         Self::new(
             record.verdict,
             record.operation,
             AuditRecordId::new(record.record_id.clone()),
             signature,
         )
+    }
+}
+
+fn corrupt_audit_record_proof_error(error: ACSAuditRecordError) -> ACSAdmissionProofError {
+    ACSAdmissionProofError::CorruptAuditRecord {
+        field: error.field(),
+        record_id: error.record_id().unwrap_or("").to_string(),
     }
 }
 
@@ -2434,7 +2441,7 @@ fn hex_value(byte: u8) -> Option<u8> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ACSAdmissionProofError {
     MissingRecordId,
     InvalidRecordId,
@@ -2444,7 +2451,10 @@ pub enum ACSAdmissionProofError {
     RecordIdMismatch,
     OperationMismatch,
     VerdictMismatch,
-    CorruptAuditRecord { field: &'static str },
+    CorruptAuditRecord {
+        field: &'static str,
+        record_id: String,
+    },
 }
 
 impl ACSAdmissionProofError {
@@ -2464,7 +2474,7 @@ impl ACSAdmissionProofError {
 
     pub const fn field(&self) -> Option<&'static str> {
         match self {
-            Self::CorruptAuditRecord { field } => Some(field),
+            Self::CorruptAuditRecord { field, .. } => Some(field),
             Self::MissingCapabilitySignature | Self::InvalidCapabilitySignature => {
                 Some("signature")
             }
@@ -2473,6 +2483,20 @@ impl ACSAdmissionProofError {
             Self::OperationMismatch => Some("operation"),
             Self::VerdictMismatch => Some("verdict"),
             Self::MissingRecordId | Self::InvalidRecordId => Some("record_id"),
+        }
+    }
+
+    pub fn record_id(&self) -> Option<&str> {
+        match self {
+            Self::CorruptAuditRecord { record_id, .. } => Some(record_id.as_str()),
+            Self::MissingRecordId
+            | Self::InvalidRecordId
+            | Self::MissingCapabilitySignature
+            | Self::InvalidCapabilitySignature
+            | Self::VerdictBlocksScopeRex
+            | Self::RecordIdMismatch
+            | Self::OperationMismatch
+            | Self::VerdictMismatch => None,
         }
     }
 }
@@ -5958,6 +5982,17 @@ mod tests {
             .unwrap_err();
         assert_eq!(err.cause(), "missing_capability_signature");
         assert_eq!(err.field(), Some("signature"));
+
+        let mut corrupt_record = record.clone();
+        corrupt_record.reason = " ".to_string();
+        let err = SCOPERexAdmissionProof::from_record(
+            &corrupt_record,
+            CapabilitySignature::new(signature.clone()),
+        )
+        .unwrap_err();
+        assert_eq!(err.cause(), "corrupt_acs_audit_record");
+        assert_eq!(err.field(), Some("reason"));
+        assert_eq!(err.record_id(), Some(corrupt_record.record_id.as_str()));
 
         let err = SCOPERexAdmissionProof::new(
             ACSAdmissionVerdict::Allow,
