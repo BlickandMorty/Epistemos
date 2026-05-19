@@ -2319,7 +2319,11 @@ impl SCOPERexAdmissionProof {
         key: &K,
     ) -> Result<ACSAuditRecord, SCOPERexAdmissionProofVerificationError> {
         if !run_event_log.verify_chain(None).valid {
-            return Err(self.lookup_verification_error(ACSAuditLookupError::InvalidRunEventLogChain));
+            return Err(self.lookup_verification_error(
+                ACSAuditLookupError::InvalidRunEventLogChain {
+                    record_id: self.record_id.0.clone(),
+                },
+            ));
         }
         self.validate()
             .map_err(|err| self.proof_verification_error(err))?;
@@ -2658,7 +2662,9 @@ pub fn resolve_acs_audit_record(
     record_id: &AuditRecordId,
 ) -> Result<ACSAuditRecord, ACSAuditLookupError> {
     if !run_event_log.verify_chain(None).valid {
-        return Err(ACSAuditLookupError::InvalidRunEventLogChain);
+        return Err(ACSAuditLookupError::InvalidRunEventLogChain {
+            record_id: record_id.0.clone(),
+        });
     }
     if record_id.validate().is_err() {
         return Err(ACSAuditLookupError::InvalidRecordId {
@@ -2727,7 +2733,7 @@ pub fn resolve_acs_audit_record(
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ACSAuditLookupError {
     InvalidRecordId { record_id: String },
-    InvalidRunEventLogChain,
+    InvalidRunEventLogChain { record_id: String },
     NotFound { record_id: String },
     DuplicateRecord { record_id: String },
     DecodeRecord { record_id: String },
@@ -2741,7 +2747,7 @@ impl ACSAuditLookupError {
     pub const fn cause(&self) -> &'static str {
         match self {
             Self::InvalidRecordId { .. } => "invalid_audit_record_id",
-            Self::InvalidRunEventLogChain => "invalid_run_event_log_chain",
+            Self::InvalidRunEventLogChain { .. } => "invalid_run_event_log_chain",
             Self::NotFound { .. } => "acs_audit_record_not_found",
             Self::DuplicateRecord { .. } => "duplicate_acs_audit_record",
             Self::DecodeRecord { .. } => "acs_audit_record_decode_failed",
@@ -2751,7 +2757,7 @@ impl ACSAuditLookupError {
 
     pub const fn field(&self) -> Option<&'static str> {
         match self {
-            Self::InvalidRunEventLogChain => Some("run_event_log"),
+            Self::InvalidRunEventLogChain { .. } => Some("run_event_log"),
             Self::InvalidRecordId { .. }
             | Self::NotFound { .. }
             | Self::DuplicateRecord { .. } => {
@@ -2769,7 +2775,7 @@ impl ACSAuditLookupError {
             Self::DuplicateRecord { record_id } => Some(record_id.as_str()),
             Self::DecodeRecord { record_id } => Some(record_id.as_str()),
             Self::CorruptRecord { record_id, .. } => Some(record_id.as_str()),
-            Self::InvalidRunEventLogChain => None,
+            Self::InvalidRunEventLogChain { record_id } => Some(record_id.as_str()),
         }
     }
 }
@@ -6763,14 +6769,12 @@ mod tests {
             .expect("tampered RunEventLog reopens");
         assert!(!reopened.verify_chain(None).valid);
 
-        let err = resolve_acs_audit_record(
-            &reopened,
-            &AuditRecordId::new("run-event:external-record"),
-        )
-        .unwrap_err();
+        let record_id = AuditRecordId::new("run-event:external-record");
+        let err = resolve_acs_audit_record(&reopened, &record_id).unwrap_err();
 
         assert_eq!(err.cause(), "invalid_run_event_log_chain");
         assert_eq!(err.field(), Some("run_event_log"));
+        assert_eq!(err.record_id(), Some(record_id.0.as_str()));
     }
 
     #[test]
