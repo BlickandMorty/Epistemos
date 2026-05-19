@@ -3953,10 +3953,13 @@ where
             .get("host")
             .is_some_and(serde_json::Value::is_string))
         .then_some(REQUIRED_CAPABILITY_FIELDS.network_host_host),
-        "biometric_session" => (!capability_value
+        "biometric_session" => capability_value
             .get("ttl_secs")
-            .is_some_and(serde_json::Value::is_number))
-        .then_some(REQUIRED_CAPABILITY_FIELDS.biometric_session_ttl_secs),
+            .and_then(serde_json::Value::as_u64)
+            .is_none_or(|ttl_secs| {
+                ttl_secs == 0 || ttl_secs > MAX_BIOMETRIC_SESSION_TTL_SECS as u64
+            })
+            .then_some(REQUIRED_CAPABILITY_FIELDS.biometric_session_ttl_secs),
         "other" => (!capability_value
             .get("name")
             .is_some_and(serde_json::Value::is_string))
@@ -9337,6 +9340,28 @@ mod tests {
         assert!(message.contains("malformed_policy"), "{message}");
         assert!(
             message.contains("required_capabilities.other.name"),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn acs_admission_oversized_capability_rule_biometric_ttl_names_malformed_policy_field() {
+        let value = serde_json::json!({
+            "operation": "kernel_promotion",
+            "capability": {
+                "kind": "biometric_session",
+                "value": {
+                    "ttl_secs": u64::MAX
+                }
+            }
+        });
+
+        let err = serde_json::from_value::<ACSCapabilityRule>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(
+            message.contains("required_capabilities.biometric_session.ttl_secs"),
             "{message}"
         );
     }
