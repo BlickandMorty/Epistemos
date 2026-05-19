@@ -134,9 +134,10 @@ pub fn lean_certificate(op: &OperatorExpr) -> String {
          \x20   operator_certificate_{suffix}.fno_equivalence = operator_fno_obligation_{suffix} := by\n\
          \x20 rfl\n\
          \n\
-         theorem operator_dim_consistency_{suffix} :\n\
+         theorem operator_dim_consistency_{suffix}\n\
+         \x20   (dimMatchWitness : operator_expr_{suffix}.dimMatch) :\n\
          \x20   operator_expr_{suffix}.branch.outputDim = operator_expr_{suffix}.trunk.outputDim := by\n\
-         \x20 exact operator_expr_{suffix}.dimMatch\n\
+         \x20 exact dimMatchWitness\n\
          \n\
          {fourier_theorem}\
          theorem operator_fno_equivalence_{suffix} :\n\
@@ -185,7 +186,9 @@ mod tests {
         let op = fixture(KernelTransform::Identity);
         let c = lean_certificate(&op);
         assert!(c.contains("operator_dim_consistency_"));
-        assert!(c.contains("exact operator_expr_"));
+        assert!(c.contains("(dimMatchWitness :"));
+        assert!(c.contains("exact dimMatchWitness"));
+        assert!(!c.contains("exact operator_expr_"));
         assert!(c.contains(".dimMatch"));
     }
 
