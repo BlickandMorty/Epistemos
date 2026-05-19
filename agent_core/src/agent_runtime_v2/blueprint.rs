@@ -1362,6 +1362,34 @@ mod tests {
     }
 
     #[test]
+    fn blueprint_id_preserves_json_special_chars_through_serde() {
+        // Phase 1 hardening — adversarial JSON pin for AgentBlueprintId
+        // (companion to the iter-413..iter-418 JSON-special-char pin
+        // family). AgentBlueprintId is a #[serde(transparent)] String
+        // newtype that surfaces inside vault/agents/<id>.json paths.
+        //
+        // While the doctrine pin says "verbatim, no sanitisation"
+        // (iter-?), the JSON-special-char path-through requires
+        // serde to escape correctly at the wire layer. Pin both the
+        // inner String round-trip AND the transparent newtype
+        // serialise as a bare quoted string.
+        let adversarial = [
+            r#"id "with quotes""#,
+            "id\\with\\backslashes",
+            "id\nwith\nnewlines",
+            r#"agent-id with "embedded" json"#,
+        ];
+        for id in adversarial {
+            let bid = AgentBlueprintId(id.to_string());
+            let s = serde_json::to_string(&bid).expect("serialise");
+            let back: AgentBlueprintId =
+                serde_json::from_str(&s).expect("deserialise");
+            assert_eq!(back.0, id, "blueprint_id inner string must round-trip");
+            assert_eq!(back, bid);
+        }
+    }
+
+    #[test]
     fn blueprint_display_name_preserves_json_special_chars_through_serde() {
         // Phase 1 hardening — adversarial JSON pin for
         // AgentBlueprint.display_name (companion to mission_packet
