@@ -4981,6 +4981,29 @@ mod tests {
     }
 
     #[test]
+    fn residency_tier_primary_side_information_is_unique_across_tiers() {
+        for (index, tier) in ResidencyTier::ALL.iter().enumerate() {
+            let primary = tier.primary_side_information();
+            for prior_tier in &ResidencyTier::ALL[..index] {
+                assert_ne!(
+                    primary,
+                    prior_tier.primary_side_information(),
+                    "{} and {} share primary side-information {:?}",
+                    tier.canonical_name(),
+                    prior_tier.canonical_name(),
+                    primary
+                );
+            }
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`residency_tier_primary_side_information_is_unique_across_tiers`"),
+            "register doc must cross-link residency primary side-information uniqueness"
+        );
+    }
+
+    #[test]
     fn residency_tier_catalog_pins_primary_rate_rows() {
         let rows = ResidencyTier::ALL
             .iter()
