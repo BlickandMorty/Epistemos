@@ -157,7 +157,7 @@ fn assert_iter_format_canonical_panics_on_out_of_range() {
     assert_iter_format_canonical("iter 099", "MY_SOURCE_LABEL");
 }
 
-/// Iter 741 — catalog range continuation pin.
+/// Iter 742 — catalog range continuation pin.
 /// STATUS.md is the contributor-facing catalog for the closed-citation
 /// hardening arc. When new pins land after the previous range tip, the
 /// range must advance in lock-step so future readers can tell the arc is
@@ -167,9 +167,9 @@ fn status_md_closed_citation_iter_range_tip_tracks_latest_catalog_pin() {
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Closed-citation contract hardening (iters 127-741)"),
+        status.contains("Closed-citation contract hardening (iters 127-742)"),
         "STATUS.md closed-citation hardening catalog must advance its iter \
-         range tip to iter 741 when the catalog-continuation pin lands"
+         range tip to iter 742 when the catalog-continuation pin lands"
     );
 }
 
@@ -1502,6 +1502,16 @@ fn adversarial_query_fixture_token_lookup_surface_is_complete() {
     assert!(
         adversarial_query_fixture_token_lookup_surface_is_complete(),
         "every adversarial fixture wire token must resolve through exact lookup"
+    );
+}
+
+#[test]
+fn adversarial_query_fixture_catalog_dispatch_surface_is_complete() {
+    use super::adversarial::adversarial_query_fixture_catalog_dispatch_surface_is_complete;
+
+    assert!(
+        adversarial_query_fixture_catalog_dispatch_surface_is_complete(),
+        "adversarial fixture catalog dispatch surface must keep static rows and exact token lookups complete"
     );
 }
 
