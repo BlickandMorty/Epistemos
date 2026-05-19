@@ -11,6 +11,15 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 pub const FULP_WITNESS_SCHEMA_VERSION: u32 = 12;
+const OPERATION_STATS_JSON_FIELDS: &[&str] = &[
+    "operation",
+    "evaluated",
+    "max_ulp",
+    "gate_tier",
+    "mean_ulp",
+    "axis_stats",
+    "worst_case",
+];
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -794,15 +803,7 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
         reject_unknown_object_json_fields(
             stat_object,
             &format!("stats[{operation_index}]"),
-            &[
-                "operation",
-                "evaluated",
-                "max_ulp",
-                "gate_tier",
-                "mean_ulp",
-                "axis_stats",
-                "worst_case",
-            ],
+            OPERATION_STATS_JSON_FIELDS,
         )?;
         let Some(operation_value) = stat.get("operation") else {
             return Err(FulpReplayError::InvalidJson {
@@ -1794,6 +1795,26 @@ fn reject_raw_object_duplicate_json(raw_json: &str, path: &str) -> Result<(), Fu
     }
 }
 
+fn reject_raw_object_unknown_json_fields(
+    raw_json: &str,
+    path: &str,
+    allowed_fields: &[&str],
+) -> Result<(), FulpReplayError> {
+    let Ok(object) = serde_json::from_str::<BTreeMap<String, Box<RawValue>>>(raw_json) else {
+        return Ok(());
+    };
+    if let Some(field) = object
+        .keys()
+        .find(|field| !allowed_fields.contains(&field.as_str()))
+    {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("unknown field {path}.{field}"),
+            kind: FulpInvalidJsonKind::UnknownField,
+        });
+    }
+    Ok(())
+}
+
 struct RawDuplicateFieldVisitor<'a> {
     path: &'a str,
 }
@@ -1956,6 +1977,11 @@ fn reject_raw_stats_number_json(json: &str) -> Result<(), FulpReplayError> {
     for (operation_index, stat) in raw_witness.stats.iter().enumerate() {
         let operation_path = format!("stats[{operation_index}]");
         reject_raw_object_duplicate_json(stat.get(), &operation_path)?;
+        reject_raw_object_unknown_json_fields(
+            stat.get(),
+            &operation_path,
+            OPERATION_STATS_JSON_FIELDS,
+        )?;
         let Ok(stat) = serde_json::from_str::<RawOperationWorstCases<'_>>(stat.get()) else {
             continue;
         };
@@ -4064,6 +4090,29 @@ mod tests {
         let json = serde_json::to_string(&value).unwrap();
         let error =
             replay_witness_json(&json).expect_err("unknown operation stats field must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::UnknownField)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("unknown field stats[0].corrupted_extra_field")
+        );
+    }
+
+    #[test]
+    fn replay_rejects_unknown_operation_stat_field_before_raw_overflow() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["corrupted_extra_field"] = serde_json::Value::Bool(true);
+        value["stats"][0]["max_ulp"] =
+            serde_json::Value::Number(serde_json::Number::from(123_456_789_u64));
+        let json = serde_json::to_string(&value).unwrap();
+        let needle = "\"max_ulp\":123456789";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(needle, "\"max_ulp\":1e999999", 1);
+        let error = replay_witness_json(&json)
+            .expect_err("unknown operation stat field must fail before raw overflow");
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::UnknownField)
