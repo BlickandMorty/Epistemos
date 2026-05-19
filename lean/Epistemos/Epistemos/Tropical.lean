@@ -191,6 +191,13 @@ theorem semiringLawsCarry
     c.semiringLaws.laws := by
   exact semiringLawWitness
 
+theorem semiringSourceRowMatches
+    (c : CertificateTarget)
+    (sourceRow : String)
+    (stored : c.semiringLaws.sourceRow = sourceRow) :
+    c.semiringLaws.sourceRow = sourceRow := by
+  exact stored
+
 end CertificateTarget
 
 /-- Tropical rational form: a numerator and denominator expression.

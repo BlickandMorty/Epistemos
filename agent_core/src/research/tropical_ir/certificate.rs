@@ -232,6 +232,14 @@ pub fn lean_certificate(expr: &TropicalExpr) -> String {
          \x20   tropical_semiring_obligation_{suffix}\n\
          \x20   rfl\n\
          \n\
+         theorem tropical_certificate_semiring_source_row_{suffix} :\n\
+         \x20   tropical_certificate_{suffix}.semiringLaws.sourceRow =\n\
+         \x20     \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Tropical-IR\" := by\n\
+         \x20 exact Epistemos.Tropical.CertificateTarget.semiringSourceRowMatches\n\
+         \x20   tropical_certificate_{suffix}\n\
+         \x20   \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Tropical-IR\"\n\
+         \x20   rfl\n\
+         \n\
          theorem tropical_certificate_semiring_law_witness_{suffix}\n\
          \x20   (semiringLawWitness : tropical_certificate_{suffix}.semiringLaws.laws) :\n\
          \x20   tropical_certificate_{suffix}.semiringLaws.laws := by\n\
@@ -503,6 +511,8 @@ mod tests {
         assert!(c.contains("theorem tropical_certificate_semiring_laws_"));
         assert!(c.contains(".semiringLaws = tropical_semiring_obligation_"));
         assert!(c.contains("Epistemos.Tropical.CertificateTarget.semiringLawsMatch"));
+        assert!(c.contains("theorem tropical_certificate_semiring_source_row_"));
+        assert!(c.contains("Epistemos.Tropical.CertificateTarget.semiringSourceRowMatches"));
     }
 
     #[test]
