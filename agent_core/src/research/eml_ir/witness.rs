@@ -714,7 +714,7 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
 
 fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
     reject_raw_top_level_unsigned_json(json)?;
-    reject_raw_float_number_json(json)?;
+    reject_raw_stats_number_json(json)?;
     let value: serde_json::Value = serde_json::from_str(json).map_err(invalid_json_error)?;
     let Some(stats_value) = value.get("stats") else {
         return Ok(());
@@ -1722,6 +1722,8 @@ struct RawWitnessWorstCases<'a> {
 
 #[derive(Deserialize)]
 struct RawOperationWorstCases<'a> {
+    #[serde(default, borrow)]
+    evaluated: Option<&'a RawValue>,
     #[serde(borrow)]
     mean_ulp: &'a RawValue,
     #[serde(borrow)]
@@ -1748,12 +1750,15 @@ struct RawWorstCaseNumbers<'a> {
     reference: &'a RawValue,
 }
 
-fn reject_raw_float_number_json(json: &str) -> Result<(), FulpReplayError> {
+fn reject_raw_stats_number_json(json: &str) -> Result<(), FulpReplayError> {
     let Ok(raw_witness) = serde_json::from_str::<RawWitnessWorstCases<'_>>(json) else {
         return Ok(());
     };
     for (operation_index, stat) in raw_witness.stats.iter().enumerate() {
         let operation_path = format!("stats[{operation_index}]");
+        if let Some(value) = stat.evaluated {
+            raw_unsigned_integer_json(value, &format!("{operation_path}.evaluated"))?;
+        }
         raw_finite_f64_json(stat.mean_ulp, &operation_path, "mean_ulp")?;
         for (axis_index, axis_stat) in stat.axis_stats.iter().enumerate() {
             let axis_path = format!("stats[{operation_index}].axis_stats[{axis_index}]");
@@ -4190,6 +4195,28 @@ mod tests {
             .invalid_json_message()
             .expect("invalid json message")
             .contains("stats[0].evaluated"));
+    }
+
+    #[test]
+    fn replay_rejects_operation_evaluated_json_raw_overflow_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["evaluated"] =
+            serde_json::Value::Number(serde_json::Number::from(123_456_789_u64));
+        let json = serde_json::to_string(&value).unwrap();
+        let needle = "\"evaluated\":123456789";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(needle, "\"evaluated\":1e999999", 1);
+        let error =
+            replay_witness_json(&json).expect_err("operation evaluated overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("number out of range for stats[0].evaluated, expected unsigned integer")
+        );
     }
 
     #[test]
