@@ -754,6 +754,37 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_surface_serde_values_are_stable() {
+        // Phase 1 hardening — cross-version replay parity guardrail.
+        // LocalAgentCapabilitySurface uses per-variant #[serde(rename
+        // = "...")] to produce camelCase Swift raw values. All 10
+        // variants pinned to their canonical wire form — a rename
+        // here silently breaks the Swift⇄Rust JSON bridge.
+        //
+        // Companion to:
+        //   - local_agent_tier_serde_values_are_stable (3 / lowercase)
+        //   - local_agent_owner_serde_values_are_stable (4 / camelCase)
+        //   - LocalAgentCapabilitySurface (this commit / 10 camelCase)
+        for (variant, expected) in [
+            (LocalAgentCapabilitySurface::AgentTask, "\"agentTask\""),
+            (LocalAgentCapabilitySurface::Session, "\"session\""),
+            (LocalAgentCapabilitySurface::Configuration, "\"configuration\""),
+            (LocalAgentCapabilitySurface::FileData, "\"fileData\""),
+            (LocalAgentCapabilitySurface::ToolsIntegration, "\"toolsIntegration\""),
+            (LocalAgentCapabilitySurface::UiDisplay, "\"uiDisplay\""),
+            (LocalAgentCapabilitySurface::Persona, "\"persona\""),
+            (LocalAgentCapabilitySurface::Messaging, "\"messaging\""),
+            (LocalAgentCapabilitySurface::Advanced, "\"advanced\""),
+            (LocalAgentCapabilitySurface::Toolset, "\"toolset\""),
+        ] {
+            let s = serde_json::to_string(&variant).expect("serialise");
+            assert_eq!(s, expected, "surface {variant:?} drifted serde form");
+            let back: LocalAgentCapabilitySurface = serde_json::from_str(&s).expect("round-trip");
+            assert_eq!(back, variant);
+        }
+    }
+
+    #[test]
     fn local_agent_surface_unknown_serde_string_fails_to_deserialise() {
         // Phase 1 hardening — eleventh leg of the closed-taxonomy
         // negative-serde guardrail. LocalAgentCapabilitySurface uses
