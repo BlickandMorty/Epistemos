@@ -1675,6 +1675,43 @@ mod tests {
     }
 
     #[test]
+    fn mission_packet_and_tool_call_struct_field_shapes_pinned_via_destructure() {
+        // Phase 1 hardening — struct-field-shape pin pair for
+        // MissionPacket + ToolCall (companion to AnswerPacket
+        // iter-464, AgentBlueprint iter-465).
+        //
+        // MissionPacket: EXACTLY 3 fields
+        //   - blueprint_id: AgentBlueprintId
+        //   - user_prompt: String
+        //   - vault_scope: String
+        //
+        // ToolCall: EXACTLY 2 fields
+        //   - name: String
+        //   - arguments: serde_json::Value
+        //
+        // A future "let me add a `priority` field to MissionPacket"
+        // or "session_id to ToolCall" would silently change the wire
+        // shape — surface here via destructure compile-fail.
+        let mp = MissionPacket {
+            blueprint_id: AgentBlueprintId("p".into()),
+            user_prompt: "u".into(),
+            vault_scope: "v".into(),
+        };
+        let MissionPacket { blueprint_id, user_prompt, vault_scope } = mp;
+        let _: AgentBlueprintId = blueprint_id;
+        let _: String = user_prompt;
+        let _: String = vault_scope;
+
+        let tc = ToolCall {
+            name: "vault.read".into(),
+            arguments: serde_json::json!({}),
+        };
+        let ToolCall { name, arguments } = tc;
+        let _: String = name;
+        let _: serde_json::Value = arguments;
+    }
+
+    #[test]
     fn every_mission_packet_field_is_identity_load_bearing() {
         // Phase 1 hardening — symmetric companion to
         // blueprint::every_blueprint_field_is_identity_load_bearing
