@@ -278,6 +278,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 ```
 
 ```bash
+ruby -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); abort("nested identity transition delimiter rule missing") unless s.include?("may not contain nested `old-` or `-new-` transition delimiters inside either state atom"); puts "migration identity nested transition delimiters ok"'
+```
+
+```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); pat=schema.dig("properties","notes","allOf",1,"then","pattern") || abort("migration note pattern missing"); abort("identity sentinel gap delimiter missing") unless pat.include?("(?:^|;\\s*)identity_sentinel_gap_report=validator:old-[a-z0-9][a-z0-9._-]*-new-[a-z0-9][a-z0-9._-]*,reviewer:old-[a-z0-9][a-z0-9._-]*-new-[a-z0-9][a-z0-9._-]*(?:;|$)") && s.include?("embedded substrings do not satisfy version, path, command, mapping, digest, notes-cap, identity, sentinel-gap, or review-time attestation"); puts "migration identity sentinel gap delimiter ok"'
 ```
 
@@ -570,6 +574,7 @@ Implementation owner is TBD: merge-phase if artifact validation becomes part of 
 | `W-Validator-MigrationIdentitySentinelGapComma` | TBD validator-implementation terminal | Any executable validator accepts comma-bearing identity sentinel role-impact values. | Reject `identity_sentinel_gap_report` role-impact values containing commas because comma is the validator/reviewer role separator. |
 | `W-Validator-MigrationIdentitySentinelGapSlug` | TBD validator-implementation terminal | Any executable validator accepts uppercase or symbolic identity sentinel role-impact values. | Reject `identity_sentinel_gap_report` role-impact values unless both are lowercase old/new atoms before migration acceptance. |
 | `W-Validator-MigrationIdentitySentinelGapOldNew` | TBD validator-implementation terminal | Any executable validator accepts role-impact values without old/new state transitions. | Reject `identity_sentinel_gap_report` role-impact values unless both use `old-<state>-new-<state>` before migration acceptance. |
+| `W-Validator-MigrationIdentitySentinelGapNestedDelimiters` | TBD validator-implementation terminal | Any executable validator accepts nested transition markers inside old/new state atoms. | Reject role-impact state atoms containing nested `old-` or `-new-` transition delimiters before migration acceptance. |
 | `W-Validator-MigrationIdentitySentinelGapDistinct` | TBD validator-implementation terminal | Any executable validator accepts identical validator/reviewer identity sentinel impacts. | Reject `identity_sentinel_gap_report` when validator and reviewer role-impact values are identical before migration acceptance. |
 | `W-Validator-MigrationIdentitySentinelGapDelimiter` | TBD validator-implementation terminal | Any executable validator accepts embedded `identity_sentinel_gap_report` substrings. | Reject identity sentinel gap-report token substrings that are not bounded by note start/end or semicolon delimiters before migration acceptance. |
 | `W-Validator-MigrationIdentitySentinelGapArtifactPath` | TBD validator-implementation terminal | Any executable validator accepts identity sentinel gap reports without an affected artifact path. | Bind every `identity_sentinel_gap_report` to the migration note `artifact_path` before migration acceptance. |
