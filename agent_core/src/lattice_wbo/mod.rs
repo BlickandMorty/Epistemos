@@ -7405,6 +7405,41 @@ mod tests {
     }
 
     #[test]
+    fn self_evolving_security_axis_is_owned_only_by_network_and_adapter_codecs() {
+        let owners = [
+            LatticeCoderKind::NetworkCascade,
+            LatticeCoderKind::SelfEvolvingAdapter,
+        ];
+        for coder in owners {
+            assert!(
+                coder
+                    .canonical_wbo_terms()
+                    .contains(&WboTermCode::SelfEvolvingSecurity),
+                "{coder:?} must claim T_SE"
+            );
+        }
+        for coder in LatticeCoderKind::ALL {
+            if owners.contains(&coder) {
+                continue;
+            }
+            assert!(
+                !coder
+                    .canonical_wbo_terms()
+                    .contains(&WboTermCode::SelfEvolvingSecurity),
+                "{coder:?} must never claim T_SE; only L5 cascade and L_SE adapter own self-evolving security"
+            );
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains(
+                "`self_evolving_security_axis_is_owned_only_by_network_and_adapter_codecs`"
+            ),
+            "register doc must cross-link T_SE network and adapter ownership invariant"
+        );
+    }
+
+    #[test]
     fn residual_wyner_ziv_axis_is_owned_only_by_residual_codecs() {
         let residual_codecs = [
             LatticeCoderKind::LatticeWynerZivResidual,
