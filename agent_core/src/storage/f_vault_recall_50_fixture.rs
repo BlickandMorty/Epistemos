@@ -2329,6 +2329,22 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                satisfy retrieval.",
     },
     FVaultRecallRow {
+        // 54th Unicode row (iter-420): mixed Arabic + Devanagari
+        // interaction. This pairs an RTL Arabic token with a Brahmic
+        // abugida token in one <=3-token AND query.
+        query: "Mamba كاش कैश",
+        expected_paths: &["notes/mamba_arabic_devanagari.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Fifty-fourth Unicode row (iter-420): mixed-script \
+               Arabic+Devanagari query — \"Mamba كاش कैश\". \
+               Extends the post-floor Unicode interaction matrix \
+               to RTL Arabic plus Brahmic Devanagari in one top-5 \
+               membership contract. The English-only Mamba decoy \
+               carries the Latin anchor but neither non-Latin term.",
+    },
+    FVaultRecallRow {
         // 49th Unicode row (iter-407): Meroitic Cursive
         // extension. Adds a 47th non-Latin script (Meroitic
         // Cursive, U+109A0-U+109FF) — the EVERYDAY/CURSIVE
