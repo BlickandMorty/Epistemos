@@ -229,6 +229,10 @@ theorem bernoulliCertificateTargetFields (p q : Real) :
         bernoulliMirrorDescentEquivalenceObligation := by
   exact ⟨rfl, rfl, rfl⟩
 
+theorem bernoulliCertificateTargetNonnegative (p q : Real) :
+    (bernoulliCertificateTarget p q).positivity.nonnegative := by
+  exact bernoulliBregmanPositivityObligationNonnegative p q
+
 theorem schemaConstructorCountsPinned :
     expFamilyConstructorCount = 3 ∧ exprConstructorCount = 3 := by
   exact ⟨rfl, rfl⟩
