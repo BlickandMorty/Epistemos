@@ -3308,6 +3308,31 @@ mod tests {
     }
 
     #[test]
+    fn replay_rejects_compact_reserialized_witness_with_unknown_nested_key() {
+        let original = acceptance_witness_json().expect("acceptance witness json");
+        let mut value: serde_json::Value =
+            serde_json::from_str(&original).expect("witness json value");
+        let hardware = value["hardware"]
+            .as_object_mut()
+            .expect("hardware json must be object");
+        hardware.insert(
+            "unrecognized_nested".to_string(),
+            serde_json::Value::String("repacked".to_string()),
+        );
+        let json = serde_json::to_string(&value).expect("compact witness json");
+        let error = replay_witness_json(&json)
+            .expect_err("compact witness with injected nested key must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::UnknownField)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("unknown field hardware.unrecognized_nested")
+        );
+    }
+
+    #[test]
     fn replay_accepts_witness_after_compact_reserialization() {
         let original = acceptance_witness_json().expect("acceptance witness json");
         let value: serde_json::Value = serde_json::from_str(&original).expect("witness json value");

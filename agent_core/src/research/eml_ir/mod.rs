@@ -237,6 +237,8 @@ mod tests {
         assert!(FULP_FALSIFIER_DOC.contains("out-of-range unsigned integer"));
         assert!(FULP_FALSIFIER_DOC.contains("`FulpReplayError`"));
         assert!(FULP_FALSIFIER_DOC.contains("corruption-after-emit attack"));
+        assert!(FULP_FALSIFIER_DOC
+            .contains("compact reserialized witness with an unknown nested field"));
     }
 
     #[test]
