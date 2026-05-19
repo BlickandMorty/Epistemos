@@ -224,6 +224,10 @@ Last audited: 2026-05-18. [F-PageGather-Scatter](F_PAGE_GATHER_SCATTER_2026_05_1
 
 Last audited: 2026-05-18. [F-UAS-CopyCount](F_UAS_COPY_COUNT_2026_05_18.md) maps to schema axes `tensor_copy_count`, `data_copy_bytes`, `metadata_copy_ledger`, and `stack_label_coverage`; the row requires zero tensor copies on the hot path after the shared backing is created, a byte total for any allowed data copies, an enumerated metadata-copy ledger, and stack-label coverage for every allocation/copy site before its copy-count artifact can satisfy the [Cross-Gate Axis Floors](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#cross-gate-axis-floors).
 
+## F-ACS Anchor Lookup Axis Floor Audit
+
+Last audited: 2026-05-18. [F-ACS-AnchorLookup](F_ACS_ANCHOR_LOOKUP_2026_05_18.md) maps to schema axes `round_trip_field_digest`, `invalid_theorem_rejection`, and `projection_integrity`; the row requires a valid-anchor lookup/audit/projection round-trip digest covering theorem, plane, residency, source, and active-packet identity, explicit fail-closed rejection of invalid theorem IDs, and projection integrity that does not drop any anchor field before its anchor artifact can satisfy the [Cross-Gate Axis Floors](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#cross-gate-axis-floors).
+
 ## Replay Eligibility Audit
 
 Last audited: 2026-05-18. The schema replay-ineligibility checklist now fails artifacts linearly for missing command digests, missing fixture-manifest digests, missing sidecar digests, mismatched sidecar bytes, missing JSONL manifests, invalid JSONL manifest envelopes, `jsonl_file_sha256` drift from `result_digest`, runner-environment drift from the closed execution pin, missing OS build, missing toolchain identity, or missing thermal/power capture, blocking anomalies without evidence refs, missing threshold-source provenance, provider threshold refs without matching receipts, thermal-pressure timing passes without blocking anomalies, battery/unknown-power timing passes without blocking anomalies, measurement `evidence_kind` drift from the measurement source shape, and aggregate `sample_count` drift from embedded or sidecar samples.
