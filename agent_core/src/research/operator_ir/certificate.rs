@@ -151,6 +151,12 @@ pub fn lean_certificate(op: &OperatorExpr) -> String {
          \x20   operator_fno_obligation_{suffix}.statement := by\n\
          \x20 exact Epistemos.Operator.fnoEquivalenceObligationCarries operator_expr_{suffix}\n\
          \n\
+         theorem operator_certificate_fno_statement_{suffix} :\n\
+         \x20   operator_certificate_{suffix}.fno_equivalence.statement := by\n\
+         \x20 exact Epistemos.Operator.CertificateTarget.fnoStatementCarries\n\
+         \x20   operator_certificate_{suffix}\n\
+         \x20   operator_fno_equivalence_{suffix}\n\
+         \n\
          end Epistemos.Operator.Generated\n\
          \n",
         b_in = op.branch.input_dim(),
@@ -257,6 +263,15 @@ mod tests {
         assert!(c.contains("theorem operator_certificate_fno_"));
         assert!(c.contains(".fno_equivalence = operator_fno_obligation_"));
         assert!(c.contains("rfl"));
+    }
+
+    #[test]
+    fn certificate_projects_target_fno_statement() {
+        let op = fixture(KernelTransform::Identity);
+        let c = lean_certificate(&op);
+        assert!(c.contains("theorem operator_certificate_fno_statement_"));
+        assert!(c.contains("exact Epistemos.Operator.CertificateTarget.fnoStatementCarries"));
+        assert!(c.contains("operator_certificate_"));
     }
 
     #[test]
