@@ -82,6 +82,8 @@ Migration notes must name `from_schema`, `to_schema`, `artifact_path`, `migratio
 
 Migration notes must encode their migration fields as semicolon-delimited `key=value` tokens inside `notes`, using ASCII keys and values. When `from_schema=` appears, the JSON Schema fragment requires the base migration keys so validator tooling can parse the note without natural-language inference.
 
+The reserved identity set for `validator` and `reviewer` is shared: `anonymous`, `unknown`, `tbd`, and `none`. A future schema edit that changes one list without the other is invalid until the migration note gap report names the divergence and every affected witness.
+
 ## Pre-Witness Tightening Rule
 
 While no real T23B artifact exists under schema `2026-05-18.2`, this document may tighten the `.2` fragment to close obvious validation gaps. After the first real `.2` witness lands, any further change to field presence, axis floors, anomaly requirements, JSONL row shape, command paths, artifact roots, or hardware-pin structure must bump the schema version.
