@@ -1778,6 +1778,8 @@ struct RawWorstCaseNumbers<'a> {
     point_index: Option<&'a RawValue>,
     #[serde(default, borrow)]
     reference_fp16_bits: Option<&'a RawValue>,
+    #[serde(default, borrow)]
+    candidate_fp16_bits: Option<&'a RawValue>,
     #[serde(borrow)]
     x: &'a RawValue,
     #[serde(borrow)]
@@ -1826,6 +1828,9 @@ fn reject_raw_worst_case_numbers_json(
     }
     if let Some(value) = worst_case.reference_fp16_bits {
         raw_u16_json(value, &format!("{path}.reference_fp16_bits"))?;
+    }
+    if let Some(value) = worst_case.candidate_fp16_bits {
+        raw_u16_json(value, &format!("{path}.candidate_fp16_bits"))?;
     }
     raw_finite_f64_json(worst_case.x, path, "x")?;
     raw_finite_f64_json(worst_case.y, path, "y")?;
@@ -5100,6 +5105,28 @@ mod tests {
             .invalid_json_message()
             .expect("invalid json message")
             .contains("stats[0].worst_case.candidate_fp16_bits"));
+    }
+
+    #[test]
+    fn replay_rejects_operation_worst_case_candidate_fp16_bits_json_raw_overflow_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["worst_case"]["candidate_fp16_bits"] =
+            serde_json::Value::Number(serde_json::Number::from(123_456_789_u64));
+        let json = serde_json::to_string(&value).unwrap();
+        let needle = "\"candidate_fp16_bits\":123456789";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(needle, "\"candidate_fp16_bits\":1e999999", 1);
+        let error = replay_witness_json(&json)
+            .expect_err("worst case candidate bits overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("number out of range for stats[0].worst_case.candidate_fp16_bits, expected u16")
+        );
     }
 
     #[test]
