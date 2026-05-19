@@ -1996,4 +1996,51 @@ mod tests {
         let back: MissionPacket = serde_json::from_str(&s).expect("deserialize");
         assert_eq!(back, mp);
     }
+
+    #[test]
+    fn mission_packet_new_under_cap_equals_struct_literal_byte_for_byte() {
+        // Phase 1 hardening — thin-wrapper equivalence pin (companion
+        // to citation_from_tuple_equals_struct_literal_byte_for_byte at
+        // answer.rs). MissionPacket::new is the canonical ergonomic
+        // constructor; on a valid under-cap prompt it MUST produce a
+        // packet byte-equal to the direct struct-literal form. A
+        // future "let me trim trailing whitespace" or "let me normalise
+        // the vault_scope path separator" tweak in the helper would
+        // silently introduce two distinct packet byte forms depending
+        // on call site, breaking RunEventLog row equality.
+        //
+        // Sweep over representative fixtures: typical, empty fields,
+        // Unicode, special chars, leading/trailing whitespace,
+        // multi-byte tabs.
+        let fixtures: &[(&str, &str, &str)] = &[
+            ("research-assistant", "Summarise the May notes", "vault/notes"),
+            ("a", "", ""),
+            ("b", "  leading whitespace", "vault/notes  "),
+            ("c", "tab\there", "\tindented\t"),
+            ("blueprint-📝", "勉強します", "vault/ノート/2026年"),
+            ("d", "\"quoted\"\nlines", "vault\\\\path"),
+        ];
+        for (bid, prompt, scope) in fixtures {
+            let via_new = MissionPacket::new(
+                AgentBlueprintId((*bid).to_string()),
+                *prompt,
+                *scope,
+            )
+            .expect("under-cap fixture must accept");
+            let via_struct = MissionPacket {
+                blueprint_id: AgentBlueprintId((*bid).to_string()),
+                user_prompt: (*prompt).to_string(),
+                vault_scope: (*scope).to_string(),
+            };
+            assert_eq!(
+                via_new, via_struct,
+                "new({bid:?}, {prompt:?}, {scope:?}) must equal struct-literal form"
+            );
+            // Byte-equal JSON serialisation too — MissionPacket is
+            // serialised through the RunEventLog provenance path.
+            let j_new = serde_json::to_string(&via_new).expect("serialize new");
+            let j_struct = serde_json::to_string(&via_struct).expect("serialize struct");
+            assert_eq!(j_new, j_struct);
+        }
+    }
 }
