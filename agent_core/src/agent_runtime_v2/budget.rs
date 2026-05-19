@@ -1710,6 +1710,35 @@ mod tests {
     }
 
     #[test]
+    fn budget_error_exhausted_field_shape_pinned_to_term_total_cap() {
+        // Phase 1 hardening — field-shape pin for BudgetError::Exhausted
+        // (companion to
+        // mission_prompt_error_oversize_field_shape_pinned_to_exactly_size_and_cap
+        // iter-454). The variant carries EXACTLY 3 named fields
+        // (term: BudgetTerm, attempted_total: u64, cap: u64).
+        //
+        // A future "let me add a 4th field like {term, attempted_total,
+        // cap, axis_id}" refactor would silently change the error
+        // payload size — surface here via the destructure match arm.
+        let err = BudgetError::Exhausted {
+            term: BudgetTerm::Tokens,
+            attempted_total: 2_000,
+            cap: 1_000,
+        };
+        match err {
+            BudgetError::Exhausted { term, attempted_total, cap } => {
+                // Exactly 3 fields. Type assertions verify the typed shape.
+                let _: BudgetTerm = term;
+                let _: u64 = attempted_total;
+                let _: u64 = cap;
+                assert_eq!(term, BudgetTerm::Tokens);
+                assert_eq!(attempted_total, 2_000);
+                assert_eq!(cap, 1_000);
+            }
+        }
+    }
+
+    #[test]
     fn budget_error_exhausted_inner_fields_are_identity_load_bearing() {
         // Phase 1 hardening — inner-field distinctness pin
         // (companion to iter-197 ToolCallError::BadName).
