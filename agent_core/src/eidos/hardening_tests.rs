@@ -11161,6 +11161,59 @@ fn eidos_citation_has_exactly_two_public_fields() {
     );
 }
 
+/// Iter 681 — typed citation envelope schema pin.
+/// `EidosCitation` stays the minimal chat-layer reference
+/// (`source_id` + `manifest_id`), but the bridge needs a typed
+/// envelope that carries the validated citation together with the
+/// exact hit provenance it was authorized under. This avoids a
+/// best-effort "look it up later" path: closed citation first,
+/// provenance-carrying envelope second, or no envelope.
+#[test]
+fn eidos_citation_envelope_serializes_validated_citation_with_provenance() {
+    use super::types::{
+        EidosChunkId, EidosCitation, EidosCitationEnvelope, EidosContextPacket, EidosHit,
+        EidosProvenance, EidosScoreComponents,
+    };
+
+    let source_id = EidosChunkId::new("envelope-src").unwrap();
+    let packet = EidosContextPacket {
+        query: EidosQuery::new("envelope", EidosRetrievalMode::Lexical, 1),
+        manifest_id: manifest(),
+        hits: vec![EidosHit {
+            source_id: source_id.clone(),
+            document_id: doc("envelope-doc"),
+            kind: EidosSourceKind::Note,
+            span: None,
+            confidence: 0.75,
+            score: EidosScoreComponents {
+                lexical: 0.75,
+                semantic: 0.0,
+                recency: 0.0,
+                graph: 0.0,
+            },
+            provenance: EidosProvenance {
+                manifest_id: manifest(),
+                mode: EidosRetrievalMode::Lexical,
+                retrieved_at_unix_ms: 1_700_000_000_681,
+            },
+        }],
+    };
+    let citation = EidosCitation {
+        source_id,
+        manifest_id: packet.manifest_id.clone(),
+    };
+
+    let envelope: EidosCitationEnvelope = packet
+        .citation_envelope(&citation)
+        .expect("valid citation should produce typed envelope");
+    assert_eq!(envelope.citation, citation);
+    assert_eq!(envelope.provenance, packet.hits[0].provenance);
+    assert_eq!(
+        serde_json::to_string(&envelope).unwrap(),
+        "{\"citation\":{\"source_id\":\"envelope-src\",\"manifest_id\":\"hardening-manifest\"},\"provenance\":{\"manifest_id\":\"hardening-manifest\",\"mode\":\"Lexical\",\"retrieved_at_unix_ms\":1700000000681}}"
+    );
+}
+
 /// `validate_citation` ignores `hit.document_id` — completes the
 /// "every hit field except source_id is irrelevant" sweep started
 /// in iter 144 and extended in iter 170.

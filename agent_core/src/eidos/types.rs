@@ -276,6 +276,27 @@ impl EidosContextPacket {
         }
     }
 
+    /// Build a typed citation envelope only after the citation passes the
+    /// closed-citation gate. The envelope carries the exact hit provenance
+    /// that authorized the citation, so bridge/chat callers do not need a
+    /// later best-effort lookup to recover provenance.
+    pub fn citation_envelope(
+        &self,
+        citation: &EidosCitation,
+    ) -> Result<EidosCitationEnvelope, CitationError> {
+        self.validate_citation(citation)?;
+        let provenance = self
+            .hits
+            .iter()
+            .find(|h| h.source_id == citation.source_id)
+            .map(|h| h.provenance.clone())
+            .ok_or_else(|| CitationError::FabricatedSourceId(citation.source_id.clone()))?;
+        Ok(EidosCitationEnvelope {
+            citation: citation.clone(),
+            provenance,
+        })
+    }
+
     /// Returns the closed set of citable `source_id`s in deterministic order
     /// (the order they appear in `hits`). Useful for the chat layer to gate
     /// model output before validation.
@@ -387,6 +408,15 @@ impl EidosQuery {
 pub struct EidosCitation {
     pub source_id: EidosChunkId,
     pub manifest_id: EidosIndexManifestId,
+}
+
+/// A validated citation plus the hit provenance that authorized it.
+/// Construct through [`EidosContextPacket::citation_envelope`] so the closed-
+/// citation contract runs before any provenance-carrying envelope exists.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct EidosCitationEnvelope {
+    pub citation: EidosCitation,
+    pub provenance: EidosProvenance,
 }
 
 /// `Serialize` is derived for the future Swift bridge (W-46/W-47).
