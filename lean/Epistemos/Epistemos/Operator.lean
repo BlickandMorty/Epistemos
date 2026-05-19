@@ -132,6 +132,12 @@ theorem dimConsistentCarries (c : CertificateTarget) :
     c.expr.branch.outputDim = c.expr.trunk.outputDim := by
   exact c.dim_consistent
 
+theorem fnoStatementCarries
+    (c : CertificateTarget)
+    (statementWitness : c.fno_equivalence.statement) :
+    c.fno_equivalence.statement := by
+  exact statementWitness
+
 end CertificateTarget
 
 end Epistemos.Operator
