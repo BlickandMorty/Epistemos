@@ -803,6 +803,25 @@ mod tests {
     }
 
     #[test]
+    fn lint_catches_aegis_inside_git_commit_body_and_trailers() {
+        for commit_msg in [
+            "feat(t11): route System G executor\n\nBody mentions Aegis here.\n",
+            "hardening(t11): preserve runtime substrate\n\nReviewed-For: AEGIS rejection\n",
+            "test(t11): cover Invader Agent path\n\nSigned-off-by: aegis bot <x@y.z>\n",
+        ] {
+            let hits = scan_text(commit_msg);
+            assert!(
+                !hits.is_empty(),
+                "lint must flag rejected name outside subject: {commit_msg:?}"
+            );
+            assert!(
+                text_contains_rejected_name(commit_msg),
+                "predicate must flag rejected name outside subject: {commit_msg:?}"
+            );
+        }
+    }
+
+    #[test]
     fn lint_does_not_flag_legitimate_git_commit_message_text() {
         // Phase 1 hardening — symmetric negative companion to the
         // git-commit-message positive pin. Legitimate System G /
