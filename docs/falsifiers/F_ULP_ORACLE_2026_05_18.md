@@ -65,6 +65,19 @@ freezes treat Metal output itself as proven.
 |---|---|---|---|---|---|---|
 | F-ULP-Oracle | Research | M2 Pro numeric falsifier | implemented-not-wired | `agent_core/src/research/eml_ir/`, `Epistemos/Shaders/morph_eval_reduced.metal`, `cargo test --features research research::eml_ir` | live Metal dispatch capture from `morphOracleFp16` | harden with GPU capture, subnormal/signed-zero diagnostics, WBO numerics cross-link, and Helios v3 §3.5/F7a reference |
 
+## Replay Corruption Rejection
+
+`replay_witness_json` parses the witness twice: once as a strongly typed
+`FulpWitness` for value-level checks, once as a raw `serde_json` payload for
+structural drift. A witness with a duplicate top-level key, a duplicate
+nested key, an unknown top-level field, an unknown nested field,
+a type mismatch (boolean where a number is expected, string where an object
+is expected, and so on), an out-of-range unsigned integer for any numeric
+path, a missing required field, or a stats array whose length is not the
+expected three per-operation rows is rejected with a typed `FulpReplayError`
+so a corruption-after-emit attack cannot pass replay even when the
+high-level numbers superficially match.
+
 ## Wall-Clock Budget
 
 The witness records `budget_target_seconds = 90` and the matching
