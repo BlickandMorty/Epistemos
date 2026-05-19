@@ -737,6 +737,7 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
     top_level_u32_json(&value, "budget_target_seconds")?;
     top_level_unsigned_integer_json(&value, "budget_target_millis")?;
     top_level_unsigned_integer_json(&value, "observed_wall_clock_millis")?;
+    reject_adversarial_reference_stats_json(&value)?;
     let Some(max_point_index_exclusive) = point_count else {
         return Ok(());
     };
@@ -1092,6 +1093,40 @@ fn top_level_u32_json(
         });
     }
     Ok(Some(field_value as u32))
+}
+
+fn reject_adversarial_reference_stats_json(
+    value: &serde_json::Value,
+) -> Result<(), FulpReplayError> {
+    let Some(stats_value) = value.get("adversarial_reference_stats") else {
+        return Ok(());
+    };
+    if !stats_value.is_object() {
+        return Err(FulpReplayError::InvalidJson {
+            message: "invalid type for adversarial_reference_stats, expected object".to_string(),
+            kind: FulpInvalidJsonKind::TypeMismatch,
+        });
+    }
+    nested_unsigned_integer_json(stats_value, "adversarial_reference_stats", "finite_count")?;
+    nested_unsigned_integer_json(stats_value, "adversarial_reference_stats", "rejected_count")?;
+    Ok(())
+}
+
+fn nested_unsigned_integer_json(
+    value: &serde_json::Value,
+    path: &str,
+    field: &str,
+) -> Result<Option<u64>, FulpReplayError> {
+    let Some(field_value) = value.get(field) else {
+        return Ok(None);
+    };
+    let Some(field_value) = field_value.as_u64() else {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("invalid type for {path}.{field}, expected unsigned integer"),
+            kind: FulpInvalidJsonKind::TypeMismatch,
+        });
+    };
+    Ok(Some(field_value))
 }
 
 fn reject_worst_case_fields_json(
@@ -1888,6 +1923,25 @@ mod tests {
             error.count_mismatch_kind(),
             Some(FulpCountMismatchKind::AdversarialReferenceStats)
         );
+    }
+
+    #[test]
+    fn replay_rejects_adversarial_reference_finite_count_json_type_drift_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["adversarial_reference_stats"]["finite_count"] =
+            serde_json::Value::String("bad-count".to_string());
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("adversarial reference finite count type drift must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("adversarial_reference_stats.finite_count"));
     }
 
     #[test]
