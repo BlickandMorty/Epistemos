@@ -536,6 +536,21 @@ mod tests {
     }
 
     #[test]
+    fn tool_call_missing_required_fields_fail_to_deserialise() {
+        for bad in [
+            r#"{"name":"vault.read"}"#,
+            r#"{"arguments":{"path":"notes/a"}}"#,
+            r#"{}"#,
+        ] {
+            let parsed: Result<ToolCall, _> = serde_json::from_str(bad);
+            assert!(
+                parsed.is_err(),
+                "ToolCall missing required field must fail: {bad}"
+            );
+        }
+    }
+
+    #[test]
     fn tool_call_error_struct_variants_field_shapes_pinned_via_destructure() {
         // Phase 1 hardening — field-shape pin for ToolCallError's
         // 4 struct-variants (BadName, OversizeName, BadArguments,
