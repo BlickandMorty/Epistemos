@@ -84,6 +84,19 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_doc_documents_replay_corruption_rejection() {
+        assert!(FULP_FALSIFIER_DOC.contains("## Replay Corruption Rejection"));
+        assert!(FULP_FALSIFIER_DOC.contains("`replay_witness_json`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`FulpWitness`"));
+        assert!(FULP_FALSIFIER_DOC.contains("duplicate top-level key"));
+        assert!(FULP_FALSIFIER_DOC.contains("unknown top-level field"));
+        assert!(FULP_FALSIFIER_DOC.contains("type mismatch"));
+        assert!(FULP_FALSIFIER_DOC.contains("out-of-range unsigned integer"));
+        assert!(FULP_FALSIFIER_DOC.contains("`FulpReplayError`"));
+        assert!(FULP_FALSIFIER_DOC.contains("corruption-after-emit attack"));
+    }
+
+    #[test]
     fn falsifier_doc_documents_wall_clock_budget() {
         assert!(FULP_FALSIFIER_DOC.contains("## Wall-Clock Budget"));
         assert!(FULP_FALSIFIER_DOC.contains("`budget_target_seconds = 90`"));
