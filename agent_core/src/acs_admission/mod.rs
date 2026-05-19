@@ -197,8 +197,8 @@ pub enum ACSLane {
 
 const ACS_L0_OPERATIONS: [ACSOperationKind; 3] = [
     ACSOperationKind::MutationEnvelope,
-    ACSOperationKind::AnswerPacket,
     ACSOperationKind::MemoryWrite,
+    ACSOperationKind::AnswerPacket,
 ];
 const ACS_L1_OPERATIONS: [ACSOperationKind; 2] = [
     ACSOperationKind::ToolAction,
@@ -3813,8 +3813,8 @@ mod tests {
             ACSLane::L0.operations(),
             &[
                 ACSOperationKind::MutationEnvelope,
-                ACSOperationKind::AnswerPacket,
                 ACSOperationKind::MemoryWrite,
+                ACSOperationKind::AnswerPacket,
             ]
         );
         assert_eq!(
