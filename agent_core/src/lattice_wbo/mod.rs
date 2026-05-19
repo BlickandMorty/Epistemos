@@ -4223,6 +4223,40 @@ mod tests {
     }
 
     #[test]
+    fn standalone_codecs_remain_term_scoped_without_product_residency() {
+        for coder in LatticeCoderKind::ALL {
+            if coder.primary_residency_tier().is_some() {
+                continue;
+            }
+
+            assert!(
+                coder
+                    .canonical_wbo_terms()
+                    .contains(&WboTermCode::NumericalPostCorrection),
+                "{coder:?} standalone rows still owe T_num"
+            );
+            assert!(
+                coder
+                    .canonical_wbo_terms()
+                    .iter()
+                    .all(|term| term.is_semantic_wbo6()
+                        || *term == WboTermCode::NumericalPostCorrection),
+                "{coder:?} must stay term-scoped without hidden residency ownership"
+            );
+            assert!(
+                !matches!(
+                    coder.canonical_side_information(),
+                    [SideInformationKind::None]
+                        | [SideInformationKind::StaticFactKey]
+                        | [SideInformationKind::NetworkTeacher]
+                        | [SideInformationKind::SurpriseGradient]
+                ),
+                "{coder:?} must not masquerade as a product residency side-information row"
+            );
+        }
+    }
+
+    #[test]
     fn l1_residual_uses_lwz_and_sherry_stays_weight_side_only() {
         assert_eq!(
             ResidencyTier::L1CompressedResidual.primary_coder(),
