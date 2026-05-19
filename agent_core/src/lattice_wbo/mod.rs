@@ -4096,6 +4096,29 @@ mod tests {
     }
 
     #[test]
+    fn side_information_public_keys_match_all_canonical_keys() {
+        let canonical_keys = SideInformationKind::ALL
+            .iter()
+            .map(|kind| kind.key())
+            .collect::<Vec<_>>();
+
+        assert_eq!(SideInformationKind::CODES, canonical_keys.as_slice());
+        for (kind, key) in SideInformationKind::ALL
+            .iter()
+            .zip(SideInformationKind::CODES)
+        {
+            assert_eq!(kind.key(), key);
+            assert_eq!(SideInformationKind::from_key(key), Some(*kind));
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`side_information_public_keys_match_all_canonical_keys`"),
+            "register doc must cross-link side-information public-key exhaustiveness"
+        );
+    }
+
+    #[test]
     fn lattice_coder_public_codes_match_all_canonical_names() {
         let canonical_names = LatticeCoderKind::ALL
             .iter()
