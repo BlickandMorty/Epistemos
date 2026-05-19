@@ -384,6 +384,32 @@ mod tests {
     }
 
     #[test]
+    fn forged_error_precedes_caveat_violations() {
+        let key_a = root_key_a();
+        let mut m = issue_tool_macaroon(&key_a, Some(1_000));
+        m = restrict(
+            &m,
+            Caveat::ToolNameEq {
+                name: "vault.write".into(),
+            },
+        );
+        m = restrict(
+            &m,
+            Caveat::ScopePrefix {
+                prefix: "vault/private".into(),
+            },
+        );
+        let cap = MacaroonCapability::new(m, root_key_b());
+        let err = cap
+            .verify(&ctx_now_at(2_000))
+            .expect_err("forged and caveat-violating macaroon must reject");
+        assert!(
+            matches!(err, CapabilityError::Forged(VerifyError::SignatureMismatch)),
+            "signature failure must win before caveat evaluation, got {err:?}"
+        );
+    }
+
+    #[test]
     fn forged_macaroon_rejected_with_every_caveat_type_restrict_property() {
         // Phase 1 hardening — work-queue item A: macaroon caveat
         // property tests, every caveat type × forged combo.
