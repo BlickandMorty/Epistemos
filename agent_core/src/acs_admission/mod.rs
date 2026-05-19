@@ -2620,12 +2620,15 @@ impl ACSAdmissionDecision {
         self.lane().product_lane_code()
     }
 
-    fn validate(&self) -> Result<(), &'static str> {
+    fn validate(&self) -> Result<(), String> {
         self.audit_record
             .validate()
-            .map_err(|err| err.cause())?;
+            .map_err(|err| acs_audit_record_decode_error(&err))?;
         if self.verdict != self.audit_record.verdict {
-            return Err("mismatched_decision_verdict");
+            return Err(format!(
+                "mismatched_decision_verdict record_id={}",
+                self.audit_record.record_id
+            ));
         }
         Ok(())
     }
@@ -7160,8 +7163,10 @@ mod tests {
         let value = serde_json::to_value(decision).expect("decision encodes");
 
         let decoded = serde_json::from_value::<ACSAdmissionDecision>(value);
+        let message = decoded.unwrap_err().to_string();
 
-        assert!(decoded.is_err());
+        assert!(message.contains("mismatched_decision_verdict"), "{message}");
+        assert!(message.contains("acs:req:1001"), "{message}");
     }
 
     #[test]
