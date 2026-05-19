@@ -4559,6 +4559,7 @@ mod tests {
             "codec coverage order follows `LatticeCoderKind::ALL`",
             "exact residency-to-side-information witness set",
             "exact residency-to-falsifier `F-*` hook set",
+            "residency register falsifier cells match primary and term `F-*` hook sets exactly",
             "exact term-to-falsifier `F-*` hook set",
             "exact codec-to-falsifier `F-*` hook set",
             "exact codec-to-side-information witness set",
@@ -4767,7 +4768,7 @@ mod tests {
             "| L0 RAM hot | Exact fp16/bf16 KV and residual stream | `None` beyond live model state | `T_num` only | `F-WBO-DriftLedger`; `F-ULP-Oracle`; per-token KL witness",
             "`exact_hot_codec_pins_reference_term_and_side_information`",
             "ExactHot terms are `T_num` only and side information is `None`",
-            "| L1 Compressed Residual | Lattice-Wyner-Ziv residual codec under `LatticeCoder<1250 milli-bits>` | `ResidualStream` plus `DecoderLmState` | `T_R` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; residual KL slice",
+            "| L1 Compressed Residual | Lattice-Wyner-Ziv residual codec under `LatticeCoder<1250 milli-bits>` | `ResidualStream` plus `DecoderLmState` | `T_R` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; residual KL slice; layerwise reconstruction/logit drift witness; `F-ACS-AnchorLookup`",
             "| L2 Shadow Sketch | ShadowKV-style active-support sketch: retained pages/tokens plus residual or JL/CountSketch correction | `ActiveSupport` mask, page criticality, residual sketch | `T_K` + `T_S` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-KV-Direct-Gate`; `F-ACS-AnchorLookup`",
             "| L3 SSD Oracle | NF4 mmap/IOSurface pages under `Nf4SsdOracle<4000 milli-bits>` with cold exact-or-higher-fidelity page oracle | `SsdOracle` page plus `ResidualStream` reconstruction witness | `T_K` + `T_Q` + `T_S` + `T_num` | `F-KV-Direct-Gate`; `F-ULP-Oracle`; `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness; `F-ACS-AnchorLookup`",
             "| L4 Engram | Fixed-budget hash recall for static facts, signatures, dates, and API contracts | Content hash, provenance edge, `StaticFactKey` | `T_S` + `T_num` | `F-ACS-AnchorLookup`; `F-ULP-Oracle`; `F-WBO-DriftLedger`",
@@ -5035,6 +5036,18 @@ mod tests {
                     }
                 }
             }
+            let mut expected_hook_set = expected_hooks.clone();
+            expected_hook_set.sort_unstable();
+            expected_hook_set.dedup();
+            let mut actual_hook_set = f_hooks_in(falsifier_cell);
+            actual_hook_set.sort_unstable();
+            actual_hook_set.dedup();
+            assert_eq!(
+                actual_hook_set,
+                expected_hook_set,
+                "{} residency row falsifier cell must exactly match primary and term F-* hooks",
+                tier.canonical_name()
+            );
             for hook in f_hooks_in(falsifier_cell) {
                 assert!(
                     expected_hooks.contains(&hook),
