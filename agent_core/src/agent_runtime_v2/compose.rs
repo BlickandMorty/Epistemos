@@ -207,6 +207,36 @@ mod tests {
     }
 
     #[test]
+    fn para_seq_output_and_feedback_struct_field_shapes_pinned_via_destructure() {
+        // Phase 1 hardening MILESTONE iter-470 — struct-field-shape
+        // pin pair closing the destructure pin family across all
+        // user-facing structs in agent_runtime_v2.
+        //
+        // ParaSeqOutput<B, C>: EXACTLY 2 fields
+        //   - inner: ParaOutput<B>
+        //   - outer: ParaOutput<C>
+        //
+        // ParaSeqFeedback<P>: EXACTLY 2 fields
+        //   - outer: ParaFeedback<P>
+        //   - inner: ParaFeedback<P>
+        //
+        // Closes the family: 13 struct destructure pins.
+        let seq = ParaSeq::new(&LenStage, &LabelStage);
+        let out = seq.fwd(&0, "hello").expect("fwd ok");
+        let ParaSeqOutput { inner, outer } = out;
+        let _: ParaOutput<usize> = inner;
+        let _: ParaOutput<String> = outer;
+
+        let fb = ParaSeqFeedback {
+            outer: ParaFeedback { delta: 1u32 },
+            inner: ParaFeedback { delta: 2u32 },
+        };
+        let ParaSeqFeedback { outer, inner } = fb;
+        let _: ParaFeedback<u32> = outer;
+        let _: ParaFeedback<u32> = inner;
+    }
+
+    #[test]
     fn every_para_seq_output_field_is_identity_load_bearing() {
         // Phase 1 hardening — fourteenth leg of the identity-pin
         // pattern. ParaSeqOutput<B, C> has 2 fields (inner, outer);
