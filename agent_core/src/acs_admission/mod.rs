@@ -335,7 +335,10 @@ impl<'de> Deserialize<'de> for ACSMutationSourceOpWire {
             .as_object()
             .ok_or_else(|| serde::de::Error::custom("mutation source op must be an object"))?;
         for field in object.keys() {
-            if !matches!(field.as_str(), "kind" | "artifact_id" | "artifact_kind" | "label") {
+            if !matches!(
+                field.as_str(),
+                "kind" | "artifact_id" | "artifact_kind" | "label"
+            ) {
                 return Err(serde::de::Error::unknown_field(
                     field.as_str(),
                     &["kind", "artifact_id", "artifact_kind", "label"],
@@ -669,13 +672,27 @@ impl ACSMutationEnvelopeWire {
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind", deny_unknown_fields)]
 enum ACSAdmissionPayloadWire {
-    MutationEnvelope { envelope: Box<ACSMutationEnvelopeWire> },
-    ActiveAssemblyPacket { packet: ActiveAssemblyPacket },
-    AnswerPacket { packet: Box<AnswerPacket> },
-    MemoryWrite { request: ACSMemoryWriteRequest },
-    ToolAction { request: ACSToolActionRequest },
-    KernelPromotion { request: ACSKernelPromotionRequest },
-    ModelAdaptation { request: ACSModelAdaptationRequest },
+    MutationEnvelope {
+        envelope: Box<ACSMutationEnvelopeWire>,
+    },
+    ActiveAssemblyPacket {
+        packet: ActiveAssemblyPacket,
+    },
+    AnswerPacket {
+        packet: Box<AnswerPacket>,
+    },
+    MemoryWrite {
+        request: ACSMemoryWriteRequest,
+    },
+    ToolAction {
+        request: ACSToolActionRequest,
+    },
+    KernelPromotion {
+        request: ACSKernelPromotionRequest,
+    },
+    ModelAdaptation {
+        request: ACSModelAdaptationRequest,
+    },
 }
 
 impl<'de> Deserialize<'de> for ACSAdmissionPayload {
@@ -685,11 +702,9 @@ impl<'de> Deserialize<'de> for ACSAdmissionPayload {
     {
         let wire = ACSAdmissionPayloadWire::deserialize(deserializer)?;
         let payload = match wire {
-            ACSAdmissionPayloadWire::MutationEnvelope { envelope } => {
-                Self::MutationEnvelope {
-                    envelope: Box::new(envelope.into_envelope()),
-                }
-            }
+            ACSAdmissionPayloadWire::MutationEnvelope { envelope } => Self::MutationEnvelope {
+                envelope: Box::new(envelope.into_envelope()),
+            },
             ACSAdmissionPayloadWire::ActiveAssemblyPacket { packet } => {
                 Self::ActiveAssemblyPacket { packet }
             }
@@ -832,7 +847,10 @@ fn require_answer_packet_label_consistency(
     }
 
     if packet.ui_label == VrmLabel::Speculative
-        && packet.claims.iter().any(is_active_non_speculative_answer_claim)
+        && packet
+            .claims
+            .iter()
+            .any(is_active_non_speculative_answer_claim)
     {
         return Err(ACSAdmissionInputError::Forged {
             field: "answer_packet.ui_label",
@@ -853,7 +871,11 @@ fn require_answer_packet_label_consistency(
                 field: "answer_packet.ui_label",
             });
         }
-        if packet.claims.iter().any(is_active_non_plausible_answer_claim) {
+        if packet
+            .claims
+            .iter()
+            .any(is_active_non_plausible_answer_claim)
+        {
             return Err(ACSAdmissionInputError::Forged {
                 field: "answer_packet.ui_label",
             });
@@ -891,7 +913,11 @@ fn require_answer_packet_label_consistency(
         });
     }
 
-    if packet.claims.iter().any(is_non_active_verifying_answer_claim) {
+    if packet
+        .claims
+        .iter()
+        .any(is_non_active_verifying_answer_claim)
+    {
         return Err(ACSAdmissionInputError::Forged {
             field: "answer_packet.ui_label",
         });
@@ -939,8 +965,7 @@ fn is_active_speculative_answer_claim(claim: &Claim) -> bool {
 }
 
 fn is_active_plausible_answer_claim(claim: &Claim) -> bool {
-    is_active_answer_claim(claim)
-        && matches!(claim.kind, ClaimKind::Empirical | ClaimKind::Causal)
+    is_active_answer_claim(claim) && matches!(claim.kind, ClaimKind::Empirical | ClaimKind::Causal)
 }
 
 fn is_active_non_speculative_answer_claim(claim: &Claim) -> bool {
@@ -1010,7 +1035,10 @@ fn validate_mutation_envelope(envelope: &MutationEnvelope) -> Result<(), ACSAdmi
         envelope.caused_by_event_id.as_deref(),
         "mutation_envelope.caused_by_event_id",
     )?;
-    require_optional_non_empty(envelope.approval_id.as_deref(), "mutation_envelope.approval_id")?;
+    require_optional_non_empty(
+        envelope.approval_id.as_deref(),
+        "mutation_envelope.approval_id",
+    )?;
     require_non_negative_ms(envelope.created_at_ms, "mutation_envelope.created_at_ms")?;
     if let Some(committed_at_ms) = envelope.committed_at_ms {
         require_non_negative_ms(committed_at_ms, "mutation_envelope.committed_at_ms")?;
@@ -1159,12 +1187,9 @@ fn validate_mutation_relation_changes(
                 }
             }
         }
-        if changes[..idx]
-            .iter()
-            .any(|existing| {
-                relation_change_matches(existing, change) || relation_change_conflicts(existing, change)
-            })
-        {
+        if changes[..idx].iter().any(|existing| {
+            relation_change_matches(existing, change) || relation_change_conflicts(existing, change)
+        }) {
             return Err(ACSAdmissionInputError::Forged {
                 field: "mutation_envelope.relation_changes",
             });
@@ -2135,9 +2160,8 @@ fn acs_record_id_binds_request_and_time(
 }
 
 fn acs_record_id_embeds_reserved_malformed_audit_token(record_id: &str) -> bool {
-    parse_canonical_acs_record_id(record_id).is_some_and(|(request_id, _)| {
-        is_reserved_request_audit_token(request_id)
-    })
+    parse_canonical_acs_record_id(record_id)
+        .is_some_and(|(request_id, _)| is_reserved_request_audit_token(request_id))
 }
 
 fn is_canonical_audit_token(value: &str) -> bool {
@@ -2429,11 +2453,7 @@ fn scope_rex_proof_payload(
 ) -> Vec<u8> {
     let mut payload =
         Vec::with_capacity(96 + SCOPE_REX_ADMISSION_PROOF_DOMAIN.len() + record_id.len());
-    push_proof_field(
-        &mut payload,
-        b"domain",
-        SCOPE_REX_ADMISSION_PROOF_DOMAIN,
-    );
+    push_proof_field(&mut payload, b"domain", SCOPE_REX_ADMISSION_PROOF_DOMAIN);
     push_proof_field(&mut payload, b"verdict", verdict.code().as_bytes());
     push_proof_field(&mut payload, b"operation", operation.code().as_bytes());
     push_proof_field(&mut payload, b"record_id", record_id.as_bytes());
@@ -2484,13 +2504,27 @@ fn hex_value(byte: u8) -> Option<u8> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ACSAdmissionProofError {
     MissingRecordId,
-    InvalidRecordId { record_id: String },
-    MissingCapabilitySignature { record_id: Option<String> },
-    InvalidCapabilitySignature { record_id: Option<String> },
-    VerdictBlocksScopeRex { record_id: String },
-    RecordIdMismatch { record_id: String },
-    OperationMismatch { record_id: String },
-    VerdictMismatch { record_id: String },
+    InvalidRecordId {
+        record_id: String,
+    },
+    MissingCapabilitySignature {
+        record_id: Option<String>,
+    },
+    InvalidCapabilitySignature {
+        record_id: Option<String>,
+    },
+    VerdictBlocksScopeRex {
+        record_id: String,
+    },
+    RecordIdMismatch {
+        record_id: String,
+    },
+    OperationMismatch {
+        record_id: String,
+    },
+    VerdictMismatch {
+        record_id: String,
+    },
     CorruptAuditRecord {
         field: &'static str,
         record_id: String,
@@ -2612,9 +2646,7 @@ impl<'de> Deserialize<'de> for ACSAdmissionDecision {
             verdict: wire.verdict,
             audit_record: wire.audit_record,
         };
-        decision
-            .validate()
-            .map_err(serde::de::Error::custom)?;
+        decision.validate().map_err(serde::de::Error::custom)?;
         Ok(decision)
     }
 }
@@ -2650,8 +2682,12 @@ pub trait ACSAuditSink {
 pub enum ACSAuditError {
     SinkUnavailable,
     EncodeRecord,
-    InvalidRunEventLogChain { record_id: String },
-    DuplicateRecord { record_id: String },
+    InvalidRunEventLogChain {
+        record_id: String,
+    },
+    DuplicateRecord {
+        record_id: String,
+    },
     CorruptRecord {
         field: &'static str,
         record_id: String,
@@ -2683,8 +2719,7 @@ impl ACSAuditError {
             Self::DuplicateRecord { record_id } => Some(record_id.as_str()),
             Self::CorruptRecord { record_id, .. } => Some(record_id.as_str()),
             Self::InvalidRunEventLogChain { record_id } => Some(record_id.as_str()),
-            Self::SinkUnavailable
-            | Self::EncodeRecord => None,
+            Self::SinkUnavailable | Self::EncodeRecord => None,
         }
     }
 }
@@ -2815,11 +2850,21 @@ pub fn resolve_acs_audit_record(
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ACSAuditLookupError {
-    InvalidRecordId { record_id: String },
-    InvalidRunEventLogChain { record_id: String },
-    NotFound { record_id: String },
-    DuplicateRecord { record_id: String },
-    DecodeRecord { record_id: String },
+    InvalidRecordId {
+        record_id: String,
+    },
+    InvalidRunEventLogChain {
+        record_id: String,
+    },
+    NotFound {
+        record_id: String,
+    },
+    DuplicateRecord {
+        record_id: String,
+    },
+    DecodeRecord {
+        record_id: String,
+    },
     CorruptRecord {
         field: &'static str,
         record_id: String,
@@ -2841,9 +2886,7 @@ impl ACSAuditLookupError {
     pub const fn field(&self) -> Option<&'static str> {
         match self {
             Self::InvalidRunEventLogChain { .. } => Some("run_event_log"),
-            Self::InvalidRecordId { .. }
-            | Self::NotFound { .. }
-            | Self::DuplicateRecord { .. } => {
+            Self::InvalidRecordId { .. } | Self::NotFound { .. } | Self::DuplicateRecord { .. } => {
                 Some("record_id")
             }
             Self::DecodeRecord { .. } => Some("record"),
@@ -3183,7 +3226,11 @@ fn is_bare_malformed_audit_token(value: &str, prefix: &str) -> bool {
 }
 
 fn audit_policy_version(value: u32) -> u32 {
-    if value == 0 { 1 } else { value }
+    if value == 0 {
+        1
+    } else {
+        value
+    }
 }
 
 fn audit_risk_max(risk: &ACSRiskVector) -> f32 {
@@ -3218,7 +3265,12 @@ impl<'de> Deserialize<'de> for ACSRiskThresholds {
     where
         D: serde::Deserializer<'de>,
     {
-        let wire = ACSRiskThresholdsWire::deserialize(deserializer)?;
+        let value = serde_json::Value::deserialize(deserializer)?;
+        require_threshold_field::<D::Error>(&value, "warn_at")?;
+        require_threshold_field::<D::Error>(&value, "defer_at")?;
+        require_threshold_field::<D::Error>(&value, "quarantine_at")?;
+        require_threshold_field::<D::Error>(&value, "reject_at")?;
+        let wire = ACSRiskThresholdsWire::deserialize(value).map_err(serde::de::Error::custom)?;
         let thresholds = Self {
             warn_at: wire.warn_at,
             defer_at: wire.defer_at,
@@ -3229,6 +3281,19 @@ impl<'de> Deserialize<'de> for ACSRiskThresholds {
             .validate()
             .map_err(|err| serde::de::Error::custom(acs_policy_decode_error(&err)))?;
         Ok(thresholds)
+    }
+}
+
+fn require_threshold_field<E>(value: &serde_json::Value, field: &'static str) -> Result<(), E>
+where
+    E: serde::de::Error,
+{
+    match value {
+        serde_json::Value::Object(object) if object.contains_key(field) => Ok(()),
+        serde_json::Value::Object(_) => Err(E::custom(acs_policy_decode_error(
+            &ACSPolicyError::Malformed { field },
+        ))),
+        _ => Err(E::custom("risk thresholds must be an object")),
     }
 }
 
@@ -3583,12 +3648,9 @@ impl ACSPolicy {
         let mut required_capabilities = Vec::new();
         for rule in &self.required_capabilities {
             rule.validate()?;
-            if required_capabilities
-                .iter()
-                .any(|(operation, capability)| {
-                    *operation == rule.operation && capability == &rule.capability
-                })
-            {
+            if required_capabilities.iter().any(|(operation, capability)| {
+                *operation == rule.operation && capability == &rule.capability
+            }) {
                 return Err(ACSPolicyError::Malformed {
                     field: "required_capabilities.duplicate_capability",
                 });
@@ -4695,8 +4757,8 @@ mod tests {
 
     #[test]
     fn acs_admission_payload_rejects_shadow_mutation_envelope_field_on_decode() {
-        let mut envelope =
-            serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
+        let mut envelope = serde_json::to_value(mutation_envelope_fixture())
+            .expect("mutation envelope serializes");
         envelope["shadow_integrity_hash"] = serde_json::json!("hash-shadow");
         let value = serde_json::json!({
             "kind": "mutation_envelope",
@@ -4708,8 +4770,8 @@ mod tests {
 
     #[test]
     fn acs_admission_payload_rejects_shadow_mutation_actor_field_on_decode() {
-        let mut envelope =
-            serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
+        let mut envelope = serde_json::to_value(mutation_envelope_fixture())
+            .expect("mutation envelope serializes");
         envelope["actor"]["shadow_run_id"] = serde_json::json!("run-shadow");
         let value = serde_json::json!({
             "kind": "mutation_envelope",
@@ -4721,8 +4783,8 @@ mod tests {
 
     #[test]
     fn acs_admission_payload_rejects_null_mutation_user_actor_run_id_on_decode() {
-        let mut envelope =
-            serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
+        let mut envelope = serde_json::to_value(mutation_envelope_fixture())
+            .expect("mutation envelope serializes");
         envelope["actor"] = serde_json::json!({
             "kind": "user",
             "run_id": null,
@@ -4737,8 +4799,8 @@ mod tests {
 
     #[test]
     fn acs_admission_payload_rejects_shadow_mutation_source_op_field_on_decode() {
-        let mut envelope =
-            serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
+        let mut envelope = serde_json::to_value(mutation_envelope_fixture())
+            .expect("mutation envelope serializes");
         envelope["op"]["shadow_artifact_id"] = serde_json::json!("artifact-shadow");
         let value = serde_json::json!({
             "kind": "mutation_envelope",
@@ -4750,8 +4812,8 @@ mod tests {
 
     #[test]
     fn acs_admission_payload_rejects_null_mutation_source_op_extra_field_on_decode() {
-        let mut envelope =
-            serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
+        let mut envelope = serde_json::to_value(mutation_envelope_fixture())
+            .expect("mutation envelope serializes");
         envelope["op"] = serde_json::json!({
             "kind": "artifact_update",
             "artifact_id": "artifact-1",
@@ -4767,8 +4829,8 @@ mod tests {
 
     #[test]
     fn acs_admission_payload_rejects_shadow_mutation_touched_artifact_field_on_decode() {
-        let mut envelope =
-            serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
+        let mut envelope = serde_json::to_value(mutation_envelope_fixture())
+            .expect("mutation envelope serializes");
         envelope["touched_artifacts"] = serde_json::json!([
             {
                 "id": "artifact-1",
@@ -4785,8 +4847,8 @@ mod tests {
 
     #[test]
     fn acs_admission_payload_rejects_shadow_mutation_touched_block_field_on_decode() {
-        let mut envelope =
-            serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
+        let mut envelope = serde_json::to_value(mutation_envelope_fixture())
+            .expect("mutation envelope serializes");
         envelope["touched_blocks"] = serde_json::json!([
             {
                 "artifact_id": "artifact-1",
@@ -4804,8 +4866,8 @@ mod tests {
 
     #[test]
     fn acs_admission_payload_rejects_shadow_mutation_relation_change_field_on_decode() {
-        let mut envelope =
-            serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
+        let mut envelope = serde_json::to_value(mutation_envelope_fixture())
+            .expect("mutation envelope serializes");
         envelope["relation_changes"] = serde_json::json!([
             {
                 "op": "added",
@@ -4825,8 +4887,8 @@ mod tests {
 
     #[test]
     fn acs_admission_payload_rejects_null_mutation_relation_extra_field_on_decode() {
-        let mut envelope =
-            serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
+        let mut envelope = serde_json::to_value(mutation_envelope_fixture())
+            .expect("mutation envelope serializes");
         envelope["relation_changes"] = serde_json::json!([
             {
                 "op": "added",
@@ -4846,8 +4908,8 @@ mod tests {
 
     #[test]
     fn acs_admission_payload_rejects_boundary_spaced_mutation_hash_on_decode() {
-        let mut envelope =
-            serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
+        let mut envelope = serde_json::to_value(mutation_envelope_fixture())
+            .expect("mutation envelope serializes");
         envelope["integrity_hash"] = serde_json::json!(" hash-1");
         let value = serde_json::json!({
             "kind": "mutation_envelope",
@@ -4949,8 +5011,8 @@ mod tests {
 
     #[test]
     fn acs_admission_payload_rejects_null_mutation_run_id_on_decode() {
-        let mut envelope =
-            serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
+        let mut envelope = serde_json::to_value(mutation_envelope_fixture())
+            .expect("mutation envelope serializes");
         envelope["run_id"] = serde_json::json!(null);
         let value = serde_json::json!({
             "kind": "mutation_envelope",
@@ -5020,8 +5082,8 @@ mod tests {
 
     #[test]
     fn acs_admission_payload_rejects_null_mutation_committed_at_on_decode() {
-        let mut envelope =
-            serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
+        let mut envelope = serde_json::to_value(mutation_envelope_fixture())
+            .expect("mutation envelope serializes");
         envelope["committed_at_ms"] = serde_json::json!(null);
         let value = serde_json::json!({
             "kind": "mutation_envelope",
@@ -5119,8 +5181,8 @@ mod tests {
 
     #[test]
     fn acs_admission_payload_rejects_null_mutation_touched_artifact_title_on_decode() {
-        let mut envelope =
-            serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
+        let mut envelope = serde_json::to_value(mutation_envelope_fixture())
+            .expect("mutation envelope serializes");
         envelope["touched_artifacts"] = serde_json::json!([
             {
                 "id": "artifact-1",
@@ -5559,7 +5621,10 @@ mod tests {
         let message = err.to_string();
 
         assert!(message.contains("forged_admission_input"), "{message}");
-        assert!(message.contains("granted_capabilities.other.name"), "{message}");
+        assert!(
+            message.contains("granted_capabilities.other.name"),
+            "{message}"
+        );
     }
 
     #[test]
@@ -5723,7 +5788,10 @@ mod tests {
         let err = serde_json::from_value::<ACSKernelPromotionRequest>(value).unwrap_err();
         let message = err.to_string();
 
-        assert!(message.contains("kernel_promotion_bypass_attempt"), "{message}");
+        assert!(
+            message.contains("kernel_promotion_bypass_attempt"),
+            "{message}"
+        );
         assert!(
             message.contains("kernel_promotion.mutation_envelope_id"),
             "{message}"
@@ -5754,7 +5822,10 @@ mod tests {
         let err = serde_json::from_value::<ACSModelAdaptationRequest>(value).unwrap_err();
         let message = err.to_string();
 
-        assert!(message.contains("model_adaptation_bypass_attempt"), "{message}");
+        assert!(
+            message.contains("model_adaptation_bypass_attempt"),
+            "{message}"
+        );
         assert!(
             message.contains("model_adaptation.mutation_envelope_id"),
             "{message}"
@@ -6194,9 +6265,7 @@ mod tests {
 
     #[test]
     fn acs_admission_audit_record_id_decode_rejects_boundary_spaced_refs() {
-        let decoded = serde_json::from_value::<AuditRecordId>(serde_json::json!(
-            " acs:req:1001 "
-        ));
+        let decoded = serde_json::from_value::<AuditRecordId>(serde_json::json!(" acs:req:1001 "));
 
         assert!(decoded.is_err());
     }
@@ -6204,8 +6273,8 @@ mod tests {
     #[test]
     fn acs_admission_audit_record_id_decode_errors_preserve_record_ref() {
         let record_id = "run-event:external-record";
-        let err = serde_json::from_value::<AuditRecordId>(serde_json::json!(record_id))
-            .unwrap_err();
+        let err =
+            serde_json::from_value::<AuditRecordId>(serde_json::json!(record_id)).unwrap_err();
         let message = err.to_string();
 
         assert!(message.contains("invalid_audit_record_id"), "{message}");
@@ -6233,8 +6302,7 @@ mod tests {
         assert_eq!(err.record_id(), Some(record_id.as_str()));
 
         let counting_key = CountingSigningKey::default();
-        let err =
-            SCOPERexAdmissionProof::signed_from_record(&record, &counting_key).unwrap_err();
+        let err = SCOPERexAdmissionProof::signed_from_record(&record, &counting_key).unwrap_err();
         assert_eq!(err.cause(), "proof_verdict_blocks_scope_rex");
         assert_eq!(counting_key.sign_count(), 0);
 
@@ -6335,7 +6403,10 @@ mod tests {
         let err = serde_json::from_value::<SCOPERexAdmissionProof>(encoded).unwrap_err();
         let message = err.to_string();
 
-        assert!(message.contains("invalid_capability_signature"), "{message}");
+        assert!(
+            message.contains("invalid_capability_signature"),
+            "{message}"
+        );
         assert!(message.contains(record_id), "{message}");
     }
 
@@ -6380,11 +6451,9 @@ mod tests {
         assert_eq!(err.field(), Some("signature"));
         assert_eq!(err.record_id(), Some(record.record_id.as_str()));
 
-        let err = SCOPERexAdmissionProof::from_record(
-            &record,
-            CapabilitySignature::new("00".repeat(31)),
-        )
-        .unwrap_err();
+        let err =
+            SCOPERexAdmissionProof::from_record(&record, CapabilitySignature::new("00".repeat(31)))
+                .unwrap_err();
         assert_eq!(err.cause(), "invalid_capability_signature");
         assert_eq!(err.field(), Some("signature"));
     }
@@ -6555,8 +6624,9 @@ mod tests {
         let policy = ACSPolicy::strict("policy-scope-rex-proof-log", 1_000);
         let decision =
             admit_and_record(&input, &policy, 1_001, &sink).expect("RunEventLog sink records");
-        let proof = SCOPERexAdmissionProof::signed_from_record(&decision.audit_record, &signing_key)
-            .expect("audit record signs");
+        let proof =
+            SCOPERexAdmissionProof::signed_from_record(&decision.audit_record, &signing_key)
+                .expect("audit record signs");
 
         let resolved = proof
             .verify_against_run_event_log(&run_event_log, &signing_key)
@@ -6621,8 +6691,8 @@ mod tests {
                 granted_capabilities: Vec::new(),
             };
             let policy = ACSPolicy::strict("policy-proof-chain", 1_000);
-            let decision = admit_and_record(&input, &policy, 1_001, &sink)
-                .expect("RunEventLog sink records");
+            let decision =
+                admit_and_record(&input, &policy, 1_001, &sink).expect("RunEventLog sink records");
             SCOPERexAdmissionProof::signed_from_record(&decision.audit_record, &signing_key)
                 .expect("audit record signs")
         };
@@ -6829,8 +6899,9 @@ mod tests {
         .expect("tamper write succeeds");
         drop(conn);
 
-        let reopened = crate::oplog::OpLog::open_persistent("acs-admission-sink-chain-test", &db_path)
-            .expect("tampered RunEventLog reopens");
+        let reopened =
+            crate::oplog::OpLog::open_persistent("acs-admission-sink-chain-test", &db_path)
+                .expect("tampered RunEventLog reopens");
         assert!(!reopened.verify_chain(None).valid);
         let sink = ACSRunEventLogSink::new(&reopened);
         let mut record = audit_record_fixture(ACSAdmissionVerdict::AllowWithWarning);
@@ -6859,18 +6930,17 @@ mod tests {
             granted_capabilities: Vec::new(),
         };
         let policy = ACSPolicy::strict("policy-run-event-log-resolve", 1_000);
-        let decision = admit_and_record(&input, &policy, 1_001, &sink)
-            .expect("RunEventLog sink records");
-        let proof = SCOPERexAdmissionProof::signed_from_record(&decision.audit_record, &signing_key)
-            .expect("audit record signs");
+        let decision =
+            admit_and_record(&input, &policy, 1_001, &sink).expect("RunEventLog sink records");
+        let proof =
+            SCOPERexAdmissionProof::signed_from_record(&decision.audit_record, &signing_key)
+                .expect("audit record signs");
 
         let resolved = resolve_acs_audit_record(&run_event_log, &proof.record_id)
             .expect("record id resolves from RunEventLog");
 
         assert_eq!(resolved, decision.audit_record);
-        assert!(proof
-            .verify_against_record(&resolved, &signing_key)
-            .is_ok());
+        assert!(proof.verify_against_record(&resolved, &signing_key).is_ok());
 
         let missing_record_id = "acs:req:404";
         let err = resolve_acs_audit_record(&run_event_log, &AuditRecordId::new(missing_record_id))
@@ -6899,8 +6969,8 @@ mod tests {
             granted_capabilities: Vec::new(),
         };
         let policy = ACSPolicy::strict("policy-run-event-log-duplicate", 1_000);
-        let decision = admit_and_record(&input, &policy, 1_001, &sink)
-            .expect("RunEventLog sink records");
+        let decision =
+            admit_and_record(&input, &policy, 1_001, &sink).expect("RunEventLog sink records");
         let duplicate_value =
             serde_json::to_value(decision.audit_record.clone()).expect("audit record encodes");
         run_event_log.append(crate::oplog::OpPayload::PropSet {
@@ -6910,11 +6980,8 @@ mod tests {
         });
         let record_id = decision.audit_record.record_id.clone();
 
-        let err = resolve_acs_audit_record(
-            &run_event_log,
-            &AuditRecordId::new(record_id.clone()),
-        )
-        .unwrap_err();
+        let err = resolve_acs_audit_record(&run_event_log, &AuditRecordId::new(record_id.clone()))
+            .unwrap_err();
 
         assert_eq!(err.cause(), "duplicate_acs_audit_record");
         assert_eq!(err.field(), Some("record_id"));
@@ -6933,8 +7000,8 @@ mod tests {
             granted_capabilities: Vec::new(),
         };
         let policy = ACSPolicy::strict("policy-run-event-log-extra", 1_000);
-        let decision = admit_and_record(&input, &policy, 1_001, &sink)
-            .expect("RunEventLog sink records");
+        let decision =
+            admit_and_record(&input, &policy, 1_001, &sink).expect("RunEventLog sink records");
         let mut unaudited_value =
             serde_json::to_value(decision.audit_record.clone()).expect("audit record encodes");
         unaudited_value["shadow_reason"] = serde_json::json!("allow");
@@ -6945,11 +7012,8 @@ mod tests {
         });
         let record_id = decision.audit_record.record_id.clone();
 
-        let err = resolve_acs_audit_record(
-            &run_event_log,
-            &AuditRecordId::new(record_id.clone()),
-        )
-        .unwrap_err();
+        let err = resolve_acs_audit_record(&run_event_log, &AuditRecordId::new(record_id.clone()))
+            .unwrap_err();
 
         assert_eq!(err.cause(), "corrupt_acs_audit_record");
         assert_eq!(err.field(), Some("record"));
@@ -6985,8 +7049,8 @@ mod tests {
             granted_capabilities: Vec::new(),
         };
         let policy = ACSPolicy::strict("policy-run-event-log-malformed-duplicate", 1_000);
-        let decision = admit_and_record(&input, &policy, 1_001, &sink)
-            .expect("RunEventLog sink records");
+        let decision =
+            admit_and_record(&input, &policy, 1_001, &sink).expect("RunEventLog sink records");
         run_event_log.append(crate::oplog::OpPayload::PropSet {
             node_id: decision.audit_record.record_id.clone(),
             key: ACS_AUDIT_RUN_EVENT_KEY.to_string(),
@@ -6994,11 +7058,8 @@ mod tests {
         });
         let record_id = decision.audit_record.record_id.clone();
 
-        let err = resolve_acs_audit_record(
-            &run_event_log,
-            &AuditRecordId::new(record_id.clone()),
-        )
-        .unwrap_err();
+        let err = resolve_acs_audit_record(&run_event_log, &AuditRecordId::new(record_id.clone()))
+            .unwrap_err();
 
         assert_eq!(err.cause(), "duplicate_acs_audit_record");
         assert_eq!(err.field(), Some("record_id"));
@@ -7022,8 +7083,8 @@ mod tests {
                 granted_capabilities: Vec::new(),
             };
             let policy = ACSPolicy::strict("policy-run-event-log-chain", 1_000);
-            let decision = admit_and_record(&input, &policy, 1_001, &sink)
-                .expect("RunEventLog sink records");
+            let decision =
+                admit_and_record(&input, &policy, 1_001, &sink).expect("RunEventLog sink records");
             assert!(run_event_log.verify_chain(None).valid);
             assert!(decision.audit_record.validate().is_ok());
         }
@@ -7177,6 +7238,22 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_missing_threshold_axis_names_malformed_policy_field() {
+        let mut value =
+            serde_json::to_value(ACSRiskThresholds::standard()).expect("thresholds encode");
+        value
+            .as_object_mut()
+            .expect("thresholds encode as object")
+            .remove("defer_at");
+
+        let err = serde_json::from_value::<ACSRiskThresholds>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(message.contains("defer_at"), "{message}");
+    }
+
+    #[test]
     fn acs_admission_nonmonotonic_thresholds_are_rejected_on_decode() {
         let mut value =
             serde_json::to_value(ACSRiskThresholds::standard()).expect("thresholds encode");
@@ -7253,7 +7330,10 @@ mod tests {
         let message = err.to_string();
 
         assert!(message.contains("malformed_policy"), "{message}");
-        assert!(message.contains("required_capabilities.other.name"), "{message}");
+        assert!(
+            message.contains("required_capabilities.other.name"),
+            "{message}"
+        );
     }
 
     #[test]
@@ -7276,9 +7356,8 @@ mod tests {
 
     #[test]
     fn acs_admission_shadow_policy_field_is_rejected_on_decode() {
-        let mut value =
-            serde_json::to_value(ACSPolicy::strict("policy-shadow", 1_000))
-                .expect("policy encodes");
+        let mut value = serde_json::to_value(ACSPolicy::strict("policy-shadow", 1_000))
+            .expect("policy encodes");
         value["shadow_valid_until_ms"] = serde_json::json!(i64::MAX);
 
         let decoded = serde_json::from_value::<ACSPolicy>(value);
@@ -8853,7 +8932,10 @@ mod tests {
             assert_eq!(err.field(), Some("operation"));
             assert_eq!(err.operation(), Some(operation));
             assert_eq!(err.lane(), Some(operation.lane()));
-            assert_eq!(err.product_lane_code(), Some(operation.lane().product_lane_code()));
+            assert_eq!(
+                err.product_lane_code(),
+                Some(operation.lane().product_lane_code())
+            );
             assert_eq!(err.record_id(), Some(record.record_id.as_str()));
         }
     }
