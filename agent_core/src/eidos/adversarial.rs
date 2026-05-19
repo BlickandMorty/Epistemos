@@ -192,3 +192,12 @@ pub fn adversarial_query_fixture_catalog_descriptions_match_fixture_rows() -> bo
             .zip(ADVERSARIAL_QUERY_FIXTURES.iter())
             .all(|(description, fixture)| *description == fixture.description)
 }
+
+pub fn adversarial_query_fixture_catalog_indices_match_fixture_rows() -> bool {
+    ADVERSARIAL_QUERY_FIXTURE_INDICES.len() == ADVERSARIAL_QUERY_FIXTURES.len()
+        && ADVERSARIAL_QUERY_FIXTURE_INDICES
+            .iter()
+            .copied()
+            .enumerate()
+            .all(|(expected_index, index)| index == expected_index)
+}
