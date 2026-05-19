@@ -1026,14 +1026,24 @@ impl LatticeBudget {
     }
 
     fn validate_composition_totals(&self) -> Result<(), LatticeWboError> {
+        let measured_pre_softmax_total = self.measured_pre_softmax_total_after_value_validation();
+        let measured_semantic_total =
+            self.measured_pre_softmax_sum_after_value_validation(WboTermCode::is_semantic_wbo6);
+        let measured_numerical_total =
+            self.measured_pre_softmax_sum_after_value_validation(|term| {
+                term == WboTermCode::NumericalPostCorrection
+            });
+        let measured_half_corrected_total =
+            self.measured_softmax_half_corrected_total_after_value_validation();
+
         if self.pre_softmax_budget().is_finite()
+            && self.semantic_wbo6_pre_softmax_budget().is_finite()
+            && self.numerical_post_correction_budget().is_finite()
             && self.softmax_half_corrected_budget().is_finite()
-            && self
-                .measured_pre_softmax_total_after_value_validation()
-                .is_none_or(|measured| measured.is_finite())
-            && self
-                .measured_softmax_half_corrected_total_after_value_validation()
-                .is_none_or(|measured| measured.is_finite())
+            && measured_pre_softmax_total.is_none_or(f64::is_finite)
+            && measured_semantic_total.is_none_or(f64::is_finite)
+            && measured_numerical_total.is_none_or(f64::is_finite)
+            && measured_half_corrected_total.is_none_or(f64::is_finite)
         {
             Ok(())
         } else {
@@ -4588,6 +4598,8 @@ mod tests {
             "signed, max, and mixed semantic/numerical axes are validated together",
             "single finite max mixed-axis fixture pins semantic and `T_num` measured partitions before overflow guard",
             "signed mixed-axis invalid public fields keep every measured-status surface pending",
+            "`lattice_budget_composition_rejects_axis_local_overflow_slices`",
+            "semantic-only and numerical-only duplicate max overflows both keep measured surfaces pending",
             "`lattice_budget_validation_accepts_zero_and_single_max_budget_edges`",
             "`lattice_budget_validation_rejects_signed_contribution_fields_even_when_totals_cancel`",
             "`lattice_error_contribution_serializes_public_accounting_keys`",
@@ -7507,6 +7519,84 @@ mod tests {
             Err(LatticeWboError::InvalidBudget)
         );
         assert_budget_measurements_pending(&signed_mixed_axis);
+    }
+
+    #[test]
+    fn lattice_budget_composition_rejects_axis_local_overflow_slices() {
+        let zero_numerics = LatticeErrorContribution::new(
+            WboTermCode::NumericalPostCorrection,
+            "zero numerics",
+            0.0,
+        )
+        .expect("valid zero numerical guard")
+        .with_measured(0.0)
+        .expect("valid zero numerical measurement");
+        let finite_residual =
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "finite residual", 1.0)
+                .expect("valid finite residual")
+                .with_measured(1.0)
+                .expect("valid finite residual measurement");
+
+        for budget in [
+            LatticeBudget::new(
+                LatticeCoderKind::LatticeWynerZivResidual,
+                Some(1250),
+                SideInformationKind::ResidualStream,
+                vec![
+                    LatticeErrorContribution::new(
+                        WboTermCode::ResidualWynerZiv,
+                        "max semantic a",
+                        f64::MAX,
+                    )
+                    .expect("valid max semantic contribution")
+                    .with_measured(f64::MAX)
+                    .expect("valid max semantic measurement"),
+                    LatticeErrorContribution::new(
+                        WboTermCode::ResidualWynerZiv,
+                        "max semantic b",
+                        f64::MAX,
+                    )
+                    .expect("valid max semantic contribution")
+                    .with_measured(f64::MAX)
+                    .expect("valid max semantic measurement"),
+                    zero_numerics.clone(),
+                ],
+            ),
+            LatticeBudget::new(
+                LatticeCoderKind::LatticeWynerZivResidual,
+                Some(1250),
+                SideInformationKind::ResidualStream,
+                vec![
+                    finite_residual.clone(),
+                    LatticeErrorContribution::new(
+                        WboTermCode::NumericalPostCorrection,
+                        "max numerical a",
+                        f64::MAX,
+                    )
+                    .expect("valid max numerical contribution")
+                    .with_measured(f64::MAX)
+                    .expect("valid max numerical measurement"),
+                    LatticeErrorContribution::new(
+                        WboTermCode::NumericalPostCorrection,
+                        "max numerical b",
+                        f64::MAX,
+                    )
+                    .expect("valid max numerical contribution")
+                    .with_measured(f64::MAX)
+                    .expect("valid max numerical measurement"),
+                ],
+            ),
+        ] {
+            assert_eq!(
+                budget.validate_composition(),
+                Err(LatticeWboError::InvalidBudgetComposition)
+            );
+            assert_eq!(
+                budget.validate(),
+                Err(LatticeWboError::InvalidBudgetComposition)
+            );
+            assert_budget_measurements_pending(&budget);
+        }
     }
 
     #[test]
