@@ -32,8 +32,9 @@
 use super::claim_evidence::EvidenceStance;
 use super::retriever::EidosRetriever;
 use super::types::{
-    EidosChunkId, EidosContextPacket, EidosDocumentId, EidosHit, EidosIndexManifestId,
-    EidosProvenance, EidosQuery, EidosRetrievalMode, EidosScoreComponents, EidosSourceKind,
+    is_blank_query_text, EidosChunkId, EidosContextPacket, EidosDocumentId, EidosHit,
+    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode,
+    EidosScoreComponents, EidosSourceKind,
 };
 use crate::provenance::ledger::{ClaimLedger, ClaimStatus};
 use crate::provenance::replay::LedgerSnapshot;
@@ -81,7 +82,7 @@ impl EidosRetriever for LedgerBackedClaimEvidence {
         query: &EidosQuery,
         retrieved_at_unix_ms: u64,
     ) -> EidosContextPacket {
-        if query.text.trim().is_empty() || query.top_k == 0 {
+        if is_blank_query_text(&query.text) || query.top_k == 0 {
             return empty_packet(query, &self.manifest_id);
         }
 
@@ -411,6 +412,27 @@ mod tests {
         assert!(
             packet.hits.is_empty(),
             "whitespace-only text is not a stable ledger claim id"
+        );
+    }
+
+    #[test]
+    fn invisible_only_query_defers() {
+        let mut led = ClaimLedger::new();
+        led.commit_evidence(Evidence::new(EvidenceId("ev-invisible".to_string()), "src", 0))
+            .unwrap();
+        led.commit_claim(
+            Claim::new(ClaimId("\u{200B}".to_string()), "invisible claim", 0),
+            vec![],
+            vec![EvidenceId("ev-invisible".to_string())],
+        )
+        .unwrap();
+
+        let r = LedgerBackedClaimEvidence::from_ledger(&led, manifest());
+        let q = EidosQuery::new("\u{200B}", EidosRetrievalMode::ClaimEvidence, 16);
+        let packet = r.retrieve(&q, 0);
+        assert!(
+            packet.hits.is_empty(),
+            "invisible-only text is not a stable ledger claim id"
         );
     }
 
