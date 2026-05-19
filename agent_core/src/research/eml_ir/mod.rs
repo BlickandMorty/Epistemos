@@ -84,6 +84,15 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_doc_documents_wall_clock_budget() {
+        assert!(FULP_FALSIFIER_DOC.contains("## Wall-Clock Budget"));
+        assert!(FULP_FALSIFIER_DOC.contains("`budget_target_seconds = 90`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`budget_target_millis = 90,000`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`observed_wall_clock_millis`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`budget_mismatch_kind`"));
+    }
+
+    #[test]
     fn falsifier_doc_documents_hardware_identifier_exclusion() {
         assert!(FULP_FALSIFIER_DOC.contains("## Hardware Identifier Exclusion"));
         assert!(FULP_FALSIFIER_DOC.contains("serial number"));
