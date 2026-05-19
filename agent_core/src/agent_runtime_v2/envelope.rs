@@ -1375,6 +1375,36 @@ mod tests {
     }
 
     #[test]
+    fn mutation_envelope_new_constructor_positional_arg_order_is_pinned() {
+        // Phase 1 hardening — positional-order pin for
+        // MutationEnvelope::new (companion to BudgetSpec::new iter-433,
+        // MissionPacket::new iter-434).
+        // The signature is:
+        //   new(capability_hash, debit, payload)
+        // (envelope.rs §64). Each arg maps to the same-named field.
+        //
+        // A future reorder (e.g., payload-first because it's the
+        // user-visible content) would silently shuffle every call
+        // site. The 3 args have DIFFERENT types (Hash, BudgetDebit, P)
+        // so a type-incompatible swap would surface as a compile
+        // error — BUT a swap between args that share a Copy bound
+        // (like Hash and a future Hash-like wrapper) could become
+        // type-compatible and silent.
+        //
+        // Pin via DISTINCT identifiable values per field.
+        let cap_hash = Hash::from_bytes([0x42; 32]);
+        let debit = BudgetDebit {
+            tokens: 999_999, // distinctively large
+            ..Default::default()
+        };
+        let payload = "DISTINCT-PAYLOAD-CONTENT".to_string();
+        let envelope = MutationEnvelope::new(cap_hash, debit, payload.clone());
+        assert_eq!(envelope.capability_hash, cap_hash);
+        assert_eq!(envelope.debit.tokens, 999_999);
+        assert_eq!(envelope.payload, "DISTINCT-PAYLOAD-CONTENT");
+    }
+
+    #[test]
     fn mutation_envelope_new_accepts_triple_zero_inputs_per_doctrine() {
         // Phase 1 hardening — minimum-boundary pin. MutationEnvelope::new
         // accepts ANY (capability_hash, debit, payload) tuple including
