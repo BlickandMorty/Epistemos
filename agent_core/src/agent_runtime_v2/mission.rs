@@ -2043,4 +2043,76 @@ mod tests {
             assert_eq!(j_new, j_struct);
         }
     }
+
+    #[test]
+    fn tool_call_validate_error_precedence_pins_first_check_wins() {
+        // Phase 1 hardening — validation-precedence pin. ToolCall::validate
+        // runs its checks in a documented order (mission.rs §105-149):
+        //   1. EmptyName
+        //   2. OversizeName
+        //   3. BadName (illegal char)
+        //   4. BadName (leading/trailing '.')
+        //   5. BadName (containing "..")
+        //   6. OversizeArguments
+        // The FIRST matching check fires; later ones are unreachable
+        // for that input. A future refactor that reordered the checks
+        // (e.g., "let me check arguments size first to short-circuit
+        // huge inputs") would silently change which error every
+        // multi-violation tool call surfaces — breaking AgentEvent::
+        // from_tool_call_error mapping + audit dashboards that filter
+        // by error kind. Pin the precedence with multi-violation
+        // fixtures.
+        let oversize_name = "x".repeat(ToolCall::MAX_NAME_BYTES + 1);
+        let huge_args = serde_json::json!({
+            "blob": "y".repeat(ToolCall::MAX_ARGS_BYTES + 1),
+        });
+
+        // Empty-name + would-also-fail-on-args: EmptyName wins over
+        // OversizeArguments.
+        let c1 = ToolCall {
+            name: String::new(),
+            arguments: huge_args.clone(),
+        };
+        assert!(matches!(c1.validate(), Err(ToolCallError::EmptyName)));
+
+        // Oversize-name + bad-char in name: OversizeName wins over BadName.
+        let c2 = ToolCall {
+            name: format!("bad char {oversize_name}"), // contains space
+            arguments: serde_json::json!({}),
+        };
+        match c2.validate() {
+            Err(ToolCallError::OversizeName { .. }) => {}
+            other => panic!("expected OversizeName to win, got {other:?}"),
+        }
+
+        // Bad-char in name + oversize args: BadName wins over OversizeArguments.
+        let c3 = ToolCall {
+            name: "bad char".to_string(), // contains space
+            arguments: huge_args.clone(),
+        };
+        match c3.validate() {
+            Err(ToolCallError::BadName { bad_char: ' ', .. }) => {}
+            other => panic!("expected BadName(' ') to win, got {other:?}"),
+        }
+
+        // Leading-dot name + oversize args: BadName('.') wins over OversizeArguments.
+        let c4 = ToolCall {
+            name: ".leading".to_string(),
+            arguments: huge_args.clone(),
+        };
+        match c4.validate() {
+            Err(ToolCallError::BadName { bad_char: '.', .. }) => {}
+            other => panic!("expected BadName('.') leading-dot to win, got {other:?}"),
+        }
+
+        // Double-dot name + oversize args: BadName('.') wins over OversizeArguments.
+        let c5 = ToolCall {
+            name: "valid..name".to_string(),
+            arguments: huge_args,
+        };
+        match c5.validate() {
+            Err(ToolCallError::BadName { bad_char: '.', .. }) => {}
+            other => panic!("expected BadName('.') double-dot to win, got {other:?}"),
+        }
+    }
 }
