@@ -83,6 +83,15 @@ pub fn adversarial_query_fixture_for_outcome(
         .find(|fixture| fixture.expected_outcome == expected_outcome)
 }
 
+pub fn adversarial_query_fixture_for_query_text(
+    query_text: &str,
+) -> Option<AdversarialQueryFixture> {
+    ADVERSARIAL_QUERY_FIXTURES
+        .iter()
+        .copied()
+        .find(|fixture| fixture.query_text == query_text)
+}
+
 pub fn adversarial_query_fixture_labels() -> &'static [&'static str] {
     ADVERSARIAL_QUERY_FIXTURE_LABELS
 }
