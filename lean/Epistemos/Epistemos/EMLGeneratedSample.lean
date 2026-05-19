@@ -40,11 +40,27 @@ noncomputable def eml_certificate_sample :
 theorem eml_certificate_data_fields_sample :
     eml_certificate_sample.expr = eml_expr_sample ∧
       eml_certificate_sample.value = eml_value_sample := by
-  exact And.intro rfl rfl
+  exact Epistemos.EML.CertificateTarget.dataFieldsMatch
+    eml_certificate_sample eml_expr_sample eml_value_sample rfl rfl
+
+theorem eml_branch_and_eval_sample :
+    Epistemos.EML.BranchSafe eml_certificate_sample.expr ∧
+      Epistemos.EML.Expr.eval eml_certificate_sample.expr =
+        eml_certificate_sample.value := by
+  exact Epistemos.EML.CertificateTarget.branchSafeAndEvalMatches
+    eml_certificate_sample
 
 theorem eml_eval_positive_sample :
     0 < Epistemos.EML.Expr.eval eml_expr_sample := by
   exact Epistemos.EML.CertificateTarget.eval_positive
+    eml_certificate_sample
+
+theorem eml_full_obligations_sample :
+    Epistemos.EML.BranchSafe eml_certificate_sample.expr ∧
+      Epistemos.EML.Expr.eval eml_certificate_sample.expr =
+        eml_certificate_sample.value ∧
+      0 < Epistemos.EML.Expr.eval eml_certificate_sample.expr := by
+  exact Epistemos.EML.CertificateTarget.fullObligations
     eml_certificate_sample
 
 end Epistemos.EML.Generated
