@@ -1929,6 +1929,7 @@ impl<'de> Deserialize<'de> for ACSAdmissionInput {
             "admission_input.payload",
             serde_json::Value::is_object,
         )?;
+        require_admission_input_payload_kind::<D::Error>(&value)?;
         require_admission_input_field::<D::Error>(
             &value,
             "submitted_at_ms",
@@ -1981,6 +1982,27 @@ where
         }
     }
     Ok(())
+}
+
+fn require_admission_input_payload_kind<E>(value: &serde_json::Value) -> Result<(), E>
+where
+    E: serde::de::Error,
+{
+    let Some(serde_json::Value::Object(payload)) = value.get("payload") else {
+        return Err(E::custom(
+            "forged_admission_input field=admission_input.payload",
+        ));
+    };
+    if payload
+        .get("kind")
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(is_canonical_operation_kind_code)
+    {
+        return Ok(());
+    }
+    Err(E::custom(
+        "forged_admission_input field=admission_input.payload",
+    ))
 }
 
 fn require_admission_input_field<E>(
@@ -6810,6 +6832,30 @@ mod tests {
 
         assert!(message.contains("forged_admission_input"), "{message}");
         assert!(message.contains("admission_input.risk"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_unknown_input_payload_kind_names_forged_admission_input_field() {
+        let value = serde_json::json!({
+            "request_id": "req-unknown-payload-kind",
+            "payload": {
+                "kind": "quantum_commit",
+                "request": {
+                    "tool_name": "vault.write",
+                    "target": "uas://note/1",
+                    "mutation_envelope_id": "mutation-1"
+                }
+            },
+            "submitted_at_ms": 1_001,
+            "risk": ACSRiskVector::neutral(),
+            "granted_capabilities": []
+        });
+
+        let err = serde_json::from_value::<ACSAdmissionInput>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("forged_admission_input"), "{message}");
+        assert!(message.contains("admission_input.payload"), "{message}");
     }
 
     #[test]
