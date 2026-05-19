@@ -173,7 +173,7 @@ pub fn lean_certificate(expr: &InfoExpr) -> String {
          -- Source: docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §3 + §5 (row Info-IR)\n\
          -- Family: {family}\n\
          -- Schema: lean/Epistemos/Epistemos/Info.lean\n\
-         -- Schema module built with explicit ~/.elan/bin PATH at iter-593.\n\
+         -- Schema module built with explicit ~/.elan/bin PATH; obligations sharpened through iter-706.\n\
          -- Generated Info proof bodies close from schema fields.\n\
          import Epistemos.Info\n\
          \n\
@@ -357,7 +357,9 @@ mod tests {
     fn header_tracks_schema_build_and_generated_obligations() {
         let e = InfoExpr::log_partition(ExpFamily::Bernoulli, vec![0.0]).unwrap();
         let c = lean_certificate(&e);
-        assert!(c.contains("Schema module built with explicit ~/.elan/bin PATH at iter-593"));
+        assert!(c.contains(
+            "Schema module built with explicit ~/.elan/bin PATH; obligations sharpened through iter-706"
+        ));
         assert!(c.contains("Generated Info proof bodies close from schema fields"));
         assert!(!c.contains("Generated proof bodies remain sorry-tracked"));
         assert!(!c.contains("lake build remains gated"));
