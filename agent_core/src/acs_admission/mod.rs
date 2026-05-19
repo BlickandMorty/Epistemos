@@ -4408,9 +4408,14 @@ impl<'de> Deserialize<'de> for ACSOperationThresholdRule {
 }
 
 fn operation_threshold_decode_error(message: &str) -> String {
-    message.replacen(
+    let message = message.replacen(
         "malformed_policy field=thresholds.",
         "malformed_policy field=operation_thresholds.thresholds.",
+        1,
+    );
+    message.replacen(
+        "malformed_policy field=risk_threshold_order",
+        "malformed_policy field=operation_thresholds.thresholds.risk_threshold_order",
         1,
     )
 }
@@ -10336,6 +10341,28 @@ mod tests {
         assert!(message.contains("malformed_policy"), "{message}");
         assert!(
             message.contains("operation_thresholds.thresholds.reject_at"),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn acs_admission_out_of_order_operation_threshold_decode_names_threshold_namespace() {
+        let value = serde_json::json!({
+            "operation": "tool_action",
+            "thresholds": {
+                "warn_at": 0.35,
+                "defer_at": 0.55,
+                "quarantine_at": 0.40,
+                "reject_at": 0.30
+            }
+        });
+
+        let err = serde_json::from_value::<ACSOperationThresholdRule>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(
+            message.contains("operation_thresholds.thresholds.risk_threshold_order"),
             "{message}"
         );
     }
