@@ -2541,6 +2541,39 @@ mod tests {
     }
 
     #[test]
+    fn budget_spec_new_4_arg_constructor_positional_order_is_pinned() {
+        // Phase 1 hardening — positional-order pin for BudgetSpec::new.
+        // The signature is:
+        //   new(max_tokens, max_wall_ms, max_tool_calls, max_subprocess_ms)
+        // and the body assigns each arg to the matching field
+        // (budget.rs §62-67).
+        //
+        // A future "let me reorder for ergonomic intuition" refactor
+        // (e.g., putting tool_calls first because it's the most
+        // user-visible) would silently shuffle every call site's
+        // behaviour without changing the type signature — every call
+        // site uses literal numeric arguments that don't carry
+        // field-name information.
+        //
+        // Pin via 4 DISTINCT values that map identifiably to each
+        // field by being far apart in magnitude — a swap is
+        // immediately catchable.
+        let spec = BudgetSpec::new(
+            /*max_tokens=*/        1_000,
+            /*max_wall_ms=*/       60_000_000, // 60M ms = ~16hr; large
+            /*max_tool_calls=*/    5,           // small
+            /*max_subprocess_ms=*/ 12_345,      // mid
+        );
+        assert_eq!(spec.max_tokens, 1_000);
+        assert_eq!(spec.max_wall_ms, 60_000_000);
+        assert_eq!(spec.max_tool_calls, 5);
+        assert_eq!(spec.max_subprocess_ms, 12_345);
+        // Memory axis defaults to 0 (separately pinned in
+        // budget_spec_new_4_arg_constructor_defaults_max_memory_bytes_to_zero).
+        assert_eq!(spec.max_memory_bytes, 0);
+    }
+
+    #[test]
     fn budget_spec_new_4_arg_constructor_defaults_max_memory_bytes_to_zero() {
         // Phase 1 hardening — constructor default pin. BudgetSpec::new
         // takes 4 positional args (tokens / wall_ms / tool_calls /
