@@ -2514,6 +2514,23 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Latin term.",
     },
     FVaultRecallRow {
+        // Iter-435: mixed Thai + Hebrew interaction. This pairs a
+        // Southeast Asian Brahmic-derived token with an RTL Hebrew word
+        // in one <=3-token AND query.
+        query: "Mamba แคช זיכרון",
+        expected_paths: &["notes/mamba_thai_hebrew.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Sixtieth Unicode row (iter-435): mixed-script \
+               Thai+Hebrew query — \"Mamba แคช זיכרון\". Extends \
+               the post-floor Unicode interaction matrix to a Thai \
+               Brahmic-derived token plus an RTL Hebrew word in one \
+               top-5 membership contract. The English-only Mamba \
+               decoy carries the Latin anchor but neither non-Latin \
+               term.",
+    },
+    FVaultRecallRow {
         // 49th Unicode row (iter-407): Meroitic Cursive
         // extension. Adds a 47th non-Latin script (Meroitic
         // Cursive, U+109A0-U+109FF) — the EVERYDAY/CURSIVE
