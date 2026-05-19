@@ -6947,4 +6947,4 @@ Violates: [Migration Note Minimum Shape](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md
 }
 ```
 
-Rejection reason: a notes length migration must state the old cap, new cap, and reason; `notes_length_gap_report=ulp_oracle` names an artifact but not the capacity rationale.
+Rejection reason: a notes length migration must state `notes_length_old_cap`, `notes_length_new_cap`, and `notes_length_reason`; `notes_length_gap_report=ulp_oracle` names an artifact but not the capacity rationale tokens.
