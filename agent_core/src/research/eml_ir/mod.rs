@@ -309,6 +309,8 @@ mod tests {
     #[test]
     fn falsifier_doc_links_numerics_budget_sources() {
         assert!(FULP_FALSIFIER_DOC.contains("T_num"));
+        assert!(FULP_FALSIFIER_DOC.contains("WBO-7 Master Inequality"));
+        assert!(FULP_FALSIFIER_DOC.contains("E4 UST-1.5"));
         assert!(FULP_FALSIFIER_DOC.contains("HELIOS_V5_DOC_6_THEOREM_CANON.md"));
         assert!(FULP_FALSIFIER_DOC.contains("F1/F7a"));
         assert!(FULP_FALSIFIER_DOC.contains("HELIOS_V5_INTEGRATION_PLAN_v2_FINALIZE_2026_05_05.md"));
