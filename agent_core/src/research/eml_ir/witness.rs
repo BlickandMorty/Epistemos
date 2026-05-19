@@ -6,6 +6,7 @@ use super::oracle::{
 use super::StressAxis;
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
+use std::collections::BTreeMap;
 
 pub const FULP_WITNESS_SCHEMA_VERSION: u32 = 12;
 
@@ -1334,16 +1335,6 @@ fn reject_raw_top_level_unsigned_json(json: &str) -> Result<(), FulpReplayError>
     Ok(())
 }
 
-#[derive(Deserialize)]
-struct RawConfigUnsigned<'a> {
-    #[serde(default, borrow)]
-    log_sampled_points: Option<&'a RawValue>,
-    #[serde(default, borrow)]
-    stress_points: Option<&'a RawValue>,
-    #[serde(default, borrow)]
-    ulp_tolerance: Option<&'a RawValue>,
-}
-
 fn reject_raw_config_unsigned_json(raw_config: &RawValue) -> Result<(), FulpReplayError> {
     if !raw_config.get().trim_start().starts_with('{') {
         return Err(FulpReplayError::InvalidJson {
@@ -1351,15 +1342,37 @@ fn reject_raw_config_unsigned_json(raw_config: &RawValue) -> Result<(), FulpRepl
             kind: FulpInvalidJsonKind::TypeMismatch,
         });
     }
-    let Ok(raw_config) = serde_json::from_str::<RawConfigUnsigned<'_>>(raw_config.get()) else {
+    let Ok(raw_config) = serde_json::from_str::<BTreeMap<String, Box<RawValue>>>(raw_config.get())
+    else {
         return Ok(());
     };
-    let value =
-        required_raw_json_field(raw_config.log_sampled_points, "config.log_sampled_points")?;
+    if let Some(field) = raw_config.keys().find(|field| {
+        !matches!(
+            field.as_str(),
+            "log_sampled_points" | "stress_points" | "ulp_tolerance"
+        )
+    }) {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("unknown field config.{field}"),
+            kind: FulpInvalidJsonKind::UnknownField,
+        });
+    }
+    let value = required_raw_json_field(
+        raw_config
+            .get("log_sampled_points")
+            .map(|value| value.as_ref()),
+        "config.log_sampled_points",
+    )?;
     raw_unsigned_integer_json(value, "config.log_sampled_points")?;
-    let value = required_raw_json_field(raw_config.stress_points, "config.stress_points")?;
+    let value = required_raw_json_field(
+        raw_config.get("stress_points").map(|value| value.as_ref()),
+        "config.stress_points",
+    )?;
     raw_unsigned_integer_json(value, "config.stress_points")?;
-    let value = required_raw_json_field(raw_config.ulp_tolerance, "config.ulp_tolerance")?;
+    let value = required_raw_json_field(
+        raw_config.get("ulp_tolerance").map(|value| value.as_ref()),
+        "config.ulp_tolerance",
+    )?;
     raw_u32_json(value, "config.ulp_tolerance")?;
     Ok(())
 }
@@ -2237,6 +2250,23 @@ mod tests {
         assert_eq!(
             error.invalid_json_message(),
             Some("invalid type for config, expected object")
+        );
+    }
+
+    #[test]
+    fn replay_rejects_unknown_config_json_field_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["config"]["corrupted_extra_field"] = serde_json::Value::Bool(true);
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json).expect_err("unknown config field must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::UnknownField)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("unknown field config.corrupted_extra_field")
         );
     }
 
