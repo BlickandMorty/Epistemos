@@ -3084,6 +3084,35 @@ mod tests {
     }
 
     #[test]
+    fn public_key_registries_reject_unicode_adjacent_public_keys() {
+        fn reject_unicode_adjacent_keys<T>(registry: &str, keys: &[&str])
+        where
+            T: for<'de> Deserialize<'de>,
+        {
+            for key in keys {
+                for spoof in [format!("β{key}"), format!("{key}β")] {
+                    assert!(
+                        serde_json::from_value::<T>(serde_json::json!(spoof)).is_err(),
+                        "{registry} accepted unicode-adjacent key {key}"
+                    );
+                }
+            }
+        }
+
+        reject_unicode_adjacent_keys::<ResidencyTier>("ResidencyTier", &ResidencyTier::CODES);
+        reject_unicode_adjacent_keys::<LatticeCoderKind>(
+            "LatticeCoderKind",
+            &LatticeCoderKind::CODES,
+        );
+        reject_unicode_adjacent_keys::<SideInformationKind>(
+            "SideInformationKind",
+            &SideInformationKind::CODES,
+        );
+        reject_unicode_adjacent_keys::<WboTermCode>("WboTermCode", &WboTermCode::CODES);
+        reject_unicode_adjacent_keys::<LatticeWboError>("LatticeWboError", &LatticeWboError::CODES);
+    }
+
+    #[test]
     fn ledger_validation_requires_active_support_for_active_support_rows() {
         let contributions = vec![
             LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "ShadowKV support", 0.01)
@@ -3872,6 +3901,8 @@ mod tests {
             "public key registries deserialize from owned JSON values for residency, codec, side-information, WBO term, and error keys",
             "`public_key_registries_reject_cross_registry_keys`",
             "public key registries reject keys owned by every other WBO registry",
+            "`public_key_registries_reject_unicode_adjacent_public_keys`",
+            "unicode-adjacent canonical keys stay invalid",
             "`wbo_term_codes_are_trimmed_ascii_axis_keys`",
             "WBO term codes are trimmed, nonempty, ASCII axis keys and free of debug-only enum spelling",
             "`wbo_term_code_json_uses_public_axis_keys_and_rejects_debug_labels`",

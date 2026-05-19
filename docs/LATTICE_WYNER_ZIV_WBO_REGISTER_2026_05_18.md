@@ -112,6 +112,8 @@ UAS §2, §4, and §5 line anchors are checked against current headings.
 The lightweight Rust module is ledger-only, but it rejects register rows that
 would erase the error law:
 
+Public-key registries are exact string surfaces: `public_key_registries_reject_unicode_adjacent_public_keys` asserts that unicode-adjacent canonical keys stay invalid for residency, codec, side-information, WBO term, and error registries.
+
 | Guard | Rejected row shape |
 |---|---|
 | Canonical residency | `WboLedgerEntry::validate()` rejects tier labels outside `ResidencyTier::ALL`. `residency_tier_json_uses_canonical_names_and_rejects_debug_labels` asserts that residency JSON emits and accepts only canonical names; debug enum labels and spoofed case/spacing keys are rejected. `wbo_ledger_entry_new_for_tier_serializes_canonical_memory_tier_names` asserts that `WboLedgerEntry::new_for_tier()` serializes every `memory_tier` as `ResidencyTier::canonical_name()`. `ledger_validation_rejects_residency_debug_labels` asserts that every `ResidencyTier` debug label is rejected as `UnknownResidencyTier`. `residency_tier_canonical_names_are_trimmed_and_display_safe` asserts that canonical residency names are trimmed, nonempty, ASCII, and free of debug-only enum spelling. `wbo_ledger_entry_serializes_public_accounting_keys` asserts that WboLedgerEntry serializes only `memory_tier`, `budget`, `active_support`, `falsifier`, and `caveat` public keys. `wbo_ledger_entry_json_rejects_invalid_public_rows` asserts that ledger JSON rejects blank row fields, missing `F-ULP-Oracle`, and missing required active support before becoming a public row. |
