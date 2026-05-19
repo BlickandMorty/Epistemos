@@ -56,6 +56,8 @@ fn rotor_hash_suffix(r: &Multivector) -> String {
 ///    e_j e_i = 0 for i ≠ j.
 /// 2. Rotor sandwich preserves norm: ∥R̃ v R∥ = ∥v∥ for grade-1 v.
 /// 3. Rotor composition: rotor_compose(r1, r2) v R = r1 r2 v (r1 r2)~.
+/// The schema module built with explicit `~/.elan/bin` PATH and was
+/// sharpened through iter-701.
 pub fn lean_certificate(rotor: &Multivector) -> String {
     let suffix = rotor_hash_suffix(rotor);
     let rotor_term = multivector_term(rotor);
@@ -64,7 +66,7 @@ pub fn lean_certificate(rotor: &Multivector) -> String {
          -- Source: docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §3 + §5 (row Geometry-IR)\n\
          -- Rotor signature: scalar = {scalar}, bivector = ({b12}, {b13}, {b23})\n\
          -- Schema: lean/Epistemos/Epistemos/Geometry.lean\n\
-         -- Schema module built with explicit ~/.elan/bin PATH at iter-593.\n\
+         -- Schema module built with explicit ~/.elan/bin PATH; obligations sharpened through iter-701.\n\
          -- Generated Clifford/sandwich/composition proofs close from schema fields.\n\
          import Epistemos.Geometry\n\
          \n\
@@ -250,7 +252,9 @@ mod tests {
     fn cert_header_tracks_schema_build_and_generated_obligations() {
         let r = Multivector::scalar(1.0);
         let c = lean_certificate(&r);
-        assert!(c.contains("Schema module built with explicit ~/.elan/bin PATH at iter-593"));
+        assert!(c.contains(
+            "Schema module built with explicit ~/.elan/bin PATH; obligations sharpened through iter-701"
+        ));
         assert!(c.contains("Generated Clifford/sandwich/composition proofs close from schema fields"));
     }
 
