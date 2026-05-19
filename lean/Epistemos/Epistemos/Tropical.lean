@@ -206,6 +206,12 @@ theorem sourceRowMatches
     c.sourceRow = sourceRow := by
   exact stored
 
+theorem sourceRowsMatch
+    (c : CertificateTarget)
+    (stored : c.sourceRow = c.semiringLaws.sourceRow) :
+    c.sourceRow = c.semiringLaws.sourceRow := by
+  exact stored
+
 end CertificateTarget
 
 /-- Tropical rational form: a numerator and denominator expression.
