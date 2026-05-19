@@ -612,6 +612,26 @@ mod tests {
     }
 
     #[test]
+    fn para_feedback_delta_field_is_pub_per_field_visibility_doctrine() {
+        // Phase 1 hardening — field-visibility pin for ParaFeedback<P>.
+        // The delta field is pub (para.rs §144-146), accessible from
+        // outside the module without requiring an accessor method.
+        //
+        // A future "let me hide delta behind a get_delta() method
+        // for forward-compat" refactor would silently break call
+        // sites that access `feedback.delta` directly. Pin via
+        // direct field access in a test that does NOT use
+        // #[cfg(test)] private-field magic.
+        let fb = ParaFeedback { delta: 42u32 };
+        // Direct field access — requires field visibility.
+        assert_eq!(fb.delta, 42);
+        // Field is mutable through &mut self (also pub).
+        let mut fb2 = ParaFeedback { delta: 1u32 };
+        fb2.delta = 99;
+        assert_eq!(fb2.delta, 99);
+    }
+
+    #[test]
     fn para_output_and_para_feedback_struct_field_shapes_pinned_via_destructure() {
         // Phase 1 hardening — struct-field-shape pin pair for the
         // Para trait's output + feedback types (companion to the
