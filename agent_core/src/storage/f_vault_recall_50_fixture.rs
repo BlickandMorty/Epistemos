@@ -5774,6 +5774,33 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 39th ChattyPrefix row (iter-334): Syriac-multilingual
+        // signal domain — 29th distinct lexical universe.
+        // Survivors after strip {Mamba, ܟ}. 2-term AND matches
+        // only iter-206's mamba_syriac.md. EIGHTEENTH non-ASCII
+        // ChattyPrefix domain. FIRST Aramaic-family ChattyPrefix.
+        // Parallels iter-332 SignalOnly Syriac single-term-AND
+        // on the same token "ܟ" (U+071F) — together the iter-
+        // 332/iter-334 pair pins Syriac (Aramaic-direct-daughter,
+        // sister-of-Arabic) at both single-term-AND and
+        // multilingual-ChattyPrefix granularities.
+        query: "Show me my Mamba ܟ notes",
+        expected_paths: &["notes/mamba_syriac.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Thirty-ninth ChattyPrefix row (iter-334): Syriac-\
+               multilingual signal domain — 29th distinct \
+               lexical universe. Survivors {Mamba, ܟ} after \
+               strip. 2-term AND matches only iter-206 \
+               mamba_syriac.md. Eighteenth non-ASCII \
+               ChattyPrefix domain. FIRST Aramaic-family \
+               ChattyPrefix. Parallels iter-332 SignalOnly \
+               Syriac single-term-AND. Brings ChattyPrefix to \
+               depth 39 — first category past depth-38 horizon. \
+               Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 38th ChattyPrefix row (iter-327): Sinhala-multilingual
         // signal domain — 28th distinct lexical universe.
         // Survivors after strip {Mamba, ක}. 2-term AND matches
