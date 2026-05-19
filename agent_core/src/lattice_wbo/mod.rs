@@ -7405,6 +7405,32 @@ mod tests {
     }
 
     #[test]
+    fn numerical_post_correction_axis_is_owned_by_every_codec() {
+        for coder in LatticeCoderKind::ALL {
+            assert!(
+                coder
+                    .canonical_wbo_terms()
+                    .contains(&WboTermCode::NumericalPostCorrection),
+                "{coder:?} must always claim T_num"
+            );
+        }
+        for tier in ResidencyTier::ALL {
+            assert!(
+                tier.canonical_register_terms()
+                    .contains(&WboTermCode::NumericalPostCorrection),
+                "{} must always claim T_num",
+                tier.canonical_name()
+            );
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`numerical_post_correction_axis_is_owned_by_every_codec`"),
+            "register doc must cross-link T_num universal ownership"
+        );
+    }
+
+    #[test]
     fn substrate_boundary_axis_is_owned_only_by_boundary_codecs() {
         let owners = [
             LatticeCoderKind::LatticeWynerZivResidual,
