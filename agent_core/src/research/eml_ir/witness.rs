@@ -1270,6 +1270,8 @@ struct RawTopLevelUnsigned<'a> {
     #[serde(default, borrow)]
     operation_evaluations: Option<&'a RawValue>,
     #[serde(default, borrow)]
+    adversarial_fixture_count: Option<&'a RawValue>,
+    #[serde(default, borrow)]
     budget_target_millis: Option<&'a RawValue>,
     #[serde(default, borrow)]
     observed_wall_clock_millis: Option<&'a RawValue>,
@@ -1284,6 +1286,9 @@ fn reject_raw_top_level_unsigned_json(json: &str) -> Result<(), FulpReplayError>
     }
     if let Some(value) = raw_witness.operation_evaluations {
         raw_unsigned_integer_json(value, "operation_evaluations")?;
+    }
+    if let Some(value) = raw_witness.adversarial_fixture_count {
+        raw_unsigned_integer_json(value, "adversarial_fixture_count")?;
     }
     if let Some(value) = raw_witness.budget_target_millis {
         raw_unsigned_integer_json(value, "budget_target_millis")?;
@@ -2230,6 +2235,28 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("adversarial_fixture_count"));
+    }
+
+    #[test]
+    fn replay_rejects_adversarial_fixture_count_json_overflow_with_path() {
+        let json = acceptance_witness_json().unwrap();
+        let fixture_count = serde_json::from_str::<serde_json::Value>(&json).expect("witness json")
+            ["adversarial_fixture_count"]
+            .as_u64()
+            .expect("adversarial fixture count");
+        let needle = format!("\"adversarial_fixture_count\": {fixture_count}");
+        assert_eq!(json.matches(&needle).count(), 1);
+        let json = json.replacen(&needle, "\"adversarial_fixture_count\": 1e999999", 1);
+        let error = replay_witness_json(&json)
+            .expect_err("adversarial fixture count overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
         );
         assert!(error
             .invalid_json_message()
