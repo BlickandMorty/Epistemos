@@ -2047,6 +2047,37 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 47th Unicode row (iter-393): Kharoshthi extension.
+        // Adds a 45th non-Latin script (Kharoshthi, U+10A00–
+        // U+10A5F) — RTL alphasyllabary used 3rd c BCE - 3rd
+        // c CE for Gandhari (Indic) and Sanskrit across
+        // northwestern India, Pakistan, Afghanistan.
+        // Descended from Aramaic. FOURTH Aramaic-family
+        // descendant in the pin set (after Syriac + Mongolian
+        // + Avestan). Aramaic genealogy now spans FOUR distinct
+        // descendant branches: Northwest-Semitic direct
+        // (Syriac), Central-Asian (Mongolian), Iranian-
+        // liturgical (Avestan), and Indic (Kharoshthi).
+        // FOURTEENTH SMP-plane codepoint. Latin "Mamba" +
+        // Kharoshthi "𐨀" (letter A, U+10A00) + Latin "cache".
+        query: "Mamba 𐨀 cache",
+        expected_paths: &["notes/mamba_kharoshthi.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Forty-seventh Unicode row (iter-393): Kharoshthi \
+               extension. FORTY-FIVE non-Latin scripts pinned. \
+               Kharoshthi (ca. 3rd c BCE - 3rd c CE) is an RTL \
+               alphasyllabary used for Gandhari and Sanskrit \
+               across NW India / Pakistan / Afghanistan. \
+               FOURTH Aramaic-family descendant — Aramaic \
+               genealogy now spans 4 distinct descendant \
+               branches (NW-Semitic direct + Central-Asian + \
+               Iranian-liturgical + Indic). Fourteenth SMP-\
+               plane codepoint. Brings Unicode to depth 47 — \
+               first category past depth-46 horizon.",
+    },
+    FVaultRecallRow {
         // 46th Unicode row (iter-386): Old Persian Cuneiform
         // extension. Adds a 44th non-Latin script (Old Persian
         // Cuneiform, U+103A0–U+103DF) — a semi-syllabic
