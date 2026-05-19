@@ -198,6 +198,24 @@ theorem identityRotorCompositionAssociativeSandwich :
   rcases identityRotorCarriesObligations with ⟨candidate, unitNorm⟩
   exact ⟨candidate, candidate, unitNorm, unitNorm⟩
 
+def identityRotorSandwichObligation : RotorSandwichObligation :=
+  { rotor := identityRotor
+    preservesNorm := rotorSandwichPreservesNorm identityRotor
+    sourceRow := "Geometry-IR.identityRotorSandwichPreservesNorm" }
+
+def identityRotorCompositionObligation : RotorCompositionObligation :=
+  { lhs := identityRotor
+    rhs := identityRotor
+    associativeSandwich :=
+      rotorCompositionAssociativeSandwich identityRotor identityRotor
+    sourceRow := "Geometry-IR.identityRotorCompositionAssociativeSandwich" }
+
+theorem identityRotorCertificateObligations :
+    identityRotorSandwichObligation.preservesNorm ∧
+      identityRotorCompositionObligation.associativeSandwich := by
+  exact ⟨identityRotorSandwichPreservesNorm,
+    identityRotorCompositionAssociativeSandwich⟩
+
 theorem geometrySchemaCountsPinned :
     multivectorCoordinateCount = 8 ∧ exprConstructorCount = 4 := by
   exact ⟨rfl, rfl⟩
