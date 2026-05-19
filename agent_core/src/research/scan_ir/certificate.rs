@@ -89,7 +89,7 @@ pub fn lean_certificate<T: Debug>(program: &ScanProgram<T>) -> String {
          \x20 exact w.right_identity\n\
          \n\
          theorem scan_ssd_equivalence_{suffix} :\n\
-         \x20   ∀ (T : Type) (ssdLemma : Epistemos.Scan.SSDEquivalenceLemma T)\n\
+         \x20   ∀ (T : Type) (_ssdLemma : Epistemos.Scan.SSDEquivalenceLemma T)\n\
          \x20     (w : Epistemos.Scan.MonoidWitness T)\n\
          \x20     (initial : T) (inputs : List T) (B : Nat),\n\
          \x20     B ≥ 1 →\n\
@@ -233,7 +233,8 @@ mod tests {
         let p = ScanProgram::new(0i64, vec![]);
         let c = lean_certificate(&p);
         assert_eq!(proof_body_sorry_count(&c), 0);
-        assert!(c.contains("Epistemos.Scan.SSDEquivalenceLemma T"));
+        assert!(c.contains("(_ssdLemma : Epistemos.Scan.SSDEquivalenceLemma T)"));
+        assert!(!c.contains("(ssdLemma : Epistemos.Scan.SSDEquivalenceLemma T)"));
         assert!(c.contains(
             "exact Epistemos.Scan.SSDEquivalenceLemma.discharge ssdLemma w initial inputs B hB"
         ));
