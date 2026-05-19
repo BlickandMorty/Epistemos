@@ -112,6 +112,12 @@ must carry this witness rather than hiding the equality proof. -/
 structure RuntimeEvalWitness (expr : Expr) (value : ℝ) where
   value_matches : Expr.eval expr = value
 
+theorem RuntimeEvalWitness.carries
+    {expr : Expr} {value : ℝ}
+    (w : RuntimeEvalWitness expr value) :
+    Expr.eval expr = value := by
+  exact w.value_matches
+
 /-- Runtime branch-safety witness for positive EML typestate trees
 whose right-child positivity is not discharged by the current symbolic
 schema lemmas. Generated certificates carry this witness explicitly

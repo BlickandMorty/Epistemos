@@ -206,7 +206,7 @@ fn runtime_branch_witness_arg(expr: &EmlExpr) -> &'static str {
 fn eval_matches_proof_source(expr: &EmlExpr) -> &'static str {
     match expr {
         EmlExpr::One => "exact Epistemos.EML.Expr.eval_one",
-        EmlExpr::Eml(_, _) => "exact evalWitness.value_matches",
+        EmlExpr::Eml(_, _) => "exact Epistemos.EML.RuntimeEvalWitness.carries evalWitness",
     }
 }
 
@@ -436,7 +436,7 @@ mod tests {
         let p = b.try_into_positive().unwrap();
         let c = lean_certificate(&p);
         assert!(c.contains("Epistemos.EML.RuntimeEvalWitness"));
-        assert!(c.contains("exact evalWitness.value_matches"));
+        assert!(c.contains("exact Epistemos.EML.RuntimeEvalWitness.carries evalWitness"));
         assert_eq!(c.matches("sorry").count(), 0);
     }
 
