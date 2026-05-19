@@ -1741,14 +1741,25 @@ mod tests {
         assert!(message.contains(field), "{message}");
     }
 
-    fn assert_json_missing_field_rejected<T>(json: &str, field: &str)
+    fn assert_json_missing_field_value_rejected<T>(mut value: serde_json::Value, field: &str)
     where
         T: for<'de> Deserialize<'de>,
     {
-        let error = match serde_json::from_str::<T>(json) {
+        let object = value
+            .as_object_mut()
+            .expect("public JSON fixture must be an object");
+        assert!(
+            object.remove(field).is_some(),
+            "public JSON fixture must contain {field}"
+        );
+        let error = match serde_json::from_value::<T>(value) {
             Ok(_) => panic!("missing public JSON field must be rejected"),
             Err(error) => error,
         };
+        assert_json_missing_field_error(error, field);
+    }
+
+    fn assert_json_missing_field_error(error: serde_json::Error, field: &str) {
         let message = error.to_string();
         assert!(message.contains("missing field"), "{message}");
         assert!(message.contains(field), "{message}");
@@ -3054,95 +3065,76 @@ mod tests {
 
     #[test]
     fn public_accounting_json_rejects_missing_required_keys() {
-        assert_json_missing_field_rejected::<LatticeErrorContribution>(
-            r#"{
-                "term": "T_num",
-                "budget": 0.0,
-                "measured": null
-            }"#,
-            "source",
-        );
-        assert_json_missing_field_rejected::<LatticeErrorContribution>(
-            r#"{
-                "term": "T_num",
-                "source": "exact ULP guard",
-                "budget": 0.0
-            }"#,
-            "measured",
-        );
-        assert_json_missing_field_rejected::<LatticeBudget>(
-            r#"{
-                "coder": "exact-hot",
-                "rate_milli_bits_per_symbol": null,
-                "side_information": "None"
-            }"#,
-            "contributions",
-        );
-        assert_json_missing_field_rejected::<LatticeBudget>(
-            r#"{
-                "coder": "exact-hot",
-                "side_information": "None",
-                "contributions": [{
-                    "term": "T_num",
-                    "source": "exact ULP guard",
-                    "budget": 0.0,
-                    "measured": null
-                }]
-            }"#,
+        let contribution = serde_json::json!({
+            "term": "T_num",
+            "source": "exact ULP guard",
+            "budget": 0.0,
+            "measured": null,
+        });
+        for field in ["term", "source", "budget", "measured"] {
+            assert_json_missing_field_value_rejected::<LatticeErrorContribution>(
+                contribution.clone(),
+                field,
+            );
+        }
+
+        let budget = serde_json::json!({
+            "coder": "exact-hot",
+            "rate_milli_bits_per_symbol": null,
+            "side_information": "None",
+            "contributions": [contribution.clone()],
+        });
+        for field in [
+            "coder",
             "rate_milli_bits_per_symbol",
-        );
-        assert_json_missing_field_rejected::<ActiveSupportBudget>(
-            r#"{
-                "max_active_tokens": 1,
-                "max_active_pages": 1,
-                "max_resident_bytes": 1
-            }"#,
             "side_information",
-        );
-        assert_json_missing_field_rejected::<WboLedgerEntry>(
-            r#"{
-                "memory_tier": "L0 RAM hot",
-                "budget": {
-                    "coder": "exact-hot",
-                    "rate_milli_bits_per_symbol": null,
-                    "side_information": "None",
-                    "contributions": [{
-                        "term": "T_num",
-                        "source": "exact ULP guard",
-                        "budget": 0.0,
-                        "measured": null
-                    }]
-                },
-                "active_support": null,
-                "falsifier": "F-WBO-DriftLedger; F-ULP-Oracle"
-            }"#,
-            "caveat",
-        );
-        assert_json_missing_field_rejected::<WboLedgerEntry>(
-            r#"{
-                "memory_tier": "L0 RAM hot",
-                "budget": {
-                    "coder": "exact-hot",
-                    "rate_milli_bits_per_symbol": null,
-                    "side_information": "None",
-                    "contributions": [{
-                        "term": "T_num",
-                        "source": "exact ULP guard",
-                        "budget": 0.0,
-                        "measured": null
-                    }]
-                },
-                "falsifier": "F-WBO-DriftLedger; F-ULP-Oracle",
-                "caveat": "Exact hot rows still need numerical post-correction."
-            }"#,
+            "contributions",
+        ] {
+            assert_json_missing_field_value_rejected::<LatticeBudget>(budget.clone(), field);
+        }
+
+        let active_support = serde_json::json!({
+            "max_active_tokens": 1,
+            "max_active_pages": 1,
+            "max_resident_bytes": 1,
+            "side_information": "ActiveSupport",
+        });
+        for field in [
+            "max_active_tokens",
+            "max_active_pages",
+            "max_resident_bytes",
+            "side_information",
+        ] {
+            assert_json_missing_field_value_rejected::<ActiveSupportBudget>(
+                active_support.clone(),
+                field,
+            );
+        }
+
+        let ledger_entry = serde_json::json!({
+            "memory_tier": "L0 RAM hot",
+            "budget": budget,
+            "active_support": null,
+            "falsifier": "F-WBO-DriftLedger; F-ULP-Oracle",
+            "caveat": "Exact hot rows still need numerical post-correction.",
+        });
+        for field in [
+            "memory_tier",
+            "budget",
             "active_support",
-        );
-        assert_json_missing_field_rejected::<FalsifierHookOwner>(
-            r#"{
-                "hook": "F-ULP-Oracle"
-            }"#,
-            "owner",
-        );
+            "falsifier",
+            "caveat",
+        ] {
+            assert_json_missing_field_value_rejected::<WboLedgerEntry>(ledger_entry.clone(), field);
+        }
+
+        let owner = serde_json::json!({
+            "hook": "F-ULP-Oracle",
+            "owner": "agent_core/src/research/eml/ulp_oracle.rs",
+        });
+        for field in ["hook", "owner"] {
+            assert_json_missing_field_value_rejected::<FalsifierHookOwner>(owner.clone(), field);
+        }
     }
 
     #[test]
@@ -4346,6 +4338,7 @@ mod tests {
             "public JSON rows reject duplicate public keys before validation",
             "`public_accounting_json_rejects_missing_required_keys`",
             "public JSON rows reject missing required keys before validation",
+            "missing-key matrix removes every public top-level key",
             "optional public null keys must still be present explicitly",
             "`public_accounting_json_rejects_wrong_type_public_fields`",
             "public JSON rows reject wrong-type public fields before validation",
