@@ -820,6 +820,19 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_brahmi.md",
             "Mamba 𑀓 cache Mamba 𑀓 cache architecture notes brahmi",
         ),
+        // Iter-308 (35th Unicode — Egyptian Hieroglyph extension):
+        // Latin "Mamba" + Egyptian Hieroglyph "𓀀" (A001 seated
+        // man, U+13000) + Latin "cache". Egyptian hieroglyphs
+        // (ca. 3200 BCE - 400 CE) — the oldest writing system in
+        // the pin set, predating Phoenician (1050 BCE) by 2+
+        // millennia. Ideographic typology distinct from the
+        // alphabetic ancestor scripts (Phoenician/Old Italic/
+        // Brahmi). FOURTH SMP-plane codepoint. Thirty-three non-
+        // Latin scripts pinned (+ Egyptian Hieroglyphs).
+        (
+            "notes/mamba_egyptian.md",
+            "Mamba 𓀀 cache Mamba 𓀀 cache architecture notes egyptian",
+        ),
     ];
     for (path, content) in seeds {
         store
