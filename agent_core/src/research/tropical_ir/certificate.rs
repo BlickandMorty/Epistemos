@@ -274,9 +274,12 @@ pub fn lean_certificate_rational(r: &TropicalRational) -> String {
          \x20   {{ numerator := tropical_rational_num_{suffix}\n\
          \x20     denominator := tropical_rational_den_{suffix} }}\n\
          \n\
-         def tropical_rational_obligation_{suffix} :\n\
+         noncomputable def tropical_rational_obligation_{suffix} :\n\
          \x20   Epistemos.Tropical.RationalRepresentationObligation tropical_rational_form_{suffix} :=\n\
-         \x20   Epistemos.Tropical.RationalRepresentationObligation.refl tropical_rational_form_{suffix}\n\
+         \x20   Epistemos.Tropical.RationalRepresentationObligation.refl\n\
+         \x20     tropical_rational_form_{suffix}\n\
+         \x20     \"{n_suffix}\"\n\
+         \x20     \"{d_suffix}\"\n\
          \n\
          theorem tropical_rational_numerator_shape_{suffix}\n\
          \x20   (numeratorShapeWitness : tropical_rational_obligation_{suffix}.numeratorShape) :\n\
@@ -315,6 +318,16 @@ pub fn lean_certificate_rational(r: &TropicalRational) -> String {
          \x20   \"{d_suffix}\"\n\
          \x20   rfl\n\
          \n\
+         theorem tropical_rational_certificate_representation_hash_fields_{suffix} :\n\
+         \x20   tropical_rational_certificate_{suffix}.representation.numeratorHash =\n\
+         \x20       tropical_rational_certificate_{suffix}.numeratorHash ∧\n\
+         \x20     tropical_rational_certificate_{suffix}.representation.denominatorHash =\n\
+         \x20       tropical_rational_certificate_{suffix}.denominatorHash := by\n\
+         \x20 exact Epistemos.Tropical.RationalCertificateTarget.representationHashFieldsMatch\n\
+         \x20   tropical_rational_certificate_{suffix}\n\
+         \x20   rfl\n\
+         \x20   rfl\n\
+         \n\
          theorem tropical_rational_certificate_representation_{suffix} :\n\
          \x20   tropical_rational_certificate_{suffix}.representation = tropical_rational_obligation_{suffix} := by\n\
          \x20 exact Epistemos.Tropical.RationalCertificateTarget.representationMatches\n\
@@ -322,7 +335,7 @@ pub fn lean_certificate_rational(r: &TropicalRational) -> String {
          \x20   tropical_rational_obligation_{suffix}\n\
          \x20   rfl\n\
          \n\
-         theorem tropical_rational_certificate_representation_obligation_{suffix} :\n\
+         noncomputable def tropical_rational_certificate_representation_obligation_{suffix} :\n\
          \x20   Epistemos.Tropical.RationalRepresentationObligation\n\
          \x20     tropical_rational_certificate_{suffix}.rational := by\n\
          \x20 exact Epistemos.Tropical.RationalCertificateTarget.representationCarries\n\
@@ -579,6 +592,8 @@ mod tests {
         assert!(c.contains("def tropical_rational_obligation_"));
         assert!(c.contains("Epistemos.Tropical.RationalRepresentationObligation.refl"));
         assert!(c.contains("representation := tropical_rational_obligation_"));
+        assert!(c.contains(".numeratorHash"));
+        assert!(c.contains(".denominatorHash"));
         assert!(c.contains("(numeratorShapeWitness :"));
         assert!(c.contains("exact numeratorShapeWitness"));
         assert!(c.contains("(denominatorShapeWitness :"));
@@ -598,6 +613,10 @@ mod tests {
         assert!(c.contains("theorem tropical_rational_certificate_representation_"));
         assert!(c.contains(".representation = tropical_rational_obligation_"));
         assert!(c.contains("Epistemos.Tropical.RationalCertificateTarget.representationMatches"));
+        assert!(c.contains("theorem tropical_rational_certificate_representation_hash_fields_"));
+        assert!(c.contains(
+            "Epistemos.Tropical.RationalCertificateTarget.representationHashFieldsMatch"
+        ));
     }
 
     #[test]
@@ -607,7 +626,7 @@ mod tests {
             TropicalExpr::constant(1.0),
         );
         let c = lean_certificate_rational(&r);
-        assert!(c.contains("theorem tropical_rational_certificate_representation_obligation_"));
+        assert!(c.contains("def tropical_rational_certificate_representation_obligation_"));
         assert!(c.contains(
             "exact Epistemos.Tropical.RationalCertificateTarget.representationCarries"
         ));

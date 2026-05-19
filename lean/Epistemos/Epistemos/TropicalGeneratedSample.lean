@@ -22,11 +22,13 @@ noncomputable def tropical_rational_form_sample :
   { numerator := tropical_rational_num_sample
     denominator := tropical_rational_den_sample }
 
-def tropical_rational_obligation_sample :
-    Epistemos.Tropical.RationalRepresentationObligation
+noncomputable def tropical_rational_obligation_sample :
+  Epistemos.Tropical.RationalRepresentationObligation
       tropical_rational_form_sample :=
   Epistemos.Tropical.RationalRepresentationObligation.refl
     tropical_rational_form_sample
+    "sample-num"
+    "sample-den"
 
 theorem tropical_rational_numerator_shape_sample :
     tropical_rational_form_sample.numerator =
@@ -66,6 +68,16 @@ theorem tropical_rational_certificate_denominator_hash_sample :
     "sample-den"
     rfl
 
+theorem tropical_rational_certificate_representation_hash_fields_sample :
+    tropical_rational_certificate_sample.representation.numeratorHash =
+        tropical_rational_certificate_sample.numeratorHash ∧
+      tropical_rational_certificate_sample.representation.denominatorHash =
+        tropical_rational_certificate_sample.denominatorHash := by
+  exact Epistemos.Tropical.RationalCertificateTarget.representationHashFieldsMatch
+    tropical_rational_certificate_sample
+    rfl
+    rfl
+
 theorem tropical_rational_certificate_representation_sample :
     tropical_rational_certificate_sample.representation =
       tropical_rational_obligation_sample := by
@@ -74,7 +86,7 @@ theorem tropical_rational_certificate_representation_sample :
     tropical_rational_obligation_sample
     rfl
 
-theorem tropical_rational_certificate_representation_obligation_sample :
+noncomputable def tropical_rational_certificate_representation_obligation_sample :
     Epistemos.Tropical.RationalRepresentationObligation
       tropical_rational_certificate_sample.rational := by
   exact Epistemos.Tropical.RationalCertificateTarget.representationCarries
@@ -106,6 +118,14 @@ theorem tropical_rational_shapes_sample :
       tropical_rational_form_sample.denominator =
         tropical_rational_form_sample.denominator := by
   exact Epistemos.Tropical.RationalRepresentationObligation.shapes
+    tropical_rational_obligation_sample
+
+theorem tropical_rational_hash_fields_sample :
+    tropical_rational_obligation_sample.numeratorHash =
+        tropical_rational_obligation_sample.numeratorHash ∧
+      tropical_rational_obligation_sample.denominatorHash =
+        tropical_rational_obligation_sample.denominatorHash := by
+  exact Epistemos.Tropical.RationalRepresentationObligation.hashFields
     tropical_rational_obligation_sample
 
 end Epistemos.Tropical.Generated

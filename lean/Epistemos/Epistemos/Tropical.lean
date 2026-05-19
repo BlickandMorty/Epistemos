@@ -206,13 +206,18 @@ later passes can strengthen this row with the external
 tropical-rational representation theorem without changing the target
 shape. -/
 structure RationalRepresentationObligation (rational : RationalForm) where
+  numeratorHash : String
+  denominatorHash : String
   numeratorShape : rational.numerator = rational.numerator
   denominatorShape : rational.denominator = rational.denominator
 
 def RationalRepresentationObligation.refl
-    (rational : RationalForm) :
+    (rational : RationalForm)
+    (numeratorHash denominatorHash : String) :
     RationalRepresentationObligation rational :=
-  { numeratorShape := rfl
+  { numeratorHash := numeratorHash
+    denominatorHash := denominatorHash
+    numeratorShape := rfl
     denominatorShape := rfl }
 
 theorem RationalRepresentationObligation.shapes
@@ -221,6 +226,13 @@ theorem RationalRepresentationObligation.shapes
     rational.numerator = rational.numerator ∧
       rational.denominator = rational.denominator := by
   exact ⟨obligation.numeratorShape, obligation.denominatorShape⟩
+
+theorem RationalRepresentationObligation.hashFields
+    {rational : RationalForm}
+    (obligation : RationalRepresentationObligation rational) :
+    obligation.numeratorHash = obligation.numeratorHash ∧
+      obligation.denominatorHash = obligation.denominatorHash := by
+  exact ⟨rfl, rfl⟩
 
 /-- Target for generated Tropical rational certificates. -/
 structure RationalCertificateTarget where
@@ -261,7 +273,15 @@ theorem denominatorHashMatches
     c.denominatorHash = denominatorHash := by
   exact stored
 
-theorem representationCarries (c : RationalCertificateTarget) :
+theorem representationHashFieldsMatch
+    (c : RationalCertificateTarget)
+    (numeratorMatches : c.representation.numeratorHash = c.numeratorHash)
+    (denominatorMatches : c.representation.denominatorHash = c.denominatorHash) :
+    c.representation.numeratorHash = c.numeratorHash ∧
+      c.representation.denominatorHash = c.denominatorHash := by
+  exact ⟨numeratorMatches, denominatorMatches⟩
+
+def representationCarries (c : RationalCertificateTarget) :
     RationalRepresentationObligation c.rational := by
   exact c.representation
 
