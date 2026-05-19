@@ -318,6 +318,10 @@ ruby -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md");
 ```
 
 ```bash
+ruby -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); abort("notes length cap order rule missing") unless s.include?("notes_length_new_cap` must be greater than `notes_length_old_cap"); puts "notes length cap order ok"'
+```
+
+```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); notes=schema.dig("properties","notes") || abort("notes missing"); rule=notes["allOf"].find { |r| r.dig("if","pattern") == "from_schema=" } || abort("migration note rule missing"); pat=rule.dig("then","pattern") || abort("migration note pattern missing"); abort("migration notes token-key gap missing") unless pat.include?("notes_token_key_gap_report"); puts "migration notes token-key gap ok"'
 ```
 
@@ -424,7 +428,7 @@ Implementation owner is TBD: merge-phase if artifact validation becomes part of 
 | `W-Validator-NotesReviewerSentinel` | TBD validator-implementation terminal | Any executable validator accepts reviewer tokens in falsifier `notes`. | Reject reserved reviewer identities `anonymous`, `unknown`, `tbd`, and `none` before anomaly or migration review. |
 | `W-Validator-NotesTokenDelimiter` | TBD validator-implementation terminal | Any executable validator accepts machine-readable tokens in falsifier `notes`. | Reject whitespace-separated required notes tokens and require semicolon-delimited `key=value` parsing before replay promotion. |
 | `W-Validator-NotesLengthCap` | TBD validator-implementation terminal | Any executable validator accepts falsifier `notes`. | Reject notes longer than 1536 characters before replay promotion or migration acceptance, while preserving room for the full migration gap-token set. |
-| `W-Validator-NotesLengthMigrationReason` | TBD validator-implementation terminal | Any executable validator accepts schema migrations that alter `notes.maxLength`. | Reject length-cap migrations unless the migration note names positive `notes_length_old_cap`, positive `notes_length_new_cap`, and `notes_length_reason` for the capacity change. |
+| `W-Validator-NotesLengthMigrationReason` | TBD validator-implementation terminal | Any executable validator accepts schema migrations that alter `notes.maxLength`. | Reject length-cap migrations unless the migration note names positive `notes_length_old_cap`, greater positive `notes_length_new_cap`, and `notes_length_reason` for the capacity change. |
 | `W-Validator-NotesTokenKeyAllowlist` | TBD validator-implementation terminal | Any executable validator accepts machine-readable `key=value` tokens in falsifier `notes`. | Reject note tokens whose keys are not schema-owned before replay promotion or migration acceptance. |
 | `W-Validator-MigrationGapTokens` | TBD validator-implementation terminal | Any executable validator accepts `from_schema=` migration notes. | Reject migration notes missing any schema-table gap token, reject gap tokens absent from both the notes key allowlist and the `from_schema=` regex, and reject whitespace-bearing gap-token values before migration acceptance. |
 | `W-Validator-LocalReferenceNotes` | TBD validator-implementation terminal | Any executable validator accepts `local_reference_only=true` in falsifier `notes`. | Reject missing `local_reference_artifact` or `local_reference_artifact_sha256`, and verify the retained artifact digest before replay promotion. |
