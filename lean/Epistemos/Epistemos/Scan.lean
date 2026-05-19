@@ -31,6 +31,10 @@ structure MonoidWitness (α : Type) where
   left_identity : ∀ x : α, op identity x = x
   right_identity : ∀ x : α, op x identity = x
 
+/-- Scan certificates expose three monoid-law obligations:
+associativity, left identity, and right identity. -/
+def monoidLawCount : Nat := 3
+
 /-- Rust `ScanProgram<T>` mirror: an initial state plus a finite input
 sequence. -/
 structure Program (α : Type) where
@@ -59,6 +63,10 @@ theorem sequentialScan_empty {α : Type}
 theorem scanTail_one {α : Type}
     (op : α -> α -> α) (initial x : α) :
     scanTail op initial [x] = [op initial x] := rfl
+
+theorem monoidLawCountPinned :
+    monoidLawCount = 3 := by
+  rfl
 
 def scanAssociativeOp {α : Type} (op : α -> α -> α) : Prop :=
   ∀ a b c : α, op (op a b) c = op a (op b c)
