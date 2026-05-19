@@ -7948,6 +7948,40 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_verdict_monotonicity_property_across_every_risk_axis() {
+        let thresholds = ACSRiskThresholds::standard();
+        let axes: [fn(&mut ACSRiskVector, f32); 8] = [
+            |risk, value| risk.truth_risk = value,
+            |risk, value| risk.safety_risk = value,
+            |risk, value| risk.privacy_risk = value,
+            |risk, value| risk.capability_risk = value,
+            |risk, value| risk.durability_risk = value,
+            |risk, value| risk.scope_rex_risk = value,
+            |risk, value| risk.kernel_promotion_risk = value,
+            |risk, value| risk.model_adaptation_risk = value,
+        ];
+
+        for axis in axes {
+            for lower in 0..=100 {
+                for higher in lower..=100 {
+                    let mut lower_risk = ACSRiskVector::neutral();
+                    let mut higher_risk = ACSRiskVector::neutral();
+                    axis(&mut lower_risk, lower as f32 / 100.0);
+                    axis(&mut higher_risk, higher as f32 / 100.0);
+
+                    let lower_verdict = ACSAdmissionVerdict::from_risk(&lower_risk, thresholds);
+                    let higher_verdict = ACSAdmissionVerdict::from_risk(&higher_risk, thresholds);
+
+                    assert!(
+                        higher_verdict.severity_rank() >= lower_verdict.severity_rank(),
+                        "{higher_verdict:?} must not be weaker than {lower_verdict:?} on axis {axis:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
     fn acs_admission_concurrent_admissions_are_deterministic() {
         let policy = ACSPolicy::strict("policy-concurrent", 1_000);
         let input = ACSAdmissionInput {
