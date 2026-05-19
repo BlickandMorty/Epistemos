@@ -865,6 +865,35 @@ mod tests {
     }
 
     #[test]
+    fn scan_text_reports_branch_name_match_positions_for_ci_diagnostics() {
+        for branch in [
+            "feature/system-g-Aegis-hardening",
+            "codex/t11-aegis-runtime-v2",
+            "release/AEGIS-canary",
+        ] {
+            let hits = scan_text(branch);
+            assert_eq!(
+                hits.len(),
+                1,
+                "branch name should produce one diagnostic match: {branch}"
+            );
+            let expected_column = branch
+                .to_ascii_lowercase()
+                .find(REJECTED_NAME_LOWERCASE)
+                .expect("fixture contains rejected name");
+            assert_eq!(
+                hits[0],
+                RejectedNameMatch {
+                    line: 1,
+                    column: expected_column,
+                },
+                "branch diagnostic position drifted for {branch}"
+            );
+            assert_eq!(count_hits(branch), hits.len());
+        }
+    }
+
+    #[test]
     fn lint_catches_aegis_inside_doc_filename_variants() {
         // Phase 1 hardening — work-queue item D: Aegis CI lint
         // exhaustive cases — "doc filenames (case-insensitive,
