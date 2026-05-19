@@ -1375,6 +1375,55 @@ mod tests {
     }
 
     #[test]
+    fn sealer_seal_and_apply_positional_arg_order_is_pinned() {
+        // Phase 1 hardening MILESTONE iter-440 — positional-order pin
+        // for Sealer::seal_and_apply (the most-args-bearing dispatcher
+        // entry point in agent_runtime_v2). Closes the constructor /
+        // dispatcher entry-order pin family iter-433..iter-439.
+        //
+        // Signature:
+        //   seal_and_apply(ctx, ledger, envelope, writer)
+        //     -> Result<(BudgetLedger, W::Receipt), SealError<W::WriteError>>
+        // (envelope.rs §148).
+        //
+        // A reorder would silently shuffle every dispatcher call site.
+        // The args have DIFFERENT types (RuntimeContext, BudgetLedger,
+        // MutationEnvelope, MutationWriter), so a swap is
+        // type-incompatible — BUT pin via DISTINCT identifiable values
+        // to surface any future reorder at PR review.
+        //
+        // Pin verifies the ledger advance matches envelope.debit AND
+        // the writer is invoked once — both invariants depend on the
+        // args reaching the correct internal handlers.
+        let cap = valid_capability(Some(10_000));
+        let sealer = Sealer {
+            capability: &cap,
+            gate: BudgetGate::new(BudgetSpec::new(1_000_000, 0, 100, 0)),
+        };
+        let pre_ledger = BudgetLedger {
+            tokens_used: 7, // DISTINCTIVE pre-call value
+            ..Default::default()
+        };
+        let envelope = MutationEnvelope::new(
+            cap.macaroon().capability_hash(),
+            BudgetDebit { tokens: 100, tool_calls: 1, ..Default::default() },
+            "DISTINCT-PAYLOAD".to_string(),
+        );
+        let mut writer = RecordingWriter::new();
+        let (post_ledger, _receipt) = sealer
+            .seal_and_apply(&ctx(), pre_ledger, envelope, &mut writer)
+            .expect("approved seal");
+        // ledger param was second: pre.tokens_used (7) + envelope.debit (100) = 107.
+        assert_eq!(
+            post_ledger.tokens_used, 107,
+            "ledger param (2nd arg) + envelope.debit (3rd arg) → 7+100=107"
+        );
+        // envelope param was third: writer recorded the DISTINCT payload.
+        assert_eq!(writer.receipt, "DISTINCT-PAYLOAD".len() as u64);
+        assert_eq!(writer.writes, 1);
+    }
+
+    #[test]
     fn mutation_envelope_new_constructor_positional_arg_order_is_pinned() {
         // Phase 1 hardening — positional-order pin for
         // MutationEnvelope::new (companion to BudgetSpec::new iter-433,
