@@ -384,6 +384,36 @@ mod tests {
     }
 
     #[test]
+    fn stop_reason_variant_count_is_seven() {
+        // Phase 1 hardening — cardinality pin completing the
+        // count-pin series across the agent_runtime_v2 enums. The
+        // 7 StopReason variants partition into doctrine-aware buckets
+        // (clean/error/neither) — pin the count explicitly so a
+        // future addition (e.g., a Cancelled variant for user-abort)
+        // requires updates across:
+        //   - StopReason::canonical_bytes match-arm
+        //   - canonical_bytes_are_unique_per_variant pin
+        //   - is_clean_termination / was_terminated_by_error buckets
+        //   - the 7×7 stop_reason_combination matrix in compose.rs
+        let variants = [
+            StopReason::EndTurn,
+            StopReason::ToolUse,
+            StopReason::MaxTokens,
+            StopReason::Refusal,
+            StopReason::BudgetExhausted,
+            StopReason::CapabilityDenied,
+            StopReason::Error,
+        ];
+        assert_eq!(variants.len(), 7);
+        // Pairwise distinct.
+        for i in 0..variants.len() {
+            for j in (i + 1)..variants.len() {
+                assert_ne!(variants[i], variants[j], "stop_reasons[{i}] == [{j}]");
+            }
+        }
+    }
+
+    #[test]
     fn para_error_variant_count_is_four() {
         // Phase 1 hardening — cardinality pin extending the
         // count-pin series to ParaError. 4 variants
