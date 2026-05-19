@@ -867,6 +867,25 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_linear_b.md",
             "Mamba 𐀀 cache Mamba 𐀀 cache architecture notes linear_b",
         ),
+        // Iter-329 (38th Unicode — Imperial Aramaic extension):
+        // Latin "Mamba" + Imperial Aramaic "𐡀" (aleph, U+10840)
+        // + Latin "cache". Imperial Aramaic (ca. 700 BCE) was
+        // the formal documentation script of the Achaemenid
+        // Persian Empire — the lingua-franca writing system
+        // across the ancient Near East from Egypt to India.
+        // SEVENTH SMP-plane codepoint. Thirty-six non-Latin
+        // scripts pinned (+ Imperial Aramaic). Imperial Aramaic
+        // is the direct ANCESTOR of multiple descendant scripts
+        // already pinned: Hebrew (Aramaic square script),
+        // Syriac, Arabic, Mongolian (via Sogdian → Uyghur).
+        // Pins the Aramaic-family ancestor alongside Phoenician
+        // (sibling Northwest-Semitic root) — the pin set now
+        // contains both major Northwest-Semitic ancestral
+        // scripts and their convergent descendant branches.
+        (
+            "notes/mamba_imperial_aramaic.md",
+            "Mamba 𐡀 cache Mamba 𐡀 cache architecture notes imperial_aramaic",
+        ),
     ];
     for (path, content) in seeds {
         store
