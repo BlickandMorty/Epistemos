@@ -157,7 +157,7 @@ fn assert_iter_format_canonical_panics_on_out_of_range() {
     assert_iter_format_canonical("iter 099", "MY_SOURCE_LABEL");
 }
 
-/// Iter 713 — catalog range continuation pin.
+/// Iter 714 — catalog range continuation pin.
 /// STATUS.md is the contributor-facing catalog for the closed-citation
 /// hardening arc. When new pins land after the previous range tip, the
 /// range must advance in lock-step so future readers can tell the arc is
@@ -167,9 +167,9 @@ fn status_md_closed_citation_iter_range_tip_tracks_latest_catalog_pin() {
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Closed-citation contract hardening (iters 127-713)"),
+        status.contains("Closed-citation contract hardening (iters 127-714)"),
         "STATUS.md closed-citation hardening catalog must advance its iter \
-         range tip to iter 713 when the catalog-continuation pin lands"
+         range tip to iter 714 when the catalog-continuation pin lands"
     );
 }
 
@@ -1161,6 +1161,36 @@ fn adversarial_query_fixture_lookup_by_query_text_is_exact() {
         adversarial_query_fixture_for_query_text("tropical ").is_none(),
         "query-text lookup is byte-exact, not trimmed"
     );
+}
+
+#[test]
+fn adversarial_query_fixture_query_texts_are_ordered_unique_and_lookup_complete() {
+    use super::adversarial::{
+        adversarial_query_fixture_for_query_text, adversarial_query_fixture_query_texts,
+        ADVERSARIAL_QUERY_FIXTURES,
+    };
+
+    let query_texts = adversarial_query_fixture_query_texts();
+    assert_eq!(
+        query_texts,
+        ["tropcial", "tropical", "near duplicate paragraph"],
+        "fixture query-text order is a stable replay harness contract"
+    );
+    assert_eq!(query_texts.len(), ADVERSARIAL_QUERY_FIXTURES.len());
+
+    let unique: std::collections::BTreeSet<&str> = query_texts.iter().copied().collect();
+    assert_eq!(
+        unique.len(),
+        query_texts.len(),
+        "fixture query texts must remain pairwise unique"
+    );
+
+    for query_text in query_texts {
+        assert!(
+            adversarial_query_fixture_for_query_text(query_text).is_some(),
+            "every enumerated fixture query text must resolve through exact lookup"
+        );
+    }
 }
 
 #[test]
