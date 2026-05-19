@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 195
+invalid_example_count: 196
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -11898,3 +11898,19 @@ Violates: [Migration Note Minimum Shape](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md
 ```
 
 Rejection reason: `none` and `unknown` are reserved identity sentinels, so they cannot stand as new-state atoms inside `identity_sentinel_gap_report`.
+
+## N196 - Missing Identity Gap Slug Catalog Entry
+
+Violates: [Identity Gap Slug Catalog](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#identity-gap-slug-catalog) and [Validator Harness Shape](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#validator-harness-shape).
+
+```json
+{
+  "catalog_slug": "missing-validator-role-impact",
+  "negative_examples": ["N173"],
+  "schema_catalog_present": false,
+  "validator_shape_row_present": true,
+  "handbook_audit_present": true
+}
+```
+
+Rejection reason: identity-gap validator families must be cataloged in the schema before validator-shape or handbook references can use the slug.
