@@ -942,6 +942,41 @@ mod tests {
     }
 
     #[test]
+    fn variant_ladder_spec_tool_name_preserves_json_special_chars_through_serde() {
+        // Phase 1 hardening — adversarial JSON pin for
+        // VariantLadderSpec.tool_name (companion to the iter-413..
+        // iter-420 JSON-special-char pin family).
+        //
+        // tool_name is the canonical tool identifier (e.g.,
+        // "vault.read"). While ToolCall.name has strict validation
+        // (alnum + . _ -), VariantLadderSpec.tool_name does NOT have
+        // a validate() function — it's just a String. Serde must
+        // preserve JSON-special chars through round-trip in case a
+        // future external configuration source provides one.
+        //
+        // A future #[serde(serialize_with = ...)] that applied lossy
+        // sanitisation would silently change persisted ladder specs.
+        let adversarial = [
+            r#"vault.read.with."quotes""#,
+            "vault\\windows\\style",
+            "vault\nwith\nnewlines",
+            r#"{"json": "shaped"}"#,
+        ];
+        for name in adversarial {
+            let spec = VariantLadderSpec {
+                tool_name: name.to_string(),
+                tiers: vec![VariantTier::T1Deterministic],
+                auto_promote: false,
+            };
+            let s = serde_json::to_string(&spec).expect("serialise");
+            let back: VariantLadderSpec =
+                serde_json::from_str(&s).expect("deserialise");
+            assert_eq!(back.tool_name, name, "tool_name must round-trip byte-equal");
+            assert_eq!(back, spec);
+        }
+    }
+
+    #[test]
     fn variant_ladder_spec_serde_tolerates_unknown_extra_fields_per_current_doctrine() {
         // Phase 1 hardening — DOCTRINE PIN with forward-compat teeth.
         // Completes the serde-tolerance pin family across the
