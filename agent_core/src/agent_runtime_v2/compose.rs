@@ -1203,4 +1203,18 @@ mod tests {
         assert_eq!(out.inner.thinking_digest, inner_th_independent);
         assert_eq!(out.outer.thinking_digest, outer_th_independent);
     }
+
+    #[test]
+    fn para_seq_output_fields_are_pub_per_field_visibility_doctrine() {
+        // ParaSeqOutput has 2 pub fields: inner (ParaOutput<B>), outer (ParaOutput<C>).
+        // Direct .inner / .outer access guards against accidental visibility
+        // narrowing or shape change to a getter-only struct, which would break
+        // every downstream destructure of composed stage outputs.
+        let seq = ParaSeq::new(&LenStage, &LabelStage);
+        let out: ParaSeqOutput<usize, String> = seq.fwd(&0, "xy").expect("fwd ok");
+        let inner_ref: &ParaOutput<usize> = &out.inner;
+        let outer_ref: &ParaOutput<String> = &out.outer;
+        assert_eq!(inner_ref.value, 2);
+        assert_eq!(outer_ref.value, "len=2");
+    }
 }
