@@ -244,6 +244,10 @@ Last audited: 2026-05-18. [F-ControllerKernelPack](F_CONTROLLER_KERNEL_PACK_2026
 
 Last audited: 2026-05-18. [F-SemiseparableBlockScan](F_SEMISEPARABLE_BLOCK_SCAN_2026_05_18.md) maps to schema axes `core_max_abs_diff`, `final_state_diff`, `chunk_size`, `ngroups`, and `stretch_labeling`; the row requires Core lane max-abs-diff at or below 1e-3 fp16 against the PyTorch oracle over 100 seeds, an included final-state diff, enforced `chunk_size=256` and `ngroups=1`, and explicit non-Core stretch labeling before its SSD block-scan artifact can satisfy the [Cross-Gate Axis Floors](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#cross-gate-axis-floors).
 
+## F-LocalRecallIsland Axis Floor Audit
+
+Last audited: 2026-05-18. [F-LocalRecallIsland](F_LOCAL_RECALL_ISLAND_2026_05_18.md) maps to schema axes `peak_memory_gb`, `passkey_recall`, `niah_single_1`, and `depth_failure_labels`; the row requires Core lane peak memory at or below 4.5 GB for model plus KV/state plus workspace, Mohtashami-Jaggi passkey recall at or above 0.95, `niah_single_1` at or above 0.95 over 250 trials, and per-depth/model/context failure labels before its recall-island artifact can satisfy the [Cross-Gate Axis Floors](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#cross-gate-axis-floors).
+
 ## Replay Eligibility Audit
 
 Last audited: 2026-05-18. The schema replay-ineligibility checklist now fails artifacts linearly for missing command digests, missing fixture-manifest digests, missing sidecar digests, mismatched sidecar bytes, missing JSONL manifests, invalid JSONL manifest envelopes, `jsonl_file_sha256` drift from `result_digest`, runner-environment drift from the closed execution pin, missing OS build, missing toolchain identity, or missing thermal/power capture, blocking anomalies without evidence refs, missing threshold-source provenance, provider threshold refs without matching receipts, thermal-pressure timing passes without blocking anomalies, battery/unknown-power timing passes without blocking anomalies, measurement `evidence_kind` drift from the measurement source shape, and aggregate `sample_count` drift from embedded or sidecar samples.
