@@ -3481,19 +3481,56 @@ where
         )));
     };
 
-    if !capability
-        .get("kind")
-        .is_some_and(serde_json::Value::is_string)
-        || !capability
-            .get("value")
-            .is_some_and(serde_json::Value::is_object)
-    {
+    let Some(kind) = capability.get("kind").and_then(serde_json::Value::as_str) else {
         return Err(E::custom(acs_policy_decode_error(
             &ACSPolicyError::Malformed {
                 field: "required_capabilities.capability",
             },
         )));
-    }
+    };
+    let Some(serde_json::Value::Object(capability_value)) = capability.get("value") else {
+        return Err(E::custom(acs_policy_decode_error(
+            &ACSPolicyError::Malformed {
+                field: "required_capabilities.capability",
+            },
+        )));
+    };
+
+    let required_field = match kind {
+        "vault_path"
+            if !capability_value
+                .get("path")
+                .is_some_and(serde_json::Value::is_string) =>
+        {
+            Some(REQUIRED_CAPABILITY_FIELDS.vault_path_path)
+        }
+        "vault_path"
+            if !capability_value
+                .get("verb")
+                .is_some_and(serde_json::Value::is_string) =>
+        {
+            Some(REQUIRED_CAPABILITY_FIELDS.vault_path_verb)
+        }
+        "vault_path" => None,
+        "network_host" => (!capability_value
+            .get("host")
+            .is_some_and(serde_json::Value::is_string))
+        .then_some(REQUIRED_CAPABILITY_FIELDS.network_host_host),
+        "biometric_session" => (!capability_value
+            .get("ttl_secs")
+            .is_some_and(serde_json::Value::is_number))
+        .then_some(REQUIRED_CAPABILITY_FIELDS.biometric_session_ttl_secs),
+        "other" => (!capability_value
+            .get("name")
+            .is_some_and(serde_json::Value::is_string))
+        .then_some(REQUIRED_CAPABILITY_FIELDS.other_name),
+        _ => Some("required_capabilities.capability"),
+    };
+    if let Some(field) = required_field {
+        return Err(E::custom(acs_policy_decode_error(
+            &ACSPolicyError::Malformed { field },
+        )));
+    };
 
     Ok(())
 }
@@ -7605,6 +7642,26 @@ mod tests {
         assert!(message.contains("malformed_policy"), "{message}");
         assert!(
             message.contains("required_capabilities.capability"),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn acs_admission_missing_capability_rule_other_name_names_malformed_policy_field() {
+        let value = serde_json::json!({
+            "operation": "tool_action",
+            "capability": {
+                "kind": "other",
+                "value": {}
+            }
+        });
+
+        let err = serde_json::from_value::<ACSCapabilityRule>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(
+            message.contains("required_capabilities.other.name"),
             "{message}"
         );
     }
