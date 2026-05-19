@@ -1961,6 +1961,39 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_emit_preserves_duplicate_citations_no_dedup() {
+        // Phase 1 hardening — citation dedup doctrine pin. AnswerPacket::emit
+        // takes citations: Vec<Citation> verbatim; the resulting packet
+        // must preserve DUPLICATE citations (no silent dedup).
+        //
+        // A future "let me dedup citations for display brevity" refactor
+        // would silently lose duplicate cite markers — important for
+        // audit-trail honesty (if the executor cited the same source
+        // twice for different claims, both should appear).
+        let log = RunEventLog::new();
+        let citations = vec![
+            Citation::from_tuple("vault/notes/a.md", "L42"),
+            Citation::from_tuple("vault/notes/a.md", "L42"), // exact duplicate
+            Citation::from_tuple("vault/notes/a.md", "L99"), // same source, different locator
+            Citation::from_tuple("vault/notes/a.md", "L42"), // exact duplicate again
+        ];
+        let packet = AnswerPacket::emit(
+            AgentBlueprintId("a".into()),
+            "x".into(),
+            citations.clone(),
+            StopReason::EndTurn,
+            BudgetLedger::default(),
+            &log,
+        );
+        // All 4 citations preserved — no dedup.
+        assert_eq!(packet.citations.len(), 4);
+        assert_eq!(packet.citations, citations);
+        // Spot-check duplicates 0 and 1 are byte-equal.
+        assert_eq!(packet.citations[0], packet.citations[1]);
+        assert_eq!(packet.citations[1], packet.citations[3]);
+    }
+
+    #[test]
     fn answer_packet_emit_preserves_citations_in_insertion_order_byte_for_byte() {
         // Phase 1 hardening — citation ordering pin. AnswerPacket::emit
         // takes citations: Vec<Citation> verbatim; the result packet's
