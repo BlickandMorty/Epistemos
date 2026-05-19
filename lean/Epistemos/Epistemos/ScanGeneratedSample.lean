@@ -57,7 +57,10 @@ theorem scan_certificate_output_matches_sample
     (h : output =
       Epistemos.Scan.sequentialScan w.op program.initial program.inputs) :
     (scan_certificate_target_sample T w program output h).output_matches = h := by
-  rfl
+  exact Epistemos.Scan.CertificateTarget.outputMatchesField
+    (scan_certificate_target_sample T w program output h)
+    h
+    rfl
 
 theorem scan_certificate_output_sequential_sample
     (T : Type) (w : Epistemos.Scan.MonoidWitness T)

@@ -161,6 +161,13 @@ theorem CertificateTarget.outputMatchesSequential {α : Type}
     c.output = sequentialScan c.monoid.op c.program.initial c.program.inputs :=
   c.output_matches
 
+theorem CertificateTarget.outputMatchesField {α : Type}
+    (c : CertificateTarget α)
+    (h : c.output = sequentialScan c.monoid.op c.program.initial c.program.inputs)
+    (stored : c.output_matches = h) :
+    c.output_matches = h := by
+  exact stored
+
 theorem CertificateTarget.outputLengthMatches {α : Type}
     (c : CertificateTarget α) :
     c.output.length = c.program.inputs.length + 1 := by
