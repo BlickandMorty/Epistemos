@@ -237,6 +237,18 @@ mod tests {
     }
 
     #[test]
+    fn para_seq_feedback_debug_repr_is_stable_for_audit_logs() {
+        let feedback = ParaSeqFeedback {
+            outer: ParaFeedback { delta: 2u32 },
+            inner: ParaFeedback { delta: 1u32 },
+        };
+        assert_eq!(
+            format!("{feedback:?}"),
+            "ParaSeqFeedback { outer: ParaFeedback { delta: 2 }, inner: ParaFeedback { delta: 1 } }"
+        );
+    }
+
+    #[test]
     fn every_para_seq_output_field_is_identity_load_bearing() {
         // Phase 1 hardening — fourteenth leg of the identity-pin
         // pattern. ParaSeqOutput<B, C> has 2 fields (inner, outer);
