@@ -4668,6 +4668,7 @@ mod tests {
             "`codec_falsifier_catalogs_name_owned_f_hooks_for_every_codec`",
             "`codec_falsifier_catalogs_cover_every_owned_f_hook`",
             "every owned `F-*` hook appears in at least one codec falsifier row",
+            "codec doc falsifier cells match typed `F-*` hook sets exactly",
             "`residency_primary_falsifiers_name_owned_f_hooks_for_every_tier`",
             "`residency_primary_falsifiers_cover_every_owned_f_hook`",
             "every owned `F-*` hook appears in at least one residency primary falsifier",
@@ -5448,6 +5449,16 @@ mod tests {
                 );
             }
             let expected_hooks = f_hooks_in(coder.falsifier());
+            let mut expected_hook_set = expected_hooks.clone();
+            expected_hook_set.sort_unstable();
+            expected_hook_set.dedup();
+            let mut actual_hook_set = f_hooks_in(falsifier_cell);
+            actual_hook_set.sort_unstable();
+            actual_hook_set.dedup();
+            assert_eq!(
+                actual_hook_set, expected_hook_set,
+                "{coder:?} doc falsifier cell must exactly match typed F-* hooks"
+            );
             for hook in f_hooks_in(falsifier_cell) {
                 assert!(
                     expected_hooks.contains(&hook),
