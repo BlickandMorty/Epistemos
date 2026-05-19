@@ -350,6 +350,44 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_mirror_enum_debug_repr_is_stable_for_bridge_audit_logs() {
+        for (tier, expected) in [
+            (LocalAgentCapabilityTier::Core, "Core"),
+            (LocalAgentCapabilityTier::Pro, "Pro"),
+            (LocalAgentCapabilityTier::Research, "Research"),
+        ] {
+            assert_eq!(format!("{tier:?}"), expected);
+        }
+
+        for (owner, expected) in [
+            (LocalAgentCapabilityOwner::NativeCore, "NativeCore"),
+            (LocalAgentCapabilityOwner::LocalAgentGateway, "LocalAgentGateway"),
+            (LocalAgentCapabilityOwner::ResearchOnly, "ResearchOnly"),
+            (LocalAgentCapabilityOwner::OutOfScope, "OutOfScope"),
+        ] {
+            assert_eq!(format!("{owner:?}"), expected);
+        }
+
+        for (surface, expected) in [
+            (LocalAgentCapabilitySurface::AgentTask, "AgentTask"),
+            (LocalAgentCapabilitySurface::Session, "Session"),
+            (LocalAgentCapabilitySurface::Configuration, "Configuration"),
+            (LocalAgentCapabilitySurface::FileData, "FileData"),
+            (
+                LocalAgentCapabilitySurface::ToolsIntegration,
+                "ToolsIntegration",
+            ),
+            (LocalAgentCapabilitySurface::UiDisplay, "UiDisplay"),
+            (LocalAgentCapabilitySurface::Persona, "Persona"),
+            (LocalAgentCapabilitySurface::Messaging, "Messaging"),
+            (LocalAgentCapabilitySurface::Advanced, "Advanced"),
+            (LocalAgentCapabilitySurface::Toolset, "Toolset"),
+        ] {
+            assert_eq!(format!("{surface:?}"), expected);
+        }
+    }
+
+    #[test]
     fn local_agent_tier_codes_match_swift_raw_values() {
         assert_eq!(LocalAgentCapabilityTier::Core.code(), "core");
         assert_eq!(LocalAgentCapabilityTier::Pro.code(), "pro");
