@@ -36,6 +36,10 @@ def maxPatchEdges : Nat := 256
 /-- Bound: stalk dim ≤ 8. -/
 def maxStalkDim : Nat := 8
 
+theorem finitePatchBoundsPinned :
+    maxPatchNodes = 128 ∧ maxPatchEdges = 256 ∧ maxStalkDim = 8 := by
+  exact ⟨rfl, rfl, rfl⟩
+
 /-- A patch graph G_q has finite vertex + edge sets bounded by
 the constants above. -/
 structure PatchGraph where
