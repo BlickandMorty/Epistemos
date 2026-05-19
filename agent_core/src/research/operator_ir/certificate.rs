@@ -63,6 +63,16 @@ pub fn lean_certificate(op: &OperatorExpr) -> String {
              theorem operator_fourier_isometry_{suffix} :\n\
              \x20   operator_fourier_obligation_{suffix}.isometry := by\n\
              \x20 exact Epistemos.Operator.fourierIsometryObligationCarries {modes} operator_fourier_mode_bound_{suffix}\n\
+             \n\
+             theorem operator_certificate_fourier_witness_{suffix} :\n\
+             \x20   ∃ targetObligation : Epistemos.Operator.FourierIsometryObligation,\n\
+             \x20     operator_certificate_{suffix}.fourier_isometry = some targetObligation ∧\n\
+             \x20       targetObligation.isometry := by\n\
+             \x20 exact Epistemos.Operator.CertificateTarget.fourierSomeCarries\n\
+             \x20   operator_certificate_{suffix}\n\
+             \x20   operator_fourier_obligation_{suffix}\n\
+             \x20   operator_fourier_option_{suffix}\n\
+             \x20   operator_fourier_isometry_{suffix}\n\
              \n",
             suffix = suffix,
             modes = modes,
@@ -294,6 +304,16 @@ mod tests {
     fn fourier_cert_has_fourier_isometry() {
         let op = fixture(KernelTransform::Fourier { modes: 1 });
         let c = lean_certificate(&op);
+        assert!(c.contains("operator_fourier_isometry_"));
+    }
+
+    #[test]
+    fn fourier_cert_projects_target_isometry_witness() {
+        let op = fixture(KernelTransform::Fourier { modes: 1 });
+        let c = lean_certificate(&op);
+        assert!(c.contains("theorem operator_certificate_fourier_witness_"));
+        assert!(c.contains("exact Epistemos.Operator.CertificateTarget.fourierSomeCarries"));
+        assert!(c.contains("operator_fourier_option_"));
         assert!(c.contains("operator_fourier_isometry_"));
     }
 
