@@ -1993,6 +1993,23 @@ mod tests {
     }
 
     #[test]
+    fn cli_adapter_non_string_json_shapes_fail_to_deserialise() {
+        for bad in [
+            "null",
+            "true",
+            "42",
+            "[\"codex\"]",
+            "{\"adapter\":\"codex\"}",
+        ] {
+            let r: Result<CliAdapter, _> = serde_json::from_str(bad);
+            assert!(
+                r.is_err(),
+                "non-string CliAdapter shape {bad} must fail to deserialise"
+            );
+        }
+    }
+
+    #[test]
     fn blueprint_round_trips_through_json() {
         let bp = cli_blueprint();
         let s = serde_json::to_string(&bp).expect("serialize");
