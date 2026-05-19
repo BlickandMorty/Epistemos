@@ -1005,6 +1005,30 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 37th SignalOnly row (iter-318): single-term query in
+        // Myanmar-script domain — "က" (ka, U+1000, single
+        // codepoint). TWENTY-EIGHTH single-term-AND domain.
+        // SIXTEENTH non-ASCII script-block. SIXTH Brahmic
+        // descendant (after Devanagari + Thai + Tibetan +
+        // Khmer + Lao). Third single-codepoint non-ASCII token
+        // (after Greek λ + Hebrew ש). Token unique to iter-
+        // 179's mamba_myanmar.md.
+        query: "က",
+        expected_paths: &["notes/mamba_myanmar.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Thirty-seventh SignalOnly row (iter-318): single-\
+               term Myanmar-script query — \"က\" (U+1000). \
+               Twenty-eighth domain for single-term-AND. \
+               Sixteenth non-ASCII script-block. Sixth Brahmic \
+               descendant (after Devanagari + Thai + Tibetan + \
+               Khmer + Lao). Third single-codepoint non-ASCII \
+               token (after Greek λ + Hebrew ש). Brings \
+               SignalOnly to depth 37 — first category past \
+               depth-36 horizon.",
+    },
+    FVaultRecallRow {
         // 36th SignalOnly row (iter-311): single-term query in
         // Lao-script domain — "ແຄ" (Lao for cache, U+0EC1
         // U+0E84). TWENTY-SEVENTH single-term-AND domain.
