@@ -53,14 +53,16 @@ pub fn lean_certificate(op: &OperatorExpr) -> String {
     let fourier_theorem = match &op.kernel {
         KernelTransform::Identity => "".to_string(),
         KernelTransform::Fourier { modes } => format!(
-            "def operator_fourier_obligation_{suffix} : Epistemos.Operator.FourierIsometryObligation :=\n\
-             \x20   {{ modes := {modes}\n\
-             \x20     modeBound := Epistemos.Operator.fourierModeBound {modes}\n\
-             \x20     isometry := Epistemos.Operator.fourierIsometry {modes} }}\n\
+            "theorem operator_fourier_mode_bound_{suffix} :\n\
+             \x20   Epistemos.Operator.fourierModeBound {modes} := by\n\
+             \x20 decide\n\
+             \n\
+             def operator_fourier_obligation_{suffix} : Epistemos.Operator.FourierIsometryObligation :=\n\
+             \x20   Epistemos.Operator.fourierIsometryObligation {modes} operator_fourier_mode_bound_{suffix}\n\
              \n\
              theorem operator_fourier_isometry_{suffix} :\n\
              \x20   operator_fourier_obligation_{suffix}.isometry := by\n\
-             \x20 exact operator_fourier_obligation_{suffix}.isometry\n\
+             \x20 exact Epistemos.Operator.fourierIsometryObligationCarries {modes} operator_fourier_mode_bound_{suffix}\n\
              \n",
             suffix = suffix,
             modes = modes,
@@ -216,8 +218,9 @@ mod tests {
         let fou_op = fixture(KernelTransform::Fourier { modes: 2 });
         let fou_c = lean_certificate(&fou_op);
         assert!(fou_c.contains("Epistemos.Operator.FourierIsometryObligation"));
-        assert!(fou_c.contains("Epistemos.Operator.fourierModeBound"));
-        assert!(fou_c.contains("Epistemos.Operator.fourierIsometry"));
+        assert!(fou_c.contains("Epistemos.Operator.fourierIsometryObligation"));
+        assert!(fou_c.contains("operator_fourier_mode_bound_"));
+        assert!(!fou_c.contains("modeBound := Epistemos.Operator.fourierModeBound"));
         assert!(!fou_c.contains("idft"));
         assert!(!fou_c.contains("dft"));
     }
@@ -285,8 +288,10 @@ mod tests {
     fn fourier_isometry_closes_from_schema_field() {
         let op = fixture(KernelTransform::Fourier { modes: 1 });
         let c = lean_certificate(&op);
-        assert!(c.contains("exact operator_fourier_obligation_"));
-        assert!(c.contains(".isometry"));
+        assert!(c.contains(
+            "exact Epistemos.Operator.fourierIsometryObligationCarries 1 operator_fourier_mode_bound_"
+        ));
+        assert!(!c.contains("exact operator_fourier_obligation_"));
         assert!(!c.contains("spectral truncation is an L²-projection"));
         assert_eq!(c.matches("sorry").count(), 0);
     }
