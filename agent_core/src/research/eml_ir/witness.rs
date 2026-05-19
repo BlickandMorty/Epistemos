@@ -1684,14 +1684,27 @@ fn required_raw_json_field<'a>(
 }
 
 fn raw_u32_json(raw_value: &RawValue, field: &str) -> Result<u32, FulpReplayError> {
-    let value = raw_unsigned_integer_json(raw_value, field)?;
-    if value > u64::from(u32::MAX) {
-        return Err(FulpReplayError::InvalidJson {
+    match serde_json::from_str::<u64>(raw_value.get()) {
+        Ok(value) if value <= u64::from(u32::MAX) => Ok(value as u32),
+        Ok(_) => Err(FulpReplayError::InvalidJson {
             message: format!("number out of range for {field}, expected u32"),
             kind: FulpInvalidJsonKind::NumberOutOfRange,
-        });
+        }),
+        Err(error) => {
+            let message = error.to_string();
+            if message.contains("number out of range") {
+                Err(FulpReplayError::InvalidJson {
+                    message: format!("number out of range for {field}, expected u32"),
+                    kind: FulpInvalidJsonKind::NumberOutOfRange,
+                })
+            } else {
+                Err(FulpReplayError::InvalidJson {
+                    message: format!("invalid type for {field}, expected unsigned integer"),
+                    kind: FulpInvalidJsonKind::TypeMismatch,
+                })
+            }
+        }
     }
-    Ok(value as u32)
 }
 
 fn raw_unsigned_integer_json(raw_value: &RawValue, field: &str) -> Result<u64, FulpReplayError> {
@@ -1724,6 +1737,8 @@ struct RawWitnessWorstCases<'a> {
 struct RawOperationWorstCases<'a> {
     #[serde(default, borrow)]
     evaluated: Option<&'a RawValue>,
+    #[serde(default, borrow)]
+    max_ulp: Option<&'a RawValue>,
     #[serde(borrow)]
     mean_ulp: &'a RawValue,
     #[serde(borrow)]
@@ -1760,6 +1775,9 @@ fn reject_raw_stats_number_json(json: &str) -> Result<(), FulpReplayError> {
         let operation_path = format!("stats[{operation_index}]");
         if let Some(value) = stat.evaluated {
             raw_unsigned_integer_json(value, &format!("{operation_path}.evaluated"))?;
+        }
+        if let Some(value) = stat.max_ulp {
+            raw_u32_json(value, &format!("{operation_path}.max_ulp"))?;
         }
         raw_finite_f64_json(stat.mean_ulp, &operation_path, "mean_ulp")?;
         for (axis_index, axis_stat) in stat.axis_stats.iter().enumerate() {
@@ -4327,6 +4345,28 @@ mod tests {
             .invalid_json_message()
             .expect("invalid json message")
             .contains("stats[0].max_ulp"));
+    }
+
+    #[test]
+    fn replay_rejects_operation_max_ulp_json_raw_overflow_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["max_ulp"] =
+            serde_json::Value::Number(serde_json::Number::from(123_456_789_u64));
+        let json = serde_json::to_string(&value).unwrap();
+        let needle = "\"max_ulp\":123456789";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(needle, "\"max_ulp\":1e999999", 1);
+        let error =
+            replay_witness_json(&json).expect_err("operation max ulp overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("number out of range for stats[0].max_ulp, expected u32")
+        );
     }
 
     #[test]
