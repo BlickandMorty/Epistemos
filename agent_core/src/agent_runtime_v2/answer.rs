@@ -949,6 +949,55 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_display_stop_field_reflects_each_of_seven_stop_reasons() {
+        // Phase 1 hardening MILESTONE iter-490 — Display semantic pin
+        // for the stop_reason field. The Display format uses
+        // "stop={:?}" (answer.rs §111) — Debug repr of StopReason.
+        //
+        // Per-variant Debug reprs follow Rust derive convention
+        // (PascalCase variant names):
+        //   StopReason::EndTurn           → "EndTurn"
+        //   StopReason::ToolUse           → "ToolUse"
+        //   StopReason::MaxTokens         → "MaxTokens"
+        //   StopReason::Refusal           → "Refusal"
+        //   StopReason::BudgetExhausted   → "BudgetExhausted"
+        //   StopReason::CapabilityDenied  → "CapabilityDenied"
+        //   StopReason::Error             → "Error"
+        //
+        // Closes the Display semantic-pin trio (citations iter-488 +
+        // tokens iter-489 + stop iter-490).
+        //
+        // A future refactor that, e.g., switched to Display ({}) for
+        // the stop field — producing snake_case instead — would
+        // silently break grep-based log filters.
+        let log = RunEventLog::new();
+        for (reason, expected) in [
+            (StopReason::EndTurn, "EndTurn"),
+            (StopReason::ToolUse, "ToolUse"),
+            (StopReason::MaxTokens, "MaxTokens"),
+            (StopReason::Refusal, "Refusal"),
+            (StopReason::BudgetExhausted, "BudgetExhausted"),
+            (StopReason::CapabilityDenied, "CapabilityDenied"),
+            (StopReason::Error, "Error"),
+        ] {
+            let packet = AnswerPacket::emit(
+                AgentBlueprintId("a".into()),
+                "x".into(),
+                vec![],
+                reason,
+                BudgetLedger::default(),
+                &log,
+            );
+            let display = format!("{packet}");
+            let needle = format!("stop={expected}");
+            assert!(
+                display.contains(&needle),
+                "Display must contain {needle:?} for {reason:?}, got: {display}"
+            );
+        }
+    }
+
+    #[test]
     fn answer_packet_display_tokens_field_reflects_ledger_tokens_used() {
         // Phase 1 hardening — Display semantic pin (companion to
         // answer_packet_display_citations_count_field_reflects_vec_len
