@@ -41,6 +41,12 @@ zero MAS shipping impact while active-rank-one kernels remain
 candidate status. -/
 def masImpactZeroVaultOnly : Bool := true
 
+/-- PCF-10 Lambada falsifier allows end-to-end PPL drift at most 0.5. -/
+def lambadaPplDriftMax : Float := 0.5
+
+/-- PCF-10 requires adversarial token sequence output equivalence. -/
+def adversarialOutputEquivalenceRequired : Bool := true
+
 theorem acceptanceMetIffDriftWithinBudget
     (t : InterpretabilityTransfer) (ppl_drift_observed : Float) :
     t.acceptanceMet ppl_drift_observed = true ↔ ppl_drift_observed ≤ t.ppl_drift_max := by
@@ -54,6 +60,14 @@ theorem driftWithinBudgetSatisfiesAcceptance
 
 theorem masImpactZeroPinned :
     masImpactZeroVaultOnly = true := by
+  rfl
+
+theorem lambadaPplDriftMaxPinned :
+    lambadaPplDriftMax = 0.5 := by
+  rfl
+
+theorem adversarialOutputEquivalenceRequiredPinned :
+    adversarialOutputEquivalenceRequired = true := by
   rfl
 
 end Epistemos.PCF10
