@@ -4380,6 +4380,49 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 46th Paraphrase row (iter-383): NEW axis — DERIVA-
+        // TIONAL PREFIX (re-iteration / aspectual marker).
+        // User adds the iterative-aspect prefix "re-" to a
+        // noun-verb stem: "cache" → "recache" (cache again).
+        // Tantivy keeps "recache" as one alphanumeric token
+        // (no hyphen — that would split). 3-term AND on
+        // {mamba, ssm, recache} blocks canonical (has "cache"
+        // not "recache").
+        // Distinct from:
+        //   • iter-376 DERIVATIONAL SUFFIX -er (cache →
+        //     cacher, word-class change): iter-383 attaches
+        //     the morpheme on the OPPOSITE end (head not tail)
+        //     and adds an ASPECTUAL marker (iteration), not a
+        //     word-class change
+        //   • iter-369 COMPOUND-NOUN (cache → cachefile, two
+        //     nouns joined): iter-383's "re-" is a bound
+        //     morpheme that does not stand alone as a noun
+        //   • iter-333 PREFIX TRUNCATION (Mamba → ba, drops
+        //     letters from word HEAD): iter-383 ADDS letters
+        //     to word HEAD via a productive prefix
+        // Pins deferred derivational-morphology prefix-stripping
+        // retrieval (the mirror of iter-376's suffix-stripping).
+        // Forty-third named failure subclass.
+        query: "Mamba SSM recache",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Derivational-prefix Paraphrase axis (axis #43): \
+               user adds iterative-aspect prefix \"re-\" — \
+               \"cache\" → \"recache\". Distinct from iter-376 \
+               suffix -er (opposite end, word-class change), \
+               iter-369 compound-noun (two free nouns), and \
+               iter-333 prefix truncation (drops letters from \
+               head; iter-383 ADDS them). 3-term AND on \
+               {mamba, ssm, recache} blocks. Pins deferred \
+               derivational-morphology prefix-stripping \
+               retrieval (mirror of iter-376 suffix-stripping). \
+               Forty-third named failure subclass. Brings \
+               Paraphrase to depth 46 — first category past \
+               depth-45 horizon.",
+    },
+    FVaultRecallRow {
         // 45th Paraphrase row (iter-376): NEW axis — DERIVA-
         // TIONAL SUFFIX / WORD-CLASS CHANGE. User adds the
         // agent-noun derivational suffix "-er" to a noun:
