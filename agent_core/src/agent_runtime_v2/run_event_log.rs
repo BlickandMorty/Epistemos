@@ -888,6 +888,49 @@ mod tests {
     }
 
     #[test]
+    fn root_hash_is_sensitive_to_stop_reason_within_stop_event_row() {
+        // Phase 1 hardening — fine-grained tamper sensitivity pin.
+        // Two logs that differ ONLY in the StopReason of an
+        // AgentEvent::Stop row must produce DIFFERENT root_hashes —
+        // every variant of the 7-variant StopReason taxonomy
+        // participates in the chain (via the inner AgentEvent serde
+        // payload).
+        //
+        // A future encoding change that collapsed stop_reason to a
+        // single byte (or dropped it from the hash input) would
+        // silently merge runs that terminated for different reasons.
+        // Pin checks all 7 stop reasons produce distinct root hashes
+        // when each is appended as the SOLE row of an otherwise-
+        // identical log.
+        let reasons = [
+            StopReason::EndTurn,
+            StopReason::ToolUse,
+            StopReason::MaxTokens,
+            StopReason::Refusal,
+            StopReason::BudgetExhausted,
+            StopReason::CapabilityDenied,
+            StopReason::Error,
+        ];
+        let hashes: Vec<Hash> = reasons
+            .iter()
+            .map(|reason| {
+                let mut log = RunEventLog::new();
+                log.append_event(AgentEvent::Stop { reason: *reason });
+                log.root_hash()
+            })
+            .collect();
+        for i in 0..hashes.len() {
+            for j in (i + 1)..hashes.len() {
+                assert_ne!(
+                    hashes[i], hashes[j],
+                    "root_hash for {:?} == root_hash for {:?} — stop_reason must participate in chain",
+                    reasons[i], reasons[j]
+                );
+            }
+        }
+    }
+
+    #[test]
     fn root_hash_distinguishes_event_only_vs_sealed_mutation_vs_snapshot_logs() {
         // Phase 1 hardening — kind-discrimination pin. Three logs
         // with the SAME ordinal position but DIFFERENT row kinds
