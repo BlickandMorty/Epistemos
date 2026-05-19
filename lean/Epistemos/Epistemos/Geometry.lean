@@ -183,6 +183,12 @@ def identityRotor : RotorSchema :=
 def identityRotorExpr : Expr :=
   Expr.literal identityRotor.value
 
+theorem identityRotorCarriesObligations :
+    identityRotor.isRotorCandidate ∧ identityRotor.unitNorm := by
+  constructor
+  · simp [identityRotor, identityRotorValue, Multivector.scalar, rotorCandidate]
+  · norm_num [identityRotor, identityRotorValue, Multivector.scalar, rotorUnitNorm]
+
 theorem geometrySchemaCountsPinned :
     multivectorCoordinateCount = 8 ∧ exprConstructorCount = 4 := by
   exact ⟨rfl, rfl⟩
