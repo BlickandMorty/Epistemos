@@ -8376,6 +8376,90 @@ fn eidos_citation_clone_is_byte_perfect_across_smuggling_vectors() {
     }
 }
 
+/// Multilingual Clone byte-perfect pin for `EidosCitation`. The
+/// iter 190 pin covered the 6 smuggling vectors (Latin baseline +
+/// adversarial attack payloads). This pin extends to legitimate
+/// non-Latin script payloads — Han, Hangul, Arabic, Devanagari,
+/// mixed Han+Latin — so any future custom Clone that normalizes /
+/// canonicalizes / casefolds non-Latin bytes during clone would
+/// surface here as a clone-time byte mismatch.
+///
+/// Closes the Clone-trilogy multilingual gap: iter 190 (EidosCitation
+/// smuggling-vector clone), iter 193 (EidosHit smuggling-vector
+/// clone), iter 194 (EidosContextPacket smuggling-vector clone). This
+/// iter adds the positive-control multilingual axis to EidosCitation
+/// specifically — the chat-layer INPUT type, which is the most
+/// exposed surface for clone() in practice (chat session copies the
+/// citation set on every emit).
+///
+/// Pins per script family:
+///   - clone()ed source_id bytes == original source_id bytes
+///   - clone()ed manifest_id bytes == original manifest_id bytes
+///   - full PartialEq equality round-trip
+///   - sanity: original is non-ASCII (rules out the test silently
+///     drifting to all-ASCII payloads)
+#[test]
+fn eidos_citation_clone_is_byte_perfect_for_multilingual_non_latin_ids() {
+    use super::types::{EidosChunkId, EidosCitation};
+
+    let m = manifest();
+    let multilingual_vectors: &[(&str, &str)] = &[
+        ("Han (Chinese)",        "笔记-a::lex"),
+        ("Hangul (Korean)",      "노트-a::lex"),
+        ("Arabic",               "ملاحظة-a::lex"),
+        ("Devanagari",           "नोट-a::lex"),
+        ("Mixed Han+Latin",      "笔note-a::lex"),
+        ("Hangul jamo NFD",      "\u{1102}\u{1169}트-a::lex"),
+    ];
+
+    for (label, raw_id) in multilingual_vectors {
+        let original = EidosCitation {
+            source_id: EidosChunkId::new(*raw_id).unwrap(),
+            manifest_id: m.clone(),
+        };
+        // Fixture sanity: legitimate multilingual id must be non-ASCII.
+        assert!(
+            !original.source_id.as_str().is_ascii(),
+            "{label}: fixture must be non-ASCII (the whole point of \
+             multilingual Clone coverage)"
+        );
+
+        let cloned = original.clone();
+
+        // (1) source_id bytes preserved exactly.
+        assert_eq!(
+            cloned.source_id.as_str().as_bytes(),
+            original.source_id.as_str().as_bytes(),
+            "{label}: Clone must preserve multilingual source_id bytes \
+             exactly — a future custom Clone that NFC-normalizes / \
+             casefolds / strips combining marks would silently break \
+             the byte-strict floor for vault entries authored in \
+             non-Latin scripts"
+        );
+
+        // (2) manifest_id bytes preserved exactly.
+        assert_eq!(
+            cloned.manifest_id.as_str().as_bytes(),
+            original.manifest_id.as_str().as_bytes(),
+            "{label}: Clone must preserve manifest_id bytes exactly"
+        );
+
+        // (3) Full PartialEq equality.
+        assert_eq!(
+            cloned, original,
+            "{label}: cloned multilingual citation must equal source"
+        );
+
+        // (4) Sanity: byte count > codepoint count for non-ASCII
+        // (catches a future Clone that silently truncates to ASCII).
+        assert!(
+            cloned.source_id.as_str().len() > raw_id.chars().count(),
+            "{label}: cloned source_id has more bytes than codepoints \
+             — multi-byte UTF-8 sequences survive Clone verbatim"
+        );
+    }
+}
+
 /// Both error types are LEAF errors — `.source()` returns `None`
 /// for every variant. Pins that the chat-layer's error-rendering
 /// surface doesn't need to walk a `.source()` chain to get the
