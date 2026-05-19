@@ -4096,6 +4096,33 @@ mod tests {
     }
 
     #[test]
+    fn lattice_wbo_error_public_keys_are_trimmed_ascii_pascal_case() {
+        for error in LatticeWboError::ALL {
+            let key = error.key();
+            let debug = format!("{error:?}");
+            assert!(!key.is_empty(), "{error:?}");
+            assert_eq!(key.trim(), key, "{error:?}");
+            assert!(key.is_ascii(), "{error:?}");
+            assert!(!key.contains(' '), "{error:?} key {key}");
+            assert!(!key.contains('-'), "{error:?} key {key}");
+            assert!(!key.contains('_'), "{error:?} key {key}");
+            let first = key.chars().next().expect("nonempty");
+            assert!(first.is_ascii_uppercase(), "{error:?} key {key}");
+            assert!(
+                key.chars().all(|ch| ch.is_ascii_alphanumeric()),
+                "{error:?} key {key}"
+            );
+            assert_eq!(key, debug.as_str(), "{error:?} debug should match key");
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`lattice_wbo_error_public_keys_are_trimmed_ascii_pascal_case`"),
+            "register doc must cross-link error public-key formatting safety"
+        );
+    }
+
+    #[test]
     fn lattice_wbo_error_public_keys_match_all_canonical_keys() {
         let canonical_keys = LatticeWboError::ALL
             .iter()
