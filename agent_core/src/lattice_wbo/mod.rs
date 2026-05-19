@@ -4641,6 +4641,39 @@ mod tests {
     }
 
     #[test]
+    fn residency_tier_side_information_witnesses_lead_with_primary_witness() {
+        for tier in ResidencyTier::ALL {
+            let witnesses = tier.side_information_witnesses();
+            assert!(
+                !witnesses.is_empty(),
+                "{} must declare at least one side-information witness",
+                tier.canonical_name()
+            );
+            assert_eq!(
+                witnesses[0],
+                tier.primary_side_information(),
+                "{} must lead with its primary side-information witness",
+                tier.canonical_name()
+            );
+            for (index, witness) in witnesses.iter().enumerate() {
+                assert!(
+                    !witnesses[index + 1..].contains(witness),
+                    "{} must not duplicate witness {:?}",
+                    tier.canonical_name(),
+                    witness
+                );
+            }
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register
+                .contains("`residency_tier_side_information_witnesses_lead_with_primary_witness`"),
+            "register doc must cross-link residency witness primary-first invariant"
+        );
+    }
+
+    #[test]
     fn residency_tier_side_information_witnesses_match_primary_codec_catalog() {
         for tier in ResidencyTier::ALL {
             for witness in tier.side_information_witnesses() {
