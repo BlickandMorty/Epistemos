@@ -36,8 +36,16 @@ structure RegressorDesign where
 def RegressorFamily.all : List RegressorFamily :=
   [.linearAttention, .stateSpaceModel, .fastWeightProgrammer, .onlineLearner, .softmaxAttention]
 
+/-- H6 unification is parameterized by three design choices:
+weights, function class, and optimizer. -/
+def designChoiceCount : Nat := 3
+
 theorem testTimeRegressionUnifiesFiveFamilies :
     RegressorFamily.all.length = 5 := by
+  rfl
+
+theorem designChoiceCountPinned :
+    designChoiceCount = 3 := by
   rfl
 
 end Epistemos.H6
