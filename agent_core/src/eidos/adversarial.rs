@@ -76,6 +76,12 @@ pub const ADVERSARIAL_QUERY_FIXTURE_EXPECTED_OUTCOMES: &[AdversarialQueryExpecte
     AdversarialQueryExpectedOutcome::DeterministicTieBreak,
 ];
 
+pub const ADVERSARIAL_QUERY_FIXTURE_DESCRIPTIONS: &[&str] = &[
+    "misspelled transposition of tropical; must not fuzzy-match by accident",
+    "high-frequency lexical needle for score saturation and overflow pins",
+    "same-count near-duplicate paragraphs force deterministic tie-breaks",
+];
+
 pub fn adversarial_query_fixture(label: &str) -> Option<AdversarialQueryFixture> {
     ADVERSARIAL_QUERY_FIXTURES
         .iter()
@@ -125,6 +131,10 @@ pub fn adversarial_query_fixture_kinds() -> &'static [AdversarialQueryFixtureKin
 pub fn adversarial_query_fixture_expected_outcomes(
 ) -> &'static [AdversarialQueryExpectedOutcome] {
     ADVERSARIAL_QUERY_FIXTURE_EXPECTED_OUTCOMES
+}
+
+pub fn adversarial_query_fixture_descriptions() -> &'static [&'static str] {
+    ADVERSARIAL_QUERY_FIXTURE_DESCRIPTIONS
 }
 
 pub fn adversarial_query_fixture_catalog_labels_match_fixture_rows() -> bool {
