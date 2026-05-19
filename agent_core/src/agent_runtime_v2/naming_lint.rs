@@ -803,6 +803,30 @@ mod tests {
     }
 
     #[test]
+    fn lint_does_not_flag_legitimate_git_commit_message_text() {
+        // Phase 1 hardening — symmetric negative companion to the
+        // git-commit-message positive pin. Legitimate System G /
+        // Invader Agent / agent_runtime_v2 commit subjects and bodies
+        // must not trip the rejected-name lint.
+        for commit_msg in [
+            "hardening(t11): preserve System G capability replay\n",
+            "test(t11): cover Invader Agent runtime events\n\nNo rejected name here.\n",
+            "feat(t11): route agent_runtime_v2 budget gate\n\nCo-Authored-By: someone <x@y.z>\n",
+            "docs(t11): clarify no-compromise substrate doctrine\n",
+        ] {
+            assert_eq!(
+                scan_text(commit_msg),
+                vec![],
+                "lint must not flag legitimate commit message: {commit_msg:?}"
+            );
+            assert!(
+                !text_contains_rejected_name(commit_msg),
+                "predicate must not flag legitimate commit message: {commit_msg:?}"
+            );
+        }
+    }
+
+    #[test]
     fn lint_catches_aegis_inside_branch_name_text() {
         // Phase 1 hardening — user's explicit Aegis-lint list:
         // "branch names". A branch name with Aegis in any case must
