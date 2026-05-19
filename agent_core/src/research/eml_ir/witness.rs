@@ -739,7 +739,7 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
     required_nested_string_json(&value, "hardware", "model")?;
     required_nested_string_json(&value, "hardware", "model_identifier")?;
     required_nested_string_json(&value, "hardware", "chip")?;
-    required_nested_unsigned_integer_json(&value, "hardware", "cpu_cores")?;
+    required_nested_u8_json(&value, "hardware", "cpu_cores")?;
     required_top_level_string_json(&value, "mission")?;
     required_top_level_string_json(&value, "evaluator_variant")?;
     required_top_level_string_json(&value, "shader_entrypoint")?;
@@ -1244,6 +1244,21 @@ fn required_nested_unsigned_integer_json(
         });
     };
     Ok(value)
+}
+
+fn required_nested_u8_json(
+    value: &serde_json::Value,
+    parent: &str,
+    field: &str,
+) -> Result<u8, FulpReplayError> {
+    let value = required_nested_unsigned_integer_json(value, parent, field)?;
+    if value > u64::from(u8::MAX) {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("number out of range for {parent}.{field}, expected u8"),
+            kind: FulpInvalidJsonKind::NumberOutOfRange,
+        });
+    }
+    Ok(value as u8)
 }
 
 fn reject_adversarial_reference_stats_json(
@@ -2227,6 +2242,25 @@ mod tests {
         assert_eq!(
             error.invalid_json_message(),
             Some("invalid type for hardware.cpu_cores, expected unsigned integer")
+        );
+    }
+
+    #[test]
+    fn replay_rejects_hardware_cpu_cores_json_u8_overflow_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["hardware"]["cpu_cores"] =
+            serde_json::Value::Number(serde_json::Number::from(u64::from(u8::MAX) + 1));
+        let json = serde_json::to_string(&value).unwrap();
+        let error =
+            replay_witness_json(&json).expect_err("hardware cpu cores overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("number out of range for hardware.cpu_cores, expected u8")
         );
     }
 
