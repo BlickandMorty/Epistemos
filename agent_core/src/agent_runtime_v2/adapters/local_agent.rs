@@ -1455,6 +1455,36 @@ mod tests {
     }
 
     #[test]
+    fn capability_command_token_handles_empty_instance_pattern_per_doctrine() {
+        // Phase 1 hardening — boundary completeness pin for the
+        // instance-method companion to
+        // command_token_handles_empty_whitespace_and_leading_placeholder_edge_cases
+        // (which exercises the static command_token_from helper).
+        //
+        // A LocalAgentCapability with command_pattern = "" must
+        // produce the empty command_token "" (Swift mirror parity).
+        // The instance method delegates to the static helper, which
+        // returns "" for the empty input.
+        //
+        // A LocalAgentCapability is a struct that COULD be constructed
+        // with an empty command_pattern through a Swift-side
+        // marshaller bug or a future fixture; the helper must NOT
+        // panic and must return "" verbatim.
+        let mut cap = ask_capability();
+        cap.command_pattern = String::new();
+        assert_eq!(cap.command_token(), "", "empty pattern must yield empty token");
+
+        // Whitespace-only pattern: same result.
+        cap.command_pattern = "   ".into();
+        assert_eq!(cap.command_token(), "");
+
+        // Pattern that's only a placeholder: take_while halts before
+        // consuming, result is "".
+        cap.command_pattern = "<arg>".into();
+        assert_eq!(cap.command_token(), "");
+    }
+
+    #[test]
     fn local_agent_adapter_is_clone_send_sync_for_propagation_safety() {
         // Phase 1 hardening — trait-bound pin for LocalAgentAdapter.
         // Companion to the trait-bound sweep across the user-facing
