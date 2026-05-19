@@ -1349,6 +1349,107 @@ mod tests {
     }
 
     #[test]
+    fn cli_adapter_serde_charset_is_lowercase_snake_case_only() {
+        // Phase 1 hardening — charset pin for CliAdapter serde forms.
+        // Extends the [a-z_] charset-pin family to the 6-variant
+        // CliAdapter enum (companion to:
+        //   - BudgetTerm::code (budget.rs §2090)
+        //   - AgentEventErrorKind::code (event.rs §940)
+        //   - StopReason::canonical_bytes (para.rs — iter just prior)
+        //   - AgentEvent event_type tag (event.rs — iter just prior)).
+        //
+        // CliAdapter uses #[serde(rename_all = "snake_case")]; serde
+        // derives each variant's form from the variant name. The
+        // existing per-variant string pin
+        // (cli_adapter_serde_snake_case_pins_all_six_adapter_strings)
+        // locks each form to a specific literal — but a 7th variant
+        // (e.g. AmpCode → "amp_code", Continue → "continue") added
+        // later wouldn't surface the charset doctrine unless it's
+        // pinned programmatically.
+        //
+        // A future variant rename that introduced #[serde(rename =
+        // "Claude-Code")] or accidentally bypassed rename_all would
+        // silently break blueprint replay (the kind tag would no
+        // longer match the snake_case grep filters in CLI tooling).
+        // Pin generates each form via serde and asserts charset for
+        // every one of the 6 CliAdapter variants.
+        let variants = [
+            CliAdapter::ClaudeCode,
+            CliAdapter::Codex,
+            CliAdapter::Goose,
+            CliAdapter::Aider,
+            CliAdapter::OpenHands,
+            CliAdapter::SweAgent,
+        ];
+        for variant in variants {
+            let s = serde_json::to_string(&variant).expect("serialise");
+            // Strip the outer JSON quotes.
+            let inner = s.strip_prefix('"').and_then(|x| x.strip_suffix('"'))
+                .expect("CliAdapter serialises to a JSON string");
+            assert!(!inner.is_empty(), "CliAdapter form must be non-empty for {variant:?}");
+            for ch in inner.chars() {
+                assert!(
+                    ch.is_ascii_lowercase() || ch == '_',
+                    "CliAdapter serde form {inner:?} for {variant:?} must be lowercase \
+                     snake_case; char {ch:?} violates [a-z_] charset"
+                );
+            }
+            assert!(!inner.starts_with('_'), "CliAdapter form {inner:?} must not start with '_'");
+            assert!(!inner.ends_with('_'), "CliAdapter form {inner:?} must not end with '_'");
+        }
+    }
+
+    #[test]
+    fn provider_policy_kind_discriminator_charset_is_lowercase_snake_case_only() {
+        // Phase 1 hardening — charset pin for the ProviderPolicy::kind
+        // discriminator. Companion to:
+        //   - cli_adapter_serde_charset_is_lowercase_snake_case_only
+        //     (iter just prior)
+        //   - provider_policy_serde_kind_discriminator_pins_snake_case_for_all_six_variants
+        //     (per-string pin for each kind tag)
+        //
+        // ProviderPolicy uses #[serde(rename_all = "snake_case", tag = "kind")];
+        // serde derives the kind tag from the variant name. A 7th variant
+        // (e.g. GeminiResponses, GroqChat) added with a non-snake_case
+        // rename or via #[serde(rename_all = "camelCase")] override
+        // would silently break replay grep tooling that filters by
+        // /^[a-z_]+$/.
+        //
+        // Pin generates each kind tag via serde + JSON reparse (no
+        // hard-coded list) and asserts:
+        //   - non-empty
+        //   - every char is ASCII lowercase or '_'
+        //   - no leading / trailing underscore (no anchor underscore)
+        // across all 6 ProviderPolicy variants.
+        let variants = [
+            ProviderPolicy::LocalMlx { model_id: "m".into() },
+            ProviderPolicy::AnthropicMessages { model: "m".into() },
+            ProviderPolicy::OpenAIResponses { model: "m".into() },
+            ProviderPolicy::OpenAICompatible { base_url: "https://x".into(), model: "m".into() },
+            ProviderPolicy::Mcp { server_id: "s".into() },
+            ProviderPolicy::ProCli { adapter: CliAdapter::Codex, command: "c".into() },
+        ];
+        for variant in variants {
+            let s = serde_json::to_string(&variant).expect("serialise");
+            let parsed: serde_json::Value = serde_json::from_str(&s).expect("reparse");
+            let kind = parsed
+                .get("kind")
+                .and_then(|v| v.as_str())
+                .expect("kind field missing");
+            assert!(!kind.is_empty(), "ProviderPolicy kind tag must be non-empty for {variant:?}");
+            for ch in kind.chars() {
+                assert!(
+                    ch.is_ascii_lowercase() || ch == '_',
+                    "ProviderPolicy kind {kind:?} for {variant:?} must be lowercase \
+                     snake_case; char {ch:?} violates [a-z_] charset"
+                );
+            }
+            assert!(!kind.starts_with('_'), "ProviderPolicy kind {kind:?} must not start with '_'");
+            assert!(!kind.ends_with('_'), "ProviderPolicy kind {kind:?} must not end with '_'");
+        }
+    }
+
+    #[test]
     fn blueprint_id_display_is_pure_deterministic_across_multiple_calls() {
         // Phase 1 hardening — pure-function determinism pin
         // (companion to the purity series). AgentBlueprintId
