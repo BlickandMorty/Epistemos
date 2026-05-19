@@ -214,7 +214,7 @@ Last audited: 2026-05-18. The schema migration table now separates pre-witness `
 
 ## Identity Gap Slug Catalog Audit
 
-Last audited: 2026-05-18. The schema identity-gap slug catalog starts with `reserved-state`, `duplicate-numeric-transition`, and `punctuation-endpoint-state`, cross-linked to N187-N195 and the migration identity sentinel rules. This is validator vocabulary only, not runtime evidence.
+Last audited: 2026-05-18. The schema identity-gap slug catalog starts with `reserved-state`, `duplicate-numeric-transition`, `punctuation-endpoint-state`, and `nested-transition-marker`, cross-linked to N185-N195 and the migration identity sentinel rules. This is validator vocabulary only, not runtime evidence.
 
 ## Artifact Dependency Audit
 
