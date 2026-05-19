@@ -176,6 +176,10 @@ Canonical witness artifacts must conform to [Falsifier Artifact Schema](FALSIFIE
 
 Last audited: 2026-05-18. The linked schema requires `falsifier_id`, `schema_version`, `artifact_kind`, `command`, `command_digest`, `runner_environment`, `commit_sha`, `hardware_pin`, `fixture_id`, `timestamp_utc`, `result_digest`, `measurements`, `acceptance_thresholds`, `pass_per_axis`, `overall_pass`, `fallback_tier`, `anomalies`, and `notes`; it also defines optional `fixture_lineage` for generated inputs and optional `provider_receipts` for cloud or hosted reference evidence. This is a contract completeness check only, not witness evidence.
 
+## Replay Identity Format Audit
+
+Last audited: 2026-05-18. The schema fragment hardens replay identity by requiring `commit_sha` to match a full 40-character lowercase hex Git SHA and `timestamp_utc` to match bounded RFC 3339 UTC `Z` time. These validators preserve the handbook's [Artifact Acceptance Rule](#artifact-acceptance-rule) and the schema's [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-identity-rule) before any row can promote runtime evidence.
+
 ## Identity Slug Negative Audit
 
 Last audited: 2026-05-18. The schema's [Identity Gap Slug Catalog](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#identity-gap-slug-catalog) owns the lowercase hyphenated vocabulary for validator identity-gap families. Negative examples N197 through N210 reject underscore, case drift, boundary punctuation, empty-token, numeric-leading, dotted, spaced, comma, slash, colon, plus, ampersand, and at-sign aliases before any handbook row or validator work item may reference an uncataloged slug.
