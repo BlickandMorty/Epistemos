@@ -310,6 +310,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_
 ```
 
 ```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md"); block=s[/## N197 - .*?```json\n(.*?)\n```/m,1] || abort("N197 missing"); x=JSON.parse(block); abort("N197 underscore slug missing") unless x["catalog_slug"] == "reserved_state"; abort("N197 unexpectedly matches slug grammar") if x["catalog_slug"].match?(/\A[a-z][a-z0-9]*(?:-[a-z0-9]+)*\z/); puts "identity gap underscore slug negative case ok"'
+```
+
+```bash
 ruby -e 'h=File.read("docs/falsifiers/M2_PRO_VERIFIED_FLOOR_HANDBOOK_2026_05_18.md"); abort("identity slug registration audit missing") unless h.include?("## Identity Gap Slug Registration Audit") && h.include?("N196 is the negative catalog guard"); puts "identity slug registration audit ok"'
 ```
 
