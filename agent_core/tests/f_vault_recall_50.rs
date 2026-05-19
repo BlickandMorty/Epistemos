@@ -1046,6 +1046,25 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_old_persian.md",
             "Mamba 𐎠 cache Mamba 𐎠 cache architecture notes old_persian",
         ),
+        // Iter-393 (47th Unicode — Kharoshthi extension):
+        // Latin "Mamba" + Kharoshthi "𐨀" (letter A, U+10A00)
+        // + Latin "cache". Kharoshthi (ca. 3rd c BCE - 3rd c
+        // CE) was used to write Gandhari (an Indic language)
+        // and Sanskrit across northwestern India, Pakistan,
+        // and Afghanistan. RTL alphasyllabary descended from
+        // Aramaic — fourth Aramaic-family descendant in the
+        // pin set (after Syriac iter-206, Mongolian iter-198,
+        // Avestan iter-351). The Aramaic genealogy in the pin
+        // set now spans FOUR distinct descendant branches:
+        // Northwest-Semitic direct (Syriac), Central-Asian
+        // (Mongolian via Sogdian → Uyghur), Iranian-liturgical
+        // (Avestan via Pahlavi), and Indic (Kharoshthi via
+        // Aramaic-NW). FOURTEENTH SMP-plane codepoint. Forty-
+        // five non-Latin scripts pinned (+ Kharoshthi).
+        (
+            "notes/mamba_kharoshthi.md",
+            "Mamba 𐨀 cache Mamba 𐨀 cache architecture notes kharoshthi",
+        ),
     ];
     for (path, content) in seeds {
         store
