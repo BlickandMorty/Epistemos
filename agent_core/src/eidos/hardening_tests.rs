@@ -157,7 +157,7 @@ fn assert_iter_format_canonical_panics_on_out_of_range() {
     assert_iter_format_canonical("iter 099", "MY_SOURCE_LABEL");
 }
 
-/// Iter 715 — catalog range continuation pin.
+/// Iter 716 — catalog range continuation pin.
 /// STATUS.md is the contributor-facing catalog for the closed-citation
 /// hardening arc. When new pins land after the previous range tip, the
 /// range must advance in lock-step so future readers can tell the arc is
@@ -167,9 +167,9 @@ fn status_md_closed_citation_iter_range_tip_tracks_latest_catalog_pin() {
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Closed-citation contract hardening (iters 127-715)"),
+        status.contains("Closed-citation contract hardening (iters 127-716)"),
         "STATUS.md closed-citation hardening catalog must advance its iter \
-         range tip to iter 715 when the catalog-continuation pin lands"
+         range tip to iter 716 when the catalog-continuation pin lands"
     );
 }
 
@@ -1201,6 +1201,47 @@ fn adversarial_query_fixture_query_text_slice_matches_fixture_rows() {
         adversarial_query_fixture_catalog_query_texts_match_fixture_rows(),
         "fixture query-text enumerator must remain byte-equal to fixture row query_text values"
     );
+}
+
+#[test]
+fn adversarial_query_fixture_kinds_are_ordered_unique_and_lookup_complete() {
+    use super::adversarial::{
+        adversarial_query_fixture_for_kind, adversarial_query_fixture_kinds,
+        AdversarialQueryFixtureKind, ADVERSARIAL_QUERY_FIXTURES,
+    };
+
+    let kinds = adversarial_query_fixture_kinds();
+    assert_eq!(
+        kinds,
+        [
+            AdversarialQueryFixtureKind::TypoTransposition,
+            AdversarialQueryFixtureKind::Bm25Saturation,
+            AdversarialQueryFixtureKind::NearDuplicateParagraphTie,
+        ],
+        "fixture kind order is a stable typed harness contract"
+    );
+    assert_eq!(kinds.len(), ADVERSARIAL_QUERY_FIXTURES.len());
+
+    let unique: std::collections::BTreeSet<&str> = kinds
+        .iter()
+        .map(|kind| match kind {
+            AdversarialQueryFixtureKind::TypoTransposition => "TypoTransposition",
+            AdversarialQueryFixtureKind::Bm25Saturation => "Bm25Saturation",
+            AdversarialQueryFixtureKind::NearDuplicateParagraphTie => "NearDuplicateParagraphTie",
+        })
+        .collect();
+    assert_eq!(
+        unique.len(),
+        kinds.len(),
+        "fixture kinds must remain pairwise unique"
+    );
+
+    for kind in kinds {
+        assert!(
+            adversarial_query_fixture_for_kind(*kind).is_some(),
+            "every enumerated fixture kind must resolve through exact lookup"
+        );
+    }
 }
 
 #[test]
