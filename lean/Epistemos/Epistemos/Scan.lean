@@ -124,6 +124,11 @@ structure SSDEquivalenceObligation (α : Type) where
     sequentialOutput = sequentialScan monoid.op initial inputs
   equivalent : ssdOutput = sequentialOutput
 
+theorem SSDEquivalenceObligation.ssdOutputMatchesSequential {α : Type}
+    (o : SSDEquivalenceObligation α) :
+    o.ssdOutput = sequentialScan o.monoid.op o.initial o.inputs := by
+  rw [o.equivalent, o.sequential_matches]
+
 /-- Target for a generated Scan expression/program certificate. -/
 structure CertificateTarget (α : Type) where
   monoid : MonoidWitness α
