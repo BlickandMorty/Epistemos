@@ -1602,6 +1602,24 @@ mod tests {
     }
 
     #[test]
+    fn citation_from_tuple_positional_arg_order_is_pinned() {
+        // Phase 1 hardening — positional-order pin for Citation::from_tuple
+        // (companion to constructor-order pin family iter-433..iter-437).
+        //
+        // Signature: from_tuple(source, locator) (answer.rs §56).
+        //
+        // Both args accept `impl Into<String>`, making a `source <-> locator`
+        // swap type-compatible and silent. Pin via DISTINCT identifiable
+        // values per field.
+        let c = Citation::from_tuple(
+            /*source=*/  "DISTINCT-SOURCE-PATH",
+            /*locator=*/ "DISTINCT-LOCATOR-RANGE",
+        );
+        assert_eq!(c.source, "DISTINCT-SOURCE-PATH");
+        assert_eq!(c.locator, "DISTINCT-LOCATOR-RANGE");
+    }
+
+    #[test]
     fn citation_from_tuple_constructs_equivalent_struct() {
         let direct = Citation {
             source: "src".into(),
