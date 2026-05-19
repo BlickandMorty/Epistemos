@@ -222,3 +222,11 @@ pub fn adversarial_query_fixture_labels_are_ascii_lowercase_kebab_case() -> bool
             && !label.contains("--")
     })
 }
+
+pub fn adversarial_query_fixture_query_texts_are_nonempty_trimmed_and_control_free() -> bool {
+    ADVERSARIAL_QUERY_FIXTURE_QUERY_TEXTS.iter().all(|query_text| {
+        !query_text.is_empty()
+            && query_text.trim() == *query_text
+            && !query_text.chars().any(char::is_control)
+    })
+}
