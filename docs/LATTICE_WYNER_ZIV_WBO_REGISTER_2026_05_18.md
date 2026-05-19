@@ -170,7 +170,7 @@ Budget composition properties are pinned across zero, finite/mixed, max, overflo
 
 ## Error Variant Register
 
-`register_doc_names_every_lattice_wbo_error_variant` asserts that every `LatticeWboError::ALL` variant has one register error row; error variant register rejects stale rows outside `LatticeWboError::ALL`. `register_doc_error_variant_rows_follow_lattice_wbo_error_all_order` asserts that error variant register order follows `LatticeWboError::ALL`. `lattice_wbo_error_json_uses_explicit_public_keys` asserts that LatticeWboError JSON emits and accepts only explicit public error keys; lowercase, prose, dashed, and spaced spoof keys are rejected.
+`register_doc_names_every_lattice_wbo_error_variant` asserts that every `LatticeWboError::ALL` variant has one register error row; error variant register rejects stale rows outside `LatticeWboError::ALL`. `register_doc_error_variant_rows_follow_lattice_wbo_error_all_order` asserts that error variant register order follows `LatticeWboError::ALL`. `lattice_wbo_error_public_keys_match_all_canonical_keys` asserts that `LatticeWboError::CODES` is exactly `LatticeWboError::ALL.map(key)` and every public key round-trips through `from_key()`. `lattice_wbo_error_json_uses_explicit_public_keys` asserts that LatticeWboError JSON emits and accepts only explicit public error keys; lowercase, prose, dashed, and spaced spoof keys are rejected.
 
 | Error variant | Rejection owner |
 |---|---|

@@ -4096,6 +4096,26 @@ mod tests {
     }
 
     #[test]
+    fn lattice_wbo_error_public_keys_match_all_canonical_keys() {
+        let canonical_keys = LatticeWboError::ALL
+            .iter()
+            .map(|error| error.key())
+            .collect::<Vec<_>>();
+
+        assert_eq!(LatticeWboError::CODES, canonical_keys.as_slice());
+        for (error, key) in LatticeWboError::ALL.iter().zip(LatticeWboError::CODES) {
+            assert_eq!(error.key(), key);
+            assert_eq!(LatticeWboError::from_key(key), Some(*error));
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`lattice_wbo_error_public_keys_match_all_canonical_keys`"),
+            "register doc must cross-link error public-key exhaustiveness"
+        );
+    }
+
+    #[test]
     fn wbo_term_public_codes_match_all_canonical_codes() {
         let canonical_codes = WboTermCode::ALL
             .iter()
