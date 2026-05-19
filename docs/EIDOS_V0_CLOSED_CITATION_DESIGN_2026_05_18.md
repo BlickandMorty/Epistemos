@@ -215,7 +215,7 @@ Four questions captured in §11 with schema-impact notes: embedding-model identi
 Per the T10 acceptance bar's "FLOOR not CEILING" rule, this branch continues to harden after the spec is met. Recent additions (all post-acceptance):
 
 - Adversarial query coverage (NUL byte, ZWJ emoji, 4096-char strings)
-- Boundary tests (top_k = `u16::MAX`, Recency since = `u64::MAX`, lexical body with 1000-occurrence needle, lexical empty body, claim with no evidence, all-empty Hybrid_N, N=100 inner retrievers)
+- Boundary tests (top_k = `u16::MAX`, Recency since = `u64::MAX`, lexical body with 1000-occurrence needle, lexical empty body, claim with no evidence, all-empty Hybrid_N, N=100 inner retrievers, adversarial query fixture catalog for typo / BM25 saturation / near-duplicate tie cases)
 - Compositional invariants (PV over Hybrid_N, PV over LedgerBacked, nested PV, ledger + memory ClaimEvidence dedup by document_id)
 - Cross-snapshot invariants (citation drift across packets, retraction propagation, commit-retract-recommit lifecycle)
 - Doc/code drift detectors (§4 retrieval table row count, §11 research-question subsection count)

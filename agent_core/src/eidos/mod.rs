@@ -28,6 +28,7 @@
 //! in T10B against `eidos::forms` later in the loop.
 
 pub mod claim_evidence;
+pub mod adversarial;
 pub mod code_symbol;
 pub mod falsifier;
 pub mod graph_neighborhood;
