@@ -7442,6 +7442,86 @@ mod tests {
     }
 
     #[test]
+    fn codec_falsifier_hook_sets_are_pinned_to_owner_registry() {
+        let rows = LatticeCoderKind::ALL
+            .iter()
+            .map(|coder| (coder.canonical_name(), f_hooks_in(coder.falsifier())))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            rows,
+            vec![
+                ("exact-hot", vec!["F-WBO-DriftLedger", "F-ULP-Oracle"]),
+                (
+                    "lattice-wyner-ziv-residual",
+                    vec!["F-WBO-DriftLedger", "F-ULP-Oracle", "F-ACS-AnchorLookup"],
+                ),
+                (
+                    "babai-gptq-nearest-plane",
+                    vec!["F-WBO-DriftLedger", "F-ULP-Oracle"],
+                ),
+                (
+                    "sherry-3-of-4-ternary",
+                    vec!["F-WBO-DriftLedger", "F-ULP-Oracle"],
+                ),
+                (
+                    "shadow-kv-sketch",
+                    vec![
+                        "F-WBO-DriftLedger",
+                        "F-ULP-Oracle",
+                        "F-KV-Direct-Gate",
+                        "F-ACS-AnchorLookup",
+                    ],
+                ),
+                (
+                    "engram-hash-recall",
+                    vec!["F-ACS-AnchorLookup", "F-ULP-Oracle", "F-WBO-DriftLedger"],
+                ),
+                ("nested-e8", vec!["F-WBO-DriftLedger", "F-ULP-Oracle"]),
+                ("nested-leech-24", vec!["F-WBO-DriftLedger", "F-ULP-Oracle"],),
+                ("quip-e8", vec!["F-WBO-DriftLedger", "F-ULP-Oracle"]),
+                (
+                    "nf4-ssd-oracle",
+                    vec![
+                        "F-KV-Direct-Gate",
+                        "F-ULP-Oracle",
+                        "F-WBO-DriftLedger",
+                        "F-ACS-AnchorLookup",
+                    ],
+                ),
+                (
+                    "residual-sketch",
+                    vec!["F-WBO-DriftLedger", "F-ULP-Oracle", "F-ACS-AnchorLookup"],
+                ),
+                (
+                    "network-cascade",
+                    vec!["F-ULP-Oracle", "F-WBO-DriftLedger", "F-ACS-AnchorLookup"],
+                ),
+                (
+                    "self-evolving-adapter",
+                    vec!["F-ULP-Oracle", "F-WBO-DriftLedger"],
+                ),
+            ]
+        );
+
+        let owners = falsifier_hook_owners();
+        for (_, hooks) in rows {
+            for hook in hooks {
+                assert!(
+                    owners.iter().any(|owner| owner.hook == hook),
+                    "{hook} must resolve through FALSIFIER_HOOK_OWNERS"
+                );
+            }
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`codec_falsifier_hook_sets_are_pinned_to_owner_registry`"),
+            "register doc must cross-link codec falsifier owner hook matrix"
+        );
+    }
+
+    #[test]
     fn residency_primary_falsifiers_name_owned_f_hooks_for_every_tier() {
         let owners = falsifier_hook_owners();
 
