@@ -1059,6 +1059,40 @@ mod tests {
     }
 
     #[test]
+    fn para_error_para_output_para_feedback_are_clone_send_sync_but_not_copy() {
+        // Phase 1 hardening — trait-bound pin for the Para-trait
+        // surface types. Companion to the Clone + Send + Sync (not
+        // Copy) sweep AgentBlueprintId iter-375 → AgentEvent +
+        // MutationEnvelope iter-381.
+        //
+        //   - ParaError: 4-variant enum, Clone by derive but NOT Copy
+        //     (Transport variant carries String).
+        //   - ParaOutput<B>: 4 fields including Option<Vec<u8>>
+        //     (thinking), Clone by derive but NOT Copy when B
+        //     allocates. Pinned for both String and u32 (the latter
+        //     covers the Copy-B case where ParaOutput is still
+        //     non-Copy because of the Vec<u8> field).
+        //   - ParaFeedback<P>: 1 field (delta: P), Clone by derive
+        //     but NOT Copy when P allocates. Pinned for u32.
+        //
+        // Send + Sync are load-bearing — Para trait outputs cross
+        // executor → dispatcher → UI boundaries; non-Send variants
+        // would pin them to a single thread and break the streaming
+        // path the engine relies on.
+        fn assert_clone_send_sync<T: Clone + Send + Sync>() {}
+        assert_clone_send_sync::<ParaError>();
+        assert_clone_send_sync::<ParaOutput<String>>();
+        assert_clone_send_sync::<ParaOutput<u32>>();
+        assert_clone_send_sync::<ParaFeedback<u32>>();
+
+        let e = ParaError::BudgetExhausted;
+        assert_eq!(e.clone(), e);
+        let o: ParaOutput<u32> =
+            ParaOutput::new(42, StopReason::EndTurn, Some(b"x".to_vec()));
+        assert_eq!(o.clone(), o);
+    }
+
+    #[test]
     fn stop_reason_is_copy_clone_send_sync_for_propagation_safety() {
         // Phase 1 hardening — trait-bound pin (companion to
         // budget_gate_is_copy_and_clone_for_pure_function_semantics
