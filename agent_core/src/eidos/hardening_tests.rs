@@ -9227,6 +9227,109 @@ fn lexical_source_id_sort_is_deterministic_byte_lex_across_scripts() {
     }
 }
 
+/// Bedrock constructor pin — `EidosChunkId::new` + `EidosIndexManifestId::new`
+/// + `EidosDocumentId::new` accept ARBITRARY non-empty UTF-8 payloads,
+/// including every script family pinned in the multilingual lattice,
+/// and round-trip the bytes verbatim through `as_str()`.
+///
+/// This is the bedrock invariant that everything else depends on. If
+/// a future change ever added validation to one of these constructors
+/// ("source_ids must be ASCII", "manifest_ids must match [a-zA-Z0-9-]+",
+/// "document_ids must be valid filesystem paths"), vault entries
+/// authored in Han / Hangul / Arabic / Devanagari scripts would
+/// silently de-resolve from id construction itself, BEFORE the
+/// closed-citation gate ever sees them. Iters 658-670's byte-strict
+/// floors all assume this bedrock holds.
+///
+/// Pinned across the same 5 script families as the multilingual
+/// lattice, plus:
+///   - "purely non-Latin id without any ASCII anchor" (catches
+///     constructors that require at least one ASCII char as a
+///     "valid id" heuristic)
+///   - "Arabic-only" "笔记" "노트" "नोट" — fully non-Latin
+///   - composed Han + Latin (mixed-script)
+///   - Latin extended with combining mark (1-byte→2-byte e + combining
+///     acute, a sneaky boundary case where the byte length isn't
+///     a simple function of char count)
+///
+/// Pins per script:
+///   - new(s) returns Ok(_)
+///   - the returned id's as_str() bytes equal the input bytes
+///     verbatim (no trimming, no canonicalization)
+///   - the byte length is preserved (multi-byte UTF-8 survives)
+///   - the round-trip works for all 3 newtype id types
+///     (EidosChunkId, EidosIndexManifestId, EidosDocumentId)
+#[test]
+fn id_constructors_accept_and_round_trip_arbitrary_non_latin_utf8() {
+    use super::types::{EidosChunkId, EidosDocumentId};
+
+    let cases: &[(&str, &str)] = &[
+        ("Han only",              "笔记"),
+        ("Hangul only",           "노트"),
+        ("Arabic only",           "ملاحظة"),
+        ("Devanagari only",       "नोट"),
+        ("Mixed Han+Latin",       "笔note-a"),
+        ("Hangul jamo NFD",       "\u{1102}\u{1169}트-a"),
+        ("Latin extended (é NFC)", "café-a"),
+        ("Latin extended NFD",    "cafe\u{0301}-a"),
+        ("Mixed scripts (4-way)", "笔note-노트-ملاحظة"),
+        // Single-codepoint Han (the smallest possible non-ASCII id —
+        // catches a "minimum length" guard that requires N chars
+        // before accepting a non-ASCII payload).
+        ("Single Han",            "笔"),
+    ];
+
+    for (label, payload) in cases {
+        // (1) EidosChunkId.
+        let chunk = EidosChunkId::new(*payload)
+            .unwrap_or_else(|e| panic!("{label}: EidosChunkId::new rejected {payload:?}: {e}"));
+        assert_eq!(
+            chunk.as_str().as_bytes(),
+            payload.as_bytes(),
+            "{label}: EidosChunkId must round-trip non-Latin bytes verbatim — \
+             any added trimming / canonicalization in the constructor would \
+             silently break vault entries authored in non-Latin scripts"
+        );
+        assert_eq!(
+            chunk.as_str().len(),
+            payload.len(),
+            "{label}: EidosChunkId byte length preserved"
+        );
+
+        // (2) EidosIndexManifestId.
+        let manifest = EidosIndexManifestId::new(*payload)
+            .unwrap_or_else(|e| panic!("{label}: EidosIndexManifestId::new rejected: {e}"));
+        assert_eq!(
+            manifest.as_str().as_bytes(),
+            payload.as_bytes(),
+            "{label}: EidosIndexManifestId must round-trip bytes verbatim"
+        );
+
+        // (3) EidosDocumentId.
+        let docid = EidosDocumentId::new(*payload)
+            .unwrap_or_else(|e| panic!("{label}: EidosDocumentId::new rejected: {e}"));
+        assert_eq!(
+            docid.as_str().as_bytes(),
+            payload.as_bytes(),
+            "{label}: EidosDocumentId must round-trip bytes verbatim"
+        );
+
+        // (4) Fixture sanity for the multilingual cases: non-ASCII
+        // payloads must remain non-ASCII through construction.
+        if !payload.is_ascii() {
+            assert!(
+                !chunk.as_str().is_ascii(),
+                "{label}: non-ASCII payload became ASCII after construction \
+                 — constructor silently transliterated"
+            );
+            assert!(
+                chunk.as_str().len() > payload.chars().count(),
+                "{label}: multi-byte UTF-8 sequences must survive construction"
+            );
+        }
+    }
+}
+
 /// `EidosHit::clone()` is byte-perfect — parallel to iter 190's
 /// EidosCitation Clone pin, but for the OUTPUT type (retriever-
 /// emitted hits) rather than the INPUT type (chat-layer citations).
