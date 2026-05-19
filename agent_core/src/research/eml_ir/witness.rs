@@ -1360,10 +1360,22 @@ fn reject_raw_config_unsigned_json(raw_config: &RawValue) -> Result<(), FulpRepl
     if let Some(value) = raw_config.stress_points {
         raw_unsigned_integer_json(value, "config.stress_points")?;
     }
-    if let Some(value) = raw_config.ulp_tolerance {
-        raw_u32_json(value, "config.ulp_tolerance")?;
-    }
+    let value = required_raw_json_field(raw_config.ulp_tolerance, "config.ulp_tolerance")?;
+    raw_u32_json(value, "config.ulp_tolerance")?;
     Ok(())
+}
+
+fn required_raw_json_field<'a>(
+    value: Option<&'a RawValue>,
+    field: &str,
+) -> Result<&'a RawValue, FulpReplayError> {
+    let Some(value) = value else {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("missing field {field}"),
+            kind: FulpInvalidJsonKind::MissingField,
+        });
+    };
+    Ok(value)
 }
 
 fn raw_u32_json(raw_value: &RawValue, field: &str) -> Result<u32, FulpReplayError> {
@@ -2189,6 +2201,27 @@ mod tests {
             .invalid_json_message()
             .expect("invalid json message")
             .contains("config.ulp_tolerance"));
+    }
+
+    #[test]
+    fn replay_rejects_missing_config_ulp_tolerance_json_field_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["config"]
+            .as_object_mut()
+            .expect("config object")
+            .remove("ulp_tolerance");
+        let json = serde_json::to_string(&value).unwrap();
+        let error =
+            replay_witness_json(&json).expect_err("missing config tolerance must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::MissingField)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("missing field config.ulp_tolerance")
+        );
     }
 
     #[test]
