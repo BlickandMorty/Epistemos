@@ -35,13 +35,22 @@ noncomputable def eml_certificate_sample :
     value := eml_value_sample
     branch_safe := eml_branch_safe_sample
     value_matches := eml_eval_matches_sample
-    positive_value := eml_positive_value_sample }
+    positive_value := eml_positive_value_sample
+    sourceRow := "docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 EML-IR" }
 
 theorem eml_certificate_data_fields_sample :
     eml_certificate_sample.expr = eml_expr_sample ∧
       eml_certificate_sample.value = eml_value_sample := by
   exact Epistemos.EML.CertificateTarget.dataFieldsMatch
     eml_certificate_sample eml_expr_sample eml_value_sample rfl rfl
+
+theorem eml_certificate_source_row_sample :
+    eml_certificate_sample.sourceRow =
+      "docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 EML-IR" := by
+  exact Epistemos.EML.CertificateTarget.sourceRowMatches
+    eml_certificate_sample
+    "docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 EML-IR"
+    rfl
 
 theorem eml_branch_and_eval_sample :
     Epistemos.EML.BranchSafe eml_certificate_sample.expr ∧

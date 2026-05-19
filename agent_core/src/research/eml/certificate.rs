@@ -283,7 +283,8 @@ pub fn lean_certificate(p: &PositiveEmlExpr) -> String {
          \x20     value := eml_value_{suffix}\n\
          \x20     branch_safe := eml_branch_safe_{suffix}{branch_witness_arg}\n\
          \x20     value_matches := eml_eval_matches_{suffix}{eval_witness_arg}\n\
-         \x20     positive_value := eml_positive_value_{suffix} }}\n\
+         \x20     positive_value := eml_positive_value_{suffix}\n\
+         \x20     sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 EML-IR\" }}\n\
          \n\
          theorem eml_certificate_data_fields_{suffix}{branch_witness_binder}{eval_witness_binder} :\n\
          \x20   (eml_certificate_{suffix}{branch_witness_arg}{eval_witness_arg}).expr = eml_expr_{suffix} ∧\n\
@@ -291,6 +292,14 @@ pub fn lean_certificate(p: &PositiveEmlExpr) -> String {
          \x20 exact Epistemos.EML.CertificateTarget.dataFieldsMatch\n\
          \x20   (eml_certificate_{suffix}{branch_witness_arg}{eval_witness_arg})\n\
          \x20   eml_expr_{suffix} eml_value_{suffix} rfl rfl\n\
+         \n\
+         theorem eml_certificate_source_row_{suffix}{branch_witness_binder}{eval_witness_binder} :\n\
+         \x20   (eml_certificate_{suffix}{branch_witness_arg}{eval_witness_arg}).sourceRow =\n\
+         \x20     \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 EML-IR\" := by\n\
+         \x20 exact Epistemos.EML.CertificateTarget.sourceRowMatches\n\
+         \x20   (eml_certificate_{suffix}{branch_witness_arg}{eval_witness_arg})\n\
+         \x20   \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 EML-IR\"\n\
+         \x20   rfl\n\
          \n\
          theorem eml_branch_and_eval_{suffix}{branch_witness_binder}{eval_witness_binder} :\n\
          \x20   Epistemos.EML.BranchSafe (eml_certificate_{suffix}{branch_witness_arg}{eval_witness_arg}).expr ∧\n\
@@ -485,6 +494,9 @@ mod tests {
     fn certificate_projects_target_data_fields() {
         let p = PositiveEmlExpr::one();
         let c = lean_certificate(&p);
+        assert!(c.contains("sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 EML-IR\""));
+        assert!(c.contains("theorem eml_certificate_source_row_"));
+        assert!(c.contains("Epistemos.EML.CertificateTarget.sourceRowMatches"));
         assert!(c.contains("theorem eml_certificate_data_fields_"));
         assert!(c.contains(".expr = eml_expr_"));
         assert!(c.contains(".value = eml_value_"));

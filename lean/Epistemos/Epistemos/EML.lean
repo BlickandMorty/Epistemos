@@ -105,6 +105,7 @@ structure CertificateTarget where
   branch_safe : BranchSafe expr
   value_matches : Expr.eval expr = value
   positive_value : 0 < value
+  sourceRow : String
 
 /-- Runtime evaluator witness for non-symbolic EML values. Rust may
 cache a floating value for a well-formed tree; generated certificates
@@ -137,6 +138,13 @@ theorem CertificateTarget.dataFieldsMatch
     c.expr = expr ∧ c.value = value := by
   exact ⟨exprMatches, valueMatches⟩
 
+theorem CertificateTarget.sourceRowMatches
+    (c : CertificateTarget)
+    (sourceRow : String)
+    (stored : c.sourceRow = sourceRow) :
+    c.sourceRow = sourceRow := by
+  exact stored
+
 theorem CertificateTarget.eval_positive (c : CertificateTarget) :
     0 < Expr.eval c.expr := by
   rw [c.value_matches]
@@ -161,7 +169,8 @@ def oneCertificateTarget : CertificateTarget :=
     value := 1
     branch_safe := one_branch_safe
     value_matches := Expr.eval_one
-    positive_value := by norm_num }
+    positive_value := by norm_num
+    sourceRow := "EML-IR.oneCertificateTarget" }
 
 theorem oneCertificateTargetEvalPositive :
     0 < Expr.eval oneCertificateTarget.expr :=
@@ -173,7 +182,8 @@ noncomputable def rightOneCertificateTarget (x : Expr)
     value := Expr.eval (Expr.eml x Expr.one)
     branch_safe := eml_right_one_branch_safe hx
     value_matches := rfl
-    positive_value := eval_eml_right_one_positive x }
+    positive_value := eval_eml_right_one_positive x
+    sourceRow := "EML-IR.rightOneCertificateTarget" }
 
 theorem rightOneCertificateTargetEvalPositive (x : Expr)
     (hx : BranchSafe x) :
