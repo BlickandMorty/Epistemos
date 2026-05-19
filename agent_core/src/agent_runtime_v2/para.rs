@@ -612,6 +612,41 @@ mod tests {
     }
 
     #[test]
+    fn para_output_and_para_feedback_struct_field_shapes_pinned_via_destructure() {
+        // Phase 1 hardening — struct-field-shape pin pair for the
+        // Para trait's output + feedback types (companion to the
+        // struct destructure pin family iter-464..iter-469).
+        //
+        // ParaOutput<B>: EXACTLY 5 fields
+        //   - value: B
+        //   - stop_reason: StopReason
+        //   - stop_reason_digest: [u8; 32]
+        //   - thinking_digest: [u8; 32]
+        //   - thinking: Option<Vec<u8>>
+        //
+        // ParaFeedback<P>: EXACTLY 1 field
+        //   - delta: P
+        let out: ParaOutput<u32> =
+            ParaOutput::new(42, StopReason::EndTurn, Some(b"x".to_vec()));
+        let ParaOutput {
+            value,
+            stop_reason,
+            stop_reason_digest,
+            thinking_digest,
+            thinking,
+        } = out;
+        let _: u32 = value;
+        let _: StopReason = stop_reason;
+        let _: [u8; 32] = stop_reason_digest;
+        let _: [u8; 32] = thinking_digest;
+        let _: Option<Vec<u8>> = thinking;
+
+        let feedback = ParaFeedback { delta: 1u32 };
+        let ParaFeedback { delta } = feedback;
+        let _: u32 = delta;
+    }
+
+    #[test]
     fn every_para_output_field_is_identity_load_bearing() {
         // Phase 1 hardening — seventh leg of the identity-pin
         // pattern (AgentBlueprint 5, AnswerPacket 7, MissionPacket 3,
