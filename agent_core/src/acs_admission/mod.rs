@@ -2682,12 +2682,12 @@ impl SCOPERexAdmissionProof {
         run_event_log: &OpLog,
         key: &K,
     ) -> Result<ACSAuditRecord, SCOPERexAdmissionProofVerificationError> {
-        if !run_event_log.verify_chain(None).valid {
-            return Err(self.lookup_verification_error(
-                ACSAuditLookupError::InvalidRunEventLogChain {
-                    record_id: self.record_id.0.clone(),
-                },
-            ));
+        let chain_report = run_event_log.verify_chain(None);
+        if !chain_report.valid {
+            return Err(self.lookup_verification_error(acs_audit_lookup_chain_error(
+                self.record_id.0.clone(),
+                &chain_report,
+            )));
         }
         self.validate()
             .map_err(|err| self.proof_verification_error(err))?;
@@ -7738,6 +7738,59 @@ mod tests {
             .unwrap_err();
 
         assert_eq!(err.cause(), "invalid_run_event_log_chain");
+        assert_eq!(err.field(), Some("run_event_log"));
+        assert_eq!(err.record_id(), Some(proof.record_id.0.as_str()));
+    }
+
+    #[test]
+    fn acs_admission_scope_rex_proof_reports_audit_log_gap() {
+        let temp_dir = tempfile::tempdir().expect("temporary ACS OpLog directory");
+        let db_path = temp_dir.path().join("acs-proof-log-gap.sqlite");
+        let signing_key = crate::effect::receipt::HmacSha256SigningKey::new([7; 32]);
+        let proof = {
+            let run_event_log =
+                crate::oplog::OpLog::open_persistent("acs-proof-gap-test", &db_path)
+                    .expect("persistent RunEventLog opens");
+            let sink = ACSRunEventLogSink::new(&run_event_log);
+            let first_input = ACSAdmissionInput {
+                request_id: "req-proof-gap-first".to_string(),
+                payload: tool_action_payload(),
+                submitted_at_ms: 1_000,
+                risk: ACSRiskVector::neutral(),
+                granted_capabilities: Vec::new(),
+            };
+            let second_input = ACSAdmissionInput {
+                request_id: "req-proof-gap".to_string(),
+                payload: tool_action_payload(),
+                submitted_at_ms: 1_001,
+                risk: ACSRiskVector::neutral(),
+                granted_capabilities: Vec::new(),
+            };
+            let policy = ACSPolicy::strict("policy-proof-gap", 1_000);
+            admit_and_record(&first_input, &policy, 1_000, &sink)
+                .expect("first RunEventLog sink record writes");
+            let second_decision = admit_and_record(&second_input, &policy, 1_001, &sink)
+                .expect("second RunEventLog sink record writes");
+            SCOPERexAdmissionProof::signed_from_record(&second_decision.audit_record, &signing_key)
+                .expect("audit record signs")
+        };
+
+        let conn = rusqlite::Connection::open(&db_path).expect("tamper connection opens");
+        conn.execute("DELETE FROM epistemos_oplog WHERE seq = 0", [])
+            .expect("tamper delete succeeds");
+        drop(conn);
+
+        let reopened = crate::oplog::OpLog::open_persistent("acs-proof-gap-test", &db_path)
+            .expect("gapped RunEventLog reopens");
+        let report = reopened.verify_chain(None);
+        assert!(!report.valid);
+        assert_eq!(report.failure_reason.as_deref(), Some("seq_gap"));
+
+        let err = proof
+            .verify_against_run_event_log(&reopened, &signing_key)
+            .unwrap_err();
+
+        assert_eq!(err.cause(), "acs_audit_log_gap");
         assert_eq!(err.field(), Some("run_event_log"));
         assert_eq!(err.record_id(), Some(proof.record_id.0.as_str()));
     }
