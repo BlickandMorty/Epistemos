@@ -5529,6 +5529,57 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_per_operation_threshold_overrides_apply_as_complete_matrix() {
+        let mut risk = ACSRiskVector::neutral();
+        risk.truth_risk = 0.35;
+        let override_thresholds = ACSRiskThresholds {
+            warn_at: 0.10,
+            defer_at: 0.20,
+            quarantine_at: 0.30,
+            reject_at: 0.40,
+        };
+        let override_operations = [
+            ACSOperationKind::MemoryWrite,
+            ACSOperationKind::ToolAction,
+            ACSOperationKind::ActiveAssemblyPacket,
+            ACSOperationKind::KernelPromotion,
+            ACSOperationKind::ModelAdaptation,
+        ];
+        let mut policy = ACSPolicy::strict_default(1_000);
+        policy.operation_thresholds = override_operations
+            .iter()
+            .copied()
+            .map(|operation| ACSOperationThresholdRule::new(operation, override_thresholds))
+            .collect();
+        let granted_capabilities = vec![
+            named_capability("VaultWrite"),
+            named_capability("ToolExec"),
+            named_capability("Assembly"),
+            named_capability("KernelPromote"),
+            named_capability("ModelAdapt"),
+        ];
+
+        for operation in override_operations {
+            let input = ACSAdmissionInput {
+                request_id: format!("req-{}-threshold-matrix", operation.code()),
+                payload: high_risk_operation_payload(operation),
+                submitted_at_ms: 1_001,
+                risk,
+                granted_capabilities: granted_capabilities.clone(),
+            };
+
+            let decision = admit(&input, &policy, 1_001);
+
+            assert_eq!(
+                decision.verdict,
+                ACSAdmissionVerdict::Quarantine,
+                "matrix override threshold must apply to {}",
+                operation.code()
+            );
+        }
+    }
+
+    #[test]
     fn acs_admission_duplicate_operation_threshold_is_malformed_policy() {
         let mut policy = ACSPolicy::strict("policy-duplicate-threshold", 1_000);
         policy.operation_thresholds = vec![
