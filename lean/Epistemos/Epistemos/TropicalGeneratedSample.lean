@@ -121,11 +121,13 @@ theorem tropical_rational_shapes_sample :
     tropical_rational_obligation_sample
 
 theorem tropical_rational_hash_fields_sample :
-    tropical_rational_obligation_sample.numeratorHash =
-        tropical_rational_obligation_sample.numeratorHash ∧
-      tropical_rational_obligation_sample.denominatorHash =
-        tropical_rational_obligation_sample.denominatorHash := by
-  exact Epistemos.Tropical.RationalRepresentationObligation.hashFields
+    tropical_rational_obligation_sample.numeratorHash = "sample-num" ∧
+      tropical_rational_obligation_sample.denominatorHash = "sample-den" := by
+  exact Epistemos.Tropical.RationalRepresentationObligation.hashFieldsMatch
     tropical_rational_obligation_sample
+    "sample-num"
+    "sample-den"
+    rfl
+    rfl
 
 end Epistemos.Tropical.Generated
