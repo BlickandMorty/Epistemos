@@ -62,7 +62,7 @@ pub fn lean_certificate<T: Debug>(program: &ScanProgram<T>) -> String {
          -- ScanProgram: step_count = {n}, output_count = {oc}\n\
          -- T3 coordination: F-SemiseparableBlockScan-Correctness gate\n\
          -- Schema: lean/Epistemos/Epistemos/Scan.lean\n\
-         -- Schema module built with explicit ~/.elan/bin PATH at iter-593.\n\
+         -- Schema module built with explicit ~/.elan/bin PATH; obligations sharpened through iter-698.\n\
          -- Generated SSD proof body closes from explicit SSDEquivalenceLemma.\n\
          import Epistemos.Scan\n\
          \n\
@@ -234,7 +234,9 @@ mod tests {
     fn certificate_header_tracks_schema_build_and_generated_obligation() {
         let p = ScanProgram::new(0i64, vec![]);
         let c = lean_certificate(&p);
-        assert!(c.contains("Schema module built with explicit ~/.elan/bin PATH at iter-593"));
+        assert!(c.contains(
+            "Schema module built with explicit ~/.elan/bin PATH; obligations sharpened through iter-698"
+        ));
         assert!(c.contains("Generated SSD proof body closes from explicit SSDEquivalenceLemma"));
         assert!(!c.contains("lake build remains gated"));
     }
