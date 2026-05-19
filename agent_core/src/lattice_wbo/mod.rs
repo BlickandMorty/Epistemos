@@ -7405,6 +7405,36 @@ mod tests {
     }
 
     #[test]
+    fn kv_cache_axis_is_owned_only_by_kv_and_residual_codecs() {
+        let owners = [
+            LatticeCoderKind::LatticeWynerZivResidual,
+            LatticeCoderKind::ShadowKvSketch,
+            LatticeCoderKind::Nf4SsdOracle,
+        ];
+        for coder in owners {
+            assert!(
+                coder.canonical_wbo_terms().contains(&WboTermCode::KvCache),
+                "{coder:?} must claim T_K"
+            );
+        }
+        for coder in LatticeCoderKind::ALL {
+            if owners.contains(&coder) {
+                continue;
+            }
+            assert!(
+                !coder.canonical_wbo_terms().contains(&WboTermCode::KvCache),
+                "{coder:?} must never claim T_K; only LWZ residual, ShadowKV, and NF4 SSD oracle own cache/offload"
+            );
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`kv_cache_axis_is_owned_only_by_kv_and_residual_codecs`"),
+            "register doc must cross-link T_K ownership invariant"
+        );
+    }
+
+    #[test]
     fn self_evolving_security_axis_is_owned_only_by_network_and_adapter_codecs() {
         let owners = [
             LatticeCoderKind::NetworkCascade,
