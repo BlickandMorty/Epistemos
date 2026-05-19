@@ -1621,6 +1621,37 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 32nd Unicode row (iter-286): Phoenician-script
+        // extension. Adds a 30th non-Latin script (Phoenician,
+        // U+10900–U+1091F) — the COMMON ANCESTOR of Greek,
+        // Aramaic, and many alphabet families (ca. 1050 BCE).
+        // Pins no-script-fold across the COMPLETE genealogical
+        // depth: ancestor (Phoenician) + Greek branch
+        // descendants (Greek + Coptic + Cyrillic + Glagolitic) +
+        // Aramaic branch descendants (Hebrew + Syriac + Arabic
+        // + Mongolian). FIRST Supplementary Multilingual Plane
+        // (SMP) codepoint in the pin set — exercises 4-byte
+        // UTF-16 surrogate-pair handling. Latin "Mamba" +
+        // Phoenician "𐤊" (kap, U+1090A) + Latin "cache".
+        query: "Mamba 𐤊 cache",
+        expected_paths: &["notes/mamba_phoenician.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Thirty-second Unicode row (iter-286): Phoenician-\
+               script extension. THIRTY non-Latin scripts \
+               pinned. Phoenician (ca. 1050 BCE) is the COMMON \
+               ANCESTOR of Greek and Aramaic alphabet families. \
+               Pins the no-script-fold contract across the \
+               complete genealogical depth: ancestor + 8 \
+               descendant scripts (Greek/Coptic/Cyrillic/\
+               Glagolitic on Greek branch + Hebrew/Syriac/Arabic/\
+               Mongolian on Aramaic branch). FIRST SMP-plane \
+               codepoint (U+1090A > U+FFFF) — exercises 4-byte \
+               UTF-16 surrogate-pair handling. Brings Unicode \
+               to depth 32 — closes **uniform-≥-32 milestone**.",
+    },
+    FVaultRecallRow {
         // 31st Unicode row (iter-279): Coptic-script extension.
         // Adds a 29th non-Latin script (Coptic, U+2C80–U+2CFF)
         // — descends from the Greek alphabet, used historically
