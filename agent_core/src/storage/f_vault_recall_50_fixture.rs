@@ -4005,6 +4005,45 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 42nd Paraphrase row (iter-355): NEW axis — SYLLABLE-
+        // DOUBLING / STUTTER. User repeats the initial syllable
+        // of a word — "Mamba" → "Mamamba" (double "ma"). This
+        // mimics linguistic phenomena like baby-talk doubling,
+        // colloquial stuttering, or accidental key-stuck
+        // repetition that produces a structured (not random)
+        // distortion. Tokens: {mamamba, ssm, cache} — 3-term
+        // AND. Canonical has "mamba" not "mamamba" → blocked.
+        // Distinct from:
+        //   • iter-20 single-char typo (mamamba is a 2-char
+        //     INSERTION, not a 1-char edit; the inserted chars
+        //     form a STRUCTURED unit "ma" — a phoneme — not
+        //     random characters)
+        //   • iter-? letter-tripling (cachhhe — repeats one
+        //     letter; this repeats a SYLLABLE = 2 letters)
+        //   • iter-? word-doubling (Mamba Mamba — full token
+        //     duplicate, not in-token)
+        //   • iter-? prefix/suffix truncation (clip; this is
+        //     the opposite: in-token GROWTH)
+        // Pins deferred phoneme-aware fuzzy retrieval. Thirty-
+        // ninth named failure subclass.
+        query: "Mamamba SSM cache",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Syllable-doubling / stutter Paraphrase axis (axis \
+               #39): user repeats initial syllable (\"Mamba\" → \
+               \"Mamamba\"). Structured 2-char insertion forming \
+               a phoneme \"ma\". 3-term AND on {mamamba, ssm, \
+               cache} blocks. Distinct from typo (random 1-char \
+               edit), letter-tripling (one-letter repeat), word-\
+               doubling (full token duplicate), and truncation \
+               (clip → opposite direction). Pins deferred \
+               phoneme-aware fuzzy retrieval. Thirty-ninth \
+               named failure subclass. Brings Paraphrase to \
+               depth 42 — first category past depth-41 horizon.",
+    },
+    FVaultRecallRow {
         // 41st Paraphrase row (iter-348): NEW axis — FULL
         // 1337-SPEAK / MULTI-CHARACTER ALPHANUMERIC
         // SUBSTITUTION. User does the full leet-speak
