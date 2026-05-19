@@ -2507,6 +2507,14 @@ mod tests {
     }
 
     #[test]
+    fn witness_json_excludes_host_id_text() {
+        let json = acceptance_witness_json().unwrap();
+        let lower = json.to_ascii_lowercase();
+        assert!(!lower.contains("host_id"));
+        assert!(!lower.contains("hostid"));
+    }
+
+    #[test]
     fn witness_json_excludes_ethernet_mac_address_pattern() {
         let json = acceptance_witness_json().unwrap();
         let lower = json.to_ascii_lowercase();
