@@ -131,3 +131,11 @@ pub fn adversarial_query_fixture_catalog_query_texts_match_fixture_rows() -> boo
             .zip(ADVERSARIAL_QUERY_FIXTURES.iter())
             .all(|(query_text, fixture)| *query_text == fixture.query_text)
 }
+
+pub fn adversarial_query_fixture_catalog_kinds_match_fixture_rows() -> bool {
+    ADVERSARIAL_QUERY_FIXTURE_KINDS.len() == ADVERSARIAL_QUERY_FIXTURES.len()
+        && ADVERSARIAL_QUERY_FIXTURE_KINDS
+            .iter()
+            .zip(ADVERSARIAL_QUERY_FIXTURES.iter())
+            .all(|(kind, fixture)| *kind == fixture.kind)
+}
