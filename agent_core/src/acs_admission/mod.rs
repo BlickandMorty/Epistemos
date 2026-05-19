@@ -3345,6 +3345,7 @@ impl<'de> Deserialize<'de> for ACSRiskThresholds {
         D: serde::Deserializer<'de>,
     {
         let value = serde_json::Value::deserialize(deserializer)?;
+        require_threshold_known_fields::<D::Error>(&value)?;
         require_threshold_field::<D::Error>(&value, "warn_at")?;
         require_threshold_field::<D::Error>(&value, "defer_at")?;
         require_threshold_field::<D::Error>(&value, "quarantine_at")?;
@@ -3382,6 +3383,28 @@ where
             },
         ))),
     }
+}
+
+fn require_threshold_known_fields<E>(value: &serde_json::Value) -> Result<(), E>
+where
+    E: serde::de::Error,
+{
+    let serde_json::Value::Object(object) = value else {
+        return Err(E::custom(acs_policy_decode_error(
+            &ACSPolicyError::Malformed {
+                field: "thresholds",
+            },
+        )));
+    };
+    for field in object.keys() {
+        if !matches!(
+            field.as_str(),
+            "warn_at" | "defer_at" | "quarantine_at" | "reject_at"
+        ) {
+            return Err(E::custom(format!("malformed_policy field={field}")));
+        }
+    }
+    Ok(())
 }
 
 impl ACSRiskThresholds {
@@ -7779,6 +7802,19 @@ mod tests {
         let decoded = serde_json::from_value::<ACSRiskThresholds>(value);
 
         assert!(decoded.is_err());
+    }
+
+    #[test]
+    fn acs_admission_shadow_threshold_axis_names_malformed_policy_field() {
+        let mut value =
+            serde_json::to_value(ACSRiskThresholds::standard()).expect("thresholds encode");
+        value["escalate_at"] = serde_json::json!(0.95);
+
+        let err = serde_json::from_value::<ACSRiskThresholds>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(message.contains("escalate_at"), "{message}");
     }
 
     #[test]
