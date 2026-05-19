@@ -1751,6 +1751,8 @@ struct RawOperationWorstCases<'a> {
 struct RawAxisWorstCase<'a> {
     #[serde(default, borrow)]
     evaluated: Option<&'a RawValue>,
+    #[serde(default, borrow)]
+    max_ulp: Option<&'a RawValue>,
     #[serde(borrow)]
     mean_ulp: &'a RawValue,
     #[serde(borrow)]
@@ -1784,6 +1786,9 @@ fn reject_raw_stats_number_json(json: &str) -> Result<(), FulpReplayError> {
             let axis_path = format!("stats[{operation_index}].axis_stats[{axis_index}]");
             if let Some(value) = axis_stat.evaluated {
                 raw_unsigned_integer_json(value, &format!("{axis_path}.evaluated"))?;
+            }
+            if let Some(value) = axis_stat.max_ulp {
+                raw_u32_json(value, &format!("{axis_path}.max_ulp"))?;
             }
             raw_finite_f64_json(axis_stat.mean_ulp, &axis_path, "mean_ulp")?;
             let worst_case_path = format!("{axis_path}.worst_case");
@@ -4025,6 +4030,27 @@ mod tests {
             .invalid_json_message()
             .expect("invalid json message")
             .contains("stats[0].axis_stats[0].max_ulp"));
+    }
+
+    #[test]
+    fn replay_rejects_axis_max_ulp_json_raw_overflow_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["axis_stats"][0]["max_ulp"] =
+            serde_json::Value::Number(serde_json::Number::from(123_456_789_u64));
+        let json = serde_json::to_string(&value).unwrap();
+        let needle = "\"max_ulp\":123456789";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(needle, "\"max_ulp\":1e999999", 1);
+        let error = replay_witness_json(&json).expect_err("axis max ulp overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("number out of range for stats[0].axis_stats[0].max_ulp, expected u32")
+        );
     }
 
     #[test]
