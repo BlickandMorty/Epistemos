@@ -949,6 +949,41 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_display_citations_count_field_reflects_vec_len() {
+        // Phase 1 hardening — Display semantic pin. AnswerPacket's
+        // Display format includes "citations={}" where {} is
+        // self.citations.len() (answer.rs §113). Pin that the rendered
+        // count matches the actual Vec length AT MULTIPLE SIZES.
+        //
+        // A future "let me cap the citations count at 99 for display
+        // brevity" optimisation would silently lose the true count
+        // in log lines.
+        let log = RunEventLog::new();
+        for n in [0usize, 1, 3, 10, 256, 257, 1_000] {
+            let mut cites = Vec::with_capacity(n);
+            for i in 0..n {
+                cites.push(Citation::from_tuple(
+                    format!("s{i}"),
+                    format!("l{i}"),
+                ));
+            }
+            let packet = AnswerPacket::emit(
+                AgentBlueprintId("a".into()),
+                "x".into(),
+                cites,
+                StopReason::EndTurn,
+                BudgetLedger::default(),
+                &log,
+            );
+            let display = format!("{packet}");
+            assert!(
+                display.contains(&format!("citations={n}")),
+                "Display must show citations={n} for {n} citations, got: {display}"
+            );
+        }
+    }
+
+    #[test]
     fn answer_packet_display_starts_with_literal_struct_name_prefix() {
         // Phase 1 hardening — wire-shape pin. AnswerPacket::Display
         // uses the format string
