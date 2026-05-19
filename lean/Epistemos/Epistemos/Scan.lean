@@ -75,6 +75,17 @@ def scanLeftIdentity {α : Type}
     (op : α -> α -> α) (identity : α) : Prop :=
   ∀ x : α, op identity x = x
 
+def scanRightIdentity {α : Type}
+    (op : α -> α -> α) (identity : α) : Prop :=
+  ∀ x : α, op x identity = x
+
+theorem MonoidWitness.scanLawWitnesses {α : Type}
+    (w : MonoidWitness α) :
+    scanAssociativeOp w.op ∧
+      scanLeftIdentity w.op w.identity ∧
+      scanRightIdentity w.op w.identity := by
+  exact ⟨w.assoc, w.left_identity, w.right_identity⟩
+
 def ssdEquivalentToSequential {α : Type}
     (op : α -> α -> α) (identity _initial : α)
     (_inputs : List α) (blockSize : Nat) : Prop :=
