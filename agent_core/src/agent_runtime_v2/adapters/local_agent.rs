@@ -879,6 +879,57 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_surface_serde_charset_is_camel_case_only() {
+        // Phase 1 hardening — charset pin for LocalAgentCapabilitySurface
+        // (companion to local_agent_owner_all_four_codes_are_distinct_and_camel_case
+        // at line 617 — Owner uses .code() helper; Surface only carries
+        // per-variant #[serde(rename = "...")]).
+        //
+        // LocalAgentCapabilitySurface has 10 variants using per-variant
+        // #[serde(rename = "...")] with camelCase Swift raw values:
+        // agentTask, session, configuration, fileData, toolsIntegration,
+        // uiDisplay, persona, messaging, advanced, toolset.
+        //
+        // The Swift mirror reads camelCase byte-for-byte; a future
+        // rename violating camelCase (e.g., #[serde(rename = "Agent-Task")]
+        // or a typo'd #[serde(rename = "agent_task")]) would silently
+        // drift the surface wire form away from the Swift bridge —
+        // breaking Swift⇄Rust JSON parity for capability grouping.
+        //
+        // The existing per-string pin
+        // (local_agent_surface_serde_values_are_stable) locks each form
+        // individually. THIS pin generates each form via serde + JSON
+        // unquote (no hard-coded list) and asserts the camelCase
+        // charset doctrine across all 10 surface variants:
+        //   - non-empty
+        //   - every char is ASCII alphabetic [a-zA-Z]
+        //   - first char is lowercase (camelCase, not PascalCase)
+        for variant in LocalAgentCapabilitySurface::ALL {
+            let s = serde_json::to_string(&variant).expect("serialise");
+            let inner = s
+                .strip_prefix('"')
+                .and_then(|x| x.strip_suffix('"'))
+                .expect("surface serialises to a JSON string");
+            assert!(!inner.is_empty(), "surface form must be non-empty for {variant:?}");
+            // Every char ASCII alphabetic.
+            for ch in inner.chars() {
+                assert!(
+                    ch.is_ascii_alphabetic(),
+                    "surface form {inner:?} for {variant:?} must be pure [a-zA-Z] \
+                     camelCase; char {ch:?} violates"
+                );
+            }
+            // First char lowercase (camelCase, NOT PascalCase).
+            let first = inner.chars().next().expect("non-empty");
+            assert!(
+                first.is_ascii_lowercase(),
+                "camelCase surface {inner:?} for {variant:?} must start with lowercase, \
+                 got {first:?}"
+            );
+        }
+    }
+
+    #[test]
     fn local_agent_surface_serde_values_are_stable() {
         // Phase 1 hardening — cross-version replay parity guardrail.
         // LocalAgentCapabilitySurface uses per-variant #[serde(rename
