@@ -1645,6 +1645,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 33rd Unicode row (iter-293): Old Italic-script
+        // extension. Adds a 31st non-Latin script (Old Italic,
+        // U+10300–U+1032F) — used for Etruscan, Oscan, Faliscan
+        // ca. 700-100 BCE. Old Italic is the DIRECT ANCESTOR of
+        // the Latin alphabet (which serves as the fixture's
+        // anchor script for all "Mamba" + non-Latin queries).
+        // The no-script-fold contract now demonstrably holds
+        // against the GENEALOGICAL ANCESTOR of the anchor
+        // script. Second SMP-plane codepoint in the pin set
+        // (after iter-286 Phoenician). Latin "Mamba" + Old
+        // Italic "𐌊" (ka, U+1030A) + Latin "cache".
+        query: "Mamba 𐌊 cache",
+        expected_paths: &["notes/mamba_old_italic.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Thirty-third Unicode row (iter-293): Old Italic-\
+               script extension. THIRTY-ONE non-Latin scripts \
+               pinned. Old Italic (ca. 700-100 BCE) is the \
+               direct ANCESTOR of the Latin alphabet — the no-\
+               script-fold contract now demonstrably holds \
+               against the genealogical ancestor of the \
+               fixture's anchor script. Second SMP-plane \
+               codepoint (after Phoenician iter-286). Brings \
+               Unicode to depth 33 — closes **uniform-≥-33 \
+               milestone**.",
+    },
+    FVaultRecallRow {
         // 32nd Unicode row (iter-286): Phoenician-script
         // extension. Adds a 30th non-Latin script (Phoenician,
         // U+10900–U+1091F) — the COMMON ANCESTOR of Greek,
