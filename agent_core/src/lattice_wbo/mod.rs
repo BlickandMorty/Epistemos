@@ -4564,6 +4564,7 @@ mod tests {
             "WBO term falsifier cells match typed `F-*` hook sets exactly",
             "exact codec-to-falsifier `F-*` hook set",
             "exact codec-to-side-information witness set",
+            "side-information register owner cells match typed codec witness sets exactly",
             "`lattice_budget_serializes_public_accounting_keys`",
             "LatticeBudget serializes only `coder`, `rate_milli_bits_per_symbol`, `side_information`, and `contributions` public keys",
             "`lattice_budget_composition_rejects_empty_public_contributions`",
@@ -5530,6 +5531,20 @@ mod tests {
                 .split('|')
                 .map(str::trim)
                 .collect::<Vec<_>>();
+            let owner_cell = cells
+                .get(2)
+                .unwrap_or_else(|| panic!("{side_information:?} doc row must have owner cell"));
+            for coder in LatticeCoderKind::ALL {
+                let coder_name = format!("`{coder:?}`");
+                let expected_owner = coder
+                    .canonical_side_information()
+                    .contains(&side_information);
+                assert_eq!(
+                    owner_cell.contains(&coder_name),
+                    expected_owner,
+                    "{side_information:?} doc owner cell must exactly match {coder_name} ownership"
+                );
+            }
             let caveat = match side_information {
                 SideInformationKind::None => "L0 still pays `T_num`",
                 SideInformationKind::DecoderLmState => {
@@ -5545,7 +5560,7 @@ mod tests {
                 SideInformationKind::SurpriseGradient => "KV/cache compression",
             };
             assert!(
-                cells.get(2).is_some_and(|cell| cell.contains(caveat)),
+                cells.get(3).is_some_and(|cell| cell.contains(caveat)),
                 "{side_information:?} doc row must preserve caveat {caveat}"
             );
         }
