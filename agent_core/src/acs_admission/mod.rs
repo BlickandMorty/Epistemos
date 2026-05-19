@@ -1945,85 +1945,83 @@ impl ACSAuditRecord {
 
     pub fn validate(&self) -> Result<(), ACSAuditRecordError> {
         if self.record_id.trim().is_empty() {
-            return Err(ACSAuditRecordError::Corrupt { field: "record_id" });
+            return Err(self.corrupt("record_id"));
         }
         if !is_canonical_acs_record_id(&self.record_id) {
-            return Err(ACSAuditRecordError::Corrupt { field: "record_id" });
+            return Err(self.corrupt("record_id"));
         }
         if !is_canonical_audit_token(&self.request_id) {
-            return Err(ACSAuditRecordError::Corrupt {
-                field: "request_id",
-            });
+            return Err(self.corrupt("request_id"));
         }
         if is_reserved_malformed_audit_token(&self.request_id, MALFORMED_POLICY_AUDIT_PREFIX) {
-            return Err(ACSAuditRecordError::Corrupt {
-                field: "request_id",
-            });
+            return Err(self.corrupt("request_id"));
         }
         if is_bare_malformed_audit_token(&self.request_id, MALFORMED_REQUEST_AUDIT_PREFIX) {
-            return Err(ACSAuditRecordError::Corrupt {
-                field: "request_id",
-            });
+            return Err(self.corrupt("request_id"));
         }
         if self.verdict.allows_durable_commit()
             && is_reserved_malformed_audit_token(&self.request_id, MALFORMED_REQUEST_AUDIT_PREFIX)
         {
-            return Err(ACSAuditRecordError::Corrupt {
-                field: "request_id",
-            });
+            return Err(self.corrupt("request_id"));
         }
         if !is_canonical_audit_token(&self.policy_id) {
-            return Err(ACSAuditRecordError::Corrupt { field: "policy_id" });
+            return Err(self.corrupt("policy_id"));
         }
         if is_reserved_malformed_audit_token(&self.policy_id, MALFORMED_REQUEST_AUDIT_PREFIX) {
-            return Err(ACSAuditRecordError::Corrupt { field: "policy_id" });
+            return Err(self.corrupt("policy_id"));
         }
         if is_bare_malformed_audit_token(&self.policy_id, MALFORMED_POLICY_AUDIT_PREFIX) {
-            return Err(ACSAuditRecordError::Corrupt { field: "policy_id" });
+            return Err(self.corrupt("policy_id"));
         }
         if self.verdict.allows_durable_commit()
             && is_reserved_malformed_audit_token(&self.policy_id, MALFORMED_POLICY_AUDIT_PREFIX)
         {
-            return Err(ACSAuditRecordError::Corrupt { field: "policy_id" });
+            return Err(self.corrupt("policy_id"));
         }
         if self.policy_version == 0 {
-            return Err(ACSAuditRecordError::Corrupt {
-                field: "policy_version",
-            });
+            return Err(self.corrupt("policy_version"));
         }
         if !is_canonical_audit_token(&self.reason) {
-            return Err(ACSAuditRecordError::Corrupt { field: "reason" });
+            return Err(self.corrupt("reason"));
         }
         if self.verdict.allows_durable_commit() && self.reason != self.verdict.code() {
-            return Err(ACSAuditRecordError::Corrupt { field: "reason" });
+            return Err(self.corrupt("reason"));
         }
         if !self.verdict.allows_durable_commit()
             && matches!(self.reason.as_str(), "allow" | "allow_with_warning")
         {
-            return Err(ACSAuditRecordError::Corrupt { field: "reason" });
+            return Err(self.corrupt("reason"));
         }
         if !self.risk_max.is_finite() || !(0.0..=1.0).contains(&self.risk_max) {
-            return Err(ACSAuditRecordError::Corrupt { field: "risk_max" });
+            return Err(self.corrupt("risk_max"));
         }
         if self.emitted_at_ms < 0 {
-            return Err(ACSAuditRecordError::Corrupt {
-                field: "emitted_at_ms",
-            });
+            return Err(self.corrupt("emitted_at_ms"));
         }
         if !acs_record_id_binds_request_and_time(
             &self.record_id,
             &self.request_id,
             self.emitted_at_ms,
         ) {
-            return Err(ACSAuditRecordError::Corrupt { field: "record_id" });
+            return Err(self.corrupt("record_id"));
         }
         Ok(())
     }
+
+    fn corrupt(&self, field: &'static str) -> ACSAuditRecordError {
+        ACSAuditRecordError::Corrupt {
+            field,
+            record_id: self.record_id.clone(),
+        }
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ACSAuditRecordError {
-    Corrupt { field: &'static str },
+    Corrupt {
+        field: &'static str,
+        record_id: String,
+    },
 }
 
 impl ACSAuditRecordError {
@@ -2035,7 +2033,13 @@ impl ACSAuditRecordError {
 
     pub const fn field(&self) -> &'static str {
         match self {
-            Self::Corrupt { field } => field,
+            Self::Corrupt { field, .. } => field,
+        }
+    }
+
+    pub fn record_id(&self) -> Option<&str> {
+        match self {
+            Self::Corrupt { record_id, .. } => Some(record_id.as_str()),
         }
     }
 }
@@ -8600,6 +8604,7 @@ mod tests {
 
         assert_eq!(err.cause(), "corrupt_acs_audit_record");
         assert_eq!(err.field(), "reason");
+        assert_eq!(err.record_id(), Some(record.record_id.as_str()));
     }
 
     #[test]
