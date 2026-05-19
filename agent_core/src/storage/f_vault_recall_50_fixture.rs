@@ -7018,6 +7018,43 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 42nd Adversarial row (iter-353): agent-runtime 7-term
+        // long-query — {agent, runtime, substrate, trace, system,
+        // invader, canon}. Keeps all 4 canonical primaries + 3
+        // tail context tokens (system + invader + canon from
+        // canonical's tail "...System G Invader Agent canon").
+        // 7 terms OR. Canonical body has all 7 (3× primaries +
+        // 1× system + 1× invader + 1× canon); iter-75 pair-
+        // partner has 4/7 (no trace, no invader, no system — has
+        // agent + runtime + substrate + canon); decoys ≤1 of 7
+        // (agent_brainstorm has canon, runtime_old_design 0,
+        // substrate_concepts has substrate = 1/7). FIRST 7-term
+        // Adversarial row in the fixture (all prior 6-term:
+        // iter-120 + iter-317 + iter-324 + iter-331 + iter-338
+        // + iter-346). Extends long-query coverage past 6-term
+        // boundary to 7-term.
+        query: "agent runtime substrate trace system invader canon",
+        expected_paths: &["notes/agent_runtime_v2_substrate.md"],
+        forbidden_paths: &[
+            "notes/agent_brainstorm.md",
+            "notes/runtime_old_design.md",
+            "notes/substrate_concepts.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Forty-second Adversarial row (iter-353): agent-\
+               runtime 7-term long-query \"agent runtime \
+               substrate trace system invader canon\". FIRST 7-\
+               term Adversarial row — extends long-query \
+               coverage past the 6-term boundary (six prior 6-\
+               term rows: iter-120 + iter-317 + iter-324 + \
+               iter-331 + iter-338 + iter-346). Canonical 7/7; \
+               iter-75 pair-partner 4/7 (lacks trace + invader \
+               + system); decoys ≤1 of 7. Brings Adversarial \
+               to depth 42 — first category past depth-41 \
+               horizon. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 41st Adversarial row (iter-346): Metal-compute 6-term
         // long-query — {metal, compute, shader, kernel,
         // pipeline, notes}. Keeps all 4 canonical primaries + 2
