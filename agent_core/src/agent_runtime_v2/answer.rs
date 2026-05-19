@@ -1764,6 +1764,66 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_final_ledger_matches_most_recent_log_snapshot_for_correctly_accounted_runs() {
+        // Phase 1 hardening — cross-helper consistency pin between
+        // the terminal-state ledger (AnswerPacket.final_ledger) and
+        // the run-log's most-recent snapshot (ledger_at_ordinal at
+        // log.len()-1). Companion to the dispatcher-correctness
+        // invariant
+        // total_tokens_debited_matches_post_mutation_ledger_snapshot
+        // (iter-392 in run_event_log.rs).
+        //
+        // Contract: a well-behaved dispatcher appends a final
+        // LedgerSnapshot before emitting the AnswerPacket, and
+        // packet.final_ledger is constructed from that same value.
+        // The two reads MUST agree.
+        //
+        // A dispatcher bug that, e.g., copied the snapshot into the
+        // packet but then mutated the local ledger by one more debit
+        // before emit (without appending another snapshot) would
+        // silently desync the packet from the log.
+        //
+        // Pin via a constructed log + ledger snapshot + emit.
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "r".into() });
+        let final_ledger = BudgetLedger {
+            tokens_used: 250,
+            wall_used_ms: 500,
+            tool_calls_used: 3,
+            subprocess_used_ms: 1_000,
+            memory_bytes_used: 4_096,
+        };
+        let snapshot_ord = log.append_ledger_snapshot(final_ledger);
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+
+        let packet = AnswerPacket::emit(
+            AgentBlueprintId("a".into()),
+            "x".into(),
+            vec![],
+            StopReason::EndTurn,
+            final_ledger,
+            &log,
+        );
+
+        // The packet's final_ledger must equal the most-recent log
+        // snapshot's ledger (independent of which ordinal we look up
+        // — there's only one snapshot in this fixture).
+        let snapshot_read = log
+            .ledger_at_ordinal(snapshot_ord)
+            .expect("snapshot at known ordinal");
+        assert_eq!(
+            packet.final_ledger, snapshot_read,
+            "AnswerPacket.final_ledger must equal the most-recent log snapshot"
+        );
+        // Past-the-snapshot-ordinal lookup (at log end) returns the
+        // same snapshot.
+        let snapshot_at_end = log
+            .ledger_at_ordinal((log.len() - 1) as u64)
+            .expect("snapshot from log-end lookup");
+        assert_eq!(snapshot_at_end, packet.final_ledger);
+    }
+
+    #[test]
     fn answer_packet_emit_against_empty_log_captures_empty_log_root_hash() {
         // Phase 1 hardening — replay parity. An AnswerPacket emitted
         // before any events are appended must carry the empty-log
