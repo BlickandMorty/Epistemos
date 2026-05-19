@@ -137,4 +137,9 @@ structure CertificateTarget (α : Type) where
   output_matches :
     output = sequentialScan monoid.op program.initial program.inputs
 
+theorem CertificateTarget.outputMatchesSequential {α : Type}
+    (c : CertificateTarget α) :
+    c.output = sequentialScan c.monoid.op c.program.initial c.program.inputs :=
+  c.output_matches
+
 end Epistemos.Scan
