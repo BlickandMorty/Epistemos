@@ -7986,6 +7986,69 @@ mod tests {
     }
 
     #[test]
+    fn lattice_budget_composition_rejects_nan_axes_with_mixed_max_peer() {
+        let nan_semantic_with_max_numerics = LatticeBudget::new(
+            LatticeCoderKind::LatticeWynerZivResidual,
+            Some(1250),
+            SideInformationKind::ResidualStream,
+            vec![
+                LatticeErrorContribution {
+                    term: WboTermCode::ResidualWynerZiv,
+                    source: "nan semantic budget".to_string(),
+                    budget: f64::NAN,
+                    measured: Some(0.0),
+                },
+                LatticeErrorContribution::new(
+                    WboTermCode::NumericalPostCorrection,
+                    "max numerical peer",
+                    f64::MAX,
+                )
+                .expect("valid max numerical peer")
+                .with_measured(f64::MAX)
+                .expect("valid max numerical peer measurement"),
+            ],
+        );
+        let max_semantic_with_nan_numerics = LatticeBudget::new(
+            LatticeCoderKind::LatticeWynerZivResidual,
+            Some(1250),
+            SideInformationKind::ResidualStream,
+            vec![
+                LatticeErrorContribution::new(
+                    WboTermCode::ResidualWynerZiv,
+                    "max semantic peer",
+                    f64::MAX,
+                )
+                .expect("valid max semantic peer")
+                .with_measured(f64::MAX)
+                .expect("valid max semantic peer measurement"),
+                LatticeErrorContribution {
+                    term: WboTermCode::NumericalPostCorrection,
+                    source: "nan numerical measurement".to_string(),
+                    budget: 0.0,
+                    measured: Some(f64::NAN),
+                },
+            ],
+        );
+
+        for budget in [
+            nan_semantic_with_max_numerics,
+            max_semantic_with_nan_numerics,
+        ] {
+            assert_eq!(
+                budget.validate_composition(),
+                Err(LatticeWboError::InvalidBudget)
+            );
+            assert_eq!(budget.validate(), Err(LatticeWboError::InvalidBudget));
+            assert_budget_measurements_pending(&budget);
+        }
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`lattice_budget_composition_rejects_nan_axes_with_mixed_max_peer`"),
+            "register doc must cross-link mixed max/NaN composition guard"
+        );
+    }
+
+    #[test]
     fn lattice_budget_measured_status_returns_none_for_invalid_public_fields() {
         let negative_measurement = LatticeErrorContribution {
             term: WboTermCode::NumericalPostCorrection,
