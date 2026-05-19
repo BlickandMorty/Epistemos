@@ -137,6 +137,10 @@ pub fn adversarial_query_fixture_descriptions() -> &'static [&'static str] {
     ADVERSARIAL_QUERY_FIXTURE_DESCRIPTIONS
 }
 
+pub fn adversarial_query_fixture_count() -> usize {
+    ADVERSARIAL_QUERY_FIXTURES.len()
+}
+
 pub fn adversarial_query_fixture_catalog_labels_match_fixture_rows() -> bool {
     ADVERSARIAL_QUERY_FIXTURE_LABELS.len() == ADVERSARIAL_QUERY_FIXTURES.len()
         && ADVERSARIAL_QUERY_FIXTURE_LABELS
