@@ -7405,6 +7405,31 @@ mod tests {
     }
 
     #[test]
+    fn lattice_coder_falsifiers_name_ulp_oracle_and_wbo_drift_ledger_for_every_codec() {
+        for coder in LatticeCoderKind::ALL {
+            let hooks = f_hooks_in(coder.falsifier());
+            assert!(
+                hooks.iter().any(|hook| *hook == "F-ULP-Oracle"),
+                "{coder:?} falsifier must name F-ULP-Oracle: {}",
+                coder.falsifier()
+            );
+            assert!(
+                hooks.iter().any(|hook| *hook == "F-WBO-DriftLedger"),
+                "{coder:?} falsifier must name F-WBO-DriftLedger: {}",
+                coder.falsifier()
+            );
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains(
+                "`lattice_coder_falsifiers_name_ulp_oracle_and_wbo_drift_ledger_for_every_codec`"
+            ),
+            "register doc must cross-link codec ULP+drift-ledger falsifier coverage"
+        );
+    }
+
+    #[test]
     fn numerical_post_correction_axis_is_owned_by_every_codec() {
         for coder in LatticeCoderKind::ALL {
             assert!(
