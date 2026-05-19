@@ -2095,6 +2095,78 @@ mod tests {
     }
 
     #[test]
+    fn sealer_writer_failure_retry_preserves_nonzero_ledger_baseline() {
+        // Phase 1 hardening — partial-failure idempotency from a
+        // nonzero 5-axis ledger. Retry-after-write-failure must
+        // preserve prior usage and apply exactly one new debit, not
+        // reset to zero and not double-debit the failed attempt.
+        #[derive(Debug, PartialEq, Eq)]
+        struct TransientDiskError;
+        struct FailsOnceThenSucceeds {
+            calls: usize,
+        }
+        impl MutationWriter<String> for FailsOnceThenSucceeds {
+            type Receipt = u64;
+            type WriteError = TransientDiskError;
+            fn write(&mut self, payload: &String) -> Result<u64, TransientDiskError> {
+                self.calls += 1;
+                if self.calls == 1 {
+                    Err(TransientDiskError)
+                } else {
+                    Ok(payload.len() as u64)
+                }
+            }
+        }
+
+        let cap = valid_capability(Some(10_000));
+        let sealer = Sealer {
+            capability: &cap,
+            gate: BudgetGate::new(
+                BudgetSpec::new(1_000, 10_000, 10, 5_000).with_memory_bytes(1_000_000),
+            ),
+        };
+        let ledger_before = BudgetLedger {
+            tokens_used: 100,
+            wall_used_ms: 200,
+            tool_calls_used: 2,
+            subprocess_used_ms: 300,
+            memory_bytes_used: 400,
+        };
+        let debit = BudgetDebit {
+            tokens: 25,
+            wall_ms: 50,
+            tool_calls: 1,
+            subprocess_ms: 75,
+            memory_bytes: 125,
+        };
+        let envelope = MutationEnvelope::new(
+            cap.macaroon().capability_hash(),
+            debit,
+            "nonzero-baseline-retry".to_string(),
+        );
+
+        let mut writer = FailsOnceThenSucceeds { calls: 0 };
+        let err = sealer
+            .seal_and_apply(&ctx(), ledger_before, envelope.clone(), &mut writer)
+            .expect_err("first write must fail");
+        assert!(matches!(err, SealError::Write(TransientDiskError)));
+        assert_eq!(writer.calls, 1);
+        assert_eq!(ledger_before.tokens_used, 100);
+        assert_eq!(ledger_before.memory_bytes_used, 400);
+
+        let (ledger_after, receipt) = sealer
+            .seal_and_apply(&ctx(), ledger_before, envelope, &mut writer)
+            .expect("retry must succeed");
+        assert_eq!(writer.calls, 2);
+        assert_eq!(receipt, "nonzero-baseline-retry".len() as u64);
+        assert_eq!(ledger_after.tokens_used, 125);
+        assert_eq!(ledger_after.wall_used_ms, 250);
+        assert_eq!(ledger_after.tool_calls_used, 3);
+        assert_eq!(ledger_after.subprocess_used_ms, 375);
+        assert_eq!(ledger_after.memory_bytes_used, 525);
+    }
+
+    #[test]
     fn sealer_n_consecutive_writer_failures_before_success_apply_single_debit() {
         // Phase 1 hardening — work-queue item E: MutationEnvelope
         // idempotency on partial failure (replay-safe re-application).
