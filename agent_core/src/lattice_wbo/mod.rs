@@ -2572,6 +2572,44 @@ mod tests {
     }
 
     #[test]
+    fn lattice_budget_json_rejects_every_codec_wrong_side_information_fixture() {
+        let mut checked = 0;
+        for coder in LatticeCoderKind::ALL {
+            let allowed = coder.canonical_side_information();
+            for side_information in SideInformationKind::ALL {
+                if allowed.contains(&side_information) {
+                    continue;
+                }
+
+                let budget = side_information_probe_budget(coder, side_information);
+                let encoded =
+                    serde_json::to_value(&budget).expect("serialize wrong side-info budget");
+
+                assert!(
+                    serde_json::from_value::<LatticeBudget>(encoded).is_err(),
+                    "{coder:?} public JSON accepted wrong side information {side_information:?}"
+                );
+                checked += 1;
+            }
+        }
+
+        let expected = LatticeCoderKind::ALL
+            .iter()
+            .map(|coder| SideInformationKind::ALL.len() - coder.canonical_side_information().len())
+            .sum::<usize>();
+        assert_eq!(checked, expected);
+        assert_eq!(checked, 108);
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains(
+                "`lattice_budget_json_rejects_every_codec_wrong_side_information_fixture`"
+            ),
+            "register doc must cross-link JSON wrong-side-information adversarial matrix"
+        );
+    }
+
+    #[test]
     fn active_support_budget_round_trips_json() {
         let value = ActiveSupportBudget::new(
             4096,
@@ -4756,7 +4794,9 @@ mod tests {
             "wrong side-information is rejected before a simultaneous foreign-term mismatch",
             "`budget_validation_rejects_every_wrong_side_information_before_term_mismatch`",
             "every noncanonical side-information witness is rejected before simultaneous codec-term mismatches",
-            "wrong-side-info adversarial family covers direct, full, composition, and measured-status pending paths",
+            "`lattice_budget_json_rejects_every_codec_wrong_side_information_fixture`",
+            "every wrong codec/witness pair also fails public `LatticeBudget` JSON deserialization",
+            "wrong-side-info adversarial family covers direct, full, composition, JSON, and measured-status pending paths",
             "measured invalid-side-information fixtures also exercise public `validate_composition()` rejection",
             "`ledger_validation_rejects_side_information_outside_residency_primary`",
             "`ledger_validation_rejects_every_nonprimary_side_information_for_every_residency_tier`",
