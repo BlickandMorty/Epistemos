@@ -689,6 +689,40 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_owner_and_tier_code_matches_serde_tag_byte_for_byte() {
+        // Phase 1 hardening — cross-consistency pin between two
+        // existing pin families:
+        //   - local_agent_owner_serde_values_are_stable (per-variant serde rename)
+        //   - owner_codes_match_swift_camel_case_raw_values (per-variant code())
+        // Both pin a list of strings BUT neither pin asserts the two
+        // helpers stay aligned. A future maintainer could rename ONE
+        // helper's variant (code() -> "native_core") and the per-variant
+        // serde stays the same, breaking the doctrine that "code() and
+        // the serde tag are byte-equal" — which is what the FFI bridge
+        // relies on to route a capability JSON payload to the matching
+        // Rust variant. Pin asserts code()-vs-serde alignment for all
+        // 4 Owner variants + all 3 Tier variants.
+        for owner in LocalAgentCapabilityOwner::ALL {
+            let serde_form = serde_json::to_string(&owner).expect("serialize");
+            let expected = format!("\"{}\"", owner.code());
+            assert_eq!(
+                serde_form, expected,
+                "owner {owner:?}: code() {:?} must byte-equal serde tag {serde_form:?}",
+                owner.code()
+            );
+        }
+        for tier in LocalAgentCapabilityTier::ALL {
+            let serde_form = serde_json::to_string(&tier).expect("serialize");
+            let expected = format!("\"{}\"", tier.code());
+            assert_eq!(
+                serde_form, expected,
+                "tier {tier:?}: code() {:?} must byte-equal serde tag {serde_form:?}",
+                tier.code()
+            );
+        }
+    }
+
+    #[test]
     fn local_agent_owner_unknown_serde_string_fails_to_deserialise() {
         // Phase 1 hardening — tenth leg of the closed-taxonomy
         // negative-serde guardrail. LocalAgentCapabilityOwner uses
