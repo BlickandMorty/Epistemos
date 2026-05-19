@@ -6524,6 +6524,16 @@ mod tests {
     }
 
     #[test]
+    fn register_doc_cross_links_codec_wrong_side_information_matrix_counts() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register
+                .contains("codec_noncanonical_side_information_rejection_matrix_counts_are_pinned"),
+            "register must cross-link codec wrong-side-information matrix counts"
+        );
+    }
+
+    #[test]
     fn typed_catalogs_assign_every_wbo_term_to_codec_and_residency_rows() {
         for term in WboTermCode::ALL {
             assert!(
@@ -7071,6 +7081,39 @@ mod tests {
             .map(|coder| SideInformationKind::ALL.len() - coder.canonical_side_information().len())
             .sum::<usize>();
         assert_eq!(checked, expected);
+    }
+
+    #[test]
+    fn codec_noncanonical_side_information_rejection_matrix_counts_are_pinned() {
+        let counts = LatticeCoderKind::ALL
+            .iter()
+            .map(|coder| {
+                (
+                    *coder,
+                    SideInformationKind::ALL.len() - coder.canonical_side_information().len(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            counts,
+            vec![
+                (LatticeCoderKind::ExactHot, 9),
+                (LatticeCoderKind::LatticeWynerZivResidual, 6),
+                (LatticeCoderKind::BabaiGptqNearestPlane, 9),
+                (LatticeCoderKind::SherryTernary3Of4, 9),
+                (LatticeCoderKind::ShadowKvSketch, 7),
+                (LatticeCoderKind::EngramHashRecall, 9),
+                (LatticeCoderKind::NestedE8, 9),
+                (LatticeCoderKind::NestedLeech24, 9),
+                (LatticeCoderKind::QuipE8, 9),
+                (LatticeCoderKind::Nf4SsdOracle, 7),
+                (LatticeCoderKind::ResidualSketch, 7),
+                (LatticeCoderKind::NetworkCascade, 9),
+                (LatticeCoderKind::SelfEvolvingAdapter, 9),
+            ]
+        );
+        assert_eq!(counts.iter().map(|(_, count)| count).sum::<usize>(), 108);
     }
 
     #[test]
