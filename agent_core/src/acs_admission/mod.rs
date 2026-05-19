@@ -3372,6 +3372,12 @@ impl ACSAuditSink for ACSRunEventLogSink<'_> {
         if run_event_log_contains_acs_record(self.run_event_log, &node_id) {
             return Err(ACSAuditError::DuplicateRecord { record_id: node_id });
         }
+        if run_event_log_contains_stricter_same_request_verdict(self.run_event_log, &record) {
+            return Err(ACSAuditError::NonMonotonicVerdict {
+                field: "verdict",
+                record_id: node_id,
+            });
+        }
         let value = serde_json::to_value(record).map_err(|_| ACSAuditError::EncodeRecord)?;
         self.run_event_log.append(OpPayload::PropSet {
             node_id,
@@ -3407,6 +3413,26 @@ fn run_event_log_contains_acs_record(run_event_log: &OpLog, record_id: &str) -> 
                     && (node_id == record_id
                         || audit_record_value_id(&value)
                             .is_some_and(|value_id| value_id == record_id))
+            }
+            _ => false,
+        })
+}
+
+fn run_event_log_contains_stricter_same_request_verdict(
+    run_event_log: &OpLog,
+    record: &ACSAuditRecord,
+) -> bool {
+    run_event_log
+        .iter_all()
+        .into_iter()
+        .any(|op| match op.payload {
+            OpPayload::PropSet { key, value, .. } if key == ACS_AUDIT_RUN_EVENT_KEY => {
+                serde_json::from_value::<ACSAuditRecord>(value)
+                    .ok()
+                    .is_some_and(|existing| {
+                        existing.request_id == record.request_id
+                            && existing.verdict.severity_rank() > record.verdict.severity_rank()
+                    })
             }
             _ => false,
         })
@@ -9360,6 +9386,45 @@ mod tests {
         assert_eq!(err.cause(), "duplicate_acs_audit_record");
         assert_eq!(err.field(), Some("record_id"));
         assert_eq!(err.record_id(), Some(record_id.as_str()));
+        assert_eq!(run_event_log.len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_run_event_log_sink_rejects_same_request_verdict_regression() {
+        let run_event_log = crate::oplog::OpLog::new("acs-admission-run-event-verdict-regression");
+        let sink = ACSRunEventLogSink::new(&run_event_log);
+        let first = ACSAuditRecord {
+            record_id: "acs:req-run-event-race:2000".to_string(),
+            request_id: "req-run-event-race".to_string(),
+            policy_id: "policy".to_string(),
+            policy_version: 1,
+            operation: ACSOperationKind::MemoryWrite,
+            verdict: ACSAdmissionVerdict::Reject,
+            reason: ACSAdmissionVerdict::Reject.code().to_string(),
+            risk_max: 0.95,
+            emitted_at_ms: 2_000,
+        };
+        sink.record(first).expect("first record stored");
+
+        let regressing = ACSAuditRecord {
+            record_id: "acs:req-run-event-race:2001".to_string(),
+            request_id: "req-run-event-race".to_string(),
+            policy_id: "policy".to_string(),
+            policy_version: 1,
+            operation: ACSOperationKind::MemoryWrite,
+            verdict: ACSAdmissionVerdict::Allow,
+            reason: ACSAdmissionVerdict::Allow.code().to_string(),
+            risk_max: 0.0,
+            emitted_at_ms: 2_001,
+        };
+
+        let err = sink
+            .record(regressing.clone())
+            .expect_err("RunEventLog sink must reject same-request verdict regression");
+
+        assert_eq!(err.cause(), "non_monotonic_acs_verdict");
+        assert_eq!(err.field(), Some("verdict"));
+        assert_eq!(err.record_id(), Some(regressing.record_id.as_str()));
         assert_eq!(run_event_log.len(), 1);
     }
 
