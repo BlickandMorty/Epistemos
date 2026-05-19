@@ -2289,6 +2289,26 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                per-category F-VaultRecall-50 floor.",
     },
     FVaultRecallRow {
+        // 52nd Unicode row (iter-418): mixed CJK + RTL Arabic
+        // script interaction. Prior Unicode rows pin Chinese and
+        // Arabic independently; this row requires both non-Latin
+        // terms in one ≤3-token AND query, with Latin "Mamba" as the
+        // shared corpus anchor. The forbidden English-only doc carries
+        // the Latin anchor but neither script token.
+        query: "Mamba 缓存 كاش",
+        expected_paths: &["notes/mamba_chinese_arabic.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Fifty-second Unicode row (iter-418): mixed-script \
+               CJK+Arabic query — \"Mamba 缓存 كاش\". Extends the \
+               post-floor Unicode lane from single-script and \
+               two-token variants into cross-script interaction: \
+               the AND path must require Latin + CJK + RTL Arabic \
+               together, and the English-only Mamba decoy must not \
+               satisfy the top-5 membership contract.",
+    },
+    FVaultRecallRow {
         // 49th Unicode row (iter-407): Meroitic Cursive
         // extension. Adds a 47th non-Latin script (Meroitic
         // Cursive, U+109A0-U+109FF) — the EVERYDAY/CURSIVE

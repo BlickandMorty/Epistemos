@@ -1115,6 +1115,13 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_pahawh_hmong.md",
             "Mamba 𖬀 cache Mamba 𖬀 cache architecture notes pahawh_hmong",
         ),
+        // Iter-418 (52nd Unicode): mixed CJK + RTL Arabic in one
+        // <=3-token AND query. The English-only Mamba decoy carries
+        // the Latin anchor but neither non-Latin token.
+        (
+            "notes/mamba_chinese_arabic.md",
+            "Mamba 缓存 كاش Mamba 缓存 كاش mixed script notes",
+        ),
     ];
     for (path, content) in seeds {
         store
