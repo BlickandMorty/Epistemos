@@ -44,6 +44,9 @@ def ModelSurgeryEnvelope.targetCount (e : ModelSurgeryEnvelope) : Nat :=
 shipping impact. -/
 def masImpactZeroVaultOnly : Bool := true
 
+/-- PCF-6 falsifier limit for off-distribution PPL drift. -/
+def offDistributionPplDriftMax : Float := 1.0
+
 theorem driftUpperBoundExpands (e : ModelSurgeryEnvelope) :
     e.driftUpperBound = (e.s_max.toFloat) * e.sigma_max_w_edit := by
   rfl
@@ -59,6 +62,10 @@ theorem emptySurgeryEnvelopeTargetsZero (envelope_id : String)
 
 theorem masImpactZeroPinned :
     masImpactZeroVaultOnly = true := by
+  rfl
+
+theorem offDistributionPplDriftMaxPinned :
+    offDistributionPplDriftMax = 1.0 := by
   rfl
 
 end Epistemos.PCF6
