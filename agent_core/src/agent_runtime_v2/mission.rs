@@ -1106,6 +1106,18 @@ mod tests {
     }
 
     #[test]
+    fn tool_call_debug_repr_is_stable_for_audit_logs() {
+        let call = ToolCall {
+            name: "vault.read".to_string(),
+            arguments: serde_json::Value::Null,
+        };
+        assert_eq!(
+            format!("{call:?}"),
+            r#"ToolCall { name: "vault.read", arguments: Null }"#
+        );
+    }
+
+    #[test]
     fn mission_packet_display_blueprint_id_and_scope_reflect_field_values() {
         // Phase 1 hardening — Display semantic pin (companion to
         // answer_packet_display_citations_count_field_reflects_vec_len
