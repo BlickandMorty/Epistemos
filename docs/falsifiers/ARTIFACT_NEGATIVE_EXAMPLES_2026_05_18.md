@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 292
+invalid_example_count: 293
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -13355,3 +13355,19 @@ Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-
 ```
 
 Rejection reason: replay receipts must bind the commit to the scoped repository origin; a valid hash from an unrelated fork is replay-ineligible.
+
+## N293 - Stale Remote Tracking Commit SHA
+
+Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-identity-rule) and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "field": "commit_sha",
+  "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "schema_pattern": "^[0-9a-f]{40}$",
+  "semantic_rule": "remote_tracking_ref_fresh_for_commit",
+  "remote_tracking_state": "stale"
+}
+```
+
+Rejection reason: replay receipts must validate against a freshly observed remote-tracking ref; stale remote state cannot prove the commit is still branch-addressable.
