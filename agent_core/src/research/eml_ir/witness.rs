@@ -3170,6 +3170,16 @@ mod tests {
     }
 
     #[test]
+    fn replay_round_trips_acceptance_witness_byte_equal_after_two_serializations() {
+        let original = acceptance_witness_json().expect("acceptance witness json");
+        let parsed = replay_witness_json(&original).expect("acceptance witness replay");
+        let first = serde_json::to_string(&parsed).expect("first serialization");
+        let reparsed = replay_witness_json(&first).expect("first reparse");
+        let second = serde_json::to_string(&reparsed).expect("second serialization");
+        assert_eq!(first, second);
+    }
+
+    #[test]
     fn replay_round_trips_acceptance_witness_serialization() {
         let original = acceptance_witness_json().expect("acceptance witness json");
         let parsed = replay_witness_json(&original).expect("acceptance witness replay");
