@@ -829,6 +829,39 @@ mod tests {
     }
 
     #[test]
+    fn variant_tier_serde_forms_are_pairwise_distinct_across_all_three_variants() {
+        // Phase 1 hardening — pairwise-distinct serde-form pin for
+        // VariantTier (extends the serde-pairwise-distinct guardrail
+        // family closed at iter-542 to also cover the variant-ladder
+        // enum). VariantTier has 3 snake_case variants
+        // (t1_deterministic, t2_heuristic, t3_llm_bound) persisted into
+        // VariantLadderSpec rows. A 4th variant added with
+        // #[serde(rename = "t3_llm_bound")] would silently collide and
+        // misroute ladder-tier decisions on replay — a dispatcher
+        // could pick the wrong tier (and thus wrong cost class) for a
+        // tool. Pin asserts all 3 serialized forms are
+        // pairwise-distinct.
+        let variants = [
+            VariantTier::T1Deterministic,
+            VariantTier::T2Heuristic,
+            VariantTier::T3LlmBound,
+        ];
+        let serde_forms: Vec<String> = variants
+            .iter()
+            .map(|v| serde_json::to_string(v).expect("serialize"))
+            .collect();
+        for i in 0..serde_forms.len() {
+            for j in (i + 1)..serde_forms.len() {
+                assert_ne!(
+                    serde_forms[i], serde_forms[j],
+                    "VariantTier serde forms collide at [{i}] = {:?} and [{j}] = {:?}",
+                    serde_forms[i], serde_forms[j]
+                );
+            }
+        }
+    }
+
+    #[test]
     fn variant_tier_code_matches_serde_tag_byte_for_byte() {
         // Phase 1 hardening — cross-consistency pin between
         // VariantTier::code() (returns &'static str) and the
