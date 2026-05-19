@@ -2795,7 +2795,7 @@ where
             "verdict" | "operation" | "record_id" | "signature"
         ) {
             return Err(E::custom(format!(
-                "malformed_acs_admission_proof field={field} record_id={record_id}"
+                "malformed_acs_admission_proof field=proof.{field} record_id={record_id}"
             )));
         }
     }
@@ -12229,5 +12229,24 @@ mod tests {
             "{message}"
         );
         assert!(message.contains("shadow_proof"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_shadow_scope_rex_proof_field_names_proof_namespace() {
+        let record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+        let signing_key = crate::effect::receipt::HmacSha256SigningKey::new([7; 32]);
+        let proof = SCOPERexAdmissionProof::signed_from_record(&record, &signing_key)
+            .expect("valid audit record signs");
+        let mut value = serde_json::to_value(proof).expect("proof encodes");
+        value["shadow_proof"] = serde_json::json!("smuggled");
+
+        let err = serde_json::from_value::<SCOPERexAdmissionProof>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(
+            message.contains("malformed_acs_admission_proof"),
+            "{message}"
+        );
+        assert!(message.contains("proof.shadow_proof"), "{message}");
     }
 }
