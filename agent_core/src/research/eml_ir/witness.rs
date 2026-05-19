@@ -1578,6 +1578,7 @@ struct RawTopLevelUnsigned<'a> {
 }
 
 fn reject_raw_top_level_unsigned_json(json: &str) -> Result<(), FulpReplayError> {
+    reject_raw_top_level_unknown_json(json)?;
     let Ok(raw_witness) = serde_json::from_str::<RawTopLevelUnsigned<'_>>(json) else {
         return Ok(());
     };
@@ -1610,6 +1611,44 @@ fn reject_raw_top_level_unsigned_json(json: &str) -> Result<(), FulpReplayError>
     }
     if let Some(value) = raw_witness.observed_wall_clock_millis {
         raw_unsigned_integer_json(value, "observed_wall_clock_millis")?;
+    }
+    Ok(())
+}
+
+fn reject_raw_top_level_unknown_json(json: &str) -> Result<(), FulpReplayError> {
+    let Ok(raw_witness) = serde_json::from_str::<BTreeMap<String, Box<RawValue>>>(json) else {
+        return Ok(());
+    };
+    if let Some(field) = raw_witness.keys().find(|field| {
+        !matches!(
+            field.as_str(),
+            "schema_version"
+                | "mission"
+                | "hardware"
+                | "config"
+                | "evaluator_variant"
+                | "shader_entrypoint"
+                | "shader_fingerprint"
+                | "point_count"
+                | "operation_evaluations"
+                | "operation_catalog_fingerprint"
+                | "axis_catalog_fingerprint"
+                | "grid_fingerprint"
+                | "adversarial_fixture_count"
+                | "adversarial_fixture_fingerprint"
+                | "adversarial_reference_stats"
+                | "adversarial_reference_fingerprint"
+                | "stats"
+                | "pass"
+                | "budget_target_seconds"
+                | "budget_target_millis"
+                | "observed_wall_clock_millis"
+        )
+    }) {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("unknown field {field}"),
+            kind: FulpInvalidJsonKind::UnknownField,
+        });
     }
     Ok(())
 }
@@ -3761,6 +3800,27 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::UnknownField)
+        );
+    }
+
+    #[test]
+    fn replay_rejects_unknown_top_level_json_field_before_raw_overflow() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["corrupted_extra_field"] =
+            serde_json::Value::Number(serde_json::Number::from(123_456_789_u64));
+        let json = serde_json::to_string(&value).unwrap();
+        let needle = "\"corrupted_extra_field\":123456789";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(needle, "\"corrupted_extra_field\":1e999999", 1);
+        let error = replay_witness_json(&json).expect_err("unknown field must fail closed");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::UnknownField)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("unknown field corrupted_extra_field")
         );
     }
 
