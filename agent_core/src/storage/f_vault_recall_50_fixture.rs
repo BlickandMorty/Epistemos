@@ -3440,6 +3440,47 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 50th PureChatter row (iter-413, MILESTONE — PureChatter
+        // category SIXTH to reach the F-VaultRecall-50 target).
+        // 25-token long-input shape — "please can you tell me
+        // what where when how why which some of my notes are
+        // about stuff things files thing note file would could
+        // should". Extends long-input cardinality progression
+        // to 25 (iter-406 was 24). LONGEST PureChatter query
+        // in the fixture. Adds the wh-question words "why" +
+        // "which" past iter-406's modal-class closure — wh-
+        // survey progression now covers SIX wh-words (what +
+        // where + when + how + why + which = full wh-class
+        // coverage from QUERY_CHATTER_WORDS). CLOSES the
+        // chatter-wh-class survey alongside iter-385's closed
+        // noun-class survey AND iter-406's closed modal-class
+        // survey. Query now demonstrates THREE FULLY-CLOSED
+        // chatter-token-class subsurveys: noun + modal + wh.
+        // All 25 tokens in QUERY_CHATTER_WORDS.
+        query: "please can you tell me what where when how why which some of my notes are about stuff things files thing note file would could should",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Fiftieth PureChatter row (iter-413, MILESTONE — \
+               PureChatter category SIXTH to reach the F-\
+               VaultRecall-50 target). 25-token long-input. \
+               Extends cardinality to 25 (iter-406 = 24). \
+               LONGEST PureChatter query in the fixture. Adds \
+               wh-words \"why\" + \"which\" past iter-406's \
+               modal-class closure. Query covers SIX wh-words \
+               (what + where + when + how + why + which = full \
+               wh-class coverage). CLOSES the chatter-wh-class \
+               survey. THREE FULLY-CLOSED chatter-token-class \
+               subsurveys now demonstrated in one query: noun \
+               + modal + wh. All 25 tokens in \
+               QUERY_CHATTER_WORDS. Brings PureChatter to \
+               depth 50 — F-VaultRecall-50 target reached.",
+    },
+    FVaultRecallRow {
         // 49th PureChatter row (iter-406): 24-token long-input
         // shape — "please can you tell me what where when how
         // some of my notes are about stuff things files thing
