@@ -241,6 +241,37 @@ mod tests {
     }
 
     #[test]
+    fn macaroon_capability_new_constructor_positional_arg_order_is_pinned() {
+        // Phase 1 hardening — positional-order pin for
+        // MacaroonCapability::new (companion to the constructor /
+        // dispatcher entry-order pin family iter-433..iter-440).
+        //
+        // Signature: new(macaroon, root_key) (capability.rs §68).
+        //
+        // A reorder (root_key-first because it's the security-critical
+        // material) would silently shuffle every call site. The args
+        // have DIFFERENT types (Macaroon, [u8; 32]) so a swap would
+        // be type-incompatible — BUT pin via DISTINCT identifiable
+        // values to surface any future reorder.
+        use crate::cognitive_dag::macaroons::issue;
+        let key = root_key_a();
+        let m = issue(
+            "DISTINCT-SESSION-LOCATION",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &key,
+        );
+        let cap = MacaroonCapability::new(m.clone(), key);
+        // The macaroon (1st arg) is accessible via the macaroon()
+        // getter — its location should equal the DISTINCT input.
+        assert_eq!(cap.macaroon().location, "DISTINCT-SESSION-LOCATION");
+        // The root_key (2nd arg) lets verify succeed (since cap was
+        // built with the same key that issued the macaroon).
+        cap.verify(&ctx_now_at(1_000)).expect("verify with correct key");
+    }
+
+    #[test]
     fn capability_error_is_clone_send_sync_for_propagation_safety() {
         // Phase 1 hardening — trait-bound pin for CapabilityError.
         // Companion to the broader Clone + Send + Sync sweep
