@@ -284,6 +284,21 @@ theorem representationHashFieldsMatch
       c.representation.denominatorHash = c.denominatorHash := by
   exact ⟨numeratorMatches, denominatorMatches⟩
 
+theorem representationHashFieldsCarry
+    (c : RationalCertificateTarget)
+    (numeratorHash denominatorHash : String)
+    (targetNumeratorMatches : c.numeratorHash = numeratorHash)
+    (targetDenominatorMatches : c.denominatorHash = denominatorHash)
+    (representationNumeratorMatches :
+      c.representation.numeratorHash = c.numeratorHash)
+    (representationDenominatorMatches :
+      c.representation.denominatorHash = c.denominatorHash) :
+    c.representation.numeratorHash = numeratorHash ∧
+      c.representation.denominatorHash = denominatorHash := by
+  exact ⟨
+    Eq.trans representationNumeratorMatches targetNumeratorMatches,
+    Eq.trans representationDenominatorMatches targetDenominatorMatches⟩
+
 def representationCarries (c : RationalCertificateTarget) :
     RationalRepresentationObligation c.rational := by
   exact c.representation

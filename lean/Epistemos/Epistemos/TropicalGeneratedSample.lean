@@ -78,6 +78,20 @@ theorem tropical_rational_certificate_representation_hash_fields_sample :
     rfl
     rfl
 
+theorem tropical_rational_certificate_representation_hash_values_sample :
+    tropical_rational_certificate_sample.representation.numeratorHash =
+        "sample-num" ∧
+      tropical_rational_certificate_sample.representation.denominatorHash =
+        "sample-den" := by
+  exact Epistemos.Tropical.RationalCertificateTarget.representationHashFieldsCarry
+    tropical_rational_certificate_sample
+    "sample-num"
+    "sample-den"
+    rfl
+    rfl
+    rfl
+    rfl
+
 theorem tropical_rational_certificate_representation_sample :
     tropical_rational_certificate_sample.representation =
       tropical_rational_obligation_sample := by
