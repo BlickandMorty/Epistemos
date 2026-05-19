@@ -2883,6 +2883,66 @@ mod tests {
     }
 
     #[test]
+    fn refund_sequencing_is_commutative_when_both_refunds_fit_within_ledger() {
+        // Phase 1 hardening — algebraic-property pin (companion to
+        // check_and_debit_sequencing_is_commutative iter-530 + refund-
+        // left-inverse iter-528). For any ledger L and debits d1, d2
+        // where both refunds stay within L's used balance:
+        //
+        //   L.refund(d1).refund(d2) == L.refund(d2).refund(d1)
+        //
+        // Refund is implemented via saturating_sub, which is commutative
+        // when neither operation saturates (i.e., the ledger has enough
+        // headroom on every debited axis). A future tweak that added
+        // path-dependent state to refund (e.g., "remember the order of
+        // refunds for telemetry") would silently introduce order-
+        // dependence and break the audit invariant that "a sequence of
+        // refunds produces the same final ledger regardless of order".
+        let initial = BudgetLedger {
+            tokens_used: 1_000,
+            wall_used_ms: 5_000,
+            tool_calls_used: 10,
+            subprocess_used_ms: 2_000,
+            memory_bytes_used: 500_000,
+        };
+        // Both refunds stay well within the ledger's used balance.
+        let pairs: &[(BudgetDebit, BudgetDebit)] = &[
+            (
+                BudgetDebit { tokens: 100, ..Default::default() },
+                BudgetDebit { wall_ms: 500, ..Default::default() },
+            ),
+            (
+                BudgetDebit { tokens: 200, ..Default::default() },
+                BudgetDebit { tokens: 300, ..Default::default() },
+            ),
+            (
+                BudgetDebit {
+                    tokens: 100,
+                    wall_ms: 200,
+                    tool_calls: 1,
+                    subprocess_ms: 100,
+                    memory_bytes: 1_000,
+                },
+                BudgetDebit {
+                    tokens: 50,
+                    wall_ms: 100,
+                    tool_calls: 2,
+                    subprocess_ms: 200,
+                    memory_bytes: 500,
+                },
+            ),
+        ];
+        for (idx, (d1, d2)) in pairs.iter().enumerate() {
+            let l_d1_first = initial.refund(*d1).refund(*d2);
+            let l_d2_first = initial.refund(*d2).refund(*d1);
+            assert_eq!(
+                l_d1_first, l_d2_first,
+                "fixture {idx}: refund(d1).refund(d2) must commute with refund(d2).refund(d1)"
+            );
+        }
+    }
+
+    #[test]
     fn check_and_debit_sequencing_is_commutative_when_both_orders_fit_cap() {
         // Phase 1 hardening MILESTONE iter-530 — algebraic-property pin
         // companion to check_and_debit_sequencing_is_associative
