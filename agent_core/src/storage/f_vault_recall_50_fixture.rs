@@ -6462,6 +6462,39 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 43rd ChattyPrefix row (iter-363): Tifinagh-multilingual
+        // signal domain — 33rd distinct lexical universe.
+        // Survivors after strip {Mamba, ⴽ}. 2-term AND matches
+        // only iter-213's mamba_tifinagh.md. TWENTY-SECOND non-
+        // ASCII ChattyPrefix domain. FIRST modern Berber/
+        // Amazigh script in ChattyPrefix. Parallels iter-361
+        // SignalOnly Tifinagh single-term-AND. ChattyPrefix now
+        // covers FIVE distinct genealogical / cultural script-
+        // families at multilingual-signal granularity: Brahmic
+        // (7) + Aramaic (2) + Latin-diacritic (1) + Greek-
+        // descendant (1) + Berber/Amazigh (1) — plus standalone
+        // scripts.
+        query: "Show me my Mamba ⴽ notes",
+        expected_paths: &["notes/mamba_tifinagh.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Forty-third ChattyPrefix row (iter-363): Tifinagh-\
+               multilingual signal domain — 33rd distinct \
+               lexical universe. Survivors {Mamba, ⴽ} after \
+               strip. 2-term AND matches only iter-213 \
+               mamba_tifinagh.md. Twenty-second non-ASCII \
+               ChattyPrefix domain. FIRST modern Berber/Amazigh \
+               script in ChattyPrefix. ChattyPrefix now covers \
+               FIVE distinct script-family branches at \
+               multilingual-signal: Brahmic (7) + Aramaic (2) + \
+               Latin-diacritic (1) + Greek-descendant (1) + \
+               Berber/Amazigh (1). Parallels iter-361 \
+               SignalOnly Tifinagh. Brings ChattyPrefix to \
+               depth 43 — first category past depth-42 horizon. \
+               Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 42nd ChattyPrefix row (iter-356): Phoenician-
         // multilingual signal domain — 32nd distinct lexical
         // universe. Survivors after strip {Mamba, 𐤊}. 2-term
