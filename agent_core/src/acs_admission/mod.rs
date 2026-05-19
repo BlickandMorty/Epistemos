@@ -104,9 +104,11 @@ where
             Ok(())
         }
         serde_json::Value::Object(object) if object.contains_key(field) => {
-            Err(E::custom(format!("malformed_risk_axis field={field}")))
+            Err(E::custom(format!("malformed_risk_axis field=risk.{field}")))
         }
-        serde_json::Value::Object(_) => Err(E::custom(format!("missing_risk_axis field={field}"))),
+        serde_json::Value::Object(_) => {
+            Err(E::custom(format!("missing_risk_axis field=risk.{field}")))
+        }
         _ => Err(E::custom("malformed_risk_vector field=risk")),
     }
 }
@@ -121,10 +123,12 @@ where
         {
             Ok(())
         }
-        serde_json::Value::Object(object) if object.contains_key(field) => {
-            Err(E::custom(format!("malformed_risk_field field={field}")))
+        serde_json::Value::Object(object) if object.contains_key(field) => Err(E::custom(format!(
+            "malformed_risk_field field=risk.{field}"
+        ))),
+        serde_json::Value::Object(_) => {
+            Err(E::custom(format!("missing_risk_axis field=risk.{field}")))
         }
-        serde_json::Value::Object(_) => Err(E::custom(format!("missing_risk_axis field={field}"))),
         _ => Err(E::custom("malformed_risk_vector field=risk")),
     }
 }
@@ -9341,6 +9345,22 @@ mod tests {
 
         assert!(message.contains("missing_risk_axis"), "{message}");
         assert!(message.contains("model_adaptation_risk"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_missing_risk_axis_names_risk_namespace() {
+        let mut value =
+            serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
+        value
+            .as_object_mut()
+            .expect("risk vector encodes as object")
+            .remove("model_adaptation_risk");
+
+        let err = serde_json::from_value::<ACSRiskVector>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("missing_risk_axis"), "{message}");
+        assert!(message.contains("risk.model_adaptation_risk"), "{message}");
     }
 
     #[test]
