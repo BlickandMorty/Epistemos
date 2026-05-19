@@ -178,6 +178,13 @@ theorem evalMatches (c : CertificateTarget) :
     ∀ env : Nat -> Scalar, c.poly.eval env = Expr.eval env c.expr := by
   exact c.eval_matches
 
+theorem semiringLawsMatch
+    (c : CertificateTarget)
+    (obligation : TropicalSemiringLawObligation)
+    (stored : c.semiringLaws = obligation) :
+    c.semiringLaws = obligation := by
+  exact stored
+
 theorem semiringLawsCarry
     (c : CertificateTarget)
     (semiringLawWitness : c.semiringLaws.laws) :
