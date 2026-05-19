@@ -4613,6 +4613,31 @@ mod tests {
     }
 
     #[test]
+    fn public_key_registry_sizes_are_pinned() {
+        assert_eq!(ResidencyTier::ALL.len(), 7);
+        assert_eq!(ResidencyTier::CODES.len(), ResidencyTier::ALL.len());
+        assert_eq!(LatticeCoderKind::ALL.len(), 13);
+        assert_eq!(LatticeCoderKind::CODES.len(), LatticeCoderKind::ALL.len());
+        assert_eq!(SideInformationKind::ALL.len(), 10);
+        assert_eq!(
+            SideInformationKind::CODES.len(),
+            SideInformationKind::ALL.len()
+        );
+        assert_eq!(WboTermCode::ALL.len(), 7);
+        assert_eq!(WboTermCode::CODES.len(), WboTermCode::ALL.len());
+        assert_eq!(WboTermCode::SEMANTIC_WBO6.len(), 6);
+        assert_eq!(LatticeWboError::ALL.len(), 18);
+        assert_eq!(LatticeWboError::CODES.len(), LatticeWboError::ALL.len());
+        assert_eq!(FALSIFIER_HOOK_OWNERS.len(), 4);
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`public_key_registry_sizes_are_pinned`"),
+            "register doc must cross-link public-key registry sizes"
+        );
+    }
+
+    #[test]
     fn residency_primary_falsifiers_name_wbo_drift_ledger_for_every_tier() {
         for tier in ResidencyTier::ALL {
             let hooks = f_hooks_in(tier.primary_falsifier());
