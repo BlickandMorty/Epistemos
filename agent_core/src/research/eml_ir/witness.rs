@@ -1149,6 +1149,15 @@ fn reject_adversarial_reference_stats_json(
         adversarial_fixture_count,
         "adversarial_fixture_count",
     )?;
+    reject_nested_count_sum_above(
+        "adversarial_reference_stats",
+        "finite_count",
+        finite_count,
+        "rejected_count",
+        rejected_count,
+        adversarial_fixture_count,
+        "adversarial_fixture_count",
+    )?;
     Ok(())
 }
 
@@ -1165,6 +1174,39 @@ fn reject_nested_count_above(
     if value > max_value {
         return Err(FulpReplayError::InvalidJson {
             message: format!("number out of range for {path}.{field}, expected <= {max_field}"),
+            kind: FulpInvalidJsonKind::NumberOutOfRange,
+        });
+    }
+    Ok(())
+}
+
+fn reject_nested_count_sum_above(
+    path: &str,
+    left_field: &str,
+    left_value: Option<u64>,
+    right_field: &str,
+    right_value: Option<u64>,
+    max_value: Option<u64>,
+    max_field: &str,
+) -> Result<(), FulpReplayError> {
+    let (Some(left_value), Some(right_value), Some(max_value)) =
+        (left_value, right_value, max_value)
+    else {
+        return Ok(());
+    };
+    let Some(sum) = left_value.checked_add(right_value) else {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!(
+                "number out of range for {path}.{left_field}+{right_field}, expected <= {max_field}"
+            ),
+            kind: FulpInvalidJsonKind::NumberOutOfRange,
+        });
+    };
+    if sum > max_value {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!(
+                "number out of range for {path}.{left_field}+{right_field}, expected <= {max_field}"
+            ),
             kind: FulpInvalidJsonKind::NumberOutOfRange,
         });
     }
@@ -2064,6 +2106,7 @@ mod tests {
     fn replay_rejects_adversarial_reference_stats_drift() {
         let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
             .expect("acceptance witness json");
+        witness.adversarial_reference_stats.finite_count -= 1;
         witness.adversarial_reference_stats.rejected_count += 1;
         let json = serde_json::to_string(&witness).unwrap();
         let error =
@@ -2136,6 +2179,30 @@ mod tests {
             .invalid_json_message()
             .expect("invalid json message")
             .contains("adversarial_reference_stats.rejected_count"));
+    }
+
+    #[test]
+    fn replay_rejects_adversarial_reference_count_sum_above_fixture_count_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        let fixture_count = value["adversarial_fixture_count"]
+            .as_u64()
+            .expect("adversarial fixture count");
+        value["adversarial_reference_stats"]["finite_count"] =
+            serde_json::Value::Number(serde_json::Number::from(fixture_count));
+        value["adversarial_reference_stats"]["rejected_count"] =
+            serde_json::Value::Number(serde_json::Number::from(1_u64));
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("adversarial reference count sum above fixture count must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("adversarial_reference_stats"));
     }
 
     #[test]
