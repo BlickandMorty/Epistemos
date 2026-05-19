@@ -294,6 +294,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 ```
 
 ```bash
+ruby -rjson -e 'schema=JSON.parse(File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md")[/```json\n(.*?)\n```/m,1]); pat=Regexp.new(schema.dig("properties","notes","not","pattern")); notes=JSON.parse(File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md")[/## N194 - .*?```json\n(.*?)\n```/m,1]).fetch("notes"); abort("reserved identity state branch missing") unless notes.match?(pat); ok="identity_sentinel_gap_report=validator:old-1-new-2,reviewer:old-3-new-4"; abort("numeric-only valid states rejected") if ok.match?(pat); puts "migration identity reserved states rejected ok"'
+```
+
+```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); pat=schema.dig("properties","notes","allOf",1,"then","pattern") || abort("migration note pattern missing"); abort("internal-dot identity states no longer fit grammar") unless "identity_sentinel_gap_report=validator:old-anonymous.v1-new-blocked,reviewer:old-unknown.v1-new-blocked".match?(Regexp.new(pat[/identity_sentinel_gap_report=validator:old-.*?\\(\\?:;\\|\\$\\)/] || "a^")); puts "migration identity internal-dot states ok"'
 ```
 
