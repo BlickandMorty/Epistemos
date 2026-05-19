@@ -2095,6 +2095,117 @@ mod tests {
     }
 
     #[test]
+    fn sealer_n_consecutive_writer_failures_before_success_apply_single_debit() {
+        // Phase 1 hardening — work-queue item E: MutationEnvelope
+        // idempotency on partial failure (replay-safe re-application).
+        // Companion to sealer_writer_failure_does_not_advance_caller_ledger
+        // which proves the 1-failure-then-1-success case. THIS pin
+        // extends to N consecutive failures (N=5) followed by 1
+        // success.
+        //
+        // The retry chain proves the failed attempts NEVER leak
+        // budget into the gate — even when stacked. After 5 failures
+        // + 1 success, exactly ONE debit must be applied to the
+        // ledger (not 6, not 0). The writer must have been invoked
+        // EXACTLY 6 times across the 6 calls (5 failures + 1 success).
+        //
+        // Defends against a future "let me keep a retry-counter
+        // inside the gate to bound flapping" optimisation that
+        // could silently allocate budget on the first attempt and
+        // refund partially, leaving a residual debit. THIS pin
+        // catches both directions: hidden debit accumulation AND
+        // refund-overshoot.
+        //
+        // The "flapping" scenario (failure → success → failure) is
+        // realistic: a writer might be a remote service whose
+        // intermittent failures the dispatcher transparently retries.
+
+        // Toggle-able writer: fails K times, then succeeds. Mirrors
+        // the production retry loop without a real network.
+        struct ToggleWriter {
+            failures_remaining: usize,
+            writes: usize,
+        }
+        #[derive(Debug, PartialEq, Eq)]
+        struct Transient;
+        impl MutationWriter<String> for ToggleWriter {
+            type Receipt = u64;
+            type WriteError = Transient;
+            fn write(&mut self, payload: &String) -> Result<u64, Transient> {
+                self.writes += 1;
+                if self.failures_remaining > 0 {
+                    self.failures_remaining -= 1;
+                    Err(Transient)
+                } else {
+                    Ok(payload.len() as u64)
+                }
+            }
+        }
+
+        let cap = valid_capability(Some(10_000));
+        let envelope_template = || {
+            MutationEnvelope::new(
+                cap.macaroon().capability_hash(),
+                BudgetDebit { tokens: 30, tool_calls: 1, ..Default::default() },
+                "retry-payload".to_string(),
+            )
+        };
+        let ledger_pre = BudgetLedger::default();
+
+        // 5 consecutive failure attempts. Each on a FRESH Sealer
+        // (Sealer is single-use by ownership of BudgetGate). Each
+        // must surface SealError::Write(Transient) and leave the
+        // pre-call ledger intact.
+        let mut writer = ToggleWriter {
+            failures_remaining: 5,
+            writes: 0,
+        };
+        let mut total_failed = 0usize;
+        for attempt in 0..5 {
+            let fresh_gate = BudgetGate::new(BudgetSpec::new(1_000, 0, 10, 0));
+            let sealer = Sealer {
+                capability: &cap,
+                gate: fresh_gate,
+            };
+            let err = sealer
+                .seal_and_apply(&ctx(), ledger_pre, envelope_template(), &mut writer)
+                .expect_err(&format!("attempt {attempt} must fail"));
+            assert!(
+                matches!(err, SealError::Write(Transient)),
+                "attempt {attempt}: expected SealError::Write(Transient), got {err:?}"
+            );
+            total_failed += 1;
+        }
+        assert_eq!(total_failed, 5, "5 attempts must have failed");
+        // After 5 failures, the writer's failures_remaining is 0
+        // and `writes` is exactly 5 (one per attempt).
+        assert_eq!(writer.writes, 5, "writer invoked once per failure");
+        assert_eq!(
+            writer.failures_remaining, 0,
+            "ToggleWriter must have exhausted its failure budget"
+        );
+
+        // 6th attempt — now succeeds. Land at single-debit state.
+        let success_sealer = Sealer {
+            capability: &cap,
+            gate: BudgetGate::new(BudgetSpec::new(1_000, 0, 10, 0)),
+        };
+        let (ledger_after, receipt) = success_sealer
+            .seal_and_apply(&ctx(), ledger_pre, envelope_template(), &mut writer)
+            .expect("6th attempt must succeed");
+        // Writer was invoked one more time (total 6 across the chain).
+        assert_eq!(writer.writes, 6, "writer invoked exactly 6 times across chain");
+        // Single debit applied (30 tokens + 1 tool_call), NOT 6×.
+        assert_eq!(ledger_after.tokens_used, 30, "single debit, not 6× accumulation");
+        assert_eq!(ledger_after.tool_calls_used, 1, "single tool_call debit");
+        // Pre-call ledger remained zero.
+        assert_eq!(ledger_pre, BudgetLedger::default());
+        // Receipt reflects payload length (sanity: writer got the
+        // SAME byte-equal envelope payload across all 6 calls).
+        assert_eq!(receipt, "retry-payload".len() as u64);
+    }
+
+    #[test]
     fn mutation_envelope_serde_tolerates_unknown_extra_fields_per_current_doctrine() {
         // Phase 1 hardening — fourth leg of the unknown-fields
         // tolerance pattern (AgentBlueprint iter-121, AnswerPacket
