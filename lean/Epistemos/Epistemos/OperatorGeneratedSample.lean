@@ -58,7 +58,10 @@ theorem operator_fourier_option_sample :
 theorem operator_certificate_fno_sample :
     operator_certificate_sample.fno_equivalence =
       operator_fno_obligation_sample := by
-  rfl
+  exact Epistemos.Operator.CertificateTarget.fnoObligationMatches
+    operator_certificate_sample
+    operator_fno_obligation_sample
+    rfl
 
 theorem operator_certificate_fno_expr_match_sample :
     operator_certificate_sample.fno_equivalence.expr =

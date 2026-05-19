@@ -143,7 +143,10 @@ pub fn lean_certificate(op: &OperatorExpr) -> String {
          {fourier_option_theorem}\
          theorem operator_certificate_fno_{suffix} :\n\
          \x20   operator_certificate_{suffix}.fno_equivalence = operator_fno_obligation_{suffix} := by\n\
-         \x20 rfl\n\
+         \x20 exact Epistemos.Operator.CertificateTarget.fnoObligationMatches\n\
+         \x20   operator_certificate_{suffix}\n\
+         \x20   operator_fno_obligation_{suffix}\n\
+         \x20   rfl\n\
          \n\
          theorem operator_certificate_fno_expr_match_{suffix} :\n\
          \x20   operator_certificate_{suffix}.fno_equivalence.expr = operator_certificate_{suffix}.expr := by\n\
@@ -278,7 +281,7 @@ mod tests {
         let c = lean_certificate(&op);
         assert!(c.contains("theorem operator_certificate_fno_"));
         assert!(c.contains(".fno_equivalence = operator_fno_obligation_"));
-        assert!(c.contains("rfl"));
+        assert!(c.contains("Epistemos.Operator.CertificateTarget.fnoObligationMatches"));
     }
 
     #[test]

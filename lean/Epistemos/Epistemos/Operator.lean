@@ -129,6 +129,13 @@ structure CertificateTarget where
 
 namespace CertificateTarget
 
+theorem fnoObligationMatches
+    (c : CertificateTarget)
+    (obligation : FNOEquivalenceObligation)
+    (stored : c.fno_equivalence = obligation) :
+    c.fno_equivalence = obligation := by
+  exact stored
+
 theorem dimConsistentCarries (c : CertificateTarget) :
     c.expr.branch.outputDim = c.expr.trunk.outputDim := by
   exact c.dim_consistent
