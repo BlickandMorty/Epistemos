@@ -392,6 +392,39 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_tier_serde_values_are_stable() {
+        // Phase 1 hardening MILESTONE iter-410 — completes the
+        // serde-stable-values pin family across every closed-taxonomy
+        // enum in agent_runtime_v2. LocalAgentCapabilityTier carries
+        // #[serde(rename_all = "lowercase")] (NOT snake_case — these
+        // are simple single-word tier names matching the Swift raw
+        // values).
+        //
+        // Companion to:
+        //   - mode_serde_discriminator_values_are_stable (3 modes / snake_case)
+        //   - agent_event_error_kind_serde_values_are_stable (4 / snake_case)
+        //   - cli_adapter_serde_snake_case_pins_all_six_adapter_strings (6 / snake_case)
+        //   - agent_event_serde_tag_values_are_stable (6 / snake_case)
+        //   - stop_reason_serde_values_are_stable (7 / snake_case)
+        //   - variant_tier_serde_values_are_stable (3 / snake_case)
+        //   - LocalAgentCapabilityTier (this commit / lowercase, 3 variants)
+        //
+        // Series total now: 7 enums + 32 individual variant→string mappings
+        // pinned at the JSON wire layer. Defends against ANY future
+        // serde rename that would silently fork persisted JSON.
+        for (variant, expected) in [
+            (LocalAgentCapabilityTier::Core, "\"core\""),
+            (LocalAgentCapabilityTier::Pro, "\"pro\""),
+            (LocalAgentCapabilityTier::Research, "\"research\""),
+        ] {
+            let s = serde_json::to_string(&variant).expect("serialise");
+            assert_eq!(s, expected, "tier {variant:?} drifted serde form");
+            let back: LocalAgentCapabilityTier = serde_json::from_str(&s).expect("round-trip");
+            assert_eq!(back, variant);
+        }
+    }
+
+    #[test]
     fn local_agent_tier_unknown_serde_string_fails_to_deserialise() {
         // Phase 1 hardening — closed-taxonomy negative-serde pin
         // (continues the trilogy-of-trilogies pattern from iter-71
