@@ -237,6 +237,22 @@ theorem RationalRepresentationObligation.hashFieldsMatch
       obligation.denominatorHash = denominatorHash := by
   exact ⟨numeratorMatches, denominatorMatches⟩
 
+theorem RationalRepresentationObligation.numeratorHashMatches
+    {rational : RationalForm}
+    (obligation : RationalRepresentationObligation rational)
+    (numeratorHash : String)
+    (stored : obligation.numeratorHash = numeratorHash) :
+    obligation.numeratorHash = numeratorHash := by
+  exact stored
+
+theorem RationalRepresentationObligation.denominatorHashMatches
+    {rational : RationalForm}
+    (obligation : RationalRepresentationObligation rational)
+    (denominatorHash : String)
+    (stored : obligation.denominatorHash = denominatorHash) :
+    obligation.denominatorHash = denominatorHash := by
+  exact stored
+
 /-- Target for generated Tropical rational certificates. -/
 structure RationalCertificateTarget where
   rational : RationalForm

@@ -301,6 +301,20 @@ pub fn lean_certificate_rational(r: &TropicalRational) -> String {
          \x20   rfl\n\
          \x20   rfl\n\
          \n\
+         theorem tropical_rational_obligation_numerator_hash_{suffix} :\n\
+         \x20   tropical_rational_obligation_{suffix}.numeratorHash = \"{n_suffix}\" := by\n\
+         \x20 exact Epistemos.Tropical.RationalRepresentationObligation.numeratorHashMatches\n\
+         \x20   tropical_rational_obligation_{suffix}\n\
+         \x20   \"{n_suffix}\"\n\
+         \x20   rfl\n\
+         \n\
+         theorem tropical_rational_obligation_denominator_hash_{suffix} :\n\
+         \x20   tropical_rational_obligation_{suffix}.denominatorHash = \"{d_suffix}\" := by\n\
+         \x20 exact Epistemos.Tropical.RationalRepresentationObligation.denominatorHashMatches\n\
+         \x20   tropical_rational_obligation_{suffix}\n\
+         \x20   \"{d_suffix}\"\n\
+         \x20   rfl\n\
+         \n\
          noncomputable def tropical_rational_certificate_{suffix} : Epistemos.Tropical.RationalCertificateTarget :=\n\
          \x20   {{ rational := tropical_rational_form_{suffix}\n\
          \x20     numeratorHash := \"{n_suffix}\"\n\
@@ -618,6 +632,14 @@ mod tests {
         assert!(c.contains(".denominatorHash"));
         assert!(c.contains("theorem tropical_rational_obligation_hash_fields_"));
         assert!(c.contains("Epistemos.Tropical.RationalRepresentationObligation.hashFieldsMatch"));
+        assert!(c.contains("theorem tropical_rational_obligation_numerator_hash_"));
+        assert!(c.contains(
+            "Epistemos.Tropical.RationalRepresentationObligation.numeratorHashMatches"
+        ));
+        assert!(c.contains("theorem tropical_rational_obligation_denominator_hash_"));
+        assert!(c.contains(
+            "Epistemos.Tropical.RationalRepresentationObligation.denominatorHashMatches"
+        ));
         assert!(c.contains("(numeratorShapeWitness :"));
         assert!(c.contains("exact numeratorShapeWitness"));
         assert!(c.contains("(denominatorShapeWitness :"));
