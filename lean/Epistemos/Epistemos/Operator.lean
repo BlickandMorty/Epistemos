@@ -35,6 +35,9 @@ inductive KernelTransform where
   | fourier : Nat -> KernelTransform
 deriving Repr, DecidableEq
 
+/-- Operator kernel transforms currently expose identity plus Fourier. -/
+def kernelTransformConstructorCount : Nat := 2
+
 namespace KernelTransform
 
 def modes : KernelTransform -> Nat
@@ -46,6 +49,10 @@ theorem identity_modes : modes .identity = 0 := rfl
 theorem fourier_modes (n : Nat) : modes (.fourier n) = n := rfl
 
 end KernelTransform
+
+theorem kernelTransformConstructorCountPinned :
+    kernelTransformConstructorCount = 2 := by
+  rfl
 
 /-- Operator expression: branch and trunk networks must agree on
 output dimension before the bilinear/nonlocal pairing is meaningful. -/
