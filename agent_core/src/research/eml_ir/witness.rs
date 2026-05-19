@@ -742,6 +742,7 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
     required_top_level_string_json(&value, "operation_catalog_fingerprint")?;
     required_top_level_string_json(&value, "axis_catalog_fingerprint")?;
     required_top_level_string_json(&value, "grid_fingerprint")?;
+    required_top_level_string_json(&value, "adversarial_fixture_fingerprint")?;
     let point_count = top_level_unsigned_integer_json(&value, "point_count")?;
     let operation_evaluations = top_level_unsigned_integer_json(&value, "operation_evaluations")?;
     let adversarial_fixture_count =
@@ -2624,6 +2625,24 @@ mod tests {
         let error =
             replay_witness_json(&json).expect_err("adversarial fixture drift must fail replay");
         assert!(matches!(error, FulpReplayError::FingerprintMismatch { .. }));
+    }
+
+    #[test]
+    fn replay_rejects_adversarial_fixture_fingerprint_json_type_drift_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["adversarial_fixture_fingerprint"] = serde_json::Value::Bool(false);
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("adversarial fixture fingerprint type drift must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("invalid type for adversarial_fixture_fingerprint, expected string")
+        );
     }
 
     #[test]
