@@ -2412,7 +2412,7 @@ where
         return Ok(());
     }
     Err(E::custom(format!(
-        "corrupt_acs_audit_record field={field} record_id={record_id}"
+        "corrupt_acs_audit_record field=audit_record.{field} record_id={record_id}"
     )))
 }
 
@@ -12158,6 +12158,19 @@ mod tests {
 
         assert!(message.contains("corrupt_acs_audit_record"), "{message}");
         assert!(message.contains("audit_record.policy_version"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_shadow_audit_record_field_names_risk_max_namespace() {
+        let mut value = serde_json::to_value(audit_record_fixture(ACSAdmissionVerdict::Allow))
+            .expect("audit record encodes");
+        value["risk_max"] = serde_json::json!(2.0);
+
+        let err = serde_json::from_value::<ACSAuditRecord>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("corrupt_acs_audit_record"), "{message}");
+        assert!(message.contains("audit_record.risk_max"), "{message}");
     }
 
     #[test]
