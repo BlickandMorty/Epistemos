@@ -2283,6 +2283,39 @@ mod tests {
     }
 
     #[test]
+    fn append_sealed_mutation_positional_arg_order_is_pinned() {
+        // Phase 1 hardening — positional-order pin for
+        // append_sealed_mutation (companion to the constructor-order
+        // pin family iter-433..iter-438).
+        //
+        // Signature:
+        //   append_sealed_mutation(capability_hash, debit) -> u64
+        // (run_event_log.rs §89).
+        //
+        // A reorder (debit-first because it's the budget-axis info
+        // most-visible to the dispatcher) would silently shuffle the
+        // SealedMutation row layout. The args have DIFFERENT types
+        // (Hash, BudgetDebit) so a swap is type-incompatible — BUT
+        // pin via DISTINCT identifiable values to surface any
+        // future reorder at PR review.
+        let mut log = RunEventLog::new();
+        let cap = Hash::from_bytes([0x42; 32]);
+        let debit = BudgetDebit {
+            tokens: 999_999,
+            ..Default::default()
+        };
+        let _ord = log.append_sealed_mutation(cap, debit);
+        let entry = &log.entries()[0];
+        match entry {
+            RunEventEntry::SealedMutation { capability_hash, debit: stored_debit, .. } => {
+                assert_eq!(*capability_hash, cap, "first arg goes to capability_hash");
+                assert_eq!(stored_debit.tokens, 999_999, "second arg goes to debit");
+            }
+            other => panic!("expected SealedMutation, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn append_methods_return_ordinal_matching_stored_entry_position() {
         // Phase 1 hardening — return-vs-store consistency pin.
         // All three append_* methods (append_event, append_sealed_mutation,
