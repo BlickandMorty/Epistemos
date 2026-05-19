@@ -3770,7 +3770,14 @@ impl<'de> Deserialize<'de> for ACSPolicy {
     where
         D: serde::Deserializer<'de>,
     {
-        let wire = ACSPolicyWire::deserialize(deserializer)?;
+        let value = serde_json::Value::deserialize(deserializer)?;
+        require_policy_field::<D::Error>(
+            &value,
+            "thresholds",
+            "thresholds",
+            serde_json::Value::is_object,
+        )?;
+        let wire = ACSPolicyWire::deserialize(value).map_err(serde::de::Error::custom)?;
         let policy = Self {
             policy_id: wire.policy_id,
             version: wire.version,
@@ -3784,6 +3791,28 @@ impl<'de> Deserialize<'de> for ACSPolicy {
             .validate_shape()
             .map_err(|err| serde::de::Error::custom(acs_policy_decode_error(&err)))?;
         Ok(policy)
+    }
+}
+
+fn require_policy_field<E>(
+    value: &serde_json::Value,
+    field: &'static str,
+    policy_field: &'static str,
+    valid_field: fn(&serde_json::Value) -> bool,
+) -> Result<(), E>
+where
+    E: serde::de::Error,
+{
+    match value {
+        serde_json::Value::Object(object) if object.get(field).is_some_and(valid_field) => Ok(()),
+        serde_json::Value::Object(_) => Err(E::custom(acs_policy_decode_error(
+            &ACSPolicyError::Malformed {
+                field: policy_field,
+            },
+        ))),
+        _ => Err(E::custom(acs_policy_decode_error(
+            &ACSPolicyError::Malformed { field: "policy" },
+        ))),
     }
 }
 
@@ -7696,6 +7725,22 @@ mod tests {
         let err =
             serde_json::from_value::<ACSRiskThresholds>(serde_json::json!([0.35, 0.55, 0.75, 0.9]))
                 .unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(message.contains("thresholds"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_missing_policy_thresholds_names_malformed_policy_field() {
+        let mut value = serde_json::to_value(ACSPolicy::strict("policy-missing-thresholds", 1_000))
+            .expect("policy encodes");
+        value
+            .as_object_mut()
+            .expect("policy encodes as object")
+            .remove("thresholds");
+
+        let err = serde_json::from_value::<ACSPolicy>(value).unwrap_err();
         let message = err.to_string();
 
         assert!(message.contains("malformed_policy"), "{message}");
