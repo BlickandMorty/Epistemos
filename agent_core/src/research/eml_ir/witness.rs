@@ -735,11 +735,12 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
     }
     let point_count = top_level_unsigned_integer_json(&value, "point_count")?;
     let operation_evaluations = top_level_unsigned_integer_json(&value, "operation_evaluations")?;
-    top_level_unsigned_integer_json(&value, "adversarial_fixture_count")?;
+    let adversarial_fixture_count =
+        top_level_unsigned_integer_json(&value, "adversarial_fixture_count")?;
     top_level_u32_json(&value, "budget_target_seconds")?;
     top_level_unsigned_integer_json(&value, "budget_target_millis")?;
     top_level_unsigned_integer_json(&value, "observed_wall_clock_millis")?;
-    reject_adversarial_reference_stats_json(&value)?;
+    reject_adversarial_reference_stats_json(&value, adversarial_fixture_count)?;
     let Some(max_point_index_exclusive) = point_count else {
         return Ok(());
     };
@@ -1119,6 +1120,7 @@ fn top_level_u32_json(
 
 fn reject_adversarial_reference_stats_json(
     value: &serde_json::Value,
+    adversarial_fixture_count: Option<u64>,
 ) -> Result<(), FulpReplayError> {
     let Some(stats_value) = value.get("adversarial_reference_stats") else {
         return Ok(());
@@ -1129,8 +1131,19 @@ fn reject_adversarial_reference_stats_json(
             kind: FulpInvalidJsonKind::TypeMismatch,
         });
     }
-    nested_unsigned_integer_json(stats_value, "adversarial_reference_stats", "finite_count")?;
+    let finite_count =
+        nested_unsigned_integer_json(stats_value, "adversarial_reference_stats", "finite_count")?;
     nested_unsigned_integer_json(stats_value, "adversarial_reference_stats", "rejected_count")?;
+    if let (Some(finite_count), Some(adversarial_fixture_count)) =
+        (finite_count, adversarial_fixture_count)
+    {
+        if finite_count > adversarial_fixture_count {
+            return Err(FulpReplayError::InvalidJson {
+                message: "number out of range for adversarial_reference_stats.finite_count, expected <= adversarial_fixture_count".to_string(),
+                kind: FulpInvalidJsonKind::NumberOutOfRange,
+            });
+        }
+    }
     Ok(())
 }
 
@@ -2049,6 +2062,28 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("adversarial_reference_stats.finite_count"));
+    }
+
+    #[test]
+    fn replay_rejects_adversarial_reference_finite_count_above_fixture_count_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        let fixture_count = value["adversarial_fixture_count"]
+            .as_u64()
+            .expect("adversarial fixture count");
+        value["adversarial_reference_stats"]["finite_count"] =
+            serde_json::Value::Number(serde_json::Number::from(fixture_count + 1));
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("adversarial reference finite count above fixture count must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
         );
         assert!(error
             .invalid_json_message()
