@@ -158,6 +158,22 @@ mod tests {
     }
 
     #[test]
+    fn rejected_name_match_fields_are_pub_per_field_visibility_doctrine() {
+        // Phase 1 hardening — field-visibility pin for RejectedNameMatch
+        // (companion to the field-visibility pin family iter-505..iter-512).
+        //
+        // 2 pub fields: line (usize), column (usize). Direct field
+        // access is load-bearing for CI lint output rendering and
+        // grep-based audit pipelines that consume the per-match
+        // position triple.
+        let m = RejectedNameMatch { line: 5, column: 3 };
+        let _: usize = m.line;
+        let _: usize = m.column;
+        assert_eq!(m.line, 5);
+        assert_eq!(m.column, 3);
+    }
+
+    #[test]
     fn rejected_name_match_struct_field_shape_pinned_via_destructure() {
         // Phase 1 hardening — struct-field-shape pin for
         // RejectedNameMatch (companion to the struct destructure pin

@@ -1369,6 +1369,22 @@ mod tests {
     }
 
     #[test]
+    fn agent_blueprint_id_inner_field_is_pub_per_field_visibility_doctrine() {
+        // Phase 1 hardening — field-visibility pin for AgentBlueprintId
+        // (companion to the field-visibility pin family iter-505..iter-513).
+        //
+        // AgentBlueprintId is a newtype: pub struct AgentBlueprintId(pub String).
+        // Direct `.0` access is load-bearing for vault/agents/<id>.json
+        // path construction + the #[serde(transparent)] write-through.
+        let bid = AgentBlueprintId("research-assistant".into());
+        // Direct .0 field access.
+        let inner: &String = &bid.0;
+        assert_eq!(inner, "research-assistant");
+        // Type assertion: the inner field is String (not Cow / &str).
+        let _: &String = &bid.0;
+    }
+
+    #[test]
     fn agent_blueprint_id_newtype_field_shape_pinned_via_destructure() {
         // Phase 1 hardening — newtype field-shape pin for
         // AgentBlueprintId (companion to the struct destructure pin
