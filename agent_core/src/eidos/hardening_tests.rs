@@ -157,7 +157,7 @@ fn assert_iter_format_canonical_panics_on_out_of_range() {
     assert_iter_format_canonical("iter 099", "MY_SOURCE_LABEL");
 }
 
-/// Iter 680 — catalog range continuation pin.
+/// Iter 682 — catalog range continuation pin.
 /// STATUS.md is the contributor-facing catalog for the closed-citation
 /// hardening arc. When new pins land after the previous range tip, the
 /// range must advance in lock-step so future readers can tell the arc is
@@ -167,9 +167,9 @@ fn status_md_closed_citation_iter_range_tip_tracks_latest_catalog_pin() {
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Closed-citation contract hardening (iters 127-680)"),
+        status.contains("Closed-citation contract hardening (iters 127-682)"),
         "STATUS.md closed-citation hardening catalog must advance its iter \
-         range tip to iter 680 when the catalog-continuation pin lands"
+         range tip to iter 682 when the catalog-continuation pin lands"
     );
 }
 
@@ -1612,7 +1612,7 @@ fn status_md_lists_all_backends_and_w_rows() {
         assert!(doc.contains(row), "STATUS.md must mention {row}");
     }
 
-    // The "Cross-language wire-format symmetry" section MUST list all 4
+    // The "Cross-language wire-format symmetry" section MUST list all 5
     // contract types whose Rust serde ↔ Swift Codable parity is pinned
     // (iters 53-56). If a future commit removes a row from that table
     // without updating the detector, this fires. Pairs with the per-type
@@ -1626,6 +1626,7 @@ fn status_md_lists_all_backends_and_w_rows() {
     for contract_type in [
         "EidosContextPacket",
         "EidosCitation",
+        "EidosCitationEnvelope",
         "CitationError",
         "Vec<(usize, CitationError)>",
     ] {
@@ -3107,7 +3108,7 @@ fn semantic_retriever_re_construction_is_byte_equal() {
 /// Drift detector for the design doc's §12 Cross-language wire-format
 /// symmetry summary. STATUS.md already pins the table for contributors
 /// browsing the eidos/ tree; §12 lifts that pin into the canonical
-/// design doc so a future reader of the doc alone still finds the four
+/// design doc so a future reader of the doc alone still finds the five
 /// FFI-bound contract types and knows which Rust+Swift tests pin each.
 ///
 /// Asserts §12 exists and that every contract-type name appears at
@@ -3145,6 +3146,7 @@ fn design_doc_section_12_wire_format_summary_lists_all_four_contract_types() {
     for contract in [
         "EidosContextPacket",
         "EidosCitation",
+        "EidosCitationEnvelope",
         "CitationError",
         "Vec<(usize, CitationError)>",
     ] {
@@ -3159,7 +3161,7 @@ fn design_doc_section_12_wire_format_summary_lists_all_four_contract_types() {
 
     // Falsifier outcome types (iters 63 + 64): Rust serde is bidirectional;
     // Swift mirror pending. §12 must document them as a sibling of the
-    // four FFI-bound contract types above so a reader of the design doc
+    // five FFI-bound contract types above so a reader of the design doc
     // alone learns about the bidirectional state.
     for falsifier_type in ["FEidosClosedCitationWitness", "FalsifierFailure"] {
         assert!(
@@ -3169,6 +3171,55 @@ fn design_doc_section_12_wire_format_summary_lists_all_four_contract_types() {
              Update §12 + STATUS.md symmetry section + this test in lock-step."
         );
     }
+}
+
+/// Iter 682 — the typed citation envelope became a first-class
+/// Rust + Swift mirrored wire shape in iters 681/Swift mirror follow-up.
+/// §12 must name it alongside the original FFI-bound contract rows so
+/// readers do not route future consumers through best-effort provenance
+/// lookup instead of the validated envelope constructor.
+#[test]
+fn design_doc_section_12_lists_typed_citation_envelope_wire_shape() {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../docs/EIDOS_V0_CLOSED_CITATION_DESIGN_2026_05_18.md"
+    );
+    let doc = std::fs::read_to_string(path).expect("read design doc");
+
+    let mut in_section_12 = false;
+    let mut section_12_body = String::new();
+    for line in doc.lines() {
+        if line.starts_with("## 12. ") {
+            in_section_12 = true;
+            continue;
+        }
+        if in_section_12 && line.starts_with("## ") {
+            break;
+        }
+        if in_section_12 {
+            section_12_body.push_str(line);
+            section_12_body.push('\n');
+        }
+    }
+
+    assert!(
+        section_12_body.contains("EidosCitationEnvelope"),
+        "design-doc §12 must list EidosCitationEnvelope as a typed \
+         validated-citation + provenance wire shape. Update §12 + \
+         STATUS.md symmetry table + Swift parity pins in lock-step."
+    );
+    assert!(
+        section_12_body.contains("citation_envelope"),
+        "design-doc §12 must name the Rust constructor \
+         EidosContextPacket::citation_envelope so envelope consumers do \
+         not bypass the closed-citation gate."
+    );
+    assert!(
+        section_12_body.contains("citationEnvelope"),
+        "design-doc §12 must name the Swift mirror \
+         EidosContextPacket.citationEnvelope(for:) so the bridge surface \
+         stays symmetric."
+    );
 }
 
 /// Cross-component `RRF_K_DEFAULT` drift detector. The k=60 constant
