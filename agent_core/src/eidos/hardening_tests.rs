@@ -157,7 +157,7 @@ fn assert_iter_format_canonical_panics_on_out_of_range() {
     assert_iter_format_canonical("iter 099", "MY_SOURCE_LABEL");
 }
 
-/// Iter 710 — catalog range continuation pin.
+/// Iter 711 — catalog range continuation pin.
 /// STATUS.md is the contributor-facing catalog for the closed-citation
 /// hardening arc. When new pins land after the previous range tip, the
 /// range must advance in lock-step so future readers can tell the arc is
@@ -167,9 +167,9 @@ fn status_md_closed_citation_iter_range_tip_tracks_latest_catalog_pin() {
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Closed-citation contract hardening (iters 127-710)"),
+        status.contains("Closed-citation contract hardening (iters 127-711)"),
         "STATUS.md closed-citation hardening catalog must advance its iter \
-         range tip to iter 710 when the catalog-continuation pin lands"
+         range tip to iter 711 when the catalog-continuation pin lands"
     );
 }
 
@@ -236,6 +236,43 @@ fn assert_lexical_saturation_adversarial_fixture_score_stays_finite_and_closed()
         manifest_id: packet.manifest_id.clone(),
     };
     assert_eq!(packet.validate_citation(&citation), Ok(()));
+}
+
+fn assert_lexical_near_duplicate_adversarial_fixture_tie_break_is_deterministic_and_closed() {
+    use super::adversarial::{
+        adversarial_query_fixture_for_outcome, AdversarialQueryExpectedOutcome,
+    };
+
+    let fixture = adversarial_query_fixture_for_outcome(
+        AdversarialQueryExpectedOutcome::DeterministicTieBreak,
+    )
+    .expect("DeterministicTieBreak adversarial fixture exists");
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(
+        doc("z-near-dup"),
+        format!("{} with trailing variant beta", fixture.query_text),
+        EidosSourceKind::Note,
+    )
+    .unwrap();
+    lex.insert(
+        doc("a-near-dup"),
+        format!("{} with trailing variant alpha", fixture.query_text),
+        EidosSourceKind::Note,
+    )
+    .unwrap();
+
+    let query = EidosQuery::new(fixture.query_text, EidosRetrievalMode::Lexical, 8);
+    let packet = lex.retrieve(&query, 1_700_000_000_000);
+    let ids: Vec<&str> = packet.hits.iter().map(|hit| hit.source_id.as_str()).collect();
+    assert_eq!(ids, vec!["a-near-dup::lex", "z-near-dup::lex"]);
+
+    for hit in &packet.hits {
+        let citation = EidosCitation {
+            source_id: hit.source_id.clone(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        assert_eq!(packet.validate_citation(&citation), Ok(()));
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1083,6 +1120,11 @@ fn lexical_no_fuzzy_match_adversarial_fixture_returns_empty_packet() {
 #[test]
 fn lexical_saturation_adversarial_fixture_score_stays_finite_and_closed() {
     assert_lexical_saturation_adversarial_fixture_score_stays_finite_and_closed();
+}
+
+#[test]
+fn lexical_near_duplicate_adversarial_fixture_tie_break_is_deterministic_and_closed() {
+    assert_lexical_near_duplicate_adversarial_fixture_tie_break_is_deterministic_and_closed();
 }
 
 #[test]
