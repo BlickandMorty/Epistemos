@@ -180,6 +180,13 @@ A scope drift into any of these directories must be reverted before the
 witness is re-emitted, so the F-ULP-Oracle witness can never depend on
 behavior from a frozen neighbor terminal.
 
+## T23B Artifact Schema Link
+
+The canonical falsifier artifact schema remains owned by T23B. The legacy
+T12 row in `docs/F_ULP_ORACLE_2026_05_18.md` records that ownership boundary,
+and this live falsifier document follows that row instead of creating a
+parallel artifact schema.
+
 ## Fixture Fingerprint Chain
 
 The witness chains six SHA-256 fingerprints that the replay path
