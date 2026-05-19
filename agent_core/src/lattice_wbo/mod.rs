@@ -2734,6 +2734,42 @@ mod tests {
     }
 
     #[test]
+    fn active_support_budget_json_rejects_combined_zero_axes_and_wrong_side_information() {
+        let partial_axes = [
+            ("zero token axis", 0, 1, 1),
+            ("zero page axis", 1, 0, 1),
+            ("zero resident-byte axis", 1, 1, 0),
+        ];
+        let mut checked = 0;
+
+        for (label, tokens, pages, bytes) in partial_axes {
+            for side_information in SideInformationKind::ALL
+                .iter()
+                .copied()
+                .filter(|kind| *kind != SideInformationKind::ActiveSupport)
+            {
+                let value = serde_json::json!({
+                    "max_active_tokens": tokens,
+                    "max_active_pages": pages,
+                    "max_resident_bytes": bytes,
+                    "side_information": side_information,
+                });
+
+                assert!(
+                    serde_json::from_value::<ActiveSupportBudget>(value).is_err(),
+                    "{label} with {side_information:?} must not deserialize as a public active-support budget"
+                );
+                checked += 1;
+            }
+        }
+
+        assert_eq!(
+            checked,
+            partial_axes.len() * (SideInformationKind::ALL.len() - 1)
+        );
+    }
+
+    #[test]
     fn wbo_ledger_entry_round_trips_json() {
         let budget = LatticeBudget::new(
             LatticeCoderKind::ShadowKvSketch,
@@ -4756,6 +4792,8 @@ mod tests {
             "ActiveSupportBudget JSON rejects negative, fractional, string, boolean, object, array, and oversized axis values",
             "`active_support_budget_json_rejects_invalid_public_budget`",
             "standalone active-support JSON rejects zero axes and non-`ActiveSupport` side information",
+            "`active_support_budget_json_rejects_combined_zero_axes_and_wrong_side_information`",
+            "standalone active-support JSON rejects partial-zero axes crossed with every non-`ActiveSupport` witness",
             "partial-zero active-support axis fixture covers every active-support-capable tier",
             "`MissingSubstrateBoundaryTerm`",
             "`ledger_validation_requires_numerical_post_correction_contribution`",
