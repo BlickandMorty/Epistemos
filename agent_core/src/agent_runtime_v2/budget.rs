@@ -2883,6 +2883,65 @@ mod tests {
     }
 
     #[test]
+    fn refund_then_check_and_debit_is_right_inverse_when_non_saturating() {
+        // Phase 1 hardening — algebraic-property pin completing the
+        // (debit, refund) inverse trio:
+        //   iter-528  L.debit(d).refund(d) == L           (left inverse)
+        //   iter-530+531 commutativity
+        //   THIS      L.refund(d).debit(d) == L           (right inverse)
+        //
+        // When d ≤ L on every axis (refund doesn't saturate) AND L
+        // was reachable through the gate (so L + d still fits cap),
+        // the cycle is byte-equal: refunding d then re-applying it
+        // gives L back. The 3 properties together establish the
+        // canonical (debit, refund) algebra as a group on the
+        // 5-axis ledger up to saturation. A future "let me track
+        // refund-then-debit retries with a side counter" would
+        // silently break the right inverse.
+        let gate = BudgetGate::new(
+            BudgetSpec::new(10_000, 60_000, 100, 30_000).with_memory_bytes(1_000_000),
+        );
+        let initial = BudgetLedger {
+            tokens_used: 1_000,
+            wall_used_ms: 5_000,
+            tool_calls_used: 10,
+            subprocess_used_ms: 1_000,
+            memory_bytes_used: 100_000,
+        };
+        // 4 fixtures where d ≤ initial on every axis.
+        let debits = [
+            BudgetDebit { tokens: 100, ..Default::default() },
+            BudgetDebit { tool_calls: 1, ..Default::default() },
+            BudgetDebit {
+                tokens: 50,
+                wall_ms: 100,
+                tool_calls: 1,
+                subprocess_ms: 100,
+                memory_bytes: 100,
+            },
+            // d == initial — refund saturates to zero, then debit
+            // re-fills to original. Boundary case.
+            BudgetDebit {
+                tokens: 1_000,
+                wall_ms: 5_000,
+                tool_calls: 10,
+                subprocess_ms: 1_000,
+                memory_bytes: 100_000,
+            },
+        ];
+        for (idx, d) in debits.iter().enumerate() {
+            let after_refund = initial.refund(*d);
+            let after_debit = gate
+                .check_and_debit(after_refund, *d)
+                .expect("re-debit must fit cap");
+            assert_eq!(
+                after_debit, initial,
+                "fixture {idx}: refund→debit must round-trip to initial"
+            );
+        }
+    }
+
+    #[test]
     fn refund_sequencing_is_commutative_when_both_refunds_fit_within_ledger() {
         // Phase 1 hardening — algebraic-property pin (companion to
         // check_and_debit_sequencing_is_commutative iter-530 + refund-
