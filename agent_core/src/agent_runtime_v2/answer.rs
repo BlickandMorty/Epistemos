@@ -1368,6 +1368,31 @@ mod tests {
     }
 
     #[test]
+    fn citation_as_display_string_concatenates_source_separator_locator_in_order() {
+        // Phase 1 hardening — semantic pin for Citation::as_display_string
+        // (companion to the field-reflection pin family iter-488..iter-492).
+        //
+        // Signature: as_display_string(&self, separator: &str) -> String
+        // (answer.rs §71). Returns format!("{}{}{}", source, separator, locator).
+        //
+        // Pin the concatenation ORDER: source comes FIRST, then
+        // separator, then locator. A future "let me swap to
+        // locator-first for path-style display" refactor would
+        // silently flip every audit log render.
+        let c = Citation::from_tuple("DISTINCT-SOURCE", "DISTINCT-LOCATOR");
+        // 3 different separators to verify the separator slot is the
+        // middle component.
+        for sep in [":", " @ ", "  --  "] {
+            let display = c.as_display_string(sep);
+            let expected = format!("DISTINCT-SOURCE{sep}DISTINCT-LOCATOR");
+            assert_eq!(display, expected,
+                "as_display_string must equal source<sep>locator with sep={sep:?}");
+        }
+        // Empty separator: source immediately followed by locator.
+        assert_eq!(c.as_display_string(""), "DISTINCT-SOURCEDISTINCT-LOCATOR");
+    }
+
+    #[test]
     fn citation_as_display_string_writes_special_chars_verbatim_no_escaping() {
         // Phase 1 hardening — Display vs serde behaviour pin
         // (companion to mission_packet iter-424, answer_packet iter-425
