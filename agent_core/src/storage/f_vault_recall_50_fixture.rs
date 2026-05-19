@@ -1984,6 +1984,36 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 45th Unicode row (iter-379): Cypriot Syllabary
+        // extension. Adds a 43rd non-Latin script (Cypriot
+        // Syllabary, U+10800–U+1083F) — the syllabary used
+        // for writing the Greek Cypriot dialect ca. 11th-4th
+        // c BCE. Descends from Cypro-Minoan, which is related
+        // to Linear A. Together with Linear A (iter-358) +
+        // Linear B (iter-322), pin set now contains all THREE
+        // major Bronze Age Aegean scripts — the complete pre-
+        // alphabetic Greek-related writing-system trio.
+        // TWELFTH SMP-plane codepoint. Latin "Mamba" + Cypriot
+        // Syllabary "𐠀" (sign A, U+10800) + Latin "cache".
+        query: "Mamba 𐠀 cache",
+        expected_paths: &["notes/mamba_cypriot.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Forty-fifth Unicode row (iter-379): Cypriot \
+               Syllabary extension. FORTY-THREE non-Latin \
+               scripts pinned. Cypriot Syllabary (ca. 11th-4th \
+               c BCE) was used for the Greek Cypriot dialect, \
+               descended from Cypro-Minoan / Linear A. \
+               Together with Linear A (iter-358) + Linear B \
+               (iter-322), pin set now contains all THREE \
+               major Bronze Age Aegean scripts — complete \
+               pre-alphabetic Greek-related writing-system \
+               trio. Twelfth SMP-plane codepoint. Brings \
+               Unicode to depth 45 — first category past \
+               depth-44 horizon.",
+    },
+    FVaultRecallRow {
         // 44th Unicode row (iter-372): Tagalog/Baybayin
         // extension. Adds a 42nd non-Latin script (Baybayin,
         // U+1700–U+171F) — the pre-colonial writing system of
