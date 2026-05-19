@@ -3904,6 +3904,50 @@ mod tests {
     }
 
     #[test]
+    fn public_key_registries_reject_control_character_adjacent_public_keys() {
+        fn reject_control_character_adjacent_keys<T>(registry: &str, keys: &[&str])
+        where
+            T: for<'de> Deserialize<'de>,
+        {
+            for key in keys {
+                for control in ["\0", "\u{0007}", "\u{001b}"] {
+                    for spoof in [format!("{control}{key}"), format!("{key}{control}")] {
+                        assert!(
+                            serde_json::from_value::<T>(serde_json::json!(spoof)).is_err(),
+                            "{registry} accepted control-character-adjacent key {key}"
+                        );
+                    }
+                }
+            }
+        }
+
+        reject_control_character_adjacent_keys::<ResidencyTier>(
+            "ResidencyTier",
+            &ResidencyTier::CODES,
+        );
+        reject_control_character_adjacent_keys::<LatticeCoderKind>(
+            "LatticeCoderKind",
+            &LatticeCoderKind::CODES,
+        );
+        reject_control_character_adjacent_keys::<SideInformationKind>(
+            "SideInformationKind",
+            &SideInformationKind::CODES,
+        );
+        reject_control_character_adjacent_keys::<WboTermCode>("WboTermCode", &WboTermCode::CODES);
+        reject_control_character_adjacent_keys::<LatticeWboError>(
+            "LatticeWboError",
+            &LatticeWboError::CODES,
+        );
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register
+                .contains("`public_key_registries_reject_control_character_adjacent_public_keys`"),
+            "register doc must cross-link control-character-adjacent public-key rejection"
+        );
+    }
+
+    #[test]
     fn ledger_validation_requires_active_support_for_active_support_rows() {
         let contributions = vec![
             LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "ShadowKV support", 0.01)
