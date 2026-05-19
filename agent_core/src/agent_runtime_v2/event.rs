@@ -1211,6 +1211,37 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_error_message_preserves_json_special_chars_through_serde() {
+        // Phase 1 hardening — adversarial JSON pin for
+        // AgentEvent::Error.message (companion to the iter-413..
+        // iter-421 JSON-special-char pin family).
+        //
+        // Error messages frequently carry stack traces, JSON
+        // dumps, multi-line technical detail. Serde must escape
+        // these correctly through round-trip without lossy
+        // sanitisation. RunEventLog::Event(Error) rows carry these
+        // messages — replay must reproduce byte-equal content.
+        let adversarial = [
+            r#"transport failed: "401 Unauthorized""#,
+            "stack trace:\n  at frame 1\n  at frame 2",
+            r#"{"json": "error body from provider"}"#,
+            "tab\tdelim\tfields",
+            "control\x01chars\x02survive",
+        ];
+        for msg in adversarial {
+            let ev = AgentEvent::error(AgentEventErrorKind::Provider, msg);
+            let s = serde_json::to_string(&ev).expect("serialise");
+            let back: AgentEvent =
+                serde_json::from_str(&s).expect("deserialise");
+            assert_eq!(back, ev, "error message must round-trip byte-equal");
+            match back {
+                AgentEvent::Error { message, .. } => assert_eq!(message, msg),
+                other => panic!("expected Error variant, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
     fn streaming_delta_events_round_trip_with_empty_text() {
         // Phase 1 hardening — boundary pin for the streaming-delta
         // variants (ReasoningDelta, FinalText). Both carry a `text:
