@@ -1079,6 +1079,25 @@ mod tests {
     }
 
     #[test]
+    fn lint_does_not_flag_legitimate_doc_filenames_with_windows_separators() {
+        for path in [
+            r"docs\audit-progress.md",
+            r"docs\sprint-sessions\sprint-omega-1-foundation.md",
+            r"docs\agent-system\AGENT_ARCHITECTURE.md",
+        ] {
+            assert!(
+                !text_contains_rejected_name(path),
+                "lint must NOT flag backslash-separated legitimate doc filename: {path}"
+            );
+            assert_eq!(
+                count_hits(path),
+                0,
+                "backslash-separated legitimate doc filename should stay diagnostic-free: {path}"
+            );
+        }
+    }
+
+    #[test]
     fn lint_does_not_flag_legitimate_branch_names() {
         for branch in [
             "feature/system-g-executor",
