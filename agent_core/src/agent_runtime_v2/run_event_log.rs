@@ -2930,6 +2930,34 @@ mod tests {
     }
 
     #[test]
+    fn find_capability_hash_returns_empty_when_needle_not_present_in_nonempty_log() {
+        // Phase 1 hardening — negative-search-result pin. Companion
+        // to find_capability_hash_matches_zero_hash_needle... (which
+        // pins zero-hash being correctly matched when ACTUALLY
+        // present). This pins the inverse: a needle that's NOT
+        // present in a log with OTHER sealed mutations returns
+        // empty Vec (no false-positives).
+        //
+        // The log has sealed mutations under needles A and B; we
+        // query for an UNRELATED needle C and expect an empty result.
+        let mut log = RunEventLog::new();
+        let needle_a = Hash::from_bytes([0xAA; 32]);
+        let needle_b = Hash::from_bytes([0xBB; 32]);
+        let unrelated_c = Hash::from_bytes([0xCC; 32]);
+        log.append_sealed_mutation(needle_a, BudgetDebit::default());
+        log.append_sealed_mutation(needle_b, BudgetDebit::default());
+        log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
+        log.append_sealed_mutation(needle_a, BudgetDebit::default());
+
+        let hits_c = log.find_capability_hash(&unrelated_c);
+        assert!(hits_c.is_empty(), "unrelated needle must yield empty Vec");
+        // Sanity: needles A and B DO match (proves the test isn't
+        // trivially passing due to a broken find_capability_hash).
+        assert_eq!(log.find_capability_hash(&needle_a).len(), 2);
+        assert_eq!(log.find_capability_hash(&needle_b).len(), 1);
+    }
+
+    #[test]
     fn find_capability_hash_is_idempotent_across_multiple_calls() {
         // Phase 1 hardening — pure-function pin (companion to
         // iter-217 sealed_mutations idempotency + iter-168
