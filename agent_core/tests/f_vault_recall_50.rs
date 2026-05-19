@@ -947,6 +947,27 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_avestan.md",
             "Mamba 𐬀 cache Mamba 𐬀 cache architecture notes avestan",
         ),
+        // Iter-358 (42nd Unicode — Linear A extension): Latin
+        // "Mamba" + Linear A "𐘀" (sign A, U+10600) + Latin
+        // "cache". Linear A (ca. 1800-1450 BCE) is the
+        // UNDECIPHERED Minoan script — the parent (or older
+        // sibling) of Linear B (already pinned iter-322).
+        // Both are Aegean scripts; Linear B was adapted from
+        // Linear A for Mycenaean Greek. Pin set now contains
+        // BOTH halves of the Aegean script pair: deciphered
+        // descendant (Linear B) + undeciphered ancestor
+        // (Linear A). TENTH SMP-plane codepoint. FIRST
+        // undeciphered script in the pin set — demonstrates
+        // the no-script-fold contract on a writing system that
+        // has NO known phonetic or semantic value mapping
+        // (Tantivy treats Linear A codepoints purely as
+        // tokenization units, agnostic to whether they map to
+        // any known language). Forty non-Latin scripts pinned
+        // (+ Linear A).
+        (
+            "notes/mamba_linear_a.md",
+            "Mamba 𐘀 cache Mamba 𐘀 cache architecture notes linear_a",
+        ),
     ];
     for (path, content) in seeds {
         store
