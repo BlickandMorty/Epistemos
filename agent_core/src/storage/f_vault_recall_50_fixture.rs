@@ -7645,6 +7645,40 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 45th Adversarial row (iter-374): MLX-Swift 7-term
+        // long-query — {mlx, swift, inference, backend,
+        // pipeline, local, model}. Keeps all 4 canonical
+        // primaries + 3 tail context tokens (pipeline + local
+        // + model from canonical's tail "...local model
+        // pipeline notes"). 7 terms OR. Canonical body has all
+        // 7 (2× primaries + 1× each tail); decoys ≤1 of 7.
+        // FOURTH 7-term Adversarial row in fixture (after
+        // iter-353 agent-runtime + iter-360 vault + iter-367
+        // BM25/IR). MLX-Swift corpus now exercised at 4-term
+        // + 5-term + 6-term + 7-term — THIRD canonical at
+        // FOUR query-length coverage points.
+        query: "mlx swift inference backend pipeline local model",
+        expected_paths: &["notes/mlx_swift_inference_backend.md"],
+        forbidden_paths: &[
+            "notes/mlx_archive.md",
+            "notes/swift_brainstorm.md",
+            "notes/inference_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Forty-fifth Adversarial row (iter-374): MLX-\
+               Swift 7-term long-query \"mlx swift inference \
+               backend pipeline local model\". Keeps all 4 \
+               primaries + 3 tail context tokens. FOURTH 7-\
+               term Adversarial (after iter-353 + iter-360 + \
+               iter-367). MLX-Swift now at 4-term + 5-term + \
+               6-term + 7-term — THIRD canonical at FOUR \
+               query-length coverage points. Canonical 7/7; \
+               decoys ≤1 of 7. Brings Adversarial to depth 45 \
+               — first category past depth-44 horizon. Zero \
+               new seeds.",
+    },
+    FVaultRecallRow {
         // 44th Adversarial row (iter-367): BM25/IR 7-term long-
         // query — {bm25, saturation, length, penalty, ranking,
         // ir, search}. Keeps all 4 canonical primaries + 3
