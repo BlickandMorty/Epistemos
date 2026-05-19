@@ -42,4 +42,17 @@ theorem localGlobalConjectureIsFalse :
 def refinedConjectureCitation : String :=
   "arXiv:2307.02749v3 (Annals of Mathematics 200(2):749-770, 2024)"
 
+/-- Audit marker emitted when the negative result is acknowledged. -/
+def negativeResultAcknowledgement : String :=
+  "H14_NEGATIVE_RESULT_ACKNOWLEDGED"
+
+theorem refinedConjectureCitationPinned :
+    refinedConjectureCitation =
+      "arXiv:2307.02749v3 (Annals of Mathematics 200(2):749-770, 2024)" := by
+  rfl
+
+theorem negativeResultAcknowledged :
+    negativeResultAcknowledgement = "H14_NEGATIVE_RESULT_ACKNOWLEDGED" := by
+  rfl
+
 end Epistemos.H14
