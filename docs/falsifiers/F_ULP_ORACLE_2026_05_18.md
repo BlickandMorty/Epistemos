@@ -260,10 +260,10 @@ expected three per-operation rows is rejected with a typed `FulpReplayError`
 so a corruption-after-emit attack cannot pass replay even when the
 high-level numbers superficially match. A missing `rejected_count` inside
 `adversarial_reference_stats` is rejected at
-`adversarial_reference_stats.rejected_count`, and a raw-overflow `rejected_count`
-is rejected before semantic replay, so a candidate cannot
-drop or overflow the rejected side of the adversarial split while preserving
-`finite_count`. A compact reserialized witness with an unknown nested field
+`adversarial_reference_stats.rejected_count`, type-drift `rejected_count` is
+rejected at the same path, and a raw-overflow `rejected_count` is rejected
+before semantic replay, so a candidate cannot drop or overflow the rejected
+side of the adversarial split while preserving `finite_count`. A compact reserialized witness with an unknown nested field
 is rejected by path after JSON repacking, so removing pretty-print whitespace
 cannot hide a nested schema extension.
 
