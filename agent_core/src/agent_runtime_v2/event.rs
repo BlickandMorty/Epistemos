@@ -948,6 +948,53 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_error_helper_equals_struct_literal_for_every_kind_and_message_shape() {
+        // Phase 1 hardening — thin-wrapper equivalence pin for the
+        // AgentEvent::error helper (companion to the equivalence-pin
+        // family at iter-518/519/520/521/522). AgentEvent::error is
+        // the canonical ergonomic constructor for the terminal
+        // Error variant; it MUST produce an event byte-equal to the
+        // direct struct-literal form across all 4 kinds and
+        // representative message shapes.
+        //
+        // A future "let me prefix the message with the kind" tweak
+        // would silently introduce two distinct Error byte forms
+        // depending on whether the caller used the helper or the
+        // struct, breaking RunEventLog row equality + log dashboard
+        // grep semantics.
+        let kinds = [
+            AgentEventErrorKind::MalformedToolCall,
+            AgentEventErrorKind::BudgetExhausted,
+            AgentEventErrorKind::CapabilityDenied,
+            AgentEventErrorKind::Provider,
+        ];
+        let messages = [
+            "",
+            "transport failed",
+            "勉強 — 失敗",
+            "with\nnewline",
+            "with \"quotes\" and \\backslash",
+            "emoji 📝🌸",
+        ];
+        for kind in kinds {
+            for message in messages {
+                let via_helper = AgentEvent::error(kind, message);
+                let via_struct = AgentEvent::Error {
+                    kind,
+                    message: message.to_string(),
+                };
+                assert_eq!(
+                    via_helper, via_struct,
+                    "AgentEvent::error({kind:?}, {message:?}) must equal struct-literal form"
+                );
+                let j_h = serde_json::to_string(&via_helper).expect("serialize helper");
+                let j_s = serde_json::to_string(&via_struct).expect("serialize struct");
+                assert_eq!(j_h, j_s);
+            }
+        }
+    }
+
+    #[test]
     fn agent_event_error_kind_serde_forms_are_pairwise_distinct_across_all_four_variants() {
         // Phase 1 hardening — pairwise-distinct serde-form pin for
         // AgentEventErrorKind (companion to the serde-pairwise-distinct
