@@ -5257,6 +5257,38 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 32nd Adversarial row (iter-281): BM25/IR 5-term long-
+        // query — {bm25, saturation, length, penalty, ranking}.
+        // Keeps all 4 canonical primaries + 1 IR-context token
+        // (ranking from the canonical's tail "...ranking ir
+        // search relevance scoring notes"). 5 terms OR.
+        // Canonical body has all 5 (2-3× primaries + 1×
+        // ranking); stuffed-decoy has only "saturation" → 1 of
+        // 5 (length-norm + TF cap suppress). Third iter-84 row
+        // (after iter-84 4-term + iter-252 drops 2 primaries).
+        // Parallels iter-274 MLX-Swift 5-term — both canonicals
+        // now exercised across 4-term and 5-term query lengths.
+        query: "bm25 saturation length penalty ranking",
+        expected_paths: &["notes/bm25_saturation_length_penalty.md"],
+        forbidden_paths: &[
+            "notes/saturation_stuffed_decoy.md",
+            "notes/bm25_overview.md",
+            "notes/length_archive.md",
+            "notes/penalty_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Thirty-second Adversarial row (iter-281): BM25/IR \
+               5-term long-query \"bm25 saturation length \
+               penalty ranking\". Keeps all 4 primaries + 1 IR-\
+               context token. Third iter-84 Adversarial row \
+               (after 4-term iter-84 + 4-term drop-2-primaries \
+               iter-252). Parallels iter-274 MLX-Swift 5-term — \
+               two canonicals now exercised across 4-term and \
+               5-term query lengths. Brings Adversarial to depth \
+               32. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 31st Adversarial row (iter-274): MLX-Swift 5-term
         // long-query — {mlx, swift, inference, backend,
         // pipeline}. Keeps all 4 canonical primaries and adds
