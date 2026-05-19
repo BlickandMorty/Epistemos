@@ -888,6 +888,51 @@ mod tests {
     }
 
     #[test]
+    fn root_hash_is_sensitive_to_agent_event_error_kind_within_error_event_row() {
+        // Phase 1 hardening — fine-grained tamper sensitivity pin
+        // (companion to root_hash_is_sensitive_to_stop_reason iter-548).
+        // Two logs that differ ONLY in the AgentEventErrorKind of an
+        // AgentEvent::Error row must produce DIFFERENT root_hashes —
+        // every variant of the 4-variant error taxonomy participates
+        // in the chain via the inner AgentEvent serde payload.
+        //
+        // A future encoding change that collapsed the kind to a
+        // single byte (or dropped it from the hash input) would
+        // silently merge runs that failed for different reasons —
+        // audit dashboards would attribute the same chain hash to
+        // BudgetExhausted vs MalformedToolCall vs Provider vs
+        // CapabilityDenied failures. Pin checks all 4 kinds produce
+        // distinct root hashes when the only differing field is
+        // the kind (message stays constant).
+        let kinds = [
+            crate::agent_runtime_v2::event::AgentEventErrorKind::MalformedToolCall,
+            crate::agent_runtime_v2::event::AgentEventErrorKind::BudgetExhausted,
+            crate::agent_runtime_v2::event::AgentEventErrorKind::CapabilityDenied,
+            crate::agent_runtime_v2::event::AgentEventErrorKind::Provider,
+        ];
+        let hashes: Vec<Hash> = kinds
+            .iter()
+            .map(|kind| {
+                let mut log = RunEventLog::new();
+                log.append_event(AgentEvent::Error {
+                    kind: *kind,
+                    message: "constant-error-message".to_string(),
+                });
+                log.root_hash()
+            })
+            .collect();
+        for i in 0..hashes.len() {
+            for j in (i + 1)..hashes.len() {
+                assert_ne!(
+                    hashes[i], hashes[j],
+                    "root_hash for {:?} == root_hash for {:?} — kind must participate in chain",
+                    kinds[i], kinds[j]
+                );
+            }
+        }
+    }
+
+    #[test]
     fn root_hash_is_sensitive_to_stop_reason_within_stop_event_row() {
         // Phase 1 hardening — fine-grained tamper sensitivity pin.
         // Two logs that differ ONLY in the StopReason of an
