@@ -42,11 +42,11 @@ UAS §2, §4, and §5 line anchors are checked against current headings.
 
 | Serialized surface | Source anchor | Register obligation |
 |---|---|---|
-| `FalsifierHookOwner` | `agent_core/src/lattice_wbo/mod.rs:686` `FalsifierHookOwner` | Falsifier hook owner rows remain strict `hook` / `owner` public JSON evidence. |
-| `LatticeErrorContribution` | `agent_core/src/lattice_wbo/mod.rs:738` `LatticeErrorContribution` | Per-axis budget and measured contribution keys remain the canonical WBO evidence atom. |
-| `LatticeBudget` | `agent_core/src/lattice_wbo/mod.rs:817` `LatticeBudget` | Codec, rate, side-information, and contribution vectors remain one validated public budget envelope. |
-| `ActiveSupportBudget` | `agent_core/src/lattice_wbo/mod.rs:1066` `ActiveSupportBudget` | Active-support caps remain a secondary residency budget only for tiers that explicitly allow it. |
-| `WboLedgerEntry` | `agent_core/src/lattice_wbo/mod.rs:1134` `WboLedgerEntry` | Memory tier, budget, optional active support, falsifier, and caveat stay bound as one ledger row. |
+| `FalsifierHookOwner` | `agent_core/src/lattice_wbo/mod.rs:719` `FalsifierHookOwner` | Falsifier hook owner rows remain strict `hook` / `owner` public JSON evidence. |
+| `LatticeErrorContribution` | `agent_core/src/lattice_wbo/mod.rs:771` `LatticeErrorContribution` | Per-axis budget and measured contribution keys remain the canonical WBO evidence atom. |
+| `LatticeBudget` | `agent_core/src/lattice_wbo/mod.rs:852` `LatticeBudget` | Codec, rate, side-information, and contribution vectors remain one validated public budget envelope. |
+| `ActiveSupportBudget` | `agent_core/src/lattice_wbo/mod.rs:1105` `ActiveSupportBudget` | Active-support caps remain a secondary residency budget only for tiers that explicitly allow it. |
+| `WboLedgerEntry` | `agent_core/src/lattice_wbo/mod.rs:1173` `WboLedgerEntry` | Memory tier, budget, optional active support, falsifier, and caveat stay bound as one ledger row. |
 
 ## Invariants
 
@@ -114,7 +114,7 @@ would erase the error law:
 
 Public-key registries are exact string surfaces: `public_key_registries_reject_unicode_adjacent_public_keys` asserts that unicode-adjacent canonical keys stay invalid for residency, codec, side-information, WBO term, and error registries.
 The register guarantees that public JSON rows reject duplicate public keys before validation: `public_accounting_json_rejects_duplicate_public_keys` covers contribution, budget, active-support, ledger-entry, and owner rows.
-The register also guarantees that public JSON rows reject missing required keys before validation: `public_accounting_json_rejects_missing_required_keys` covers the same public evidence surfaces.
+The register also guarantees that public JSON rows reject missing required keys before validation: `public_accounting_json_rejects_missing_required_keys` covers the same public evidence surfaces, and optional public null keys must still be present explicitly.
 The register also guarantees that public JSON rows reject wrong-type public fields before validation: `public_accounting_json_rejects_wrong_type_public_fields` covers enum, string, nested budget, optional active-support, wrong-type caveat fields, and owner path fields.
 The register also records that budget JSON rejects negative, fractional, string, boolean, object, array, and oversized rate fields, while ActiveSupportBudget JSON rejects negative, fractional, string, boolean, object, array, and oversized axis values.
 
