@@ -259,8 +259,7 @@ pub fn lean_certificate_rational(r: &TropicalRational) -> String {
          \n\
          def tropical_rational_obligation_{suffix} :\n\
          \x20   Epistemos.Tropical.RationalRepresentationObligation tropical_rational_form_{suffix} :=\n\
-         \x20   {{ numeratorShape := rfl\n\
-         \x20     denominatorShape := rfl }}\n\
+         \x20   Epistemos.Tropical.RationalRepresentationObligation.refl tropical_rational_form_{suffix}\n\
          \n\
          theorem tropical_rational_numerator_shape_{suffix} :\n\
          \x20   tropical_rational_form_{suffix}.numerator = tropical_rational_form_{suffix}.numerator := by\n\
@@ -486,7 +485,9 @@ mod tests {
         let c = lean_certificate_rational(&r);
         assert!(c.contains("Epistemos.Tropical.RationalRepresentationObligation"));
         assert!(c.contains("def tropical_rational_obligation_"));
+        assert!(c.contains("Epistemos.Tropical.RationalRepresentationObligation.refl"));
         assert!(c.contains("representation := tropical_rational_obligation_"));
+        assert!(!c.contains("numeratorShape := rfl"));
         assert!(!c.contains("form_matches := tropical_rational_form_matches_"));
     }
 
