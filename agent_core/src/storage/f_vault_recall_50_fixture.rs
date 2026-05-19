@@ -2252,6 +2252,21 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                phrase adjacency through tokenizer slash splitting.",
     },
     FVaultRecallRow {
+        // Iter-425: exact-quote PhraseQuery across colon boundaries.
+        // The expected doc writes "zephyr:beacon"; the forbidden
+        // decoy contains both words but non-adjacent.
+        query: "\"zephyr beacon\"",
+        expected_paths: &["notes/zephyr_beacon_colon.md"],
+        forbidden_paths: &["notes/zephyr_general_beacon.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Exact-quote colon-boundary row (iter-425): quoted \
+               PhraseQuery \"zephyr beacon\" must match an expected \
+               doc containing `zephyr:beacon`, while rejecting a \
+               decoy with non-adjacent `zephyr ... beacon`. Pins \
+               phrase adjacency through tokenizer colon splitting.",
+    },
+    FVaultRecallRow {
         // 9th SignalOnly row (iter-102) — **50th fixture row,
         // landing the F-VaultRecall-50 falsifier-name target.**
         // 3rd exact-quote PhraseQuery row, in the storage/vault
