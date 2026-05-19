@@ -7405,6 +7405,43 @@ mod tests {
     }
 
     #[test]
+    fn substrate_boundary_axis_is_owned_only_by_boundary_codecs() {
+        let owners = [
+            LatticeCoderKind::LatticeWynerZivResidual,
+            LatticeCoderKind::ShadowKvSketch,
+            LatticeCoderKind::EngramHashRecall,
+            LatticeCoderKind::Nf4SsdOracle,
+            LatticeCoderKind::ResidualSketch,
+            LatticeCoderKind::NetworkCascade,
+        ];
+        for coder in owners {
+            assert!(
+                coder
+                    .canonical_wbo_terms()
+                    .contains(&WboTermCode::SubstrateBoundary),
+                "{coder:?} must claim T_S"
+            );
+        }
+        for coder in LatticeCoderKind::ALL {
+            if owners.contains(&coder) {
+                continue;
+            }
+            assert!(
+                !coder
+                    .canonical_wbo_terms()
+                    .contains(&WboTermCode::SubstrateBoundary),
+                "{coder:?} must never claim T_S; only side-information and substrate-bound codecs own boundary accounting"
+            );
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`substrate_boundary_axis_is_owned_only_by_boundary_codecs`"),
+            "register doc must cross-link T_S ownership invariant"
+        );
+    }
+
+    #[test]
     fn quantization_axis_is_owned_only_by_quantization_codecs() {
         let owners = [
             LatticeCoderKind::LatticeWynerZivResidual,
