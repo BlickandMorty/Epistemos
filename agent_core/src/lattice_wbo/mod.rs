@@ -315,6 +315,24 @@ impl LatticeCoderKind {
         }
     }
 
+    pub const fn primary_residency_tier(self) -> Option<ResidencyTier> {
+        match self {
+            Self::ExactHot => Some(ResidencyTier::L0RamHot),
+            Self::LatticeWynerZivResidual => Some(ResidencyTier::L1CompressedResidual),
+            Self::ShadowKvSketch => Some(ResidencyTier::L2ShadowSketch),
+            Self::Nf4SsdOracle => Some(ResidencyTier::L3SsdOracle),
+            Self::EngramHashRecall => Some(ResidencyTier::L4Engram),
+            Self::NetworkCascade => Some(ResidencyTier::L5NetworkCascade),
+            Self::SelfEvolvingAdapter => Some(ResidencyTier::LSeSelfEvolving),
+            Self::BabaiGptqNearestPlane
+            | Self::SherryTernary3Of4
+            | Self::NestedE8
+            | Self::NestedLeech24
+            | Self::QuipE8
+            | Self::ResidualSketch => None,
+        }
+    }
+
     pub const fn allows_rate_parameter(self) -> bool {
         matches!(
             self,
@@ -4149,6 +4167,62 @@ mod tests {
             primary_codecs.len() + standalone_codecs.len(),
             LatticeCoderKind::ALL.len()
         );
+    }
+
+    #[test]
+    fn lattice_coder_primary_residency_tier_rejects_standalone_codec_promotion() {
+        let rows = LatticeCoderKind::ALL
+            .iter()
+            .map(|coder| (*coder, coder.primary_residency_tier()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            rows,
+            vec![
+                (
+                    LatticeCoderKind::ExactHot,
+                    Some(ResidencyTier::L0RamHot)
+                ),
+                (
+                    LatticeCoderKind::LatticeWynerZivResidual,
+                    Some(ResidencyTier::L1CompressedResidual)
+                ),
+                (LatticeCoderKind::BabaiGptqNearestPlane, None),
+                (LatticeCoderKind::SherryTernary3Of4, None),
+                (
+                    LatticeCoderKind::ShadowKvSketch,
+                    Some(ResidencyTier::L2ShadowSketch)
+                ),
+                (
+                    LatticeCoderKind::EngramHashRecall,
+                    Some(ResidencyTier::L4Engram)
+                ),
+                (LatticeCoderKind::NestedE8, None),
+                (LatticeCoderKind::NestedLeech24, None),
+                (LatticeCoderKind::QuipE8, None),
+                (
+                    LatticeCoderKind::Nf4SsdOracle,
+                    Some(ResidencyTier::L3SsdOracle)
+                ),
+                (LatticeCoderKind::ResidualSketch, None),
+                (
+                    LatticeCoderKind::NetworkCascade,
+                    Some(ResidencyTier::L5NetworkCascade)
+                ),
+                (
+                    LatticeCoderKind::SelfEvolvingAdapter,
+                    Some(ResidencyTier::LSeSelfEvolving)
+                ),
+            ]
+        );
+        for tier in ResidencyTier::ALL {
+            assert_eq!(
+                tier.primary_coder().primary_residency_tier(),
+                Some(tier),
+                "{} primary codec must map back to its product residency tier",
+                tier.canonical_name()
+            );
+        }
     }
 
     #[test]
