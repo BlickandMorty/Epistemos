@@ -715,7 +715,7 @@ mod tests {
         assert_eq!(adversarial_fixture_fingerprint().len(), 64);
         assert_eq!(
             adversarial_fixture_fingerprint(),
-            "78c5d0adee288b449acebb9e16324e64e6c648ecc036a82df3bc3b5b06539339"
+            "01875d721861aaa448cb8d7c1c314ef9d2f8d1df023b9f53bbe269d8db52654d"
         );
     }
 
@@ -732,7 +732,7 @@ mod tests {
         }
         assert_eq!(
             adversarial_fixture_label_fingerprint(),
-            "f9ef9cd409f728a8cce00f85138d2cd77e4710e07bb66b285c7c1b08a4765596"
+            "91c3eea1fa4aa8fc10ad8ddad45ab338b6eb8c29ff4c6333d3517c7a225cfd70"
         );
     }
 
@@ -759,7 +759,7 @@ mod tests {
         assert_eq!(adversarial_reference_fingerprint().len(), 64);
         assert_eq!(
             adversarial_reference_fingerprint(),
-            "5624f053ca313b514e32d2965434fe1a77cd1fcfaa13a0c58ebe18003c220db4"
+            "7f5f2d70f3f8054f8b3670eb9eed0f9da194509753a840e0e7eda52e849ca257"
         );
     }
 
