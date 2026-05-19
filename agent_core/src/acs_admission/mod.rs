@@ -3369,6 +3369,9 @@ impl ACSAuditSink for ACSRunEventLogSink<'_> {
                 record_id: record_id.clone(),
             })?;
         let node_id = record.record_id.clone();
+        if let Some(error) = run_event_log_corrupt_acs_record(self.run_event_log) {
+            return Err(error);
+        }
         if run_event_log_contains_acs_record(self.run_event_log, &node_id) {
             return Err(ACSAuditError::DuplicateRecord { record_id: node_id });
         }
@@ -3423,6 +3426,40 @@ fn run_event_log_contains_acs_record(run_event_log: &OpLog, record_id: &str) -> 
                             .is_some_and(|value_id| value_id == record_id))
             }
             _ => false,
+        })
+}
+
+fn run_event_log_corrupt_acs_record(run_event_log: &OpLog) -> Option<ACSAuditError> {
+    run_event_log
+        .iter_all()
+        .into_iter()
+        .find_map(|op| match op.payload {
+            OpPayload::PropSet {
+                node_id,
+                key,
+                value,
+            } if key == ACS_AUDIT_RUN_EVENT_KEY => {
+                let fallback_record_id = audit_record_value_id(&value)
+                    .unwrap_or(&node_id)
+                    .to_string();
+                let record = match serde_json::from_value::<ACSAuditRecord>(value) {
+                    Ok(record) => record,
+                    Err(_) => {
+                        return Some(ACSAuditError::CorruptRecord {
+                            field: "record",
+                            record_id: fallback_record_id,
+                        });
+                    }
+                };
+                record
+                    .validate()
+                    .err()
+                    .map(|err| ACSAuditError::CorruptRecord {
+                        field: err.field(),
+                        record_id: err.record_id().unwrap_or(&fallback_record_id).to_string(),
+                    })
+            }
+            _ => None,
         })
 }
 
@@ -9409,6 +9446,49 @@ mod tests {
         assert_eq!(err.cause(), "duplicate_acs_audit_record");
         assert_eq!(err.field(), Some("record_id"));
         assert_eq!(err.record_id(), Some(record_id.as_str()));
+        assert_eq!(run_event_log.len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_run_event_log_sink_rejects_existing_corrupt_audit_record() {
+        let run_event_log = crate::oplog::OpLog::new("acs-admission-sink-existing-corrupt-record");
+        let sink = ACSRunEventLogSink::new(&run_event_log);
+        let corrupt = ACSAuditRecord {
+            record_id: "acs:req-run-event-corrupt:1000".to_string(),
+            request_id: "req-run-event-corrupt".to_string(),
+            policy_id: "policy".to_string(),
+            policy_version: 1,
+            operation: ACSOperationKind::MemoryWrite,
+            verdict: ACSAdmissionVerdict::Allow,
+            reason: ACSAdmissionVerdict::Allow.code().to_string(),
+            risk_max: 1.5,
+            emitted_at_ms: 1_000,
+        };
+        run_event_log.append(crate::oplog::OpPayload::PropSet {
+            node_id: corrupt.record_id.clone(),
+            key: ACS_AUDIT_RUN_EVENT_KEY.to_string(),
+            value: serde_json::to_value(&corrupt).expect("corrupt audit record encodes"),
+        });
+
+        let next = ACSAuditRecord {
+            record_id: "acs:req-run-event-next:1001".to_string(),
+            request_id: "req-run-event-next".to_string(),
+            policy_id: "policy".to_string(),
+            policy_version: 1,
+            operation: ACSOperationKind::MemoryWrite,
+            verdict: ACSAdmissionVerdict::Allow,
+            reason: ACSAdmissionVerdict::Allow.code().to_string(),
+            risk_max: 0.0,
+            emitted_at_ms: 1_001,
+        };
+
+        let err = sink
+            .record(next)
+            .expect_err("RunEventLog sink must reject existing corrupt ACS audit record");
+
+        assert_eq!(err.cause(), "corrupt_acs_audit_record");
+        assert_eq!(err.field(), Some("record"));
+        assert_eq!(err.record_id(), Some(corrupt.record_id.as_str()));
         assert_eq!(run_event_log.len(), 1);
     }
 
