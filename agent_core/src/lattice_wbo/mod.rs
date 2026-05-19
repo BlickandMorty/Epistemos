@@ -4094,6 +4094,48 @@ mod tests {
     }
 
     #[test]
+    fn residency_tier_primary_codec_exhaustiveness_matrix_is_pinned() {
+        let primary_codecs = ResidencyTier::ALL
+            .iter()
+            .map(|tier| tier.primary_coder())
+            .collect::<Vec<_>>();
+        let standalone_codecs = LatticeCoderKind::ALL
+            .iter()
+            .copied()
+            .filter(|coder| !primary_codecs.contains(coder))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            primary_codecs,
+            vec![
+                LatticeCoderKind::ExactHot,
+                LatticeCoderKind::LatticeWynerZivResidual,
+                LatticeCoderKind::ShadowKvSketch,
+                LatticeCoderKind::Nf4SsdOracle,
+                LatticeCoderKind::EngramHashRecall,
+                LatticeCoderKind::NetworkCascade,
+                LatticeCoderKind::SelfEvolvingAdapter,
+            ]
+        );
+        assert_eq!(
+            standalone_codecs,
+            vec![
+                LatticeCoderKind::BabaiGptqNearestPlane,
+                LatticeCoderKind::SherryTernary3Of4,
+                LatticeCoderKind::NestedE8,
+                LatticeCoderKind::NestedLeech24,
+                LatticeCoderKind::QuipE8,
+                LatticeCoderKind::ResidualSketch,
+            ]
+        );
+        assert_eq!(primary_codecs.len(), ResidencyTier::ALL.len());
+        assert_eq!(
+            primary_codecs.len() + standalone_codecs.len(),
+            LatticeCoderKind::ALL.len()
+        );
+    }
+
+    #[test]
     fn l1_residual_uses_lwz_and_sherry_stays_weight_side_only() {
         assert_eq!(
             ResidencyTier::L1CompressedResidual.primary_coder(),
