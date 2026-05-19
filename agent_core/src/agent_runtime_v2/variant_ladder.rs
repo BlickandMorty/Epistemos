@@ -981,6 +981,17 @@ mod tests {
     }
 
     #[test]
+    fn variant_tier_non_string_json_shapes_fail_to_deserialise() {
+        for bad in ["null", "true", "42", "[]", r#"{"tier":"t1_deterministic"}"#] {
+            let parsed: Result<VariantTier, _> = serde_json::from_str(bad);
+            assert!(
+                parsed.is_err(),
+                "non-string VariantTier JSON shape must fail: {bad}"
+            );
+        }
+    }
+
+    #[test]
     fn variant_ladder_spec_fields_are_pub_per_field_visibility_doctrine() {
         // Phase 1 hardening — field-visibility pin for
         // VariantLadderSpec (companion to the field-visibility pin
