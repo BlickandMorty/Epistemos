@@ -2630,6 +2630,65 @@ mod tests {
     }
 
     #[test]
+    fn budget_ledger_and_debit_missing_required_fields_fail_but_memory_axis_defaults() {
+        let ledger = BudgetLedger {
+            tokens_used: 100,
+            wall_used_ms: 200,
+            tool_calls_used: 3,
+            subprocess_used_ms: 400,
+            memory_bytes_used: 500,
+        };
+        let ledger_value = serde_json::to_value(&ledger).expect("serialise ledger");
+        let ledger_obj = ledger_value
+            .as_object()
+            .expect("BudgetLedger serialises as JSON object");
+        for missing in ["tokens_used", "wall_used_ms", "tool_calls_used", "subprocess_used_ms"] {
+            let mut tampered = ledger_obj.clone();
+            tampered.remove(missing);
+            let parsed: Result<BudgetLedger, _> =
+                serde_json::from_value(serde_json::Value::Object(tampered));
+            assert!(
+                parsed.is_err(),
+                "BudgetLedger missing required field {missing:?} must fail"
+            );
+        }
+        let mut legacy_ledger = ledger_obj.clone();
+        legacy_ledger.remove("memory_bytes_used");
+        let parsed_ledger: BudgetLedger =
+            serde_json::from_value(serde_json::Value::Object(legacy_ledger))
+                .expect("memory_bytes_used defaults for legacy ledgers");
+        assert_eq!(parsed_ledger.memory_bytes_used, 0);
+
+        let debit = BudgetDebit {
+            tokens: 100,
+            wall_ms: 200,
+            tool_calls: 3,
+            subprocess_ms: 400,
+            memory_bytes: 500,
+        };
+        let debit_value = serde_json::to_value(&debit).expect("serialise debit");
+        let debit_obj = debit_value
+            .as_object()
+            .expect("BudgetDebit serialises as JSON object");
+        for missing in ["tokens", "wall_ms", "tool_calls", "subprocess_ms"] {
+            let mut tampered = debit_obj.clone();
+            tampered.remove(missing);
+            let parsed: Result<BudgetDebit, _> =
+                serde_json::from_value(serde_json::Value::Object(tampered));
+            assert!(
+                parsed.is_err(),
+                "BudgetDebit missing required field {missing:?} must fail"
+            );
+        }
+        let mut legacy_debit = debit_obj.clone();
+        legacy_debit.remove("memory_bytes");
+        let parsed_debit: BudgetDebit =
+            serde_json::from_value(serde_json::Value::Object(legacy_debit))
+                .expect("memory_bytes defaults for legacy debits");
+        assert_eq!(parsed_debit.memory_bytes, 0);
+    }
+
+    #[test]
     fn budget_debit_deserialises_legacy_json_without_memory_bytes() {
         let legacy = r#"{
             "tokens": 10,
