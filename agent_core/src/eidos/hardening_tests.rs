@@ -157,7 +157,7 @@ fn assert_iter_format_canonical_panics_on_out_of_range() {
     assert_iter_format_canonical("iter 099", "MY_SOURCE_LABEL");
 }
 
-/// Iter 709 — catalog range continuation pin.
+/// Iter 710 — catalog range continuation pin.
 /// STATUS.md is the contributor-facing catalog for the closed-citation
 /// hardening arc. When new pins land after the previous range tip, the
 /// range must advance in lock-step so future readers can tell the arc is
@@ -167,9 +167,9 @@ fn status_md_closed_citation_iter_range_tip_tracks_latest_catalog_pin() {
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Closed-citation contract hardening (iters 127-709)"),
+        status.contains("Closed-citation contract hardening (iters 127-710)"),
         "STATUS.md closed-citation hardening catalog must advance its iter \
-         range tip to iter 709 when the catalog-continuation pin lands"
+         range tip to iter 710 when the catalog-continuation pin lands"
     );
 }
 
@@ -203,6 +203,39 @@ fn assert_lexical_no_fuzzy_match_adversarial_fixture_returns_empty_packet() {
         packet.hits.is_empty(),
         "typo-transposition fixture must not fuzzy-match canonical spelling"
     );
+}
+
+fn assert_lexical_saturation_adversarial_fixture_score_stays_finite_and_closed() {
+    use super::adversarial::{
+        adversarial_query_fixture_for_outcome, AdversarialQueryExpectedOutcome,
+    };
+
+    let fixture = adversarial_query_fixture_for_outcome(
+        AdversarialQueryExpectedOutcome::FiniteSaturatingScore,
+    )
+    .expect("FiniteSaturatingScore adversarial fixture exists");
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    let repeated_body = format!("{} ", fixture.query_text).repeat(256);
+    lex.insert(doc("saturation-source"), repeated_body, EidosSourceKind::Note)
+        .unwrap();
+
+    let query = EidosQuery::new(fixture.query_text, EidosRetrievalMode::Lexical, 8);
+    let packet = lex.retrieve(&query, 1_700_000_000_000);
+    assert_eq!(packet.hits.len(), 1);
+
+    let hit = &packet.hits[0];
+    assert!(hit.score.lexical.is_finite());
+    assert!(hit.confidence.is_finite());
+    assert!(
+        hit.score.lexical > 0.99 && hit.score.lexical < 1.0,
+        "saturation fixture score must approach but never reach 1.0"
+    );
+    assert_eq!(hit.score.lexical, hit.confidence);
+    let citation = EidosCitation {
+        source_id: hit.source_id.clone(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert_eq!(packet.validate_citation(&citation), Ok(()));
 }
 
 // ---------------------------------------------------------------------------
@@ -1045,6 +1078,11 @@ fn adversarial_query_fixture_lookup_by_expected_outcome_is_exact() {
 #[test]
 fn lexical_no_fuzzy_match_adversarial_fixture_returns_empty_packet() {
     assert_lexical_no_fuzzy_match_adversarial_fixture_returns_empty_packet();
+}
+
+#[test]
+fn lexical_saturation_adversarial_fixture_score_stays_finite_and_closed() {
+    assert_lexical_saturation_adversarial_fixture_score_stays_finite_and_closed();
 }
 
 #[test]
