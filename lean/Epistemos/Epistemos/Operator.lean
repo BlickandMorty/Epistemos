@@ -138,6 +138,16 @@ theorem fnoStatementCarries
     c.fno_equivalence.statement := by
   exact statementWitness
 
+theorem fourierSomeCarries
+    (c : CertificateTarget)
+    (obligation : FourierIsometryObligation)
+    (stored : c.fourier_isometry = some obligation)
+    (isometryWitness : obligation.isometry) :
+    ∃ targetObligation : FourierIsometryObligation,
+      c.fourier_isometry = some targetObligation ∧
+        targetObligation.isometry := by
+  exact ⟨obligation, stored, isometryWitness⟩
+
 end CertificateTarget
 
 end Epistemos.Operator
