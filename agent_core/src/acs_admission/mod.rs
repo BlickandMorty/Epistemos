@@ -1410,7 +1410,7 @@ impl<'de> Deserialize<'de> for ActiveAssemblyPacket {
         };
         packet
             .validate()
-            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+            .map_err(|err| serde::de::Error::custom(acs_admission_input_decode_error(&err)))?;
         Ok(packet)
     }
 }
@@ -5689,7 +5689,14 @@ mod tests {
             "witness_hash": "witness-hash",
         });
 
-        assert!(serde_json::from_value::<ActiveAssemblyPacket>(value).is_err());
+        let err = serde_json::from_value::<ActiveAssemblyPacket>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("forged_admission_input"), "{message}");
+        assert!(
+            message.contains("active_assembly.active_support_ids"),
+            "{message}"
+        );
     }
 
     #[test]
