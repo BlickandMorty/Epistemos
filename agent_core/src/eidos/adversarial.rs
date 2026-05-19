@@ -201,3 +201,12 @@ pub fn adversarial_query_fixture_catalog_indices_match_fixture_rows() -> bool {
             .enumerate()
             .all(|(expected_index, index)| index == expected_index)
 }
+
+pub fn adversarial_query_fixture_catalog_static_surface_is_complete() -> bool {
+    adversarial_query_fixture_catalog_labels_match_fixture_rows()
+        && adversarial_query_fixture_catalog_query_texts_match_fixture_rows()
+        && adversarial_query_fixture_catalog_kinds_match_fixture_rows()
+        && adversarial_query_fixture_catalog_expected_outcomes_match_fixture_rows()
+        && adversarial_query_fixture_catalog_descriptions_match_fixture_rows()
+        && adversarial_query_fixture_catalog_indices_match_fixture_rows()
+}
