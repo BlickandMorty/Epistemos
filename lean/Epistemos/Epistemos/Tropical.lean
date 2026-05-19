@@ -208,6 +208,15 @@ structure RationalCertificateTarget where
   denominatorHash : String
   representation : RationalRepresentationObligation rational
 
+namespace RationalCertificateTarget
+
+theorem representationShapes (c : RationalCertificateTarget) :
+    c.rational.numerator = c.rational.numerator ∧
+      c.rational.denominator = c.rational.denominator := by
+  exact RationalRepresentationObligation.shapes c.representation
+
+end RationalCertificateTarget
+
 theorem schemaConstructorCountsPinned :
     scalarConstructorCount = 2 ∧ exprConstructorCount = 5 := by
   exact ⟨rfl, rfl⟩
