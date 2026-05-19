@@ -5065,6 +5065,40 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 42nd Synthesis row (iter-352). THIRD and FINAL 2-
+        // term-AND subset on iter-85 tokenizer-indexing pair:
+        // {indexing, tantivy}. Both pair-partners carry both
+        // tokens. "indexing" is pair-unique (vault_index_
+        // reload_canon has "index" not "indexing" under no-
+        // stem SimpleTokenizer); "tantivy" appears in pair-
+        // partners + vault_index_reload_canon + tantivy_misc_
+        // notes — but those lack "indexing", so AND blocks
+        // them. AND matches only the pair. CLOSES C(3,2)=3 on
+        // iter-85 tokenizer-indexing pair. FIFTH 3-element
+        // pair to achieve full C(3,2) closure (after iter-91
+        // Metal + iter-108 neural-cache-layer + iter-4 tier-
+        // compression + iter-11 design-pattern). Zero new
+        // seeds.
+        query: "indexing tantivy",
+        expected_paths: &[
+            "notes/tokenizer_indexing_tantivy_overview.md",
+            "notes/tokenizer_indexing_tantivy_internals.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Forty-second Synthesis row (iter-352): THIRD and \
+               FINAL 2-term-AND subset on iter-85 tokenizer-\
+               indexing pair. {indexing, tantivy} — \"indexing\" \
+               is pair-unique under no-stem SimpleTokenizer. \
+               AND matches only the pair. CLOSES C(3,2)=3 on \
+               iter-85 pair. FIFTH 3-element pair to achieve \
+               full C(3,2) closure (after Metal + neural-cache-\
+               layer + tier-compression + design-pattern). \
+               Brings Synthesis to depth 42 — first category \
+               past depth-41 horizon. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 41st Synthesis row (iter-345). SECOND 2-term-AND
         // subset on iter-85 tokenizer-indexing pair:
         // {tokenizer, tantivy}. Both pair-partners carry both
