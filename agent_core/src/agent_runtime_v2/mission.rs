@@ -851,6 +851,33 @@ mod tests {
     }
 
     #[test]
+    fn tool_name_single_char_accepts_per_minimum_boundary() {
+        // Phase 1 hardening — minimum-boundary pin for ToolCall.name
+        // validation. The existing tool_name_at_cap_accepts_when_valid_chars
+        // pins the MAX (256-byte) boundary. The MIN (1-byte) boundary
+        // — a tool with a 1-character name — was unpinned.
+        //
+        // The validator rejects empty names (EmptyName error) but
+        // accepts any non-empty valid-char name. A 1-char name is the
+        // legal minimum. Pin it across the full allowed charset:
+        //   - alphanumeric: "a", "Z", "0", "9"
+        //   - underscore: "_"
+        //   - hyphen: "-"
+        //
+        // Note: leading-dot ".X" is rejected (path-traversal); a 1-char
+        // "." is BOTH leading and trailing → rejected (already pinned).
+        for name in ["a", "Z", "0", "9", "_", "-"] {
+            let call = ToolCall {
+                name: name.to_string(),
+                arguments: serde_json::json!({}),
+            };
+            call.validate().unwrap_or_else(|e| {
+                panic!("single-char name {name:?} must validate, got {e:?}")
+            });
+        }
+    }
+
+    #[test]
     fn tool_name_at_cap_accepts_when_valid_chars() {
         // Exactly MAX_NAME_BYTES with valid charset: accepts (strict
         // > boundary).
