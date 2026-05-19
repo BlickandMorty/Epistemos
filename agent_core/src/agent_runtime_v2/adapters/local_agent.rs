@@ -1678,6 +1678,25 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_adapter_default_equals_new_compile_and_runtime_pin() {
+        // Phase 1 hardening — Default-vs-new equivalence pin for
+        // LocalAgentAdapter (companion to
+        // identity_para_default_equals_identity_para_new_compile_and_runtime_pin
+        // iter-? for the parallel pin on IdentityPara).
+        //
+        // LocalAgentAdapter derives Default + has a `const fn new()`.
+        // Both must produce structurally equivalent values; a future
+        // Default impl that drifted from new() would silently change
+        // the canonical constructor's behaviour for callers using
+        // #[derive(Default)] on structures containing LocalAgentAdapter.
+        let via_default = LocalAgentAdapter::default();
+        let via_new = LocalAgentAdapter::new();
+        // The struct is zero-sized; both reach the same canonical
+        // value. Format equality via Debug to surface any drift.
+        assert_eq!(format!("{via_default:?}"), format!("{via_new:?}"));
+    }
+
+    #[test]
     fn adapter_constructs_via_new() {
         let _adapter = LocalAgentAdapter::new();
     }
