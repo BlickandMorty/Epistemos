@@ -3378,6 +3378,14 @@ impl ACSAuditSink for ACSRunEventLogSink<'_> {
                 record_id: node_id,
             });
         }
+        if run_event_log_latest_acs_emitted_at_ms(self.run_event_log)
+            .is_some_and(|emitted_at_ms| record.emitted_at_ms < emitted_at_ms)
+        {
+            return Err(ACSAuditError::NonMonotonicAuditLog {
+                field: "emitted_at_ms",
+                record_id: node_id,
+            });
+        }
         let value = serde_json::to_value(record).map_err(|_| ACSAuditError::EncodeRecord)?;
         self.run_event_log.append(OpPayload::PropSet {
             node_id,
@@ -3415,6 +3423,21 @@ fn run_event_log_contains_acs_record(run_event_log: &OpLog, record_id: &str) -> 
                             .is_some_and(|value_id| value_id == record_id))
             }
             _ => false,
+        })
+}
+
+fn run_event_log_latest_acs_emitted_at_ms(run_event_log: &OpLog) -> Option<i64> {
+    run_event_log
+        .iter_all()
+        .into_iter()
+        .rev()
+        .find_map(|op| match op.payload {
+            OpPayload::PropSet { key, value, .. } if key == ACS_AUDIT_RUN_EVENT_KEY => {
+                serde_json::from_value::<ACSAuditRecord>(value)
+                    .ok()
+                    .map(|record| record.emitted_at_ms)
+            }
+            _ => None,
         })
 }
 
@@ -9386,6 +9409,45 @@ mod tests {
         assert_eq!(err.cause(), "duplicate_acs_audit_record");
         assert_eq!(err.field(), Some("record_id"));
         assert_eq!(err.record_id(), Some(record_id.as_str()));
+        assert_eq!(run_event_log.len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_run_event_log_sink_rejects_non_monotonic_emitted_at_ms() {
+        let run_event_log = crate::oplog::OpLog::new("acs-admission-run-event-emitted-order");
+        let sink = ACSRunEventLogSink::new(&run_event_log);
+        let first = ACSAuditRecord {
+            record_id: "acs:req-run-event-first:2000".to_string(),
+            request_id: "req-run-event-first".to_string(),
+            policy_id: "policy".to_string(),
+            policy_version: 1,
+            operation: ACSOperationKind::MemoryWrite,
+            verdict: ACSAdmissionVerdict::Allow,
+            reason: ACSAdmissionVerdict::Allow.code().to_string(),
+            risk_max: 0.0,
+            emitted_at_ms: 2_000,
+        };
+        sink.record(first).expect("first record stored");
+
+        let regressing = ACSAuditRecord {
+            record_id: "acs:req-run-event-second:1500".to_string(),
+            request_id: "req-run-event-second".to_string(),
+            policy_id: "policy".to_string(),
+            policy_version: 1,
+            operation: ACSOperationKind::MemoryWrite,
+            verdict: ACSAdmissionVerdict::Allow,
+            reason: ACSAdmissionVerdict::Allow.code().to_string(),
+            risk_max: 0.0,
+            emitted_at_ms: 1_500,
+        };
+
+        let err = sink
+            .record(regressing.clone())
+            .expect_err("RunEventLog sink must reject regressing emitted_at_ms");
+
+        assert_eq!(err.cause(), "non_monotonic_acs_audit_log");
+        assert_eq!(err.field(), Some("emitted_at_ms"));
+        assert_eq!(err.record_id(), Some(regressing.record_id.as_str()));
         assert_eq!(run_event_log.len(), 1);
     }
 
