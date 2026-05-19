@@ -198,8 +198,16 @@ structure CertificateTarget where
   cliffordAxioms : CliffordAxiomObligation
   sandwichIsometry : RotorSandwichObligation
   composition : RotorCompositionObligation
+  sourceRow : String
 
 namespace CertificateTarget
+
+theorem sourceRowMatches
+    (c : CertificateTarget)
+    (sourceRow : String)
+    (stored : c.sourceRow = sourceRow) :
+    c.sourceRow = sourceRow := by
+  exact stored
 
 theorem obligationFieldsMatch
     (c : CertificateTarget)

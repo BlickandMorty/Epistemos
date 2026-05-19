@@ -35,7 +35,8 @@ def geometry_certificate_sample :
   { rotor := geometry_rotor_sample
     cliffordAxioms := geometry_clifford_obligation_sample
     sandwichIsometry := geometry_sandwich_obligation_sample
-    composition := geometry_composition_obligation_sample }
+    composition := geometry_composition_obligation_sample
+    sourceRow := "docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Geometry-IR" }
 
 theorem rotor_candidate_sample :
     geometry_rotor_sample.isRotorCandidate := by
@@ -66,6 +67,14 @@ theorem geometry_certificate_obligations_sample :
     geometry_sandwich_obligation_sample
     geometry_composition_obligation_sample
     rfl rfl rfl
+
+theorem geometry_certificate_source_row_sample :
+    geometry_certificate_sample.sourceRow =
+      "docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Geometry-IR" := by
+  exact Epistemos.Geometry.CertificateTarget.sourceRowMatches
+    geometry_certificate_sample
+    "docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Geometry-IR"
+    rfl
 
 theorem rotor_sandwich_isometry_sample :
     geometry_sandwich_obligation_sample.preservesNorm := by

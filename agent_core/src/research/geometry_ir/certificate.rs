@@ -100,7 +100,8 @@ pub fn lean_certificate(rotor: &Multivector) -> String {
          \x20   {{ rotor := geometry_rotor_{suffix}\n\
          \x20     cliffordAxioms := geometry_clifford_obligation_{suffix}\n\
          \x20     sandwichIsometry := geometry_sandwich_obligation_{suffix}\n\
-         \x20     composition := geometry_composition_obligation_{suffix} }}\n\
+         \x20     composition := geometry_composition_obligation_{suffix}\n\
+         \x20     sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Geometry-IR\" }}\n\
          \n\
          theorem rotor_candidate_{suffix}\n\
          \x20   (candidateWitness : geometry_rotor_{suffix}.isRotorCandidate) :\n\
@@ -130,6 +131,14 @@ pub fn lean_certificate(rotor: &Multivector) -> String {
          \x20   geometry_sandwich_obligation_{suffix}\n\
          \x20   geometry_composition_obligation_{suffix}\n\
          \x20   rfl rfl rfl\n\
+         \n\
+         theorem geometry_certificate_source_row_{suffix} :\n\
+         \x20   geometry_certificate_{suffix}.sourceRow =\n\
+         \x20     \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Geometry-IR\" := by\n\
+         \x20 exact Epistemos.Geometry.CertificateTarget.sourceRowMatches\n\
+         \x20   geometry_certificate_{suffix}\n\
+         \x20   \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Geometry-IR\"\n\
+         \x20   rfl\n\
          \n\
          theorem geometry_certificate_sandwich_field_{suffix} :\n\
          \x20   geometry_certificate_{suffix}.sandwichIsometry = geometry_sandwich_obligation_{suffix} := by\n\
@@ -298,6 +307,9 @@ mod tests {
     fn cert_projects_geometry_target_obligations() {
         let r = Multivector::scalar(1.0);
         let c = lean_certificate(&r);
+        assert!(c.contains("sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Geometry-IR\""));
+        assert!(c.contains("theorem geometry_certificate_source_row_"));
+        assert!(c.contains("Epistemos.Geometry.CertificateTarget.sourceRowMatches"));
         assert!(c.contains("theorem geometry_certificate_obligations_"));
         assert!(c.contains(".cliffordAxioms = geometry_clifford_obligation_"));
         assert!(c.contains(".sandwichIsometry = geometry_sandwich_obligation_"));
