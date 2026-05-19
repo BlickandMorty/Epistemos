@@ -4233,6 +4233,41 @@ mod tests {
     }
 
     #[test]
+    fn residency_tier_canonical_register_terms_end_with_t_num() {
+        for tier in ResidencyTier::ALL {
+            let terms = tier.canonical_register_terms();
+            assert!(
+                !terms.is_empty(),
+                "{} must declare at least one register term",
+                tier.canonical_name()
+            );
+            let last = *terms.last().expect("nonempty register terms");
+            assert_eq!(
+                last,
+                WboTermCode::NumericalPostCorrection,
+                "{} canonical register terms must end with T_num",
+                tier.canonical_name()
+            );
+            let t_num_index = terms
+                .iter()
+                .position(|term| *term == WboTermCode::NumericalPostCorrection)
+                .expect("T_num present in every register tier");
+            assert_eq!(
+                t_num_index,
+                terms.len() - 1,
+                "{} canonical register terms must place T_num exactly once at the end",
+                tier.canonical_name()
+            );
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`residency_tier_canonical_register_terms_end_with_t_num`"),
+            "register doc must cross-link residency T_num closing-axis invariant"
+        );
+    }
+
+    #[test]
     fn residency_tier_catalog_maps_every_tier_to_primary_codec_and_terms() {
         for tier in ResidencyTier::ALL {
             for (index, term) in tier.canonical_register_terms().iter().enumerate() {
