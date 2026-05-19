@@ -60,6 +60,18 @@ theorem operator_certificate_fno_sample :
       operator_fno_obligation_sample := by
   rfl
 
+theorem operator_certificate_fno_expr_match_sample :
+    operator_certificate_sample.fno_equivalence.expr =
+      operator_certificate_sample.expr := by
+  exact Epistemos.Operator.CertificateTarget.fnoExprMatchesCarries
+    operator_certificate_sample
+
+theorem operator_certificate_dim_consistency_sample :
+    operator_certificate_sample.expr.branch.outputDim =
+      operator_certificate_sample.expr.trunk.outputDim := by
+  exact Epistemos.Operator.CertificateTarget.dimConsistentCarries
+    operator_certificate_sample
+
 theorem operator_dim_consistency_sample :
     operator_expr_sample.branch.outputDim =
       operator_expr_sample.trunk.outputDim := by
@@ -70,9 +82,25 @@ theorem operator_fourier_isometry_sample :
   exact Epistemos.Operator.fourierIsometryObligationCarries 1
     operator_fourier_mode_bound_sample
 
+theorem operator_certificate_fourier_witness_sample :
+    ∃ targetObligation : Epistemos.Operator.FourierIsometryObligation,
+      operator_certificate_sample.fourier_isometry = some targetObligation ∧
+        targetObligation.isometry := by
+  exact Epistemos.Operator.CertificateTarget.fourierSomeCarries
+    operator_certificate_sample
+    operator_fourier_obligation_sample
+    operator_fourier_option_sample
+    operator_fourier_isometry_sample
+
 theorem operator_fno_equivalence_sample :
     operator_fno_obligation_sample.statement := by
   exact Epistemos.Operator.fnoEquivalenceObligationCarries
     operator_expr_sample
+
+theorem operator_certificate_fno_statement_sample :
+    operator_certificate_sample.fno_equivalence.statement := by
+  exact Epistemos.Operator.CertificateTarget.fnoStatementCarries
+    operator_certificate_sample
+    operator_fno_equivalence_sample
 
 end Epistemos.Operator.Generated
