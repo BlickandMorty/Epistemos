@@ -949,6 +949,33 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_display_starts_with_literal_struct_name_prefix() {
+        // Phase 1 hardening — wire-shape pin. AnswerPacket::Display
+        // uses the format string
+        //   "AnswerPacket{{blueprint={}, stop={:?}, tokens={}, citations={}}}"
+        // (answer.rs §107). The literal "AnswerPacket{" prefix is
+        // load-bearing for grep-based audit pipelines that key on the
+        // struct name in log lines.
+        //
+        // A future "let me shorten to 'AP{...}' for log brevity"
+        // refactor would silently break the grep contract.
+        let log = RunEventLog::new();
+        let packet = AnswerPacket::emit(
+            AgentBlueprintId("a".into()),
+            "x".into(),
+            vec![],
+            StopReason::EndTurn,
+            BudgetLedger::default(),
+            &log,
+        );
+        let display = format!("{packet}");
+        assert!(display.starts_with("AnswerPacket{"),
+            "Display must start with literal 'AnswerPacket{{', got: {display}");
+        assert!(display.ends_with('}'),
+            "Display must end with literal '}}', got: {display}");
+    }
+
+    #[test]
     fn answer_packet_display_writes_blueprint_id_verbatim_no_escaping() {
         // Phase 1 hardening — Display vs serde behaviour pin
         // (companion to mission_packet_display_writes_special_chars_verbatim_no_escaping
