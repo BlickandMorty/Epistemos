@@ -386,6 +386,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 ```
 
 ```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md"); block=s[/## N211 - .*?```json\n(.*?)\n```/m,1] || abort("N211 missing"); x=JSON.parse(block); pat=Regexp.new(x["schema_pattern"]); abort("N211 leap-second timestamp missing") unless x["timestamp_utc"] == "2026-05-19T12:34:60Z"; abort("N211 unexpectedly matches timestamp grammar") if x["timestamp_utc"].match?(pat); puts "leap-second timestamp negative case ok"'
+```
+
+```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); pat=schema.dig("properties","notes","allOf",1,"then","pattern") || abort("migration note pattern missing"); abort("internal-hyphen identity states no longer fit grammar") unless "identity_sentinel_gap_report=validator:old-anonymous-v1-new-blocked,reviewer:old-unknown-v1-new-blocked".match?(Regexp.new(pat[/identity_sentinel_gap_report=validator:old-.*?\\(\\?:;\\|\\$\\)/] || "a^")); puts "migration identity internal-hyphen states ok"'
 ```
 

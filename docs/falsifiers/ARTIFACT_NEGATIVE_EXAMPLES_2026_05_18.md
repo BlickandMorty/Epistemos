@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 208
+invalid_example_count: 211
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -12124,3 +12124,17 @@ Violates: [Identity Gap Slug Catalog](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#id
 ```
 
 Rejection reason: identity-gap slugs may use lowercase alphanumerics and internal hyphens only; at-sign aliases such as `reserved@state` are invalid.
+
+## N211 - Leap-Second Timestamp
+
+Violates: [Timestamp Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#timestamp-rule) and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "field": "timestamp_utc",
+  "timestamp_utc": "2026-05-19T12:34:60Z",
+  "schema_pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?Z$"
+}
+```
+
+Rejection reason: `timestamp_utc` seconds must be bounded from `00` through `59`; leap-second spellings such as `2026-05-19T12:34:60Z` are replay-ineligible.
