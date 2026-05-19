@@ -736,6 +736,7 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
         });
     }
     required_top_level_object_json(&value, "hardware")?;
+    required_nested_string_json(&value, "hardware", "model")?;
     required_top_level_string_json(&value, "mission")?;
     required_top_level_string_json(&value, "evaluator_variant")?;
     required_top_level_string_json(&value, "shader_entrypoint")?;
@@ -1182,6 +1183,39 @@ fn required_top_level_object_json(
     if !field_value.is_object() {
         return Err(FulpReplayError::InvalidJson {
             message: format!("invalid type for {field}, expected object"),
+            kind: FulpInvalidJsonKind::TypeMismatch,
+        });
+    }
+    Ok(())
+}
+
+fn required_nested_string_json(
+    value: &serde_json::Value,
+    parent: &str,
+    field: &str,
+) -> Result<(), FulpReplayError> {
+    let Some(parent_value) = value.get(parent) else {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("missing field {parent}"),
+            kind: FulpInvalidJsonKind::MissingField,
+        });
+    };
+    let Some(parent_object) = parent_value.as_object() else {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("invalid type for {parent}, expected object"),
+            kind: FulpInvalidJsonKind::TypeMismatch,
+        });
+    };
+    let path = format!("{parent}.{field}");
+    let Some(field_value) = parent_object.get(field) else {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("missing field {path}"),
+            kind: FulpInvalidJsonKind::MissingField,
+        });
+    };
+    if !field_value.is_string() {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("invalid type for {path}, expected string"),
             kind: FulpInvalidJsonKind::TypeMismatch,
         });
     }
@@ -2097,6 +2131,24 @@ mod tests {
         assert_eq!(
             error.invalid_json_message(),
             Some("invalid type for hardware, expected object")
+        );
+    }
+
+    #[test]
+    fn replay_rejects_hardware_model_json_type_drift_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["hardware"]["model"] = serde_json::Value::Bool(false);
+        let json = serde_json::to_string(&value).unwrap();
+        let error =
+            replay_witness_json(&json).expect_err("hardware model type drift must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("invalid type for hardware.model, expected string")
         );
     }
 
