@@ -731,6 +731,10 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
             kind: FulpInvalidJsonKind::InvalidLength,
         });
     }
+    let max_point_index_exclusive = value
+        .get("point_count")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(u64::MAX);
     let expected_len = StressAxis::ALL.len();
     for (operation_index, stat) in stats.iter().enumerate() {
         if !stat.is_object() {
@@ -1023,7 +1027,11 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
             }
             let axis_worst_case_path =
                 format!("stats[{operation_index}].axis_stats[{axis_index}].worst_case");
-            reject_worst_case_fields_json(axis_worst_case_value, &axis_worst_case_path)?;
+            reject_worst_case_fields_json(
+                axis_worst_case_value,
+                &axis_worst_case_path,
+                max_point_index_exclusive,
+            )?;
         }
         let Some(worst_case_value) = stat.get("worst_case") else {
             return Err(FulpReplayError::InvalidJson {
@@ -1040,7 +1048,11 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
             });
         }
         let worst_case_path = format!("stats[{operation_index}].worst_case");
-        reject_worst_case_fields_json(worst_case_value, &worst_case_path)?;
+        reject_worst_case_fields_json(
+            worst_case_value,
+            &worst_case_path,
+            max_point_index_exclusive,
+        )?;
     }
     Ok(())
 }
@@ -1048,6 +1060,7 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
 fn reject_worst_case_fields_json(
     worst_case_value: &serde_json::Value,
     path: &str,
+    max_point_index_exclusive: u64,
 ) -> Result<(), FulpReplayError> {
     let Some(operation_value) = worst_case_value.get("operation") else {
         return Err(FulpReplayError::InvalidJson {
@@ -1073,10 +1086,16 @@ fn reject_worst_case_fields_json(
             kind: FulpInvalidJsonKind::MissingField,
         });
     };
-    if point_index_value.as_u64().is_none() {
+    let Some(point_index) = point_index_value.as_u64() else {
         return Err(FulpReplayError::InvalidJson {
             message: format!("invalid type for {path}.point_index, expected unsigned integer"),
             kind: FulpInvalidJsonKind::TypeMismatch,
+        });
+    };
+    if point_index >= max_point_index_exclusive {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("number out of range for {path}.point_index, expected < point_count"),
+            kind: FulpInvalidJsonKind::NumberOutOfRange,
         });
     }
     let Some(axis_value) = worst_case_value.get("axis") else {
@@ -2650,6 +2669,26 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats[0].worst_case.point_index"));
+    }
+
+    #[test]
+    fn replay_rejects_operation_worst_case_point_index_outside_point_count_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        let point_count = value["point_count"].as_u64().expect("witness point count");
+        value["stats"][0]["worst_case"]["point_index"] =
+            serde_json::Value::Number(serde_json::Number::from(point_count));
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("worst case point index outside point count must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
         );
         assert!(error
             .invalid_json_message()
