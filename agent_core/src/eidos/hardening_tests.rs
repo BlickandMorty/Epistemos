@@ -10314,6 +10314,43 @@ fn closed_citation_validator_harness_rejects_mixed_multilingual_recency_batch() 
     }
 }
 
+/// Validator harness output JSON pin. The harness is the Rust-side
+/// chat/bridge emit gate, so its success and rejection outputs must
+/// serialize without bespoke adapters before the Swift mirror consumes
+/// them over W-46/W-47.
+#[test]
+fn closed_citation_validator_harness_outputs_serialize_to_stable_json() {
+    use super::types::{EidosChunkId, EidosCitation};
+    use super::validator::enforce_closed_citation_contract;
+
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("note-a"), "alpha validator", EidosSourceKind::Note).unwrap();
+    let packet = lex.retrieve(
+        &EidosQuery::new("validator", EidosRetrievalMode::Lexical, 8),
+        1_700_000_000_000,
+    );
+    let legit = EidosCitation {
+        source_id: packet.hits[0].source_id.clone(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    let accepted = enforce_closed_citation_contract(&packet, &[legit])
+        .expect("single legitimate citation should pass");
+    let accepted_json = serde_json::to_string(&accepted).expect("accepted output serializes");
+    assert_eq!(accepted_json, r#"{"accepted_count":1}"#);
+
+    let forged = EidosCitation {
+        source_id: EidosChunkId::new("ghost::lex").unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    let rejected = enforce_closed_citation_contract(&packet, &[forged])
+        .expect_err("forged citation should reject");
+    let rejected_json = serde_json::to_string(&rejected).expect("rejection output serializes");
+    assert_eq!(
+        rejected_json,
+        r#"{"errors":[[0,{"FabricatedSourceId":"ghost::lex"}]]}"#
+    );
+}
+
 /// `EidosHit::clone()` is byte-perfect — parallel to iter 190's
 /// EidosCitation Clone pin, but for the OUTPUT type (retriever-
 /// emitted hits) rather than the INPUT type (chat-layer citations).
