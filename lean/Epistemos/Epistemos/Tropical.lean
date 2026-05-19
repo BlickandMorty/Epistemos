@@ -9,9 +9,11 @@ Source doctrine:
 * `docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md` §3
 * `agent_core/src/research/tropical_ir/certificate.rs`
 
-Tooling status at iter-593:
+Tooling status:
 `PATH="$HOME/.elan/bin:$PATH"; cd lean/Epistemos && lake build`
-completed successfully, and `Tools/sorry-budget/sorry-budget.sh`
+first completed successfully at iter-593; the carrier and
+representation obligations were sharpened through iter-696; the
+iter-713 cadence retry also completed successfully. `Tools/sorry-budget/sorry-budget.sh`
 reported 0 total sorries. Tropical certificates target this schema
 module through `Epistemos.Tropical.CertificateTarget`.
 -/
