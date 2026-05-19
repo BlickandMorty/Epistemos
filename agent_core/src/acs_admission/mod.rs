@@ -1565,7 +1565,10 @@ impl<'de> Deserialize<'de> for ACSMemoryWriteRequest {
     where
         D: serde::Deserializer<'de>,
     {
-        let wire = ACSMemoryWriteRequestWire::deserialize(deserializer)?;
+        let value = serde_json::Value::deserialize(deserializer)?;
+        require_memory_write_request_known_fields::<D::Error>(&value)?;
+        let wire =
+            ACSMemoryWriteRequestWire::deserialize(value).map_err(serde::de::Error::custom)?;
         let request = Self {
             address: wire.address,
             content_hash: wire.content_hash,
@@ -1577,6 +1580,26 @@ impl<'de> Deserialize<'de> for ACSMemoryWriteRequest {
             .map_err(|err| serde::de::Error::custom(acs_admission_input_decode_error(&err)))?;
         Ok(request)
     }
+}
+
+fn require_memory_write_request_known_fields<E>(value: &serde_json::Value) -> Result<(), E>
+where
+    E: serde::de::Error,
+{
+    let serde_json::Value::Object(object) = value else {
+        return Ok(());
+    };
+    for field in object.keys() {
+        if !matches!(
+            field.as_str(),
+            "address" | "content_hash" | "durable" | "mutation_envelope_id"
+        ) {
+            return Err(E::custom(format!(
+                "forged_admission_input field=memory_write.{field}"
+            )));
+        }
+    }
+    Ok(())
 }
 
 impl ACSMemoryWriteRequest {
@@ -6046,6 +6069,22 @@ mod tests {
             serde_json::to_value(&input).expect("admission input must encode to JSON object");
         forged_request_id["request_id"] = serde_json::json!(" req-round-trip ");
         assert!(serde_json::from_value::<ACSAdmissionInput>(forged_request_id).is_err());
+    }
+
+    #[test]
+    fn acs_admission_shadow_memory_write_field_names_forged_admission_input_field() {
+        let value = serde_json::json!({
+            "address": "uas://note/1",
+            "content_hash": "blake3:abc",
+            "durable": false,
+            "shadow_address": "uas://note/smuggled"
+        });
+
+        let err = serde_json::from_value::<ACSMemoryWriteRequest>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("forged_admission_input"), "{message}");
+        assert!(message.contains("memory_write.shadow_address"), "{message}");
     }
 
     #[test]
