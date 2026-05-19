@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 286
+invalid_example_count: 287
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -13258,3 +13258,19 @@ Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-
 ```
 
 Rejection reason: a commit reachable only from a different branch cannot stand in for the scoped falsifier-handbook branch state.
+
+## N287 - Shallow Clone Commit SHA
+
+Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-identity-rule) and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "field": "commit_sha",
+  "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "schema_pattern": "^[0-9a-f]{40}$",
+  "semantic_rule": "repo_history_complete_for_commit",
+  "repo_history_state": "shallow"
+}
+```
+
+Rejection reason: shallow history can hide ancestry and branch reachability drift; replay witnesses require complete local history for the pinned commit.

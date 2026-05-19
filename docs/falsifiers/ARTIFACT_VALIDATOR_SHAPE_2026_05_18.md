@@ -482,6 +482,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_
 ```
 
 ```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md"); block=s[/## N287 - .*?```json\n(.*?)\n```/m,1] || abort("N287 missing"); x=JSON.parse(block); pat=Regexp.new(x["schema_pattern"]); abort("N287 shallow clone sha missing") unless x["commit_sha"] == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"; abort("N287 should match syntax regex") unless x["commit_sha"].match?(pat); abort("N287 shallow history rule missing") unless x["semantic_rule"] == "repo_history_complete_for_commit" && x["repo_history_state"] == "shallow"; puts "shallow clone commit sha semantic negative case ok"'
+```
+
+```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md"); block=s[/## N274 - .*?```json\n(.*?)\n```/m,1] || abort("N274 missing"); x=JSON.parse(block); pat=Regexp.new(x["schema_pattern"]); abort("N274 non-hex commit missing") unless x["commit_sha"] == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaag"; abort("N274 unexpectedly matches commit grammar") if x["commit_sha"].match?(pat); puts "non-hex commit sha negative case ok"'
 ```
 
