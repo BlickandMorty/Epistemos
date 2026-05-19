@@ -260,6 +260,34 @@ mod tests {
     }
 
     #[test]
+    fn para_seq_new_constructor_positional_arg_order_pins_first_as_inner_second_as_outer() {
+        // Phase 1 hardening — positional-order pin for ParaSeq::new
+        // (companion to the constructor / dispatcher entry-order pin
+        // family iter-433..iter-441).
+        //
+        // Signature: new(first, second) (compose.rs §106).
+        // Doctrine: `first` = the INNER stage (runs first on fwd);
+        //           `second` = the OUTER stage (runs second on fwd).
+        //
+        // A reorder would silently swap composition semantics — the
+        // dispatcher's chain-rule (fwd: inner→outer; rev: outer→inner,
+        // pinned at iter-359 / iter-360) depends on this mapping.
+        //
+        // Pin via the canonical (LenStage = inner, LabelStage = outer)
+        // composition: assert the inner output is the LENGTH (LenStage's
+        // job) and the outer output is the "len=N" label (LabelStage's
+        // job). A swap would produce non-typecheckable code (LabelStage
+        // takes usize, LenStage takes &'static str) — but the runtime
+        // assertion catches any equivalent-type swap.
+        let seq = ParaSeq::new(&LenStage, &LabelStage);
+        let out = seq.fwd(&0, "DISTINCT-INPUT").expect("fwd ok");
+        // LenStage (first/inner) computes len("DISTINCT-INPUT") = 14.
+        assert_eq!(out.inner.value, 14, "first arg = inner stage = LenStage");
+        // LabelStage (second/outer) wraps the length as "len=14".
+        assert_eq!(out.outer.value, "len=14", "second arg = outer stage = LabelStage");
+    }
+
+    #[test]
     fn para_seq_fwd_runs_inner_before_outer_per_chain_rule() {
         // Phase 1 hardening — call-order pin. ParaSeq's chain-rule
         // semantics REQUIRE that fwd(input) invokes inner.fwd FIRST
