@@ -2481,6 +2481,22 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                non-Latin term.",
     },
     FVaultRecallRow {
+        // Iter-433: mixed Arabic + Hebrew interaction. This pairs two
+        // RTL script tokens from distinct Semitic writing traditions in
+        // one <=3-token AND query.
+        query: "Mamba كاش זיכרון",
+        expected_paths: &["notes/mamba_arabic_hebrew.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Fifty-eighth Unicode row (iter-433): mixed-script \
+               Arabic+Hebrew query — \"Mamba كاش זיכרון\". \
+               Extends the post-floor Unicode interaction matrix \
+               to a dual-RTL pairing in one top-5 membership \
+               contract. The English-only Mamba decoy carries the \
+               Latin anchor but neither non-Latin term.",
+    },
+    FVaultRecallRow {
         // 49th Unicode row (iter-407): Meroitic Cursive
         // extension. Adds a 47th non-Latin script (Meroitic
         // Cursive, U+109A0-U+109FF) — the EVERYDAY/CURSIVE
