@@ -886,6 +886,25 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_imperial_aramaic.md",
             "Mamba 𐡀 cache Mamba 𐡀 cache architecture notes imperial_aramaic",
         ),
+        // Iter-336 (39th Unicode — Adlam extension): Latin
+        // "Mamba" + Adlam "𞤀" (capital alif, U+1E900) + Latin
+        // "cache". Adlam (1989) is a modern script invented by
+        // brothers Ibrahima and Abdoulaye Barry for the Fula
+        // language of West Africa (Guinea, Senegal, Mali,
+        // Nigeria). Bicameral alphabetic — distinct typology
+        // from the Tifinagh consonantal abjad already pinned
+        // (iter-213). SECOND modern single-inventor African
+        // script (after Vai-Bukɛlɛ 1830s and N'Ko-Kanté 1949).
+        // Demonstrates the no-script-fold contract on the
+        // YOUNGEST writing system in the pin set (37 years
+        // old at session date 2026). EIGHTH SMP-plane
+        // codepoint. Thirty-seven non-Latin scripts pinned
+        // (+ Adlam). Pin set now spans 5,200 years of writing
+        // history (Cuneiform ~3200 BCE → Adlam 1989 CE).
+        (
+            "notes/mamba_adlam.md",
+            "Mamba 𞤀 cache Mamba 𞤀 cache architecture notes adlam",
+        ),
     ];
     for (path, content) in seeds {
         store

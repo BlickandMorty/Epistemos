@@ -1792,6 +1792,38 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 39th Unicode row (iter-336): Adlam extension.
+        // Adds a 37th non-Latin script (Adlam, U+1E900–
+        // U+1E95F) — a modern script (1989) invented by
+        // brothers Ibrahima and Abdoulaye Barry for the Fula
+        // language of West Africa (Guinea, Senegal, Mali,
+        // Nigeria). Bicameral alphabetic typology, distinct
+        // from the Tifinagh consonantal abjad already pinned
+        // (iter-213). YOUNGEST writing system in the pin set
+        // (37 years old at session date 2026). EIGHTH SMP-
+        // plane codepoint. Pin set now spans 5,200 years of
+        // writing history (Cuneiform ~3200 BCE → Adlam 1989
+        // CE). Latin "Mamba" + Adlam "𞤀" (capital alif,
+        // U+1E900) + Latin "cache".
+        query: "Mamba 𞤀 cache",
+        expected_paths: &["notes/mamba_adlam.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Thirty-ninth Unicode row (iter-336): Adlam \
+               extension. THIRTY-SEVEN non-Latin scripts \
+               pinned. Adlam (1989) — modern script invented \
+               by brothers Ibrahima and Abdoulaye Barry for \
+               the Fula language of West Africa. Bicameral \
+               alphabetic, distinct from Tifinagh consonantal \
+               abjad. YOUNGEST writing system in the pin set \
+               (37 years at 2026). Eighth SMP-plane codepoint. \
+               Pin set now spans 5,200 years of writing \
+               history (Cuneiform ~3200 BCE → Adlam 1989 CE). \
+               Brings Unicode to depth 39 — first category \
+               past depth-38 horizon.",
+    },
+    FVaultRecallRow {
         // 38th Unicode row (iter-329): Imperial Aramaic
         // extension. Adds a 36th non-Latin script (Imperial
         // Aramaic, U+10840–U+1085F) — the formal documentation
