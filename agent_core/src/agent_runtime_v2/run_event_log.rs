@@ -2240,6 +2240,34 @@ mod tests {
     }
 
     #[test]
+    fn stop_count_counts_every_stop_regardless_of_stop_reason_variant() {
+        // Phase 1 hardening — variant-completeness pin for stop_count().
+        // Companion to stop_count_distinguishes_zero_one_many.
+        //
+        // stop_count() counts ANY AgentEvent::Stop entry regardless of
+        // the inner StopReason variant — a Stop is a Stop. A future
+        // refactor that filtered to "only EndTurn counts as a Stop"
+        // (because error paths produce Error events) would silently
+        // skew the audit dashboard.
+        //
+        // Pin via a log with one Stop per StopReason variant (7 in
+        // total). stop_count must equal 7.
+        let mut log = RunEventLog::new();
+        for reason in [
+            StopReason::EndTurn,
+            StopReason::ToolUse,
+            StopReason::MaxTokens,
+            StopReason::Refusal,
+            StopReason::BudgetExhausted,
+            StopReason::CapabilityDenied,
+            StopReason::Error,
+        ] {
+            log.append_event(AgentEvent::Stop { reason });
+        }
+        assert_eq!(log.stop_count(), 7, "every Stop variant must count");
+    }
+
+    #[test]
     fn stop_count_distinguishes_zero_one_many() {
         let mut log = RunEventLog::new();
         assert_eq!(log.stop_count(), 0);
