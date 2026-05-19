@@ -79,6 +79,14 @@ impl<R: EidosRetriever> EidosRetriever for ProvenanceVerifiedRetriever<R> {
         query: &EidosQuery,
         retrieved_at_unix_ms: u64,
     ) -> EidosContextPacket {
+        if query.text.trim().is_empty() || query.top_k == 0 {
+            return EidosContextPacket {
+                query: query.clone(),
+                manifest_id: self.manifest_id().clone(),
+                hits: vec![],
+            };
+        }
+
         let inner_packet = self.inner.retrieve(query, retrieved_at_unix_ms);
         let verified = &self.verified;
 
@@ -109,7 +117,8 @@ mod tests {
     use super::*;
     use crate::eidos::lexical::InMemoryLexicalIndex;
     use crate::eidos::types::{
-        EidosCitation, EidosDocumentId, EidosIndexManifestId, EidosSourceKind,
+        EidosCitation, EidosDocumentId, EidosHit, EidosIndexManifestId, EidosProvenance,
+        EidosScoreComponents, EidosSourceKind,
     };
 
     fn manifest() -> EidosIndexManifestId {
@@ -140,6 +149,59 @@ mod tests {
         let q = EidosQuery::new("tropical", EidosRetrievalMode::ProvenanceVerified, 16);
         let packet = pv.retrieve(&q, 1_700_000_000_000);
         assert!(packet.hits.is_empty());
+    }
+
+    #[derive(Clone)]
+    struct BlankLeakingRetriever {
+        manifest_id: EidosIndexManifestId,
+    }
+
+    impl EidosRetriever for BlankLeakingRetriever {
+        fn mode(&self) -> EidosRetrievalMode {
+            EidosRetrievalMode::Lexical
+        }
+
+        fn manifest_id(&self) -> &EidosIndexManifestId {
+            &self.manifest_id
+        }
+
+        fn retrieve(
+            &self,
+            query: &EidosQuery,
+            retrieved_at_unix_ms: u64,
+        ) -> EidosContextPacket {
+            EidosContextPacket {
+                query: query.clone(),
+                manifest_id: self.manifest_id.clone(),
+                hits: vec![EidosHit {
+                    source_id: chunk("leak::lex"),
+                    document_id: doc("leak"),
+                    kind: EidosSourceKind::Note,
+                    span: None,
+                    confidence: 1.0,
+                    score: EidosScoreComponents::default(),
+                    provenance: EidosProvenance {
+                        manifest_id: self.manifest_id.clone(),
+                        mode: EidosRetrievalMode::Lexical,
+                        retrieved_at_unix_ms,
+                    },
+                }],
+            }
+        }
+    }
+
+    #[test]
+    fn blank_query_defers_before_verified_filter_even_if_inner_leaks() {
+        let mut pv = ProvenanceVerifiedRetriever::new(BlankLeakingRetriever {
+            manifest_id: manifest(),
+        });
+        pv.admit(chunk("leak::lex"));
+        let q = EidosQuery::new("   ", EidosRetrievalMode::ProvenanceVerified, 16);
+        let packet = pv.retrieve(&q, 1_700_000_000_000);
+        assert!(
+            packet.hits.is_empty(),
+            "PV must fail closed on blank query before trusting inner hits"
+        );
     }
 
     #[test]
