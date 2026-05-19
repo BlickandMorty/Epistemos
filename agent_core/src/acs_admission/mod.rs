@@ -2062,6 +2062,42 @@ where
                 )));
             }
         }
+        let required_field = match kind {
+            "vault_path"
+                if !capability_value
+                    .get("path")
+                    .is_some_and(serde_json::Value::is_string) =>
+            {
+                Some(GRANTED_CAPABILITY_FIELDS.vault_path_path)
+            }
+            "vault_path"
+                if !capability_value
+                    .get("verb")
+                    .is_some_and(serde_json::Value::is_string) =>
+            {
+                Some(GRANTED_CAPABILITY_FIELDS.vault_path_verb)
+            }
+            "vault_path" => None,
+            "network_host" => (!capability_value
+                .get("host")
+                .is_some_and(serde_json::Value::is_string))
+            .then_some(GRANTED_CAPABILITY_FIELDS.network_host_host),
+            "biometric_session" => capability_value
+                .get("ttl_secs")
+                .and_then(serde_json::Value::as_u64)
+                .is_none_or(|ttl_secs| {
+                    ttl_secs == 0 || ttl_secs > MAX_BIOMETRIC_SESSION_TTL_SECS as u64
+                })
+                .then_some(GRANTED_CAPABILITY_FIELDS.biometric_session_ttl_secs),
+            "other" => (!capability_value
+                .get("name")
+                .is_some_and(serde_json::Value::is_string))
+            .then_some(GRANTED_CAPABILITY_FIELDS.other_name),
+            _ => Some("granted_capabilities.capability"),
+        };
+        if let Some(field) = required_field {
+            return Err(E::custom(format!("forged_admission_input field={field}")));
+        }
     }
     Ok(())
 }
@@ -7126,6 +7162,74 @@ mod tests {
         assert!(message.contains("forged_admission_input"), "{message}");
         assert!(
             message.contains("granted_capabilities.capability"),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn acs_admission_input_decode_names_unknown_granted_capability_kind() {
+        let value = serde_json::json!({
+            "request_id": "req-unknown-granted-capability-kind",
+            "payload": {
+                "kind": "tool_action",
+                "request": {
+                    "tool_name": "vault.write",
+                    "target": "uas://note/1",
+                    "mutation_envelope_id": "mutation-1"
+                }
+            },
+            "submitted_at_ms": 1_001,
+            "risk": ACSRiskVector::neutral(),
+            "granted_capabilities": [
+                {
+                    "kind": "root_access",
+                    "value": {
+                        "name": "ToolExec"
+                    }
+                }
+            ]
+        });
+
+        let err = serde_json::from_value::<ACSAdmissionInput>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("forged_admission_input"), "{message}");
+        assert!(
+            message.contains("granted_capabilities.capability"),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn acs_admission_input_decode_names_missing_granted_vault_path_verb() {
+        let value = serde_json::json!({
+            "request_id": "req-missing-granted-vault-path-verb",
+            "payload": {
+                "kind": "tool_action",
+                "request": {
+                    "tool_name": "vault.write",
+                    "target": "uas://note/1",
+                    "mutation_envelope_id": "mutation-1"
+                }
+            },
+            "submitted_at_ms": 1_001,
+            "risk": ACSRiskVector::neutral(),
+            "granted_capabilities": [
+                {
+                    "kind": "vault_path",
+                    "value": {
+                        "path": "uas://note/1"
+                    }
+                }
+            ]
+        });
+
+        let err = serde_json::from_value::<ACSAdmissionInput>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("forged_admission_input"), "{message}");
+        assert!(
+            message.contains("granted_capabilities.vault_path.verb"),
             "{message}"
         );
     }
