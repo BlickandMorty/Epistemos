@@ -2814,8 +2814,15 @@ fn run_event_log_contains_acs_record(run_event_log: &OpLog, record_id: &str) -> 
         .iter_all()
         .into_iter()
         .any(|op| match op.payload {
-            OpPayload::PropSet { node_id, key, .. } => {
-                node_id == record_id && key == ACS_AUDIT_RUN_EVENT_KEY
+            OpPayload::PropSet {
+                node_id,
+                key,
+                value,
+            } => {
+                key == ACS_AUDIT_RUN_EVENT_KEY
+                    && (node_id == record_id
+                        || audit_record_value_id(&value)
+                            .is_some_and(|value_id| value_id == record_id))
             }
             _ => false,
         })
@@ -7063,6 +7070,27 @@ mod tests {
         let record_id = decision.audit_record.record_id.clone();
 
         let err = sink.record(decision.audit_record).unwrap_err();
+
+        assert_eq!(err.cause(), "duplicate_acs_audit_record");
+        assert_eq!(err.field(), Some("record_id"));
+        assert_eq!(err.record_id(), Some(record_id.as_str()));
+        assert_eq!(run_event_log.len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_run_event_log_sink_rejects_aliased_duplicate_record_ids() {
+        let run_event_log = crate::oplog::OpLog::new("acs-admission-sink-aliased-duplicate-test");
+        let sink = ACSRunEventLogSink::new(&run_event_log);
+        let record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+        let record_id = record.record_id.clone();
+        let aliased_value = serde_json::to_value(record.clone()).expect("audit record encodes");
+        run_event_log.append(crate::oplog::OpPayload::PropSet {
+            node_id: "acs:req-shadow:1001".to_string(),
+            key: ACS_AUDIT_RUN_EVENT_KEY.to_string(),
+            value: aliased_value,
+        });
+
+        let err = sink.record(record).unwrap_err();
 
         assert_eq!(err.cause(), "duplicate_acs_audit_record");
         assert_eq!(err.field(), Some("record_id"));
