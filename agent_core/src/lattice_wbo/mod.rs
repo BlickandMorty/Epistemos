@@ -4361,6 +4361,48 @@ mod tests {
     }
 
     #[test]
+    fn active_support_budget_residency_matrix_counts_are_pinned() {
+        let required_tiers = ResidencyTier::ALL
+            .iter()
+            .copied()
+            .filter(|tier| tier.requires_active_support_budget())
+            .collect::<Vec<_>>();
+        let secondary_tiers = ResidencyTier::ALL
+            .iter()
+            .copied()
+            .filter(|tier| tier.allows_secondary_active_support_budget())
+            .collect::<Vec<_>>();
+        let allowed_tiers = ResidencyTier::ALL
+            .iter()
+            .copied()
+            .filter(|tier| tier.allows_active_support_budget())
+            .collect::<Vec<_>>();
+        let disallowed_tiers = ResidencyTier::ALL
+            .iter()
+            .copied()
+            .filter(|tier| !tier.allows_active_support_budget())
+            .collect::<Vec<_>>();
+
+        assert_eq!(ResidencyTier::ALL.len(), 7);
+        assert_eq!(required_tiers, vec![ResidencyTier::L2ShadowSketch]);
+        assert_eq!(secondary_tiers, vec![ResidencyTier::L3SsdOracle]);
+        assert_eq!(
+            allowed_tiers,
+            vec![ResidencyTier::L2ShadowSketch, ResidencyTier::L3SsdOracle]
+        );
+        assert_eq!(
+            disallowed_tiers,
+            vec![
+                ResidencyTier::L0RamHot,
+                ResidencyTier::L1CompressedResidual,
+                ResidencyTier::L4Engram,
+                ResidencyTier::L5NetworkCascade,
+                ResidencyTier::LSeSelfEvolving,
+            ]
+        );
+    }
+
+    #[test]
     fn residency_tier_catalog_requires_substrate_boundary_for_active_support_budget_tiers() {
         for tier in ResidencyTier::ALL {
             if tier.allows_active_support_budget() {
@@ -6568,6 +6610,15 @@ mod tests {
         assert!(
             register.contains("rate_parameter_ownership_matrix_counts_are_pinned"),
             "register must cross-link rate-ownership matrix counts"
+        );
+    }
+
+    #[test]
+    fn register_doc_cross_links_active_support_residency_matrix_counts() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("active_support_budget_residency_matrix_counts_are_pinned"),
+            "register must cross-link active-support residency matrix counts"
         );
     }
 
