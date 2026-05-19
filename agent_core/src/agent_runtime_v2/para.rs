@@ -432,6 +432,21 @@ mod tests {
     }
 
     #[test]
+    fn stop_reason_debug_repr_is_stable_for_audit_logs() {
+        for (variant, expected) in [
+            (StopReason::EndTurn, "EndTurn"),
+            (StopReason::ToolUse, "ToolUse"),
+            (StopReason::MaxTokens, "MaxTokens"),
+            (StopReason::Refusal, "Refusal"),
+            (StopReason::BudgetExhausted, "BudgetExhausted"),
+            (StopReason::CapabilityDenied, "CapabilityDenied"),
+            (StopReason::Error, "Error"),
+        ] {
+            assert_eq!(format!("{variant:?}"), expected);
+        }
+    }
+
+    #[test]
     fn stop_reason_unknown_serde_string_fails_to_deserialise() {
         // Phase 1 hardening — closed-taxonomy guardrail symmetric to
         // mode::unknown_mode_string_fails_to_deserialise (iter-71) and
