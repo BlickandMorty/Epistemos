@@ -811,6 +811,54 @@ mod tests {
     }
 
     #[test]
+    fn boundary_equal_to_cap_accepted_across_all_five_axes() {
+        // Phase 1 hardening — 5-axis completeness companion to
+        // boundary_equal_to_cap_accepted (which only exercises tokens).
+        // The strict-`>` boundary contract MUST hold independently for
+        // every WBO-6 axis.
+        //
+        // For each axis: ledger pre-loaded with cap - 100; debit adds
+        // exactly 100; final usage lands at the cap exactly; gate
+        // accepts.
+        //
+        // Defends against a future "let me micro-optimise the gate's
+        // boundary check from `>` to `>=`" refactor on any single axis
+        // — would silently reject at-cap debits on that axis only.
+
+        // wall_ms axis.
+        let gate_w = BudgetGate::new(BudgetSpec::new(0, 1_000, 0, 0));
+        let l_w = BudgetLedger { wall_used_ms: 900, ..Default::default() };
+        let a_w = gate_w
+            .check_and_debit(l_w, BudgetDebit { wall_ms: 100, ..Default::default() })
+            .expect("wall_ms at-cap debit must accept");
+        assert_eq!(a_w.wall_used_ms, 1_000);
+
+        // tool_calls axis.
+        let gate_tc = BudgetGate::new(BudgetSpec::new(0, 0, 10, 0));
+        let l_tc = BudgetLedger { tool_calls_used: 9, ..Default::default() };
+        let a_tc = gate_tc
+            .check_and_debit(l_tc, BudgetDebit { tool_calls: 1, ..Default::default() })
+            .expect("tool_calls at-cap debit must accept");
+        assert_eq!(a_tc.tool_calls_used, 10);
+
+        // subprocess_ms axis.
+        let gate_sm = BudgetGate::new(BudgetSpec::new(0, 0, 0, 1_000));
+        let l_sm = BudgetLedger { subprocess_used_ms: 900, ..Default::default() };
+        let a_sm = gate_sm
+            .check_and_debit(l_sm, BudgetDebit { subprocess_ms: 100, ..Default::default() })
+            .expect("subprocess_ms at-cap debit must accept");
+        assert_eq!(a_sm.subprocess_used_ms, 1_000);
+
+        // memory_bytes axis.
+        let gate_mb = BudgetGate::new(BudgetSpec::default().with_memory_bytes(1_024));
+        let l_mb = BudgetLedger { memory_bytes_used: 1_000, ..Default::default() };
+        let a_mb = gate_mb
+            .check_and_debit(l_mb, BudgetDebit { memory_bytes: 24, ..Default::default() })
+            .expect("memory_bytes at-cap debit must accept");
+        assert_eq!(a_mb.memory_bytes_used, 1_024);
+    }
+
+    #[test]
     fn each_budget_term_variant_corresponds_to_exactly_one_budget_spec_axis() {
         // Phase 1 hardening — 5-to-5 mapping pin. BudgetTerm enum
         // has 5 variants (Tokens, WallMs, ToolCalls, SubprocessMs,
