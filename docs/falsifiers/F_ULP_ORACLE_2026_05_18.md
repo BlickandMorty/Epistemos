@@ -65,6 +65,16 @@ freezes treat Metal output itself as proven.
 |---|---|---|---|---|---|---|
 | F-ULP-Oracle | Research | M2 Pro numeric falsifier | implemented-not-wired | `agent_core/src/research/eml_ir/`, `Epistemos/Shaders/morph_eval_reduced.metal`, `cargo test --features research research::eml_ir` | live Metal dispatch capture from `morphOracleFp16` | harden with GPU capture, subnormal/signed-zero diagnostics, WBO numerics cross-link, and Helios v3 §3.5/F7a reference |
 
+## Mission Identity Pin
+
+The witness `mission` field is the exact string `F-ULP-Oracle T12`,
+pinned at the schema source.
+Replay rejects a witness whose mission string drifts from that constant,
+so a candidate cannot reuse the F-ULP-Oracle witness shape for a different
+gate (such as F-KV-Direct or F-70B-Cocktail). The mission pin makes the
+witness self-identifying without trusting an out-of-band file name or
+container metadata.
+
 ## Pass Field Invariants
 
 The witness `pass` field is `true` only when every per-operation
