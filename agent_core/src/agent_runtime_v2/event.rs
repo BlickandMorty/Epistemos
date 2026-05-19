@@ -1211,6 +1211,49 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_tool_result_preserves_json_special_chars_through_serde() {
+        // Phase 1 hardening — adversarial JSON pin for
+        // AgentEvent::ToolResult.{name, result} (companion to the
+        // iter-413..iter-422 JSON-special-char pin family).
+        //
+        // ToolResult.name is a String (tool name); .result is a
+        // serde_json::Value (the tool's response). Both must
+        // round-trip JSON-special chars without lossy escaping —
+        // RunEventLog rows persist these verbatim.
+        let adversarial = [
+            (
+                "vault.read",
+                serde_json::json!({"content": r#"file with "quotes" and \\ backslashes"#}),
+            ),
+            (
+                "vault.list",
+                serde_json::json!({"files": ["a\nb", "c\td", "e\\f"]}),
+            ),
+            (
+                "vault.search",
+                serde_json::json!({"results": [{"score": 0.95, "snippet": "embedded\nnewlines"}]}),
+            ),
+        ];
+        for (name, result) in adversarial {
+            let ev = AgentEvent::ToolResult {
+                name: name.to_string(),
+                result: result.clone(),
+            };
+            let s = serde_json::to_string(&ev).expect("serialise");
+            let back: AgentEvent =
+                serde_json::from_str(&s).expect("deserialise");
+            assert_eq!(back, ev, "tool_result must round-trip byte-equal");
+            match back {
+                AgentEvent::ToolResult { name: n, result: r } => {
+                    assert_eq!(n, name);
+                    assert_eq!(r, result);
+                }
+                other => panic!("expected ToolResult variant, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
     fn agent_event_error_message_preserves_json_special_chars_through_serde() {
         // Phase 1 hardening — adversarial JSON pin for
         // AgentEvent::Error.message (companion to the iter-413..
