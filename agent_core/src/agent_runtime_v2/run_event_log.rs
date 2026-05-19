@@ -4359,6 +4359,34 @@ mod tests {
     }
 
     #[test]
+    fn run_event_log_top_level_tolerates_unknown_extra_fields_per_current_doctrine() {
+        let parsed: RunEventLog = serde_json::from_str(
+            r#"{
+                "entries": [
+                    {"kind":"event","ordinal":0,"event":{"event_type":"final_text","text":"x"}}
+                ],
+                "future_bundle_version": 3,
+                "future_audit_note": "ignored-by-v2"
+            }"#,
+        )
+        .expect("unknown top-level RunEventLog fields are forward-compatible");
+        assert_eq!(parsed.len(), 1);
+        parsed
+            .validate_ordinal_density()
+            .expect("unknown fields must not disturb dense ordinals");
+        match &parsed.entries()[0] {
+            RunEventEntry::Event {
+                ordinal,
+                event: AgentEvent::FinalText { text },
+            } => {
+                assert_eq!(*ordinal, 0);
+                assert_eq!(text, "x");
+            }
+            other => panic!("expected preserved FinalText event row, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn full_log_with_all_3_variants_round_trips_through_json_preserving_root_hash() {
         // Phase 1 hardening MILESTONE iter-300 — comprehensive
         // round-trip pin. A log containing every RunEventEntry
