@@ -163,7 +163,7 @@ mod tests {
         assert!(FULP_FALSIFIER_DOC.contains("## Adversarial Reference Stats"));
         assert!(FULP_FALSIFIER_DOC.contains("`adversarial_reference_stats`"));
         assert!(FULP_FALSIFIER_DOC.contains("`finite_count = 12`"));
-        assert!(FULP_FALSIFIER_DOC.contains("`rejected_count = 9`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`rejected_count = 11`"));
         assert!(FULP_FALSIFIER_DOC.contains("collapse the rejected-by-IEEE"));
         assert!(FULP_FALSIFIER_DOC.contains("part of the\nfingerprint chain"));
     }
@@ -287,6 +287,7 @@ mod tests {
         assert!(FULP_FALSIFIER_DOC.contains("## Adversarial Fixture Purposes"));
         assert!(FULP_FALSIFIER_DOC.contains("`exp_positive_zero`"));
         assert!(FULP_FALSIFIER_DOC.contains("`ln_negative_zero`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`ln_negative_one`"));
         assert!(FULP_FALSIFIER_DOC.contains("`ln_fp16_min_positive_subnormal`"));
         assert!(FULP_FALSIFIER_DOC.contains("`ln_fp16_min_negative_subnormal`"));
         assert!(FULP_FALSIFIER_DOC.contains("`nan_payload_x`"));
@@ -321,12 +322,12 @@ mod tests {
         assert!(FULP_FALSIFIER_DOC.contains("shader_fingerprint"));
         assert!(FULP_FALSIFIER_DOC.contains("operation_catalog_fingerprint"));
         assert!(FULP_FALSIFIER_DOC.contains("axis_catalog_fingerprint"));
-        assert!(FULP_FALSIFIER_DOC.contains("adversarial_fixture_count = 21"));
+        assert!(FULP_FALSIFIER_DOC.contains("adversarial_fixture_count = 23"));
         assert!(FULP_FALSIFIER_DOC.contains("adversarial_fixture_fingerprint"));
         assert!(FULP_FALSIFIER_DOC.contains("adversarial_reference_fingerprint"));
         assert!(FULP_FALSIFIER_DOC.contains("adversarial_reference_stats"));
         assert!(FULP_FALSIFIER_DOC.contains("finite_count = 12"));
-        assert!(FULP_FALSIFIER_DOC.contains("rejected_count = 9"));
+        assert!(FULP_FALSIFIER_DOC.contains("rejected_count = 11"));
         assert!(FULP_FALSIFIER_DOC.contains("morphOracleFp16"));
         assert!(FULP_FALSIFIER_DOC
             .contains("4a83ee96a1dffd0251307ebca42c33eb8982992a641dd641c540fd560a42bdb3"));
@@ -335,9 +336,9 @@ mod tests {
         assert!(FULP_FALSIFIER_DOC
             .contains("f0c1ec3142aafa93170de35d02e561368206e745aad481f7e32d865c5ee71537"));
         assert!(FULP_FALSIFIER_DOC
-            .contains("032b96f1ce47ceac73092bb7ac8d1132c204eafb1154c183a9f42a04e8d44f4f"));
+            .contains("78c5d0adee288b449acebb9e16324e64e6c648ecc036a82df3bc3b5b06539339"));
         assert!(FULP_FALSIFIER_DOC
-            .contains("6a663455cbf2cfa678aa25f3bba1a9daa138817dddb51ef86061d5617899d8da"));
+            .contains("5624f053ca313b514e32d2965434fe1a77cd1fcfaa13a0c58ebe18003c220db4"));
         assert!(FULP_FALSIFIER_DOC
             .contains("17f0b3f9de6cf7398e54c242397b833e88a8d39b5c1b07a99085cae5717ac871"));
     }
