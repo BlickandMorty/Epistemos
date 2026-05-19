@@ -1005,6 +1005,37 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 46th SignalOnly row (iter-382): single-term query in
+        // Yi-script domain — "ꀀ" (Yi syllable IT, U+A000,
+        // single codepoint). THIRTY-SEVENTH single-term-AND
+        // domain. TWENTY-FOURTH non-ASCII script-block. THIRD
+        // East-Asian script in SignalOnly (after CJK 笔记 +
+        // Bopomofo ㄎ). Yi script is used by the Yi people of
+        // southwestern China (Sichuan, Yunnan, Guizhou) and
+        // Vietnam / Laos / Thailand. Standardized Yi has ~819
+        // syllabograms (1980 standard), one for each Yi
+        // syllable. SYLLABIC typology — distinct from Han
+        // ideographs and Bopomofo phonetic alphabet. Pin set's
+        // East-Asian coverage now spans three distinct
+        // typologies (ideographic + phonetic-alphabet +
+        // syllabic). Token unique to iter-244's mamba_yi.md.
+        query: "ꀀ",
+        expected_paths: &["notes/mamba_yi.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Forty-sixth SignalOnly row (iter-382): single-\
+               term Yi-script query — \"ꀀ\" (U+A000). Thirty-\
+               seventh domain for single-term-AND. Twenty-\
+               fourth non-ASCII script-block. THIRD East-Asian \
+               script in SignalOnly. Pin set's East-Asian \
+               coverage now spans three distinct typologies: \
+               ideographic Han + phonetic Bopomofo + syllabic \
+               Yi. Twelfth single-codepoint non-ASCII token. \
+               Brings SignalOnly to depth 46 — first category \
+               past depth-45 horizon.",
+    },
+    FVaultRecallRow {
         // 45th SignalOnly row (iter-375): single-term query in
         // Bopomofo-script domain — "ㄎ" (Bopomofo letter K,
         // U+310E, single codepoint). THIRTY-SIXTH single-term-
