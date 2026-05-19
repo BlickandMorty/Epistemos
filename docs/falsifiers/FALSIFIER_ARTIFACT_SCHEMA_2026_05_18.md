@@ -88,7 +88,7 @@ The reserved identity set for `validator` and `reviewer` is shared: `anonymous`,
 
 ## Identity Gap Slug Catalog
 
-Identity gap validator work uses stable slugs so schema prose, validator-shape rows, handbook audits, and negative examples refer to the same failure family without prose drift. A validator-shape row, handbook audit, or negative example may not introduce a new identity-gap family unless this catalog names the slug first. Slugs must match `^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$` so validator code can parse them without comma-bearing, spaced, dotted, title-case, underscore, numeric-leading, leading-hyphen, or trailing-hyphen aliases.
+Identity gap validator work uses stable slugs so schema prose, validator-shape rows, handbook audits, and negative examples refer to the same failure family without prose drift. A validator-shape row, handbook audit, or negative example may not introduce a new identity-gap family unless this catalog names the slug first. Slugs must match `^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$` so validator code can parse them without slash-bearing, comma-bearing, spaced, dotted, title-case, underscore, numeric-leading, leading-hyphen, or trailing-hyphen aliases.
 
 | Slug | Rule surface | Negative examples |
 |---|---|---|
