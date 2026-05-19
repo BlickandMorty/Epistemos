@@ -81,7 +81,7 @@ impl EidosRetriever for LedgerBackedClaimEvidence {
         query: &EidosQuery,
         retrieved_at_unix_ms: u64,
     ) -> EidosContextPacket {
-        if query.text.is_empty() || query.top_k == 0 {
+        if query.text.trim().is_empty() || query.top_k == 0 {
             return empty_packet(query, &self.manifest_id);
         }
 
@@ -391,6 +391,27 @@ mod tests {
         );
         assert!(r.retrieve(&q_empty, 0).hits.is_empty());
         assert!(r.retrieve(&q_zero, 0).hits.is_empty());
+    }
+
+    #[test]
+    fn whitespace_only_query_defers() {
+        let mut led = ClaimLedger::new();
+        led.commit_evidence(Evidence::new(EvidenceId("ev-blank".to_string()), "src", 0))
+            .unwrap();
+        led.commit_claim(
+            Claim::new(ClaimId("   ".to_string()), "blank claim", 0),
+            vec![],
+            vec![EvidenceId("ev-blank".to_string())],
+        )
+        .unwrap();
+
+        let r = LedgerBackedClaimEvidence::from_ledger(&led, manifest());
+        let q = EidosQuery::new("   ", EidosRetrievalMode::ClaimEvidence, 16);
+        let packet = r.retrieve(&q, 0);
+        assert!(
+            packet.hits.is_empty(),
+            "whitespace-only text is not a stable ledger claim id"
+        );
     }
 
     #[test]
