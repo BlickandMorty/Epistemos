@@ -2057,7 +2057,9 @@ impl AuditRecordId {
         if self.0.trim().is_empty() {
             Err(ACSAdmissionProofError::MissingRecordId)
         } else if !is_canonical_acs_record_id(&self.0) {
-            Err(ACSAdmissionProofError::InvalidRecordId)
+            Err(ACSAdmissionProofError::InvalidRecordId {
+                record_id: self.0.clone(),
+            })
         } else {
             Ok(())
         }
@@ -2263,7 +2265,9 @@ impl SCOPERexAdmissionProof {
         }
         self.record_id.validate()?;
         if acs_record_id_embeds_reserved_malformed_audit_token(&self.record_id.0) {
-            return Err(ACSAdmissionProofError::InvalidRecordId);
+            return Err(ACSAdmissionProofError::InvalidRecordId {
+                record_id: self.record_id.0.clone(),
+            });
         }
         self.signature.validate()
     }
@@ -2448,7 +2452,7 @@ fn hex_value(byte: u8) -> Option<u8> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ACSAdmissionProofError {
     MissingRecordId,
-    InvalidRecordId,
+    InvalidRecordId { record_id: String },
     MissingCapabilitySignature,
     InvalidCapabilitySignature,
     VerdictBlocksScopeRex { record_id: String },
@@ -2465,7 +2469,7 @@ impl ACSAdmissionProofError {
     pub const fn cause(&self) -> &'static str {
         match self {
             Self::MissingRecordId => "missing_audit_record_id",
-            Self::InvalidRecordId => "invalid_audit_record_id",
+            Self::InvalidRecordId { .. } => "invalid_audit_record_id",
             Self::MissingCapabilitySignature => "missing_capability_signature",
             Self::InvalidCapabilitySignature => "invalid_capability_signature",
             Self::VerdictBlocksScopeRex { .. } => "proof_verdict_blocks_scope_rex",
@@ -2486,7 +2490,7 @@ impl ACSAdmissionProofError {
             Self::RecordIdMismatch => Some("record_id"),
             Self::OperationMismatch => Some("operation"),
             Self::VerdictMismatch => Some("verdict"),
-            Self::MissingRecordId | Self::InvalidRecordId => Some("record_id"),
+            Self::MissingRecordId | Self::InvalidRecordId { .. } => Some("record_id"),
         }
     }
 
@@ -2494,8 +2498,8 @@ impl ACSAdmissionProofError {
         match self {
             Self::CorruptAuditRecord { record_id, .. } => Some(record_id.as_str()),
             Self::VerdictBlocksScopeRex { record_id } => Some(record_id.as_str()),
+            Self::InvalidRecordId { record_id } => Some(record_id.as_str()),
             Self::MissingRecordId
-            | Self::InvalidRecordId
             | Self::MissingCapabilitySignature
             | Self::InvalidCapabilitySignature
             | Self::RecordIdMismatch
@@ -5998,14 +6002,17 @@ mod tests {
         assert_eq!(err.field(), Some("reason"));
         assert_eq!(err.record_id(), Some(corrupt_record.record_id.as_str()));
 
+        let invalid_record_id = "run-event:external-record";
         let err = SCOPERexAdmissionProof::new(
             ACSAdmissionVerdict::Allow,
             ACSOperationKind::MemoryWrite,
-            AuditRecordId::new("run-event:external-record"),
+            AuditRecordId::new(invalid_record_id),
             CapabilitySignature::new("capability-signature"),
         )
         .unwrap_err();
         assert_eq!(err.cause(), "invalid_audit_record_id");
+        assert_eq!(err.field(), Some("record_id"));
+        assert_eq!(err.record_id(), Some(invalid_record_id));
     }
 
     #[test]
