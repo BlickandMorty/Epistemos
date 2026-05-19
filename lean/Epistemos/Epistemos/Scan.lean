@@ -148,4 +148,11 @@ theorem CertificateTarget.outputMatchesSequential {α : Type}
     c.output = sequentialScan c.monoid.op c.program.initial c.program.inputs :=
   c.output_matches
 
+theorem CertificateTarget.monoidLawWitnesses {α : Type}
+    (c : CertificateTarget α) :
+    scanAssociativeOp c.monoid.op ∧
+      scanLeftIdentity c.monoid.op c.monoid.identity ∧
+      scanRightIdentity c.monoid.op c.monoid.identity := by
+  exact MonoidWitness.scanLawWitnesses c.monoid
+
 end Epistemos.Scan
