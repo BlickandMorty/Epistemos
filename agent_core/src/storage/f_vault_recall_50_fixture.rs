@@ -4821,6 +4821,59 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 50th Paraphrase row (iter-411, MILESTONE — Paraphrase
+        // category FOURTH to reach the F-VaultRecall-50 target).
+        // NEW axis — PHONETIC RESPELLING / HOMOPHONIC SUBSTITUTION.
+        // User spells the stem phonetically using ENGLISH
+        // ORTHOGRAPHIC CONVENTIONS for the same /kæʃ/ sound:
+        // "cache" → "kashe" (k-a-sh-e). The phonetic respelling
+        // is a totally legitimate user behavior (autocorrect
+        // failures, informal writing, non-native spellers,
+        // users who never learned French loanword orthography
+        // — "cache" is a French loanword in English). Tantivy
+        // tokenizes "kashe" as one alphanumeric token (no shared
+        // substring with "cache"). 3-term AND on {mamba, ssm,
+        // kashe} blocks canonical.
+        // Distinct from EVERY prior Paraphrase axis:
+        //   • iter-376/383/390/404 AFFIXATION (morphemes added)
+        //   • iter-369 COMPOUND-NOUN (two free morphemes joined)
+        //   • iter-239/333 TRUNCATION (letters dropped)
+        //   • iter-86 ACRONYM (multi-word → initials)
+        //   • iter-397 REDUPLICATION (stem self-duplication)
+        //   • iter-20 TYPO (single-char edit: SSM → SSL)
+        // iter-411 RESPELLS the entire stem with a different
+        // grapheme sequence representing the SAME PHONEMES —
+        // distinct from typo (typo is one accidental edit,
+        // respelling is a deliberate orthographic choice).
+        // Pins deferred phonetic-matching retrieval — the
+        // Soundex / Metaphone / Double-Metaphone failure mode
+        // that affects every speech-influenced query (voice
+        // dictation, autocorrect, non-native spellers).
+        // Forty-seventh named failure subclass.
+        query: "Mamba SSM kashe",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Phonetic-respelling Paraphrase axis (axis #47): \
+               user spells stem phonetically using English \
+               orthographic conventions for the same /kæʃ/ \
+               sound — \"cache\" → \"kashe\". Distinct from \
+               iter-376/383/390/404 affixation, iter-369 \
+               compound-noun, iter-239/333 truncation, iter-86 \
+               acronym, iter-397 reduplication, iter-20 typo \
+               (typo = one accidental edit; respelling = \
+               deliberate orthographic choice for SAME \
+               phonemes). 3-term AND on {mamba, ssm, kashe} \
+               blocks. Pins deferred phonetic-matching \
+               retrieval (Soundex / Metaphone / Double-\
+               Metaphone failure mode — affects voice \
+               dictation, autocorrect, non-native spellers). \
+               Forty-seventh named failure subclass. Brings \
+               Paraphrase to depth 50 — F-VaultRecall-50 target \
+               reached.",
+    },
+    FVaultRecallRow {
         // 49th Paraphrase row (iter-404): NEW axis — FOUR-
         // MORPHEME AGGLUTINATIVE STACKING (extends iter-390's
         // 3-morpheme circumfix to 4). User wraps stem with
