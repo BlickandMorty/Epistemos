@@ -8255,6 +8255,52 @@ mod tests {
     }
 
     #[test]
+    fn engram_hash_recall_rejects_active_support_budget_borrowing() {
+        let budget = LatticeBudget::new(
+            LatticeCoderKind::EngramHashRecall,
+            None,
+            SideInformationKind::StaticFactKey,
+            vec![
+                LatticeErrorContribution::new(
+                    WboTermCode::SubstrateBoundary,
+                    "Engram static-fact lookup",
+                    0.01,
+                )
+                .expect("valid substrate contribution"),
+                LatticeErrorContribution::new(
+                    WboTermCode::NumericalPostCorrection,
+                    "softmax half correction",
+                    0.0,
+                )
+                .expect("valid numerical contribution"),
+            ],
+        );
+        let entry = WboLedgerEntry::new_for_tier(
+            ResidencyTier::L4Engram,
+            budget,
+            Some(ActiveSupportBudget::new(
+                128,
+                4,
+                1024,
+                SideInformationKind::ActiveSupport,
+            )),
+            "F-ACS-AnchorLookup; F-ULP-Oracle; F-WBO-DriftLedger",
+            "Engram static facts cannot borrow active-support budgets.",
+        );
+
+        assert_eq!(
+            entry.validate(),
+            Err(LatticeWboError::InvalidActiveSupportSideInformation)
+        );
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`engram_hash_recall_rejects_active_support_budget_borrowing`"),
+            "register doc must cross-link Engram active-support borrowing rejection"
+        );
+    }
+
+    #[test]
     fn network_cascade_codec_pins_teacher_boundary_terms_and_side_information() {
         assert!(!LatticeCoderKind::NetworkCascade.allows_rate_parameter());
         assert_eq!(
