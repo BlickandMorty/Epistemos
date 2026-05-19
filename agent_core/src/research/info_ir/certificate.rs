@@ -183,11 +183,14 @@ pub fn lean_certificate(expr: &InfoExpr) -> String {
          def info_expr_{suffix} : Epistemos.Info.Expr :=\n\
          \x20   {expr_term}\n\
          \n\
+         theorem info_convexity_witness_{suffix} :\n\
+         \x20   Epistemos.Info.logPartitionConvex {family_term} {p_term} := by\n\
+         \x20 exact ⟨{family_well_formed}, {family_arity}⟩\n\
+         \n\
          def info_convexity_obligation_{suffix} : Epistemos.Info.ConvexLogPartitionObligation :=\n\
-         \x20   {{ family := {family_term}\n\
-         \x20     naturalParams := {p_term}\n\
-         \x20     convexOnNaturalDomain := Epistemos.Info.logPartitionConvex {family_term} {p_term}\n\
-         \x20     sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §3 + §5 Info-IR\" }}\n\
+         \x20   Epistemos.Info.convexLogPartitionObligation {family_term} {p_term}\n\
+         \x20     info_convexity_witness_{suffix}\n\
+         \x20     \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §3 + §5 Info-IR\"\n\
          \n\
          def info_bregman_obligation_{suffix} : Epistemos.Info.BregmanPositivityObligation :=\n\
          \x20   {{ family := {family_term}\n\
@@ -220,7 +223,9 @@ pub fn lean_certificate(expr: &InfoExpr) -> String {
          \n\
          theorem info_log_partition_convexity_{suffix} :\n\
          \x20   info_convexity_obligation_{suffix}.convexOnNaturalDomain := by\n\
-         \x20 exact info_convexity_obligation_{suffix}.convexOnNaturalDomain\n\
+         \x20 exact Epistemos.Info.convexLogPartitionObligationCarries {family_term} {p_term}\n\
+         \x20   info_convexity_witness_{suffix}\n\
+         \x20   \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §3 + §5 Info-IR\"\n\
          \n\
          theorem info_bregman_positivity_{suffix} :\n\
          \x20   info_bregman_obligation_{suffix}.nonnegative := by\n\
@@ -245,6 +250,7 @@ pub fn lean_certificate(expr: &InfoExpr) -> String {
         q_term = q_term,
         suffix = suffix,
         family_well_formed = family_well_formed_proof(expr.family()),
+        family_arity = family_arity_proof(expr.family()),
     )
 }
 
@@ -271,9 +277,11 @@ mod tests {
         )
         .unwrap();
         let c = lean_certificate(&e);
+        assert!(c.contains("Epistemos.Info.convexLogPartitionObligation"));
         assert!(c.contains("Epistemos.Info.bregmanNonnegative"));
         assert!(c.contains("Epistemos.Info.bregmanZeroIffEqual"));
         assert!(c.contains("Epistemos.Info.mirrorDescentEquivalenceObligation"));
+        assert!(!c.contains("convexOnNaturalDomain := Epistemos.Info.logPartitionConvex"));
         assert!(!c.contains("statement := Epistemos.Info.mirrorDescentEquivalent"));
         assert!(!c.contains("nonnegative := True"));
         assert!(!c.contains("zeroIffEqual := True"));
@@ -349,6 +357,9 @@ mod tests {
             .filter(|line| line.trim_start().starts_with("sorry  --"))
             .count();
         assert_eq!(proof_body_count, 0);
+        assert!(c.contains(
+            "exact Epistemos.Info.convexLogPartitionObligationCarries"
+        ));
         assert!(c.contains("exact info_bregman_obligation_"));
         assert!(c.contains(".nonnegative"));
         assert!(c.contains(".zeroIffEqual"));
