@@ -157,7 +157,7 @@ fn assert_iter_format_canonical_panics_on_out_of_range() {
     assert_iter_format_canonical("iter 099", "MY_SOURCE_LABEL");
 }
 
-/// Iter 719 — catalog range continuation pin.
+/// Iter 720 — catalog range continuation pin.
 /// STATUS.md is the contributor-facing catalog for the closed-citation
 /// hardening arc. When new pins land after the previous range tip, the
 /// range must advance in lock-step so future readers can tell the arc is
@@ -167,9 +167,9 @@ fn status_md_closed_citation_iter_range_tip_tracks_latest_catalog_pin() {
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Closed-citation contract hardening (iters 127-719)"),
+        status.contains("Closed-citation contract hardening (iters 127-720)"),
         "STATUS.md closed-citation hardening catalog must advance its iter \
-         range tip to iter 719 when the catalog-continuation pin lands"
+         range tip to iter 720 when the catalog-continuation pin lands"
     );
 }
 
@@ -1303,6 +1303,39 @@ fn adversarial_query_fixture_expected_outcome_slice_matches_fixture_rows() {
         adversarial_query_fixture_catalog_expected_outcomes_match_fixture_rows(),
         "fixture expected-outcome enumerator must remain byte-equal to fixture row expected_outcome values"
     );
+}
+
+#[test]
+fn adversarial_query_fixture_descriptions_are_ordered_unique_and_nonempty() {
+    use super::adversarial::{
+        adversarial_query_fixture_descriptions, ADVERSARIAL_QUERY_FIXTURES,
+    };
+
+    let descriptions = adversarial_query_fixture_descriptions();
+    assert_eq!(
+        descriptions,
+        [
+            "misspelled transposition of tropical; must not fuzzy-match by accident",
+            "high-frequency lexical needle for score saturation and overflow pins",
+            "same-count near-duplicate paragraphs force deterministic tie-breaks",
+        ],
+        "fixture descriptions are stable catalog-facing descriptors"
+    );
+    assert_eq!(descriptions.len(), ADVERSARIAL_QUERY_FIXTURES.len());
+
+    let unique: std::collections::BTreeSet<&str> = descriptions.iter().copied().collect();
+    assert_eq!(
+        unique.len(),
+        descriptions.len(),
+        "fixture descriptions must remain pairwise unique"
+    );
+
+    for description in descriptions {
+        assert!(
+            !description.trim().is_empty(),
+            "fixture descriptions must stay non-empty and human-readable"
+        );
+    }
 }
 
 #[test]
