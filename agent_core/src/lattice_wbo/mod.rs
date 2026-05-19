@@ -9936,6 +9936,40 @@ mod tests {
     }
 
     #[test]
+    fn residency_tier_canonical_names_use_l_prefix_lane_label() {
+        for tier in ResidencyTier::ALL {
+            let name = tier.canonical_name();
+            assert!(name.starts_with('L'), "{tier:?} canonical name {name}");
+            let after_prefix = &name[1..];
+            let first_after_prefix = after_prefix.chars().next().expect("nonempty body");
+            assert!(
+                first_after_prefix.is_ascii_digit() || first_after_prefix == '_',
+                "{tier:?} canonical name {name} must use digit or `_` after the `L` prefix"
+            );
+            let (lane_label, rest) = name
+                .split_once(' ')
+                .expect("residency canonical name must include a lane label after the L code");
+            assert!(!lane_label.is_empty(), "{tier:?} lane label is empty");
+            assert!(
+                !rest.trim().is_empty(),
+                "{tier:?} must name a lane after the L code"
+            );
+            assert!(
+                lane_label
+                    .chars()
+                    .all(|ch| ch == 'L' || ch == '_' || ch.is_ascii_alphanumeric()),
+                "{tier:?} lane label {lane_label} must be ASCII alphanumeric or `_`"
+            );
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`residency_tier_canonical_names_use_l_prefix_lane_label`"),
+            "register doc must cross-link residency lane label format"
+        );
+    }
+
+    #[test]
     fn ledger_validation_rejects_unknown_residency_tier() {
         let contribution =
             LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
