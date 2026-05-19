@@ -3297,7 +3297,11 @@ where
         serde_json::Value::Object(_) => Err(E::custom(acs_policy_decode_error(
             &ACSPolicyError::Malformed { field },
         ))),
-        _ => Err(E::custom("risk thresholds must be an object")),
+        _ => Err(E::custom(acs_policy_decode_error(
+            &ACSPolicyError::Malformed {
+                field: "thresholds",
+            },
+        ))),
     }
 }
 
@@ -7281,6 +7285,17 @@ mod tests {
 
         assert!(message.contains("malformed_policy"), "{message}");
         assert!(message.contains("reject_at"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_nonobject_thresholds_name_malformed_policy() {
+        let err =
+            serde_json::from_value::<ACSRiskThresholds>(serde_json::json!([0.35, 0.55, 0.75, 0.9]))
+                .unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(message.contains("thresholds"), "{message}");
     }
 
     #[test]
