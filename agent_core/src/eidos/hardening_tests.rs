@@ -9330,6 +9330,189 @@ fn id_constructors_accept_and_round_trip_arbitrary_non_latin_utf8() {
     }
 }
 
+/// Multilingual cross-mode contract sweep on the FUSION retrievers
+/// — Hybrid (2-way) and HybridRetrieverN (N-way). Iter 665 covered
+/// the 5 direct retrievers (Lexical / Semantic / Recency /
+/// CodeSymbol / RawArchive). This pin extends the multilingual
+/// floor to the wrapper retrievers that compose direct retrievers
+/// via RRF fusion.
+///
+/// Fusion retrievers use a DIFFERENT source_id template than their
+/// inner retrievers — both Hybrid 2-way and Hybrid_N emit
+/// `{doc}::hybrid` (lexical.rs:150 vs hybrid.rs:213 / hybrid_n.rs:194).
+/// The byte-strict floor must hold under THIS template too, with
+/// non-Latin document_ids flowing through verbatim.
+///
+/// If a future fusion-merge refactor ever introduced canonicalization
+/// at the `merged_source_id` step (a natural temptation — "let's
+/// canonicalize so identical-after-NFC ids merge"), the byte-strict
+/// floor breaks specifically at the fusion boundary while iter 665's
+/// direct-retriever sweep stays green.
+///
+/// Pins per fusion mode:
+///   - Hybrid 2-way (Han doc_id):
+///       * inner Lexical + inner Semantic share the same Han doc_id
+///       * fused hit's source_id contains the Han doc bytes + ::hybrid
+///       * byte-equal citation accepted (Ok(()))
+///       * Han-traditional smuggled variant rejected as fabricated
+///   - HybridRetrieverN (Hangul doc_id, 3-way fusion):
+///       * Lexical + Semantic + Recency over the same Hangul doc_id
+///       * fused hit's source_id contains the Hangul bytes + ::hybrid
+///       * byte-equal citation accepted
+///       * Hangul-jamo-NFD smuggled variant rejected as fabricated
+///         (cross-references iter 661's NFC/NFD floor on the fusion
+///         template specifically)
+#[test]
+fn closed_citation_contract_holds_for_multilingual_fusion_retrievers() {
+    use super::hybrid::HybridRetriever;
+    use super::hybrid_n::HybridRetrieverN;
+    use super::recency::InMemoryRecencyIndex;
+    use super::semantic::InMemorySemanticIndex;
+    use super::types::{CitationError, EidosChunkId, EidosCitation};
+
+    let m = manifest();
+    let ts = 1_700_000_000_000;
+
+    // (A) Hybrid 2-way fusion — Han doc_id.
+    {
+        let mut lex = InMemoryLexicalIndex::new(m.clone());
+        lex.insert(doc("笔记-a"), "alpha durian content", EidosSourceKind::Note).unwrap();
+        let mut sem = InMemorySemanticIndex::new(m.clone(), 3);
+        sem.insert(doc("笔记-a"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note).unwrap();
+        let hybrid = HybridRetriever::new(lex, sem).unwrap();
+        let q = EidosQuery::with_vector(
+            "durian",
+            EidosRetrievalMode::Hybrid,
+            8,
+            vec![1.0, 0.0, 0.0],
+        );
+        let packet = hybrid.retrieve(&q, ts);
+        assert!(!packet.hits.is_empty(), "Hybrid 2-way must surface the Han doc");
+
+        let fused_src = packet.hits[0].source_id.clone();
+        let fused_str = fused_src.as_str().to_string();
+        assert!(
+            fused_str.contains("笔记-a"),
+            "Hybrid 2-way fused source_id must contain the Han doc \
+             bytes verbatim — fused source_id = {fused_str:?}"
+        );
+        assert!(
+            !fused_str.is_ascii(),
+            "Hybrid 2-way fused source_id must be non-ASCII"
+        );
+        assert!(
+            fused_str.ends_with("::hybrid"),
+            "Hybrid 2-way uses the `::hybrid` template, not the inner \
+             retrievers' templates"
+        );
+
+        // Positive control.
+        let legit = EidosCitation {
+            source_id: fused_src,
+            manifest_id: packet.manifest_id.clone(),
+        };
+        assert_eq!(
+            packet.validate_citation(&legit),
+            Ok(()),
+            "Hybrid 2-way: byte-equal multilingual citation accepted"
+        );
+
+        // Han-traditional smuggling vector.
+        let smuggled_str = "筆記-a::hybrid";
+        let smuggled = EidosCitation {
+            source_id: EidosChunkId::new(smuggled_str).unwrap(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        match packet.validate_citation(&smuggled).unwrap_err() {
+            CitationError::FabricatedSourceId(returned) => {
+                assert_eq!(
+                    returned.as_str(),
+                    smuggled_str,
+                    "Hybrid 2-way: smuggled Han-traditional variant rejected \
+                     with diagnostic preserving the smuggled bytes verbatim — \
+                     any fusion-time canonicalization would break this pin"
+                );
+            }
+            other => panic!("Hybrid 2-way: expected FabricatedSourceId, got {other:?}"),
+        }
+    }
+
+    // (B) HybridRetrieverN — 3-way fusion over Hangul doc_id with
+    // a Hangul-jamo-NFD smuggling vector (cross-references iter 661).
+    {
+        let mut lex = InMemoryLexicalIndex::new(m.clone());
+        lex.insert(doc("\u{B178}트-a"), "alpha durian content", EidosSourceKind::Note).unwrap();
+        let mut sem = InMemorySemanticIndex::new(m.clone(), 3);
+        sem.insert(doc("\u{B178}트-a"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note).unwrap();
+        let mut rec = InMemoryRecencyIndex::new(m.clone());
+        rec.insert(doc("\u{B178}트-a"), "any body", ts - 1000, EidosSourceKind::Note);
+
+        let hn = HybridRetrieverN::new(vec![
+            Box::new(lex),
+            Box::new(sem),
+            Box::new(rec),
+        ])
+        .unwrap();
+        let q = EidosQuery::with_vector(
+            "durian",
+            EidosRetrievalMode::Hybrid,
+            8,
+            vec![1.0, 0.0, 0.0],
+        );
+        let packet = hn.retrieve(&q, ts);
+        assert!(!packet.hits.is_empty(), "Hybrid_N 3-way must surface the Hangul doc");
+
+        let fused_src = packet.hits[0].source_id.clone();
+        let fused_str = fused_src.as_str().to_string();
+        assert!(
+            fused_str.contains("\u{B178}트-a"),
+            "Hybrid_N 3-way: fused source_id must contain Hangul NFC \
+             bytes verbatim — fused = {fused_str:?}"
+        );
+        assert!(!fused_str.is_ascii(), "Hybrid_N: fused source_id non-ASCII");
+        assert!(
+            fused_str.ends_with("::hybrid"),
+            "Hybrid_N uses the `::hybrid` template"
+        );
+
+        let legit = EidosCitation {
+            source_id: fused_src,
+            manifest_id: packet.manifest_id.clone(),
+        };
+        assert_eq!(
+            packet.validate_citation(&legit),
+            Ok(()),
+            "Hybrid_N 3-way: byte-equal Hangul NFC citation accepted"
+        );
+
+        // Hangul-jamo-NFD smuggling vector — same visual syllable as
+        // the legitimate NFC form, byte-different. This cross-references
+        // iter 661's NFC/NFD floor at the fusion-template boundary.
+        let smuggled_str = "\u{1102}\u{1169}트-a::hybrid";
+        assert_ne!(
+            smuggled_str.as_bytes(),
+            fused_str.as_bytes(),
+            "Hangul NFD must differ in bytes from NFC at the fusion template"
+        );
+        let smuggled = EidosCitation {
+            source_id: EidosChunkId::new(smuggled_str).unwrap(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        match packet.validate_citation(&smuggled).unwrap_err() {
+            CitationError::FabricatedSourceId(returned) => {
+                assert_eq!(
+                    returned.as_str(),
+                    smuggled_str,
+                    "Hybrid_N 3-way: smuggled Hangul NFD rejected with \
+                     diagnostic preserving smuggled bytes verbatim — any \
+                     fusion-time NFC-fold would break this pin"
+                );
+            }
+            other => panic!("Hybrid_N 3-way: expected FabricatedSourceId, got {other:?}"),
+        }
+    }
+}
+
 /// `EidosHit::clone()` is byte-perfect — parallel to iter 190's
 /// EidosCitation Clone pin, but for the OUTPUT type (retriever-
 /// emitted hits) rather than the INPUT type (chat-layer citations).
