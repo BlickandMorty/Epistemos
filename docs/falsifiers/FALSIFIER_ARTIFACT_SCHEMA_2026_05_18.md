@@ -101,6 +101,7 @@ Identity gap validator work uses stable slugs so schema prose, validator-shape r
 | `role-labels` | Identity gap reports must name validator and reviewer role labels explicitly. | [N173](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n173---unlabeled-identity-sentinel-gap-report), [N174](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n174---reserved-identity-gap-role-value) |
 | `comma-bearing-impact` | Role-impact values may not contain commas because comma separates validator and reviewer roles. | [N175](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n175---comma-bearing-identity-gap-value) |
 | `lowercase-impact` | Role-impact values must remain lowercase old/new atoms. | [N176](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n176---uppercase-identity-gap-atom) |
+| `identical-impact` | Validator and reviewer role-impact values must not be identical. | [N177](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n177---identical-identity-gap-impacts), [N193](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n193---duplicate-numeric-identity-gap-role-values) |
 
 ## Pre-Witness Tightening Rule
 

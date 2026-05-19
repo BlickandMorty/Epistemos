@@ -214,7 +214,7 @@ Last audited: 2026-05-18. The schema migration table now separates pre-witness `
 
 ## Identity Gap Slug Catalog Audit
 
-Last audited: 2026-05-18. The schema identity-gap slug catalog starts with `reserved-state`, `duplicate-numeric-transition`, `punctuation-endpoint-state`, `nested-transition-marker`, `transition-order`, `empty-state`, `role-labels`, `comma-bearing-impact`, and `lowercase-impact`, cross-linked to N173-N176 and N179-N195. This is validator vocabulary only, not runtime evidence.
+Last audited: 2026-05-18. The schema identity-gap slug catalog starts with `reserved-state`, `duplicate-numeric-transition`, `punctuation-endpoint-state`, `nested-transition-marker`, `transition-order`, `empty-state`, `role-labels`, `comma-bearing-impact`, `lowercase-impact`, and `identical-impact`, cross-linked to N173-N177 and N179-N195. This is validator vocabulary only, not runtime evidence.
 
 ## Artifact Dependency Audit
 
