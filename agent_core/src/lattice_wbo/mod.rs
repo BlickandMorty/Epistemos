@@ -7405,6 +7405,38 @@ mod tests {
     }
 
     #[test]
+    fn weight_codec_catalogs_claim_t_w_axis() {
+        let weight_codecs = [
+            LatticeCoderKind::BabaiGptqNearestPlane,
+            LatticeCoderKind::SherryTernary3Of4,
+            LatticeCoderKind::NestedE8,
+            LatticeCoderKind::NestedLeech24,
+            LatticeCoderKind::QuipE8,
+        ];
+
+        for coder in weight_codecs {
+            assert!(
+                coder
+                    .canonical_wbo_terms()
+                    .contains(&WboTermCode::WeightRuntime),
+                "{coder:?} weight codec must claim T_W"
+            );
+            assert!(
+                !coder
+                    .canonical_wbo_terms()
+                    .contains(&WboTermCode::ResidualWynerZiv),
+                "{coder:?} weight codec must never claim T_R; residual transfer lives on Wyner-Ziv rows"
+            );
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`weight_codec_catalogs_claim_t_w_axis`"),
+            "register doc must cross-link weight codec T_W ownership"
+        );
+    }
+
+    #[test]
     fn weight_codec_catalogs_do_not_claim_kv_cache_terms() {
         let weight_codecs = [
             LatticeCoderKind::BabaiGptqNearestPlane,
