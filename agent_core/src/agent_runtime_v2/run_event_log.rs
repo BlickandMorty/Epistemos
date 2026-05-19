@@ -4108,6 +4108,41 @@ mod tests {
     }
 
     #[test]
+    fn run_event_entry_debug_repr_starts_with_variant_name_for_audit_logs() {
+        let cases = [
+            (
+                "Event",
+                RunEventEntry::Event {
+                    ordinal: 0,
+                    event: AgentEvent::ReasoningDelta { text: "x".into() },
+                },
+            ),
+            (
+                "SealedMutation",
+                RunEventEntry::SealedMutation {
+                    ordinal: 0,
+                    capability_hash: Hash::zero(),
+                    debit: BudgetDebit::default(),
+                },
+            ),
+            (
+                "LedgerSnapshot",
+                RunEventEntry::LedgerSnapshot {
+                    ordinal: 0,
+                    ledger: BudgetLedger::default(),
+                },
+            ),
+        ];
+        for (expected_prefix, entry) in cases {
+            let dbg = format!("{entry:?}");
+            assert!(
+                dbg.starts_with(expected_prefix),
+                "RunEventEntry Debug repr {dbg:?} must start with {expected_prefix:?}"
+            );
+        }
+    }
+
+    #[test]
     fn run_event_entry_multi_field_variants_preserve_field_declaration_order() {
         // Phase 1 hardening — wire-shape pin extending iter-153
         // (per-variant field names) with field-ORDER for all 3
