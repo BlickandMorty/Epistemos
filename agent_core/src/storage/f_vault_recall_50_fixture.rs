@@ -3749,6 +3749,36 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 31st Synthesis row (iter-273). FIRST 2-term-AND subset
+        // on iter-108 neural-cache-layer near-duplicate pair:
+        // {neural, cache}. Both pair-partners have both; "cache"
+        // appears in many seeds (mamba_ssm_cache,
+        // mamba_english_only, machine_learning_inference_cache,
+        // etc.) but "neural" appears ONLY in iter-108 pair. AND
+        // on {neural, cache} matches only the pair. Opens C(3,2)
+        // survey on neural-cache-layer pair (all 3 subsets
+        // achievable — "neural" and "layer" both unique to the
+        // pair, so each 2-subset has at least one pair-only
+        // token).
+        query: "neural cache",
+        expected_paths: &[
+            "notes/neural_cache_layer_v1.md",
+            "notes/neural_cache_layer_v2.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Thirty-first Synthesis row (iter-273): FIRST 2-\
+               term-AND subset on iter-108 neural-cache-layer \
+               near-duplicate pair. {neural, cache} — \"neural\" \
+               unique to pair, \"cache\" appears broadly. AND-\
+               on-2 matches only the pair. Opens C(3,2) survey \
+               on neural-cache-layer pair (all 3 subsets \
+               achievable, in contrast to compression-doctrine \
+               pair which is capped at 2-of-3). Brings Synthesis \
+               to depth 31. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 30th Synthesis row (iter-265). SECOND 2-term-AND
         // subset on iter-89 compression-doctrine pair:
         // {doctrine, canon}. Both pair-partners have both;
