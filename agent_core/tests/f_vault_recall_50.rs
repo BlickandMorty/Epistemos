@@ -333,6 +333,32 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
              nulla pariatur excepteur sint occaecat cupidatat non proident \
              sunt culpa qui officia deserunt mollit anim id est laborum",
         ),
+        // Iter-421: BM25 saturation edge with a long OR query and a
+        // terse canonical. Canonical carries all 8 query terms once.
+        (
+            "notes/bm25_rankedge_terse_corpus.md",
+            "rankedge terse corpus needle vector recall bm25 saturation",
+        ),
+        // Partial-overlap decoys stuff one or two terms. BM25 should
+        // prefer broad term coverage over raw repetition at top_n=1.
+        (
+            "notes/rankedge_stuffed_decoy.md",
+            "rankedge rankedge rankedge rankedge rankedge rankedge \
+             rankedge rankedge rankedge rankedge rankedge rankedge \
+             rankedge rankedge rankedge rankedge rankedge rankedge \
+             rankedge rankedge rankedge rankedge rankedge rankedge \
+             alpha beta gamma delta epsilon zeta eta theta",
+        ),
+        (
+            "notes/vector_recall_partial_decoy.md",
+            "vector recall vector recall vector recall vector recall \
+             vector recall vector recall archive partial overlap",
+        ),
+        (
+            "notes/needle_corpus_partial_decoy.md",
+            "needle corpus needle corpus needle corpus needle corpus \
+             needle corpus archive partial overlap",
+        ),
         // Iter-84 single-term partial-overlap decoys — same shape as
         // every prior Adversarial row's decoys. Each carries exactly
         // ONE of the four query terms.
