@@ -171,6 +171,10 @@ theorem bernoulliBregmanZeroIffEqual (p q : Real) (h : p = q) :
   subst q
   exact ⟨ExpFamily.bernoulli_wellFormed, rfl, rfl, rfl⟩
 
+theorem bernoulliMirrorDescentEquivalent :
+    mirrorDescentEquivalent ExpFamily.bernoulli := by
+  exact ExpFamily.bernoulli_wellFormed
+
 theorem schemaConstructorCountsPinned :
     expFamilyConstructorCount = 3 ∧ exprConstructorCount = 3 := by
   exact ⟨rfl, rfl⟩
