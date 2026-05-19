@@ -701,7 +701,7 @@ impl<'de> Deserialize<'de> for ACSAdmissionPayload {
         };
         payload
             .validate()
-            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+            .map_err(|err| serde::de::Error::custom(acs_admission_input_decode_error(&err)))?;
         Ok(payload)
     }
 }
@@ -1807,6 +1807,10 @@ impl ACSAdmissionInputError {
             | Self::ModelAdaptationBypass { field } => field,
         }
     }
+}
+
+fn acs_admission_input_decode_error(error: &ACSAdmissionInputError) -> String {
+    format!("{} field={}", error.cause(), error.field())
 }
 
 /// Pure-data ACS admission outcome. The caller decides how to render or
@@ -4654,7 +4658,11 @@ mod tests {
             "envelope": envelope,
         });
 
-        assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
+        let err = serde_json::from_value::<ACSAdmissionPayload>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("forged_admission_input"), "{message}");
+        assert!(message.contains("mutation_id"), "{message}");
     }
 
     #[test]
