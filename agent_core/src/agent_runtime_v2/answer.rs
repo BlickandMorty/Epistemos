@@ -1056,6 +1056,43 @@ mod tests {
     }
 
     #[test]
+    fn citation_as_display_string_writes_special_chars_verbatim_no_escaping() {
+        // Phase 1 hardening — Display vs serde behaviour pin
+        // (companion to mission_packet iter-424, answer_packet iter-425
+        // Display-verbatim pins). Citation::as_display_string is the
+        // human-readable join `source<sep>locator`; it uses `format!`
+        // with {} (Display) so quotes/backslashes/newlines appear RAW.
+        //
+        // A future "let me JSON-escape the display string for log
+        // safety" refactor would silently change the output appearance.
+        let c = Citation::from_tuple(
+            r#"vault/notes/"name".md"#,
+            r#"L42 {"selector": "h1"}"#,
+        );
+        let display = c.as_display_string(":");
+        // Quotes and braces appear RAW (no JSON-escape).
+        assert!(
+            display.contains(r#"vault/notes/"name".md"#),
+            "source quotes must appear raw, got {display}"
+        );
+        assert!(
+            display.contains(r#"L42 {"selector": "h1"}"#),
+            "locator JSON shape must appear raw, got {display}"
+        );
+        // Separator inserted verbatim.
+        assert!(display.contains(":"));
+
+        // Backslash + newline.
+        let c2 = Citation::from_tuple(
+            "vault\\windows\\path.md",
+            "L1\nL2",
+        );
+        let display2 = c2.as_display_string(" @ ");
+        assert!(display2.contains("vault\\windows\\path.md"));
+        assert!(display2.contains("L1\nL2"));
+    }
+
+    #[test]
     fn citation_as_display_string_preserves_unicode_in_source_locator_and_separator() {
         // Phase 1 hardening — Unicode safety pin for the display
         // helper. The function uses format! with raw String slots
