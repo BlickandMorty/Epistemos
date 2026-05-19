@@ -925,6 +925,28 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_ucas.md",
             "Mamba ᐱ cache Mamba ᐱ cache architecture notes ucas",
         ),
+        // Iter-351 (41st Unicode — Avestan extension): Latin
+        // "Mamba" + Avestan "𐬀" (letter a, U+10B00) + Latin
+        // "cache". Avestan (ca. 4th-7th c CE) is the
+        // liturgical script created specifically for writing
+        // the Avesta, the sacred texts of Zoroastrianism. 53
+        // letters; descends from Pahlavi (Middle Persian)
+        // script which itself descends from Aramaic via the
+        // Imperial Aramaic chancellery script. NINTH SMP-plane
+        // codepoint. THIRD Aramaic-descendant in the pin set
+        // (after Syriac iter-206 + Mongolian iter-198) — Avestan
+        // adds the LITURGICAL branch of the Aramaic genealogy
+        // (sacred-text-specific creation, distinct from Syriac
+        // = direct-evolution and Mongolian = Sogdian-Uyghur-
+        // mediated). Together with iter-329 Imperial Aramaic
+        // ancestor pin, the Unicode plane now pins four
+        // Aramaic-family nodes spanning ancestor + 3 distinct
+        // descendant branches. Thirty-nine non-Latin scripts
+        // pinned (+ Avestan).
+        (
+            "notes/mamba_avestan.md",
+            "Mamba 𐬀 cache Mamba 𐬀 cache architecture notes avestan",
+        ),
     ];
     for (path, content) in seeds {
         store

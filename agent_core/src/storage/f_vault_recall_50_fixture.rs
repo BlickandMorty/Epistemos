@@ -1859,6 +1859,42 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 41st Unicode row (iter-351): Avestan extension.
+        // Adds a 39th non-Latin script (Avestan, U+10B00–
+        // U+10B3F) — the liturgical script created in the
+        // 4th-7th centuries CE specifically for writing the
+        // Avesta, the sacred texts of Zoroastrianism. 53
+        // letters; descends from Pahlavi (Middle Persian)
+        // script which itself descends from Aramaic via the
+        // Imperial Aramaic chancellery script. NINTH SMP-plane
+        // codepoint. THIRD Aramaic-descendant in the pin set
+        // (after Syriac + Mongolian) — adds the LITURGICAL
+        // branch of the Aramaic genealogy, distinct from
+        // Syriac (direct-evolution) and Mongolian (Sogdian-
+        // Uyghur-mediated). Pin set now contains four
+        // Aramaic-family nodes spanning ancestor (Imperial
+        // Aramaic iter-329) + 3 distinct descendant branches.
+        // Latin "Mamba" + Avestan "𐬀" (letter a, U+10B00) +
+        // Latin "cache".
+        query: "Mamba 𐬀 cache",
+        expected_paths: &["notes/mamba_avestan.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Forty-first Unicode row (iter-351): Avestan \
+               extension. THIRTY-NINE non-Latin scripts pinned. \
+               Avestan (ca. 4th-7th c CE) is the liturgical \
+               script of Zoroastrianism. Descends from Pahlavi \
+               → Aramaic. Ninth SMP-plane codepoint. THIRD \
+               Aramaic-descendant in pin set — adds liturgical \
+               branch of Aramaic genealogy (distinct from \
+               Syriac direct-evolution and Mongolian Sogdian-\
+               Uyghur-mediated). Pin set now contains 4 \
+               Aramaic-family nodes spanning ancestor + 3 \
+               distinct descendant branches. Brings Unicode to \
+               depth 41 — first category past depth-40 horizon.",
+    },
+    FVaultRecallRow {
         // 40th Unicode row (iter-343): Canadian Aboriginal
         // Syllabics extension. Adds a 38th non-Latin script
         // (UCAS, U+1400–U+167F) — a featural-syllabic script
