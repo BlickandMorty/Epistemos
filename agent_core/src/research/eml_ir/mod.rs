@@ -84,6 +84,16 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_doc_documents_per_axis_regression_detection() {
+        assert!(FULP_FALSIFIER_DOC.contains("## Per-Axis Regression Detection"));
+        assert!(FULP_FALSIFIER_DOC.contains("`OperationStats`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`log_sampled`"));
+        assert!(FULP_FALSIFIER_DOC.contains("per-axis max-ULP"));
+        assert!(FULP_FALSIFIER_DOC.contains("per-axis mean-ULP"));
+        assert!(FULP_FALSIFIER_DOC.contains("hides a regression"));
+    }
+
+    #[test]
     fn falsifier_doc_documents_replay_corruption_rejection() {
         assert!(FULP_FALSIFIER_DOC.contains("## Replay Corruption Rejection"));
         assert!(FULP_FALSIFIER_DOC.contains("`replay_witness_json`"));
