@@ -3981,7 +3981,9 @@ where
             field.as_str(),
             "warn_at" | "defer_at" | "quarantine_at" | "reject_at"
         ) {
-            return Err(E::custom(format!("malformed_policy field={field}")));
+            return Err(E::custom(format!(
+                "malformed_policy field=thresholds.{field}"
+            )));
         }
     }
     Ok(())
@@ -9451,6 +9453,19 @@ mod tests {
 
         assert!(message.contains("malformed_policy"), "{message}");
         assert!(message.contains("escalate_at"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_shadow_threshold_axis_names_threshold_namespace() {
+        let mut value =
+            serde_json::to_value(ACSRiskThresholds::standard()).expect("thresholds encode");
+        value["escalate_at"] = serde_json::json!(0.95);
+
+        let err = serde_json::from_value::<ACSRiskThresholds>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(message.contains("thresholds.escalate_at"), "{message}");
     }
 
     #[test]
