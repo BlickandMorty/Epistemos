@@ -988,6 +988,25 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_osmanya.md",
             "Mamba 𐒀 cache Mamba 𐒀 cache architecture notes osmanya",
         ),
+        // Iter-372 (44th Unicode — Tagalog/Baybayin extension):
+        // Latin "Mamba" + Baybayin "ᜊ" (letter ba, U+170A) +
+        // Latin "cache". Baybayin (ca. 14th-17th c CE) is the
+        // pre-colonial writing system of the Tagalog language
+        // of the Philippines. Descends Brahmi → Pallava →
+        // Kawi → Baybayin — making it the EIGHTH Brahmic
+        // descendant in the pin set (after Devanagari + Thai
+        // + Khmer + Tibetan + Lao + Myanmar + Sinhala). The
+        // Brahmic family now extends from the Indian
+        // subcontinent (Devanagari/Sinhala) through Southeast
+        // Asia (Thai/Khmer/Lao/Myanmar) up to maritime
+        // Southeast Asia (Baybayin) and the Tibetan plateau
+        // (Tibetan) — full geographic diaspora of the Brahmic
+        // family. BMP-plane codepoint (U+170A). Forty-two non-
+        // Latin scripts pinned (+ Baybayin).
+        (
+            "notes/mamba_baybayin.md",
+            "Mamba ᜊ cache Mamba ᜊ cache architecture notes baybayin",
+        ),
     ];
     for (path, content) in seeds {
         store
