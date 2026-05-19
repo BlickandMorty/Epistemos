@@ -177,6 +177,43 @@ elif [ "${REPORT_MODE}" -eq 1 ]; then
   echo "  Lean theorem True placeholders: 0/0"
 fi
 
+# Lean schema obligations are also not allowed to hide behind
+# `opaque ... : Prop := True` or `def ... : Prop := True`. These are
+# weaker than sorries because they compile while erasing the proof
+# obligation surface.
+PROP_TRUE_REPORT=$(find "${LEAN_DIR}" -maxdepth 1 -name '*.lean' -type f -exec awk '
+  /^[[:space:]]*(opaque|def)[[:space:]][^:]+/ {
+    in_decl = 1
+    start_line = FNR
+    decl = $0
+  }
+  in_decl && FNR != start_line {
+    decl = decl " " $0
+  }
+  in_decl && /:=/ {
+    if (decl ~ /:[[:space:]]*Prop[[:space:]]*:=[[:space:]]*True([[:space:]]|$)/) {
+      printf "%s:%d:%s\n", FILENAME, start_line, decl
+    }
+    in_decl = 0
+    decl = ""
+  }
+' {} +)
+
+if [ -n "${PROP_TRUE_REPORT}" ]; then
+  prop_true_count=$(printf "%s\n" "${PROP_TRUE_REPORT}" | awk 'NF{n++} END{print n+0}')
+  printf "%s\n" "${PROP_TRUE_REPORT}" |
+    while IFS= read -r line; do
+      [ -z "${line}" ] && continue
+      file=${line%%:*}
+      rest=${line#*:}
+      line_no=${rest%%:*}
+      echo "::error file=${file},line=${line_no}::Lean Prop obligation reduces to True; sharpen the schema"
+    done
+  total_over_budget=$((total_over_budget + prop_true_count))
+elif [ "${REPORT_MODE}" -eq 1 ]; then
+  echo "  Lean Prop True obligations: 0/0"
+fi
+
 if [ "${total_over_budget}" -gt 0 ]; then
   echo "::error::W24 sorry-budget OVER on ${total_over_budget} theorem(s); ${total_sorries} total sorries"
   exit 1
