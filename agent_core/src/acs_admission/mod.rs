@@ -2937,6 +2937,10 @@ pub enum ACSAuditError {
         field: &'static str,
         record_id: String,
     },
+    NonMonotonicVerdict {
+        field: &'static str,
+        record_id: String,
+    },
     DuplicateRecord {
         record_id: String,
     },
@@ -2953,6 +2957,7 @@ impl ACSAuditError {
             Self::EncodeRecord => "acs_audit_record_encode_failed",
             Self::InvalidRunEventLogChain { .. } => "invalid_run_event_log_chain",
             Self::NonMonotonicAuditLog { .. } => "non_monotonic_acs_audit_log",
+            Self::NonMonotonicVerdict { .. } => "non_monotonic_acs_verdict",
             Self::DuplicateRecord { .. } => "duplicate_acs_audit_record",
             Self::CorruptRecord { .. } => "corrupt_acs_audit_record",
         }
@@ -2962,6 +2967,7 @@ impl ACSAuditError {
         match self {
             Self::InvalidRunEventLogChain { .. } => Some("run_event_log"),
             Self::NonMonotonicAuditLog { field, .. } => Some(field),
+            Self::NonMonotonicVerdict { field, .. } => Some(field),
             Self::DuplicateRecord { .. } => Some("record_id"),
             Self::CorruptRecord { field, .. } => Some(field),
             Self::SinkUnavailable | Self::EncodeRecord => None,
@@ -2972,6 +2978,7 @@ impl ACSAuditError {
         match self {
             Self::DuplicateRecord { record_id } => Some(record_id.as_str()),
             Self::NonMonotonicAuditLog { record_id, .. } => Some(record_id.as_str()),
+            Self::NonMonotonicVerdict { record_id, .. } => Some(record_id.as_str()),
             Self::CorruptRecord { record_id, .. } => Some(record_id.as_str()),
             Self::InvalidRunEventLogChain { record_id } => Some(record_id.as_str()),
             Self::SinkUnavailable | Self::EncodeRecord => None,
@@ -3235,6 +3242,15 @@ impl ACSAuditSink for InMemoryACSAuditSink {
         {
             return Err(ACSAuditError::NonMonotonicAuditLog {
                 field: "emitted_at_ms",
+                record_id: record.record_id,
+            });
+        }
+        if records.iter().any(|existing| {
+            existing.request_id == record.request_id
+                && existing.verdict.severity_rank() > record.verdict.severity_rank()
+        }) {
+            return Err(ACSAuditError::NonMonotonicVerdict {
+                field: "verdict",
                 record_id: record.record_id,
             });
         }
@@ -7650,6 +7666,43 @@ mod tests {
 
         assert_eq!(err.cause(), "non_monotonic_acs_audit_log");
         assert_eq!(err.field(), Some("emitted_at_ms"));
+        assert_eq!(err.record_id(), Some(regressing.record_id.as_str()));
+        assert_eq!(sink.records().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_in_memory_audit_sink_rejects_same_request_verdict_regression() {
+        let sink = InMemoryACSAuditSink::default();
+        let first = ACSAuditRecord {
+            record_id: "acs:req-race:2000".to_string(),
+            request_id: "req-race".to_string(),
+            policy_id: "policy".to_string(),
+            policy_version: 1,
+            operation: ACSOperationKind::MemoryWrite,
+            verdict: ACSAdmissionVerdict::Reject,
+            reason: ACSAdmissionVerdict::Reject.code().to_string(),
+            risk_max: 0.95,
+            emitted_at_ms: 2_000,
+        };
+        sink.record(first).expect("first record stored");
+
+        let regressing = ACSAuditRecord {
+            record_id: "acs:req-race:2001".to_string(),
+            request_id: "req-race".to_string(),
+            policy_id: "policy".to_string(),
+            policy_version: 1,
+            operation: ACSOperationKind::MemoryWrite,
+            verdict: ACSAdmissionVerdict::Allow,
+            reason: ACSAdmissionVerdict::Allow.code().to_string(),
+            risk_max: 0.0,
+            emitted_at_ms: 2_001,
+        };
+        let err = sink
+            .record(regressing.clone())
+            .expect_err("same-request verdict regression must be rejected");
+
+        assert_eq!(err.cause(), "non_monotonic_acs_verdict");
+        assert_eq!(err.field(), Some("verdict"));
         assert_eq!(err.record_id(), Some(regressing.record_id.as_str()));
         assert_eq!(sink.records().unwrap().len(), 1);
     }
