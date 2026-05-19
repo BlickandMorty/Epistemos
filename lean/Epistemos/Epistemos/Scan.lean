@@ -168,6 +168,14 @@ theorem CertificateTarget.outputMatchesField {α : Type}
     c.output_matches = h := by
   exact stored
 
+theorem CertificateTarget.programOutputFieldsMatch {α : Type}
+    (c : CertificateTarget α)
+    (program : Program α) (output : List α)
+    (programMatches : c.program = program)
+    (outputMatches : c.output = output) :
+    c.program = program ∧ c.output = output := by
+  exact ⟨programMatches, outputMatches⟩
+
 theorem CertificateTarget.outputLengthMatches {α : Type}
     (c : CertificateTarget α) :
     c.output.length = c.program.inputs.length + 1 := by

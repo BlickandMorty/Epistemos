@@ -124,6 +124,16 @@ pub fn lean_certificate<T: Debug>(program: &ScanProgram<T>) -> String {
          \x20     output := output\n\
          \x20     output_matches := h }}\n\
          \n\
+         theorem scan_certificate_program_output_fields_{suffix}\n\
+         \x20   (T : Type) (w : Epistemos.Scan.MonoidWitness T)\n\
+         \x20   (program : Epistemos.Scan.Program T) (output : List T)\n\
+         \x20   (h : output = Epistemos.Scan.sequentialScan w.op program.initial program.inputs) :\n\
+         \x20   (scan_certificate_target_{suffix} T w program output h).program = program ∧\n\
+         \x20     (scan_certificate_target_{suffix} T w program output h).output = output := by\n\
+         \x20 exact Epistemos.Scan.CertificateTarget.programOutputFieldsMatch\n\
+         \x20   (scan_certificate_target_{suffix} T w program output h)\n\
+         \x20   program output rfl rfl\n\
+         \n\
          theorem scan_certificate_output_matches_{suffix}\n\
          \x20   (T : Type) (w : Epistemos.Scan.MonoidWitness T)\n\
          \x20   (program : Epistemos.Scan.Program T) (output : List T)\n\
@@ -221,6 +231,8 @@ mod tests {
         assert!(c.contains("def scan_certificate_target_"));
         assert!(c.contains("Epistemos.Scan.CertificateTarget T :="));
         assert!(c.contains("output_matches := h"));
+        assert!(c.contains("theorem scan_certificate_program_output_fields_"));
+        assert!(c.contains("Epistemos.Scan.CertificateTarget.programOutputFieldsMatch"));
         assert!(!c.contains("Nonempty (Epistemos.Scan.CertificateTarget T)"));
     }
 

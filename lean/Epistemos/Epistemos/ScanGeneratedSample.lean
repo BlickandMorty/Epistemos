@@ -51,6 +51,17 @@ def scan_certificate_target_sample
     output := output
     output_matches := h }
 
+theorem scan_certificate_program_output_fields_sample
+    (T : Type) (w : Epistemos.Scan.MonoidWitness T)
+    (program : Epistemos.Scan.Program T) (output : List T)
+    (h : output =
+      Epistemos.Scan.sequentialScan w.op program.initial program.inputs) :
+    (scan_certificate_target_sample T w program output h).program = program ∧
+      (scan_certificate_target_sample T w program output h).output = output := by
+  exact Epistemos.Scan.CertificateTarget.programOutputFieldsMatch
+    (scan_certificate_target_sample T w program output h)
+    program output rfl rfl
+
 theorem scan_certificate_output_matches_sample
     (T : Type) (w : Epistemos.Scan.MonoidWitness T)
     (program : Epistemos.Scan.Program T) (output : List T)
