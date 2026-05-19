@@ -126,6 +126,15 @@ pub fn lean_certificate(rotor: &Multivector) -> String {
          \x20 exact And.intro basisSquaresWitness\n\
          \x20   basisAnticommutativeWitness\n\
          \n\
+         theorem geometry_certificate_clifford_axioms_{suffix}\n\
+         \x20   (basisSquaresWitness : geometry_certificate_{suffix}.cliffordAxioms.basisSquares)\n\
+         \x20   (basisAnticommutativeWitness : geometry_certificate_{suffix}.cliffordAxioms.basisAnticommutative) :\n\
+         \x20   geometry_certificate_{suffix}.cliffordAxioms.basisSquares ∧\n\
+         \x20     geometry_certificate_{suffix}.cliffordAxioms.basisAnticommutative := by\n\
+         \x20 exact Epistemos.Geometry.CertificateTarget.cliffordObligations\n\
+         \x20   geometry_certificate_{suffix}\n\
+         \x20   basisSquaresWitness basisAnticommutativeWitness\n\
+         \n\
          theorem rotor_sandwich_isometry_{suffix}\n\
          \x20   (candidateWitness : geometry_rotor_{suffix}.isRotorCandidate)\n\
          \x20   (unitNormWitness : geometry_rotor_{suffix}.unitNorm) :\n\
@@ -202,6 +211,15 @@ mod tests {
         assert!(c.contains("clifford_basis_axioms_"));
         assert!(c.contains("geometry_clifford_obligation_"));
         assert!(c.contains(".basisAnticommutative"));
+    }
+
+    #[test]
+    fn cert_projects_geometry_target_clifford_pair() {
+        let r = Multivector::scalar(1.0);
+        let c = lean_certificate(&r);
+        assert!(c.contains("theorem geometry_certificate_clifford_axioms_"));
+        assert!(c.contains("exact Epistemos.Geometry.CertificateTarget.cliffordObligations"));
+        assert!(c.contains("geometry_certificate_"));
     }
 
     #[test]
