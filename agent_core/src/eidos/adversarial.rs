@@ -130,6 +130,15 @@ pub fn adversarial_query_fixture_for_kind(
         .find(|fixture| fixture.kind == kind)
 }
 
+pub fn adversarial_query_fixture_for_kind_token(
+    kind_token: &str,
+) -> Option<AdversarialQueryFixture> {
+    ADVERSARIAL_QUERY_FIXTURES
+        .iter()
+        .copied()
+        .find(|fixture| fixture.kind.token() == kind_token)
+}
+
 pub fn adversarial_query_fixture_for_outcome(
     expected_outcome: AdversarialQueryExpectedOutcome,
 ) -> Option<AdversarialQueryFixture> {
