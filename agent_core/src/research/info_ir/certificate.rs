@@ -11,7 +11,8 @@
 //!
 //! Emits Lean 4 source as a String targeting `Epistemos.Info`.
 //! The committed schema module built with explicit `~/.elan/bin`
-//! PATH at iter-593, with zero sorries in committed Lean sources.
+//! PATH, and obligations were sharpened through iter-706 with zero
+//! sorries in committed Lean sources.
 //! Generated per-tree theorem bodies close by projecting the named
 //! schema obligation fields.
 //!

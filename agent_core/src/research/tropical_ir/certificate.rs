@@ -14,7 +14,8 @@
 //!
 //! Emits Lean 4 source as a String targeting `Epistemos.Tropical`.
 //! The committed schema module built with explicit `~/.elan/bin`
-//! PATH at iter-593, with zero sorries in committed Lean sources.
+//! PATH, and obligations were sharpened through iter-696 with zero
+//! sorries in committed Lean sources.
 //! Generated semiring-law proof bodies close from schema obligation
 //! fields; future rational-form strengthening remains tracked
 //! separately.

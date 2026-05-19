@@ -15,7 +15,8 @@
 //!
 //! Emits Lean 4 source as a String targeting `Epistemos.Scan`.
 //! The committed schema module built with explicit `~/.elan/bin`
-//! PATH at iter-593, with zero sorries in committed Lean sources.
+//! PATH, and obligations were sharpened through iter-698 with zero
+//! sorries in committed Lean sources.
 //! The emitted theorem obligations:
 //!
 //! 1. **Monoid associativity** closed from `MonoidWitness.assoc`

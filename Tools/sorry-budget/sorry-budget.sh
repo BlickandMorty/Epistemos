@@ -226,6 +226,33 @@ elif [ "${REPORT_MODE}" -eq 1 ]; then
   echo "  Lean Prop True obligations: 0/0"
 fi
 
+# Certificate emitters must not keep stale Lean schema-status prose
+# after their generated headers have been aligned to later obligation
+# sharpenings. This catches comments that still cite only the iter-593
+# build milestone while omitting the current obligation row.
+STALE_CERT_STATUS_REPORT=$(
+  find "${REPO_ROOT}/agent_core/src/research" -name certificate.rs -type f -exec awk '
+    /PATH at iter-593, with zero sorries in committed Lean sources/ {
+      printf "%s:%d:%s\n", FILENAME, FNR, $0
+    }
+  ' {} + 2>/dev/null || true
+)
+
+if [ -n "${STALE_CERT_STATUS_REPORT}" ]; then
+  stale_cert_status_count=$(printf "%s\n" "${STALE_CERT_STATUS_REPORT}" | awk 'NF{n++} END{print n+0}')
+  printf "%s\n" "${STALE_CERT_STATUS_REPORT}" |
+    while IFS= read -r line; do
+      [ -z "${line}" ] && continue
+      file=${line%%:*}
+      rest=${line#*:}
+      line_no=${rest%%:*}
+      echo "::error file=${file},line=${line_no}::Certificate schema-status prose is stale; cite the latest obligation sharpening"
+    done
+  total_over_budget=$((total_over_budget + stale_cert_status_count))
+elif [ "${REPORT_MODE}" -eq 1 ]; then
+  echo "  Certificate schema-status stale prose: 0/0"
+fi
+
 if [ "${total_over_budget}" -gt 0 ]; then
   echo "::error::W24 sorry-budget OVER on ${total_over_budget} theorem(s); ${total_sorries} total sorries"
   exit 1
