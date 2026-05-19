@@ -188,6 +188,19 @@ structure RationalRepresentationObligation (rational : RationalForm) where
   numeratorShape : rational.numerator = rational.numerator
   denominatorShape : rational.denominator = rational.denominator
 
+def RationalRepresentationObligation.refl
+    (rational : RationalForm) :
+    RationalRepresentationObligation rational :=
+  { numeratorShape := rfl
+    denominatorShape := rfl }
+
+theorem RationalRepresentationObligation.shapes
+    {rational : RationalForm}
+    (obligation : RationalRepresentationObligation rational) :
+    rational.numerator = rational.numerator ∧
+      rational.denominator = rational.denominator := by
+  exact ⟨obligation.numeratorShape, obligation.denominatorShape⟩
+
 /-- Target for generated Tropical rational certificates. -/
 structure RationalCertificateTarget where
   rational : RationalForm
