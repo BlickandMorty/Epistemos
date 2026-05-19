@@ -4418,11 +4418,18 @@ impl ACSPolicy {
     }
 
     pub fn required_for(&self, operation: ACSOperationKind) -> Vec<Capability> {
-        self.required_capabilities
+        let mut capabilities: Vec<Capability> = self
+            .required_capabilities
             .iter()
             .filter(|rule| rule.operation == operation)
             .map(|rule| rule.capability.clone())
-            .collect()
+            .collect();
+        if let Some(capability) = canonical_l2_capability(operation) {
+            if !capabilities.contains(&capability) {
+                capabilities.push(capability);
+            }
+        }
+        capabilities
     }
 
     pub fn required_for_lane(&self, lane: ACSLane) -> Vec<Capability> {
@@ -4722,6 +4729,29 @@ mod tests {
         assert!(!policy
             .required_for_lane(ACSLane::L1)
             .contains(&named_capability("ModelAdapt")));
+    }
+
+    #[test]
+    fn acs_admission_policy_required_for_lane_includes_l2_canonical_floor() {
+        let policy = ACSPolicy::strict("policy-l2-floor", 1_000);
+
+        assert_eq!(
+            policy.required_for(ACSOperationKind::KernelPromotion),
+            vec![named_capability("KernelPromote")]
+        );
+        assert_eq!(
+            policy.required_for(ACSOperationKind::ModelAdaptation),
+            vec![named_capability("ModelAdapt")]
+        );
+        assert_eq!(
+            policy.required_for_lane(ACSLane::L2),
+            vec![
+                named_capability("KernelPromote"),
+                named_capability("ModelAdapt"),
+            ]
+        );
+        assert!(policy.required_for_lane(ACSLane::L0).is_empty());
+        assert!(policy.required_for_lane(ACSLane::L1).is_empty());
     }
 
     #[test]
