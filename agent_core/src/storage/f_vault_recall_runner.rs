@@ -67,12 +67,22 @@ impl FVaultRecallRowOutcome {
     /// (expected_missed, forbidden_present, top_paths) lives in the
     /// struct fields; this is for log lines.
     pub fn verdict_line(&self) -> String {
+        let evidence_chip = if self.evidence_strength == EvidenceStrength::Weak.slug() {
+            " [evidence=weak]"
+        } else {
+            ""
+        };
         if self.passed {
-            format!("PASS  {:<32} ({} retrieved)", self.query, self.top_paths.len())
+            format!(
+                "PASS  {:<32} ({} retrieved){}",
+                self.query,
+                self.top_paths.len(),
+                evidence_chip
+            )
         } else {
             format!(
-                "FAIL  {:<32} missed={:?} leaked={:?}",
-                self.query, self.expected_missed, self.forbidden_present
+                "FAIL  {:<32} missed={:?} leaked={:?}{}",
+                self.query, self.expected_missed, self.forbidden_present, evidence_chip
             )
         }
     }
@@ -996,6 +1006,32 @@ mod tests {
         assert!(
             line.contains("[weak-evidence: 1/2]"),
             "verdict line must show the weak-evidence chip when count > 0; got: {line:?}"
+        );
+    }
+
+    /// T21 iter-439: row-level log lines must carry weak-evidence
+    /// verdicts too. The summary chip catches sweep-wide counts; this
+    /// pin makes the per-row diagnostic line explain why a row requires
+    /// broaden/defer behavior.
+    #[test]
+    fn row_verdict_line_marks_weak_evidence() {
+        let outcome = FVaultRecallRowOutcome {
+            query: "what are my files".into(),
+            category: "PureChatter".into(),
+            top_n: 5,
+            passed: true,
+            expected_seen: vec![],
+            expected_missed: vec![],
+            forbidden_present: vec![],
+            top_paths: vec![],
+            lexical_only: false,
+            evidence_strength: EvidenceStrength::Weak.slug().into(),
+        };
+
+        let line = outcome.verdict_line();
+        assert!(
+            line.contains("[evidence=weak]"),
+            "weak row verdict must expose evidence strength; got {line:?}"
         );
     }
 }
