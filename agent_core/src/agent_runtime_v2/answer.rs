@@ -1180,6 +1180,15 @@ mod tests {
     }
 
     #[test]
+    fn citation_debug_repr_is_stable_for_audit_logs() {
+        let citation = Citation::from_tuple("vault/notes/a.md", "L42-L57");
+        assert_eq!(
+            format!("{citation:?}"),
+            r#"Citation { source: "vault/notes/a.md", locator: "L42-L57" }"#
+        );
+    }
+
+    #[test]
     fn citation_serde_json_preserves_struct_field_declaration_order() {
         // Phase 1 hardening — wire-shape pin extending iter-162
         // (presence + count) with field-order. Citation declares:
