@@ -528,6 +528,18 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/fusion_general_contract.md",
             "fusion general contract notes archive",
         ),
+        // Iter-423 exact-quote underscore boundary: the expected
+        // document writes graph_recall, which Tantivy tokenizes as
+        // adjacent graph + recall. The decoy has both terms but with
+        // an intervening token, so PhraseQuery must reject it.
+        (
+            "notes/graph_recall_underscore.md",
+            "graph_recall phrase boundary notes",
+        ),
+        (
+            "notes/graph_general_recall.md",
+            "graph general recall notes archive",
+        ),
         // Iter-108 (3rd near-duplicate Synthesis — neural-cache-layer
         // domain): pair of near-identical docs each carry all 3 of
         // {neural, cache, layer} with equal frequency. AND-
