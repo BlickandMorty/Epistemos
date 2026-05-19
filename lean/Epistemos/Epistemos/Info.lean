@@ -204,6 +204,19 @@ structure CertificateTarget where
 
 namespace CertificateTarget
 
+theorem obligationFieldsMatch
+    (c : CertificateTarget)
+    (convexity : ConvexLogPartitionObligation)
+    (positivity : BregmanPositivityObligation)
+    (mirrorEquivalence : MirrorDescentEquivalenceObligation)
+    (convexityMatches : c.convexity = some convexity)
+    (positivityMatches : c.positivity = positivity)
+    (mirrorMatches : c.mirrorEquivalence = mirrorEquivalence) :
+    c.convexity = some convexity ∧
+      c.positivity = positivity ∧
+      c.mirrorEquivalence = mirrorEquivalence := by
+  exact ⟨convexityMatches, positivityMatches, mirrorMatches⟩
+
 theorem convexityObligationCarries
     (c : CertificateTarget)
     (obligation : ConvexLogPartitionObligation)

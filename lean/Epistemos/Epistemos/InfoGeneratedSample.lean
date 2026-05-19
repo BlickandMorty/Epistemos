@@ -71,7 +71,12 @@ theorem info_certificate_obligations_sample :
       info_certificate_sample.positivity = info_bregman_obligation_sample ∧
       info_certificate_sample.mirrorEquivalence =
         info_mirror_descent_obligation_sample := by
-  exact And.intro rfl (And.intro rfl rfl)
+  exact Epistemos.Info.CertificateTarget.obligationFieldsMatch
+    info_certificate_sample
+    info_convexity_obligation_sample
+    info_bregman_obligation_sample
+    info_mirror_descent_obligation_sample
+    rfl rfl rfl
 
 theorem info_log_partition_convexity_sample :
     info_convexity_obligation_sample.convexOnNaturalDomain := by

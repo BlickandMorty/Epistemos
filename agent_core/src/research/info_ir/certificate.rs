@@ -225,7 +225,12 @@ pub fn lean_certificate(expr: &InfoExpr) -> String {
          \x20   info_certificate_{suffix}.convexity = some info_convexity_obligation_{suffix} ∧\n\
          \x20     info_certificate_{suffix}.positivity = info_bregman_obligation_{suffix} ∧\n\
          \x20     info_certificate_{suffix}.mirrorEquivalence = info_mirror_descent_obligation_{suffix} := by\n\
-         \x20 exact And.intro rfl (And.intro rfl rfl)\n\
+         \x20 exact Epistemos.Info.CertificateTarget.obligationFieldsMatch\n\
+         \x20   info_certificate_{suffix}\n\
+         \x20   info_convexity_obligation_{suffix}\n\
+         \x20   info_bregman_obligation_{suffix}\n\
+         \x20   info_mirror_descent_obligation_{suffix}\n\
+         \x20   rfl rfl rfl\n\
          \n\
          theorem info_log_partition_convexity_{suffix} :\n\
          \x20   info_convexity_obligation_{suffix}.convexOnNaturalDomain := by\n\
@@ -361,6 +366,7 @@ mod tests {
         assert!(c.contains(".convexity = some info_convexity_obligation_"));
         assert!(c.contains(".positivity = info_bregman_obligation_"));
         assert!(c.contains(".mirrorEquivalence = info_mirror_descent_obligation_"));
+        assert!(c.contains("Epistemos.Info.CertificateTarget.obligationFieldsMatch"));
     }
 
     #[test]
