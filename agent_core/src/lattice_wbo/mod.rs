@@ -8200,6 +8200,61 @@ mod tests {
     }
 
     #[test]
+    fn engram_hash_recall_rejects_dynamic_side_information_edges() {
+        let substrate = LatticeErrorContribution::new(
+            WboTermCode::SubstrateBoundary,
+            "Engram static-fact lookup",
+            0.01,
+        )
+        .expect("valid substrate contribution")
+        .with_measured(0.005)
+        .expect("valid substrate measurement");
+        let numerics = LatticeErrorContribution::new(
+            WboTermCode::NumericalPostCorrection,
+            "softmax half correction",
+            0.0,
+        )
+        .expect("valid numerical contribution")
+        .with_measured(0.0)
+        .expect("valid numerical measurement");
+
+        for side_information in SideInformationKind::ALL {
+            if side_information == SideInformationKind::StaticFactKey {
+                continue;
+            }
+            let budget = LatticeBudget::new(
+                LatticeCoderKind::EngramHashRecall,
+                None,
+                side_information,
+                vec![substrate.clone(), numerics.clone()],
+            );
+
+            assert_eq!(
+                budget.validate_side_information(),
+                Err(LatticeWboError::InvalidSideInformation),
+                "Engram accepted dynamic side information {side_information:?}"
+            );
+            assert_eq!(
+                budget.validate(),
+                Err(LatticeWboError::InvalidSideInformation),
+                "Engram full validation accepted dynamic side information {side_information:?}"
+            );
+            assert_eq!(
+                budget.validate_composition(),
+                Err(LatticeWboError::InvalidSideInformation),
+                "Engram composition validation accepted dynamic side information {side_information:?}"
+            );
+            assert_budget_measurements_pending(&budget);
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`engram_hash_recall_rejects_dynamic_side_information_edges`"),
+            "register doc must cross-link Engram dynamic side-information rejection"
+        );
+    }
+
+    #[test]
     fn network_cascade_codec_pins_teacher_boundary_terms_and_side_information() {
         assert!(!LatticeCoderKind::NetworkCascade.allows_rate_parameter());
         assert_eq!(
