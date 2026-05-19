@@ -238,6 +238,39 @@ mod tests {
     use crate::agent_runtime_v2::event::AgentEvent;
 
     #[test]
+    fn answer_packet_emit_preserves_each_of_seven_stop_reasons() {
+        // Phase 1 hardening — completeness companion to
+        // answer_packet_emitted_with_typed_stop_reason (which only
+        // exercises EndTurn). AnswerPacket::emit must pass through
+        // every one of the 7 StopReason variants into the resulting
+        // packet — no silent normalisation, no remapping.
+        //
+        // A future "let me alias BudgetExhausted to a more generic
+        // 'Error' for UI brevity" refactor would silently lose the
+        // distinct WBO-cap-tripped signal in the audit trail.
+        let log = RunEventLog::new();
+        for reason in [
+            StopReason::EndTurn,
+            StopReason::ToolUse,
+            StopReason::MaxTokens,
+            StopReason::Refusal,
+            StopReason::BudgetExhausted,
+            StopReason::CapabilityDenied,
+            StopReason::Error,
+        ] {
+            let packet = AnswerPacket::emit(
+                AgentBlueprintId("multi-stop".into()),
+                "x".into(),
+                vec![],
+                reason,
+                BudgetLedger::default(),
+                &log,
+            );
+            assert_eq!(packet.stop_reason, reason, "stop_reason must pass through verbatim");
+        }
+    }
+
+    #[test]
     fn answer_packet_emitted_with_typed_stop_reason() {
         // §4 T11 acceptance: "AnswerPacket emitted". Run a mock flow,
         // append events to the log, emit the packet, and assert the
