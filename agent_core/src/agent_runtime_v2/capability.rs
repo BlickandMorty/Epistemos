@@ -1777,6 +1777,48 @@ mod tests {
     }
 
     #[test]
+    fn replayed_macaroon_json_reuse_detected_for_every_caveat_type() {
+        use crate::agent_runtime_v2::{BudgetDebit, RunEventLog};
+
+        let key = root_key_a();
+        for (caveat, ctx) in caveat_replay_cases() {
+            let base = issue_tool_macaroon(&key, Some(10_000));
+            let narrowed = restrict(&base, caveat.clone());
+            let json = serde_json::to_string(&narrowed).expect("serialise macaroon");
+            let replayed: Macaroon =
+                serde_json::from_str(&json).expect("deserialise macaroon");
+
+            MacaroonCapability::new(replayed.clone(), key)
+                .verify(&ctx)
+                .unwrap_or_else(|err| panic!("replayed {caveat:?} must verify, got {err:?}"));
+            assert_eq!(replayed.capability_hash(), narrowed.capability_hash());
+
+            let cap_hash = replayed.capability_hash();
+            let mut log = RunEventLog::new();
+            log.append_sealed_mutation(
+                cap_hash,
+                BudgetDebit {
+                    tokens: 1,
+                    ..Default::default()
+                },
+            );
+            log.append_sealed_mutation(
+                cap_hash,
+                BudgetDebit {
+                    tokens: 1,
+                    ..Default::default()
+                },
+            );
+
+            assert_eq!(
+                log.detect_capability_reuse(&cap_hash, 1),
+                1,
+                "json replay reuse must be detected for {caveat:?}"
+            );
+        }
+    }
+
+    #[test]
     fn replayed_macaroon_file_round_trip_verifies_with_every_caveat_type() {
         let key = root_key_a();
         for (caveat, ctx) in caveat_replay_cases() {
