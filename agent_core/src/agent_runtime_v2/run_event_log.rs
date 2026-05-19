@@ -1876,6 +1876,50 @@ mod tests {
     }
 
     #[test]
+    fn sealed_mutations_iterator_returns_byte_equal_cap_hash_and_debit_references() {
+        // Phase 1 hardening — content-preservation pin for
+        // sealed_mutations(). Companion to
+        // find_tool_calls_returns_byte_equal_call_references (iter-498).
+        //
+        // The iterator yields (ordinal, &Hash, &BudgetDebit). The
+        // returned references must point to the SAME byte content as
+        // the appended values — no normalization, no rewriting.
+        let mut log = RunEventLog::new();
+        let cap_a = Hash::from_bytes([0x11; 32]);
+        let cap_b = Hash::from_bytes([0x22; 32]);
+        let debit_a = BudgetDebit {
+            tokens: 100,
+            wall_ms: 200,
+            tool_calls: 1,
+            subprocess_ms: 300,
+            memory_bytes: 4_096,
+        };
+        let debit_b = BudgetDebit {
+            tokens: 50,
+            tool_calls: 2,
+            ..Default::default()
+        };
+        log.append_sealed_mutation(cap_a, debit_a);
+        log.append_sealed_mutation(cap_b, debit_b);
+
+        let hits: Vec<_> = log.sealed_mutations().collect();
+        assert_eq!(hits.len(), 2);
+        // (ordinal, &Hash, &BudgetDebit)
+        assert_eq!(hits[0].0, 0);
+        assert_eq!(*hits[0].1, cap_a);
+        assert_eq!(*hits[0].2, debit_a);
+        assert_eq!(hits[1].0, 1);
+        assert_eq!(*hits[1].1, cap_b);
+        assert_eq!(*hits[1].2, debit_b);
+        // Cross-check: 5-axis debit preserved per row.
+        assert_eq!(hits[0].2.tokens, 100);
+        assert_eq!(hits[0].2.wall_ms, 200);
+        assert_eq!(hits[0].2.tool_calls, 1);
+        assert_eq!(hits[0].2.subprocess_ms, 300);
+        assert_eq!(hits[0].2.memory_bytes, 4_096);
+    }
+
+    #[test]
     fn sealed_mutations_iterator_yields_ordinals_in_strictly_ascending_order() {
         // Phase 1 hardening — ordering pin for sealed_mutations().
         // Companion to:
