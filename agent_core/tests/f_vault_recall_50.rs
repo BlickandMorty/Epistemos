@@ -516,6 +516,18 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/vault_general_index.md",
             "vault general overview index notes archive",
         ),
+        // Iter-422 exact-quote punctuation boundary: the expected
+        // document writes fusion-contract, which Tantivy tokenizes as
+        // adjacent fusion + contract. The decoy has both terms but
+        // with an intervening token, so PhraseQuery must reject it.
+        (
+            "notes/fusion_contract_punctuation.md",
+            "fusion-contract recall clause notes",
+        ),
+        (
+            "notes/fusion_general_contract.md",
+            "fusion general contract notes archive",
+        ),
         // Iter-108 (3rd near-duplicate Synthesis — neural-cache-layer
         // domain): pair of near-identical docs each carry all 3 of
         // {neural, cache, layer} with equal frequency. AND-

@@ -2203,6 +2203,24 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                forbidden_paths and is allowed in top-5.",
     },
     FVaultRecallRow {
+        // Iter-422: exact-quote PhraseQuery across punctuation
+        // boundaries. The expected doc writes "fusion-contract";
+        // Tantivy tokenization should still make the phrase
+        // "fusion contract" adjacent. The forbidden decoy contains
+        // both words but separated by an intervening token.
+        query: "\"fusion contract\"",
+        expected_paths: &["notes/fusion_contract_punctuation.md"],
+        forbidden_paths: &["notes/fusion_general_contract.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Exact-quote punctuation-boundary row (iter-422): \
+               quoted PhraseQuery \"fusion contract\" must match \
+               an expected doc containing punctuation-separated \
+               `fusion-contract`, while rejecting a decoy with \
+               non-adjacent `fusion ... contract`. Pins phrase \
+               adjacency through tokenizer punctuation splitting.",
+    },
+    FVaultRecallRow {
         // 9th SignalOnly row (iter-102) — **50th fixture row,
         // landing the F-VaultRecall-50 falsifier-name target.**
         // 3rd exact-quote PhraseQuery row, in the storage/vault
