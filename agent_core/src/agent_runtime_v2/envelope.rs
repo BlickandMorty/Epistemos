@@ -1251,6 +1251,31 @@ mod tests {
     }
 
     #[test]
+    fn seal_error_is_clone_send_sync_when_w_is_clone_send_sync() {
+        // Phase 1 hardening — trait-bound pin for SealError<W>.
+        // Companion to ToolCallError iter-385 et al.
+        //
+        // SealError<W>: 3-variant enum (Capability + Budget + Write).
+        // The first two carry their own concrete error types
+        // (CapabilityError, BudgetError) — both already pinned
+        // Clone + Send + Sync. The Write variant carries the writer's
+        // own W::WriteError; the overall enum is Clone + Send + Sync
+        // IFF W is.
+        //
+        // Pinned for the canonical W = std::convert::Infallible (the
+        // pure type-level witness) — proves the derive bounds are
+        // intact. Send + Sync are load-bearing because SealError
+        // surfaces from Sealer::seal_and_apply on a background actor
+        // and the dispatcher surfaces it to the UI thread.
+        fn assert_clone_send_sync<T: Clone + Send + Sync>() {}
+        assert_clone_send_sync::<SealError<std::convert::Infallible>>();
+        // Also for a typical concrete writer error: a unit struct.
+        #[derive(Debug, Clone, PartialEq)]
+        struct DiskFullErr;
+        assert_clone_send_sync::<SealError<DiskFullErr>>();
+    }
+
+    #[test]
     fn mutation_envelope_is_clone_send_sync_but_not_copy_for_propagation_safety() {
         // Phase 1 hardening — trait-bound pin for the mutation request
         // envelope. Companion to AgentBlueprintId iter-375 through

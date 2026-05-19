@@ -1019,6 +1019,37 @@ mod tests {
     }
 
     #[test]
+    fn tool_call_error_is_clone_send_sync_but_not_copy() {
+        // Phase 1 hardening — trait-bound pin for ToolCallError.
+        // Companion to the Clone + Send + Sync (not Copy) sweep
+        // (CapabilityError iter-384 et al).
+        //
+        // ToolCallError: 5-variant enum with String + char + usize
+        // payloads on 4 variants (BadName, OversizeName, BadArguments,
+        // OversizeArguments) + 1 unit variant (EmptyName). Clone +
+        // PartialEq by derive (mission.rs §153), NOT Copy because
+        // BadName carries `name: String` and BadArguments carries
+        // `String`.
+        //
+        // Send + Sync are load-bearing — ToolCall validation rejections
+        // surface in AgentEvent::Error and ride the executor stream
+        // across thread boundaries.
+        //
+        // A future "let me hold a Cow<'static, str>" inside BadName
+        // refactor that introduced a non-Send lifetime would silently
+        // break cross-thread propagation — surface here.
+        fn assert_clone_send_sync<T: Clone + Send + Sync>() {}
+        assert_clone_send_sync::<ToolCallError>();
+
+        let e = ToolCallError::BadName {
+            name: "vault read".into(),
+            bad_char: ' ',
+            index: 5,
+        };
+        assert_eq!(e.clone(), e);
+    }
+
+    #[test]
     fn mission_packet_and_tool_call_are_clone_send_sync_but_not_copy() {
         // Phase 1 hardening — trait-bound pin for the String/Value-
         // bearing structs in mission.rs. Companion to the
