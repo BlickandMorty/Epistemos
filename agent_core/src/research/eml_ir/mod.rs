@@ -84,6 +84,16 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_doc_documents_stress_fixture_axes() {
+        assert!(FULP_FALSIFIER_DOC.contains("## Stress Fixture Axes"));
+        assert!(FULP_FALSIFIER_DOC.contains("`log_sampled`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`closed_interval_edge`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`exp_output_midpoint`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`ln_output_midpoint`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`eml_cross_midpoint`"));
+    }
+
+    #[test]
     fn falsifier_doc_links_numerics_budget_sources() {
         assert!(FULP_FALSIFIER_DOC.contains("T_num"));
         assert!(FULP_FALSIFIER_DOC.contains("HELIOS_V5_DOC_6_THEOREM_CANON.md"));

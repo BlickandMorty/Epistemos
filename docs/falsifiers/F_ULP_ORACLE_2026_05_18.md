@@ -65,6 +65,28 @@ freezes treat Metal output itself as proven.
 |---|---|---|---|---|---|---|
 | F-ULP-Oracle | Research | M2 Pro numeric falsifier | implemented-not-wired | `agent_core/src/research/eml_ir/`, `Epistemos/Shaders/morph_eval_reduced.metal`, `cargo test --features research research::eml_ir` | live Metal dispatch capture from `morphOracleFp16` | harden with GPU capture, subnormal/signed-zero diagnostics, WBO numerics cross-link, and Helios v3 §3.5/F7a reference |
 
+## Stress Fixture Axes
+
+The 2,048-point stress block is split into four axes of 512 points each, plus
+the 412,000 log-sampled grid that anchors the dense interior. Each axis targets
+a specific failure mode that the dense log-sampled grid cannot exercise.
+
+- `log_sampled`: dense log-uniform sweep of 412,000 points across `[0.5, 2]`
+  paired against a permuted partner; anchors the interior of the closed
+  interval and bounds the bulk-case ULP statistic.
+- `closed_interval_edge`: 512 stress points at the closed-interval anchors
+  `0.5`, `0.5 + 1 ULP`, `2 - 1 ULP`, `2`, and the immediate neighbors;
+  probes the boundary where the candidate kernel must respect the closed-set
+  semantics of `[0.5, 2]`.
+- `exp_output_midpoint`: 512 stress points placed at fp16 midpoints of the
+  candidate `exp` output so that a single fp16 ULP slip flips the rounding
+  direction.
+- `ln_output_midpoint`: 512 stress points placed at fp16 midpoints of the
+  candidate `ln` output for the same reason on the logarithm side.
+- `eml_cross_midpoint`: 512 stress points where `exp(x)` and `ln(y)` are
+  each held near fp16 midpoints so that the `eml(x, y) = exp(x) - ln(y)`
+  subtraction lands inside a half-ULP catastrophic-cancellation band.
+
 ## Numerics Linkage
 
 - WBO: `docs/HELIOS_V5_DOC_6_THEOREM_CANON.md` E4 carries the
