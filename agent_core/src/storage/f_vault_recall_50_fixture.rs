@@ -1730,6 +1730,40 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 37th Unicode row (iter-322): Linear B extension.
+        // Adds a 35th non-Latin script (Linear B, U+10000–
+        // U+1007F) — the syllabary used for Mycenaean Greek
+        // ca. 1450–1100 BCE. OLDEST DECIPHERED SCRIPT for any
+        // form of Greek, predating the Greek alphabet (which
+        // descended from Phoenician ca. 800 BCE) by ~600 years.
+        // Syllabic typology (~89 syllabograms + logograms),
+        // partially overlapping with Linear A (undeciphered
+        // Minoan). SIXTH SMP-plane codepoint. Extends the
+        // ancient-script coverage with another pre-Phoenician
+        // Mediterranean script. Latin "Mamba" + Linear B "𐀀"
+        // (a, U+10000) + Latin "cache".
+        query: "Mamba 𐀀 cache",
+        expected_paths: &["notes/mamba_linear_b.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Thirty-seventh Unicode row (iter-322): Linear B \
+               extension. THIRTY-FIVE non-Latin scripts pinned. \
+               Linear B (ca. 1450–1100 BCE) is the syllabary \
+               used for Mycenaean Greek — OLDEST DECIPHERED \
+               SCRIPT for any form of Greek, predating the \
+               Greek alphabet by ~600 years. Syllabic typology \
+               (~89 syllabograms + logograms). Sixth SMP-plane \
+               codepoint. Pin set now spans parallel writing-\
+               system origins in Mesopotamia (Cuneiform), \
+               Egypt (Hieroglyphs), Mediterranean (Linear B + \
+               Phoenician), Italy (Old Italic), and India \
+               (Brahmi). Brings Unicode to depth 37 — first \
+               category past depth-36 horizon (rejoins \
+               Synthesis 37, Adversarial 37, SignalOnly 37, \
+               Paraphrase 37, ChattyPrefix 37, PureChatter 37).",
+    },
+    FVaultRecallRow {
         // 36th Unicode row (iter-315): Cuneiform extension.
         // Adds a 34th non-Latin script (Cuneiform, U+12000–
         // U+123FF) — JOINT oldest writing system with Egyptian

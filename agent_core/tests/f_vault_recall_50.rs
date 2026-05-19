@@ -848,6 +848,25 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_cuneiform.md",
             "Mamba 𒀀 cache Mamba 𒀀 cache architecture notes cuneiform",
         ),
+        // Iter-322 (37th Unicode — Linear B extension): Latin
+        // "Mamba" + Linear B "𐀀" (a, U+10000) + Latin "cache".
+        // Linear B (ca. 1450–1100 BCE) is the syllabary used
+        // for Mycenaean Greek — the oldest deciphered script
+        // for any form of Greek, predating the Greek alphabet
+        // (which descended from Phoenician ca. 800 BCE) by
+        // ~600 years. Syllabic typology (~89 syllabograms +
+        // logograms). SIXTH SMP-plane codepoint. Thirty-five
+        // non-Latin scripts pinned (+ Linear B). Extends the
+        // ancient-script coverage past 3 millennia BCE: pin
+        // set now covers parallel writing-system origins in
+        // Mesopotamia (Cuneiform ~3200 BCE), Egypt (Hieroglyphs
+        // ~3200 BCE), Mediterranean (Linear B ~1450 BCE +
+        // Phoenician ~1050 BCE), Italy (Old Italic ~700 BCE),
+        // and India (Brahmi ~300 BCE).
+        (
+            "notes/mamba_linear_b.md",
+            "Mamba 𐀀 cache Mamba 𐀀 cache architecture notes linear_b",
+        ),
     ];
     for (path, content) in seeds {
         store
