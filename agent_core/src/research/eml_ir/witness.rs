@@ -1761,6 +1761,8 @@ struct RawAxisWorstCase<'a> {
 
 #[derive(Deserialize)]
 struct RawWorstCaseNumbers<'a> {
+    #[serde(default, borrow)]
+    point_index: Option<&'a RawValue>,
     #[serde(borrow)]
     x: &'a RawValue,
     #[serde(borrow)]
@@ -1804,6 +1806,9 @@ fn reject_raw_worst_case_numbers_json(
     worst_case: &RawWorstCaseNumbers<'_>,
     path: &str,
 ) -> Result<(), FulpReplayError> {
+    if let Some(value) = worst_case.point_index {
+        raw_unsigned_integer_json(value, &format!("{path}.point_index"))?;
+    }
     raw_finite_f64_json(worst_case.x, path, "x")?;
     raw_finite_f64_json(worst_case.y, path, "y")?;
     raw_finite_f64_json(worst_case.reference, path, "reference")?;
@@ -4711,6 +4716,28 @@ mod tests {
             .invalid_json_message()
             .expect("invalid json message")
             .contains("stats[0].worst_case.point_index"));
+    }
+
+    #[test]
+    fn replay_rejects_operation_worst_case_point_index_json_raw_overflow_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["worst_case"]["point_index"] =
+            serde_json::Value::Number(serde_json::Number::from(123_456_789_u64));
+        let json = serde_json::to_string(&value).unwrap();
+        let needle = "\"point_index\":123456789";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(needle, "\"point_index\":1e999999", 1);
+        let error = replay_witness_json(&json)
+            .expect_err("worst case point index overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("number out of range for stats[0].worst_case.point_index, expected unsigned integer")
+        );
     }
 
     #[test]
