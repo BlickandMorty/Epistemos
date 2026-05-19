@@ -1226,6 +1226,26 @@ mod tests {
     }
 
     #[test]
+    fn citation_missing_required_fields_fail_to_deserialise() {
+        let c = Citation {
+            source: "vault/a.md".into(),
+            locator: "L42".into(),
+        };
+        let value = serde_json::to_value(&c).expect("serialise");
+        let obj = value.as_object().expect("Citation serialises as JSON object");
+        for missing in ["source", "locator"] {
+            let mut tampered = obj.clone();
+            tampered.remove(missing);
+            let parsed: Result<Citation, _> =
+                serde_json::from_value(serde_json::Value::Object(tampered));
+            assert!(
+                parsed.is_err(),
+                "Citation missing required field {missing:?} must fail"
+            );
+        }
+    }
+
+    #[test]
     fn citation_as_display_string_is_pure_deterministic_across_multiple_calls() {
         // Phase 1 hardening — pure-function determinism pin
         // (companion to the purity series). as_display_string is
