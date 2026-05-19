@@ -34,6 +34,10 @@ structure VpdExtraction where
   reconstruction_mse : Float
   ground_truth_count : Nat
 
+/-- PCF-1 is a Lane 3 research-only training-time decomposition,
+not a user-visible runtime feature. -/
+def researchOnlyTrainingTime : Bool := true
+
 /-- The reconstruction-error → 0 limit holds as #components
 approaches the ground-truth count. -/
 theorem reconstructionErrorVanishesAtGroundTruth
@@ -43,5 +47,9 @@ theorem reconstructionErrorVanishesAtGroundTruth
     extraction.components.length = extraction.ground_truth_count ∧
       extraction.reconstruction_mse = 0.0 := by
   exact ⟨h_count, h_zero⟩
+
+theorem researchOnlyTrainingTimePinned :
+    researchOnlyTrainingTime = true := by
+  rfl
 
 end Epistemos.PCF1
