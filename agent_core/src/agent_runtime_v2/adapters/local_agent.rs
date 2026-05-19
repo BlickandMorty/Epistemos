@@ -1085,6 +1085,17 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_surface_non_string_json_shapes_fail_to_deserialise() {
+        for bad in ["null", "true", "42", "[]", r#"{"surface":"agentTask"}"#] {
+            let parsed: Result<LocalAgentCapabilitySurface, _> = serde_json::from_str(bad);
+            assert!(
+                parsed.is_err(),
+                "non-string LocalAgentCapabilitySurface JSON shape must fail: {bad}"
+            );
+        }
+    }
+
+    #[test]
     fn surface_round_trips_through_json() {
         for s in LocalAgentCapabilitySurface::ALL {
             let serialized = serde_json::to_string(&s).expect("serialize");
