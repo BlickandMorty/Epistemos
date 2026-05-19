@@ -3612,11 +3612,69 @@ fn validate_capability_fields(
 }
 
 /// Operation-specific threshold override for default ACS policy matrices.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ACSOperationThresholdRule {
     pub operation: ACSOperationKind,
     pub thresholds: ACSRiskThresholds,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ACSOperationThresholdRuleWire {
+    operation: ACSOperationKind,
+    thresholds: ACSRiskThresholds,
+}
+
+impl<'de> Deserialize<'de> for ACSOperationThresholdRule {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        require_operation_threshold_rule_field::<D::Error>(
+            &value,
+            "operation",
+            "operation_thresholds.operation",
+            serde_json::Value::is_string,
+        )?;
+        require_operation_threshold_rule_field::<D::Error>(
+            &value,
+            "thresholds",
+            "operation_thresholds.thresholds",
+            serde_json::Value::is_object,
+        )?;
+        let wire =
+            ACSOperationThresholdRuleWire::deserialize(value).map_err(serde::de::Error::custom)?;
+        Ok(Self {
+            operation: wire.operation,
+            thresholds: wire.thresholds,
+        })
+    }
+}
+
+fn require_operation_threshold_rule_field<E>(
+    value: &serde_json::Value,
+    field: &'static str,
+    policy_field: &'static str,
+    valid_field: fn(&serde_json::Value) -> bool,
+) -> Result<(), E>
+where
+    E: serde::de::Error,
+{
+    match value {
+        serde_json::Value::Object(object) if object.get(field).is_some_and(valid_field) => Ok(()),
+        serde_json::Value::Object(_) => Err(E::custom(acs_policy_decode_error(
+            &ACSPolicyError::Malformed {
+                field: policy_field,
+            },
+        ))),
+        _ => Err(E::custom(acs_policy_decode_error(
+            &ACSPolicyError::Malformed {
+                field: "operation_thresholds",
+            },
+        ))),
+    }
 }
 
 impl ACSOperationThresholdRule {
@@ -7547,6 +7605,22 @@ mod tests {
         let decoded = serde_json::from_value::<ACSOperationThresholdRule>(value);
 
         assert!(decoded.is_err());
+    }
+
+    #[test]
+    fn acs_admission_missing_operation_threshold_operation_names_malformed_policy_field() {
+        let value = serde_json::json!({
+            "thresholds": ACSRiskThresholds::standard()
+        });
+
+        let err = serde_json::from_value::<ACSOperationThresholdRule>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(
+            message.contains("operation_thresholds.operation"),
+            "{message}"
+        );
     }
 
     #[test]
