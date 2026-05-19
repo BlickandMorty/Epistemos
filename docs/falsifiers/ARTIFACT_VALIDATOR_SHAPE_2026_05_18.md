@@ -240,6 +240,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 ```
 
 ```bash
+ruby -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); abort("migration validator distinctness rule missing") unless s.include?("If `validator` equals `reviewer`, the migration note is invalid"); puts "migration validator distinctness ok"'
+```
+
+```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); notes=schema.dig("properties","notes") || abort("notes missing"); rule=notes["allOf"].find { |r| r.dig("if","pattern") == "from_schema=" } || abort("migration note rule missing"); pat=rule.dig("then","pattern") || abort("migration note pattern missing"); %w[local_reference_gap_report local_reference_root_gap_report local_reference_dot_segment_gap_report].each { |k| abort("migration local-reference gap missing #{k}") unless pat.include?(k) }; puts "migration local-reference gaps ok"'
 ```
 
@@ -441,7 +445,7 @@ Implementation owner is TBD: merge-phase if artifact validation becomes part of 
 | `W-Validator-NotesLengthMigrationReason` | TBD validator-implementation terminal | Any executable validator accepts schema migrations that alter `notes.maxLength`. | Reject length-cap migrations unless the migration note names positive `notes_length_old_cap`, greater positive `notes_length_new_cap`, and closed-enum `notes_length_reason` for the capacity change. |
 | `W-Validator-NotesTokenKeyAllowlist` | TBD validator-implementation terminal | Any executable validator accepts machine-readable `key=value` tokens in falsifier `notes`. | Reject note tokens whose keys are not schema-owned before replay promotion or migration acceptance. |
 | `W-Validator-MigrationGapTokens` | TBD validator-implementation terminal | Any executable validator accepts `from_schema=` migration notes. | Reject migration notes missing any schema-table gap token, reject gap tokens absent from both the notes key allowlist and the `from_schema=` regex, and reject whitespace-bearing gap-token values before migration acceptance. |
-| `W-Validator-MigrationValidatorIdentity` | TBD validator-implementation terminal | Any executable validator accepts `from_schema=` migration notes. | Reject migration notes missing a machine-readable `validator` token distinct from the human `reviewer` token before migration acceptance. |
+| `W-Validator-MigrationValidatorIdentity` | TBD validator-implementation terminal | Any executable validator accepts `from_schema=` migration notes. | Reject migration notes missing a machine-readable `validator` token, missing a human `reviewer` token, or using the same value for both before migration acceptance. |
 | `W-Validator-LocalReferenceNotes` | TBD validator-implementation terminal | Any executable validator accepts `local_reference_only=true` in falsifier `notes`. | Reject missing `local_reference_artifact` or `local_reference_artifact_sha256`, and verify the retained artifact digest before replay promotion. |
 | `W-Validator-LocalReferenceRoot` | TBD validator-implementation terminal | Any executable validator accepts local-reference artifacts in falsifier `notes`. | Reject `local_reference_artifact` paths outside the owning falsifier row root before digest verification. |
 | `W-Validator-LocalReferenceDotSegments` | TBD validator-implementation terminal | Any executable validator accepts local-reference artifact paths in falsifier `notes`. | Reject `.` or `..` path segments in `local_reference_artifact` before row-root or digest checks. |
