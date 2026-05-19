@@ -4495,6 +4495,32 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 30th ChattyPrefix row (iter-269): Korean-Hangul-
+        // multilingual signal domain — 20th distinct lexical
+        // universe. Survivors after strip {Mamba, 캐시}. 2-term
+        // AND matches only iter-129's mamba_korean.md. NINTH
+        // non-ASCII ChattyPrefix domain and FIRST precomposed-
+        // syllabic-block ChattyPrefix — parallels iter-267
+        // SignalOnly. Hangul precomposes consonant+vowel into
+        // syllabic glyphs, distinct from Brahmic vowel-mark
+        // clusters and Han ideographs.
+        query: "Show me my Mamba 캐시 notes",
+        expected_paths: &["notes/mamba_korean.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Thirtieth ChattyPrefix row (iter-269): Korean-\
+               Hangul-multilingual signal domain — 20th distinct \
+               lexical universe. Survivors {Mamba, 캐시} after \
+               strip. 2-term AND matches only iter-129 mamba_\
+               korean.md. Ninth non-ASCII ChattyPrefix and FIRST \
+               precomposed-syllabic-block ChattyPrefix \
+               (parallels iter-267 SignalOnly). Brings \
+               ChattyPrefix to depth 30 — first category past \
+               depth-29 horizon (joins Synthesis + Adversarial \
+               + SignalOnly + Paraphrase). Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 29th ChattyPrefix row (iter-262): Thai-multilingual
         // signal domain — 19th distinct lexical universe.
         // Survivors after strip {Mamba, แคช}. 2-term AND
