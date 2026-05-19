@@ -10243,6 +10243,77 @@ fn recency_with_since_filter_preserves_multilingual_source_ids() {
     }
 }
 
+/// Validator harness fail-closed pin for a multilingual Recency
+/// packet whose time-window filter shrinks the closed-citation set.
+///
+/// The chat layer should not need to remember the exact
+/// `validate_citations` ceremony; it should call one named harness
+/// that returns Ok only when EVERY citation is inside the packet's
+/// closed universe. This test pins that harness against a realistic
+/// mixed batch:
+///   - index 0: legitimate Arabic recency hit -> accepted
+///   - index 1: Hangul doc exists in backend but was filtered out by
+///              with_since -> FabricatedSourceId
+///   - index 2: legitimate Han hit but stale manifest -> ManifestMismatch
+///   - index 3: legitimate Han hit -> accepted
+///
+/// No best-effort fallback: one rejected citation rejects the whole
+/// answer, while preserving every per-index diagnostic.
+#[test]
+fn closed_citation_validator_harness_rejects_mixed_multilingual_recency_batch() {
+    use super::recency::InMemoryRecencyIndex;
+    use super::types::{CitationError, EidosChunkId, EidosCitation};
+    use super::validator::enforce_closed_citation_contract;
+
+    let t0: u64 = 1_700_000_000_000;
+    let mut rec = InMemoryRecencyIndex::new(manifest());
+    rec.insert(doc("노트-a"), "body", t0 - 2_000, EidosSourceKind::Note);
+    rec.insert(doc("ملاحظة-a"), "body", t0 - 1_000, EidosSourceKind::Note);
+    rec.insert(doc("笔记-a"), "body", t0, EidosSourceKind::Note);
+
+    let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16)
+        .with_since(t0 - 1_000);
+    let packet = rec.retrieve(&q, t0);
+    let m = packet.manifest_id.clone();
+    let stale = EidosIndexManifestId::new("stale-recency-manifest").unwrap();
+
+    let citations = vec![
+        EidosCitation {
+            source_id: EidosChunkId::new("ملاحظة-a::recency").unwrap(),
+            manifest_id: m.clone(),
+        },
+        EidosCitation {
+            source_id: EidosChunkId::new("노트-a::recency").unwrap(),
+            manifest_id: m.clone(),
+        },
+        EidosCitation {
+            source_id: EidosChunkId::new("笔记-a::recency").unwrap(),
+            manifest_id: stale,
+        },
+        EidosCitation {
+            source_id: EidosChunkId::new("笔记-a::recency").unwrap(),
+            manifest_id: m,
+        },
+    ];
+
+    let err = enforce_closed_citation_contract(&packet, &citations)
+        .expect_err("mixed multilingual batch must reject wholesale");
+    assert_eq!(err.errors.len(), 2, "two rejected citations, no best-effort pass");
+    assert_eq!(err.errors[0].0, 1, "filtered-out Hangul error stays at input index 1");
+    match &err.errors[0].1 {
+        CitationError::FabricatedSourceId(id) => assert_eq!(id.as_str(), "노트-a::recency"),
+        other => panic!("index 1 expected FabricatedSourceId, got {other:?}"),
+    }
+    assert_eq!(err.errors[1].0, 2, "stale-manifest Han error stays at input index 2");
+    match &err.errors[1].1 {
+        CitationError::ManifestMismatch { packet: pm, citation: cm } => {
+            assert_eq!(pm.as_str(), packet.manifest_id.as_str());
+            assert_eq!(cm.as_str(), "stale-recency-manifest");
+        }
+        other => panic!("index 2 expected ManifestMismatch, got {other:?}"),
+    }
+}
+
 /// `EidosHit::clone()` is byte-perfect — parallel to iter 190's
 /// EidosCitation Clone pin, but for the OUTPUT type (retriever-
 /// emitted hits) rather than the INPUT type (chat-layer citations).
