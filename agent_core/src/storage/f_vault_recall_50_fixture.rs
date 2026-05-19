@@ -3198,6 +3198,35 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 47th PureChatter row (iter-392): 22-token long-input
+        // shape — "please can you tell me what where when how
+        // some of my notes are about stuff things files thing
+        // note file would". Extends long-input cardinality
+        // progression to 22 (iter-385 was 21). LONGEST
+        // PureChatter query in the fixture. Adds the modal
+        // "would" past the noun-class completion in iter-385.
+        // All 22 tokens (please / can / you / tell / me / what
+        // / where / when / how / some / of / my / notes / are
+        // / about / stuff / things / files / thing / note /
+        // file / would) are in QUERY_CHATTER_WORDS.
+        query: "please can you tell me what where when how some of my notes are about stuff things files thing note file would",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Forty-seventh PureChatter row (iter-392): 22-\
+               token long-input. Extends cardinality to 22 \
+               (iter-385 = 21). LONGEST PureChatter query in \
+               the fixture. Adds the modal \"would\" past the \
+               noun-class completion in iter-385. All 22 \
+               tokens in QUERY_CHATTER_WORDS. Brings \
+               PureChatter to depth 47 — first category past \
+               depth-46 horizon.",
+    },
+    FVaultRecallRow {
         // 46th PureChatter row (iter-385): 21-token long-input
         // shape — "please can you tell me what where when how
         // some of my notes are about stuff things files thing
