@@ -1456,6 +1456,24 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_non_object_json_shapes_fail_to_deserialise() {
+        for bad in [
+            "null",
+            "true",
+            "0",
+            r#""final_text""#,
+            "[]",
+            r#"[{"event_type":"final_text","text":"ok"}]"#,
+        ] {
+            let parsed: Result<AgentEvent, _> = serde_json::from_str(bad);
+            assert!(
+                parsed.is_err(),
+                "non-object AgentEvent JSON shape must fail: {bad}"
+            );
+        }
+    }
+
+    #[test]
     fn agent_event_valid_tags_with_missing_required_payload_fields_fail_to_deserialise() {
         // Phase 1 hardening — corrupted AgentEvent payload shape.
         // agent_event_unknown_event_type_tag_fails_to_deserialise
