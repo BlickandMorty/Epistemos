@@ -1005,6 +1005,39 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 40th SignalOnly row (iter-339): single-term query in
+        // Mongolian-script domain — "ᠺ" (kha, U+183A, single
+        // codepoint). THIRTY-FIRST single-term-AND domain.
+        // EIGHTEENTH non-ASCII script-block. SECOND Aramaic-
+        // family descendant in SignalOnly (after iter-332
+        // Syriac) — Mongolian descended Aramaic → Sogdian → Old
+        // Uyghur → Mongolian. Pairs with iter-332 Syriac:
+        // SignalOnly now triangulates the Aramaic family at
+        // single-term-AND — direct daughter (Syriac, iter-332)
+        // + great-great-grand-daughter (Mongolian, iter-339) —
+        // together with iter-329 Unicode Imperial Aramaic
+        // ancestor pin. Token unique to iter-198's mamba_
+        // mongolian.md.
+        query: "ᠺ",
+        expected_paths: &["notes/mamba_mongolian.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Fortieth SignalOnly row (iter-339): single-term \
+               Mongolian-script query — \"ᠺ\" (U+183A). \
+               Thirty-first domain for single-term-AND. \
+               Eighteenth non-ASCII script-block. SECOND \
+               Aramaic-family descendant in SignalOnly (after \
+               iter-332 Syriac). Mongolian = Aramaic → Sogdian \
+               → Old Uyghur → Mongolian. SignalOnly now \
+               triangulates the Aramaic family tree at single-\
+               term-AND: direct daughter + great-great-grand-\
+               daughter — together with iter-329 Unicode \
+               Imperial Aramaic ancestor pin. Sixth single-\
+               codepoint non-ASCII token. Brings SignalOnly to \
+               depth 40 — first category past depth-39 horizon.",
+    },
+    FVaultRecallRow {
         // 39th SignalOnly row (iter-332): single-term query in
         // Syriac-script domain — "ܟ" (kaph, U+071F, single
         // codepoint). THIRTIETH single-term-AND domain.
