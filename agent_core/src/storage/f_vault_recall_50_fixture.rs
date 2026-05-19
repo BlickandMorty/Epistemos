@@ -3271,6 +3271,44 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 48th PureChatter row (iter-399): 23-token long-input
+        // shape — "please can you tell me what where when how
+        // some of my notes are about stuff things files thing
+        // note file would could". Extends long-input
+        // cardinality progression to 23 (iter-392 was 22).
+        // LONGEST PureChatter query in the fixture. Adds the
+        // modal "could" past iter-392's "would" — modal-survey
+        // progression now covers TWO modals: would + could.
+        // QUERY_CHATTER_WORDS lists 5 modals/discourse-particles
+        // (please / can / could / would / should); iter-399
+        // brings 3 of them into one query (please + can + could
+        // + would; only "should" remains). All 23 tokens in
+        // QUERY_CHATTER_WORDS. Pins the chatter-strip's modal-
+        // class robustness alongside the closed noun-class
+        // survey (iter-385).
+        query: "please can you tell me what where when how some of my notes are about stuff things files thing note file would could",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Forty-eighth PureChatter row (iter-399): 23-\
+               token long-input. Extends cardinality to 23 \
+               (iter-392 = 22). LONGEST PureChatter query in \
+               the fixture. Adds the modal \"could\" past iter-\
+               392's \"would\" — modal-survey progression now \
+               covers TWO modals (would + could). Query \
+               carries 3 of the 5 modals/particles in \
+               QUERY_CHATTER_WORDS (please + can + could + \
+               would; only \"should\" remains). All 23 tokens \
+               in QUERY_CHATTER_WORDS. Pins modal-class \
+               robustness alongside closed noun-class survey \
+               (iter-385). Brings PureChatter to depth 48 — \
+               first category past depth-47 horizon.",
+    },
+    FVaultRecallRow {
         // 47th PureChatter row (iter-392): 22-token long-input
         // shape — "please can you tell me what where when how
         // some of my notes are about stuff things files thing
