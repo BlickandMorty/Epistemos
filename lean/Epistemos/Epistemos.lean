@@ -4,6 +4,7 @@
 -- schema modules selected for Lean schema authority.
 
 import Epistemos.EML
+import Epistemos.EMLGeneratedSample
 import Epistemos.Tropical
 import Epistemos.TropicalGeneratedSample
 import Epistemos.Scan
