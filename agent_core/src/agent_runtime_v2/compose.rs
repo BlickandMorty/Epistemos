@@ -249,6 +249,29 @@ mod tests {
     }
 
     #[test]
+    fn para_seq_output_debug_repr_is_stable_for_audit_logs() {
+        let output = ParaSeqOutput {
+            inner: ParaOutput::new(1usize, StopReason::EndTurn, None),
+            outer: ParaOutput::new(
+                "ok".to_string(),
+                StopReason::ToolUse,
+                Some(b"outer-thinking".to_vec()),
+            ),
+        };
+        let dbg = format!("{output:?}");
+        assert!(
+            dbg.starts_with(
+                "ParaSeqOutput { inner: ParaOutput { value: 1, stop_reason: EndTurn,"
+            ),
+            "ParaSeqOutput Debug repr must start with inner field first: {dbg}"
+        );
+        assert!(
+            dbg.contains("outer: ParaOutput { value: \"ok\", stop_reason: ToolUse,"),
+            "ParaSeqOutput Debug repr must include outer field after inner: {dbg}"
+        );
+    }
+
+    #[test]
     fn every_para_seq_output_field_is_identity_load_bearing() {
         // Phase 1 hardening — fourteenth leg of the identity-pin
         // pattern. ParaSeqOutput<B, C> has 2 fields (inner, outer);
