@@ -4291,6 +4291,23 @@ mod tests {
     }
 
     #[test]
+    fn run_event_entry_non_string_kind_tags_fail_to_deserialise() {
+        for bad in [
+            r#"{"kind":null,"ordinal":0}"#,
+            r#"{"kind":true,"ordinal":0}"#,
+            r#"{"kind":42,"ordinal":0}"#,
+            r#"{"kind":["event"],"ordinal":0}"#,
+            r#"{"kind":{"tag":"event"},"ordinal":0}"#,
+        ] {
+            let parsed: Result<RunEventEntry, _> = serde_json::from_str(bad);
+            assert!(
+                parsed.is_err(),
+                "non-string RunEventEntry kind must fail to deserialise: {bad}"
+            );
+        }
+    }
+
+    #[test]
     fn run_event_entry_serde_tolerates_unknown_extra_fields_per_current_doctrine() {
         // Phase 1 hardening — fifth leg of the unknown-fields
         // tolerance series (AgentBlueprint iter-121, AnswerPacket
