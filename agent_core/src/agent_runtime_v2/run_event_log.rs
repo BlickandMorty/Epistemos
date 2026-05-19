@@ -888,6 +888,57 @@ mod tests {
     }
 
     #[test]
+    fn find_capability_hash_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series at find_tool_calls,
+        // sealed_mutations, last_stop_event, total_tokens_debited,
+        // entry_count_by_kind, ledger_at_ordinal, validate_ordinal_density,
+        // root_hash, count_hits, scan_text). find_capability_hash
+        // walks self.entries and yields a Vec<u64> of ordinals
+        // matching the needle — pure over an immutable input.
+        //
+        // A future "let me cache the result keyed on needle" refactor
+        // that introduced interior mutability could silently regress
+        // — caches that don't honour log-append invalidation would
+        // serve stale results. Pin sweeps both hit (multiple
+        // ordinals) and miss (empty Vec) input shapes; the result
+        // must be byte-equal across 3 consecutive calls.
+        let mut log = RunEventLog::new();
+        let needle_a = Hash::from_bytes([0xAA; 32]);
+        let needle_b = Hash::from_bytes([0xBB; 32]);
+        log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
+        log.append_sealed_mutation(needle_a, BudgetDebit::default());
+        log.append_event(AgentEvent::FinalText { text: "y".into() });
+        log.append_sealed_mutation(needle_a, BudgetDebit::default());
+        log.append_sealed_mutation(needle_b, BudgetDebit::default());
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+
+        // Hit case: needle_a appears twice.
+        let h1 = log.find_capability_hash(&needle_a);
+        let h2 = log.find_capability_hash(&needle_a);
+        let h3 = log.find_capability_hash(&needle_a);
+        assert_eq!(h1, h2);
+        assert_eq!(h2, h3);
+        assert_eq!(h1.len(), 2);
+
+        // Miss case: unrelated hash.
+        let m1 = log.find_capability_hash(&Hash::zero());
+        let m2 = log.find_capability_hash(&Hash::zero());
+        let m3 = log.find_capability_hash(&Hash::zero());
+        assert_eq!(m1, m2);
+        assert_eq!(m2, m3);
+        assert!(m1.is_empty());
+
+        // Single-hit case.
+        let s1 = log.find_capability_hash(&needle_b);
+        let s2 = log.find_capability_hash(&needle_b);
+        let s3 = log.find_capability_hash(&needle_b);
+        assert_eq!(s1, s2);
+        assert_eq!(s2, s3);
+        assert_eq!(s1.len(), 1);
+    }
+
+    #[test]
     fn root_hash_is_sensitive_to_ledger_snapshot_every_axis_payload() {
         // Phase 1 hardening — CLOSES the root_hash sensitivity family
         // across all 3 RunEventEntry variants:
