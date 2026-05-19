@@ -1526,7 +1526,7 @@ impl<'de> Deserialize<'de> for ACSToolActionRequest {
         };
         request
             .validate()
-            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+            .map_err(|err| serde::de::Error::custom(acs_admission_input_decode_error(&err)))?;
         Ok(request)
     }
 }
@@ -5551,10 +5551,13 @@ mod tests {
         let value = serde_json::json!({
             "tool_name": " local-tool",
             "target": "note-1",
-            "mutation_envelope_id": null,
         });
 
-        assert!(serde_json::from_value::<ACSToolActionRequest>(value).is_err());
+        let err = serde_json::from_value::<ACSToolActionRequest>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("forged_admission_input"), "{message}");
+        assert!(message.contains("tool_action.tool_name"), "{message}");
     }
 
     #[test]
