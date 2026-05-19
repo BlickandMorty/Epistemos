@@ -37,7 +37,7 @@ fn expr_hash_suffix(op: &OperatorExpr) -> String {
 /// Emit a Lean 4 certificate for an [`OperatorExpr`]. Dimensional
 /// consistency, Fourier isometry, and FNO equivalence are closed
 /// from schema records. The committed schema module built with
-/// explicit `~/.elan/bin` PATH at iter-593.
+/// explicit `~/.elan/bin` PATH and was sharpened through iter-700.
 pub fn lean_certificate(op: &OperatorExpr) -> String {
     let suffix = expr_hash_suffix(op);
     let kernel_label = match &op.kernel {
@@ -93,7 +93,7 @@ pub fn lean_certificate(op: &OperatorExpr) -> String {
          -- Source: docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §3 + §5\n\
          -- Operator shape: branch {b_in}→{b_out}, trunk {t_in}→{t_out}, kernel {kernel}\n\
          -- Schema: lean/Epistemos/Epistemos/Operator.lean\n\
-         -- Schema module built with explicit ~/.elan/bin PATH at iter-593.\n\
+         -- Schema module built with explicit ~/.elan/bin PATH; obligations sharpened through iter-700.\n\
          -- Generated dimension/FNO/Fourier proofs close from schema fields.\n\
          import Epistemos.Operator\n\
          \n\
@@ -318,7 +318,9 @@ mod tests {
     fn header_tracks_schema_build_and_closed_obligations() {
         let op = fixture(KernelTransform::Fourier { modes: 2 });
         let c = lean_certificate(&op);
-        assert!(c.contains("Schema module built with explicit ~/.elan/bin PATH at iter-593"));
+        assert!(c.contains(
+            "Schema module built with explicit ~/.elan/bin PATH; obligations sharpened through iter-700"
+        ));
         assert!(c.contains("Generated dimension/FNO/Fourier proofs close from schema fields"));
         assert_eq!(c.matches("sorry").count(), 0);
     }
