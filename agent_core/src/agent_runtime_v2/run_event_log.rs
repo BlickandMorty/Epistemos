@@ -2341,6 +2341,36 @@ mod tests {
     }
 
     #[test]
+    fn last_stop_event_returns_most_recent_not_first_when_multiple_stops_present() {
+        // Phase 1 hardening — last-vs-first pin for last_stop_event().
+        // Companion to last_stop_event_surfaces_each_of_seven_stop_reason_variants
+        // (iter-503).
+        //
+        // The name says "last" — pin that the helper returns the MOST
+        // RECENT Stop event's reason, NOT the first. A future "let me
+        // index by first-Stop for replay startup detection" refactor
+        // would silently break the doctrine.
+        //
+        // Append Stops in DELIBERATELY-VARYING order; verify the helper
+        // returns the LAST one each time a new Stop is appended.
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        assert_eq!(log.last_stop_event(), Some(StopReason::EndTurn));
+        log.append_event(AgentEvent::Stop { reason: StopReason::ToolUse });
+        assert_eq!(log.last_stop_event(), Some(StopReason::ToolUse),
+            "must return LAST Stop (ToolUse), not first (EndTurn)");
+        log.append_event(AgentEvent::Stop { reason: StopReason::BudgetExhausted });
+        assert_eq!(log.last_stop_event(), Some(StopReason::BudgetExhausted));
+        // Non-Stop event in between must not affect the last_stop_event.
+        log.append_event(AgentEvent::ReasoningDelta { text: "post-stop".into() });
+        assert_eq!(log.last_stop_event(), Some(StopReason::BudgetExhausted),
+            "ReasoningDelta does not affect last_stop_event");
+        // Another Stop appended LATER updates the value.
+        log.append_event(AgentEvent::Stop { reason: StopReason::Error });
+        assert_eq!(log.last_stop_event(), Some(StopReason::Error));
+    }
+
+    #[test]
     fn last_stop_event_surfaces_each_of_seven_stop_reason_variants() {
         // Phase 1 hardening — variant-completeness pin for
         // last_stop_event(). Companion to
