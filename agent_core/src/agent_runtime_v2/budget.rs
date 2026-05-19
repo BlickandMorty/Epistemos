@@ -811,6 +811,78 @@ mod tests {
     }
 
     #[test]
+    fn boundary_cap_plus_one_rejected_across_all_five_axes() {
+        // Phase 1 hardening — 5-axis completeness companion to
+        // boundary_equal_to_cap_accepted_across_all_five_axes (just-
+        // pinned). The strict-`>` boundary contract REJECTS one byte
+        // over cap on EVERY WBO-6 axis.
+        //
+        // For each axis: ledger pre-loaded with cap - 100; debit adds
+        // 101; final total would be cap + 1; gate trips Exhausted with
+        // the correct BudgetTerm + attempted_total=cap+1 + cap=cap.
+        //
+        // Defends against a future "let me micro-optimise to use
+        // saturating-clamp instead of reject" refactor that would
+        // silently let over-cap debits land.
+
+        // wall_ms axis.
+        let gate_w = BudgetGate::new(BudgetSpec::new(0, 1_000, 0, 0));
+        let l_w = BudgetLedger { wall_used_ms: 900, ..Default::default() };
+        let err_w = gate_w
+            .check_and_debit(l_w, BudgetDebit { wall_ms: 101, ..Default::default() })
+            .expect_err("wall_ms cap+1 must reject");
+        match err_w {
+            BudgetError::Exhausted { term: BudgetTerm::WallMs, attempted_total, cap } => {
+                assert_eq!(attempted_total, 1_001);
+                assert_eq!(cap, 1_000);
+            }
+            other => panic!("expected Exhausted(WallMs), got {other:?}"),
+        }
+
+        // tool_calls axis.
+        let gate_tc = BudgetGate::new(BudgetSpec::new(0, 0, 10, 0));
+        let l_tc = BudgetLedger { tool_calls_used: 9, ..Default::default() };
+        let err_tc = gate_tc
+            .check_and_debit(l_tc, BudgetDebit { tool_calls: 2, ..Default::default() })
+            .expect_err("tool_calls cap+1 must reject");
+        match err_tc {
+            BudgetError::Exhausted { term: BudgetTerm::ToolCalls, attempted_total, cap } => {
+                assert_eq!(attempted_total, 11);
+                assert_eq!(cap, 10);
+            }
+            other => panic!("expected Exhausted(ToolCalls), got {other:?}"),
+        }
+
+        // subprocess_ms axis.
+        let gate_sm = BudgetGate::new(BudgetSpec::new(0, 0, 0, 1_000));
+        let l_sm = BudgetLedger { subprocess_used_ms: 900, ..Default::default() };
+        let err_sm = gate_sm
+            .check_and_debit(l_sm, BudgetDebit { subprocess_ms: 101, ..Default::default() })
+            .expect_err("subprocess_ms cap+1 must reject");
+        match err_sm {
+            BudgetError::Exhausted { term: BudgetTerm::SubprocessMs, attempted_total, cap } => {
+                assert_eq!(attempted_total, 1_001);
+                assert_eq!(cap, 1_000);
+            }
+            other => panic!("expected Exhausted(SubprocessMs), got {other:?}"),
+        }
+
+        // memory_bytes axis.
+        let gate_mb = BudgetGate::new(BudgetSpec::default().with_memory_bytes(1_024));
+        let l_mb = BudgetLedger { memory_bytes_used: 1_000, ..Default::default() };
+        let err_mb = gate_mb
+            .check_and_debit(l_mb, BudgetDebit { memory_bytes: 25, ..Default::default() })
+            .expect_err("memory_bytes cap+1 must reject");
+        match err_mb {
+            BudgetError::Exhausted { term: BudgetTerm::MemoryBytes, attempted_total, cap } => {
+                assert_eq!(attempted_total, 1_025);
+                assert_eq!(cap, 1_024);
+            }
+            other => panic!("expected Exhausted(MemoryBytes), got {other:?}"),
+        }
+    }
+
+    #[test]
     fn boundary_equal_to_cap_accepted_across_all_five_axes() {
         // Phase 1 hardening — 5-axis completeness companion to
         // boundary_equal_to_cap_accepted (which only exercises tokens).
