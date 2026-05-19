@@ -89,6 +89,10 @@ pub fn adversarial_query_fixture(label: &str) -> Option<AdversarialQueryFixture>
         .find(|fixture| fixture.label == label)
 }
 
+pub fn adversarial_query_fixture_at(index: usize) -> Option<AdversarialQueryFixture> {
+    ADVERSARIAL_QUERY_FIXTURES.get(index).copied()
+}
+
 pub fn adversarial_query_fixture_for_kind(
     kind: AdversarialQueryFixtureKind,
 ) -> Option<AdversarialQueryFixture> {
