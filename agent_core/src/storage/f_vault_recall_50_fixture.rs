@@ -6115,6 +6115,38 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 41st ChattyPrefix row (iter-349): Coptic-multilingual
+        // signal domain — 31st distinct lexical universe.
+        // Survivors after strip {Mamba, ⲕ}. 2-term AND matches
+        // only iter-279's mamba_coptic.md. TWENTIETH non-ASCII
+        // ChattyPrefix domain. FIRST Greek-descendant
+        // ChattyPrefix (Coptic descends from Greek alphabet).
+        // Parallels iter-347 SignalOnly Coptic single-term-AND.
+        // ChattyPrefix now covers FOUR distinct genealogical
+        // branches at multilingual-signal: Brahmic (7
+        // descendants) + Aramaic (2 — Syriac + Mongolian) +
+        // Latin-diacritic (1) + Greek-descendant (1) — plus
+        // standalone scripts.
+        query: "Show me my Mamba ⲕ notes",
+        expected_paths: &["notes/mamba_coptic.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Forty-first ChattyPrefix row (iter-349): Coptic-\
+               multilingual signal domain — 31st distinct \
+               lexical universe. Survivors {Mamba, ⲕ} after \
+               strip. 2-term AND matches only iter-279 \
+               mamba_coptic.md. Twentieth non-ASCII ChattyPrefix \
+               domain. FIRST Greek-descendant ChattyPrefix. \
+               ChattyPrefix now covers FOUR distinct \
+               genealogical branches at multilingual-signal: \
+               Brahmic (7) + Aramaic (2) + Latin-diacritic (1) \
+               + Greek-descendant (1). Parallels iter-347 \
+               SignalOnly Coptic. Brings ChattyPrefix to depth \
+               41 — first category past depth-40 horizon. Zero \
+               new seeds.",
+    },
+    FVaultRecallRow {
         // 40th ChattyPrefix row (iter-341): Mongolian-multilingual
         // signal domain — 30th distinct lexical universe.
         // Survivors after strip {Mamba, ᠺ}. 2-term AND matches
