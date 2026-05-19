@@ -1192,6 +1192,26 @@ mod tests {
     }
 
     #[test]
+    fn provider_policy_valid_kinds_with_missing_payload_fields_fail_to_deserialise() {
+        for bad in [
+            r#"{"kind":"local_mlx"}"#,
+            r#"{"kind":"anthropic_messages"}"#,
+            r#"{"kind":"open_a_i_responses"}"#,
+            r#"{"kind":"open_a_i_compatible","base_url":"http://localhost"}"#,
+            r#"{"kind":"open_a_i_compatible","model":"llama"}"#,
+            r#"{"kind":"mcp"}"#,
+            r#"{"kind":"pro_cli","adapter":"codex"}"#,
+            r#"{"kind":"pro_cli","command":"/usr/bin/codex"}"#,
+        ] {
+            let r: Result<ProviderPolicy, _> = serde_json::from_str(bad);
+            assert!(
+                r.is_err(),
+                "ProviderPolicy with valid kind but missing payload field in {bad} must fail"
+            );
+        }
+    }
+
+    #[test]
     fn cli_adapter_variant_count_is_six() {
         // Phase 1 hardening — cardinality pin continuing the
         // count-pin series (BudgetTerm 5, AgentEventErrorKind 4
