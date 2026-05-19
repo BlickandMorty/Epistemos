@@ -232,7 +232,7 @@ impl ACSRiskVectorError {
 }
 
 fn acs_risk_vector_decode_error(error: &ACSRiskVectorError) -> String {
-    format!("{} field={}", error.cause(), error.field())
+    format!("{} field=risk.{}", error.cause(), error.field())
 }
 
 /// Admission operation family used by policy capability rules.
@@ -9464,6 +9464,19 @@ mod tests {
 
         assert!(message.contains("risk_axis_out_of_range"), "{message}");
         assert!(message.contains("safety_risk"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_out_of_range_risk_axis_names_risk_namespace() {
+        let mut value =
+            serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
+        value["safety_risk"] = serde_json::json!(1.01);
+
+        let err = serde_json::from_value::<ACSRiskVector>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("risk_axis_out_of_range"), "{message}");
+        assert!(message.contains("risk.safety_risk"), "{message}");
     }
 
     #[test]
