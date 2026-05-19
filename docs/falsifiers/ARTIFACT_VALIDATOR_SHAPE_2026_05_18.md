@@ -434,6 +434,14 @@ ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_
 ```
 
 ```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md"); block=s[/## N275 - .*?```json\n(.*?)\n```/m,1] || abort("N275 missing"); x=JSON.parse(block); pat=Regexp.new(x["schema_pattern"]); abort("N275 mixed-case commit missing") unless x["commit_sha"] == "aaaaaaaaaaaaaaaaaaaaAaaaaaaaaaaaaaaaaaaa"; abort("N275 unexpectedly matches commit grammar") if x["commit_sha"].match?(pat); puts "mixed-case commit sha negative case ok"'
+```
+
+```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md"); block=s[/## N274 - .*?```json\n(.*?)\n```/m,1] || abort("N274 missing"); x=JSON.parse(block); pat=Regexp.new(x["schema_pattern"]); abort("N274 non-hex commit missing") unless x["commit_sha"] == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaag"; abort("N274 unexpectedly matches commit grammar") if x["commit_sha"].match?(pat); puts "non-hex commit sha negative case ok"'
+```
+
+```bash
 ruby -e 'h=File.read("docs/falsifiers/M2_PRO_VERIFIED_FLOOR_HANDBOOK_2026_05_18.md"); s=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); expected=%w[citation_membership fake_citation_rejection empty_vault_deferral source_trace_visible]; expected.each { |axis| abort("F-Eidos axis #{axis} missing") unless h.include?(axis) && s.include?(axis) }; puts "F-Eidos axis floor audit ok"'
 ```
 
