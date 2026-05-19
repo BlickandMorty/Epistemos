@@ -1825,6 +1825,45 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 40th Unicode row (iter-343): Canadian Aboriginal
+        // Syllabics extension. Adds a 38th non-Latin script
+        // (UCAS, U+1400–U+167F) — a featural-syllabic script
+        // invented by Methodist missionary James Evans in 1840
+        // for the Cree language. Adapted to ~15 First Nations
+        // languages including Cree, Ojibwe, Inuktitut, Naskapi,
+        // Carrier. SECOND Indigenous American script in the
+        // pin set (after Cherokee iter-191) — fills the
+        // geographic gap between Sequoyah's Cherokee (1819,
+        // Southeast US) and Adlam (1989, West Africa).
+        // Featural typology — glyph ORIENTATION encodes vowel,
+        // distinct from any pure syllabic / alphabetic system
+        // already pinned. Modern-invented-script cluster now
+        // covers 4 typologies (Cherokee syllabic, Vai
+        // syllabary, N'Ko alphabetic, Adlam bicameral,
+        // UCAS featural-syllabic = 5 typologies). BMP-plane
+        // codepoint (U+1431). Latin "Mamba" + UCAS "ᐱ" (Cree
+        // pi, U+1431) + Latin "cache".
+        query: "Mamba ᐱ cache",
+        expected_paths: &["notes/mamba_ucas.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Fortieth Unicode row (iter-343): Canadian \
+               Aboriginal Syllabics extension. THIRTY-EIGHT \
+               non-Latin scripts pinned. UCAS (1840) — \
+               featural-syllabic script invented by Methodist \
+               missionary James Evans for Cree, adapted to ~15 \
+               First Nations languages (Cree / Ojibwe / \
+               Inuktitut / Naskapi / Carrier). SECOND \
+               Indigenous American script in the pin set \
+               (after Cherokee iter-191). Featural typology — \
+               glyph orientation encodes vowel — fifth distinct \
+               typology in the modern-invented-script cluster \
+               (Cherokee + Vai + N'Ko + Adlam + UCAS). BMP-\
+               plane codepoint. Brings Unicode to depth 40 — \
+               first category past depth-39 horizon.",
+    },
+    FVaultRecallRow {
         // 39th Unicode row (iter-336): Adlam extension.
         // Adds a 37th non-Latin script (Adlam, U+1E900–
         // U+1E95F) — a modern script (1989) invented by
