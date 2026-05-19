@@ -1321,6 +1321,33 @@ mod tests {
     }
 
     #[test]
+    fn multi_axis_over_budget_reports_first_canonical_axis() {
+        let gate = BudgetGate::new(
+            BudgetSpec::new(10, 20, 1, 30).with_memory_bytes(40),
+        );
+        let err = gate
+            .check_and_debit(
+                BudgetLedger::default(),
+                BudgetDebit {
+                    tokens: 11,
+                    wall_ms: 21,
+                    tool_calls: 2,
+                    subprocess_ms: 31,
+                    memory_bytes: 41,
+                },
+            )
+            .expect_err("all axes over cap must reject");
+        assert!(matches!(
+            err,
+            BudgetError::Exhausted {
+                term: BudgetTerm::Tokens,
+                attempted_total: 11,
+                cap: 10
+            }
+        ));
+    }
+
+    #[test]
     fn subprocess_cap_enforced_independently() {
         let gate = BudgetGate::new(BudgetSpec::new(0, 0, 0, 5_000));
         let ledger = BudgetLedger { subprocess_used_ms: 4_900, ..Default::default() };
