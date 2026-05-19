@@ -1080,6 +1080,19 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_meroitic.md",
             "Mamba 𐦀 cache Mamba 𐦀 cache architecture notes meroitic",
         ),
+        // Iter-407 (49th Unicode — Meroitic Cursive extension):
+        // Latin "Mamba" + Meroitic Cursive "𐦠" (letter A,
+        // U+109A0) + Latin "cache". Meroitic Cursive is the
+        // everyday-script variant of Meroitic (contemporaneous
+        // with iter-400's Meroitic Hieroglyphic) — SAME LANGUAGE
+        // (Kushite) at SAME PERIOD using TWO DISTINCT SCRIPTS.
+        // Second descendant of Egyptian Hieroglyphs alongside
+        // iter-400. Sixth African-language script in pin set.
+        // 16th SMP-plane codepoint. 47 non-Latin scripts pinned.
+        (
+            "notes/mamba_meroitic_cursive.md",
+            "Mamba 𐦠 cache Mamba 𐦠 cache architecture notes meroitic_cursive",
+        ),
     ];
     for (path, content) in seeds {
         store
