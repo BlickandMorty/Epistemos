@@ -1165,6 +1165,32 @@ mod tests {
     }
 
     #[test]
+    fn debit_for_thinking_turn_with_zero_zero_produces_full_zero_debit() {
+        // Phase 1 hardening — boundary pin companion to
+        // debit_for_tool_call_with_zero_zero_still_sets_tool_calls_to_one
+        // (iter-443). for_thinking_turn(0, 0) is also a legitimate
+        // call (a thinking-only turn that emitted zero tokens — e.g.,
+        // an aborted-mid-thinking turn). Unlike for_tool_call, the
+        // for_thinking_turn helper sets tool_calls = 0 because no
+        // tool was invoked.
+        //
+        // The 5-axis result with (0, 0) input is the all-zero debit:
+        //   tokens=0, wall_ms=0, tool_calls=0, subprocess_ms=0, memory_bytes=0
+        // == BudgetDebit::default().
+        //
+        // A future "let me track thinking-only turns via a non-zero
+        // sentinel even at zero tokens" refactor would silently
+        // diverge for_thinking_turn(0, 0) from BudgetDebit::default().
+        let d = BudgetDebit::for_thinking_turn(0, 0);
+        assert_eq!(d, BudgetDebit::default(), "for_thinking_turn(0, 0) must equal default debit");
+        assert_eq!(d.tokens, 0);
+        assert_eq!(d.tool_calls, 0);
+        assert_eq!(d.wall_ms, 0);
+        assert_eq!(d.subprocess_ms, 0);
+        assert_eq!(d.memory_bytes, 0);
+    }
+
+    #[test]
     fn debit_for_tool_call_with_zero_zero_still_sets_tool_calls_to_one() {
         // Phase 1 hardening — boundary pin. for_tool_call(0, 0) is
         // a legitimate call (a tool that took zero prompt + zero
