@@ -745,6 +745,18 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_ogham.md",
             "Mamba ᚅ cache Mamba ᚅ cache architecture notes ogham",
         ),
+        // Iter-271 (30th Unicode — Sinhala-script extension):
+        // Latin "Mamba" + Sinhala "ක" (ka, U+0D9A) + Latin
+        // "cache". Sinhala is the Brahmic abugida for the
+        // Sinhala language (Sri Lanka). SEVENTH Brahmic abugida
+        // in the pin set (Devanagari + Thai + Khmer + Tibetan +
+        // Lao + Myanmar + Sinhala). Twenty-eight non-Latin
+        // scripts pinned (+ Sinhala). The Brahmic family alone
+        // now covers seven distinct descendant scripts.
+        (
+            "notes/mamba_sinhala.md",
+            "Mamba ක cache Mamba ක cache architecture notes sinhala",
+        ),
     ];
     for (path, content) in seeds {
         store
