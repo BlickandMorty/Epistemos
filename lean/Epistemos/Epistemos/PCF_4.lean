@@ -29,12 +29,19 @@ structure ComponentRoute where
 def ComponentRoute.length (r : ComponentRoute) : Nat :=
   r.component_path.length
 
+def ComponentRoute.requiresPCF1Gate (_r : ComponentRoute) : Bool :=
+  true
+
 theorem emptyComponentRouteLengthIsZero :
     ({ route_id := "pcf-4-deferred", component_path := [] } : ComponentRoute).length = 0 := by
   rfl
 
 theorem singletonComponentRouteLengthIsOne (route_id : String) (component : Nat) :
     ({ route_id := route_id, component_path := [component] } : ComponentRoute).length = 1 := by
+  rfl
+
+theorem componentRouteRequiresPCF1Gate (r : ComponentRoute) :
+    r.requiresPCF1Gate = true := by
   rfl
 
 end Epistemos.PCF4
