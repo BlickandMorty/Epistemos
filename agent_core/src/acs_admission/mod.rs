@@ -1712,7 +1712,10 @@ impl<'de> Deserialize<'de> for ACSKernelPromotionRequest {
     where
         D: serde::Deserializer<'de>,
     {
-        let wire = ACSKernelPromotionRequestWire::deserialize(deserializer)?;
+        let value = serde_json::Value::deserialize(deserializer)?;
+        require_kernel_promotion_request_known_fields::<D::Error>(&value)?;
+        let wire =
+            ACSKernelPromotionRequestWire::deserialize(value).map_err(serde::de::Error::custom)?;
         let request = Self {
             kernel_id: wire.kernel_id,
             signed_plan_hash: wire.signed_plan_hash,
@@ -1723,6 +1726,26 @@ impl<'de> Deserialize<'de> for ACSKernelPromotionRequest {
             .map_err(|err| serde::de::Error::custom(acs_admission_input_decode_error(&err)))?;
         Ok(request)
     }
+}
+
+fn require_kernel_promotion_request_known_fields<E>(value: &serde_json::Value) -> Result<(), E>
+where
+    E: serde::de::Error,
+{
+    let serde_json::Value::Object(object) = value else {
+        return Ok(());
+    };
+    for field in object.keys() {
+        if !matches!(
+            field.as_str(),
+            "kernel_id" | "signed_plan_hash" | "mutation_envelope_id"
+        ) {
+            return Err(E::custom(format!(
+                "forged_admission_input field=kernel_promotion.{field}"
+            )));
+        }
+    }
+    Ok(())
 }
 
 impl ACSKernelPromotionRequest {
@@ -1762,7 +1785,10 @@ impl<'de> Deserialize<'de> for ACSModelAdaptationRequest {
     where
         D: serde::Deserializer<'de>,
     {
-        let wire = ACSModelAdaptationRequestWire::deserialize(deserializer)?;
+        let value = serde_json::Value::deserialize(deserializer)?;
+        require_model_adaptation_request_known_fields::<D::Error>(&value)?;
+        let wire =
+            ACSModelAdaptationRequestWire::deserialize(value).map_err(serde::de::Error::custom)?;
         let request = Self {
             adapter_id: wire.adapter_id,
             model_id: wire.model_id,
@@ -1774,6 +1800,26 @@ impl<'de> Deserialize<'de> for ACSModelAdaptationRequest {
             .map_err(|err| serde::de::Error::custom(acs_admission_input_decode_error(&err)))?;
         Ok(request)
     }
+}
+
+fn require_model_adaptation_request_known_fields<E>(value: &serde_json::Value) -> Result<(), E>
+where
+    E: serde::de::Error,
+{
+    let serde_json::Value::Object(object) = value else {
+        return Ok(());
+    };
+    for field in object.keys() {
+        if !matches!(
+            field.as_str(),
+            "adapter_id" | "model_id" | "checkpoint_hash" | "mutation_envelope_id"
+        ) {
+            return Err(E::custom(format!(
+                "forged_admission_input field=model_adaptation.{field}"
+            )));
+        }
+    }
+    Ok(())
 }
 
 impl ACSModelAdaptationRequest {
@@ -6124,6 +6170,45 @@ mod tests {
 
         assert!(message.contains("forged_admission_input"), "{message}");
         assert!(message.contains("tool_action.shadow_tool"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_shadow_kernel_promotion_field_names_forged_admission_input_field() {
+        let value = serde_json::json!({
+            "kernel_id": "kernel-1",
+            "signed_plan_hash": "blake3:abc",
+            "mutation_envelope_id": "mutation-1",
+            "shadow_kernel": "kernel-smuggled"
+        });
+
+        let err = serde_json::from_value::<ACSKernelPromotionRequest>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("forged_admission_input"), "{message}");
+        assert!(
+            message.contains("kernel_promotion.shadow_kernel"),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn acs_admission_shadow_model_adaptation_field_names_forged_admission_input_field() {
+        let value = serde_json::json!({
+            "adapter_id": "adapter-1",
+            "model_id": "model-1",
+            "checkpoint_hash": "blake3:abc",
+            "mutation_envelope_id": "mutation-1",
+            "shadow_adapter": "adapter-smuggled"
+        });
+
+        let err = serde_json::from_value::<ACSModelAdaptationRequest>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("forged_admission_input"), "{message}");
+        assert!(
+            message.contains("model_adaptation.shadow_adapter"),
+            "{message}"
+        );
     }
 
     #[test]
