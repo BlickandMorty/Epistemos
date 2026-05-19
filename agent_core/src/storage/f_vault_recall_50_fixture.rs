@@ -5729,6 +5729,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 35th Adversarial row (iter-303): agent-runtime 5-term
+        // long-query — {agent, runtime, substrate, trace,
+        // invader}. Keeps all 4 primaries + 1 unique-to-iter-43
+        // context token (invader). Distinct from iter-120 6-
+        // term agent-runtime long-query (which used {agent,
+        // runtime, substrate, trace, system, canon}). Fifth
+        // canonical at 5-term coverage (after MLX-Swift, BM25-
+        // IR, vault, graph-event).
+        query: "agent runtime substrate trace invader",
+        expected_paths: &["notes/agent_runtime_v2_substrate.md"],
+        forbidden_paths: &[
+            "notes/agent_brainstorm.md",
+            "notes/runtime_old_design.md",
+            "notes/substrate_concepts.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Thirty-fifth Adversarial row (iter-303): agent-\
+               runtime 5-term long-query \"agent runtime \
+               substrate trace invader\". Fifth canonical at 5-\
+               term coverage (after MLX-Swift, BM25-IR, vault, \
+               graph-event). iter-43 canonical 5/5 (all 4 \
+               primaries + invader); iter-75 pair-partner has \
+               agent+runtime+substrate but no trace/invader → \
+               3/5; decoys ≤1 of 5. Brings Adversarial to \
+               depth 35. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 34th Adversarial row (iter-295): graph-event 5-term
         // long-query — {graph, node, update, event, session}.
         // Keeps all 4 primaries + 1 tail context token. Fourth
