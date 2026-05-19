@@ -1996,6 +1996,39 @@ mod tests {
     }
 
     #[test]
+    fn find_tool_calls_returns_byte_equal_call_references() {
+        // Phase 1 hardening — content-preservation pin for find_tool_calls.
+        // Companion to find_tool_calls_returns_calls_with_ordinals_in_order
+        // (which spot-checks one call's name) — this pins that the
+        // RETURNED &ToolCall references point to the SAME structural
+        // content as the appended ToolCall (no slicing, no rewriting,
+        // no name normalization).
+        use crate::agent_runtime_v2::mission::ToolCall;
+        let mut log = RunEventLog::new();
+        let call_a = ToolCall {
+            name: "vault.read".into(),
+            arguments: serde_json::json!({"path": "vault/a.md", "limit": 100}),
+        };
+        let call_b = ToolCall {
+            name: "vault.search".into(),
+            arguments: serde_json::json!({"q": "Aegis is rejected", "fuzzy": false}),
+        };
+        log.append_event(AgentEvent::ToolCall { call: call_a.clone() });
+        log.append_event(AgentEvent::ToolCall { call: call_b.clone() });
+
+        let hits = log.find_tool_calls();
+        assert_eq!(hits.len(), 2);
+        // Each returned reference must deep-equal the appended call.
+        assert_eq!(hits[0].1, &call_a, "first hit must equal call_a byte-for-byte");
+        assert_eq!(hits[1].1, &call_b, "second hit must equal call_b byte-for-byte");
+        // Argument contents preserved (no normalisation).
+        assert_eq!(hits[0].1.arguments["path"], "vault/a.md");
+        assert_eq!(hits[0].1.arguments["limit"], 100);
+        assert_eq!(hits[1].1.arguments["q"], "Aegis is rejected");
+        assert_eq!(hits[1].1.arguments["fuzzy"], false);
+    }
+
+    #[test]
     fn find_tool_calls_returns_ordinals_in_strictly_ascending_order() {
         // Phase 1 hardening — ordering pin for find_tool_calls.
         // Companion to find_capability_hash_returns_ordinals_in_strictly_ascending_order
