@@ -2983,6 +2983,35 @@ mod tests {
     }
 
     #[test]
+    fn budget_overflow_at_unbounded_cap_still_saturates_all_five_axes() {
+        let gate = BudgetGate::new(BudgetSpec::default());
+        let near_max = BudgetLedger {
+            tokens_used: u64::MAX - 5,
+            wall_used_ms: u64::MAX - 5,
+            tool_calls_used: u64::MAX - 5,
+            subprocess_used_ms: u64::MAX - 5,
+            memory_bytes_used: u64::MAX - 5,
+        };
+        let advanced = gate
+            .check_and_debit(
+                near_max,
+                BudgetDebit {
+                    tokens: u64::MAX,
+                    wall_ms: u64::MAX,
+                    tool_calls: u64::MAX,
+                    subprocess_ms: u64::MAX,
+                    memory_bytes: u64::MAX,
+                },
+            )
+            .expect("unbounded gate accepts all five near-MAX debits without panic");
+        assert_eq!(advanced.tokens_used, u64::MAX);
+        assert_eq!(advanced.wall_used_ms, u64::MAX);
+        assert_eq!(advanced.tool_calls_used, u64::MAX);
+        assert_eq!(advanced.subprocess_used_ms, u64::MAX);
+        assert_eq!(advanced.memory_bytes_used, u64::MAX);
+    }
+
+    #[test]
     fn budget_ledger_default_is_all_zero_across_every_axis() {
         // Phase 1 hardening — companion to budget_debit_default. Pin
         // that BudgetLedger::default() has every field == 0 — a
