@@ -248,6 +248,10 @@ Last audited: 2026-05-18. [F-SemiseparableBlockScan](F_SEMISEPARABLE_BLOCK_SCAN_
 
 Last audited: 2026-05-18. [F-LocalRecallIsland](F_LOCAL_RECALL_ISLAND_2026_05_18.md) maps to schema axes `peak_memory_gb`, `passkey_recall`, `niah_single_1`, and `depth_failure_labels`; the row requires Core lane peak memory at or below 4.5 GB for model plus KV/state plus workspace, Mohtashami-Jaggi passkey recall at or above 0.95, `niah_single_1` at or above 0.95 over 250 trials, and per-depth/model/context failure labels before its recall-island artifact can satisfy the [Cross-Gate Axis Floors](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#cross-gate-axis-floors).
 
+## F-KV-Direct-Gate Axis Floor Audit
+
+Last audited: 2026-05-18. [F-KV-Direct-Gate](F_KV_DIRECT_GATE_2026_05_18.md) maps to schema axes `average_d_kl_nats`, `peak_ram_gb`, `decode_tok_s`, `suite_wall_clock_min`, and `spill_labeling`; the row requires average D_KL below 0.05 nats between full-RAM KV and residual-patched KV logits over the 100-prompt Qwen3-8B suite, peak RAM below 13 GB, decode speed at or above 10 tok/s, suite wall-clock at or below 30 minutes, and explicit synthetic SSD-spill labeling before its KV-Direct artifact can satisfy the [Cross-Gate Axis Floors](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#cross-gate-axis-floors).
+
 ## Replay Eligibility Audit
 
 Last audited: 2026-05-18. The schema replay-ineligibility checklist now fails artifacts linearly for missing command digests, missing fixture-manifest digests, missing sidecar digests, mismatched sidecar bytes, missing JSONL manifests, invalid JSONL manifest envelopes, `jsonl_file_sha256` drift from `result_digest`, runner-environment drift from the closed execution pin, missing OS build, missing toolchain identity, or missing thermal/power capture, blocking anomalies without evidence refs, missing threshold-source provenance, provider threshold refs without matching receipts, thermal-pressure timing passes without blocking anomalies, battery/unknown-power timing passes without blocking anomalies, measurement `evidence_kind` drift from the measurement source shape, and aggregate `sample_count` drift from embedded or sidecar samples.
