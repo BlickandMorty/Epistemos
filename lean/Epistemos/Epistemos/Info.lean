@@ -182,6 +182,24 @@ theorem bernoulliBregmanZeroIffEqual (p q : Real) (h : p = q) :
   subst q
   exact ⟨ExpFamily.bernoulli_wellFormed, rfl, rfl, rfl⟩
 
+def bernoulliBregmanPositivityObligation
+    (p q : Real) : BregmanPositivityObligation :=
+  { family := ExpFamily.bernoulli
+    pParams := [p]
+    qParams := [q]
+    nonnegative := bregmanNonnegative ExpFamily.bernoulli [p] [q]
+    zeroIffEqual := bregmanZeroIffEqual ExpFamily.bernoulli [p] [q]
+    sourceRow := "Info-IR.bernoulliBregmanPositivity" }
+
+theorem bernoulliBregmanPositivityObligationNonnegative (p q : Real) :
+    (bernoulliBregmanPositivityObligation p q).nonnegative := by
+  exact bernoulliBregmanNonnegative p q
+
+theorem bernoulliBregmanPositivityObligationZeroIffEqual
+    (p q : Real) (h : p = q) :
+    (bernoulliBregmanPositivityObligation p q).zeroIffEqual := by
+  exact bernoulliBregmanZeroIffEqual p q h
+
 theorem bernoulliMirrorDescentEquivalent :
     mirrorDescentEquivalent ExpFamily.bernoulli := by
   exact ExpFamily.bernoulli_wellFormed
