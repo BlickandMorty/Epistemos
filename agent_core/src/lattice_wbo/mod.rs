@@ -1811,15 +1811,21 @@ mod tests {
         ));
         assert!(!contains_falsifier_hook("βF-ULP-Oracle", "F-ULP-Oracle"));
         assert!(!contains_falsifier_hook("F-ULP-Oracleβ", "F-ULP-Oracle"));
+        assert!(!contains_falsifier_hook("_F-ULP-Oracle", "F-ULP-Oracle"));
+        assert!(!contains_falsifier_hook("F-ULP-Oracle_", "F-ULP-Oracle"));
         assert_eq!(f_hooks_in("F-ULP-Oracle/v2"), vec!["F-ULP-Oracle/v2"]);
         assert_eq!(
             f_hooks_in("F-WBO-DriftLedger/v2"),
             vec!["F-WBO-DriftLedger/v2"]
         );
         assert_eq!(f_hooks_in("F-ULP-Oracleβ"), vec!["F-ULP-Oracleβ"]);
+        assert!(f_hooks_in("_F-ULP-Oracle").is_empty());
+        assert_eq!(f_hooks_in("F-ULP-Oracle_"), vec!["F-ULP-Oracle_"]);
         assert!(!falsifier_hooks_are_owned("F-ULP-Oracle/v2"));
         assert!(!falsifier_hooks_are_owned("F-WBO-DriftLedger/v2"));
         assert!(!falsifier_hooks_are_owned("F-ULP-Oracleβ"));
+        assert!(!falsifier_hooks_are_owned("_F-ULP-Oracle"));
+        assert!(!falsifier_hooks_are_owned("F-ULP-Oracle_"));
         assert!(!falsifier_hooks_are_owned("f-ulp-oracle"));
         assert!(!falsifier_hooks_are_owned("f-wbo-driftledger"));
         assert!(!falsifier_hooks_are_owned("residual KL slice"));
@@ -4628,6 +4634,7 @@ mod tests {
             "exact-case verifier matching",
             "hook checks are exact-case and delimiter-aware, not case-insensitive substrings",
             "non-ASCII hook adjacency is rejected instead of treated as punctuation",
+            "underscore hook adjacency is rejected instead of treated as punctuation",
             "punctuation-delimited canonical hooks remain valid",
             "`falsifier_hook_extraction_accepts_markdown_punctuation_boundaries`",
             "Markdown punctuation around canonical `F-*` hooks is accepted while adjacent word characters stay rejected",
