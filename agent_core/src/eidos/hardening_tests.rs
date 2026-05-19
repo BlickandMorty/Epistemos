@@ -157,7 +157,7 @@ fn assert_iter_format_canonical_panics_on_out_of_range() {
     assert_iter_format_canonical("iter 099", "MY_SOURCE_LABEL");
 }
 
-/// Iter 723 — catalog range continuation pin.
+/// Iter 724 — catalog range continuation pin.
 /// STATUS.md is the contributor-facing catalog for the closed-citation
 /// hardening arc. When new pins land after the previous range tip, the
 /// range must advance in lock-step so future readers can tell the arc is
@@ -167,9 +167,9 @@ fn status_md_closed_citation_iter_range_tip_tracks_latest_catalog_pin() {
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Closed-citation contract hardening (iters 127-723)"),
+        status.contains("Closed-citation contract hardening (iters 127-724)"),
         "STATUS.md closed-citation hardening catalog must advance its iter \
-         range tip to iter 723 when the catalog-continuation pin lands"
+         range tip to iter 724 when the catalog-continuation pin lands"
     );
 }
 
@@ -1390,6 +1390,36 @@ fn adversarial_query_fixture_lookup_by_index_is_ordered_and_bounded() {
         adversarial_query_fixture_at(3).is_none(),
         "out-of-range fixture index fails closed instead of wrapping or clamping"
     );
+}
+
+#[test]
+fn adversarial_query_fixture_indices_are_ordered_unique_and_lookup_complete() {
+    use super::adversarial::{
+        adversarial_query_fixture_at, adversarial_query_fixture_indices,
+        ADVERSARIAL_QUERY_FIXTURES,
+    };
+
+    let indices = adversarial_query_fixture_indices();
+    assert_eq!(
+        indices,
+        [0, 1, 2],
+        "fixture ordinal indices are a stable harness sweep contract"
+    );
+    assert_eq!(indices.len(), ADVERSARIAL_QUERY_FIXTURES.len());
+
+    let unique: std::collections::BTreeSet<usize> = indices.iter().copied().collect();
+    assert_eq!(
+        unique.len(),
+        indices.len(),
+        "fixture indices must remain pairwise unique"
+    );
+
+    for index in indices {
+        assert!(
+            adversarial_query_fixture_at(*index).is_some(),
+            "every enumerated fixture index must resolve through bounded lookup"
+        );
+    }
 }
 
 #[test]
