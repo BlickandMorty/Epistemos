@@ -4816,7 +4816,7 @@ mod tests {
             "missing required active support fails before missing `T_num`",
             "`ledger_validation_rejects_malformed_active_support_before_missing_t_num`",
             "malformed secondary active support fails before missing `T_num`",
-            "`ledger_validation_rejects_active_support_budget_on_disallowed_tiers`",
+            "`active_support_budget_disallowed_tier_rejection_matrix_counts_are_pinned`",
             "max active-support axes do not bypass disallowed tier rejection",
             "`ledger_validation_rejects_every_non_active_support_budget_side_information`",
             "secondary `ActiveSupportBudget` rejects every non-`ActiveSupport` side-information tag",
@@ -6619,6 +6619,17 @@ mod tests {
         assert!(
             register.contains("active_support_budget_residency_matrix_counts_are_pinned"),
             "register must cross-link active-support residency matrix counts"
+        );
+    }
+
+    #[test]
+    fn register_doc_cross_links_active_support_disallowed_rejection_matrix_counts() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains(
+                "active_support_budget_disallowed_tier_rejection_matrix_counts_are_pinned"
+            ),
+            "register must cross-link active-support disallowed-tier rejection matrix counts"
         );
     }
 
@@ -8946,7 +8957,7 @@ mod tests {
     }
 
     #[test]
-    fn ledger_validation_rejects_active_support_budget_on_disallowed_tiers() {
+    fn active_support_budget_disallowed_tier_rejection_matrix_counts_are_pinned() {
         let mut checked = 0;
         let active_support_cases = [
             ActiveSupportBudget::new(1, 1, 1, SideInformationKind::ActiveSupport),
@@ -8996,6 +9007,8 @@ mod tests {
             .iter()
             .filter(|tier| !tier.allows_active_support_budget())
             .count();
+        assert_eq!(expected, 5);
+        assert_eq!(checked, 10);
         assert_eq!(checked, expected * active_support_cases.len());
     }
 
