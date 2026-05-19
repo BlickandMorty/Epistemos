@@ -3791,6 +3791,12 @@ impl<'de> Deserialize<'de> for ACSPolicy {
             "thresholds",
             serde_json::Value::is_object,
         )?;
+        require_policy_field::<D::Error>(
+            &value,
+            "required_capabilities",
+            "required_capabilities",
+            serde_json::Value::is_array,
+        )?;
         let wire = ACSPolicyWire::deserialize(value).map_err(serde::de::Error::custom)?;
         let policy = Self {
             policy_id: wire.policy_id,
@@ -7827,6 +7833,22 @@ mod tests {
 
         assert!(message.contains("malformed_policy"), "{message}");
         assert!(message.contains("expires_at_ms"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_missing_policy_required_capabilities_names_malformed_policy_field() {
+        let mut value = serde_json::to_value(ACSPolicy::strict("policy-missing-required", 1_000))
+            .expect("policy encodes");
+        value
+            .as_object_mut()
+            .expect("policy encodes as object")
+            .remove("required_capabilities");
+
+        let err = serde_json::from_value::<ACSPolicy>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(message.contains("required_capabilities"), "{message}");
     }
 
     #[test]
