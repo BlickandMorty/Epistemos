@@ -827,6 +827,18 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_error_kind_debug_repr_is_stable_for_audit_logs() {
+        for (kind, expected) in [
+            (AgentEventErrorKind::MalformedToolCall, "MalformedToolCall"),
+            (AgentEventErrorKind::BudgetExhausted, "BudgetExhausted"),
+            (AgentEventErrorKind::CapabilityDenied, "CapabilityDenied"),
+            (AgentEventErrorKind::Provider, "Provider"),
+        ] {
+            assert_eq!(format!("{kind:?}"), expected);
+        }
+    }
+
+    #[test]
     fn agent_event_is_clone_send_sync_but_not_copy() {
         // Phase 1 hardening — trait-bound pin for the executor-stream
         // event enum. Companion to AgentBlueprintId iter-375 through
