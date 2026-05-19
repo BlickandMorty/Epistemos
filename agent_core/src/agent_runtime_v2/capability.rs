@@ -415,6 +415,42 @@ mod tests {
     }
 
     #[test]
+    fn macaroon_capability_kind_and_scope_delegate_to_macaroon_base_fields() {
+        // Phase 1 hardening — delegation pin for MacaroonCapability's
+        // AgentRuntimeV2Capability impl. kind() must return a reference
+        // to the underlying macaroon's base_kind (capability.rs §81-83);
+        // scope() must return a reference to base_scope (§85-87).
+        //
+        // The implementation simply borrows the fields:
+        //   fn kind(&self) -> &CapabilityKind { &self.macaroon.base_kind }
+        //   fn scope(&self) -> &CapabilityScope { &self.macaroon.base_scope }
+        //
+        // A future "let me return a normalised lowercase scope" or
+        // "let me cache kind into a side-table" refactor would silently
+        // break the byte-equal delegation contract — surface here.
+        use crate::cognitive_dag::macaroons::issue;
+        let m = issue(
+            "delegation-pin",
+            CapabilityKind::ToolInvoke("vault.write".into()),
+            CapabilityScope("vault/notes/2026".into()),
+            Some(10_000),
+            &root_key_a(),
+        );
+        let cap = MacaroonCapability::new(m.clone(), root_key_a());
+        // kind() returns a reference equal to macaroon().base_kind.
+        assert_eq!(cap.kind(), &m.base_kind);
+        assert_eq!(cap.kind(), cap.macaroon().kind_ref_via_field());
+        // scope() returns a reference equal to macaroon().base_scope.
+        assert_eq!(cap.scope(), &m.base_scope);
+    }
+
+    impl crate::cognitive_dag::macaroons::Macaroon {
+        fn kind_ref_via_field(&self) -> &CapabilityKind {
+            &self.base_kind
+        }
+    }
+
+    #[test]
     fn macaroon_capability_getters_are_pure_deterministic_across_multiple_calls() {
         // Phase 1 hardening — runtime determinism pin (companion to
         // the purity series). MacaroonCapability::{kind, scope,
