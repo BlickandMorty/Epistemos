@@ -3034,6 +3034,37 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 31st Paraphrase row (iter-276): NEW axis — COMBINING-
+        // DIACRITIC INJECTION. User types "Mam̃ba" with combining
+        // tilde (U+0303) over the second "m". Tantivy treats
+        // combining marks as part of the alphanumeric token →
+        // "mam̃ba" stays as a single Unicode-Letter-with-mark
+        // token, distinct from "mamba". 3-term AND on
+        // {mam̃ba, ssm, cache} blocks the canonical. Distinct
+        // from iter-3 Unicode precomposed-diacritic "naïve" (the
+        // diacritic ALREADY in the seed → row PASSES via no-
+        // fold contract); iter-276 has diacritic ONLY in the
+        // query → row FAILS by design, pinning Fix-C deferred
+        // NFC/NFD-normalization work. Twenty-eighth named
+        // failure subclass.
+        query: "Mam̃ba SSM cache",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Combining-diacritic-injection Paraphrase axis \
+               (axis #28): user injects combining tilde \
+               (U+0303) over second \"m\" → \"mam̃ba\" one \
+               token. 3-term AND on {mam̃ba, ssm, cache} blocks \
+               the canonical. Distinct from iter-3 Unicode \
+               PRECOMPOSED-diacritic (\"naïve\" in seed, query \
+               also has it — row passes via no-fold); iter-276 \
+               injects diacritic ONLY in query → fails by \
+               design. Pins deferred NFC/NFD normalization. \
+               Twenty-eighth named failure subclass. Brings \
+               Paraphrase to depth 31.",
+    },
+    FVaultRecallRow {
         // 30th Paraphrase row (iter-268): NEW axis — REPEATED-
         // CHARACTER TYPO (key-stick / held-key edit). User types
         // "Mamba SSM cachhhe" — letter "h" repeated 3 times
