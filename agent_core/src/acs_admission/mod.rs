@@ -2553,6 +2553,8 @@ impl<'de> Deserialize<'de> for SCOPERexAdmissionProof {
     {
         let value = serde_json::Value::deserialize(deserializer)?;
         require_scope_rex_proof_known_fields::<D::Error>(&value)?;
+        require_scope_rex_proof_field::<D::Error>(&value, "verdict")?;
+        require_scope_rex_proof_field::<D::Error>(&value, "operation")?;
         let wire =
             SCOPERexAdmissionProofWire::deserialize(value).map_err(serde::de::Error::custom)?;
         let proof = Self {
@@ -2596,6 +2598,25 @@ where
         }
     }
     Ok(())
+}
+
+fn require_scope_rex_proof_field<E>(value: &serde_json::Value, field: &'static str) -> Result<(), E>
+where
+    E: serde::de::Error,
+{
+    let serde_json::Value::Object(object) = value else {
+        return Err(E::custom("malformed_acs_admission_proof field=proof"));
+    };
+    if object.contains_key(field) {
+        return Ok(());
+    }
+    let record_id = object
+        .get("record_id")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    Err(E::custom(format!(
+        "malformed_acs_admission_proof field={field} record_id={record_id}"
+    )))
 }
 
 fn scope_rex_proof_decode_error(error: &ACSAdmissionProofError) -> String {
@@ -7631,6 +7652,24 @@ mod tests {
             "{message}"
         );
         assert!(message.contains(record_id), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_scope_rex_proof_missing_operation_names_malformed_proof_field() {
+        let encoded = serde_json::json!({
+            "verdict": "allow",
+            "record_id": "acs:req:1001",
+            "signature": "00".repeat(CAPABILITY_SIGNATURE_BYTES),
+        });
+
+        let err = serde_json::from_value::<SCOPERexAdmissionProof>(encoded).unwrap_err();
+        let message = err.to_string();
+
+        assert!(
+            message.contains("malformed_acs_admission_proof"),
+            "{message}"
+        );
+        assert!(message.contains("operation"), "{message}");
     }
 
     #[test]
