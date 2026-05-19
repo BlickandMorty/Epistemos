@@ -1667,6 +1667,33 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 34th Unicode row (iter-301): Brahmi-script extension.
+        // Adds a 32nd non-Latin script (Brahmi, U+11000–U+1107F)
+        // — the COMMON ANCESTOR of the entire Brahmic family
+        // (ca. 3rd c BCE - 4th c CE). The 7 Brahmic descendants
+        // already pinned (Devanagari + Thai + Khmer + Tibetan +
+        // Lao + Myanmar + Sinhala) all descend from Brahmi.
+        // THIRD ancestral script in the pin set (after
+        // Phoenician = Greek + Aramaic root; Old Italic = Latin
+        // root). THIRD SMP-plane codepoint. Latin "Mamba" +
+        // Brahmi "𑀓" (ka, U+11013) + Latin "cache".
+        query: "Mamba 𑀓 cache",
+        expected_paths: &["notes/mamba_brahmi.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Thirty-fourth Unicode row (iter-301): Brahmi-\
+               script extension. THIRTY-TWO non-Latin scripts \
+               pinned. Brahmi (ca. 3rd c BCE - 4th c CE) is the \
+               common ancestor of the entire Brahmic family — \
+               the 7 Brahmic descendants already pinned all \
+               trace back to Brahmi. THIRD ancestral script in \
+               the pin set: Phoenician (Greek + Aramaic root) + \
+               Old Italic (Latin root) + Brahmi (Brahmic root). \
+               Third SMP-plane codepoint. Brings Unicode to \
+               depth 34 — closes **uniform-≥-34 milestone**.",
+    },
+    FVaultRecallRow {
         // 33rd Unicode row (iter-293): Old Italic-script
         // extension. Adds a 31st non-Latin script (Old Italic,
         // U+10300–U+1032F) — used for Etruscan, Oscan, Faliscan

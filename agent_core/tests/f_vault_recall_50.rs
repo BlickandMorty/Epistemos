@@ -805,6 +805,21 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_old_italic.md",
             "Mamba 𐌊 cache Mamba 𐌊 cache architecture notes old_italic",
         ),
+        // Iter-301 (34th Unicode — Brahmi-script extension):
+        // Latin "Mamba" + Brahmi "𑀓" (ka, U+11013) + Latin
+        // "cache". Brahmi (ca. 3rd century BCE - 4th CE) is the
+        // COMMON ANCESTOR of the entire Brahmic family — the 7
+        // Brahmic descendants already pinned (Devanagari + Thai +
+        // Khmer + Tibetan + Lao + Myanmar + Sinhala) all
+        // descend from Brahmi. Adds the THIRD ancestral script
+        // alongside Phoenician (Greek + Aramaic branches) and
+        // Old Italic (Latin branch). Third SMP-plane codepoint
+        // (U+11013 > U+FFFF). Thirty-two non-Latin scripts
+        // pinned (+ Brahmi).
+        (
+            "notes/mamba_brahmi.md",
+            "Mamba 𑀓 cache Mamba 𑀓 cache architecture notes brahmi",
+        ),
     ];
     for (path, content) in seeds {
         store
