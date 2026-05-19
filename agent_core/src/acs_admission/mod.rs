@@ -3378,7 +3378,7 @@ impl ACSAuditSink for ACSRunEventLogSink<'_> {
                 record_id: node_id,
             });
         }
-        if run_event_log_latest_acs_emitted_at_ms(self.run_event_log)
+        if run_event_log_max_acs_emitted_at_ms(self.run_event_log)
             .is_some_and(|emitted_at_ms| record.emitted_at_ms < emitted_at_ms)
         {
             return Err(ACSAuditError::NonMonotonicAuditLog {
@@ -3426,12 +3426,11 @@ fn run_event_log_contains_acs_record(run_event_log: &OpLog, record_id: &str) -> 
         })
 }
 
-fn run_event_log_latest_acs_emitted_at_ms(run_event_log: &OpLog) -> Option<i64> {
+fn run_event_log_max_acs_emitted_at_ms(run_event_log: &OpLog) -> Option<i64> {
     run_event_log
         .iter_all()
         .into_iter()
-        .rev()
-        .find_map(|op| match op.payload {
+        .filter_map(|op| match op.payload {
             OpPayload::PropSet { key, value, .. } if key == ACS_AUDIT_RUN_EVENT_KEY => {
                 serde_json::from_value::<ACSAuditRecord>(value)
                     .ok()
@@ -3439,6 +3438,7 @@ fn run_event_log_latest_acs_emitted_at_ms(run_event_log: &OpLog) -> Option<i64> 
             }
             _ => None,
         })
+        .max()
 }
 
 fn run_event_log_contains_stricter_same_request_verdict(
@@ -9449,6 +9449,62 @@ mod tests {
         assert_eq!(err.field(), Some("emitted_at_ms"));
         assert_eq!(err.record_id(), Some(regressing.record_id.as_str()));
         assert_eq!(run_event_log.len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_run_event_log_sink_rejects_record_below_historical_audit_time() {
+        let run_event_log = crate::oplog::OpLog::new("acs-admission-run-event-historical-time");
+        let sink = ACSRunEventLogSink::new(&run_event_log);
+        let first = ACSAuditRecord {
+            record_id: "acs:req-run-event-high:2000".to_string(),
+            request_id: "req-run-event-high".to_string(),
+            policy_id: "policy".to_string(),
+            policy_version: 1,
+            operation: ACSOperationKind::MemoryWrite,
+            verdict: ACSAdmissionVerdict::Allow,
+            reason: ACSAdmissionVerdict::Allow.code().to_string(),
+            risk_max: 0.0,
+            emitted_at_ms: 2_000,
+        };
+        let second = ACSAuditRecord {
+            record_id: "acs:req-run-event-low:1500".to_string(),
+            request_id: "req-run-event-low".to_string(),
+            policy_id: "policy".to_string(),
+            policy_version: 1,
+            operation: ACSOperationKind::MemoryWrite,
+            verdict: ACSAdmissionVerdict::Allow,
+            reason: ACSAdmissionVerdict::Allow.code().to_string(),
+            risk_max: 0.0,
+            emitted_at_ms: 1_500,
+        };
+        for record in [first, second] {
+            run_event_log.append(crate::oplog::OpPayload::PropSet {
+                node_id: record.record_id.clone(),
+                key: ACS_AUDIT_RUN_EVENT_KEY.to_string(),
+                value: serde_json::to_value(record).expect("audit record encodes"),
+            });
+        }
+
+        let regressing = ACSAuditRecord {
+            record_id: "acs:req-run-event-mid:1750".to_string(),
+            request_id: "req-run-event-mid".to_string(),
+            policy_id: "policy".to_string(),
+            policy_version: 1,
+            operation: ACSOperationKind::MemoryWrite,
+            verdict: ACSAdmissionVerdict::Allow,
+            reason: ACSAdmissionVerdict::Allow.code().to_string(),
+            risk_max: 0.0,
+            emitted_at_ms: 1_750,
+        };
+
+        let err = sink
+            .record(regressing.clone())
+            .expect_err("RunEventLog sink must reject records below historical audit time");
+
+        assert_eq!(err.cause(), "non_monotonic_acs_audit_log");
+        assert_eq!(err.field(), Some("emitted_at_ms"));
+        assert_eq!(err.record_id(), Some(regressing.record_id.as_str()));
+        assert_eq!(run_event_log.len(), 2);
     }
 
     #[test]
