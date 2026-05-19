@@ -65,14 +65,14 @@ impl<'de> Deserialize<'de> for ACSRiskVector {
         D: serde::Deserializer<'de>,
     {
         let value = serde_json::Value::deserialize(deserializer)?;
-        require_risk_vector_field::<D::Error>(&value, "truth_risk")?;
-        require_risk_vector_field::<D::Error>(&value, "safety_risk")?;
-        require_risk_vector_field::<D::Error>(&value, "privacy_risk")?;
-        require_risk_vector_field::<D::Error>(&value, "capability_risk")?;
-        require_risk_vector_field::<D::Error>(&value, "durability_risk")?;
-        require_risk_vector_field::<D::Error>(&value, "scope_rex_risk")?;
-        require_risk_vector_field::<D::Error>(&value, "kernel_promotion_risk")?;
-        require_risk_vector_field::<D::Error>(&value, "model_adaptation_risk")?;
+        require_risk_number_field::<D::Error>(&value, "truth_risk")?;
+        require_risk_number_field::<D::Error>(&value, "safety_risk")?;
+        require_risk_number_field::<D::Error>(&value, "privacy_risk")?;
+        require_risk_number_field::<D::Error>(&value, "capability_risk")?;
+        require_risk_number_field::<D::Error>(&value, "durability_risk")?;
+        require_risk_number_field::<D::Error>(&value, "scope_rex_risk")?;
+        require_risk_number_field::<D::Error>(&value, "kernel_promotion_risk")?;
+        require_risk_number_field::<D::Error>(&value, "model_adaptation_risk")?;
         require_risk_vector_field::<D::Error>(&value, "evidence_present")?;
         let wire = ACSRiskVectorWire::deserialize(value).map_err(serde::de::Error::custom)?;
         let risk = Self {
@@ -89,6 +89,24 @@ impl<'de> Deserialize<'de> for ACSRiskVector {
         risk.validate()
             .map_err(|err| serde::de::Error::custom(acs_risk_vector_decode_error(&err)))?;
         Ok(risk)
+    }
+}
+
+fn require_risk_number_field<E>(value: &serde_json::Value, field: &'static str) -> Result<(), E>
+where
+    E: serde::de::Error,
+{
+    match value {
+        serde_json::Value::Object(object)
+            if object.get(field).is_some_and(serde_json::Value::is_number) =>
+        {
+            Ok(())
+        }
+        serde_json::Value::Object(object) if object.contains_key(field) => {
+            Err(E::custom(format!("malformed_risk_axis field={field}")))
+        }
+        serde_json::Value::Object(_) => Err(E::custom(format!("missing_risk_axis field={field}"))),
+        _ => Err(E::custom("risk vector must be an object")),
     }
 }
 
@@ -7260,8 +7278,21 @@ mod tests {
         let err = serde_json::from_value::<ACSRiskVector>(value).unwrap_err();
         let message = err.to_string();
 
-        assert!(message.contains("missing_risk_axis"), "{message}");
+        assert!(message.contains("malformed_risk_axis"), "{message}");
         assert!(message.contains("truth_risk"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_typed_risk_axis_names_decode_field() {
+        let mut value =
+            serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
+        value["privacy_risk"] = serde_json::json!("0.1");
+
+        let err = serde_json::from_value::<ACSRiskVector>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_risk_axis"), "{message}");
+        assert!(message.contains("privacy_risk"), "{message}");
     }
 
     #[test]
