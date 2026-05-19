@@ -325,6 +325,40 @@ mod tests {
     }
 
     #[test]
+    fn para_seq_output_is_clone_send_sync_and_feedback_is_send_sync() {
+        // Phase 1 hardening — trait-bound pin for the ParaSeq surface
+        // composite types. Companion to ParaError + ParaOutput +
+        // ParaFeedback iter-382.
+        //
+        //   - ParaSeqOutput<B, C>: 2 nested ParaOutput<B>, ParaOutput<C>
+        //     fields. Clone + PartialEq by derive (compose.rs §82),
+        //     NOT Copy when B/C allocate.
+        //   - ParaSeqFeedback<P>: 2 nested ParaFeedback<P> fields.
+        //     DELIBERATELY does NOT derive Clone (compose.rs §92 —
+        //     only Debug + manual Send/Sync inherited from P). Pin
+        //     the Send + Sync subset that IS guaranteed; a future
+        //     refactor adding Clone would surface as a separate
+        //     pin update, not a silent contract break.
+        //
+        // Pinned for the canonical (B=usize, C=String) composite and
+        // ParaFeedback<u32>. Send + Sync are load-bearing — composed
+        // outputs cross the dispatcher's chained-stage boundary, and
+        // composed feedback rides back through the same path.
+        //
+        // A future "let me hold a Weak<ParaSeq>" inside ParaSeqOutput
+        // refactor that introduced a non-Send field would silently
+        // break the cross-thread composition path.
+        fn assert_clone_send_sync<T: Clone + Send + Sync>() {}
+        fn assert_send_sync<T: Send + Sync>() {}
+        assert_clone_send_sync::<ParaSeqOutput<usize, String>>();
+        assert_send_sync::<ParaSeqFeedback<u32>>();
+
+        let seq = ParaSeq::new(&LenStage, &LabelStage);
+        let out = seq.fwd(&0, "hello").expect("fwd ok");
+        assert_eq!(out.clone(), out);
+    }
+
+    #[test]
     fn para_seq_rev_runs_outer_before_inner_per_chain_rule() {
         // Phase 1 hardening MILESTONE iter-360 — symmetric companion
         // to para_seq_fwd_runs_inner_before_outer_per_chain_rule
