@@ -70,6 +70,12 @@ pub const ADVERSARIAL_QUERY_FIXTURE_KINDS: &[AdversarialQueryFixtureKind] = &[
     AdversarialQueryFixtureKind::NearDuplicateParagraphTie,
 ];
 
+pub const ADVERSARIAL_QUERY_FIXTURE_EXPECTED_OUTCOMES: &[AdversarialQueryExpectedOutcome] = &[
+    AdversarialQueryExpectedOutcome::NoFuzzyMatch,
+    AdversarialQueryExpectedOutcome::FiniteSaturatingScore,
+    AdversarialQueryExpectedOutcome::DeterministicTieBreak,
+];
+
 pub fn adversarial_query_fixture(label: &str) -> Option<AdversarialQueryFixture> {
     ADVERSARIAL_QUERY_FIXTURES
         .iter()
@@ -114,6 +120,11 @@ pub fn adversarial_query_fixture_query_texts() -> &'static [&'static str] {
 
 pub fn adversarial_query_fixture_kinds() -> &'static [AdversarialQueryFixtureKind] {
     ADVERSARIAL_QUERY_FIXTURE_KINDS
+}
+
+pub fn adversarial_query_fixture_expected_outcomes(
+) -> &'static [AdversarialQueryExpectedOutcome] {
+    ADVERSARIAL_QUERY_FIXTURE_EXPECTED_OUTCOMES
 }
 
 pub fn adversarial_query_fixture_catalog_labels_match_fixture_rows() -> bool {
