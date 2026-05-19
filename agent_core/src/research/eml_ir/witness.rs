@@ -3170,6 +3170,15 @@ mod tests {
     }
 
     #[test]
+    fn replay_accepts_witness_with_leading_whitespace() {
+        let original = acceptance_witness_json().expect("acceptance witness json");
+        let padded = format!("\n\n  \t{}", original);
+        let parsed_original = replay_witness_json(&original).expect("original replay");
+        let parsed_padded = replay_witness_json(&padded).expect("padded replay");
+        assert_eq!(parsed_original, parsed_padded);
+    }
+
+    #[test]
     fn replay_accepts_witness_with_trailing_whitespace() {
         let original = acceptance_witness_json().expect("acceptance witness json");
         let padded = format!("{}\n\n  \t\n", original);
