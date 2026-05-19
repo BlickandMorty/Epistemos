@@ -824,6 +824,31 @@ mod tests {
     }
 
     #[test]
+    fn envelope_log_summary_starts_with_literal_envelope_brace_prefix() {
+        // Phase 1 hardening — wire-shape pin (companion to
+        // answer_packet_display_starts_with_literal_struct_name_prefix
+        // iter-451 + mission_packet_display_starts_with_literal_struct_name_prefix
+        // iter-452). MutationEnvelope::log_summary format string is
+        //   "envelope{{cap={}, tokens={}, tool_calls={}}}"
+        // (envelope.rs §86). The literal "envelope{" prefix is
+        // load-bearing for grep-based audit pipelines that filter
+        // payload-redacted envelope log lines.
+        //
+        // A future "let me use 'mut{...}' as a shorthand for mutation"
+        // refactor would silently break the grep contract.
+        let envelope = MutationEnvelope::new(
+            Hash::from_bytes([0xAB; 32]),
+            BudgetDebit { tokens: 42, tool_calls: 7, ..Default::default() },
+            "payload".to_string(),
+        );
+        let summary = envelope.log_summary();
+        assert!(summary.starts_with("envelope{"),
+            "log_summary must start with literal 'envelope{{', got: {summary}");
+        assert!(summary.ends_with('}'),
+            "log_summary must end with literal '}}', got: {summary}");
+    }
+
+    #[test]
     fn envelope_log_summary_wrapper_shape_is_parseable_for_audit_tools() {
         // Phase 1 hardening — pin the exact wrapper format so log
         // parsers / audit dashboards that scrape this line can rely
