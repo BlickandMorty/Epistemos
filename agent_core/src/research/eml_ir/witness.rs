@@ -2468,6 +2468,13 @@ mod tests {
     }
 
     #[test]
+    fn witness_json_excludes_board_id_text() {
+        let json = acceptance_witness_json().unwrap();
+        assert!(!json.to_ascii_lowercase().contains("board_id"));
+        assert!(!json.to_ascii_lowercase().contains("board-id"));
+    }
+
+    #[test]
     fn witness_pins_morph_oracle_shader_source() {
         let witness =
             run_fulp_oracle(FulpRunConfig::ACCEPTANCE, &CpuFloatIntrinsicEvaluator).unwrap();
