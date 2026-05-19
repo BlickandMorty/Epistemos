@@ -5887,6 +5887,36 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 36th Adversarial row (iter-310, milestone iteration):
+        // Apple-Metal 5-term long-query — {metal, compute,
+        // shader, kernel, pipeline}. Keeps all 4 primaries + 1
+        // tail context token (pipeline). SIXTH canonical at 5-
+        // term coverage (after MLX-Swift, BM25-IR, vault, graph-
+        // event, agent-runtime). iter-91 canonical has all 5
+        // (3×3×3×3 + 1). iter-95 pair-partner has 3 of 5
+        // (metal+compute+pipeline; lacks shader+kernel).
+        // Decoys ≤1 of 5.
+        query: "metal compute shader kernel pipeline",
+        expected_paths: &["notes/metal_compute_shader_kernel.md"],
+        forbidden_paths: &[
+            "notes/metal_compute_pipeline_v2.md",
+            "notes/metal_archive.md",
+            "notes/compute_brainstorm.md",
+            "notes/shader_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Thirty-sixth Adversarial row (iter-310, \
+               milestone): Apple-Metal 5-term long-query \"metal \
+               compute shader kernel pipeline\". Sixth canonical \
+               at 5-term coverage. iter-91 canonical 5/5; iter-\
+               95 pair-partner 3/5 (lacks shader+kernel); decoys \
+               ≤1 of 5. Six 4-term-Adversarial corpora now \
+               exercised at 5-term length (MLX-Swift, BM25-IR, \
+               vault, graph-event, agent-runtime, Metal). Brings \
+               Adversarial to depth 36. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 35th Adversarial row (iter-303): agent-runtime 5-term
         // long-query — {agent, runtime, substrate, trace,
         // invader}. Keeps all 4 primaries + 1 unique-to-iter-43
