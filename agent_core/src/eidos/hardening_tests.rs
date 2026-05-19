@@ -5107,6 +5107,131 @@ fn validate_citation_rejects_bidirectional_text_override_smuggling() {
     assert_eq!(packet.validate_citation(&legit), Ok(()));
 }
 
+/// Multilingual / non-Latin source_id acceptance + byte-strict drift
+/// rejection. The closed-citation gate must hold the same shape across
+/// every script: legitimate non-Latin bytes are accepted verbatim, and
+/// any byte-level mutation (script-internal variant or cross-script
+/// substitution) is rejected as fabricated.
+///
+/// Existing coverage focused on Latin-script + Cyrillic-Latin homoglyph
+/// (iter 137) + bidi-override (iter 195). This pin extends the floor to
+/// the four other vault-relevant script families: Han ideographs
+/// (Chinese / Japanese kanji), Hangul (Korean), Arabic (native RTL),
+/// Devanagari (Indic), and a deliberately mixed-script id. Together they
+/// exercise the byte-strict comparator on multi-byte UTF-8 sequences of
+/// width 2 (Cyrillic / Arabic / Hebrew), 3 (Han / Hangul / Devanagari /
+/// Hiragana), and the boundary where one substitution flips the byte
+/// length of the surrounding context.
+///
+/// Pins, against each script family in turn:
+///   - retriever emits a source_id whose bytes contain the
+///     non-Latin script characters verbatim (lexical retriever takes
+///     `"{document_id}::lex"`, so any unicode in the document_id flows
+///     into the source_id byte-for-byte)
+///   - byte-equal citation is accepted (Ok(()))
+///   - byte-different variant (script-internal, e.g. Han traditional
+///     vs simplified; or cross-script substitution within the same
+///     visual cluster) is rejected with `FabricatedSourceId` carrying
+///     the smuggled bytes verbatim
+///   - sanity: the smuggled variant's bytes truly differ from the
+///     legitimate id (rules out test fixtures silently using identical
+///     encodings on both sides — same shape as iter 137's `assert_ne!`)
+///
+/// This complements:
+///   - iter 137 (Cyrillic-Latin homoglyph): Latin baseline + Cyrillic
+///     attack vector
+///   - iter 195 (bidi override): direction-control attack vector
+///   - iter 127 (NFC/NFD): canonical-equivalence vector
+///   - this iter (658): legitimate non-Latin acceptance + script-
+///     internal byte-drift rejection across Han / Hangul / Arabic /
+///     Devanagari / mixed
+///
+/// Catches any future "normalize all source_ids to NFKC + casefold
+/// before compare" or "fold script-variant ideographs" regression that
+/// would silently break vault entries authored in non-Latin scripts.
+#[test]
+fn validate_citation_accepts_multilingual_non_latin_source_ids() {
+    use super::types::{CitationError, EidosChunkId, EidosCitation};
+
+    // Each entry: (label, document_id with non-Latin bytes, body which
+    // matches the shared English query, byte-different variant of the
+    // document_id that should be rejected as fabricated). Bodies use
+    // ASCII so the lexical retriever's tokenizer behavior is not the
+    // variable under test — only the source_id byte path is.
+    //
+    // The variants are chosen so they differ from the legitimate id in
+    // bytes but not in obvious visual width, catching the "we'll just
+    // NFKC-fold script variants" class of regressions. For Han the
+    // variant pair is Traditional 筆 vs Simplified 笔; for Hangul we
+    // swap a final consonant; for Arabic we drop a harakat (diacritic);
+    // for Devanagari we swap नो → नौ (different vowel sign); for the
+    // mixed-script id we swap the Latin 'a' for Cyrillic 'а' — same
+    // shape as iter 137 but composed with non-Latin context to prove
+    // the byte-strict gate holds across script boundaries.
+    let cases: &[(&str, &str, &str, &str)] = &[
+        ("Han (Chinese)",     "笔记-a",        "alpha durian content", "筆記-a"),
+        ("Hangul (Korean)",   "노트-a",        "alpha durian content", "노드-a"),
+        ("Arabic",            "ملاحظة-a",      "alpha durian content", "ملاحضة-a"),
+        ("Devanagari",        "नोट-a",         "alpha durian content", "नौट-a"),
+        ("Mixed Han+Latin",   "笔note-a",      "alpha durian content", "笔nоte-a"),
+    ];
+
+    for (label, doc_id, body, smuggled_doc_id) in cases {
+        let mut lex = InMemoryLexicalIndex::new(manifest());
+        lex.insert(doc(doc_id), *body, EidosSourceKind::Note).unwrap();
+        let q = EidosQuery::new("durian", EidosRetrievalMode::Lexical, 16);
+        let packet = lex.retrieve(&q, 1_700_000_000_000);
+        assert_eq!(packet.hits.len(), 1, "{label}: retriever must find the doc");
+
+        let legit_src = packet.hits[0].source_id.as_str().to_string();
+        assert_eq!(
+            legit_src,
+            format!("{doc_id}::lex"),
+            "{label}: source_id must carry the document_id bytes verbatim"
+        );
+        assert!(
+            !legit_src.is_ascii(),
+            "{label}: legitimate source_id must contain non-ASCII bytes \
+             (the whole point of the multilingual pin)"
+        );
+
+        let legit_cite = EidosCitation {
+            source_id: packet.hits[0].source_id.clone(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        assert_eq!(
+            packet.validate_citation(&legit_cite),
+            Ok(()),
+            "{label}: byte-equal legitimate non-Latin citation must be accepted"
+        );
+
+        let smuggled = format!("{smuggled_doc_id}::lex");
+        assert_ne!(
+            smuggled.as_bytes(),
+            legit_src.as_bytes(),
+            "{label}: smuggled variant must differ in bytes from the \
+             legitimate id (fixture sanity — same shape as iter 137)"
+        );
+        let smuggled_cite = EidosCitation {
+            source_id: EidosChunkId::new(smuggled.clone()).unwrap(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        match packet.validate_citation(&smuggled_cite).unwrap_err() {
+            CitationError::FabricatedSourceId(returned) => {
+                assert_eq!(
+                    returned.as_str(),
+                    &smuggled,
+                    "{label}: diagnostic must preserve the smuggled \
+                     non-Latin bytes verbatim — silent NFKC-folding or \
+                     script-canonicalization at the validator would hide \
+                     the byte mismatch from operators"
+                );
+            }
+            other => panic!("{label}: expected FabricatedSourceId, got {other:?}"),
+        }
+    }
+}
+
 /// `EidosChunkId::new` and `EidosIndexManifestId::new` reject empty
 /// payloads at the Rust-side construction API (`IdError::EmptyPayload`),
 /// but the `#[derive(Deserialize)]` on the newtype tuple struct does
