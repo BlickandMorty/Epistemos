@@ -2221,6 +2221,22 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                adjacency through tokenizer punctuation splitting.",
     },
     FVaultRecallRow {
+        // Iter-423: exact-quote PhraseQuery across underscore
+        // boundaries. The expected doc writes "graph_recall"; the
+        // forbidden decoy contains both words but non-adjacent.
+        query: "\"graph recall\"",
+        expected_paths: &["notes/graph_recall_underscore.md"],
+        forbidden_paths: &["notes/graph_general_recall.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Exact-quote underscore-boundary row (iter-423): \
+               quoted PhraseQuery \"graph recall\" must match \
+               an expected doc containing `graph_recall`, while \
+               rejecting a decoy with non-adjacent `graph ... \
+               recall`. Pins phrase adjacency through tokenizer \
+               underscore splitting.",
+    },
+    FVaultRecallRow {
         // 9th SignalOnly row (iter-102) — **50th fixture row,
         // landing the F-VaultRecall-50 falsifier-name target.**
         // 3rd exact-quote PhraseQuery row, in the storage/vault
