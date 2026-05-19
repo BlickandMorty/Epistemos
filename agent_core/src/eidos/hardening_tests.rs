@@ -157,7 +157,7 @@ fn assert_iter_format_canonical_panics_on_out_of_range() {
     assert_iter_format_canonical("iter 099", "MY_SOURCE_LABEL");
 }
 
-/// Iter 708 — catalog range continuation pin.
+/// Iter 709 — catalog range continuation pin.
 /// STATUS.md is the contributor-facing catalog for the closed-citation
 /// hardening arc. When new pins land after the previous range tip, the
 /// range must advance in lock-step so future readers can tell the arc is
@@ -167,9 +167,9 @@ fn status_md_closed_citation_iter_range_tip_tracks_latest_catalog_pin() {
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Closed-citation contract hardening (iters 127-708)"),
+        status.contains("Closed-citation contract hardening (iters 127-709)"),
         "STATUS.md closed-citation hardening catalog must advance its iter \
-         range tip to iter 708 when the catalog-continuation pin lands"
+         range tip to iter 709 when the catalog-continuation pin lands"
     );
 }
 
@@ -179,6 +179,30 @@ fn manifest() -> EidosIndexManifestId {
 
 fn doc(id: &str) -> EidosDocumentId {
     EidosDocumentId::new(id).unwrap()
+}
+
+fn assert_lexical_no_fuzzy_match_adversarial_fixture_returns_empty_packet() {
+    use super::adversarial::{
+        adversarial_query_fixture_for_outcome, AdversarialQueryExpectedOutcome,
+    };
+
+    let fixture =
+        adversarial_query_fixture_for_outcome(AdversarialQueryExpectedOutcome::NoFuzzyMatch)
+            .expect("NoFuzzyMatch adversarial fixture exists");
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(
+        doc("tropical-source"),
+        "Tropical algebra appears here with the canonical spelling.",
+        EidosSourceKind::Note,
+    )
+    .unwrap();
+
+    let query = EidosQuery::new(fixture.query_text, EidosRetrievalMode::Lexical, 8);
+    let packet = lex.retrieve(&query, 1_700_000_000_000);
+    assert!(
+        packet.hits.is_empty(),
+        "typo-transposition fixture must not fuzzy-match canonical spelling"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -1016,6 +1040,11 @@ fn adversarial_query_fixture_lookup_by_expected_outcome_is_exact() {
     )
     .expect("deterministic-tie-break fixture exists");
     assert_eq!(tie.label, "near-duplicate-paragraph-tie");
+}
+
+#[test]
+fn lexical_no_fuzzy_match_adversarial_fixture_returns_empty_packet() {
+    assert_lexical_no_fuzzy_match_adversarial_fixture_returns_empty_packet();
 }
 
 #[test]
