@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 201
+invalid_example_count: 202
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -11989,3 +11989,18 @@ Violates: [Identity Gap Slug Catalog](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#id
 ```
 
 Rejection reason: identity-gap slugs must separate nonempty tokens with single hyphens; double-hyphen aliases such as `reserved--state` are invalid.
+
+## N202 - Numeric Leading Identity Gap Slug
+
+Violates: [Identity Gap Slug Catalog](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#identity-gap-slug-catalog).
+
+```json
+{
+  "catalog_slug": "1-reserved-state",
+  "negative_examples": ["N194", "N195"],
+  "schema_catalog_present": true,
+  "slug_grammar": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+}
+```
+
+Rejection reason: identity-gap slugs must begin with a lowercase letter; numeric-leading aliases such as `1-reserved-state` are invalid.
