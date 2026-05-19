@@ -122,6 +122,7 @@ pub fn lean_certificate<T: Debug>(program: &ScanProgram<T>) -> String {
          \x20   {{ monoid := w\n\
          \x20     program := program\n\
          \x20     output := output\n\
+         \x20     sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Scan-IR\"\n\
          \x20     output_matches := h }}\n\
          \n\
          theorem scan_certificate_program_output_fields_{suffix}\n\
@@ -133,6 +134,17 @@ pub fn lean_certificate<T: Debug>(program: &ScanProgram<T>) -> String {
          \x20 exact Epistemos.Scan.CertificateTarget.programOutputFieldsMatch\n\
          \x20   (scan_certificate_target_{suffix} T w program output h)\n\
          \x20   program output rfl rfl\n\
+         \n\
+         theorem scan_certificate_source_row_{suffix}\n\
+         \x20   (T : Type) (w : Epistemos.Scan.MonoidWitness T)\n\
+         \x20   (program : Epistemos.Scan.Program T) (output : List T)\n\
+         \x20   (h : output = Epistemos.Scan.sequentialScan w.op program.initial program.inputs) :\n\
+         \x20   (scan_certificate_target_{suffix} T w program output h).sourceRow =\n\
+         \x20     \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Scan-IR\" := by\n\
+         \x20 exact Epistemos.Scan.CertificateTarget.sourceRowMatches\n\
+         \x20   (scan_certificate_target_{suffix} T w program output h)\n\
+         \x20   \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Scan-IR\"\n\
+         \x20   rfl\n\
          \n\
          theorem scan_certificate_output_matches_{suffix}\n\
          \x20   (T : Type) (w : Epistemos.Scan.MonoidWitness T)\n\
@@ -230,7 +242,10 @@ mod tests {
         let c = lean_certificate(&p);
         assert!(c.contains("def scan_certificate_target_"));
         assert!(c.contains("Epistemos.Scan.CertificateTarget T :="));
+        assert!(c.contains("sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Scan-IR\""));
         assert!(c.contains("output_matches := h"));
+        assert!(c.contains("theorem scan_certificate_source_row_"));
+        assert!(c.contains("Epistemos.Scan.CertificateTarget.sourceRowMatches"));
         assert!(c.contains("theorem scan_certificate_program_output_fields_"));
         assert!(c.contains("Epistemos.Scan.CertificateTarget.programOutputFieldsMatch"));
         assert!(!c.contains("Nonempty (Epistemos.Scan.CertificateTarget T)"));

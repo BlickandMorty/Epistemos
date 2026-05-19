@@ -153,6 +153,7 @@ structure CertificateTarget (α : Type) where
   monoid : MonoidWitness α
   program : Program α
   output : List α
+  sourceRow : String
   output_matches :
     output = sequentialScan monoid.op program.initial program.inputs
 
@@ -175,6 +176,13 @@ theorem CertificateTarget.programOutputFieldsMatch {α : Type}
     (outputMatches : c.output = output) :
     c.program = program ∧ c.output = output := by
   exact ⟨programMatches, outputMatches⟩
+
+theorem CertificateTarget.sourceRowMatches {α : Type}
+    (c : CertificateTarget α)
+    (sourceRow : String)
+    (stored : c.sourceRow = sourceRow) :
+    c.sourceRow = sourceRow := by
+  exact stored
 
 theorem CertificateTarget.outputLengthMatches {α : Type}
     (c : CertificateTarget α) :

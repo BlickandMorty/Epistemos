@@ -49,6 +49,7 @@ def scan_certificate_target_sample
   { monoid := w
     program := program
     output := output
+    sourceRow := "docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Scan-IR"
     output_matches := h }
 
 theorem scan_certificate_program_output_fields_sample
@@ -61,6 +62,18 @@ theorem scan_certificate_program_output_fields_sample
   exact Epistemos.Scan.CertificateTarget.programOutputFieldsMatch
     (scan_certificate_target_sample T w program output h)
     program output rfl rfl
+
+theorem scan_certificate_source_row_sample
+    (T : Type) (w : Epistemos.Scan.MonoidWitness T)
+    (program : Epistemos.Scan.Program T) (output : List T)
+    (h : output =
+      Epistemos.Scan.sequentialScan w.op program.initial program.inputs) :
+    (scan_certificate_target_sample T w program output h).sourceRow =
+      "docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Scan-IR" := by
+  exact Epistemos.Scan.CertificateTarget.sourceRowMatches
+    (scan_certificate_target_sample T w program output h)
+    "docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Scan-IR"
+    rfl
 
 theorem scan_certificate_output_matches_sample
     (T : Type) (w : Epistemos.Scan.MonoidWitness T)
