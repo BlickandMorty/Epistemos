@@ -2283,6 +2283,35 @@ mod tests {
     }
 
     #[test]
+    fn error_count_counts_every_error_regardless_of_agent_event_error_kind_variant() {
+        // Phase 1 hardening — variant-completeness pin for error_count().
+        // Companion to:
+        //   - error_count_distinguishes_zero_one_many_and_is_disjoint_from_stop
+        //   - stop_count_counts_every_stop_regardless_of_stop_reason_variant (iter-501)
+        //
+        // error_count() counts ANY AgentEvent::Error entry regardless of
+        // the inner AgentEventErrorKind variant. A future refactor that
+        // filtered (e.g., "only Provider errors count for SLA") would
+        // silently skew the audit dashboard.
+        //
+        // Pin via a log with one Error per AgentEventErrorKind variant
+        // (4 in total). error_count must equal 4.
+        let mut log = RunEventLog::new();
+        for kind in [
+            AgentEventErrorKind::MalformedToolCall,
+            AgentEventErrorKind::BudgetExhausted,
+            AgentEventErrorKind::CapabilityDenied,
+            AgentEventErrorKind::Provider,
+        ] {
+            log.append_event(AgentEvent::Error {
+                kind,
+                message: format!("{kind:?}-error"),
+            });
+        }
+        assert_eq!(log.error_count(), 4, "every Error kind variant must count");
+    }
+
+    #[test]
     fn error_count_distinguishes_zero_one_many_and_is_disjoint_from_stop() {
         // Phase 1 hardening — audit-surface helper. Error events
         // terminate with a typed kind rather than a stop reason;
