@@ -5482,6 +5482,35 @@ mod tests {
     }
 
     #[test]
+    fn register_doc_wbo_witness_contract_rows_follow_catalog_order() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        let actual = register
+            .lines()
+            .skip_while(|line| *line != "### WBO Witness Contracts")
+            .skip(1)
+            .take_while(|line| !line.starts_with("## "))
+            .filter_map(|line| {
+                line.strip_prefix("| `")
+                    .and_then(|tail| tail.split_once("` |"))
+                    .map(|(name, _)| name.to_owned())
+            })
+            .collect::<Vec<_>>();
+        let expected = WboTermCode::ALL
+            .iter()
+            .map(|term| term.code().to_owned())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            actual, expected,
+            "WBO witness-contract rows must stay in WboTermCode::ALL order"
+        );
+        assert!(
+            register.contains("`register_doc_wbo_witness_contract_rows_follow_catalog_order`"),
+            "register doc must cross-link the witness-contract ordering guard"
+        );
+    }
+
+    #[test]
     fn register_doc_names_softmax_half_pre_post_helpers() {
         let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
 
