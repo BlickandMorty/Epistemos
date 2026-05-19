@@ -2883,6 +2883,74 @@ mod tests {
     }
 
     #[test]
+    fn budget_debit_for_tool_call_and_for_thinking_turn_equal_struct_literal_byte_for_byte() {
+        // Phase 1 hardening — thin-wrapper equivalence pin (companion
+        // to the equivalence-pin family iter-518..iter-524). Both
+        // const constructors MUST produce debits byte-equal to the
+        // direct struct-literal form across representative token
+        // shapes — they are the canonical entry points dispatchers
+        // use to issue debits, so divergence in the helper would
+        // silently produce two distinct debit byte forms per call
+        // site. The pin sweeps:
+        //   - (prompt, completion) = (0, 0) — minimal
+        //   - (1, 0), (0, 1) — single-axis
+        //   - mid + large
+        //   - saturating-add boundary u64::MAX + 1 == u64::MAX
+        // and pins the variant-specific tool_calls value (1 for
+        // for_tool_call, 0 for for_thinking_turn).
+        let fixtures: &[(u64, u64)] = &[
+            (0, 0),
+            (1, 0),
+            (0, 1),
+            (100, 50),
+            (1_000_000, 500_000),
+            (u64::MAX, 1), // saturates to u64::MAX
+            (u64::MAX, u64::MAX),
+        ];
+        for &(prompt, completion) in fixtures {
+            let total = prompt.saturating_add(completion);
+
+            // for_tool_call → tool_calls = 1.
+            let via_tool = BudgetDebit::for_tool_call(prompt, completion);
+            let via_tool_struct = BudgetDebit {
+                tokens: total,
+                wall_ms: 0,
+                tool_calls: 1,
+                subprocess_ms: 0,
+                memory_bytes: 0,
+            };
+            assert_eq!(
+                via_tool, via_tool_struct,
+                "for_tool_call({prompt}, {completion}) must equal struct-literal form"
+            );
+            let j_t = serde_json::to_string(&via_tool).expect("serialize tool");
+            let j_ts = serde_json::to_string(&via_tool_struct).expect("serialize struct");
+            assert_eq!(j_t, j_ts);
+
+            // for_thinking_turn → tool_calls = 0.
+            let via_think = BudgetDebit::for_thinking_turn(prompt, completion);
+            let via_think_struct = BudgetDebit {
+                tokens: total,
+                wall_ms: 0,
+                tool_calls: 0,
+                subprocess_ms: 0,
+                memory_bytes: 0,
+            };
+            assert_eq!(
+                via_think, via_think_struct,
+                "for_thinking_turn({prompt}, {completion}) must equal struct-literal form"
+            );
+            let j_th = serde_json::to_string(&via_think).expect("serialize think");
+            let j_ths = serde_json::to_string(&via_think_struct).expect("serialize struct");
+            assert_eq!(j_th, j_ths);
+
+            // Variant pin: for_tool_call has tool_calls=1, for_thinking_turn has tool_calls=0.
+            assert_eq!(via_tool.tool_calls, 1);
+            assert_eq!(via_think.tool_calls, 0);
+        }
+    }
+
+    #[test]
     fn budget_spec_with_memory_bytes_builder_equals_5_field_struct_literal_byte_for_byte() {
         // Phase 1 hardening — thin-wrapper equivalence pin (companion
         // to budget_spec_new_4_arg_equals_struct_literal_with_max_memory_bytes_zero
