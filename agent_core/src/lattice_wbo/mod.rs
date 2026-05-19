@@ -4005,7 +4005,7 @@ mod tests {
             "every concrete register `F-*` hook has a registry owner",
             "register F-* hook set must match falsifier owner registry",
             "`ledger_validation_rejects_unowned_falsifier_hooks`",
-            "canonical hook slash-suffix variants are rejected by the ledger owner path",
+            "canonical hook slash-suffix and non-ASCII adjacency variants are rejected by the ledger owner path",
             "`residency_tier_catalog_attaches_numerical_guard_to_every_tier`",
             "`lattice_coder_catalog_attaches_numerical_guard_to_every_codec`",
             "`residency_primary_falsifiers_name_ulp_oracle_for_numerical_guard`",
@@ -9497,6 +9497,8 @@ mod tests {
             "F-WBO-DriftLedger; F-ULP-Oracle; F-Imaginary-Probe/v2",
             "F-WBO-DriftLedger; F-ULP-Oracle/v2",
             "F-WBO-DriftLedger/v2; F-ULP-Oracle",
+            "F-WBO-DriftLedger; F-ULP-Oracleβ",
+            "βF-WBO-DriftLedger; F-ULP-Oracle",
             "f-wbo-driftledger; f-ulp-oracle",
         ] {
             let contribution = LatticeErrorContribution::new(
