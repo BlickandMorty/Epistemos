@@ -26,8 +26,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use super::retriever::EidosRetriever;
 use super::types::{
-    EidosChunkId, EidosContextPacket, EidosDocumentId, EidosHit, EidosIndexManifestId,
-    EidosProvenance, EidosQuery, EidosRetrievalMode, EidosScoreComponents, EidosSourceKind,
+    is_blank_query_text, EidosChunkId, EidosContextPacket, EidosDocumentId, EidosHit,
+    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode,
+    EidosScoreComponents, EidosSourceKind,
 };
 
 /// In-memory directed adjacency list. `edges[u]` = neighbors directly
@@ -74,7 +75,7 @@ impl EidosRetriever for InMemoryGraphNeighborhood {
         query: &EidosQuery,
         retrieved_at_unix_ms: u64,
     ) -> EidosContextPacket {
-        if query.text.trim().is_empty() || query.top_k == 0 {
+        if is_blank_query_text(&query.text) || query.top_k == 0 {
             return empty_packet(query, &self.manifest_id);
         }
 
@@ -215,6 +216,18 @@ mod tests {
         assert!(
             packet.hits.is_empty(),
             "whitespace-only text is not a stable graph seed id"
+        );
+    }
+
+    #[test]
+    fn invisible_only_query_text_returns_empty_packet() {
+        let mut g = InMemoryGraphNeighborhood::new(manifest());
+        g.add_edge(doc("\u{200B}"), doc("neighbor"));
+        let q = EidosQuery::new("\u{200B}", EidosRetrievalMode::GraphNeighborhood, 8);
+        let packet = g.retrieve(&q, 1_700_000_000_000);
+        assert!(
+            packet.hits.is_empty(),
+            "invisible-only text is not a stable graph seed id"
         );
     }
 
