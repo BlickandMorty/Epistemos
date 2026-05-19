@@ -3420,6 +3420,36 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 36th Paraphrase row (iter-312): NEW axis — ROT13 /
+        // CIPHER TRANSFORMATION. User accidentally types into a
+        // terminal with ROT13 input filter (or runs the query
+        // through tr a-z n-z; classic Unix prank). Each letter
+        // shifts by 13: Mamba → Znzon, SSM → FFZ, cache →
+        // pnpur. Query tokens: {znzon, ffz, pnpur} — 3-term
+        // AND. Canonical has none of these tokens → blocked.
+        // Distinct from every prior axis: not edit-distance,
+        // not synonym, not language transliteration — a
+        // systematic letter-substitution cipher. Pins deferred
+        // cipher-detection / normalization (unusual but pins
+        // the boundary of what "fuzzy match" should not cover).
+        // Thirty-third named failure subclass.
+        query: "Znzon FFZ pnpur",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "ROT13-cipher Paraphrase axis (axis #33): user \
+               types ROT13-shifted query (Mamba→Znzon, SSM→FFZ, \
+               cache→pnpur). 3-term AND on {znzon, ffz, pnpur} \
+               blocks. Distinct from every prior axis — \
+               systematic letter-substitution cipher. Marks the \
+               boundary of what fuzzy retrieval SHOULDN'T cover \
+               (cipher transformation is intentional, not a \
+               typing error). Thirty-third named failure \
+               subclass. Brings Paraphrase to depth 36 — first \
+               category past depth-35 horizon.",
+    },
+    FVaultRecallRow {
         // 35th Paraphrase row (iter-305): NEW axis — HYPONYM /
         // HYPERNYM / RELATED-CONCEPT SUBSTITUTION. User types
         // "buffer" instead of "cache" — semantically-related but
