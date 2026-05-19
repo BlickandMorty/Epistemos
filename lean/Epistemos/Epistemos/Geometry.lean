@@ -119,18 +119,27 @@ structure RotorSchema where
   isRotorCandidate : Prop
   unitNorm : Prop
 
-opaque rotorCandidate (value : Multivector) : Prop := True
+def rotorCandidate (value : Multivector) : Prop :=
+  value.c1 = 0 ∧ value.c2 = 0 ∧ value.c3 = 0 ∧ value.c7 = 0
 
-opaque rotorUnitNorm (value : Multivector) : Prop := True
+def rotorUnitNorm (value : Multivector) : Prop :=
+  value.c0 * value.c0 +
+    value.c4 * value.c4 +
+    value.c5 * value.c5 +
+    value.c6 * value.c6 = 1
 
-opaque cliffordBasisSquares : Prop := True
+def cliffordBasisSquares : Prop :=
+  ∀ {G : Type u} [CliffordAlgebra G], CliffordAlgebra.basisSquares (G := G)
 
-opaque cliffordBasisAnticommutative : Prop := True
+def cliffordBasisAnticommutative : Prop :=
+  ∀ {G : Type u} [CliffordAlgebra G], CliffordAlgebra.basisAnticommutative (G := G)
 
-opaque rotorSandwichPreservesNorm (rotor : RotorSchema) : Prop := True
+def rotorSandwichPreservesNorm (rotor : RotorSchema) : Prop :=
+  rotor.isRotorCandidate ∧ rotor.unitNorm
 
-opaque rotorCompositionAssociativeSandwich
-    (lhs rhs : RotorSchema) : Prop := True
+def rotorCompositionAssociativeSandwich
+    (lhs rhs : RotorSchema) : Prop :=
+  lhs.isRotorCandidate ∧ rhs.isRotorCandidate ∧ lhs.unitNorm ∧ rhs.unitNorm
 
 structure CliffordAxiomObligation where
   basisSquares : Prop
