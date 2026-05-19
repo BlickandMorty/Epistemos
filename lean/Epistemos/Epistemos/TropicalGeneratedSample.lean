@@ -50,6 +50,32 @@ theorem tropical_rational_certificate_representation_sample :
       tropical_rational_obligation_sample := by
   rfl
 
+theorem tropical_rational_certificate_representation_obligation_sample :
+    Epistemos.Tropical.RationalRepresentationObligation
+      tropical_rational_certificate_sample.rational := by
+  exact Epistemos.Tropical.RationalCertificateTarget.representationCarries
+    tropical_rational_certificate_sample
+
+theorem tropical_rational_certificate_numerator_shape_sample :
+    tropical_rational_certificate_sample.rational.numerator =
+      tropical_rational_certificate_sample.rational.numerator := by
+  exact Epistemos.Tropical.RationalCertificateTarget.numeratorShape
+    tropical_rational_certificate_sample
+
+theorem tropical_rational_certificate_denominator_shape_sample :
+    tropical_rational_certificate_sample.rational.denominator =
+      tropical_rational_certificate_sample.rational.denominator := by
+  exact Epistemos.Tropical.RationalCertificateTarget.denominatorShape
+    tropical_rational_certificate_sample
+
+theorem tropical_rational_certificate_shapes_sample :
+    tropical_rational_certificate_sample.rational.numerator =
+        tropical_rational_certificate_sample.rational.numerator ∧
+      tropical_rational_certificate_sample.rational.denominator =
+        tropical_rational_certificate_sample.rational.denominator := by
+  exact Epistemos.Tropical.RationalCertificateTarget.representationShapes
+    tropical_rational_certificate_sample
+
 theorem tropical_rational_shapes_sample :
     tropical_rational_form_sample.numerator =
         tropical_rational_form_sample.numerator ∧
