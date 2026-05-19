@@ -3784,6 +3784,7 @@ impl<'de> Deserialize<'de> for ACSPolicy {
             "valid_from_ms",
             serde_json::Value::is_i64,
         )?;
+        require_policy_field::<D::Error>(&value, "expires_at_ms", "expires_at_ms", is_i64_or_null)?;
         require_policy_field::<D::Error>(
             &value,
             "thresholds",
@@ -3805,6 +3806,10 @@ impl<'de> Deserialize<'de> for ACSPolicy {
             .map_err(|err| serde::de::Error::custom(acs_policy_decode_error(&err)))?;
         Ok(policy)
     }
+}
+
+fn is_i64_or_null(value: &serde_json::Value) -> bool {
+    value.is_i64() || value.is_null()
 }
 
 fn require_policy_field<E>(
@@ -7806,6 +7811,22 @@ mod tests {
 
         assert!(message.contains("malformed_policy"), "{message}");
         assert!(message.contains("valid_from_ms"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_missing_policy_expires_at_names_malformed_policy_field() {
+        let mut value = serde_json::to_value(ACSPolicy::strict("policy-missing-expires-at", 1_000))
+            .expect("policy encodes");
+        value
+            .as_object_mut()
+            .expect("policy encodes as object")
+            .remove("expires_at_ms");
+
+        let err = serde_json::from_value::<ACSPolicy>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(message.contains("expires_at_ms"), "{message}");
     }
 
     #[test]
