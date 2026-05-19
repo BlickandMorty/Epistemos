@@ -2089,6 +2089,52 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 48th Unicode row (iter-400, milestone iteration):
+        // Meroitic Hieroglyphic extension. Adds a 46th non-Latin
+        // script (Meroitic Hieroglyphic, U+10980-U+1099F) —
+        // ideographic-derived script used ca. 300 BCE - 400 CE
+        // for the Meroitic (Kushite) language in the Kingdom of
+        // Kush (modern Sudan / Upper Egypt). Adapted from
+        // Egyptian Hieroglyphs but used as an alphasyllabary
+        // (not the ideographic-mostly Egyptian system). FIRST
+        // DESCENDANT OF EGYPTIAN HIEROGLYPHS in the pin set —
+        // together with iter-308 Egyptian Hieroglyphs the
+        // genealogy now spans ancestor (Egyptian) + descendant
+        // (Meroitic), parallel to Phoenician → Greek/Aramaic
+        // (iter-286 → many descendants), Brahmi → Brahmic
+        // descendants (iter-301 → 8 pinned), Old Italic → Latin
+        // (iter-293 → fixture anchor). FIFTH African-language
+        // script in the pin set (Ethiopic + Tifinagh + Vai +
+        // Coptic + Meroitic). FIFTEENTH SMP-plane codepoint.
+        // Latin "Mamba" + Meroitic Hieroglyphic "𐦀" (letter A,
+        // U+10980) + Latin "cache". Demonstrates no-script-fold
+        // contract on a script with deep African indigenous
+        // heritage AND a clear Egyptian-Hieroglyph descent
+        // line — proves Tantivy's UTF-8 tokenizer is agnostic
+        // to script-family ancestry, not just genealogically-
+        // distinct branches. iter-400 milestone.
+        query: "Mamba 𐦀 cache",
+        expected_paths: &["notes/mamba_meroitic.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Forty-eighth Unicode row (iter-400, milestone): \
+               Meroitic Hieroglyphic extension. FORTY-SIX non-\
+               Latin scripts pinned. Meroitic Hieroglyphic (ca. \
+               300 BCE - 400 CE) is the alphasyllabary used for \
+               the Kushite language in the Kingdom of Kush \
+               (modern Sudan / Upper Egypt). Adapted from \
+               Egyptian Hieroglyphs — FIRST DESCENDANT OF \
+               EGYPTIAN HIEROGLYPHS in the pin set. Genealogy \
+               now spans ancestor (Egyptian iter-308) + \
+               descendant (Meroitic iter-400). FIFTH African-\
+               language script in the pin set (Ethiopic + \
+               Tifinagh + Vai + Coptic + Meroitic). Fifteenth \
+               SMP-plane codepoint. iter-400 milestone. Brings \
+               Unicode to depth 48 — first category past \
+               depth-47 horizon.",
+    },
+    FVaultRecallRow {
         // 47th Unicode row (iter-393): Kharoshthi extension.
         // Adds a 45th non-Latin script (Kharoshthi, U+10A00–
         // U+10A5F) — RTL alphasyllabary used 3rd c BCE - 3rd
