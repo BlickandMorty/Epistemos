@@ -140,6 +140,10 @@ def bernoulliLogPartition (theta : Real) : Expr :=
     arityMatches := rfl
   }
 
+theorem bernoulliLogPartitionConvex (theta : Real) :
+    logPartitionConvex ExpFamily.bernoulli [theta] := by
+  exact ⟨ExpFamily.bernoulli_wellFormed, rfl⟩
+
 def bernoulliDualMap (theta : Real) : Expr :=
   Expr.dualMap {
     family := ExpFamily.bernoulli
