@@ -35,6 +35,9 @@ structure MorphFieldBudget where
   m_cache  : Nat
   m_glue   : Nat
 
+/-- E3 resident-memory corollary uses five budget components. -/
+def storageBudgetComponentCount : Nat := 5
+
 /-- Resident memory upper bound = sum of all five components. -/
 def MorphFieldBudget.upperBound (b : MorphFieldBudget) : Nat :=
   b.m_core + b.m_state + b.m_active + b.m_cache + b.m_glue
@@ -46,6 +49,10 @@ theorem residentWithinBudget
     (b : MorphFieldBudget) (resident : Nat)
     (h : resident ≤ b.upperBound) : resident ≤ b.upperBound := by
   exact h
+
+theorem storageBudgetComponentCountPinned :
+    storageBudgetComponentCount = 5 := by
+  rfl
 
 /-- Telescoping Lipschitz error per layer. Per the v2.0 hardened
 **P** half: the per-layer Lipschitz factor L_i bounds error
