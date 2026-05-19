@@ -1104,6 +1104,27 @@ mod tests {
     }
 
     #[test]
+    fn variant_ladder_spec_missing_required_fields_fail_to_deserialise() {
+        let spec = VariantLadderSpec {
+            tool_name: "vault.read".into(),
+            tiers: vec![VariantTier::T1Deterministic],
+            auto_promote: true,
+        };
+        let value = serde_json::to_value(&spec).expect("serialise");
+        let obj = value.as_object().expect("VariantLadderSpec object");
+        for missing in ["tool_name", "tiers", "auto_promote"] {
+            let mut tampered = obj.clone();
+            tampered.remove(missing);
+            let parsed: Result<VariantLadderSpec, _> =
+                serde_json::from_value(serde_json::Value::Object(tampered));
+            assert!(
+                parsed.is_err(),
+                "VariantLadderSpec missing required field {missing:?} must fail"
+            );
+        }
+    }
+
+    #[test]
     fn ladder_round_trips_through_json() {
         let spec = VariantLadderSpec {
             tool_name: "vault.read".into(),
