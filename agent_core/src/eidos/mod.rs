@@ -41,6 +41,7 @@ pub mod recency;
 pub mod retriever;
 pub mod semantic;
 pub mod types;
+pub mod validator;
 
 #[cfg(test)]
 mod hardening_tests;
@@ -67,4 +68,7 @@ pub use types::{
     CitationError, EidosChunkId, EidosCitation, EidosContextPacket, EidosDocumentId, EidosHit,
     EidosIndexManifest, EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode,
     EidosScoreComponents, EidosSourceKind, EidosSpan,
+};
+pub use validator::{
+    enforce_closed_citation_contract, ClosedCitationValidation, ClosedCitationValidationError,
 };
