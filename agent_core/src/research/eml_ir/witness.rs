@@ -20,6 +20,7 @@ const OPERATION_STATS_JSON_FIELDS: &[&str] = &[
     "axis_stats",
     "worst_case",
 ];
+const AXIS_STATS_JSON_FIELDS: &[&str] = &["axis", "evaluated", "max_ulp", "mean_ulp", "worst_case"];
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -971,7 +972,7 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
             reject_unknown_object_json_fields(
                 axis_stat_object,
                 &format!("stats[{operation_index}].axis_stats[{axis_index}]"),
-                &["axis", "evaluated", "max_ulp", "mean_ulp", "worst_case"],
+                AXIS_STATS_JSON_FIELDS,
             )?;
             let Some(axis_value) = axis_stat.get("axis") else {
                 return Err(FulpReplayError::InvalidJson {
@@ -1995,6 +1996,11 @@ fn reject_raw_stats_number_json(json: &str) -> Result<(), FulpReplayError> {
         for (axis_index, axis_stat) in stat.axis_stats.iter().enumerate() {
             let axis_path = format!("stats[{operation_index}].axis_stats[{axis_index}]");
             reject_raw_object_duplicate_json(axis_stat.get(), &axis_path)?;
+            reject_raw_object_unknown_json_fields(
+                axis_stat.get(),
+                &axis_path,
+                AXIS_STATS_JSON_FIELDS,
+            )?;
             let Ok(axis_stat) = serde_json::from_str::<RawAxisWorstCase<'_>>(axis_stat.get())
             else {
                 continue;
@@ -5728,6 +5734,29 @@ mod tests {
         let json = serde_json::to_string(&value).unwrap();
         let error =
             replay_witness_json(&json).expect_err("unknown axis stats field must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::UnknownField)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("unknown field stats[0].axis_stats[0].corrupted_extra_field")
+        );
+    }
+
+    #[test]
+    fn replay_rejects_unknown_axis_stat_field_before_raw_overflow() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["axis_stats"][0]["corrupted_extra_field"] = serde_json::Value::Bool(true);
+        value["stats"][0]["axis_stats"][0]["max_ulp"] =
+            serde_json::Value::Number(serde_json::Number::from(123_456_789_u64));
+        let json = serde_json::to_string(&value).unwrap();
+        let needle = "\"max_ulp\":123456789";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(needle, "\"max_ulp\":1e999999", 1);
+        let error = replay_witness_json(&json)
+            .expect_err("unknown axis stat field must fail before raw overflow");
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::UnknownField)
