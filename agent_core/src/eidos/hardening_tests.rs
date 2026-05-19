@@ -9940,6 +9940,152 @@ fn closed_citation_contract_holds_for_multilingual_claim_evidence() {
     }
 }
 
+/// Multilingual LedgerBackedClaimEvidence closed-citation sweep —
+/// extends iter 149's ASCII LedgerBacked contract pin to the
+/// multilingual axis, completing the 10-mode multilingual closure
+/// (iter 675's in-memory ClaimEvidence + this iter's ledger-backed
+/// parallel close out both ClaimEvidence backends).
+///
+/// LedgerBackedClaimEvidence uses the same 3-segment source_id
+/// template as InMemoryClaimEvidence:
+/// `{evidence_id}::claim::{claim_id}::{stance}`.
+/// But the data flows from a `ClaimLedger::snapshot()` rather than
+/// the in-memory map — a parallel code path that must produce
+/// byte-identical source_ids on byte-identical inputs.
+///
+/// If a future ledger-snapshot refactor ever ran string-normalization
+/// during snapshot construction (e.g. "we'll canonicalize claim ids
+/// at write time so the index stays compact"), the ledger-backed
+/// retriever would emit different source_id bytes than the
+/// in-memory retriever for the same logical claim — replay
+/// determinism breaks, the W-49 parity invariant breaks, and the
+/// closed-citation gate would silently accept fuzzy matches.
+///
+/// Pins:
+///   - ClaimLedger seeded with a multilingual evidence_id (笔记-a)
+///     supporting a multilingual claim_id (claim:主张-α)
+///   - LedgerBackedClaimEvidence retrieve with the multilingual
+///     claim emits a hit whose source_id is
+///     `笔记-a::claim::claim:主张-α::supports` — byte-identical to
+///     the in-memory ClaimEvidence iter 675 pin (parity at the
+///     multilingual axis)
+///   - byte-equal multilingual citation accepted
+///   - Han-traditional smuggle in EITHER half rejected as fabricated
+///   - stance-spoof rejected (no contradicts stance in V0 ledger,
+///     so smuggling "contradicts" surfaces as fabrication — the
+///     stance-axis byte-strictness holds for the ledger backend too)
+#[test]
+fn closed_citation_contract_holds_for_multilingual_ledger_backed_claim_evidence() {
+    use super::ledger_backed_claim_evidence::LedgerBackedClaimEvidence;
+    use super::types::{CitationError, EidosChunkId, EidosCitation};
+    use crate::provenance::ledger::{Claim, ClaimId, ClaimLedger, Evidence, EvidenceId};
+
+    let m = manifest();
+    let ts = 1_700_000_000_000;
+
+    // Seed the ledger with Han evidence_id supporting a Han claim_id.
+    let mut led = ClaimLedger::new();
+    led.commit_evidence(Evidence::new(
+        EvidenceId("笔记-a".to_string()),
+        "src-multilingual",
+        0,
+    ))
+    .unwrap();
+    led.commit_claim(
+        Claim::new(
+            ClaimId("claim:主张-α".to_string()),
+            "tropical claim text",
+            0,
+        ),
+        vec![],
+        vec![EvidenceId("笔记-a".to_string())],
+    )
+    .unwrap();
+
+    let retriever = LedgerBackedClaimEvidence::from_ledger(&led, m.clone());
+    let q = EidosQuery::new("claim:主张-α", EidosRetrievalMode::ClaimEvidence, 8);
+    let packet = retriever.retrieve(&q, ts);
+    assert_eq!(packet.hits.len(), 1, "LedgerBackedClaimEvidence must surface the multilingual evidence");
+
+    let legit_src = packet.hits[0].source_id.as_str().to_string();
+    assert_eq!(
+        legit_src,
+        "笔记-a::claim::claim:主张-α::supports",
+        "LedgerBackedClaimEvidence source_id template must produce \
+         byte-identical output to InMemoryClaimEvidence's iter 675 \
+         pin (W-49 parity invariant at the multilingual axis)"
+    );
+    assert!(!legit_src.is_ascii(), "source_id must be non-ASCII");
+
+    // (1) Positive control.
+    let legit = EidosCitation {
+        source_id: packet.hits[0].source_id.clone(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert_eq!(
+        packet.validate_citation(&legit),
+        Ok(()),
+        "LedgerBacked: byte-equal multilingual citation accepted"
+    );
+
+    // (2) Evidence-half smuggle (Han traditional).
+    let smug_evidence = "筆記-a::claim::claim:主张-α::supports";
+    assert_ne!(
+        smug_evidence.as_bytes(),
+        legit_src.as_bytes(),
+        "smuggled-evidence variant must differ in bytes"
+    );
+    let cite_e = EidosCitation {
+        source_id: EidosChunkId::new(smug_evidence).unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    match packet.validate_citation(&cite_e).unwrap_err() {
+        CitationError::FabricatedSourceId(returned) => {
+            assert_eq!(returned.as_str(), smug_evidence);
+        }
+        other => panic!("LedgerBacked: expected FabricatedSourceId (evidence smuggle), got {other:?}"),
+    }
+
+    // (3) Claim-id-half smuggle (主张 → 主張).
+    let smug_claim = "笔记-a::claim::claim:主張-α::supports";
+    assert_ne!(
+        smug_claim.as_bytes(),
+        legit_src.as_bytes(),
+        "smuggled-claim variant must differ in bytes"
+    );
+    let cite_c = EidosCitation {
+        source_id: EidosChunkId::new(smug_claim).unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    match packet.validate_citation(&cite_c).unwrap_err() {
+        CitationError::FabricatedSourceId(returned) => {
+            assert_eq!(returned.as_str(), smug_claim);
+        }
+        other => panic!("LedgerBacked: expected FabricatedSourceId (claim smuggle), got {other:?}"),
+    }
+
+    // (4) Stance-spoof — supports → contradicts. The ledger only
+    // emits Supports in V0, so "contradicts" is by construction NOT
+    // in the closed-citation universe; the byte-strict floor catches
+    // any spoof attempt.
+    let stance_spoof = "笔记-a::claim::claim:主张-α::contradicts";
+    assert_ne!(
+        stance_spoof.as_bytes(),
+        legit_src.as_bytes(),
+        "stance-spoof must differ in bytes"
+    );
+    let cite_s = EidosCitation {
+        source_id: EidosChunkId::new(stance_spoof).unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    match packet.validate_citation(&cite_s).unwrap_err() {
+        CitationError::FabricatedSourceId(returned) => {
+            assert_eq!(returned.as_str(), stance_spoof);
+        }
+        other => panic!("LedgerBacked: expected FabricatedSourceId (stance spoof), got {other:?}"),
+    }
+}
+
 /// `EidosHit::clone()` is byte-perfect — parallel to iter 190's
 /// EidosCitation Clone pin, but for the OUTPUT type (retriever-
 /// emitted hits) rather than the INPUT type (chat-layer citations).
