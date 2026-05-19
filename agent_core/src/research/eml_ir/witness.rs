@@ -1268,6 +1268,8 @@ struct RawTopLevelUnsigned<'a> {
     #[serde(default, borrow)]
     point_count: Option<&'a RawValue>,
     #[serde(default, borrow)]
+    operation_evaluations: Option<&'a RawValue>,
+    #[serde(default, borrow)]
     budget_target_millis: Option<&'a RawValue>,
     #[serde(default, borrow)]
     observed_wall_clock_millis: Option<&'a RawValue>,
@@ -1279,6 +1281,9 @@ fn reject_raw_top_level_unsigned_json(json: &str) -> Result<(), FulpReplayError>
     };
     if let Some(value) = raw_witness.point_count {
         raw_unsigned_integer_json(value, "point_count")?;
+    }
+    if let Some(value) = raw_witness.operation_evaluations {
+        raw_unsigned_integer_json(value, "operation_evaluations")?;
     }
     if let Some(value) = raw_witness.budget_target_millis {
         raw_unsigned_integer_json(value, "budget_target_millis")?;
@@ -2104,6 +2109,28 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("operation_evaluations"));
+    }
+
+    #[test]
+    fn replay_rejects_operation_evaluations_json_overflow_with_path() {
+        let json = acceptance_witness_json().unwrap();
+        let operation_evaluations = serde_json::from_str::<serde_json::Value>(&json)
+            .expect("witness json")["operation_evaluations"]
+            .as_u64()
+            .expect("operation evaluations");
+        let needle = format!("\"operation_evaluations\": {operation_evaluations}");
+        assert_eq!(json.matches(&needle).count(), 1);
+        let json = json.replacen(&needle, "\"operation_evaluations\": 1e999999", 1);
+        let error = replay_witness_json(&json)
+            .expect_err("operation evaluations overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
         );
         assert!(error
             .invalid_json_message()
