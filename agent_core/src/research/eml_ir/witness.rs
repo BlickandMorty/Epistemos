@@ -1623,6 +1623,25 @@ fn reject_raw_hardware_unsigned_json(raw_hardware: &RawValue) -> Result<(), Fulp
     else {
         return Ok(());
     };
+    if let Some(field) = raw_hardware.keys().find(|field| {
+        !matches!(
+            field.as_str(),
+            "model"
+                | "model_identifier"
+                | "chip"
+                | "cpu_cores"
+                | "gpu_cores"
+                | "memory_gb"
+                | "uma"
+                | "memory_bandwidth_gb_s"
+                | "source"
+        )
+    }) {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("unknown field hardware.{field}"),
+            kind: FulpInvalidJsonKind::UnknownField,
+        });
+    }
     if let Some(value) = raw_hardware.get("cpu_cores") {
         raw_u8_json(value, "hardware.cpu_cores")?;
     }
@@ -2712,6 +2731,28 @@ mod tests {
             serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
         value["hardware"]["serial_number"] = serde_json::Value::String("redacted".to_string());
         let json = serde_json::to_string(&value).unwrap();
+        let error =
+            replay_witness_json(&json).expect_err("unknown hardware field must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::UnknownField)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("unknown field hardware.serial_number")
+        );
+    }
+
+    #[test]
+    fn replay_rejects_unknown_hardware_json_field_before_raw_overflow() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["hardware"]["serial_number"] =
+            serde_json::Value::Number(serde_json::Number::from(123_456_789_u64));
+        let json = serde_json::to_string(&value).unwrap();
+        let needle = "\"serial_number\":123456789";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(needle, "\"serial_number\":1e999999", 1);
         let error =
             replay_witness_json(&json).expect_err("unknown hardware field must fail replay");
         assert_eq!(
