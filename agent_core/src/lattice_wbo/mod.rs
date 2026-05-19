@@ -5430,12 +5430,7 @@ mod tests {
     #[test]
     fn register_doc_wbo_witness_contracts_cover_every_term() {
         let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
-        let witness_contract_rows = register
-            .lines()
-            .skip_while(|line| *line != "### WBO Witness Contracts")
-            .skip(1)
-            .take_while(|line| !line.starts_with("## "))
-            .collect::<Vec<_>>();
+        let witness_contract_rows = register_wbo_witness_contract_rows(register);
 
         for term in WboTermCode::ALL {
             let needle = format!("| `{}` |", term.code());
@@ -5456,12 +5451,7 @@ mod tests {
     #[test]
     fn register_doc_wbo_witness_contracts_name_term_f_hooks() {
         let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
-        let witness_contract_rows = register
-            .lines()
-            .skip_while(|line| *line != "### WBO Witness Contracts")
-            .skip(1)
-            .take_while(|line| !line.starts_with("## "))
-            .collect::<Vec<_>>();
+        let witness_contract_rows = register_wbo_witness_contract_rows(register);
 
         for term in WboTermCode::ALL {
             let needle = format!("| `{}` |", term.code());
@@ -5482,13 +5472,41 @@ mod tests {
     }
 
     #[test]
+    fn register_doc_wbo_witness_contracts_match_exact_term_f_hooks() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        let witness_contract_rows = register_wbo_witness_contract_rows(register);
+
+        for term in WboTermCode::ALL {
+            let needle = format!("| `{}` |", term.code());
+            let row = witness_contract_rows
+                .iter()
+                .find(|line| line.starts_with(&needle))
+                .unwrap_or_else(|| panic!("missing witness-contract row for {}", term.code()));
+            let mut actual = f_hooks_in(row);
+            actual.sort_unstable();
+            actual.dedup();
+            let mut expected = f_hooks_in(term.falsifier());
+            expected.sort_unstable();
+            expected.dedup();
+
+            assert_eq!(
+                actual,
+                expected,
+                "{} witness contract F-* hooks must exactly match typed term falsifier hooks",
+                term.code()
+            );
+        }
+        assert!(
+            register.contains("`register_doc_wbo_witness_contracts_match_exact_term_f_hooks`"),
+            "register doc must cross-link the exact witness-contract hook guard"
+        );
+    }
+
+    #[test]
     fn register_doc_wbo_witness_contract_rows_follow_catalog_order() {
         let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
-        let actual = register
-            .lines()
-            .skip_while(|line| *line != "### WBO Witness Contracts")
-            .skip(1)
-            .take_while(|line| !line.starts_with("## "))
+        let actual = register_wbo_witness_contract_rows(register)
+            .into_iter()
             .filter_map(|line| {
                 line.strip_prefix("| `")
                     .and_then(|tail| tail.split_once("` |"))
@@ -5525,6 +5543,15 @@ mod tests {
                 "register must name explicit softmax-half helper {helper}"
             );
         }
+    }
+
+    fn register_wbo_witness_contract_rows(register: &str) -> Vec<&str> {
+        register
+            .lines()
+            .skip_while(|line| *line != "### WBO Witness Contracts")
+            .skip(1)
+            .take_while(|line| !line.starts_with("## "))
+            .collect::<Vec<_>>()
     }
 
     #[test]
