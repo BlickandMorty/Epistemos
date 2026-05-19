@@ -1136,6 +1136,51 @@ mod tests {
     }
 
     #[test]
+    fn budget_term_code_equals_budget_spec_field_name_minus_max_prefix() {
+        // Phase 1 hardening — naming-alignment pin. BudgetTerm::code()
+        // returns the canonical short term ("tokens", "wall_ms", ...);
+        // BudgetSpec has matching fields prefixed with "max_"
+        // (max_tokens, max_wall_ms, ...). The doctrine is "code() ==
+        // BudgetSpec field name with the max_ prefix stripped". This
+        // doctrine appears nowhere in code as a constraint — only as
+        // a convention. Pin asserts the convention so a future
+        // refactor that diverged either side (e.g., renamed
+        // max_tokens to tokens_cap on the spec side, or renamed
+        // code() output to upper-snake) surfaces here at PR review.
+        //
+        // The serialised BudgetSpec JSON keys are also derived from
+        // these field names — so a drift would silently break
+        // every BudgetSpec audit dashboard that filters by key.
+        let cases = [
+            (BudgetTerm::Tokens, "max_tokens"),
+            (BudgetTerm::WallMs, "max_wall_ms"),
+            (BudgetTerm::ToolCalls, "max_tool_calls"),
+            (BudgetTerm::SubprocessMs, "max_subprocess_ms"),
+            (BudgetTerm::MemoryBytes, "max_memory_bytes"),
+        ];
+        for (term, expected_field) in cases {
+            let derived = format!("max_{}", term.code());
+            assert_eq!(
+                derived, expected_field,
+                "BudgetTerm::{term:?}::code() = {:?}, derived field name {derived:?} \
+                 must match BudgetSpec field {expected_field:?}",
+                term.code()
+            );
+        }
+        // And the serialised BudgetSpec JSON keys must match the
+        // expected field names exactly — cross-check via a sample
+        // serialisation.
+        let spec = BudgetSpec::new(1, 2, 3, 4).with_memory_bytes(5);
+        let json = serde_json::to_string(&spec).expect("serialize spec");
+        for (_term, field) in cases {
+            assert!(
+                json.contains(&format!("\"{field}\":")),
+                "expected serialised spec to contain field {field:?}, got {json}"
+            );
+        }
+    }
+
+    #[test]
     fn each_budget_term_variant_corresponds_to_exactly_one_budget_spec_axis() {
         // Phase 1 hardening — 5-to-5 mapping pin. BudgetTerm enum
         // has 5 variants (Tokens, WallMs, ToolCalls, SubprocessMs,
