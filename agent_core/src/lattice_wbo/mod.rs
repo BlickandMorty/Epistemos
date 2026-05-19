@@ -7405,6 +7405,30 @@ mod tests {
     }
 
     #[test]
+    fn wbo_term_falsifiers_name_wbo_drift_ledger_for_every_axis() {
+        for term in WboTermCode::ALL {
+            let hooks = f_hooks_in(term.falsifier());
+            assert!(
+                hooks.iter().any(|hook| *hook == "F-WBO-DriftLedger"),
+                "{:?} falsifier must name F-WBO-DriftLedger: {}",
+                term,
+                term.falsifier()
+            );
+        }
+        let hooks = f_hooks_in(WboTermCode::NumericalPostCorrection.falsifier());
+        assert!(
+            hooks.iter().any(|hook| *hook == "F-ULP-Oracle"),
+            "T_num falsifier must keep F-ULP-Oracle as the numerical oracle witness"
+        );
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`wbo_term_falsifiers_name_wbo_drift_ledger_for_every_axis`"),
+            "register doc must cross-link WBO term drift-ledger falsifier coverage"
+        );
+    }
+
+    #[test]
     fn lattice_coder_falsifiers_name_ulp_oracle_and_wbo_drift_ledger_for_every_codec() {
         for coder in LatticeCoderKind::ALL {
             let hooks = f_hooks_in(coder.falsifier());
