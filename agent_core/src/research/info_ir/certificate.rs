@@ -279,6 +279,12 @@ pub fn lean_certificate(expr: &InfoExpr) -> String {
          \x20   info_mirror_descent_witness_{suffix}\n\
          \x20   \"Beck-Teboulle 2003 §2\"\n\
          \n\
+         theorem info_certificate_mirror_equivalence_{suffix} :\n\
+         \x20   info_certificate_{suffix}.mirrorEquivalence.statement := by\n\
+         \x20 exact Epistemos.Info.CertificateTarget.mirrorEquivalenceCarries\n\
+         \x20   info_certificate_{suffix}\n\
+         \x20   info_mirror_descent_equivalence_{suffix}\n\
+         \n\
          end Epistemos.Info.Generated\n\
          \n",
         family = family,
@@ -391,6 +397,17 @@ mod tests {
         let c = lean_certificate(&e);
         assert!(c.contains("info_mirror_descent_equivalence_"));
         assert!(c.contains("info_mirror_descent_obligation_"));
+    }
+
+    #[test]
+    fn certificate_projects_target_mirror_equivalence() {
+        let e = InfoExpr::log_partition(ExpFamily::Bernoulli, vec![0.0]).unwrap();
+        let c = lean_certificate(&e);
+        assert!(c.contains("theorem info_certificate_mirror_equivalence_"));
+        assert!(c.contains(
+            "exact Epistemos.Info.CertificateTarget.mirrorEquivalenceCarries"
+        ));
+        assert!(c.contains("info_certificate_"));
     }
 
     #[test]

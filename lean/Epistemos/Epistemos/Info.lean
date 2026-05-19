@@ -221,6 +221,12 @@ theorem bregmanObligations
     c.positivity.nonnegative ∧ c.positivity.zeroIffEqual := by
   exact ⟨nonnegative, zeroIffEqual⟩
 
+theorem mirrorEquivalenceCarries
+    (c : CertificateTarget)
+    (statement : c.mirrorEquivalence.statement) :
+    c.mirrorEquivalence.statement := by
+  exact statement
+
 end CertificateTarget
 
 def bernoulliLogPartition (theta : Real) : Expr :=
