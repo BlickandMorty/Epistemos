@@ -3195,6 +3195,25 @@ mod tests {
                 "caveat": "Exact hot rows still need numerical post-correction."
             }"#,
         );
+        assert_json_wrong_type_rejected::<WboLedgerEntry>(
+            r#"{
+                "memory_tier": "L0 RAM hot",
+                "budget": {
+                    "coder": "exact-hot",
+                    "rate_milli_bits_per_symbol": null,
+                    "side_information": "None",
+                    "contributions": [{
+                        "term": "T_num",
+                        "source": "exact ULP guard",
+                        "budget": 0.0,
+                        "measured": null
+                    }]
+                },
+                "active_support": null,
+                "falsifier": "F-WBO-DriftLedger; F-ULP-Oracle",
+                "caveat": ["Exact hot rows still need numerical post-correction."]
+            }"#,
+        );
         assert_json_wrong_type_rejected::<FalsifierHookOwner>(
             r#"{
                 "hook": ["F-ULP-Oracle"],
@@ -4248,6 +4267,7 @@ mod tests {
             "public JSON rows reject missing required keys before validation",
             "`public_accounting_json_rejects_wrong_type_public_fields`",
             "public JSON rows reject wrong-type public fields before validation",
+            "wrong-type caveat fields",
             "`lattice_budget_json_rejects_invalid_public_envelopes`",
             "budget JSON rejects empty contribution lists, missing `T_num`, and wrong side-information before becoming a public budget envelope",
             "`lattice_coder_canonical_names_are_trimmed_kebab_case_keys`",
