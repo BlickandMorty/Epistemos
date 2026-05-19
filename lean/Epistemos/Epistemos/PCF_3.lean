@@ -36,8 +36,16 @@ def AttributionEdge.weightInUnitInterval (e : AttributionEdge) : Bool :=
 def ParamAttributionGraph.allWeightsInUnitInterval (g : ParamAttributionGraph) : Bool :=
   g.edges.all AttributionEdge.weightInUnitInterval
 
+/-- PCF-3 is an analytical visualization surface, not a behavioral
+hypothesis about the model. -/
+def analyticalSurfaceOnly : Bool := true
+
 theorem emptyGraphWeightsInUnitInterval :
     ({ edges := [] } : ParamAttributionGraph).allWeightsInUnitInterval = true := by
+  rfl
+
+theorem analyticalSurfaceOnlyPinned :
+    analyticalSurfaceOnly = true := by
   rfl
 
 end Epistemos.PCF3
