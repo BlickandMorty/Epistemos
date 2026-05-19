@@ -86,6 +86,18 @@ structure FourierIsometryObligation where
   modeBound : Prop
   isometry : Prop
 
+def fourierIsometryObligation
+    (modes : Nat) (_modeBound : fourierModeBound modes) :
+    FourierIsometryObligation :=
+  { modes := modes
+    modeBound := fourierModeBound modes
+    isometry := fourierIsometry modes }
+
+theorem fourierIsometryObligationCarries
+    (modes : Nat) (modeBound : fourierModeBound modes) :
+    (fourierIsometryObligation modes modeBound).isometry := by
+  exact modeBound
+
 /-- FNO equivalence obligation row: generated certificates should make
 the runtime equivalence claim explicit instead of burying it in a
 comment string. -/
