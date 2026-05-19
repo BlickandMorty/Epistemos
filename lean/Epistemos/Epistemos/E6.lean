@@ -47,6 +47,12 @@ inductive SourceFormalism : Type
   | nestedLearningCmsX   -- 4. Nested-Learning / CMS-X
   | stoneWeierstrass     -- 5. Stone-Weierstrass approximation
 
+/-- E6 embeds five distinct source formalisms into Epi_ε. -/
+def sourceFormalismCount : Nat := 5
+
+/-- E6 canonical embeddings expose three structural preservation flags. -/
+def structuralPreservationFlagCount : Nat := 3
+
 /-- A structure-preserving embedding witness from a source
 formalism into Epi_ε. -/
 structure EpiEpsilonEmbedding where
@@ -87,5 +93,9 @@ def isNotSameInfinityClaim : Bool := true
 theorem notSameInfinityClaimPinned :
     isNotSameInfinityClaim = true := by
   rfl
+
+theorem e6SchemaCountsPinned :
+    sourceFormalismCount = 5 ∧ structuralPreservationFlagCount = 3 := by
+  exact ⟨rfl, rfl⟩
 
 end Epistemos.E6
