@@ -1272,6 +1272,8 @@ struct RawTopLevelUnsigned<'a> {
     #[serde(default, borrow)]
     adversarial_fixture_count: Option<&'a RawValue>,
     #[serde(default, borrow)]
+    budget_target_seconds: Option<&'a RawValue>,
+    #[serde(default, borrow)]
     budget_target_millis: Option<&'a RawValue>,
     #[serde(default, borrow)]
     observed_wall_clock_millis: Option<&'a RawValue>,
@@ -1289,6 +1291,9 @@ fn reject_raw_top_level_unsigned_json(json: &str) -> Result<(), FulpReplayError>
     }
     if let Some(value) = raw_witness.adversarial_fixture_count {
         raw_unsigned_integer_json(value, "adversarial_fixture_count")?;
+    }
+    if let Some(value) = raw_witness.budget_target_seconds {
+        raw_unsigned_integer_json(value, "budget_target_seconds")?;
     }
     if let Some(value) = raw_witness.budget_target_millis {
         raw_unsigned_integer_json(value, "budget_target_millis")?;
@@ -2515,6 +2520,28 @@ mod tests {
         let json = serde_json::to_string(&value).unwrap();
         let error = replay_witness_json(&json)
             .expect_err("budget target seconds overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("budget_target_seconds"));
+    }
+
+    #[test]
+    fn replay_rejects_budget_target_seconds_json_raw_overflow_with_path() {
+        let json = acceptance_witness_json().unwrap();
+        let seconds = serde_json::from_str::<serde_json::Value>(&json).expect("witness json")
+            ["budget_target_seconds"]
+            .as_u64()
+            .expect("budget target seconds");
+        let needle = format!("\"budget_target_seconds\": {seconds}");
+        assert_eq!(json.matches(&needle).count(), 1);
+        let json = json.replacen(&needle, "\"budget_target_seconds\": 1e999999", 1);
+        let error = replay_witness_json(&json)
+            .expect_err("budget target seconds raw overflow must fail replay");
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::NumberOutOfRange)
