@@ -86,7 +86,12 @@ structure TropicalSemiring (α : Type) where
       tropicalPlus (tropicalMax a b) c =
         tropicalMax (tropicalPlus a c) (tropicalPlus b c)
 
-opaque scalarTropicalSemiringLaws : Prop := True
+def scalarTropicalSemiringLaws : Prop :=
+  ∃ laws : TropicalSemiring Scalar,
+    laws.zero = Scalar.negInf ∧
+    laws.one = Scalar.finite 0 ∧
+    laws.tropicalMax = Scalar.max ∧
+    laws.tropicalPlus = Scalar.plus
 
 structure TropicalSemiringLawObligation where
   carrierName : String
