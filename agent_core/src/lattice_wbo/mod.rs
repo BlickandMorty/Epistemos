@@ -7560,6 +7560,72 @@ mod tests {
         }
     }
 
+    #[test]
+    fn residency_primary_falsifier_hook_sets_are_pinned_to_owner_registry() {
+        let rows = ResidencyTier::ALL
+            .iter()
+            .map(|tier| (tier.canonical_name(), f_hooks_in(tier.primary_falsifier())))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            rows,
+            vec![
+                ("L0 RAM hot", vec!["F-WBO-DriftLedger", "F-ULP-Oracle"]),
+                (
+                    "L1 Compressed Residual",
+                    vec!["F-WBO-DriftLedger", "F-ULP-Oracle", "F-ACS-AnchorLookup"],
+                ),
+                (
+                    "L2 Shadow Sketch",
+                    vec![
+                        "F-WBO-DriftLedger",
+                        "F-ULP-Oracle",
+                        "F-KV-Direct-Gate",
+                        "F-ACS-AnchorLookup",
+                    ],
+                ),
+                (
+                    "L3 SSD Oracle",
+                    vec![
+                        "F-KV-Direct-Gate",
+                        "F-ULP-Oracle",
+                        "F-WBO-DriftLedger",
+                        "F-ACS-AnchorLookup",
+                    ],
+                ),
+                (
+                    "L4 Engram",
+                    vec!["F-ACS-AnchorLookup", "F-ULP-Oracle", "F-WBO-DriftLedger"],
+                ),
+                (
+                    "L5 Network Cascade",
+                    vec!["F-ULP-Oracle", "F-WBO-DriftLedger", "F-ACS-AnchorLookup"],
+                ),
+                (
+                    "L_SE Self-Evolving",
+                    vec!["F-ULP-Oracle", "F-WBO-DriftLedger"],
+                ),
+            ]
+        );
+
+        let owners = falsifier_hook_owners();
+        for (_, hooks) in rows {
+            for hook in hooks {
+                assert!(
+                    owners.iter().any(|owner| owner.hook == hook),
+                    "{hook} must resolve through FALSIFIER_HOOK_OWNERS"
+                );
+            }
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register
+                .contains("`residency_primary_falsifier_hook_sets_are_pinned_to_owner_registry`"),
+            "register doc must cross-link residency falsifier owner hook matrix"
+        );
+    }
+
     fn lattice_wbo_repo_root() -> std::path::PathBuf {
         std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
