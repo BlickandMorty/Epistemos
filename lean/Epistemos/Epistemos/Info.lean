@@ -237,6 +237,12 @@ theorem bernoulliCertificateTargetMirrorEquivalent (p q : Real) :
     (bernoulliCertificateTarget p q).mirrorEquivalence.statement := by
   exact bernoulliMirrorDescentEquivalenceObligationCarries
 
+theorem bernoulliCertificateTargetConvexity (p q : Real) :
+    (bernoulliCertificateTarget p q).convexity =
+        some (bernoulliConvexLogPartitionObligation p) ∧
+      (bernoulliConvexLogPartitionObligation p).convexOnNaturalDomain := by
+  exact ⟨rfl, bernoulliConvexLogPartitionObligationCarries p⟩
+
 theorem schemaConstructorCountsPinned :
     expFamilyConstructorCount = 3 ∧ exprConstructorCount = 3 := by
   exact ⟨rfl, rfl⟩
