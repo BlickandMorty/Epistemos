@@ -8030,6 +8030,45 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 47th Adversarial row (iter-388): agent-runtime 8-term
+        // long-query — {agent, runtime, substrate, trace,
+        // system, invader, canon, g}. Keeps all 4 primaries +
+        // 4 tail context tokens (system + invader + canon + g
+        // from canonical body "...System G Invader Agent canon
+        // agent runtime"). 8 terms OR. Canonical body has all
+        // 8 (3× primaries + 1× each tail incl. single-letter
+        // "g"). iter-75 pair-partner has 5/8 (agent + runtime
+        // + substrate + canon + system; lacks trace, invader,
+        // g). Decoys ≤1 of 8. SECOND 8-term Adversarial row
+        // (after iter-381 BM25/IR). Agent-runtime corpus now
+        // exercised at 4/5/6/7/8-term — SECOND canonical at
+        // FIVE query-length coverage points. Demonstrates BM25
+        // robustness on a query that includes a single-
+        // character token ("g") — proves the IR engine handles
+        // mixed-cardinality token sets correctly.
+        query: "agent runtime substrate trace system invader canon g",
+        expected_paths: &["notes/agent_runtime_v2_substrate.md"],
+        forbidden_paths: &[
+            "notes/agent_brainstorm.md",
+            "notes/runtime_old_design.md",
+            "notes/substrate_concepts.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Forty-seventh Adversarial row (iter-388): agent-\
+               runtime 8-term long-query \"agent runtime \
+               substrate trace system invader canon g\". 4 \
+               primaries + 4 tail context tokens (incl. single-\
+               letter \"g\"). SECOND 8-term Adversarial (after \
+               iter-381 BM25/IR). Agent-runtime now exercised \
+               at 4/5/6/7/8-term — SECOND canonical at FIVE \
+               query-length coverage points. Tests BM25 \
+               robustness with single-character token in query \
+               set. Canonical 8/8; iter-75 partner 5/8; decoys \
+               ≤1 of 8. Brings Adversarial to depth 47 — first \
+               category past depth-46 horizon. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 46th Adversarial row (iter-381): BM25/IR 8-term
         // long-query — {bm25, saturation, length, penalty,
         // ranking, ir, search, relevance}. Keeps all 4 canonical
