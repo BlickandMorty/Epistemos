@@ -740,6 +740,7 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
     required_nested_string_json(&value, "hardware", "model_identifier")?;
     required_nested_string_json(&value, "hardware", "chip")?;
     required_nested_u8_json(&value, "hardware", "cpu_cores")?;
+    required_nested_u8_json(&value, "hardware", "gpu_cores")?;
     required_top_level_string_json(&value, "mission")?;
     required_top_level_string_json(&value, "evaluator_variant")?;
     required_top_level_string_json(&value, "shader_entrypoint")?;
@@ -2261,6 +2262,24 @@ mod tests {
         assert_eq!(
             error.invalid_json_message(),
             Some("number out of range for hardware.cpu_cores, expected u8")
+        );
+    }
+
+    #[test]
+    fn replay_rejects_hardware_gpu_cores_json_type_drift_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["hardware"]["gpu_cores"] = serde_json::Value::Bool(false);
+        let json = serde_json::to_string(&value).unwrap();
+        let error =
+            replay_witness_json(&json).expect_err("hardware gpu cores type drift must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("invalid type for hardware.gpu_cores, expected unsigned integer")
         );
     }
 
