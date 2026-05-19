@@ -1968,6 +1968,47 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_final_text_preserves_json_special_chars_through_serde() {
+        // Phase 1 hardening — adversarial JSON pin. AnswerPacket.final_text
+        // is a String carrying the executor's natural-language answer
+        // body — frequently JSON code blocks, technical examples with
+        // quotes/backslashes, multi-line code. Serde must escape these
+        // correctly through round-trip.
+        //
+        // Companion to:
+        //   - answer_packet_final_text_preserves_unicode_byte_for_byte_through_serde
+        //   - mission_packet_preserves_json_special_chars_in_user_prompt_through_serde (iter-413)
+        //
+        // A future #[serde(serialize_with = ...)] that applied lossy
+        // sanitisation would silently change the persisted answer.
+        let adversarial_texts = [
+            r#"```json
+{"answer": 42, "ok": true}
+```"#,
+            "Multi-line\nanswer\nwith\nnewlines",
+            r#"Quote " backslash \ tab \t and lots of escapes"#,
+            "Control\x01char\x02survives",
+            r#"{"json": "in a string", "nested": {"deep": "value"}}"#,
+        ];
+        let log = RunEventLog::new();
+        for text in adversarial_texts {
+            let packet = AnswerPacket::emit(
+                AgentBlueprintId("json-edge".into()),
+                text.to_string(),
+                vec![],
+                StopReason::EndTurn,
+                BudgetLedger::default(),
+                &log,
+            );
+            let s = serde_json::to_string(&packet).expect("serialise");
+            let back: AnswerPacket =
+                serde_json::from_str(&s).expect("deserialise");
+            assert_eq!(back.final_text, text, "final_text must round-trip byte-equal");
+            assert_eq!(back, packet);
+        }
+    }
+
+    #[test]
     fn answer_packet_final_text_preserves_unicode_byte_for_byte_through_serde() {
         // Phase 1 hardening — Unicode safety pin for AnswerPacket serde
         // (companion to mission_packet_preserves_unicode_in_user_prompt_and_vault_scope_through_serde
