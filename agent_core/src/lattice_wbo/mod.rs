@@ -4613,6 +4613,53 @@ mod tests {
     }
 
     #[test]
+    fn lattice_coder_falsifiers_are_trimmed_ascii_nonempty_clauses() {
+        for coder in LatticeCoderKind::ALL {
+            let falsifier = coder.falsifier();
+            assert!(!falsifier.is_empty(), "{coder:?}");
+            assert_eq!(falsifier.trim(), falsifier, "{coder:?}");
+            assert!(falsifier.is_ascii(), "{coder:?}");
+            assert!(!falsifier.contains("  "), "{coder:?}");
+            assert!(
+                !falsifier.starts_with(';') && !falsifier.ends_with(';'),
+                "{coder:?} falsifier must not begin or end with a semicolon"
+            );
+            for clause in falsifier.split(';') {
+                let trimmed = clause.trim();
+                assert!(
+                    !trimmed.is_empty(),
+                    "{coder:?} falsifier must not contain empty clauses: {falsifier}"
+                );
+            }
+            let hooks = f_hooks_in(falsifier);
+            assert!(
+                !hooks.is_empty(),
+                "{coder:?} falsifier must name at least one F-* hook: {falsifier}"
+            );
+        }
+        for term in WboTermCode::ALL {
+            let falsifier = term.falsifier();
+            assert!(!falsifier.is_empty(), "{term:?}");
+            assert_eq!(falsifier.trim(), falsifier, "{term:?}");
+            assert!(falsifier.is_ascii(), "{term:?}");
+            assert!(!falsifier.contains("  "), "{term:?}");
+            for clause in falsifier.split(';') {
+                let trimmed = clause.trim();
+                assert!(
+                    !trimmed.is_empty(),
+                    "{term:?} falsifier must not contain empty clauses: {falsifier}"
+                );
+            }
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`lattice_coder_falsifiers_are_trimmed_ascii_nonempty_clauses`"),
+            "register doc must cross-link codec/term falsifier string-safety guard"
+        );
+    }
+
+    #[test]
     fn public_key_registry_sizes_are_pinned() {
         assert_eq!(ResidencyTier::ALL.len(), 7);
         assert_eq!(ResidencyTier::CODES.len(), ResidencyTier::ALL.len());
@@ -4634,6 +4681,41 @@ mod tests {
         assert!(
             register.contains("`public_key_registry_sizes_are_pinned`"),
             "register doc must cross-link public-key registry sizes"
+        );
+    }
+
+    #[test]
+    fn public_key_registry_aggregate_surface_is_pinned_and_disjoint() {
+        let registries = [
+            ("ResidencyTier::CODES", &ResidencyTier::CODES[..]),
+            ("LatticeCoderKind::CODES", &LatticeCoderKind::CODES[..]),
+            (
+                "SideInformationKind::CODES",
+                &SideInformationKind::CODES[..],
+            ),
+            ("WboTermCode::CODES", &WboTermCode::CODES[..]),
+            ("LatticeWboError::CODES", &LatticeWboError::CODES[..]),
+        ];
+        let total_public_keys = registries.iter().map(|(_, keys)| keys.len()).sum::<usize>();
+        assert_eq!(total_public_keys, 55);
+
+        let mut all_keys = Vec::with_capacity(total_public_keys);
+        for (registry, keys) in registries {
+            assert!(!keys.is_empty(), "{registry} must not be empty");
+            for key in keys {
+                assert!(
+                    !all_keys.iter().any(|(_, existing_key)| existing_key == key),
+                    "{registry} public key {key} collides with another registry"
+                );
+                all_keys.push((registry, *key));
+            }
+        }
+        assert_eq!(all_keys.len(), total_public_keys);
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`public_key_registry_aggregate_surface_is_pinned_and_disjoint`"),
+            "register doc must cross-link aggregate public-key registry hardening"
         );
     }
 
