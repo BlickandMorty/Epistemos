@@ -204,6 +204,16 @@ theorem bernoulliMirrorDescentEquivalent :
     mirrorDescentEquivalent ExpFamily.bernoulli := by
   exact ExpFamily.bernoulli_wellFormed
 
+def bernoulliMirrorDescentEquivalenceObligation :
+    MirrorDescentEquivalenceObligation :=
+  { family := ExpFamily.bernoulli
+    statement := mirrorDescentEquivalent ExpFamily.bernoulli
+    sourceRow := "Info-IR.bernoulliMirrorDescentEquivalent" }
+
+theorem bernoulliMirrorDescentEquivalenceObligationCarries :
+    bernoulliMirrorDescentEquivalenceObligation.statement := by
+  exact bernoulliMirrorDescentEquivalent
+
 theorem schemaConstructorCountsPinned :
     expFamilyConstructorCount = 3 ∧ exprConstructorCount = 3 := by
   exact ⟨rfl, rfl⟩
