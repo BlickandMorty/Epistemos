@@ -6554,6 +6554,15 @@ mod tests {
     }
 
     #[test]
+    fn register_doc_cross_links_residency_nonprimary_codec_matrix_counts() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("residency_nonprimary_codec_rejection_matrix_counts_are_pinned"),
+            "register must cross-link residency nonprimary-codec matrix counts"
+        );
+    }
+
+    #[test]
     fn typed_catalogs_assign_every_wbo_term_to_codec_and_residency_rows() {
         for term in WboTermCode::ALL {
             assert!(
@@ -9158,6 +9167,55 @@ mod tests {
         assert_eq!(
             checked,
             2 * ResidencyTier::ALL.len() * (LatticeCoderKind::ALL.len() - 1)
+        );
+    }
+
+    #[test]
+    fn residency_nonprimary_codec_rejection_matrix_counts_are_pinned() {
+        let rows = ResidencyTier::ALL
+            .iter()
+            .map(|tier| {
+                let rejected_codecs = LatticeCoderKind::ALL
+                    .iter()
+                    .filter(|coder| **coder != tier.primary_coder())
+                    .count();
+                let tier_side_information_borrowers = LatticeCoderKind::ALL
+                    .iter()
+                    .filter(|coder| {
+                        **coder != tier.primary_coder()
+                            && coder
+                                .canonical_side_information()
+                                .contains(&tier.primary_side_information())
+                    })
+                    .count();
+                (
+                    tier.canonical_name(),
+                    rejected_codecs,
+                    tier_side_information_borrowers,
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            rows,
+            vec![
+                ("L0 RAM hot", 12, 0),
+                ("L1 Compressed Residual", 12, 3),
+                ("L2 Shadow Sketch", 12, 2),
+                ("L3 SSD Oracle", 12, 1),
+                ("L4 Engram", 12, 0),
+                ("L5 Network Cascade", 12, 0),
+                ("L_SE Self-Evolving", 12, 0),
+            ]
+        );
+        let rejected = rows.iter().map(|(_, count, _)| count).sum::<usize>();
+        assert_eq!(rejected, 84);
+        assert_eq!(2 * rejected, 168);
+        assert_eq!(
+            rows.iter()
+                .map(|(_, _, side_information_borrowers)| side_information_borrowers)
+                .sum::<usize>(),
+            6
         );
     }
 
