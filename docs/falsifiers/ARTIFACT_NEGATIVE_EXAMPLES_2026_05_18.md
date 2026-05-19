@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 284
+invalid_example_count: 285
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -13225,3 +13225,19 @@ Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-
 ```
 
 Rejection reason: a valid commit hash cannot replay uncommitted edits; witness artifacts require a clean worktree or a separate committed state pin.
+
+## N285 - Detached HEAD Commit SHA Witness
+
+Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-identity-rule) and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "field": "commit_sha",
+  "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "schema_pattern": "^[0-9a-f]{40}$",
+  "semantic_rule": "commit_reachable_from_named_branch",
+  "head_state": "detached"
+}
+```
+
+Rejection reason: detached HEAD runs do not name the branch replay context; `commit_sha` must be reachable from a named branch used for the falsifier run.

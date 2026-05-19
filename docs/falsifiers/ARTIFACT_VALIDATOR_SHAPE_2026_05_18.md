@@ -474,6 +474,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_
 ```
 
 ```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md"); block=s[/## N285 - .*?```json\n(.*?)\n```/m,1] || abort("N285 missing"); x=JSON.parse(block); pat=Regexp.new(x["schema_pattern"]); abort("N285 detached-head sha missing") unless x["commit_sha"] == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"; abort("N285 should still match syntax regex before semantic rejection") unless x["commit_sha"].match?(pat); abort("N285 detached-head rule missing") unless x["semantic_rule"] == "commit_reachable_from_named_branch" && x["head_state"] == "detached"; puts "detached head commit sha semantic negative case ok"'
+```
+
+```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md"); block=s[/## N274 - .*?```json\n(.*?)\n```/m,1] || abort("N274 missing"); x=JSON.parse(block); pat=Regexp.new(x["schema_pattern"]); abort("N274 non-hex commit missing") unless x["commit_sha"] == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaag"; abort("N274 unexpectedly matches commit grammar") if x["commit_sha"].match?(pat); puts "non-hex commit sha negative case ok"'
 ```
 
