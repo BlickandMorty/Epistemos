@@ -773,6 +773,23 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_coptic.md",
             "Mamba ⲕ cache Mamba ⲕ cache architecture notes coptic",
         ),
+        // Iter-286 (32nd Unicode — Phoenician-script extension):
+        // Latin "Mamba" + Phoenician "𐤊" (kap, U+1090A) + Latin
+        // "cache". Phoenician is the COMMON ANCESTOR of Greek,
+        // Aramaic, and many other alphabet families (ca. 1050
+        // BCE). Adds the ancestral root to the pin set: now
+        // demonstrates no-script-fold across the COMPLETE
+        // genealogical depth (ancestor + descendant branches:
+        // Phoenician → Greek → Coptic + Cyrillic + Glagolitic;
+        // Phoenician → Aramaic → Hebrew + Syriac + Arabic +
+        // Mongolian). Thirty non-Latin scripts pinned
+        // (+ Phoenician). Uses a 4-byte UTF-16 Supplementary
+        // Multilingual Plane (SMP) codepoint — first SMP-plane
+        // script in the pin set.
+        (
+            "notes/mamba_phoenician.md",
+            "Mamba 𐤊 cache Mamba 𐤊 cache architecture notes phoenician",
+        ),
     ];
     for (path, content) in seeds {
         store
