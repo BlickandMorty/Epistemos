@@ -949,6 +949,65 @@ mod tests {
     }
 
     #[test]
+    fn provider_policy_variants_field_shapes_pinned_via_destructure() {
+        // Phase 1 hardening — field-shape pin for ProviderPolicy's 6
+        // variants (companion to the destructure pin family iter-454..
+        // iter-462). ProviderPolicy is the canonical agent executor
+        // choice; field changes here fork every persisted
+        // AgentBlueprint JSON.
+        //
+        // Per-variant field shapes:
+        //   - LocalMlx { model_id: String }                              → 1 named
+        //   - AnthropicMessages { model: String }                        → 1 named
+        //   - OpenAIResponses { model: String }                          → 1 named
+        //   - OpenAICompatible { base_url: String, model: String }       → 2 named
+        //   - Mcp { server_id: String }                                  → 1 named
+        //   - ProCli { adapter: CliAdapter, command: String }            → 2 named
+        let p = ProviderPolicy::LocalMlx { model_id: "m".into() };
+        match p {
+            ProviderPolicy::LocalMlx { model_id } => { let _: String = model_id; }
+            _ => unreachable!(),
+        }
+        let p = ProviderPolicy::AnthropicMessages { model: "m".into() };
+        match p {
+            ProviderPolicy::AnthropicMessages { model } => { let _: String = model; }
+            _ => unreachable!(),
+        }
+        let p = ProviderPolicy::OpenAIResponses { model: "m".into() };
+        match p {
+            ProviderPolicy::OpenAIResponses { model } => { let _: String = model; }
+            _ => unreachable!(),
+        }
+        let p = ProviderPolicy::OpenAICompatible {
+            base_url: "u".into(),
+            model: "m".into(),
+        };
+        match p {
+            ProviderPolicy::OpenAICompatible { base_url, model } => {
+                let _: String = base_url;
+                let _: String = model;
+            }
+            _ => unreachable!(),
+        }
+        let p = ProviderPolicy::Mcp { server_id: "s".into() };
+        match p {
+            ProviderPolicy::Mcp { server_id } => { let _: String = server_id; }
+            _ => unreachable!(),
+        }
+        let p = ProviderPolicy::ProCli {
+            adapter: CliAdapter::ClaudeCode,
+            command: "c".into(),
+        };
+        match p {
+            ProviderPolicy::ProCli { adapter, command } => {
+                let _: CliAdapter = adapter;
+                let _: String = command;
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    #[test]
     fn provider_policy_variant_count_is_six() {
         // Phase 1 hardening — cardinality pin completing the
         // count-pin series across every closed-taxonomy enum
