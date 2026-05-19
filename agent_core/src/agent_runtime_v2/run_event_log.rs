@@ -888,6 +888,54 @@ mod tests {
     }
 
     #[test]
+    fn root_hash_is_sensitive_to_error_message_field_within_error_event_row() {
+        // Phase 1 hardening MILESTONE iter-550 — closes the
+        // Error-row root_hash sensitivity duo (iter-549 covers kind,
+        // THIS covers message). Two logs that differ ONLY in the
+        // message string of an AgentEvent::Error row must produce
+        // DIFFERENT root_hashes — the message participates in the
+        // chain via the inner AgentEvent serde payload.
+        //
+        // A future "let me elide the message from the hash input to
+        // avoid PII in audit logs" tweak would silently let two runs
+        // with the same kind but distinct error messages collide on
+        // chain hash — replay parity would break for the same kind.
+        // PII redaction is a downstream-presentation concern, not a
+        // chain-input one.
+        //
+        // Pin checks 5 representative message shapes produce distinct
+        // root hashes when paired with the same kind.
+        let kind = crate::agent_runtime_v2::event::AgentEventErrorKind::Provider;
+        let messages = [
+            "",
+            "transport failed",
+            "transport failed: 502",
+            "transport failed — retry-after=5s",
+            "勉強 — 失敗 📝",
+        ];
+        let hashes: Vec<Hash> = messages
+            .iter()
+            .map(|message| {
+                let mut log = RunEventLog::new();
+                log.append_event(AgentEvent::Error {
+                    kind,
+                    message: (*message).to_string(),
+                });
+                log.root_hash()
+            })
+            .collect();
+        for i in 0..hashes.len() {
+            for j in (i + 1)..hashes.len() {
+                assert_ne!(
+                    hashes[i], hashes[j],
+                    "root_hash for message {:?} == root_hash for {:?} — message must participate in chain",
+                    messages[i], messages[j]
+                );
+            }
+        }
+    }
+
+    #[test]
     fn root_hash_is_sensitive_to_agent_event_error_kind_within_error_event_row() {
         // Phase 1 hardening — fine-grained tamper sensitivity pin
         // (companion to root_hash_is_sensitive_to_stop_reason iter-548).
