@@ -3447,6 +3447,7 @@ impl<'de> Deserialize<'de> for ACSCapabilityRule {
         D: serde::Deserializer<'de>,
     {
         let value = serde_json::Value::deserialize(deserializer)?;
+        require_capability_rule_known_fields::<D::Error>(&value)?;
         require_capability_rule_field::<D::Error>(
             &value,
             "operation",
@@ -3493,6 +3494,25 @@ where
             },
         ))),
     }
+}
+
+fn require_capability_rule_known_fields<E>(value: &serde_json::Value) -> Result<(), E>
+where
+    E: serde::de::Error,
+{
+    let serde_json::Value::Object(object) = value else {
+        return Err(E::custom(acs_policy_decode_error(
+            &ACSPolicyError::Malformed {
+                field: "required_capabilities",
+            },
+        )));
+    };
+    for field in object.keys() {
+        if !matches!(field.as_str(), "operation" | "capability") {
+            return Err(E::custom(format!("malformed_policy field={field}")));
+        }
+    }
+    Ok(())
 }
 
 fn require_capability_rule_capability_envelope<E>(value: &serde_json::Value) -> Result<(), E>
@@ -8045,6 +8065,24 @@ mod tests {
         let decoded = serde_json::from_value::<ACSCapabilityRule>(value);
 
         assert!(decoded.is_err());
+    }
+
+    #[test]
+    fn acs_admission_shadow_capability_rule_field_names_malformed_policy_field() {
+        let rule = ACSCapabilityRule::new(
+            ACSOperationKind::ToolAction,
+            Capability::Other {
+                name: "ToolExec".to_string(),
+            },
+        );
+        let mut value = serde_json::to_value(rule).expect("capability rule encodes");
+        value["shadow_capability"] = serde_json::json!("KernelPromote");
+
+        let err = serde_json::from_value::<ACSCapabilityRule>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(message.contains("shadow_capability"), "{message}");
     }
 
     #[test]
