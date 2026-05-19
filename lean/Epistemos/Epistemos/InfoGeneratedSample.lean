@@ -85,6 +85,13 @@ theorem info_log_partition_convexity_sample :
     info_convexity_witness_sample
     "docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §3 + §5 Info-IR"
 
+theorem info_certificate_positivity_field_sample :
+    info_certificate_sample.positivity = info_bregman_obligation_sample := by
+  exact Epistemos.Info.CertificateTarget.positivityObligationMatches
+    info_certificate_sample
+    info_bregman_obligation_sample
+    rfl
+
 theorem info_certificate_convexity_target_sample :
     ∃ targetObligation,
       info_certificate_sample.convexity = some targetObligation ∧

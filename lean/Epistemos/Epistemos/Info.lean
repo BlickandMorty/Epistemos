@@ -217,6 +217,13 @@ theorem obligationFieldsMatch
       c.mirrorEquivalence = mirrorEquivalence := by
   exact ⟨convexityMatches, positivityMatches, mirrorMatches⟩
 
+theorem positivityObligationMatches
+    (c : CertificateTarget)
+    (obligation : BregmanPositivityObligation)
+    (stored : c.positivity = obligation) :
+    c.positivity = obligation := by
+  exact stored
+
 theorem convexityObligationCarries
     (c : CertificateTarget)
     (obligation : ConvexLogPartitionObligation)

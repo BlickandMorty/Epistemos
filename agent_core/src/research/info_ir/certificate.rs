@@ -232,6 +232,13 @@ pub fn lean_certificate(expr: &InfoExpr) -> String {
          \x20   info_mirror_descent_obligation_{suffix}\n\
          \x20   rfl rfl rfl\n\
          \n\
+         theorem info_certificate_positivity_field_{suffix} :\n\
+         \x20   info_certificate_{suffix}.positivity = info_bregman_obligation_{suffix} := by\n\
+         \x20 exact Epistemos.Info.CertificateTarget.positivityObligationMatches\n\
+         \x20   info_certificate_{suffix}\n\
+         \x20   info_bregman_obligation_{suffix}\n\
+         \x20   rfl\n\
+         \n\
          theorem info_log_partition_convexity_{suffix} :\n\
          \x20   info_convexity_obligation_{suffix}.convexOnNaturalDomain := by\n\
          \x20 exact Epistemos.Info.convexLogPartitionObligationCarries {family_term} {p_term}\n\
@@ -373,6 +380,8 @@ mod tests {
     fn certificate_projects_target_bregman_pair() {
         let e = InfoExpr::log_partition(ExpFamily::Bernoulli, vec![0.0]).unwrap();
         let c = lean_certificate(&e);
+        assert!(c.contains("theorem info_certificate_positivity_field_"));
+        assert!(c.contains("Epistemos.Info.CertificateTarget.positivityObligationMatches"));
         assert!(c.contains("theorem info_certificate_bregman_obligations_"));
         assert!(c.contains("exact Epistemos.Info.CertificateTarget.bregmanObligations"));
         assert!(c.contains("info_certificate_"));
