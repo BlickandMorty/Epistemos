@@ -668,6 +668,34 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_is_clone_send_sync_but_not_copy() {
+        // Phase 1 hardening — trait-bound pin for the executor-stream
+        // event enum. Companion to AgentBlueprintId iter-375 through
+        // RunEventLog + RunEventEntry iter-380 (the Clone + Send +
+        // Sync — NOT Copy — variant of the sweep).
+        //
+        // AgentEvent: 6-variant enum carrying String / ToolCall /
+        // serde_json::Value / StopReason / AgentEventErrorKind payloads.
+        // Clone by derive but NOT Copy (multiple variants allocate).
+        //
+        // Send + Sync are load-bearing because executor streams emit
+        // AgentEvents on a background actor; the dispatcher routes
+        // them to subscribers across multiple threads (the
+        // streaming-delegate path + the audit-log writer + the live
+        // RunEventLog appender).
+        //
+        // A future "let me hold a SwiftClosure callback inside
+        // AgentEvent::ToolCall" refactor that introduced a non-Send
+        // payload would silently break the multi-subscriber
+        // dispatcher — surface here.
+        fn assert_clone_send_sync<T: Clone + Send + Sync>() {}
+        assert_clone_send_sync::<AgentEvent>();
+
+        let ev = AgentEvent::FinalText { text: "x".into() };
+        assert_eq!(ev.clone(), ev);
+    }
+
+    #[test]
     fn agent_event_error_kind_is_copy_clone_send_sync_for_propagation_safety() {
         // Phase 1 hardening — trait-bound pin (part of the Copy +
         // Clone + Send + Sync sweep series budget_gate → mode iter-366
