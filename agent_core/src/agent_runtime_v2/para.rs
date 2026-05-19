@@ -490,6 +490,45 @@ mod tests {
     }
 
     #[test]
+    fn para_error_variants_field_shapes_pinned_via_destructure() {
+        // Phase 1 hardening — field-shape pin for ParaError's 4
+        // variants (companion to mission_prompt_error iter-454,
+        // budget_error::exhausted iter-455, log_validation_error
+        // iter-456, tool_call_error iter-457).
+        //
+        // Variants:
+        //   - BudgetExhausted (unit, 0 fields)
+        //   - CapabilityDenied (unit, 0 fields)
+        //   - MalformedToolCall (unit, 0 fields)
+        //   - Transport(String) (tuple, 1 field of type String)
+        //
+        // A future "let me add a payload to BudgetExhausted with
+        // attribution detail" extension would silently break the
+        // unit-variant assumption — surface here via destructure.
+        let units = [
+            ParaError::BudgetExhausted,
+            ParaError::CapabilityDenied,
+            ParaError::MalformedToolCall,
+        ];
+        for unit in units {
+            match unit {
+                ParaError::BudgetExhausted
+                | ParaError::CapabilityDenied
+                | ParaError::MalformedToolCall => {}
+                ParaError::Transport(_) => panic!("expected unit variant"),
+            }
+        }
+        // Transport carries exactly 1 String tuple field.
+        let transport = ParaError::Transport("transport failed".into());
+        match transport {
+            ParaError::Transport(msg) => {
+                let _: String = msg;
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    #[test]
     fn para_error_variant_count_is_four() {
         // Phase 1 hardening — cardinality pin extending the
         // count-pin series to ParaError. 4 variants
