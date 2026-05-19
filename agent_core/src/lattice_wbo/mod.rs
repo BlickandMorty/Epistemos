@@ -4568,6 +4568,7 @@ mod tests {
             "exact codec-to-falsifier `F-*` hook set",
             "exact codec-to-side-information witness set",
             "side-information register owner cells match typed codec witness sets exactly",
+            "side-information register owner cells preserve `LatticeCoderKind::ALL` order",
             "`lattice_budget_serializes_public_accounting_keys`",
             "LatticeBudget serializes only `coder`, `rate_milli_bits_per_symbol`, `side_information`, and `contributions` public keys",
             "`lattice_budget_composition_rejects_empty_public_contributions`",
@@ -5579,6 +5580,30 @@ mod tests {
             let owner_cell = cells
                 .get(2)
                 .unwrap_or_else(|| panic!("{side_information:?} doc row must have owner cell"));
+            let actual_owners = owner_cell
+                .split('`')
+                .skip(1)
+                .step_by(2)
+                .filter_map(|owner| {
+                    LatticeCoderKind::ALL
+                        .iter()
+                        .copied()
+                        .find(|coder| format!("{coder:?}") == owner)
+                })
+                .collect::<Vec<_>>();
+            let expected_owners = LatticeCoderKind::ALL
+                .iter()
+                .copied()
+                .filter(|coder| {
+                    coder
+                        .canonical_side_information()
+                        .contains(&side_information)
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(
+                actual_owners, expected_owners,
+                "{side_information:?} doc owner cell must preserve LatticeCoderKind::ALL order"
+            );
             for coder in LatticeCoderKind::ALL {
                 let coder_name = format!("`{coder:?}`");
                 let expected_owner = coder
