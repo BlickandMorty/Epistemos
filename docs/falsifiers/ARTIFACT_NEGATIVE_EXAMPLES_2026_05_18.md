@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 280
+invalid_example_count: 281
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -13161,3 +13161,19 @@ Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-
 ```
 
 Rejection reason: `commit_sha` must resolve inside the repository used for replay; a syntactically valid but missing object is not evidence.
+
+## N281 - Annotated Tag Object Commit SHA
+
+Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-identity-rule) and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "field": "commit_sha",
+  "commit_sha": "dddddddddddddddddddddddddddddddddddddddd",
+  "schema_pattern": "^[0-9a-f]{40}$",
+  "semantic_rule": "commit_object_type",
+  "resolved_object_type": "tag"
+}
+```
+
+Rejection reason: annotated tag objects are not replay pins; `commit_sha` must store the peeled commit object ID, not the tag object's ID.
