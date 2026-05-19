@@ -278,6 +278,37 @@ mod tests {
     }
 
     #[test]
+    fn stop_reason_serde_values_are_stable() {
+        // Phase 1 hardening — cross-version replay parity guardrail.
+        // StopReason carries #[serde(rename_all = "snake_case")];
+        // every variant string is load-bearing for replay of older
+        // AnswerPacket / RunEventLog JSONs.
+        //
+        // A rename here silently breaks replay. Pin all 7 variant
+        // strings to their snake_case form.
+        //
+        // Companion to:
+        //   - mode_serde_discriminator_values_are_stable (3 modes)
+        //   - agent_event_error_kind_serde_values_are_stable (4 kinds)
+        //   - cli_adapter_serde_snake_case_pins_all_six_adapter_strings (6 adapters)
+        //   - agent_event_serde_tag_values_are_stable (6 event types)
+        for (variant, expected) in [
+            (StopReason::EndTurn, "\"end_turn\""),
+            (StopReason::ToolUse, "\"tool_use\""),
+            (StopReason::MaxTokens, "\"max_tokens\""),
+            (StopReason::Refusal, "\"refusal\""),
+            (StopReason::BudgetExhausted, "\"budget_exhausted\""),
+            (StopReason::CapabilityDenied, "\"capability_denied\""),
+            (StopReason::Error, "\"error\""),
+        ] {
+            let s = serde_json::to_string(&variant).expect("serialise");
+            assert_eq!(s, expected, "stop_reason {variant:?} drifted serde form");
+            let back: StopReason = serde_json::from_str(&s).expect("round-trip");
+            assert_eq!(back, variant);
+        }
+    }
+
+    #[test]
     fn stop_reason_unknown_serde_string_fails_to_deserialise() {
         // Phase 1 hardening — closed-taxonomy guardrail symmetric to
         // mode::unknown_mode_string_fails_to_deserialise (iter-71) and
