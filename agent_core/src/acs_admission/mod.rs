@@ -3444,7 +3444,7 @@ impl<'de> Deserialize<'de> for ACSPolicy {
         };
         policy
             .validate_shape()
-            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+            .map_err(|err| serde::de::Error::custom(acs_policy_decode_error(&err)))?;
         Ok(policy)
     }
 }
@@ -4235,6 +4235,16 @@ mod tests {
         assert_eq!(
             err.field(),
             Some("required_capabilities.duplicate_capability")
+        );
+
+        let value = serde_json::to_value(&policy).expect("policy encodes");
+        let err = serde_json::from_value::<ACSPolicy>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(
+            message.contains("required_capabilities.duplicate_capability"),
+            "{message}"
         );
     }
 
