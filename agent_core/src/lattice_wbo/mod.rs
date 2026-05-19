@@ -4613,6 +4613,26 @@ mod tests {
     }
 
     #[test]
+    fn residency_primary_falsifiers_name_wbo_drift_ledger_for_every_tier() {
+        for tier in ResidencyTier::ALL {
+            let hooks = f_hooks_in(tier.primary_falsifier());
+            assert!(
+                hooks.iter().any(|hook| *hook == "F-WBO-DriftLedger"),
+                "{} primary falsifier must name F-WBO-DriftLedger: {}",
+                tier.canonical_name(),
+                tier.primary_falsifier()
+            );
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register
+                .contains("`residency_primary_falsifiers_name_wbo_drift_ledger_for_every_tier`"),
+            "register doc must cross-link residency drift-ledger falsifier coverage"
+        );
+    }
+
+    #[test]
     fn residency_primary_falsifiers_name_ulp_oracle_for_numerical_guard() {
         for tier in ResidencyTier::ALL {
             assert!(
