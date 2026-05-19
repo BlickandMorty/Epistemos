@@ -4112,7 +4112,9 @@ where
     };
     for field in object.keys() {
         if !matches!(field.as_str(), "operation" | "capability") {
-            return Err(E::custom(format!("malformed_policy field={field}")));
+            return Err(E::custom(format!(
+                "malformed_policy field=required_capabilities.{field}"
+            )));
         }
     }
     Ok(())
@@ -9767,6 +9769,27 @@ mod tests {
 
         assert!(message.contains("malformed_policy"), "{message}");
         assert!(message.contains("shadow_capability"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_shadow_capability_rule_field_names_required_namespace() {
+        let rule = ACSCapabilityRule::new(
+            ACSOperationKind::ToolAction,
+            Capability::Other {
+                name: "ToolExec".to_string(),
+            },
+        );
+        let mut value = serde_json::to_value(rule).expect("capability rule encodes");
+        value["shadow_capability"] = serde_json::json!("KernelPromote");
+
+        let err = serde_json::from_value::<ACSCapabilityRule>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(
+            message.contains("required_capabilities.shadow_capability"),
+            "{message}"
+        );
     }
 
     #[test]
