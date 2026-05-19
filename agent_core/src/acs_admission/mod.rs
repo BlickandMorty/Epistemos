@@ -11356,6 +11356,54 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_l2_rejects_replayed_lower_lane_capabilities() {
+        let cases = [
+            (
+                ACSAdmissionPayload::KernelPromotion {
+                    request: ACSKernelPromotionRequest {
+                        kernel_id: "kernel-1".to_string(),
+                        signed_plan_hash: "plan-hash".to_string(),
+                        mutation_envelope_id: Some("mutation-1".to_string()),
+                    },
+                },
+                named_capability("ToolExec"),
+            ),
+            (
+                ACSAdmissionPayload::ModelAdaptation {
+                    request: ACSModelAdaptationRequest {
+                        adapter_id: "adapter-1".to_string(),
+                        model_id: "local-helper-1".to_string(),
+                        checkpoint_hash: "checkpoint-hash".to_string(),
+                        mutation_envelope_id: Some("mutation-1".to_string()),
+                    },
+                },
+                named_capability("Assembly"),
+            ),
+        ];
+        let policy = ACSPolicy::strict("policy-l2-replayed-lower-lane-capability", 1_000);
+
+        for (idx, (payload, replayed_capability)) in cases.into_iter().enumerate() {
+            let input = ACSAdmissionInput {
+                request_id: format!("req-l2-replayed-lower-lane-capability-{idx}"),
+                payload,
+                submitted_at_ms: 1_001,
+                risk: ACSRiskVector::neutral(),
+                granted_capabilities: vec![replayed_capability],
+            };
+            let mut audit_log = Vec::new();
+
+            let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+            assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+            assert_eq!(decision.audit_record.reason, "missing_capability");
+            assert_eq!(decision.lane(), ACSLane::L2);
+            assert_eq!(decision.product_lane_code(), "self_healing_research");
+            assert_eq!(audit_log.len(), 1);
+            assert!(decision.audit_record.validate().is_ok());
+        }
+    }
+
+    #[test]
     fn acs_admission_malformed_active_assembly_rejects_and_logs() {
         let input = ACSAdmissionInput {
             request_id: "req-bad-assembly".to_string(),
