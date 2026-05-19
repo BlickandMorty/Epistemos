@@ -5388,6 +5388,32 @@ mod tests {
     }
 
     #[test]
+    fn register_doc_wbo_witness_contracts_cover_every_term() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        let witness_contract_rows = register
+            .lines()
+            .skip_while(|line| *line != "### WBO Witness Contracts")
+            .skip(1)
+            .take_while(|line| !line.starts_with("## "))
+            .collect::<Vec<_>>();
+
+        for term in WboTermCode::ALL {
+            let needle = format!("| `{}` |", term.code());
+            let matching_rows = witness_contract_rows
+                .iter()
+                .filter(|line| line.starts_with(&needle))
+                .count();
+
+            assert_eq!(
+                matching_rows,
+                1,
+                "{} must have exactly one witness-contract row",
+                term.code()
+            );
+        }
+    }
+
+    #[test]
     fn register_doc_residency_side_information_cells_follow_witness_order() {
         let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
 
