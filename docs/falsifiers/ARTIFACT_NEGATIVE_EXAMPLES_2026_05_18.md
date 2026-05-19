@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 267
+invalid_example_count: 268
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -12974,3 +12974,17 @@ Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-
 ```
 
 Rejection reason: `commit_sha` must store the resolved lowercase hex commit, not a remote-tracking branch alias such as `origin/main`.
+
+## N268 - Tag Name Commit SHA Alias
+
+Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-identity-rule) and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "field": "commit_sha",
+  "commit_sha": "v1.0.0",
+  "schema_pattern": "^[0-9a-f]{40}$"
+}
+```
+
+Rejection reason: `commit_sha` must store the resolved 40-character lowercase hex commit, not a tag alias that can be moved or reissued.
