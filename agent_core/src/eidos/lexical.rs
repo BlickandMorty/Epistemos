@@ -134,6 +134,14 @@ impl EidosRetriever for InMemoryLexicalIndex {
         query: &EidosQuery,
         retrieved_at_unix_ms: u64,
     ) -> EidosContextPacket {
+        if query.text.trim().is_empty() || query.top_k == 0 {
+            return EidosContextPacket {
+                query: query.clone(),
+                manifest_id: self.manifest_id.clone(),
+                hits: vec![],
+            };
+        }
+
         let needle = query.text.to_lowercase();
         let top_k = query.top_k as usize;
 
@@ -188,7 +196,7 @@ impl EidosRetriever for InMemoryLexicalIndex {
 
         let hits: Vec<EidosHit> = scored
             .into_iter()
-            .take(top_k.max(0))
+            .take(top_k)
             .map(|(_, hit)| hit)
             .collect();
 

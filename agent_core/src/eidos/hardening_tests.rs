@@ -157,7 +157,7 @@ fn assert_iter_format_canonical_panics_on_out_of_range() {
     assert_iter_format_canonical("iter 099", "MY_SOURCE_LABEL");
 }
 
-/// Iter 685 — catalog range continuation pin.
+/// Iter 686 — catalog range continuation pin.
 /// STATUS.md is the contributor-facing catalog for the closed-citation
 /// hardening arc. When new pins land after the previous range tip, the
 /// range must advance in lock-step so future readers can tell the arc is
@@ -167,9 +167,9 @@ fn status_md_closed_citation_iter_range_tip_tracks_latest_catalog_pin() {
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Closed-citation contract hardening (iters 127-685)"),
+        status.contains("Closed-citation contract hardening (iters 127-686)"),
         "STATUS.md closed-citation hardening catalog must advance its iter \
-         range tip to iter 685 when the catalog-continuation pin lands"
+         range tip to iter 686 when the catalog-continuation pin lands"
     );
 }
 
@@ -2194,6 +2194,64 @@ fn empty_query_text_defers_across_lexical_hybrid_and_hybrid_n() {
     assert!(
         hybrid_n.retrieve(&q_hybrid_empty, 0).hits.is_empty(),
         "HybridRetrieverN must defer on empty query.text",
+    );
+}
+
+/// Whitespace-only `query.text` is not meaningful lexical content.
+/// Treating it as a substring needle turns ordinary prose spacing into
+/// a broad match set, which violates the "closed citation or no
+/// result" floor for adversarial blank queries. This mirrors the empty
+/// string defer rule above while preserving byte-strict handling for
+/// non-whitespace controls such as the NUL-byte pin.
+#[test]
+fn whitespace_only_query_text_defers_across_lexical_hybrid_and_hybrid_n() {
+    use super::hybrid::HybridRetriever;
+    use super::hybrid_n::HybridRetrieverN;
+    use super::semantic::InMemorySemanticIndex;
+
+    let mut lex = InMemoryLexicalIndex::new(manifest());
+    lex.insert(doc("a"), "alpha   beta", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("b"), "gamma delta", EidosSourceKind::Note).unwrap();
+
+    let q_blank = EidosQuery::new("   ", EidosRetrievalMode::Lexical, 16);
+    assert!(
+        lex.retrieve(&q_blank, 0).hits.is_empty(),
+        "Lexical must defer on whitespace-only query.text",
+    );
+
+    let lex2 = {
+        let mut l = InMemoryLexicalIndex::new(manifest());
+        l.insert(doc("a"), "alpha   beta", EidosSourceKind::Note).unwrap();
+        l
+    };
+    let sem2 = {
+        let mut s = InMemorySemanticIndex::new(manifest(), 2);
+        s.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+        s
+    };
+    let hybrid = HybridRetriever::new(lex2, sem2).unwrap();
+    let q_hybrid_blank = EidosQuery::new("   ", EidosRetrievalMode::Hybrid, 16);
+    assert!(
+        hybrid.retrieve(&q_hybrid_blank, 0).hits.is_empty(),
+        "Hybrid must defer when the lexical-side query.text is whitespace-only",
+    );
+
+    let lex3 = {
+        let mut l = InMemoryLexicalIndex::new(manifest());
+        l.insert(doc("a"), "alpha   beta", EidosSourceKind::Note).unwrap();
+        l
+    };
+    let sem3 = {
+        let mut s = InMemorySemanticIndex::new(manifest(), 2);
+        s.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+        s
+    };
+    let hybrid_n = HybridRetrieverN::new(vec![Box::new(lex3), Box::new(sem3)]).unwrap();
+    let q_hybrid_n_blank =
+        EidosQuery::new("   ", EidosRetrievalMode::Hybrid, 16);
+    assert!(
+        hybrid_n.retrieve(&q_hybrid_n_blank, 0).hits.is_empty(),
+        "HybridRetrieverN must defer when query.text is whitespace-only",
     );
 }
 
