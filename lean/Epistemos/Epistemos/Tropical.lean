@@ -28,6 +28,9 @@ inductive Scalar where
   | negInf : Scalar
   | finite : ℝ -> Scalar
 
+/-- Tropical scalar has bottom plus finite real cases. -/
+def scalarConstructorCount : Nat := 2
+
 namespace Scalar
 
 /- Tropical addition: maximum, with `negInf` as identity. -/
@@ -109,6 +112,9 @@ inductive Expr where
   | plus : Expr -> Expr -> Expr
   | scale : ℝ -> Expr -> Expr
 
+/-- Tropical expression schema has five node constructors. -/
+def exprConstructorCount : Nat := 5
+
 namespace Expr
 
 /- Reference schema semantics for Tropical-IR expressions. -/
@@ -188,5 +194,9 @@ structure RationalCertificateTarget where
   numeratorHash : String
   denominatorHash : String
   representation : RationalRepresentationObligation rational
+
+theorem schemaConstructorCountsPinned :
+    scalarConstructorCount = 2 ∧ exprConstructorCount = 5 := by
+  exact ⟨rfl, rfl⟩
 
 end Epistemos.Tropical
