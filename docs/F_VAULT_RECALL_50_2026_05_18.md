@@ -327,16 +327,44 @@ accumulates the following commits since `main`:
 | 269  | `ce79442903`  | Fixture row 207 — 30th ChattyPrefix, Korean-Hangul-multilingual signal domain. 20 distinct universes. Zero new seeds. |
 | 270  | `f67911bdcf`  | Fixture row 208 — 30th PureChatter, 8-token long-input shape (extends cardinality to 8). iter-270 milestone. Six categories at depth 30. Zero new seeds. |
 | 271  | `4568db38fa`  | Fixture row 209 — 30th Unicode, Sinhala-script extension. **Uniform-≥-30 milestone**. 28 non-Latin scripts; seven Brahmic descendants. |
+| 272  | `04e552eb87`  | Summary doc refresh — log iters 251-271 + uniform-≥-30 milestone. |
+| 273  | `83f289d820`  | Fixture row 210 — 31st Synthesis, opens C(3,2) on neural-cache-layer pair ({neural, cache}). Zero new seeds. |
+| 274  | `15d45f456f`  | Fixture row 211 — 31st Adversarial, 5-term MLX-Swift long-query. Zero new seeds. |
+| 275  | `db67888dd0`  | Fixture row 212 — 31st SignalOnly, Armenian-script single-term-AND (`կեշ`). 22 domains. Zero new seeds. |
+| 276  | `4e1058221a`  | Fixture row 213 — 31st Paraphrase, NEW combining-diacritic-injection axis (`Mam̃ba`). Zero new seeds. |
+| 277  | `8459862ab9`  | Fixture row 214 — 31st ChattyPrefix, Armenian-multilingual signal domain. Zero new seeds. |
+| 278  | `c3dc2075ce`  | Fixture row 215 — 31st PureChatter, 9-token long-input (longest PureChatter query). Zero new seeds. |
+| 279  | `1e9897d3a9`  | Fixture row 216 — 31st Unicode, Coptic-script extension. **Uniform-≥-31 milestone**. 29 non-Latin scripts; Greek-descendant family. |
+| 280  | `3ab8f96db7`  | Fixture row 217 — 32nd Synthesis, 2nd 2-term-AND on neural-cache-layer pair ({neural, layer}). iter-280 milestone. Zero new seeds. |
+| 281  | `9809ac597c`  | Fixture row 218 — 32nd Adversarial, 5-term BM25/IR long-query (3rd saturation-decoy row). Zero new seeds. |
+| 282  | `640a871cff`  | Fixture row 219 — 32nd SignalOnly, Georgian-script single-term-AND (`ქეში`). 23 domains. Zero new seeds. |
+| 283  | `47612ef244`  | Fixture row 220 — 32nd Paraphrase, NEW standalone-numeric-token-insertion axis (`Mamba 2 SSM`). Zero new seeds. |
+| 284  | `24a2810dac`  | Fixture row 221 — 32nd ChattyPrefix, Georgian-multilingual signal domain (both Caucasus alphabets pinned). Zero new seeds. |
+| 285  | `5ee228db7d`  | Fixture row 222 — 32nd PureChatter, pure-chatter-noun-cluster shape (7th pure-vocabulary-cluster). Zero new seeds. |
+| 286  | `e740f4b3ff`  | Fixture row 223 — 32nd Unicode, Phoenician-script (FIRST SMP-plane codepoint, common ancestor of Greek + Aramaic). **Uniform-≥-32 milestone**. 30 non-Latin scripts. |
+| 287  | `4ea0d28c59`  | Fixture row 224 — 33rd Synthesis, closes C(3,2) on neural-cache-layer pair (full closure, 2nd 3-element pair). Zero new seeds. |
+| 288  | `b6009042e2`  | Fixture row 225 — 33rd Adversarial, 5-term vault-canon long-query. Zero new seeds. |
+| 289  | `27cd8f155d`  | Fixture row 226 — 33rd SignalOnly, Ethiopic-script single-term-AND (`ካሽ`, FIRST Ethiopic in SignalOnly). 24 domains. Zero new seeds. |
+| 290  | `5a1ca4e194`  | Fixture row 227 — 33rd Paraphrase, NEW phonetic-misspelling axis (`kashe`). iter-290 milestone. Zero new seeds. |
+| 291  | `c9024914eb`  | Fixture row 228 — 33rd ChattyPrefix, Ethiopic-multilingual signal domain. Zero new seeds. |
+| 292  | `22724a7caa`  | Fixture row 229 — 33rd PureChatter, two-sub-class-mix hybrid shape (`is are what where`). Zero new seeds. |
+| 293  | `e43514a777`  | Fixture row 230 — 33rd Unicode, Old Italic-script (2nd SMP-plane codepoint, direct ancestor of Latin). **Uniform-≥-33 milestone**. 31 non-Latin scripts. |
+| 294  | `98d2103094`  | Fixture row 231 — 34th Synthesis, opens C(3,2) on iter-4 tier-compression pair (the original Synthesis seed pair). Zero new seeds. |
+| 295  | `cd2e449a7f`  | Fixture row 232 — 34th Adversarial, 5-term graph-event long-query (4 canonicals now at 4/5-term coverage). Zero new seeds. |
 
 ## 4. Fixture row inventory
 
-**210 fixture rows shipped (420% of 50-row floor) — F-VaultRecall-50
-target met at iter-102 (`a9a6ab55a`), 160 rows past floor as of
-iter-271. Spanning 7 of 7 canonical categories at uniform per-
-category depth ≥ 30 (iter-271 milestone). Hardware pair has full
-C(4,3)+C(4,2) closure; compression-doctrine pair has reachable
-C(3,2) closure (2-of-3 with 1 ceiling). 28 non-Latin scripts
-spanning 7 Brahmic descendants alone.** Adversarial × 24 (7 cross-domain families + 17
+**232 fixture rows shipped (464% of 50-row floor) — F-VaultRecall-50
+target met at iter-102 (`a9a6ab55a`), 182 rows past floor as of
+iter-295. Spanning 7 of 7 canonical categories at uniform per-
+category depth ≥ 33 (iter-293 milestone), with Synthesis +
+Adversarial already at depth 34 (iter-294/295). Hardware pair
++ neural-cache-layer pair have full closure; compression-doctrine
+and agent-runtime pairs ceiling-capped; iter-4 tier-compression
+pair survey opened. 31 non-Latin scripts across Unicode BMP +
+SMP planes including 2 ancient-ancestor scripts (Phoenician,
+Old Italic) and three named script-family diasporas (Aramaic,
+Brahmic, Greek-descendant) plus the 7-Brahmic descendant fan.** Adversarial × 24 (7 cross-domain families + 17
 alt-query reuse rows including missing-primary-token rows across
 5 domains, non-primary-only queries, context-vocab mixes, 6-term
 long-query, canonical-vs-pair-partner discrimination, two-way
