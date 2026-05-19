@@ -926,6 +926,18 @@ mod tests {
     }
 
     #[test]
+    fn para_seq_all_failed_fwd_surfaces_inner_error_first() {
+        let seq = ParaSeq::new(&FailingFwd, &OuterFwdFails);
+        let err = seq
+            .fwd(&0, "hello")
+            .expect_err("inner fwd failure must win when both stages would fail");
+        assert!(
+            matches!(err, ParaError::Transport(ref s) if s == "inner fwd refuses"),
+            "expected inner fwd error to win, got {err:?}"
+        );
+    }
+
+    #[test]
     fn para_seq_propagates_outer_fwd_error_after_inner_success() {
         // Phase 1 hardening — mixed fwd case. The existing
         // para_seq_short_circuits_on_inner_fwd_error covers inner
