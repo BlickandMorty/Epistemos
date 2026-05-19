@@ -157,7 +157,7 @@ fn assert_iter_format_canonical_panics_on_out_of_range() {
     assert_iter_format_canonical("iter 099", "MY_SOURCE_LABEL");
 }
 
-/// Iter 701 — catalog range continuation pin.
+/// Iter 702 — catalog range continuation pin.
 /// STATUS.md is the contributor-facing catalog for the closed-citation
 /// hardening arc. When new pins land after the previous range tip, the
 /// range must advance in lock-step so future readers can tell the arc is
@@ -167,9 +167,9 @@ fn status_md_closed_citation_iter_range_tip_tracks_latest_catalog_pin() {
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Closed-citation contract hardening (iters 127-701)"),
+        status.contains("Closed-citation contract hardening (iters 127-702)"),
         "STATUS.md closed-citation hardening catalog must advance its iter \
-         range tip to iter 701 when the catalog-continuation pin lands"
+         range tip to iter 702 when the catalog-continuation pin lands"
     );
 }
 
@@ -800,10 +800,11 @@ fn citation_drift_across_packets_is_caught_by_each_packets_closed_set() {
 ///   7. Zero-width joiner-heavy emoji ZWJ sequence
 #[test]
 fn adversarial_queries_do_not_panic_any_retriever() {
+    use super::adversarial::ADVERSARIAL_QUERY_FIXTURES;
     use super::raw_archive::InMemoryRawArchive;
     use super::types::EidosCitation;
 
-    let adversarial: Vec<String> = vec![
+    let mut adversarial: Vec<String> = vec![
         "".to_string(),
         "a".to_string(),
         "\x00".to_string(),
@@ -812,6 +813,11 @@ fn adversarial_queries_do_not_panic_any_retriever() {
         " \t\n\r ".to_string(),
         "👨‍👩‍👧‍👦".to_string(),
     ];
+    adversarial.extend(
+        ADVERSARIAL_QUERY_FIXTURES
+            .iter()
+            .map(|fixture| fixture.query_text.to_string()),
+    );
 
     let m = manifest();
 
@@ -849,6 +855,27 @@ fn adversarial_queries_do_not_panic_any_retriever() {
                 assert_eq!(packet.validate_citation(&cite), Ok(()));
             }
         }
+    }
+}
+
+#[test]
+fn adversarial_query_fixture_catalog_names_typo_saturation_and_near_dup_tie_cases() {
+    use super::adversarial::ADVERSARIAL_QUERY_FIXTURES;
+
+    let labels: std::collections::BTreeSet<&str> = ADVERSARIAL_QUERY_FIXTURES
+        .iter()
+        .map(|fixture| fixture.label)
+        .collect();
+
+    for required in [
+        "typo-transposition",
+        "bm25-saturation",
+        "near-duplicate-paragraph-tie",
+    ] {
+        assert!(
+            labels.contains(required),
+            "adversarial query fixture catalog must include {required}"
+        );
     }
 }
 

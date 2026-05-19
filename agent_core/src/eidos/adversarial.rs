@@ -1,0 +1,31 @@
+//! Shared adversarial query fixtures for Eidos retrieval hardening.
+//!
+//! These fixtures name query shapes that should stay visible across
+//! retriever-level tests, fuzz-like no-panic sweeps, and future Swift bridge
+//! harnesses. The labels are stable test-facing identifiers; descriptions are
+//! human-readable catalog notes.
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct AdversarialQueryFixture {
+    pub label: &'static str,
+    pub query_text: &'static str,
+    pub description: &'static str,
+}
+
+pub const ADVERSARIAL_QUERY_FIXTURES: &[AdversarialQueryFixture] = &[
+    AdversarialQueryFixture {
+        label: "typo-transposition",
+        query_text: "tropcial",
+        description: "misspelled transposition of tropical; must not fuzzy-match by accident",
+    },
+    AdversarialQueryFixture {
+        label: "bm25-saturation",
+        query_text: "tropical",
+        description: "high-frequency lexical needle for score saturation and overflow pins",
+    },
+    AdversarialQueryFixture {
+        label: "near-duplicate-paragraph-tie",
+        query_text: "near duplicate paragraph",
+        description: "same-count near-duplicate paragraphs force deterministic tie-breaks",
+    },
+];
