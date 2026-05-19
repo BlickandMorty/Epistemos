@@ -3170,6 +3170,15 @@ mod tests {
     }
 
     #[test]
+    fn replay_round_trips_acceptance_witness_serialization() {
+        let original = acceptance_witness_json().expect("acceptance witness json");
+        let parsed = replay_witness_json(&original).expect("acceptance witness replay");
+        let reserialized = serde_json::to_string(&parsed).expect("reserialize");
+        let reparsed = replay_witness_json(&reserialized).expect("reparse");
+        assert_eq!(parsed, reparsed);
+    }
+
+    #[test]
     fn replay_accepts_observed_wall_clock_zero() {
         let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
             .expect("acceptance witness json");
