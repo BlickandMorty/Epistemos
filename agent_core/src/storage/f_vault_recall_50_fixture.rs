@@ -7150,6 +7150,32 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 47th ChattyPrefix row (iter-391): N'Ko-multilingual
+        // signal domain — 37th distinct lexical universe.
+        // Survivors after strip {Mamba, ߞ}. 2-term AND matches
+        // only iter-220's mamba_nko.md. TWENTY-SIXTH non-ASCII
+        // ChattyPrefix domain. THIRD African-origin script in
+        // ChattyPrefix (after Tifinagh + Vai). FIRST modern-
+        // single-inventor RTL script in ChattyPrefix.
+        // Parallels iter-389 SignalOnly N'Ko single-term-AND.
+        query: "Show me my Mamba ߞ notes",
+        expected_paths: &["notes/mamba_nko.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Forty-seventh ChattyPrefix row (iter-391): N'Ko-\
+               multilingual signal domain — 37th distinct \
+               lexical universe. Survivors {Mamba, ߞ} after \
+               strip. 2-term AND matches only iter-220 \
+               mamba_nko.md. Twenty-sixth non-ASCII \
+               ChattyPrefix domain. THIRD African-origin \
+               script in ChattyPrefix. FIRST modern-single-\
+               inventor RTL script in ChattyPrefix. Parallels \
+               iter-389 SignalOnly N'Ko. Brings ChattyPrefix \
+               to depth 47 — first category past depth-46 \
+               horizon. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 46th ChattyPrefix row (iter-384): Yi-multilingual
         // signal domain — 36th distinct lexical universe.
         // Survivors after strip {Mamba, ꀀ}. 2-term AND matches
