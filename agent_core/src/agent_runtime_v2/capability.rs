@@ -1628,6 +1628,58 @@ mod tests {
     }
 
     #[test]
+    fn replayed_macaroon_file_round_trip_preserves_hash_for_process_handoff() {
+        use crate::agent_runtime_v2::{BudgetDebit, RunEventLog};
+        use crate::cognitive_dag::macaroons::{issue, restrict, Caveat};
+
+        let key = root_key_a();
+        let base = issue(
+            "file-replay-session",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &key,
+        );
+        let narrowed = restrict(
+            &base,
+            Caveat::ScopePrefix {
+                prefix: "vault/notes".into(),
+            },
+        );
+
+        let file = tempfile::NamedTempFile::new().expect("temp capability file");
+        let path = file.path().to_path_buf();
+        std::fs::write(&path, serde_json::to_vec(&narrowed).expect("serialise macaroon"))
+            .expect("write capability file");
+        let bytes = std::fs::read(&path).expect("read capability file");
+        let replayed: Macaroon = serde_json::from_slice(&bytes).expect("deserialise macaroon");
+
+        assert_eq!(replayed.signature, narrowed.signature);
+        assert_eq!(replayed.capability_hash(), narrowed.capability_hash());
+        MacaroonCapability::new(replayed.clone(), key)
+            .verify(&ctx_now_at(1_000))
+            .expect("file-replayed macaroon verifies");
+
+        let cap_hash = replayed.capability_hash();
+        let mut log = RunEventLog::new();
+        log.append_sealed_mutation(
+            cap_hash,
+            BudgetDebit {
+                tokens: 1,
+                ..Default::default()
+            },
+        );
+        log.append_sealed_mutation(
+            cap_hash,
+            BudgetDebit {
+                tokens: 1,
+                ..Default::default()
+            },
+        );
+        assert_eq!(log.detect_capability_reuse(&cap_hash, 1), 1);
+    }
+
+    #[test]
     fn replayed_macaroon_json_verifies_with_every_caveat_type() {
         // Phase 1 hardening — work-queue A/H bridge: every caveat
         // type x replay combo. Forged and expired paths are pinned
