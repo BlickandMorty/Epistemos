@@ -5946,6 +5946,39 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 40th ChattyPrefix row (iter-341): Mongolian-multilingual
+        // signal domain — 30th distinct lexical universe.
+        // Survivors after strip {Mamba, ᠺ}. 2-term AND matches
+        // only iter-198's mamba_mongolian.md. NINETEENTH non-
+        // ASCII ChattyPrefix domain. SECOND Aramaic-family
+        // ChattyPrefix (after iter-334 Syriac) — Mongolian =
+        // Aramaic → Sogdian → Old Uyghur → Mongolian. Parallels
+        // iter-339 SignalOnly Mongolian single-term-AND.
+        // ChattyPrefix now triangulates the Aramaic family at
+        // multilingual-signal granularity: direct daughter
+        // (Syriac, iter-334) + great-great-grand-daughter
+        // (Mongolian, iter-341).
+        query: "Show me my Mamba ᠺ notes",
+        expected_paths: &["notes/mamba_mongolian.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Fortieth ChattyPrefix row (iter-341): Mongolian-\
+               multilingual signal domain — 30th distinct \
+               lexical universe. Survivors {Mamba, ᠺ} after \
+               strip. 2-term AND matches only iter-198 \
+               mamba_mongolian.md. Nineteenth non-ASCII \
+               ChattyPrefix domain. SECOND Aramaic-family \
+               ChattyPrefix (after iter-334 Syriac). \
+               ChattyPrefix now triangulates the Aramaic \
+               family at multilingual-signal granularity: \
+               direct daughter (Syriac) + great-great-grand-\
+               daughter (Mongolian). Parallels iter-339 \
+               SignalOnly Mongolian. Brings ChattyPrefix to \
+               depth 40 — first category past depth-39 \
+               horizon. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 39th ChattyPrefix row (iter-334): Syriac-multilingual
         // signal domain — 29th distinct lexical universe.
         // Survivors after strip {Mamba, ܟ}. 2-term AND matches
