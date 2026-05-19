@@ -3961,6 +3961,31 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 33rd Synthesis row (iter-287). THIRD and FINAL 2-term-
+        // AND subset on iter-108 neural-cache-layer pair:
+        // {cache, layer}. Both pair-partners have both; "cache"
+        // appears broadly but "layer" is pair-unique → AND on
+        // {cache, layer} matches only the pair. CLOSES C(3,2)=3
+        // on neural-cache-layer pair (full closure). Second
+        // pair (after iter-91 Metal C(3,2)=3) to achieve full
+        // C(3,2) closure.
+        query: "cache layer",
+        expected_paths: &[
+            "notes/neural_cache_layer_v1.md",
+            "notes/neural_cache_layer_v2.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Thirty-third Synthesis row (iter-287): THIRD and \
+               FINAL 2-term-AND subset on iter-108 neural-cache-\
+               layer pair. {cache, layer} — \"layer\" is pair-\
+               unique. CLOSES C(3,2)=3 on neural-cache-layer \
+               pair. Second 3-element pair (after iter-91 Metal) \
+               to achieve full C(3,2) closure. Brings Synthesis \
+               to depth 33. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 32nd Synthesis row (iter-280, milestone iteration).
         // SECOND 2-term-AND subset on iter-108 neural-cache-layer
         // pair: {neural, layer}. Both pair-partners have both;
