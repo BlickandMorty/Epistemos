@@ -5414,6 +5414,32 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 33rd Adversarial row (iter-288): vault-canon 5-term
+        // long-query — {vault, index, reload, tantivy,
+        // vaultstore}. Keeps all 4 primaries + 1 implementation
+        // token. Seventh vault Adversarial row, first 5-term on
+        // vault corpus. Parallels iter-274 MLX-Swift 5-term and
+        // iter-281 BM25/IR 5-term: three canonicals now
+        // exercised across 4-term and 5-term query lengths.
+        query: "vault index reload tantivy vaultstore",
+        expected_paths: &["notes/vault_index_reload_canon.md"],
+        forbidden_paths: &[
+            "notes/vault_brainstorm.md",
+            "notes/old_index_design.md",
+            "notes/tantivy_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Thirty-third Adversarial row (iter-288): vault-\
+               canon 5-term long-query \"vault index reload \
+               tantivy vaultstore\". Seventh vault Adversarial \
+               row, first 5-term on vault corpus. Parallels \
+               iter-274 MLX-Swift 5-term + iter-281 BM25/IR \
+               5-term — three canonicals now at 4-term/5-term \
+               coverage. Canonical 5/5; decoys ≤1 of 5. Brings \
+               Adversarial to depth 33. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 32nd Adversarial row (iter-281): BM25/IR 5-term long-
         // query — {bm25, saturation, length, penalty, ranking}.
         // Keeps all 4 canonical primaries + 1 IR-context token
