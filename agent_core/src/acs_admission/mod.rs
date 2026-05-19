@@ -3413,7 +3413,18 @@ impl<'de> Deserialize<'de> for ACSCapabilityRule {
     where
         D: serde::Deserializer<'de>,
     {
-        let wire = ACSCapabilityRuleWire::deserialize(deserializer)?;
+        let value = serde_json::Value::deserialize(deserializer)?;
+        require_capability_rule_field::<D::Error>(
+            &value,
+            "operation",
+            "required_capabilities.operation",
+        )?;
+        require_capability_rule_field::<D::Error>(
+            &value,
+            "capability",
+            "required_capabilities.capability",
+        )?;
+        let wire = ACSCapabilityRuleWire::deserialize(value).map_err(serde::de::Error::custom)?;
         let rule = Self {
             operation: wire.operation,
             capability: wire.capability,
@@ -3421,6 +3432,29 @@ impl<'de> Deserialize<'de> for ACSCapabilityRule {
         rule.validate()
             .map_err(|err| serde::de::Error::custom(acs_policy_decode_error(&err)))?;
         Ok(rule)
+    }
+}
+
+fn require_capability_rule_field<E>(
+    value: &serde_json::Value,
+    field: &'static str,
+    policy_field: &'static str,
+) -> Result<(), E>
+where
+    E: serde::de::Error,
+{
+    match value {
+        serde_json::Value::Object(object) if object.contains_key(field) => Ok(()),
+        serde_json::Value::Object(_) => Err(E::custom(acs_policy_decode_error(
+            &ACSPolicyError::Malformed {
+                field: policy_field,
+            },
+        ))),
+        _ => Err(E::custom(acs_policy_decode_error(
+            &ACSPolicyError::Malformed {
+                field: "required_capabilities",
+            },
+        ))),
     }
 }
 
@@ -7452,6 +7486,27 @@ mod tests {
         let decoded = serde_json::from_value::<ACSCapabilityRule>(value);
 
         assert!(decoded.is_err());
+    }
+
+    #[test]
+    fn acs_admission_missing_capability_rule_operation_names_malformed_policy_field() {
+        let value = serde_json::json!({
+            "capability": {
+                "kind": "other",
+                "value": {
+                    "name": "ToolExec"
+                }
+            }
+        });
+
+        let err = serde_json::from_value::<ACSCapabilityRule>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(
+            message.contains("required_capabilities.operation"),
+            "{message}"
+        );
     }
 
     #[test]
