@@ -202,6 +202,17 @@ structure CertificateTarget where
   positivity : BregmanPositivityObligation
   mirrorEquivalence : MirrorDescentEquivalenceObligation
 
+namespace CertificateTarget
+
+theorem bregmanObligations
+    (c : CertificateTarget)
+    (nonnegative : c.positivity.nonnegative)
+    (zeroIffEqual : c.positivity.zeroIffEqual) :
+    c.positivity.nonnegative ∧ c.positivity.zeroIffEqual := by
+  exact ⟨nonnegative, zeroIffEqual⟩
+
+end CertificateTarget
+
 def bernoulliLogPartition (theta : Real) : Expr :=
   Expr.logPartition {
     family := ExpFamily.bernoulli
