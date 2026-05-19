@@ -5578,6 +5578,31 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 34th Adversarial row (iter-295): graph-event 5-term
+        // long-query — {graph, node, update, event, session}.
+        // Keeps all 4 primaries + 1 tail context token. Fourth
+        // canonical exercised at 5-term length (after iter-274
+        // MLX-Swift, iter-281 BM25/IR, iter-288 vault).
+        // Canonical has all 5 (4 primaries 3× each + session
+        // 1×); decoys ≤1 of 5.
+        query: "graph node update event session",
+        expected_paths: &["notes/canonical_graph_event_v3.md"],
+        forbidden_paths: &[
+            "notes/graph_brainstorm.md",
+            "notes/old_node_design.md",
+            "notes/event_archive.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Thirty-fourth Adversarial row (iter-295): graph-\
+               event 5-term long-query \"graph node update event \
+               session\". Fourth canonical exercised at 5-term \
+               length (after iter-274 MLX-Swift, iter-281 BM25/\
+               IR, iter-288 vault). Canonical 5/5; decoys ≤1 of \
+               5. Brings Adversarial to depth 34. Zero new \
+               seeds.",
+    },
+    FVaultRecallRow {
         // 33rd Adversarial row (iter-288): vault-canon 5-term
         // long-query — {vault, index, reload, tantivy,
         // vaultstore}. Keeps all 4 primaries + 1 implementation
