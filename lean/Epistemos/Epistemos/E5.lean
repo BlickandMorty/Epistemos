@@ -67,6 +67,9 @@ inductive SoftBranchImplementation : Type
   | t2l
   | seal
 
+/-- E5 names four possible soft-branch sidecar implementations. -/
+def softBranchSidecarCount : Nat := 4
+
 def SoftBranchImplementation.isTheoremStatement (_s : SoftBranchImplementation) : Bool :=
   false
 
@@ -89,6 +92,10 @@ def mamba3IsTheoremStatement : Bool := false
 
 theorem mamba3IsSidecarNotTheorem :
     mamba3IsTheoremStatement = false := by
+  rfl
+
+theorem softBranchSidecarCountPinned :
+    softBranchSidecarCount = 4 := by
   rfl
 
 theorem softBranchImplementationsAreSidecars
