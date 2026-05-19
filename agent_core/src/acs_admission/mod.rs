@@ -2319,17 +2319,26 @@ impl SCOPERexAdmissionProof {
         key: &K,
     ) -> Result<ACSAuditRecord, SCOPERexAdmissionProofVerificationError> {
         if !run_event_log.verify_chain(None).valid {
-            return Err(SCOPERexAdmissionProofVerificationError::Lookup(
-                ACSAuditLookupError::InvalidRunEventLogChain,
-            ));
+            return Err(self.lookup_verification_error(ACSAuditLookupError::InvalidRunEventLogChain));
         }
         self.validate()
             .map_err(|err| self.proof_verification_error(err))?;
         let record = resolve_acs_audit_record(run_event_log, &self.record_id)
-            .map_err(SCOPERexAdmissionProofVerificationError::Lookup)?;
+            .map_err(|err| self.lookup_verification_error(err))?;
         self.verify_against_record(&record, key)
             .map_err(|err| self.proof_verification_error(err))?;
         Ok(record)
+    }
+
+    fn lookup_verification_error(
+        &self,
+        error: ACSAuditLookupError,
+    ) -> SCOPERexAdmissionProofVerificationError {
+        let needs_fallback_record_id = error.record_id().is_none();
+        SCOPERexAdmissionProofVerificationError::Lookup {
+            error,
+            record_id: needs_fallback_record_id.then(|| self.record_id.0.clone()),
+        }
     }
 
     fn proof_verification_error(
@@ -2462,7 +2471,10 @@ impl ACSAdmissionProofError {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SCOPERexAdmissionProofVerificationError {
-    Lookup(ACSAuditLookupError),
+    Lookup {
+        error: ACSAuditLookupError,
+        record_id: Option<String>,
+    },
     Proof {
         error: ACSAdmissionProofError,
         record_id: String,
@@ -2472,21 +2484,21 @@ pub enum SCOPERexAdmissionProofVerificationError {
 impl SCOPERexAdmissionProofVerificationError {
     pub const fn cause(&self) -> &'static str {
         match self {
-            Self::Lookup(err) => err.cause(),
+            Self::Lookup { error, .. } => error.cause(),
             Self::Proof { error, .. } => error.cause(),
         }
     }
 
     pub const fn field(&self) -> Option<&'static str> {
         match self {
-            Self::Lookup(err) => err.field(),
+            Self::Lookup { error, .. } => error.field(),
             Self::Proof { error, .. } => error.field(),
         }
     }
 
     pub fn record_id(&self) -> Option<&str> {
         match self {
-            Self::Lookup(err) => err.record_id(),
+            Self::Lookup { error, record_id } => error.record_id().or(record_id.as_deref()),
             Self::Proof { record_id, .. } => Some(record_id.as_str()),
         }
     }
@@ -6355,6 +6367,7 @@ mod tests {
 
         assert_eq!(err.cause(), "invalid_run_event_log_chain");
         assert_eq!(err.field(), Some("run_event_log"));
+        assert_eq!(err.record_id(), Some(proof.record_id.0.as_str()));
     }
 
     #[test]
