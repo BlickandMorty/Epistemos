@@ -2267,6 +2267,28 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                reached. ALL 7 CATEGORIES NOW AT DEPTH 50.",
     },
     FVaultRecallRow {
+        // 51st Unicode row (iter-417): two-token Latin+Meroitic
+        // Cursive query. Iter-407 pinned the full three-token
+        // "Mamba 𐦠 cache" shape, and iter-416 pinned the bare
+        // single-codepoint SignalOnly path. This row removes the
+        // trailing Latin support term while staying in Unicode,
+        // forcing the ≤3-term AND path to require exactly Latin +
+        // SMP-plane script together.
+        query: "Mamba 𐦠",
+        expected_paths: &["notes/mamba_meroitic_cursive.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Fifty-first Unicode row (iter-417): two-token \
+               Latin+Meroitic Cursive query — \"Mamba 𐦠\". \
+               Complements iter-407's full three-token Unicode \
+               row and iter-416's bare SignalOnly row by removing \
+               the trailing Latin \"cache\" support term while \
+               preserving mixed-script AND semantics. This is the \
+               first typed Unicode row strictly beyond the \
+               per-category F-VaultRecall-50 floor.",
+    },
+    FVaultRecallRow {
         // 49th Unicode row (iter-407): Meroitic Cursive
         // extension. Adds a 47th non-Latin script (Meroitic
         // Cursive, U+109A0-U+109FF) — the EVERYDAY/CURSIVE
@@ -11176,6 +11198,23 @@ mod tests {
         assert!(
             count > F_VAULT_RECALL_50_TARGET_ROWS,
             "SignalOnly must continue beyond the F-VaultRecall-50 floor; \
+             got {count}, expected > {F_VAULT_RECALL_50_TARGET_ROWS}"
+        );
+    }
+
+    /// Iter-417 (2026-05-19): Unicode also must keep growing past
+    /// the depth-50 floor. The Unicode category reached the floor last,
+    /// at iter-414; this pins the next post-floor Unicode row as typed
+    /// fixture data rather than milestone prose.
+    #[test]
+    fn unicode_category_has_beyond_floor_depth() {
+        let count = load_canonical()
+            .iter()
+            .filter(|row| row.category == FVaultRecallCategory::Unicode)
+            .count();
+        assert!(
+            count > F_VAULT_RECALL_50_TARGET_ROWS,
+            "Unicode must continue beyond the F-VaultRecall-50 floor; \
              got {count}, expected > {F_VAULT_RECALL_50_TARGET_ROWS}"
         );
     }
