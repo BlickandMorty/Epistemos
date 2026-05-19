@@ -1224,6 +1224,13 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_chinese_hebrew.md",
             "Mamba 缓存 זיכרון Mamba 缓存 זיכרון mixed script notes",
         ),
+        // Iter-431 (57th Unicode): mixed Cyrillic + Hebrew in one
+        // <=3-token AND query. The English-only Mamba decoy carries
+        // the Latin anchor but neither non-Latin token.
+        (
+            "notes/mamba_cyrillic_hebrew.md",
+            "Mamba кэш זיכרון Mamba кэш זיכרון mixed script notes",
+        ),
     ];
     for (path, content) in seeds {
         store
