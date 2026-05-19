@@ -1401,6 +1401,50 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_capability_preserves_json_special_chars_through_serde() {
+        // Phase 1 hardening MILESTONE iter-420 — closes the
+        // JSON-special-char preservation pin family across the 2
+        // String fields in LocalAgentCapability (command_pattern,
+        // native_equivalent).
+        //
+        // Companion to:
+        //   - MissionPacket.user_prompt (iter-413)
+        //   - AnswerPacket.final_text (iter-414)
+        //   - Citation source/locator (iter-415)
+        //   - MutationEnvelope.payload (iter-416)
+        //   - ToolCall.arguments (iter-417)
+        //   - AgentBlueprint.display_name (iter-418)
+        //   - AgentBlueprintId (iter-419)
+        //   - LocalAgentCapability (this commit)
+        //
+        // Series total: 8 String/Value-bearing types pinned for
+        // JSON-special-char preservation. All major wire-surface
+        // String fields in agent_runtime_v2 now carry this guardrail.
+        //
+        // LocalAgentCapability marshals across the Swift⇄Rust FFI
+        // boundary; lossy escaping would silently fork the Swift
+        // mirror's understanding of a capability's name.
+        let mut cap = ask_capability();
+        cap.command_pattern = r#"/cmd "with quotes" <arg>"#.into();
+        cap.native_equivalent = "fallback\nwith\nnewlines and \\ backslashes".into();
+        let s = serde_json::to_string(&cap).expect("serialise");
+        let back: LocalAgentCapability =
+            serde_json::from_str(&s).expect("deserialise");
+        assert_eq!(back.command_pattern, cap.command_pattern);
+        assert_eq!(back.native_equivalent, cap.native_equivalent);
+        assert_eq!(back, cap);
+
+        // Tab + quote + JSON-shaped content.
+        let mut cap2 = ask_capability();
+        cap2.command_pattern = "/cmd\twith\ttabs".into();
+        cap2.native_equivalent = r#"{"json": "in native_equivalent"}"#.into();
+        let s2 = serde_json::to_string(&cap2).expect("serialise");
+        let back2: LocalAgentCapability =
+            serde_json::from_str(&s2).expect("deserialise");
+        assert_eq!(back2, cap2);
+    }
+
+    #[test]
     fn local_agent_capability_serde_preserves_unicode_in_string_fields() {
         // Phase 1 hardening — Unicode safety pin for LocalAgentCapability
         // serde (companion to iter-99 / iter-203 / iter-205 / iter-206 /
