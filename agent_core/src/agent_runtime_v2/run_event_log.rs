@@ -1140,6 +1140,42 @@ mod tests {
     }
 
     #[test]
+    fn validate_ordinal_density_holds_for_1000_entry_log() {
+        // Phase 1 hardening — scale pin. The existing
+        // validate_ordinal_density tests cover small fixtures (0/2/3/5/
+        // 10 entries). This pin scales to 1000 entries to verify the
+        // dense-ordinal invariant holds across a non-trivial log size.
+        //
+        // Defends against a future "let me cache the last position and
+        // skip the full walk" optimisation that would silently miss
+        // gaps in the middle of large logs.
+        let mut log = RunEventLog::new();
+        for i in 0..1_000 {
+            log.append_event(AgentEvent::ReasoningDelta {
+                text: format!("d{i}"),
+            });
+        }
+        log.validate_ordinal_density()
+            .expect("1000-entry log must validate");
+        // Spot-check: forge ordinal at position 500.
+        let s = serde_json::to_string(&log).expect("serialise");
+        let tampered = s.replacen("\"ordinal\":500", "\"ordinal\":99999", 1);
+        let bad: RunEventLog =
+            serde_json::from_str(&tampered).expect("deserialise tampered");
+        let err = bad
+            .validate_ordinal_density()
+            .expect_err("forgery at mid-log position must fail");
+        assert_eq!(
+            err,
+            LogValidationError::OrdinalMismatch {
+                position: 500,
+                expected: 500,
+                actual: 99_999,
+            }
+        );
+    }
+
+    #[test]
     fn validate_ordinal_density_empty_log_accepts_and_position_0_forgery_caught() {
         // Phase 1 hardening — boundary completeness companion to
         // validate_ordinal_density_catches_gap (mid-log forgery at
