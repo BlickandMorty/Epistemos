@@ -1317,6 +1317,8 @@ fn reject_raw_top_level_unsigned_json(json: &str) -> Result<(), FulpReplayError>
 #[derive(Deserialize)]
 struct RawConfigUnsigned<'a> {
     #[serde(default, borrow)]
+    log_sampled_points: Option<&'a RawValue>,
+    #[serde(default, borrow)]
     ulp_tolerance: Option<&'a RawValue>,
 }
 
@@ -1324,6 +1326,9 @@ fn reject_raw_config_unsigned_json(raw_config: &RawValue) -> Result<(), FulpRepl
     let Ok(raw_config) = serde_json::from_str::<RawConfigUnsigned<'_>>(raw_config.get()) else {
         return Ok(());
     };
+    if let Some(value) = raw_config.log_sampled_points {
+        raw_unsigned_integer_json(value, "config.log_sampled_points")?;
+    }
     if let Some(value) = raw_config.ulp_tolerance {
         raw_unsigned_integer_json(value, "config.ulp_tolerance")?;
     }
@@ -2089,6 +2094,28 @@ mod tests {
             .invalid_json_message()
             .expect("invalid json message")
             .contains("config.ulp_tolerance"));
+    }
+
+    #[test]
+    fn replay_rejects_config_log_sampled_points_json_raw_overflow_with_path() {
+        let json = acceptance_witness_json().unwrap();
+        let log_sampled_points = serde_json::from_str::<serde_json::Value>(&json)
+            .expect("witness json")["config"]["log_sampled_points"]
+            .as_u64()
+            .expect("log sampled points");
+        let needle = format!("\"log_sampled_points\": {log_sampled_points}");
+        assert_eq!(json.matches(&needle).count(), 1);
+        let json = json.replacen(&needle, "\"log_sampled_points\": 1e999999", 1);
+        let error = replay_witness_json(&json)
+            .expect_err("log sampled points raw overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("config.log_sampled_points"));
     }
 
     #[test]
