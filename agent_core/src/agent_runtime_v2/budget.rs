@@ -1136,6 +1136,50 @@ mod tests {
     }
 
     #[test]
+    fn budget_term_code_equals_budget_debit_field_name_exactly() {
+        // Phase 1 hardening — naming-alignment pin (companion to
+        // budget_term_code_equals_budget_spec_field_name_minus_max_prefix).
+        // BudgetDebit uses unprefixed field names (tokens / wall_ms /
+        // tool_calls / subprocess_ms / memory_bytes) — which must
+        // match BudgetTerm.code() exactly (no prefix manipulation
+        // needed). Pin asserts the BudgetDebit JSON keys match
+        // BudgetTerm.code() byte-for-byte for all 5 axes. A drift
+        // would silently break:
+        //   1. RunEventLog SealedMutation row dashboards that group
+        //      by axis name.
+        //   2. BudgetError::Exhausted error attribution where the
+        //      term field shows the human-readable axis label.
+        let cases = [
+            (BudgetTerm::Tokens, "tokens"),
+            (BudgetTerm::WallMs, "wall_ms"),
+            (BudgetTerm::ToolCalls, "tool_calls"),
+            (BudgetTerm::SubprocessMs, "subprocess_ms"),
+            (BudgetTerm::MemoryBytes, "memory_bytes"),
+        ];
+        // BudgetDebit JSON serialisation produces snake_case keys
+        // matching the field names. A non-zero value per field +
+        // serialisation contains the corresponding key.
+        let debit = BudgetDebit {
+            tokens: 1,
+            wall_ms: 2,
+            tool_calls: 3,
+            subprocess_ms: 4,
+            memory_bytes: 5,
+        };
+        let json = serde_json::to_string(&debit).expect("serialize debit");
+        for (term, expected_field) in cases {
+            assert_eq!(
+                term.code(), expected_field,
+                "BudgetTerm::{term:?}::code() must equal BudgetDebit field name {expected_field:?}"
+            );
+            assert!(
+                json.contains(&format!("\"{expected_field}\":")),
+                "expected serialised debit to contain field {expected_field:?}, got {json}"
+            );
+        }
+    }
+
+    #[test]
     fn budget_term_code_equals_budget_spec_field_name_minus_max_prefix() {
         // Phase 1 hardening — naming-alignment pin. BudgetTerm::code()
         // returns the canonical short term ("tokens", "wall_ms", ...);
