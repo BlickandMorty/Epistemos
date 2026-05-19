@@ -8072,6 +8072,126 @@ mod tests {
     }
 
     #[test]
+    fn lattice_budget_composition_property_matrix_pins_zero_max_mixed_and_nan_axes() {
+        let zero_numerics = LatticeErrorContribution::new(
+            WboTermCode::NumericalPostCorrection,
+            "zero numerics",
+            0.0,
+        )
+        .expect("valid zero numerics")
+        .with_measured(0.0)
+        .expect("valid zero measurement");
+        let finite_residual =
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "finite residual", 0.25)
+                .expect("valid finite residual")
+                .with_measured(0.125)
+                .expect("valid finite residual measurement");
+        let max_residual =
+            LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "max residual", f64::MAX)
+                .expect("valid max residual")
+                .with_measured(f64::MAX)
+                .expect("valid max residual measurement");
+
+        let cases = [
+            (
+                "zero-only",
+                LatticeBudget::new(
+                    LatticeCoderKind::ExactHot,
+                    None,
+                    SideInformationKind::None,
+                    vec![zero_numerics.clone()],
+                ),
+                Ok(()),
+                Some(0.0),
+            ),
+            (
+                "mixed-finite-zero",
+                LatticeBudget::new(
+                    LatticeCoderKind::LatticeWynerZivResidual,
+                    Some(1250),
+                    SideInformationKind::ResidualStream,
+                    vec![finite_residual, zero_numerics.clone()],
+                ),
+                Ok(()),
+                Some(0.125),
+            ),
+            (
+                "mixed-max-zero",
+                LatticeBudget::new(
+                    LatticeCoderKind::LatticeWynerZivResidual,
+                    Some(1250),
+                    SideInformationKind::ResidualStream,
+                    vec![max_residual.clone(), zero_numerics.clone()],
+                ),
+                Ok(()),
+                Some(f64::MAX),
+            ),
+            (
+                "mixed-max-max-overflow",
+                LatticeBudget::new(
+                    LatticeCoderKind::LatticeWynerZivResidual,
+                    Some(1250),
+                    SideInformationKind::ResidualStream,
+                    vec![
+                        max_residual,
+                        LatticeErrorContribution::new(
+                            WboTermCode::NumericalPostCorrection,
+                            "max numerics",
+                            f64::MAX,
+                        )
+                        .expect("valid max numerics")
+                        .with_measured(f64::MAX)
+                        .expect("valid max numerics measurement"),
+                    ],
+                ),
+                Err(LatticeWboError::InvalidBudgetComposition),
+                None,
+            ),
+            (
+                "mixed-nan-zero",
+                LatticeBudget::new(
+                    LatticeCoderKind::LatticeWynerZivResidual,
+                    Some(1250),
+                    SideInformationKind::ResidualStream,
+                    vec![
+                        LatticeErrorContribution {
+                            term: WboTermCode::ResidualWynerZiv,
+                            source: "nan residual".to_string(),
+                            budget: f64::NAN,
+                            measured: Some(0.0),
+                        },
+                        zero_numerics,
+                    ],
+                ),
+                Err(LatticeWboError::InvalidBudget),
+                None,
+            ),
+        ];
+
+        for (label, budget, expected_validation, expected_measured_total) in cases {
+            assert_eq!(
+                budget.validate_composition(),
+                expected_validation,
+                "{label}"
+            );
+            assert_eq!(budget.validate(), expected_validation, "{label}");
+            assert_eq!(
+                budget.measured_pre_softmax_total(),
+                expected_measured_total,
+                "{label}"
+            );
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains(
+                "`lattice_budget_composition_property_matrix_pins_zero_max_mixed_and_nan_axes`"
+            ),
+            "register doc must cross-link zero/max/mixed/NaN composition matrix"
+        );
+    }
+
+    #[test]
     fn lattice_budget_measured_status_returns_none_for_invalid_public_fields() {
         let negative_measurement = LatticeErrorContribution {
             term: WboTermCode::NumericalPostCorrection,
