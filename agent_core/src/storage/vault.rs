@@ -750,6 +750,11 @@ impl VaultBackend for VaultStore {
         }
 
         let mut trace = build_trace(pool_size);
+        if pool_size == 0 {
+            trace.add_note(format!(
+                "Zero-result guard: no lexical matches for effective query {effective_query:?}"
+            ));
+        }
         for (result, excerpt) in results.iter().zip(trace_excerpts.into_iter()) {
             let mut candidate = RetrievalCandidate::new(result.path.clone(), result.score)
                 .with_signal(RetrievalSignalScore::new(
@@ -1341,6 +1346,41 @@ mod tests {
         assert!(results.is_empty(), "limit = 0 must retain no results");
         assert_eq!(trace.candidates_retained, 0);
         assert_eq!(trace.evidence_strength(), EvidenceStrength::Weak);
+    }
+
+    /// T21 iter-427: a real search with no lexical matches should be
+    /// explainable in the trace, not just represented as an empty list.
+    #[tokio::test]
+    async fn vaultstore_hybrid_search_with_trace_no_matches_records_zero_result_note() {
+        use super::VaultBackend;
+        use crate::storage::retrieval_trace::EvidenceStrength;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
+            .expect("open vault");
+
+        store
+            .write("unrelated.md", "coffee archive unrelated", None, false)
+            .await
+            .expect("write note");
+        store.reload_index().expect("reload index");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace("residency governance", 5, &[])
+            .await
+            .expect("no-match query must not error");
+
+        assert!(results.is_empty(), "expected no lexical matches");
+        assert_eq!(trace.candidate_pool_size, 0);
+        assert_eq!(trace.candidates_retained, 0);
+        assert_eq!(trace.evidence_strength(), EvidenceStrength::Weak);
+        assert!(
+            trace
+                .notes
+                .iter()
+                .any(|note| note.contains("Zero-result guard: no lexical matches")),
+            "trace must explain the zero-result retrieval: {:?}",
+            trace.notes
+        );
     }
 
     /// T21 iter-64 (2026-05-18): DOCUMENTING test for the Q2 gap.
