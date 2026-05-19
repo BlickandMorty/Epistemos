@@ -495,6 +495,32 @@ mod tests {
     }
 
     #[test]
+    fn variant_ladder_spec_is_clone_send_sync_but_not_copy() {
+        // Phase 1 hardening — trait-bound pin for the
+        // String + Vec<VariantTier> bearing struct. Companion to the
+        // Clone + Send + Sync (not Copy) pin family (AgentBlueprintId
+        // iter-375 → AnswerPacket + Citation iter-377 → AgentBlueprint
+        // + ProviderPolicy iter-378 → LocalAgentCapability iter-379).
+        //
+        // VariantLadderSpec: 3 fields (tool_name: String + tiers: Vec
+        // + auto_promote: bool). Clone by derive but NOT Copy
+        // (String + Vec both allocate).
+        //
+        // Send + Sync are load-bearing — VariantLadderSpec rides
+        // inside per-tool configuration that the dispatcher reads
+        // across thread boundaries during ladder dispatch.
+        fn assert_clone_send_sync<T: Clone + Send + Sync>() {}
+        assert_clone_send_sync::<VariantLadderSpec>();
+
+        let spec = VariantLadderSpec {
+            tool_name: "vault.read".into(),
+            tiers: vec![VariantTier::T1Deterministic, VariantTier::T3LlmBound],
+            auto_promote: true,
+        };
+        assert_eq!(spec.clone(), spec);
+    }
+
+    #[test]
     fn variant_tier_is_copy_clone_send_sync_for_propagation_safety() {
         // Phase 1 hardening — trait-bound pin (companion to
         // budget_gate, mode (iter-366), StopReason (iter-367)).
