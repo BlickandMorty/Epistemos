@@ -4096,6 +4096,26 @@ mod tests {
     }
 
     #[test]
+    fn wbo_term_public_codes_match_all_canonical_codes() {
+        let canonical_codes = WboTermCode::ALL
+            .iter()
+            .map(|term| term.code())
+            .collect::<Vec<_>>();
+
+        assert_eq!(WboTermCode::CODES, canonical_codes.as_slice());
+        for (term, code) in WboTermCode::ALL.iter().zip(WboTermCode::CODES) {
+            assert_eq!(term.code(), code);
+            assert_eq!(WboTermCode::from_code(code), Some(*term));
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`wbo_term_public_codes_match_all_canonical_codes`"),
+            "register doc must cross-link WBO term public-code exhaustiveness"
+        );
+    }
+
+    #[test]
     fn side_information_public_keys_match_all_canonical_keys() {
         let canonical_keys = SideInformationKind::ALL
             .iter()

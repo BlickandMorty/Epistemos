@@ -208,7 +208,7 @@ the row has a measurement:
 
 | Rust helper | Meaning |
 |---|---|
-| `WboTermCode::code()` | Returns the public `T_*` axis key; `wbo_term_codes_are_trimmed_ascii_axis_keys` asserts that WBO term codes are trimmed, nonempty, ASCII axis keys and free of debug-only enum spelling. `wbo_term_code_json_uses_public_axis_keys_and_rejects_debug_labels` asserts that WBO term JSON emits and accepts only public `T_*` axis keys; debug enum labels and spoofed case/whitespace keys are rejected. |
+| `WboTermCode::code()` | Returns the public `T_*` axis key; `wbo_term_codes_are_trimmed_ascii_axis_keys` asserts that WBO term codes are trimmed, nonempty, ASCII axis keys and free of debug-only enum spelling. `wbo_term_public_codes_match_all_canonical_codes` asserts that `WboTermCode::CODES` is exactly `WboTermCode::ALL.map(code)` and every public code round-trips through `from_code()`. `wbo_term_code_json_uses_public_axis_keys_and_rejects_debug_labels` asserts that WBO term JSON emits and accepts only public `T_*` axis keys; debug enum labels and spoofed case/whitespace keys are rejected. |
 | `WboTermCode::SEMANTIC_WBO6` | The six semantic terms `T_W` / `T_K` / `T_R` / `T_Q` / `T_S` / `T_SE`; excludes `T_num`. |
 | `WboTermCode::is_semantic_wbo6()` | Returns false for `T_num` so numerical post-correction cannot become a seventh semantic term. |
 | `WboTermCode::falsifier()` | Names the verifier hook for each WBO term, including `F-KV-Direct-Gate` for `T_K` and `F-ULP-Oracle` for `T_num`. |
