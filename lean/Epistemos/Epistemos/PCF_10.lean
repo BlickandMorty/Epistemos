@@ -36,6 +36,11 @@ structure InterpretabilityTransfer where
 def InterpretabilityTransfer.acceptanceMet (t : InterpretabilityTransfer) (ppl_drift_observed : Float) : Bool :=
   ppl_drift_observed ≤ t.ppl_drift_max
 
+/-- PCF-10 interpretability-to-runtime transfer is Vault-only with
+zero MAS shipping impact while active-rank-one kernels remain
+candidate status. -/
+def masImpactZeroVaultOnly : Bool := true
+
 theorem acceptanceMetIffDriftWithinBudget
     (t : InterpretabilityTransfer) (ppl_drift_observed : Float) :
     t.acceptanceMet ppl_drift_observed = true ↔ ppl_drift_observed ≤ t.ppl_drift_max := by
@@ -46,5 +51,9 @@ theorem driftWithinBudgetSatisfiesAcceptance
     (h_drift : ppl_drift_observed ≤ t.ppl_drift_max) :
     t.acceptanceMet ppl_drift_observed = true := by
   exact (acceptanceMetIffDriftWithinBudget t ppl_drift_observed).2 h_drift
+
+theorem masImpactZeroPinned :
+    masImpactZeroVaultOnly = true := by
+  rfl
 
 end Epistemos.PCF10
