@@ -84,6 +84,16 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_doc_documents_mission_identity_pin() {
+        assert!(FULP_FALSIFIER_DOC.contains("## Mission Identity Pin"));
+        assert!(FULP_FALSIFIER_DOC.contains("`mission` field"));
+        assert!(FULP_FALSIFIER_DOC.contains("`F-ULP-Oracle T12`"));
+        assert!(FULP_FALSIFIER_DOC.contains("F-KV-Direct"));
+        assert!(FULP_FALSIFIER_DOC.contains("F-70B-Cocktail"));
+        assert!(FULP_FALSIFIER_DOC.contains("self-identifying"));
+    }
+
+    #[test]
     fn falsifier_doc_documents_pass_field_invariants() {
         assert!(FULP_FALSIFIER_DOC.contains("## Pass Field Invariants"));
         assert!(FULP_FALSIFIER_DOC.contains("`pass` field"));
