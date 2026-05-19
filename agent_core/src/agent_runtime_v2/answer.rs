@@ -2856,6 +2856,60 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_emit_with_thinking_equals_struct_literal_with_supplied_digest_and_log_root() {
+        // Phase 1 hardening — thin-wrapper equivalence pin (companion
+        // to answer_packet_emit_equals_struct_literal below). The
+        // thinking-content path takes an explicit thinking_digest;
+        // pin asserts the helper produces a packet byte-equal to the
+        // direct struct-literal form with:
+        //   thinking_digest = (supplied verbatim — NO recompute)
+        //   run_event_log_root = run_event_log.root_hash()
+        // A future "let me recompute thinking_digest from log entries"
+        // tweak would silently break replay parity for runs assembled
+        // through this helper. Pin freezes both load-bearing field-
+        // derivations and especially that the supplied digest passes
+        // through unmodified.
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "think".into() });
+        let captured_root = log.root_hash();
+
+        let bid = AgentBlueprintId("emit-thinking-pin".into());
+        let final_text = "Final".to_string();
+        let citations = vec![Citation::from_tuple("vault/a.md", "L1")];
+        let stop = StopReason::EndTurn;
+        let ledger = BudgetLedger::default();
+        // A non-zero, recognisable digest — must survive the helper.
+        let supplied_digest = Hash::from_bytes([0xABu8; 32]);
+
+        let via_emit = AnswerPacket::emit_with_thinking(
+            bid.clone(),
+            final_text.clone(),
+            citations.clone(),
+            stop,
+            ledger,
+            &log,
+            supplied_digest,
+        );
+        let via_struct = AnswerPacket {
+            blueprint_id: bid,
+            final_text,
+            citations,
+            stop_reason: stop,
+            final_ledger: ledger,
+            run_event_log_root: captured_root,
+            thinking_digest: supplied_digest,
+        };
+        assert_eq!(via_emit, via_struct);
+        let j_emit = serde_json::to_string(&via_emit).expect("serialize emit");
+        let j_struct = serde_json::to_string(&via_struct).expect("serialize struct");
+        assert_eq!(j_emit, j_struct);
+        // The supplied digest specifically passes through verbatim.
+        assert_eq!(via_emit.thinking_digest, supplied_digest);
+        // The root hash specifically matches the log's root.
+        assert_eq!(via_emit.run_event_log_root, captured_root);
+    }
+
+    #[test]
     fn answer_packet_emit_equals_struct_literal_with_zero_thinking_digest_and_log_root() {
         // Phase 1 hardening — thin-wrapper equivalence pin (companion
         // to citation_from_tuple_equals_struct_literal at this file +
