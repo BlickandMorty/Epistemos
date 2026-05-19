@@ -65,6 +65,18 @@ freezes treat Metal output itself as proven.
 |---|---|---|---|---|---|---|
 | F-ULP-Oracle | Research | M2 Pro numeric falsifier | implemented-not-wired | `agent_core/src/research/eml_ir/`, `Epistemos/Shaders/morph_eval_reduced.metal`, `cargo test --features research research::eml_ir` | live Metal dispatch capture from `morphOracleFp16` | harden with GPU capture, subnormal/signed-zero diagnostics, WBO numerics cross-link, and Helios v3 §3.5/F7a reference |
 
+## Evaluator Variant Allowlist
+
+Replay rejects any witness whose `evaluator_variant` is not
+`cpu_float_intrinsic_morph_oracle_fp16_v1`. The reference evaluator
+(`ReferenceRoundedEvaluator`, which is `f64::exp(x) - f64::ln(y)` rounded
+to binary16) is therefore explicitly disallowed as a candidate, since a
+candidate that calls itself the reference is a self-referential loop and
+produces a trivially zero ULP distance against itself. Adding a future
+candidate variant requires extending the allowlist in lockstep with the
+schema version, so a candidate cannot smuggle a new fingerprint through by
+renaming its evaluator after the fact.
+
 ## Worst-Case Witness Surface
 
 `OperationStats` carries a `WorstCase` row for each of `exp`, `ln`, and
