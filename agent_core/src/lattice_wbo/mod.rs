@@ -1687,6 +1687,19 @@ mod tests {
         assert!(message.contains(field), "{message}");
     }
 
+    fn assert_json_duplicate_field_rejected<T>(json: &str, field: &str)
+    where
+        T: for<'de> Deserialize<'de>,
+    {
+        let error = match serde_json::from_str::<T>(json) {
+            Ok(_) => panic!("duplicate public JSON field must be rejected"),
+            Err(error) => error,
+        };
+        let message = error.to_string();
+        assert!(message.contains("duplicate field"), "{message}");
+        assert!(message.contains(field), "{message}");
+    }
+
     #[test]
     fn falsifier_hook_matching_rejects_substring_collisions() {
         assert!(contains_falsifier_hook(
@@ -2804,6 +2817,74 @@ mod tests {
     }
 
     #[test]
+    fn public_accounting_json_rejects_duplicate_public_keys() {
+        assert_json_duplicate_field_rejected::<LatticeErrorContribution>(
+            r#"{
+                "term": "T_num",
+                "source": "exact ULP guard",
+                "source": "shadowed source",
+                "budget": 0.0,
+                "measured": null
+            }"#,
+            "source",
+        );
+        assert_json_duplicate_field_rejected::<LatticeBudget>(
+            r#"{
+                "coder": "exact-hot",
+                "coder": "shadow-kv-sketch",
+                "rate_milli_bits_per_symbol": null,
+                "side_information": "None",
+                "contributions": [{
+                    "term": "T_num",
+                    "source": "exact ULP guard",
+                    "budget": 0.0,
+                    "measured": null
+                }]
+            }"#,
+            "coder",
+        );
+        assert_json_duplicate_field_rejected::<ActiveSupportBudget>(
+            r#"{
+                "max_active_tokens": 1,
+                "max_active_pages": 1,
+                "max_active_pages": 2,
+                "max_resident_bytes": 1,
+                "side_information": "ActiveSupport"
+            }"#,
+            "max_active_pages",
+        );
+        assert_json_duplicate_field_rejected::<WboLedgerEntry>(
+            r#"{
+                "memory_tier": "L0 RAM hot",
+                "budget": {
+                    "coder": "exact-hot",
+                    "rate_milli_bits_per_symbol": null,
+                    "side_information": "None",
+                    "contributions": [{
+                        "term": "T_num",
+                        "source": "exact ULP guard",
+                        "budget": 0.0,
+                        "measured": null
+                    }]
+                },
+                "active_support": null,
+                "falsifier": "F-WBO-DriftLedger; F-ULP-Oracle",
+                "falsifier": "F-WBO-DriftLedger",
+                "caveat": "Exact hot rows still need numerical post-correction."
+            }"#,
+            "falsifier",
+        );
+        assert_json_duplicate_field_rejected::<FalsifierHookOwner>(
+            r#"{
+                "hook": "F-ULP-Oracle",
+                "hook": "F-WBO-DriftLedger",
+                "owner": "agent_core/src/research/eml/ulp_oracle.rs"
+            }"#,
+            "hook",
+        );
+    }
+
+    #[test]
     fn wbo_ledger_entry_serializes_absent_active_support_as_null() {
         let contribution = LatticeErrorContribution::new(
             WboTermCode::NumericalPostCorrection,
@@ -3827,6 +3908,8 @@ mod tests {
             "public accounting JSON rejects unknown fields on contribution, budget, active-support budget, and ledger-entry surfaces",
             "`public_accounting_json_rejects_nested_unknown_fields`",
             "public accounting JSON rejects nested unknown fields inside budget contributions and ledger active-support budgets",
+            "`public_accounting_json_rejects_duplicate_public_keys`",
+            "public JSON rows reject duplicate public keys before validation",
             "`lattice_budget_json_rejects_invalid_public_envelopes`",
             "budget JSON rejects empty contribution lists, missing `T_num`, and wrong side-information before becoming a public budget envelope",
             "`lattice_coder_canonical_names_are_trimmed_kebab_case_keys`",
