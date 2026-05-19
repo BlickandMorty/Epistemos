@@ -1572,7 +1572,7 @@ impl<'de> Deserialize<'de> for ACSKernelPromotionRequest {
         };
         request
             .validate()
-            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+            .map_err(|err| serde::de::Error::custom(acs_admission_input_decode_error(&err)))?;
         Ok(request)
     }
 }
@@ -5626,10 +5626,16 @@ mod tests {
         let value = serde_json::json!({
             "kernel_id": "kernel-1",
             "signed_plan_hash": "plan-hash",
-            "mutation_envelope_id": null,
         });
 
-        assert!(serde_json::from_value::<ACSKernelPromotionRequest>(value).is_err());
+        let err = serde_json::from_value::<ACSKernelPromotionRequest>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("kernel_promotion_bypass_attempt"), "{message}");
+        assert!(
+            message.contains("kernel_promotion.mutation_envelope_id"),
+            "{message}"
+        );
     }
 
     #[test]
