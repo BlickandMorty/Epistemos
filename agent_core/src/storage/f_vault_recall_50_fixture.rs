@@ -6060,6 +6060,44 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 49th Synthesis row (iter-401). OPENS a NEW pair's
+        // C(*,2) closure survey — storage/tokenizer pair
+        // (iter-85's tokenizer_indexing_tantivy_overview +
+        // tokenizer_indexing_tantivy_internals). Pair shares
+        // 4-element vocab {tokenizer, indexing, tantivy,
+        // simpletokenizer} (verified against the seed bodies —
+        // both contain all 4 tokens at TF ≥ 1; only the pair
+        // contains "tokenizer" OR "indexing" anywhere in the
+        // corpus). FIRST 2-term-AND subset: {tokenizer,
+        // indexing}. Pair-unique by construction — grep across
+        // every seed in tests/f_vault_recall_50.rs confirms
+        // these two tokens only appear together inside the
+        // pair. Begins the C(4,2) = 6 subset survey on the
+        // storage/tokenizer 4-element pair (parallel to the
+        // now-closed C(5,2) survey on the agent-runtime pair,
+        // iter-401 milestone). Zero new seeds.
+        query: "tokenizer indexing",
+        expected_paths: &[
+            "notes/tokenizer_indexing_tantivy_overview.md",
+            "notes/tokenizer_indexing_tantivy_internals.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Forty-ninth Synthesis row (iter-401): OPENS a \
+               NEW pair's C(*,2) closure survey — the storage/\
+               tokenizer pair (iter-85 pair-partners). FIRST 2-\
+               term-AND subset {tokenizer, indexing} on the \
+               4-element vocab {tokenizer, indexing, tantivy, \
+               simpletokenizer}. Both tokens are pair-unique \
+               across the entire seed corpus (grep-verified). \
+               Begins C(4,2) = 6 subset survey on the second \
+               fully-tracked pair (parallel to the now-closed \
+               C(5,2) survey on the agent-runtime pair at iter-\
+               394). Brings Synthesis to depth 49 — first \
+               category past depth-48 horizon. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 48th Synthesis row (iter-394). FOURTH AND FINAL new
         // C(5,2) subset on agent-runtime 5-element pair vocab
         // {agent, runtime, substrate, canon, system}. CLOSES
