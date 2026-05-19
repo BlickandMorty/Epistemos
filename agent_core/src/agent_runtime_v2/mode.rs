@@ -105,6 +105,39 @@ mod tests {
     }
 
     #[test]
+    fn mode_is_pro_equivalent_to_allows_execution_for_every_variant() {
+        // Phase 1 hardening MILESTONE iter-480 — equivalence pin
+        // between two related predicates on AgentRuntimeV2Mode:
+        //
+        //   - is_pro(self): IpcBounded | Subprocess
+        //   - allows_execution(self): IpcBounded | Subprocess
+        //
+        // Both return the same boolean for the same variant — the
+        // 2 predicates have IDENTICAL truth tables. The doctrine
+        // distinction:
+        //   - is_pro: "is this a Pro-tier mode?"
+        //   - allows_execution: "may any v2 executor run?"
+        // In the current 3-variant taxonomy, every Pro mode also
+        // allows execution, but a future "Pro-Probe" mode that
+        // allows execution probes WITHOUT being a fully-functional
+        // Pro tier would break the equivalence — surface here.
+        //
+        // Pin the IDENTITY-LAW: is_pro(m) == allows_execution(m) for
+        // all 3 variants. Defends against drift.
+        for mode in [
+            AgentRuntimeV2Mode::Disabled,
+            AgentRuntimeV2Mode::IpcBounded,
+            AgentRuntimeV2Mode::Subprocess,
+        ] {
+            assert_eq!(
+                mode.is_pro(),
+                mode.allows_execution(),
+                "{mode:?}: is_pro and allows_execution must agree"
+            );
+        }
+    }
+
+    #[test]
     fn only_subprocess_mode_allows_subprocess_spawn() {
         // Phase 1 hardening — MAS-safety invariant: allows_subprocess
         // must return false for both Disabled AND IpcBounded. The
