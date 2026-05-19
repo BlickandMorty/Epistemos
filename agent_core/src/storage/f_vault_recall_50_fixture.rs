@@ -6812,6 +6812,43 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 41st Adversarial row (iter-346): Metal-compute 6-term
+        // long-query — {metal, compute, shader, kernel,
+        // pipeline, notes}. Keeps all 4 canonical primaries + 2
+        // tail context tokens (pipeline + notes from canonical's
+        // tail "...kernel metal compute pipeline notes"). 6
+        // terms OR. Canonical body has all 6 (3× primaries +
+        // 1× pipeline + 1× notes); decoys ≤2 of 6 (metal_
+        // archive: metal + notes = 2/6; compute_brainstorm:
+        // 1/6; shader_misc_notes: shader + notes = 2/6).
+        // SIXTH canonical at 6-term coverage (after agent-
+        // runtime + vault + BM25-IR + MLX-Swift + graph-event).
+        // Metal-compute now exercised at 4-term + 5-term + 6-
+        // term — SIXTH canonical with 3 query-length coverage
+        // points.
+        query: "metal compute shader kernel pipeline notes",
+        expected_paths: &["notes/metal_compute_shader_kernel.md"],
+        forbidden_paths: &[
+            "notes/metal_compute_pipeline_v2.md",
+            "notes/metal_archive.md",
+            "notes/compute_brainstorm.md",
+            "notes/shader_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Forty-first Adversarial row (iter-346): Metal-\
+               compute 6-term long-query \"metal compute shader \
+               kernel pipeline notes\". Keeps all 4 primaries + \
+               2 tail context tokens. SIXTH canonical at 6-term \
+               coverage (after agent-runtime + vault + BM25-IR \
+               + MLX-Swift + graph-event). Metal-compute now at \
+               4-term + 5-term + 6-term — SIXTH canonical with \
+               3 query-length coverage points. Canonical 6/6; \
+               decoys ≤2 of 6. Brings Adversarial to depth 41 \
+               — first category past depth-40 horizon. Zero \
+               new seeds.",
+    },
+    FVaultRecallRow {
         // 40th Adversarial row (iter-338): graph-event 6-term
         // long-query — {graph, node, update, event, session,
         // log}. Keeps all 4 canonical primaries + 2 tail
