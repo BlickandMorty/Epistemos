@@ -1005,6 +1005,27 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // Iter-421: BM25 saturation edge with a longer OR query and a
+        // terse canonical document. The expected doc carries every query
+        // term once; the forbidden decoys stuff only partial terms. top_n=1
+        // forces real BM25 ranking to prefer term coverage over raw TF.
+        query: "rankedge terse corpus needle vector recall bm25 saturation",
+        expected_paths: &["notes/bm25_rankedge_terse_corpus.md"],
+        forbidden_paths: &[
+            "notes/rankedge_stuffed_decoy.md",
+            "notes/vector_recall_partial_decoy.md",
+            "notes/needle_corpus_partial_decoy.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Adversarial BM25 saturation edge (iter-421): long \
+               8-term OR query against a terse canonical doc. The \
+               canonical carries all eight terms once; stuffed decoys \
+               repeat only one or two terms. This pins that Tantivy BM25 \
+               ranks broad term coverage above raw repetition, with no \
+               score clamp and no synthetic normalization.",
+    },
+    FVaultRecallRow {
         // 50th SignalOnly row (iter-410, MILESTONE — SignalOnly
         // category THIRD after Synthesis + Adversarial to reach
         // the F-VaultRecall-50 target). Single-term query in
