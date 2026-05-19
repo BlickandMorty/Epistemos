@@ -370,9 +370,10 @@ a specific failure mode that the dense log-sampled grid cannot exercise.
 
 ## Numerics Linkage
 
-- WBO: `docs/HELIOS_V5_DOC_6_THEOREM_CANON.md` E4 carries the
-  pre-softmax drift term `T_num`; F-ULP is the local fp16 arithmetic
-  witness for that numerical-error budget, not a product feature claim.
+- WBO: `docs/HELIOS_V5_DOC_6_THEOREM_CANON.md` E4
+  (`E4 UST-1.5 / WBO-7 Master Inequality`) carries the pre-softmax
+  numerics drift term `T_num`; F-ULP is the local fp16 arithmetic witness
+  for that numerical-error budget, not a product feature claim.
 - F-ladder: `docs/HELIOS_V5_INTEGRATION_PLAN_v2_FINALIZE_2026_05_05.md`
   names F1/F7a as the expensive Metal-kernel verification work after
   KV-Direct preflight.
