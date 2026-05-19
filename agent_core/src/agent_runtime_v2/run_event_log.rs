@@ -4309,6 +4309,37 @@ mod tests {
     }
 
     #[test]
+    fn corrupted_run_event_log_top_level_shape_fails_to_deserialise() {
+        // Phase 1 hardening — corrupted-log load boundary. Row-level
+        // corruption is pinned by run_event_entry_unknown_kind_tag_
+        // fails_to_deserialise and validate_ordinal_density_* tests.
+        // This covers the top-level RunEventLog container: the
+        // persisted replay object must contain an entries array.
+        //
+        // A future compatibility shim that defaulted a missing or
+        // malformed entries field to an empty Vec would silently
+        // erase the witness trail while still producing a valid empty
+        // root_hash. Missing/malformed entries must fail before replay.
+        for bad in [
+            r#"{}"#,
+            r#"{"entries":null}"#,
+            r#"{"entries":{}}"#,
+            r#"{"entries":"not-an-array"}"#,
+            r#"{"entry":[]}"#,
+        ] {
+            let parsed: Result<RunEventLog, _> = serde_json::from_str(bad);
+            assert!(
+                parsed.is_err(),
+                "corrupted RunEventLog top-level shape must fail: {bad}"
+            );
+        }
+
+        let ok: RunEventLog =
+            serde_json::from_str(r#"{"entries":[]}"#).expect("empty entries array is valid");
+        assert!(ok.is_empty());
+    }
+
+    #[test]
     fn full_log_with_all_3_variants_round_trips_through_json_preserving_root_hash() {
         // Phase 1 hardening MILESTONE iter-300 — comprehensive
         // round-trip pin. A log containing every RunEventEntry
