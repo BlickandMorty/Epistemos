@@ -106,7 +106,7 @@ where
             Err(E::custom(format!("malformed_risk_axis field={field}")))
         }
         serde_json::Value::Object(_) => Err(E::custom(format!("missing_risk_axis field={field}"))),
-        _ => Err(E::custom("risk vector must be an object")),
+        _ => Err(E::custom("malformed_risk_vector field=risk")),
     }
 }
 
@@ -121,7 +121,7 @@ where
             Ok(())
         }
         serde_json::Value::Object(_) => Err(E::custom(format!("missing_risk_axis field={field}"))),
-        _ => Err(E::custom("risk vector must be an object")),
+        _ => Err(E::custom("malformed_risk_vector field=risk")),
     }
 }
 
@@ -7293,6 +7293,18 @@ mod tests {
 
         assert!(message.contains("malformed_risk_axis"), "{message}");
         assert!(message.contains("privacy_risk"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_nonobject_risk_vector_names_decode_field() {
+        let err = serde_json::from_value::<ACSRiskVector>(serde_json::json!([
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, true
+        ]))
+        .unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_risk_vector"), "{message}");
+        assert!(message.contains("risk"), "{message}");
     }
 
     #[test]
