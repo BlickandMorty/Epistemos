@@ -4563,6 +4563,7 @@ mod tests {
             "residency register falsifier cells match primary and term `F-*` hook sets exactly",
             "exact term-to-falsifier `F-*` hook set",
             "WBO term falsifier cells match typed `F-*` hook sets exactly",
+            "codec coverage term cells match typed `canonical_wbo_terms()` exactly",
             "exact codec-to-falsifier `F-*` hook set",
             "exact codec-to-side-information witness set",
             "side-information register owner cells match typed codec witness sets exactly",
@@ -4780,7 +4781,7 @@ mod tests {
             "| Babai/GPTQ nearest-plane | Weight quantization as nearest-plane rounding in a Hessian-induced lattice | Calibration Hessian from the weight quantization calibration set | `T_W` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness; layerwise KL/logit drift harness",
             "`lattice_coder_catalog_includes_babai_gptq_nearest_plane`",
             "Babai/GPTQ nearest-plane terms are `T_W` + `T_num`, side information is `CalibrationHessian`, and it is non-rate",
-            "| `BabaiGptqNearestPlane` | Babai/GPTQ nearest-plane codec row | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness |",
+            "| `BabaiGptqNearestPlane` | Babai/GPTQ nearest-plane codec row | `T_W`; `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness |",
             "| Sherry 3:4 sparse ternary | 1.25-bit sparse ternary lattice packing used as a weight-codec reference only | Calibration Hessian for weight lanes | `T_W` + `T_Q` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness",
             "`sherry_ternary_codec_pins_weight_terms_rate_and_calibration_side_information`",
             "Sherry terms are `T_W` + `T_Q` + `T_num` with explicit rate ownership and `CalibrationHessian` evidence",
@@ -5486,8 +5487,20 @@ mod tests {
                 .split('|')
                 .map(str::trim)
                 .collect::<Vec<_>>();
-            let falsifier_cell = cells
+            let term_cell = cells
                 .get(2)
+                .unwrap_or_else(|| panic!("{coder:?} doc row must have WBO term cell"));
+            for term in WboTermCode::ALL {
+                let term_name = format!("`{}`", term.code());
+                let expected = coder.canonical_wbo_terms().contains(&term);
+                assert_eq!(
+                    term_cell.contains(&term_name),
+                    expected,
+                    "{coder:?} doc row term cell must exactly match {term_name} ownership"
+                );
+            }
+            let falsifier_cell = cells
+                .get(3)
                 .unwrap_or_else(|| panic!("{coder:?} doc row must have falsifier cell"));
             for clause in coder.falsifier().split(';').map(str::trim) {
                 assert!(
@@ -5513,7 +5526,7 @@ mod tests {
                 );
             }
             let side_information_cell = cells
-                .get(3)
+                .get(4)
                 .unwrap_or_else(|| panic!("{coder:?} doc row must have side-information cell"));
             for side_information in SideInformationKind::ALL {
                 let side_information_name = format!("`{side_information:?}`");
