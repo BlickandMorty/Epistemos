@@ -1598,6 +1598,29 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 31st Unicode row (iter-279): Coptic-script extension.
+        // Adds a 29th non-Latin script (Coptic, U+2C80–U+2CFF)
+        // — descends from the Greek alphabet, used historically
+        // for the Egyptian language during the Christian era
+        // (4th-13th century). Pins the Greek-descendant script
+        // family (Coptic + Cyrillic + Glagolitic all share
+        // Greek ancestry). Latin "Mamba" + Coptic "ⲕ" (kapa,
+        // U+2CB1) + Latin "cache".
+        query: "Mamba ⲕ cache",
+        expected_paths: &["notes/mamba_coptic.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Thirty-first Unicode row (iter-279): Coptic-\
+               script extension. TWENTY-NINE non-Latin scripts \
+               pinned. Coptic descends from Greek alphabet (4th-\
+               13th c CE Egyptian Christian use). Pins the \
+               Greek-descendant script family — Coptic + Cyrillic \
+               + Glagolitic all share Greek ancestry. Brings \
+               Unicode to depth 31 — closes **uniform-≥-31 \
+               milestone**.",
+    },
+    FVaultRecallRow {
         // 30th Unicode row (iter-271): Sinhala-script extension.
         // Adds a 28th non-Latin script (Sinhala, U+0D80–U+0DFF)
         // — the Brahmic abugida for the Sinhala language (Sri
