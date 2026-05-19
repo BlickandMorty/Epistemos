@@ -2948,6 +2948,37 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 43rd PureChatter row (iter-364): 18-token long-input
+        // shape — "please can you tell me what where when how
+        // some of my notes are about stuff things files".
+        // Extends long-input cardinality progression to 18
+        // (iter-357 was 17). LONGEST PureChatter query in the
+        // fixture. Mixes 13 chatter sub-classes including
+        // QUADRUPLE chatter-nouns (notes + stuff + things +
+        // files — full noun-class membership plus the
+        // alternate-plural "files"). All 18 tokens (please /
+        // can / you / tell / me / what / where / when / how /
+        // some / of / my / notes / are / about / stuff /
+        // things / files) are in QUERY_CHATTER_WORDS.
+        query: "please can you tell me what where when how some of my notes are about stuff things files",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Forty-third PureChatter row (iter-364): 18-token \
+               long-input (\"please can you tell me what where \
+               when how some of my notes are about stuff things \
+               files\"). Extends cardinality to 18 (iter-357 = \
+               17). LONGEST PureChatter query in the fixture. \
+               QUADRUPLE chatter-nouns (notes + stuff + things \
+               + files). All 18 tokens in QUERY_CHATTER_WORDS. \
+               Brings PureChatter to depth 43 — first category \
+               past depth-42 horizon.",
+    },
+    FVaultRecallRow {
         // 42nd PureChatter row (iter-357): 17-token long-input
         // shape — "please can you tell me what where when how
         // some of my notes are about stuff things". Extends
