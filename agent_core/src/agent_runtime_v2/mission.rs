@@ -1118,6 +1118,29 @@ mod tests {
     }
 
     #[test]
+    fn mission_packet_display_field_order_is_blueprint_then_scope() {
+        // Phase 1 hardening — Display field-ORDER pin (companion to
+        // answer_packet_display_field_order_is_blueprint_stop_tokens_citations
+        // iter-494). MissionPacket Display format (mission.rs §22):
+        //   "MissionPacket{{blueprint={}, scope={}}}"
+        //
+        // The 2 fields appear in EXACTLY this order:
+        //   1. blueprint
+        //   2. scope
+        //
+        // A future reorder would silently shuffle the log-line layout.
+        let mp = MissionPacket {
+            blueprint_id: AgentBlueprintId("a".into()),
+            user_prompt: "hidden".into(),
+            vault_scope: "s".into(),
+        };
+        let display = format!("{mp}");
+        let blueprint_pos = display.find("blueprint=").expect("blueprint field");
+        let scope_pos = display.find("scope=").expect("scope field");
+        assert!(blueprint_pos < scope_pos, "blueprint must precede scope");
+    }
+
+    #[test]
     fn mission_packet_display_starts_with_literal_struct_name_prefix() {
         // Phase 1 hardening — wire-shape pin (companion to
         // answer_packet_display_starts_with_literal_struct_name_prefix
