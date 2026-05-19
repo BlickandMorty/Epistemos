@@ -1362,6 +1362,40 @@ mod tests {
     }
 
     #[test]
+    fn blueprint_display_name_preserves_json_special_chars_through_serde() {
+        // Phase 1 hardening — adversarial JSON pin for
+        // AgentBlueprint.display_name (companion to mission_packet
+        // iter-413, answer_packet iter-414, citation iter-415,
+        // mutation_envelope iter-416, tool_call iter-417).
+        //
+        // display_name is a free-form String for UI labels — may carry
+        // quotes (`Bob's Agent`), backslashes (Windows paths in a name),
+        // or even multi-line names. Serde must escape these through
+        // round-trip without lossy sanitisation.
+        let adversarial = [
+            r#"agent "with quotes""#,
+            "agent\\with\\backslashes",
+            "agent\nwith\nnewlines",
+            "agent\twith\ttabs",
+            r#"Bob's "Research" Agent"#,
+        ];
+        for name in adversarial {
+            let bp = AgentBlueprint {
+                id: AgentBlueprintId("json-edge".into()),
+                display_name: name.to_string(),
+                provider_policy: ProviderPolicy::LocalMlx { model_id: "m".into() },
+                budget: BudgetSpec::default(),
+                capability_root_hash: Hash::zero(),
+            };
+            let s = serde_json::to_string(&bp).expect("serialise");
+            let back: AgentBlueprint =
+                serde_json::from_str(&s).expect("deserialise");
+            assert_eq!(back.display_name, name, "display_name must round-trip byte-equal");
+            assert_eq!(back, bp);
+        }
+    }
+
+    #[test]
     fn blueprint_display_name_preserves_unicode_through_serde() {
         // Phase 1 hardening — display_name is a free-form String
         // shown to the user; localized agent names contain emoji,
