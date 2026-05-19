@@ -941,6 +941,39 @@ mod tests {
     }
 
     #[test]
+    fn tool_call_arguments_minimum_size_boundary_pins() {
+        // Phase 1 hardening — minimum-boundary pin for ToolCall.arguments.
+        // Companion to tool_call_arguments_at_cap_accepts_per_strict_greater_boundary
+        // (which pins the MAX 64-KiB boundary).
+        //
+        // The minimum non-trivial arguments is `serde_json::json!({})`
+        // which serialises to "{}" (2 bytes — well under cap). Other
+        // minimum shapes (null, false, 0, "") all serialise to 4 bytes
+        // or fewer.
+        //
+        // Pin that the smallest valid JSON values all accept through
+        // validate() — a future "let me require non-empty top-level
+        // object" tightening would silently break callers that pass
+        // null/bool/number-only arguments.
+        for args in [
+            serde_json::json!({}),       // empty object: "{}" (2 bytes)
+            serde_json::json!(null),     // JSON null: "null" (4 bytes)
+            serde_json::json!(false),    // JSON false: "false" (5 bytes)
+            serde_json::json!(0),        // integer zero: "0" (1 byte)
+            serde_json::json!(""),       // empty string: "\"\"" (2 bytes)
+            serde_json::json!([]),       // empty array: "[]" (2 bytes)
+        ] {
+            let call = ToolCall {
+                name: "vault.read".into(),
+                arguments: args.clone(),
+            };
+            call.validate().unwrap_or_else(|e| {
+                panic!("minimum arguments {args:?} must validate, got {e:?}")
+            });
+        }
+    }
+
+    #[test]
     fn tool_call_arguments_at_cap_accepts_per_strict_greater_boundary() {
         // Phase 1 hardening — boundary completeness companion to
         // tool_name_at_cap_accepts_when_valid_chars. The arguments path
