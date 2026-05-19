@@ -157,7 +157,7 @@ fn assert_iter_format_canonical_panics_on_out_of_range() {
     assert_iter_format_canonical("iter 099", "MY_SOURCE_LABEL");
 }
 
-/// Iter 705 — catalog range continuation pin.
+/// Iter 706 — catalog range continuation pin.
 /// STATUS.md is the contributor-facing catalog for the closed-citation
 /// hardening arc. When new pins land after the previous range tip, the
 /// range must advance in lock-step so future readers can tell the arc is
@@ -167,9 +167,9 @@ fn status_md_closed_citation_iter_range_tip_tracks_latest_catalog_pin() {
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Closed-citation contract hardening (iters 127-705)"),
+        status.contains("Closed-citation contract hardening (iters 127-706)"),
         "STATUS.md closed-citation hardening catalog must advance its iter \
-         range tip to iter 705 when the catalog-continuation pin lands"
+         range tip to iter 706 when the catalog-continuation pin lands"
     );
 }
 
@@ -942,6 +942,31 @@ fn adversarial_query_fixture_label_slice_matches_fixture_rows() {
         adversarial_query_fixture_catalog_labels_match_fixture_rows(),
         "fixture label enumerator must remain byte-equal to fixture row labels"
     );
+}
+
+#[test]
+fn adversarial_query_fixture_categories_are_typed_not_description_parsed() {
+    use super::adversarial::{adversarial_query_fixture, AdversarialQueryFixtureKind};
+
+    let expected = [
+        (
+            "typo-transposition",
+            AdversarialQueryFixtureKind::TypoTransposition,
+        ),
+        ("bm25-saturation", AdversarialQueryFixtureKind::Bm25Saturation),
+        (
+            "near-duplicate-paragraph-tie",
+            AdversarialQueryFixtureKind::NearDuplicateParagraphTie,
+        ),
+    ];
+
+    for (label, kind) in expected {
+        let fixture = adversarial_query_fixture(label).expect("fixture label resolves");
+        assert_eq!(
+            fixture.kind, kind,
+            "fixture {label} must expose a typed category for harness dispatch"
+        );
+    }
 }
 
 #[test]
