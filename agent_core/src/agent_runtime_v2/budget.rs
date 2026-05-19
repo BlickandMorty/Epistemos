@@ -954,6 +954,48 @@ mod tests {
     }
 
     #[test]
+    fn concurrent_debit_then_cancel_refund_round_trips_all_axes() {
+        use std::sync::{Arc, Barrier, Mutex};
+        use std::thread;
+
+        const N: usize = 24;
+        const DEBIT: BudgetDebit = BudgetDebit {
+            tokens: 10,
+            wall_ms: 20,
+            tool_calls: 1,
+            subprocess_ms: 30,
+            memory_bytes: 40,
+        };
+
+        let gate = Arc::new(BudgetGate::new(
+            BudgetSpec::new(10_000, 10_000, 10_000, 10_000).with_memory_bytes(10_000),
+        ));
+        let ledger = Arc::new(Mutex::new(BudgetLedger::default()));
+        let barrier = Arc::new(Barrier::new(N));
+
+        let mut handles = Vec::with_capacity(N);
+        for _ in 0..N {
+            let gate = Arc::clone(&gate);
+            let ledger = Arc::clone(&ledger);
+            let barrier = Arc::clone(&barrier);
+            handles.push(thread::spawn(move || {
+                barrier.wait();
+                let mut locked = ledger.lock().expect("ledger lock");
+                let debited = gate
+                    .check_and_debit(*locked, DEBIT)
+                    .expect("shared cap must admit all in-flight debits");
+                *locked = debited.refund(DEBIT);
+            }));
+        }
+
+        for handle in handles {
+            handle.join().expect("worker thread joins");
+        }
+
+        assert_eq!(*ledger.lock().expect("ledger lock"), BudgetLedger::default());
+    }
+
+    #[test]
     fn budget_gate_spec_getter_returns_construction_spec() {
         // Phase 1 hardening — defensive: the spec() getter has been
         // present since the gate landed (iter-3). Pin its behaviour
