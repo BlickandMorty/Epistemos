@@ -4076,6 +4076,26 @@ mod tests {
     }
 
     #[test]
+    fn residency_tier_public_codes_match_all_canonical_names() {
+        let canonical_names = ResidencyTier::ALL
+            .iter()
+            .map(|tier| tier.canonical_name())
+            .collect::<Vec<_>>();
+
+        assert_eq!(ResidencyTier::CODES, canonical_names.as_slice());
+        for (tier, code) in ResidencyTier::ALL.iter().zip(ResidencyTier::CODES) {
+            assert_eq!(tier.canonical_name(), code);
+            assert_eq!(ResidencyTier::from_canonical_name(code), Some(*tier));
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`residency_tier_public_codes_match_all_canonical_names`"),
+            "register doc must cross-link residency public-code exhaustiveness"
+        );
+    }
+
+    #[test]
     fn residency_tier_catalog_maps_every_tier_to_primary_codec_and_terms() {
         for tier in ResidencyTier::ALL {
             for (index, term) in tier.canonical_register_terms().iter().enumerate() {
