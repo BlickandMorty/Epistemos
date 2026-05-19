@@ -2857,6 +2857,46 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_missing_required_fields_fail_but_thinking_digest_defaults() {
+        let log = RunEventLog::new();
+        let packet = AnswerPacket::emit(
+            AgentBlueprintId("a".into()),
+            "x".into(),
+            vec![Citation::from_tuple("s", "l")],
+            StopReason::EndTurn,
+            BudgetLedger::default(),
+            &log,
+        );
+        let value = serde_json::to_value(&packet).expect("serialise");
+        let obj = value.as_object().expect("AnswerPacket serialises as JSON object");
+        for missing in [
+            "blueprint_id",
+            "final_text",
+            "citations",
+            "stop_reason",
+            "final_ledger",
+            "run_event_log_root",
+        ] {
+            let mut tampered = obj.clone();
+            tampered.remove(missing);
+            let parsed: Result<AnswerPacket, _> =
+                serde_json::from_value(serde_json::Value::Object(tampered));
+            assert!(
+                parsed.is_err(),
+                "AnswerPacket missing required field {missing:?} must fail"
+            );
+        }
+
+        let mut without_thinking = obj.clone();
+        without_thinking.remove("thinking_digest");
+        let parsed: AnswerPacket =
+            serde_json::from_value(serde_json::Value::Object(without_thinking))
+                .expect("thinking_digest default preserves old packets");
+        assert_eq!(parsed.thinking_digest, Hash::zero());
+        assert_eq!(parsed, packet);
+    }
+
+    #[test]
     fn answer_packet_round_trips_through_json() {
         let log = RunEventLog::new();
         let packet = AnswerPacket::emit(
