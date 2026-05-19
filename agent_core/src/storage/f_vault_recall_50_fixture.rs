@@ -3595,6 +3595,45 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 38th Paraphrase row (iter-326): NEW axis — CROSS-
+        // LANGUAGE TRANSLATION. User types the German-language
+        // semantic equivalent — "Speicher" means "cache /
+        // memory / storage" in German. 3-term AND on
+        // {mamba, ssm, speicher} blocks the canonical (which
+        // has English "cache"). Distinct from iter-232
+        // ROMANIZATION (script transliteration preserving
+        // SOUND, not semantic translation), iter-74 / iter-106
+        // SYNONYM (same-language related word), iter-86
+        // ACRONYM (same-language abbreviation collapse), and
+        // iter-305 HYPONYM (same-language related concept).
+        // Cross-language semantic equivalence is a distinct
+        // axis: same MEANING, different LANGUAGE, no
+        // sound-level overlap. Pins deferred bilingual /
+        // cross-language retrieval work. Thirty-fifth named
+        // failure subclass.
+        query: "Mamba SSM Speicher",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Cross-language-translation Paraphrase axis (axis \
+               #35): user types German-language semantic \
+               equivalent (\"Speicher\" = cache / memory / \
+               storage). 3-term AND on {mamba, ssm, speicher} \
+               blocks canonical. Distinct from iter-232 \
+               ROMANIZATION (transliteration preserving sound, \
+               not meaning), iter-74 / iter-106 SYNONYM (same-\
+               language related word), iter-86 ACRONYM (same-\
+               language abbreviation), iter-305 HYPONYM (same-\
+               language related concept). Cross-language \
+               semantic-equivalence is its own axis: same \
+               MEANING, different LANGUAGE, no sound overlap. \
+               Thirty-fifth named failure subclass; pins \
+               deferred bilingual retrieval. Brings Paraphrase \
+               to depth 38 — first category past depth-37 \
+               horizon.",
+    },
+    FVaultRecallRow {
         // 37th Paraphrase row (iter-319): NEW axis — CHARACTER
         // REVERSAL (palindrome-like transformation). User types
         // "abmaM SSM cache" — first word reversed character by
