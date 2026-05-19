@@ -1371,6 +1371,11 @@ fn reject_adversarial_reference_stats_json(
             kind: FulpInvalidJsonKind::TypeMismatch,
         });
     }
+    reject_unknown_nested_json_fields(
+        value,
+        "adversarial_reference_stats",
+        &["finite_count", "rejected_count"],
+    )?;
     let finite_count = Some(required_object_unsigned_integer_json(
         stats_value,
         "adversarial_reference_stats",
@@ -3251,6 +3256,25 @@ mod tests {
         assert_eq!(
             error.invalid_json_message(),
             Some("missing field adversarial_reference_stats.finite_count")
+        );
+    }
+
+    #[test]
+    fn replay_rejects_unknown_adversarial_reference_stats_json_field_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["adversarial_reference_stats"]["corrupted_extra_field"] =
+            serde_json::Value::Bool(true);
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("unknown adversarial reference stats field must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::UnknownField)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("unknown field adversarial_reference_stats.corrupted_extra_field")
         );
     }
 
