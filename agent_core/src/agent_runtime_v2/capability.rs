@@ -506,6 +506,63 @@ mod tests {
     }
 
     #[test]
+    fn additional_context_caveat_ignores_extra_keys_in_runtime_context_through_v2_surface() {
+        // Phase 1 hardening — AdditionalContext extra-keys pin
+        // (companion to two_additional_context_caveats_compose_last_write_wins).
+        // The caveat enforces "all required keys must match" but the
+        // runtime context MAY supply extra unrelated keys; those are
+        // ignored. This pins the asymmetry: required-set ⊆ context-set
+        // is sufficient. A future "let me reject contexts with unknown
+        // keys" tightening would break every dispatcher that threads
+        // metadata (trace_id, session_id, telemetry tags) through the
+        // shared RuntimeContext on every call.
+        use crate::cognitive_dag::macaroons::{issue, restrict, Caveat};
+        use std::collections::BTreeMap;
+        let key = root_key_a();
+        let base = issue(
+            "additional-context-extra-keys-session",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &key,
+        );
+        // The caveat requires ONLY request_id = "abc".
+        let m = restrict(
+            &base,
+            Caveat::AdditionalContext {
+                key: "request_id".into(),
+                value: "abc".into(),
+            },
+        );
+        let cap = MacaroonCapability::new(m, key);
+
+        // Context carries the required key PLUS 3 extra unrelated keys.
+        let mut ctx_extra = BTreeMap::new();
+        ctx_extra.insert("request_id".to_string(), "abc".to_string());
+        ctx_extra.insert("trace_id".to_string(), "trace-001".to_string());
+        ctx_extra.insert("session_id".to_string(), "sess-002".to_string());
+        ctx_extra.insert("telemetry_tag".to_string(), "production".to_string());
+        cap.verify(&RuntimeContext {
+            now_ms: 1_000,
+            scope_path: "vault".into(),
+            tool_name: "vault.read".into(),
+            additional: ctx_extra,
+        })
+        .expect("context with extra unrelated keys must still verify");
+
+        // Same as above but ONLY the required key. Also verifies.
+        let mut ctx_minimal = BTreeMap::new();
+        ctx_minimal.insert("request_id".to_string(), "abc".to_string());
+        cap.verify(&RuntimeContext {
+            now_ms: 1_000,
+            scope_path: "vault".into(),
+            tool_name: "vault.read".into(),
+            additional: ctx_minimal,
+        })
+        .expect("context with only the required key must verify");
+    }
+
+    #[test]
     fn two_additional_context_caveats_compose_last_write_wins_and_multi_key_require_all() {
         // Phase 1 hardening — fourth caveat-composition leg
         // (companion to ExpiryAfter MIN iter-129, ScopePrefix
