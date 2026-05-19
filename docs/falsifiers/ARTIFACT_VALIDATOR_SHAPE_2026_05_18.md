@@ -486,6 +486,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_
 ```
 
 ```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md"); block=s[/## N288 - .*?```json\n(.*?)\n```/m,1] || abort("N288 missing"); x=JSON.parse(block); pat=Regexp.new(x["schema_pattern"]); abort("N288 branch-metadata sha missing") unless x["commit_sha"] == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"; abort("N288 should match syntax regex") unless x["commit_sha"].match?(pat); abort("N288 missing expected branch marker") unless x["semantic_rule"] == "commit_reachable_from_expected_branch" && x.key?("expected_branch") && x["expected_branch"].nil?; puts "missing branch metadata commit sha negative case ok"'
+```
+
+```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md"); block=s[/## N274 - .*?```json\n(.*?)\n```/m,1] || abort("N274 missing"); x=JSON.parse(block); pat=Regexp.new(x["schema_pattern"]); abort("N274 non-hex commit missing") unless x["commit_sha"] == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaag"; abort("N274 unexpectedly matches commit grammar") if x["commit_sha"].match?(pat); puts "non-hex commit sha negative case ok"'
 ```
 

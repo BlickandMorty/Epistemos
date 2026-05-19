@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 287
+invalid_example_count: 288
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -13274,3 +13274,19 @@ Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-
 ```
 
 Rejection reason: shallow history can hide ancestry and branch reachability drift; replay witnesses require complete local history for the pinned commit.
+
+## N288 - Missing Branch Metadata For Commit SHA
+
+Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-identity-rule) and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "field": "commit_sha",
+  "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "schema_pattern": "^[0-9a-f]{40}$",
+  "semantic_rule": "commit_reachable_from_expected_branch",
+  "expected_branch": null
+}
+```
+
+Rejection reason: replay validators cannot prove branch reachability when the artifact omits the expected branch identity for the commit pin.
