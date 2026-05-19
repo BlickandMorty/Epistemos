@@ -165,6 +165,7 @@ assert notes_reviewer_token_not_reserved_anonymous_identity(artifact.notes)
 assert notes_reviewer_sentinels_are_semicolon_delimited(artifact.notes)
 assert migration_validator_sentinels_are_semicolon_delimited(artifact.notes)
 assert migration_validator_reviewer_sentinel_sets_match_schema(artifact.notes)
+assert migration_identity_sentinel_gap_report_names_both_roles(artifact.notes)
 assert negative_catalog_has_shared_identity_sentinel_pair_case(negative_catalog)
 assert notes_required_tokens_are_semicolon_delimited(artifact.notes)
 assert notes_length_within_schema_cap(artifact.notes)
@@ -245,6 +246,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 
 ```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); pat=schema.dig("properties","notes","not","pattern") || abort("notes not pattern missing"); validator=pat[/validator=\(\?:([^)]+)\)/,1] || abort("validator sentinel set missing"); reviewer=pat[/reviewer=\(\?:([^)]+)\)/,1] || abort("reviewer sentinel set missing"); abort("sentinel set drift #{validator} != #{reviewer}") unless validator == reviewer && validator == "anonymous|unknown|tbd|none"; abort("shared sentinel prose missing") unless s.include?("shared migration identity sentinel set is exactly"); puts "migration identity sentinel set parity ok"'
+```
+
+```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); notes=schema.dig("properties","notes") || abort("notes missing"); pat=notes.dig("allOf",1,"then","pattern") || abort("migration note pattern missing"); abort("identity sentinel gap report missing") unless pat.include?("identity_sentinel_gap_report=") && notes.dig("not","pattern").include?("identity_sentinel_gap_report") && s.include?("identity_sentinel_gap_report` must name validator and reviewer role impacts separately"); puts "migration identity sentinel gap report ok"'
 ```
 
 ```bash
@@ -523,6 +528,7 @@ Implementation owner is TBD: merge-phase if artifact validation becomes part of 
 | `W-Validator-MigrationValidatorSentinel` | TBD validator-implementation terminal | Any executable validator accepts `validator` tokens in migration notes. | Reject reserved validator identities `anonymous`, `unknown`, `tbd`, and `none` only when they appear as bounded validator tokens before migration acceptance. |
 | `W-Validator-MigrationReviewerSentinel` | TBD validator-implementation terminal | Any executable validator accepts `reviewer` tokens in migration notes. | Reject reserved reviewer identities `anonymous`, `unknown`, `tbd`, and `none` only when they appear as bounded reviewer tokens before migration acceptance. |
 | `W-Validator-MigrationIdentitySentinelParity` | TBD validator-implementation terminal | Any executable validator accepts reserved identity changes for migration note tokens. | Reject schema edits that make validator and reviewer sentinel regexes differ from each other or from the exact shared set `anonymous|unknown|tbd|none` before migration acceptance. |
+| `W-Validator-MigrationIdentitySentinelGap` | TBD validator-implementation terminal | Any executable validator accepts shared identity sentinel changes with a reviewer-only migration gap. | Require `identity_sentinel_gap_report` to name both validator and reviewer role impacts before migration acceptance. |
 | `W-Validator-MigrationIdentitySentinelNegativePair` | TBD validator-implementation terminal | Any executable validator accepts only single-sided reserved identity fixtures. | Keep a paired validator/reviewer reserved-identity negative catalog case failing before migration acceptance. |
 | `W-Validator-LocalReferenceNotes` | TBD validator-implementation terminal | Any executable validator accepts `local_reference_only=true` in falsifier `notes`. | Reject missing `local_reference_artifact` or `local_reference_artifact_sha256`, and verify the retained artifact digest before replay promotion. |
 | `W-Validator-LocalReferenceRoot` | TBD validator-implementation terminal | Any executable validator accepts local-reference artifacts in falsifier `notes`. | Reject `local_reference_artifact` paths outside the owning falsifier row root before digest verification. |
