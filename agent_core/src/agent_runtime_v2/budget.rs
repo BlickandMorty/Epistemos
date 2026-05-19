@@ -385,6 +385,53 @@ mod tests {
     }
 
     #[test]
+    fn budget_spec_ledger_and_debit_fields_are_pub_per_field_visibility_doctrine() {
+        // Phase 1 hardening — field-visibility pin trio for
+        // BudgetSpec / BudgetLedger / BudgetDebit (companion to the
+        // field-visibility pin family iter-505..iter-511).
+        //
+        // All 3 budget types have 5 pub fields (the WBO-6 axis layout).
+        // Direct field access is load-bearing for the dispatcher's
+        // hot-path BudgetGate::check_and_debit + the audit serialiser.
+        let spec = BudgetSpec::new(1, 2, 3, 4).with_memory_bytes(5);
+        let _: u64 = spec.max_tokens;
+        let _: u64 = spec.max_wall_ms;
+        let _: u64 = spec.max_tool_calls;
+        let _: u64 = spec.max_subprocess_ms;
+        let _: u64 = spec.max_memory_bytes;
+        assert_eq!(spec.max_tokens, 1);
+        assert_eq!(spec.max_memory_bytes, 5);
+
+        let ledger = BudgetLedger {
+            tokens_used: 10,
+            wall_used_ms: 20,
+            tool_calls_used: 30,
+            subprocess_used_ms: 40,
+            memory_bytes_used: 50,
+        };
+        let _: u64 = ledger.tokens_used;
+        let _: u64 = ledger.wall_used_ms;
+        let _: u64 = ledger.tool_calls_used;
+        let _: u64 = ledger.subprocess_used_ms;
+        let _: u64 = ledger.memory_bytes_used;
+        assert_eq!(ledger.memory_bytes_used, 50);
+
+        let debit = BudgetDebit {
+            tokens: 100,
+            wall_ms: 200,
+            tool_calls: 300,
+            subprocess_ms: 400,
+            memory_bytes: 500,
+        };
+        let _: u64 = debit.tokens;
+        let _: u64 = debit.wall_ms;
+        let _: u64 = debit.tool_calls;
+        let _: u64 = debit.subprocess_ms;
+        let _: u64 = debit.memory_bytes;
+        assert_eq!(debit.memory_bytes, 500);
+    }
+
+    #[test]
     fn budget_spec_ledger_and_debit_struct_field_shapes_pinned_via_destructure() {
         // Phase 1 hardening — struct-field-shape pin trio for
         // BudgetSpec / BudgetLedger / BudgetDebit (companion to the
