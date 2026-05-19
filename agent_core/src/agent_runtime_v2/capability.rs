@@ -2093,6 +2093,69 @@ mod tests {
     }
 
     #[test]
+    fn restrict_preserves_base_fields_and_only_extends_caveats_chain_through_v2_surface() {
+        // Phase 1 hardening MILESTONE iter-560 — macaroon caveat
+        // property pin (mentioned in cron prompt: "macaroon caveat
+        // property tests"). restrict(m, caveat) must:
+        //   1. Preserve location (no rewrite)
+        //   2. Preserve base_kind (no rewrite)
+        //   3. Preserve base_scope (no rewrite)
+        //   4. Preserve base_expiry_ms (no rewrite)
+        //   5. Preserve delegated flag (no rewrite)
+        //   6. Append exactly 1 entry to caveats (no reorder/dedup)
+        //   7. Update signature (HMAC chain extends — different bytes)
+        //
+        // A future "let me re-derive base_scope from caveats" optimisation
+        // would silently rewrite the base scope on every restrict —
+        // breaking the "base is what the issuer granted; caveats narrow"
+        // doctrine. Pin sweeps all 4 Caveat variants.
+        use crate::cognitive_dag::macaroons::{issue, restrict, Caveat};
+        let key = root_key_a();
+        let base = issue(
+            "preservation-session",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &key,
+        );
+        let base_loc = base.location.clone();
+        let base_kind = base.base_kind.clone();
+        let base_scope = base.base_scope.clone();
+        let base_expiry = base.base_expiry_ms;
+        let base_delegated = base.delegated;
+        let base_sig = base.signature;
+        let base_caveats_len = base.caveats.len();
+
+        let caveats = [
+            Caveat::ScopePrefix { prefix: "vault/notes".into() },
+            Caveat::ToolNameEq { name: "vault.read".into() },
+            Caveat::ExpiryAfter { until_ts_ms: 9_000 },
+            Caveat::AdditionalContext { key: "k".into(), value: "v".into() },
+        ];
+        for (i, caveat) in caveats.iter().enumerate() {
+            let restricted = restrict(&base, caveat.clone());
+            assert_eq!(restricted.location, base_loc, "caveat {i}: location preserved");
+            assert_eq!(restricted.base_kind, base_kind, "caveat {i}: base_kind preserved");
+            assert_eq!(restricted.base_scope, base_scope, "caveat {i}: base_scope preserved");
+            assert_eq!(restricted.base_expiry_ms, base_expiry, "caveat {i}: base_expiry_ms preserved");
+            assert_eq!(restricted.delegated, base_delegated, "caveat {i}: delegated preserved");
+            assert_eq!(
+                restricted.caveats.len(),
+                base_caveats_len + 1,
+                "caveat {i}: caveats grow by exactly 1"
+            );
+            assert_eq!(
+                &restricted.caveats[base_caveats_len], caveat,
+                "caveat {i}: appended entry equals the input caveat (no rewrite)"
+            );
+            assert_ne!(
+                restricted.signature, base_sig,
+                "caveat {i}: signature must differ from base (HMAC chain extended)"
+            );
+        }
+    }
+
+    #[test]
     fn narrowed_macaroon_with_scope_caveat_still_verifies() {
         // Holder narrowed the scope via `restrict`; chain extends so
         // verify must still succeed, and caveat evaluation must enforce
