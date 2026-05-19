@@ -864,6 +864,35 @@ mod tests {
     }
 
     #[test]
+    fn envelope_log_summary_field_order_is_cap_tokens_tool_calls() {
+        // Phase 1 hardening — log_summary field-ORDER pin (companion to
+        // answer_packet_display_field_order iter-494 +
+        // mission_packet_display_field_order iter-495).
+        //
+        // log_summary format (envelope.rs §86):
+        //   "envelope{{cap={}, tokens={}, tool_calls={}}}"
+        //
+        // The 3 fields appear in EXACTLY this order:
+        //   1. cap (hex-prefix)
+        //   2. tokens
+        //   3. tool_calls
+        //
+        // A future reorder would silently shuffle the audit-log
+        // layout — surface here via find-position comparison.
+        let envelope = MutationEnvelope::new(
+            Hash::from_bytes([0xAB; 32]),
+            BudgetDebit { tokens: 42, tool_calls: 7, ..Default::default() },
+            "payload".to_string(),
+        );
+        let summary = envelope.log_summary();
+        let cap_pos = summary.find("cap=").expect("cap field");
+        let tokens_pos = summary.find("tokens=").expect("tokens field");
+        let tool_calls_pos = summary.find("tool_calls=").expect("tool_calls field");
+        assert!(cap_pos < tokens_pos, "cap must precede tokens");
+        assert!(tokens_pos < tool_calls_pos, "tokens must precede tool_calls");
+    }
+
+    #[test]
     fn envelope_log_summary_starts_with_literal_envelope_brace_prefix() {
         // Phase 1 hardening — wire-shape pin (companion to
         // answer_packet_display_starts_with_literal_struct_name_prefix
