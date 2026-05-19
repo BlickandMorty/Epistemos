@@ -84,4 +84,8 @@ theorem fiveFormalismsEmbedIntoEpiEpsilon :
 five ways" — the source categories are genuinely distinct. -/
 def isNotSameInfinityClaim : Bool := true
 
+theorem notSameInfinityClaimPinned :
+    isNotSameInfinityClaim = true := by
+  rfl
+
 end Epistemos.E6
