@@ -88,6 +88,14 @@ pub fn lean_certificate<T: Debug>(program: &ScanProgram<T>) -> String {
          \x20 intro T w\n\
          \x20 exact w.right_identity\n\
          \n\
+         theorem scan_monoid_laws_{suffix} :\n\
+         \x20   ∀ (T : Type) (w : Epistemos.Scan.MonoidWitness T),\n\
+         \x20     Epistemos.Scan.scanAssociativeOp w.op ∧\n\
+         \x20       Epistemos.Scan.scanLeftIdentity w.op w.identity ∧\n\
+         \x20       Epistemos.Scan.scanRightIdentity w.op w.identity := by\n\
+         \x20 intro T w\n\
+         \x20 exact Epistemos.Scan.MonoidWitness.scanLawWitnesses w\n\
+         \n\
          theorem scan_ssd_equivalence_{suffix} :\n\
          \x20   ∀ (T : Type) (_ssdLemma : Epistemos.Scan.SSDEquivalenceLemma T)\n\
          \x20     (w : Epistemos.Scan.MonoidWitness T)\n\
@@ -212,6 +220,8 @@ mod tests {
         let p = ScanProgram::new(0i64, vec![1, 2, 3]);
         let c = lean_certificate(&p);
         assert!(c.contains("w : Epistemos.Scan.MonoidWitness T"));
+        assert!(c.contains("theorem scan_monoid_laws_"));
+        assert!(c.contains("exact Epistemos.Scan.MonoidWitness.scanLawWitnesses w"));
         assert!(c.contains("exact w.assoc"));
         assert!(c.contains("exact w.left_identity"));
         assert!(c.contains("Epistemos.Scan.scanRightIdentity w.op w.identity"));
