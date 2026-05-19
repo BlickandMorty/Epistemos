@@ -2933,6 +2933,9 @@ pub enum ACSAuditError {
     InvalidRunEventLogChain {
         record_id: String,
     },
+    AuditLogGap {
+        record_id: String,
+    },
     NonMonotonicAuditLog {
         field: &'static str,
         record_id: String,
@@ -2956,6 +2959,7 @@ impl ACSAuditError {
             Self::SinkUnavailable => "acs_audit_sink_unavailable",
             Self::EncodeRecord => "acs_audit_record_encode_failed",
             Self::InvalidRunEventLogChain { .. } => "invalid_run_event_log_chain",
+            Self::AuditLogGap { .. } => "acs_audit_log_gap",
             Self::NonMonotonicAuditLog { .. } => "non_monotonic_acs_audit_log",
             Self::NonMonotonicVerdict { .. } => "non_monotonic_acs_verdict",
             Self::DuplicateRecord { .. } => "duplicate_acs_audit_record",
@@ -2965,7 +2969,9 @@ impl ACSAuditError {
 
     pub const fn field(&self) -> Option<&'static str> {
         match self {
-            Self::InvalidRunEventLogChain { .. } => Some("run_event_log"),
+            Self::InvalidRunEventLogChain { .. } | Self::AuditLogGap { .. } => {
+                Some("run_event_log")
+            }
             Self::NonMonotonicAuditLog { field, .. } => Some(field),
             Self::NonMonotonicVerdict { field, .. } => Some(field),
             Self::DuplicateRecord { .. } => Some("record_id"),
@@ -2980,6 +2986,7 @@ impl ACSAuditError {
             Self::NonMonotonicAuditLog { record_id, .. } => Some(record_id.as_str()),
             Self::NonMonotonicVerdict { record_id, .. } => Some(record_id.as_str()),
             Self::CorruptRecord { record_id, .. } => Some(record_id.as_str()),
+            Self::AuditLogGap { record_id } => Some(record_id.as_str()),
             Self::InvalidRunEventLogChain { record_id } => Some(record_id.as_str()),
             Self::SinkUnavailable | Self::EncodeRecord => None,
         }
@@ -2999,10 +3006,9 @@ impl<'a> ACSRunEventLogSink<'a> {
 
 impl ACSAuditSink for ACSRunEventLogSink<'_> {
     fn record(&self, record: ACSAuditRecord) -> Result<(), ACSAuditError> {
-        if !self.run_event_log.verify_chain(None).valid {
-            return Err(ACSAuditError::InvalidRunEventLogChain {
-                record_id: record.record_id,
-            });
+        let chain_report = self.run_event_log.verify_chain(None);
+        if !chain_report.valid {
+            return Err(acs_audit_chain_error(record.record_id, &chain_report));
         }
         let record_id = record.record_id.clone();
         record
@@ -3022,6 +3028,17 @@ impl ACSAuditSink for ACSRunEventLogSink<'_> {
             value,
         });
         Ok(())
+    }
+}
+
+fn acs_audit_chain_error(
+    record_id: String,
+    report: &crate::oplog::OpLogChainVerificationReport,
+) -> ACSAuditError {
+    if report.failure_reason.as_deref() == Some("seq_gap") {
+        ACSAuditError::AuditLogGap { record_id }
+    } else {
+        ACSAuditError::InvalidRunEventLogChain { record_id }
     }
 }
 
@@ -3048,10 +3065,12 @@ pub fn resolve_acs_audit_record(
     run_event_log: &OpLog,
     record_id: &AuditRecordId,
 ) -> Result<ACSAuditRecord, ACSAuditLookupError> {
-    if !run_event_log.verify_chain(None).valid {
-        return Err(ACSAuditLookupError::InvalidRunEventLogChain {
-            record_id: record_id.0.clone(),
-        });
+    let chain_report = run_event_log.verify_chain(None);
+    if !chain_report.valid {
+        return Err(acs_audit_lookup_chain_error(
+            record_id.0.clone(),
+            &chain_report,
+        ));
     }
     if record_id.validate().is_err() {
         return Err(ACSAuditLookupError::InvalidRecordId {
@@ -3139,6 +3158,17 @@ pub fn resolve_acs_audit_record(
     Ok(record)
 }
 
+fn acs_audit_lookup_chain_error(
+    record_id: String,
+    report: &crate::oplog::OpLogChainVerificationReport,
+) -> ACSAuditLookupError {
+    if report.failure_reason.as_deref() == Some("seq_gap") {
+        ACSAuditLookupError::AuditLogGap { record_id }
+    } else {
+        ACSAuditLookupError::InvalidRunEventLogChain { record_id }
+    }
+}
+
 fn audit_record_value_id(value: &serde_json::Value) -> Option<&str> {
     value.get("record_id").and_then(serde_json::Value::as_str)
 }
@@ -3164,6 +3194,9 @@ pub enum ACSAuditLookupError {
         field: &'static str,
         record_id: String,
     },
+    AuditLogGap {
+        record_id: String,
+    },
 }
 
 impl ACSAuditLookupError {
@@ -3175,12 +3208,15 @@ impl ACSAuditLookupError {
             Self::DuplicateRecord { .. } => "duplicate_acs_audit_record",
             Self::DecodeRecord { .. } => "acs_audit_record_decode_failed",
             Self::CorruptRecord { .. } => "corrupt_acs_audit_record",
+            Self::AuditLogGap { .. } => "acs_audit_log_gap",
         }
     }
 
     pub const fn field(&self) -> Option<&'static str> {
         match self {
-            Self::InvalidRunEventLogChain { .. } => Some("run_event_log"),
+            Self::InvalidRunEventLogChain { .. } | Self::AuditLogGap { .. } => {
+                Some("run_event_log")
+            }
             Self::InvalidRecordId { .. } | Self::NotFound { .. } | Self::DuplicateRecord { .. } => {
                 Some("record_id")
             }
@@ -3197,6 +3233,7 @@ impl ACSAuditLookupError {
             Self::DecodeRecord { record_id } => Some(record_id.as_str()),
             Self::CorruptRecord { record_id, .. } => Some(record_id.as_str()),
             Self::InvalidRunEventLogChain { record_id } => Some(record_id.as_str()),
+            Self::AuditLogGap { record_id } => Some(record_id.as_str()),
         }
     }
 }
@@ -7925,6 +7962,59 @@ mod tests {
         assert_eq!(err.cause(), "invalid_run_event_log_chain");
         assert_eq!(err.field(), Some("run_event_log"));
         assert_eq!(err.record_id(), Some(record_id.as_str()));
+    }
+
+    #[test]
+    fn acs_admission_run_event_log_sink_rejects_sequence_gaps() {
+        let temp_dir = tempfile::tempdir().expect("temporary ACS OpLog directory");
+        let db_path = temp_dir.path().join("acs-run-event-sink-gap.sqlite");
+        let second_record_id = {
+            let run_event_log =
+                crate::oplog::OpLog::open_persistent("acs-admission-sink-gap-test", &db_path)
+                    .expect("persistent RunEventLog opens");
+            let sink = ACSRunEventLogSink::new(&run_event_log);
+            sink.record(audit_record_fixture(ACSAdmissionVerdict::Allow))
+                .expect("first audit record writes");
+            let mut second = audit_record_fixture(ACSAdmissionVerdict::AllowWithWarning);
+            second.record_id = "acs:req-second:1002".to_string();
+            second.request_id = "req-second".to_string();
+            second.emitted_at_ms = 1_002;
+            sink.record(second.clone())
+                .expect("second audit record writes");
+            second.record_id
+        };
+
+        let conn = rusqlite::Connection::open(&db_path).expect("tamper connection opens");
+        conn.execute("DELETE FROM epistemos_oplog WHERE seq = 0", [])
+            .expect("tamper delete succeeds");
+        drop(conn);
+
+        let reopened =
+            crate::oplog::OpLog::open_persistent("acs-admission-sink-gap-test", &db_path)
+                .expect("gapped RunEventLog reopens");
+        let report = reopened.verify_chain(None);
+        assert!(!report.valid);
+        assert_eq!(report.failure_reason.as_deref(), Some("seq_gap"));
+
+        let sink = ACSRunEventLogSink::new(&reopened);
+        let mut next = audit_record_fixture(ACSAdmissionVerdict::Allow);
+        next.record_id = "acs:req-next:1003".to_string();
+        next.request_id = "req-next".to_string();
+        next.emitted_at_ms = 1_003;
+        let next_record_id = next.record_id.clone();
+
+        let err = sink.record(next).unwrap_err();
+
+        assert_eq!(err.cause(), "acs_audit_log_gap");
+        assert_eq!(err.field(), Some("run_event_log"));
+        assert_eq!(err.record_id(), Some(next_record_id.as_str()));
+
+        let lookup_err =
+            resolve_acs_audit_record(&reopened, &AuditRecordId::new(second_record_id.clone()))
+                .unwrap_err();
+        assert_eq!(lookup_err.cause(), "acs_audit_log_gap");
+        assert_eq!(lookup_err.field(), Some("run_event_log"));
+        assert_eq!(lookup_err.record_id(), Some(second_record_id.as_str()));
     }
 
     #[test]
