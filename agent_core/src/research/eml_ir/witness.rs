@@ -4098,6 +4098,7 @@ mod tests {
         );
         let doc = std::fs::read_to_string(doc_path).expect("f-ulp falsifier doc");
         assert!(doc.contains("missing `rejected_count`"));
+        assert!(doc.contains("type-drift `rejected_count`"));
         assert!(doc.contains("raw-overflow `rejected_count`"));
         assert!(doc.contains("adversarial_reference_stats.rejected_count"));
     }
@@ -4121,6 +4122,25 @@ mod tests {
             error.invalid_json_message(),
             Some("missing field adversarial_reference_stats.rejected_count")
         );
+    }
+
+    #[test]
+    fn replay_rejects_adversarial_reference_rejected_count_json_type_drift_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["adversarial_reference_stats"]["rejected_count"] =
+            serde_json::Value::String("bad-count".to_string());
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("adversarial reference rejected count type drift must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("adversarial_reference_stats.rejected_count"));
     }
 
     #[test]
