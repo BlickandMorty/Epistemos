@@ -42,6 +42,10 @@ def DualConnectomeTrace.sampleCount (t : DualConnectomeTrace) : Nat :=
 /-- PCF-7 remains a Lane 3 research-only dual-decomposition trace. -/
 def lane3ResearchOnly : Bool := true
 
+/-- PCF-7 falsifier requires joint SPD+SAE reconstruction MSE to be
+strictly less than both SPD-only and SAE-only baselines. -/
+def strictJointMseImprovementRequired : Bool := true
+
 theorem emptyDualTraceHasZeroSamples :
     ({ trace_id := "empty-dual-trace", samples := [] } : DualConnectomeTrace).sampleCount = 0 := by
   rfl
@@ -58,6 +62,10 @@ theorem singletonDualTraceHasOneSample
 
 theorem lane3ResearchOnlyPinned :
     lane3ResearchOnly = true := by
+  rfl
+
+theorem strictJointMseImprovementRequiredPinned :
+    strictJointMseImprovementRequired = true := by
   rfl
 
 end Epistemos.PCF7
