@@ -84,6 +84,15 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_doc_documents_reference_methodology() {
+        assert!(FULP_FALSIFIER_DOC.contains("## Reference Methodology"));
+        assert!(FULP_FALSIFIER_DOC.contains("`f64::exp(x) - f64::ln(y)` rounded"));
+        assert!(FULP_FALSIFIER_DOC.contains("never recomputed in fp32"));
+        assert!(FULP_FALSIFIER_DOC.contains("`cpu_float_intrinsic_morph_oracle_fp16_v1`"));
+        assert!(FULP_FALSIFIER_DOC.contains("smuggled in as its own"));
+    }
+
+    #[test]
     fn falsifier_doc_documents_ulp_gate_tier_ladder() {
         assert!(FULP_FALSIFIER_DOC.contains("## ULP Gate Tier Ladder"));
         assert!(FULP_FALSIFIER_DOC.contains("`Primary`"));
