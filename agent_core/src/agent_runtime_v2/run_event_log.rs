@@ -4394,6 +4394,23 @@ mod tests {
     }
 
     #[test]
+    fn corrupted_run_event_log_entries_array_row_shape_fails_to_deserialise() {
+        for bad in [
+            r#"{"entries":[null]}"#,
+            r#"{"entries":[true]}"#,
+            r#"{"entries":[42]}"#,
+            r#"{"entries":["not-a-row"]}"#,
+            r#"{"entries":[[]]}"#,
+        ] {
+            let parsed: Result<RunEventLog, _> = serde_json::from_str(bad);
+            assert!(
+                parsed.is_err(),
+                "corrupted RunEventLog entries row shape must fail: {bad}"
+            );
+        }
+    }
+
+    #[test]
     fn run_event_log_top_level_tolerates_unknown_extra_fields_per_current_doctrine() {
         let parsed: RunEventLog = serde_json::from_str(
             r#"{
