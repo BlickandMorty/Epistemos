@@ -2068,6 +2068,7 @@ fn reject_raw_worst_case_numbers_raw_json(
 ) -> Result<(), FulpReplayError> {
     reject_raw_object_duplicate_json(worst_case.get(), path)?;
     reject_raw_object_unknown_json_fields(worst_case.get(), path, WORST_CASE_JSON_FIELDS)?;
+    reject_raw_object_missing_json_fields(worst_case.get(), path, WORST_CASE_JSON_FIELDS)?;
     let Ok(worst_case) = serde_json::from_str::<RawWorstCaseNumbers<'_>>(worst_case.get()) else {
         return Ok(());
     };
@@ -5100,6 +5101,33 @@ mod tests {
         let json = serde_json::to_string(&value).unwrap();
         let error =
             replay_witness_json(&json).expect_err("missing worst case operation must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::MissingField)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats[0].worst_case.operation"));
+    }
+
+    #[test]
+    fn replay_rejects_missing_operation_worst_case_operation_before_raw_overflow() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["worst_case"]
+            .as_object_mut()
+            .expect("operation worst case object")
+            .remove("operation")
+            .expect("worst case operation field");
+        value["stats"][0]["worst_case"]["point_index"] =
+            serde_json::Value::Number(serde_json::Number::from(123_456_789_u64));
+        let json = serde_json::to_string(&value).unwrap();
+        let needle = "\"point_index\":123456789";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(needle, "\"point_index\":1e999999", 1);
+        let error = replay_witness_json(&json)
+            .expect_err("missing worst case operation must fail before raw overflow");
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::MissingField)
