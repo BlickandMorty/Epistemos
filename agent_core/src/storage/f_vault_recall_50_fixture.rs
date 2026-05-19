@@ -1085,6 +1085,31 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                depth-48 horizon.",
     },
     FVaultRecallRow {
+        // 51st SignalOnly row (iter-415): single-term query in
+        // Pahawh Hmong script domain — "𖬀" (vowel keeb,
+        // U+16B00). The iter-414 Unicode row proved mixed Latin
+        // + Pahawh + Latin retrieval; this row strips the Latin
+        // scaffolding and pins the bare single-codepoint SignalOnly
+        // path. Reuses the existing notes/mamba_pahawh_hmong.md seed from
+        // the Unicode audit, so the hardening is structural only:
+        // no new corpus document, no new decoy vocabulary.
+        query: "𖬀",
+        expected_paths: &["notes/mamba_pahawh_hmong.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Fifty-first SignalOnly row (iter-415): bare \
+               Pahawh Hmong single-codepoint query — \"𖬀\" \
+               (U+16B00). Complements iter-414's Unicode \
+               mixed-script row by removing Latin scaffolding and \
+               forcing the no-chatter, one-token AND path to carry \
+               a supplementary-plane script token by itself. Reuses \
+               the existing notes/mamba_pahawh_hmong.md seed and \
+               notes/mamba_english_only.md forbidden decoy. This \
+               makes the per-category depth-50 floor pass by typed \
+               category count, not milestone prose.",
+    },
+    FVaultRecallRow {
         // 48th SignalOnly row (iter-396): single-term query in
         // Glagolitic-script domain — "ⰽ" (kako, U+2C2D, single
         // codepoint). THIRTY-NINTH single-term-AND domain.
@@ -11064,6 +11089,55 @@ mod tests {
             !unicode_row.forbidden_paths.is_empty(),
             "Unicode row should pin a forbidden ASCII-only path to enforce \
              the no-diacritic-folding contract"
+        );
+    }
+
+    /// Iter-415 (2026-05-19) — PER-CATEGORY DEPTH-50 FLOOR. The
+    /// falsifier name F-VaultRecall-**50** has reached its terminal
+    /// per-category interpretation: at iter-414 every one of the 7
+    /// canonical categories reached ≥ 50 rows (Synthesis hit it first
+    /// at iter-408; Unicode last at iter-414). This test pins that
+    /// floor so a future copy-paste / row-removal regression can't
+    /// silently drop a category below 50 — the depth-50-per-category
+    /// commitment is now a load-bearing structural invariant, not just
+    /// a milestone-commit aspiration. The total fixture row count is a
+    /// derived consequence (≥ 7 × 50 = 350); the per-category floor is
+    /// the stronger statement.
+    #[test]
+    fn every_canonical_category_has_at_least_fifty_rows() {
+        use std::collections::HashMap;
+        let mut counts: HashMap<FVaultRecallCategory, usize> = HashMap::new();
+        for row in load_canonical() {
+            *counts.entry(row.category).or_insert(0) += 1;
+        }
+        let canonical_categories = [
+            FVaultRecallCategory::ChattyPrefix,
+            FVaultRecallCategory::SignalOnly,
+            FVaultRecallCategory::PureChatter,
+            FVaultRecallCategory::Paraphrase,
+            FVaultRecallCategory::Synthesis,
+            FVaultRecallCategory::Adversarial,
+            FVaultRecallCategory::Unicode,
+        ];
+        for category in canonical_categories {
+            let count = counts.get(&category).copied().unwrap_or(0);
+            assert!(
+                count >= F_VAULT_RECALL_50_TARGET_ROWS,
+                "category {category:?} dropped below the F-VaultRecall-50 \
+                 per-category floor — got {count} rows, expected ≥ \
+                 {F_VAULT_RECALL_50_TARGET_ROWS}. The depth-50-per-category \
+                 commitment (locked iter-414) is a load-bearing structural \
+                 invariant; do NOT remove rows that take a category below \
+                 50 without explicit user approval."
+            );
+        }
+        let total: usize = counts.values().sum();
+        assert!(
+            total >= canonical_categories.len() * F_VAULT_RECALL_50_TARGET_ROWS,
+            "total fixture rows {total} below derived floor \
+             ({} × {F_VAULT_RECALL_50_TARGET_ROWS}); per-category \
+             checks should have caught this — investigate.",
+            canonical_categories.len()
         );
     }
 
