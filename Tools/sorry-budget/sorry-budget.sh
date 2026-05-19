@@ -253,6 +253,40 @@ elif [ "${REPORT_MODE}" -eq 1 ]; then
   echo "  Certificate schema-status stale prose: 0/0"
 fi
 
+# Primitive-IR Lean schema modules should record both the initial
+# build milestone and the latest obligation-sharpening cadence. The
+# old one-line iter-593 status is stale after Lean-first alignment.
+STALE_SCHEMA_STATUS_REPORT=$(
+  find "${LEAN_DIR}" -maxdepth 1 \( \
+    -name EML.lean -o \
+    -name Tropical.lean -o \
+    -name Scan.lean -o \
+    -name Operator.lean -o \
+    -name Info.lean -o \
+    -name Geometry.lean \
+  \) -type f -exec awk '
+    /Tooling status at iter-593:/ ||
+    /completed successfully, and `Tools\/sorry-budget/ {
+      printf "%s:%d:%s\n", FILENAME, FNR, $0
+    }
+  ' {} + 2>/dev/null || true
+)
+
+if [ -n "${STALE_SCHEMA_STATUS_REPORT}" ]; then
+  stale_schema_status_count=$(printf "%s\n" "${STALE_SCHEMA_STATUS_REPORT}" | awk 'NF{n++} END{print n+0}')
+  printf "%s\n" "${STALE_SCHEMA_STATUS_REPORT}" |
+    while IFS= read -r line; do
+      [ -z "${line}" ] && continue
+      file=${line%%:*}
+      rest=${line#*:}
+      line_no=${rest%%:*}
+      echo "::error file=${file},line=${line_no}::Primitive-IR schema status is stale; cite the latest obligation sharpening"
+    done
+  total_over_budget=$((total_over_budget + stale_schema_status_count))
+elif [ "${REPORT_MODE}" -eq 1 ]; then
+  echo "  Primitive-IR schema-status stale prose: 0/0"
+fi
+
 # Lean witness identifiers should encode the active gate or schema
 # condition, not a generic "deferred" placeholder.
 DEFERRED_WITNESS_REPORT=$(
