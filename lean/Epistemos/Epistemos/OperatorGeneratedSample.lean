@@ -48,7 +48,8 @@ def operator_certificate_sample : Epistemos.Operator.CertificateTarget :=
     dim_consistent := operator_dim_match_schema_sample
     fno_equivalence := operator_fno_obligation_sample
     fno_expr_matches := rfl
-    fourier_isometry := some operator_fourier_obligation_sample }
+    fourier_isometry := some operator_fourier_obligation_sample
+    sourceRow := "docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Operator-IR" }
 
 theorem operator_fourier_option_sample :
     operator_certificate_sample.fourier_isometry =
@@ -77,6 +78,14 @@ theorem operator_certificate_dim_consistency_sample :
       operator_certificate_sample.expr.trunk.outputDim := by
   exact Epistemos.Operator.CertificateTarget.dimConsistentCarries
     operator_certificate_sample
+
+theorem operator_certificate_source_row_sample :
+    operator_certificate_sample.sourceRow =
+      "docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Operator-IR" := by
+  exact Epistemos.Operator.CertificateTarget.sourceRowMatches
+    operator_certificate_sample
+    "docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Operator-IR"
+    rfl
 
 theorem operator_dim_consistency_sample :
     operator_expr_sample.branch.outputDim =

@@ -144,7 +144,8 @@ pub fn lean_certificate(op: &OperatorExpr) -> String {
          \x20     dim_consistent := operator_dim_match_schema_{suffix}\n\
          \x20     fno_equivalence := operator_fno_obligation_{suffix}\n\
          \x20     fno_expr_matches := rfl\n\
-         \x20     fourier_isometry := {fourier_certificate_field} }}\n\
+         \x20     fourier_isometry := {fourier_certificate_field}\n\
+         \x20     sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Operator-IR\" }}\n\
          \n\
          {fourier_option_theorem}\
          theorem operator_certificate_fno_{suffix} :\n\
@@ -163,6 +164,14 @@ pub fn lean_certificate(op: &OperatorExpr) -> String {
          \x20   operator_certificate_{suffix}.expr.branch.outputDim = operator_certificate_{suffix}.expr.trunk.outputDim := by\n\
          \x20 exact Epistemos.Operator.CertificateTarget.dimConsistentCarries\n\
          \x20   operator_certificate_{suffix}\n\
+         \n\
+         theorem operator_certificate_source_row_{suffix} :\n\
+         \x20   operator_certificate_{suffix}.sourceRow =\n\
+         \x20     \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Operator-IR\" := by\n\
+         \x20 exact Epistemos.Operator.CertificateTarget.sourceRowMatches\n\
+         \x20   operator_certificate_{suffix}\n\
+         \x20   \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Operator-IR\"\n\
+         \x20   rfl\n\
          \n\
          theorem operator_dim_consistency_{suffix}\n\
          \x20   (dimMatchWitness :\n\
@@ -312,6 +321,9 @@ mod tests {
     fn certificate_carries_target_dim_consistency() {
         let op = fixture(KernelTransform::Identity);
         let c = lean_certificate(&op);
+        assert!(c.contains("sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Operator-IR\""));
+        assert!(c.contains("theorem operator_certificate_source_row_"));
+        assert!(c.contains("Epistemos.Operator.CertificateTarget.sourceRowMatches"));
         assert!(c.contains("theorem operator_certificate_dim_consistency_"));
         assert!(c.contains("exact Epistemos.Operator.CertificateTarget.dimConsistentCarries"));
         assert!(c.contains("operator_certificate_"));
