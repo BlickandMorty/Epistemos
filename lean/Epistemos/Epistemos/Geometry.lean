@@ -193,6 +193,11 @@ theorem identityRotorSandwichPreservesNorm :
     rotorSandwichPreservesNorm identityRotor := by
   exact identityRotorCarriesObligations
 
+theorem identityRotorCompositionAssociativeSandwich :
+    rotorCompositionAssociativeSandwich identityRotor identityRotor := by
+  rcases identityRotorCarriesObligations with ⟨candidate, unitNorm⟩
+  exact ⟨candidate, candidate, unitNorm, unitNorm⟩
+
 theorem geometrySchemaCountsPinned :
     multivectorCoordinateCount = 8 ∧ exprConstructorCount = 4 := by
   exact ⟨rfl, rfl⟩
