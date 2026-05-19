@@ -4840,6 +4840,84 @@ fn eidos_citation_json_wire_format_is_stable_and_round_trips() {
     }
 }
 
+/// Multilingual JSON wire round-trip for `EidosCitation`. The iter 139
+/// wire-shape pin (this same file, ~4756) already covers ASCII +
+/// 6 named smuggling vectors. This pin extends the floor to the
+/// five vault-relevant non-Latin script families pinned in iter 658:
+/// Han, Hangul, Arabic, Devanagari, and mixed Han+Latin.
+///
+/// The closed-citation invariant is byte-strict. If a future change
+/// adds NFC normalization at `serde_json::to_string` (e.g. a custom
+/// Serialize for EidosChunkId that canonicalizes), or a Unicode-aware
+/// JSON decoder at the deserialize side that strips combining marks
+/// (e.g. swapping to `simd_json` with default flags), the byte-strict
+/// floor pinned in iters 658-661 silently breaks at the wire boundary
+/// and the multilingual smuggling reopens.
+///
+/// Pins, for each script family:
+///   - serialize a citation whose source_id carries non-Latin bytes
+///   - deserialize the JSON back into a citation
+///   - byte-for-byte round-trip on the source_id payload
+///   - full citation equality round-trip
+///   - sanity: byte count > codepoint count (the multibyte UTF-8
+///     sequences must survive verbatim through the wire — a
+///     "single-byte-per-char" optimization at either side would
+///     break this)
+///
+/// Adjacent to iter 139's coverage but orthogonal in dimension: that
+/// test was vectors of attack on Latin; this one is legitimate non-
+/// Latin payloads that operators expect to flow through the wire
+/// unchanged.
+#[test]
+fn eidos_citation_json_wire_round_trips_for_multilingual_non_latin_ids() {
+    use super::types::{EidosCitation, EidosChunkId};
+
+    let manifest_id = EidosIndexManifestId::new("snap-A").unwrap();
+    let multilingual_ids: &[(&str, &str)] = &[
+        ("Han (Chinese)",        "笔记-a::lex"),
+        ("Hangul (Korean)",      "노트-a::lex"),
+        ("Arabic",               "ملاحظة-a::lex"),
+        ("Devanagari",           "नोट-a::lex"),
+        ("Mixed Han+Latin",      "笔note-a::lex"),
+        // Anchor case — combined script + script-internal NFC form
+        // (Hangul jamo decomposed). Catches a future "we'll NFC-fold
+        // at serialize" regression specifically on jamo.
+        ("Hangul jamo NFD",      "\u{1102}\u{1169}트-a::lex"),
+    ];
+
+    for (label, raw_id) in multilingual_ids {
+        let cite = EidosCitation {
+            source_id: EidosChunkId::new(*raw_id).unwrap(),
+            manifest_id: manifest_id.clone(),
+        };
+        let j = serde_json::to_string(&cite)
+            .unwrap_or_else(|e| panic!("{label}: serialize failed: {e}"));
+        let back: EidosCitation = serde_json::from_str(&j)
+            .unwrap_or_else(|e| panic!("{label}: deserialize failed: {e}"));
+
+        assert_eq!(
+            back.source_id.as_str().as_bytes(),
+            cite.source_id.as_str().as_bytes(),
+            "{label}: JSON round-trip must preserve source_id bytes exactly \
+             — silent NFC-folding or escape-rendering at the wire boundary \
+             would break the byte-strict closed-citation floor pinned \
+             across iters 658-661"
+        );
+        assert_eq!(back, cite, "{label}: full citation must round-trip equal");
+
+        // Sanity: every multilingual id is multi-byte per char.
+        assert!(
+            !raw_id.is_ascii(),
+            "{label}: multilingual fixture must be non-ASCII"
+        );
+        assert!(
+            back.source_id.as_str().len() > raw_id.chars().count(),
+            "{label}: non-ASCII id has more bytes than codepoints — wire \
+             must carry every byte"
+        );
+    }
+}
+
 /// Closed-citation contract rejects **whitespace-padding smuggling**:
 /// citations whose source_id has trailing/leading whitespace,
 /// newlines, or tabs that the visible UI strips during render but
