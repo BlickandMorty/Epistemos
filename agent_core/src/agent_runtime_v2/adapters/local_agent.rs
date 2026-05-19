@@ -1455,6 +1455,29 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_adapter_is_clone_send_sync_for_propagation_safety() {
+        // Phase 1 hardening — trait-bound pin for LocalAgentAdapter.
+        // Companion to the trait-bound sweep across the user-facing
+        // types in agent_runtime_v2 (iter-366..iter-386).
+        //
+        // LocalAgentAdapter: zero-sized scaffold (unit struct with
+        // PhantomData-equivalent state). Clone + Default by derive
+        // (local_agent.rs §224). Not Copy by derive choice — keep
+        // the construction call explicit while the dispatcher seam
+        // lands in a later iteration.
+        //
+        // Send + Sync are load-bearing — the adapter will eventually
+        // be held in a static / Lazy across the dispatcher's thread
+        // pool. Pin the property now so the future dispatch impl
+        // doesn't accidentally introduce a !Send field.
+        fn assert_clone_send_sync<T: Clone + Send + Sync>() {}
+        assert_clone_send_sync::<LocalAgentAdapter>();
+
+        let a = LocalAgentAdapter::new();
+        let _ = a.clone();
+    }
+
+    #[test]
     fn adapter_constructs_via_new() {
         let _adapter = LocalAgentAdapter::new();
     }

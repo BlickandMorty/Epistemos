@@ -132,6 +132,32 @@ mod tests {
     use super::*;
 
     #[test]
+    fn rejected_name_match_is_copy_clone_send_sync_for_propagation_safety() {
+        // Phase 1 hardening — trait-bound pin for RejectedNameMatch.
+        // Companion to the Copy + Clone + Send + Sync sweep across
+        // unit-enum and Copy-struct types (mode iter-366 →
+        // AgentEventErrorKind iter-374).
+        //
+        // RejectedNameMatch: 2-field struct (line: usize, column: usize)
+        // marked Copy via derive (naming_lint.rs §48). Returned by
+        // scan_text inside Vec<RejectedNameMatch>; Copy keeps the
+        // Vec ergonomics simple for downstream audit / CI dashboards.
+        //
+        // Send + Sync are load-bearing because CI lint output crosses
+        // thread boundaries when the lint runs over a worker pool of
+        // file scans.
+        //
+        // A future "let me hold a Rc<String> filename inside
+        // RejectedNameMatch" refactor would silently break the Copy
+        // surface — surface here.
+        fn assert_copy_clone_send_sync<T: Copy + Clone + Send + Sync>() {}
+        assert_copy_clone_send_sync::<RejectedNameMatch>();
+
+        let m = RejectedNameMatch { line: 5, column: 3 };
+        let _a = m; let _b = m; assert_eq!(m, m);
+    }
+
+    #[test]
     fn every_rejected_name_match_field_is_identity_load_bearing() {
         // Phase 1 hardening — thirteenth leg of the identity-pin
         // pattern. RejectedNameMatch is a Copy struct with 2 fields
