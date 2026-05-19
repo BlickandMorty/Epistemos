@@ -1955,7 +1955,9 @@ impl<'de> Deserialize<'de> for ACSAdmissionInput {
             serde_json::Value::is_array,
         )?;
         require_granted_capability_envelopes::<D::Error>(&value)?;
-        let wire = ACSAdmissionInputWire::deserialize(value).map_err(serde::de::Error::custom)?;
+        let wire = ACSAdmissionInputWire::deserialize(value).map_err(|err| {
+            serde::de::Error::custom(admission_input_wire_decode_error(&err.to_string()))
+        })?;
         let input = Self {
             request_id: wire.request_id,
             payload: wire.payload,
@@ -1988,6 +1990,27 @@ where
         }
     }
     Ok(())
+}
+
+fn admission_input_wire_decode_error(message: &str) -> String {
+    for prefix in [
+        "missing_risk_axis field=risk.",
+        "malformed_risk_axis field=risk.",
+        "malformed_risk_field field=risk.",
+        "risk_axis_out_of_range field=risk.",
+        "non_finite_risk_axis field=risk.",
+        "malformed_risk_vector field=risk.",
+    ] {
+        if let Some(field) = message.strip_prefix(prefix) {
+            return format!("forged_admission_input field=admission_input.risk.{field}");
+        }
+    }
+
+    if message == "malformed_risk_vector field=risk" {
+        return "forged_admission_input field=admission_input.risk".to_string();
+    }
+
+    message.to_string()
 }
 
 fn require_admission_input_payload_kind<E>(value: &serde_json::Value) -> Result<(), E>
@@ -7069,6 +7092,37 @@ mod tests {
 
         assert!(message.contains("forged_admission_input"), "{message}");
         assert!(message.contains("admission_input.risk"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_partial_input_risk_names_input_risk_namespace() {
+        let mut risk = serde_json::to_value(ACSRiskVector::neutral()).expect("risk encodes");
+        risk.as_object_mut()
+            .expect("risk encodes as object")
+            .remove("safety_risk");
+        let value = serde_json::json!({
+            "request_id": "req-partial-risk",
+            "payload": {
+                "kind": "tool_action",
+                "request": {
+                    "tool_name": "vault.write",
+                    "target": "uas://note/1",
+                    "mutation_envelope_id": "mutation-1"
+                }
+            },
+            "submitted_at_ms": 1_001,
+            "risk": risk,
+            "granted_capabilities": []
+        });
+
+        let err = serde_json::from_value::<ACSAdmissionInput>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("forged_admission_input"), "{message}");
+        assert!(
+            message.contains("admission_input.risk.safety_risk"),
+            "{message}"
+        );
     }
 
     #[test]
