@@ -943,6 +943,35 @@ mod tests {
     }
 
     #[test]
+    fn scan_text_reports_doc_filename_match_positions_for_ci_diagnostics() {
+        for path in [
+            "docs/Aegis-rationale.md",
+            "docs/handoff/2026-05-AEGIS-resume.md",
+            "docs/agent_aegis.md",
+        ] {
+            let hits = scan_text(path);
+            assert_eq!(
+                hits.len(),
+                1,
+                "doc filename should produce one diagnostic match: {path}"
+            );
+            let expected_column = path
+                .to_ascii_lowercase()
+                .find(REJECTED_NAME_LOWERCASE)
+                .expect("fixture contains rejected name");
+            assert_eq!(
+                hits[0],
+                RejectedNameMatch {
+                    line: 1,
+                    column: expected_column,
+                },
+                "doc filename diagnostic position drifted for {path}"
+            );
+            assert_eq!(count_hits(path), hits.len());
+        }
+    }
+
+    #[test]
     fn lint_does_not_flag_legitimate_doc_filename_variants() {
         // Phase 1 hardening — symmetric negative companion to the
         // doc-filename positive pin. Legitimate doctrine + handoff
