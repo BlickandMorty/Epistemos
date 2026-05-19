@@ -2227,9 +2227,16 @@ impl<'de> Deserialize<'de> for SCOPERexAdmissionProof {
         };
         proof
             .validate()
-            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+            .map_err(|err| serde::de::Error::custom(scope_rex_proof_decode_error(&err)))?;
         Ok(proof)
     }
+}
+
+fn scope_rex_proof_decode_error(error: &ACSAdmissionProofError) -> String {
+    if let Some(record_id) = error.record_id() {
+        return format!("{} record_id={}", error.cause(), record_id);
+    }
+    error.cause().to_string()
 }
 
 impl SCOPERexAdmissionProof {
@@ -6154,6 +6161,23 @@ mod tests {
             err.to_string().contains("proof_verdict_blocks_scope_rex"),
             "{err}"
         );
+    }
+
+    #[test]
+    fn acs_admission_scope_rex_proof_decode_errors_preserve_record_ref() {
+        let record_id = "acs:req:1001";
+        let encoded = serde_json::json!({
+            "verdict": "allow",
+            "operation": "memory_write",
+            "record_id": record_id,
+            "signature": "AA".repeat(CAPABILITY_SIGNATURE_BYTES),
+        });
+
+        let err = serde_json::from_value::<SCOPERexAdmissionProof>(encoded).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("invalid_capability_signature"), "{message}");
+        assert!(message.contains(record_id), "{message}");
     }
 
     #[test]
