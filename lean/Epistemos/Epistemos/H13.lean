@@ -53,6 +53,10 @@ def halfFisherQuadraticScalar (f : FisherInformation) (dp : Float) : Float :=
 theorem klDivergenceEqualsHalfFisherQuadraticForm : klBridgeFactor = 0.5 := by
   rfl
 
+theorem halfFisherQuadraticUsesBridgeFactor (f : FisherInformation) (dp : Float) :
+    halfFisherQuadraticScalar f dp = klBridgeFactor * fisherQuadraticScalar f dp := by
+  rfl
+
 theorem halfFisherQuadraticScalarExpands (f : FisherInformation) (dp : Float) :
     halfFisherQuadraticScalar f dp = 0.5 * (f.metric_scalar * (dp * dp)) := by
   rfl
