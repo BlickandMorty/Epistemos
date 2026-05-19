@@ -7217,6 +7217,41 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 43rd Adversarial row (iter-360, milestone iteration):
+        // vault-canon 7-term long-query — {vault, index, reload,
+        // tantivy, vaultstore, reader, visibility}. Keeps all 4
+        // canonical primaries + 3 tail context tokens
+        // (vaultstore + reader + visibility from canonical's
+        // tail "VaultStore::reload_index Tantivy reader
+        // visibility..."). 7 terms OR. Canonical body has all
+        // 7 (3× primaries + 1× each of vaultstore/reader/
+        // visibility); decoys ≤1 of 7. SECOND 7-term Adversarial
+        // row in fixture (after iter-353 agent-runtime). Vault
+        // corpus now exercised at 4-term + 5-term + 6-term +
+        // 7-term — FIRST canonical at FOUR query-length
+        // coverage points. iter-360 milestone.
+        query: "vault index reload tantivy vaultstore reader visibility",
+        expected_paths: &["notes/vault_index_reload_canon.md"],
+        forbidden_paths: &[
+            "notes/vault_brainstorm.md",
+            "notes/old_index_design.md",
+            "notes/tantivy_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Forty-third Adversarial row (iter-360, milestone): \
+               vault-canon 7-term long-query \"vault index \
+               reload tantivy vaultstore reader visibility\". \
+               Keeps all 4 primaries + 3 tail context tokens. \
+               SECOND 7-term Adversarial (after iter-353 agent-\
+               runtime). Vault now exercised at 4-term + 5-\
+               term + 6-term + 7-term — FIRST canonical at \
+               FOUR query-length coverage points. Canonical \
+               7/7; decoys ≤1 of 7. iter-360 milestone. Brings \
+               Adversarial to depth 43 — first category past \
+               depth-42 horizon. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 42nd Adversarial row (iter-353): agent-runtime 7-term
         // long-query — {agent, runtime, substrate, trace, system,
         // invader, canon}. Keeps all 4 canonical primaries + 3
