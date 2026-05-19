@@ -1375,6 +1375,43 @@ mod tests {
     }
 
     #[test]
+    fn mutation_envelope_new_accepts_triple_zero_inputs_per_doctrine() {
+        // Phase 1 hardening — minimum-boundary pin. MutationEnvelope::new
+        // accepts ANY (capability_hash, debit, payload) tuple including
+        // the all-zero baseline:
+        //   - Hash::zero() capability_hash
+        //   - BudgetDebit::default() (all 5 axes zero)
+        //   - empty payload (String::new())
+        //
+        // No existing test covers all three zero baselines at once.
+        // A future "let me reject obviously-empty envelopes at
+        // construction time" tightening would silently break the
+        // synthetic-fixture path that tests + the dispatcher's
+        // null-mutation probe rely on.
+        //
+        // Pin the all-zero acceptance + verify the round-trip
+        // serialise/deserialise still works.
+        let envelope = MutationEnvelope::new(
+            Hash::zero(),
+            BudgetDebit::default(),
+            String::new(),
+        );
+        assert_eq!(envelope.capability_hash, Hash::zero());
+        assert_eq!(envelope.debit, BudgetDebit::default());
+        assert_eq!(envelope.payload, "");
+        // Round-trip preserves the zero-baseline shape.
+        let s = serde_json::to_string(&envelope).expect("serialise zero envelope");
+        let back: MutationEnvelope<String> =
+            serde_json::from_str(&s).expect("deserialise zero envelope");
+        assert_eq!(back, envelope);
+        // log_summary produces a parseable string even for zero inputs.
+        let summary = envelope.log_summary();
+        assert!(summary.starts_with("envelope{cap=00000000"));
+        assert!(summary.contains("tokens=0"));
+        assert!(summary.contains("tool_calls=0"));
+    }
+
+    #[test]
     fn payload_size_constant_is_4_mib() {
         assert_eq!(MutationEnvelope::<String>::MAX_RECOMMENDED_PAYLOAD_BYTES, 4 * 1024 * 1024);
     }
