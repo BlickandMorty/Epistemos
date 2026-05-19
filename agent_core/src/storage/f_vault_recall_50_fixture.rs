@@ -1005,6 +1005,36 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 38th SignalOnly row (iter-325): single-term query in
+        // Sinhala-script domain — "ක" (ka, U+0D9A, single
+        // codepoint). TWENTY-NINTH single-term-AND domain.
+        // SEVENTEENTH non-ASCII script-block. SEVENTH Brahmic
+        // descendant in single-term-AND (after Devanagari +
+        // Thai + Tibetan + Khmer + Lao + Myanmar). Brahmic
+        // family completes in SignalOnly — all 7 Brahmic
+        // descendants from the Unicode pin set now exercised
+        // at single-term granularity. Fourth single-codepoint
+        // non-ASCII token (after Greek λ + Hebrew ש + Myanmar
+        // က). Token unique to iter-271's mamba_sinhala.md.
+        query: "ක",
+        expected_paths: &["notes/mamba_sinhala.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Thirty-eighth SignalOnly row (iter-325): single-\
+               term Sinhala-script query — \"ක\" (U+0D9A). \
+               Twenty-ninth domain for single-term-AND. \
+               Seventeenth non-ASCII script-block. Seventh \
+               Brahmic descendant in single-term-AND (after \
+               Devanagari + Thai + Tibetan + Khmer + Lao + \
+               Myanmar). The Brahmic family completes in \
+               SignalOnly — all 7 Brahmic descendants from the \
+               Unicode pin set now exercised at single-term-AND \
+               granularity. Fourth single-codepoint non-ASCII \
+               token. Brings SignalOnly to depth 38 — first \
+               category past depth-37 horizon.",
+    },
+    FVaultRecallRow {
         // 37th SignalOnly row (iter-318): single-term query in
         // Myanmar-script domain — "က" (ka, U+1000, single
         // codepoint). TWENTY-EIGHTH single-term-AND domain.
