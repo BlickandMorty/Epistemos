@@ -4163,6 +4163,33 @@ mod tests {
     }
 
     #[test]
+    fn side_information_public_keys_are_trimmed_ascii_pascal_case() {
+        for kind in SideInformationKind::ALL {
+            let key = kind.key();
+            let debug = format!("{kind:?}");
+            assert!(!key.is_empty(), "{kind:?}");
+            assert_eq!(key.trim(), key, "{kind:?}");
+            assert!(key.is_ascii(), "{kind:?}");
+            assert!(!key.contains(' '), "{kind:?} key {key}");
+            assert!(!key.contains('-'), "{kind:?} key {key}");
+            assert!(!key.contains('_'), "{kind:?} key {key}");
+            let first = key.chars().next().expect("nonempty");
+            assert!(first.is_ascii_uppercase(), "{kind:?} key {key}");
+            assert!(
+                key.chars().all(|ch| ch.is_ascii_alphanumeric()),
+                "{kind:?} key {key}"
+            );
+            assert_eq!(key, debug.as_str(), "{kind:?} debug should match key");
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`side_information_public_keys_are_trimmed_ascii_pascal_case`"),
+            "register doc must cross-link side-information key formatting safety"
+        );
+    }
+
+    #[test]
     fn side_information_public_keys_match_all_canonical_keys() {
         let canonical_keys = SideInformationKind::ALL
             .iter()
