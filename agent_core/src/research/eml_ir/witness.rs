@@ -1319,6 +1319,8 @@ struct RawConfigUnsigned<'a> {
     #[serde(default, borrow)]
     log_sampled_points: Option<&'a RawValue>,
     #[serde(default, borrow)]
+    stress_points: Option<&'a RawValue>,
+    #[serde(default, borrow)]
     ulp_tolerance: Option<&'a RawValue>,
 }
 
@@ -1328,6 +1330,9 @@ fn reject_raw_config_unsigned_json(raw_config: &RawValue) -> Result<(), FulpRepl
     };
     if let Some(value) = raw_config.log_sampled_points {
         raw_unsigned_integer_json(value, "config.log_sampled_points")?;
+    }
+    if let Some(value) = raw_config.stress_points {
+        raw_unsigned_integer_json(value, "config.stress_points")?;
     }
     if let Some(value) = raw_config.ulp_tolerance {
         raw_unsigned_integer_json(value, "config.ulp_tolerance")?;
@@ -2116,6 +2121,28 @@ mod tests {
             .invalid_json_message()
             .expect("invalid json message")
             .contains("config.log_sampled_points"));
+    }
+
+    #[test]
+    fn replay_rejects_config_stress_points_json_raw_overflow_with_path() {
+        let json = acceptance_witness_json().unwrap();
+        let stress_points = serde_json::from_str::<serde_json::Value>(&json).expect("witness json")
+            ["config"]["stress_points"]
+            .as_u64()
+            .expect("stress points");
+        let needle = format!("\"stress_points\": {stress_points}");
+        assert_eq!(json.matches(&needle).count(), 1);
+        let json = json.replacen(&needle, "\"stress_points\": 1e999999", 1);
+        let error =
+            replay_witness_json(&json).expect_err("stress points raw overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("config.stress_points"));
     }
 
     #[test]
