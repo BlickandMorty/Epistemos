@@ -3780,6 +3780,12 @@ impl<'de> Deserialize<'de> for ACSPolicy {
         require_policy_field::<D::Error>(&value, "version", "version", serde_json::Value::is_u64)?;
         require_policy_field::<D::Error>(
             &value,
+            "valid_from_ms",
+            "valid_from_ms",
+            serde_json::Value::is_i64,
+        )?;
+        require_policy_field::<D::Error>(
+            &value,
             "thresholds",
             "thresholds",
             serde_json::Value::is_object,
@@ -7784,6 +7790,22 @@ mod tests {
 
         assert!(message.contains("malformed_policy"), "{message}");
         assert!(message.contains("version"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_missing_policy_valid_from_names_malformed_policy_field() {
+        let mut value = serde_json::to_value(ACSPolicy::strict("policy-missing-valid-from", 1_000))
+            .expect("policy encodes");
+        value
+            .as_object_mut()
+            .expect("policy encodes as object")
+            .remove("valid_from_ms");
+
+        let err = serde_json::from_value::<ACSPolicy>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(message.contains("valid_from_ms"), "{message}");
     }
 
     #[test]
