@@ -951,6 +951,29 @@ mod tests {
     }
 
     #[test]
+    fn mission_packet_display_starts_with_literal_struct_name_prefix() {
+        // Phase 1 hardening — wire-shape pin (companion to
+        // answer_packet_display_starts_with_literal_struct_name_prefix
+        // iter-451). MissionPacket::Display format string is
+        //   "MissionPacket{{blueprint={}, scope={}}}"
+        // (mission.rs §22). The literal "MissionPacket{" prefix is
+        // load-bearing for grep-based audit pipelines.
+        //
+        // A future "let me shorten to 'MP{...}' for log brevity"
+        // refactor would silently break grep contracts.
+        let mp = MissionPacket {
+            blueprint_id: AgentBlueprintId("a".into()),
+            user_prompt: "hidden".into(),
+            vault_scope: "s".into(),
+        };
+        let display = format!("{mp}");
+        assert!(display.starts_with("MissionPacket{"),
+            "Display must start with literal 'MissionPacket{{', got: {display}");
+        assert!(display.ends_with('}'),
+            "Display must end with literal '}}', got: {display}");
+    }
+
+    #[test]
     fn mission_packet_display_writes_special_chars_verbatim_no_escaping() {
         // Phase 1 hardening — Display vs serde behaviour pin.
         // mission.rs §21 Display impl writes:
