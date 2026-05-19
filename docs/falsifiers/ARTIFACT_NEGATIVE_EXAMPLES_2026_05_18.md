@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 273
+invalid_example_count: 274
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -13058,3 +13058,17 @@ Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-
 ```
 
 Rejection reason: `commit_sha` must contain exactly 40 lowercase hex characters; overlong strings are not valid Git object identities for replay.
+
+## N274 - Non-Hex Commit SHA Character
+
+Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-identity-rule) and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "field": "commit_sha",
+  "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaag",
+  "schema_pattern": "^[0-9a-f]{40}$"
+}
+```
+
+Rejection reason: `commit_sha` may use only lowercase hex bytes; lowercase non-hex letters such as `g` are invalid.
