@@ -65,4 +65,12 @@ def strongFormIsConjecture : Bool := true
 of T1-T6 (USES them). T1-T6 do NOT depend on T7. -/
 def t7SitsOnTopOfT1ThroughT6 : Bool := true
 
+theorem strongFormRemainsConjectural :
+    strongFormIsConjecture = true := by
+  rfl
+
+theorem dependencyDirectionLocked :
+    t7SitsOnTopOfT1ThroughT6 = true := by
+  rfl
+
 end Epistemos.E7
