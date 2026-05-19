@@ -162,6 +162,10 @@ def bernoulliKlProjection (p q : Real) : Expr :=
     qArityMatches := rfl
   }
 
+theorem bernoulliBregmanNonnegative (p q : Real) :
+    bregmanNonnegative ExpFamily.bernoulli [p] [q] := by
+  exact ⟨ExpFamily.bernoulli_wellFormed, rfl, rfl⟩
+
 theorem schemaConstructorCountsPinned :
     expFamilyConstructorCount = 3 ∧ exprConstructorCount = 3 := by
   exact ⟨rfl, rfl⟩
