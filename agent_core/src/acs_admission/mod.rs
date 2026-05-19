@@ -2472,7 +2472,10 @@ impl<'de> Deserialize<'de> for SCOPERexAdmissionProof {
     where
         D: serde::Deserializer<'de>,
     {
-        let wire = SCOPERexAdmissionProofWire::deserialize(deserializer)?;
+        let value = serde_json::Value::deserialize(deserializer)?;
+        require_scope_rex_proof_known_fields::<D::Error>(&value)?;
+        let wire =
+            SCOPERexAdmissionProofWire::deserialize(value).map_err(serde::de::Error::custom)?;
         let proof = Self {
             verdict: wire.verdict,
             operation: wire.operation,
@@ -2490,6 +2493,30 @@ impl<'de> Deserialize<'de> for SCOPERexAdmissionProof {
             .map_err(|err| serde::de::Error::custom(scope_rex_proof_decode_error(&err)))?;
         Ok(proof)
     }
+}
+
+fn require_scope_rex_proof_known_fields<E>(value: &serde_json::Value) -> Result<(), E>
+where
+    E: serde::de::Error,
+{
+    let serde_json::Value::Object(object) = value else {
+        return Ok(());
+    };
+    let record_id = object
+        .get("record_id")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    for field in object.keys() {
+        if !matches!(
+            field.as_str(),
+            "verdict" | "operation" | "record_id" | "signature"
+        ) {
+            return Err(E::custom(format!(
+                "malformed_acs_admission_proof field={field} record_id={record_id}"
+            )));
+        }
+    }
+    Ok(())
 }
 
 fn scope_rex_proof_decode_error(error: &ACSAdmissionProofError) -> String {
@@ -10481,5 +10508,24 @@ mod tests {
 
         assert!(message.contains("corrupt_acs_audit_record"), "{message}");
         assert!(message.contains("shadow_record"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_shadow_scope_rex_proof_field_names_malformed_acs_admission_proof_field() {
+        let record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+        let signing_key = crate::effect::receipt::HmacSha256SigningKey::new([7; 32]);
+        let proof = SCOPERexAdmissionProof::signed_from_record(&record, &signing_key)
+            .expect("valid audit record signs");
+        let mut value = serde_json::to_value(proof).expect("proof encodes");
+        value["shadow_proof"] = serde_json::json!("smuggled");
+
+        let err = serde_json::from_value::<SCOPERexAdmissionProof>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(
+            message.contains("malformed_acs_admission_proof"),
+            "{message}"
+        );
+        assert!(message.contains("shadow_proof"), "{message}");
     }
 }
