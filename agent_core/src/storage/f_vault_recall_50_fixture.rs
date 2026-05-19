@@ -4290,6 +4290,49 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 45th Paraphrase row (iter-376): NEW axis — DERIVA-
+        // TIONAL SUFFIX / WORD-CLASS CHANGE. User adds the
+        // agent-noun derivational suffix "-er" to a noun:
+        // "cache" → "cacher" (one who caches). This is a
+        // word-class-changing morpheme (noun → agent-noun),
+        // distinct from:
+        //   • iter-51 INFLECTIONAL suffix (cache → caches: same
+        //     class, plural-marking morpheme): iter-376 changes
+        //     the word class
+        //   • iter-369 COMPOUND-NOUN agglutination (cache →
+        //     cachefile: two distinct noun morphemes joined):
+        //     iter-376 attaches a DERIVATIONAL suffix that
+        //     does not stand alone as a separate noun
+        //   • iter-239 SUFFIX TRUNCATION (cache → ch: drops
+        //     letters): iter-376 ADDS letters via a productive
+        //     suffix
+        //   • iter-86 ACRONYM (multi-word → initials): iter-
+        //     376 keeps the full root + appends suffix
+        // Tantivy keeps "cacher" as one alphanumeric token. 3-
+        // term AND on {mamba, ssm, cacher} blocks canonical
+        // (has "cache" not "cacher"). Pins deferred derivational-
+        // morphology stemming retrieval. Forty-second named
+        // failure subclass.
+        query: "Mamba SSM cacher",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Derivational-suffix Paraphrase axis (axis #42): \
+               user adds agent-noun suffix \"-er\" — \"cache\" \
+               → \"cacher\". Word-class-changing morpheme \
+               (noun → agent-noun). Distinct from iter-51 \
+               inflectional plural (same class), iter-369 \
+               compound-noun agglutination (two distinct \
+               nouns), iter-239 suffix truncation (drops \
+               letters), iter-86 acronym (multi-word → \
+               initials). 3-term AND on {mamba, ssm, cacher} \
+               blocks. Pins deferred derivational-morphology \
+               stemming. Forty-second named failure subclass. \
+               Brings Paraphrase to depth 45 — first category \
+               past depth-44 horizon.",
+    },
+    FVaultRecallRow {
         // 44th Paraphrase row (iter-369): NEW axis — COMPOUND-
         // NOUN AGGLUTINATION (suffix-NOUN concatenation). User
         // appends a second noun directly to a token without
