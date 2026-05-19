@@ -35,9 +35,17 @@ structure BerryPhase where
   loop : ParameterLoop
   phase : Float    -- ∮ A · dλ
 
+/-- H12 uses Berry phase as a holonomy invariant, not as an
+outcome predictor. -/
+def outcomePredictionDisallowed : Bool := true
+
 theorem berryPhaseGaugeInvariant
     (b : BerryPhase) (h_closed : b.loop.closed = true) :
     b.loop.closed = true := by
   exact h_closed
+
+theorem outcomePredictionDisallowedPinned :
+    outcomePredictionDisallowed = true := by
+  rfl
 
 end Epistemos.H12
