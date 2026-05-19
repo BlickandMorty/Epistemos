@@ -1288,6 +1288,36 @@ mod tests {
     }
 
     #[test]
+    fn mutation_envelope_struct_field_shape_pinned_via_destructure() {
+        // Phase 1 hardening — struct-field-shape pin for
+        // MutationEnvelope<P> (companion to AnswerPacket iter-464,
+        // AgentBlueprint iter-465, MissionPacket + ToolCall iter-466).
+        //
+        // MutationEnvelope<P>: EXACTLY 3 fields
+        //   - capability_hash: Hash
+        //   - debit: BudgetDebit
+        //   - payload: P (generic)
+        //
+        // A future "let me add a `created_at` timestamp" extension
+        // would silently change the on-disk JSON shape for every
+        // SealedMutation row — surface here via destructure
+        // compile-fail + per-field type assertions.
+        let envelope = MutationEnvelope::new(
+            Hash::zero(),
+            BudgetDebit::default(),
+            "payload".to_string(),
+        );
+        let MutationEnvelope {
+            capability_hash,
+            debit,
+            payload,
+        } = envelope;
+        let _: Hash = capability_hash;
+        let _: BudgetDebit = debit;
+        let _: String = payload;
+    }
+
+    #[test]
     fn every_mutation_envelope_field_is_identity_load_bearing() {
         // Phase 1 hardening — fifth leg of the identity-pin pattern
         // (AgentBlueprint 5 / AnswerPacket 7 / MissionPacket 3 /
