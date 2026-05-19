@@ -3386,21 +3386,21 @@ impl ACSAuditSink for InMemoryACSAuditSink {
                 record_id: record.record_id,
             });
         }
-        if records
-            .last()
-            .is_some_and(|existing| record.emitted_at_ms < existing.emitted_at_ms)
-        {
-            return Err(ACSAuditError::NonMonotonicAuditLog {
-                field: "emitted_at_ms",
-                record_id: record.record_id,
-            });
-        }
         if records.iter().any(|existing| {
             existing.request_id == record.request_id
                 && existing.verdict.severity_rank() > record.verdict.severity_rank()
         }) {
             return Err(ACSAuditError::NonMonotonicVerdict {
                 field: "verdict",
+                record_id: record.record_id,
+            });
+        }
+        if records
+            .last()
+            .is_some_and(|existing| record.emitted_at_ms < existing.emitted_at_ms)
+        {
+            return Err(ACSAuditError::NonMonotonicAuditLog {
+                field: "emitted_at_ms",
                 record_id: record.record_id,
             });
         }
@@ -8186,6 +8186,43 @@ mod tests {
         let err = sink
             .record(regressing.clone())
             .expect_err("same-request verdict regression must be rejected");
+
+        assert_eq!(err.cause(), "non_monotonic_acs_verdict");
+        assert_eq!(err.field(), Some("verdict"));
+        assert_eq!(err.record_id(), Some(regressing.record_id.as_str()));
+        assert_eq!(sink.records().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn acs_admission_in_memory_audit_sink_names_verdict_regression_before_race_timestamp() {
+        let sink = InMemoryACSAuditSink::default();
+        let first = ACSAuditRecord {
+            record_id: "acs:req-race-order:2000".to_string(),
+            request_id: "req-race-order".to_string(),
+            policy_id: "policy".to_string(),
+            policy_version: 1,
+            operation: ACSOperationKind::MemoryWrite,
+            verdict: ACSAdmissionVerdict::Reject,
+            reason: ACSAdmissionVerdict::Reject.code().to_string(),
+            risk_max: 0.95,
+            emitted_at_ms: 2_000,
+        };
+        sink.record(first).expect("first record stored");
+
+        let regressing = ACSAuditRecord {
+            record_id: "acs:req-race-order:1999".to_string(),
+            request_id: "req-race-order".to_string(),
+            policy_id: "policy".to_string(),
+            policy_version: 1,
+            operation: ACSOperationKind::MemoryWrite,
+            verdict: ACSAdmissionVerdict::Allow,
+            reason: ACSAdmissionVerdict::Allow.code().to_string(),
+            risk_max: 0.0,
+            emitted_at_ms: 1_999,
+        };
+        let err = sink
+            .record(regressing.clone())
+            .expect_err("same-request verdict regression must be classified before race timestamp");
 
         assert_eq!(err.cause(), "non_monotonic_acs_verdict");
         assert_eq!(err.field(), Some("verdict"));
