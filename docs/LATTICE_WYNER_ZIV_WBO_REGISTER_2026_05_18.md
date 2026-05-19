@@ -113,6 +113,7 @@ The lightweight Rust module is ledger-only, but it rejects register rows that
 would erase the error law:
 
 Public-key registries are exact string surfaces: `public_key_registries_reject_unicode_adjacent_public_keys` asserts that unicode-adjacent canonical keys stay invalid for residency, codec, side-information, WBO term, and error registries.
+The register guarantees that public JSON rows reject duplicate public keys before validation: `public_accounting_json_rejects_duplicate_public_keys` covers contribution, budget, active-support, ledger-entry, and owner rows.
 
 | Guard | Rejected row shape |
 |---|---|
