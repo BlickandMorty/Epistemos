@@ -7405,6 +7405,39 @@ mod tests {
     }
 
     #[test]
+    fn residual_wyner_ziv_axis_is_owned_only_by_residual_codecs() {
+        let residual_codecs = [
+            LatticeCoderKind::LatticeWynerZivResidual,
+            LatticeCoderKind::ResidualSketch,
+        ];
+        for coder in residual_codecs {
+            assert!(
+                coder
+                    .canonical_wbo_terms()
+                    .contains(&WboTermCode::ResidualWynerZiv),
+                "{coder:?} residual codec must claim T_R"
+            );
+        }
+        for coder in LatticeCoderKind::ALL {
+            if residual_codecs.contains(&coder) {
+                continue;
+            }
+            assert!(
+                !coder
+                    .canonical_wbo_terms()
+                    .contains(&WboTermCode::ResidualWynerZiv),
+                "{coder:?} must never claim T_R; only residual codecs own residual transfer"
+            );
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`residual_wyner_ziv_axis_is_owned_only_by_residual_codecs`"),
+            "register doc must cross-link T_R residual ownership invariant"
+        );
+    }
+
+    #[test]
     fn weight_codec_catalogs_claim_t_w_axis() {
         let weight_codecs = [
             LatticeCoderKind::BabaiGptqNearestPlane,
