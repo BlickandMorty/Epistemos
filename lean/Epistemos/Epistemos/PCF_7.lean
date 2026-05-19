@@ -39,6 +39,9 @@ structure DualConnectomeTrace where
 def DualConnectomeTrace.sampleCount (t : DualConnectomeTrace) : Nat :=
   t.samples.length
 
+/-- PCF-7 remains a Lane 3 research-only dual-decomposition trace. -/
+def lane3ResearchOnly : Bool := true
+
 theorem emptyDualTraceHasZeroSamples :
     ({ trace_id := "empty-dual-trace", samples := [] } : DualConnectomeTrace).sampleCount = 0 := by
   rfl
@@ -51,6 +54,10 @@ theorem singletonDualTraceHasOneSample
                      layer := layer
                      param_activations := param_activations
                      act_activations := act_activations }] } : DualConnectomeTrace).sampleCount = 1 := by
+  rfl
+
+theorem lane3ResearchOnlyPinned :
+    lane3ResearchOnly = true := by
   rfl
 
 end Epistemos.PCF7
