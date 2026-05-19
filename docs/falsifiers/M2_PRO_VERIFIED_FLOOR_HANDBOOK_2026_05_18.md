@@ -204,6 +204,10 @@ Last audited: 2026-05-18. All 15 F-* fragments now include an `Artifact Schema A
 
 Last audited: 2026-05-18. The schema axis-floor table, the 15 fragment `Artifact Schema Axes` sections, and the 15 handbook row expected-artifact descriptions are required to describe the same falsifier-specific acceptance axes. Any drift among those three surfaces is a documentation defect until reconciled; it is not a runtime pass claim.
 
+## F-Eidos Axis Floor Audit
+
+Last audited: 2026-05-18. [F-Eidos-ClosedCitation](F_EIDOS_CLOSED_CITATION_2026_05_18.md) maps to schema axes `citation_membership`, `fake_citation_rejection`, `empty_vault_deferral`, and `source_trace_visible`; the row requires returned context membership, fake-citation rejection, empty/no-result deferral, and visible source trace before its expected artifact can satisfy the [Cross-Gate Axis Floors](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#cross-gate-axis-floors).
+
 ## Replay Eligibility Audit
 
 Last audited: 2026-05-18. The schema replay-ineligibility checklist now fails artifacts linearly for missing command digests, missing fixture-manifest digests, missing sidecar digests, mismatched sidecar bytes, missing JSONL manifests, invalid JSONL manifest envelopes, `jsonl_file_sha256` drift from `result_digest`, runner-environment drift from the closed execution pin, missing OS build, missing toolchain identity, or missing thermal/power capture, blocking anomalies without evidence refs, missing threshold-source provenance, provider threshold refs without matching receipts, thermal-pressure timing passes without blocking anomalies, battery/unknown-power timing passes without blocking anomalies, measurement `evidence_kind` drift from the measurement source shape, and aggregate `sample_count` drift from embedded or sidecar samples.
@@ -218,7 +222,7 @@ Last audited: 2026-05-18. Validator design is doc-only: [Artifact Negative Examp
 
 ## Artifact Schema Integrity Batch Audit
 
-Last audited: 2026-05-18. The schema JSON fragment parses, the falsifier enum aligns with 15 axis-floor rows, 15 axis-floor conditionals, 15 command-map rows, and 15 expected-artifact-root rows, all 15 F-* fragments carry an `Artifact Schema Axes` section, and the negative catalog frontmatter declares the same 208 examples as its section count. The only `2026-05-18.1` reference is the intentional migration-table source version.
+Last audited: 2026-05-18. The schema JSON fragment parses, the falsifier enum aligns with 15 axis-floor rows, 15 axis-floor conditionals, 15 command-map rows, and 15 expected-artifact-root rows, all 15 F-* fragments carry an `Artifact Schema Axes` section, and the negative catalog frontmatter declares the same 212 examples as its section count. The only `2026-05-18.1` reference is the intentional migration-table source version.
 
 ## Artifact Schema Migration Audit
 

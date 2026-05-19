@@ -394,6 +394,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_
 ```
 
 ```bash
+ruby -e 'h=File.read("docs/falsifiers/M2_PRO_VERIFIED_FLOOR_HANDBOOK_2026_05_18.md"); s=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); expected=%w[citation_membership fake_citation_rejection empty_vault_deferral source_trace_visible]; expected.each { |axis| abort("F-Eidos axis #{axis} missing") unless h.include?(axis) && s.include?(axis) }; puts "F-Eidos axis floor audit ok"'
+```
+
+```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); pat=schema.dig("properties","notes","allOf",1,"then","pattern") || abort("migration note pattern missing"); abort("internal-hyphen identity states no longer fit grammar") unless "identity_sentinel_gap_report=validator:old-anonymous-v1-new-blocked,reviewer:old-unknown-v1-new-blocked".match?(Regexp.new(pat[/identity_sentinel_gap_report=validator:old-.*?\\(\\?:;\\|\\$\\)/] || "a^")); puts "migration identity internal-hyphen states ok"'
 ```
 
