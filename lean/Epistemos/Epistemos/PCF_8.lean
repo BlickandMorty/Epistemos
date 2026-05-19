@@ -44,6 +44,10 @@ def ConnectomeSheaf.stalkCount (s : ConnectomeSheaf) : Nat :=
 /-- PCF-8 remains a Lane 3 research-only connectome sheaf candidate. -/
 def lane3ResearchOnly : Bool := true
 
+/-- PCF-8 falsifier threshold for Spearman correlation between
+sheaf-Laplacian gap and empirical component-circuit modularity. -/
+def spearmanCorrelationThreshold : Float := 0.5
+
 theorem emptyConnectomeSheafHasZeroStalks :
     ({ stalks := [], spectral_gap := 0.0 } : ConnectomeSheaf).stalkCount = 0 := by
   rfl
@@ -56,6 +60,10 @@ theorem singletonConnectomeSheafHasOneStalk
 
 theorem lane3ResearchOnlyPinned :
     lane3ResearchOnly = true := by
+  rfl
+
+theorem spearmanCorrelationThresholdPinned :
+    spearmanCorrelationThreshold = 0.5 := by
   rfl
 
 end Epistemos.PCF8
