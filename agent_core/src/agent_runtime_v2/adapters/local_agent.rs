@@ -689,6 +689,44 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_owner_tier_surface_serde_forms_are_pairwise_distinct() {
+        // Phase 1 hardening — companion to the variant-pairwise-distinct
+        // pin (local_agent_tier_owner_surface_all_arrays_have_pairwise_distinct_variants).
+        // That pin checks variant equality. THIS pin checks the SERIALIZED
+        // FORMS are also pairwise-distinct — a maintainer could
+        // accidentally add `#[serde(rename = "agentTask")]` to a second
+        // Surface variant and the variant-equality pin would still
+        // pass (since the variants ARE distinct) but two distinct
+        // variants would now share a wire form. That collision would
+        // silently misroute deserialised payloads to the wrong variant.
+        // Pin asserts all serialized forms are unique across each enum.
+        for items in &[
+            LocalAgentCapabilityTier::ALL
+                .iter()
+                .map(|v| serde_json::to_string(v).expect("serialize tier"))
+                .collect::<Vec<_>>(),
+            LocalAgentCapabilityOwner::ALL
+                .iter()
+                .map(|v| serde_json::to_string(v).expect("serialize owner"))
+                .collect::<Vec<_>>(),
+            LocalAgentCapabilitySurface::ALL
+                .iter()
+                .map(|v| serde_json::to_string(v).expect("serialize surface"))
+                .collect::<Vec<_>>(),
+        ] {
+            for i in 0..items.len() {
+                for j in (i + 1)..items.len() {
+                    assert_ne!(
+                        items[i], items[j],
+                        "serde forms collide at [{i}] = {:?} and [{j}] = {:?}",
+                        items[i], items[j]
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
     fn local_agent_owner_and_tier_code_matches_serde_tag_byte_for_byte() {
         // Phase 1 hardening — cross-consistency pin between two
         // existing pin families:
