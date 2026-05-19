@@ -1760,6 +1760,40 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 38th Unicode row (iter-329): Imperial Aramaic
+        // extension. Adds a 36th non-Latin script (Imperial
+        // Aramaic, U+10840–U+1085F) — the formal documentation
+        // script of the Achaemenid Persian Empire (ca. 700 BCE),
+        // lingua franca across the ancient Near East from
+        // Egypt to India. SEVENTH SMP-plane codepoint. Imperial
+        // Aramaic is the direct ANCESTOR of multiple
+        // descendant scripts already pinned: Hebrew (square
+        // script), Syriac, Arabic, Mongolian (via Sogdian →
+        // Uyghur). Pin set now covers both major Northwest-
+        // Semitic ancestral scripts (Phoenician + Imperial
+        // Aramaic) AND their convergent descendant branches.
+        // Latin "Mamba" + Imperial Aramaic "𐡀" (aleph, U+10840)
+        // + Latin "cache".
+        query: "Mamba 𐡀 cache",
+        expected_paths: &["notes/mamba_imperial_aramaic.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Thirty-eighth Unicode row (iter-329): Imperial \
+               Aramaic extension. THIRTY-SIX non-Latin scripts \
+               pinned. Imperial Aramaic (ca. 700 BCE) was the \
+               formal documentation script of the Achaemenid \
+               Persian Empire — lingua franca from Egypt to \
+               India. Direct ancestor of multiple pinned \
+               descendants: Hebrew (square script), Syriac, \
+               Arabic, Mongolian (via Sogdian → Uyghur). Pin \
+               set now contains both major Northwest-Semitic \
+               ancestors (Phoenician + Imperial Aramaic) AND \
+               their convergent descendant branches. Seventh \
+               SMP-plane codepoint. Brings Unicode to depth \
+               38 — first category past depth-37 horizon.",
+    },
+    FVaultRecallRow {
         // 37th Unicode row (iter-322): Linear B extension.
         // Adds a 35th non-Latin script (Linear B, U+10000–
         // U+1007F) — the syllabary used for Mycenaean Greek
