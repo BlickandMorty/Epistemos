@@ -232,6 +232,10 @@ Last audited: 2026-05-18. [F-ACS-AnchorLookup](F_ACS_ANCHOR_LOOKUP_2026_05_18.md
 
 Last audited: 2026-05-18. [F-InterruptScore-CPU](F_INTERRUPT_SCORE_CPU_2026_05_18.md) maps to schema axes `equation_match`, `clamp_bounds`, `bucket_boundaries`, and `p99_latency_us`; the row requires equation match against the V6.2 five-term interrupt score, [0,1] clamp bounds on output, bucket boundaries at 0.25 and 0.65, and P99 CPU latency under 100 microseconds over 100,000 trials before its interrupt-score artifact can satisfy the [Cross-Gate Axis Floors](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#cross-gate-axis-floors).
 
+## F-PacketRouter1bit Axis Floor Audit
+
+Last audited: 2026-05-18. [F-PacketRouter1bit](F_PACKET_ROUTER_1BIT_2026_05_18.md) maps to schema axes `p99_latency_us`, `reconstruction_digest`, `mask_class_breakdown`, and `lane_balance_report`; the row requires P99 dispatch latency under 100 microseconds, a byte-identical reconstruction digest against the input order, a breakdown across balanced, skewed, degenerate, alternating, and random mask classes, and a lane-balance report before its packet-router artifact can satisfy the [Cross-Gate Axis Floors](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#cross-gate-axis-floors).
+
 ## Replay Eligibility Audit
 
 Last audited: 2026-05-18. The schema replay-ineligibility checklist now fails artifacts linearly for missing command digests, missing fixture-manifest digests, missing sidecar digests, mismatched sidecar bytes, missing JSONL manifests, invalid JSONL manifest envelopes, `jsonl_file_sha256` drift from `result_digest`, runner-environment drift from the closed execution pin, missing OS build, missing toolchain identity, or missing thermal/power capture, blocking anomalies without evidence refs, missing threshold-source provenance, provider threshold refs without matching receipts, thermal-pressure timing passes without blocking anomalies, battery/unknown-power timing passes without blocking anomalies, measurement `evidence_kind` drift from the measurement source shape, and aggregate `sample_count` drift from embedded or sidecar samples.
