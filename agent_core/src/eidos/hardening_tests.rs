@@ -10086,6 +10086,163 @@ fn closed_citation_contract_holds_for_multilingual_ledger_backed_claim_evidence(
     }
 }
 
+/// Multilingual Recency with_since time-window byte-strict pin.
+/// Extends iter 80's `with_since(0) ≡ no-since` time-window pin
+/// (ASCII) to the multilingual axis, with three time-window
+/// regimes: pre-floor, exact-floor, post-floor.
+///
+/// Recency retrieval applies `with_since(t)` as an inclusive lower
+/// bound on `unix_ms`: documents with `ts >= t` survive the filter.
+/// When the surviving docs have non-Latin document_ids, the
+/// emitted source_ids must carry the multilingual bytes verbatim
+/// through both the filter-then-rank path AND the closed-citation
+/// gate.
+///
+/// If a future Recency refactor ever introduced normalization at
+/// the time-window boundary (e.g. "for filtered docs, fall through
+/// a canonicalize_doc_id() shared helper"), multilingual hits
+/// could silently drift the source_id bytes after the filter
+/// fires.
+///
+/// Pins, across 3 docs at 3 different timestamps (T-2, T-1, T):
+///   - all 3 docs have multilingual doc_ids (Han / Hangul / Arabic)
+///   - with_since(T-2): all 3 surface, multilingual source_ids
+///     intact, byte-strict validation
+///   - with_since(T-1): only T-1 and T surface (Hangul filtered
+///     out — T-2 timestamp is excluded by the inclusive lower bound)
+///   - with_since(T+1): zero hits, empty packet (post-floor filter)
+///   - in each non-empty case: byte-equal multilingual citation
+///     accepted; smuggled Han-traditional variant rejected
+#[test]
+fn recency_with_since_filter_preserves_multilingual_source_ids() {
+    use super::recency::InMemoryRecencyIndex;
+    use super::types::{CitationError, EidosChunkId, EidosCitation};
+
+    let m = manifest();
+    let t0: u64 = 1_700_000_000_000;
+    let t_minus_2 = t0 - 2_000;
+    let t_minus_1 = t0 - 1_000;
+
+    let mut rec = InMemoryRecencyIndex::new(m.clone());
+    rec.insert(doc("노트-a"), "body", t_minus_2, EidosSourceKind::Note);
+    rec.insert(doc("ملاحظة-a"), "body", t_minus_1, EidosSourceKind::Note);
+    rec.insert(doc("笔记-a"), "body", t0, EidosSourceKind::Note);
+
+    // (1) with_since(t_minus_2) — all 3 surface (inclusive lower bound).
+    {
+        let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16)
+            .with_since(t_minus_2);
+        let packet = rec.retrieve(&q, t0);
+        assert_eq!(packet.hits.len(), 3, "with_since(t_minus_2): all 3 surface");
+
+        let srcs: Vec<&str> = packet.hits.iter().map(|h| h.source_id.as_str()).collect();
+        for src in &srcs {
+            assert!(
+                !src.is_ascii(),
+                "with_since(t_minus_2): every multilingual source_id non-ASCII: {src:?}"
+            );
+            assert!(
+                src.ends_with("::recency"),
+                "Recency uses the ::recency template: {src:?}"
+            );
+        }
+        assert!(srcs.contains(&"노트-a::recency"));
+        assert!(srcs.contains(&"ملاحظة-a::recency"));
+        assert!(srcs.contains(&"笔记-a::recency"));
+
+        // Positive control on every multilingual hit.
+        for hit in &packet.hits {
+            let cite = EidosCitation {
+                source_id: hit.source_id.clone(),
+                manifest_id: packet.manifest_id.clone(),
+            };
+            assert_eq!(
+                packet.validate_citation(&cite),
+                Ok(()),
+                "with_since(t_minus_2): byte-equal multilingual citation \
+                 accepted for {:?}",
+                hit.source_id.as_str()
+            );
+        }
+
+        // Smuggle Han-traditional in the still-present Han id.
+        let smug = "筆記-a::recency";
+        let cite = EidosCitation {
+            source_id: EidosChunkId::new(smug).unwrap(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        match packet.validate_citation(&cite).unwrap_err() {
+            CitationError::FabricatedSourceId(returned) => {
+                assert_eq!(returned.as_str(), smug);
+            }
+            other => panic!("with_since(t_minus_2): expected FabricatedSourceId, got {other:?}"),
+        }
+    }
+
+    // (2) with_since(t_minus_1) — Hangul filtered out (t_minus_2 < t_minus_1),
+    //     Arabic and Han survive.
+    {
+        let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16)
+            .with_since(t_minus_1);
+        let packet = rec.retrieve(&q, t0);
+        assert_eq!(packet.hits.len(), 2, "with_since(t_minus_1): Hangul filtered");
+
+        let srcs: Vec<&str> = packet.hits.iter().map(|h| h.source_id.as_str()).collect();
+        assert!(!srcs.contains(&"노트-a::recency"), "Hangul filtered out");
+        assert!(srcs.contains(&"ملاحظة-a::recency"));
+        assert!(srcs.contains(&"笔记-a::recency"));
+
+        // Citing the filtered-out Hangul id surfaces as fabricated —
+        // the time-window filter shrinks the closed-citation universe.
+        let filtered_out = "노트-a::recency";
+        let cite = EidosCitation {
+            source_id: EidosChunkId::new(filtered_out).unwrap(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        match packet.validate_citation(&cite).unwrap_err() {
+            CitationError::FabricatedSourceId(returned) => {
+                assert_eq!(
+                    returned.as_str(),
+                    filtered_out,
+                    "Hangul source_id is byte-legitimate (the doc exists in \
+                     the backend) but TIME-WINDOW-FABRICATED: filtered out \
+                     by with_since(t_minus_1), so the closed-citation \
+                     universe excludes it"
+                );
+            }
+            other => panic!("with_since(t_minus_1): expected FabricatedSourceId for filtered-out Hangul, got {other:?}"),
+        }
+    }
+
+    // (3) with_since(t0 + 1) — post-floor, zero hits, empty packet.
+    {
+        let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16)
+            .with_since(t0 + 1);
+        let packet = rec.retrieve(&q, t0);
+        assert!(
+            packet.hits.is_empty(),
+            "with_since(t0+1): all docs older than floor, empty packet"
+        );
+
+        // Empty packet must reject ANY citation — multilingual or not.
+        let cite = EidosCitation {
+            source_id: EidosChunkId::new("笔记-a::recency").unwrap(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        match packet.validate_citation(&cite).unwrap_err() {
+            CitationError::FabricatedSourceId(_) => { /* expected */ }
+            other => panic!("empty post-floor packet: expected FabricatedSourceId, got {other:?}"),
+        }
+
+        // Empty citation list still validates Ok (iter 129's zero-
+        // citation invariant holds for multilingual empty packets too).
+        match packet.validate_citations(&[]) {
+            Ok(()) => { /* expected */ }
+            other => panic!("empty packet + empty citation list must be Ok, got {other:?}"),
+        }
+    }
+}
+
 /// `EidosHit::clone()` is byte-perfect — parallel to iter 190's
 /// EidosCitation Clone pin, but for the OUTPUT type (retriever-
 /// emitted hits) rather than the INPUT type (chat-layer citations).
