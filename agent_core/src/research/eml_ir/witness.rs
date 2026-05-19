@@ -2684,7 +2684,7 @@ mod tests {
         );
         assert_eq!(
             witness.adversarial_fixture_fingerprint,
-            "f2248054054af4f2e8b4d2157e0af130ac467c912b64c3d8a37d7b96c6b0219d"
+            "31785206461ee0c47016ab91bac98ac05dc099108485633ba363abefba5210e8"
         );
         assert_eq!(
             witness.adversarial_reference_fingerprint,
@@ -2692,9 +2692,9 @@ mod tests {
         );
         assert_eq!(
             witness.adversarial_reference_fingerprint,
-            "facbc5178522934dd842e5aaad2f61cccc2fedccc669a96086b84a6d028c2c0e"
+            "e15b0a03b4ee8ea906bcdde227f3bcc08093768865fa0f8d68d9807ca3421aaa"
         );
-        assert_eq!(witness.adversarial_reference_stats.finite_count, 12);
+        assert_eq!(witness.adversarial_reference_stats.finite_count, 13);
         assert_eq!(witness.adversarial_reference_stats.rejected_count, 13);
         assert_eq!(witness.adversarial_reference_fingerprint.len(), 64);
         let json = acceptance_witness_json().unwrap();
@@ -4052,7 +4052,7 @@ mod tests {
     #[test]
     fn replay_rejects_adversarial_reference_finite_count_json_raw_overflow_with_path() {
         let json = acceptance_witness_json().unwrap();
-        let needle = "\"finite_count\": 12";
+        let needle = "\"finite_count\": 13";
         assert_eq!(json.matches(needle).count(), 1);
         let json = json.replacen(needle, "\"finite_count\": 1e999999", 1);
         let error = replay_witness_json(&json)

@@ -715,7 +715,7 @@ mod tests {
         assert_eq!(adversarial_fixture_fingerprint().len(), 64);
         assert_eq!(
             adversarial_fixture_fingerprint(),
-            "f2248054054af4f2e8b4d2157e0af130ac467c912b64c3d8a37d7b96c6b0219d"
+            "31785206461ee0c47016ab91bac98ac05dc099108485633ba363abefba5210e8"
         );
     }
 
@@ -732,7 +732,7 @@ mod tests {
         }
         assert_eq!(
             adversarial_fixture_label_fingerprint(),
-            "5a0014e6815a89db6c94f64cea496e859903b0caebfc60952cfa3a7363a177e0"
+            "bbff9984c3a87572b6340a5503f3be04455e25a26081381f82a73dd0c3f91c3e"
         );
     }
 
@@ -759,7 +759,7 @@ mod tests {
         assert_eq!(adversarial_reference_fingerprint().len(), 64);
         assert_eq!(
             adversarial_reference_fingerprint(),
-            "facbc5178522934dd842e5aaad2f61cccc2fedccc669a96086b84a6d028c2c0e"
+            "e15b0a03b4ee8ea906bcdde227f3bcc08093768865fa0f8d68d9807ca3421aaa"
         );
     }
 
@@ -790,6 +790,12 @@ mod tests {
                 }
                 "ln_one_exact_zero" => {
                     assert_eq!(Fp16Bits::from_f64(result.unwrap()).bits(), 0x0000);
+                }
+                "eml_ln_one_exact_zero" => {
+                    assert_eq!(
+                        Fp16Bits::from_f64(result.unwrap()).bits(),
+                        Fp16Bits::from_f64(1.0f64.exp()).bits()
+                    );
                 }
                 _ => {
                     assert!(result.is_err(), "{} should reject", fixture.label);
