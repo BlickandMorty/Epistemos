@@ -253,6 +253,31 @@ elif [ "${REPORT_MODE}" -eq 1 ]; then
   echo "  Certificate schema-status stale prose: 0/0"
 fi
 
+# Lean witness identifiers should encode the active gate or schema
+# condition, not a generic "deferred" placeholder.
+DEFERRED_WITNESS_REPORT=$(
+  find "${LEAN_DIR}" -maxdepth 1 -name '*.lean' -type f -exec awk '
+    /:= *".*deferred/ {
+      printf "%s:%d:%s\n", FILENAME, FNR, $0
+    }
+  ' {} + 2>/dev/null || true
+)
+
+if [ -n "${DEFERRED_WITNESS_REPORT}" ]; then
+  deferred_witness_count=$(printf "%s\n" "${DEFERRED_WITNESS_REPORT}" | awk 'NF{n++} END{print n+0}')
+  printf "%s\n" "${DEFERRED_WITNESS_REPORT}" |
+    while IFS= read -r line; do
+      [ -z "${line}" ] && continue
+      file=${line%%:*}
+      rest=${line#*:}
+      line_no=${rest%%:*}
+      echo "::error file=${file},line=${line_no}::Lean witness identifier says deferred; encode the explicit gate instead"
+    done
+  total_over_budget=$((total_over_budget + deferred_witness_count))
+elif [ "${REPORT_MODE}" -eq 1 ]; then
+  echo "  Lean deferred witness identifiers: 0/0"
+fi
+
 if [ "${total_over_budget}" -gt 0 ]; then
   echo "::error::W24 sorry-budget OVER on ${total_over_budget} theorem(s); ${total_sorries} total sorries"
   exit 1

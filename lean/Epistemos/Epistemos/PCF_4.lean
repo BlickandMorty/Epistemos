@@ -11,9 +11,9 @@ inference can be selectively routed.
 
   route : List Nat    -- ordered cluster ids
 
-**DEFERRED until PCF-1 verified.** This is a frozen schema with
-no behavior — the runtime dispatch lands per a follow-up slice
-gated on PCF-1's M2 Max falsifier passing.
+**PCF-1 gated until verified.** This is a frozen schema with no
+runtime dispatch behavior; activation remains gated on PCF-1's M2
+Max falsifier passing.
 
 Lane 3 RESEARCH-ONLY.
 
@@ -32,8 +32,15 @@ def ComponentRoute.length (r : ComponentRoute) : Nat :=
 def ComponentRoute.requiresPCF1Gate (_r : ComponentRoute) : Bool :=
   true
 
+def emptyPCF1GatedRoute : ComponentRoute :=
+  { route_id := "pcf-4-empty-route-pcf1-gated", component_path := [] }
+
 theorem emptyComponentRouteLengthIsZero :
-    ({ route_id := "pcf-4-deferred", component_path := [] } : ComponentRoute).length = 0 := by
+    emptyPCF1GatedRoute.length = 0 := by
+  rfl
+
+theorem emptyComponentRouteCarriesPCF1GateLabel :
+    emptyPCF1GatedRoute.route_id = "pcf-4-empty-route-pcf1-gated" := by
   rfl
 
 theorem singletonComponentRouteLengthIsOne (route_id : String) (component : Nat) :
