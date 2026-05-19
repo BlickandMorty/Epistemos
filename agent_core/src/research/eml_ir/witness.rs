@@ -2037,6 +2037,11 @@ fn reject_raw_stats_number_json(json: &str) -> Result<(), FulpReplayError> {
                 &axis_path,
                 AXIS_STATS_JSON_FIELDS,
             )?;
+            reject_raw_object_missing_json_fields(
+                axis_stat.get(),
+                &axis_path,
+                AXIS_STATS_JSON_FIELDS,
+            )?;
             let Ok(axis_stat) = serde_json::from_str::<RawAxisWorstCase<'_>>(axis_stat.get())
             else {
                 continue;
@@ -4219,6 +4224,33 @@ mod tests {
             .expect("axis field");
         let json = serde_json::to_string(&value).unwrap();
         let error = replay_witness_json(&json).expect_err("missing axis must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::MissingField)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats[0].axis_stats[0].axis"));
+    }
+
+    #[test]
+    fn replay_rejects_missing_axis_field_before_raw_overflow() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["axis_stats"][0]
+            .as_object_mut()
+            .expect("axis stats object")
+            .remove("axis")
+            .expect("axis field");
+        value["stats"][0]["axis_stats"][0]["max_ulp"] =
+            serde_json::Value::Number(serde_json::Number::from(123_456_789_u64));
+        let json = serde_json::to_string(&value).unwrap();
+        let needle = "\"max_ulp\":123456789";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(needle, "\"max_ulp\":1e999999", 1);
+        let error = replay_witness_json(&json)
+            .expect_err("missing axis field must fail before raw overflow");
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::MissingField)
