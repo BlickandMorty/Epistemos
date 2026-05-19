@@ -4172,6 +4172,104 @@ fn citation_error_display_format_is_stable() {
     );
 }
 
+/// Multilingual Display rendering for `CitationError`. The iter 135
+/// Display format pin used ASCII payloads + invisible-char escape
+/// rendering for ZWSP/RLO. This pin extends the contract to the
+/// readable-script axis: when the smuggled source_id is non-Latin
+/// (Han / Hangul / Arabic / Devanagari / mixed), the Display
+/// rendering must surface those characters AS THEMSELVES — NOT as
+/// `\u{XXXX}` escapes — so:
+///
+///   - operators in non-Latin locales can READ the diagnostic in
+///     their own script (a `\u{7B14}\u{8BB0}::lex` escape rendering
+///     would be unreadable for a Chinese-speaking operator while a
+///     `笔记::lex` rendering is immediately legible)
+///   - audit logs preserve the actual byte payload for downstream
+///     analysis without requiring a Unicode-aware viewer
+///   - the asymmetry with iter 135's escape behavior on INVISIBLE
+///     chars is deliberate: invisible chars MUST escape (otherwise
+///     they hide in logs), readable chars MUST NOT escape (otherwise
+///     non-Latin scripts are second-class diagnostic citizens)
+///
+/// This is what Rust's `{:?}` (Debug) does for `&str` by default:
+/// it escapes only non-printable / non-graphic codepoints. Han,
+/// Hangul, Arabic, Devanagari are all printable + graphic, so
+/// they render through verbatim. Pinning this behavior catches a
+/// future change that swaps to a `escape_unicode()` rendering or
+/// to a custom Display that filters non-ASCII.
+#[test]
+fn citation_error_display_renders_multilingual_ids_verbatim() {
+    use super::types::{CitationError, EidosChunkId};
+
+    // Each multilingual payload must render verbatim, NOT as a
+    // \u{XXXX} escape. The Han / Hangul / Arabic / Devanagari /
+    // mixed cases together cover the four major non-Latin script
+    // families a vault is realistically authored in.
+    let multilingual: &[(&str, &str)] = &[
+        ("Han (Chinese)",       "笔记-a::lex"),
+        ("Hangul (Korean)",     "노트-a::lex"),
+        ("Arabic",              "ملاحظة-a::lex"),
+        ("Devanagari",          "नोट-a::lex"),
+        ("Mixed Han+Latin",     "笔note-a::lex"),
+    ];
+
+    for (label, raw_id) in multilingual {
+        let err = CitationError::FabricatedSourceId(
+            EidosChunkId::new(*raw_id).unwrap(),
+        );
+        let rendered = err.to_string();
+
+        // (1) The exact non-Latin payload appears verbatim in the
+        // Display surface (not escape-encoded).
+        assert!(
+            rendered.contains(*raw_id),
+            "{label}: Display must include the multilingual id \
+             verbatim ({raw_id:?}). Got: {rendered:?}"
+        );
+
+        // (2) No `\u{xxxx}` escape form leaks for printable non-Latin
+        // chars. Rust's Debug formatter for String only escapes
+        // non-printable codepoints, so Han/Hangul/Arabic/Devanagari
+        // (all printable graphic) render through. A future change
+        // that swapped to `escape_unicode()` would surface here.
+        assert!(
+            !rendered.contains("\\u{"),
+            "{label}: Display must NOT escape printable non-Latin \
+             chars to `\\u{{xxxx}}` form — that would make the \
+             diagnostic unreadable in non-Latin locales. Got: \
+             {rendered:?}"
+        );
+
+        // (3) Anchor the full envelope format matches iter 135's
+        // canonical wrapper. Without this lock, a refactor that
+        // changed the wrapper would still pass (1) + (2) above.
+        assert_eq!(
+            rendered,
+            format!("fabricated source_id rejected by closed-citation contract: EidosChunkId({raw_id:?})"),
+            "{label}: full Display envelope must match iter 135's \
+             format with multilingual payload Debug-rendered inside"
+        );
+    }
+
+    // Symmetric: ManifestMismatch with a multilingual citation
+    // manifest_id renders the non-Latin bytes verbatim too.
+    let mm = CitationError::ManifestMismatch {
+        packet: EidosIndexManifestId::new("snap-current").unwrap(),
+        citation: EidosIndexManifestId::new("快照-stale").unwrap(),
+    };
+    let rendered_mm = mm.to_string();
+    assert!(
+        rendered_mm.contains("快照-stale"),
+        "ManifestMismatch Display must include multilingual citation \
+         manifest_id verbatim. Got: {rendered_mm:?}"
+    );
+    assert!(
+        !rendered_mm.contains("\\u{"),
+        "ManifestMismatch Display must NOT escape printable non-Latin \
+         chars. Got: {rendered_mm:?}"
+    );
+}
+
 /// Concurrent `validate_citation` calls against the same packet
 /// from N threads produce identical results — pins the RUNTIME
 /// thread-safety invariant complementary to iter 152's compile-
