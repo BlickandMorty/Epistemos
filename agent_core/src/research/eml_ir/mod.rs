@@ -84,6 +84,14 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_doc_documents_live_metal_dispatch_capture_deferred() {
+        assert!(FULP_FALSIFIER_DOC.contains("## Live Metal Dispatch Capture (Deferred)"));
+        assert!(FULP_FALSIFIER_DOC.contains("does not execute the Metal"));
+        assert!(FULP_FALSIFIER_DOC.contains("deferred until the GPU evidence harness"));
+        assert!(FULP_FALSIFIER_DOC.contains("the surrogate is the floor, not the ceiling"));
+    }
+
+    #[test]
     fn falsifier_doc_documents_per_axis_regression_detection() {
         assert!(FULP_FALSIFIER_DOC.contains("## Per-Axis Regression Detection"));
         assert!(FULP_FALSIFIER_DOC.contains("`OperationStats`"));

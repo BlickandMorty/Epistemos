@@ -65,6 +65,18 @@ freezes treat Metal output itself as proven.
 |---|---|---|---|---|---|---|
 | F-ULP-Oracle | Research | M2 Pro numeric falsifier | implemented-not-wired | `agent_core/src/research/eml_ir/`, `Epistemos/Shaders/morph_eval_reduced.metal`, `cargo test --features research research::eml_ir` | live Metal dispatch capture from `morphOracleFp16` | harden with GPU capture, subnormal/signed-zero diagnostics, WBO numerics cross-link, and Helios v3 §3.5/F7a reference |
 
+## Live Metal Dispatch Capture (Deferred)
+
+The current Rust gate exercises the same float arithmetic shape that the
+`morphOracleFp16` Metal kernel uses (fp32 intrinsics then `half(...)`
+rounding for `exp`, `ln`, and `eml`), but it does not execute the Metal
+kernel itself. Live `morphOracleFp16` dispatch capture on the M2 Pro is
+deferred until the GPU evidence harness exists in this terminal; downstream
+schema freezes must not treat Metal output itself as proven by the CPU
+surrogate alone. The shader entrypoint and fingerprint are pinned in the
+witness so that a future GPU capture lands against the exact source pinned
+here; the surrogate is the floor, not the ceiling.
+
 ## Per-Axis Regression Detection
 
 `OperationStats` records per-axis (`log_sampled`, `closed_interval_edge`,
