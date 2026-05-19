@@ -7495,6 +7495,40 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_input_decode_names_missing_granted_vault_path_verb_input_namespace() {
+        let value = serde_json::json!({
+            "request_id": "req-missing-granted-vault-path-verb-input-namespace",
+            "payload": {
+                "kind": "tool_action",
+                "request": {
+                    "tool_name": "vault.write",
+                    "target": "uas://note/1",
+                    "mutation_envelope_id": "mutation-1"
+                }
+            },
+            "submitted_at_ms": 1_001,
+            "risk": ACSRiskVector::neutral(),
+            "granted_capabilities": [
+                {
+                    "kind": "vault_path",
+                    "value": {
+                        "path": "uas://note/1"
+                    }
+                }
+            ]
+        });
+
+        let err = serde_json::from_value::<ACSAdmissionInput>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("forged_admission_input"), "{message}");
+        assert!(
+            message.contains("admission_input.granted_capabilities.vault_path.verb"),
+            "{message}"
+        );
+    }
+
+    #[test]
     fn acs_admission_input_decode_names_duplicate_granted_capability() {
         let capability = serde_json::json!({
             "kind": "other",
