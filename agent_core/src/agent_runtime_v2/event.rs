@@ -1209,4 +1209,36 @@ mod tests {
             _ => panic!(),
         }
     }
+
+    #[test]
+    fn stop_event_round_trips_all_seven_stop_reasons_through_serde() {
+        // Phase 1 hardening — completeness companion to
+        // stop_event_carries_typed_reason (which only exercises
+        // BudgetExhausted). Every one of the 7 StopReason variants must
+        // round-trip through serde inside an AgentEvent::Stop wrapper.
+        //
+        // A future #[serde(skip)] on one StopReason variant would
+        // silently break replay for runs that ended with that
+        // particular reason — surface here.
+        for reason in [
+            StopReason::EndTurn,
+            StopReason::ToolUse,
+            StopReason::MaxTokens,
+            StopReason::Refusal,
+            StopReason::BudgetExhausted,
+            StopReason::CapabilityDenied,
+            StopReason::Error,
+        ] {
+            let ev = AgentEvent::Stop { reason };
+            let s = serde_json::to_string(&ev).expect("serialise");
+            let back: AgentEvent =
+                serde_json::from_str(&s).expect("deserialise");
+            assert_eq!(back, ev, "stop event must round-trip for {reason:?}");
+            // Specifically the inner reason is preserved.
+            match back {
+                AgentEvent::Stop { reason: r } => assert_eq!(r, reason),
+                other => panic!("expected Stop variant, got {other:?}"),
+            }
+        }
+    }
 }
