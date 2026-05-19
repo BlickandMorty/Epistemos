@@ -1623,7 +1623,7 @@ impl<'de> Deserialize<'de> for ACSModelAdaptationRequest {
         };
         request
             .validate()
-            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+            .map_err(|err| serde::de::Error::custom(acs_admission_input_decode_error(&err)))?;
         Ok(request)
     }
 }
@@ -5657,10 +5657,16 @@ mod tests {
             "adapter_id": "adapter-1",
             "model_id": "local-helper-1",
             "checkpoint_hash": "checkpoint-hash",
-            "mutation_envelope_id": null,
         });
 
-        assert!(serde_json::from_value::<ACSModelAdaptationRequest>(value).is_err());
+        let err = serde_json::from_value::<ACSModelAdaptationRequest>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("model_adaptation_bypass_attempt"), "{message}");
+        assert!(
+            message.contains("model_adaptation.mutation_envelope_id"),
+            "{message}"
+        );
     }
 
     #[test]
