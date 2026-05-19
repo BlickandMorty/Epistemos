@@ -448,6 +448,69 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_variants_field_shapes_pinned_via_destructure() {
+        // Phase 1 hardening — field-shape pin for AgentEvent's 6
+        // variants (companion to the destructure pin family iter-454..
+        // iter-460). The 6 variants have intricate per-variant
+        // field shapes:
+        //
+        //   - ReasoningDelta { text: String } — 1 named field
+        //   - FinalText { text: String } — 1 named field
+        //   - ToolCall { call: ToolCall } — 1 named field
+        //   - ToolResult { name: String, result: serde_json::Value } — 2 named
+        //   - Stop { reason: StopReason } — 1 named field
+        //   - Error { kind: AgentEventErrorKind, message: String } — 2 named
+        //
+        // A future "let me add a `provider_id` field to ToolResult"
+        // refactor would silently change the row layout in RunEventLog —
+        // surface here via destructure compile-fail.
+        let ev = AgentEvent::ReasoningDelta { text: "x".into() };
+        match ev {
+            AgentEvent::ReasoningDelta { text } => { let _: String = text; }
+            _ => unreachable!(),
+        }
+        let ev = AgentEvent::FinalText { text: "x".into() };
+        match ev {
+            AgentEvent::FinalText { text } => { let _: String = text; }
+            _ => unreachable!(),
+        }
+        let ev = AgentEvent::ToolCall {
+            call: ToolCall { name: "vault.read".into(), arguments: serde_json::json!({}) },
+        };
+        match ev {
+            AgentEvent::ToolCall { call } => { let _: ToolCall = call; }
+            _ => unreachable!(),
+        }
+        let ev = AgentEvent::ToolResult {
+            name: "vault.read".into(),
+            result: serde_json::json!({}),
+        };
+        match ev {
+            AgentEvent::ToolResult { name, result } => {
+                let _: String = name;
+                let _: serde_json::Value = result;
+            }
+            _ => unreachable!(),
+        }
+        let ev = AgentEvent::Stop { reason: StopReason::EndTurn };
+        match ev {
+            AgentEvent::Stop { reason } => { let _: StopReason = reason; }
+            _ => unreachable!(),
+        }
+        let ev = AgentEvent::Error {
+            kind: AgentEventErrorKind::Provider,
+            message: "x".into(),
+        };
+        match ev {
+            AgentEvent::Error { kind, message } => {
+                let _: AgentEventErrorKind = kind;
+                let _: String = message;
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    #[test]
     fn agent_event_variant_count_is_six() {
         // Phase 1 hardening — closed enum size pin. Six variants
         // total: ReasoningDelta, FinalText, ToolCall, ToolResult,
