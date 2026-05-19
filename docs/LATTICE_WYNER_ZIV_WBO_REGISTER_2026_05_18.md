@@ -129,6 +129,7 @@ The register guarantees that public JSON rows reject duplicate public keys befor
 The register also guarantees that public JSON rows reject missing required keys before validation: `public_accounting_json_rejects_missing_required_keys` covers the same public evidence surfaces; its missing-key matrix removes every public top-level key, and optional public null keys must still be present explicitly.
 The register also guarantees that public JSON rows reject wrong-type public fields before validation: `public_accounting_json_rejects_wrong_type_public_fields` covers enum, string, nested budget, optional active-support, wrong-type caveat fields, and owner path fields; the wrong-type guard covers nullable measured and rate fields.
 The register also records that budget JSON rejects negative, fractional, string, boolean, object, array, and oversized rate fields, while ActiveSupportBudget JSON rejects negative, fractional, string, boolean, object, array, and oversized axis values.
+Budget composition properties are pinned across zero, finite/mixed, max, overflow, and NaN axes: `lattice_budget_composition_property_matrix_pins_zero_max_mixed_and_nan_axes` keeps accepted totals finite and measured, while overflow and NaN rows stay invalid before any public row can erase `T_num` or semantic-axis accounting.
 
 | Guard | Rejected row shape |
 |---|---|
