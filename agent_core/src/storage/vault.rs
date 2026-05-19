@@ -754,6 +754,10 @@ impl VaultBackend for VaultStore {
             trace.add_note(format!(
                 "Zero-result guard: no lexical matches for effective query {effective_query:?}"
             ));
+        } else if !tag_filter.is_empty() && results.is_empty() {
+            trace.add_note(format!(
+                "Zero-result guard: tag filter culled {pool_size} lexical matches"
+            ));
         }
         for (result, excerpt) in results.iter().zip(trace_excerpts.into_iter()) {
             let mut candidate = RetrievalCandidate::new(result.path.clone(), result.score)
@@ -1379,6 +1383,55 @@ mod tests {
                 .iter()
                 .any(|note| note.contains("Zero-result guard: no lexical matches")),
             "trace must explain the zero-result retrieval: {:?}",
+            trace.notes
+        );
+    }
+
+    /// T21 iter-428: tag filters can cull every lexical match after
+    /// Tantivy found a non-empty pool. The trace should say that the
+    /// zero retained result came from filtering, not from no lexical
+    /// matches.
+    #[tokio::test]
+    async fn vaultstore_hybrid_search_with_trace_tag_filter_culls_all_records_note() {
+        use super::VaultBackend;
+        use crate::storage::retrieval_trace::EvidenceStrength;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
+            .expect("open vault");
+
+        store
+            .write(
+                "alpha.md",
+                "---\ntags:\n  - alpha\n---\n\nresidency governance signal",
+                None,
+                false,
+            )
+            .await
+            .expect("write note");
+        store.reload_index().expect("reload index");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace(
+                "residency governance",
+                5,
+                std::slice::from_ref(&"beta".to_string()),
+            )
+            .await
+            .expect("tag-cull query must not error");
+
+        assert!(results.is_empty(), "tag filter should cull all matches");
+        assert!(
+            trace.candidate_pool_size > 0,
+            "Tantivy must have found a lexical pool before tag culling"
+        );
+        assert_eq!(trace.candidates_retained, 0);
+        assert_eq!(trace.evidence_strength(), EvidenceStrength::Weak);
+        assert!(
+            trace
+                .notes
+                .iter()
+                .any(|note| note.contains("Zero-result guard: tag filter culled")),
+            "trace must explain the tag-cull zero-result retrieval: {:?}",
             trace.notes
         );
     }
