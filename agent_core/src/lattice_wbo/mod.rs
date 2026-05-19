@@ -4558,6 +4558,7 @@ mod tests {
             "`register_doc_codec_rows_follow_catalog_order`",
             "codec coverage order follows `LatticeCoderKind::ALL`",
             "exact residency-to-side-information witness set",
+            "residency register side-information cells name the primary validation key before secondary witnesses",
             "exact residency-to-falsifier `F-*` hook set",
             "residency register falsifier cells match primary and term `F-*` hook sets exactly",
             "exact term-to-falsifier `F-*` hook set",
@@ -5015,6 +5016,25 @@ mod tests {
                     tier.canonical_name()
                 )
             });
+            let primary_side_information = format!("`{:?}`", tier.primary_side_information());
+            assert!(
+                side_information_cell.contains(&primary_side_information),
+                "{} row must name primary side-information validation key {primary_side_information}",
+                tier.canonical_name()
+            );
+            let first_side_information =
+                side_information_cell.split('`').nth(1).unwrap_or_else(|| {
+                    panic!(
+                        "{} row must begin side-information cell with a canonical witness key",
+                        tier.canonical_name()
+                    )
+                });
+            assert_eq!(
+                first_side_information,
+                format!("{:?}", tier.primary_side_information()),
+                "{} row must list primary side-information before secondary witnesses",
+                tier.canonical_name()
+            );
             for side_information in SideInformationKind::ALL {
                 let side_information_name = format!("`{side_information:?}`");
                 let expected = tier
