@@ -1908,6 +1908,36 @@ mod tests {
     }
 
     #[test]
+    fn mutation_envelope_preserves_json_special_chars_in_payload_through_serde() {
+        // Phase 1 hardening — adversarial JSON pin for MutationEnvelope<String>
+        // (companion to mission_packet iter-413, answer_packet iter-414,
+        // citation iter-415).
+        //
+        // Mutation payloads carry arbitrary user content: file
+        // contents being written, JSON-serialised state, command
+        // strings with embedded quotes. Serde must escape these
+        // correctly through round-trip without lossy sanitisation.
+        let adversarial = [
+            r#"{"json": "in payload", "nested": {"k": [1, 2, 3]}}"#,
+            "multi\nline\npayload",
+            r#"backslash \ quote " tab \t escape"#,
+            "control\x01char\x02survives",
+        ];
+        for payload in adversarial {
+            let envelope = MutationEnvelope::new(
+                Hash::zero(),
+                BudgetDebit::default(),
+                payload.to_string(),
+            );
+            let s = serde_json::to_string(&envelope).expect("serialise");
+            let back: MutationEnvelope<String> =
+                serde_json::from_str(&s).expect("deserialise");
+            assert_eq!(back.payload, payload, "payload must round-trip byte-equal");
+            assert_eq!(back, envelope);
+        }
+    }
+
+    #[test]
     fn mutation_envelope_serde_preserves_unicode_in_string_payload() {
         // Phase 1 hardening — Unicode safety pin for
         // MutationEnvelope<String> serde (companion to the cross-
