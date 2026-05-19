@@ -888,6 +888,67 @@ mod tests {
     }
 
     #[test]
+    fn root_hash_is_sensitive_to_ledger_snapshot_every_axis_payload() {
+        // Phase 1 hardening — CLOSES the root_hash sensitivity family
+        // across all 3 RunEventEntry variants:
+        //   iter-548..iter-553  AgentEvent inside Event row    (6 variants)
+        //   iter-554            SealedMutation cap_hash + debit (6 fields)
+        //   iter-555            LedgerSnapshot ledger          (5 axes) — THIS
+        //
+        // Two logs that differ ONLY in ANY of the 5 ledger axes must
+        // produce DIFFERENT root_hashes — every BudgetLedger axis
+        // (tokens_used/wall_used_ms/tool_calls_used/subprocess_used_ms/
+        // memory_bytes_used) participates in the chain.
+        //
+        // A future "let me drop subprocess_used_ms from the chain
+        // because subprocess mode is Pro-Research-only" tweak would
+        // silently let MAS runs and Pro Research runs with otherwise-
+        // identical state collide on chain hash. Pin sweeps 6
+        // fixtures (baseline + 5 single-axis ledger variants) and
+        // asserts pairwise-distinct root hashes.
+        let fixtures: &[(BudgetLedger, &str)] = &[
+            (BudgetLedger::default(), "baseline"),
+            (
+                BudgetLedger { tokens_used: 1, ..Default::default() },
+                "tokens_used=1",
+            ),
+            (
+                BudgetLedger { wall_used_ms: 1, ..Default::default() },
+                "wall_used_ms=1",
+            ),
+            (
+                BudgetLedger { tool_calls_used: 1, ..Default::default() },
+                "tool_calls_used=1",
+            ),
+            (
+                BudgetLedger { subprocess_used_ms: 1, ..Default::default() },
+                "subprocess_used_ms=1",
+            ),
+            (
+                BudgetLedger { memory_bytes_used: 1, ..Default::default() },
+                "memory_bytes_used=1",
+            ),
+        ];
+        let hashes: Vec<Hash> = fixtures
+            .iter()
+            .map(|(l, _)| {
+                let mut log = RunEventLog::new();
+                log.append_ledger_snapshot(*l);
+                log.root_hash()
+            })
+            .collect();
+        for i in 0..hashes.len() {
+            for j in (i + 1)..hashes.len() {
+                assert_ne!(
+                    hashes[i], hashes[j],
+                    "LedgerSnapshot {:?} vs {:?} collided on root_hash",
+                    fixtures[i].1, fixtures[j].1
+                );
+            }
+        }
+    }
+
+    #[test]
     fn root_hash_is_sensitive_to_sealed_mutation_cap_hash_and_every_debit_axis() {
         // Phase 1 hardening — payload-sensitivity pin for the
         // SealedMutation row (companion to the 6-variant AgentEvent
