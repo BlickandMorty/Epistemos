@@ -6291,6 +6291,35 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 42nd ChattyPrefix row (iter-356): Phoenician-
+        // multilingual signal domain — 32nd distinct lexical
+        // universe. Survivors after strip {Mamba, 𐤊}. 2-term
+        // AND matches only iter-286's mamba_phoenician.md.
+        // TWENTY-FIRST non-ASCII ChattyPrefix domain. FIRST
+        // SMP-plane signal token in ChattyPrefix (U+1090A is
+        // past the BMP, 4-byte UTF-16 surrogate pair). FIRST
+        // common-ancestor script in ChattyPrefix — Phoenician
+        // (ca. 1050 BCE) is the genealogical root of Greek +
+        // Aramaic. Parallels iter-354 SignalOnly Phoenician
+        // single-term-AND on the same token.
+        query: "Show me my Mamba 𐤊 notes",
+        expected_paths: &["notes/mamba_phoenician.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Forty-second ChattyPrefix row (iter-356): \
+               Phoenician-multilingual signal domain — 32nd \
+               distinct lexical universe. Survivors {Mamba, \
+               𐤊} after strip. 2-term AND matches only iter-\
+               286 mamba_phoenician.md. Twenty-first non-ASCII \
+               ChattyPrefix domain. FIRST SMP-plane signal \
+               token in ChattyPrefix (U+1090A past BMP). FIRST \
+               common-ancestor script in ChattyPrefix. \
+               Parallels iter-354 SignalOnly Phoenician. \
+               Brings ChattyPrefix to depth 42 — first category \
+               past depth-41 horizon. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 41st ChattyPrefix row (iter-349): Coptic-multilingual
         // signal domain — 31st distinct lexical universe.
         // Survivors after strip {Mamba, ⲕ}. 2-term AND matches
