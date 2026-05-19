@@ -163,7 +163,7 @@ mod tests {
         assert!(FULP_FALSIFIER_DOC.contains("## Adversarial Reference Stats"));
         assert!(FULP_FALSIFIER_DOC.contains("`adversarial_reference_stats`"));
         assert!(FULP_FALSIFIER_DOC.contains("`finite_count = 12`"));
-        assert!(FULP_FALSIFIER_DOC.contains("`rejected_count = 11`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`rejected_count = 12`"));
         assert!(FULP_FALSIFIER_DOC.contains("collapse the rejected-by-IEEE"));
         assert!(FULP_FALSIFIER_DOC.contains("part of the\nfingerprint chain"));
     }
@@ -335,12 +335,12 @@ mod tests {
         assert!(FULP_FALSIFIER_DOC.contains("shader_fingerprint"));
         assert!(FULP_FALSIFIER_DOC.contains("operation_catalog_fingerprint"));
         assert!(FULP_FALSIFIER_DOC.contains("axis_catalog_fingerprint"));
-        assert!(FULP_FALSIFIER_DOC.contains("adversarial_fixture_count = 23"));
+        assert!(FULP_FALSIFIER_DOC.contains("adversarial_fixture_count = 24"));
         assert!(FULP_FALSIFIER_DOC.contains("adversarial_fixture_fingerprint"));
         assert!(FULP_FALSIFIER_DOC.contains("adversarial_reference_fingerprint"));
         assert!(FULP_FALSIFIER_DOC.contains("adversarial_reference_stats"));
         assert!(FULP_FALSIFIER_DOC.contains("finite_count = 12"));
-        assert!(FULP_FALSIFIER_DOC.contains("rejected_count = 11"));
+        assert!(FULP_FALSIFIER_DOC.contains("rejected_count = 12"));
         assert!(FULP_FALSIFIER_DOC.contains("morphOracleFp16"));
         assert!(FULP_FALSIFIER_DOC
             .contains("4a83ee96a1dffd0251307ebca42c33eb8982992a641dd641c540fd560a42bdb3"));
@@ -349,9 +349,9 @@ mod tests {
         assert!(FULP_FALSIFIER_DOC
             .contains("f0c1ec3142aafa93170de35d02e561368206e745aad481f7e32d865c5ee71537"));
         assert!(FULP_FALSIFIER_DOC
-            .contains("78c5d0adee288b449acebb9e16324e64e6c648ecc036a82df3bc3b5b06539339"));
+            .contains("01875d721861aaa448cb8d7c1c314ef9d2f8d1df023b9f53bbe269d8db52654d"));
         assert!(FULP_FALSIFIER_DOC
-            .contains("5624f053ca313b514e32d2965434fe1a77cd1fcfaa13a0c58ebe18003c220db4"));
+            .contains("7f5f2d70f3f8054f8b3670eb9eed0f9da194509753a840e0e7eda52e849ca257"));
         assert!(FULP_FALSIFIER_DOC
             .contains("17f0b3f9de6cf7398e54c242397b833e88a8d39b5c1b07a99085cae5717ac871"));
     }
