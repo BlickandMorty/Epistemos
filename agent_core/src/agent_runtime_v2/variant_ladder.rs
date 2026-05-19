@@ -903,6 +903,24 @@ mod tests {
     }
 
     #[test]
+    fn variant_ladder_spec_fields_are_pub_per_field_visibility_doctrine() {
+        // Phase 1 hardening — field-visibility pin for
+        // VariantLadderSpec (companion to the field-visibility pin
+        // family iter-505..iter-511).
+        //
+        // 3 pub fields: tool_name, tiers, auto_promote.
+        let spec = VariantLadderSpec {
+            tool_name: "vault.read".into(),
+            tiers: vec![VariantTier::T1Deterministic],
+            auto_promote: true,
+        };
+        // Direct field reads on all 3 fields.
+        assert_eq!(spec.tool_name, "vault.read");
+        assert_eq!(spec.tiers.len(), 1);
+        assert!(spec.auto_promote);
+    }
+
+    #[test]
     fn variant_ladder_spec_struct_field_shape_pinned_to_exactly_three_typed_fields() {
         // Phase 1 hardening — struct-field-shape pin for
         // VariantLadderSpec (companion to the struct destructure pin
