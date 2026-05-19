@@ -150,3 +150,13 @@ pub fn adversarial_query_fixture_catalog_kinds_match_fixture_rows() -> bool {
             .zip(ADVERSARIAL_QUERY_FIXTURES.iter())
             .all(|(kind, fixture)| *kind == fixture.kind)
 }
+
+pub fn adversarial_query_fixture_catalog_expected_outcomes_match_fixture_rows() -> bool {
+    ADVERSARIAL_QUERY_FIXTURE_EXPECTED_OUTCOMES.len() == ADVERSARIAL_QUERY_FIXTURES.len()
+        && ADVERSARIAL_QUERY_FIXTURE_EXPECTED_OUTCOMES
+            .iter()
+            .zip(ADVERSARIAL_QUERY_FIXTURES.iter())
+            .all(|(expected_outcome, fixture)| {
+                *expected_outcome == fixture.expected_outcome
+            })
+}
