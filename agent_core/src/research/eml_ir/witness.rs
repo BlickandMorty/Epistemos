@@ -1267,6 +1267,8 @@ fn nested_finite_f64_json(
 struct RawTopLevelUnsigned<'a> {
     #[serde(default, borrow)]
     budget_target_millis: Option<&'a RawValue>,
+    #[serde(default, borrow)]
+    observed_wall_clock_millis: Option<&'a RawValue>,
 }
 
 fn reject_raw_top_level_unsigned_json(json: &str) -> Result<(), FulpReplayError> {
@@ -1275,6 +1277,9 @@ fn reject_raw_top_level_unsigned_json(json: &str) -> Result<(), FulpReplayError>
     };
     if let Some(value) = raw_witness.budget_target_millis {
         raw_unsigned_integer_json(value, "budget_target_millis")?;
+    }
+    if let Some(value) = raw_witness.observed_wall_clock_millis {
+        raw_unsigned_integer_json(value, "observed_wall_clock_millis")?;
     }
     Ok(())
 }
@@ -1976,6 +1981,28 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("observed_wall_clock_millis"));
+    }
+
+    #[test]
+    fn replay_rejects_observed_wall_clock_json_overflow_with_path() {
+        let json = acceptance_witness_json().unwrap();
+        let observed = serde_json::from_str::<serde_json::Value>(&json).expect("witness json")
+            ["observed_wall_clock_millis"]
+            .as_u64()
+            .expect("observed wall clock millis");
+        let needle = format!("\"observed_wall_clock_millis\": {observed}");
+        assert_eq!(json.matches(&needle).count(), 1);
+        let json = json.replacen(&needle, "\"observed_wall_clock_millis\": 1e999999", 1);
+        let error =
+            replay_witness_json(&json).expect_err("observed wall clock overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
         );
         assert!(error
             .invalid_json_message()
