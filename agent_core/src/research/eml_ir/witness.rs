@@ -1335,9 +1335,20 @@ fn reject_raw_config_unsigned_json(raw_config: &RawValue) -> Result<(), FulpRepl
         raw_unsigned_integer_json(value, "config.stress_points")?;
     }
     if let Some(value) = raw_config.ulp_tolerance {
-        raw_unsigned_integer_json(value, "config.ulp_tolerance")?;
+        raw_u32_json(value, "config.ulp_tolerance")?;
     }
     Ok(())
+}
+
+fn raw_u32_json(raw_value: &RawValue, field: &str) -> Result<u32, FulpReplayError> {
+    let value = raw_unsigned_integer_json(raw_value, field)?;
+    if value > u64::from(u32::MAX) {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("number out of range for {field}, expected u32"),
+            kind: FulpInvalidJsonKind::NumberOutOfRange,
+        });
+    }
+    Ok(value as u32)
 }
 
 fn raw_unsigned_integer_json(raw_value: &RawValue, field: &str) -> Result<u64, FulpReplayError> {
@@ -2091,6 +2102,25 @@ mod tests {
         let json = json.replacen(&needle, "\"ulp_tolerance\": 1e999999", 1);
         let error =
             replay_witness_json(&json).expect_err("ulp tolerance raw overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("config.ulp_tolerance"));
+    }
+
+    #[test]
+    fn replay_rejects_config_ulp_tolerance_json_u32_overflow_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["config"]["ulp_tolerance"] =
+            serde_json::Value::Number(serde_json::Number::from(u64::from(u32::MAX) + 1));
+        let json = serde_json::to_string(&value).unwrap();
+        let error =
+            replay_witness_json(&json).expect_err("ulp tolerance u32 overflow must fail replay");
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::NumberOutOfRange)
