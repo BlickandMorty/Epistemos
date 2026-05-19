@@ -178,6 +178,12 @@ theorem evalMatches (c : CertificateTarget) :
     ∀ env : Nat -> Scalar, c.poly.eval env = Expr.eval env c.expr := by
   exact c.eval_matches
 
+theorem semiringLawsCarry
+    (c : CertificateTarget)
+    (semiringLawWitness : c.semiringLaws.laws) :
+    c.semiringLaws.laws := by
+  exact semiringLawWitness
+
 end CertificateTarget
 
 /-- Tropical rational form: a numerator and denominator expression.
