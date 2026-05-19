@@ -1914,7 +1914,7 @@ struct RawOperationWorstCases<'a> {
     #[serde(borrow)]
     mean_ulp: &'a RawValue,
     #[serde(borrow)]
-    axis_stats: [RawAxisWorstCase<'a>; StressAxis::ALL.len()],
+    axis_stats: [&'a RawValue; StressAxis::ALL.len()],
     #[serde(borrow)]
     worst_case: &'a RawValue,
 }
@@ -1968,6 +1968,11 @@ fn reject_raw_stats_number_json(json: &str) -> Result<(), FulpReplayError> {
         raw_finite_f64_json(stat.mean_ulp, &operation_path, "mean_ulp")?;
         for (axis_index, axis_stat) in stat.axis_stats.iter().enumerate() {
             let axis_path = format!("stats[{operation_index}].axis_stats[{axis_index}]");
+            reject_raw_object_duplicate_json(axis_stat.get(), &axis_path)?;
+            let Ok(axis_stat) = serde_json::from_str::<RawAxisWorstCase<'_>>(axis_stat.get())
+            else {
+                continue;
+            };
             if let Some(value) = axis_stat.evaluated {
                 raw_unsigned_integer_json(value, &format!("{axis_path}.evaluated"))?;
             }
@@ -4344,6 +4349,24 @@ mod tests {
         assert_eq!(
             error.invalid_json_message(),
             Some("number out of range for stats[0].axis_stats[0].max_ulp, expected u32")
+        );
+    }
+
+    #[test]
+    fn replay_rejects_duplicate_axis_stat_field_before_numeric_payload() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["axis_stats"][0]["max_ulp"] =
+            serde_json::Value::Number(serde_json::Number::from(123_456_789_u64));
+        let json = serde_json::to_string(&value).unwrap();
+        let needle = "\"max_ulp\":123456789";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(needle, "\"max_ulp\":123456789,\"max_ulp\":1e999999", 1);
+        let error = replay_witness_json(&json)
+            .expect_err("duplicate axis stat field must fail before numeric payload");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::DuplicateField)
         );
     }
 
