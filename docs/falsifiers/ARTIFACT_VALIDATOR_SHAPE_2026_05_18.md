@@ -165,6 +165,7 @@ assert notes_reviewer_token_not_reserved_anonymous_identity(artifact.notes)
 assert notes_reviewer_sentinels_are_semicolon_delimited(artifact.notes)
 assert migration_validator_sentinels_are_semicolon_delimited(artifact.notes)
 assert migration_validator_reviewer_sentinel_sets_match_schema(artifact.notes)
+assert negative_catalog_has_shared_identity_sentinel_pair_case(negative_catalog)
 assert notes_required_tokens_are_semicolon_delimited(artifact.notes)
 assert notes_length_within_schema_cap(artifact.notes)
 assert migration_notes_parse_positive_increasing_notes_cap_tokens(artifact.notes)
@@ -244,6 +245,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_1
 
 ```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); pat=schema.dig("properties","notes","not","pattern") || abort("notes not pattern missing"); validator=pat[/validator=\(\?:([^)]+)\)/,1] || abort("validator sentinel set missing"); reviewer=pat[/reviewer=\(\?:([^)]+)\)/,1] || abort("reviewer sentinel set missing"); abort("sentinel set drift #{validator} != #{reviewer}") unless validator == reviewer && validator == "anonymous|unknown|tbd|none"; abort("shared sentinel prose missing") unless s.include?("shared migration identity sentinel set is exactly"); puts "migration identity sentinel set parity ok"'
+```
+
+```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md"); block=s[/## N170 - Paired Reserved Migration Identities.*?```json\n(.*?)\n```/m,1] || abort("N170 missing"); artifact=JSON.parse(block); notes=artifact.fetch("notes"); abort("shared sentinel negative pair missing") unless notes.include?("validator=none") && notes.include?("reviewer=unknown"); puts "migration identity sentinel negative pair ok"'
 ```
 
 ```bash
@@ -518,6 +523,7 @@ Implementation owner is TBD: merge-phase if artifact validation becomes part of 
 | `W-Validator-MigrationValidatorSentinel` | TBD validator-implementation terminal | Any executable validator accepts `validator` tokens in migration notes. | Reject reserved validator identities `anonymous`, `unknown`, `tbd`, and `none` only when they appear as bounded validator tokens before migration acceptance. |
 | `W-Validator-MigrationReviewerSentinel` | TBD validator-implementation terminal | Any executable validator accepts `reviewer` tokens in migration notes. | Reject reserved reviewer identities `anonymous`, `unknown`, `tbd`, and `none` only when they appear as bounded reviewer tokens before migration acceptance. |
 | `W-Validator-MigrationIdentitySentinelParity` | TBD validator-implementation terminal | Any executable validator accepts reserved identity changes for migration note tokens. | Reject schema edits that make validator and reviewer sentinel regexes differ from each other or from the exact shared set `anonymous|unknown|tbd|none` before migration acceptance. |
+| `W-Validator-MigrationIdentitySentinelNegativePair` | TBD validator-implementation terminal | Any executable validator accepts only single-sided reserved identity fixtures. | Keep a paired validator/reviewer reserved-identity negative catalog case failing before migration acceptance. |
 | `W-Validator-LocalReferenceNotes` | TBD validator-implementation terminal | Any executable validator accepts `local_reference_only=true` in falsifier `notes`. | Reject missing `local_reference_artifact` or `local_reference_artifact_sha256`, and verify the retained artifact digest before replay promotion. |
 | `W-Validator-LocalReferenceRoot` | TBD validator-implementation terminal | Any executable validator accepts local-reference artifacts in falsifier `notes`. | Reject `local_reference_artifact` paths outside the owning falsifier row root before digest verification. |
 | `W-Validator-LocalReferenceDotSegments` | TBD validator-implementation terminal | Any executable validator accepts local-reference artifact paths in falsifier `notes`. | Reject `.` or `..` path segments in `local_reference_artifact` before row-root or digest checks. |
