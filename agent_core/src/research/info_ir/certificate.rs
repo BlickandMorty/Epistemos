@@ -233,6 +233,16 @@ pub fn lean_certificate(expr: &InfoExpr) -> String {
          \x20   info_convexity_witness_{suffix}\n\
          \x20   \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §3 + §5 Info-IR\"\n\
          \n\
+         theorem info_certificate_convexity_target_{suffix} :\n\
+         \x20   ∃ targetObligation,\n\
+         \x20     info_certificate_{suffix}.convexity = some targetObligation ∧\n\
+         \x20       targetObligation.convexOnNaturalDomain := by\n\
+         \x20 exact Epistemos.Info.CertificateTarget.convexityObligationCarries\n\
+         \x20   info_certificate_{suffix}\n\
+         \x20   info_convexity_obligation_{suffix}\n\
+         \x20   rfl\n\
+         \x20   info_log_partition_convexity_{suffix}\n\
+         \n\
          theorem info_bregman_positivity_{suffix} :\n\
          \x20   info_bregman_obligation_{suffix}.nonnegative := by\n\
          \x20 exact Epistemos.Info.bregmanPositivityObligationNonnegative {family_term} {p_term} {q_term}\n\
@@ -353,6 +363,17 @@ mod tests {
         let c = lean_certificate(&e);
         assert!(c.contains("theorem info_certificate_bregman_obligations_"));
         assert!(c.contains("exact Epistemos.Info.CertificateTarget.bregmanObligations"));
+        assert!(c.contains("info_certificate_"));
+    }
+
+    #[test]
+    fn certificate_projects_target_convexity_witness() {
+        let e = InfoExpr::log_partition(ExpFamily::Bernoulli, vec![0.0]).unwrap();
+        let c = lean_certificate(&e);
+        assert!(c.contains("theorem info_certificate_convexity_target_"));
+        assert!(c.contains(
+            "exact Epistemos.Info.CertificateTarget.convexityObligationCarries"
+        ));
         assert!(c.contains("info_certificate_"));
     }
 

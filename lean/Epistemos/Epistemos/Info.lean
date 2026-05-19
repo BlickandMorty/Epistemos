@@ -204,6 +204,16 @@ structure CertificateTarget where
 
 namespace CertificateTarget
 
+theorem convexityObligationCarries
+    (c : CertificateTarget)
+    (obligation : ConvexLogPartitionObligation)
+    (targetHas : c.convexity = some obligation)
+    (convex : obligation.convexOnNaturalDomain) :
+    ∃ targetObligation,
+      c.convexity = some targetObligation ∧
+        targetObligation.convexOnNaturalDomain := by
+  exact ⟨obligation, targetHas, convex⟩
+
 theorem bregmanObligations
     (c : CertificateTarget)
     (nonnegative : c.positivity.nonnegative)
