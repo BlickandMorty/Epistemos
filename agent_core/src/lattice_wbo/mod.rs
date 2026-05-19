@@ -7405,6 +7405,44 @@ mod tests {
     }
 
     #[test]
+    fn quantization_axis_is_owned_only_by_quantization_codecs() {
+        let owners = [
+            LatticeCoderKind::LatticeWynerZivResidual,
+            LatticeCoderKind::SherryTernary3Of4,
+            LatticeCoderKind::NestedE8,
+            LatticeCoderKind::NestedLeech24,
+            LatticeCoderKind::QuipE8,
+            LatticeCoderKind::Nf4SsdOracle,
+            LatticeCoderKind::ResidualSketch,
+        ];
+        for coder in owners {
+            assert!(
+                coder
+                    .canonical_wbo_terms()
+                    .contains(&WboTermCode::Quantization),
+                "{coder:?} must claim T_Q"
+            );
+        }
+        for coder in LatticeCoderKind::ALL {
+            if owners.contains(&coder) {
+                continue;
+            }
+            assert!(
+                !coder
+                    .canonical_wbo_terms()
+                    .contains(&WboTermCode::Quantization),
+                "{coder:?} must never claim T_Q; quantization belongs to codecs that fold an approximation lattice"
+            );
+        }
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`quantization_axis_is_owned_only_by_quantization_codecs`"),
+            "register doc must cross-link T_Q ownership invariant"
+        );
+    }
+
+    #[test]
     fn kv_cache_axis_is_owned_only_by_kv_and_residual_codecs() {
         let owners = [
             LatticeCoderKind::LatticeWynerZivResidual,
