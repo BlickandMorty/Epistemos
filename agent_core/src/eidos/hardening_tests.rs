@@ -9793,6 +9793,153 @@ fn closed_citation_contract_holds_for_multilingual_provenance_verified() {
     }
 }
 
+/// Multilingual ClaimEvidence closed-citation sweep — extends
+/// iter 164's ASCII InMemoryClaimEvidence contract pin to the
+/// multilingual axis.
+///
+/// ClaimEvidence uses a 3-segment source_id template:
+/// `{evidence_doc}::claim::{claim_id}::{stance}`. The
+/// evidence_document AND the claim_id both flow into the source_id
+/// verbatim, with the stance token being one of the ASCII strings
+/// "supports" or "contradicts" (locked in claim_evidence.rs:47-48).
+///
+/// This is the second-most-complex source_id template (after
+/// GraphNeighborhood's 2-segment + literal-decorator template).
+/// Multilingual coverage requires BOTH segments to be non-Latin,
+/// closing the cross-mode multilingual sweep at the most exotic
+/// template surface.
+///
+/// Pins:
+///   - Han evidence_document (笔记-a) supporting a Han claim_id
+///     (`claim:主张-α` — colon prefix is the canonical claim-id
+///     marker; the non-Latin payload follows)
+///   - retrieve emits a hit with source_id =
+///     `笔记-a::claim::claim:主张-α::supports` (literally — both
+///     non-Latin segments flow through verbatim)
+///   - byte-equal multilingual citation accepted
+///   - Han-traditional smuggling in the EVIDENCE half rejected as
+///     fabricated
+///   - Han-variant smuggling in the CLAIM-ID half (主张 → 主張)
+///     rejected as fabricated
+///   - stance-spoof smuggling ("supports" → "contradicts") rejected
+///     as fabricated (the stance token is part of the source_id
+///     bytes, so any tampering surfaces — this was iter 164's
+///     original anchor, here extended to multilingual context)
+#[test]
+fn closed_citation_contract_holds_for_multilingual_claim_evidence() {
+    use super::claim_evidence::{EvidenceStance, InMemoryClaimEvidence};
+    use super::types::{CitationError, EidosChunkId, EidosCitation};
+
+    let m = manifest();
+    let ts = 1_700_000_000_000;
+    let han_claim = "claim:主张-α";
+
+    let mut ce = InMemoryClaimEvidence::new(m.clone());
+    ce.add_evidence(
+        han_claim,
+        doc("笔记-a"),
+        EvidenceStance::Supports,
+        EidosSourceKind::Note,
+    );
+
+    let q = EidosQuery::new(han_claim, EidosRetrievalMode::ClaimEvidence, 8);
+    let packet = ce.retrieve(&q, ts);
+    assert_eq!(packet.hits.len(), 1, "ClaimEvidence must surface the Han evidence");
+
+    let legit_src = packet.hits[0].source_id.as_str().to_string();
+    assert_eq!(
+        legit_src,
+        "笔记-a::claim::claim:主张-α::supports",
+        "ClaimEvidence source_id template must concatenate both \
+         multilingual segments verbatim, no canonicalization"
+    );
+    assert!(!legit_src.is_ascii(), "source_id must be non-ASCII");
+
+    // (1) Positive control.
+    let legit = EidosCitation {
+        source_id: packet.hits[0].source_id.clone(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    assert_eq!(
+        packet.validate_citation(&legit),
+        Ok(()),
+        "ClaimEvidence: byte-equal multilingual citation accepted"
+    );
+
+    // (2) Smuggle the EVIDENCE half (笔记 → 筆記, Han traditional).
+    let smuggled_evidence = "筆記-a::claim::claim:主张-α::supports";
+    assert_ne!(
+        smuggled_evidence.as_bytes(),
+        legit_src.as_bytes(),
+        "smuggled-evidence variant must differ in bytes (fixture sanity)"
+    );
+    let cite_e = EidosCitation {
+        source_id: EidosChunkId::new(smuggled_evidence).unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    match packet.validate_citation(&cite_e).unwrap_err() {
+        CitationError::FabricatedSourceId(returned) => {
+            assert_eq!(
+                returned.as_str(),
+                smuggled_evidence,
+                "ClaimEvidence: evidence-half Han-traditional smuggle \
+                 rejected with bytes preserved verbatim"
+            );
+        }
+        other => panic!("expected FabricatedSourceId (evidence smuggle), got {other:?}"),
+    }
+
+    // (3) Smuggle the CLAIM-ID half (主张 → 主張).
+    let smuggled_claim = "笔记-a::claim::claim:主張-α::supports";
+    assert_ne!(
+        smuggled_claim.as_bytes(),
+        legit_src.as_bytes(),
+        "smuggled-claim variant must differ in bytes"
+    );
+    let cite_c = EidosCitation {
+        source_id: EidosChunkId::new(smuggled_claim).unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    match packet.validate_citation(&cite_c).unwrap_err() {
+        CitationError::FabricatedSourceId(returned) => {
+            assert_eq!(
+                returned.as_str(),
+                smuggled_claim,
+                "ClaimEvidence: claim-id-half Han-variant smuggle rejected"
+            );
+        }
+        other => panic!("expected FabricatedSourceId (claim smuggle), got {other:?}"),
+    }
+
+    // (4) Stance-spoof smuggle (supports → contradicts). The stance
+    // token is ASCII but is part of the source_id bytes, so any
+    // tampering surfaces. This is iter 164's original anchor here
+    // extended to multilingual context — the multilingual segments
+    // are LEGITIMATE, only the stance is spoofed.
+    let stance_spoof = "笔记-a::claim::claim:主张-α::contradicts";
+    assert_ne!(
+        stance_spoof.as_bytes(),
+        legit_src.as_bytes(),
+        "stance-spoof variant must differ in bytes"
+    );
+    let cite_s = EidosCitation {
+        source_id: EidosChunkId::new(stance_spoof).unwrap(),
+        manifest_id: packet.manifest_id.clone(),
+    };
+    match packet.validate_citation(&cite_s).unwrap_err() {
+        CitationError::FabricatedSourceId(returned) => {
+            assert_eq!(
+                returned.as_str(),
+                stance_spoof,
+                "ClaimEvidence: stance-spoof rejected — multilingual \
+                 segments legitimate, only stance changed, but byte-\
+                 strict floor catches the spoof"
+            );
+        }
+        other => panic!("expected FabricatedSourceId (stance spoof), got {other:?}"),
+    }
+}
+
 /// `EidosHit::clone()` is byte-perfect — parallel to iter 190's
 /// EidosCitation Clone pin, but for the OUTPUT type (retriever-
 /// emitted hits) rather than the INPUT type (chat-layer citations).
