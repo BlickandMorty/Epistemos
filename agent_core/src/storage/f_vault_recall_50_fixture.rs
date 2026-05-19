@@ -2252,6 +2252,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 31st PureChatter row (iter-278): 9-token long-input
+        // shape — "please can you give me all of my notes".
+        // Extends the long-input cardinality progression to 9
+        // (iter-256 was 7, iter-270 was 8). Spans the most
+        // tokens of any PureChatter row to date. All 9 tokens
+        // (please / can / you / give / me / all / of / my /
+        // notes) in QUERY_CHATTER_WORDS. Mixes politeness +
+        // modal + 2 pronouns + imperative + quantifier +
+        // preposition + chatter-noun.
+        query: "please can you give me all of my notes",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Thirty-first PureChatter row (iter-278): 9-token \
+               long-input shape (\"please can you give me all of \
+               my notes\"). Extends long-input cardinality \
+               progression to 9 (iter-256 = 7, iter-270 = 8). \
+               LONGEST PureChatter query in the fixture. Mixes \
+               7 chatter sub-classes (politeness + modal + 2 \
+               pronouns + imperative + quantifier + preposition \
+               + chatter-noun). All 9 tokens in QUERY_CHATTER_\
+               WORDS. Brings PureChatter to depth 31.",
+    },
+    FVaultRecallRow {
         // 30th PureChatter row (iter-270, milestone iteration):
         // 8-token long-input shape — "please can you find me all
         // the notes". Extends the long-input cardinality
