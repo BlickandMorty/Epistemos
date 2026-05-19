@@ -1005,6 +1005,48 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 48th SignalOnly row (iter-396): single-term query in
+        // Glagolitic-script domain — "ⰽ" (kako, U+2C2D, single
+        // codepoint). THIRTY-NINTH single-term-AND domain.
+        // TWENTY-SIXTH non-ASCII script-block. FIRST historical
+        // Slavic script in SignalOnly. Glagolitic is the oldest
+        // Slavic alphabet (9th century CE), traditionally
+        // attributed to Saints Cyril and Methodius for
+        // translating the Bible into Old Church Slavonic — it
+        // PREDATES Cyrillic itself. Sister script of Cyrillic;
+        // both serve(d) the Slavic language community but
+        // graphemically distinct. SignalOnly's African-script
+        // breadth (iter-361 Tifinagh + iter-368 Vai + iter-389
+        // N'Ko) now mirrored by a Slavic-script entry —
+        // distinct historical script for the same Slavic
+        // language community covered by Unicode-plane iter-13
+        // Cyrillic кэш multilingual query. Adds the 9th-century
+        // ECCLESIASTICAL-CREATED branch to SignalOnly: Glagolitic
+        // (Cyril+Methodius for liturgy) parallels iter-347
+        // Coptic (Egyptian Christian-era Greek-derivative) on
+        // the religious-purpose-script axis. Token unique to
+        // iter-249's mamba_glagolitic.md.
+        query: "ⰽ",
+        expected_paths: &["notes/mamba_glagolitic.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Forty-eighth SignalOnly row (iter-396): single-\
+               term Glagolitic-script query — \"ⰽ\" (U+2C2D). \
+               Thirty-ninth domain for single-term-AND. \
+               Twenty-sixth non-ASCII script-block. FIRST \
+               historical Slavic script in SignalOnly. \
+               Glagolitic (9th c CE, Cyril + Methodius) is the \
+               oldest Slavic alphabet — predates Cyrillic; \
+               sister script for the Slavic language community. \
+               Adds 9th-century ECCLESIASTICAL-CREATED branch to \
+               SignalOnly (parallels iter-347 Coptic on the \
+               religious-purpose-script axis). Fourteenth \
+               single-codepoint non-ASCII token. Brings \
+               SignalOnly to depth 48 — first category past \
+               depth-47 horizon.",
+    },
+    FVaultRecallRow {
         // 47th SignalOnly row (iter-389): single-term query in
         // N'Ko-script domain — "ߞ" (N'Ko letter KA, U+07DE,
         // single codepoint). THIRTY-EIGHTH single-term-AND
