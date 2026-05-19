@@ -4925,6 +4925,34 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 41st Synthesis row (iter-345). SECOND 2-term-AND
+        // subset on iter-85 tokenizer-indexing pair:
+        // {tokenizer, tantivy}. Both pair-partners carry both
+        // tokens. "tokenizer" is pair-unique (no other seed
+        // has it). "tantivy" appears in pair-partners +
+        // vault_index_reload_canon + tantivy_misc_notes — but
+        // those lack "tokenizer", so AND-on-2 blocks them.
+        // AND matches only the pair. 2 of C(3,2)=3 surveyed
+        // on iter-85 tokenizer-indexing pair. Zero new seeds.
+        query: "tokenizer tantivy",
+        expected_paths: &[
+            "notes/tokenizer_indexing_tantivy_overview.md",
+            "notes/tokenizer_indexing_tantivy_internals.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Forty-first Synthesis row (iter-345): SECOND 2-\
+               term-AND subset on iter-85 tokenizer-indexing \
+               pair. {tokenizer, tantivy} — \"tokenizer\" pair-\
+               unique blocks vault_index_reload_canon + \
+               tantivy_misc_notes from AND-on-2 even though \
+               they share \"tantivy\". 2 of C(3,2)=3 surveyed \
+               on iter-85 pair. Brings Synthesis to depth 41 \
+               — first category past depth-40 horizon. Zero \
+               new seeds.",
+    },
+    FVaultRecallRow {
         // 40th Synthesis row (iter-337). FIRST 2-term-AND
         // subset on iter-85 tokenizer-indexing pair:
         // {tokenizer, indexing}. Both pair-partners carry both
