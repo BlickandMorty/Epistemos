@@ -385,6 +385,61 @@ mod tests {
     }
 
     #[test]
+    fn budget_spec_ledger_and_debit_struct_field_shapes_pinned_via_destructure() {
+        // Phase 1 hardening — struct-field-shape pin trio for
+        // BudgetSpec / BudgetLedger / BudgetDebit (companion to the
+        // struct destructure pin family iter-464..iter-468).
+        //
+        // All 3 have the parallel 5-axis layout:
+        //   BudgetSpec  : max_<axis>     (u64 each, 5 fields total)
+        //   BudgetLedger: <axis>_used    (u64 each, 5 fields total)
+        //   BudgetDebit : <axis>         (u64 each, 5 fields total)
+        //
+        // A future "let me add a max_network_bytes / network_bytes_used
+        // / network_bytes" axis triple would silently fork every
+        // persisted log + every gate site. Pin all 5 axes per struct
+        // via destructure compile-fail.
+        let BudgetSpec {
+            max_tokens,
+            max_wall_ms,
+            max_tool_calls,
+            max_subprocess_ms,
+            max_memory_bytes,
+        } = BudgetSpec::new(1, 2, 3, 4).with_memory_bytes(5);
+        let _: u64 = max_tokens;
+        let _: u64 = max_wall_ms;
+        let _: u64 = max_tool_calls;
+        let _: u64 = max_subprocess_ms;
+        let _: u64 = max_memory_bytes;
+
+        let BudgetLedger {
+            tokens_used,
+            wall_used_ms,
+            tool_calls_used,
+            subprocess_used_ms,
+            memory_bytes_used,
+        } = BudgetLedger::default();
+        let _: u64 = tokens_used;
+        let _: u64 = wall_used_ms;
+        let _: u64 = tool_calls_used;
+        let _: u64 = subprocess_used_ms;
+        let _: u64 = memory_bytes_used;
+
+        let BudgetDebit {
+            tokens,
+            wall_ms,
+            tool_calls,
+            subprocess_ms,
+            memory_bytes,
+        } = BudgetDebit::default();
+        let _: u64 = tokens;
+        let _: u64 = wall_ms;
+        let _: u64 = tool_calls;
+        let _: u64 = subprocess_ms;
+        let _: u64 = memory_bytes;
+    }
+
+    #[test]
     fn budget_spec_default_is_all_zero_unbounded_for_every_term() {
         // Phase 1 hardening — pin Default::default() semantics. All
         // five fields zero == every term unbounded. A future refactor
