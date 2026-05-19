@@ -736,6 +736,7 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
         });
     }
     required_top_level_string_json(&value, "mission")?;
+    required_top_level_string_json(&value, "evaluator_variant")?;
     let point_count = top_level_unsigned_integer_json(&value, "point_count")?;
     let operation_evaluations = top_level_unsigned_integer_json(&value, "operation_evaluations")?;
     let adversarial_fixture_count =
@@ -2808,6 +2809,24 @@ mod tests {
         assert_eq!(
             error.unsupported_evaluator_kind(),
             Some(FulpUnsupportedEvaluatorKind::Unknown)
+        );
+    }
+
+    #[test]
+    fn replay_rejects_evaluator_variant_json_type_drift_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["evaluator_variant"] = serde_json::Value::Bool(false);
+        let json = serde_json::to_string(&value).unwrap();
+        let error =
+            replay_witness_json(&json).expect_err("evaluator variant type drift must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("invalid type for evaluator_variant, expected string")
         );
     }
 
