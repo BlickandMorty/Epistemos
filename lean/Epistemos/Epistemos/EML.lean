@@ -87,6 +87,11 @@ theorem eml_node_branch_safe {x y : Expr}
     BranchSafe (.eml x y) :=
   BranchSafe.eml hx hy hy_pos
 
+theorem eml_right_one_branch_safe {x : Expr}
+    (hx : BranchSafe x) :
+    BranchSafe (.eml x .one) :=
+  BranchSafe.eml hx one_branch_safe Expr.eval_one_positive
+
 theorem eval_eml_right_one_positive (x : Expr) :
     0 < Expr.eval (Expr.eml x Expr.one) := by
   simpa [Expr.eval] using Real.exp_pos (Expr.eval x)
