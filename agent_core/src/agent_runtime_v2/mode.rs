@@ -203,6 +203,22 @@ mod tests {
     }
 
     #[test]
+    fn mode_debug_repr_is_stable_for_audit_logs() {
+        let cases = [
+            (AgentRuntimeV2Mode::Disabled, "Disabled"),
+            (AgentRuntimeV2Mode::IpcBounded, "IpcBounded"),
+            (AgentRuntimeV2Mode::Subprocess, "Subprocess"),
+        ];
+        for (mode, expected) in cases {
+            assert_eq!(
+                format!("{mode:?}"),
+                expected,
+                "Debug repr drift for {mode:?} would break audit log greps"
+            );
+        }
+    }
+
+    #[test]
     fn mode_serde_form_charset_is_lowercase_snake_case_only() {
         // Phase 1 hardening — charset pin for AgentRuntimeV2Mode serde
         // forms. Extends the [a-z_] charset-pin family to the 3-variant
