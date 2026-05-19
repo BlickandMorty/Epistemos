@@ -1193,6 +1193,35 @@ mod tests {
     }
 
     #[test]
+    fn thinking_blocks_preserved_after_retry_recovery() {
+        // Phase 1 hardening — retry companion to the N-hop and
+        // mid-stream-error fixtures. A failed attempt may be retried,
+        // but the retry path must not strip signed thinking bytes,
+        // rewrite them, or replace them with None.
+        let signed_thinking =
+            b"anthropic-signature:v1:retry-preserved\nthinking payload".to_vec();
+        let independent = *blake3::hash(&signed_thinking).as_bytes();
+
+        let first_attempt = ParaOutput::new(
+            "attempt-1-partial".to_string(),
+            StopReason::Error,
+            Some(signed_thinking.clone()),
+        );
+        let retry_attempt = ParaOutput::new(
+            "attempt-2-success".to_string(),
+            StopReason::EndTurn,
+            Some(signed_thinking.clone()),
+        );
+
+        for out in [&first_attempt, &retry_attempt] {
+            assert!(out.digest_intact());
+            assert_eq!(out.thinking.as_deref(), Some(signed_thinking.as_slice()));
+            assert_eq!(out.thinking_digest, independent);
+        }
+        assert_eq!(first_attempt.thinking_digest, retry_attempt.thinking_digest);
+    }
+
+    #[test]
     fn digest_intact_catches_thinking_bytes_tamper_at_first_middle_last_positions() {
         // Phase 1 hardening — completeness pin for
         // forged_thinking_digest_caught_by_digest_intact (which
