@@ -27,9 +27,9 @@ use std::collections::BTreeMap;
 use super::hybrid::RRF_K_DEFAULT;
 use super::retriever::EidosRetriever;
 use super::types::{
-    EidosChunkId, EidosContextPacket, EidosDocumentId, EidosHit, EidosIndexManifestId,
-    EidosProvenance, EidosQuery, EidosRetrievalMode, EidosScoreComponents, EidosSourceKind,
-    EidosSpan,
+    is_blank_query_text, EidosChunkId, EidosContextPacket, EidosDocumentId, EidosHit,
+    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode,
+    EidosScoreComponents, EidosSourceKind, EidosSpan,
 };
 
 #[derive(Debug, thiserror::Error, PartialEq)]
@@ -142,7 +142,7 @@ impl EidosRetriever for HybridRetrieverN {
         query: &EidosQuery,
         retrieved_at_unix_ms: u64,
     ) -> EidosContextPacket {
-        if query.text.trim().is_empty() || query.top_k == 0 {
+        if is_blank_query_text(&query.text) || query.top_k == 0 {
             return EidosContextPacket {
                 query: query.clone(),
                 manifest_id: self.manifest_id.clone(),
@@ -313,6 +313,27 @@ mod tests {
         assert!(
             packet.hits.is_empty(),
             "Hybrid_N must fail closed on blank query before fusing inner hits"
+        );
+    }
+
+    #[test]
+    fn invisible_only_query_defers_before_n_way_fusion_even_if_inner_leaks() {
+        let h = HybridRetrieverN::new(vec![
+            Box::new(BlankLeakingRetriever {
+                manifest_id: manifest(),
+                document_id: doc("a-leak"),
+            }),
+            Box::new(BlankLeakingRetriever {
+                manifest_id: manifest(),
+                document_id: doc("b-leak"),
+            }),
+        ])
+        .unwrap();
+        let q = EidosQuery::new("\u{200B}", EidosRetrievalMode::Hybrid, 16);
+        let packet = h.retrieve(&q, T0);
+        assert!(
+            packet.hits.is_empty(),
+            "Hybrid_N must fail closed on invisible-only query before fusing inner hits"
         );
     }
 
