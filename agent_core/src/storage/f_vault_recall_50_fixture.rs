@@ -1005,6 +1005,36 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 43rd SignalOnly row (iter-361): single-term query in
+        // Tifinagh-script domain — "ⴽ" (yak, U+2D3D, single
+        // codepoint). THIRTY-FOURTH single-term-AND domain.
+        // TWENTY-FIRST non-ASCII script-block. FIRST modern
+        // Berber/Amazigh script in SignalOnly (Tifinagh is
+        // the contemporary alphabet for the Amazigh languages
+        // of North Africa — Morocco, Algeria, Libya, Mali,
+        // Niger; standardized 2001-2003 from the historic
+        // Libyco-Berber script). Adds an INDIGENOUS AFRICAN
+        // script-family to SignalOnly's family branches —
+        // genealogically distinct from Brahmic, Aramaic,
+        // Latin-diacritic, and Greek-descendant. Token unique
+        // to iter-213's mamba_tifinagh.md.
+        query: "ⴽ",
+        expected_paths: &["notes/mamba_tifinagh.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Forty-third SignalOnly row (iter-361): single-\
+               term Tifinagh-script query — \"ⴽ\" (U+2D3D). \
+               Thirty-fourth domain for single-term-AND. \
+               Twenty-first non-ASCII script-block. FIRST \
+               modern Berber/Amazigh script in SignalOnly. \
+               Indigenous African script-family, genealogically \
+               distinct from Brahmic + Aramaic + Latin-\
+               diacritic + Greek-descendant. Ninth single-\
+               codepoint non-ASCII token. Brings SignalOnly to \
+               depth 43 — first category past depth-42 horizon.",
+    },
+    FVaultRecallRow {
         // 42nd SignalOnly row (iter-354): single-term query in
         // Phoenician-script domain — "𐤊" (kap, U+1090A, single
         // codepoint, SMP-plane). THIRTY-THIRD single-term-AND
