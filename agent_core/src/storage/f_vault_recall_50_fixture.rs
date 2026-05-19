@@ -2129,6 +2129,49 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 49th Unicode row (iter-407): Meroitic Cursive
+        // extension. Adds a 47th non-Latin script (Meroitic
+        // Cursive, U+109A0-U+109FF) — the EVERYDAY/CURSIVE
+        // variant of Meroitic, contemporaneous with the
+        // hieroglyphic form (iter-400). Both Meroitic
+        // Hieroglyphic and Meroitic Cursive were used in the
+        // Kingdom of Kush ca. 300 BCE - 400 CE: hieroglyphic
+        // for monuments/formal inscriptions, cursive for
+        // everyday writing on ostraca/papyri. SAME LANGUAGE
+        // (Meroitic/Kushite) at SAME PERIOD using TWO DISTINCT
+        // SCRIPTS — parallels iter-322 Linear B (deciphered)
+        // + iter-358 Linear A (undeciphered) Aegean script
+        // pair on the "same-language-community-two-scripts"
+        // axis. SECOND DESCENDANT OF EGYPTIAN HIEROGLYPHS
+        // alongside iter-400 Hieroglyphic Meroitic. SIXTH
+        // African-language script in the pin set. SIXTEENTH
+        // SMP-plane codepoint. Latin "Mamba" + Meroitic
+        // Cursive "𐦠" (letter A, U+109A0) + Latin "cache".
+        // Demonstrates the no-script-fold contract on a
+        // formal-vs-cursive script pair — proves Tantivy's
+        // UTF-8 tokenizer is agnostic to register/style
+        // distinctions within one language community.
+        query: "Mamba 𐦠 cache",
+        expected_paths: &["notes/mamba_meroitic_cursive.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Forty-ninth Unicode row (iter-407): Meroitic \
+               Cursive extension. FORTY-SEVEN non-Latin scripts \
+               pinned. Meroitic Cursive is the everyday-script \
+               variant of Meroitic, contemporaneous with iter-\
+               400's Meroitic Hieroglyphic — SAME LANGUAGE \
+               (Kushite) at SAME PERIOD using TWO DISTINCT \
+               SCRIPTS (formal hieroglyphic + everyday cursive). \
+               Parallels Linear B/Linear A Aegean pair on \
+               same-language-community-two-scripts axis. SECOND \
+               descendant of Egyptian Hieroglyphs alongside \
+               iter-400. SIXTH African-language script in pin \
+               set. Sixteenth SMP-plane codepoint. Brings \
+               Unicode to depth 49 — first category past depth-\
+               48 horizon.",
+    },
+    FVaultRecallRow {
         // 48th Unicode row (iter-400, milestone iteration):
         // Meroitic Hieroglyphic extension. Adds a 46th non-Latin
         // script (Meroitic Hieroglyphic, U+10980-U+1099F) —
