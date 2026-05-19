@@ -2475,6 +2475,12 @@ mod tests {
     }
 
     #[test]
+    fn witness_json_excludes_ioplatform_text() {
+        let json = acceptance_witness_json().unwrap();
+        assert!(!json.to_ascii_lowercase().contains("ioplatform"));
+    }
+
+    #[test]
     fn witness_json_excludes_ethernet_mac_address_pattern() {
         let json = acceptance_witness_json().unwrap();
         let lower = json.to_ascii_lowercase();
