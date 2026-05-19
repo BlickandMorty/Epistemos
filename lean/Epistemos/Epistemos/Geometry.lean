@@ -201,6 +201,19 @@ structure CertificateTarget where
 
 namespace CertificateTarget
 
+theorem obligationFieldsMatch
+    (c : CertificateTarget)
+    (cliffordAxioms : CliffordAxiomObligation)
+    (sandwichIsometry : RotorSandwichObligation)
+    (composition : RotorCompositionObligation)
+    (cliffordMatches : c.cliffordAxioms = cliffordAxioms)
+    (sandwichMatches : c.sandwichIsometry = sandwichIsometry)
+    (compositionMatches : c.composition = composition) :
+    c.cliffordAxioms = cliffordAxioms ∧
+      c.sandwichIsometry = sandwichIsometry ∧
+      c.composition = composition := by
+  exact ⟨cliffordMatches, sandwichMatches, compositionMatches⟩
+
 theorem rotorSchemaCarries
     (c : CertificateTarget)
     (candidateWitness : c.rotor.isRotorCandidate)

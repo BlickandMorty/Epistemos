@@ -60,7 +60,12 @@ theorem geometry_certificate_obligations_sample :
         geometry_sandwich_obligation_sample ∧
       geometry_certificate_sample.composition =
         geometry_composition_obligation_sample := by
-  exact And.intro rfl (And.intro rfl rfl)
+  exact Epistemos.Geometry.CertificateTarget.obligationFieldsMatch
+    geometry_certificate_sample
+    geometry_clifford_obligation_sample
+    geometry_sandwich_obligation_sample
+    geometry_composition_obligation_sample
+    rfl rfl rfl
 
 theorem rotor_sandwich_isometry_sample :
     geometry_sandwich_obligation_sample.preservesNorm := by

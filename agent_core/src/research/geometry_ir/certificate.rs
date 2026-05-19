@@ -124,7 +124,12 @@ pub fn lean_certificate(rotor: &Multivector) -> String {
          \x20   geometry_certificate_{suffix}.cliffordAxioms = geometry_clifford_obligation_{suffix} ∧\n\
          \x20     geometry_certificate_{suffix}.sandwichIsometry = geometry_sandwich_obligation_{suffix} ∧\n\
          \x20     geometry_certificate_{suffix}.composition = geometry_composition_obligation_{suffix} := by\n\
-         \x20 exact And.intro rfl (And.intro rfl rfl)\n\
+         \x20 exact Epistemos.Geometry.CertificateTarget.obligationFieldsMatch\n\
+         \x20   geometry_certificate_{suffix}\n\
+         \x20   geometry_clifford_obligation_{suffix}\n\
+         \x20   geometry_sandwich_obligation_{suffix}\n\
+         \x20   geometry_composition_obligation_{suffix}\n\
+         \x20   rfl rfl rfl\n\
          \n\
          theorem clifford_basis_axioms_{suffix}\n\
          \x20   (basisSquaresWitness : geometry_clifford_obligation_{suffix}.basisSquares)\n\
@@ -290,6 +295,7 @@ mod tests {
         assert!(c.contains(".cliffordAxioms = geometry_clifford_obligation_"));
         assert!(c.contains(".sandwichIsometry = geometry_sandwich_obligation_"));
         assert!(c.contains(".composition = geometry_composition_obligation_"));
+        assert!(c.contains("Epistemos.Geometry.CertificateTarget.obligationFieldsMatch"));
     }
 
     #[test]
