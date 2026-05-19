@@ -8245,6 +8245,52 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 48th Adversarial row (iter-395): BM25/IR 9-term long-
+        // query — {bm25, saturation, length, penalty, ranking,
+        // ir, search, relevance, scoring}. Keeps all 4 canonical
+        // primaries + 5 IR-context tail tokens (ranking + ir +
+        // search + relevance + scoring from canonical's tail
+        // "...ranking ir search relevance scoring notes"). 9
+        // terms OR. FIRST 9-term Adversarial row in fixture —
+        // extends long-query coverage past the 8-term boundary
+        // first reached at iter-381 + iter-388. Canonical body
+        // has all 9 (2-3× primaries + 1× each tail). "scoring"
+        // appears in ONLY the canonical doc (every decoy lacks
+        // it — grep-verified in seed corpus), so canonical's
+        // 9/9 coverage is a clean superset of every decoy's ≤1
+        // primary token. BM25/IR corpus now exercised at
+        // 4/5/6/7/8/9-term — FIRST canonical at SIX query-
+        // length coverage points. Together with iter-381 (8-
+        // term) + iter-388 (8-term agent-runtime), the long-
+        // query length axis now spans 4 → 9 tokens (length
+        // ratio 2.25×) without canonical ranking degradation.
+        query: "bm25 saturation length penalty ranking ir search relevance scoring",
+        expected_paths: &["notes/bm25_saturation_length_penalty.md"],
+        forbidden_paths: &[
+            "notes/saturation_stuffed_decoy.md",
+            "notes/bm25_overview.md",
+            "notes/length_archive.md",
+            "notes/penalty_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Forty-eighth Adversarial row (iter-395): BM25/IR \
+               9-term long-query \"bm25 saturation length \
+               penalty ranking ir search relevance scoring\". \
+               Keeps all 4 primaries + 5 IR-context tail tokens. \
+               FIRST 9-term Adversarial — extends long-query \
+               coverage past the 8-term boundary (iter-381 + \
+               iter-388). \"scoring\" appears in ONLY the \
+               canonical doc (grep-verified). BM25/IR now \
+               exercised at 4/5/6/7/8/9-term — FIRST canonical \
+               at SIX query-length coverage points. Long-query \
+               length axis now spans 4 → 9 tokens (2.25× \
+               length ratio) without canonical ranking \
+               degradation. Canonical 9/9; decoys ≤1 of 9. \
+               Brings Adversarial to depth 48 — first category \
+               past depth-47 horizon. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 47th Adversarial row (iter-388): agent-runtime 8-term
         // long-query — {agent, runtime, substrate, trace,
         // system, invader, canon, g}. Keeps all 4 primaries +
