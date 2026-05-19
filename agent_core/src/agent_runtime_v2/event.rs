@@ -702,6 +702,70 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_serde_event_type_tag_charset_is_lowercase_snake_case_only() {
+        // Phase 1 hardening — charset pin for the event_type tag of every
+        // AgentEvent variant (companion to the lowercase-snake-case pins
+        // for BudgetTerm::code at budget.rs §2090 and
+        // AgentEventErrorKind::code at event.rs §940, and the StopReason
+        // canonical_bytes charset pin just shipped at para.rs).
+        //
+        // AgentEvent uses #[serde(tag = "event_type", rename_all = "snake_case")];
+        // serde derives each variant's tag from its variant name. A future
+        // refactor that, e.g., renamed ReasoningDelta to ReasoningÐelta
+        // (Unicode), or added #[serde(rename = "Reasoning-Delta")], or
+        // accidentally used #[serde(rename_all = "camelCase")] would
+        // silently:
+        //   1. break audit grep tooling that filters log streams by
+        //      /^[a-z_]+$/
+        //   2. drift the serde tag away from the AgentEventErrorKind +
+        //      BudgetTerm doctrine
+        //   3. force replay code to do a case-folding match
+        //
+        // The existing per-string pin
+        // (agent_event_serde_tag_values_are_stable) locks each tag to a
+        // specific literal — but a maintainer adding a 7th variant
+        // wouldn't see the doctrine charset rule unless it's pinned
+        // programmatically. Pin generates each tag via serde (no hard-
+        // coded list) and asserts charset.
+        let events: &[AgentEvent] = &[
+            AgentEvent::ReasoningDelta { text: "t".into() },
+            AgentEvent::FinalText { text: "t".into() },
+            AgentEvent::ToolCall {
+                call: ToolCall {
+                    name: "vault.read".into(),
+                    arguments: serde_json::json!({}),
+                },
+            },
+            AgentEvent::ToolResult { name: "vault.read".into(), result: serde_json::json!({}) },
+            AgentEvent::Stop { reason: StopReason::EndTurn },
+            AgentEvent::Error {
+                kind: AgentEventErrorKind::Provider,
+                message: "x".into(),
+            },
+        ];
+        for event in events {
+            let s = serde_json::to_string(event).expect("serialise");
+            let parsed: serde_json::Value = serde_json::from_str(&s).expect("reparse");
+            let tag = parsed
+                .get("event_type")
+                .and_then(|v| v.as_str())
+                .expect("event_type field missing");
+            assert!(!tag.is_empty(), "event_type tag must be non-empty for {event:?}");
+            for ch in tag.chars() {
+                assert!(
+                    ch.is_ascii_lowercase() || ch == '_',
+                    "event_type tag {tag:?} for {event:?} must be lowercase snake_case; \
+                     char {ch:?} violates [a-z_] charset"
+                );
+            }
+            // Belt-and-braces: no leading / trailing underscore (anchor
+            // underscore violates snake_case doctrine).
+            assert!(!tag.starts_with('_'), "tag {tag:?} must not start with '_'");
+            assert!(!tag.ends_with('_'), "tag {tag:?} must not end with '_'");
+        }
+    }
+
+    #[test]
     fn agent_event_serde_tag_values_are_stable() {
         // Phase 1 hardening — replay parity guardrail. The serde
         // tag value for every AgentEvent variant must match a
