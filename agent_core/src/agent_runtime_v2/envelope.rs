@@ -1987,6 +1987,43 @@ mod tests {
     }
 
     #[test]
+    fn mutation_envelope_serde_value_payload_round_trips_through_serde() {
+        // Phase 1 hardening — generic-payload pin for
+        // MutationEnvelope<serde_json::Value>. Companion to
+        // MutationEnvelope<String> (mission_envelope_serde_preserves_unicode...)
+        // and MutationEnvelope<Vec<u8>> (iter-446).
+        //
+        // Value payloads carry arbitrary JSON shapes — the dispatcher's
+        // general-purpose mutation surface for tool calls that emit
+        // structured output that doesn't fit a String. Pin that the
+        // Value round-trips deep-equal through serde without loss.
+        let value_payload = serde_json::json!({
+            "nested": {
+                "deep": {
+                    "array": [1, 2.5, "string", null, true, false],
+                    "unicode": "笔记 🚀"
+                }
+            },
+            "scalar": 42
+        });
+        let envelope = MutationEnvelope::new(
+            Hash::from_bytes([0x11; 32]),
+            BudgetDebit { tokens: 25, ..Default::default() },
+            value_payload.clone(),
+        );
+        let s = serde_json::to_string(&envelope).expect("serialise");
+        let back: MutationEnvelope<serde_json::Value> =
+            serde_json::from_str(&s).expect("deserialise");
+        assert_eq!(back.payload, value_payload, "Value payload must round-trip deep-equal");
+        assert_eq!(back, envelope);
+        // Independent walk to catch any silent type coercion.
+        assert_eq!(back.payload["scalar"], 42);
+        assert_eq!(back.payload["nested"]["deep"]["unicode"], "笔记 🚀");
+        assert_eq!(back.payload["nested"]["deep"]["array"][0], 1);
+        assert_eq!(back.payload["nested"]["deep"]["array"][5], false);
+    }
+
+    #[test]
     fn mutation_envelope_vec_u8_payload_round_trips_through_serde_byte_for_byte() {
         // Phase 1 hardening — binary-payload pin for MutationEnvelope<Vec<u8>>.
         // Companion to the String-payload Unicode + JSON-special pins.
