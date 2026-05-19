@@ -2257,7 +2257,9 @@ impl SCOPERexAdmissionProof {
 
     pub fn validate(&self) -> Result<(), ACSAdmissionProofError> {
         if !self.verdict.allows_durable_commit() {
-            return Err(ACSAdmissionProofError::VerdictBlocksScopeRex);
+            return Err(ACSAdmissionProofError::VerdictBlocksScopeRex {
+                record_id: self.record_id.0.clone(),
+            });
         }
         self.record_id.validate()?;
         if acs_record_id_embeds_reserved_malformed_audit_token(&self.record_id.0) {
@@ -2274,7 +2276,9 @@ impl SCOPERexAdmissionProof {
             .validate()
             .map_err(corrupt_audit_record_proof_error)?;
         if !record.verdict.allows_durable_commit() {
-            return Err(ACSAdmissionProofError::VerdictBlocksScopeRex);
+            return Err(ACSAdmissionProofError::VerdictBlocksScopeRex {
+                record_id: record.record_id.clone(),
+            });
         }
         let record_id = AuditRecordId::new(record.record_id.clone());
         let payload = scope_rex_proof_payload(record.verdict, record.operation, &record_id.0);
@@ -2447,7 +2451,7 @@ pub enum ACSAdmissionProofError {
     InvalidRecordId,
     MissingCapabilitySignature,
     InvalidCapabilitySignature,
-    VerdictBlocksScopeRex,
+    VerdictBlocksScopeRex { record_id: String },
     RecordIdMismatch,
     OperationMismatch,
     VerdictMismatch,
@@ -2464,7 +2468,7 @@ impl ACSAdmissionProofError {
             Self::InvalidRecordId => "invalid_audit_record_id",
             Self::MissingCapabilitySignature => "missing_capability_signature",
             Self::InvalidCapabilitySignature => "invalid_capability_signature",
-            Self::VerdictBlocksScopeRex => "proof_verdict_blocks_scope_rex",
+            Self::VerdictBlocksScopeRex { .. } => "proof_verdict_blocks_scope_rex",
             Self::RecordIdMismatch => "proof_record_id_mismatch",
             Self::OperationMismatch => "proof_operation_mismatch",
             Self::VerdictMismatch => "proof_verdict_mismatch",
@@ -2478,7 +2482,7 @@ impl ACSAdmissionProofError {
             Self::MissingCapabilitySignature | Self::InvalidCapabilitySignature => {
                 Some("signature")
             }
-            Self::VerdictBlocksScopeRex => Some("verdict"),
+            Self::VerdictBlocksScopeRex { .. } => Some("verdict"),
             Self::RecordIdMismatch => Some("record_id"),
             Self::OperationMismatch => Some("operation"),
             Self::VerdictMismatch => Some("verdict"),
@@ -2489,11 +2493,11 @@ impl ACSAdmissionProofError {
     pub fn record_id(&self) -> Option<&str> {
         match self {
             Self::CorruptAuditRecord { record_id, .. } => Some(record_id.as_str()),
+            Self::VerdictBlocksScopeRex { record_id } => Some(record_id.as_str()),
             Self::MissingRecordId
             | Self::InvalidRecordId
             | Self::MissingCapabilitySignature
             | Self::InvalidCapabilitySignature
-            | Self::VerdictBlocksScopeRex
             | Self::RecordIdMismatch
             | Self::OperationMismatch
             | Self::VerdictMismatch => None,
@@ -6025,11 +6029,13 @@ mod tests {
     #[test]
     fn acs_admission_scope_rex_proof_requires_allowing_verdict() {
         let record = audit_record_fixture(ACSAdmissionVerdict::Reject);
+        let record_id = record.record_id.clone();
         let signing_key = crate::effect::receipt::HmacSha256SigningKey::new([7; 32]);
 
         let err = SCOPERexAdmissionProof::signed_from_record(&record, &signing_key).unwrap_err();
         assert_eq!(err.cause(), "proof_verdict_blocks_scope_rex");
         assert_eq!(err.field(), Some("verdict"));
+        assert_eq!(err.record_id(), Some(record_id.as_str()));
 
         let counting_key = CountingSigningKey::default();
         let err =
@@ -6044,16 +6050,18 @@ mod tests {
         .unwrap_err();
         assert_eq!(err.cause(), "proof_verdict_blocks_scope_rex");
         assert_eq!(err.field(), Some("verdict"));
+        assert_eq!(err.record_id(), Some(record_id.as_str()));
 
         let err = SCOPERexAdmissionProof::new(
             ACSAdmissionVerdict::Reject,
             ACSOperationKind::MemoryWrite,
-            AuditRecordId::new(record.record_id),
+            AuditRecordId::new(record_id.clone()),
             CapabilitySignature::new("capability-signature"),
         )
         .unwrap_err();
         assert_eq!(err.cause(), "proof_verdict_blocks_scope_rex");
         assert_eq!(err.field(), Some("verdict"));
+        assert_eq!(err.record_id(), Some(record_id.as_str()));
     }
 
     #[test]
