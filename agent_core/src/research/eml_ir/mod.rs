@@ -84,6 +84,18 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_doc_documents_fixture_fingerprint_chain() {
+        assert!(FULP_FALSIFIER_DOC.contains("## Fixture Fingerprint Chain"));
+        assert!(FULP_FALSIFIER_DOC.contains("SHA-256"));
+        assert!(FULP_FALSIFIER_DOC.contains("`operation_catalog_fingerprint`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`axis_catalog_fingerprint`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`grid_fingerprint`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`adversarial_fixture_fingerprint`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`adversarial_reference_fingerprint`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`shader_fingerprint`"));
+    }
+
+    #[test]
     fn falsifier_doc_documents_witness_schema_version_gate() {
         assert!(FULP_FALSIFIER_DOC.contains("## Witness Schema Version"));
         assert!(FULP_FALSIFIER_DOC.contains("`schema_version = 12`"));

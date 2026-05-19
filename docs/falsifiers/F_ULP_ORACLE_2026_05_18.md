@@ -65,6 +65,31 @@ freezes treat Metal output itself as proven.
 |---|---|---|---|---|---|---|
 | F-ULP-Oracle | Research | M2 Pro numeric falsifier | implemented-not-wired | `agent_core/src/research/eml_ir/`, `Epistemos/Shaders/morph_eval_reduced.metal`, `cargo test --features research research::eml_ir` | live Metal dispatch capture from `morphOracleFp16` | harden with GPU capture, subnormal/signed-zero diagnostics, WBO numerics cross-link, and Helios v3 §3.5/F7a reference |
 
+## Fixture Fingerprint Chain
+
+The witness chains six SHA-256 fingerprints that the replay path
+recomputes from canonical sources before any ULP comparison:
+
+1. `operation_catalog_fingerprint` over the catalog of `(Exp, Ln, Eml)`
+   plus their stable indices.
+2. `axis_catalog_fingerprint` over the catalog of the five `StressAxis`
+   labels plus their stable indices.
+3. `grid_fingerprint` over the 412,000-log-sampled-plus-2,048-stress grid
+   captured as serialized `FixtureInput` rows.
+4. `adversarial_fixture_fingerprint` over the 20-element adversarial fixture
+   list including each fixture's label, operation, x, and y.
+5. `adversarial_reference_fingerprint` over the deterministic
+   `f64`-then-rounded fp16 reference values for the adversarial set,
+   including a structured rejection marker for points outside the IEEE
+   finite range.
+6. `shader_fingerprint` over the `Epistemos/Shaders/morph_eval_reduced.metal`
+   source bytes pinned to `morphOracleFp16`.
+
+Any fingerprint that disagrees with its canonical recomputation aborts replay
+before per-axis or worst-case checks run, so a candidate cannot replay a
+trusted witness payload while quietly shipping a different fixture grid,
+catalog, adversarial set, reference, or shader source.
+
 ## Witness Schema Version
 
 The witness records `schema_version = 12` and replay rejects any witness
