@@ -1005,6 +1005,26 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 36th SignalOnly row (iter-311): single-term query in
+        // Lao-script domain — "ແຄ" (Lao for cache, U+0EC1
+        // U+0E84). TWENTY-SEVENTH single-term-AND domain.
+        // FIFTEENTH non-ASCII script-block. FIFTH Brahmic
+        // descendant (after Devanagari + Thai + Tibetan +
+        // Khmer). Lao is sibling-script of Thai. Token unique
+        // to iter-176's mamba_lao.md.
+        query: "ແຄ",
+        expected_paths: &["notes/mamba_lao.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Thirty-sixth SignalOnly row (iter-311): single-\
+               term Lao-script query — \"ແຄ\" (U+0EC1 U+0E84). \
+               Twenty-seventh domain for single-term-AND. \
+               Fifteenth non-ASCII script-block. Fifth Brahmic \
+               descendant (after Devanagari + Thai + Tibetan + \
+               Khmer). Brings SignalOnly to depth 36.",
+    },
+    FVaultRecallRow {
         // 35th SignalOnly row (iter-304): single-term query in
         // Khmer-script domain — "ខែ" (Khmer for cache, U+1781
         // U+17C1). TWENTY-SIXTH single-term-AND domain.
