@@ -4064,6 +4064,8 @@ const GRANTED_CAPABILITY_FIELDS: CapabilityFieldNames = CapabilityFieldNames {
     other_name: "granted_capabilities.other.name",
 };
 
+const MAX_BIOMETRIC_SESSION_TTL_SECS: u32 = 300;
+
 fn validate_capability_fields(
     capability: &Capability,
     fields: CapabilityFieldNames,
@@ -4083,7 +4085,7 @@ fn validate_capability_fields(
             }
         }
         Capability::BiometricSession { ttl_secs } => {
-            if *ttl_secs == 0 {
+            if *ttl_secs == 0 || *ttl_secs > MAX_BIOMETRIC_SESSION_TTL_SECS {
                 return Err(fields.biometric_session_ttl_secs);
             }
         }
@@ -4973,6 +4975,23 @@ mod tests {
 
         assert_eq!(err.cause(), "malformed_policy");
         assert_eq!(err.field(), Some("required_capabilities.network_host.host"));
+    }
+
+    #[test]
+    fn acs_admission_overlong_biometric_session_required_is_malformed_policy() {
+        let policy = ACSPolicy::strict("policy-overlong-biometric-session", 1_000)
+            .require_capability(
+                ACSOperationKind::KernelPromotion,
+                Capability::BiometricSession { ttl_secs: 301 },
+            );
+
+        let err = policy.validate_at(1_001).unwrap_err();
+
+        assert_eq!(err.cause(), "malformed_policy");
+        assert_eq!(
+            err.field(),
+            Some("required_capabilities.biometric_session.ttl_secs")
+        );
     }
 
     #[test]
