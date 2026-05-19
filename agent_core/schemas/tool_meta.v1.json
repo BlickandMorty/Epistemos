@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "epistemos://schemas/tool_meta.v1.json",
+  "title": "Tool result metadata envelope",
+  "description": "Universal envelope returned by every tool invocation. Plan §3.1 — pairs with `result` (the typed payload). The field name is `_meta` everywhere; never `metadata` or `meta`.",
+  "type": "object",
+  "required": ["status", "variant_used", "latency_ms", "schema_version"],
+  "additionalProperties": false,
+  "properties": {
+    "status": {
+      "enum": ["ok", "empty", "partial", "error"]
+    },
+    "variant_used": {
+      "enum": ["a", "b", "c", "d", "e", "f", "g", "h", "last"],
+      "description": "Slot in the variant ladder (§3.2). `last` is a sentinel set by the runner when all variants were exhausted."
+    },
+    "latency_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "power_state": {
+      "enum": ["ac_nominal", "ac_hot", "battery_nominal", "battery_hot"]
+    },
+    "cache_hit": {
+      "type": "boolean"
+    },
+    "model_id": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "epistemos://schemas/mem.v1.json",
+  "title": "Epistemos .mem header",
+  "description": "Hybrid JSON+Markdown memory entry — single-line ---{json}--- header followed by Markdown body. Plan §2.2 (header), §24.3 (13-type enum), §24.2 (verbatim invariant).",
+  "type": "object",
+  "required": ["$schema", "id", "type", "ts"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "const": "epistemos://schemas/mem.v1.json",
+      "description": "Mandatory; must match this schema's $id."
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$",
+      "description": "ULID (26-char Crockford base32, no I/L/O/U)."
+    },
+    "type": {
+      "enum": [
+        "identity", "preference", "goal", "project", "habit",
+        "decision", "constraint", "relationship", "episode", "reflection",
+        "capture", "semantic", "procedural"
+      ],
+      "description": "Mercury's 10 + Epistemos's 3 (capture/semantic/procedural). §24.3."
+    },
+    "ts": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the entry was created (RFC 3339 / ISO 8601)."
+    },
+    "actor": {
+      "enum": ["user", "agent", "system"],
+      "description": "Who produced the entry."
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "maxItems": 16,
+      "uniqueItems": true
+    },
+    "links": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "maxItems": 64,
+      "uniqueItems": true
+    },
+    "salience": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "signals": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "access_count": { "type": "integer", "minimum": 0 },
+        "last_accessed": { "type": "string", "format": "date-time" },
+        "explicit_importance": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": { "type": "string", "minLength": 1 },
+        "device": { "type": "string", "minLength": 1 },
+        "tool_chain": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}
