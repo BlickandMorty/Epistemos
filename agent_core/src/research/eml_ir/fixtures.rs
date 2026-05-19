@@ -6,7 +6,7 @@ pub const CLOSED_INTERVAL_MAX: f64 = 2.0;
 pub const LOG_SAMPLED_POINT_COUNT: usize = 412_000;
 pub const STRESS_POINT_COUNT: usize = 2_048;
 pub const TOTAL_FIXTURE_COUNT: usize = LOG_SAMPLED_POINT_COUNT + STRESS_POINT_COUNT;
-pub const ADVERSARIAL_FIXTURE_COUNT: usize = 20;
+pub const ADVERSARIAL_FIXTURE_COUNT: usize = 21;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum FixtureKind {
@@ -233,12 +233,19 @@ pub fn adversarial_fixture(index: usize) -> AdversarialFixture {
             -0.0,
             1.0,
         ),
-        _ => adversarial(
+        19 => adversarial(
             index,
             "ln_one_exact_zero",
             AdversarialOperation::Ln,
             1.0,
             1.0,
+        ),
+        _ => adversarial(
+            index,
+            "ln_fp16_min_negative_subnormal",
+            AdversarialOperation::Ln,
+            1.0,
+            Fp16Bits::from_bits(0x8001).to_f64(),
         ),
     }
 }
@@ -344,7 +351,8 @@ fn is_negative_infinity(value: f64) -> bool {
 
 #[cfg(test)]
 fn is_subnormal_probe(value: f64) -> bool {
-    value.is_subnormal() || matches!(Fp16Bits::from_f64(value).bits(), 0x0001..=0x03ff)
+    value.is_subnormal()
+        || matches!(Fp16Bits::from_f64(value).bits(), 0x0001..=0x03ff | 0x8001..=0x83ff)
 }
 
 fn adversarial(
@@ -607,7 +615,7 @@ mod tests {
 
     #[test]
     fn adversarial_fixtures_pin_subnormal_count() {
-        assert_eq!(adversarial_subnormal_fixture_count(), 4);
+        assert_eq!(adversarial_subnormal_fixture_count(), 5);
     }
 
     #[test]
@@ -664,7 +672,7 @@ mod tests {
 
     #[test]
     fn adversarial_fixtures_cover_eml_exact_zero_exp_branch() {
-        assert_eq!(ADVERSARIAL_FIXTURE_COUNT, 20);
+        assert_eq!(ADVERSARIAL_FIXTURE_COUNT, 21);
 
         let positive_zero = adversarial_fixture(17);
         assert_eq!(positive_zero.label, "eml_exp_positive_zero");
@@ -688,6 +696,17 @@ mod tests {
         assert_eq!(ln_one.operation, AdversarialOperation::Ln);
         assert_eq!(ln_one.x, 1.0);
         assert_eq!(ln_one.y, 1.0);
+    }
+
+    #[test]
+    fn adversarial_fixtures_cover_ln_negative_fp16_subnormal() {
+        assert_eq!(ADVERSARIAL_FIXTURE_COUNT, 21);
+        let negative_subnormal = adversarial_fixture(20);
+        assert_eq!(negative_subnormal.label, "ln_fp16_min_negative_subnormal");
+        assert_eq!(negative_subnormal.operation, AdversarialOperation::Ln);
+        assert_eq!(negative_subnormal.x, 1.0);
+        assert_eq!(negative_subnormal.y, Fp16Bits::from_bits(0x8001).to_f64());
+        assert!(negative_subnormal.y.is_sign_negative());
     }
 
     #[test]
