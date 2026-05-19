@@ -160,6 +160,7 @@ assert non_none_notes_include_review_timestamp_token(artifact.notes)
 assert notes_reviewer_token_not_reserved_anonymous_identity(artifact.notes)
 assert notes_required_tokens_are_semicolon_delimited(artifact.notes)
 assert notes_length_within_schema_cap(artifact.notes)
+assert migration_notes_parse_positive_increasing_notes_cap_tokens(artifact.notes)
 assert notes_machine_token_keys_are_schema_owned(artifact.notes)
 assert negative_catalog.frontmatter.invalid_example_count == count_sections_matching("^## N")
 assert all_negative_examples_fail_validation(negative_catalog)
@@ -319,6 +320,10 @@ ruby -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md");
 
 ```bash
 ruby -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); abort("notes length cap order rule missing") unless s.include?("notes_length_new_cap` must be greater than `notes_length_old_cap"); puts "notes length cap order ok"'
+```
+
+```bash
+ruby -e 's=File.read("docs/falsifiers/ARTIFACT_VALIDATOR_SHAPE_2026_05_18.md"); abort("notes cap parse pseudo-code missing") unless s.include?("migration_notes_parse_positive_increasing_notes_cap_tokens"); puts "notes cap parse pseudo-code ok"'
 ```
 
 ```bash
