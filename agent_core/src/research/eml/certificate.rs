@@ -174,7 +174,7 @@ fn closed_branch_safe_term(expr: &EmlExpr) -> Option<String> {
 fn branch_safe_proof_source(expr: &EmlExpr) -> String {
     closed_branch_safe_term(expr).map_or_else(
         || {
-            "exact branchWitness.branch_safe"
+            "exact Epistemos.EML.RuntimeBranchSafeWitness.carries branchWitness"
                 .to_string()
         },
         |term| format!("exact {term}"),
@@ -658,7 +658,7 @@ mod tests {
         let p = b.try_into_positive().unwrap();
         let c = lean_certificate(&p);
         assert!(c.contains("Epistemos.EML.RuntimeBranchSafeWitness"));
-        assert!(c.contains("exact branchWitness.branch_safe"));
+        assert!(c.contains("exact Epistemos.EML.RuntimeBranchSafeWitness.carries branchWitness"));
         assert_eq!(c.matches("sorry").count(), 0);
     }
 

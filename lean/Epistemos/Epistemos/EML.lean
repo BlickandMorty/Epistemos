@@ -125,6 +125,11 @@ instead of emitting a hidden proof body. -/
 structure RuntimeBranchSafeWitness (expr : Expr) where
   branch_safe : BranchSafe expr
 
+theorem RuntimeBranchSafeWitness.carries
+    {expr : Expr} (w : RuntimeBranchSafeWitness expr) :
+    BranchSafe expr := by
+  exact w.branch_safe
+
 theorem CertificateTarget.dataFieldsMatch
     (c : CertificateTarget) (expr : Expr) (value : ℝ)
     (exprMatches : c.expr = expr)
