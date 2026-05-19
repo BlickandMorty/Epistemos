@@ -175,7 +175,7 @@ pub fn lean_certificate(expr: &InfoExpr) -> String {
          -- Family: {family}\n\
          -- Schema: lean/Epistemos/Epistemos/Info.lean\n\
          -- Schema module built with explicit ~/.elan/bin PATH; obligations sharpened through iter-706.\n\
-         -- Generated Info proof bodies close from schema fields.\n\
+         -- Generated Info proof bodies route through schema carry lemmas.\n\
          import Epistemos.Info\n\
          \n\
          namespace Epistemos.Info.Generated\n\
@@ -400,7 +400,8 @@ mod tests {
         assert!(c.contains(
             "Schema module built with explicit ~/.elan/bin PATH; obligations sharpened through iter-706"
         ));
-        assert!(c.contains("Generated Info proof bodies close from schema fields"));
+        assert!(c.contains("Generated Info proof bodies route through schema carry lemmas"));
+        assert!(!c.contains("Generated Info proof bodies close from schema fields"));
         assert!(!c.contains("Generated proof bodies remain sorry-tracked"));
         assert!(!c.contains("lake build remains gated"));
     }
