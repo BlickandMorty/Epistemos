@@ -525,6 +525,77 @@ mod tests {
     }
 
     #[test]
+    fn tool_call_error_struct_variants_field_shapes_pinned_via_destructure() {
+        // Phase 1 hardening — field-shape pin for ToolCallError's
+        // 4 struct-variants (BadName, OversizeName, BadArguments,
+        // OversizeArguments). Companion to mission_prompt_error
+        // iter-454, budget_error::exhausted iter-455,
+        // log_validation_error iter-456.
+        //
+        // Each struct variant carries an EXACT field count + type
+        // signature; pin via destructure compile-fail + type
+        // assertions per field.
+        //
+        // - BadName { name: String, bad_char: char, index: usize } → 3
+        // - OversizeName { size: usize, cap: usize } → 2
+        // - BadArguments(String) → 1 tuple field
+        // - OversizeArguments { size: usize, cap: usize } → 2
+        // - EmptyName (no fields)
+        //
+        // A future variant-payload extension would silently shuffle
+        // audit log shape; surface here.
+        let bad_name = ToolCallError::BadName {
+            name: "n".into(),
+            bad_char: ' ',
+            index: 5,
+        };
+        match bad_name {
+            ToolCallError::BadName { name, bad_char, index } => {
+                let _: String = name;
+                let _: char = bad_char;
+                let _: usize = index;
+            }
+            _ => unreachable!(),
+        }
+
+        let oversize_name = ToolCallError::OversizeName { size: 999, cap: 256 };
+        match oversize_name {
+            ToolCallError::OversizeName { size, cap } => {
+                let _: usize = size;
+                let _: usize = cap;
+            }
+            _ => unreachable!(),
+        }
+
+        let bad_args = ToolCallError::BadArguments("bad json".into());
+        match bad_args {
+            ToolCallError::BadArguments(msg) => {
+                let _: String = msg;
+            }
+            _ => unreachable!(),
+        }
+
+        let oversize_args = ToolCallError::OversizeArguments {
+            size: 99_999,
+            cap: 65_536,
+        };
+        match oversize_args {
+            ToolCallError::OversizeArguments { size, cap } => {
+                let _: usize = size;
+                let _: usize = cap;
+            }
+            _ => unreachable!(),
+        }
+
+        // EmptyName is a unit variant.
+        let empty = ToolCallError::EmptyName;
+        match empty {
+            ToolCallError::EmptyName => {}
+            _ => unreachable!(),
+        }
+    }
+
+    #[test]
     fn tool_call_error_bad_name_inner_fields_are_identity_load_bearing() {
         // Phase 1 hardening — inner-field distinctness pin
         // (companion to iter-194/195/196 inner pins).
