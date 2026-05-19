@@ -135,7 +135,8 @@ pub fn lean_certificate(op: &OperatorExpr) -> String {
          \x20 rfl\n\
          \n\
          theorem operator_dim_consistency_{suffix}\n\
-         \x20   (dimMatchWitness : operator_expr_{suffix}.dimMatch) :\n\
+         \x20   (dimMatchWitness :\n\
+         \x20     operator_expr_{suffix}.branch.outputDim = operator_expr_{suffix}.trunk.outputDim) :\n\
          \x20   operator_expr_{suffix}.branch.outputDim = operator_expr_{suffix}.trunk.outputDim := by\n\
          \x20 exact dimMatchWitness\n\
          \n\
@@ -189,7 +190,9 @@ mod tests {
         assert!(c.contains("(dimMatchWitness :"));
         assert!(c.contains("exact dimMatchWitness"));
         assert!(!c.contains("exact operator_expr_"));
-        assert!(c.contains(".dimMatch"));
+        assert!(c.contains(".branch.outputDim = operator_expr_"));
+        assert!(c.contains(".trunk.outputDim"));
+        assert!(!c.contains("dimMatchWitness : operator_expr_"));
     }
 
     #[test]

@@ -68,6 +68,12 @@ theorem dim_consistent (op : Expr) :
     op.branch.outputDim = op.trunk.outputDim :=
   op.dimMatch
 
+theorem dimWitnessCarries
+    (op : Expr)
+    (dimMatchWitness : op.branch.outputDim = op.trunk.outputDim) :
+    op.branch.outputDim = op.trunk.outputDim := by
+  exact dimMatchWitness
+
 end Expr
 
 def fourierModeBound (modes : Nat) : Prop :=
