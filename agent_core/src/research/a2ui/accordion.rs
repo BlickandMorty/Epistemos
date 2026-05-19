@@ -34,6 +34,36 @@ pub enum AccordionError {
     MultiExpandViolation,
 }
 
+impl AccordionError {
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            AccordionError::Empty => "empty",
+            AccordionError::EmptyKey { .. } => "empty_key",
+            AccordionError::DuplicateKey => "duplicate_key",
+            AccordionError::MultiExpandViolation => "multi_expand_violation",
+        }
+    }
+
+    /// Predicate: error pertains to a key collision or empty-key field
+    /// (EmptyKey / DuplicateKey).
+    pub const fn is_key_error(&self) -> bool {
+        matches!(
+            self,
+            AccordionError::EmptyKey { .. } | AccordionError::DuplicateKey,
+        )
+    }
+
+    /// Predicate: error pertains to the size/cardinality contract
+    /// (Empty / MultiExpandViolation). Cross-surface invariant:
+    /// `is_key_error XOR is_cardinality_error` partitions all variants.
+    pub const fn is_cardinality_error(&self) -> bool {
+        matches!(
+            self,
+            AccordionError::Empty | AccordionError::MultiExpandViolation,
+        )
+    }
+}
+
 impl AccordionProps {
     pub fn validate(&self) -> Result<(), AccordionError> {
         if self.items.is_empty() {
@@ -55,6 +85,31 @@ impl AccordionProps {
             }
         }
         Ok(())
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.validate().is_ok()
+    }
+
+    /// Number of items.
+    pub fn item_count(&self) -> usize {
+        self.items.len()
+    }
+
+    /// Number of items currently expanded.
+    pub fn expanded_count(&self) -> usize {
+        self.items.iter().filter(|i| i.expanded).count()
+    }
+
+    /// Predicate: any item is expanded. Cross-surface invariant:
+    /// `has_expanded iff expanded_count() > 0`.
+    pub fn has_expanded(&self) -> bool {
+        self.expanded_count() > 0
+    }
+
+    /// Lookup an item by key. Returns `None` for missing keys.
+    pub fn lookup(&self, key: &str) -> Option<&AccordionItem> {
+        self.items.iter().find(|i| i.key == key)
     }
 }
 
@@ -126,5 +181,80 @@ mod tests {
         let json = serde_json::to_string(&a).unwrap();
         let back: AccordionProps = serde_json::from_str(&json).unwrap();
         assert_eq!(a, back);
+    }
+
+    // ── diagnostic surface (iter 210) ────────────────────────────────────────
+
+    #[test]
+    fn error_cause_distinct_per_variant() {
+        let variants = [
+            AccordionError::Empty,
+            AccordionError::EmptyKey { index: 0 },
+            AccordionError::DuplicateKey,
+            AccordionError::MultiExpandViolation,
+        ];
+        let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
+        assert_eq!(causes.len(), 4);
+    }
+
+    #[test]
+    fn error_classifiers_partition() {
+        // Cross-surface invariant: is_key_error XOR is_cardinality_error.
+        for e in [
+            AccordionError::Empty,
+            AccordionError::EmptyKey { index: 0 },
+            AccordionError::DuplicateKey,
+            AccordionError::MultiExpandViolation,
+        ] {
+            assert_ne!(e.is_key_error(), e.is_cardinality_error());
+        }
+    }
+
+    #[test]
+    fn item_count_matches_vec_len() {
+        let a = AccordionProps {
+            items: vec![item("a", false), item("b", false), item("c", true)],
+            allow_multi_expand: false,
+        };
+        assert_eq!(a.item_count(), 3);
+    }
+
+    #[test]
+    fn expanded_count_and_has_expanded_aligned() {
+        // Cross-surface invariant: has_expanded iff expanded_count() > 0.
+        let none = AccordionProps {
+            items: vec![item("a", false), item("b", false)],
+            allow_multi_expand: false,
+        };
+        assert_eq!(none.expanded_count(), 0);
+        assert!(!none.has_expanded());
+
+        let some = AccordionProps {
+            items: vec![item("a", false), item("b", true), item("c", true)],
+            allow_multi_expand: true,
+        };
+        assert_eq!(some.expanded_count(), 2);
+        assert!(some.has_expanded());
+    }
+
+    #[test]
+    fn lookup_finds_existing_and_misses_absent() {
+        let a = AccordionProps {
+            items: vec![item("a", false), item("b", true)],
+            allow_multi_expand: true,
+        };
+        assert_eq!(a.lookup("a").unwrap().key, "a");
+        assert!(a.lookup("b").unwrap().expanded);
+        assert!(a.lookup("zzz").is_none());
+    }
+
+    #[test]
+    fn is_valid_matches_validate_ok() {
+        let good = AccordionProps {
+            items: vec![item("a", false)],
+            allow_multi_expand: false,
+        };
+        assert_eq!(good.is_valid(), good.validate().is_ok());
+        assert!(good.is_valid());
     }
 }
