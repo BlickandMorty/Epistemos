@@ -824,6 +824,46 @@ mod tests {
     }
 
     #[test]
+    fn envelope_log_summary_tokens_and_tool_calls_reflect_debit_values() {
+        // Phase 1 hardening — log_summary semantic pin (companion to
+        // the Display semantic-pin family iter-488..iter-491).
+        //
+        // MutationEnvelope::log_summary format includes:
+        //   "envelope{{cap=<8hex>, tokens={}, tool_calls={}}}"
+        // (envelope.rs §86) where tokens and tool_calls track
+        // self.debit.tokens and self.debit.tool_calls respectively.
+        //
+        // Pin that the rendered values match the underlying debit
+        // fields across representative inputs. A future "let me
+        // also include wall_ms in the summary" refactor would
+        // shuffle the field order; pin via value-content matching
+        // (separately from the shape pins).
+        let cases = [
+            (0u64, 0u64),
+            (1, 1),
+            (1_000, 5),
+            (999_999, 100),
+            (u64::MAX, u64::MAX),
+        ];
+        for (tokens, tool_calls) in cases {
+            let envelope = MutationEnvelope::new(
+                Hash::zero(),
+                BudgetDebit { tokens, tool_calls, ..Default::default() },
+                "payload".to_string(),
+            );
+            let summary = envelope.log_summary();
+            assert!(
+                summary.contains(&format!("tokens={tokens}")),
+                "log_summary must show tokens={tokens}, got: {summary}"
+            );
+            assert!(
+                summary.contains(&format!("tool_calls={tool_calls}")),
+                "log_summary must show tool_calls={tool_calls}, got: {summary}"
+            );
+        }
+    }
+
+    #[test]
     fn envelope_log_summary_starts_with_literal_envelope_brace_prefix() {
         // Phase 1 hardening — wire-shape pin (companion to
         // answer_packet_display_starts_with_literal_struct_name_prefix
