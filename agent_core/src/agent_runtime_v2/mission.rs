@@ -1794,6 +1794,37 @@ mod tests {
     }
 
     #[test]
+    fn mission_packet_and_tool_call_fields_are_pub_per_field_visibility_doctrine() {
+        // Phase 1 hardening — field-visibility pin pair for
+        // MissionPacket + ToolCall (companion to the field-visibility
+        // pin family iter-505..iter-508).
+        //
+        // MissionPacket: 3 pub fields
+        //   - blueprint_id, user_prompt, vault_scope
+        // ToolCall: 2 pub fields
+        //   - name, arguments
+        //
+        // Future "let me hide user_prompt behind a getter for size
+        // safety" or "let me hide arguments behind a typed accessor"
+        // refactors would silently break direct-field call sites.
+        let mp = MissionPacket {
+            blueprint_id: AgentBlueprintId("p".into()),
+            user_prompt: "u".into(),
+            vault_scope: "v".into(),
+        };
+        assert_eq!(mp.blueprint_id.0, "p");
+        assert_eq!(mp.user_prompt, "u");
+        assert_eq!(mp.vault_scope, "v");
+
+        let tc = ToolCall {
+            name: "vault.read".into(),
+            arguments: serde_json::json!({"k": "v"}),
+        };
+        assert_eq!(tc.name, "vault.read");
+        assert_eq!(tc.arguments["k"], "v");
+    }
+
+    #[test]
     fn mission_packet_and_tool_call_struct_field_shapes_pinned_via_destructure() {
         // Phase 1 hardening — struct-field-shape pin pair for
         // MissionPacket + ToolCall (companion to AnswerPacket
