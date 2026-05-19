@@ -31,6 +31,10 @@ inductive Expr where
   | eml : Expr -> Expr -> Expr
 deriving Repr, DecidableEq
 
+/-- EML's schema-level term algebra has one terminal constructor
+and one binary primitive constructor. -/
+def exprConstructorCount : Nat := 2
+
 namespace Expr
 
 /-- Reference real semantics for the EML primitive. Rust executes the
@@ -125,5 +129,9 @@ structure BranchObligation where
 theorem BranchObligation.discharge (o : BranchObligation) :
     BranchSafe (.eml o.left o.right) :=
   BranchSafe.eml o.left_safe o.right_safe o.right_positive
+
+theorem exprConstructorCountPinned :
+    exprConstructorCount = 2 := by
+  rfl
 
 end Epistemos.EML
