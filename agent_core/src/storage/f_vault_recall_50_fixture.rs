@@ -1005,6 +1005,40 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 41st SignalOnly row (iter-347): single-term query in
+        // Coptic-script domain — "ⲕ" (kapa, U+2CB1, single
+        // codepoint). THIRTY-SECOND single-term-AND domain.
+        // NINETEENTH non-ASCII script-block. FIRST Greek-
+        // descendant script in SignalOnly (Coptic was used
+        // historically for the Egyptian language during the
+        // Christian era; it descends from the Greek alphabet).
+        // Together with iter-325 Sinhala (Brahmic completion),
+        // iter-332 Syriac + iter-339 Mongolian (Aramaic
+        // family), SignalOnly now covers FOUR distinct
+        // genealogical family branches at single-term-AND:
+        // Brahmic (7 descendants), Aramaic (2 descendants),
+        // Latin-diacritic (1), Greek-descendant (1) — plus
+        // standalone scripts (CJK, Arabic, Greek, Hebrew,
+        // Hangul, Armenian, Georgian, Ethiopic). Token unique
+        // to iter-279's mamba_coptic.md.
+        query: "ⲕ",
+        expected_paths: &["notes/mamba_coptic.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Forty-first SignalOnly row (iter-347): single-\
+               term Coptic-script query — \"ⲕ\" (U+2CB1). \
+               Thirty-second domain for single-term-AND. \
+               Nineteenth non-ASCII script-block. FIRST Greek-\
+               descendant script in SignalOnly. SignalOnly now \
+               covers FOUR distinct genealogical family \
+               branches at single-term-AND: Brahmic (7) + \
+               Aramaic (2) + Latin-diacritic (1) + Greek-\
+               descendant (1). Seventh single-codepoint non-\
+               ASCII token. Brings SignalOnly to depth 41 — \
+               first category past depth-40 horizon.",
+    },
+    FVaultRecallRow {
         // 40th SignalOnly row (iter-339): single-term query in
         // Mongolian-script domain — "ᠺ" (kha, U+183A, single
         // codepoint). THIRTY-FIRST single-term-AND domain.
