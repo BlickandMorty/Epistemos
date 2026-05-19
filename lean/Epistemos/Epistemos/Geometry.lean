@@ -143,6 +143,12 @@ def cliffordBasisSquares : Prop :=
 def cliffordBasisAnticommutative : Prop :=
   ∀ {G : Type u} [CliffordAlgebra G], CliffordAlgebra.basisAnticommutative (G := G)
 
+theorem cliffordBasisAxiomsFromWitnesses
+    (squares : cliffordBasisSquares.{u})
+    (anticommutative : cliffordBasisAnticommutative.{u}) :
+    cliffordBasisSquares.{u} ∧ cliffordBasisAnticommutative.{u} := by
+  exact ⟨squares, anticommutative⟩
+
 def rotorSandwichPreservesNorm (rotor : RotorSchema) : Prop :=
   rotor.isRotorCandidate ∧ rotor.unitNorm
 
