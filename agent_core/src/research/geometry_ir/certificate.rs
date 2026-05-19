@@ -131,6 +131,13 @@ pub fn lean_certificate(rotor: &Multivector) -> String {
          \x20   geometry_composition_obligation_{suffix}\n\
          \x20   rfl rfl rfl\n\
          \n\
+         theorem geometry_certificate_sandwich_field_{suffix} :\n\
+         \x20   geometry_certificate_{suffix}.sandwichIsometry = geometry_sandwich_obligation_{suffix} := by\n\
+         \x20 exact Epistemos.Geometry.CertificateTarget.sandwichIsometryMatches\n\
+         \x20   geometry_certificate_{suffix}\n\
+         \x20   geometry_sandwich_obligation_{suffix}\n\
+         \x20   rfl\n\
+         \n\
          theorem clifford_basis_axioms_{suffix}\n\
          \x20   (basisSquaresWitness : geometry_clifford_obligation_{suffix}.basisSquares)\n\
          \x20   (basisAnticommutativeWitness : geometry_clifford_obligation_{suffix}.basisAnticommutative) :\n\
@@ -302,6 +309,8 @@ mod tests {
     fn cert_projects_geometry_target_rotor_pair() {
         let r = Multivector::scalar(1.0);
         let c = lean_certificate(&r);
+        assert!(c.contains("theorem geometry_certificate_sandwich_field_"));
+        assert!(c.contains("Epistemos.Geometry.CertificateTarget.sandwichIsometryMatches"));
         assert!(c.contains("theorem geometry_certificate_rotor_obligations_"));
         assert!(c.contains("exact Epistemos.Geometry.CertificateTarget.rotorObligations"));
         assert!(c.contains("geometry_certificate_"));

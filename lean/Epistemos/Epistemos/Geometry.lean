@@ -214,6 +214,13 @@ theorem obligationFieldsMatch
       c.composition = composition := by
   exact ⟨cliffordMatches, sandwichMatches, compositionMatches⟩
 
+theorem sandwichIsometryMatches
+    (c : CertificateTarget)
+    (obligation : RotorSandwichObligation)
+    (stored : c.sandwichIsometry = obligation) :
+    c.sandwichIsometry = obligation := by
+  exact stored
+
 theorem rotorSchemaCarries
     (c : CertificateTarget)
     (candidateWitness : c.rotor.isRotorCandidate)

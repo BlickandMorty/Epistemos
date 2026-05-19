@@ -71,6 +71,14 @@ theorem rotor_sandwich_isometry_sample :
     geometry_sandwich_obligation_sample.preservesNorm := by
   exact Epistemos.Geometry.identityRotorCertificateObligations.left
 
+theorem geometry_certificate_sandwich_field_sample :
+    geometry_certificate_sample.sandwichIsometry =
+      geometry_sandwich_obligation_sample := by
+  exact Epistemos.Geometry.CertificateTarget.sandwichIsometryMatches
+    geometry_certificate_sample
+    geometry_sandwich_obligation_sample
+    rfl
+
 theorem rotor_composition_sample :
     geometry_composition_obligation_sample.associativeSandwich := by
   exact Epistemos.Geometry.identityRotorCertificateObligations.right
