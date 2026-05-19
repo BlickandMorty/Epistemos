@@ -40,6 +40,10 @@ structure KLDivergence where
 /-- The information-geometric ½ KL bridge constant. -/
 def klBridgeFactor : Float := 0.5
 
+/-- Full Fisher matrix lifting is gated on the information-geometry
+substrate; this H13 scaffold exposes only the scalar bridge. -/
+def fullMatrixLiftGated : Bool := true
+
 def fisherQuadraticScalar (f : FisherInformation) (dp : Float) : Float :=
   f.metric_scalar * (dp * dp)
 
@@ -51,6 +55,10 @@ theorem klDivergenceEqualsHalfFisherQuadraticForm : klBridgeFactor = 0.5 := by
 
 theorem halfFisherQuadraticScalarExpands (f : FisherInformation) (dp : Float) :
     halfFisherQuadraticScalar f dp = 0.5 * (f.metric_scalar * (dp * dp)) := by
+  rfl
+
+theorem fullMatrixLiftRemainsGated :
+    fullMatrixLiftGated = true := by
   rfl
 
 end Epistemos.H13
