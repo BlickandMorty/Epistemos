@@ -955,13 +955,23 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
                     kind: FulpInvalidJsonKind::MissingField,
                 });
             };
-            if evaluated_value.as_u64().is_none() {
+            let Some(evaluated) = evaluated_value.as_u64() else {
                 return Err(FulpReplayError::InvalidJson {
                     message: format!(
                         "invalid type for stats[{operation_index}].axis_stats[{axis_index}].evaluated, expected unsigned integer"
                     ),
                     kind: FulpInvalidJsonKind::TypeMismatch,
                 });
+            };
+            if let Some(operation_evaluations) = operation_evaluations {
+                if evaluated > operation_evaluations {
+                    return Err(FulpReplayError::InvalidJson {
+                        message: format!(
+                            "number out of range for stats[{operation_index}].axis_stats[{axis_index}].evaluated, expected <= operation_evaluations"
+                        ),
+                        kind: FulpInvalidJsonKind::NumberOutOfRange,
+                    });
+                }
             }
             let Some(max_ulp_value) = axis_stat.get("max_ulp") else {
                 return Err(FulpReplayError::InvalidJson {
@@ -2385,6 +2395,28 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats[0].axis_stats[0].evaluated"));
+    }
+
+    #[test]
+    fn replay_rejects_axis_evaluated_above_operation_evaluations_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        let operation_evaluations = value["operation_evaluations"]
+            .as_u64()
+            .expect("operation evaluations");
+        value["stats"][0]["axis_stats"][0]["evaluated"] =
+            serde_json::Value::Number(serde_json::Number::from(operation_evaluations + 1));
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json)
+            .expect_err("axis evaluated above operation evaluations must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
         );
         assert!(error
             .invalid_json_message()
