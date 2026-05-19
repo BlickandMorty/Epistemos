@@ -210,3 +210,15 @@ pub fn adversarial_query_fixture_catalog_static_surface_is_complete() -> bool {
         && adversarial_query_fixture_catalog_descriptions_match_fixture_rows()
         && adversarial_query_fixture_catalog_indices_match_fixture_rows()
 }
+
+pub fn adversarial_query_fixture_labels_are_ascii_lowercase_kebab_case() -> bool {
+    ADVERSARIAL_QUERY_FIXTURE_LABELS.iter().all(|label| {
+        !label.is_empty()
+            && label.bytes().all(|byte| {
+                byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-'
+            })
+            && !label.starts_with('-')
+            && !label.ends_with('-')
+            && !label.contains("--")
+    })
+}
