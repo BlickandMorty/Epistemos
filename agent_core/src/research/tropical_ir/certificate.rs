@@ -262,13 +262,15 @@ pub fn lean_certificate_rational(r: &TropicalRational) -> String {
          \x20   Epistemos.Tropical.RationalRepresentationObligation tropical_rational_form_{suffix} :=\n\
          \x20   Epistemos.Tropical.RationalRepresentationObligation.refl tropical_rational_form_{suffix}\n\
          \n\
-         theorem tropical_rational_numerator_shape_{suffix} :\n\
+         theorem tropical_rational_numerator_shape_{suffix}\n\
+         \x20   (numeratorShapeWitness : tropical_rational_obligation_{suffix}.numeratorShape) :\n\
          \x20   tropical_rational_form_{suffix}.numerator = tropical_rational_form_{suffix}.numerator := by\n\
-         \x20 exact tropical_rational_obligation_{suffix}.numeratorShape\n\
+         \x20 exact numeratorShapeWitness\n\
          \n\
-         theorem tropical_rational_denominator_shape_{suffix} :\n\
+         theorem tropical_rational_denominator_shape_{suffix}\n\
+         \x20   (denominatorShapeWitness : tropical_rational_obligation_{suffix}.denominatorShape) :\n\
          \x20   tropical_rational_form_{suffix}.denominator = tropical_rational_form_{suffix}.denominator := by\n\
-         \x20 exact tropical_rational_obligation_{suffix}.denominatorShape\n\
+         \x20 exact denominatorShapeWitness\n\
          \n\
          noncomputable def tropical_rational_certificate_{suffix} : Epistemos.Tropical.RationalCertificateTarget :=\n\
          \x20   {{ rational := tropical_rational_form_{suffix}\n\
@@ -490,6 +492,11 @@ mod tests {
         assert!(c.contains("def tropical_rational_obligation_"));
         assert!(c.contains("Epistemos.Tropical.RationalRepresentationObligation.refl"));
         assert!(c.contains("representation := tropical_rational_obligation_"));
+        assert!(c.contains("(numeratorShapeWitness :"));
+        assert!(c.contains("exact numeratorShapeWitness"));
+        assert!(c.contains("(denominatorShapeWitness :"));
+        assert!(c.contains("exact denominatorShapeWitness"));
+        assert!(!c.contains("exact tropical_rational_obligation_"));
         assert!(!c.contains("numeratorShape := rfl"));
         assert!(!c.contains("form_matches := tropical_rational_form_matches_"));
     }
