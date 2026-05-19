@@ -833,6 +833,21 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_egyptian.md",
             "Mamba 𓀀 cache Mamba 𓀀 cache architecture notes egyptian",
         ),
+        // Iter-315 (36th Unicode — Cuneiform extension): Latin
+        // "Mamba" + Cuneiform "𒀀" (sign A, U+12000) + Latin
+        // "cache". Cuneiform (ca. 3200 BCE - 75 CE) is the
+        // OLDEST writing system jointly with Egyptian Hieroglyphs
+        // — used for Sumerian, Akkadian, Hittite. Logosyllabic
+        // typology (mixed logograms + syllabic signs). FIFTH
+        // SMP-plane codepoint. Thirty-four non-Latin scripts
+        // pinned (+ Cuneiform). Together with Egyptian
+        // Hieroglyphs the pin set now covers BOTH parallel
+        // origin points of writing (Mesopotamia + Egypt, both
+        // emerged independently ~3200 BCE).
+        (
+            "notes/mamba_cuneiform.md",
+            "Mamba 𒀀 cache Mamba 𒀀 cache architecture notes cuneiform",
+        ),
     ];
     for (path, content) in seeds {
         store

@@ -1706,6 +1706,32 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                is no longer aspirational, it's met.",
     },
     FVaultRecallRow {
+        // 36th Unicode row (iter-315): Cuneiform extension.
+        // Adds a 34th non-Latin script (Cuneiform, U+12000–
+        // U+123FF) — JOINT oldest writing system with Egyptian
+        // Hieroglyphs (both emerged independently ca. 3200
+        // BCE). Used for Sumerian, Akkadian, Hittite.
+        // Logosyllabic typology. Pin set now covers BOTH
+        // parallel origin points of writing (Mesopotamia +
+        // Egypt). FIFTH SMP-plane codepoint. Latin "Mamba" +
+        // Cuneiform "𒀀" (sign A, U+12000) + Latin "cache".
+        query: "Mamba 𒀀 cache",
+        expected_paths: &["notes/mamba_cuneiform.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::Unicode,
+        top_n: 5,
+        note: "Thirty-sixth Unicode row (iter-315): Cuneiform \
+               extension. THIRTY-FOUR non-Latin scripts pinned. \
+               Cuneiform (ca. 3200 BCE - 75 CE) is the JOINT \
+               oldest writing system with Egyptian Hieroglyphs \
+               — both emerged independently ~3200 BCE. \
+               Logosyllabic typology. Pin set now covers BOTH \
+               parallel origin points of writing (Mesopotamia + \
+               Egypt). Fifth SMP-plane codepoint. Brings \
+               Unicode to depth 36 — closes **uniform-≥-36 \
+               milestone**.",
+    },
+    FVaultRecallRow {
         // 35th Unicode row (iter-308): Egyptian Hieroglyph
         // extension. Adds a 33rd non-Latin script (Egyptian
         // Hieroglyphs, U+13000–U+1342F) — the OLDEST writing
