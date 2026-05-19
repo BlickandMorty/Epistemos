@@ -135,6 +135,19 @@ theorem oneCertificateTargetEvalPositive :
     0 < Expr.eval oneCertificateTarget.expr :=
   CertificateTarget.eval_positive oneCertificateTarget
 
+noncomputable def rightOneCertificateTarget (x : Expr)
+    (hx : BranchSafe x) : CertificateTarget :=
+  { expr := Expr.eml x Expr.one
+    value := Expr.eval (Expr.eml x Expr.one)
+    branch_safe := eml_right_one_branch_safe hx
+    value_matches := rfl
+    positive_value := eval_eml_right_one_positive x }
+
+theorem rightOneCertificateTargetEvalPositive (x : Expr)
+    (hx : BranchSafe x) :
+    0 < Expr.eval (rightOneCertificateTarget x hx).expr :=
+  CertificateTarget.eval_positive (rightOneCertificateTarget x hx)
+
 /-- A sharper named obligation for generated certificates: the only
 nontrivial branch condition at an EML node is positivity of the right
 child. -/
