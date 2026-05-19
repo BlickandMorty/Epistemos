@@ -157,7 +157,7 @@ fn assert_iter_format_canonical_panics_on_out_of_range() {
     assert_iter_format_canonical("iter 099", "MY_SOURCE_LABEL");
 }
 
-/// Iter 702 — catalog range continuation pin.
+/// Iter 703 — catalog range continuation pin.
 /// STATUS.md is the contributor-facing catalog for the closed-citation
 /// hardening arc. When new pins land after the previous range tip, the
 /// range must advance in lock-step so future readers can tell the arc is
@@ -167,9 +167,9 @@ fn status_md_closed_citation_iter_range_tip_tracks_latest_catalog_pin() {
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Closed-citation contract hardening (iters 127-702)"),
+        status.contains("Closed-citation contract hardening (iters 127-703)"),
         "STATUS.md closed-citation hardening catalog must advance its iter \
-         range tip to iter 702 when the catalog-continuation pin lands"
+         range tip to iter 703 when the catalog-continuation pin lands"
     );
 }
 
@@ -877,6 +877,28 @@ fn adversarial_query_fixture_catalog_names_typo_saturation_and_near_dup_tie_case
             "adversarial query fixture catalog must include {required}"
         );
     }
+}
+
+#[test]
+fn adversarial_query_fixture_lookup_is_label_exact_and_closed() {
+    use super::adversarial::adversarial_query_fixture;
+
+    let typo = adversarial_query_fixture("typo-transposition")
+        .expect("typo-transposition fixture is cataloged");
+    assert_eq!(typo.query_text, "tropcial");
+
+    assert!(
+        adversarial_query_fixture("Typo-Transposition").is_none(),
+        "fixture labels are stable exact identifiers, not case-folded aliases"
+    );
+    assert!(
+        adversarial_query_fixture("typo-transposition ").is_none(),
+        "fixture labels must not be trimmed into a different identifier"
+    );
+    assert!(
+        adversarial_query_fixture("unknown-fixture").is_none(),
+        "unknown fixture labels fail closed instead of fabricating a default"
+    );
 }
 
 #[test]

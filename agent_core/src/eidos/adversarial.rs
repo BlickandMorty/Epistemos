@@ -29,3 +29,10 @@ pub const ADVERSARIAL_QUERY_FIXTURES: &[AdversarialQueryFixture] = &[
         description: "same-count near-duplicate paragraphs force deterministic tie-breaks",
     },
 ];
+
+pub fn adversarial_query_fixture(label: &str) -> Option<AdversarialQueryFixture> {
+    ADVERSARIAL_QUERY_FIXTURES
+        .iter()
+        .copied()
+        .find(|fixture| fixture.label == label)
+}
