@@ -1752,6 +1752,38 @@ mod tests {
     }
 
     #[test]
+    fn sealed_mutations_iterator_is_empty_when_log_has_no_sealed_rows() {
+        // Phase 1 hardening — empty-result boundary pin for the
+        // sealed_mutations() iterator. Companion to:
+        //   - sealed_mutations_iterator_yields_each_row_in_order
+        //   - sealed_mutations_iterator_can_be_short_circuited
+        //   - sealed_mutations_iterator_is_idempotent_across_multiple_calls
+        //
+        // A log that contains ONLY Event + LedgerSnapshot rows (no
+        // SealedMutation) must yield an empty iterator — the
+        // filter_map should skip every non-SealedMutation entry.
+        //
+        // Defends against a future refactor that, e.g., changed the
+        // filter pattern to also match LedgerSnapshot rows (because
+        // both carry a debit-shape) — that would silently flood the
+        // audit dashboard with non-mutation rows.
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "r".into() });
+        log.append_ledger_snapshot(BudgetLedger { tokens_used: 100, ..Default::default() });
+        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+
+        let count = log.sealed_mutations().count();
+        assert_eq!(count, 0, "no SealedMutation rows must yield empty iterator");
+        let collected: Vec<_> = log.sealed_mutations().collect();
+        assert!(collected.is_empty());
+
+        // total_tokens_debited agrees.
+        let (total, n) = log.total_tokens_debited();
+        assert_eq!(total, 0);
+        assert_eq!(n, 0);
+    }
+
+    #[test]
     fn sealed_mutations_iterator_can_be_short_circuited() {
         let mut log = RunEventLog::new();
         for i in 0..10u64 {
