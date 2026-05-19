@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 285
+invalid_example_count: 286
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -13241,3 +13241,20 @@ Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-
 ```
 
 Rejection reason: detached HEAD runs do not name the branch replay context; `commit_sha` must be reachable from a named branch used for the falsifier run.
+
+## N286 - Wrong Branch Commit SHA
+
+Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-identity-rule) and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "field": "commit_sha",
+  "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "schema_pattern": "^[0-9a-f]{40}$",
+  "semantic_rule": "commit_reachable_from_expected_branch",
+  "expected_branch": "codex/t23b-m2pro-falsifier-handbook-2026-05-18",
+  "actual_branch": "main"
+}
+```
+
+Rejection reason: a commit reachable only from a different branch cannot stand in for the scoped falsifier-handbook branch state.
