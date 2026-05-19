@@ -438,6 +438,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_
 ```
 
 ```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md"); block=s[/## N276 - .*?```json\n(.*?)\n```/m,1] || abort("N276 missing"); x=JSON.parse(block); pat=Regexp.new(x["schema_pattern"]); abort("N276 quoted commit missing") unless x["commit_sha"] == "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\""; abort("N276 unexpectedly matches commit grammar") if x["commit_sha"].match?(pat); puts "quoted commit sha negative case ok"'
+```
+
+```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md"); block=s[/## N274 - .*?```json\n(.*?)\n```/m,1] || abort("N274 missing"); x=JSON.parse(block); pat=Regexp.new(x["schema_pattern"]); abort("N274 non-hex commit missing") unless x["commit_sha"] == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaag"; abort("N274 unexpectedly matches commit grammar") if x["commit_sha"].match?(pat); puts "non-hex commit sha negative case ok"'
 ```
 
