@@ -3344,6 +3344,37 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 35th Paraphrase row (iter-305): NEW axis — HYPONYM /
+        // HYPERNYM / RELATED-CONCEPT SUBSTITUTION. User types
+        // "buffer" instead of "cache" — semantically-related but
+        // not a direct synonym. Distinct from iter-106 synonym
+        // (close direct substitute "store" ↔ "cache") and from
+        // iter-86 acronym (multi-word collapse). This is a
+        // hyponym/hypernym-style swap: "buffer" and "cache" share
+        // the broader concept of "temporary memory storage" but
+        // are distinct technical terms. 3-term AND on {mamba,
+        // ssm, buffer} blocks the canonical. Thirty-second
+        // named failure subclass; pins deferred ontology / WordNet-
+        // style semantic-similarity expansion.
+        query: "Mamba SSM buffer",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Hyponym-substitution Paraphrase axis (axis #32): \
+               user types semantically-related but distinct \
+               technical term \"buffer\" instead of \"cache\". \
+               Distinct from iter-106 synonym (close direct \
+               substitute) and iter-86 acronym (multi-word \
+               collapse). Hyponym/hypernym substitution: shared \
+               broader concept but distinct technical surface \
+               form. 3-term AND on {mamba, ssm, buffer} blocks. \
+               Thirty-second named failure subclass; pins \
+               deferred WordNet / ontology-style semantic-\
+               similarity expansion. Brings Paraphrase to depth \
+               35 — first category past depth-34 horizon.",
+    },
+    FVaultRecallRow {
         // 34th Paraphrase row (iter-298): NEW axis —
         // PARENTHETICAL VERSION ANNOTATION. User types
         // "Mamba (v2) SSM" with version annotation in parens.
