@@ -287,6 +287,15 @@ pub fn adversarial_query_fixture_catalog_token_surfaces_match_enums() -> bool {
         && adversarial_query_fixture_catalog_expected_outcome_tokens_match_outcomes()
 }
 
+pub fn adversarial_query_fixture_token_lookup_surface_is_complete() -> bool {
+    adversarial_query_fixture_kind_tokens()
+        .iter()
+        .all(|token| adversarial_query_fixture_for_kind_token(token).is_some())
+        && adversarial_query_fixture_expected_outcome_tokens()
+            .iter()
+            .all(|token| adversarial_query_fixture_for_expected_outcome_token(token).is_some())
+}
+
 pub fn adversarial_query_fixture_labels_are_ascii_lowercase_kebab_case() -> bool {
     ADVERSARIAL_QUERY_FIXTURE_LABELS
         .iter()
