@@ -2883,6 +2883,47 @@ mod tests {
     }
 
     #[test]
+    fn budget_spec_with_memory_bytes_builder_equals_5_field_struct_literal_byte_for_byte() {
+        // Phase 1 hardening — thin-wrapper equivalence pin (companion
+        // to budget_spec_new_4_arg_equals_struct_literal_with_max_memory_bytes_zero
+        // below). The full ergonomic-constructor path is:
+        //   BudgetSpec::new(t, w, c, s).with_memory_bytes(m)
+        // which MUST produce a spec byte-equal to the all-5-fields
+        // struct-literal form. A future tweak that diverged either
+        // helper (e.g., "let me cap memory at u64::MAX/2 in the
+        // builder") would silently introduce two distinct spec byte
+        // forms. Pin freezes the full chained-builder == struct
+        // equivalence for the 5-axis WBO surface.
+        //
+        // Sweep: all-zero memory only, all-non-zero, u64::MAX memory.
+        let fixtures: &[(u64, u64, u64, u64, u64)] = &[
+            (0, 0, 0, 0, 0),
+            (0, 0, 0, 0, 1_048_576),
+            (1_000, 60_000, 5, 30_000, 1_024),
+            (1, 2, 3, 4, 5),
+            (u64::MAX, u64::MAX, u64::MAX, u64::MAX, u64::MAX),
+        ];
+        for &(t, w, c, s, m) in fixtures {
+            let via_builder = BudgetSpec::new(t, w, c, s).with_memory_bytes(m);
+            let via_struct = BudgetSpec {
+                max_tokens: t,
+                max_wall_ms: w,
+                max_tool_calls: c,
+                max_subprocess_ms: s,
+                max_memory_bytes: m,
+            };
+            assert_eq!(
+                via_builder, via_struct,
+                "BudgetSpec::new({t}, {w}, {c}, {s}).with_memory_bytes({m}) \
+                 must equal 5-field struct literal"
+            );
+            let j_b = serde_json::to_string(&via_builder).expect("serialize builder");
+            let j_s = serde_json::to_string(&via_struct).expect("serialize struct");
+            assert_eq!(j_b, j_s);
+        }
+    }
+
+    #[test]
     fn budget_spec_new_4_arg_equals_struct_literal_with_max_memory_bytes_zero() {
         // Phase 1 hardening — thin-wrapper equivalence pin (companion
         // to the equivalence pin family at iter-518/519/520/521/522).
