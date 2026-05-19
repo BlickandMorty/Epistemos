@@ -315,6 +315,23 @@ theorem representationHashFieldsCarry
     Eq.trans representationNumeratorMatches targetNumeratorMatches,
     Eq.trans representationDenominatorMatches targetDenominatorMatches⟩
 
+theorem targetHashFieldsFromRepresentation
+    (c : RationalCertificateTarget)
+    (numeratorHash denominatorHash : String)
+    (representationNumeratorMatches :
+      c.representation.numeratorHash = numeratorHash)
+    (representationDenominatorMatches :
+      c.representation.denominatorHash = denominatorHash)
+    (targetNumeratorMatches :
+      c.numeratorHash = c.representation.numeratorHash)
+    (targetDenominatorMatches :
+      c.denominatorHash = c.representation.denominatorHash) :
+    c.numeratorHash = numeratorHash ∧
+      c.denominatorHash = denominatorHash := by
+  exact ⟨
+    Eq.trans targetNumeratorMatches representationNumeratorMatches,
+    Eq.trans targetDenominatorMatches representationDenominatorMatches⟩
+
 def representationCarries (c : RationalCertificateTarget) :
     RationalRepresentationObligation c.rational := by
   exact c.representation
