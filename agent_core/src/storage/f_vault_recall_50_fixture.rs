@@ -1005,6 +1005,25 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 35th SignalOnly row (iter-304): single-term query in
+        // Khmer-script domain — "ខែ" (Khmer for cache, U+1781
+        // U+17C1). TWENTY-SIXTH single-term-AND domain.
+        // FOURTEENTH non-ASCII script-block. FOURTH Brahmic
+        // descendant (after Devanagari + Thai + Tibetan).
+        // Token unique to iter-158's mamba_khmer.md.
+        query: "ខែ",
+        expected_paths: &["notes/mamba_khmer.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Thirty-fifth SignalOnly row (iter-304): single-\
+               term Khmer-script query — \"ខែ\" (U+1781 \
+               U+17C1). Twenty-sixth domain for single-term-\
+               AND. Fourteenth non-ASCII script-block. Fourth \
+               Brahmic descendant (after Devanagari + Thai + \
+               Tibetan). Brings SignalOnly to depth 35.",
+    },
+    FVaultRecallRow {
         // 34th SignalOnly row (iter-297): single-term query in
         // Tibetan-script domain — "ཀེ" (Tibetan for cache,
         // U+0F40 U+0F7A). TWENTY-FIFTH single-term-AND domain.
