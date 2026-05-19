@@ -4887,6 +4887,76 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_per_operation_threshold_overrides_global_thresholds_for_that_operation() {
+        let mut policy = ACSPolicy::strict("policy-per-operation-override", 1_000);
+        policy.operation_thresholds = vec![ACSOperationThresholdRule::new(
+            ACSOperationKind::ToolAction,
+            ACSRiskThresholds {
+                warn_at: 0.10,
+                defer_at: 0.20,
+                quarantine_at: 0.30,
+                reject_at: 0.40,
+            },
+        )];
+
+        let mut risk = ACSRiskVector::neutral();
+        risk.truth_risk = 0.35;
+
+        let mut tool_action_audit = Vec::new();
+        let tool_action_input = ACSAdmissionInput {
+            request_id: "req-tool-action-override".to_string(),
+            payload: ACSAdmissionPayload::ToolAction {
+                request: ACSToolActionRequest {
+                    tool_name: "vault.write".to_string(),
+                    target: "uas://note/1".to_string(),
+                    mutation_envelope_id: Some("mutation-1".to_string()),
+                },
+            },
+            submitted_at_ms: 1_001,
+            risk,
+            granted_capabilities: vec![
+                Capability::VaultPath {
+                    path: "uas://note/1".to_string(),
+                    verb: "write".to_string(),
+                },
+                Capability::Other {
+                    name: "ToolExec".to_string(),
+                },
+            ],
+        };
+        let tool_action_decision =
+            admit_and_log(&tool_action_input, &policy, 1_001, &mut tool_action_audit);
+        assert_eq!(
+            tool_action_decision.verdict,
+            ACSAdmissionVerdict::Quarantine,
+            "per-operation threshold must escalate ToolAction at 0.35 risk"
+        );
+
+        let mut memory_write_audit = Vec::new();
+        let memory_write_input = ACSAdmissionInput {
+            request_id: "req-memory-write-default".to_string(),
+            payload: ACSAdmissionPayload::MemoryWrite {
+                request: ACSMemoryWriteRequest {
+                    address: "uas://note/concurrent".to_string(),
+                    content_hash: "content-hash".to_string(),
+                    durable: false,
+                    mutation_envelope_id: None,
+                },
+            },
+            submitted_at_ms: 1_001,
+            risk,
+            granted_capabilities: Vec::new(),
+        };
+        let memory_write_decision =
+            admit_and_log(&memory_write_input, &policy, 1_001, &mut memory_write_audit);
+        assert_eq!(
+            memory_write_decision.verdict,
+            ACSAdmissionVerdict::AllowWithWarning,
+            "global thresholds must still apply to operations without overrides"
+        );
+    }
+
+    #[test]
     fn acs_admission_duplicate_operation_threshold_is_malformed_policy() {
         let mut policy = ACSPolicy::strict("policy-duplicate-threshold", 1_000);
         policy.operation_thresholds = vec![
