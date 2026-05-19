@@ -742,6 +742,7 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
     required_nested_u8_json(&value, "hardware", "cpu_cores")?;
     required_nested_u8_json(&value, "hardware", "gpu_cores")?;
     required_nested_u16_json(&value, "hardware", "memory_gb")?;
+    required_nested_bool_json(&value, "hardware", "uma")?;
     required_top_level_string_json(&value, "mission")?;
     required_top_level_string_json(&value, "evaluator_variant")?;
     required_top_level_string_json(&value, "shader_entrypoint")?;
@@ -1225,6 +1226,39 @@ fn required_nested_string_json(
         });
     }
     Ok(())
+}
+
+fn required_nested_bool_json(
+    value: &serde_json::Value,
+    parent: &str,
+    field: &str,
+) -> Result<bool, FulpReplayError> {
+    let Some(parent_value) = value.get(parent) else {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("missing field {parent}"),
+            kind: FulpInvalidJsonKind::MissingField,
+        });
+    };
+    let Some(parent_object) = parent_value.as_object() else {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("invalid type for {parent}, expected object"),
+            kind: FulpInvalidJsonKind::TypeMismatch,
+        });
+    };
+    let path = format!("{parent}.{field}");
+    let Some(field_value) = parent_object.get(field) else {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("missing field {path}"),
+            kind: FulpInvalidJsonKind::MissingField,
+        });
+    };
+    let Some(field_value) = field_value.as_bool() else {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("invalid type for {path}, expected boolean"),
+            kind: FulpInvalidJsonKind::TypeMismatch,
+        });
+    };
+    Ok(field_value)
 }
 
 fn required_nested_unsigned_integer_json(
@@ -2333,6 +2367,24 @@ mod tests {
         assert_eq!(
             error.invalid_json_message(),
             Some("number out of range for hardware.memory_gb, expected u16")
+        );
+    }
+
+    #[test]
+    fn replay_rejects_hardware_uma_json_type_drift_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["hardware"]["uma"] = serde_json::Value::String("true".to_string());
+        let json = serde_json::to_string(&value).unwrap();
+        let error =
+            replay_witness_json(&json).expect_err("hardware uma type drift must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("invalid type for hardware.uma, expected boolean")
         );
     }
 
