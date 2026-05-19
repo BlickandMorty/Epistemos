@@ -203,6 +203,57 @@ mod tests {
     }
 
     #[test]
+    fn mode_serde_form_charset_is_lowercase_snake_case_only() {
+        // Phase 1 hardening — charset pin for AgentRuntimeV2Mode serde
+        // forms. Extends the [a-z_] charset-pin family to the 3-variant
+        // Mode enum (companion to:
+        //   - BudgetTerm::code (budget.rs §2090)
+        //   - AgentEventErrorKind::code (event.rs §940)
+        //   - StopReason::canonical_bytes (para.rs)
+        //   - AgentEvent event_type tag (event.rs)
+        //   - CliAdapter serde forms (blueprint.rs)
+        //   - ProviderPolicy::kind discriminator (blueprint.rs)).
+        //
+        // AgentRuntimeV2Mode uses #[serde(rename_all = "snake_case")].
+        // The existing per-string pin
+        // (mode_serde_discriminator_values_are_stable) locks each form
+        // to a specific literal — but a future mode (e.g. NetIsolated)
+        // added with #[serde(rename = "Net-Isolated")] or a typo'd
+        // rename_all = "camelCase" override would silently break MAS
+        // feature-gate filters that grep RunEventLog rows by
+        // /^[a-z_]+$/.
+        //
+        // Pin generates each form via serde + JSON unquote (no hard-
+        // coded list) and asserts:
+        //   - non-empty
+        //   - every char is ASCII lowercase or '_'
+        //   - no leading / trailing underscore (no anchor underscore)
+        // across all 3 mode variants.
+        let variants = [
+            AgentRuntimeV2Mode::Disabled,
+            AgentRuntimeV2Mode::IpcBounded,
+            AgentRuntimeV2Mode::Subprocess,
+        ];
+        for mode in variants {
+            let s = serde_json::to_string(&mode).expect("serialise");
+            let inner = s
+                .strip_prefix('"')
+                .and_then(|x| x.strip_suffix('"'))
+                .expect("Mode serialises to a JSON string");
+            assert!(!inner.is_empty(), "mode form must be non-empty for {mode:?}");
+            for ch in inner.chars() {
+                assert!(
+                    ch.is_ascii_lowercase() || ch == '_',
+                    "Mode serde form {inner:?} for {mode:?} must be lowercase snake_case; \
+                     char {ch:?} violates [a-z_] charset"
+                );
+            }
+            assert!(!inner.starts_with('_'), "mode form {inner:?} must not start with '_'");
+            assert!(!inner.ends_with('_'), "mode form {inner:?} must not end with '_'");
+        }
+    }
+
+    #[test]
     fn allows_subprocess_implies_allows_execution_semantic_invariant() {
         // Phase 1 hardening — semantic invariant across the two
         // helper predicates. A mode that permits spawning a child
