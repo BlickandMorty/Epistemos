@@ -93,6 +93,14 @@ structure FNOEquivalenceObligation where
   expr : Expr
   statement : Prop
 
+def fnoEquivalenceObligation (expr : Expr) : FNOEquivalenceObligation :=
+  { expr := expr
+    statement := operatorFNOEquivalent expr }
+
+theorem fnoEquivalenceObligationCarries (expr : Expr) :
+    (fnoEquivalenceObligation expr).statement := by
+  exact expr.dimMatch
+
 /-- Target for a generated Operator expression certificate. -/
 structure CertificateTarget where
   expr : Expr
