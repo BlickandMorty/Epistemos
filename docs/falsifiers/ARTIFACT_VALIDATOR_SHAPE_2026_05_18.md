@@ -454,6 +454,10 @@ ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_
 ```
 
 ```bash
+ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md"); block=s[/## N280 - .*?```json\n(.*?)\n```/m,1] || abort("N280 missing"); x=JSON.parse(block); pat=Regexp.new(x["schema_pattern"]); abort("N280 missing-object sha missing") unless x["commit_sha"] == "cccccccccccccccccccccccccccccccccccccccc"; abort("N280 should still match syntax regex before semantic rejection") unless x["commit_sha"].match?(pat); abort("N280 semantic lookup missing") unless x["semantic_rule"] == "commit_exists_in_repo" && x["repo_lookup_result"] == "missing"; puts "missing commit sha semantic negative case ok"'
+```
+
+```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md"); block=s[/## N274 - .*?```json\n(.*?)\n```/m,1] || abort("N274 missing"); x=JSON.parse(block); pat=Regexp.new(x["schema_pattern"]); abort("N274 non-hex commit missing") unless x["commit_sha"] == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaag"; abort("N274 unexpectedly matches commit grammar") if x["commit_sha"].match?(pat); puts "non-hex commit sha negative case ok"'
 ```
 

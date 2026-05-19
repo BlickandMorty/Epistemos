@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 279
+invalid_example_count: 280
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -13145,3 +13145,19 @@ Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-
 ```
 
 Rejection reason: `commit_sha` must resolve to a Git commit object; a regex-shaped tree, blob, or tag object cannot pin replay state.
+
+## N280 - Missing Commit SHA Object
+
+Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-identity-rule) and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "field": "commit_sha",
+  "commit_sha": "cccccccccccccccccccccccccccccccccccccccc",
+  "schema_pattern": "^[0-9a-f]{40}$",
+  "semantic_rule": "commit_exists_in_repo",
+  "repo_lookup_result": "missing"
+}
+```
+
+Rejection reason: `commit_sha` must resolve inside the repository used for replay; a syntactically valid but missing object is not evidence.
