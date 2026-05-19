@@ -2353,6 +2353,36 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 33rd PureChatter row (iter-292): two-sub-class-mix
+        // shape — "is are what where" stacks 2 be-verb + 2 wh-
+        // word tokens. Intermediate between single-sub-class
+        // pure-vocabulary-clusters (iter-197/205/212/219/226/
+        // 263/285 — each one sub-class) and the all-mixed
+        // shape (iter-234 — 4 distinct sub-classes). iter-292
+        // demonstrates the fallback fires on a balanced two-
+        // sub-class hybrid, midway between the cluster
+        // extremes. All 4 tokens in QUERY_CHATTER_WORDS.
+        query: "is are what where",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Thirty-third PureChatter row (iter-292): two-\
+               sub-class-mix shape (\"is are what where\"). Two \
+               be-verbs + two wh-words. Intermediate between \
+               single-sub-class pure-vocabulary-clusters \
+               (iter-197/205/212/219/226/263/285 — each one \
+               sub-class) and all-mixed (iter-234 — 4 distinct \
+               sub-classes). Tests fallback on balanced 2-sub-\
+               class hybrid. Brings PureChatter to depth 33 — \
+               first category past depth-32 horizon (joins \
+               Synthesis + Adversarial + SignalOnly + \
+               Paraphrase + ChattyPrefix).",
+    },
+    FVaultRecallRow {
         // 32nd PureChatter row (iter-285): pure-chatter-noun-
         // cluster shape — "notes files things". Three chatter-
         // nouns stacked (the noun-class tokens within
