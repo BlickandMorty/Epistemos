@@ -153,7 +153,9 @@ where
                 | "model_adaptation_risk"
                 | "evidence_present"
         ) {
-            return Err(E::custom(format!("malformed_risk_vector field={field}")));
+            return Err(E::custom(format!(
+                "malformed_risk_vector field=risk.{field}"
+            )));
         }
     }
     Ok(())
@@ -9436,6 +9438,19 @@ mod tests {
 
         assert!(message.contains("malformed_risk_vector"), "{message}");
         assert!(message.contains("shadow_risk"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_shadow_risk_axis_names_risk_namespace() {
+        let mut value =
+            serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
+        value["shadow_risk"] = serde_json::json!(1.0);
+
+        let err = serde_json::from_value::<ACSRiskVector>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_risk_vector"), "{message}");
+        assert!(message.contains("risk.shadow_risk"), "{message}");
     }
 
     #[test]
