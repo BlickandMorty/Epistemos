@@ -176,6 +176,10 @@ Canonical witness artifacts must conform to [Falsifier Artifact Schema](FALSIFIE
 
 Last audited: 2026-05-18. The linked schema requires `falsifier_id`, `schema_version`, `artifact_kind`, `command`, `command_digest`, `runner_environment`, `commit_sha`, `hardware_pin`, `fixture_id`, `timestamp_utc`, `result_digest`, `measurements`, `acceptance_thresholds`, `pass_per_axis`, `overall_pass`, `fallback_tier`, `anomalies`, and `notes`; it also defines optional `fixture_lineage` for generated inputs and optional `provider_receipts` for cloud or hosted reference evidence. This is a contract completeness check only, not witness evidence.
 
+## Identity Slug Negative Audit
+
+Last audited: 2026-05-18. The schema's [Identity Gap Slug Catalog](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#identity-gap-slug-catalog) owns the lowercase hyphenated vocabulary for validator identity-gap families. Negative examples N197 through N209 reject underscore, case drift, boundary punctuation, empty-token, numeric-leading, dotted, spaced, comma, slash, colon, plus, and ampersand aliases before any handbook row or validator work item may reference an uncataloged slug.
+
 ## Artifact Axis Floor Audit
 
 Last audited: 2026-05-18. The linked schema now names minimum measurement/threshold/pass axes for all 15 F-* rows and requires those floor axes in the JSON Schema fragment. These axis floors make each expected artifact replay-shaped before scripts exist; they are not runtime evidence and do not remove any row's `NOT IMPLEMENTED` command marker.
