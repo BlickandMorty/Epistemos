@@ -233,6 +233,11 @@ theorem bernoulliCertificateTargetNonnegative (p q : Real) :
     (bernoulliCertificateTarget p q).positivity.nonnegative := by
   exact bernoulliBregmanPositivityObligationNonnegative p q
 
+theorem bernoulliCertificateTargetZeroIffEqual
+    (p q : Real) (h : p = q) :
+    (bernoulliCertificateTarget p q).positivity.zeroIffEqual := by
+  exact bernoulliBregmanPositivityObligationZeroIffEqual p q h
+
 theorem bernoulliCertificateTargetMirrorEquivalent (p q : Real) :
     (bernoulliCertificateTarget p q).mirrorEquivalence.statement := by
   exact bernoulliMirrorDescentEquivalenceObligationCarries
