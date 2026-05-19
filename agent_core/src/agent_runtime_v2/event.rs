@@ -1456,6 +1456,44 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_valid_tags_with_missing_required_payload_fields_fail_to_deserialise() {
+        // Phase 1 hardening — corrupted AgentEvent payload shape.
+        // agent_event_unknown_event_type_tag_fails_to_deserialise
+        // pins the discriminator. This pins the other half: a VALID
+        // event_type tag must still carry the required fields for its
+        // variant. Replay must not silently default missing text,
+        // tool call, stop reason, error kind, or error message fields.
+        for bad in [
+            r#"{"event_type":"reasoning_delta"}"#,
+            r#"{"event_type":"final_text"}"#,
+            r#"{"event_type":"tool_call"}"#,
+            r#"{"event_type":"tool_result","name":"vault.read"}"#,
+            r#"{"event_type":"tool_result","result":{}}"#,
+            r#"{"event_type":"stop"}"#,
+            r#"{"event_type":"error","kind":"provider"}"#,
+            r#"{"event_type":"error","message":"transport failed"}"#,
+        ] {
+            let parsed: Result<AgentEvent, _> = serde_json::from_str(bad);
+            assert!(
+                parsed.is_err(),
+                "valid AgentEvent tag with missing payload field must fail: {bad}"
+            );
+        }
+
+        let ok: AgentEvent = serde_json::from_str(
+            r#"{"event_type":"error","kind":"provider","message":"transport failed"}"#,
+        )
+        .expect("complete error payload remains valid");
+        assert_eq!(
+            ok,
+            AgentEvent::Error {
+                kind: AgentEventErrorKind::Provider,
+                message: "transport failed".into(),
+            }
+        );
+    }
+
+    #[test]
     fn event_const_fn_annotations_compile_in_const_context() {
         // Phase 1 hardening — compile-time pin for the const-able
         // surfaces on AgentEvent / AgentEventErrorKind (companion to
