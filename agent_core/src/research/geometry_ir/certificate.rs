@@ -81,8 +81,8 @@ pub fn lean_certificate(rotor: &Multivector) -> String {
          \x20     unitNorm := Epistemos.Geometry.rotorUnitNorm geometry_rotor_value_{suffix} }}\n\
          \n\
          def geometry_clifford_obligation_{suffix} : Epistemos.Geometry.CliffordAxiomObligation :=\n\
-         \x20   {{ basisSquares := Epistemos.Geometry.cliffordBasisSquares\n\
-         \x20     basisAnticommutative := Epistemos.Geometry.cliffordBasisAnticommutative\n\
+         \x20   {{ basisSquares := Epistemos.Geometry.cliffordBasisSquares.{{0}}\n\
+         \x20     basisAnticommutative := Epistemos.Geometry.cliffordBasisAnticommutative.{{0}}\n\
          \x20     sourceRow := \"Hestenes-Sobczyk 1984 Ch. 1\" }}\n\
          \n\
          def geometry_sandwich_obligation_{suffix} : Epistemos.Geometry.RotorSandwichObligation :=\n\
@@ -161,8 +161,9 @@ mod tests {
         let c = lean_certificate(&r);
         assert!(c.contains("Epistemos.Geometry.rotorCandidate"));
         assert!(c.contains("Epistemos.Geometry.rotorUnitNorm"));
-        assert!(c.contains("Epistemos.Geometry.cliffordBasisSquares"));
-        assert!(c.contains("Epistemos.Geometry.cliffordBasisAnticommutative"));
+        assert!(c.contains("Epistemos.Geometry.cliffordBasisSquares.{0}"));
+        assert!(c.contains("Epistemos.Geometry.cliffordBasisAnticommutative.{0}"));
+        assert!(!c.contains("basisSquares := Epistemos.Geometry.cliffordBasisSquares\n"));
         assert!(c.contains("Epistemos.Geometry.rotorSandwichPreservesNorm"));
         assert!(c.contains("Epistemos.Geometry.rotorCompositionAssociativeSandwich"));
         assert!(!c.contains("isRotorCandidate := True"));
