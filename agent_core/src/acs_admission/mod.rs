@@ -2043,6 +2043,13 @@ where
                 "forged_admission_input field=granted_capabilities.capability",
             ));
         };
+        for field in capability.keys() {
+            if !matches!(field.as_str(), "kind" | "value") {
+                return Err(E::custom(format!(
+                    "forged_admission_input field=granted_capabilities.{field}"
+                )));
+            }
+        }
         let Some(kind) = capability.get("kind").and_then(serde_json::Value::as_str) else {
             return Err(E::custom(
                 "forged_admission_input field=granted_capabilities.capability",
@@ -7102,6 +7109,41 @@ mod tests {
         assert!(message.contains("forged_admission_input"), "{message}");
         assert!(
             message.contains("granted_capabilities.other.shadow_name"),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn acs_admission_input_decode_names_shadow_granted_capability_envelope_field() {
+        let value = serde_json::json!({
+            "request_id": "req-shadow-granted-capability-envelope-field",
+            "payload": {
+                "kind": "tool_action",
+                "request": {
+                    "tool_name": "vault.write",
+                    "target": "uas://note/1",
+                    "mutation_envelope_id": "mutation-1"
+                }
+            },
+            "submitted_at_ms": 1_001,
+            "risk": ACSRiskVector::neutral(),
+            "granted_capabilities": [
+                {
+                    "kind": "other",
+                    "value": {
+                        "name": "ToolExec"
+                    },
+                    "shadow_kind": "network_host"
+                }
+            ]
+        });
+
+        let err = serde_json::from_value::<ACSAdmissionInput>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("forged_admission_input"), "{message}");
+        assert!(
+            message.contains("granted_capabilities.shadow_kind"),
             "{message}"
         );
     }
