@@ -2080,7 +2080,7 @@ impl<'de> Deserialize<'de> for AuditRecordId {
     {
         let id = Self::new(String::deserialize(deserializer)?);
         id.validate()
-            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+            .map_err(|err| serde::de::Error::custom(scope_rex_proof_decode_error(&err)))?;
         Ok(id)
     }
 }
@@ -6070,6 +6070,17 @@ mod tests {
         ));
 
         assert!(decoded.is_err());
+    }
+
+    #[test]
+    fn acs_admission_audit_record_id_decode_errors_preserve_record_ref() {
+        let record_id = "run-event:external-record";
+        let err = serde_json::from_value::<AuditRecordId>(serde_json::json!(record_id))
+            .unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("invalid_audit_record_id"), "{message}");
+        assert!(message.contains(record_id), "{message}");
     }
 
     #[test]
