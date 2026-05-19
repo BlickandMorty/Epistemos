@@ -299,6 +299,11 @@ pub fn lean_certificate(p: &PositiveEmlExpr) -> String {
          \x20 exact Epistemos.EML.CertificateTarget.branchSafeAndEvalMatches\n\
          \x20   (eml_certificate_{suffix}{branch_witness_arg}{eval_witness_arg})\n\
          \n\
+         theorem eml_certificate_positive_value_{suffix}{branch_witness_binder}{eval_witness_binder} :\n\
+         \x20   0 < (eml_certificate_{suffix}{branch_witness_arg}{eval_witness_arg}).value := by\n\
+         \x20 exact Epistemos.EML.CertificateTarget.positiveValueCarries\n\
+         \x20   (eml_certificate_{suffix}{branch_witness_arg}{eval_witness_arg})\n\
+         \n\
          theorem eml_eval_positive_{suffix}{branch_witness_binder}{eval_witness_binder} :\n\
          \x20   0 < Epistemos.EML.Expr.eval eml_expr_{suffix} := by\n\
          \x20 exact Epistemos.EML.CertificateTarget.eval_positive (eml_certificate_{suffix}{branch_witness_arg}{eval_witness_arg})\n\
@@ -667,6 +672,8 @@ mod tests {
         let p = PositiveEmlExpr::one();
         let c = lean_certificate(&p);
         assert!(c.contains("0 < eml_value_"));
+        assert!(c.contains("theorem eml_certificate_positive_value_"));
+        assert!(c.contains("Epistemos.EML.CertificateTarget.positiveValueCarries"));
     }
 
     #[test]

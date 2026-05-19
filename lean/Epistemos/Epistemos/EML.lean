@@ -142,6 +142,10 @@ theorem CertificateTarget.eval_positive (c : CertificateTarget) :
   rw [c.value_matches]
   exact c.positive_value
 
+theorem CertificateTarget.positiveValueCarries (c : CertificateTarget) :
+    0 < c.value := by
+  exact c.positive_value
+
 theorem CertificateTarget.branchSafeAndEvalMatches (c : CertificateTarget) :
     BranchSafe c.expr ∧ Expr.eval c.expr = c.value := by
   exact ⟨c.branch_safe, c.value_matches⟩

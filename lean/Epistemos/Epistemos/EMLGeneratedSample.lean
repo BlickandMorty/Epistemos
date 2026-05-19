@@ -50,6 +50,11 @@ theorem eml_branch_and_eval_sample :
   exact Epistemos.EML.CertificateTarget.branchSafeAndEvalMatches
     eml_certificate_sample
 
+theorem eml_certificate_positive_value_sample :
+    0 < eml_certificate_sample.value := by
+  exact Epistemos.EML.CertificateTarget.positiveValueCarries
+    eml_certificate_sample
+
 theorem eml_eval_positive_sample :
     0 < Epistemos.EML.Expr.eval eml_expr_sample := by
   exact Epistemos.EML.CertificateTarget.eval_positive
