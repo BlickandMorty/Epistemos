@@ -5,14 +5,16 @@
 //! every citation must validate against the packet or the answer is rejected
 //! wholesale with per-index diagnostics.
 
+use serde::Serialize;
+
 use super::types::{CitationError, EidosCitation, EidosContextPacket};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize)]
 pub struct ClosedCitationValidation {
     pub accepted_count: usize,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize)]
 pub struct ClosedCitationValidationError {
     pub errors: Vec<(usize, CitationError)>,
 }
