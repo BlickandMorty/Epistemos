@@ -2881,4 +2881,47 @@ mod tests {
         assert_eq!(s.max_subprocess_ms, 30_000);
         assert_eq!(s.max_memory_bytes, 1_048_576);
     }
+
+    #[test]
+    fn budget_spec_new_4_arg_equals_struct_literal_with_max_memory_bytes_zero() {
+        // Phase 1 hardening — thin-wrapper equivalence pin (companion
+        // to the equivalence pin family at iter-518/519/520/521/522).
+        // BudgetSpec::new is the canonical 4-arg ergonomic constructor;
+        // it MUST produce a spec byte-equal to the direct struct-literal
+        // form with max_memory_bytes implicitly defaulting to 0 across
+        // representative argument shapes. A future "let me default
+        // memory to half the system RAM" tweak in the helper that
+        // diverged from struct construction would silently introduce
+        // two distinct BudgetSpec forms depending on call site —
+        // breaking BudgetGate.spec() equality + ledger-comparison
+        // semantics downstream.
+        //
+        // Sweep: all-zero, mid, large, edge u64::MAX.
+        let fixtures: &[(u64, u64, u64, u64)] = &[
+            (0, 0, 0, 0),
+            (1_000, 60_000, 5, 30_000),
+            (1, 2, 3, 4),
+            (u64::MAX, u64::MAX, u64::MAX, u64::MAX),
+        ];
+        for &(tokens, wall_ms, tool_calls, subprocess_ms) in fixtures {
+            let via_new = BudgetSpec::new(tokens, wall_ms, tool_calls, subprocess_ms);
+            let via_struct = BudgetSpec {
+                max_tokens: tokens,
+                max_wall_ms: wall_ms,
+                max_tool_calls: tool_calls,
+                max_subprocess_ms: subprocess_ms,
+                max_memory_bytes: 0,
+            };
+            assert_eq!(
+                via_new, via_struct,
+                "BudgetSpec::new({tokens}, {wall_ms}, {tool_calls}, {subprocess_ms}) \
+                 must equal struct-literal form with max_memory_bytes=0"
+            );
+            // Byte-equal JSON serialisation too — BudgetSpec is
+            // serialised through the provenance path on snapshots.
+            let j_new = serde_json::to_string(&via_new).expect("serialize new");
+            let j_struct = serde_json::to_string(&via_struct).expect("serialize struct");
+            assert_eq!(j_new, j_struct);
+        }
+    }
 }
