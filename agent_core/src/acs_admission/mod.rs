@@ -12268,4 +12268,23 @@ mod tests {
         );
         assert!(message.contains("proof.operation"), "{message}");
     }
+
+    #[test]
+    fn acs_admission_shadow_scope_rex_proof_field_names_verdict_namespace() {
+        let record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+        let signing_key = crate::effect::receipt::HmacSha256SigningKey::new([7; 32]);
+        let proof = SCOPERexAdmissionProof::signed_from_record(&record, &signing_key)
+            .expect("valid audit record signs");
+        let mut value = serde_json::to_value(proof).expect("proof encodes");
+        value["verdict"] = serde_json::json!("alow");
+
+        let err = serde_json::from_value::<SCOPERexAdmissionProof>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(
+            message.contains("malformed_acs_admission_proof"),
+            "{message}"
+        );
+        assert!(message.contains("proof.verdict"), "{message}");
+    }
 }
