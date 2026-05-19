@@ -2742,6 +2742,38 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 40th PureChatter row (iter-342): 15-token long-input
+        // shape — "please can you tell me what where when how
+        // some of my notes are about". Extends the long-input
+        // cardinality progression to 15 (iter-335 was 14).
+        // LONGEST PureChatter query in the fixture. Mixes 12
+        // chatter sub-classes (politeness + modal + 2 pronouns
+        // + imperative + 4 wh-words + quantifier + preposition
+        // + chatter-noun + be-verb + preposition-trail-about).
+        // All 15 tokens (please / can / you / tell / me / what
+        // / where / when / how / some / of / my / notes / are /
+        // about) are in QUERY_CHATTER_WORDS. Four distinct wh-
+        // words PLUS trailing preposition — combines wh-stack
+        // density with be-verb + preposition closure.
+        query: "please can you tell me what where when how some of my notes are about",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Fortieth PureChatter row (iter-342): 15-token \
+               long-input (\"please can you tell me what where \
+               when how some of my notes are about\"). Extends \
+               cardinality to 15 (iter-335 = 14). LONGEST \
+               PureChatter query in the fixture. Mixes 12 \
+               chatter sub-classes. Four wh-words + trailing \
+               \"about\" preposition closure. All 15 tokens in \
+               QUERY_CHATTER_WORDS. Brings PureChatter to \
+               depth 40 — first category past depth-39 horizon.",
+    },
+    FVaultRecallRow {
         // 39th PureChatter row (iter-335): 14-token long-input
         // shape — "please can you tell me what where when how
         // some of my notes are". Extends long-input cardinality
