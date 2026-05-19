@@ -209,6 +209,14 @@ theorem rotorObligations
       c.composition.associativeSandwich := by
   exact ⟨sandwichWitness, compositionWitness⟩
 
+theorem cliffordObligations
+    (c : CertificateTarget)
+    (basisSquaresWitness : c.cliffordAxioms.basisSquares)
+    (basisAnticommutativeWitness : c.cliffordAxioms.basisAnticommutative) :
+    c.cliffordAxioms.basisSquares ∧
+      c.cliffordAxioms.basisAnticommutative := by
+  exact ⟨basisSquaresWitness, basisAnticommutativeWitness⟩
+
 end CertificateTarget
 
 def identityRotorValue : Multivector :=
