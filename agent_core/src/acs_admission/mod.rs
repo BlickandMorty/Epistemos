@@ -6948,6 +6948,33 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_negative_submitted_time_decode_names_input_namespace() {
+        let value = serde_json::json!({
+            "request_id": "req-negative-submitted-time-namespace",
+            "payload": {
+                "kind": "tool_action",
+                "request": {
+                    "tool_name": "vault.write",
+                    "target": "uas://note/1",
+                    "mutation_envelope_id": "mutation-1"
+                }
+            },
+            "submitted_at_ms": -1,
+            "risk": ACSRiskVector::neutral(),
+            "granted_capabilities": []
+        });
+
+        let err = serde_json::from_value::<ACSAdmissionInput>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("forged_admission_input"), "{message}");
+        assert!(
+            message.contains("admission_input.submitted_at_ms"),
+            "{message}"
+        );
+    }
+
+    #[test]
     fn acs_admission_unknown_input_payload_kind_names_forged_admission_input_field() {
         let value = serde_json::json!({
             "request_id": "req-unknown-payload-kind",
