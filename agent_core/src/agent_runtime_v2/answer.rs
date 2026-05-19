@@ -2422,6 +2422,42 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_fields_are_pub_per_field_visibility_doctrine() {
+        // Phase 1 hardening — field-visibility pin for AnswerPacket
+        // (companion to ParaFeedback iter-505 + ParaOutput iter-506).
+        // All 7 fields are pub:
+        //   - blueprint_id: AgentBlueprintId
+        //   - final_text: String
+        //   - citations: Vec<Citation>
+        //   - stop_reason: StopReason
+        //   - final_ledger: BudgetLedger
+        //   - run_event_log_root: Hash
+        //   - thinking_digest: Hash
+        //
+        // A future "let me hide thinking_digest behind a getter for
+        // audit safety" refactor would silently break call sites that
+        // directly access packet.thinking_digest for replay.
+        let log = RunEventLog::new();
+        let packet = AnswerPacket::emit_with_thinking(
+            AgentBlueprintId("a".into()),
+            "x".into(),
+            vec![],
+            StopReason::EndTurn,
+            BudgetLedger::default(),
+            &log,
+            Hash::from_bytes([0xCC; 32]),
+        );
+        // Direct read access on all 7 fields.
+        assert_eq!(packet.blueprint_id.0, "a");
+        assert_eq!(packet.final_text, "x");
+        assert_eq!(packet.citations.len(), 0);
+        assert_eq!(packet.stop_reason, StopReason::EndTurn);
+        assert_eq!(packet.final_ledger.tokens_used, 0);
+        assert_eq!(packet.run_event_log_root, log.root_hash());
+        assert_eq!(packet.thinking_digest, Hash::from_bytes([0xCC; 32]));
+    }
+
+    #[test]
     fn answer_packet_struct_field_shape_pinned_to_exactly_seven_typed_fields() {
         // Phase 1 hardening — struct-field-shape pin for AnswerPacket
         // (companion to the destructure pin family iter-454..iter-463
