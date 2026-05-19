@@ -3190,6 +3190,37 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 33rd Paraphrase row (iter-290, milestone iteration):
+        // NEW axis — PHONETIC MISSPELLING. User types "kashe"
+        // (k-a-sh-e) as English phonetic-spelling of "cache".
+        // Distinct from typo subclasses (edit-distance mistakes),
+        // acronym (letter-collapse), and romanization (cross-
+        // language transliteration). Phonetic misspelling is
+        // intentional sound-based rendering by a native English
+        // speaker. 3-term AND on {mamba, ssm, kashe} blocks the
+        // canonical. Thirtieth named failure subclass; pins
+        // deferred phonetic-similarity / Soundex/Metaphone-style
+        // normalization as a future Fix path.
+        query: "Mamba SSM kashe",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Phonetic-misspelling Paraphrase axis (axis #30): \
+               user types \"kashe\" as English phonetic-spelling \
+               of \"cache\". Distinct from typo subclasses \
+               (edit-distance), acronym (collapse), and \
+               romanization (cross-language). Phonetic \
+               misspelling is intentional sound-based rendering \
+               by a native English speaker. 3-term AND on \
+               {mamba, ssm, kashe} blocks. Thirtieth named \
+               failure subclass; pins deferred Soundex / \
+               Metaphone phonetic-similarity normalization. \
+               Brings Paraphrase to depth 33 — first category \
+               past depth-32 horizon (joins Synthesis + \
+               Adversarial + SignalOnly).",
+    },
+    FVaultRecallRow {
         // 32nd Paraphrase row (iter-283): NEW axis — STANDALONE
         // NUMERIC-TOKEN insertion. User types "Mamba 2 SSM" with
         // digit "2" whitespace-separated. Tantivy tokenizes
