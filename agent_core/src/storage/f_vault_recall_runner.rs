@@ -55,6 +55,11 @@ pub struct FVaultRecallRowOutcome {
     /// and the W-21 diagnostics can show "lexical-only" chips next to
     /// rows that didn't get a multi-signal retrieval.
     pub lexical_only: bool,
+    /// Lowercase [`EvidenceStrength`] slug captured from the retrieval
+    /// trace. This makes weak-evidence regressions visible in runner
+    /// JSON without requiring the Swift diagnostics surface to
+    /// re-classify trace internals.
+    pub evidence_strength: String,
 }
 
 impl FVaultRecallRowOutcome {
@@ -114,8 +119,9 @@ pub async fn run_row(
     // T21 iter-16: PureChatter rows have empty `expected_paths` and pass
     // via the trace's evidence-strength verdict. Every other category
     // uses the standard expected/forbidden contract.
+    let evidence_strength = trace.evidence_strength();
     let passed = if row.category == FVaultRecallCategory::PureChatter {
-        trace.evidence_strength() == EvidenceStrength::Weak && forbidden_present.is_empty()
+        evidence_strength == EvidenceStrength::Weak && forbidden_present.is_empty()
     } else {
         expected_missed.is_empty() && forbidden_present.is_empty()
     };
@@ -133,6 +139,7 @@ pub async fn run_row(
             forbidden_present,
             top_paths,
             lexical_only,
+            evidence_strength: evidence_strength.slug().to_string(),
         },
         trace,
     ))
@@ -191,6 +198,11 @@ pub struct FVaultRecallSummary {
     /// this count drops and the W-21 surface can render
     /// "lexical-only: N/T" alongside the pass-rate label.
     pub lexical_only_count: usize,
+    /// Count of row outcomes whose trace classified the evidence as
+    /// weak. This is the runner-level typed signal for "ask, defer, or
+    /// broaden search" behavior instead of burying the verdict in
+    /// per-row trace JSON.
+    pub weak_evidence_count: usize,
 }
 
 impl FVaultRecallSummary {
@@ -225,8 +237,13 @@ impl FVaultRecallSummary {
         } else {
             String::new()
         };
+        let weak_chip = if self.weak_evidence_count > 0 {
+            format!(" [weak-evidence: {}/{}]", self.weak_evidence_count, self.total)
+        } else {
+            String::new()
+        };
         format!(
-            "{}/{} passing ({pct}%) — {breakdown}{lexical_chip}",
+            "{}/{} passing ({pct}%) — {breakdown}{lexical_chip}{weak_chip}",
             self.passed, self.total
         )
     }
@@ -266,6 +283,10 @@ pub fn summarize(outcomes: &[FVaultRecallRowOutcome]) -> FVaultRecallSummary {
         .collect();
 
     let lexical_only_count = outcomes.iter().filter(|o| o.lexical_only).count();
+    let weak_evidence_count = outcomes
+        .iter()
+        .filter(|o| o.evidence_strength == EvidenceStrength::Weak.slug())
+        .count();
 
     FVaultRecallSummary {
         total,
@@ -274,6 +295,7 @@ pub fn summarize(outcomes: &[FVaultRecallRowOutcome]) -> FVaultRecallSummary {
         pass_rate,
         by_category,
         lexical_only_count,
+        weak_evidence_count,
     }
 }
 
@@ -400,6 +422,7 @@ mod tests {
         assert_eq!(summary.failed, 0);
         assert_eq!(summary.pass_rate, 0.0);
         assert!(summary.by_category.is_empty());
+        assert_eq!(summary.weak_evidence_count, 0);
     }
 
     /// Iter-22: `summarize` over a mixed pass/fail set computes the
@@ -419,6 +442,7 @@ mod tests {
                 forbidden_present: vec![],
                 top_paths: vec!["a.md".into()],
                 lexical_only: false,
+                evidence_strength: EvidenceStrength::Strong.slug().into(),
             },
             FVaultRecallRowOutcome {
                 query: "b".into(),
@@ -430,6 +454,7 @@ mod tests {
                 forbidden_present: vec![],
                 top_paths: vec![],
                 lexical_only: false,
+                evidence_strength: EvidenceStrength::Strong.slug().into(),
             },
             FVaultRecallRowOutcome {
                 query: "c".into(),
@@ -441,6 +466,7 @@ mod tests {
                 forbidden_present: vec![],
                 top_paths: vec!["c.md".into()],
                 lexical_only: false,
+                evidence_strength: EvidenceStrength::Strong.slug().into(),
             },
         ];
         let summary = summarize(&outcomes);
@@ -486,6 +512,7 @@ mod tests {
                 forbidden_present: vec![],
                 top_paths: vec![],
                 lexical_only: false,
+                evidence_strength: EvidenceStrength::Strong.slug().into(),
             },
             FVaultRecallRowOutcome {
                 query: "q2".into(),
@@ -497,6 +524,7 @@ mod tests {
                 forbidden_present: vec![],
                 top_paths: vec!["y.md".into()],
                 lexical_only: false,
+                evidence_strength: EvidenceStrength::Strong.slug().into(),
             },
             FVaultRecallRowOutcome {
                 query: "q3".into(),
@@ -508,6 +536,7 @@ mod tests {
                 forbidden_present: vec![],
                 top_paths: vec!["z.md".into()],
                 lexical_only: false,
+                evidence_strength: EvidenceStrength::Strong.slug().into(),
             },
         ];
         let line = summarize(&outcomes).verdict_line();
@@ -541,6 +570,7 @@ mod tests {
                 forbidden_present: vec![],
                 top_paths: vec![],
                 lexical_only: false,
+                evidence_strength: EvidenceStrength::Strong.slug().into(),
             },
             FVaultRecallRowOutcome {
                 query: "q2".into(),
@@ -552,6 +582,7 @@ mod tests {
                 forbidden_present: vec![],
                 top_paths: vec!["y.md".into()],
                 lexical_only: false,
+                evidence_strength: EvidenceStrength::Strong.slug().into(),
             },
             FVaultRecallRowOutcome {
                 query: "q3".into(),
@@ -563,6 +594,7 @@ mod tests {
                 forbidden_present: vec![],
                 top_paths: vec!["z.md".into()],
                 lexical_only: false,
+                evidence_strength: EvidenceStrength::Strong.slug().into(),
             },
             FVaultRecallRowOutcome {
                 query: "q4".into(),
@@ -574,6 +606,7 @@ mod tests {
                 forbidden_present: vec![],
                 top_paths: vec![],
                 lexical_only: false,
+                evidence_strength: EvidenceStrength::Strong.slug().into(),
             },
         ];
         let summary = summarize(&outcomes);
@@ -692,6 +725,7 @@ mod tests {
                 forbidden_present: vec![],
                 top_paths: vec!["a.md".into()],
                 lexical_only: true,
+                evidence_strength: EvidenceStrength::Strong.slug().into(),
             },
             FVaultRecallRowOutcome {
                 query: "multi".into(),
@@ -703,6 +737,7 @@ mod tests {
                 forbidden_present: vec![],
                 top_paths: vec!["b.md".into()],
                 lexical_only: false,
+                evidence_strength: EvidenceStrength::Strong.slug().into(),
             },
             FVaultRecallRowOutcome {
                 query: "also_lexical".into(),
@@ -714,6 +749,7 @@ mod tests {
                 forbidden_present: vec![],
                 top_paths: vec!["d.md".into()],
                 lexical_only: true,
+                evidence_strength: EvidenceStrength::Strong.slug().into(),
             },
         ];
         let summary = summarize(&outcomes);
@@ -739,6 +775,7 @@ mod tests {
                 forbidden_present: vec![],
                 top_paths: vec!["a.md".into()],
                 lexical_only: true,
+                evidence_strength: EvidenceStrength::Strong.slug().into(),
             },
             FVaultRecallRowOutcome {
                 query: "q2".into(),
@@ -750,6 +787,7 @@ mod tests {
                 forbidden_present: vec![],
                 top_paths: vec![],
                 lexical_only: false,
+                evidence_strength: EvidenceStrength::Strong.slug().into(),
             },
             FVaultRecallRowOutcome {
                 query: "q3".into(),
@@ -761,6 +799,7 @@ mod tests {
                 forbidden_present: vec![],
                 top_paths: vec!["c.md".into()],
                 lexical_only: true,
+                evidence_strength: EvidenceStrength::Strong.slug().into(),
             },
         ];
         let line = summarize(&outcomes).verdict_line();
@@ -777,9 +816,10 @@ mod tests {
     /// click-through as a "leaked / missed delta" view, consuming
     /// the per-row JSON. Pins key shape: `query`, `category`,
     /// `top_n`, `passed`, `expected_seen[]`, `expected_missed[]`,
-    /// `forbidden_present[]`, `top_paths[]`, `lexical_only`. If any
-    /// field gets renamed or dropped via `#[serde(...)]`, the Swift
-    /// row-detail view fails silently — this test catches that.
+    /// `forbidden_present[]`, `top_paths[]`, `lexical_only`, and
+    /// `evidence_strength`. If any field gets renamed or dropped via
+    /// `#[serde(...)]`, the Swift row-detail view fails silently —
+    /// this test catches that.
     #[test]
     fn outcome_json_round_trip_pins_w21_row_detail_schema() {
         let outcome = FVaultRecallRowOutcome {
@@ -792,6 +832,7 @@ mod tests {
             forbidden_present: vec![],
             top_paths: vec![],
             lexical_only: true,
+            evidence_strength: EvidenceStrength::Weak.slug().into(),
         };
         let json = serde_json::to_string(&outcome).expect("serialize outcome");
         let parsed: serde_json::Value =
@@ -806,6 +847,8 @@ mod tests {
         assert_eq!(parsed["passed"], false);
         // Q2-gap row flag pinned (iter-68).
         assert_eq!(parsed["lexical_only"], true);
+        // Weak-evidence row verdict pinned (iter-438).
+        assert_eq!(parsed["evidence_strength"], "weak");
         // Delta arrays — must be JSON arrays so Swift maps to [String].
         assert!(parsed["expected_seen"].is_array());
         assert!(parsed["expected_missed"].is_array());
@@ -820,8 +863,9 @@ mod tests {
     /// T21 iter-77: pin the JSON schema the W-21 Settings →
     /// Diagnostics surface consumes. `FVaultRecallSummary` derives
     /// `Serialize` and the Swift side reads `total`, `passed`,
-    /// `failed`, `pass_rate`, `by_category[]`, and (iter-68)
-    /// `lexical_only_count` by key. If any of these get renamed via
+    /// `failed`, `pass_rate`, `by_category[]`, (iter-68)
+    /// `lexical_only_count`, and (iter-438)
+    /// `weak_evidence_count` by key. If any of these get renamed via
     /// `#[serde(rename = …)]` or removed, this test breaks loudly
     /// before the Swift consumer sees a silent decode failure.
     #[test]
@@ -837,6 +881,7 @@ mod tests {
                 forbidden_present: vec![],
                 top_paths: vec!["a.md".into()],
                 lexical_only: true,
+                evidence_strength: EvidenceStrength::Strong.slug().into(),
             },
             FVaultRecallRowOutcome {
                 query: "q2".into(),
@@ -848,6 +893,7 @@ mod tests {
                 forbidden_present: vec![],
                 top_paths: vec![],
                 lexical_only: false,
+                evidence_strength: EvidenceStrength::Strong.slug().into(),
             },
         ];
         let summary = summarize(&outcomes);
@@ -868,6 +914,7 @@ mod tests {
         // the top level (not nested) so the Swift surface can read it
         // alongside `passed` / `total`.
         assert_eq!(parsed["lexical_only_count"], 1);
+        assert_eq!(parsed["weak_evidence_count"], 0);
 
         // by_category[] is the per-category breakdown the surface
         // renders as chips; must be an array of objects with
@@ -900,6 +947,7 @@ mod tests {
             forbidden_present: vec![],
             top_paths: vec!["a.md".into()],
             lexical_only: false,
+            evidence_strength: EvidenceStrength::Strong.slug().into(),
         }];
         let line = summarize(&outcomes).verdict_line();
         assert!(
@@ -907,5 +955,47 @@ mod tests {
             "verdict line must NOT show the chip when count == 0; got: {line:?}"
         );
         assert!(line.starts_with("1/1 passing"));
+    }
+
+    /// T21 iter-438: weak evidence is a typed failure signal, not only
+    /// an implicit trace verdict. The summary must aggregate rows that
+    /// produced `EvidenceStrength::Weak` and the terse line must expose
+    /// that count for W-21 diagnostics.
+    #[test]
+    fn summarize_weak_evidence_count_and_verdict_chip() {
+        let outcomes = vec![
+            FVaultRecallRowOutcome {
+                query: "weak".into(),
+                category: "PureChatter".into(),
+                top_n: 5,
+                passed: true,
+                expected_seen: vec![],
+                expected_missed: vec![],
+                forbidden_present: vec![],
+                top_paths: vec![],
+                lexical_only: false,
+                evidence_strength: EvidenceStrength::Weak.slug().into(),
+            },
+            FVaultRecallRowOutcome {
+                query: "strong".into(),
+                category: "SignalOnly".into(),
+                top_n: 5,
+                passed: true,
+                expected_seen: vec!["a.md".into()],
+                expected_missed: vec![],
+                forbidden_present: vec![],
+                top_paths: vec!["a.md".into()],
+                lexical_only: true,
+                evidence_strength: EvidenceStrength::Strong.slug().into(),
+            },
+        ];
+        let summary = summarize(&outcomes);
+        assert_eq!(summary.weak_evidence_count, 1);
+
+        let line = summary.verdict_line();
+        assert!(
+            line.contains("[weak-evidence: 1/2]"),
+            "verdict line must show the weak-evidence chip when count > 0; got: {line:?}"
+        );
     }
 }
