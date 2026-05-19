@@ -6433,6 +6433,17 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_hook_registry_owner_paths_are_unique_files() {
+        assert_unique_catalog_keys(
+            falsifier_hook_owners()
+                .iter()
+                .map(|owner| owner.owner.to_owned())
+                .collect(),
+            "falsifier hook owner path registry",
+        );
+    }
+
+    #[test]
     fn falsifier_hook_registry_owner_paths_stay_in_canonical_surfaces() {
         let allowed_prefixes = [
             "docs/fusion/",
@@ -6491,6 +6502,15 @@ mod tests {
         assert_eq!(
             hooks, owner_hooks,
             "register F-* hook set must match falsifier owner registry"
+        );
+    }
+
+    #[test]
+    fn register_doc_cross_links_falsifier_owner_path_uniqueness() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("falsifier_hook_registry_owner_paths_are_unique_files"),
+            "register must cross-link the owner-path uniqueness guard"
         );
     }
 
