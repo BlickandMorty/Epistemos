@@ -1211,6 +1211,36 @@ mod tests {
     }
 
     #[test]
+    fn streaming_delta_events_round_trip_with_empty_text() {
+        // Phase 1 hardening — boundary pin for the streaming-delta
+        // variants (ReasoningDelta, FinalText). Both carry a `text:
+        // String` field that may legitimately be empty for some
+        // executor edge cases (provider emitted a delta with no
+        // content, or a heartbeat-style empty frame).
+        //
+        // Pin that BOTH variants round-trip with empty text through
+        // serde without losing the variant tag or the empty field.
+        //
+        // A future #[serde(skip_serializing_if = "String::is_empty")]
+        // optimisation on the text field would silently break the
+        // round-trip (deserialise would default the missing field to
+        // empty, which is fine, but the structural equality would
+        // break for any tests that compared before-vs-after).
+        for ev in [
+            AgentEvent::ReasoningDelta { text: String::new() },
+            AgentEvent::FinalText { text: String::new() },
+        ] {
+            let s = serde_json::to_string(&ev).expect("serialise");
+            let back: AgentEvent =
+                serde_json::from_str(&s).expect("deserialise");
+            assert_eq!(back, ev, "empty-text streaming event must round-trip");
+            // The serialised form should explicitly contain "text":"".
+            assert!(s.contains("\"text\":\"\""),
+                "serialised form must explicitly contain text:\"\" for {ev:?}, got {s}");
+        }
+    }
+
+    #[test]
     fn stop_event_round_trips_all_seven_stop_reasons_through_serde() {
         // Phase 1 hardening — completeness companion to
         // stop_event_carries_typed_reason (which only exercises
