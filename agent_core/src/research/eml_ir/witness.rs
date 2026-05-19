@@ -1288,7 +1288,7 @@ fn reject_raw_top_level_unsigned_json(json: &str) -> Result<(), FulpReplayError>
         return Ok(());
     };
     if let Some(value) = raw_witness.schema_version {
-        raw_unsigned_integer_json(value, "schema_version")?;
+        raw_u32_json(value, "schema_version")?;
     }
     if let Some(value) = raw_witness.config {
         reject_raw_config_unsigned_json(value)?;
@@ -2515,6 +2515,25 @@ mod tests {
             error.schema_mismatch_pair(),
             Some((2, FULP_WITNESS_SCHEMA_VERSION))
         );
+    }
+
+    #[test]
+    fn replay_rejects_schema_version_json_u32_overflow_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["schema_version"] =
+            serde_json::Value::Number(serde_json::Number::from(u64::from(u32::MAX) + 1));
+        let json = serde_json::to_string(&value).unwrap();
+        let error =
+            replay_witness_json(&json).expect_err("schema version u32 overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("schema_version"));
     }
 
     #[test]
