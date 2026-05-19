@@ -869,6 +869,40 @@ mod tests {
     }
 
     #[test]
+    fn pre_over_cap_ledger_with_zero_debit_still_trips_exhausted_per_doctrine() {
+        // Phase 1 hardening — DEFENSIVE doctrine pin. If the ledger
+        // arrives at the gate ALREADY over cap (a state the gate
+        // should never produce under normal operation, but COULD
+        // happen via a manually-constructed BudgetLedger or a buggy
+        // refund-path), then even a ZERO debit must trip Exhausted.
+        //
+        // Contract logic: tokens_total = 2000.saturating_add(0) = 2000,
+        // spec.max_tokens = 1000 > 0, 2000 > 1000 → Exhausted.
+        //
+        // This is the "fail-stop" property — once over cap, the gate
+        // doesn't let any further calls (even no-op probes) succeed.
+        //
+        // Defends against a future "let me let zero-debits through as
+        // an optimisation" refactor that would silently mask invalid
+        // ledger states.
+        let gate = BudgetGate::new(BudgetSpec::new(1_000, 0, 0, 0));
+        let over_cap_ledger = BudgetLedger {
+            tokens_used: 2_000,
+            ..Default::default()
+        };
+        let err = gate
+            .check_and_debit(over_cap_ledger, BudgetDebit::default())
+            .expect_err("zero debit on over-cap ledger must still trip Exhausted");
+        match err {
+            BudgetError::Exhausted { term: BudgetTerm::Tokens, attempted_total, cap } => {
+                assert_eq!(attempted_total, 2_000);
+                assert_eq!(cap, 1_000);
+            }
+            other => panic!("expected Exhausted(Tokens), got {other:?}"),
+        }
+    }
+
+    #[test]
     fn boundary_equal_to_cap_accepted() {
         // Exactly at the cap is allowed (the comparison is strict `>`).
         let gate = BudgetGate::new(BudgetSpec::new(1_000, 0, 0, 0));
