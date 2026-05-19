@@ -1929,9 +1929,16 @@ impl<'de> Deserialize<'de> for ACSAuditRecord {
         };
         record
             .validate()
-            .map_err(|err| serde::de::Error::custom(err.cause()))?;
+            .map_err(|err| serde::de::Error::custom(acs_audit_record_decode_error(&err)))?;
         Ok(record)
     }
+}
+
+fn acs_audit_record_decode_error(error: &ACSAuditRecordError) -> String {
+    if let Some(record_id) = error.record_id() {
+        return format!("{} record_id={}", error.cause(), record_id);
+    }
+    error.cause().to_string()
 }
 
 impl ACSAuditRecord {
@@ -5974,6 +5981,15 @@ mod tests {
             serde_json::to_value(&record).expect("audit record must encode to JSON object");
         corrupt_request_id["request_id"] = serde_json::json!(" req ");
         assert!(serde_json::from_value::<ACSAuditRecord>(corrupt_request_id).is_err());
+
+        let mut corrupt_reason =
+            serde_json::to_value(&record).expect("audit record must encode to JSON object");
+        corrupt_reason["reason"] = serde_json::json!(" ");
+        let err = serde_json::from_value::<ACSAuditRecord>(corrupt_reason).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("corrupt_acs_audit_record"), "{message}");
+        assert!(message.contains(record.record_id.as_str()), "{message}");
     }
 
     #[test]
