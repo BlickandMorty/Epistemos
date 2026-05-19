@@ -663,6 +663,32 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_owner_serde_values_are_stable() {
+        // Phase 1 hardening — cross-version replay parity guardrail.
+        // LocalAgentCapabilityOwner uses per-variant
+        // #[serde(rename = "...")] to produce camelCase Swift raw values.
+        // Every variant string is load-bearing for cross-FFI parity
+        // with the Swift mirror struct.
+        //
+        // Companion to iter-410's LocalAgentCapabilityTier serde
+        // stable values pin (which closed the broader pin family).
+        // This extends to the second LocalAgent enum.
+        //
+        // A rename here silently breaks the Swift⇄Rust JSON bridge.
+        for (variant, expected) in [
+            (LocalAgentCapabilityOwner::NativeCore, "\"nativeCore\""),
+            (LocalAgentCapabilityOwner::LocalAgentGateway, "\"localAgentGateway\""),
+            (LocalAgentCapabilityOwner::ResearchOnly, "\"researchOnly\""),
+            (LocalAgentCapabilityOwner::OutOfScope, "\"outOfScope\""),
+        ] {
+            let s = serde_json::to_string(&variant).expect("serialise");
+            assert_eq!(s, expected, "owner {variant:?} drifted serde form");
+            let back: LocalAgentCapabilityOwner = serde_json::from_str(&s).expect("round-trip");
+            assert_eq!(back, variant);
+        }
+    }
+
+    #[test]
     fn local_agent_owner_unknown_serde_string_fails_to_deserialise() {
         // Phase 1 hardening — tenth leg of the closed-taxonomy
         // negative-serde guardrail. LocalAgentCapabilityOwner uses
