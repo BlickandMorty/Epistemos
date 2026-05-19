@@ -3852,6 +3852,31 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 32nd Synthesis row (iter-280, milestone iteration).
+        // SECOND 2-term-AND subset on iter-108 neural-cache-layer
+        // pair: {neural, layer}. Both pair-partners have both;
+        // both "neural" and "layer" are pair-unique tokens. AND
+        // matches only the pair — cleanest discriminator on
+        // this pair. 2 of 3 C(3,2) surveyed (iter-273 {neural,
+        // cache} + iter-280 {neural, layer}). One remains:
+        // {cache, layer}.
+        query: "neural layer",
+        expected_paths: &[
+            "notes/neural_cache_layer_v1.md",
+            "notes/neural_cache_layer_v2.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Thirty-second Synthesis row (iter-280, milestone): \
+               second 2-term-AND subset on neural-cache-layer \
+               pair. {neural, layer} — both tokens unique-to-\
+               pair. Cleanest discriminator (zero competing docs \
+               at all). Two of C(3,2)=3 surveyed; only {cache, \
+               layer} remains. Brings Synthesis to depth 32. \
+               Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 31st Synthesis row (iter-273). FIRST 2-term-AND subset
         // on iter-108 neural-cache-layer near-duplicate pair:
         // {neural, cache}. Both pair-partners have both; "cache"
