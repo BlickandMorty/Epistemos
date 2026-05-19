@@ -35,12 +35,12 @@ def naturalParamArity : ExpFamily -> Nat
   | gaussian _ => 1
 
 def wellFormed : ExpFamily -> Prop
-  | bernoulli => True
+  | bernoulli => naturalParamArity bernoulli = 1
   | categorical k => 2 <= k
   | gaussian variance => variance > 0
 
 theorem bernoulli_wellFormed : wellFormed bernoulli := by
-  simp [wellFormed]
+  rfl
 
 theorem categorical_wellFormed {k : Nat} (hk : 2 <= k) :
     wellFormed (categorical k) := by
