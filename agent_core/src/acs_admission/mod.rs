@@ -2607,7 +2607,13 @@ where
     let serde_json::Value::Object(object) = value else {
         return Err(E::custom("malformed_acs_admission_proof field=proof"));
     };
-    if object.get(field).is_some_and(serde_json::Value::is_string) {
+    if object.get(field).is_some_and(|value| {
+        value.as_str().is_some_and(|text| match field {
+            "operation" => is_canonical_operation_kind_code(text),
+            "verdict" => is_canonical_admission_verdict_code(text),
+            _ => true,
+        })
+    }) {
         return Ok(());
     }
     let record_id = object
@@ -2617,6 +2623,13 @@ where
     Err(E::custom(format!(
         "malformed_acs_admission_proof field={field} record_id={record_id}"
     )))
+}
+
+fn is_canonical_admission_verdict_code(value: &str) -> bool {
+    matches!(
+        value,
+        "allow" | "allow_with_warning" | "defer" | "quarantine" | "reject"
+    )
 }
 
 fn scope_rex_proof_decode_error(error: &ACSAdmissionProofError) -> String {
@@ -7689,6 +7702,25 @@ mod tests {
             "{message}"
         );
         assert!(message.contains("verdict"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_scope_rex_proof_unknown_operation_names_malformed_proof_field() {
+        let encoded = serde_json::json!({
+            "verdict": "allow",
+            "operation": "quantum_commit",
+            "record_id": "acs:req:1001",
+            "signature": "00".repeat(CAPABILITY_SIGNATURE_BYTES),
+        });
+
+        let err = serde_json::from_value::<SCOPERexAdmissionProof>(encoded).unwrap_err();
+        let message = err.to_string();
+
+        assert!(
+            message.contains("malformed_acs_admission_proof"),
+            "{message}"
+        );
+        assert!(message.contains("operation"), "{message}");
     }
 
     #[test]
