@@ -367,6 +367,74 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_emit_and_emit_with_thinking_positional_arg_order_is_pinned() {
+        // Phase 1 hardening — positional-order pin for
+        // AnswerPacket::emit + emit_with_thinking (companion to the
+        // constructor-order pin family iter-433..iter-435).
+        //
+        // emit signature:
+        //   emit(blueprint_id, final_text, citations, stop_reason,
+        //        final_ledger, run_event_log)
+        // emit_with_thinking signature:
+        //   emit_with_thinking(blueprint_id, final_text, citations,
+        //                      stop_reason, final_ledger, run_event_log,
+        //                      thinking_digest)
+        //
+        // 6 / 7 positional args. A reorder would silently shuffle
+        // every call site. Multiple args have shared-or-compatible
+        // types (final_text: String + impossible-to-confuse citations:
+        // Vec — but the dispatcher might pass empty Vec literally).
+        //
+        // Pin via DISTINCT identifiable values per field.
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "x".into() });
+        let blueprint = AgentBlueprintId("DISTINCT-BLUEPRINT-ID".into());
+        let final_text = "DISTINCT-FINAL-TEXT-CONTENT".to_string();
+        let citations = vec![
+            Citation::from_tuple("s1", "l1"),
+            Citation::from_tuple("s2", "l2"),
+            Citation::from_tuple("s3", "l3"),
+        ];
+        let stop = StopReason::BudgetExhausted; // distinctive 5/7
+        let ledger = BudgetLedger {
+            tokens_used: 1_234, // distinctively recognisable
+            ..Default::default()
+        };
+        let thinking = Hash::from_bytes([0xAB; 32]);
+
+        // emit (6 args).
+        let p1 = AnswerPacket::emit(
+            blueprint.clone(),
+            final_text.clone(),
+            citations.clone(),
+            stop,
+            ledger,
+            &log,
+        );
+        assert_eq!(p1.blueprint_id.0, "DISTINCT-BLUEPRINT-ID");
+        assert_eq!(p1.final_text, "DISTINCT-FINAL-TEXT-CONTENT");
+        assert_eq!(p1.citations.len(), 3);
+        assert_eq!(p1.stop_reason, StopReason::BudgetExhausted);
+        assert_eq!(p1.final_ledger.tokens_used, 1_234);
+        assert_eq!(p1.run_event_log_root, log.root_hash());
+        assert_eq!(p1.thinking_digest, Hash::zero());
+
+        // emit_with_thinking (7 args).
+        let p2 = AnswerPacket::emit_with_thinking(
+            blueprint,
+            final_text,
+            citations,
+            stop,
+            ledger,
+            &log,
+            thinking,
+        );
+        assert_eq!(p2.thinking_digest, Hash::from_bytes([0xAB; 32]));
+        // Other 6 fields identical to emit() output.
+        assert_eq!(p2.final_ledger.tokens_used, 1_234);
+    }
+
+    #[test]
     fn answer_packet_distinguishes_budget_exhausted_from_end_turn() {
         // Two runs with the same final_text but different stop_reasons
         // must produce distinguishable packets. This is what makes
