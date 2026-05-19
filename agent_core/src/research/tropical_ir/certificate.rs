@@ -218,6 +218,13 @@ pub fn lean_certificate(expr: &TropicalExpr) -> String {
          \x20     eval_matches := tropical_eval_matches_{suffix}\n\
          \x20     semiringLaws := tropical_semiring_obligation_{suffix} }}\n\
          \n\
+         theorem tropical_certificate_eval_matches_{suffix} :\n\
+         \x20   ∀ env : Nat -> Epistemos.Tropical.Scalar,\n\
+         \x20     tropical_certificate_{suffix}.poly.eval env =\n\
+         \x20       Epistemos.Tropical.Expr.eval env tropical_certificate_{suffix}.expr := by\n\
+         \x20 intro env\n\
+         \x20 exact Epistemos.Tropical.CertificateTarget.evalMatches tropical_certificate_{suffix} env\n\
+         \n\
          theorem tropical_certificate_semiring_laws_{suffix} :\n\
          \x20   tropical_certificate_{suffix}.semiringLaws = tropical_semiring_obligation_{suffix} := by\n\
          \x20 rfl\n\
@@ -361,6 +368,14 @@ mod tests {
         assert!(c.contains("theorem tropical_certificate_semiring_laws_"));
         assert!(c.contains(".semiringLaws = tropical_semiring_obligation_"));
         assert!(c.contains("rfl"));
+    }
+
+    #[test]
+    fn certificate_projects_target_eval_match() {
+        let c = lean_certificate(&TropicalExpr::constant(0.0));
+        assert!(c.contains("theorem tropical_certificate_eval_matches_"));
+        assert!(c.contains("Epistemos.Tropical.CertificateTarget.evalMatches"));
+        assert!(c.contains("tropical_certificate_"));
     }
 
     #[test]
