@@ -731,10 +731,15 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
             kind: FulpInvalidJsonKind::InvalidLength,
         });
     }
-    let max_point_index_exclusive = value
-        .get("point_count")
-        .and_then(serde_json::Value::as_u64)
-        .unwrap_or(u64::MAX);
+    let Some(point_count_value) = value.get("point_count") else {
+        return Ok(());
+    };
+    let Some(max_point_index_exclusive) = point_count_value.as_u64() else {
+        return Err(FulpReplayError::InvalidJson {
+            message: "invalid type for point_count, expected unsigned integer".to_string(),
+            kind: FulpInvalidJsonKind::TypeMismatch,
+        });
+    };
     let expected_len = StressAxis::ALL.len();
     for (operation_index, stat) in stats.iter().enumerate() {
         if !stat.is_object() {
@@ -1653,6 +1658,24 @@ mod tests {
             error.count_mismatch_kind(),
             Some(FulpCountMismatchKind::PointCount)
         );
+    }
+
+    #[test]
+    fn replay_rejects_point_count_json_type_drift_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["point_count"] = serde_json::Value::String("bad-count".to_string());
+        let json = serde_json::to_string(&value).unwrap();
+        let error =
+            replay_witness_json(&json).expect_err("point count type drift must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("point_count"));
     }
 
     #[test]
