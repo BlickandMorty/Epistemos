@@ -13,9 +13,17 @@ pub enum AdversarialQueryFixtureKind {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AdversarialQueryExpectedOutcome {
+    NoFuzzyMatch,
+    FiniteSaturatingScore,
+    DeterministicTieBreak,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AdversarialQueryFixture {
     pub label: &'static str,
     pub kind: AdversarialQueryFixtureKind,
+    pub expected_outcome: AdversarialQueryExpectedOutcome,
     pub query_text: &'static str,
     pub description: &'static str,
 }
@@ -24,18 +32,21 @@ pub const ADVERSARIAL_QUERY_FIXTURES: &[AdversarialQueryFixture] = &[
     AdversarialQueryFixture {
         label: "typo-transposition",
         kind: AdversarialQueryFixtureKind::TypoTransposition,
+        expected_outcome: AdversarialQueryExpectedOutcome::NoFuzzyMatch,
         query_text: "tropcial",
         description: "misspelled transposition of tropical; must not fuzzy-match by accident",
     },
     AdversarialQueryFixture {
         label: "bm25-saturation",
         kind: AdversarialQueryFixtureKind::Bm25Saturation,
+        expected_outcome: AdversarialQueryExpectedOutcome::FiniteSaturatingScore,
         query_text: "tropical",
         description: "high-frequency lexical needle for score saturation and overflow pins",
     },
     AdversarialQueryFixture {
         label: "near-duplicate-paragraph-tie",
         kind: AdversarialQueryFixtureKind::NearDuplicateParagraphTie,
+        expected_outcome: AdversarialQueryExpectedOutcome::DeterministicTieBreak,
         query_text: "near duplicate paragraph",
         description: "same-count near-duplicate paragraphs force deterministic tie-breaks",
     },
