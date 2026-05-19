@@ -5884,6 +5884,60 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 48th Synthesis row (iter-394). FOURTH AND FINAL new
+        // C(5,2) subset on agent-runtime 5-element pair vocab
+        // {agent, runtime, substrate, canon, system}. CLOSES
+        // the C(5,2) survey opened at iter-373. {canon, system}
+        // 2-term-AND. Both pair-partners (iter-43
+        // agent_runtime_v2_substrate + iter-75
+        // agent_runtime_substrate_v3) carry BOTH tokens — the
+        // first has "...System G Invader Agent canon agent
+        // runtime", the second has "...System G canon agent
+        // runtime substrate". Every other seed in the vault
+        // carries AT MOST ONE of the two tokens:
+        // agent_brainstorm has "canon" only (1/2);
+        // compression_doctrine_canon_v1/v2 have "canon" only
+        // (1/2); design_system_hover_spec, system_overview,
+        // design_general_system have "system" only (1/2). AND-
+        // on-2 matches ONLY the pair, BM25 top-2 retains both.
+        // With iter-373 {agent, system} + iter-380 {runtime,
+        // system} + iter-387 {substrate, system} + iter-394
+        // {canon, system}, all 4 new C(5,2) subsets opened by
+        // the 5th-token discovery (iter-373) are now surveyed.
+        // The C(5,2) survey on the agent-runtime pair is
+        // COMPLETE: C(5,2) = 10 total 2-term subsets =
+        // (C(4,2) = 6 pre-existing on the 4-element {agent,
+        // runtime, substrate, canon} vocab) + (4 new added by
+        // the 5th element "system"). 5+4=9 surveyed historically
+        // (iter-177 + iter-184 + 7 others up through iter-373
+        // covered 5/6 of C(4,2)) + 4 new from iters 373/380/387/
+        // 394. The single missing C(4,2) subset {agent, canon}
+        // remains capped by iter-214 ceiling (agent_brainstorm
+        // carries both tokens, blocking pair-uniqueness). Brings
+        // Synthesis to depth 48 — first category past depth-47
+        // horizon. Zero new seeds.
+        query: "canon system",
+        expected_paths: &[
+            "notes/agent_runtime_v2_substrate.md",
+            "notes/agent_runtime_substrate_v3.md",
+        ],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Synthesis,
+        top_n: 2,
+        note: "Forty-eighth Synthesis row (iter-394): FOURTH AND \
+               FINAL new C(5,2) subset on agent-runtime 5-element \
+               pair. {canon, system}. Closes the C(5,2) survey \
+               opened at iter-373. Both pair-partners carry both \
+               tokens; agent_brainstorm + compression_doctrine_\
+               canon_v1/v2 have canon only (1/2); design_system + \
+               system_overview + design_general_system have system \
+               only (1/2). AND-on-2 matches only the pair, BM25 \
+               top-2 retains both. 4 of 4 new C(5,2) subsets \
+               surveyed; C(5,2) survey COMPLETE. Brings Synthesis \
+               to depth 48 — first category past depth-47 horizon. \
+               Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 47th Synthesis row (iter-387). THIRD new C(5,2)
         // subset on agent-runtime 5-element pair vocab.
         // {substrate, system} 2-term-AND. Both pair-partners
