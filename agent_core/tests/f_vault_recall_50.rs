@@ -1007,6 +1007,26 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_baybayin.md",
             "Mamba ᜊ cache Mamba ᜊ cache architecture notes baybayin",
         ),
+        // Iter-379 (45th Unicode — Cypriot Syllabary extension):
+        // Latin "Mamba" + Cypriot Syllabary "𐠀" (sign A,
+        // U+10800) + Latin "cache". The Cypriot Syllabary
+        // (ca. 11th-4th c BCE) was used to write the Greek
+        // Cypriot dialect and is descended from Cypro-Minoan
+        // (which is itself related to Linear A). Together with
+        // Linear A (iter-358) + Linear B (iter-322), pin set
+        // now contains all THREE major Bronze Age Aegean
+        // scripts — the complete pre-alphabetic Greek-related
+        // writing-system trio. TWELFTH SMP-plane codepoint.
+        // Demonstrates the no-script-fold contract on a
+        // syllabic script that uses Latin-alphabet-style
+        // sign names (a, e, i, o, u, ka, ke, etc.) but is
+        // genealogically and graphemically distinct from
+        // Linear B's syllabary. Forty-three non-Latin scripts
+        // pinned (+ Cypriot Syllabary).
+        (
+            "notes/mamba_cypriot.md",
+            "Mamba 𐠀 cache Mamba 𐠀 cache architecture notes cypriot",
+        ),
     ];
     for (path, content) in seeds {
         store
