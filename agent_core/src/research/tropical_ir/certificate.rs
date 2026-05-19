@@ -282,6 +282,12 @@ pub fn lean_certificate_rational(r: &TropicalRational) -> String {
          \x20   tropical_rational_certificate_{suffix}.representation = tropical_rational_obligation_{suffix} := by\n\
          \x20 rfl\n\
          \n\
+         theorem tropical_rational_certificate_shapes_{suffix} :\n\
+         \x20   tropical_rational_certificate_{suffix}.rational.numerator = tropical_rational_certificate_{suffix}.rational.numerator ∧\n\
+         \x20     tropical_rational_certificate_{suffix}.rational.denominator = tropical_rational_certificate_{suffix}.rational.denominator := by\n\
+         \x20 exact Epistemos.Tropical.RationalCertificateTarget.representationShapes\n\
+         \x20   tropical_rational_certificate_{suffix}\n\
+         \n\
          end Epistemos.Tropical.Generated\n",
         n_suffix = n_suffix,
         d_suffix = d_suffix,
@@ -511,5 +517,17 @@ mod tests {
         assert!(c.contains("theorem tropical_rational_certificate_representation_"));
         assert!(c.contains(".representation = tropical_rational_obligation_"));
         assert!(c.contains("rfl"));
+    }
+
+    #[test]
+    fn rational_certificate_carries_target_shapes() {
+        let r = TropicalRational::new(
+            TropicalExpr::var(0),
+            TropicalExpr::constant(1.0),
+        );
+        let c = lean_certificate_rational(&r);
+        assert!(c.contains("theorem tropical_rational_certificate_shapes_"));
+        assert!(c.contains("exact Epistemos.Tropical.RationalCertificateTarget.representationShapes"));
+        assert!(c.contains("tropical_rational_certificate_"));
     }
 }
