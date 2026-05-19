@@ -6044,6 +6044,33 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 37th Adversarial row (iter-317): vault-canon 6-term
+        // long-query — {vault, index, reload, tantivy,
+        // vaultstore, reader}. Keeps all 4 primaries + 2
+        // implementation tokens (vaultstore + reader). SECOND
+        // 6-term Adversarial row in fixture (after iter-120
+        // agent-runtime). Canonical has all 6 (4 primaries 3×
+        // each + 2 impl 1× each); decoys ≤1 of 6. Extends
+        // long-query coverage to 6-term on vault corpus (4-term
+        // iter-66 + 5-term iter-288 + 6-term iter-317).
+        query: "vault index reload tantivy vaultstore reader",
+        expected_paths: &["notes/vault_index_reload_canon.md"],
+        forbidden_paths: &[
+            "notes/vault_brainstorm.md",
+            "notes/old_index_design.md",
+            "notes/tantivy_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Thirty-seventh Adversarial row (iter-317): vault-\
+               canon 6-term long-query. Second 6-term in fixture \
+               (after iter-120 agent-runtime). Vault corpus now \
+               exercised at 4-term + 5-term + 6-term query \
+               lengths — first canonical with 3 query-length \
+               coverage points. Canonical 6/6; decoys ≤1 of 6. \
+               Brings Adversarial to depth 37. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 36th Adversarial row (iter-310, milestone iteration):
         // Apple-Metal 5-term long-query — {metal, compute,
         // shader, kernel, pipeline}. Keeps all 4 primaries + 1
