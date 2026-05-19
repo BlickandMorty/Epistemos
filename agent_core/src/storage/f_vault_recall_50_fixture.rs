@@ -1005,6 +1005,39 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 42nd SignalOnly row (iter-354): single-term query in
+        // Phoenician-script domain — "𐤊" (kap, U+1090A, single
+        // codepoint, SMP-plane). THIRTY-THIRD single-term-AND
+        // domain. TWENTIETH non-ASCII script-block. FIRST SMP-
+        // plane single-codepoint in SignalOnly. FIRST common-
+        // ancestor script in SignalOnly — Phoenician (ca. 1050
+        // BCE) is the genealogical root of Greek + Aramaic +
+        // many other alphabet families. SignalOnly now pins
+        // the ANCESTOR alongside its descendants (Greek λ +
+        // Hebrew ש + Coptic ⲕ via Greek branch; Syriac ܟ +
+        // Mongolian ᠺ + Arabic كاش via Aramaic branch).
+        // Together with iter-329 Unicode Imperial Aramaic, the
+        // SignalOnly + Unicode planes co-triangulate the
+        // Northwest-Semitic ancestral scripts. Token unique to
+        // iter-286's mamba_phoenician.md.
+        query: "𐤊",
+        expected_paths: &["notes/mamba_phoenician.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Forty-second SignalOnly row (iter-354): single-\
+               term Phoenician-script query — \"𐤊\" (U+1090A, \
+               SMP-plane). Thirty-third domain for single-term-\
+               AND. Twentieth non-ASCII script-block. FIRST \
+               SMP-plane single-codepoint in SignalOnly. FIRST \
+               common-ancestor script in SignalOnly. SignalOnly \
+               now pins the Northwest-Semitic ancestor \
+               (Phoenician) alongside its descendants on both \
+               Greek and Aramaic branches. Eighth single-\
+               codepoint non-ASCII token. Brings SignalOnly to \
+               depth 42 — first category past depth-41 horizon.",
+    },
+    FVaultRecallRow {
         // 41st SignalOnly row (iter-347): single-term query in
         // Coptic-script domain — "ⲕ" (kapa, U+2CB1, single
         // codepoint). THIRTY-SECOND single-term-AND domain.
