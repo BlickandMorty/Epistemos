@@ -3890,7 +3890,11 @@ pub fn admit(input: &ACSAdmissionInput, policy: &ACSPolicy, now_ms: i64) -> ACSA
         );
     }
 
-    if has_replayed_lower_lane_capability(policy, input.operation(), &input.granted_capabilities) {
+    if has_cross_operation_capability_scope_creep(
+        policy,
+        input.operation(),
+        &input.granted_capabilities,
+    ) {
         return decision(
             input,
             policy,
@@ -3928,18 +3932,17 @@ fn has_missing_required_capability(
             .is_some_and(|capability| !granted_capabilities.contains(&capability))
 }
 
-fn has_replayed_lower_lane_capability(
+fn has_cross_operation_capability_scope_creep(
     policy: &ACSPolicy,
     operation: ACSOperationKind,
     granted_capabilities: &[Capability],
 ) -> bool {
-    if operation.lane() != ACSLane::L2 {
-        return false;
-    }
     let required_for_operation = policy.required_for(operation);
-    [ACSLane::L0, ACSLane::L1]
+    [ACSLane::L0, ACSLane::L1, ACSLane::L2]
         .into_iter()
-        .flat_map(|lane| policy.required_for_lane(lane))
+        .flat_map(ACSLane::operations)
+        .filter(|scoped_operation| **scoped_operation != operation)
+        .flat_map(|scoped_operation| policy.required_for(*scoped_operation))
         .any(|capability| {
             !required_for_operation.contains(&capability)
                 && granted_capabilities.contains(&capability)
@@ -11991,6 +11994,30 @@ mod tests {
             assert_eq!(audit_log.len(), 1);
             assert!(decision.audit_record.validate().is_ok());
         }
+    }
+
+    #[test]
+    fn acs_admission_l1_rejects_l2_capability_scope_creep() {
+        let policy = ACSPolicy::strict_default(1_000);
+        let input = ACSAdmissionInput {
+            request_id: "req-l1-capability-scope-creep".to_string(),
+            payload: tool_action_payload(),
+            submitted_at_ms: 1_001,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: vec![
+                named_capability("ToolExec"),
+                named_capability("KernelPromote"),
+            ],
+        };
+        let mut audit_log = Vec::new();
+
+        let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+
+        assert_eq!(decision.verdict, ACSAdmissionVerdict::Reject);
+        assert_eq!(decision.audit_record.reason, "capability_scope_creep");
+        assert_eq!(decision.lane(), ACSLane::L1);
+        assert_eq!(audit_log.len(), 1);
+        assert!(decision.audit_record.validate().is_ok());
     }
 
     #[test]
