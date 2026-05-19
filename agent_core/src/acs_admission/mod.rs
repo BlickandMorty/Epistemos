@@ -4749,7 +4749,9 @@ impl ACSPolicy {
                     field: "operation_thresholds.duplicate_operation",
                 });
             }
-            rule.thresholds.validate()?;
+            rule.thresholds
+                .validate()
+                .map_err(operation_threshold_policy_error)?;
         }
         let mut required_capabilities = Vec::new();
         for rule in &self.required_capabilities {
@@ -4821,6 +4823,27 @@ impl ACSPolicy {
             .find(|rule| rule.operation == operation)
             .map(|rule| rule.thresholds)
             .unwrap_or(self.thresholds)
+    }
+}
+
+fn operation_threshold_policy_error(error: ACSPolicyError) -> ACSPolicyError {
+    match error.field() {
+        Some("warn_at") => ACSPolicyError::Malformed {
+            field: "operation_thresholds.thresholds.warn_at",
+        },
+        Some("defer_at") => ACSPolicyError::Malformed {
+            field: "operation_thresholds.thresholds.defer_at",
+        },
+        Some("quarantine_at") => ACSPolicyError::Malformed {
+            field: "operation_thresholds.thresholds.quarantine_at",
+        },
+        Some("reject_at") => ACSPolicyError::Malformed {
+            field: "operation_thresholds.thresholds.reject_at",
+        },
+        Some("risk_threshold_order") => ACSPolicyError::Malformed {
+            field: "operation_thresholds.thresholds.risk_threshold_order",
+        },
+        _ => error,
     }
 }
 
@@ -5609,6 +5632,25 @@ mod tests {
         assert!(
             message.contains("operation_thresholds.duplicate_operation"),
             "{message}"
+        );
+    }
+
+    #[test]
+    fn acs_admission_nonfinite_operation_threshold_names_threshold_namespace() {
+        let mut policy = ACSPolicy::strict("policy-nonfinite-operation-threshold", 1_000);
+        let mut thresholds = ACSRiskThresholds::standard();
+        thresholds.warn_at = f32::NAN;
+        policy.operation_thresholds = vec![ACSOperationThresholdRule::new(
+            ACSOperationKind::ToolAction,
+            thresholds,
+        )];
+
+        let err = policy.validate_at(1_001).unwrap_err();
+
+        assert_eq!(err.cause(), "malformed_policy");
+        assert_eq!(
+            err.field(),
+            Some("operation_thresholds.thresholds.warn_at")
         );
     }
 
