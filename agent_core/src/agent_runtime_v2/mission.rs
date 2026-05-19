@@ -1071,6 +1071,31 @@ mod tests {
     }
 
     #[test]
+    fn mission_packet_new_constructor_positional_arg_order_is_pinned() {
+        // Phase 1 hardening — positional-order pin for MissionPacket::new.
+        // The signature is:
+        //   new(blueprint_id, user_prompt, vault_scope)
+        // (mission.rs §42). Each arg maps to the same-named field.
+        //
+        // A future "let me reorder for ergonomic intuition" refactor
+        // (e.g., putting user_prompt first because it's the user-
+        // visible content) would silently shuffle every call site's
+        // behaviour. The 3 args all accept `impl Into<String>`,
+        // making the swap type-compatible.
+        //
+        // Pin via 3 DISTINCT identifiable values per field.
+        let mp = MissionPacket::new(
+            AgentBlueprintId("DISTINCT-BLUEPRINT-ID".into()),
+            "DISTINCT-USER-PROMPT-CONTENT",
+            "DISTINCT-VAULT-SCOPE-PATH",
+        )
+        .expect("under-cap construction");
+        assert_eq!(mp.blueprint_id.0, "DISTINCT-BLUEPRINT-ID");
+        assert_eq!(mp.user_prompt, "DISTINCT-USER-PROMPT-CONTENT");
+        assert_eq!(mp.vault_scope, "DISTINCT-VAULT-SCOPE-PATH");
+    }
+
+    #[test]
     fn mission_packet_new_constructor_at_cap_accepts_and_over_cap_surfaces_exact_size_in_error() {
         // Phase 1 hardening — boundary completeness companion to
         // mission_packet_new_constructor_validates_and_constructs.
