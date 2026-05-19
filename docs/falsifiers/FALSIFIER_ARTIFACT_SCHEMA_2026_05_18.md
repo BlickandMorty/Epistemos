@@ -93,6 +93,7 @@ Identity gap validator work uses stable slugs so schema prose, validator-shape r
 | Slug | Rule surface | Negative examples |
 |---|---|---|
 | `reserved-state` | Reserved sentinel words may not appear as old-state or new-state atoms inside `identity_sentinel_gap_report`. | [N194](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n194---reserved-word-identity-gap-state-atom), [N195](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n195---reserved-word-identity-gap-new-state-atom) |
+| `duplicate-numeric-transition` | Numeric-only state atoms are allowed, but validator and reviewer role-impact transitions may not be identical. | [N193](ARTIFACT_NEGATIVE_EXAMPLES_2026_05_18.md#n193---duplicate-numeric-identity-gap-role-values) |
 
 ## Pre-Witness Tightening Rule
 
