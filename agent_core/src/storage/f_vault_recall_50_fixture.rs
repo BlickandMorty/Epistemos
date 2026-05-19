@@ -4575,6 +4575,56 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                boundary error class.",
     },
     FVaultRecallRow {
+        // 48th Paraphrase row (iter-397): NEW axis — STEM
+        // REDUPLICATION. User duplicates the stem itself as a
+        // morphological process (intensification, plurality,
+        // habituality — depending on the language): "cache" →
+        // "cachecache". Found productively in many language
+        // families: Bantu (Swahili "kuonaona" = "to see
+        // repeatedly"), Austronesian (Tagalog "bahay-bahay" =
+        // "houses", Indonesian "buku-buku" = "books"), Indo-
+        // Pacific (Hawaiian "wiki-wiki" = "very quickly"),
+        // Dravidian, Sino-Tibetan onomatopoeia. Tantivy keeps
+        // "cachecache" as one alphanumeric token (no hyphen).
+        // 3-term AND on {mamba, ssm, cachecache} blocks the
+        // canonical (which has "cache" once, not "cachecache").
+        // Distinct from:
+        //   • iter-369 COMPOUND-NOUN (cache → cachefile, two
+        //     DIFFERENT noun morphemes joined): iter-397 joins
+        //     the SAME morpheme to itself
+        //   • iter-376/383/390 DERIVATIONAL AFFIXES (suffix/
+        //     prefix/both): iter-397 has no affix at all —
+        //     pure stem repetition
+        //   • iter-239/333 TRUNCATION (drops letters): iter-
+        //     397 ADDS letters by repeating the stem
+        //   • iter-86 ACRONYM (multi-word → initials): iter-
+        //     397 is monomorphemic-doubled, no acronymization
+        // Pins deferred reduplication-aware retrieval — a
+        // separate morphological process from affixation,
+        // compounding, and truncation. Forty-fifth named
+        // failure subclass.
+        query: "Mamba SSM cachecache",
+        expected_paths: &["notes/mamba_ssm_cache.md"],
+        forbidden_paths: &[],
+        category: FVaultRecallCategory::Paraphrase,
+        top_n: 5,
+        note: "Stem-reduplication Paraphrase axis (axis #45): \
+               user duplicates the stem itself as a \
+               morphological process — \"cache\" → \"cachecache\". \
+               Found productively in Bantu (Swahili), \
+               Austronesian (Tagalog/Indonesian), Indo-Pacific \
+               (Hawaiian \"wiki-wiki\"), Dravidian, Sino-Tibetan. \
+               3-term AND on {mamba, ssm, cachecache} blocks. \
+               Distinct from iter-369 compound-noun (two \
+               DIFFERENT nouns), iter-376/383/390 derivational \
+               affixes (iter-397 has no affix), iter-239/333 \
+               truncation (iter-397 ADDS via repetition), iter-\
+               86 acronym. Pins deferred reduplication-aware \
+               retrieval. Forty-fifth named failure subclass. \
+               Brings Paraphrase to depth 48 — first category \
+               past depth-47 horizon.",
+    },
+    FVaultRecallRow {
         // 47th Paraphrase row (iter-390, milestone iteration):
         // NEW axis — COMBINED PREFIX + SUFFIX MORPHEME-
         // STACKING (English circumfix-like derivation). User
