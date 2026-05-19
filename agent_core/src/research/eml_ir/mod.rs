@@ -84,6 +84,19 @@ mod tests {
     }
 
     #[test]
+    fn falsifier_doc_documents_fp16_bit_pattern_pin() {
+        assert!(FULP_FALSIFIER_DOC.contains("## Fp16 Bit Pattern Pin"));
+        assert!(FULP_FALSIFIER_DOC.contains("`Fp16Bits`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`u16` binary16"));
+        assert!(FULP_FALSIFIER_DOC.contains("round-to-nearest-even"));
+        assert!(FULP_FALSIFIER_DOC.contains("`Zero`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`Subnormal`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`Normal`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`Infinity`"));
+        assert!(FULP_FALSIFIER_DOC.contains("`Nan`"));
+    }
+
+    #[test]
     fn falsifier_doc_documents_closed_interval_semantics() {
         assert!(FULP_FALSIFIER_DOC.contains("## Closed Interval Semantics"));
         assert!(FULP_FALSIFIER_DOC.contains("closed at both endpoints"));

@@ -65,6 +65,19 @@ freezes treat Metal output itself as proven.
 |---|---|---|---|---|---|---|
 | F-ULP-Oracle | Research | M2 Pro numeric falsifier | implemented-not-wired | `agent_core/src/research/eml_ir/`, `Epistemos/Shaders/morph_eval_reduced.metal`, `cargo test --features research research::eml_ir` | live Metal dispatch capture from `morphOracleFp16` | harden with GPU capture, subnormal/signed-zero diagnostics, WBO numerics cross-link, and Helios v3 §3.5/F7a reference |
 
+## Fp16 Bit Pattern Pin
+
+The candidate output and reference output are compared at the fp16 bit
+level. The local `Fp16Bits` helper carries an explicit `u16` binary16
+representation, with explicit conversions to and from `f64` via the
+IEEE round-to-nearest-even rule, and explicit fp16 classification
+(`Zero`, `Subnormal`, `Normal`, `Infinity`, `Nan`). A candidate that ships
+fp32 outputs and only casts to fp16 inside its replay path is rejected
+because the witness comparison happens on the explicit `u16` pattern,
+not on a floating-point compare; that closes the rounding loophole where
+two fp32 values that round to the same fp16 bit pattern could appear
+non-bit-equal under `==` if the witness compared at fp32 width.
+
 ## Closed Interval Semantics
 
 The acceptance interval `[0.5, 2]` is closed at both endpoints. The
