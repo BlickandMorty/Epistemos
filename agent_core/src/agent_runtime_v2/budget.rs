@@ -2883,6 +2883,77 @@ mod tests {
     }
 
     #[test]
+    fn check_and_debit_sequencing_is_commutative_when_both_orders_fit_cap() {
+        // Phase 1 hardening MILESTONE iter-530 — algebraic-property pin
+        // companion to check_and_debit_sequencing_is_associative
+        // (iter-529) and refund_is_left_inverse (iter-528). Together
+        // these three pins establish the (5-axis ledger, debit)
+        // structure as a deterministic commutative monoid modulo
+        // saturation.
+        //
+        // For any ledger L and debits d1, d2 where BOTH orders fit
+        // the gate's spec:
+        //
+        //   gate.check_and_debit(gate.check_and_debit(L, d1)?, d2)?
+        //   == gate.check_and_debit(gate.check_and_debit(L, d2)?, d1)?
+        //
+        // A future "let me track per-axis ordering to dampen
+        // burst-spend on hot axes" tweak would silently introduce
+        // order-dependence and break replay parity for any batch
+        // where the dispatcher reordered calls.
+        let gate = BudgetGate::new(
+            BudgetSpec::new(10_000, 60_000, 20, 30_000).with_memory_bytes(1_000_000),
+        );
+        let initial = BudgetLedger::default();
+        let pairs: &[(BudgetDebit, BudgetDebit)] = &[
+            // Disjoint axes — the easy case.
+            (
+                BudgetDebit { tokens: 100, ..Default::default() },
+                BudgetDebit { wall_ms: 200, ..Default::default() },
+            ),
+            // Overlapping single-axis.
+            (
+                BudgetDebit { tokens: 100, ..Default::default() },
+                BudgetDebit { tokens: 200, ..Default::default() },
+            ),
+            // Multi-axis — every axis non-zero in both debits.
+            (
+                BudgetDebit {
+                    tokens: 50,
+                    wall_ms: 100,
+                    tool_calls: 1,
+                    subprocess_ms: 50,
+                    memory_bytes: 100,
+                },
+                BudgetDebit {
+                    tokens: 75,
+                    wall_ms: 50,
+                    tool_calls: 2,
+                    subprocess_ms: 75,
+                    memory_bytes: 50,
+                },
+            ),
+            // Asymmetric: one debit zero on some axes, the other zero on different axes.
+            (
+                BudgetDebit { tokens: 100, tool_calls: 1, ..Default::default() },
+                BudgetDebit { wall_ms: 200, subprocess_ms: 100, ..Default::default() },
+            ),
+        ];
+        for (idx, (d1, d2)) in pairs.iter().enumerate() {
+            let l_d1_first = gate
+                .check_and_debit(gate.check_and_debit(initial, *d1).unwrap(), *d2)
+                .expect("d1 then d2 must fit");
+            let l_d2_first = gate
+                .check_and_debit(gate.check_and_debit(initial, *d2).unwrap(), *d1)
+                .expect("d2 then d1 must fit");
+            assert_eq!(
+                l_d1_first, l_d2_first,
+                "fixture {idx}: d1→d2 must commute with d2→d1 on ledger"
+            );
+        }
+    }
+
+    #[test]
     fn check_and_debit_sequencing_is_associative_when_combined_debit_fits_cap() {
         // Phase 1 hardening — algebraic-property pin (companion to
         // refund_is_left_inverse_of_check_and_debit). For any ledger L
