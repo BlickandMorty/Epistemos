@@ -157,8 +157,20 @@ done <<< "${SCHEMA_MODULES}"
 # by targeting `True`; each theorem must expose at least a schema
 # witness, constant, status flag, or hypothesis-carrying shape.
 TRUE_PLACEHOLDER_REPORT=$(find "${LEAN_DIR}" -maxdepth 1 -name '*.lean' -type f -exec awk '
-  /^[[:space:]]*theorem[[:space:]][^:]+:[[:space:]]*True[[:space:]]*:=/ {
-    printf "%s:%d:%s\n", FILENAME, FNR, $0
+  /^[[:space:]]*theorem[[:space:]][^:]+/ {
+    in_decl = 1
+    start_line = FNR
+    decl = $0
+  }
+  in_decl && FNR != start_line {
+    decl = decl " " $0
+  }
+  in_decl && /:=/ {
+    if (decl ~ /:[[:space:]]*True[[:space:]]*:=/) {
+      printf "%s:%d:%s\n", FILENAME, start_line, decl
+    }
+    in_decl = 0
+    decl = ""
   }
 ' {} +)
 
