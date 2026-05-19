@@ -1917,6 +1917,36 @@ impl<'de> Deserialize<'de> for ACSAdmissionInput {
     {
         let value = serde_json::Value::deserialize(deserializer)?;
         require_admission_input_known_fields::<D::Error>(&value)?;
+        require_admission_input_field::<D::Error>(
+            &value,
+            "request_id",
+            "admission_input.request_id",
+            serde_json::Value::is_string,
+        )?;
+        require_admission_input_field::<D::Error>(
+            &value,
+            "payload",
+            "admission_input.payload",
+            serde_json::Value::is_object,
+        )?;
+        require_admission_input_field::<D::Error>(
+            &value,
+            "submitted_at_ms",
+            "admission_input.submitted_at_ms",
+            serde_json::Value::is_i64,
+        )?;
+        require_admission_input_field::<D::Error>(
+            &value,
+            "risk",
+            "admission_input.risk",
+            serde_json::Value::is_object,
+        )?;
+        require_admission_input_field::<D::Error>(
+            &value,
+            "granted_capabilities",
+            "admission_input.granted_capabilities",
+            serde_json::Value::is_array,
+        )?;
         let wire = ACSAdmissionInputWire::deserialize(value).map_err(serde::de::Error::custom)?;
         let input = Self {
             request_id: wire.request_id,
@@ -1950,6 +1980,24 @@ where
         }
     }
     Ok(())
+}
+
+fn require_admission_input_field<E>(
+    value: &serde_json::Value,
+    field: &'static str,
+    input_field: &'static str,
+    valid_field: fn(&serde_json::Value) -> bool,
+) -> Result<(), E>
+where
+    E: serde::de::Error,
+{
+    match value {
+        serde_json::Value::Object(object) if object.get(field).is_some_and(valid_field) => Ok(()),
+        serde_json::Value::Object(_) => Err(E::custom(format!(
+            "forged_admission_input field={input_field}"
+        ))),
+        _ => Err(E::custom("forged_admission_input field=admission_input")),
+    }
 }
 
 impl ACSAdmissionInput {
@@ -6444,6 +6492,29 @@ mod tests {
             serde_json::to_value(&input).expect("admission input must encode to JSON object");
         forged_request_id["request_id"] = serde_json::json!(" req-round-trip ");
         assert!(serde_json::from_value::<ACSAdmissionInput>(forged_request_id).is_err());
+    }
+
+    #[test]
+    fn acs_admission_missing_input_risk_names_forged_admission_input_field() {
+        let value = serde_json::json!({
+            "request_id": "req-missing-risk",
+            "payload": {
+                "kind": "tool_action",
+                "request": {
+                    "tool_name": "vault.write",
+                    "target": "uas://note/1",
+                    "mutation_envelope_id": "mutation-1"
+                }
+            },
+            "submitted_at_ms": 1_001,
+            "granted_capabilities": []
+        });
+
+        let err = serde_json::from_value::<ACSAdmissionInput>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("forged_admission_input"), "{message}");
+        assert!(message.contains("admission_input.risk"), "{message}");
     }
 
     #[test]
