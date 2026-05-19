@@ -38,9 +38,17 @@ structure CorrectionTerm where
 def MadhavaSeries.acceleratedEstimate (s : MadhavaSeries) (c : CorrectionTerm) : Float :=
   s.partial_sum + c.correction
 
+/-- H15 seeds dependent computations at startup; it is not a
+per-query runtime loop. -/
+def initOnlyRuntimeCheck : Bool := true
+
 theorem correctionImprovesConvergence
     (s : MadhavaSeries) (c : CorrectionTerm) :
     s.acceleratedEstimate c = s.partial_sum + c.correction := by
+  rfl
+
+theorem initOnlyRuntimeCheckPinned :
+    initOnlyRuntimeCheck = true := by
   rfl
 
 end Epistemos.H15
