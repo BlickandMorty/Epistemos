@@ -6924,6 +6924,30 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_nonobject_input_risk_names_input_namespace() {
+        let value = serde_json::json!({
+            "request_id": "req-nonobject-risk",
+            "payload": {
+                "kind": "tool_action",
+                "request": {
+                    "tool_name": "vault.write",
+                    "target": "uas://note/1",
+                    "mutation_envelope_id": "mutation-1"
+                }
+            },
+            "submitted_at_ms": 1_001,
+            "risk": "neutral",
+            "granted_capabilities": []
+        });
+
+        let err = serde_json::from_value::<ACSAdmissionInput>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("forged_admission_input"), "{message}");
+        assert!(message.contains("admission_input.risk"), "{message}");
+    }
+
+    #[test]
     fn acs_admission_forged_input_request_id_decode_names_input_namespace() {
         let value = serde_json::json!({
             "request_id": " req-forged ",
