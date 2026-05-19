@@ -8831,6 +8831,143 @@ fn eidos_context_packet_clone_is_byte_perfect_under_smuggling() {
     assert_eq!(original_packet.validate_citation(&cite), Ok(()));
 }
 
+/// Multilingual `EidosContextPacket::clone()` byte-perfect pin.
+/// Iter 194 covered the smuggling vectors (Latin baseline +
+/// adversarial payloads). This pin extends the floor to legitimate
+/// non-Latin script payloads in BOTH the source_id half of the
+/// embedded hit AND the packet-level manifest_id — exercising the
+/// full Clone surface on multilingual data.
+///
+/// Packets are cloned for replay-bundle serialization, cross-thread
+/// handoff, and test fixtures that mutate a copy. A future custom
+/// Clone that re-canonicalized any field (NFC-normalized source_ids,
+/// case-folded manifest_ids, stripped combining marks from
+/// document_ids) would silently break the byte-strict floor pinned
+/// in iters 658-664 — cloning would no longer be transparent for
+/// vault entries authored in non-Latin scripts.
+///
+/// Pinned across the same 5 script families that anchor the
+/// multilingual lattice (Han, Hangul, Arabic, Devanagari, mixed
+/// Han+Latin), with both source_id AND manifest_id non-Latin in
+/// each case (the iter 660 combined-axis variant for Clone).
+///
+/// Pins per script family:
+///   - cloned packet equals original packet (full PartialEq)
+///   - cloned packet's hit source_id bytes equal original verbatim
+///   - cloned packet's manifest_id bytes equal original verbatim
+///   - cloned packet's embedded hit provenance manifest_id bytes
+///     equal original verbatim (the provenance is a nested field
+///     a refactor might forget to clone deeply)
+///   - validate_citation against the cloned packet produces the
+///     SAME Ok/Err outcome as against the original (the closed-
+///     citation gate sees both packets as byte-identical)
+#[test]
+fn eidos_context_packet_clone_is_byte_perfect_for_multilingual_packets() {
+    use super::types::{
+        EidosChunkId, EidosCitation, EidosContextPacket, EidosHit, EidosProvenance,
+        EidosScoreComponents,
+    };
+
+    // (label, source_id non-Latin, manifest_id non-Latin)
+    let cases: &[(&str, &str, &str)] = &[
+        ("Han (Chinese)",     "笔记-a::lex",       "快照-α"),
+        ("Hangul (Korean)",   "노트-a::lex",       "스냅샷-a"),
+        ("Arabic",            "ملاحظة-a::lex",     "لقطة-a"),
+        ("Devanagari",        "नोट-a::lex",        "स्नैपशॉट-a"),
+        ("Mixed Han+Latin",   "笔note-a::lex",     "快照-snap"),
+    ];
+
+    for (label, src_id, manifest_str) in cases {
+        let m = EidosIndexManifestId::new(*manifest_str).unwrap();
+        let src = EidosChunkId::new(*src_id).unwrap();
+
+        let original = EidosContextPacket {
+            query: EidosQuery::new("clone-multilingual", EidosRetrievalMode::Lexical, 8),
+            manifest_id: m.clone(),
+            hits: vec![EidosHit {
+                source_id: src.clone(),
+                document_id: doc("clone-doc"),
+                kind: EidosSourceKind::Note,
+                span: None,
+                confidence: 0.5,
+                score: EidosScoreComponents::default(),
+                provenance: EidosProvenance {
+                    manifest_id: m.clone(),
+                    mode: EidosRetrievalMode::Lexical,
+                    retrieved_at_unix_ms: 1_700_000_000_000,
+                },
+            }],
+        };
+
+        // Fixture sanity: both source_id and manifest_id are non-ASCII
+        // (so this iter genuinely exercises the multilingual axis,
+        // not a Latin-only fallthrough).
+        assert!(
+            !original.manifest_id.as_str().is_ascii(),
+            "{label}: packet manifest_id must be non-ASCII"
+        );
+        assert!(
+            !original.hits[0].source_id.as_str().is_ascii(),
+            "{label}: hit source_id must be non-ASCII"
+        );
+
+        let cloned = original.clone();
+
+        // (1) Full PartialEq round-trip.
+        assert_eq!(
+            cloned, original,
+            "{label}: cloned multilingual packet must equal original"
+        );
+
+        // (2) Top-level manifest_id bytes preserved.
+        assert_eq!(
+            cloned.manifest_id.as_str().as_bytes(),
+            original.manifest_id.as_str().as_bytes(),
+            "{label}: cloned packet manifest_id bytes must match original \
+             — a future custom Clone that case-folds manifest tags \
+             would silently break the byte-strict manifest pin from \
+             iter 659"
+        );
+
+        // (3) Hit source_id bytes preserved.
+        assert_eq!(
+            cloned.hits[0].source_id.as_str().as_bytes(),
+            original.hits[0].source_id.as_str().as_bytes(),
+            "{label}: cloned hit source_id bytes must match original"
+        );
+
+        // (4) Nested provenance manifest_id bytes preserved
+        // (the provenance is the nested field most likely to drift
+        // if a refactor flattens packet/hit Clone implementations).
+        assert_eq!(
+            cloned.hits[0].provenance.manifest_id.as_str().as_bytes(),
+            original.hits[0].provenance.manifest_id.as_str().as_bytes(),
+            "{label}: cloned provenance manifest_id bytes must match \
+             original — nested field most likely to drift in a refactor"
+        );
+
+        // (5) validate_citation produces the SAME outcome on both
+        // packets. Since source_id + manifest are byte-equal across
+        // packets, the legitimate citation must validate Ok on both.
+        let cite = EidosCitation {
+            source_id: src,
+            manifest_id: m,
+        };
+        assert_eq!(
+            cloned.validate_citation(&cite),
+            original.validate_citation(&cite),
+            "{label}: validate_citation must produce the SAME outcome \
+             against the cloned multilingual packet — pinning packet-\
+             level Clone-byte-perfect under the byte-strict floor"
+        );
+        assert_eq!(
+            original.validate_citation(&cite),
+            Ok(()),
+            "{label}: legitimate multilingual citation must validate Ok"
+        );
+    }
+}
+
 /// `EidosHit::clone()` is byte-perfect — parallel to iter 190's
 /// EidosCitation Clone pin, but for the OUTPUT type (retriever-
 /// emitted hits) rather than the INPUT type (chat-layer citations).
