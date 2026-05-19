@@ -91,7 +91,7 @@ impl EidosRetriever for InMemoryCodeSymbolIndex {
         query: &EidosQuery,
         retrieved_at_unix_ms: u64,
     ) -> EidosContextPacket {
-        if query.text.is_empty() || query.top_k == 0 {
+        if query.text.trim().is_empty() || query.top_k == 0 {
             return empty_packet(query, &self.manifest_id);
         }
 
@@ -225,6 +225,18 @@ mod tests {
         let q = EidosQuery::new("", EidosRetrievalMode::CodeSymbol, 8);
         let packet = idx.retrieve(&q, 1_700_000_000_000);
         assert!(packet.hits.is_empty());
+    }
+
+    #[test]
+    fn whitespace_only_query_text_returns_empty_packet() {
+        let mut idx = InMemoryCodeSymbolIndex::new(manifest());
+        idx.insert("   ", doc("invalid-symbol.rs"), 0, 3);
+        let q = EidosQuery::new("   ", EidosRetrievalMode::CodeSymbol, 8);
+        let packet = idx.retrieve(&q, 1_700_000_000_000);
+        assert!(
+            packet.hits.is_empty(),
+            "whitespace-only text is not a code symbol query and must defer"
+        );
     }
 
     #[test]
