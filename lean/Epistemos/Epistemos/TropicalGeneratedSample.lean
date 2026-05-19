@@ -29,6 +29,7 @@ noncomputable def tropical_rational_obligation_sample :
     tropical_rational_form_sample
     "sample-num"
     "sample-den"
+    "docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Tropical-IR rational-form"
 
 theorem tropical_rational_numerator_shape_sample :
     tropical_rational_form_sample.numerator =
@@ -168,6 +169,14 @@ theorem tropical_rational_denominator_hash_sample :
   exact Epistemos.Tropical.RationalRepresentationObligation.denominatorHashMatches
     tropical_rational_obligation_sample
     "sample-den"
+    rfl
+
+theorem tropical_rational_source_row_sample :
+    tropical_rational_obligation_sample.sourceRow =
+      "docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Tropical-IR rational-form" := by
+  exact Epistemos.Tropical.RationalRepresentationObligation.sourceRowMatches
+    tropical_rational_obligation_sample
+    "docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Tropical-IR rational-form"
     rfl
 
 end Epistemos.Tropical.Generated

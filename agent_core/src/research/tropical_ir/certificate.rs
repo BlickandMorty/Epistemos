@@ -277,10 +277,12 @@ pub fn lean_certificate_rational(r: &TropicalRational) -> String {
          \n\
          noncomputable def tropical_rational_obligation_{suffix} :\n\
          \x20   Epistemos.Tropical.RationalRepresentationObligation tropical_rational_form_{suffix} :=\n\
+         \x20   -- sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Tropical-IR rational-form\"\n\
          \x20   Epistemos.Tropical.RationalRepresentationObligation.refl\n\
          \x20     tropical_rational_form_{suffix}\n\
          \x20     \"{n_suffix}\"\n\
          \x20     \"{d_suffix}\"\n\
+         \x20     \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Tropical-IR rational-form\"\n\
          \n\
          theorem tropical_rational_numerator_shape_{suffix}\n\
          \x20   (numeratorShapeWitness : tropical_rational_obligation_{suffix}.numeratorShape) :\n\
@@ -314,6 +316,14 @@ pub fn lean_certificate_rational(r: &TropicalRational) -> String {
          \x20 exact Epistemos.Tropical.RationalRepresentationObligation.denominatorHashMatches\n\
          \x20   tropical_rational_obligation_{suffix}\n\
          \x20   \"{d_suffix}\"\n\
+         \x20   rfl\n\
+         \n\
+         theorem tropical_rational_obligation_source_row_{suffix} :\n\
+         \x20   tropical_rational_obligation_{suffix}.sourceRow =\n\
+         \x20     \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Tropical-IR rational-form\" := by\n\
+         \x20 exact Epistemos.Tropical.RationalRepresentationObligation.sourceRowMatches\n\
+         \x20   tropical_rational_obligation_{suffix}\n\
+         \x20   \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Tropical-IR rational-form\"\n\
          \x20   rfl\n\
          \n\
          noncomputable def tropical_rational_certificate_{suffix} : Epistemos.Tropical.RationalCertificateTarget :=\n\
@@ -643,6 +653,7 @@ mod tests {
         assert!(c.contains("Epistemos.Tropical.RationalRepresentationObligation"));
         assert!(c.contains("def tropical_rational_obligation_"));
         assert!(c.contains("Epistemos.Tropical.RationalRepresentationObligation.refl"));
+        assert!(c.contains("sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Tropical-IR rational-form\""));
         assert!(c.contains("representation := tropical_rational_obligation_"));
         assert!(c.contains(".numeratorHash"));
         assert!(c.contains(".denominatorHash"));
@@ -655,6 +666,10 @@ mod tests {
         assert!(c.contains("theorem tropical_rational_obligation_denominator_hash_"));
         assert!(c.contains(
             "Epistemos.Tropical.RationalRepresentationObligation.denominatorHashMatches"
+        ));
+        assert!(c.contains("theorem tropical_rational_obligation_source_row_"));
+        assert!(c.contains(
+            "Epistemos.Tropical.RationalRepresentationObligation.sourceRowMatches"
         ));
         assert!(c.contains("(numeratorShapeWitness :"));
         assert!(c.contains("exact numeratorShapeWitness"));

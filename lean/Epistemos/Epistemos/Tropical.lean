@@ -208,15 +208,17 @@ shape. -/
 structure RationalRepresentationObligation (rational : RationalForm) where
   numeratorHash : String
   denominatorHash : String
+  sourceRow : String
   numeratorShape : rational.numerator = rational.numerator
   denominatorShape : rational.denominator = rational.denominator
 
 def RationalRepresentationObligation.refl
     (rational : RationalForm)
-    (numeratorHash denominatorHash : String) :
+    (numeratorHash denominatorHash sourceRow : String) :
     RationalRepresentationObligation rational :=
   { numeratorHash := numeratorHash
     denominatorHash := denominatorHash
+    sourceRow := sourceRow
     numeratorShape := rfl
     denominatorShape := rfl }
 
@@ -251,6 +253,14 @@ theorem RationalRepresentationObligation.denominatorHashMatches
     (denominatorHash : String)
     (stored : obligation.denominatorHash = denominatorHash) :
     obligation.denominatorHash = denominatorHash := by
+  exact stored
+
+theorem RationalRepresentationObligation.sourceRowMatches
+    {rational : RationalForm}
+    (obligation : RationalRepresentationObligation rational)
+    (sourceRow : String)
+    (stored : obligation.sourceRow = sourceRow) :
+    obligation.sourceRow = sourceRow := by
   exact stored
 
 /-- Target for generated Tropical rational certificates. -/
