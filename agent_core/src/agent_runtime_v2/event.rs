@@ -1273,6 +1273,106 @@ mod tests {
     }
 
     #[test]
+    fn concat_reasoning_and_concat_final_text_consume_disjoint_streaming_deltas() {
+        // Phase 1 hardening — disjoint-coverage property pin for the
+        // concat_reasoning_text + concat_final_text helper pair.
+        // Companion to:
+        //   - concat_reasoning_text_joins_only_reasoning_deltas (positive)
+        //   - concat_final_text_joins_only_final_deltas (positive)
+        //   - agent_event_buckets_partition_six_variants_exactly_once_each
+        //     (partition / disjointness at the is_streaming_delta/is_terminal
+        //     classifier level)
+        //
+        // The two concat helpers each project a DISJOINT subset of the
+        // streaming-delta events: concat_reasoning_text MUST consume
+        // ONLY ReasoningDelta and concat_final_text MUST consume ONLY
+        // FinalText. The property invariant: total bytes pulled by
+        // both helpers EQUALS the total bytes carried by all streaming-
+        // delta events.
+        //
+        // A future refactor that:
+        //   - silently widened concat_reasoning_text to also pick up
+        //     FinalText (overlap → byte sum exceeds total)
+        //   - silently narrowed concat_final_text to skip some FinalText
+        //     events under a heuristic (underflow → byte sum less than
+        //     total)
+        // would slip past the positive-only pins above but fail this
+        // disjoint-coverage pin.
+        //
+        // Adversarial mixed slice covering all 6 variants with
+        // identifiable per-variant text payloads.
+        let events = [
+            AgentEvent::ReasoningDelta { text: "R1-".into() },
+            AgentEvent::ReasoningDelta { text: "R2-".into() },
+            AgentEvent::FinalText { text: "F1-".into() },
+            AgentEvent::ToolCall {
+                call: ToolCall {
+                    name: "vault.read".into(),
+                    arguments: serde_json::json!({"path": "x"}),
+                },
+            },
+            AgentEvent::FinalText { text: "F2-".into() },
+            AgentEvent::ReasoningDelta { text: "R3".into() },
+            AgentEvent::ToolResult { name: "vault.read".into(), result: serde_json::json!({}) },
+            AgentEvent::FinalText { text: "F3".into() },
+            AgentEvent::Error {
+                kind: AgentEventErrorKind::Provider,
+                message: "ignored".into(),
+            },
+            AgentEvent::Stop { reason: StopReason::EndTurn },
+        ];
+
+        let reasoning = AgentEvent::concat_reasoning_text(&events);
+        let final_text = AgentEvent::concat_final_text(&events);
+
+        // Slice-order preservation per concat (sanity-anchors the
+        // exact projection).
+        assert_eq!(reasoning, "R1-R2-R3");
+        assert_eq!(final_text, "F1-F2-F3");
+
+        // Disjoint coverage: the concat outputs must be disjoint
+        // string-substring-wise on the per-variant payload tokens.
+        // Reasoning output contains no F-prefixed token; final
+        // output contains no R-prefixed token.
+        for r_token in ["R1", "R2", "R3"] {
+            assert!(reasoning.contains(r_token), "reasoning must include {r_token}");
+            assert!(!final_text.contains(r_token), "final must NOT include {r_token}");
+        }
+        for f_token in ["F1", "F2", "F3"] {
+            assert!(final_text.contains(f_token), "final must include {f_token}");
+            assert!(!reasoning.contains(f_token), "reasoning must NOT include {f_token}");
+        }
+
+        // Byte-sum coverage: concat byte counts EQUAL the per-variant
+        // text byte totals (catches both overlap and underflow).
+        let expected_reasoning_bytes: usize = events
+            .iter()
+            .filter_map(|e| match e {
+                AgentEvent::ReasoningDelta { text } => Some(text.len()),
+                _ => None,
+            })
+            .sum();
+        let expected_final_bytes: usize = events
+            .iter()
+            .filter_map(|e| match e {
+                AgentEvent::FinalText { text } => Some(text.len()),
+                _ => None,
+            })
+            .sum();
+        assert_eq!(reasoning.len(), expected_reasoning_bytes,
+            "concat_reasoning_text byte count must equal sum of ReasoningDelta lengths");
+        assert_eq!(final_text.len(), expected_final_bytes,
+            "concat_final_text byte count must equal sum of FinalText lengths");
+
+        // ToolCall name + Error message + Stop are present in the
+        // events but MUST NOT bleed into either concat output.
+        for forbidden in ["vault.read", "ignored"] {
+            assert!(!reasoning.contains(forbidden), "reasoning must not bleed {forbidden}");
+            assert!(!final_text.contains(forbidden), "final must not bleed {forbidden}");
+        }
+    }
+
+    #[test]
     fn stop_helper_produces_correct_variant() {
         let s = AgentEvent::stop(StopReason::BudgetExhausted);
         match s {
