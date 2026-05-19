@@ -1998,6 +1998,13 @@ where
         .and_then(serde_json::Value::as_str)
         .is_some_and(is_canonical_operation_kind_code)
     {
+        for field in payload.keys() {
+            if !matches!(field.as_str(), "kind" | "envelope" | "packet" | "request") {
+                return Err(E::custom(format!(
+                    "forged_admission_input field=admission_input.payload.{field}"
+                )));
+            }
+        }
         return Ok(());
     }
     Err(E::custom(
@@ -6856,6 +6863,37 @@ mod tests {
 
         assert!(message.contains("forged_admission_input"), "{message}");
         assert!(message.contains("admission_input.payload"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_shadow_input_payload_field_names_forged_admission_input_field() {
+        let value = serde_json::json!({
+            "request_id": "req-shadow-payload-field",
+            "payload": {
+                "kind": "tool_action",
+                "request": {
+                    "tool_name": "vault.write",
+                    "target": "uas://note/1",
+                    "mutation_envelope_id": "mutation-1"
+                },
+                "shadow_request": {
+                    "tool_name": "vault.delete",
+                    "target": "uas://note/1"
+                }
+            },
+            "submitted_at_ms": 1_001,
+            "risk": ACSRiskVector::neutral(),
+            "granted_capabilities": []
+        });
+
+        let err = serde_json::from_value::<ACSAdmissionInput>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("forged_admission_input"), "{message}");
+        assert!(
+            message.contains("admission_input.payload.shadow_request"),
+            "{message}"
+        );
     }
 
     #[test]
