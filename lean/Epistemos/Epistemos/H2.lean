@@ -29,6 +29,10 @@ def softmaxLipschitzConstant : Float := 0.5
 theorem halfSoftmaxPostBoundedUlpDrift : maxUlpDrift = 2 := by
   rfl
 
+theorem softmaxLipschitzConstantPinned :
+    softmaxLipschitzConstant = 0.5 := by
+  rfl
+
 theorem babaiClosurePreserved (resonance_ordered : Bool)
     (h_ordered : resonance_ordered = true) :
     resonance_ordered = true := by
