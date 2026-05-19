@@ -2547,6 +2547,40 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 37th PureChatter row (iter-321): 12-token long-input
+        // shape — "please can you tell me where some of my notes
+        // are about". Extends the long-input cardinality
+        // progression to 12 (iter-314 was 11). LONGEST PureChatter
+        // query in the fixture. Mixes 9 chatter sub-classes
+        // (politeness + modal + 2 pronouns + imperative + wh +
+        // quantifier + preposition + chatter-noun + be-verb).
+        // All 12 tokens (please / can / you / tell / me / where /
+        // some / of / my / notes / are / about) are in QUERY_
+        // CHATTER_WORDS. Strip empties → all_chatter_fallback →
+        // evidence Weak → PureChatter contract passes. Reuses the
+        // iter-16 totally-unrelated decoys — zero new seeds.
+        query: "please can you tell me where some of my notes are about",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Thirty-seventh PureChatter row (iter-321): 12-\
+               token long-input (\"please can you tell me where \
+               some of my notes are about\"). Extends cardinality \
+               to 12 (iter-314 = 11). LONGEST PureChatter query \
+               in the fixture. Mixes 9 chatter sub-classes \
+               (politeness + modal + 2 pronouns + imperative + \
+               wh + quantifier + preposition + chatter-noun + \
+               be-verb). All 12 tokens in QUERY_CHATTER_WORDS. \
+               Brings PureChatter to depth 37 — first category \
+               past depth-36 horizon (rejoins Synthesis 37, \
+               Adversarial 37, SignalOnly 37, Paraphrase 37, \
+               ChattyPrefix 37).",
+    },
+    FVaultRecallRow {
         // 36th PureChatter row (iter-314): 11-token long-input
         // shape — "please can you tell me what where some of my
         // notes". Extends long-input cardinality progression to
