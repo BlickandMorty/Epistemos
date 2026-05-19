@@ -1643,7 +1643,10 @@ impl<'de> Deserialize<'de> for ACSToolActionRequest {
     where
         D: serde::Deserializer<'de>,
     {
-        let wire = ACSToolActionRequestWire::deserialize(deserializer)?;
+        let value = serde_json::Value::deserialize(deserializer)?;
+        require_tool_action_request_known_fields::<D::Error>(&value)?;
+        let wire =
+            ACSToolActionRequestWire::deserialize(value).map_err(serde::de::Error::custom)?;
         let request = Self {
             tool_name: wire.tool_name,
             target: wire.target,
@@ -1654,6 +1657,26 @@ impl<'de> Deserialize<'de> for ACSToolActionRequest {
             .map_err(|err| serde::de::Error::custom(acs_admission_input_decode_error(&err)))?;
         Ok(request)
     }
+}
+
+fn require_tool_action_request_known_fields<E>(value: &serde_json::Value) -> Result<(), E>
+where
+    E: serde::de::Error,
+{
+    let serde_json::Value::Object(object) = value else {
+        return Ok(());
+    };
+    for field in object.keys() {
+        if !matches!(
+            field.as_str(),
+            "tool_name" | "target" | "mutation_envelope_id"
+        ) {
+            return Err(E::custom(format!(
+                "forged_admission_input field=tool_action.{field}"
+            )));
+        }
+    }
+    Ok(())
 }
 
 impl ACSToolActionRequest {
@@ -6085,6 +6108,22 @@ mod tests {
 
         assert!(message.contains("forged_admission_input"), "{message}");
         assert!(message.contains("memory_write.shadow_address"), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_shadow_tool_action_field_names_forged_admission_input_field() {
+        let value = serde_json::json!({
+            "tool_name": "vault.write",
+            "target": "uas://note/1",
+            "mutation_envelope_id": "mutation-1",
+            "shadow_tool": "vault.delete"
+        });
+
+        let err = serde_json::from_value::<ACSToolActionRequest>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("forged_admission_input"), "{message}");
+        assert!(message.contains("tool_action.shadow_tool"), "{message}");
     }
 
     #[test]
