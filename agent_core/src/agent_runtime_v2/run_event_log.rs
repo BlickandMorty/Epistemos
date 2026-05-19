@@ -4309,6 +4309,25 @@ mod tests {
     }
 
     #[test]
+    fn run_event_entry_valid_kinds_with_missing_required_fields_fail_to_deserialise() {
+        for bad in [
+            r#"{"kind":"event","event":{"event_type":"final_text","text":"x"}}"#,
+            r#"{"kind":"event","ordinal":0}"#,
+            r#"{"kind":"sealed_mutation","capability_hash":[0,0,0,0],"debit":{}}"#,
+            r#"{"kind":"sealed_mutation","ordinal":0,"debit":{}}"#,
+            r#"{"kind":"sealed_mutation","ordinal":0,"capability_hash":[0,0,0,0]}"#,
+            r#"{"kind":"ledger_snapshot","ledger":{}}"#,
+            r#"{"kind":"ledger_snapshot","ordinal":0}"#,
+        ] {
+            let parsed: Result<RunEventEntry, _> = serde_json::from_str(bad);
+            assert!(
+                parsed.is_err(),
+                "valid RunEventEntry kind with missing required field must fail: {bad}"
+            );
+        }
+    }
+
+    #[test]
     fn corrupted_run_event_log_top_level_shape_fails_to_deserialise() {
         // Phase 1 hardening — corrupted-log load boundary. Row-level
         // corruption is pinned by run_event_entry_unknown_kind_tag_
