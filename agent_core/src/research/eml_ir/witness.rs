@@ -1684,17 +1684,30 @@ fn required_raw_json_field<'a>(
 }
 
 fn raw_u32_json(raw_value: &RawValue, field: &str) -> Result<u32, FulpReplayError> {
+    Ok(raw_bounded_unsigned_integer_json(raw_value, field, u64::from(u32::MAX), "u32")? as u32)
+}
+
+fn raw_u16_json(raw_value: &RawValue, field: &str) -> Result<u16, FulpReplayError> {
+    Ok(raw_bounded_unsigned_integer_json(raw_value, field, u64::from(u16::MAX), "u16")? as u16)
+}
+
+fn raw_bounded_unsigned_integer_json(
+    raw_value: &RawValue,
+    field: &str,
+    max: u64,
+    expected: &str,
+) -> Result<u64, FulpReplayError> {
     match serde_json::from_str::<u64>(raw_value.get()) {
-        Ok(value) if value <= u64::from(u32::MAX) => Ok(value as u32),
+        Ok(value) if value <= max => Ok(value),
         Ok(_) => Err(FulpReplayError::InvalidJson {
-            message: format!("number out of range for {field}, expected u32"),
+            message: format!("number out of range for {field}, expected {expected}"),
             kind: FulpInvalidJsonKind::NumberOutOfRange,
         }),
         Err(error) => {
             let message = error.to_string();
             if message.contains("number out of range") {
                 Err(FulpReplayError::InvalidJson {
-                    message: format!("number out of range for {field}, expected u32"),
+                    message: format!("number out of range for {field}, expected {expected}"),
                     kind: FulpInvalidJsonKind::NumberOutOfRange,
                 })
             } else {
@@ -1763,6 +1776,8 @@ struct RawAxisWorstCase<'a> {
 struct RawWorstCaseNumbers<'a> {
     #[serde(default, borrow)]
     point_index: Option<&'a RawValue>,
+    #[serde(default, borrow)]
+    reference_fp16_bits: Option<&'a RawValue>,
     #[serde(borrow)]
     x: &'a RawValue,
     #[serde(borrow)]
@@ -1808,6 +1823,9 @@ fn reject_raw_worst_case_numbers_json(
 ) -> Result<(), FulpReplayError> {
     if let Some(value) = worst_case.point_index {
         raw_unsigned_integer_json(value, &format!("{path}.point_index"))?;
+    }
+    if let Some(value) = worst_case.reference_fp16_bits {
+        raw_u16_json(value, &format!("{path}.reference_fp16_bits"))?;
     }
     raw_finite_f64_json(worst_case.x, path, "x")?;
     raw_finite_f64_json(worst_case.y, path, "y")?;
@@ -5000,6 +5018,28 @@ mod tests {
             .invalid_json_message()
             .expect("invalid json message")
             .contains("stats[0].worst_case.reference_fp16_bits"));
+    }
+
+    #[test]
+    fn replay_rejects_operation_worst_case_reference_fp16_bits_json_raw_overflow_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["worst_case"]["reference_fp16_bits"] =
+            serde_json::Value::Number(serde_json::Number::from(123_456_789_u64));
+        let json = serde_json::to_string(&value).unwrap();
+        let needle = "\"reference_fp16_bits\":123456789";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(needle, "\"reference_fp16_bits\":1e999999", 1);
+        let error = replay_witness_json(&json)
+            .expect_err("worst case reference bits overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("number out of range for stats[0].worst_case.reference_fp16_bits, expected u16")
+        );
     }
 
     #[test]
