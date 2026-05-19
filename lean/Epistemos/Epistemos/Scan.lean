@@ -102,6 +102,13 @@ structure SSDEquivalenceLemma (α : Type) where
         ssdEquivalentToSequential
           w.op w.identity initial inputs blockSize
 
+theorem SSDEquivalenceLemma.discharge {α : Type}
+    (ssdLemma : SSDEquivalenceLemma α)
+    (w : MonoidWitness α) (initial : α) (inputs : List α)
+    (blockSize : Nat) (hB : 1 ≤ blockSize) :
+    ssdEquivalentToSequential w.op w.identity initial inputs blockSize :=
+  ssdLemma.statement w initial inputs blockSize hB
+
 /-- Explicit obligation row for SSD/block-scan equivalence. The Rust
 certificate emitter should target this shape before claiming a
 parallel lowering is equivalent to sequential scan. -/
