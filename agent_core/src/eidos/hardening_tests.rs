@@ -157,7 +157,7 @@ fn assert_iter_format_canonical_panics_on_out_of_range() {
     assert_iter_format_canonical("iter 099", "MY_SOURCE_LABEL");
 }
 
-/// Iter 722 — catalog range continuation pin.
+/// Iter 723 — catalog range continuation pin.
 /// STATUS.md is the contributor-facing catalog for the closed-citation
 /// hardening arc. When new pins land after the previous range tip, the
 /// range must advance in lock-step so future readers can tell the arc is
@@ -167,9 +167,9 @@ fn status_md_closed_citation_iter_range_tip_tracks_latest_catalog_pin() {
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Closed-citation contract hardening (iters 127-722)"),
+        status.contains("Closed-citation contract hardening (iters 127-723)"),
         "STATUS.md closed-citation hardening catalog must advance its iter \
-         range tip to iter 722 when the catalog-continuation pin lands"
+         range tip to iter 723 when the catalog-continuation pin lands"
     );
 }
 
@@ -1361,6 +1361,34 @@ fn adversarial_query_fixture_count_matches_catalog_rows() {
         adversarial_query_fixture_count(),
         ADVERSARIAL_QUERY_FIXTURES.len(),
         "fixture count accessor must remain equal to catalog row count"
+    );
+}
+
+#[test]
+fn adversarial_query_fixture_lookup_by_index_is_ordered_and_bounded() {
+    use super::adversarial::adversarial_query_fixture_at;
+
+    assert_eq!(
+        adversarial_query_fixture_at(0)
+            .expect("fixture at index 0")
+            .label,
+        "typo-transposition"
+    );
+    assert_eq!(
+        adversarial_query_fixture_at(1)
+            .expect("fixture at index 1")
+            .label,
+        "bm25-saturation"
+    );
+    assert_eq!(
+        adversarial_query_fixture_at(2)
+            .expect("fixture at index 2")
+            .label,
+        "near-duplicate-paragraph-tie"
+    );
+    assert!(
+        adversarial_query_fixture_at(3).is_none(),
+        "out-of-range fixture index fails closed instead of wrapping or clamping"
     );
 }
 
