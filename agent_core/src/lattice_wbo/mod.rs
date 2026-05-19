@@ -4818,7 +4818,7 @@ mod tests {
             "malformed secondary active support fails before missing `T_num`",
             "`active_support_budget_disallowed_tier_rejection_matrix_counts_are_pinned`",
             "max active-support axes do not bypass disallowed tier rejection",
-            "`ledger_validation_rejects_every_non_active_support_budget_side_information`",
+            "`active_support_budget_wrong_tag_rejection_matrix_counts_are_pinned`",
             "secondary `ActiveSupportBudget` rejects every non-`ActiveSupport` side-information tag",
             "secondary active-support side-information rejection covers both `L2 Shadow Sketch` and `L3 SSD Oracle`",
             "`ledger_validation_rejects_zero_active_support_budget_even_when_secondary`",
@@ -6630,6 +6630,15 @@ mod tests {
                 "active_support_budget_disallowed_tier_rejection_matrix_counts_are_pinned"
             ),
             "register must cross-link active-support disallowed-tier rejection matrix counts"
+        );
+    }
+
+    #[test]
+    fn register_doc_cross_links_active_support_wrong_tag_rejection_matrix_counts() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("active_support_budget_wrong_tag_rejection_matrix_counts_are_pinned"),
+            "register must cross-link active-support wrong-tag rejection matrix counts"
         );
     }
 
@@ -8478,7 +8487,7 @@ mod tests {
     }
 
     #[test]
-    fn ledger_validation_rejects_every_non_active_support_budget_side_information() {
+    fn active_support_budget_wrong_tag_rejection_matrix_counts_are_pinned() {
         let mut checked = 0;
 
         for tier in ResidencyTier::ALL
@@ -8519,6 +8528,9 @@ mod tests {
             .iter()
             .filter(|tier| tier.allows_active_support_budget())
             .count();
+        assert_eq!(allowed_tiers, 2);
+        assert_eq!(SideInformationKind::ALL.len() - 1, 9);
+        assert_eq!(checked, 18);
         assert_eq!(
             checked,
             allowed_tiers * (SideInformationKind::ALL.len() - 1)
