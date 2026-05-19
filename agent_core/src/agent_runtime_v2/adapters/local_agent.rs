@@ -689,6 +689,59 @@ mod tests {
     }
 
     #[test]
+    fn capability_allowed_in_is_conjunction_of_tier_allowed_and_subprocess_flag_check() {
+        // Phase 1 hardening — formula pin (companion to the 18-cell
+        // empirical pin capability_allowed_in_exhausts_tier_requires_subprocess_mode_3_way_matrix).
+        // The 18-cell pin enumerates every (tier, requires_subprocess,
+        // mode) combination and asserts the expected outcome. THIS
+        // pin asserts the canonical CLOSED-FORM:
+        //
+        //   cap.allowed_in(mode) ==
+        //     tier.allowed_in(mode)
+        //     && (!requires_subprocess || mode == AgentRuntimeV2Mode::Subprocess)
+        //
+        // A future "let me cache the conjunction result" tweak that
+        // diverged the cap.allowed_in helper from this closed form
+        // would silently pass the 18-cell pin (since cache hits stay
+        // correct on observed inputs) but break on inputs the cache
+        // hasn't seen. Pin sweeps the same 18 combinations but
+        // compares to the canonical formula computed independently —
+        // any divergence between the helper and its documented
+        // contract surfaces here.
+        let modes = [
+            AgentRuntimeV2Mode::Disabled,
+            AgentRuntimeV2Mode::IpcBounded,
+            AgentRuntimeV2Mode::Subprocess,
+        ];
+        for tier in LocalAgentCapabilityTier::ALL {
+            for requires_subprocess in [false, true] {
+                for mode in modes {
+                    let cap = LocalAgentCapability {
+                        command_pattern: "/probe".into(),
+                        surface: LocalAgentCapabilitySurface::AgentTask,
+                        tier,
+                        owner: LocalAgentCapabilityOwner::NativeCore,
+                        requires_network: false,
+                        requires_subprocess,
+                        requires_approval: false,
+                        structured_evidence: false,
+                        native_equivalent: String::new(),
+                        local_agent_passthrough: false,
+                    };
+                    let helper = cap.allowed_in(mode);
+                    let formula = tier.allowed_in(mode)
+                        && (!requires_subprocess || mode == AgentRuntimeV2Mode::Subprocess);
+                    assert_eq!(
+                        helper, formula,
+                        "cap.allowed_in for (tier={tier:?}, req_sub={requires_subprocess}, mode={mode:?}) \
+                         diverged from canonical formula: helper={helper}, formula={formula}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
     fn local_agent_owner_tier_surface_serde_forms_are_pairwise_distinct() {
         // Phase 1 hardening — companion to the variant-pairwise-distinct
         // pin (local_agent_tier_owner_surface_all_arrays_have_pairwise_distinct_variants).
