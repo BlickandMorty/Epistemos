@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 270
+invalid_example_count: 271
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -13016,3 +13016,17 @@ Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-
 ```
 
 Rejection reason: `commit_sha` must begin with the first hex byte of the resolved commit; leading whitespace is not trimmed and fails replay identity.
+
+## N271 - Embedded Newline Commit SHA
+
+Violates: [Replay Identity Rule](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-identity-rule) and [Replay-Ineligibility Checklist](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#replay-ineligibility-checklist).
+
+```json
+{
+  "field": "commit_sha",
+  "commit_sha": "aaaaaaaaaaaaaaaaaaaa\naaaaaaaaaaaaaaaaaaaa",
+  "schema_pattern": "^[0-9a-f]{40}$"
+}
+```
+
+Rejection reason: `commit_sha` must be a single-line 40-character lowercase hex string; embedded newlines split the replay identity.
