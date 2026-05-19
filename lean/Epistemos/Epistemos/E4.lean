@@ -46,6 +46,12 @@ structure Wbo7Envelope where
   t_dag : Float    -- directed-acyclic composition
   t_num : Float    -- numerical / ULP
 
+/-- E4 WBO-7 has seven pre-softmax additive terms. -/
+def wbo7TermCount : Nat := 7
+
+/-- E4 post-softmax contraction factor, not applied pre-softmax. -/
+def postSoftmaxHalfFactor : Float := 0.5
+
 /-- The 7-term sum used as the pre-softmax bound. -/
 def Wbo7Envelope.sum (e : Wbo7Envelope) : Float :=
   e.t_lwz + e.t_k + e.t_r + e.t_ttr + e.t_se + e.t_dag + e.t_num
@@ -61,7 +67,8 @@ theorem preSoftmaxAdditiveBound
 The ½ factor applies ONLY to the post-softmax probability vector. -/
 theorem postSoftmaxHalfContraction
     (delta_z : Float) (delta_p : Float)
-    (h : delta_p ≤ 0.5 * delta_z) : delta_p ≤ 0.5 * delta_z := by
+    (h : delta_p ≤ postSoftmaxHalfFactor * delta_z) :
+    delta_p ≤ postSoftmaxHalfFactor * delta_z := by
   exact h
 
 /-- v2.0 audit Patch 5: T_S (sigma error term) handled by NOT
@@ -70,8 +77,12 @@ inequality applied ½ uniformly; v2.0 separates them. -/
 theorem tsErrorTermSeparation
     (e : Wbo7Envelope) (delta_z delta_p : Float)
     (h_pre : delta_z ≤ e.sum)
-    (h_post : delta_p ≤ 0.5 * delta_z) :
-    delta_z ≤ e.sum ∧ delta_p ≤ 0.5 * delta_z := by
+    (h_post : delta_p ≤ postSoftmaxHalfFactor * delta_z) :
+    delta_z ≤ e.sum ∧ delta_p ≤ postSoftmaxHalfFactor * delta_z := by
   exact ⟨h_pre, h_post⟩
+
+theorem wbo7ConstantsPinned :
+    wbo7TermCount = 7 ∧ postSoftmaxHalfFactor = 0.5 := by
+  exact ⟨rfl, rfl⟩
 
 end Epistemos.E4
