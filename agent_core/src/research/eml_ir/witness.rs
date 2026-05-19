@@ -735,6 +735,7 @@ fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
             kind: FulpInvalidJsonKind::InvalidLength,
         });
     }
+    required_top_level_object_json(&value, "hardware")?;
     required_top_level_string_json(&value, "mission")?;
     required_top_level_string_json(&value, "evaluator_variant")?;
     required_top_level_string_json(&value, "shader_entrypoint")?;
@@ -1162,6 +1163,25 @@ fn required_top_level_string_json(
     if !field_value.is_string() {
         return Err(FulpReplayError::InvalidJson {
             message: format!("invalid type for {field}, expected string"),
+            kind: FulpInvalidJsonKind::TypeMismatch,
+        });
+    }
+    Ok(())
+}
+
+fn required_top_level_object_json(
+    value: &serde_json::Value,
+    field: &str,
+) -> Result<(), FulpReplayError> {
+    let Some(field_value) = value.get(field) else {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("missing field {field}"),
+            kind: FulpInvalidJsonKind::MissingField,
+        });
+    };
+    if !field_value.is_object() {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("invalid type for {field}, expected object"),
             kind: FulpInvalidJsonKind::TypeMismatch,
         });
     }
@@ -2061,6 +2081,23 @@ mod tests {
             .expect("hardware mismatch details");
         assert_eq!(submitted.chip, "Apple M2 Max");
         assert_eq!(regenerated.chip, "Apple M2 Pro");
+    }
+
+    #[test]
+    fn replay_rejects_hardware_json_type_drift_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["hardware"] = serde_json::Value::Bool(false);
+        let json = serde_json::to_string(&value).unwrap();
+        let error = replay_witness_json(&json).expect_err("hardware type drift must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert_eq!(
+            error.invalid_json_message(),
+            Some("invalid type for hardware, expected object")
+        );
     }
 
     #[test]
