@@ -8020,6 +8020,68 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_concurrent_admissions_do_not_cross_pollinate_verdicts() {
+        let policy = ACSPolicy::strict("policy-concurrent-distinct", 1_000);
+        let payload = ACSAdmissionPayload::MemoryWrite {
+            request: ACSMemoryWriteRequest {
+                address: "uas://note/concurrent".to_string(),
+                content_hash: "content-hash".to_string(),
+                durable: false,
+                mutation_envelope_id: None,
+            },
+        };
+
+        let cases: Vec<(&'static str, f32, ACSAdmissionVerdict)> = vec![
+            ("req-allow", 0.0, ACSAdmissionVerdict::Allow),
+            ("req-warn", 0.4, ACSAdmissionVerdict::AllowWithWarning),
+            ("req-defer", 0.6, ACSAdmissionVerdict::Defer),
+            ("req-quarantine", 0.8, ACSAdmissionVerdict::Quarantine),
+            ("req-reject", 0.95, ACSAdmissionVerdict::Reject),
+        ];
+
+        let handles: Vec<_> = cases
+            .iter()
+            .map(|(request_id, axis, expected)| {
+                let policy = policy.clone();
+                let payload = payload.clone();
+                let request_id = (*request_id).to_string();
+                let axis_value = *axis;
+                let expected = *expected;
+                std::thread::spawn(move || {
+                    let mut risk = ACSRiskVector::neutral();
+                    risk.safety_risk = axis_value;
+                    let input = ACSAdmissionInput {
+                        request_id: request_id.clone(),
+                        payload,
+                        submitted_at_ms: 1_001,
+                        risk,
+                        granted_capabilities: Vec::new(),
+                    };
+                    let mut audit_log = Vec::new();
+                    let decision = admit_and_log(&input, &policy, 1_001, &mut audit_log);
+                    (request_id, decision, audit_log, expected)
+                })
+            })
+            .collect();
+
+        for handle in handles {
+            let (request_id, decision, audit_log, expected) =
+                handle.join().expect("admission thread must not panic");
+            assert_eq!(decision.verdict, expected, "request_id={request_id}");
+            assert_eq!(audit_log.len(), 1, "request_id={request_id}");
+            assert_eq!(
+                audit_log[0].record_id,
+                format!("acs:{request_id}:1001"),
+                "request_id={request_id}"
+            );
+            assert_eq!(
+                audit_log[0].request_id, request_id,
+                "verdict for {request_id} must reference its own request_id"
+            );
+        }
+    }
+
+    #[test]
     fn acs_admission_missing_risk_axis_is_rejected_on_decode() {
         let malformed = serde_json::json!({
             "truth_risk": 0.0,
