@@ -247,6 +247,14 @@ pub fn lean_certificate(expr: &InfoExpr) -> String {
          \x20   info_bregman_zero_witness_{suffix}\n\
          \x20   \"Amari 2016 Ch. 6 §6.2\"\n\
          \n\
+         theorem info_bregman_obligations_{suffix} :\n\
+         \x20   info_bregman_obligation_{suffix}.nonnegative ∧\n\
+         \x20     info_bregman_obligation_{suffix}.zeroIffEqual := by\n\
+         \x20 exact Epistemos.Info.bregmanPositivityObligationCarries {family_term} {p_term} {q_term}\n\
+         \x20   info_bregman_nonnegative_witness_{suffix}\n\
+         \x20   info_bregman_zero_witness_{suffix}\n\
+         \x20   \"Amari 2016 Ch. 6 §6.2\"\n\
+         \n\
          theorem info_mirror_descent_equivalence_{suffix} :\n\
          \x20   info_mirror_descent_obligation_{suffix}.statement := by\n\
          \x20 exact Epistemos.Info.mirrorDescentEquivalenceObligationCarries {family_term}\n\
@@ -380,6 +388,10 @@ mod tests {
         ));
         assert!(c.contains(
             "exact Epistemos.Info.bregmanPositivityObligationZeroIffEqual"
+        ));
+        assert!(c.contains("theorem info_bregman_obligations_"));
+        assert!(c.contains(
+            "exact Epistemos.Info.bregmanPositivityObligationCarries"
         ));
         assert!(c.contains(
             "exact Epistemos.Info.mirrorDescentEquivalenceObligationCarries"
