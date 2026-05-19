@@ -7783,6 +7783,50 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                Zero new seeds.",
     },
     FVaultRecallRow {
+        // 50th ChattyPrefix row (iter-412, MILESTONE —
+        // ChattyPrefix category FIFTH to reach the F-VaultRecall-
+        // 50 target). Ogham-multilingual signal domain — 40th
+        // distinct lexical universe. Survivors after strip
+        // {Mamba, ᚅ}. 2-term AND matches only iter-264's
+        // mamba_ogham.md. TWENTY-NINTH non-ASCII ChattyPrefix
+        // domain. FIRST historical Celtic script in ChattyPrefix.
+        // Ogham (4th-9th c CE) is the Old Irish stem-line
+        // script. With iter-398 Glagolitic (Slavic) + iter-405
+        // Runic (Germanic) + iter-412 Ogham (Celtic),
+        // ChattyPrefix now contains THREE archaic European
+        // scripts for three distinct language communities —
+        // same triple completion as SignalOnly (iter-396/403/
+        // 410). Parallels iter-410 SignalOnly Ogham single-
+        // term-AND. ChattyPrefix now covers NINE distinct
+        // script-family branches at multilingual-signal:
+        // Brahmic + Aramaic + Latin-diacritic + Greek-
+        // descendant + Berber/Amazigh + modern-African-
+        // syllabary + Slavic-historical + Germanic-historical +
+        // Celtic-historical.
+        query: "Show me my Mamba ᚅ notes",
+        expected_paths: &["notes/mamba_ogham.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::ChattyPrefix,
+        top_n: 7,
+        note: "Fiftieth ChattyPrefix row (iter-412, MILESTONE — \
+               ChattyPrefix category FIFTH to reach the F-\
+               VaultRecall-50 target). Ogham-multilingual signal \
+               domain — 40th distinct lexical universe. \
+               Survivors {Mamba, ᚅ} after strip. 2-term AND \
+               matches only iter-264 mamba_ogham.md. Twenty-\
+               ninth non-ASCII ChattyPrefix domain. FIRST \
+               historical Celtic script in ChattyPrefix. With \
+               iter-398 Glagolitic (Slavic) + iter-405 Runic \
+               (Germanic) + iter-412 Ogham (Celtic), \
+               ChattyPrefix contains THREE archaic European \
+               scripts — same triple completion as SignalOnly \
+               (iter-396/403/410). Parallels iter-410. \
+               ChattyPrefix now covers NINE distinct script-\
+               family branches. Brings ChattyPrefix to depth \
+               50 — F-VaultRecall-50 target reached. Zero new \
+               seeds.",
+    },
+    FVaultRecallRow {
         // 49th ChattyPrefix row (iter-405): Runic-multilingual
         // signal domain — 39th distinct lexical universe.
         // Survivors after strip {Mamba, ᚲ}. 2-term AND matches
