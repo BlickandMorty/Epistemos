@@ -65,6 +65,17 @@ freezes treat Metal output itself as proven.
 |---|---|---|---|---|---|---|
 | F-ULP-Oracle | Research | M2 Pro numeric falsifier | implemented-not-wired | `agent_core/src/research/eml_ir/`, `Epistemos/Shaders/morph_eval_reduced.metal`, `cargo test --features research research::eml_ir` | live Metal dispatch capture from `morphOracleFp16` | harden with GPU capture, subnormal/signed-zero diagnostics, WBO numerics cross-link, and Helios v3 §3.5/F7a reference |
 
+## Wall-Clock Budget
+
+The witness records `budget_target_seconds = 90` and the matching
+`budget_target_millis = 90,000` so that an over-budget result is rejected by
+replay even when the second-resolution and millisecond-resolution fields
+disagree. `observed_wall_clock_millis` is captured per run and replay
+rejects any witness whose observed wall clock exceeds the millisecond budget.
+A drift in either the target seconds, the target milliseconds, or the
+observed wall clock surfaces as a `budget_mismatch_kind` so a candidate that
+shortens the budget to claim a pass is rejected before any ULP comparison.
+
 ## Hardware Identifier Exclusion
 
 The witness JSON records the M2 Pro hardware pin (`MacBook Pro 14-inch 2023`,
