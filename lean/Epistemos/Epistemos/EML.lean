@@ -9,12 +9,14 @@ Source doctrine:
 * `docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md` §3
 * `docs/T5_BLOCKER_LEDGER.md` LEAN-TOOLCHAIN row
 
-Tooling status at iter-593:
+Tooling status:
 `PATH="$HOME/.elan/bin:$PATH"; cd lean/Epistemos && lake build`
-completed successfully, and `Tools/sorry-budget/sorry-budget.sh`
+first completed successfully at iter-593; generated certificate
+projection obligations were sharpened through iter-629; the iter-723
+cadence retry also completed successfully. `Tools/sorry-budget/sorry-budget.sh`
 reported 0 total sorries. Generated runtime certificates may still
-carry per-tree proof obligations when the Rust evaluator caches
-non-symbolic floating values.
+carry explicit per-tree proof obligations when the Rust evaluator
+caches non-symbolic floating values.
 -/
 
 import Mathlib
