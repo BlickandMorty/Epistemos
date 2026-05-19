@@ -3418,11 +3418,13 @@ impl<'de> Deserialize<'de> for ACSCapabilityRule {
             &value,
             "operation",
             "required_capabilities.operation",
+            serde_json::Value::is_string,
         )?;
         require_capability_rule_field::<D::Error>(
             &value,
             "capability",
             "required_capabilities.capability",
+            serde_json::Value::is_object,
         )?;
         let wire = ACSCapabilityRuleWire::deserialize(value).map_err(serde::de::Error::custom)?;
         let rule = Self {
@@ -3439,16 +3441,13 @@ fn require_capability_rule_field<E>(
     value: &serde_json::Value,
     field: &'static str,
     policy_field: &'static str,
+    valid_field: fn(&serde_json::Value) -> bool,
 ) -> Result<(), E>
 where
     E: serde::de::Error,
 {
     match value {
-        serde_json::Value::Object(object)
-            if object.get(field).is_some_and(|value| !value.is_null()) =>
-        {
-            Ok(())
-        }
+        serde_json::Value::Object(object) if object.get(field).is_some_and(valid_field) => Ok(()),
         serde_json::Value::Object(_) => Err(E::custom(acs_policy_decode_error(
             &ACSPolicyError::Malformed {
                 field: policy_field,
@@ -7526,6 +7525,28 @@ mod tests {
         assert!(message.contains("malformed_policy"), "{message}");
         assert!(
             message.contains("required_capabilities.capability"),
+            "{message}"
+        );
+    }
+
+    #[test]
+    fn acs_admission_typed_capability_rule_operation_names_malformed_policy_field() {
+        let value = serde_json::json!({
+            "operation": 7,
+            "capability": {
+                "kind": "other",
+                "value": {
+                    "name": "ToolExec"
+                }
+            }
+        });
+
+        let err = serde_json::from_value::<ACSCapabilityRule>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(
+            message.contains("required_capabilities.operation"),
             "{message}"
         );
     }
