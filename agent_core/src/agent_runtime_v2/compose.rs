@@ -651,6 +651,21 @@ mod tests {
         }
     }
 
+    /// Outer stage whose fwd fails after the inner stage succeeded.
+    struct OuterFwdFails;
+    impl Para<u32, usize, String> for OuterFwdFails {
+        fn fwd(&self, _p: &u32, input: usize) -> Result<ParaOutput<String>, ParaError> {
+            Err(ParaError::Transport(format!("outer fwd refuses after {input}")))
+        }
+        fn rev(
+            &self,
+            _p: &u32,
+            _output: &ParaOutput<String>,
+        ) -> Result<ParaFeedback<u32>, ParaError> {
+            Ok(ParaFeedback { delta: 0 })
+        }
+    }
+
     /// Configurable stage that lets the test pick which StopReason
     /// to emit. Used by the 7×7 matrix test.
     struct ConfigurableStage<I, O> {
@@ -842,6 +857,21 @@ mod tests {
         assert!(
             matches!(err, ParaError::Transport(ref s) if s == "inner fwd refuses"),
             "expected Transport(\"inner fwd refuses\"), got {err:?}"
+        );
+    }
+
+    #[test]
+    fn para_seq_propagates_outer_fwd_error_after_inner_success() {
+        // Phase 1 hardening — mixed fwd case. The existing
+        // para_seq_short_circuits_on_inner_fwd_error covers inner
+        // failure before outer runs. This covers the next stage:
+        // inner.fwd succeeds, outer.fwd fails, and the outer error is
+        // surfaced verbatim without fabricating a partial ParaSeqOutput.
+        let seq = ParaSeq::new(&LenStage, &OuterFwdFails);
+        let err = seq.fwd(&0, "hello").expect_err("outer fwd refuses");
+        assert!(
+            matches!(err, ParaError::Transport(ref s) if s == "outer fwd refuses after 5"),
+            "expected outer fwd transport error, got {err:?}"
         );
     }
 
