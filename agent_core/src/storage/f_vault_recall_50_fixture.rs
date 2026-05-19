@@ -6416,6 +6416,40 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 39th Adversarial row (iter-331): MLX-Swift 6-term
+        // long-query — {mlx, swift, inference, backend, pipeline,
+        // local}. Keeps all 4 canonical primaries + 2 tail
+        // context tokens (pipeline + local from canonical's
+        // tail "...local model pipeline notes"). 6 terms OR.
+        // Canonical body has all 6 (2× primaries + 1× pipeline
+        // + 1× local); decoys ≤1 of 6. SIXTH iter-100
+        // Adversarial row (after 4-term iter-100/207/237/259 +
+        // 5-term iter-274). FOURTH canonical at 6-term coverage
+        // (after agent-runtime iter-120 + vault iter-317 +
+        // BM25-IR iter-324). MLX-Swift now exercised at 4-term
+        // + 5-term + 6-term — third canonical with 3 query-
+        // length coverage points.
+        query: "mlx swift inference backend pipeline local",
+        expected_paths: &["notes/mlx_swift_inference_backend.md"],
+        forbidden_paths: &[
+            "notes/mlx_archive.md",
+            "notes/swift_brainstorm.md",
+            "notes/inference_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Thirty-ninth Adversarial row (iter-331): MLX-\
+               Swift 6-term long-query \"mlx swift inference \
+               backend pipeline local\". Keeps all 4 primaries \
+               + 2 tail context tokens. FOURTH canonical at 6-\
+               term coverage (after agent-runtime + vault + \
+               BM25-IR). MLX-Swift now at 4-term + 5-term + 6-\
+               term — third canonical with 3 query-length \
+               coverage points. Canonical 6/6; decoys ≤1 of 6. \
+               Brings Adversarial to depth 39 — first category \
+               past depth-38 horizon. Zero new seeds.",
+    },
+    FVaultRecallRow {
         // 38th Adversarial row (iter-324): BM25/IR 6-term long-
         // query — {bm25, saturation, length, penalty, ranking,
         // ir}. Keeps all 4 canonical primaries + 2 IR-context
