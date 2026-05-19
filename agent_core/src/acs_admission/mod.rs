@@ -2135,7 +2135,9 @@ impl<'de> Deserialize<'de> for ACSAuditRecord {
     where
         D: serde::Deserializer<'de>,
     {
-        let wire = ACSAuditRecordWire::deserialize(deserializer)?;
+        let value = serde_json::Value::deserialize(deserializer)?;
+        require_audit_record_known_fields::<D::Error>(&value)?;
+        let wire = ACSAuditRecordWire::deserialize(value).map_err(serde::de::Error::custom)?;
         let record = Self {
             record_id: wire.record_id,
             request_id: wire.request_id,
@@ -2152,6 +2154,38 @@ impl<'de> Deserialize<'de> for ACSAuditRecord {
             .map_err(|err| serde::de::Error::custom(acs_audit_record_decode_error(&err)))?;
         Ok(record)
     }
+}
+
+fn require_audit_record_known_fields<E>(value: &serde_json::Value) -> Result<(), E>
+where
+    E: serde::de::Error,
+{
+    let serde_json::Value::Object(object) = value else {
+        return Ok(());
+    };
+    let record_id = object
+        .get("record_id")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    for field in object.keys() {
+        if !matches!(
+            field.as_str(),
+            "record_id"
+                | "request_id"
+                | "policy_id"
+                | "policy_version"
+                | "operation"
+                | "verdict"
+                | "reason"
+                | "risk_max"
+                | "emitted_at_ms"
+        ) {
+            return Err(E::custom(format!(
+                "corrupt_acs_audit_record field={field} record_id={record_id}"
+            )));
+        }
+    }
+    Ok(())
 }
 
 fn acs_audit_record_decode_error(error: &ACSAuditRecordError) -> String {
@@ -10434,5 +10468,18 @@ mod tests {
             risk_max: 0.0,
             emitted_at_ms: 1_001,
         }
+    }
+
+    #[test]
+    fn acs_admission_shadow_audit_record_field_names_corrupt_acs_audit_record_field() {
+        let mut value = serde_json::to_value(audit_record_fixture(ACSAdmissionVerdict::Allow))
+            .expect("audit record encodes");
+        value["shadow_record"] = serde_json::json!("smuggled");
+
+        let err = serde_json::from_value::<ACSAuditRecord>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("corrupt_acs_audit_record"), "{message}");
+        assert!(message.contains("shadow_record"), "{message}");
     }
 }
