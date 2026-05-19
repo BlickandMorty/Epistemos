@@ -141,6 +141,16 @@ pub fn lean_certificate(rotor: &Multivector) -> String {
          \x20   geometry_rotor_{suffix} geometry_rotor_{suffix}\n\
          \x20   candidateWitness candidateWitness unitNormWitness unitNormWitness\n\
          \n\
+         theorem geometry_certificate_rotor_obligations_{suffix}\n\
+         \x20   (candidateWitness : geometry_rotor_{suffix}.isRotorCandidate)\n\
+         \x20   (unitNormWitness : geometry_rotor_{suffix}.unitNorm) :\n\
+         \x20   geometry_certificate_{suffix}.sandwichIsometry.preservesNorm ∧\n\
+         \x20     geometry_certificate_{suffix}.composition.associativeSandwich := by\n\
+         \x20 exact Epistemos.Geometry.CertificateTarget.rotorObligations\n\
+         \x20   geometry_certificate_{suffix}\n\
+         \x20   (rotor_sandwich_isometry_{suffix} candidateWitness unitNormWitness)\n\
+         \x20   (rotor_composition_{suffix} candidateWitness unitNormWitness)\n\
+         \n\
          end Epistemos.Geometry.Generated\n\
          \n",
         suffix = suffix,
@@ -254,6 +264,15 @@ mod tests {
         assert!(c.contains(".cliffordAxioms = geometry_clifford_obligation_"));
         assert!(c.contains(".sandwichIsometry = geometry_sandwich_obligation_"));
         assert!(c.contains(".composition = geometry_composition_obligation_"));
+    }
+
+    #[test]
+    fn cert_projects_geometry_target_rotor_pair() {
+        let r = Multivector::scalar(1.0);
+        let c = lean_certificate(&r);
+        assert!(c.contains("theorem geometry_certificate_rotor_obligations_"));
+        assert!(c.contains("exact Epistemos.Geometry.CertificateTarget.rotorObligations"));
+        assert!(c.contains("geometry_certificate_"));
     }
 
     #[test]
