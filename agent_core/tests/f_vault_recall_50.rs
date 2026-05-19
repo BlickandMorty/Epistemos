@@ -790,6 +790,21 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_phoenician.md",
             "Mamba 𐤊 cache Mamba 𐤊 cache architecture notes phoenician",
         ),
+        // Iter-293 (33rd Unicode — Old Italic-script extension):
+        // Latin "Mamba" + Old Italic "𐌊" (ka, U+1030A) + Latin
+        // "cache". Old Italic is the ancestor of the Latin
+        // alphabet (used for Etruscan, Oscan, Faliscan ca.
+        // 700-100 BCE). Adds a SECOND SMP-plane codepoint and
+        // — pivotally — the DIRECT ANCESTOR of Latin (which
+        // serves as the fixture's anchor script). The no-
+        // script-fold contract now demonstrably holds against
+        // the genealogical ancestor of the script everything
+        // else is anchored to. Thirty-one non-Latin scripts
+        // pinned (+ Old Italic).
+        (
+            "notes/mamba_old_italic.md",
+            "Mamba 𐌊 cache Mamba 𐌊 cache architecture notes old_italic",
+        ),
     ];
     for (path, content) in seeds {
         store
