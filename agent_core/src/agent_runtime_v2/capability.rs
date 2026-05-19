@@ -1565,6 +1565,69 @@ mod tests {
     }
 
     #[test]
+    fn replayed_macaroon_json_reuse_detected_by_run_event_log() {
+        // Phase 1 hardening — work-queue A/H bridge: replay after
+        // persistence. A macaroon that round-trips through JSON keeps
+        // the same signature and capability_hash, so verifier purity
+        // still accepts it; replay detection must happen at the
+        // RunEventLog layer via capability_hash reuse.
+        use crate::agent_runtime_v2::{BudgetDebit, RunEventLog};
+        use crate::cognitive_dag::macaroons::{issue, restrict, Caveat};
+
+        let key = root_key_a();
+        let base = issue(
+            "json-replay-session",
+            CapabilityKind::ToolInvoke("vault.read".into()),
+            CapabilityScope("vault".into()),
+            Some(10_000),
+            &key,
+        );
+        let narrowed = restrict(
+            &base,
+            Caveat::ScopePrefix {
+                prefix: "vault/notes".into(),
+            },
+        );
+        let narrowed = restrict(
+            &narrowed,
+            Caveat::ToolNameEq {
+                name: "vault.read".into(),
+            },
+        );
+
+        let json = serde_json::to_string(&narrowed).expect("serialise macaroon");
+        let replayed: Macaroon = serde_json::from_str(&json).expect("deserialise macaroon");
+
+        let original_cap = MacaroonCapability::new(narrowed.clone(), key);
+        let replayed_cap = MacaroonCapability::new(replayed.clone(), key);
+        let ctx = ctx_now_at(1_000);
+        original_cap.verify(&ctx).expect("original verifies");
+        replayed_cap.verify(&ctx).expect("json-replayed macaroon verifies");
+        assert_eq!(narrowed.signature, replayed.signature);
+        assert_eq!(narrowed.capability_hash(), replayed.capability_hash());
+
+        let cap_hash = replayed.capability_hash();
+        let mut log = RunEventLog::new();
+        log.append_sealed_mutation(
+            cap_hash,
+            BudgetDebit {
+                tokens: 1,
+                ..Default::default()
+            },
+        );
+        log.append_sealed_mutation(
+            cap_hash,
+            BudgetDebit {
+                tokens: 1,
+                ..Default::default()
+            },
+        );
+
+        assert_eq!(log.find_capability_hash(&cap_hash), vec![0, 1]);
+        assert_eq!(log.detect_capability_reuse(&cap_hash, 1), 1);
+    }
+
+    #[test]
     fn capability_hash_distinguishes_macaroons_under_different_root_keys() {
         // Phase 1 hardening — security property pin (caveat-property
         // class). Two macaroons with byte-identical (location, base_kind,
