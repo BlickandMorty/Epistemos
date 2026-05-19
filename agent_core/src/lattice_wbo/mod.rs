@@ -4532,6 +4532,8 @@ mod tests {
             "`register_doc_names_every_lattice_wbo_error_variant`",
             "every `LatticeWboError::ALL` variant has one register error row",
             "error variant register rejects stale rows outside `LatticeWboError::ALL`",
+            "`register_doc_residency_falsifier_cells_follow_primary_and_term_hook_order`",
+            "residency register falsifier cells preserve primary and term `F-*` hook order",
             "`register_doc_error_variant_rows_follow_lattice_wbo_error_all_order`",
             "error variant register order follows `LatticeWboError::ALL`",
             "`lattice_wbo_error_json_uses_explicit_public_keys`",
@@ -4780,8 +4782,8 @@ mod tests {
             "| L2 Shadow Sketch | ShadowKV-style active-support sketch: retained pages/tokens plus residual or JL/CountSketch correction | `ActiveSupport` mask, page criticality, residual sketch | `T_K` + `T_S` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-KV-Direct-Gate`; `F-ACS-AnchorLookup`",
             "| L3 SSD Oracle | NF4 mmap/IOSurface pages under `Nf4SsdOracle<4000 milli-bits>` with cold exact-or-higher-fidelity page oracle | `SsdOracle` page plus `ResidualStream` reconstruction witness | `T_K` + `T_Q` + `T_S` + `T_num` | `F-KV-Direct-Gate`; `F-ULP-Oracle`; `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness; `F-ACS-AnchorLookup`",
             "| L4 Engram | Fixed-budget hash recall for static facts, signatures, dates, and API contracts | Content hash, provenance edge, `StaticFactKey` | `T_S` + `T_num` | `F-ACS-AnchorLookup`; `F-ULP-Oracle`; `F-WBO-DriftLedger`",
-            "| L5 Network Cascade | Outlier escalation to larger/cloud teacher or cross-model verifier | `NetworkTeacher` output, signed provenance, claim ledger witness | `T_S` + `T_SE` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; `F-ACS-AnchorLookup`; provider/provenance replay",
-            "| L_SE Self-Evolving | Titans-MAC / SEAL-DoRA adapter or surprise-gradient state | `SurpriseGradient`, adapter provenance, replayable mutation envelope | `T_W` + `T_SE` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; adapter replay/provenance verifier; layerwise reconstruction/logit drift witness before promotion",
+            "| L5 Network Cascade | Outlier escalation to larger/cloud teacher or cross-model verifier | `NetworkTeacher` output, signed provenance, claim ledger witness | `T_S` + `T_SE` + `T_num` | provider/provenance replay; `F-ULP-Oracle`; `F-WBO-DriftLedger`; `F-ACS-AnchorLookup`",
+            "| L_SE Self-Evolving | Titans-MAC / SEAL-DoRA adapter or surprise-gradient state | `SurpriseGradient`, adapter provenance, replayable mutation envelope | `T_W` + `T_SE` + `T_num` | adapter replay/provenance verifier; `F-ULP-Oracle`; `F-WBO-DriftLedger`; layerwise reconstruction/logit drift witness before promotion",
             "| Babai/GPTQ nearest-plane | Weight quantization as nearest-plane rounding in a Hessian-induced lattice | Calibration Hessian from the weight quantization calibration set | `T_W` + `T_num` | `F-WBO-DriftLedger`; `F-ULP-Oracle`; layerwise reconstruction/logit drift witness; layerwise KL/logit drift harness",
             "`lattice_coder_catalog_includes_babai_gptq_nearest_plane`",
             "Babai/GPTQ nearest-plane terms are `T_W` + `T_num`, side information is `CalibrationHessian`, and it is non-rate",
@@ -5200,6 +5202,44 @@ mod tests {
                 actual_witnesses,
                 tier.side_information_witnesses(),
                 "{} row side-information keys must preserve ResidencyTier::side_information_witnesses() order",
+                tier.canonical_name()
+            );
+        }
+    }
+
+    #[test]
+    fn register_doc_residency_falsifier_cells_follow_primary_and_term_hook_order() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+
+        for tier in ResidencyTier::ALL {
+            let needle = format!("| {} |", tier.canonical_name());
+            let row = register
+                .lines()
+                .find(|line| line.starts_with(&needle))
+                .unwrap_or_else(|| {
+                    panic!("missing register doc row for {}", tier.canonical_name())
+                });
+            let falsifier_cell = row
+                .trim_matches('|')
+                .split('|')
+                .map(str::trim)
+                .nth(4)
+                .unwrap_or_else(|| {
+                    panic!("{} row must have falsifier cell", tier.canonical_name())
+                });
+            let mut expected_hooks = f_hooks_in(tier.primary_falsifier());
+            for term in tier.canonical_register_terms() {
+                for hook in f_hooks_in(term.falsifier()) {
+                    if !expected_hooks.contains(&hook) {
+                        expected_hooks.push(hook);
+                    }
+                }
+            }
+
+            assert_eq!(
+                f_hooks_in(falsifier_cell),
+                expected_hooks,
+                "{} row falsifier hooks must preserve primary falsifier order before tier-term hooks",
                 tier.canonical_name()
             );
         }
