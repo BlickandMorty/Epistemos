@@ -298,6 +298,10 @@ ruby -rjson -e 'schema=JSON.parse(File.read("docs/falsifiers/FALSIFIER_ARTIFACT_
 ```
 
 ```bash
+ruby -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); %w[reserved-state duplicate-numeric-transition punctuation-endpoint-state nested-transition-marker transition-order empty-state role-labels comma-bearing-impact lowercase-impact identical-impact artifact-path-bound].each { |slug| abort("#{slug} missing") unless s.include?("| `#{slug}` |") }; puts "identity gap slug catalog coverage ok"'
+```
+
+```bash
 ruby -rjson -e 's=File.read("docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md"); schema=JSON.parse(s[/```json\n(.*?)\n```/m,1]); pat=schema.dig("properties","notes","allOf",1,"then","pattern") || abort("migration note pattern missing"); abort("internal-dot identity states no longer fit grammar") unless "identity_sentinel_gap_report=validator:old-anonymous.v1-new-blocked,reviewer:old-unknown.v1-new-blocked".match?(Regexp.new(pat[/identity_sentinel_gap_report=validator:old-.*?\\(\\?:;\\|\\$\\)/] || "a^")); puts "migration identity internal-dot states ok"'
 ```
 
