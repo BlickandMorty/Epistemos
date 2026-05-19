@@ -30,9 +30,19 @@ pub const ADVERSARIAL_QUERY_FIXTURES: &[AdversarialQueryFixture] = &[
     },
 ];
 
+pub const ADVERSARIAL_QUERY_FIXTURE_LABELS: &[&str] = &[
+    "typo-transposition",
+    "bm25-saturation",
+    "near-duplicate-paragraph-tie",
+];
+
 pub fn adversarial_query_fixture(label: &str) -> Option<AdversarialQueryFixture> {
     ADVERSARIAL_QUERY_FIXTURES
         .iter()
         .copied()
         .find(|fixture| fixture.label == label)
+}
+
+pub fn adversarial_query_fixture_labels() -> &'static [&'static str] {
+    ADVERSARIAL_QUERY_FIXTURE_LABELS
 }
