@@ -115,6 +115,7 @@ would erase the error law:
 Public-key registries are exact string surfaces: `public_key_registries_reject_unicode_adjacent_public_keys` asserts that unicode-adjacent canonical keys stay invalid for residency, codec, side-information, WBO term, and error registries.
 The register guarantees that public JSON rows reject duplicate public keys before validation: `public_accounting_json_rejects_duplicate_public_keys` covers contribution, budget, active-support, ledger-entry, and owner rows.
 The register also guarantees that public JSON rows reject missing required keys before validation: `public_accounting_json_rejects_missing_required_keys` covers the same public evidence surfaces.
+The register also guarantees that public JSON rows reject wrong-type public fields before validation: `public_accounting_json_rejects_wrong_type_public_fields` covers enum, string, nested budget, optional active-support, and owner path fields.
 The register also records that budget JSON rejects negative, fractional, string, boolean, object, and oversized rate fields, while ActiveSupportBudget JSON rejects negative, fractional, string, boolean, object, and oversized axis values.
 
 | Guard | Rejected row shape |
