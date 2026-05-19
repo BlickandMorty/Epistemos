@@ -5110,6 +5110,36 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                on these secondary tokens wins. Zero new seeds.",
     },
     FVaultRecallRow {
+        // 31st Adversarial row (iter-274): MLX-Swift 5-term
+        // long-query — {mlx, swift, inference, backend,
+        // pipeline}. Keeps all 4 canonical primaries and adds
+        // 1 context token. 5 terms triggers OR. Canonical has
+        // all 5 (mlx×2, swift×2, inference×2, backend×2,
+        // pipeline×1 — all in body); decoys ≤1 of 5. Fifth
+        // MLX-Swift Adversarial row (iter-100/207/237/259/274)
+        // — first 5-term query on this corpus. Parallels
+        // iter-120 6-term long-query on agent-runtime: MLX-Swift
+        // now exercised across 4-term, 5-term query lengths.
+        query: "mlx swift inference backend pipeline",
+        expected_paths: &["notes/mlx_swift_inference_backend.md"],
+        forbidden_paths: &[
+            "notes/mlx_archive.md",
+            "notes/swift_brainstorm.md",
+            "notes/inference_misc_notes.md",
+        ],
+        category: FVaultRecallCategory::Adversarial,
+        top_n: 1,
+        note: "Thirty-first Adversarial row (iter-274): MLX-\
+               Swift 5-term long-query \"mlx swift inference \
+               backend pipeline\". Keeps all 4 primaries + 1 \
+               context token. First 5-term query on MLX-Swift \
+               corpus (iter-100/207/237/259 were 4-term). \
+               Parallels iter-120 6-term query on agent-runtime. \
+               Canonical 5/5 dominates OR-conjunction; decoys \
+               ≤1 of 5. Brings Adversarial to depth 31. Zero \
+               new seeds.",
+    },
+    FVaultRecallRow {
         // 30th Adversarial row (iter-266): Apple-Metal alt-query
         // dropping "shader" primary while keeping {metal,
         // compute, kernel, pipeline}. iter-91 canonical has all
