@@ -177,6 +177,40 @@ mod tests {
     }
 
     #[test]
+    fn agent_blueprint_and_provider_policy_are_clone_send_sync_but_not_copy() {
+        // Phase 1 hardening — trait-bound pin for the String-bearing
+        // structs in blueprint.rs. Companion to:
+        //   - AgentBlueprintId iter-375
+        //   - MissionPacket + ToolCall iter-376
+        //   - AnswerPacket + Citation iter-377
+        //
+        // AgentBlueprint: 5 fields (id + display_name + provider_policy
+        // + budget + capability_root_hash). Clone by derive but NOT Copy
+        // (Strings + Vec inside provider_policy variants allocate).
+        //
+        // ProviderPolicy: 6-variant enum with String-bearing payloads
+        // on every variant. Clone by derive but NOT Copy.
+        //
+        // Send + Sync are load-bearing — blueprints + provider policies
+        // are persisted to disk and reloaded across dispatcher startup;
+        // they also cross the dispatcher's background-actor boundary.
+        //
+        // A future "let me cache a Box<dyn Provider>" inside
+        // ProviderPolicy refactor that introduced a non-Send trait
+        // object would silently break cross-thread propagation —
+        // surface here.
+        fn assert_clone_send_sync<T: Clone + Send + Sync>() {}
+        assert_clone_send_sync::<AgentBlueprint>();
+        assert_clone_send_sync::<ProviderPolicy>();
+
+        // Sanity: clones are equal.
+        let bp = local_blueprint();
+        assert_eq!(bp.clone(), bp);
+        let pp = ProviderPolicy::LocalMlx { model_id: "qwen3.5".into() };
+        assert_eq!(pp.clone(), pp);
+    }
+
+    #[test]
     fn agent_blueprint_id_is_clone_send_sync_but_not_copy() {
         // Phase 1 hardening — trait-bound pin for the String-bearing
         // newtype. Unlike the unit enums covered earlier in the Copy
