@@ -737,6 +737,40 @@ mod tests {
     }
 
     #[test]
+    fn run_event_entry_ordinal_getter_returns_stored_value_across_all_3_variants() {
+        // Phase 1 hardening — variant-coverage pin for the
+        // RunEventEntry::ordinal() getter (companion to
+        // run_event_entry_ordinal_getter_is_pure_deterministic_across_multiple_calls
+        // which covers purity).
+        //
+        // The getter must return the stored ordinal value REGARDLESS
+        // of variant. A future "let me special-case SealedMutation
+        // to return its capability_hash as ordinal for caching"
+        // refactor would silently break the dense-ordinal invariant
+        // and the entry-position correspondence — surface here.
+        //
+        // Pin via 3 entries with DISTINCT stored ordinals across the
+        // 3 variants; getter returns the EXACT distinct value per
+        // variant.
+        let event = RunEventEntry::Event {
+            ordinal: 100,
+            event: AgentEvent::ReasoningDelta { text: "x".into() },
+        };
+        let sealed = RunEventEntry::SealedMutation {
+            ordinal: 200,
+            capability_hash: Hash::zero(),
+            debit: BudgetDebit::default(),
+        };
+        let snapshot = RunEventEntry::LedgerSnapshot {
+            ordinal: 300,
+            ledger: BudgetLedger::default(),
+        };
+        assert_eq!(event.ordinal(), 100, "Event variant returns stored ordinal");
+        assert_eq!(sealed.ordinal(), 200, "SealedMutation variant returns stored ordinal");
+        assert_eq!(snapshot.ordinal(), 300, "LedgerSnapshot variant returns stored ordinal");
+    }
+
+    #[test]
     fn run_event_entry_ordinal_getter_is_pure_deterministic_across_multiple_calls() {
         // Phase 1 hardening — pure-function determinism pin
         // (companion to the purity series). RunEventEntry::ordinal
