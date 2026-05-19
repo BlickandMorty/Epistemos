@@ -2070,6 +2070,22 @@ mod tests {
     }
 
     #[test]
+    fn mission_packet_missing_required_fields_fail_to_deserialise() {
+        for bad in [
+            r#"{"user_prompt":"p","vault_scope":"v"}"#,
+            r#"{"blueprint_id":"a","vault_scope":"v"}"#,
+            r#"{"blueprint_id":"a","user_prompt":"p"}"#,
+            r#"{}"#,
+        ] {
+            let parsed: Result<MissionPacket, _> = serde_json::from_str(bad);
+            assert!(
+                parsed.is_err(),
+                "MissionPacket missing required field must fail: {bad}"
+            );
+        }
+    }
+
+    #[test]
     fn mission_packet_serde_json_preserves_struct_field_declaration_order() {
         // Phase 1 hardening — wire-shape pin extending iter-154
         // (presence + count) with field-order. MissionPacket
