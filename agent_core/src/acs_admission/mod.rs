@@ -8706,6 +8706,22 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_missing_operation_threshold_thresholds_names_malformed_policy_field() {
+        let value = serde_json::json!({
+            "operation": "tool_action"
+        });
+
+        let err = serde_json::from_value::<ACSOperationThresholdRule>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("malformed_policy"), "{message}");
+        assert!(
+            message.contains("operation_thresholds.thresholds"),
+            "{message}"
+        );
+    }
+
+    #[test]
     fn acs_admission_unknown_operation_threshold_operation_names_malformed_policy_field() {
         let value = serde_json::json!({
             "operation": "quantum_commit",
