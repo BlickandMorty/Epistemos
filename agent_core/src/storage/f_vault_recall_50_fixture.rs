@@ -2203,6 +2203,39 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                this row to FAIL.",
     },
     FVaultRecallRow {
+        // 30th PureChatter row (iter-270, milestone iteration):
+        // 8-token long-input shape — "please can you find me all
+        // the notes". Extends the long-input cardinality
+        // progression to 8 (iter-256 was 7-token). Mixes 5
+        // distinct chatter sub-classes: politeness (please) +
+        // modal (can) + pronoun (you/me) + imperative (find) +
+        // quantifier (all) + article (the) + chatter-noun (notes).
+        // Brings PureChatter to depth 30 — first category past
+        // depth-29 horizon (joins Synthesis + Adversarial +
+        // SignalOnly + Paraphrase + ChattyPrefix). All 8 tokens
+        // in QUERY_CHATTER_WORDS.
+        query: "please can you find me all the notes",
+        expected_paths: &[],
+        forbidden_paths: &[
+            "notes/totally_unrelated_a.md",
+            "notes/totally_unrelated_b.md",
+        ],
+        category: FVaultRecallCategory::PureChatter,
+        top_n: 7,
+        note: "Thirtieth PureChatter row (iter-270, milestone): \
+               8-token long-input shape (\"please can you find \
+               me all the notes\"). Extends long-input \
+               cardinality progression to 8 (iter-256 was 7). \
+               Mixes 5+ chatter sub-classes in one query \
+               (politeness + modal + pronoun + imperative + \
+               quantifier + article + chatter-noun). Brings \
+               PureChatter to depth 30 — first category past \
+               depth-29 horizon (six categories past now: \
+               Synthesis 30, Adversarial 30, SignalOnly 30, \
+               Paraphrase 30, ChattyPrefix 30, PureChatter 30). \
+               All 8 tokens in QUERY_CHATTER_WORDS.",
+    },
+    FVaultRecallRow {
         // 29th PureChatter row (iter-263): pure-conjunction-
         // cluster shape — "and or but" stacks three coordinating
         // conjunctions with no other token type. SIXTH pure-
