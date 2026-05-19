@@ -2147,7 +2147,7 @@ impl CapabilitySignature {
 
     fn validate(&self) -> Result<(), ACSAdmissionProofError> {
         if self.0.trim().is_empty() {
-            return Err(ACSAdmissionProofError::MissingCapabilitySignature);
+            return Err(ACSAdmissionProofError::MissingCapabilitySignature { record_id: None });
         }
         if self.0 != self.0.trim()
             || self.0.len() != CAPABILITY_SIGNATURE_BYTES * 2
@@ -2156,13 +2156,13 @@ impl CapabilitySignature {
                 .bytes()
                 .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
         {
-            return Err(ACSAdmissionProofError::InvalidCapabilitySignature);
+            return Err(ACSAdmissionProofError::InvalidCapabilitySignature { record_id: None });
         }
         let Some(bytes) = hex_decode_signature(&self.0) else {
-            return Err(ACSAdmissionProofError::InvalidCapabilitySignature);
+            return Err(ACSAdmissionProofError::InvalidCapabilitySignature { record_id: None });
         };
         if bytes.len() != CAPABILITY_SIGNATURE_BYTES {
-            return Err(ACSAdmissionProofError::InvalidCapabilitySignature);
+            return Err(ACSAdmissionProofError::InvalidCapabilitySignature { record_id: None });
         }
         Ok(())
     }
@@ -2269,7 +2269,9 @@ impl SCOPERexAdmissionProof {
                 record_id: self.record_id.0.clone(),
             });
         }
-        self.signature.validate()
+        self.signature
+            .validate()
+            .map_err(|error| error.with_record_id(&self.record_id.0))
     }
 
     pub fn signed_from_record<K: SigningKey>(
@@ -2320,7 +2322,9 @@ impl SCOPERexAdmissionProof {
             return Err(ACSAdmissionProofError::OperationMismatch);
         }
         if !self.verify_signature(key) {
-            return Err(ACSAdmissionProofError::InvalidCapabilitySignature);
+            return Err(ACSAdmissionProofError::InvalidCapabilitySignature {
+                record_id: Some(self.record_id.0.clone()),
+            });
         }
         Ok(())
     }
@@ -2453,8 +2457,8 @@ fn hex_value(byte: u8) -> Option<u8> {
 pub enum ACSAdmissionProofError {
     MissingRecordId,
     InvalidRecordId { record_id: String },
-    MissingCapabilitySignature,
-    InvalidCapabilitySignature,
+    MissingCapabilitySignature { record_id: Option<String> },
+    InvalidCapabilitySignature { record_id: Option<String> },
     VerdictBlocksScopeRex { record_id: String },
     RecordIdMismatch,
     OperationMismatch,
@@ -2470,8 +2474,8 @@ impl ACSAdmissionProofError {
         match self {
             Self::MissingRecordId => "missing_audit_record_id",
             Self::InvalidRecordId { .. } => "invalid_audit_record_id",
-            Self::MissingCapabilitySignature => "missing_capability_signature",
-            Self::InvalidCapabilitySignature => "invalid_capability_signature",
+            Self::MissingCapabilitySignature { .. } => "missing_capability_signature",
+            Self::InvalidCapabilitySignature { .. } => "invalid_capability_signature",
             Self::VerdictBlocksScopeRex { .. } => "proof_verdict_blocks_scope_rex",
             Self::RecordIdMismatch => "proof_record_id_mismatch",
             Self::OperationMismatch => "proof_operation_mismatch",
@@ -2483,7 +2487,7 @@ impl ACSAdmissionProofError {
     pub const fn field(&self) -> Option<&'static str> {
         match self {
             Self::CorruptAuditRecord { field, .. } => Some(field),
-            Self::MissingCapabilitySignature | Self::InvalidCapabilitySignature => {
+            Self::MissingCapabilitySignature { .. } | Self::InvalidCapabilitySignature { .. } => {
                 Some("signature")
             }
             Self::VerdictBlocksScopeRex { .. } => Some("verdict"),
@@ -2499,12 +2503,24 @@ impl ACSAdmissionProofError {
             Self::CorruptAuditRecord { record_id, .. } => Some(record_id.as_str()),
             Self::VerdictBlocksScopeRex { record_id } => Some(record_id.as_str()),
             Self::InvalidRecordId { record_id } => Some(record_id.as_str()),
+            Self::MissingCapabilitySignature { record_id }
+            | Self::InvalidCapabilitySignature { record_id } => record_id.as_deref(),
             Self::MissingRecordId
-            | Self::MissingCapabilitySignature
-            | Self::InvalidCapabilitySignature
             | Self::RecordIdMismatch
             | Self::OperationMismatch
             | Self::VerdictMismatch => None,
+        }
+    }
+
+    fn with_record_id(self, record_id: &str) -> Self {
+        match self {
+            Self::MissingCapabilitySignature { .. } => Self::MissingCapabilitySignature {
+                record_id: Some(record_id.to_string()),
+            },
+            Self::InvalidCapabilitySignature { .. } => Self::InvalidCapabilitySignature {
+                record_id: Some(record_id.to_string()),
+            },
+            other => other,
         }
     }
 }
@@ -6173,6 +6189,7 @@ mod tests {
         .unwrap_err();
         assert_eq!(err.cause(), "invalid_capability_signature");
         assert_eq!(err.field(), Some("signature"));
+        assert_eq!(err.record_id(), Some(record.record_id.as_str()));
 
         let err = SCOPERexAdmissionProof::from_record(
             &record,
