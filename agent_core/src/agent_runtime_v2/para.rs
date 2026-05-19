@@ -483,6 +483,25 @@ mod tests {
     }
 
     #[test]
+    fn stop_reason_non_string_json_shapes_fail_to_deserialise() {
+        for bad in [
+            "null",
+            "true",
+            "0",
+            "{}",
+            "[]",
+            r#"{"reason":"end_turn"}"#,
+            r#"["end_turn"]"#,
+        ] {
+            let r: Result<StopReason, _> = serde_json::from_str(bad);
+            assert!(
+                r.is_err(),
+                "non-string stop_reason JSON shape {bad} must fail to deserialise"
+            );
+        }
+    }
+
+    #[test]
     fn stop_reason_canonical_bytes_are_unique_per_variant() {
         // Phase 1 hardening — canonical-bytes stability: every
         // variant's canonical_bytes() output must be unique. If two
