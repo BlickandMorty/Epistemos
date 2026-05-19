@@ -4069,6 +4069,49 @@ mod tests {
     }
 
     #[test]
+    fn public_key_registries_reject_delimiter_wrapped_public_key_spoofs() {
+        fn reject_delimiter_wrapped_keys<T>(registry: &str, keys: &[&str])
+        where
+            T: for<'de> Deserialize<'de>,
+        {
+            for key in keys {
+                for spoof in [
+                    format!("({key})"),
+                    format!("[{key}]"),
+                    format!("{{{key}}}"),
+                    format!("<{key}>"),
+                ] {
+                    assert!(
+                        serde_json::from_value::<T>(serde_json::json!(spoof)).is_err(),
+                        "{registry} accepted delimiter-wrapped key spoof {key}"
+                    );
+                }
+            }
+        }
+
+        reject_delimiter_wrapped_keys::<ResidencyTier>("ResidencyTier", &ResidencyTier::CODES);
+        reject_delimiter_wrapped_keys::<LatticeCoderKind>(
+            "LatticeCoderKind",
+            &LatticeCoderKind::CODES,
+        );
+        reject_delimiter_wrapped_keys::<SideInformationKind>(
+            "SideInformationKind",
+            &SideInformationKind::CODES,
+        );
+        reject_delimiter_wrapped_keys::<WboTermCode>("WboTermCode", &WboTermCode::CODES);
+        reject_delimiter_wrapped_keys::<LatticeWboError>(
+            "LatticeWboError",
+            &LatticeWboError::CODES,
+        );
+
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains("`public_key_registries_reject_delimiter_wrapped_public_key_spoofs`"),
+            "register doc must cross-link delimiter-wrapped public-key spoof rejection"
+        );
+    }
+
+    #[test]
     fn ledger_validation_requires_active_support_for_active_support_rows() {
         let contributions = vec![
             LatticeErrorContribution::new(WboTermCode::SubstrateBoundary, "ShadowKV support", 0.01)
