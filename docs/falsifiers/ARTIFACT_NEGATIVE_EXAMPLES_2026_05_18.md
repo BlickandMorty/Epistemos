@@ -2,7 +2,7 @@
 state: t23b-falsifier-artifact-negative-examples
 created_on: 2026-05-18
 schema_version: 2026-05-18.2
-invalid_example_count: 240
+invalid_example_count: 241
 ---
 
 # Artifact Negative Examples - 2026-05-18
@@ -12572,3 +12572,18 @@ Violates: [Identity Gap Slug Catalog](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#id
 ```
 
 Rejection reason: identity-gap slugs may use lowercase ASCII alphanumerics and internal hyphens only; emoji atoms such as `🚀` inside `reserved-🚀-state` introduce multi-byte code points that the slug grammar cannot anchor.
+
+## N241 - Trailing Space Identity Gap Slug
+
+Violates: [Identity Gap Slug Catalog](FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md#identity-gap-slug-catalog).
+
+```json
+{
+  "catalog_slug": "reserved-state ",
+  "negative_examples": ["N194", "N195"],
+  "schema_catalog_present": true,
+  "slug_grammar": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+}
+```
+
+Rejection reason: identity-gap slugs may use lowercase alphanumerics and internal hyphens only; trailing whitespace such as the space after `reserved-state` breaks the closing `[a-z0-9]+` anchor and is invalid.
