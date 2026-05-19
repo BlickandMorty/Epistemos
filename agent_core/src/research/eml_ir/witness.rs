@@ -3170,6 +3170,17 @@ mod tests {
     }
 
     #[test]
+    fn replay_accepts_observed_wall_clock_exactly_at_budget() {
+        let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
+            .expect("acceptance witness json");
+        let target_millis = u64::from(witness.budget_target_seconds) * 1_000;
+        witness.observed_wall_clock_millis = target_millis;
+        let json = serde_json::to_string(&witness).unwrap();
+        let replayed = replay_witness_json(&json).expect("at-budget witness must replay");
+        assert_eq!(replayed.observed_wall_clock_millis, target_millis);
+    }
+
+    #[test]
     fn replay_rejects_observed_wall_clock_over_budget() {
         let mut witness: FulpWitness = serde_json::from_str(&acceptance_witness_json().unwrap())
             .expect("acceptance witness json");
