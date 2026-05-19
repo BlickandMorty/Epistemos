@@ -949,6 +949,34 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_display_tokens_field_reflects_ledger_tokens_used() {
+        // Phase 1 hardening — Display semantic pin (companion to
+        // answer_packet_display_citations_count_field_reflects_vec_len
+        // iter-488). The Display format contains "tokens={}" where
+        // {} is self.final_ledger.tokens_used (answer.rs §112).
+        //
+        // Pin the rendered count tracks the ledger field across
+        // representative values. A future "let me show prompt+completion
+        // separately" refactor would silently restructure the log line.
+        let log = RunEventLog::new();
+        for tokens in [0u64, 1, 25, 1_000, 999_999, u64::MAX] {
+            let packet = AnswerPacket::emit(
+                AgentBlueprintId("a".into()),
+                "x".into(),
+                vec![],
+                StopReason::EndTurn,
+                BudgetLedger { tokens_used: tokens, ..Default::default() },
+                &log,
+            );
+            let display = format!("{packet}");
+            assert!(
+                display.contains(&format!("tokens={tokens}")),
+                "Display must show tokens={tokens}, got: {display}"
+            );
+        }
+    }
+
+    #[test]
     fn answer_packet_display_citations_count_field_reflects_vec_len() {
         // Phase 1 hardening — Display semantic pin. AnswerPacket's
         // Display format includes "citations={}" where {} is
