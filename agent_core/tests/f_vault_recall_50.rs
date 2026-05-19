@@ -552,6 +552,18 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/quartz_general_ledger.md",
             "quartz general ledger notes archive",
         ),
+        // Iter-425 exact-quote colon boundary: the expected document
+        // writes zephyr:beacon, which Tantivy tokenizes as adjacent
+        // zephyr + beacon. The decoy has both terms but with an
+        // intervening token, so PhraseQuery must reject it.
+        (
+            "notes/zephyr_beacon_colon.md",
+            "zephyr:beacon phrase boundary notes",
+        ),
+        (
+            "notes/zephyr_general_beacon.md",
+            "zephyr general beacon notes archive",
+        ),
         // Iter-108 (3rd near-duplicate Synthesis — neural-cache-layer
         // domain): pair of near-identical docs each carry all 3 of
         // {neural, cache, layer} with equal frequency. AND-
