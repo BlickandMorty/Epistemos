@@ -1653,6 +1653,87 @@ mod tests {
     }
 
     #[test]
+    fn mission_prompt_validate_counts_bytes_not_chars_for_unicode_adversarial_input() {
+        // Phase 1 hardening — adversarial bytes-vs-chars pin for
+        // MissionPacket::validate_prompt. The cap is documented in
+        // BYTES (MAX_PROMPT_BYTES = 128 KiB); the implementation
+        // uses `self.user_prompt.len()` which returns the byte length,
+        // NOT the character count.
+        //
+        // The distinction matters: a String containing only 4-byte
+        // emoji ("🚀") has bytes = 4 × chars. A future refactor to
+        // `self.user_prompt.chars().count()` would silently let a
+        // 128 KiB-char prompt (up to 512 KiB bytes for 4-byte emoji)
+        // slip past the cap — bloating the RunEventLog row and the
+        // WBO token budget.
+        //
+        // Pin both directions:
+        //   1. A 4-byte char repeated until char-count is well BELOW
+        //      MAX_PROMPT_BYTES but byte-count is OVER → must REJECT.
+        //   2. A pure-ASCII prompt at the byte cap MUST accept
+        //      (existing pin, but re-asserted here as the symmetric
+        //      witness).
+        //
+        // Companion to mission_prompt_at_cap_accepts (line 1624) and
+        // mission_prompt_over_cap_rejected (line 1637).
+        //
+        // Bytes-cap with 4-byte char "🚀" (UTF-8: f0 9f 9a 80):
+        //   need ⌈(MAX_PROMPT_BYTES + 1) / 4⌉ chars to cross the cap.
+        let bytes_per_rocket = "🚀".len(); // 4 bytes in UTF-8.
+        assert_eq!(bytes_per_rocket, 4, "🚀 must be a 4-byte UTF-8 char");
+        // Build a prompt that's WELL UNDER the char count of
+        // MAX_PROMPT_BYTES but WELL OVER the byte cap.
+        // Use MAX_PROMPT_BYTES / 4 + 1 rockets → byte count is
+        // MAX_PROMPT_BYTES + 4 (over by 4 bytes), char count is
+        // MAX_PROMPT_BYTES / 4 + 1 (≈ 32 K chars, well under cap).
+        let n_rockets = MissionPacket::MAX_PROMPT_BYTES / 4 + 1;
+        let emoji_prompt = "🚀".repeat(n_rockets);
+        assert!(
+            emoji_prompt.len() > MissionPacket::MAX_PROMPT_BYTES,
+            "emoji prompt must overflow byte cap"
+        );
+        assert!(
+            emoji_prompt.chars().count() < MissionPacket::MAX_PROMPT_BYTES,
+            "emoji prompt must be well UNDER the char-cap (catches the chars().count() refactor)"
+        );
+        let mp = MissionPacket {
+            blueprint_id: AgentBlueprintId("a".into()),
+            user_prompt: emoji_prompt.clone(),
+            vault_scope: "vault".into(),
+        };
+        let err = mp
+            .validate_prompt()
+            .expect_err("emoji prompt over byte cap must reject");
+        assert_eq!(
+            err,
+            MissionPromptError::OversizePrompt {
+                size: emoji_prompt.len(),
+                cap: MissionPacket::MAX_PROMPT_BYTES,
+            },
+            "OversizePrompt must report exact BYTE size, not char count"
+        );
+
+        // Symmetric witness: a multi-byte prompt JUST UNDER the byte
+        // cap (with a 4-byte char count well below the cap) still
+        // accepts — the bytes-not-chars rule isn't an over-rejecting
+        // bug.
+        let n_under = MissionPacket::MAX_PROMPT_BYTES / 4;
+        let under_emoji = "🚀".repeat(n_under);
+        assert!(
+            under_emoji.len() <= MissionPacket::MAX_PROMPT_BYTES,
+            "under-cap emoji must fit byte cap"
+        );
+        let mp_under = MissionPacket {
+            blueprint_id: AgentBlueprintId("a".into()),
+            user_prompt: under_emoji,
+            vault_scope: "vault".into(),
+        };
+        mp_under
+            .validate_prompt()
+            .expect("under-byte-cap emoji prompt must accept");
+    }
+
+    #[test]
     fn mission_packet_preserves_json_special_chars_in_user_prompt_through_serde() {
         // Phase 1 hardening — adversarial JSON pin. The user_prompt
         // field is a String that frequently carries JSON-flavoured
