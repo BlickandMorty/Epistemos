@@ -956,6 +956,24 @@ mod tests {
     }
 
     #[test]
+    fn agent_event_error_kind_non_string_json_shapes_fail_to_deserialise() {
+        for bad in [
+            "null",
+            "true",
+            "0",
+            "{}",
+            "[]",
+            r#"{"kind":"provider"}"#,
+        ] {
+            let parsed: Result<AgentEventErrorKind, _> = serde_json::from_str(bad);
+            assert!(
+                parsed.is_err(),
+                "non-string AgentEventErrorKind JSON shape must fail: {bad}"
+            );
+        }
+    }
+
+    #[test]
     fn agent_event_error_kind_helpers_are_pure_deterministic_across_multiple_calls() {
         // Phase 1 hardening — runtime determinism pin (companion to
         // the purity series). AgentEventErrorKind::code returns
