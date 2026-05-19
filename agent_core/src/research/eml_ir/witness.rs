@@ -1266,6 +1266,8 @@ fn nested_finite_f64_json(
 #[derive(Deserialize)]
 struct RawTopLevelUnsigned<'a> {
     #[serde(default, borrow)]
+    schema_version: Option<&'a RawValue>,
+    #[serde(default, borrow)]
     point_count: Option<&'a RawValue>,
     #[serde(default, borrow)]
     operation_evaluations: Option<&'a RawValue>,
@@ -1283,6 +1285,9 @@ fn reject_raw_top_level_unsigned_json(json: &str) -> Result<(), FulpReplayError>
     let Ok(raw_witness) = serde_json::from_str::<RawTopLevelUnsigned<'_>>(json) else {
         return Ok(());
     };
+    if let Some(value) = raw_witness.schema_version {
+        raw_unsigned_integer_json(value, "schema_version")?;
+    }
     if let Some(value) = raw_witness.point_count {
         raw_unsigned_integer_json(value, "point_count")?;
     }
@@ -3818,6 +3823,10 @@ mod tests {
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::NumberOutOfRange)
         );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("schema_version"));
     }
 
     #[test]
