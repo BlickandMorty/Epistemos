@@ -5,6 +5,7 @@ use super::oracle::{
 };
 use super::StressAxis;
 use serde::{Deserialize, Serialize};
+use serde_json::value::RawValue;
 
 pub const FULP_WITNESS_SCHEMA_VERSION: u32 = 12;
 
@@ -711,6 +712,7 @@ pub fn replay_witness_json(json: &str) -> Result<FulpWitness, FulpReplayError> {
 }
 
 fn reject_stats_length_json(json: &str) -> Result<(), FulpReplayError> {
+    reject_raw_worst_case_number_json(json)?;
     let value: serde_json::Value = serde_json::from_str(json).map_err(invalid_json_error)?;
     let Some(stats_value) = value.get("stats") else {
         return Ok(());
@@ -1129,6 +1131,121 @@ fn nested_unsigned_integer_json(
     Ok(Some(field_value))
 }
 
+fn nested_finite_f64_json(
+    value: &serde_json::Value,
+    path: &str,
+    field: &str,
+) -> Result<f64, FulpReplayError> {
+    let Some(field_value) = value.get(field) else {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("missing field {path}.{field}"),
+            kind: FulpInvalidJsonKind::MissingField,
+        });
+    };
+    if !field_value.is_number() {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("invalid type for {path}.{field}, expected number"),
+            kind: FulpInvalidJsonKind::TypeMismatch,
+        });
+    }
+    let Some(field_value) = field_value.as_f64() else {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("number out of range for {path}.{field}, expected finite f64"),
+            kind: FulpInvalidJsonKind::NumberOutOfRange,
+        });
+    };
+    if !field_value.is_finite() {
+        return Err(FulpReplayError::InvalidJson {
+            message: format!("number out of range for {path}.{field}, expected finite f64"),
+            kind: FulpInvalidJsonKind::NumberOutOfRange,
+        });
+    }
+    Ok(field_value)
+}
+
+#[derive(Deserialize)]
+struct RawWitnessWorstCases<'a> {
+    #[serde(borrow)]
+    stats: [RawOperationWorstCases<'a>; 3],
+}
+
+#[derive(Deserialize)]
+struct RawOperationWorstCases<'a> {
+    #[serde(borrow)]
+    axis_stats: [RawAxisWorstCase<'a>; StressAxis::ALL.len()],
+    #[serde(borrow)]
+    worst_case: RawWorstCaseNumbers<'a>,
+}
+
+#[derive(Deserialize)]
+struct RawAxisWorstCase<'a> {
+    #[serde(borrow)]
+    worst_case: RawWorstCaseNumbers<'a>,
+}
+
+#[derive(Deserialize)]
+struct RawWorstCaseNumbers<'a> {
+    #[serde(borrow)]
+    x: &'a RawValue,
+    #[serde(borrow)]
+    y: &'a RawValue,
+    #[serde(borrow)]
+    reference: &'a RawValue,
+}
+
+fn reject_raw_worst_case_number_json(json: &str) -> Result<(), FulpReplayError> {
+    let Ok(raw_witness) = serde_json::from_str::<RawWitnessWorstCases<'_>>(json) else {
+        return Ok(());
+    };
+    for (operation_index, stat) in raw_witness.stats.iter().enumerate() {
+        for (axis_index, axis_stat) in stat.axis_stats.iter().enumerate() {
+            let path = format!("stats[{operation_index}].axis_stats[{axis_index}].worst_case");
+            reject_raw_worst_case_numbers_json(&axis_stat.worst_case, &path)?;
+        }
+        let path = format!("stats[{operation_index}].worst_case");
+        reject_raw_worst_case_numbers_json(&stat.worst_case, &path)?;
+    }
+    Ok(())
+}
+
+fn reject_raw_worst_case_numbers_json(
+    worst_case: &RawWorstCaseNumbers<'_>,
+    path: &str,
+) -> Result<(), FulpReplayError> {
+    raw_finite_f64_json(worst_case.x, path, "x")?;
+    raw_finite_f64_json(worst_case.y, path, "y")?;
+    raw_finite_f64_json(worst_case.reference, path, "reference")?;
+    Ok(())
+}
+
+fn raw_finite_f64_json(
+    raw_value: &RawValue,
+    path: &str,
+    field: &str,
+) -> Result<f64, FulpReplayError> {
+    match serde_json::from_str::<f64>(raw_value.get()) {
+        Ok(value) if value.is_finite() => Ok(value),
+        Ok(_) => Err(FulpReplayError::InvalidJson {
+            message: format!("number out of range for {path}.{field}, expected finite f64"),
+            kind: FulpInvalidJsonKind::NumberOutOfRange,
+        }),
+        Err(error) => {
+            let message = error.to_string();
+            if message.contains("number out of range") {
+                Err(FulpReplayError::InvalidJson {
+                    message: format!("number out of range for {path}.{field}, expected finite f64"),
+                    kind: FulpInvalidJsonKind::NumberOutOfRange,
+                })
+            } else {
+                Err(FulpReplayError::InvalidJson {
+                    message: format!("invalid type for {path}.{field}, expected number"),
+                    kind: FulpInvalidJsonKind::TypeMismatch,
+                })
+            }
+        }
+    }
+}
+
 fn reject_worst_case_fields_json(
     worst_case_value: &serde_json::Value,
     path: &str,
@@ -1197,42 +1314,9 @@ fn reject_worst_case_fields_json(
             kind: FulpInvalidJsonKind::Malformed,
         });
     }
-    let Some(x_value) = worst_case_value.get("x") else {
-        return Err(FulpReplayError::InvalidJson {
-            message: format!("missing field {path}.x"),
-            kind: FulpInvalidJsonKind::MissingField,
-        });
-    };
-    if !x_value.is_number() {
-        return Err(FulpReplayError::InvalidJson {
-            message: format!("invalid type for {path}.x, expected number"),
-            kind: FulpInvalidJsonKind::TypeMismatch,
-        });
-    }
-    let Some(y_value) = worst_case_value.get("y") else {
-        return Err(FulpReplayError::InvalidJson {
-            message: format!("missing field {path}.y"),
-            kind: FulpInvalidJsonKind::MissingField,
-        });
-    };
-    if !y_value.is_number() {
-        return Err(FulpReplayError::InvalidJson {
-            message: format!("invalid type for {path}.y, expected number"),
-            kind: FulpInvalidJsonKind::TypeMismatch,
-        });
-    }
-    let Some(reference_value) = worst_case_value.get("reference") else {
-        return Err(FulpReplayError::InvalidJson {
-            message: format!("missing field {path}.reference"),
-            kind: FulpInvalidJsonKind::MissingField,
-        });
-    };
-    if !reference_value.is_number() {
-        return Err(FulpReplayError::InvalidJson {
-            message: format!("invalid type for {path}.reference, expected number"),
-            kind: FulpInvalidJsonKind::TypeMismatch,
-        });
-    }
+    nested_finite_f64_json(worst_case_value, path, "x")?;
+    nested_finite_f64_json(worst_case_value, path, "y")?;
+    nested_finite_f64_json(worst_case_value, path, "reference")?;
     let Some(reference_bits_value) = worst_case_value.get("reference_fp16_bits") else {
         return Err(FulpReplayError::InvalidJson {
             message: format!("missing field {path}.reference_fp16_bits"),
@@ -2993,6 +3077,28 @@ mod tests {
         assert_eq!(
             error.invalid_json_kind(),
             Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats[0].worst_case.x"));
+    }
+
+    #[test]
+    fn replay_rejects_operation_worst_case_x_overflow_with_path() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["worst_case"]["x"] = serde_json::Number::from_f64(123456789.125)
+            .expect("finite sentinel")
+            .into();
+        let json = serde_json::to_string(&value).unwrap();
+        let needle = "\"x\":123456789.125";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(needle, "\"x\":1e999999", 1);
+        let error = replay_witness_json(&json).expect_err("worst case x overflow must fail replay");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::NumberOutOfRange)
         );
         assert!(error
             .invalid_json_message()
