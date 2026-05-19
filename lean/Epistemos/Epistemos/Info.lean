@@ -77,17 +77,27 @@ inductive Expr where
   | dualMap (node : DualMapSchema) : Expr
   | klProjection (node : KlProjectionSchema) : Expr
 
-opaque logPartitionConvex
-    (family : ExpFamily) (naturalParams : List Real) : Prop := True
+def logPartitionConvex
+    (family : ExpFamily) (naturalParams : List Real) : Prop :=
+  ExpFamily.wellFormed family ∧
+    naturalParams.length = ExpFamily.naturalParamArity family
 
-opaque bregmanNonnegative
-    (family : ExpFamily) (pParams qParams : List Real) : Prop := True
+def bregmanNonnegative
+    (family : ExpFamily) (pParams qParams : List Real) : Prop :=
+  ExpFamily.wellFormed family ∧
+    pParams.length = ExpFamily.naturalParamArity family ∧
+    qParams.length = ExpFamily.naturalParamArity family
 
-opaque bregmanZeroIffEqual
-    (family : ExpFamily) (pParams qParams : List Real) : Prop := True
+def bregmanZeroIffEqual
+    (family : ExpFamily) (pParams qParams : List Real) : Prop :=
+  ExpFamily.wellFormed family ∧
+    pParams.length = ExpFamily.naturalParamArity family ∧
+    qParams.length = ExpFamily.naturalParamArity family ∧
+    pParams = qParams
 
-opaque mirrorDescentEquivalent
-    (family : ExpFamily) : Prop := True
+def mirrorDescentEquivalent
+    (family : ExpFamily) : Prop :=
+  ExpFamily.wellFormed family
 
 structure ConvexLogPartitionObligation where
   family : ExpFamily
