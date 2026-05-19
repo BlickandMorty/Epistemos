@@ -3214,12 +3214,43 @@ mod tests {
                 "measured": null
             }"#,
         );
+        assert_json_wrong_type_rejected::<LatticeErrorContribution>(
+            r#"{
+                "term": "T_num",
+                "source": "exact ULP guard",
+                "budget": 0.0,
+                "measured": ["pending"]
+            }"#,
+        );
         assert_json_wrong_type_rejected::<LatticeBudget>(
             r#"{
                 "coder": {"key": "exact-hot"},
                 "rate_milli_bits_per_symbol": null,
                 "side_information": "None",
                 "contributions": [{
+                    "term": "T_num",
+                    "source": "exact ULP guard",
+                    "budget": 0.0,
+                    "measured": null
+                }]
+            }"#,
+        );
+        assert_json_wrong_type_rejected::<LatticeBudget>(
+            r#"{
+                "coder": "nested-e8",
+                "rate_milli_bits_per_symbol": "1250",
+                "side_information": "WeightCodebook",
+                "contributions": [{
+                    "term": "T_W",
+                    "source": "NestedE8 weight lattice",
+                    "budget": 0.01,
+                    "measured": null
+                }, {
+                    "term": "T_Q",
+                    "source": "NestedE8 quantization lattice",
+                    "budget": 0.01,
+                    "measured": null
+                }, {
                     "term": "T_num",
                     "source": "exact ULP guard",
                     "budget": 0.0,
@@ -4402,6 +4433,7 @@ mod tests {
             "optional public null keys must still be present explicitly",
             "`public_accounting_json_rejects_wrong_type_public_fields`",
             "public JSON rows reject wrong-type public fields before validation",
+            "wrong-type guard covers nullable measured and rate fields",
             "wrong-type caveat fields",
             "`lattice_budget_json_rejects_invalid_public_envelopes`",
             "budget JSON rejects empty contribution lists, missing `T_num`, and wrong side-information before becoming a public budget envelope",
