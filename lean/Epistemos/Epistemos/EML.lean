@@ -149,6 +149,19 @@ theorem BranchObligation.discharge (o : BranchObligation) :
     BranchSafe (.eml o.left o.right) :=
   BranchSafe.eml o.left_safe o.right_safe o.right_positive
 
+def rightOneBranchObligation (x : Expr)
+    (hx : BranchSafe x) : BranchObligation :=
+  { left := x
+    right := Expr.one
+    left_safe := hx
+    right_safe := one_branch_safe
+    right_positive := Expr.eval_one_positive }
+
+theorem rightOneBranchObligationDischarges (x : Expr)
+    (hx : BranchSafe x) :
+    BranchSafe (.eml x .one) :=
+  BranchObligation.discharge (rightOneBranchObligation x hx)
+
 theorem exprConstructorCountPinned :
     exprConstructorCount = 2 := by
   rfl
