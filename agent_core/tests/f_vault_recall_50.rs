@@ -1065,6 +1065,21 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
             "notes/mamba_kharoshthi.md",
             "Mamba 𐨀 cache Mamba 𐨀 cache architecture notes kharoshthi",
         ),
+        // Iter-400 (48th Unicode — Meroitic Hieroglyphic
+        // extension, iter-400 milestone): Latin "Mamba" + Meroitic
+        // Hieroglyphic "𐦀" (letter A, U+10980) + Latin "cache".
+        // Meroitic Hieroglyphic (ca. 300 BCE - 400 CE) was used
+        // for the Kushite language in the Kingdom of Kush (modern
+        // Sudan / Upper Egypt). Adapted from Egyptian Hieroglyphs
+        // — first descendant of Egyptian Hieroglyphs (iter-308)
+        // in the pin set; genealogy now spans ancestor +
+        // descendant. FIFTH African-language script (Ethiopic +
+        // Tifinagh + Vai + Coptic + Meroitic). 15th SMP-plane
+        // codepoint. 46 non-Latin scripts pinned.
+        (
+            "notes/mamba_meroitic.md",
+            "Mamba 𐦀 cache Mamba 𐦀 cache architecture notes meroitic",
+        ),
     ];
     for (path, content) in seeds {
         store
