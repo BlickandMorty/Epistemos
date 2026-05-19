@@ -2218,6 +2218,7 @@ impl<'de> Deserialize<'de> for ACSAuditRecord {
         require_audit_record_known_fields::<D::Error>(&value)?;
         require_audit_record_u32_field::<D::Error>(&value, "policy_version")?;
         require_audit_record_f32_field::<D::Error>(&value, "risk_max")?;
+        require_audit_record_i64_field::<D::Error>(&value, "emitted_at_ms")?;
         require_audit_record_enum_field::<D::Error>(
             &value,
             "operation",
@@ -2323,6 +2324,32 @@ where
         .get(field)
         .and_then(serde_json::Value::as_f64)
         .is_some_and(|value| value.is_finite() && (0.0..=1.0).contains(&value))
+    {
+        return Ok(());
+    }
+    Err(E::custom(format!(
+        "corrupt_acs_audit_record field={field} record_id={record_id}"
+    )))
+}
+
+fn require_audit_record_i64_field<E>(
+    value: &serde_json::Value,
+    field: &'static str,
+) -> Result<(), E>
+where
+    E: serde::de::Error,
+{
+    let serde_json::Value::Object(object) = value else {
+        return Err(E::custom("corrupt_acs_audit_record field=record"));
+    };
+    let record_id = object
+        .get("record_id")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    if object
+        .get(field)
+        .and_then(serde_json::Value::as_i64)
+        .is_some_and(|value| value >= 0)
     {
         return Ok(());
     }
@@ -9768,6 +9795,21 @@ mod tests {
 
         assert!(message.contains("corrupt_acs_audit_record"), "{message}");
         assert!(message.contains("risk_max"), "{message}");
+        assert!(message.contains(record_id.as_str()), "{message}");
+    }
+
+    #[test]
+    fn acs_admission_audit_corruption_typed_emitted_at_names_corrupt_record_field() {
+        let record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+        let record_id = record.record_id.clone();
+        let mut value = serde_json::to_value(record).expect("audit record must serialize");
+        value["emitted_at_ms"] = serde_json::json!("1001");
+
+        let err = serde_json::from_value::<ACSAuditRecord>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("corrupt_acs_audit_record"), "{message}");
+        assert!(message.contains("emitted_at_ms"), "{message}");
         assert!(message.contains(record_id.as_str()), "{message}");
     }
 
