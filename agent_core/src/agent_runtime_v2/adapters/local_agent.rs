@@ -510,6 +510,17 @@ mod tests {
     }
 
     #[test]
+    fn local_agent_tier_non_string_json_shapes_fail_to_deserialise() {
+        for bad in ["null", "true", "42", "[]", r#"{"tier":"core"}"#] {
+            let parsed: Result<LocalAgentCapabilityTier, _> = serde_json::from_str(bad);
+            assert!(
+                parsed.is_err(),
+                "non-string LocalAgentCapabilityTier JSON shape must fail: {bad}"
+            );
+        }
+    }
+
+    #[test]
     fn local_agent_tier_round_trips_through_json() {
         for tier in LocalAgentCapabilityTier::ALL {
             let s = serde_json::to_string(&tier).expect("serialize");
