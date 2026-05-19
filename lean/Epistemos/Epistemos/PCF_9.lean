@@ -39,6 +39,12 @@ def ConnectomeDistillation.passesAcceptance (d : ConnectomeDistillation) : Bool 
 until a fresh App Store §2.5.2 audit accepts a Tier-2 model file. -/
 def masImpactZeroVaultOnly : Bool := true
 
+/-- PCF-9 Lambada falsifier distills to the top 2000 component clusters. -/
+def falsifierTopKClusters : Nat := 2000
+
+/-- PCF-9 Lambada falsifier allows PPL drift at most 1.5. -/
+def lambadaPplDriftMax : Float := 1.5
+
 theorem passesAcceptanceIffDriftWithinBudget (d : ConnectomeDistillation) :
     d.passesAcceptance = true ↔ d.ppl_drift_observed ≤ d.ppl_drift_max := by
   simp [ConnectomeDistillation.passesAcceptance]
@@ -52,5 +58,9 @@ theorem driftWithinBudgetPassesAcceptance
 theorem masImpactZeroPinned :
     masImpactZeroVaultOnly = true := by
   rfl
+
+theorem lambadaFalsifierThresholdsPinned :
+    falsifierTopKClusters = 2000 ∧ lambadaPplDriftMax = 1.5 := by
+  exact ⟨rfl, rfl⟩
 
 end Epistemos.PCF9
