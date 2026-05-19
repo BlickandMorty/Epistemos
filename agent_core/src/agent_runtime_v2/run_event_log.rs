@@ -888,6 +888,78 @@ mod tests {
     }
 
     #[test]
+    fn root_hash_is_sensitive_to_sealed_mutation_cap_hash_and_every_debit_axis() {
+        // Phase 1 hardening — payload-sensitivity pin for the
+        // SealedMutation row (companion to the 6-variant AgentEvent
+        // sensitivity family closed at iter-553). Two logs that
+        // differ ONLY in the capability_hash OR ANY of the 5 debit
+        // axes must produce DIFFERENT root_hashes — all 6 fields
+        // participate in the chain.
+        //
+        // A future "let me drop memory_bytes from the chain because
+        // it's M2 Pro-specific" tweak would silently let runs with
+        // different memory footprints collide on chain hash — the
+        // budget audit dashboard would lose its ability to attribute
+        // memory pressure to the specific run.
+        //
+        // Pin sweeps 7 fixtures (1 cap_hash differing + 5 single-axis
+        // debit variants + 1 baseline) and asserts pairwise-distinct
+        // root hashes.
+        let baseline_hash = Hash::from_bytes([0u8; 32]);
+        let alt_hash = Hash::from_bytes([1u8; 32]);
+        let zero_debit = BudgetDebit::default();
+        let fixtures: &[(Hash, BudgetDebit, &str)] = &[
+            // Baseline: all-zero debit.
+            (baseline_hash, zero_debit, "baseline"),
+            // Different cap_hash.
+            (alt_hash, zero_debit, "diff cap_hash"),
+            // Single-axis debits.
+            (
+                baseline_hash,
+                BudgetDebit { tokens: 1, ..Default::default() },
+                "tokens=1",
+            ),
+            (
+                baseline_hash,
+                BudgetDebit { wall_ms: 1, ..Default::default() },
+                "wall_ms=1",
+            ),
+            (
+                baseline_hash,
+                BudgetDebit { tool_calls: 1, ..Default::default() },
+                "tool_calls=1",
+            ),
+            (
+                baseline_hash,
+                BudgetDebit { subprocess_ms: 1, ..Default::default() },
+                "subprocess_ms=1",
+            ),
+            (
+                baseline_hash,
+                BudgetDebit { memory_bytes: 1, ..Default::default() },
+                "memory_bytes=1",
+            ),
+        ];
+        let hashes: Vec<Hash> = fixtures
+            .iter()
+            .map(|(h, d, _)| {
+                let mut log = RunEventLog::new();
+                log.append_sealed_mutation(*h, *d);
+                log.root_hash()
+            })
+            .collect();
+        for i in 0..hashes.len() {
+            for j in (i + 1)..hashes.len() {
+                assert_ne!(
+                    hashes[i], hashes[j],
+                    "SealedMutation {:?} vs {:?} collided on root_hash",
+                    fixtures[i].2, fixtures[j].2
+                );
+            }
+        }
+    }
+
+    #[test]
     fn root_hash_is_sensitive_to_tool_result_name_and_result_payload_within_tool_result_row() {
         // Phase 1 hardening — CLOSES the discriminator/payload
         // sensitivity pin family at all 6 AgentEvent variants:
