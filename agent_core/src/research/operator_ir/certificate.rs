@@ -119,8 +119,7 @@ pub fn lean_certificate(op: &OperatorExpr) -> String {
          \x20     dimMatch := operator_dim_match_schema_{suffix} }}\n\
          \n\
          def operator_fno_obligation_{suffix} : Epistemos.Operator.FNOEquivalenceObligation :=\n\
-         \x20   {{ expr := operator_expr_{suffix}\n\
-         \x20     statement := Epistemos.Operator.operatorFNOEquivalent operator_expr_{suffix} }}\n\
+         \x20   Epistemos.Operator.fnoEquivalenceObligation operator_expr_{suffix}\n\
          \n\
          def operator_certificate_{suffix} : Epistemos.Operator.CertificateTarget :=\n\
          \x20   {{ expr := operator_expr_{suffix}\n\
@@ -140,7 +139,7 @@ pub fn lean_certificate(op: &OperatorExpr) -> String {
          {fourier_theorem}\
          theorem operator_fno_equivalence_{suffix} :\n\
          \x20   operator_fno_obligation_{suffix}.statement := by\n\
-         \x20 exact operator_fno_obligation_{suffix}.statement\n\
+         \x20 exact Epistemos.Operator.fnoEquivalenceObligationCarries operator_expr_{suffix}\n\
          \n\
          end Epistemos.Operator.Generated\n\
          \n",
@@ -208,7 +207,8 @@ mod tests {
     fn cert_uses_named_operator_obligation_predicates() {
         let id_op = fixture(KernelTransform::Identity);
         let id_c = lean_certificate(&id_op);
-        assert!(id_c.contains("Epistemos.Operator.operatorFNOEquivalent"));
+        assert!(id_c.contains("Epistemos.Operator.fnoEquivalenceObligation"));
+        assert!(!id_c.contains("statement := Epistemos.Operator.operatorFNOEquivalent"));
         assert!(!id_c.contains("statement := True"));
         assert!(!id_c.contains("evaluate_operator_at"));
         assert!(!id_c.contains("raw_fno_forward_at"));
@@ -226,8 +226,10 @@ mod tests {
     fn fno_equivalence_closes_from_schema_field() {
         let op = fixture(KernelTransform::Identity);
         let c = lean_certificate(&op);
-        assert!(c.contains("exact operator_fno_obligation_"));
-        assert!(c.contains(".statement"));
+        assert!(c.contains(
+            "exact Epistemos.Operator.fnoEquivalenceObligationCarries operator_expr_"
+        ));
+        assert!(!c.contains("exact operator_fno_obligation_"));
         assert!(!c.contains("iter-39 integration test exercises this bit-exact"));
         assert_eq!(c.matches("sorry").count(), 0);
     }
