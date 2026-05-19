@@ -222,6 +222,51 @@ mod tests {
     }
 
     #[test]
+    fn stop_reason_canonical_bytes_pinned_to_exact_byte_sequences(
+    ) {
+        // Phase 1 hardening MILESTONE iter-450 — replay-parity-critical
+        // pin for the exact canonical byte sequence of each StopReason
+        // variant. Companion to:
+        //   - stop_reason_canonical_bytes_are_unique_per_variant
+        //     (uniqueness only)
+        //   - stop_reason_canonical_bytes_are_not_prefix_of_each_other
+        //     (no-prefix property)
+        //   - stop_reason_serde_values_are_stable (serde-string only,
+        //     iter-408)
+        //
+        // The canonical_bytes function (para.rs §60) returns specific
+        // &[u8] literals — these bytes are HASHED into stop_reason_digest
+        // (iter-330 adversarial completeness pin). A rename here
+        // silently forks every persisted stop_reason_digest in every
+        // RunEventLog.
+        //
+        // Pin to EXACT byte sequences so any future rename surfaces
+        // unambiguously at PR review (both as a byte equality check
+        // AND as a length check on each variant).
+        let cases: &[(StopReason, &[u8])] = &[
+            (StopReason::EndTurn, b"end_turn"),
+            (StopReason::ToolUse, b"tool_use"),
+            (StopReason::MaxTokens, b"max_tokens"),
+            (StopReason::Refusal, b"refusal"),
+            (StopReason::BudgetExhausted, b"budget_exhausted"),
+            (StopReason::CapabilityDenied, b"capability_denied"),
+            (StopReason::Error, b"error"),
+        ];
+        for (reason, expected) in cases {
+            assert_eq!(reason.canonical_bytes(), *expected,
+                "canonical_bytes for {reason:?} must equal {:?} byte-for-byte",
+                std::str::from_utf8(expected).unwrap());
+            // Length spot-check (catches a 1-byte typo that preserved
+            // most of the variant string).
+            assert_eq!(
+                reason.canonical_bytes().len(),
+                expected.len(),
+                "canonical_bytes length must match for {reason:?}"
+            );
+        }
+    }
+
+    #[test]
     fn stop_reason_canonical_bytes_is_pure_deterministic_across_multiple_calls() {
         // Phase 1 hardening — runtime determinism pin (companion to
         // iter-105 const-fn promotion). canonical_bytes returns
