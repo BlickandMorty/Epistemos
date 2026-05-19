@@ -12200,6 +12200,19 @@ mod tests {
     }
 
     #[test]
+    fn acs_admission_shadow_audit_record_field_names_verdict_namespace() {
+        let mut value = serde_json::to_value(audit_record_fixture(ACSAdmissionVerdict::Allow))
+            .expect("audit record encodes");
+        value["verdict"] = serde_json::json!("alow");
+
+        let err = serde_json::from_value::<ACSAuditRecord>(value).unwrap_err();
+        let message = err.to_string();
+
+        assert!(message.contains("corrupt_acs_audit_record"), "{message}");
+        assert!(message.contains("audit_record.verdict"), "{message}");
+    }
+
+    #[test]
     fn acs_admission_shadow_scope_rex_proof_field_names_malformed_acs_admission_proof_field() {
         let record = audit_record_fixture(ACSAdmissionVerdict::Allow);
         let signing_key = crate::effect::receipt::HmacSha256SigningKey::new([7; 32]);
