@@ -64,7 +64,8 @@ def info_certificate_sample : Epistemos.Info.CertificateTarget :=
   { expr := info_expr_sample
     convexity := some info_convexity_obligation_sample
     positivity := info_bregman_obligation_sample
-    mirrorEquivalence := info_mirror_descent_obligation_sample }
+    mirrorEquivalence := info_mirror_descent_obligation_sample
+    sourceRow := "docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Info-IR" }
 
 theorem info_certificate_obligations_sample :
     info_certificate_sample.convexity = some info_convexity_obligation_sample ∧
@@ -77,6 +78,14 @@ theorem info_certificate_obligations_sample :
     info_bregman_obligation_sample
     info_mirror_descent_obligation_sample
     rfl rfl rfl
+
+theorem info_certificate_source_row_sample :
+    info_certificate_sample.sourceRow =
+      "docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Info-IR" := by
+  exact Epistemos.Info.CertificateTarget.sourceRowMatches
+    info_certificate_sample
+    "docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Info-IR"
+    rfl
 
 theorem info_log_partition_convexity_sample :
     info_convexity_obligation_sample.convexOnNaturalDomain := by

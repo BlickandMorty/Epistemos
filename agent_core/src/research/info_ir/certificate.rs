@@ -219,7 +219,8 @@ pub fn lean_certificate(expr: &InfoExpr) -> String {
          \x20   {{ expr := info_expr_{suffix}\n\
          \x20     convexity := some info_convexity_obligation_{suffix}\n\
          \x20     positivity := info_bregman_obligation_{suffix}\n\
-         \x20     mirrorEquivalence := info_mirror_descent_obligation_{suffix} }}\n\
+         \x20     mirrorEquivalence := info_mirror_descent_obligation_{suffix}\n\
+         \x20     sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Info-IR\" }}\n\
          \n\
          theorem info_certificate_obligations_{suffix} :\n\
          \x20   info_certificate_{suffix}.convexity = some info_convexity_obligation_{suffix} ∧\n\
@@ -231,6 +232,14 @@ pub fn lean_certificate(expr: &InfoExpr) -> String {
          \x20   info_bregman_obligation_{suffix}\n\
          \x20   info_mirror_descent_obligation_{suffix}\n\
          \x20   rfl rfl rfl\n\
+         \n\
+         theorem info_certificate_source_row_{suffix} :\n\
+         \x20   info_certificate_{suffix}.sourceRow =\n\
+         \x20     \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Info-IR\" := by\n\
+         \x20 exact Epistemos.Info.CertificateTarget.sourceRowMatches\n\
+         \x20   info_certificate_{suffix}\n\
+         \x20   \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Info-IR\"\n\
+         \x20   rfl\n\
          \n\
          theorem info_certificate_positivity_field_{suffix} :\n\
          \x20   info_certificate_{suffix}.positivity = info_bregman_obligation_{suffix} := by\n\
@@ -376,6 +385,9 @@ mod tests {
     fn certificate_projects_info_target_obligations() {
         let e = InfoExpr::log_partition(ExpFamily::Bernoulli, vec![0.0]).unwrap();
         let c = lean_certificate(&e);
+        assert!(c.contains("sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Info-IR\""));
+        assert!(c.contains("theorem info_certificate_source_row_"));
+        assert!(c.contains("Epistemos.Info.CertificateTarget.sourceRowMatches"));
         assert!(c.contains("theorem info_certificate_obligations_"));
         assert!(c.contains(".convexity = some info_convexity_obligation_"));
         assert!(c.contains(".positivity = info_bregman_obligation_"));

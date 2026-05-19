@@ -201,8 +201,16 @@ structure CertificateTarget where
   convexity : Option ConvexLogPartitionObligation
   positivity : BregmanPositivityObligation
   mirrorEquivalence : MirrorDescentEquivalenceObligation
+  sourceRow : String
 
 namespace CertificateTarget
+
+theorem sourceRowMatches
+    (c : CertificateTarget)
+    (sourceRow : String)
+    (stored : c.sourceRow = sourceRow) :
+    c.sourceRow = sourceRow := by
+  exact stored
 
 theorem obligationFieldsMatch
     (c : CertificateTarget)
@@ -341,7 +349,8 @@ def bernoulliCertificateTarget (p q : Real) : CertificateTarget :=
   { expr := bernoulliKlProjection p q
     convexity := some (bernoulliConvexLogPartitionObligation p)
     positivity := bernoulliBregmanPositivityObligation p q
-    mirrorEquivalence := bernoulliMirrorDescentEquivalenceObligation }
+    mirrorEquivalence := bernoulliMirrorDescentEquivalenceObligation
+    sourceRow := "Info-IR.bernoulliCertificateTarget" }
 
 theorem bernoulliCertificateTargetFields (p q : Real) :
     (bernoulliCertificateTarget p q).convexity =
