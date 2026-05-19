@@ -151,6 +151,38 @@ mod tests {
     }
 
     #[test]
+    fn mode_serde_forms_are_pairwise_distinct_across_all_three_variants() {
+        // Phase 1 hardening — pairwise-distinct serde-form pin for
+        // AgentRuntimeV2Mode (companion to the serde-pairwise-distinct
+        // pin family iter-533/537/538/539/540/541). The 3 snake_case
+        // variants (disabled, ipc_bounded, subprocess) gate the entire
+        // v2 surface — a 4th variant added with #[serde(rename =
+        // "disabled")] would silently collide with an existing tag,
+        // misrouting the mode discriminator at runtime AND silently
+        // approving execution paths that should have been disabled in
+        // the MAS bundle. Pin asserts all 3 serialized forms are
+        // pairwise-distinct.
+        let variants = [
+            AgentRuntimeV2Mode::Disabled,
+            AgentRuntimeV2Mode::IpcBounded,
+            AgentRuntimeV2Mode::Subprocess,
+        ];
+        let serde_forms: Vec<String> = variants
+            .iter()
+            .map(|v| serde_json::to_string(v).expect("serialize"))
+            .collect();
+        for i in 0..serde_forms.len() {
+            for j in (i + 1)..serde_forms.len() {
+                assert_ne!(
+                    serde_forms[i], serde_forms[j],
+                    "Mode serde forms collide at [{i}] = {:?} and [{j}] = {:?}",
+                    serde_forms[i], serde_forms[j]
+                );
+            }
+        }
+    }
+
+    #[test]
     fn mode_serde_discriminator_values_are_stable() {
         // Phase 1 hardening — cross-version replay parity guardrail.
         // Pin the snake_case JSON string each variant serialises to.
