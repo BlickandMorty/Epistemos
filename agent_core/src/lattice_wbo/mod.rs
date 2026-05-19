@@ -4822,7 +4822,7 @@ mod tests {
             "secondary `ActiveSupportBudget` rejects every non-`ActiveSupport` side-information tag",
             "secondary active-support side-information rejection covers both `L2 Shadow Sketch` and `L3 SSD Oracle`",
             "`ledger_validation_rejects_zero_active_support_budget_even_when_secondary`",
-            "`ledger_validation_rejects_partial_zero_active_support_axes`",
+            "`active_support_budget_partial_zero_axis_rejection_matrix_counts_are_pinned`",
             "token, page, and resident-byte axes are each nonzero",
             "`ledger_validation_rejects_zero_active_support_budget_with_wrong_side_information`",
             "all-zero active-support budgets crossed with non-ActiveSupport witnesses stay invalid",
@@ -6639,6 +6639,17 @@ mod tests {
         assert!(
             register.contains("active_support_budget_wrong_tag_rejection_matrix_counts_are_pinned"),
             "register must cross-link active-support wrong-tag rejection matrix counts"
+        );
+    }
+
+    #[test]
+    fn register_doc_cross_links_active_support_partial_zero_axis_matrix_counts() {
+        let register = include_str!("../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
+        assert!(
+            register.contains(
+                "active_support_budget_partial_zero_axis_rejection_matrix_counts_are_pinned"
+            ),
+            "register must cross-link active-support partial-zero axis matrix counts"
         );
     }
 
@@ -8862,7 +8873,7 @@ mod tests {
     }
 
     #[test]
-    fn ledger_validation_rejects_partial_zero_active_support_axes() {
+    fn active_support_budget_partial_zero_axis_rejection_matrix_counts_are_pinned() {
         let active_support_cases = [
             ActiveSupportBudget::new(0, 8, 4 * 1024 * 1024, SideInformationKind::ActiveSupport),
             ActiveSupportBudget::new(256, 0, 4 * 1024 * 1024, SideInformationKind::ActiveSupport),
@@ -8903,6 +8914,9 @@ mod tests {
             .iter()
             .filter(|tier| tier.allows_active_support_budget())
             .count();
+        assert_eq!(allowed_tiers, 2);
+        assert_eq!(active_support_cases.len(), 3);
+        assert_eq!(checked, 6);
         assert_eq!(checked, allowed_tiers * active_support_cases.len());
     }
 
