@@ -1005,6 +1005,27 @@ pub const F_VAULT_RECALL_50_FIXTURE: &[FVaultRecallRow] = &[
                regression at the ranker-tuning layer specifically.",
     },
     FVaultRecallRow {
+        // 31st SignalOnly row (iter-275): single-term query in
+        // Armenian-script domain — "կեշ" (Armenian for cache,
+        // U+053D U+0565 U+0577). TWENTY-SECOND single-term-AND
+        // domain. TENTH non-ASCII script-block. Armenian is an
+        // Indo-European script with its own letter-block,
+        // distinct from Latin/Greek/Cyrillic genealogically.
+        // Token unique to iter-138's mamba_armenian.md.
+        query: "կեշ",
+        expected_paths: &["notes/mamba_armenian.md"],
+        forbidden_paths: &["notes/mamba_english_only.md"],
+        category: FVaultRecallCategory::SignalOnly,
+        top_n: 5,
+        note: "Thirty-first SignalOnly row (iter-275): single-\
+               term Armenian-script query — \"կեշ\" (U+053D \
+               U+0565 U+0577). Twenty-second domain for single-\
+               term-AND. Tenth non-ASCII script-block. Armenian \
+               is Indo-European but typologically distinct from \
+               Latin/Greek/Cyrillic — its own script-block fan. \
+               Brings SignalOnly to depth 31.",
+    },
+    FVaultRecallRow {
         // 30th SignalOnly row (iter-267): single-term query in
         // Korean-Hangul-script domain — "캐시" (Korean for
         // cache, U+CE90 U+C2DC). TWENTY-FIRST single-term-AND
