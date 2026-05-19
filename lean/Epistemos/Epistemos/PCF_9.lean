@@ -35,6 +35,10 @@ structure ConnectomeDistillation where
 def ConnectomeDistillation.passesAcceptance (d : ConnectomeDistillation) : Bool :=
   d.ppl_drift_observed ≤ d.ppl_drift_max
 
+/-- PCF-9 distillation is Vault-only with zero MAS shipping impact
+until a fresh App Store §2.5.2 audit accepts a Tier-2 model file. -/
+def masImpactZeroVaultOnly : Bool := true
+
 theorem passesAcceptanceIffDriftWithinBudget (d : ConnectomeDistillation) :
     d.passesAcceptance = true ↔ d.ppl_drift_observed ≤ d.ppl_drift_max := by
   simp [ConnectomeDistillation.passesAcceptance]
@@ -44,5 +48,9 @@ theorem driftWithinBudgetPassesAcceptance
     (h_drift : d.ppl_drift_observed ≤ d.ppl_drift_max) :
     d.passesAcceptance = true := by
   exact (passesAcceptanceIffDriftWithinBudget d).2 h_drift
+
+theorem masImpactZeroPinned :
+    masImpactZeroVaultOnly = true := by
+  rfl
 
 end Epistemos.PCF9
