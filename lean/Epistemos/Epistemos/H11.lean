@@ -30,11 +30,19 @@ structure SheafLaplacianSpectrum where
   lambda2_gap : Float      -- second eigenvalue gap
   global_section_dim : Nat
 
+/-- Canonical Bodnar neural-sheaf-diffusion arXiv identifier after
+the v5.2 audit correction. -/
+def canonicalBodnarArxivId : String := "2202.04579"
+
 theorem spectralGapPositiveIffGlobalSectionAtMostOneDim
     (s : SheafLaplacianSpectrum)
     (h_gap : s.lambda2_gap > 0)
     (h_dim : s.global_section_dim ≤ 1) :
     s.lambda2_gap > 0 ∧ s.global_section_dim ≤ 1 := by
   exact ⟨h_gap, h_dim⟩
+
+theorem canonicalBodnarArxivIdPinned :
+    canonicalBodnarArxivId = "2202.04579" := by
+  rfl
 
 end Epistemos.H11
