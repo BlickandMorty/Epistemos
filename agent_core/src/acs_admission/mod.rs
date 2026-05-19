@@ -3648,9 +3648,10 @@ pub fn resolve_acs_audit_record(
             record_id: record_id.0.clone(),
         });
     }
+    let malformed_field = audit_record_value_malformed_field(&value);
     let record: ACSAuditRecord =
         serde_json::from_value(value).map_err(|_| ACSAuditLookupError::CorruptRecord {
-            field: "record",
+            field: malformed_field.unwrap_or("record"),
             record_id: record_id.0.clone(),
         })?;
     record
@@ -10133,6 +10134,30 @@ mod tests {
 
         assert_eq!(err.cause(), "corrupt_acs_audit_record");
         assert_eq!(err.field(), Some("record"));
+        assert_eq!(err.record_id(), Some(record_id.as_str()));
+    }
+
+    #[test]
+    fn acs_admission_run_event_log_resolver_names_corrupt_audit_field() {
+        let run_event_log = crate::oplog::OpLog::new("acs-admission-resolver-corrupt-field");
+        let record = audit_record_fixture(ACSAdmissionVerdict::Allow);
+        let record_id = record.record_id.clone();
+        let mut value = serde_json::to_value(&record).expect("audit record encodes");
+        value
+            .as_object_mut()
+            .expect("audit record encodes as object")
+            .remove("request_id");
+        run_event_log.append(crate::oplog::OpPayload::PropSet {
+            node_id: record_id.clone(),
+            key: ACS_AUDIT_RUN_EVENT_KEY.to_string(),
+            value,
+        });
+
+        let err = resolve_acs_audit_record(&run_event_log, &AuditRecordId::new(record_id.clone()))
+            .expect_err("resolver must name corrupt ACS audit field");
+
+        assert_eq!(err.cause(), "corrupt_acs_audit_record");
+        assert_eq!(err.field(), Some("request_id"));
         assert_eq!(err.record_id(), Some(record_id.as_str()));
     }
 
