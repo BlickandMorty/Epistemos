@@ -776,6 +776,35 @@ mod tests {
     }
 
     #[test]
+    fn answer_packet_display_writes_blueprint_id_verbatim_no_escaping() {
+        // Phase 1 hardening — Display vs serde behaviour pin
+        // (companion to mission_packet_display_writes_special_chars_verbatim_no_escaping
+        // iter-424). AnswerPacket::Display uses Display ({}) for
+        // blueprint_id field — strings appear RAW without
+        // JSON-escaping in log lines.
+        //
+        // The final_text field is intentionally OMITTED from Display
+        // (already pinned), so it can't carry adversarial content.
+        // Only blueprint_id is user-supplied free-form in the Display
+        // output (stop_reason / tokens / citations counts are typed).
+        //
+        // A future "let me JSON-escape Display fields for log safety"
+        // refactor would silently change the log-line appearance.
+        let log = RunEventLog::new();
+        let packet = AnswerPacket::emit(
+            AgentBlueprintId(r#"agent "with quotes" \ and backslash"#.into()),
+            "x".into(),
+            vec![],
+            StopReason::EndTurn,
+            BudgetLedger::default(),
+            &log,
+        );
+        let display = format!("{packet}");
+        assert!(display.contains(r#"agent "with quotes" \ and backslash"#),
+            "blueprint_id special chars must appear verbatim, got {display}");
+    }
+
+    #[test]
     fn answer_packet_display_renders_summary_for_log_lines() {
         // Phase 1 hardening — one-line log surface. Pin the field
         // ordering + omission of body text (final_text could be
