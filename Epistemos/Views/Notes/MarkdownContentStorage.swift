@@ -247,11 +247,19 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
         case 1:  // Heading
             let level = Int(metadata & 0xFF)
             let weight = MarkdownHeadingDisplay.noteHeadingWeight(for: level)
-            let fontSize = MarkdownHeadingDisplay.noteHeadingFontSize(
+            let rawFontSize = MarkdownHeadingDisplay.noteHeadingFontSize(
                 for: level,
                 text: line,
                 baseFontSize: baseFontSize
             )
+            // 2026-05-19: shrink H1-H3 by theme.headingSizeMultiplier so
+            // Classic (RetroGaming) and Platinum (MatrixTypeDisplay) land
+            // near visual parity with Ember (ChonkyPixels). Ember stays at
+            // multiplier 1.0. Levels 4+ are not display-font headings; leave
+            // them at their canonical sizes.
+            let fontSize: CGFloat = (1...3).contains(level)
+                ? rawFontSize * theme.headingSizeMultiplier
+                : rawFontSize
             let headingParagraph = MarkdownEditorStyle.headingParagraphStyle(
                 level: level,
                 isLeadingDocumentHeading: isLeadingDocumentHeading

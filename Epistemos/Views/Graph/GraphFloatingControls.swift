@@ -15,6 +15,9 @@ enum GraphOverlayControlsDisplay {
 
 struct GraphFloatingControls: View {
     @Environment(GraphState.self) private var graphState
+    @Environment(UIState.self) private var ui
+
+    private var theme: EpistemosTheme { ui.theme }
 
     @State private var showForceSettings = false
     @State private var showCursorForce = false
@@ -48,8 +51,7 @@ struct GraphFloatingControls: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .glassEffect(.regular.interactive(), in: Capsule())
-        .overlay(Capsule().strokeBorder(.primary.opacity(0.08), lineWidth: 0.5))
+        .unifiedFrostedGlass(theme: theme, in: Capsule(), interactive: true)
         .fixedSize(horizontal: true, vertical: false)
     }
 

@@ -304,10 +304,19 @@ struct MessageBubble: View {
                     .background(theme.resolved.accent.color.opacity(0.1), in: Capsule())
                 }
 
-                // Response heading — auto-extracted topic
+                // Response heading — auto-extracted topic.
+                // 2026-05-19: route the text through `displayText` so Ember
+                // uppercases (ColorBasic-Regular renders plain pixel glyphs
+                // for uppercase) and apply the Classic + Platinum 0.85× size
+                // shrink so the auto-extracted heading visually tracks the
+                // canonical Ember sizing.
                 if let heading {
-                    Text(heading)
-                        .font(AppHeadingRole.h2.font)
+                    Text(MarkdownHeadingDisplay.displayText(heading, level: 1, theme: theme))
+                        .font(
+                            AppDisplayTypography.font(
+                                size: AppHeadingRole.h2.fontSize * theme.headingSizeMultiplier
+                            )
+                        )
                         .foregroundStyle(theme.fontAccent)
                 }
 

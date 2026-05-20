@@ -48,7 +48,10 @@ public struct ShadowPanelContent: View {
     let controller: HaloController
     let handlers: ShadowPanelHandlers
     let onClose: @MainActor () -> Void
+    @Environment(UIState.self) private var ui
     @State private var hoveredID: String?
+
+    private var theme: EpistemosTheme { ui.theme }
 
     public init(
         controller: HaloController,
@@ -73,7 +76,10 @@ public struct ShadowPanelContent: View {
             }
         }
         .frame(width: 360, height: 480)
-        .background(.ultraThinMaterial)
+        // 2026-05-19: bring Halo into the unified frosted-glass treatment.
+        // No corner radius was applied before — preserve the rectangular
+        // outline (the panel's window chrome handles any rounding).
+        .unifiedFrostedGlass(theme: theme, in: Rectangle())
         .onExitCommand {
             controller.closePanel()
             onClose()
@@ -113,7 +119,10 @@ public struct ShadowPanelContent: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
-        .background(.regularMaterial.opacity(0.35))
+        // 2026-05-20 single-blur policy: the Halo panel now carries its
+        // ONE NSVisualEffectView at the window level (see ShadowPanel.swift).
+        // Inner ribbons are theme-tinted overlays only — no nested Material.
+        .background(theme.glassBg.opacity(0.55))
         .accessibilityLabel(graphProjectionAccessibilityLabel(for: report))
     }
 
@@ -136,7 +145,10 @@ public struct ShadowPanelContent: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
-        .background(.regularMaterial.opacity(0.35))
+        // 2026-05-20 single-blur policy: the Halo panel now carries its
+        // ONE NSVisualEffectView at the window level (see ShadowPanel.swift).
+        // Inner ribbons are theme-tinted overlays only — no nested Material.
+        .background(theme.glassBg.opacity(0.55))
         .accessibilityLabel(provenanceLedgerAccessibilityLabel(for: stats))
     }
 
@@ -270,7 +282,11 @@ public struct ShadowRow: View {
             sourceAndActions
         }
         .padding(8)
-        .background(.regularMaterial.opacity(0.001))   // wide hit area without visible chrome
+        // 2026-05-20: was `.regularMaterial.opacity(0.001)` — a transparent
+        // Material is still a blur-kernel allocation. Color.clear gives an
+        // identical wide hit area for `.contentShape(Rectangle())` below
+        // without any compositor cost. Single-blur policy.
+        .background(Color.clear)
         .contentShape(Rectangle())
         .onHover(perform: onHover)
         .onTapGesture { onOpen() }
@@ -289,7 +305,12 @@ public struct ShadowRow: View {
                 .lineLimit(1)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 3)
-                .background(Capsule().fill(.thinMaterial))
+                // 2026-05-20 single-blur policy: tiny pill — use a primary
+                // tint that adapts to light/dark instead of allocating a
+                // `.thinMaterial` blur kernel for a few-pixel capsule.
+                .background(
+                    Capsule().fill(Color.primary.opacity(0.08))
+                )
                 .accessibilityLabel("Source \(provenanceLabel)")
 
             Spacer(minLength: 4)
@@ -345,7 +366,11 @@ public struct HoverPreview: View {
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(.regularMaterial)
+        // 2026-05-20 single-blur policy: HoverPreview lives inside the
+        // Halo panel which already carries its single window-level blur
+        // (ShadowPanel.swift). A primary tint reads the existing blur
+        // through without allocating a second `.regularMaterial` kernel.
+        .background(Color.primary.opacity(0.05))
         .accessibilityLabel("Preview of \(hit.title)")
     }
 }

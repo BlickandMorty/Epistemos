@@ -724,6 +724,8 @@ private struct GeneralDetailView: View {
                 )
                 PerformanceSettingsSection()
             }
+            // 2026-05-20 UX fix: graph performance moved to Settings → Graph
+            // (AppearanceDetailView) where users naturally look for graph settings.
 
             Section("Diagnostics") {
                 SettingsDescriptionText(
@@ -3076,8 +3078,144 @@ private struct AppearanceDetailContainer: View {
             AppearanceThemePairSection(ui: ui, theme: theme)
             AppearanceTypographySection(ui: ui)
             AppearanceGraphNodeVisibilitySection()
+            AppearanceGraphPerformanceSection()
+            AppearanceShapedGraphSection(ui: ui)
             AppearanceEditorSection()
         }
+    }
+}
+
+// MARK: - Appearance: Graph performance (2026-05-20)
+//
+// Lives under Settings → Graph (AppearanceDetailView form) so users
+// can find FPS-related toggles next to the other graph-visual
+// settings (shaped graph, node visibility). The actual implementation
+// lives in `GraphPerformanceSettingsSection` further down — this
+// wrapper just adds the `Section` header + description.
+
+private struct AppearanceGraphPerformanceSection: View {
+    var body: some View {
+        Section("Graph performance") {
+            SettingsDescriptionText(
+                text: "Frame rate cap controls how often the graph re-renders during interaction. Unlimited uses ProMotion adaptive (60–120 fps on a 14/16″ MacBook Pro). Lower caps save battery + GPU headroom. The FPS HUD shows a live readout in the bottom-right of the graph chrome — useful for tuning forces/physics or verifying the cap."
+            )
+            GraphPerformanceSettingsSection()
+        }
+    }
+}
+
+private struct AppearanceShapedGraphSection: View {
+    let ui: UIState
+
+    var body: some View {
+        Section("Shaped Graph (experimental)") {
+            Toggle(isOn: Binding(
+                get: { ui.shapedGraphExperimental },
+                set: { ui.shapedGraphExperimental = $0 }
+            )) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Frameless graph canvas")
+                        .font(.body)
+                    Text("Replaces the graph window chrome with a soft shape-blur that follows the active node cluster, then morphs into a rounded rectangle when a node is opened. Off by default — toggle on to preview.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(.switch)
+        }
+    }
+}
+
+// MARK: - Graph performance settings (2026-05-20)
+//
+// FPS cap + live HUD toggle for the hologram graph overlay. Reads/writes
+// `graphState.graphMaxFPS` + `graphFPSHUDEnabled` (both persisted in
+// UserDefaults via GraphState.didSet).
+
+@MainActor
+private struct GraphPerformanceSettingsSection: View {
+    @Environment(GraphState.self) private var graphState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            forceMaximumFPSRow
+            Divider()
+            fpsCapRow
+            Divider()
+            fpsHUDRow
+            Divider()
+            disclaimer
+        }
+        .padding(12)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var forceMaximumFPSRow: some View {
+        Toggle(isOn: Binding(
+            get: { graphState.graphForceMaximumFPS },
+            set: { graphState.graphForceMaximumFPS = $0 }
+        )) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Image(systemName: "bolt.fill")
+                        .foregroundStyle(.yellow)
+                    Text("Force ProMotion 120 fps everywhere")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                Text("Override every cap, thermal-throttle tier, and ProcessInfo power-state on this app's display links. Graph + landing wave clamp to a tight 120/120/120 CAFrameRateRange. ON = max smoothness; trades battery + may throttle hardware to thermal-fair sooner on warm sessions.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .toggleStyle(.switch)
+    }
+
+    private var fpsCapRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "speedometer")
+                    .frame(width: 18)
+                    .foregroundStyle(.secondary)
+                Text("Frame rate cap")
+                    .font(.system(size: 13, weight: .medium))
+            }
+            Picker("", selection: Binding(
+                get: { graphState.graphMaxFPS },
+                set: { graphState.graphMaxFPS = $0 }
+            )) {
+                Text("Unlimited (ProMotion adaptive)").tag(0)
+                Text("120 fps").tag(120)
+                Text("60 fps").tag(60)
+                Text("30 fps (battery)").tag(30)
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            Text("0 = Unlimited lets the OS pick between 60 and 120 fps based on GPU headroom. Pick 60 or 30 for steady battery use; pick 120 to force ProMotion's top rate even when the GPU could drop to 60.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var fpsHUDRow: some View {
+        Toggle(isOn: Binding(
+            get: { graphState.graphFPSHUDEnabled },
+            set: { graphState.graphFPSHUDEnabled = $0 }
+        )) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Show FPS HUD on graph")
+                    .font(.system(size: 13, weight: .medium))
+                Text("Live readout in the graph's bottom-right corner. Shows current fps + p99 frame interval. Green = meeting cap; yellow = ≥45 fps; red = dropping frames.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .toggleStyle(.switch)
+    }
+
+    private var disclaimer: some View {
+        Text("FPS measured at the Swift display-link layer. The real per-frame cost is the Rust render call (`graph_engine_render`) plus the macOS 26 compositor — if p99 stays above 8.3 ms during sustained interaction, you'll cap at 60 fps even with the picker on 120.")
+            .font(.system(size: 10))
+            .foregroundStyle(.tertiary)
     }
 }
 

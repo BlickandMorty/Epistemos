@@ -3178,9 +3178,9 @@ final class InferenceState {
     /// When true, enables the automatic fallback chain across cloud providers and local models.
     var cloudAutoFallback: Bool = false
     var chatAutoRouteToCloud: Bool = false
-    var preferredLocalTextModelID: String = LocalHardwareCapabilitySnapshot.current.recommendedLocalTextModelID.rawValue
+    var preferredLocalTextModelID: String = LocalTextModelID.qwen3_4B4Bit.rawValue
     var preferredChatModelSelection: ChatModelSelection = .localMLX(
-        LocalHardwareCapabilitySnapshot.current.recommendedLocalTextModelID.rawValue
+        LocalTextModelID.qwen3_4B4Bit.rawValue
     )
     var activeAIProvider: AIProviderSelection = .openAI
     private let keychainLoad: @Sendable (String) -> String?
@@ -3196,7 +3196,11 @@ final class InferenceState {
     private(set) var installedLocalTextModelIDs: Set<String> = []
     private(set) var preparedLocalTextModelIDs: Set<String> = []
     private(set) var availableLocalGenerationRuntimeKinds: Set<BackendRuntimeKind> = [.mlx]
-    private(set) var localRuntimeConditions: LocalRuntimeConditions = .current()
+    private(set) var localRuntimeConditions: LocalRuntimeConditions = LocalRuntimeConditions(
+        lowPowerModeEnabled: false,
+        appActive: true,
+        thermalState: .nominal
+    )
     private(set) var latestLocalRuntimeHealth: LocalRuntimeHealthSnapshot?
     private(set) var latestLocalRuntimeProfile: LocalMLXRunProfile?
     let hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot
@@ -3291,6 +3295,11 @@ final class InferenceState {
         self.keychainLoad = resolvedKeychainClosures.load
         self.keychainSave = resolvedKeychainClosures.save
         self.keychainDelete = resolvedKeychainClosures.delete
+        self.preferredLocalTextModelID = hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue
+        self.preferredChatModelSelection = .localMLX(
+            hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue
+        )
+        self.localRuntimeConditions = .current()
         self.authService = CloudProviderAuthService(
             keychainLoad: resolvedKeychainClosures.load,
             keychainSave: resolvedKeychainClosures.save,

@@ -975,29 +975,12 @@ struct NotesSidebar: View {
         let fById = cachedFolderById
         let onAct: (SidebarAction) -> Void = { handleAction($0) }
 
+        // 2026-05-19: removed the "Notes" title HStack + NotesSidebarHeaderChrome
+        // per user direction. The header was duplicating the SidebarShell's
+        // ModeSwitcherControl ("Vault / Models / System") above it, and its
+        // chrome blur (opacity 0.28/0.18) didn't match the body (0.32/0.55).
+        // Letting the sidebar start at the search bar unifies the surface.
         VStack(spacing: 0) {
-            HStack(spacing: Spacing.md) {
-                Image(systemName: "book.pages")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(theme.fontAccent.opacity(0.88))
-                TypewriterHeading(
-                    text: "Notes",
-                    role: .pageTitle,
-                    color: theme.fontAccent,
-                    animateOnAppear: true
-                )
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, NotesSidebarMetrics.headerTopPadding)
-            .padding(.bottom, NotesSidebarMetrics.headerBottomPadding)
-            .background {
-                NotesSidebarHeaderChrome(theme: theme)
-            }
-            .ignoresSafeArea(
-                NotesSidebarMetrics.overlapsTitlebar ? .container : [],
-                edges: .top
-            )
             searchBar
             // ISSUE-2026-05-12-001 — Fresh-user no-vault banner.
             // Fires when no vault is connected AND there is no cached
@@ -1028,21 +1011,11 @@ struct NotesSidebar: View {
             // directory until the user expands it. Kept here rather
             // than inside `fileTree` because it's a parallel top-level
             // surface, not part of the vault's note hierarchy.
-            Divider().opacity(0.15)
-            // W9.7 — Vault status. Today the app can only confirm the
-            // active vault in this sidebar. Keep the row read-only until
-            // a real known-vault list and switch path are mounted.
-            VaultSelectorView(
-                vaults: [
-                    .init(
-                        id: "active",
-                        displayName: "Current vault",
-                        modelTag: nil,
-                        isActive: true
-                    )
-                ],
-                selectionEnabled: false
-            )
+            // 2026-05-19: removed the W9.7 single-row VaultSelectorView
+            // ("Vaults · Current vault") per user direction. Multi-vault
+            // support is not wired (selectionEnabled was permanently false),
+            // so the row was dead chrome. When real known-vault switching
+            // lands, restore the section here with the new picker.
             if showsModelVaultsSection {
                 ModelVaultsSidebarSection(onSelectPage: onSelectPage)
                     .padding(.horizontal, 10)
@@ -1228,26 +1201,11 @@ struct NotesSidebar: View {
             }
         }
 
-        let journals = cachedJournalPageItems
-        if !journals.isEmpty || hasDailyNotesFolder {
-            JournalFolderRow(
-                journals: journals,
-                isExpanded: notesUI.isJournalExpanded,
-                selectedPageId: currentSelectedPageId,
-                onAction: onAction,
-                renderChildren: false
-            )
-            if notesUI.isJournalExpanded {
-                ForEach(journals) { page in
-                    FileRow(
-                        item: page,
-                        indent: 1,
-                        selectedPageId: currentSelectedPageId,
-                        onAction: onAction
-                    )
-                }
-            }
-        }
+        // 2026-05-19: removed the "Daily" / JournalFolderRow section per
+        // user direction. The journal/daily-notes surface was part of the
+        // same simplification as removing the "Today's brief" button below.
+        let _ = cachedJournalPageItems  // keep the cache binding alive for
+                                        // sibling code that still reads it
 
         // Ideas section — all ideas across the vault
         if !cachedIdeaItems.isEmpty {
@@ -1281,7 +1239,7 @@ struct NotesSidebar: View {
                     .textCase(.uppercase)
                     .tracking(AppHeadingRole.section.tracking)
                     .padding(.horizontal, 14)
-                    .padding(.top, folders.isEmpty && journals.isEmpty ? 6 : 12)
+                    .padding(.top, folders.isEmpty ? 6 : 12)
                     .padding(.bottom, 2)
             }
 
@@ -1405,40 +1363,10 @@ struct NotesSidebar: View {
                 onNewCollection: { createCollection(title: "Untitled Collection") },
                 onTodayJournal: { Task { await getOrCreateTodayJournal() } }
             )
-            // W9.13 — Daily-note quick glance. The button reveals the
-            // DailyNoteView sheet (date + body editor + FSRS due
-            // review). Tapping a due-review item closes the sheet
-            // and opens that note in the main editor.
-            Button {
-                dailyNoteSheetDate = Date()
-            } label: {
-                Label("Today's brief", systemImage: "sparkles.rectangle.stack")
-                    .font(.caption)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-            }
-            .buttonStyle(.plain)
-            .help("Open today's daily note + due-for-review surface")
-        }
-        .sheet(item: Binding(
-            get: { dailyNoteSheetDate.map(SheetDateBox.init) },
-            set: { dailyNoteSheetDate = $0?.date }
-        )) { box in
-            DailyNoteView(
-                date: Binding(
-                    get: { box.date },
-                    set: { dailyNoteSheetDate = $0 }
-                ),
-                body: "",
-                dueReview: [],
-                onChangeBody: { _ in },
-                onOpenReview: { item in
-                    dailyNoteSheetDate = nil
-                    openInEditor(item.id)
-                }
-            )
-            .frame(minWidth: 520, minHeight: 480)
+            // 2026-05-19: removed the W9.13 "Today's brief" button and its
+            // DailyNoteView sheet per user direction. The daily-note quick
+            // glance + FSRS due-for-review surface didn't fit the simplified
+            // sidebar; the journal folder section was also removed.
         }
     }
 

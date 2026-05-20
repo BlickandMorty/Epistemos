@@ -20,6 +20,9 @@ import SwiftData
 struct GraphFolderPage: View {
     let folderId: String
     @Environment(GraphState.self) private var graphState
+    @Environment(UIState.self) private var ui
+
+    private var theme: EpistemosTheme { ui.theme }
 
     @Query private var folders: [SDFolder]
 
@@ -131,7 +134,7 @@ struct GraphFolderPage: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
+            .unifiedFrostedGlass(theme: theme, in: RoundedRectangle(cornerRadius: 8))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -155,7 +158,7 @@ struct GraphFolderPage: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
+            .unifiedFrostedGlass(theme: theme, in: RoundedRectangle(cornerRadius: 8))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

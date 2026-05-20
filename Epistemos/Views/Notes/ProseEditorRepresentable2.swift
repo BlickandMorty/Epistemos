@@ -46,6 +46,9 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
     func makeCoordinator() -> Coordinator2 { Coordinator2(self) }
 
     private func applyEditorBackgroundMode(to tv: ProseTextView2, in scrollView: NSScrollView?) {
+        // Propagate the flag onto the text view itself so `applyResolvedTheme`
+        // can keep the view transparent across subsequent theme changes.
+        tv.usesTransparentBackground = usesTransparentEditorBackground
         guard usesTransparentEditorBackground else { return }
         scrollView?.drawsBackground = false
         scrollView?.backgroundColor = .clear

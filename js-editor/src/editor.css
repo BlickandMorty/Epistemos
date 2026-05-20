@@ -14,10 +14,25 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "ChonkyPixels";
+  src: url("/ChonkyPixels.ttf") format("truetype");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "MatrixTypeDisplay";
+  src: url("/MatrixtypeDisplay-9MyE5.ttf") format("truetype");
+  font-display: swap;
+}
+
 :root {
   --epdoc-page-padding: 34px 56px 64px;
   --epdoc-content-max-width: 820px;
-  --epdoc-display-font: "Coral Pixels", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  /* Swift injects --epdoc-display-font per theme (Classic → Retro Gaming,
+   * Platinum → MatrixTypeDisplay, Ember → ChonkyPixels). This default is
+   * a fallback used only if the Swift theme injection fails to run. */
+  --epdoc-display-font: "Retro Gaming", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
   --epdoc-h1-size: 59px;
   --epdoc-h2-size: 31px;
   --epdoc-h3-size: 19px;

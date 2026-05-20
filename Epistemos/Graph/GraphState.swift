@@ -867,6 +867,8 @@ final class GraphState {
             }
         )
         self.embeddingService = svc
+        self.performanceModeEnabled = Self.restoredPerformanceModeEnabled()
+        self.visualTheme = Self.restoredVisualTheme()
         svc.graphState = self
         // Load custom presets FIRST (outside version gate) so they survive
         // any core-physics-settings reset triggered by a physicsVersion bump.
@@ -1205,14 +1207,15 @@ final class GraphState {
 
     private static let performanceModeDefaultsKey = "epistemos.graph.performanceMode"
 
-    /// Graph-only runtime render mode. Default remains the polished cinematic path.
-    var performanceModeEnabled: Bool = {
-        // Default to cinematic mode on first launch. Performance is an explicit fast path.
-        if UserDefaults.standard.object(forKey: "epistemos.graph.performanceMode") == nil {
+    private static func restoredPerformanceModeEnabled(defaults: UserDefaults = .standard) -> Bool {
+        guard defaults.object(forKey: performanceModeDefaultsKey) != nil else {
             return false
         }
-        return UserDefaults.standard.bool(forKey: "epistemos.graph.performanceMode")
-    }() {
+        return defaults.bool(forKey: performanceModeDefaultsKey)
+    }
+
+    /// Graph-only runtime render mode. Default remains the polished cinematic path.
+    var performanceModeEnabled: Bool = false {
         didSet {
             guard performanceModeEnabled != oldValue else { return }
             UserDefaults.standard.set(performanceModeEnabled, forKey: Self.performanceModeDefaultsKey)
@@ -1239,10 +1242,109 @@ final class GraphState {
         set { performanceModeEnabled = newValue >= 2 }
     }
 
+    // MARK: - Frame Rate Cap (2026-05-20)
+    //
+    // Lets the user trade FPS for battery. 0 = "Unlimited" — the
+    // CADisplayLink keeps preferredFrameRateRange at 60-120 (ProMotion
+    // adaptive). Otherwise we clamp the link to the chosen value.
+    //
+    // Read in MetalGraphView.startDisplayLink. Changes take effect on
+    // the next graph-overlay show / display-link restart (cheap;
+    // happens whenever needsRender flips back to true).
+
+    static let graphMaxFPSDefaultsKey = "epistemos.graph.maxFPS"
+    static let graphFPSHUDDefaultsKey = "epistemos.graph.showFPSHUD"
+    static let graphForceMaximumFPSDefaultsKey = "epistemos.graph.forceMaximumFPS"
+
+    /// 0 = Unlimited (ProMotion adaptive 60-120). Other accepted values: 30, 60, 120.
+    /// Stored-property initializer references the type by full name
+    /// (`GraphState.`) not `Self.` because Swift forbids `Self` in stored
+    /// property initializers on classes (covariant `Self`).
+    var graphMaxFPS: Int = GraphState.restoredGraphMaxFPS() {
+        didSet {
+            guard graphMaxFPS != oldValue else { return }
+            UserDefaults.standard.set(graphMaxFPS, forKey: Self.graphMaxFPSDefaultsKey)
+            graphFPSConfigVersion &+= 1
+            notifyGraphRenderSettingsChanged()
+        }
+    }
+
+    /// Toggles the live FPS overlay shown in the graph chrome.
+    var graphFPSHUDEnabled: Bool = GraphState.restoredGraphFPSHUDEnabled() {
+        didSet {
+            guard graphFPSHUDEnabled != oldValue else { return }
+            UserDefaults.standard.set(graphFPSHUDEnabled, forKey: Self.graphFPSHUDDefaultsKey)
+        }
+    }
+
+    /// MASTER 120Hz OVERRIDE. When true, every display link the app
+    /// owns (graph + landing wave + any future Metal surface) clamps
+    /// to `CAFrameRateRange(120, 120, 120)` — ProMotion's top rate,
+    /// ignoring the `graphMaxFPS` cap, ignoring PowerGuard, ignoring
+    /// thermal state. Intentionally aggressive: users opt in explicitly
+    /// when they want max smoothness and accept the battery cost.
+    ///
+    /// Off by default. Toggling this BUMPS `graphFPSConfigVersion`
+    /// so MetalGraphView's renderFrame() picks up the new policy on
+    /// the very next frame without an overlay restart.
+    var graphForceMaximumFPS: Bool = GraphState.restoredGraphForceMaximumFPS() {
+        didSet {
+            guard graphForceMaximumFPS != oldValue else { return }
+            UserDefaults.standard.set(graphForceMaximumFPS, forKey: Self.graphForceMaximumFPSDefaultsKey)
+            graphFPSConfigVersion &+= 1
+            notifyGraphRenderSettingsChanged()
+        }
+    }
+
+    /// Live FPS (rolling 60-frame average). Written by MetalGraphView's
+    /// renderFrame() hot path. Reading this is observation-safe because
+    /// writes happen at most once per frame and only when the HUD is on.
+    var graphMeasuredFPS: Double = 0
+
+    /// Live p99 frame interval in ms (over the last ~120 samples).
+    /// Surfaces the worst-case 1% jank — what determines whether you
+    /// hit the framePending guard and drop to 60Hz.
+    var graphMeasuredP99Ms: Double = 0
+
+    /// Incremented when graphMaxFPS changes so MetalGraphView's display
+    /// link config picks up the new cap without a full overlay restart.
+    var graphFPSConfigVersion: Int = 0
+
+    private static func restoredGraphMaxFPS() -> Int {
+        let defaults = UserDefaults.standard
+        // First launch: 0 (Unlimited / ProMotion adaptive).
+        guard defaults.object(forKey: graphMaxFPSDefaultsKey) != nil else {
+            return 0
+        }
+        let raw = defaults.integer(forKey: graphMaxFPSDefaultsKey)
+        // Validate to known buckets; fall back to Unlimited on garbage.
+        switch raw {
+        case 0, 30, 60, 120: return raw
+        default: return 0
+        }
+    }
+
+    private static func restoredGraphFPSHUDEnabled() -> Bool {
+        UserDefaults.standard.bool(forKey: graphFPSHUDDefaultsKey)
+    }
+
+    private static func restoredGraphForceMaximumFPS() -> Bool {
+        // 2026-05-20 user direction: default ON. Most users on M-series
+        // MacBook Pro have ProMotion-capable displays and want max
+        // smoothness. They opt OUT via the Settings toggle if they
+        // want to save battery; opting IN by default beats hiding the
+        // best experience behind a discoverable toggle.
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: graphForceMaximumFPSDefaultsKey) == nil {
+            return true
+        }
+        return defaults.bool(forKey: graphForceMaximumFPSDefaultsKey)
+    }
+
     // MARK: - Visual Theme
 
     /// Dialogue vs Classic SDF renderer. Persisted via UserDefaults.
-    var visualTheme: GraphVisualTheme = GraphState.restoredVisualTheme() {
+    var visualTheme: GraphVisualTheme = .classic {
         didSet {
             UserDefaults.standard.set(Int(visualTheme.rawValue), forKey: Self.visualThemeDefaultsKey)
             visualThemeVersion += 1
@@ -1427,23 +1529,29 @@ final class GraphState {
     // extended via graph_engine_set_extended_force_params().
 
     // ── Core ──
-    // Tuned for dense knowledge-graph layout.
+    // 2026-05-19 user-spec defaults (replaced the legacy dense-graph
+    // tuning): spacious link distance, strong long-range repulsion,
+    // 0-auto link strength, no center pull, no collision buffer, high
+    // friction.
     /// Natural resting length of edge springs.
-    var linkDistance: Float = 80.0
+    var linkDistance: Float = 250.0
     /// Many-body charge strength (negative = repulsion).
-    var chargeStrength: Float = -300.0
+    var chargeStrength: Float = -3000.0
     /// Maximum range for many-body repulsion.
-    var chargeRange: Float = 400.0
+    var chargeRange: Float = 100.0
     /// Link spring strength. 0 = auto (d3: 1 / min(degree)).
     var linkStrength: Float = 0.0
 
     // ── Extended ──
     /// Velocity retain multiplier (d3: 0.6 = retain 60% per tick).
-    var velocityDecay: Float = 0.6
-    /// Center gravity pull strength.
-    var centerStrength: Float = 0.03
-    /// Collision buffer zone in pixels. Logseq: 26.
-    var collisionRadius: Float = 26.0
+    /// 2026-05-19 user spec: friction 0.80.
+    var velocityDecay: Float = 0.80
+    /// Center gravity pull strength. 2026-05-19 user spec: 0 (off).
+    var centerStrength: Float = 0.0
+    /// Collision buffer zone in pixels. 2026-05-19 user spec: 0 (no
+    /// extra node spacing — relies on charge repulsion to keep nodes
+    /// apart).
+    var collisionRadius: Float = 0.0
     private(set) var selectedPhysicsPreset: PhysicsPreset?
 
     /// Incremented whenever a force slider changes, so the Metal view can detect it.
@@ -1486,7 +1594,13 @@ final class GraphState {
         }
     }
     /// Shape-bound: pushes nodes into a named formation.
-    var shapeBoundKind: ShapeBoundKind = .off {
+    /// 2026-05-19 — default changed from `.off` → `.square` per user
+    /// direction: the graph should always open inside a shape. Square
+    /// reads cleanly against any window size. Existing users with a
+    /// saved preference still keep it (restored from UserDefaults), and
+    /// anyone with a previously-saved `.off` is migrated to `.square` in
+    /// the restore path below.
+    var shapeBoundKind: ShapeBoundKind = .square {
         didSet {
             guard shapeBoundKind != oldValue else { return }
             userForceOverlayVersion &+= 1
@@ -1514,10 +1628,12 @@ final class GraphState {
     }
 
     // ── Laboratory (advanced physics toggles + knobs) ──
-    var enableFluidDynamics: Bool = false
+    // 2026-05-19 user-spec defaults: experimental fluid wake physics ON
+    // with viscosity 0.30.
+    var enableFluidDynamics: Bool = true
     var enableTorsionalSprings: Bool = false
     var enableElasticEdges: Bool = true
-    var fluidViscosity: Float = 0.5
+    var fluidViscosity: Float = 0.30
     var edgeElasticity: Float = 0.5
     var torsionRigidity: Float = 0.5
     var boidsCohesion: Float = 0.0
@@ -1646,7 +1762,10 @@ final class GraphState {
         }
         if let raw = d.string(forKey: "epistemos.physics.shapeBoundKind"),
            let kind = ShapeBoundKind(rawValue: raw) {
-            shapeBoundKind = kind
+            // 2026-05-19: migrate any previously-saved `.off` → `.square`
+            // so existing users also land on the new default. They can
+            // still pick a different shape via the floating Shape control.
+            shapeBoundKind = (kind == .off) ? .square : kind
         }
         if d.object(forKey: "epistemos.physics.shapeBoundRadius") != nil {
             let r = d.float(forKey: "epistemos.physics.shapeBoundRadius")
@@ -1657,57 +1776,40 @@ final class GraphState {
         if let raw = d.string(forKey: "epistemos.physics.selectedPreset") {
             selectedPhysicsPreset = PhysicsPreset(rawValue: raw)
         } else {
-            // Per user 2026-05-12 (refined): boot default is Gravity Well
-            // base preset with three explicit overrides:
-            //   - linkDistance:  500 (slider max — wide enough to space
-            //                    isolated singletons clearly without
-            //                    crowding clusters)
-            //   - centerStrength: 0  (no center pull — let charge +
-            //                    collision settle the layout instead)
-            //   - enableFluidDynamics: false (no fluid wake / curl
-            //                    noise; deliberate calm motion)
-            //
-            // Gravity Well's other params (chargeStrength=-180,
-            // chargeRange=320, velocityDecay=0.78, collisionRadius=18,
-            // linkStrength=0.78) are loaded by `applyPreset` so the
-            // picker honestly reflects "Gravity Well" while the three
-            // overrides above sit on top. Existing users with a stored
-            // preset choice in the `if let raw = …` branch above are
-            // not touched.
-            //
-            // Override the base preset values for the three knobs the
-            // user wants different from stock Gravity Well, then
-            // persist everything so the next launch shows the same
-            // state.
-            applyPreset(
-                .gravityWell,
-                persist: false,        // we persist explicitly below
-                applyLabOverrides: false, // lab toggles are independent
-                cancelOverlayCycle: false
-            )
-            // Three explicit overrides on top of Gravity Well:
-            linkDistance = 500.0
-            centerStrength = 0.0
-            enableFluidDynamics = false
-            // Persist preset + the three overrides.
-            d.set(PhysicsPreset.gravityWell.rawValue,
-                  forKey: "epistemos.physics.selectedPreset")
+            // 2026-05-19 — per user direction, boot defaults are the
+            // inline values declared above (NOT a preset). Presets only
+            // become active when the user explicitly picks one in the
+            // floating-toolbar Shape settings. We persist the inline
+            // values so first launch matches subsequent launches
+            // byte-identically.
+            //   linkDistance      = 250, chargeStrength = -3000,
+            //   chargeRange       = 100, linkStrength   = 0 (auto),
+            //   velocityDecay     = 0.80 (friction),
+            //   centerStrength    = 0 (center force off),
+            //   collisionRadius   = 0 (no spacing),
+            //   enableFluidDynamics = true, fluidViscosity = 0.30,
+            //   useSemanticClustering = false.
             d.set(linkDistance, forKey: "epistemos.physics.linkDistance")
-            d.set(centerStrength, forKey: "epistemos.physics.centerStrength")
-            d.set(enableFluidDynamics, forKey: "epistemos.physics.enableFluid")
-            // Persist the rest of Gravity Well's stock values so the
-            // first-launch state survives a relaunch byte-identically.
             d.set(chargeStrength, forKey: "epistemos.physics.chargeStrength")
             d.set(chargeRange, forKey: "epistemos.physics.chargeRange")
             d.set(linkStrength, forKey: "epistemos.physics.linkStrength")
             d.set(velocityDecay, forKey: "epistemos.physics.velocityDecay")
+            d.set(centerStrength, forKey: "epistemos.physics.centerStrength")
             d.set(collisionRadius, forKey: "epistemos.physics.collisionRadius")
+            d.set(enableFluidDynamics, forKey: "epistemos.physics.enableFluid")
+            d.set(fluidViscosity, forKey: "epistemos.physics.fluidViscosity")
         }
         // Master toggle + saved strengths
         if d.object(forKey: "epistemos.physics.savedClusterStrength") != nil {
             savedClusterStrength = d.float(forKey: "epistemos.physics.savedClusterStrength")
             savedSemanticStrength = d.float(forKey: "epistemos.physics.savedSemanticStrength")
             disableClusteringAndSemantics = d.bool(forKey: "epistemos.physics.disableClusteringAndSemantics")
+        }
+        // Scheduler enabled toggle — 2026-05-19. Default false (off) so
+        // the user's saved physics state isn't auto-overridden by the
+        // opening preset on every reopen.
+        if d.object(forKey: "epistemos.physics.schedulerEnabled") != nil {
+            schedulerEnabled = d.bool(forKey: "epistemos.physics.schedulerEnabled")
         }
         // Scheduler
         if let modeRaw = d.string(forKey: "epistemos.physics.schedulerMode"),
@@ -1810,7 +1912,8 @@ final class GraphState {
 
     // ── Cluster ──
     var clusterStrength: Float = 0.0
-    var centerMode: UInt8 = 0  // 0=attract, 1=off, 2=repel
+    // 2026-05-19 user spec: center force off by default.
+    var centerMode: UInt8 = 1  // 0=attract, 1=off, 2=repel
     var semanticStrength: Float = 0.0
     var semanticForceConfigVersion: Int = 0
 
@@ -1960,8 +2063,27 @@ final class GraphState {
         String(describing: preset)
     }
 
+    /// User-controlled toggle (Settings → Graph). When `false` the startup
+    /// scheduler is a no-op so the graph opens with whatever physics state
+    /// the user has saved — no preset is auto-applied. Per user direction
+    /// 2026-05-19: the scheduler was overriding their custom defaults.
+    /// Default is `false` (off) — explicit opt-in to bring it back.
+    var schedulerEnabled: Bool = false {
+        didSet {
+            guard !isRestoringPhysicsSettings, schedulerEnabled != oldValue else { return }
+            UserDefaults.standard.set(
+                schedulerEnabled,
+                forKey: "epistemos.physics.schedulerEnabled"
+            )
+        }
+    }
+
     func startOverlayPhysicsCycle() {
         cancelOverlayPhysicsCycle()
+        // 2026-05-19: skip the scheduler entirely when the user has it
+        // toggled off so their saved physics settings are not overridden
+        // by the opening / resting preset application.
+        guard schedulerEnabled else { return }
         switch schedulerMode {
         case .simple:
             runSimpleScheduler()

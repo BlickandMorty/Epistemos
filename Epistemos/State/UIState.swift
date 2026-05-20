@@ -342,6 +342,28 @@ final class UIState {
     /// Animations (starfield, typewriter) should pause when this is true to save CPU.
     var windowOccluded = false
 
+    // MARK: - Shaped Graph (experimental)
+    //
+    // Per user direction 2026-05-19: opt-in alternative graph rendering
+    // where the graph canvas + inline note view live inside a soft
+    // shape-blur boundary instead of an obvious window. Toggle only —
+    // the current graph view is the default and stays unchanged when
+    // this is off. Default-value is the literal `false` so the @Observable
+    // synthesized init never reads UserDefaults during property layout
+    // (which was tripping "invalid reuse after initialization failure"
+    // in some run paths); the live value is restored in `init()` via
+    // `restoreShapedGraphExperimental()`.
+    nonisolated static let shapedGraphExperimentalDefaultsKey = "epistemos.graph.shapedExperimental"
+
+    var shapedGraphExperimental: Bool = false {
+        didSet {
+            UserDefaults.standard.set(
+                shapedGraphExperimental,
+                forKey: UIState.shapedGraphExperimentalDefaultsKey
+            )
+        }
+    }
+
     // MARK: - Landing Animation
 
     var landingGreetingTypewriterEnabled = LandingGreetingAnimationPolicy.defaultTypewriterEnabled {
@@ -393,6 +415,12 @@ final class UIState {
         restoreThemeDefaults()
         clearLegacyLandingGreetingDefaults()
         readableFontsEnabled = AppDisplayTypography.readableFontsEnabled()
+        // Shaped Graph experimental — read after baseline storage is up.
+        // didSet writes back to UserDefaults, but we set the in-memory flag
+        // directly here to avoid an unnecessary echo write on every launch.
+        shapedGraphExperimental = UserDefaults.standard.bool(
+            forKey: UIState.shapedGraphExperimentalDefaultsKey
+        )
         if let storedGreetingSourceMode = UserDefaults.standard.string(
             forKey: LandingGreetingLibraryPolicy.sourceModeDefaultsKey
         ),

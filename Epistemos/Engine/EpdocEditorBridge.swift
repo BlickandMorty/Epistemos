@@ -225,6 +225,26 @@ public final class EpdocEditorURLSchemeHandler: NSObject, WKURLSchemeHandler {
                 mimeType: "font/ttf",
                 contentEncoding: nil
             )
+        } catch EpdocBridgeError.assetNotFound where url.path == "/ChonkyPixels.ttf" {
+            guard let fontURL = EpdocEditorAssetResolver.bundleFont(named: "ChonkyPixels", extension: "ttf") else {
+                urlSchemeTask.didFailWithError(EpdocBridgeError.assetNotFound(path: url.path))
+                return
+            }
+            asset = EpdocEditorAssetResponse(
+                fileURL: fontURL,
+                mimeType: "font/ttf",
+                contentEncoding: nil
+            )
+        } catch EpdocBridgeError.assetNotFound where url.path == "/MatrixtypeDisplay-9MyE5.ttf" {
+            guard let fontURL = EpdocEditorAssetResolver.bundleFont(named: "MatrixtypeDisplay-9MyE5", extension: "ttf") else {
+                urlSchemeTask.didFailWithError(EpdocBridgeError.assetNotFound(path: url.path))
+                return
+            }
+            asset = EpdocEditorAssetResponse(
+                fileURL: fontURL,
+                mimeType: "font/ttf",
+                contentEncoding: nil
+            )
         } catch let error as EpdocBridgeError {
             urlSchemeTask.didFailWithError(error)
             return

@@ -9,13 +9,17 @@ struct GraphWorkspaceContainer: View {
     // Injected by the surrounding HologramOverlayHostedViewBuilder
     @Environment(\.modelContext) private var modelContext
 
+    private var theme: EpistemosTheme { ui.theme }
+
     var body: some View {
+        // 2026-05-19 — the shape-blur boundary used to live here, but on
+        // the .canvas route this whole container's host view is hidden by
+        // HologramOverlay's routeObserver. Moved to `ShapedGraphBoundaryHost`
+        // mounted as a separate always-visible NSHostingView on the overlay
+        // so the shape-blur is also visible while the user is on the canvas.
         ZStack {
             switch graphState.currentRoute {
             case .canvas:
-                // While on .canvas the host NSHostingView is hidden by
-                // HologramOverlay's routeObserver, so this branch is never
-                // rendered in practice. Kept as a safe empty fallback.
                 Color.clear
                     .allowsHitTesting(false)
 
@@ -44,8 +48,12 @@ struct GraphWorkspaceContainer: View {
     }
 
     private var graphPageBackdrop: some View {
-        Rectangle()
-            .fill(.ultraThinMaterial)
+        // 2026-05-20: zero-copy backdrop — same pattern as graphNoteBackdrop.
+        // Folder page inherits the graph window's existing NSVisualEffectView
+        // blur (set up in HologramOverlay) instead of stacking its own
+        // unifiedFrostedGlass on top. One blur = one compositing pass per
+        // frame. Required for 120 FPS on the folder route.
+        Color.clear
             .ignoresSafeArea()
             .allowsHitTesting(true)
     }
@@ -85,7 +93,20 @@ struct GraphWorkspaceContainer: View {
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 6))
+                // 2026-05-20: zero-copy button chrome. Theme tint + thin
+                // stroke instead of `.ultraThinMaterial` — this button
+                // sits inside the graph window which already carries the
+                // single NSVisualEffectView blur. Material here would be
+                // a redundant blur kernel pass. See UnifiedFrostedGlass.swift
+                // for the broader single-blur policy.
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(theme.glassBg.opacity(0.78))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .strokeBorder(theme.glassBorder, lineWidth: 0.5)
+                )
             }
             .buttonStyle(.plain)
             .help("Return to graph canvas")
@@ -104,7 +125,11 @@ struct GraphWorkspaceContainer: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(.ultraThinMaterial)
+        // 2026-05-20 (revised): `nativeGlass: true` — opts the toolbar strip
+        // into the macOS 26 native Liquid Glass shader. One optimized GPU
+        // pass on top of the window's wallpaper blur. Reads as a real
+        // native macOS toolbar instead of a flat tinted rectangle.
+        .unifiedFrostedGlass(theme: theme, in: Rectangle(), nativeGlass: true)
     }
 
     @ViewBuilder
@@ -118,7 +143,16 @@ struct GraphWorkspaceContainer: View {
             Image(systemName: systemName)
                 .font(.system(size: 12, weight: .semibold))
                 .frame(width: 26, height: 22)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 6))
+                // 2026-05-20: zero-copy button chrome — see Graph button
+                // above. Tint + stroke instead of `.ultraThinMaterial`.
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(theme.glassBg.opacity(0.78))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .strokeBorder(theme.glassBorder, lineWidth: 0.5)
+                )
         }
         .buttonStyle(.plain)
         .disabled(!enabled)

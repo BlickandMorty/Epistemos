@@ -81,22 +81,17 @@ struct HologramNodeInspector: View {
         VStack(alignment: .leading, spacing: 0) {
             headerSection(node)
 
-            // Only show mode picker for prose files (.txt, .md), not code files
-            if node.type == .note, let pageId = node.sourceId, !isCodeFile(pageId: pageId) {
-                modePicker
-            }
-
             Divider()
 
-            if inspectorState.inspectorMode == .editor, node.type == .note, let pageId = node.sourceId {
-                noteEditorBody(pageId: pageId)
-            } else {
-                accordionBody(node)
-            }
+            // 2026-05-19: removed the Profile/Editor segmented picker and the
+            // Editor branch (with its Edit/Preview sub-toggle) per user
+            // direction — simplifies the inspector to a single Profile +
+            // accordion view. Open the note in the main editor to edit.
+            accordionBody(node)
         }
         .frame(width: inspectorWidth)
         .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85), value: inspectorWidth)
-        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .unifiedFrostedGlass(theme: theme, in: RoundedRectangle(cornerRadius: 14, style: .continuous), interactive: true)
         .onChange(of: expandedSection) { _, newSection in
             guard newSection == .summary else { return }
             inspectorState.ensureSummary(for: node, store: graphState.store, modelContext: modelContext)
@@ -676,16 +671,10 @@ struct HologramNodeInspector: View {
 
             Divider().frame(height: 20)
 
-            // Drift
-            VStack(spacing: 2) {
-                Image(systemName: "wind")
-                    .font(.caption)
-                    .foregroundStyle(.cyan)
-                Text(drift >= 0 ? formatDrift(drift) : "—")
-                    .font(.caption2.monospaced())
-            }
-
-            Divider().frame(height: 20)
+            // 2026-05-19: removed the "Drift" metric (wind icon + Rust-engine
+            // drift value) per user direction — the value was an internal
+            // graph-physics debug signal, not user-meaningful. Age + in/out
+            // edge ratio remain.
 
             // Resonance
             VStack(spacing: 2) {
@@ -718,7 +707,13 @@ struct HologramNodeInspector: View {
 
     private func headerSection(_ node: GraphNodeRecord) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack {
+            // 2026-05-19: the NSPanel-level inspector toggle button (the
+            // diagonal popout arrows) was being absolute-positioned at the
+            // panel's trailing edge, occluding the SwiftUI close button. The
+            // close X is now first (left of pin) and the trailing padding
+            // reserves the corner for the popout-toggle overlay, so all
+            // three controls are visible side-by-side.
+            HStack(spacing: 6) {
                 Circle()
                     .fill(node.type.swiftUIColor)
                     .frame(width: 8, height: 8)
@@ -726,6 +721,17 @@ struct HologramNodeInspector: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
+                // Close: deselects the node and dismisses the inspector.
+                Button {
+                    graphState.selectNode(nil)
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Close inspector")
+
                 // Pin: creates a persistent panel attached to this node
                 Button {
                     if let nodeId = graphState.selectedNodeId,
@@ -740,16 +746,10 @@ struct HologramNodeInspector: View {
                 }
                 .buttonStyle(.plain)
                 .help("Pin inspector to this node")
-
-                Button {
-                    graphState.selectNode(nil)
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.tertiary)
-                }
-                .buttonStyle(.plain)
             }
+            // Reserve trailing room for the NSPanel-level popout-toggle
+            // overlay (the diagonal arrows at content.trailingAnchor - 10).
+            .padding(.trailing, 36)
 
             TypewriterHeading(
                 text: MarkdownHeadingDisplay.displayText(node.label, level: 1),

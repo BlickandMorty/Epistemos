@@ -41,7 +41,40 @@ public final class ShadowPanel<Content: View>: NSPanel {
         self.animationBehavior = .utilityWindow
         self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         self.isMovableByWindowBackground = true
-        self.contentView = NSHostingView(rootView: content())
+        self.isOpaque = false
+        self.backgroundColor = .clear
+        self.hasShadow = true
+
+        // BLUR POLICY (2026-05-20 single-blur-per-window contract):
+        // ONE NSVisualEffectView at the panel's contentView level. The
+        // SwiftUI content hosted inside renders as tinted overlay only —
+        // no `.ultraThinMaterial` / `.glassEffect` / nested visual-effect.
+        // Matches HologramOverlay's contract; keeps the CoreAnimation
+        // compositor at a single blur kernel per frame for the Halo too.
+        //
+        // Wrap order (top → bottom in z-order):
+        //   1. NSHostingView<Content>  — SwiftUI Halo content (tinted)
+        //   2. NSVisualEffectView      — the ONE Halo blur
+        //   3. NSPanel.contentView     — root container
+        let container = NSView(frame: rect)
+        container.wantsLayer = true
+        container.layer?.cornerRadius = 22
+        container.layer?.cornerCurve = .continuous
+        container.layer?.masksToBounds = true
+
+        let blur = NSVisualEffectView(frame: container.bounds)
+        blur.material = .hudWindow
+        blur.blendingMode = .behindWindow
+        blur.state = .followsWindowActiveState
+        blur.autoresizingMask = [.width, .height]
+        container.addSubview(blur)
+
+        let hosting = NSHostingView(rootView: content())
+        hosting.autoresizingMask = [.width, .height]
+        hosting.frame = container.bounds
+        container.addSubview(hosting)
+
+        self.contentView = container
     }
 
     /// Allow the panel to become key (so inline TextEditors inside it

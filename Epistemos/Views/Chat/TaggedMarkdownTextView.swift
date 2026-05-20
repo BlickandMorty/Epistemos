@@ -750,13 +750,29 @@ struct TaggedMarkdownTextView: View {
     private func renderHeading(level: Int, text: String) -> some View {
         let headingRole = AppHeadingRole.markdownRole(level: level)
         let baseFontSize: CGFloat = headingRole?.fontSize ?? (level == 4 ? 15 : 14)
+        // Notes-matching H2/H3 typography override (Ember pair, 2026-05-19):
+        // chat H2/H3 mirror the Tiptap notes editor's size + weight, on
+        // Ember's intrinsic heading face (ChonkyPixels).
+        let notesSpec = theme.notesMatchingHeadingSpec(level: level)
+        // Per-theme H1-H3 size multiplier (Classic + Platinum shrink 15 % to
+        // visually match Ember; Ember stays on 1.0). Applied to both the
+        // canonical AppHeadingRole sizes and the notes-spec override.
+        let multiplier = (1...3).contains(level) ? theme.headingSizeMultiplier : 1.0
+        let effectiveBaseSize = (notesSpec?.size ?? baseFontSize) * multiplier
         let fontSize = MarkdownHeadingDisplay.fontSize(
             for: level,
             text: text,
-            baseSize: baseFontSize,
-            nextLevelSize: AppHeadingRole.h2.fontSize
+            baseSize: effectiveBaseSize,
+            nextLevelSize: AppHeadingRole.h2.fontSize * multiplier
         )
         let font: Font = {
+            if let notesSpec {
+                let scaledSize = AppDisplayTypography.displayFontSize(
+                    for: fontSize,
+                    isDark: theme.isDark
+                )
+                return Font.custom(notesSpec.fontName, size: scaledSize)
+            }
             let weight: Font.Weight = MarkdownHeadingDisplay.noteHeadingFontWeight(for: level)
             if (1...3).contains(level) {
                 // RCA finalization 2026-05-13: route H1-H3 through
@@ -772,11 +788,13 @@ struct TaggedMarkdownTextView: View {
                 return ClaudeAppTypography.monoFont(size: fontSize, weight: weight)
             }
         }()
-        let topPad = headingRole?.topPadding ?? 6
+        // Match font shrink for Classic + Platinum (Ember stays on 1.0).
+        let topPad = (headingRole?.topPadding ?? 6) * multiplier
         let color = MarkdownHeadingDisplay.foregroundColor(for: theme, level: level)
         // RCA finalization 2026-05-13: thread the theme through so
         // Classic uppercases H1-H3 (matches the Classic hero
-        // ChonkyPixels treatment in LiquidGreeting).
+        // ChonkyPixels treatment in LiquidGreeting). 2026-05-19: also
+        // uppercases Ember H1 only (notes-matching H2/H3 keep mixed case).
         let displayText = MarkdownHeadingDisplay.displayText(text, level: level, theme: theme)
 
         taggedInlineMarkdown(
@@ -785,6 +803,10 @@ struct TaggedMarkdownTextView: View {
             strongFont: font
         )
             .font(font)
+            // Synthetic bold for Ember H2 (heavy) / H3 (semibold) only.
+            // Other themes keep the font's intrinsic weight, matching
+            // pre-2026-05-19 rendering.
+            .modifier(NotesMatchingWeightModifier(weight: notesSpec?.weight))
             .foregroundStyle(color)
             .asciiRippleOverlay(
                 text: MarkdownRippleTextExtractor.displayText(from: displayText),
@@ -973,6 +995,21 @@ struct TagSummaryBar: View {
                     .background(item.tag.color.opacity(0.08), in: Capsule())
                 }
             }
+        }
+    }
+}
+
+/// Applies `.fontWeight(weight)` only when `weight` is non-nil so the
+/// non-Ember heading paths render with the font's intrinsic weight
+/// (matches pre-2026-05-19 behavior).
+private struct NotesMatchingWeightModifier: ViewModifier {
+    let weight: Font.Weight?
+
+    func body(content: Content) -> some View {
+        if let weight {
+            content.fontWeight(weight)
+        } else {
+            content
         }
     }
 }
