@@ -316,6 +316,11 @@ pub fn adversarial_query_fixture_token_lookups_reject_control_input() -> bool {
         && adversarial_query_fixture_for_expected_outcome_token("\u{0000}").is_none()
 }
 
+pub fn adversarial_query_fixture_token_lookups_reject_bidi_input() -> bool {
+    adversarial_query_fixture_for_kind_token("\u{202e}").is_none()
+        && adversarial_query_fixture_for_expected_outcome_token("\u{202e}").is_none()
+}
+
 pub fn adversarial_query_fixture_catalog_dispatch_surface_is_complete() -> bool {
     adversarial_query_fixture_catalog_static_surface_is_complete()
         && adversarial_query_fixture_token_lookup_surface_is_complete()
@@ -323,6 +328,7 @@ pub fn adversarial_query_fixture_catalog_dispatch_surface_is_complete() -> bool 
         && adversarial_query_fixture_token_lookups_reject_whitespace_input()
         && adversarial_query_fixture_token_lookups_reject_invisible_input()
         && adversarial_query_fixture_token_lookups_reject_control_input()
+        && adversarial_query_fixture_token_lookups_reject_bidi_input()
 }
 
 pub fn adversarial_query_fixture_labels_are_ascii_lowercase_kebab_case() -> bool {
