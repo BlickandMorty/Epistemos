@@ -268,6 +268,18 @@ pub fn adversarial_query_fixture_token_smuggling_labels_match_inputs() -> bool {
         ])
 }
 
+pub fn adversarial_query_fixture_token_smuggling_cases_match_label_and_input_slices() -> bool {
+    adversarial_query_fixture_token_smuggling_cases()
+        .iter()
+        .copied()
+        .eq(
+            adversarial_query_fixture_token_smuggling_input_labels()
+                .iter()
+                .copied()
+                .zip(adversarial_query_fixture_token_smuggling_inputs().iter().copied()),
+        )
+}
+
 pub fn adversarial_query_fixture_catalog_labels_match_fixture_rows() -> bool {
     ADVERSARIAL_QUERY_FIXTURE_LABELS.len() == ADVERSARIAL_QUERY_FIXTURES.len()
         && ADVERSARIAL_QUERY_FIXTURE_LABELS
@@ -429,6 +441,7 @@ pub fn adversarial_query_fixture_token_smuggling_surface_is_complete() -> bool {
         .is_none()
         && adversarial_query_fixture_token_smuggling_input_labels_are_ascii_lowercase()
         && adversarial_query_fixture_token_smuggling_labels_match_inputs()
+        && adversarial_query_fixture_token_smuggling_cases_match_label_and_input_slices()
         && adversarial_query_fixture_token_lookups_reject_smuggling_inputs()
         && adversarial_query_fixture_token_smuggling_cases_reject_through_token_lookups()
 }
