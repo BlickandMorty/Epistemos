@@ -395,6 +395,15 @@ pub fn adversarial_query_fixture_token_lookups_reject_smuggling_inputs() -> bool
         })
 }
 
+pub fn adversarial_query_fixture_token_smuggling_cases_reject_through_token_lookups() -> bool {
+    adversarial_query_fixture_token_smuggling_cases()
+        .iter()
+        .all(|(_label, input)| {
+            adversarial_query_fixture_for_kind_token(input).is_none()
+                && adversarial_query_fixture_for_expected_outcome_token(input).is_none()
+        })
+}
+
 pub fn adversarial_query_fixture_token_smuggling_surface_is_complete() -> bool {
     adversarial_query_fixture_token_smuggling_input_count() == 5
         && adversarial_query_fixture_token_smuggling_input_count()
@@ -421,6 +430,7 @@ pub fn adversarial_query_fixture_token_smuggling_surface_is_complete() -> bool {
         && adversarial_query_fixture_token_smuggling_input_labels_are_ascii_lowercase()
         && adversarial_query_fixture_token_smuggling_labels_match_inputs()
         && adversarial_query_fixture_token_lookups_reject_smuggling_inputs()
+        && adversarial_query_fixture_token_smuggling_cases_reject_through_token_lookups()
 }
 
 pub fn adversarial_query_fixture_catalog_dispatch_surface_is_complete() -> bool {
