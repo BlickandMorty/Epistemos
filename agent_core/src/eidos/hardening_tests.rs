@@ -157,7 +157,7 @@ fn assert_iter_format_canonical_panics_on_out_of_range() {
     assert_iter_format_canonical("iter 099", "MY_SOURCE_LABEL");
 }
 
-/// Iter 751 — catalog range continuation pin.
+/// Iter 752 — catalog range continuation pin.
 /// STATUS.md is the contributor-facing catalog for the closed-citation
 /// hardening arc. When new pins land after the previous range tip, the
 /// range must advance in lock-step so future readers can tell the arc is
@@ -167,9 +167,9 @@ fn status_md_closed_citation_iter_range_tip_tracks_latest_catalog_pin() {
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Closed-citation contract hardening (iters 127-751)"),
+        status.contains("Closed-citation contract hardening (iters 127-752)"),
         "STATUS.md closed-citation hardening catalog must advance its iter \
-         range tip to iter 751 when the catalog-continuation pin lands"
+         range tip to iter 752 when the catalog-continuation pin lands"
     );
 }
 
@@ -1639,6 +1639,16 @@ fn adversarial_query_fixture_token_smuggling_input_labels_are_ordered_unique_and
         unique.len(),
         labels.len(),
         "adversarial fixture token-smuggling input labels must remain pairwise unique"
+    );
+}
+
+#[test]
+fn adversarial_query_fixture_token_smuggling_input_labels_are_ascii_lowercase() {
+    use super::adversarial::adversarial_query_fixture_token_smuggling_input_labels_are_ascii_lowercase;
+
+    assert!(
+        adversarial_query_fixture_token_smuggling_input_labels_are_ascii_lowercase(),
+        "adversarial fixture token-smuggling input labels must remain ASCII lowercase wire labels"
     );
 }
 
