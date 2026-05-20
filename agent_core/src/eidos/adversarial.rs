@@ -215,6 +215,10 @@ pub fn adversarial_query_fixture_token_smuggling_input_labels() -> &'static [&'s
     ADVERSARIAL_QUERY_FIXTURE_TOKEN_SMUGGLING_INPUT_LABELS
 }
 
+pub fn adversarial_query_fixture_token_smuggling_input_count() -> usize {
+    ADVERSARIAL_QUERY_FIXTURE_TOKEN_SMUGGLING_INPUTS.len()
+}
+
 pub fn adversarial_query_fixture_token_smuggling_input_labels_are_ascii_lowercase() -> bool {
     adversarial_query_fixture_token_smuggling_input_labels()
         .iter()
@@ -363,9 +367,11 @@ pub fn adversarial_query_fixture_token_lookups_reject_smuggling_inputs() -> bool
 }
 
 pub fn adversarial_query_fixture_token_smuggling_surface_is_complete() -> bool {
-    adversarial_query_fixture_token_smuggling_inputs().len() == 5
-        && adversarial_query_fixture_token_smuggling_input_labels().len()
+    adversarial_query_fixture_token_smuggling_input_count() == 5
+        && adversarial_query_fixture_token_smuggling_input_count()
             == adversarial_query_fixture_token_smuggling_inputs().len()
+        && adversarial_query_fixture_token_smuggling_input_labels().len()
+            == adversarial_query_fixture_token_smuggling_input_count()
         && adversarial_query_fixture_token_smuggling_input_labels_are_ascii_lowercase()
         && adversarial_query_fixture_token_smuggling_labels_match_inputs()
         && adversarial_query_fixture_token_lookups_reject_smuggling_inputs()
