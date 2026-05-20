@@ -221,6 +221,20 @@ pub fn adversarial_query_fixture_token_smuggling_input_labels_are_ascii_lowercas
         .all(|label| is_ascii_lowercase_kebab_case(label))
 }
 
+pub fn adversarial_query_fixture_token_smuggling_labels_match_inputs() -> bool {
+    adversarial_query_fixture_token_smuggling_input_labels()
+        .iter()
+        .copied()
+        .zip(adversarial_query_fixture_token_smuggling_inputs().iter().copied())
+        .eq([
+            ("empty", ""),
+            ("whitespace", "   "),
+            ("invisible", "\u{200b}"),
+            ("control", "\u{0000}"),
+            ("bidi", "\u{202e}"),
+        ])
+}
+
 pub fn adversarial_query_fixture_catalog_labels_match_fixture_rows() -> bool {
     ADVERSARIAL_QUERY_FIXTURE_LABELS.len() == ADVERSARIAL_QUERY_FIXTURES.len()
         && ADVERSARIAL_QUERY_FIXTURE_LABELS
@@ -353,6 +367,7 @@ pub fn adversarial_query_fixture_token_smuggling_surface_is_complete() -> bool {
         && adversarial_query_fixture_token_smuggling_input_labels().len()
             == adversarial_query_fixture_token_smuggling_inputs().len()
         && adversarial_query_fixture_token_smuggling_input_labels_are_ascii_lowercase()
+        && adversarial_query_fixture_token_smuggling_labels_match_inputs()
         && adversarial_query_fixture_token_lookups_reject_smuggling_inputs()
 }
 
