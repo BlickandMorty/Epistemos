@@ -157,7 +157,7 @@ fn assert_iter_format_canonical_panics_on_out_of_range() {
     assert_iter_format_canonical("iter 099", "MY_SOURCE_LABEL");
 }
 
-/// Iter 761 — catalog range continuation pin.
+/// Iter 762 — catalog range continuation pin.
 /// STATUS.md is the contributor-facing catalog for the closed-citation
 /// hardening arc. When new pins land after the previous range tip, the
 /// range must advance in lock-step so future readers can tell the arc is
@@ -167,9 +167,9 @@ fn status_md_closed_citation_iter_range_tip_tracks_latest_catalog_pin() {
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Closed-citation contract hardening (iters 127-761)"),
+        status.contains("Closed-citation contract hardening (iters 127-762)"),
         "STATUS.md closed-citation hardening catalog must advance its iter \
-         range tip to iter 761 when the catalog-continuation pin lands"
+         range tip to iter 762 when the catalog-continuation pin lands"
     );
 }
 
@@ -1815,6 +1815,30 @@ fn adversarial_query_fixture_token_smuggling_case_inputs_are_ordered_unique() {
     assert!(
         adversarial_query_fixture_token_smuggling_case_inputs_are_ordered_unique(),
         "adversarial fixture token-smuggling case inputs must remain ordered and pairwise unique"
+    );
+}
+
+#[test]
+fn adversarial_query_fixture_token_smuggling_case_count_matches_surface() {
+    use super::adversarial::{
+        adversarial_query_fixture_token_smuggling_case_count,
+        adversarial_query_fixture_token_smuggling_cases,
+        adversarial_query_fixture_token_smuggling_input_count,
+        adversarial_query_fixture_token_smuggling_label_count,
+    };
+
+    assert_eq!(adversarial_query_fixture_token_smuggling_case_count(), 5);
+    assert_eq!(
+        adversarial_query_fixture_token_smuggling_case_count(),
+        adversarial_query_fixture_token_smuggling_cases().len()
+    );
+    assert_eq!(
+        adversarial_query_fixture_token_smuggling_case_count(),
+        adversarial_query_fixture_token_smuggling_input_count()
+    );
+    assert_eq!(
+        adversarial_query_fixture_token_smuggling_case_count(),
+        adversarial_query_fixture_token_smuggling_label_count()
     );
 }
 
