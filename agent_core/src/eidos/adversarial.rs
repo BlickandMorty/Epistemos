@@ -235,6 +235,10 @@ pub fn adversarial_query_fixture_token_smuggling_cases(
     ADVERSARIAL_QUERY_FIXTURE_TOKEN_SMUGGLING_CASES
 }
 
+pub fn adversarial_query_fixture_token_smuggling_case_count() -> usize {
+    ADVERSARIAL_QUERY_FIXTURE_TOKEN_SMUGGLING_CASES.len()
+}
+
 pub fn adversarial_query_fixture_token_smuggling_case_at(
     index: usize,
 ) -> Option<(&'static str, &'static str)> {
@@ -437,6 +441,10 @@ pub fn adversarial_query_fixture_token_smuggling_surface_is_complete() -> bool {
             == adversarial_query_fixture_token_smuggling_input_count()
         && adversarial_query_fixture_token_smuggling_label_count()
             == adversarial_query_fixture_token_smuggling_input_labels().len()
+        && adversarial_query_fixture_token_smuggling_case_count()
+            == adversarial_query_fixture_token_smuggling_input_count()
+        && adversarial_query_fixture_token_smuggling_case_count()
+            == adversarial_query_fixture_token_smuggling_label_count()
         && adversarial_query_fixture_token_smuggling_cases().len()
             == adversarial_query_fixture_token_smuggling_input_count()
         && adversarial_query_fixture_token_smuggling_cases()
