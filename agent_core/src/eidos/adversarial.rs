@@ -286,6 +286,13 @@ pub fn adversarial_query_fixture_token_smuggling_case_labels_are_ascii_lowercase
         .all(|(label, _input)| is_ascii_lowercase_kebab_case(label))
 }
 
+pub fn adversarial_query_fixture_token_smuggling_case_inputs_are_ordered_unique() -> bool {
+    let mut seen = std::collections::BTreeSet::new();
+    adversarial_query_fixture_token_smuggling_cases()
+        .iter()
+        .all(|(_label, input)| seen.insert(*input))
+}
+
 pub fn adversarial_query_fixture_catalog_labels_match_fixture_rows() -> bool {
     ADVERSARIAL_QUERY_FIXTURE_LABELS.len() == ADVERSARIAL_QUERY_FIXTURES.len()
         && ADVERSARIAL_QUERY_FIXTURE_LABELS
@@ -449,6 +456,7 @@ pub fn adversarial_query_fixture_token_smuggling_surface_is_complete() -> bool {
         && adversarial_query_fixture_token_smuggling_labels_match_inputs()
         && adversarial_query_fixture_token_smuggling_cases_match_label_and_input_slices()
         && adversarial_query_fixture_token_smuggling_case_labels_are_ascii_lowercase()
+        && adversarial_query_fixture_token_smuggling_case_inputs_are_ordered_unique()
         && adversarial_query_fixture_token_lookups_reject_smuggling_inputs()
         && adversarial_query_fixture_token_smuggling_cases_reject_through_token_lookups()
 }
