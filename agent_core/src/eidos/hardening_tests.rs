@@ -157,7 +157,7 @@ fn assert_iter_format_canonical_panics_on_out_of_range() {
     assert_iter_format_canonical("iter 099", "MY_SOURCE_LABEL");
 }
 
-/// Iter 755 — catalog range continuation pin.
+/// Iter 756 — catalog range continuation pin.
 /// STATUS.md is the contributor-facing catalog for the closed-citation
 /// hardening arc. When new pins land after the previous range tip, the
 /// range must advance in lock-step so future readers can tell the arc is
@@ -167,9 +167,9 @@ fn status_md_closed_citation_iter_range_tip_tracks_latest_catalog_pin() {
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Closed-citation contract hardening (iters 127-755)"),
+        status.contains("Closed-citation contract hardening (iters 127-756)"),
         "STATUS.md closed-citation hardening catalog must advance its iter \
-         range tip to iter 755 when the catalog-continuation pin lands"
+         range tip to iter 756 when the catalog-continuation pin lands"
     );
 }
 
@@ -1709,6 +1709,36 @@ fn adversarial_query_fixture_token_smuggling_label_count_matches_surface() {
         adversarial_query_fixture_token_smuggling_label_count(),
         adversarial_query_fixture_token_smuggling_input_count(),
         "adversarial fixture token-smuggling label count must match input count"
+    );
+}
+
+#[test]
+fn adversarial_query_fixture_token_smuggling_case_at_is_ordered_and_bounded() {
+    use super::adversarial::{
+        adversarial_query_fixture_token_smuggling_case_at,
+        adversarial_query_fixture_token_smuggling_input_count,
+    };
+
+    let expected = [
+        ("empty", ""),
+        ("whitespace", "   "),
+        ("invisible", "\u{200b}"),
+        ("control", "\u{0000}"),
+        ("bidi", "\u{202e}"),
+    ];
+    for (index, expected_case) in expected.iter().copied().enumerate() {
+        assert_eq!(
+            adversarial_query_fixture_token_smuggling_case_at(index),
+            Some(expected_case),
+            "adversarial fixture token-smuggling case lookup must preserve label/input order"
+        );
+    }
+    assert_eq!(
+        adversarial_query_fixture_token_smuggling_case_at(
+            adversarial_query_fixture_token_smuggling_input_count()
+        ),
+        None,
+        "adversarial fixture token-smuggling case lookup must fail closed past the end"
     );
 }
 
