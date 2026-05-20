@@ -113,6 +113,13 @@ pub const ADVERSARIAL_QUERY_FIXTURE_TOKEN_SMUGGLING_INPUT_LABELS: &[&str] =
     &["empty", "whitespace", "invisible", "control", "bidi"];
 pub const ADVERSARIAL_QUERY_FIXTURE_TOKEN_SMUGGLING_INPUTS: &[&str] =
     &["", "   ", "\u{200b}", "\u{0000}", "\u{202e}"];
+pub const ADVERSARIAL_QUERY_FIXTURE_TOKEN_SMUGGLING_CASES: &[(&str, &str)] = &[
+    ("empty", ""),
+    ("whitespace", "   "),
+    ("invisible", "\u{200b}"),
+    ("control", "\u{0000}"),
+    ("bidi", "\u{202e}"),
+];
 
 pub fn adversarial_query_fixture(label: &str) -> Option<AdversarialQueryFixture> {
     ADVERSARIAL_QUERY_FIXTURES
@@ -221,6 +228,11 @@ pub fn adversarial_query_fixture_token_smuggling_input_count() -> usize {
 
 pub fn adversarial_query_fixture_token_smuggling_label_count() -> usize {
     ADVERSARIAL_QUERY_FIXTURE_TOKEN_SMUGGLING_INPUT_LABELS.len()
+}
+
+pub fn adversarial_query_fixture_token_smuggling_cases(
+) -> &'static [(&'static str, &'static str)] {
+    ADVERSARIAL_QUERY_FIXTURE_TOKEN_SMUGGLING_CASES
 }
 
 pub fn adversarial_query_fixture_token_smuggling_case_at(
@@ -391,6 +403,14 @@ pub fn adversarial_query_fixture_token_smuggling_surface_is_complete() -> bool {
             == adversarial_query_fixture_token_smuggling_input_count()
         && adversarial_query_fixture_token_smuggling_label_count()
             == adversarial_query_fixture_token_smuggling_input_labels().len()
+        && adversarial_query_fixture_token_smuggling_cases().len()
+            == adversarial_query_fixture_token_smuggling_input_count()
+        && adversarial_query_fixture_token_smuggling_cases()
+            .iter()
+            .copied()
+            .enumerate()
+            .all(|(index, case)| adversarial_query_fixture_token_smuggling_case_at(index)
+                == Some(case))
         && (0..adversarial_query_fixture_token_smuggling_input_count()).all(|index| {
             adversarial_query_fixture_token_smuggling_case_at(index).is_some()
         })
