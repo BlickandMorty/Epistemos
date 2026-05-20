@@ -336,10 +336,15 @@ pub fn adversarial_query_fixture_token_lookups_reject_smuggling_inputs() -> bool
         })
 }
 
+pub fn adversarial_query_fixture_token_smuggling_surface_is_complete() -> bool {
+    adversarial_query_fixture_token_smuggling_inputs().len() == 5
+        && adversarial_query_fixture_token_lookups_reject_smuggling_inputs()
+}
+
 pub fn adversarial_query_fixture_catalog_dispatch_surface_is_complete() -> bool {
     adversarial_query_fixture_catalog_static_surface_is_complete()
         && adversarial_query_fixture_token_lookup_surface_is_complete()
-        && adversarial_query_fixture_token_lookups_reject_smuggling_inputs()
+        && adversarial_query_fixture_token_smuggling_surface_is_complete()
 }
 
 pub fn adversarial_query_fixture_labels_are_ascii_lowercase_kebab_case() -> bool {
