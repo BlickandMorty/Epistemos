@@ -157,7 +157,7 @@ fn assert_iter_format_canonical_panics_on_out_of_range() {
     assert_iter_format_canonical("iter 099", "MY_SOURCE_LABEL");
 }
 
-/// Iter 748 — catalog range continuation pin.
+/// Iter 749 — catalog range continuation pin.
 /// STATUS.md is the contributor-facing catalog for the closed-citation
 /// hardening arc. When new pins land after the previous range tip, the
 /// range must advance in lock-step so future readers can tell the arc is
@@ -167,9 +167,9 @@ fn status_md_closed_citation_iter_range_tip_tracks_latest_catalog_pin() {
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Closed-citation contract hardening (iters 127-748)"),
+        status.contains("Closed-citation contract hardening (iters 127-749)"),
         "STATUS.md closed-citation hardening catalog must advance its iter \
-         range tip to iter 748 when the catalog-continuation pin lands"
+         range tip to iter 749 when the catalog-continuation pin lands"
     );
 }
 
@@ -1572,6 +1572,36 @@ fn adversarial_query_fixture_token_lookups_reject_smuggling_inputs() {
     assert!(
         adversarial_query_fixture_token_lookups_reject_smuggling_inputs(),
         "adversarial fixture token lookups must keep the smuggling-input reject aggregate complete"
+    );
+}
+
+#[test]
+fn adversarial_query_fixture_token_smuggling_inputs_are_ordered_unique_and_rejected() {
+    use super::adversarial::{
+        adversarial_query_fixture_for_expected_outcome_token,
+        adversarial_query_fixture_for_kind_token,
+        adversarial_query_fixture_token_smuggling_inputs,
+    };
+
+    let inputs = adversarial_query_fixture_token_smuggling_inputs();
+    assert_eq!(
+        inputs,
+        ["", "   ", "\u{200b}", "\u{0000}", "\u{202e}"],
+        "adversarial fixture token-smuggling input corpus must stay ordered and byte-exact"
+    );
+
+    let unique: std::collections::BTreeSet<&str> = inputs.iter().copied().collect();
+    assert_eq!(
+        unique.len(),
+        inputs.len(),
+        "adversarial fixture token-smuggling inputs must remain pairwise unique"
+    );
+    assert!(
+        inputs.iter().all(|input| {
+            adversarial_query_fixture_for_kind_token(input).is_none()
+                && adversarial_query_fixture_for_expected_outcome_token(input).is_none()
+        }),
+        "every adversarial fixture token-smuggling input must fail closed through both lookup paths"
     );
 }
 

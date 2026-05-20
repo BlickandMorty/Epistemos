@@ -109,6 +109,8 @@ pub const ADVERSARIAL_QUERY_FIXTURE_DESCRIPTIONS: &[&str] = &[
 ];
 
 pub const ADVERSARIAL_QUERY_FIXTURE_INDICES: &[usize] = &[0, 1, 2];
+pub const ADVERSARIAL_QUERY_FIXTURE_TOKEN_SMUGGLING_INPUTS: &[&str] =
+    &["", "   ", "\u{200b}", "\u{0000}", "\u{202e}"];
 
 pub fn adversarial_query_fixture(label: &str) -> Option<AdversarialQueryFixture> {
     ADVERSARIAL_QUERY_FIXTURES
@@ -201,6 +203,10 @@ pub fn adversarial_query_fixture_count() -> usize {
 
 pub fn adversarial_query_fixture_indices() -> &'static [usize] {
     ADVERSARIAL_QUERY_FIXTURE_INDICES
+}
+
+pub fn adversarial_query_fixture_token_smuggling_inputs() -> &'static [&'static str] {
+    ADVERSARIAL_QUERY_FIXTURE_TOKEN_SMUGGLING_INPUTS
 }
 
 pub fn adversarial_query_fixture_catalog_labels_match_fixture_rows() -> bool {
@@ -322,11 +328,12 @@ pub fn adversarial_query_fixture_token_lookups_reject_bidi_input() -> bool {
 }
 
 pub fn adversarial_query_fixture_token_lookups_reject_smuggling_inputs() -> bool {
-    adversarial_query_fixture_token_lookups_reject_empty_input()
-        && adversarial_query_fixture_token_lookups_reject_whitespace_input()
-        && adversarial_query_fixture_token_lookups_reject_invisible_input()
-        && adversarial_query_fixture_token_lookups_reject_control_input()
-        && adversarial_query_fixture_token_lookups_reject_bidi_input()
+    adversarial_query_fixture_token_smuggling_inputs()
+        .iter()
+        .all(|input| {
+            adversarial_query_fixture_for_kind_token(input).is_none()
+                && adversarial_query_fixture_for_expected_outcome_token(input).is_none()
+        })
 }
 
 pub fn adversarial_query_fixture_catalog_dispatch_surface_is_complete() -> bool {
