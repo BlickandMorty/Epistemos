@@ -157,7 +157,7 @@ fn assert_iter_format_canonical_panics_on_out_of_range() {
     assert_iter_format_canonical("iter 099", "MY_SOURCE_LABEL");
 }
 
-/// Iter 756 — catalog range continuation pin.
+/// Iter 757 — catalog range continuation pin.
 /// STATUS.md is the contributor-facing catalog for the closed-citation
 /// hardening arc. When new pins land after the previous range tip, the
 /// range must advance in lock-step so future readers can tell the arc is
@@ -167,9 +167,9 @@ fn status_md_closed_citation_iter_range_tip_tracks_latest_catalog_pin() {
     let status_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let status = std::fs::read_to_string(status_path).expect("read STATUS.md");
     assert!(
-        status.contains("Closed-citation contract hardening (iters 127-756)"),
+        status.contains("Closed-citation contract hardening (iters 127-757)"),
         "STATUS.md closed-citation hardening catalog must advance its iter \
-         range tip to iter 756 when the catalog-continuation pin lands"
+         range tip to iter 757 when the catalog-continuation pin lands"
     );
 }
 
@@ -1739,6 +1739,42 @@ fn adversarial_query_fixture_token_smuggling_case_at_is_ordered_and_bounded() {
         ),
         None,
         "adversarial fixture token-smuggling case lookup must fail closed past the end"
+    );
+}
+
+#[test]
+fn adversarial_query_fixture_token_smuggling_cases_are_stable_and_complete() {
+    use super::adversarial::{
+        adversarial_query_fixture_token_smuggling_case_at,
+        adversarial_query_fixture_token_smuggling_cases,
+        adversarial_query_fixture_token_smuggling_input_count,
+    };
+
+    let cases = adversarial_query_fixture_token_smuggling_cases();
+    assert_eq!(
+        cases,
+        [
+            ("empty", ""),
+            ("whitespace", "   "),
+            ("invisible", "\u{200b}"),
+            ("control", "\u{0000}"),
+            ("bidi", "\u{202e}"),
+        ],
+        "adversarial fixture token-smuggling cases must stay ordered and byte-exact"
+    );
+    assert_eq!(
+        cases.len(),
+        adversarial_query_fixture_token_smuggling_input_count(),
+        "adversarial fixture token-smuggling cases must stay complete"
+    );
+    assert!(
+        cases
+            .iter()
+            .copied()
+            .enumerate()
+            .all(|(index, case)| adversarial_query_fixture_token_smuggling_case_at(index)
+                == Some(case)),
+        "adversarial fixture token-smuggling case slice must match ordinal lookup"
     );
 }
 
