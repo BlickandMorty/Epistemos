@@ -223,6 +223,19 @@ pub fn adversarial_query_fixture_token_smuggling_label_count() -> usize {
     ADVERSARIAL_QUERY_FIXTURE_TOKEN_SMUGGLING_INPUT_LABELS.len()
 }
 
+pub fn adversarial_query_fixture_token_smuggling_case_at(
+    index: usize,
+) -> Option<(&'static str, &'static str)> {
+    adversarial_query_fixture_token_smuggling_input_labels()
+        .get(index)
+        .copied()
+        .zip(
+            adversarial_query_fixture_token_smuggling_inputs()
+                .get(index)
+                .copied(),
+        )
+}
+
 pub fn adversarial_query_fixture_token_smuggling_input_labels_are_ascii_lowercase() -> bool {
     adversarial_query_fixture_token_smuggling_input_labels()
         .iter()
@@ -378,6 +391,13 @@ pub fn adversarial_query_fixture_token_smuggling_surface_is_complete() -> bool {
             == adversarial_query_fixture_token_smuggling_input_count()
         && adversarial_query_fixture_token_smuggling_label_count()
             == adversarial_query_fixture_token_smuggling_input_labels().len()
+        && (0..adversarial_query_fixture_token_smuggling_input_count()).all(|index| {
+            adversarial_query_fixture_token_smuggling_case_at(index).is_some()
+        })
+        && adversarial_query_fixture_token_smuggling_case_at(
+            adversarial_query_fixture_token_smuggling_input_count(),
+        )
+        .is_none()
         && adversarial_query_fixture_token_smuggling_input_labels_are_ascii_lowercase()
         && adversarial_query_fixture_token_smuggling_labels_match_inputs()
         && adversarial_query_fixture_token_lookups_reject_smuggling_inputs()
