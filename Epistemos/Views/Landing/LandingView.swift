@@ -66,6 +66,7 @@ struct LandingView: View {
     @Environment(OrchestratorState.self) private var orchestrator
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(DailyBriefState.self) private var dailyBrief
+    @Environment(GraphState.self) private var graphState
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(MainChatOperatingModePreference.defaultsKey)
@@ -274,21 +275,40 @@ struct LandingView: View {
                 .zIndex(0.5)
             }
 
-            // ── Greeting Mode ──
-            // Blurs and fades when Daily Brief or Welcome Back is active.
-            // When the search overlay is active the greeting STAYS fully
-            // visible — it's now the search surface itself (it backspaces
-            // and types `search: ` inline).
-            greetingContent
-                .blur(radius: showingOverlay ? 4 : 0)
-                .opacity(showingOverlay ? 0.7 : 1)
-                .allowsHitTesting(!showingOverlay)
-                .zIndex(1)
+            // ── Home Content Router (Phase 1 — embed-in-home) ──
+            // When `ui.homeContent == .greeting` (default), the landing
+            // shows the LiquidGreeting + command-hint dock as it always
+            // has. When the user presses Cmd+G AND
+            // `GraphState.graphViewLocation == .embedded`, this flips to
+            // `.graph` and we cross-fade the greeting OUT and the
+            // embedded graph IN. Same Apple-spring used for both.
+            switch ui.homeContent {
+            case .greeting:
+                greetingContent
+                    .blur(radius: showingOverlay ? 4 : 0)
+                    .opacity(showingOverlay ? 0.7 : 1)
+                    .allowsHitTesting(!showingOverlay)
+                    .transition(
+                        .opacity.combined(with: .scale(scale: 0.94))
+                    )
+                    .zIndex(1)
+            case .graph:
+                HomeGraphEmbeddedView()
+                    .transition(
+                        .opacity.combined(with: .scale(scale: 0.94))
+                    )
+                    .zIndex(1)
+            }
 
-            landingAgentDock
-                .opacity(showingOverlay ? 0.45 : 1)
-                .allowsHitTesting(!showingOverlay && !showingSearchPopover)
-                .zIndex(2)
+            // Agent dock — hidden when the embedded graph is up so it
+            // doesn't compete with the graph's right-side inspector.
+            if ui.homeContent == .greeting {
+                landingAgentDock
+                    .opacity(showingOverlay ? 0.45 : 1)
+                    .allowsHitTesting(!showingOverlay && !showingSearchPopover)
+                    .transition(.opacity)
+                    .zIndex(2)
+            }
 
             // ── Daily Brief Mode ──
             // Fades in on top of the blurred greeting.
@@ -318,10 +338,39 @@ struct LandingView: View {
             reduceMotion ? nil : .spring(response: 0.18, dampingFraction: 0.78),
             value: showingSearchPopover
         )
+        // 2026-05-20 Phase 1 — home content router cross-fade. The
+        // 0.42s / 0.84 damping spring matches Apple's view-transition
+        // feel (App Switcher push, Notification Center reveal): a
+        // brief overshoot, no bounce, lands clean. Greeting fades +
+        // scales OUT while the embedded graph fades + scales IN, both
+        // simultaneously (the cross-fade is what makes it feel native).
+        .animation(
+            reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.84, blendDuration: 0.1),
+            value: ui.homeContent
+        )
         .onAppear {
             LandingViewStateSync.reassertHomeSurface(ui)
             sanitizeStoredOperatingMode()
             scheduleWelcomeBackPresentationIfNeeded()
+        }
+        // Phase 1 — graphViewLocation mid-session flip handler. When the
+        // user changes Settings → Graph → Graph view location while the
+        // embedded graph is up, snap `ui.homeContent` back to `.greeting`
+        // so the next ⌘G press opens the newly-chosen host from a clean
+        // state. (If they flipped TO `.miniPanel`, the embedded graph
+        // would otherwise stay visible behind a new floating panel.)
+        .onReceive(
+            NotificationCenter.default.publisher(for: .graphViewLocationDidChange)
+        ) { _ in
+            if ui.homeContent == .graph {
+                withAnimation(
+                    reduceMotion
+                        ? nil
+                        : .spring(response: 0.42, dampingFraction: 0.84, blendDuration: 0.1)
+                ) {
+                    ui.homeContent = .greeting
+                }
+            }
         }
         .onChange(of: inference.preferredChatModelSelection.rawValue) { _, _ in
             sanitizeStoredOperatingMode()
@@ -346,6 +395,17 @@ struct LandingView: View {
 
             Button(action: { MiniChatWindowController.shared.openNewChat() }) {}
                 .keyboardShortcut("3", modifiers: .command)
+                .frame(width: 0, height: 0)
+                .opacity(0)
+                .allowsHitTesting(false)
+
+            // Hidden ⌘G shortcut — graph toggle. Branches on
+            // `graphState.graphViewLocation`:
+            //   - `.miniPanel`: existing behavior (floating panel toggle)
+            //   - `.embedded`: flips `ui.homeContent` between
+            //     `.greeting` and `.graph` for the inline embed.
+            Button(action: { toggleGraphForCurrentLocation() }) {}
+                .keyboardShortcut("g", modifiers: .command)
                 .frame(width: 0, height: 0)
                 .opacity(0)
                 .allowsHitTesting(false)
@@ -565,8 +625,13 @@ struct LandingView: View {
                         .fill(theme.textTertiary.opacity(0.3))
                         .frame(width: 3, height: 3)
 
-                    CommandHint(modIcon: "command", key: "G", label: "Graph", theme: theme) {
-                        HologramController.shared.toggle()
+                    CommandHint(
+                        modIcon: "command",
+                        key: "G",
+                        label: graphState.graphViewLocation == .embedded ? "Home Graph" : "Graph",
+                        theme: theme
+                    ) {
+                        toggleGraphForCurrentLocation()
                     }
                     .springEntrance(index: 6, stagger: 0.08)
 
@@ -1605,6 +1670,43 @@ struct LandingView: View {
     }
 
     // MARK: - Actions
+
+    /// Cmd+G dispatcher. Branches on `graphState.graphViewLocation` so
+    /// the same hotkey opens whichever graph host the user has chosen
+    /// in Settings → Graph → Graph view location:
+    ///
+    ///   - `.miniPanel`: existing behavior — toggles the floating
+    ///     hologram overlay via `HologramController`.
+    ///   - `.embedded`: toggles `ui.homeContent` between `.greeting`
+    ///     and `.graph`, with a spring cross-fade animation.
+    ///
+    /// Phase 1 — when the user switches the setting mid-session, the
+    /// `graphViewLocationDidChange` notification observer wired in
+    /// `onAppear` snaps `ui.homeContent` back to `.greeting` so the
+    /// home window is in a known state before the next press.
+    private func toggleGraphForCurrentLocation() {
+        switch graphState.graphViewLocation {
+        case .miniPanel:
+            // If the embedded graph somehow ended up visible, clear it
+            // first so the floating panel doesn't open on top of an
+            // already-visible embedded graph.
+            if ui.homeContent == .graph { ui.homeContent = .greeting }
+            HologramController.shared.toggle()
+        case .embedded:
+            // Ensure the floating panel is closed so it doesn't
+            // double-show the canvas behind the embedded version.
+            if HologramController.shared.isVisible {
+                HologramController.shared.hide()
+            }
+            withAnimation(
+                reduceMotion
+                    ? nil
+                    : .spring(response: 0.42, dampingFraction: 0.84, blendDuration: 0.1)
+            ) {
+                ui.homeContent = ui.homeContent == .graph ? .greeting : .graph
+            }
+        }
+    }
 
     private func createAndOpenNote() {
         Task {
