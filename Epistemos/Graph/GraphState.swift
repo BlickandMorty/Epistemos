@@ -557,6 +557,40 @@ enum GraphStartupViewMode: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - Graph View Location (Phase 1 — embed-in-home)
+
+/// Where the graph renders when the user presses Cmd+G.
+///
+/// `.miniPanel` — the existing floating panel (HologramController.shared.toggle())
+/// `.embedded`  — inline inside the home/landing window, replaces the greeting
+///                with full graph chrome (canvas + workspace routes + sidebar
+///                + inspector + floating controls), background = theme.background
+///                (no NSVisualEffectView blur). UI lives in
+///                `Epistemos/Views/Home/HomeGraphEmbeddedView.swift`.
+///
+/// Only ONE mode is ever active at a time. Flipping this setting closes the
+/// active graph; the next Cmd+G opens whichever mode the setting now names.
+enum GraphViewLocation: String, Codable, CaseIterable, Identifiable, Sendable {
+    case miniPanel
+    case embedded
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .miniPanel: return "Mini floating panel"
+        case .embedded:  return "Embedded in home"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .miniPanel: return "Separate floating window, frosted blur backdrop (default)."
+        case .embedded:  return "Replaces the home greeting. Background uses the landing color, no blur. Cmd+G again returns to the greeting."
+        }
+    }
+}
+
 // MARK: - Physics Scheduler Types
 
 enum PhysicsSchedulerMode: String, Codable {
@@ -1255,6 +1289,7 @@ final class GraphState {
     static let graphMaxFPSDefaultsKey = "epistemos.graph.maxFPS"
     static let graphFPSHUDDefaultsKey = "epistemos.graph.showFPSHUD"
     static let graphForceMaximumFPSDefaultsKey = "epistemos.graph.forceMaximumFPS"
+    static let graphViewLocationDefaultsKey = "epistemos.graph.viewLocation"
 
     /// 0 = Unlimited (ProMotion adaptive 60-120). Other accepted values: 30, 60, 120.
     /// Stored-property initializer references the type by full name
@@ -1274,6 +1309,22 @@ final class GraphState {
         didSet {
             guard graphFPSHUDEnabled != oldValue else { return }
             UserDefaults.standard.set(graphFPSHUDEnabled, forKey: Self.graphFPSHUDDefaultsKey)
+        }
+    }
+
+    /// Where Cmd+G opens the graph. `.miniPanel` = the existing floating
+    /// window (HologramController). `.embedded` = inline inside the home
+    /// window, replacing the greeting until dismissed. See
+    /// `GraphViewLocation` for the full doctrine. Default: `.miniPanel`
+    /// for backward compatibility (users can opt in via Settings → Graph).
+    var graphViewLocation: GraphViewLocation = GraphState.restoredGraphViewLocation() {
+        didSet {
+            guard graphViewLocation != oldValue else { return }
+            UserDefaults.standard.set(graphViewLocation.rawValue, forKey: Self.graphViewLocationDefaultsKey)
+            // Notify listeners so any active graph view can close itself
+            // when the user flips the setting mid-session. The LandingView
+            // observes UIState.homeContent which it clears in response.
+            NotificationCenter.default.post(name: .graphViewLocationDidChange, object: self)
         }
     }
 
@@ -1339,6 +1390,11 @@ final class GraphState {
             return true
         }
         return defaults.bool(forKey: graphForceMaximumFPSDefaultsKey)
+    }
+
+    private static func restoredGraphViewLocation() -> GraphViewLocation {
+        let raw = UserDefaults.standard.string(forKey: graphViewLocationDefaultsKey) ?? ""
+        return GraphViewLocation(rawValue: raw) ?? .miniPanel
     }
 
     // MARK: - Visual Theme

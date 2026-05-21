@@ -333,6 +333,26 @@ final class UIState {
     var activePanel: NavTab = .home
     var homeTab: HomeTab = .home
 
+    // MARK: - Home Content Router (Phase 1 — embed-in-home graph)
+    //
+    // When `homeContent == .greeting` (default), the home window shows
+    // the existing LiquidGreeting + command-hint dock. When the user
+    // presses Cmd+G AND `GraphState.graphViewLocation == .embedded`,
+    // this flips to `.graph` and LandingView cross-fades the greeting
+    // out + the embedded graph in (HomeGraphEmbeddedView, with the
+    // full graph chrome — canvas, workspace routes, sidebar, inspector,
+    // floating controls, FPS HUD).
+    //
+    // Always resets to `.greeting` on app launch. The home window
+    // never persists the embedded-graph state across restarts — the
+    // greeting is the canonical "home." Toggle is session-only.
+    enum HomeContent: Equatable, Sendable {
+        case greeting
+        case graph
+    }
+
+    var homeContent: HomeContent = .greeting
+
     // MARK: - Chat Sidebar
 
     var showChatSidebar = false

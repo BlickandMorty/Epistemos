@@ -3138,6 +3138,8 @@ private struct GraphPerformanceSettingsSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            viewLocationRow
+            Divider()
             forceMaximumFPSRow
             Divider()
             fpsCapRow
@@ -3148,6 +3150,35 @@ private struct GraphPerformanceSettingsSection: View {
         }
         .padding(12)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    /// Phase 1 — Where the graph opens when the user presses ⌘G.
+    /// `.miniPanel` keeps the existing floating panel. `.embedded`
+    /// replaces the home greeting with the full graph chrome inline.
+    private var viewLocationRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "macwindow.on.rectangle")
+                    .frame(width: 18)
+                    .foregroundStyle(.secondary)
+                Text("Graph view location")
+                    .font(.system(size: 13, weight: .medium))
+            }
+            Picker("", selection: Binding(
+                get: { graphState.graphViewLocation },
+                set: { graphState.graphViewLocation = $0 }
+            )) {
+                ForEach(GraphViewLocation.allCases) { location in
+                    Text(location.displayName).tag(location)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            Text(graphState.graphViewLocation.subtitle)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     private var forceMaximumFPSRow: some View {
