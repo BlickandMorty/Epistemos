@@ -20,6 +20,86 @@ nonisolated protocol LocalAgentOutputVerifying: Sendable {
 }
 
 nonisolated struct ConfidenceRouter {
+    // T2 salvage 2026-05-23: TaskClass + RouteProfile + 3 static items.
+    // PURE-ADDITIVE: no fields added to existing structs (Request /
+    // Classification / Decision) and no existing initializers touched.
+    // `routeProfiles()` returns an empty array as a safe placeholder
+    // — `LocalAgentDiagnostics` renders "0 task-class routes · 0 native
+    // grammar routes" until a follow-up wires the per-task model
+    // preference + policy tables. The forbidden symbols
+    // (`modelPreferenceTable`, `localPolicyTable`, `LocalPolicy`) are
+    // NOT added in this PR per the salvage scope agreement.
+    nonisolated enum TaskClass: String, Sendable, Equatable, CaseIterable {
+        case fastChat = "fast_chat"
+        case coding
+        case debugging
+        case structuredOutput = "structured_output"
+        case localResearch = "local_research"
+        case reasoning
+        case synthesis
+        case toolUse = "tool_use"
+        case general
+
+        var displayName: String {
+            rawValue
+                .split(separator: "_")
+                .map { $0.capitalized }
+                .joined(separator: " ")
+        }
+    }
+
+    nonisolated struct RouteProfile: Sendable, Equatable, Identifiable {
+        let taskClass: TaskClass
+        let preferredModelIDs: [String]
+        let primaryModelID: String?
+        let primaryModelName: String
+        let nativeGrammar: LocalToolGrammar.NativeToolGrammar
+        let minimumConfidence: Double
+        let maximumComplexity: Double
+        let maximumToolCount: Int
+        let idleUnloadDelaySeconds: Int
+        let idleUnloadMode: String
+
+        var id: String { taskClass.rawValue }
+
+        var displayName: String {
+            taskClass.displayName
+        }
+
+        var fallbackCount: Int {
+            max(0, preferredModelIDs.count - 1)
+        }
+
+        var policySummary: String {
+            "conf \(formatted(minimumConfidence)) · complexity \(formatted(maximumComplexity)) · tools \(maximumToolCount)"
+        }
+
+        var idleUnloadSummary: String {
+            "idle \(idleUnloadDelaySeconds)s \(idleUnloadMode)"
+        }
+
+        private func formatted(_ value: Double) -> String {
+            String(format: "%.2f", value)
+        }
+    }
+
+    nonisolated static let localAgentIdleUnloadDelaySeconds = 30
+    nonisolated static let localAgentIdleUnloadMode = "deep"
+
+    nonisolated static var localAgentIdleUnloadPolicySummary: String {
+        "idle unload \(localAgentIdleUnloadDelaySeconds)s/\(localAgentIdleUnloadMode)"
+    }
+
+    /// Returns the per-task-class routing profiles. **Placeholder**
+    /// returning `[]` in this PR — the production implementation
+    /// depends on `modelPreferenceTable` + `localPolicyTable` +
+    /// `LocalPolicy` which are deferred per the T2 salvage scope.
+    /// `LocalAgentDiagnostics` renders "0 task-class routes" until
+    /// these are wired in a follow-up.
+    nonisolated static func routeProfiles() -> [RouteProfile] {
+        []
+    }
+
     nonisolated struct Request: Sendable, Equatable {
         let objective: String
         let selectedLocalModelID: String?
