@@ -106,6 +106,9 @@ final class AmbientFrequencyLivePlayer {
         let outputFormat = engine.outputNode.outputFormat(forBus: 0)
         let sampleRate = outputFormat.sampleRate
         let channelCount = outputFormat.channelCount
+        guard sampleRate.isFinite, sampleRate > 0 else {
+            throw AmbientFrequencyLivePlayerError.invalidOutputFormat
+        }
 
         // Build a stereo render format so we can deliver per-channel L/R.
         // Use the same sample rate the hardware chose to avoid format
@@ -124,28 +127,31 @@ final class AmbientFrequencyLivePlayer {
         // calls, NO allocations, NO locks. Just pointer math + libm.
         let node = AVAudioSourceNode(format: renderFormat) { _, _, frameCount, audioBufferList in
             let bufferList = UnsafeMutableAudioBufferListPointer(audioBufferList)
+            for buffer in bufferList {
+                if let data = buffer.mData {
+                    memset(data, 0, Int(buffer.mDataByteSize))
+                }
+            }
 
             // Stereo render: write left into buffers[0], right into buffers[1].
             // SwiftUI standard format is non-interleaved 32-bit float, so each
             // buffer holds `frameCount` Float32 samples.
             guard bufferList.count >= 2 else {
-                // Fallback: zero out everything and bail.
-                for buffer in bufferList {
-                    if let data = buffer.mData {
-                        memset(data, 0, Int(buffer.mDataByteSize))
-                    }
-                }
                 return noErr
             }
 
             let leftPtr = bufferList[0].mData?.assumingMemoryBound(to: Float.self)
             let rightPtr = bufferList[1].mData?.assumingMemoryBound(to: Float.self)
             guard let leftPtr, let rightPtr else { return noErr }
+            let leftFrames = Int(bufferList[0].mDataByteSize) / MemoryLayout<Float>.stride
+            let rightFrames = Int(bufferList[1].mDataByteSize) / MemoryLayout<Float>.stride
+            let safeFrameCount = min(Int(frameCount), leftFrames, rightFrames)
+            guard safeFrameCount > 0 else { return noErr }
 
             params.renderBlock(
                 leftPtr: leftPtr,
                 rightPtr: rightPtr,
-                frameCount: Int(frameCount),
+                frameCount: safeFrameCount,
                 sampleRate: Float(sampleRate)
             )
 
@@ -155,6 +161,7 @@ final class AmbientFrequencyLivePlayer {
         engine.attach(node)
         engine.connect(node, to: engine.mainMixerNode, format: renderFormat)
 
+        engine.prepare()
         try engine.start()
         sourceNode = node
         isRunning = true
@@ -193,26 +200,26 @@ final class AmbientFrequencyLivePlayer {
 
     /// Set the active waveform.
     func setWaveform(_ waveform: Waveform) {
-        params.waveform = waveform.rawValue
+        params.waveform = Float(waveform.rawValue)
     }
 
     /// Toggle mute (gain → 0 with smoothing; doesn't reset phase).
     func setMuted(_ muted: Bool) {
-        params.muted = muted
+        params.muted = muted ? 1 : 0
     }
 
     /// Set live bit-depth crush. `bitDepth ∈ [1, 16]`; 16 = no effect,
     /// 8 = Amiga/NES era, 4 = Atari 4-bit volume, 1 = PC speaker beeper.
     /// Applied after the waveform, before pan/gain. Real-time updatable.
     func setBitCrushDepth(_ bits: Int) {
-        params.bitCrushDepth = min(max(bits, 1), 16)
+        params.bitCrushDepth = Float(min(max(bits, 1), 16))
     }
 
     /// Set live sample-rate reduction (zero-order hold). `holdFactor ∈ [1, 64]`;
     /// 1 = no effect, 8 = every 8th sample held (8 kHz effective at 64 kHz).
     /// The aliasing IS the vintage chip effect.
     func setSampleRateHold(_ factor: Int) {
-        params.sampleRateHold = min(max(factor, 1), 64)
+        params.sampleRateHold = Float(min(max(factor, 1), 64))
     }
 
     // MARK: - Read-only state observation (UI side)
@@ -220,6 +227,50 @@ final class AmbientFrequencyLivePlayer {
     var currentSmoothedFrequency: Float { params.smoothedFrequencyForUI }
     var currentSmoothedPan: Float { params.smoothedPanForUI }
     var currentSmoothedGain: Float { params.smoothedGainForUI }
+
+    @inline(__always)
+    static func sanitizedFrequency(_ value: Float, fallback: Float) -> Float {
+        guard value.isFinite else { return fallback.isFinite ? fallback : 440 }
+        return min(max(value, minFrequencyHz), maxFrequencyHz)
+    }
+
+    @inline(__always)
+    static func sanitizedPan(_ value: Float) -> Float {
+        guard value.isFinite else { return 0 }
+        return min(max(value, -1), 1)
+    }
+
+    @inline(__always)
+    static func sanitizedGain(_ value: Float) -> Float {
+        guard value.isFinite else { return 0 }
+        return min(max(value, 0), 1)
+    }
+
+    @inline(__always)
+    static func sanitizedWaveform(_ value: Float) -> Int {
+        guard value.isFinite else { return Waveform.sineWave.rawValue }
+        guard value >= 0, value <= Float(Waveform.whiteNoise.rawValue) else {
+            return Waveform.sineWave.rawValue
+        }
+        let raw = Int(value.rounded())
+        return Waveform(rawValue: raw) == nil ? Waveform.sineWave.rawValue : raw
+    }
+
+    @inline(__always)
+    static func sanitizedBitCrushDepth(_ value: Float) -> Int {
+        guard value.isFinite else { return 16 }
+        if value <= 1 { return 1 }
+        if value >= 16 { return 16 }
+        return Int(value.rounded())
+    }
+
+    @inline(__always)
+    static func sanitizedSampleRateHold(_ value: Float) -> Int {
+        guard value.isFinite else { return 1 }
+        if value <= 1 { return 1 }
+        if value >= 64 { return 64 }
+        return Int(value.rounded())
+    }
 }
 
 /// Shared parameter block. UI-side mutations are atomic per-field (single
@@ -235,12 +286,12 @@ private final class LivePlayerParameters: @unchecked Sendable {
     var targetFrequency: Float = 440
     var targetPan: Float = 0
     var targetGain: Float = 0.3
-    var waveform: Int = AmbientFrequencyLivePlayer.Waveform.sineWave.rawValue
-    var muted: Bool = false
+    var waveform: Float = Float(AmbientFrequencyLivePlayer.Waveform.sineWave.rawValue)
+    var muted: Float = 0
     /// Bit-depth crush, [1, 16]; 16 = no effect, lower = "pixel crunch."
-    var bitCrushDepth: Int = 16
+    var bitCrushDepth: Float = 16
     /// Sample-rate reduction (zero-order hold), [1, 64]; 1 = no effect.
-    var sampleRateHold: Int = 1
+    var sampleRateHold: Float = 1
 
     // Smoothed values updated per-sample on audio thread; mirrored to UI
     // for visual feedback. UI-side reads are atomic Float; small tearing OK.
@@ -271,6 +322,11 @@ private final class LivePlayerParameters: @unchecked Sendable {
     /// once at engine start (and on sample-rate changes if the OS swaps
     /// audio routes).
     func precomputeSmootherCoefficients(sampleRate: Float) {
+        guard sampleRate.isFinite, sampleRate > 0 else {
+            gainPanAlpha = 0.999
+            frequencyAlpha = 0.9998
+            return
+        }
         // α = exp(-1 / (timeConstantSeconds · sampleRate))
         let gainPanTimeConstant: Float = 0.020   // 20 ms — snappy
         let frequencyTimeConstant: Float = 0.080 // 80 ms — musical pitch glide
@@ -288,13 +344,23 @@ private final class LivePlayerParameters: @unchecked Sendable {
     ) {
         let halfPi: Float = .pi / 2
         let twoPi: Double = 2.0 * .pi
-        let mutedFlag = muted
+        let sampleRate = sampleRate.isFinite && sampleRate > 0 ? sampleRate : 48_000
+        let mutedFlag = muted >= 0.5
 
         for i in 0..<frameCount {
+            let frequencyTarget = AmbientFrequencyLivePlayer.sanitizedFrequency(
+                targetFrequency,
+                fallback: smoothedFrequency
+            )
+            let panTarget = AmbientFrequencyLivePlayer.sanitizedPan(targetPan)
+            let gainTarget = mutedFlag ? 0 : AmbientFrequencyLivePlayer.sanitizedGain(targetGain)
+            let waveformTarget = AmbientFrequencyLivePlayer.sanitizedWaveform(waveform)
+            let hold = AmbientFrequencyLivePlayer.sanitizedSampleRateHold(sampleRateHold)
+            let bits = AmbientFrequencyLivePlayer.sanitizedBitCrushDepth(bitCrushDepth)
+
             // 1) Smooth params (one-pole IIR per sample).
-            smoothedFrequency = frequencyAlpha * smoothedFrequency + (1 - frequencyAlpha) * targetFrequency
-            smoothedPan = gainPanAlpha * smoothedPan + (1 - gainPanAlpha) * targetPan
-            let gainTarget = mutedFlag ? 0 : targetGain
+            smoothedFrequency = frequencyAlpha * smoothedFrequency + (1 - frequencyAlpha) * frequencyTarget
+            smoothedPan = gainPanAlpha * smoothedPan + (1 - gainPanAlpha) * panTarget
             smoothedGain = gainPanAlpha * smoothedGain + (1 - gainPanAlpha) * gainTarget
 
             // 2) Advance phase accumulator. Phase is double-precision to
@@ -304,7 +370,7 @@ private final class LivePlayerParameters: @unchecked Sendable {
 
             // 3) Compute waveform sample at current phase.
             let sample: Float
-            switch waveform {
+            switch waveformTarget {
             case 0: // sineWave
                 sample = Float(sin(phase * twoPi))
             case 1: // triangleWave
@@ -331,7 +397,6 @@ private final class LivePlayerParameters: @unchecked Sendable {
             // 4) PIXEL CRUNCH — sample-rate reduce (zero-order hold) BEFORE
             //    bit-crush, per Sonalksis/TAL canonical Decimator topology.
             //    Aliasing is the desired effect.
-            let hold = sampleRateHold
             var crunched: Float
             if hold > 1 {
                 if holdCounter == 0 {
@@ -346,7 +411,6 @@ private final class LivePlayerParameters: @unchecked Sendable {
 
             // 5) PIXEL CRUNCH — bit-depth crush (musicdsp.org #124 midrise).
             //    bitDepth = 16 → no effect; 8 = Amiga/NES; 4 = Atari; 1 = PC speaker.
-            let bits = bitCrushDepth
             if bits < 16 {
                 let levels = Float(1 << (bits - 1))
                 crunched = (crunched * levels).rounded() / levels
@@ -373,10 +437,13 @@ private final class LivePlayerParameters: @unchecked Sendable {
 }
 
 enum AmbientFrequencyLivePlayerError: Error, LocalizedError {
+    case invalidOutputFormat
     case couldNotCreateRenderFormat
 
     var errorDescription: String? {
         switch self {
+        case .invalidOutputFormat:
+            return "Could not start live playback because the current audio output format has no valid sample rate."
         case .couldNotCreateRenderFormat:
             return "Could not create AVAudioFormat for live playback (stereo 32-bit float)."
         }

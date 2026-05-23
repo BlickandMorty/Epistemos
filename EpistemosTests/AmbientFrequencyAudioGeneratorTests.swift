@@ -108,6 +108,33 @@ struct AmbientFrequencyAudioGeneratorTests {
         #expect(detailSource.contains("32-bit float WAV"))
     }
 
+    @Test("Live player sanitizes realtime parameters before modulo and bit shifting")
+    func livePlayerSanitizesRealtimeParameters() {
+        #expect(AmbientFrequencyLivePlayer.sanitizedSampleRateHold(.nan) == 1)
+        #expect(AmbientFrequencyLivePlayer.sanitizedSampleRateHold(0) == 1)
+        #expect(AmbientFrequencyLivePlayer.sanitizedSampleRateHold(-8) == 1)
+        #expect(AmbientFrequencyLivePlayer.sanitizedSampleRateHold(128) == 64)
+        #expect(AmbientFrequencyLivePlayer.sanitizedSampleRateHold(.greatestFiniteMagnitude) == 64)
+
+        #expect(AmbientFrequencyLivePlayer.sanitizedBitCrushDepth(.nan) == 16)
+        #expect(AmbientFrequencyLivePlayer.sanitizedBitCrushDepth(0) == 1)
+        #expect(AmbientFrequencyLivePlayer.sanitizedBitCrushDepth(40) == 16)
+        #expect(AmbientFrequencyLivePlayer.sanitizedBitCrushDepth(.greatestFiniteMagnitude) == 16)
+
+        #expect(AmbientFrequencyLivePlayer.sanitizedWaveform(.nan) == AmbientFrequencyLivePlayer.Waveform.sineWave.rawValue)
+        #expect(AmbientFrequencyLivePlayer.sanitizedWaveform(-1) == AmbientFrequencyLivePlayer.Waveform.sineWave.rawValue)
+        #expect(AmbientFrequencyLivePlayer.sanitizedWaveform(99) == AmbientFrequencyLivePlayer.Waveform.sineWave.rawValue)
+    }
+
+    @Test("Live player stops when Ambient Frequency settings disappear")
+    func livePlayerStopsWhenSettingsDisappear() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/AmbientFrequencySettingsView.swift")
+
+        #expect(source.contains(".onDisappear"))
+        #expect(source.contains("livePlayer.stop()"))
+        #expect(source.contains("livePlayerRunning = false"))
+    }
+
     private func temporaryOutputURL() -> URL {
         FileManager.default.temporaryDirectory
             .appendingPathComponent("ambient-frequency-\(UUID().uuidString)")
