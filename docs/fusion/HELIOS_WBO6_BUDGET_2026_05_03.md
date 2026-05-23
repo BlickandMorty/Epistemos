@@ -12,6 +12,8 @@ verification overhead. It is not yet a proven theorem inside Epistemos. The
 canonical use today is narrower and safer: every new substrate or inference
 slice must name which budget term it consumes, what current file owns that
 term, and what test or verifier keeps the term from silently drifting.
+This file owns the `F-WBO-DriftLedger` falsifier hook used by lattice/WBO
+register rows that must prove they paid the drift ledger.
 
 The reference note says the measured logit drift bound is half the sum of six
 terms. In canonical Epistemos shape, those terms become:
