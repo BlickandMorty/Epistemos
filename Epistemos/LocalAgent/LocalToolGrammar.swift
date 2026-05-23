@@ -14,6 +14,115 @@ nonisolated enum LocalToolGrammar {
         case omegaSoftGuidance
     }
 
+    // T2 salvage 2026-05-23: native tool grammar profile per model.
+    // PURE-ADDITIVE shim — added as a new enum + a static method below
+    // so the T2 AgentBlueprint / LocalAgentDiagnostics code can resolve
+    // `LocalToolGrammar.nativeGrammar(forModelID:)` and the
+    // `.canonicalXML` case. The full T2 modification also added a
+    // `nativeGrammar` field to `ToolCallingPlan` and re-wired
+    // `buildToolCallingPlan` to use it; both are intentionally DEFERRED
+    // here because adding the field would break every existing
+    // `ToolCallingPlan(...)` initializer (3 in this file). Follow-up
+    // PR can plumb the field through with default values.
+    enum NativeToolGrammar: String, Equatable, Sendable, CaseIterable {
+        case qwenXML = "qwen_xml"
+        case hermesJSON = "hermes_json"
+        case deepSeekCoder = "deepseek_coder"
+        case llama33 = "llama_3_3"
+        case mistralSmall = "mistral_small"
+        case phi4 = "phi_4"
+        case phi4Mini = "phi_4_mini"
+        case canonicalXML = "canonical_xml"
+
+        var displayName: String {
+            switch self {
+            case .qwenXML: "Qwen XML"
+            case .hermesJSON: "Hermes JSON"
+            case .deepSeekCoder: "DeepSeek-Coder"
+            case .llama33: "Llama 3.3"
+            case .mistralSmall: "Mistral Small"
+            case .phi4: "Phi-4"
+            case .phi4Mini: "Phi-4-mini"
+            case .canonicalXML: "Canonical XML"
+            }
+        }
+
+        var promptInstructions: String {
+            switch self {
+            case .qwenXML, .canonicalXML:
+                """
+                Tool grammar profile: \(displayName). Emit exactly one JSON object with "name" and "arguments" inside <tool_call></tool_call> when a tool is needed. Keep the object compact and valid JSON.
+                """
+            case .hermesJSON:
+                """
+                Tool grammar profile: Hermes JSON compatibility. Emit a single JSON tool object or array using "name" and "arguments"; for streaming tool turns, wrap that JSON inside <tool_call></tool_call> so the local detector can execute immediately.
+                """
+            case .deepSeekCoder:
+                """
+                Tool grammar profile: DeepSeek-Coder. JSON or fenced JSON tool calls are accepted, but the preferred local streaming form is <tool_call>{"name":"tool.name","arguments":{...}}</tool_call>.
+                """
+            case .llama33:
+                """
+                Tool grammar profile: Llama 3.3. Emit a JSON function call with "name" and either "arguments" or "parameters"; the canonical local wrapper is <tool_call></tool_call>.
+                """
+            case .mistralSmall:
+                """
+                Tool grammar profile: Mistral Small. Native [TOOL_CALLS]tool.name[ARGS]{...} output is accepted, but the canonical local streaming wrapper remains <tool_call></tool_call>.
+                """
+            case .phi4:
+                """
+                Tool grammar profile: Phi-4. <|tool_call|> JSON blocks are accepted, but the canonical local streaming wrapper remains <tool_call></tool_call>.
+                """
+            case .phi4Mini:
+                """
+                Tool grammar profile: Phi-4-mini. Prefer a compact single JSON call; <|tool_call|> blocks and canonical <tool_call></tool_call> wrappers are both accepted.
+                """
+            }
+        }
+    }
+
+    static func nativeGrammar(forModelID modelID: String?) -> NativeToolGrammar {
+        guard let modelID else { return .canonicalXML }
+
+        let normalized = modelID.lowercased()
+        if normalized.contains("phi-4-mini")
+            || normalized.contains("phi4-mini")
+            || normalized.contains("phi_4_mini")
+            || normalized.contains("phi4mini") {
+            return .phi4Mini
+        }
+        if normalized.contains("phi-4")
+            || normalized.contains("phi4")
+            || normalized.contains("phi_4") {
+            return .phi4
+        }
+        if normalized.contains("mistral-small")
+            || normalized.contains("mistral_small")
+            || normalized.contains("mistral small") {
+            return .mistralSmall
+        }
+        if normalized.contains("llama-3.3")
+            || normalized.contains("llama3.3")
+            || normalized.contains("llama-3_3")
+            || normalized.contains("llama_3_3")
+            || normalized.contains("llama3_3") {
+            return .llama33
+        }
+        if normalized.contains("deepseek-coder")
+            || normalized.contains("deepseek_coder")
+            || normalized.contains("deepseek coder")
+            || normalized.contains("deepseekcoder") {
+            return .deepSeekCoder
+        }
+        if normalized.contains("hermes") || normalized.contains("localagent43") || normalized.contains("local-agent") {
+            return .hermesJSON
+        }
+        if normalized.contains("qwen") || normalized.contains("qwq") || normalized.contains("qwopus") {
+            return .qwenXML
+        }
+        return .canonicalXML
+    }
+
     struct ToolCallingPlan {
         let backend: Backend
         let supportsTrueMasking: Bool
