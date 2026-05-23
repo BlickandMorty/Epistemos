@@ -679,10 +679,18 @@ struct RuntimeValidationTests {
             testsFilePath: #filePath
         )
 
-        #expect(rootView.contains("if showLandingToolbarControls || activeHomeChat"))
+        #expect(rootView.contains("private var embeddedHomeGraphContentVisible: Bool"))
+        #expect(rootView.contains("private var embeddedHomeGraphCanvasVisible: Bool"))
+        #expect(rootView.contains("private var embeddedHomeGraphNoteVisible: Bool"))
+        #expect(rootView.contains("return embeddedHomeGraphNoteVisible"))
+        #expect(rootView.contains("if !embeddedHomeGraphContentVisible && ui.homeTab == .home && activeHomeChat"))
+        #expect(rootView.contains("|| showEmbeddedGraphToolbarControls"))
+        #expect(!rootView.contains("floatingGraphToolbarControls"))
+        #expect(!rootView.contains("GraphSurfaceUtilityToolbar"))
         #expect(rootView.contains("ToolbarItem(placement: .principal)"))
         #expect(!rootView.contains("private var activeAgentWorkspace: Bool"))
         #expect(rootView.contains("private var showLandingToolbarControls: Bool"))
+        #expect(rootView.contains("private var showEmbeddedGraphToolbarControls: Bool"))
         #expect(rootView.contains("ToolbarItem(placement: .navigation)"))
     }
 
@@ -2824,15 +2832,27 @@ struct RuntimeValidationTests {
         #expect(metalView.contains("updateMetalLayerBackingProperties()"))
     }
 
-    @Test("landing wave draw path presents MTK drawables synchronously")
-    func landingWaveDrawPathPresentsMTKDrawablesSynchronously() throws {
-        let source = try loadRepoTextFile("Epistemos/Views/Landing/Wave/LandingWaveMetalView.swift")
+    @Test("landing liquid wave click and cursor sources are removed")
+    func landingLiquidWaveClickAndCursorSourcesAreRemoved() throws {
+        let repoRoot = try sourceMirrorRootURL()
+        let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let pixelComponents = try loadRepoTextFile("Epistemos/Views/Landing/PixelSurfaceComponents.swift")
 
-        #expect(source.contains("private func renderFrame(in view: MTKView)"))
-        #expect(source.contains("guard !isRenderingFrame else { return }"))
-        #expect(source.contains("guard view.drawableSize.width > 0, view.drawableSize.height > 0 else { return }"))
-        #expect(source.contains("MainActor.assumeIsolated"))
-        #expect(!source.contains("Task { @MainActor in\n                // Late-arriving sizes"))
+        for relativePath in [
+            "Epistemos/Views/Landing/Wave/LandingWaveMetalView.swift",
+            "Epistemos/Views/Landing/Wave/LandingWaveRenderer.swift",
+            "Epistemos/Views/Landing/Wave/LandingWaveChoreography.swift",
+            "Epistemos/Views/Landing/Wave/LandingWaveOverlay.swift",
+            "Epistemos/Shaders/LandingWave.metal",
+        ] {
+            #expect(!FileManager.default.fileExists(atPath: repoRoot.appendingPathComponent(relativePath).path))
+        }
+        #expect(!landing.contains("LandingWaveHaptics.fireBeat"))
+        #expect(!landing.contains("LandingWaveOverlay("))
+        #expect(!landing.contains("landingSearchLiquidReveal("))
+        #expect(pixelComponents.contains("landingSearchStepReveal(frame:"))
+        #expect(!pixelComponents.contains("LandingSearchLiquidRevealModifier"))
+        #expect(!pixelComponents.contains("rippleOpacity"))
     }
 
     @Test("graph renderer keeps the snappy configurable camera smoothing baseline")
@@ -2872,6 +2892,58 @@ struct RuntimeValidationTests {
         #expect(!inspector.contains("else if inspectorState.inspectorMode == .chat"))
         #expect(!inspector.contains("AssistantToolbarAskBar("))
         #expect(overlay.contains("let sidebarRoot = HologramSearchSidebar("))
+    }
+
+    @Test("compact graph inspector typewrites node title and hides keyword chips")
+    func compactGraphInspectorTypewritesNodeTitleAndHidesKeywordChips() throws {
+        let inspector = try loadRepoTextFile("Epistemos/Views/Graph/HologramNodeInspector.swift")
+        let headerStart = try #require(inspector.range(of: "private func compactHeader"))
+        let headerEnd = try #require(
+            inspector.range(of: "private func compactVitals", range: headerStart.lowerBound..<inspector.endIndex)
+        )
+        let compactHeader = String(inspector[headerStart.lowerBound..<headerEnd.lowerBound])
+
+        let vitalsStart = headerEnd
+        let vitalsEnd = try #require(
+            inspector.range(of: "private func compactRelationships", range: vitalsStart.lowerBound..<inspector.endIndex)
+        )
+        let compactVitals = String(inspector[vitalsStart.lowerBound..<vitalsEnd.lowerBound])
+
+        #expect(compactHeader.contains("TypewriterHeading("))
+        #expect(compactHeader.contains("theme.nodeTitleFontName"))
+        #expect(compactHeader.contains("compactNodeTitleFontSize"))
+        #expect(!compactVitals.contains("focusKeywords"))
+        #expect(!compactVitals.contains("compactChip("))
+    }
+
+    @Test("compact graph inspector uses blur reveal instead of springy pop")
+    func compactGraphInspectorUsesBlurRevealInsteadOfSpringyPop() throws {
+        let inspector = try loadRepoTextFile("Epistemos/Views/Graph/HologramNodeInspector.swift")
+        let embedded = try loadRepoTextFile("Epistemos/Views/Home/HomeGraphEmbeddedView.swift")
+
+        let bodyStart = try #require(inspector.range(of: "var body: some View"))
+        let bodyEnd = try #require(
+            inspector.range(of: "private func syncSelection", range: bodyStart.lowerBound..<inspector.endIndex)
+        )
+        let inspectorBody = String(inspector[bodyStart.lowerBound..<bodyEnd.lowerBound])
+        let revealStart = try #require(inspector.range(of: "private func restartPanelReveal"))
+        let revealEnd = try #require(
+            inspector.range(of: "private struct CompactEdgeStats", range: revealStart.lowerBound..<inspector.endIndex)
+        )
+        let revealBody = String(inspector[revealStart.lowerBound..<revealEnd.lowerBound])
+        let embeddedStart = try #require(embedded.range(of: "private var embeddedAttachedInspector"))
+        let embeddedEnd = try #require(
+            embedded.range(of: "private func embeddedInspectorFrame", range: embeddedStart.lowerBound..<embedded.endIndex)
+        )
+        let embeddedInspector = String(embedded[embeddedStart.lowerBound..<embeddedEnd.lowerBound])
+
+        #expect(inspectorBody.contains(".blur(radius: panelIsRevealed ? 0 : 7)"))
+        #expect(inspectorBody.contains(".scaleEffect(panelIsRevealed ? 1.0 : 0.985"))
+        #expect(revealBody.contains(".smooth(duration: 0.18)"))
+        #expect(!revealBody.contains("interpolatingSpring"))
+        #expect(embeddedInspector.contains(".transition(.opacity)"))
+        #expect(embeddedInspector.contains(".smooth(duration: 0.18)"))
+        #expect(!embeddedInspector.contains("interpolatingSpring"))
     }
 
     @Test("graph chat transcript uses the mini-chat assistant formatting path")
@@ -3017,7 +3089,8 @@ struct RuntimeValidationTests {
 
         #expect(app.contains(".keyboardShortcut(\"3\", modifiers: .command)"))
         #expect(landing.contains(".keyboardShortcut(\"3\", modifiers: .command)"))
-        #expect(landing.contains("CommandHint(modIcon: \"command\", key: \"3\", label: \"Mini Chat\", theme: theme)"))
+        #expect(landing.contains("title: \"Mini Chat\""))
+        #expect(landing.contains("shortcut: \"\\u{2318}3\""))
         #expect(chatView.contains("Label(\"Open in Mini Chat\""))
         #expect(chatView.contains("openCurrentChatInMiniChat()"))
         #expect(chatView.contains("MiniChatWindowController.shared.openChat(chatId)"))
@@ -3670,17 +3743,21 @@ struct RuntimeValidationTests {
         #expect(coordinator.contains("if let summary = sanitizedWorkspaceContextValue(workspace.summary)"))
         #expect(workspaceService.contains("var sanitizedIntentSummary: String"))
         #expect(workspaceService.contains("UserFacingModelOutput.finalVisibleText(from: intentSummary)"))
-        #expect(landing.contains("info.sanitizedIntentSummary"))
+        #expect(landing.contains("info.displayText"))
         #expect(appBootstrap.contains("workspaceService.welcomeBack?.intentSummary = WelcomeBackInfo.cleanedSummaryText(from: ws.summary)"))
     }
 
-    @Test("primary launch restore does not eagerly regenerate welcome back summaries")
-    func primaryLaunchRestoreDoesNotEagerlyRegenerateWelcomeBackSummaries() throws {
+    @Test("primary launch verifies restored welcome back summaries after restore")
+    func primaryLaunchVerifiesRestoredWelcomeBackSummariesAfterRestore() throws {
         let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
+        let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
 
-        #expect(!appBootstrap.contains("await self?.refreshWelcomeBackSummary()"))
-        #expect(!appBootstrap.contains("if workspaceService.welcomeBack != nil {"))
+        #expect(appBootstrap.contains("if workspaceService.welcomeBack != nil {"))
+        #expect(appBootstrap.contains("await self?.refreshWelcomeBackSummary()"))
         #expect(appBootstrap.contains("func refreshWelcomeBackSummary() async"))
+        #expect(landing.contains("@State private var presentedWelcomeBack: WelcomeBackInfo?"))
+        #expect(landing.contains("presentedWelcomeBack = info"))
+        #expect(landing.contains(".pixelPanel(theme: theme, surface: welcomeBackPanelSurface(for: theme))"))
     }
 
     @Test("welcome back info strips reasoning artifacts from restored summaries")
@@ -3697,6 +3774,8 @@ struct RuntimeValidationTests {
 
         #expect(info.sanitizedIntentSummary == "Ship mode summary is ready.")
         #expect(!info.displayText.contains("<think>"))
+        #expect(info.displayText.contains("Resume Point"))
+        #expect(info.displayText.contains("- Ship mode summary is ready."))
         #expect(info.displayText.contains("Ship mode summary is ready."))
     }
 
@@ -4583,22 +4662,22 @@ struct RuntimeValidationTests {
         #expect(vaultIndexActor.contains("private nonisolated static func contentModificationDate("))
     }
 
-    @Test("landing search uses the liquid-wave overlay without detached hit-swallow layers")
-    func landingSearchUsesLiquidWaveOverlay() throws {
+    @Test("landing search uses the inline stage without the retired liquid wave overlay")
+    func landingSearchUsesInlineStageWithoutRetiredLiquidWaveOverlay() throws {
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
 
-        #expect(landing.contains("LandingWaveOverlay("))
         #expect(landing.contains("LiquidGreeting("))
         #expect(landing.contains("landingSearchInputLine"))
-        #expect(landing.contains("TextField(\"\", text: $landingSearchText)"))
-        #expect(landing.contains("if landingSearchText.isEmpty && !landingSearchFocused"))
+        #expect(landing.contains("ChatComposerTextEditor("))
+        #expect(landing.contains("landingSearchInlineStage"))
+        #expect(landing.contains("landingSearchStepReveal(frame: landingSearchRevealFrame"))
+        #expect(!landing.contains("LandingWaveOverlay("))
+        #expect(!landing.contains("LandingWaveHaptics.fireBeat"))
+        #expect(!landing.contains("TextField(\"\", text: $landingSearchText)"))
         #expect(!landing.contains(".frame(width: 2, height: 2)"))
         #expect(!landing.contains(".appKitPopover("))
         #expect(!landing.contains("SpatialTapGesture("))
-        #expect(landing.contains("landingTapLocation"))
-        #expect(landing.contains(".onTapGesture(coordinateSpace: .local) { location in"))
-        #expect(landing.contains("if showingSearchPopover {\n                        dismissLandingSearch()\n                        return\n                    }"))
-        #expect(landing.contains(".allowsHitTesting(false)"))
+        #expect(landing.contains("if showingLandingStageCommand {\n                        dismissLandingStageCommand()\n                        return\n                    }"))
         #expect(landing.contains("showLandingSlashMenu"))
         #expect(landing.contains("SlashCommandPopover("))
         #expect(landing.contains("handleLandingSearchTextChange(newValue)"))
@@ -4956,14 +5035,7 @@ struct RuntimeValidationTests {
 
     @Test("landing perf seams share explicit delay helpers")
     func landingAndAdminPerfSeamsShareExplicitDelayHelpers() throws {
-        let overlay = try loadRepoTextFile("Epistemos/Views/Landing/SessionIntelligenceOverlay.swift")
         let workspaceSwitcher = try loadRepoTextFile("Epistemos/Views/Landing/WorkspaceSwitcherOverlay.swift")
-
-        #expect(overlay.contains("private enum SessionIntelligenceOverlayTiming"))
-        #expect(overlay.contains("private func pause(_ duration: Duration) async -> Bool"))
-        #expect(!overlay.contains("try? await Task.sleep(for: .milliseconds(100))"))
-        #expect(!overlay.contains("try? await Task.sleep(for: .milliseconds(150))"))
-        #expect(overlay.contains("descriptor.fetchLimit = 1"))
 
         #expect(workspaceSwitcher.contains("private enum WorkspaceSwitcherOverlayTiming"))
         #expect(workspaceSwitcher.contains("private func performAfterDismiss("))
@@ -6471,10 +6543,6 @@ struct InferenceCloudSelectionTests {
             relativePath: "Epistemos/Views/Chat/ChatSidebarView.swift",
             testsFilePath: #filePath
         )
-        let sessionOverlaySource = try loadRepoTextFileWithRetry(
-            relativePath: "Epistemos/Views/Landing/SessionIntelligenceOverlay.swift",
-            testsFilePath: #filePath
-        )
         let quitSavePanelSource = try loadRepoTextFileWithRetry(
             relativePath: "Epistemos/Views/Landing/QuitSavePanelController.swift",
             testsFilePath: #filePath
@@ -6501,14 +6569,10 @@ struct InferenceCloudSelectionTests {
         #expect(!chatSidebarSource.contains("recentChats = (try? modelContext.fetch(descriptor)) ?? []"))
         #expect(chatSidebarSource.contains("ChatSidebarView: failed to fetch chats"))
 
-        #expect(!sessionOverlaySource.contains("let persisted = try? context.fetch(descriptor).first"))
-        #expect(!sessionOverlaySource.contains("guard let persisted = try? context.fetch(descriptor).first else {"))
-        #expect(!sessionOverlaySource.contains("guard let workspace = try? context.fetch(descriptor).first,"))
-        #expect(sessionOverlaySource.contains("SessionIntelligenceOverlay: failed to fetch mini chat title"))
-        #expect(sessionOverlaySource.contains("SessionIntelligenceOverlay: failed to fetch mini chat summary"))
-        #expect(sessionOverlaySource.contains("SessionIntelligenceOverlay: failed to fetch autosaved workspace summary"))
         #expect(!quitSavePanelSource.contains("if let ws = try? AppBootstrap.shared?.modelContainer.mainContext.fetch("))
-        #expect(quitSavePanelSource.contains("QuitSavePanelController: failed to fetch autosaved workspace summary"))
+        #expect(!quitSavePanelSource.contains("AI Suggestion"))
+        #expect(!quitSavePanelSource.contains("isLoadingAISuggestion"))
+        #expect(quitSavePanelSource.contains("WorkspaceSynthesisBuilder.summary(for: snapshot)"))
 
         #expect(!wordProcessorSource.contains("if let page = (try? context.fetch(descriptor))?.first"))
         #expect(!wordProcessorSource.contains("let pages = (try? context.fetch(descriptor)) ?? []"))

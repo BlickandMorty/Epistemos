@@ -1,4 +1,5 @@
 pub mod a2ui;
+pub mod acs_admission;
 pub mod agent_loop;
 pub mod agent_runtime;
 pub mod approval;
@@ -6,7 +7,10 @@ pub mod arena;
 pub mod auto_research;
 pub mod arenas;
 pub mod artifacts;
+pub mod bootstrap;
 pub mod bridge;
+pub mod browser_engine;
+pub mod cache;
 pub mod canon;
 #[cfg(feature = "pro-build")]
 pub mod channel_relay;
@@ -33,6 +37,8 @@ pub mod grammar;
 pub mod heal;
 pub mod helios;
 pub mod lattice;
+pub mod lattice_wbo;
+pub mod lifecycle;
 pub mod tamagotchi;
 pub mod live_files;
 #[cfg(feature = "lsp-runtime")]
@@ -65,9 +71,12 @@ pub mod security;
 pub mod session;
 pub mod session_insights;
 pub mod sketch;
+pub mod skill_discovery;
 pub mod skill_router;
 pub mod sovereign;
+pub mod tools_v2;
 pub mod types;
+pub mod util;
 pub mod variant_ladder;
 pub mod vault_registry;
 pub mod wbo6;
