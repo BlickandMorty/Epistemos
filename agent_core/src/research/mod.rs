@@ -31,6 +31,7 @@ pub mod eml;
 pub mod eml_integration;
 pub mod eml_ir;
 pub mod fulp_oracle;
+pub mod geometry_ir;
 pub mod hybrid_memory;
 pub mod hyperdynamic_schemas;
 pub mod info_ir;
