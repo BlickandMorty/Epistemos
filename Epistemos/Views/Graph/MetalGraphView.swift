@@ -223,11 +223,11 @@ nonisolated enum GraphInteractionRenderPolicy {
     }
 
     static func selectedNodePublishDistance(isInteracting: Bool) -> CGFloat {
-        isInteracting ? 8 : 2
+        isInteracting ? 1.5 : 1
     }
 
     static func selectedNodeSampleIntervalFrames(isInteracting: Bool) -> Int {
-        isInteracting ? 4 : 1
+        1
     }
 }
 
@@ -802,6 +802,7 @@ final class MetalGraphNSView: NSView {
     private(set) var isCommitted = false
 
     var currentEngineHandle: OpaquePointer? { engine }
+    var usesClickSelectionFallback = false
 
     private var currentGraphDrawableScale: CGFloat {
         graphDrawableScale.isFinite && graphDrawableScale > 0 ? graphDrawableScale : 1.0
@@ -1959,6 +1960,25 @@ final class MetalGraphNSView: NSView {
 
     override var acceptsFirstResponder: Bool { true }
 
+    private func activateNode(_ uuid: String) {
+        guard let graphState, let node = graphState.store.nodes[uuid] else { return }
+        if node.type == .document {
+            graphState.selectNode(uuid)
+            let manifestID = node.sourceId?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                ? node.sourceId ?? uuid
+                : uuid
+            if EpdocDocumentOpening.openDocument(
+                withManifestID: manifestID,
+                vaultURL: AppBootstrap.shared?.vaultSync.vaultURL
+            ) {
+                return
+            }
+            return
+        }
+
+        graphState.openNode(uuid)
+    }
+
     override func mouseDown(with event: NSEvent) {
         // Claim first responder on click so subsequent gestures (magnify, scroll) route here.
         if window?.firstResponder !== self {
@@ -1986,7 +2006,7 @@ final class MetalGraphNSView: NSView {
         if event.clickCount == 2 {
             if let uuidPtr = graph_engine_hovered_node_uuid(engine) {
                 let uuid = String(cString: uuidPtr)
-                graphState?.openNode(uuid)
+                activateNode(uuid)
                 return
             }
         }
@@ -2051,7 +2071,7 @@ final class MetalGraphNSView: NSView {
 
     @objc private func contextMenuGoToNode(_ sender: NSMenuItem) {
         guard let id = sender.representedObject as? String else { return }
-        graphState?.openNode(id)
+        activateNode(id)
     }
 
     @objc private func contextMenuRevealInGraph(_ sender: NSMenuItem) {
@@ -2133,8 +2153,17 @@ final class MetalGraphNSView: NSView {
 
         // Sync selection state: node click → select, background click → deselect.
         // Rust mouse_up already highlights neighbors on click and clears on background.
-        let uuidPtr = graph_engine_selected_node_uuid(engine)
-        if let uuidPtr {
+        let selectedUuidPtr = graph_engine_selected_node_uuid(engine)
+        let fallbackUuidPtr: UnsafePointer<CChar>? = {
+            guard usesClickSelectionFallback,
+                  let mouseDownLocation,
+                  hypot(loc.x - mouseDownLocation.x, loc.y - mouseDownLocation.y) < 5
+            else {
+                return nil
+            }
+            return graph_engine_hovered_node_uuid(engine)
+        }()
+        if let uuidPtr = selectedUuidPtr ?? fallbackUuidPtr {
             let uuid = String(cString: uuidPtr)
             graphState?.selectNode(uuid)
 
@@ -2205,6 +2234,14 @@ final class MetalGraphNSView: NSView {
             menu.addItem(openItem)
         }
 
+        if node.type == .document {
+            let openItem = NSMenuItem(title: "Open Document", action: #selector(contextOpenDocument(_:)), keyEquivalent: "")
+            openItem.target = self
+            openItem.representedObject = uuid
+            openItem.image = NSImage(systemSymbolName: "doc.richtext", accessibilityDescription: "Open Document")
+            menu.addItem(openItem)
+        }
+
         // "Focus" — zoom into this node's neighborhood.
         let focusItem = NSMenuItem(title: "Focus on Node", action: #selector(contextFocusNode(_:)), keyEquivalent: "")
         focusItem.target = self
@@ -2225,6 +2262,11 @@ final class MetalGraphNSView: NSView {
         isolateNode(nodeId)
         graphState?.selectNode(nodeId)
         graphState?.openNote(pageId)
+    }
+
+    @objc private func contextOpenDocument(_ sender: NSMenuItem) {
+        guard let nodeId = sender.representedObject as? String else { return }
+        activateNode(nodeId)
     }
 
     @objc private func contextFocusNode(_ sender: NSMenuItem) {

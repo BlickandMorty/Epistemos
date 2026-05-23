@@ -956,13 +956,51 @@ struct TextCapturePipelineTests {
         #expect(!source.contains("showQuickCapture.toggle()"))
     }
 
-    @Test("Quick Capture comments describe the current app-scoped sheet honestly")
+    @Test("Quick Capture comments describe the current landing overlay honestly")
     func quickCaptureSurfaceClaimsStayTruthful() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Capture/QuickCaptureView.swift")
 
-        #expect(source.contains("app-scoped capture sheet"))
+        #expect(source.contains("landing command overlay"))
         #expect(source.contains("Epistemos ⌘⇧N command"))
         #expect(!source.contains("auto-dismiss or open note"))
+    }
+
+    @Test("Quick Capture uses the home overlay path instead of a sheet")
+    func quickCaptureUsesHomeOverlayInsteadOfSheet() throws {
+        let app = try loadMirroredSourceTextFile("Epistemos/App/EpistemosApp.swift")
+        let root = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
+
+        #expect(!app.contains(".sheet(isPresented: $showQuickCapture)"))
+        #expect(root.contains("QuickCaptureView(isPresented: $showQuickCapture)"))
+        #expect(root.contains("if showQuickCapture"))
+    }
+
+    @Test("Quick Capture trace inspector uses inline pixel chrome instead of a system sheet")
+    func quickCaptureTraceInspectorUsesInlinePixelChrome() throws {
+        let captureView = try loadMirroredSourceTextFile("Epistemos/Views/Capture/QuickCaptureView.swift")
+        let traceInspector = try loadMirroredSourceTextFile("Epistemos/Views/Capture/TraceInspectorView.swift")
+
+        #expect(!captureView.contains(".sheet(isPresented: $isTraceInspectorPresented)"))
+        #expect(captureView.contains("traceInspectorOverlay"))
+        #expect(captureView.contains("TraceInspectorView(theme: theme"))
+        #expect(captureView.contains("isTraceInspectorPresented = false"))
+        #expect(traceInspector.contains("pixelPanel(theme: theme"))
+        #expect(traceInspector.contains("PixelPanelTitle(text: \"Capture Trace Inspector\""))
+        #expect(!traceInspector.contains("List(viewModel.traces)"))
+    }
+
+    @Test("Quick Capture clears text focus and restores home input on dismiss")
+    func quickCaptureRestoresHomeInputOnDismiss() throws {
+        let captureView = try loadMirroredSourceTextFile("Epistemos/Views/Capture/QuickCaptureView.swift")
+        let root = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
+
+        #expect(captureView.contains("isTextFieldFocused = false"))
+        #expect(captureView.contains("HomeWindowInputFocus.restoreAfterOverlayDismiss()"))
+        #expect(captureView.contains("close(restoreHomeFocus: false)"))
+        #expect(root.contains("enum HomeWindowInputFocus"))
+        #expect(root.contains("NSApp.keyWindow?.makeFirstResponder(nil)"))
+        #expect(root.contains("HomeWindowIdentity.surfaceHomeWindow()"))
+        #expect(root.contains("showQuickCapture = false; HomeWindowInputFocus.restoreAfterOverlayDismiss()"))
     }
 
     @Test("Shortcut Quick Capture fails rather than claiming success without a persisted note")
@@ -973,7 +1011,7 @@ struct TextCapturePipelineTests {
         #expect(source.contains("throw IntentError.creationFailed"))
     }
 
-    @Test("Quick Capture sheet success requires durable mutation envelope persistence")
+    @Test("Quick Capture overlay success requires durable mutation envelope persistence")
     func quickCaptureSheetRequiresDurableMutationEnvelopeBeforeSuccess() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Capture/QuickCaptureView.swift")
         let durableGuards = source.components(separatedBy: "guard result.mutationEnvelopePersisted else").count - 1

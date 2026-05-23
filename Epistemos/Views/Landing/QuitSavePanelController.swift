@@ -4,8 +4,8 @@ import SwiftUI
 
 // MARK: - Global Overlay Controller
 // Manages floating NSPanel overlays that appear above ALL windows (note editors, mini chats, etc.).
-// Used for workspace switcher, session intelligence, time machine, save workspace, and quit dialog.
-// Borderless panel with frosted glass blur and rounded corners — no traffic lights.
+// Used for workspace switcher, time machine, save workspace, and quit dialog.
+// Borderless panel with SwiftUI pixel-panel chrome — no traffic lights.
 
 /// NSPanel subclass that accepts key status for text input in floating overlays.
 private final class KeyablePanel: NSPanel {
@@ -32,7 +32,7 @@ final class GlobalOverlayController {
 
     var isShowing: Bool { panel != nil }
 
-    /// Show a SwiftUI view as a global floating overlay with scrim.
+    /// Show a SwiftUI view as a global floating overlay with an invisible outside-click layer.
     func show<Content: View>(
         width: CGFloat = 480,
         height: CGFloat = 500,
@@ -43,9 +43,7 @@ final class GlobalOverlayController {
         guard let screen = NSScreen.main else { return }
         self.dismissHandler = onDismiss
 
-        let isDark = AppBootstrap.shared?.uiState.theme.isDark ?? (NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua)
-
-        // Scrim — full-screen dim
+        // Outside-click layer. It stays visually clear so command panels do not dim the home surface.
         let scrim = NSWindow(
             contentRect: screen.frame,
             styleMask: [.borderless],
@@ -60,10 +58,9 @@ final class GlobalOverlayController {
         scrim.isRestorable = false
         scrim.ignoresMouseEvents = false
 
-        let scrimColor = isDark ? NSColor.black.withAlphaComponent(0.35) : NSColor.gray.withAlphaComponent(0.15)
         let scrimView = NSView(frame: screen.frame)
         scrimView.wantsLayer = true
-        scrimView.layer?.backgroundColor = scrimColor.cgColor
+        scrimView.layer?.backgroundColor = NSColor.clear.cgColor
         scrim.contentView = scrimView
 
         let clickRecognizer = NSClickGestureRecognizer(target: self, action: #selector(scrimClicked))
@@ -71,7 +68,7 @@ final class GlobalOverlayController {
         scrim.orderFront(nil)
         self.scrimWindow = scrim
 
-        // Panel — borderless, rounded corners, frosted glass
+        // Panel — borderless, SwiftUI draws the pixel panel.
         let panelRect = NSRect(
             x: screen.frame.midX - width / 2,
             y: screen.frame.midY - height / 2,
@@ -109,33 +106,18 @@ final class GlobalOverlayController {
             swiftUIView = NSHostingView(rootView: swiftUIContent)
         }
 
-        // Frosted glass backdrop with rounded corners
-        let cornerRadius: CGFloat = 16
-        let blurView = NSVisualEffectView(frame: NSRect(origin: .zero, size: panelRect.size))
-        blurView.material = isDark ? .hudWindow : .popover
-        blurView.blendingMode = .behindWindow
-        blurView.state = .active
-        blurView.wantsLayer = true
-        blurView.layer?.cornerRadius = cornerRadius
-        blurView.layer?.masksToBounds = true
-
         swiftUIView.translatesAutoresizingMaskIntoConstraints = false
-        blurView.addSubview(swiftUIView)
-        NSLayoutConstraint.activate([
-            swiftUIView.topAnchor.constraint(equalTo: blurView.topAnchor),
-            swiftUIView.bottomAnchor.constraint(equalTo: blurView.bottomAnchor),
-            swiftUIView.leadingAnchor.constraint(equalTo: blurView.leadingAnchor),
-            swiftUIView.trailingAnchor.constraint(equalTo: blurView.trailingAnchor),
-        ])
 
-        // Container view with shadow and rounded clip
         let containerView = NSView(frame: NSRect(origin: .zero, size: panelRect.size))
         containerView.wantsLayer = true
-        containerView.layer?.cornerRadius = cornerRadius
-        containerView.layer?.masksToBounds = true
-        containerView.addSubview(blurView)
-        blurView.frame = containerView.bounds
-        blurView.autoresizingMask = [.width, .height]
+        containerView.layer?.backgroundColor = NSColor.clear.cgColor
+        containerView.addSubview(swiftUIView)
+        NSLayoutConstraint.activate([
+            swiftUIView.topAnchor.constraint(equalTo: containerView.topAnchor),
+            swiftUIView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor),
+            swiftUIView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            swiftUIView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+        ])
 
         floatingPanel.contentView = containerView
         floatingPanel.makeKeyAndOrderFront(nil)
@@ -198,19 +180,6 @@ enum GlobalWorkspaceSwitcher {
     }
 }
 
-// MARK: - Session Intelligence (uses GlobalOverlayController)
-
-@MainActor
-enum GlobalSessionIntelligence {
-    static func show() {
-        GlobalOverlayController.shared.show(width: 620, height: 540) {
-            GlobalSessionIntelligenceContent(onDismiss: {
-                GlobalOverlayController.shared.dismiss()
-            })
-        }
-    }
-}
-
 // MARK: - Time Machine (uses GlobalOverlayController)
 
 @MainActor
@@ -237,8 +206,7 @@ private struct QuitSaveContent: View {
     @State private var sessionNote = ""
     @State private var existingWorkspaces: [SDWorkspace] = []
     @State private var selectedExistingId: String?
-    @State private var aiSuggestion = ""
-    @State private var isLoadingAISuggestion = false
+    @State private var appearFrame = 0
 
     private var theme: EpistemosTheme { ui.theme }
 
@@ -256,10 +224,13 @@ private struct QuitSaveContent: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Image(systemName: "square.and.arrow.down")
-                    .font(.system(size: 14, weight: .semibold))
-                Text(isQuitFlow ? "Save Before Quitting?" : "Save Workspace")
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                PixelGlyph(kind: .save, accent: theme.resolved.accent.color)
+                    .frame(width: 24, height: 24)
+                PixelPanelTitle(
+                    text: isQuitFlow ? "Save Before Quitting?" : "Save Workspace",
+                    theme: theme,
+                    size: 15
+                )
                 Spacer()
             }
             .padding(.horizontal, 24)
@@ -280,7 +251,7 @@ private struct QuitSaveContent: View {
                                     Text(mode.rawValue).font(.system(size: 12, weight: .medium, design: .rounded))
                                 }
                                 .padding(.horizontal, 14).padding(.vertical, 8)
-                                .background(saveMode == mode ? theme.resolved.accent.color.opacity(0.12) : theme.resolved.foreground.color.opacity(0.04), in: Capsule())
+                                .background(saveMode == mode ? theme.resolved.accent.color.opacity(0.12) : theme.resolved.foreground.color.opacity(0.04), in: Rectangle())
                                 .foregroundStyle(saveMode == mode ? theme.resolved.accent.color : theme.textSecondary)
                             }
                             .buttonStyle(.plain)
@@ -307,7 +278,7 @@ private struct QuitSaveContent: View {
                                         Text(ws.updatedAt, style: .relative).font(.system(size: 10, design: .rounded)).foregroundStyle(theme.textTertiary)
                                     }
                                     .padding(.horizontal, 10).padding(.vertical, 6)
-                                    .background(selectedExistingId == ws.id ? theme.resolved.accent.color.opacity(0.06) : .clear, in: RoundedRectangle(cornerRadius: 8))
+                                    .background(selectedExistingId == ws.id ? theme.resolved.accent.color.opacity(0.06) : .clear, in: Rectangle())
                                     .contentShape(Rectangle())
                                 }.buttonStyle(.plain)
                             }
@@ -320,33 +291,6 @@ private struct QuitSaveContent: View {
                             .textFieldStyle(.roundedBorder).font(.system(size: 13)).lineLimit(3, reservesSpace: true)
                     }
 
-                    // AI summary suggestion
-                    if isLoadingAISuggestion {
-                        HStack(spacing: 6) {
-                            ProgressView().controlSize(.small).scaleEffect(0.7)
-                            Text("Generating summary...").font(.system(size: 11, design: .rounded)).foregroundStyle(theme.textTertiary)
-                        }
-                    } else if !aiSuggestion.isEmpty {
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Text("AI Suggestion").font(.system(size: 12, weight: .semibold, design: .rounded)).foregroundStyle(theme.textTertiary)
-                                Spacer()
-                                Button("Use This") {
-                                    sessionNote = aiSuggestion
-                                }
-                                .buttonStyle(.plain)
-                                .font(.system(size: 11, weight: .medium, design: .rounded))
-                                .foregroundStyle(theme.resolved.accent.color)
-                            }
-                            Text(aiSuggestion)
-                                .font(.system(size: 12, design: .rounded))
-                                .foregroundStyle(theme.textSecondary)
-                                .italic()
-                                .lineLimit(3)
-                        }
-                        .padding(10)
-                        .background(theme.resolved.foreground.color.opacity(0.03), in: RoundedRectangle(cornerRadius: 8))
-                    }
                 }
                 .padding(.horizontal, 24).padding(.vertical, 16)
             }
@@ -361,42 +305,30 @@ private struct QuitSaveContent: View {
                 Spacer()
                 Button("Cancel") { onComplete(false) }
                     .buttonStyle(.plain).foregroundStyle(theme.textSecondary).font(.system(size: 12, weight: .medium, design: .rounded))
-                    .padding(.horizontal, 14).padding(.vertical, 8).background(theme.resolved.foreground.color.opacity(0.05), in: Capsule())
+                    .padding(.horizontal, 14).padding(.vertical, 8).background(theme.resolved.foreground.color.opacity(0.05), in: Rectangle())
                 Button(isQuitFlow ? "Save & Quit" : "Save") { performSave() }
                     .buttonStyle(.plain).foregroundStyle(.white).font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .padding(.horizontal, 18).padding(.vertical, 8).background(theme.resolved.accent.color, in: Capsule())
+                    .padding(.horizontal, 18).padding(.vertical, 8).background(theme.resolved.accent.color, in: Rectangle())
                     .disabled(saveMode == .saveNew && workspaceName.trimmingCharacters(in: .whitespaces).isEmpty)
                     .opacity(saveMode == .saveNew && workspaceName.trimmingCharacters(in: .whitespaces).isEmpty ? 0.5 : 1)
             }
             .padding(.horizontal, 24).padding(.vertical, 14)
         }
         .foregroundStyle(theme.resolved.foreground.color)
+        .pixelPanel(theme: theme)
+        .pixelStepAppear(frame: appearFrame)
+        .background(Color.clear)
         .onAppear {
+            Task { @MainActor in
+                await PixelStepMotion.play(reduceMotion: reduceMotion) { frame in
+                    appearFrame = frame
+                }
+            }
             existingWorkspaces = AppBootstrap.shared?.workspaceService.listWorkspaces() ?? []
             selectedExistingId = existingWorkspaces.first?.id
-            // Pre-fill from existing workspace summary if updating
+            // Default to updating the latest workspace when one already exists.
             if !existingWorkspaces.isEmpty {
                 saveMode = .updateCurrent
-            }
-            // Generate AI summary suggestion
-            Task { @MainActor in
-                isLoadingAISuggestion = true
-                let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
-                let summary: String?
-                do {
-                    summary = try AppBootstrap.shared?.modelContainer.mainContext.fetch(
-                        FetchDescriptor(predicate: predicate)
-                    ).first?.summary
-                } catch {
-                    Log.app.error(
-                        "QuitSavePanelController: failed to fetch autosaved workspace summary: \(error.localizedDescription, privacy: .public)"
-                    )
-                    summary = nil
-                }
-                if let summary, !summary.isEmpty {
-                    aiSuggestion = summary
-                }
-                isLoadingAISuggestion = false
             }
         }
     }
@@ -447,8 +379,10 @@ private struct QuitSaveContent: View {
         case .updateCurrent:
             if let id = selectedExistingId, let existing = existingWorkspaces.first(where: { $0.id == id }) {
                 let data: Data
+                let snapshot = ws.captureSnapshot()
+                let liveSummary = WorkspaceSynthesisBuilder.summary(for: snapshot)
                 do {
-                    data = try JSONEncoder().encode(ws.captureSnapshot())
+                    data = try JSONEncoder().encode(snapshot)
                 } catch {
                     Log.app.error("QuitSavePanelController: failed to encode workspace update: \(error.localizedDescription, privacy: .public)")
                     onComplete(false)
@@ -457,8 +391,12 @@ private struct QuitSaveContent: View {
                 let originalSnapshotData = existing.snapshotData
                 let originalUpdatedAt = existing.updatedAt
                 let originalExistingUserNote = existing.userNote
+                let originalSummary = existing.summary
+                let originalLastSummaryAt = existing.lastSummaryAt
                 existing.snapshotData = data
                 existing.updatedAt = Date()
+                existing.summary = liveSummary
+                existing.lastSummaryAt = Date()
                 if !note.isEmpty {
                     existing.userNote = note
                 }
@@ -468,6 +406,8 @@ private struct QuitSaveContent: View {
                     existing.snapshotData = originalSnapshotData
                     existing.updatedAt = originalUpdatedAt
                     existing.userNote = originalExistingUserNote
+                    existing.summary = originalSummary
+                    existing.lastSummaryAt = originalLastSummaryAt
                     Log.app.error(
                         "QuitSavePanelController: failed to save updated workspace '\(existing.name, privacy: .public)': \(error.localizedDescription, privacy: .public)"
                     )
@@ -484,22 +424,22 @@ private struct QuitSaveContent: View {
 
 // MARK: - Thin wrappers that delegate to existing overlay views with a dismiss callback
 
+struct SaveWorkspaceInlineView: View {
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        QuitSaveContent(isQuitFlow: false) { _ in
+            isPresented = false
+            HomeWindowInputFocus.restoreAfterOverlayDismiss()
+        }
+    }
+}
+
 struct GlobalWorkspaceSwitcherContent: View {
     let onDismiss: () -> Void
     @State private var isPresented = true
     var body: some View {
         WorkspaceSwitcherOverlay(isPresented: $isPresented)
-            .onChange(of: isPresented) { _, new in
-                if !new { onDismiss() }
-            }
-    }
-}
-
-struct GlobalSessionIntelligenceContent: View {
-    let onDismiss: () -> Void
-    @State private var isPresented = true
-    var body: some View {
-        SessionIntelligenceOverlay(isPresented: $isPresented)
             .onChange(of: isPresented) { _, new in
                 if !new { onDismiss() }
             }

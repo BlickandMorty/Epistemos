@@ -336,12 +336,10 @@ final class HologramOverlay {
     /// Companion panel: holds the inspector alongside the mini graph when minimized.
     private var miniInspectorPanel: GraphOverlayPanel?
     private(set) var isMinimized = false
-    /// When true the inspector shows INSIDE the graph panel (the
-    /// `inspectorHostView`); when false it shows in the external
-    /// `miniInspectorPanel`. Per user 2026-05-10: outside-by-default
-    /// with a button to pop it in; embedded variant has a button to
-    /// pop it back out.
-    private(set) var inspectorEmbeddedInGraph = false
+    /// When true the inspector shows INSIDE the graph panel and follows
+    /// the selected node. The external miniInspectorPanel remains available
+    /// via the pop-out button, but the default is the attached in-graph card.
+    private(set) var inspectorEmbeddedInGraph = true
     /// Floating pop-out button shown at the embedded inspector's
     /// top-right corner. Sibling of `inspectorHostView` on the panel's
     /// contentView (NOT a child of the NSHostingView, which would
@@ -356,6 +354,7 @@ final class HologramOverlay {
     private var lastForceAlive = false
     private var inspectorRepositionTask: Task<Void, Never>?
     private var lastInspectorFrame: CGRect?
+    private var lastInspectorNodeId: String?
     private var lastQueuedInspectorAnchor: CGPoint?
     private var lastQueuedInspectorMode: NodeInspectorState.InspectorMode?
     private var minimizeObserver: Any?
@@ -821,6 +820,7 @@ final class HologramOverlay {
         graphView.isOverlayMode = true
         graphView.setLightMode(GraphOverlayThemeStyle.lightModeEnabled(for: theme))
         graphView.isMiniMode = true
+        graphView.usesClickSelectionFallback = true
         self.metalView = graphView
 
         let panel = createMiniPanel()
@@ -1148,9 +1148,9 @@ final class HologramOverlay {
     ) -> CGSize {
         switch mode {
         case .profile:
-            CGSize(width: 380, height: 500)
+            CGSize(width: 330, height: 520)
         case .editor:
-            CGSize(width: 620, height: 600)
+            CGSize(width: 330, height: 520)
         }
     }
 
@@ -1159,9 +1159,9 @@ final class HologramOverlay {
     ) -> CGSize {
         switch mode {
         case .profile:
-            CGSize(width: 380, height: 620)
+            CGSize(width: 330, height: 520)
         case .editor:
-            CGSize(width: 620, height: 620)
+            CGSize(width: 330, height: 520)
         }
     }
 
@@ -1200,33 +1200,83 @@ final class HologramOverlay {
         guard graphState.currentRoute.isCanvas else {
             inspectorHostView.isHidden = true
             lastInspectorFrame = nil
+            lastInspectorNodeId = nil
+            return
+        }
+
+        guard graphState.selectedNodeId != nil else {
+            inspectorHostView.isHidden = true
+            lastInspectorFrame = nil
+            lastInspectorNodeId = nil
             return
         }
 
         let bounds = contentView.bounds
         let dimensions = inspectorDimensions(for: inspectorState.inspectorMode)
-
-        let topInset: CGFloat = 80
-        let bottomInset: CGFloat = 20
-
-        // Default inspector always sits in the top-right corner.
-        // Pinned inspectors (managed separately) follow their nodes.
-        // User 2026-04-04: "by default it should not be pinned to a node."
-        let inspectorWidth = dimensions.width
-        let inspectorHeight = min(dimensions.height, bounds.height - topInset - bottomInset)
-        let targetFrame = CGRect(
-            x: bounds.width - inspectorWidth - 40,
-            y: bounds.height - inspectorHeight - topInset,
-            width: inspectorWidth,
-            height: inspectorHeight
+        let selectedNodeId = graphState.selectedNodeId
+        let isNewSelection = selectedNodeId != lastInspectorNodeId
+        let targetFrame = attachedInspectorFrame(
+            in: bounds,
+            dimensions: dimensions,
+            anchor: graphState.selectedNodeScreenPoint
         )
-        guard shouldApplyInspectorFrame(targetFrame) else {
-            inspectorHostView.isHidden = (graphState.selectedNodeId == nil)
+        lastInspectorNodeId = selectedNodeId
+
+        guard isNewSelection || shouldApplyInspectorFrame(targetFrame) else {
+            inspectorHostView.isHidden = false
             return
         }
-        inspectorHostView.frame = targetFrame
+
+        applyInspectorFrame(targetFrame, to: inspectorHostView, animated: isNewSelection)
         lastInspectorFrame = targetFrame
-        inspectorHostView.isHidden = (graphState.selectedNodeId == nil)
+        inspectorHostView.isHidden = false
+    }
+
+    private func attachedInspectorFrame(
+        in bounds: CGRect,
+        dimensions: CGSize,
+        anchor: CGPoint?
+    ) -> CGRect {
+        let margin: CGFloat = 16
+        let gap: CGFloat = 20
+        let availableWidth = max(160, bounds.width - margin * 2)
+        let availableHeight = max(160, bounds.height - margin * 2)
+        let width = min(dimensions.width, availableWidth)
+        let height = min(dimensions.height, availableHeight)
+        let anchor = anchor ?? CGPoint(x: bounds.midX, y: bounds.midY)
+
+        var x = anchor.x + gap
+        if x + width > bounds.maxX - margin {
+            x = anchor.x - width - gap
+        }
+        let minX = bounds.minX + margin
+        let maxX = max(minX, bounds.maxX - width - margin)
+        x = min(max(x, minX), maxX)
+
+        var y = anchor.y - height * 0.28
+        let minY = bounds.minY + margin
+        let maxY = max(minY, bounds.maxY - height - margin)
+        y = min(max(y, minY), maxY)
+
+        return CGRect(x: x, y: y, width: width, height: height)
+    }
+
+    private func applyInspectorFrame(_ targetFrame: CGRect, to view: NSView, animated: Bool) {
+        view.wantsLayer = true
+        guard animated, !reduceMotionEnabled else {
+            view.alphaValue = 1
+            view.frame = targetFrame
+            return
+        }
+
+        view.alphaValue = 0
+        view.frame = targetFrame.offsetBy(dx: 0, dy: 4)
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.18
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            view.animator().alphaValue = 1
+            view.animator().frame = targetFrame
+        }
     }
 
     private func shouldApplyInspectorFrame(_ targetFrame: CGRect) -> Bool {
@@ -1377,21 +1427,59 @@ final class HologramOverlay {
                 guard !Task.isCancelled, let s = self else { return }
                 let hasSelection = s.graphState.selectedNodeId != nil
                 if hasSelection {
-                    if s.inspectorEmbeddedInGraph {
-                        // Embedded variant: show inspectorHostView inside
-                        // the graph panel, don't open the external panel.
+                    s.syncInspectorStateWithGraphSelection()
+                    if s.inspectorEmbeddedInGraph, s.inspectorHostView != nil {
                         s.inspectorHostView?.isHidden = false
                         s.scheduleInspectorReposition()
                     } else if s.isMinimized {
                         s.showMiniInspector()
                     }
                 } else {
+                    s.syncInspectorStateWithGraphSelection()
                     s.inspectorHostView?.isHidden = true
+                    s.lastInspectorFrame = nil
+                    s.lastInspectorNodeId = nil
                     s.hideMiniInspector()
                 }
                 s.syncInspectorEjectButtonLayout()
             }
         }
+    }
+
+    private func syncInspectorStateWithGraphSelection() {
+        guard let modelContext = modelContainer?.mainContext else { return }
+        guard let nodeId = graphState.selectedNodeId else {
+            inspectorState.clearSelection()
+            return
+        }
+        guard let node = graphState.store.nodes[nodeId] else {
+            inspectorState.clearSelection()
+            graphState.requestGraphRebuild()
+            return
+        }
+        inspectorState.selectNode(node, store: graphState.store, modelContext: modelContext)
+    }
+
+    private func revealGraphNode(_ nodeId: String, graphView: MetalGraphNSView?) {
+        guard graphState.store.nodes[nodeId] != nil else {
+            graphState.requestGraphRebuild()
+            return
+        }
+
+        if !graphState.currentRoute.isCanvas {
+            graphState.returnToCanvas()
+        }
+
+        graphState.cleanupEphemeralNodes()
+        graphState.mode = .global
+        graphState.clearFocus()
+        graphState.selectNode(nodeId)
+        graphState.pendingCenterNodeId = nodeId
+        graphState.requestModeSync()
+        graphState.requestFilterSync()
+        syncInspectorStateWithGraphSelection()
+        graphView?.isolateNode(nodeId)
+        scheduleInspectorReposition()
     }
 
     /// Toggle whether the inspector lives inside the graph panel
@@ -1914,6 +2002,7 @@ final class HologramOverlay {
         graphView.dialogueChatState = dialogueChatState
         graphView.isOverlayMode = true
         graphView.isMiniMode = true
+        graphView.usesClickSelectionFallback = true
         graphView.setLightMode(GraphOverlayThemeStyle.lightModeEnabled(for: theme))
         graphView.autoresizingMask = [.width, .height]
         contentView.addSubview(graphView)
@@ -2004,8 +2093,7 @@ final class HologramOverlay {
             inspectorState: inspectorState,
             modelContext: modelContainer?.mainContext
         ) { [weak graphView, weak self] uuid in
-            graphView?.isolateNode(uuid)
-            self?.graphState.selectNode(uuid)
+            self?.revealGraphNode(uuid, graphView: graphView)
         }
         let sidebarView = HologramOverlayHostedViewBuilder.host(sidebarRoot)
         sidebarView.translatesAutoresizingMaskIntoConstraints = false

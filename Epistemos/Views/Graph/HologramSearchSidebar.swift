@@ -879,7 +879,8 @@ struct HologramSearchSidebar: View {
                 content: displayText,
                 theme: theme,
                 rippleStyle: .none,
-                foregroundOverride: theme.userBubbleText
+                foregroundOverride: theme.userBubbleText,
+                typographyRole: .user
             )
             .textSelection(.enabled)
             .padding(.horizontal, 16)
@@ -1111,6 +1112,19 @@ private struct NodeRowButton: View {
                     NoteWindowManager.shared.open(pageId: pageId)
                 } label: {
                     Label("Open in Notes", systemImage: "doc.text")
+                }
+            }
+            if node.type == .document {
+                Button {
+                    let manifestID = node.sourceId?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+                        ? node.sourceId ?? node.id
+                        : node.id
+                    EpdocDocumentOpening.openDocument(
+                        withManifestID: manifestID,
+                        vaultURL: AppBootstrap.shared?.vaultSync.vaultURL
+                    )
+                } label: {
+                    Label("Open Document", systemImage: "doc.richtext")
                 }
             }
             Button {

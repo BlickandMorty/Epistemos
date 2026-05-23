@@ -100,6 +100,15 @@ struct TaggedMarkdownTextView: View {
                 ClaudeAppTypography.userFont(size: size)
             }
         }
+
+        func strongFont(size: CGFloat) -> Font {
+            switch self {
+            case .assistant:
+                ClaudeAppTypography.assistantFont(size: size, weight: .semibold)
+            case .user:
+                ClaudeAppTypography.monoFont(size: size, weight: .semibold)
+            }
+        }
     }
 
     let content: String
@@ -182,7 +191,7 @@ struct TaggedMarkdownTextView: View {
     }
 
     private var strongBodyFont: Font {
-        ClaudeAppTypography.monoFont(size: bodyFontSize, weight: .semibold)
+        typographyRole.strongFont(size: bodyFontSize)
     }
 
     private var renderUnits: [MarkdownRenderUnit] {
@@ -554,7 +563,7 @@ struct TaggedMarkdownTextView: View {
                 cell,
                 baseFontSize: 13,
                 strongForegroundColor: theme.chatStrongForeground,
-                strongFont: ClaudeAppTypography.monoFont(size: 13, weight: .semibold)
+                strongFont: typographyRole.strongFont(size: 13)
             )
             .font(typographyRole.font(size: 13))
             .foregroundStyle(bodyForeground.opacity(isHeader ? 1.0 : 0.85))

@@ -2,6 +2,7 @@ import AppKit
 import OSLog
 import SwiftData
 import SwiftUI
+import UniformTypeIdentifiers
 
 enum LandingShortcutDisplay {
     static let fontSize: CGFloat = 12
@@ -31,6 +32,8 @@ enum LandingShortcutDisplay {
 
 enum LandingSearchLayout {
     static let maxWidth: CGFloat = 900
+    static let stageWidth: CGFloat = 760
+    static let searchLineWidth: CGFloat = 720
     static let topRowSpacing: CGFloat = 14
     static let controlRowSpacing: CGFloat = 8
     static let controlRowTopPadding: CGFloat = 10
@@ -38,7 +41,7 @@ enum LandingSearchLayout {
     static let topPadding: CGFloat = 20
     static let bottomPadding: CGFloat = 18
     static let cornerRadius: CGFloat = 24
-    static let inputFontSize: CGFloat = 22
+    static let inputFontSize: CGFloat = 24
     static let inputMinHeight: CGFloat = ChatComposerInputMetrics.minHeight(for: inputFontSize)
 }
 
@@ -51,6 +54,22 @@ enum LandingViewStateSync {
     static func reassertHomeSurface(_ ui: UIState) {
         ui.setActivePanel(.home)
         ui.homeTab = .home
+    }
+}
+
+private enum LandingInlineCommand: Equatable {
+    case quickCapture
+    case workspaces
+    case saveWorkspace
+    case timeMachine
+
+    var minStageHeight: CGFloat {
+        switch self {
+        case .quickCapture: 350
+        case .workspaces: 380
+        case .saveWorkspace: 380
+        case .timeMachine: 420
+        }
     }
 }
 
@@ -67,12 +86,14 @@ struct LandingView: View {
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(DailyBriefState.self) private var dailyBrief
     @Environment(GraphState.self) private var graphState
+    @Environment(ContextualShadowsState.self) private var contextualShadows
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(MainChatOperatingModePreference.defaultsKey)
     private var mainChatOperatingModeRaw = EpistemosOperatingMode.fast.rawValue
 
     @State private var showWelcomeBack = false
+    @State private var presentedWelcomeBack: WelcomeBackInfo?
     @State private var welcomeBackDismissTask: Task<Void, Never>?
 
     /// Simulation Mode v1.6 — sheet presentation state for the Farm
@@ -103,21 +124,28 @@ struct LandingView: View {
     @State private var landingReferencePopoverStyle: ComposerReferencePopoverStyle = .mention
     @State private var landingReferenceSearch = ComposerReferenceSearchState()
     @State private var landingContextAttachments: [ContextAttachment] = []
-    /// Last tap location on the landing background. The liquid-wave overlay
-    /// anchors the compact flat bar at this point so the bar emerges where
-    /// the cursor clicked.
-    @State private var landingTapLocation: CGPoint? = nil
-    /// Monotonic counter bumped on every tap so the Metal renderer can
-    /// enqueue a fresh drop-impulse choreography even when the tap location
-    /// is unchanged (repeat clicks on the same spot).
-    @State private var landingWaveDropTrigger: Int = 0
-    /// Focus proxy for the hidden keystroke-capture text field that feeds
-    /// the greeting's inline search prompt.
-    @FocusState private var landingSearchFocused: Bool
-
+    @State private var landingFileAttachments: [FileAttachment] = []
+    @State private var landingToolsExpanded = false
+    @State private var landingSearchLabelHovered = false
+    @State private var landingVoiceDraftPrefix: String?
+    @State private var landingRecallDebounceBox = ChatRecallDebounceBox()
+    @State private var landingSearchRevealFrame = 0
+    @State private var landingSearchRevealTask: Task<Void, Never>?
+    @State private var landingGreetingReturnFrame = 4
+    @State private var landingGreetingReturnTask: Task<Void, Never>?
+    @State private var activeLandingInlineCommand: LandingInlineCommand?
     private var theme: EpistemosTheme { ui.theme.surfaceVariant(.landing) }
     private var showingBrief: Bool { dailyBrief.showDailyBrief }
     private var showingOverlay: Bool { showingBrief || showWelcomeBack }
+    private var showingLandingStageCommand: Bool {
+        showingSearchPopover || activeLandingInlineCommand != nil
+    }
+    private var landingStageMinHeight: CGFloat {
+        if showingSearchPopover {
+            return landingToolsExpanded ? 330 : 250
+        }
+        return activeLandingInlineCommand?.minStageHeight ?? 220
+    }
     private var trimmedLandingSearchText: String {
         landingSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -126,17 +154,6 @@ struct LandingView: View {
     }
     private var landingSearchPlaceholder: String {
         "Ask Epistemos..."
-    }
-    private var landingSearchAccent: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color(hue: 0.75, saturation: 0.5, brightness: 0.9),
-                Color(hue: 0.55, saturation: 0.5, brightness: 0.95),
-                Color(hue: 0.05, saturation: 0.5, brightness: 0.95),
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
     }
     private var ambientManifest: VaultManifest? {
         vaultSync.ambientManifest ?? AppBootstrap.shared?.ambientManifest
@@ -195,6 +212,30 @@ struct LandingView: View {
             ).rawValue
         }
     }
+    private var landingIsCloudSelection: Bool {
+        switch inference.preferredChatModelSelection {
+        case .cloud: true
+        case .localMLX, .appleIntelligence: false
+        }
+    }
+    private var landingEffectiveCapability: ChatCapability {
+        if chat.isAgentExecuting {
+            return chat.currentCapability
+        }
+        guard !trimmedLandingSearchText.isEmpty else {
+            return chat.currentCapability
+        }
+        return ChatCapability.predictIntent(
+            text: trimmedLandingSearchText,
+            isCloudProvider: landingIsCloudSelection
+        ).predicted
+    }
+    private var landingAttachmentCount: Int {
+        landingContextAttachments.count + landingFileAttachments.count
+    }
+    private var landingAllNotesContextAttached: Bool {
+        landingContextAttachments.contains { $0.kind == .allNotes }
+    }
     private var operatingModeBinding: Binding<EpistemosOperatingMode> {
         Binding(
             get: { selectedOperatingMode },
@@ -232,48 +273,18 @@ struct LandingView: View {
             // their own clicks first, so only background taps fall through.
             // Suppressed while any overlay (brief / welcome back / search) is
             // up so it can't re-trigger search when user taps the scrim.
-            // Tap background — captures the tap location and hosts the
-            // NSPopover anchor so the popover arrow points at the cursor.
-            // The whole layer is gated off while a popover / overlay is open
-            // (controlled by `.allowsHitTesting` on the shape below) so it
-            // never swallows Esc / outside-click dismissal paths.
             Color.clear
                 .contentShape(Rectangle())
-                .onTapGesture(coordinateSpace: .local) { location in
+                .onTapGesture {
                     guard !showingOverlay else { return }
-                    if showingSearchPopover {
-                        dismissLandingSearch()
+                    if showingLandingStageCommand {
+                        dismissLandingStageCommand()
                         return
                     }
-                    landingTapLocation = location
-                    landingWaveDropTrigger &+= 1
-                    LandingWaveHaptics.fireBeat(
-                        reduceMotion: reduceMotion,
-                        windowOccluded: ui.windowOccluded
-                    )
                     activateLandingSearch()
                 }
                 .allowsHitTesting(!showingOverlay)
                 .zIndex(0)
-
-            // ── Liquid Wave Overlay ──
-            // Full-surface Metal wave + tap-to-dismiss scrim. The search
-            // input itself lives inside `LiquidGreeting` — the greeting
-            // backspaces away, types `search: `, and receives typed text
-            // live. That lets the landing feel like a single continuous
-            // typewriter session rather than a popover over a page.
-            if showingSearchPopover {
-                LandingWaveOverlay(
-                    isActive: $showingSearchPopover,
-                    clickLocation: landingTapLocation,
-                    cursorDirection: .zero,
-                    dropTrigger: landingWaveDropTrigger,
-                    onDismiss: { dismissLandingSearch() }
-                )
-                .transition(.opacity)
-                .allowsHitTesting(false)
-                .zIndex(0.5)
-            }
 
             // ── Home Content Router (Phase 1 — embed-in-home) ──
             // When `ui.homeContent == .greeting` (default), the landing
@@ -302,12 +313,28 @@ struct LandingView: View {
 
             // Agent dock — hidden when the embedded graph is up so it
             // doesn't compete with the graph's right-side inspector.
-            if ui.homeContent == .greeting {
+            if ui.homeContent == .greeting && !showingLandingStageCommand {
                 landingAgentDock
                     .opacity(showingOverlay ? 0.45 : 1)
-                    .allowsHitTesting(!showingOverlay && !showingSearchPopover)
+                    .allowsHitTesting(!showingOverlay)
                     .transition(.opacity)
                     .zIndex(2)
+            }
+
+            if farmShowingCreate, let bootstrap = AppBootstrap.shared {
+                Color.clear
+                    .ignoresSafeArea()
+                    .contentShape(Rectangle())
+                    .onTapGesture { farmShowingCreate = false }
+                    .zIndex(3.5)
+
+                CompanionCreationFlow(
+                    companionState: bootstrap.companionState,
+                    theme: theme,
+                    onDismiss: { farmShowingCreate = false }
+                )
+                .transition(.opacity)
+                .zIndex(4)
             }
 
             // ── Daily Brief Mode ──
@@ -320,7 +347,7 @@ struct LandingView: View {
 
             // ── Welcome Back Mode ──
             // Shows after workspace auto-restore with session summary.
-            if showWelcomeBack, let info = AppBootstrap.shared?.workspaceService.welcomeBack {
+            if showWelcomeBack, let info = presentedWelcomeBack {
                 welcomeBackContent(info: info)
                     .transition(.opacity.combined(with: .scale(scale: 0.97)))
                     .zIndex(2)
@@ -378,22 +405,38 @@ struct LandingView: View {
         .onDisappear {
             welcomeBackDismissTask?.cancel()
             welcomeBackDismissTask = nil
+            showWelcomeBack = false
+            presentedWelcomeBack = nil
+            landingSearchRevealTask?.cancel()
+            landingSearchRevealTask = nil
+            landingGreetingReturnTask?.cancel()
+            landingGreetingReturnTask = nil
+            activeLandingInlineCommand = nil
         }
         .background {
             // Hidden ⌘N shortcut — creates new note and teleports there
-            Button(action: { createAndOpenNote() }) {}
+            Button(action: {
+                HapticHelper.homeCommand(.newNote)
+                createAndOpenNote()
+            }) {}
                 .keyboardShortcut("n", modifiers: .command)
                 .frame(width: 0, height: 0)
                 .opacity(0)
                 .allowsHitTesting(false)
 
-            Button(action: { createAndOpenDocument() }) {}
+            Button(action: {
+                HapticHelper.homeCommand(.document)
+                createAndOpenDocument()
+            }) {}
                 .keyboardShortcut("n", modifiers: [.command, .option])
                 .frame(width: 0, height: 0)
                 .opacity(0)
                 .allowsHitTesting(false)
 
-            Button(action: { MiniChatWindowController.shared.openNewChat() }) {}
+            Button(action: {
+                HapticHelper.homeCommand(.miniChat)
+                MiniChatWindowController.shared.openNewChat()
+            }) {}
                 .keyboardShortcut("3", modifiers: .command)
                 .frame(width: 0, height: 0)
                 .opacity(0)
@@ -404,14 +447,20 @@ struct LandingView: View {
             //   - `.miniPanel`: existing behavior (floating panel toggle)
             //   - `.embedded`: flips `ui.homeContent` between
             //     `.greeting` and `.graph` for the inline embed.
-            Button(action: { toggleGraphForCurrentLocation() }) {}
+            Button(action: {
+                HapticHelper.homeCommand(.graph)
+                toggleGraphForCurrentLocation()
+            }) {}
                 .keyboardShortcut("g", modifiers: .command)
                 .frame(width: 0, height: 0)
                 .opacity(0)
                 .allowsHitTesting(false)
 
             // Hidden ⌘I shortcut — open Quick Capture immediately
-            Button(action: { openQuickCapture() }) {}
+            Button(action: {
+                HapticHelper.homeCommand(.capture)
+                openQuickCapture()
+            }) {}
                 .keyboardShortcut("i", modifiers: .command)
                 .frame(width: 0, height: 0)
                 .opacity(0)
@@ -419,8 +468,8 @@ struct LandingView: View {
 
         }
         .onKeyPress(.escape) {
-            if showingSearchPopover {
-                dismissLandingSearch()
+            if showingLandingStageCommand {
+                dismissLandingStageCommand()
                 return .handled
             }
             if showWelcomeBack {
@@ -437,18 +486,8 @@ struct LandingView: View {
             }
             return .ignored
         }
-        // Companion Farm sheets — present from `farmShowingCreate`
-        // / `farmDeleteTarget` / `farmShowingRestore`. Each sheet routes through its own
+        // Companion Farm sheets — destructive/restore actions still route through their own
         // canonical state surface (CompanionState + SovereignGate).
-        .sheet(isPresented: $farmShowingCreate) {
-            if let bootstrap = AppBootstrap.shared {
-                CompanionCreationFlow(
-                    companionState: bootstrap.companionState,
-                    theme: theme,
-                    onDismiss: { farmShowingCreate = false }
-                )
-            }
-        }
         .sheet(item: $farmDeleteTarget) { entry in
             if let bootstrap = AppBootstrap.shared {
                 CompanionDeleteSheet(
@@ -481,163 +520,178 @@ struct LandingView: View {
 
     private var greetingContent: some View {
         VStack(spacing: 0) {
-            Spacer()
+            Spacer(minLength: showingLandingStageCommand ? 24 : 0)
 
             VStack(spacing: 18) {
-                ZStack {
-                    LiquidGreeting(
-                        retractNow: .constant(false),
-                        searchMode: false,
-                        searchText: ""
-                    )
-                    .opacity(showingSearchPopover ? 0 : 1)
-                    .allowsHitTesting(false)
-
-                    if showingSearchPopover {
-                        landingSearchInputLine
-                            .transition(.opacity)
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .overlay(alignment: .bottom) {
-                    if showingSearchPopover {
-                        VStack(spacing: 8) {
-                        ChatBrainPickerMenu(
-                            operatingMode: operatingModeBinding,
-                            availableOperatingModes: supportedOperatingModes,
-                            isTemporaryChatEnabled: incognitoBinding
-                        )
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .opacity(0.7)
-
-                        landingInlineContextChips
-
-                        landingSearchControlsRow
-                    }
-                        .transition(.opacity.combined(with: .offset(y: -6)))
-                        .offset(y: 78)
-                        .allowsHitTesting(true)
-                    }
-                }
+                landingGreetingStage
             }
             .padding(.horizontal, Spacing.xxl)
-            .allowsHitTesting(showingSearchPopover)
+            .allowsHitTesting(showingLandingStageCommand)
 
-            Spacer()
+            Spacer(minLength: showingLandingStageCommand ? 42 : 0)
 
-                // Intelligence row (workspace & session commands)
-                HStack(spacing: LandingShortcutDisplay.shortcutRowSpacing) {
-                    CommandHint(modIcon: "control", key: "\u{2318}W", label: "Workspaces", theme: theme) {
-                        NotificationCenter.default.post(name: .toggleWorkspaceSwitcher, object: nil)
-                    }
-                    .springEntrance(index: 0, stagger: 0.08)
-
-                    Circle()
-                        .fill(theme.textTertiary.opacity(0.3))
-                        .frame(width: 3, height: 3)
-
-                    CommandHint(modIcon: "control", key: "\u{2318}S", label: "Save Workspace", theme: theme) {
-                        NotificationCenter.default.post(name: .showSaveWorkspacePanel, object: nil)
-                    }
-                    .springEntrance(index: 1, stagger: 0.08)
-
-                    Circle()
-                        .fill(theme.textTertiary.opacity(0.3))
-                        .frame(width: 3, height: 3)
-
-                    CommandHint(modIcon: "control", key: "\u{2318}R", label: "Session Intelligence", theme: theme) {
-                        NotificationCenter.default.post(name: .toggleSessionIntelligence, object: nil)
-                    }
-                    .springEntrance(index: 2, stagger: 0.08)
-
-                    Circle()
-                        .fill(theme.textTertiary.opacity(0.3))
-                        .frame(width: 3, height: 3)
-
-                    CommandHint(modIcon: "control", key: "\u{2318}T", label: "Time Machine", theme: theme) {
-                        NotificationCenter.default.post(name: .toggleTimeMachine, object: nil)
-                    }
-                    .springEntrance(index: 3, stagger: 0.08)
-                }
-                .padding(.bottom, 12)
-
-                // Core shortcut hints
-                HStack(spacing: LandingShortcutDisplay.shortcutRowSpacing) {
-                    CommandHint(icon: "magnifyingglass", label: "Click to search", theme: theme) {
-                        activateLandingSearch()
-                    }
-                    .springEntrance(index: 0, stagger: 0.08)
-
-                    Circle()
-                        .fill(theme.textTertiary.opacity(0.3))
-                        .frame(width: 3, height: 3)
-
-                    HoverRevealCommandHint(
-                        primary: .init(modIcon: "command", key: "2", label: "Notes"),
-                        secondary: .init(modIcon: "command", key: "N", label: "New Note"),
-                        theme: theme,
-                        primaryAction: {
-                            UtilityWindowManager.shared.show(.notes)
-                        },
-                        secondaryAction: {
-                            createAndOpenNote()
-                        }
-                    )
-                    .springEntrance(index: 1, stagger: 0.08)
-
-                    Circle()
-                        .fill(theme.textTertiary.opacity(0.3))
-                        .frame(width: 3, height: 3)
-
-                    CommandHint(modIcon: "command", key: "3", label: "Mini Chat", theme: theme) {
-                        MiniChatWindowController.shared.openNewChat()
-                    }
-                    .springEntrance(index: 2, stagger: 0.08)
-
-                    Circle()
-                        .fill(theme.textTertiary.opacity(0.3))
-                        .frame(width: 3, height: 3)
-
-                    CommandHint(modIcon: "option", key: "⌘N", label: "New Doc", theme: theme) {
-                        createAndOpenDocument()
-                    }
-                    .springEntrance(index: 3, stagger: 0.08)
-
-                    Circle()
-                        .fill(theme.textTertiary.opacity(0.3))
-                        .frame(width: 3, height: 3)
-
-                    CommandHint(modIcon: "command", key: "⇧N", label: "Quick Capture", theme: theme) {
-                        openQuickCapture()
-                    }
-                    .springEntrance(index: 4, stagger: 0.08)
-
-                    Circle()
-                        .fill(theme.textTertiary.opacity(0.3))
-                        .frame(width: 3, height: 3)
-
-                    CommandHint(modIcon: "command", key: "S", label: "Settings", theme: theme) {
-                        UtilityWindowManager.shared.show(.settings)
-                    }
-                    .springEntrance(index: 5, stagger: 0.08)
-
-                    Circle()
-                        .fill(theme.textTertiary.opacity(0.3))
-                        .frame(width: 3, height: 3)
-
-                    CommandHint(
-                        modIcon: "command",
-                        key: "G",
-                        label: graphState.graphViewLocation == .embedded ? "Home Graph" : "Graph",
-                        theme: theme
-                    ) {
-                        toggleGraphForCurrentLocation()
-                    }
-                    .springEntrance(index: 6, stagger: 0.08)
-
-                }
+            landingPixelCommands
+                .padding(.horizontal, Spacing.xxl)
                 .padding(.bottom, 28)
+        }
+    }
+
+    private var landingGreetingStage: some View {
+        ZStack {
+            LiquidGreeting(
+                retractNow: .constant(false),
+                searchMode: showingLandingStageCommand,
+                searchText: ""
+            )
+            .landingGreetingReturnReveal(frame: landingGreetingReturnFrame, theme: theme)
+            .opacity(showingLandingStageCommand && landingSearchRevealFrame > 0 ? 0 : 1)
+            .allowsHitTesting(false)
+
+            if showingSearchPopover {
+                landingSearchInlineStage
+                    .landingSearchStepReveal(frame: landingSearchRevealFrame, theme: theme)
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
+            } else if let command = activeLandingInlineCommand {
+                landingInlineCommandStage(for: command)
+                    .landingSearchStepReveal(frame: landingSearchRevealFrame, theme: theme)
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
             }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(minHeight: landingStageMinHeight)
+    }
+
+    private var landingSearchInlineStage: some View {
+        landingSearchStageTools
+            .frame(
+                width: LandingSearchLayout.stageWidth,
+                height: landingToolsExpanded ? 328 : 236
+            )
+    }
+
+    @ViewBuilder
+    private func landingInlineCommandStage(for command: LandingInlineCommand) -> some View {
+        switch command {
+        case .quickCapture:
+            QuickCaptureView(isPresented: landingInlineCommandBinding(for: .quickCapture))
+                .frame(width: 560, height: 340)
+        case .workspaces:
+            WorkspaceSwitcherOverlay(
+                isPresented: landingInlineCommandBinding(for: .workspaces),
+                presentation: .inline
+            )
+            .frame(width: 520, height: 370)
+        case .saveWorkspace:
+            SaveWorkspaceInlineView(isPresented: landingInlineCommandBinding(for: .saveWorkspace))
+                .frame(width: 480, height: 370)
+        case .timeMachine:
+            TimeMachineView(isPresented: landingInlineCommandBinding(for: .timeMachine))
+                .frame(width: 760, height: 410)
+        }
+    }
+
+    private var landingPixelCommands: some View {
+        LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: 136, maximum: 176), spacing: 8)],
+            spacing: 8
+        ) {
+            PixelLandingCommandTile(
+                title: "Search",
+                shortcut: "click",
+                glyph: .search,
+                theme: theme,
+                accent: theme.resolved.accent.color,
+                haptic: .search,
+                action: { activateLandingSearch(playHaptic: false) }
+            )
+            PixelLandingCommandTile(
+                title: "Quick Capture",
+                shortcut: "\u{2318}\u{21E7}N",
+                glyph: .capture,
+                theme: theme,
+                accent: Color(hex: 0x4FB477),
+                haptic: .capture,
+                action: { showLandingInlineCommand(.quickCapture) }
+            )
+            PixelLandingCommandTile(
+                title: "Workspaces",
+                shortcut: "^\u{2318}W",
+                glyph: .workspace,
+                theme: theme,
+                accent: Color(hex: 0x4C8DFF),
+                haptic: .workspace
+            ) {
+                showLandingInlineCommand(.workspaces)
+            }
+            PixelLandingCommandTile(
+                title: "Save Workspace",
+                shortcut: "^\u{2318}S",
+                glyph: .save,
+                theme: theme,
+                accent: Color(hex: 0xE0A53C),
+                haptic: .save
+            ) {
+                showLandingInlineCommand(.saveWorkspace)
+            }
+            PixelLandingCommandTile(
+                title: "Time Machine",
+                shortcut: "^\u{2318}T",
+                glyph: .clock,
+                theme: theme,
+                accent: Color(hex: 0xCF6F5F),
+                haptic: .timeMachine
+            ) {
+                showLandingInlineCommand(.timeMachine)
+            }
+            PixelLandingCommandTile(
+                title: "Notes",
+                shortcut: "\u{2318}2",
+                glyph: .notes,
+                theme: theme,
+                accent: Color(hex: 0x7E8CE0),
+                haptic: .notes
+            ) {
+                UtilityWindowManager.shared.show(.notes)
+            }
+            PixelLandingCommandTile(
+                title: "New Note",
+                shortcut: "\u{2318}N",
+                glyph: .document,
+                theme: theme,
+                accent: Color(hex: 0x8ABF5D),
+                haptic: .newNote,
+                action: createAndOpenNote
+            )
+            PixelLandingCommandTile(
+                title: "Mini Chat",
+                shortcut: "\u{2318}3",
+                glyph: .chat,
+                theme: theme,
+                accent: Color(hex: 0x62B7C7),
+                haptic: .miniChat
+            ) {
+                MiniChatWindowController.shared.openNewChat()
+            }
+            PixelLandingCommandTile(
+                title: "New Doc",
+                shortcut: "\u{2325}\u{2318}N",
+                glyph: .document,
+                theme: theme,
+                accent: Color(hex: 0xC985D8),
+                haptic: .document,
+                action: createAndOpenDocument
+            )
+            PixelLandingCommandTile(
+                title: graphState.graphViewLocation == .embedded ? "Home Graph" : "Graph",
+                shortcut: "\u{2318}G",
+                glyph: .graph,
+                theme: theme,
+                accent: Color(hex: 0xD96B7E),
+                haptic: .graph,
+                action: toggleGraphForCurrentLocation
+            )
+        }
+        .frame(maxWidth: 900)
     }
 
     private var landingAgentDock: some View {
@@ -662,281 +716,404 @@ struct LandingView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
     }
 
-    // MARK: - Landing Search Content (Compact for Popover)
-    
-    private var landingSearchPopoverContent: some View {
-        VStack(spacing: 16) {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Landing Chat")
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundStyle(theme.textPrimary)
-                    Text("Start a lightweight chat from anywhere on the landing page.")
-                    .font(.system(size: 11.5, weight: .medium, design: .rounded))
-                    .foregroundStyle(theme.textTertiary)
-                    .fixedSize(horizontal: false, vertical: true)
+    private var landingSearchStageTools: some View {
+        VStack(spacing: 13) {
+            landingSearchInputLine
+                .zIndex(2)
+
+            HStack(spacing: 12) {
+                landingSearchBrainTool
+                landingSearchToolsToggle
+            }
+            .frame(maxWidth: LandingSearchLayout.searchLineWidth)
+            .zIndex(3)
+
+            if landingToolsExpanded {
+                landingSearchExpandedToolRow
+                    .zIndex(3)
+                    .transition(.opacity.combined(with: .scale(scale: 0.97)))
+            }
+        }
+        .frame(width: LandingSearchLayout.stageWidth)
+        .animation(reduceMotion ? nil : Motion.micro, value: landingToolsExpanded)
+    }
+
+    private var landingSearchBrainTool: some View {
+        ChatBrainPickerMenu(
+            operatingMode: operatingModeBinding,
+            availableOperatingModes: supportedOperatingModes,
+            isTemporaryChatEnabled: incognitoBinding,
+            preferSplitToolbarControls: false
+        )
+        .controlSize(.regular)
+        .fixedSize()
+    }
+
+    private var landingSearchCommandTool: some View {
+        LandingStageToolTile(
+            title: activeSelectedLandingSlashCommand.map { "/\($0.rawValue)" } ?? "Command",
+            systemImage: "command",
+            theme: theme,
+            accent: Color(hex: 0x7E8CE0),
+            action: openLandingSlashCommandMenu
+        )
+        .help(activeSelectedLandingSlashCommand?.helpText ?? "Open slash commands")
+    }
+
+    private var landingSearchMentionTool: some View {
+        LandingStageToolTile(
+            title: "Mention",
+            systemImage: "at",
+            theme: theme,
+            accent: Color(hex: 0x62B7C7),
+            action: insertLandingMentionToken
+        )
+        .help("Reference a note or chat")
+    }
+
+    private var landingSearchAttachTool: some View {
+        LandingStageToolTile(
+            title: "Attach",
+            systemImage: "paperclip",
+            theme: theme,
+            accent: Color(hex: 0x4C8DFF),
+            action: openLandingFilePicker
+        )
+        .help("Attach a file")
+    }
+
+    private var landingSearchSavedTool: some View {
+        LandingStageToolTile(
+            title: chat.isIncognito ? "Temporary" : "Saved",
+            systemImage: chat.isIncognito ? "eye.slash.fill" : "tray.full",
+            theme: theme,
+            accent: Color(hex: 0x4FB477),
+            isActive: chat.isIncognito
+        ) {
+            incognitoBinding.wrappedValue.toggle()
+        }
+        .help(chat.isIncognito ? "Temporary chat is on" : "Save this chat")
+    }
+
+    private var landingSearchToolsToggle: some View {
+        LandingStageToolTile(
+            title: landingToolsExpanded ? "Less" : "Tools",
+            systemImage: "wand.and.stars",
+            theme: theme,
+            accent: Color(hex: 0xC985D8),
+            isActive: landingToolsExpanded
+        ) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
+                landingToolsExpanded.toggle()
+            }
+        }
+        .help(landingToolsExpanded ? "Hide secondary tools" : "Show secondary tools")
+    }
+
+    private var landingSearchSendTool: some View {
+        AssistantSendButton(
+            theme: theme,
+            isEnabled: !trimmedLandingSearchText.isEmpty,
+            isProcessing: false,
+            metrics: .compactChat
+        ) {
+            submitLandingSearch()
+        }
+        .help("Send")
+        .accessibilityLabel("Send prompt")
+    }
+
+    private var landingSearchExpandedToolRow: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                landingSearchCommandTool
+                landingSearchMentionTool
+                landingSearchAttachTool
+                landingSearchSavedTool
+            }
+            .frame(maxWidth: LandingSearchLayout.searchLineWidth)
+
+            HStack(spacing: 10) {
+                LandingStageToolTile(
+                    title: landingAllNotesContextAttached
+                        ? "All Notes"
+                        : landingAttachmentCount == 0
+                            ? "All Notes"
+                            : "\(landingAttachmentCount) Attached",
+                    systemImage: landingAllNotesContextAttached ? "books.vertical.fill" : "books.vertical",
+                    theme: theme,
+                    accent: Color(hex: 0xE0A53C),
+                    isActive: landingAllNotesContextAttached,
+                    action: toggleLandingAllNotesContext
+                )
+                .help(landingAllNotesContextAttached ? "Remove all-notes context" : "Attach all notes")
+
+                LandingStageToolShell(theme: theme, accent: Color(hex: 0xD96B7E)) {
+                    ChatCapabilityPill(capability: landingEffectiveCapability)
                 }
 
-                Spacer(minLength: 0)
-
-                Text("ESC")
-                    .font(.system(size: 10, weight: .semibold, design: .rounded))
-                    .foregroundStyle(theme.textTertiary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(theme.textSecondary.opacity(0.06), in: Capsule())
-            }
-
-            VStack(spacing: 20) {
-                VStack(alignment: .leading, spacing: 12) {
-                    // One submission path, one visible chat, all modes.
-
-                    if !landingContextAttachments.isEmpty {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 6) {
-                                ForEach(landingContextAttachments) { attachment in
-                                    HStack(spacing: 4) {
-                                        Image(systemName: attachment.systemImageName)
-                                            .font(.system(size: 10, weight: .medium))
-                                        Text(attachment.title)
-                                            .font(.system(size: 11, weight: .medium))
-                                            .lineLimit(1)
-                                        Button {
-                                            removeLandingContextAttachment(attachment.id)
-                                        } label: {
-                                            Image(systemName: "xmark.circle.fill")
-                                                .font(.system(size: 10))
-                                                .foregroundStyle(theme.textTertiary.opacity(0.5))
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 5)
-                                    .background(theme.textSecondary.opacity(0.08), in: Capsule())
-                                    .foregroundStyle(theme.textSecondary)
-                                }
+                LandingStageToolShell(theme: theme, accent: Color(hex: 0x62B7C7)) {
+                    if #available(macOS 26.0, *) {
+                        VoiceInputButton(
+                            style: .iconWithPulse,
+                            autoStopOnSilence: VoicePreferences.shared.dictationAutoStop == .auto,
+                            onPartial: { partial in
+                                applyLandingVoicePartial(partial)
+                            },
+                            onFinal: { final in
+                                commitLandingVoiceTranscript(final)
                             }
-                            .padding(.horizontal, 2)
-                        }
-                    }
-
-                    VStack(alignment: .leading, spacing: LandingSearchLayout.controlRowTopPadding) {
-                        // Single unified control strip: tool/runtime work
-                        // stays in the same chat via the capability pill
-                        // and auto-router.
-                        landingChatSpecificControls
-
-                        HStack(alignment: .top, spacing: LandingSearchLayout.topRowSpacing) {
-                            Image(systemName: "bubble.left.and.bubble.right")
-                                .font(.system(size: 18, weight: .medium))
-                                .foregroundStyle(landingSearchAccent)
-                                .padding(.top, 8)
-
-                            ZStack(alignment: .topLeading) {
-                                ChatComposerTextEditor(
-                                    text: $landingSearchText,
-                                    height: $landingComposerHeight,
-                                    isFocused: $isLandingSearchFocused,
-                                    theme: theme,
-                                    fontSize: LandingSearchLayout.inputFontSize,
-                                    isProcessing: false,
-                                    onCommand: { selector, modifierFlags in
-                                        handleLandingComposerCommand(selector, modifierFlags: modifierFlags)
-                                    }
-                                ) {
-                                    submitLandingSearch()
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .frame(height: landingComposerHeight)
-                                .frame(
-                                    minHeight: LandingSearchLayout.inputMinHeight,
-                                    alignment: .topLeading
-                                )
-                                .onChange(of: landingSearchText) { _, newValue in
-                                    if let filter = ComposerReferenceHelpers.mentionFilter(in: newValue) {
-                                        landingReferencePopoverStyle = .mention
-                                        landingMentionFilter = filter
-                                        landingMentionKeyboardIndex = 0
-                                        landingMentionPickerAutofocus = false
-                                        if !showLandingMentionDropdown {
-                                            showLandingMentionDropdown = true
-                                        }
-                                    } else if showLandingMentionDropdown {
-                                        showLandingMentionDropdown = false
-                                        landingReferencePopoverStyle = .mention
-                                        landingMentionKeyboardIndex = 0
-                                        landingMentionPickerAutofocus = false
-                                        landingReferenceSearch.reset()
-                                    }
-                                }
-                                .onChange(of: landingMentionFilter) { _, newValue in
-                                    updateLandingReferenceSearch(filter: newValue)
-                                }
-
-                                if landingSearchText.isEmpty {
-                                    Text(landingSearchPlaceholder)
-                                        .font(
-                                            .system(
-                                                size: LandingSearchLayout.inputFontSize,
-                                                weight: .regular
-                                            )
-                                        )
-                                        .foregroundStyle(theme.mutedForeground.opacity(0.55))
-                                        .padding(.top, ChatComposerInputMetrics.verticalInset)
-                                        .allowsHitTesting(false)
-                                }
-                            }
-                        }
-
-                        HStack(spacing: LandingSearchLayout.controlRowSpacing) {
-                            Text("Use `@` to pull notes and recent chats into the prompt.")
-                            .font(.system(size: 11.5, weight: .medium, design: .rounded))
-                            .foregroundStyle(theme.textTertiary)
-
-                            Spacer(minLength: 0)
-
-                            if !landingSearchText.isEmpty {
-                                Button {
-                                    landingSearchText = ""
-                                    landingComposerHeight = LandingSearchLayout.inputMinHeight
-                                    showLandingMentionDropdown = false
-                                    landingMentionFilter = ""
-                                    landingMentionKeyboardIndex = 0
-                                    landingReferenceSearch.reset()
-                                } label: {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .font(.system(size: 14, weight: .semibold))
-                                        .foregroundStyle(theme.textTertiary)
-                                        .frame(width: 28, height: 28)
-                                }
-                                .buttonStyle(NativeToolbarButtonStyle())
-                                .transition(.scale(scale: 0.5).combined(with: .opacity))
-                            }
-
-                            AssistantSendButton(
-                                theme: theme,
-                                isEnabled: !trimmedLandingSearchText.isEmpty,
-                                isProcessing: false,
-                                metrics: .compactChat
-                            ) {
-                                submitLandingSearch()
-                            }
-                            .help("Send")
-                            .accessibilityLabel("Send prompt")
-                        }
-                    }
-                    .overlay(alignment: .topLeading) {
-                        if showLandingMentionDropdown {
-                            ComposerReferencePopover(
-                                isPresented: $showLandingMentionDropdown,
-                                results: landingMentionSearchResults,
-                                query: $landingMentionFilter,
-                                manifest: ambientManifest,
-                                modelContext: modelContext,
-                                idealWidth: landingReferencePopoverStyle.idealWidth,
-                                maxHeight: landingReferencePopoverStyle.maxHeight,
-                                style: landingReferencePopoverStyle,
-                                autofocusSearchField: landingMentionPickerAutofocus,
-                                onDismiss: dismissLandingReferencePopover,
-                                onSelect: attachLandingMentionReference
-                            )
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        )
+                    } else {
+                        ComposerMicButton { transcript in
+                            commitLandingVoiceTranscript(transcript)
                         }
                     }
                 }
-                .padding(.horizontal, 4)
-                .padding(.bottom, 4)
+
+                if contextualShadows.isEnabled, !contextualShadows.currentResults.isEmpty {
+                    LandingStageToolShell(theme: theme, accent: theme.fontAccent) {
+                        ContextualShadowsButton()
+                    }
+                } else {
+                    Spacer(minLength: 0)
+                }
             }
+            .frame(maxWidth: LandingSearchLayout.searchLineWidth)
         }
     }
 
-    /// Label style for the landing search control strip — small SF-mono
-    /// caption with a trailing icon, sized to read as an inline keyword
-    /// rather than a button pill. Emphasis `.accent` tints the icon with
-    /// the theme accent for the primary (submit) action.
-    private struct MonospaceLandingLabelStyle: LabelStyle {
-        enum Emphasis { case normal, accent }
-        var emphasis: Emphasis = .normal
+    private struct LandingStageToolTile: View {
+        let title: String
+        let systemImage: String
+        let theme: EpistemosTheme
+        let accent: Color
+        var isActive = false
+        let action: () -> Void
 
-        func makeBody(configuration: Configuration) -> some View {
-            HStack(spacing: 4) {
-                configuration.icon
-                    .font(.system(size: 12, weight: .medium))
-                configuration.title
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+        var body: some View {
+            Button(action: action) {
+                LandingStageToolLabel(
+                    title: title,
+                    systemImage: systemImage,
+                    theme: theme,
+                    accent: accent,
+                    isActive: isActive
+                )
             }
-            .foregroundStyle(emphasis == .accent ? .primary : .secondary)
+            .buttonStyle(.plain)
+        }
+    }
+
+    private struct LandingStageToolShell<Content: View>: View {
+        let theme: EpistemosTheme
+        let accent: Color
+        @ViewBuilder let content: () -> Content
+
+        var body: some View {
+            content()
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .frame(minHeight: 34)
+                .unifiedFrostedGlass(
+                    theme: theme,
+                    in: Capsule(),
+                    extraDarkenOnDark: true,
+                    interactive: true,
+                    nativeGlass: true
+                )
+                .overlay {
+                    Capsule()
+                        .strokeBorder(accent.opacity(theme.isDark ? 0.12 : 0.16), lineWidth: 0.7)
+                }
+                .shadow(
+                    color: Color.black.opacity(theme.isDark ? 0.16 : 0.10),
+                    radius: theme.isDark ? 8 : 13,
+                    x: 0,
+                    y: 5
+                )
+        }
+    }
+
+    private struct LandingStageToolLabel: View {
+        let title: String
+        let systemImage: String
+        let theme: EpistemosTheme
+        let accent: Color
+        let isActive: Bool
+
+        var body: some View {
+            HStack(spacing: 7) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(accent.opacity(isActive ? 0.18 : 0.10))
+                    Image(systemName: systemImage)
+                        .font(.system(size: 11, weight: .semibold))
+                        .symbolRenderingMode(.monochrome)
+                        .foregroundStyle(accent)
+                }
+                .frame(width: 20, height: 20)
+
+                Text(title)
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(theme.textPrimary.opacity(theme.isDark ? 0.90 : 0.82))
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .frame(minHeight: 34)
+            .unifiedFrostedGlass(
+                theme: theme,
+                in: Capsule(),
+                extraDarkenOnDark: true,
+                interactive: true,
+                nativeGlass: true
+            )
+            .background {
+                Capsule()
+                    .fill(accent.opacity(isActive ? 0.11 : 0.001))
+            }
+            .overlay {
+                Capsule()
+                    .strokeBorder(accent.opacity(isActive ? 0.22 : 0.13), lineWidth: 0.7)
+            }
+            .shadow(
+                color: Color.black.opacity(theme.isDark ? 0.16 : 0.10),
+                radius: theme.isDark ? 8 : 13,
+                x: 0,
+                y: 5
+            )
         }
     }
 
     private var landingSearchInputLine: some View {
-        ZStack(alignment: .bottomLeading) {
-            TextField("", text: $landingSearchText)
-                .textFieldStyle(.plain)
-                .font(AppDisplayTypography.monoFont(size: 38, weight: .semibold))
-                .foregroundStyle(theme.fontAccent)
-                .tint(theme.fontAccent)
-                .multilineTextAlignment(.center)
-                .lineLimit(1)
-                .disableAutocorrection(true)
-                .focused($landingSearchFocused)
-                .onSubmit { submitLandingSearch() }
-                .onExitCommand { dismissLandingSearch() }
-                .onChange(of: landingSearchText) { _, newValue in
-                    handleLandingSearchTextChange(newValue)
-                }
-                .popover(isPresented: $showLandingSlashMenu, arrowEdge: .bottom) {
-                    SlashCommandPopover(
-                        commands: supportedLandingSlashCommands,
-                            filter: landingSlashFilter,
-                            selectedCommand: highlightedLandingSlashCommand,
-                            onSelect: { command in
-                                applyLandingSlashCommand(command)
-                            }
+        VStack(spacing: 8) {
+            landingInlineContextChips
+
+            HStack(alignment: .center, spacing: 12) {
+                PixelGlyph(kind: .search, accent: theme.resolved.accent.color)
+                    .frame(width: 30, height: 30)
+                    .scaleEffect(landingSearchLabelHovered || isLandingSearchFocused ? 1.06 : 1)
+
+                ZStack(alignment: .topLeading) {
+                    ChatComposerTextEditor(
+                        text: $landingSearchText,
+                        height: $landingComposerHeight,
+                        isFocused: $isLandingSearchFocused,
+                        theme: theme,
+                        fontSize: LandingSearchLayout.inputFontSize,
+                        isProcessing: false,
+                        onCommand: { selector, modifierFlags in
+                            handleLandingComposerCommand(selector, modifierFlags: modifierFlags)
+                        }
+                    ) {
+                        submitLandingSearch()
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: landingComposerHeight)
+                    .frame(
+                        minHeight: LandingSearchLayout.inputMinHeight,
+                        alignment: .topLeading
                     )
-                }
-                .onAppear {
-                    Task { @MainActor in
-                        try? await Task.sleep(for: .milliseconds(40))
-                        landingSearchFocused = true
+                    .onExitCommand { dismissLandingSearch() }
+                    .onChange(of: landingSearchText) { _, newValue in
+                        handleLandingSearchTextChange(newValue)
+                    }
+                    .onAppear {
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(40))
+                            isLandingSearchFocused = true
+                        }
+                    }
+                    .accessibilityLabel("Landing search input")
+                    .accessibilityHint(landingSearchAttachmentHint)
+
+                    if landingSearchText.isEmpty {
+                        PixelPanelTitle(text: "Search", theme: theme, size: 27)
+                            .padding(.top, 1)
+                            .padding(.leading, ChatComposerInputMetrics.horizontalInset)
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
                     }
                 }
-                .accessibilityLabel("Landing search input")
-                .accessibilityHint(landingSearchAttachmentHint)
-                .frame(maxWidth: 1_180)
-                .frame(height: 72, alignment: .center)
-                .padding(.horizontal, 80)
 
-            if landingSearchText.isEmpty && !landingSearchFocused {
-                Text(landingSearchPlaceholder)
-                    .font(AppDisplayTypography.monoFont(size: 38, weight: .semibold))
-                    .foregroundStyle(theme.fontAccent.opacity(0.46))
-                    .multilineTextAlignment(.center)
-                    .lineLimit(1)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
-                    .frame(maxWidth: 1_180)
-                    .frame(height: 72, alignment: .center)
-                    .padding(.horizontal, 80)
+                Spacer(minLength: 0)
+
+                Text("esc")
+                    .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+                    .foregroundStyle(theme.textTertiary.opacity(0.70))
+                    .padding(.trailing, 2)
+
+                landingSearchSendTool
             }
-
-            if showLandingMentionDropdown {
-                ComposerReferencePopover(
-                    isPresented: $showLandingMentionDropdown,
-                    results: landingMentionSearchResults,
-                    query: $landingMentionFilter,
-                    manifest: ambientManifest,
-                    modelContext: modelContext,
-                    idealWidth: landingReferencePopoverStyle.idealWidth,
-                    maxHeight: landingReferencePopoverStyle.maxHeight,
-                    style: landingReferencePopoverStyle,
-                    autofocusSearchField: landingMentionPickerAutofocus,
-                    onDismiss: dismissLandingReferencePopover,
-                    onSelect: attachLandingMentionReference
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .frame(width: LandingSearchLayout.searchLineWidth)
+            .background {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(theme.glassBg.opacity(theme.isDark ? 0.18 : 0.10))
+                    .opacity(landingSearchLabelHovered || isLandingSearchFocused ? 1 : 0.34)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .strokeBorder(
+                        theme.fontAccent.opacity(
+                            landingSearchLabelHovered || isLandingSearchFocused
+                                ? (theme.isDark ? 0.18 : 0.22)
+                                : (theme.isDark ? 0.08 : 0.11)
+                        ),
+                        lineWidth: 0.75
+                    )
+            }
+            .shadow(
+                color: theme.isDark
+                    ? Color.black.opacity(landingSearchLabelHovered || isLandingSearchFocused ? 0.20 : 0.08)
+                    : theme.fontAccent.opacity(landingSearchLabelHovered || isLandingSearchFocused ? 0.12 : 0.04),
+                radius: landingSearchLabelHovered || isLandingSearchFocused ? 16 : 8,
+                x: 0,
+                y: landingSearchLabelHovered || isLandingSearchFocused ? 8 : 3
+            )
+            .scaleEffect(landingSearchLabelHovered ? 1.012 : 1)
+            .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .onTapGesture { isLandingSearchFocused = true }
+            .onHover { hovering in
+                withAnimation(reduceMotion ? nil : .smooth(duration: 0.16)) {
+                    landingSearchLabelHovered = hovering
+                }
+            }
+            .popover(isPresented: $showLandingSlashMenu, arrowEdge: .top) {
+                SlashCommandPopover(
+                    commands: supportedLandingSlashCommands,
+                    filter: landingSlashFilter,
+                    selectedCommand: highlightedLandingSlashCommand,
+                    onSelect: { command in
+                        applyLandingSlashCommand(command)
+                    }
                 )
-                .frame(maxWidth: 560, maxHeight: 360, alignment: .topLeading)
-                .offset(x: 80, y: 54)
-                .transition(.opacity.combined(with: .offset(y: -4)))
+            }
+            .overlay(alignment: .topLeading) {
+                if showLandingMentionDropdown {
+                    ComposerReferencePopover(
+                        isPresented: $showLandingMentionDropdown,
+                        results: landingMentionSearchResults,
+                        query: $landingMentionFilter,
+                        manifest: ambientManifest,
+                        modelContext: modelContext,
+                        idealWidth: landingReferencePopoverStyle.idealWidth,
+                        maxHeight: landingReferencePopoverStyle.maxHeight,
+                        style: landingReferencePopoverStyle,
+                        autofocusSearchField: landingMentionPickerAutofocus,
+                        onDismiss: dismissLandingReferencePopover,
+                        onSelect: attachLandingMentionReference
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .transition(.opacity)
+                }
+            }
+            .overlay(alignment: .bottomTrailing) {
+                ContextualShadowsPanel(onOpen: openLandingContextualShadowHit)
+                    .padding(.trailing, 10)
+                    .padding(.bottom, 46)
             }
         }
         .frame(maxWidth: .infinity)
@@ -944,30 +1121,32 @@ struct LandingView: View {
 
     @ViewBuilder
     private var landingInlineContextChips: some View {
-        if !landingContextAttachments.isEmpty {
+        if !landingContextAttachments.isEmpty || !landingFileAttachments.isEmpty {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
                     ForEach(landingContextAttachments) { attachment in
-                        HStack(spacing: 5) {
-                            Image(systemName: attachment.systemImageName)
-                                .font(.system(size: 10, weight: .semibold))
-                            Text(attachment.title)
-                                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                                .lineLimit(1)
-                            Button {
-                                removeLandingContextAttachment(attachment.id)
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 10, weight: .semibold))
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Remove \(attachment.title)")
+                        landingContextChip(
+                            title: attachment.title,
+                            systemImage: attachment.systemImageName,
+                            isWarning: false
+                        ) {
+                            removeLandingContextAttachment(attachment.id)
                         }
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 5)
-                        .background(theme.textSecondary.opacity(0.08), in: Capsule())
-                        .foregroundStyle(theme.textSecondary)
                         .help("Attached \(attachment.title)")
+                    }
+
+                    ForEach(landingFileAttachments) { attachment in
+                        let isSupported = inference.chatSurfaceSupportedFileTypes(
+                            for: selectedOperatingMode
+                        ).contains(attachment.type)
+                        landingContextChip(
+                            title: attachment.name,
+                            systemImage: landingIconForType(attachment.type),
+                            isWarning: !isSupported
+                        ) {
+                            removeLandingFileAttachment(attachment.id)
+                        }
+                        .help(isSupported ? attachment.name : "Current model doesn't support \(attachment.type.rawValue) files")
                     }
                 }
                 .padding(.horizontal, Spacing.xxl)
@@ -979,122 +1158,69 @@ struct LandingView: View {
         }
     }
 
-    /// Monospace button strip below the greeting's cursor when search mode
-    /// is active. Mirrors the main chat composer's control intent for the
-    /// paths that are actually wired here (send, mention, cache) at an
-    /// implicit, retro-terminal weight so it reads as companion chrome to
-    /// the greeting rather than a separate bar.
-    private var landingSearchControlsRow: some View {
-        let trimmed = landingSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let sendEnabled = !trimmed.isEmpty
-        return HStack(spacing: 14) {
-            // Slash commands — same ACC command contract as main chat.
-            Button {
-                openLandingSlashCommandMenu()
-            } label: {
-                Label("slash", systemImage: "command")
-                    .labelStyle(MonospaceLandingLabelStyle())
+    private func landingContextChip(
+        title: String,
+        systemImage: String,
+        isWarning: Bool,
+        onRemove: @escaping () -> Void
+    ) -> some View {
+        HStack(spacing: 5) {
+            if isWarning {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 9, weight: .semibold))
+            }
+            Image(systemName: systemImage)
+                .font(.system(size: 10, weight: .semibold))
+            Text(title)
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .lineLimit(1)
+            Button(action: onRemove) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 10, weight: .semibold))
             }
             .buttonStyle(.plain)
-            .help("Open slash commands")
-
-            if let command = activeSelectedLandingSlashCommand {
-                Label("/\(command.rawValue)", systemImage: command.icon)
-                    .labelStyle(MonospaceLandingLabelStyle(emphasis: .accent))
-                    .help(command.helpText)
-            }
-
-            // @ mention — inserts an @ at the caret and keeps focus.
-            Button {
-                if !landingSearchText.hasSuffix("@") {
-                    if !landingSearchText.isEmpty,
-                       landingSearchText.last?.isWhitespace == false {
-                        landingSearchText.append(" ")
-                    }
-                    landingSearchText.append("@")
-                }
-                handleLandingSearchTextChange(landingSearchText)
-                landingSearchFocused = true
-            } label: {
-                Label("mention", systemImage: "at")
-                    .labelStyle(MonospaceLandingLabelStyle())
-            }
-            .buttonStyle(.plain)
-            .help("Reference a note or chat")
-
-            // Context / cache indicator — copy of the cache.bolt intent
-            // from main chat. Visual parity for now.
-            Label("cache", systemImage: "bolt.horizontal.circle")
-                .labelStyle(MonospaceLandingLabelStyle())
-                .opacity(0.55)
-
-            Spacer(minLength: 0)
-
-            // Keyboard hints + explicit send button. Enter submits; Esc
-            // dismisses. The button stays visible so users discover it
-            // without having to know the shortcut.
-            Text("↩ send   ⎋ back")
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundStyle(theme.mutedForeground.opacity(0.55))
-
-            Button(action: submitLandingSearch) {
-                Label("submit", systemImage: "arrow.up.circle.fill")
-                    .labelStyle(MonospaceLandingLabelStyle(emphasis: .accent))
-            }
-            .buttonStyle(.plain)
-            .disabled(!sendEnabled)
-            .opacity(sendEnabled ? 1.0 : 0.35)
-            .keyboardShortcut(.return, modifiers: .command)
-            .help("Submit (⌘↩)")
+            .accessibilityLabel("Remove \(title)")
         }
-        .padding(.horizontal, Spacing.xxl)
-        .foregroundStyle(theme.mutedForeground.opacity(0.85))
+        .padding(.horizontal, 9)
+        .padding(.vertical, 5)
+        .background(
+            isWarning ? Color.orange.opacity(0.12) : theme.textSecondary.opacity(0.08),
+            in: Capsule()
+        )
+        .foregroundStyle(isWarning ? Color.orange : theme.textSecondary)
     }
 
-    @ViewBuilder
-    private var landingChatSpecificControls: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                ChatBrainPickerMenu(
-                    operatingMode: operatingModeBinding,
-                    availableOperatingModes: supportedOperatingModes,
-                    isTemporaryChatEnabled: incognitoBinding
-                )
-                Spacer(minLength: 0)
+    private func insertLandingMentionToken() {
+        if !landingSearchText.hasSuffix("@") {
+            if !landingSearchText.isEmpty,
+               landingSearchText.last?.isWhitespace == false {
+                landingSearchText.append(" ")
             }
-
-            if chat.isIncognito {
-                HStack(spacing: 8) {
-                    Image(systemName: "eye.slash.fill")
-                        .font(.system(size: 11, weight: .semibold))
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("Temporary Chat")
-                            .font(.system(size: 11, weight: .semibold))
-                        Text("The next chat starts in memory only and will not be saved.")
-                            .font(.system(size: 10.5))
-                            .foregroundStyle(theme.textTertiary)
-                    }
-                    Spacer(minLength: 0)
-                }
-                .foregroundStyle(theme.resolved.accent.color)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-                .background(theme.resolved.accent.color.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(theme.resolved.accent.color.opacity(0.14), lineWidth: 0.8)
-                }
-            }
+            landingSearchText.append("@")
         }
+        handleLandingSearchTextChange(landingSearchText)
+        isLandingSearchFocused = true
     }
 
-    private func activateLandingSearch() {
+    private func activateLandingSearch(playHaptic: Bool = true) {
         guard !showingBrief && !showWelcomeBack else { return }
         if showingSearchPopover {
-            landingSearchFocused = true
+            isLandingSearchFocused = true
             return
         }
+        if playHaptic {
+            HapticHelper.homeCommand(.search)
+        }
+        if activeLandingInlineCommand != nil {
+            dismissLandingInlineCommand(animateGreetingReturn: false)
+        }
+        landingSearchRevealFrame = 0
+        landingGreetingReturnTask?.cancel()
+        landingGreetingReturnTask = nil
+        landingGreetingReturnFrame = 0
+        landingToolsExpanded = false
         showingSearchPopover = true
+        runLandingSearchReveal()
         Task { @MainActor in
             await Task.yield()
             do {
@@ -1108,12 +1234,80 @@ struct LandingView: View {
                 return
             }
             guard showingSearchPopover else { return }
-            landingSearchFocused = true
+            isLandingSearchFocused = true
+        }
+    }
+
+    private func showLandingInlineCommand(_ command: LandingInlineCommand) {
+        guard !showingBrief && !showWelcomeBack else { return }
+        if showingSearchPopover {
+            dismissLandingSearch(animateGreetingReturn: false)
+        }
+        landingSearchRevealFrame = 0
+        landingGreetingReturnTask?.cancel()
+        landingGreetingReturnTask = nil
+        landingGreetingReturnFrame = 0
+        activeLandingInlineCommand = command
+        runLandingSearchReveal()
+    }
+
+    private func landingInlineCommandBinding(for command: LandingInlineCommand) -> Binding<Bool> {
+        Binding(
+            get: { activeLandingInlineCommand == command },
+            set: { isPresented in
+                if isPresented {
+                    showLandingInlineCommand(command)
+                } else if activeLandingInlineCommand == command {
+                    dismissLandingInlineCommand()
+                }
+            }
+        )
+    }
+
+    private func dismissLandingStageCommand() {
+        if showingSearchPopover {
+            dismissLandingSearch()
+        } else {
+            dismissLandingInlineCommand()
+        }
+    }
+
+    private func dismissLandingInlineCommand(animateGreetingReturn: Bool = true) {
+        activeLandingInlineCommand = nil
+        landingSearchRevealTask?.cancel()
+        landingSearchRevealTask = nil
+        landingSearchRevealFrame = 0
+        if animateGreetingReturn {
+            runLandingGreetingReturnReveal()
+        }
+        HomeWindowInputFocus.restoreAfterOverlayDismiss()
+    }
+
+    private func runLandingSearchReveal() {
+        landingSearchRevealTask?.cancel()
+        landingSearchRevealTask = Task { @MainActor in
+            if !reduceMotion {
+                try? await Task.sleep(for: .milliseconds(220))
+            }
+            await PixelStepMotion.playLandingSearchReveal(reduceMotion: reduceMotion) { frame in
+                landingSearchRevealFrame = frame
+            }
+        }
+    }
+
+    private func runLandingGreetingReturnReveal() {
+        landingGreetingReturnTask?.cancel()
+        landingGreetingReturnFrame = 0
+        landingGreetingReturnTask = Task { @MainActor in
+            await PixelStepMotion.playLandingGreetingReturnReveal(reduceMotion: reduceMotion) { frame in
+                landingGreetingReturnFrame = frame
+            }
         }
     }
 
     private func handleLandingSearchTextChange(_ newValue: String) {
         refreshLandingSlashMenu(for: newValue)
+        scheduleLandingContextualShadowsRecall(for: newValue)
         if let filter = ComposerReferenceHelpers.mentionFilter(in: newValue) {
             landingReferencePopoverStyle = .mention
             landingMentionFilter = filter
@@ -1128,6 +1322,25 @@ struct LandingView: View {
             landingMentionPickerAutofocus = false
             landingMentionFilter = ""
             landingReferenceSearch.reset()
+        }
+    }
+
+    private func scheduleLandingContextualShadowsRecall(for snapshotText: String) {
+        landingRecallDebounceBox.task?.cancel()
+        guard contextualShadows.isEnabled else { return }
+        guard let bootstrap = AppBootstrap.shared else { return }
+        let instantRecall = bootstrap.instantRecallService
+        let originId = chat.activeChatId.flatMap(UUID.init(uuidString:)) ?? UUID()
+        let state = contextualShadows
+        landingRecallDebounceBox.task = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(200))
+            guard !Task.isCancelled else { return }
+            let snapshot = RecallContextSnapshot(
+                text: snapshotText,
+                kind: .chat,
+                originId: originId
+            )
+            state.requestRecall(snapshot: snapshot, instantRecall: instantRecall)
         }
     }
 
@@ -1186,7 +1399,7 @@ struct LandingView: View {
         showLandingSlashMenu = false
         landingSlashFilter = ""
         landingSlashKeyboardIndex = 0
-        landingSearchFocused = true
+        isLandingSearchFocused = true
     }
 
     private func openLandingSlashCommandMenu() {
@@ -1194,7 +1407,7 @@ struct LandingView: View {
         landingSlashFilter = ""
         landingSlashKeyboardIndex = 0
         showLandingSlashMenu = true
-        landingSearchFocused = true
+        isLandingSearchFocused = true
     }
 
     private func handleLandingComposerCommand(
@@ -1301,25 +1514,6 @@ struct LandingView: View {
         landingSearchText = ""
         landingComposerHeight = LandingSearchLayout.inputMinHeight
         isLandingSearchFocused = false
-        landingSearchFocused = false
-        showLandingMentionDropdown = false
-        showLandingSlashMenu = false
-        landingSlashFilter = ""
-        landingSlashKeyboardIndex = 0
-        selectedLandingSlashCommand = nil
-        landingReferencePopoverStyle = .mention
-        landingMentionFilter = ""
-        landingMentionKeyboardIndex = 0
-        landingMentionPickerAutofocus = false
-        landingReferenceSearch.reset()
-    }
-
-    private func dismissLandingSearch() {
-        showingSearchPopover = false
-        landingSearchText = ""
-        landingComposerHeight = LandingSearchLayout.inputMinHeight
-        isLandingSearchFocused = false
-        landingSearchFocused = false
         showLandingMentionDropdown = false
         showLandingSlashMenu = false
         landingSlashFilter = ""
@@ -1331,9 +1525,47 @@ struct LandingView: View {
         landingMentionPickerAutofocus = false
         landingReferenceSearch.reset()
         landingContextAttachments = []
+        landingFileAttachments = []
+        landingToolsExpanded = false
+        landingVoiceDraftPrefix = nil
+        landingRecallDebounceBox.task?.cancel()
+        landingRecallDebounceBox.task = nil
+        landingSearchRevealTask?.cancel()
+        landingSearchRevealTask = nil
+        landingSearchRevealFrame = 0
+    }
+
+    private func dismissLandingSearch(animateGreetingReturn: Bool = true) {
+        showingSearchPopover = false
+        landingSearchText = ""
+        landingComposerHeight = LandingSearchLayout.inputMinHeight
+        isLandingSearchFocused = false
+        showLandingMentionDropdown = false
+        showLandingSlashMenu = false
+        landingSlashFilter = ""
+        landingSlashKeyboardIndex = 0
+        selectedLandingSlashCommand = nil
+        landingReferencePopoverStyle = .mention
+        landingMentionFilter = ""
+        landingMentionKeyboardIndex = 0
+        landingMentionPickerAutofocus = false
+        landingReferenceSearch.reset()
+        landingContextAttachments = []
+        landingFileAttachments = []
+        landingToolsExpanded = false
+        landingVoiceDraftPrefix = nil
+        landingRecallDebounceBox.task?.cancel()
+        landingRecallDebounceBox.task = nil
+        landingSearchRevealTask?.cancel()
+        landingSearchRevealTask = nil
+        landingSearchRevealFrame = 0
+        if animateGreetingReturn {
+            runLandingGreetingReturnReveal()
+        }
     }
 
     private func scheduleWelcomeBackPresentationIfNeeded() {
+        guard !showWelcomeBack, presentedWelcomeBack == nil else { return }
         guard let info = AppBootstrap.shared?.workspaceService.welcomeBack,
               !info.displayText.isEmpty else { return }
 
@@ -1350,11 +1582,13 @@ struct LandingView: View {
                 return
             }
 
-            guard AppBootstrap.shared?.workspaceService.welcomeBack != nil else {
+            guard let info = AppBootstrap.shared?.workspaceService.welcomeBack,
+                  !info.displayText.isEmpty else {
                 welcomeBackDismissTask = nil
                 return
             }
 
+            presentedWelcomeBack = info
             showWelcomeBack = true
             welcomeBackDismissTask = nil
             // Do NOT auto-dismiss — persist until user interacts (ESC, click, or button)
@@ -1374,9 +1608,13 @@ struct LandingView: View {
         let trimmed = landingSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         let attachments = landingContextAttachments
+        let fileAttachments = landingFileAttachments
         let slashCommand = activeSelectedLandingSlashCommand
         dismissLandingSearch()
         chat.startNewChat()
+        for attachment in fileAttachments {
+            chat.addAttachment(attachment)
+        }
         for attachment in attachments {
             chat.addContextAttachment(attachment)
         }
@@ -1420,6 +1658,14 @@ struct LandingView: View {
         landingMentionKeyboardIndex = 0
         landingMentionPickerAutofocus = false
         landingReferenceSearch.reset()
+        preserveLandingSearchSurfaceAfterAttachment()
+    }
+
+    private func preserveLandingSearchSurfaceAfterAttachment() {
+        guard showingSearchPopover else { return }
+        landingSearchRevealTask?.cancel()
+        landingSearchRevealTask = nil
+        landingSearchRevealFrame = max(landingSearchRevealFrame, 5)
     }
 
     private func dismissLandingReferencePopover() {
@@ -1431,6 +1677,141 @@ struct LandingView: View {
 
     private func removeLandingContextAttachment(_ id: String) {
         landingContextAttachments.removeAll { $0.id == id }
+    }
+
+    private func removeLandingFileAttachment(_ id: String) {
+        let removedURIs = landingFileAttachments
+            .filter { $0.id == id }
+            .map(\.uri)
+        landingFileAttachments.removeAll { $0.id == id }
+        landingContextAttachments.removeAll { attachment in
+            guard attachment.kind == .file else { return false }
+            return removedURIs.contains(attachment.targetId)
+        }
+    }
+
+    private func toggleLandingAllNotesContext() {
+        let attachment = ComposerReferenceHelpers.allNotesAttachment
+        if landingAllNotesContextAttached {
+            removeLandingContextAttachment(attachment.id)
+        } else if !landingContextAttachments.contains(attachment) {
+            landingContextAttachments.append(attachment)
+        }
+        preserveLandingSearchSurfaceAfterAttachment()
+        isLandingSearchFocused = true
+    }
+
+    private func openLandingFilePicker() {
+        Task { @MainActor in
+            await Task.yield()
+
+            let panel = NSOpenPanel()
+            panel.allowsMultipleSelection = true
+            var allowedTypes: [UTType] = [.pdf, .plainText, .png, .jpeg, .json, .commaSeparatedText]
+            if let markdownType = UTType(filenameExtension: "md") {
+                allowedTypes.insert(markdownType, at: 2)
+            }
+            panel.allowedContentTypes = allowedTypes
+            panel.canChooseDirectories = false
+
+            let urls = await presentLandingFilePicker(panel)
+            guard !urls.isEmpty else {
+                isLandingSearchFocused = true
+                return
+            }
+
+            let attachments = await FileAttachmentBuilder.buildAll(from: urls)
+            for attachment in attachments where !landingFileAttachments.contains(where: { $0.uri == attachment.uri }) {
+                landingFileAttachments.append(attachment)
+            }
+
+            for url in urls {
+                guard let contextAttachment = ComposerReferenceHelpers.fileContextAttachment(
+                    for: url,
+                    displayName: url.lastPathComponent
+                ) else { continue }
+                if !landingContextAttachments.contains(contextAttachment) {
+                    landingContextAttachments.append(contextAttachment)
+                }
+            }
+            preserveLandingSearchSurfaceAfterAttachment()
+            isLandingSearchFocused = true
+        }
+    }
+
+    @MainActor
+    private func presentLandingFilePicker(_ panel: NSOpenPanel) async -> [URL] {
+        await withCheckedContinuation { continuation in
+            let handler: (NSApplication.ModalResponse) -> Void = { response in
+                continuation.resume(returning: response == .OK ? panel.urls : [])
+            }
+
+            if let window = NSApp.keyWindow ?? NSApp.mainWindow {
+                panel.beginSheetModal(for: window, completionHandler: handler)
+            } else {
+                panel.begin(completionHandler: handler)
+            }
+        }
+    }
+
+    private func landingIconForType(_ type: AttachmentType) -> String {
+        switch type {
+        case .image: "photo"
+        case .pdf: "doc.richtext"
+        case .csv: "tablecells"
+        case .text: "doc.text"
+        case .other: "paperclip"
+        }
+    }
+
+    private func applyLandingVoicePartial(_ partial: String) {
+        if landingVoiceDraftPrefix == nil {
+            landingVoiceDraftPrefix = landingSearchText
+        }
+        let prefix = landingVoiceDraftPrefix ?? ""
+        let trimmedPartial = partial.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedPartial.isEmpty {
+            landingSearchText = prefix
+        } else if prefix.isEmpty {
+            landingSearchText = trimmedPartial
+        } else if prefix.last?.isWhitespace == true {
+            landingSearchText = prefix + trimmedPartial
+        } else {
+            landingSearchText = prefix + " " + trimmedPartial
+        }
+        handleLandingSearchTextChange(landingSearchText)
+    }
+
+    private func commitLandingVoiceTranscript(_ transcript: String) {
+        if let prefix = landingVoiceDraftPrefix {
+            landingSearchText = prefix
+        }
+        landingVoiceDraftPrefix = nil
+        appendLandingComposerText(transcript)
+    }
+
+    private func appendLandingComposerText(_ rawText: String) {
+        let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        if landingSearchText.isEmpty {
+            landingSearchText = text
+        } else if landingSearchText.last?.isWhitespace == true {
+            landingSearchText += text
+        } else {
+            landingSearchText += " " + text
+        }
+        handleLandingSearchTextChange(landingSearchText)
+        isLandingSearchFocused = true
+    }
+
+    private func openLandingContextualShadowHit(_ hit: ContextualShadowsState.RecallHit) {
+        switch hit.kind {
+        case .note:
+            NoteWindowManager.shared.open(pageId: hit.id)
+        case .chat:
+            MiniChatWindowController.shared.openChat(hit.id)
+        }
+        contextualShadows.closePanel()
     }
 
     private func updateLandingReferenceSearch(filter: String) {
@@ -1449,91 +1830,193 @@ struct LandingView: View {
     // MARK: - Welcome Back Content
 
     private func welcomeBackContent(info: WelcomeBackInfo) -> some View {
-        VStack(spacing: 0) {
-            Text("welcome back")
-                .font(AppDisplayTypography.font(size: 24))
-                .foregroundStyle(theme.fontAccent)
-                .shadow(color: theme.isDark ? theme.fontAccent.opacity(0.12) : .clear, radius: 8)
-                .padding(.top, 28)
-                .padding(.bottom, 4)
+        GeometryReader { proxy in
+            let panelWidth = min(max(proxy.size.width - 64, 360), 760)
+            let panelHeight = min(max(proxy.size.height - 140, 420), 560)
 
-            Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()))
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(theme.mutedForeground.opacity(0.5))
-                .padding(.bottom, 16)
+            ZStack {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture { dismissWelcomeBack() }
 
-            ScrollView {
-                GenUIDispatcher.shared.render(welcomeBackPayload(info: info))
-                    .frame(maxWidth: 580, alignment: .leading)
-                    .padding(.horizontal, 32)
-                    .padding(.vertical, 16)
-            }
-            .mask {
                 VStack(spacing: 0) {
-                    LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
-                        .frame(height: 16)
-                    Rectangle()
-                    LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
-                        .frame(height: 24)
-                }
-            }
+                    HStack(spacing: 12) {
+                        PixelGlyph(kind: .workspace, accent: theme.resolved.accent.color, isActive: true)
+                            .frame(width: 26, height: 26)
 
-            HStack(spacing: 12) {
-                Button {
-                    dismissWelcomeBack()
-                } label: {
-                    Text("Continue")
-                        .font(.system(size: 12, weight: .medium))
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(theme.resolved.foreground.color.opacity(0.06), in: Capsule())
-                        .foregroundStyle(theme.fontAccent.opacity(0.7))
-                }
-                .buttonStyle(.plain)
+                        PixelPanelTitle(text: "Welcome Back", theme: theme, size: 17)
 
-                Button {
-                    saveWelcomeBackAsNote(info: info)
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "doc.badge.plus")
-                            .font(.system(size: 10, weight: .medium))
-                        Text("Save as Note")
-                            .font(.system(size: 12, weight: .medium))
+                        Spacer(minLength: 16)
+
+                        Text("resume checkpoint")
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .foregroundStyle(theme.mutedForeground.opacity(theme.isDark ? 0.62 : 0.58))
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(theme.resolved.accent.color.opacity(0.12), in: Capsule())
-                    .foregroundStyle(theme.resolved.accent.color)
-                }
-                .buttonStyle(.plain)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 22)
+                    .padding(.bottom, 14)
 
-                Text("click or press ESC to dismiss")
-                    .font(.system(size: 10, weight: .regular))
-                    .foregroundStyle(theme.mutedForeground.opacity(0.3))
-            }
-            .padding(.bottom, 20)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background {
-            Color.clear
+                    Rectangle()
+                        .fill(theme.textPrimary.opacity(theme.isDark ? 0.12 : 0.10))
+                        .frame(height: 1)
+
+                    HStack(spacing: 8) {
+                        welcomeBackStatPill(
+                            systemImage: "doc.text",
+                            value: "\(info.noteCount)",
+                            title: "notes"
+                        )
+                        welcomeBackStatPill(
+                            systemImage: "message",
+                            value: "\(info.chatCount)",
+                            title: "chats"
+                        )
+                        welcomeBackStatPill(
+                            systemImage: "network",
+                            value: info.graphWasOpen ? "on" : "off",
+                            title: "graph"
+                        )
+                        welcomeBackStatPill(
+                            systemImage: "clock",
+                            value: "\(info.sessionMinutes)m",
+                            title: "session"
+                        )
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+
+                    ScrollView {
+                        TypewriterPlainText(
+                            content: info.displayText,
+                            slowRate: 1,
+                            mediumRate: 4,
+                            fastRate: 10
+                        )
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .lineSpacing(6)
+                        .foregroundStyle(theme.textPrimary.opacity(theme.isDark ? 0.92 : 0.82))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                    }
+                    .mask {
+                        VStack(spacing: 0) {
+                            LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                                .frame(height: 14)
+                            Rectangle()
+                            LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                                .frame(height: 22)
+                        }
+                    }
+
+                    Rectangle()
+                        .fill(theme.textPrimary.opacity(theme.isDark ? 0.12 : 0.10))
+                        .frame(height: 1)
+
+                    HStack(spacing: 10) {
+                        welcomeBackActionButton("Continue", systemImage: "arrow.right", isPrimary: true) {
+                            dismissWelcomeBack()
+                        }
+
+                        welcomeBackActionButton("Save Note", systemImage: "doc.badge.plus") {
+                            saveWelcomeBackAsNote(info: info)
+                        }
+
+                        welcomeBackActionButton("Workspaces", systemImage: "rectangle.3.group") {
+                            dismissWelcomeBack()
+                            NotificationCenter.default.post(name: .toggleWorkspaceSwitcher, object: nil)
+                        }
+
+                        Spacer(minLength: 8)
+
+                        Text("esc / click outside")
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .foregroundStyle(theme.mutedForeground.opacity(0.34))
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 16)
+                }
+                .frame(width: panelWidth, height: panelHeight)
+                .pixelPanel(theme: theme, surface: welcomeBackPanelSurface(for: theme))
                 .contentShape(Rectangle())
-                .onTapGesture { dismissWelcomeBack() }
+            }
         }
     }
 
-    private func welcomeBackPayload(info: WelcomeBackInfo) -> GenUIPayload {
-        GenUIPayload.markdownCard(
-            title: "Welcome Back",
-            info.displayText,
-            id: "landing-welcome-back",
-            metadata: ["surface": "landing-welcome-back"]
-        )
+    private func welcomeBackStatPill(systemImage: String, value: String, title: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: systemImage)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(theme.resolved.accent.color.opacity(theme.isDark ? 0.78 : 0.72))
+            Text(value)
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundStyle(theme.textPrimary.opacity(theme.isDark ? 0.88 : 0.76))
+            Text(title)
+                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .foregroundStyle(theme.mutedForeground.opacity(theme.isDark ? 0.62 : 0.52))
+        }
+        .frame(minWidth: 90, minHeight: 30)
+        .padding(.horizontal, 10)
+        .background(theme.textPrimary.opacity(theme.isDark ? 0.06 : 0.045))
+        .overlay {
+            Rectangle()
+                .stroke(theme.textPrimary.opacity(theme.isDark ? 0.10 : 0.08), lineWidth: 1)
+        }
+    }
+
+    private func welcomeBackActionButton(
+        _ title: String,
+        systemImage: String,
+        isPrimary: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 11, weight: .semibold))
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(
+                isPrimary
+                    ? theme.resolved.accent.color.opacity(theme.isDark ? 0.18 : 0.14)
+                    : theme.textPrimary.opacity(theme.isDark ? 0.055 : 0.04)
+            )
+            .foregroundStyle(
+                isPrimary
+                    ? theme.resolved.accent.color
+                    : theme.textPrimary.opacity(theme.isDark ? 0.82 : 0.68)
+            )
+            .overlay {
+                Rectangle()
+                    .stroke(
+                        isPrimary
+                            ? theme.resolved.accent.color.opacity(theme.isDark ? 0.22 : 0.18)
+                            : theme.textPrimary.opacity(theme.isDark ? 0.10 : 0.08),
+                        lineWidth: 1
+                    )
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func welcomeBackPanelSurface(for theme: EpistemosTheme) -> Color {
+        let base = theme.resolved.background.nsColor.usingColorSpace(.sRGB) ?? theme.resolved.background.nsColor
+        let accent = theme.resolved.accent.nsColor.usingColorSpace(.sRGB) ?? base
+        let target = theme.isDark
+            ? (base.blended(withFraction: 0.10, of: NSColor.white) ?? base)
+            : (base.blended(withFraction: 0.08, of: accent) ?? base)
+        return Color(nsColor: target)
     }
 
     private func dismissWelcomeBack() {
         welcomeBackDismissTask?.cancel()
         welcomeBackDismissTask = nil
         showWelcomeBack = false
+        presentedWelcomeBack = nil
         AppBootstrap.shared?.workspaceService.welcomeBack = nil
     }
 
@@ -1542,8 +2025,8 @@ struct LandingView: View {
             guard let bootstrap = AppBootstrap.shared else { return }
             let title = "Session Summary — \(Date.now.formatted(.dateTime.month(.abbreviated).day().year()))"
             var body = "# \(title)\n\n"
-            if !info.sanitizedIntentSummary.isEmpty {
-                body += "## Summary\n\(info.sanitizedIntentSummary)\n\n"
+            if !info.displayText.isEmpty {
+                body += "## Summary\n\(info.displayText)\n\n"
             }
             if !info.userNote.isEmpty {
                 body += "## Session Note\n\(info.userNote)\n\n"
@@ -1725,7 +2208,7 @@ struct LandingView: View {
     }
 
     private func openQuickCapture() {
-        NotificationCenter.default.post(name: .showQuickCapture, object: nil)
+        showLandingInlineCommand(.quickCapture)
     }
 
     // MARK: - Daily Brief Prompt

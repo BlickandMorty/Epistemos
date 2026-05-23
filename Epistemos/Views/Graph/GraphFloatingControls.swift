@@ -16,6 +16,7 @@ enum GraphOverlayControlsDisplay {
 struct GraphFloatingControls: View {
     @Environment(GraphState.self) private var graphState
     @Environment(UIState.self) private var ui
+    @Environment(\.graphSurfacePresentation) private var graphSurfacePresentation
 
     private var theme: EpistemosTheme { ui.theme }
 
@@ -73,6 +74,7 @@ struct GraphFloatingControls: View {
                 variant: .toolbar
             )
         ) {
+            HapticHelper.graphControl()
             graphState.performanceModeEnabled.toggle()
         }
         .accessibilityLabel(performance ? "Switch to cinematic graph mode" : "Switch to performance graph mode")
@@ -94,6 +96,7 @@ struct GraphFloatingControls: View {
                 variant: .toolbar
             )
         ) {
+            HapticHelper.graphControl()
             graphState.isPhysicsFrozen.toggle()
             graphState.physicsFrozenVersion += 1
             graphState.savePhysicsSettings()
@@ -266,6 +269,7 @@ struct GraphFloatingControls: View {
             helpText: "Minimize to floating window",
             accessibilityLabel: "Minimize to floating window"
         ) {
+            HapticHelper.graphControl()
             NotificationCenter.default.post(name: .graphMinimizeRequested, object: nil)
         }
     }
@@ -280,6 +284,7 @@ struct GraphFloatingControls: View {
             helpText: "Zoom to fit",
             accessibilityLabel: "Zoom to fit"
         ) {
+            HapticHelper.graphControl()
             NotificationCenter.default.post(name: .graphResetRequested, object: nil)
         }
     }
@@ -294,6 +299,7 @@ struct GraphFloatingControls: View {
             helpText: "Rebuild Graph",
             accessibilityLabel: "Rebuild graph"
         ) {
+            HapticHelper.graphControl()
             graphState.requestGraphRebuild()
         }
     }
@@ -301,15 +307,21 @@ struct GraphFloatingControls: View {
     // MARK: - Close
 
     private var closeButton: some View {
-        ToolbarCapsuleButton(
+        let helpText = graphSurfacePresentation.isEmbeddedHome ? "Return to home" : "Close Graph (Esc)"
+        return ToolbarCapsuleButton(
             title: "Close",
             systemImage: "xmark",
             variant: .toolbar,
             role: .secondaryGhost,
-            helpText: "Close Graph (Esc)",
+            helpText: helpText,
             accessibilityLabel: "Close graph"
         ) {
-            NotificationCenter.default.post(name: .graphCloseRequested, object: nil)
+            HapticHelper.graphControl()
+            if graphSurfacePresentation.isEmbeddedHome {
+                ui.homeContent = .greeting
+            } else {
+                NotificationCenter.default.post(name: .graphCloseRequested, object: nil)
+            }
         }
     }
 }

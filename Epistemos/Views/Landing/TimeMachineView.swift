@@ -16,35 +16,30 @@ struct TimeMachineView: View {
     @State private var historicalState: TimeMachineService.HistoricalState?
     @State private var diff: TimeMachineService.StateDiff?
     @State private var isLoading = false
-    @State private var appeared = false
+    @State private var appearFrame = 0
     @State private var selectionTask: Task<Void, Never>?
 
     private var theme: EpistemosTheme { ui.theme }
 
-    private var scrimColor: Color { theme.isDark ? .black : .gray }
-    private var scrimOpacity: Double { theme.isDark ? 0.45 : 0.2 }
-    private var panelShadow: Color { theme.isDark ? .black.opacity(0.3) : .black.opacity(0.1) }
-    private var panelStroke: Color { theme.isDark ? .white.opacity(0.08) : .black.opacity(0.06) }
-
     var body: some View {
         ZStack {
-            scrimColor.opacity(appeared ? scrimOpacity : 0)
+            Color.clear
                 .ignoresSafeArea()
+                .contentShape(Rectangle())
                 .onTapGesture { dismiss() }
 
             VStack(spacing: 0) {
                 // Header
                 HStack {
-                    Image(systemName: "clock.arrow.trianglehead.counterclockwise.rotate.90")
-                        .font(.system(size: 14, weight: .semibold))
-                    Text("Time Machine")
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    PixelGlyph(kind: .clock, accent: theme.resolved.accent.color)
+                        .frame(width: 24, height: 24)
+                    PixelPanelTitle(text: "Time Machine", theme: theme, size: 15)
                     Spacer()
                     Text("\(timeline.count) session\(timeline.count == 1 ? "" : "s") recorded")
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
                         .foregroundStyle(theme.textTertiary)
                     Text("esc to close")
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
                         .foregroundStyle(theme.textTertiary)
                         .padding(.leading, 12)
                 }
@@ -56,14 +51,13 @@ struct TimeMachineView: View {
 
                 if timeline.isEmpty {
                     VStack(spacing: 16) {
-                        Image(systemName: "clock")
-                            .font(.system(size: 36, weight: .ultraLight))
-                            .foregroundStyle(theme.textTertiary)
+                        PixelGlyph(kind: .clock, accent: theme.textTertiary)
+                            .frame(width: 44, height: 44)
                         Text("No session history yet")
-                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .font(.system(size: 14, weight: .medium, design: .monospaced))
                             .foregroundStyle(theme.textSecondary)
                         Text("Sessions are recorded when you quit the app. Use it normally and come back here later.")
-                            .font(.system(size: 12, design: .rounded))
+                            .font(.system(size: 12, design: .monospaced))
                             .foregroundStyle(theme.textTertiary)
                             .multilineTextAlignment(.center)
                             .frame(maxWidth: 300)
@@ -105,34 +99,8 @@ struct TimeMachineView: View {
                 }
             }
             .frame(width: 720)
-            .background {
-                // Same layered backdrop as SessionIntelligenceOverlay +
-                // QuickCapture so the cross-app visual language stays
-                // consistent. Apple-native primitives only.
-                ZStack {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(LinearGradient(
-                            colors: [
-                                Color.accentColor.opacity(0.10),
-                                Color.accentColor.opacity(0.02),
-                                .clear
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ))
-                        .blendMode(.plusLighter)
-                }
-                .shadow(color: panelShadow, radius: 32, y: 14)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(panelStroke.opacity(0.7), lineWidth: 0.5)
-            }
-            .scaleEffect(appeared ? 1 : 0.95)
-            .opacity(appeared ? 1 : 0)
+            .pixelPanel(theme: theme)
+            .pixelStepAppear(frame: appearFrame)
             .foregroundStyle(theme.resolved.foreground.color)
         }
         .background {
@@ -143,7 +111,11 @@ struct TimeMachineView: View {
                 .allowsHitTesting(false)
         }
         .onAppear {
-            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { appeared = true }
+            Task { @MainActor in
+                await PixelStepMotion.play(reduceMotion: reduceMotion) { frame in
+                    appearFrame = frame
+                }
+            }
             loadTimeline()
         }
         .onDisappear {
@@ -188,7 +160,7 @@ struct TimeMachineView: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
             .background {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                Rectangle()
                     .fill(selectedSnapshot?.id == meta.id
                           ? theme.resolved.accent.color.opacity(0.12)
                           : .clear)
@@ -292,7 +264,7 @@ struct TimeMachineView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
-                    .background(theme.resolved.accent.color.opacity(0.12), in: Capsule())
+                    .background(theme.resolved.accent.color.opacity(0.12), in: Rectangle())
                     .foregroundStyle(theme.resolved.accent.color)
                 }
                 .buttonStyle(.plain)
@@ -395,13 +367,16 @@ struct TimeMachineView: View {
             return
         }
 
+        _ = AppBootstrap.shared?.workspaceService.enforceSavedWorkspaceLimit(
+            AppDataRetentionPolicy.current().savedWorkspaceLimit
+        )
         // Load the workspace
         AppBootstrap.shared?.workspaceService.loadWorkspace(ws)
         dismiss()
     }
 
     private func dismiss() {
-        withAnimation(reduceMotion ? nil : .easeIn(duration: 0.15)) { appeared = false }
+        withAnimation(reduceMotion ? nil : .easeIn(duration: 0.15)) { appearFrame = 0 }
         if reduceMotion {
             isPresented = false
             return

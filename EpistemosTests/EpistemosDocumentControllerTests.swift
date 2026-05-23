@@ -46,6 +46,53 @@ nonisolated struct EpistemosDocumentControllerTests {
                 "controller MUST hold the SwiftData container used for .epdoc graph projection")
     }
 
+    @Test("Epdoc locator resolves a saved document by manifest id")
+    @MainActor
+    func epdocLocatorFindsDocumentPackageByManifestID() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("EpdocLocator-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let doc = EpdocDocument()
+        try doc.persistInitialDocument(in: directory)
+
+        let url = try #require(doc.fileURL)
+            .resolvingSymlinksInPath()
+        let locatedURL = EpdocDocumentLocator
+            .url(forManifestID: doc.package.manifest.id, in: directory)?
+            .resolvingSymlinksInPath()
+        #expect(
+            locatedURL == url,
+            "Graph document nodes carry manifest ids, so the opener must resolve that id back to the .epdoc package URL."
+        )
+    }
+
+    @Test("Initial Epdoc persistence projects a first-class document graph node")
+    @MainActor
+    func initialEpdocPersistenceProjectsDocumentNode() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("EpdocInitialGraph-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let container = try Self.makeGraphContainer()
+        let doc = EpdocDocument()
+        doc.graphModelContainer = container
+        try doc.persistInitialDocument(in: directory)
+
+        let context = ModelContext(container)
+        var documentNode: SDGraphNode?
+        for _ in 0..<30 {
+            let nodes = try context.fetch(FetchDescriptor<SDGraphNode>())
+            documentNode = nodes.first { $0.sourceId == doc.package.manifest.id }
+            if documentNode != nil { break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+
+        let node = try #require(documentNode)
+        #expect(node.nodeType == .document,
+                "A newly-created .epdoc must enter the graph as a Document, not as a semantic Idea label.")
+    }
+
     @Test("injectDependencies hooks the writer into EpdocDocument")
     @MainActor
     func injectsWriterIntoEpdocDocument() throws {

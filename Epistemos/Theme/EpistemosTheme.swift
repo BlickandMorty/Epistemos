@@ -1730,8 +1730,13 @@ enum AppDisplayTypography: Sendable {
 }
 
 enum ClaudeAppTypography: Sendable {
-    static func assistantFont(size: CGFloat) -> Font {
-        Font(assistantUIFont(size: size))
+    private nonisolated static let anthropicSansRegularName = "AnthropicSansVariable-TextRegular"
+    private nonisolated static let anthropicSansMediumName = "AnthropicSansVariable-TextMedium"
+    private nonisolated static let anthropicSansSemiboldName = "AnthropicSansVariable-TextSemibold"
+    private nonisolated static let anthropicSansBoldName = "AnthropicSansVariable-TextBold"
+
+    static func assistantFont(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        Font(assistantUIFont(size: size, weight: nsWeight(for: weight)))
     }
 
     static func userFont(size: CGFloat) -> Font {
@@ -1746,19 +1751,36 @@ enum ClaudeAppTypography: Sendable {
         size: CGFloat,
         weight: NSFont.Weight = .regular
     ) -> NSFont {
-        NSFont.monospacedSystemFont(ofSize: size, weight: weight)
+        AppDisplayTypography.monoUIFont(size: size, weight: weight)
     }
 
-    nonisolated static func assistantUIFont(size: CGFloat) -> NSFont {
-        monoUIFont(size: size, weight: .regular)
+    nonisolated static func assistantUIFont(size: CGFloat, weight: NSFont.Weight = .regular) -> NSFont {
+        anthropicSansUIFont(size: size, weight: weight)
     }
 
     nonisolated static func noteAssistantUIFont(size: CGFloat) -> NSFont {
-        AppDisplayTypography.nsFont(size: size, weight: .regular)
+        anthropicSansUIFont(size: size, weight: .regular)
     }
 
     nonisolated static func userUIFont(size: CGFloat) -> NSFont {
         monoUIFont(size: size, weight: .medium)
+    }
+
+    private nonisolated static func anthropicSansUIFont(
+        size: CGFloat,
+        weight: NSFont.Weight
+    ) -> NSFont {
+        let fontName: String = if weight >= .bold {
+            anthropicSansBoldName
+        } else if weight >= .semibold {
+            anthropicSansSemiboldName
+        } else if weight >= .medium {
+            anthropicSansMediumName
+        } else {
+            anthropicSansRegularName
+        }
+        return NSFont(name: fontName, size: size)
+            ?? AppDisplayTypography.regularUIFont(size: size, weight: weight)
     }
 
     private nonisolated static func nsWeight(for weight: Font.Weight) -> NSFont.Weight {

@@ -95,7 +95,7 @@ enum LandingGreetingResolver {
 
         let tips: [LandingGreetingPhrase] = [
             LandingGreetingPhrase(text: "\u{2318}G opens the knowledge graph", durationSeconds: 2.6),
-            LandingGreetingPhrase(text: "^\u{2318}R — Session Intelligence reads every open window", durationSeconds: 3.2),
+            LandingGreetingPhrase(text: "\u{2318}\u{21E7}N opens Quick Capture", durationSeconds: 3.0),
             LandingGreetingPhrase(text: "^\u{2318}T — Time Machine lets you revisit any past session", durationSeconds: 3.2),
             LandingGreetingPhrase(text: "^\u{2318}S saves your workspace layout for later", durationSeconds: 3.0),
             LandingGreetingPhrase(text: "wikilinks connect ideas — type [[note name]] anywhere", durationSeconds: 3.0),

@@ -86,7 +86,8 @@ private struct HomeSceneRootContent: View {
         LaunchIntegrityGateView(bootstrap: bootstrap) {
             RootView(
                 databaseError: bootstrap.databaseError,
-                onResetDatabase: { bootstrap.resetDatabaseAndRelaunch() }
+                onResetDatabase: { bootstrap.resetDatabaseAndRelaunch() },
+                showQuickCapture: $showQuickCapture
             )
                 .withAppEnvironment(bootstrap)
                 .sheet(isPresented: Binding(
@@ -203,10 +204,6 @@ private struct HomeSceneRootContent: View {
                         }
                     )
                     .interactiveDismissDisabled(true)
-                }
-                .sheet(isPresented: $showQuickCapture) {
-                    QuickCaptureView()
-                        .withAppEnvironment(bootstrap)
                 }
                 .onReceive(
                     NotificationCenter.default.publisher(for: .showQuickCapture)
@@ -1039,7 +1036,10 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         }
         let hasOpenNotes = !NoteWindowManager.shared.orderedPageIds().isEmpty
         let hasOpenChats = !MiniChatWindowController.shared.openChatIds.isEmpty
-        guard hasOpenNotes || hasOpenChats else {
+            || AppBootstrap.shared?.chatState.activeChatId != nil
+        let hasGraphWork = AppBootstrap.shared?.graphState.currentRoute != .canvas
+            || HologramController.shared.isVisible
+        guard hasOpenNotes || hasOpenChats || hasGraphWork else {
             performTeardown()
             return .terminateNow
         }
@@ -1231,7 +1231,6 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
 
 extension Notification.Name {
     static let toggleWorkspaceSwitcher = Notification.Name("epistemos.toggleWorkspaceSwitcher")
-    static let toggleSessionIntelligence = Notification.Name("epistemos.toggleSessionIntelligence")
     static let toggleTimeMachine = Notification.Name("epistemos.toggleTimeMachine")
     static let showSaveWorkspacePanel = Notification.Name("epistemos.showSaveWorkspacePanel")
     static let showQuitSavePanel = Notification.Name("epistemos.showQuitSavePanel")
@@ -1253,10 +1252,6 @@ struct EpistemosCommands: Commands {
 
             Button("Switch Workspace  \u{2303}\u{2318}W") {
                 NotificationCenter.default.post(name: .toggleWorkspaceSwitcher, object: nil)
-            }
-
-            Button("Session Intelligence  \u{2303}\u{2318}R") {
-                NotificationCenter.default.post(name: .toggleSessionIntelligence, object: nil)
             }
         }
 

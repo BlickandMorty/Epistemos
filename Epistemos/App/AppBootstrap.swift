@@ -2659,6 +2659,11 @@ final class AppBootstrap {
         activityTracker.startTracking()
         workspaceSummaryService.startAutoSummaryLoop()
         workspaceService.startAutoSave()
+        if workspaceService.welcomeBack != nil {
+            Task { @MainActor [weak self] in
+                await self?.refreshWelcomeBackSummary()
+            }
+        }
         refreshLiveNoteScheduler()
         didCompletePrimaryLaunchInitialization = true
 
