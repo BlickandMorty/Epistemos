@@ -40,6 +40,11 @@ name = "agent_core"
 crate-type = ["cdylib", "staticlib", "rlib"]
 
 [[bin]]
+name = "epistemos_eml"
+path = "src/bin/epistemos_eml.rs"
+required-features = ["research"]
+
+[[bin]]
 name = "epistemos_channel_relay"
 path = "src/bin/epistemos_channel_relay.rs"
 required-features = ["pro-build", "channel-relay-tools"]
