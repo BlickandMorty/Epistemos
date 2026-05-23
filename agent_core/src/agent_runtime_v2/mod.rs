@@ -48,6 +48,7 @@ pub mod envelope;
 pub mod event;
 pub mod fixtures;
 pub mod mission;
+pub mod mission_run;
 pub mod mode;
 pub mod naming_lint;
 pub mod para;
@@ -64,6 +65,7 @@ pub use compose::{ParaSeq, ParaSeqFeedback, ParaSeqOutput};
 pub use envelope::{MutationEnvelope, MutationWriter, Sealer, SealError};
 pub use event::{AgentEvent, AgentEventErrorKind};
 pub use mission::{MissionPacket, MissionPromptError, ToolCall, ToolCallError};
+pub use mission_run::MissionRun;
 pub use mode::AgentRuntimeV2Mode;
 pub use naming_lint::{
     count_hits, is_path_exempt, scan_text, text_contains_rejected_name, RejectedNameMatch,
