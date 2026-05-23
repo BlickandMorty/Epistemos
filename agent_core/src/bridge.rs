@@ -3570,6 +3570,62 @@ struct SystemGRuntimeStatus {
 // gate is green` (DECK:266). Surfacing the live witness JSON in the
 // health row keeps that gate visible to the user.
 
+// ACS ADMISSION WIRING — `acs_admission_strict_policy_summary_json` FFI.
+//
+// Wiring #6 (T18B ACS dispatch admission gate). The mission spec flags
+// this as HIGH RISK ("gates everything; ship with extra care"), so the
+// initial Swift surface is **status read only** — we expose the strict
+// policy's summary (id, version, capability + operation-threshold rule
+// counts, canonical verdict labels) so Settings -> Diagnostics can
+// surface the substrate as live. NO production dispatch hooks are
+// added here; the actual admission gating remains in
+// `agent_core::acs_admission` and consumers wire it explicitly when
+// ready.
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct ACSAdmissionPolicySummary {
+    policy_id: String,
+    version: u32,
+    valid_from_ms: i64,
+    expires_at_ms: Option<i64>,
+    capability_rules_count: usize,
+    operation_threshold_rules_count: usize,
+    canonical_verdicts: Vec<String>,
+}
+
+/// FFI entry: snapshot the canonical strict ACS policy and return
+/// its summary. Swift renders this on `ACSAdmissionHealthRow` to
+/// prove the substrate is reachable without exercising the gate.
+#[uniffi::export]
+pub fn acs_admission_strict_policy_summary_json() -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        use crate::acs_admission::ACSPolicy;
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as i64)
+            .unwrap_or(0);
+        let policy = ACSPolicy::strict_default(now_ms);
+        let summary = ACSAdmissionPolicySummary {
+            policy_id: policy.policy_id.clone(),
+            version: policy.version,
+            valid_from_ms: policy.valid_from_ms,
+            expires_at_ms: policy.expires_at_ms,
+            capability_rules_count: policy.required_capabilities.len(),
+            operation_threshold_rules_count: policy.operation_thresholds.len(),
+            canonical_verdicts: vec![
+                "allow".to_string(),
+                "allow_with_warning".to_string(),
+                "defer".to_string(),
+                "quarantine".to_string(),
+                "reject".to_string(),
+            ],
+        };
+        serde_json::to_string(&summary).map_err(|e| AgentErrorFFI::AgentError {
+            message: format!("ACS admission policy summary serialize: {}", e),
+        })
+    })
+}
+
 /// FFI entry: run the F-ULP acceptance witness and return the JSON.
 /// Swift renders the parsed `FulpWitness` on `FUlpHealthRow`.
 #[uniffi::export]
