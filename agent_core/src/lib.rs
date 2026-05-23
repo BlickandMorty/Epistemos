@@ -79,6 +79,7 @@ pub mod sovereign;
 pub mod tools_v2;
 pub mod tri_fusion;
 pub mod types;
+pub mod uas;
 pub mod util;
 pub mod variant_ladder;
 pub mod vault_registry;
