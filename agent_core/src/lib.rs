@@ -35,6 +35,7 @@ pub mod grammar;
 pub mod heal;
 pub mod helios;
 pub mod lattice;
+pub mod lattice_wbo;
 pub mod lifecycle;
 pub mod tamagotchi;
 pub mod live_files;
