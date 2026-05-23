@@ -33,6 +33,7 @@ pub mod eml_ir;
 pub mod fulp_oracle;
 pub mod hybrid_memory;
 pub mod hyperdynamic_schemas;
+pub mod info_ir;
 pub mod interrupt_calibration;
 pub mod koopman;
 pub mod mamba3;
