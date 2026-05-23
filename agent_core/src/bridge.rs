@@ -3526,6 +3526,60 @@ pub fn oplog_lattice_wbo_stats_json() -> Result<String, AgentErrorFFI> {
     })
 }
 
+// SYSTEM G / AGENT RUNTIME V2 WIRING — `system_g_runtime_status_json` FFI.
+//
+// Wiring #4 (T11 System G → LocalAgentLoop) scaffold. Reports the
+// compile-time tier gate for agent_runtime_v2 — Disabled (MAS V1) or
+// IpcBounded (Pro V1.x default; Subprocess is gated separately by the
+// `subprocess-cli-adapters` feature when present).
+//
+// Per canon (`docs/AGENT_RUNTIME_V2_SYSTEM_G_DOCTRINE_2026_05_18.md`)
+// the mode is the single source of truth for which v2 paths are alive.
+// MAS bundles MUST observe Disabled at runtime; flipping requires a
+// CLAUDE.md edit + App Review re-submission. This FFI exposes that
+// source-of-truth so the Settings -> Diagnostics SystemGHealthRow can
+// surface it without re-reading from CLAUDE.md.
+//
+// **Scope lock**: this is a status read only. The full dispatch flow
+// (AgentBlueprint -> MissionPacket -> AgentEvent -> approval ->
+// MutationEnvelope -> RunEventLog -> AnswerPacket) lands in follow-up
+// W-rows (W-11..W-18 + W-44/W-45). The Swift wire shape is pinned by
+// the existing AgentRuntimeV2Mode serde derive.
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct SystemGRuntimeStatus {
+    mode: crate::agent_runtime_v2::AgentRuntimeV2Mode,
+    allows_execution: bool,
+    allows_subprocess: bool,
+    build_tier: String,
+}
+
+/// FFI entry: snapshot the agent_runtime_v2 mode + execution gates and
+/// return the JSON encoding. Swift renders via the
+/// `SystemGHealthRow` in Settings -> Diagnostics.
+#[uniffi::export]
+pub fn system_g_runtime_status_json() -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        use crate::agent_runtime_v2::AgentRuntimeV2Mode;
+        // Tier select is build-time only per the doctrine. The MAS
+        // bundle always observes `Disabled` so the FFI cannot lie about
+        // tier in a way that bypasses App Review.
+        #[cfg(feature = "pro-build")]
+        let (mode, build_tier) = (AgentRuntimeV2Mode::pro_default(), "pro".to_string());
+        #[cfg(not(feature = "pro-build"))]
+        let (mode, build_tier) = (AgentRuntimeV2Mode::mas_default(), "mas".to_string());
+        let status = SystemGRuntimeStatus {
+            mode,
+            allows_execution: mode.allows_execution(),
+            allows_subprocess: mode.allows_subprocess(),
+            build_tier,
+        };
+        serde_json::to_string(&status).map_err(|e| AgentErrorFFI::AgentError {
+            message: format!("system_g runtime status serialize: {}", e),
+        })
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::build_preview_session_context_with_opener;
