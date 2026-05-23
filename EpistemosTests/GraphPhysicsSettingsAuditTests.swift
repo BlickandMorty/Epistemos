@@ -116,11 +116,12 @@ struct GraphPhysicsSettingsAuditTests {
         )
     }
 
-    @Test("Renderer camera smoothing stays on the 6.5 buttery baseline")
+    @Test("Renderer camera smoothing stays on the snappy 11.0 baseline")
     func rendererCameraSmoothingStaysOnButteryBaseline() throws {
         let source = try loadMirroredSourceTextFile("graph-engine/src/renderer.rs")
 
-        #expect(source.contains("const CAMERA_LAMBDA: f32 = 6.5;"))
+        #expect(source.contains("const DEFAULT_CAMERA_LAMBDA: f32 = 11.0;"))
+        #expect(source.contains("11.0 = snappy response"))
         #expect(source.contains("Was 3.0 (too slow per user 2026-04-04)."))
     }
 
@@ -218,27 +219,29 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(PhysicsPreset.halo.chargeRange < PhysicsPreset.constellation.chargeRange)
     }
 
-    @Test("Overlay cycle reaches chaos in 4 seconds from the constellation opening preset without enabling fluid wake")
+    @Test("Overlay cycle stays in Gravity Well at both phases without enabling fluid wake")
     func overlayCycleKeepsFluidWakeOffByDefault() async {
         clearPhysicsDefaults()
 
+        // Per user 2026-05-12 (refined): Gravity Well is the canonical
+        // default at both phases. The boot defaults additionally override
+        // linkDistance → 500 max, centerStrength → 0, fluid wake → off
+        // (see restorePhysicsSettings first-launch branch). The previous
+        // Observatory + fluid-wake variant is preserved as
+        // legacyDefaultTimelineSignature for historical reference.
         #expect(GraphOverlayPhysicsPolicy.chaosDelaySeconds == 4)
-        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 3.99) == .constellation)
-        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 4) == .chaos)
+        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 3.99) == .gravityWell)
+        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 4) == .gravityWell)
 
         let state = GraphState()
         state.startOverlayPhysicsCycle()
 
-        #expect(await waitForPreset(.constellation, in: state))
-        #expect(state.selectedPhysicsPreset == .constellation)
-        #expect(!state.enableFluidDynamics)
-
-        #expect(await waitForPreset(.chaos, in: state))
-        #expect(state.selectedPhysicsPreset == .chaos)
+        #expect(await waitForPreset(.gravityWell, in: state))
+        #expect(state.selectedPhysicsPreset == .gravityWell)
         #expect(!state.enableFluidDynamics)
     }
 
-    @Test("Graph rebuild requests restart in constellation and mark rebuild pending")
+    @Test("Graph rebuild requests restart in Gravity Well and mark rebuild pending")
     func graphRebuildRequestStartsConstellationCycle() async {
         clearPhysicsDefaults()
 
@@ -246,9 +249,33 @@ struct GraphPhysicsSettingsAuditTests {
         state.requestGraphRebuild()
 
         #expect(state.pendingRebuild)
-        #expect(await waitForPreset(.constellation, in: state))
-        #expect(state.selectedPhysicsPreset == .constellation)
+        #expect(await waitForPreset(.gravityWell, in: state))
+        #expect(state.selectedPhysicsPreset == .gravityWell)
         #expect(!state.enableFluidDynamics)
+    }
+
+    @Test("First-launch boot defaults apply Gravity Well + linkDistance max + center 0 + fluid off")
+    func firstLaunchBootDefaultsMatchUserSpec() {
+        clearPhysicsDefaults()
+
+        let state = GraphState()
+
+        // Selected preset is Gravity Well.
+        #expect(state.selectedPhysicsPreset == .gravityWell)
+        // Three explicit overrides on top of Gravity Well's stock values
+        // per user 2026-05-12 directive:
+        #expect(state.linkDistance == 500.0,
+            "linkDistance must default to slider max (500); got \(state.linkDistance)")
+        #expect(state.centerStrength == 0.0,
+            "centerStrength must default to 0 (off); got \(state.centerStrength)")
+        #expect(!state.enableFluidDynamics,
+            "fluid wake (enableFluidDynamics) must default to off")
+        // Other params follow Gravity Well's stock values so the picker
+        // selection is honest about which base preset is loaded:
+        #expect(state.chargeStrength == PhysicsPreset.gravityWell.chargeStrength)
+        #expect(state.chargeRange == PhysicsPreset.gravityWell.chargeRange)
+        #expect(state.velocityDecay == PhysicsPreset.gravityWell.velocityDecay)
+        #expect(state.collisionRadius == PhysicsPreset.gravityWell.collisionRadius)
     }
 
     @Test("legacy default scheduler migrates to the new constellation opening cycle")
@@ -412,8 +439,6 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(settings.contains("GraphForceSettingsSection"))
         #expect(settings.contains("case physics = \"Physics\""))
         #expect(settings.contains("case filters = \"Filters\""))
-        #expect(settings.contains("GraphState.userFilterableNodeTypes"))
-        #expect(settings.contains("graphState.hideAllUserFilterableNodeTypes()"))
         #expect(!settings.contains("Picker(\"Opens in\""))
         #expect(!settings.contains("sectionHeader(\"Water Nodes\""))
         #expect(overlay.contains("static func surfaceTintColor"))
@@ -432,6 +457,10 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(settings.contains("label: \"Focus Shrink\""))
         #expect(settings.contains("labToggle(\n                    label: \"Elastic Edges\""))
         #expect(settings.contains("label: \"Edge Elasticity\""))
+        #expect(settings.contains("GraphState.userFilterableNodeTypes"))
+        #expect(settings.contains("graphState.setNodeTypeVisibility(type, isVisible: $0)"))
+        #expect(settings.contains("graphState.applyContentFocusedNodeVisibility()"))
+        #expect(settings.contains("graphState.showAllUserFilterableNodeTypes()"))
     }
 
     @Test("Cinematic graph renderer uses hard stepped pixel nodes without adding a third mode")
@@ -504,7 +533,7 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(script.contains("JetBrainsMono-Regular.ttf"))
         #expect(script.contains("-size 48"))
         #expect(script.contains("-dimensions 1024 1024"))
-        #expect(graphState.contains("var displayName: String { \"Mono\" }"))
+        #expect(graphState.contains("var displayName: String { \"Theme\" }"))
         #expect(renderer.contains("float atlas_glyph_px = inst.uv_rect.w * u.atlas_height;"))
         #expect(renderer.contains("float blur_widen = in.blur * 0.08;"))
         #expect(!renderer.contains("inst.size * (1.0 - blur * 0.5)"))
@@ -567,7 +596,7 @@ struct GraphPhysicsSettingsAuditTests {
         let engine = try loadMirroredSourceTextFile("graph-engine/src/engine.rs")
 
         #expect(engine.contains("fn estimated_label_screen_rect("))
-        #expect(engine.contains("occupied_label_rects"))
+        #expect(engine.contains("label_occupied_rects"))
         #expect(engine.contains("existing.overlaps(&label_rect)"))
         #expect(engine.contains("let local_scale = 1.0 - 0.62 * smoothstep"))
         #expect(engine.contains("fn selected_neighbor_density_budget("))
@@ -583,8 +612,8 @@ struct GraphPhysicsSettingsAuditTests {
     func graphEdgeThicknessDerivesFromEdgeWeight() throws {
         let renderer = try loadMirroredSourceTextFile("graph-engine/src/renderer.rs")
 
-        #expect(renderer.contains("const MIN_EDGE_WIDTH_PX: f32 = 1.15"))
-        #expect(renderer.contains("const MAX_EDGE_WIDTH_PX: f32 = 4.20"))
+        #expect(renderer.contains("const MIN_EDGE_WIDTH_PX: f32 = 2.00"))
+        #expect(renderer.contains("const MAX_EDGE_WIDTH_PX: f32 = 6.00"))
         #expect(renderer.contains("fn edge_width_px_for_weight(weight: f32, p0_radius: f32, p1_radius: f32) -> f32"))
         #expect(renderer.contains("let thickness_px = edge_width_px_for_weight(edge.weight, source_radius, target_radius)"))
         #expect(renderer.contains("fn graph_edge_color_for_appearance(light_mode: bool) -> [f32; 4]"))
@@ -638,7 +667,7 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(!renderer.contains("crate::edge_trim::trim_line_endpoints("))
         #expect(!renderer.contains("crate::edge_trim::trim_curve_endpoints("))
         #expect(!graphLib.contains("pub mod edge_trim;"))
-        #expect(renderer.contains("smooth_curve_edges_use_node_centers_so_nodes_occlude_connections"))
+        #expect(renderer.contains("smooth_curve_edges_use_node_centers_and_keep_curvature"))
         let productionRenderer = renderer.split(separator: "mod tests", maxSplits: 1).first.map(String.init) ?? renderer
         #expect(!productionRenderer.contains("EdgeGeometryKind"))
         #expect(renderer.contains("fn performance_quality_keeps_curved_edge_geometry"))

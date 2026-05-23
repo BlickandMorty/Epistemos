@@ -1,9 +1,7 @@
 import SwiftUI
 
 // MARK: - GraphForceSettings
-// Popover with two sections: Physics Presets + Force Parameter Sliders.
-// Basic section: 4 core params (link distance, charge strength/range, link strength).
-// Advanced section: 5 extended params (friction, gravity, collision, warmth, orbital).
+// Popover with presets, physics, display, filters, and advanced tuning.
 // Each slider change pushes updated params to the Rust engine via GraphState.
 
 enum GraphForceSettingsLayout {
@@ -13,8 +11,8 @@ enum GraphForceSettingsLayout {
 private enum GraphForceSettingsSection: String, CaseIterable, Identifiable {
     case presets = "Presets"
     case physics = "Physics"
-    case filters = "Filters"
     case display = "Display"
+    case filters = "Filters"
     case advanced = "Advanced"
 
     var id: Self { self }
@@ -23,8 +21,8 @@ private enum GraphForceSettingsSection: String, CaseIterable, Identifiable {
         switch self {
         case .presets: return "sparkles"
         case .physics: return "bolt"
-        case .filters: return "line.3.horizontal.decrease.circle"
         case .display: return "rectangle.on.rectangle"
+        case .filters: return "line.3.horizontal.decrease.circle"
         case .advanced: return "slider.horizontal.3"
         }
     }
@@ -40,6 +38,10 @@ struct GraphForceSettings: View {
     @State private var renameTargetId: UUID? = nil
     @State private var renameDraft = ""
     @State private var selectedSection: GraphForceSettingsSection = .presets
+    /// "Reset to Defaults" confirmation gate. Set true to surface the
+    /// confirmation dialog before clobbering the user's custom force
+    /// settings.
+    @State private var showResetConfirmation = false
 
     private var isStatic: Bool { graphState.isStaticLayout }
 
@@ -60,10 +62,10 @@ struct GraphForceSettings: View {
                         presetsPanel(gs: $gs)
                     case .physics:
                         physicsPanel(gs: $gs)
-                    case .filters:
-                        filtersPanel()
                     case .display:
                         displayPanel(gs: $gs)
+                    case .filters:
+                        filtersPanel
                     case .advanced:
                         advancedPanel(gs: $gs)
                     }
@@ -119,6 +121,8 @@ struct GraphForceSettings: View {
             Divider().opacity(0.3)
             presetSection
             customPresetsSection
+            Divider().opacity(0.3)
+            resetButton
         }
     }
 
@@ -129,33 +133,8 @@ struct GraphForceSettings: View {
             advancedSection(gs: gs)
             Divider().opacity(0.3)
             clusterSection(gs: gs)
-        }
-    }
-
-    private func filtersPanel() -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionHeader("Node Types", icon: "square.grid.3x3")
-
-            HStack(spacing: 6) {
-                filterPresetButton("All") {
-                    graphState.showAllUserFilterableNodeTypes()
-                }
-                filterPresetButton("Content") {
-                    graphState.applyContentFocusedNodeVisibility()
-                }
-                filterPresetButton("None") {
-                    graphState.hideAllUserFilterableNodeTypes()
-                }
-            }
-
-            LazyVGrid(columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-            ], spacing: 6) {
-                ForEach(GraphState.userFilterableNodeTypes, id: \.rawValue) { type in
-                    nodeTypeFilterToggle(type)
-                }
-            }
+            Divider().opacity(0.3)
+            resetButton
         }
     }
 
@@ -168,6 +147,45 @@ struct GraphForceSettings: View {
             labelsSection(gs: gs)
             Divider().opacity(0.3)
             resetButton
+        }
+    }
+
+    private var filtersPanel: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            sectionHeader("Node Types", icon: "line.3.horizontal.decrease.circle")
+
+            HStack(spacing: 8) {
+                Button("Content Only") {
+                    graphState.applyContentFocusedNodeVisibility()
+                }
+                .font(.system(size: 11, weight: .medium))
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+
+                Button("Show All") {
+                    graphState.showAllUserFilterableNodeTypes()
+                }
+                .font(.system(size: 11, weight: .medium))
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(GraphState.userFilterableNodeTypes, id: \.self) { type in
+                    Toggle(isOn: Binding(
+                        get: { graphState.isNodeTypeVisible(type) },
+                        set: { graphState.setNodeTypeVisibility(type, isVisible: $0) }
+                    )) {
+                        Text(type.settingsDisplayName)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.secondary)
+                    }
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
+                }
+            }
+
+            settingNote("Hidden types stay in the vault and can be restored instantly.")
         }
     }
 
@@ -414,50 +432,6 @@ struct GraphForceSettings: View {
         .foregroundStyle(isSelected ? .primary : .secondary)
     }
 
-    private func filterPresetButton(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 10, weight: .semibold))
-                .lineLimit(1)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 7)
-                .background(
-                    Color.primary.opacity(0.05),
-                    in: RoundedRectangle(cornerRadius: 7, style: .continuous)
-                )
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(.secondary)
-    }
-
-    private func nodeTypeFilterToggle(_ type: GraphNodeType) -> some View {
-        let isVisible = Binding<Bool>(
-            get: { graphState.isNodeTypeVisible(type) },
-            set: { graphState.setNodeTypeVisibility(type, isVisible: $0) }
-        )
-
-        return Toggle(isOn: isVisible) {
-            HStack(spacing: 5) {
-                Circle()
-                    .fill(type.swiftUIColor)
-                    .frame(width: 6, height: 6)
-                Text(type.displayName)
-                    .font(.system(size: 10, weight: .medium))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
-        }
-        .toggleStyle(.checkbox)
-        .controlSize(.small)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            Color.primary.opacity(graphState.isNodeTypeVisible(type) ? 0.045 : 0.02),
-            in: RoundedRectangle(cornerRadius: 7, style: .continuous)
-        )
-    }
-
     // MARK: - Basic Forces
 
     private func basicSection(gs: Bindable<GraphState>) -> some View {
@@ -611,18 +585,28 @@ struct GraphForceSettings: View {
         VStack(alignment: .leading, spacing: 10) {
             sectionHeader("Startup Scheduler", icon: "timer")
 
-            Picker("Mode", selection: gs.schedulerMode) {
-                Text("Simple").tag(PhysicsSchedulerMode.simple)
-                Text("Timeline").tag(PhysicsSchedulerMode.timeline)
-            }
-            .pickerStyle(.segmented)
-            .controlSize(.small)
-            .onChange(of: graphState.schedulerMode) { graphState.pushSchedulerChange() }
+            // 2026-05-19: master enable toggle. When OFF, the scheduler
+            // does not run on graph open, so the user's saved physics
+            // settings are honored as-is. Off by default per user spec.
+            Toggle("Enable startup scheduler", isOn: gs.schedulerEnabled)
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .help("When off, the graph opens with your saved physics settings and does not auto-apply an opening preset.")
 
-            if graphState.schedulerMode == .simple {
-                schedulerSimpleControls(gs: gs)
-            } else {
-                schedulerTimelineControls(gs: gs)
+            if graphState.schedulerEnabled {
+                Picker("Mode", selection: gs.schedulerMode) {
+                    Text("Simple").tag(PhysicsSchedulerMode.simple)
+                    Text("Timeline").tag(PhysicsSchedulerMode.timeline)
+                }
+                .pickerStyle(.segmented)
+                .controlSize(.small)
+                .onChange(of: graphState.schedulerMode) { graphState.pushSchedulerChange() }
+
+                if graphState.schedulerMode == .simple {
+                    schedulerSimpleControls(gs: gs)
+                } else {
+                    schedulerTimelineControls(gs: gs)
+                }
             }
 
             Divider().opacity(0.3)
@@ -687,8 +671,16 @@ struct GraphForceSettings: View {
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(graphState.timelineSteps.indices, id: \.self) { idx in
-                    timelineStepRow(index: idx)
+                // Iterate by stable `\.id` (PhysicsScheduleStep.id: UUID)
+                // rather than `\.indices, id: \.self`. The latter crashes
+                // on delete: SwiftUI re-evaluates the row body for the
+                // pre-removal index before the diff fires, and
+                // `timelineSteps[staleIndex]` reads past the shrunk
+                // array. Identity-keyed iteration removes that hazard
+                // because the deleted row disappears from the layout
+                // cycle atomically with the array shrink.
+                ForEach(graphState.timelineSteps) { step in
+                    timelineStepRow(stepID: step.id)
                 }
             }
             Button {
@@ -708,43 +700,58 @@ struct GraphForceSettings: View {
         }
     }
 
-    private func timelineStepRow(index: Int) -> some View {
-        let step = graphState.timelineSteps[index]
-        return HStack(spacing: 6) {
-            Text("#\(index + 1)")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: 22, alignment: .leading)
-            Text("+\(String(format: "%.1f", step.delaySeconds))s")
-                .font(.system(size: 10).monospacedDigit())
-                .foregroundStyle(.secondary)
-                .frame(width: 48, alignment: .leading)
-            Text(displayNameForPresetKey(step.presetKey))
-                .font(.system(size: 11, weight: .medium))
-                .lineLimit(1)
-                .truncationMode(.tail)
-            Spacer()
-            Button {
-                graphState.timelineSteps.remove(at: index)
-                graphState.pushSchedulerChange()
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 12))
+    @ViewBuilder
+    private func timelineStepRow(stepID: UUID) -> some View {
+        // Resolve the live index on every evaluation; bail out cleanly if
+        // the step was removed during the same render pass. This is
+        // belt-and-suspenders alongside the identity-keyed ForEach above:
+        // even if a context-menu callback fires after the step has been
+        // removed by another path, we never crash.
+        if let index = graphState.timelineSteps.firstIndex(where: { $0.id == stepID }) {
+            let step = graphState.timelineSteps[index]
+            HStack(spacing: 6) {
+                Text("#\(index + 1)")
+                    .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(.secondary)
+                    .frame(width: 22, alignment: .leading)
+                Text("+\(String(format: "%.1f", step.delaySeconds))s")
+                    .font(.system(size: 10).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: 48, alignment: .leading)
+                Text(displayNameForPresetKey(step.presetKey))
+                    .font(.system(size: 11, weight: .medium))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer()
+                Button {
+                    // Re-resolve at click time. Without the recheck, a
+                    // double-click race could try to remove an already-
+                    // removed row.
+                    if let idx = graphState.timelineSteps.firstIndex(where: { $0.id == stepID }) {
+                        graphState.timelineSteps.remove(at: idx)
+                        graphState.pushSchedulerChange()
+                    }
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(
-            Color.primary.opacity(0.04),
-            in: RoundedRectangle(cornerRadius: 6, style: .continuous)
-        )
-        .contextMenu {
-            ForEach(PhysicsPreset.allCases.filter { $0.isFeatured }) { preset in
-                Button(preset.rawValue) {
-                    graphState.timelineSteps[index].presetKey = String(describing: preset)
-                    graphState.pushSchedulerChange()
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                Color.primary.opacity(0.04),
+                in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+            )
+            .contextMenu {
+                ForEach(PhysicsPreset.allCases.filter { $0.isFeatured }) { preset in
+                    Button(preset.rawValue) {
+                        if let idx = graphState.timelineSteps.firstIndex(where: { $0.id == stepID }) {
+                            graphState.timelineSteps[idx].presetKey = String(describing: preset)
+                            graphState.pushSchedulerChange()
+                        }
+                    }
                 }
             }
         }
@@ -1017,15 +1024,38 @@ struct GraphForceSettings: View {
 
     // MARK: - Reset
 
+    /// "Reset to Defaults" — the canonical recovery path. Calls
+    /// `GraphState.resetPhysicsToCanonicalDefaults()` which restores
+    /// the V3 boot defaults (Gravity Well preset + center force off +
+    /// linkDistance 500 + fluid off) and clears every user-overlay
+    /// (cursor force, shape bound, lab tunables, timeline). Per user
+    /// 2026-05-12: there was no "go back to defaults" path before
+    /// this; once any value was edited the user was stuck with
+    /// their custom state forever.
     private var resetButton: some View {
         HStack {
             Spacer()
-            Button("Reset to Deep Sea") {
-                graphState.startOverlayPhysicsCycle()
+            Button {
+                showResetConfirmation = true
+            } label: {
+                Label("Reset to Defaults", systemImage: "arrow.counterclockwise")
+                    .font(.system(size: 11, weight: .medium))
             }
-            .font(.system(size: 11))
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .help("Restore the Gravity Well boot defaults (center force off, linkDistance 500, fluid off). Clears cursor force, shape bound, lab tunables, and the timeline.")
+            .confirmationDialog(
+                "Reset all physics to defaults?",
+                isPresented: $showResetConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Reset", role: .destructive) {
+                    graphState.resetPhysicsToCanonicalDefaults()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This restores the Gravity Well boot defaults and clears every customization: cursor force, shape bound, lab tunables, scheduler timeline, frozen state, and camera knobs. Custom presets and node-type filters are preserved.")
+            }
         }
     }
 
@@ -1091,5 +1121,16 @@ struct GraphForceSettings: View {
             .font(.system(size: 9))
             .foregroundStyle(.tertiary)
             .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+private extension GraphNodeType {
+    var settingsDisplayName: String {
+        switch self {
+        case .document:
+            return "Epdoc"
+        default:
+            return displayName
+        }
     }
 }
