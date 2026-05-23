@@ -1,4 +1,5 @@
 pub mod a2ui;
+pub mod acs_admission;
 pub mod agent_loop;
 pub mod agent_runtime;
 pub mod approval;
