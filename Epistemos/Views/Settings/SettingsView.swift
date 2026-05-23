@@ -790,24 +790,16 @@ private struct GeneralDetailView: View {
                 AgentEventVisibilityRow()
                 GraphEventVisibilityRow()
                 SearchFusionHealthRow()
-                EidosHealthRow()
-                VaultRecallHealthRow()
-                LatticeWBOHealthRow()
-                SystemGHealthRow()
-                FUlpHealthRow()
-                ACSAdmissionHealthRow()
+                // W6 (Terminal 1 WRV mission): one unified panel for the
+                // cross-terminal substrate cluster (Eidos / VaultRecall /
+                // Lattice-WBO / SystemG / F-ULP / ACS / AnswerPacket).
+                // The legacy comments for each row live in
+                // SubstrateHealthPanel.swift alongside their child mount.
+                SubstrateHealthPanel()
                 LocalAgentDiagnosticsHealthRow()
                 ActiveConstellationRow()
                 AgentBlueprintSettingsView()
                 CognitiveDagHealthRow()
-                // V6.2 first-rendered surface for the AnswerPacket
-                // audit channel. Read-only window onto the bounded
-                // ring buffer in `AnswerPacketEmitter.shared` — counts,
-                // ring depth, latest packet's attention_mode +
-                // interruptBucket + uiLabel + last-emit age. Refresh
-                // is event-driven via `didEmitNotification`. Per
-                // docs/audits/V6_2_LAPTOP_MANUAL_AUDIT_CHECKLIST_2026_05_07.md.
-                AnswerPacketHealthRow()
                 // ISSUE-2026-05-10-002 follow-up: per-provider cloud
                 // access visibility. Read-only, never displays credential values.
                 // Helps users diagnose "agents don't work" by showing
