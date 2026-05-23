@@ -69,8 +69,11 @@ final class NodeInspectorState {
     // MARK: - Node Selection
 
     func selectNode(_ node: GraphNodeRecord?, store: GraphStore, modelContext: ModelContext) {
-        guard let node, node.id != selectedNodeId else {
-            if node == nil { clearSelection() }
+        guard let node else {
+            clearSelection()
+            return
+        }
+        guard node.id != selectedNodeId || selectedNode?.id != node.id else {
             return
         }
 

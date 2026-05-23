@@ -29,6 +29,21 @@ struct GraphWorkspaceRouteInitialStateTests {
         #expect(!gs.canGoForward)
     }
 
+    @Test("Embedded graph canvas reuses the root toolbar instead of mounting a duplicate")
+    func embeddedGraphCanvasUsesRootToolbarPassthrough() throws {
+        let overlay = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Graph/HologramOverlay.swift"
+        )
+        let root = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
+
+        #expect(root.contains("|| showEmbeddedGraphToolbarControls"),
+                "The embedded graph canvas should pass through the root principal toolbar instead of creating a second one.")
+        #expect(!root.contains("GraphSurfaceUtilityToolbar"))
+        #expect(!root.contains("floatingGraphToolbarControls"))
+        #expect(!overlay.contains("GraphSurfaceUtilityToolbar()"))
+        #expect(!overlay.contains("topToolbarHostView"))
+    }
+
     @Test("isCanvas helper on GraphWorkspaceRoute")
     func isCanvasHelper() {
         #expect(GraphWorkspaceRoute.canvas.isCanvas)
@@ -212,8 +227,8 @@ struct GraphWorkspaceNotePageCompositionTests {
     // placeholder replaces ProseEditorView or where a second editor store
     // is introduced.
 
-    @Test("GraphNotePage embeds the real ProseEditorView with per-page NoteChatState")
-    func graphNotePageEmbedsRealProseEditor() throws {
+    @Test("GraphNotePage resolves SDPage and reuses the full note workspace")
+    func graphNotePageEmbedsFullNoteWorkspace() throws {
         let source = try loadMirroredSourceTextFile(
             "Epistemos/Views/Graph/GraphNotePage.swift"
         )
@@ -221,10 +236,54 @@ struct GraphWorkspaceNotePageCompositionTests {
         #expect(source.contains("struct GraphNotePage: View"))
         #expect(source.contains("@Query private var pages: [SDPage]"))
         #expect(source.contains("#Predicate<SDPage> { $0.id == sourceId }"))
-        #expect(source.contains("@State private var noteChatState: NoteChatState"))
-        #expect(source.contains("NoteChatState(pageId: sourceId)"))
-        #expect(source.contains("ProseEditorView(page: page, navigationContext: .graph)"))
-        #expect(source.contains(".environment(noteChatState)"))
+        #expect(source.contains("NoteDetailWorkspaceView(pageId: sourceId, presentation: .embeddedGraph)"))
+        #expect(!source.contains("ProseEditorView(page: page, navigationContext: .graph)"))
+    }
+
+    @Test("Embedded graph notes reuse the full note workspace chrome")
+    func embeddedGraphNoteUsesFullNoteWorkspaceChrome() throws {
+        let graphNote = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Graph/GraphNotePage.swift"
+        )
+        let noteWorkspace = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Notes/NoteDetailWorkspaceView.swift"
+        )
+        let container = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Graph/GraphWorkspaceContainer.swift"
+        )
+
+        #expect(graphNote.contains("NoteDetailWorkspaceView(pageId: sourceId, presentation: .embeddedGraph)"))
+        #expect(noteWorkspace.contains("enum NoteWorkspacePresentation"))
+        #expect(noteWorkspace.contains("} else if presentation.usesGraphEmbeddedChrome, pages.first != nil, !usesOverlayGraphToolbar {"))
+        #expect(noteWorkspace.contains("graphToolbarNavigationControls"))
+        #expect(noteWorkspace.contains("NoteTitleDisplay.resolvedTitle(page.title)"))
+        #expect(noteWorkspace.contains("graphEmbeddedToolbarTitle(page)"))
+        #expect(noteWorkspace.contains("private var titleWidth: CGFloat"))
+        #expect(noteWorkspace.contains(".frame(width: titleWidth)"))
+        #expect(noteWorkspace.contains("static let graphEmbeddedEditorTopSpacing"))
+        #expect(noteWorkspace.contains("NoteDualPreviewLayout.outerPadding.top + NotePreviewChromeMetrics.fallbackSingleTopInset"))
+        #expect(noteWorkspace.contains("usesOverlayGraphToolbar ? NoteWorkspaceSurfaceStyle.graphEmbeddedEditorTopSpacing : 0"))
+        #expect(noteWorkspace.contains("private var usesOverlayGraphToolbar: Bool"))
+        #expect(noteWorkspace.contains("!graphSurfacePresentation.isEmbeddedHome"))
+        #expect(noteWorkspace.contains("overlayGraphEmbeddedToolbar(page: page)"))
+        #expect(noteWorkspace.contains(".accessibilityLabel(\"Graph note toolbar\")"))
+        #expect(!noteWorkspace.contains("ToolbarItem(placement: .principal) {\n                    Text(NoteTitleDisplay.resolvedTitle(page.title))"))
+        #expect(noteWorkspace.contains("ToolbarItem(placement: .principal)"))
+        #expect(noteWorkspace.contains("graphEmbeddedToolbarTitle(page)"))
+        #expect(!noteWorkspace.contains("graphEmbeddedChromeOverlay"))
+        #expect(!noteWorkspace.contains("@State private var isHovered"))
+        #expect(!noteWorkspace.contains("@State private var typingSeed"))
+        #expect(!noteWorkspace.contains("PixelCommandTypewriterText("))
+        #expect(!noteWorkspace.contains(".id(\"graph-note-title-\\(typingSeed)\")"))
+        #expect(!noteWorkspace.contains(".onHover { hovering in"))
+        #expect(!noteWorkspace.contains("graphEmbeddedNoteToolbar(page: page)"))
+        #expect(!noteWorkspace.contains(".safeAreaInset(edge: .top"))
+        #expect(noteWorkspace.contains("if presentation.usesWindowToolbar"))
+        #expect(noteWorkspace.contains("ToolbarItem(placement: .principal) {\n                        noteToolbarAskItem"))
+        #expect(noteWorkspace.contains("noteToolbarPrimaryActions"))
+        #expect(noteWorkspace.contains("MiniChatWindowController.shared.openNewChat(attaching: noteChatContextAttachment)"))
+        #expect(container.contains("GraphNotePage(sourceId: id)"))
+        #expect(!container.contains("graphPageHeader(title: \"Note\")"))
     }
 
     @Test("Graph note context menu opens notes inside graph workspace")
@@ -372,6 +431,18 @@ struct GraphWorkspaceRouteOpenNodeDispatchTests {
 
         #expect(gs.currentRoute == .canvas)
         #expect(gs.selectedNodeId == "graph-chat-1")
+    }
+
+    @Test("Metal graph activates document nodes through the native Epdoc opener")
+    func documentNodesUseNativeEpdocOpeningPath() throws {
+        let source = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Graph/MetalGraphView.swift"
+        )
+
+        #expect(source.contains("private func activateNode(_ uuid: String)"))
+        #expect(source.contains("EpdocDocumentOpening.openDocument"))
+        #expect(source.contains("Open Document"),
+                "Document graph nodes need an explicit editable .epdoc action instead of falling through to idea-style selection.")
     }
 }
 

@@ -43,24 +43,23 @@ struct GenUIDispatcherInvariantSourceGuardTests {
                 "Approval Modal should not keep a GENUI-DEFER marker after the G.3 priority 2 migration")
     }
 
-    @Test("Landing Daily Brief and Welcome Back render payloads through GenUIDispatcher")
+    @Test("Landing Daily Brief renders through GenUI while Welcome Back uses native typewriter")
     func landingBriefSurfacesRenderThroughGenUIDispatcher() throws {
         let source = try loadMirroredSourceTextFile(
             "Epistemos/Views/Landing/LandingView.swift"
         )
 
-        #expect(source.contains("private func welcomeBackPayload(info: WelcomeBackInfo) -> GenUIPayload"),
-                "Welcome Back must expose its session summary as a typed GenUIPayload")
+        #expect(source.contains("TypewriterPlainText("),
+                "Welcome Back should render the restored workspace synthesis through native typewriter text")
+        #expect(!source.contains("private func welcomeBackPayload(info: WelcomeBackInfo) -> GenUIPayload"),
+                "Welcome Back should not keep a generic GenUI card wrapper")
         #expect(source.contains("private var dailyBriefPayload: GenUIPayload"),
                 "Daily Brief must expose its brief body as a typed GenUIPayload")
         #expect(source.contains("GenUIPayload.markdownCard(")
-                    && source.contains("title: \"Welcome Back\""),
-                "Welcome Back should use the canonical markdown GenUI schema")
-        #expect(source.contains("GenUIPayload.markdownCard(")
                     && source.contains("title: \"Daily Brief\""),
                 "Daily Brief should use the canonical markdown GenUI schema")
-        #expect(source.components(separatedBy: "GenUIDispatcher.shared.render(").count >= 3,
-                "Landing brief surfaces must render through the canonical GenUIDispatcher")
+        #expect(source.contains("GenUIDispatcher.shared.render(dailyBriefPayload)"),
+                "Daily Brief must render through the canonical GenUIDispatcher")
         #expect(!source.contains("GENUI-DEFER"),
                 "Landing brief surfaces should not keep GENUI-DEFER markers after the G.3 priority 4 migration")
     }

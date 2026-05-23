@@ -55,7 +55,43 @@ struct WorkspaceSnapshotTests {
             ),
             expandedFolderIds: ["folder-a", "folder-b"],
             isJournalExpanded: true,
-            isIdeasExpanded: false
+            isIdeasExpanded: false,
+            liveDocuments: [
+                WorkspaceDocumentState(
+                    pageId: "page-3",
+                    title: "Deep Link",
+                    source: "note tab current page",
+                    lineCount: 4,
+                    wordCount: 88,
+                    bodyDigest: 123,
+                    preview: "opening",
+                    tailPreview: "latest",
+                    isActive: true
+                )
+            ],
+            mainChat: WorkspaceChatStateSnapshot(
+                chatId: "chat-123",
+                title: "Main Chat",
+                kind: "main",
+                messageCount: 2,
+                recentMessages: [
+                    WorkspaceChatMessageSnapshot(role: "user", contentPreview: "what now")
+                ]
+            ),
+            miniChats: [
+                WorkspaceChatStateSnapshot(
+                    chatId: "mini-1",
+                    title: "Mini",
+                    kind: "mini",
+                    messageCount: 1,
+                    recentMessages: []
+                )
+            ],
+            graphRoute: WorkspaceGraphRouteSnapshot(
+                kind: .note,
+                sourceId: "page-3",
+                selectedNodeId: "node-xyz"
+            )
         )
 
         let data = try JSONEncoder().encode(snapshot)
@@ -83,6 +119,12 @@ struct WorkspaceSnapshotTests {
         #expect(Set(decoded.expandedFolderIds) == Set(["folder-a", "folder-b"]))
         #expect(decoded.isJournalExpanded == true)
         #expect(decoded.isIdeasExpanded == false)
+        #expect(decoded.liveDocuments?.first?.pageId == "page-3")
+        #expect(decoded.liveDocuments?.first?.isActive == true)
+        #expect(decoded.mainChat?.messageCount == 2)
+        #expect(decoded.miniChats?.first?.chatId == "mini-1")
+        #expect(decoded.graphRoute?.kind == .note)
+        #expect(decoded.graphRoute?.sourceId == "page-3")
     }
 
     @Test("Empty workspace round-trips")
@@ -112,6 +154,110 @@ struct WorkspaceSnapshotTests {
         #expect(decoded.openMiniChatIds.isEmpty)
         #expect(decoded.graphOverlay.visibility == .hidden)
         #expect(decoded.graphOverlay.selectedNodeId == nil)
+    }
+
+    @Test("workspace synthesis includes live documents chats and graph route")
+    func workspaceSynthesisIncludesLiveDocumentsChatsAndGraphRoute() throws {
+        let snapshot = WorkspaceSnapshot(
+            activePanel: "home",
+            activeChatId: "chat-1",
+            showChatSidebar: false,
+            showLanding: true,
+            openNoteTabs: [],
+            activeNoteTabPageId: "note-1",
+            openMiniChatIds: ["mini-1"],
+            notesBrowserVisible: false,
+            settingsVisible: false,
+            graphOverlay: GraphOverlaySnapshot(visibility: .full, selectedNodeId: "node-1"),
+            expandedFolderIds: [],
+            isJournalExpanded: false,
+            isIdeasExpanded: false,
+            liveDocuments: [
+                WorkspaceDocumentState(
+                    pageId: "note-1",
+                    title: "Live Graph Note",
+                    source: "embedded graph note",
+                    lineCount: 12,
+                    wordCount: 120,
+                    bodyDigest: 42,
+                    preview: "The opening claim",
+                    tailPreview: "The newest conclusion",
+                    isActive: true
+                )
+            ],
+            mainChat: WorkspaceChatStateSnapshot(
+                chatId: "chat-1",
+                title: "Deep Work",
+                kind: "main",
+                messageCount: 3,
+                recentMessages: [
+                    WorkspaceChatMessageSnapshot(role: "assistant", contentPreview: "next move")
+                ]
+            ),
+            miniChats: [
+                WorkspaceChatStateSnapshot(
+                    chatId: "mini-1",
+                    title: "Side Thread",
+                    kind: "mini",
+                    messageCount: 2,
+                    recentMessages: [
+                        WorkspaceChatMessageSnapshot(role: "user", contentPreview: "check this note")
+                    ]
+                )
+            ],
+            graphRoute: WorkspaceGraphRouteSnapshot(
+                kind: .note,
+                sourceId: "note-1",
+                selectedNodeId: "node-1"
+            )
+        )
+
+        let summary = WorkspaceSynthesisBuilder.summary(for: snapshot)
+        let title = WorkspaceSynthesisBuilder.title(for: snapshot)
+
+        #expect(summary.contains("Live Graph Note"))
+        #expect(summary.contains("embedded graph note"))
+        #expect(summary.contains("Main chat"))
+        #expect(summary.contains("Mini chat"))
+        #expect(summary.contains("Graph context"))
+        #expect(title == "Last Session - Live Graph Note")
+    }
+
+    @Test("workspace auto restore treats live documents main chat and graph route as restorable work")
+    func workspaceAutoRestoreTreatsLiveDocumentsMainChatAndGraphRouteAsRestorableWork() throws {
+        let workspaceService = try loadWorkspaceSnapshotRepoTextFile("Epistemos/State/WorkspaceService.swift")
+
+        #expect(workspaceService.contains("static func hasRestorableSessionWork(_ snapshot: WorkspaceSnapshot) -> Bool"))
+        #expect(workspaceService.contains("let hasLiveDocuments = snapshot.liveDocuments?.isEmpty == false"))
+        #expect(workspaceService.contains("let hasMainChat = hasRestorableMainChatWork(snapshot)"))
+        #expect(workspaceService.contains("let hasGraphRoute = snapshot.graphRoute?.kind != .canvas"))
+        #expect(workspaceService.contains("guard Self.hasRestorableSessionWork(snapshot) else {"))
+        #expect(workspaceService.contains("chatCount: snapshot.openMiniChatIds.count + (Self.hasRestorableMainChatWork(snapshot) ? 1 : 0)"))
+    }
+
+    @Test("workspace auto restore ignores dormant landing chat identity")
+    func workspaceAutoRestoreIgnoresDormantLandingChatIdentity() throws {
+        let workspaceService = try loadWorkspaceSnapshotRepoTextFile("Epistemos/State/WorkspaceService.swift")
+
+        #expect(workspaceService.contains("static func hasRestorableMainChatWork(_ snapshot: WorkspaceSnapshot) -> Bool"))
+        #expect(workspaceService.contains("guard !snapshot.showLanding else { return false }"))
+        #expect(workspaceService.contains("guard Self.hasLiveMainChatWork(chatState) else { return nil }"))
+        #expect(workspaceService.contains("if Self.hasRestorableMainChatWork(snapshot), let chatId = snapshot.activeChatId"))
+        #expect(workspaceService.contains("static func hasLiveMainChatWork(_ chatState: ChatState) -> Bool"))
+        #expect(!workspaceService.contains("let hasMainChat = snapshot.activeChatId != nil || snapshot.mainChat != nil"))
+    }
+
+    @Test("workspace summary loop ignores dormant landing chat identity")
+    func workspaceSummaryLoopIgnoresDormantLandingChatIdentity() throws {
+        let workspaceService = try loadWorkspaceSnapshotRepoTextFile("Epistemos/State/WorkspaceService.swift")
+        let workspaceSummary = try loadWorkspaceSnapshotRepoTextFile("Epistemos/State/WorkspaceSummaryService.swift")
+
+        #expect(workspaceService.contains("static func hasLiveMainChatWork(_ chatState: ChatState) -> Bool"))
+        #expect(workspaceService.contains("guard Self.hasLiveMainChatWork(chatState) else { return nil }"))
+        #expect(workspaceService.contains("return Self.hasLiveMainChatWork(chatState)"))
+        #expect(workspaceSummary.contains("let hasMainChat = AppBootstrap.shared.map { bootstrap in"))
+        #expect(workspaceSummary.contains("WorkspaceService.hasLiveMainChatWork(bootstrap.chatState)"))
+        #expect(!workspaceSummary.contains("AppBootstrap.shared?.chatState.activeChatId != nil"))
     }
 
     @Test("GraphOverlaySnapshot visibility values")
@@ -221,6 +367,35 @@ struct EventStoreTests {
         (try? url.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup) ?? false
     }
 
+    private func executeSQL(_ sql: String, databaseURL: URL) throws {
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(databaseURL.path, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        defer { sqlite3_close(db) }
+        guard sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+    }
+
+    private func rowCount(databaseURL: URL, table: String) throws -> Int {
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(databaseURL.path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK else {
+            throw CocoaError(.fileReadUnknown)
+        }
+        defer { sqlite3_close(db) }
+
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM \(table);", -1, &stmt, nil) == SQLITE_OK else {
+            throw CocoaError(.fileReadUnknown)
+        }
+        defer { sqlite3_finalize(stmt) }
+        guard sqlite3_step(stmt) == SQLITE_ROW else {
+            throw CocoaError(.fileReadUnknown)
+        }
+        return Int(sqlite3_column_int(stmt, 0))
+    }
+
     @Test("reads reflect queued snapshot and event writes")
     func readsReflectQueuedWrites() async throws {
         let dbURL = FileManager.default.temporaryDirectory
@@ -323,6 +498,66 @@ struct EventStoreTests {
         #expect(record.classification == "exploratory")
         #expect(record.totalCalls == 4)
         #expect(store.sessionMetricClassification(sessionId: "session-trajectory") == "exploratory")
+    }
+
+    @Test("retention policy prunes time machine, event, capture, and audit rows")
+    func retentionPolicyPrunesLocalHistoryRows() throws {
+        let dbURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("event-store-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("events.sqlite")
+        let store = try #require(EventStore(databaseURL: dbURL))
+        let now = Date()
+        let old = now.addingTimeInterval(-10 * 86_400).timeIntervalSince1970
+        let recent = now.timeIntervalSince1970
+
+        try executeSQL("""
+            INSERT INTO snapshots (timestamp, session_id, snapshot_json, summary, user_note)
+            VALUES (\(old), 'old-snapshot', '{}', '', ''),
+                   (\(recent - 2), 'recent-snapshot-a', '{}', '', ''),
+                   (\(recent - 1), 'recent-snapshot-b', '{}', '', '');
+            INSERT INTO events (timestamp, session_id, kind, payload)
+            VALUES (\(old), 'old-event', 'chat_message', '{}'),
+                   (\(recent), 'recent-event', 'chat_message', '{}');
+            INSERT INTO session_metrics
+            (session_id, recorded_at, classification, displacement, path_length, curvature_ratio, loop_count, error_count, total_calls, efficiency)
+            VALUES ('old-metric', \(old), 'old', 0, 0, 0, 0, 0, 0, 0),
+                   ('recent-metric', \(recent), 'recent', 0, 0, 0, 0, 0, 1, 0);
+            INSERT INTO captured_artifacts
+            (source_bundle_id, app_name, text_content, captured_at, dedupe_hash, ocr_used)
+            VALUES ('old.bundle', 'Old', 'old', \(old), 'old-hash', 0),
+                   ('recent.bundle', 'Recent', 'recent', \(recent), 'recent-hash', 0);
+            INSERT INTO agent_events
+            (event_id, run_id, sequence, kind, occurred_at, json)
+            VALUES ('old-agent', 'run-old', 1, 'tool', \(old), '{}'),
+                   ('recent-agent', 'run-recent', 1, 'tool', \(recent), '{}');
+            INSERT INTO graph_events
+            (event_id, mutation_id, sequence, kind, occurred_at, json)
+            VALUES ('old-graph', 'mutation-old', 1, 'node', \(old), '{}'),
+                   ('recent-graph', 'mutation-recent', 1, 'node', \(recent), '{}');
+        """, databaseURL: dbURL)
+
+        let summary = store.applyRetentionPolicy(
+            EventStore.RetentionPolicy(
+                timeMachineRetentionDays: 7,
+                timeMachineMaxSnapshots: 1,
+                eventLogRetentionDays: 7,
+                captureArtifactRetentionDays: 7,
+                auditLogRetentionDays: 7
+            ),
+            now: now
+        )
+
+        #expect(summary.snapshotsDeleted >= 2)
+        #expect(summary.eventsDeleted == 1)
+        #expect(summary.sessionMetricsDeleted == 1)
+        #expect(summary.capturedArtifactsDeleted == 1)
+        #expect(summary.auditRowsDeleted == 2)
+        #expect(store.allSnapshots().count == 1)
+        #expect(store.events(from: .distantPast, to: now).count == 1)
+        #expect(store.recentSessionMetrics(limit: 10).map(\.sessionId) == ["recent-metric"])
+        #expect(store.capturedArtifactCount() == 1)
+        #expect(try rowCount(databaseURL: dbURL, table: "agent_events") == 1)
+        #expect(try rowCount(databaseURL: dbURL, table: "graph_events") == 1)
     }
 
     // N1 Phase 1 closure (MASTER_BUILD_PLAN.md:311) — guard the

@@ -86,7 +86,8 @@ private struct HomeSceneRootContent: View {
         LaunchIntegrityGateView(bootstrap: bootstrap) {
             RootView(
                 databaseError: bootstrap.databaseError,
-                onResetDatabase: { bootstrap.resetDatabaseAndRelaunch() }
+                onResetDatabase: { bootstrap.resetDatabaseAndRelaunch() },
+                showQuickCapture: $showQuickCapture
             )
                 .withAppEnvironment(bootstrap)
                 .sheet(isPresented: Binding(
@@ -203,10 +204,6 @@ private struct HomeSceneRootContent: View {
                         }
                     )
                     .interactiveDismissDisabled(true)
-                }
-                .sheet(isPresented: $showQuickCapture) {
-                    QuickCaptureView()
-                        .withAppEnvironment(bootstrap)
                 }
                 .onReceive(
                     NotificationCenter.default.publisher(for: .showQuickCapture)
@@ -890,6 +887,13 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
     private var didTeardown = false
     private static let showQuitDialogKey = "epistemos.showSaveOnQuitDialog"
 
+    /// Local keyDown monitor for ⌘G that toggles the graph overlay even when
+    /// the graph window has key focus and would normally swallow Cmd-G as
+    /// "Find Next." `addLocalMonitorForEvents` returns a token that MUST be
+    /// retained — without this stored property the monitor was being
+    /// deallocated immediately and never fired (2026-05-19 fix).
+    private var cmdGEventMonitor: Any?
+
     private static var canConfigureUserNotificationCenter: Bool {
         let bundleURL = Bundle.main.bundleURL
         return bundleURL.pathExtension == "app"
@@ -975,6 +979,23 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
             await Task.yield()
             self.installKnowledgeGraphMenuFallback()
         }
+        // 2026-05-19: when the graph overlay window has key focus, the
+        // responder chain eats Cmd+G (NSStandardKeyBindingResponding's
+        // Find Next) before the menu item fires, so the toggle never
+        // runs from inside the open graph. Install a local event monitor
+        // that always handles ⌘G regardless of first responder. The
+        // returned token MUST be retained — without storing it the
+        // monitor is deallocated immediately and never fires (the bug
+        // the user hit in the first attempt).
+        cmdGEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            let cmdOnly = event.modifierFlags
+                .intersection([.command, .shift, .option, .control]) == .command
+            guard cmdOnly,
+                  event.charactersIgnoringModifiers?.lowercased() == "g"
+            else { return event }
+            HologramController.shared.toggle()
+            return nil
+        }
         guard !Self.isRunningTests else { return }
 
         #if EPISTEMOS_APP_STORE
@@ -1015,7 +1036,10 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         }
         let hasOpenNotes = !NoteWindowManager.shared.orderedPageIds().isEmpty
         let hasOpenChats = !MiniChatWindowController.shared.openChatIds.isEmpty
-        guard hasOpenNotes || hasOpenChats else {
+            || AppBootstrap.shared?.chatState.activeChatId != nil
+        let hasGraphWork = AppBootstrap.shared?.graphState.currentRoute != .canvas
+            || HologramController.shared.isVisible
+        guard hasOpenNotes || hasOpenChats || hasGraphWork else {
             performTeardown()
             return .terminateNow
         }
@@ -1207,7 +1231,6 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
 
 extension Notification.Name {
     static let toggleWorkspaceSwitcher = Notification.Name("epistemos.toggleWorkspaceSwitcher")
-    static let toggleSessionIntelligence = Notification.Name("epistemos.toggleSessionIntelligence")
     static let toggleTimeMachine = Notification.Name("epistemos.toggleTimeMachine")
     static let showSaveWorkspacePanel = Notification.Name("epistemos.showSaveWorkspacePanel")
     static let showQuitSavePanel = Notification.Name("epistemos.showQuitSavePanel")
@@ -1229,10 +1252,6 @@ struct EpistemosCommands: Commands {
 
             Button("Switch Workspace  \u{2303}\u{2318}W") {
                 NotificationCenter.default.post(name: .toggleWorkspaceSwitcher, object: nil)
-            }
-
-            Button("Session Intelligence  \u{2303}\u{2318}R") {
-                NotificationCenter.default.post(name: .toggleSessionIntelligence, object: nil)
             }
         }
 
