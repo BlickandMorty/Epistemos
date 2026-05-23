@@ -2902,6 +2902,17 @@ final class VaultSyncService {
     /// any caller that just needs the matched IDs).
     func searchIndex(query: String) async -> [String] {
         guard let svc = searchService else { return [] }
+        // Wiring #2: T21 Vault Recall Contract breadcrumb. When the
+        // EPISTEMOS_VAULT_RECALL_CONTRACT_V1 flag is on, every chat-
+        // retrieval call emits a RetrievalTrace via the Rust T21
+        // substrate. Production retrieval is unchanged; the breadcrumb
+        // populates VaultRecallMetrics so Settings -> Diagnostics ->
+        // VaultRecallHealthRow can show live signal coverage. Real
+        // RetrievalTrace emission from the production VaultBackend
+        // lands in W-21.1.
+        if VaultRecallFlags.isEnabled {
+            _ = VaultRecallBridge.trace(query: query)
+        }
         do {
             if RRFFusionFlags.isEnabled {
                 let fused = try await svc.fusedSearchAsync(query: query)
@@ -2939,6 +2950,10 @@ final class VaultSyncService {
 
     func searchFullAsync(query: String, limit: Int = 20) async -> [SearchResult] {
         guard let svc = searchService else { return [] }
+        // Wiring #2: T21 Vault Recall Contract breadcrumb (deep-search path).
+        if VaultRecallFlags.isEnabled {
+            _ = VaultRecallBridge.trace(query: query)
+        }
         do {
             if RRFFusionFlags.isEnabled {
                 let fused = try await svc.fusedSearchAsync(

@@ -1,0 +1,242 @@
+// VaultRecallWiring.swift
+//
+// Wiring #2 (T21 Vault Recall Contract -> ResourceService).
+//
+// Three pieces:
+//
+//   - Swift Codable mirrors for the T21 `VaultRecallTrace` substrate
+//     (`agent_core/src/storage/retrieval_trace.rs`). Wire shape pinned
+//     by the Rust serde derives; JSON round-trips byte-equal both ways.
+//
+//   - `VaultRecallFlags` — UserDefaults gate for
+//     `EPISTEMOS_VAULT_RECALL_CONTRACT_V1` (default OFF).
+//
+//   - `VaultRecallMetrics` + `VaultRecallBridge` — bounded ring-buffer
+//     observability mirror of `EidosMetrics` / `SearchFusionMetrics`
+//     so the Settings -> Vault recall health row renders in the same
+//     vocabulary as the other diagnostics.
+//
+// Scope lock matches the Rust side: the bridge calls a stub trace
+// builder today. Real `VaultBackend` integration (W-21.1 follow-up)
+// swaps the substrate without touching this file — wire shape pinned.
+
+import Foundation
+import os
+
+// MARK: - VaultRecallTrace mirrors
+
+/// Mirrors Rust `VaultRecallSignal` (`agent_core/src/storage/retrieval_trace.rs`).
+/// `#[serde(rename_all = "lowercase")]` on the Rust side, so we use
+/// lowercase raw values here.
+nonisolated public enum VaultRecallSignal: String, Codable, Hashable, Sendable, CaseIterable {
+    case lexical
+    case semantic
+    case graph
+    case recency
+    case mmr
+}
+
+nonisolated public struct VaultRecallSignalScore: Codable, Hashable, Sendable {
+    public let signal: VaultRecallSignal
+    public let raw: Double
+    public let normalized: Double
+}
+
+nonisolated public struct VaultRecallCandidate: Codable, Hashable, Sendable {
+    public let path: String
+    public let title: String?
+    public let snippet: String?
+    public let fusedScore: Double
+    public let signals: [VaultRecallSignalScore]
+    public let selectionReason: String
+
+    enum CodingKeys: String, CodingKey {
+        case path
+        case title
+        case snippet
+        case fusedScore = "fused_score"
+        case signals
+        case selectionReason = "selection_reason"
+    }
+}
+
+nonisolated public struct VaultRecallTrace: Codable, Hashable, Sendable {
+    public let query: String
+    public let effectiveQuery: String
+    public let ladderTier: String?
+    public let candidatePoolSize: Int
+    public let candidatesRetained: Int
+    public let candidates: [VaultRecallCandidate]
+    public let signalSummary: [VaultRecallSignal]
+    public let generatedAtMs: UInt64
+    public let notes: [String]
+    public let allChatterFallback: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case query
+        case effectiveQuery = "effective_query"
+        case ladderTier = "ladder_tier"
+        case candidatePoolSize = "candidate_pool_size"
+        case candidatesRetained = "candidates_retained"
+        case candidates
+        case signalSummary = "signal_summary"
+        case generatedAtMs = "generated_at_ms"
+        case notes
+        case allChatterFallback = "all_chatter_fallback"
+    }
+}
+
+// MARK: - Feature flag
+
+nonisolated public enum VaultRecallFlags {
+    public static let userDefaultsKey = "EPISTEMOS_VAULT_RECALL_CONTRACT_V1"
+
+    public static var isEnabled: Bool {
+        if UserDefaults.standard.bool(forKey: userDefaultsKey) {
+            return true
+        }
+        return ProcessInfo.processInfo.environment[userDefaultsKey] == "1"
+    }
+}
+
+// MARK: - Metrics
+
+nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
+    public static let shared = VaultRecallMetrics()
+    public static let didChangeNotification = Notification.Name(
+        "epistemos.vaultRecallMetrics.didChange"
+    )
+
+    public static let bufferCap = 200
+
+    private let lock = NSLock()
+    private var samples: [Double] = []
+    private var lastLatencyMs: Double = 0
+    private var lastQueryAt: Date?
+    private var lastCandidatesRetained: Int = 0
+    private var lastSignalSummary: [VaultRecallSignal] = []
+    private var lastAllChatterFallback: Bool = false
+    private var totalQueries: UInt64 = 0
+    private var lastErrorDescription: String?
+    private var lastErrorAt: Date?
+
+    private init() {}
+
+    public func record(latencyMs: Double, trace: VaultRecallTrace) {
+        lock.lock()
+        samples.append(latencyMs)
+        if samples.count > Self.bufferCap {
+            samples.removeFirst(samples.count - Self.bufferCap)
+        }
+        lastLatencyMs = latencyMs
+        lastQueryAt = Date()
+        lastCandidatesRetained = trace.candidatesRetained
+        lastSignalSummary = trace.signalSummary
+        lastAllChatterFallback = trace.allChatterFallback
+        totalQueries &+= 1
+        lastErrorDescription = nil
+        lock.unlock()
+        notifyDidChange()
+    }
+
+    public func recordError(_ error: Error) {
+        lock.lock()
+        lastErrorDescription = String(describing: error)
+        lastErrorAt = Date()
+        lock.unlock()
+        notifyDidChange()
+    }
+
+    public func snapshot() -> Snapshot {
+        lock.lock(); defer { lock.unlock() }
+        return Snapshot(
+            isFlagEnabled:           VaultRecallFlags.isEnabled,
+            lastQueryAt:             lastQueryAt,
+            lastLatencyMs:           lastLatencyMs,
+            p95LatencyMs:            Self.percentile(samples, 0.95),
+            sampleCount:             samples.count,
+            totalQueries:            totalQueries,
+            lastCandidatesRetained:  lastCandidatesRetained,
+            lastSignalSummary:       lastSignalSummary,
+            lastAllChatterFallback:  lastAllChatterFallback,
+            lastErrorDescription:    lastErrorDescription,
+            lastErrorAt:             lastErrorAt
+        )
+    }
+
+    public func reset() {
+        lock.lock()
+        samples.removeAll(keepingCapacity: true)
+        lastLatencyMs = 0
+        lastQueryAt = nil
+        lastCandidatesRetained = 0
+        lastSignalSummary = []
+        lastAllChatterFallback = false
+        totalQueries = 0
+        lastErrorDescription = nil
+        lastErrorAt = nil
+        lock.unlock()
+        notifyDidChange()
+    }
+
+    private func notifyDidChange() {
+        NotificationCenter.default.post(
+            name: Self.didChangeNotification,
+            object: self
+        )
+    }
+
+    public struct Snapshot: Sendable {
+        public let isFlagEnabled: Bool
+        public let lastQueryAt: Date?
+        public let lastLatencyMs: Double
+        public let p95LatencyMs: Double
+        public let sampleCount: Int
+        public let totalQueries: UInt64
+        public let lastCandidatesRetained: Int
+        public let lastSignalSummary: [VaultRecallSignal]
+        public let lastAllChatterFallback: Bool
+        public let lastErrorDescription: String?
+        public let lastErrorAt: Date?
+    }
+
+    nonisolated private static func percentile(_ values: [Double], _ p: Double) -> Double {
+        guard !values.isEmpty else { return 0 }
+        let sorted = values.sorted()
+        let idx = max(0, min(sorted.count - 1, Int((p * Double(sorted.count)).rounded(.up)) - 1))
+        return sorted[idx]
+    }
+}
+
+// MARK: - Bridge wrapper
+
+nonisolated public enum VaultRecallBridge {
+    private static let log = Logger(subsystem: "com.epistemos", category: "vault-recall")
+
+    /// Build a `VaultRecallTrace` for `query` via the Rust T21 substrate.
+    /// Records latency + signal summary into `VaultRecallMetrics`.
+    /// Returns `nil` on error (caller's retrieval path is unaffected;
+    /// the breadcrumb just goes silent).
+    public static func trace(query: String) -> VaultRecallTrace? {
+        let started = Date()
+        do {
+            let raw = try vaultRecallTraceJson(query: query)
+            guard let data = raw.data(using: .utf8) else {
+                VaultRecallMetrics.shared.recordError(
+                    NSError(domain: "VaultRecallBridge", code: 1,
+                            userInfo: [NSLocalizedDescriptionKey: "non-utf8 JSON"])
+                )
+                return nil
+            }
+            let trace = try JSONDecoder().decode(VaultRecallTrace.self, from: data)
+            let latencyMs = Date().timeIntervalSince(started) * 1000
+            VaultRecallMetrics.shared.record(latencyMs: latencyMs, trace: trace)
+            log.info("VaultRecall contract path active for query=\"\(query, privacy: .public)\" signals=\(trace.signalSummary.count, privacy: .public) retained=\(trace.candidatesRetained, privacy: .public) latency_ms=\(latencyMs, privacy: .public)")
+            return trace
+        } catch {
+            VaultRecallMetrics.shared.recordError(error)
+            log.error("VaultRecall trace failed for query=\"\(query, privacy: .public)\": \(String(describing: error), privacy: .public)")
+            return nil
+        }
+    }
+}
