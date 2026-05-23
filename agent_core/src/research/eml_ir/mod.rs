@@ -4,6 +4,14 @@
 //! - `docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` rows B2-B3.
 //!
 //! Research-only EML-IR arithmetic floor for the F-ULP-Oracle gate.
+//!
+//! **Sibling: `crate::research::fulp_oracle`** is the production F-ULP
+//! gate that the bridge FFI (`fulp_oracle_acceptance_witness_json`)
+//! exposes to Swift's `FUlpHealthRow`. The two modules share several
+//! type names but serve distinct consumers and target different
+//! Metal shaders. KEEP BOTH — see
+//! `docs/audits/T12_EML_IR_VS_FULP_ORACLE_DECISION_2026_05_23.md`
+//! for the non-rename decision + re-litigation triggers.
 
 mod fixtures;
 mod fp16;
