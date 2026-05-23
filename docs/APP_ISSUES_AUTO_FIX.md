@@ -163,6 +163,18 @@ Investigation Log:
   Added §4.E sub-mission to `docs/CODEX_DEEP_INVESTIGATION_PROMPT_2026_05_16.md`
   so Codex's autonomous loop picks this up + audits + drafts a fix plan
   before any irreversible code change.
+- 2026-05-23 (Claude): Safe-auto-fix protocol — Audit Gate step executed.
+  Produced `docs/audits/MODEL_GATING_MATRIX_2026_05_23.md` walking every
+  cited gating site against the live source and ranking them by likely
+  user-blocker impact. Top finding: `LocalToolGrammar.supportsStructuredToolCalling`
+  needs a runtime probe — if `canImport(CMLXStructured)` evaluates false
+  at runtime, EVERY local model gets `supportsAgentMode = false`. Confirmed
+  `primaryAgentModelMinHostRAMGB_powerUser = 16` already exists at line 1066;
+  the Power-User toggle path is in the source — just needs Settings UI +
+  honest capability badge. `canActAsAgent` exclusion list (Gemma 3/4 +
+  Mistral families) confirmed doctrinally honest per RCA-LOCAL-AGENT-GRAMMAR-001.
+  No source files changed; this audit doc is the doctrine cross-check
+  deliverable the issue called for. PR #53.
 
 ---
 
