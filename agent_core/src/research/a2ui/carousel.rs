@@ -34,6 +34,41 @@ pub enum CarouselError {
     AutoplayTooFast { ms: u32 },
 }
 
+/// Lower bound on autoplay frame duration. Below this, validation
+/// rejects (CarouselError::AutoplayTooFast) to prevent strobe-style
+/// transitions that trigger photosensitivity issues.
+pub const AUTOPLAY_MIN_MS: u32 = 200;
+
+impl CarouselError {
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            CarouselError::NoSlides => "no_slides",
+            CarouselError::EmptyMediaUri { .. } => "empty_media_uri",
+            CarouselError::ActiveOutOfRange { .. } => "active_out_of_range",
+            CarouselError::AutoplayTooFast { .. } => "autoplay_too_fast",
+        }
+    }
+
+    /// Predicate: error pertains to slide-list contents
+    /// (NoSlides / EmptyMediaUri).
+    pub const fn is_content_error(&self) -> bool {
+        matches!(
+            self,
+            CarouselError::NoSlides | CarouselError::EmptyMediaUri { .. },
+        )
+    }
+
+    /// Predicate: error pertains to playback configuration
+    /// (ActiveOutOfRange / AutoplayTooFast). Cross-surface invariant:
+    /// `is_content_error XOR is_playback_error` partitions all variants.
+    pub const fn is_playback_error(&self) -> bool {
+        matches!(
+            self,
+            CarouselError::ActiveOutOfRange { .. } | CarouselError::AutoplayTooFast { .. },
+        )
+    }
+}
+
 impl CarouselProps {
     pub fn validate(&self) -> Result<(), CarouselError> {
         if self.slides.is_empty() {
@@ -51,11 +86,35 @@ impl CarouselProps {
             });
         }
         if let Some(ms) = self.autoplay_ms {
-            if ms < 200 {
+            if ms < AUTOPLAY_MIN_MS {
                 return Err(CarouselError::AutoplayTooFast { ms });
             }
         }
         Ok(())
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.validate().is_ok()
+    }
+
+    /// Number of slides in this carousel.
+    pub fn slide_count(&self) -> usize {
+        self.slides.len()
+    }
+
+    /// Predicate: carousel is configured with autoplay enabled.
+    /// Cross-surface invariant:
+    /// `has_autoplay iff autoplay_ms.is_some()`.
+    pub fn has_autoplay(&self) -> bool {
+        self.autoplay_ms.is_some()
+    }
+
+    /// Returns the currently-active slide, if `active_index` is
+    /// in range. Cross-surface invariant: returns `Some` iff
+    /// `validate()` does not return `ActiveOutOfRange` AND
+    /// the carousel is non-empty.
+    pub fn active_slide(&self) -> Option<&CarouselSlide> {
+        self.slides.get(self.active_index as usize)
     }
 }
 
