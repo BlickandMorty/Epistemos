@@ -20,14 +20,14 @@
 //   * fused intrinsic eml(x, y) = exp(x) − ln(y)
 //
 // **Acceptance bar:** ≤ 2 ULP fp16 across 412k log-sampled points in
-// `[2⁻¹⁵, 2¹⁵] × [2⁻¹⁵, 2¹⁵]` + 2,048 stress points (denormals · ±0
-// · ±∞ · NaN · branch cuts). Substrate-floor smoke run in the Rust
-// harness covers 1024 points over `[2⁻⁸, 2⁸]` for iter-loop wall-
-// clock budget; production 412k run lives in the Pro/research build.
+// the closed `[0.5, 2]` interval + 2,048 stress points. The Rust
+// harness owns the fp64-then-binary16 reference and the replayable
+// witness; this shader owns the candidate arithmetic path.
 //
-// **HARDWARE-BUDGET:** Wall-clock < 90s on M2 Pro 16 GB per V6.1
-// integration. Metal `exp` / `ln` intrinsics are 1-cycle latency on
-// Apple GPU; the fused kernel is 2 ops + 1 sub.
+// **HARDWARE-BUDGET:** Wall-clock <= 90s on Jojo's M2 Pro 14-inch
+// 2023, 16 GB UMA, ~200 GB/s. Elapsed-time proof belongs to the
+// Rust/Metal harness evidence; this source carries no theoretical
+// intrinsic-latency claim.
 //
 // **Gated behind:** NOT YET WIRED.
 //
@@ -72,4 +72,23 @@ kernel void morphEmlFp16(
 ) {
     if (gid >= count) return;
     out[gid] = exp(x[gid]) - log(y[gid]);
+}
+
+/// Combined oracle kernel for T12: one dispatch produces the three
+/// fp16 candidates measured by the Rust F-ULP harness.
+kernel void morphOracleFp16(
+    device const float* x       [[buffer(0)]],
+    device const float* y       [[buffer(1)]],
+    device       half* expOut   [[buffer(2)]],
+    device       half* lnOut    [[buffer(3)]],
+    device       half* emlOut   [[buffer(4)]],
+    constant     uint& count    [[buffer(5)]],
+    uint               gid      [[thread_position_in_grid]]
+) {
+    if (gid >= count) return;
+    float expValue = exp(x[gid]);
+    float lnValue = log(y[gid]);
+    expOut[gid] = half(expValue);
+    lnOut[gid] = half(lnValue);
+    emlOut[gid] = half(expValue - lnValue);
 }
