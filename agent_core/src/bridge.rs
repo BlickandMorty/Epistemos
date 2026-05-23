@@ -3358,6 +3358,74 @@ pub fn routing_stats_json() -> Result<String, AgentErrorFFI> {
     })
 }
 
+// EIDOS V0 wiring — `eidos_search_lexical_json` FFI entry.
+//
+// Wiring #1 (T10 Eidos → QueryRuntime) scaffold. Seeds a small
+// in-memory lexical index on first call and exposes a closed-citation
+// `EidosContextPacket` JSON for Swift to decode via the
+// `Epistemos/Eidos/Eidos.swift` mirrors. Real vault binding is the
+// W-46.1 follow-up; the JSON wire shape is pinned by the existing
+// Eidos types, so the Swift side does not change when the corpus
+// adapter swaps.
+
+static EIDOS_FIXTURE_INDEX: std::sync::OnceLock<std::sync::Mutex<crate::eidos::InMemoryLexicalIndex>> =
+    std::sync::OnceLock::new();
+
+fn eidos_fixture_index() -> &'static std::sync::Mutex<crate::eidos::InMemoryLexicalIndex> {
+    EIDOS_FIXTURE_INDEX.get_or_init(|| {
+        use crate::eidos::{
+            EidosDocumentId, EidosIndexManifestId, EidosSourceKind, InMemoryLexicalIndex,
+        };
+        let manifest = EidosIndexManifestId::new("eidos-fixture-2026-05-23")
+            .expect("non-empty manifest id literal");
+        let mut idx = InMemoryLexicalIndex::new(manifest);
+        let seed: &[(&str, &str, EidosSourceKind)] = &[
+            (
+                "eidos-fixture-welcome",
+                "Welcome to Epistemos. Eidos V0 is the deterministic local search organ.",
+                EidosSourceKind::Note,
+            ),
+            (
+                "eidos-fixture-spine",
+                "Vault and Eidos retrieval form the spine of the substrate.",
+                EidosSourceKind::Note,
+            ),
+        ];
+        for (doc_id, body, kind) in seed {
+            if let Ok(id) = EidosDocumentId::new(*doc_id) {
+                let _ = idx.insert(id, *body, *kind);
+            }
+        }
+        std::sync::Mutex::new(idx)
+    })
+}
+
+/// FFI entry: run a lexical Eidos query and return a JSON-encoded
+/// `EidosContextPacket`. Swift decodes via the Eidos mirrors and emits
+/// hits as citation-bearing retrieval candidates when
+/// `EPISTEMOS_EIDOS_V0` is on.
+#[uniffi::export]
+pub fn eidos_search_lexical_json(query: String, top_k: u32) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        use crate::eidos::{EidosQuery, EidosRetrievalMode, EidosRetriever};
+        let top_k_u16: u16 = top_k.min(u32::from(u16::MAX)) as u16;
+        let eq = EidosQuery::new(query, EidosRetrievalMode::Lexical, top_k_u16);
+        let retrieved_at_unix_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+        let idx = eidos_fixture_index()
+            .lock()
+            .map_err(|_| AgentErrorFFI::AgentError {
+                message: "eidos fixture index poisoned".to_string(),
+            })?;
+        let packet = idx.retrieve(&eq, retrieved_at_unix_ms);
+        serde_json::to_string(&packet).map_err(|e| AgentErrorFFI::AgentError {
+            message: format!("eidos packet serialize: {}", e),
+        })
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::build_preview_session_context_with_opener;

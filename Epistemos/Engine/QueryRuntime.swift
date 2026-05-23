@@ -346,6 +346,33 @@ final class RetrievalRuntime {
         var seen = Set<String>()
         var candidates: [RetrievalCandidate] = []
 
+        // Wiring #1 (T10 Eidos → QueryRuntime). When `EPISTEMOS_EIDOS_V0`
+        // is set, route through `EidosBridge.search` first — closed-citation
+        // retrieval against the manifest-bound Eidos index. Fixture-corpus
+        // IDs that don't match a `GraphNodeRecord` are silently dropped by
+        // `appendNoteResult`; when that produces zero candidates we fall
+        // through to the RRF/legacy path so the user still sees results.
+        // Real vault binding lands in W-46.1; this branch becomes
+        // citation-bearing for production hits at that point.
+        if EidosFlags.isEnabled,
+           let packet = EidosBridge.search(query: query, topK: UInt32(max(1, limit))) {
+            for hit in packet.hits {
+                appendNoteResult(
+                    pageId: hit.documentId.raw,
+                    score: hit.confidence,
+                    snippet: "",
+                    source: .pageSearch,
+                    seen: &seen,
+                    candidates: &candidates
+                )
+            }
+            if !candidates.isEmpty {
+                return graphEventHintedCandidates(
+                    scoredCandidates(query: query, candidates: candidates)
+                ).map(\.node)
+            }
+        }
+
         // RRF Fusion Phase 4 wiring site §3 — Epdoc Slash menu / @-mention
         // block-link autocomplete. When the env flag is set AND the caller
         // wants `.all` (mixed page+block scope), one fused SQL query
