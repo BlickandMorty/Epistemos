@@ -5454,6 +5454,29 @@ mod tests {
     }
 
     #[test]
+    fn replay_rejects_operation_gate_tier_type_before_raw_overflow() {
+        let mut value: serde_json::Value =
+            serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
+        value["stats"][0]["gate_tier"] = serde_json::Value::Bool(true);
+        value["stats"][0]["max_ulp"] =
+            serde_json::Value::Number(serde_json::Number::from(123_456_789_u64));
+        let json = serde_json::to_string(&value).unwrap();
+        let needle = "\"max_ulp\":123456789";
+        assert_eq!(json.matches(needle).count(), 1);
+        let json = json.replacen(needle, "\"max_ulp\":1e999999", 1);
+        let error = replay_witness_json(&json)
+            .expect_err("operation gate tier type drift must fail before raw overflow");
+        assert_eq!(
+            error.invalid_json_kind(),
+            Some(FulpInvalidJsonKind::TypeMismatch)
+        );
+        assert!(error
+            .invalid_json_message()
+            .expect("invalid json message")
+            .contains("stats[0].gate_tier"));
+    }
+
+    #[test]
     fn replay_rejects_operation_gate_tier_unknown_variant_with_path() {
         let mut value: serde_json::Value =
             serde_json::from_str(&acceptance_witness_json().unwrap()).expect("witness json");
