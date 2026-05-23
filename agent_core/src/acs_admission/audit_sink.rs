@@ -338,6 +338,72 @@ pub(crate) fn run_event_log_contains_stricter_same_request_verdict(
         })
 }
 
+/// R4 (2026-05-23): walk every ACS admission verdict in `run_event_log`
+/// and return them in oplog (chronological by `seq`) order.
+///
+/// The diagnostics-facing read counterpart to `admit_and_record` +
+/// [`ACSRunEventLogSink::record`]. A Settings → Diagnostics row that
+/// wants to surface "last N admission verdicts" calls this and then
+/// sorts / filters / pages in caller-owned code without
+/// re-implementing the oplog walk.
+///
+/// **Atomicity**: the walk bails on the first malformed or invalid
+/// record so the diagnostics surface cannot render a half-truth.
+/// Callers that want best-effort enumeration (skip-bad-records mode)
+/// should filter at their own seam — the public contract here is
+/// "every record or nothing."
+///
+/// Errors mirror [`resolve_acs_audit_record`]:
+/// - `InvalidRunEventLogChain` / `AuditLogGap` on chain failure
+/// - `CorruptRecord` on a malformed audit payload
+///
+/// The `record_id` field on chain errors is the empty string because
+/// the snapshot has no single "target" record — the failure is at
+/// the log-chain level, not at any one entry.
+pub fn snapshot_acs_audit_records(
+    run_event_log: &OpLog,
+) -> Result<Vec<ACSAuditRecord>, ACSAuditLookupError> {
+    let chain_report = run_event_log.verify_chain(None);
+    if !chain_report.valid {
+        return Err(acs_audit_lookup_chain_error(String::new(), &chain_report));
+    }
+    let mut records: Vec<ACSAuditRecord> = Vec::new();
+    for op in run_event_log.iter_all() {
+        let OpPayload::PropSet {
+            node_id,
+            key,
+            value,
+        } = op.payload
+        else {
+            continue;
+        };
+        if key != ACS_AUDIT_RUN_EVENT_KEY {
+            continue;
+        }
+        let fallback_record_id = audit_record_value_id(&value)
+            .map(str::to_string)
+            .unwrap_or_else(|| node_id.clone());
+        let malformed_field = audit_record_value_malformed_field(&value);
+        let record: ACSAuditRecord = serde_json::from_value(value).map_err(|_| {
+            ACSAuditLookupError::CorruptRecord {
+                field: malformed_field.unwrap_or("record"),
+                record_id: fallback_record_id.clone(),
+            }
+        })?;
+        record
+            .validate()
+            .map_err(|err| ACSAuditLookupError::CorruptRecord {
+                field: err.field(),
+                record_id: err
+                    .record_id()
+                    .unwrap_or(&fallback_record_id)
+                    .to_string(),
+            })?;
+        records.push(record);
+    }
+    Ok(records)
+}
+
 pub fn resolve_acs_audit_record(
     run_event_log: &OpLog,
     record_id: &AuditRecordId,
