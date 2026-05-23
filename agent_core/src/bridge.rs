@@ -3426,6 +3426,83 @@ pub fn eidos_search_lexical_json(query: String, top_k: u32) -> Result<String, Ag
     })
 }
 
+// VAULT RECALL CONTRACT WIRING — `vault_recall_trace_json` FFI entry.
+//
+// Wiring #2 (T21 Vault Recall Contract -> ResourceService) scaffold.
+// Emits a `RetrievalTrace` JSON the Swift side decodes into the
+// `VaultRecall` mirrors. The trace carries the five canonical signals
+// (Lexical / Semantic / Graph / Recency / Mmr) and evidence-strength
+// classification per `agent_core::storage::retrieval_trace` (T21
+// substrate on main).
+//
+// **Scope lock**: this is a stub trace built from the query alone,
+// using `strip_query_chatter` for the effective-query field. Real
+// VaultBackend integration (W-21.1) lands when VaultSyncService can
+// hand the bridge a `&dyn VaultBackend` reference. The Swift wire
+// shape is pinned by the `RetrievalTrace` serde derives, so the
+// substrate swap is invisible to Swift.
+
+/// FFI entry: build a `RetrievalTrace` for `query` and return its JSON
+/// encoding. Swift decodes via `VaultRecallTrace` mirrors and surfaces
+/// the result on the Settings -> Vault recall health row when
+/// `EPISTEMOS_VAULT_RECALL_CONTRACT_V1` is on.
+#[uniffi::export]
+pub fn vault_recall_trace_json(query: String) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        use crate::storage::retrieval_trace::{
+            RetrievalCandidate, RetrievalSignal, RetrievalSignalScore, RetrievalTrace,
+        };
+        use crate::storage::vault::strip_query_chatter;
+
+        let effective = strip_query_chatter(&query);
+        let all_chatter = effective.is_empty();
+        let effective_query = if all_chatter {
+            query.clone()
+        } else {
+            effective.clone()
+        };
+
+        let mut trace =
+            RetrievalTrace::new(query.clone(), effective_query).with_ladder_tier("scaffold-lexical");
+        if all_chatter {
+            trace.record_all_chatter_fallback();
+        }
+
+        if !query.trim().is_empty() {
+            trace.record_signal(RetrievalSignal::Lexical);
+            trace = trace.with_pool_size(2);
+            trace.push_candidate(
+                RetrievalCandidate::new("notes/sample.md", 0.85)
+                    .with_title("Sample note")
+                    .with_snippet(format!("scaffold snippet matching '{}'", query))
+                    .with_signal(RetrievalSignalScore::new(
+                        RetrievalSignal::Lexical,
+                        0.85,
+                        0.85,
+                    ))
+                    .with_selection_reason("scaffold lexical hit"),
+            );
+            trace.push_candidate(
+                RetrievalCandidate::new("notes/decoy.md", 0.32)
+                    .with_signal(RetrievalSignalScore::new(
+                        RetrievalSignal::Lexical,
+                        0.32,
+                        0.32,
+                    ))
+                    .with_selection_reason("scaffold lexical decoy"),
+            );
+        }
+        trace.generated_at_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+
+        serde_json::to_string(&trace).map_err(|e| AgentErrorFFI::AgentError {
+            message: format!("vault recall trace serialize: {}", e),
+        })
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::build_preview_session_context_with_opener;
