@@ -24,6 +24,45 @@
 import Foundation
 import os
 
+// MARK: - Backend honesty
+//
+// The Rust side currently seeds a fixture corpus on first call
+// (`agent_core::eidos::wiring::seed_fixture_corpus`). Until Terminal 2
+// swaps that fixture for a real vault-backed `EidosRetriever` (W-46.1 in
+// CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md), every packet that
+// reaches Swift is fixture data. The hardening bar says the UI must not
+// claim "working" against fixture data, so we surface backend origin
+// alongside latency + citation count and the EidosHealthRow shows the
+// fixture state prominently.
+//
+// **Detection contract** (forward-compatible with Terminal 2's real
+// vault binding, no Rust change required to flip Swift to `.real`):
+//
+//   - `eidos-fixture-*` manifest_id → `.fixture`
+//   - `vault-*`         manifest_id → `.real`
+//   - anything else                 → `.unknown`
+//
+// When Terminal 2 lands the real vault binding, the Rust side already
+// emits a `vault-<sha256-of-vault-path>` manifest_id (per the W-46
+// design doc in `docs/EIDOS_V0_CLOSED_CITATION_DESIGN_2026_05_18.md`),
+// so this heuristic flips to `.real` automatically. If Terminal 2 needs
+// a stronger signal (e.g. a corpus-stats sidecar field on
+// `EidosContextPacket`), the snapshot already carries `lastBackend` and
+// the row already renders it — Swift-side change is then a one-line
+// update of `detectedBackend(from:)` to read the new field.
+nonisolated public enum EidosBackend: String, Sendable, Hashable {
+    /// Rust side returned data from the seeded fixture corpus. UI must
+    /// not claim "working" — fall-through to RRF/legacy is expected.
+    case fixture
+    /// Rust side returned data from a real vault-bound `EidosRetriever`.
+    /// Closed-citation contract holds end-to-end against production
+    /// content.
+    case real
+    /// No search has run yet, the manifest_id prefix did not match either
+    /// known shape, or the JSON did not decode.
+    case unknown
+}
+
 nonisolated public enum EidosFlags {
     /// UserDefaults key for the Wiring #1 feature gate. Default OFF.
     public static let userDefaultsKey = "EPISTEMOS_EIDOS_V0"
@@ -57,13 +96,14 @@ nonisolated public final class EidosMetrics: @unchecked Sendable {
     private var lastLatencyMs: Double = 0
     private var lastQueryAt: Date?
     private var lastCitationCount: Int = 0
+    private var lastBackendValue: EidosBackend = .unknown
     private var totalQueries: UInt64 = 0
     private var lastErrorDescription: String?
     private var lastErrorAt: Date?
 
     private init() {}
 
-    public func record(latencyMs: Double, citationCount: Int) {
+    public func record(latencyMs: Double, citationCount: Int, backend: EidosBackend) {
         lock.lock()
         samples.append(latencyMs)
         if samples.count > Self.bufferCap {
@@ -72,6 +112,7 @@ nonisolated public final class EidosMetrics: @unchecked Sendable {
         lastLatencyMs = latencyMs
         lastQueryAt = Date()
         lastCitationCount = citationCount
+        lastBackendValue = backend
         totalQueries &+= 1
         lastErrorDescription = nil
         lock.unlock()
@@ -96,6 +137,7 @@ nonisolated public final class EidosMetrics: @unchecked Sendable {
             sampleCount:          samples.count,
             totalQueries:         totalQueries,
             lastCitationCount:    lastCitationCount,
+            lastBackend:          lastBackendValue,
             lastErrorDescription: lastErrorDescription,
             lastErrorAt:          lastErrorAt
         )
@@ -107,6 +149,7 @@ nonisolated public final class EidosMetrics: @unchecked Sendable {
         lastLatencyMs = 0
         lastQueryAt = nil
         lastCitationCount = 0
+        lastBackendValue = .unknown
         totalQueries = 0
         lastErrorDescription = nil
         lastErrorAt = nil
@@ -129,6 +172,7 @@ nonisolated public final class EidosMetrics: @unchecked Sendable {
         public let sampleCount: Int
         public let totalQueries: UInt64
         public let lastCitationCount: Int
+        public let lastBackend: EidosBackend
         public let lastErrorDescription: String?
         public let lastErrorAt: Date?
     }
@@ -150,9 +194,20 @@ nonisolated public enum EidosBridge {
     /// "Reachable" bar — a single info-level log per Eidos-routed query.
     private static let log = Logger(subsystem: "com.epistemos", category: "eidos")
 
+    /// Inspect an `EidosContextPacket` and report whether it came from the
+    /// fixture corpus or a real vault-backed retriever. See the file-head
+    /// "Backend honesty" comment for the contract.
+    public static func detectedBackend(from packet: EidosContextPacket) -> EidosBackend {
+        let manifest = packet.manifestId.raw
+        if manifest.hasPrefix("eidos-fixture-") { return .fixture }
+        if manifest.hasPrefix("vault-")         { return .real }
+        return .unknown
+    }
+
     /// Run a lexical Eidos search and return the decoded packet. Records
-    /// latency + citation count into `EidosMetrics` on success. Returns
-    /// `nil` on any error (caller falls back to FTS / RRF path).
+    /// latency + citation count + backend origin into `EidosMetrics` on
+    /// success. Returns `nil` on any error (caller falls back to FTS /
+    /// RRF path).
     public static func search(query: String, topK: UInt32 = 12) -> EidosContextPacket? {
         let started = Date()
         do {
@@ -166,11 +221,20 @@ nonisolated public enum EidosBridge {
             }
             let packet = try JSONDecoder().decode(EidosContextPacket.self, from: data)
             let latencyMs = Date().timeIntervalSince(started) * 1000
+            let backend = detectedBackend(from: packet)
             EidosMetrics.shared.record(
                 latencyMs: latencyMs,
-                citationCount: packet.hits.count
+                citationCount: packet.hits.count,
+                backend: backend
             )
-            log.info("Eidos path active for query=\"\(query, privacy: .public)\" hits=\(packet.hits.count, privacy: .public) latency_ms=\(latencyMs, privacy: .public)")
+            switch backend {
+            case .fixture:
+                log.info("Eidos FIXTURE path active for query=\"\(query, privacy: .public)\" hits=\(packet.hits.count, privacy: .public) latency_ms=\(latencyMs, privacy: .public) (Terminal 2 real-vault binding pending W-46.1; fall-through to RRF/legacy expected)")
+            case .real:
+                log.info("Eidos real-vault path active for query=\"\(query, privacy: .public)\" hits=\(packet.hits.count, privacy: .public) latency_ms=\(latencyMs, privacy: .public) manifest=\(packet.manifestId.raw, privacy: .public)")
+            case .unknown:
+                log.info("Eidos path returned unknown-backend packet for query=\"\(query, privacy: .public)\" manifest=\(packet.manifestId.raw, privacy: .public) hits=\(packet.hits.count, privacy: .public) latency_ms=\(latencyMs, privacy: .public)")
+            }
             return packet
         } catch {
             EidosMetrics.shared.recordError(error)

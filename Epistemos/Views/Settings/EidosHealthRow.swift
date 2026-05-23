@@ -31,10 +31,14 @@ public struct EidosHealthRow: View {
             row(
                 label: "Eidos V0 flag",
                 symbol: "flag.fill",
-                ok: snapshot.isFlagEnabled,
-                detail: snapshot.isFlagEnabled
-                    ? "EPISTEMOS_EIDOS_V0 on (closed-citation path active)"
-                    : "EPISTEMOS_EIDOS_V0 off (legacy FTS/RRF path)"
+                ok: flagRowOk,
+                detail: flagRowDetail
+            )
+            row(
+                label: "Backend",
+                symbol: "shippingbox",
+                ok: snapshot.lastBackend == .real,
+                detail: backendDetail
             )
             row(
                 label: "Last query",
@@ -78,6 +82,41 @@ public struct EidosHealthRow: View {
 
     public func refresh() {
         snapshot = EidosMetrics.shared.snapshot()
+    }
+
+    // The flag row's OK indicator is true only when the flag is ON AND the
+    // backend has been observed to be real-vault — flag-on against the
+    // fixture corpus is honest-not-ready and must not look "working".
+    private var flagRowOk: Bool {
+        guard snapshot.isFlagEnabled else { return false }
+        return snapshot.lastBackend == .real
+    }
+
+    private var flagRowDetail: String {
+        guard snapshot.isFlagEnabled else {
+            return "EPISTEMOS_EIDOS_V0 off (legacy FTS/RRF path)"
+        }
+        switch snapshot.lastBackend {
+        case .real:
+            return "EPISTEMOS_EIDOS_V0 on · real-vault closed-citation path"
+        case .fixture:
+            return "EPISTEMOS_EIDOS_V0 on · FIXTURE corpus (Terminal 2 real-vault binding pending W-46.1)"
+        case .unknown:
+            return "EPISTEMOS_EIDOS_V0 on · awaiting first query to confirm backend"
+        }
+    }
+
+    private var backendDetail: String {
+        switch snapshot.lastBackend {
+        case .real:
+            return "real vault — closed-citation contract live"
+        case .fixture:
+            return "fixture corpus — UI must not claim production retrieval"
+        case .unknown:
+            return snapshot.lastQueryAt == nil
+                ? "(no query yet)"
+                : "unknown manifest prefix — Terminal 2 contract drift?"
+        }
     }
 
     private var lastQueryDetail: String {
