@@ -38,9 +38,14 @@ public struct ActiveConstellationRow: View {
                 }
                 Spacer(minLength: 8)
             }
+            VerifiedFloorChipStrip(
+                flag: "n/a",
+                substrate: "placeholder routes",
+                substrateTint: .orange
+            )
 
             if models.isEmpty {
-                Text("No local-agent route table is available.")
+                Text("No production route table is available yet; modelPreferenceTable/localPolicyTable wiring is pending.")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             } else {

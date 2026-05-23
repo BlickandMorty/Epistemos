@@ -238,3 +238,29 @@ struct ChannelStatusPill: View {
             }
     }
 }
+
+struct VerifiedFloorChipStrip: View {
+    let flag: String
+    let substrate: String
+    let substrateTint: Color
+
+    private var flagTint: Color {
+        switch flag {
+        case "on":
+            .green
+        case "off":
+            .red
+        default:
+            .secondary
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ChannelStatusPill(title: "Flag: \(flag)", tint: flagTint)
+            ChannelStatusPill(title: "Substrate: \(substrate)", tint: substrateTint)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+    }
+}

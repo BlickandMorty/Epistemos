@@ -39,6 +39,11 @@ public struct SystemGHealthRow: View {
                     ? "EPISTEMOS_SYSTEM_G_V0 on (LocalAgentLoop breadcrumb active)"
                     : "EPISTEMOS_SYSTEM_G_V0 off (no breadcrumb)"
             )
+            VerifiedFloorChipStrip(
+                flag: snapshot.isFlagEnabled ? "on" : "off",
+                substrate: "status-only",
+                substrateTint: .orange
+            )
             row(
                 label: "Runtime mode",
                 symbol: "cpu",
@@ -97,7 +102,7 @@ public struct SystemGHealthRow: View {
         }
         let exec = status.allowsExecution ? "exec✓" : "exec✗"
         let sub = status.allowsSubprocess ? "subprocess✓" : "subprocess✗"
-        return "\(exec) \(sub)"
+        return "\(exec) \(sub) (status read; no production dispatch yet)"
     }
 
     private var readDetail: String {

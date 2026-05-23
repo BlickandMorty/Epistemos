@@ -32,6 +32,11 @@ public struct FUlpHealthRow: View {
                     ? "EPISTEMOS_F_ULP_ORACLE_V0 on"
                     : "EPISTEMOS_F_ULP_ORACLE_V0 off"
             )
+            VerifiedFloorChipStrip(
+                flag: snapshot.isFlagEnabled ? "on" : "off",
+                substrate: "research-only",
+                substrateTint: .blue
+            )
             row(
                 label: "Acceptance witness",
                 symbol: "checkmark.shield",
