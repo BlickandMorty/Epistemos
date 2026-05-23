@@ -848,6 +848,21 @@ struct EpistemosApp: App {
             #if EPISTEMOS_APP_STORE
                 AppStoreFirstWindowPresenter.shared.schedule(bootstrap: bootstrap)
             #endif
+            #if DEBUG
+                // ISSUE-2026-05-16-015 runtime probe (PR #53 audit, G1 + G2 truth).
+                // Surfaces which agent-capability gates fire true vs false in
+                // the live build so the next round of fixes proceeds on
+                // truth, not vibes.
+                let gatingLog = Logger(subsystem: "com.epistemos", category: "ModelGatingProbe")
+                let hw = LocalHardwareCapabilitySnapshot.current
+                gatingLog.notice("""
+                    G1 LocalToolGrammar.supportsStructuredToolCalling=\(LocalToolGrammar.supportsStructuredToolCalling) \
+                    supportsLocalAgentLoop=\(LocalToolGrammar.supportsLocalAgentLoop) \
+                    | G2 hostMemoryGB=\(hw.roundedMemoryGB) \
+                    primaryAgentModelMinHostRAMGB=\(LocalTextModelID.primaryAgentModelMinHostRAMGB) \
+                    primaryAgentModelMinHostRAMGB_powerUser=\(LocalTextModelID.primaryAgentModelMinHostRAMGB_powerUser)
+                    """)
+            #endif
         }
     }
 
