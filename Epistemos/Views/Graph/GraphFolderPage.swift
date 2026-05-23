@@ -175,6 +175,20 @@ struct GraphFolderPage: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
+            HStack(spacing: 8) {
+                Button {
+                    graphState.returnToCanvas()
+                } label: {
+                    Label("Canvas", systemImage: "circle.grid.3x3.fill")
+                }
+                Button {
+                    graphState.requestGraphRebuild()
+                } label: {
+                    Label("Rebuild", systemImage: "arrow.trianglehead.2.clockwise")
+                }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

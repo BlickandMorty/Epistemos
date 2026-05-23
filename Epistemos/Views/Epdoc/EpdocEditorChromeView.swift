@@ -683,9 +683,8 @@ private struct EpdocTiptapWebView: NSViewRepresentable {
         // so the user-visible state still updates within one frame.
         //
         // macOS 14+ uses `NSView.displayLink(target:selector:)`, which
-        // returns a `CADisplayLink`. We mirror the LandingWaveMetalView
-        // pattern (Epistemos/Views/Landing/Wave/LandingWaveMetalView.swift)
-        // for the lifecycle. On older macOS the queue still flushes —
+        // returns a `CADisplayLink`; the coordinator owns the link lifecycle.
+        // On older macOS the queue still flushes —
         // we fall back to `DispatchQueue.main.async` so behaviour is
         // identical, just without the display-aligned cadence.
         private var outboundQueue: [EpdocEditorCommand] = []

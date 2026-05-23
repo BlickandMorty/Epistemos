@@ -11,6 +11,7 @@ struct HologramNodeInspector: View {
     @Environment(UIState.self) private var ui
     @Environment(GraphState.self) private var graphState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.graphSurfacePresentation) private var graphSurfacePresentation
     let inspectorState: NodeInspectorState
     let modelContext: ModelContext
 
@@ -33,6 +34,8 @@ struct HologramNodeInspector: View {
     @State private var isEditorExpanded = false
     @State private var editorDisplay: EditorDisplay = .raw
     @State private var editorDisplayTrigger = 0
+    @State private var panelIsRevealed = true
+    @State private var panelDismissTask: Task<Void, Never>?
 
     private var theme: EpistemosTheme { ui.theme }
 
@@ -42,14 +45,26 @@ struct HologramNodeInspector: View {
         Group {
             if let node = inspectorState.selectedNode {
                 inspectorContent(node)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                    .id(node.id)
+                    .scaleEffect(panelIsRevealed ? 1.0 : 0.985, anchor: .topLeading)
+                    .opacity(panelIsRevealed ? 1.0 : 0.0)
+                    .blur(radius: panelIsRevealed ? 0 : 7)
+                    .offset(y: panelIsRevealed ? 0 : 4)
+                    .animation(reduceMotion ? nil : .smooth(duration: 0.18), value: panelIsRevealed)
+                    .transition(.opacity)
             }
         }
         .onAppear {
             syncSelection(from: currentId)
+            restartPanelReveal()
         }
         .onChange(of: currentId) { _, newId in
             syncSelection(from: newId)
+            restartPanelReveal()
+        }
+        .onDisappear {
+            panelDismissTask?.cancel()
+            panelDismissTask = nil
         }
     }
 
@@ -74,28 +89,298 @@ struct HologramNodeInspector: View {
     // MARK: - Content
 
     private var inspectorWidth: CGFloat {
-        inspectorState.inspectorMode == .editor ? 620 : 380
+        graphSurfacePresentation.isEmbeddedHome ? 320 : 330
+    }
+
+    private var inspectorHeight: CGFloat {
+        graphSurfacePresentation.isEmbeddedHome ? 500 : 520
+    }
+
+    private var compactNodeTitleFontSize: CGFloat {
+        graphSurfacePresentation.isEmbeddedHome ? 20 : 21
     }
 
     private func inspectorContent(_ node: GraphNodeRecord) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            headerSection(node)
-
-            Divider()
-
-            // 2026-05-19: removed the Profile/Editor segmented picker and the
-            // Editor branch (with its Edit/Preview sub-toggle) per user
-            // direction — simplifies the inspector to a single Profile +
-            // accordion view. Open the note in the main editor to edit.
-            accordionBody(node)
+            compactHeader(node)
+            Divider().opacity(0.35)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    compactVitals(node)
+                    compactRelationships(node)
+                }
+            }
+            .scrollIndicators(.visible)
         }
         .frame(width: inspectorWidth)
-        .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85), value: inspectorWidth)
+        .frame(height: inspectorHeight, alignment: .top)
+        .clipped()
+        .animation(reduceMotion ? nil : .smooth(duration: 0.2), value: inspectorWidth)
         .unifiedFrostedGlass(theme: theme, in: RoundedRectangle(cornerRadius: 14, style: .continuous), interactive: true)
-        .onChange(of: expandedSection) { _, newSection in
-            guard newSection == .summary else { return }
-            inspectorState.ensureSummary(for: node, store: graphState.store, modelContext: modelContext)
+        .overlay(alignment: .leading) {
+            Capsule()
+                .fill(node.type.swiftUIColor)
+                .frame(width: 3, height: 46)
+                .offset(x: -1)
         }
+    }
+
+    private func restartPanelReveal() {
+        panelDismissTask?.cancel()
+        panelDismissTask = nil
+        guard !reduceMotion else {
+            panelIsRevealed = true
+            return
+        }
+        panelIsRevealed = false
+        Task { @MainActor in
+            await Task.yield()
+            withAnimation(.smooth(duration: 0.18)) {
+                panelIsRevealed = true
+            }
+        }
+    }
+
+    private func dismissInspector() {
+        panelDismissTask?.cancel()
+        guard !reduceMotion else {
+            graphState.selectNode(nil)
+            return
+        }
+
+        withAnimation(.smooth(duration: 0.14)) {
+            panelIsRevealed = false
+        }
+        panelDismissTask = Task { @MainActor in
+            do {
+                try await Task.sleep(for: .milliseconds(120))
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            graphState.selectNode(nil)
+        }
+    }
+
+    private struct CompactEdgeStats {
+        let inbound: Int
+        let outbound: Int
+        let total: Int
+
+        var flowLabel: String {
+            total == 0 ? "Isolated" : "\(inbound) in / \(outbound) out"
+        }
+
+        var resonanceLabel: String {
+            guard total > 0 else { return "No links" }
+            let sinkRatio = Double(inbound) / Double(total)
+            if sinkRatio > 0.62 { return "Sink" }
+            if sinkRatio < 0.38 { return "Source" }
+            return "Balanced"
+        }
+    }
+
+    private func compactHeader(_ node: GraphNodeRecord) -> some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: 7) {
+                Button {
+                    dismissInspector()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 22, height: 22)
+                }
+                .buttonStyle(.plain)
+                .help("Close inspector")
+
+                Circle()
+                    .fill(node.type.swiftUIColor)
+                    .frame(width: 8, height: 8)
+
+                Text(node.type.displayName)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+
+                Spacer(minLength: 8)
+            }
+
+            TypewriterHeading(
+                text: MarkdownHeadingDisplay.displayText(node.label, level: 1),
+                role: .pageTitle,
+                color: theme.fontAccent,
+                animateOnAppear: true,
+                animationKey: node.id,
+                fontOverride: Font.custom(
+                    theme.nodeTitleFontName,
+                    size: compactNodeTitleFontSize
+                )
+            )
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let abstract = compactAbstract(for: node), !abstract.isEmpty {
+                Text(abstract)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 11)
+        .padding(.bottom, 10)
+    }
+
+    private func compactVitals(_ node: GraphNodeRecord) -> some View {
+        let profile = inspectorState.profile
+        let stats = compactEdgeStats(for: node)
+
+        return VStack(alignment: .leading, spacing: 8) {
+            compactFactRow(
+                "Connections",
+                value: "\(stats.total)",
+                detail: stats.flowLabel,
+                systemImage: "link"
+            )
+            compactFactRow(
+                "Layer",
+                value: profile?.insight.hierarchyLabel ?? "Layer -",
+                detail: profile?.insight.tier.displayName ?? stats.resonanceLabel,
+                systemImage: "square.stack.3d.up"
+            )
+            compactFactRow(
+                "Dates",
+                value: compactDate(node.createdAt),
+                detail: "Updated \(nodeAge(node.updatedAt))",
+                systemImage: "calendar"
+            )
+        }
+        .padding(12)
+    }
+
+    private func compactRelationships(_ node: GraphNodeRecord) -> some View {
+        let related = compactRelatedNodes(for: node)
+
+        return VStack(alignment: .leading, spacing: 8) {
+            Divider().opacity(0.35)
+
+            HStack(spacing: 6) {
+                Label("Relationships", systemImage: "arrow.triangle.branch")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                Text("\(graphState.store.adjacency[node.id]?.count ?? 0)")
+                    .font(.system(size: 10, weight: .medium).monospacedDigit())
+                    .foregroundStyle(.tertiary)
+            }
+
+            if related.isEmpty {
+                Text("No visible connections")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 3)
+            } else {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(related, id: \.id) { relatedNode in
+                        Button {
+                            graphState.selectNode(relatedNode.id)
+                            graphState.pendingCenterNodeId = relatedNode.id
+                        } label: {
+                            HStack(spacing: 7) {
+                                Circle()
+                                    .fill(relatedNode.type.swiftUIColor)
+                                    .frame(width: 6, height: 6)
+                                Text(relatedNode.label)
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundStyle(.primary.opacity(0.82))
+                                    .lineLimit(1)
+                                Spacer(minLength: 8)
+                                Text(relatedNode.type.displayName)
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .padding(.vertical, 2)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.bottom, 12)
+    }
+
+    private func compactFactRow(_ label: String, value: String, detail: String, systemImage: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: systemImage)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 14)
+
+            Text(label)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.tertiary)
+                .frame(width: 76, alignment: .leading)
+
+            Text(value)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.primary.opacity(0.84))
+                .lineLimit(1)
+
+            Spacer(minLength: 8)
+
+            Text(detail)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(Color.primary.opacity(0.045))
+        )
+    }
+
+    private func compactEdgeStats(for node: GraphNodeRecord) -> CompactEdgeStats {
+        let store = graphState.store
+        let edgeIds = store.edgesByNode[node.id] ?? []
+        let edgeRecords = edgeIds.compactMap { store.edges[$0] }
+        let inbound = edgeRecords.filter { $0.targetNodeId == node.id }.count
+        let outbound = edgeRecords.filter { $0.sourceNodeId == node.id }.count
+        return CompactEdgeStats(inbound: inbound, outbound: outbound, total: inbound + outbound)
+    }
+
+    private func compactRelatedNodes(for node: GraphNodeRecord) -> [GraphNodeRecord] {
+        Array(graphState.store.adjacency[node.id] ?? [])
+            .compactMap { graphState.store.nodes[$0] }
+            .filter { $0.id != node.id }
+            .sorted { lhs, rhs in
+                lhs.label.localizedCaseInsensitiveCompare(rhs.label) == .orderedAscending
+            }
+    }
+
+    private func compactAbstract(for node: GraphNodeRecord) -> String? {
+        if let abstract = node.metadata.abstract?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !abstract.isEmpty {
+            return abstract
+        }
+        if let quote = node.metadata.quoteText?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !quote.isEmpty {
+            return quote
+        }
+        return inspectorState.profile?.summary.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func compactDate(_ date: Date) -> String {
+        guard date != .distantPast else { return "-" }
+        return date.formatted(.dateTime.month(.abbreviated).day())
     }
 
     private var modePicker: some View {
@@ -537,8 +822,13 @@ struct HologramNodeInspector: View {
         let panelTitleFont = AppDisplayTypography.panelFont(size: 12, weight: .semibold, theme: theme)
         let panelPreviewFont = AppDisplayTypography.panelFont(size: 11, weight: .regular, theme: theme)
         return Button {
+            let newSection = section
             withAnimation(reduceMotion ? nil : .smooth(duration: 0.25)) {
-                expandedSection = section
+                expandedSection = newSection
+            }
+            guard newSection == .summary else { return }
+            if let node = inspectorState.selectedNode {
+                inspectorState.ensureSummary(for: node, store: graphState.store, modelContext: modelContext)
             }
         } label: {
             HStack(spacing: 6) {
@@ -643,7 +933,7 @@ struct HologramNodeInspector: View {
         }
     }
 
-    // MARK: - Node Vitals (Age, Drift, Resonance)
+    // MARK: - Node Vitals (Age, Resonance)
 
     private func nodeVitals(_ node: GraphNodeRecord) -> some View {
         let store = graphState.store
@@ -653,11 +943,6 @@ struct HologramNodeInspector: View {
         let outDegree = edgeRecords.filter { $0.sourceNodeId == node.id }.count
         let total = max(inDegree + outDegree, 1)
         let resonance = Double(inDegree) / Double(total) // 1.0 = pure sink, 0.0 = pure source
-
-        let drift: Float = {
-            guard let engine = graphState.engineHandle else { return 0 }
-            return node.id.withCString { graph_engine_node_drift(engine, $0) }
-        }()
 
         return HStack(spacing: 16) {
             // Age
@@ -695,12 +980,6 @@ struct HologramNodeInspector: View {
         if interval < 86400 { return "\(Int(interval / 3600))h" }
         if interval < 2_592_000 { return "\(Int(interval / 86400))d" }
         return "\(Int(interval / 2_592_000))mo"
-    }
-
-    private func formatDrift(_ d: Float) -> String {
-        if d < 100 { return String(format: "%.0f", d) }
-        if d < 10_000 { return String(format: "%.1fk", d / 1000) }
-        return String(format: "%.0fk", d / 1000)
     }
 
     // MARK: - Header

@@ -1,15 +1,38 @@
 import SwiftUI
 import SwiftData
 
+enum GraphSurfacePresentation: Equatable {
+    case overlay
+    case embeddedHome
+
+    var isEmbeddedHome: Bool { self == .embeddedHome }
+}
+
+private struct GraphSurfacePresentationKey: EnvironmentKey {
+    static let defaultValue: GraphSurfacePresentation = .overlay
+}
+
+extension EnvironmentValues {
+    var graphSurfacePresentation: GraphSurfacePresentation {
+        get { self[GraphSurfacePresentationKey.self] }
+        set { self[GraphSurfacePresentationKey.self] = newValue }
+    }
+}
+
 struct GraphWorkspaceContainer: View {
     @Environment(GraphState.self) private var graphState
     @Environment(UIState.self) private var ui
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.graphSurfacePresentation) private var graphSurfacePresentation
 
     // Injected by the surrounding HologramOverlayHostedViewBuilder
     @Environment(\.modelContext) private var modelContext
 
-    private var theme: EpistemosTheme { ui.theme }
+    private var theme: EpistemosTheme {
+        graphSurfacePresentation.isEmbeddedHome
+            ? ui.theme.surfaceVariant(.other)
+            : ui.theme
+    }
 
     var body: some View {
         // 2026-05-19 — the shape-blur boundary used to live here, but on
@@ -26,12 +49,9 @@ struct GraphWorkspaceContainer: View {
             case .note(let id):
                 graphNoteBackdrop
 
-                VStack(spacing: 0) {
-                    graphPageHeader(title: "Note")
-
-                    GraphNotePage(sourceId: id)
-                        .id(id)
-                }
+                GraphNotePage(sourceId: id)
+                    .id(id)
+                    .background(pageContentBackground)
 
             case .folder(let id):
                 graphPageBackdrop
@@ -41,30 +61,128 @@ struct GraphWorkspaceContainer: View {
 
                     GraphFolderPage(folderId: id)
                         .id(id)
+                        .background(pageContentBackground)
                 }
             }
         }
         .animation(reduceMotion ? nil : .snappy(duration: 0.3, extraBounce: 0.1), value: graphState.currentRoute)
     }
 
+    @ViewBuilder
     private var graphPageBackdrop: some View {
-        // 2026-05-20: zero-copy backdrop — same pattern as graphNoteBackdrop.
-        // Folder page inherits the graph window's existing NSVisualEffectView
-        // blur (set up in HologramOverlay) instead of stacking its own
-        // unifiedFrostedGlass on top. One blur = one compositing pass per
-        // frame. Required for 120 FPS on the folder route.
-        Color.clear
-            .ignoresSafeArea()
-            .allowsHitTesting(true)
+        if graphSurfacePresentation.isEmbeddedHome {
+            embeddedPageSurface
+                .ignoresSafeArea()
+                .allowsHitTesting(true)
+        } else {
+            // 2026-05-20: zero-copy backdrop — same pattern as graphNoteBackdrop.
+            // Folder page inherits the graph window's existing NSVisualEffectView
+            // blur (set up in HologramOverlay) instead of stacking its own
+            // unifiedFrostedGlass on top. One blur = one compositing pass per
+            // frame. Required for 120 FPS on the folder route.
+            Color.clear
+                .ignoresSafeArea()
+                .allowsHitTesting(true)
+        }
     }
 
+    @ViewBuilder
     private var graphNoteBackdrop: some View {
-        Color.clear
-            .ignoresSafeArea()
-            .allowsHitTesting(false)
+        if graphSurfacePresentation.isEmbeddedHome {
+            embeddedPageSurface
+                .ignoresSafeArea()
+                .allowsHitTesting(true)
+        } else {
+            Color.clear
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+        }
     }
 
+    private var embeddedPageSurface: some View {
+        Rectangle()
+            .fill(theme.resolved.background.color)
+    }
+
+    @ViewBuilder
+    private var pageContentBackground: some View {
+        if graphSurfacePresentation.isEmbeddedHome {
+            embeddedPageSurface
+        } else {
+            Color.clear
+        }
+    }
+
+    @ViewBuilder
     private func graphPageHeader(title: String) -> some View {
+        if graphSurfacePresentation.isEmbeddedHome {
+            embeddedGraphPageHeader(title: title)
+        } else {
+            overlayGraphPageHeader(title: title)
+        }
+    }
+
+    private func embeddedGraphPageHeader(title: String) -> some View {
+        HStack(spacing: 8) {
+            navButton(
+                systemName: "chevron.backward",
+                label: "Back",
+                enabled: graphState.canGoBack
+            ) {
+                graphState.goBack()
+            }
+
+            navButton(
+                systemName: "chevron.forward",
+                label: "Forward",
+                enabled: graphState.canGoForward
+            ) {
+                graphState.goForward()
+            }
+
+            Button {
+                graphState.returnToCanvas()
+            } label: {
+                Label("Canvas", systemImage: "circle.grid.3x3.fill")
+                    .font(.system(size: 13, weight: .medium))
+                    .labelStyle(.titleAndIcon)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(theme.card.opacity(theme.isDark ? 0.82 : 0.92))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .strokeBorder(theme.glassBorder.opacity(0.65), lineWidth: 0.5)
+                    )
+            }
+            .buttonStyle(.plain)
+            .help("Return to graph canvas")
+
+            Divider()
+                .frame(height: 18)
+                .opacity(0.3)
+                .padding(.horizontal, 4)
+
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .frame(height: 46)
+        .background(theme.resolved.background.color)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(theme.glassBorder.opacity(theme.isDark ? 0.45 : 0.65))
+                .frame(height: 0.5)
+        }
+    }
+
+    private func overlayGraphPageHeader(title: String) -> some View {
         HStack(spacing: 8) {
             navButton(
                 systemName: "chevron.backward",

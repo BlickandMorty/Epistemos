@@ -40,8 +40,8 @@ import SwiftUI
 //   - `isOverlayMode = true` on the metal view → Rust engine uses
 //     transparent clear color so the SwiftUI Color underneath is visible.
 //   - No rounded corner mask (fills the home window's content area).
-//   - Top-left "Back" button → returns to greeting via the same Cmd+G
-//     toggle, or Esc shortcut.
+//   - The bottom graph toolbar Close action returns to the greeting, and
+//     Esc keeps the same shortcut path.
 //
 // See `Epistemos/Views/Landing/LandingView.swift` for the content
 // router that mounts this view, and `Epistemos/Graph/GraphState.swift`
@@ -55,11 +55,16 @@ struct HomeGraphEmbeddedView: View {
     @Environment(InferenceState.self) private var inference
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
 
     /// Inspector state — owned by this view, mirrors HologramOverlay's
     /// pattern. Replays node selection from `graphState.selectedNodeId`
     /// via the standard binding in `HologramNodeInspector`.
     @State private var inspectorState = NodeInspectorState()
+    @State private var controlsOffset: CGSize = .zero
+    @State private var controlsDragAnchor: CGSize = .zero
+    @State private var embeddedRouteFreezeSnapshot: Bool?
+    @State private var embeddedGraphBridge = EmbeddedGraphMetalBridge()
 
     private var theme: EpistemosTheme { ui.theme.surfaceVariant(.landing) }
 
@@ -79,9 +84,12 @@ struct HomeGraphEmbeddedView: View {
             //    over the theme background. Hosts its own engine instance.
             MetalGraphRepresentable(
                 graphState: graphState,
-                isDarkTheme: theme.isDark
+                isDarkTheme: theme.isDark,
+                shouldRenderCanvas: shouldRenderCanvas,
+                graphBridge: embeddedGraphBridge
             )
             .ignoresSafeArea()
+            .allowsHitTesting(shouldRenderCanvas)
 
             // 3. Route overlay (note / folder pages). On `.canvas` route
             //    this is hidden so mouse events fall through to the
@@ -97,54 +105,42 @@ struct HomeGraphEmbeddedView: View {
                     inspectorState: inspectorState,
                     modelContext: modelContext,
                     onSelectNode: { nodeId in
-                        graphState.selectNode(nodeId)
+                        revealEmbeddedNode(nodeId)
                     }
                 )
                 .padding(.leading, 16)
                 .padding(.top, 16)
                 Spacer(minLength: 0)
             }
+            .opacity(graphState.currentRoute.isCanvas ? 1 : 0)
+            .allowsHitTesting(graphState.currentRoute.isCanvas)
 
-            // 5. Inspector — right edge, top-aligned, only when a node
-            //    is selected. Matches the floating-panel layout.
-            if graphState.selectedNodeId != nil {
-                HStack(alignment: .top, spacing: 0) {
-                    Spacer(minLength: 0)
-                    HologramNodeInspector(
-                        inspectorState: inspectorState,
-                        modelContext: modelContext
-                    )
-                    .padding(.trailing, 16)
-                    .padding(.top, 16)
-                }
-                .transition(.move(edge: .trailing).combined(with: .opacity))
-            }
+            // 5. Inspector — attached to the selected node, using the same
+            //    compact inspector body as the floating graph.
+            embeddedAttachedInspector
 
             // 6. Floating controls capsule — bottom-center.
-            VStack(spacing: 0) {
-                Spacer(minLength: 0)
-                GraphFloatingControls()
-                    .padding(.bottom, 24)
+            if graphState.currentRoute.isCanvas {
+                embeddedFloatingControls
             }
 
             // 7. FPS HUD — bottom-trailing. The host view internally
             //    branches on `graphFPSHUDEnabled` so we always mount
             //    it; it draws EmptyView when the toggle is off.
-            VStack(spacing: 0) {
-                Spacer(minLength: 0)
-                HStack(spacing: 0) {
+            if graphState.currentRoute.isCanvas {
+                VStack(spacing: 0) {
                     Spacer(minLength: 0)
-                    GraphFPSHUDHostView()
-                        .padding(.trailing, 16)
-                        .padding(.bottom, 16)
+                    HStack(spacing: 0) {
+                        Spacer(minLength: 0)
+                        GraphFPSHUDHostView()
+                            .padding(.trailing, 16)
+                            .padding(.bottom, 16)
+                    }
                 }
             }
 
-            // 8. Back-to-greeting button — top-leading.
-            backButton
-                .padding(.leading, 16)
-                .padding(.top, 16)
         }
+        .environment(\.graphSurfacePresentation, .embeddedHome)
         .animation(
             reduceMotion ? nil : .smooth(duration: 0.25),
             value: graphState.currentRoute
@@ -157,37 +153,105 @@ struct HomeGraphEmbeddedView: View {
             returnToGreeting()
             return .handled
         }
+        .onChange(of: graphState.currentRoute) { _, newRoute in
+            syncEmbeddedRouteState(newRoute)
+        }
+        .onChange(of: graphState.selectedNodeId) { _, newId in
+            syncEmbeddedInspectorSelection(nodeId: newId)
+        }
+        .onChange(of: scenePhase) { _, _ in
+            syncEmbeddedRouteState(graphState.currentRoute)
+        }
         .onAppear { handleAppear() }
         .onDisappear { handleDisappear() }
     }
 
-    // MARK: - Back affordance
+    private var shouldRenderCanvas: Bool {
+        graphState.currentRoute.isCanvas && scenePhase == .active
+    }
 
-    private var backButton: some View {
-        Button(action: returnToGreeting) {
-            HStack(spacing: 5) {
-                Image(systemName: "chevron.backward")
-                    .font(.system(size: 12, weight: .semibold))
-                Text("Home")
-                    .font(.system(size: 12, weight: .medium))
+    private var embeddedInspectorSize: CGSize {
+        CGSize(width: 320, height: 500)
+    }
+
+    @ViewBuilder
+    private var embeddedAttachedInspector: some View {
+        if graphState.currentRoute.isCanvas, graphState.selectedNodeId != nil {
+            GeometryReader { proxy in
+                let frame = embeddedInspectorFrame(in: proxy.size)
+                HologramNodeInspector(
+                    inspectorState: inspectorState,
+                    modelContext: modelContext
+                )
+                .frame(
+                    width: embeddedInspectorSize.width,
+                    height: embeddedInspectorSize.height,
+                    alignment: .topLeading
+                )
+                .position(x: frame.midX, y: frame.midY)
+                .transition(.opacity)
+                .animation(
+                    reduceMotion ? nil : .smooth(duration: 0.18),
+                    value: graphState.selectedNodeId
+                )
             }
-            .foregroundStyle(.primary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .background(
-                Capsule().fill(theme.glassBg.opacity(0.78))
-            )
-            .overlay(
-                Capsule().strokeBorder(theme.glassBorder, lineWidth: 0.5)
-            )
-            .shadow(
-                color: Color.black.opacity(theme.isDark ? 0.18 : 0.06),
-                radius: 4,
-                y: 1
-            )
         }
-        .buttonStyle(.plain)
-        .help("Return to home greeting (⌘G or Esc)")
+    }
+
+    private func embeddedInspectorFrame(in size: CGSize) -> CGRect {
+        let margin: CGFloat = 16
+        let gap: CGFloat = 20
+        let width = min(embeddedInspectorSize.width, max(160, size.width - margin * 2))
+        let height = min(embeddedInspectorSize.height, max(160, size.height - margin * 2))
+
+        let anchor: CGPoint
+        if let appKitPoint = graphState.selectedNodeScreenPoint {
+            anchor = CGPoint(x: appKitPoint.x, y: size.height - appKitPoint.y)
+        } else {
+            anchor = CGPoint(x: size.width * 0.55, y: size.height * 0.45)
+        }
+
+        var x = anchor.x + gap
+        if x + width > size.width - margin {
+            x = anchor.x - width - gap
+        }
+        let minX = margin
+        let maxX = max(minX, size.width - width - margin)
+        x = min(max(x, minX), maxX)
+
+        var y = anchor.y - height * 0.28
+        let minY = margin
+        let maxY = max(minY, size.height - height - margin)
+        y = min(max(y, minY), maxY)
+
+        return CGRect(x: x, y: y, width: width, height: height)
+    }
+
+    private var embeddedFloatingControls: some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 0)
+            HStack(spacing: 0) {
+                Spacer(minLength: 0)
+                GraphFloatingControls()
+                    .offset(controlsOffset)
+                    .gesture(controlsDragGesture)
+                Spacer(minLength: 0)
+            }
+            .padding(.bottom, 24)
+        }
+    }
+
+    private var controlsDragGesture: some Gesture {
+        DragGesture(minimumDistance: 2)
+            .onChanged { value in
+                controlsOffset = CGSize(
+                    width: controlsDragAnchor.width + value.translation.width,
+                    height: controlsDragAnchor.height + value.translation.height
+                )
+            }
+            .onEnded { _ in
+                controlsDragAnchor = controlsOffset
+            }
     }
 
     // MARK: - Lifecycle
@@ -202,18 +266,90 @@ struct HomeGraphEmbeddedView: View {
         }
     }
 
+    private func revealEmbeddedNode(_ nodeId: String) {
+        guard graphState.store.nodes[nodeId] != nil else {
+            graphState.requestGraphRebuild()
+            return
+        }
+
+        if !graphState.currentRoute.isCanvas {
+            graphState.returnToCanvas()
+        }
+
+        graphState.cleanupEphemeralNodes()
+        graphState.mode = .global
+        graphState.clearFocus()
+        graphState.requestModeSync()
+        graphState.selectNode(nodeId)
+        graphState.pendingCenterNodeId = nodeId
+        syncEmbeddedInspectorSelection(nodeId: nodeId)
+        embeddedGraphBridge.isolateNode(nodeId)
+    }
+
+    private func syncEmbeddedInspectorSelection(nodeId: String?) {
+        guard let nodeId else {
+            inspectorState.clearSelection()
+            return
+        }
+        guard let node = graphState.store.nodes[nodeId] else {
+            inspectorState.clearSelection()
+            graphState.requestGraphRebuild()
+            return
+        }
+        inspectorState.selectNode(node, store: graphState.store, modelContext: modelContext)
+    }
+
     private func handleAppear() {
         // Sync the Rust engine's theme palette to the landing theme. The
         // setLightMode call inside MetalGraphRepresentable handles the
         // light/dark switch; this hook is here for future per-theme
         // tweaks (cursor color, label palette overrides, etc.).
-        graphState.startOverlayPhysicsCycle()
+        syncEmbeddedRouteState(graphState.currentRoute)
     }
 
     private func handleDisappear() {
         // Stop the overlay physics cycle so the engine can quiesce when
         // the user returns to the greeting. Mirrors HologramOverlay.hide().
+        restoreEmbeddedRouteFreezeIfNeeded()
         graphState.cancelOverlayPhysicsCycle()
+    }
+
+    private func syncEmbeddedRouteState(_ route: GraphWorkspaceRoute) {
+        if route.isCanvas, scenePhase == .active {
+            restoreEmbeddedRouteFreezeIfNeeded()
+            graphState.startOverlayPhysicsCycle()
+        } else {
+            if embeddedRouteFreezeSnapshot == nil {
+                embeddedRouteFreezeSnapshot = graphState.isPhysicsFrozen
+            }
+            if !graphState.isPhysicsFrozen {
+                graphState.isPhysicsFrozen = true
+                graphState.physicsFrozenVersion += 1
+            }
+            graphState.cancelOverlayPhysicsCycle()
+        }
+    }
+
+    private func restoreEmbeddedRouteFreezeIfNeeded() {
+        guard let wasFrozen = embeddedRouteFreezeSnapshot else { return }
+        embeddedRouteFreezeSnapshot = nil
+        guard graphState.isPhysicsFrozen != wasFrozen else { return }
+        graphState.isPhysicsFrozen = wasFrozen
+        graphState.physicsFrozenVersion += 1
+    }
+}
+
+@MainActor
+private final class EmbeddedGraphMetalBridge {
+    private weak var view: MetalGraphNSView?
+
+    func attach(_ view: MetalGraphNSView) {
+        self.view = view
+    }
+
+    func isolateNode(_ nodeId: String) {
+        guard let view, !view.isHidden else { return }
+        view.isolateNode(nodeId)
     }
 }
 
@@ -227,6 +363,33 @@ struct HomeGraphEmbeddedView: View {
 private struct MetalGraphRepresentable: NSViewRepresentable {
     let graphState: GraphState
     let isDarkTheme: Bool
+    let shouldRenderCanvas: Bool
+    let graphBridge: EmbeddedGraphMetalBridge
+
+    final class Coordinator {
+        private var lastShouldRenderCanvas: Bool?
+
+        func syncVisibility(_ shouldRenderCanvas: Bool, view: MetalGraphNSView) {
+            let visibilityChanged = lastShouldRenderCanvas != shouldRenderCanvas
+            lastShouldRenderCanvas = shouldRenderCanvas
+
+            if shouldRenderCanvas {
+                if visibilityChanged || view.isHidden || view.alphaValue < 1.0 {
+                    view.isHidden = false
+                    view.alphaValue = 1.0
+                    view.resumeEngine()
+                }
+            } else if visibilityChanged || !view.isHidden || view.alphaValue > 0.0 {
+                view.pauseEngine()
+                view.alphaValue = 0.0
+                view.isHidden = true
+            }
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
 
     func makeNSView(context: Context) -> MetalGraphNSView {
         let view = MetalGraphNSView(frame: .zero)
@@ -240,6 +403,7 @@ private struct MetalGraphRepresentable: NSViewRepresentable {
         view.isOverlayMode = true
         // 2) full backing-scale resolution + canvas-style input flow
         view.isMiniMode = true
+        view.usesClickSelectionFallback = true
         // 3) light/dark palette sync
         view.setLightMode(!isDarkTheme)
         view.autoresizingMask = [.width, .height]
@@ -248,11 +412,15 @@ private struct MetalGraphRepresentable: NSViewRepresentable {
         // when `graphState.isLoaded == true`. No manual kick needed —
         // `GraphState` already holds the loaded nodes/edges across host
         // switches.
+        graphBridge.attach(view)
+        context.coordinator.syncVisibility(shouldRenderCanvas, view: view)
         return view
     }
 
     func updateNSView(_ nsView: MetalGraphNSView, context: Context) {
         // Theme can flip mid-session; re-apply the light/dark palette.
         nsView.setLightMode(!isDarkTheme)
+        graphBridge.attach(nsView)
+        context.coordinator.syncVisibility(shouldRenderCanvas, view: nsView)
     }
 }

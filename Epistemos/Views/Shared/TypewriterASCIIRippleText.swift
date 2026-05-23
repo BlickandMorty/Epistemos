@@ -17,18 +17,25 @@ struct TypewriterASCIIRippleText: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        ASCIIRippleText(
-            text: displayText,
-            font: font,
-            color: color,
-            shadowColor: shadowColor,
-            shadowRadius: shadowRadius,
-            configuration: configuration,
-            manualTrigger: rippleTrigger,
-            interactive: true,
-            pulseOnAppear: false, // We'll trigger it manually after typing
-            fixedHorizontal: false
-        )
+        ZStack(alignment: .leading) {
+            Text(text)
+                .font(font)
+                .hidden()
+                .fixedSize(horizontal: true, vertical: false)
+
+            ASCIIRippleText(
+                text: displayText,
+                font: font,
+                color: color,
+                shadowColor: shadowColor,
+                shadowRadius: shadowRadius,
+                configuration: configuration,
+                manualTrigger: rippleTrigger,
+                interactive: true,
+                pulseOnAppear: false,
+                fixedHorizontal: false
+            )
+        }
         .task(id: text) {
             await typeText()
         }

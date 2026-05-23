@@ -5,6 +5,11 @@ private enum WorkspaceSwitcherOverlayTiming {
     nonisolated static func dismissDelay() -> Duration { .milliseconds(150) }
 }
 
+enum WorkspaceSwitcherPresentation: Equatable {
+    case overlay
+    case inline
+}
+
 // MARK: - Workspace Switcher Overlay
 // A centered command-palette-style overlay for cycling through saved workspaces.
 // Triggered by Cmd+Ctrl+W. Keyboard navigation: arrow keys to cycle, Enter to load, Esc to dismiss.
@@ -13,36 +18,68 @@ struct WorkspaceSwitcherOverlay: View {
     @Environment(UIState.self) private var ui
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var isPresented: Bool
+    let presentation: WorkspaceSwitcherPresentation
 
     @State private var workspaces: [SDWorkspace] = []
     @State private var selectedIndex: Int = 0
-    @State private var appeared = false
+    @State private var appearFrame = 0
 
     private var theme: EpistemosTheme { ui.theme }
 
-    private var scrimColor: Color { theme.isDark ? .black : .gray }
-    private var scrimOpacity: Double { theme.isDark ? 0.35 : 0.2 }
-    private var panelShadow: Color { theme.isDark ? .black.opacity(0.3) : .black.opacity(0.1) }
-    private var panelStroke: Color { theme.isDark ? .white.opacity(0.08) : .black.opacity(0.06) }
+    init(
+        isPresented: Binding<Bool>,
+        presentation: WorkspaceSwitcherPresentation = .overlay
+    ) {
+        _isPresented = isPresented
+        self.presentation = presentation
+    }
 
     var body: some View {
-        ZStack {
-            // Scrim
-            scrimColor.opacity(appeared ? scrimOpacity : 0)
-                .ignoresSafeArea()
-                .onTapGesture { dismiss() }
+        Group {
+            if presentation == .overlay {
+                ZStack {
+                    Color.clear
+                        .ignoresSafeArea()
+                        .contentShape(Rectangle())
+                        .onTapGesture { dismiss() }
 
-            // Panel
+                    panel
+                }
+            } else {
+                panel
+            }
+        }
+        .onKeyPress(.upArrow) { cycleSelection(-1); return .handled }
+        .onKeyPress(.downArrow) { cycleSelection(1); return .handled }
+        .onKeyPress(.return) { loadSelected(); return .handled }
+        .background {
+            Button(action: { dismiss() }) {}
+                .keyboardShortcut(.escape, modifiers: [])
+                .frame(width: 0, height: 0)
+                .opacity(0)
+                .allowsHitTesting(false)
+        }
+        .onAppear {
+            refreshWorkspaces()
+            Task { @MainActor in
+                await PixelStepMotion.play(reduceMotion: reduceMotion) { frame in
+                    appearFrame = frame
+                }
+            }
+        }
+    }
+
+    private var panel: some View {
+        ZStack {
             VStack(spacing: 0) {
                 // Header
                 HStack {
-                    Image(systemName: "square.stack.3d.up")
-                        .font(.system(size: 14, weight: .semibold))
-                    Text("Workspaces")
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    PixelGlyph(kind: .workspace, accent: theme.resolved.accent.color)
+                        .frame(width: 24, height: 24)
+                    PixelPanelTitle(text: "Workspaces", theme: theme, size: 15)
                     Spacer()
                     Text("esc to close")
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
                         .foregroundStyle(theme.textTertiary)
                 }
                 .padding(.horizontal, 20)
@@ -54,14 +91,13 @@ struct WorkspaceSwitcherOverlay: View {
 
                 if workspaces.isEmpty {
                     VStack(spacing: 12) {
-                        Image(systemName: "tray")
-                            .font(.system(size: 28, weight: .light))
-                            .foregroundStyle(theme.textTertiary)
+                        PixelGlyph(kind: .workspace, accent: theme.textTertiary)
+                            .frame(width: 40, height: 40)
                         Text("No saved workspaces")
-                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .font(.system(size: 14, weight: .medium, design: .monospaced))
                             .foregroundStyle(theme.textSecondary)
                         Text("Save your current layout with \u{2318}\u{2303}S")
-                            .font(.system(size: 12, weight: .regular, design: .rounded))
+                            .font(.system(size: 12, weight: .regular, design: .monospaced))
                             .foregroundStyle(theme.textTertiary)
                     }
                     .frame(maxWidth: .infinity)
@@ -75,6 +111,7 @@ struct WorkspaceSwitcherOverlay: View {
                                         workspace: workspace,
                                         isSelected: index == selectedIndex,
                                         theme: theme,
+                                        presentation: presentation,
                                         action: { loadWorkspace(workspace) },
                                         onOpenInSpace: { loadWorkspaceInSpace(workspace) }
                                     )
@@ -105,49 +142,25 @@ struct WorkspaceSwitcherOverlay: View {
                     .padding(.vertical, 10)
                 }
             }
-            .frame(width: 480)
-            .background {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .shadow(color: panelShadow, radius: 20, y: 8)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(panelStroke)
-            }
-            .scaleEffect(appeared ? 1 : 0.95)
-            .opacity(appeared ? 1 : 0)
+            .frame(width: presentation == .inline ? 500 : 480)
+            .pixelPanel(theme: theme)
+            .pixelStepAppear(frame: appearFrame)
             .foregroundStyle(theme.resolved.foreground.color)
-        }
-        .onKeyPress(.upArrow) { cycleSelection(-1); return .handled }
-        .onKeyPress(.downArrow) { cycleSelection(1); return .handled }
-        .onKeyPress(.return) { loadSelected(); return .handled }
-        .background {
-            Button(action: { dismiss() }) {}
-                .keyboardShortcut(.escape, modifiers: [])
-                .frame(width: 0, height: 0)
-                .opacity(0)
-                .allowsHitTesting(false)
-        }
-        .onAppear {
-            refreshWorkspaces()
-            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { appeared = true }
         }
     }
 
     private func keyHint(key: String, label: String) -> some View {
         HStack(spacing: 4) {
             Text(key)
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
                 .padding(.horizontal, 5)
                 .padding(.vertical, 2)
                 .background(
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    Rectangle()
                         .fill(theme.resolved.foreground.color.opacity(0.06))
                 )
             Text(label)
-                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
                 .foregroundStyle(theme.textTertiary)
         }
     }
@@ -188,7 +201,7 @@ struct WorkspaceSwitcherOverlay: View {
     }
 
     private func performAfterDismiss(_ action: (@MainActor () -> Void)? = nil) {
-        withAnimation(reduceMotion ? nil : .easeIn(duration: 0.15)) { appeared = false }
+        withAnimation(reduceMotion ? nil : .easeIn(duration: 0.15)) { appearFrame = 0 }
         if reduceMotion {
             action?()
             isPresented = false
@@ -219,22 +232,26 @@ private struct WorkspaceRow: View {
     let workspace: SDWorkspace
     let isSelected: Bool
     let theme: EpistemosTheme
+    let presentation: WorkspaceSwitcherPresentation
     let action: () -> Void
     let onOpenInSpace: () -> Void
 
     @State private var isHovered = false
     @State private var decodedSnapshot: WorkspaceSnapshot?
+    @State private var cachedDiff: WorkspaceDiffSummary?
 
     init(
         workspace: SDWorkspace,
         isSelected: Bool,
         theme: EpistemosTheme,
+        presentation: WorkspaceSwitcherPresentation,
         action: @escaping () -> Void,
         onOpenInSpace: @escaping () -> Void
     ) {
         self.workspace = workspace
         self.isSelected = isSelected
         self.theme = theme
+        self.presentation = presentation
         self.action = action
         self.onOpenInSpace = onOpenInSpace
         _decodedSnapshot = State(initialValue: Self.decodeSnapshot(from: workspace.snapshotData))
@@ -243,10 +260,11 @@ private struct WorkspaceRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                Image(systemName: "square.stack.3d.up.fill")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(isSelected ? theme.resolved.accent.color : theme.textSecondary)
-                    .frame(width: 20)
+                PixelGlyph(
+                    kind: .workspace,
+                    accent: isSelected ? theme.resolved.accent.color : theme.textSecondary
+                )
+                .frame(width: 22, height: 22)
 
                 VStack(alignment: .leading, spacing: 3) {
                     HStack {
@@ -307,7 +325,7 @@ private struct WorkspaceRow: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                Rectangle()
                     .fill(
                         isSelected
                             ? theme.resolved.accent.color.opacity(0.12)
@@ -317,9 +335,20 @@ private struct WorkspaceRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .onHover { isHovered = $0 }
+        .onHover {
+            isHovered = $0
+            refreshDiffIfNeeded()
+        }
+        .onAppear {
+            refreshDiffIfNeeded()
+        }
+        .onChange(of: isSelected) { _, _ in
+            refreshDiffIfNeeded()
+        }
         .onChange(of: workspace.snapshotData) { _, newValue in
             decodedSnapshot = Self.decodeSnapshot(from: newValue)
+            cachedDiff = nil
+            refreshDiffIfNeeded()
         }
     }
 
@@ -341,7 +370,8 @@ private struct WorkspaceRow: View {
     /// Shows how the saved workspace differs from the current live state.
     @ViewBuilder
     private var driftIndicator: some View {
-        if let diff = AppBootstrap.shared?.workspaceService.changesSinceLastSave(for: workspace),
+        if shouldShowDriftIndicator,
+           let diff = cachedDiff,
            diff.hasChanges {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
@@ -378,6 +408,15 @@ private struct WorkspaceRow: View {
                 }
             }
         }
+    }
+
+    private var shouldShowDriftIndicator: Bool {
+        presentation == .overlay || isHovered || isSelected
+    }
+
+    private func refreshDiffIfNeeded() {
+        guard shouldShowDriftIndicator, cachedDiff == nil else { return }
+        cachedDiff = AppBootstrap.shared?.workspaceService.changesSinceLastSave(for: workspace)
     }
 
     private func buildDiffParts(_ diff: WorkspaceDiffSummary) -> [String] {
