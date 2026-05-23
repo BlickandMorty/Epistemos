@@ -44,6 +44,7 @@ pub mod paper_registry;
 pub mod para_lens;
 pub mod run_ledger;
 pub mod rwkv7;
+pub mod scan_ir;
 pub mod sherry_lattice;
 pub mod substrate_independence;
 pub mod ternary;
