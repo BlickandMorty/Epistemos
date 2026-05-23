@@ -375,8 +375,8 @@ nonisolated struct ModelInvolvementContributionSession: Identifiable, Equatable 
 ///
 /// Given a `modelID`, shows every substantive `SDMessage` this model
 /// authored across chats, worker sessions, and note flows. Cloud
-/// models accept both the current vendor model id (`gpt-5.4`) and the
-/// legacy provider-qualified id (`openai:gpt-5.4`) so older histories
+/// models accept both the current vendor model id (`gpt-4o`) and legacy
+/// GPT-5.4 aliases so older histories
 /// still surface after the curated provider simplification.
 struct ModelInvolvementSheet: View {
     let modelID: String

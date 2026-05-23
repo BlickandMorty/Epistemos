@@ -25,6 +25,7 @@ use crate::types::{
 
 const ANTHROPIC_API: &str = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION: &str = "2023-06-01";
+#[cfg(test)]
 const MCP_CONNECTOR_BETA_HEADER: &str = "mcp-client-2025-11-20";
 const BETA_HEADER: &str = "interleaved-thinking-2025-05-14,mcp-client-2025-11-20";
 const ANTHROPIC_OAUTH_BETA_HEADER: &str =

@@ -405,7 +405,7 @@ mod tests {
         //
         // Use 4 focused Lex inners each holding only the same single
         // doc — guaranteeing rank-1 in all four.
-        let mut build = || -> Box<dyn EidosRetriever> {
+        let build = || -> Box<dyn EidosRetriever> {
             let mut lex = InMemoryLexicalIndex::new(manifest());
             lex.insert(doc("trio"), "tropical", EidosSourceKind::Note).unwrap();
             Box::new(lex)

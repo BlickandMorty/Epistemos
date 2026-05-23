@@ -160,6 +160,9 @@ struct TriageServiceTests {
         let selection = ChatModelSelection(rawValue: "cloud:openai:gpt-5.4")
         #expect(selection == .cloud(.openAIGPT54))
         #expect(selection?.rawValue == "cloud:openai:gpt-5.4")
+
+        let currentSelection = ChatModelSelection(rawValue: "cloud:openai:gpt-4o")
+        #expect(currentSelection == .cloud(.openAIGPT54))
     }
 
     @Test("legacy cloud model selections migrate to supported cloud models")
@@ -197,7 +200,7 @@ struct TriageServiceTests {
 
     @Test("cloud runtime capability matrix stays model aware")
     func cloudRuntimeCapabilityMatrixStaysModelAware() {
-        #expect(CloudTextModelID.openAIGPT54.supportsNativeReasoningEffortControl)
+        #expect(!CloudTextModelID.openAIGPT54.supportsNativeReasoningEffortControl)
         #expect(!CloudTextModelID.openAIO3.supportsNativeReasoningEffortControl)
         #expect(CloudTextModelID.anthropicClaudeSonnet46.supportsNativeReasoningEffortControl)
         #expect(CloudTextModelID.googleGemini31ProPreview.supportsNativeReasoningEffortControl)
@@ -216,7 +219,7 @@ struct TriageServiceTests {
         #expect(CloudTextModelID.openAIGPT54.aboutSheetStructuredOutputSummary == "Structured JSON")
         #expect(
             CloudTextModelID.openAIGPT54.aboutSheetPurposeSummary
-                == "Complex reasoning, coding, and tool-heavy professional work."
+                == "General-purpose multimodal OpenAI cloud work and tool-heavy chat."
         )
         #expect(CloudTextModelID.kimiK25.aboutSheetStructuredOutputSummary == "Prompt JSON fallback")
         #expect(CloudTextModelID.deepseekReasoner.aboutSheetBadge == "DeepSeek")
@@ -790,16 +793,16 @@ struct TriageServiceTests {
         )
 
         inference.setPreferredChatModelSelection(ChatModelSelection.cloud(CloudTextModelID.openAIGPT54))
-        #expect(inference.effectiveModelLabel(for: EpistemosOperatingMode.agent) == "Codex GPT-5.4")
+        #expect(inference.effectiveModelLabel(for: EpistemosOperatingMode.agent) == "Codex GPT-4o")
         #expect(
             inference.availableReasoningTiers(for: EpistemosOperatingMode.agent)
-                == [.low, .medium, .high, .heavy]
+                == [.medium, .heavy]
         )
         #expect(
             inference.reasoningTierLabel(
                 for: .heavy,
                 operatingMode: EpistemosOperatingMode.agent
-            ) == "Extra High"
+            ) == "Heavy"
         )
 
         inference.setPreferredChatModelSelection(

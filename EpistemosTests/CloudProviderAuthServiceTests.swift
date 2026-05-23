@@ -302,8 +302,8 @@ struct CloudProviderAuthServiceTests {
     }
 
     @MainActor
-    @Test("OpenAI API requests carry native GPT-5.4 controls for pro work")
-    func openAIAPIRequestsCarryNativeGPT54ControlsForProWork() async throws {
+    @Test("OpenAI API requests use GPT-4o without unsupported reasoning controls")
+    func openAIAPIRequestsUseGPT4OWithoutUnsupportedReasoningControls() async throws {
         let inference = makeInferenceState(keychainValues: [
             CloudModelProvider.openAI.apiKeyKeychainKey: "sk-openai-test"
         ])
@@ -316,12 +316,9 @@ struct CloudProviderAuthServiceTests {
             let bodyData = try self.requestBodyData(from: request)
             let json = try #require(JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
             #expect(json["model"] as? String == CloudTextModelID.openAIGPT54.vendorModelID)
-
-            let reasoning = try #require(json["reasoning"] as? [String: Any])
-            #expect(reasoning["effort"] as? String == "high")
-
-            let text = try #require(json["text"] as? [String: Any])
-            #expect(text["verbosity"] as? String == "medium")
+            #expect(json["model"] as? String == "gpt-4o")
+            #expect(json["reasoning"] == nil)
+            #expect(json["text"] == nil)
 
             let response = try #require(
                 HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
@@ -345,8 +342,8 @@ struct CloudProviderAuthServiceTests {
     }
 
     @MainActor
-    @Test("OpenAI API pro mode ignores a saved off tier and still requests the higher reasoning route")
-    func openAIAPIProModeStillRequestsHighReasoningWhenSavedTierIsOff() async throws {
+    @Test("OpenAI API pro mode does not attach GPT-5 reasoning controls to GPT-4o")
+    func openAIAPIProModeDoesNotAttachGPT5ReasoningControlsToGPT4O() async throws {
         let inference = makeInferenceState(keychainValues: [
             CloudModelProvider.openAI.apiKeyKeychainKey: "sk-openai-test"
         ])
@@ -354,12 +351,9 @@ struct CloudProviderAuthServiceTests {
         let session = makeURLSession { request in
             let bodyData = try self.requestBodyData(from: request)
             let json = try #require(JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
-            let reasoning = try #require(json["reasoning"] as? [String: Any])
-            #expect(reasoning["effort"] as? String == "high")
-            #expect(reasoning["summary"] as? String == "auto")
-
-            let text = try #require(json["text"] as? [String: Any])
-            #expect(text["verbosity"] as? String == "medium")
+            #expect(json["model"] as? String == "gpt-4o")
+            #expect(json["reasoning"] == nil)
+            #expect(json["text"] == nil)
 
             let url = try #require(request.url)
             let response = try #require(
@@ -384,8 +378,8 @@ struct CloudProviderAuthServiceTests {
     }
 
     @MainActor
-    @Test("OpenAI API thinking route keeps GPT-5.4 instead of silently swapping to o3")
-    func openAIAPIThinkingRouteKeepsGPT54() async throws {
+    @Test("OpenAI API thinking route keeps GPT-4o instead of silently swapping to o3")
+    func openAIAPIThinkingRouteKeepsGPT4O() async throws {
         let inference = makeInferenceState(keychainValues: [
             CloudModelProvider.openAI.apiKeyKeychainKey: "sk-openai-test"
         ])
@@ -394,12 +388,9 @@ struct CloudProviderAuthServiceTests {
             let bodyData = try self.requestBodyData(from: request)
             let json = try #require(JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
             #expect(json["model"] as? String == CloudTextModelID.openAIGPT54.vendorModelID)
-
-            let reasoning = try #require(json["reasoning"] as? [String: Any])
-            #expect(reasoning["effort"] as? String == "medium")
-
-            let text = try #require(json["text"] as? [String: Any])
-            #expect(text["verbosity"] as? String == "medium")
+            #expect(json["model"] as? String == "gpt-4o")
+            #expect(json["reasoning"] == nil)
+            #expect(json["text"] == nil)
 
             let response = try #require(
                 HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
@@ -472,7 +463,7 @@ struct CloudProviderAuthServiceTests {
             prompt: "Say OK.",
             systemPrompt: nil,
             maxTokens: 64,
-            model: .openAIGPT54,
+            model: .openAIGPT52,
             operatingMode: .fast
         )
 
@@ -537,7 +528,7 @@ struct CloudProviderAuthServiceTests {
             prompt: "Say OK.",
             systemPrompt: nil,
             maxTokens: 64,
-            model: .openAIGPT54,
+            model: .openAIGPT52,
             operatingMode: .fast
         )
         for try await chunk in stream {
@@ -569,9 +560,7 @@ struct CloudProviderAuthServiceTests {
             #expect(tools.count == 1)
             #expect(tools[0]["type"] as? String == "web_search")
 
-            let text = try #require(json["text"] as? [String: Any])
-            #expect(text["verbosity"] as? String == "low")
-            #expect(text["format"] == nil)
+            #expect(json["text"] == nil)
 
             let response = try #require(
                 HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
@@ -654,8 +643,8 @@ struct CloudProviderAuthServiceTests {
     }
 
     @MainActor
-    @Test("OpenAI Codex account requests carry native GPT-5 controls for thinking and pro work")
-    func openAICodexRequestsCarryNativeGPT54Controls() async throws {
+    @Test("OpenAI Codex account requests use GPT-4o without unsupported token or reasoning controls")
+    func openAICodexRequestsUseGPT4OWithoutUnsupportedControls() async throws {
         let expiration = Date(timeIntervalSinceNow: 3_600)
         let credential = CloudProviderOAuthCredential(
             provider: .openAI,
@@ -681,12 +670,10 @@ struct CloudProviderAuthServiceTests {
             let bodyData = try self.requestBodyData(from: request)
             let json = try #require(JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
             #expect(json["model"] as? String == CloudTextModelID.openAIGPT54.vendorModelID)
-            let reasoning = try #require(json["reasoning"] as? [String: Any])
-            #expect(reasoning["effort"] as? String == "high")
-            #expect(reasoning["summary"] as? String == "auto")
-
-            let text = try #require(json["text"] as? [String: Any])
-            #expect(text["verbosity"] as? String == "medium")
+            #expect(json["model"] as? String == "gpt-4o")
+            #expect(json["max_output_tokens"] == nil)
+            #expect(json["reasoning"] == nil)
+            #expect(json["text"] == nil)
 
             let response = try #require(
                 HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
@@ -784,7 +771,7 @@ struct CloudProviderAuthServiceTests {
             prompt: "Say OK.",
             systemPrompt: nil,
             maxTokens: 64,
-            model: .openAIGPT54,
+            model: .openAIGPT52,
             operatingMode: .fast
         )
 
@@ -793,8 +780,8 @@ struct CloudProviderAuthServiceTests {
     }
 
     @MainActor
-    @Test("OpenAI Codex agent mode preserves low-effort selections instead of collapsing them to standard")
-    func openAICodexAgentModePreservesLowEffortSelection() async throws {
+    @Test("OpenAI Codex agent mode sanitizes unsupported low-effort selections")
+    func openAICodexAgentModeSanitizesUnsupportedLowEffortSelection() async throws {
         let expiration = Date(timeIntervalSinceNow: 3_600)
         let credential = CloudProviderOAuthCredential(
             provider: .openAI,
@@ -814,7 +801,7 @@ struct CloudProviderAuthServiceTests {
             CloudModelProvider.openAI.oauthKeychainKey: encodedString
         ])
         inference.setActiveAIProvider(.openAI)
-        inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
+        inference.setPreferredChatModelSelection(.cloud(.openAIGPT52))
         inference.setChatReasoningTier(.low, for: .agent)
 
         let session = makeURLSession { request in
@@ -823,9 +810,9 @@ struct CloudProviderAuthServiceTests {
 
             let bodyData = try self.requestBodyData(from: request)
             let json = try #require(JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
-            #expect(json["model"] as? String == CloudTextModelID.openAIGPT54.vendorModelID)
+            #expect(json["model"] as? String == CloudTextModelID.openAIGPT52.vendorModelID)
             let reasoning = try #require(json["reasoning"] as? [String: Any])
-            #expect(reasoning["effort"] as? String == "low")
+            #expect(reasoning["effort"] as? String == "medium")
             #expect(reasoning["summary"] as? String == "auto")
 
             let text = try #require(json["text"] as? [String: Any])
@@ -850,7 +837,7 @@ struct CloudProviderAuthServiceTests {
             prompt: "Handle this as an agent task.",
             systemPrompt: nil,
             maxTokens: 256,
-            model: .openAIGPT54,
+            model: .openAIGPT52,
             operatingMode: .agent
         )
     }

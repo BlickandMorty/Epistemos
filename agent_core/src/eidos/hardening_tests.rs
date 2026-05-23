@@ -7129,7 +7129,7 @@ fn validate_citation_rejects_wire_smuggled_empty_payload_ids() {
 
     // (1) Confirm the asymmetry: constructor rejects empty, but the
     // JSON wire DOES deserialize empty payloads.
-    use super::types::{EidosChunkId, EidosIndexManifestId, IdError};
+    use super::types::{EidosChunkId, IdError};
     assert_eq!(EidosChunkId::new(""), Err(IdError::EmptyPayload));
     let wire_empty_chunk = r#"{"source_id":"","manifest_id":"hardening-manifest"}"#;
     let smuggled_chunk: EidosCitation = serde_json::from_str(wire_empty_chunk)
@@ -7317,7 +7317,7 @@ fn validate_citations_is_consistent_with_validate_citation_lift() {
             let singular_errs: Vec<(usize, _)> = singular
                 .iter()
                 .enumerate()
-                .filter_map(|(i, r)| r.as_ref().err().map(|e| (i, e.clone())))
+                .filter_map(|(i, r)| r.as_ref().err().map(|e| (i, e)))
                 .collect();
             assert_eq!(
                 errs.len(),

@@ -113,21 +113,6 @@ pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
 mod tests {
     use super::*;
 
-    fn deterministic_random(seed: u64, n: usize) -> Vec<f32> {
-        let mut state = seed
-            .wrapping_mul(2862933555777941757)
-            .wrapping_add(3037000493);
-        let mut out = Vec::with_capacity(n);
-        for _ in 0..n {
-            state = state
-                .wrapping_mul(2862933555777941757)
-                .wrapping_add(3037000493);
-            let f = ((state >> 8) & 0xFFFFFF) as f32 / 8_388_608.0 - 1.0;
-            out.push(f);
-        }
-        out
-    }
-
     #[test]
     fn empty_stored_patterns_yield_empty_output() {
         let q = vec![1.0_f32, 2.0, 3.0];

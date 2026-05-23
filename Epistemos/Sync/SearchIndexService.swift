@@ -167,7 +167,7 @@ actor SearchIndexService {
                 configuration: Self.databaseConfiguration()
             )
         }
-        let workQueue = DispatchQueue(label: "com.epistemos.search-index", qos: .utility)
+        let workQueue = DispatchQueue(label: "com.epistemos.search-index", qos: .userInitiated)
         let queryQueue = DispatchQueue(
             label: "com.epistemos.search-index.query",
             qos: .userInitiated,
