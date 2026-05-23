@@ -138,8 +138,8 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         }
 
         let utterance = AVSpeechUtterance(string: cleaned)
-        utterance.rate = rate
-        utterance.pitchMultiplier = pitch
+        utterance.rate = Self.clampedRate(rate)
+        utterance.pitchMultiplier = Self.clampedPitch(pitch)
         utterance.voice = Self.resolveVoice(identifier: voiceIdentifier)
         let id = UUID().uuidString
         inflight[id] = utterance
@@ -269,6 +269,16 @@ public final class EpistemosSpeechSynthesizer: NSObject, AVSpeechSynthesizerDele
         case .enhanced:         return 2
         case .default:          return 3
         }
+    }
+
+    static func clampedRate(_ value: Float) -> Float {
+        guard value.isFinite else { return AVSpeechUtteranceDefaultSpeechRate }
+        return min(max(value, AVSpeechUtteranceMinimumSpeechRate), AVSpeechUtteranceMaximumSpeechRate)
+    }
+
+    static func clampedPitch(_ value: Float) -> Float {
+        guard value.isFinite else { return 1.0 }
+        return min(max(value, 0.5), 2.0)
     }
 
     // MARK: - AVSpeechSynthesizerDelegate
