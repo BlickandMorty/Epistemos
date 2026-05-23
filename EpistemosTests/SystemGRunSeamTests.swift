@@ -6,7 +6,7 @@ import Testing
 // W4 (Terminal 1 WRV mission) test. Verifies the System G run-flow
 // Swift seam:
 //
-//   - The chain types `AgentEvent` + `RunEventLog` are defined and
+//   - The chain types `SystemGAgentEvent` + `RunEventLog` are defined and
 //     Codable-round-trippable.
 //   - `SystemGRunSeam` protocol surface exists and a stub
 //     implementation throws `notWired` until Terminal 2 lands the Rust
@@ -15,15 +15,15 @@ import Testing
 //     order so a replay surface can reconstruct the run.
 //
 // Per the brief: "If only status breadcrumb exists, define the Swift
-// seam needed for MissionPacket -> AgentEvent -> RunEventLog ->
+// seam needed for MissionPacket -> SystemGAgentEvent -> RunEventLog ->
 // AnswerPacket and hand Rust/API gaps to Terminal 2."
 
 @Suite("System G Run Seam (W4)")
 struct SystemGRunSeamTests {
 
-    @Test("AgentEvent round-trips through JSON for every kind")
+    @Test("SystemGAgentEvent round-trips through JSON for every kind")
     func agentEventRoundTripsForEveryKind() throws {
-        let cases: [AgentEvent] = [
+        let cases: [SystemGAgentEvent] = [
             .planStart(turnId: "t1", plan: "search vault then synthesize"),
             .toolStart(turnId: "t1", toolName: "vault_search", argsJson: #"{"q":"residency"}"#),
             .toolEnd(turnId: "t1", toolName: "vault_search", ok: true, outputJson: #"{"hits":[]}"#),
@@ -36,17 +36,17 @@ struct SystemGRunSeamTests {
         let decoder = JSONDecoder()
         for event in cases {
             let data = try encoder.encode(event)
-            let decoded = try decoder.decode(AgentEvent.self, from: data)
-            #expect(decoded == event, "AgentEvent must round-trip: \(event)")
+            let decoded = try decoder.decode(SystemGAgentEvent.self, from: data)
+            #expect(decoded == event, "SystemGAgentEvent must round-trip: \(event)")
         }
     }
 
-    @Test("AgentEvent decoder rejects unknown discriminator kinds")
+    @Test("SystemGAgentEvent decoder rejects unknown discriminator kinds")
     func agentEventRejectsUnknownKinds() {
         let json = #"{"kind":"not_a_real_kind","turn_id":"t1"}"#
         let data = Data(json.utf8)
         #expect(throws: DecodingError.self) {
-            _ = try JSONDecoder().decode(AgentEvent.self, from: data)
+            _ = try JSONDecoder().decode(SystemGAgentEvent.self, from: data)
         }
     }
 

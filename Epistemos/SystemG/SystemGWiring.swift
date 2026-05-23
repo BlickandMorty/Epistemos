@@ -16,7 +16,7 @@
 //     can render without a re-fetch on every paint.
 //
 // Scope lock: this is **status read only**. The full
-// `AgentBlueprint → MissionPacket → AgentEvent stream → approval →
+// `AgentBlueprint → MissionPacket → SystemGAgentEvent stream → approval →
 // MutationEnvelope → RunEventLog → AnswerPacket` flow lands in
 // follow-up W-rows (W-11..W-18 + W-44/W-45). Swift wire shape pinned
 // by the Rust serde derive.

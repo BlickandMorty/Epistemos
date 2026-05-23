@@ -5,7 +5,7 @@
 //
 // > W4: System G full run surface. Do not fake it. If only status
 // > breadcrumb exists, define the Swift seam needed for MissionPacket
-// > → AgentEvent → RunEventLog → AnswerPacket and hand Rust/API gaps
+// > → SystemGAgentEvent → RunEventLog → AnswerPacket and hand Rust/API gaps
 // > to Terminal 2.
 //
 // Today `Epistemos/SystemG/SystemGWiring.swift` exposes only a
@@ -13,8 +13,8 @@
 // `AgentMissionPacket` (`Epistemos/LocalAgent/AgentBlueprint.swift`)
 // and `AnswerPacket` (`Epistemos/Models/AnswerPacket.swift`) are the
 // chain endpoints that already exist. The middle two stages
-// (`AgentEvent`, `RunEventLog`) have no Swift types — `EventStore.swift`
-// explicitly defers them ("RunEventLog/AgentEvent emission remains
+// (`SystemGAgentEvent`, `RunEventLog`) have no Swift types — `EventStore.swift`
+// explicitly defers them ("RunEventLog/SystemGAgentEvent emission remains
 // deferred to later gates").
 //
 // This file defines the Swift seam exactly per the brief: types +
@@ -37,7 +37,7 @@
 // pub fn system_g_start_run_json(mission_json: String)
 //     -> Result<String, AgentErrorFFI>;
 //
-// /// Drain the next batch of `AgentEvent`s for the given run. Returns
+// /// Drain the next batch of `SystemGAgentEvent`s for the given run. Returns
 // /// a JSON array of events in arrival order. Empty array means "no
 // /// events yet, poll again." A trailing `complete` or `failed` event
 // /// closes the run; subsequent polls return an empty array.
@@ -46,12 +46,12 @@
 //     -> Result<String, AgentErrorFFI>;
 // ```
 //
-// `AgentEvent` JSON shape on the Rust side must match the Swift
+// `SystemGAgentEvent` JSON shape on the Rust side must match the Swift
 // `CodingKeys` here exactly (`#[serde(rename_all = "snake_case")]` on
-// `AgentEvent` + per-variant lowercase discriminator under a top-
+// `SystemGAgentEvent` + per-variant lowercase discriminator under a top-
 // level `kind` field; each variant carries the `turn_id` and its
 // payload fields). The `system_g_drain_events_json` shape is array-
-// of-`AgentEvent`-JSON-objects so a single `JSONDecoder().decode`
+// of-`SystemGAgentEvent`-JSON-objects so a single `JSONDecoder().decode`
 // pulls a batch.
 //
 // Streaming variant (UniFFI callbacks instead of polling) is also
@@ -63,7 +63,7 @@
 
 import Foundation
 
-// MARK: - AgentEvent
+// MARK: - SystemGAgentEvent
 //
 // Discriminated by a top-level `kind` field so the JSON wire shape
 // stays stable as variants are added. Each variant carries the
@@ -77,7 +77,7 @@ import Foundation
 // `agentEventRejectsUnknownKinds` test, so Terminal 2 must bump the
 // Swift mirror in lockstep with any new Rust event kind.
 
-nonisolated enum AgentEvent: Codable, Hashable, Sendable {
+nonisolated enum SystemGAgentEvent: Codable, Hashable, Sendable {
     case planStart(turnId: String, plan: String)
     case toolStart(turnId: String, toolName: String, argsJson: String)
     case toolEnd(turnId: String, toolName: String, ok: Bool, outputJson: String)
@@ -207,26 +207,26 @@ var isTerminal: Bool {
 
 // MARK: - RunEventLog
 //
-// Append-only collection of `AgentEvent`s tied to one mission. Value-
+// Append-only collection of `SystemGAgentEvent`s tied to one mission. Value-
 // typed so callers can snapshot the run state cheaply (the replay UI
 // gets a Sendable copy and renders without races).
 
 nonisolated struct RunEventLog: Codable, Hashable, Sendable {
 let missionId: String
-private(set) var events: [AgentEvent]
+private(set) var events: [SystemGAgentEvent]
 
-init(missionId: String, events: [AgentEvent] = []) {
+init(missionId: String, events: [SystemGAgentEvent] = []) {
         self.missionId = missionId
         self.events = events
     }
 
-mutating func append(_ event: AgentEvent) {
+mutating func append(_ event: SystemGAgentEvent) {
         events.append(event)
     }
 
     /// The terminal `.complete` or `.failed` event if the run has
     /// concluded. `nil` while the run is still open.
-var terminalEvent: AgentEvent? {
+var terminalEvent: SystemGAgentEvent? {
         events.last(where: { $0.isTerminal })
     }
 
@@ -254,7 +254,7 @@ nonisolated enum SystemGRunSeamError: Error, Equatable, Sendable {
     /// still pending per the file-head spec.
     case notWired
     /// FFI returned a payload that failed to decode against the Swift
-    /// AgentEvent schema.
+    /// SystemGAgentEvent schema.
     case decode(String)
     /// FFI surfaced an error from the Rust runtime; carries the
     /// original `AgentErrorFFI.message`.

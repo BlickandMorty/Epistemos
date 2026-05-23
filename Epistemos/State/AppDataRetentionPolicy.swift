@@ -103,7 +103,11 @@ nonisolated enum AppDataRetentionPolicy {
 }
 
 private extension UserDefaults {
-    func integerOrDefault(forKey key: String, defaultValue: Int) -> Int {
+    // Must be nonisolated because AppDataRetentionPolicy is nonisolated
+    // and calls this from background queues. Without the marker, the
+    // Epistemos target's `.defaultIsolation(MainActor.self)` makes this
+    // implicitly @MainActor and the enum's call sites fail to compile.
+    nonisolated func integerOrDefault(forKey key: String, defaultValue: Int) -> Int {
         object(forKey: key) == nil ? defaultValue : integer(forKey: key)
     }
 }
