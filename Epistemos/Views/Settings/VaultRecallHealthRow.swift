@@ -33,14 +33,15 @@ public struct VaultRecallHealthRow: View {
             row(
                 label: "Vault recall contract flag",
                 symbol: "flag.fill",
-                ok: flagRowOk,
-                detail: flagRowDetail
+                ok: snapshot.isFlagEnabled,
+                detail: snapshot.isFlagEnabled
+                    ? "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 on (synthetic trace emission)"
+                    : "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 off (no trace emission)"
             )
-            row(
-                label: "Backend",
-                symbol: "shippingbox",
-                ok: snapshot.lastBackend == .real,
-                detail: backendDetail
+            VerifiedFloorChipStrip(
+                flag: snapshot.isFlagEnabled ? "on" : "off",
+                substrate: "stub trace",
+                substrateTint: .orange
             )
             row(
                 label: "Last query",
@@ -92,41 +93,6 @@ public struct VaultRecallHealthRow: View {
         snapshot = VaultRecallMetrics.shared.snapshot()
     }
 
-    // The flag row's OK indicator is true only when the flag is ON AND the
-    // backend has been observed to be real — flag-on against the scaffold
-    // stub is honest-not-ready and must not look "working".
-    private var flagRowOk: Bool {
-        guard snapshot.isFlagEnabled else { return false }
-        return snapshot.lastBackend == .real
-    }
-
-    private var flagRowDetail: String {
-        guard snapshot.isFlagEnabled else {
-            return "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 off (no trace emission)"
-        }
-        switch snapshot.lastBackend {
-        case .real:
-            return "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 on · real VaultBackend trace"
-        case .stub:
-            return "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 on · SCAFFOLD trace (Terminal 2 VaultBackend integration pending W-21.1)"
-        case .unknown:
-            return "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 on · awaiting first trace to confirm backend"
-        }
-    }
-
-    private var backendDetail: String {
-        switch snapshot.lastBackend {
-        case .real:
-            return "real VaultBackend — 5-signal contract live"
-        case .stub:
-            return "scaffold-lexical — candidates do not reflect user vault"
-        case .unknown:
-            return snapshot.lastQueryAt == nil
-                ? "(no trace yet)"
-                : "unknown ladder tier — Terminal 2 contract drift?"
-        }
-    }
-
     private var lastQueryDetail: String {
         if let err = snapshot.lastErrorDescription, snapshot.lastQueryAt == nil {
             return "Error: \(err)"
@@ -151,7 +117,7 @@ public struct VaultRecallHealthRow: View {
             return snapshot.lastQueryAt == nil ? "(no query yet)" : "no signals emitted"
         }
         let slugs = snapshot.lastSignalSummary.map { $0.rawValue }.sorted()
-        return slugs.joined(separator: ",")
+        return "\(slugs.joined(separator: ",")) (synthetic; no vault retrieval yet)"
     }
 
     private func formatLatency(_ ms: Double) -> String {
