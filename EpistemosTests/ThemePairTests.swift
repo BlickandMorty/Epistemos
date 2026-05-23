@@ -837,7 +837,11 @@ struct ThemePairTests {
         let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
 
         #expect(landingView.contains("AssistantSendButton("))
-        #expect(landingView.contains("NativeToolbarButtonStyle()"))
+        #expect(landingView.contains("ChatComposerTextEditor("))
+        #expect(landingView.contains("landingSearchInlineStage"))
+        #expect(landingView.contains("LandingStageToolShell("))
+        #expect(!landingView.contains("LandingSearchLiquidBubble("))
+        #expect(!landingView.contains("LandingSearchFloatingBubbleField("))
         #expect(!landingView.contains(".siriGlow("))
         #expect(!landingView.contains("LandingSearchChromePolicy"))
     }
@@ -1324,17 +1328,18 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(appCommands.contains("UtilityWindowManager.shared.show(.settings)"))
         #expect(!appCommands.contains(".keyboardShortcut(\",\", modifiers: .command)"))
         #expect(miniChat.contains("showRecentChats"))
-        #expect(landingView.contains("label: \"Settings\""))
-        #expect(landingView.contains("key: \"S\""))
+        #expect(!landingView.contains("label: \"Settings\""))
+        #expect(!landingView.contains("key: \"S\", label: \"Settings\""))
     }
 
-    @Test("landing notes hint reveals the new note shortcut on hover")
-    func landingNotesHintRevealsNewNoteShortcut() throws {
+    @Test("landing command grid exposes notes and new note as peer pixel tiles")
+    func landingCommandGridExposesNotesAndNewNoteAsPeerPixelTiles() throws {
         let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
 
-        #expect(landingView.contains("HoverRevealCommandHint("))
-        #expect(landingView.contains("primary: .init(modIcon: \"command\", key: \"2\", label: \"Notes\")"))
-        #expect(landingView.contains("secondary: .init(modIcon: \"command\", key: \"N\", label: \"New Note\")"))
+        #expect(landingView.contains("landingPixelCommands"))
+        #expect(landingView.contains("PixelLandingCommandTile(\n                title: \"Notes\""))
+        #expect(landingView.contains("PixelLandingCommandTile(\n                title: \"New Note\""))
+        #expect(!landingView.contains("HoverRevealCommandHint("))
         #expect(!landingView.contains("CommandHint(modIcon: \"command\", key: \"N\", label: \"New Note\""))
     }
 
@@ -1436,8 +1441,309 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(settingsView.contains("Refresh Siri Shortcuts"))
         #expect(settingsView.contains("Open Shortcuts"))
         #expect(settingsView.contains("Microphone access"))
+        #expect(settingsView.contains("showQuickCapture"))
         #expect(landingView.contains("Quick Capture"))
-        #expect(landingView.contains("showQuickCapture"))
+        #expect(landingView.contains("showLandingInlineCommand(.quickCapture)"))
+    }
+
+    @Test("landing command surfaces use pixel command tiles")
+    func landingCommandSurfacesUsePixelCommandTiles() throws {
+        let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let pixelComponents = try loadTextFile("Epistemos/Views/Landing/PixelSurfaceComponents.swift")
+
+        #expect(landingView.contains("PixelLandingCommandTile("))
+        #expect(landingView.contains("landingPixelCommands"))
+        #expect(!landingView.contains("Session Intelligence"))
+        #expect(!landingView.contains("CommandHint(modIcon: \"command\", key: \"S\", label: \"Settings\""))
+        #expect(pixelComponents.contains("struct PixelPanelBackground"))
+        #expect(pixelComponents.contains("struct PixelLandingCommandTile"))
+        #expect(!pixelComponents.contains("PixelGridOverlay"))
+        #expect(pixelComponents.contains("var systemImageName: String"))
+        #expect(pixelComponents.contains("static func actionSurface"))
+        #expect(pixelComponents.contains("enum PixelStepMotion"))
+        #expect(pixelComponents.contains("struct PixelPanelTitle"))
+        #expect(pixelComponents.contains("private func pixelPanelStrokeWidth"))
+        #expect(pixelComponents.contains("theme.isDark ? 1 : 1.5"))
+        #expect(pixelComponents.contains("theme.isDark ? 0.24 : 0.34"))
+        #expect(pixelComponents.contains("@State private var isHovered"))
+        #expect(pixelComponents.contains("private var dormantCommandTitle"))
+        #expect(pixelComponents.contains("private var commandHoverChrome"))
+        #expect(pixelComponents.contains("private var commandHoverStroke"))
+        #expect(pixelComponents.contains(".glassEffect(.regular.interactive(), in: Capsule())"))
+        #expect(!pixelComponents.contains("@State private var hoverTypingSeed"))
+        #expect(!pixelComponents.contains("private var hoverCommandOverlay"))
+        #expect(!pixelComponents.contains("PixelCommandTypewriterText(\n                text: title"))
+        #expect(!pixelComponents.contains("PixelVectorHoverBlur("))
+        #expect(!pixelComponents.contains("hoverShortcutText"))
+        #expect(pixelComponents.contains("if isHovered"))
+        #expect(pixelComponents.contains("AppDisplayTypography.regularUIFont(size: 12, weight: .semibold)"))
+        #expect(!pixelComponents.contains(".id(\"hover-\\(hoverTypingSeed)-\\(title)\")"))
+        #expect(pixelComponents.contains("PixelGlyph(kind: glyph, accent: accent)"))
+        #expect(pixelComponents.contains(".frame(height: 52"))
+        #expect(landingView.contains("GridItem(.adaptive(minimum: 136, maximum: 176), spacing: 8)"))
+        #expect(!pixelComponents.contains(".zIndex(isHovered ? 10 : 0)"))
+        #expect(!pixelComponents.contains(".background(alignment: .leading)"))
+        #expect(!pixelComponents.contains("private var hoverExpansionWidth"))
+        #expect(!pixelComponents.contains("private var currentHoverWidth"))
+        #expect(!pixelComponents.contains("@State private var hoverFrame"))
+        #expect(!pixelComponents.contains("private var hoverLift"))
+        #expect(!pixelComponents.contains("private var hoverCardScale"))
+        #expect(!pixelComponents.contains("hoverConnector"))
+        #expect(!pixelComponents.contains("hoverCommandCard"))
+        #expect(!pixelComponents.contains("shortcutBadge"))
+        #expect(!pixelComponents.contains("hoverSparkline"))
+        #expect(!pixelComponents.contains("Text(\"KEY\")"))
+        #expect(!pixelComponents.contains("PixelPanelTitle(text: title"))
+        #expect(!pixelComponents.contains("PixelGlyph(kind: glyph, accent: accent, isActive: true)"))
+        #expect(!pixelComponents.contains("transaction.animation = nil"))
+        #expect(!pixelComponents.contains("theme.resolved.background.color.opacity(theme.isDark ? 0.98 : 0.96)"))
+    }
+
+    @Test("landing search input replaces the greeting with an inline stage")
+    func landingSearchInputReplacesGreetingWithInlineStage() throws {
+        let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
+
+        #expect(landingView.contains("import UniformTypeIdentifiers"))
+        #expect(landingView.contains("@State private var landingFileAttachments: [FileAttachment] = []"))
+        #expect(landingView.contains("@State private var landingToolsExpanded = false"))
+        #expect(landingView.contains("private var landingSearchInlineStage: some View"))
+        #expect(landingView.contains("private var landingSearchStageTools: some View"))
+        #expect(landingView.contains("private var landingSearchBrainTool: some View"))
+        #expect(landingView.contains("private var landingSearchCommandTool: some View"))
+        #expect(landingView.contains("private var landingSearchMentionTool: some View"))
+        #expect(landingView.contains("private var landingSearchAttachTool: some View"))
+        #expect(landingView.contains("private var landingSearchSavedTool: some View"))
+        #expect(landingView.contains("private var landingSearchToolsToggle: some View"))
+        #expect(landingView.contains("private var landingSearchSendTool: some View"))
+        #expect(landingView.contains("private var landingSearchExpandedToolRow: some View"))
+        #expect(landingView.contains("LandingStageToolTile("))
+        #expect(!landingView.contains("GeometryReader { proxy in"))
+        #expect(!landingView.contains(".position(x: centerX"))
+        #expect(landingView.contains("PixelPanelTitle(text: \"Search\""))
+        #expect(landingView.contains("landingSearchStepReveal(frame: landingSearchRevealFrame"))
+        #expect(!landingView.contains("landingSearchLiquidReveal(frame: landingSearchRevealFrame"))
+        #expect(landingView.contains("Rectangle()\n                    .fill(PixelPanelBackground.actionSurface(for: theme)"))
+        #expect(landingView.contains("LiquidGreeting("))
+        #expect(landingView.contains("searchMode: showingLandingStageCommand"))
+        #expect(landingView.contains("ChatComposerTextEditor("))
+        #expect(landingView.contains("onCommand: { selector, modifierFlags in"))
+        #expect(landingView.contains("handleLandingComposerCommand(selector, modifierFlags: modifierFlags)"))
+        #expect(!landingView.contains("TextField(\"\", text: $landingSearchText)"))
+        #expect(!landingView.contains(".offset(x: 80, y: 54)"))
+        #expect(!landingView.contains("private var landingSearchPopoverContent"))
+        #expect(!landingView.contains("private var landingSearchControlsRow"))
+        #expect(!landingView.contains("landingSearchFloatingBubbles"))
+        #expect(!landingView.contains("LandingSearchFloatingBubbleField("))
+        #expect(!landingView.contains("LandingSearchBubbleEdgeCanvas("))
+        #expect(!landingView.contains("LandingWaveOverlay("))
+        #expect(landingView.contains("openLandingFilePicker()"))
+        #expect(landingView.contains("FileAttachmentBuilder.buildAll(from: urls)"))
+        #expect(landingView.contains("landingFileAttachments.append(attachment)"))
+        #expect(landingView.contains("chat.addAttachment(attachment)"))
+        #expect(landingView.contains("openLandingSlashCommandMenu()"))
+        #expect(landingView.contains("insertLandingMentionToken()"))
+        #expect(landingView.contains("toggleLandingAllNotesContext()"))
+        #expect(landingView.contains("ChatCapabilityPill("))
+        #expect(landingView.contains("ContextualShadowsButton()"))
+    }
+
+    @Test("landing search attachments keep the revealed input chrome visible")
+    func landingSearchAttachmentsKeepTheRevealedInputChromeVisible() throws {
+        let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
+
+        #expect(landingView.contains("private func preserveLandingSearchSurfaceAfterAttachment()"))
+        #expect(landingView.contains("landingSearchRevealFrame = max(landingSearchRevealFrame, 5)"))
+
+        let mentionStart = try #require(landingView.range(of: "private func attachLandingMentionReference"))
+        let mentionEnd = try #require(
+            landingView.range(
+                of: "private func dismissLandingReferencePopover",
+                range: mentionStart.lowerBound..<landingView.endIndex
+            )
+        )
+        let mentionBody = landingView[mentionStart.lowerBound..<mentionEnd.lowerBound]
+        #expect(mentionBody.contains("preserveLandingSearchSurfaceAfterAttachment()"))
+        #expect(!mentionBody.contains("landingSearchRevealFrame = 0"))
+
+        let fileStart = try #require(landingView.range(of: "private func openLandingFilePicker()"))
+        let fileEnd = try #require(
+            landingView.range(
+                of: "@MainActor\n    private func presentLandingFilePicker",
+                range: fileStart.lowerBound..<landingView.endIndex
+            )
+        )
+        let fileBody = landingView[fileStart.lowerBound..<fileEnd.lowerBound]
+        #expect(fileBody.contains("preserveLandingSearchSurfaceAfterAttachment()"))
+    }
+
+    @Test("landing search stage reveal keeps the active theme accent without liquid wave input effects")
+    func landingSearchStageRevealUsesActiveThemeAccentWithoutLandingWaveInputEffects() throws {
+        let repoRoot = try sourceMirrorRootURL()
+        let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let pixelComponents = try loadTextFile("Epistemos/Views/Landing/PixelSurfaceComponents.swift")
+
+        #expect(landingView.contains("@State private var landingSearchRevealFrame"))
+        #expect(landingView.contains("runLandingSearchReveal()"))
+        #expect(landingView.contains("landingSearchStepReveal(frame: landingSearchRevealFrame"))
+        #expect(landingView.contains("landingSearchInlineStage"))
+        #expect(landingView.contains("LandingStageToolShell("))
+        #expect(landingView.contains("if ui.homeContent == .greeting && !showingLandingStageCommand"))
+        #expect(landingView.contains("landingPixelCommands\n                .padding(.horizontal, Spacing.xxl)"))
+        #expect(!landingView.contains("landingSearchControlsRow\n                    }"))
+        #expect(!landingView.contains("LandingSearchFieldFramePreferenceKey"))
+        #expect(!landingView.contains("landingSearchStaticBubbleFrames"))
+        #expect(!landingView.contains(".onContinuousHover"))
+        #expect(!landingView.contains("Color(hue: 0.75"))
+        #expect(!landingView.contains("LandingWaveHaptics.fireBeat"))
+        #expect(!landingView.contains("LandingWaveOverlay("))
+        #expect(pixelComponents.contains("LandingSearchStepRevealModifier"))
+        #expect(!pixelComponents.contains("LandingSearchLiquidRevealModifier"))
+        #expect(!pixelComponents.contains("rippleOpacity"))
+        #expect(!FileManager.default.fileExists(atPath: repoRoot.appendingPathComponent("Epistemos/Views/Landing/Wave/LandingWaveMetalView.swift").path))
+        #expect(!FileManager.default.fileExists(atPath: repoRoot.appendingPathComponent("Epistemos/Views/Landing/Wave/LandingWaveRenderer.swift").path))
+        #expect(!FileManager.default.fileExists(atPath: repoRoot.appendingPathComponent("Epistemos/Views/Landing/Wave/LandingWaveChoreography.swift").path))
+        #expect(!FileManager.default.fileExists(atPath: repoRoot.appendingPathComponent("Epistemos/Shaders/LandingWave.metal").path))
+    }
+
+    @Test("landing command stages replace only the greeting slot")
+    func landingCommandStagesReplaceOnlyTheGreetingSlot() throws {
+        let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
+
+        #expect(landingView.contains("Spacer(minLength: showingLandingStageCommand ? 24 : 0)"))
+        #expect(landingView.contains("Spacer(minLength: showingLandingStageCommand ? 42 : 0)"))
+        #expect(landingView.contains("landingPixelCommands\n                .padding(.horizontal, Spacing.xxl)"))
+        #expect(!landingView.contains("if !showingLandingStageCommand {\n                landingPixelCommands"))
+        #expect(!landingView.contains("case .workspaces: 540"))
+        #expect(!landingView.contains(".frame(width: 520, height: 540)"))
+        #expect(landingView.contains(".frame(width: 520, height: 370)"))
+    }
+
+    @Test("landing stage dismiss replays the greeting reveal")
+    func landingStageDismissReplaysTheGreetingReveal() throws {
+        let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let pixelComponents = try loadTextFile("Epistemos/Views/Landing/PixelSurfaceComponents.swift")
+
+        #expect(landingView.contains("@State private var landingGreetingReturnFrame = 4"))
+        #expect(landingView.contains("@State private var landingGreetingReturnTask: Task<Void, Never>?"))
+        #expect(landingView.contains(".landingGreetingReturnReveal(frame: landingGreetingReturnFrame"))
+        #expect(landingView.contains("private func runLandingGreetingReturnReveal()"))
+        #expect(landingView.contains("dismissLandingSearch(animateGreetingReturn: false)"))
+        #expect(landingView.contains("dismissLandingInlineCommand(animateGreetingReturn: false)"))
+        #expect(pixelComponents.contains("playLandingGreetingReturnReveal"))
+        #expect(pixelComponents.contains("landingGreetingReturnReveal(frame: Int, theme: EpistemosTheme)"))
+    }
+
+    @Test("landing command surfaces reuse real panels inside the greeting stage")
+    func landingCommandSurfacesReuseRealPanelsInsideGreetingStage() throws {
+        let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let savePanel = try loadTextFile("Epistemos/Views/Landing/QuitSavePanelController.swift")
+        let workspaces = try loadTextFile("Epistemos/Views/Landing/WorkspaceSwitcherOverlay.swift")
+
+        #expect(landingView.contains("private enum LandingInlineCommand"))
+        #expect(landingView.contains("@State private var activeLandingInlineCommand: LandingInlineCommand?"))
+        #expect(landingView.contains("private var showingLandingStageCommand: Bool"))
+        #expect(landingView.contains("landingInlineCommandStage(for: command)"))
+        #expect(landingView.contains("QuickCaptureView(isPresented: landingInlineCommandBinding(for: .quickCapture))"))
+        #expect(landingView.contains("WorkspaceSwitcherOverlay(\n                isPresented: landingInlineCommandBinding(for: .workspaces),\n                presentation: .inline\n            )"))
+        #expect(landingView.contains("SaveWorkspaceInlineView(isPresented: landingInlineCommandBinding(for: .saveWorkspace))"))
+        #expect(landingView.contains("TimeMachineView(isPresented: landingInlineCommandBinding(for: .timeMachine))"))
+        #expect(landingView.contains("showLandingInlineCommand(.quickCapture)"))
+        #expect(landingView.contains("showLandingInlineCommand(.workspaces)"))
+        #expect(landingView.contains("showLandingInlineCommand(.saveWorkspace)"))
+        #expect(landingView.contains("showLandingInlineCommand(.timeMachine)"))
+        #expect(!landingView.contains("NotificationCenter.default.post(name: .toggleWorkspaceSwitcher"))
+        #expect(!landingView.contains("NotificationCenter.default.post(name: .showSaveWorkspacePanel"))
+        #expect(!landingView.contains("NotificationCenter.default.post(name: .toggleTimeMachine"))
+        #expect(workspaces.contains("enum WorkspaceSwitcherPresentation"))
+        #expect(workspaces.contains("presentation: WorkspaceSwitcherPresentation = .overlay"))
+        #expect(workspaces.contains("presentation == .overlay"))
+        #expect(workspaces.contains("@State private var cachedDiff: WorkspaceDiffSummary?"))
+        #expect(workspaces.contains("private var shouldShowDriftIndicator"))
+        #expect(workspaces.contains("refreshDiffIfNeeded()"))
+        #expect(savePanel.contains("struct SaveWorkspaceInlineView: View"))
+        #expect(savePanel.contains("QuitSaveContent(isQuitFlow: false)"))
+    }
+
+    @Test("quick capture time machine and workspace panels avoid blur materials")
+    func pixelAdminSurfacesAvoidBlurMaterials() throws {
+        for relativePath in [
+            "Epistemos/Views/Capture/QuickCaptureView.swift",
+            "Epistemos/Views/Landing/TimeMachineView.swift",
+            "Epistemos/Views/Landing/WorkspaceSwitcherOverlay.swift",
+            "Epistemos/Views/Landing/QuitSavePanelController.swift",
+        ] {
+            let source = try loadTextFile(relativePath)
+            #expect(source.contains("pixelPanel(theme:"))
+            #expect(source.contains("PixelPanelTitle("))
+            #expect(!source.contains(".ultraThinMaterial"))
+            #expect(!source.contains("NSVisualEffectView"))
+        }
+    }
+
+    @Test("landing command overlays keep the home surface undimmed and use stepped pixel motion")
+    func landingCommandOverlaysKeepHomeSurfaceUndimmedAndUseSteppedPixelMotion() throws {
+        let rootView = try loadTextFile("Epistemos/App/RootView.swift")
+
+        for relativePath in [
+            "Epistemos/Views/Capture/QuickCaptureView.swift",
+            "Epistemos/Views/Landing/TimeMachineView.swift",
+            "Epistemos/Views/Landing/WorkspaceSwitcherOverlay.swift",
+            "Epistemos/Views/Landing/QuitSavePanelController.swift",
+        ] {
+            let source = try loadTextFile(relativePath)
+            #expect(source.contains("Color.clear"))
+            #expect(source.contains("PixelStepMotion.play"))
+            #expect(source.contains("pixelStepAppear(frame:"))
+            #expect(!source.contains("appeared"))
+            #expect(!source.contains("scrimOpacity"))
+            #expect(!source.contains("scrimColor.opacity"))
+        }
+
+        #expect(!rootView.contains(".animation(Motion.smooth, value: showWorkspaceSwitcher)"))
+        #expect(!rootView.contains(".animation(Motion.smooth, value: showTimeMachine)"))
+        #expect(!rootView.contains(".animation(Motion.smooth, value: showQuickCapture)"))
+    }
+
+    @Test("embedded home graph uses bottom close control instead of a top home button")
+    func embeddedHomeGraphUsesBottomCloseControlInsteadOfTopHomeButton() throws {
+        let embeddedGraph = try loadTextFile("Epistemos/Views/Home/HomeGraphEmbeddedView.swift")
+        let controls = try loadTextFile("Epistemos/Views/Graph/GraphFloatingControls.swift")
+
+        #expect(!embeddedGraph.contains("backButton"))
+        #expect(!embeddedGraph.contains("Text(\"Home\")"))
+        #expect(!embeddedGraph.contains("Back-to-greeting button"))
+        #expect(controls.contains("graphSurfacePresentation.isEmbeddedHome ? \"Return to home\" : \"Close Graph (Esc)\""))
+        #expect(controls.contains("ui.homeContent = .greeting"))
+    }
+
+    @Test("settings shared surfaces use native cards with pixel icons")
+    func settingsSharedSurfacesUseNativeCardsWithPixelIcons() throws {
+        let components = try loadTextFile("Epistemos/Views/Settings/SettingsSurfaceComponents.swift")
+        let settingsView = try loadTextFile("Epistemos/Views/Settings/SettingsView.swift")
+
+        #expect(components.contains("SettingsAppleCardChrome("))
+        #expect(components.contains("SettingsFeaturedPixelPanel"))
+        #expect(components.contains("SettingsPixelGlyphBadge"))
+        #expect(components.contains("SettingsThemedBlurBackdrop"))
+        #expect(components.contains("SettingsBlurGroupBoxStyle"))
+        #expect(components.contains("settingsThemedBlurPage(theme:"))
+        #expect(components.contains(".background(.regularMaterial)"))
+        #expect(components.contains(".glassEffect(.regular.interactive(), in: RoundedRectangle"))
+        #expect(components.contains("pixelPanel(theme: theme)"))
+        #expect(components.contains("Image(systemName: systemImage)"))
+        #expect(components.contains("RoundedRectangle(cornerRadius:"))
+        #expect(!components.contains("SettingsModernPixelChrome"))
+        #expect(!components.contains("settingsModernPixelChrome"))
+        #expect(!components.contains("PixelPanelBackground.actionSurface"))
+        #expect(!components.contains(".ultraThinMaterial"))
+        #expect(settingsView.contains(".settingsThemedBlurPage(theme: ui.theme.surfaceVariant(.other))"))
+        #expect(settingsView.contains("SettingsThemedBlurBackdrop(theme: ui.theme.surfaceVariant(.other), role: .sidebar)"))
+        #expect(settingsView.contains("SettingsThemedBlurBackdrop(theme: ui.theme.surfaceVariant(.other), role: .page)"))
+        #expect(settingsView.contains("SettingsPixelGlyphBadge(systemImage: section.icon"))
+        #expect(settingsView.contains("SettingsFeaturedPixelPanel(theme: settingsTheme)"))
+        #expect(!settingsView.contains("pixelPanel(theme: settingsTheme)"))
+        #expect(!settingsView.contains(".background(.ultraThinMaterial"))
+        #expect(!settingsView.contains(".fill(.white.opacity(0.001))"))
     }
 
     @Test("settings view exposes a native sidebar toggle in the toolbar")

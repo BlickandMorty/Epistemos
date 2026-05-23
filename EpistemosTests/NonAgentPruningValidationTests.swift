@@ -42,69 +42,21 @@ struct NonAgentPruningValidationTests {
         #expect(source.contains("enum WindowPresentationPolicy"))
     }
 
-    @Test("session intelligence overlay prefers live editor text before disk fallback")
-    func sessionIntelligenceOverlayPrefersEditorBodies() throws {
-        let source = try loadRepoTextFile("Epistemos/Views/Landing/SessionIntelligenceOverlay.swift")
+    @Test("session intelligence is removed from landing and global command paths")
+    func sessionIntelligenceIsRemovedFromLandingAndGlobalCommandPaths() throws {
+        let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
+        let root = try loadRepoTextFile("Epistemos/App/RootView.swift")
+        let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let quitSave = try loadRepoTextFile("Epistemos/Views/Landing/QuitSavePanelController.swift")
+        let localizations = try loadRepoTextFile("Epistemos/Resources/Localizable.xcstrings")
 
-        #expect(source.contains("private func currentBody(for pageId: String) -> String"))
-        #expect(source.contains("NoteWindowManager.shared.currentBody(for: pageId, mapped: true)"))
-    }
-
-    @Test("session intelligence overlay avoids full vault scans for title lookups")
-    func sessionIntelligenceOverlayAvoidsFullVaultScansForTitleLookups() throws {
-        let source = try loadRepoTextFile("Epistemos/Views/Landing/SessionIntelligenceOverlay.swift")
-
-        #expect(!source.contains("let pages = (try? context.fetch(FetchDescriptor<SDPage>())) ?? []"))
-        #expect(!source.contains("let chats = (try? context.fetch(FetchDescriptor<SDChat>())) ?? []"))
-        #expect(source.contains("FetchDescriptor<SDChat>(predicate: #Predicate { $0.id == chatId })"))
-        #expect(source.contains("ChatPreviewText.preview(for: persisted)"))
-    }
-
-    @Test("session intelligence overlay removes the legacy reopen-note command path")
-    func sessionIntelligenceOverlayRemovesLegacyReopenPath() throws {
-        let source = try loadRepoTextFile("Epistemos/Views/Landing/SessionIntelligenceOverlay.swift")
-
-        #expect(!source.contains("SessionIntelligenceNoteLookup.candidateTitles(in: text)"))
-        #expect(!source.contains("findOpenNoteByTitle(candidate)"))
-        #expect(!source.contains("private func findNoteByTitle("))
-        #expect(!source.contains("private func findOpenNoteByTitle("))
-    }
-
-    @Test("session intelligence overlay removes the legacy chat summarization command path")
-    func sessionIntelligenceOverlayRemovesLegacyChatSummaries() throws {
-        let source = try loadRepoTextFile("Epistemos/Views/Landing/SessionIntelligenceOverlay.swift")
-
-        #expect(!source.contains("SessionIntelligenceChatSummary.orderedGroups(from: chatGroups, limit: 10)"))
-        #expect(!source.contains("loadChatTitles(for: orderedGroups.map(\\.chatId), in: context)"))
-        #expect(!source.contains("private func summarizeChats() async"))
-    }
-
-    @Test("session intelligence overlay shares autosave summary and note presentation helpers")
-    func sessionIntelligenceOverlaySharesAutosaveAndPresentationHelpers() throws {
-        let source = try loadRepoTextFile("Epistemos/Views/Landing/SessionIntelligenceOverlay.swift")
-
-        #expect(source.contains("private func latestAutoSavedWorkspaceSummary("))
-        #expect(source.contains("private func createAndOpenNote("))
-        #expect(source.contains("SessionIntelligenceOverlayTiming.notePresentationDelay()"))
-        #expect(source.contains("SessionIntelligenceOverlayTiming.dismissDelay()"))
-        #expect(!source.contains("try? await Task.sleep(for: .milliseconds(100))"))
-        #expect(!source.contains("try? await Task.sleep(for: .milliseconds(150))"))
-        #expect(!source.contains("try? AppBootstrap.shared?.modelContainer.mainContext.save()"))
-    }
-
-    @Test("session intelligence overlay uses direct actions instead of an embedded chat console")
-    func sessionIntelligenceOverlayUsesDirectActionsInsteadOfEmbeddedChat() throws {
-        let source = try loadRepoTextFile("Epistemos/Views/Landing/SessionIntelligenceOverlay.swift")
-
-        #expect(source.contains("private var sessionActionSection: some View"))
-        #expect(source.contains("Save Session Note"))
-        #expect(source.contains("Open Notes"))
-        #expect(!source.contains("Session Intelligence Chat"))
-        #expect(!source.contains("TextField(\"Ask about your session"))
-        #expect(!source.contains("Picker(\"\", selection: $chatModel)"))
-        #expect(!source.contains("@State private var commandInput"))
-        #expect(!source.contains("private func executeCommand() async"))
-        #expect(!source.contains("private func runAIQuery(_ query: String) async -> String"))
+        #expect(!app.contains("toggleSessionIntelligence"))
+        #expect(!app.contains("Session Intelligence"))
+        #expect(!root.contains("showSessionIntelligence"))
+        #expect(!root.contains("SessionIntelligenceOverlay"))
+        #expect(!landing.contains("Session Intelligence"))
+        #expect(!quitSave.contains("GlobalSessionIntelligence"))
+        #expect(!localizations.contains("Session Intelligence"))
     }
 
     @Test("setup assistant sheet uses shared app environment injection")
@@ -130,6 +82,23 @@ struct NonAgentPruningValidationTests {
         #expect(source.contains(".modelVaults"))
         #expect(source.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"))
         #expect(!source.contains(".omega"))
+    }
+
+    @Test("settings exposes user-facing retention controls for local history")
+    func settingsExposeUserFacingRetentionControlsForLocalHistory() throws {
+        let settings = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        let policy = try loadRepoTextFile("Epistemos/State/AppDataRetentionPolicy.swift")
+        let eventStore = try loadRepoTextFile("Epistemos/State/EventStore.swift")
+        let workspaceService = try loadRepoTextFile("Epistemos/State/WorkspaceService.swift")
+
+        #expect(settings.contains("Section(\"Data Retention\")"))
+        #expect(settings.contains("Time Machine history"))
+        #expect(settings.contains("Detailed event log"))
+        #expect(settings.contains("Ambient capture artifacts"))
+        #expect(settings.contains("Apply Retention Now"))
+        #expect(policy.contains("timeMachineRetentionDaysKey"))
+        #expect(eventStore.contains("func applyRetentionPolicy("))
+        #expect(workspaceService.contains("func enforceSavedWorkspaceLimit("))
     }
 
     @Test("backlinks popover offloads body scanning and avoids page loadBody in the view task")
@@ -339,8 +308,6 @@ struct NonAgentPruningValidationTests {
             "Epistemos/Views/Notes/ProseEditorRepresentable2.swift",
             "Epistemos/Views/Graph/HologramOverlay.swift",
             "Epistemos/Views/Graph/MetalGraphView.swift",
-            "Epistemos/Views/Landing/SessionIntelligenceOverlay.swift",
-            "Epistemos/Views/Landing/Wave/LandingWaveRenderer.swift",
             "Epistemos/Engine/EpdocDocument.swift",
             "Epistemos/Engine/LSPMessage.swift",
         ] {
@@ -351,7 +318,6 @@ struct NonAgentPruningValidationTests {
     @Test("coder-only AppKit scaffolds fail initialization instead of trapping")
     func coderOnlyAppKitScaffoldsDoNotTrap() throws {
         for relativePath in [
-            "Epistemos/Views/Notes/TransclusionOverlayView.swift",
             "Epistemos/Views/Notes/BlockRefAutocomplete2.swift",
             "Epistemos/Views/Notes/EditableTransclusionView.swift",
             "Epistemos/Views/Graph/GraphOverlayPanel.swift",

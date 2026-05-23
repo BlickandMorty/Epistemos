@@ -26,39 +26,150 @@ struct WelcomeBackInfo {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Flat display text for the typewriter animation.
+    /// Structured display text for the typewriter animation.
     var displayText: String {
+        var sections: [String] = []
+
+        let note = Self.cleanedDisplayLine(userNote)
+        if !note.isEmpty {
+            sections.append("Pinned Note\n- \(note)")
+        }
+
+        let points = summaryBulletPoints()
+        if let resumePoint = points.first {
+            sections.append("Resume Point\n- \(resumePoint)")
+        } else {
+            sections.append("Resume Point\n- Your workspace is ready.")
+        }
+
+        let workingMemory = Array(points.dropFirst().prefix(6))
+        if !workingMemory.isEmpty {
+            sections.append(
+                "Working Memory\n" + workingMemory.map { "- \($0)" }.joined(separator: "\n")
+            )
+        }
+
+        let restored = restoredSurfaceLines()
+        if !restored.isEmpty {
+            sections.append(
+                "Restored Surface\n" + restored.map { "- \($0)" }.joined(separator: "\n")
+            )
+        }
+
+        let recentTitles = editedNoteTitles
+            .map(Self.cleanedDisplayLine)
+            .filter { !$0.isEmpty }
+        if !recentTitles.isEmpty {
+            sections.append(
+                "Recently Touched\n" + recentTitles.prefix(5).map { "- \($0)" }.joined(separator: "\n")
+            )
+        }
+
+        return sections.joined(separator: "\n\n")
+    }
+
+    private func summaryBulletPoints() -> [String] {
+        guard !sanitizedIntentSummary.isEmpty else { return [] }
+
+        var points: [String] = []
+        var seen = Set<String>()
+
+        for rawLine in sanitizedIntentSummary.components(separatedBy: .newlines) {
+            for candidate in Self.splitDenseSummaryLine(rawLine) {
+                let cleaned = Self.cleanedSummaryPoint(candidate)
+                guard !cleaned.isEmpty else { continue }
+
+                let key = cleaned.lowercased()
+                guard seen.insert(key).inserted else { continue }
+                points.append(Self.truncatedDisplayLine(cleaned, maxLength: 180))
+                if points.count >= 8 {
+                    return points
+                }
+            }
+        }
+
+        return points
+    }
+
+    private func restoredSurfaceLines() -> [String] {
         var lines: [String] = []
 
-        if !userNote.isEmpty {
-            lines.append("\"\(userNote)\"")
-            lines.append("")
+        if noteCount > 0 {
+            lines.append("\(noteCount) note\(noteCount == 1 ? "" : "s") restored")
         }
-
-        if !sanitizedIntentSummary.isEmpty {
-            lines.append(sanitizedIntentSummary)
-            lines.append("")
+        if chatCount > 0 {
+            lines.append("\(chatCount) chat\(chatCount == 1 ? "" : "s") restored")
         }
-
-        var stats: [String] = []
-        if noteCount > 0 { stats.append("\(noteCount) note\(noteCount == 1 ? "" : "s")") }
-        if chatCount > 0 { stats.append("\(chatCount) chat\(chatCount == 1 ? "" : "s")") }
-        if graphWasOpen { stats.append("knowledge graph") }
-        if !stats.isEmpty {
-            lines.append("Restored: \(stats.joined(separator: ", "))")
+        if graphWasOpen {
+            lines.append("Knowledge graph was open")
         }
-
-        if !editedNoteTitles.isEmpty {
-            let titles = editedNoteTitles.prefix(4).joined(separator: ", ")
-            let suffix = editedNoteTitles.count > 4 ? " and \(editedNoteTitles.count - 4) more" : ""
-            lines.append("Last edited: \(titles)\(suffix)")
-        }
-
         if sessionMinutes > 0 {
-            lines.append("Previous session: \(sessionMinutes) minute\(sessionMinutes == 1 ? "" : "s")")
+            lines.append("Previous session ran \(sessionMinutes) minute\(sessionMinutes == 1 ? "" : "s")")
         }
 
-        return lines.joined(separator: "\n")
+        return lines
+    }
+
+    private static func splitDenseSummaryLine(_ raw: String) -> [String] {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > 220 else { return [trimmed] }
+
+        let sentences = trimmed.components(separatedBy: ". ")
+        guard sentences.count > 1 else { return [trimmed] }
+
+        return sentences.map { sentence in
+            var text = sentence.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !text.isEmpty,
+               !text.hasSuffix("."),
+               !text.hasSuffix(":"),
+               !text.hasSuffix("?"),
+               !text.hasSuffix("!") {
+                text += "."
+            }
+            return text
+        }
+    }
+
+    private static func cleanedSummaryPoint(_ raw: String) -> String {
+        var text = cleanedDisplayLine(raw)
+        while text.hasPrefix("#") {
+            text.removeFirst()
+            text = cleanedDisplayLine(text)
+        }
+
+        let bulletPrefixes = ["- ", "* ", "+ ", "> "]
+        var didStrip = true
+        while didStrip {
+            didStrip = false
+            for prefix in bulletPrefixes where text.hasPrefix(prefix) {
+                text.removeFirst(prefix.count)
+                text = cleanedDisplayLine(text)
+                didStrip = true
+            }
+        }
+
+        if let range = text.range(of: #"^\d+[\.\)]\s+"#, options: .regularExpression) {
+            text.removeSubrange(range)
+            text = cleanedDisplayLine(text)
+        }
+
+        if text.hasSuffix(":"), text.count < 72 {
+            return ""
+        }
+
+        return text
+    }
+
+    private static func cleanedDisplayLine(_ raw: String) -> String {
+        raw.replacingOccurrences(of: "\t", with: " ")
+            .replacingOccurrences(of: "  ", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func truncatedDisplayLine(_ raw: String, maxLength: Int) -> String {
+        guard raw.count > maxLength else { return raw }
+        let end = raw.index(raw.startIndex, offsetBy: maxLength)
+        return raw[..<end].trimmingCharacters(in: .whitespacesAndNewlines) + "..."
     }
 }
 
@@ -75,6 +186,121 @@ struct WorkspaceDiffSummary {
     var hasChanges: Bool {
         notesOpened > 0 || notesClosed > 0 || !wordCountDeltas.isEmpty
             || chatsStarted > 0 || chatMessagesSent > 0 || graphNodesAdded > 0
+    }
+}
+
+enum WorkspaceSynthesisBuilder {
+    static func title(for snapshot: WorkspaceSnapshot) -> String {
+        if let activeDocument = snapshot.liveDocuments?.first(where: \.isActive) {
+            return "Last Session - \(activeDocument.title)"
+        }
+        if let mainChat = snapshot.mainChat, mainChat.messageCount > 0 {
+            return "Last Session - \(mainChat.title)"
+        }
+        if snapshot.graphOverlay.visibility != .hidden {
+            return "Last Session - Graph"
+        }
+        return "Last Session"
+    }
+
+    static func summary(for snapshot: WorkspaceSnapshot) -> String {
+        var lines: [String] = []
+        let documents = snapshot.liveDocuments ?? []
+        let activeDocument = documents.first(where: \.isActive)
+
+        var opening: [String] = []
+        if let activeDocument {
+            opening.append("Active focus: \(activeDocument.title)")
+        }
+        if !documents.isEmpty {
+            opening.append("\(documents.count) live document\(documents.count == 1 ? "" : "s")")
+        }
+        let miniChatCount = snapshot.miniChats?.reduce(0) { $0 + max($1.messageCount, 0) } ?? 0
+        if let mainChat = snapshot.mainChat, mainChat.messageCount > 0 {
+            opening.append("main chat \(mainChat.messageCount) turn\(mainChat.messageCount == 1 ? "" : "s")")
+        }
+        if miniChatCount > 0 {
+            opening.append("mini chats \(miniChatCount) message\(miniChatCount == 1 ? "" : "s")")
+        }
+        if let graphRoute = snapshot.graphRoute {
+            switch graphRoute.kind {
+            case .canvas:
+                if snapshot.graphOverlay.visibility != .hidden {
+                    opening.append("graph canvas open")
+                }
+            case .note:
+                opening.append("graph note open")
+            case .folder:
+                opening.append("graph folder open")
+            }
+        }
+        if !opening.isEmpty {
+            lines.append(opening.joined(separator: " · "))
+        }
+
+        if !documents.isEmpty {
+            lines.append("Open document state:")
+            for document in documents.prefix(8) {
+                var detail = "- \(document.title) [\(document.source)] \(document.lineCount) lines, \(document.wordCount) words"
+                if document.isActive {
+                    detail += " (active)"
+                }
+                detail += "."
+                if !document.preview.isEmpty {
+                    detail += " Opening: \(document.preview)"
+                }
+                if !document.tailPreview.isEmpty, document.tailPreview != document.preview {
+                    detail += " Latest: \(document.tailPreview)"
+                }
+                lines.append(detail)
+            }
+            if documents.count > 8 {
+                lines.append("- \(documents.count - 8) additional live document\(documents.count - 8 == 1 ? "" : "s") captured.")
+            }
+        }
+
+        if let graphRoute = snapshot.graphRoute {
+            switch graphRoute.kind {
+            case .canvas:
+                if snapshot.graphOverlay.visibility != .hidden {
+                    lines.append("Graph context: canvas \(snapshot.graphOverlay.visibility.rawValue), selected node \(graphRoute.selectedNodeId ?? "none").")
+                }
+            case .note:
+                let noteTitle = documents.first(where: { $0.pageId == graphRoute.sourceId })?.title ?? graphRoute.sourceId ?? "unknown note"
+                lines.append("Graph context: embedded note \(noteTitle), selected node \(graphRoute.selectedNodeId ?? "none").")
+            case .folder:
+                lines.append("Graph context: folder \(graphRoute.sourceId ?? "unknown folder"), selected node \(graphRoute.selectedNodeId ?? "none").")
+            }
+        }
+
+        if let mainChat = snapshot.mainChat, mainChat.messageCount > 0 {
+            lines.append(chatSummaryLine(prefix: "Main chat", chat: mainChat))
+        }
+        if let miniChats = snapshot.miniChats, !miniChats.isEmpty {
+            for chat in miniChats.prefix(4) where chat.messageCount > 0 {
+                lines.append(chatSummaryLine(prefix: "Mini chat", chat: chat))
+            }
+        }
+
+        if let digest = snapshot.activityDigest {
+            if !digest.editedNotes.isEmpty {
+                let edited = digest.editedNotes.prefix(5).map(\.title).joined(separator: ", ")
+                lines.append("Recent edits: \(edited).")
+            }
+            if digest.sessionDurationMinutes > 0 {
+                lines.append("Tracked session length: \(digest.sessionDurationMinutes) minute\(digest.sessionDurationMinutes == 1 ? "" : "s").")
+            }
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
+    private static func chatSummaryLine(prefix: String, chat: WorkspaceChatStateSnapshot) -> String {
+        let latest = chat.recentMessages.last?.contentPreview ?? ""
+        if latest.isEmpty {
+            return "\(prefix): \(chat.title), \(chat.messageCount) message\(chat.messageCount == 1 ? "" : "s")."
+        }
+        return "\(prefix): \(chat.title), \(chat.messageCount) message\(chat.messageCount == 1 ? "" : "s"). Latest \(chat.recentMessages.last?.role ?? "message"): \(latest)"
     }
 }
 
@@ -103,7 +329,7 @@ final class WorkspaceService {
 
     /// Auto-save timer — fires every `autoSaveInterval` seconds when active.
     private var autoSaveTask: Task<Void, Never>?
-    var autoSaveInterval: TimeInterval = 300 // 5 minutes
+    var autoSaveInterval: TimeInterval = 90
 
     private let modelContainer: ModelContainer
 
@@ -164,6 +390,7 @@ final class WorkspaceService {
             graphNodeCount = 0
         }
         let wordCountsByPageId = Self.wordCountsByPageIdForSnapshot(allPages)
+        let pagesById = Self.pagesByIdForSnapshot(allPages)
 
         // Note tabs in tab-bar order
         let noteManager = NoteWindowManager.shared
@@ -206,6 +433,16 @@ final class WorkspaceService {
 
         // Vault-level note census for accurate Time Machine diffs
         let allPageIds = allPages.map(\.id)
+        let graphRoute = Self.captureGraphRoute(from: bootstrap.graphState)
+        let liveDocuments = Self.captureLiveDocuments(
+            noteTabs: noteTabs,
+            pagesById: pagesById,
+            noteManager: noteManager,
+            graphRoute: graphRoute,
+            activePageId: bootstrap.notesUI.activePageId
+        )
+        let mainChat = Self.captureMainChat(from: bootstrap.chatState, context: context)
+        let miniChats = Self.captureMiniChats(context: context)
 
         return WorkspaceSnapshot(
             activePanel: bootstrap.uiState.activePanel.rawValue,
@@ -230,8 +467,213 @@ final class WorkspaceService {
             ),
             totalNoteCount: allPages.count,
             graphNodeCount: graphNodeCount,
-            allPageIds: allPageIds
+            allPageIds: allPageIds,
+            liveDocuments: liveDocuments,
+            mainChat: mainChat,
+            miniChats: miniChats,
+            graphRoute: graphRoute
         )
+    }
+
+    static func pagesByIdForSnapshot(_ pages: [SDPage]) -> [String: SDPage] {
+        var result: [String: SDPage] = [:]
+        result.reserveCapacity(pages.count)
+        for page in pages where result[page.id] == nil {
+            result[page.id] = page
+        }
+        return result
+    }
+
+    private static func captureLiveDocuments(
+        noteTabs: [NoteTabSnapshot],
+        pagesById: [String: SDPage],
+        noteManager: NoteWindowManager,
+        graphRoute: WorkspaceGraphRouteSnapshot?,
+        activePageId: String?
+    ) -> [WorkspaceDocumentState] {
+        var documents: [WorkspaceDocumentState] = []
+        var seen = Set<String>()
+
+        func append(pageId: String, source: String, isActive: Bool) {
+            guard seen.insert(pageId).inserted else {
+                if isActive, let index = documents.firstIndex(where: { $0.pageId == pageId }) {
+                    documents[index].isActive = true
+                }
+                return
+            }
+            let page = pagesById[pageId]
+            let body = noteManager.currentBody(for: pageId, mapped: true)
+            guard page != nil || !body.isEmpty else { return }
+            let resolvedTitle = Self.resolvedDocumentTitle(page?.title, fallback: pageId)
+            documents.append(WorkspaceDocumentState(
+                pageId: pageId,
+                title: resolvedTitle,
+                source: source,
+                lineCount: Self.lineCount(from: body),
+                wordCount: Self.wordCount(from: body),
+                bodyDigest: Self.stableDigest(for: body),
+                preview: Self.compactPreview(body, limit: 260, fromTail: false),
+                tailPreview: Self.compactPreview(body, limit: 260, fromTail: true),
+                isActive: isActive
+            ))
+        }
+
+        for tab in noteTabs {
+            append(
+                pageId: tab.rootPageId,
+                source: tab.currentPageId == tab.rootPageId ? "note tab" : "note tab root",
+                isActive: activePageId == tab.rootPageId
+            )
+            if tab.currentPageId != tab.rootPageId {
+                append(
+                    pageId: tab.currentPageId,
+                    source: "note tab current page",
+                    isActive: activePageId == tab.currentPageId
+                )
+            }
+        }
+
+        if graphRoute?.kind == .note, let sourceId = graphRoute?.sourceId {
+            append(pageId: sourceId, source: "embedded graph note", isActive: true)
+        }
+
+        return documents
+    }
+
+    private static func captureGraphRoute(from graphState: GraphState) -> WorkspaceGraphRouteSnapshot {
+        switch graphState.currentRoute {
+        case .canvas:
+            return WorkspaceGraphRouteSnapshot(
+                kind: .canvas,
+                sourceId: nil,
+                selectedNodeId: graphState.selectedNodeId
+            )
+        case .note(let id):
+            return WorkspaceGraphRouteSnapshot(
+                kind: .note,
+                sourceId: id,
+                selectedNodeId: graphState.selectedNodeId
+            )
+        case .folder(let id):
+            return WorkspaceGraphRouteSnapshot(
+                kind: .folder,
+                sourceId: id,
+                selectedNodeId: graphState.selectedNodeId
+            )
+        }
+    }
+
+    private static func captureMainChat(
+        from chatState: ChatState,
+        context: ModelContext
+    ) -> WorkspaceChatStateSnapshot? {
+        guard Self.hasLiveMainChatWork(chatState) else { return nil }
+        if !chatState.messages.isEmpty {
+            let title = resolvedDocumentTitle(chatState.chatTitle, fallback: "Main Chat")
+            return chatSnapshot(
+                chatId: chatState.activeChatId ?? "active-main-chat",
+                title: title,
+                kind: "main",
+                messages: chatState.messages
+            )
+        }
+        guard let chatId = chatState.activeChatId else { return nil }
+        return fetchPersistedChatSnapshot(chatId: chatId, kind: "main", context: context)
+    }
+
+    private static func captureMiniChats(context: ModelContext) -> [WorkspaceChatStateSnapshot] {
+        MiniChatWindowController.shared.openChatIds.map { chatId in
+            fetchPersistedChatSnapshot(chatId: chatId, kind: "mini", context: context)
+                ?? WorkspaceChatStateSnapshot(
+                    chatId: chatId,
+                    title: "Mini Chat",
+                    kind: "mini",
+                    messageCount: 0,
+                    recentMessages: []
+                )
+        }
+    }
+
+    private static func fetchPersistedChatSnapshot(
+        chatId: String,
+        kind: String,
+        context: ModelContext
+    ) -> WorkspaceChatStateSnapshot? {
+        let targetId = chatId
+        do {
+            guard let chat = try context.fetch(
+                FetchDescriptor<SDChat>(
+                    predicate: #Predicate<SDChat> { $0.id == targetId }
+                )
+            ).first else {
+                return nil
+            }
+            return WorkspaceChatStateSnapshot(
+                chatId: chat.id,
+                title: resolvedDocumentTitle(chat.title, fallback: kind == "main" ? "Main Chat" : "Mini Chat"),
+                kind: kind,
+                messageCount: chat.sortedMessages.count,
+                recentMessages: chat.sortedMessages.suffix(6).map {
+                    WorkspaceChatMessageSnapshot(
+                        role: $0.role,
+                        contentPreview: compactPreview($0.content, limit: 220, fromTail: false)
+                    )
+                }
+            )
+        } catch {
+            Self.log.error("Workspace capture: failed to fetch chat \(chatId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+    }
+
+    private static func chatSnapshot(
+        chatId: String,
+        title: String,
+        kind: String,
+        messages: [ChatMessage]
+    ) -> WorkspaceChatStateSnapshot {
+        WorkspaceChatStateSnapshot(
+            chatId: chatId,
+            title: title,
+            kind: kind,
+            messageCount: messages.count,
+            recentMessages: messages.suffix(6).map {
+                WorkspaceChatMessageSnapshot(
+                    role: $0.role.rawValue,
+                    contentPreview: compactPreview($0.content, limit: 220, fromTail: false)
+                )
+            }
+        )
+    }
+
+    private static func resolvedDocumentTitle(_ title: String?, fallback: String) -> String {
+        let trimmed = title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? fallback : trimmed
+    }
+
+    private static func lineCount(from text: String) -> Int {
+        guard !text.isEmpty else { return 0 }
+        return text.split(separator: "\n", omittingEmptySubsequences: false).count
+    }
+
+    private static func stableDigest(for text: String) -> UInt64 {
+        var hash: UInt64 = 1_469_598_103_934_665_603
+        for byte in text.utf8 {
+            hash ^= UInt64(byte)
+            hash = hash &* 1_099_511_628_211
+        }
+        return hash
+    }
+
+    private static func compactPreview(_ text: String, limit: Int, fromTail: Bool) -> String {
+        let source = fromTail ? String(text.suffix(limit * 2)) : String(text.prefix(limit * 2))
+        let words = source
+            .replacingOccurrences(of: "\n", with: " ")
+            .split(whereSeparator: { $0.isWhitespace })
+        let collapsed = words.joined(separator: " ")
+        guard collapsed.count > limit else { return collapsed }
+        let clipped = fromTail ? String(collapsed.suffix(limit)) : String(collapsed.prefix(limit))
+        return fromTail ? "...\(clipped)" : "\(clipped)..."
     }
 
     // MARK: - Restore
@@ -252,7 +694,7 @@ final class WorkspaceService {
         }
         bootstrap.uiState.showChatSidebar = snapshot.showChatSidebar
         bootstrap.chatState.showLanding = snapshot.showLanding
-        if let chatId = snapshot.activeChatId {
+        if Self.hasRestorableMainChatWork(snapshot), let chatId = snapshot.activeChatId {
             bootstrap.loadChat(chatId: chatId)
         }
 
@@ -361,6 +803,28 @@ final class WorkspaceService {
         HomeWindowIdentity.surfaceHomeWindow()
     }
 
+    static func hasRestorableMainChatWork(_ snapshot: WorkspaceSnapshot) -> Bool {
+        guard !snapshot.showLanding else { return false }
+        if let mainChat = snapshot.mainChat {
+            return mainChat.messageCount > 0 || !mainChat.recentMessages.isEmpty
+        }
+        return snapshot.activeChatId != nil
+    }
+
+    static func hasRestorableSessionWork(_ snapshot: WorkspaceSnapshot) -> Bool {
+        let hasLiveDocuments = snapshot.liveDocuments?.isEmpty == false
+        let hasMainChat = hasRestorableMainChatWork(snapshot)
+        let hasGraphRoute = snapshot.graphRoute?.kind != .canvas
+        return !snapshot.openNoteTabs.isEmpty || !snapshot.openMiniChatIds.isEmpty
+            || hasLiveDocuments || hasMainChat || hasGraphRoute
+            || snapshot.notesBrowserVisible || snapshot.settingsVisible
+            || snapshot.graphOverlay.visibility != .hidden
+    }
+
+    static func hasLiveMainChatWork(_ chatState: ChatState) -> Bool {
+        !chatState.showLanding && (chatState.activeChatId != nil || !chatState.messages.isEmpty)
+    }
+
     @discardableResult
     private func persistWorkspaceMutation(
         in context: ModelContext,
@@ -381,6 +845,8 @@ final class WorkspaceService {
 
     func autoSave() {
         let snapshot = captureSnapshot()
+        let liveTitle = WorkspaceSynthesisBuilder.title(for: snapshot)
+        let liveSummary = WorkspaceSynthesisBuilder.summary(for: snapshot)
         let data: Data
         do {
             data = try JSONEncoder().encode(snapshot)
@@ -396,17 +862,28 @@ final class WorkspaceService {
         do {
             if let existing = try context.fetch(FetchDescriptor(predicate: predicate)).first {
                 let originalSnapshotData = existing.snapshotData
+                let originalName = existing.name
                 let originalUpdatedAt = existing.updatedAt
+                let originalSummary = existing.summary
+                let originalLastSummaryAt = existing.lastSummaryAt
                 existing.snapshotData = data
+                existing.name = liveTitle
                 existing.updatedAt = Date()
+                existing.summary = liveSummary
+                existing.lastSummaryAt = Date()
                 savedWorkspace = existing
                 restoreState = {
                     savedWorkspace.snapshotData = originalSnapshotData
+                    savedWorkspace.name = originalName
                     savedWorkspace.updatedAt = originalUpdatedAt
+                    savedWorkspace.summary = originalSummary
+                    savedWorkspace.lastSummaryAt = originalLastSummaryAt
                 }
             } else {
-                let workspace = SDWorkspace(name: "Last Session", isAutoSave: true)
+                let workspace = SDWorkspace(name: liveTitle, isAutoSave: true)
                 workspace.snapshotData = data
+                workspace.summary = liveSummary
+                workspace.lastSummaryAt = Date()
                 context.insert(workspace)
                 savedWorkspace = workspace
                 restoreState = {
@@ -469,10 +946,7 @@ final class WorkspaceService {
             return
         }
 
-        // Only restore if there's actual content to restore
-        guard !snapshot.openNoteTabs.isEmpty || !snapshot.openMiniChatIds.isEmpty
-            || snapshot.notesBrowserVisible || snapshot.settingsVisible
-            || snapshot.graphOverlay.visibility != .hidden else {
+        guard Self.hasRestorableSessionWork(snapshot) else {
             return
         }
 
@@ -483,9 +957,9 @@ final class WorkspaceService {
         welcomeBack = WelcomeBackInfo(
             intentSummary: WelcomeBackInfo.cleanedSummaryText(from: workspace.summary),
             userNote: workspace.userNote,
-            noteCount: snapshot.openNoteTabs.count,
-            chatCount: snapshot.openMiniChatIds.count,
-            graphWasOpen: snapshot.graphOverlay.visibility != .hidden,
+            noteCount: max(snapshot.openNoteTabs.count, snapshot.liveDocuments?.count ?? 0),
+            chatCount: snapshot.openMiniChatIds.count + (Self.hasRestorableMainChatWork(snapshot) ? 1 : 0),
+            graphWasOpen: snapshot.graphOverlay.visibility != .hidden || snapshot.graphRoute?.kind != .canvas,
             sessionMinutes: digest?.sessionDurationMinutes ?? 0,
             editedNoteTitles: digest?.editedNotes.map(\.title) ?? []
         )
@@ -559,6 +1033,8 @@ final class WorkspaceService {
                 // Only auto-save if there's actual content open
                 let hasWork = !NoteWindowManager.shared.orderedPageIds().isEmpty
                     || !MiniChatWindowController.shared.openChatIds.isEmpty
+                    || self.hasMainChatWork()
+                    || self.hasGraphWork()
                 guard hasWork else { continue }
                 self.autoSave()
                 Self.log.info("Workspace auto-save timer fired")
@@ -569,6 +1045,16 @@ final class WorkspaceService {
     func stopAutoSave() {
         autoSaveTask?.cancel()
         autoSaveTask = nil
+    }
+
+    private func hasMainChatWork() -> Bool {
+        guard let chatState = AppBootstrap.shared?.chatState else { return false }
+        return Self.hasLiveMainChatWork(chatState)
+    }
+
+    private func hasGraphWork() -> Bool {
+        guard let graphState = AppBootstrap.shared?.graphState else { return false }
+        return graphState.currentRoute != .canvas || HologramController.shared.isVisible
     }
 
     // MARK: - Workspace Diff (changes since last save)
@@ -649,6 +1135,7 @@ final class WorkspaceService {
     @discardableResult
     func saveWorkspace(name: String) -> SDWorkspace? {
         let snapshot = captureSnapshot()
+        let liveSummary = WorkspaceSynthesisBuilder.summary(for: snapshot)
         let data: Data
         do {
             data = try JSONEncoder().encode(snapshot)
@@ -660,6 +1147,8 @@ final class WorkspaceService {
         let context = modelContainer.mainContext
         let ws = SDWorkspace(name: name, isAutoSave: false)
         ws.snapshotData = data
+        ws.summary = liveSummary
+        ws.lastSummaryAt = Date()
         context.insert(ws)
         guard persistWorkspaceMutation(
             in: context,
@@ -670,6 +1159,7 @@ final class WorkspaceService {
         ) else {
             return nil
         }
+        _ = enforceSavedWorkspaceLimit(AppDataRetentionPolicy.current().savedWorkspaceLimit)
         Self.log.info("Workspace saved: \(name, privacy: .public)")
         return ws
     }
@@ -728,6 +1218,34 @@ final class WorkspaceService {
             Self.log.error("Workspace list: failed to fetch saved workspaces: \(error.localizedDescription, privacy: .public)")
             return []
         }
+    }
+
+    @discardableResult
+    func enforceSavedWorkspaceLimit(_ limit: Int) -> Int {
+        guard limit > 0 else { return 0 }
+        let workspaces = listWorkspaces()
+        guard workspaces.count > limit else { return 0 }
+
+        let context = modelContainer.mainContext
+        let overflow = Array(workspaces.dropFirst(limit))
+        for workspace in overflow {
+            context.delete(workspace)
+        }
+
+        guard persistWorkspaceMutation(
+            in: context,
+            failureMessage: "Workspace retention: context save failed",
+            restoreState: {
+                for workspace in overflow {
+                    context.insert(workspace)
+                }
+            }
+        ) else {
+            return 0
+        }
+
+        Self.log.info("Workspace retention removed \(overflow.count, privacy: .public) saved workspace snapshots")
+        return overflow.count
     }
 
     private static func wordCount(from text: String) -> Int {

@@ -190,6 +190,17 @@ struct CompanionAvatarGrammarSourceGuardTests {
 
         #expect(creation.contains("New Agent"))
         #expect(creation.contains("AgentColorPreset"))
+        #expect(creation.contains("pixelPanel(theme:"))
+        #expect(creation.contains("PixelPanelTitle(text: \"New Agent\""))
+        #expect(creation.contains("settingsAppleCardChrome(theme:"))
+        #expect(creation.contains("PixelPanelBackground.actionSurface(for: theme)"))
+        #expect(!creation.contains(".background(.regularMaterial)"))
+        #expect(!creation.contains("RoundedRectangle(cornerRadius: 16"))
+        #expect(!creation.contains(".textFieldStyle(.roundedBorder)"))
+        #expect(landing.contains("if farmShowingCreate"))
+        #expect(landing.contains("CompanionCreationFlow("))
+        #expect(landing.contains("Color.clear"))
+        #expect(!landing.contains(".sheet(isPresented: $farmShowingCreate)"))
         #expect(state.contains("Scout"),
                 "Seeded agents should include a non-orb scout body")
         #expect(CompanionBodyKind.creationPresets.count >= 6,

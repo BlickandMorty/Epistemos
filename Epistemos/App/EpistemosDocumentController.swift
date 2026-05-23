@@ -269,6 +269,11 @@ public extension EpdocDocument {
         fileURL = destination
         fileType = "com.epistemos.epdoc"
         updateChangeCount(.changeCleared)
+
+        let contentJSON = package.contentJSON
+        Task { [weak self] in
+            await self?.projectAndPersistGraph(contentJSON: contentJSON)
+        }
     }
 
     @MainActor
@@ -283,5 +288,64 @@ public extension EpdocDocument {
             }
             index += 1
         }
+    }
+}
+
+enum EpdocDocumentLocator {
+    nonisolated static func url(forManifestID manifestID: String, in vaultURL: URL?) -> URL? {
+        let targetID = manifestID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !targetID.isEmpty, let vaultURL else { return nil }
+
+        let fileManager = FileManager.default
+        guard let enumerator = fileManager.enumerator(
+            at: vaultURL,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+        ) else {
+            return nil
+        }
+
+        for case let url as URL in enumerator where url.pathExtension == "epdoc" {
+            let manifestURL = url.appendingPathComponent(EpdocPackageEntry.manifest)
+            guard let data = try? Data(contentsOf: manifestURL),
+                  let manifest = try? JSONDecoder.epdocCanonical.decode(EpdocManifest.self, from: data),
+                  manifest.id == targetID else {
+                continue
+            }
+            return url
+        }
+
+        return nil
+    }
+}
+
+@MainActor
+enum EpdocDocumentOpening {
+    @discardableResult
+    static func openDocument(withManifestID manifestID: String, vaultURL: URL?) -> Bool {
+        let targetID = manifestID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !targetID.isEmpty else { return false }
+
+        if let openDocument = NSDocumentController.shared.documents
+            .compactMap({ $0 as? EpdocDocument })
+            .first(where: { $0.package.manifest.id == targetID }) {
+            openDocument.showWindows()
+            return true
+        }
+
+        guard let url = EpdocDocumentLocator.url(forManifestID: targetID, in: vaultURL) else {
+            AppBootstrap.shared?.uiState.showToast(
+                "Could not find the document package for this graph node.",
+                type: .warning
+            )
+            return false
+        }
+
+        NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, error in
+            if let error {
+                NSApplication.shared.presentError(error)
+            }
+        }
+        return true
     }
 }

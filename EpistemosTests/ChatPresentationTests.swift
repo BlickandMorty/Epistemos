@@ -205,21 +205,20 @@ struct ChatPresentationTests {
     let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/TaggedMarkdownTextView.swift")
 
     #expect(source.contains("if (1...3).contains(level) {"))
-    #expect(source.contains("return AppDisplayTypography.font(size: fontSize, weight: weight, isDark: theme.isDark)"))
+    #expect(source.contains("return AppDisplayTypography.headingFont(size: fontSize, weight: weight, theme: theme)"))
     #expect(source.contains("} else if (4...5).contains(level) {"))
     #expect(source.contains("return AppDisplayTypography.font(size: fontSize, weight: weight, allowDisplayFont: false)"))
     #expect(source.contains("return ClaudeAppTypography.monoFont(size: fontSize, weight: weight)"))
   }
 
-  @Test("main chat light mode uses the landing background token")
-  func mainChatLightModeUsesTheLandingBackgroundToken() throws {
+  @Test("main chat uses the selected theme background token")
+  func mainChatUsesTheSelectedThemeBackgroundToken() throws {
     let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatView.swift")
 
     #expect(!source.contains("retroMistLightChatBackground"))
-    #expect(
-      source.contains(
-        "theme.isDark ? Color(red: 0.07, green: 0.07, blue: 0.07) : theme.resolved.background.color"
-      ))
+    #expect(!source.contains("theme.isDark ? Color(red: 0.07"))
+    #expect(source.contains("private var oledAwareBackground: Color"))
+    #expect(source.contains("theme.resolved.background.color"))
   }
 
   @Test("main chat composer light mode matches the landing background token")
@@ -230,16 +229,24 @@ struct ChatPresentationTests {
     #expect(source.contains("lightModeSurfaceTint: theme.resolved.background.color"))
   }
 
-  @Test("chat typography uses a softer monospaced body stack instead of Anthropic families")
-  func chatTypographyUsesASofterMonospacedBodyStackInsteadOfAnthropicFamilies() throws {
+  @Test("chat typography uses Anthropic Sans for assistant answers and mono for user messages")
+  func chatTypographyUsesAnthropicSansForAssistantAnswersAndMonoForUserMessages() throws {
     let source = try loadMirroredSourceTextFile("Epistemos/Theme/EpistemosTheme.swift")
+    let markdown = try loadMirroredSourceTextFile("Epistemos/Views/Chat/TaggedMarkdownTextView.swift")
+    let miniChat = try loadMirroredSourceTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+    let graphChat = try loadMirroredSourceTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
 
+    #expect(source.contains("AnthropicSansVariable-TextRegular"))
+    #expect(source.contains("static func assistantUIFont(size: CGFloat, weight: NSFont.Weight = .regular) -> NSFont"))
+    #expect(source.contains("anthropicSansUIFont(size: size, weight: weight)"))
+    #expect(source.contains("AppDisplayTypography.regularUIFont(size: size, weight: weight)"))
     #expect(source.contains("static func monoUIFont("))
-    #expect(source.contains("NSFont.monospacedSystemFont(ofSize: size, weight: weight)"))
-    #expect(source.contains("monoUIFont(size: size, weight: .regular)"))
+    #expect(source.contains("AppDisplayTypography.monoUIFont(size: size, weight: weight)"))
     #expect(source.contains("monoUIFont(size: size, weight: .medium)"))
-    #expect(!source.contains("\"Anthropic Serif\""))
-    #expect(!source.contains("\"Anthropic Sans\""))
+    #expect(markdown.contains("func strongFont(size: CGFloat) -> Font"))
+    #expect(!markdown.contains("private var strongBodyFont: Font {\n        ClaudeAppTypography.monoFont(size: bodyFontSize, weight: .semibold)\n    }"))
+    #expect(miniChat.contains("typographyRole: .user"))
+    #expect(graphChat.contains("typographyRole: .user"))
   }
 
   @Test("process disclosure detail blocks preserve multiline tool and thinking content")

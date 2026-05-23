@@ -117,74 +117,161 @@ class TraceInspectorViewModel {
 }
 
 struct TraceInspectorView: View {
+    let theme: EpistemosTheme
+    var onDismiss: (() -> Void)?
+
     @State private var viewModel = TraceInspectorViewModel()
-    
+
+    init(theme: EpistemosTheme, onDismiss: (() -> Void)? = nil) {
+        self.theme = theme
+        self.onDismiss = onDismiss
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Image(systemName: "clock.arrow.circlepath")
-                    .foregroundStyle(Color.accentColor)
-                Text("Capture Trace Inspector")
-                    .font(.headline)
-                Spacer()
-                Button {
-                    viewModel.loadTraces()
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .buttonStyle(.plain)
-            }
-            .padding()
-            .background(Color.secondary.opacity(0.1))
+            inspectorHeader
 
-            HStack(spacing: 10) {
-                Image(systemName: "point.3.connected.trianglepath.dotted")
-                    .foregroundStyle(.secondary)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Graph projection")
-                        .font(.caption.bold())
-                    Text(graphProjectionDetail)
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-            }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
-            .background(Color.secondary.opacity(0.06))
-            
-            List(viewModel.traces) { trace in
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text(trace.type.uppercased())
-                            .font(.caption.bold())
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        Text(trace.timestamp)
-                            .font(.caption2.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                    }
-                    if !trace.content.isEmpty {
-                        Text(trace.content)
-                            .font(.caption)
-                    }
-                }
-                .padding(.vertical, 4)
-            }
-            
-            if viewModel.traces.isEmpty {
-                Spacer()
-                Text("No capture traces found.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                Spacer()
-            }
+            Divider()
+                .opacity(theme.isDark ? 0.18 : 0.24)
+
+            graphProjectionRow
+
+            traceScroll
         }
         .onAppear {
             viewModel.loadTraces()
         }
-        .frame(minWidth: 400, minHeight: 300)
+        .frame(minWidth: 430, minHeight: 310)
+        .pixelPanel(theme: theme)
+        .foregroundStyle(theme.resolved.foreground.color)
+    }
+
+    private var inspectorHeader: some View {
+        HStack(spacing: 10) {
+            PixelGlyph(kind: .clock, accent: theme.resolved.accent.color)
+                .frame(width: 26, height: 26)
+
+            PixelPanelTitle(text: "Capture Trace Inspector", theme: theme, size: 14)
+
+            Spacer()
+
+            iconButton(systemName: "arrow.clockwise") {
+                viewModel.loadTraces()
+            }
+
+            if let onDismiss {
+                iconButton(systemName: "xmark") {
+                    onDismiss()
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    private var graphProjectionRow: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "point.3.connected.trianglepath.dotted")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(theme.resolved.accent.color.opacity(0.82))
+                .frame(width: 20)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Graph projection")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundStyle(theme.textPrimary)
+                Text(graphProjectionDetail)
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(theme.textTertiary)
+                    .lineLimit(1)
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(PixelPanelBackground.actionSurface(for: theme))
+    }
+
+    private var traceScroll: some View {
+        ScrollView {
+            LazyVStack(spacing: 7) {
+                if viewModel.traces.isEmpty {
+                    emptyTraceState
+                } else {
+                    ForEach(viewModel.traces) { trace in
+                        traceRow(trace)
+                    }
+                }
+            }
+            .padding(12)
+        }
+    }
+
+    private var emptyTraceState: some View {
+        VStack(spacing: 8) {
+            PixelGlyph(kind: .capture, accent: theme.resolved.accent.color.opacity(0.72))
+                .frame(width: 30, height: 30)
+
+            Text("No capture traces found.")
+                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .foregroundStyle(theme.textTertiary)
+        }
+        .frame(maxWidth: .infinity, minHeight: 160)
+    }
+
+    private func traceRow(_ trace: ParsedTraceEvent) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(trace.type.uppercased())
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundStyle(theme.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+
+                Spacer(minLength: 8)
+
+                Text(trace.timestamp)
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(theme.textTertiary)
+                    .lineLimit(1)
+            }
+
+            if !trace.content.isEmpty {
+                Text(trace.content)
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(theme.textTertiary)
+                    .lineLimit(2)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(PixelPanelBackground.actionSurface(for: theme))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(theme.resolved.accent.color.opacity(theme.isDark ? 0.14 : 0.18), lineWidth: 0.6)
+        }
+    }
+
+    private func iconButton(systemName: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(theme.textPrimary)
+                .frame(width: 28, height: 28)
+                .background {
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(PixelPanelBackground.actionSurface(for: theme))
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .stroke(theme.textTertiary.opacity(theme.isDark ? 0.12 : 0.18), lineWidth: 0.6)
+                }
+        }
+        .buttonStyle(.plain)
     }
 
     private var graphProjectionDetail: String {

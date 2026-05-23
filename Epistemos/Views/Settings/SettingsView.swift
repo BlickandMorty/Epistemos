@@ -308,14 +308,17 @@ struct SettingsView: View {
             .listStyle(.sidebar)
             .scrollContentBackground(.hidden)
             .background {
-                SettingsSidebarBackdrop(theme: ui.theme)
+                SettingsThemedBlurBackdrop(theme: ui.theme.surfaceVariant(.other), role: .sidebar)
                     .ignoresSafeArea()
             }
             .navigationSplitViewColumnWidth(min: 196, ideal: 212, max: 260)
         } detail: {
             settingsDetail
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .background(SettingsDetailBackdrop(theme: ui.theme))
+                .background {
+                    SettingsThemedBlurBackdrop(theme: ui.theme.surfaceVariant(.other), role: .page)
+                        .ignoresSafeArea()
+                }
         }
         .navigationSplitViewStyle(.balanced)
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
@@ -348,48 +351,50 @@ struct SettingsView: View {
         }
     }
 
-    @ViewBuilder
     private var settingsDetail: some View {
-        switch SettingsSection.safeDetailSelection(for: selection) {
-        case .heliosV5: HELIOSv5SettingsView()
-        case .general: GeneralDetailView()
-        case .ambientFrequencies: AmbientFrequencySettingsView()
-        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-        case .channels, .knowledgeFusion, .iMessageDriver, .skills:
-            GeneralDetailView()
-        #else
-        case .channels: ChannelsDetailView()
-        #endif
-        case .cognitive: CognitiveSettingsSection()
-        case .inference: InferenceDetailView()
-        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
-        case .knowledgeFusion: KnowledgeFusionDetailView()
-        #endif
-        case .modelVaults: ModelVaultsSettingsView()
-        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
-        case .iMessageDriver: iMessageDriverDetailView()
-        case .skills: SkillsDetailView()
-        #endif
-        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-        case .agent, .agentControl, .authority, .overseer:
-            AuthoritySettingsView(store: sharedAuthorityStore)
-        #else
-        case .agent:
-            AgentSectionDetailView(authorityStore: sharedAuthorityStore)
-        case .agentControl:
-            AgentSectionDetailView(authorityStore: sharedAuthorityStore, initialTab: .control)
-        case .authority:
-            AgentSectionDetailView(authorityStore: sharedAuthorityStore, initialTab: .authority)
-        case .overseer:
-            AgentSectionDetailView(authorityStore: sharedAuthorityStore, initialTab: .overseer)
-        #endif
-        case .landing: LandingDetailView()
-        case .appearance: AppearanceDetailView()
-        case .vault: VaultDetailView()
-        case .privacy: PrivacyDetailView()
-        case .provenance: ProvenanceConsoleView()
-        case nil: GeneralDetailView()
+        Group {
+            switch SettingsSection.safeDetailSelection(for: selection) {
+            case .heliosV5: HELIOSv5SettingsView()
+            case .general: GeneralDetailView()
+            case .ambientFrequencies: AmbientFrequencySettingsView()
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            case .channels, .knowledgeFusion, .iMessageDriver, .skills:
+                GeneralDetailView()
+            #else
+            case .channels: ChannelsDetailView()
+            #endif
+            case .cognitive: CognitiveSettingsSection()
+            case .inference: InferenceDetailView()
+            #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+            case .knowledgeFusion: KnowledgeFusionDetailView()
+            #endif
+            case .modelVaults: ModelVaultsSettingsView()
+            #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
+            case .iMessageDriver: iMessageDriverDetailView()
+            case .skills: SkillsDetailView()
+            #endif
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            case .agent, .agentControl, .authority, .overseer:
+                AuthoritySettingsView(store: sharedAuthorityStore)
+            #else
+            case .agent:
+                AgentSectionDetailView(authorityStore: sharedAuthorityStore)
+            case .agentControl:
+                AgentSectionDetailView(authorityStore: sharedAuthorityStore, initialTab: .control)
+            case .authority:
+                AgentSectionDetailView(authorityStore: sharedAuthorityStore, initialTab: .authority)
+            case .overseer:
+                AgentSectionDetailView(authorityStore: sharedAuthorityStore, initialTab: .overseer)
+            #endif
+            case .landing: LandingDetailView()
+            case .appearance: AppearanceDetailView()
+            case .vault: VaultDetailView()
+            case .privacy: PrivacyDetailView()
+            case .provenance: ProvenanceConsoleView()
+            case nil: GeneralDetailView()
+            }
         }
+        .settingsThemedBlurPage(theme: ui.theme.surfaceVariant(.other))
     }
 
     private func toggleSidebar() {
@@ -402,13 +407,14 @@ struct SettingsView: View {
 }
 
 private struct SettingsSidebarRow: View {
+    @Environment(UIState.self) private var ui
     let section: SettingsView.SettingsSection
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: section.icon)
-                .frame(width: 18, alignment: .center)
-                .foregroundStyle(.secondary)
+            SettingsPixelGlyphBadge(systemImage: section.icon, theme: theme, tint: theme.textSecondary, size: 18)
+                .frame(width: 18, height: 18)
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 2) {
                 Text(section.rawValue)
@@ -428,15 +434,7 @@ private struct SettingsSidebarBackdrop: View {
     let theme: EpistemosTheme
 
     var body: some View {
-        Rectangle()
-            .fill(theme.card.opacity(theme.isDark ? 0.92 : 0.97))
-            .overlay {
-                if theme.usesNativeWindowBlur {
-                    Rectangle()
-                        .fill(.white.opacity(0.001))
-                        .glassEffect(.regular.interactive(), in: Rectangle())
-                }
-            }
+        SettingsThemedBlurBackdrop(theme: theme.surfaceVariant(.other), role: .sidebar)
             .overlay(alignment: .trailing) {
                 Rectangle()
                     .fill(theme.border.opacity(theme.isDark ? 0.6 : 0.42))
@@ -449,15 +447,7 @@ private struct SettingsDetailBackdrop: View {
     let theme: EpistemosTheme
 
     var body: some View {
-        Rectangle()
-            .fill(theme.resolved.background.color.opacity(theme.isDark ? 0.94 : 0.985))
-            .overlay {
-                if theme.usesNativeWindowBlur {
-                    Rectangle()
-                        .fill(.white.opacity(0.001))
-                        .glassEffect(.regular.interactive(), in: Rectangle())
-                }
-            }
+        SettingsThemedBlurBackdrop(theme: theme.surfaceVariant(.other), role: .page)
             .ignoresSafeArea()
     }
 }
@@ -479,15 +469,20 @@ struct SettingsDescriptionText: View {
 }
 
 struct SettingsDescriptionCard: View {
+    @Environment(UIState.self) private var ui
     let title: String
     let systemImage: String
     let text: String
+    private var settingsTheme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Image(systemName: systemImage)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.blue)
+            SettingsPixelGlyphBadge(
+                systemImage: systemImage,
+                theme: settingsTheme,
+                tint: settingsTheme.resolved.accent.color,
+                size: 18
+            )
                 .frame(width: 18, height: 18)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -497,7 +492,7 @@ struct SettingsDescriptionCard: View {
             }
         }
         .padding(10)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .settingsAppleCardChrome(theme: settingsTheme, accent: settingsTheme.resolved.accent.color)
     }
 }
 
@@ -594,6 +589,20 @@ private struct GeneralDetailView: View {
     @State private var renamingWorkspace: SDWorkspace?
     @State private var renameText = ""
     @State private var showResetAlert = false
+    @State private var retentionResultText: String?
+    @AppStorage(AppDataRetentionPolicy.timeMachineRetentionDaysKey)
+    private var timeMachineRetentionDays = AppDataRetentionPolicy.defaultTimeMachineRetentionDays
+    @AppStorage(AppDataRetentionPolicy.timeMachineMaxSnapshotsKey)
+    private var timeMachineMaxSnapshots = AppDataRetentionPolicy.defaultTimeMachineMaxSnapshots
+    @AppStorage(AppDataRetentionPolicy.eventLogRetentionDaysKey)
+    private var eventLogRetentionDays = AppDataRetentionPolicy.defaultEventLogRetentionDays
+    @AppStorage(AppDataRetentionPolicy.captureArtifactRetentionDaysKey)
+    private var captureArtifactRetentionDays = AppDataRetentionPolicy.defaultCaptureArtifactRetentionDays
+    @AppStorage(AppDataRetentionPolicy.auditLogRetentionDaysKey)
+    private var auditLogRetentionDays = AppDataRetentionPolicy.defaultAuditLogRetentionDays
+    @AppStorage(AppDataRetentionPolicy.savedWorkspaceLimitKey)
+    private var savedWorkspaceLimit = AppDataRetentionPolicy.defaultSavedWorkspaceLimit
+    private var settingsTheme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     var body: some View {
         Form {
@@ -649,6 +658,40 @@ private struct GeneralDetailView: View {
                 Text("AI-generated summaries describe what you're working on. Runs entirely on-device.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            Section("Data Retention") {
+                SettingsFeaturedPixelPanel(theme: settingsTheme) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        SettingsDescriptionText(
+                            text: "Choose how long local workspace history, activity logs, and captured context stay on this Mac. Vault files are not pruned here."
+                        )
+                        retentionDaysPicker("Time Machine history", selection: $timeMachineRetentionDays)
+                        Stepper(value: $timeMachineMaxSnapshots, in: 5...500, step: 5) {
+                            Text("Keep \(timeMachineMaxSnapshots) Time Machine snapshots")
+                        }
+                        retentionDaysPicker("Detailed event log", selection: $eventLogRetentionDays)
+                        retentionDaysPicker("Ambient capture artifacts", selection: $captureArtifactRetentionDays)
+                        retentionDaysPicker("Audit and graph event trail", selection: $auditLogRetentionDays)
+                        Stepper(value: $savedWorkspaceLimit, in: 0...200, step: 5) {
+                            Text("Saved workspaces: \(AppDataRetentionPolicy.savedWorkspaceLimitLabel(savedWorkspaceLimit))")
+                        }
+                        SettingsDescriptionText(
+                            text: "Core mutation receipts are kept until Reset Everything so verified writes remain auditable."
+                        )
+                        Button("Apply Retention Now") {
+                            applyRetentionNow()
+                        }
+                        .controlSize(.small)
+                        if let retentionResultText {
+                            Text(retentionResultText)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
             }
 
             Section("Saved Workspaces") {
@@ -724,6 +767,8 @@ private struct GeneralDetailView: View {
                 )
                 PerformanceSettingsSection()
             }
+            // 2026-05-20 UX fix: graph performance moved to Settings → Graph
+            // (AppearanceDetailView) where users naturally look for graph settings.
 
             Section("Diagnostics") {
                 SettingsDescriptionText(
@@ -850,6 +895,26 @@ private struct GeneralDetailView: View {
     private func refreshWorkspaces() {
         workspaces = AppBootstrap.shared?.workspaceService.listWorkspaces() ?? []
     }
+
+    private func retentionDaysPicker(_ title: String, selection: Binding<Int>) -> some View {
+        Picker(title, selection: selection) {
+            ForEach(AppDataRetentionPolicy.dayOptions, id: \.self) { days in
+                Text(AppDataRetentionPolicy.label(forDays: days)).tag(days)
+            }
+        }
+        .pickerStyle(.menu)
+    }
+
+    private func applyRetentionNow() {
+        let policy = AppDataRetentionPolicy.current()
+        let eventSummary = EventStore.shared?.applyRetentionPolicy(policy.eventStorePolicy) ?? .empty
+        let workspaceDeletes = AppBootstrap.shared?.workspaceService.enforceSavedWorkspaceLimit(policy.savedWorkspaceLimit) ?? 0
+        retentionResultText = AppDataRetentionPolicy.summaryLabel(
+            eventSummary: eventSummary,
+            workspaceDeletes: workspaceDeletes
+        )
+        refreshWorkspaces()
+    }
 }
 
 // MARK: - Landing Detail
@@ -880,7 +945,7 @@ private struct LandingDetailView: View {
 
             Section("Quick Capture & Siri") {
                 SettingsDescriptionText(
-                    text: "Quick Capture is the app-scoped capture sheet for fast text or voice intake. Open it with ⌘⇧N, or launch it below and use the Dictate button inside the sheet. Siri and Shortcuts use the same App Intents integration."
+                    text: "Quick Capture is the landing command overlay for fast text or voice intake. Open it with ⌘⇧N, or launch it below and use the Dictate button inside the overlay. Siri and Shortcuts use the same App Intents integration."
                 )
 
                 HStack(spacing: 10) {
@@ -3076,8 +3141,175 @@ private struct AppearanceDetailContainer: View {
             AppearanceThemePairSection(ui: ui, theme: theme)
             AppearanceTypographySection(ui: ui)
             AppearanceGraphNodeVisibilitySection()
+            AppearanceGraphPerformanceSection()
+            AppearanceShapedGraphSection(ui: ui)
             AppearanceEditorSection()
         }
+    }
+}
+
+// MARK: - Appearance: Graph performance (2026-05-20)
+//
+// Lives under Settings → Graph (AppearanceDetailView form) so users
+// can find FPS-related toggles next to the other graph-visual
+// settings (shaped graph, node visibility). The actual implementation
+// lives in `GraphPerformanceSettingsSection` further down — this
+// wrapper just adds the `Section` header + description.
+
+private struct AppearanceGraphPerformanceSection: View {
+    var body: some View {
+        Section("Graph performance") {
+            SettingsDescriptionText(
+                text: "Frame rate cap controls how often the graph re-renders during interaction. Unlimited uses ProMotion adaptive (60–120 fps on a 14/16″ MacBook Pro). Lower caps save battery + GPU headroom. The FPS HUD shows a live readout in the bottom-right of the graph chrome — useful for tuning forces/physics or verifying the cap."
+            )
+            GraphPerformanceSettingsSection()
+        }
+    }
+}
+
+private struct AppearanceShapedGraphSection: View {
+    let ui: UIState
+
+    var body: some View {
+        Section("Shaped Graph (experimental)") {
+            Toggle(isOn: Binding(
+                get: { ui.shapedGraphExperimental },
+                set: { ui.shapedGraphExperimental = $0 }
+            )) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Frameless graph canvas")
+                        .font(.body)
+                    Text("Replaces the graph window chrome with a soft shape-blur that follows the active node cluster, then morphs into a rounded rectangle when a node is opened. Off by default — toggle on to preview.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(.switch)
+        }
+    }
+}
+
+// MARK: - Graph performance settings (2026-05-20)
+//
+// FPS cap + live HUD toggle for the hologram graph overlay. Reads/writes
+// `graphState.graphMaxFPS` + `graphFPSHUDEnabled` (both persisted in
+// UserDefaults via GraphState.didSet).
+
+@MainActor
+private struct GraphPerformanceSettingsSection: View {
+    @Environment(GraphState.self) private var graphState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            viewLocationRow
+            Divider()
+            forceMaximumFPSRow
+            Divider()
+            fpsCapRow
+            Divider()
+            fpsHUDRow
+            Divider()
+            disclaimer
+        }
+        .padding(12)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    /// Phase 1 — Where the graph opens when the user presses ⌘G.
+    /// `.miniPanel` keeps the existing floating panel. `.embedded`
+    /// replaces the home greeting with the full graph chrome inline.
+    private var viewLocationRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "macwindow.on.rectangle")
+                    .frame(width: 18)
+                    .foregroundStyle(.secondary)
+                Text("Graph view location")
+                    .font(.system(size: 13, weight: .medium))
+            }
+            Picker("", selection: Binding(
+                get: { graphState.graphViewLocation },
+                set: { graphState.graphViewLocation = $0 }
+            )) {
+                ForEach(GraphViewLocation.allCases) { location in
+                    Text(location.displayName).tag(location)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            Text(graphState.graphViewLocation.subtitle)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var forceMaximumFPSRow: some View {
+        Toggle(isOn: Binding(
+            get: { graphState.graphForceMaximumFPS },
+            set: { graphState.graphForceMaximumFPS = $0 }
+        )) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Image(systemName: "bolt.fill")
+                        .foregroundStyle(.yellow)
+                    Text("Force ProMotion 120 fps everywhere")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                Text("Override every cap, thermal-throttle tier, and ProcessInfo power-state on this app's display links. Graph + landing wave clamp to a tight 120/120/120 CAFrameRateRange. ON = max smoothness; trades battery + may throttle hardware to thermal-fair sooner on warm sessions.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .toggleStyle(.switch)
+    }
+
+    private var fpsCapRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "speedometer")
+                    .frame(width: 18)
+                    .foregroundStyle(.secondary)
+                Text("Frame rate cap")
+                    .font(.system(size: 13, weight: .medium))
+            }
+            Picker("", selection: Binding(
+                get: { graphState.graphMaxFPS },
+                set: { graphState.graphMaxFPS = $0 }
+            )) {
+                Text("Unlimited (ProMotion adaptive)").tag(0)
+                Text("120 fps").tag(120)
+                Text("60 fps").tag(60)
+                Text("30 fps (battery)").tag(30)
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            Text("0 = Unlimited lets the OS pick between 60 and 120 fps based on GPU headroom. Pick 60 or 30 for steady battery use; pick 120 to force ProMotion's top rate even when the GPU could drop to 60.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var fpsHUDRow: some View {
+        Toggle(isOn: Binding(
+            get: { graphState.graphFPSHUDEnabled },
+            set: { graphState.graphFPSHUDEnabled = $0 }
+        )) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Show FPS HUD on graph")
+                    .font(.system(size: 13, weight: .medium))
+                Text("Live readout in the graph's bottom-right corner. Shows current fps + p99 frame interval. Green = meeting cap; yellow = ≥45 fps; red = dropping frames.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .toggleStyle(.switch)
+    }
+
+    private var disclaimer: some View {
+        Text("FPS measured at the Swift display-link layer. The real per-frame cost is the Rust render call (`graph_engine_render`) plus the macOS 26 compositor — if p99 stays above 8.3 ms during sustained interaction, you'll cap at 60 fps even with the picker on 120.")
+            .font(.system(size: 10))
+            .foregroundStyle(.tertiary)
     }
 }
 
