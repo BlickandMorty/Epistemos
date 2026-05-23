@@ -31,6 +31,11 @@ public struct ACSAdmissionHealthRow: View {
                     ? "EPISTEMOS_ACS_ADMISSION_V0 on (status surface only)"
                     : "EPISTEMOS_ACS_ADMISSION_V0 off"
             )
+            VerifiedFloorChipStrip(
+                flag: snapshot.isFlagEnabled ? "on" : "off",
+                substrate: "substrate-only",
+                substrateTint: .orange
+            )
             row(
                 label: "Strict policy",
                 symbol: "lock.shield",
@@ -78,7 +83,7 @@ public struct ACSAdmissionHealthRow: View {
 
     private var policyDetail: String {
         guard let p = snapshot.lastPolicy else { return "(no read yet)" }
-        return "\(p.policyId) v\(p.version)"
+        return "\(p.policyId) v\(p.version) (gate not installed)"
     }
 
     private var capabilityDetail: String {
