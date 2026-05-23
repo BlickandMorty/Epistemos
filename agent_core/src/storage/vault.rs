@@ -184,6 +184,45 @@ pub trait VaultBackend: Send + Sync {
     async fn delete(&self, path: &str) -> Result<bool, VaultError>;
 }
 
+/// Production-capable vault-recall trace builder (R2 / W-21 follow-up,
+/// 2026-05-23). Invokes the supplied [`VaultBackend`]'s
+/// [`VaultBackend::hybrid_search_with_trace`] and returns the typed
+/// `(results, trace)` tuple, defaulting the trace's `ladder_tier` to
+/// `"production-hybrid"` when the backend did not set one.
+///
+/// **Why this exists**: the bridge-side `vault_recall_trace_json` FFI
+/// is a fixture/stub built from the query alone (it cannot reach a
+/// `VaultBackend` because the bridge has no shared handle yet). This
+/// helper is the production seam: any caller that already holds a
+/// `&dyn VaultBackend` (W-21 ChatCoordinator vault-context injection,
+/// the Settings → Diagnostics vault recall health row aggregator, or
+/// a future bridge FFI that gains a backend handle) MUST route through
+/// this helper instead of rebuilding a stub trace.
+///
+/// The `"production-hybrid"` default makes the trace byte-distinguishable
+/// from the scaffold tier (`"scaffold-lexical"`) the bridge emits when
+/// no backend is wired, so downstream diagnostics can tell them apart
+/// without parsing every candidate.
+///
+/// **Wire shape**: pure pass-through of [`RetrievalTrace`]; no serde
+/// derive changes, no Swift mirror impact.
+pub async fn produce_vault_recall_trace<B: VaultBackend + ?Sized>(
+    backend: &B,
+    query: &str,
+    limit: usize,
+    tag_filter: &[String],
+) -> Result<(Vec<SearchResult>, RetrievalTrace), VaultError> {
+    let (results, trace) = backend
+        .hybrid_search_with_trace(query, limit, tag_filter)
+        .await?;
+    let trace = if trace.ladder_tier.is_none() {
+        trace.with_ladder_tier("production-hybrid")
+    } else {
+        trace
+    };
+    Ok((results, trace))
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum VaultError {
     #[error("note not found: {0}")]
