@@ -3503,6 +3503,29 @@ pub fn vault_recall_trace_json(query: String) -> Result<String, AgentErrorFFI> {
     })
 }
 
+// LATTICE/WBO OPLOG ACCOUNTING WIRING — `oplog_lattice_wbo_stats_json` FFI.
+//
+// Wiring #3 (T17B lattice/WBO → oplog) accounting visibility. The
+// accounting itself runs inside `OpLog::append` and increments a
+// global counter for every successful mutation — always-on, no flag
+// (per the T17B contract that hidden mutations are inadmissible). This
+// FFI exposes the counter + tier identifiers so the Settings ->
+// Diagnostics LatticeWBOHealthRow can show the live audit total +
+// falsifier-coverage chip (F-WBO-DriftLedger).
+
+/// FFI entry: snapshot the lattice/WBO oplog accountant state and
+/// return its JSON encoding. Swift renders via the
+/// `LatticeWBOHealthRow` in Settings -> Diagnostics.
+#[uniffi::export]
+pub fn oplog_lattice_wbo_stats_json() -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let stats = crate::oplog_lattice_wbo::snapshot();
+        serde_json::to_string(&stats).map_err(|e| AgentErrorFFI::AgentError {
+            message: format!("oplog lattice/WBO stats serialize: {}", e),
+        })
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::build_preview_session_context_with_opener;
