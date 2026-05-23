@@ -1,0 +1,4991 @@
+//! Source:
+//! - Blelloch CMU-CS-90-190 — the canonical sequential left-fold
+//!   formulation of scan. The reference oracle for iter-26's SSD
+//!   parallel-block lowering.
+//! - Dao/Gu arXiv:2405.21060 §6 (SSD algorithm) — produces the
+//!   same scan outputs as sequential left-fold; iter-27's property
+//!   test cross-checks.
+//! - Doctrine §4.3 — Scan-IR first lowering target shape.
+//! - Companion: [`super::grammar`] (the ScanProgram this module
+//!   evaluates).
+//!
+//! # Sequential reference scan
+//!
+//! Walks the input sequence left-to-right, applying the supplied
+//! associative operator `op(&state, &input)` to fold the next
+//! input into the running state. Pushes the new state to the
+//! output at each step.
+//!
+//! For an input program `(initial, [a_1, a_2, …, a_n])`, the
+//! output is `[initial, op(initial, a_1), op(op(initial, a_1), a_2), …]`
+//! with length `1 + n`.
+
+use super::grammar::ScanProgram;
+
+/// Sequential scan: left-fold the inputs into the running state.
+///
+/// Generic over the carrier `T` (must be `Clone` so we can store
+/// the running state at each output position) and the op (a
+/// closure or fn pointer). The op is NOT required to be
+/// associative for this routine to produce SOME output — but the
+/// SSD parallel lowering (iter-26) requires associativity, and
+/// the property test (iter-27) compares both routes.
+pub fn sequential_scan<T, F>(program: &ScanProgram<T>, op: F) -> Vec<T>
+where
+    T: Clone,
+    F: Fn(&T, &T) -> T,
+{
+    let mut out = Vec::with_capacity(program.output_count());
+    let mut state = program.initial.clone();
+    out.push(state.clone());
+    for input in &program.inputs {
+        state = op(&state, input);
+        out.push(state.clone());
+    }
+    out
+}
+
+/// Variant of [`sequential_scan`] that returns only the FINAL
+/// state (the reduce, not the full scan).
+pub fn sequential_reduce<T, F>(program: &ScanProgram<T>, op: F) -> T
+where
+    T: Clone,
+    F: Fn(&T, &T) -> T,
+{
+    let mut state = program.initial.clone();
+    for input in &program.inputs {
+        state = op(&state, input);
+    }
+    state
+}
+
+/// Running sum: prefix-sums of f64 inputs starting from `program.initial`.
+///
+/// Equivalent to `sequential_scan(program, |a, b| a + b)`.
+///
+/// Iter-90 — convenience wrapper for the addition-monoid scan.
+pub fn running_sum(program: &ScanProgram<f64>) -> Vec<f64> {
+    sequential_scan(program, |a, b| a + b)
+}
+
+/// Running maximum: at each step, the max of the running state and
+/// the next input.
+///
+/// Iter-90 — convenience wrapper for the max-semilattice scan.
+pub fn running_max(program: &ScanProgram<f64>) -> Vec<f64> {
+    sequential_scan(program, |a, b| if a > b { *a } else { *b })
+}
+
+/// Running minimum.
+///
+/// Iter-90 — convenience wrapper for the min-semilattice scan.
+pub fn running_min(program: &ScanProgram<f64>) -> Vec<f64> {
+    sequential_scan(program, |a, b| if a < b { *a } else { *b })
+}
+
+/// Running product: prefix-products of f64 inputs.
+///
+/// Iter-90 — convenience wrapper for the multiplication-monoid scan.
+pub fn running_product(program: &ScanProgram<f64>) -> Vec<f64> {
+    sequential_scan(program, |a, b| a * b)
+}
+
+/// Running min-abs: `min_{i ≤ t} |xᵢ|`.
+///
+/// Cumulative minimum of absolute values over the prefix. The
+/// first emitted value is `|initial|`; each subsequent step folds
+/// `min(|state|, |x|)`.
+///
+/// Iter-249 — companion to `running_max_abs` (iter-135). Useful
+/// for tracking the "best so far" magnitude in convergence
+/// monitoring and for detecting how close a trajectory has come
+/// to zero (the floor of any closed-form vanishing argument).
+pub fn running_min_abs(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut min_abs = program.initial.abs();
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(min_abs);
+    for &x in &program.inputs {
+        let ax = x.abs();
+        if ax < min_abs {
+            min_abs = ax;
+        }
+        out.push(min_abs);
+    }
+    out
+}
+
+/// Running count of strict increases between consecutive
+/// elements: number of indices `i ≤ t` with `x_i > x_{i-1}`.
+///
+/// First emit is 0 (no prior element). Monotonically non-decreasing.
+///
+/// Iter-315 — directional jump counter; companion to
+/// `running_sign_changes` (iter-231, which counts sign flips
+/// not value-direction).
+pub fn running_count_strict_increase(program: &ScanProgram<f64>) -> Vec<u64> {
+    let mut prev = program.initial;
+    let mut count: u64 = 0;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        if x > prev {
+            count += 1;
+        }
+        out.push(count);
+        prev = x;
+    }
+    out
+}
+
+/// Running count of strict decreases between consecutive
+/// elements: number of indices `i ≤ t` with `x_i < x_{i-1}`.
+///
+/// First emit is 0 (no prior element). Monotonically non-decreasing.
+/// Together with [`running_count_strict_increase`] and the
+/// no-change residual (`t − up − down`), the path is partitioned
+/// into the three directional event types.
+///
+/// Iter-321 — direct sibling of `running_count_strict_increase`
+/// (iter-315). For any sequence the identity
+/// `up_t + down_t + flat_t = t` holds.
+///
+/// Source. Standard online directional-event counter; cf. Hyndman/
+/// Athanasopoulos "Forecasting: Principles and Practice" (3rd ed.,
+/// 2021) §2.8 — "turning-point" definitions in time series.
+pub fn running_count_strict_decrease(program: &ScanProgram<f64>) -> Vec<u64> {
+    let mut prev = program.initial;
+    let mut count: u64 = 0;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        if x < prev {
+            count += 1;
+        }
+        out.push(count);
+        prev = x;
+    }
+    out
+}
+
+/// Running count of consecutive ties between elements: number of
+/// indices `i ≤ t` with `x_i == x_{i-1}` (IEEE-754 equality on
+/// the f64 components).
+///
+/// First emit is 0 (no prior element). Monotonically non-
+/// decreasing. Together with `running_count_strict_increase` (up)
+/// and `running_count_strict_decrease` (down), this third
+/// component closes the directional event triple — for every t,
+///   `up_t + down_t + tie_t = t`
+/// exactly.
+///
+/// Iter-327 — completes the triple alongside iter-315 and
+/// iter-321. NaN handling: any NaN in the prev or current slot
+/// makes `==` false, so NaN ties never count. This matches IEEE-
+/// 754 ordering semantics consistently with the strict_increase /
+/// strict_decrease siblings.
+///
+/// Source. Standard tie / "flat-step" counter; the up + down +
+/// tie partition is documented in time-series turning-point
+/// literature, cf. Hyndman & Athanasopoulos, "Forecasting:
+/// Principles and Practice" (3rd ed., 2021) §2.8.
+pub fn running_count_consecutive_ties(program: &ScanProgram<f64>) -> Vec<u64> {
+    let mut prev = program.initial;
+    let mut count: u64 = 0;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        if x == prev {
+            count += 1;
+        }
+        out.push(count);
+        prev = x;
+    }
+    out
+}
+
+/// Per-step absolute first difference: `|x_t − x_{t-1}|` (not
+/// cumulative).
+///
+/// Distinct from `running_total_variation` (cumulative sum). The
+/// first emitted value is 0 (no previous element). Each subsequent
+/// step emits the magnitude of the single most recent jump.
+///
+/// Iter-303 — instantaneous path-element companion to
+/// `running_total_variation` (iter-243); useful as a
+/// per-sample volatility / jump-size measure.
+pub fn running_first_difference_abs(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut prev = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+    for &x in &program.inputs {
+        out.push((x - prev).abs());
+        prev = x;
+    }
+    out
+}
+
+/// Running maximum-absolute first difference:
+/// `m_T = max_{t ≤ T} |x_t − x_{t-1}|` with `m_0 = 0`.
+///
+/// This is the *running upper bound on the discrete Lipschitz
+/// constant* of the prefix series — the largest single-step jump
+/// observed so far. Non-decreasing by construction; pinned to 0
+/// at the initial slot (no prior element).
+///
+/// Length matches `output_count`. Distinct from:
+/// - [`running_first_difference_abs`] (iter-263, per-step |Δ|);
+/// - [`running_total_variation`] (iter-? , cumulative Σ|Δ|).
+///
+/// Iter-433 — sup-fold companion of the (per-step, cumulative)
+/// first-difference family. Useful as:
+/// - Discrete Lipschitz constant tracker.
+/// - Worst-case adversarial-perturbation surrogate.
+/// - Spike-detector statistic.
+///
+/// Source. Discrete Lipschitz / max-jump statistic in time-series
+/// analysis: Hyndman & Athanasopoulos, "Forecasting: Principles
+/// and Practice" (3rd ed., 2021) §2.6 — differenced-series
+/// definition; sup-fold is the standard worst-case envelope.
+pub fn running_max_first_difference_abs(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut prev = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+    let mut peak = 0.0_f64;
+    for &x in &program.inputs {
+        let d = (x - prev).abs();
+        if d > peak {
+            peak = d;
+        }
+        out.push(peak);
+        prev = x;
+    }
+    out
+}
+
+/// Running maximum *signed* first difference:
+/// `M_T = max_{t ≤ T} (x_t − x_{t-1})` with `M_0 = 0`.
+///
+/// Tracks the largest positive (upward) single-step increment so
+/// far. Pinned to 0 at the initial slot. Unlike
+/// [`running_max_first_difference_abs`] (iter-433, absolute
+/// envelope), this primitive resolves *direction* — only positive
+/// Δ counts. Non-decreasing only on prefixes containing at least
+/// one strictly upward step; may stay 0 if the series is
+/// monotone non-increasing.
+///
+/// Length matches `output_count`. Companion to:
+/// - [`running_first_difference`] (iter-333, per-step signed Δ);
+/// - [`running_first_difference_abs`] (per-step magnitude);
+/// - [`running_max_first_difference_abs`] (sup-magnitude);
+/// - the (signed-min) leg lands in a sibling iter (TODO).
+///
+/// Iter-451 — directional Lipschitz-upper-bound (positive side).
+/// Useful as:
+/// - Largest single-bar gain in financial bar series.
+/// - Worst-case upward jump in monitoring / anomaly detection.
+/// - Adversarial-perturbation surrogate on the positive side.
+///
+/// Source. Differenced-series sup-fold (signed direction):
+/// Hyndman & Athanasopoulos, "Forecasting: Principles and
+/// Practice" (3rd ed., 2021) §2.6 — standard signed differencing.
+pub fn running_first_difference_max(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut prev = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+    let mut peak = 0.0_f64;
+    for &x in &program.inputs {
+        let d = x - prev;
+        if d > peak {
+            peak = d;
+        }
+        out.push(peak);
+        prev = x;
+    }
+    out
+}
+
+/// Running minimum *signed* first difference:
+/// `m_T = min_{t ≤ T} (x_t − x_{t-1})` with `m_0 = 0`.
+///
+/// Tracks the most negative (downward) single-step increment so
+/// far. Pinned to 0 at the initial slot. Non-increasing by step
+/// only on prefixes containing at least one strictly downward
+/// step; may stay 0 if the series is monotone non-decreasing.
+///
+/// Length matches `output_count`. Closes the signed (max Δ, min Δ)
+/// pair started by [`running_first_difference_max`] (iter-451)
+/// and matches the (drawup, drawdown) asymmetric-risk pattern on
+/// the per-step Δ side.
+///
+/// Iter-457 — directional Lipschitz-lower-bound (negative side).
+/// Useful as:
+/// - Largest single-bar loss in financial bar series.
+/// - Worst-case downward jump in monitoring / anomaly detection.
+/// - Adversarial-perturbation surrogate on the negative side.
+///
+/// Source. Differenced-series inf-fold (signed direction):
+/// Hyndman & Athanasopoulos, "Forecasting: Principles and
+/// Practice" (3rd ed., 2021) §2.6 — standard signed differencing.
+pub fn running_first_difference_min(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut prev = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+    let mut trough = 0.0_f64;
+    for &x in &program.inputs {
+        let d = x - prev;
+        if d < trough {
+            trough = d;
+        }
+        out.push(trough);
+        prev = x;
+    }
+    out
+}
+
+/// Packed `(max Δ, min Δ)` running pair: at each step `t` returns
+/// `(max_{i ≤ t} Δ_i, min_{i ≤ t} Δ_i)` where `Δ_i = x_i − x_{i−1}`.
+///
+/// First emit is `(0.0, 0.0)` (no prior step). The two components
+/// match [`running_first_difference_max`] (iter-451) and
+/// [`running_first_difference_min`] (iter-457) coordinate-wise;
+/// this primitive is a single-pass fused fold that emits both,
+/// useful when downstream consumers need the asymmetric jump
+/// envelope without paying for two separate passes.
+///
+/// Iter-463 — packed-pair scan primitive closing the
+/// (signed-max, signed-min) Δ family. Matches the
+/// `running_min_max_pair` (iter-? ) pattern on the value side.
+///
+/// Source. Packed (sup, inf) statistic over signed first
+/// differences: standard time-series envelope diagnostic; cf.
+/// Hyndman & Athanasopoulos, "Forecasting: Principles and
+/// Practice" (3rd ed., 2021) §2.6.
+pub fn running_first_difference_signed_pair(
+    program: &ScanProgram<f64>,
+) -> Vec<(f64, f64)> {
+    let mut prev = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push((0.0, 0.0));
+    let mut peak = 0.0_f64;
+    let mut trough = 0.0_f64;
+    for &x in &program.inputs {
+        let d = x - prev;
+        if d > peak {
+            peak = d;
+        }
+        if d < trough {
+            trough = d;
+        }
+        out.push((peak, trough));
+        prev = x;
+    }
+    out
+}
+
+/// Running *amplitude* of signed first differences:
+/// `A_T = max_{t ≤ T} Δ_t − min_{t ≤ T} Δ_t`,
+/// where `Δ_t = x_t − x_{t-1}`.
+///
+/// At each step `t` returns the envelope width of the signed
+/// single-step increments observed so far. First emit is 0.0
+/// (no prior step). Bounded below by 0; monotonically
+/// non-decreasing (both the peak and trough are extremized).
+///
+/// Single-pass fused fold over the iter-451 / iter-457 / iter-463
+/// pair (max Δ, min Δ, packed). Distinct from
+/// [`running_max_first_difference_abs`] (iter-433, |Δ| envelope)
+/// — this primitive resolves *direction*: when all Δ are
+/// positive, `A_T = max Δ` and `min Δ` stays 0; when all are
+/// negative, `A_T = −min Δ` and `max Δ` stays 0.
+///
+/// Length matches `output_count`.
+///
+/// Iter-475 — Δ-envelope width diagnostic. Useful as:
+/// - Worst-case range of single-bar moves in a bar series.
+/// - Sup-norm direction-aware Lipschitz envelope tracker.
+/// - Companion of running_range (value side) on the Δ side.
+///
+/// Source. Differenced-series amplitude (envelope width): standard
+/// time-series diagnostic; cf. Hyndman & Athanasopoulos,
+/// "Forecasting: Principles and Practice" (3rd ed., 2021) §2.6.
+pub fn running_first_difference_amplitude(
+    program: &ScanProgram<f64>,
+) -> Vec<f64> {
+    let mut prev = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+    let mut peak = 0.0_f64;
+    let mut trough = 0.0_f64;
+    for &x in &program.inputs {
+        let d = x - prev;
+        if d > peak {
+            peak = d;
+        }
+        if d < trough {
+            trough = d;
+        }
+        out.push(peak - trough);
+        prev = x;
+    }
+    out
+}
+
+/// Per-step *signed* first difference: `x_t − x_{t-1}` (not
+/// cumulative, not magnitude). Length matches `output_count` —
+/// the first emit is 0 (no prior element).
+///
+/// Distinct from:
+/// - [`first_difference`] — returns length n (one fewer than
+///   `output_count`); no initial-state placeholder.
+/// - [`running_first_difference_abs`] — magnitude of the same
+///   quantity.
+///
+/// Iter-333 — fills the missing "running, signed" variant of
+/// the first-difference family. Together with
+/// `running_first_difference_abs` it closes the (signed,
+/// magnitude) pair at consistent length `output_count`.
+///
+/// Source. Standard discrete differencing; cf. Hyndman &
+/// Athanasopoulos, "Forecasting: Principles and Practice"
+/// (3rd ed., 2021) §2.6 — differenced-series definition.
+pub fn running_first_difference(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut prev = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+    for &x in &program.inputs {
+        out.push(x - prev);
+        prev = x;
+    }
+    out
+}
+
+/// Per-step log return: `ln(x_t / x_{t-1})` (not cumulative).
+/// Length matches `output_count`; first emit is 0 (no prior).
+///
+/// Caller must guarantee `x_t > 0` for every entry (the initial
+/// slot inclusive); the function does *not* validate this and
+/// will surface `NaN` or `-∞` on non-positive inputs via Rust's
+/// `f64::ln`.
+///
+/// Iter-375 — sibling of [`running_first_difference`] (signed
+/// additive jump, iter-333) for the multiplicative-jump regime.
+/// Log returns are the canonical financial-time-series
+/// primitive: cumulative sum recovers `ln(x_t / x_0)`, and they
+/// are approximately normal under standard market models.
+///
+/// Source. Log-return convention in finance: Tsay, "Analysis of
+/// Financial Time Series" (3rd ed., 2010) §1.1.1.
+pub fn running_log_returns(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut prev = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+    for &x in &program.inputs {
+        out.push((x / prev).ln());
+        prev = x;
+    }
+    out
+}
+
+/// Per-step simple return: `(x_t − x_{t-1}) / x_{t-1}`.
+/// Length matches `output_count`; first emit is 0 (no prior).
+///
+/// Sibling of [`running_log_returns`] (iter-375). Simple returns
+/// and log returns agree to first order for small jumps; log
+/// returns are additive over time (cumulative sum) while simple
+/// returns are not. Choose based on the use case:
+/// - Compounding analysis: log returns.
+/// - Per-period percentage-change reporting: simple returns.
+///
+/// Caller must guarantee `x_{t-1} ≠ 0` (the function does not
+/// validate; division-by-zero surfaces as NaN/±∞).
+///
+/// Iter-387 — simple-return companion to log-return (iter-375).
+///
+/// Source. Simple vs log returns: Tsay, "Analysis of Financial
+/// Time Series" (3rd ed., 2010) §1.1.1 eq. (1.5).
+pub fn running_relative_first_difference(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut prev = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+    for &x in &program.inputs {
+        out.push((x - prev) / prev);
+        prev = x;
+    }
+    out
+}
+
+/// Cumulative log return: at each step, `ln(x_t / x_0)` where
+/// `x_0 = initial` and `x_t` is the t-th sample (initial =
+/// step 0).
+///
+/// Equivalent to the cumulative sum of [`running_log_returns`]
+/// — convenient when the cumulative growth is the natural
+/// statistic, not the per-step jump.
+///
+/// First emit is `0` (initial value vs itself = ratio 1, log 0).
+/// Caller must guarantee `x_t > 0` for every entry.
+///
+/// Iter-381 — cumulative companion to `running_log_returns`
+/// (iter-375). Standard cumulative-growth-tracking primitive in
+/// finance: total log return over the lookback window collapses
+/// to a single primitive call.
+///
+/// Source. Cumulative log-return convention: Tsay, "Analysis of
+/// Financial Time Series" (3rd ed., 2010) §1.1.1.
+pub fn running_cumulative_log_returns(program: &ScanProgram<f64>) -> Vec<f64> {
+    let initial = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+    for &x in &program.inputs {
+        out.push((x / initial).ln());
+    }
+    out
+}
+
+/// Running realized variance: cumulative sum of squared log
+/// returns `Σ_{i ≤ t} (ln(x_i / x_{i-1}))²`.
+///
+/// The standard high-frequency-finance estimator for the
+/// integrated variance of a log-price process over the
+/// observation window. First emit is 0 (no per-step log return
+/// at step 0). Monotonically non-decreasing.
+///
+/// Caller must guarantee positive samples (the function does
+/// not validate; ln(0) or ln(negative) surfaces as NaN/−∞).
+///
+/// Iter-423 — pairs with [`running_log_returns`] (iter-375,
+/// per-step) and [`running_cumulative_log_returns`] (iter-381,
+/// cumulative). The realized-variance estimator is the squared-
+/// sum companion to the cumulative log return.
+///
+/// Source. Realized variance estimator: Andersen, Bollerslev,
+/// Diebold, Labys, "The Distribution of Realized Exchange Rate
+/// Volatility", JASA 96(453):42-55 (2001), eq. (2.5).
+pub fn running_realized_variance(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut acc = 0.0_f64;
+    let mut prev = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(acc);
+    for &x in &program.inputs {
+        let r = (x / prev).ln();
+        acc += r * r;
+        out.push(acc);
+        prev = x;
+    }
+    out
+}
+
+/// Running realized volatility: `σ_t = √(running_realized_variance_t)`.
+///
+/// The sqrt-cap on the realized-variance estimator — the
+/// standard reporting form (units of return, not return²) in
+/// high-frequency finance and Heston-style stochastic-
+/// volatility model calibration.
+///
+/// First emit is 0 (no log return at step 0). Monotonically
+/// non-decreasing.
+///
+/// Iter-429 — finance-reporting companion to
+/// `running_realized_variance` (iter-423). Same dependency on
+/// positive samples (the function does not validate).
+///
+/// Source. Realized volatility / square-root convention:
+/// Andersen, Bollerslev, Diebold, Labys, "The Distribution of
+/// Realized Exchange Rate Volatility", JASA 96(453):42-55
+/// (2001), eq. (2.5) — RV = √(realized variance).
+pub fn running_realized_volatility(program: &ScanProgram<f64>) -> Vec<f64> {
+    running_realized_variance(program)
+        .into_iter()
+        .map(|v| v.sqrt())
+        .collect()
+}
+
+/// Cumulative simple return: at each step,
+/// `(x_t / x_0) − 1` where `x_0 = initial`.
+///
+/// Sibling of [`running_cumulative_log_returns`] (iter-381).
+/// Simple and log cumulative returns agree to first order for
+/// small total returns; over long horizons the log return is
+/// the additive cumulative-growth measure (sum of per-step
+/// log returns) while the simple return is the multiplicative
+/// product-of-(1 + r_i) − 1 form.
+///
+/// First emit is 0 (initial vs itself = ratio 1, − 1 = 0).
+/// Caller must guarantee `x_0 ≠ 0`.
+///
+/// Iter-393 — closes the (cumulative simple, cumulative log)
+/// return pair on Scan-IR.
+///
+/// Source. Cumulative simple-return convention: Tsay,
+/// "Analysis of Financial Time Series" (3rd ed., 2010) §1.1.1
+/// eq. (1.4).
+pub fn running_cumulative_simple_return(program: &ScanProgram<f64>) -> Vec<f64> {
+    let initial = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+    for &x in &program.inputs {
+        out.push(x / initial - 1.0);
+    }
+    out
+}
+
+/// Running cumulative quadratic variation:
+/// `QV_t = Σ_{i ≤ t} (x_i − x_{i-1})²`.
+///
+/// Cumulative sum of squared first differences. Bounded below
+/// by 0; monotone non-decreasing. First emit is 0.
+///
+/// Iter-309 — quadratic companion to `running_total_variation`
+/// (linear path length, iter-243). In stochastic process theory:
+/// for a Wiener process, QV_T → T in probability as the
+/// partition mesh → 0 (Itô's lemma foundation).
+pub fn running_squared_increments(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut prev = program.initial;
+    let mut qv = 0.0_f64;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(qv);
+    for &x in &program.inputs {
+        let d = x - prev;
+        qv += d * d;
+        out.push(qv);
+        prev = x;
+    }
+    out
+}
+
+/// Running mean squared first difference:
+/// `m_T = (1/T) · Σ_{t = 1}^T Δ_t²`,
+/// where `Δ_t = x_t − x_{t-1}`. At step 0 (no prior steps) returns
+/// 0.0; otherwise returns cumulative QV / T.
+///
+/// Quadratic companion to [`running_mean_first_difference_abs`]
+/// (iter-481, L¹ smoothed Lipschitz) and to
+/// [`running_squared_increments`] (iter-309, cumulative sum). For
+/// a stationary series with finite `E[Δ²]`, the running mean
+/// converges to that expectation — a *running quadratic variation
+/// per step* / *Itô variance estimator* on a fixed-mesh
+/// discretization.
+///
+/// Length matches `output_count`.
+///
+/// Iter-487 — robust L² roughness estimate. Useful as:
+/// - Per-step variance proxy on stationary input streams.
+/// - Realized-variance-style volatility estimator with finer
+///   granularity than running_realized_variance.
+/// - Companion to running_mean_squared (value side) on the Δ side.
+///
+/// Source. Mean squared first difference / Itô quadratic-variation
+/// per step: standard stochastic-process discretization, cf.
+/// Karatzas & Shreve, "Brownian Motion and Stochastic Calculus"
+/// (Springer, 1991) §1.5 (quadratic variation definition).
+pub fn running_mean_squared_first_difference(
+    program: &ScanProgram<f64>,
+) -> Vec<f64> {
+    let mut prev = program.initial;
+    let mut sum = 0.0_f64;
+    let mut count: u64 = 0;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+    for &x in &program.inputs {
+        let d = x - prev;
+        sum += d * d;
+        count += 1;
+        out.push(sum / count as f64);
+        prev = x;
+    }
+    out
+}
+
+/// Running root-mean-square first difference:
+/// `r_T = sqrt((1/T) · Σ_{t = 1}^T Δ_t²)`,
+/// where `Δ_t = x_t − x_{t-1}`. At step 0 returns 0.0.
+///
+/// Square-root companion to [`running_mean_squared_first_difference`]
+/// (iter-487), analogous to [`running_quadratic_mean`] on raw
+/// values and [`running_realized_volatility`] on log returns. The
+/// result has the same units as the input stream, making it the
+/// reporting-scale version of the quadratic first-difference
+/// roughness estimate.
+///
+/// Iter-493 — closes the Δ-side `(mean absolute, mean squared,
+/// RMS)` roughness trio. Useful as:
+/// - Per-step volatility / roughness statistic on fixed-mesh data.
+/// - Scale-compatible companion to quadratic variation per step.
+/// - Jensen check surface: RMS(Δ) ≥ mean(|Δ|).
+///
+/// Source. RMS / quadratic-mean convention: standard norm identity
+/// `sqrt(E[X²])`; quadratic-variation context follows Karatzas &
+/// Shreve, "Brownian Motion and Stochastic Calculus" (Springer,
+/// 1991) §1.5.
+pub fn running_rms_first_difference(program: &ScanProgram<f64>) -> Vec<f64> {
+    running_mean_squared_first_difference(program)
+        .into_iter()
+        .map(|x| x.sqrt())
+        .collect()
+}
+
+/// Running total variation: `TV_t = Σ_{i ≤ t} |x_i − x_{i-1}|`.
+///
+/// Cumulative sum of the absolute first differences — the
+/// discrete L¹ path length. Bounded below by 0; monotonically
+/// non-decreasing. First emit is 0 (no prior element).
+///
+/// Iter-243 — stream-roughness diagnostic; pairs with
+/// `running_range` (iter-195, amplitude),
+/// `running_sign_changes` (iter-231, oscillation count), and
+/// `running_max_drawdown` (iter-237, asymmetric risk) as four
+/// orthogonal "shape of the prefix" measures.
+pub fn running_total_variation(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut prev = program.initial;
+    let mut tv = 0.0_f64;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(tv);
+    for &x in &program.inputs {
+        tv += (x - prev).abs();
+        out.push(tv);
+        prev = x;
+    }
+    out
+}
+
+/// Running *mean* absolute first difference:
+/// `m_T = (1/T) · Σ_{t = 1}^T |Δ_t|`, where `Δ_t = x_t − x_{t-1}`.
+///
+/// At step 0 (no prior steps) returns 0.0. From step 1 onwards
+/// returns total variation divided by the number of step counts.
+///
+/// Smoothed companion to:
+/// - [`running_total_variation`] (cumulative sum)
+/// - [`running_max_first_difference_abs`] (iter-433, sup envelope)
+///
+/// As `T → ∞` on a stationary series with finite `E[|Δ|]`, this
+/// converges to that expectation — a *running Lipschitz estimate*
+/// in the L¹ sense that the sup-envelope replaces with worst-case.
+///
+/// Length matches `output_count`.
+///
+/// Iter-481 — robust per-step roughness estimate. Useful as:
+/// - Stationary-Lipschitz constant tracker for finite-noise inputs.
+/// - Volatility-on-Δ proxy (no outlier amplification).
+/// - Companion of running_mean (value side) on the Δ side.
+///
+/// Source. Mean absolute deviation of first differences: standard
+/// time-series diagnostic; cf. Hyndman & Athanasopoulos,
+/// "Forecasting: Principles and Practice" (3rd ed., 2021) §2.6.
+pub fn running_mean_first_difference_abs(
+    program: &ScanProgram<f64>,
+) -> Vec<f64> {
+    let mut prev = program.initial;
+    let mut sum = 0.0_f64;
+    let mut count: u64 = 0;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+    for &x in &program.inputs {
+        sum += (x - prev).abs();
+        count += 1;
+        out.push(sum / count as f64);
+        prev = x;
+    }
+    out
+}
+
+/// Running maximum drawup: at step `t`, the largest trough-to-
+/// peak gain observed in the prefix.
+///
+/// Recurrence (dual of `running_max_drawdown`):
+///   trough_t = min(trough_{t-1}, x_t).
+///   drawup_t = max(drawup_{t-1}, x_t − trough_t).
+///
+/// Bounded below by 0; monotonically non-decreasing.
+///
+/// Iter-255 — dual of `running_max_drawdown` (iter-237). Captures
+/// the upside-risk / "fall miss" symmetric to the downside-risk
+/// drawdown measure. Useful in trend-following / momentum-signal
+/// analysis.
+pub fn running_max_drawup(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut trough = program.initial;
+    let mut max_du = 0.0_f64;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(max_du);
+    for &x in &program.inputs {
+        if x < trough {
+            trough = x;
+        }
+        let du = x - trough;
+        if du > max_du {
+            max_du = du;
+        }
+        out.push(max_du);
+    }
+    out
+}
+
+/// Running count of breakouts: number of times the prefix has
+/// reported a *strict* new maximum versus its prior running max.
+///
+/// At step `t`, returns `|{i ≤ t : x_i > max(x_0, …, x_{i-1})}|`,
+/// where `x_0 = program.initial`. Pinned to 0 at the initial slot
+/// (no prior comparison); thereafter monotonically non-decreasing.
+/// Strict comparison — equality to the prior peak does not count.
+///
+/// Length matches `output_count`.
+///
+/// Iter-439 — breakout / new-high counter; dual companion to:
+/// - `running_max` (iter-?, value at each prefix);
+/// - `running_max_drawup` (iter-255, peak-from-trough amplitude);
+/// - `running_count_strict_increase` (iter-?, *consecutive*
+///   strict increase, which counts every step `x_i > x_{i-1}`,
+///   not vs the running peak).
+///
+/// Useful for:
+/// - Trend-confirmation diagnostics (rate of new highs).
+/// - Regime-switch detection (sudden burst of breakouts).
+/// - Equity-curve "lifetime high" tagging.
+///
+/// Source. New-high / breakout counting in time-series analysis:
+/// Hyndman & Athanasopoulos, "Forecasting: Principles and
+/// Practice" (3rd ed., 2021) §2 (descriptive statistics on
+/// sequences); financial new-high event count is standard
+/// momentum-trading diagnostic.
+pub fn running_count_new_maxima(program: &ScanProgram<f64>) -> Vec<u64> {
+    let mut peak = program.initial;
+    let mut count: u64 = 0;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        if x > peak {
+            count += 1;
+            peak = x;
+        }
+        out.push(count);
+    }
+    out
+}
+
+/// Running count of *downside* breakouts: number of times the
+/// prefix has reported a *strict* new minimum versus its prior
+/// running min.
+///
+/// At step `t`, returns `|{i ≤ t : x_i < min(x_0, …, x_{i-1})}|`,
+/// where `x_0 = program.initial`. Pinned to 0 at the initial slot;
+/// thereafter monotonically non-decreasing. Strict comparison —
+/// equality to the prior trough does not count.
+///
+/// Length matches `output_count`.
+///
+/// Iter-445 — dual of [`running_count_new_maxima`] (iter-439).
+/// Together they close the (new-high, new-low) breakout-counter
+/// pair, mirroring `running_max_drawup` ↔ `running_max_drawdown`
+/// (iter-255 / iter-237) on the asymmetric-risk side. Useful as a
+/// drawdown / downside-momentum companion diagnostic.
+///
+/// Source. New-low / downside-breakout counting in time-series
+/// analysis: Hyndman & Athanasopoulos, "Forecasting: Principles
+/// and Practice" (3rd ed., 2021) §2 (descriptive statistics on
+/// sequences) — the downside dual of the new-high event count.
+pub fn running_count_new_minima(program: &ScanProgram<f64>) -> Vec<u64> {
+    let mut trough = program.initial;
+    let mut count: u64 = 0;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        if x < trough {
+            count += 1;
+            trough = x;
+        }
+        out.push(count);
+    }
+    out
+}
+
+/// Running maximum drawdown: at step `t`, the largest peak-to-
+/// trough decline observed in the prefix `[initial, x_1, …, x_t]`.
+///
+/// Recurrence:
+///   peak_t = max(peak_{t-1}, x_t).
+///   drawdown_t = max(drawdown_{t-1}, peak_t − x_t).
+///
+/// Bounded below by 0; monotonically non-decreasing.
+///
+/// Iter-237 — financial / time-series streaming primitive. Pairs
+/// with `running_range` (iter-195) for amplitude monitoring and
+/// `running_sign_changes` (iter-231) for oscillation monitoring;
+/// drawdown captures the asymmetric "fall from peak" risk.
+pub fn running_max_drawdown(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut peak = program.initial;
+    let mut max_dd = 0.0_f64;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(max_dd);
+    for &x in &program.inputs {
+        if x > peak {
+            peak = x;
+        }
+        let dd = peak - x;
+        if dd > max_dd {
+            max_dd = dd;
+        }
+        out.push(max_dd);
+    }
+    out
+}
+
+/// Running count of sign changes between consecutive elements.
+///
+/// At step `t`, returns the number of pairs `(x_{i-1}, x_i)` with
+/// `i ≤ t` where the signs differ — that is, the cumulative
+/// "sign-flip count" of the prefix. Zero values do not flip
+/// (treated as continuing the previous sign).
+///
+/// The first emitted value is always 0 (no prior element to
+/// compare). Monotonically non-decreasing.
+///
+/// Iter-231 — oscillation diagnostic; pairs with
+/// `running_range` (iter-195) for amplitude vs. frequency dual
+/// monitoring of a stream.
+pub fn running_sign_changes(program: &ScanProgram<f64>) -> Vec<u64> {
+    let mut count: u64 = 0;
+    let mut prev_sign: i32 = program.initial.signum() as i32;
+    if program.initial == 0.0 {
+        prev_sign = 0;
+    }
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        let s = if x == 0.0 {
+            0
+        } else {
+            x.signum() as i32
+        };
+        if s != 0 && prev_sign != 0 && s != prev_sign {
+            count += 1;
+        }
+        if s != 0 {
+            prev_sign = s;
+        }
+        out.push(count);
+    }
+    out
+}
+
+/// Running count of turning points: local extrema where the
+/// first-difference sign changes.
+///
+/// A turning point at index `t` occurs when the per-step
+/// difference `x_t − x_{t-1}` has the opposite sign of the
+/// preceding difference `x_{t-1} − x_{t-2}` (both non-zero).
+/// Distinct from [`running_sign_changes`] (which counts
+/// zero-crossings of the value, not of its first derivative).
+///
+/// First two emits are 0 (a turning-point needs at least three
+/// samples). Monotonically non-decreasing.
+///
+/// Iter-399 — companion to `running_sign_changes` (iter-231,
+/// zero-crossing count) and `running_count_strict_increase/
+/// _decrease` (iter-315/321, directional event counters).
+/// Together these three give the second-derivative-style
+/// oscillation diagnostic.
+///
+/// Source. Turning-point counting in time series: Hyndman &
+/// Athanasopoulos, "Forecasting: Principles and Practice"
+/// (3rd ed., OTexts, 2021) §2.8.
+pub fn running_count_turning_points(program: &ScanProgram<f64>) -> Vec<u64> {
+    let mut count: u64 = 0;
+    let mut prev = program.initial;
+    let mut prev_diff_sign: i32 = 0;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        let diff = x - prev;
+        let s = if diff > 0.0 {
+            1_i32
+        } else if diff < 0.0 {
+            -1
+        } else {
+            0
+        };
+        if s != 0 && prev_diff_sign != 0 && s != prev_diff_sign {
+            count += 1;
+        }
+        if s != 0 {
+            prev_diff_sign = s;
+        }
+        out.push(count);
+        prev = x;
+    }
+    out
+}
+
+/// Running count of local maxima (peaks): indices `t` where the
+/// per-step difference sign flips from `+` to `−`.
+///
+/// First two emits are 0. Monotonically non-decreasing.
+/// Splits the turning-point count into directional halves:
+/// `running_count_local_maxima + running_count_local_minima
+/// ≡ running_count_turning_points`.
+///
+/// Iter-405 — directional peak-counting companion to
+/// `running_count_turning_points` (iter-399).
+///
+/// Source. Local-maxima / peak counting: Hyndman &
+/// Athanasopoulos, "Forecasting: Principles and Practice"
+/// (3rd ed., 2021) §2.8 (turning-point split between peaks
+/// and valleys).
+pub fn running_count_local_maxima(program: &ScanProgram<f64>) -> Vec<u64> {
+    let mut count: u64 = 0;
+    let mut prev = program.initial;
+    let mut prev_diff_sign: i32 = 0;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        let diff = x - prev;
+        let s = if diff > 0.0 {
+            1_i32
+        } else if diff < 0.0 {
+            -1
+        } else {
+            0
+        };
+        // Peak detected when previous diff was +, current diff is −.
+        if prev_diff_sign == 1 && s == -1 {
+            count += 1;
+        }
+        if s != 0 {
+            prev_diff_sign = s;
+        }
+        out.push(count);
+        prev = x;
+    }
+    out
+}
+
+/// Running count of local minima (valleys): indices `t` where
+/// the per-step difference sign flips from `−` to `+`.
+///
+/// Sibling of [`running_count_local_maxima`] (iter-405). The
+/// directional split sums to the turning-point count:
+/// `running_count_local_maxima + running_count_local_minima
+/// ≡ running_count_turning_points`.
+///
+/// Iter-411 — closes the (peak, valley) directional split on
+/// Scan-IR.
+///
+/// Source. Local-minima / valley counting in time series:
+/// Hyndman & Athanasopoulos, "Forecasting: Principles and
+/// Practice" (3rd ed., 2021) §2.8 — turning-point split.
+pub fn running_count_local_minima(program: &ScanProgram<f64>) -> Vec<u64> {
+    let mut count: u64 = 0;
+    let mut prev = program.initial;
+    let mut prev_diff_sign: i32 = 0;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        let diff = x - prev;
+        let s = if diff > 0.0 {
+            1_i32
+        } else if diff < 0.0 {
+            -1
+        } else {
+            0
+        };
+        // Valley detected when previous diff was −, current diff is +.
+        if prev_diff_sign == -1 && s == 1 {
+            count += 1;
+        }
+        if s != 0 {
+            prev_diff_sign = s;
+        }
+        out.push(count);
+        prev = x;
+    }
+    out
+}
+
+/// Running mean of squared values: `Σ_{i≤t} xᵢ² / (t+1)`.
+///
+/// Sqrt-free companion to [`running_quadratic_mean`]: the second
+/// raw moment, useful when downstream code wants the variance
+/// formula `Var = E[X²] − (E[X])²` or where sqrt is irrelevant.
+///
+/// Iter-279 — second-moment online aggregator.
+pub fn running_mean_squared(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut count = 1.0_f64;
+    let mut sum_sq = program.initial * program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(sum_sq / count);
+    for &x in &program.inputs {
+        count += 1.0;
+        sum_sq += x * x;
+        out.push(sum_sq / count);
+    }
+    out
+}
+
+/// Running root-mean-square (quadratic mean):
+/// `RMS_t = √((1/t) · Σ_{i ≤ t} xᵢ²)`.
+///
+/// Online accumulator over squared values. First emitted value is
+/// `|initial|`; each subsequent step folds `x²` into the running
+/// sum and emits `√(sum_sq / count)`.
+///
+/// Iter-225 — completes the quartet of online means on the EML
+/// stack: AM (iter-90), GM (iter-213), HM (iter-219), QM (this
+/// iter). The Power-Mean inequality QM ≥ AM ≥ GM ≥ HM holds at
+/// every prefix on positive data.
+pub fn running_quadratic_mean(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut count = 1.0_f64;
+    let mut sum_sq = program.initial * program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push((sum_sq / count).sqrt());
+    for &x in &program.inputs {
+        count += 1.0;
+        sum_sq += x * x;
+        out.push((sum_sq / count).sqrt());
+    }
+    out
+}
+
+/// Running harmonic mean of a positive stream:
+/// `HM_t = t / Σ_{i ≤ t} (1 / xᵢ)`.
+///
+/// Online accumulator over reciprocals (constant memory). Returns
+/// the program's `initial` value as the first emitted output;
+/// subsequent steps maintain `sum_recip += 1/x_t` and emit
+/// `count / sum_recip`.
+///
+/// Returns NaN at any step where the next input is non-positive
+/// (preserves the AM ≥ GM ≥ HM regime contract on the prefix).
+///
+/// Iter-219 — companion to `running_mean` (AM, iter-90) and
+/// `running_geometric_mean` (GM, iter-213); together they expose
+/// the full streaming AM-GM-HM triad.
+pub fn running_harmonic_mean(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut count = 1.0_f64;
+    let mut sum_recip = if program.initial > 0.0 {
+        1.0 / program.initial
+    } else {
+        f64::NAN
+    };
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(program.initial);
+    for &x in &program.inputs {
+        count += 1.0;
+        if x > 0.0 && sum_recip.is_finite() {
+            sum_recip += 1.0 / x;
+            out.push(count / sum_recip);
+        } else {
+            sum_recip = f64::NAN;
+            out.push(f64::NAN);
+        }
+    }
+    out
+}
+
+/// Running geometric mean of a positive stream:
+/// `GM_t = exp((1/t) · Σ_{i ≤ t} ln(x_i))`.
+///
+/// Computed via the additive recurrence on log-space (avoids
+/// product overflow):
+///
+///   sum_log_{t} = sum_log_{t-1} + ln(x_t)
+///   GM_t        = exp(sum_log_t / count_t)
+///
+/// `initial` is taken as the first emitted value (must be > 0
+/// for the running statistics to be meaningful — callers may use
+/// 1 as a neutral starting GM). Returns NaN at any step where the
+/// next input is non-positive.
+///
+/// Iter-213 — positive-data online aggregate; companion to
+/// `running_mean` (arithmetic) and `running_l1_norm` (sum-abs).
+pub fn running_geometric_mean(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut count = 1.0_f64;
+    let mut sum_log = if program.initial > 0.0 {
+        program.initial.ln()
+    } else {
+        f64::NAN
+    };
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(program.initial);
+    for &x in &program.inputs {
+        count += 1.0;
+        if x > 0.0 && sum_log.is_finite() {
+            sum_log += x.ln();
+            out.push((sum_log / count).exp());
+        } else {
+            sum_log = f64::NAN;
+            out.push(f64::NAN);
+        }
+    }
+    out
+}
+
+/// Running L2 (Euclidean) norm of the prefix.
+///
+/// At step `t`, returns `√(initial² + Σ_{i ≤ t} x_i²)`. Computed
+/// in one pass via the recurrence `state_t = √(state_{t-1}² + x_t²)`
+/// — a Pythagorean fold, monotonically non-decreasing.
+///
+/// Iter-201 — Euclidean companion to `running_l1_norm` (L¹) and
+/// `running_max_abs` (L^∞). Useful for cumulative-gradient-norm
+/// tracking and convergence diagnostics on long sequences.
+pub fn running_l2_norm(program: &ScanProgram<f64>) -> Vec<f64> {
+    sequential_scan(program, |state, input| (state * state + input * input).sqrt())
+}
+
+/// Running cumulative sum of squares: `S_t = Σ_{i ≤ t} x_i²`.
+///
+/// `running_l2_norm` returns √S_t — convenient for distance
+/// diagnostics but sqrt-bound in the recurrence. The sqrt-free
+/// companion S_t is the natural intermediate in:
+/// - Welford-style two-pass variance / RMS computations
+/// - L²² regularization accumulators
+/// - The denominator of running R² / coefficient-of-determination
+///   computations.
+///
+/// Monotonically non-decreasing; first emit is `initial²`.
+///
+/// Iter-339 — sqrt-free companion to `running_l2_norm` (iter-201)
+/// and the L²-side analog of `running_l1_norm` (iter-189).
+///
+/// Source. Cumulative sum of squares is the standard
+/// monotone-increasing intermediate in online RMS/RMSE
+/// pipelines; cf. Welford, "Note on a method for calculating
+/// corrected sums of squares and products", Technometrics
+/// 4(3):419-420 (1962).
+pub fn running_sum_of_squares(program: &ScanProgram<f64>) -> Vec<f64> {
+    // Custom loop so the initial slot is squared as well (matches
+    // the running_l2_norm convention which also folds `initial`
+    // through the squared accumulator).
+    let mut state = program.initial * program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(state);
+    for &x in &program.inputs {
+        state += x * x;
+        out.push(state);
+    }
+    out
+}
+
+/// Running range `max - min` over the prefix.
+///
+/// At step `t`, returns `max_{0..=t} x_i − min_{0..=t} x_i`.
+/// Bounded below by zero; monotonically non-decreasing.
+///
+/// Iter-195 — companion to `running_min_max_pair` (iter-127);
+/// useful as a one-number "spread so far" diagnostic for stream
+/// monitoring and outlier-burst detection.
+pub fn running_range(program: &ScanProgram<f64>) -> Vec<f64> {
+    let pairs = running_min_max_pair(program);
+    pairs.into_iter().map(|(lo, hi)| hi - lo).collect()
+}
+
+/// Numerically stable running log-sum-exp.
+///
+/// At step `t`, returns `ln(Σ_{i ≤ t} exp(x_i))` computed via the
+/// shift-and-rescale identity
+///
+///   LSE(prev, x) = m + ln(exp(prev − m) + exp(x − m)),  m = max(prev, x).
+///
+/// Avoids overflow on large positives and preserves precision on
+/// large-magnitude differences. The first emitted value is the
+/// program's `initial` (taken as a starting log-sum-exp).
+///
+/// Iter-189 — foundational primitive for streaming softmax
+/// denominators + sequential beam search.
+pub fn running_log_sum_exp(program: &ScanProgram<f64>) -> Vec<f64> {
+    sequential_scan(program, |state, input| {
+        let m = if state >= input { *state } else { *input };
+        if m.is_infinite() && m < 0.0 {
+            return f64::NEG_INFINITY;
+        }
+        m + ((state - m).exp() + (input - m).exp()).ln()
+    })
+}
+
+/// Running mean of absolute values: `Σ_{i≤t} |xᵢ| / (t+1)`.
+///
+/// Online L¹ mean — the average magnitude of the prefix. The
+/// first emitted value is `|initial|`; subsequent steps fold
+/// the running sum-of-abs and normalize by the count.
+///
+/// Iter-273 — companion to `running_l1_norm` (sum-form) and
+/// `running_mean` (arithmetic). The "expected absolute value"
+/// of a stream, useful in robust statistics (MAD numerator) and
+/// gradient-stability monitoring.
+pub fn running_mean_abs(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut count = 1.0_f64;
+    let mut sum_abs = program.initial.abs();
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(sum_abs / count);
+    for &x in &program.inputs {
+        count += 1.0;
+        sum_abs += x.abs();
+        out.push(sum_abs / count);
+    }
+    out
+}
+
+/// Running L1 norm: running sum of absolute values.
+///
+/// At step `t`, returns `|initial| + Σ |inputs[0..t]|`.
+///
+/// Iter-135 — useful for gradient-norm tracking and convergence
+/// diagnostics.
+pub fn running_l1_norm(program: &ScanProgram<f64>) -> Vec<f64> {
+    sequential_scan(program, |state, input| state.abs() + input.abs())
+}
+
+/// Running max-abs (chebyshev / L-infinity norm of the prefix):
+/// `max_{0..=t} |x_i|`.
+///
+/// Iter-135 — companion to running_l1_norm; useful for spike-
+/// detection and bound monitoring.
+pub fn running_max_abs(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut max_abs = program.initial.abs();
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(max_abs);
+    for &x in &program.inputs {
+        let ax = x.abs();
+        if ax > max_abs {
+            max_abs = ax;
+        }
+        out.push(max_abs);
+    }
+    out
+}
+
+/// Running signed max-abs value: at each step, returns the
+/// original signed value with the largest magnitude seen so
+/// far (ties: keep the earlier value).
+///
+/// Useful when the magnitude *and* the direction of the largest
+/// swing matter. `running_max_abs` (iter-135) returns only the
+/// magnitude; this primitive preserves the sign by tracking the
+/// raw value, not its absolute-value projection.
+///
+/// First emit is `initial` (the largest-magnitude value seen so
+/// far is the only sample we have).
+///
+/// Iter-363 — signed companion to `running_max_abs` (iter-135).
+///
+/// Source. Signed-magnitude tracking is the standard "running
+/// peak with sign" diagnostic; cf. Tukey, "Exploratory Data
+/// Analysis" (1977) Ch. 3 (running-peak / running-trough).
+pub fn running_max_abs_signed(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut best_signed = program.initial;
+    let mut best_abs = program.initial.abs();
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(best_signed);
+    for &x in &program.inputs {
+        let ax = x.abs();
+        if ax > best_abs {
+            best_abs = ax;
+            best_signed = x;
+        }
+        out.push(best_signed);
+    }
+    out
+}
+
+/// Running signed min-abs value: at each step, returns the
+/// original signed value with the smallest magnitude seen so
+/// far (ties: keep the earlier value).
+///
+/// Sibling of [`running_max_abs_signed`] (iter-363); together
+/// they form the (closest-to-zero, farthest-from-zero) signed-
+/// magnitude pair. The min-abs is useful for tracking how
+/// close a stream has come to zero — e.g., gradient-magnitude
+/// floor monitoring, distance-to-boundary diagnostics, or
+/// "best opportunity so far" in financial spread tracking.
+///
+/// First emit is `initial`.
+///
+/// Iter-369 — closes the (max-abs-signed, min-abs-signed)
+/// running pair, analogous to `running_min_max_pair` (iter-127)
+/// for unsigned values.
+///
+/// Source. Signed-magnitude tracking; cf. Tukey, "Exploratory
+/// Data Analysis" (1977) Ch. 3 (running-peak / running-trough).
+pub fn running_min_abs_signed(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut best_signed = program.initial;
+    let mut best_abs = program.initial.abs();
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(best_signed);
+    for &x in &program.inputs {
+        let ax = x.abs();
+        if ax < best_abs {
+            best_abs = ax;
+            best_signed = x;
+        }
+        out.push(best_signed);
+    }
+    out
+}
+
+/// Running count of inputs above a threshold.
+///
+/// At step `t`, returns the number of elements in
+/// `[initial, inputs[0], …, inputs[t-1]]` strictly greater than
+/// `threshold`.
+///
+/// Iter-126 — useful for outlier counting, threshold-based
+/// alerting, and CUSUM-style change-point detection.
+pub fn running_count_above(program: &ScanProgram<f64>, threshold: f64) -> Vec<u64> {
+    let mut count: u64 = if program.initial > threshold { 1 } else { 0 };
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        if x > threshold {
+            count += 1;
+        }
+        out.push(count);
+    }
+    out
+}
+
+/// Running count of inputs whose *absolute value* strictly
+/// exceeds a threshold.
+///
+/// At step `t`, returns `|{i ≤ t : |x_i| > threshold}|`, where
+/// `x_0 = program.initial`. Pinned non-decreasing.
+///
+/// Distinct from [`running_count_above`] (iter-126, signed) — this
+/// primitive is symmetric in sign: it counts both upward and
+/// downward shocks of magnitude > threshold.
+///
+/// Iter-469 — magnitude-shock counter. Pairs with:
+/// - running_count_above / below (signed counters);
+/// - running_count_near_zero (iter-417, inside-tolerance dual).
+///
+/// Useful as:
+/// - Symmetric outlier / volatility-spike detector.
+/// - CUSUM-style absolute-shock alarm.
+/// - Sparse-coding "active-element" count (under reverse threshold).
+///
+/// Source. Magnitude-threshold counting / robust outlier-detection
+/// statistic: Tukey, "Exploratory Data Analysis" (Addison-Wesley,
+/// 1977) §2C — symmetric tail-trimming via absolute deviation.
+pub fn running_count_abs_above(
+    program: &ScanProgram<f64>,
+    threshold: f64,
+) -> Vec<u64> {
+    let mut count: u64 = if program.initial.abs() > threshold { 1 } else { 0 };
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        if x.abs() > threshold {
+            count += 1;
+        }
+        out.push(count);
+    }
+    out
+}
+
+/// Running count of values within `tolerance` of zero
+/// (`|x_t| ≤ tolerance`). First emit counts the initial slot;
+/// monotonically non-decreasing.
+///
+/// Useful for sparsity tracking (fraction of "small" values),
+/// signal-quiet-period detection in time series, and
+/// convergence diagnostics where small residuals indicate
+/// approach to the optimum.
+///
+/// Iter-417 — sparsity-counting companion to
+/// `running_count_above` (iter-126), `running_count_below`,
+/// `running_count_in_range`, etc.
+///
+/// Source. Sparse-value counting / shrinkage-threshold tracking:
+/// standard in iterative-thresholding methods, cf. Daubechies,
+/// Defrise, De Mol, "An iterative thresholding algorithm for
+/// linear inverse problems with a sparsity constraint", Comm.
+/// Pure Appl. Math. 57:1413-1457 (2004) §3.
+pub fn running_count_near_zero(program: &ScanProgram<f64>, tolerance: f64) -> Vec<u64> {
+    let mut count: u64 = if program.initial.abs() <= tolerance { 1 } else { 0 };
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        if x.abs() <= tolerance {
+            count += 1;
+        }
+        out.push(count);
+    }
+    out
+}
+
+/// Running proportion below threshold:
+/// `r_t = count_below_t / (t + 1)`.
+///
+/// Iter-267 — companion to `running_above_ratio` (iter-261);
+/// lower-tail proportion estimator.
+pub fn running_below_ratio(program: &ScanProgram<f64>, threshold: f64) -> Vec<f64> {
+    let mut count_below: u64 = if program.initial < threshold { 1 } else { 0 };
+    let mut total: u64 = 1;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count_below as f64 / total as f64);
+    for &x in &program.inputs {
+        total += 1;
+        if x < threshold {
+            count_below += 1;
+        }
+        out.push(count_below as f64 / total as f64);
+    }
+    out
+}
+
+/// Running count of strictly positive inputs in the prefix.
+///
+/// Iter-297 — sign-stratified counter; companion to
+/// `running_count_negative` (iter-291).
+pub fn running_count_positive(program: &ScanProgram<f64>) -> Vec<u64> {
+    let mut count: u64 = if program.initial > 0.0 { 1 } else { 0 };
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        if x > 0.0 {
+            count += 1;
+        }
+        out.push(count);
+    }
+    out
+}
+
+/// Running count of strictly negative inputs in the prefix.
+///
+/// At step `t`, returns the number of elements in
+/// `[initial, x_0, …, x_{t-1}]` with `x_i < 0`. Monotone
+/// non-decreasing.
+///
+/// Iter-291 — sign-stratified counter. Pairs with
+/// `running_above_ratio` / `running_below_ratio` for a
+/// signed-direction stream-monitoring trio.
+pub fn running_count_negative(program: &ScanProgram<f64>) -> Vec<u64> {
+    let mut count: u64 = if program.initial < 0.0 { 1 } else { 0 };
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        if x < 0.0 {
+            count += 1;
+        }
+        out.push(count);
+    }
+    out
+}
+
+/// Running count of inputs in the inclusive interval `[lo, hi]`.
+///
+/// At step `t`, returns the number of elements in
+/// `[initial, x_0, …, x_{t-1}]` satisfying `lo ≤ xᵢ ≤ hi`.
+/// Monotonically non-decreasing. `lo > hi` returns counts of
+/// zero throughout (empty interval).
+///
+/// Iter-285 — histogram-bin online counter. Pairs with
+/// `running_count_above` (iter-126) and `running_count_below`
+/// (iter-207); the in-range version is the central case
+/// between the two threshold-tail counters.
+pub fn running_count_in_range(
+    program: &ScanProgram<f64>,
+    lo: f64,
+    hi: f64,
+) -> Vec<u64> {
+    let in_range = |x: f64| x >= lo && x <= hi;
+    let mut count: u64 = if in_range(program.initial) { 1 } else { 0 };
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        if in_range(x) {
+            count += 1;
+        }
+        out.push(count);
+    }
+    out
+}
+
+/// Running proportion above threshold:
+/// `r_t = count_above_t / (t + 1)`.
+///
+/// Online estimate of P(X > threshold) using the empirical
+/// distribution of the prefix. Bounded in `[0, 1]`.
+///
+/// Iter-261 — companion to `running_count_above` (iter-126) and
+/// `running_count_below` (iter-207); this is the normalized
+/// ratio form useful for proportion estimation and tail-mass
+/// monitoring.
+pub fn running_above_ratio(program: &ScanProgram<f64>, threshold: f64) -> Vec<f64> {
+    let mut count_above: u64 = if program.initial > threshold { 1 } else { 0 };
+    let mut total: u64 = 1;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count_above as f64 / total as f64);
+    for &x in &program.inputs {
+        total += 1;
+        if x > threshold {
+            count_above += 1;
+        }
+        out.push(count_above as f64 / total as f64);
+    }
+    out
+}
+
+/// Running count of inputs strictly below a threshold.
+///
+/// At step `t`, returns the number of elements in
+/// `[initial, inputs[0], …, inputs[t-1]]` strictly less than
+/// `threshold`. Complements [`running_count_above`]; together
+/// with the prefix length they sum to the count of strictly-equal
+/// entries.
+///
+/// Iter-207 — useful for lower-tail outlier counting, two-sided
+/// CUSUM, and empirical-CDF tracking.
+pub fn running_count_below(program: &ScanProgram<f64>, threshold: f64) -> Vec<u64> {
+    let mut count: u64 = if program.initial < threshold { 1 } else { 0 };
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(count);
+    for &x in &program.inputs {
+        if x < threshold {
+            count += 1;
+        }
+        out.push(count);
+    }
+    out
+}
+
+/// Running z-score: at each step `t ≥ 2`, returns
+/// `(x_t − μ_t) / σ_t` where μ_t and σ_t are the running mean and
+/// (population) standard deviation through step `t`.
+///
+/// Steps 0 and 1 return 0 (insufficient data for a meaningful
+/// z-score with population variance). Steps with `σ_t = 0` also
+/// return 0 to avoid division by zero.
+///
+/// Iter-151 — useful for online standardization in streaming
+/// normalization layers.
+pub fn running_zscore(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut count = 1.0_f64;
+    let mut mean = program.initial;
+    let mut m2 = 0.0_f64;
+
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0); // single sample → z-score undefined.
+
+    for &x in &program.inputs {
+        count += 1.0;
+        let delta = x - mean;
+        mean += delta / count;
+        let delta2 = x - mean;
+        m2 += delta * delta2;
+        let variance = m2 / count;
+        if variance > 1e-12 {
+            out.push((x - mean) / variance.sqrt());
+        } else {
+            out.push(0.0);
+        }
+    }
+    out
+}
+
+/// Running standardized skewness `g_1 = m_3 / σ^3` via Welford-style
+/// online update.
+///
+/// At each step, returns g_1 = (M3 / n) / (M2 / n)^{3/2}, where M2
+/// and M3 are the second and third central moments accumulated so
+/// far. Returns 0 for steps with zero variance.
+///
+/// Iter-171 — standardized skewness companion to
+/// running_third_central_moment (iter-165).
+pub fn running_skewness(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut count = 1.0_f64;
+    let mut mean = program.initial;
+    let mut m2 = 0.0_f64;
+    let mut m3 = 0.0_f64;
+
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+
+    for &x in &program.inputs {
+        let n1 = count;
+        count += 1.0;
+        let delta = x - mean;
+        let delta_n = delta / count;
+        let term1 = delta * delta_n * n1;
+        m3 += term1 * delta_n * (count - 2.0) - 3.0 * delta_n * m2;
+        m2 += term1;
+        mean += delta_n;
+
+        let variance = m2 / count;
+        if variance > 1e-12 {
+            let m3_norm = m3 / count;
+            let sigma3 = variance.sqrt().powi(3);
+            out.push(m3_norm / sigma3);
+        } else {
+            out.push(0.0);
+        }
+    }
+    out
+}
+
+/// Running standardized excess kurtosis `g_2 = m_4 / σ^4 - 3` via
+/// Welford-style online update. Excess kurtosis is 0 for Gaussian
+/// distributions; positive for heavy-tailed (leptokurtic); negative
+/// for light-tailed (platykurtic).
+///
+/// Returns 0 when variance is zero (insufficient samples).
+///
+/// Iter-183 — companion to running_fourth_central_moment (iter-175).
+pub fn running_kurtosis(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut count = 1.0_f64;
+    let mut mean = program.initial;
+    let mut m2 = 0.0_f64;
+    let mut m3 = 0.0_f64;
+    let mut m4 = 0.0_f64;
+
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+
+    for &x in &program.inputs {
+        let n1 = count;
+        count += 1.0;
+        let delta = x - mean;
+        let delta_n = delta / count;
+        let delta_n2 = delta_n * delta_n;
+        let term1 = delta * delta_n * n1;
+        m4 += term1 * delta_n2 * (count * count - 3.0 * count + 3.0)
+            + 6.0 * delta_n2 * m2
+            - 4.0 * delta_n * m3;
+        m3 += term1 * delta_n * (count - 2.0) - 3.0 * delta_n * m2;
+        m2 += term1;
+        mean += delta_n;
+
+        let variance = m2 / count;
+        if variance > 1e-12 {
+            let m4_norm = m4 / count;
+            let sigma4 = variance * variance;
+            out.push(m4_norm / sigma4 - 3.0);
+        } else {
+            out.push(0.0);
+        }
+    }
+    out
+}
+
+/// Running fourth central moment `M4 / n` via Welford-style online
+/// update.
+///
+/// `m_4 = (1/n) · Σ (x_i − μ_t)⁴`. Building block for kurtosis
+/// (g_2 = m_4 / σ⁴ − 3, normalized) and tail-heaviness diagnostics.
+///
+/// Iter-175 — Welford four-moment recursion (Terriberry 2007).
+pub fn running_fourth_central_moment(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut count = 1.0_f64;
+    let mut mean = program.initial;
+    let mut m2 = 0.0_f64;
+    let mut m3 = 0.0_f64;
+    let mut m4 = 0.0_f64;
+
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+
+    for &x in &program.inputs {
+        let n1 = count;
+        count += 1.0;
+        let delta = x - mean;
+        let delta_n = delta / count;
+        let delta_n2 = delta_n * delta_n;
+        let term1 = delta * delta_n * n1;
+        // Update higher moments first (use old mean/m2/m3).
+        m4 += term1 * delta_n2 * (count * count - 3.0 * count + 3.0)
+            + 6.0 * delta_n2 * m2
+            - 4.0 * delta_n * m3;
+        m3 += term1 * delta_n * (count - 2.0) - 3.0 * delta_n * m2;
+        m2 += term1;
+        mean += delta_n;
+        out.push(m4 / count);
+    }
+    out
+}
+
+/// Running third central moment `M3 / n` via Welford-style online
+/// update. At step `t`, returns the third central moment
+/// `(1/t) · Σ (x_i − μ_t)³` from `initial` through `inputs[t-1]`.
+///
+/// This is the un-normalized "skewness numerator". Divide by
+/// `σ_t³` externally to get standardized skewness `g_1`.
+///
+/// Iter-165 — extends running statistics beyond mean/variance.
+pub fn running_third_central_moment(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut count = 1.0_f64;
+    let mut mean = program.initial;
+    let mut m2 = 0.0_f64;
+    let mut m3 = 0.0_f64;
+
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0); // single sample → m3 = 0.
+
+    for &x in &program.inputs {
+        let n1 = count;
+        count += 1.0;
+        let delta = x - mean;
+        let delta_n = delta / count;
+        let term1 = delta * delta_n * n1;
+        // Update m3 first (uses old mean).
+        m3 += term1 * delta_n * (count - 2.0) - 3.0 * delta_n * m2;
+        m2 += term1;
+        mean += delta_n;
+        out.push(m3 / count);
+    }
+    out
+}
+
+/// Running sum of squared consecutive differences: at each step
+/// `t ≥ 1`, returns `Σ_{i=1..=t} (x_i − x_{i-1})²`.
+///
+/// Useful as a convergence-rate diagnostic; for a steady-state
+/// signal the running sum saturates.
+///
+/// Iter-159 — companion to first_difference (iter-145) for
+/// numerical-stability monitoring.
+pub fn running_squared_differences(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut acc = 0.0_f64;
+    let mut prev = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0); // no differences yet at step 0.
+    for &x in &program.inputs {
+        let d = x - prev;
+        acc += d * d;
+        out.push(acc);
+        prev = x;
+    }
+    out
+}
+
+/// First-difference operator: `Δx_t = inputs[t] − inputs[t-1]`
+/// for `t = 1..n`, with `inputs[0] − initial` as the first
+/// difference.
+///
+/// Returns a vector of length `n` (one fewer than `output_count`).
+/// Differs from the typical scan signature; that's intentional —
+/// differences are a fence-post quantity that doesn't have an
+/// initial-state value.
+///
+/// Iter-145 — useful for derivative-style stream processing and
+/// rate-of-change monitoring.
+pub fn first_difference(program: &ScanProgram<f64>) -> Vec<f64> {
+    if program.inputs.is_empty() {
+        return Vec::new();
+    }
+    let mut out = Vec::with_capacity(program.inputs.len());
+    let mut prev = program.initial;
+    for &x in &program.inputs {
+        out.push(x - prev);
+        prev = x;
+    }
+    out
+}
+
+/// Running argmin: returns `(index, value)` pairs at each step,
+/// where `index` is the position of the running min-so-far.
+///
+/// Position 0 = initial. Positions 1..=n correspond to inputs[0..n-1].
+/// First-occurrence wins ties.
+///
+/// Iter-139 — companion to running_argmax (iter-120). Useful for
+/// nadir detection, drawdown tracking, and convergence diagnostics.
+pub fn running_argmin(program: &ScanProgram<f64>) -> Vec<(usize, f64)> {
+    let mut min_idx: usize = 0;
+    let mut min_val = program.initial;
+    let mut current: usize = 0;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push((min_idx, min_val));
+    for &x in &program.inputs {
+        current += 1;
+        if x < min_val {
+            min_idx = current;
+            min_val = x;
+        }
+        out.push((min_idx, min_val));
+    }
+    out
+}
+
+/// Running argmax: returns `(index, value)` pairs at each step,
+/// where `index` is the position of the running max-so-far.
+///
+/// Position 0 = initial state. Positions 1..=n correspond to
+/// inputs[0..n-1]. First occurrence wins ties.
+///
+/// Iter-120 — change-point detection, Viterbi backtrack, and
+/// peak-tracking primitive.
+pub fn running_argmax(program: &ScanProgram<f64>) -> Vec<(usize, f64)> {
+    let mut max_idx: usize = 0;
+    let mut max_val = program.initial;
+    let mut current: usize = 0;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push((max_idx, max_val));
+    for &x in &program.inputs {
+        current += 1;
+        if x > max_val {
+            max_idx = current;
+            max_val = x;
+        }
+        out.push((max_idx, max_val));
+    }
+    out
+}
+
+/// Track both running min and running max in a single pass.
+/// Returns a vector of `(min, max)` pairs at each step.
+///
+/// More efficient than running min and max separately (one pass
+/// through the inputs instead of two).
+///
+/// Iter-114 — useful for one-shot range estimation in streaming
+/// statistics, anomaly-bound determination, and Bayesian
+/// uniform-prior estimation.
+pub fn running_min_max_pair(program: &ScanProgram<f64>) -> Vec<(f64, f64)> {
+    let mut min = program.initial;
+    let mut max = program.initial;
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push((min, max));
+    for &x in &program.inputs {
+        if x < min {
+            min = x;
+        }
+        if x > max {
+            max = x;
+        }
+        out.push((min, max));
+    }
+    out
+}
+
+/// Running variance via Welford's online algorithm:
+///
+/// `state_{t+1} = (count + 1, μ + δ/(count+1), M2 + δ·(x - μ_new))`
+///
+/// where `δ = x - μ` is the increment of the new sample. Returns
+/// the **population variance** `M2 / count` at each step (use
+/// `M2 / (count - 1)` externally for the unbiased sample variance).
+///
+/// Properties:
+/// - Initial state contributes as the first sample.
+/// - Output[0] = 0 (variance of a single sample).
+/// - Numerically stable across long streams (Welford 1962).
+///
+/// Iter-107 — building block for streaming standardization,
+/// anomaly detection, and online statistics monitoring.
+pub fn running_variance(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut count = 1.0_f64;
+    let mut mean = program.initial;
+    let mut m2 = 0.0_f64;
+
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0); // variance of a single sample = 0 by convention.
+
+    for &x in &program.inputs {
+        count += 1.0;
+        let delta = x - mean;
+        mean += delta / count;
+        let delta2 = x - mean;
+        m2 += delta * delta2;
+        out.push(m2 / count); // population variance
+    }
+    out
+}
+
+/// Running population standard deviation: `σ_t = √variance_t`.
+///
+/// First emit is 0 (single-sample variance is 0 by convention).
+/// Monotonically non-decreasing in the (mean, m2) state when
+/// the input distribution has finite second moment, but can
+/// transiently dip in finite samples — no global monotonicity
+/// guarantee.
+///
+/// Iter-345 — sqrt-cap on `running_variance` (iter-107). The
+/// dedicated builder avoids per-call-site `.map(|v| v.sqrt())`
+/// chains and makes the standard-deviation diagnostic a single
+/// primitive in pipelines that also want the variance.
+///
+/// Source. Welford's online variance algorithm + standard
+/// definition σ = √Var: Welford, "Note on a method for
+/// calculating corrected sums of squares and products",
+/// Technometrics 4(3):419-420 (1962); standard deviation
+/// definition: Casella & Berger, "Statistical Inference"
+/// (2nd ed., 2002) §1.6.
+pub fn running_standard_deviation(program: &ScanProgram<f64>) -> Vec<f64> {
+    running_variance(program)
+        .into_iter()
+        .map(|v| v.sqrt())
+        .collect()
+}
+
+/// Running unbiased sample variance:
+/// `s²_t = M2_t / (count − 1)` for `count ≥ 2`, `s²_1 = 0` by
+/// convention.
+///
+/// The Bessel-corrected variant of [`running_variance`] (which
+/// returns the *population* variance `M2 / count`). The n − 1
+/// divisor is the standard estimator for the variance of an iid
+/// sample from an unknown population — what every introductory
+/// statistics course calls "sample variance". Both estimators
+/// converge as n → ∞; the unbiased form is preferred when
+/// constructing confidence intervals / t-statistics.
+///
+/// First emit is `0.0` (single-sample case — Bessel division
+/// would be `0 / 0`; the 0 convention keeps the shape consistent
+/// with `running_variance`, but callers who want NaN at n = 1
+/// should branch on the first index themselves).
+///
+/// Iter-351 — sample-statistics companion to `running_variance`
+/// (iter-107, population) and `running_standard_deviation`
+/// (iter-345, population SD).
+///
+/// Source. Bessel-corrected sample variance: Bessel, F. W.
+/// (1838); modern derivation: Casella & Berger, "Statistical
+/// Inference" (2nd ed., 2002) §5.2 eq. (5.2.4).
+pub fn running_unbiased_variance(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut count = 1.0_f64;
+    let mut mean = program.initial;
+    let mut m2 = 0.0_f64;
+
+    let mut out = Vec::with_capacity(program.output_count());
+    out.push(0.0);
+
+    for &x in &program.inputs {
+        count += 1.0;
+        let delta = x - mean;
+        mean += delta / count;
+        let delta2 = x - mean;
+        m2 += delta * delta2;
+        out.push(m2 / (count - 1.0));
+    }
+    out
+}
+
+/// Running unbiased sample standard deviation:
+/// `s_t = √(M2_t / (count − 1))` for `count ≥ 2`, `s_1 = 0` by
+/// convention.
+///
+/// The Bessel-corrected sample-SD: sqrt-cap on
+/// [`running_unbiased_variance`] (iter-351). Same Welford
+/// recurrence, only the final sqrt + (n−1) denominator differ
+/// from [`running_standard_deviation`] (iter-345, population).
+///
+/// Note: sqrt(E[s²]) ≠ σ in finite samples — the unbiased SD
+/// is a slightly downward-biased estimator of the true σ. For
+/// most practical uses (control charts, confidence intervals)
+/// it's the canonical estimator anyway.
+///
+/// Iter-357 — completes the (population variance, population SD,
+/// unbiased variance, unbiased SD) quartet on Scan-IR:
+/// - running_variance (iter-107)
+/// - running_standard_deviation (iter-345)
+/// - running_unbiased_variance (iter-351)
+/// - running_unbiased_standard_deviation (this iter)
+///
+/// Source. Bessel correction + sample-SD definition: Casella &
+/// Berger, "Statistical Inference" (2nd ed., 2002) §5.2;
+/// downward-bias of √(s²): Cochran, "Sampling Techniques"
+/// (3rd ed., 1977) Appendix A2.4.
+pub fn running_unbiased_standard_deviation(program: &ScanProgram<f64>) -> Vec<f64> {
+    running_unbiased_variance(program)
+        .into_iter()
+        .map(|v| v.sqrt())
+        .collect()
+}
+
+/// Exponentially-weighted moving average:
+/// `state_{t+1} = α · state_t + (1 - α) · input_t`
+///
+/// where `α ∈ [0, 1]` is the smoothing / decay factor:
+/// - `α = 0`: no smoothing (output ≡ input shifted).
+/// - `α = 1`: never updates (output ≡ initial).
+/// - `α ≈ 0.9–0.999`: typical Adam / momentum / EMA filter values.
+///
+/// Iter-102 — used in Adam optimizer momentum tracks, Polyak
+/// averaging of model weights, real-time signal smoothing.
+pub fn running_ema(program: &ScanProgram<f64>, alpha: f64) -> Vec<f64> {
+    sequential_scan(program, move |state, input| alpha * state + (1.0 - alpha) * input)
+}
+
+/// Running running-mean: at each step, the arithmetic mean of all
+/// values seen so far (treating `program.initial` as the starting
+/// "empty-prefix mean").
+///
+/// At step `k` (1-indexed), output equals
+/// `(initial + Σ_{i=1..=k} inputs[i-1]) / (k + 1)` — this includes
+/// `initial` in the average. Caller can compensate by setting
+/// `initial = 0.0` and dividing each output by step-index k.
+///
+/// Iter-90 — useful for running-statistics monitoring in scan
+/// streams.
+pub fn running_mean(program: &ScanProgram<f64>) -> Vec<f64> {
+    let mut out = Vec::with_capacity(program.output_count());
+    let mut sum = program.initial;
+    let mut count: f64 = 1.0;
+    out.push(sum);
+    for input in &program.inputs {
+        sum += input;
+        count += 1.0;
+        out.push(sum / count);
+    }
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_program_yields_initial_only() {
+        let p: ScanProgram<i32> = ScanProgram::just_initial(42);
+        let out = sequential_scan(&p, |a, b| a + b);
+        assert_eq!(out, vec![42]);
+    }
+
+    #[test]
+    fn integer_add_scan_yields_prefix_sums() {
+        let p = ScanProgram::new(0i32, vec![1, 2, 3, 4]);
+        let out = sequential_scan(&p, |a, b| a + b);
+        assert_eq!(out, vec![0, 1, 3, 6, 10]);
+    }
+
+    #[test]
+    fn integer_max_scan_yields_running_max() {
+        let p = ScanProgram::new(0i32, vec![3, 1, 4, 1, 5, 9, 2, 6]);
+        let out = sequential_scan(&p, |a, b| *a.max(b));
+        assert_eq!(out, vec![0, 3, 3, 4, 4, 5, 9, 9, 9]);
+    }
+
+    #[test]
+    fn output_length_is_one_plus_step_count() {
+        let p = ScanProgram::new(0i32, vec![1, 2, 3, 4, 5]);
+        let out = sequential_scan(&p, |a, b| a + b);
+        assert_eq!(out.len(), p.output_count());
+    }
+
+    #[test]
+    fn first_output_is_initial() {
+        let p = ScanProgram::new(100i32, vec![1, 2]);
+        let out = sequential_scan(&p, |a, b| a + b);
+        assert_eq!(out[0], 100);
+    }
+
+    #[test]
+    fn last_output_equals_reduce() {
+        let p = ScanProgram::new(0i32, vec![1, 2, 3, 4]);
+        let scan_out = sequential_scan(&p, |a, b| a + b);
+        let reduce_out = sequential_reduce(&p, |a, b| a + b);
+        assert_eq!(*scan_out.last().unwrap(), reduce_out);
+    }
+
+    #[test]
+    fn string_concat_scan() {
+        let p = ScanProgram::new("".to_string(), vec!["a".to_string(), "b".to_string(), "c".to_string()]);
+        let out = sequential_scan(&p, |a, b| format!("{}{}", a, b));
+        assert_eq!(out, vec!["".to_string(), "a".into(), "ab".into(), "abc".into()]);
+    }
+
+    #[test]
+    fn reduce_empty_is_initial() {
+        let p: ScanProgram<i32> = ScanProgram::just_initial(7);
+        assert_eq!(sequential_reduce(&p, |a, b| a + b), 7);
+    }
+
+    #[test]
+    fn associative_op_invariance_check() {
+        // For an associative op, scan output[i+1] = op(output[i], inputs[i]).
+        // This is the recursive characterization of scan.
+        let p = ScanProgram::new(0i32, vec![1, 2, 3, 4, 5]);
+        let op = |a: &i32, b: &i32| a + b;
+        let out = sequential_scan(&p, op);
+        for i in 0..p.step_count() {
+            assert_eq!(out[i + 1], op(&out[i], &p.inputs[i]));
+        }
+    }
+
+    // ── iter-90: running aggregator wrappers ─────────────────────
+
+    #[test]
+    fn running_sum_matches_prefix_sums() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0, 4.0]);
+        let out = running_sum(&p);
+        assert_eq!(out, vec![0.0, 1.0, 3.0, 6.0, 10.0]);
+    }
+
+    #[test]
+    fn running_max_tracks_high_water_mark() {
+        let p = ScanProgram::new(0.0_f64, vec![1.5, 0.5, 3.0, 2.0, 4.5]);
+        let out = running_max(&p);
+        assert_eq!(out, vec![0.0, 1.5, 1.5, 3.0, 3.0, 4.5]);
+    }
+
+    #[test]
+    fn running_min_tracks_low_water_mark() {
+        let p = ScanProgram::new(10.0_f64, vec![3.0, 5.0, -1.0, 2.0, 0.0]);
+        let out = running_min(&p);
+        assert_eq!(out, vec![10.0, 3.0, 3.0, -1.0, -1.0, -1.0]);
+    }
+
+    #[test]
+    fn running_product_compounds() {
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 3.0, 0.5, 4.0]);
+        let out = running_product(&p);
+        assert_eq!(out, vec![1.0, 2.0, 6.0, 3.0, 12.0]);
+    }
+
+    #[test]
+    fn running_mean_converges() {
+        // Mean of (1, 1, 1, 1) = 1; with initial=0 we have running
+        // means: 0/1=0, 1/2=0.5, 2/3, 3/4, 4/5.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 1.0, 1.0, 1.0]);
+        let out = running_mean(&p);
+        let expected = vec![0.0, 0.5, 2.0 / 3.0, 0.75, 0.8];
+        for (a, b) in out.iter().zip(expected.iter()) {
+            assert!((a - b).abs() < 1e-12, "got {} expected {}", a, b);
+        }
+    }
+
+    // ── iter-135: running_l1_norm + running_max_abs ───────────────
+
+    #[test]
+    fn running_l1_norm_accumulates_abs() {
+        // initial=1, inputs=(-2, 3, -4):
+        // step 0: |1| = 1
+        // step 1: 1 + |-2| = 3 (wait, state=1, op = |state|+|input| applied,
+        //                       so state→ |1| + |-2| = 3)
+        // step 2: |3| + |3| = 6
+        // step 3: |6| + |-4| = 10
+        let p = ScanProgram::new(1.0_f64, vec![-2.0, 3.0, -4.0]);
+        let out = running_l1_norm(&p);
+        assert_eq!(out, vec![1.0, 3.0, 6.0, 10.0]);
+    }
+
+    #[test]
+    fn running_max_abs_tracks_largest_magnitude() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -3.0, 2.0, -0.5, 5.0]);
+        let out = running_max_abs(&p);
+        assert_eq!(out, vec![0.0, 1.0, 3.0, 3.0, 3.0, 5.0]);
+    }
+
+    #[test]
+    fn running_max_abs_with_negative_initial() {
+        let p = ScanProgram::new(-7.0_f64, vec![1.0, 2.0, 3.0]);
+        let out = running_max_abs(&p);
+        // |initial| = 7, never exceeded.
+        assert_eq!(out, vec![7.0, 7.0, 7.0, 7.0]);
+    }
+
+    #[test]
+    fn running_max_abs_zero_stream() {
+        let p = ScanProgram::new(0.0_f64, vec![0.0, 0.0, 0.0]);
+        let out = running_max_abs(&p);
+        assert_eq!(out, vec![0.0, 0.0, 0.0, 0.0]);
+    }
+
+    // ── iter-126: running_count_above ─────────────────────────────
+
+    #[test]
+    fn running_count_above_threshold_below_initial() {
+        // threshold=0, initial=1 → count starts at 1.
+        let p = ScanProgram::new(1.0_f64, vec![2.0, -1.0, 3.0]);
+        let out = running_count_above(&p, 0.0);
+        assert_eq!(out, vec![1, 2, 2, 3]);
+    }
+
+    #[test]
+    fn running_count_above_threshold_above_initial() {
+        // threshold=5, initial=1 → count starts at 0.
+        let p = ScanProgram::new(1.0_f64, vec![3.0, 6.0, 4.0, 10.0]);
+        let out = running_count_above(&p, 5.0);
+        assert_eq!(out, vec![0, 0, 1, 1, 2]);
+    }
+
+    #[test]
+    fn running_count_above_all_below() {
+        let p = ScanProgram::new(0.0_f64, vec![-1.0, -2.0, -3.0]);
+        let out = running_count_above(&p, 10.0);
+        assert_eq!(out, vec![0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn running_count_above_strict_inequality() {
+        // threshold=5, x=5 (equal) is NOT counted.
+        let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
+        let out = running_count_above(&p, 5.0);
+        assert_eq!(out, vec![0, 0, 0]);
+    }
+
+    // ── iter-255: running_max_drawup ──────────────────────────────
+
+    #[test]
+    fn running_max_drawup_monotone_down_stays_zero() {
+        let p = ScanProgram::new(10.0_f64, vec![5.0, 0.0, -5.0]);
+        let out = running_max_drawup(&p);
+        for v in &out {
+            assert_eq!(*v, 0.0);
+        }
+    }
+
+    #[test]
+    fn running_max_drawup_trough_then_peak() {
+        // (5, 2, 8, 1, 9): trough 5→2→2→1→1; drawup 0→0→6→6→8.
+        let p = ScanProgram::new(5.0_f64, vec![2.0, 8.0, 1.0, 9.0]);
+        let out = running_max_drawup(&p);
+        assert_eq!(out, vec![0.0, 0.0, 6.0, 6.0, 8.0]);
+    }
+
+    #[test]
+    fn running_max_drawup_monotone_nondecreasing() {
+        let p = ScanProgram::new(0.0_f64, vec![10.0, -5.0, 7.0, -10.0, 12.0]);
+        let out = running_max_drawup(&p);
+        for win in out.windows(2) {
+            assert!(win[1] >= win[0] - 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_max_drawup_constant_stream_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
+        let out = running_max_drawup(&p);
+        for v in &out {
+            assert_eq!(*v, 0.0);
+        }
+    }
+
+    // ── iter-273: running_mean_abs ────────────────────────────────
+
+    #[test]
+    fn running_mean_abs_first_emit_is_abs_initial() {
+        let p = ScanProgram::new(-5.0_f64, vec![]);
+        let out = running_mean_abs(&p);
+        assert_eq!(out, vec![5.0]);
+    }
+
+    #[test]
+    fn running_mean_abs_signed_doesnt_change_mean() {
+        // Negated stream gives same mean-abs.
+        let p_pos = ScanProgram::new(3.0_f64, vec![4.0, 5.0]);
+        let p_neg = ScanProgram::new(-3.0_f64, vec![-4.0, -5.0]);
+        let pos = running_mean_abs(&p_pos);
+        let neg = running_mean_abs(&p_neg);
+        assert_eq!(pos, neg);
+    }
+
+    #[test]
+    fn running_mean_abs_known() {
+        // |3|, |−4|, |5|: cumulative (3, 7, 12); count (1, 2, 3); means (3, 3.5, 4).
+        let p = ScanProgram::new(3.0_f64, vec![-4.0, 5.0]);
+        let out = running_mean_abs(&p);
+        assert_eq!(out, vec![3.0, 3.5, 4.0]);
+    }
+
+    #[test]
+    fn running_mean_abs_zero_stream_is_zero() {
+        let p = ScanProgram::new(0.0_f64, vec![0.0, 0.0]);
+        let out = running_mean_abs(&p);
+        for v in &out {
+            assert_eq!(*v, 0.0);
+        }
+    }
+
+    // ── iter-249: running_min_abs ─────────────────────────────────
+
+    #[test]
+    fn running_min_abs_first_emit_is_abs_initial() {
+        let p = ScanProgram::new(-5.0_f64, vec![]);
+        let out = running_min_abs(&p);
+        assert_eq!(out, vec![5.0]);
+    }
+
+    #[test]
+    fn running_min_abs_finds_smallest_magnitude() {
+        // |−3|, |2|, |−7|: min decreases to 2.
+        let p = ScanProgram::new(-3.0_f64, vec![2.0, -7.0]);
+        let out = running_min_abs(&p);
+        assert_eq!(out, vec![3.0, 2.0, 2.0]);
+    }
+
+    #[test]
+    fn running_min_abs_monotone_nonincreasing() {
+        let p = ScanProgram::new(10.0_f64, vec![-5.0, 7.0, -1.0, 100.0]);
+        let out = running_min_abs(&p);
+        for win in out.windows(2) {
+            assert!(win[1] <= win[0]);
+        }
+    }
+
+    #[test]
+    fn running_min_abs_zero_drops_to_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![0.0, -3.0]);
+        let out = running_min_abs(&p);
+        assert_eq!(out, vec![5.0, 0.0, 0.0]);
+    }
+
+    // ── iter-309: running_squared_increments ──────────────────────
+
+    #[test]
+    fn squared_increments_first_emit_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        let out = running_squared_increments(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn squared_increments_known() {
+        // (0, 3, 7, 5): diffs (3, 4, -2)² = (9, 16, 4); cumulative (0, 9, 25, 29).
+        let p = ScanProgram::new(0.0_f64, vec![3.0, 7.0, 5.0]);
+        let out = running_squared_increments(&p);
+        assert_eq!(out, vec![0.0, 9.0, 25.0, 29.0]);
+    }
+
+    #[test]
+    fn squared_increments_constant_stream_is_zero() {
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0, 3.0]);
+        let out = running_squared_increments(&p);
+        for v in &out {
+            assert_eq!(*v, 0.0);
+        }
+    }
+
+    #[test]
+    fn squared_increments_monotone_nondecreasing() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.0, -4.0]);
+        let out = running_squared_increments(&p);
+        for win in out.windows(2) {
+            assert!(win[1] >= win[0] - 1e-12);
+        }
+    }
+
+    // ── iter-315: running_count_strict_increase ───────────────────
+
+    #[test]
+    fn strict_increase_monotone_up_increments_each_step() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0]);
+        let out = running_count_strict_increase(&p);
+        assert_eq!(out, vec![0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn strict_increase_monotone_down_stays_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![4.0, 3.0, 2.0]);
+        let out = running_count_strict_increase(&p);
+        for v in &out {
+            assert_eq!(*v, 0);
+        }
+    }
+
+    #[test]
+    fn strict_increase_equal_doesnt_count() {
+        let p = ScanProgram::new(2.0_f64, vec![2.0, 3.0, 3.0, 4.0]);
+        let out = running_count_strict_increase(&p);
+        // Equal → no increase; (2→2): no, (2→3): yes, (3→3): no, (3→4): yes.
+        assert_eq!(out, vec![0, 0, 1, 1, 2]);
+    }
+
+    // ── iter-321: running_count_strict_decrease ───────────────────
+
+    #[test]
+    fn strict_decrease_monotone_down_increments_each_step() {
+        let p = ScanProgram::new(5.0_f64, vec![4.0, 3.0, 2.0]);
+        let out = running_count_strict_decrease(&p);
+        assert_eq!(out, vec![0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn strict_decrease_monotone_up_stays_zero() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0]);
+        let out = running_count_strict_decrease(&p);
+        for v in &out {
+            assert_eq!(*v, 0);
+        }
+    }
+
+    #[test]
+    fn strict_decrease_equal_doesnt_count() {
+        let p = ScanProgram::new(4.0_f64, vec![4.0, 3.0, 3.0, 2.0]);
+        let out = running_count_strict_decrease(&p);
+        // (4→4): no, (4→3): yes, (3→3): no, (3→2): yes.
+        assert_eq!(out, vec![0, 0, 1, 1, 2]);
+    }
+
+    // ── iter-327: running_count_consecutive_ties ──────────────────
+
+    #[test]
+    fn ties_all_equal_increments_each_step() {
+        let p = ScanProgram::new(7.0_f64, vec![7.0, 7.0, 7.0]);
+        let out = running_count_consecutive_ties(&p);
+        assert_eq!(out, vec![0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn ties_strictly_monotone_stays_zero() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0]);
+        let out = running_count_consecutive_ties(&p);
+        for v in &out {
+            assert_eq!(*v, 0);
+        }
+    }
+
+    #[test]
+    fn ties_partition_identity_holds_exactly() {
+        // Closing identity: up + down + tie ≡ t for every t.
+        let p = ScanProgram::new(
+            0.0_f64,
+            vec![1.0, 1.0, 0.0, 2.0, 2.0, -1.0, 3.0],
+        );
+        let up = running_count_strict_increase(&p);
+        let down = running_count_strict_decrease(&p);
+        let ties = running_count_consecutive_ties(&p);
+        for t in 0..up.len() {
+            assert_eq!(
+                up[t] + down[t] + ties[t],
+                t as u64,
+                "t={}: up={} down={} tie={}",
+                t,
+                up[t],
+                down[t],
+                ties[t]
+            );
+        }
+    }
+
+    #[test]
+    fn ties_count_specific_pairs() {
+        // initial=4, inputs=[4, 3, 3, 2]:
+        // (4→4): tie, (4→3): no, (3→3): tie, (3→2): no.
+        let p = ScanProgram::new(4.0_f64, vec![4.0, 3.0, 3.0, 2.0]);
+        let out = running_count_consecutive_ties(&p);
+        assert_eq!(out, vec![0, 1, 1, 2, 2]);
+    }
+
+    #[test]
+    fn ties_nan_never_counts() {
+        // NaN != NaN per IEEE-754, so NaN-adjacent pairs never tie.
+        let p = ScanProgram::new(f64::NAN, vec![f64::NAN, 1.0, 1.0]);
+        let out = running_count_consecutive_ties(&p);
+        // (NaN→NaN): NaN==NaN is false, (NaN→1): false, (1→1): true.
+        assert_eq!(out, vec![0, 0, 0, 1]);
+    }
+
+    #[test]
+    fn strict_up_plus_down_plus_flat_equals_t() {
+        // Identity: up_t + down_t + flat_t = t for every t.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 1.0, 0.0, 2.0, 2.0, -1.0, 3.0]);
+        let up = running_count_strict_increase(&p);
+        let down = running_count_strict_decrease(&p);
+        // Index 0: prior pair count is 0; each later index t corresponds
+        // to one consecutive pair, so t = up + down + flat.
+        for t in 0..up.len() {
+            // Synthesize flat = t − up − down; verify all numbers are
+            // non-negative integers and reconstitute t.
+            let lhs = up[t] + down[t];
+            assert!(
+                lhs <= t as u64,
+                "t={} up={} down={} > t",
+                t,
+                up[t],
+                down[t]
+            );
+        }
+    }
+
+    // ── iter-333: running_first_difference (signed) ───────────────
+
+    #[test]
+    fn running_first_difference_emits_zero_first_then_signed_jumps() {
+        // initial = 5; inputs = [3, 7, 2]; jumps = [−2, 4, −5]; emit:
+        // [0, −2, 4, −5].
+        let p = ScanProgram::new(5.0_f64, vec![3.0, 7.0, 2.0]);
+        let out = running_first_difference(&p);
+        assert_eq!(out, vec![0.0, -2.0, 4.0, -5.0]);
+    }
+
+    #[test]
+    fn running_first_difference_empty_inputs_is_single_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        let out = running_first_difference(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn running_first_difference_abs_value_matches_running_first_difference_abs() {
+        // |running_first_difference| should equal running_first_
+        // difference_abs pointwise.
+        let p = ScanProgram::new(2.0_f64, vec![1.0, 4.0, 4.0, -1.0, 5.0]);
+        let signed = running_first_difference(&p);
+        let abs = running_first_difference_abs(&p);
+        assert_eq!(signed.len(), abs.len());
+        for i in 0..signed.len() {
+            assert!((signed[i].abs() - abs[i]).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_first_difference_telescopes_to_running_sum() {
+        // running_first_difference accumulates back to x_t − x_0
+        // via cumulative sum. The cumulative sum at index t equals
+        // input[t-1] − initial for t ≥ 1, and 0 at t = 0.
+        let p = ScanProgram::new(2.0_f64, vec![5.0, 1.0, 7.0]);
+        let diffs = running_first_difference(&p);
+        let mut acc = 0.0_f64;
+        let cum: Vec<f64> = diffs
+            .iter()
+            .map(|d| {
+                acc += d;
+                acc
+            })
+            .collect();
+        // Expected cumulative sums:
+        //   t=0: 0
+        //   t=1: 5 − 2 = 3
+        //   t=2: 1 − 2 = −1
+        //   t=3: 7 − 2 = 5
+        assert_eq!(cum, vec![0.0, 3.0, -1.0, 5.0]);
+    }
+
+    // ── iter-339: running_sum_of_squares ──────────────────────────
+
+    #[test]
+    fn running_sum_of_squares_basic() {
+        // initial=1, inputs=[2, 3, 4]:
+        // emits: 1², 1²+2²=5, 5+3²=14, 14+4²=30.
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 3.0, 4.0]);
+        let out = running_sum_of_squares(&p);
+        assert_eq!(out, vec![1.0, 5.0, 14.0, 30.0]);
+    }
+
+    #[test]
+    fn running_sum_of_squares_empty_inputs_is_initial_squared() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        let out = running_sum_of_squares(&p);
+        assert_eq!(out, vec![25.0]);
+    }
+
+    #[test]
+    fn running_sum_of_squares_monotone_non_decreasing() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.0, -4.0, 0.0]);
+        let out = running_sum_of_squares(&p);
+        for win in out.windows(2) {
+            assert!(win[1] >= win[0] - 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_sum_of_squares_squared_l2_norm_relation() {
+        // running_l2_norm² ≡ running_sum_of_squares pointwise.
+        let p = ScanProgram::new(2.0_f64, vec![1.0, 4.0, 3.0]);
+        let l2 = running_l2_norm(&p);
+        let s2 = running_sum_of_squares(&p);
+        for i in 0..l2.len() {
+            assert!((l2[i] * l2[i] - s2[i]).abs() < 1e-9, "i={}", i);
+        }
+    }
+
+    #[test]
+    fn running_sum_of_squares_negative_inputs_squared_to_positive() {
+        let p = ScanProgram::new(0.0_f64, vec![-1.0, -2.0, -3.0]);
+        let out = running_sum_of_squares(&p);
+        assert_eq!(out, vec![0.0, 1.0, 5.0, 14.0]);
+    }
+
+    // ── iter-345: running_standard_deviation ──────────────────────
+
+    #[test]
+    fn running_standard_deviation_first_emit_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![1.0, 2.0, 3.0]);
+        let out = running_standard_deviation(&p);
+        assert_eq!(out[0], 0.0);
+    }
+
+    #[test]
+    fn running_standard_deviation_pointwise_sqrt_of_variance() {
+        // running_standard_deviation ≡ sqrt(running_variance).
+        let p = ScanProgram::new(2.0_f64, vec![5.0, 1.0, 7.0, 3.0]);
+        let sd = running_standard_deviation(&p);
+        let var = running_variance(&p);
+        assert_eq!(sd.len(), var.len());
+        for i in 0..sd.len() {
+            let expected = var[i].sqrt();
+            assert!((sd[i] - expected).abs() < 1e-12, "i={}", i);
+        }
+    }
+
+    #[test]
+    fn running_standard_deviation_constant_input_is_zero() {
+        // Constant stream has 0 variance → 0 standard deviation.
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0, 3.0]);
+        let out = running_standard_deviation(&p);
+        for v in out {
+            assert!(v.abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_standard_deviation_two_point_value_matches_closed_form() {
+        // initial=0, inputs=[1]: two samples 0 and 1.
+        // Population variance = ((0-0.5)² + (1-0.5)²) / 2 = 0.25.
+        // SD = 0.5.
+        let p = ScanProgram::new(0.0_f64, vec![1.0]);
+        let out = running_standard_deviation(&p);
+        assert!((out[1] - 0.5).abs() < 1e-12);
+    }
+
+    // ── iter-351: running_unbiased_variance ───────────────────────
+
+    #[test]
+    fn running_unbiased_variance_first_emit_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![1.0, 2.0]);
+        let out = running_unbiased_variance(&p);
+        assert_eq!(out[0], 0.0);
+    }
+
+    #[test]
+    fn running_unbiased_variance_two_samples_matches_closed_form() {
+        // Samples [0, 1]: mean=0.5, deviations ±0.5, M2 = 0.5.
+        // Unbiased variance = M2/(n-1) = 0.5.
+        let p = ScanProgram::new(0.0_f64, vec![1.0]);
+        let out = running_unbiased_variance(&p);
+        assert!((out[1] - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn running_unbiased_variance_three_samples_known() {
+        // Samples [2, 4, 6]: mean=4, devs (-2, 0, 2), M2 = 8.
+        // Unbiased variance = 8 / 2 = 4.
+        let p = ScanProgram::new(2.0_f64, vec![4.0, 6.0]);
+        let out = running_unbiased_variance(&p);
+        assert_eq!(out.len(), 3);
+        assert!((out[2] - 4.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn running_unbiased_variance_relates_to_population_by_bessel() {
+        // unbiased_t * (n-1) = population_t * n (after first emit).
+        let p = ScanProgram::new(1.0_f64, vec![3.0, 5.0, 7.0, 9.0]);
+        let unbiased = running_unbiased_variance(&p);
+        let pop = running_variance(&p);
+        for t in 1..unbiased.len() {
+            let n = (t + 1) as f64;
+            let lhs = unbiased[t] * (n - 1.0);
+            let rhs = pop[t] * n;
+            assert!((lhs - rhs).abs() < 1e-9, "t={}: {} vs {}", t, lhs, rhs);
+        }
+    }
+
+    // ── iter-357: running_unbiased_standard_deviation ─────────────
+
+    #[test]
+    fn running_unbiased_std_first_emit_is_zero() {
+        let p = ScanProgram::new(2.0_f64, vec![1.0]);
+        let out = running_unbiased_standard_deviation(&p);
+        assert_eq!(out[0], 0.0);
+    }
+
+    #[test]
+    fn running_unbiased_std_is_sqrt_of_unbiased_variance() {
+        let p = ScanProgram::new(2.0_f64, vec![5.0, 1.0, 7.0, 3.0]);
+        let s = running_unbiased_standard_deviation(&p);
+        let v = running_unbiased_variance(&p);
+        for i in 0..s.len() {
+            assert!((s[i] - v[i].sqrt()).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_unbiased_std_three_sample_known() {
+        // Samples [2, 4, 6]: unbiased variance = 4, SD = 2.
+        let p = ScanProgram::new(2.0_f64, vec![4.0, 6.0]);
+        let out = running_unbiased_standard_deviation(&p);
+        assert!((out[2] - 2.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn running_unbiased_std_constant_input_is_zero() {
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0, 3.0]);
+        let out = running_unbiased_standard_deviation(&p);
+        for v in out {
+            assert!(v.abs() < 1e-12);
+        }
+    }
+
+    // ── iter-363: running_max_abs_signed ──────────────────────────
+
+    #[test]
+    fn running_max_abs_signed_first_emit_is_initial() {
+        let p = ScanProgram::new(-7.0_f64, vec![]);
+        let out = running_max_abs_signed(&p);
+        assert_eq!(out, vec![-7.0]);
+    }
+
+    #[test]
+    fn running_max_abs_signed_negative_swing_preserved() {
+        // initial=0, inputs=[3, -5, 2, -4]: peak swings to −5 at t=2.
+        let p = ScanProgram::new(0.0_f64, vec![3.0, -5.0, 2.0, -4.0]);
+        let out = running_max_abs_signed(&p);
+        assert_eq!(out, vec![0.0, 3.0, -5.0, -5.0, -5.0]);
+    }
+
+    #[test]
+    fn running_max_abs_signed_magnitude_matches_running_max_abs() {
+        // |running_max_abs_signed| pointwise ≡ running_max_abs.
+        let p = ScanProgram::new(2.0_f64, vec![-3.0, 1.0, -7.5, 4.0, -2.0]);
+        let signed = running_max_abs_signed(&p);
+        let mag = running_max_abs(&p);
+        assert_eq!(signed.len(), mag.len());
+        for i in 0..signed.len() {
+            assert!((signed[i].abs() - mag[i]).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_max_abs_signed_tie_keeps_earlier_value() {
+        // initial=3, inputs=[-3]: |3| = |-3| = 3 (tie). Earlier wins.
+        let p = ScanProgram::new(3.0_f64, vec![-3.0]);
+        let out = running_max_abs_signed(&p);
+        assert_eq!(out, vec![3.0, 3.0]);
+    }
+
+    // ── iter-369: running_min_abs_signed ──────────────────────────
+
+    #[test]
+    fn running_min_abs_signed_first_emit_is_initial() {
+        let p = ScanProgram::new(-7.0_f64, vec![]);
+        let out = running_min_abs_signed(&p);
+        assert_eq!(out, vec![-7.0]);
+    }
+
+    #[test]
+    fn running_min_abs_signed_closest_to_zero_with_sign_preserved() {
+        // initial=10, inputs=[5, -3, 7, 2]: closest to zero is 2.
+        let p = ScanProgram::new(10.0_f64, vec![5.0, -3.0, 7.0, 2.0]);
+        let out = running_min_abs_signed(&p);
+        assert_eq!(out, vec![10.0, 5.0, -3.0, -3.0, 2.0]);
+    }
+
+    #[test]
+    fn running_min_abs_signed_magnitude_matches_running_min_abs() {
+        let p = ScanProgram::new(2.0_f64, vec![-3.0, 1.0, -7.5, 4.0, -2.0]);
+        let signed = running_min_abs_signed(&p);
+        let mag = running_min_abs(&p);
+        for i in 0..signed.len() {
+            assert!((signed[i].abs() - mag[i]).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_min_abs_signed_tie_keeps_earlier_value() {
+        let p = ScanProgram::new(3.0_f64, vec![-3.0]);
+        let out = running_min_abs_signed(&p);
+        // |3| = |-3| = 3 tie → earlier wins.
+        assert_eq!(out, vec![3.0, 3.0]);
+    }
+
+    // ── iter-375: running_log_returns ─────────────────────────────
+
+    #[test]
+    fn running_log_returns_first_emit_is_zero() {
+        let p = ScanProgram::new(1.0_f64, vec![]);
+        let out = running_log_returns(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn running_log_returns_constant_input_is_zero() {
+        let p = ScanProgram::new(2.0_f64, vec![2.0, 2.0, 2.0]);
+        let out = running_log_returns(&p);
+        for v in out {
+            assert!(v.abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_log_returns_telescopes_to_log_ratio_of_endpoints() {
+        // Σ_t ln(x_t/x_{t-1}) = ln(x_n / x_0).
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 4.0, 8.0]);
+        let returns = running_log_returns(&p);
+        let total: f64 = returns.iter().sum();
+        let expected = 8.0_f64.ln(); // ln(8/1)
+        assert!((total - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn running_log_returns_doubling_is_ln_two() {
+        // x_t = 2·x_{t-1} → return = ln(2) per step.
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 4.0, 8.0]);
+        let returns = running_log_returns(&p);
+        // returns[0] = 0, returns[1..] all = ln(2).
+        assert_eq!(returns[0], 0.0);
+        let ln_two = 2.0_f64.ln();
+        for r in &returns[1..] {
+            assert!((r - ln_two).abs() < 1e-12);
+        }
+    }
+
+    // ── iter-381: running_cumulative_log_returns ──────────────────
+
+    #[test]
+    fn cumulative_log_returns_first_emit_is_zero() {
+        let p = ScanProgram::new(1.0_f64, vec![]);
+        let out = running_cumulative_log_returns(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn cumulative_log_returns_doubling_path() {
+        // initial=1, inputs=[2, 4, 8]: cumulative log = ln(2), ln(4), ln(8).
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 4.0, 8.0]);
+        let out = running_cumulative_log_returns(&p);
+        assert_eq!(out[0], 0.0);
+        assert!((out[1] - 2.0_f64.ln()).abs() < 1e-12);
+        assert!((out[2] - 4.0_f64.ln()).abs() < 1e-12);
+        assert!((out[3] - 8.0_f64.ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn cumulative_log_returns_matches_sum_of_per_step_log_returns() {
+        // cumulative_log_returns[t] ≡ Σ_{i ≤ t} per_step_log_returns[i].
+        let p = ScanProgram::new(2.0_f64, vec![3.0, 5.0, 8.0, 13.0]);
+        let cum = running_cumulative_log_returns(&p);
+        let per_step = running_log_returns(&p);
+        let mut acc = 0.0_f64;
+        for i in 0..cum.len() {
+            acc += per_step[i];
+            assert!((cum[i] - acc).abs() < 1e-12, "i={}", i);
+        }
+    }
+
+    #[test]
+    fn cumulative_log_returns_return_to_initial_is_zero() {
+        // Final value = initial → cumulative log return = 0.
+        let p = ScanProgram::new(5.0_f64, vec![10.0, 2.0, 5.0]);
+        let out = running_cumulative_log_returns(&p);
+        // Last sample at x=5 = initial, ln(5/5) = 0.
+        assert!(out.last().unwrap().abs() < 1e-12);
+    }
+
+    // ── iter-387: running_relative_first_difference ───────────────
+
+    #[test]
+    fn running_relative_first_difference_first_emit_is_zero() {
+        let p = ScanProgram::new(1.0_f64, vec![]);
+        let out = running_relative_first_difference(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn running_relative_first_difference_doubling_is_one() {
+        // x_t = 2·x_{t-1} → simple return (2x − x)/x = 1.
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 4.0, 8.0]);
+        let out = running_relative_first_difference(&p);
+        assert_eq!(out[0], 0.0);
+        for r in &out[1..] {
+            assert_eq!(*r, 1.0);
+        }
+    }
+
+    #[test]
+    fn running_relative_first_difference_constant_is_zero() {
+        let p = ScanProgram::new(2.0_f64, vec![2.0, 2.0, 2.0]);
+        let out = running_relative_first_difference(&p);
+        for v in out {
+            assert_eq!(v, 0.0);
+        }
+    }
+
+    #[test]
+    fn running_relative_first_difference_small_jump_agrees_with_log_return() {
+        // For small Δ/prev, simple ≈ log. Verify within 1e-2 at
+        // 1% jumps.
+        let p = ScanProgram::new(100.0_f64, vec![101.0, 102.01, 103.030_1]);
+        let simple = running_relative_first_difference(&p);
+        let log = running_log_returns(&p);
+        for i in 1..simple.len() {
+            assert!((simple[i] - log[i]).abs() < 1e-3, "i={}", i);
+        }
+    }
+
+    // ── iter-393: running_cumulative_simple_return ────────────────
+
+    #[test]
+    fn running_cumulative_simple_return_first_emit_is_zero() {
+        let p = ScanProgram::new(1.0_f64, vec![]);
+        let out = running_cumulative_simple_return(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn running_cumulative_simple_return_doubling_is_one_then_three() {
+        // initial=1, inputs=[2, 4, 8]: x/1 - 1 = 1, 3, 7.
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 4.0, 8.0]);
+        let out = running_cumulative_simple_return(&p);
+        assert_eq!(out, vec![0.0, 1.0, 3.0, 7.0]);
+    }
+
+    #[test]
+    fn running_cumulative_simple_return_return_to_initial_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![10.0, 2.0, 5.0]);
+        let out = running_cumulative_simple_return(&p);
+        // Last value 5 = initial → cumulative simple return = 0.
+        assert!(out.last().unwrap().abs() < 1e-12);
+    }
+
+    #[test]
+    fn running_cumulative_simple_return_small_change_agrees_with_log() {
+        // Within ~1% change, simple ≈ log.
+        let p = ScanProgram::new(100.0_f64, vec![101.0, 102.0, 103.0]);
+        let simple = running_cumulative_simple_return(&p);
+        let log_ret = running_cumulative_log_returns(&p);
+        for i in 1..simple.len() {
+            assert!((simple[i] - log_ret[i]).abs() < 1e-3, "i={}", i);
+        }
+    }
+
+    // ── iter-399: running_count_turning_points ────────────────────
+
+    #[test]
+    fn running_count_turning_points_first_two_emits_are_zero() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0]);
+        let out = running_count_turning_points(&p);
+        assert_eq!(out, vec![0, 0]);
+    }
+
+    #[test]
+    fn running_count_turning_points_monotone_stays_zero() {
+        // Strictly-monotone sequence: no turning points.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0, 4.0]);
+        let out = running_count_turning_points(&p);
+        for v in &out {
+            assert_eq!(*v, 0);
+        }
+    }
+
+    #[test]
+    fn running_count_turning_points_zigzag_counts_each_turn() {
+        // 0, 1, -1, 1, -1: diffs +1, -2, +2, -2 → 3 sign flips.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -1.0, 1.0, -1.0]);
+        let out = running_count_turning_points(&p);
+        assert_eq!(out, vec![0, 0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn running_count_turning_points_single_peak() {
+        // 0, 1, 2, 3, 2, 1 — one peak at index 3 (diff +,+,+,-,-).
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0, 2.0, 1.0]);
+        let out = running_count_turning_points(&p);
+        // The turning point is at the value '3' → index 3 in output.
+        // Diffs: +1, +1, +1, -1, -1. Sign flip between diff[2] and
+        // diff[3] (index 4 in output, but counted at sample index 4
+        // which corresponds to out[4]).
+        assert_eq!(out, vec![0, 0, 0, 0, 1, 1]);
+    }
+
+    // ── iter-405: running_count_local_maxima ──────────────────────
+
+    #[test]
+    fn running_count_local_maxima_first_two_emits_are_zero() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0]);
+        let out = running_count_local_maxima(&p);
+        assert_eq!(out, vec![0, 0]);
+    }
+
+    #[test]
+    fn running_count_local_maxima_monotone_stays_zero() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0, 4.0]);
+        let out = running_count_local_maxima(&p);
+        for v in &out {
+            assert_eq!(*v, 0);
+        }
+    }
+
+    #[test]
+    fn running_count_local_maxima_single_peak() {
+        // 0, 1, 2, 3, 2, 1 → peak at value 3.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0, 2.0, 1.0]);
+        let out = running_count_local_maxima(&p);
+        assert_eq!(out, vec![0, 0, 0, 0, 1, 1]);
+    }
+
+    #[test]
+    fn running_count_local_maxima_zigzag_alternates_peaks_only() {
+        // 0, 1, -1, 1, -1: peaks at indices where diff flips +→−.
+        // diffs: +1, -2, +2, -2 → flip at idx 2 (peak), idx 3 is
+        // +→− which is also a peak (counted at idx 4 in output).
+        // Wait: diff[idx 1] = +1 (val 1), diff[idx 2] = -2 (val -1),
+        // diff[idx 3] = +2 (val 1), diff[idx 4] = -2 (val -1).
+        // Peaks (prev=+, curr=−): at idx 2 (val -1), idx 4 (val -1).
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -1.0, 1.0, -1.0]);
+        let out = running_count_local_maxima(&p);
+        assert_eq!(out, vec![0, 0, 1, 1, 2]);
+    }
+
+    #[test]
+    fn running_count_local_maxima_plus_minima_equals_turning_points() {
+        // Maxima count + minima count ≡ turning_points count
+        // (asserted as inequality here since we don't have
+        // running_count_local_minima yet; verify max ≤ turning).
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 1.0, 3.0, 2.0]);
+        let maxima = running_count_local_maxima(&p);
+        let turning = running_count_turning_points(&p);
+        for t in 0..maxima.len() {
+            assert!(maxima[t] <= turning[t]);
+        }
+    }
+
+    // ── iter-411: running_count_local_minima ──────────────────────
+
+    #[test]
+    fn running_count_local_minima_first_two_emits_are_zero() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0]);
+        let out = running_count_local_minima(&p);
+        assert_eq!(out, vec![0, 0]);
+    }
+
+    #[test]
+    fn running_count_local_minima_strictly_decreasing_stays_zero() {
+        let p = ScanProgram::new(4.0_f64, vec![3.0, 2.0, 1.0]);
+        let out = running_count_local_minima(&p);
+        for v in &out {
+            assert_eq!(*v, 0);
+        }
+    }
+
+    #[test]
+    fn running_count_local_minima_single_valley() {
+        // 4, 3, 2, 1, 2, 3: valley at value 1 (idx 4 in output).
+        let p = ScanProgram::new(4.0_f64, vec![3.0, 2.0, 1.0, 2.0, 3.0]);
+        let out = running_count_local_minima(&p);
+        assert_eq!(out, vec![0, 0, 0, 0, 1, 1]);
+    }
+
+    #[test]
+    fn running_count_local_minima_plus_maxima_equals_turning_points() {
+        // The partition identity: maxima + minima ≡ turning_points
+        // pointwise.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 1.0, 3.0, 2.0, 4.0]);
+        let maxima = running_count_local_maxima(&p);
+        let minima = running_count_local_minima(&p);
+        let turning = running_count_turning_points(&p);
+        for t in 0..maxima.len() {
+            assert_eq!(
+                maxima[t] + minima[t],
+                turning[t],
+                "t={}: maxima={} + minima={} != turning={}",
+                t,
+                maxima[t],
+                minima[t],
+                turning[t]
+            );
+        }
+    }
+
+    // ── iter-417: running_count_near_zero ─────────────────────────
+
+    #[test]
+    fn running_count_near_zero_all_inside_tolerance() {
+        // initial=0.05, inputs=[0.01, -0.03, 0.1] with tol=0.05:
+        // initial → 0.05 ≤ 0.05 → count; 0.01 yes; -0.03 yes; 0.1 no.
+        let p = ScanProgram::new(0.05_f64, vec![0.01, -0.03, 0.1]);
+        let out = running_count_near_zero(&p, 0.05);
+        assert_eq!(out, vec![1, 2, 3, 3]);
+    }
+
+    #[test]
+    fn running_count_near_zero_all_outside_tolerance() {
+        let p = ScanProgram::new(1.0_f64, vec![2.0, -3.0, 4.0]);
+        let out = running_count_near_zero(&p, 0.5);
+        for v in &out {
+            assert_eq!(*v, 0);
+        }
+    }
+
+    #[test]
+    fn running_count_near_zero_monotone_non_decreasing() {
+        let p = ScanProgram::new(0.1_f64, vec![5.0, 0.05, -0.02, 100.0, 0.0]);
+        let out = running_count_near_zero(&p, 0.1);
+        for win in out.windows(2) {
+            assert!(win[1] >= win[0]);
+        }
+    }
+
+    #[test]
+    fn running_count_near_zero_zero_tolerance_only_counts_exact_zero() {
+        let p = ScanProgram::new(0.0_f64, vec![1e-12, 0.0, -1e-12, 0.0]);
+        let out = running_count_near_zero(&p, 0.0);
+        // Only the exact 0.0 entries count. initial=0 → 1.
+        // inputs[0]=1e-12 not exact 0; inputs[1]=0; inputs[2]=−1e-12;
+        // inputs[3]=0.
+        assert_eq!(out, vec![1, 1, 2, 2, 3]);
+    }
+
+    // ── iter-423: running_realized_variance ───────────────────────
+
+    #[test]
+    fn running_realized_variance_first_emit_is_zero() {
+        let p = ScanProgram::new(1.0_f64, vec![]);
+        let out = running_realized_variance(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn running_realized_variance_constant_input_is_zero() {
+        // log(x/x) = 0, so every term is 0.
+        let p = ScanProgram::new(2.0_f64, vec![2.0, 2.0, 2.0]);
+        let out = running_realized_variance(&p);
+        for v in out {
+            assert!(v.abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_realized_variance_doubling_path() {
+        // initial=1, inputs=[2, 4, 8]: each step log-return = ln(2);
+        // realized variance = 1·ln(2)², 2·ln(2)², 3·ln(2)².
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 4.0, 8.0]);
+        let out = running_realized_variance(&p);
+        let r2 = 2.0_f64.ln().powi(2);
+        let expected = [0.0, r2, 2.0 * r2, 3.0 * r2];
+        for (got, exp) in out.iter().zip(expected.iter()) {
+            assert!((got - exp).abs() < 1e-12, "got={} exp={}", got, exp);
+        }
+    }
+
+    #[test]
+    fn running_realized_variance_monotone_non_decreasing() {
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 0.5, 3.0, 0.7, 1.5]);
+        let out = running_realized_variance(&p);
+        for win in out.windows(2) {
+            assert!(win[1] >= win[0] - 1e-12);
+        }
+    }
+
+    // ── iter-429: running_realized_volatility ─────────────────────
+
+    #[test]
+    fn running_realized_volatility_first_emit_is_zero() {
+        let p = ScanProgram::new(1.0_f64, vec![]);
+        let out = running_realized_volatility(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn running_realized_volatility_is_sqrt_of_realized_variance() {
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 0.5, 3.0, 0.7, 1.5]);
+        let vol = running_realized_volatility(&p);
+        let var = running_realized_variance(&p);
+        for i in 0..vol.len() {
+            assert!((vol[i] - var[i].sqrt()).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_realized_volatility_doubling_path_per_step_ln2() {
+        // initial=1, inputs=[2, 4, 8]: each per-step return = ln(2).
+        // RV after t steps = √(t · ln(2)²) = √t · ln(2).
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 4.0, 8.0]);
+        let out = running_realized_volatility(&p);
+        let r = 2.0_f64.ln();
+        let expected = [0.0, r, (2.0_f64).sqrt() * r, (3.0_f64).sqrt() * r];
+        for (got, exp) in out.iter().zip(expected.iter()) {
+            assert!((got - exp).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_realized_volatility_monotone_non_decreasing() {
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 0.5, 3.0, 0.7, 1.5]);
+        let out = running_realized_volatility(&p);
+        for win in out.windows(2) {
+            assert!(win[1] >= win[0] - 1e-12);
+        }
+    }
+
+    // ── iter-303: running_first_difference_abs ────────────────────
+
+    #[test]
+    fn first_difference_abs_first_emit_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        let out = running_first_difference_abs(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn first_difference_abs_known() {
+        // (0, 1, 3, 2): per-step |diffs| (0, 1, 2, 1).
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 2.0]);
+        let out = running_first_difference_abs(&p);
+        assert_eq!(out, vec![0.0, 1.0, 2.0, 1.0]);
+    }
+
+    #[test]
+    fn first_difference_abs_constant_stream_is_zero() {
+        let p = ScanProgram::new(7.0_f64, vec![7.0, 7.0]);
+        let out = running_first_difference_abs(&p);
+        for v in &out {
+            assert_eq!(*v, 0.0);
+        }
+    }
+
+    #[test]
+    fn first_difference_abs_sum_equals_total_variation_last() {
+        // Σ per-step |Δ| over the stream = total_variation at the last index.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.0, -4.0]);
+        let per = running_first_difference_abs(&p);
+        let tv = running_total_variation(&p);
+        let summed: f64 = per.iter().sum();
+        assert!((summed - tv[tv.len() - 1]).abs() < 1e-12);
+    }
+
+    // ── iter-243: running_total_variation ─────────────────────────
+
+    #[test]
+    fn running_total_variation_constant_stream_is_zero() {
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0, 3.0]);
+        let out = running_total_variation(&p);
+        for v in &out {
+            assert_eq!(*v, 0.0);
+        }
+    }
+
+    #[test]
+    fn running_total_variation_known() {
+        // (0, 1, 3, 2): diffs (1, 2, 1) → cumulative (0, 1, 3, 4).
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 2.0]);
+        let out = running_total_variation(&p);
+        assert_eq!(out, vec![0.0, 1.0, 3.0, 4.0]);
+    }
+
+    #[test]
+    fn running_total_variation_monotone_nondecreasing() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.0, -4.0]);
+        let out = running_total_variation(&p);
+        for win in out.windows(2) {
+            assert!(win[1] >= win[0]);
+        }
+    }
+
+    #[test]
+    fn running_total_variation_oscillating_unit_step_increments_each_step() {
+        // (1, -1, 1, -1): each step has |diff| = 2 → out = (0, 2, 4, 6).
+        let p = ScanProgram::new(1.0_f64, vec![-1.0, 1.0, -1.0]);
+        let out = running_total_variation(&p);
+        assert_eq!(out, vec![0.0, 2.0, 4.0, 6.0]);
+    }
+
+    // ── iter-237: running_max_drawdown ────────────────────────────
+
+    #[test]
+    fn running_max_drawdown_monotone_up_stays_zero() {
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 3.0, 4.0]);
+        let out = running_max_drawdown(&p);
+        for v in &out {
+            assert_eq!(*v, 0.0);
+        }
+    }
+
+    #[test]
+    fn running_max_drawdown_peak_then_trough() {
+        // (1, 5, 2, 8, 3): peaks 1→5→5→8→8; drawdowns 0→0→3→3→5.
+        let p = ScanProgram::new(1.0_f64, vec![5.0, 2.0, 8.0, 3.0]);
+        let out = running_max_drawdown(&p);
+        assert_eq!(out, vec![0.0, 0.0, 3.0, 3.0, 5.0]);
+    }
+
+    #[test]
+    fn running_max_drawdown_monotone_nondecreasing() {
+        let p = ScanProgram::new(0.0_f64, vec![10.0, -5.0, 7.0, -10.0, 12.0]);
+        let out = running_max_drawdown(&p);
+        for win in out.windows(2) {
+            assert!(win[1] >= win[0] - 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_max_drawdown_constant_stream_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0]);
+        let out = running_max_drawdown(&p);
+        for v in &out {
+            assert_eq!(*v, 0.0);
+        }
+    }
+
+    // ── iter-231: running_sign_changes ────────────────────────────
+
+    #[test]
+    fn running_sign_changes_no_flips_stays_zero() {
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 3.0, 4.0]);
+        let out = running_sign_changes(&p);
+        assert_eq!(out, vec![0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn running_sign_changes_alternating_increments_each_step() {
+        // (1, -1, 1, -1) → flips at 1, 2, 3.
+        let p = ScanProgram::new(1.0_f64, vec![-1.0, 1.0, -1.0]);
+        let out = running_sign_changes(&p);
+        assert_eq!(out, vec![0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn running_sign_changes_zeros_continue_previous_sign() {
+        // initial = -1 (neg); inputs (0, 0, 1) — only the 1 flips.
+        let p = ScanProgram::new(-1.0_f64, vec![0.0, 0.0, 1.0]);
+        let out = running_sign_changes(&p);
+        assert_eq!(out, vec![0, 0, 0, 1]);
+    }
+
+    #[test]
+    fn running_sign_changes_monotone_nondecreasing() {
+        let p = ScanProgram::new(0.5_f64, vec![-0.5, 0.5, -0.5, 0.5]);
+        let out = running_sign_changes(&p);
+        for win in out.windows(2) {
+            assert!(win[1] >= win[0]);
+        }
+    }
+
+    // ── iter-279: running_mean_squared ────────────────────────────
+
+    #[test]
+    fn running_mean_squared_constant_stream() {
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0]);
+        let out = running_mean_squared(&p);
+        for v in &out {
+            assert!((v - 9.0).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn running_mean_squared_3_4_known() {
+        // initial = 3, input = 4 → (9 + 16) / 2 = 12.5.
+        let p = ScanProgram::new(3.0_f64, vec![4.0]);
+        let out = running_mean_squared(&p);
+        assert!((out[1] - 12.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn running_mean_squared_is_quadratic_mean_squared() {
+        // E[X²] = (QM)².
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 3.0, 4.0]);
+        let ms = running_mean_squared(&p);
+        let qm = running_quadratic_mean(&p);
+        for (m, q) in ms.iter().zip(qm.iter()) {
+            assert!((m - q * q).abs() < 1e-9);
+        }
+    }
+
+    // ── iter-225: running_quadratic_mean (RMS) ────────────────────
+
+    #[test]
+    fn running_quadratic_mean_constant_stream() {
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0]);
+        let out = running_quadratic_mean(&p);
+        for v in &out {
+            assert!((v - 3.0).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn running_quadratic_mean_3_4_known() {
+        // initial=3, input=4: RMS = √((9+16)/2) = √12.5 ≈ 3.5355.
+        let p = ScanProgram::new(3.0_f64, vec![4.0]);
+        let out = running_quadratic_mean(&p);
+        assert!((out[1] - (12.5_f64).sqrt()).abs() < 1e-9, "got {}", out[1]);
+    }
+
+    #[test]
+    fn running_quadratic_mean_signed_inputs_match_squared() {
+        // RMS only cares about magnitudes.
+        let p1 = ScanProgram::new(3.0_f64, vec![4.0, -5.0]);
+        let p2 = ScanProgram::new(-3.0_f64, vec![-4.0, 5.0]);
+        let o1 = running_quadratic_mean(&p1);
+        let o2 = running_quadratic_mean(&p2);
+        for (a, b) in o1.iter().zip(o2.iter()) {
+            assert!((a - b).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_quadratic_mean_at_least_running_mean_abs() {
+        // QM ≥ AM_abs on the absolute-value stream (power-mean monotonicity).
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 4.0, 8.0]);
+        let qm = running_quadratic_mean(&p);
+        let am = running_mean(&p); // all positive — equals AM_abs
+        for (q, a) in qm.iter().zip(am.iter()) {
+            assert!(*q >= *a - 1e-9, "qm={} am={}", q, a);
+        }
+    }
+
+    // ── iter-219: running_harmonic_mean ───────────────────────────
+
+    #[test]
+    fn running_harmonic_mean_constant_stream() {
+        let p = ScanProgram::new(4.0_f64, vec![4.0, 4.0]);
+        let out = running_harmonic_mean(&p);
+        for v in &out {
+            assert!((v - 4.0).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn running_harmonic_mean_1_2_known() {
+        // HM(1, 2) = 2 / (1 + 0.5) = 4/3.
+        let p = ScanProgram::new(1.0_f64, vec![2.0]);
+        let out = running_harmonic_mean(&p);
+        assert!((out[1] - 4.0 / 3.0).abs() < 1e-9, "got {}", out[1]);
+    }
+
+    #[test]
+    fn running_harmonic_mean_2_3_6_known() {
+        // HM(2, 3, 6) = 3 / (1/2 + 1/3 + 1/6) = 3.
+        let p = ScanProgram::new(2.0_f64, vec![3.0, 6.0]);
+        let out = running_harmonic_mean(&p);
+        assert!((out[2] - 3.0).abs() < 1e-9, "got {}", out[2]);
+    }
+
+    #[test]
+    fn running_harmonic_mean_at_most_running_mean() {
+        // AM ≥ HM on positive data.
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 4.0, 8.0]);
+        let hm = running_harmonic_mean(&p);
+        let am = running_mean(&p);
+        for (h, a) in hm.iter().zip(am.iter()) {
+            assert!(*h <= *a + 1e-9, "hm={} am={}", h, a);
+        }
+    }
+
+    #[test]
+    fn running_harmonic_mean_non_positive_propagates_nan() {
+        let p = ScanProgram::new(1.0_f64, vec![-1.0, 4.0]);
+        let out = running_harmonic_mean(&p);
+        assert!(out[0].is_finite());
+        assert!(out[1].is_nan());
+        assert!(out[2].is_nan());
+    }
+
+    // ── iter-213: running_geometric_mean ──────────────────────────
+
+    #[test]
+    fn running_geometric_mean_constant_stream() {
+        // GM(4, 4, 4) = 4.
+        let p = ScanProgram::new(4.0_f64, vec![4.0, 4.0]);
+        let out = running_geometric_mean(&p);
+        for v in &out {
+            assert!((v - 4.0).abs() < 1e-9, "got {}", v);
+        }
+    }
+
+    #[test]
+    fn running_geometric_mean_doubling_stream() {
+        // 1, 2 → GM = √2; 1, 2, 4 → GM = ³√8 = 2.
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 4.0]);
+        let out = running_geometric_mean(&p);
+        assert!((out[0] - 1.0).abs() < 1e-12);
+        assert!((out[1] - 2.0_f64.sqrt()).abs() < 1e-9);
+        assert!((out[2] - 2.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn running_geometric_mean_at_most_arithmetic_mean() {
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 4.0, 8.0]);
+        let gm = running_geometric_mean(&p);
+        let am = running_mean(&p);
+        for (g, a) in gm.iter().zip(am.iter()) {
+            assert!(*g <= *a + 1e-9, "gm={} am={}", g, a);
+        }
+    }
+
+    #[test]
+    fn running_geometric_mean_non_positive_input_produces_nan() {
+        let p = ScanProgram::new(1.0_f64, vec![2.0, -1.0, 4.0]);
+        let out = running_geometric_mean(&p);
+        assert!(out[1].is_finite());
+        assert!(out[2].is_nan());
+        assert!(out[3].is_nan());
+    }
+
+    // ── iter-267: running_below_ratio ─────────────────────────────
+
+    #[test]
+    fn running_below_ratio_all_below_is_one() {
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 3.0]);
+        let out = running_below_ratio(&p, 100.0);
+        for v in &out {
+            assert_eq!(*v, 1.0);
+        }
+    }
+
+    #[test]
+    fn running_below_ratio_none_below_is_zero() {
+        let p = ScanProgram::new(10.0_f64, vec![20.0, 30.0]);
+        let out = running_below_ratio(&p, 5.0);
+        for v in &out {
+            assert_eq!(*v, 0.0);
+        }
+    }
+
+    #[test]
+    fn running_below_ratio_complements_above_when_no_ties() {
+        // For all non-threshold inputs, below + above = 1.
+        let p = ScanProgram::new(1.0_f64, vec![7.0, 3.0, 9.0]);
+        let below = running_below_ratio(&p, 5.0);
+        let above = running_above_ratio(&p, 5.0);
+        for (b, a) in below.iter().zip(above.iter()) {
+            assert!((b + a - 1.0).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_below_ratio_bounded_in_unit() {
+        let p = ScanProgram::new(0.5_f64, vec![3.0, -1.0, 4.0, 0.0]);
+        let out = running_below_ratio(&p, 1.0);
+        for v in &out {
+            assert!(*v >= 0.0 && *v <= 1.0);
+        }
+    }
+
+    // ── iter-297: running_count_positive ──────────────────────────
+
+    #[test]
+    fn running_count_positive_all_negative_is_zero() {
+        let p = ScanProgram::new(-1.0_f64, vec![-2.0, -3.0]);
+        let out = running_count_positive(&p);
+        for v in &out {
+            assert_eq!(*v, 0);
+        }
+    }
+
+    #[test]
+    fn running_count_positive_alternating() {
+        let p = ScanProgram::new(-1.0_f64, vec![2.0, -3.0, 4.0]);
+        let out = running_count_positive(&p);
+        assert_eq!(out, vec![0, 1, 1, 2]);
+    }
+
+    #[test]
+    fn running_count_positive_plus_negative_plus_zeros_equals_n() {
+        // For a stream with no exact zeros, pos + neg = n.
+        let p = ScanProgram::new(-1.0_f64, vec![2.0, -3.0, 4.0]);
+        let pos = running_count_positive(&p);
+        let neg = running_count_negative(&p);
+        for (i, (p, n)) in pos.iter().zip(neg.iter()).enumerate() {
+            assert_eq!((p + n) as usize, i + 1);
+        }
+    }
+
+    // ── iter-291: running_count_negative ──────────────────────────
+
+    #[test]
+    fn running_count_negative_all_positive_is_zero() {
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 3.0]);
+        let out = running_count_negative(&p);
+        for v in &out {
+            assert_eq!(*v, 0);
+        }
+    }
+
+    #[test]
+    fn running_count_negative_alternating() {
+        let p = ScanProgram::new(-1.0_f64, vec![2.0, -3.0, 4.0, -5.0]);
+        let out = running_count_negative(&p);
+        assert_eq!(out, vec![1, 1, 2, 2, 3]);
+    }
+
+    #[test]
+    fn running_count_negative_zero_doesnt_count() {
+        // x = 0 is not strictly negative.
+        let p = ScanProgram::new(0.0_f64, vec![0.0, -1.0]);
+        let out = running_count_negative(&p);
+        assert_eq!(out, vec![0, 0, 1]);
+    }
+
+    // ── iter-285: running_count_in_range ──────────────────────────
+
+    #[test]
+    fn running_count_in_range_all_inside() {
+        let p = ScanProgram::new(5.0_f64, vec![6.0, 7.0]);
+        let out = running_count_in_range(&p, 0.0, 10.0);
+        assert_eq!(out, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn running_count_in_range_none_inside() {
+        let p = ScanProgram::new(5.0_f64, vec![6.0, 7.0]);
+        let out = running_count_in_range(&p, 100.0, 200.0);
+        for v in &out {
+            assert_eq!(*v, 0);
+        }
+    }
+
+    #[test]
+    fn running_count_in_range_known_pattern() {
+        // [1, 7, 3, 9] with range [2, 8]: in-range at indices 1, 2 (7, 3).
+        let p = ScanProgram::new(1.0_f64, vec![7.0, 3.0, 9.0]);
+        let out = running_count_in_range(&p, 2.0, 8.0);
+        assert_eq!(out, vec![0, 1, 2, 2]);
+    }
+
+    #[test]
+    fn running_count_in_range_empty_interval_returns_zero() {
+        // lo > hi → empty interval; no value satisfies.
+        let p = ScanProgram::new(5.0_f64, vec![6.0, 7.0]);
+        let out = running_count_in_range(&p, 10.0, 0.0);
+        for v in &out {
+            assert_eq!(*v, 0);
+        }
+    }
+
+    // ── iter-261: running_above_ratio ─────────────────────────────
+
+    #[test]
+    fn running_above_ratio_all_above_is_one() {
+        let p = ScanProgram::new(10.0_f64, vec![20.0, 30.0]);
+        let out = running_above_ratio(&p, 5.0);
+        for v in &out {
+            assert_eq!(*v, 1.0);
+        }
+    }
+
+    #[test]
+    fn running_above_ratio_none_above_is_zero() {
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 3.0]);
+        let out = running_above_ratio(&p, 100.0);
+        for v in &out {
+            assert_eq!(*v, 0.0);
+        }
+    }
+
+    #[test]
+    fn running_above_ratio_known() {
+        // threshold = 5, inputs (initial = 1, 7, 3, 9): above at 1, 3 → counts 0, 1, 1, 2 / lens 1, 2, 3, 4.
+        let p = ScanProgram::new(1.0_f64, vec![7.0, 3.0, 9.0]);
+        let out = running_above_ratio(&p, 5.0);
+        assert_eq!(out, vec![0.0, 0.5, 1.0 / 3.0, 0.5]);
+    }
+
+    #[test]
+    fn running_above_ratio_bounded_in_unit() {
+        let p = ScanProgram::new(0.5_f64, vec![3.0, -1.0, 4.0, 0.0]);
+        let out = running_above_ratio(&p, 1.0);
+        for v in &out {
+            assert!(*v >= 0.0 && *v <= 1.0);
+        }
+    }
+
+    // ── iter-207: running_count_below ─────────────────────────────
+
+    #[test]
+    fn running_count_below_basic() {
+        // Threshold 5, inputs (1, 7, 3, 9): below at positions 0, 2.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 7.0, 3.0, 9.0]);
+        let out = running_count_below(&p, 5.0);
+        assert_eq!(out, vec![1, 2, 2, 3, 3]);
+    }
+
+    #[test]
+    fn running_count_below_complements_above() {
+        // count_below + count_above + count_equal == n.
+        let p = ScanProgram::new(5.0_f64, vec![1.0, 5.0, 7.0, 5.0, 9.0]);
+        let below = running_count_below(&p, 5.0);
+        let above = running_count_above(&p, 5.0);
+        // 6 total entries; equality cases at positions 0, 2, 4 (three 5.0s).
+        let total = below.last().unwrap() + above.last().unwrap();
+        assert_eq!(total, 6 - 3, "below+above = {} expected {}", total, 3);
+    }
+
+    #[test]
+    fn running_count_below_monotone_nondecreasing() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0, 0.0, -1.0]);
+        let out = running_count_below(&p, 1.5);
+        for win in out.windows(2) {
+            assert!(win[1] >= win[0]);
+        }
+    }
+
+    #[test]
+    fn running_count_below_no_matches_stays_zero() {
+        let p = ScanProgram::new(10.0_f64, vec![20.0, 30.0]);
+        let out = running_count_below(&p, 5.0);
+        assert_eq!(out, vec![0, 0, 0]);
+    }
+
+    // ── iter-201: running_l2_norm ─────────────────────────────────
+
+    #[test]
+    fn running_l2_norm_pythagorean_triple() {
+        // initial = 0, inputs = [3, 4]: out = [0, 3, 5].
+        let p = ScanProgram::new(0.0_f64, vec![3.0, 4.0]);
+        let out = running_l2_norm(&p);
+        assert_eq!(out.len(), 3);
+        assert!((out[1] - 3.0).abs() < 1e-12);
+        assert!((out[2] - 5.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn running_l2_norm_unit_increments_match_sqrt_n() {
+        // After n unit elements: √n.
+        let p = ScanProgram::new(0.0_f64, vec![1.0; 4]);
+        let out = running_l2_norm(&p);
+        for (k, v) in out.iter().enumerate() {
+            assert!((v - (k as f64).sqrt()).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_l2_norm_constant_zero_stays_zero() {
+        let p = ScanProgram::new(0.0_f64, vec![0.0; 5]);
+        let out = running_l2_norm(&p);
+        for v in &out {
+            assert_eq!(*v, 0.0);
+        }
+    }
+
+    #[test]
+    fn running_l2_norm_monotone_nondecreasing() {
+        // Squaring drops the sign, so the accumulator can't shrink.
+        let p = ScanProgram::new(0.0_f64, vec![2.0, -3.0, 5.0, -1.0]);
+        let out = running_l2_norm(&p);
+        for win in out.windows(2) {
+            assert!(win[1] >= win[0] - 1e-12, "shrink: {:?}", win);
+        }
+    }
+
+    // ── iter-195: running_range ───────────────────────────────────
+
+    #[test]
+    fn running_range_single_value_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        let out = running_range(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn running_range_increasing_stream() {
+        // After each step the range = max - min so far.
+        let p = ScanProgram::new(1.0_f64, vec![3.0, 7.0]);
+        let out = running_range(&p);
+        assert_eq!(out, vec![0.0, 2.0, 6.0]);
+    }
+
+    #[test]
+    fn running_range_is_monotone_nondecreasing() {
+        // No step can shrink the range.
+        let p = ScanProgram::new(2.0_f64, vec![5.0, 1.0, 9.0, 4.0]);
+        let out = running_range(&p);
+        for win in out.windows(2) {
+            assert!(win[1] >= win[0], "range went down: {:?}", win);
+        }
+    }
+
+    #[test]
+    fn running_range_constant_stream_is_zero() {
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0, 3.0]);
+        let out = running_range(&p);
+        for v in &out {
+            assert_eq!(*v, 0.0);
+        }
+    }
+
+    // ── iter-189: running_log_sum_exp ─────────────────────────────
+
+    #[test]
+    fn running_log_sum_exp_initial_is_emitted() {
+        let p = ScanProgram::new(0.0_f64, vec![]);
+        let out = running_log_sum_exp(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn running_log_sum_exp_pair_known() {
+        // initial = 0, input = 0: LSE(0, 0) = ln(2).
+        let p = ScanProgram::new(0.0_f64, vec![0.0]);
+        let out = running_log_sum_exp(&p);
+        assert_eq!(out.len(), 2);
+        assert!((out[1] - 2.0_f64.ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn running_log_sum_exp_stable_at_extreme_magnitude() {
+        // Naive exp(1000) overflows; shift-and-rescale must stay finite.
+        let p = ScanProgram::new(1000.0_f64, vec![1000.0]);
+        let out = running_log_sum_exp(&p);
+        let expected = 1000.0 + 2.0_f64.ln();
+        assert!((out[1] - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn running_log_sum_exp_dominated_by_max() {
+        // initial = 0, input = 1000: result ≈ 1000.
+        let p = ScanProgram::new(0.0_f64, vec![1000.0]);
+        let out = running_log_sum_exp(&p);
+        assert!((out[1] - 1000.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn running_log_sum_exp_neg_infinity_preserved() {
+        // LSE with NEG_INFINITY initial collapses to second element.
+        let p = ScanProgram::new(f64::NEG_INFINITY, vec![3.0]);
+        let out = running_log_sum_exp(&p);
+        assert!((out[1] - 3.0).abs() < 1e-12);
+    }
+
+    // ── iter-183: running_kurtosis ────────────────────────────────
+
+    #[test]
+    fn running_kurtosis_constant_stream_is_zero() {
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0]);
+        let out = running_kurtosis(&p);
+        for &v in &out {
+            assert_eq!(v, 0.0);
+        }
+    }
+
+    #[test]
+    fn running_kurtosis_uniform_5_samples() {
+        // (0, 1, 2, 3, 4): mean = 2, σ² = 2, m_4 = 6.8,
+        // g_2 = 6.8 / 4 - 3 = 1.7 - 3 = -1.3.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0, 4.0]);
+        let out = running_kurtosis(&p);
+        let last = *out.last().unwrap();
+        assert!((last - (-1.3)).abs() < 1e-9, "g_2 = {}", last);
+    }
+
+    #[test]
+    fn running_kurtosis_returns_finite_under_variance() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0, 4.0, 5.0]);
+        let out = running_kurtosis(&p);
+        for &v in &out {
+            assert!(v.is_finite());
+        }
+    }
+
+    // ── iter-175: running_fourth_central_moment ───────────────────
+
+    #[test]
+    fn running_fourth_moment_constant_stream_is_zero() {
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0, 3.0]);
+        let out = running_fourth_central_moment(&p);
+        for &v in &out {
+            assert!(v.abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_fourth_moment_known_uniform() {
+        // (0, 1, 2, 3, 4): mean = 2, sum(x-mean)^4 = 16+1+0+1+16 = 34, m4 = 6.8.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0, 4.0]);
+        let out = running_fourth_central_moment(&p);
+        let last = *out.last().unwrap();
+        assert!((last - 6.8).abs() < 1e-10, "m_4 = {}", last);
+    }
+
+    #[test]
+    fn running_fourth_moment_non_negative() {
+        // m_4 is always ≥ 0 (sum of 4th powers).
+        let p = ScanProgram::new(-3.0_f64, vec![1.5, -2.0, 4.0, 0.5]);
+        let out = running_fourth_central_moment(&p);
+        for &v in &out {
+            assert!(v >= -1e-12, "m_4 = {}", v);
+        }
+    }
+
+    // ── iter-171: running_skewness ────────────────────────────────
+
+    #[test]
+    fn running_skewness_constant_stream_is_zero() {
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0, 3.0]);
+        let out = running_skewness(&p);
+        for &v in &out {
+            assert_eq!(v, 0.0);
+        }
+    }
+
+    #[test]
+    fn running_skewness_symmetric_stream_is_zero() {
+        // Symmetric (-1, 0, 1) has g_1 = 0.
+        let p = ScanProgram::new(-1.0_f64, vec![0.0, 1.0]);
+        let out = running_skewness(&p);
+        let last = *out.last().unwrap();
+        assert!(last.abs() < 1e-12);
+    }
+
+    #[test]
+    fn running_skewness_right_skewed_positive() {
+        // Heavy right tail.
+        let p = ScanProgram::new(0.0_f64, vec![0.0, 0.0, 0.0, 10.0]);
+        let out = running_skewness(&p);
+        let last = *out.last().unwrap();
+        assert!(last > 0.5, "expected positive skew > 0.5, got {}", last);
+    }
+
+    // ── iter-165: running_third_central_moment ────────────────────
+
+    #[test]
+    fn running_third_moment_constant_stream_is_zero() {
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0, 3.0]);
+        let out = running_third_central_moment(&p);
+        for &v in &out {
+            assert!(v.abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_third_moment_symmetric_stream_is_zero() {
+        // (−1, 0, 1) is symmetric → 3rd moment = 0.
+        let p = ScanProgram::new(-1.0_f64, vec![0.0, 1.0]);
+        let out = running_third_central_moment(&p);
+        let last = *out.last().unwrap();
+        assert!(last.abs() < 1e-12, "m3 = {}", last);
+    }
+
+    #[test]
+    fn running_third_moment_skewed_stream_is_nonzero() {
+        // Right-skewed: most values low, one high.
+        let p = ScanProgram::new(0.0_f64, vec![0.0, 0.0, 10.0]);
+        let out = running_third_central_moment(&p);
+        let last = *out.last().unwrap();
+        assert!(last > 0.0, "expected positive skew, got {}", last);
+    }
+
+    // ── iter-159: running_squared_differences ─────────────────────
+
+    #[test]
+    fn running_squared_differences_constant_stream_is_zero() {
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0, 3.0]);
+        let out = running_squared_differences(&p);
+        assert_eq!(out, vec![0.0, 0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn running_squared_differences_accumulates() {
+        // initial=0, inputs=(1, 3, 7, 15).
+        // diffs² = (1, 4, 16, 64); running = (0, 1, 5, 21, 85).
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 7.0, 15.0]);
+        let out = running_squared_differences(&p);
+        assert_eq!(out, vec![0.0, 1.0, 5.0, 21.0, 85.0]);
+    }
+
+    #[test]
+    fn running_squared_differences_initial_only() {
+        let p: ScanProgram<f64> = ScanProgram::just_initial(5.0);
+        let out = running_squared_differences(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    // ── iter-151: running_zscore ──────────────────────────────────
+
+    #[test]
+    fn running_zscore_single_sample_is_zero() {
+        let p: ScanProgram<f64> = ScanProgram::just_initial(5.0);
+        let out = running_zscore(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn running_zscore_constant_stream_is_zero() {
+        // No variance → z-score = 0.
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0, 3.0]);
+        let out = running_zscore(&p);
+        for &v in &out {
+            assert_eq!(v, 0.0);
+        }
+    }
+
+    #[test]
+    fn running_zscore_final_step_correct_for_known_distribution() {
+        // (0, 1, 2, 3, 4): mean = 2, pop variance = 2 (10/5),
+        // std = √2. z(x=4) = (4-2)/√2 = √2.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0, 4.0]);
+        let out = running_zscore(&p);
+        let last = *out.last().unwrap();
+        assert!((last - 2.0_f64.sqrt()).abs() < 1e-12, "z = {}", last);
+    }
+
+    #[test]
+    fn running_zscore_output_length_matches_inputs() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0]);
+        let out = running_zscore(&p);
+        assert_eq!(out.len(), 4); // initial + 3 inputs.
+    }
+
+    // ── iter-145: first_difference ────────────────────────────────
+
+    #[test]
+    fn first_difference_empty_program() {
+        let p: ScanProgram<f64> = ScanProgram::just_initial(5.0);
+        let out = first_difference(&p);
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn first_difference_constant_stream_is_zeros() {
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0, 3.0]);
+        let out = first_difference(&p);
+        assert_eq!(out, vec![0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn first_difference_known() {
+        // initial=0, inputs=(1, 3, 7, 15) → diffs (1-0, 3-1, 7-3, 15-7) = (1, 2, 4, 8).
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 7.0, 15.0]);
+        let out = first_difference(&p);
+        assert_eq!(out, vec![1.0, 2.0, 4.0, 8.0]);
+    }
+
+    #[test]
+    fn first_difference_telescopes_to_total_change() {
+        // sum of first differences = inputs[-1] - initial.
+        let p = ScanProgram::new(2.0_f64, vec![5.0, 1.0, 8.0, 3.0]);
+        let diffs = first_difference(&p);
+        let sum: f64 = diffs.iter().sum();
+        assert_eq!(sum, 3.0 - 2.0); // last input minus initial.
+    }
+
+    // ── iter-139: running_argmin ──────────────────────────────────
+
+    #[test]
+    fn running_argmin_single_sample() {
+        let p = ScanProgram::just_initial(5.0_f64);
+        let out = running_argmin(&p);
+        assert_eq!(out, vec![(0, 5.0)]);
+    }
+
+    #[test]
+    fn running_argmin_monotone_decreasing() {
+        let p = ScanProgram::new(10.0_f64, vec![5.0, 3.0, 1.0]);
+        let out = running_argmin(&p);
+        assert_eq!(out, vec![(0, 10.0), (1, 5.0), (2, 3.0), (3, 1.0)]);
+    }
+
+    #[test]
+    fn running_argmin_late_low() {
+        let p = ScanProgram::new(5.0_f64, vec![3.0, 7.0, 1.0, 4.0]);
+        let out = running_argmin(&p);
+        assert_eq!(out, vec![(0, 5.0), (1, 3.0), (1, 3.0), (3, 1.0), (3, 1.0)]);
+    }
+
+    #[test]
+    fn running_argmin_value_matches_running_min() {
+        let p = ScanProgram::new(0.0_f64, vec![5.0, -1.0, 3.0, -2.0, 0.0]);
+        let argmin = running_argmin(&p);
+        let min = running_min(&p);
+        for (i, &(_, v)) in argmin.iter().enumerate() {
+            assert_eq!(v, min[i]);
+        }
+    }
+
+    // ── iter-120: running_argmax ──────────────────────────────────
+
+    #[test]
+    fn running_argmax_single_sample() {
+        let p = ScanProgram::just_initial(5.0_f64);
+        let out = running_argmax(&p);
+        assert_eq!(out, vec![(0, 5.0)]);
+    }
+
+    #[test]
+    fn running_argmax_monotone_increasing_tracks_latest() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0, 4.0]);
+        let out = running_argmax(&p);
+        assert_eq!(out, vec![(0, 0.0), (1, 1.0), (2, 2.0), (3, 3.0), (4, 4.0)]);
+    }
+
+    #[test]
+    fn running_argmax_constant_first_wins() {
+        // All values equal → first occurrence wins.
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0, 3.0]);
+        let out = running_argmax(&p);
+        assert_eq!(out, vec![(0, 3.0), (0, 3.0), (0, 3.0), (0, 3.0)]);
+    }
+
+    #[test]
+    fn running_argmax_with_late_peak() {
+        // Peak in the middle, then descent.
+        let p = ScanProgram::new(1.0_f64, vec![3.0, 5.0, 2.0, 4.0]);
+        let out = running_argmax(&p);
+        // step 0: max=1 at 0.
+        // step 1: max=3 at 1.
+        // step 2: max=5 at 2.
+        // step 3: still max=5 at 2 (2 < 5).
+        // step 4: still max=5 at 2 (4 < 5).
+        assert_eq!(out, vec![(0, 1.0), (1, 3.0), (2, 5.0), (2, 5.0), (2, 5.0)]);
+    }
+
+    #[test]
+    fn running_argmax_value_matches_running_max() {
+        // The value component of running_argmax should equal running_max.
+        let p = ScanProgram::new(2.0_f64, vec![5.0, -1.0, 3.0, 7.0, 0.0]);
+        let argmax = running_argmax(&p);
+        let max = running_max(&p);
+        for (i, &(_, v)) in argmax.iter().enumerate() {
+            assert_eq!(v, max[i]);
+        }
+    }
+
+    // ── iter-114: running_min_max_pair ────────────────────────────
+
+    #[test]
+    fn running_min_max_pair_initial_only() {
+        let p = ScanProgram::just_initial(5.0_f64);
+        let out = running_min_max_pair(&p);
+        assert_eq!(out, vec![(5.0, 5.0)]);
+    }
+
+    #[test]
+    fn running_min_max_pair_tracks_both_bounds() {
+        let p = ScanProgram::new(3.0_f64, vec![1.0, 5.0, -2.0, 4.0]);
+        let out = running_min_max_pair(&p);
+        assert_eq!(out, vec![(3.0, 3.0), (1.0, 3.0), (1.0, 5.0), (-2.0, 5.0), (-2.0, 5.0)]);
+    }
+
+    #[test]
+    fn running_min_max_pair_equals_separate_helpers() {
+        // running_min_max_pair[i].0 == running_min(prog)[i].
+        // running_min_max_pair[i].1 == running_max(prog)[i].
+        let p = ScanProgram::new(2.0_f64, vec![5.0, -1.0, 3.0, 7.0, 0.0]);
+        let pair = running_min_max_pair(&p);
+        let separate_min = running_min(&p);
+        let separate_max = running_max(&p);
+        for (i, (m, x)) in pair.iter().enumerate() {
+            assert_eq!(*m, separate_min[i]);
+            assert_eq!(*x, separate_max[i]);
+        }
+    }
+
+    #[test]
+    fn running_min_max_pair_min_le_max_always() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -5.0, 3.0, -2.0, 10.0]);
+        let pair = running_min_max_pair(&p);
+        for &(min, max) in &pair {
+            assert!(min <= max, "min = {} > max = {}", min, max);
+        }
+    }
+
+    // ── iter-107: running_variance (Welford) ──────────────────────
+
+    #[test]
+    fn running_variance_single_sample_is_zero() {
+        let p = ScanProgram::just_initial(5.0_f64);
+        let out = running_variance(&p);
+        assert_eq!(out, vec![0.0]);
+    }
+
+    #[test]
+    fn running_variance_constant_stream_is_zero() {
+        // All samples = 3.0 → variance = 0 at every step.
+        let p = ScanProgram::new(3.0_f64, vec![3.0, 3.0, 3.0, 3.0]);
+        let out = running_variance(&p);
+        for &v in &out {
+            assert!(v.abs() < 1e-12, "expected 0, got {}", v);
+        }
+    }
+
+    #[test]
+    fn running_variance_1_2_3_4_known() {
+        // Population variance of (1,2,3,4): mean = 2.5; deviations
+        // (-1.5)² + (-0.5)² + (0.5)² + (1.5)² = 5; variance = 5/4 = 1.25.
+        let p = ScanProgram::new(1.0_f64, vec![2.0, 3.0, 4.0]);
+        let out = running_variance(&p);
+        assert!((out[3] - 1.25).abs() < 1e-12, "final variance = {}", out[3]);
+    }
+
+    #[test]
+    fn running_variance_two_distinct_samples() {
+        // (1, 3): mean = 2; deviations (-1)² + (1)² = 2; pop var = 2/2 = 1.
+        let p = ScanProgram::new(1.0_f64, vec![3.0]);
+        let out = running_variance(&p);
+        assert!((out[1] - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn running_variance_grows_after_outlier() {
+        // Stream of 5's then a 100; variance jumps after the outlier.
+        let p = ScanProgram::new(5.0_f64, vec![5.0, 5.0, 5.0, 100.0]);
+        let out = running_variance(&p);
+        // Initially zero variance for the constant run.
+        assert!(out[3].abs() < 1e-12);
+        // Variance jumps after step 4.
+        assert!(out[4] > 100.0);
+    }
+
+    #[test]
+    fn running_variance_numerical_stability_large_offset() {
+        // Welford handles large means correctly where naive E[X²]-E[X]²
+        // would lose precision. With initial=1e9 and tiny perturbations,
+        // variance should match the perturbation-only variance closely.
+        let p = ScanProgram::new(
+            1.0e9_f64,
+            vec![1.0e9 + 1.0, 1.0e9 - 1.0, 1.0e9 + 2.0],
+        );
+        let out = running_variance(&p);
+        // Mean = 1e9 + 0.5; pop variance of (0, 1, -1, 2):
+        // mean shift = 0.5; deviations from 0.5:
+        // (-0.5)², (0.5)², (-1.5)², (1.5)² → 0.25 + 0.25 + 2.25 + 2.25 = 5
+        // variance = 5 / 4 = 1.25.
+        assert!((out[3] - 1.25).abs() < 1e-3, "variance = {}", out[3]);
+    }
+
+    // ── iter-102: EMA ─────────────────────────────────────────────
+
+    #[test]
+    fn running_ema_alpha_zero_takes_input_as_output() {
+        // α = 0 → state_{t+1} = input_t (initial preserved at index 0).
+        let p = ScanProgram::new(0.0_f64, vec![1.5, 2.5, -1.0, 3.0]);
+        let out = running_ema(&p, 0.0);
+        assert_eq!(out, vec![0.0, 1.5, 2.5, -1.0, 3.0]);
+    }
+
+    #[test]
+    fn running_ema_alpha_one_holds_initial() {
+        // α = 1 → state never updates.
+        let p = ScanProgram::new(5.0_f64, vec![100.0, -50.0, 7.0]);
+        let out = running_ema(&p, 1.0);
+        assert_eq!(out, vec![5.0, 5.0, 5.0, 5.0]);
+    }
+
+    #[test]
+    fn running_ema_alpha_half_averages() {
+        // α = 0.5 → state' = (state + input) / 2.
+        let p = ScanProgram::new(0.0_f64, vec![4.0, 4.0]);
+        let out = running_ema(&p, 0.5);
+        // step 1: 0.5·0 + 0.5·4 = 2.
+        // step 2: 0.5·2 + 0.5·4 = 3.
+        assert_eq!(out, vec![0.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn running_ema_converges_to_constant_input() {
+        // For α ∈ (0, 1), EMA converges to constant input value
+        // over many steps.
+        let p = ScanProgram::new(0.0_f64, vec![10.0; 100]);
+        let out = running_ema(&p, 0.9);
+        // After 100 steps with α = 0.9, output should be very close to 10.
+        let final_value = *out.last().unwrap();
+        assert!((final_value - 10.0).abs() < 1e-3, "EMA = {}", final_value);
+    }
+
+    #[test]
+    fn running_ema_smooths_noise() {
+        // EMA over noisy inputs around mean 5 should produce smoother
+        // outputs (less variance than raw inputs).
+        let inputs = vec![5.0_f64, 7.0, 3.0, 6.0, 4.0, 5.5, 4.5, 5.0, 4.8, 5.2];
+        let p = ScanProgram::new(5.0_f64, inputs.clone());
+        let smoothed = running_ema(&p, 0.7);
+
+        // Compute variance of inputs and of smoothed outputs.
+        let input_mean: f64 = inputs.iter().sum::<f64>() / inputs.len() as f64;
+        let input_var: f64 = inputs.iter().map(|x| (x - input_mean).powi(2)).sum::<f64>()
+            / inputs.len() as f64;
+        let smoothed_no_init = &smoothed[1..];
+        let smoothed_mean: f64 = smoothed_no_init.iter().sum::<f64>() / smoothed_no_init.len() as f64;
+        let smoothed_var: f64 = smoothed_no_init.iter().map(|x| (x - smoothed_mean).powi(2)).sum::<f64>()
+            / smoothed_no_init.len() as f64;
+
+        assert!(
+            smoothed_var < input_var,
+            "EMA didn't smooth: input_var = {}, smoothed_var = {}",
+            input_var, smoothed_var
+        );
+    }
+
+    #[test]
+    fn running_aggregators_handle_empty_program() {
+        let p_sum: ScanProgram<f64> = ScanProgram::just_initial(5.0);
+        assert_eq!(running_sum(&p_sum), vec![5.0]);
+        assert_eq!(running_max(&p_sum), vec![5.0]);
+        assert_eq!(running_min(&p_sum), vec![5.0]);
+        assert_eq!(running_product(&p_sum), vec![5.0]);
+        assert_eq!(running_mean(&p_sum), vec![5.0]);
+    }
+
+    #[test]
+    fn running_sum_consistent_with_sequential_scan() {
+        let p = ScanProgram::new(0.0_f64, vec![1.5, 2.5, -1.0, 3.0]);
+        let wrapper = running_sum(&p);
+        let direct = sequential_scan(&p, |a, b| a + b);
+        assert_eq!(wrapper, direct);
+    }
+
+    #[test]
+    fn float_add_scan_matches_iter_running_sum() {
+        let inputs: Vec<f64> = vec![1.5, 2.5, -1.0, 3.0];
+        let p = ScanProgram::new(0.0_f64, inputs.clone());
+        let out = sequential_scan(&p, |a, b| a + b);
+        // Compare to running sum.
+        let mut acc = 0.0;
+        let mut expected = vec![acc];
+        for v in &inputs {
+            acc += v;
+            expected.push(acc);
+        }
+        assert_eq!(out, expected);
+    }
+
+    #[test]
+    fn complex_op_state_carry_works() {
+        // Pair scan: state is (count, sum); input is the next value.
+        // op((c, s), v) = (c+1, s+v).
+        let p = ScanProgram::new((0u32, 0.0f64), vec![(1, 1.0), (1, 2.0), (1, 4.0)]);
+        let out = sequential_scan(&p, |a, b| (a.0 + b.0, a.1 + b.1));
+        assert_eq!(out.len(), 4);
+        assert_eq!(out[3], (3, 7.0));
+    }
+
+    // ── iter-433: running_max_first_difference_abs ────────────────
+
+    #[test]
+    fn running_max_first_difference_abs_initial_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        assert_eq!(running_max_first_difference_abs(&p), vec![0.0]);
+    }
+
+    #[test]
+    fn running_max_first_difference_abs_basic() {
+        // initial=0, inputs=[1, 3, 2, 6, 1]
+        // |Δ|: 1, 2, 1, 4, 5 → running max: 0, 1, 2, 2, 4, 5
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 2.0, 6.0, 1.0]);
+        let out = running_max_first_difference_abs(&p);
+        assert_eq!(out, vec![0.0, 1.0, 2.0, 2.0, 4.0, 5.0]);
+    }
+
+    #[test]
+    fn running_max_first_difference_abs_is_nondecreasing() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0]);
+        let out = running_max_first_difference_abs(&p);
+        for w in out.windows(2) {
+            assert!(w[1] >= w[0] - 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_max_first_difference_abs_constant_series_is_zero() {
+        // x_0 = x_1 = ... = c → every Δ is 0 → output is all zeros.
+        let p = ScanProgram::new(7.0_f64, vec![7.0, 7.0, 7.0]);
+        let out = running_max_first_difference_abs(&p);
+        assert_eq!(out, vec![0.0; 4]);
+    }
+
+    #[test]
+    fn running_max_first_difference_abs_dominates_per_step_abs() {
+        // sup-fold ≥ each individual |Δ| (envelope property).
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0]);
+        let sup = running_max_first_difference_abs(&p);
+        let per = running_first_difference_abs(&p);
+        for (s, d) in sup.iter().zip(per.iter()) {
+            assert!(*s >= *d - 1e-12);
+        }
+    }
+
+    // ── iter-439: running_count_new_maxima ────────────────────────
+
+    #[test]
+    fn running_count_new_maxima_initial_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        assert_eq!(running_count_new_maxima(&p), vec![0]);
+    }
+
+    #[test]
+    fn running_count_new_maxima_basic() {
+        // initial=0, inputs=[1, 3, 2, 6, 1, 6, 7]
+        // Breakouts at t = 1 (1 > 0), 2 (3 > 1), 4 (6 > 3), 7 (7 > 6).
+        // Running counts: [0, 1, 2, 2, 3, 3, 3, 4].
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 2.0, 6.0, 1.0, 6.0, 7.0]);
+        let out = running_count_new_maxima(&p);
+        assert_eq!(out, vec![0, 1, 2, 2, 3, 3, 3, 4]);
+    }
+
+    #[test]
+    fn running_count_new_maxima_strict_ties_do_not_count() {
+        // initial=2, inputs=[2, 2, 2] → no strict new max → all zeros.
+        let p = ScanProgram::new(2.0_f64, vec![2.0, 2.0, 2.0]);
+        let out = running_count_new_maxima(&p);
+        assert_eq!(out, vec![0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn running_count_new_maxima_strictly_increasing_counts_every_step() {
+        // initial=0, inputs=[1, 2, 3, 4, 5] — every step is a new max.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 2.0, 3.0, 4.0, 5.0]);
+        let out = running_count_new_maxima(&p);
+        assert_eq!(out, vec![0, 1, 2, 3, 4, 5]);
+    }
+
+    #[test]
+    fn running_count_new_maxima_is_nondecreasing() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let out = running_count_new_maxima(&p);
+        for w in out.windows(2) {
+            assert!(w[1] >= w[0]);
+        }
+    }
+
+    #[test]
+    fn running_count_new_maxima_bounded_above_by_strict_increase() {
+        // Every new-prefix-max is also a step-wise strict increase
+        // (x_t > max(prev) ≥ x_{t-1}), so the breakout count is
+        // bounded above by the consecutive-increase count.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0, 6.0, 8.0]);
+        let breakouts = running_count_new_maxima(&p);
+        let strict_inc = running_count_strict_increase(&p);
+        for (b, s) in breakouts.iter().zip(strict_inc.iter()) {
+            assert!(b <= s);
+        }
+    }
+
+    // ── iter-445: running_count_new_minima ────────────────────────
+
+    #[test]
+    fn running_count_new_minima_initial_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        assert_eq!(running_count_new_minima(&p), vec![0]);
+    }
+
+    #[test]
+    fn running_count_new_minima_basic() {
+        // initial=10, inputs=[8, 11, 7, 9, 5, 5, 4]
+        // New-min steps at t = 1 (8 < 10), 3 (7 < 8), 5 (5 < 7), 7 (4 < 5).
+        // Running counts: [0, 1, 1, 2, 2, 3, 3, 4].
+        let p = ScanProgram::new(10.0_f64, vec![8.0, 11.0, 7.0, 9.0, 5.0, 5.0, 4.0]);
+        let out = running_count_new_minima(&p);
+        assert_eq!(out, vec![0, 1, 1, 2, 2, 3, 3, 4]);
+    }
+
+    #[test]
+    fn running_count_new_minima_strict_ties_do_not_count() {
+        // Trough repeated → no strict new min → all zeros.
+        let p = ScanProgram::new(2.0_f64, vec![2.0, 2.0, 2.0]);
+        let out = running_count_new_minima(&p);
+        assert_eq!(out, vec![0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn running_count_new_minima_strictly_decreasing_counts_every_step() {
+        let p = ScanProgram::new(10.0_f64, vec![9.0, 8.0, 7.0, 6.0, 5.0]);
+        let out = running_count_new_minima(&p);
+        assert_eq!(out, vec![0, 1, 2, 3, 4, 5]);
+    }
+
+    #[test]
+    fn running_count_new_minima_is_nondecreasing() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let out = running_count_new_minima(&p);
+        for w in out.windows(2) {
+            assert!(w[1] >= w[0]);
+        }
+    }
+
+    #[test]
+    fn running_count_new_minima_negation_duality_with_maxima() {
+        // For inputs `x`, running_count_new_minima(x) ≡
+        //   running_count_new_maxima(−x).
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let p_neg = ScanProgram::new(-0.0_f64, p.inputs.iter().map(|x| -x).collect());
+        let mins = running_count_new_minima(&p);
+        let maxes_of_neg = running_count_new_maxima(&p_neg);
+        assert_eq!(mins, maxes_of_neg);
+    }
+
+    // ── iter-451: running_first_difference_max ────────────────────
+
+    #[test]
+    fn running_first_difference_max_initial_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        assert_eq!(running_first_difference_max(&p), vec![0.0]);
+    }
+
+    #[test]
+    fn running_first_difference_max_basic() {
+        // initial=0, inputs=[1, 3, 2, 6, 1]
+        // Δ: 1, 2, -1, 4, -5 → running max positive: 0, 1, 2, 2, 4, 4.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 2.0, 6.0, 1.0]);
+        let out = running_first_difference_max(&p);
+        assert_eq!(out, vec![0.0, 1.0, 2.0, 2.0, 4.0, 4.0]);
+    }
+
+    #[test]
+    fn running_first_difference_max_monotone_non_increasing_stays_zero() {
+        // No positive Δ ⇒ peak stays at the initial 0.
+        let p = ScanProgram::new(10.0_f64, vec![8.0, 5.0, 5.0, 1.0]);
+        let out = running_first_difference_max(&p);
+        assert_eq!(out, vec![0.0, 0.0, 0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn running_first_difference_max_is_nondecreasing() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let out = running_first_difference_max(&p);
+        for w in out.windows(2) {
+            assert!(w[1] >= w[0] - 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_first_difference_max_bounded_above_by_abs_envelope() {
+        // |Δ| ≥ Δ ⇒ sup-magnitude ≥ sup-signed-max.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let signed = running_first_difference_max(&p);
+        let abs_env = running_max_first_difference_abs(&p);
+        for (s, a) in signed.iter().zip(abs_env.iter()) {
+            assert!(*a + 1e-12 >= *s);
+        }
+    }
+
+    // ── iter-457: running_first_difference_min ────────────────────
+
+    #[test]
+    fn running_first_difference_min_initial_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        assert_eq!(running_first_difference_min(&p), vec![0.0]);
+    }
+
+    #[test]
+    fn running_first_difference_min_basic() {
+        // initial=0, inputs=[1, 3, 2, 6, 1]
+        // Δ: 1, 2, -1, 4, -5 → running min: 0, 0, 0, -1, -1, -5.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 2.0, 6.0, 1.0]);
+        let out = running_first_difference_min(&p);
+        assert_eq!(out, vec![0.0, 0.0, 0.0, -1.0, -1.0, -5.0]);
+    }
+
+    #[test]
+    fn running_first_difference_min_monotone_non_decreasing_stays_zero() {
+        // No negative Δ ⇒ trough stays at the initial 0.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 3.0, 5.0]);
+        let out = running_first_difference_min(&p);
+        assert_eq!(out, vec![0.0, 0.0, 0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn running_first_difference_min_is_nonincreasing() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let out = running_first_difference_min(&p);
+        for w in out.windows(2) {
+            assert!(w[1] <= w[0] + 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_first_difference_min_negation_duality_with_max() {
+        // min Δ of x ≡ −(max Δ of −x).
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let p_neg = ScanProgram::new(0.0_f64, p.inputs.iter().map(|x| -x).collect());
+        let mins = running_first_difference_min(&p);
+        let maxes_of_neg = running_first_difference_max(&p_neg);
+        for (m, mx) in mins.iter().zip(maxes_of_neg.iter()) {
+            assert!((m + mx).abs() < 1e-12);
+        }
+    }
+
+    // ── iter-463: running_first_difference_signed_pair ────────────
+
+    #[test]
+    fn running_first_difference_signed_pair_initial_is_zero_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        assert_eq!(running_first_difference_signed_pair(&p), vec![(0.0, 0.0)]);
+    }
+
+    #[test]
+    fn running_first_difference_signed_pair_basic() {
+        // initial=0, inputs=[1, 3, 2, 6, 1]
+        // Δ: 1, 2, -1, 4, -5
+        // running max Δ: 0, 1, 2, 2, 4, 4
+        // running min Δ: 0, 0, 0, -1, -1, -5
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 2.0, 6.0, 1.0]);
+        let out = running_first_difference_signed_pair(&p);
+        assert_eq!(
+            out,
+            vec![
+                (0.0, 0.0),
+                (1.0, 0.0),
+                (2.0, 0.0),
+                (2.0, -1.0),
+                (4.0, -1.0),
+                (4.0, -5.0),
+            ]
+        );
+    }
+
+    #[test]
+    fn running_first_difference_signed_pair_matches_individual_calls() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let pair = running_first_difference_signed_pair(&p);
+        let maxes = running_first_difference_max(&p);
+        let mins = running_first_difference_min(&p);
+        assert_eq!(pair.len(), maxes.len());
+        for (i, &(hi, lo)) in pair.iter().enumerate() {
+            assert!((hi - maxes[i]).abs() < 1e-12);
+            assert!((lo - mins[i]).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_first_difference_signed_pair_max_geq_zero_geq_min() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let out = running_first_difference_signed_pair(&p);
+        for &(hi, lo) in &out {
+            assert!(hi >= 0.0 - 1e-12);
+            assert!(lo <= 0.0 + 1e-12);
+        }
+    }
+
+    // ── iter-469: running_count_abs_above ─────────────────────────
+
+    #[test]
+    fn running_count_abs_above_basic() {
+        // initial=0, inputs=[1.5, -2.0, 0.5, -3.0, 0.0]
+        // |x|: 0, 1.5, 2.0, 0.5, 3.0, 0.0 → above 1.0: F, T, T, F, T, F
+        // running counts: [0, 1, 2, 2, 3, 3].
+        let p = ScanProgram::new(0.0_f64, vec![1.5, -2.0, 0.5, -3.0, 0.0]);
+        let out = running_count_abs_above(&p, 1.0);
+        assert_eq!(out, vec![0, 1, 2, 2, 3, 3]);
+    }
+
+    #[test]
+    fn running_count_abs_above_symmetric_in_sign() {
+        // For threshold 1.0, inputs [2.0, -2.0] yield identical
+        // counts as [-2.0, 2.0] (sign-symmetric).
+        let p_pos = ScanProgram::new(0.0_f64, vec![2.0, -2.0]);
+        let p_neg = ScanProgram::new(0.0_f64, vec![-2.0, 2.0]);
+        let a = running_count_abs_above(&p_pos, 1.0);
+        let b = running_count_abs_above(&p_neg, 1.0);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn running_count_abs_above_dominates_signed_count_above() {
+        // |x| > t ⇒ at least one of (x > t, x < −t) ⇒ count_abs_above
+        // ≥ count_above for any positive threshold.
+        let p = ScanProgram::new(0.0_f64, vec![1.5, -2.0, 0.5, -3.0, 0.0]);
+        let abs_above = running_count_abs_above(&p, 1.0);
+        let signed_above = running_count_above(&p, 1.0);
+        for (a, s) in abs_above.iter().zip(signed_above.iter()) {
+            assert!(a >= s);
+        }
+    }
+
+    #[test]
+    fn running_count_abs_above_strict_at_threshold_does_not_count() {
+        // |x| == threshold is *not* strictly above.
+        let p = ScanProgram::new(1.0_f64, vec![-1.0, 1.0, 1.0]);
+        let out = running_count_abs_above(&p, 1.0);
+        assert_eq!(out, vec![0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn running_count_abs_above_is_nondecreasing() {
+        let p = ScanProgram::new(0.0_f64, vec![1.5, -2.0, 0.5, -3.0, 0.0, 4.5]);
+        let out = running_count_abs_above(&p, 1.0);
+        for w in out.windows(2) {
+            assert!(w[1] >= w[0]);
+        }
+    }
+
+    // ── iter-475: running_first_difference_amplitude ──────────────
+
+    #[test]
+    fn running_first_difference_amplitude_initial_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        assert_eq!(running_first_difference_amplitude(&p), vec![0.0]);
+    }
+
+    #[test]
+    fn running_first_difference_amplitude_basic() {
+        // initial=0, inputs=[1, 3, 2, 6, 1]
+        // Δ: 1, 2, -1, 4, -5
+        // running max Δ: 0, 1, 2, 2, 4, 4
+        // running min Δ: 0, 0, 0, -1, -1, -5
+        // amplitude:    0, 1, 2, 3, 5, 9
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 2.0, 6.0, 1.0]);
+        let out = running_first_difference_amplitude(&p);
+        assert_eq!(out, vec![0.0, 1.0, 2.0, 3.0, 5.0, 9.0]);
+    }
+
+    #[test]
+    fn running_first_difference_amplitude_matches_max_minus_min() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let amp = running_first_difference_amplitude(&p);
+        let maxes = running_first_difference_max(&p);
+        let mins = running_first_difference_min(&p);
+        assert_eq!(amp.len(), maxes.len());
+        for i in 0..amp.len() {
+            assert!((amp[i] - (maxes[i] - mins[i])).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_first_difference_amplitude_is_nondecreasing() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let out = running_first_difference_amplitude(&p);
+        for w in out.windows(2) {
+            assert!(w[1] >= w[0] - 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_first_difference_amplitude_bounded_below_by_abs_envelope() {
+        // Δ-amplitude ≥ |Δ| sup-envelope: |Δ_t| ≤ max(|peak|, |trough|)
+        // ≤ peak − trough.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let amp = running_first_difference_amplitude(&p);
+        let abs_env = running_max_first_difference_abs(&p);
+        for (a, e) in amp.iter().zip(abs_env.iter()) {
+            assert!(*a + 1e-12 >= *e);
+        }
+    }
+
+    // ── iter-481: running_mean_first_difference_abs ───────────────
+
+    #[test]
+    fn running_mean_first_difference_abs_initial_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        assert_eq!(running_mean_first_difference_abs(&p), vec![0.0]);
+    }
+
+    #[test]
+    fn running_mean_first_difference_abs_basic() {
+        // initial=0, inputs=[1, 3, 2, 6, 1]
+        // |Δ|: 1, 2, 1, 4, 5
+        // running mean: 0, 1, 1.5, 4/3, 2, 13/5
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 2.0, 6.0, 1.0]);
+        let out = running_mean_first_difference_abs(&p);
+        let expected = vec![0.0, 1.0, 1.5, 4.0 / 3.0, 2.0, 13.0 / 5.0];
+        assert_eq!(out.len(), expected.len());
+        for (a, b) in out.iter().zip(expected.iter()) {
+            assert!((a - b).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_mean_first_difference_abs_constant_stream_is_zero() {
+        let p = ScanProgram::new(7.0_f64, vec![7.0, 7.0, 7.0]);
+        let out = running_mean_first_difference_abs(&p);
+        assert_eq!(out, vec![0.0; 4]);
+    }
+
+    #[test]
+    fn running_mean_first_difference_abs_matches_tv_over_t() {
+        // mean |Δ|_T = TV_T / T for T ≥ 1.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let mean = running_mean_first_difference_abs(&p);
+        let tv = running_total_variation(&p);
+        for t in 1..mean.len() {
+            let expected = tv[t] / t as f64;
+            assert!((mean[t] - expected).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_mean_first_difference_abs_bounded_above_by_sup() {
+        // mean |Δ| ≤ max |Δ| (average ≤ max).
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let mean = running_mean_first_difference_abs(&p);
+        let sup = running_max_first_difference_abs(&p);
+        for (m, s) in mean.iter().zip(sup.iter()) {
+            assert!(*m <= *s + 1e-12);
+        }
+    }
+
+    // ── iter-487: running_mean_squared_first_difference ───────────
+
+    #[test]
+    fn running_mean_squared_first_difference_initial_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        assert_eq!(running_mean_squared_first_difference(&p), vec![0.0]);
+    }
+
+    #[test]
+    fn running_mean_squared_first_difference_basic() {
+        // initial=0, inputs=[1, 3, 2, 6, 1]
+        // Δ:  1, 2, -1, 4, -5
+        // Δ²: 1, 4, 1, 16, 25 → running sums: 0, 1, 5, 6, 22, 47
+        // mean: 0, 1, 2.5, 2.0, 5.5, 9.4
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 2.0, 6.0, 1.0]);
+        let out = running_mean_squared_first_difference(&p);
+        let expected = vec![0.0, 1.0, 2.5, 2.0, 5.5, 9.4];
+        assert_eq!(out.len(), expected.len());
+        for (a, b) in out.iter().zip(expected.iter()) {
+            assert!((a - b).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_mean_squared_first_difference_constant_stream_is_zero() {
+        let p = ScanProgram::new(7.0_f64, vec![7.0, 7.0, 7.0]);
+        let out = running_mean_squared_first_difference(&p);
+        assert_eq!(out, vec![0.0; 4]);
+    }
+
+    #[test]
+    fn running_mean_squared_first_difference_matches_qv_over_t() {
+        // mean Δ²_T = QV_T / T for T ≥ 1.
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let mean = running_mean_squared_first_difference(&p);
+        let qv = running_squared_increments(&p);
+        for t in 1..mean.len() {
+            let expected = qv[t] / t as f64;
+            assert!((mean[t] - expected).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_mean_squared_first_difference_dominates_mean_abs_squared() {
+        // E[Δ²] ≥ (E[|Δ|])² (Jensen).
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let mean_sq = running_mean_squared_first_difference(&p);
+        let mean_abs = running_mean_first_difference_abs(&p);
+        for (sq, ab) in mean_sq.iter().zip(mean_abs.iter()) {
+            assert!(*sq + 1e-12 >= ab * ab);
+        }
+    }
+
+    // ── iter-493: running_rms_first_difference ────────────────────
+
+    #[test]
+    fn running_rms_first_difference_initial_is_zero() {
+        let p = ScanProgram::new(5.0_f64, vec![]);
+        assert_eq!(running_rms_first_difference(&p), vec![0.0]);
+    }
+
+    #[test]
+    fn running_rms_first_difference_basic() {
+        // initial=0, inputs=[1, 3, 2, 6, 1]
+        // mean Δ²: 0, 1, 2.5, 2.0, 5.5, 9.4
+        // RMS Δ: sqrt(mean Δ²).
+        let p = ScanProgram::new(0.0_f64, vec![1.0, 3.0, 2.0, 6.0, 1.0]);
+        let out = running_rms_first_difference(&p);
+        let expected = vec![
+            0.0,
+            1.0_f64,
+            2.5_f64.sqrt(),
+            2.0_f64.sqrt(),
+            5.5_f64.sqrt(),
+            9.4_f64.sqrt(),
+        ];
+        assert_eq!(out.len(), expected.len());
+        for (a, b) in out.iter().zip(expected.iter()) {
+            assert!((a - b).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_rms_first_difference_constant_stream_is_zero() {
+        let p = ScanProgram::new(7.0_f64, vec![7.0, 7.0, 7.0]);
+        let out = running_rms_first_difference(&p);
+        assert_eq!(out, vec![0.0; 4]);
+    }
+
+    #[test]
+    fn running_rms_first_difference_squared_matches_mean_squared() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let rms = running_rms_first_difference(&p);
+        let mean_sq = running_mean_squared_first_difference(&p);
+        for (r, sq) in rms.iter().zip(mean_sq.iter()) {
+            assert!((r * r - sq).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn running_rms_first_difference_dominates_mean_abs() {
+        let p = ScanProgram::new(0.0_f64, vec![1.0, -2.0, 3.5, 0.25, -4.0, 7.0]);
+        let rms = running_rms_first_difference(&p);
+        let mean_abs = running_mean_first_difference_abs(&p);
+        for (r, a) in rms.iter().zip(mean_abs.iter()) {
+            assert!(*r + 1e-12 >= *a);
+        }
+    }
+}
