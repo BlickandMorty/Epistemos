@@ -54,10 +54,19 @@ enum LandingWavePerformancePolicy {
 
     /// Determine which tier the current system state lands in. Prefer calling
     /// this on state-change notifications rather than every frame.
+    ///
+    /// 2026-05-20: when the user has flipped the master "Force maximum
+    /// FPS" toggle (epistemos.graph.forceMaximumFPS UserDefault, owned
+    /// by GraphState), every code path here pins to `.high` (60-120 fps
+    /// preferred 120) regardless of thermal state or LPM. Explicit
+    /// user opt-in to ProMotion's top rate.
     static func currentTier(
         lowPowerMode: Bool = ProcessInfo.processInfo.isLowPowerModeEnabled,
         thermalState: ProcessInfo.ThermalState = ProcessInfo.processInfo.thermalState
     ) -> Tier {
+        if UserDefaults.standard.bool(forKey: "epistemos.graph.forceMaximumFPS") {
+            return .high
+        }
         if thermalState == .critical { return .survival }
         if lowPowerMode || thermalState == .serious || thermalState == .fair { return .low }
         return .high
@@ -66,7 +75,15 @@ enum LandingWavePerformancePolicy {
     /// Produce a QuartzCore `CAFrameRateRange` for a tier. Kept separate from
     /// `Range` so unit tests can assert against plain floats without touching
     /// QuartzCore types.
+    ///
+    /// 2026-05-20: when `epistemos.graph.forceMaximumFPS` is on, this
+    /// returns a tight 120/120/120 range so the wave's display link
+    /// commits to ProMotion's top rate (no adaptive drop to 60 when the
+    /// GPU slips momentarily).
     static func frameRateRange(for tier: Tier) -> CAFrameRateRange {
+        if UserDefaults.standard.bool(forKey: "epistemos.graph.forceMaximumFPS") {
+            return CAFrameRateRange(minimum: 120, maximum: 120, preferred: 120)
+        }
         let r = range(for: tier)
         return CAFrameRateRange(minimum: r.minimum, maximum: r.maximum, preferred: r.preferred)
     }

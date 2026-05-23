@@ -31,4 +31,11 @@ extension Notification.Name {
     /// layer use this to toggle the SwiftUI page host's hit-testing so the
     /// Metal canvas receives mouse events while on `.canvas`.
     static let graphRouteDidChange = Notification.Name("epistemos.graphRouteDidChange")
+
+    /// Posted by `GraphState.graphViewLocation.didSet` when the user
+    /// changes the "where does Cmd+G open the graph" setting. The
+    /// home content router (`UIState.homeContent`) listens so it can
+    /// close the embedded graph when the user flips to `.miniPanel`
+    /// mid-session.
+    static let graphViewLocationDidChange = Notification.Name("epistemos.graphViewLocationDidChange")
 }
