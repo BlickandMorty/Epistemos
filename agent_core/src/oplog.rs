@@ -519,8 +519,17 @@ impl OpLog {
             }
         }
 
+        // Wiring #3 (T17B lattice/WBO → oplog): always-on accounting
+        // hook. Capture identifiers BEFORE the move so we can account
+        // the successful append after the in-memory cache push.
+        let accounted_actor = op.actor_id.clone();
+        let accounted_ts = op.ts_unix_ms;
         inner.ops.push(op);
         inner.chain_tip = next_tip;
+        // The lattice/WBO accountant has its own internal mutex; this
+        // call must happen AFTER the in-memory push so the counter
+        // never leads the durable state of the log.
+        crate::oplog_lattice_wbo::account_append(&accounted_actor, accounted_ts);
         seq
     }
 
