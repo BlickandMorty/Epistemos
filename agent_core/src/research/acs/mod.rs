@@ -39,12 +39,19 @@
 //! grounded in published math (Dorfler-Bullo, Kauffman, Maturana-Varela,
 //! SiliconSwarm's empirical 6.31× Apple Silicon speedup) rather than
 //! loose biological analogies.
+//!
+//! # Where ACS lives in this codebase
+//!
+//! ACS is split by layer: `crate::research::acs::*` (substrate floor — this
+//! file) and `crate::acs_admission::*` (admission boundary above SCOPE-Rex).
+//! See `docs/T18B-NAMESPACE-PROPOSAL-2026-05-22.md`.
 
 pub mod autopoiesis;
 pub mod governance;
 pub mod kuramoto;
 pub mod notch_delta;
 pub mod vsm;
+// pub mod anchors;  // reserved (T18B namespace proposal 2026-05-22 Q2)
 
 pub use autopoiesis::{
     check_operational_closure, AutopoiesisError, ComponentId, OperationalClosureVerdict,
