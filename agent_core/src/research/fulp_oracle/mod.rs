@@ -5,6 +5,17 @@
 //!
 //! F-ULP-Oracle verifies the fp16 arithmetic floor for `exp`, `ln`, and
 //! `eml(x, y) = exp(x) - ln(y)` over the closed `[0.5, 2]` interval.
+//!
+//! **Production role**: this module is the F-ULP gate the bridge FFI
+//! `fulp_oracle_acceptance_witness_json` exposes to Swift's
+//! `FUlpHealthRow`. Targets `Epistemos/Shaders/fulp_oracle.metal`.
+//!
+//! **Sibling: `crate::research::eml_ir`** is the T12 research substrate
+//! lane that shares several type names with this module but targets
+//! the newer `morph_eval_reduced.metal` combined kernel and has zero
+//! external (non-test, non-self) callers. KEEP BOTH — see
+//! `docs/audits/T12_EML_IR_VS_FULP_ORACLE_DECISION_2026_05_23.md`
+//! for the non-rename decision + re-litigation triggers.
 
 mod binary16;
 mod fixtures;
