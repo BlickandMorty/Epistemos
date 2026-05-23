@@ -193,6 +193,36 @@ private final class ObservationChangeWaiter {
 // - Controls: GraphFloatingControls pill bar at bottom
 // - Search:   HologramSearchSidebar floating panel on the left
 // - Animation: Scale + fade from center on show, reverse on hide
+//
+// BLUR POLICY (2026-05-20 single-blur-per-window contract):
+// ─────────────────────────────────────────────────────────
+// Each NSWindow this file creates carries EXACTLY ONE
+// NSVisualEffectView at the contentView level. Every SwiftUI
+// chrome surface inside the window (folder navigator, note editor,
+// inspector, search sidebar, floating controls, header strip,
+// circle toggle buttons) renders as `theme.glassBg` tinted color
+// + `theme.glassBorder` stroke — NO per-surface Material / .glassEffect
+// / nested NSVisualEffectView. The window's single blur kernel
+// shows through every tinted overlay.
+//
+// Why: CoreAnimation has a finite per-frame compositor budget
+// (~8 ms at 120 Hz). Each NSVisualEffectView / Material is a
+// separate blur kernel pass. Stacking 8 of them caps the effective
+// compositor FPS at ~60 Hz even when MetalGraphView's CADisplayLink
+// requests 120 Hz. Single-blur policy keeps the compositor at
+// 120 Hz alongside Metal.
+//
+// The four windows / their single blur each:
+//   1. Main graph window    →  `self.blurView` (line ~1810, set in show())
+//   2. Mini cold-start panel →  `blur` in `createMiniPanel`     (separate NSPanel)
+//   3. Mini inspector panel  →  `blur` in `createMiniInspectorPanel` (separate NSPanel)
+//   4. Minimize-from-full    →  `miniBlur` added on minimize(); the
+//                              full-screen blurView is hidden behind it
+//                              while in mini mode (only one is visible at
+//                              a time, so the contract still holds).
+//
+// See Epistemos/Views/Shared/UnifiedFrostedGlass.swift for the
+// SwiftUI side of the same contract.
 
 @MainActor
 final class HologramOverlay {
@@ -390,6 +420,13 @@ final class HologramOverlay {
         if let window, let metalView {
             restoreImmersiveChromeIfNeeded(window, metalView: metalView)
             prepareImmersiveOverlayWindow(window, screen: NSScreen.main)
+            // 2026-05-19: re-apply the Shaped Graph experimental chrome
+            // AFTER `prepareImmersiveOverlayWindow` — that call invokes
+            // `GraphOverlayPanel.applyPresentation(.floatingPanel)` which
+            // forces `hasShadow = true` (and so would overwrite our
+            // experimental hasShadow=false). Running our chrome last keeps
+            // experimental-mode invariants intact across every reopen.
+            applyShapedExperimentalChrome(to: window)
             window.alphaValue = 0
             syncImmersivePointerPassthrough(for: window)
             window.orderFrontRegardless()
@@ -611,6 +648,11 @@ final class HologramOverlay {
         }
 
         // Add frosted glass background for mini mode.
+        // BLUR POLICY: this is the mini-mode blur for the main graph window.
+        // The full-screen `self.blurView` (created in show()) was already
+        // hidden at line ~600 above, so the window still carries EXACTLY
+        // ONE visible blur. On `restore()` this `miniBlur` is removed and
+        // `self.blurView.isHidden = false` restores the original.
         guard let contentView = window.contentView else { return }
         let miniBlur = NSVisualEffectView(frame: contentView.bounds)
         miniBlur.material = GraphOverlayThemeStyle.blurMaterial(
@@ -631,9 +673,13 @@ final class HologramOverlay {
         miniTint.autoresizingMask = [.width, .height]
         contentView.addSubview(miniTint, positioned: .below, relativeTo: metalView)
 
-        // Round corners for mini mode.
+        // Round corners for mini mode. 22pt matches MiniChat's continuous
+        // curve — mini-float reads as a peer of the chat panel. Fullscreen
+        // scales up to 28pt (set in the un-mini path) for the macOS 26
+        // liquid-glass immersive feel.
         contentView.wantsLayer = true
-        contentView.layer?.cornerRadius = 16
+        contentView.layer?.cornerRadius = 22
+        contentView.layer?.cornerCurve = .continuous
         contentView.layer?.masksToBounds = true
 
         setWindowFrame(window, to: miniFrame, duration: 0.3)
@@ -706,15 +752,21 @@ final class HologramOverlay {
         // route page, because subviews are inserted above the route host view.
         syncGraphWorkspaceChromeVisibility(isCanvas: graphState.currentRoute.isCanvas)
 
-        // 4. Remove corner radius.
-        window.contentView?.layer?.cornerRadius = 0
-        window.contentView?.layer?.masksToBounds = false
+        // 4. macOS 26 liquid-glass corner radius. 28pt continuous matches
+        //    the Tahoe immersive-window curve (more curvy than MiniChat's
+        //    22pt, not aggressive like visionOS's 46pt). `visibleFrame`
+        //    inset below leaves room above the menubar + above the dock
+        //    so the rounded corners actually show instead of being
+        //    clipped by the screen edge.
+        window.contentView?.layer?.cornerRadius = 28
+        window.contentView?.layer?.cornerCurve = .continuous
+        window.contentView?.layer?.masksToBounds = true
 
         // 5. Animate frame change to full screen.
         window.applyPresentation(.immersiveOverlay)
         guard let screen = NSScreen.main else { return }
 
-        setWindowFrame(window, to: screen.frame, duration: 0.3)
+        setWindowFrame(window, to: screen.visibleFrame, duration: 0.3)
 
         window.orderFrontRegardless()
         window.makeFirstResponder(metalView)
@@ -838,10 +890,14 @@ final class HologramOverlay {
         guard let panelContentView = panel.contentView else { return panel }
         let content = NSView(frame: panelContentView.bounds)
         content.wantsLayer = true
-        content.layer?.cornerRadius = 16
+        content.layer?.cornerRadius = 22
+        content.layer?.cornerCurve = .continuous
         content.layer?.masksToBounds = true
 
         // Blur background — adapts to system light/dark mode.
+        // BLUR POLICY: this is the SINGLE blur for the mini cold-start
+        // panel (a separate NSPanel — not the main graph window). All
+        // SwiftUI chrome rendered into this panel is tinted overlay only.
         let blur = NSVisualEffectView(frame: content.bounds)
         blur.material = .hudWindow
         blur.blendingMode = .behindWindow
@@ -897,6 +953,9 @@ final class HologramOverlay {
         content.layer?.cornerRadius = 16
         content.layer?.masksToBounds = true
 
+        // BLUR POLICY: this is the SINGLE blur for the mini inspector
+        // panel (a separate NSPanel — not the main graph window). The
+        // inspector's SwiftUI content renders as tinted overlay only.
         let blur = NSVisualEffectView(frame: content.bounds)
         blur.material = .hudWindow
         blur.blendingMode = .behindWindow
@@ -967,7 +1026,18 @@ final class HologramOverlay {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.primary.opacity(0.75))
                     .frame(width: 26, height: 26)
-                    .background(.ultraThinMaterial, in: Circle())
+                    // 2026-05-20: zero-copy chrome. This 26pt dot sits on
+                    // top of the graph window's single NSVisualEffectView
+                    // blur — a per-button `.ultraThinMaterial` would stack
+                    // a redundant blur kernel. Color.primary.opacity reads
+                    // light-on-dark / dark-on-light automatically and
+                    // costs one tinted-quad draw.
+                    .background(
+                        Circle().fill(Color.primary.opacity(0.10))
+                    )
+                    .overlay(
+                        Circle().strokeBorder(Color.primary.opacity(0.18), lineWidth: 0.5)
+                    )
             }
             .buttonStyle(.plain)
             .help(help)
@@ -1010,7 +1080,13 @@ final class HologramOverlay {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.primary.opacity(0.7))
                     .frame(width: 26, height: 26)
-                    .background(.ultraThinMaterial, in: Circle())
+                    // 2026-05-20: zero-copy chrome — see makeInspectorToggleButton.
+                    .background(
+                        Circle().fill(Color.primary.opacity(0.10))
+                    )
+                    .overlay(
+                        Circle().strokeBorder(Color.primary.opacity(0.18), lineWidth: 0.5)
+                    )
             }
             .buttonStyle(.plain)
             .help("Restore to full size")
@@ -1455,18 +1531,52 @@ final class HologramOverlay {
         // actually keeps the graph nodes off the screen.
         //
         // Renderer / camera / layout / edges / physics / hologram
-        // overlay visuals are UNTOUCHED — this is purely an
-        // `isHidden` flip on the Metal NSView host.
-        metalView?.isHidden = !isCanvas
+        // overlay visuals are UNTOUCHED — this is purely an animated
+        // alpha+isHidden transition on the Metal NSView host.
+        //
+        // 2026-05-20 smooth-transition fix: previously this was a hard
+        // `metalView.isHidden = !isCanvas` flip — graph nodes vanished
+        // instantly when going to a note. Now nodes fade out over 250ms
+        // (or instantly under Reduce Motion) so the canvas dissolves into
+        // the existing blur wallpaper instead of snapping away.
+        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        let transitionDuration: TimeInterval = reduceMotion ? 0 : 0.25
 
         if isCanvas {
+            // Returning to canvas — start hidden+transparent, then fade nodes in.
+            if let metalView {
+                metalView.alphaValue = 0.0
+                metalView.isHidden = false
+                // Resume engine so frames are flowing before alpha goes positive.
+                metalView.resumeEngine()
+                NSAnimationContext.runAnimationGroup({ ctx in
+                    ctx.duration = transitionDuration
+                    ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                    metalView.animator().alphaValue = 1.0
+                })
+            }
             repositionInspector()
             updatePinnedInspectorPositions()
             graphState.startOverlayPhysicsCycle()
-            // Resume the Metal render loop when returning to canvas so the
-            // physics/rendering pipeline starts producing frames again.
-            metalView?.resumeEngine()
             return
+        }
+
+        // Leaving canvas (note / folder route) — fade nodes out, then hide.
+        if let metalView, !metalView.isHidden {
+            NSAnimationContext.runAnimationGroup({ ctx in
+                ctx.duration = transitionDuration
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                metalView.animator().alphaValue = 0.0
+            }, completionHandler: { [weak self] in
+                MainActor.assumeIsolated {
+                    self?.metalView?.isHidden = true
+                    // Reset alpha so the next canvas return starts from a
+                    // known state — the canvas-return path above sets it
+                    // back to 0 explicitly before fading in to 1.
+                }
+            })
+        } else {
+            metalView?.isHidden = true
         }
 
         UtilityWindowManager.shared.hide(.notes)
@@ -1735,14 +1845,42 @@ final class HologramOverlay {
         // feel via miniBlur + miniTint added below.
         let contentView = NSView(frame: initialFrame)
         contentView.wantsLayer = true
-        contentView.layer?.cornerRadius = 16
+        // 2026-05-20: macOS 26 liquid-glass corner radius. 28pt continuous
+        // ALWAYS (regardless of experimental). 28pt matches the Tahoe
+        // immersive-window curve (was 16pt, which left a visible
+        // square-edged ring where the rectangular toolbar/sidebar
+        // chrome met the window's mild round). `.continuous` cornerCurve
+        // gives a smooth round all the way to the chrome edges.
+        //
+        // Shaped Graph (experimental, 2026-05-19): the toggle ONLY removes
+        // the blur + darken layers (handled by applyShapedExperimentalChrome).
+        // It does NOT remove the rounded corners — per the authoritative
+        // comment in applyShapedExperimentalChrome ("Content view rounded
+        // corners — always rounded, regardless of experimental"). The
+        // prior `isExperimental ? 0 : 28` here was stale code that got
+        // overwritten anyway on the very next call to applyShapedExperimentalChrome.
+        contentView.layer?.cornerRadius = 28
+        contentView.layer?.cornerCurve = .continuous
         contentView.layer?.masksToBounds = true
+        // ALWAYS clear the contentView's layer background — even with
+        // masksToBounds=true the layer's own background color leaks into
+        // the antialiased pixels at the corner, producing a thin sharp
+        // ring around the rounded curve. Clear background = clean curve.
+        contentView.layer?.backgroundColor = NSColor.clear.cgColor
+        contentView.layer?.isOpaque = false
 
         // Frosted glass background — adapts to system appearance.
         // Bounded to contentView (panel-sized) instead of full screen.
         // `.followsWindowActiveState` pauses the blur kernel when window
         // unfocused. Panel-sized blur is ~10-20× cheaper than the previous
         // full-screen blur, so the cinematic graph renders fluidly.
+        //
+        // BLUR POLICY: THIS is the main graph window's single blur. All
+        // SwiftUI chrome inside this window (folder navigator, note,
+        // inspector, search sidebar, floating controls, header strip)
+        // renders as `theme.glassBg` tinted overlay on top — no nested
+        // Material / .glassEffect / NSVisualEffectView. See file header
+        // comment + Epistemos/Views/Shared/UnifiedFrostedGlass.swift.
         let blur = NSVisualEffectView(frame: contentView.bounds)
         blur.material = GraphOverlayThemeStyle.blurMaterial(for: theme)
         blur.blendingMode = .behindWindow
@@ -1761,6 +1899,12 @@ final class HologramOverlay {
         contentView.addSubview(darken)
         self.darkenLayer = darken
 
+        // Shaped Graph (experimental, 2026-05-19): apply the initial chrome
+        // state based on the current toggle. Re-applied on every reopen by
+        // `applyShapedExperimentalChrome(to:)` so a toggle change between
+        // close + reopen always takes effect.
+        applyShapedExperimentalChrome(to: window)
+
         // Metal graph view (fills the panel). isMiniMode = true so it
         // skips the pixel-budget cap and uses the proven-fluid mini render
         // path (same setting that made the old "minimized" graph snappy).
@@ -1773,6 +1917,14 @@ final class HologramOverlay {
         graphView.setLightMode(GraphOverlayThemeStyle.lightModeEnabled(for: theme))
         graphView.autoresizingMask = [.width, .height]
         contentView.addSubview(graphView)
+
+        // Shaped Graph (experimental, 2026-05-19) — the shape-blur overlay
+        // was removed per user direction. They prefer the nodes-only view
+        // with no theme/blur on top. The toggle still controls the HUD
+        // chrome clearing (above) so the window background goes away when
+        // experimental mode is on, leaving just the Metal nodes against the
+        // desktop. The ShapedGraphBoundaryView file is kept dormant in case
+        // we revisit the shape overlay.
 
         // Graph Workspace Route overlay (SwiftUI hosted — full screen or pass-through).
         //
@@ -1809,6 +1961,9 @@ final class HologramOverlay {
                 guard let self else { return }
                 let isCanvas = self.graphState.currentRoute.isCanvas
                 self.syncGraphWorkspaceChromeVisibility(isCanvas: isCanvas)
+                if let window = self.window {
+                    self.applyShapedExperimentalChrome(to: window)
+                }
             }
         }
 
@@ -1828,6 +1983,21 @@ final class HologramOverlay {
 
         let ctrlDrag = NSPanGestureRecognizer(target: self, action: #selector(handleControlsDrag(_:)))
         controlsView.addGestureRecognizer(ctrlDrag)
+
+        // FPS HUD (2026-05-20) — small live readout in bottom-right.
+        // Visibility is driven by the SwiftUI body reading
+        // `graphState.graphFPSHUDEnabled`; the SwiftUI side returns
+        // an EmptyView when off, so we always mount the host but
+        // it's invisible until the user toggles it on in Settings.
+        let fpsHUDView = HologramOverlayHostedViewBuilder.host(
+            GraphFPSHUDHostView()
+        )
+        fpsHUDView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(fpsHUDView)
+        NSLayoutConstraint.activate([
+            fpsHUDView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
+            fpsHUDView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -24),
+        ])
 
         // Search sidebar (SwiftUI hosted — draggable).
         let sidebarRoot = HologramSearchSidebar(
@@ -1975,6 +2145,68 @@ final class HologramOverlay {
         }
     }
 
+    /// Re-applies the Shaped Graph (experimental) chrome state every time
+    /// the overlay reopens or the route changes. Pure idempotent: safe to
+    /// call on every `show()` and from the route observer.
+    ///
+    /// 2026-05-19 user direction (round 2): only the CANVAS route gets the
+    /// fully-transparent treatment; when the user opens a note or a folder
+    /// the HUD blur must reappear behind the panel so the text reads
+    /// against a themed backdrop instead of the bare desktop. So the
+    /// "hide chrome" predicate is `experimental && currentRoute == .canvas`,
+    /// not just `experimental`.
+    private func applyShapedExperimentalChrome(to window: NSWindow) {
+        let isExperimental = AppBootstrap.shared?.uiState.shapedGraphExperimental == true
+
+        let hideChrome = isExperimental && graphState.currentRoute.isCanvas
+
+        // 2026-05-20 (bugfix): the window MUST stay transparent ALWAYS.
+        // The prior `hideChrome ? .clear : NSColor.windowBackgroundColor`
+        // logic painted a solid gray windowBackgroundColor RECTANGLE
+        // behind the rounded contentView mask in every common case (any
+        // non-experimental session, OR experimental on note/folder route).
+        // Result: gray pixels filled the corners OUTSIDE the rounded
+        // mask → visible sharp rectangular "pointy box outline" around
+        // the curve. The contentView's masksToBounds=true only clips its
+        // OWN content; it doesn't stop the window from painting opaque
+        // background pixels in the corner gaps.
+        //
+        // GraphOverlayPanel.init already sets these to clear/false; we
+        // just need to NOT clobber that here. The rounded silhouette is
+        // defined entirely by the contentView's masked content.
+        window.backgroundColor = .clear
+        window.isOpaque = false
+
+        // Drop the NSWindow shadow when experimental is on. The shadow is
+        // the source of the "bubble" halo the user reported — it renders
+        // around the panel frame even when the panel itself is invisible,
+        // and is brighter on light desktops + when the window is key.
+        window.hasShadow = !hideChrome
+
+        // Content view rounded corners — always rounded, regardless of
+        // experimental. Per user direction (2026-05-20), 28pt continuous
+        // matches the macOS 26 immersive panel curve (was 22pt; bumped
+        // for consistency with the initial show() + restore() paths and
+        // to kill the visible "square corner" where rectangular chrome
+        // meets a too-mild round). In experimental mode the layer
+        // background is transparent so the desktop shows through inside
+        // the rounded shape.
+        if let contentView = window.contentView {
+            contentView.wantsLayer = true
+            contentView.layer?.cornerRadius = 28
+            contentView.layer?.cornerCurve = .continuous
+            contentView.layer?.masksToBounds = true
+            // Always-clear layer background to kill antialiased corner
+            // ring artifacts (see initial show() path).
+            contentView.layer?.backgroundColor = NSColor.clear.cgColor
+            contentView.layer?.isOpaque = false
+        }
+
+        // HUD blur + tint visibility — same predicate as window chrome.
+        blurView?.isHidden = hideChrome
+        darkenLayer?.isHidden = hideChrome
+    }
+
     private func restoreImmersiveChromeIfNeeded(
         _ window: GraphOverlayPanel,
         metalView: MetalGraphNSView
@@ -1996,9 +2228,25 @@ final class HologramOverlay {
         // Route-aware chrome restore (see restore() above).
         syncGraphWorkspaceChromeVisibility(isCanvas: graphState.currentRoute.isCanvas)
 
-        window.contentView?.layer?.cornerRadius = 0
-        window.contentView?.layer?.masksToBounds = false
-        window.applyPresentation(.immersiveOverlay)
+        // 2026-05-20: prior code set cornerRadius=0 + masksToBounds=false +
+        // applyPresentation(.immersiveOverlay) here. Both were stale —
+        // per user 2026-05-10 the graph is mini-ontology floating-panel
+        // ALWAYS (no immersive mode). The cornerRadius=0 transition was
+        // the source of the "rectangle bleeding through editor on note
+        // route" the user reported 2026-05-20: this function runs on
+        // every show(), briefly square-ifies the window before
+        // `applyShapedExperimentalChrome` rounds it back, producing a
+        // visible square edge flash + leaving the ProseEditor's
+        // background rectangle visible at the corners while the radius
+        // is 0. Keep the rounded corners + floating-panel presentation
+        // consistent across every code path.
+        window.contentView?.layer?.cornerRadius = 28
+        window.contentView?.layer?.cornerCurve = .continuous
+        window.contentView?.layer?.masksToBounds = true
+        // Do NOT call applyPresentation(.immersiveOverlay) — it's a
+        // deprecated path (per `prepareImmersiveOverlayWindow` comment
+        // line 2201). prepareImmersiveOverlayWindow() runs next and
+        // applies the correct .floatingPanel presentation.
     }
 
     /// Per user 2026-05-10: the single unified graph (mini ontology) always

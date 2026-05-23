@@ -533,7 +533,10 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
                 ? "Untitled"
                 : self.package.manifest.title
             window.setContentSize(NSSize(width: 1260, height: 740))
-            window.minSize = NSSize(width: 1180, height: 620)
+            // 2026-05-19: drop min from 1180×620 → 400×300 per user direction
+            // so .epdoc windows can be resized freely. The toolbar may wrap
+            // or scroll at very narrow widths; that's the trade for freedom.
+            window.minSize = NSSize(width: 400, height: 300)
             window.styleMask.insert([.resizable, .titled, .closable, .miniaturizable, .fullSizeContentView])
             window.tabbingMode = .preferred
             window.tabbingIdentifier = NoteWindowManager.noteTabbingIdentifier
@@ -631,18 +634,10 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
         ) else {
             return
         }
-        ensureEpdocToolbarFits(in: existingWindow)
+        // 2026-05-19: stopped force-enlarging the host window to 1180px
+        // wide on tab-attach. The user wants free resizing; if the toolbar
+        // overflows at a narrow width it can wrap or scroll instead of
+        // resizing the entire window without consent.
         existingWindow.addTabbedWindow(window, ordered: .above)
-    }
-
-    @MainActor
-    private static func ensureEpdocToolbarFits(in window: NSWindow) {
-        let minimumWidth: CGFloat = 1180
-        guard window.frame.width < minimumWidth else { return }
-        var frame = window.frame
-        let delta = minimumWidth - frame.width
-        frame.origin.x -= delta / 2
-        frame.size.width = minimumWidth
-        window.setFrame(frame, display: true)
     }
 }
