@@ -3557,6 +3557,43 @@ struct SystemGRuntimeStatus {
 /// FFI entry: snapshot the agent_runtime_v2 mode + execution gates and
 /// return the JSON encoding. Swift renders via the
 /// `SystemGHealthRow` in Settings -> Diagnostics.
+// F-ULP ORACLE WIRING — `fulp_oracle_acceptance_witness_json` FFI.
+//
+// Wiring #5 (T12 F-ULP -> EML witness emission path). The T12 substrate
+// already exposes `acceptance_witness_json()` (Rust JSON IO) — this
+// FFI is a thin pass-through so Swift can run the acceptance witness
+// on demand from `Settings -> Diagnostics -> FUlpHealthRow`.
+//
+// Per canon (`docs/F_ULP_ORACLE_2026_05_18.md`) the F-ULP oracle gates
+// the EML witness arithmetic floor (≤2 ULP fp16 in [0.5,2] over the
+// fixture corpus). `AnswerPacket schema freeze blocked until this
+// gate is green` (DECK:266). Surfacing the live witness JSON in the
+// health row keeps that gate visible to the user.
+
+/// FFI entry: run the F-ULP acceptance witness and return the JSON.
+/// Swift renders the parsed `FulpWitness` on `FUlpHealthRow`.
+#[uniffi::export]
+pub fn fulp_oracle_acceptance_witness_json() -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        #[cfg(feature = "research")]
+        {
+            crate::research::fulp_oracle::acceptance_witness_json().map_err(|e| {
+                AgentErrorFFI::AgentError {
+                    message: format!("F-ULP acceptance witness: {:?}", e),
+                }
+            })
+        }
+        #[cfg(not(feature = "research"))]
+        {
+            Err(AgentErrorFFI::AgentError {
+                message: "F-ULP acceptance witness requires the `research` feature \
+                          (MAS builds do not compile the oracle by default)"
+                    .to_string(),
+            })
+        }
+    })
+}
+
 #[uniffi::export]
 pub fn system_g_runtime_status_json() -> Result<String, AgentErrorFFI> {
     ffi_guard_sync!({
