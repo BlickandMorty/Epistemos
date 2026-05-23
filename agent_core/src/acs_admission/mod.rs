@@ -7,6 +7,17 @@
 //!
 //! Decomposed across submodules (T18B 2026-05-22). See
 //! `docs/T18B-DECOMPOSE-2026-05-22.md` for the layout map.
+//!
+//! # Where ACS lives in this codebase
+//!
+//! ACS is split by layer: `crate::research::acs::*` (substrate floor) and
+//! `crate::acs_admission::*` (admission boundary above SCOPE-Rex — this file).
+//! See `docs/T18B-NAMESPACE-PROPOSAL-2026-05-22.md`.
+
+// NAMING DEBT — T18B namespace proposal 2026-05-22 Q3 (grandfathered):
+// identifiers here use ACS*, but `crate::research::acs::*` uses Acs*. ACS*
+// predates T17B's choice and is referenced by Swift FFI surfaces; a future
+// converge-prefix PR can revisit if dual-style becomes reader-friction.
 
 mod admit;
 mod audit_sink;
@@ -20,6 +31,7 @@ mod risk;
 mod validation;
 mod verdict;
 mod wire;
+// mod anchor_ref;  // reserved (T18B namespace proposal 2026-05-22 Q2)
 
 pub use admit::*;
 pub use audit_sink::*;
