@@ -201,13 +201,22 @@ nonisolated enum GraphInteractionRenderPolicy {
         isInteracting: Bool,
         lowPowerMode: Bool
     ) -> Int {
+        // 2026-05-20: bumped non-low-power timeouts (interacting 4→6, idle 2→4)
+        // to give the GPU more headroom at 120Hz before dropping a frame.
+        // With native `.glassEffect()` on chrome (toolbar / sidebar / inspector /
+        // controls) layered on top of the wallpaper NSVisualEffectView blur,
+        // total compositor work is ~5 shader passes per frame. The 2ms idle
+        // timeout dropped real 120Hz-eligible frames whenever the GPU spiked
+        // even slightly. 4ms idle still keeps the CPU/GPU paced (semaphore
+        // value=2 caps in-flight frames) but no longer drops frames that
+        // just need a millisecond longer.
         switch (isInteracting, lowPowerMode) {
         case (true, false):
-            4
+            6
         case (true, true):
             2
         case (false, false):
-            2
+            4
         case (false, true):
             1
         }
@@ -618,6 +627,24 @@ final class MetalGraphNSView: NSView {
     /// a destroyed engine. Checked in renderFrame() before any FFI call.
     private let isInvalidated = Atomic<Bool>(false)
 
+    // MARK: - FPS Sampling (2026-05-20)
+    //
+    // Tiny ring buffer of frame intervals (CFAbsoluteTime deltas). Updated
+    // at the top of every renderFrame(). Drives the in-app FPS HUD and
+    // the GraphState.graphMeasuredFPS / graphMeasuredP99Ms surface.
+    private static let fpsSampleCount = 120
+    private var fpsSampleIntervals = ContiguousArray<Double>(
+        repeating: 1.0 / 120.0, count: MetalGraphNSView.fpsSampleCount
+    )
+    private var fpsSampleCursor: Int = 0
+    private var lastFrameAbsoluteTime: CFAbsoluteTime = 0
+    /// Throttles graphState writeback to ~5 Hz so SwiftUI doesn't redraw
+    /// the HUD label every single frame (which would itself burn budget).
+    private var lastFPSPublishTime: CFAbsoluteTime = 0
+    /// Cached cap version so we re-apply the CADisplayLink frame-rate
+    /// range only when the user changes the setting.
+    private var lastAppliedFPSConfigVersion: Int = -1
+
     private var isEnginePaused = false
 
     // MARK: - Shared Position Buffers
@@ -850,6 +877,12 @@ final class MetalGraphNSView: NSView {
         layer.framebufferOnly = false      // Required for transparent compositing.
         layer.isOpaque = false             // Allow blur to show through.
         layer.maximumDrawableCount = 3     // Fullscreen cinematic graph shading needs a spare drawable to avoid visible hitching.
+        // 2026-05-20: explicit displaySyncEnabled = true. The default is also
+        // true on macOS but we set it explicitly to document the contract:
+        // the layer presents at vsync intervals (every 8.33ms on a 120Hz
+        // ProMotion display). Without vsync we'd tear; with it we hit the
+        // display's native refresh rate when the CADisplayLink + GPU keep up.
+        layer.displaySyncEnabled = true
         // NOTE: presentsWithTransaction intentionally left at default (false). Enabling
         // it would require coordinating commit+waitUntilScheduled+present on the Rust
         // renderer side (graph-engine/src/renderer.rs) — see Phase H follow-up.
@@ -1013,16 +1046,44 @@ final class MetalGraphNSView: NSView {
     private func startDisplayLink() {
         stopDisplayLink()
         let link = self.displayLink(target: self, selector: #selector(handleDisplayLinkTick(_:)))
-        // Request the display's full ProMotion range (120 Hz on M-series
-        // laptops) instead of letting the system default cap at 60.
-        // CADisplayLink defaults to a 60-fps preferred rate on macOS when
-        // no range is set, even on a 120 Hz display, which forces every
-        // GPU frame to wait ~16 ms for vblank instead of ~8 ms.
-        // preferred = 120 with a 60–120 floor keeps us at 120 when the
-        // GPU can sustain it and drops to 60 only if a frame slips.
-        link.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: 120)
+        // 2026-05-20: respect the user's `graphMaxFPS` setting if set.
+        // 0 = Unlimited → ProMotion adaptive 60-120. Otherwise clamp to
+        // the chosen cap. Defaults to 0 (Unlimited) on first launch.
+        link.preferredFrameRateRange = framePolicyRange()
+        if let graphState {
+            lastAppliedFPSConfigVersion = graphState.graphFPSConfigVersion
+        }
         link.add(to: .main, forMode: .common)
         activeDisplayLink = link
+    }
+
+    /// Pure mapping from `graphState.graphMaxFPS` to `CAFrameRateRange`.
+    /// Lives at instance scope so the live-reconfig path in renderFrame()
+    /// can call it without restarting the display link.
+    private func framePolicyRange() -> CAFrameRateRange {
+        // MASTER OVERRIDE — when `graphForceMaximumFPS` is on, ignore
+        // the cap picker, ignore PowerGuard, ignore thermal state, and
+        // pin to ProMotion's top rate. The 120/120/120 tight range
+        // tells the OS to NEVER drop below 120; the display link will
+        // skip rather than slow.
+        if graphState?.graphForceMaximumFPS == true {
+            return CAFrameRateRange(minimum: 120, maximum: 120, preferred: 120)
+        }
+        let cap = graphState?.graphMaxFPS ?? 0
+        switch cap {
+        case 30:
+            return CAFrameRateRange(minimum: 24, maximum: 30, preferred: 30)
+        case 60:
+            return CAFrameRateRange(minimum: 30, maximum: 60, preferred: 60)
+        case 120:
+            // Tight 120/120/120 range — tells the OS we explicitly want
+            // ProMotion's top rate. Min stays 120 so a frame that takes
+            // 9ms doesn't pull the display rate down to 60 mid-session.
+            return CAFrameRateRange(minimum: 120, maximum: 120, preferred: 120)
+        default:
+            // 0 = Unlimited / adaptive — original wide range.
+            return CAFrameRateRange(minimum: 60, maximum: 120, preferred: 120)
+        }
     }
 
     private func stopDisplayLink() {
@@ -1519,6 +1580,27 @@ final class MetalGraphNSView: NSView {
             lowPowerMode: PowerGuard.shared.shouldThrottleRendering
         )
 
+        // FPS sampling. Sample at the TOP of renderFrame (not the bottom)
+        // so we capture the actual inter-tick interval the CADisplayLink
+        // is firing at. Updates a ring buffer that the HUD reads via the
+        // ~5Hz publish path further down.
+        let nowAbsolute = CFAbsoluteTimeGetCurrent()
+        if lastFrameAbsoluteTime > 0 {
+            let interval = nowAbsolute - lastFrameAbsoluteTime
+            fpsSampleIntervals[fpsSampleCursor] = max(interval, 0.0001)
+            fpsSampleCursor = (fpsSampleCursor + 1) % Self.fpsSampleCount
+        }
+        lastFrameAbsoluteTime = nowAbsolute
+
+        // Live-reconfig the display link if the user changed the FPS cap.
+        // Cheap version-gated check — no FFI, just an int compare.
+        if let graphState,
+           lastAppliedFPSConfigVersion != graphState.graphFPSConfigVersion,
+           let link = activeDisplayLink {
+            lastAppliedFPSConfigVersion = graphState.graphFPSConfigVersion
+            link.preferredFrameRateRange = framePolicyRange()
+        }
+
         // In-flight tracking: acquire a slot. The semaphore allows up to
         // 2 frames in the GPU pipeline, leaving one spare drawable.
         // Use a short timeout instead of .now() to avoid dropping frames
@@ -1840,9 +1922,37 @@ final class MetalGraphNSView: NSView {
         // no staleness window that this line needs to cover.
         needsRender = result != 0
 
+        // ~5 Hz FPS publish — only when the HUD is on. Computes mean
+        // interval + p99 over the ring buffer. Skipping when HUD is
+        // off keeps the @Observable write storm off the main thread
+        // for users who don't care about the meter.
+        if let graphState, graphState.graphFPSHUDEnabled,
+           nowAbsolute - lastFPSPublishTime > 0.2 {
+            lastFPSPublishTime = nowAbsolute
+            publishFPSMetrics(to: graphState)
+        }
+
         // Release the in-flight semaphore slot so the next frame can queue.
         // graph_engine_render() calls commandBuffer.commit() + present()
         // internally, so GPU work is submitted at this point.
+    }
+
+    /// Computes rolling mean FPS + p99 frame-interval from the ring
+    /// buffer and writes to GraphState. Called at most ~5 Hz from the
+    /// render loop when the HUD is enabled. Allocations are bounded
+    /// by `fpsSampleCount` (120).
+    private func publishFPSMetrics(to graphState: GraphState) {
+        var sorted = Array(fpsSampleIntervals)
+        sorted.sort()
+        let n = sorted.count
+        let p99Index = max(0, min(n - 1, Int(Double(n) * 0.99)))
+        let p99Interval = sorted[p99Index]
+        var sum = 0.0
+        for interval in sorted { sum += interval }
+        let mean = sum / Double(n)
+        let fps = mean > 0 ? 1.0 / mean : 0
+        graphState.graphMeasuredFPS = fps
+        graphState.graphMeasuredP99Ms = p99Interval * 1000.0
     }
 
     // MARK: - Input Events

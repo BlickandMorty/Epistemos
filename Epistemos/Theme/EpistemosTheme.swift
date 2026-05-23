@@ -421,6 +421,24 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         }
     }
 
+    /// CSS `font-family` value injected into the Tiptap notes editor as
+    /// `--epdoc-display-font`. Matches the chat side: each theme's H1-H3
+    /// in the WebView use the same intrinsic face as `headingFontName`
+    /// (Classic → "Retro Gaming", Platinum → "MatrixTypeDisplay",
+    /// Ember → "ChonkyPixels"). Replaces the pre-2026-05-19 Coral / Retro
+    /// light-vs-dark scheme. The @font-face declarations live in
+    /// `js-editor/src/editor.css`; the .ttf bytes are served by the
+    /// EpdocEditorBridge URL-scheme handler from the macOS bundle.
+    nonisolated var epdocDisplayFontFamily: String {
+        let primary: String
+        switch themePair {
+        case .classic:        primary = "Retro Gaming"
+        case .platinumViolet: primary = "MatrixTypeDisplay"
+        case .ember:          primary = "ChonkyPixels"
+        }
+        return "\"\(primary)\", -apple-system, BlinkMacSystemFont, \"SF Pro Display\", system-ui, sans-serif"
+    }
+
     /// Node-title font for the graph node inspector main heading.
     /// On Ember = ChonkyPixels (clean pixels, no case-driven boxes).
     /// Classic = RetroGaming on BOTH modes (eighth pass).
@@ -491,6 +509,54 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     /// stacked hero and H1-H3 headings. Retired 2026-05-13.
     nonisolated var prefersUppercaseDisplay: Bool {
         false
+    }
+
+    /// Whether chat-message H1 markdown headings should render in
+    /// ALL CAPS (styling only — font + color preserved). Ember-pair
+    /// only per user direction 2026-05-19; mirrors the user's
+    /// preferred reading rhythm without altering H1's ChonkyPixels
+    /// glyph treatment.
+    nonisolated var uppercaseH1Display: Bool {
+        themePair == .ember
+    }
+
+    /// Scalar applied to H1-H3 point sizes across all heading display
+    /// contexts: chat-message markdown, the Tiptap notes-editor CSS
+    /// variables, the auto-extracted chat heading lane, and the
+    /// ProseEditor live-editor headings. Per user direction 2026-05-19,
+    /// RetroGaming (Classic) and MatrixTypeDisplay (Platinum Violet)
+    /// render visibly larger than Ember's ChonkyPixels at the same
+    /// point size; an initial 15 % shrink wasn't aggressive enough, so
+    /// the current value is 0.72 (28 % shrink). Ember stays on 1.0 —
+    /// its sizes are the canonical target.
+    nonisolated var headingSizeMultiplier: CGFloat {
+        switch themePair {
+        case .classic, .platinumViolet: return 0.72
+        case .ember: return 1.0
+        }
+    }
+
+    /// Notes-matching H2/H3 typography for chat-message markdown.
+    /// Returns `nil` on themes that keep the canonical chat heading
+    /// look. Ember-pair only per user direction 2026-05-19: chat
+    /// H2/H3 reuse Ember's intrinsic heading face (ChonkyPixels — the
+    /// same font H1 uses) but adopt the notes editor's H2/H3 point
+    /// sizes (31 / 19) and weights (heavy / semibold) so the chat
+    /// heading hierarchy mirrors the in-WebView editor's visual
+    /// rhythm without introducing Coral Pixels.
+    nonisolated func notesMatchingHeadingSpec(
+        level: Int
+    ) -> NotesMatchingHeadingSpec? {
+        guard themePair == .ember, (2...3).contains(level) else {
+            return nil
+        }
+        let size: CGFloat = level == 2 ? 31 : 19
+        let weight: Font.Weight = level == 2 ? .heavy : .semibold
+        return NotesMatchingHeadingSpec(
+            fontName: headingFontName,
+            size: size,
+            weight: weight
+        )
     }
 
     /// Whether H1-H3 headings should render with a glow on this
@@ -1276,6 +1342,15 @@ enum Spacing {
 }
 
 // MARK: - Typography (7 tokens)
+
+/// Concrete font / size / weight bundle for chat-message H2/H3 that
+/// want to mirror the Tiptap notes editor (Ember pair only as of
+/// 2026-05-19). Returned by `EpistemosTheme.notesMatchingHeadingSpec`.
+struct NotesMatchingHeadingSpec: Sendable {
+    let fontName: String
+    let size: CGFloat
+    let weight: Font.Weight
+}
 
 enum AppHeadingRole: Sendable {
     case pageTitle

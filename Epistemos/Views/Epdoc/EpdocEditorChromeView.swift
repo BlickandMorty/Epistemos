@@ -532,8 +532,9 @@ private enum EpdocEditorThemeStyle {
 
     private static func cssVariables(for theme: EpistemosTheme) -> [(String, String)] {
         let resolved = theme.resolved
-        return [
+        var variables: [(String, String)] = [
             ("--epdoc-bg", "transparent"),
+            ("--epdoc-display-font", theme.epdocDisplayFontFamily),
             ("--epdoc-text-color", cssColor(resolved.foreground.nsColor)),
             ("--epdoc-muted", cssColor(resolved.mutedForeground.nsColor)),
             ("--epdoc-accent", cssColor(resolved.accent.nsColor)),
@@ -549,6 +550,21 @@ private enum EpdocEditorThemeStyle {
             ("--epdoc-chart-blue", cssColor(resolved.accent.nsColor)),
             ("--epdoc-chart-violet", cssColor(resolved.headingAccent.nsColor)),
         ]
+        // Per-theme H1-H3 size shrink (2026-05-19): Classic + Platinum
+        // render visibly larger than Ember at the same point size, so
+        // override the editor.css defaults (59 / 31 / 19 px) with the
+        // 0.85× values. Ember keeps the defaults — its sizes are the
+        // canonical target.
+        let multiplier = theme.headingSizeMultiplier
+        if multiplier < 1.0 {
+            let h1 = Int((59 * multiplier).rounded())
+            let h2 = Int((31 * multiplier).rounded())
+            let h3 = Int((19 * multiplier).rounded())
+            variables.append(("--epdoc-h1-size", "\(h1)px"))
+            variables.append(("--epdoc-h2-size", "\(h2)px"))
+            variables.append(("--epdoc-h3-size", "\(h3)px"))
+        }
+        return variables
     }
 
     private static func cssColor(_ color: NSColor) -> String {

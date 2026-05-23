@@ -260,11 +260,7 @@ struct HologramSearchSidebar: View {
         }
         .buttonStyle(.plain)
         .help("Show sidebar")
-        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(.primary.opacity(0.08), lineWidth: 0.5)
-        )
+        .unifiedFrostedGlass(theme: theme, in: RoundedRectangle(cornerRadius: 10, style: .continuous), interactive: true)
     }
 
     private var expandedSidebar: some View {
@@ -300,11 +296,7 @@ struct HologramSearchSidebar: View {
             guard isStreaming else { return }
             withAnimation(reduceMotion ? nil : .smooth(duration: 0.2)) { activeTab = .chat }
         }
-        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(.primary.opacity(0.08), lineWidth: 0.5)
-        )
+        .unifiedFrostedGlass(theme: theme, in: RoundedRectangle(cornerRadius: 14, style: .continuous), interactive: true)
     }
 
     private var resizeHandle: some View {
