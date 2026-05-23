@@ -23,6 +23,44 @@
 import Foundation
 import os
 
+// MARK: - Backend honesty
+//
+// The Rust side currently builds a scaffold trace inside
+// `agent_core::bridge::vault_recall_trace_json`: hardcoded
+// `notes/sample.md` + `notes/decoy.md` candidates with
+// `ladder_tier = "scaffold-lexical"`. Real `VaultBackend` integration
+// (W-21.1 in CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md) swaps the
+// stub for a production retriever and emits a different `ladder_tier`.
+// Until then, every trace reaching Swift is stub data, so the hardening
+// bar applies: UI must not claim "working" against stub data.
+//
+// **Detection contract** (forward-compatible with Terminal 2's real
+// VaultBackend wire, no Rust change required to flip Swift to `.real`):
+//
+//   - `scaffold-lexical` ladder tier         → `.stub`
+//   - any `vault-*` / `helios-*` ladder tier → `.real`
+//   - missing or unrecognized               → `.unknown`
+//
+// When Terminal 2 lands the real backend, the Rust side emits a tier
+// name keyed off the deployed retriever ("vault-hybrid-v1",
+// "helios-fanout-v2", etc.), so this heuristic flips to `.real`
+// automatically. If Terminal 2 needs a stronger signal (e.g. a
+// dedicated `backend_origin` field on `RetrievalTrace`), the Snapshot
+// already carries `lastBackend` and the row already renders it —
+// Swift-side change is then a one-line update of
+// `detectedBackend(from:)` to read the new field.
+nonisolated public enum VaultRecallBackend: String, Sendable, Hashable {
+    /// Rust side returned the hardcoded scaffold trace. UI must not
+    /// claim "working" — the candidates do not reflect the user's vault.
+    case stub
+    /// Rust side returned a trace from a real `VaultBackend`. The 5-
+    /// signal contract holds against production content.
+    case real
+    /// No trace has run yet, the ladder tier was nil, or the prefix did
+    /// not match a known shape.
+    case unknown
+}
+
 // MARK: - VaultRecallTrace mirrors
 
 /// Mirrors Rust `VaultRecallSignal` (`agent_core/src/storage/retrieval_trace.rs`).
@@ -116,13 +154,14 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
     private var lastCandidatesRetained: Int = 0
     private var lastSignalSummary: [VaultRecallSignal] = []
     private var lastAllChatterFallback: Bool = false
+    private var lastBackendValue: VaultRecallBackend = .unknown
     private var totalQueries: UInt64 = 0
     private var lastErrorDescription: String?
     private var lastErrorAt: Date?
 
     private init() {}
 
-    public func record(latencyMs: Double, trace: VaultRecallTrace) {
+    public func record(latencyMs: Double, trace: VaultRecallTrace, backend: VaultRecallBackend) {
         lock.lock()
         samples.append(latencyMs)
         if samples.count > Self.bufferCap {
@@ -133,6 +172,7 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
         lastCandidatesRetained = trace.candidatesRetained
         lastSignalSummary = trace.signalSummary
         lastAllChatterFallback = trace.allChatterFallback
+        lastBackendValue = backend
         totalQueries &+= 1
         lastErrorDescription = nil
         lock.unlock()
@@ -159,6 +199,7 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
             lastCandidatesRetained:  lastCandidatesRetained,
             lastSignalSummary:       lastSignalSummary,
             lastAllChatterFallback:  lastAllChatterFallback,
+            lastBackend:             lastBackendValue,
             lastErrorDescription:    lastErrorDescription,
             lastErrorAt:             lastErrorAt
         )
@@ -172,6 +213,7 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
         lastCandidatesRetained = 0
         lastSignalSummary = []
         lastAllChatterFallback = false
+        lastBackendValue = .unknown
         totalQueries = 0
         lastErrorDescription = nil
         lastErrorAt = nil
@@ -196,6 +238,7 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
         public let lastCandidatesRetained: Int
         public let lastSignalSummary: [VaultRecallSignal]
         public let lastAllChatterFallback: Bool
+        public let lastBackend: VaultRecallBackend
         public let lastErrorDescription: String?
         public let lastErrorAt: Date?
     }
@@ -213,10 +256,21 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
 nonisolated public enum VaultRecallBridge {
     private static let log = Logger(subsystem: "com.epistemos", category: "vault-recall")
 
+    /// Inspect a `VaultRecallTrace` and report whether it came from the
+    /// scaffold-lexical stub or a real `VaultBackend`. See the file-head
+    /// "Backend honesty" comment for the contract.
+    public static func detectedBackend(from trace: VaultRecallTrace) -> VaultRecallBackend {
+        guard let tier = trace.ladderTier else { return .unknown }
+        if tier == "scaffold-lexical" { return .stub }
+        if tier.hasPrefix("vault-")   { return .real }
+        if tier.hasPrefix("helios-")  { return .real }
+        return .unknown
+    }
+
     /// Build a `VaultRecallTrace` for `query` via the Rust T21 substrate.
-    /// Records latency + signal summary into `VaultRecallMetrics`.
-    /// Returns `nil` on error (caller's retrieval path is unaffected;
-    /// the breadcrumb just goes silent).
+    /// Records latency + signal summary + backend origin into
+    /// `VaultRecallMetrics`. Returns `nil` on error (caller's retrieval
+    /// path is unaffected; the breadcrumb just goes silent).
     public static func trace(query: String) -> VaultRecallTrace? {
         let started = Date()
         do {
@@ -230,8 +284,16 @@ nonisolated public enum VaultRecallBridge {
             }
             let trace = try JSONDecoder().decode(VaultRecallTrace.self, from: data)
             let latencyMs = Date().timeIntervalSince(started) * 1000
-            VaultRecallMetrics.shared.record(latencyMs: latencyMs, trace: trace)
-            log.info("VaultRecall contract path active for query=\"\(query, privacy: .public)\" signals=\(trace.signalSummary.count, privacy: .public) retained=\(trace.candidatesRetained, privacy: .public) latency_ms=\(latencyMs, privacy: .public)")
+            let backend = detectedBackend(from: trace)
+            VaultRecallMetrics.shared.record(latencyMs: latencyMs, trace: trace, backend: backend)
+            switch backend {
+            case .stub:
+                log.info("VaultRecall STUB path active for query=\"\(query, privacy: .public)\" tier=\(trace.ladderTier ?? "(nil)", privacy: .public) signals=\(trace.signalSummary.count, privacy: .public) retained=\(trace.candidatesRetained, privacy: .public) latency_ms=\(latencyMs, privacy: .public) (Terminal 2 VaultBackend integration pending W-21.1; candidates do not reflect user vault)")
+            case .real:
+                log.info("VaultRecall real-backend path active for query=\"\(query, privacy: .public)\" tier=\(trace.ladderTier ?? "(nil)", privacy: .public) signals=\(trace.signalSummary.count, privacy: .public) retained=\(trace.candidatesRetained, privacy: .public) latency_ms=\(latencyMs, privacy: .public)")
+            case .unknown:
+                log.info("VaultRecall path returned unknown-backend trace for query=\"\(query, privacy: .public)\" tier=\(trace.ladderTier ?? "(nil)", privacy: .public) retained=\(trace.candidatesRetained, privacy: .public) latency_ms=\(latencyMs, privacy: .public)")
+            }
             return trace
         } catch {
             VaultRecallMetrics.shared.recordError(error)
