@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::os::fd::{AsRawFd, OwnedFd};
+use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -9,6 +10,136 @@ use nix::pty::openpty;
 use nix::sys::signal::{self, Signal};
 use nix::sys::wait::WaitPidFlag;
 use nix::unistd::{self, ForkResult, Pid};
+
+// ---------------------------------------------------------------------------
+// Subprocess Env Hardening (PTY-local mirror of agent_core::security)
+// ---------------------------------------------------------------------------
+//
+// CANONICAL SOURCE: `agent_core/src/security.rs` lines 847+ defines
+// `SUBPROCESS_ALLOWLIST` (10 vars) + `SUBPROCESS_DENYLIST` (45+ vars
+// including all dynamic-loader hijack vectors, macOS heap leak knobs,
+// Node/Python/Ruby/Perl interpreter hijacks, and 22 provider API keys).
+//
+// This module mirrors those lists rather than depending on agent_core
+// because omega-mcp is a sibling crate (no agent_core dep). If either
+// list grows, BOTH copies must be updated together. The duplication is
+// intentional defense-in-depth: a code review on either side catches
+// drift.
+//
+// Why we need it here: `spawn_pty` previously called `execvp()` which
+// inherits the parent's full environment. That meant a PTY shell child
+// could see `LD_PRELOAD`, `DYLD_INSERT_LIBRARIES`, `MallocStackLogging`,
+// `NODE_OPTIONS`, `PYTHONPATH`, `RUBYOPT`, `PERL5OPT`, plus every
+// provider API key from the parent process's env — a code-injection
+// and secret-exfiltration vector flagged as a P1 in the 2026-05-23
+// canonical chronicle audit.
+//
+// Fix: build a hardened `envp` array in the parent (heap allocation
+// safe) BEFORE fork, then in the child use `execve()` (NOT `execvp()`)
+// with the explicit clean envp. This requires the shell path to be
+// absolute since `execve` does not search PATH.
+
+/// Canonical env-var allowlist for PTY subprocess hardening.
+/// Mirror of `agent_core::security::SUBPROCESS_ALLOWLIST`.
+const PTY_ALLOWLIST: &[&str] = &[
+    "PATH", "HOME", "USER", "LOGNAME", "TMPDIR", "LANG", "LC_ALL", "LC_CTYPE", "TERM", "TZ",
+];
+
+/// Env vars that must NEVER be inherited by a hardened PTY child.
+/// Mirror of `agent_core::security::SUBPROCESS_DENYLIST`. Keep in sync.
+const PTY_DENYLIST: &[&str] = &[
+    // Dynamic-loader hijack
+    "LD_PRELOAD",
+    "LD_LIBRARY_PATH",
+    "LD_AUDIT",
+    "DYLD_INSERT_LIBRARIES",
+    "DYLD_LIBRARY_PATH",
+    "DYLD_FALLBACK_LIBRARY_PATH",
+    "DYLD_FRAMEWORK_PATH",
+    "DYLD_FALLBACK_FRAMEWORK_PATH",
+    "DYLD_PRINT_LIBRARIES",
+    // macOS heap leak
+    "MallocStackLogging",
+    "MallocStackLoggingNoCompact",
+    "MallocScribble",
+    "MallocGuardEdges",
+    // Node.js debug / option-string injection
+    "DEBUG",
+    "NODE_OPTIONS",
+    "NODE_PATH",
+    "NODE_DEBUG",
+    // Python module-path hijack
+    "PYTHONPATH",
+    "PYTHONHOME",
+    "PYTHONSTARTUP",
+    // Ruby / Perl option-string injection
+    "RUBYOPT",
+    "RUBYLIB",
+    "PERL5OPT",
+    "PERL5LIB",
+    "PERL5DB",
+    // Epistemos-managed provider credentials
+    "OPENAI_API_KEY",
+    "OPENAI_ACCESS_TOKEN",
+    "OPENAI_AUTH_MODE",
+    "OPENAI_CLIENT_VERSION",
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_ACCESS_TOKEN",
+    "ANTHROPIC_AUTH_MODE",
+    "GOOGLE_API_KEY",
+    "GEMINI_API_KEY",
+    "GOOGLE_ACCESS_TOKEN",
+    "GOOGLE_AUTH_MODE",
+    "GOOGLE_PROJECT_ID",
+    "PERPLEXITY_API_KEY",
+    "OPENROUTER_API_KEY",
+    "GLM_API_KEY",
+    "MOONSHOT_API_KEY",
+    "KIMI_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "MINIMAX_API_KEY",
+    "XAI_API_KEY",
+    "CODESTRAL_API_KEY",
+    "MISTRAL_API_KEY",
+    "TOGETHER_API_KEY",
+    "GROQ_API_KEY",
+    "HF_TOKEN",
+];
+
+/// Build a hardened `envp` for `execve()`. Called from the parent
+/// BEFORE `fork()` — heap allocation is safe here. The returned
+/// CStrings must outlive the `execve()` call; pass them into the
+/// child by reference (fork copies parent memory).
+///
+/// Always sets `TERM=dumb` so the PTY suppresses escape sequences.
+fn build_hardened_pty_envp() -> Vec<CString> {
+    let mut envp: Vec<CString> = Vec::with_capacity(PTY_ALLOWLIST.len() + 1);
+
+    // Stamp TERM=dumb first so any inherited TERM gets overridden
+    // (TERM is in the allowlist, but the PTY wants `dumb` specifically).
+    if let Ok(c) = CString::new("TERM=dumb") {
+        envp.push(c);
+    }
+
+    for &key in PTY_ALLOWLIST {
+        // Defense in depth — even if allowlist & denylist accidentally
+        // overlap in a future edit, denylist always wins.
+        if PTY_DENYLIST.contains(&key) {
+            continue;
+        }
+        if key == "TERM" {
+            // Already stamped above.
+            continue;
+        }
+        if let Ok(value) = std::env::var(key) {
+            if let Ok(c) = CString::new(format!("{}={}", key, value)) {
+                envp.push(c);
+            }
+        }
+    }
+
+    envp
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -302,7 +433,23 @@ impl PtyPool {
 // ---------------------------------------------------------------------------
 
 /// Spawn a PTY with a child shell process.
+///
+/// SECURITY: env hardening per 2026-05-23 canonical-chronicle audit.
+/// Uses `execve()` with an explicit hardened envp (NOT `execvp()` which
+/// inherits the parent's full env). Requires `config.shell` to be an
+/// absolute path because `execve` does not search PATH. See module-
+/// level docs above (PTY_ALLOWLIST / PTY_DENYLIST) for the rationale.
 fn spawn_pty(config: PtyConfig, session_id: &str) -> Result<PtySession, PtyError> {
+    // SECURITY: require absolute shell path because execve doesn't
+    // search PATH. The default `/bin/zsh` is fine; any user override
+    // must also be absolute.
+    if !Path::new(&config.shell).is_absolute() {
+        return Err(PtyError::SpawnFailed(format!(
+            "shell path must be absolute (execve does not search PATH): {}",
+            config.shell
+        )));
+    }
+
     let result = openpty(None, None).map_err(|e| PtyError::SpawnFailed(e.to_string()))?;
     let master = result.master;
     let slave = result.slave;
@@ -323,9 +470,23 @@ fn spawn_pty(config: PtyConfig, session_id: &str) -> Result<PtySession, PtyError
         CString::new(config.shell.as_bytes()).map_err(|e| PtyError::SpawnFailed(e.to_string()))?;
     let initial_dir = config.initial_dir.clone();
 
-    // SAFETY: We call fork() and immediately execvp() in the child.
+    // SECURITY: build hardened envp HERE (in parent, heap allocation
+    // safe). Fork copies parent memory so the child sees the same
+    // CStrings. We then pass their pointers to execve() in the child.
+    let envp_cstrings: Vec<CString> = build_hardened_pty_envp();
+    let mut envp_ptrs: Vec<*const libc::c_char> = envp_cstrings
+        .iter()
+        .map(|c| c.as_ptr())
+        .collect();
+    envp_ptrs.push(std::ptr::null());
+
+    // Build login_name + args BEFORE fork too (heap safe in parent).
+    let login_name = CString::new(format!("-{}", config.shell))
+        .unwrap_or_else(|_| CString::new("-zsh").unwrap());
+
+    // SAFETY: We call fork() and immediately execve() in the child.
     // The child does no async work, no heap allocation after fork, and
-    // no calls to non-async-signal-safe functions before execvp.
+    // no calls to non-async-signal-safe functions before execve.
     // The parent retains ownership of master_fd.
     match unsafe { unistd::fork() } {
         Ok(ForkResult::Child) => {
@@ -343,15 +504,12 @@ fn spawn_pty(config: PtyConfig, session_id: &str) -> Result<PtySession, PtyError
                     libc::chdir(c_dir.as_ptr());
                 }
 
-                // Set TERM to dumb to suppress escape sequences and color codes.
-                let term_env = CString::new("TERM=dumb").unwrap();
-                libc::putenv(term_env.as_ptr() as *mut _);
-
-                // Exec the shell as a login shell.
-                let login_name = CString::new(format!("-{}", config.shell))
-                    .unwrap_or_else(|_| CString::new("-zsh").unwrap());
+                // SECURITY: execve (NOT execvp) so the child gets ONLY
+                // the explicit hardened envp. No inheritance of
+                // LD_PRELOAD / DYLD_* / NODE_OPTIONS / PYTHONPATH /
+                // provider API keys / etc. from the parent process.
                 let args: [*const libc::c_char; 2] = [login_name.as_ptr(), std::ptr::null()];
-                libc::execvp(shell.as_ptr(), args.as_ptr());
+                libc::execve(shell.as_ptr(), args.as_ptr(), envp_ptrs.as_ptr());
                 libc::_exit(127);
             }
         }
@@ -658,5 +816,137 @@ __EPSENT123__0
 __EPPWD__/private/tmp"#;
 
         assert_eq!(extract_working_dir(clean), Some("/private/tmp".to_string()));
+    }
+
+    // -----------------------------------------------------------------------
+    // SECURITY tests — 2026-05-23 P0 PTY env hardening
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn build_hardened_envp_includes_term_dumb() {
+        let envp = build_hardened_pty_envp();
+        let has_term_dumb = envp.iter().any(|c| {
+            c.to_str().map(|s| s == "TERM=dumb").unwrap_or(false)
+        });
+        assert!(has_term_dumb, "envp must always carry TERM=dumb for PTY suppression");
+    }
+
+    #[test]
+    fn build_hardened_envp_excludes_ld_preload() {
+        // Stamp a denylist var on the parent env, then verify the
+        // hardened envp does NOT carry it forward to the child.
+        // Use a process-local hack: we can't actually modify the
+        // global env safely from a unit test (other tests may race),
+        // so we just assert the structural invariant: no entry in
+        // the produced envp may start with any denylist name=
+        // prefix.
+        let _guard = test_guard();
+        let envp = build_hardened_pty_envp();
+        for &denied in PTY_DENYLIST {
+            let prefix = format!("{}=", denied);
+            let leaked = envp.iter().any(|c| {
+                c.to_str().map(|s| s.starts_with(&prefix)).unwrap_or(false)
+            });
+            assert!(
+                !leaked,
+                "denylist var '{}' must NEVER appear in hardened envp",
+                denied
+            );
+        }
+    }
+
+    #[test]
+    fn build_hardened_envp_only_contains_allowlist_or_extras() {
+        // Every entry in the produced envp must be either TERM=dumb
+        // (always stamped) or its NAME portion must be in PTY_ALLOWLIST.
+        let _guard = test_guard();
+        let envp = build_hardened_pty_envp();
+        for c in &envp {
+            let s = c.to_str().expect("envp entry should be valid UTF-8");
+            let name = s.splitn(2, '=').next().unwrap_or("");
+            assert!(
+                PTY_ALLOWLIST.contains(&name),
+                "envp entry '{}' has name '{}' not in PTY_ALLOWLIST",
+                s,
+                name
+            );
+        }
+    }
+
+    #[test]
+    fn spawn_rejects_relative_shell_path() {
+        let _guard = test_guard();
+        let config = PtyConfig {
+            shell: "zsh".to_string(), // relative — should reject
+            initial_dir: None,
+            cols: 80,
+            rows: 24,
+        };
+        let result = spawn_pty(config, "test-relative-shell");
+        match result {
+            Err(PtyError::SpawnFailed(msg)) => {
+                assert!(
+                    msg.contains("absolute") || msg.contains("PATH"),
+                    "expected absolute-path rejection, got: {}",
+                    msg
+                );
+            }
+            Err(other) => panic!(
+                "expected SpawnFailed for relative shell path, got error: {}",
+                other
+            ),
+            Ok(_) => panic!("expected SpawnFailed for relative shell path, got Ok"),
+        }
+    }
+
+    #[test]
+    fn pty_denylist_and_allowlist_are_disjoint() {
+        // Defense in depth — both lists must be disjoint.
+        for &allowed in PTY_ALLOWLIST {
+            assert!(
+                !PTY_DENYLIST.contains(&allowed),
+                "var '{}' appears in BOTH PTY_ALLOWLIST and PTY_DENYLIST",
+                allowed
+            );
+        }
+    }
+
+    #[test]
+    fn pty_denylist_covers_canonical_24_vector_doctrine() {
+        // The 2026-04-28 subprocess hardening doctrine names 24 specific
+        // attack vectors. Confirm each is in the denylist.
+        let canonical_doctrine_24 = &[
+            "LD_PRELOAD",
+            "DYLD_INSERT_LIBRARIES",
+            "DYLD_LIBRARY_PATH",
+            "DYLD_FALLBACK_LIBRARY_PATH",
+            "DYLD_FRAMEWORK_PATH",
+            "DYLD_FALLBACK_FRAMEWORK_PATH",
+            "DYLD_PRINT_LIBRARIES",
+            "MallocStackLogging",
+            "MallocStackLoggingNoCompact",
+            "MallocScribble",
+            "MallocGuardEdges",
+            "NODE_OPTIONS",
+            "NODE_PATH",
+            "NODE_DEBUG",
+            "PYTHONPATH",
+            "PYTHONHOME",
+            "PYTHONSTARTUP",
+            "RUBYOPT",
+            "RUBYLIB",
+            "PERL5OPT",
+            "PERL5LIB",
+            "PERL5DB",
+            "LD_LIBRARY_PATH",
+            "LD_AUDIT",
+        ];
+        for &v in canonical_doctrine_24 {
+            assert!(
+                PTY_DENYLIST.contains(&v),
+                "canonical-doctrine vector '{}' missing from PTY_DENYLIST",
+                v
+            );
+        }
     }
 }
