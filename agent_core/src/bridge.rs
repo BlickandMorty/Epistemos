@@ -3367,6 +3367,14 @@ pub fn routing_stats_json() -> Result<String, AgentErrorFFI> {
 // W-46.1 follow-up; the JSON wire shape is pinned by the existing
 // Eidos types, so the Swift side does not change when the corpus
 // adapter swaps.
+//
+// **Production seam (R1 / 2026-05-23)**: any Rust caller that already
+// holds a real `EidosRetriever` (LedgerBackedClaimEvidence per W-49,
+// a future shadow-backed lexical index per W-51, etc.) MUST route
+// through `crate::eidos::produce_eidos_context_packet_json` instead of
+// this fixture-bound FFI. The production helper takes any retriever
+// and canonicalizes the query mode from `retriever.mode()` so callers
+// cannot accidentally pass a mode-mismatched query.
 
 static EIDOS_FIXTURE_INDEX: std::sync::OnceLock<std::sync::Mutex<crate::eidos::InMemoryLexicalIndex>> =
     std::sync::OnceLock::new();
