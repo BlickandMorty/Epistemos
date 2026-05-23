@@ -306,7 +306,7 @@ mod tests {
 
     fn trace(seq: &[&str], duration_ms: u32, accepted: bool) -> CompositionTrace {
         CompositionTrace {
-            composition_id: ulid::Ulid::new().to_string(),
+            composition_id: uuid::Uuid::new_v4().to_string(),
             ts: Utc::now(),
             tool_sequence: seq.iter().map(|s| s.to_string()).collect(),
             total_duration_ms: duration_ms,
