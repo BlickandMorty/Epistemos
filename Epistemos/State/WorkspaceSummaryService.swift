@@ -21,8 +21,8 @@ final class WorkspaceSummaryService {
 
     var summaryInterval: SummaryInterval {
         get {
-            let raw = UserDefaults.standard.string(forKey: Self.intervalDefaultsKey) ?? "15m"
-            return SummaryInterval(rawValue: raw) ?? .fifteenMinutes
+            let raw = UserDefaults.standard.string(forKey: Self.intervalDefaultsKey) ?? "5m"
+            return SummaryInterval(rawValue: raw) ?? .fiveMinutes
         }
         set {
             UserDefaults.standard.set(newValue.rawValue, forKey: Self.intervalDefaultsKey)
@@ -92,8 +92,13 @@ final class WorkspaceSummaryService {
                 guard let self else { break }
                 // Skip if minimized or no windows open
                 guard let ui = AppBootstrap.shared?.uiState, !ui.windowOccluded else { continue }
+                let hasMainChat = AppBootstrap.shared.map { bootstrap in
+                    WorkspaceService.hasLiveMainChatWork(bootstrap.chatState)
+                } ?? false
                 let hasWork = !NoteWindowManager.shared.orderedPageIds().isEmpty
                     || !MiniChatWindowController.shared.openChatIds.isEmpty
+                    || hasMainChat
+                    || AppBootstrap.shared?.graphState.currentRoute != .canvas
                 guard hasWork else { continue }
                 await self.generateAndStoreSummary()
             }
@@ -120,7 +125,7 @@ final class WorkspaceSummaryService {
         do {
             let summary = try await triageService.generate(
                 prompt: reducePrompt,
-                systemPrompt: "You are a workspace intelligence engine. Synthesize the user's intent and focus in 2-3 sentences. Describe WHAT they are trying to accomplish, not just what files are open.",
+                systemPrompt: "You are a workspace intelligence engine. Synthesize the user's current project state as a welcome-back handoff: what they were doing, what changed, what evidence is open, and the likely next move. Be specific and grounded in the live state.",
                 operation: .summarize,
                 contentLength: reducePrompt.count,
                 query: "workspace synthesis"
@@ -138,19 +143,21 @@ final class WorkspaceSummaryService {
     /// Per-window summary using Apple Intelligence (fast, short context, ideal for one-sentence summaries).
     /// Falls back to TriageService if Apple Intelligence is unavailable.
     func generatePerWindowSummaries() async -> [(title: String, summary: String)] {
-        let openPageIds = NoteWindowManager.shared.orderedPageIds()
-        guard !openPageIds.isEmpty else { return [] }
+        let liveDocuments = AppBootstrap.shared?.workspaceService.captureSnapshot().liveDocuments ?? []
+        guard !liveDocuments.isEmpty else { return [] }
 
         var results: [(title: String, summary: String)] = []
-        for pageId in openPageIds.prefix(8) {
-            guard let title = fetchPageTitle(pageId: pageId) else { continue }
-            let body = NoteWindowManager.shared.currentBody(for: pageId, mapped: true)
-            guard !body.isEmpty else {
-                results.append((title: title, summary: "Empty note"))
+        for document in liveDocuments.prefix(8) {
+            let body = NoteWindowManager.shared.currentBody(for: document.pageId, mapped: true)
+            let sourceText = body.isEmpty
+                ? "\(document.preview)\n\n\(document.tailPreview)"
+                : body
+            guard !sourceText.isEmpty else {
+                results.append((title: document.title, summary: "Empty note"))
                 continue
             }
-            let snippet = String(body.prefix(600))
-            let prompt = "Summarize the intent and key content of this document in one sentence:\n\n\(snippet)"
+            let snippet = String(sourceText.prefix(1_200))
+            let prompt = "Summarize the intent and key content of this live \(document.source) in one sentence:\n\n\(snippet)"
 
             do {
                 // Prefer Apple Intelligence for per-window summaries (fast, low-latency)
@@ -158,7 +165,7 @@ final class WorkspaceSummaryService {
                     prompt: prompt,
                     systemPrompt: "You are a concise document summarizer. One sentence only."
                 )
-                results.append((title: title, summary: Self.sanitizedSummaryText(from: summary) ?? "Could not summarize"))
+                results.append((title: document.title, summary: Self.sanitizedSummaryText(from: summary) ?? "Could not summarize"))
             } catch {
                 // Fallback to triage (Qwen) if Apple Intelligence unavailable
                 do {
@@ -169,9 +176,9 @@ final class WorkspaceSummaryService {
                         contentLength: snippet.count,
                         query: "per-window summary"
                     )
-                    results.append((title: title, summary: Self.sanitizedSummaryText(from: summary) ?? "Could not summarize"))
+                    results.append((title: document.title, summary: Self.sanitizedSummaryText(from: summary) ?? "Could not summarize"))
                 } catch {
-                    results.append((title: title, summary: "Could not summarize"))
+                    results.append((title: document.title, summary: "Could not summarize"))
                 }
             }
         }
@@ -199,7 +206,7 @@ final class WorkspaceSummaryService {
         do {
             let summary = try await triageService.generate(
                 prompt: reducePrompt,
-                systemPrompt: "You are a workspace intelligence engine. Synthesize the user's intent and focus in 2-3 sentences. Describe WHAT they are trying to accomplish, not just what files are open.",
+                systemPrompt: "You are a workspace intelligence engine. Synthesize the user's current project state as a welcome-back handoff: what they were doing, what changed, what evidence is open, and the likely next move. Be specific and grounded in the live state.",
                 operation: .summarize,
                 contentLength: reducePrompt.count,
                 query: "workspace synthesis"
@@ -217,13 +224,20 @@ final class WorkspaceSummaryService {
 
     private func buildReducePrompt(since date: Date, windowSummaries: [(title: String, summary: String)]) -> String {
         let digest = activityTracker.buildDigest(since: date)
-        let openPageIds = NoteWindowManager.shared.orderedPageIds()
+        let snapshot = AppBootstrap.shared?.workspaceService.captureSnapshot()
+        let openPageIds = snapshot?.liveDocuments?.map(\.pageId) ?? NoteWindowManager.shared.orderedPageIds()
 
-        guard !windowSummaries.isEmpty || !digest.editedNotes.isEmpty || digest.chatMessageCount > 0 else {
+        guard !windowSummaries.isEmpty || !digest.editedNotes.isEmpty || digest.chatMessageCount > 0 || snapshot?.liveDocuments?.isEmpty == false || snapshot?.mainChat != nil || snapshot?.miniChats?.isEmpty == false else {
             return ""
         }
 
         var parts: [String] = []
+        if let snapshot {
+            let liveState = WorkspaceSynthesisBuilder.summary(for: snapshot)
+            if !liveState.isEmpty {
+                parts.append("Current live workspace state:\n\(liveState)")
+            }
+        }
 
         // Per-window summaries (from Map phase)
         if !windowSummaries.isEmpty {
