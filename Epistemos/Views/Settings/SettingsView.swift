@@ -796,6 +796,8 @@ private struct GeneralDetailView: View {
                 SystemGHealthRow()
                 FUlpHealthRow()
                 ACSAdmissionHealthRow()
+                LocalAgentDiagnosticsHealthRow()
+                ActiveConstellationRow()
                 AgentBlueprintSettingsView()
                 CognitiveDagHealthRow()
                 // V6.2 first-rendered surface for the AnswerPacket
