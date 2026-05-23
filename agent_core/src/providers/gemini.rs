@@ -84,6 +84,7 @@ impl GeminiProvider {
     }
 }
 
+#[cfg(test)]
 fn gemini_request_body(messages: &[Message], tools: &[ToolSchema], config: &AgentConfig) -> Value {
     gemini_request_body_for_model("gemini-2.5-flash", messages, tools, config)
 }

@@ -374,6 +374,10 @@ struct AmbientFrequencySettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .onDisappear {
+            livePlayer.stop()
+            livePlayerRunning = false
+        }
         .onChange(of: durationMinutes) { _, newValue in
             if !newValue.isFinite {
                 durationMinutes = 30

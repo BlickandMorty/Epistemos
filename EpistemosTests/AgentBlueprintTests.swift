@@ -45,10 +45,10 @@ struct AgentBlueprintTests {
         #expect(text.contains("AgentBlueprint MissionPacket"))
         #expect(text.contains("mission_packet_id: mission-queue"))
         #expect(text.contains("model: local:mlx-community/Qwen3-8B-4bit"))
-        #expect(text.contains("model_badges: HONEST, LOCAL, Agent OK, Qwen XML, STRICT-GRAMMAR"))
+        #expect(text.contains("model_badges: HONEST, LOCAL, Experimental - soft guidance, Qwen XML, SOFT-GUIDED"))
         #expect(text.contains("execution_policy: local_only"))
         #expect(text.contains("cloud_escalation: disabled"))
-        #expect(text.contains("strict_grammar: enabled"))
+        #expect(text.contains("strict_grammar: soft_guidance"))
         #expect(text.contains("grammar_profile: qwen_xml"))
         #expect(text.contains("artifact_contract: note_artifact_and_answer_packet"))
         #expect(text.contains("scope: all_notes"))
@@ -175,18 +175,18 @@ struct AgentBlueprintTests {
             displayName: "DeepSeek-Coder"
         )
         #expect(local.badges.map(\.title).contains("LOCAL"))
-        #expect(local.badges.contains(.init(title: "Agent OK", tone: .good)))
+        #expect(local.badges.contains(.init(title: "Experimental - soft guidance", tone: .warning)))
         #expect(local.badges.map(\.title).contains("DeepSeek-Coder"))
-        #expect(local.badges.map(\.tone).contains(.good))
+        #expect(local.badges.map(\.tone).contains(.warning))
         #expect(local.requiresExplicitBrainOverride)
 
         let mistral = AgentBlueprintModelChoice.local(
             modelID: LocalTextModelID.mistralSmall31_24B4Bit.rawValue,
             displayName: "Mistral Small"
         )
-        #expect(mistral.badges.contains(.init(title: "Agent OK", tone: .good)))
+        #expect(mistral.badges.contains(.init(title: "Experimental - soft guidance", tone: .warning)))
         #expect(mistral.badges.contains(.init(title: "Mistral Small", tone: .neutral)))
-        #expect(mistral.strictGrammarStatus == "enabled")
+        #expect(mistral.strictGrammarStatus == "soft_guidance")
 
         let devstral = AgentBlueprintModelChoice.local(
             modelID: LocalTextModelID.devstralSmall2505_4Bit.rawValue,

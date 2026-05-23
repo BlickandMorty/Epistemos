@@ -235,7 +235,8 @@
       "Bash(/tmp/ssm_audit.txt:*)",
       "Bash(/tmp/check_switches.swift:*)",
       "Bash(sort -k6 -r)",
-      "Bash(awk '{print $5, $NF}')"
+      "Bash(awk '{print $5, $NF}')",
+      "Bash([ -d \"$wt/$crate/target\" ])"
     ],
     "additionalDirectories": [
       "/tmp"

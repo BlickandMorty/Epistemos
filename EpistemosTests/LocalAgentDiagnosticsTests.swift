@@ -53,14 +53,14 @@ struct LocalAgentDiagnosticsTests {
     func diagnosticsSnapshotExposesConstellationRouteTable() {
         let snapshot = LocalAgentDiagnostics.snapshot()
 
-        #expect(snapshot.constellationRoles.count == ConfidenceRouter.TaskClass.allCases.count)
-        #expect(snapshot.routeProfiles.count == ConfidenceRouter.TaskClass.allCases.count)
-        #expect(snapshot.constellationSummary.contains("task roles"))
+        #expect(snapshot.constellationRoles.isEmpty)
+        #expect(snapshot.routeProfiles.isEmpty)
+        #expect(snapshot.constellationSummary.contains("0 task roles"))
         #expect(snapshot.constellationSummary.contains("idle unload 30s/deep"))
+        #expect(snapshot.routePolicySummary.contains("0 task-class routes"))
         #expect(snapshot.routePolicySummary.contains("task-class routes"))
         #expect(snapshot.routePolicySummary.contains("native grammar routes"))
-        #expect(snapshot.hotRoleSummary.contains("Fast Chat"))
-        #expect(snapshot.constellationRoles.first { $0.taskClass == .coding }?.primaryModelID == LocalTextModelID.qwen3Coder30BA3B4Bit.rawValue)
+        #expect(snapshot.hotRoleSummary.contains("No router roles configured."))
     }
 
     @Test("Active constellation snapshot marks hot warm cold states")

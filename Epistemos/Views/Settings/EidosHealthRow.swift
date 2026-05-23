@@ -33,8 +33,13 @@ public struct EidosHealthRow: View {
                 symbol: "flag.fill",
                 ok: snapshot.isFlagEnabled,
                 detail: snapshot.isFlagEnabled
-                    ? "EPISTEMOS_EIDOS_V0 on (closed-citation path active)"
+                    ? "EPISTEMOS_EIDOS_V0 on (fixture path active)"
                     : "EPISTEMOS_EIDOS_V0 off (legacy FTS/RRF path)"
+            )
+            VerifiedFloorChipStrip(
+                flag: snapshot.isFlagEnabled ? "on" : "off",
+                substrate: "fixture",
+                substrateTint: .orange
             )
             row(
                 label: "Last query",
@@ -54,7 +59,7 @@ public struct EidosHealthRow: View {
                 ok: snapshot.lastCitationCount > 0 || !snapshot.isFlagEnabled,
                 detail: snapshot.lastQueryAt == nil
                     ? "(no Eidos query yet)"
-                    : "\(snapshot.lastCitationCount) citation(s)"
+                    : "\(snapshot.lastCitationCount) citation(s) from fixture corpus, not vault"
             )
             if let err = snapshot.lastErrorDescription {
                 row(

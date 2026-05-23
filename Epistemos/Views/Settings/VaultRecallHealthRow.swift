@@ -35,8 +35,13 @@ public struct VaultRecallHealthRow: View {
                 symbol: "flag.fill",
                 ok: snapshot.isFlagEnabled,
                 detail: snapshot.isFlagEnabled
-                    ? "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 on (T21 trace emission)"
+                    ? "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 on (synthetic trace emission)"
                     : "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 off (no trace emission)"
+            )
+            VerifiedFloorChipStrip(
+                flag: snapshot.isFlagEnabled ? "on" : "off",
+                substrate: "stub trace",
+                substrateTint: .orange
             )
             row(
                 label: "Last query",
@@ -112,7 +117,7 @@ public struct VaultRecallHealthRow: View {
             return snapshot.lastQueryAt == nil ? "(no query yet)" : "no signals emitted"
         }
         let slugs = snapshot.lastSignalSummary.map { $0.rawValue }.sorted()
-        return slugs.joined(separator: ",")
+        return "\(slugs.joined(separator: ",")) (synthetic; no vault retrieval yet)"
     }
 
     private func formatLatency(_ ms: Double) -> String {

@@ -25,6 +25,11 @@ public struct LocalAgentDiagnosticsHealthRow: View {
                 }
                 Spacer()
             }
+            VerifiedFloorChipStrip(
+                flag: "n/a",
+                substrate: "placeholder routes",
+                substrateTint: .orange
+            )
 
             diagnosticRow(
                 label: "Strict-grammar status",

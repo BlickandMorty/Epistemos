@@ -29,7 +29,7 @@ nonisolated enum AppDataRetentionPolicy {
         var auditLogRetentionDays: Int
         var savedWorkspaceLimit: Int
 
-        var eventStorePolicy: EventStore.RetentionPolicy {
+        nonisolated var eventStorePolicy: EventStore.RetentionPolicy {
             EventStore.RetentionPolicy(
                 timeMachineRetentionDays: timeMachineRetentionDays,
                 timeMachineMaxSnapshots: timeMachineMaxSnapshots,
@@ -40,7 +40,7 @@ nonisolated enum AppDataRetentionPolicy {
         }
     }
 
-    static func current(defaults: UserDefaults = .standard) -> Snapshot {
+    nonisolated static func current(defaults: UserDefaults = .standard) -> Snapshot {
         Snapshot(
             timeMachineRetentionDays: boundedDays(
                 defaults.integerOrDefault(forKey: timeMachineRetentionDaysKey, defaultValue: defaultTimeMachineRetentionDays)
@@ -67,7 +67,7 @@ nonisolated enum AppDataRetentionPolicy {
         )
     }
 
-    static func label(forDays days: Int) -> String {
+    nonisolated static func label(forDays days: Int) -> String {
         switch days {
         case 0:
             return "Forever"
@@ -78,11 +78,11 @@ nonisolated enum AppDataRetentionPolicy {
         }
     }
 
-    static func savedWorkspaceLimitLabel(_ limit: Int) -> String {
+    nonisolated static func savedWorkspaceLimitLabel(_ limit: Int) -> String {
         limit <= 0 ? "Unlimited" : "\(limit)"
     }
 
-    static func summaryLabel(eventSummary: EventStore.RetentionPruneSummary, workspaceDeletes: Int) -> String {
+    nonisolated static func summaryLabel(eventSummary: EventStore.RetentionPruneSummary, workspaceDeletes: Int) -> String {
         let total = eventSummary.totalDeleted + workspaceDeletes
         guard total > 0 else {
             return "Retention is already within the selected limits."
@@ -90,20 +90,20 @@ nonisolated enum AppDataRetentionPolicy {
         return "Removed \(total) old item\(total == 1 ? "" : "s") from local history."
     }
 
-    private static func boundedDays(_ value: Int) -> Int {
+    private nonisolated static func boundedDays(_ value: Int) -> Int {
         if value == 0 {
             return 0
         }
         return min(max(value, 1), 3650)
     }
 
-    private static func boundedLimit(_ value: Int, minimum: Int, maximum: Int) -> Int {
+    private nonisolated static func boundedLimit(_ value: Int, minimum: Int, maximum: Int) -> Int {
         min(max(value, minimum), maximum)
     }
 }
 
 private extension UserDefaults {
-    func integerOrDefault(forKey key: String, defaultValue: Int) -> Int {
+    nonisolated func integerOrDefault(forKey key: String, defaultValue: Int) -> Int {
         object(forKey: key) == nil ? defaultValue : integer(forKey: key)
     }
 }

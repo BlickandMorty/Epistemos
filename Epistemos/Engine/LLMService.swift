@@ -2824,11 +2824,11 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             return nil
         }
 
-        // Non-reasoning models (GPT-4.1, o3-*) hard-400 on reasoning.effort
+        // Non-reasoning models (GPT-4o, GPT-4.1, o3-*) hard-400 on reasoning.effort
         // per OpenAI's responses API. Gate at the model-type level.
         let isReasoningModel: Bool
         switch model {
-        case .openAIGPT54, .openAIGPT52, .openAIGPT54Mini, .openAIGPT54Nano:
+        case .openAIGPT52, .openAIGPT54Nano:
             isReasoningModel = true
         default:
             isReasoningModel = false
@@ -2891,7 +2891,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         // because `reasoningEffort: "none"` doesn't produce summaries
         // anyway.
         return switch model {
-        case .openAIGPT54, .openAIGPT52:
+        case .openAIGPT52:
             switch operatingMode {
             case .fast:
                 OpenAIResponseControls(reasoningEffort: "none", verbosity: "low")
@@ -2910,29 +2910,6 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             case .agent:
                 OpenAIResponseControls(
                     reasoningEffort: "medium",
-                    verbosity: "low",
-                    reasoningSummary: "auto"
-                )
-            }
-        case .openAIGPT54Mini:
-            switch operatingMode {
-            case .fast:
-                OpenAIResponseControls(reasoningEffort: "none", verbosity: "low")
-            case .thinking:
-                OpenAIResponseControls(
-                    reasoningEffort: "low",
-                    verbosity: "medium",
-                    reasoningSummary: "auto"
-                )
-            case .pro:
-                OpenAIResponseControls(
-                    reasoningEffort: "medium",
-                    verbosity: "medium",
-                    reasoningSummary: "auto"
-                )
-            case .agent:
-                OpenAIResponseControls(
-                    reasoningEffort: "low",
                     verbosity: "low",
                     reasoningSummary: "auto"
                 )

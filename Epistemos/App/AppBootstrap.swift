@@ -2007,7 +2007,7 @@ final class AppBootstrap {
         // note) moves from click-time to launch-time. Uses the canonical
         // R.3 fallback chain so disk-only pages (production majority) are
         // covered alongside inline-body pages.
-        Task.detached(priority: .utility) {
+        Task.detached(priority: .userInitiated) {
             await AppBootstrap.prewarmRecentBlockMirrors(
                 modelContainer: container,
                 limit: 5

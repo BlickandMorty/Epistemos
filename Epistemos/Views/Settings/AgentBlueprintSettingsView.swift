@@ -65,15 +65,21 @@ struct AgentBlueprintSettingsView: View {
                     ChannelStatusPill(title: diagnosticsStateLabel, tint: diagnosticsStateTint)
                 }
 
-                Text("Blueprint submission runs through the same Command Center compiler and agent runtime path as live tool sessions.")
+                Text("Blueprint submission queues a MissionPacket through the existing Command Center runtime. System G governed dispatch is not wired yet.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                VerifiedFloorChipStrip(
+                    flag: "n/a",
+                    substrate: "legacy runtime",
+                    substrateTint: .orange
+                )
 
                 HStack(spacing: 10) {
                     Button {
                         submitBlueprint()
                     } label: {
-                        Label(isSubmitting ? "Submitting" : "Run", systemImage: "play.fill")
+                        Label(isSubmitting ? "Submitting" : "Queue to Command Center", systemImage: "play.fill")
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
@@ -368,7 +374,7 @@ struct AgentBlueprintSettingsView: View {
                 Button {
                     queueMissionPacket(record.packet, statusPrefix: "Replayed", persist: true)
                 } label: {
-                    Label("Run", systemImage: "play.fill")
+                    Label("Queue", systemImage: "play.fill")
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
@@ -488,7 +494,7 @@ struct AgentBlueprintSettingsView: View {
             availableBrains: commandCenter.availableBrains
         )
         guard !packet.model.requiresExplicitBrainOverride || packetBrain != nil else {
-            submissionStatus = "Cannot run \(packet.id.prefix(8)); \(packet.model.displayName) is unavailable."
+            submissionStatus = "Cannot queue \(packet.id.prefix(8)); \(packet.model.displayName) is unavailable."
             return
         }
 
@@ -515,7 +521,7 @@ struct AgentBlueprintSettingsView: View {
             recentMissionRecords = AgentBlueprintRunStore.record(packet)
         }
         refreshRecentRunEvents()
-        submissionStatus = "\(statusPrefix) \(packet.id.prefix(8)) through agent runtime."
+        submissionStatus = "\(statusPrefix) \(packet.id.prefix(8)) through Command Center runtime; System G dispatch pending."
         isSubmitting = false
     }
 
