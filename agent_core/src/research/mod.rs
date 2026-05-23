@@ -38,6 +38,7 @@ pub mod koopman;
 pub mod mamba3;
 pub mod nano_training_recipe;
 pub mod nightbrain_tasks;
+pub mod operator_ir;
 pub mod page_gather;
 pub mod paper_registry;
 pub mod para_lens;
