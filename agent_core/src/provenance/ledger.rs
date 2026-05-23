@@ -176,6 +176,7 @@ impl Default for ClaimKind {
 /// classifier) can route by claim type. The field is `serde(default)`
 /// so v1 archives without `kind` continue to deserialize.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Claim {
     pub id: ClaimId,
     pub text: String,

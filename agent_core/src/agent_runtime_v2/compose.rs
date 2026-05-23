@@ -1,0 +1,1346 @@
+//! `ParaSeq` — sequential composition of two `Para` morphisms.
+//!
+//! Given `Para<P, A, B>` and `Para<P, B, C>` sharing parameter type `P`,
+//! `ParaSeq` runs them in sequence and chains the reverse legs in the
+//! categorically natural order: `rev` of the outer (second) stage runs
+//! first, then `rev` of the inner (first) stage.
+//!
+//! The Para reverse-leg invariant **lifts through composition** — both
+//! stage outputs remain frozen across the composed `rev`, and the
+//! digest-intact check still catches any tampering at either stage.
+//! This module's property test is the load-bearing artifact for that
+//! claim.
+
+use std::marker::PhantomData;
+
+use super::para::{Para, ParaError, ParaFeedback, ParaOutput, StopReason};
+
+/// Identity Para — forwards `A` unchanged and reports `EndTurn`.
+/// Useful as a left/right unit for `ParaSeq` (`Y ∘ id_A = Y` and
+/// `id_A ∘ id_A = id_A`) and as a test fixture for the identity law.
+pub struct IdentityPara<P> {
+    _phantom: PhantomData<P>,
+}
+
+impl<P> IdentityPara<P> {
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<P> Default for IdentityPara<P> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<P, A> Para<P, A, A> for IdentityPara<P>
+where
+    P: Send + Sync,
+    A: Send + Sync,
+{
+    fn fwd(&self, _params: &P, input: A) -> Result<ParaOutput<A>, ParaError> {
+        Ok(ParaOutput::new(input, StopReason::EndTurn, None))
+    }
+
+    fn rev(&self, _params: &P, _output: &ParaOutput<A>) -> Result<ParaFeedback<P>, ParaError>
+    where
+        P: Sized,
+    {
+        // Identity reverse must produce a feedback delta but cannot
+        // construct an arbitrary `P` without help. Callers wanting a
+        // composable identity provide their own — we deliberately
+        // return an error here so misuse surfaces loudly.
+        Err(ParaError::Transport(
+            "IdentityPara::rev requires P: Default — use a domain-specific identity instead"
+                .to_string(),
+        ))
+    }
+}
+
+/// Sequential composition `Y ∘ X`. Stores the two Paras by reference
+/// so the caller controls lifetimes; mirrors the `Para` trait's
+/// `fwd`/`rev` surface but is not itself a `Para` implementor (its
+/// output type is a pair of `ParaOutput`s — a future iteration can
+/// add an adapter trait if the dispatcher needs uniform handling).
+pub struct ParaSeq<'a, P, A, B, C, X, Y>
+where
+    X: Para<P, A, B>,
+    Y: Para<P, B, C>,
+{
+    pub first: &'a X,
+    pub second: &'a Y,
+    _phantom: PhantomData<(P, A, B, C)>,
+}
+
+/// Joined output. Holds the inner-stage and outer-stage outputs so the
+/// composed `rev` can present both frozen `ParaOutput`s to its caller.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParaSeqOutput<B, C> {
+    pub inner: ParaOutput<B>,
+    pub outer: ParaOutput<C>,
+}
+
+/// Joined feedback. Reverse-leg of the outer stage runs first; the
+/// feedback the engine applies is the sum of both stage deltas — but
+/// that sum lives outside this layer (engine-decided), so we just
+/// surface both deltas in stage order.
+#[derive(Debug)]
+pub struct ParaSeqFeedback<P> {
+    /// Reverse-leg feedback from the *outer* (second) stage. Produced
+    /// first because chain rule runs back-to-front.
+    pub outer: ParaFeedback<P>,
+    /// Reverse-leg feedback from the *inner* (first) stage.
+    pub inner: ParaFeedback<P>,
+}
+
+impl<'a, P, A, B, C, X, Y> ParaSeq<'a, P, A, B, C, X, Y>
+where
+    X: Para<P, A, B>,
+    Y: Para<P, B, C>,
+    B: Clone,
+{
+    pub fn new(first: &'a X, second: &'a Y) -> Self {
+        Self {
+            first,
+            second,
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Composed forward leg: `first.fwd(p, a) → b`, then
+    /// `second.fwd(p, b.value) → c`. Both `ParaOutput`s are kept so
+    /// the composed `rev` can hand both back as shared references.
+    pub fn fwd(&self, params: &P, input: A) -> Result<ParaSeqOutput<B, C>, ParaError> {
+        let inner = self.first.fwd(params, input)?;
+        // We pass the inner value to the outer stage's fwd; the inner
+        // ParaOutput is preserved verbatim. B: Clone bound lets the
+        // outer stage consume an owned B without disturbing the inner
+        // output's value field.
+        let outer = self.second.fwd(params, inner.value.clone())?;
+        Ok(ParaSeqOutput { inner, outer })
+    }
+
+    /// Composed reverse leg: outer.rev runs first (chain rule),
+    /// then inner.rev. Both invocations take `&ParaOutput` so neither
+    /// stage's `stop_reason` or `thinking` is mutable — the
+    /// compile-time guarantee lifts through composition.
+    pub fn rev(
+        &self,
+        params: &P,
+        output: &ParaSeqOutput<B, C>,
+    ) -> Result<ParaSeqFeedback<P>, ParaError> {
+        let outer = self.second.rev(params, &output.outer)?;
+        let inner = self.first.rev(params, &output.inner)?;
+        Ok(ParaSeqFeedback { outer, inner })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::agent_runtime_v2::para::{ParaOutput, StopReason};
+
+    /// Stage 1: takes &str, returns its length.
+    struct LenStage;
+    impl Para<u32, &'static str, usize> for LenStage {
+        fn fwd(&self, _p: &u32, input: &'static str) -> Result<ParaOutput<usize>, ParaError> {
+            Ok(ParaOutput::new(
+                input.len(),
+                StopReason::EndTurn,
+                Some(b"len-thinking".to_vec()),
+            ))
+        }
+        fn rev(
+            &self,
+            _p: &u32,
+            output: &ParaOutput<usize>,
+        ) -> Result<ParaFeedback<u32>, ParaError> {
+            // Forensic-friendly: read only.
+            let _ = output.value;
+            Ok(ParaFeedback { delta: 1 })
+        }
+    }
+
+    /// Stage 3: takes a String label, returns the byte length of it.
+    /// Used by the triple-composition associativity test.
+    struct LabelLenStage;
+    impl Para<u32, String, usize> for LabelLenStage {
+        fn fwd(&self, _p: &u32, input: String) -> Result<ParaOutput<usize>, ParaError> {
+            Ok(ParaOutput::new(
+                input.len(),
+                StopReason::EndTurn,
+                Some(b"label-len-thinking".to_vec()),
+            ))
+        }
+        fn rev(
+            &self,
+            _p: &u32,
+            output: &ParaOutput<usize>,
+        ) -> Result<ParaFeedback<u32>, ParaError> {
+            let _ = output.value;
+            Ok(ParaFeedback { delta: 4 })
+        }
+    }
+
+    /// Stage 2: takes a length, returns "len=N".
+    struct LabelStage;
+    impl Para<u32, usize, String> for LabelStage {
+        fn fwd(&self, _p: &u32, input: usize) -> Result<ParaOutput<String>, ParaError> {
+            Ok(ParaOutput::new(
+                format!("len={input}"),
+                StopReason::EndTurn,
+                Some(b"label-thinking".to_vec()),
+            ))
+        }
+        fn rev(
+            &self,
+            _p: &u32,
+            output: &ParaOutput<String>,
+        ) -> Result<ParaFeedback<u32>, ParaError> {
+            let _ = output.value.len();
+            Ok(ParaFeedback { delta: 2 })
+        }
+    }
+
+    #[test]
+    fn para_seq_output_and_feedback_struct_field_shapes_pinned_via_destructure() {
+        // Phase 1 hardening MILESTONE iter-470 — struct-field-shape
+        // pin pair closing the destructure pin family across all
+        // user-facing structs in agent_runtime_v2.
+        //
+        // ParaSeqOutput<B, C>: EXACTLY 2 fields
+        //   - inner: ParaOutput<B>
+        //   - outer: ParaOutput<C>
+        //
+        // ParaSeqFeedback<P>: EXACTLY 2 fields
+        //   - outer: ParaFeedback<P>
+        //   - inner: ParaFeedback<P>
+        //
+        // Closes the family: 13 struct destructure pins.
+        let seq = ParaSeq::new(&LenStage, &LabelStage);
+        let out = seq.fwd(&0, "hello").expect("fwd ok");
+        let ParaSeqOutput { inner, outer } = out;
+        let _: ParaOutput<usize> = inner;
+        let _: ParaOutput<String> = outer;
+
+        let fb = ParaSeqFeedback {
+            outer: ParaFeedback { delta: 1u32 },
+            inner: ParaFeedback { delta: 2u32 },
+        };
+        let ParaSeqFeedback { outer, inner } = fb;
+        let _: ParaFeedback<u32> = outer;
+        let _: ParaFeedback<u32> = inner;
+    }
+
+    #[test]
+    fn para_seq_feedback_debug_repr_is_stable_for_audit_logs() {
+        let feedback = ParaSeqFeedback {
+            outer: ParaFeedback { delta: 2u32 },
+            inner: ParaFeedback { delta: 1u32 },
+        };
+        assert_eq!(
+            format!("{feedback:?}"),
+            "ParaSeqFeedback { outer: ParaFeedback { delta: 2 }, inner: ParaFeedback { delta: 1 } }"
+        );
+    }
+
+    #[test]
+    fn para_seq_output_debug_repr_is_stable_for_audit_logs() {
+        let output = ParaSeqOutput {
+            inner: ParaOutput::new(1usize, StopReason::EndTurn, None),
+            outer: ParaOutput::new(
+                "ok".to_string(),
+                StopReason::ToolUse,
+                Some(b"outer-thinking".to_vec()),
+            ),
+        };
+        let dbg = format!("{output:?}");
+        assert!(
+            dbg.starts_with(
+                "ParaSeqOutput { inner: ParaOutput { value: 1, stop_reason: EndTurn,"
+            ),
+            "ParaSeqOutput Debug repr must start with inner field first: {dbg}"
+        );
+        assert!(
+            dbg.contains("outer: ParaOutput { value: \"ok\", stop_reason: ToolUse,"),
+            "ParaSeqOutput Debug repr must include outer field after inner: {dbg}"
+        );
+    }
+
+    #[test]
+    fn every_para_seq_output_field_is_identity_load_bearing() {
+        // Phase 1 hardening — fourteenth leg of the identity-pin
+        // pattern. ParaSeqOutput<B, C> has 2 fields (inner, outer);
+        // each must participate in PartialEq derivation. The
+        // composed forward leg returns these as a pair; downstream
+        // consumers (engine feedback application) compare composed
+        // outputs by full equality. A silent #[serde(skip)] /
+        // PartialEq override dropping either field would silently
+        // collapse distinct composed outputs.
+        let seq = ParaSeq::new(&LenStage, &LabelStage);
+        let base = seq.fwd(&0, "hello").expect("fwd ok");
+
+        // Mutate inner.value → equality breaks via inner participation.
+        let mut diff_inner = base.clone();
+        diff_inner.inner.value += 1;
+        assert_ne!(diff_inner, base, "inner must participate in PartialEq");
+
+        // Mutate outer.value → equality breaks via outer participation.
+        let mut diff_outer = base.clone();
+        diff_outer.outer.value.push_str("!");
+        assert_ne!(diff_outer, base, "outer must participate in PartialEq");
+
+        // Sanity preserved.
+        assert_eq!(base.clone(), base);
+    }
+
+    #[test]
+    fn para_seq_fwd_is_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to the purity series iter-220/221/222). The
+        // composed forward leg must produce identical
+        // ParaSeqOutput<B, C> across repeated calls with the same
+        // params + input. The toy stages (LenStage, LabelStage)
+        // are pure; ParaSeq adds no state.
+        //
+        // A future refactor that introduced caching or stateful
+        // adaptation inside the composition layer would break the
+        // determinism contract the engine + tests rely on.
+        let seq = ParaSeq::new(&LenStage, &LabelStage);
+        let out1 = seq.fwd(&0, "hello").expect("first fwd ok");
+        let out2 = seq.fwd(&0, "hello").expect("second fwd ok");
+        let out3 = seq.fwd(&0, "hello").expect("third fwd ok");
+        // Output struct equality (Clone + PartialEq + Eq derived).
+        assert_eq!(out1, out2);
+        assert_eq!(out2, out3);
+        // Specific field-wise spot checks.
+        assert_eq!(out1.inner.value, 5);
+        assert_eq!(out1.outer.value, "len=5");
+        assert_eq!(out1.inner.stop_reason_digest, out3.inner.stop_reason_digest);
+        assert_eq!(out1.outer.thinking_digest, out3.outer.thinking_digest);
+    }
+
+    #[test]
+    fn para_seq_new_constructor_positional_arg_order_pins_first_as_inner_second_as_outer() {
+        // Phase 1 hardening — positional-order pin for ParaSeq::new
+        // (companion to the constructor / dispatcher entry-order pin
+        // family iter-433..iter-441).
+        //
+        // Signature: new(first, second) (compose.rs §106).
+        // Doctrine: `first` = the INNER stage (runs first on fwd);
+        //           `second` = the OUTER stage (runs second on fwd).
+        //
+        // A reorder would silently swap composition semantics — the
+        // dispatcher's chain-rule (fwd: inner→outer; rev: outer→inner,
+        // pinned at iter-359 / iter-360) depends on this mapping.
+        //
+        // Pin via the canonical (LenStage = inner, LabelStage = outer)
+        // composition: assert the inner output is the LENGTH (LenStage's
+        // job) and the outer output is the "len=N" label (LabelStage's
+        // job). A swap would produce non-typecheckable code (LabelStage
+        // takes usize, LenStage takes &'static str) — but the runtime
+        // assertion catches any equivalent-type swap.
+        let seq = ParaSeq::new(&LenStage, &LabelStage);
+        let out = seq.fwd(&0, "DISTINCT-INPUT").expect("fwd ok");
+        // LenStage (first/inner) computes len("DISTINCT-INPUT") = 14.
+        assert_eq!(out.inner.value, 14, "first arg = inner stage = LenStage");
+        // LabelStage (second/outer) wraps the length as "len=14".
+        assert_eq!(out.outer.value, "len=14", "second arg = outer stage = LabelStage");
+    }
+
+    #[test]
+    fn para_seq_fwd_runs_inner_before_outer_per_chain_rule() {
+        // Phase 1 hardening — call-order pin. ParaSeq's chain-rule
+        // semantics REQUIRE that fwd(input) invokes inner.fwd FIRST
+        // (producing intermediate B), then outer.fwd SECOND (consuming
+        // the intermediate B and producing the final C).
+        //
+        // The existing composed_forward_chains_values test pins the
+        // OUTPUT values but doesn't prove the call ORDER. A future
+        // refactor that, say, ran outer first on some default-of-B,
+        // then inner, would produce the SAME values for these toy
+        // stages (LenStage is pure, LabelStage is pure) but would be
+        // semantically wrong — the dispatcher relies on inner-first
+        // for stateful executors that mutate shared params.
+        //
+        // Pin call order via stages that record their invocation in
+        // a shared call-order log behind a Mutex (Send+Sync). Para
+        // requires Send+Sync on stages, so RefCell isn't usable.
+        use std::sync::Mutex;
+        struct RecordingStage<'l, T: Clone + Send + Sync + 'static> {
+            tag: &'static str,
+            log: &'l Mutex<Vec<&'static str>>,
+            out_value: T,
+        }
+        impl<'l, A, B: Clone + Send + Sync + 'static> Para<u32, A, B>
+            for RecordingStage<'l, B>
+        {
+            fn fwd(&self, _p: &u32, _input: A) -> Result<ParaOutput<B>, ParaError> {
+                self.log.lock().expect("lock").push(self.tag);
+                Ok(ParaOutput::new(
+                    self.out_value.clone(),
+                    StopReason::EndTurn,
+                    None,
+                ))
+            }
+            fn rev(
+                &self,
+                _p: &u32,
+                _output: &ParaOutput<B>,
+            ) -> Result<ParaFeedback<u32>, ParaError> {
+                self.log.lock().expect("lock").push(self.tag);
+                Ok(ParaFeedback { delta: 0 })
+            }
+        }
+
+        let log = Mutex::new(Vec::<&'static str>::new());
+        let inner: RecordingStage<usize> = RecordingStage {
+            tag: "inner.fwd",
+            log: &log,
+            out_value: 42usize,
+        };
+        let outer: RecordingStage<String> = RecordingStage {
+            tag: "outer.fwd",
+            log: &log,
+            out_value: "C".to_string(),
+        };
+        let seq = ParaSeq::new(&inner, &outer);
+        let _out = seq.fwd(&0, "input").expect("fwd ok");
+        assert_eq!(
+            *log.lock().expect("lock"),
+            vec!["inner.fwd", "outer.fwd"],
+            "ParaSeq::fwd must invoke inner FIRST then outer"
+        );
+    }
+
+    #[test]
+    fn identity_para_is_send_sync_for_propagation_safety() {
+        // Phase 1 hardening — compile-time pin for IdentityPara<P>.
+        // IdentityPara is a PhantomData<P> wrapper (compose.rs §21);
+        // its Send + Sync inheritance is determined by P alone.
+        //
+        // Pin the canonical IdentityPara<u32> Send + Sync — proves
+        // the PhantomData approach hasn't accidentally introduced a
+        // non-Send type when P itself is Send + Sync. A future
+        // refactor that embedded a !Send field (e.g., RefCell<usize>
+        // for some "skip counter") would silently break the property
+        // ParaSeq composition relies on.
+        //
+        // Companion to the broader trait-bound sweep
+        // (AgentRuntimeV2Capability trait Send+Sync iter-? and the
+        // Clone+Send+Sync sweep iter-375..iter-385).
+        fn assert_send_sync<T: Send + Sync>() {}
+        assert_send_sync::<IdentityPara<u32>>();
+        assert_send_sync::<IdentityPara<()>>();
+        assert_send_sync::<IdentityPara<String>>();
+    }
+
+    #[test]
+    fn para_seq_output_is_clone_send_sync_and_feedback_is_send_sync() {
+        // Phase 1 hardening — trait-bound pin for the ParaSeq surface
+        // composite types. Companion to ParaError + ParaOutput +
+        // ParaFeedback iter-382.
+        //
+        //   - ParaSeqOutput<B, C>: 2 nested ParaOutput<B>, ParaOutput<C>
+        //     fields. Clone + PartialEq by derive (compose.rs §82),
+        //     NOT Copy when B/C allocate.
+        //   - ParaSeqFeedback<P>: 2 nested ParaFeedback<P> fields.
+        //     DELIBERATELY does NOT derive Clone (compose.rs §92 —
+        //     only Debug + manual Send/Sync inherited from P). Pin
+        //     the Send + Sync subset that IS guaranteed; a future
+        //     refactor adding Clone would surface as a separate
+        //     pin update, not a silent contract break.
+        //
+        // Pinned for the canonical (B=usize, C=String) composite and
+        // ParaFeedback<u32>. Send + Sync are load-bearing — composed
+        // outputs cross the dispatcher's chained-stage boundary, and
+        // composed feedback rides back through the same path.
+        //
+        // A future "let me hold a Weak<ParaSeq>" inside ParaSeqOutput
+        // refactor that introduced a non-Send field would silently
+        // break the cross-thread composition path.
+        fn assert_clone_send_sync<T: Clone + Send + Sync>() {}
+        fn assert_send_sync<T: Send + Sync>() {}
+        assert_clone_send_sync::<ParaSeqOutput<usize, String>>();
+        assert_send_sync::<ParaSeqFeedback<u32>>();
+
+        let seq = ParaSeq::new(&LenStage, &LabelStage);
+        let out = seq.fwd(&0, "hello").expect("fwd ok");
+        assert_eq!(out.clone(), out);
+    }
+
+    #[test]
+    fn para_seq_rev_runs_outer_before_inner_per_chain_rule() {
+        // Phase 1 hardening MILESTONE iter-360 — symmetric companion
+        // to para_seq_fwd_runs_inner_before_outer_per_chain_rule
+        // (iter-359). The chain rule for backprop reverses the forward
+        // order: outer.rev runs FIRST (the OUTPUT-side stage), then
+        // inner.rev (the input-side stage).
+        //
+        // compose.rs §131-139 documents this: "outer.rev runs first
+        // (chain rule), then inner.rev". The existing
+        // para_seq_short_circuits_on_outer_rev_error proves outer's
+        // rev runs first WHEN OUTER FAILS, but the success-path order
+        // ("outer-rev THEN inner-rev when both succeed") is not pinned
+        // anywhere.
+        //
+        // Pin via recording stages identical in shape to iter-359's
+        // forward pin, asserting log == ["outer.rev", "inner.rev"].
+        //
+        // Defends against a future "let me run inner.rev first to
+        // expose backprop input" refactor that would silently break
+        // the chain-rule semantics the dispatcher's gradient/
+        // feedback path requires.
+        use std::sync::Mutex;
+        struct RecordingStage<'l, T: Clone + Send + Sync + 'static> {
+            fwd_tag: &'static str,
+            rev_tag: &'static str,
+            log: &'l Mutex<Vec<&'static str>>,
+            out_value: T,
+        }
+        impl<'l, A, B: Clone + Send + Sync + 'static> Para<u32, A, B>
+            for RecordingStage<'l, B>
+        {
+            fn fwd(&self, _p: &u32, _input: A) -> Result<ParaOutput<B>, ParaError> {
+                self.log.lock().expect("lock").push(self.fwd_tag);
+                Ok(ParaOutput::new(
+                    self.out_value.clone(),
+                    StopReason::EndTurn,
+                    None,
+                ))
+            }
+            fn rev(
+                &self,
+                _p: &u32,
+                _output: &ParaOutput<B>,
+            ) -> Result<ParaFeedback<u32>, ParaError> {
+                self.log.lock().expect("lock").push(self.rev_tag);
+                Ok(ParaFeedback { delta: 0 })
+            }
+        }
+
+        let log = Mutex::new(Vec::<&'static str>::new());
+        let inner: RecordingStage<usize> = RecordingStage {
+            fwd_tag: "inner.fwd",
+            rev_tag: "inner.rev",
+            log: &log,
+            out_value: 42usize,
+        };
+        let outer: RecordingStage<String> = RecordingStage {
+            fwd_tag: "outer.fwd",
+            rev_tag: "outer.rev",
+            log: &log,
+            out_value: "C".to_string(),
+        };
+        let seq = ParaSeq::new(&inner, &outer);
+        let fwd_out = seq.fwd(&0, "input").expect("fwd ok");
+        let _fb = seq.rev(&0, &fwd_out).expect("rev ok");
+        // The forward leg ran inner→outer; the reverse leg ran
+        // outer→inner. The full call log must read:
+        //   [inner.fwd, outer.fwd, outer.rev, inner.rev]
+        // — proves the chain-rule reversal at the composition layer.
+        assert_eq!(
+            *log.lock().expect("lock"),
+            vec!["inner.fwd", "outer.fwd", "outer.rev", "inner.rev"],
+        );
+    }
+
+    #[test]
+    fn composed_forward_chains_values() {
+        let seq = ParaSeq::new(&LenStage, &LabelStage);
+        let out = seq.fwd(&0, "hello").expect("fwd ok");
+        assert_eq!(out.inner.value, 5);
+        assert_eq!(out.outer.value, "len=5");
+        assert_eq!(out.inner.stop_reason, StopReason::EndTurn);
+        assert_eq!(out.outer.stop_reason, StopReason::EndTurn);
+        assert!(out.inner.digest_intact());
+        assert!(out.outer.digest_intact());
+    }
+
+    #[test]
+    fn para_seq_forward_chains_empty_input_without_fabricating_output() {
+        let seq = ParaSeq::new(&LenStage, &LabelStage);
+        let out = seq.fwd(&0, "").expect("empty input still composes");
+        assert_eq!(out.inner.value, 0);
+        assert_eq!(out.outer.value, "len=0");
+        assert_eq!(out.inner.stop_reason, StopReason::EndTurn);
+        assert_eq!(out.outer.stop_reason, StopReason::EndTurn);
+        assert_eq!(out.inner.thinking.as_deref(), Some(b"len-thinking".as_slice()));
+        assert_eq!(
+            out.outer.thinking.as_deref(),
+            Some(b"label-thinking".as_slice())
+        );
+        assert!(out.inner.digest_intact());
+        assert!(out.outer.digest_intact());
+    }
+
+    #[test]
+    fn triple_composition_value_associativity_holds_for_happy_path() {
+        // Phase 1 hardening — ParaSeq is not itself a Para (its output
+        // is a paired ParaSeqOutput<B,C>, not a ParaOutput<C>), so we
+        // can't compose three Paras into a single nested ParaSeq
+        // expression. But the SEMANTIC associativity ((A∘B)∘C ≡
+        // A∘(B∘C)) is still observable: the final-stage value, stop
+        // reason, and thinking digest must match regardless of which
+        // pair we group with ParaSeq first.
+        //
+        // Left grouping:  (LenStage ∘ LabelStage) then run LabelLenStage manually.
+        // Right grouping: LenStage manually then (LabelStage ∘ LabelLenStage).
+        //
+        // We assert byte-equal value, stop_reason, and thinking_digest
+        // at the C-stage output between the two groupings.
+
+        // Left grouping.
+        let seq_left = ParaSeq::new(&LenStage, &LabelStage);
+        let left_inner = seq_left.fwd(&0, "hello").expect("left seq fwd ok");
+        let left_outer_c = LabelLenStage
+            .fwd(&0, left_inner.outer.value.clone())
+            .expect("left stage3 fwd ok");
+
+        // Right grouping.
+        let right_a = LenStage.fwd(&0, "hello").expect("right stage1 fwd ok");
+        let seq_right = ParaSeq::new(&LabelStage, &LabelLenStage);
+        let right_outer = seq_right
+            .fwd(&0, right_a.value)
+            .expect("right seq fwd ok");
+
+        // Final C-stage value must be byte-equal.
+        assert_eq!(left_outer_c.value, right_outer.outer.value);
+        // Final stop_reason must be byte-equal (StopReason is Copy +
+        // PartialEq; the per-variant canonical byte form is what
+        // the digest hashes).
+        assert_eq!(left_outer_c.stop_reason, right_outer.outer.stop_reason);
+        // Thinking digest must be byte-equal — proves the C stage
+        // produced the same thinking-block payload regardless of
+        // grouping. This is the strongest associativity bar we can
+        // assert without the dispatcher unifying ParaSeq into a Para.
+        assert_eq!(left_outer_c.thinking_digest, right_outer.outer.thinking_digest);
+        // And both terminal outputs must still pass the digest_intact
+        // forensic gate (no silent mutation in either path).
+        assert!(left_outer_c.digest_intact());
+        assert!(right_outer.outer.digest_intact());
+    }
+
+    #[test]
+    fn para_seq_rev_is_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin for the
+        // composed reverse leg (companion to iter-223 fwd determinism
+        // and the broader purity series iter-220-229). Para::rev
+        // takes `&ParaOutput`; the composed rev runs outer.rev then
+        // inner.rev. Both ToyExecutor-style stages are pure, so
+        // ParaSeq::rev should be deterministic too.
+        let seq = ParaSeq::new(&LenStage, &LabelStage);
+        let out = seq.fwd(&0, "hello").expect("fwd ok");
+        let fb1 = seq.rev(&0, &out).expect("rev1 ok");
+        let fb2 = seq.rev(&0, &out).expect("rev2 ok");
+        let fb3 = seq.rev(&0, &out).expect("rev3 ok");
+        // ParaFeedback has Clone but not PartialEq; assert the
+        // delta fields byte-equal.
+        assert_eq!(fb1.inner.delta, fb2.inner.delta);
+        assert_eq!(fb2.inner.delta, fb3.inner.delta);
+        assert_eq!(fb1.outer.delta, fb2.outer.delta);
+        assert_eq!(fb2.outer.delta, fb3.outer.delta);
+        // The composed output is unchanged after every rev call.
+        assert!(out.inner.digest_intact());
+        assert!(out.outer.digest_intact());
+    }
+
+    #[test]
+    fn composed_reverse_leg_cannot_mutate_either_stop_reason() {
+        // The §4 T11 reverse-leg-cannot-mutate-stop_reason invariant
+        // must LIFT through Para composition. Snapshot both stage
+        // digests, run composed rev, assert both intact.
+        let seq = ParaSeq::new(&LenStage, &LabelStage);
+        let out = seq.fwd(&0, "hello").expect("fwd ok");
+        let inner_sr = out.inner.stop_reason_digest;
+        let inner_th = out.inner.thinking_digest;
+        let outer_sr = out.outer.stop_reason_digest;
+        let outer_th = out.outer.thinking_digest;
+        let fb = seq.rev(&0, &out).expect("rev ok");
+        assert_eq!(fb.inner.delta, 1);
+        assert_eq!(fb.outer.delta, 2);
+        assert_eq!(out.inner.stop_reason_digest, inner_sr);
+        assert_eq!(out.inner.thinking_digest, inner_th);
+        assert_eq!(out.outer.stop_reason_digest, outer_sr);
+        assert_eq!(out.outer.thinking_digest, outer_th);
+        assert!(out.inner.digest_intact());
+        assert!(out.outer.digest_intact());
+    }
+
+    /// A failing-fwd stage used to prove ParaSeq short-circuits on
+    /// inner-stage error before invoking the outer stage.
+    struct FailingFwd;
+    impl Para<u32, &'static str, usize> for FailingFwd {
+        fn fwd(&self, _p: &u32, _input: &'static str) -> Result<ParaOutput<usize>, ParaError> {
+            Err(ParaError::Transport("inner fwd refuses".into()))
+        }
+        fn rev(
+            &self,
+            _p: &u32,
+            _output: &ParaOutput<usize>,
+        ) -> Result<ParaFeedback<u32>, ParaError> {
+            Ok(ParaFeedback { delta: 0 })
+        }
+    }
+
+    /// A stage that panics if its fwd is ever called — used to prove
+    /// the outer stage is NOT invoked when the inner returns Err.
+    struct MustNotBeCalled;
+    impl Para<u32, usize, String> for MustNotBeCalled {
+        fn fwd(&self, _p: &u32, _input: usize) -> Result<ParaOutput<String>, ParaError> {
+            panic!("outer stage must not be called when inner Err short-circuits");
+        }
+        fn rev(
+            &self,
+            _p: &u32,
+            _output: &ParaOutput<String>,
+        ) -> Result<ParaFeedback<u32>, ParaError> {
+            Ok(ParaFeedback { delta: 0 })
+        }
+    }
+
+    /// Outer stage whose fwd fails after the inner stage succeeded.
+    struct OuterFwdFails;
+    impl Para<u32, usize, String> for OuterFwdFails {
+        fn fwd(&self, _p: &u32, input: usize) -> Result<ParaOutput<String>, ParaError> {
+            Err(ParaError::Transport(format!("outer fwd refuses after {input}")))
+        }
+        fn rev(
+            &self,
+            _p: &u32,
+            _output: &ParaOutput<String>,
+        ) -> Result<ParaFeedback<u32>, ParaError> {
+            Ok(ParaFeedback { delta: 0 })
+        }
+    }
+
+    /// Configurable stage that lets the test pick which StopReason
+    /// to emit. Used by the 7×7 matrix test.
+    struct ConfigurableStage<I, O> {
+        out: O,
+        reason: StopReason,
+        _i: PhantomData<I>,
+    }
+    impl<I, O> ConfigurableStage<I, O> {
+        fn new(out: O, reason: StopReason) -> Self {
+            Self {
+                out,
+                reason,
+                _i: PhantomData,
+            }
+        }
+    }
+    impl<I: Send + Sync, O: Clone + Send + Sync> Para<u32, I, O> for ConfigurableStage<I, O> {
+        fn fwd(&self, _p: &u32, _input: I) -> Result<ParaOutput<O>, ParaError> {
+            Ok(ParaOutput::new(self.out.clone(), self.reason, None))
+        }
+        fn rev(
+            &self,
+            _p: &u32,
+            _output: &ParaOutput<O>,
+        ) -> Result<ParaFeedback<u32>, ParaError> {
+            Ok(ParaFeedback { delta: 0 })
+        }
+    }
+
+    #[test]
+    fn para_seq_handles_all_7x7_stop_reason_combinations() {
+        // Phase 1 hardening — combinatorial matrix: 7 StopReason
+        // variants × 7 = 49 combinations of inner/outer stop. For
+        // each combination, the composed fwd must succeed and the
+        // resulting ParaSeqOutput must carry the correct stops on
+        // each leg. When the two stops differ, their digests differ;
+        // when they match, the digests match too.
+        let all = [
+            StopReason::EndTurn,
+            StopReason::ToolUse,
+            StopReason::MaxTokens,
+            StopReason::Refusal,
+            StopReason::BudgetExhausted,
+            StopReason::CapabilityDenied,
+            StopReason::Error,
+        ];
+        for &inner_reason in &all {
+            for &outer_reason in &all {
+                let inner = ConfigurableStage::<&'static str, usize>::new(0, inner_reason);
+                let outer = ConfigurableStage::<usize, String>::new("done".to_string(), outer_reason);
+                let seq = ParaSeq::new(&inner, &outer);
+                let out = seq
+                    .fwd(&0, "input")
+                    .expect("any-stop combo must produce a valid composed output");
+                assert_eq!(out.inner.stop_reason, inner_reason);
+                assert_eq!(out.outer.stop_reason, outer_reason);
+                assert!(out.inner.digest_intact());
+                assert!(out.outer.digest_intact());
+                if inner_reason == outer_reason {
+                    assert_eq!(out.inner.stop_reason_digest, out.outer.stop_reason_digest);
+                } else {
+                    assert_ne!(out.inner.stop_reason_digest, out.outer.stop_reason_digest);
+                }
+            }
+        }
+    }
+
+    /// Outer stage whose rev returns Err — used to short-circuit
+    /// before inner.rev runs.
+    struct OuterRevFails;
+    impl Para<u32, usize, String> for OuterRevFails {
+        fn fwd(&self, _p: &u32, _input: usize) -> Result<ParaOutput<String>, ParaError> {
+            Ok(ParaOutput::new(
+                "outer-ok".to_string(),
+                StopReason::EndTurn,
+                None,
+            ))
+        }
+        fn rev(
+            &self,
+            _p: &u32,
+            _output: &ParaOutput<String>,
+        ) -> Result<ParaFeedback<u32>, ParaError> {
+            Err(ParaError::Transport("outer rev refuses".into()))
+        }
+    }
+
+    /// Inner stage whose rev panics if reached.
+    struct InnerRevMustNotBeCalled;
+    impl Para<u32, &'static str, usize> for InnerRevMustNotBeCalled {
+        fn fwd(&self, _p: &u32, _input: &'static str) -> Result<ParaOutput<usize>, ParaError> {
+            Ok(ParaOutput::new(0, StopReason::EndTurn, None))
+        }
+        fn rev(
+            &self,
+            _p: &u32,
+            _output: &ParaOutput<usize>,
+        ) -> Result<ParaFeedback<u32>, ParaError> {
+            panic!("inner.rev must not be called when outer.rev short-circuits");
+        }
+    }
+
+    #[test]
+    fn para_seq_short_circuits_on_outer_rev_error() {
+        // Mirror of the fwd short-circuit: composed rev runs outer
+        // first (chain rule); if outer.rev fails, inner.rev MUST NOT
+        // run. The panic in InnerRevMustNotBeCalled would fire if
+        // the short-circuit is missing — absence of panic proves it.
+        let seq = ParaSeq::new(&InnerRevMustNotBeCalled, &OuterRevFails);
+        let out = seq.fwd(&0, "input").expect("fwd ok");
+        let err = seq.rev(&0, &out).expect_err("outer rev refuses");
+        assert!(
+            matches!(err, ParaError::Transport(ref s) if s == "outer rev refuses"),
+            "expected Transport(\"outer rev refuses\"), got {err:?}"
+        );
+    }
+
+    /// Inner stage whose rev returns Err — used to pin propagation
+    /// of the inner-rev error after outer.rev succeeds.
+    struct InnerRevFails;
+    impl Para<u32, &'static str, usize> for InnerRevFails {
+        fn fwd(&self, _p: &u32, _input: &'static str) -> Result<ParaOutput<usize>, ParaError> {
+            Ok(ParaOutput::new(0, StopReason::EndTurn, None))
+        }
+        fn rev(
+            &self,
+            _p: &u32,
+            _output: &ParaOutput<usize>,
+        ) -> Result<ParaFeedback<u32>, ParaError> {
+            Err(ParaError::Transport("inner rev refuses".into()))
+        }
+    }
+
+    /// Outer stage whose rev succeeds normally — paired with
+    /// InnerRevFails to prove the composed rev propagates the inner
+    /// error AFTER outer.rev produced its feedback.
+    struct OuterRevSucceeds;
+    impl Para<u32, usize, String> for OuterRevSucceeds {
+        fn fwd(&self, _p: &u32, _input: usize) -> Result<ParaOutput<String>, ParaError> {
+            Ok(ParaOutput::new(
+                "outer-ok".to_string(),
+                StopReason::EndTurn,
+                None,
+            ))
+        }
+        fn rev(
+            &self,
+            _p: &u32,
+            _output: &ParaOutput<String>,
+        ) -> Result<ParaFeedback<u32>, ParaError> {
+            Ok(ParaFeedback { delta: 99 })
+        }
+    }
+
+    #[test]
+    fn para_seq_propagates_inner_rev_error_after_outer_rev_succeeds() {
+        // Phase 1 hardening — symmetric companion to
+        // para_seq_short_circuits_on_outer_rev_error. Composed rev
+        // runs outer first (chain rule); if outer.rev SUCCEEDS but
+        // inner.rev returns Err, the composed rev must:
+        //   (1) surface the inner.rev error verbatim,
+        //   (2) drop the outer.rev feedback silently (the `?` on
+        //       inner abandons the outer ParaFeedback) — the caller
+        //       sees no half-returned ParaSeqFeedback.
+        //
+        // Without this pin, a future refactor that swapped the chain
+        // order (inner.rev first, then outer.rev) would silently
+        // change which side surfaces first AND change which
+        // side's side-effects accumulate before failure. Both
+        // matter for engine-decided feedback application.
+        let seq = ParaSeq::new(&InnerRevFails, &OuterRevSucceeds);
+        let out = seq.fwd(&0, "hello").expect("fwd ok");
+        // outer.rev would produce delta=99 if it ran; assert below it
+        // never reaches the caller because inner.rev errors.
+        let err = seq.rev(&0, &out).expect_err("inner rev refuses");
+        assert!(
+            matches!(err, ParaError::Transport(ref s) if s == "inner rev refuses"),
+            "expected Transport(\"inner rev refuses\"), got {err:?}"
+        );
+    }
+
+    #[test]
+    fn para_seq_all_failed_rev_surfaces_outer_error_first() {
+        let seq = ParaSeq::new(&InnerRevFails, &OuterRevFails);
+        let out = seq.fwd(&0, "hello").expect("fwd ok");
+        let err = seq
+            .rev(&0, &out)
+            .expect_err("outer rev failure must win when both rev legs fail");
+        assert!(
+            matches!(err, ParaError::Transport(ref s) if s == "outer rev refuses"),
+            "expected outer rev error to win, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn para_seq_short_circuits_on_inner_fwd_error() {
+        // §3.5 deep-hardening edge case: composed fwd must NOT invoke
+        // outer.fwd when inner.fwd returned Err. MustNotBeCalled
+        // panics if reached; absence of panic proves the short-circuit.
+        let seq = ParaSeq::new(&FailingFwd, &MustNotBeCalled);
+        let err = seq.fwd(&0, "hello").expect_err("inner fwd refuses");
+        assert!(
+            matches!(err, ParaError::Transport(ref s) if s == "inner fwd refuses"),
+            "expected Transport(\"inner fwd refuses\"), got {err:?}"
+        );
+    }
+
+    #[test]
+    fn para_seq_all_failed_fwd_surfaces_inner_error_first() {
+        let seq = ParaSeq::new(&FailingFwd, &OuterFwdFails);
+        let err = seq
+            .fwd(&0, "hello")
+            .expect_err("inner fwd failure must win when both stages would fail");
+        assert!(
+            matches!(err, ParaError::Transport(ref s) if s == "inner fwd refuses"),
+            "expected inner fwd error to win, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn para_seq_propagates_outer_fwd_error_after_inner_success() {
+        // Phase 1 hardening — mixed fwd case. The existing
+        // para_seq_short_circuits_on_inner_fwd_error covers inner
+        // failure before outer runs. This covers the next stage:
+        // inner.fwd succeeds, outer.fwd fails, and the outer error is
+        // surfaced verbatim without fabricating a partial ParaSeqOutput.
+        let seq = ParaSeq::new(&LenStage, &OuterFwdFails);
+        let err = seq.fwd(&0, "hello").expect_err("outer fwd refuses");
+        assert!(
+            matches!(err, ParaError::Transport(ref s) if s == "outer fwd refuses after 5"),
+            "expected outer fwd transport error, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn identity_para_default_equals_identity_para_new_compile_and_runtime_pin() {
+        // Phase 1 hardening — symmetric pin for the Default impl on
+        // IdentityPara. The `Default::default()` delegates to
+        // `Self::new()` (compose.rs §35-37); both must produce
+        // structurally equivalent values. The existing
+        // identity_para_fwd_standalone test exercises new() but
+        // never compares it to default().
+        //
+        // A future Default impl that, say, started initialising the
+        // PhantomData<P> differently or that drifted from new() would
+        // silently change the canonical identity-Para constructor's
+        // behaviour for callers using #[derive(Default)] on
+        // structures containing IdentityPara<P>.
+        let via_default = IdentityPara::<u32>::default();
+        let via_new = IdentityPara::<u32>::new();
+        // Both produce equivalent fwd outputs.
+        let out_def = via_default.fwd(&0, 42usize).expect("default fwd ok");
+        let out_new = via_new.fwd(&0, 42usize).expect("new fwd ok");
+        assert_eq!(out_def.value, out_new.value);
+        assert_eq!(out_def.stop_reason, out_new.stop_reason);
+        assert_eq!(out_def.thinking, out_new.thinking);
+        assert_eq!(out_def.stop_reason_digest, out_new.stop_reason_digest);
+        assert_eq!(out_def.thinking_digest, out_new.thinking_digest);
+    }
+
+    #[test]
+    fn identity_para_rev_returns_transport_error_with_doctrine_message() {
+        // Phase 1 hardening — pin the documented IdentityPara::rev
+        // contract. The reverse leg cannot construct an arbitrary
+        // `P` without a `P: Default` bound, so the implementation
+        // deliberately returns ParaError::Transport with a doctrine
+        // message guiding callers to use a domain-specific identity
+        // instead. The fwd leg is pinned by
+        // identity_para_fwd_standalone_echoes_input_value_with_intact_digest;
+        // the rev leg's error-by-design behaviour was unpinned.
+        //
+        // A future refactor that (a) silently changed the error
+        // variant, (b) flipped the function to return Ok(default()),
+        // or (c) renamed the doctrine message would silently change
+        // the surface that the existing pattern-match consumers
+        // rely on. Pin the exact contract: Err(Transport(...)) with
+        // the doctrine string verbatim.
+        let id = IdentityPara::<u32>::new();
+        let dummy_output: ParaOutput<u32> =
+            ParaOutput::new(42, StopReason::EndTurn, None);
+        let err = id
+            .rev(&0u32, &dummy_output)
+            .expect_err("IdentityPara::rev must return Err by design");
+        match err {
+            ParaError::Transport(msg) => {
+                assert_eq!(
+                    msg,
+                    "IdentityPara::rev requires P: Default — use a domain-specific identity instead",
+                    "doctrine message drifted",
+                );
+            }
+            other => panic!("expected ParaError::Transport, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn identity_para_fwd_is_pure_deterministic_across_multiple_calls() {
+        // Phase 1 hardening — pure-function determinism pin
+        // (companion to iter-223 ParaSeq::fwd determinism + iter-230
+        // ParaSeq::rev determinism). IdentityPara::fwd echoes input
+        // verbatim with a fixed StopReason + no thinking; pure.
+        let id = IdentityPara::<u32>::new();
+        let r1 = id.fwd(&0, 42usize).expect("first ok");
+        let r2 = id.fwd(&0, 42usize).expect("second ok");
+        let r3 = id.fwd(&0, 42usize).expect("third ok");
+        assert_eq!(r1.value, r2.value);
+        assert_eq!(r2.value, r3.value);
+        assert_eq!(r1.stop_reason, r2.stop_reason);
+        assert_eq!(r1.stop_reason_digest, r2.stop_reason_digest);
+        assert_eq!(r1.thinking_digest, r2.thinking_digest);
+    }
+
+    #[test]
+    fn identity_para_fwd_standalone_echoes_input_value_with_intact_digest() {
+        // Phase 1 hardening — IdentityPara forward leg is THE
+        // canonical identity morphism: fwd(p, a) must return
+        // ParaOutput{value: a, stop_reason: EndTurn, thinking: None}.
+        // The existing tests exercise IdentityPara only through
+        // ParaSeq composition; this pins the standalone semantics
+        // so a future refactor that puts logic in IdentityPara::fwd
+        // (e.g. wrapping thinking with metadata) surfaces at PR
+        // review rather than silently breaking identity-law tests.
+        let id = IdentityPara::<u32>::new();
+        let out = id.fwd(&0, 42usize).expect("identity fwd ok");
+        assert_eq!(out.value, 42);
+        assert_eq!(out.stop_reason, StopReason::EndTurn);
+        assert!(out.thinking.is_none(), "IdentityPara must produce no thinking");
+        assert_eq!(out.thinking_digest, [0u8; 32]);
+        assert!(out.digest_intact());
+
+        // Try a non-Copy value too — String — to prove the move
+        // works without cloning or stringification.
+        let id_str = IdentityPara::<u32>::new();
+        let s = "hello world".to_string();
+        let out_s = id_str.fwd(&0, s.clone()).expect("identity fwd string ok");
+        assert_eq!(out_s.value, s);
+        assert!(out_s.digest_intact());
+    }
+
+    #[test]
+    fn identity_composed_with_identity_equals_identity_per_doctrine() {
+        // Phase 1 hardening — pin the categorical identity-on-identity
+        // law called out in the IdentityPara doctrine comment
+        // (compose.rs line 20: "id_A ∘ id_A = id_A").
+        //
+        // ParaSeq(IdentityPara, IdentityPara).fwd(p, a) produces:
+        //   inner.value == a   (first id echoed input)
+        //   outer.value == a   (second id echoed inner)
+        // Both stop_reasons are EndTurn (IdentityPara's canonical
+        // forward output); both digests are intact.
+        //
+        // The doctrine comment was unpinned by any test. A future
+        // IdentityPara::fwd change that, say, started producing
+        // ToolUse instead of EndTurn would silently fork the
+        // identity law in cross-stage composition.
+        let id_first = IdentityPara::<u32>::new();
+        let id_second = IdentityPara::<u32>::new();
+        // ParaSeq requires Y: Para<P, B, C> after X: Para<P, A, B>.
+        // For both IdentityPara<u32> stages with type usize, the
+        // intermediate type is usize, and the final is usize.
+        let seq = ParaSeq::new(&id_first, &id_second);
+        let out = seq.fwd(&0u32, 42usize).expect("fwd ok");
+        assert_eq!(out.inner.value, 42);
+        assert_eq!(out.outer.value, 42);
+        assert_eq!(out.inner.stop_reason, StopReason::EndTurn);
+        assert_eq!(out.outer.stop_reason, StopReason::EndTurn);
+        assert!(out.inner.digest_intact());
+        assert!(out.outer.digest_intact());
+        // Stand-alone IdentityPara produces the same end-state.
+        let standalone = id_first.fwd(&0u32, 42usize).expect("standalone fwd ok");
+        assert_eq!(standalone.value, out.outer.value);
+        assert_eq!(standalone.stop_reason, out.outer.stop_reason);
+        assert_eq!(standalone.thinking_digest, out.outer.thinking_digest);
+        assert_eq!(standalone.stop_reason_digest, out.outer.stop_reason_digest);
+    }
+
+    #[test]
+    fn identity_right_unit_preserves_outer_stage_output_value_and_digest() {
+        // Phase 1 hardening — symmetric companion to
+        // identity_left_unit_preserves_inner_stage_values_and_digests.
+        // Identity law (right unit, forward direction):
+        //   ParaSeq(LenStage, IdentityPara).fwd(p, a)
+        // produces an outer-stage output whose value matches what
+        // LenStage alone would produce (the second stage is just
+        // an identity echo on B-side values).
+        //
+        // The Para trait IdentityPara<P> impl is generic over A,
+        // so IdentityPara<u32> can act as Para<u32, usize, usize>
+        // when chained after LenStage (which produces usize).
+        let id = IdentityPara::<u32>::new();
+        let seq = ParaSeq::new(&LenStage, &id);
+        let out = seq.fwd(&0, "hello").expect("fwd ok");
+        // Inner (LenStage) computes len=5.
+        assert_eq!(out.inner.value, 5);
+        // Outer (IdentityPara) echoes the inner value.
+        assert_eq!(out.outer.value, 5);
+        // Stop reasons: LenStage produces EndTurn, IdentityPara
+        // also produces EndTurn — same.
+        assert_eq!(out.inner.stop_reason, StopReason::EndTurn);
+        assert_eq!(out.outer.stop_reason, StopReason::EndTurn);
+        // Digests intact on both legs.
+        assert!(out.inner.digest_intact());
+        assert!(out.outer.digest_intact());
+        // Stand-alone LenStage produces the same value the outer
+        // leg now carries — the identity layer is a no-op on the
+        // value axis.
+        let stand_alone = LenStage.fwd(&0, "hello").expect("standalone fwd ok");
+        assert_eq!(stand_alone.value, out.outer.value);
+        assert_eq!(stand_alone.stop_reason, out.outer.stop_reason);
+    }
+
+    #[test]
+    fn identity_left_unit_preserves_inner_stage_values_and_digests() {
+        // Identity law (left unit, for the forward direction):
+        // ParaSeq(IdentityPara, LenStage).fwd(p, a) ≅ LenStage.fwd(p, a)
+        // in the sense that the OUTER output of the composed forward
+        // matches what LenStage alone would produce.
+        let id = IdentityPara::<u32>::new();
+        let seq = ParaSeq::new(&id, &LenStage);
+        let out = seq.fwd(&0, "hello").expect("fwd ok");
+        // Inner (id) just echoes the input
+        assert_eq!(out.inner.value, "hello");
+        assert_eq!(out.inner.stop_reason, StopReason::EndTurn);
+        // Outer (LenStage) sees the echoed value and computes len=5
+        assert_eq!(out.outer.value, 5);
+        assert_eq!(out.outer.stop_reason, StopReason::EndTurn);
+        // Stand-alone LenStage produces the same outer
+        let stand_alone = LenStage.fwd(&0, "hello").expect("fwd ok");
+        assert_eq!(stand_alone.value, out.outer.value);
+        assert_eq!(stand_alone.stop_reason, out.outer.stop_reason);
+        assert_eq!(stand_alone.thinking_digest, out.outer.thinking_digest);
+    }
+
+    /// Outer stage that always reports BudgetExhausted (rather than
+    /// EndTurn) to exercise the composed-output stop-reason path.
+    struct BudgetExhaustedStage;
+    impl Para<u32, usize, String> for BudgetExhaustedStage {
+        fn fwd(&self, _p: &u32, _input: usize) -> Result<ParaOutput<String>, ParaError> {
+            Ok(ParaOutput::new(
+                "out-of-budget".to_string(),
+                StopReason::BudgetExhausted,
+                Some(b"budget-exhausted-thinking".to_vec()),
+            ))
+        }
+        fn rev(
+            &self,
+            _p: &u32,
+            _output: &ParaOutput<String>,
+        ) -> Result<ParaFeedback<u32>, ParaError> {
+            Ok(ParaFeedback { delta: 0 })
+        }
+    }
+
+    /// Compile-time helper: this function only compiles if `T: Send +
+    /// Sync`. Used by the Send/Sync bound test below to assert
+    /// statically that `ParaSeq` lifts the trait bounds of its stages.
+    fn assert_send_sync<T: Send + Sync>() {}
+
+    #[test]
+    fn para_seq_is_send_sync_when_stages_are() {
+        // Phase 1 hardening — `ParaSeq` must be `Send + Sync` so the
+        // executor pool can ship it across worker threads. The two
+        // stages (`LenStage`, `LabelStage`) are zero-sized + Send +
+        // Sync, so the composed `ParaSeq` reference must inherit
+        // both. assert_send_sync is a const-style probe — if `ParaSeq`
+        // ever loses Send/Sync (e.g. via a non-Send field), this
+        // test fails to compile.
+        assert_send_sync::<ParaSeq<'_, u32, &'static str, usize, String, LenStage, LabelStage>>();
+    }
+
+    #[test]
+    fn composed_outer_stop_reason_propagates_to_seq_output() {
+        // Phase 1 hardening — when the outer stage reports a non-
+        // EndTurn stop (BudgetExhausted), the ParaSeqOutput must
+        // carry that stop_reason verbatim on its outer leg, while
+        // the inner leg keeps its own EndTurn. Proves the composed
+        // output does not flatten / collapse stop reasons.
+        let seq = ParaSeq::new(&LenStage, &BudgetExhaustedStage);
+        let out = seq.fwd(&0, "hello").expect("fwd ok");
+        assert_eq!(out.inner.stop_reason, StopReason::EndTurn);
+        assert_eq!(out.outer.stop_reason, StopReason::BudgetExhausted);
+        assert!(out.inner.digest_intact());
+        assert!(out.outer.digest_intact());
+        assert_ne!(out.inner.stop_reason_digest, out.outer.stop_reason_digest);
+    }
+
+    #[test]
+    fn para_seq_output_clone_preserves_both_inner_and_outer_byte_equal() {
+        // Phase 1 hardening — Clone preservation pin
+        // (companion to para_output_clone_preserves_digests_bitwise
+        // and every_para_seq_output_field_is_identity_load_bearing).
+        // ParaSeqOutput<B, C> derives Clone; the clone must preserve
+        // both nested ParaOutputs byte-equal including their digests.
+        let seq = ParaSeq::new(&LenStage, &LabelStage);
+        let original = seq.fwd(&0, "hello").expect("fwd ok");
+        let cloned = original.clone();
+        assert_eq!(cloned, original);
+        assert_eq!(cloned.inner.value, original.inner.value);
+        assert_eq!(cloned.outer.value, original.outer.value);
+        assert_eq!(cloned.inner.stop_reason_digest, original.inner.stop_reason_digest);
+        assert_eq!(cloned.outer.stop_reason_digest, original.outer.stop_reason_digest);
+        assert_eq!(cloned.inner.thinking_digest, original.inner.thinking_digest);
+        assert_eq!(cloned.outer.thinking_digest, original.outer.thinking_digest);
+        // Forensic intactness lifts through clone.
+        assert!(cloned.inner.digest_intact());
+        assert!(cloned.outer.digest_intact());
+    }
+
+    #[test]
+    fn composed_stage_with_no_thinking_paired_with_stage_with_thinking_preserves_both_states() {
+        // Phase 1 hardening — companion to
+        // para_output_none_thinking_vs_empty_some_thinking_produce_distinct_digests
+        // (single-stage pin) lifted to the COMPOSITION layer. When
+        // one ParaSeq stage emits thinking: None and the other emits
+        // thinking: Some(...), the composed output must:
+        //   1) preserve the None-stage thinking_digest as zero ([0; 32]),
+        //   2) preserve the Some-stage thinking_digest as non-zero
+        //      and matching an independent BLAKE3 recompute,
+        //   3) leave both stages' digest_intact() forensic gates
+        //      passing (no cross-stage thinking leakage).
+        //
+        // Defends against a future "let me cascade the inner stage's
+        // thinking_digest into the outer when outer.thinking is None"
+        // optimisation that would erase the None signal from the audit
+        // trail.
+        struct NoThinkingInner;
+        impl Para<u32, &'static str, usize> for NoThinkingInner {
+            fn fwd(&self, _p: &u32, input: &'static str) -> Result<ParaOutput<usize>, ParaError> {
+                Ok(ParaOutput::new(input.len(), StopReason::EndTurn, None))
+            }
+            fn rev(
+                &self,
+                _p: &u32,
+                _output: &ParaOutput<usize>,
+            ) -> Result<ParaFeedback<u32>, ParaError> {
+                Ok(ParaFeedback { delta: 0 })
+            }
+        }
+
+        // Inner=None, outer=Some("label-thinking" via LabelStage).
+        let seq = ParaSeq::new(&NoThinkingInner, &LabelStage);
+        let out = seq.fwd(&0, "hello").expect("fwd ok");
+        assert_eq!(
+            out.inner.thinking_digest, [0u8; 32],
+            "inner None thinking must produce zero-digest"
+        );
+        let label_th_independent = *blake3::hash(b"label-thinking").as_bytes();
+        assert_eq!(
+            out.outer.thinking_digest, label_th_independent,
+            "outer Some(...) thinking must match independent BLAKE3"
+        );
+        assert!(out.inner.digest_intact());
+        assert!(out.outer.digest_intact());
+
+        // Symmetric flip: inner=Some, outer=None. We construct an
+        // outer stage emitting None thinking, paired with LenStage
+        // (which emits Some(b"len-thinking")).
+        struct NoThinkingOuter;
+        impl Para<u32, usize, String> for NoThinkingOuter {
+            fn fwd(&self, _p: &u32, input: usize) -> Result<ParaOutput<String>, ParaError> {
+                Ok(ParaOutput::new(
+                    format!("v={input}"),
+                    StopReason::EndTurn,
+                    None,
+                ))
+            }
+            fn rev(
+                &self,
+                _p: &u32,
+                _output: &ParaOutput<String>,
+            ) -> Result<ParaFeedback<u32>, ParaError> {
+                Ok(ParaFeedback { delta: 0 })
+            }
+        }
+        let seq2 = ParaSeq::new(&LenStage, &NoThinkingOuter);
+        let out2 = seq2.fwd(&0, "world").expect("fwd2 ok");
+        let len_th_independent = *blake3::hash(b"len-thinking").as_bytes();
+        assert_eq!(out2.inner.thinking_digest, len_th_independent);
+        assert_eq!(out2.outer.thinking_digest, [0u8; 32]);
+        assert!(out2.inner.digest_intact());
+        assert!(out2.outer.digest_intact());
+    }
+
+    #[test]
+    fn composed_thinking_blocks_remain_hash_identical_across_stages() {
+        let seq = ParaSeq::new(&LenStage, &LabelStage);
+        let out = seq.fwd(&0, "abc").expect("fwd ok");
+        let inner_th_independent = *blake3::hash(b"len-thinking").as_bytes();
+        let outer_th_independent = *blake3::hash(b"label-thinking").as_bytes();
+        assert_eq!(out.inner.thinking_digest, inner_th_independent);
+        assert_eq!(out.outer.thinking_digest, outer_th_independent);
+    }
+
+    #[test]
+    fn para_seq_output_fields_are_pub_per_field_visibility_doctrine() {
+        // ParaSeqOutput has 2 pub fields: inner (ParaOutput<B>), outer (ParaOutput<C>).
+        // Direct .inner / .outer access guards against accidental visibility
+        // narrowing or shape change to a getter-only struct, which would break
+        // every downstream destructure of composed stage outputs.
+        let seq = ParaSeq::new(&LenStage, &LabelStage);
+        let out: ParaSeqOutput<usize, String> = seq.fwd(&0, "xy").expect("fwd ok");
+        let inner_ref: &ParaOutput<usize> = &out.inner;
+        let outer_ref: &ParaOutput<String> = &out.outer;
+        assert_eq!(inner_ref.value, 2);
+        assert_eq!(outer_ref.value, "len=2");
+    }
+
+    #[test]
+    fn para_seq_feedback_fields_are_pub_per_field_visibility_doctrine() {
+        // ParaSeqFeedback<P> has 2 pub fields: outer (ParaFeedback<P>),
+        // inner (ParaFeedback<P>). Chain-rule ordering (outer runs first on
+        // the reverse leg) is part of the struct's documented contract, and
+        // production reverse-leg consumers destructure both fields directly.
+        // Pin guards against a getter-only narrowing that would silently
+        // hide the stage-order contract.
+        let seq = ParaSeq::new(&LenStage, &LabelStage);
+        let out = seq.fwd(&0, "xy").expect("fwd ok");
+        let fb: ParaSeqFeedback<u32> = seq.rev(&0, &out).expect("rev ok");
+        let outer_ref: &ParaFeedback<u32> = &fb.outer;
+        let inner_ref: &ParaFeedback<u32> = &fb.inner;
+        // Both reverse-leg deltas surface; we only assert reachability —
+        // the values themselves are pinned elsewhere.
+        let _ = outer_ref;
+        let _ = inner_ref;
+    }
+}

@@ -43,9 +43,11 @@ struct SidebarShell: View {
     }
 
     private var fixedHeader: some View {
+        // 2026-05-19: removed PinnedStripView (pin + disabled plus button)
+        // per user direction — never wired to real SDSidebarPin storage and
+        // the plus button was permanently `.disabled(true)`.
         VStack(spacing: 6) {
             ModeSwitcherControl(modeStore: modeStore)
-            PinnedStripView()
         }
         .padding(.horizontal, 12)
         .padding(.top, 12)

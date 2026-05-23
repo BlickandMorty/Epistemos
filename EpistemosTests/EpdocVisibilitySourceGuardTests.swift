@@ -24,12 +24,26 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
     func landingExposesNewDocShortcut() throws {
         let source = try Self.loadSourceText("Epistemos/Views/Landing/LandingView.swift")
 
-        #expect(source.contains("label: \"New Doc\""),
+        #expect(source.contains("title: \"New Doc\""),
                 "Landing must project .epdoc creation visibly instead of hiding it only in File > New.")
         #expect(source.contains("createAndOpenDocument()"),
                 "Landing New Doc action should route through one command helper.")
         #expect(source.contains(".keyboardShortcut(\"n\", modifiers: [.command, .option])"),
                 "Landing should honor the native ⌥⌘N New Document shortcut.")
+    }
+
+    @Test("Home commands trigger expressive haptics")
+    func landingCommandsTriggerHaptics() throws {
+        let landing = try Self.loadSourceText("Epistemos/Views/Landing/LandingView.swift")
+        let pixels = try Self.loadSourceText("Epistemos/Views/Landing/PixelSurfaceComponents.swift")
+        let haptics = try Self.loadSourceText("Epistemos/Views/Shared/TypewriterMarkdown.swift")
+
+        #expect(pixels.contains("let haptic: HomeCommandHapticStyle"))
+        #expect(pixels.contains("HapticHelper.homeCommand(haptic)"),
+                "Home command presses should pulse through the shared haptic helper, not each tile inventing its own AppKit feedback.")
+        #expect(landing.contains("haptic: .search"))
+        #expect(landing.contains("haptic: .document"))
+        #expect(haptics.contains("enum HomeCommandHapticStyle"))
     }
 
     @Test("Notes sidebar exposes New Document and saved epdocs in the creation/action surface")
@@ -72,10 +86,10 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
                 "New Epdoc windows should attach to the current note/doc tab group when one exists.")
         #expect(source.contains("NoteWindowManager.firstAvailableNoteTabGroupWindow("),
                 "Epdoc windows should use the shared note/doc tab-group locator so routing stays reciprocal with prose/code notes.")
-        #expect(source.contains("ensureEpdocToolbarFits(in: existingWindow)"),
-                "When Epdoc attaches to an existing note tab group, the window must expand enough that the native formatting toolbar does not collapse into overflow.")
-        #expect(source.contains("window.minSize = NSSize(width: 1180, height: 620)"),
-                "The Epdoc document window needs a minimum width that can actually fit the formatting toolbar plus status/save controls.")
+        #expect(source.contains("window.minSize = NSSize(width: 400, height: 300)"),
+                "Epdoc windows should stay freely resizable instead of force-expanding the entire native tab group.")
+        #expect(!source.contains("ensureEpdocToolbarFits(in: existingWindow)"),
+                "Epdoc tab attachment must not silently resize an existing note/doc window just to fit toolbar overflow.")
         #expect(source.contains("chromeController.loadInitialContent("),
                 "EpdocDocument must push package.contentJSON into the WKWebView when the editor reports ready; otherwise opened docs can look blank.")
     }

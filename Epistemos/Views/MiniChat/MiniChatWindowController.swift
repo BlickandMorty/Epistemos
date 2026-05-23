@@ -53,7 +53,9 @@ final class MiniChatWindowController {
         if let attachment {
             resolvedAttachment = attachment
         } else if let bootstrap = AppBootstrap.shared {
-            resolvedAttachment = activeEpdocAttachment() ?? activeNoteAttachment(in: bootstrap)
+            resolvedAttachment = activeEpdocAttachment()
+                ?? activeGraphNoteAttachment(in: bootstrap)
+                ?? activeNoteAttachment(in: bootstrap)
         } else {
             resolvedAttachment = nil
         }
@@ -162,6 +164,17 @@ final class MiniChatWindowController {
 
     private func activeNoteAttachment(in bootstrap: AppBootstrap) -> ContextAttachment? {
         guard let pageID = bootstrap.notesUI.activePageId else { return nil }
+        return noteAttachment(pageID: pageID, in: bootstrap)
+    }
+
+    private func activeGraphNoteAttachment(in bootstrap: AppBootstrap) -> ContextAttachment? {
+        guard bootstrap.uiState.homeContent == .graph,
+              case .note(let pageID) = bootstrap.graphState.currentRoute
+        else { return nil }
+        return noteAttachment(pageID: pageID, in: bootstrap)
+    }
+
+    private func noteAttachment(pageID: String, in bootstrap: AppBootstrap) -> ContextAttachment? {
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageID })
         let page: SDPage
         do {
