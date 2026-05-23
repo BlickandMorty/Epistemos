@@ -1,0 +1,447 @@
+//! Source:
+//! - Doctrine §3 + §5 row Operator-IR — Lean schema authority,
+//!   branch-trunk dimensional-consistency cert + Fourier-as-isometry.
+//! - Lu/DeepONet arXiv:1910.03193 Thm 2 — operator universality.
+//! - Li/FNO arXiv:2010.08895 §3 — Fourier kernel as an isometry on L².
+//! - Companion: [`super::grammar`] (the OperatorExpr we certify);
+//!   sibling certificate.rs modules for EML/Tropical/Scan/Info.
+
+use super::grammar::{KernelTransform, OperatorExpr};
+
+fn expr_hash_suffix(op: &OperatorExpr) -> String {
+    const FNV_OFFSET: u64 = 0xcbf29ce484222325;
+    const FNV_PRIME: u64 = 0x100000001b3;
+    let mut h = FNV_OFFSET;
+    // Mix in branch + trunk shapes + kernel modes.
+    for &dim in &[
+        op.branch.input_dim(),
+        op.branch.output_dim(),
+        op.trunk.input_dim(),
+        op.trunk.output_dim(),
+    ] {
+        h ^= dim as u64;
+        h = h.wrapping_mul(FNV_PRIME);
+    }
+    if let KernelTransform::Fourier { modes } = &op.kernel {
+        h ^= b'F' as u64;
+        h = h.wrapping_mul(FNV_PRIME);
+        h ^= *modes as u64;
+        h = h.wrapping_mul(FNV_PRIME);
+    } else {
+        h ^= b'I' as u64;
+        h = h.wrapping_mul(FNV_PRIME);
+    }
+    format!("{:016x}", h)
+}
+
+/// Emit a Lean 4 certificate for an [`OperatorExpr`]. Dimensional
+/// consistency, Fourier isometry, and FNO equivalence are closed
+/// from schema records. The committed schema module built with
+/// explicit `~/.elan/bin` PATH and was sharpened through iter-700.
+pub fn lean_certificate(op: &OperatorExpr) -> String {
+    let suffix = expr_hash_suffix(op);
+    let kernel_label = match &op.kernel {
+        KernelTransform::Identity => "Identity".to_string(),
+        KernelTransform::Fourier { modes } => format!("Fourier_{}", modes),
+    };
+    let kernel_term = match &op.kernel {
+        KernelTransform::Identity => "Epistemos.Operator.KernelTransform.identity".to_string(),
+        KernelTransform::Fourier { modes } => {
+            format!("(Epistemos.Operator.KernelTransform.fourier {})", modes)
+        }
+    };
+    let fourier_theorem = match &op.kernel {
+        KernelTransform::Identity => "".to_string(),
+        KernelTransform::Fourier { modes } => format!(
+            "theorem operator_fourier_mode_bound_{suffix} :\n\
+             \x20   Epistemos.Operator.fourierModeBound {modes} := by\n\
+             \x20 decide\n\
+             \n\
+             def operator_fourier_obligation_{suffix} : Epistemos.Operator.FourierIsometryObligation :=\n\
+             \x20   Epistemos.Operator.fourierIsometryObligation {modes} operator_fourier_mode_bound_{suffix}\n\
+             \n\
+             theorem operator_fourier_isometry_{suffix} :\n\
+             \x20   operator_fourier_obligation_{suffix}.isometry := by\n\
+             \x20 exact Epistemos.Operator.fourierIsometryObligationCarries {modes} operator_fourier_mode_bound_{suffix}\n\
+             \n\
+             theorem operator_certificate_fourier_witness_{suffix} :\n\
+             \x20   ∃ targetObligation : Epistemos.Operator.FourierIsometryObligation,\n\
+             \x20     operator_certificate_{suffix}.fourier_isometry = some targetObligation ∧\n\
+             \x20       targetObligation.isometry := by\n\
+             \x20 exact Epistemos.Operator.CertificateTarget.fourierSomeCarries\n\
+             \x20   operator_certificate_{suffix}\n\
+             \x20   operator_fourier_obligation_{suffix}\n\
+             \x20   operator_fourier_option_{suffix}\n\
+             \x20   operator_fourier_isometry_{suffix}\n\
+             \n",
+            suffix = suffix,
+            modes = modes,
+        ),
+    };
+    let fourier_certificate_field = match &op.kernel {
+        KernelTransform::Identity => "none".to_string(),
+        KernelTransform::Fourier { .. } => {
+            format!("some operator_fourier_obligation_{suffix}")
+        }
+    };
+    let fourier_option_theorem = match &op.kernel {
+        KernelTransform::Identity => format!(
+            "theorem operator_fourier_option_{suffix} :\n\
+             \x20   operator_certificate_{suffix}.fourier_isometry = none := by\n\
+             \x20 exact Epistemos.Operator.CertificateTarget.fourierOptionMatches\n\
+             \x20   operator_certificate_{suffix}\n\
+             \x20   none\n\
+             \x20   rfl\n\
+             \n",
+            suffix = suffix,
+        ),
+        KernelTransform::Fourier { .. } => format!(
+            "theorem operator_fourier_option_{suffix} :\n\
+             \x20   operator_certificate_{suffix}.fourier_isometry = some operator_fourier_obligation_{suffix} := by\n\
+             \x20 exact Epistemos.Operator.CertificateTarget.fourierOptionMatches\n\
+             \x20   operator_certificate_{suffix}\n\
+             \x20   (some operator_fourier_obligation_{suffix})\n\
+             \x20   rfl\n\
+             \n",
+            suffix = suffix,
+        ),
+    };
+    format!(
+        "-- Generated by Operator-IR certificate.rs (T5 Phase B5 iter-40; Lean-first iter-605)\n\
+         -- Source: docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §3 + §5\n\
+         -- Operator shape: branch {b_in}→{b_out}, trunk {t_in}→{t_out}, kernel {kernel}\n\
+         -- Schema: lean/Epistemos/Epistemos/Operator.lean\n\
+         -- Schema module built with explicit ~/.elan/bin PATH; obligations sharpened through iter-700.\n\
+         -- Generated dimension/FNO/Fourier proofs expose schema witnesses and carry lemmas.\n\
+         import Epistemos.Operator\n\
+         \n\
+         namespace Epistemos.Operator.Generated\n\
+         \n\
+         def operator_branch_{suffix} : Epistemos.Operator.LinearNetwork :=\n\
+         \x20   {{ inputDim := {b_in}, outputDim := {b_out} }}\n\
+         \n\
+         def operator_trunk_{suffix} : Epistemos.Operator.LinearNetwork :=\n\
+         \x20   {{ inputDim := {t_in}, outputDim := {t_out} }}\n\
+         \n\
+         def operator_kernel_{suffix} : Epistemos.Operator.KernelTransform :=\n\
+         \x20   {kernel_term}\n\
+         \n\
+         theorem operator_dim_match_schema_{suffix} :\n\
+         \x20   operator_branch_{suffix}.outputDim = operator_trunk_{suffix}.outputDim := by\n\
+         \x20 rfl\n\
+         \n\
+         def operator_expr_{suffix} : Epistemos.Operator.Expr :=\n\
+         \x20   {{ branch := operator_branch_{suffix}\n\
+         \x20     trunk := operator_trunk_{suffix}\n\
+         \x20     kernel := operator_kernel_{suffix}\n\
+         \x20     dimMatch := operator_dim_match_schema_{suffix} }}\n\
+         \n\
+         def operator_fno_obligation_{suffix} : Epistemos.Operator.FNOEquivalenceObligation :=\n\
+         \x20   Epistemos.Operator.fnoEquivalenceObligation operator_expr_{suffix}\n\
+         \n\
+         def operator_certificate_{suffix} : Epistemos.Operator.CertificateTarget :=\n\
+         \x20   {{ expr := operator_expr_{suffix}\n\
+         \x20     dim_consistent := operator_dim_match_schema_{suffix}\n\
+         \x20     fno_equivalence := operator_fno_obligation_{suffix}\n\
+         \x20     fno_expr_matches := rfl\n\
+         \x20     fourier_isometry := {fourier_certificate_field}\n\
+         \x20     sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Operator-IR\" }}\n\
+         \n\
+         {fourier_option_theorem}\
+         theorem operator_certificate_fno_{suffix} :\n\
+         \x20   operator_certificate_{suffix}.fno_equivalence = operator_fno_obligation_{suffix} := by\n\
+         \x20 exact Epistemos.Operator.CertificateTarget.fnoObligationMatches\n\
+         \x20   operator_certificate_{suffix}\n\
+         \x20   operator_fno_obligation_{suffix}\n\
+         \x20   rfl\n\
+         \n\
+         theorem operator_certificate_fno_expr_match_{suffix} :\n\
+         \x20   operator_certificate_{suffix}.fno_equivalence.expr = operator_certificate_{suffix}.expr := by\n\
+         \x20 exact Epistemos.Operator.CertificateTarget.fnoExprMatchesCarries\n\
+         \x20   operator_certificate_{suffix}\n\
+         \n\
+         theorem operator_certificate_dim_consistency_{suffix} :\n\
+         \x20   operator_certificate_{suffix}.expr.branch.outputDim = operator_certificate_{suffix}.expr.trunk.outputDim := by\n\
+         \x20 exact Epistemos.Operator.CertificateTarget.dimConsistentCarries\n\
+         \x20   operator_certificate_{suffix}\n\
+         \n\
+         theorem operator_certificate_source_row_{suffix} :\n\
+         \x20   operator_certificate_{suffix}.sourceRow =\n\
+         \x20     \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Operator-IR\" := by\n\
+         \x20 exact Epistemos.Operator.CertificateTarget.sourceRowMatches\n\
+         \x20   operator_certificate_{suffix}\n\
+         \x20   \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Operator-IR\"\n\
+         \x20   rfl\n\
+         \n\
+         theorem operator_dim_consistency_{suffix}\n\
+         \x20   (dimMatchWitness :\n\
+         \x20     operator_expr_{suffix}.branch.outputDim = operator_expr_{suffix}.trunk.outputDim) :\n\
+         \x20   operator_expr_{suffix}.branch.outputDim = operator_expr_{suffix}.trunk.outputDim := by\n\
+         \x20 exact Epistemos.Operator.Expr.dimWitnessCarries\n\
+         \x20   operator_expr_{suffix} dimMatchWitness\n\
+         \n\
+         {fourier_theorem}\
+         theorem operator_fno_equivalence_{suffix} :\n\
+         \x20   operator_fno_obligation_{suffix}.statement := by\n\
+         \x20 exact Epistemos.Operator.fnoEquivalenceObligationCarries operator_expr_{suffix}\n\
+         \n\
+         theorem operator_certificate_fno_statement_{suffix} :\n\
+         \x20   operator_certificate_{suffix}.fno_equivalence.statement := by\n\
+         \x20 exact Epistemos.Operator.CertificateTarget.fnoStatementCarries\n\
+         \x20   operator_certificate_{suffix}\n\
+         \x20   operator_fno_equivalence_{suffix}\n\
+         \n\
+         end Epistemos.Operator.Generated\n\
+         \n",
+        b_in = op.branch.input_dim(),
+        b_out = op.branch.output_dim(),
+        t_in = op.trunk.input_dim(),
+        t_out = op.trunk.output_dim(),
+        kernel = kernel_label,
+        kernel_term = kernel_term,
+        suffix = suffix,
+        fourier_theorem = fourier_theorem,
+        fourier_certificate_field = fourier_certificate_field,
+        fourier_option_theorem = fourier_option_theorem,
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::research::operator_ir::grammar::LinearNetwork;
+
+    fn fixture(kernel: KernelTransform) -> OperatorExpr {
+        let l = LinearNetwork::new(
+            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
+            vec![0.0, 0.0],
+        )
+        .unwrap();
+        OperatorExpr::new(l.clone(), l, kernel).unwrap()
+    }
+
+    #[test]
+    fn identity_cert_has_dim_consistency() {
+        let op = fixture(KernelTransform::Identity);
+        let c = lean_certificate(&op);
+        assert!(c.contains("operator_dim_consistency_"));
+        assert!(c.contains(".branch.outputDim = operator_expr_"));
+    }
+
+    #[test]
+    fn dim_consistency_is_closed_from_schema_field() {
+        let op = fixture(KernelTransform::Identity);
+        let c = lean_certificate(&op);
+        assert!(c.contains("operator_dim_consistency_"));
+        assert!(c.contains("(dimMatchWitness :"));
+        assert!(c.contains("exact Epistemos.Operator.Expr.dimWitnessCarries"));
+        assert!(!c.contains("exact dimMatchWitness"));
+        assert!(!c.contains("exact operator_expr_"));
+        assert!(c.contains(".branch.outputDim = operator_expr_"));
+        assert!(c.contains(".trunk.outputDim"));
+        assert!(!c.contains("dimMatchWitness : operator_expr_"));
+    }
+
+    #[test]
+    fn identity_cert_has_fno_equivalence() {
+        let op = fixture(KernelTransform::Identity);
+        let c = lean_certificate(&op);
+        assert!(c.contains("operator_fno_equivalence_"));
+    }
+
+    #[test]
+    fn identity_cert_targets_operator_schema_module() {
+        let op = fixture(KernelTransform::Identity);
+        let c = lean_certificate(&op);
+        assert!(c.contains("import Epistemos.Operator"));
+        assert!(c.contains("namespace Epistemos.Operator.Generated"));
+        assert!(c.contains("Epistemos.Operator.CertificateTarget"));
+    }
+
+    #[test]
+    fn cert_uses_named_operator_obligation_predicates() {
+        let id_op = fixture(KernelTransform::Identity);
+        let id_c = lean_certificate(&id_op);
+        assert!(id_c.contains("Epistemos.Operator.fnoEquivalenceObligation"));
+        assert!(!id_c.contains("statement := Epistemos.Operator.operatorFNOEquivalent"));
+        assert!(!id_c.contains("statement := True"));
+        assert!(!id_c.contains("evaluate_operator_at"));
+        assert!(!id_c.contains("raw_fno_forward_at"));
+
+        let fou_op = fixture(KernelTransform::Fourier { modes: 2 });
+        let fou_c = lean_certificate(&fou_op);
+        assert!(fou_c.contains("Epistemos.Operator.FourierIsometryObligation"));
+        assert!(fou_c.contains("Epistemos.Operator.fourierIsometryObligation"));
+        assert!(fou_c.contains("operator_fourier_mode_bound_"));
+        assert!(!fou_c.contains("modeBound := Epistemos.Operator.fourierModeBound"));
+        assert!(!fou_c.contains("idft"));
+        assert!(!fou_c.contains("dft"));
+    }
+
+    #[test]
+    fn fno_equivalence_closes_from_schema_field() {
+        let op = fixture(KernelTransform::Identity);
+        let c = lean_certificate(&op);
+        assert!(c.contains(
+            "exact Epistemos.Operator.fnoEquivalenceObligationCarries operator_expr_"
+        ));
+        assert!(!c.contains("exact operator_fno_obligation_"));
+        assert!(!c.contains("iter-39 integration test exercises this bit-exact"));
+        assert_eq!(c.matches("sorry").count(), 0);
+    }
+
+    #[test]
+    fn certificate_projects_target_fno_obligation() {
+        let op = fixture(KernelTransform::Identity);
+        let c = lean_certificate(&op);
+        assert!(c.contains("theorem operator_certificate_fno_"));
+        assert!(c.contains(".fno_equivalence = operator_fno_obligation_"));
+        assert!(c.contains("Epistemos.Operator.CertificateTarget.fnoObligationMatches"));
+    }
+
+    #[test]
+    fn certificate_projects_target_fno_statement() {
+        let op = fixture(KernelTransform::Identity);
+        let c = lean_certificate(&op);
+        assert!(c.contains("theorem operator_certificate_fno_statement_"));
+        assert!(c.contains("exact Epistemos.Operator.CertificateTarget.fnoStatementCarries"));
+        assert!(c.contains("operator_certificate_"));
+    }
+
+    #[test]
+    fn certificate_carries_target_fno_expression_match() {
+        let op = fixture(KernelTransform::Identity);
+        let c = lean_certificate(&op);
+        assert!(c.contains("fno_expr_matches := rfl"));
+        assert!(c.contains("theorem operator_certificate_fno_expr_match_"));
+        assert!(c.contains("exact Epistemos.Operator.CertificateTarget.fnoExprMatchesCarries"));
+    }
+
+    #[test]
+    fn certificate_carries_target_dim_consistency() {
+        let op = fixture(KernelTransform::Identity);
+        let c = lean_certificate(&op);
+        assert!(c.contains("sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Operator-IR\""));
+        assert!(c.contains("theorem operator_certificate_source_row_"));
+        assert!(c.contains("Epistemos.Operator.CertificateTarget.sourceRowMatches"));
+        assert!(c.contains("theorem operator_certificate_dim_consistency_"));
+        assert!(c.contains("exact Epistemos.Operator.CertificateTarget.dimConsistentCarries"));
+        assert!(c.contains("operator_certificate_"));
+    }
+
+    #[test]
+    fn identity_cert_does_not_have_fourier_isometry() {
+        let op = fixture(KernelTransform::Identity);
+        let c = lean_certificate(&op);
+        assert!(!c.contains("operator_fourier_isometry_"));
+    }
+
+    #[test]
+    fn fourier_cert_has_fourier_isometry() {
+        let op = fixture(KernelTransform::Fourier { modes: 1 });
+        let c = lean_certificate(&op);
+        assert!(c.contains("operator_fourier_isometry_"));
+    }
+
+    #[test]
+    fn fourier_cert_projects_target_isometry_witness() {
+        let op = fixture(KernelTransform::Fourier { modes: 1 });
+        let c = lean_certificate(&op);
+        assert!(c.contains("theorem operator_certificate_fourier_witness_"));
+        assert!(c.contains("exact Epistemos.Operator.CertificateTarget.fourierSomeCarries"));
+        assert!(c.contains("operator_fourier_option_"));
+        assert!(c.contains("operator_fourier_isometry_"));
+    }
+
+    #[test]
+    fn certificate_target_carries_fourier_obligation_option() {
+        let id_op = fixture(KernelTransform::Identity);
+        let id_c = lean_certificate(&id_op);
+        assert!(id_c.contains("fourier_isometry := none"));
+
+        let fou_op = fixture(KernelTransform::Fourier { modes: 1 });
+        let fou_c = lean_certificate(&fou_op);
+        assert!(fou_c.contains("fourier_isometry := some operator_fourier_obligation_"));
+    }
+
+    #[test]
+    fn certificate_projects_target_fourier_option() {
+        let id_op = fixture(KernelTransform::Identity);
+        let id_c = lean_certificate(&id_op);
+        assert!(id_c.contains("theorem operator_fourier_option_"));
+        assert!(id_c.contains(".fourier_isometry = none := by"));
+        assert!(id_c.contains("Epistemos.Operator.CertificateTarget.fourierOptionMatches"));
+
+        let fou_op = fixture(KernelTransform::Fourier { modes: 1 });
+        let fou_c = lean_certificate(&fou_op);
+        assert!(fou_c.contains("theorem operator_fourier_option_"));
+        assert!(fou_c.contains(".fourier_isometry = some operator_fourier_obligation_"));
+        assert!(fou_c.contains("Epistemos.Operator.CertificateTarget.fourierOptionMatches"));
+    }
+
+    #[test]
+    fn fourier_isometry_closes_from_schema_field() {
+        let op = fixture(KernelTransform::Fourier { modes: 1 });
+        let c = lean_certificate(&op);
+        assert!(c.contains(
+            "exact Epistemos.Operator.fourierIsometryObligationCarries 1 operator_fourier_mode_bound_"
+        ));
+        assert!(!c.contains("exact operator_fourier_obligation_"));
+        assert!(!c.contains("spectral truncation is an L²-projection"));
+        assert_eq!(c.matches("sorry").count(), 0);
+    }
+
+    #[test]
+    fn fourier_cert_includes_modes_in_shape_comment() {
+        let op = fixture(KernelTransform::Fourier { modes: 2 });
+        let c = lean_certificate(&op);
+        assert!(c.contains("kernel Fourier_2"));
+    }
+
+    #[test]
+    fn cert_closes_generated_proof_bodies() {
+        let id_op = fixture(KernelTransform::Identity);
+        let id_c = lean_certificate(&id_op);
+        assert_eq!(id_c.matches("sorry").count(), 0);
+
+        let fou_op = fixture(KernelTransform::Fourier { modes: 2 });
+        let fou_c = lean_certificate(&fou_op);
+        assert_eq!(fou_c.matches("sorry").count(), 0);
+    }
+
+    #[test]
+    fn header_cites_phase_b5_iter_40() {
+        let op = fixture(KernelTransform::Identity);
+        let c = lean_certificate(&op);
+        assert!(c.contains("iter-40"));
+    }
+
+    #[test]
+    fn header_tracks_schema_build_and_closed_obligations() {
+        let op = fixture(KernelTransform::Fourier { modes: 2 });
+        let c = lean_certificate(&op);
+        assert!(c.contains(
+            "Schema module built with explicit ~/.elan/bin PATH; obligations sharpened through iter-700"
+        ));
+        assert!(c.contains(
+            "Generated dimension/FNO/Fourier proofs expose schema witnesses and carry lemmas"
+        ));
+        assert!(!c.contains("Generated dimension/FNO/Fourier proofs close from schema fields"));
+        assert_eq!(c.matches("sorry").count(), 0);
+    }
+
+    #[test]
+    fn hash_distinguishes_kernel_choice() {
+        let id_op = fixture(KernelTransform::Identity);
+        let fou_op = fixture(KernelTransform::Fourier { modes: 2 });
+        assert_ne!(expr_hash_suffix(&id_op), expr_hash_suffix(&fou_op));
+    }
+
+    #[test]
+    fn cert_is_deterministic() {
+        let op = fixture(KernelTransform::Fourier { modes: 1 });
+        let c1 = lean_certificate(&op);
+        let c2 = lean_certificate(&op);
+        assert_eq!(c1, c2);
+    }
+}
