@@ -48,6 +48,7 @@ pub mod mutations;
 pub mod neocortex;
 pub mod nightbrain;
 pub mod oplog;
+pub mod oplog_lattice_wbo;
 pub mod projection_cache;
 pub mod prompt_caching;
 pub mod prompts;
