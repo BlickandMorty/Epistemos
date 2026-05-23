@@ -859,8 +859,8 @@ struct EpistemosApp: App {
                     G1 LocalToolGrammar.supportsStructuredToolCalling=\(LocalToolGrammar.supportsStructuredToolCalling) \
                     supportsLocalAgentLoop=\(LocalToolGrammar.supportsLocalAgentLoop) \
                     | G2 hostMemoryGB=\(hw.roundedMemoryGB) \
-                    primaryAgentModelMinHostRAMGB=\(LocalTextModelID.primaryAgentModelMinHostRAMGB) \
-                    primaryAgentModelMinHostRAMGB_powerUser=\(LocalTextModelID.primaryAgentModelMinHostRAMGB_powerUser)
+                    primaryAgentModelMinHostRAMGB=\(LocalModelCatalog.primaryAgentModelMinHostRAMGB) \
+                    primaryAgentModelMinHostRAMGB_powerUser=\(LocalModelCatalog.primaryAgentModelMinHostRAMGB_powerUser)
                     """)
             #endif
         }

@@ -138,9 +138,12 @@ actor AudioTranscriber {
         }
 
         let payload: AppleSpeechPayload = try await withCheckedThrowingContinuation { continuation in
+            let resumeGate = SingleResumeGate()
             _ = recognizer.recognitionTask(with: request) { result, error in
                 if let error {
-                    continuation.resume(throwing: error)
+                    resumeGate.resume {
+                        continuation.resume(throwing: error)
+                    }
                     return
                 }
                 guard let result, result.isFinal else { return }
@@ -157,11 +160,13 @@ actor AudioTranscriber {
                         speaker: nil
                     )
                 }
-                continuation.resume(returning: AppleSpeechPayload(
-                    fullText: fullText,
-                    segments: segments,
-                    wordsPerMinute: wpm
-                ))
+                resumeGate.resume {
+                    continuation.resume(returning: AppleSpeechPayload(
+                        fullText: fullText,
+                        segments: segments,
+                        wordsPerMinute: wpm
+                    ))
+                }
             }
         }
 
@@ -394,6 +399,22 @@ actor AudioTranscriber {
         ].first { FileManager.default.isExecutableFile(atPath: $0) }
     }
     #endif // !EPISTEMOS_APP_STORE -- end of MLX Whisper / whisper.cpp / runProcess block
+}
+
+private nonisolated final class SingleResumeGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var didResume = false
+
+    func resume(_ body: () -> Void) {
+        lock.lock()
+        guard !didResume else {
+            lock.unlock()
+            return
+        }
+        didResume = true
+        lock.unlock()
+        body()
+    }
 }
 
 enum AudioTranscriberError: Error, LocalizedError {
