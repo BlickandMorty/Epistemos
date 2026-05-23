@@ -3441,6 +3441,14 @@ pub fn eidos_search_lexical_json(query: String, top_k: u32) -> Result<String, Ag
 // hand the bridge a `&dyn VaultBackend` reference. The Swift wire
 // shape is pinned by the `RetrievalTrace` serde derives, so the
 // substrate swap is invisible to Swift.
+//
+// **Production seam (R2 / 2026-05-23)**: any Rust caller that already
+// holds a `&dyn VaultBackend` (e.g. agent_runtime, future bridge FFI
+// with a backend handle) MUST route through
+// `crate::storage::vault::produce_vault_recall_trace` instead of this
+// scaffold function. The production path tags traces as
+// `"production-hybrid"` (vs this scaffold's `"scaffold-lexical"`) so
+// downstream diagnostics can tell them apart.
 
 /// FFI entry: build a `RetrievalTrace` for `query` and return its JSON
 /// encoding. Swift decodes via `VaultRecallTrace` mirrors and surfaces
