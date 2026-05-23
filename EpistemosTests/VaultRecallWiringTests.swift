@@ -55,6 +55,55 @@ struct VaultRecallWiringTests {
                 "metrics must surface the fallback for the health-row warning chip")
     }
 
+    @Test("VaultRecallBridge.detectedBackend reads .stub from the scaffold-lexical ladder tier")
+    func vaultRecallBridgeDetectsStubBackendFromLadderTier() throws {
+        VaultRecallMetrics.shared.reset()
+
+        let trace = try #require(VaultRecallBridge.trace(query: "residency governance"))
+        let backend = VaultRecallBridge.detectedBackend(from: trace)
+        #expect(backend == .stub,
+                "today the Rust side returns ladder_tier=scaffold-lexical; Swift must surface this honestly")
+    }
+
+    @Test("VaultRecallBridge.detectedBackend reads .real for vault-prefixed ladder tiers (forward-compat)")
+    func vaultRecallBridgeDetectsRealBackendFromVaultLadderTier() throws {
+        // Synthesize a trace whose ladder_tier carries the forward-compat
+        // production prefix Terminal 2 will emit when VaultBackend
+        // integration lands. The Swift heuristic must already know how to
+        // surface this as `.real` so the day the Rust side flips, the UI
+        // stops lying.
+        let json = """
+        {
+          "query": "test",
+          "effective_query": "test",
+          "ladder_tier": "vault-hybrid-v1",
+          "candidate_pool_size": 0,
+          "candidates_retained": 0,
+          "candidates": [],
+          "signal_summary": [],
+          "generated_at_ms": 0,
+          "notes": [],
+          "all_chatter_fallback": false
+        }
+        """
+        let data = Data(json.utf8)
+        let trace = try JSONDecoder().decode(VaultRecallTrace.self, from: data)
+        #expect(VaultRecallBridge.detectedBackend(from: trace) == .real)
+    }
+
+    @Test("VaultRecallMetrics.Snapshot.lastBackend reflects the most recent trace's backend origin")
+    func vaultRecallMetricsSnapshotCarriesLastBackend() throws {
+        VaultRecallMetrics.shared.reset()
+        let before = VaultRecallMetrics.shared.snapshot()
+        #expect(before.lastBackend == .unknown,
+                "before any trace the backend is unknown")
+
+        _ = try #require(VaultRecallBridge.trace(query: "tier compression doctrine"))
+        let after = VaultRecallMetrics.shared.snapshot()
+        #expect(after.lastBackend == .stub,
+                "after a scaffold-lexical trace the snapshot must surface .stub")
+    }
+
     @Test("VaultRecallFlags.isEnabled reads UserDefaults + env-var fallback")
     func vaultRecallFlagsReadsUserDefaultsAndEnvFallback() {
         let savedDefault = UserDefaults.standard.bool(forKey: VaultRecallFlags.userDefaultsKey)

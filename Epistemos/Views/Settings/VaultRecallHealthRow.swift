@@ -33,10 +33,14 @@ public struct VaultRecallHealthRow: View {
             row(
                 label: "Vault recall contract flag",
                 symbol: "flag.fill",
-                ok: snapshot.isFlagEnabled,
-                detail: snapshot.isFlagEnabled
-                    ? "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 on (T21 trace emission)"
-                    : "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 off (no trace emission)"
+                ok: flagRowOk,
+                detail: flagRowDetail
+            )
+            row(
+                label: "Backend",
+                symbol: "shippingbox",
+                ok: snapshot.lastBackend == .real,
+                detail: backendDetail
             )
             row(
                 label: "Last query",
@@ -86,6 +90,41 @@ public struct VaultRecallHealthRow: View {
 
     public func refresh() {
         snapshot = VaultRecallMetrics.shared.snapshot()
+    }
+
+    // The flag row's OK indicator is true only when the flag is ON AND the
+    // backend has been observed to be real — flag-on against the scaffold
+    // stub is honest-not-ready and must not look "working".
+    private var flagRowOk: Bool {
+        guard snapshot.isFlagEnabled else { return false }
+        return snapshot.lastBackend == .real
+    }
+
+    private var flagRowDetail: String {
+        guard snapshot.isFlagEnabled else {
+            return "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 off (no trace emission)"
+        }
+        switch snapshot.lastBackend {
+        case .real:
+            return "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 on · real VaultBackend trace"
+        case .stub:
+            return "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 on · SCAFFOLD trace (Terminal 2 VaultBackend integration pending W-21.1)"
+        case .unknown:
+            return "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 on · awaiting first trace to confirm backend"
+        }
+    }
+
+    private var backendDetail: String {
+        switch snapshot.lastBackend {
+        case .real:
+            return "real VaultBackend — 5-signal contract live"
+        case .stub:
+            return "scaffold-lexical — candidates do not reflect user vault"
+        case .unknown:
+            return snapshot.lastQueryAt == nil
+                ? "(no trace yet)"
+                : "unknown ladder tier — Terminal 2 contract drift?"
+        }
     }
 
     private var lastQueryDetail: String {
