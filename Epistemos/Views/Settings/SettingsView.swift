@@ -796,6 +796,7 @@ private struct GeneralDetailView: View {
                 SystemGHealthRow()
                 FUlpHealthRow()
                 ACSAdmissionHealthRow()
+                AgentBlueprintSettingsView()
                 CognitiveDagHealthRow()
                 // V6.2 first-rendered surface for the AnswerPacket
                 // audit channel. Read-only window onto the bounded
