@@ -42,11 +42,11 @@ UAS §2, §4, and §5 line anchors are checked against current headings.
 
 | Serialized surface | Source anchor | Register obligation |
 |---|---|---|
-| `FalsifierHookOwner` | `agent_core/src/lattice_wbo/mod.rs:737` `FalsifierHookOwner` | Falsifier hook owner rows remain strict `hook` / `owner` public JSON evidence. |
-| `LatticeErrorContribution` | `agent_core/src/lattice_wbo/mod.rs:789` `LatticeErrorContribution` | Per-axis budget and measured contribution keys remain the canonical WBO evidence atom. |
-| `LatticeBudget` | `agent_core/src/lattice_wbo/mod.rs:870` `LatticeBudget` | Codec, rate, side-information, and contribution vectors remain one validated public budget envelope. |
-| `ActiveSupportBudget` | `agent_core/src/lattice_wbo/mod.rs:1149` `ActiveSupportBudget` | Active-support caps remain a secondary residency budget only for tiers that explicitly allow it. |
-| `WboLedgerEntry` | `agent_core/src/lattice_wbo/mod.rs:1217` `WboLedgerEntry` | Memory tier, budget, optional active support, falsifier, and caveat stay bound as one ledger row. |
+| `FalsifierHookOwner` | `agent_core/src/lattice_wbo/verifier.rs:16` `FalsifierHookOwner` | Falsifier hook owner rows remain strict `hook` / `owner` public JSON evidence. |
+| `LatticeErrorContribution` | `agent_core/src/lattice_wbo/accounting.rs:135` `LatticeErrorContribution` | Per-axis budget and measured contribution keys remain the canonical WBO evidence atom. |
+| `LatticeBudget` | `agent_core/src/lattice_wbo/accounting.rs:216` `LatticeBudget` | Codec, rate, side-information, and contribution vectors remain one validated public budget envelope. |
+| `ActiveSupportBudget` | `agent_core/src/lattice_wbo/accounting.rs:495` `ActiveSupportBudget` | Active-support caps remain a secondary residency budget only for tiers that explicitly allow it. |
+| `WboLedgerEntry` | `agent_core/src/lattice_wbo/register.rs:588` `WboLedgerEntry` | Memory tier, budget, optional active support, falsifier, and caveat stay bound as one ledger row. |
 
 ## Invariants
 
