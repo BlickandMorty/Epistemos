@@ -10,6 +10,10 @@ use tantivy::query::QueryParser;
 use tantivy::schema::{Field, Schema, Value, STORED, STRING, TEXT};
 use tantivy::{doc, Index, IndexReader, IndexWriter, ReloadPolicy, TantivyDocument, Term};
 
+use crate::storage::retrieval_trace::{
+    RetrievalCandidate, RetrievalSignal, RetrievalSignalScore, RetrievalTrace,
+};
+
 /// Chatter words stripped from `hybrid_search` queries before parsing.
 ///
 /// F-VaultRecall-50 fix B (iter 81, 2026-05-16): the user-facing agent query
@@ -106,16 +110,58 @@ pub trait VaultBackend: Send + Sync {
         self.hybrid_search(query, limit, tag_filter).await
     }
 
+    /// T21 Vault Recall Contract (2026-05-18): every vault retrieval MUST
+    /// emit a `RetrievalTrace` carrying the five canonical signals so the
+    /// "first 7 irrelevant notes" failure is structurally impossible to
+    /// hide. This default impl wraps [`hybrid_search`] and populates the
+    /// `Lexical` signal from each result's raw BM25 score; backends with
+    /// access to semantic / graph / recency / MMR pipelines MUST override
+    /// to record those signals too. The trace's `effective_query` defaults
+    /// to the input `query`; backends that pre-filter (e.g. `VaultStore`
+    /// runs `strip_query_chatter`) MUST override to record the post-filter
+    /// form so the W-21 diagnostics surface can show the Fix-B transform.
+    ///
+    /// Pure-additive: existing callers of `hybrid_search` continue to
+    /// compile unchanged; new callers (ChatCoordinator vault-context-
+    /// injection seam W-19, Brain Panel "Retrieved by" surface W-20,
+    /// Settings → Diagnostics → "Vault recall health" W-21) consume the
+    /// trace alongside the result list.
+    async fn hybrid_search_with_trace(
+        &self,
+        query: &str,
+        limit: usize,
+        tag_filter: &[String],
+    ) -> Result<(Vec<SearchResult>, RetrievalTrace), VaultError> {
+        let results = self.hybrid_search(query, limit, tag_filter).await?;
+        let mut trace = RetrievalTrace::new(query, query).with_pool_size(results.len());
+        trace.record_signal(RetrievalSignal::Lexical);
+        for result in &results {
+            let mut candidate = RetrievalCandidate::new(result.path.clone(), result.score)
+                .with_signal(RetrievalSignalScore::new(
+                    RetrievalSignal::Lexical,
+                    result.score,
+                    result.score,
+                ));
+            if !result.excerpt.is_empty() {
+                candidate = candidate.with_snippet(result.excerpt.clone());
+            }
+            trace.push_candidate(candidate);
+        }
+        Ok((results, trace))
+    }
+
     async fn search(&self, query: &str, limit: usize) -> Result<Vec<String>, VaultError> {
         let results = self.hybrid_search(query, limit, &[]).await?;
         Ok(results
             .into_iter()
             .map(|result| {
+                // T21 Fix C (2026-05-18): SearchResult.score is raw BM25 now
+                // (unbounded above), not a [0,1] probability. Drop the
+                // `* 100 + %` veneer that lied to the model. Match the
+                // existing `{:.2}` BM25 format used by tools/registry.rs.
                 format!(
-                    "## {} (score: {:.0}%)\n{}",
-                    result.path,
-                    result.score * 100.0,
-                    result.excerpt
+                    "## {} (bm25: {:.2})\n{}",
+                    result.path, result.score, result.excerpt
                 )
             })
             .collect())
@@ -170,6 +216,20 @@ impl VaultStore {
 
     pub fn open_read_only(vault_root: &str) -> Result<Self, VaultError> {
         Self::open_with_mode(vault_root, false)
+    }
+
+    /// T21 iter-7 (2026-05-18): force the Tantivy `IndexReader` to pick
+    /// up freshly-committed writes immediately. The reader is configured
+    /// with `ReloadPolicy::OnCommitWithDelay`, which means an auto-reload
+    /// fires asynchronously after each commit; callers that need a
+    /// deterministic "I just wrote, search now" guarantee (e.g. the
+    /// F-VaultRecall-50 runner exercising a synthetic vault, or vault-
+    /// sync code that wants visibility before returning to the user)
+    /// can call this method to skip the delay.
+    pub fn reload_index(&self) -> Result<(), VaultError> {
+        self.ft_reader
+            .reload()
+            .map_err(|error| VaultError::IndexError(error.to_string()))
     }
 
     fn open_with_mode(vault_root: &str, writable_index: bool) -> Result<Self, VaultError> {
@@ -543,12 +603,39 @@ impl VaultStore {
 
 #[async_trait]
 impl VaultBackend for VaultStore {
+    /// T21 iter-5 (2026-05-18): thin delegation wrapper. The canonical
+    /// retrieval body lives in [`hybrid_search_with_trace`] below so there
+    /// is exactly one source of truth for Fix-B chatter strip + Fix-C
+    /// raw-BM25 + tag-filter culling. Callers who don't need the trace
+    /// discard it here.
     async fn hybrid_search(
         &self,
         query: &str,
         limit: usize,
         tag_filter: &[String],
     ) -> Result<Vec<SearchResult>, VaultError> {
+        let (results, _trace) = self
+            .hybrid_search_with_trace(query, limit, tag_filter)
+            .await?;
+        Ok(results)
+    }
+
+    /// T21 iter-5 (2026-05-18): VaultStore-specific override of the typed
+    /// retrieval-trace path. Records the true Tantivy `top_docs` pool size
+    /// (pre-tag-filter, pre-limit-cut), the chatter-stripped
+    /// `effective_query` (Fix-B output), and free-form notes that name
+    /// the Fix-B + AND-conjunction transforms when they fire. The W-21
+    /// diagnostics surface consumes these notes to render the "what the
+    /// retriever actually saw" breakdown.
+    ///
+    /// The body holds the canonical retrieval logic; the trait's
+    /// `hybrid_search` is a thin wrapper that discards the trace.
+    async fn hybrid_search_with_trace(
+        &self,
+        query: &str,
+        limit: usize,
+        tag_filter: &[String],
+    ) -> Result<(Vec<SearchResult>, RetrievalTrace), VaultError> {
         let searcher = self.ft_reader.searcher();
         let mut query_parser =
             QueryParser::for_index(&self.ft_index, vec![self.field_content, self.field_tags]);
@@ -560,14 +647,52 @@ impl VaultBackend for VaultStore {
         // to preserve recall. If filtering empties the query, fall back to
         // the original so we don't return a parse error.
         let stripped = strip_query_chatter(query);
-        let effective_query = if stripped.is_empty() {
+        // T21 iter-10 (2026-05-18): the all-chatter case (every query
+        // token is a chatter word, e.g. "show me my notes") falls back
+        // to the raw input below — we record it so the trace flips to
+        // weak evidence regardless of how many notes the chatter-laden
+        // query incidentally hit.
+        let all_chatter_fallback = stripped.is_empty() && !query.trim().is_empty();
+        let chatter_stripped = !stripped.is_empty() && stripped != query;
+        let effective_query: &str = if stripped.is_empty() {
             query
         } else {
             stripped.as_str()
         };
         let surviving_terms = effective_query.split_whitespace().count();
-        if surviving_terms > 0 && surviving_terms <= 3 {
+        let and_conjunction_applied = surviving_terms > 0 && surviving_terms <= 3;
+        if and_conjunction_applied {
             query_parser.set_conjunction_by_default();
+        }
+
+        let build_trace = |pool_size| {
+            let mut trace = RetrievalTrace::new(query, effective_query).with_pool_size(pool_size);
+            trace.record_signal(RetrievalSignal::Lexical);
+            if all_chatter_fallback {
+                trace.record_all_chatter_fallback();
+                trace.add_note(format!(
+                    "Fix-B all-chatter fallback: query {query:?} stripped to empty; falling back to raw input (consumers SHOULD treat trace as weak evidence)"
+                ));
+            }
+            if chatter_stripped {
+                trace.add_note(format!(
+                    "Fix-B chatter strip: {query:?} → {effective_query:?} ({surviving_terms} surviving terms)"
+                ));
+            }
+            if and_conjunction_applied {
+                trace.add_note(format!(
+                    "AND conjunction applied (surviving_terms = {surviving_terms} ≤ 3)"
+                ));
+            }
+            trace
+        };
+
+        if limit == 0 {
+            let mut trace = build_trace(0);
+            trace.add_note(
+                "Zero-result guard: limit = 0; skipped Tantivy collection".to_string(),
+            );
+            return Ok((Vec::new(), trace));
         }
 
         let parsed_query = query_parser
@@ -580,7 +705,9 @@ impl VaultBackend for VaultStore {
             )
             .map_err(|error| VaultError::IndexError(error.to_string()))?;
 
+        let pool_size = top_docs.len();
         let mut results = Vec::new();
+        let mut trace_excerpts: Vec<String> = Vec::new();
         for (score, address) in top_docs {
             let document: TantivyDocument = searcher
                 .doc(address)
@@ -600,10 +727,20 @@ impl VaultBackend for VaultStore {
                 continue;
             }
 
+            let excerpt = Self::excerpt(content, 500);
+            trace_excerpts.push(excerpt.clone());
+
+            // T21 Fix C (2026-05-18): preserve raw BM25. Tantivy scores are
+            // unbounded above; the previous `.clamp(0.0, 1.0)` flattened
+            // every match to 1.0 and degraded vault_search_ladder.rs's
+            // FLOOR_T1/FLOOR_T3 floors into a "non-empty?" check. See
+            // docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md §1
+            // Defect 3 + §4 Fix C. Downstream consumers must treat
+            // SearchResult.score as raw BM25, not a probability.
             results.push(SearchResult {
                 path,
-                excerpt: Self::excerpt(content, 500),
-                score: (score as f64).clamp(0.0, 1.0),
+                excerpt,
+                score: score as f64,
                 tags,
             });
 
@@ -612,7 +749,34 @@ impl VaultBackend for VaultStore {
             }
         }
 
-        Ok(results)
+        let mut trace = build_trace(pool_size);
+        if pool_size == 0 {
+            trace.add_note(format!(
+                "Zero-result guard: no lexical matches for effective query {effective_query:?}"
+            ));
+        } else if !tag_filter.is_empty() && results.is_empty() {
+            trace.add_note(format!(
+                "Zero-result guard: tag filter culled {pool_size} lexical matches"
+            ));
+        } else if !tag_filter.is_empty() && results.len() < pool_size {
+            trace.add_note(format!(
+                "Tag filter retained {} of {pool_size} lexical matches",
+                results.len()
+            ));
+        }
+        for (result, excerpt) in results.iter().zip(trace_excerpts.into_iter()) {
+            let mut candidate = RetrievalCandidate::new(result.path.clone(), result.score)
+                .with_signal(RetrievalSignalScore::new(
+                    RetrievalSignal::Lexical,
+                    result.score,
+                    result.score,
+                ));
+            if !excerpt.is_empty() {
+                candidate = candidate.with_snippet(excerpt);
+            }
+            trace.push_candidate(candidate);
+        }
+        Ok((results, trace))
     }
 
     async fn read(&self, path: &str) -> Result<String, VaultError> {
@@ -769,6 +933,607 @@ mod tests {
         let cleaned = strip_query_chatter(input);
         // "show" "me" "the" "notes" stripped; "Mamba" "SSM" "Cache" survive.
         assert_eq!(cleaned, "Mamba SSM Cache");
+    }
+
+    /// T21 Fix C contract test (2026-05-18): `hybrid_search` MUST NOT clamp
+    /// BM25 scores to `[0.0, 1.0]`. Tantivy BM25 yields raw IDF/TF scores
+    /// typically in the 1–15 range for strong topical matches; clamping
+    /// destroys the relative-confidence signal that
+    /// `agent_core/src/tools/vault_search_ladder.rs` (FLOOR_T1 = 0.85,
+    /// FLOOR_T3 = 0.70) depends on.
+    ///
+    /// With the prior `score.clamp(0.0, 1.0)` in place, every non-empty
+    /// result returned `score == 1.0` and the floor ladder degraded to
+    /// "did Tantivy return anything?". This test pins the no-clamp
+    /// contract so the regression cannot return.
+    ///
+    /// Cross-ref: docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md §1
+    /// Defect 3, §4 Fix C.
+    #[tokio::test]
+    async fn hybrid_search_returns_raw_bm25_without_unit_clamp() {
+        use super::VaultBackend;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
+            .expect("open vault");
+
+        // Seed several notes whose content repeats the topical bigram so
+        // BM25 scores them well above the 1.0 ceiling that the prior
+        // clamp would have flattened.
+        let docs: [(&str, &str); 4] = [
+            (
+                "a.md",
+                "residency governance tier compression governance residency residency governance",
+            ),
+            (
+                "b.md",
+                "residency residency governance hierarchy residency governance",
+            ),
+            (
+                "c.md",
+                "tier-3 residency governance budget residency governance",
+            ),
+            (
+                "d.md",
+                "ui design pull-down menu unrelated note about layout",
+            ),
+        ];
+        for (path, content) in docs.iter() {
+            store
+                .write(path, content, None, false)
+                .await
+                .expect("write note");
+        }
+        // `ft_reader` uses `ReloadPolicy::OnCommitWithDelay`; force a
+        // reload so the searcher sees the freshly-written docs deterministically.
+        store.ft_reader.reload().expect("reload ft_reader");
+
+        let results = store
+            .hybrid_search("residency governance", 4, &[])
+            .await
+            .expect("hybrid search");
+        assert!(
+            !results.is_empty(),
+            "expected matches for 'residency governance'"
+        );
+
+        let top_score = results.iter().map(|r| r.score).fold(0.0_f64, f64::max);
+        assert!(
+            top_score > 1.0,
+            "expected raw BM25 top score > 1.0 (no unit clamp); got top_score = {top_score}. \
+             The score.clamp(0.0, 1.0) regression at vault.rs:606 destroys floor-ladder signal — \
+             see F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md §1 Defect 3."
+        );
+    }
+
+    /// T21 iter-4: the new `VaultBackend::hybrid_search_with_trace` default
+    /// trait method MUST mirror the regular `hybrid_search` result list AND
+    /// emit a `RetrievalTrace` carrying at minimum the `Lexical` signal.
+    /// The trace's `candidate_pool_size` equals the result count (default
+    /// impl can't see Tantivy's pre-cull pool — `VaultStore` will override
+    /// in a later iter to record the true 2x pool); each candidate carries
+    /// its raw BM25 score via a `RetrievalSignal::Lexical` `signals` entry.
+    #[tokio::test]
+    async fn hybrid_search_with_trace_emits_lexical_signal_per_candidate() {
+        use super::{RetrievalSignal, VaultBackend};
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
+            .expect("open vault");
+
+        let docs: [(&str, &str); 3] = [
+            (
+                "a.md",
+                "residency governance residency governance tier compression",
+            ),
+            ("b.md", "residency governance residency hierarchy"),
+            ("c.md", "ui design pull-down menu unrelated"),
+        ];
+        for (path, content) in docs.iter() {
+            store
+                .write(path, content, None, false)
+                .await
+                .expect("write note");
+        }
+        store.ft_reader.reload().expect("reload ft_reader");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace("residency governance", 3, &[])
+            .await
+            .expect("hybrid_search_with_trace");
+
+        assert!(
+            !results.is_empty(),
+            "expected matches for 'residency governance'"
+        );
+        assert_eq!(
+            trace.candidates.len(),
+            results.len(),
+            "trace candidate count must mirror hybrid_search result count"
+        );
+        assert_eq!(trace.candidates_retained, results.len());
+        assert_eq!(
+            trace.candidate_pool_size,
+            results.len(),
+            "default impl records pool_size == retained; VaultStore override \
+             will record the true Tantivy pool in a later iter"
+        );
+        assert!(
+            trace.signal_summary.contains(&RetrievalSignal::Lexical),
+            "trace must record the Lexical signal: {:?}",
+            trace.signal_summary
+        );
+        assert_eq!(
+            trace.query, "residency governance",
+            "trace records the input query verbatim"
+        );
+
+        // Each candidate must carry a Lexical signal entry whose `raw`
+        // equals the corresponding SearchResult.score (no clamp, no
+        // double-normalization).
+        for (candidate, result) in trace.candidates.iter().zip(results.iter()) {
+            assert_eq!(candidate.path, result.path);
+            assert_eq!(candidate.fused_score, result.score);
+            let lexical = candidate
+                .signals
+                .iter()
+                .find(|s| s.signal == RetrievalSignal::Lexical)
+                .expect("candidate missing Lexical signal");
+            assert_eq!(
+                lexical.raw, result.score,
+                "Lexical.raw must match raw BM25 from SearchResult"
+            );
+        }
+    }
+
+    /// T21 iter-5: `VaultStore`'s override of `hybrid_search_with_trace`
+    /// MUST capture the chatter-stripped `effective_query` (Fix-B output)
+    /// and emit free-form notes that name the Fix-B + AND-conjunction
+    /// transforms when they fire. The trace's `candidate_pool_size`
+    /// records the true Tantivy pool (`top_docs.len()`), which can exceed
+    /// `candidates_retained` when `tag_filter` culls candidates.
+    #[tokio::test]
+    async fn vaultstore_hybrid_search_with_trace_records_fix_b_and_pool_size() {
+        use super::VaultBackend;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
+            .expect("open vault");
+
+        let docs: [(&str, &str); 3] = [
+            ("a.md", "residency governance tier residency governance"),
+            ("b.md", "residency governance hierarchy residency"),
+            ("c.md", "unrelated layout note ui design"),
+        ];
+        for (path, content) in docs.iter() {
+            store
+                .write(path, content, None, false)
+                .await
+                .expect("write note");
+        }
+        store.ft_reader.reload().expect("reload ft_reader");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace("Pull my notes on residency governance", 3, &[])
+            .await
+            .expect("hybrid_search_with_trace");
+
+        assert!(!results.is_empty(), "expected matches for the chatty input");
+        // Fix-B: chatter stripped to the 2-term topical signal.
+        assert_eq!(
+            trace.effective_query, "residency governance",
+            "VaultStore override records the chatter-stripped form: {:?}",
+            trace.effective_query
+        );
+        assert_eq!(
+            trace.query, "Pull my notes on residency governance",
+            "input query preserved verbatim"
+        );
+
+        // Notes name both the chatter strip and the AND conjunction
+        // activation (2 surviving terms is ≤ 3).
+        let notes_blob = trace.notes.join(" | ");
+        assert!(
+            notes_blob.contains("Fix-B chatter strip"),
+            "expected Fix-B note: notes = {notes_blob:?}"
+        );
+        assert!(
+            notes_blob.contains("AND conjunction applied"),
+            "expected AND-conjunction note: notes = {notes_blob:?}"
+        );
+
+        // Pool size ≥ retained for the override (true Tantivy pool ≥ post-
+        // filter retained). With no tag_filter we expect equality up to
+        // limit, and the relation `retained ≤ pool_size` always holds.
+        assert!(
+            trace.candidate_pool_size >= trace.candidates_retained,
+            "pool_size ({}) must be ≥ candidates_retained ({})",
+            trace.candidate_pool_size,
+            trace.candidates_retained
+        );
+    }
+
+    /// T21 iter-5: when `tag_filter` culls candidates, the trace's
+    /// `candidate_pool_size` (true Tantivy pool) MUST exceed
+    /// `candidates_retained` (post-cull). The W-21 diagnostics surface
+    /// uses this delta to show "we considered N but kept M after filter".
+    #[tokio::test]
+    async fn vaultstore_hybrid_search_with_trace_pool_size_exceeds_retained_when_tag_filter_culls()
+    {
+        use super::VaultBackend;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
+            .expect("open vault");
+
+        // Write 3 notes whose tantivy content matches the query, but
+        // give each a unique frontmatter tag so a tag_filter retains
+        // only one.
+        let tagged: [(&str, &str); 3] = [
+            (
+                "a.md",
+                "---\ntags:\n  - alpha\n---\n\nresidency governance residency",
+            ),
+            (
+                "b.md",
+                "---\ntags:\n  - beta\n---\n\nresidency governance residency",
+            ),
+            (
+                "c.md",
+                "---\ntags:\n  - gamma\n---\n\nresidency governance residency",
+            ),
+        ];
+        for (path, content) in tagged.iter() {
+            store
+                .write(path, content, None, false)
+                .await
+                .expect("write tagged note");
+        }
+        store.ft_reader.reload().expect("reload ft_reader");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace(
+                "residency governance",
+                10,
+                std::slice::from_ref(&"alpha".to_string()),
+            )
+            .await
+            .expect("hybrid_search_with_trace");
+        assert!(
+            !results.is_empty(),
+            "tag_filter 'alpha' must retain at least one match"
+        );
+        assert!(
+            trace.candidate_pool_size > trace.candidates_retained,
+            "tag_filter must reveal a pool > retained delta: pool = {}, retained = {}",
+            trace.candidate_pool_size,
+            trace.candidates_retained
+        );
+        assert!(
+            trace
+                .notes
+                .iter()
+                .any(|note| note.contains("Tag filter retained")),
+            "trace must explain partial tag culling: {:?}",
+            trace.notes
+        );
+    }
+
+    /// T21 iter-10: when `strip_query_chatter` empties a non-empty query
+    /// (all tokens are chatter, e.g. "show me my notes"), VaultStore's
+    /// `hybrid_search_with_trace` override MUST record
+    /// `trace.all_chatter_fallback = true` and emit the "Fix-B all-chatter
+    /// fallback" note. The trace's evidence_strength() then flips to
+    /// Weak regardless of how many notes the raw query incidentally hit.
+    #[tokio::test]
+    async fn vaultstore_hybrid_search_with_trace_records_all_chatter_fallback() {
+        use super::VaultBackend;
+        use crate::storage::retrieval_trace::EvidenceStrength;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
+            .expect("open vault");
+
+        // Seed enough notes containing chatter tokens that the raw
+        // query "show me my notes" can plausibly match 3+ of them
+        // (each contains "show", "me", "my", or "notes" via the
+        // strip_query_chatter list).
+        let docs: [(&str, &str); 4] = [
+            ("a.md", "show me the layout notes about hover behavior"),
+            ("b.md", "my notes on the show timeline"),
+            ("c.md", "show me my unrelated notes about coffee"),
+            ("d.md", "notes about something entirely different"),
+        ];
+        for (path, content) in docs.iter() {
+            store
+                .write(path, content, None, false)
+                .await
+                .expect("write note");
+        }
+        store.reload_index().expect("reload index");
+
+        let (_results, trace) = store
+            .hybrid_search_with_trace("show me my notes", 5, &[])
+            .await
+            .expect("hybrid_search_with_trace");
+
+        assert!(
+            trace.all_chatter_fallback,
+            "trace must record all_chatter_fallback when strip empties the query"
+        );
+        assert_eq!(
+            trace.effective_query, "show me my notes",
+            "effective_query falls back to the raw input when strip empties"
+        );
+        assert!(
+            trace
+                .notes
+                .iter()
+                .any(|n| n.contains("Fix-B all-chatter fallback")),
+            "expected 'Fix-B all-chatter fallback' note: {:?}",
+            trace.notes
+        );
+        // Evidence-strength flips to Weak even when candidates were retained.
+        assert_eq!(
+            trace.evidence_strength(),
+            EvidenceStrength::Weak,
+            "all-chatter fallback MUST force Weak verdict regardless of count"
+        );
+    }
+
+    /// T21 iter-426: zero-result graceful behavior for the degenerate
+    /// empty-query / empty-vault case. The backend must return an empty
+    /// weak trace, not bubble Tantivy's empty-query parse error.
+    #[tokio::test]
+    async fn vaultstore_hybrid_search_with_trace_empty_query_empty_vault_is_weak_empty_ok() {
+        use super::VaultBackend;
+        use crate::storage::retrieval_trace::EvidenceStrength;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
+            .expect("open vault");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace("", 5, &[])
+            .await
+            .expect("empty query must not error");
+
+        assert!(
+            results.is_empty(),
+            "empty query on empty vault must return no results"
+        );
+        assert_eq!(trace.query, "");
+        assert_eq!(trace.effective_query, "");
+        assert_eq!(trace.candidate_pool_size, 0);
+        assert_eq!(trace.candidates_retained, 0);
+        assert_eq!(trace.evidence_strength(), EvidenceStrength::Weak);
+    }
+
+    /// T21 iter-426: all-stopword queries should be graceful even when
+    /// the raw fallback contains parser operator words. This pins the
+    /// no-error surface before consumers decide whether to ask the user
+    /// to clarify or broaden the search.
+    #[tokio::test]
+    async fn vaultstore_hybrid_search_with_trace_all_stopword_query_is_weak_empty_ok() {
+        use super::VaultBackend;
+        use crate::storage::retrieval_trace::EvidenceStrength;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
+            .expect("open vault");
+
+        store
+            .write("signal.md", "residency governance unrelated content", None, false)
+            .await
+            .expect("write note");
+        store.reload_index().expect("reload index");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace("the and or", 5, &[])
+            .await
+            .expect("all-stopword query must not error");
+
+        assert!(
+            results.is_empty(),
+            "all-stopword query must not retain lexical candidates"
+        );
+        assert_eq!(trace.query, "the and or");
+        assert_eq!(trace.effective_query, "the and or");
+        assert!(trace.all_chatter_fallback);
+        assert_eq!(trace.candidate_pool_size, 0);
+        assert_eq!(trace.candidates_retained, 0);
+        assert_eq!(trace.evidence_strength(), EvidenceStrength::Weak);
+    }
+
+    /// T21 iter-426: `limit = 0` is another zero-result surface. It
+    /// must not retain one candidate just because the Tantivy collector
+    /// internally needs a positive limit.
+    #[tokio::test]
+    async fn vaultstore_hybrid_search_with_trace_zero_limit_retains_zero_candidates() {
+        use super::VaultBackend;
+        use crate::storage::retrieval_trace::EvidenceStrength;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
+            .expect("open vault");
+
+        store
+            .write("signal.md", "residency governance signal", None, false)
+            .await
+            .expect("write note");
+        store.reload_index().expect("reload index");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace("residency governance", 0, &[])
+            .await
+            .expect("zero limit must not error");
+
+        assert!(results.is_empty(), "limit = 0 must retain no results");
+        assert_eq!(trace.candidates_retained, 0);
+        assert_eq!(trace.evidence_strength(), EvidenceStrength::Weak);
+    }
+
+    /// T21 iter-427: a real search with no lexical matches should be
+    /// explainable in the trace, not just represented as an empty list.
+    #[tokio::test]
+    async fn vaultstore_hybrid_search_with_trace_no_matches_records_zero_result_note() {
+        use super::VaultBackend;
+        use crate::storage::retrieval_trace::EvidenceStrength;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
+            .expect("open vault");
+
+        store
+            .write("unrelated.md", "coffee archive unrelated", None, false)
+            .await
+            .expect("write note");
+        store.reload_index().expect("reload index");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace("residency governance", 5, &[])
+            .await
+            .expect("no-match query must not error");
+
+        assert!(results.is_empty(), "expected no lexical matches");
+        assert_eq!(trace.candidate_pool_size, 0);
+        assert_eq!(trace.candidates_retained, 0);
+        assert_eq!(trace.evidence_strength(), EvidenceStrength::Weak);
+        assert!(
+            trace
+                .notes
+                .iter()
+                .any(|note| note.contains("Zero-result guard: no lexical matches")),
+            "trace must explain the zero-result retrieval: {:?}",
+            trace.notes
+        );
+    }
+
+    /// T21 iter-428: tag filters can cull every lexical match after
+    /// Tantivy found a non-empty pool. The trace should say that the
+    /// zero retained result came from filtering, not from no lexical
+    /// matches.
+    #[tokio::test]
+    async fn vaultstore_hybrid_search_with_trace_tag_filter_culls_all_records_note() {
+        use super::VaultBackend;
+        use crate::storage::retrieval_trace::EvidenceStrength;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
+            .expect("open vault");
+
+        store
+            .write(
+                "alpha.md",
+                "---\ntags:\n  - alpha\n---\n\nresidency governance signal",
+                None,
+                false,
+            )
+            .await
+            .expect("write note");
+        store.reload_index().expect("reload index");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace(
+                "residency governance",
+                5,
+                std::slice::from_ref(&"beta".to_string()),
+            )
+            .await
+            .expect("tag-cull query must not error");
+
+        assert!(results.is_empty(), "tag filter should cull all matches");
+        assert!(
+            trace.candidate_pool_size > 0,
+            "Tantivy must have found a lexical pool before tag culling"
+        );
+        assert_eq!(trace.candidates_retained, 0);
+        assert_eq!(trace.evidence_strength(), EvidenceStrength::Weak);
+        assert!(
+            trace
+                .notes
+                .iter()
+                .any(|note| note.contains("Zero-result guard: tag filter culled")),
+            "trace must explain the tag-cull zero-result retrieval: {:?}",
+            trace.notes
+        );
+    }
+
+    /// T21 iter-64 (2026-05-18): DOCUMENTING test for the Q2 gap.
+    /// Today, `VaultStore::hybrid_search_with_trace` only populates the
+    /// `Lexical` signal — `Semantic`/`Graph`/`Recency`/`Mmr` are all
+    /// absent because epistemos-shadow integration (BM25 + HNSW RRF
+    /// fusion) hasn't been wired through `VaultBackend` yet.
+    /// This test PASSES today; the point is to pin the gap so that when
+    /// the Semantic wiring lands, this test breaks loudly and forces a
+    /// deliberate update of the F-VaultRecall-50 acceptance bar. See
+    /// Q2 in `docs/F_VAULT_RECALL_50_2026_05_18.md` §8 and the
+    /// cross-link doc comment at `RetrievalSignal::Semantic`.
+    #[tokio::test]
+    async fn vaultstore_trace_currently_omits_semantic_and_other_non_lexical_signals_documenting()
+    {
+        use super::{RetrievalSignal, VaultBackend};
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
+            .expect("open vault");
+
+        let docs: [(&str, &str); 3] = [
+            ("a.md", "residency governance tier compression"),
+            ("b.md", "residency hierarchy and governance"),
+            ("c.md", "unrelated coffee notes"),
+        ];
+        for (path, content) in docs.iter() {
+            store
+                .write(path, content, None, false)
+                .await
+                .expect("write note");
+        }
+        store.reload_index().expect("reload index");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace("residency governance", 3, &[])
+            .await
+            .expect("hybrid_search_with_trace");
+
+        assert!(!results.is_empty(), "expected matches");
+        assert!(!trace.candidates.is_empty(), "expected trace candidates");
+
+        // Q2 gap: every candidate currently carries Lexical only.
+        // Non-Lexical signals are all None because no backend populates
+        // them yet. When the multi-signal wiring lands, this assertion
+        // breaks loudly — that breakage IS the signal to update the
+        // acceptance bar and summary doc §8 Q2.
+        for candidate in trace.candidates.iter() {
+            assert!(
+                candidate.signal_score(RetrievalSignal::Lexical).is_some(),
+                "Lexical must be populated for {}",
+                candidate.path
+            );
+            for signal in [
+                RetrievalSignal::Semantic,
+                RetrievalSignal::Graph,
+                RetrievalSignal::Recency,
+                RetrievalSignal::Mmr,
+            ] {
+                assert!(
+                    candidate.signal_score(signal).is_none(),
+                    "Q2 gap: {:?} signal MUST be None today for {}; if this fires, \
+                     the multi-signal wiring just landed — update the test + \
+                     F_VAULT_RECALL_50_2026_05_18.md §8 Q2 to reflect the new floor",
+                    signal,
+                    candidate.path
+                );
+            }
+        }
+
+        // Symmetric assertion on the per-trace signal_summary.
+        assert!(
+            trace.signal_summary.contains(&RetrievalSignal::Lexical),
+            "signal_summary must contain Lexical"
+        );
+        for signal in [
+            RetrievalSignal::Semantic,
+            RetrievalSignal::Graph,
+            RetrievalSignal::Recency,
+            RetrievalSignal::Mmr,
+        ] {
+            assert!(
+                !trace.signal_summary.contains(&signal),
+                "Q2 gap: signal_summary MUST NOT contain {:?} today: {:?}",
+                signal,
+                trace.signal_summary
+            );
+        }
     }
 
     #[test]
