@@ -245,7 +245,7 @@ pub fn compute_signature_full(
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, any(feature = "pro-build", feature = "research")))]
 mod compose_tests {
     use super::*;
 

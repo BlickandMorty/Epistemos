@@ -14,11 +14,11 @@ use async_trait::async_trait;
 use eventsource_stream::Eventsource;
 use futures::StreamExt;
 use reqwest::Client;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tracing::{debug, warn};
 
 use crate::agent_loop::{AgentConfig, AgentError};
-use crate::error::{with_retry, RetryConfig};
+use crate::error::{RetryConfig, with_retry};
 use crate::provider::{AgentProvider, MessageStream, ProviderCapabilities, StreamEvent};
 use crate::providers::schema::normalized_strict_tool_parameters;
 use crate::types::{
@@ -90,11 +90,11 @@ impl OpenAIProvider {
     }
 
     pub fn gpt54() -> Self {
-        Self::from_env("gpt-5.4", "gpt-5.4")
+        Self::from_env("gpt-4o", "gpt-4o")
     }
 
     pub fn gpt54_mini() -> Self {
-        Self::from_env("gpt-5.4-mini", "gpt-5.4-mini")
+        Self::from_env("gpt-4o-mini", "gpt-4o-mini")
     }
 
     pub fn gpt4o() -> Self {
@@ -106,11 +106,11 @@ impl OpenAIProvider {
     }
 
     pub fn o1() -> Self {
-        Self::from_env("o1", "gpt-5.4")
+        Self::from_env("o1", "gpt-4o")
     }
 
     pub fn o3_mini() -> Self {
-        Self::from_env("o3-mini", "gpt-5.4")
+        Self::from_env("o3-mini", "gpt-4o")
     }
 
     async fn stream_openai_responses(
@@ -122,7 +122,14 @@ impl OpenAIProvider {
     ) -> Result<MessageStream, AgentError> {
         let input = build_openai_responses_input(messages);
         let api_tools: Vec<Value> = tools.iter().map(tool_schema_to_responses_json).collect();
-        let body = build_openai_responses_body(self.model.to_string(), config, input, api_tools);
+        let body = build_openai_responses_body(
+            self.model.to_string(),
+            config,
+            input,
+            api_tools,
+            matches!(&auth, OpenAIResponsesAuth::ApiKey { .. }),
+            openai_responses_model_supports_reasoning(self.model),
+        );
 
         let retry_config = self.retry_config.clone();
         let client = self.client.clone();
@@ -605,6 +612,8 @@ fn build_openai_responses_body(
     config: &AgentConfig,
     input: Vec<Value>,
     api_tools: Vec<Value>,
+    include_max_output_tokens: bool,
+    supports_reasoning: bool,
 ) -> Value {
     let mut body = json!({
         "model": model,
@@ -621,12 +630,14 @@ fn build_openai_responses_body(
         body["parallel_tool_calls"] = json!(true);
     }
 
-    if let Some(max_tokens) = config.max_output_tokens {
-        body["max_output_tokens"] = json!(max_tokens);
+    if include_max_output_tokens {
+        if let Some(max_tokens) = config.max_output_tokens {
+            body["max_output_tokens"] = json!(max_tokens);
+        }
     }
 
     let reasoning_effort = openai_responses_reasoning_effort(config);
-    if reasoning_effort != "none" {
+    if supports_reasoning && reasoning_effort != "none" {
         body["reasoning"] = json!({
             "effort": reasoning_effort,
             "summary": "auto",
@@ -695,6 +706,10 @@ fn openai_responses_reasoning_effort(config: &AgentConfig) -> &'static str {
         crate::agent_loop::Effort::High => "high",
         crate::agent_loop::Effort::Max => "xhigh",
     }
+}
+
+fn openai_responses_model_supports_reasoning(model: &str) -> bool {
+    matches!(model, "gpt-5.4" | "gpt-5.4-mini")
 }
 
 fn response_function_call_ids(item: &Value) -> Option<(String, String)> {
@@ -876,17 +891,17 @@ mod tests {
     }
 
     #[test]
-    fn legacy_gpt4o_alias_uses_current_gpt54_model() {
+    fn legacy_gpt54_alias_uses_gpt4o_model() {
         let provider = OpenAIProvider::gpt4o();
 
-        assert_eq!(provider.model, "gpt-5.4");
+        assert_eq!(provider.model, "gpt-4o");
     }
 
     #[test]
-    fn legacy_gpt4o_mini_alias_uses_current_gpt54_mini_model() {
+    fn legacy_gpt54_mini_alias_uses_gpt4o_mini_model() {
         let provider = OpenAIProvider::gpt4o_mini();
 
-        assert_eq!(provider.model, "gpt-5.4-mini");
+        assert_eq!(provider.model, "gpt-4o-mini");
     }
 
     #[test]
@@ -961,10 +976,12 @@ mod tests {
         assert_eq!(input[0]["content"][0]["type"], "input_text");
         assert_eq!(input[0]["content"][0]["text"], "What is this?");
         assert_eq!(input[0]["content"][1]["type"], "input_image");
-        assert!(input[0]["content"][1]["image_url"]
-            .as_str()
-            .unwrap()
-            .starts_with("data:image/png;base64,"));
+        assert!(
+            input[0]["content"][1]["image_url"]
+                .as_str()
+                .unwrap()
+                .starts_with("data:image/png;base64,")
+        );
         assert_eq!(input[1]["type"], "function_call_output");
         assert_eq!(input[1]["call_id"], "fc_call_1");
         assert_eq!(input[1]["output"], "found 3 results");
@@ -1055,7 +1072,7 @@ mod tests {
             ..Default::default()
         };
         let body = build_openai_responses_body(
-            "gpt-5.4".to_string(),
+            "gpt-4o".to_string(),
             &config,
             vec![json!({
                 "type": "message",
@@ -1073,6 +1090,8 @@ mod tests {
                     "required": ["command"]
                 }),
             })],
+            true,
+            false,
         );
 
         assert_eq!(body["tool_choice"], "auto");
@@ -1089,7 +1108,7 @@ mod tests {
             ..Default::default()
         };
         let body = build_openai_responses_body(
-            "gpt-5.4".to_string(),
+            "gpt-4o".to_string(),
             &config,
             vec![json!({
                 "type": "message",
@@ -1097,9 +1116,51 @@ mod tests {
                 "content": [{ "type": "input_text", "text": "Ping" }],
             })],
             Vec::new(),
+            true,
+            false,
         );
 
         assert_eq!(body["max_output_tokens"], 8192);
+    }
+
+    #[test]
+    fn codex_responses_request_body_omits_max_output_tokens() {
+        let config = AgentConfig {
+            max_output_tokens: Some(8192),
+            ..Default::default()
+        };
+        let body = build_openai_responses_body(
+            "gpt-4o".to_string(),
+            &config,
+            vec![json!({
+                "type": "message",
+                "role": "user",
+                "content": [{ "type": "input_text", "text": "Ping" }],
+            })],
+            Vec::new(),
+            false,
+            false,
+        );
+
+        assert!(body.get("max_output_tokens").is_none());
+    }
+
+    #[test]
+    fn gpt4o_responses_request_body_omits_reasoning_controls() {
+        let body = build_openai_responses_body(
+            "gpt-4o".to_string(),
+            &AgentConfig::default(),
+            vec![json!({
+                "type": "message",
+                "role": "user",
+                "content": [{ "type": "input_text", "text": "Ping" }],
+            })],
+            Vec::new(),
+            true,
+            openai_responses_model_supports_reasoning("gpt-4o"),
+        );
+
+        assert!(body.get("reasoning").is_none());
     }
 
     #[test]

@@ -1486,8 +1486,8 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
 
     var vendorModelID: String {
         switch self {
-        case .openAIGPT54: "gpt-5.4"
-        case .openAIGPT54Mini: "gpt-5.4-mini"
+        case .openAIGPT54: "gpt-4o"
+        case .openAIGPT54Mini: "gpt-4o-mini"
         case .openAIGPT54Nano: "gpt-5.4-nano"
         case .openAIGPT52: "gpt-5.2"
         case .openAIGPT41: "gpt-4.1"
@@ -1521,8 +1521,8 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .openAIGPT54: "GPT-5.4"
-        case .openAIGPT54Mini: "GPT-5.4 Mini"
+        case .openAIGPT54: "GPT-4o"
+        case .openAIGPT54Mini: "GPT-4o Mini"
         case .openAIGPT54Nano: "GPT-5.4 Nano"
         case .openAIGPT52: "GPT-5.2"
         case .openAIGPT41: "GPT-4.1"
@@ -1556,8 +1556,8 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
 
     var compactDisplayName: String {
         switch self {
-        case .openAIGPT54: "GPT-5.4"
-        case .openAIGPT54Mini: "GPT-5.4 Mini"
+        case .openAIGPT54: "GPT-4o"
+        case .openAIGPT54Mini: "GPT-4o Mini"
         case .openAIGPT54Nano: "GPT-5.4 Nano"
         case .openAIGPT52: "GPT-5.2"
         case .openAIGPT41: "GPT-4.1"
@@ -1615,9 +1615,9 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
     var aboutSheetPurposeSummary: String {
         switch self {
         case .openAIGPT54:
-            "Complex reasoning, coding, and tool-heavy professional work."
+            "General-purpose multimodal OpenAI cloud work and tool-heavy chat."
         case .openAIGPT54Mini:
-            "Fast cloud coding, subagents, and lower-latency tool work."
+            "Fast OpenAI cloud chat, subagents, and lower-latency tool work."
         case .openAIGPT54Nano:
             "Cheap high-volume routing, rewrites, and lightweight automation."
         case .openAIGPT52:
@@ -1746,7 +1746,7 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
 
     var supportsNativeReasoningEffortControl: Bool {
         switch self {
-        case .openAIGPT54, .openAIGPT54Mini, .openAIGPT54Nano, .openAIGPT52:
+        case .openAIGPT54Nano, .openAIGPT52:
             true
         case .anthropicClaudeOpus47, .anthropicClaudeSonnet46,
              .anthropicClaudeOpus41, .anthropicClaudeOpus4, .anthropicClaudeSonnet4,
@@ -1838,7 +1838,9 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
 
     var maxContextTokens: Int {
         switch self {
-        case .openAIGPT54, .openAIGPT54Mini, .openAIGPT52, .openAIGPT41:
+        case .openAIGPT54, .openAIGPT54Mini, .openAIGPT41:
+            128_000
+        case .openAIGPT52:
             1_048_576  // 1M tokens
         case .openAIGPT54Nano, .openAIGPT41Mini:
             131_072
@@ -1931,6 +1933,14 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
     }
 
     private nonisolated static let legacyMigrationMap: [String: CloudTextModelID] = [
+        "gpt-4o": .openAIGPT54,
+        "openai:gpt-4o": .openAIGPT54,
+        "gpt-4o-mini": .openAIGPT54Mini,
+        "openai:gpt-4o-mini": .openAIGPT54Mini,
+        "gpt-5.4": .openAIGPT54,
+        "openai:gpt-5.4": .openAIGPT54,
+        "gpt-5.4-mini": .openAIGPT54Mini,
+        "openai:gpt-5.4-mini": .openAIGPT54Mini,
         "gpt-5.3": .openAIGPT54,
         "gpt-5.2": .openAIGPT52,
         "gpt-5.1": .openAIGPT52,
@@ -2301,7 +2311,7 @@ extension CloudModelProvider {
     var modelSummary: String {
         switch self {
         case .openAI:
-            "GPT-5.4, GPT-5.4 Mini"
+            "GPT-4o, GPT-4o Mini"
         case .anthropic:
             "Claude Opus 4.7, Sonnet 4.6"
         case .google:

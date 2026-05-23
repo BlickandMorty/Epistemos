@@ -61,6 +61,25 @@ final class ChatCoordinator {
     let loadedNoteTitles: [String]
   }
 
+  nonisolated static func validateMissionPacketRuntimeContract(
+    metadata: [String: String],
+    resolvedRuntime: ResolvedBrainDescriptor
+  ) throws {
+    guard metadata["agent_blueprint"] == "true" else { return }
+    if AgentMissionPacket.requiresLocalOnlyRuntime(metadata: metadata),
+       case .cloud(let provider, _) = resolvedRuntime {
+      throw AgentRuntimeError(
+        message: "MissionPacket requires local-only runtime; refused hidden cloud fallback to \(provider)."
+      )
+    }
+    if !AgentMissionPacket.allowsExplicitCloudEscalation(metadata: metadata),
+       case .cloud(let provider, _) = resolvedRuntime {
+      throw AgentRuntimeError(
+        message: "MissionPacket does not allow explicit cloud escalation; refused cloud runtime \(provider)."
+      )
+    }
+  }
+
   private struct VaultLookupFallbackCandidate {
     let pageId: String
     let title: String

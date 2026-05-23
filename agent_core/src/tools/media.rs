@@ -19,13 +19,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
+use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
 use reqwest::Client;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use super::registry::{ToolError, ToolHandler};
 use crate::bridge::AgentEventDelegate;
-use crate::providers::openai::{extract_openai_responses_output_text, OPENAI_RESPONSES_API};
+use crate::providers::openai::{OPENAI_RESPONSES_API, extract_openai_responses_output_text};
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 const MAX_IMAGE_BYTES: usize = 20 * 1024 * 1024; // 20MB cap for base64 encoding
@@ -307,10 +307,9 @@ async fn openai_vision(
         .map_err(|_| ToolError::ExecutionFailed("OPENAI_API_KEY not set".into()))?;
 
     let body = json!({
-        "model": "gpt-5.4",
+        "model": "gpt-4o",
         "max_output_tokens": 1024,
         "store": false,
-        "text": { "verbosity": "low" },
         "input": [{
             "type": "message",
             "role": "user",
@@ -342,7 +341,7 @@ async fn openai_vision(
 
     Ok(json!({
         "provider": "openai",
-        "model": "gpt-5.4",
+        "model": "gpt-4o",
         "source": source_label,
         "question": question,
         "cloud_requests_authorized": true,
@@ -374,7 +373,7 @@ pub fn vision_analyze_schema() -> crate::types::ToolSchema {
         description: "Analyze an image (URL or local file) with an external vision LLM. \
              Requires allow_cloud_external_requests=true because image URLs or local file \
              bytes are sent to provider APIs. Supports provider='claude' (default, uses \
-             ANTHROPIC_API_KEY) or 'openai' (uses OPENAI_API_KEY with gpt-5.4 Responses). Local files \
+             ANTHROPIC_API_KEY) or 'openai' (uses OPENAI_API_KEY with gpt-4o Responses). Local files \
              are base64-encoded in-process; 20MB cap."
             .to_string(),
         parameters: json!({
@@ -1169,9 +1168,11 @@ mod tests {
             schema.parameters["required"],
             json!(["allow_cloud_external_requests"])
         );
-        assert!(schema
-            .description
-            .contains("allow_cloud_external_requests=true"));
+        assert!(
+            schema
+                .description
+                .contains("allow_cloud_external_requests=true")
+        );
         assert!(
             schema.parameters["properties"]["allow_cloud_external_requests"]["description"]
                 .as_str()

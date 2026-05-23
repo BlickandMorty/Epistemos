@@ -20,10 +20,10 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use reqwest::Client;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::bridge::AgentEventDelegate;
-use crate::providers::openai::{extract_openai_responses_output_text, OPENAI_RESPONSES_API};
+use crate::providers::openai::{OPENAI_RESPONSES_API, extract_openai_responses_output_text};
 
 use super::registry::{ToolError, ToolHandler};
 
@@ -807,10 +807,9 @@ async fn ask_claude(client: &Client, problem: &str) -> Result<String, String> {
 async fn ask_openai(client: &Client, problem: &str) -> Result<String, String> {
     let api_key = std::env::var("OPENAI_API_KEY").map_err(|_| "OPENAI_API_KEY not set")?;
     let body = json!({
-        "model": "gpt-5.4",
+        "model": "gpt-4o",
         "max_output_tokens": 1024,
         "store": false,
-        "text": { "verbosity": "low" },
         "input": [{
             "type": "message",
             "role": "user",
@@ -1240,9 +1239,11 @@ mod tests {
             .unwrap();
         let parsed: Value = serde_json::from_str(&result).unwrap();
         let patterns = parsed["patterns"].as_array().unwrap();
-        assert!(patterns
-            .iter()
-            .any(|p| p["kind"] == "high_error_rate" && p["tool"] == "risky_tool"));
+        assert!(
+            patterns
+                .iter()
+                .any(|p| p["kind"] == "high_error_rate" && p["tool"] == "risky_tool")
+        );
     }
 
     #[tokio::test]

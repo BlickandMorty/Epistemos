@@ -730,8 +730,8 @@ struct LocalModelToolbarMenu: View {
         NativeControlSystem.reservedWidth(
             for: [
                 "Apple Intelligence Tools",
-                "GPT-5.4 Thinking",
-                "GPT-5.4 Pro",
+                "GPT-4o Thinking",
+                "GPT-4o Pro",
                 "Gemini 2.5 Pro Tools",
                 "Qwen 35B Thinking",
             ],
@@ -752,7 +752,7 @@ struct LocalModelToolbarMenu: View {
         NativeControlSystem.reservedWidth(
             for: [
                 "Apple Intelligence",
-                "GPT-5.4",
+                "GPT-4o",
                 "Qwen 34B",
                 "DeepSeek R1 7B",
                 "Auto Route",
@@ -1838,7 +1838,7 @@ struct LocalModelToolbarMenu: View {
                                     // auto-route default), leaving the chat
                                     // primary on whatever local model the user
                                     // had previously selected — that's the
-                                    // "I picked GPT-5.4 but got DeepSeek R1 7B
+                                    // "I picked GPT-4o but got DeepSeek R1 7B
                                     // memory error" regression users hit on
                                     // 2026-04-20. Also refresh the
                                     // auto-route cloud preference so the
