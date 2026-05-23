@@ -95,7 +95,7 @@ enum LandingGreetingResolver {
 
         let tips: [LandingGreetingPhrase] = [
             LandingGreetingPhrase(text: "\u{2318}G opens the knowledge graph", durationSeconds: 2.6),
-            LandingGreetingPhrase(text: "^\u{2318}R — Session Intelligence reads every open window", durationSeconds: 3.2),
+            LandingGreetingPhrase(text: "\u{2318}\u{21E7}N opens Quick Capture", durationSeconds: 3.0),
             LandingGreetingPhrase(text: "^\u{2318}T — Time Machine lets you revisit any past session", durationSeconds: 3.2),
             LandingGreetingPhrase(text: "^\u{2318}S saves your workspace layout for later", durationSeconds: 3.0),
             LandingGreetingPhrase(text: "wikilinks connect ideas — type [[note name]] anywhere", durationSeconds: 3.0),
@@ -333,6 +333,26 @@ final class UIState {
     var activePanel: NavTab = .home
     var homeTab: HomeTab = .home
 
+    // MARK: - Home Content Router (Phase 1 — embed-in-home graph)
+    //
+    // When `homeContent == .greeting` (default), the home window shows
+    // the existing LiquidGreeting + command-hint dock. When the user
+    // presses Cmd+G AND `GraphState.graphViewLocation == .embedded`,
+    // this flips to `.graph` and LandingView cross-fades the greeting
+    // out + the embedded graph in (HomeGraphEmbeddedView, with the
+    // full graph chrome — canvas, workspace routes, sidebar, inspector,
+    // floating controls, FPS HUD).
+    //
+    // Always resets to `.greeting` on app launch. The home window
+    // never persists the embedded-graph state across restarts — the
+    // greeting is the canonical "home." Toggle is session-only.
+    enum HomeContent: Equatable, Sendable {
+        case greeting
+        case graph
+    }
+
+    var homeContent: HomeContent = .greeting
+
     // MARK: - Chat Sidebar
 
     var showChatSidebar = false
@@ -341,6 +361,28 @@ final class UIState {
     /// True when the main window is minimized to the Dock.
     /// Animations (starfield, typewriter) should pause when this is true to save CPU.
     var windowOccluded = false
+
+    // MARK: - Shaped Graph (experimental)
+    //
+    // Per user direction 2026-05-19: opt-in alternative graph rendering
+    // where the graph canvas + inline note view live inside a soft
+    // shape-blur boundary instead of an obvious window. Toggle only —
+    // the current graph view is the default and stays unchanged when
+    // this is off. Default-value is the literal `false` so the @Observable
+    // synthesized init never reads UserDefaults during property layout
+    // (which was tripping "invalid reuse after initialization failure"
+    // in some run paths); the live value is restored in `init()` via
+    // `restoreShapedGraphExperimental()`.
+    nonisolated static let shapedGraphExperimentalDefaultsKey = "epistemos.graph.shapedExperimental"
+
+    var shapedGraphExperimental: Bool = false {
+        didSet {
+            UserDefaults.standard.set(
+                shapedGraphExperimental,
+                forKey: UIState.shapedGraphExperimentalDefaultsKey
+            )
+        }
+    }
 
     // MARK: - Landing Animation
 
@@ -393,6 +435,12 @@ final class UIState {
         restoreThemeDefaults()
         clearLegacyLandingGreetingDefaults()
         readableFontsEnabled = AppDisplayTypography.readableFontsEnabled()
+        // Shaped Graph experimental — read after baseline storage is up.
+        // didSet writes back to UserDefaults, but we set the in-memory flag
+        // directly here to avoid an unnecessary echo write on every launch.
+        shapedGraphExperimental = UserDefaults.standard.bool(
+            forKey: UIState.shapedGraphExperimentalDefaultsKey
+        )
         if let storedGreetingSourceMode = UserDefaults.standard.string(
             forKey: LandingGreetingLibraryPolicy.sourceModeDefaultsKey
         ),

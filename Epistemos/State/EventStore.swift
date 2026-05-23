@@ -21,6 +21,32 @@ final class EventStore: Sendable {
     nonisolated private let databaseURL: URL
     nonisolated(unsafe) private let db: OpaquePointer
 
+    nonisolated struct RetentionPolicy: Sendable, Equatable {
+        let timeMachineRetentionDays: Int
+        let timeMachineMaxSnapshots: Int
+        let eventLogRetentionDays: Int
+        let captureArtifactRetentionDays: Int
+        let auditLogRetentionDays: Int
+    }
+
+    nonisolated struct RetentionPruneSummary: Sendable, Equatable {
+        var snapshotsDeleted: Int = 0
+        var eventsDeleted: Int = 0
+        var sessionMetricsDeleted: Int = 0
+        var capturedArtifactsDeleted: Int = 0
+        var auditRowsDeleted: Int = 0
+
+        nonisolated var totalDeleted: Int {
+            snapshotsDeleted
+                + eventsDeleted
+                + sessionMetricsDeleted
+                + capturedArtifactsDeleted
+                + auditRowsDeleted
+        }
+
+        nonisolated static let empty = RetentionPruneSummary()
+    }
+
     convenience init?() {
         self.init(databaseURL: Self.databaseURL)
     }
@@ -367,6 +393,7 @@ final class EventStore: Sendable {
             sqlite3_bind_text(stmt, 5, (userNote as NSString).utf8String, -1, nil)
             sqlite3_step(stmt)
 
+            _ = self.applyRetentionPolicy(AppDataRetentionPolicy.current().eventStorePolicy)
             Self.log.info("EventStore: snapshot saved for session \(sessionId.prefix(8), privacy: .public)")
         }
     }
@@ -1946,6 +1973,120 @@ final class EventStore: Sendable {
         }
     }
 
+    @discardableResult
+    nonisolated func applyRetentionPolicy(
+        _ policy: RetentionPolicy,
+        now: Date = Date()
+    ) -> RetentionPruneSummary {
+        guard now.timeIntervalSince1970.isFinite else { return .empty }
+
+        return withDatabaseRead { db in
+            guard sqlite3_exec(db, "BEGIN IMMEDIATE TRANSACTION;", nil, nil, nil) == SQLITE_OK else {
+                Self.log.error(
+                    "EventStore: failed to begin retention transaction: \(String(cString: sqlite3_errmsg(db)), privacy: .public)"
+                )
+                return .empty
+            }
+
+            var summary = RetentionPruneSummary()
+            var didCommit = false
+            defer {
+                if !didCommit {
+                    sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
+                }
+            }
+
+            if let cutoff = Self.cutoffTimestamp(days: policy.timeMachineRetentionDays, now: now) {
+                summary.snapshotsDeleted += Self.deleteRows(
+                    db: db,
+                    sql: "DELETE FROM snapshots WHERE timestamp < ?;"
+                ) { stmt in
+                    sqlite3_bind_double(stmt, 1, cutoff)
+                }
+            }
+
+            if policy.timeMachineMaxSnapshots > 0 {
+                summary.snapshotsDeleted += Self.deleteRows(
+                    db: db,
+                    sql: """
+                        DELETE FROM snapshots
+                        WHERE id NOT IN (
+                            SELECT id FROM snapshots
+                            ORDER BY timestamp DESC, id DESC
+                            LIMIT ?
+                        );
+                    """
+                ) { stmt in
+                    sqlite3_bind_int(stmt, 1, Int32(policy.timeMachineMaxSnapshots))
+                }
+            }
+
+            if let cutoff = Self.cutoffTimestamp(days: policy.eventLogRetentionDays, now: now) {
+                summary.eventsDeleted += Self.deleteRows(
+                    db: db,
+                    sql: "DELETE FROM events WHERE timestamp < ?;"
+                ) { stmt in
+                    sqlite3_bind_double(stmt, 1, cutoff)
+                }
+                summary.sessionMetricsDeleted += Self.deleteRows(
+                    db: db,
+                    sql: "DELETE FROM session_metrics WHERE recorded_at < ?;"
+                ) { stmt in
+                    sqlite3_bind_double(stmt, 1, cutoff)
+                }
+            }
+
+            if let cutoff = Self.cutoffTimestamp(days: policy.captureArtifactRetentionDays, now: now) {
+                summary.capturedArtifactsDeleted += Self.deleteRows(
+                    db: db,
+                    sql: "DELETE FROM captured_artifacts WHERE captured_at < ?;"
+                ) { stmt in
+                    sqlite3_bind_double(stmt, 1, cutoff)
+                }
+                summary.capturedArtifactsDeleted += Self.deleteRows(
+                    db: db,
+                    sql: "DELETE FROM friction_windows WHERE window_end < ?;"
+                ) { stmt in
+                    sqlite3_bind_double(stmt, 1, cutoff)
+                }
+            }
+
+            if let cutoff = Self.cutoffTimestamp(days: policy.auditLogRetentionDays, now: now) {
+                summary.auditRowsDeleted += Self.deleteRows(
+                    db: db,
+                    sql: "DELETE FROM agent_events WHERE occurred_at < ?;"
+                ) { stmt in
+                    sqlite3_bind_double(stmt, 1, cutoff)
+                }
+                summary.auditRowsDeleted += Self.deleteRows(
+                    db: db,
+                    sql: "DELETE FROM graph_events WHERE occurred_at < ?;"
+                ) { stmt in
+                    sqlite3_bind_double(stmt, 1, cutoff)
+                }
+                summary.auditRowsDeleted += Self.deleteRows(
+                    db: db,
+                    sql: "DELETE FROM night_brain_runs WHERE started_at < ?;"
+                ) { stmt in
+                    sqlite3_bind_double(stmt, 1, cutoff)
+                }
+            }
+
+            guard sqlite3_exec(db, "COMMIT;", nil, nil, nil) == SQLITE_OK else {
+                Self.log.error(
+                    "EventStore: failed to commit retention transaction: \(String(cString: sqlite3_errmsg(db)), privacy: .public)"
+                )
+                return .empty
+            }
+            didCommit = true
+
+            if summary.totalDeleted > 0 {
+                Self.log.info("EventStore: retention pruned \(summary.totalDeleted, privacy: .public) rows")
+            }
+            return summary
+        } ?? .empty
+    }
+
     /// Check if a table exists (for testing).
     nonisolated func tableExists(_ name: String) -> Bool {
         withDatabaseRead { db in
@@ -1997,6 +2138,35 @@ final class EventStore: Sendable {
         return queue.sync {
             return body(db)
         }
+    }
+
+    nonisolated private static func cutoffTimestamp(days: Int, now: Date) -> Double? {
+        guard days > 0 else { return nil }
+        let cutoff = now.addingTimeInterval(-Double(days) * 86_400).timeIntervalSince1970
+        return cutoff.isFinite ? cutoff : nil
+    }
+
+    nonisolated private static func deleteRows(
+        db: OpaquePointer,
+        sql: String,
+        bind: (OpaquePointer) -> Void = { _ in }
+    ) -> Int {
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK, let stmt else {
+            Self.log.error(
+                "EventStore: failed to prepare retention delete: \(String(cString: sqlite3_errmsg(db)), privacy: .public)"
+            )
+            return 0
+        }
+        defer { sqlite3_finalize(stmt) }
+        bind(stmt)
+        guard sqlite3_step(stmt) == SQLITE_DONE else {
+            Self.log.error(
+                "EventStore: retention delete failed: \(String(cString: sqlite3_errmsg(db)), privacy: .public)"
+            )
+            return 0
+        }
+        return Int(sqlite3_changes(db))
     }
 
     nonisolated private static let payloadEncoder: JSONEncoder = {

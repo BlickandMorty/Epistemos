@@ -12,6 +12,17 @@ struct GraphWarmupView: View {
                 .foregroundStyle(.secondary)
         }
         .padding(20)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        // 2026-05-20 single-blur policy: the graph window already carries
+        // one NSVisualEffectView (HologramOverlay.swift). This warmup
+        // indicator sits on top — primary tint reads the existing blur
+        // through without stacking a `.ultraThinMaterial` kernel.
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.primary.opacity(0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(Color.primary.opacity(0.15), lineWidth: 0.5)
+        )
     }
 }

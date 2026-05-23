@@ -3,20 +3,21 @@ import SwiftUI
 
 // MARK: - Phase 6.5: Quick Capture View
 //
-// Keyboard-first app-scoped capture sheet that routes text through TextCapturePipeline.
+// Keyboard-first landing command overlay that routes text through TextCapturePipeline.
 // Summoned via the Epistemos ⌘⇧N command. Produces structured note, entities,
 // tasks, graph writes, source spans, evidence, and trace events.
 //
-// Design: Glass-effect sheet, minimal chrome, focus on the text field.
+// Design: pixel-panel overlay, minimal chrome, focus on the text field.
 // After submit: brief confirmation card showing title, entity/task counts,
-// with explicit buttons to open the note or dismiss the sheet.
+// with explicit buttons to open the note or dismiss the overlay.
 
 @MainActor
 struct QuickCaptureView: View {
+    @Environment(UIState.self) private var ui
     @Environment(TextCapturePipeline.self) private var pipeline
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Binding var isPresented: Bool
 
     @State private var captureText = ""
     @State private var isProcessing = false
@@ -28,6 +29,9 @@ struct QuickCaptureView: View {
     @State private var transcriber = AudioTranscriber()
     @State private var isTranscribing = false
     @State private var isTraceInspectorPresented = false
+    @State private var appearFrame = 0
+
+    private var theme: EpistemosTheme { ui.theme }
 
     /// Cheap client-side preview of what the AFM @Generable extraction
     /// will probably surface — counts hashtags, @-mentions, and lines
@@ -63,83 +67,91 @@ struct QuickCaptureView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            header
+        ZStack {
+            Color.clear
+                .ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture { close() }
 
-            Divider()
-                .opacity(0.3)
+            VStack(spacing: 0) {
+                header
 
-            // Content
-            if let result = captureResult {
-                confirmationCard(result)
-                    .transition(.asymmetric(
-                        insertion: .scale(scale: 0.97).combined(with: .opacity),
-                        removal: .opacity
-                    ))
-            } else {
-                captureForm
-                    .transition(.opacity)
+                Divider()
+                    .opacity(0.3)
+
+                if let result = captureResult {
+                    confirmationCard(result)
+                        .transition(.asymmetric(
+                            insertion: .scale(scale: 0.97).combined(with: .opacity),
+                            removal: .opacity
+                        ))
+                } else {
+                    captureForm
+                        .transition(.opacity)
+                }
             }
+            .frame(width: 540, height: captureResult != nil ? 380 : 360)
+            .pixelPanel(theme: theme)
+            .pixelStepAppear(frame: appearFrame)
+            .foregroundStyle(theme.resolved.foreground.color)
+
+            #if DEBUG
+            if isTraceInspectorPresented {
+                traceInspectorOverlay
+                    .transition(.scale(scale: 0.97).combined(with: .opacity))
+                    .zIndex(3)
+            }
+            #endif
         }
-        .frame(width: 540, height: captureResult != nil ? 380 : 360)
         .background {
-            // Layered backdrop: ultraThin material + subtle accent
-            // wash + soft inner highlight. Gives the sheet a sense of
-            // depth without crossing into App-Store-rejecting custom
-            // chrome — every layer is a stock SwiftUI primitive.
-            ZStack {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(LinearGradient(
-                        colors: [
-                            Color.accentColor.opacity(0.12),
-                            Color.accentColor.opacity(0.02),
-                            .clear
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ))
-                    .blendMode(.plusLighter)
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(.white.opacity(0.15), lineWidth: 0.5)
-            }
+            Button(action: { close() }) {}
+                .keyboardShortcut(.escape, modifiers: [])
+                .frame(width: 0, height: 0)
+                .opacity(0)
+                .allowsHitTesting(false)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .shadow(color: .black.opacity(0.30), radius: 40, y: 14)
         .animation(reduceMotion ? .none : .smooth(duration: 0.32), value: captureResult != nil)
+        .animation(reduceMotion ? .none : .smooth(duration: 0.24), value: isTraceInspectorPresented)
         .onAppear {
+            Task { @MainActor in
+                await PixelStepMotion.play(reduceMotion: reduceMotion) { frame in
+                    appearFrame = frame
+                }
+            }
             isTextFieldFocused = true
         }
-        .sheet(isPresented: $isTraceInspectorPresented) {
-            TraceInspectorView()
+    }
+
+    #if DEBUG
+    private var traceInspectorOverlay: some View {
+        ZStack {
+            Color.clear
+                .ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    isTraceInspectorPresented = false
+                }
+
+            TraceInspectorView(theme: theme, onDismiss: {
+                isTraceInspectorPresented = false
+            })
+            .frame(width: 470, height: 330)
         }
     }
+    #endif
 
     // MARK: - Header
 
     private var header: some View {
         HStack(spacing: 10) {
-            // Animated SF Symbol with hierarchical rendering — pulses
-            // gently on the accent color so the capture surface feels
-            // alive without crossing into "demo gimmick" territory.
-            Image(systemName: "sparkles.text.rectangle")
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.tint)
-                .font(.title3)
-                .symbolEffect(
-                    .pulse.byLayer,
-                    options: reduceMotion ? .nonRepeating : .repeating.speed(0.5)
-                )
+            PixelGlyph(kind: .capture, accent: theme.resolved.accent.color)
+                .frame(width: 28, height: 28)
 
             VStack(alignment: .leading, spacing: 0) {
-                Text("Quick Capture")
-                    .font(.headline)
-                    .foregroundStyle(.primary)
+                PixelPanelTitle(text: "Quick Capture", theme: theme, size: 15)
                 Text(headerSubtitle)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(theme.textTertiary)
                     .lineLimit(1)
                     .contentTransition(.identity)
             }
@@ -164,7 +176,7 @@ struct QuickCaptureView: View {
             #endif
 
             Button {
-                dismiss()
+                close()
             } label: {
                 Image(systemName: "xmark.circle.fill")
                     .font(.title3)
@@ -187,8 +199,9 @@ struct QuickCaptureView: View {
                 .scrollContentBackground(.hidden)
                 .padding(12)
                 .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(.background.opacity(0.5))
+                    Rectangle()
+                        .fill(theme.muted.opacity(theme.isDark ? 0.36 : 0.48))
+                        .overlay(Rectangle().stroke(theme.textTertiary.opacity(0.26), lineWidth: 1))
                 )
                 .focused($isTextFieldFocused)
                 .frame(maxHeight: .infinity)
@@ -266,7 +279,7 @@ struct QuickCaptureView: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        Rectangle()
                             .fill(audioRecorder.isRecording
                                   ? Color.red.opacity(0.15)
                                   : Color.secondary.opacity(0.2))
@@ -291,7 +304,7 @@ struct QuickCaptureView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .background(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        Rectangle()
                             .fill(captureText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                                 ? Color.accentColor.opacity(0.3)
                                 : Color.accentColor)
@@ -371,14 +384,14 @@ struct QuickCaptureView: View {
             // Actions
             HStack(spacing: 12) {
                 Button("Done") {
-                    dismiss()
+                    close()
                 }
                 .keyboardShortcut(.escape, modifiers: [])
 
                 if let noteId = result.createdNoteID {
                     Button {
                         NoteWindowManager.shared.open(pageId: noteId)
-                        dismiss()
+                        close(restoreHomeFocus: false)
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "doc.text")
@@ -393,6 +406,14 @@ struct QuickCaptureView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
         .transition(.opacity.combined(with: .scale(scale: 0.95)))
+    }
+
+    private func close(restoreHomeFocus: Bool = true) {
+        isTextFieldFocused = false
+        isPresented = false
+        if restoreHomeFocus {
+            HomeWindowInputFocus.restoreAfterOverlayDismiss()
+        }
     }
 
     private func evidenceChip(text: String, icon: String, role: String) -> some View {
@@ -410,7 +431,7 @@ struct QuickCaptureView: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(Color.accentColor.opacity(0.15))
-        .clipShape(Capsule())
+        .clipShape(Rectangle())
     }
 
     private func taskActionChip(task: ExtractedTask) -> some View {
@@ -424,7 +445,7 @@ struct QuickCaptureView: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(Color.orange.opacity(0.15))
-        .clipShape(Capsule())
+        .clipShape(Rectangle())
     }
 
     // MARK: - Structured preview strip
@@ -466,9 +487,9 @@ struct QuickCaptureView: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(
-            Capsule()
+            Rectangle()
                 .fill(tint.opacity(0.15))
-                .overlay(Capsule().strokeBorder(tint.opacity(0.30), lineWidth: 0.5))
+                .overlay(Rectangle().stroke(tint.opacity(0.30), lineWidth: 0.5))
         )
     }
 

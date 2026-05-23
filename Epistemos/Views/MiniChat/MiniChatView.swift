@@ -424,7 +424,8 @@ private struct MiniChatBubble: View {
                 content: displayContent,
                 theme: theme,
                 rippleStyle: .none,
-                foregroundOverride: theme.userBubbleText
+                foregroundOverride: theme.userBubbleText,
+                typographyRole: .user
             )
             .textSelection(.enabled)
             .padding(.horizontal, 16)
