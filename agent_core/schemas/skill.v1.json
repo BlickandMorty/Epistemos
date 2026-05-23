@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "epistemos://schemas/skill.v1.json",
+  "title": "Voyager-shaped procedural skill",
+  "description": "Plan §2.4 — declarative composition of tool calls. Pairs with `<name>.skill.md`. Phase 1 ships the declarative shape; the §17.2 mint pipeline adds rust_code + tests fields and seals the skill with content-addressed hash.",
+  "type": "object",
+  "required": ["$schema", "id", "name", "narrative_path", "steps", "schema_version"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "const": "epistemos://schemas/skill.v1.json" },
+    "id": {
+      "type": "string",
+      "pattern": "^skill\\.[a-z0-9-]+\\.v[0-9]+$"
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "narrative_path": {
+      "type": "string",
+      "pattern": "\\.skill\\.md$"
+    },
+    "preconditions": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "tool"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^s[0-9]+$" },
+          "tool": { "type": "string", "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]+$" },
+          "input": { "type": "object" },
+          "input_from": {
+            "type": "string",
+            "pattern": "^s[0-9]+\\.result$",
+            "description": "Reference a prior step's `result` field (NOT `payload` — plan §3.1 naming)."
+          },
+          "params": { "type": "object" }
+        }
+      }
+    },
+    "success_metric": { "type": "string", "minLength": 1 },
+    "last_used": { "type": "string", "format": "date-time" },
+    "success_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+    "schema_version": { "type": "integer", "minimum": 1 }
+  }
+}

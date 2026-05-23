@@ -71,6 +71,24 @@ enum HomeWindowIdentity {
     }
 }
 
+enum HomeWindowInputFocus {
+    @MainActor
+    static func restoreAfterOverlayDismiss() {
+        NSApp.keyWindow?.makeFirstResponder(nil)
+
+        Task { @MainActor in
+            do {
+                try await Task.sleep(for: .milliseconds(20))
+            } catch {
+                return
+            }
+
+            HomeWindowIdentity.surfaceHomeWindow()
+            NSApp.windows.first(where: HomeWindowIdentity.matches)?.makeFirstResponder(nil)
+        }
+    }
+}
+
 enum AppWindowBackdropStyle {
     /// Eighth-pass+2 fix (2026-05-13): the window backdrop ALWAYS routes
     /// through `surfaceVariant(.mainChat)` so it matches whatever surface
@@ -165,6 +183,7 @@ private final class HomeWindowIdentityObserverView: NSView {
 struct RootView: View {
     @Environment(UIState.self) private var ui
     @Environment(ChatState.self) private var chat
+    @Environment(GraphState.self) private var graphState
     @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
 
@@ -172,12 +191,12 @@ struct RootView: View {
     var databaseError: Error?
     /// Callback to reset database and relaunch.
     var onResetDatabase: (() -> Void)?
+    @Binding var showQuickCapture: Bool
 
     @State private var appearanceObserver = SystemAppearanceObserver()
     @State private var showDatabaseAlert = false
     @State private var showGreetingControls = false
     @State private var showWorkspaceSwitcher = false
-    @State private var showSessionIntelligence = false
     @State private var showTimeMachine = false
 
 
@@ -192,9 +211,28 @@ struct RootView: View {
             && !chat.messages.isEmpty
     }
 
+    private var embeddedHomeGraphContentVisible: Bool {
+        ui.homeTab == .home && ui.homeContent == .graph
+    }
+
+    private var embeddedHomeGraphCanvasVisible: Bool {
+        embeddedHomeGraphContentVisible && graphState.currentRoute.isCanvas
+    }
+
+    private var embeddedHomeGraphNoteVisible: Bool {
+        guard embeddedHomeGraphContentVisible else { return false }
+        if case .note = graphState.currentRoute { return true }
+        return false
+    }
+
     private var showLandingToolbarControls: Bool {
         ui.homeTab == .home
+            && !embeddedHomeGraphContentVisible
             && (chat.showLanding || chat.messages.isEmpty)
+    }
+
+    private var showEmbeddedGraphToolbarControls: Bool {
+        embeddedHomeGraphCanvasVisible
     }
 
     /// Canonical toolbar glass visibility — deterministic from app state.
@@ -203,6 +241,9 @@ struct RootView: View {
     /// For Home chat: gated by `homeChatToolbarReady` to suppress transition flash.
     private var toolbarGlassVisible: Bool {
         if ui.homeTab != .home { return true }
+        if embeddedHomeGraphContentVisible {
+            return embeddedHomeGraphNoteVisible
+        }
         return activeHomeChat && homeChatToolbarReady
     }
 
@@ -211,8 +252,8 @@ struct RootView: View {
             .modifier(RootWindowLifecycle(ui: ui))
             .modifier(RootWorkspaceEvents(
                 showWorkspaceSwitcher: $showWorkspaceSwitcher,
-                showSessionIntelligence: $showSessionIntelligence,
-                showTimeMachine: $showTimeMachine
+                showTimeMachine: $showTimeMachine,
+                showQuickCapture: $showQuickCapture
             ))
     }
 
@@ -245,7 +286,7 @@ struct RootView: View {
         }
         .toolbar {
             // Back button — only during active chat on Home tab
-            if ui.homeTab == .home && activeHomeChat {
+            if !embeddedHomeGraphContentVisible && ui.homeTab == .home && activeHomeChat {
                 ToolbarItem(placement: .navigation) {
                     Button {
                         chat.goHome()
@@ -256,7 +297,10 @@ struct RootView: View {
                     .help("Back to Home")
                 }
             }
-            if showLandingToolbarControls || activeHomeChat {
+            if showLandingToolbarControls
+                || showEmbeddedGraphToolbarControls
+                || (!embeddedHomeGraphContentVisible && activeHomeChat)
+            {
                 ToolbarItem(placement: .principal) {
                     rootToolbarControls
                 }
@@ -402,7 +446,7 @@ struct RootView: View {
 
     private var rootToolbarControls: some View {
         HStack(spacing: 10) {
-            if showLandingToolbarControls {
+            if showLandingToolbarControls || showEmbeddedGraphToolbarControls {
                 ControlGroup {
                     settingsToolbarButton
                     landingGreetingToolbarButton
@@ -2309,22 +2353,19 @@ private struct RootWindowLifecycle: ViewModifier {
 
 private struct RootWorkspaceEvents: ViewModifier {
     @Binding var showWorkspaceSwitcher: Bool
-    @Binding var showSessionIntelligence: Bool
     @Binding var showTimeMachine: Bool
+    @Binding var showQuickCapture: Bool
 
     func body(content: Content) -> some View {
         content
             .overlay { workspaceOverlays }
             .background { workspaceKeyboardShortcuts }
             .onKeyPress(.escape, action: handleEscapeKeyPress)
-            .animation(Motion.smooth, value: showWorkspaceSwitcher)
-            .animation(Motion.smooth, value: showSessionIntelligence)
-            .animation(Motion.smooth, value: showTimeMachine)
+            .animation(nil, value: showWorkspaceSwitcher)
+            .animation(nil, value: showTimeMachine)
+            .animation(nil, value: showQuickCapture)
             .onReceive(NotificationCenter.default.publisher(for: .toggleWorkspaceSwitcher)) { _ in
                 showWorkspaceSwitcher.toggle()
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .toggleSessionIntelligence)) { _ in
-                showSessionIntelligence.toggle()
             }
             .onReceive(NotificationCenter.default.publisher(for: .toggleTimeMachine)) { _ in
                 showTimeMachine.toggle()
@@ -2335,8 +2376,8 @@ private struct RootWorkspaceEvents: ViewModifier {
     }
 
     private func handleEscapeKeyPress() -> KeyPress.Result {
+        if showQuickCapture { showQuickCapture = false; HomeWindowInputFocus.restoreAfterOverlayDismiss(); return .handled }
         if showWorkspaceSwitcher { showWorkspaceSwitcher = false; return .handled }
-        if showSessionIntelligence { showSessionIntelligence = false; return .handled }
         if showTimeMachine { showTimeMachine = false; return .handled }
         return .ignored
     }
@@ -2346,11 +2387,11 @@ private struct RootWorkspaceEvents: ViewModifier {
         if showWorkspaceSwitcher {
             WorkspaceSwitcherOverlay(isPresented: $showWorkspaceSwitcher)
         }
-        if showSessionIntelligence {
-            SessionIntelligenceOverlay(isPresented: $showSessionIntelligence)
-        }
         if showTimeMachine {
             TimeMachineView(isPresented: $showTimeMachine)
+        }
+        if showQuickCapture {
+            QuickCaptureView(isPresented: $showQuickCapture)
         }
     }
 
@@ -2358,10 +2399,6 @@ private struct RootWorkspaceEvents: ViewModifier {
     private var workspaceKeyboardShortcuts: some View {
         Button(action: { showWorkspaceSwitcher.toggle() }) {}
             .keyboardShortcut("w", modifiers: [.command, .control])
-            .frame(width: 0, height: 0).opacity(0).allowsHitTesting(false)
-
-        Button(action: { showSessionIntelligence.toggle() }) {}
-            .keyboardShortcut("r", modifiers: [.command, .control])
             .frame(width: 0, height: 0).opacity(0).allowsHitTesting(false)
 
         Button(action: { showTimeMachine.toggle() }) {}

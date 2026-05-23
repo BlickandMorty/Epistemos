@@ -34,20 +34,6 @@ struct LandingOptimizationTests {
         #expect(uiState.homeTab == .home)
     }
 
-    @Test("session intelligence note lookup extracts deduplicated note candidates")
-    func sessionIntelligenceNoteLookupExtractsDeduplicatedCandidates() {
-        let candidates = SessionIntelligenceNoteLookup.candidateTitles(in: """
-        open note Research Plan
-        Created and opened note: "Research Plan"
-        [NAVIGATE_GRAPH: Graph Deep Dive]
-        close note 'Research Plan'
-        """)
-
-        #expect(candidates.contains("Research Plan"))
-        #expect(candidates.contains("Graph Deep Dive"))
-        #expect(candidates.filter { $0 == "Research Plan" }.count == 1)
-    }
-
     @Test("liquid greeting timing cycles deterministically")
     func liquidGreetingTimingCyclesDeterministically() {
         #expect(LiquidGreetingTiming.typingDelay(forStep: 1) == LiquidGreetingTiming.typingDelay(forStep: 5))
@@ -56,18 +42,26 @@ struct LandingOptimizationTests {
         #expect(LiquidGreetingTiming.untypingDelay(forStep: 0) != LiquidGreetingTiming.untypingDelay(forStep: 1))
     }
 
-    @Test("session intelligence chat summary orders groups deterministically and caps results")
-    func sessionIntelligenceChatSummaryOrdersGroupsDeterministicallyAndCapsResults() {
-        let groups = [
-            "chat-b": ["b1"],
-            "chat-a": ["a1", "a2"],
-            "chat-c": ["c1", "c2"],
-            "chat-d": ["d1", "d2", "d3"]
-        ]
+    @Test("session intelligence landing feature files are removed")
+    func sessionIntelligenceLandingFeatureFilesAreRemoved() {
+        let repoRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let retiredOverlay = repoRoot.appendingPathComponent("Epistemos/Views/Landing/SessionIntelligenceOverlay.swift")
 
-        let orderedGroups = SessionIntelligenceChatSummary.orderedGroups(from: groups, limit: 3)
+        #expect(!FileManager.default.fileExists(atPath: retiredOverlay.path))
+    }
 
-        #expect(orderedGroups.map(\.chatId) == ["chat-d", "chat-a", "chat-c"])
-        #expect(orderedGroups.map(\.snippets.count) == [3, 2, 2])
+    @Test("landing search composer uses the label line and hides secondary tools behind Tools")
+    func landingSearchComposerUsesLabelLineAndToolsReveal() throws {
+        let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
+
+        #expect(landing.contains("PixelPanelTitle(text: \"Search\", theme: theme, size: 27)"))
+        #expect(landing.contains("ChatComposerTextEditor(\n                        text: $landingSearchText"))
+        #expect(landing.contains("preferSplitToolbarControls: false"))
+        #expect(landing.contains("landingSearchToolsToggle"))
+        #expect(landing.contains("if landingToolsExpanded {\n                landingSearchExpandedToolRow"))
+        #expect(landing.contains("landingSearchCommandTool\n                landingSearchMentionTool\n                landingSearchAttachTool\n                landingSearchSavedTool"))
+        #expect(!landing.contains("Rectangle()\n                    .fill(PixelPanelBackground.actionSurface(for: theme))"))
     }
 }

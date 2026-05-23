@@ -502,11 +502,18 @@ struct PinnedInspectorPanel: View {
         }
         .padding(12)
         .frame(width: 260)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        // 2026-05-20 single-blur policy: pinned inspectors live inside
+        // the main graph window which already carries one
+        // NSVisualEffectView (HologramOverlay.swift). Themed tint reads
+        // through that single blur — no per-panel Material kernel.
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(theme.glassBg)
+        )
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(.white.opacity(0.12), lineWidth: 1)
+                .strokeBorder(theme.glassBorder, lineWidth: 0.5)
         )
-        .shadow(color: .black.opacity(0.25), radius: 12, x: 0, y: 4)
+        .shadow(color: .black.opacity(theme.isDark ? 0.25 : 0.10), radius: 8, x: 0, y: 2)
     }
 }

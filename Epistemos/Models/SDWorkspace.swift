@@ -61,6 +61,51 @@ struct WorkspaceSnapshot: Codable {
     var graphNodeCount: Int?
     /// IDs of all pages in the vault at snapshot time (for accurate added/removed detection).
     var allPageIds: [String]?
+    /// Live readable state for open/active documents, including graph-embedded notes.
+    var liveDocuments: [WorkspaceDocumentState]? = nil
+    /// Current main chat state, including unsaved in-memory turns when available.
+    var mainChat: WorkspaceChatStateSnapshot? = nil
+    /// Open mini-chat state captured by chat ID.
+    var miniChats: [WorkspaceChatStateSnapshot]? = nil
+    /// Local graph route so welcome-back can name whether the user was on canvas, a note, or a folder.
+    var graphRoute: WorkspaceGraphRouteSnapshot? = nil
+}
+
+struct WorkspaceDocumentState: Codable {
+    var pageId: String
+    var title: String
+    var source: String
+    var lineCount: Int
+    var wordCount: Int
+    var bodyDigest: UInt64
+    var preview: String
+    var tailPreview: String
+    var isActive: Bool
+}
+
+struct WorkspaceChatStateSnapshot: Codable {
+    var chatId: String
+    var title: String
+    var kind: String
+    var messageCount: Int
+    var recentMessages: [WorkspaceChatMessageSnapshot]
+}
+
+struct WorkspaceChatMessageSnapshot: Codable {
+    var role: String
+    var contentPreview: String
+}
+
+struct WorkspaceGraphRouteSnapshot: Codable {
+    enum Kind: String, Codable {
+        case canvas
+        case note
+        case folder
+    }
+
+    var kind: Kind
+    var sourceId: String?
+    var selectedNodeId: String?
 }
 
 struct ActivityDigest: Codable {
