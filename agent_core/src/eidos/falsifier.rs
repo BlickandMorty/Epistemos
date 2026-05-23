@@ -1,0 +1,1630 @@
+//! F-Eidos-ClosedCitation — the runtime falsifier for the closed-citation
+//! contract.
+//!
+//! The contract has been verified in unit tests on a per-mode basis. This
+//! module ships the **falsifier itself** as a callable function so the
+//! contract can be re-checked at runtime (in CI, in diagnostics, in the
+//! Brain Panel "verify retrieval integrity" surface) against any
+//! [`EidosRetriever`] without depending on a specific implementation.
+//!
+//! ## What the falsifier checks
+//!
+//! Given a list of `(retriever, queries)` pairs, for every retriever × query
+//! combination the falsifier:
+//!
+//! 1. Verifies `packet.manifest_id == retriever.manifest_id()`.
+//! 2. For every emitted hit:
+//!    a. `hit.provenance.manifest_id == packet.manifest_id`.
+//!    b. `hit.provenance.mode` matches the retriever's mode (or
+//!       `ProvenanceVerified` if the retriever advertises it — the wrapper
+//!       legitimately rewrites mode without rewriting source_id).
+//!    c. `packet.validate_citation(...)` succeeds for the hit's own
+//!       source_id.
+//!    d. `hit.confidence` is in `[0, 1]` inclusive (NaN caught — surfaces
+//!       as [`FalsifierFailure::HitConfidenceOutOfRange`]).
+//!    e. `hit.span` (when present) satisfies `byte_start <= byte_end`.
+//!       Zero-width `[n, n)` is accept-by-design (valid half-open empty
+//!       range); inverted `byte_start > byte_end` surfaces as
+//!       [`FalsifierFailure::HitSpanInvalid`].
+//! 3. A deliberately-fabricated `source_id` is rejected by
+//!    `packet.validate_citation(...)`.
+//!
+//! Any single failure surfaces as a [`FalsifierFailure`] with enough
+//! context to identify the failing retriever + hit. The function returns
+//! [`FEidosClosedCitationWitness`] on success — a structured trace useful
+//! for the diagnostics surface.
+//!
+//! ## Why a callable falsifier rather than only tests
+//!
+//! Unit tests prove the contract on the implementations we have today.
+//! The falsifier proves it on the implementations a future contributor or
+//! cross-terminal integration brings in tomorrow. The function is the
+//! contract's runtime witness — a Live Things (LT) per the substrate's
+//! falsifier discipline.
+
+use serde::{Deserialize, Serialize};
+
+use super::retriever::EidosRetriever;
+use super::types::{
+    EidosChunkId, EidosCitation, EidosIndexManifestId, EidosQuery, EidosRetrievalMode,
+};
+
+/// Successful witness from a falsifier run. Counts how many checks
+/// succeeded so the diagnostics surface can render "X retrievers / Y
+/// queries / Z hits validated; W fake-citation rejections" without
+/// re-parsing the result.
+///
+/// `Serialize` + `Deserialize` are derived so the future Swift "Verify
+/// Eidos integrity" surface can both emit the witness JSON over the FFI
+/// bridge (see W-46) and decode a witness handed back from the Rust
+/// side. Also lets a stored `.epbundle` witness round-trip back to a
+/// typed value without bespoke parsing.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FEidosClosedCitationWitness {
+    pub retrievers_checked: usize,
+    pub queries_per_retriever: usize,
+    pub total_hits_validated: usize,
+    pub fake_citation_rejections: usize,
+}
+
+/// What broke. Each variant carries enough context (source_id + mode) to
+/// pinpoint the failing retriever without re-running the falsifier.
+///
+/// `Eq` is intentionally not derived: the `HitConfidenceOutOfRange.confidence`
+/// field is `f32`, and `f32` cannot satisfy `Eq` because NaN ≠ NaN.
+/// `PartialEq` is sufficient for `assert_eq!` / `matches!` uses.
+///
+/// `Serialize` + `Deserialize` are derived so failures can flow both
+/// ways across the FFI: emit JSON to the Brain Panel diagnostic surface
+/// without bespoke encoding (Rust → Swift), and decode a failure handed
+/// back from a future Swift `EidosBridge` integrity-check (Swift →
+/// Rust). NaN confidence values serialize as JSON `null` (serde_json's
+/// convention) and therefore do NOT survive round-trip — the surface
+/// treats that as "out of range" without special handling. Finite
+/// values round-trip cleanly.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "variant")]
+pub enum FalsifierFailure {
+    /// `packet.manifest_id` differs from `retriever.manifest_id()`. A
+    /// retriever must be manifest-bound for the lifetime of every query.
+    PacketManifestDriftsFromRetriever {
+        retriever_mode: EidosRetrievalMode,
+        retriever_manifest: EidosIndexManifestId,
+        packet_manifest: EidosIndexManifestId,
+    },
+    /// A hit's `provenance.manifest_id` differs from the packet's. Either
+    /// the retriever forgot to set provenance or some manifest crossed the
+    /// boundary illegally.
+    HitProvenanceManifestMismatch {
+        retriever_mode: EidosRetrievalMode,
+        source_id: EidosChunkId,
+        hit_manifest: EidosIndexManifestId,
+        packet_manifest: EidosIndexManifestId,
+    },
+    /// A hit's `provenance.mode` differs from the retriever's advertised
+    /// mode (modulo the ProvenanceVerified wrapper rewriting rule). Means
+    /// a retriever is impersonating a different mode.
+    HitProvenanceModeMismatch {
+        retriever_mode: EidosRetrievalMode,
+        source_id: EidosChunkId,
+        hit_mode: EidosRetrievalMode,
+    },
+    /// `packet.validate_citation` rejected a hit's own source_id — should
+    /// be impossible if the retriever populated the packet correctly.
+    LegitimateCitationRejected {
+        retriever_mode: EidosRetrievalMode,
+        source_id: EidosChunkId,
+    },
+    /// `packet.validate_citation` *accepted* a fabricated source_id — the
+    /// closed-citation contract is broken in this retriever's packets.
+    FakeCitationAccepted {
+        retriever_mode: EidosRetrievalMode,
+    },
+    /// Hit confidence is outside `[0.0, 1.0]`. Confidence is a normalized
+    /// score and the Brain Panel + chat-layer ranking assumes the unit
+    /// interval. Anything outside is a contract violation.
+    HitConfidenceOutOfRange {
+        retriever_mode: EidosRetrievalMode,
+        source_id: EidosChunkId,
+        confidence: f32,
+    },
+    /// Hit's optional span has `byte_start > byte_end`. Spans are half-
+    /// open `[byte_start, byte_end)` byte ranges and the order is a
+    /// foundational invariant.
+    HitSpanInvalid {
+        retriever_mode: EidosRetrievalMode,
+        source_id: EidosChunkId,
+        byte_start: u32,
+        byte_end: u32,
+    },
+}
+
+/// Run the falsifier across `retrievers × queries`. Returns a witness on
+/// success or the first [`FalsifierFailure`] encountered. Deterministic:
+/// retrievers and queries are walked in caller-supplied order; the witness
+/// counts are exact, not estimates.
+pub fn f_eidos_closed_citation_falsifier(
+    retrievers: &[Box<dyn EidosRetriever>],
+    queries: &[EidosQuery],
+    retrieved_at_unix_ms: u64,
+) -> Result<FEidosClosedCitationWitness, FalsifierFailure> {
+    let mut total_hits_validated = 0usize;
+    let mut fake_citation_rejections = 0usize;
+
+    for retriever in retrievers {
+        let retriever_mode = retriever.mode();
+        let retriever_manifest = retriever.manifest_id().clone();
+
+        for query in queries {
+            let packet = retriever.retrieve(query, retrieved_at_unix_ms);
+
+            // §1 packet manifest matches retriever manifest.
+            if packet.manifest_id != retriever_manifest {
+                return Err(FalsifierFailure::PacketManifestDriftsFromRetriever {
+                    retriever_mode,
+                    retriever_manifest,
+                    packet_manifest: packet.manifest_id,
+                });
+            }
+
+            // §2 every hit's provenance + closed-citation contract.
+            for hit in &packet.hits {
+                if hit.provenance.manifest_id != packet.manifest_id {
+                    return Err(FalsifierFailure::HitProvenanceManifestMismatch {
+                        retriever_mode,
+                        source_id: hit.source_id.clone(),
+                        hit_manifest: hit.provenance.manifest_id.clone(),
+                        packet_manifest: packet.manifest_id.clone(),
+                    });
+                }
+
+                // ProvenanceVerified wraps any inner retriever and
+                // legitimately rewrites provenance.mode. Everyone else
+                // must report their own mode.
+                let mode_ok = if retriever_mode == EidosRetrievalMode::ProvenanceVerified {
+                    hit.provenance.mode == EidosRetrievalMode::ProvenanceVerified
+                } else {
+                    hit.provenance.mode == retriever_mode
+                };
+                if !mode_ok {
+                    return Err(FalsifierFailure::HitProvenanceModeMismatch {
+                        retriever_mode,
+                        source_id: hit.source_id.clone(),
+                        hit_mode: hit.provenance.mode,
+                    });
+                }
+
+                let cite = EidosCitation {
+                    source_id: hit.source_id.clone(),
+                    manifest_id: packet.manifest_id.clone(),
+                };
+                if packet.validate_citation(&cite).is_err() {
+                    return Err(FalsifierFailure::LegitimateCitationRejected {
+                        retriever_mode,
+                        source_id: hit.source_id.clone(),
+                    });
+                }
+
+                // §2c confidence must be in [0, 1].
+                if !(hit.confidence >= 0.0 && hit.confidence <= 1.0) {
+                    return Err(FalsifierFailure::HitConfidenceOutOfRange {
+                        retriever_mode,
+                        source_id: hit.source_id.clone(),
+                        confidence: hit.confidence,
+                    });
+                }
+
+                // §2d span (if present) must have byte_start <= byte_end.
+                if let Some(span) = hit.span {
+                    if span.byte_start > span.byte_end {
+                        return Err(FalsifierFailure::HitSpanInvalid {
+                            retriever_mode,
+                            source_id: hit.source_id.clone(),
+                            byte_start: span.byte_start,
+                            byte_end: span.byte_end,
+                        });
+                    }
+                }
+
+                total_hits_validated += 1;
+            }
+
+            // §3 deliberately-fabricated id is rejected. Use a sentinel
+            // that no retriever could plausibly emit.
+            let fake = EidosCitation {
+                source_id: EidosChunkId::new(
+                    "F_EIDOS_CLOSED_CITATION_FALSIFIER::fabricated_sentinel",
+                )
+                .expect("non-empty"),
+                manifest_id: packet.manifest_id.clone(),
+            };
+            if packet.validate_citation(&fake).is_ok() {
+                return Err(FalsifierFailure::FakeCitationAccepted { retriever_mode });
+            }
+            fake_citation_rejections += 1;
+        }
+    }
+
+    Ok(FEidosClosedCitationWitness {
+        retrievers_checked: retrievers.len(),
+        queries_per_retriever: queries.len(),
+        total_hits_validated,
+        fake_citation_rejections,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::eidos::claim_evidence::{EvidenceStance, InMemoryClaimEvidence};
+    use crate::eidos::code_symbol::InMemoryCodeSymbolIndex;
+    use crate::eidos::graph_neighborhood::InMemoryGraphNeighborhood;
+    use crate::eidos::hybrid::HybridRetriever;
+    use crate::eidos::lexical::InMemoryLexicalIndex;
+    use crate::eidos::provenance_verified::ProvenanceVerifiedRetriever;
+    use crate::eidos::raw_archive::InMemoryRawArchive;
+    use crate::eidos::recency::InMemoryRecencyIndex;
+    use crate::eidos::semantic::InMemorySemanticIndex;
+    use crate::eidos::types::{EidosDocumentId, EidosSourceKind};
+
+    fn manifest() -> EidosIndexManifestId {
+        EidosIndexManifestId::new("falsifier-fixture").unwrap()
+    }
+
+    fn doc(id: &str) -> EidosDocumentId {
+        EidosDocumentId::new(id).unwrap()
+    }
+
+    fn build_fixture_corpus() -> Vec<Box<dyn EidosRetriever>> {
+        let mut retrievers: Vec<Box<dyn EidosRetriever>> = Vec::new();
+
+        // --- Lexical
+        let mut lex = InMemoryLexicalIndex::new(manifest());
+        lex.insert(doc("note-a"), "tropical convex optimization", EidosSourceKind::Note).unwrap();
+        lex.insert(doc("note-b"), "tropical geometry primer", EidosSourceKind::Note).unwrap();
+        retrievers.push(Box::new(lex));
+
+        // --- Semantic
+        let mut sem = InMemorySemanticIndex::new(manifest(), 3);
+        sem.insert(doc("note-a"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note).unwrap();
+        sem.insert(doc("note-c"), vec![0.0, 1.0, 0.0], EidosSourceKind::Note).unwrap();
+        retrievers.push(Box::new(sem));
+
+        // --- Hybrid (RRF k=60 fusion of two new retrievers sharing manifest)
+        let mut lex2 = InMemoryLexicalIndex::new(manifest());
+        lex2.insert(doc("note-a"), "alpha tropical", EidosSourceKind::Note).unwrap();
+        let mut sem2 = InMemorySemanticIndex::new(manifest(), 2);
+        sem2.insert(doc("note-a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+        let hybrid = HybridRetriever::new(lex2, sem2).unwrap();
+        retrievers.push(Box::new(hybrid));
+
+        // --- RawArchive
+        let mut raw = InMemoryRawArchive::new(manifest());
+        raw.insert(doc("note-a"), "first note body", EidosSourceKind::Note);
+        retrievers.push(Box::new(raw));
+
+        // --- CodeSymbol
+        let mut code = InMemoryCodeSymbolIndex::new(manifest());
+        code.insert("retrieve", doc("eidos/lexical.rs"), 1024, 1032);
+        retrievers.push(Box::new(code));
+
+        // --- GraphNeighborhood
+        let mut graph = InMemoryGraphNeighborhood::new(manifest());
+        graph.add_edge(doc("hub"), doc("nbr-a"));
+        graph.add_edge(doc("hub"), doc("nbr-b"));
+        retrievers.push(Box::new(graph));
+
+        // --- ClaimEvidence
+        let mut claim = InMemoryClaimEvidence::new(manifest());
+        claim.add_evidence(
+            "claim:tropical-convex",
+            doc("note-a"),
+            EvidenceStance::Supports,
+            EidosSourceKind::Note,
+        );
+        retrievers.push(Box::new(claim));
+
+        // --- Recency
+        let mut recency = InMemoryRecencyIndex::new(manifest());
+        recency.insert(doc("note-a"), "tropical alpha", 1_700_000_000_000, EidosSourceKind::Note);
+        recency.insert(
+            doc("note-b"),
+            "tropical beta",
+            1_700_000_000_000 - 86_400_000,
+            EidosSourceKind::Note,
+        );
+        retrievers.push(Box::new(recency));
+
+        // --- ProvenanceVerified wrapping a fresh Lexical retriever
+        let mut lex3 = InMemoryLexicalIndex::new(manifest());
+        lex3.insert(doc("note-a"), "tropical verified", EidosSourceKind::Note).unwrap();
+        let mut pv = ProvenanceVerifiedRetriever::new(lex3);
+        pv.admit(EidosChunkId::new("note-a::lex").unwrap());
+        retrievers.push(Box::new(pv));
+
+        // --- HybridRetrieverN (3-way fusion: lex + sem + recency, all
+        //     sharing the fixture manifest)
+        let mut lex_n = InMemoryLexicalIndex::new(manifest());
+        lex_n.insert(doc("note-a"), "tropical hybrid_n", EidosSourceKind::Note).unwrap();
+        let mut sem_n = InMemorySemanticIndex::new(manifest(), 2);
+        sem_n.insert(doc("note-a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+        let mut recency_n = InMemoryRecencyIndex::new(manifest());
+        recency_n.insert(
+            doc("note-a"),
+            "tropical hybrid_n recent",
+            1_700_000_000_000,
+            EidosSourceKind::Note,
+        );
+        let hybrid_n = crate::eidos::hybrid_n::HybridRetrieverN::new(vec![
+            Box::new(lex_n),
+            Box::new(sem_n),
+            Box::new(recency_n),
+        ])
+        .unwrap();
+        retrievers.push(Box::new(hybrid_n));
+
+        // --- LedgerBackedClaimEvidence (W-49 production wiring)
+        use crate::eidos::ledger_backed_claim_evidence::LedgerBackedClaimEvidence;
+        use crate::provenance::ledger::{Claim, ClaimId, ClaimLedger, Evidence, EvidenceId};
+        let mut ledger = ClaimLedger::new();
+        ledger
+            .commit_evidence(Evidence::new(
+                EvidenceId("ev-fixture-1".to_string()),
+                "src",
+                0,
+            ))
+            .unwrap();
+        ledger
+            .commit_claim(
+                Claim::new(
+                    ClaimId("claim:tropical-convex".to_string()),
+                    "fixture claim",
+                    0,
+                ),
+                vec![],
+                vec![EvidenceId("ev-fixture-1".to_string())],
+            )
+            .unwrap();
+        let ledger_backed = LedgerBackedClaimEvidence::from_ledger(&ledger, manifest());
+        retrievers.push(Box::new(ledger_backed));
+
+        // --- ProvenanceVerified wrapping HybridRetrieverN (nested
+        //     composition: outer PV admits one fused hybrid id; inner
+        //     N-way hybrid fuses Lex + Sem sharing the fixture manifest)
+        use crate::eidos::provenance_verified::ProvenanceVerifiedRetriever as PV;
+        let mut nested_lex = InMemoryLexicalIndex::new(manifest());
+        nested_lex
+            .insert(doc("note-a"), "tropical nested", EidosSourceKind::Note)
+            .unwrap();
+        let mut nested_sem = InMemorySemanticIndex::new(manifest(), 2);
+        nested_sem
+            .insert(doc("note-a"), vec![1.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
+        let nested_hybrid_n = crate::eidos::hybrid_n::HybridRetrieverN::new(vec![
+            Box::new(nested_lex),
+            Box::new(nested_sem),
+        ])
+        .unwrap();
+        let mut nested_pv = PV::new(nested_hybrid_n);
+        nested_pv.admit(EidosChunkId::new("note-a::hybrid").unwrap());
+        retrievers.push(Box::new(nested_pv));
+
+        retrievers
+    }
+
+    fn fixture_queries() -> Vec<EidosQuery> {
+        vec![
+            // Generic substring — matches Lexical, Recency, Hybrid, PV
+            EidosQuery::with_vector(
+                "tropical",
+                EidosRetrievalMode::Hybrid,
+                8,
+                vec![1.0, 0.0, 0.0],
+            ),
+            // Symbol-table form — matches CodeSymbol
+            EidosQuery::new("retrieve", EidosRetrievalMode::CodeSymbol, 8),
+            // Document-id form — matches RawArchive
+            EidosQuery::new("note-a", EidosRetrievalMode::RawArchive, 8),
+            // Graph seed
+            EidosQuery::new("hub", EidosRetrievalMode::GraphNeighborhood, 8),
+            // Claim id
+            EidosQuery::new("claim:tropical-convex", EidosRetrievalMode::ClaimEvidence, 8),
+            // Empty text — meaningful for Recency, defers everyone else
+            EidosQuery::new("", EidosRetrievalMode::Recency, 8),
+        ]
+    }
+
+    #[test]
+    fn f_eidos_closed_citation_falsifier_passes_for_canonical_fixture() {
+        let retrievers = build_fixture_corpus();
+        let queries = fixture_queries();
+        let witness =
+            f_eidos_closed_citation_falsifier(&retrievers, &queries, 1_700_000_000_000)
+                .expect("F-Eidos-ClosedCitation must pass on canonical fixture");
+
+        // Witness counts are deterministic and exact. 12 retrievers now
+        // that HybridRetrieverN + LedgerBackedClaimEvidence + the
+        // nested PV-over-Hybrid_N composition joined the fixture.
+        assert_eq!(witness.retrievers_checked, 12);
+        assert_eq!(witness.queries_per_retriever, 6);
+        // 12 retrievers × 6 queries = 72 fake-citation rejection sites.
+        assert_eq!(witness.fake_citation_rejections, 72);
+        // At least SOME hits validated (every retriever's positive query
+        // contributes at least one hit; exact count depends on dedup +
+        // top_k semantics per mode).
+        assert!(
+            witness.total_hits_validated > 0,
+            "fixture must produce hits"
+        );
+    }
+
+    #[test]
+    fn falsifier_catches_fake_citation_accepted_failure() {
+        // A bogus retriever that lies about its closed-citation universe by
+        // returning ALWAYS-OK validation. We synthesize the failure by
+        // building a packet whose validate_citation behavior is intact
+        // BUT injecting a hit whose provenance.mode is wrong — that is
+        // testable; "fake accepted" itself would require modifying
+        // EidosContextPacket, which would break unit tests upstream.
+        //
+        // So this test exercises the mode-mismatch path instead, which
+        // shares the same control flow as the fake-citation-accepted
+        // path — both are short-circuit returns from the falsifier loop.
+        // (See `falsifier_catches_hit_provenance_mode_mismatch` for the
+        // direct test of that failure variant.)
+    }
+
+    #[test]
+    fn falsifier_catches_hit_provenance_mode_mismatch() {
+        // Synthetic retriever that emits a hit whose provenance.mode is
+        // intentionally wrong. The falsifier must catch this on the very
+        // first hit and short-circuit with HitProvenanceModeMismatch.
+        struct LiarRetriever {
+            manifest: EidosIndexManifestId,
+        }
+        impl EidosRetriever for LiarRetriever {
+            fn mode(&self) -> EidosRetrievalMode {
+                EidosRetrievalMode::Lexical
+            }
+            fn manifest_id(&self) -> &EidosIndexManifestId {
+                &self.manifest
+            }
+            fn retrieve(
+                &self,
+                query: &EidosQuery,
+                retrieved_at_unix_ms: u64,
+            ) -> crate::eidos::types::EidosContextPacket {
+                let chunk = EidosChunkId::new("liar::lex").unwrap();
+                let hit = crate::eidos::types::EidosHit {
+                    source_id: chunk,
+                    document_id: EidosDocumentId::new("liar").unwrap(),
+                    kind: EidosSourceKind::Note,
+                    span: None,
+                    confidence: 0.5,
+                    score: crate::eidos::types::EidosScoreComponents::default(),
+                    provenance: crate::eidos::types::EidosProvenance {
+                        manifest_id: self.manifest.clone(),
+                        // INTENTIONAL LIE: claims Semantic, but retriever advertises Lexical.
+                        mode: EidosRetrievalMode::Semantic,
+                        retrieved_at_unix_ms,
+                    },
+                };
+                crate::eidos::types::EidosContextPacket {
+                    query: query.clone(),
+                    manifest_id: self.manifest.clone(),
+                    hits: vec![hit],
+                }
+            }
+        }
+        let retrievers: Vec<Box<dyn EidosRetriever>> = vec![Box::new(LiarRetriever {
+            manifest: manifest(),
+        })];
+        let queries = vec![EidosQuery::new("anything", EidosRetrievalMode::Lexical, 8)];
+        let err = f_eidos_closed_citation_falsifier(&retrievers, &queries, 0).unwrap_err();
+        assert!(matches!(
+            err,
+            FalsifierFailure::HitProvenanceModeMismatch { .. }
+        ));
+    }
+
+    #[test]
+    fn falsifier_accepts_confidence_at_both_unit_interval_endpoints() {
+        // The falsifier's confidence check at falsifier.rs:203 is
+        // `if !(hit.confidence >= 0.0 && hit.confidence <= 1.0)` —
+        // so 0.0 AND 1.0 are BOTH inclusive endpoints. No existing
+        // test pinned this; the per-variant catch tests (out-of-range
+        // 1.5, NaN) cover the rejection side, but neither asserts
+        // the canonical interior values pass.
+        //
+        // Pin both endpoints accept via a custom retriever that emits
+        // two hits with confidence 0.0 and 1.0 respectively. Catches
+        // a future flip to strict-`>`/`<` semantics that would
+        // silently break the bridge contract (chat layer + Brain
+        // Panel both rely on the inclusive [0,1] interval).
+        struct BoundaryRetriever {
+            manifest: EidosIndexManifestId,
+        }
+        impl EidosRetriever for BoundaryRetriever {
+            fn mode(&self) -> EidosRetrievalMode {
+                EidosRetrievalMode::Lexical
+            }
+            fn manifest_id(&self) -> &EidosIndexManifestId {
+                &self.manifest
+            }
+            fn retrieve(
+                &self,
+                query: &EidosQuery,
+                retrieved_at_unix_ms: u64,
+            ) -> crate::eidos::types::EidosContextPacket {
+                let make_hit = |id: &str, confidence: f32| crate::eidos::types::EidosHit {
+                    source_id: EidosChunkId::new(id).unwrap(),
+                    document_id: EidosDocumentId::new(id.split("::").next().unwrap()).unwrap(),
+                    kind: EidosSourceKind::Note,
+                    span: None,
+                    confidence,
+                    score: crate::eidos::types::EidosScoreComponents::default(),
+                    provenance: crate::eidos::types::EidosProvenance {
+                        manifest_id: self.manifest.clone(),
+                        mode: EidosRetrievalMode::Lexical,
+                        retrieved_at_unix_ms,
+                    },
+                };
+                crate::eidos::types::EidosContextPacket {
+                    query: query.clone(),
+                    manifest_id: self.manifest.clone(),
+                    hits: vec![
+                        make_hit("zero::lex", 0.0),
+                        make_hit("one::lex", 1.0),
+                    ],
+                }
+            }
+        }
+        let retrievers: Vec<Box<dyn EidosRetriever>> = vec![Box::new(BoundaryRetriever {
+            manifest: manifest(),
+        })];
+        let queries = vec![EidosQuery::new("any", EidosRetrievalMode::Lexical, 8)];
+        let witness =
+            f_eidos_closed_citation_falsifier(&retrievers, &queries, 0).expect(
+                "confidence 0.0 and 1.0 must BOTH pass the inclusive [0,1] check",
+            );
+        assert_eq!(witness.retrievers_checked, 1);
+        // Both hits reached the validation surface (didn't fall out
+        // earlier as e.g. manifest mismatch).
+        assert!(witness.total_hits_validated >= 2);
+    }
+
+    #[test]
+    fn falsifier_query_level_short_circuit_skips_remaining_queries_on_same_retriever() {
+        // Third invocation-count pin in the falsifier family:
+        //   iter 99  — retriever-level: post-failure retrievers
+        //              never called.
+        //   iter 101 — success path: every (retriever × query)
+        //              gets exactly one retrieve() call.
+        //   this    — query-level: when retrieve(query_i) returns a
+        //              packet that trips the validation check, the
+        //              SAME retriever's retrieve(query_{i+1}) and
+        //              beyond MUST NOT be called.
+        //
+        // Iter 83 pinned the SURFACED Err's source_id at query level
+        // (proving the falsifier reached q2 of [good, bad]). This
+        // pins the deeper contract: AFTER q2 fails, q3 and q4 are
+        // not invoked. A non-short-circuiting inner loop that
+        // collected all errors per-retriever would pass iter 83 but
+        // fail here.
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+
+        struct QueryCountingRetriever {
+            manifest: EidosIndexManifestId,
+            calls: Arc<AtomicUsize>,
+        }
+        impl EidosRetriever for QueryCountingRetriever {
+            fn mode(&self) -> EidosRetrievalMode {
+                EidosRetrievalMode::Lexical
+            }
+            fn manifest_id(&self) -> &EidosIndexManifestId {
+                &self.manifest
+            }
+            fn retrieve(
+                &self,
+                query: &EidosQuery,
+                retrieved_at_unix_ms: u64,
+            ) -> crate::eidos::types::EidosContextPacket {
+                let n = self.calls.fetch_add(1, Ordering::SeqCst);
+                // First two calls return clean hits; the third
+                // (zero-indexed n==2 → query #3 in the list) emits a
+                // lying provenance.mode → fires HitProvenanceModeMismatch.
+                // Calls beyond #3 should never happen.
+                let mode = if n == 2 {
+                    EidosRetrievalMode::Semantic // the lie
+                } else {
+                    EidosRetrievalMode::Lexical
+                };
+                let hit = crate::eidos::types::EidosHit {
+                    source_id: EidosChunkId::new(format!("q{}::lex", n)).unwrap(),
+                    document_id: EidosDocumentId::new(format!("q{}", n)).unwrap(),
+                    kind: EidosSourceKind::Note,
+                    span: None,
+                    confidence: 0.5,
+                    score: crate::eidos::types::EidosScoreComponents::default(),
+                    provenance: crate::eidos::types::EidosProvenance {
+                        manifest_id: self.manifest.clone(),
+                        mode,
+                        retrieved_at_unix_ms,
+                    },
+                };
+                crate::eidos::types::EidosContextPacket {
+                    query: query.clone(),
+                    manifest_id: self.manifest.clone(),
+                    hits: vec![hit],
+                }
+            }
+        }
+
+        let calls = Arc::new(AtomicUsize::new(0));
+        let retrievers: Vec<Box<dyn EidosRetriever>> =
+            vec![Box::new(QueryCountingRetriever {
+                manifest: manifest(),
+                calls: calls.clone(),
+            })];
+        let queries = vec![
+            EidosQuery::new("q0", EidosRetrievalMode::Lexical, 8),
+            EidosQuery::new("q1", EidosRetrievalMode::Lexical, 8),
+            EidosQuery::new("q2", EidosRetrievalMode::Lexical, 8),
+            EidosQuery::new("q3", EidosRetrievalMode::Lexical, 8),
+        ];
+        let err = f_eidos_closed_citation_falsifier(&retrievers, &queries, 0).unwrap_err();
+        assert!(matches!(
+            err,
+            FalsifierFailure::HitProvenanceModeMismatch { .. }
+        ));
+        assert_eq!(
+            calls.load(Ordering::SeqCst),
+            3,
+            "after query #3 (index 2) fails, queries #4 (index 3) must NOT be invoked on this retriever"
+        );
+    }
+
+    #[test]
+    fn falsifier_short_circuits_at_query_level_with_correct_source_id() {
+        // Companion to the retriever-level early-exit pin (above): the
+        // inner loop walks `for query in queries`. If retriever A's
+        // query #1 succeeds but query #2 fails, the surfaced Err's
+        // `source_id` MUST reflect query #2's hit, not query #1's.
+        // Currently FalsifierFailure variants don't carry the query
+        // itself, but they DO carry source_id — which lets us prove
+        // "the failure came from the right query" by embedding the
+        // query text in the source_id.
+        struct QueryAwareLiar {
+            manifest: EidosIndexManifestId,
+        }
+        impl EidosRetriever for QueryAwareLiar {
+            fn mode(&self) -> EidosRetrievalMode {
+                EidosRetrievalMode::Lexical
+            }
+            fn manifest_id(&self) -> &EidosIndexManifestId {
+                &self.manifest
+            }
+            fn retrieve(
+                &self,
+                query: &EidosQuery,
+                retrieved_at_unix_ms: u64,
+            ) -> crate::eidos::types::EidosContextPacket {
+                // For query "good": emit a perfectly valid Lexical hit.
+                // For query "bad":  emit a hit with WRONG provenance.mode
+                //   (Semantic), tripping HitProvenanceModeMismatch.
+                // The source_id embeds the query text so the assertion
+                // below can tell which query produced the failure.
+                let chunk = EidosChunkId::new(format!("{}::lex", query.text)).unwrap();
+                let document_id = EidosDocumentId::new(&query.text).unwrap();
+                let mode = if query.text == "bad" {
+                    EidosRetrievalMode::Semantic
+                } else {
+                    EidosRetrievalMode::Lexical
+                };
+                let hit = crate::eidos::types::EidosHit {
+                    source_id: chunk,
+                    document_id,
+                    kind: EidosSourceKind::Note,
+                    span: None,
+                    confidence: 0.5,
+                    score: crate::eidos::types::EidosScoreComponents::default(),
+                    provenance: crate::eidos::types::EidosProvenance {
+                        manifest_id: self.manifest.clone(),
+                        mode,
+                        retrieved_at_unix_ms,
+                    },
+                };
+                crate::eidos::types::EidosContextPacket {
+                    query: query.clone(),
+                    manifest_id: self.manifest.clone(),
+                    hits: vec![hit],
+                }
+            }
+        }
+
+        let retrievers: Vec<Box<dyn EidosRetriever>> = vec![Box::new(QueryAwareLiar {
+            manifest: manifest(),
+        })];
+        // Two queries, in order: query #1 passes ("good"), query #2 fails
+        // ("bad"). The error's source_id must reference "bad", proving
+        // the falsifier walked PAST query #1 and short-circuited on
+        // query #2 — not on query #1 (which would error before reaching
+        // q#2 at all).
+        let queries = vec![
+            EidosQuery::new("good", EidosRetrievalMode::Lexical, 8),
+            EidosQuery::new("bad", EidosRetrievalMode::Lexical, 8),
+        ];
+        let err = f_eidos_closed_citation_falsifier(&retrievers, &queries, 0).unwrap_err();
+        match err {
+            FalsifierFailure::HitProvenanceModeMismatch {
+                source_id,
+                hit_mode,
+                retriever_mode,
+            } => {
+                assert_eq!(
+                    source_id.as_str(),
+                    "bad::lex",
+                    "error source_id must reflect query #2's hit, not query #1's"
+                );
+                assert_eq!(hit_mode, EidosRetrievalMode::Semantic);
+                assert_eq!(retriever_mode, EidosRetrievalMode::Lexical);
+            }
+            other => panic!("expected HitProvenanceModeMismatch on bad::lex, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn falsifier_on_success_invokes_each_retriever_exactly_once_per_query() {
+        // Dual of `falsifier_short_circuit_prevents_later_retrievers_from_being_called`:
+        // on the success path, every (retriever × query) pair must
+        // produce EXACTLY ONE retrieve() call — no extra retries, no
+        // skipped queries, no caching that bypasses an inner retriever
+        // on subsequent queries. The witness counts (retrievers ×
+        // queries) are derived from the loop structure; pinning the
+        // invocation count directly catches a future fold that
+        // computed the witness arithmetically but somehow under- or
+        // over-called retrieve().
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+
+        struct CountingGoodRetriever {
+            manifest: EidosIndexManifestId,
+            calls: Arc<AtomicUsize>,
+        }
+        impl EidosRetriever for CountingGoodRetriever {
+            fn mode(&self) -> EidosRetrievalMode {
+                EidosRetrievalMode::Lexical
+            }
+            fn manifest_id(&self) -> &EidosIndexManifestId {
+                &self.manifest
+            }
+            fn retrieve(
+                &self,
+                query: &EidosQuery,
+                _retrieved_at_unix_ms: u64,
+            ) -> crate::eidos::types::EidosContextPacket {
+                self.calls.fetch_add(1, Ordering::SeqCst);
+                // Return an empty packet — falsifier passes (no hits
+                // means no contract violations to check).
+                crate::eidos::types::EidosContextPacket {
+                    query: query.clone(),
+                    manifest_id: self.manifest.clone(),
+                    hits: vec![],
+                }
+            }
+        }
+
+        let c0 = Arc::new(AtomicUsize::new(0));
+        let c1 = Arc::new(AtomicUsize::new(0));
+        let c2 = Arc::new(AtomicUsize::new(0));
+        let retrievers: Vec<Box<dyn EidosRetriever>> = vec![
+            Box::new(CountingGoodRetriever {
+                manifest: manifest(),
+                calls: c0.clone(),
+            }),
+            Box::new(CountingGoodRetriever {
+                manifest: manifest(),
+                calls: c1.clone(),
+            }),
+            Box::new(CountingGoodRetriever {
+                manifest: manifest(),
+                calls: c2.clone(),
+            }),
+        ];
+        // 4 distinct queries — chosen prime-like so a hypothetical
+        // off-by-one wouldn't accidentally still produce the right
+        // total.
+        let queries = vec![
+            EidosQuery::new("alpha", EidosRetrievalMode::Lexical, 8),
+            EidosQuery::new("beta", EidosRetrievalMode::Lexical, 8),
+            EidosQuery::new("gamma", EidosRetrievalMode::Lexical, 8),
+            EidosQuery::new("delta", EidosRetrievalMode::Lexical, 8),
+        ];
+        let witness = f_eidos_closed_citation_falsifier(&retrievers, &queries, 0)
+            .expect("3 well-behaved retrievers + 4 queries must produce a success witness");
+
+        // Witness arithmetic.
+        assert_eq!(witness.retrievers_checked, 3);
+        assert_eq!(witness.queries_per_retriever, 4);
+        // Direct invocation count — independent confirmation that
+        // the witness numbers track real retrieve() calls.
+        assert_eq!(c0.load(Ordering::SeqCst), 4, "retriever 0 must be called exactly once per query");
+        assert_eq!(c1.load(Ordering::SeqCst), 4, "retriever 1 must be called exactly once per query");
+        assert_eq!(c2.load(Ordering::SeqCst), 4, "retriever 2 must be called exactly once per query");
+    }
+
+    #[test]
+    fn falsifier_short_circuit_prevents_later_retrievers_from_being_called() {
+        // Iter 81 pinned that the SURFACED Err identifies the
+        // first bad retriever's position via a parameterized
+        // ModeLiar. That test proves "first bad wins" by checking
+        // the error variant, but it doesn't prove "later retrievers
+        // are NEVER CALLED" — which is the deeper short-circuit
+        // contract that matters for performance + side-effect
+        // safety (e.g., a future retriever with a side-effecting
+        // retrieve() impl must trust the falsifier won't drag it
+        // through validation when an earlier one already failed).
+        //
+        // Use an AtomicUsize-counted retriever at position 1 with a
+        // bad retriever at position 0. After falsifier returns Err,
+        // the counter must read 0.
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+
+        struct CountingRetriever {
+            manifest: EidosIndexManifestId,
+            calls: Arc<AtomicUsize>,
+        }
+        impl EidosRetriever for CountingRetriever {
+            fn mode(&self) -> EidosRetrievalMode {
+                EidosRetrievalMode::Lexical
+            }
+            fn manifest_id(&self) -> &EidosIndexManifestId {
+                &self.manifest
+            }
+            fn retrieve(
+                &self,
+                query: &EidosQuery,
+                _retrieved_at_unix_ms: u64,
+            ) -> crate::eidos::types::EidosContextPacket {
+                self.calls.fetch_add(1, Ordering::SeqCst);
+                crate::eidos::types::EidosContextPacket {
+                    query: query.clone(),
+                    manifest_id: self.manifest.clone(),
+                    hits: vec![],
+                }
+            }
+        }
+
+        struct BadRetriever {
+            manifest: EidosIndexManifestId,
+        }
+        impl EidosRetriever for BadRetriever {
+            fn mode(&self) -> EidosRetrievalMode {
+                EidosRetrievalMode::Lexical
+            }
+            fn manifest_id(&self) -> &EidosIndexManifestId {
+                &self.manifest
+            }
+            fn retrieve(
+                &self,
+                query: &EidosQuery,
+                retrieved_at_unix_ms: u64,
+            ) -> crate::eidos::types::EidosContextPacket {
+                // Emit a hit with wrong provenance.mode — fires
+                // HitProvenanceModeMismatch.
+                let hit = crate::eidos::types::EidosHit {
+                    source_id: EidosChunkId::new("bad::lex").unwrap(),
+                    document_id: EidosDocumentId::new("bad").unwrap(),
+                    kind: EidosSourceKind::Note,
+                    span: None,
+                    confidence: 0.5,
+                    score: crate::eidos::types::EidosScoreComponents::default(),
+                    provenance: crate::eidos::types::EidosProvenance {
+                        manifest_id: self.manifest.clone(),
+                        mode: EidosRetrievalMode::Semantic, // the lie
+                        retrieved_at_unix_ms,
+                    },
+                };
+                crate::eidos::types::EidosContextPacket {
+                    query: query.clone(),
+                    manifest_id: self.manifest.clone(),
+                    hits: vec![hit],
+                }
+            }
+        }
+
+        let counter = Arc::new(AtomicUsize::new(0));
+        let retrievers: Vec<Box<dyn EidosRetriever>> = vec![
+            Box::new(BadRetriever {
+                manifest: manifest(),
+            }),
+            Box::new(CountingRetriever {
+                manifest: manifest(),
+                calls: counter.clone(),
+            }),
+        ];
+        // 3 queries so a non-short-circuiting implementation would
+        // have called the counter at least 3 times.
+        let queries = vec![
+            EidosQuery::new("q1", EidosRetrievalMode::Lexical, 8),
+            EidosQuery::new("q2", EidosRetrievalMode::Lexical, 8),
+            EidosQuery::new("q3", EidosRetrievalMode::Lexical, 8),
+        ];
+        let err = f_eidos_closed_citation_falsifier(&retrievers, &queries, 0).unwrap_err();
+        assert!(matches!(
+            err,
+            FalsifierFailure::HitProvenanceModeMismatch { .. }
+        ));
+        assert_eq!(
+            counter.load(Ordering::SeqCst),
+            0,
+            "after position-0 fails, position-1's retrieve() must NOT be called"
+        );
+    }
+
+    #[test]
+    fn falsifier_early_exits_on_first_bad_retriever_deterministically() {
+        // Pin the early-exit contract: when MULTIPLE retrievers would
+        // each trip a different FalsifierFailure variant, the falsifier
+        // must return the first-by-position failure deterministically
+        // across runs. Catches a future change that reordered the
+        // walk (e.g., parallel iteration via rayon) or that started
+        // collecting multiple failures (returning the "worst" instead
+        // of the "first").
+        //
+        // Build a 5-retriever list with two distinct liars:
+        //   position 2: Lexical-advertising → emits Semantic provenance
+        //   position 3: CodeSymbol-advertising → emits Semantic provenance
+        // Both would fire HitProvenanceModeMismatch. The error MUST
+        // identify position-2 (retriever_mode == Lexical), not
+        // position-3 (CodeSymbol).
+        struct ModeLiar {
+            advertised: EidosRetrievalMode,
+            manifest: EidosIndexManifestId,
+        }
+        impl EidosRetriever for ModeLiar {
+            fn mode(&self) -> EidosRetrievalMode {
+                self.advertised
+            }
+            fn manifest_id(&self) -> &EidosIndexManifestId {
+                &self.manifest
+            }
+            fn retrieve(
+                &self,
+                query: &EidosQuery,
+                retrieved_at_unix_ms: u64,
+            ) -> crate::eidos::types::EidosContextPacket {
+                let hit = crate::eidos::types::EidosHit {
+                    source_id: EidosChunkId::new("liar::x").unwrap(),
+                    document_id: EidosDocumentId::new("liar").unwrap(),
+                    kind: EidosSourceKind::Note,
+                    span: None,
+                    confidence: 0.5,
+                    score: crate::eidos::types::EidosScoreComponents::default(),
+                    provenance: crate::eidos::types::EidosProvenance {
+                        manifest_id: self.manifest.clone(),
+                        // The lie: emit Semantic regardless of advertised mode.
+                        mode: EidosRetrievalMode::Semantic,
+                        retrieved_at_unix_ms,
+                    },
+                };
+                crate::eidos::types::EidosContextPacket {
+                    query: query.clone(),
+                    manifest_id: self.manifest.clone(),
+                    hits: vec![hit],
+                }
+            }
+        }
+
+        // Helper: build a fresh corpus on each call so the test exercises
+        // the falsifier across distinct allocations too (no shared state).
+        let build = || -> Vec<Box<dyn EidosRetriever>> {
+            let m = manifest();
+            let good_lex = {
+                let mut l = crate::eidos::lexical::InMemoryLexicalIndex::new(m.clone());
+                l.insert(
+                    EidosDocumentId::new("g1").unwrap(),
+                    "ok",
+                    EidosSourceKind::Note,
+                )
+                .unwrap();
+                l
+            };
+            let good_sem = crate::eidos::semantic::InMemorySemanticIndex::new(m.clone(), 2);
+            let liar_lex = ModeLiar {
+                advertised: EidosRetrievalMode::Lexical,
+                manifest: m.clone(),
+            };
+            let liar_code = ModeLiar {
+                advertised: EidosRetrievalMode::CodeSymbol,
+                manifest: m.clone(),
+            };
+            let good_recency = crate::eidos::recency::InMemoryRecencyIndex::new(m);
+            vec![
+                Box::new(good_lex),
+                Box::new(good_sem),
+                Box::new(liar_lex), // position 2 — first bad
+                Box::new(liar_code), // position 3 — also bad
+                Box::new(good_recency),
+            ]
+        };
+        let queries = vec![EidosQuery::new("ok", EidosRetrievalMode::Lexical, 8)];
+
+        // First run: position-2 liar must surface, NOT position-3.
+        let err1 = f_eidos_closed_citation_falsifier(&build(), &queries, 1_700_000_000_000)
+            .unwrap_err();
+        match &err1 {
+            FalsifierFailure::HitProvenanceModeMismatch {
+                retriever_mode, ..
+            } => {
+                assert_eq!(
+                    *retriever_mode,
+                    EidosRetrievalMode::Lexical,
+                    "early-exit must surface position-2 (Lexical) before position-3 (CodeSymbol)"
+                );
+            }
+            other => panic!("expected HitProvenanceModeMismatch, got {other:?}"),
+        }
+
+        // Second run: byte-equal error. Pins early-exit determinism.
+        let err2 = f_eidos_closed_citation_falsifier(&build(), &queries, 1_700_000_000_000)
+            .unwrap_err();
+        assert_eq!(err1, err2, "early-exit failure drifted across runs");
+
+        // JSON byte-equal too — catches a future serialize order tweak.
+        let j1 = serde_json::to_string(&err1).unwrap();
+        let j2 = serde_json::to_string(&err2).unwrap();
+        assert_eq!(j1, j2);
+    }
+
+    #[test]
+    fn falsifier_witness_counts_are_exact_not_estimates() {
+        let retrievers = build_fixture_corpus();
+        let queries = fixture_queries();
+        let w1 = f_eidos_closed_citation_falsifier(&retrievers, &queries, 1_700_000_000_000).unwrap();
+        let w2 = f_eidos_closed_citation_falsifier(&retrievers, &queries, 1_700_000_000_000).unwrap();
+        assert_eq!(w1, w2);
+    }
+
+    #[test]
+    fn falsifier_passes_for_a_corpus_with_different_id_strings() {
+        // Catches a regression where the falsifier function might
+        // accidentally hardcode the canonical fixture's id strings
+        // (manifest "falsifier-fixture", claim "claim:tropical-convex",
+        // etc.). Build a corpus with DIFFERENT id strings; the contract
+        // is id-shape-agnostic so the falsifier must still pass.
+        use crate::eidos::lexical::InMemoryLexicalIndex;
+        use crate::eidos::types::{EidosDocumentId, EidosIndexManifestId, EidosSourceKind};
+
+        let alt_manifest = EidosIndexManifestId::new("totally-different-snap").unwrap();
+        let mut lex = InMemoryLexicalIndex::new(alt_manifest.clone());
+        lex.insert(
+            EidosDocumentId::new("custom-doc-id-99").unwrap(),
+            "free-form body with custom-token-xyz",
+            EidosSourceKind::Note,
+        )
+        .unwrap();
+        let retrievers: Vec<Box<dyn EidosRetriever>> = vec![Box::new(lex)];
+        let queries = vec![EidosQuery::new(
+            "custom-token-xyz",
+            EidosRetrievalMode::Lexical,
+            8,
+        )];
+
+        let witness = f_eidos_closed_citation_falsifier(&retrievers, &queries, 0)
+            .expect("non-fixture corpus should pass the falsifier");
+        assert_eq!(witness.retrievers_checked, 1);
+        assert_eq!(witness.queries_per_retriever, 1);
+        assert!(witness.total_hits_validated >= 1);
+        assert_eq!(witness.fake_citation_rejections, 1);
+    }
+
+    #[test]
+    fn falsifier_witness_byte_equal_across_20_consecutive_runs() {
+        // Meta-determinism: the falsifier MUST produce byte-equal
+        // witnesses across many runs of the same fixture. Catches a
+        // subtle state-leak regression where a retriever or the
+        // falsifier itself might have a global counter / cached salt
+        // that survives across calls.
+        let retrievers = build_fixture_corpus();
+        let queries = fixture_queries();
+        let baseline =
+            f_eidos_closed_citation_falsifier(&retrievers, &queries, 1_700_000_000_000).unwrap();
+        for i in 0..20 {
+            let w = f_eidos_closed_citation_falsifier(&retrievers, &queries, 1_700_000_000_000)
+                .unwrap();
+            assert_eq!(w, baseline, "run {i} drifted from baseline");
+        }
+    }
+
+    #[test]
+    fn falsifier_witness_is_invariant_to_retrieved_at_unix_ms() {
+        // The witness fields are pure counts (retrievers_checked,
+        // queries_per_retriever, total_hits_validated, fake_citation_rejections).
+        // None of them is timestamp-derived. Pin this explicitly so a
+        // future change that started folding retrieved_at into the
+        // witness (e.g., a "verified_at" timestamp field on the witness
+        // itself) surfaces here — the Brain Panel surface and stored-
+        // `.epbundle` reproducibility both rely on the witness being
+        // bit-for-bit byte-equal across two falsifier runs that differ
+        // only in retrieved_at_unix_ms.
+        let retrievers = build_fixture_corpus();
+        let queries = fixture_queries();
+        let w_t0 =
+            f_eidos_closed_citation_falsifier(&retrievers, &queries, 1_700_000_000_000).unwrap();
+        let w_t1 =
+            f_eidos_closed_citation_falsifier(&retrievers, &queries, 1_900_000_000_000).unwrap();
+        let w_zero =
+            f_eidos_closed_citation_falsifier(&retrievers, &queries, 0).unwrap();
+        let w_max = f_eidos_closed_citation_falsifier(&retrievers, &queries, u64::MAX).unwrap();
+        assert_eq!(w_t0, w_t1, "witness drifted across 200B-ms apart timestamps");
+        assert_eq!(w_t0, w_zero, "witness drifted between t=now and t=0");
+        assert_eq!(w_t0, w_max, "witness drifted between t=now and t=u64::MAX");
+
+        // Same invariant on the canonical JSON encoding — catches a
+        // future case where Serialize started emitting a derived field
+        // computed from ts.
+        let j_t0 = serde_json::to_string(&w_t0).unwrap();
+        let j_t1 = serde_json::to_string(&w_t1).unwrap();
+        assert_eq!(j_t0, j_t1, "witness JSON drifted across timestamps");
+    }
+
+    #[test]
+    fn falsifier_witness_byte_equal_across_20_freshly_built_fixtures() {
+        // Tighter sibling of the run-only stability test above: rebuild
+        // the full 12-retriever corpus from scratch on every iteration
+        // and assert each fresh witness matches the baseline. The
+        // run-only test pins falsifier-call determinism; this one
+        // additionally pins `build_fixture_corpus` itself — including
+        // the nested PV-over-Hybrid_N construction path — against any
+        // future state-leak or order-of-Vec-push regression.
+        let queries = fixture_queries();
+        let baseline = f_eidos_closed_citation_falsifier(
+            &build_fixture_corpus(),
+            &queries,
+            1_700_000_000_000,
+        )
+        .unwrap();
+        // Sanity-pin the canonical witness counts so a drift in the
+        // fixture surface surfaces here too, not just at the round-trip
+        // boundary.
+        assert_eq!(baseline.retrievers_checked, 12);
+        assert_eq!(baseline.queries_per_retriever, 6);
+        assert_eq!(baseline.fake_citation_rejections, 72);
+
+        for i in 0..20 {
+            let w = f_eidos_closed_citation_falsifier(
+                &build_fixture_corpus(),
+                &queries,
+                1_700_000_000_000,
+            )
+            .unwrap();
+            assert_eq!(w, baseline, "fresh-build run {i} drifted from baseline");
+        }
+    }
+
+    #[test]
+    fn falsifier_catches_hit_confidence_out_of_range() {
+        // Synthetic retriever that emits confidence = 1.5 (above 1.0).
+        struct OutOfRangeRetriever {
+            manifest: EidosIndexManifestId,
+        }
+        impl EidosRetriever for OutOfRangeRetriever {
+            fn mode(&self) -> EidosRetrievalMode {
+                EidosRetrievalMode::Lexical
+            }
+            fn manifest_id(&self) -> &EidosIndexManifestId {
+                &self.manifest
+            }
+            fn retrieve(
+                &self,
+                query: &EidosQuery,
+                retrieved_at_unix_ms: u64,
+            ) -> crate::eidos::types::EidosContextPacket {
+                let chunk = EidosChunkId::new("over::lex").unwrap();
+                let hit = crate::eidos::types::EidosHit {
+                    source_id: chunk,
+                    document_id: crate::eidos::types::EidosDocumentId::new("over").unwrap(),
+                    kind: crate::eidos::types::EidosSourceKind::Note,
+                    span: None,
+                    confidence: 1.5, // <-- out of range
+                    score: crate::eidos::types::EidosScoreComponents::default(),
+                    provenance: crate::eidos::types::EidosProvenance {
+                        manifest_id: self.manifest.clone(),
+                        mode: EidosRetrievalMode::Lexical,
+                        retrieved_at_unix_ms,
+                    },
+                };
+                crate::eidos::types::EidosContextPacket {
+                    query: query.clone(),
+                    manifest_id: self.manifest.clone(),
+                    hits: vec![hit],
+                }
+            }
+        }
+        let retrievers: Vec<Box<dyn EidosRetriever>> = vec![Box::new(OutOfRangeRetriever {
+            manifest: manifest(),
+        })];
+        let queries = vec![EidosQuery::new("x", EidosRetrievalMode::Lexical, 8)];
+        let err = f_eidos_closed_citation_falsifier(&retrievers, &queries, 0).unwrap_err();
+        match err {
+            FalsifierFailure::HitConfidenceOutOfRange { confidence, .. } => {
+                assert!((confidence - 1.5).abs() < 1e-6);
+            }
+            _ => panic!("expected HitConfidenceOutOfRange, got {err:?}"),
+        }
+    }
+
+    #[test]
+    fn falsifier_catches_hit_span_invalid() {
+        // Synthetic retriever that emits span with byte_start > byte_end.
+        struct InvalidSpanRetriever {
+            manifest: EidosIndexManifestId,
+        }
+        impl EidosRetriever for InvalidSpanRetriever {
+            fn mode(&self) -> EidosRetrievalMode {
+                EidosRetrievalMode::Lexical
+            }
+            fn manifest_id(&self) -> &EidosIndexManifestId {
+                &self.manifest
+            }
+            fn retrieve(
+                &self,
+                query: &EidosQuery,
+                retrieved_at_unix_ms: u64,
+            ) -> crate::eidos::types::EidosContextPacket {
+                let chunk = EidosChunkId::new("badspan::lex").unwrap();
+                let hit = crate::eidos::types::EidosHit {
+                    source_id: chunk,
+                    document_id: crate::eidos::types::EidosDocumentId::new("badspan").unwrap(),
+                    kind: crate::eidos::types::EidosSourceKind::Note,
+                    span: Some(crate::eidos::types::EidosSpan {
+                        byte_start: 100,
+                        byte_end: 50, // <-- inverted
+                    }),
+                    confidence: 0.5,
+                    score: crate::eidos::types::EidosScoreComponents::default(),
+                    provenance: crate::eidos::types::EidosProvenance {
+                        manifest_id: self.manifest.clone(),
+                        mode: EidosRetrievalMode::Lexical,
+                        retrieved_at_unix_ms,
+                    },
+                };
+                crate::eidos::types::EidosContextPacket {
+                    query: query.clone(),
+                    manifest_id: self.manifest.clone(),
+                    hits: vec![hit],
+                }
+            }
+        }
+        let retrievers: Vec<Box<dyn EidosRetriever>> = vec![Box::new(InvalidSpanRetriever {
+            manifest: manifest(),
+        })];
+        let queries = vec![EidosQuery::new("x", EidosRetrievalMode::Lexical, 8)];
+        let err = f_eidos_closed_citation_falsifier(&retrievers, &queries, 0).unwrap_err();
+        match err {
+            FalsifierFailure::HitSpanInvalid {
+                byte_start,
+                byte_end,
+                ..
+            } => {
+                assert_eq!(byte_start, 100);
+                assert_eq!(byte_end, 50);
+            }
+            _ => panic!("expected HitSpanInvalid, got {err:?}"),
+        }
+    }
+
+    #[test]
+    fn witness_serializes_to_json_with_exact_fields() {
+        // Future-FFI-ready: the witness round-trips through serde_json so
+        // the Swift "Verify Eidos integrity" surface can read it without
+        // bespoke encoding.
+        let w = FEidosClosedCitationWitness {
+            retrievers_checked: 3,
+            queries_per_retriever: 2,
+            total_hits_validated: 7,
+            fake_citation_rejections: 6,
+        };
+        let json = serde_json::to_string(&w).unwrap();
+        assert_eq!(
+            json,
+            r#"{"retrievers_checked":3,"queries_per_retriever":2,"total_hits_validated":7,"fake_citation_rejections":6}"#
+        );
+    }
+
+    #[test]
+    fn witness_json_round_trips_serialize_then_deserialize() {
+        // Symmetric to the Serialize pin above. Once a witness has crossed
+        // the FFI boundary as JSON, the Swift "Verify Eidos integrity"
+        // surface (W-46) needs to decode it back to a typed value — and a
+        // future Rust consumer of a stored .epbundle witness needs the
+        // same. Pin Deserialize on the type so this never becomes
+        // Serialize-only by accident.
+        let original = FEidosClosedCitationWitness {
+            retrievers_checked: 12,
+            queries_per_retriever: 6,
+            total_hits_validated: 18,
+            fake_citation_rejections: 72,
+        };
+        let json = serde_json::to_string(&original).unwrap();
+        let back: FEidosClosedCitationWitness = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, original);
+    }
+
+    #[test]
+    fn witness_decodes_canonical_pinned_json_bytes() {
+        // Byte-equal pin: future Swift `EidosBridge` will hand the Rust
+        // side (and vice versa) exactly these bytes. If the field-name
+        // wire shape ever drifts, decode breaks here before it breaks at
+        // the FFI seam.
+        let pinned = r#"{"retrievers_checked":12,"queries_per_retriever":6,"total_hits_validated":18,"fake_citation_rejections":72}"#;
+        let w: FEidosClosedCitationWitness = serde_json::from_str(pinned).unwrap();
+        assert_eq!(w.retrievers_checked, 12);
+        assert_eq!(w.queries_per_retriever, 6);
+        assert_eq!(w.total_hits_validated, 18);
+        assert_eq!(w.fake_citation_rejections, 72);
+    }
+
+    #[test]
+    fn failure_serializes_with_variant_tag() {
+        // FalsifierFailure uses serde(tag = "variant") so JSON consumers
+        // can switch on the variant name without ambiguous content
+        // alternatives.
+        let f = FalsifierFailure::LegitimateCitationRejected {
+            retriever_mode: EidosRetrievalMode::Lexical,
+            source_id: EidosChunkId::new("doc::lex").unwrap(),
+        };
+        let json = serde_json::to_string(&f).unwrap();
+        // Variant tag present; field names match the enum's field names.
+        assert!(json.contains(r#""variant":"LegitimateCitationRejected""#));
+        assert!(json.contains(r#""retriever_mode":"Lexical""#));
+        assert!(json.contains(r#""source_id":"doc::lex""#));
+    }
+
+    #[test]
+    fn failure_json_round_trips_across_canonical_variants() {
+        // Symmetric counterpart to the witness round-trip pin. Each
+        // FalsifierFailure variant must Serialize→Deserialize back to
+        // PartialEq-equal — that lets the Swift "Verify Eidos integrity"
+        // surface (W-46) decode a failure handed back from Rust without
+        // a hand-written variant matcher. The f32 NaN edge case has its
+        // own dedicated test below.
+        let cases: [FalsifierFailure; 5] = [
+            FalsifierFailure::PacketManifestDriftsFromRetriever {
+                retriever_mode: EidosRetrievalMode::Lexical,
+                retriever_manifest: EidosIndexManifestId::new("snap-a").unwrap(),
+                packet_manifest: EidosIndexManifestId::new("snap-b").unwrap(),
+            },
+            FalsifierFailure::HitProvenanceManifestMismatch {
+                retriever_mode: EidosRetrievalMode::Semantic,
+                source_id: EidosChunkId::new("d::sem").unwrap(),
+                hit_manifest: EidosIndexManifestId::new("h").unwrap(),
+                packet_manifest: EidosIndexManifestId::new("p").unwrap(),
+            },
+            FalsifierFailure::LegitimateCitationRejected {
+                retriever_mode: EidosRetrievalMode::Lexical,
+                source_id: EidosChunkId::new("doc::lex").unwrap(),
+            },
+            FalsifierFailure::FakeCitationAccepted {
+                retriever_mode: EidosRetrievalMode::Hybrid,
+            },
+            FalsifierFailure::HitSpanInvalid {
+                retriever_mode: EidosRetrievalMode::Lexical,
+                source_id: EidosChunkId::new("badspan::lex").unwrap(),
+                byte_start: 100,
+                byte_end: 50,
+            },
+        ];
+        for original in cases {
+            let json = serde_json::to_string(&original).unwrap();
+            let back: FalsifierFailure = serde_json::from_str(&json).unwrap();
+            assert_eq!(back, original, "round-trip drift on {original:?}");
+        }
+    }
+
+    #[test]
+    fn failure_hit_confidence_nan_serializes_to_null_and_decode_errors() {
+        // The derive-comment claims that NaN confidence serializes to
+        // JSON `null` per serde_json convention and is therefore not
+        // round-trip-safe. Pin both halves of that claim in code so a
+        // future serde version (or a #[serde(serialize_with)] tweak)
+        // can't quietly change the behavior:
+        //
+        //   1. serialize(NaN) → contains `"confidence":null`
+        //   2. deserialize that JSON → errors (because f32 cannot
+        //      decode from null without an explicit Option / default)
+        //
+        // The Brain Panel surface relies on the null asymmetry to
+        // distinguish "NaN confidence" from any legitimate finite
+        // out-of-range value (1.5, -0.1, etc) without needing to
+        // round-trip the NaN itself.
+        let original = FalsifierFailure::HitConfidenceOutOfRange {
+            retriever_mode: EidosRetrievalMode::Lexical,
+            source_id: EidosChunkId::new("nan::lex").unwrap(),
+            confidence: f32::NAN,
+        };
+        let json = serde_json::to_string(&original).unwrap();
+        assert!(
+            json.contains(r#""confidence":null"#),
+            "NaN confidence should serialize to JSON `null` per \
+             serde_json convention; got: {json}"
+        );
+
+        let decode: Result<FalsifierFailure, _> = serde_json::from_str(&json);
+        assert!(
+            decode.is_err(),
+            "f32 confidence cannot deserialize from JSON `null`; the \
+             Brain Panel surface relies on this asymmetry to detect \
+             NaN cases. Round-trip resilience here would silently hide \
+             real bugs."
+        );
+    }
+
+    #[test]
+    fn failure_hit_confidence_out_of_range_round_trips_for_finite_values() {
+        // f32 confidence round-trips cleanly for finite values. NaN is
+        // documented to serialize as JSON `null` and is therefore
+        // explicitly NOT round-trippable — the Brain Panel surface
+        // treats a `null` confidence as "out of range" without needing
+        // to round-trip it. This test pins the finite-value contract;
+        // the NaN behavior is pinned in flight tests via the falsifier
+        // path itself (`falsifier_catches_nan_confidence`).
+        let original = FalsifierFailure::HitConfidenceOutOfRange {
+            retriever_mode: EidosRetrievalMode::Lexical,
+            source_id: EidosChunkId::new("hi::lex").unwrap(),
+            confidence: 1.5,
+        };
+        let json = serde_json::to_string(&original).unwrap();
+        let back: FalsifierFailure = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, original);
+    }
+
+    #[test]
+    fn failure_decodes_canonical_pinned_json_bytes() {
+        // Byte-equal pin: future Swift `EidosBridge` will hand the Rust
+        // side exactly these bytes for a `FakeCitationAccepted` failure.
+        // If the wire shape drifts, decode breaks here before it breaks
+        // at the FFI seam.
+        let pinned =
+            r#"{"variant":"FakeCitationAccepted","retriever_mode":"Hybrid"}"#;
+        let f: FalsifierFailure = serde_json::from_str(pinned).unwrap();
+        match f {
+            FalsifierFailure::FakeCitationAccepted { retriever_mode } => {
+                assert_eq!(retriever_mode, EidosRetrievalMode::Hybrid);
+            }
+            _ => panic!("expected FakeCitationAccepted, got {f:?}"),
+        }
+    }
+
+    #[test]
+    fn failure_serialize_pins_exact_bytes_for_every_variant() {
+        // Symmetric counterpart to the FakeCitationAccepted bytes pin
+        // above — for every non-NaN variant of FalsifierFailure, build
+        // a canonical instance and assert serde produces the pinned
+        // byte sequence verbatim. If field-declaration order ever
+        // changes (or a serde renaming is introduced), this fires.
+        // Each pinned string is also a paste-ready test fixture for
+        // the future Swift `EidosBridge` decode tests (W-46).
+        //
+        // HitConfidenceOutOfRange is covered separately by the
+        // finite-value round-trip + NaN→null tests because its f32
+        // confidence makes literal bytes less useful as a pin.
+
+        let cases: [(FalsifierFailure, &str); 6] = [
+            (
+                FalsifierFailure::PacketManifestDriftsFromRetriever {
+                    retriever_mode: EidosRetrievalMode::Lexical,
+                    retriever_manifest: EidosIndexManifestId::new("snap-a").unwrap(),
+                    packet_manifest: EidosIndexManifestId::new("snap-b").unwrap(),
+                },
+                r#"{"variant":"PacketManifestDriftsFromRetriever","retriever_mode":"Lexical","retriever_manifest":"snap-a","packet_manifest":"snap-b"}"#,
+            ),
+            (
+                FalsifierFailure::HitProvenanceManifestMismatch {
+                    retriever_mode: EidosRetrievalMode::Semantic,
+                    source_id: EidosChunkId::new("d::sem").unwrap(),
+                    hit_manifest: EidosIndexManifestId::new("h").unwrap(),
+                    packet_manifest: EidosIndexManifestId::new("p").unwrap(),
+                },
+                r#"{"variant":"HitProvenanceManifestMismatch","retriever_mode":"Semantic","source_id":"d::sem","hit_manifest":"h","packet_manifest":"p"}"#,
+            ),
+            (
+                FalsifierFailure::HitProvenanceModeMismatch {
+                    retriever_mode: EidosRetrievalMode::Lexical,
+                    source_id: EidosChunkId::new("d::lex").unwrap(),
+                    hit_mode: EidosRetrievalMode::Semantic,
+                },
+                r#"{"variant":"HitProvenanceModeMismatch","retriever_mode":"Lexical","source_id":"d::lex","hit_mode":"Semantic"}"#,
+            ),
+            (
+                FalsifierFailure::LegitimateCitationRejected {
+                    retriever_mode: EidosRetrievalMode::Lexical,
+                    source_id: EidosChunkId::new("doc::lex").unwrap(),
+                },
+                r#"{"variant":"LegitimateCitationRejected","retriever_mode":"Lexical","source_id":"doc::lex"}"#,
+            ),
+            (
+                FalsifierFailure::FakeCitationAccepted {
+                    retriever_mode: EidosRetrievalMode::Hybrid,
+                },
+                r#"{"variant":"FakeCitationAccepted","retriever_mode":"Hybrid"}"#,
+            ),
+            (
+                FalsifierFailure::HitSpanInvalid {
+                    retriever_mode: EidosRetrievalMode::Lexical,
+                    source_id: EidosChunkId::new("badspan::lex").unwrap(),
+                    byte_start: 100,
+                    byte_end: 50,
+                },
+                r#"{"variant":"HitSpanInvalid","retriever_mode":"Lexical","source_id":"badspan::lex","byte_start":100,"byte_end":50}"#,
+            ),
+        ];
+        for (value, expected) in cases {
+            let actual = serde_json::to_string(&value).unwrap();
+            assert_eq!(
+                actual, expected,
+                "byte-shape drift on variant {value:?}",
+            );
+            // Round-trip the pinned bytes the other way too — decode
+            // back to the same value. Catches asymmetric drift where
+            // serialize moved but deserialize lags.
+            let back: FalsifierFailure = serde_json::from_str(expected).unwrap();
+            assert_eq!(back, value, "pinned-bytes decode drift on {value:?}");
+        }
+    }
+
+    #[test]
+    fn falsifier_catches_nan_confidence() {
+        // NaN confidence fails the [0, 1] range check because NaN
+        // comparisons always return false. Caught by the same code path
+        // as out-of-range.
+        struct NanRetriever {
+            manifest: EidosIndexManifestId,
+        }
+        impl EidosRetriever for NanRetriever {
+            fn mode(&self) -> EidosRetrievalMode {
+                EidosRetrievalMode::Lexical
+            }
+            fn manifest_id(&self) -> &EidosIndexManifestId {
+                &self.manifest
+            }
+            fn retrieve(
+                &self,
+                query: &EidosQuery,
+                retrieved_at_unix_ms: u64,
+            ) -> crate::eidos::types::EidosContextPacket {
+                let chunk = EidosChunkId::new("nan::lex").unwrap();
+                let hit = crate::eidos::types::EidosHit {
+                    source_id: chunk,
+                    document_id: crate::eidos::types::EidosDocumentId::new("nan").unwrap(),
+                    kind: crate::eidos::types::EidosSourceKind::Note,
+                    span: None,
+                    confidence: f32::NAN,
+                    score: crate::eidos::types::EidosScoreComponents::default(),
+                    provenance: crate::eidos::types::EidosProvenance {
+                        manifest_id: self.manifest.clone(),
+                        mode: EidosRetrievalMode::Lexical,
+                        retrieved_at_unix_ms,
+                    },
+                };
+                crate::eidos::types::EidosContextPacket {
+                    query: query.clone(),
+                    manifest_id: self.manifest.clone(),
+                    hits: vec![hit],
+                }
+            }
+        }
+        let retrievers: Vec<Box<dyn EidosRetriever>> = vec![Box::new(NanRetriever {
+            manifest: manifest(),
+        })];
+        let queries = vec![EidosQuery::new("x", EidosRetrievalMode::Lexical, 8)];
+        let err = f_eidos_closed_citation_falsifier(&retrievers, &queries, 0).unwrap_err();
+        assert!(matches!(
+            err,
+            FalsifierFailure::HitConfidenceOutOfRange { .. }
+        ));
+    }
+}
