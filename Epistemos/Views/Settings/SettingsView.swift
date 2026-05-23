@@ -793,6 +793,7 @@ private struct GeneralDetailView: View {
                 EidosHealthRow()
                 VaultRecallHealthRow()
                 LatticeWBOHealthRow()
+                SystemGHealthRow()
                 CognitiveDagHealthRow()
                 // V6.2 first-rendered surface for the AnswerPacket
                 // audit channel. Read-only window onto the bounded

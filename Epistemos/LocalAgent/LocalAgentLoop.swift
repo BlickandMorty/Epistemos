@@ -268,6 +268,17 @@ actor LocalAgentLoop {
             throw LocalAgentLoopError.unsupportedModel(modelID)
         }
 
+        // Wiring #4 (T11 System G → LocalAgentLoop). When the
+        // EPISTEMOS_SYSTEM_G_V0 flag is on, every loop entry pulls the
+        // agent_runtime_v2 status from Rust and emits an os_log
+        // breadcrumb. SystemGMetrics records the read so the Settings
+        // -> Diagnostics SystemGHealthRow surfaces live mode + capability
+        // gates. No behavior change at flag off; even at flag on, MAS
+        // bundles observe `mode = disabled` per the doctrine tier-locking.
+        if SystemGFlags.isEnabled {
+            _ = SystemGBridge.status()
+        }
+
         let tools = AgentToolNameAliases.canonicalizedDefinitions(for: tools)
         let runID = Self.makeLocalAgentRunID()
         defer {
