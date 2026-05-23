@@ -112,8 +112,8 @@ impl Tool for ReasonThinkTool {
 mod tests {
     use super::*;
     use crate::grammar::{build_dispatch_grammar, schema_to_llg};
-    use crate::tools::runner::{default_ctx, run_with_variants};
-    use crate::tools::Status;
+    use crate::tools_v2::runner::{default_ctx, run_with_variants};
+    use crate::tools_v2::Status;
     use std::time::Duration;
 
     #[tokio::test]
@@ -157,8 +157,8 @@ mod tests {
 
         // Re-validate the output against output_schema explicitly to
         // close the loop (the runner already did this internally).
-        let validator = crate::tools::runner::JsonSchemaValidator;
-        use crate::tools::SchemaValidator;
+        let validator = crate::tools_v2::runner::JsonSchemaValidator;
+        use crate::tools_v2::SchemaValidator;
         validator
             .validate(ReasonThinkTool.output_schema(), &r.result)
             .expect("runner output must satisfy output_schema");
@@ -206,8 +206,8 @@ mod tests {
         // them in the first place.
         let oversized = "x".repeat(281);
         let bad_input = json!({"thought": oversized});
-        let validator = crate::tools::runner::JsonSchemaValidator;
-        use crate::tools::SchemaValidator;
+        let validator = crate::tools_v2::runner::JsonSchemaValidator;
+        use crate::tools_v2::SchemaValidator;
         let r = validator.validate(ReasonThinkTool.input_schema(), &bad_input);
         assert!(r.is_err(), "281-char thought must fail input schema");
     }

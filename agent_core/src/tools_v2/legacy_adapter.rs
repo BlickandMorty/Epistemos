@@ -145,8 +145,8 @@ pub fn generic_text_or_object_output_schema() -> &'static Value {
 mod tests {
     use super::*;
     use crate::tools::registry::ToolError;
-    use crate::tools::runner::{default_ctx, run_with_variants};
-    use crate::tools::Status;
+    use crate::tools_v2::runner::{default_ctx, run_with_variants};
+    use crate::tools_v2::Status;
     use std::sync::OnceLock;
     use std::time::Duration;
 

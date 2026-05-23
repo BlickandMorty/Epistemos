@@ -558,7 +558,7 @@ mod tests {
         // Plan §1.6: action.* tools are Pro-only and never ship in the
         // App Store dispatch grammar. This invariant lives at the SPEC
         // level — Phase 3+ dispatch construction filters by profile.
-        use crate::tools::Profile;
+        use crate::tools_v2::Profile;
         assert_eq!(
             super::action_bash::SPEC.profile,
             Profile::ProOnly,
