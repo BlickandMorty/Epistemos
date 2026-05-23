@@ -1,0 +1,48 @@
+import Foundation
+import Testing
+@testable import Epistemos
+
+// Wiring #6 (T18B ACS dispatch admission gate) Swift integration test.
+// Status-read only per HIGH RISK guidance — no production gating
+// invoked from this test.
+
+@Suite("ACS Admission Wiring #6")
+struct ACSAdmissionWiringTests {
+
+    @Test("ACSAdmissionBridge.strictPolicySummary returns canonical shape")
+    func acsAdmissionBridgeReturnsPolicy() throws {
+        ACSAdmissionMetrics.shared.reset()
+
+        let summary = try #require(ACSAdmissionBridge.strictPolicySummary())
+        #expect(summary.policyId == "acs-strict-default")
+        #expect(summary.version >= 1)
+        #expect(summary.capabilityRulesCount >= 5,
+                "strict default must require at least 5 capabilities")
+        #expect(summary.canonicalVerdicts.count == 5)
+        #expect(summary.canonicalVerdicts.contains("allow"))
+        #expect(summary.canonicalVerdicts.contains("reject"))
+    }
+
+    @Test("ACSAdmissionMetrics records the read")
+    func acsAdmissionMetricsRecordsRead() throws {
+        ACSAdmissionMetrics.shared.reset()
+        _ = try #require(ACSAdmissionBridge.strictPolicySummary())
+        let snap = ACSAdmissionMetrics.shared.snapshot()
+        #expect(snap.totalReads == 1)
+        #expect(snap.lastPolicy != nil)
+        #expect(snap.lastReadAt != nil)
+    }
+
+    @Test("ACSAdmissionFlags reads UserDefaults + env fallback")
+    func acsAdmissionFlagsToggle() {
+        let saved = UserDefaults.standard.bool(forKey: ACSAdmissionFlags.userDefaultsKey)
+        defer { UserDefaults.standard.set(saved, forKey: ACSAdmissionFlags.userDefaultsKey) }
+        UserDefaults.standard.set(false, forKey: ACSAdmissionFlags.userDefaultsKey)
+        let envIsSet = ProcessInfo.processInfo.environment[ACSAdmissionFlags.userDefaultsKey] == "1"
+        if !envIsSet {
+            #expect(!ACSAdmissionFlags.isEnabled)
+        }
+        UserDefaults.standard.set(true, forKey: ACSAdmissionFlags.userDefaultsKey)
+        #expect(ACSAdmissionFlags.isEnabled)
+    }
+}

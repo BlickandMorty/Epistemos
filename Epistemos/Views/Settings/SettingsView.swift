@@ -795,6 +795,7 @@ private struct GeneralDetailView: View {
                 LatticeWBOHealthRow()
                 SystemGHealthRow()
                 FUlpHealthRow()
+                ACSAdmissionHealthRow()
                 CognitiveDagHealthRow()
                 // V6.2 first-rendered surface for the AnswerPacket
                 // audit channel. Read-only window onto the bounded
