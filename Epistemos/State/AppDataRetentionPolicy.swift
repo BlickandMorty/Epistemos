@@ -1,6 +1,10 @@
 import Foundation
 
-enum AppDataRetentionPolicy {
+// 2026-05-23: explicit `nonisolated` because the Epistemos target has
+// `.defaultIsolation(MainActor.self)` and this is a pure-value computation
+// over UserDefaults — needs to be callable from background queues (SQLite
+// retention sweeps inside EventStore.saveSnapshot, etc.).
+nonisolated enum AppDataRetentionPolicy {
     static let timeMachineRetentionDaysKey = "epistemos.retention.timeMachineDays"
     static let timeMachineMaxSnapshotsKey = "epistemos.retention.timeMachineMaxSnapshots"
     static let eventLogRetentionDaysKey = "epistemos.retention.eventLogDays"
