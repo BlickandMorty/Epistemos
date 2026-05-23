@@ -53,7 +53,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::provenance::ledger::{Claim, ClaimKind};
+use crate::provenance::ledger::{Claim, ClaimKind, ClaimStatus};
 
 // ---------------------------------------------------------------------------
 // Identity
@@ -204,6 +204,7 @@ impl Default for AttentionMode {
 /// type. Consumed by [`crate::scope_rex::residency`] (NEW, lands per
 /// W4).
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ResidencySignal {
     pub safety_risk: f32,
     pub privacy: f32,
@@ -244,6 +245,7 @@ impl ResidencySignal {
 /// DOC 1 §1.2. V6.1 adds `attention_mode` as a strictly additive
 /// audit field so fallback execution is never silent.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AnswerPacket {
     pub id: AnswerPacketId,
     pub claims: Vec<Claim>,
@@ -324,7 +326,7 @@ impl AnswerPacket {
 
         self.claims
             .iter()
-            .any(|claim| claim.kind == ClaimKind::StaticFallbackAcknowledged)
+            .any(is_active_static_fallback_acknowledgement)
     }
 
     /// True when the `attention_mode` field and its audit claims do
@@ -335,7 +337,7 @@ impl AnswerPacket {
         let has_static_fallback_acknowledgement = self
             .claims
             .iter()
-            .any(|claim| claim.kind == ClaimKind::StaticFallbackAcknowledged);
+            .any(is_active_static_fallback_acknowledgement);
 
         match self.attention_mode {
             AttentionMode::StaticFallback => has_static_fallback_acknowledgement,
@@ -344,6 +346,10 @@ impl AnswerPacket {
             }
         }
     }
+}
+
+fn is_active_static_fallback_acknowledgement(claim: &Claim) -> bool {
+    claim.status == ClaimStatus::Active && claim.kind == ClaimKind::StaticFallbackAcknowledged
 }
 
 // ---------------------------------------------------------------------------

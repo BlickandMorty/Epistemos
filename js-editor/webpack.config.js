@@ -76,6 +76,8 @@ module.exports = (_env, argv) => ({
                   url.startsWith('/assets/')
                   || url === '/CoralPixels-Regular.ttf'
                   || url === '/RetroGaming.ttf'
+                  || url === '/ChonkyPixels.ttf'
+                  || url === '/MatrixtypeDisplay-9MyE5.ttf'
                 ),
               },
             },

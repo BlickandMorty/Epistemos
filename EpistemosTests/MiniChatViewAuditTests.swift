@@ -41,9 +41,13 @@ struct MiniChatViewAuditTests {
         #expect(viewSource.contains("@State private var appliedInitialContextAttachment = false"))
         #expect(viewSource.contains("applyInitialContextAttachmentIfNeeded()"))
         #expect(viewSource.contains("threadState.addMiniChatContextAttachment(initialContextAttachment, chatID: chatID)"))
-        #expect(controllerSource.contains("activeEpdocAttachment() ?? activeNoteAttachment(in: bootstrap)"))
+        #expect(controllerSource.contains("resolvedAttachment = activeEpdocAttachment()"))
+        #expect(controllerSource.contains("?? activeGraphNoteAttachment(in: bootstrap)"))
+        #expect(controllerSource.contains("?? activeNoteAttachment(in: bootstrap)"))
         #expect(controllerSource.contains("activeNoteAttachment(in: bootstrap)"))
         #expect(controllerSource.contains("ComposerReferenceHelpers.fileContextAttachment("))
+        #expect(controllerSource.contains("activeGraphNoteAttachment(in: bootstrap)"))
+        #expect(controllerSource.contains("case .note(let pageID) = bootstrap.graphState.currentRoute"))
         #expect(controllerSource.contains("MiniChatView(chatID: chatID, initialContextAttachment: initialContextAttachment)"))
     }
 
@@ -60,7 +64,9 @@ struct MiniChatViewAuditTests {
         #expect(noteWorkspaceSource.contains("MiniChatWindowController.shared.openNewChat(attaching: noteChatContextAttachment)"))
 
         #expect(controllerSource.contains("func openNewChat(attaching attachment: ContextAttachment? = nil)"))
-        #expect(controllerSource.contains("resolvedAttachment = activeEpdocAttachment() ?? activeNoteAttachment(in: bootstrap)"))
+        #expect(controllerSource.contains("resolvedAttachment = activeEpdocAttachment()"))
+        #expect(controllerSource.contains("?? activeGraphNoteAttachment(in: bootstrap)"))
+        #expect(controllerSource.contains("?? activeNoteAttachment(in: bootstrap)"))
         #expect(controllerSource.contains("openChat(UUID().uuidString, initialContextAttachment: resolvedAttachment)"))
         #expect(controllerSource.contains("let view = MiniChatView(chatID: chatID, initialContextAttachment: initialContextAttachment)"))
 

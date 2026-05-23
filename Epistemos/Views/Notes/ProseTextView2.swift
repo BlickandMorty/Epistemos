@@ -42,6 +42,12 @@ final class ScrollWorkCoalescer {
 // Structural paragraph styling is provided by MarkdownContentStorage.
 
 final class ProseTextView2: NSTextView {
+    /// When true, the text view stays fully transparent regardless of
+    /// the active theme so a surrounding frosted-glass surface (e.g.
+    /// the graph inline note view's `unifiedFrostedGlass`) shows
+    /// through. Set by `ProseEditorRepresentable2.applyEditorBackgroundMode`
+    /// when its `usesTransparentEditorBackground` flag is on.
+    var usesTransparentBackground: Bool = false
     private nonisolated static let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     private nonisolated static let log = Logger(subsystem: "com.epistemos", category: "ProseTextView2")
     private var requestedTheme: EpistemosTheme = .nativeDefault
@@ -274,8 +280,17 @@ final class ProseTextView2: NSTextView {
 
     private func applyResolvedTheme(_ theme: EpistemosTheme) {
         let foreground = theme.resolved.foreground.nsColor
-        drawsBackground = !theme.followsSystemAppearance
-        backgroundColor = Self.editorBackgroundColor(for: theme)
+        // 2026-05-19: when the editor is hosted in a transparent context
+        // (graph inline note view, etc.) keep the text view fully see-through
+        // regardless of theme so the surrounding `unifiedFrostedGlass` shows
+        // through. Otherwise honor the per-theme opaque-background rule.
+        if usesTransparentBackground {
+            drawsBackground = false
+            backgroundColor = .clear
+        } else {
+            drawsBackground = !theme.followsSystemAppearance
+            backgroundColor = Self.editorBackgroundColor(for: theme)
+        }
         insertionPointColor = foreground
         textColor = foreground
 

@@ -134,6 +134,14 @@ enum NoteToolbarDisplay {
     static let hidesMenuIndicators = true
 }
 
+enum NoteWorkspacePresentation: Equatable {
+    case window
+    case embeddedGraph
+
+    var usesWindowToolbar: Bool { self == .window }
+    var usesGraphEmbeddedChrome: Bool { self == .embeddedGraph }
+}
+
 enum NoteWorkspaceSurfaceStyle {
     static let minimumEditorSize = CGSize(width: 400, height: 300)
     static let editorCornerRadius: CGFloat = 26
@@ -141,6 +149,8 @@ enum NoteWorkspaceSurfaceStyle {
     static let horizontalPadding: CGFloat = 28
     static let topPadding: CGFloat = 24
     static let bottomPadding: CGFloat = 72
+    static let graphEmbeddedEditorTopSpacing: CGFloat =
+        NoteDualPreviewLayout.outerPadding.top + NotePreviewChromeMetrics.fallbackSingleTopInset
 
     static func canvasBackground(for theme: EpistemosTheme) -> Color {
         // Eighth pass + 1 (2026-05-13): paint the workspace canvas
@@ -572,6 +582,7 @@ enum NoteToolbarGlyph: Sendable {
 
 struct NoteDetailWorkspaceView: View {
     let pageId: String
+    let presentation: NoteWorkspacePresentation
 
     @Environment(NoteNavigationState.self) private var navState: NoteNavigationState?
     @Environment(GraphState.self) private var graphState
@@ -584,6 +595,7 @@ struct NoteDetailWorkspaceView: View {
     @Environment(ContextualShadowsState.self) private var contextualShadows
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.graphSurfacePresentation) private var graphSurfacePresentation
     @Query private var pages: [SDPage]
     @State private var showDiffSheet = false
     @State private var showInfoPopover = false
@@ -632,8 +644,9 @@ struct NoteDetailWorkspaceView: View {
     @AppStorage("epistemos.noteChatOperatingMode")
     private var noteChatOperatingModeRaw = EpistemosOperatingMode.fast.rawValue
     @MainActor
-    init(pageId: String) {
+    init(pageId: String, presentation: NoteWorkspacePresentation = .window) {
         self.pageId = pageId
+        self.presentation = presentation
         _pages = Query(filter: #Predicate<SDPage> { $0.id == pageId })
         _noteChatState = State(initialValue: NoteChatState(pageId: pageId))
         _persistedBody = State(initialValue: NoteWindowManager.shared.currentBody(for: pageId))
@@ -678,6 +691,10 @@ struct NoteDetailWorkspaceView: View {
         )
     }
 
+    private var usesOverlayGraphToolbar: Bool {
+        presentation.usesGraphEmbeddedChrome && !graphSurfacePresentation.isEmbeddedHome
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             noteCanvas
@@ -686,19 +703,41 @@ struct NoteDetailWorkspaceView: View {
         .background {
             NoteWorkspaceSurfaceStyle.canvasBackground(for: ui.theme).ignoresSafeArea()
         }
+        .overlay(alignment: .top) {
+            if usesOverlayGraphToolbar, let page = pages.first {
+                overlayGraphEmbeddedToolbar(page: page)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 14)
+                    .zIndex(20)
+            }
+        }
         .toolbar {
-            if let nav = navState, nav.hasBreadcrumb {
+            if presentation.usesWindowToolbar {
+                if let nav = navState, nav.hasBreadcrumb {
+                    ToolbarItem(placement: .navigation) {
+                        wikilinksNavButtons(nav: nav)
+                    }
+                }
+                if !isCodeFile {
+                    ToolbarItem(placement: .principal) {
+                        noteToolbarAskItem
+                    }
+                }
+                ToolbarItemGroup(placement: .primaryAction) {
+                    noteToolbarPrimaryActions
+                }
+            } else if presentation.usesGraphEmbeddedChrome, pages.first != nil, !usesOverlayGraphToolbar {
                 ToolbarItem(placement: .navigation) {
-                    wikilinksNavButtons(nav: nav)
+                    graphToolbarNavigationControls
                 }
-            }
-            if !isCodeFile {
-                ToolbarItem(placement: .principal) {
-                    noteToolbarAskItem
+                if let page = pages.first {
+                    ToolbarItem(placement: .principal) {
+                        graphEmbeddedToolbarTitle(page)
+                    }
                 }
-            }
-            ToolbarItemGroup(placement: .primaryAction) {
-                noteToolbarPrimaryActions
+                ToolbarItemGroup(placement: .primaryAction) {
+                    noteToolbarPrimaryActions
+                }
             }
         }
         .preferredColorScheme(ui.preferredColorScheme)
@@ -1147,27 +1186,39 @@ struct NoteDetailWorkspaceView: View {
 
     @ViewBuilder
     private func noteEditorSurface(page: SDPage, availableSize: CGSize) -> some View {
-        if let path = page.filePath,
-           let lang = CodeLanguage.detect(from: path) {
-            CodeEditorView(
-                content: cachedCodeFileContent(page: page, filePath: path),
-                language: lang,
-                filePath: path,
-                onContentChange: { newContent in
-                    saveCodeFileContent(page: page, filePath: path, content: newContent)
-                }
-            )
-            .id("\(page.id)::\(path)")
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        } else {
-            let initialBodyOverride = currentModeBodySnapshot(for: page.id)
-            ProseEditorView(
-                page: page,
-                isEditable: true,
-                initialBodyOverride: initialBodyOverride
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        Group {
+            if let path = page.filePath,
+               let lang = CodeLanguage.detect(from: path) {
+                CodeEditorView(
+                    content: cachedCodeFileContent(page: page, filePath: path),
+                    language: lang,
+                    filePath: path,
+                    onContentChange: { newContent in
+                        saveCodeFileContent(page: page, filePath: path, content: newContent)
+                    }
+                )
+                .id("\(page.id)::\(path)")
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            } else {
+                let initialBodyOverride = currentModeBodySnapshot(for: page.id)
+                ProseEditorView(
+                    page: page,
+                    isEditable: true,
+                    initialBodyOverride: initialBodyOverride,
+                    navigationContext: presentation.usesGraphEmbeddedChrome ? .graph : .notes
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            }
         }
+        .padding(
+            .top,
+            usesOverlayGraphToolbar ? NoteWorkspaceSurfaceStyle.graphEmbeddedEditorTopSpacing : 0
+        )
+        .frame(
+            maxWidth: .infinity,
+            maxHeight: .infinity,
+            alignment: .topLeading
+        )
     }
     
     /// Saves code file content back to disk and updates associated page state
@@ -1247,10 +1298,11 @@ struct NoteDetailWorkspaceView: View {
                     ? (NoteToolbarGlyph.edit.symbolName ?? "pencil")
                     : (NoteToolbarGlyph.preview.symbolName ?? "eye")
             )
+            .labelStyle(.iconOnly)
         }
         .help(showPreview ? "Editor (\u{2318}E)" : "Preview (\u{2318}E)")
 
-        if !showPreview {
+        if !showPreview && !presentation.usesGraphEmbeddedChrome {
             Button {
                 showChatSidebar.toggle()
             } label: {
@@ -1272,6 +1324,78 @@ struct NoteDetailWorkspaceView: View {
         moreMenu
     }
 
+    private var graphToolbarNavigationControls: some View {
+        HStack(spacing: 6) {
+            Button {
+                graphState.goBack()
+            } label: {
+                Label("Back", systemImage: "chevron.backward")
+                    .labelStyle(.iconOnly)
+            }
+            .disabled(!graphState.canGoBack)
+            .accessibilityLabel("Back")
+            .help("Back")
+
+            Button {
+                graphState.goForward()
+            } label: {
+                Label("Forward", systemImage: "chevron.forward")
+                    .labelStyle(.iconOnly)
+            }
+            .disabled(!graphState.canGoForward)
+            .accessibilityLabel("Forward")
+            .help("Forward")
+
+            Button {
+                graphState.returnToCanvas()
+            } label: {
+                Label("Canvas", systemImage: "circle.grid.3x3.fill")
+                    .labelStyle(.titleAndIcon)
+            }
+            .help("Return to graph canvas")
+        }
+    }
+
+    private func graphEmbeddedToolbarTitle(_ page: SDPage) -> some View {
+        GraphEmbeddedToolbarTitle(
+            title: NoteTitleDisplay.resolvedTitle(page.title),
+            theme: ui.theme
+        )
+    }
+
+    private func overlayGraphEmbeddedToolbar(page: SDPage) -> some View {
+        HStack(spacing: 12) {
+            graphToolbarNavigationControls
+
+            Spacer(minLength: 12)
+
+            graphEmbeddedToolbarTitle(page)
+
+            Spacer(minLength: 12)
+
+            HStack(spacing: 8) {
+                noteToolbarPrimaryActions
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 44)
+        .frame(maxWidth: 900)
+        .unifiedFrostedGlass(
+            theme: ui.theme,
+            in: Capsule(),
+            extraDarkenOnDark: true,
+            interactive: true,
+            nativeGlass: true
+        )
+        .shadow(
+            color: Color.black.opacity(ui.theme.isDark ? 0.26 : 0.10),
+            radius: 14,
+            y: 8
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Graph note toolbar")
+    }
+
     // MARK: - Wikilink Navigation
 
     @ViewBuilder
@@ -1290,6 +1414,29 @@ struct NoteDetailWorkspaceView: View {
                 Image(systemName: "chevron.right")
             }
             .disabled(!nav.canGoForward)
+        }
+    }
+
+    private struct GraphEmbeddedToolbarTitle: View {
+        let title: String
+        let theme: EpistemosTheme
+
+        private var titleFont: Font {
+            .system(size: 18, weight: .semibold, design: .rounded)
+        }
+
+        private var titleWidth: CGFloat {
+            min(max(CGFloat(title.count) * 9.6 + 44, 132), 420)
+        }
+
+        var body: some View {
+            Text(title)
+                .font(titleFont)
+                .foregroundStyle(theme.textPrimary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            .frame(width: titleWidth)
+            .accessibilityLabel(title)
         }
     }
 
@@ -1773,7 +1920,9 @@ struct NoteDetailWorkspaceView: View {
         }()
 
         if let existing {
-            if let navState {
+            if presentation.usesGraphEmbeddedChrome {
+                graphState.openNote(existing.id)
+            } else if let navState {
                 navState.push(pageId: existing.id, title: existing.title)
             } else {
                 NoteWindowManager.shared.open(pageId: existing.id)
@@ -1784,7 +1933,9 @@ struct NoteDetailWorkspaceView: View {
                     title: trimmed,
                     allowVaultSelectionPrompt: true
                 ) {
-                    if let navState {
+                    if presentation.usesGraphEmbeddedChrome {
+                        graphState.openNote(newId)
+                    } else if let navState {
                         navState.push(pageId: newId, title: trimmed)
                     } else {
                         NoteWindowManager.shared.open(pageId: newId)
@@ -2114,7 +2265,8 @@ struct NoteDetailWorkspaceView: View {
             Divider()
 
         } label: {
-            Label("More", systemImage: NoteToolbarGlyph.more.symbolName ?? "ellipsis.circle")
+            Image(systemName: NoteToolbarGlyph.more.symbolName ?? "ellipsis.circle")
+                .accessibilityLabel("More")
         }
         .menuIndicator(.hidden)
         .popover(isPresented: $showBacklinksPopover, arrowEdge: .bottom) {
@@ -2124,7 +2276,11 @@ struct NoteDetailWorkspaceView: View {
                     pageId: page.id,
                     onNavigate: { targetId in
                         showBacklinksPopover = false
-                        navState?.push(pageId: targetId, title: "")
+                        if presentation.usesGraphEmbeddedChrome {
+                            graphState.openNote(targetId)
+                        } else {
+                            navState?.push(pageId: targetId, title: "")
+                        }
                     },
                     graphState: graphState
                 )

@@ -51,14 +51,42 @@ struct TypewriterPlainText: View {
     }
 }
 
-// MARK: - Streaming Haptic Helper
+// MARK: - Haptic Helpers
 // Fire-and-forget haptic pulse — used by ChatState's streaming token flush
 // to give subtle feedback as tokens arrive.
+
+enum HomeCommandHapticStyle: Sendable {
+    case search
+    case capture
+    case workspace
+    case save
+    case timeMachine
+    case notes
+    case newNote
+    case miniChat
+    case document
+    case graph
+}
 
 enum HapticHelper {
     @MainActor
     private static func perform(_ pattern: NSHapticFeedbackManager.FeedbackPattern) {
         NSHapticFeedbackManager.defaultPerformer.perform(pattern, performanceTime: .now)
+    }
+
+    @MainActor
+    private static func performDelayed(
+        _ pattern: NSHapticFeedbackManager.FeedbackPattern,
+        after delay: Duration
+    ) {
+        Task { @MainActor in
+            do {
+                try await Task.sleep(for: delay)
+            } catch {
+                return
+            }
+            perform(pattern)
+        }
     }
 
     @MainActor
@@ -74,6 +102,43 @@ enum HapticHelper {
     @MainActor
     static func softPump() {
         perform(.levelChange)
+    }
+
+    @MainActor
+    static func homeCommand(_ style: HomeCommandHapticStyle) {
+        switch style {
+        case .search:
+            perform(.alignment)
+            performDelayed(.levelChange, after: .milliseconds(70))
+        case .capture:
+            perform(.generic)
+        case .workspace:
+            perform(.levelChange)
+        case .save:
+            perform(.alignment)
+            performDelayed(.alignment, after: .milliseconds(55))
+        case .timeMachine:
+            perform(.levelChange)
+            performDelayed(.generic, after: .milliseconds(80))
+        case .notes:
+            perform(.generic)
+        case .newNote:
+            perform(.alignment)
+        case .miniChat:
+            perform(.generic)
+            performDelayed(.alignment, after: .milliseconds(60))
+        case .document:
+            perform(.levelChange)
+            performDelayed(.alignment, after: .milliseconds(65))
+        case .graph:
+            perform(.levelChange)
+            performDelayed(.levelChange, after: .milliseconds(75))
+        }
+    }
+
+    @MainActor
+    static func graphControl() {
+        perform(.alignment)
     }
 
     /// Fires a single alignment haptic on the Force Touch trackpad.

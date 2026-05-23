@@ -55,12 +55,9 @@ struct CompanionCreationFlow: View {
             footer
         }
         .frame(width: 520)
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(theme.resolved.accent.color.opacity(0.20), lineWidth: 0.6)
-        )
+        .foregroundStyle(theme.resolved.foreground.color)
+        .pixelPanel(theme: theme)
+        .settingsAppleCardChrome(theme: theme, accent: theme.resolved.accent.color)
     }
 
     // MARK: - Header / Footer
@@ -70,13 +67,11 @@ struct CompanionCreationFlow: View {
             Image(systemName: "person.crop.circle.badge.plus")
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(theme.resolved.accent.color)
-                Text("New Agent")
-                .font(.system(size: 14, weight: .bold, design: .monospaced))
-                .foregroundStyle(theme.textPrimary)
+            PixelPanelTitle(text: "New Agent", theme: theme, size: 15)
             Spacer()
             HStack(spacing: 6) {
                 ForEach(0..<4) { idx in
-                    Circle()
+                    Rectangle()
                         .fill(idx == step
                               ? theme.resolved.accent.color
                               : theme.textTertiary.opacity(0.25))
@@ -116,9 +111,7 @@ struct CompanionCreationFlow: View {
                     .font(.system(size: 12, weight: .semibold))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 7)
-                    .background(
-                        Capsule().fill(theme.resolved.accent.color.opacity(canAdvance ? 0.15 : 0.06))
-                    )
+                    .background(theme.resolved.accent.color.opacity(canAdvance ? 0.15 : 0.06), in: Rectangle())
                     .foregroundStyle(canAdvance
                                      ? theme.resolved.accent.color
                                      : theme.textTertiary)
@@ -136,7 +129,7 @@ struct CompanionCreationFlow: View {
                     .font(.system(size: 12, weight: .semibold))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 7)
-                    .background(Capsule().fill(theme.resolved.accent.color))
+                    .background(theme.resolved.accent.color, in: Rectangle())
                     .foregroundStyle(.white)
                 }
                 .buttonStyle(.plain)
@@ -198,16 +191,17 @@ struct CompanionCreationFlow: View {
                         .padding(.vertical, 12)
                         .padding(.horizontal, 8)
                         .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            Rectangle()
                                 .fill(bodyKind == kind
-                                      ? theme.resolved.accent.color.opacity(0.10)
-                                      : theme.resolved.foreground.color.opacity(0.04))
+                                      ? theme.resolved.accent.color.opacity(theme.isDark ? 0.13 : 0.10)
+                                      : PixelPanelBackground.actionSurface(for: theme))
                         )
                         .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            Rectangle()
                                 .stroke(bodyKind == kind
-                                        ? theme.resolved.accent.color.opacity(0.40)
-                                        : .clear, lineWidth: 1)
+                                        ? theme.resolved.accent.color.opacity(theme.isDark ? 0.34 : 0.40)
+                                        : theme.textTertiary.opacity(theme.isDark ? 0.16 : 0.22),
+                                        lineWidth: theme.isDark ? 0.75 : 1)
                         )
                     }
                     .buttonStyle(.plain)
@@ -224,14 +218,22 @@ struct CompanionCreationFlow: View {
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .foregroundStyle(theme.textTertiary)
                 TextField("", text: $name, prompt: Text("e.g. Scout, Quill, Nova"))
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(.plain)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(PixelPanelBackground.actionSurface(for: theme), in: Rectangle())
+                    .overlay(Rectangle().stroke(theme.textTertiary.opacity(theme.isDark ? 0.18 : 0.26), lineWidth: theme.isDark ? 0.75 : 1))
             }
             VStack(alignment: .leading, spacing: 6) {
                 Text("Role (optional)")
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .foregroundStyle(theme.textTertiary)
                 TextField("", text: $tagline, prompt: Text("e.g. \"careful code reviewer\""))
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(.plain)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(PixelPanelBackground.actionSurface(for: theme), in: Rectangle())
+                    .overlay(Rectangle().stroke(theme.textTertiary.opacity(theme.isDark ? 0.18 : 0.26), lineWidth: theme.isDark ? 0.75 : 1))
             }
         }
     }
@@ -249,7 +251,7 @@ struct CompanionCreationFlow: View {
                             accentHex = preset.hex
                         } label: {
                             HStack(spacing: 7) {
-                                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                Rectangle()
                                     .fill(Color(hex: preset.hex) ?? .gray)
                                     .frame(width: 18, height: 18)
                                 Text(preset.name)
@@ -282,9 +284,10 @@ struct CompanionCreationFlow: View {
                     .frame(minHeight: 80, maxHeight: 120)
                     .padding(6)
                     .background(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(theme.resolved.foreground.color.opacity(0.04))
+                        Rectangle()
+                            .fill(PixelPanelBackground.actionSurface(for: theme))
                     )
+                    .overlay(Rectangle().stroke(theme.textTertiary.opacity(theme.isDark ? 0.18 : 0.26), lineWidth: theme.isDark ? 0.75 : 1))
             }
         }
     }
