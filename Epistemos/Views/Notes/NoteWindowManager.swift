@@ -231,7 +231,11 @@ final class NoteWindowManager {
     static let shared = NoteWindowManager()
     static let noteTabbingIdentifier = "epistemos-note-tabs"
     static let noteDefaultFrameSize = NSSize(width: 1110, height: 740)
-    static let noteMinimumFrameSize = NSSize(width: 960, height: 620)
+    // 2026-05-19: dropped from 960×620 → 400×300 per user direction so
+    // opening a note doesn't force the window to grow. Users can now
+    // resize note windows freely; the inner SwiftUI surface declares its
+    // own 400×300 fallback (NoteDetailWorkspaceView).
+    static let noteMinimumFrameSize = NSSize(width: 400, height: 300)
 
     // All note windows — one per page, displayed as tabs
     private var windows: [String: NSWindow] = [:]

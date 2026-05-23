@@ -585,18 +585,28 @@ struct GraphForceSettings: View {
         VStack(alignment: .leading, spacing: 10) {
             sectionHeader("Startup Scheduler", icon: "timer")
 
-            Picker("Mode", selection: gs.schedulerMode) {
-                Text("Simple").tag(PhysicsSchedulerMode.simple)
-                Text("Timeline").tag(PhysicsSchedulerMode.timeline)
-            }
-            .pickerStyle(.segmented)
-            .controlSize(.small)
-            .onChange(of: graphState.schedulerMode) { graphState.pushSchedulerChange() }
+            // 2026-05-19: master enable toggle. When OFF, the scheduler
+            // does not run on graph open, so the user's saved physics
+            // settings are honored as-is. Off by default per user spec.
+            Toggle("Enable startup scheduler", isOn: gs.schedulerEnabled)
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .help("When off, the graph opens with your saved physics settings and does not auto-apply an opening preset.")
 
-            if graphState.schedulerMode == .simple {
-                schedulerSimpleControls(gs: gs)
-            } else {
-                schedulerTimelineControls(gs: gs)
+            if graphState.schedulerEnabled {
+                Picker("Mode", selection: gs.schedulerMode) {
+                    Text("Simple").tag(PhysicsSchedulerMode.simple)
+                    Text("Timeline").tag(PhysicsSchedulerMode.timeline)
+                }
+                .pickerStyle(.segmented)
+                .controlSize(.small)
+                .onChange(of: graphState.schedulerMode) { graphState.pushSchedulerChange() }
+
+                if graphState.schedulerMode == .simple {
+                    schedulerSimpleControls(gs: gs)
+                } else {
+                    schedulerTimelineControls(gs: gs)
+                }
             }
 
             Divider().opacity(0.3)

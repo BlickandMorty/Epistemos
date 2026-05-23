@@ -31,13 +31,16 @@ struct GraphNotePage: View {
 
     var body: some View {
         if let page = pages.first {
-            ZStack {
-                Color.clear
-                    .allowsHitTesting(false)
-                ProseEditorView(page: page, navigationContext: .graph)
-                    .environment(noteChatState)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
+            // 2026-05-19 — per user direction: the graph inline note view
+            // should be visually identical to the rest of the graph chrome.
+            // That means NO background of its own: in normal graph mode the
+            // window's HUD blur shows through, and in experimental mode the
+            // transparent window shows the desktop directly. The ProseEditor
+            // text view itself is already transparent via
+            // `usesTransparentEditorBackground: navigationContext == .graph`.
+            ProseEditorView(page: page, navigationContext: .graph)
+                .environment(noteChatState)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             notFoundFallback
         }

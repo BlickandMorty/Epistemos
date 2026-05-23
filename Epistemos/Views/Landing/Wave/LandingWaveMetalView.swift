@@ -47,7 +47,15 @@ struct LandingWaveMetalView: NSViewRepresentable {
         view.clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
         view.isPaused = true
         view.enableSetNeedsDisplay = false
-        view.preferredFramesPerSecond = 60
+        // 2026-05-20: removed the hardcoded 60Hz cap on the initial
+        // MTKView config. The CADisplayLink that actually drives the
+        // wave is configured separately (see LandingWaveMetalView's
+        // displayLink path) and respects LandingWavePerformancePolicy.
+        // Leaving `preferredFramesPerSecond` at the default (0 = use
+        // display's native refresh rate) lets ProMotion drive the
+        // bootstrap render at 120Hz instead of clamping every wave
+        // bootstrap to 60.
+        view.preferredFramesPerSecond = 0
         view.layer?.isOpaque = false
         view.autoResizeDrawable = true
 

@@ -890,6 +890,13 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
     private var didTeardown = false
     private static let showQuitDialogKey = "epistemos.showSaveOnQuitDialog"
 
+    /// Local keyDown monitor for ⌘G that toggles the graph overlay even when
+    /// the graph window has key focus and would normally swallow Cmd-G as
+    /// "Find Next." `addLocalMonitorForEvents` returns a token that MUST be
+    /// retained — without this stored property the monitor was being
+    /// deallocated immediately and never fired (2026-05-19 fix).
+    private var cmdGEventMonitor: Any?
+
     private static var canConfigureUserNotificationCenter: Bool {
         let bundleURL = Bundle.main.bundleURL
         return bundleURL.pathExtension == "app"
@@ -974,6 +981,23 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         Task { @MainActor in
             await Task.yield()
             self.installKnowledgeGraphMenuFallback()
+        }
+        // 2026-05-19: when the graph overlay window has key focus, the
+        // responder chain eats Cmd+G (NSStandardKeyBindingResponding's
+        // Find Next) before the menu item fires, so the toggle never
+        // runs from inside the open graph. Install a local event monitor
+        // that always handles ⌘G regardless of first responder. The
+        // returned token MUST be retained — without storing it the
+        // monitor is deallocated immediately and never fires (the bug
+        // the user hit in the first attempt).
+        cmdGEventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            let cmdOnly = event.modifierFlags
+                .intersection([.command, .shift, .option, .control]) == .command
+            guard cmdOnly,
+                  event.charactersIgnoringModifiers?.lowercased() == "g"
+            else { return event }
+            HologramController.shared.toggle()
+            return nil
         }
         guard !Self.isRunningTests else { return }
 
