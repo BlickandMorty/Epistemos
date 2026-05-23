@@ -17,6 +17,7 @@
 pub mod a2ui;
 pub mod acs;
 pub mod action_to_eml;
+pub mod active_assembly;
 pub mod ane_direct;
 pub mod attention_sinks;
 pub mod belnap;
@@ -37,6 +38,7 @@ pub mod koopman;
 pub mod mamba3;
 pub mod nano_training_recipe;
 pub mod nightbrain_tasks;
+pub mod page_gather;
 pub mod paper_registry;
 pub mod para_lens;
 pub mod run_ledger;
