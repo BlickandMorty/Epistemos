@@ -100,12 +100,15 @@ pub mod storage {
     pub mod contradiction_detector;
     pub mod cross_propagation;
     pub mod diff_engine;
+    pub mod f_vault_recall_50_fixture;
+    pub mod f_vault_recall_runner;
     pub mod hyperbolic_topology;
     pub mod memory_classifier;
     pub mod memory_decay;
     pub mod neural_cache;
     pub mod raw_thoughts;
     pub mod recipe_cache;
+    pub mod retrieval_trace;
     pub mod session_graph;
     pub mod session_store;
     pub mod skills_registry;

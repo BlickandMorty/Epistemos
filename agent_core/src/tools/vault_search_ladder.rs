@@ -61,6 +61,18 @@ use crate::variant_ladder::{LadderTier, LadderVariant, VariantLadder};
 
 /// Per-doctrine confidence floors. Top result's `score` must be at or
 /// above the matching floor for the tier to accept.
+///
+/// **T21 Q1 — RECALIBRATION PENDING.** These constants were calibrated
+/// against the `score.clamp(0.0, 1.0)` that Fix C (b812ba618, 2026-05-17)
+/// removed. After Fix C, `SearchResult.score` is raw BM25 — typically
+/// 1.0–15.0 — so every non-empty match trivially passes every floor
+/// and the ladder's tier-acceptance reverts to the
+/// `F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md` §1 Defect 3 failure
+/// mode the iter-1 commit was supposed to close. Needs empirical
+/// percentile measurement against a representative Epistemos vault
+/// (~1k–5k notes) before these constants become load-bearing again.
+/// See `docs/F_VAULT_RECALL_50_2026_05_18.md` §8 Q1 for the full
+/// research-question writeup.
 pub const FLOOR_T1: f64 = 0.85;
 pub const FLOOR_T2: f64 = 0.75;
 pub const FLOOR_T3: f64 = 0.70;
@@ -422,6 +434,48 @@ mod tests {
         let inp = input(vec![]);
         let resolved = VaultSearchT1LexicalBm25.try_resolve(&inp).await;
         assert!(resolved.is_none(), "T1 must decline on empty backend results");
+    }
+
+    /// T21 iter-63 (2026-05-18): documenting test — raw BM25 scores
+    /// (post-Fix-C `b812ba618`, no `score.clamp(0, 1)`) typically sit in
+    /// the 1.0–15.0 range. The existing `FLOOR_T1/T2/T3` constants
+    /// (0.85 / 0.75 / 0.70) were calibrated against the CLAMPED range,
+    /// so every non-empty match trivially exceeds the floors — the
+    /// ladder's tier-differentiation degenerates to "did Tantivy
+    /// return anything?" This test pins the current behavior so a
+    /// future floor recalibration (per Q1 in
+    /// `docs/F_VAULT_RECALL_50_2026_05_18.md` §8) shows up as a
+    /// breaking-test diff rather than a silent semantic change.
+    ///
+    /// The test PASSES today (4.21 ≥ 0.85). When floors are
+    /// recalibrated to raw-BM25 magnitudes, this assertion will need
+    /// inverting; the rename + inversion is the canonical signal that
+    /// the recalibration shipped.
+    #[tokio::test]
+    async fn t1_accepts_raw_bm25_post_fix_c_floor_bypass_documenting() {
+        // 4.21 is a representative raw BM25 score for a strong topical
+        // match — well below the typical max (~15) but well above the
+        // FLOOR_T1 = 0.85 constant that was calibrated for clamped
+        // [0, 1] scores. Today T1 accepts because 4.21 ≥ 0.85.
+        let canned = vec![result("notes/strong.md", 4.21), result("notes/medium.md", 2.10)];
+        let inp = input(canned);
+        let resolved = VaultSearchT1LexicalBm25.try_resolve(&inp).await;
+        let output = resolved.expect(
+            "T1 currently accepts raw-BM25 scores because FLOOR_T1 = 0.85 \
+             is in the clamped range and raw BM25 is typically ≥ 1.0. \
+             See Q1 in docs/F_VAULT_RECALL_50_2026_05_18.md §8 for the \
+             recalibration question.",
+        );
+        assert_eq!(output.results.len(), 2);
+        // When floors are recalibrated (e.g. FLOOR_T1 = top-5%-of-corpus
+        // BM25), this assertion needs inverting; the test name + doc
+        // comment will guide the future contributor to that diff.
+        assert!(
+            output.results[0].score >= FLOOR_T1,
+            "raw BM25 score {} must currently bypass FLOOR_T1 = {}",
+            output.results[0].score,
+            FLOOR_T1
+        );
     }
 
     #[tokio::test]
