@@ -18,8 +18,8 @@ struct SearchFusionHealthRowTests {
         #expect(!settings.contains("setenv(\"EPISTEMOS_RRF_FUSION_V1\""))
     }
 
-    @Test("Process Memory Health row is read-only and reports resident footprint honestly")
-    func processMemoryHealthRowIsReadOnlyAndReportsResidentFootprint() throws {
+    @Test("Process Memory Health row reports resident footprint and idle-unload diagnostic honestly")
+    func processMemoryHealthRowReportsResidentFootprintAndIdleUnloadDiagnostic() throws {
         let row = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ProcessMemoryHealthRow.swift")
 
         #expect(row.contains("ProcessMemoryDiagnostics.liveSnapshot()"))
@@ -27,7 +27,9 @@ struct SearchFusionHealthRowTests {
         #expect(row.contains("task_info(mach_task_self_"))
         #expect(row.contains("PowerGate.isMemoryPressureActive"))
         #expect(row.contains("does not attempt to classify root allocations"))
-        #expect(!row.contains("Button("))
+        #expect(row.contains("Button(action: triggerForceIdleUnload)"))
+        #expect(row.contains("Force Idle Unload"))
+        #expect(row.contains("bootstrap.forceIdleUnload()"))
         #expect(!row.contains(".task {"))
         #expect(!row.contains("Timer"))
         #expect(!row.contains("DispatchSourceTimer"))
@@ -88,6 +90,36 @@ struct SearchFusionHealthRowTests {
         #expect(!row.contains("while !Task.isCancelled"))
         #expect(!row.contains("Timer"))
         #expect(!row.contains("DispatchSourceTimer"))
+    }
+
+    @Test("scaffold health rows disclose substrate status instead of false green")
+    func scaffoldHealthRowsDiscloseSubstrateStatus() throws {
+        let component = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsSurfaceComponents.swift")
+        let eidos = try loadMirroredSourceTextFile("Epistemos/Views/Settings/EidosHealthRow.swift")
+        let vaultRecall = try loadMirroredSourceTextFile("Epistemos/Views/Settings/VaultRecallHealthRow.swift")
+        let systemG = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SystemGHealthRow.swift")
+        let acs = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ACSAdmissionHealthRow.swift")
+        let localAgent = try loadMirroredSourceTextFile("Epistemos/Views/Settings/LocalAgentDiagnosticsHealthRow.swift")
+        let activeConstellation = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ActiveConstellationRow.swift")
+        let blueprint = try loadMirroredSourceTextFile("Epistemos/Views/Settings/AgentBlueprintSettingsView.swift")
+
+        #expect(component.contains("VerifiedFloorChipStrip"))
+        #expect(component.contains("Flag: \\(flag)"))
+        #expect(component.contains("Substrate: \\(substrate)"))
+        #expect(eidos.contains("fixture path active"))
+        #expect(eidos.contains("substrate: \"fixture\""))
+        #expect(eidos.contains("fixture corpus, not vault"))
+        #expect(vaultRecall.contains("synthetic trace emission"))
+        #expect(vaultRecall.contains("substrate: \"stub trace\""))
+        #expect(systemG.contains("substrate: \"status-only\""))
+        #expect(systemG.contains("no production dispatch yet"))
+        #expect(acs.contains("substrate: \"substrate-only\""))
+        #expect(acs.contains("gate not installed"))
+        #expect(localAgent.contains("substrate: \"placeholder routes\""))
+        #expect(activeConstellation.contains("production route table"))
+        #expect(blueprint.contains("System G governed dispatch is not wired yet"))
+        #expect(blueprint.contains("substrate: \"legacy runtime\""))
+        #expect(blueprint.contains("Queue to Command Center"))
     }
 
     @Test("Search Fusion metrics summarize latency, hits, and errors")

@@ -29,7 +29,7 @@
 //! base, yields the next snapshot. This makes the rebuild auditable
 //! (replay-bundle compatible) and time-travel safe.
 
-use super::{BrainExportError, BrainSnapshot, SCHEMA_V1};
+use super::{BrainExportError, BrainSnapshot};
 use serde::{Deserialize, Serialize};
 
 /// A delta between two `BrainSnapshot`s. Each field that changed
@@ -236,6 +236,7 @@ pub fn reconstruct_chain(
 
 #[cfg(test)]
 mod tests {
+    use super::super::SCHEMA_V1;
     use super::*;
 
     fn snap(ts: u64, dag: &str) -> BrainSnapshot {

@@ -1126,10 +1126,10 @@ struct ModelVaultEntry: Identifiable, Hashable {
             return ("Claude Sonnet 4.6", "c.circle")
         }
         if lower.contains("gpt-5.4-mini") || lower.contains("gpt-5-4-mini") {
-            return ("GPT-5.4 Mini", "o.circle")
+            return ("GPT-4o Mini", "o.circle")
         }
         if lower.contains("gpt-5.4") || lower.contains("gpt-5-4") {
-            return ("GPT-5.4", "o.circle")
+            return ("GPT-4o", "o.circle")
         }
         if lower.contains("gemini-3.1-pro") || lower.contains("gemini-3-pro") {
             return ("Gemini 3.1 Pro", "g.circle")
@@ -1182,6 +1182,9 @@ struct ModelVaultEntry: Identifiable, Hashable {
     private nonisolated static func cloudModel(matching value: String) -> CloudTextModelID? {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
+        if let model = CloudTextModelID.from(rawValueOrVendorID: trimmed) {
+            return model
+        }
         return CloudTextModelID.allCases.first(where: {
             safePathComponent($0.rawValue) == trimmed
                 || safePathComponent($0.vendorModelID) == trimmed
