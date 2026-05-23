@@ -13,6 +13,8 @@
 //! - `agent_core/src/bridge.rs::vault_recall_trace_json` (scaffold path)
 //! - `docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md` W-21
 
+use std::sync::Mutex;
+
 use agent_core::storage::retrieval_trace::{
     RetrievalCandidate, RetrievalSignal, RetrievalSignalScore, RetrievalTrace,
 };
@@ -201,4 +203,168 @@ async fn produce_vault_recall_trace_propagates_backend_error() {
         Err(VaultError::IndexError(message)) => assert_eq!(message, "tantivy reader closed"),
         other => panic!("expected IndexError propagation; got {:?}", other),
     }
+}
+
+/// A `VaultBackend` that records exactly which `(query, limit, tag_filter)`
+/// triple it was called with, then returns a caller-supplied trace.
+/// Lets the test prove the helper is a faithful pass-through and is not
+/// silently rewriting any input.
+struct RecordingBackend {
+    seen: Mutex<Option<(String, usize, Vec<String>)>>,
+    trace: RetrievalTrace,
+}
+
+impl RecordingBackend {
+    fn new(trace: RetrievalTrace) -> Self {
+        Self {
+            seen: Mutex::new(None),
+            trace,
+        }
+    }
+
+    fn last_call(&self) -> (String, usize, Vec<String>) {
+        self.seen
+            .lock()
+            .expect("recording backend lock")
+            .clone()
+            .expect("backend was called at least once")
+    }
+}
+
+#[async_trait]
+impl VaultBackend for RecordingBackend {
+    async fn hybrid_search(
+        &self,
+        _query: &str,
+        _limit: usize,
+        _tag_filter: &[String],
+    ) -> Result<Vec<SearchResult>, VaultError> {
+        Ok(Vec::new())
+    }
+
+    async fn hybrid_search_with_trace(
+        &self,
+        query: &str,
+        limit: usize,
+        tag_filter: &[String],
+    ) -> Result<(Vec<SearchResult>, RetrievalTrace), VaultError> {
+        *self.seen.lock().expect("recording backend lock") =
+            Some((query.to_string(), limit, tag_filter.to_vec()));
+        Ok((Vec::new(), self.trace.clone()))
+    }
+
+    async fn read(&self, path: &str) -> Result<String, VaultError> {
+        Err(VaultError::NotFound(path.to_string()))
+    }
+
+    async fn write(
+        &self,
+        _path: &str,
+        _content: &str,
+        _tags: Option<&[String]>,
+        _append: bool,
+    ) -> Result<(), VaultError> {
+        Ok(())
+    }
+
+    async fn list(&self, _path_prefix: &str) -> Result<Vec<String>, VaultError> {
+        Ok(Vec::new())
+    }
+
+    async fn exists(&self, _path: &str) -> Result<bool, VaultError> {
+        Ok(false)
+    }
+
+    async fn delete(&self, _path: &str) -> Result<bool, VaultError> {
+        Ok(false)
+    }
+}
+
+/// Pin the pass-through contract: the helper forwards `query`, `limit`,
+/// and `tag_filter` to the backend verbatim, and forwards every
+/// non-`ladder_tier` field of the returned trace back to the caller
+/// unmodified. The only field the helper is allowed to touch is
+/// `ladder_tier` (and only to apply the default).
+#[tokio::test]
+async fn produce_vault_recall_trace_passes_args_through_and_does_not_mutate_other_fields() {
+    let mut trace = RetrievalTrace::new("raw query", "effective query")
+        .with_pool_size(7);
+    trace.record_signal(RetrievalSignal::Lexical);
+    trace.record_signal(RetrievalSignal::Recency);
+    trace.push_candidate(lexical_candidate("notes/a.md", 1.0));
+    trace.push_candidate(lexical_candidate("notes/b.md", 2.0));
+    trace.add_note("backend note");
+    trace.record_all_chatter_fallback();
+    trace.generated_at_ms = 42;
+
+    let backend = RecordingBackend::new(trace.clone());
+    let tag_filter = vec!["governance".to_string(), "rust".to_string()];
+
+    let (results, out_trace) =
+        produce_vault_recall_trace(&backend, "raw query", 9, &tag_filter)
+            .await
+            .expect("production helper succeeds");
+
+    let (seen_query, seen_limit, seen_tags) = backend.last_call();
+    assert_eq!(seen_query, "raw query", "query MUST reach backend verbatim");
+    assert_eq!(seen_limit, 9, "limit MUST reach backend verbatim");
+    assert_eq!(
+        seen_tags, tag_filter,
+        "tag_filter MUST reach backend verbatim"
+    );
+
+    assert!(results.is_empty(), "results pass-through preserves empty list");
+    assert_eq!(out_trace.query, "raw query", "trace.query unmodified");
+    assert_eq!(
+        out_trace.effective_query, "effective query",
+        "trace.effective_query unmodified"
+    );
+    assert_eq!(
+        out_trace.candidate_pool_size, 7,
+        "trace.candidate_pool_size unmodified"
+    );
+    assert_eq!(
+        out_trace.candidates.len(),
+        2,
+        "trace.candidates unmodified"
+    );
+    assert_eq!(
+        out_trace.signal_summary,
+        vec![RetrievalSignal::Lexical, RetrievalSignal::Recency],
+        "trace.signal_summary unmodified"
+    );
+    assert_eq!(
+        out_trace.notes,
+        vec!["backend note".to_string()],
+        "trace.notes unmodified"
+    );
+    assert!(out_trace.all_chatter_fallback, "all_chatter_fallback unmodified");
+    assert_eq!(out_trace.generated_at_ms, 42, "generated_at_ms unmodified");
+    assert_eq!(
+        out_trace.ladder_tier.as_deref(),
+        Some("production-hybrid"),
+        "only ladder_tier is touched (and only because backend omitted it)"
+    );
+}
+
+/// The "default ladder_tier" branch is gated on `is_none`, NOT
+/// `is_empty`. A backend that explicitly sets `Some("")` keeps its
+/// empty string — the helper does not second-guess. This pins the
+/// current contract so future readers can change it consciously
+/// rather than accidentally.
+#[tokio::test]
+async fn produce_vault_recall_trace_does_not_override_backend_empty_string_ladder_tier() {
+    let mut trace = RetrievalTrace::new("q", "q").with_ladder_tier("");
+    trace.record_signal(RetrievalSignal::Lexical);
+
+    let backend = StubBackend::ok(Vec::new(), trace);
+    let (_, out_trace) = produce_vault_recall_trace(&backend, "q", 1, &[])
+        .await
+        .expect("production helper succeeds");
+
+    assert_eq!(
+        out_trace.ladder_tier.as_deref(),
+        Some(""),
+        "Some(\"\") preserved verbatim; helper default only fires on None"
+    );
 }
