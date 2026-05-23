@@ -73,3 +73,51 @@ pub use types::{
 pub use validator::{
     enforce_closed_citation_contract, ClosedCitationValidation, ClosedCitationValidationError,
 };
+
+/// R1 (2026-05-23): production-capable [`EidosRetriever`] JSON helper.
+///
+/// Takes any retriever (fixture OR production-backed), runs a text query
+/// against it, and returns the JSON-encoded [`EidosContextPacket`]. The
+/// query mode is taken from [`EidosRetriever::mode`] so callers cannot
+/// accidentally pass a query whose mode disagrees with the retriever's
+/// index strategy (a mode mismatch typically yields an empty packet —
+/// silently broken).
+///
+/// **Why this exists**: the bridge FFI `eidos_search_lexical_json`
+/// (`agent_core/src/bridge.rs`) is hard-coded against a process-global
+/// `EIDOS_FIXTURE_INDEX` singleton (a 2-document seeded corpus). This
+/// helper is the production seam: any caller that already holds a real
+/// retriever ([`LedgerBackedClaimEvidence`] for W-49, a future
+/// shadow-backed lexical index for W-51, or any other production
+/// retriever) MUST route through this helper instead of rebuilding the
+/// fixture-bound FFI body. The closed-citation contract, determinism,
+/// and serde wire shape are all unchanged — the helper is a pure
+/// pass-through with mode canonicalization on top.
+///
+/// `retrieved_at_unix_ms` is caller-supplied so tests can pin the
+/// clock and prove byte-equal replay across runs.
+pub fn produce_eidos_context_packet_json<R: EidosRetriever + ?Sized>(
+    retriever: &R,
+    query_text: &str,
+    top_k: u16,
+    retrieved_at_unix_ms: u64,
+) -> Result<String, serde_json::Error> {
+    let packet = produce_eidos_context_packet(retriever, query_text, top_k, retrieved_at_unix_ms);
+    serde_json::to_string(&packet)
+}
+
+/// Typed-packet variant of [`produce_eidos_context_packet_json`].
+/// Returns the [`EidosContextPacket`] directly for callers that don't
+/// need JSON (e.g. an in-process consumer of `EidosHit`/`EidosCitation`).
+///
+/// The JSON helper delegates to this function — they share one
+/// canonicalization path so the two surfaces stay in lockstep.
+pub fn produce_eidos_context_packet<R: EidosRetriever + ?Sized>(
+    retriever: &R,
+    query_text: &str,
+    top_k: u16,
+    retrieved_at_unix_ms: u64,
+) -> EidosContextPacket {
+    let query = EidosQuery::new(query_text, retriever.mode(), top_k);
+    retriever.retrieve(&query, retrieved_at_unix_ms)
+}
