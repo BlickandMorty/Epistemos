@@ -40,6 +40,9 @@
 //!   carries `attention_mode`; missing legacy values default to
 //!   `unavailable`; `static_fallback` requires
 //!   `ClaimKind::StaticFallbackAcknowledged`.
+//! - **7.1** — No-Orphan declarations. New Rust / Swift struct,
+//!   enum, and class declarations in the diff must carry UAS, Plane,
+//!   and Residency comments or an explicit UAS-EXEMPT waiver.
 //!
 //! Gate 4.x anti-patterns from doctrine §4 (no edges without
 //! signatures, no nodes without content addresses, no ad-hoc edge
@@ -65,7 +68,7 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::ExitCode;
+use std::process::{Command, ExitCode};
 
 const USAGE: &str = "\
 epistemos-doctrine-lint — DAG doctrine §5 verification gates
@@ -89,6 +92,7 @@ GATES:
   5.4  Swift / XPC zero CODE references to DagStore / put_node / put_edge
        (doc-comment / prose mentions reported as INFO, not failure)
   6.1  AnswerPacket static_fallback cannot fire without acknowledgement
+  7.1  new Rust / Swift declarations carry UAS / Plane / Residency comments
 ";
 
 fn main() -> ExitCode {
@@ -148,6 +152,7 @@ struct LintReport {
     gate_5_3: GateOutcome,
     gate_5_4: GateOutcome,
     gate_6_1: GateOutcome,
+    gate_7_1: GateOutcome,
 }
 
 #[derive(Debug, Default)]
@@ -166,6 +171,7 @@ impl LintReport {
             self.gate_5_3.violation,
             self.gate_5_4.violation,
             self.gate_6_1.violation,
+            self.gate_7_1.violation,
         ]
         .iter()
         .filter(|v| **v)
@@ -180,6 +186,7 @@ fn run_all_gates(root: &Path) -> Result<LintReport, String> {
         gate_5_3: check_gate_5_3(root)?,
         gate_5_4: check_gate_5_4(root)?,
         gate_6_1: check_gate_6_1(root)?,
+        gate_7_1: check_gate_7_1(root)?,
     })
 }
 
@@ -477,6 +484,289 @@ fn read_file_or_record_missing(path: &Path, missing: &mut Vec<String>) -> String
     }
 }
 
+// ── 7.1 — new data declarations carry UAS / plane / residency ─────────────
+
+fn check_gate_7_1(root: &Path) -> Result<GateOutcome, String> {
+    let (diff, source) = uas_lint_diff(root)?;
+    if diff.trim().is_empty() {
+        return Ok(GateOutcome {
+            name: "7.1 No-Orphan declarations",
+            detail: format!("ok (no Rust / Swift declarations added in {source})"),
+            violation: false,
+            info_lines: vec![],
+        });
+    }
+
+    let violations = find_uas_declaration_violations(&diff);
+    let violation = !violations.is_empty();
+    let detail = if violation {
+        format!(
+            "VIOLATION: {} new declaration(s) missing `// UAS:` + `// Plane:` + \
+             `// Residency:` comments or `// UAS-EXEMPT:` waiver:\n  {}",
+            violations.len(),
+            violations.join("\n  ")
+        )
+    } else {
+        format!("ok (all new declarations in {source} carry UAS metadata or waiver)")
+    };
+
+    Ok(GateOutcome {
+        name: "7.1 No-Orphan declarations",
+        detail,
+        violation,
+        info_lines: vec![],
+    })
+}
+
+fn uas_lint_diff(root: &Path) -> Result<(String, String), String> {
+    if let Ok(diff) = std::env::var("EPISTEMOS_UAS_LINT_DIFF") {
+        return Ok((diff, "EPISTEMOS_UAS_LINT_DIFF".to_string()));
+    }
+
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .arg("diff")
+        .arg("--unified=12")
+        .arg("--diff-filter=ACMR")
+        .arg("main...HEAD")
+        .arg("--")
+        .arg("*.rs")
+        .arg("*.swift")
+        .output()
+        .map_err(|e| format!("git diff for UAS declaration lint failed to start: {e}"))?;
+
+    if output.status.success() {
+        let mut diff = String::from_utf8_lossy(&output.stdout).to_string();
+        if let Ok(cached) = git_diff_for_uas_lint(root, &["--cached"]) {
+            diff.push_str(&cached);
+        }
+        if let Ok(worktree) = git_diff_for_uas_lint(root, &[]) {
+            diff.push_str(&worktree);
+        }
+        if let Ok(untracked) = untracked_uas_lint_diff(root) {
+            diff.push_str(&untracked);
+        }
+        return Ok((
+            diff,
+            "git diff main...HEAD + staged + working tree + untracked".to_string(),
+        ));
+    }
+
+    if let Ok(fallback) = git_diff_for_uas_lint(root, &[]) {
+        return Ok((fallback, "git diff working tree".to_string()));
+    }
+
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    Err(format!(
+        "git diff for UAS declaration lint failed: {stderr}; fallback failed"
+    ))
+}
+
+fn git_diff_for_uas_lint(root: &Path, extra: &[&str]) -> Result<String, String> {
+    let mut command = Command::new("git");
+    command
+        .arg("-C")
+        .arg(root)
+        .arg("diff")
+        .arg("--unified=12")
+        .arg("--diff-filter=ACMR");
+    for arg in extra {
+        command.arg(arg);
+    }
+    let output = command
+        .arg("--")
+        .arg("*.rs")
+        .arg("*.swift")
+        .output()
+        .map_err(|e| format!("git diff failed to start: {e}"))?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).to_string())
+    }
+}
+
+fn untracked_uas_lint_diff(root: &Path) -> Result<String, String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .arg("ls-files")
+        .arg("--others")
+        .arg("--exclude-standard")
+        .arg("--")
+        .arg("*.rs")
+        .arg("*.swift")
+        .output()
+        .map_err(|e| format!("git ls-files for UAS declaration lint failed to start: {e}"))?;
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).to_string());
+    }
+
+    let mut diff = String::new();
+    for rel in String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+    {
+        let path = root.join(rel);
+        let src = match fs::read_to_string(&path) {
+            Ok(src) => src,
+            Err(_) => continue,
+        };
+        diff.push_str(&format!("diff --git a/{rel} b/{rel}\n"));
+        diff.push_str(&format!("+++ b/{rel}\n"));
+        diff.push_str(&format!("@@ -0,0 +1,{} @@\n", src.lines().count()));
+        for line in src.lines() {
+            diff.push('+');
+            diff.push_str(line);
+            diff.push('\n');
+        }
+    }
+    Ok(diff)
+}
+
+fn find_uas_declaration_violations(diff: &str) -> Vec<String> {
+    let mut violations = Vec::new();
+    let mut current_file = String::new();
+    let mut new_line: Option<usize> = None;
+    let mut preceding: Vec<String> = Vec::new();
+
+    for raw in diff.lines() {
+        if let Some(path) = raw.strip_prefix("+++ b/") {
+            current_file = path.to_string();
+            preceding.clear();
+            continue;
+        }
+        if raw.starts_with("diff --git ") {
+            current_file.clear();
+            new_line = None;
+            preceding.clear();
+            continue;
+        }
+        if raw.starts_with("@@") {
+            new_line = parse_hunk_new_start(raw);
+            preceding.clear();
+            continue;
+        }
+        if raw.starts_with("+++") || raw.starts_with("---") || raw.starts_with("\\ No newline") {
+            continue;
+        }
+
+        let Some(first) = raw.as_bytes().first().copied() else {
+            continue;
+        };
+
+        match first {
+            b'+' => {
+                let content = &raw[1..];
+                if declaration_requires_uas_metadata(content)
+                    && !has_uas_declaration_header(&preceding)
+                {
+                    let line = new_line.unwrap_or(0);
+                    violations.push(format!("{}:{}: {}", current_file, line, content.trim()));
+                }
+                push_preceding(&mut preceding, content);
+                if let Some(line) = &mut new_line {
+                    *line += 1;
+                }
+            }
+            b' ' => {
+                push_preceding(&mut preceding, &raw[1..]);
+                if let Some(line) = &mut new_line {
+                    *line += 1;
+                }
+            }
+            b'-' => {}
+            _ => {}
+        }
+    }
+
+    violations
+}
+
+fn parse_hunk_new_start(line: &str) -> Option<usize> {
+    let plus = line.find('+')?;
+    let after_plus = &line[plus + 1..];
+    let end = after_plus
+        .find(|ch: char| ch == ',' || ch.is_whitespace())
+        .unwrap_or(after_plus.len());
+    after_plus[..end].parse::<usize>().ok()
+}
+
+fn push_preceding(preceding: &mut Vec<String>, line: &str) {
+    preceding.push(line.to_string());
+    if preceding.len() > 16 {
+        preceding.remove(0);
+    }
+}
+
+fn has_uas_declaration_header(preceding: &[String]) -> bool {
+    let window = preceding.iter().rev().take(12).collect::<Vec<_>>();
+    if window
+        .iter()
+        .any(|line| line.trim_start().starts_with("// UAS-EXEMPT:"))
+    {
+        return true;
+    }
+
+    let has_uas = window
+        .iter()
+        .any(|line| line.trim_start().starts_with("// UAS:"));
+    let has_plane = window
+        .iter()
+        .any(|line| line.trim_start().starts_with("// Plane:"));
+    let has_residency = window
+        .iter()
+        .any(|line| line.trim_start().starts_with("// Residency:"));
+    has_uas && has_plane && has_residency
+}
+
+fn declaration_requires_uas_metadata(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    if trimmed.starts_with("//")
+        || trimmed.starts_with("/*")
+        || trimmed.starts_with('*')
+        || trimmed.starts_with('"')
+    {
+        return false;
+    }
+
+    let mut words = trimmed
+        .split(|ch: char| ch.is_whitespace() || ch == '<' || ch == ':' || ch == '(')
+        .filter(|word| !word.is_empty());
+
+    while let Some(word) = words.next() {
+        let clean = word.trim_matches('{');
+        if matches!(clean, "struct" | "enum" | "class" | "actor") {
+            return true;
+        }
+        if is_declaration_modifier(clean) {
+            continue;
+        }
+        return false;
+    }
+    false
+}
+
+fn is_declaration_modifier(word: &str) -> bool {
+    matches!(
+        word,
+        "pub"
+            | "pub(crate)"
+            | "pub(super)"
+            | "public"
+            | "private"
+            | "fileprivate"
+            | "internal"
+            | "open"
+            | "final"
+            | "nonisolated"
+            | "@MainActor"
+            | "@unchecked"
+            | "indirect"
+    )
+}
+
 // ── Filesystem walkers ─────────────────────────────────────────────────────
 
 fn walk_rs_files(dir: &Path, cb: &mut dyn FnMut(&Path, usize, &str)) -> Result<(), String> {
@@ -601,6 +891,7 @@ fn print_report(report: &LintReport) {
         &report.gate_5_3,
         &report.gate_5_4,
         &report.gate_6_1,
+        &report.gate_7_1,
     ] {
         let prefix = if gate.violation { "FAIL" } else { "PASS" };
         println!("[{prefix}] {} — {}", gate.name, gate.detail);
@@ -680,5 +971,59 @@ impl DagStore for InMemoryDagStore {
         assert!(line_mentions_forbidden("put_edge(edge)"));
         assert!(!line_mentions_forbidden("let x = 1"));
         assert!(!line_mentions_forbidden("InMemorySomething"));
+    }
+
+    #[test]
+    fn uas_declaration_lint_fails_orphan_swift_class() {
+        let diff = concat!(
+            "diff --git a/Epistemos/Foo.swift b/Epistemos/Foo.swift\n",
+            "+++ b/Epistemos/Foo.swift\n",
+            "@@ -0,0 +1,1 @@\n",
+            "+final class OrphanClass {}\n",
+        );
+        let violations = find_uas_declaration_violations(diff);
+        assert_eq!(violations.len(), 1);
+        assert!(violations[0].contains("OrphanClass"));
+    }
+
+    #[test]
+    fn uas_declaration_lint_accepts_full_header() {
+        let diff = concat!(
+            "diff --git a/agent_core/src/foo.rs b/agent_core/src/foo.rs\n",
+            "+++ b/agent_core/src/foo.rs\n",
+            "@@ -0,0 +1,4 @@\n",
+            "+// UAS: uas/test/<id>\n",
+            "+// Plane: RuntimePlane::Verification\n",
+            "+// Residency: ResidencyTier::CurrentApp\n",
+            "+pub struct TaggedDeclaration {}\n",
+        );
+        assert!(find_uas_declaration_violations(diff).is_empty());
+    }
+
+    #[test]
+    fn uas_declaration_lint_accepts_explicit_exemption() {
+        let diff = concat!(
+            "diff --git a/agent_core/src/foo.rs b/agent_core/src/foo.rs\n",
+            "+++ b/agent_core/src/foo.rs\n",
+            "@@ -0,0 +1,2 @@\n",
+            "+// UAS-EXEMPT: local test fixture, not persisted substrate data.\n",
+            "+enum FixtureOnly {}\n",
+        );
+        assert!(find_uas_declaration_violations(diff).is_empty());
+    }
+
+    #[test]
+    fn uas_declaration_lint_allows_attributes_between_header_and_decl() {
+        let diff = concat!(
+            "diff --git a/Epistemos/Foo.swift b/Epistemos/Foo.swift\n",
+            "+++ b/Epistemos/Foo.swift\n",
+            "@@ -0,0 +1,5 @@\n",
+            "+// UAS: settings/test\n",
+            "+// Plane: RuntimePlane::Verification\n",
+            "+// Residency: ResidencyTier::CurrentApp\n",
+            "+@MainActor\n",
+            "+public struct TaggedView {}\n",
+        );
+        assert!(find_uas_declaration_violations(diff).is_empty());
     }
 }

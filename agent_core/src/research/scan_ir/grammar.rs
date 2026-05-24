@@ -28,6 +28,8 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
+use crate::lattice_wbo::LatticeBudget;
+
 /// Typed scan program: `(initial state, sequence of inputs)`.
 ///
 /// The associative operator `⊕` is supplied by the lowering step,
@@ -38,12 +40,20 @@ use std::fmt;
 pub struct ScanProgram<T> {
     pub initial: T,
     pub inputs: Vec<T>,
+    /// WBO budget for block-scan / semiseparable approximations. Exact
+    /// sequential reference scans leave this unset.
+    #[serde(default)]
+    pub lattice_budget: Option<LatticeBudget>,
 }
 
 impl<T> ScanProgram<T> {
     /// Construct a scan program.
     pub fn new(initial: T, inputs: Vec<T>) -> Self {
-        ScanProgram { initial, inputs }
+        ScanProgram {
+            initial,
+            inputs,
+            lattice_budget: None,
+        }
     }
 
     /// Empty program: just the initial state, no inputs.
@@ -51,6 +61,7 @@ impl<T> ScanProgram<T> {
         ScanProgram {
             initial,
             inputs: Vec::new(),
+            lattice_budget: None,
         }
     }
 
@@ -92,6 +103,12 @@ impl<T: Clone> ScanProgram<T> {
     /// new input at the end. Useful for builder-style chains.
     pub fn append(mut self, input: T) -> Self {
         self.inputs.push(input);
+        self
+    }
+
+    /// Attach the WBO budget that pays for this scan lowering.
+    pub fn with_lattice_budget(mut self, budget: LatticeBudget) -> Self {
+        self.lattice_budget = Some(budget);
         self
     }
 }
@@ -206,6 +223,9 @@ mod tests {
     #[test]
     fn display_with_inputs() {
         let p = ScanProgram::new(0i32, vec![1, 2, 3]);
-        assert_eq!(format!("{}", p), "ScanProgram { initial: 0, inputs: [1, 2, 3] }");
+        assert_eq!(
+            format!("{}", p),
+            "ScanProgram { initial: 0, inputs: [1, 2, 3] }"
+        );
     }
 }

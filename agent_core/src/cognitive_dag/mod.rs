@@ -90,6 +90,10 @@ mod integration_tests {
 
         let note = Node::new_at(
             NodeKind::Note {
+                uas: None,
+                anchor: None,
+                plane: crate::uas::RuntimePlane::Episodic,
+                residency: crate::uas::ResidencyTier::CurrentApp,
                 body: "phase 8.a".into(),
                 author: AuthorRef("test".into()),
                 mime: MimeType("text/markdown".into()),
@@ -98,6 +102,10 @@ mod integration_tests {
         );
         let claim_x = Node::new_at(
             NodeKind::Claim {
+                uas: None,
+                anchor: None,
+                plane: crate::uas::RuntimePlane::Episodic,
+                residency: crate::uas::ResidencyTier::CurrentApp,
                 proposition: "X is true".into(),
                 scope: ClaimScope::Vault,
                 source: SourceRef("test".into()),
@@ -106,6 +114,10 @@ mod integration_tests {
         );
         let evidence = Node::new_at(
             NodeKind::Evidence {
+                uas: None,
+                anchor: None,
+                plane: crate::uas::RuntimePlane::Episodic,
+                residency: crate::uas::ResidencyTier::CurrentApp,
                 kind: EvidenceKind::Citation,
                 payload: EvidenceBlob(b"proof".to_vec()),
                 captured_at: Timestamp(1050),
@@ -114,6 +126,10 @@ mod integration_tests {
         );
         let capability = Node::new_at(
             NodeKind::Capability {
+                uas: None,
+                anchor: None,
+                plane: crate::uas::RuntimePlane::Controller,
+                residency: crate::uas::ResidencyTier::CurrentApp,
                 kind: CapabilityKind::Approval,
                 scope: CapabilityScope("test_scope".into()),
                 expiry: None,

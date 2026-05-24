@@ -2,10 +2,15 @@ import SwiftUI
 
 // MARK: - PlanePlacementHealthRow
 //
-// Terminal G dependency row. It keeps five-plane placement visible
-// without pretending NodeKind has plane fields before T14 lands.
+// T14 five-plane UAS witness row. The Rust DAG schema now carries
+// UAS address, ACS anchor, runtime plane, and residency metadata on
+// every NodeKind variant. This row reads the unified substrate-health
+// FFI snapshot so the visible counts stay honest.
 
 @MainActor
+// UAS: settings/plane-placement-health-row
+// Plane: RuntimePlane::Verification
+// Residency: ResidencyTier::CurrentApp
 public struct PlanePlacementHealthRow: View {
     @State private var snapshot: SubstrateHealthUnifiedSnapshot
     @State private var refreshTask: Task<Void, Never>?
@@ -20,24 +25,24 @@ public struct PlanePlacementHealthRow: View {
             SubstrateHealthMetricLine(
                 label: "Plane placement",
                 symbol: "square.stack.3d.up",
-                state: plane.planeFieldsWired ? .pass : .blocked,
-                detail: plane.planeFieldsWired ? planeSummary(plane) : "blocked on \(plane.dependency)"
+                state: placementState(plane),
+                detail: placementDetail(plane)
             )
             VerifiedFloorChipStrip(
                 flag: "n/a",
-                substrate: plane.planeFieldsWired ? "five-plane counts" : "Terminal G dependency",
-                substrateTint: plane.planeFieldsWired ? .green : .red
+                substrate: chipLabel(plane),
+                substrateTint: plane.planeFieldsWired && plane.ffiReachable ? .green : .red
             )
             SubstrateHealthMetricLine(
                 label: "Unplaced nodes",
                 symbol: "questionmark.diamond",
-                state: plane.unplacedCount == 0 && plane.planeFieldsWired ? .pass : .blocked,
-                detail: "\(plane.unplacedCount) DAG nodes lack plane fields today"
+                state: unplacedState(plane),
+                detail: "\(plane.unplacedCount) DAG nodes lack plane fields"
             )
             SubstrateHealthMetricLine(
                 label: "Five planes",
                 symbol: "rectangle.split.3x1",
-                state: plane.planeFieldsWired ? .pass : .blocked,
+                state: placementState(plane),
                 detail: planeSummary(plane)
             )
         }
@@ -51,8 +56,33 @@ public struct PlanePlacementHealthRow: View {
         }
     }
 
+    private func placementState(
+        _ p: SubstrateHealthUnifiedSnapshot.PlanePlacement
+    ) -> SubstrateHealthSignalState {
+        guard p.ffiReachable else { return .unavailable }
+        return p.planeFieldsWired ? .pass : .blocked
+    }
+
+    private func unplacedState(
+        _ p: SubstrateHealthUnifiedSnapshot.PlanePlacement
+    ) -> SubstrateHealthSignalState {
+        guard p.ffiReachable else { return .unavailable }
+        guard p.planeFieldsWired else { return .blocked }
+        return p.unplacedCount == 0 ? .pass : .partial
+    }
+
     private func planeSummary(_ p: SubstrateHealthUnifiedSnapshot.PlanePlacement) -> String {
         "state=\(p.stateCount) episodic=\(p.episodicCount) assembly=\(p.assemblyCount) controller=\(p.controllerCount) verification=\(p.verificationCount)"
+    }
+
+    private func placementDetail(_ p: SubstrateHealthUnifiedSnapshot.PlanePlacement) -> String {
+        guard p.ffiReachable else { return "agent_core FFI unavailable" }
+        return p.planeFieldsWired ? planeSummary(p) : "blocked on \(p.dependency)"
+    }
+
+    private func chipLabel(_ p: SubstrateHealthUnifiedSnapshot.PlanePlacement) -> String {
+        guard p.ffiReachable else { return "FFI unavailable" }
+        return p.planeFieldsWired ? "five-plane counts" : "Terminal G dependency"
     }
 
     private func refresh() {

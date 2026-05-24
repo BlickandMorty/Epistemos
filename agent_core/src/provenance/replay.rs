@@ -699,6 +699,10 @@ mod tests {
         let store = InMemoryDagStore::new();
         let note = Node::new_at(
             NodeKind::Note {
+                uas: None,
+                anchor: None,
+                plane: crate::uas::RuntimePlane::Episodic,
+                residency: crate::uas::ResidencyTier::CurrentApp,
                 body: "phase 8.f test".into(),
                 author: AuthorRef("test".into()),
                 mime: MimeType("text/markdown".into()),
@@ -707,6 +711,10 @@ mod tests {
         );
         let claim = Node::new_at(
             NodeKind::Claim {
+                uas: None,
+                anchor: None,
+                plane: crate::uas::RuntimePlane::Episodic,
+                residency: crate::uas::ResidencyTier::CurrentApp,
                 proposition: "verify_replay works".into(),
                 scope: ClaimScope::Vault,
                 source: SourceRef("phase_8f_test".into()),
@@ -715,6 +723,10 @@ mod tests {
         );
         let evidence = Node::new_at(
             NodeKind::Evidence {
+                uas: None,
+                anchor: None,
+                plane: crate::uas::RuntimePlane::Episodic,
+                residency: crate::uas::ResidencyTier::CurrentApp,
                 kind: EvidenceKind::Citation,
                 payload: EvidenceBlob(b"phase8f-payload".to_vec()),
                 captured_at: Timestamp(1050),
@@ -1090,8 +1102,7 @@ mod tests {
             attempts: vec![],
         };
         let json = serde_json::to_string(&empty_record).expect("serialize empty");
-        let decoded: LadderWalkRecord =
-            serde_json::from_str(&json).expect("decode empty");
+        let decoded: LadderWalkRecord = serde_json::from_str(&json).expect("decode empty");
         assert_eq!(decoded, empty_record);
         assert!(decoded.attempts.is_empty());
         assert_eq!(decoded.walk_id, "span-empty");
@@ -1142,7 +1153,10 @@ mod tests {
             walks_2,
         )
         .unwrap();
-        assert_eq!(b1.to_epbundle_bytes().unwrap(), b2.to_epbundle_bytes().unwrap());
+        assert_eq!(
+            b1.to_epbundle_bytes().unwrap(),
+            b2.to_epbundle_bytes().unwrap()
+        );
     }
 
     #[test]
@@ -1177,7 +1191,8 @@ mod tests {
             seed_walks(),
         )
         .unwrap();
-        bundle.verify_integrity()
+        bundle
+            .verify_integrity()
             .expect("freshly-built v3 bundle verifies");
         bundle.ladder_walks[0].attempts[0].outcome = LadderAttemptOutcome::Declined;
         match bundle.verify_integrity() {
@@ -1221,7 +1236,8 @@ mod tests {
         assert_eq!(bundle.schema_version, REPLAY_BUNDLE_SCHEMA_VERSION);
         assert!(bundle.dag_snapshot.is_some());
         assert_eq!(bundle.ladder_walks.len(), 2);
-        bundle.verify_replay()
+        bundle
+            .verify_replay()
             .expect("v3 bundle with DAG + walks must verify_replay");
     }
 

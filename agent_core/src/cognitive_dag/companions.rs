@@ -142,6 +142,10 @@ impl CompanionRegistry {
         }
 
         let companion = Node::new(NodeKind::Companion {
+            uas: None,
+            anchor: None,
+            plane: crate::uas::RuntimePlane::Controller,
+            residency: crate::uas::ResidencyTier::CurrentApp,
             profile: profile.clone(),
             identity: identity.clone(),
             persona,
@@ -286,6 +290,10 @@ impl CompanionRegistry {
 /// production code can construct directly.
 pub fn make_base_model_node(weight_root_bytes: [u8; 32]) -> Node {
     Node::new(NodeKind::Model {
+        uas: None,
+        anchor: None,
+        plane: crate::uas::RuntimePlane::State,
+        residency: crate::uas::ResidencyTier::CurrentApp,
         weight_root: WeightRoot(weight_root_bytes),
         base_or_lora: ModelLineage::Base,
     })
@@ -301,6 +309,10 @@ pub fn make_lora_model_node(
     lora_path: String,
 ) -> Node {
     Node::new(NodeKind::Model {
+        uas: None,
+        anchor: None,
+        plane: crate::uas::RuntimePlane::State,
+        residency: crate::uas::ResidencyTier::CurrentApp,
         weight_root: WeightRoot(weight_root_bytes),
         base_or_lora: ModelLineage::Lora { parent, lora_path },
     })
@@ -384,6 +396,10 @@ mod tests {
         let store = InMemoryDagStore::new();
         // Insert a Note node (not a Model) and try to use it as base
         let note = Node::new(NodeKind::Note {
+            uas: None,
+            anchor: None,
+            plane: crate::uas::RuntimePlane::Episodic,
+            residency: crate::uas::ResidencyTier::CurrentApp,
             body: "not a model".into(),
             author: super::super::node::AuthorRef("u".into()),
             mime: super::super::node::MimeType("text/markdown".into()),

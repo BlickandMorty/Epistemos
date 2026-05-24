@@ -25,14 +25,20 @@
 //! carries a `UasAddress` that lookup resolves regardless of residency (RAM
 //! hot · RAM warm · SSD cold · cloud).
 
+pub mod acs_anchor;
 pub mod address;
+pub mod anchor_registry;
 pub mod copy_counter;
+pub mod five_planes;
 pub mod kind;
 pub mod residency_lease;
 pub mod residency_tier;
 pub mod witness;
 
+pub use acs_anchor::AcsAnchor;
 pub use address::{UasAddress, UasAddressParseError};
+pub use anchor_registry::AcsAnchorRegistry;
+pub use five_planes::{RuntimePlane, FIVE_RUNTIME_PLANES};
 pub use kind::UasKind;
 pub use residency_lease::ResidencyLease;
 pub use residency_tier::ResidencyTier;

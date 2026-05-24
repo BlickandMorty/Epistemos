@@ -9,6 +9,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::uas::{AcsAnchor, ResidencyTier, RuntimePlane, UasAddress};
+
 // ── ID + helpers ────────────────────────────────────────────────────────────
 
 /// Content-address of a node. Computed as `BLAKE3(canonical_serialize(kind))`.
@@ -210,9 +212,9 @@ pub enum ModelLineage {
 
 /// The 10 canonical node kinds from doctrine §1.1. Each variant is
 /// content-addressed independently — two `Note`s with identical body +
-/// author + mime get the same `NodeId`. Adding a field to a variant
-/// changes the canonical serialization which changes the id; that's
-/// the desired behavior (different content → different identity).
+/// author + mime get the same `NodeId`. UAS address, ACS anchor, plane,
+/// and residency are placement metadata and are excluded from the
+/// identity projection so residency transitions do not mint new node ids.
 ///
 /// Note: `Eq` + `Hash` not derived because no NodeKind variant uses
 /// f32 today, but we keep `PartialEq` to support content-equality
@@ -221,51 +223,131 @@ pub enum ModelLineage {
 #[serde(tag = "node_kind", rename_all = "snake_case")]
 pub enum NodeKind {
     Note {
+        #[serde(default)]
+        uas: Option<UasAddress>,
+        #[serde(default)]
+        anchor: Option<AcsAnchor>,
+        #[serde(default = "default_episodic_plane")]
+        plane: RuntimePlane,
+        #[serde(default = "default_current_app_residency")]
+        residency: ResidencyTier,
         body: String,
         author: AuthorRef,
         mime: MimeType,
     },
     Claim {
+        #[serde(default)]
+        uas: Option<UasAddress>,
+        #[serde(default)]
+        anchor: Option<AcsAnchor>,
+        #[serde(default = "default_episodic_plane")]
+        plane: RuntimePlane,
+        #[serde(default = "default_current_app_residency")]
+        residency: ResidencyTier,
         proposition: String,
         scope: ClaimScope,
         source: SourceRef,
     },
     Evidence {
+        #[serde(default)]
+        uas: Option<UasAddress>,
+        #[serde(default)]
+        anchor: Option<AcsAnchor>,
+        #[serde(default = "default_episodic_plane")]
+        plane: RuntimePlane,
+        #[serde(default = "default_current_app_residency")]
+        residency: ResidencyTier,
         kind: EvidenceKind,
         payload: EvidenceBlob,
         captured_at: Timestamp,
     },
     Skill {
+        #[serde(default)]
+        uas: Option<UasAddress>,
+        #[serde(default)]
+        anchor: Option<AcsAnchor>,
+        #[serde(default = "default_assembly_plane")]
+        plane: RuntimePlane,
+        #[serde(default = "default_current_app_residency")]
+        residency: ResidencyTier,
         name: String,
         description: String,
         schema_version: u32,
     },
     Tool {
+        #[serde(default)]
+        uas: Option<UasAddress>,
+        #[serde(default)]
+        anchor: Option<AcsAnchor>,
+        #[serde(default = "default_controller_plane")]
+        plane: RuntimePlane,
+        #[serde(default = "default_current_app_residency")]
+        residency: ResidencyTier,
         id: ToolId,
         surface: ToolSurface,
         tier: NodeTier,
     },
     Procedure {
+        #[serde(default)]
+        uas: Option<UasAddress>,
+        #[serde(default)]
+        anchor: Option<AcsAnchor>,
+        #[serde(default = "default_assembly_plane")]
+        plane: RuntimePlane,
+        #[serde(default = "default_current_app_residency")]
+        residency: ResidencyTier,
         skill_ref: NodeId,
         context_hash: ContextHash,
         outcomes: OutcomeList,
     },
     Event {
+        #[serde(default)]
+        uas: Option<UasAddress>,
+        #[serde(default)]
+        anchor: Option<AcsAnchor>,
+        #[serde(default = "default_verification_plane")]
+        plane: RuntimePlane,
+        #[serde(default = "default_current_app_residency")]
+        residency: ResidencyTier,
         kind: DagAgentEventKind,
         ts: Timestamp,
         session: SessionId,
     },
     Companion {
+        #[serde(default)]
+        uas: Option<UasAddress>,
+        #[serde(default)]
+        anchor: Option<AcsAnchor>,
+        #[serde(default = "default_controller_plane")]
+        plane: RuntimePlane,
+        #[serde(default = "default_current_app_residency")]
+        residency: ResidencyTier,
         profile: ModelProfile,
         identity: IdentityHash,
         persona: PersonaBlob,
     },
     Capability {
+        #[serde(default)]
+        uas: Option<UasAddress>,
+        #[serde(default)]
+        anchor: Option<AcsAnchor>,
+        #[serde(default = "default_controller_plane")]
+        plane: RuntimePlane,
+        #[serde(default = "default_current_app_residency")]
+        residency: ResidencyTier,
         kind: CapabilityKind,
         scope: CapabilityScope,
         expiry: Option<Timestamp>,
     },
     Model {
+        #[serde(default)]
+        uas: Option<UasAddress>,
+        #[serde(default)]
+        anchor: Option<AcsAnchor>,
+        #[serde(default = "default_state_plane")]
+        plane: RuntimePlane,
+        #[serde(default = "default_current_app_residency")]
+        residency: ResidencyTier,
         weight_root: WeightRoot,
         base_or_lora: ModelLineage,
     },
@@ -308,6 +390,237 @@ impl NodeKind {
             | NodeKind::Capability { .. } => false,
         }
     }
+
+    pub fn uas(&self) -> Option<&UasAddress> {
+        match self {
+            NodeKind::Note { uas, .. }
+            | NodeKind::Claim { uas, .. }
+            | NodeKind::Evidence { uas, .. }
+            | NodeKind::Skill { uas, .. }
+            | NodeKind::Tool { uas, .. }
+            | NodeKind::Procedure { uas, .. }
+            | NodeKind::Event { uas, .. }
+            | NodeKind::Companion { uas, .. }
+            | NodeKind::Capability { uas, .. }
+            | NodeKind::Model { uas, .. } => uas.as_ref(),
+        }
+    }
+
+    pub fn anchor(&self) -> Option<&AcsAnchor> {
+        match self {
+            NodeKind::Note { anchor, .. }
+            | NodeKind::Claim { anchor, .. }
+            | NodeKind::Evidence { anchor, .. }
+            | NodeKind::Skill { anchor, .. }
+            | NodeKind::Tool { anchor, .. }
+            | NodeKind::Procedure { anchor, .. }
+            | NodeKind::Event { anchor, .. }
+            | NodeKind::Companion { anchor, .. }
+            | NodeKind::Capability { anchor, .. }
+            | NodeKind::Model { anchor, .. } => anchor.as_ref(),
+        }
+    }
+
+    pub fn plane(&self) -> RuntimePlane {
+        match self {
+            NodeKind::Note { plane, .. }
+            | NodeKind::Claim { plane, .. }
+            | NodeKind::Evidence { plane, .. }
+            | NodeKind::Skill { plane, .. }
+            | NodeKind::Tool { plane, .. }
+            | NodeKind::Procedure { plane, .. }
+            | NodeKind::Event { plane, .. }
+            | NodeKind::Companion { plane, .. }
+            | NodeKind::Capability { plane, .. }
+            | NodeKind::Model { plane, .. } => *plane,
+        }
+    }
+
+    pub fn residency(&self) -> ResidencyTier {
+        match self {
+            NodeKind::Note { residency, .. }
+            | NodeKind::Claim { residency, .. }
+            | NodeKind::Evidence { residency, .. }
+            | NodeKind::Skill { residency, .. }
+            | NodeKind::Tool { residency, .. }
+            | NodeKind::Procedure { residency, .. }
+            | NodeKind::Event { residency, .. }
+            | NodeKind::Companion { residency, .. }
+            | NodeKind::Capability { residency, .. }
+            | NodeKind::Model { residency, .. } => *residency,
+        }
+    }
+}
+
+fn default_state_plane() -> RuntimePlane {
+    RuntimePlane::State
+}
+
+fn default_episodic_plane() -> RuntimePlane {
+    RuntimePlane::Episodic
+}
+
+fn default_assembly_plane() -> RuntimePlane {
+    RuntimePlane::Assembly
+}
+
+fn default_controller_plane() -> RuntimePlane {
+    RuntimePlane::Controller
+}
+
+fn default_verification_plane() -> RuntimePlane {
+    RuntimePlane::Verification
+}
+
+fn default_current_app_residency() -> ResidencyTier {
+    ResidencyTier::CurrentApp
+}
+
+// UAS-EXEMPT: private content-addressing projection, not a substrate data class.
+#[derive(Serialize)]
+#[serde(tag = "node_kind", rename_all = "snake_case")]
+enum NodeIdentityKind<'a> {
+    Note {
+        body: &'a String,
+        author: &'a AuthorRef,
+        mime: &'a MimeType,
+    },
+    Claim {
+        proposition: &'a String,
+        scope: &'a ClaimScope,
+        source: &'a SourceRef,
+    },
+    Evidence {
+        kind: &'a EvidenceKind,
+        payload: &'a EvidenceBlob,
+        captured_at: Timestamp,
+    },
+    Skill {
+        name: &'a String,
+        description: &'a String,
+        schema_version: u32,
+    },
+    Tool {
+        id: &'a ToolId,
+        surface: &'a ToolSurface,
+        tier: NodeTier,
+    },
+    Procedure {
+        skill_ref: NodeId,
+        context_hash: &'a ContextHash,
+        outcomes: &'a OutcomeList,
+    },
+    Event {
+        kind: &'a DagAgentEventKind,
+        ts: Timestamp,
+        session: &'a SessionId,
+    },
+    Companion {
+        profile: &'a ModelProfile,
+        identity: &'a IdentityHash,
+        persona: &'a PersonaBlob,
+    },
+    Capability {
+        kind: &'a CapabilityKind,
+        scope: &'a CapabilityScope,
+        expiry: Option<Timestamp>,
+    },
+    Model {
+        weight_root: &'a WeightRoot,
+        base_or_lora: &'a ModelLineage,
+    },
+}
+
+impl<'a> From<&'a NodeKind> for NodeIdentityKind<'a> {
+    fn from(kind: &'a NodeKind) -> Self {
+        match kind {
+            NodeKind::Note {
+                body, author, mime, ..
+            } => Self::Note { body, author, mime },
+            NodeKind::Claim {
+                proposition,
+                scope,
+                source,
+                ..
+            } => Self::Claim {
+                proposition,
+                scope,
+                source,
+            },
+            NodeKind::Evidence {
+                kind,
+                payload,
+                captured_at,
+                ..
+            } => Self::Evidence {
+                kind,
+                payload,
+                captured_at: *captured_at,
+            },
+            NodeKind::Skill {
+                name,
+                description,
+                schema_version,
+                ..
+            } => Self::Skill {
+                name,
+                description,
+                schema_version: *schema_version,
+            },
+            NodeKind::Tool {
+                id, surface, tier, ..
+            } => Self::Tool {
+                id,
+                surface,
+                tier: *tier,
+            },
+            NodeKind::Procedure {
+                skill_ref,
+                context_hash,
+                outcomes,
+                ..
+            } => Self::Procedure {
+                skill_ref: *skill_ref,
+                context_hash,
+                outcomes,
+            },
+            NodeKind::Event {
+                kind, ts, session, ..
+            } => Self::Event {
+                kind,
+                ts: *ts,
+                session,
+            },
+            NodeKind::Companion {
+                profile,
+                identity,
+                persona,
+                ..
+            } => Self::Companion {
+                profile,
+                identity,
+                persona,
+            },
+            NodeKind::Capability {
+                kind,
+                scope,
+                expiry,
+                ..
+            } => Self::Capability {
+                kind,
+                scope,
+                expiry: *expiry,
+            },
+            NodeKind::Model {
+                weight_root,
+                base_or_lora,
+                ..
+            } => Self::Model {
+                weight_root,
+                base_or_lora,
+            },
+        }
+    }
 }
 
 // ── Node struct + content-addressing ────────────────────────────────────────
@@ -329,11 +642,12 @@ pub struct Node {
 
 impl Node {
     /// Compute the canonical content-address for a `NodeKind`.
-    /// Deterministic across runs: serializes via `serde_json` with
-    /// `.sortedKeys` then hashes with BLAKE3. Two nodes built from
-    /// identical kinds always get the same id.
+    /// Deterministic across runs: serializes only the semantic payload,
+    /// excluding UAS/ACS/plane/residency metadata, then hashes with
+    /// BLAKE3. This keeps identity stable across residency transitions.
     pub fn compute_id(kind: &NodeKind) -> NodeId {
-        let canonical = canonical_json(kind);
+        let identity = NodeIdentityKind::from(kind);
+        let canonical = canonical_json(&identity);
         let mut hasher = blake3::Hasher::new();
         hasher.update(canonical.as_bytes());
         let digest = hasher.finalize();
@@ -410,6 +724,10 @@ mod tests {
 
     fn sample_note() -> NodeKind {
         NodeKind::Note {
+            uas: None,
+            anchor: None,
+            plane: crate::uas::RuntimePlane::Episodic,
+            residency: crate::uas::ResidencyTier::CurrentApp,
             body: "hello".into(),
             author: AuthorRef("user".into()),
             mime: MimeType("text/markdown".into()),
@@ -419,51 +737,91 @@ mod tests {
     fn all_node_kind_variants() -> [NodeKind; 10] {
         [
             NodeKind::Note {
+                uas: None,
+                anchor: None,
+                plane: crate::uas::RuntimePlane::Episodic,
+                residency: crate::uas::ResidencyTier::CurrentApp,
                 body: "".into(),
                 author: AuthorRef("".into()),
                 mime: MimeType("".into()),
             },
             NodeKind::Claim {
+                uas: None,
+                anchor: None,
+                plane: crate::uas::RuntimePlane::Episodic,
+                residency: crate::uas::ResidencyTier::CurrentApp,
                 proposition: "".into(),
                 scope: ClaimScope::Vault,
                 source: SourceRef("".into()),
             },
             NodeKind::Evidence {
+                uas: None,
+                anchor: None,
+                plane: crate::uas::RuntimePlane::Episodic,
+                residency: crate::uas::ResidencyTier::CurrentApp,
                 kind: EvidenceKind::Citation,
                 payload: EvidenceBlob(vec![]),
                 captured_at: Timestamp(0),
             },
             NodeKind::Skill {
+                uas: None,
+                anchor: None,
+                plane: crate::uas::RuntimePlane::Assembly,
+                residency: crate::uas::ResidencyTier::CurrentApp,
                 name: "".into(),
                 description: "".into(),
                 schema_version: 0,
             },
             NodeKind::Tool {
+                uas: None,
+                anchor: None,
+                plane: crate::uas::RuntimePlane::Controller,
+                residency: crate::uas::ResidencyTier::CurrentApp,
                 id: ToolId("".into()),
                 surface: ToolSurface::Other,
                 tier: NodeTier::None,
             },
             NodeKind::Procedure {
+                uas: None,
+                anchor: None,
+                plane: crate::uas::RuntimePlane::Assembly,
+                residency: crate::uas::ResidencyTier::CurrentApp,
                 skill_ref: NodeId([0u8; 32]),
                 context_hash: ContextHash([0u8; 32]),
                 outcomes: OutcomeList(vec![]),
             },
             NodeKind::Event {
+                uas: None,
+                anchor: None,
+                plane: crate::uas::RuntimePlane::Verification,
+                residency: crate::uas::ResidencyTier::CurrentApp,
                 kind: DagAgentEventKind::TurnStart,
                 ts: Timestamp(0),
                 session: SessionId("".into()),
             },
             NodeKind::Companion {
+                uas: None,
+                anchor: None,
+                plane: crate::uas::RuntimePlane::Controller,
+                residency: crate::uas::ResidencyTier::CurrentApp,
                 profile: ModelProfile("".into()),
                 identity: IdentityHash([0u8; 32]),
                 persona: PersonaBlob(vec![]),
             },
             NodeKind::Capability {
+                uas: None,
+                anchor: None,
+                plane: crate::uas::RuntimePlane::Controller,
+                residency: crate::uas::ResidencyTier::CurrentApp,
                 kind: CapabilityKind::Approval,
                 scope: CapabilityScope("".into()),
                 expiry: None,
             },
             NodeKind::Model {
+                uas: None,
+                anchor: None,
+                plane: crate::uas::RuntimePlane::State,
+                residency: crate::uas::ResidencyTier::CurrentApp,
                 weight_root: WeightRoot([0u8; 32]),
                 base_or_lora: ModelLineage::Base,
             },
@@ -481,6 +839,10 @@ mod tests {
     fn different_content_produces_different_id() {
         let a = Node::compute_id(&sample_note());
         let b = Node::compute_id(&NodeKind::Note {
+            uas: None,
+            anchor: None,
+            plane: crate::uas::RuntimePlane::Episodic,
+            residency: crate::uas::ResidencyTier::CurrentApp,
             body: "goodbye".into(),
             author: AuthorRef("user".into()),
             mime: MimeType("text/markdown".into()),
@@ -489,9 +851,41 @@ mod tests {
     }
 
     #[test]
+    fn substrate_metadata_does_not_change_node_id() {
+        let plain = Node::compute_id(&sample_note());
+        let placed = Node::compute_id(&NodeKind::Note {
+            uas: Some(crate::uas::UasAddress::new(
+                crate::uas::UasKind::GraphNode,
+                b"hello-node",
+                42,
+            )),
+            anchor: Some(crate::uas::AcsAnchor::new(
+                "claim-hello",
+                "E1",
+                crate::uas::RuntimePlane::Verification,
+                crate::uas::ResidencyTier::VerifiedFloor,
+                0.8,
+            )),
+            plane: crate::uas::RuntimePlane::Verification,
+            residency: crate::uas::ResidencyTier::VerifiedFloor,
+            body: "hello".into(),
+            author: AuthorRef("user".into()),
+            mime: MimeType("text/markdown".into()),
+        });
+        assert_eq!(
+            plain, placed,
+            "UAS/ACS/plane/residency metadata must not perturb content identity"
+        );
+    }
+
+    #[test]
     fn different_kinds_produce_different_ids() {
         let note_id = Node::compute_id(&sample_note());
         let claim_id = Node::compute_id(&NodeKind::Claim {
+            uas: None,
+            anchor: None,
+            plane: crate::uas::RuntimePlane::Episodic,
+            residency: crate::uas::ResidencyTier::CurrentApp,
             proposition: "hello".into(),
             scope: ClaimScope::Vault,
             source: SourceRef("user".into()),
@@ -592,11 +986,19 @@ mod tests {
         let kinds = [
             sample_note(),
             NodeKind::Claim {
+                uas: None,
+                anchor: None,
+                plane: crate::uas::RuntimePlane::Episodic,
+                residency: crate::uas::ResidencyTier::CurrentApp,
                 proposition: "p".into(),
                 scope: ClaimScope::Global,
                 source: SourceRef("s".into()),
             },
             NodeKind::Capability {
+                uas: None,
+                anchor: None,
+                plane: crate::uas::RuntimePlane::Controller,
+                residency: crate::uas::ResidencyTier::CurrentApp,
                 kind: CapabilityKind::ToolInvoke("vault.write".into()),
                 scope: CapabilityScope("vault_x".into()),
                 expiry: Some(Timestamp(99999)),

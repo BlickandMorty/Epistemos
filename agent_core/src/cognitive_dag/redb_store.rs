@@ -482,6 +482,10 @@ mod tests {
     fn note(body: &str) -> Node {
         Node::new_at(
             NodeKind::Note {
+                uas: None,
+                anchor: None,
+                plane: crate::uas::RuntimePlane::Episodic,
+                residency: crate::uas::ResidencyTier::CurrentApp,
                 body: body.into(),
                 author: AuthorRef("u".into()),
                 mime: MimeType("text/markdown".into()),
@@ -493,6 +497,10 @@ mod tests {
     fn claim(prop: &str) -> Node {
         Node::new_at(
             NodeKind::Claim {
+                uas: None,
+                anchor: None,
+                plane: crate::uas::RuntimePlane::Episodic,
+                residency: crate::uas::ResidencyTier::CurrentApp,
                 proposition: prop.into(),
                 scope: ClaimScope::Vault,
                 source: SourceRef("u".into()),

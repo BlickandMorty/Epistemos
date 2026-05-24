@@ -566,11 +566,19 @@ impl TriFusionWitness {
         let evidence_id = self.provenance_evidence_id();
         let evidence_source = self.provenance_evidence_source();
         let claim_node_id = Node::compute_id(&NodeKind::Claim {
+            uas: None,
+            anchor: None,
+            plane: crate::uas::RuntimePlane::Episodic,
+            residency: crate::uas::ResidencyTier::CurrentApp,
             proposition: self.provenance_claim_text(),
             scope: ClaimScope::Vault,
             source: SourceRef(format!("ledger_claim:{}", claim_id.0)),
         });
         let evidence_node_id = Node::compute_id(&NodeKind::Evidence {
+            uas: None,
+            anchor: None,
+            plane: crate::uas::RuntimePlane::Episodic,
+            residency: crate::uas::ResidencyTier::CurrentApp,
             kind: EvidenceKind::Citation,
             payload: EvidenceBlob(cognitive_dag_evidence_payload_bytes(
                 &evidence_id,

@@ -49,7 +49,9 @@ Honest posture rules applied:
 - No missing subsystem reports green.
 - EML Observatory reports FFI reachability but keeps SAE live stream unwired.
 - UAS/ACS reports taxonomy, residency, and copy counters but keeps production anchor lookup blocked.
-- Plane Placement is red/blocked until Terminal G / T14 lands five-plane fields.
+- Plane Placement is green only when Terminal G / T14 five-plane fields are
+  present and counted through `substrate_health_unified_json`; otherwise the
+  row degrades to FFI-unavailable or dependency-blocked state.
 - Cognitive Weight badges are visible taxonomy only; policy enforcement remains unwired.
 - Drift Monitor is monitor-only until an F-WBO-DriftLedger PASS artifact exists.
 
@@ -77,14 +79,17 @@ Data classes touched:
 Five invariants:
 
 - UAS address: surfaced through UAS/ACS taxonomy and DAG root; no new orphan payload class is created.
-- Plane: PlanePlacement row explicitly marks all nodes unplaced until Terminal G/T14 lands.
+- Plane: PlanePlacement row counts live DAG planes after Terminal G/T14 lands;
+  unavailable FFI falls back to an explicit non-green state.
 - Residency: UAS row shows `current_app`, `verified_floor`, and `capability_ceiling` residency tags.
 - WBO if approximate: Lattice/WBO and Drift Monitor show WBO accounting and never mark F-WBO pass by default.
 - WRV if product-facing: all rows in the panel include `VerifiedFloorChipStrip` and falsifier links.
 
 Waiver:
 
-- Plane placement has a Terminal G dependency waiver. The row ships blocked/red in MAS until five-plane fields are real.
+- Before Terminal G/T14, Plane Placement had a dependency waiver. On the T14
+  branch this waiver is retired for DAG `NodeKind` plane counts only; model
+  internals and KV runtime telemetry remain out of scope.
 
 ## W-Rows and Falsifiers
 
@@ -92,6 +97,8 @@ Advanced:
 
 - W-07 EML Observatory
 - W-10 UAS/ACS and Plane Placement dependency visibility
+- W-24 DAG node UAS/ACS anchor fields
+- W-28 live DAG plane-placement visibility
 - W-14 AnswerPacket witness channel
 - W-21 Vault Recall
 - W-26 Cognitive DAG Counts
@@ -104,7 +111,7 @@ Linked/unblocked for visibility:
 - `docs/falsifiers/F-ULP-Oracle_2026_05_17.md`
 - `docs/falsifiers/F-UAS-ZeroCopy-Spine_2026_05_17.md`
 - `docs/falsifiers/F-ACS-Anchor-Addressing_2026_05_17.md`
-- `docs/falsifiers/F_ACS_ANCHOR_LOOKUP_2026_05_18.md`
+- `docs/falsifiers/F-ACS-AnchorLookup_2026_05_24.md`
 - `docs/falsifiers/F_WBO_DRIFT_LEDGER_2026_05_18.md`
 - `docs/falsifiers/F-VaultRecall-50_2026_05_17.md`
 - `docs/falsifiers/F_EIDOS_CLOSED_CITATION_2026_05_18.md`
@@ -116,4 +123,5 @@ Linked/unblocked for visibility:
 - Tier 1 MAS: Settings panel, read-only FFI snapshot, WRV chip strips, falsifier links.
 - Tier 2 Pro flagged-off: no Pro runtime path added.
 - Tier 3 Research: EML research-only observatory calls remain feature-gated; MAS fallback reports no live stream.
-- Vault: no speculation promoted; blocked Terminal G/T14 plane placement is preserved as a visible dependency.
+- Vault: no speculation promoted; model-internal neural assembly telemetry
+  remains outside the MAS plane-placement claim.
