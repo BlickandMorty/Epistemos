@@ -1,0 +1,165 @@
+{
+  "falsifier_id": "F-HyperdynamicLoop-Bounded",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "cargo run --release --bin falsify_hyperdynamic_loop_bounded -- --output artifacts/falsifiers/hyperdynamic_loop_bounded/result.json",
+  "command_digest": "sha256:a4b8b3619f5cd95e663738fe2fca0b7fbeb4b2f9533f98f1d35efaf33a107cda",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "0cf19466c2cf4fe82be12917bc276425eb011221",
+  "fixture_id": "hyperdynamic_loop_xorshift32_100prompt_v1",
+  "timestamp_utc": "2026-05-24T06:10:33Z",
+  "result_digest": "sha256:2b793cc857cc442106043204c70cd620168e52ed082f24707ee5a0d1ea94c7bb",
+  "measurements": {
+    "admission_accepted": {
+      "value": 27,
+      "unit": "count"
+    },
+    "admission_quarantined_budget_exhausted": {
+      "value": 53,
+      "unit": "count"
+    },
+    "admission_quarantined_explicit": {
+      "value": 20,
+      "unit": "count"
+    },
+    "loops_run": {
+      "value": 200,
+      "unit": "count"
+    },
+    "max_latency_ms_observed": {
+      "value": 0,
+      "unit": "ms"
+    },
+    "max_retries_observed": {
+      "value": 3,
+      "unit": "count"
+    },
+    "outcome_partition_closed": {
+      "value": 200,
+      "unit": "count"
+    },
+    "seed_matches_canon": {
+      "value": 85992740,
+      "unit": "u32"
+    },
+    "total_wall_clock_ms": {
+      "value": 0,
+      "unit": "ms"
+    },
+    "witness_accepted": {
+      "value": 23,
+      "unit": "count"
+    },
+    "witness_quarantined_budget_exhausted": {
+      "value": 52,
+      "unit": "count"
+    },
+    "witness_quarantined_explicit": {
+      "value": 25,
+      "unit": "count"
+    }
+  },
+  "acceptance_thresholds": {
+    "admission_accepted": {
+      "operator": ">=",
+      "value": 0,
+      "unit": "count"
+    },
+    "admission_quarantined_budget_exhausted": {
+      "operator": ">=",
+      "value": 0,
+      "unit": "count"
+    },
+    "admission_quarantined_explicit": {
+      "operator": ">=",
+      "value": 0,
+      "unit": "count"
+    },
+    "loops_run": {
+      "operator": "==",
+      "value": 200,
+      "unit": "count"
+    },
+    "max_latency_ms_observed": {
+      "operator": "<=",
+      "value": 5000,
+      "unit": "ms"
+    },
+    "max_retries_observed": {
+      "operator": "<=",
+      "value": 3,
+      "unit": "count"
+    },
+    "outcome_partition_closed": {
+      "operator": "==",
+      "value": 200,
+      "unit": "count"
+    },
+    "seed_matches_canon": {
+      "operator": "==",
+      "value": 85992740,
+      "unit": "u32"
+    },
+    "total_wall_clock_ms": {
+      "operator": "<=",
+      "value": 30000,
+      "unit": "ms"
+    },
+    "witness_accepted": {
+      "operator": ">=",
+      "value": 0,
+      "unit": "count"
+    },
+    "witness_quarantined_budget_exhausted": {
+      "operator": ">=",
+      "value": 0,
+      "unit": "count"
+    },
+    "witness_quarantined_explicit": {
+      "operator": ">=",
+      "value": 0,
+      "unit": "count"
+    }
+  },
+  "pass_per_axis": {
+    "admission_accepted": true,
+    "admission_quarantined_budget_exhausted": true,
+    "admission_quarantined_explicit": true,
+    "loops_run": true,
+    "max_latency_ms_observed": true,
+    "max_retries_observed": true,
+    "outcome_partition_closed": true,
+    "seed_matches_canon": true,
+    "total_wall_clock_ms": true,
+    "witness_accepted": true,
+    "witness_quarantined_budget_exhausted": true,
+    "witness_quarantined_explicit": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "Terminal S — Hyperdynamic Schema Loop primitive. Seed = 0x05202524. Corpus = 100 prompts × 2 loop kinds (admission + witness). re_emit = non-progressive (strongest adversarial shape). Started 2026-05-24T06:10:33Z. Wall-clock = 0 ms. Admission partition: accepted=27 quarantined_explicit=20 budget_exhausted=53. Witness partition: accepted=23 quarantined_explicit=25 budget_exhausted=52. Max retries observed = 3 (budget = 3). Max wall-clock observed = 0 ms (budget = 5000 ms)."
+}
