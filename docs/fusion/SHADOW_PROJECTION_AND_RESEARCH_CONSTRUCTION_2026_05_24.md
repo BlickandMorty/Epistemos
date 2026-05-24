@@ -5,7 +5,6 @@ purpose: Builder-facing synthesis of the Erdős unit-distance result, OpenAI Par
 promotion_rule: This doc does not promote new laws or theorems to canon by itself. ShadowProjection, L8, E8, E9, T28, W-Lift-N, and F-Erdos-Lift-Optimality remain candidate until local falsifiers and production caller chains exist.
 local_anchors:
   - docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md
-  - docs/fusion/ADDRESSABLE_NEURAL_SUBSTRATE_CANON_2026_05_24.md
   - docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md
   - docs/HELIOS_V5_DOC_6_THEOREM_CANON.md
   - docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION_2026_05_16.md
@@ -44,7 +43,6 @@ External source floor:
 
 Local source floor:
 
-- `docs/fusion/ADDRESSABLE_NEURAL_SUBSTRATE_CANON_2026_05_24.md` — canonical target for addressable neural clusters, SSM routing, L3 SSD Oracle, and 70B local capability ceiling.
 - `docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md` — UAS-ACS as one addressable, recursively governed substrate.
 - `docs/HELIOS_V5_DOC_6_THEOREM_CANON.md` — E1-E7, H1-H17, PCF-1..10 theorem namespace and promotion discipline.
 - `docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION_2026_05_16.md` — L3 SSD Oracle, KV-Direct, L_SE, V6.1/V6.2 falsifier framing.
@@ -70,24 +68,6 @@ Every operation on that object is exactly one of three motions:
 | **Mutate / Promote** | substrate → substrate | Change durable state or promote a candidate into stronger authority. | adapter update; ACS-approved tool action; kernel promotion; falsifier PASS; Lean certificate; nightly research result | `MutationEnvelope` + ACS verdict + rollback |
 
 This is the simplest language that preserves the original DNA. It keeps UAS, ACS, EML, WBO, Active Assembly, KV-Direct, Lean, AnswerPacket, and Research Construction, but stops treating them as separate moving parts.
-
-## 1A. Addressable Neural Substrate target
-
-The Substrate Motion Invariant includes the user's original "dormant brain neuron pull" target. See `docs/fusion/ADDRESSABLE_NEURAL_SUBSTRATE_CANON_2026_05_24.md`.
-
-Canonical target:
-
-> Epistemos turns a dense model into an addressable neural substrate. An SSM/state router selects active assemblies of layers, rank-one components, KV pages, adapters, residual islands, and kernels; the residency governor pages only that working set into UMA; verification proves the selected path preserves dense/reference behavior within a budget.
-
-Builder translation:
-
-- **State plane**: SSM / hybrid-SSM semantic router decides whether normal decode, attention, retrieval, tools, adapter, connectome lookup, or dense fallback is needed.
-- **Assembly plane**: Gate3 / PacketRouter1bit / connectome anchors select the active neural assembly.
-- **Episodic plane**: vault, graph, KV pages, theorem witnesses, tool traces, and claim ledgers provide exact support.
-- **Controller plane**: ACS admits the route, tool calls, mutation, kernel promotion, and fallback.
-- **Verification plane**: WBO, AnswerPacket, ClaimKind, RunEventLog, falsifiers, and Lean/EML proofs check drift.
-
-This is canon as the target architecture and vocabulary. It is not a shipped capability until `F-Sparse-Runtime-Split`, `F-KV-Direct-Gate`, `F-UAS-CopyCount`, `F-ActiveAssembly-Minimal`, `F-ULP-Oracle`, and `F-70B-Local-Cocktail` pass.
 
 ## 2. The two external results as one shape
 
@@ -280,7 +260,7 @@ The substrate addresses the LLM at progressively finer granularity over the rele
 | **Adapter / LoRA delta** | Which task-specialized delta is applied on top of base weights | PARTIAL (L_SE = T26, research-deferred D-06; Erdős licenses bounded exploration per §4) | Tier 3 → Tier 2 license |
 | **MoE expert** | Which expert handles a token (when the model is MoE) | DELEGATED — the *model* implements MoE routing; the substrate chooses which MoE model the call goes to | Tier 1 (model-internal) |
 | **Active assembly across all of the above** | The thin slice of model + KV + adapter + context + tools awake for this query | RESEARCH (PCF-5 Active Rank-One Execution candidate; Active Assembly Selector in `agent_core/src/research/active_assembly`) | Tier 3 candidate |
-| **Attention head / SSM state** | Specific `W_QK^h` decomposition slice **or** a recurrent scan-state region used as a language-router gate (the "SSM that calls neurons per pass" the user described as the original no-compromise mechanism) | RESEARCH (PCF-2 QkEdgeAnchor + Goodfire VPD lineage revalidated 2026-05-07; SSM-router target in `ADDRESSABLE_NEURAL_SUBSTRATE_CANON_2026_05_24.md` §2A row 8 + §3 five-plane execution path) | Tier 3 |
+| **Attention head** | Specific `W_QK^h` decomposition slice | RESEARCH (PCF-2 QkEdgeAnchor, Goodfire VPD lineage revalidated 2026-05-07) | Tier 3 |
 | **Parameter anchor** | A frozen-during-call subset of parameters | RESEARCH (PCF-1 ParamAnchor) | Tier 3 |
 | **Cross-layer attribution circuit** | A traced computational subgraph spanning layers | RESEARCH (PCF-3 ParamAttributionGraph) | Tier 3 |
 
@@ -319,11 +299,11 @@ If a feature genuinely needs finer-than-MoE addressing, it lives in `epistemos-r
 
 The Substrate Motion Invariant (§1) is the *complete* motion grammar. "Activate" (picking which model slice wakes) is a **Lift** — the substrate ingests a slice of weights / KV / adapter / context into the executor's working set. There is no fourth motion. The same three motions apply whether the granularity is whole-model or attention-head.
 
-| Motion | At whole-model | At KV-page | At adapter | At attention-head / SSM state (research) |
+| Motion | At whole-model | At KV-page | At adapter | At attention-head (research) |
 |---|---|---|---|---|
-| **Lift** | Load model into executor | mmap KV page into device | Apply LoRA delta | Activate specific `W_QK^h` slice OR wake SSM scan-state region as language-router gate |
-| **Project** | Token stream → AnswerPacket | KV state → cache entry | Adapter activation → output delta | Head/SSM-state output → layer residual stream |
-| **Mutate** | Model swap (router decision) | KV invalidation | LoRA delta promotion | Anchor pin/unpin · SSM-router calibration update |
+| **Lift** | Load model into executor | mmap KV page into device | Apply LoRA delta | Activate specific W_QK^h slice |
+| **Project** | Token stream → AnswerPacket | KV state → cache entry | Adapter activation → output delta | Head output → layer residual stream |
+| **Mutate** | Model swap (router decision) | KV invalidation | LoRA delta promotion | Anchor pin / unpin |
 
 This is the *single typed primitive* the user asked for in the 2026-05-24 simplification ask. One motion grammar; many granularities; same architecture.
 
