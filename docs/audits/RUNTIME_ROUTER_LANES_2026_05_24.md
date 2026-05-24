@@ -200,10 +200,13 @@ The stub is replaced, but no other code changes.
 cd /Users/jojo/Downloads/Epistemos-terminal-t1-runtime-router
 xcodegen generate
 xcodebuild -scheme Epistemos -destination 'platform=macOS' build 2>&1 | xcbeautify
-xcodebuild -scheme EpistemosTests test \
-  -destination 'platform=macOS' \
+./scripts/xcodebuild_epistemos.sh test \
+  -project Epistemos.xcodeproj -scheme Epistemos \
+  -destination platform=macOS,arch=arm64 \
+  -derivedDataPath build/derived-data-terminal-t1 \
   -only-testing:EpistemosTests/RuntimeRouterTests \
-  -only-testing:EpistemosTests/FLocalToolUseTests 2>&1 | xcbeautify
+  -only-testing:EpistemosTests/FLocalToolUseTests \
+  CODE_SIGNING_ALLOWED=NO
 ```
 
 Per `feedback_build_less_code_more` (memory): the cheap gate is
@@ -211,6 +214,28 @@ Per `feedback_build_less_code_more` (memory): the cheap gate is
 the Swift Testing suite above. Skip the full `xcodebuild build` if
 the user is at disk capacity — the test scheme already compiles the
 Epistemos target as a dependency.
+
+### 8.1 · Verification status as of 2026-05-24
+
+| Gate | Run | Outcome |
+|---|---|---|
+| `xcodebuild -scheme Epistemos build` | iter 1 (00:35) | Swift compile **PASS** · code-sign FAIL (worktree has no dev cert; not a code issue). Only error line: `"Epistemos" has entitlements that require signing with a development certificate.` |
+| xcodegen project regen | iter 1 (00:42) | PASS — all 6 new Swift files surfaced via `syncedFolder`. |
+| Test bundle compile + run | iter 2 (00:47) | **DEFERRED** — bottlenecked on SwiftBuild lock + mlx-swift package re-checkout (fresh worktree). Killed after 6 min in package-resolve. Other agents had parallel xcodebuilds in flight (terminal-b/test, etc.). Re-run when system is quieter. |
+| Code review pass | iter 2 + 3 | PASS — `git show HEAD~1 --name-status` shows exactly 8 designated files + xcodegen artifacts. SettingsView edit is +7 lines surgical (`git diff HEAD~1 HEAD -- Epistemos/Views/Settings/SettingsView.swift`). |
+| Hardening: race-safe test init | iter 3 (commit `b2277f0aef`) | Added `persistsToUserDefaults: Bool = true` flag to `RuntimeRouter.init` — production keeps UserDefaults persistence; tests pass `false` to avoid parallel-suite races. |
+
+### 8.2 · Known follow-ups
+
+1. Re-run the test suite once parallel agent xcodebuilds quiet down.
+2. Replace `StubRuntimeExecutor`s with real lane executors
+   (`MLXRuntimeExecutor`, `GGUFRuntimeExecutor`,
+   `AppleIntelligenceRuntimeExecutor`, `CloudRuntimeExecutor(provider:)`)
+   in a follow-up PR — protocol surface is locked.
+3. `ConfidenceRouter.routeProfiles()` still returns `[]`. Callers
+   should switch to `InferenceState.routeProfiles()` /
+   `RuntimeRouter.defaultRouteProfiles()` — the deprecation is
+   audit-doc'd but not yet code-enforced.
 
 ## 9 · Honest summary
 
