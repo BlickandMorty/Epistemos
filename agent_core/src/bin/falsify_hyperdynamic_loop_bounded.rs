@@ -29,6 +29,12 @@ use agent_core::hyperdynamic_loop::{
     run_loop, AdmissionDraft, AdmissionRepairLoop, LoopCounters, RepairBudget, RepairOutcome,
     WitnessDraft, WitnessRepairLoop, WitnessState,
 };
+#[cfg(feature = "research")]
+use agent_core::hyperdynamic_loop::{SchemaDraft, SchemaRepairLoop};
+#[cfg(feature = "research")]
+use agent_core::research::hyperdynamic_schemas::repair::{
+    FieldSchema, FieldType, Schema, Value,
+};
 
 const FALSIFIER_ID: &str = "F-HyperdynamicLoop-Bounded";
 const FIXTURE_ID: &str = "hyperdynamic_loop_xorshift32_100prompt_v1";
@@ -153,6 +159,63 @@ fn run_witness_corpus(seed_state: &mut u32) -> Aggregate {
     agg
 }
 
+/// Adversarial shape #3 (research feature only): four-way cycle across
+/// {empty / type-mismatch / unknown-field / fully-valid} per the spec
+/// in `docs/falsifiers/F-HyperdynamicLoop-Bounded_2026_05_24.md`. The
+/// re_emit closure is non-progressive — drafts repeat verbatim — so
+/// every RepairWith exercises the bounded-retry contract.
+#[cfg(feature = "research")]
+fn run_schema_corpus(seed_state: &mut u32) -> Aggregate {
+    let schema = Schema::new()
+        .with("name", FieldSchema::strict(FieldType::String))
+        .with("age", FieldSchema::strict(FieldType::Integer));
+    let loop_impl = SchemaRepairLoop::new(schema);
+    let mut counters = LoopCounters::new();
+    let mut agg = Aggregate::default();
+    for _ in 0..CORPUS_SIZE {
+        let initial = pick_schema_draft(seed_state);
+        let t0 = Instant::now();
+        let outcome = run_loop(
+            &loop_impl,
+            initial,
+            RepairBudget::DEFAULT,
+            &mut counters,
+            |prev, _hint| prev.clone(),
+        )
+        .expect("schema loop has no error path");
+        agg.record(&outcome, t0.elapsed());
+    }
+    agg
+}
+
+#[cfg(feature = "research")]
+fn pick_schema_draft(seed_state: &mut u32) -> SchemaDraft {
+    let roll = xorshift32(seed_state) % 4;
+    let mut value = BTreeMap::new();
+    match roll {
+        0 => {
+            // Empty — both required fields missing.
+        }
+        1 => {
+            // Type-mismatch on `age`.
+            value.insert("name".to_string(), Value::String("Alice".to_string()));
+            value.insert("age".to_string(), Value::String("thirty".to_string()));
+        }
+        2 => {
+            // Unknown field `extra`.
+            value.insert("name".to_string(), Value::String("Alice".to_string()));
+            value.insert("age".to_string(), Value::Integer(30));
+            value.insert("extra".to_string(), Value::Bool(true));
+        }
+        _ => {
+            // Fully valid.
+            value.insert("name".to_string(), Value::String("Alice".to_string()));
+            value.insert("age".to_string(), Value::Integer(30));
+        }
+    }
+    SchemaDraft::new(value)
+}
+
 fn parse_output_path(argv: &[String]) -> PathBuf {
     for (i, arg) in argv.iter().enumerate() {
         if arg == "--output" {
@@ -177,22 +240,30 @@ fn main() {
     let mut state = HYPERDYNAMIC_LOOP_BOUNDED_SEED;
     let admission = run_admission_corpus(&mut state);
     let witness = run_witness_corpus(&mut state);
+    #[cfg(feature = "research")]
+    let schema = run_schema_corpus(&mut state);
+    #[cfg(not(feature = "research"))]
+    let schema = Aggregate::default();
 
     let total_wall_clock = start.elapsed();
-    let total_runs = admission.runs + witness.runs;
-    let total_accepted = admission.accepted + witness.accepted;
-    let total_quarantined_explicit =
-        admission.quarantined_explicit + witness.quarantined_explicit;
-    let total_quarantined_budget_exhausted =
-        admission.quarantined_budget_exhausted + witness.quarantined_budget_exhausted;
+    let total_runs = admission.runs + witness.runs + schema.runs;
+    let total_accepted = admission.accepted + witness.accepted + schema.accepted;
+    let total_quarantined_explicit = admission.quarantined_explicit
+        + witness.quarantined_explicit
+        + schema.quarantined_explicit;
+    let total_quarantined_budget_exhausted = admission.quarantined_budget_exhausted
+        + witness.quarantined_budget_exhausted
+        + schema.quarantined_budget_exhausted;
     let total_partition =
         total_accepted + total_quarantined_explicit + total_quarantined_budget_exhausted;
     let max_retries = admission
         .max_retries_observed
-        .max(witness.max_retries_observed);
+        .max(witness.max_retries_observed)
+        .max(schema.max_retries_observed);
     let max_latency_ms = admission
         .max_latency_ms_observed
-        .max(witness.max_latency_ms_observed);
+        .max(witness.max_latency_ms_observed)
+        .max(schema.max_latency_ms_observed);
 
     let budget = RepairBudget::DEFAULT;
     let total_wall_clock_ms = total_wall_clock.as_millis();
@@ -228,15 +299,20 @@ fn main() {
         p.insert(name.to_string(), pass);
     };
 
+    // Loop-kind count is 2 in default build, 3 under --features research
+    // (SchemaRepairLoop joins the corpus). Same total per-loop CORPUS_SIZE.
+    #[cfg(feature = "research")]
+    let expected_loop_kinds: u64 = 3;
+    #[cfg(not(feature = "research"))]
+    let expected_loop_kinds: u64 = 2;
+    let expected_loops_run = (CORPUS_SIZE as u64) * expected_loop_kinds;
     insert_axis(
         "loops_run",
         measure_value(total_runs as u128),
         "count",
         "==",
-        serde_json::Value::Number(serde_json::Number::from(
-            (CORPUS_SIZE as u64) * 2,
-        )),
-        total_runs == (CORPUS_SIZE as u64) * 2,
+        serde_json::Value::Number(serde_json::Number::from(expected_loops_run)),
+        total_runs == expected_loops_run,
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
@@ -304,10 +380,16 @@ fn main() {
     // Per-loop diagnostic axes (informational; thresholds == observed
     // so they always pass — they exist so the artifact carries the
     // partition surface for the audit doc + Provenance Console).
-    for (prefix, agg) in [
+    #[cfg(feature = "research")]
+    let per_loop_aggs: &[(&str, &Aggregate)] = &[
         ("admission", &admission),
         ("witness", &witness),
-    ] {
+        ("schema", &schema),
+    ];
+    #[cfg(not(feature = "research"))]
+    let per_loop_aggs: &[(&str, &Aggregate)] =
+        &[("admission", &admission), ("witness", &witness)];
+    for (prefix, agg) in per_loop_aggs.iter().copied() {
         for (suffix, value) in [
             ("accepted", agg.accepted),
             ("quarantined_explicit", agg.quarantined_explicit),
@@ -343,15 +425,30 @@ fn main() {
         FallbackTier::Fail
     };
 
+    #[cfg(feature = "research")]
+    let loop_kinds_label = "3 loop kinds (admission + witness + schema)";
+    #[cfg(not(feature = "research"))]
+    let loop_kinds_label = "2 loop kinds (admission + witness)";
+    #[cfg(feature = "research")]
+    let schema_partition = format!(
+        " Schema partition: accepted={s_acc} quarantined_explicit={s_qe} \
+         budget_exhausted={s_be}.",
+        s_acc = schema.accepted,
+        s_qe = schema.quarantined_explicit,
+        s_be = schema.quarantined_budget_exhausted,
+    );
+    #[cfg(not(feature = "research"))]
+    let schema_partition = String::new();
     let notes = format!(
         "Terminal S — Hyperdynamic Schema Loop primitive. Seed = \
          0x{HYPERDYNAMIC_LOOP_BOUNDED_SEED:08x}. Corpus = {CORPUS_SIZE} \
-         prompts × 2 loop kinds (admission + witness). re_emit = \
-         non-progressive (strongest adversarial shape). Started \
-         {started_utc}. Wall-clock = {total_wall_clock_ms} ms. \
+         prompts × {loop_kinds_label}. re_emit = non-progressive \
+         (strongest adversarial shape). Started {started_utc}. \
+         Wall-clock = {total_wall_clock_ms} ms. \
          Admission partition: accepted={a_acc} quarantined_explicit={a_qe} \
          budget_exhausted={a_be}. Witness partition: accepted={w_acc} \
-         quarantined_explicit={w_qe} budget_exhausted={w_be}. \
+         quarantined_explicit={w_qe} budget_exhausted={w_be}.\
+         {schema_partition} \
          Max retries observed = {max_retries} (budget = {budget_retries}). \
          Max wall-clock observed = {max_latency_ms} ms (budget = \
          {budget_ms} ms).",

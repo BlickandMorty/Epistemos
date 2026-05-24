@@ -91,6 +91,7 @@ impl SchemaRepairLoop {
                 } => {
                     let expected = expected
                         .iter()
+                        .copied()
                         .map(FieldType::code)
                         .collect::<Vec<_>>()
                         .join("|");
