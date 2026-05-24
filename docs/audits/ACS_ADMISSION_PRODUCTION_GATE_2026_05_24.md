@@ -6,6 +6,8 @@ Terminal E wires ACS (Anchored Cognitive Substrate / Autopoietic Cognitive Stack
 
 The Swift path calls `CSISafeguard.recordMeasurement(...)` before `CloudKnowledgeDistillationService` persists a compiled model vault. A low CSI value throws before `store.save(vault)`.
 
+Latest-main build hardening also marks the production `EidosBridge` static bridge methods `nonisolated` so Swift 6 default actor isolation does not break the existing W-47 citation gate. This is a build-correctness fix only; it does not change Eidos behavior.
+
 ## Rev-2 PR Carry Fields
 
 - Motion: Mutate / Promote. ACS admission decides whether a tool action or distillation write may become durable state; blocked verdicts remain witnessed without committing the action.
@@ -14,10 +16,11 @@ The Swift path calls `CSISafeguard.recordMeasurement(...)` before `CloudKnowledg
 - Residency: Tier 1 MAS for the production gate path. No Pro-only or Research-only runtime path is promoted by this PR.
 - WBO: not an approximate transform, so no lattice budget is spent. Verdict accounting is the error policy: allow, warning, and blocked verdicts stay separate and auditable.
 - Witness: `RunEventLog` ACS audit record, `SCOPERexAdmissionProof`, forged-signature test, source-order test for `CSISafeguard`, and this audit doc.
-- Falsifier: W-46/W-47 proof boundary is tested locally. Canonical `F-ACS-Anchor-Addressing` is not claimed; it is blocked by missing `AcsAnchor` / `AnchorRegistry` / harness substrate on this branch.
+- Falsifier: W-46/W-47 proof boundary is tested locally. Canonical `F-ACS-Anchor-Addressing` PASS is not claimed because the typed-anchor harness is explicitly deferred out of Terminal E scope.
 - Tier: Tier 1 (MAS), high risk because it gates execution and persistence.
 - Rollback: disable `EPISTEMOS_ACS_ADMISSION_V0` for UI flag posture, revert callers to `MissionRun::record_event` / direct distillation persistence, or inject a `csiGateProvider` that returns `shouldContinue: true` while preserving the source-order seam for a follow-up fix.
 - LLM-address granularity row: `Output schema` for typed tool-call / proof admission, plus `Whole-model call` metadata for per-model distillation vault gating. No KV-page, adapter, attention-head, parameter-anchor, or circuit addressing is claimed.
+- Incidental build fix: `EidosBridge` isolation has no new motion; it preserves the existing W-47 citation-gate witness path at `Output schema` granularity.
 
 ## 7 Laws
 
@@ -40,8 +43,8 @@ Data classes touched:
 - W-46 advances to Rust-wired: `ACSRunEventLogSink::admit_and_record` fans verdicts into the OpLog, with v2 module exposure and focused tests.
 - W-47 advances to partial-wired: `SCOPERexAdmissionProof { verdict, record_id, capability_signature }` exists under `scope_rex`, tool handoffs carry it, and forged signature mutation is rejected.
 - W-25 advances to partial: Provenance Console rows render an inline `ACS verdict` field, but full AcsAnchor sorting/clickable detail remains blocked by missing row-level ACS anchor IDs.
-- W-52 advances to wired-source-guarded-Xcode-cancelled: `CSISafeguard` has a production caller before distillation persistence and a low-CSI short-circuit test, but the targeted Xcode test run was cancelled during a Rust build step before Swift tests completed.
-- F-ACS-Anchor-Addressing: unblocked at the ACS admission proof/address boundary; full M2 Pro PASS is not claimed because this branch does not contain the canonical `AcsAnchor` type, `AnchorRegistry`, or `agent_core/tests/acs_anchor_addressing.rs` harness required by `docs/falsifiers/F-ACS-Anchor-Addressing_2026_05_17.md`.
+- W-52 advances to wired-source-guarded-Xcode-blocked: `CSISafeguard` has a production caller before distillation persistence and a low-CSI short-circuit test, but targeted Xcode verification is blocked by Swift 6 actor isolation in the test helper after three attempts.
+- F-ACS-Anchor-Addressing: unblocked only at the ACS admission proof/address boundary. Full M2 Pro PASS is not claimed because the canonical typed-anchor harness is deferred per `docs/audits/DECISION_RESOLVED_ACS_ANCHOR_ADDRESSING_2026_05_24.md`.
 
 ## Tier Classification
 
@@ -52,5 +55,5 @@ Tier 1 (MAS). This PR gates v2 tool execution and distillation persistence in MA
 - PASS: `rustup run stable cargo test --manifest-path agent_core/Cargo.toml --test r5_acs_tool_handoff`
 - PASS: `rustup run stable cargo test --manifest-path agent_core/Cargo.toml --test r4_acs_audit_snapshot_helper --test acs_admission_bridge`
 - PASS: `rustup run stable cargo build --manifest-path agent_core/Cargo.toml --no-default-features --features pro-build,lsp-runtime --target x86_64-apple-darwin`
-- CANCELLED/FAIL exit 65: `./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosTerminalEACS -only-testing:EpistemosTests/CloudKnowledgeDistillationTests -only-testing:EpistemosTests/ProvenanceConsoleSourceGuardTests -only-testing:EpistemosTests/SearchFusionHealthRowTests test CODE_SIGNING_ALLOWED=NO -quiet`. The run reached the Rust bridge build and then reported `could not compile agent_core (lib)` with `rustc` exiting by signal 15 (`SIGTERM`), not a Rust diagnostic. The same direct Rust feature/target build above passed, so Swift test completion is not claimed.
-- BLOCKED: canonical `F-ACS-Anchor-Addressing` M2 Pro PASS is not claimed. Required files from the falsifier spec are absent on this branch: `agent_core/src/research/acs/anchor.rs`, `agent_core/src/research/acs/anchor_registry.rs`, and `agent_core/tests/acs_anchor_addressing.rs`. See `docs/audits/DECISION_NEEDED_ACS_ANCHOR_ADDRESSING_2026_05_24.md`.
+- FAIL after three Xcode attempts: `./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/CloudKnowledgeDistillationTests -only-testing:EpistemosTests/ProvenanceConsoleSourceGuardTests -only-testing:EpistemosTests/SearchFusionHealthRowTests test CODE_SIGNING_ALLOWED=NO -quiet`. The final blocker is `EpistemosTests/CloudKnowledgeDistillationTests.swift:565`, where `makeNote(...)` is main-actor isolated but called from a synchronous nonisolated provider closure. See `docs/audits/BLOCKER_ACS_ADMISSION_XCODE_VERIFICATION_2026_05_24.md`.
+- DEFERRED: canonical `F-ACS-Anchor-Addressing` M2 Pro PASS is not claimed. The typed-anchor four-stage harness is outside Terminal E's product-lane scope and remains deferred under D-27. See `docs/audits/DECISION_RESOLVED_ACS_ANCHOR_ADDRESSING_2026_05_24.md`.
