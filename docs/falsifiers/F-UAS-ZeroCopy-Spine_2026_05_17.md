@@ -7,6 +7,11 @@ created_on: 2026-05-17
 authority: docs/CODEX_DEEP_INVESTIGATION_PROMPT_2026_05_16.md §4.G falsifier ladder (LOCK)
 target_phase: Phase B.G.B2
 target_rig: M2 Pro 16 GB (canonical ship target)
+phase2_terminal_f_status: FALLBACK WITNESS (path #5 in-process Rust only) — paths #1-#4, #6 documented as anomalies
+phase2_terminal_f_artifact: artifacts/falsifiers/uas_zero_copy_spine/result.json
+phase2_terminal_f_harness: agent_core/src/bin/falsify_uas_zero_copy_spine.rs
+phase2_terminal_f_caveat: Path #5 (ClaimLedger snapshot → ReplayBundle bytes) measured via `uas::copy_counter::with_tracking` — in-process, no FFI. Paths #1-#4, #6 require Swift / Metal / MLX / IOSurface harness (W-41) — emitted as structured `unmeasured_path` anomalies so the registry does not silently claim a Swift+Metal pass.
+phase2_terminal_f_audit_doc: docs/audits/FALSIFIER_M2PRO_5_PASS_2026_05_23.md
 ---
 
 # F-UAS-ZeroCopy-Spine

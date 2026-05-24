@@ -1,0 +1,114 @@
+{
+  "falsifier_id": "F-PageGather-M2Pro",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "fallback_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "cargo run --release --bin falsify_page_gather",
+  "command_digest": "sha256:efaeca14a3f60ec8f39c606f4efb1a31e2d081aa414e2dd6c785bc7c9e9e909a",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "04b7331e4cc04e5044003df714c5c98124d7a497",
+  "fixture_id": "page_gather_cpu_scatter_fy_chacha8_v1",
+  "timestamp_utc": "2026-05-24T02:33:11Z",
+  "result_digest": "sha256:d1b7da77a52be7b041a19db981cfcc01f7017ae5337fa55681ce602153e14e85",
+  "measurements": {
+    "correctness_violations_16mb": {
+      "value": 0,
+      "unit": "violations"
+    },
+    "correctness_violations_256mb": {
+      "value": 0,
+      "unit": "violations"
+    },
+    "correctness_violations_64mb": {
+      "value": 0,
+      "unit": "violations"
+    },
+    "harness_wall_clock_seconds": {
+      "value": 4.694407,
+      "unit": "seconds"
+    },
+    "scatter_gbs_16mb": {
+      "value": 1.0429400626105678,
+      "unit": "GB_per_second"
+    },
+    "scatter_gbs_256mb": {
+      "value": 0.4587672580434641,
+      "unit": "GB_per_second"
+    },
+    "scatter_gbs_64mb": {
+      "value": 0.7362050262016026,
+      "unit": "GB_per_second"
+    }
+  },
+  "acceptance_thresholds": {
+    "correctness_violations_16mb": {
+      "operator": "==",
+      "value": 0,
+      "unit": "violations"
+    },
+    "correctness_violations_256mb": {
+      "operator": "==",
+      "value": 0,
+      "unit": "violations"
+    },
+    "correctness_violations_64mb": {
+      "operator": "==",
+      "value": 0,
+      "unit": "violations"
+    },
+    "scatter_gbs_16mb": {
+      "operator": ">=",
+      "value": 0.3,
+      "unit": "GB_per_second"
+    },
+    "scatter_gbs_256mb": {
+      "operator": ">=",
+      "value": 0.3,
+      "unit": "GB_per_second"
+    },
+    "scatter_gbs_64mb": {
+      "operator": ">=",
+      "value": 0.3,
+      "unit": "GB_per_second"
+    }
+  },
+  "pass_per_axis": {
+    "correctness_violations_16mb": true,
+    "correctness_violations_256mb": true,
+    "correctness_violations_64mb": true,
+    "scatter_gbs_16mb": true,
+    "scatter_gbs_256mb": true,
+    "scatter_gbs_64mb": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Fallback",
+  "anomalies": [
+    {
+      "kind": "scope_caveat",
+      "detail": "CPU-only fallback witness. The F-PageGather-M2Pro primary gate requires Metal scatter kernel + STREAM-on-Metal triad baseline; both pending (W-41 Apple-platform external work). This artifact establishes the bit-exact CPU reference + sanity-checks the scalar scatter throughput floor."
+    }
+  ],
+  "notes": "fallback_witness; primary Metal gate W-41; CPU scalar reference only; working sets capped at 256 MB for M2 Pro 16 GB shared-rig safety; BW figures here are CPU-bound, NOT the F-PageGather-M2Pro 70%-of-STREAM acceptance bar"
+}

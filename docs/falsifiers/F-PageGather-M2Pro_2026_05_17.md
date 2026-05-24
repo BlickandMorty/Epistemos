@@ -7,6 +7,11 @@ created_on: 2026-05-17
 authority: docs/CODEX_DEEP_INVESTIGATION_PROMPT_2026_05_16.md §4.G falsifier ladder (LOCK)
 target_phase: Phase B.G.B5
 target_rig: M2 Pro 16 GB (canonical ship target)
+phase2_terminal_f_status: FALLBACK WITNESS (CPU scalar baseline) — primary Metal gate pending W-41
+phase2_terminal_f_artifact: artifacts/falsifiers/page_gather/result.json
+phase2_terminal_f_harness: agent_core/src/bin/falsify_page_gather.rs
+phase2_terminal_f_caveat: CPU scatter benchmark over 16/64/256 MB working sets via `helios::page_gather::gather` (not the Metal scatter kernel). The artifact records CPU-bound sustained GB/s; this is NOT the 70%-of-STREAM-on-Metal bar. Full gate requires Metal kernel + STREAM-on-Metal triad baseline (W-41).
+phase2_terminal_f_audit_doc: docs/audits/FALSIFIER_M2PRO_5_PASS_2026_05_23.md
 ---
 
 # F-PageGather-M2Pro

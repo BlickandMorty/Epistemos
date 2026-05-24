@@ -1,0 +1,115 @@
+{
+  "falsifier_id": "F-UAS-ZeroCopy-Spine",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "fallback_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "cargo run --release --bin falsify_uas_zero_copy_spine",
+  "command_digest": "sha256:90a4b9f4de5595925bdf9a4dab05f5219d03e6b2a11c231256ce8b171f8f9659",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "04b7331e4cc04e5044003df714c5c98124d7a497",
+  "fixture_id": "provenance_ledger_snapshot_path5_v1",
+  "timestamp_utc": "2026-05-24T02:26:54Z",
+  "result_digest": "sha256:618a2163e835e4ef4147b3cf224b425203a93e62f751bc0e19be69c353d716c9",
+  "measurements": {
+    "harness_wall_clock_seconds": {
+      "value": 0.37838425,
+      "unit": "seconds"
+    },
+    "path5_bundle_bytes": {
+      "value": 3658,
+      "unit": "bytes"
+    },
+    "path5_tracked_copies": {
+      "value": 0,
+      "unit": "count"
+    },
+    "path5_wall_us_p50": {
+      "value": 427.0,
+      "unit": "microseconds"
+    },
+    "track_copy_shim_contract": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "path5_bundle_bytes": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes"
+    },
+    "path5_tracked_copies": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "path5_wall_us_p50": {
+      "operator": "<=",
+      "value": 500,
+      "unit": "microseconds"
+    },
+    "track_copy_shim_contract": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "path5_bundle_bytes": true,
+    "path5_tracked_copies": true,
+    "path5_wall_us_p50": true,
+    "track_copy_shim_contract": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Fallback",
+  "anomalies": [
+    {
+      "kind": "unmeasured_path",
+      "path_id": "path1_embedding_query",
+      "detail": "Embedding query &[f32] (Model2Vec) Swift EmbedderRegistry → epistemos-shadow::vector_index. Requires Swift+Metal dispatch."
+    },
+    {
+      "kind": "unmeasured_path",
+      "path_id": "path2_logit_stream",
+      "detail": "Logit stream &[f32] (MLX-Swift) → agent_core scope_rex AnswerPacket. Requires MLX-Swift inference dispatch."
+    },
+    {
+      "kind": "unmeasured_path",
+      "path_id": "path3_kv_page_metadata",
+      "detail": "KV cache page metadata UasAddress + ResidencyLease handle. Requires KV-Direct gate + MLXInferenceService bridge."
+    },
+    {
+      "kind": "unmeasured_path",
+      "path_id": "path4_graph_search_row",
+      "detail": "FusedResult row epistemos-shadow → SearchIndexService::fusedSearch. Requires mmap'd FFI bridge measurement."
+    },
+    {
+      "kind": "unmeasured_path",
+      "path_id": "path6_page_gather_scatter",
+      "detail": "PageGather scatter 256 MB+ IOSurface working set. Requires Metal kernel + IOSurface harness (see falsify_page_gather fallback)."
+    }
+  ],
+  "notes": "fallback_witness; in-process Rust path #5 (provenance ClaimLedger snapshot → ReplayBundle) measured; paths #1-#4 + #6 require Swift / Metal / MLX-Swift dispatch + IOSurface harness (W-41 Apple-platform external work) — listed as anomalies. CountingAllocator not installed (lib-test contamination); track_copy/with_tracking shim contract verified."
+}

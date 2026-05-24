@@ -84,6 +84,40 @@ name = "epistemos_channel_worker_email"
 path = "src/bin/epistemos_channel_worker_email.rs"
 required-features = ["pro-build", "channel-relay-tools"]
 
+# T23B Phase 2 Terminal F — falsifier harness binaries.
+# All MAS-build by default; emit schema-conformant artifact JSON to
+# artifacts/falsifiers/<name>/result.json. See
+# docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md §Terminal F + the per-bin
+# header comment in src/bin/falsify_*.rs.
+[[bin]]
+name = "falsify_ulp_oracle"
+path = "src/bin/falsify_ulp_oracle.rs"
+# `research` feature gates `agent_core::research::fulp_oracle` (the CPU
+# reference + 414,048-point acceptance grid). The harness IS research-
+# tier infrastructure (T23B falsifier substrate), so this is correct:
+# the bin compiles only with the research feature on.
+required-features = ["research"]
+
+[[bin]]
+name = "falsify_page_gather"
+path = "src/bin/falsify_page_gather.rs"
+
+[[bin]]
+name = "falsify_controller_kernel_pack"
+path = "src/bin/falsify_controller_kernel_pack.rs"
+
+[[bin]]
+name = "falsify_uas_zero_copy_spine"
+path = "src/bin/falsify_uas_zero_copy_spine.rs"
+
+[[bin]]
+name = "falsify_vault_recall"
+path = "src/bin/falsify_vault_recall.rs"
+
+[[bin]]
+name = "falsifier_validator"
+path = "src/bin/falsifier_validator.rs"
+
 [dependencies]
 anyhow = "1.0"
 apalis = "=1.0.0-rc.7"
