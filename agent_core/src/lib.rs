@@ -38,6 +38,7 @@ pub mod brain_export;
 pub mod grammar;
 pub mod heal;
 pub mod helios;
+pub mod hyperdynamic_loop;
 pub mod lattice;
 pub mod lattice_wbo;
 pub mod lifecycle;
