@@ -28,9 +28,9 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "1cf390b0fc4ea9dd1a148ff61aa97f39c4612055",
+  "commit_sha": "7d37b4a38caac556269820160b5316eab5efe994",
   "fixture_id": "f_acs_anchor_addressing_scoped_n100_v1",
-  "timestamp_utc": "2026-05-24T06:02:33Z",
+  "timestamp_utc": "2026-05-24T06:41:58Z",
   "result_digest": "sha256:06577b2bb07f9c779484f21459fc59b1bb7a933bc01f634f4420e252db6834b4",
   "measurements": {
     "scoped_n": {
