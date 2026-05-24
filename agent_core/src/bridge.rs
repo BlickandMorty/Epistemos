@@ -3736,11 +3736,13 @@ pub fn system_g_drain_events_json(run_id: String) -> Result<String, AgentErrorFF
 /// instead of throwing.
 #[uniffi::export]
 pub fn system_g_registry_stats_json() -> String {
-    let (total, in_flight) = crate::agent_runtime_v2::system_g_runtime::registry_stats();
+    let (total, in_flight, total_dispatched) =
+        crate::agent_runtime_v2::system_g_runtime::registry_stats_full();
     serde_json::json!({
         "total": total,
         "in_flight": in_flight,
         "max_concurrent_runs": crate::agent_runtime_v2::system_g_runtime::MAX_CONCURRENT_RUNS,
+        "total_dispatched_since_launch": total_dispatched,
     })
     .to_string()
 }

@@ -59,11 +59,38 @@ nonisolated public struct SystemGRegistryStats: Codable, Hashable, Sendable {
     public let total: Int
     public let inFlight: Int
     public let maxConcurrentRuns: Int
+    /// Lifetime counter of runs ever dispatched (excludes those rejected
+    /// at the cap or for malformed input). Only resets when the process
+    /// restarts. Defaults to 0 for backward compatibility with older
+    /// Rust libs that did not emit this field.
+    public let totalDispatchedSinceLaunch: UInt64
+
+    public init(
+        total: Int,
+        inFlight: Int,
+        maxConcurrentRuns: Int,
+        totalDispatchedSinceLaunch: UInt64 = 0
+    ) {
+        self.total = total
+        self.inFlight = inFlight
+        self.maxConcurrentRuns = maxConcurrentRuns
+        self.totalDispatchedSinceLaunch = totalDispatchedSinceLaunch
+    }
 
     enum CodingKeys: String, CodingKey {
         case total
         case inFlight = "in_flight"
         case maxConcurrentRuns = "max_concurrent_runs"
+        case totalDispatchedSinceLaunch = "total_dispatched_since_launch"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.total = try c.decode(Int.self, forKey: .total)
+        self.inFlight = try c.decode(Int.self, forKey: .inFlight)
+        self.maxConcurrentRuns = try c.decode(Int.self, forKey: .maxConcurrentRuns)
+        self.totalDispatchedSinceLaunch =
+            (try? c.decode(UInt64.self, forKey: .totalDispatchedSinceLaunch)) ?? 0
     }
 }
 

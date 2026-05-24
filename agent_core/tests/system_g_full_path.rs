@@ -117,4 +117,17 @@ fn full_path_registry_stats_reports_in_flight_and_max_concurrent_runs() {
         total_after >= 1,
         "after drain, entry remains parked in retention window: got {total_after}"
     );
+    // Lifetime counter must surface and have advanced by at least 1.
+    let dispatched_before = before
+        .get("total_dispatched_since_launch")
+        .and_then(serde_json::Value::as_u64)
+        .unwrap_or(0);
+    let dispatched_after = after
+        .get("total_dispatched_since_launch")
+        .and_then(serde_json::Value::as_u64)
+        .expect("total_dispatched_since_launch field present");
+    assert!(
+        dispatched_after >= dispatched_before + 1,
+        "successful start_run between before/after must bump lifetime counter (before={dispatched_before}, after={dispatched_after})"
+    );
 }

@@ -163,7 +163,7 @@ struct SystemGRunSeamTests {
         // (Terminal C / P5 iter-6). The Rust side emits snake_case
         // keys; Swift CodingKeys map them to camelCase fields.
         // Adversarial: missing field, extra field, wrong type.
-        let validJson = #"{"total":3,"in_flight":1,"max_concurrent_runs":64}"#
+        let validJson = #"{"total":3,"in_flight":1,"max_concurrent_runs":64,"total_dispatched_since_launch":42}"#
         let decoded = try JSONDecoder().decode(
             SystemGRegistryStats.self,
             from: Data(validJson.utf8)
@@ -171,11 +171,21 @@ struct SystemGRunSeamTests {
         #expect(decoded.total == 3)
         #expect(decoded.inFlight == 1)
         #expect(decoded.maxConcurrentRuns == 64)
+        #expect(decoded.totalDispatchedSinceLaunch == 42)
+
+        // Backward-compat: an older Rust lib that omits the lifetime
+        // counter field still decodes (custom init defaults it to 0).
+        let backCompatJson = #"{"total":0,"in_flight":0,"max_concurrent_runs":64}"#
+        let backCompat = try JSONDecoder().decode(
+            SystemGRegistryStats.self,
+            from: Data(backCompatJson.utf8)
+        )
+        #expect(backCompat.totalDispatchedSinceLaunch == 0)
 
         // Forward-compat: an unknown extra field is tolerated (default
         // JSONDecoder behavior) so a future Rust addition doesn't
         // break the Swift decoder out of the gate.
-        let extraJson = #"{"total":0,"in_flight":0,"max_concurrent_runs":64,"future_field":42}"#
+        let extraJson = #"{"total":0,"in_flight":0,"max_concurrent_runs":64,"total_dispatched_since_launch":0,"future_field":42}"#
         let extraDecoded = try JSONDecoder().decode(
             SystemGRegistryStats.self,
             from: Data(extraJson.utf8)

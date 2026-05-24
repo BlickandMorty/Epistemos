@@ -112,7 +112,7 @@ public struct SystemGHealthRow: View {
         guard let stats = registryStats else {
             return "(no read yet)"
         }
-        return "in-flight \(stats.inFlight)/\(stats.maxConcurrentRuns) · parked \(stats.total - stats.inFlight)"
+        return "in-flight \(stats.inFlight)/\(stats.maxConcurrentRuns) · parked \(stats.total - stats.inFlight) · \(stats.totalDispatchedSinceLaunch) since launch"
     }
 
     private var modeDetail: String {

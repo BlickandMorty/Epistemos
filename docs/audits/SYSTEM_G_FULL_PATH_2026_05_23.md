@@ -149,6 +149,25 @@ Integration tests in the same binary share the process-wide registry singleton. 
 
 **Test count after iter-6:** 19 Rust unit + 4 Rust integration + 3 Swift integration = **26 tests** for this seam (was 22, was 13 in the initial PR).
 
+## Hardening (iter-8 lifetime counter)
+
+Iter-8 adds a process-wide lifetime counter so the operator can tell how active the System G subsystem has been across the current process lifetime — orthogonal to the in-flight + parked counters which only show the current registry state.
+
+| Change | File | Effect |
+|---|---|---|
+| `static TOTAL_RUNS_DISPATCHED: AtomicU64` | `system_g_runtime.rs` | Increments once per successful `start_run` (after cap check). Never decrements. Survives `reset_for_test()` |
+| `pub fn registry_stats_full() -> (usize, usize, u64)` | `system_g_runtime.rs` | Returns `(total, in_flight, total_dispatched_since_launch)` |
+| Updated `system_g_registry_stats_json` FFI | `bridge.rs` | Emits `total_dispatched_since_launch` field |
+| `SystemGRegistryStats.totalDispatchedSinceLaunch: UInt64` | `SystemGWiring.swift` | Custom decoder defaults to 0 if the field is absent — back-compat with older Rust libs |
+| `SystemGHealthRow` "Dispatch registry" row | `SystemGHealthRow.swift` | Detail now reads `in-flight N/64 · parked M · K since launch` |
+
+**Added tests (iter-8):**
+- `total_runs_dispatched_counter_monotonically_increases_per_successful_start` — also pins that decode-rejected + oversize-prompt starts do NOT bump the counter
+- `total_runs_dispatched_survives_reset_for_test` — pins that the operator's lifetime view stays honest across testing
+- Swift `systemGRegistryStatsDecodesFromBridgeJsonShape` extended with: lifetime-counter field decode, backward-compat (older Rust libs that omit the field), forward-compat (extra unknown fields)
+
+**Test count after iter-8:** 21 Rust unit + 4 Rust integration + 3 Swift integration = **28 tests** for this seam (was 26, was 13 in the initial PR).
+
 ## Branches with overlapping work (coordination note)
 
 - `wiring/rust-r3-system-g-minimal-slice` — `MissionRun` composition helper (already merged into `main` as commit `1dd7339824`; this PR builds on it directly).

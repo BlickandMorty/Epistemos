@@ -20,6 +20,7 @@
 //! `turn_id` that groups events from one logical agent turn.
 
 use std::collections::{HashMap, VecDeque};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -158,6 +159,13 @@ fn registry() -> &'static Mutex<HashMap<String, SystemGRunState>> {
     REGISTRY.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+/// Lifetime counter of runs that ever reached the "inserted into the
+/// registry" point. Increments once per successful `start_run` (after
+/// the cap check + GC). Never decrements; survives drains, GC reaps,
+/// and `reset_for_test()`. Exposed via `registry_stats_full()` so
+/// Settings can show "N missions dispatched since launch."
+static TOTAL_RUNS_DISPATCHED: AtomicU64 = AtomicU64::new(0);
+
 /// Compose the V1 deterministic event sequence for a MissionPacket.
 ///
 /// V1 emits a 3-event turn: `plan_start` → `token_chunk` (echoes the
@@ -248,6 +256,7 @@ pub fn start_run(mission_json: &str) -> Result<String, SystemGRuntimeError> {
         });
     }
     guard.insert(run_id.clone(), state);
+    TOTAL_RUNS_DISPATCHED.fetch_add(1, Ordering::Relaxed);
     Ok(run_id)
 }
 
@@ -279,6 +288,19 @@ pub fn registry_stats() -> (usize, usize) {
         return (0, 0);
     };
     (guard.len(), count_in_flight(&guard))
+}
+
+/// Observability: full snapshot of registry + lifetime counter.
+/// Returns `(total_entries, in_flight, total_dispatched_since_launch)`.
+/// `total_dispatched_since_launch` only resets when the process
+/// restarts — `reset_for_test()` does NOT clear it (production
+/// processes never call `reset_for_test()` so the operator's history
+/// view stays honest across testing).
+#[must_use]
+pub fn registry_stats_full() -> (usize, usize, u64) {
+    let (total, in_flight) = registry_stats();
+    let dispatched = TOTAL_RUNS_DISPATCHED.load(Ordering::Relaxed);
+    (total, in_flight, dispatched)
 }
 
 /// Test-only: drop every in-flight run. Production must not call this;
@@ -631,6 +653,52 @@ mod tests {
                 obj.keys().collect::<Vec<_>>()
             );
         }
+    }
+
+    #[test]
+    fn total_runs_dispatched_counter_monotonically_increases_per_successful_start() {
+        // The lifetime counter increments once per successful start.
+        // Cap-rejected + decode-rejected starts must NOT bump it
+        // (those never made it into the registry).
+        let _guard = test_registry_lock();
+        reset_for_test();
+        let baseline = registry_stats_full().2;
+        let _ = start_run(&good_mission_json()).expect("start 1");
+        assert_eq!(registry_stats_full().2, baseline + 1, "successful start bumps counter");
+        let _ = start_run(&good_mission_json()).expect("start 2");
+        assert_eq!(registry_stats_full().2, baseline + 2);
+        // Decode-rejected start: counter unchanged.
+        let _ = start_run("{ not json").expect_err("malformed reject");
+        assert_eq!(registry_stats_full().2, baseline + 2, "decode reject does not bump");
+        // Oversize-prompt-rejected start: counter unchanged.
+        let huge = "x".repeat(MissionPacket::MAX_PROMPT_BYTES + 1);
+        let oversize = serde_json::json!({
+            "blueprint_id": "x",
+            "user_prompt": huge,
+            "vault_scope": "v",
+        })
+        .to_string();
+        let _ = start_run(&oversize).expect_err("oversize reject");
+        assert_eq!(
+            registry_stats_full().2,
+            baseline + 2,
+            "validation reject does not bump"
+        );
+    }
+
+    #[test]
+    fn total_runs_dispatched_survives_reset_for_test() {
+        // `reset_for_test` clears the registry HashMap but MUST NOT
+        // zero the lifetime counter. Otherwise the operator's
+        // "X missions dispatched since launch" view in Settings
+        // would lie about lifetime if a test happened to fire in
+        // a test-instrumented build.
+        let _guard = test_registry_lock();
+        let _ = start_run(&good_mission_json()).expect("start");
+        let before = registry_stats_full().2;
+        reset_for_test();
+        let after = registry_stats_full().2;
+        assert_eq!(before, after, "reset_for_test must not zero the lifetime counter");
     }
 
     #[test]
