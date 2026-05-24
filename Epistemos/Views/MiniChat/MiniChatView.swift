@@ -740,7 +740,8 @@ private struct MiniChatInputBar: View {
             chats: shouldSearchChats ? recentChats() : [],
             threads: shouldSearchChats ? threadState.chatThreads : [],
             indexedNoteIDs: referenceSearch.indexedNoteIDs,
-            indexedNoteSnippets: referenceSearch.indexedNoteSnippetsByPageID
+            indexedNoteSnippets: referenceSearch.indexedNoteSnippetsByPageID,
+            indexedNoteProvenance: referenceSearch.indexedNoteProvenanceByPageID
         )
     }
 
@@ -1313,7 +1314,8 @@ private struct MiniChatInputBar: View {
                         context: nil,
                         cleanedQuery: trimmed,
                         loadedNoteIds: [],
-                        loadedNoteTitles: []
+                        loadedNoteTitles: [],
+                        vaultRecallTrace: nil
                     )
                 }
                 threadState.updateMiniChatLoadedNotes(

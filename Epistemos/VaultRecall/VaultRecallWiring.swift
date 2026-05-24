@@ -158,6 +158,7 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
     private var totalQueries: UInt64 = 0
     private var lastErrorDescription: String?
     private var lastErrorAt: Date?
+    private var recallBenchmark: RecallBenchmarkSnapshot = .empty
 
     private init() {}
 
@@ -201,8 +202,29 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
             lastAllChatterFallback:  lastAllChatterFallback,
             lastBackend:             lastBackendValue,
             lastErrorDescription:    lastErrorDescription,
-            lastErrorAt:             lastErrorAt
+            lastErrorAt:             lastErrorAt,
+            recallBenchmark:         recallBenchmark
         )
+    }
+
+    public func recordRecallBenchmark(
+        top1ExactTitleRate: Double?,
+        top5ParaphraseRate: Double?,
+        synthesisTwoNoteCitationRate: Double?,
+        adversarialRejectRate: Double?,
+        sampleCount: Int
+    ) {
+        lock.lock()
+        recallBenchmark = RecallBenchmarkSnapshot(
+            top1ExactTitleRate: top1ExactTitleRate,
+            top5ParaphraseRate: top5ParaphraseRate,
+            synthesisTwoNoteCitationRate: synthesisTwoNoteCitationRate,
+            adversarialRejectRate: adversarialRejectRate,
+            sampleCount: sampleCount,
+            measuredAt: Date()
+        )
+        lock.unlock()
+        notifyDidChange()
     }
 
     public func reset() {
@@ -217,6 +239,7 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
         totalQueries = 0
         lastErrorDescription = nil
         lastErrorAt = nil
+        recallBenchmark = .empty
         lock.unlock()
         notifyDidChange()
     }
@@ -241,6 +264,25 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
         public let lastBackend: VaultRecallBackend
         public let lastErrorDescription: String?
         public let lastErrorAt: Date?
+        public let recallBenchmark: RecallBenchmarkSnapshot
+    }
+
+    public struct RecallBenchmarkSnapshot: Sendable, Hashable {
+        public let top1ExactTitleRate: Double?
+        public let top5ParaphraseRate: Double?
+        public let synthesisTwoNoteCitationRate: Double?
+        public let adversarialRejectRate: Double?
+        public let sampleCount: Int
+        public let measuredAt: Date?
+
+        public static let empty = RecallBenchmarkSnapshot(
+            top1ExactTitleRate: nil,
+            top5ParaphraseRate: nil,
+            synthesisTwoNoteCitationRate: nil,
+            adversarialRejectRate: nil,
+            sampleCount: 0,
+            measuredAt: nil
+        )
     }
 
     nonisolated private static func percentile(_ values: [Double], _ p: Double) -> Double {

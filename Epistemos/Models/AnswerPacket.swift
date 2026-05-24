@@ -16,9 +16,9 @@ import Foundation
 // State 2026-05-12: chat path emits a packet per turn via
 // StreamingDelegate.onComplete → AnswerPacketEmitter. The
 // canon-hardening WRV state is now `state: rendered (FULL)`:
-// `MessageBubble.AnswerPacketChipRow` looks up the packet via
+// `MessageBubble` looks up the packet via
 // `LatestAnswerPacketSink.shared.packet(for: message.answerPacketId)`
-// and renders the three V6.2 chips. Pending follow-on:
+// and renders the W-27 claim/confidence badge. Pending follow-on:
 // `state: canonical-product-surface` — persisting the packet
 // alongside the ChatMessage so scrollback past the 32-packet ring
 // still renders chips, plus Rust-side claim FFI.

@@ -252,6 +252,8 @@ public struct ShadowRow: View {
     let onOpen: () -> Void
     let onEdit: () -> Void
     let onSummarize: () -> Void
+    @Environment(UIState.self) private var ui
+    private var theme: EpistemosTheme { ui.theme }
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -279,6 +281,7 @@ public struct ShadowRow: View {
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
+            VaultRecallHaloProvenance(hit: hit, theme: theme)
             sourceAndActions
         }
         .padding(8)

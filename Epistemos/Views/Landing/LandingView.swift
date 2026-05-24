@@ -249,7 +249,8 @@ struct LandingView: View {
             chats: recentChats(limit: 20),
             threads: AppBootstrap.shared?.threadState.chatThreads ?? [],
             indexedNoteIDs: landingReferenceSearch.indexedNoteIDs,
-            indexedNoteSnippets: landingReferenceSearch.indexedNoteSnippetsByPageID
+            indexedNoteSnippets: landingReferenceSearch.indexedNoteSnippetsByPageID,
+            indexedNoteProvenance: landingReferenceSearch.indexedNoteProvenanceByPageID
         )
     }
     private var landingMentionKeyboardChoices: [ComposerReferenceChoice] {

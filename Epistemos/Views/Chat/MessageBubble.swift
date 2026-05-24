@@ -243,6 +243,20 @@ struct MessageBubble: View {
                     }
                     .buttonStyle(.plain)
                 }
+
+                VaultRecallProvenanceCard(
+                    trace: message.vaultRecallTrace,
+                    loadedNoteTitles: message.loadedNoteTitles ?? [],
+                    sourceCount: sourceReferences.count,
+                    theme: theme,
+                    compact: true
+                )
+
+                AnswerPacketBadge(
+                    answerPacketId: message.answerPacketId,
+                    theme: theme,
+                    missingPacketConfidence: .blocked
+                )
             }
             .padding(Spacing.md)
             .background(theme.error.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
@@ -359,6 +373,13 @@ struct MessageBubble: View {
 
                 AssistantSourcesFooter(sources: sourceReferences, theme: theme, style: .popoverPanel)
 
+                VaultRecallProvenanceCard(
+                    trace: message.vaultRecallTrace,
+                    loadedNoteTitles: message.loadedNoteTitles ?? [],
+                    sourceCount: sourceReferences.count,
+                    theme: theme
+                )
+
                 // Effective-model badge — quiet byline showing which model
                 // actually produced this reply. Transparent routing is a
                 // first-class UX affordance (see docs/architecture/
@@ -366,27 +387,15 @@ struct MessageBubble: View {
                 // resolved here (once) rather than inside the badge so
                 // the per-row view is pure text — no HStack/Image/Capsule
                 // cost on every scroll update.
-                if let label = message.resolvedModelLabel, !label.isEmpty {
+                if !isUser {
                     HStack(spacing: 6) {
-                        EffectiveModelBadge(label: label, foreground: theme.textTertiary)
+                        if let label = message.resolvedModelLabel, !label.isEmpty {
+                            EffectiveModelBadge(label: label, foreground: theme.textTertiary)
+                        }
                         if let hit = message.cacheHitPercent, hit > 0 {
                             CacheHitBadge(fraction: hit)
                         }
-                        // V6.2 audit-channel render (state: rendered FULL,
-                        // commit lands here). Pull the AnswerPacket bound
-                        // to this message via Option B (message.answerPacketId
-                        // → LatestAnswerPacketSink.shared) and render the
-                        // three V6.2 chips: VRMLabel (verified / plausible /
-                        // speculative / blocked), attention mode (dynamic /
-                        // static_fallback / unavailable), and interrupt
-                        // bucket (low / medium / high / unavailable).
-                        //
-                        // For older bubbles whose packet has aged out of the
-                        // 32-packet ring the lookup returns nil and no chip
-                        // renders — that's the V6.2 first-rendered posture.
-                        // Persisting the packet alongside the message is a
-                        // separate follow-on.
-                        AnswerPacketChipRow(
+                        AnswerPacketBadge(
                             answerPacketId: message.answerPacketId,
                             theme: theme
                         )
@@ -452,88 +461,6 @@ private struct AIDisclaimerFooter: View {
             .font(.system(size: 10))
             .foregroundStyle(theme.textTertiary)
             .padding(.top, 2)
-    }
-}
-
-// MARK: - V6.2 AnswerPacket Chip Row
-
-/// V6.2 Option B render for the assistant-message byline. Looks up
-/// the AnswerPacket bound to `answerPacketId` via
-/// `LatestAnswerPacketSink.shared` and renders three chips: VRMLabel
-/// (compact form), attention mode, and interrupt bucket.
-///
-/// Returns `EmptyView` when:
-/// - `answerPacketId` is nil (user message, error, legacy persisted
-///   message, or a path that bypassed the audit emit).
-/// - The packet has aged out of the 32-packet ring on the sink.
-///
-/// Per `docs/audits/V6_2_PER_BUBBLE_BINDING_RESEARCH_2026_05_12.md`
-/// Option B.
-@MainActor
-private struct AnswerPacketChipRow: View {
-    let answerPacketId: String?
-    let theme: EpistemosTheme
-
-    // Observe the sink so the chips refresh when the sink updates
-    // (e.g., a new turn just emitted; ring pivots; older message id
-    // ages out).
-    private var sink: LatestAnswerPacketSink { LatestAnswerPacketSink.shared }
-
-    var body: some View {
-        if let id = answerPacketId, let packet = sink.packet(for: id) {
-            HStack(spacing: 4) {
-                // VRMLabel chip (existing component, compact form).
-                VRMLabelView(packet.uiLabel, compact: true)
-                if packet.attentionMode != .unavailable {
-                    miniChip(
-                        text: packet.attentionMode.rawValue,
-                        icon: attentionIcon(packet.attentionMode)
-                    )
-                }
-                if packet.interruptBucket != .unavailable {
-                    miniChip(
-                        text: packet.interruptBucket.shortLabel,
-                        icon: bucketIcon(packet.interruptBucket)
-                    )
-                }
-            }
-        } else {
-            EmptyView()
-        }
-    }
-
-    @ViewBuilder
-    private func miniChip(text: String, icon: String) -> some View {
-        HStack(spacing: 3) {
-            Image(systemName: icon)
-                .font(.system(size: 9, weight: .semibold))
-            Text(text)
-                .font(.system(size: 9, weight: .medium, design: .monospaced))
-        }
-        .foregroundStyle(theme.textTertiary)
-        .padding(.horizontal, 4)
-        .padding(.vertical, 1)
-        .background(
-            Capsule()
-                .stroke(theme.textTertiary.opacity(0.30), lineWidth: 0.5)
-        )
-    }
-
-    private func attentionIcon(_ mode: AttentionMode) -> String {
-        switch mode {
-        case .dynamic: return "waveform"
-        case .staticFallback: return "pause.rectangle"
-        case .unavailable: return "questionmark"
-        }
-    }
-
-    private func bucketIcon(_ bucket: InterruptBucket) -> String {
-        switch bucket {
-        case .low: return "tortoise"
-        case .medium: return "hare"
-        case .high: return "bolt"
-        case .unavailable: return "questionmark"
-        }
     }
 }
 

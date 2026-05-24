@@ -337,6 +337,8 @@ final class EventStore: Sendable {
 
     // MARK: - Event Logging
 
+    nonisolated static let vaultRecallTraceEventKind = "vault_recall_trace"
+
     func appendEvent(sessionId: String, kind: ActivityEventKind) {
         queue.async { [weak self] in
             guard let self else { return }
@@ -369,6 +371,47 @@ final class EventStore: Sendable {
             sqlite3_bind_text(stmt, 2, (sessionId as NSString).utf8String, -1, nil)
             sqlite3_bind_text(stmt, 3, (kindString as NSString).utf8String, -1, nil)
             sqlite3_bind_text(stmt, 4, (payload as NSString).utf8String, -1, nil)
+            sqlite3_step(stmt)
+        }
+    }
+
+    nonisolated func appendVaultRecallTrace(sessionId: String, trace: VaultRecallTrace) {
+        let payload: String
+        do {
+            let data = try Self.payloadEncoder.encode(trace)
+            guard let encoded = String(data: data, encoding: .utf8) else {
+                Self.log.error("EventStore: failed to encode vault_recall_trace payload as UTF-8 text")
+                return
+            }
+            payload = encoded
+        } catch {
+            Self.log.error("EventStore: failed to encode vault_recall_trace payload: \(error.localizedDescription, privacy: .public)")
+            return
+        }
+
+        appendRawEvent(
+            sessionId: sessionId,
+            kind: Self.vaultRecallTraceEventKind,
+            payload: payload
+        )
+    }
+
+    nonisolated private func appendRawEvent(sessionId: String, kind: String, payload: String) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            let db = self.db
+            let timestamp = Date().timeIntervalSince1970
+
+            var stmt: OpaquePointer?
+            let sql = "INSERT INTO events (timestamp, session_id, kind, payload) VALUES (?, ?, ?, ?);"
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
+            defer { sqlite3_finalize(stmt) }
+
+            sqlite3_bind_double(stmt, 1, timestamp)
+            sqlite3_bind_text(stmt, 2, (sessionId as NSString).utf8String, -1, nil)
+            sqlite3_bind_text(stmt, 3, (kind as NSString).utf8String, -1, nil)
+            sqlite3_bind_text(stmt, 4, (payload as NSString).utf8String, -1, nil)
+
             sqlite3_step(stmt)
         }
     }

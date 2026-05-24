@@ -313,6 +313,7 @@ enum ComposerReferencePopoverLayout {
 final class ComposerReferenceSearchState {
     var indexedNoteIDs: [String] = []
     var indexedNoteSnippetsByPageID: [String: String] = [:]
+    var indexedNoteProvenanceByPageID: [String: VaultRecallCandidate] = [:]
 
     @ObservationIgnored
     private var searchTask: Task<Void, Never>?
@@ -339,14 +340,21 @@ final class ComposerReferenceSearchState {
         searchTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(120))
             guard !Task.isCancelled else { return }
+            let trace = VaultRecallBridge.trace(query: trimmedFilter)
             let hits = await vaultSync.searchFullAsync(query: trimmedFilter, limit: 12)
             let matchedHits = hits.filter { manifestPageIDs.contains($0.pageId) }
             let matchedIDs = Self.uniquePreservingOrder(matchedHits.map(\.pageId))
             let snippets = Self.snippetsByPageID(for: matchedHits)
+            let provenance = Self.provenanceByPageID(
+                trace: trace,
+                hits: matchedHits,
+                manifest: manifest
+            )
             guard !Task.isCancelled else { return }
             await MainActor.run {
                 self?.indexedNoteIDs = matchedIDs
                 self?.indexedNoteSnippetsByPageID = snippets
+                self?.indexedNoteProvenanceByPageID = provenance
             }
         }
     }
@@ -356,6 +364,7 @@ final class ComposerReferenceSearchState {
         searchTask = nil
         indexedNoteIDs = []
         indexedNoteSnippetsByPageID = [:]
+        indexedNoteProvenanceByPageID = [:]
     }
 
     deinit {
@@ -393,6 +402,47 @@ final class ComposerReferenceSearchState {
             snippets[hit.pageId] = snippet
         }
         return snippets
+    }
+
+    private static func provenanceByPageID(
+        trace: VaultRecallTrace?,
+        hits: [SearchResult],
+        manifest: VaultManifest
+    ) -> [String: VaultRecallCandidate] {
+        guard let trace else { return [:] }
+        let entriesByPageID = Dictionary(uniqueKeysWithValues: manifest.entries.map { ($0.pageId, $0) })
+        let candidatesByKey = Dictionary(
+            trace.candidates.flatMap { candidate -> [(String, VaultRecallCandidate)] in
+                var keys: [String] = []
+                keys.append(normalizedKey(candidate.path))
+                if let title = candidate.title {
+                    keys.append(normalizedKey(title))
+                }
+                return keys.filter { !$0.isEmpty }.map { ($0, candidate) }
+            },
+            uniquingKeysWith: { lhs, _ in lhs }
+        )
+
+        var provenance: [String: VaultRecallCandidate] = [:]
+        for hit in hits where provenance[hit.pageId] == nil {
+            guard let entry = entriesByPageID[hit.pageId] else { continue }
+            let keys = [
+                normalizedKey(entry.relativePath ?? ""),
+                normalizedKey(entry.title),
+                normalizedKey(hit.title),
+            ]
+            if let candidate = keys.compactMap({ candidatesByKey[$0] }).first {
+                provenance[hit.pageId] = candidate
+            }
+        }
+        return provenance
+    }
+
+    private static func normalizedKey(_ value: String) -> String {
+        value
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
     }
 
     private static func normalizedSnippet(_ snippet: String) -> String {
@@ -1552,6 +1602,14 @@ struct NotesMentionDropdown: View {
                                 .lineLimit(results.query.isEmpty ? 1 : 3)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
+
+                        VaultRecallCandidateChipStrip(
+                            candidate: results.indexedNoteProvenanceByPageID[entry.pageId],
+                            fallbackText: results.indexedMatchedNoteIDs.contains(entry.pageId)
+                                ? "ranked body match"
+                                : nil,
+                            theme: theme
+                        )
                     }
                 }
             }

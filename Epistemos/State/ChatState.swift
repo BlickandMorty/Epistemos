@@ -379,6 +379,11 @@ final class ChatState {
     /// Titles of notes loaded via @-mentions (for UI chips on messages).
     var loadedNoteTitles: [String] = []
 
+    /// Trace for the current turn's vault retrieval. `ChatCoordinator`
+    /// records it when resolving vault context; turn completion consumes
+    /// it into the assistant row so the UI can show why notes were chosen.
+    var pendingVaultRecallTrace: VaultRecallTrace?
+
     /// Per-chat history of context envelopes, keyed by `activeChatId`.
     /// Every completed turn appends its snapshot so the side panel can
     /// show both the most-recent pack AND the cumulative set of notes,
@@ -617,6 +622,7 @@ final class ChatState {
         pendingAttachments = []
         loadedNoteIds = []
         loadedNoteTitles = []
+        pendingVaultRecallTrace = nil
         pendingContextAttachments = []
         pendingGraphChatRequest = nil
         pendingSlashCommand = nil
@@ -699,7 +705,8 @@ final class ChatState {
         content: String,
         isError: Bool = false,
         loadedNoteTitles: [String]? = nil,
-        contextAttachments: [ContextAttachment]? = nil
+        contextAttachments: [ContextAttachment]? = nil,
+        vaultRecallTrace: VaultRecallTrace? = nil
     ) {
         let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -719,7 +726,8 @@ final class ChatState {
                 content: trimmed,
                 isError: isError,
                 loadedNoteTitles: loadedNoteTitles,
-                contextAttachments: contextAttachments
+                contextAttachments: contextAttachments,
+                vaultRecallTrace: vaultRecallTrace
             )
         )
         markTranscriptChanged()
@@ -854,7 +862,8 @@ final class ChatState {
             // packet via `AnswerPacketEmitter.shared.recentPackets()`.
             // Nil for paths that bypass the audit emit (e.g. local-
             // only chat without runAgentSession).
-            answerPacketId: answerPacketId
+            answerPacketId: answerPacketId,
+            vaultRecallTrace: metadata.vaultRecallTrace
         )
         lastTurnCacheHitPercent = nil
         log.info("[complete] Appending assistant message \(assistantMessage.id)")
@@ -958,7 +967,8 @@ final class ChatState {
             resolvedModelLabel: resolvedModelLabel,
             thinkingTrace: capturedThinking.isEmpty ? nil : capturedThinking,
             thinkingDurationSeconds: thinkingDuration,
-            cacheHitPercent: lastTurnCacheHitPercent
+            cacheHitPercent: lastTurnCacheHitPercent,
+            vaultRecallTrace: metadata.vaultRecallTrace
         )
         messages.append(assistantMessage)
         interruptedAssistantMessageIDs.insert(assistantMessage.id)
@@ -985,8 +995,10 @@ final class ChatState {
             role: .assistant,
             content: message,
             isError: true,
-            errorKind: kind
+            errorKind: kind,
+            vaultRecallTrace: pendingVaultRecallTrace
         )
+        pendingVaultRecallTrace = nil
         messages.append(errorMessage)
         markTranscriptChanged()
         syncContextWindowMetrics()
@@ -1052,6 +1064,7 @@ final class ChatState {
         activeToolName = nil
         activeToolInputJson = nil
         isAgentExecuting = false
+        pendingVaultRecallTrace = nil
         // Fresh tag-routing state per turn — partial `<think>` buffers
         // must never carry across turns or they'd misclassify the first
         // chunk of the next response.
@@ -1344,15 +1357,18 @@ final class ChatState {
     private func consumeStreamingMessageMetadata() -> (
         briefing: Bool,
         noteTitles: [String]?,
-        contextAttachments: [ContextAttachment]?
+        contextAttachments: [ContextAttachment]?,
+        vaultRecallTrace: VaultRecallTrace?
     ) {
         let metadata = (
             briefing: isCurrentVaultBriefing,
             noteTitles: loadedNoteTitles.isEmpty ? nil : loadedNoteTitles,
-            contextAttachments: pendingContextAttachments.isEmpty ? nil : pendingContextAttachments
+            contextAttachments: pendingContextAttachments.isEmpty ? nil : pendingContextAttachments,
+            vaultRecallTrace: pendingVaultRecallTrace
         )
         isCurrentVaultBriefing = false
         loadedNoteTitles = []
+        pendingVaultRecallTrace = nil
         return metadata
     }
 

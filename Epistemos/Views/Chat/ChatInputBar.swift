@@ -453,7 +453,8 @@ struct ChatInputBar: View {
             chats: Array(recentChatsQuery.prefix(20)),
             threads: AppBootstrap.shared?.threadState.chatThreads ?? [],
             indexedNoteIDs: referenceSearch.indexedNoteIDs,
-            indexedNoteSnippets: referenceSearch.indexedNoteSnippetsByPageID
+            indexedNoteSnippets: referenceSearch.indexedNoteSnippetsByPageID,
+            indexedNoteProvenance: referenceSearch.indexedNoteProvenanceByPageID
         )
     }
     private var mentionKeyboardChoices: [ComposerReferenceChoice] {

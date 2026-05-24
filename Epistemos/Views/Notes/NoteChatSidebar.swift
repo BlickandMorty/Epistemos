@@ -104,6 +104,21 @@ struct NoteChatSidebar: View {
                 )
                 .padding(.top, 6)
             }
+
+            if msg.role == .assistant {
+                VaultRecallProvenanceCard(
+                    trace: nil,
+                    loadedNoteTitles: msg.loadedNoteTitles ?? [],
+                    sourceCount: msg.loadedNoteTitles?.count ?? 0,
+                    theme: theme,
+                    compact: true
+                )
+                AnswerPacketBadge(
+                    answerPacketId: nil,
+                    theme: theme,
+                    missingPacketConfidence: .blocked
+                )
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 10)

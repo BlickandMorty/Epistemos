@@ -202,6 +202,11 @@ jobs:
       - name: B5 — HELIOS theorem-invariant smoke (Canon Lock v2 §F)
         run: ./scripts/check-helios-invariants.sh
 
+      # W23 — Vault context contract gate. Chat retrieval surfaces must
+      # never regress to `LIMIT N` / first-N note context packs.
+      - name: W23 — Vault context contract gate
+        run: bash ./scripts/check-vault-context-contract.sh
+
       # Rust lints
       - name: Clippy (all crates)
         run: |

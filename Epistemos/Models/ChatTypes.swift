@@ -290,6 +290,11 @@ struct ChatMessage: Identifiable, Codable, Sendable {
     /// (errors, cancellations). The MessageBubble VRMLabelView
     /// render reads this field; nil → no chip.
     var answerPacketId: String?
+    /// Durable vault-recall trace for this row. Stamped when the turn
+    /// used vault retrieval so the chat surface can show why those
+    /// notes were selected. Nil for legacy rows and turns that did not
+    /// load vault context.
+    var vaultRecallTrace: VaultRecallTrace?
 
     init(
         id: String = UUID().uuidString,
@@ -316,7 +321,8 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         thinkingTrace: String? = nil,
         thinkingDurationSeconds: Double? = nil,
         cacheHitPercent: Double? = nil,
-        answerPacketId: String? = nil
+        answerPacketId: String? = nil,
+        vaultRecallTrace: VaultRecallTrace? = nil
     ) {
         self.id = id
         self.chatId = chatId
@@ -343,6 +349,7 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         self.thinkingDurationSeconds = thinkingDurationSeconds
         self.cacheHitPercent = cacheHitPercent
         self.answerPacketId = answerPacketId
+        self.vaultRecallTrace = vaultRecallTrace
     }
 
     /// Effective text content — from contentBlocks if present, otherwise from content.

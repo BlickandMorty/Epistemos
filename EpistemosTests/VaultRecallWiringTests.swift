@@ -104,6 +104,78 @@ struct VaultRecallWiringTests {
                 "after a scaffold-lexical trace the snapshot must surface .stub")
     }
 
+    @Test("EventStore persists vault_recall_trace payloads for RunEventLog visibility")
+    func eventStorePersistsVaultRecallTracePayload() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-vault-recall-event-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let store = try #require(EventStore(databaseURL: tempDir.appendingPathComponent("events.sqlite")))
+        let trace = try #require(VaultRecallBridge.trace(query: "residency governance"))
+        store.appendVaultRecallTrace(sessionId: "session-vault-recall", trace: trace)
+
+        var events: [EventStore.StoredEvent] = []
+        for _ in 0..<10 {
+            try await Task.sleep(for: .milliseconds(25))
+            events = store.events(from: Date(timeIntervalSince1970: 0), to: Date())
+            if !events.isEmpty { break }
+        }
+
+        let event = try #require(events.first)
+        #expect(event.kind == EventStore.vaultRecallTraceEventKind)
+        let decoded = try JSONDecoder().decode(VaultRecallTrace.self, from: Data(event.payload.utf8))
+        #expect(decoded.query == trace.query)
+        #expect(decoded.candidatesRetained == trace.candidatesRetained)
+    }
+
+    @Test("VaultRecallMetrics carries W-21 benchmark rates without inventing them")
+    func vaultRecallMetricsCarriesW21BenchmarkRates() {
+        VaultRecallMetrics.shared.reset()
+        defer { VaultRecallMetrics.shared.reset() }
+        var snapshot = VaultRecallMetrics.shared.snapshot()
+        #expect(snapshot.recallBenchmark.top1ExactTitleRate == nil)
+        #expect(snapshot.recallBenchmark.sampleCount == 0)
+
+        VaultRecallMetrics.shared.recordRecallBenchmark(
+            top1ExactTitleRate: 0.96,
+            top5ParaphraseRate: 0.91,
+            synthesisTwoNoteCitationRate: 1.0,
+            adversarialRejectRate: 0.98,
+            sampleCount: 50
+        )
+        snapshot = VaultRecallMetrics.shared.snapshot()
+        #expect(snapshot.recallBenchmark.top1ExactTitleRate == 0.96)
+        #expect(snapshot.recallBenchmark.top5ParaphraseRate == 0.91)
+        #expect(snapshot.recallBenchmark.synthesisTwoNoteCitationRate == 1.0)
+        #expect(snapshot.recallBenchmark.adversarialRejectRate == 0.98)
+        #expect(snapshot.recallBenchmark.sampleCount == 50)
+    }
+
+    @Test("ChatCoordinator extracts trace queries only from vault retrieval tool calls")
+    func chatCoordinatorExtractsVaultToolTraceQueries() {
+        let search = ChatCoordinator.vaultRecallTraceQueryFromToolCall(
+            toolName: "vault.search",
+            inputJson: #"{"query":"tier compression governance"}"#,
+            fallbackQuery: "fallback"
+        )
+        #expect(search == "tier compression governance")
+
+        let read = ChatCoordinator.vaultRecallTraceQueryFromToolCall(
+            toolName: "vault.read",
+            inputJson: #"{"path":"notes/mamba_ssm_cache.md"}"#,
+            fallbackQuery: "fallback"
+        )
+        #expect(read == "notes/mamba_ssm_cache.md")
+
+        let ignored = ChatCoordinator.vaultRecallTraceQueryFromToolCall(
+            toolName: "file.read",
+            inputJson: #"{"path":"notes/mamba_ssm_cache.md"}"#,
+            fallbackQuery: "fallback"
+        )
+        #expect(ignored == nil)
+    }
+
     @Test("VaultRecallFlags.isEnabled reads UserDefaults + env-var fallback")
     func vaultRecallFlagsReadsUserDefaultsAndEnvFallback() {
         let savedDefault = UserDefaults.standard.bool(forKey: VaultRecallFlags.userDefaultsKey)

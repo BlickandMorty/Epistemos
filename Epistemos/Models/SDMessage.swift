@@ -53,6 +53,7 @@ final class SDMessage {
     var attachmentsData: Data?          // Encoded [FileAttachment]
     var loadedNoteTitlesData: Data?     // Encoded [String]
     var contextAttachmentsData: Data?   // Encoded [ContextAttachment]
+    var vaultRecallTraceData: Data?     // Encoded VaultRecallTrace
     var artifactsData: Data?            // Encoded [Artifact] — structured output blocks
     var thinkingTrace: String?
     var thinkingDurationSeconds: Double?
@@ -125,6 +126,17 @@ final class SDMessage {
             return try JSONDecoder().decode([ContextAttachment].self, from: contextAttachmentsData)
         } catch {
             Log.db.error("Failed to decode [ContextAttachment] for message \(self.id): \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    @MainActor
+    private func decodedVaultRecallTrace() -> VaultRecallTrace? {
+        guard let vaultRecallTraceData else { return nil }
+        do {
+            return try JSONDecoder().decode(VaultRecallTrace.self, from: vaultRecallTraceData)
+        } catch {
+            Log.db.error("Failed to decode VaultRecallTrace for message \(self.id): \(error.localizedDescription)")
             return nil
         }
     }
@@ -225,7 +237,8 @@ final class SDMessage {
     func updatePresentationSnapshot(
         attachments: [FileAttachment],
         loadedNoteTitles: [String]?,
-        contextAttachments: [ContextAttachment]?
+        contextAttachments: [ContextAttachment]?,
+        vaultRecallTrace: VaultRecallTrace? = nil
     ) {
         do {
             let encoded = try JSONEncoder().encode(attachments)
@@ -247,6 +260,16 @@ final class SDMessage {
         } catch {
             Log.db.error("Failed to encode [ContextAttachment] for message \(self.id): \(error.localizedDescription)")
             contextAttachmentsData = nil
+        }
+        if let vaultRecallTrace {
+            do {
+                vaultRecallTraceData = try JSONEncoder().encode(vaultRecallTrace)
+            } catch {
+                Log.db.error("Failed to encode VaultRecallTrace for message \(self.id): \(error.localizedDescription)")
+                vaultRecallTraceData = nil
+            }
+        } else {
+            vaultRecallTraceData = nil
         }
     }
 
@@ -273,7 +296,8 @@ final class SDMessage {
             authoredByProviderID: authoredByProviderID,
             authoredByModelID: authoredByModelID,
             thinkingTrace: thinkingTrace,
-            thinkingDurationSeconds: thinkingDurationSeconds
+            thinkingDurationSeconds: thinkingDurationSeconds,
+            vaultRecallTrace: decodedVaultRecallTrace()
         )
     }
 }

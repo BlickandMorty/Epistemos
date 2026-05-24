@@ -32,6 +32,38 @@ These are findings the deep-scan surfaced that **contradict or sharpen** earlier
 | H9 | **CODE_EDITOR_FEATURE_AUDIT.md found drift on every editor feature.** Minimap reverted (line 1232 comment "Minimap removed — outline navigator replaces it"), search bar UI exists but `performSearch()` is stub, semantic sidebar code exists but gated to false (line 291 never visible), status bar replaced by EditorBreadcrumbBar, persisted prefs 5/6 active. | `worktree:inspiring-heisenberg-ea9dc3/CODE_EDITOR_FEATURE_AUDIT.md` | Editor work must verify against live code; doc claims drift fast |
 | H10 | **Quick Capture worktree LEGACY_TO_V2_ALIASES has ~56 entries, ~54 conversions remaining.** Only `TodoHandler` (Phase 2G-4a canary) is converted. The rest (24 files, ~54 `impl ToolHandler` blocks) need the macro from Phase 2G-4d. No standalone migration guide exists — pattern lives only in commit messages. | `worktree:vigorous-goldberg-3a2d35/agent_core/src/tools/registry.rs` | Stay-stellar #1; needs `agent_core/docs/TOOL_MIGRATION_STATUS.md` |
 
+## 0A. 2026-05-24 Candidate Addendum — Shadow Projection + Research Construction
+
+**New builder-facing source:** `docs/fusion/SHADOW_PROJECTION_AND_RESEARCH_CONSTRUCTION_2026_05_24.md`.
+
+**Online intake source:** `docs/fusion/ONLINE_RESEARCH_INTAKE_SHADOW_PROJECTION_2026_05_24.md`.
+
+**Why it exists.** The Erdős unit-distance result and OpenAI Parameter Golf sharpen the same substrate lesson: search for a better coordinate chart, not merely a bigger model or a larger context window. The addendum reduces the architecture to one invariant and three motions:
+
+1. **Lift / Ingest** — surface to substrate.
+2. **Project / Compress / Recall** — substrate to useful surface.
+3. **Mutate / Promote** — substrate to substrate, under ACS + witness + rollback.
+
+**Status discipline.** The addendum is `state: candidate`. It does **not** silently promote L8, E8, E9, `ShadowProjection<H,L>`, T28, W-Lift-N, or `F-Erdos-Lift-Optimality` to canon. Agents must treat those as candidate work until local falsifiers and WRV caller chains exist.
+
+**Agent rule.** Any Phase 2+ PR that invokes "unified cognitive substrate," "lattice," "shadow projection," "auto fine-tuning," "best neuron group," or "Research Construction Engine" must cite the addendum and include a No-Orphan check: motion, UAS address, plane, residency, WBO/error policy, witness, falsifier, tier, rollback.
+
+**Public-research rule.** Any Phase 2+ PR that cites Parameter Golf, the Erdős unit-distance result, EML forks, arXiv papers, GitHub PRs/forks, or forum-derived ideas must also cite the online intake source and classify each source by credibility rank. Public code is mined for motifs, never raw-merged, unless a separate vendor/setup PR is explicitly approved.
+
+---
+
+## 0B. 2026-05-24 Canon Target — Addressable Neural Substrate
+
+**New no-compromise source:** `docs/fusion/ADDRESSABLE_NEURAL_SUBSTRATE_CANON_2026_05_24.md`.
+
+**Why it exists.** This preserves the original endgame so agents do not collapse the architecture into ordinary RAG, ordinary MoE, ordinary subquadratic attention, or generic MLX inference. The target is:
+
+> Epistemos turns a dense model into an addressable neural substrate. An SSM/state router selects active assemblies of layers, rank-one components, KV pages, adapters, residual islands, and kernels; the residency governor pages only that working set into UMA; verification proves the selected path preserves dense/reference behavior within a budget.
+
+**Canonical distinction.** This is canon as the target architecture and vocabulary. It is **not** a production claim until the falsifiers pass: `F-Sparse-Runtime-Split`, `F-KV-Direct-Gate`, `F-UAS-CopyCount`, `F-ActiveAssembly-Minimal`, `F-ULP-Oracle`, and `F-70B-Local-Cocktail`.
+
+**Agent rule.** Any Phase 2+ PR touching local inference, model routing, Active Assembly, KV/cache residency, adapters, EML kernels, or "large local model" claims must cite this source and include a Neural Substrate check: addressed unit, UAS address, plane, residency, router, dense/reference verifier, falsifier, and rollback.
+
 ---
 
 ## 1. Truth-Router and Authority Order

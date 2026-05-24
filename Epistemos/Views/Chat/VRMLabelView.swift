@@ -4,14 +4,9 @@ import SwiftUI
 //
 // HELIOS-W3 guard
 //
-// **SCAFFOLD ONLY (RCA13 P2-001).** This view ships the SwiftUI
-// pill + glossary mapping per the HELIOS V5 W3 doctrine, but the
-// chat-row integration is NOT wired. No production caller renders
-// VRMLabelView — only the `#Preview` block at the bottom does.
-// Chat emits raw text today; AnswerPacket / VRMLabel are not
-// emitted by any chat response path. Settings → HELIOS V5 already
-// surfaces "Deferred: no chat-path AnswerPacket emission is wired
-// in v1," so the doctrine status is honest at the visible-UI level.
+// W-27 now renders claim/confidence badges through AnswerPacketBadge.
+// This lower-level VRM chip stays available for compact surfaces that
+// need the raw verified/plausible/speculative/blocked label directly.
 //
 // Per `docs/HELIOS_V5_INTEGRATION_PLAN_v2_2026_05_05.md` §3 W3 +
 // `docs/fusion/helios v5 first.md` DOC 1 §1.5 +
@@ -22,9 +17,7 @@ import SwiftUI
 //    mirrored in Pro UI per DOC 2."
 //
 // Tier 1 (MAS-safe): strictly additive UI element. Renders one of
-// four labels for an emitted [`AnswerPacket`]. The chat row wires
-// this view in a follow-up slice (the schema + view land here; the
-// integration into `MessageBubble` follows).
+// four labels for an emitted [`AnswerPacket`].
 //
 // Cross-references:
 // - Epistemos/Models/AnswerPacket.swift (Swift mirror types,
