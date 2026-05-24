@@ -3722,6 +3722,29 @@ pub fn system_g_drain_events_json(run_id: String) -> Result<String, AgentErrorFF
     })
 }
 
+/// FFI entry: snapshot the System G run registry. Returns a JSON
+/// object `{"total":N,"in_flight":M}` where:
+///   - `total` is every entry currently in the registry (in-flight
+///     PLUS terminated runs still inside the
+///     `TERMINATED_RUN_RETENTION` window).
+///   - `in_flight` is just the entries whose terminal event has not
+///     yet been drained — those gated by `MAX_CONCURRENT_RUNS`.
+///
+/// Used by `SystemGHealthRow` to render honest dispatch-registry
+/// counters. Cannot fail under normal operation; a poisoned mutex
+/// surfaces `(0, 0)` so the row degrades to "no dispatches yet"
+/// instead of throwing.
+#[uniffi::export]
+pub fn system_g_registry_stats_json() -> String {
+    let (total, in_flight) = crate::agent_runtime_v2::system_g_runtime::registry_stats();
+    serde_json::json!({
+        "total": total,
+        "in_flight": in_flight,
+        "max_concurrent_runs": crate::agent_runtime_v2::system_g_runtime::MAX_CONCURRENT_RUNS,
+    })
+    .to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::build_preview_session_context_with_opener;

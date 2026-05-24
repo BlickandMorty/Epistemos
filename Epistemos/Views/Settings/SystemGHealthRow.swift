@@ -24,6 +24,8 @@ import SwiftUI
 public struct SystemGHealthRow: View {
 
     @State private var snapshot: SystemGMetrics.Snapshot
+    @State private var registryStats: SystemGRegistryStats?
+    @State private var registryError: String?
 
     public init() {
         self._snapshot = State(initialValue: SystemGMetrics.shared.snapshot())
@@ -57,6 +59,12 @@ public struct SystemGHealthRow: View {
                 detail: capabilityDetail
             )
             row(
+                label: "Dispatch registry",
+                symbol: "tray.full",
+                ok: registryError == nil,
+                detail: registryDetail
+            )
+            row(
                 label: "Last status read",
                 symbol: "clock",
                 ok: snapshot.lastReadAt != nil && snapshot.lastErrorDescription == nil,
@@ -87,6 +95,24 @@ public struct SystemGHealthRow: View {
 
     public func refresh() {
         snapshot = SystemGMetrics.shared.snapshot()
+        let result = SystemGBridge.registryStats()
+        switch result {
+        case .success(let stats):
+            registryStats = stats
+            registryError = nil
+        case .failure(let error):
+            registryError = String(describing: error)
+        }
+    }
+
+    private var registryDetail: String {
+        if let err = registryError {
+            return "Error: \(err)"
+        }
+        guard let stats = registryStats else {
+            return "(no read yet)"
+        }
+        return "in-flight \(stats.inFlight)/\(stats.maxConcurrentRuns) · parked \(stats.total - stats.inFlight)"
     }
 
     private var modeDetail: String {
