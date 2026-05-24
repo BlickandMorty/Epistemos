@@ -18,6 +18,16 @@
 //! accepted packet) per `docs/fusion/SHADOW_PROJECTION_AND_RESEARCH_CONSTRUCTION_2026_05_24.md`
 //! §12.6.
 
+pub mod admission_repair;
+#[cfg(feature = "research")]
+pub mod schema_repair;
+pub mod witness_repair;
+
+pub use admission_repair::{AdmissionDraft, AdmissionRepairLoop};
+#[cfg(feature = "research")]
+pub use schema_repair::{SchemaDraft, SchemaRepairLoop};
+pub use witness_repair::{WitnessDraft, WitnessRepairLoop, WitnessState};
+
 use std::time::{Duration, Instant};
 
 /// Bounded retry envelope. The acceptance bar in
