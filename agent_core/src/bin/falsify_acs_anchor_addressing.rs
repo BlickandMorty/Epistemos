@@ -9,19 +9,21 @@
 //! mini-version per the F' prompt:
 //!
 //! - **N = 100** random anchors (vs the full 1000)
-//! - Three of the four stages:
-//!   1. **Lookup** — registry insert + lookup returns bytewise-equal anchor
-//!   2. **Audit canonicalization** — serde JSON round-trip preserves all
-//!      fields (`Hash` + `Eq` byte-compare)
-//!   3. **Admission proof boundary** — `SCOPERexAdmissionProof::signed_from_record`
-//!      + `verify_against_record` round-trip succeeds; mutated signature
-//!      bytes are rejected
+//! - Three of the four stages, each independently:
+//!   - Lookup: registry insert + lookup returns bytewise-equal anchor.
+//!   - Audit canonicalization: serde JSON round-trip preserves all
+//!     fields (`Hash` + `Eq` byte-compare).
+//!   - Admission proof boundary: `SCOPERexAdmissionProof::signed_from_record`
+//!     + `verify_against_record` round-trip succeeds; mutated signature
+//!     bytes are rejected.
 //! - The 4th stage (5-plane projection inversion) is left as
 //!   `not_in_scope_round_2` per the F' acceptance bar.
 //!
 //! Emits `primary_witness` when all three measured stages pass on N=100;
 //! `failure_report` otherwise. Always writes to
 //! `artifacts/falsifiers/acs_anchor_addressing/result.json`.
+
+#![allow(clippy::doc_lazy_continuation)]
 
 use std::collections::BTreeMap;
 
@@ -269,20 +271,20 @@ fn synth_anchor(seed: usize) -> AcsAnchor {
         tier,
         salience.clamp(0.0, 1.0),
     );
-    if seed % 3 != 0 {
+    if !seed.is_multiple_of(3) {
         anchor.source_hash = Some(format!("blake3:{seed:064x}"));
     }
-    if seed % 4 != 0 {
+    if !seed.is_multiple_of(4) {
         anchor.active_packet_id = Some(format!("packet-{seed:08}"));
     }
-    if seed % 5 == 0 {
+    if seed.is_multiple_of(5) {
         anchor.compatibility_edge = Some(format!("edge-{seed:04}"));
     }
     anchor
 }
 
 fn synth_audit_record(seed: usize) -> ACSAuditRecord {
-    let verdict = if seed % 2 == 0 {
+    let verdict = if seed.is_multiple_of(2) {
         ACSAdmissionVerdict::Allow
     } else {
         ACSAdmissionVerdict::AllowWithWarning
