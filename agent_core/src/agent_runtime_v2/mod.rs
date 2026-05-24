@@ -38,6 +38,7 @@
 //!   adapter path for Pro Research builds only. Must remain behind a Cargo
 //!   feature; never compiled into the MAS bundle.
 
+pub mod acs_run_event_log_sink;
 pub mod adapters;
 pub mod answer;
 pub mod blueprint;
@@ -55,6 +56,7 @@ pub mod para;
 pub mod run_event_log;
 pub mod variant_ladder;
 
+pub use acs_run_event_log_sink::ACSRunEventLogSink;
 pub use answer::{AnswerPacket, Citation};
 pub use blueprint::{
     AgentBlueprint, AgentBlueprintId, BlueprintModeError, CliAdapter, ProviderPolicy,
@@ -62,10 +64,10 @@ pub use blueprint::{
 pub use budget::{BudgetDebit, BudgetError, BudgetGate, BudgetLedger, BudgetSpec, BudgetTerm};
 pub use capability::{AgentRuntimeV2Capability, CapabilityError, MacaroonCapability};
 pub use compose::{ParaSeq, ParaSeqFeedback, ParaSeqOutput};
-pub use envelope::{MutationEnvelope, MutationWriter, Sealer, SealError};
+pub use envelope::{MutationEnvelope, MutationWriter, SealError, Sealer};
 pub use event::{AgentEvent, AgentEventErrorKind};
 pub use mission::{MissionPacket, MissionPromptError, ToolCall, ToolCallError};
-pub use mission_run::MissionRun;
+pub use mission_run::{MissionRun, ToolCallAdmissionError, ToolCallAdmissionHandoff};
 pub use mode::AgentRuntimeV2Mode;
 pub use naming_lint::{
     count_hits, is_path_exempt, scan_text, text_contains_rejected_name, RejectedNameMatch,
