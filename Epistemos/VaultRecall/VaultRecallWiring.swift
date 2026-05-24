@@ -241,6 +241,69 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
         public let lastBackend: VaultRecallBackend
         public let lastErrorDescription: String?
         public let lastErrorAt: Date?
+
+        /// W-21 benchmark surface — added 2026-05-24 to back the
+        /// `VaultRecallHealthRow` chip-strip the unify-substrate-health
+        /// commit shipped. All four fields default to `nil` (no
+        /// measurement yet) so `vaultRecallBenchmarkPassing` returns
+        /// false and the chip strip stays orange ("trace scaffold")
+        /// per WRV honesty — never green without a real measurement
+        /// from F-VaultRecall-50.
+        public let recallBenchmark: VaultRecallBenchmark
+
+        public init(
+            isFlagEnabled: Bool,
+            lastQueryAt: Date?,
+            lastLatencyMs: Double,
+            p95LatencyMs: Double,
+            sampleCount: Int,
+            totalQueries: UInt64,
+            lastCandidatesRetained: Int,
+            lastSignalSummary: [VaultRecallSignal],
+            lastAllChatterFallback: Bool,
+            lastBackend: VaultRecallBackend,
+            lastErrorDescription: String?,
+            lastErrorAt: Date?,
+            recallBenchmark: VaultRecallBenchmark = VaultRecallBenchmark()
+        ) {
+            self.isFlagEnabled = isFlagEnabled
+            self.lastQueryAt = lastQueryAt
+            self.lastLatencyMs = lastLatencyMs
+            self.p95LatencyMs = p95LatencyMs
+            self.sampleCount = sampleCount
+            self.totalQueries = totalQueries
+            self.lastCandidatesRetained = lastCandidatesRetained
+            self.lastSignalSummary = lastSignalSummary
+            self.lastAllChatterFallback = lastAllChatterFallback
+            self.lastBackend = lastBackend
+            self.lastErrorDescription = lastErrorDescription
+            self.lastErrorAt = lastErrorAt
+            self.recallBenchmark = recallBenchmark
+        }
+    }
+
+    /// W-21 acceptance metrics (top-1 exact-title · top-5 paraphrase ·
+    /// synthesis 2-note citation · adversarial reject). Each field is
+    /// `nil` until the F-VaultRecall-50 falsifier harness produces a
+    /// measured rate. The chip strip in `VaultRecallHealthRow` displays
+    /// each as a benchmark chip vs the 0.95 threshold.
+    public struct VaultRecallBenchmark: Sendable {
+        public let top1ExactTitleRate: Double?
+        public let top5ParaphraseRate: Double?
+        public let synthesisTwoNoteCitationRate: Double?
+        public let adversarialRejectRate: Double?
+
+        public init(
+            top1ExactTitleRate: Double? = nil,
+            top5ParaphraseRate: Double? = nil,
+            synthesisTwoNoteCitationRate: Double? = nil,
+            adversarialRejectRate: Double? = nil
+        ) {
+            self.top1ExactTitleRate = top1ExactTitleRate
+            self.top5ParaphraseRate = top5ParaphraseRate
+            self.synthesisTwoNoteCitationRate = synthesisTwoNoteCitationRate
+            self.adversarialRejectRate = adversarialRejectRate
+        }
     }
 
     nonisolated private static func percentile(_ values: [Double], _ p: Double) -> Double {
