@@ -1,8 +1,186 @@
-# Phase 2 — 6 Terminal Prompts (2026-05-23)
+# Phase 2 — Terminal Dispatch Deck (rev 2026-05-24)
 
-Six parallel Codex/Claude terminals to drive the W-row backlog (currently ~6/53 wired, ~11%) up toward 50%+ Phase-2 closure. Each terminal is self-contained — minimal cross-surface conflict between them.
+12 parallel Codex/Claude terminals (T0, T1, S, A, B, C, D, E, F, G, H, R, X) to drive the W-row backlog (currently ~6/53 wired, ~11%) up toward 50%+ Phase-2 closure and to land the post-Erdős/Parameter-Golf doctrine. Each terminal is self-contained — minimal cross-surface conflict between them.
+
+## What Epistemos is, in one paragraph (the local-AI framing)
+
+Epistemos is a **local cognitive substrate**, not "an app that runs a local model." The local model is the *mouth*; the substrate is everything that decides what part of memory, which runtime, what evidence, what schema, what proof, and what permission path the model is allowed to use before anything becomes an answer or an action. MLX is **one runtime lane**, not the architecture — it can be enabled, disabled, replaced, or paired with GGUF / llama.cpp / cloud / Apple Intelligence. The no-compromise architecture is the routing, residency, schemas, admission gates, proofs, and visible verification *around* those executors.
+
+The six layers (Codex synthesis 2026-05-23):
+
+1. **Model / Neuron** — sparse active assembly · ambitious / partial
+2. **SSD / RAM Residency** — UAS / Lattice / WBO · one governed address space across hot, compressed, shadow, SSD oracle, network cascade
+3. **Schema / Hyperdynamic loop** — `draft → schema check → proof/admission check → repair/rerun → accepted packet → next layer` (covers MissionPacket, AnswerPacket, tool calls, claims, mutations, proofs, UI artifacts)
+4. **Retrieval / Active Assembly** — Eidos + VaultRecall + page-gather as the "select the right mental tissue" step before the model speaks
+5. **ACS / Permission** — generation alone is not action; every action requires admission
+6. **EML / Proof** — formal witnesses where the claim is computable
 
 **Authority bar (every terminal):** No fake successes. No hidden cloud fallback. WRV (Wired/Reachable/Visible/Verified) discipline. Universal Loop Block: Audit → Build → Verify → Harden → Report. Use chip-strip + honest language pattern from PR #57. Reference `docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md` + `docs/CANONICAL_CHRONICLE_2026_05_23.md` before any code.
+
+**2026-05-24 addenda (mandatory reads):**
+- `docs/fusion/SHADOW_PROJECTION_AND_RESEARCH_CONSTRUCTION_2026_05_24.md`
+- `docs/fusion/ONLINE_RESEARCH_INTAKE_SHADOW_PROJECTION_2026_05_24.md`
+
+Every terminal must classify touched work under the **Substrate Motion Invariant**:
+
+- **Lift / Ingest** — surface → substrate
+- **Project / Compress / Recall** — substrate → surface
+- **Mutate / Promote** — substrate → substrate
+
+Every PR must include a **No-Orphan check**:
+
+- Motion:
+- UAS address:
+- Plane:
+- Residency:
+- WBO/error policy:
+- Witness:
+- Falsifier:
+- Tier:
+- Rollback:
+
+`ShadowProjection<H,L>`, `L8?`, `E8?`, `E9?`, `T28`, `W-Lift-N`, and `F-Erdos-Lift-Optimality` are candidate-only until local falsifiers and WRV production caller chains land.
+
+Any PR citing Parameter Golf, the Erdős unit-distance result, EML forks, arXiv papers, GitHub PRs/forks, or forum-derived ideas must classify sources using the Online Research Intake credibility ladder. Public code is motif input, not raw merge material.
+
+---
+
+## Terminal 0 — Verified Floor / Settings Truth (Codex T0, **runs FIRST**)
+
+**Goal:** Stop the app from lying. Every Settings row honestly reflects production posture before any other terminal lands work that depends on those signals being meaningful.
+
+**Substrate Motion:** *Project / Compress / Recall* (substrate state → user-visible surface).
+
+**The false-green problem.** The chronicle audit found 9/24 Settings rows are visually misleading: Eidos shows fixture path as if real, VaultRecall shows synthetic trace as if real, ACS shows substrate-only as if a gate is installed, AgentBlueprint shows "Run" as if runtime consumer exists. T0 makes the app stop lying so every other terminal can land on a verified floor instead of a cosmetic one.
+
+**To wire:**
+1. Re-label `EidosHealthRow` chip strip → `"fixture path active"` until Terminal A lands the real bridge.
+2. Re-label `VaultRecallHealthRow` chip strip → `"synthetic trace · no backend binding"` until Terminal B lands the real trace.
+3. Re-label `ACSAdmissionHealthRow` chip strip → `"substrate-only · gate not installed"` until Terminal E lands `ACSRunEventLogSink`.
+4. Gate/rename `AgentBlueprint` "Run" button → `"Queue (no runtime consumer)"` until Terminal C lands `RealSystemGRunSeam`.
+5. Promote `VerifiedFloorChipStrip` (PR #57) to every HealthRow that doesn't already have it.
+6. Add a single tooltip per row: `"What's wired today / what's still stub / where the falsifier lives."`
+7. Audit doc `docs/audits/SETTINGS_TRUTH_FLOOR_<date>.md` — enumerate all 24 Settings rows; classify each as production / fixture / status-only / research-only; pin the truth state in a property-based test.
+
+**Acceptance:**
+- 0 chip-strip claims green where the underlying substrate is fixture / stub / status-only.
+- Property-based test fails CI if any HealthRow ships green without a matching falsifier in PASS state.
+- The user can open Settings and trust every row at a glance.
+
+**Why first:** every other terminal (A–H) eventually flips a chip from orange → green. If chips are misleading today, the chip flips lose meaning. T0 builds the trust surface that gives the rest of the deck its honest signal.
+
+---
+
+## Terminal 1 — Runtime Router (Codex T1, **MLX becomes one lane**)
+
+**Goal:** MLX stops being "the architecture." Build a `RuntimeExecutor` abstraction that treats MLX, GGUF/llama.cpp, Apple Intelligence, and cloud providers as **interchangeable lanes behind a single routing policy**. Per Codex synthesis: *"MLX is one executor. It can be enabled, disabled, replaced, or paired with GGUF/llama.cpp/cloud/Apple."*
+
+**Substrate Motion:** *Mutate / Promote* (substrate routing decision → substrate dispatch).
+
+**Substrate already in main:**
+- `Epistemos/Engine/MLXInferenceService.swift` — MLX path
+- `Epistemos/LocalAgent/ConfidenceRouter.swift` — single-lane routing
+- `Epistemos/State/InferenceState.swift` — cloud provider validation states
+- `agent_core/src/providers/{claude, openai, gemini, perplexity}` — cloud lanes
+- `Epistemos/State/InferenceState.swift::routeProfiles()` — currently returns `[]` (broken)
+
+**To wire:**
+1. `Epistemos/Engine/RuntimeExecutor.swift` (NEW) — protocol with `Sendable` conformance:
+   ```
+   protocol RuntimeExecutor: Sendable {
+       var id: RuntimeLane { get }   // .mlx, .gguf, .appleIntelligence, .cloud(provider:), .stub
+       var capability: RuntimeCapability { get }
+       func canHandle(_ request: MissionPacket) -> RouteVerdict
+       func execute(_ request: MissionPacket) async throws -> AnswerPacket
+       func teardown() async
+   }
+   ```
+2. `RuntimeLane` enum + `RuntimeCapability` struct (tier · context window · grammar support · vision · cost class · latency class · tool-call mode).
+3. `Epistemos/LocalAgent/RuntimeRouter.swift` (NEW) — replace single-lane `ConfidenceRouter` with multi-lane router using `modelPreferenceTable` + `localPolicyTable`.
+4. Fix `routeProfiles()` to return non-empty per-role profiles (code · reasoning · quick · toolCaller · trivial · vision).
+5. Per-lane enable/disable toggles in Settings → Inference → Runtime Lanes.
+6. Per-model `F-LocalToolUse` test — fixture prompt invokes a tool, verifies the chosen lane handles the tool-call grammar correctly.
+7. `RuntimeRouterHealthRow` chip strip — shows which lane handled the last 100 requests + escalation count.
+8. Audit doc `docs/audits/RUNTIME_ROUTER_LANES_<date>.md`.
+
+**Acceptance:**
+- `routeProfiles()` returns ≥ 6 non-empty profiles.
+- MLX lane can be flipped OFF in Settings without breaking chat — falls through to GGUF or cloud (with honest escalation, not silent fallback).
+- F-LocalToolUse PASS for every local model in the catalog that claims `canActAsAgent = true`.
+- Apple Intelligence lane present (Tier 1) — even if its capability surface is initially narrow.
+
+**Why second:** the Runtime Router is the L4 layer of the canonical stack. Without it, every other terminal's work routes through a single lane and the "MLX is the architecture" assumption stays baked in. Landing the router is what lets the rest of the deck honor the no-compromise framing.
+
+---
+
+## Terminal S — Hyperdynamic Schema Loop primitive (NEW)
+
+**Goal:** Land the *typed-output repair loop* — the primitive Codex identified as the "Schema/Hyperdynamic" layer of the architecture. Today the model emits text, the app parses, and if the parse fails the loop dies. After Terminal S, every model output passes through a schema → proof/admission → repair/rerun → accept loop before reaching the next layer.
+
+**Substrate Motion:** *Mutate / Promote* (raw model output → typed accepted packet).
+
+**The loop:**
+```
+draft (model output)
+  → schema check (typed validator)
+  → proof/admission check (ACS verdict + EML witness if applicable)
+  → if reject: repair prompt + rerun with tightened constraints (bounded retries)
+  → accepted packet (typed, witnessed)
+  → next layer
+```
+
+**Substrate already in main:**
+- `Epistemos/LocalAgent/LocalToolGrammar.swift` — grammar-constrained decoding (when MLXStructured + CMLXStructured + JSONSchema resolve)
+- `agent_core/src/agent_runtime_v2/` — typed packet substrate
+- `agent_core/src/acs_admission/` — verdict shape (admission)
+- `agent_core/src/research/eml_ir/` — proof shape (witness)
+- `agent_core/src/scope_rex/mutation_envelope` — repair-friendly envelope
+
+**To wire:**
+1. `agent_core/src/hyperdynamic_loop/` (NEW) — `HyperdynamicLoop` trait + `RepairBudget` (max retries · max latency · max tokens) + `RepairVerdict` (`accept` / `repair_with` / `quarantine`).
+2. Hook into `agent_runtime_v2/mission_run.rs` (Terminal C territory) — every emitted packet runs through the loop before being appended to RunEventLog.
+3. Three concrete loop implementations:
+   - **`SchemaRepairLoop`** — tool-call grammar drift → JSONSchema validate → repair prompt with explicit field list
+   - **`AdmissionRepairLoop`** — ACS verdict = `defer` or `quarantine` → repair prompt with policy hint
+   - **`WitnessRepairLoop`** — EML/F-ULP witness fails → repair prompt with constraint
+4. `HyperdynamicLoopHealthRow` chip strip — per-loop kind: total drafts · accepted · repaired · quarantined · avg repair count.
+5. Falsifier `F-HyperdynamicLoop-Bounded` — repair budget always terminates; no infinite loops on adversarial drift inputs.
+6. Audit doc `docs/audits/HYPERDYNAMIC_SCHEMA_LOOP_<date>.md`.
+
+**Acceptance:**
+- Every typed model output passes through ≥ 1 loop kind before reaching consumer code.
+- F-HyperdynamicLoop-Bounded PASS on a 100-prompt adversarial corpus.
+- Repair budget caps at `min(3 retries, 5 s, 1024 tokens)` by default; configurable per call site.
+- Quarantine triggers visible in Provenance Console.
+
+**Why this is a primitive, not a tool:** Codex's framing was right — *"the model does not just output text once. It emits into typed schemas, the system validates it, rejects drift, reruns/repairs if needed, and only passes it forward when it satisfies the next layer."* The loop is the architecture's answer to hallucination + schema drift. Without it, every consumer has to write ad-hoc retry code and the failure surface fragments.
+
+---
+
+## Terminal X — Worktree Salvage continuation (Codex T6)
+
+**Goal:** Continue mining unmerged worktrees + branches for additive value. Most of this work landed in the 2026-05-23 sanitization loop (PRs #46-62), but the discipline persists.
+
+**Substrate Motion:** *Lift / Ingest* (preserved historical work → main).
+
+**Status discipline:** Surgical cherry-pick only. **No wholesale merges.** Per the file-replacement-hazard lesson learned in PR #59 → PR #60 revert: NEVER `git checkout <stash> -- file`; always extract patches and apply surgically.
+
+**Outstanding mining targets:**
+1. **T1 RustTriFusionDocumentClient** (Swift bridge + Rust client + tests) on `codex/t1-trifusion-2026-05-16`
+2. **T3 12 substrate falsifier tests** on `codex/t3-uasacs-2026-05-16` — pin to Terminal F's ≥ 5 PASS push
+3. **T4 vault recall tests + `agent_core/src/retrieval/mod.rs`** on `codex/t4-vault-2026-05-16` — pull by Terminal A
+4. **T6 UIUX persistence test** on `codex/t6-uiux-2026-05-16`
+5. **Stash@{8} selected-neighbor expansion physics** in `recovery/stash-8-*` — needs explicit user sign-off
+6. **Simulation Mode CompanionAssets** (palettes/atlas/effects, NOT Hermes/ Swift files) in `.claude/worktrees/simulation`
+7. **Quick Capture Pro-only tools** (55 commits in vigorous-goldberg) — deferred per MAS-First doctrine; mine when Pro release activates (D-12 re-promotion)
+
+**Per-mining-PR discipline:**
+- Cite source branch + commit SHA
+- Cite which T-track / W-row / falsifier it advances
+- Include §No-Orphan check
+- Cite which Substrate Motion Invariant it lives under
+- Verify against current main with `git apply --check` before applying
+- Build + cargo test green before push
 
 ---
 
@@ -166,6 +344,7 @@ Six parallel Codex/Claude terminals to drive the W-row backlog (currently ~6/53 
 - **T25 ACS Naming Reconciliation:** Add a lint to `epistemos_doctrine_lint` that fails CI if "ACS" appears without parenthetical expansion on first mention in a modified doc. Small.
 - **W-13 Power-user mode UI toggle:** Replace `defaults write` with a SwiftUI Toggle in Settings → Inference. ISSUE-2026-05-16-015 has the spec.
 - **W-32 Experimental Features panel:** Unified Settings panel for all UserDefaults flags (EPISTEMOS_RRF_FUSION_V1, EPISTEMOS_GRAPH_INDEX_CHATS, epistemos.localAgent.powerUserMode).
+- **W-PERF rows:** See `docs/fusion/SHADOW_PROJECTION_AND_RESEARCH_CONSTRUCTION_2026_05_24.md` §6. Do not implement a W-PERF row unless the PR names its falsifier and tier.
 
 ---
 
@@ -206,24 +385,146 @@ Six parallel Codex/Claude terminals to drive the W-row backlog (currently ~6/53 
 
 ---
 
+## Terminal H — Research Construction Engine + ShadowProjection candidate substrate (NEW; start after A-G stabilize)
+
+**Goal:** Turn the post-Erdős / Parameter-Golf doctrine into a buildable research substrate without over-promoting it. This terminal owns the candidate loop:
+
+```text
+ProblemCard
+  → ActiveAssemblyPacket
+  → ConstructionGraph
+  → Falsifier / Lean / bench / human-review witness
+  → AnswerPacket
+  → promote / fork / quarantine
+```
+
+**Mandatory source:** `docs/fusion/SHADOW_PROJECTION_AND_RESEARCH_CONSTRUCTION_2026_05_24.md`.
+
+**Status discipline:** Terminal H is **candidate-only** until at least Terminal A/B/G have production caller chains. It may write docs, tests, and harness scaffolding. It must not make Research Construction Engine a live product path without explicit user approval.
+
+**To scope first:**
+1. `ProblemCard` schema — claim, baseline, corpus, budget, allowed tools, construction_space_radius, rollback policy.
+2. `ConstructionGraph` schema — candidate nodes, rejected branches, source links, negative evidence, WBO budget.
+3. `ShadowProjection<H,L>` type sketch — high coordinate, low surface, projection id, inverse-lift hint, WBO, witness.
+4. `F-Erdos-Lift-Optimality` falsifier spec — representative tasks across recall, Active Assembly, packet routing, KV page gather, and kernel selection.
+5. Builder audit `docs/audits/RESEARCH_CONSTRUCTION_ENGINE_SCOPE_<date>.md` — what can land now vs what waits for A-G.
+
+**Acceptance for a scoping PR:**
+- No runtime behavior change.
+- Doc lists every W-PERF row and assigns owner/gate.
+- `F-Erdos-Lift-Optimality` has a concrete artifact schema.
+- Every proposed type has UAS address, plane, residency, WBO/error policy, witness, tier, rollback.
+
+**Acceptance for a future implementation PR:**
+- One tiny end-to-end candidate run only: a local deterministic benchmark problem, not open-ended agent research.
+- Emits `ProblemCard`, `ConstructionGraph`, verifier artifact, and `ConstructionAnswerPacket`.
+- Quarantines failures and stores negative evidence.
+- No cloud fallback, no hidden model mutation, no auto-promotion.
+
+---
+
+## Terminal R — Online Research Intake + Fork Mining (NEW; docs/scoping only)
+
+**Goal:** Keep public research and code ecosystems feeding the architecture without letting them bypass local canon. This terminal searches official sources, arXiv, GitHub repos/forks/PRs, and forum-linked code, then converts signals into Epistemos W/P/T/F candidates.
+
+**Mandatory source:** `docs/fusion/ONLINE_RESEARCH_INTAKE_SHADOW_PROJECTION_2026_05_24.md`.
+
+**Status discipline:** Terminal R is intake-only. It must not touch `Epistemos/**` or `agent_core/**`. It may write docs, research intake ledgers, and implementation prompts.
+
+**To run:**
+1. Pick a source family: Parameter Golf, EML/Lean, Erdos/unit-distance, local-model compression, retrieval/PageGather, proof assistants, or active-assembly/autotuning.
+2. Gather official source + arXiv/paper + repo + fork/PR/discussion signals.
+3. Classify every source by credibility rank.
+4. Normalize each useful motif into a local primitive and a W/P/T/F candidate.
+5. Assign owner terminal, tier, falsifier, artifact schema, rollback path, and No-Orphan requirements.
+6. Write `docs/research-intake/<topic>_<date>.md` or update the fusion intake doc.
+7. Produce a ready-to-paste implementation prompt only when the item is mature enough.
+
+**Acceptance:**
+- Every candidate has URL, local anchor, motif, target primitive, tier, falsifier, rollback, and owner terminal.
+- Every public-code idea says "mine motif, not raw code" unless the user explicitly approves a vendor/setup PR.
+- EML/Lean items route through T5 custody.
+- Parameter Golf motifs route through W-PERF rows.
+- Erdos/unit-distance code demos stay low-authority unless backed by OpenAI/arXiv or a verified formalization.
+
+---
+
+## Resume patch for stopped terminals
+
+Paste this into any stopped T0 / T1 / S / A / B / C / D / E / F / G / H / R / X terminal before asking it to continue:
+
+```text
+Resume patch — 2026-05-24 (rev 2 — adds T0 / T1 / S / X + local-AI framing)
+
+1. Pull latest main.
+2. Read:
+   - docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md (the WHOLE deck, including the new
+     "What Epistemos is, in one paragraph" framing + Terminals T0 / T1 / S / X)
+   - docs/fusion/SHADOW_PROJECTION_AND_RESEARCH_CONSTRUCTION_2026_05_24.md
+   - docs/fusion/ONLINE_RESEARCH_INTAKE_SHADOW_PROJECTION_2026_05_24.md
+   - docs/LEGENDARY_ARCHITECTURE_NO_COMPROMISE_AUDIT_2026_05_23.md
+   - docs/DEFERRED_WORK_GUARANTEE_2026_05_23.md
+3. Anchor your work against the canonical 6-layer framing:
+   Model/Neuron · SSD/RAM Residency · Schema/Hyperdynamic loop ·
+   Retrieval/Active Assembly · ACS/Permission · EML/Proof.
+4. Classify your current work under the Substrate Motion Invariant:
+   Lift/Ingest, Project/Compress/Recall, or Mutate/Promote.
+5. Honor the dispatch order:
+   T0 (Verified Floor) and T1 (Runtime Router) and S (Hyperdynamic Schema Loop)
+   are FOUNDATIONS — they unblock the rest. If T0 is not landed yet, you cannot
+   trust chip flips. If T1 is not landed, MLX-as-architecture assumptions leak.
+   If S is not landed, every typed packet consumer has ad-hoc retry code.
+6. Add/update the PR No-Orphan check:
+   Motion, UAS address, plane, residency, WBO/error policy, witness, falsifier,
+   tier, rollback.
+7. Continue the loop:
+   Audit -> Build -> Verify -> Harden -> Report.
+8. If your work depends on public research, cite the source credibility rank
+   from the Online Research Intake doc.
+9. Do not promote ShadowProjection, L8/E8/E9, T28, W-Lift-N, Research
+   Construction Engine, W-PERF rows, Hyperdynamic loop kinds, or new
+   RuntimeExecutor lanes into product behavior unless the falsifier and WRV
+   caller chain are already real.
+10. NEVER `git checkout <stash> -- file` — use `git apply` with patches.
+    See PR #59 → PR #60 revert lesson.
+```
+
+---
+
 ## Cross-terminal coordination
 
 - All terminals must read `docs/SANITIZATION_LOOP_TRACKER_2026_05_23.md` first.
+- All terminals touching substrate architecture must read `docs/fusion/SHADOW_PROJECTION_AND_RESEARCH_CONSTRUCTION_2026_05_24.md`.
+- Any terminal citing public research must read `docs/fusion/ONLINE_RESEARCH_INTAKE_SHADOW_PROJECTION_2026_05_24.md`.
 - Per-PR gate: every PR's body MUST cite which W-row(s) it advances + which falsifier(s) it unblocks.
 - WRV chip-strip status updates: every terminal updating a HealthRow MUST flip the chip from orange/red to green ONLY when the substrate is truly production-wired, NOT when the stub is replaced with another stub.
 - If two terminals touch the same file (likely just `AppBootstrap.swift`), the second to land rebases.
 
 ## Expected outcome
 
-After all 7 terminals close (A-G):
-- W-row backlog: ~6/53 → ~30/53 (~57% wired)
-- Falsifiers PASS: 0/15+ → 7/17+ (incl. new F-UAS-CopyCount + F-ACS-AnchorLookup)
-- Substrate-total: ~70% → ~90%
-- T14 five-plane wiring LIVE — the bridge piece from lattice ontology to working app
-- No-Orphan-Data invariant enforced via CI lint (catches orphan classes at PR time)
-- All 7 Laws cited in every PR description
-- All HealthRow chip strips: orange/red → green where production-wired (honest signal)
-- Phase 2 substantially closed; Phase 3 = research-tier (Pro + V6.1 kernels + Lean proofs)
+After all 10 production terminals close (T0, T1, S, A, B, C, D, E, F, G), with Terminal H scoped but not live, Terminal R maintaining intake, and Terminal X mining as capacity allows:
+- W-row backlog: ~6/53 → ~32/53 (~60% wired)
+- Falsifiers PASS: 0/17+ → 8/18+ (incl. F-UAS-CopyCount + F-ACS-AnchorLookup + F-LocalToolUse + F-HyperdynamicLoop-Bounded)
+- New candidate doctrine is safely contained: `ShadowProjection<H,L>`, Research Construction Engine, W-PERF rows, and `F-Erdos-Lift-Optimality` have specs but no unapproved production behavior.
+- Substrate-total: ~70% → ~92%
+- **Verified Floor (T0)** — 0 false-green chip strips in Settings.
+- **Runtime Router (T1)** — MLX is one lane among ≥ 4 (GGUF, Apple Intelligence, cloud); MLX can be flipped OFF without breaking chat.
+- **Hyperdynamic Schema Loop (S)** — every typed packet runs through draft → schema → admission/witness → repair → accept before reaching consumers.
+- T14 five-plane wiring LIVE (Terminal G) — the bridge piece from lattice ontology to working app.
+- No-Orphan-Data invariant enforced via CI lint (catches orphan classes at PR time).
+- All 7 Laws cited in every PR description; the 8th candidate Law (Shadow Projection) tracked separately.
+- All HealthRow chip strips: orange/red → green where production-wired (honest signal).
+- Phase 2 substantially closed; Phase 3 = research-tier (Pro + V6.1 kernels + Lean proofs).
+
+**Dispatch order recommendation (per Codex 2026-05-23 consensus):**
+
+1. **Wave 1 — foundations** (no cross-conflict): **T0** (Verified Floor) · **T1** (Runtime Router) · **S** (Hyperdynamic Loop primitive) · **G** (T14 bridge)
+2. **Wave 2 — real organs** (depends on T0+T1 stable): **A** (Eidos real vault) · **B** (Vault Recall trace + citations) · **D** (Substrate Health Panel unification — consumes T0 honesty signal)
+3. **Wave 3 — agent path** (depends on T1+S+A+B stable): **C** (System G full path) · **E** (ACS Admission production gate)
+4. **Wave 4 — research / measurement** (parallel with Wave 3): **F** (≥ 5 falsifiers PASS) · **H** (Research Construction Engine scoping only)
+5. **Continuous** — **R** (Online Research Intake) · **X** (Worktree Salvage)
+
+Hold T26 L_SE Self-Evolving and the 5 V6.1 Metal kernels for the Ceiling cycle (post-Floor close) per the no-compromise audit doc.
 
 ## Doctrinal preservation (Pro + Research tiers)
 

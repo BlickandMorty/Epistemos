@@ -17,6 +17,7 @@ public struct FUlpHealthRow: View {
 
     @State private var snapshot: FUlpMetrics.Snapshot
     @State private var running: Bool = false
+    @State private var refreshTask: Task<Void, Never>?
 
     public init() {
         self._snapshot = State(initialValue: FUlpMetrics.shared.snapshot())
@@ -67,7 +68,14 @@ public struct FUlpHealthRow: View {
                 )
             }
         }
-        .onAppear { refresh() }
+        .onAppear {
+            refresh()
+            startTimer()
+        }
+        .onDisappear {
+            refreshTask?.cancel()
+            refreshTask = nil
+        }
         .onReceive(NotificationCenter.default.publisher(
             for: FUlpMetrics.didChangeNotification,
             object: FUlpMetrics.shared
@@ -80,6 +88,17 @@ public struct FUlpHealthRow: View {
 
     public func refresh() {
         snapshot = FUlpMetrics.shared.snapshot()
+    }
+
+    private func startTimer() {
+        refreshTask?.cancel()
+        refreshTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                if Task.isCancelled { break }
+                refresh()
+            }
+        }
     }
 
     private func runWitness() {

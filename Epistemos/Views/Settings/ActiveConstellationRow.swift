@@ -3,6 +3,8 @@ import SwiftUI
 @MainActor
 public struct ActiveConstellationRow: View {
     @Environment(InferenceState.self) private var inference
+    @State private var refreshTask: Task<Void, Never>?
+    @State private var refreshTick: UInt64 = 0
 
     public init() {}
 
@@ -16,6 +18,7 @@ public struct ActiveConstellationRow: View {
     }
 
     private var summary: String {
+        _ = refreshTick
         let hot = models.filter { $0.state == .hot }.count
         let warm = models.filter { $0.state == .warm }.count
         let cold = models.filter { $0.state == .cold }.count
@@ -64,6 +67,22 @@ public struct ActiveConstellationRow: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .onAppear { startTimer() }
+        .onDisappear {
+            refreshTask?.cancel()
+            refreshTask = nil
+        }
+    }
+
+    private func startTimer() {
+        refreshTask?.cancel()
+        refreshTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                if Task.isCancelled { break }
+                refreshTick &+= 1
+            }
+        }
     }
 
     @ViewBuilder
