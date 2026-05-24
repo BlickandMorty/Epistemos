@@ -7,6 +7,11 @@ created_on: 2026-05-17
 authority: docs/fusion/EPISTENOS_HELIOS_V6_1_FOUNDATION_INTAKE_2026_05_07.md §"W1 F-ULP Oracle" (LOCK) + docs/CODEX_DEEP_INVESTIGATION_PROMPT_2026_05_16.md §4.G residency-tier examples (Verified Floor)
 target_phase: Phase B (kernel) + Phase B (harness)
 target_rig: M2 Pro 16 GB
+phase2_terminal_f_status: PRIMARY WITNESS (CPU reference path)
+phase2_terminal_f_artifact: artifacts/falsifiers/ulp_oracle/result.json
+phase2_terminal_f_harness: agent_core/src/bin/falsify_ulp_oracle.rs
+phase2_terminal_f_caveat: Metal `morph_eval_reduced.metal` kernel measurement still pending (W-41 Apple-platform external work). The CPU `ReferenceRoundedKernel` produces the oracle reference itself, so max ULP ≤ 2 is by construction on this artifact; the Metal kernel must match this reference within the same 2-ULP budget once W-41 lands.
+phase2_terminal_f_audit_doc: docs/audits/FALSIFIER_M2PRO_5_PASS_2026_05_23.md
 ---
 
 # F-ULP-Oracle

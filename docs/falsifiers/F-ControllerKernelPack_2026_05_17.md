@@ -7,6 +7,11 @@ created_on: 2026-05-17
 authority: docs/CODEX_DEEP_INVESTIGATION_PROMPT_2026_05_16.md §4.G falsifier ladder (LOCK)
 target_phase: Phase C
 target_rig: M2 Pro 16 GB
+phase2_terminal_f_status: FALLBACK WITNESS (CPU pack contract closure) — Metal kernel equivalence still pending
+phase2_terminal_f_artifact: artifacts/falsifiers/controller_kernel_pack/result.json
+phase2_terminal_f_harness: agent_core/src/bin/falsify_controller_kernel_pack.rs
+phase2_terminal_f_caveat: Verifies 6 CPU kernels in `helios::controller_pack` over 4 sizes; records deterministic `kernel_pack_digest` plus empty-input + length-mismatch error contracts. Metal kernel-vs-CPU equivalence + threadgroup budget measurement requires W-41 Swift+Metal dispatch.
+phase2_terminal_f_audit_doc: docs/audits/FALSIFIER_M2PRO_5_PASS_2026_05_23.md
 ---
 
 # F-ControllerKernelPack

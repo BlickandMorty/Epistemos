@@ -32,6 +32,7 @@ pub mod error_classifier;
 pub mod etl;
 pub mod evolution;
 pub mod example_bank;
+pub mod falsifier_artifacts;
 pub mod format;
 pub mod brain_export;
 pub mod grammar;
