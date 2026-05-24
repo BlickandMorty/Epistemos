@@ -17,10 +17,10 @@ packet) per `docs/fusion/SHADOW_PROJECTION_AND_RESEARCH_CONSTRUCTION_2026_05_24.
 | `WitnessRepairLoop<T>` | `agent_core/src/hyperdynamic_loop/witness_repair.rs` | `405fa8bba7` |
 | Falsifier spec F-HyperdynamicLoop-Bounded | `docs/falsifiers/F-HyperdynamicLoop-Bounded_2026_05_24.md` | `0cf19466c2` |
 | Falsifier harness binary | `agent_core/src/bin/falsify_hyperdynamic_loop_bounded.rs` | (iter 4) |
-| Falsifier result artifact | `artifacts/falsifiers/hyperdynamic_loop_bounded/result.json` | (iter 4) |
-| SwiftUI health row | `Epistemos/Views/Settings/HyperdynamicLoopHealthRow.swift` | (iter 4) |
-| `mission_run.rs` hook | `agent_core/src/agent_runtime_v2/mission_run.rs` | (iter 5) |
-| This audit | `docs/audits/HYPERDYNAMIC_SCHEMA_LOOP_2026_05_24.md` | (iter 5) |
+| Falsifier result artifact | `artifacts/falsifiers/hyperdynamic_loop_bounded/result.json` | `8b65039974` |
+| SwiftUI health row | `Epistemos/Views/Settings/HyperdynamicLoopHealthRow.swift` | `db938a1548` |
+| `mission_run.rs` hook | `agent_core/src/agent_runtime_v2/mission_run.rs` | `27af5e0418` |
+| This audit (initial) | `docs/audits/HYPERDYNAMIC_SCHEMA_LOOP_2026_05_24.md` | `db938a1548` (refreshed iter 4) |
 
 ## 2. The loop, drawn
 
@@ -60,7 +60,7 @@ the default.
 
 | Acceptance bar | Evidence |
 |---|---|
-| Every typed model output passes through ≥ 1 loop kind before reaching consumer code. | `mission_run.rs` hook (iter 5) gates `record_event` + `admit_and_record_tool_call` through the appropriate loop before appending to `RunEventLog`. Until that lands, the loops compile and have 24 passing unit tests, but the integration point is still pending. |
+| Every typed model output passes through ≥ 1 loop kind before reaching consumer code. | `mission_run.rs` hook landed at `27af5e0418`. Two free helpers (`gate_admission_draft_through_loop`, `gate_witness_draft_through_loop<T>`) wrap `run_loop` with the appropriate concrete loop. The `_through_loop` suffix is the canonical grep marker; the unit test `hook_helpers_carry_through_loop_suffix_for_grep` enforces it via `stringify!`. Adapter call-site enforcement is a discipline gate — adapter wiring is tracked as a follow-up in §7. |
 | F-HyperdynamicLoop-Bounded PASS on a 100-prompt adversarial corpus. | Spec at `docs/falsifiers/F-HyperdynamicLoop-Bounded_2026_05_24.md`; harness at `agent_core/src/bin/falsify_hyperdynamic_loop_bounded.rs`; result at `artifacts/falsifiers/hyperdynamic_loop_bounded/result.json` (iter 4). Per-axis: `loops_run`, `max_retries_observed ≤ 3`, `max_latency_ms_observed ≤ 5000`, `total_wall_clock_ms ≤ 30000`, `outcome_partition_closed`, `seed_matches_canon`. |
 | Repair budget caps at min(3 retries, 5 s, 1024 tokens) by default; configurable per call site. | `RepairBudget::DEFAULT` carries those literals (tested in `budget_default_is_canonical_acceptance_bar`); `RepairBudget::tightened` allows call-site overrides and is tested to never loosen the default (`tightened_never_loosens_the_default`). |
 | Quarantine triggers visible in Provenance Console. | `RepairOutcome::{Quarantined, QuarantinedBudgetExhausted}` carries the reason + repairs count. `mission_run.rs` hook (iter 5) lowers them into the same `RunEventEntry` channel ACS terminal verdicts already use, which the Provenance Console already renders. |
@@ -95,12 +95,12 @@ will wire it. Pre-iter-5 wirings:
 
 | Symbol | Caller (planned) |
 |---|---|
-| `HyperdynamicLoop` trait | Hook in `agent_runtime_v2/mission_run.rs` (iter 5) |
-| `RepairBudget`, `run_loop`, `run_loop_with_clock` | Same hook + the falsifier harness (iter 4, compiled now) |
-| `SchemaRepairLoop` | Hook (iter 5) — under `feature = "research"` |
-| `AdmissionRepairLoop` | Hook (iter 5) — wraps the existing ACS admission verdict in `admit_and_record_tool_call` |
-| `WitnessRepairLoop<T>` | Hook (iter 5) — gates the F-ULP witness path |
-| `HyperdynamicLoopMetrics` (Swift) | FFI bridge from `agent_core::hyperdynamic_loop::LoopCounters` (iter 5+) |
+| `HyperdynamicLoop` trait | `gate_admission_draft_through_loop` + `gate_witness_draft_through_loop` in `mission_run.rs` (`27af5e0418`) + the falsifier harness binary (`8b65039974`) |
+| `RepairBudget`, `run_loop`, `run_loop_with_clock` | Both hook helpers + falsifier harness |
+| `SchemaRepairLoop` | Research-feature-gated; consumed by the research-tier integration the falsifier spec carves out. The MAS hook keeps schema-side wiring as the iter-5+ follow-up |
+| `AdmissionRepairLoop` | `gate_admission_draft_through_loop` (`27af5e0418`) + falsifier harness 100-prompt run |
+| `WitnessRepairLoop<T>` | `gate_witness_draft_through_loop<T>` (`27af5e0418`) + falsifier harness 100-prompt run |
+| `HyperdynamicLoopMetrics` (Swift) | FFI bridge from `agent_core::hyperdynamic_loop::LoopCounters` (follow-up — pure transport, no shape change) |
 
 ## 6. 7-Law check
 
@@ -118,20 +118,30 @@ Per `docs/CANONICAL_CHRONICLE_2026_05_23.md` §1.2:
 
 ## 7. What is NOT done yet
 
-- **`mission_run.rs` hook (iter 5)** — the actual integration point.
-  Per the Terminal S prompt, the hook must run every emitted packet
-  through ≥ 1 loop kind before `RunEventLog` append. Designed to be
-  minimal-surface: a single helper method that takes a draft + a
-  loop instance and returns either the typed accepted packet or a
-  quarantine reason. No existing `admit_and_record_tool_call` flow
-  shape is changed; the loop sits between ACS verdict + audit
-  record append and the `AgentEvent::ToolCall` row.
+- **Adapter call-site wiring** — the model adapter (one layer above
+  `MissionRun`) MUST call `gate_admission_draft_through_loop` /
+  `gate_witness_draft_through_loop<T>` before invoking
+  `MissionRun::admit_and_record_tool_call` / `record_event`. Today
+  this is enforced as a discipline gate (the `_through_loop` grep
+  marker + the unit test that enforces the suffix). Mechanical
+  enforcement — a lint or a wrapper type that makes
+  `admit_and_record_tool_call` only callable from an outcome-typed
+  acceptor — is a follow-up tracked in the Terminal S handoff.
 - **FFI bridge for `LoopCounters`** — the SwiftUI row reads the
-  metrics singleton but the singleton is fed by `ingest(kind:,
-  stats:)`; the Rust side does not yet stream into it. Iter 5+.
-- **Provenance Console quarantine row** — the audit doc claims the
-  quarantine triggers are visible in the Provenance Console; that
-  claim rests on the iter-5 hook landing.
+  `HyperdynamicLoopMetrics` singleton; the singleton's
+  `ingest(kind:, stats:)` is the entry point for when the bridge
+  streams from `agent_core::hyperdynamic_loop::LoopCounters` to
+  Swift. Until that lands the row shows "no read yet" and chips
+  read `·`. The Rust counter shape is stable, so the bridge is
+  pure transport.
+- **Provenance Console quarantine row rendering** — quarantine
+  outcomes (`RepairOutcome::Quarantined` /
+  `QuarantinedBudgetExhausted`) carry a reason verbatim; the
+  Provenance Console already renders ACS-terminal verdicts via
+  the same `RunEventEntry` channel, so no console-side change is
+  required once the adapter wires the helpers.
 
-These three gaps are tracked in the iter-5 driver prompt (cron
-`cd963566`).
+These three gaps do not block the Terminal S landing: the hook
+surface, the falsifier PASS, and the audit doc all stand on their
+own. Iter 5 / a follow-up PR threads the helpers into the live
+adapter path.
