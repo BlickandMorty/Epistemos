@@ -14,6 +14,15 @@ nonisolated struct CloudKnowledgeDistillationRunSummary: Sendable, Equatable {
     let recentChatCount: Int
 }
 
+nonisolated enum CloudKnowledgeDistillationError: Error, Sendable, Equatable {
+    case csiSafeguardTriggered(modelID: String, value: Double, threshold: Double)
+}
+
+nonisolated struct CloudKnowledgeDistillationCSIGateResult: Sendable, Equatable {
+    let shouldContinue: Bool
+    let threshold: Double
+}
+
 actor CloudKnowledgeDistillationService {
     private let modelContainer: ModelContainer
     private let store: KnowledgeProfileStore
@@ -21,6 +30,8 @@ actor CloudKnowledgeDistillationService {
     private let sourceNotesProvider: (@Sendable () throws -> [KnowledgeSourceNote])?
     private let recentChatsProvider: (@Sendable () throws -> [String])?
     private let nowProvider: @Sendable () -> Date
+    private let csiMeasurementProvider: @Sendable (CompiledModelVault, ModelVaultTarget, Int) -> Double
+    private let csiGateProvider: @Sendable (Double, Int, String) async -> CloudKnowledgeDistillationCSIGateResult
 
     init(
         modelContainer: ModelContainer,
@@ -30,7 +41,26 @@ actor CloudKnowledgeDistillationService {
         },
         sourceNotesProvider: (@Sendable () throws -> [KnowledgeSourceNote])? = nil,
         recentChatsProvider: (@Sendable () throws -> [String])? = nil,
-        nowProvider: @escaping @Sendable () -> Date = Date.init
+        nowProvider: @escaping @Sendable () -> Date = Date.init,
+        csiMeasurementProvider: @escaping @Sendable (CompiledModelVault, ModelVaultTarget, Int) -> Double = {
+            compilation, _, _ in
+            CloudKnowledgeDistillationService.defaultCSIMeasurement(for: compilation)
+        },
+        csiGateProvider: @escaping @Sendable (Double, Int, String) async -> CloudKnowledgeDistillationCSIGateResult = {
+            value, epoch, experimentId in
+            await MainActor.run {
+                let safeguard = CSISafeguard.shared
+                let shouldContinue = safeguard.recordMeasurement(
+                    value: value,
+                    epoch: epoch,
+                    experimentId: experimentId
+                )
+                return CloudKnowledgeDistillationCSIGateResult(
+                    shouldContinue: shouldContinue,
+                    threshold: safeguard.threshold
+                )
+            }
+        }
     ) {
         self.modelContainer = modelContainer
         self.store = store
@@ -38,6 +68,8 @@ actor CloudKnowledgeDistillationService {
         self.sourceNotesProvider = sourceNotesProvider
         self.recentChatsProvider = recentChatsProvider
         self.nowProvider = nowProvider
+        self.csiMeasurementProvider = csiMeasurementProvider
+        self.csiGateProvider = csiGateProvider
     }
 
     func rebuildAllModelVaults() async throws -> CloudKnowledgeDistillationRunSummary {
@@ -74,6 +106,16 @@ actor CloudKnowledgeDistillationService {
                 recentChats: recentChats,
                 instructions: nil
             )
+            let epoch = compiledModelIDs.count + 1
+            let csiValue = csiMeasurementProvider(vault, target, epoch)
+            let csiGate = await csiGateProvider(csiValue, epoch, target.modelID)
+            guard csiGate.shouldContinue else {
+                throw CloudKnowledgeDistillationError.csiSafeguardTriggered(
+                    modelID: target.modelID,
+                    value: csiValue,
+                    threshold: csiGate.threshold
+                )
+            }
             try await store.save(vault)
             compiledModelIDs.append(target.modelID)
         }
@@ -96,6 +138,14 @@ actor CloudKnowledgeDistillationService {
             return false
         }
         return lhs.modelID < rhs.modelID
+    }
+
+    private nonisolated static func defaultCSIMeasurement(for vault: CompiledModelVault) -> Double {
+        let noteCount = max(vault.metadata.noteCount, 1)
+        let conceptCount = max(vault.metadata.conceptCount, 1)
+        let density = Double(conceptCount) / Double(noteCount)
+        guard density.isFinite else { return 1.0 }
+        return min(1.0, max(0.5, density))
     }
 
     private nonisolated static func loadNotes(from container: ModelContainer) async throws -> [KnowledgeSourceNote] {

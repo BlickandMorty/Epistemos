@@ -536,4 +536,73 @@ struct CloudKnowledgeDistillationTests {
         }
         #expect(try await store.load(modelID: "gpt-5.4") == nil)
     }
+
+    @Test("service short-circuits persistence when CSI safeguard triggers")
+    func serviceShortCircuitsPersistenceWhenCSISafeguardTriggers() async throws {
+        await MainActor.run { CSISafeguard.shared.reset() }
+        let container = try makeModelContainer()
+        let now = Date(timeIntervalSince1970: 1_775_150_400)
+        let tempRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cloud-knowledge-csi-gate-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+
+        let store = KnowledgeProfileStore(baseDirectory: tempRoot)
+        let service = CloudKnowledgeDistillationService(
+            modelContainer: container,
+            store: store,
+            targetsProvider: {
+                [
+                    ModelVaultTarget(
+                        modelID: "gpt-5.4",
+                        displayName: "GPT-5.4",
+                        conceptLimit: 40,
+                        activeWindowDays: 7
+                    )
+                ]
+            },
+            sourceNotesProvider: {
+                [
+                    makeNote(
+                        id: "csi-note",
+                        title: "CSI Gate",
+                        body: "Distillation persistence must stop when CSI drops below threshold.",
+                        tags: ["alignment"],
+                        updatedAt: now
+                    )
+                ]
+            },
+            recentChatsProvider: { [] },
+            nowProvider: { now },
+            csiMeasurementProvider: { _, _, _ in 0.01 }
+        )
+
+        do {
+            _ = try await service.rebuildAllModelVaults()
+            Issue.record("Expected low CSI to trigger CloudKnowledgeDistillationError.")
+        } catch let error as CloudKnowledgeDistillationError {
+            #expect(error == .csiSafeguardTriggered(
+                modelID: "gpt-5.4",
+                value: 0.01,
+                threshold: 0.3
+            ))
+        } catch {
+            Issue.record("Expected CloudKnowledgeDistillationError, got \(error).")
+        }
+
+        #expect(try await store.load(modelID: "gpt-5.4") == nil)
+        await MainActor.run {
+            #expect(CSISafeguard.shared.isTriggered)
+            CSISafeguard.shared.reset()
+        }
+    }
+
+    @Test("distillation service source calls CSISafeguard before persistence")
+    func distillationServiceSourceCallsCSISafeguardBeforePersistence() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/KnowledgeFusion/CloudKnowledgeDistillationService.swift")
+        let safeguardCall = try #require(source.range(of: "safeguard.recordMeasurement("))
+        let persistenceCall = try #require(source.range(of: "try await store.save(vault)"))
+
+        #expect(source.contains("CSISafeguard.shared"))
+        #expect(safeguardCall.lowerBound < persistenceCall.lowerBound)
+    }
 }

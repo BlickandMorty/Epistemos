@@ -36,7 +36,7 @@ import Foundation
 import os
 
 extension EidosBridge {
-    private static let prodLog = Logger(subsystem: "com.epistemos", category: "eidos.production")
+    nonisolated private static let prodLog = Logger(subsystem: "com.epistemos", category: "eidos.production")
 
     /// Outcome of `validateCitation(packet:citation:)`. Mirrors the
     /// Rust `Result<(), CitationError>` wire shape one level up:
@@ -61,7 +61,7 @@ extension EidosBridge {
     /// Returns the typed manifest id on success, or `nil` on
     /// failure (also records the error into EidosMetrics).
     @discardableResult
-    public static func openVaultIndex(signature: String) -> EidosIndexManifestId? {
+    nonisolated public static func openVaultIndex(signature: String) -> EidosIndexManifestId? {
         do {
             let raw = try eidosOpenVaultIndex(vaultSignature: signature)
             guard let manifest = EidosIndexManifestId(raw) else {
@@ -86,7 +86,7 @@ extension EidosBridge {
     /// `kind` is the Swift-side EidosSourceKind; this maps to the
     /// Rust variant name on the wire.
     @discardableResult
-    public static func insertVaultNote(
+    nonisolated public static func insertVaultNote(
         documentId: String,
         body: String,
         kind: EidosSourceKind = .note
@@ -112,7 +112,7 @@ extension EidosBridge {
     /// with backend = detected backend (so the health row chip-strip
     /// surfaces `vault binding active` automatically when retrieval
     /// hits the real index).
-    public static func retrieve(query: String, topK: UInt32 = 12) -> EidosContextPacket? {
+    nonisolated public static func retrieve(query: String, topK: UInt32 = 12) -> EidosContextPacket? {
         let started = Date()
         do {
             let raw = try eidosRetrieveJson(query: query, topK: topK)
@@ -158,7 +158,7 @@ extension EidosBridge {
     /// Authoritative single-citation gate. Calls the Rust FFI so the
     /// closed-citation contract is enforced on the Rust side even if
     /// the Swift mirror ever drifts.
-    public static func validateCitation(
+    nonisolated public static func validateCitation(
         packet: EidosContextPacket,
         citation: EidosCitation
     ) -> CitationValidation {
@@ -213,7 +213,7 @@ extension EidosBridge {
     /// `sourceIds` slice here BEFORE committing the message. A
     /// rejection MUST drop or rewrite the answer; never ship a chat
     /// row whose source_ids don't validate.
-    public static func validateCitations(
+    nonisolated public static func validateCitations(
         packet: EidosContextPacket,
         sourceIds: [EidosChunkId]
     ) -> CitationValidation {
@@ -272,7 +272,7 @@ extension EidosBridge {
         public let manifestId: EidosIndexManifestId?
     }
 
-    public static func vaultStatus() -> VaultStatus? {
+    nonisolated public static func vaultStatus() -> VaultStatus? {
         do {
             let raw = try eidosVaultStatusJson()
             guard let data = raw.data(using: .utf8) else { return nil }
@@ -294,7 +294,7 @@ extension EidosBridge {
     /// tests, or for a vault-path change where the manifest signature
     /// must rotate. Returns `true` if an index was actually open.
     @discardableResult
-    public static func closeVaultIndex() -> Bool {
+    nonisolated public static func closeVaultIndex() -> Bool {
         do {
             return try eidosCloseVaultIndex()
         } catch {
