@@ -2,8 +2,16 @@
 falsifier: F-Eidos-Bridge-RoundTrip
 created_on: 2026-05-23
 hardware_floor: M2 Pro 14-inch 2023, 12-core CPU, 19-core GPU, 16 GB UMA, approximately 200 GB/s
-status: PASS (Rust FFI cargo tests green; Swift round-trip pending xcodebuild gate in CI)
+status: PASS (Rust FFI cargo tests green; Round 2 binary `falsify_eidos_bridge_round_trip` persists primary_witness artifact at `artifacts/falsifiers/eidos_bridge_round_trip/result.json`; Swift round-trip pending xcodebuild gate in CI)
 ---
+
+## Phase 2 Terminal F' (Round 2) status (2026-05-24)
+
+- **phase2_terminal_f_prime_status**: PRIMARY WITNESS — in-process FFI round trip against the production Eidos vault index on M2 Pro 14-inch 2023 16 GB.
+- **phase2_terminal_f_prime_artifact**: `artifacts/falsifiers/eidos_bridge_round_trip/result.json`.
+- **phase2_terminal_f_prime_harness**: `agent_core/src/bin/falsify_eidos_bridge_round_trip.rs`.
+- **phase2_terminal_f_prime_pass_axes**: `vault_manifest_prefix` · `retrieve_hits_present` · `closed_citation_membership` · `forged_citation_rejection` · `manifest_mismatch_rejection`.
+- **phase2_terminal_f_prime_audit_doc**: `docs/audits/FALSIFIER_M2PRO_7_PASS_2026_05_24.md`.
 
 # F-Eidos-Bridge-RoundTrip
 

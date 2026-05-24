@@ -115,6 +115,18 @@ name = "falsify_vault_recall"
 path = "src/bin/falsify_vault_recall.rs"
 
 [[bin]]
+name = "falsify_vault_recall_50"
+path = "src/bin/falsify_vault_recall_50.rs"
+
+[[bin]]
+name = "falsify_eidos_bridge_round_trip"
+path = "src/bin/falsify_eidos_bridge_round_trip.rs"
+
+[[bin]]
+name = "falsify_acs_anchor_addressing"
+path = "src/bin/falsify_acs_anchor_addressing.rs"
+
+[[bin]]
 name = "falsifier_validator"
 path = "src/bin/falsifier_validator.rs"
 

@@ -1,0 +1,117 @@
+{
+  "falsifier_id": "F-ACS-Anchor-Addressing",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "cargo run --release --bin falsify_acs_anchor_addressing",
+  "command_digest": "sha256:9e0b92d16f65643c5596070d058a3af75f65dd511b83c4fcefec3fc2433081e3",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "1cf390b0fc4ea9dd1a148ff61aa97f39c4612055",
+  "fixture_id": "f_acs_anchor_addressing_scoped_n100_v1",
+  "timestamp_utc": "2026-05-24T06:02:33Z",
+  "result_digest": "sha256:06577b2bb07f9c779484f21459fc59b1bb7a933bc01f634f4420e252db6834b4",
+  "measurements": {
+    "scoped_n": {
+      "value": 100,
+      "unit": "anchors"
+    },
+    "stage_admission_proof_round_trip": {
+      "value": {
+        "matches": 100,
+        "total": 100
+      },
+      "unit": "count"
+    },
+    "stage_admission_proof_tamper_rejected": {
+      "value": {
+        "matches": 100,
+        "total": 100
+      },
+      "unit": "count"
+    },
+    "stage_audit_canonicalization": {
+      "value": {
+        "matches": 100,
+        "total": 100
+      },
+      "unit": "count"
+    },
+    "stage_lookup_matches": {
+      "value": {
+        "matches": 100,
+        "total": 100
+      },
+      "unit": "count"
+    },
+    "stage_projection_inversion": {
+      "value": "not_in_scope_round_2",
+      "unit": "status"
+    }
+  },
+  "acceptance_thresholds": {
+    "scoped_n": {
+      "operator": ">=",
+      "value": 100,
+      "unit": "anchors"
+    },
+    "stage_admission_proof_round_trip": {
+      "operator": "==",
+      "value": 100,
+      "unit": "count"
+    },
+    "stage_admission_proof_tamper_rejected": {
+      "operator": "==",
+      "value": 100,
+      "unit": "count"
+    },
+    "stage_audit_canonicalization": {
+      "operator": "==",
+      "value": 100,
+      "unit": "count"
+    },
+    "stage_lookup_matches": {
+      "operator": "==",
+      "value": 100,
+      "unit": "count"
+    },
+    "stage_projection_inversion": {
+      "operator": "==",
+      "value": "not_in_scope_round_2",
+      "unit": "status"
+    }
+  },
+  "pass_per_axis": {
+    "scoped_n": true,
+    "stage_admission_proof_round_trip": true,
+    "stage_admission_proof_tamper_rejected": true,
+    "stage_audit_canonicalization": true,
+    "stage_lookup_matches": true,
+    "stage_projection_inversion": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "Phase 2 Terminal F' D-27 scoped mini-harness; N=100 random anchors; three stages measured (lookup / audit canonicalization / admission proof). Stage 4 (5-plane projection inversion) deferred — AcsAnchor::project_to_plane not yet on main."
+}
