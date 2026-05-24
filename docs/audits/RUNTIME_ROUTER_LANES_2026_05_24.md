@@ -32,8 +32,8 @@ several*.
 | `Epistemos/Views/Settings/RuntimeLanesSection.swift` | **NEW** | Settings → Inference → "Runtime Lanes" — one toggle per known lane, persisted via `RuntimeRouter.setLaneEnabled(_:_:)` |
 | `Epistemos/Views/Settings/RuntimeRouterHealthRow.swift` | **NEW** | Chip strip + last-100 verdicts + per-lane escalation count + paged escalation log |
 | `Epistemos/Views/Settings/SettingsView.swift` | **MODIFIED** (+5 lines) | One-shot inclusion of `RuntimeLanesSection()` + `RuntimeRouterHealthRow()` inside `InferenceDetailView` (before the existing Cloud Access Health section). No other lines touched. |
-| `EpistemosTests/RuntimeRouterTests.swift` | **NEW** | 10 tests covering the acceptance gates + invariants |
-| `EpistemosTests/FLocalToolUseTests.swift` | **NEW** | F-LocalToolUse falsifier — every `canActAsAgent` model + the smallest-model round-trip |
+| `EpistemosTests/RuntimeRouterTests.swift` | **NEW** | 11 tests covering the acceptance gates + invariants (routeProfiles ≥ 6, InferenceState/router parity, AI lane present, MLX accept, MLX-off honest escalation, privacy-sensitive reject, metrics ring bounded, knownLanes coverage, stub vision escalation, metrics tally accounting, allLanesDisabled reject) |
+| `EpistemosTests/FLocalToolUseTests.swift` | **NEW** | F-LocalToolUse falsifier — every `canActAsAgent` model (single aggregate test) + the smallest-model round-trip (2 tests) |
 | `docs/audits/RUNTIME_ROUTER_LANES_2026_05_24.md` | **NEW** | This document |
 
 **No-Orphan check.** Every new symbol is reachable:
