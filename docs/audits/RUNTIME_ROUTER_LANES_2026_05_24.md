@@ -223,7 +223,8 @@ Epistemos target as a dependency.
 | xcodegen project regen | iter 1 (00:42) | PASS — all 6 new Swift files surfaced via `syncedFolder`. |
 | Test bundle compile + run | iter 2 (00:47) | **DEFERRED** — bottlenecked on SwiftBuild lock + mlx-swift package re-checkout (fresh worktree). Killed after 6 min in package-resolve. Other agents had parallel xcodebuilds in flight (terminal-b/test, etc.). Re-run when system is quieter. |
 | Code review pass | iter 2 + 3 | PASS — `git show HEAD~1 --name-status` shows exactly 8 designated files + xcodegen artifacts. SettingsView edit is +7 lines surgical (`git diff HEAD~1 HEAD -- Epistemos/Views/Settings/SettingsView.swift`). |
-| Hardening: race-safe test init | iter 3 (commit `b2277f0aef`) | Added `persistsToUserDefaults: Bool = true` flag to `RuntimeRouter.init` — production keeps UserDefaults persistence; tests pass `false` to avoid parallel-suite races. |
+| Hardening: race-safe test init | iter 3 (commit `4bf491e99d`, was `b2277f0aef` pre-rebase) | Added `persistsToUserDefaults: Bool = true` flag to `RuntimeRouter.init` — production keeps UserDefaults persistence; tests pass `false` to avoid parallel-suite races. |
+| Rebase onto current `origin/main` | iter 12 (`fa337ebbef`) | Branch was 1 commit behind on LIVING_INDEX (#73 landed independently). Rebase clean — my files never touched LIVING_INDEX, so no conflicts. Commit SHAs rewrote: `c8643b3243→850a9fbd73`, `b2277f0aef→4bf491e99d`, `59325ab822→871544c81c`, `6272337c48→3dfb419133`, `9bafee6621→c27ea8b9a8`. |
 
 ### 8.2 · Known follow-ups
 
