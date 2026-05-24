@@ -112,14 +112,13 @@ of the four stages on `N = 100` random anchors:
 
 ## Deferred falsifiers (deps not on main)
 
-| Falsifier | Blocking dep | Re-promotion trigger |
-|---|---|---|
-| **F-LocalToolUse** | Terminal T1 (`phase2-terminal-t1-runtime-router-2026-05-24`) | When Terminal T1 lands the runtime router on main, open a follow-up PR with the per-model per-runtime-lane fixture. |
+| Falsifier | Blocking dep | Status | Re-promotion trigger |
+|---|---|---|---|
+| **F-LocalToolUse** | Terminal T1 (`phase2-terminal-t1-runtime-router-2026-05-24`) | Branch on origin (commit `d26d2c94fd`), NOT merged to main | Terminal T1 already includes the F-LocalToolUse Swift falsifier (`EpistemosTests/FLocalToolUseTests.swift`) on its own branch — the substrate is Swift-only (`RuntimeRouter`, `RuntimeExecutor`, `LocalTextModelID` catalog). When T1's PR merges, open a small follow-up PR adding the Rust-side `falsify_local_tool_use` fallback_witness binary + `artifacts/falsifiers/local_tool_use/result.json` register entry (mirroring the iter-1 fallback_witness pattern used by `falsify_page_gather` / `falsify_controller_kernel_pack` / `falsify_uas_zero_copy_spine` where the primary substrate is in another runtime). |
 
-Terminal T1 had not pushed a branch as of 2026-05-24 (`git ls-remote origin`
-shows no `terminal-t1` / `runtime-router` branch yet). Follow-up
-F-LocalToolUse can be wired with the same artifact + doc pattern used
-by this round once the dep lands.
+Until T1 merges, the F-N JSON register cannot honestly point at a
+Swift-side falsifier — the fallback_witness artifact must reference a
+specific commit on main, not a feature branch.
 
 ## 7-Law check
 
