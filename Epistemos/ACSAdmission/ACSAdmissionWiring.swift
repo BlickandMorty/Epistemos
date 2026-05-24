@@ -3,20 +3,20 @@
 // Wiring #6 (T18B ACS dispatch admission gate) — HIGH RISK Swift glue.
 //
 // Per the mission spec, this wiring is flagged "HIGH RISK — gates
-// everything; ship with extra care". The initial Swift surface is
-// therefore **status read only**: we expose the strict policy summary
-// (id, version, capability + threshold counts, canonical verdict
-// labels) so Settings -> Diagnostics surfaces the substrate as live.
+// everything; ship with extra care". This bridge exposes the strict
+// policy summary (id, version, capability + threshold counts,
+// canonical verdict labels) so Settings -> Diagnostics surfaces the
+// production gate state as live.
 //
-// **No production dispatch hooks are installed by this PR.** The
-// actual admission gating remains in `agent_core::acs_admission` and
-// production callers (oplog mutations, tool actions, kernel
-// promotions) opt into the gate explicitly in follow-up wirings.
+// Production gating is installed in the v2 tool-call handoff and in
+// the distillation persistence path. This file remains the read-only
+// Swift policy-summary mirror; legacy consumers that bypass those
+// paths remain explicit follow-up wirings.
 //
 //   - `ACSAdmissionFlags` — UserDefaults gate
 //     `EPISTEMOS_ACS_ADMISSION_V0` (default OFF). Flag-on only changes
-//     the health row's status chip; it does NOT enable any production
-//     gating.
+//     the health row's status chip; production gates are wired at their
+//     call sites, not by this flag reader.
 //   - `ACSAdmissionMetrics` — last-good policy snapshot + read count.
 //   - `ACSAdmissionBridge` — sync wrapper around the UniFFI export
 //     `acsAdmissionStrictPolicySummaryJson()`.

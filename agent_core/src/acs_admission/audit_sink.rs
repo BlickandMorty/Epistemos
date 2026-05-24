@@ -17,7 +17,6 @@ use crate::{
     },
 };
 
-use super::*;
 use super::admit::*;
 use super::common::*;
 use super::decision::*;
@@ -29,6 +28,7 @@ use super::risk::*;
 use super::validation::*;
 use super::verdict::*;
 use super::wire::*;
+use super::*;
 
 pub trait ACSAuditSink {
     fn record(&self, record: ACSAuditRecord) -> Result<(), ACSAuditError>;
@@ -109,6 +109,19 @@ pub struct ACSRunEventLogSink<'a> {
 impl<'a> ACSRunEventLogSink<'a> {
     pub const fn new(run_event_log: &'a OpLog) -> Self {
         Self { run_event_log }
+    }
+
+    pub fn admit_and_record(
+        &self,
+        input: &ACSAdmissionInput,
+        policy: &ACSPolicy,
+        now_ms: i64,
+    ) -> Result<ACSAdmissionDecision, ACSAuditError> {
+        super::admit::admit_and_record(input, policy, now_ms, self)
+    }
+
+    pub fn recorded_event_count(&self) -> usize {
+        self.run_event_log.len()
     }
 }
 
@@ -221,7 +234,9 @@ pub(crate) fn run_event_log_corrupt_acs_record(run_event_log: &OpLog) -> Option<
         })
 }
 
-pub(crate) fn audit_record_value_malformed_field(value: &serde_json::Value) -> Option<&'static str> {
+pub(crate) fn audit_record_value_malformed_field(
+    value: &serde_json::Value,
+) -> Option<&'static str> {
     let serde_json::Value::Object(object) = value else {
         return Some("record");
     };
@@ -384,20 +399,16 @@ pub fn snapshot_acs_audit_records(
             .map(str::to_string)
             .unwrap_or_else(|| node_id.clone());
         let malformed_field = audit_record_value_malformed_field(&value);
-        let record: ACSAuditRecord = serde_json::from_value(value).map_err(|_| {
-            ACSAuditLookupError::CorruptRecord {
+        let record: ACSAuditRecord =
+            serde_json::from_value(value).map_err(|_| ACSAuditLookupError::CorruptRecord {
                 field: malformed_field.unwrap_or("record"),
                 record_id: fallback_record_id.clone(),
-            }
-        })?;
+            })?;
         record
             .validate()
             .map_err(|err| ACSAuditLookupError::CorruptRecord {
                 field: err.field(),
-                record_id: err
-                    .record_id()
-                    .unwrap_or(&fallback_record_id)
-                    .to_string(),
+                record_id: err.record_id().unwrap_or(&fallback_record_id).to_string(),
             })?;
         records.push(record);
     }
