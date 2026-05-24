@@ -113,8 +113,47 @@ struct SystemGRunSeamTests {
         // `SystemGRunSeamRegistry.shared.register(_:)`. This guards the
         // WRV bar: a missing real backend must not silently become a
         // fake one.
+        SystemGRunSeamRegistry.shared.resetToStubForTesting()
         let seam = SystemGRunSeamRegistry.shared.current()
         #expect(seam is StubSystemGRunSeam,
                 "default registry impl must be the explicit stub")
+    }
+
+    // MARK: - Terminal C / P5 — RealSystemGRunSeam integration
+    //
+    // End-to-end: `RealSystemGRunSeam.run(mission:)` round-trips through
+    // the Rust runtime via `systemGStartRunJson` + `systemGDrainEventsJson`
+    // and returns a populated `RunEventLog` terminating in `.complete`.
+    // No fakes — exercises the live FFI.
+
+    @Test("RealSystemGRunSeam round-trips a mission through Rust to a terminal complete event")
+    func realSystemGRunSeamRoundTripsMissionEndToEnd() async throws {
+        let seam = RealSystemGRunSeam()
+        let mission = AgentMissionPacket(
+            id: "m-real-1",
+            createdAt: Date(),
+            blueprintName: "integration-test-blueprint",
+            role: "test-role",
+            objective: "Summarize the Five Plane Formalism",
+            model: .autoConstellation,
+            toolNames: [],
+            scope: .currentVault,
+            approvalMode: .autoReadOnly
+        )
+
+        let log = try await seam.run(mission: mission)
+        #expect(!log.missionId.isEmpty, "missionId is the Rust-issued run_id")
+        #expect(log.events.count == 3, "V1 dispatch emits plan_start + token_chunk + complete")
+        guard case .planStart = log.events.first else {
+            Issue.record("first event must be .planStart, got \(String(describing: log.events.first))")
+            return
+        }
+        guard case .complete(_, let answerPacketId) = log.events.last else {
+            Issue.record("last event must be .complete, got \(String(describing: log.events.last))")
+            return
+        }
+        #expect(!answerPacketId.isEmpty, "complete.answerPacketId surfaces run_event_log_root hex")
+        #expect(log.terminalEvent != nil, "RunEventLog must expose terminal event")
+        #expect(log.answerPacketId == answerPacketId, "answerPacketId helper agrees with terminal event")
     }
 }

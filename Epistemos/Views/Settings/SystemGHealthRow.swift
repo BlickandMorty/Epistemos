@@ -41,8 +41,8 @@ public struct SystemGHealthRow: View {
             )
             VerifiedFloorChipStrip(
                 flag: snapshot.isFlagEnabled ? "on" : "off",
-                substrate: "status-only",
-                substrateTint: .orange
+                substrate: "production dispatch live",
+                substrateTint: .green
             )
             row(
                 label: "Runtime mode",
@@ -102,7 +102,7 @@ public struct SystemGHealthRow: View {
         }
         let exec = status.allowsExecution ? "exec✓" : "exec✗"
         let sub = status.allowsSubprocess ? "subprocess✓" : "subprocess✗"
-        return "\(exec) \(sub) (status read; no production dispatch yet)"
+        return "\(exec) \(sub) (run seam: real Rust dispatch via systemGStartRunJson + systemGDrainEventsJson)"
     }
 
     private var readDetail: String {

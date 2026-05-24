@@ -53,6 +53,7 @@ pub mod mode;
 pub mod naming_lint;
 pub mod para;
 pub mod run_event_log;
+pub mod system_g_runtime;
 pub mod variant_ladder;
 
 pub use answer::{AnswerPacket, Citation};
@@ -73,4 +74,5 @@ pub use naming_lint::{
 };
 pub use para::{Para, ParaError, ParaFeedback, ParaOutput, StopReason};
 pub use run_event_log::{LogValidationError, RunEventEntry, RunEventLog};
+pub use system_g_runtime::{SystemGAgentEvent, SystemGRuntimeError};
 pub use variant_ladder::{VariantLadderError, VariantLadderSpec, VariantTier};
