@@ -214,7 +214,7 @@ nonisolated struct SubstrateHealthUnifiedSnapshot: Sendable, Equatable, Decodabl
 
         static let unavailable = PlanePlacement(
             ffiReachable: false,
-            terminalGRequired: true,
+            terminalGRequired: false,
             planeFieldsWired: false,
             stateCount: 0,
             episodicCount: 0,
@@ -222,9 +222,9 @@ nonisolated struct SubstrateHealthUnifiedSnapshot: Sendable, Equatable, Decodabl
             controllerCount: 0,
             verificationCount: 0,
             unplacedCount: 0,
-            dependency: "Terminal G / T14 Five-plane UAS wiring",
-            falsifier: "docs/falsifiers/F_ACS_ANCHOR_LOOKUP_2026_05_18.md",
-            wRow: "W-10"
+            dependency: "agent_core FFI unavailable",
+            falsifier: "docs/falsifiers/F-ACS-AnchorLookup_2026_05_24.md",
+            wRow: "W-24/W-28/T14"
         )
     }
 

@@ -147,6 +147,10 @@ impl DagMirror for SkillsMirror {
             } => {
                 // Insert (or no-op) the Skill node
                 let skill_node = Node::new(NodeKind::Skill {
+                    uas: None,
+                    anchor: None,
+                    plane: crate::uas::RuntimePlane::Assembly,
+                    residency: crate::uas::ResidencyTier::CurrentApp,
                     name: name.clone(),
                     description: description.clone(),
                     schema_version: *schema_version,
@@ -157,6 +161,10 @@ impl DagMirror for SkillsMirror {
                 // edge from Skill → Tool
                 for step in steps {
                     let tool_node = Node::new(NodeKind::Tool {
+                        uas: None,
+                        anchor: None,
+                        plane: crate::uas::RuntimePlane::Controller,
+                        residency: crate::uas::ResidencyTier::CurrentApp,
                         id: ToolId(step.tool_id.clone()),
                         surface: step.tool_surface.clone(),
                         tier: step.tool_tier,
@@ -184,6 +192,10 @@ impl DagMirror for SkillsMirror {
                     .ok_or_else(|| DagError::NodeNotFound(format!("skill:{}", skill_name)))?;
                 // Insert an Event node for the invocation
                 let event_node = Node::new(NodeKind::Event {
+                    uas: None,
+                    anchor: None,
+                    plane: crate::uas::RuntimePlane::Verification,
+                    residency: crate::uas::ResidencyTier::CurrentApp,
                     kind: super::node::DagAgentEventKind::Other(format!(
                         "skill_invoke:{}",
                         invocation_id
@@ -388,6 +400,10 @@ impl DagMirror for ProceduralMirror {
 
         let procedure_node = Node::new_at(
             NodeKind::Procedure {
+                uas: None,
+                anchor: None,
+                plane: crate::uas::RuntimePlane::Assembly,
+                residency: crate::uas::ResidencyTier::CurrentApp,
                 skill_ref: skill_id,
                 context_hash,
                 outcomes: OutcomeList(outcomes),
@@ -516,6 +532,10 @@ impl DagMirror for ProvenanceLedgerMirror {
                 let ts = Timestamp(created_at_ms.unsigned_abs());
                 let evidence_node = Node::new_at(
                     NodeKind::Evidence {
+                        uas: None,
+                        anchor: None,
+                        plane: crate::uas::RuntimePlane::Episodic,
+                        residency: crate::uas::ResidencyTier::CurrentApp,
                         kind: super::node::EvidenceKind::Citation,
                         payload: super::node::EvidenceBlob(evidence_payload_bytes(
                             evidence_id,
@@ -536,6 +556,10 @@ impl DagMirror for ProvenanceLedgerMirror {
             } => {
                 let claim_node = Node::new_at(
                     NodeKind::Claim {
+                        uas: None,
+                        anchor: None,
+                        plane: crate::uas::RuntimePlane::Episodic,
+                        residency: crate::uas::ResidencyTier::CurrentApp,
                         proposition: text.clone(),
                         scope: super::node::ClaimScope::Vault,
                         source: SourceRef(format!("ledger_claim:{}", claim_id)),
@@ -707,6 +731,10 @@ impl DagMirror for CompanionMirror {
         }
 
         let companion_node = Node::new(NodeKind::Companion {
+            uas: None,
+            anchor: None,
+            plane: crate::uas::RuntimePlane::Controller,
+            residency: crate::uas::ResidencyTier::CurrentApp,
             profile: profile.clone(),
             identity: identity.clone(),
             persona: persona.clone(),

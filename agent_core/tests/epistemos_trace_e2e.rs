@@ -194,6 +194,10 @@ fn seed_dag_snapshot() -> DagSnapshot {
 
     let note = Node::new_at(
         NodeKind::Note {
+            uas: None,
+            anchor: None,
+            plane: agent_core::uas::RuntimePlane::Episodic,
+            residency: agent_core::uas::ResidencyTier::CurrentApp,
             body: "phase 8.f e2e".into(),
             author: AuthorRef("test".into()),
             mime: MimeType("text/markdown".into()),
@@ -202,6 +206,10 @@ fn seed_dag_snapshot() -> DagSnapshot {
     );
     let claim = Node::new_at(
         NodeKind::Claim {
+            uas: None,
+            anchor: None,
+            plane: agent_core::uas::RuntimePlane::Episodic,
+            residency: agent_core::uas::ResidencyTier::CurrentApp,
             proposition: "verify-replay subcommand works".into(),
             scope: ClaimScope::Vault,
             source: SourceRef("phase8f_e2e".into()),
@@ -210,6 +218,10 @@ fn seed_dag_snapshot() -> DagSnapshot {
     );
     let evidence = Node::new_at(
         NodeKind::Evidence {
+            uas: None,
+            anchor: None,
+            plane: agent_core::uas::RuntimePlane::Episodic,
+            residency: agent_core::uas::ResidencyTier::CurrentApp,
             kind: EvidenceKind::Citation,
             payload: EvidenceBlob(b"e2e-payload".to_vec()),
             captured_at: Timestamp(1050),

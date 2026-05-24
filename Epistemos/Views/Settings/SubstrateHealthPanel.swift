@@ -5,8 +5,8 @@ import SwiftUI
 // Terminal D / T22 / W-29: a single Settings surface for substrate
 // health. The panel composes the existing WRV rows plus the missing
 // Terminal D rows. Green is reserved for production-wired or truly
-// reachable state; fixture, status-only, and Terminal G dependencies
-// stay orange/red.
+// reachable state; fixture, status-only, and dependency rows stay
+// orange/red until their backend witnesses are real.
 
 @MainActor
 public struct SubstrateHealthPanel: View {
@@ -73,7 +73,7 @@ public struct SubstrateHealthPanel: View {
                 surface(falsifier: "docs/falsifiers/F-ACS-Anchor-Addressing_2026_05_17.md", wRow: "W-26") {
                     CognitiveDagCountsHealthRow()
                 }
-                surface(falsifier: "docs/falsifiers/F_ACS_ANCHOR_LOOKUP_2026_05_18.md", wRow: "W-10/T14") {
+                surface(falsifier: "docs/falsifiers/F-ACS-AnchorLookup_2026_05_24.md", wRow: "W-24/W-28/T14") {
                     PlanePlacementHealthRow()
                 }
                 surface(falsifier: "docs/falsifiers/F_WBO_DRIFT_LEDGER_2026_05_18.md", wRow: "W-30") {

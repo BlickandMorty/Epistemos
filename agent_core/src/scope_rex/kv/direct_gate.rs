@@ -41,6 +41,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::lattice_wbo::LatticeBudget;
+
 /// One (key, value) pair stored in the KV cache. Pure-data: f32
 /// vectors with stable shape; the gate compares LAYOUT not content
 /// when deciding direct vs reference dispatch.
@@ -48,11 +50,24 @@ use serde::{Deserialize, Serialize};
 pub struct KvPair {
     pub key: Vec<f32>,
     pub value: Vec<f32>,
+    /// WBO budget for compressed or restored KV pairs. Exact hot pairs
+    /// leave this unset.
+    #[serde(default)]
+    pub lattice_budget: Option<LatticeBudget>,
 }
 
 impl KvPair {
     pub fn new(key: Vec<f32>, value: Vec<f32>) -> Self {
-        Self { key, value }
+        Self {
+            key,
+            value,
+            lattice_budget: None,
+        }
+    }
+
+    pub fn with_lattice_budget(mut self, budget: LatticeBudget) -> Self {
+        self.lattice_budget = Some(budget);
+        self
     }
 }
 
@@ -189,6 +204,7 @@ mod tests {
             .map(|i| KvPair {
                 key: deterministic_random(seed.wrapping_add(2 * i as u64 + 1), key_dim),
                 value: deterministic_random(seed.wrapping_add(2 * i as u64 + 2), value_dim),
+                lattice_budget: None,
             })
             .collect()
     }

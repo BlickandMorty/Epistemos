@@ -366,6 +366,10 @@ mod tests {
 
     fn claim(prop: &str) -> Node {
         Node::new(NodeKind::Claim {
+            uas: None,
+            anchor: None,
+            plane: crate::uas::RuntimePlane::Episodic,
+            residency: crate::uas::ResidencyTier::CurrentApp,
             proposition: prop.into(),
             scope: ClaimScope::Vault,
             source: SourceRef("test".into()),
@@ -374,6 +378,10 @@ mod tests {
 
     fn evidence(blob: &[u8]) -> Node {
         Node::new(NodeKind::Evidence {
+            uas: None,
+            anchor: None,
+            plane: crate::uas::RuntimePlane::Episodic,
+            residency: crate::uas::ResidencyTier::CurrentApp,
             kind: EvidenceKind::Citation,
             payload: EvidenceBlob(blob.to_vec()),
             captured_at: Timestamp(1000),
@@ -382,6 +390,10 @@ mod tests {
 
     fn note(body: &str) -> Node {
         Node::new(NodeKind::Note {
+            uas: None,
+            anchor: None,
+            plane: crate::uas::RuntimePlane::Episodic,
+            residency: crate::uas::ResidencyTier::CurrentApp,
             body: body.into(),
             author: AuthorRef("test".into()),
             mime: MimeType("text/markdown".into()),

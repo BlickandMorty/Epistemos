@@ -17,6 +17,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+use crate::lattice_wbo::LatticeBudget;
 use crate::uas::UasAddress;
 
 /// One residual block — `data` is INT8 quantized; `scale` is the
@@ -93,14 +94,25 @@ pub struct HeliosPage {
     /// Exact-tier handle (SSD cold). `None` if not yet promoted OR if
     /// the page is sketch-only.
     pub exact_handle: Option<ExactPageHandle>,
+    /// WBO budget for sketch/residual/NF4-oracle approximation. `None`
+    /// means the page is exact or the caller has not promoted the page
+    /// into an approximate lane yet.
+    #[serde(default)]
+    pub lattice_budget: Option<LatticeBudget>,
 }
 
 /// Error surface for HeliosPage construction + escalation.
 #[derive(Clone, Debug, PartialEq)]
 pub enum HeliosPageError {
     EmptySketch,
-    BadResidualBlock { expected_size: usize, actual_size: usize },
-    ExactHandleMismatchedCodec { handle_codec: ExactCodec, requested: ExactCodec },
+    BadResidualBlock {
+        expected_size: usize,
+        actual_size: usize,
+    },
+    ExactHandleMismatchedCodec {
+        handle_codec: ExactCodec,
+        requested: ExactCodec,
+    },
 }
 
 impl HeliosPage {
@@ -114,6 +126,7 @@ impl HeliosPage {
             sketch,
             residual: None,
             exact_handle: None,
+            lattice_budget: None,
         })
     }
 
@@ -138,6 +151,12 @@ impl HeliosPage {
     /// Promote to include an exact-tier handle.
     pub fn with_exact_handle(mut self, handle: ExactPageHandle) -> Self {
         self.exact_handle = Some(handle);
+        self
+    }
+
+    /// Attach the WBO budget that pays for this page's approximation.
+    pub fn with_lattice_budget(mut self, budget: LatticeBudget) -> Self {
+        self.lattice_budget = Some(budget);
         self
     }
 
@@ -193,8 +212,14 @@ mod tests {
             .unwrap()
             .with_residual(
                 vec![
-                    ResidualBlock { data: vec![10, 20], scale: 0.5 },
-                    ResidualBlock { data: vec![30, 40], scale: 0.25 },
+                    ResidualBlock {
+                        data: vec![10, 20],
+                        scale: 0.5,
+                    },
+                    ResidualBlock {
+                        data: vec![30, 40],
+                        scale: 0.25,
+                    },
                 ],
                 2,
             )
@@ -209,13 +234,19 @@ mod tests {
         let err = HeliosPage::sketch_only(sample_address(), vec![1, 2])
             .unwrap()
             .with_residual(
-                vec![ResidualBlock { data: vec![1, 2, 3], scale: 1.0 }],
+                vec![ResidualBlock {
+                    data: vec![1, 2, 3],
+                    scale: 1.0,
+                }],
                 2,
             )
             .unwrap_err();
         assert_eq!(
             err,
-            HeliosPageError::BadResidualBlock { expected_size: 2, actual_size: 3 }
+            HeliosPageError::BadResidualBlock {
+                expected_size: 2,
+                actual_size: 3
+            }
         );
     }
 
@@ -253,7 +284,13 @@ mod tests {
     fn serde_round_trip_helios_page() {
         let p = HeliosPage::sketch_only(sample_address(), vec![1, 2, 3])
             .unwrap()
-            .with_residual(vec![ResidualBlock { data: vec![10, 20], scale: 0.5 }], 2)
+            .with_residual(
+                vec![ResidualBlock {
+                    data: vec![10, 20],
+                    scale: 0.5,
+                }],
+                2,
+            )
             .unwrap();
         let json = serde_json::to_string(&p).expect("serialize must succeed");
         let parsed: HeliosPage = serde_json::from_str(&json).expect("deserialize must succeed");

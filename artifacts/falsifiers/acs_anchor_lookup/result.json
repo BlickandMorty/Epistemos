@@ -1,0 +1,24 @@
+{
+  "schema_version": "2026-05-18.2",
+  "falsifier": "F-ACS-AnchorLookup",
+  "status": "PASS",
+  "hardware_floor": "M2 Pro 16 GB UMA",
+  "measurements": {
+    "claim_count": 10000,
+    "found_count": 10000,
+    "elapsed_ns": 5166250,
+    "avg_lookup_ns": 516,
+    "invalid_theorem_rejected": true
+  },
+  "acceptance_thresholds": {
+    "avg_lookup_ns_lt": 1000,
+    "claim_count": 10000,
+    "invalid_theorem_rejected": true
+  },
+  "pass_per_axis": {
+    "round_trip_field_digest": true,
+    "invalid_theorem_rejection": true,
+    "projection_integrity": true,
+    "latency": true
+  }
+}

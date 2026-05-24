@@ -423,6 +423,10 @@ mod tests {
 
     fn note(body: &str) -> Node {
         Node::new(NodeKind::Note {
+            uas: None,
+            anchor: None,
+            plane: crate::uas::RuntimePlane::Episodic,
+            residency: crate::uas::ResidencyTier::CurrentApp,
             body: body.into(),
             author: AuthorRef("u".into()),
             mime: MimeType("text/markdown".into()),
@@ -431,6 +435,10 @@ mod tests {
 
     fn claim(prop: &str) -> Node {
         Node::new(NodeKind::Claim {
+            uas: None,
+            anchor: None,
+            plane: crate::uas::RuntimePlane::Episodic,
+            residency: crate::uas::ResidencyTier::CurrentApp,
             proposition: prop.into(),
             scope: ClaimScope::Vault,
             source: SourceRef("u".into()),
@@ -675,10 +683,18 @@ mod tests {
     fn deforms_edge_round_trips_with_lora_path() {
         let store = InMemoryDagStore::new();
         let model = Node::new(NodeKind::Model {
+            uas: None,
+            anchor: None,
+            plane: crate::uas::RuntimePlane::State,
+            residency: crate::uas::ResidencyTier::CurrentApp,
             weight_root: super::super::node::WeightRoot([0u8; 32]),
             base_or_lora: super::super::node::ModelLineage::Base,
         });
         let companion = Node::new(NodeKind::Companion {
+            uas: None,
+            anchor: None,
+            plane: crate::uas::RuntimePlane::Controller,
+            residency: crate::uas::ResidencyTier::CurrentApp,
             profile: super::super::node::ModelProfile("sage".into()),
             identity: super::super::node::IdentityHash([0u8; 32]),
             persona: super::super::node::PersonaBlob(vec![]),
@@ -710,6 +726,10 @@ mod tests {
         // in production — tiers will likely be capability nodes — but
         // the Phase 8.A schema supports the shape.
         let tier_node = Node::new(NodeKind::Capability {
+            uas: None,
+            anchor: None,
+            plane: crate::uas::RuntimePlane::Controller,
+            residency: crate::uas::ResidencyTier::CurrentApp,
             kind: super::super::node::CapabilityKind::Other("memory_tier:hot".into()),
             scope: super::super::node::CapabilityScope("global".into()),
             expiry: None,
@@ -737,6 +757,10 @@ mod tests {
         let store_b = InMemoryDagStore::new();
         let n_a = Node::new_at(
             NodeKind::Note {
+                uas: None,
+                anchor: None,
+                plane: crate::uas::RuntimePlane::Episodic,
+                residency: crate::uas::ResidencyTier::CurrentApp,
                 body: "replay".into(),
                 author: AuthorRef("u".into()),
                 mime: MimeType("text/markdown".into()),
@@ -745,6 +769,10 @@ mod tests {
         );
         let n_b = Node::new_at(
             NodeKind::Note {
+                uas: None,
+                anchor: None,
+                plane: crate::uas::RuntimePlane::Episodic,
+                residency: crate::uas::ResidencyTier::CurrentApp,
                 body: "replay".into(),
                 author: AuthorRef("u".into()),
                 mime: MimeType("text/markdown".into()),
@@ -763,6 +791,10 @@ mod tests {
     fn make_two_nodes(store: &InMemoryDagStore) -> (NodeId, NodeId) {
         let n_from = Node::new_at(
             NodeKind::Note {
+                uas: None,
+                anchor: None,
+                plane: crate::uas::RuntimePlane::Episodic,
+                residency: crate::uas::ResidencyTier::CurrentApp,
                 body: "src".into(),
                 author: AuthorRef("u".into()),
                 mime: MimeType("text/markdown".into()),
@@ -771,6 +803,10 @@ mod tests {
         );
         let n_to = Node::new_at(
             NodeKind::Note {
+                uas: None,
+                anchor: None,
+                plane: crate::uas::RuntimePlane::Episodic,
+                residency: crate::uas::ResidencyTier::CurrentApp,
                 body: "dst".into(),
                 author: AuthorRef("u".into()),
                 mime: MimeType("text/markdown".into()),
