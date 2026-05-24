@@ -28,9 +28,9 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "1cf390b0fc4ea9dd1a148ff61aa97f39c4612055",
+  "commit_sha": "47eee13df029c6c96c2926786ef776175880e851",
   "fixture_id": "f_vault_recall_50_canonical_v1",
-  "timestamp_utc": "2026-05-24T06:05:33Z",
+  "timestamp_utc": "2026-05-24T06:45:23Z",
   "result_digest": "sha256:b80a585189b864eb6e37bafd6744fb8a242a837a0ca73b93fe63499ef0c44b16",
   "measurements": {
     "adversarial_reject_pct": {
