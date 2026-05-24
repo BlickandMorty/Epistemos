@@ -32,14 +32,12 @@ public struct EidosHealthRow: View {
                 label: "Eidos V0 flag",
                 symbol: "flag.fill",
                 ok: snapshot.isFlagEnabled,
-                detail: snapshot.isFlagEnabled
-                    ? "EPISTEMOS_EIDOS_V0 on (fixture path active)"
-                    : "EPISTEMOS_EIDOS_V0 off (legacy FTS/RRF path)"
+                detail: flagDetail
             )
             VerifiedFloorChipStrip(
                 flag: snapshot.isFlagEnabled ? "on" : "off",
-                substrate: "fixture",
-                substrateTint: .orange
+                substrate: chipSubstrateLabel,
+                substrateTint: chipSubstrateTint
             )
             row(
                 label: "Last query",
@@ -57,9 +55,7 @@ public struct EidosHealthRow: View {
                 label: "Last citation count",
                 symbol: "quote.bubble",
                 ok: snapshot.lastCitationCount > 0 || !snapshot.isFlagEnabled,
-                detail: snapshot.lastQueryAt == nil
-                    ? "(no Eidos query yet)"
-                    : "\(snapshot.lastCitationCount) citation(s) from fixture corpus, not vault"
+                detail: lastCitationDetail
             )
             if let err = snapshot.lastErrorDescription {
                 row(
@@ -83,6 +79,55 @@ public struct EidosHealthRow: View {
 
     public func refresh() {
         snapshot = EidosMetrics.shared.snapshot()
+    }
+
+    // MARK: - Backend-aware chip language (Terminal A 2026-05-23 W-46.1)
+    //
+    // Honest chip-strip language: the substrate chip reflects which
+    // retriever actually produced the most recent packet. Per PR #57
+    // chip-strip pattern + WRV "Verified" bar, the row must not claim
+    // "working against vault" when the last packet came from fixture.
+
+    private var flagDetail: String {
+        if !snapshot.isFlagEnabled {
+            return "EPISTEMOS_EIDOS_V0 off (legacy FTS/RRF path)"
+        }
+        switch snapshot.lastBackend {
+        case .real:
+            return "EPISTEMOS_EIDOS_V0 on — production vault binding active"
+        case .fixture:
+            return "EPISTEMOS_EIDOS_V0 on (fixture path active)"
+        case .unknown:
+            return "EPISTEMOS_EIDOS_V0 on — no query observed yet"
+        }
+    }
+
+    private var chipSubstrateLabel: String {
+        switch snapshot.lastBackend {
+        case .real:    return "production-vault"
+        case .fixture: return "fixture"
+        case .unknown: return "unknown"
+        }
+    }
+
+    private var chipSubstrateTint: Color {
+        switch snapshot.lastBackend {
+        case .real:    return .green
+        case .fixture: return .orange
+        case .unknown: return .secondary
+        }
+    }
+
+    private var lastCitationDetail: String {
+        if snapshot.lastQueryAt == nil { return "(no Eidos query yet)" }
+        switch snapshot.lastBackend {
+        case .real:
+            return "\(snapshot.lastCitationCount) citation(s) from real vault corpus"
+        case .fixture:
+            return "\(snapshot.lastCitationCount) citation(s) from fixture corpus, not vault"
+        case .unknown:
+            return "\(snapshot.lastCitationCount) citation(s) — backend unknown"
+        }
     }
 
     private var lastQueryDetail: String {

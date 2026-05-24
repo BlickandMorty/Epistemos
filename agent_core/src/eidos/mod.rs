@@ -30,6 +30,7 @@
 pub mod claim_evidence;
 pub mod adversarial;
 pub mod code_symbol;
+pub mod dag_backed_graph_neighborhood;
 pub mod falsifier;
 pub mod graph_neighborhood;
 pub mod hybrid;
@@ -52,6 +53,7 @@ mod parity;
 
 pub use claim_evidence::{EvidenceStance, InMemoryClaimEvidence};
 pub use code_symbol::InMemoryCodeSymbolIndex;
+pub use dag_backed_graph_neighborhood::{DagBackedGraphNeighborhood, NodeNameResolver};
 pub use falsifier::{
     f_eidos_closed_citation_falsifier, FEidosClosedCitationWitness, FalsifierFailure,
 };

@@ -759,6 +759,13 @@ private struct ChatBrainPanelView: View {
                             bodyBlock(sectionBlock.body)
                         }
                     }
+
+                    // W-48 Terminal A 2026-05-23 — surfaces the most
+                    // recent Eidos retrieve. Honest backend chip
+                    // flips with EidosMetrics.shared.lastBackend.
+                    section(title: "RETRIEVED BY EIDOS", defaultExpanded: false) {
+                        EidosRetrievedSection()
+                    }
                 } else if !hasPendingContext {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("MODEL CONTEXT")
