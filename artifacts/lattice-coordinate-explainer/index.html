@@ -1,0 +1,970 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Epistemos — A Typed Coordinate Substrate for Local AI</title>
+  <style>
+    :root {
+      --bg: #f5f6fa;
+      --bg-deep: #ecedf3;
+      --paper: #ffffff;
+      --paper-soft: #fafbfd;
+      --ink: #0b1220;
+      --ink-soft: #1c2230;
+      --muted: #515a6d;
+      --muted-soft: #7a8398;
+      --hairline: rgba(15, 23, 42, 0.08);
+      --hairline-strong: rgba(15, 23, 42, 0.16);
+      --tint-1: #f3e9ff;   /* violet wash */
+      --tint-2: #e6f4ff;   /* cyan wash */
+      --tint-3: #e8fbf0;   /* mint wash */
+      --tint-4: #fff2e3;   /* peach wash */
+      --tint-5: #fce8ee;   /* rose wash */
+      --accent: #5b3df5;
+      --accent-soft: #8868ff;
+      --cyan: #008bb8;
+      --mint: #1f9d6a;
+      --peach: #d97216;
+      --rose: #c93059;
+      --slate: #475569;
+      --ok: #0f9d58;
+      --warn: #f0a52e;
+      --gone: #d24a4a;
+      --gated: #7b8aa5;
+      --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", system-ui, sans-serif;
+      --display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, sans-serif;
+      --r-sm: 10px;
+      --r-md: 16px;
+      --r-lg: 22px;
+      --r-xl: 28px;
+      --r-2xl: 36px;
+      --shadow-1: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 1px rgba(15, 23, 42, 0.06);
+      --shadow-2: 0 4px 12px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.06);
+      --shadow-3: 0 8px 24px rgba(15, 23, 42, 0.07), 0 2px 6px rgba(15, 23, 42, 0.06);
+      --shadow-4: 0 24px 60px rgba(15, 23, 42, 0.08), 0 4px 12px rgba(15, 23, 42, 0.04);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      background:
+        radial-gradient(1200px 600px at 80% -10%, #f0eaff 0%, transparent 60%),
+        radial-gradient(900px 500px at 10% 110%, #e6f4ff 0%, transparent 65%),
+        var(--bg);
+      color: var(--ink);
+      font-family: var(--sans);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      font-size: 16px;
+      line-height: 1.55;
+    }
+
+    body { padding: 40px 24px; }
+
+    .wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+
+    /* --- Title block --- */
+    .hero {
+      background: linear-gradient(135deg, #ffffff 0%, #fafbff 100%);
+      border-radius: var(--r-2xl);
+      box-shadow: var(--shadow-4);
+      padding: 56px 64px 52px;
+      border: 1px solid var(--hairline);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: -40% -20% auto auto;
+      width: 60%;
+      height: 70%;
+      background: radial-gradient(closest-side, rgba(91, 61, 245, 0.10), transparent 70%);
+      filter: blur(8px);
+      pointer-events: none;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto auto -30% -20%;
+      width: 60%;
+      height: 70%;
+      background: radial-gradient(closest-side, rgba(0, 139, 184, 0.08), transparent 70%);
+      filter: blur(8px);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(91, 61, 245, 0.08);
+      color: var(--accent);
+      font: 600 12px/1 var(--sans);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .eyebrow .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    h1 {
+      margin: 22px 0 14px;
+      font: 700 56px/1.04 var(--display);
+      letter-spacing: -0.02em;
+      max-width: 920px;
+    }
+    h1 em {
+      font-style: normal;
+      background: linear-gradient(120deg, #5b3df5 0%, #008bb8 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .subtitle {
+      max-width: 720px;
+      margin: 8px 0 28px;
+      color: var(--muted);
+      font: 400 19px/1.5 var(--sans);
+    }
+
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .meta-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: var(--paper);
+      border: 1px solid var(--hairline);
+      box-shadow: var(--shadow-1);
+      font: 500 12px/1 var(--sans);
+      color: var(--ink-soft);
+      letter-spacing: 0.02em;
+    }
+    .meta-chip strong {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    /* --- Section card --- */
+    section {
+      margin-top: 28px;
+      background: var(--paper);
+      border-radius: var(--r-2xl);
+      border: 1px solid var(--hairline);
+      box-shadow: var(--shadow-3);
+      padding: 44px 56px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      margin-bottom: 22px;
+    }
+    .section-num {
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-soft));
+      color: white;
+      font: 700 14px/36px var(--mono);
+      text-align: center;
+      flex-shrink: 0;
+      letter-spacing: 0.02em;
+    }
+    h2 {
+      margin: 0;
+      font: 700 30px/1.15 var(--display);
+      letter-spacing: -0.015em;
+    }
+    h3 {
+      margin: 28px 0 12px;
+      font: 600 20px/1.25 var(--display);
+      letter-spacing: -0.01em;
+    }
+    p { margin: 0 0 14px; color: var(--ink-soft); max-width: 80ch; }
+
+    .lede {
+      font: 400 19px/1.55 var(--sans);
+      color: var(--ink-soft);
+      max-width: 70ch;
+      margin: 0 0 28px;
+    }
+    .lede strong { color: var(--ink); font-weight: 600; }
+
+    /* --- Pull quote --- */
+    .pull {
+      margin: 28px 0;
+      padding: 24px 28px;
+      background: linear-gradient(135deg, #faf7ff 0%, #f3edff 100%);
+      border-radius: var(--r-lg);
+      border: 1px solid rgba(91, 61, 245, 0.16);
+      box-shadow: var(--shadow-2);
+      font: 500 18px/1.5 var(--display);
+      color: var(--ink);
+      letter-spacing: -0.005em;
+    }
+    .pull::before {
+      content: "“";
+      display: block;
+      font: 700 56px/0.7 var(--display);
+      color: var(--accent);
+      opacity: 0.4;
+      margin-bottom: 6px;
+    }
+
+    /* --- Typed-file panel (the architecture-as-code look) --- */
+    .filepanel {
+      margin: 28px 0;
+      border-radius: var(--r-lg);
+      border: 1px solid var(--hairline);
+      background: #fbfcfe;
+      box-shadow: var(--shadow-2);
+      overflow: hidden;
+    }
+    .filepanel-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 18px;
+      background: linear-gradient(180deg, #f4f6fa, #eef0f6);
+      border-bottom: 1px solid var(--hairline);
+    }
+    .filepanel-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+    }
+    .filepanel-dot.r { background: #ff605c; }
+    .filepanel-dot.y { background: #ffbd44; }
+    .filepanel-dot.g { background: #00ca4e; }
+    .filepanel-path {
+      margin-left: 10px;
+      font: 500 12px/1 var(--mono);
+      color: var(--muted);
+      letter-spacing: 0.02em;
+    }
+    .filepanel-body {
+      padding: 22px 24px;
+      font: 14px/1.65 var(--mono);
+      color: var(--ink);
+      white-space: pre;
+      overflow-x: auto;
+    }
+    .filepanel-body .kw { color: #6f3ddb; font-weight: 600; }
+    .filepanel-body .ty { color: #008bb8; }
+    .filepanel-body .lit { color: #d97216; }
+    .filepanel-body .cm { color: var(--muted); font-style: italic; }
+    .filepanel-body .id { color: #1c2230; }
+
+    /* --- Grid of opulent boxes --- */
+    .grid {
+      display: grid;
+      gap: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      margin: 24px 0;
+    }
+    .card {
+      padding: 24px 24px 22px;
+      border-radius: var(--r-lg);
+      border: 1px solid var(--hairline);
+      background: var(--paper);
+      box-shadow: var(--shadow-2);
+      transition: transform 200ms ease, box-shadow 200ms ease;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-3);
+    }
+    .card.t1 { background: linear-gradient(135deg, #ffffff 0%, var(--tint-1) 140%); }
+    .card.t2 { background: linear-gradient(135deg, #ffffff 0%, var(--tint-2) 140%); }
+    .card.t3 { background: linear-gradient(135deg, #ffffff 0%, var(--tint-3) 140%); }
+    .card.t4 { background: linear-gradient(135deg, #ffffff 0%, var(--tint-4) 140%); }
+    .card.t5 { background: linear-gradient(135deg, #ffffff 0%, var(--tint-5) 140%); }
+
+    .card-num {
+      width: 30px;
+      height: 30px;
+      border-radius: 10px;
+      background: rgba(91, 61, 245, 0.10);
+      color: var(--accent);
+      font: 700 13px/30px var(--mono);
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    .card h4 {
+      margin: 0 0 8px;
+      font: 600 17px/1.25 var(--display);
+      letter-spacing: -0.005em;
+    }
+    .card p {
+      margin: 0;
+      font: 400 14px/1.5 var(--sans);
+      color: var(--muted);
+    }
+
+    /* --- 7 Laws strip --- */
+    .laws {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 14px;
+      margin: 22px 0 0;
+    }
+    .law {
+      padding: 18px 16px 16px;
+      border-radius: var(--r-md);
+      background: linear-gradient(180deg, #fbfcfe, #f6f8fc);
+      border: 1px solid var(--hairline);
+    }
+    .law-id {
+      font: 700 11px/1 var(--mono);
+      color: var(--accent);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .law-name {
+      font: 600 15px/1.2 var(--display);
+      color: var(--ink);
+      margin-bottom: 6px;
+    }
+    .law-desc {
+      font: 400 12.5px/1.45 var(--sans);
+      color: var(--muted);
+    }
+
+    /* --- Status legend & table --- */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin: 18px 0 22px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font: 600 11.5px/1 var(--sans);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .pill .pdot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+    .pill.ok { background: rgba(15, 157, 88, 0.10); color: var(--ok); }
+    .pill.ok .pdot { background: var(--ok); }
+    .pill.partial { background: rgba(240, 165, 46, 0.12); color: #b07410; }
+    .pill.partial .pdot { background: var(--warn); }
+    .pill.gated { background: rgba(123, 138, 165, 0.14); color: var(--gated); }
+    .pill.gated .pdot { background: var(--gated); }
+    .pill.todo { background: rgba(210, 74, 74, 0.10); color: var(--gone); }
+    .pill.todo .pdot { background: var(--gone); }
+    .pill.research { background: rgba(91, 61, 245, 0.10); color: var(--accent); }
+    .pill.research .pdot { background: var(--accent); }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      margin: 18px 0;
+      font: 14px/1.5 var(--sans);
+    }
+    thead th {
+      text-align: left;
+      padding: 12px 14px;
+      background: #f6f7fb;
+      color: var(--muted);
+      font: 600 11.5px/1 var(--sans);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--hairline);
+    }
+    thead th:first-child { border-top-left-radius: var(--r-md); }
+    thead th:last-child { border-top-right-radius: var(--r-md); }
+    tbody td {
+      padding: 14px;
+      border-bottom: 1px solid var(--hairline);
+      vertical-align: top;
+      color: var(--ink-soft);
+    }
+    tbody tr:hover td { background: #fbfcfe; }
+    tbody tr:last-child td { border-bottom: 0; }
+    code.path {
+      font: 12.5px/1.4 var(--mono);
+      background: #f3f5f9;
+      padding: 2px 7px;
+      border-radius: 6px;
+      color: var(--ink);
+    }
+
+    /* --- Architecture stack diagram --- */
+    figure {
+      margin: 24px 0;
+      padding: 28px;
+      border-radius: var(--r-lg);
+      background: linear-gradient(180deg, #fbfcfe, #f4f6fb);
+      border: 1px solid var(--hairline);
+      box-shadow: var(--shadow-2);
+      overflow-x: auto;
+    }
+    figure svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+    figcaption {
+      margin-top: 16px;
+      text-align: center;
+      font: 400 13px/1.5 var(--sans);
+      color: var(--muted);
+    }
+
+    .twocol {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+      margin: 24px 0;
+    }
+    @media (max-width: 800px) {
+      .twocol { grid-template-columns: 1fr; }
+      .hero { padding: 36px 28px 32px; }
+      section { padding: 32px 28px; }
+      h1 { font-size: 38px; }
+    }
+
+    .footnote {
+      margin-top: 36px;
+      padding-top: 22px;
+      border-top: 1px solid var(--hairline);
+      color: var(--muted);
+      font: 13px/1.55 var(--sans);
+    }
+    .footnote code {
+      font: 12px/1 var(--mono);
+      background: #f3f5f9;
+      padding: 2px 6px;
+      border-radius: 5px;
+      color: var(--ink-soft);
+    }
+
+    .promise {
+      margin: 22px 0;
+      padding: 24px 28px;
+      border-radius: var(--r-lg);
+      background: linear-gradient(135deg, #fbfcfe, #f4fff8);
+      border: 1px solid rgba(31, 157, 106, 0.18);
+      box-shadow: var(--shadow-2);
+    }
+    .promise h4 {
+      margin: 0 0 8px;
+      font: 700 16px/1.2 var(--display);
+      color: var(--mint);
+    }
+    .promise p { margin: 0; color: var(--ink-soft); }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ============ HERO ============ -->
+<header class="hero">
+  <span class="eyebrow"><span class="dot"></span>Epistemos · Architecture Note · v2026.05.23</span>
+  <h1>A <em>typed coordinate substrate</em> for local AI — built so pixels, vectors, notes, and proofs are projections of one address space.</h1>
+  <p class="subtitle">
+    Epistemos is a macOS-native cognition system. The thesis is not “everything is an EML tree.” The thesis is that every data class — pixels, embeddings, notes, graph nodes, KV pages, tool results, claims, proofs — should carry a stable <strong>UAS address</strong>, a <strong>plane placement</strong>, a <strong>residency tier</strong>, an <strong>error budget</strong> if approximate, and a <strong>witness status</strong> if product-facing. Same fabric. Different projections.
+  </p>
+  <div class="meta-row">
+    <span class="meta-chip"><strong>Lock</strong> · Five lanes · three tiers · seven-plus-three-plus-seven · one Monday</span>
+    <span class="meta-chip"><strong>Floor</strong> · <code>ac8c6d28</code></span>
+    <span class="meta-chip"><strong>Rig</strong> · M2 Pro 16 GB unified</span>
+    <span class="meta-chip"><strong>Codeword</strong> · LEGENDARY</span>
+  </div>
+</header>
+
+<!-- ============ §1 The thesis ============ -->
+<section>
+  <div class="section-head">
+    <div class="section-num">01</div>
+    <h2>The thesis — one substrate, many projections</h2>
+  </div>
+
+  <p class="lede">
+    The mistake a smart system can make is treating its layers as separate worlds: pixels live in shaders, vectors live in HNSW, notes live in SQLite, claims live in a ledger, proofs live in Lean files. They look different but they are <strong>the same fabric</strong>. The fabric has coordinates; the layers are coordinate systems.
+  </p>
+
+  <div class="pull">
+    Everything is one substrate object, expressed through different coordinates, planes, residencies, and primitive representations. EML is one primitive among many; the substrate fabric is wider.
+  </div>
+
+  <p>
+    Epistemos formalises this with a five-field invariant. Every data class in the system must carry the five fields below — or have an explicit waiver naming why it is exempt. Without this invariant, the system silently fractures back into separate worlds. With it, the system stays one object.
+  </p>
+
+  <div class="grid">
+    <div class="card t1">
+      <div class="card-num">01</div>
+      <h4>UAS address</h4>
+      <p>Stable identity independent of residency. <code class="path">UasAddress { kind, payload_id }</code>. A pixel buffer and a graph node both addressable in the same shape.</p>
+    </div>
+    <div class="card t2">
+      <div class="card-num">02</div>
+      <h4>Plane placement</h4>
+      <p>One of five: State · Episodic · Assembly · Controller · Verification. The plane tells you what the object is <em>for</em>, not what it’s made of.</p>
+    </div>
+    <div class="card t3">
+      <div class="card-num">03</div>
+      <h4>Residency tier</h4>
+      <p>Current-App / Verified-Floor / Capability-Ceiling. Where the object actually lives today vs where the doctrine targets.</p>
+    </div>
+    <div class="card t4">
+      <div class="card-num">04</div>
+      <h4>Lattice / WBO budget</h4>
+      <p>If the representation is compressed or approximate, the object pays into a wireless-budget-of-objective ledger. Error is accounted, not hidden.</p>
+    </div>
+    <div class="card t5">
+      <div class="card-num">05</div>
+      <h4>WRV status</h4>
+      <p>Wired · Reachable · Visible · Verified. Honest status for product-facing surfaces. The Settings chip strip surfaces this directly.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ §2 Architecture stack diagram ============ -->
+<section>
+  <div class="section-head">
+    <div class="section-num">02</div>
+    <h2>The nine-layer spine — what the substrate looks like from the user out</h2>
+  </div>
+
+  <p class="lede">
+    From the kernel up to the user, the system has nine named layers. Each one consumes coordinates from the layer below and produces typed projections for the layer above. The user only ever sees the top layer, but the top layer can only be honest if the eight below it carry the five-field invariant.
+  </p>
+
+  <figure>
+    <svg viewBox="0 0 1000 540" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="stackTitle">
+      <title id="stackTitle">Nine-layer architecture spine</title>
+      <defs>
+        <linearGradient id="lg1" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#5b3df5"/><stop offset="1" stop-color="#7e5cff"/>
+        </linearGradient>
+        <linearGradient id="lg2" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#5160e4"/><stop offset="1" stop-color="#6f80f0"/>
+        </linearGradient>
+        <linearGradient id="lg3" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#3f7ae0"/><stop offset="1" stop-color="#5f97ee"/>
+        </linearGradient>
+        <linearGradient id="lg4" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#2a93cc"/><stop offset="1" stop-color="#4cb1e2"/>
+        </linearGradient>
+        <linearGradient id="lg5" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#1ea99c"/><stop offset="1" stop-color="#3ec8b8"/>
+        </linearGradient>
+        <linearGradient id="lg6" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#28a36c"/><stop offset="1" stop-color="#4cc28b"/>
+        </linearGradient>
+        <linearGradient id="lg7" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#7c9c2a"/><stop offset="1" stop-color="#9bba4a"/>
+        </linearGradient>
+        <linearGradient id="lg8" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#d18b1f"/><stop offset="1" stop-color="#eaa742"/>
+        </linearGradient>
+        <linearGradient id="lg9" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#c93059"/><stop offset="1" stop-color="#e3527a"/>
+        </linearGradient>
+        <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="2" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+
+      <style><![CDATA[
+        .layer { font: 600 14px -apple-system, "SF Pro Text", "Inter", sans-serif; fill: white; }
+        .layerSub { font: 400 11.5px -apple-system, "SF Pro Text", "Inter", sans-serif; fill: rgba(255,255,255,0.85); }
+        .layerNum { font: 700 12px ui-monospace, "SF Mono", monospace; fill: rgba(255,255,255,0.7); letter-spacing: 0.06em; }
+        .side { font: 500 11.5px ui-monospace, "SF Mono", monospace; fill: #475569; letter-spacing: 0.03em; }
+        .arrow { stroke: #cdd5e1; stroke-width: 1.2; fill: none; marker-end: url(#mt); }
+      ]]></style>
+
+      <marker id="mt" viewBox="0 0 6 6" refX="6" refY="3" markerWidth="6" markerHeight="6" orient="auto">
+        <path d="M0,0 L6,3 L0,6 Z" fill="#cdd5e1"/>
+      </marker>
+
+      <!-- 9 layers stacked -->
+      <g transform="translate(220,30)">
+        <!-- L1 -->
+        <g>
+          <rect width="540" height="46" rx="14" fill="url(#lg9)" filter="url(#soft)"/>
+          <text x="20" y="20" class="layerNum">L9 · USER SURFACE</text>
+          <text x="20" y="36" class="layer">Visible WRV UI — chat, Settings chips, Provenance Console, Halo</text>
+        </g>
+        <line class="arrow" x1="270" y1="46" x2="270" y2="60"/>
+        <!-- L2 -->
+        <g transform="translate(0,60)">
+          <rect width="540" height="46" rx="14" fill="url(#lg8)" filter="url(#soft)"/>
+          <text x="20" y="20" class="layerNum">L8 · WITNESS</text>
+          <text x="20" y="36" class="layer">EML-IR · F-ULP oracle · Lattice/WBO ledger · falsifier register</text>
+        </g>
+        <line class="arrow" x1="270" y1="106" x2="270" y2="120"/>
+        <!-- L3 -->
+        <g transform="translate(0,120)">
+          <rect width="540" height="46" rx="14" fill="url(#lg7)" filter="url(#soft)"/>
+          <text x="20" y="20" class="layerNum">L7 · RETRIEVAL</text>
+          <text x="20" y="36" class="layer">Eidos closed-citation · VaultRecall · AnswerPacket</text>
+        </g>
+        <line class="arrow" x1="270" y1="166" x2="270" y2="180"/>
+        <!-- L4 -->
+        <g transform="translate(0,180)">
+          <rect width="540" height="46" rx="14" fill="url(#lg6)" filter="url(#soft)"/>
+          <text x="20" y="20" class="layerNum">L6 · GOVERNED DISPATCH</text>
+          <text x="20" y="36" class="layer">System G — MissionPacket → AgentEvent → RunEventLog → AnswerPacket</text>
+        </g>
+        <line class="arrow" x1="270" y1="226" x2="270" y2="240"/>
+        <!-- L5 -->
+        <g transform="translate(0,240)">
+          <rect width="540" height="46" rx="14" fill="url(#lg5)" filter="url(#soft)"/>
+          <text x="20" y="20" class="layerNum">L5 · ADMISSION</text>
+          <text x="20" y="36" class="layer">ACS Admission — allow / warn / defer / quarantine / reject + signed proof</text>
+        </g>
+        <line class="arrow" x1="270" y1="286" x2="270" y2="300"/>
+        <!-- L6 -->
+        <g transform="translate(0,300)">
+          <rect width="540" height="46" rx="14" fill="url(#lg4)" filter="url(#soft)"/>
+          <text x="20" y="20" class="layerNum">L4 · ROUTER</text>
+          <text x="20" y="36" class="layer">Runtime Router — MLX · llama · cloud · variant ladder (escalation logged)</text>
+        </g>
+        <line class="arrow" x1="270" y1="346" x2="270" y2="360"/>
+        <!-- L7 -->
+        <g transform="translate(0,360)">
+          <rect width="540" height="46" rx="14" fill="url(#lg3)" filter="url(#soft)"/>
+          <text x="20" y="20" class="layerNum">L3 · ACTIVE ASSEMBLY</text>
+          <text x="20" y="36" class="layer">Selector pulls only relevant packets — Active-Support law in code</text>
+        </g>
+        <line class="arrow" x1="270" y1="406" x2="270" y2="420"/>
+        <!-- L8 -->
+        <g transform="translate(0,420)">
+          <rect width="540" height="46" rx="14" fill="url(#lg2)" filter="url(#soft)"/>
+          <text x="20" y="20" class="layerNum">L2 · LATTICE / WBO</text>
+          <text x="20" y="36" class="layer">Every compression pays into a Wyner-Ziv error ledger</text>
+        </g>
+        <line class="arrow" x1="270" y1="466" x2="270" y2="480"/>
+        <!-- L9 -->
+        <g transform="translate(0,480)">
+          <rect width="540" height="46" rx="14" fill="url(#lg1)" filter="url(#soft)"/>
+          <text x="20" y="20" class="layerNum">L1 · UAS</text>
+          <text x="20" y="36" class="layer">Unified Address Space — every object has a stable address regardless of layer</text>
+        </g>
+      </g>
+
+      <!-- Side gutters: planes (left) and tiers (right) -->
+      <g transform="translate(20,30)">
+        <text class="side" x="0" y="14">PLANES</text>
+        <text class="side" x="0" y="36">State</text>
+        <text class="side" x="0" y="86">Verification</text>
+        <text class="side" x="0" y="146">Episodic</text>
+        <text class="side" x="0" y="206">Controller</text>
+        <text class="side" x="0" y="266">Controller</text>
+        <text class="side" x="0" y="326">Controller</text>
+        <text class="side" x="0" y="386">Assembly</text>
+        <text class="side" x="0" y="446">State</text>
+        <text class="side" x="0" y="506">State</text>
+      </g>
+      <g transform="translate(820,30)">
+        <text class="side" x="0" y="14">TIER</text>
+        <text class="side" x="0" y="36">Tier 1</text>
+        <text class="side" x="0" y="86">Tier 1</text>
+        <text class="side" x="0" y="146">Tier 1</text>
+        <text class="side" x="0" y="206">Tier 1</text>
+        <text class="side" x="0" y="266">Tier 1</text>
+        <text class="side" x="0" y="326">Tier 1</text>
+        <text class="side" x="0" y="386">Tier 1</text>
+        <text class="side" x="0" y="446">Tier 1 / 2</text>
+        <text class="side" x="0" y="506">Tier 1</text>
+      </g>
+    </svg>
+    <figcaption>The nine-layer spine. Coordinates flow up; types narrow as they go. The user only sees L9, but L9 can only be honest if L1–L8 carry the five-field invariant.</figcaption>
+  </figure>
+</section>
+
+<!-- ============ §3 7 Laws ============ -->
+<section>
+  <div class="section-head">
+    <div class="section-num">03</div>
+    <h2>Seven laws — the substrate has to obey these or it is not the substrate</h2>
+  </div>
+  <p class="lede">Every research branch in the corpus passes through these seven laws. A branch that violates one is preserved as Vault-tier speculation, not promoted. A branch that satisfies all seven becomes substrate.</p>
+
+  <div class="laws">
+    <div class="law"><div class="law-id">Law 1</div><div class="law-name">Density</div><div class="law-desc">Morph/EML approximates compact controller policies where the formal domain permits.</div></div>
+    <div class="law"><div class="law-id">Law 2</div><div class="law-name">Address</div><div class="law-desc">Every cognitive object has a stable UAS address independent of residency.</div></div>
+    <div class="law"><div class="law-id">Law 3</div><div class="law-name">Active-support</div><div class="law-desc">Only the relevant slice of notes / graph / memory / model / tools / agent wakes.</div></div>
+    <div class="law"><div class="law-id">Law 4</div><div class="law-name">Lattice-error</div><div class="law-desc">Every compressed or approximate representation pays into WBO.</div></div>
+    <div class="law"><div class="law-id">Law 5</div><div class="law-name">Glue</div><div class="law-desc">Local context must cohere before it becomes global context.</div></div>
+    <div class="law"><div class="law-id">Law 6</div><div class="law-name">Duplex</div><div class="law-desc">Hard compact and soft page-backed branches both allowed, but routing error is accounted.</div></div>
+    <div class="law"><div class="law-id">Law 7</div><div class="law-name">Witness</div><div class="law-desc">Every meaningful action is typed, permissioned, logged, replayable, and visible.</div></div>
+  </div>
+</section>
+
+<!-- ============ §4 Typed file structure ============ -->
+<section>
+  <div class="section-head">
+    <div class="section-num">04</div>
+    <h2>Typed file structure — the architecture as it lives on disk</h2>
+  </div>
+  <p class="lede">The diagram above is mirrored in the directory tree. Each typed module is one substrate primitive; the boundary between modules is the type system, not vibe.</p>
+
+  <div class="filepanel">
+    <div class="filepanel-head">
+      <span class="filepanel-dot r"></span>
+      <span class="filepanel-dot y"></span>
+      <span class="filepanel-dot g"></span>
+      <span class="filepanel-path">~/Epistemos · agent_core/src/ · directory tree</span>
+    </div>
+<div class="filepanel-body"><span class="cm">// L1 · UAS — addressable identity</span>
+<span class="kw">pub mod</span> <span class="id">uas</span>            <span class="cm">// UasAddress, UasKind</span>
+
+<span class="cm">// L2 · Lattice / WBO — error ledger</span>
+<span class="kw">pub mod</span> <span class="id">lattice_wbo</span>    <span class="cm">// LatticeBudget, WboLedgerEntry  · 305 tests · SHIPPED</span>
+
+<span class="cm">// L3 · Active Assembly — only-the-relevant-slice-wakes</span>
+<span class="kw">pub mod</span> <span class="id">research</span>::<span class="id">active_assembly</span>  <span class="cm">// Packet, Selector  · research lane</span>
+
+<span class="cm">// L4 · Router — variant ladder + escalation log</span>
+<span class="kw">pub mod</span> <span class="id">routing</span>        <span class="cm">// deterministic → embedding → small LLM → mid LLM → cloud</span>
+
+<span class="cm">// L5 · ACS Admission — verdict layer above mutations</span>
+<span class="kw">pub mod</span> <span class="id">acs_admission</span>  <span class="cm">// ACSAdmissionInput / Verdict / RiskVector / Policy / AuditRecord</span>
+
+<span class="cm">// L6 · System G — governed dispatch</span>
+<span class="kw">pub mod</span> <span class="id">agent_runtime_v2</span>  <span class="cm">// MissionPacket → AgentEvent → RunEventLog → AnswerPacket</span>
+<span class="kw">pub mod</span> <span class="id">scope_rex</span>      <span class="cm">// MutationEnvelope · WitnessedState · ClaimGraph · RunEventLog</span>
+
+<span class="cm">// L7 · Eidos / VaultRecall — closed-citation retrieval</span>
+<span class="kw">pub mod</span> <span class="id">eidos</span>          <span class="cm">// 217 tests · LedgerBackedClaimEvidence (RUST-LANDED)</span>
+<span class="kw">pub mod</span> <span class="id">retrieval</span>      <span class="cm">// hybrid_search + RRF k=60 + Vault Context Contract</span>
+
+<span class="cm">// L8 · Witness — EML-IR + F-ULP oracle + falsifier register</span>
+<span class="kw">pub mod</span> <span class="id">research</span>::<span class="id">eml_ir</span>           <span class="cm">// 6 IR primitives · Tier 3</span>
+<span class="kw">pub mod</span> <span class="id">research</span>::<span class="id">fulp_oracle</span>      <span class="cm">// ULP ≤ 2 fp16 in [0.5, 2.0] over 412k+2k points</span>
+<span class="kw">pub mod</span> <span class="id">provenance</span>::<span class="id">ledger</span>          <span class="cm">// ClaimLedger + retraction propagation</span>
+
+<span class="cm">// L9 · User surface — Swift, not Rust</span>
+<span class="cm">// see Epistemos/Views/* (Chat · Settings · Halo · ProvenanceConsole)</span>
+</div>
+  </div>
+
+  <div class="filepanel">
+    <div class="filepanel-head">
+      <span class="filepanel-dot r"></span>
+      <span class="filepanel-dot y"></span>
+      <span class="filepanel-dot g"></span>
+      <span class="filepanel-path">~/Epistemos · Epistemos/Views/Settings/ · the chip-strip honesty surface</span>
+    </div>
+<div class="filepanel-body"><span class="cm">// The chip strip is the WRV invariant made visible in two pills per row.</span>
+<span class="cm">// Flag pill = is the env-var / @AppStorage flag on or off.</span>
+<span class="cm">// Substrate pill = production · fixture · status-only · research-only.</span>
+
+<span class="kw">struct</span> <span class="ty">VerifiedFloorChipStrip</span>: <span class="ty">View</span> {
+  <span class="kw">let</span> <span class="id">flag</span>:           <span class="ty">String</span>   <span class="cm">// "on" · "off" · "n/a"</span>
+  <span class="kw">let</span> <span class="id">substrate</span>:      <span class="ty">String</span>   <span class="cm">// "production" · "fixture" · "status-only"</span>
+  <span class="kw">let</span> <span class="id">substrateTint</span>:  <span class="ty">Color</span>    <span class="cm">// .orange = stub  · .blue = research  · .green = real</span>
+}
+
+<span class="cm">// Mounted by 9 HealthRow widgets. After Phase 2 close: 0 cosmetic green-Xes.</span>
+</div>
+  </div>
+</section>
+
+<!-- ============ §5 Primitive inventory ============ -->
+<section>
+  <div class="section-head">
+    <div class="section-num">05</div>
+    <h2>Primitive inventory — every typed coordinate that lives in the substrate</h2>
+  </div>
+
+  <div class="legend">
+    <span class="pill ok"><span class="pdot"></span>Shipped</span>
+    <span class="pill partial"><span class="pdot"></span>Partial</span>
+    <span class="pill todo"><span class="pdot"></span>Not started</span>
+    <span class="pill gated"><span class="pdot"></span>Gated</span>
+    <span class="pill research"><span class="pdot"></span>Research / Tier 3</span>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Primitive</th><th>Where</th><th>Tier</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>UAS — unified address space</strong></td><td><code class="path">agent_core/src/uas</code></td><td>Tier 1</td><td><span class="pill partial"><span class="pdot"></span>Partial</span></td></tr>
+      <tr><td><strong>Lattice / WBO</strong> error ledger</td><td><code class="path">agent_core/src/lattice_wbo</code> · 305 tests</td><td>Tier 1</td><td><span class="pill ok"><span class="pdot"></span>Shipped</span></td></tr>
+      <tr><td><strong>EML-IR + sibling IRs</strong> (Tropical · Scan · Operator · Info · Geometry)</td><td><code class="path">agent_core/src/research/eml_ir</code> + 5 sibling crates</td><td>Tier 3</td><td><span class="pill research"><span class="pdot"></span>Research</span></td></tr>
+      <tr><td><strong>ACS Admission</strong></td><td><code class="path">agent_core/src/acs_admission</code></td><td>Tier 1</td><td><span class="pill ok"><span class="pdot"></span>Shipped (gate not yet installed)</span></td></tr>
+      <tr><td><strong>Eidos closed-citation</strong></td><td><code class="path">agent_core/src/eidos</code> · 217 tests</td><td>Tier 1</td><td><span class="pill partial"><span class="pdot"></span>Rust live, Swift bridge pending</span></td></tr>
+      <tr><td><strong>VaultRecall contract</strong> (T21)</td><td><code class="path">Epistemos/Sync/RRFFusionQuery.swift</code> + Vault Context Contract</td><td>Tier 1</td><td><span class="pill partial"><span class="pdot"></span>ChatCoordinator integration pending</span></td></tr>
+      <tr><td><strong>AnswerPacket</strong> emission + sink</td><td><code class="path">Epistemos/.../AnswerPacketEmitter</code></td><td>Tier 1</td><td><span class="pill ok"><span class="pdot"></span>Shipped (per-row badge = W-27)</span></td></tr>
+      <tr><td><strong>SCOPE-Rex</strong> (MutationEnvelope · WitnessedState · ClaimGraph · RunEventLog)</td><td><code class="path">agent_core/src/scope_rex</code></td><td>Tier 1</td><td><span class="pill ok"><span class="pdot"></span>Shipped</span></td></tr>
+      <tr><td><strong>Cognitive DAG</strong> (10 NodeKind · 10 EdgeKind)</td><td><code class="path">agent_core/src/cognitive_dag</code></td><td>Tier 1</td><td><span class="pill ok"><span class="pdot"></span>Phase 8.A-G shipped</span></td></tr>
+      <tr><td><strong>System G</strong> Swift seam</td><td><code class="path">Epistemos/SystemG/SystemGRunSeam.swift</code></td><td>Tier 1</td><td><span class="pill partial"><span class="pdot"></span>Stub seam; Real seam = Terminal C</span></td></tr>
+      <tr><td><strong>KV-Direct gate</strong> (zero-copy KV)</td><td><code class="path">agent_core/src/scope_rex/kv/direct_gate.rs</code> + <code class="path">.metal</code></td><td>Tier 1</td><td><span class="pill ok"><span class="pdot"></span>Shipped; harness pending</span></td></tr>
+      <tr><td><strong>5 V6.1 Metal kernels</strong> (PageGather · SemiseparableBlockScan · LocalRecallIsland · ControllerKernelPack · PacketRouter1bit)</td><td>V6.1 doctrine targets</td><td>Tier 3</td><td><span class="pill todo"><span class="pdot"></span>Target-only</span></td></tr>
+      <tr><td><strong>Provenance Console</strong></td><td><code class="path">Epistemos/Views/Console/ProvenanceConsoleView.swift</code></td><td>Tier 1</td><td><span class="pill ok"><span class="pdot"></span>Shipped</span></td></tr>
+      <tr><td><strong>Halo + Shadow index</strong> (tantivy 0.22 + usearch 2.24 HNSW + RRF k=60)</td><td><code class="path">epistemos-shadow</code> crate</td><td>Tier 1</td><td><span class="pill ok"><span class="pdot"></span>Shipped</span></td></tr>
+      <tr><td><strong>Biometric Lock</strong> (Touch ID per-entity gating)</td><td>T8 doctrine</td><td>Tier 1</td><td><span class="pill gated"><span class="pdot"></span>Gated on T1+T2+T6</span></td></tr>
+      <tr><td><strong>L_SE Self-Evolving Adapter</strong></td><td>T26 research</td><td>Tier 3</td><td><span class="pill gated"><span class="pdot"></span>Research-deferred</span></td></tr>
+      <tr><td><strong>XPC Mastery</strong> (5-service decomposition)</td><td>Doctrine</td><td>Tier 2</td><td><span class="pill gated"><span class="pdot"></span>Gated on paid Apple team</span></td></tr>
+      <tr><td><strong>Simulation Mode v1.6</strong> (Block · Sage · Orb body grammars + LocalAgent Snake)</td><td>simulation worktree</td><td>Tier 1</td><td><span class="pill partial"><span class="pdot"></span>UI shell ~50%</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============ §6 Theorem / Falsifier ledger ============ -->
+<section>
+  <div class="section-head">
+    <div class="section-num">06</div>
+    <h2>Theorem &amp; falsifier ledger — the verification plane</h2>
+  </div>
+
+  <p class="lede">Theorems are the targets. Falsifiers are the contracts that make a theorem either pass or visibly fail. The substrate ships with the contract written down, even when the gate isn’t yet runnable.</p>
+
+  <table>
+    <thead>
+      <tr><th>Falsifier</th><th>Owner / where</th><th>Acceptance</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>F-VaultRecall-50</strong></td><td>T4 vault</td><td>≥ 95% top-1 exact-title hit · ≥ 80% top-5 paraphrase · adversarial reject ≥ 95%</td><td><span class="pill todo"><span class="pdot"></span>Baseline shipped · run pending</span></td></tr>
+      <tr><td><strong>F-Eidos-Bridge-RoundTrip</strong></td><td>T10 / Terminal A</td><td>Real-vault round-trip: insert → retrieve → validate; forged citation rejected</td><td><span class="pill todo"><span class="pdot"></span>Pending Terminal A</span></td></tr>
+      <tr><td><strong>F-ACS-Anchor-Addressing</strong></td><td>T3 / Terminal E</td><td>Every claim resolves to AcsAnchor in O(1)</td><td><span class="pill todo"><span class="pdot"></span>Pending Terminal E</span></td></tr>
+      <tr><td><strong>F-UAS-CopyCount</strong> <em>(new)</em></td><td>Terminal G</td><td>0 tensor copies between Swift / Rust / Metal / MLX / KV / HNSW on hot path</td><td><span class="pill todo"><span class="pdot"></span>Pending Terminal G</span></td></tr>
+      <tr><td><strong>F-ACS-AnchorLookup</strong> <em>(new)</em></td><td>Terminal G</td><td>&lt; 1 μs avg lookup over 10k claims</td><td><span class="pill todo"><span class="pdot"></span>Pending Terminal G</span></td></tr>
+      <tr><td><strong>F-PageGather-M2Pro</strong></td><td>T3 page_gather</td><td>≥ 40% read-amplification reduction via sketch → residual → exact escalation</td><td><span class="pill todo"><span class="pdot"></span>Substrate shipped · harness pending</span></td></tr>
+      <tr><td><strong>F-UAS-ZeroCopy-Spine</strong></td><td>T3 / 5 paths</td><td>Embedding · logits · KV-metadata · graph-search · provenance — all zero-copy</td><td><span class="pill todo"><span class="pdot"></span>Pending Terminal F</span></td></tr>
+      <tr><td><strong>F-ULP-Oracle</strong></td><td>T12</td><td>max ULP ≤ 2 fp16 in [0.5, 2.0] over 412k+2k points in ≤ 90 s</td><td><span class="pill todo"><span class="pdot"></span>Substrate shipped · harness pending</span></td></tr>
+      <tr><td><strong>F-KV-Direct-Gate</strong></td><td>T13</td><td>Qwen 3 8B @ 128k · peak RAM ≤ 13 GB · D_KL/token ≤ 0.08 · decode ≥ 10 tok/s</td><td><span class="pill gated"><span class="pdot"></span>Gated on rig time</span></td></tr>
+      <tr><td><strong>F-70B-Local-Cocktail</strong></td><td>T23 research</td><td>Composition harness end-to-end · primary bottleneck identified</td><td><span class="pill research"><span class="pdot"></span>Research-tier</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============ §7 Deferred-work guarantee ============ -->
+<section>
+  <div class="section-head">
+    <div class="section-num">07</div>
+    <h2>The deferred-work guarantee — nothing the user has ever built is allowed to be lost</h2>
+  </div>
+
+  <p class="lede">
+    Across twenty-plus chat threads, the user produced theoretical research, doctrine docs, kernel sketches, and feature plans. Some of it ships today. Some of it is stubbed for tomorrow. Some of it is held as research-tier substrate. <strong>All of it is targeted</strong>. Every deferred item has a build window and an explicit re-promotion codeword.
+  </p>
+
+  <div class="promise">
+    <h4>The promise</h4>
+    <p>No deferred item ages out of memory. Every deferred item has a build target. Every deferred item has a re-promotion codeword. No deferred item gets reclassified to “dropped” without explicit user sign-off. Every <code>LEGENDARY</code> run produces a deferred-work delta report.</p>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Item</th><th>When/how it builds</th><th>Re-promotion codeword</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>D-01</code></td><td>T6 UI/UX polish (17-iter audit, a11y, audiophile chain)</td><td>Phase 3 UI refactor cycle</td><td>(user-initiated)</td></tr>
+      <tr><td><code>D-02</code></td><td>T8 Biometric Lock code (W-34…W-39)</td><td>When T1+T2+T6 land</td><td>(automatic gate)</td></tr>
+      <tr><td><code>D-03</code></td><td>XPC Mastery 5-service decomposition</td><td>When paid Apple Team available</td><td><code>RESUME XPC MASTERY</code></td></tr>
+      <tr><td><code>D-04</code></td><td>F-KV-Direct-Gate rig measurement</td><td>Terminal F</td><td>(Terminal F dispatch)</td></tr>
+      <tr><td><code>D-05</code></td><td>T20 Variant Ladder Generalization</td><td>Terminal C or side-task</td><td><code>RESUME T20</code></td></tr>
+      <tr><td><code>D-06</code></td><td>T26 L_SE Self-Evolving Adapter Lane</td><td>Research-tier sprint</td><td><code>RESUME L_SE RESEARCH</code></td></tr>
+      <tr><td><code>D-07</code></td><td>Schema-First GenUI Doctrine (G.1-G.6)</td><td>Phase 2.5</td><td>(every new UI component)</td></tr>
+      <tr><td><code>D-08</code></td><td>5 V6.1 Metal kernels</td><td>Phase 3 Research (Ceiling)</td><td>(Terminal F unlocks)</td></tr>
+      <tr><td><code>D-09</code></td><td>F-70B-Local-Cocktail composition study</td><td>Ceiling work</td><td><code>RESUME F-70B</code></td></tr>
+      <tr><td><code>D-10</code></td><td>Per-IR Lean proofs (28 sorries → 0)</td><td>Research-tier ongoing</td><td><code>RESUME LEAN PROOFS</code></td></tr>
+      <tr><td><code>D-11</code></td><td>Simulation Mode v1.7+ (custom-drawn body grammars + LoRA swap)</td><td>Phase 3 polish</td><td>(assets-only extraction)</td></tr>
+      <tr><td><code>D-12</code></td><td>Quick Capture Pro tools (action_bash · browser_* · apple_*)</td><td>When Pro release</td><td><code>RESUME PRO TOOLS</code></td></tr>
+      <tr><td><code>D-13</code></td><td>NightBrain 4 eligibility conditions + 6 NoOp task bodies</td><td>V1.x post-Floor</td><td>(user-initiated)</td></tr>
+      <tr><td><code>D-14</code></td><td>Custom local model</td><td>Post-v2.0 tag</td><td>(user-initiated)</td></tr>
+      <tr><td><code>D-15</code></td><td>T10B Eidos Form Layer (EidosKind 13 kinds + BLAKE3 IDs)</td><td>Terminal A sibling</td><td>(automatic)</td></tr>
+      <tr><td><code>D-16</code></td><td>T15 Executor Trait + MissionPacket + ExecutorEvent</td><td>Terminal C needs it</td><td>(automatic)</td></tr>
+      <tr><td><code>D-17</code></td><td>T16 Live File Compiler (10-state machine)</td><td>Phase 3</td><td><code>RESUME LIVE FILE COMPILER</code></td></tr>
+      <tr><td><code>D-18</code></td><td>T17 Cognitive Weight Class Enforcement (W1-W4)</td><td>Phase 2.5 side-task</td><td>(Terminal D demand)</td></tr>
+      <tr><td><code>D-19</code></td><td>T18 Residency Governor (full)</td><td>After T3 wiring complete</td><td>(automatic)</td></tr>
+      <tr><td><code>D-20</code></td><td>T19 Halo V1 + Eidos Control Vectors</td><td>Terminal A sibling</td><td>(automatic)</td></tr>
+      <tr><td><code>D-21</code></td><td>T24 Lean ClaimLedger Schema Authority</td><td>Research-tier</td><td><code>RESUME LEAN AUTHORITY</code></td></tr>
+      <tr><td><code>D-22</code></td><td>W-09 Scan-IR ↔ SemiseparableBlockScan</td><td>Terminal F sibling</td><td>(automatic)</td></tr>
+      <tr><td><code>D-23</code></td><td>W-18 EML confidence per-event timeline column</td><td>Terminal C / D crossover</td><td>(automatic)</td></tr>
+      <tr><td><code>D-24</code></td><td>W-30 Cognitive Weight badges</td><td>Terminal D side-task</td><td>(automatic)</td></tr>
+      <tr><td><code>D-25</code></td><td>W-31 Audio diagnostics panel</td><td>Audio QA cycle</td><td>(automatic)</td></tr>
+      <tr><td><code>D-26</code></td><td>W-51 omega-mcp Pro-tier capability gating</td><td>When Pro tools land (D-12)</td><td><code>RESUME PRO TOOLS</code></td></tr>
+    </tbody>
+  </table>
+
+  <p class="lede" style="margin-top:24px;">
+    Anything the user has ever researched but not yet built is also recorded — second-repo end-game material (<code>slice2_xpc/</code> · <code>epistenos/</code>) is preserved as Vault-tier under <code>docs/fusion/jordan's research/kimis deep research/</code>. The canon position is <strong>no fork</strong>: current repo becomes V2 once binary gates pass. If a fork ever happens, it forks from post-<code>v2.0</code> main, not from current state.
+  </p>
+</section>
+
+<!-- ============ §8 Honest boundaries ============ -->
+<section>
+  <div class="section-head">
+    <div class="section-num">08</div>
+    <h2>Honest boundaries — what this architecture does and does not claim</h2>
+  </div>
+
+  <div class="twocol">
+    <div>
+      <h3>Does claim</h3>
+      <ul>
+        <li>Local-first cognition with cloud as optional escalation, never silent fallback.</li>
+        <li>Closed-citation retrieval: an answer may not name a source the retrieval didn't return.</li>
+        <li>Zero-copy address space across Swift, Rust, Metal, MLX, KV, and HNSW on the hot path.</li>
+        <li>Every approximation pays into a Wyner-Ziv error ledger that is visible in Settings.</li>
+        <li>Every meaningful action is replayable from the RunEventLog alone.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Does not (yet) claim</h3>
+      <ul>
+        <li>Arbitrary live neuron control. The substrate is building active-support and circuit-adjacent routing — not direct neuron steering.</li>
+        <li>Tier-3 research-only paths in MAS. Research-tier kernels stay in <code>epistemos-research/</code> and never ship in the App Store build.</li>
+        <li>That MLX is the architecture. MLX is one runtime backend. The architecture is the address / retrieval / admission / witness substrate around any backend.</li>
+        <li>That deferred work is dropped work. Every deferred item is targeted (see §7).</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<footer class="footnote">
+  <p>
+    <strong>Cross-references.</strong>
+    Canon: <code>docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md</code>.
+    Chronicle: <code>docs/CANONICAL_CHRONICLE_2026_05_23.md</code>.
+    W-row backlog: <code>docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md</code>.
+    No-compromise audit: <code>docs/LEGENDARY_ARCHITECTURE_NO_COMPROMISE_AUDIT_2026_05_23.md</code>.
+    Phase 2 dispatch: <code>docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md</code>.
+    Deferred-work guarantee: <code>docs/DEFERRED_WORK_GUARANTEE_2026_05_23.md</code>.
+    Codeword: <code>docs/LEGENDARY_CODEWORD_2026_05_23.md</code>.
+  </p>
+  <p style="margin-top:14px;">
+    Verified Floor: <code>ac8c6d28</code>. Lock phrase: <em>“Five lanes, three tiers, seven-plus-three-plus-seven, one Monday.”</em>
+  </p>
+</footer>
+
+</div>
+</body>
+</html>
