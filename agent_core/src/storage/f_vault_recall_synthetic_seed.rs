@@ -1,0 +1,1269 @@
+//! Public synthetic-vault seeder for F-VaultRecall-50.
+//!
+//! Hand-crafted (path, content) pairs that satisfy every canonical
+//! fixture row's pass contract. Originally inline in
+//! `agent_core/tests/f_vault_recall_50.rs::seed_synthetic_vault_for_fixture`;
+//! lifted to a `pub` helper so the F' Round 2 falsifier harness
+//! (`agent_core/src/bin/falsify_vault_recall_50.rs`) can drive the same
+//! seeded vault without duplicating 1,200+ lines of fixture data.
+//!
+//! See:
+//! - `docs/falsifiers/F-VaultRecall-50_2026_05_17.md`
+//! - `docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md`
+
+use crate::storage::vault::{VaultBackend, VaultStore};
+
+/// Seed a temp `VaultStore` with content that satisfies every canonical
+/// F-VaultRecall-50 fixture row's pass contract. See module docs for
+/// the per-row authoring rules.
+pub async fn seed_canonical_synthetic_vault(store: &VaultStore) {
+    // Pairs of (path, content). Content authored so the same set of
+    // docs supports every canonical row's pass/fail expectations.
+    let seeds: &[(&str, &str)] = &[
+        // Rows 1 (ChattyPrefix) + 4 (Synthesis) — shared expected hit.
+        (
+            "MASTER_FUSION/3_2_residency_governor.md",
+            "residency governance tier compression governance residency tier compression",
+        ),
+        // Row 4 Synthesis second authoritative source.
+        (
+            "MASTER_FUSION/4_compression_tier_doctrine.md",
+            "tier compression governance doctrine compression tier governance tier",
+        ),
+        // Row 1 ChattyPrefix forbidden decoys — chatter-laden but no
+        // residency-governance signal terms.
+        ("ui/hermes_branding.md", "ui branding hermes design feel"),
+        ("ui/character_dna_specs.md", "character dna design specs visual"),
+        ("user_hardware.md", "user hardware specifications M2 Pro 16 GB"),
+        // Rows 2 (SignalOnly) + 5 (Paraphrase) — shared doc.
+        // Content has mamba/ssm/cache (Row 2 passes via AND-conjunction)
+        // but explicitly NOT "state-space-model" or "caching" (so
+        // Row 5's Paraphrase query fails the AND-conjunction — the
+        // doc has only "Mamba" out of the 3 query terms).
+        (
+            "notes/mamba_ssm_cache.md",
+            "mamba ssm cache mamba ssm cache architecture notes",
+        ),
+        // Row 2 SignalOnly forbidden — lexically distant doc.
+        (
+            "notes/generic_attention_overview.md",
+            "attention softmax overview generic transformer notes",
+        ),
+        // Row 3 Unicode expected — content with diacritics.
+        (
+            "notes/unicode_resume_filter.md",
+            "naïve résumé filter naïve résumé filter notes",
+        ),
+        // Row 3 Unicode forbidden — ASCII-only variant. Tantivy's
+        // default tokenizer keeps diacritics, so "naïve" ≠ "naive";
+        // the AND-conjunction must reject this doc.
+        (
+            "notes/ascii_only_resume.md",
+            "naive resume filter naive resume filter notes",
+        ),
+        // Row 6 (Adversarial) expected — contains all 4 query terms
+        // multiple times so BM25 ranks it #1 amid the partial-overlap
+        // decoys below.
+        (
+            "notes/design_system_hover_spec.md",
+            "design system hover specification design system hover \
+             specification hover specification design system",
+        ),
+        // Row 6 Adversarial decoys — each contains ONLY ONE of the 4
+        // query terms. BM25 should rank them well below the canonical
+        // doc, so `top_n = 1` cannot retain them.
+        (
+            "notes/old_hover_brainstorm.md",
+            "hover hover hover notes brainstorm scattered thoughts",
+        ),
+        (
+            "notes/ux_archive.md",
+            "design design archive notes old miscellaneous thoughts",
+        ),
+        (
+            "notes/system_overview.md",
+            "system system system overview general notes summary",
+        ),
+        // Row 7 (PureChatter) forbidden decoys — unrelated docs that
+        // share NO terms with the chatter-laden query "show me my notes
+        // please" (after the chatter strip + fallback, the raw query
+        // would OR-match any doc containing "show", "me", "my", "notes",
+        // or "please"; these decoys deliberately avoid those tokens so
+        // the runner's forbidden contract holds even on the noise path).
+        (
+            "notes/totally_unrelated_a.md",
+            "alpha beta gamma delta epsilon",
+        ),
+        (
+            "notes/totally_unrelated_b.md",
+            "lambda calculus combinator reduction",
+        ),
+        // Row 8 (exact-quote PhraseQuery) forbidden — contains both
+        // "residency" and "governance" but with three tokens between
+        // them, so PhraseQuery for `"residency governance"` must NOT
+        // match. The expected doc
+        // (MASTER_FUSION/3_2_residency_governor.md, already seeded
+        // above) carries the bigram at adjacent positions.
+        (
+            "notes/residency_scattered.md",
+            "residency tier compression governance notes scattered",
+        ),
+        // Row 9 (multilingual mixed-script) expected — Latin "Mamba"
+        // + CJK "缓存" with whitespace between so Tantivy's default
+        // tokenizer keeps them as distinct tokens.
+        (
+            "notes/mamba_chinese.md",
+            "Mamba 缓存 ssm 架构 notes Mamba 缓存",
+        ),
+        // Row 9 forbidden — same Latin token but no CJK token, so
+        // the AND-conjunction must reject this doc. Doubles as the
+        // iter-28 Cyrillic row's forbidden (no Cyrillic either).
+        (
+            "notes/mamba_english_only.md",
+            "Mamba ssm cache architecture notes English only",
+        ),
+        // Row 13 (Cyrillic multilingual) expected — Latin "Mamba"
+        // + Cyrillic "кэш" with whitespace between tokens.
+        (
+            "notes/mamba_cyrillic.md",
+            "Mamba кэш Mamba кэш architecture notes",
+        ),
+        // Row 16 (Arabic multilingual) expected — Latin "Mamba" +
+        // Arabic "كاش" (kash) with whitespace between tokens.
+        (
+            "notes/mamba_arabic.md",
+            "Mamba كاش Mamba كاش architecture notes",
+        ),
+        // Row 23 (pure-CJK) expected — two CJK tokens with whitespace
+        // between so they tokenize distinctly. 缓存 = cache, 架构 =
+        // architecture.
+        (
+            "notes/pure_chinese.md",
+            "缓存 架构 缓存 架构 笔记 notes",
+        ),
+        // Row 23 forbidden — Latin equivalent only; AND on CJK
+        // tokens cannot match.
+        (
+            "notes/latin_only_ssm.md",
+            "Mamba SSM cache architecture notes English equivalent",
+        ),
+        // Row 17 (single-term SignalOnly) expected — contains
+        // "Hamiltonian" multiple times so AND-on-one-token matches
+        // and BM25 ranks it high.
+        (
+            "notes/hamiltonian_dynamics.md",
+            "Hamiltonian mechanics dynamics Hamiltonian operator \
+             notes classical Hamiltonian",
+        ),
+        // Row 17 forbidden — mentions general physics but NOT
+        // "Hamiltonian" specifically; AND-on-one-token rejects it.
+        (
+            "notes/general_physics.md",
+            "physics general overview classical mechanics notes \
+             quantum thermodynamics",
+        ),
+        // Row 18 (3rd Adversarial — agent-runtime domain) canonical:
+        // contains all 4 of {agent, runtime, substrate, trace} multiple
+        // times so BM25 ranks it #1. Decoys each contain ONE.
+        (
+            "notes/agent_runtime_v2_substrate.md",
+            "agent runtime substrate trace agent runtime substrate \
+             trace System G Invader Agent canon agent runtime",
+        ),
+        // Iter-75 4th Synthesis pair-partner: a second canonical doc
+        // carrying all 3 of {agent, runtime, substrate} so the
+        // Synthesis pair-retention contract holds against the 3-term
+        // AND-conjunction. No "trace" — distinguishes it from the
+        // iter-43 Adversarial canonical above, but the Synthesis row's
+        // 3-term query is satisfied by both.
+        (
+            "notes/agent_runtime_substrate_v3.md",
+            "agent runtime substrate agent runtime substrate runtime \
+             substrate System G canon agent runtime substrate",
+        ),
+        (
+            "notes/agent_brainstorm.md",
+            "agent agent agent brainstorm scattered thoughts canon",
+        ),
+        (
+            "notes/runtime_old_design.md",
+            "runtime runtime runtime old design draft archived",
+        ),
+        (
+            "notes/substrate_concepts.md",
+            "substrate substrate substrate concepts overview general",
+        ),
+        // Row 19 (3rd Synthesis — hardware-falsifier domain): two
+        // canonical docs each carry all 3 of {hardware, floor,
+        // falsifier} so the AND-conjunction matches both for the
+        // pair-retention contract.
+        (
+            "notes/m2_pro_hardware_floor.md",
+            "hardware floor falsifier M2 Pro hardware floor M2 Pro \
+             16 GB UMA hardware floor falsifier handbook",
+        ),
+        (
+            "notes/falsifier_handbook.md",
+            "hardware floor falsifier handbook collection falsifier \
+             rules hardware floor falsifier methodology",
+        ),
+        // Row 11 (near-duplicate Synthesis): pair of near-identical
+        // docs. Both carry all 3 of {specific, design, pattern} with
+        // equal frequency so BM25 ranks them similarly; AND-conjunction
+        // returns both. Pass requires top-2 to retain both — pre-MMR
+        // baseline contract.
+        (
+            "notes/design_pattern_v1.md",
+            "specific design pattern with notes implementation specific \
+             design pattern details",
+        ),
+        (
+            "notes/design_pattern_v1_copy.md",
+            "specific design pattern with notes implementation revision \
+             specific design pattern details",
+        ),
+        // Row 13 (2nd Adversarial — graph/event domain): canonical doc
+        // carries all four query terms multiple times so BM25 ranks it
+        // #1; partial-overlap decoys each carry ONE term repeated.
+        (
+            "notes/canonical_graph_event_v3.md",
+            "graph node update event graph node update event session \
+             graph node update event log",
+        ),
+        (
+            "notes/graph_brainstorm.md",
+            "graph graph graph brainstorm thoughts scattered general",
+        ),
+        (
+            "notes/old_node_design.md",
+            "node node node old design draft archived",
+        ),
+        (
+            "notes/event_archive.md",
+            "event event event archive historical records summary",
+        ),
+        // Row 24 (4th Adversarial — storage/vault canon domain, iter-66):
+        // canonical doc carries all four of {vault, index, reload,
+        // tantivy} multiple times so BM25 ranks it #1; partial-overlap
+        // decoys each carry ONE term repeated. Pins the failure mode
+        // against substrate-canon vocabulary itself.
+        (
+            "notes/vault_index_reload_canon.md",
+            "vault index reload tantivy vault index reload tantivy \
+             VaultStore::reload_index Tantivy reader visibility vault \
+             index reload tantivy",
+        ),
+        (
+            "notes/vault_brainstorm.md",
+            "vault vault vault brainstorm scattered storage notes general",
+        ),
+        (
+            "notes/old_index_design.md",
+            "index index index old design draft archived structure",
+        ),
+        (
+            "notes/tantivy_misc_notes.md",
+            "tantivy tantivy tantivy miscellaneous notes overview general",
+        ),
+        // Iter-84 (5th Adversarial — BM25 saturation + length-norm axis):
+        // Canonical doc carries all 4 of {bm25, saturation, length,
+        // penalty} 2-3× each in a moderate-length body. With Tantivy's
+        // default BM25 (k1=1.2, b=0.75) the four saturated per-term
+        // contributions accumulate to outrank both the single-term
+        // partial-overlap decoys AND the long-stuffed decoy below.
+        (
+            "notes/bm25_saturation_length_penalty.md",
+            "bm25 saturation length penalty bm25 saturation length \
+             penalty bm25 saturation length penalty ranking ir search \
+             relevance scoring notes",
+        ),
+        // Load-bearing iter-84 decoy: a long doc that stuffs ONLY the
+        // term "saturation" 80× amid unrelated junk content. Under raw
+        // TF this would win (80 ≫ 3); under BM25's TF-saturation cap
+        // PLUS length-normalization (the doc is ~6-8× avgdl for this
+        // corpus) the contribution drops below the canonical's 4-term
+        // accumulated saturated score. This is the row's whole point.
+        (
+            "notes/saturation_stuffed_decoy.md",
+            "saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             saturation saturation saturation saturation saturation \
+             alpha beta gamma delta epsilon zeta eta theta iota kappa \
+             lambda mu nu xi omicron pi rho sigma tau upsilon phi chi \
+             psi omega lorem ipsum dolor sit amet consectetur adipiscing \
+             elit sed do eiusmod tempor incididunt ut labore et dolore \
+             magna aliqua enim ad minim veniam quis nostrud exercitation \
+             ullamco laboris nisi aliquip ex ea commodo consequat duis \
+             aute irure reprehenderit voluptate velit esse cillum fugiat \
+             nulla pariatur excepteur sint occaecat cupidatat non proident \
+             sunt culpa qui officia deserunt mollit anim id est laborum",
+        ),
+        // Iter-421: BM25 saturation edge with a long OR query and a
+        // terse canonical. Canonical carries all 8 query terms once.
+        (
+            "notes/bm25_rankedge_terse_corpus.md",
+            "rankedge terse corpus needle vector recall bm25 saturation",
+        ),
+        // Partial-overlap decoys stuff one or two terms. BM25 should
+        // prefer broad term coverage over raw repetition at top_n=1.
+        (
+            "notes/rankedge_stuffed_decoy.md",
+            "rankedge rankedge rankedge rankedge rankedge rankedge \
+             rankedge rankedge rankedge rankedge rankedge rankedge \
+             rankedge rankedge rankedge rankedge rankedge rankedge \
+             rankedge rankedge rankedge rankedge rankedge rankedge \
+             alpha beta gamma delta epsilon zeta eta theta",
+        ),
+        (
+            "notes/vector_recall_partial_decoy.md",
+            "vector recall vector recall vector recall vector recall \
+             vector recall vector recall archive partial overlap",
+        ),
+        (
+            "notes/needle_corpus_partial_decoy.md",
+            "needle corpus needle corpus needle corpus needle corpus \
+             needle corpus archive partial overlap",
+        ),
+        // Iter-84 single-term partial-overlap decoys — same shape as
+        // every prior Adversarial row's decoys. Each carries exactly
+        // ONE of the four query terms.
+        (
+            "notes/bm25_overview.md",
+            "bm25 bm25 bm25 overview general notes summary",
+        ),
+        (
+            "notes/length_archive.md",
+            "length length length archive historical notes records",
+        ),
+        (
+            "notes/penalty_misc_notes.md",
+            "penalty penalty penalty miscellaneous notes overview general",
+        ),
+        // Iter-85 (5th Synthesis — storage/tokenizer pair-retention):
+        // Both pair-partner docs carry all 3 of {tokenizer, indexing,
+        // tantivy} 2-3× each. AND-conjunction on the 3 terms returns
+        // exactly these two docs (every other seed in this vault has
+        // ≤ 1 of the three query tokens). Pre-MMR baseline: both copies
+        // retained in top-3.
+        (
+            "notes/tokenizer_indexing_tantivy_overview.md",
+            "tokenizer indexing tantivy tokenizer indexing tantivy \
+             SimpleTokenizer indexing pipeline overview tantivy",
+        ),
+        (
+            "notes/tokenizer_indexing_tantivy_internals.md",
+            "tokenizer indexing tantivy SimpleTokenizer NGramTokenizer \
+             indexing tantivy internals tokenizer term dictionary",
+        ),
+        // Iter-86 (5th Paraphrase — abbreviation/acronym axis):
+        // Canonical doc spells out "machine learning" in full; the
+        // iter-86 query uses the acronym "ml" instead. Lexical
+        // retrieval has no acronym dictionary so AND on
+        // {ml, inference, cache} blocks this doc — row FAILS by
+        // design, pinning Fix-C deferred acronym-expansion work.
+        (
+            "notes/machine_learning_inference_cache.md",
+            "machine learning inference cache machine learning \
+             inference cache architecture notes",
+        ),
+        // Iter-88 (2nd exact-quote PhraseQuery — design-system domain):
+        // forbidden decoy carries BOTH "design" and "system" but with
+        // intervening tokens so the PhraseQuery `"design system"`
+        // (adjacent bigram required) does NOT match. The expected doc
+        // (notes/design_system_hover_spec.md, already seeded for iter-15)
+        // carries the bigram adjacent.
+        (
+            "notes/design_general_system.md",
+            "design general overview system notes architecture",
+        ),
+        // Iter-89 (2nd near-duplicate Synthesis — compression-doctrine-
+        // canon domain): pair of near-identical docs each carry all 3
+        // of {compression, doctrine, canon} with equal frequency. AND-
+        // conjunction returns both; BM25 ranks them similarly. Pass
+        // requires top-2 to retain both — pre-MMR baseline contract,
+        // same shape as iter-24 in a 2nd domain. The 3 query tokens
+        // appear together in NO other seeded doc (compression +
+        // doctrine appear in MASTER_FUSION/4_compression_tier_doctrine
+        // but without "canon"; canon appears in agent-runtime seeds
+        // but without "compression" or "doctrine").
+        (
+            "notes/compression_doctrine_canon_v1.md",
+            "compression doctrine canon compression doctrine canon \
+             notes architecture details",
+        ),
+        (
+            "notes/compression_doctrine_canon_v2.md",
+            "compression doctrine canon compression doctrine canon \
+             notes architecture revised details",
+        ),
+        // Iter-91 (6th Adversarial — Apple Metal compute domain):
+        // Canonical doc carries all 4 of {metal, compute, shader,
+        // kernel} 2-3× each so BM25 ranks it #1 amid the 3 partial-
+        // overlap decoys below. Same shape as the 5 prior Adversarial
+        // rows.
+        (
+            "notes/metal_compute_shader_kernel.md",
+            "metal compute shader kernel metal compute shader kernel \
+             shader kernel metal compute pipeline notes",
+        ),
+        (
+            "notes/metal_archive.md",
+            "metal metal metal archive notes historical apple",
+        ),
+        (
+            "notes/compute_brainstorm.md",
+            "compute compute compute brainstorm scattered thoughts \
+             general",
+        ),
+        (
+            "notes/shader_misc_notes.md",
+            "shader shader shader miscellaneous notes overview general",
+        ),
+        // Iter-93 (6th Unicode — Greek-script extension): Latin
+        // "Mamba" + Greek "λ" (U+03BB lambda) + Latin "cache". Greek
+        // single-letter token is a distinct Unicode Letter so Tantivy's
+        // SimpleTokenizer keeps it. AND on {Mamba, λ, cache} matches
+        // this doc; the iter-9 forbidden seed (mamba_english_only.md)
+        // is blocked because it lacks the Greek codepoint.
+        (
+            "notes/mamba_greek_lambda.md",
+            "Mamba λ cache Mamba λ cache architecture notes greek",
+        ),
+        // Iter-95 (7th Synthesis — Metal pipeline pair-retention):
+        // Second pair-partner doc. iter-91's
+        // metal_compute_shader_kernel.md is the first pair-partner
+        // (it includes "pipeline" by design) — both contain all 3 of
+        // {metal, compute, pipeline}.
+        (
+            "notes/metal_compute_pipeline_v2.md",
+            "metal compute pipeline metal compute pipeline architecture \
+             variant notes",
+        ),
+        // Iter-100 (7th Adversarial — MLX-Swift inference domain):
+        // canonical carries all 4 of {mlx, swift, inference, backend}
+        // 2-3× each; 3 partial-overlap decoys each carry ONE term.
+        // Same shape as the 6 prior Adversarial rows.
+        (
+            "notes/mlx_swift_inference_backend.md",
+            "mlx swift inference backend mlx swift inference backend \
+             local model pipeline notes",
+        ),
+        (
+            "notes/mlx_archive.md",
+            "mlx mlx mlx archive notes historical apple silicon",
+        ),
+        (
+            "notes/swift_brainstorm.md",
+            "swift swift swift brainstorm thoughts scattered general",
+        ),
+        (
+            "notes/inference_misc_notes.md",
+            "inference inference inference miscellaneous notes overview",
+        ),
+        // Iter-101 (7th Unicode — Japanese-katakana extension):
+        // Latin "Mamba" + katakana "メモリ" (U+30E1 U+30E2 U+30EA,
+        // memory) + Latin "cache". Tantivy's SimpleTokenizer
+        // tokenizes whitespace-separated; the katakana sequence
+        // becomes one token distinct from Han ideographs (U+4E00–
+        // U+9FFF) and every other script.
+        (
+            "notes/mamba_japanese_katakana.md",
+            "Mamba メモリ cache Mamba メモリ cache architecture notes",
+        ),
+        // Iter-102 (3rd exact-quote PhraseQuery — storage/vault canon
+        // domain): forbidden decoy carries BOTH "vault" and "index"
+        // but with an intervening "general overview" so the
+        // PhraseQuery `"vault index"` (adjacent bigram required)
+        // does NOT match. The expected doc
+        // (notes/vault_index_reload_canon.md, seeded for iter-66)
+        // carries the bigram adjacent.
+        (
+            "notes/vault_general_index.md",
+            "vault general overview index notes archive",
+        ),
+        // Iter-422 exact-quote punctuation boundary: the expected
+        // document writes fusion-contract, which Tantivy tokenizes as
+        // adjacent fusion + contract. The decoy has both terms but
+        // with an intervening token, so PhraseQuery must reject it.
+        (
+            "notes/fusion_contract_punctuation.md",
+            "fusion-contract recall clause notes",
+        ),
+        (
+            "notes/fusion_general_contract.md",
+            "fusion general contract notes archive",
+        ),
+        // Iter-423 exact-quote underscore boundary: the expected
+        // document writes graph_recall, which Tantivy tokenizes as
+        // adjacent graph + recall. The decoy has both terms but with
+        // an intervening token, so PhraseQuery must reject it.
+        (
+            "notes/graph_recall_underscore.md",
+            "graph_recall phrase boundary notes",
+        ),
+        (
+            "notes/graph_general_recall.md",
+            "graph general recall notes archive",
+        ),
+        // Iter-424 exact-quote slash boundary: the expected document
+        // writes quartz/ledger, which Tantivy tokenizes as adjacent
+        // quartz + ledger. The decoy has both terms but with an
+        // intervening token, so PhraseQuery must reject it.
+        (
+            "notes/quartz_ledger_slash.md",
+            "quartz/ledger phrase boundary notes",
+        ),
+        (
+            "notes/quartz_general_ledger.md",
+            "quartz general ledger notes archive",
+        ),
+        // Iter-425 exact-quote colon boundary: the expected document
+        // writes zephyr:beacon, which Tantivy tokenizes as adjacent
+        // zephyr + beacon. The decoy has both terms but with an
+        // intervening token, so PhraseQuery must reject it.
+        (
+            "notes/zephyr_beacon_colon.md",
+            "zephyr:beacon phrase boundary notes",
+        ),
+        (
+            "notes/zephyr_general_beacon.md",
+            "zephyr general beacon notes archive",
+        ),
+        // Iter-108 (3rd near-duplicate Synthesis — neural-cache-layer
+        // domain): pair of near-identical docs each carry all 3 of
+        // {neural, cache, layer} with equal frequency. AND-
+        // conjunction matches both; BM25 ranks them similarly. The
+        // 3 query tokens appear together in NO other seeded doc
+        // (mamba_ssm_cache has "cache" but no neural/layer; every
+        // other seed lacks 2+ of the 3 terms). Pre-MMR baseline:
+        // top-2 retains both copies.
+        (
+            "notes/neural_cache_layer_v1.md",
+            "neural cache layer neural cache layer architecture \
+             notes details",
+        ),
+        (
+            "notes/neural_cache_layer_v2.md",
+            "neural cache layer neural cache layer architecture \
+             notes revised details",
+        ),
+        // Iter-109 (8th Unicode — Hebrew-script extension): Latin
+        // "Mamba" + Hebrew "ש" (shin, U+05E9) + Latin "cache". Six
+        // non-Latin scripts now: CJK + Cyrillic + Arabic + Greek +
+        // Japanese-katakana + Hebrew.
+        (
+            "notes/mamba_hebrew.md",
+            "Mamba ש cache Mamba ש cache architecture notes hebrew",
+        ),
+        // Iter-117 (9th Unicode — Devanagari-script extension): Latin
+        // "Mamba" + Devanagari "कैश" (kaish, "cache" in Hindi; U+0915
+        // U+0948 U+0936) + Latin "cache". The Devanagari token uses
+        // a vowel-mark cluster (matras); SimpleTokenizer keeps it
+        // as a single whitespace-separated token. Seven non-Latin
+        // scripts pinned (+ Devanagari).
+        (
+            "notes/mamba_devanagari.md",
+            "Mamba कैश cache Mamba कैश cache architecture notes hindi",
+        ),
+        // Iter-123 (10th Unicode — Thai-script extension): Latin
+        // "Mamba" + Thai "แคช" (kæch, "cache"; U+0E41 U+0E04 U+0E0A)
+        // + Latin "cache". Thai grapheme cluster with above-base
+        // and pre-base vowel marks; SimpleTokenizer keeps cluster
+        // as single token. Eight non-Latin scripts pinned (+ Thai).
+        (
+            "notes/mamba_thai.md",
+            "Mamba แคช cache Mamba แคช cache architecture notes thai",
+        ),
+        // Iter-129 (11th Unicode — Korean Hangul extension): Latin
+        // "Mamba" + Hangul "캐시" (kaesi, "cache"; U+CE90 U+C2DC)
+        // + Latin "cache". Hangul syllabic blocks are precomposed
+        // — SimpleTokenizer keeps them as single tokens. Nine
+        // non-Latin scripts pinned (+ Korean-Hangul).
+        (
+            "notes/mamba_korean.md",
+            "Mamba 캐시 cache Mamba 캐시 cache architecture notes korean",
+        ),
+        // Iter-138 (12th Unicode — Armenian-script extension): Latin
+        // "Mamba" + Armenian "կեշ" (kesh, "cache"; U+053D U+0565 U+0577)
+        // + Latin "cache". Armenian is its own Indo-European letter-
+        // block, distinct from Latin/Greek/Cyrillic. Ten non-Latin
+        // scripts pinned (+ Armenian).
+        (
+            "notes/mamba_armenian.md",
+            "Mamba կեշ cache Mamba կեշ cache architecture notes armenian",
+        ),
+        // Iter-141 (13th Unicode — Georgian-script extension): Latin
+        // "Mamba" + Georgian "ქეში" (k'eshi, "cache"; U+10E5 U+10D4
+        // U+10E8 U+10D8) + Latin "cache". Georgian Mkhedruli is its
+        // own LTR alphabet. Eleven non-Latin scripts pinned (+
+        // Georgian).
+        (
+            "notes/mamba_georgian.md",
+            "Mamba ქეში cache Mamba ქეში cache architecture notes georgian",
+        ),
+        // Iter-153 (14th Unicode — Ethiopic-script extension): Latin
+        // "Mamba" + Ethiopic "ካሽ" (kash, "cache"; U+12AB U+1238)
+        // + Latin "cache". Ethiopic abugida glyphs encode both
+        // consonant and vowel. Twelve non-Latin scripts pinned
+        // (+ Ethiopic).
+        (
+            "notes/mamba_ethiopic.md",
+            "Mamba ካሽ cache Mamba ካሽ cache architecture notes ethiopic",
+        ),
+        // Iter-158 (15th Unicode — Khmer-script extension): Latin
+        // "Mamba" + Khmer "ខែ" (khae, U+1781 U+17C1) + Latin
+        // "cache". Khmer is a Brahmic abugida. Thirteen non-
+        // Latin scripts pinned (+ Khmer).
+        (
+            "notes/mamba_khmer.md",
+            "Mamba ខែ cache Mamba ខែ cache architecture notes khmer",
+        ),
+        // Iter-167 (16th Unicode — Tibetan-script extension): Latin
+        // "Mamba" + Tibetan "ཀེ" (ke, U+0F40 U+0F7A) + Latin
+        // "cache". Tibetan is a Brahmic abugida with stacked
+        // consonants. Fourteen non-Latin scripts pinned (+ Tibetan).
+        (
+            "notes/mamba_tibetan.md",
+            "Mamba ཀེ cache Mamba ཀེ cache architecture notes tibetan",
+        ),
+        // Iter-176 (17th Unicode — Lao-script extension): Latin
+        // "Mamba" + Lao "ແຄ" (kae, U+0EC1 U+0E84) + Latin "cache".
+        // Lao is a Brahmic abugida, sibling to Thai. Fifteen non-
+        // Latin scripts pinned (+ Lao).
+        (
+            "notes/mamba_lao.md",
+            "Mamba ແຄ cache Mamba ແຄ cache architecture notes lao",
+        ),
+        // Iter-179 (18th Unicode — Myanmar-script extension): Latin
+        // "Mamba" + Myanmar "က" (ka, U+1000) + Latin "cache".
+        // Myanmar is a Brahmic abugida. Sixteen non-Latin scripts
+        // pinned (+ Myanmar).
+        (
+            "notes/mamba_myanmar.md",
+            "Mamba က cache Mamba က cache architecture notes myanmar",
+        ),
+        // Iter-191 (19th Unicode — Cherokee-script extension): Latin
+        // "Mamba" + Cherokee "Ꭽ" (ga, U+13BD) + Latin "cache".
+        // Cherokee is a 19th-century syllabary. Seventeen non-Latin
+        // scripts pinned (+ Cherokee).
+        (
+            "notes/mamba_cherokee.md",
+            "Mamba Ꭽ cache Mamba Ꭽ cache architecture notes cherokee",
+        ),
+        // Iter-198 (20th Unicode — Mongolian-script extension): Latin
+        // "Mamba" + Mongolian "ᠺ" (kha, U+183A) + Latin "cache".
+        // Mongolian script descends from Old Uyghur → Sogdian →
+        // Aramaic (a distinct branch from Latin/Greek/Cyrillic and
+        // every Brahmic abugida). Alphabetic, traditionally vertical.
+        // Eighteen non-Latin scripts pinned (+ Mongolian).
+        (
+            "notes/mamba_mongolian.md",
+            "Mamba ᠺ cache Mamba ᠺ cache architecture notes mongolian",
+        ),
+        // Iter-206 (21st Unicode — Syriac-script extension): Latin
+        // "Mamba" + Syriac "ܟ" (kaph, U+071F) + Latin "cache".
+        // Syriac descends from Aramaic and is the SISTER of Arabic
+        // (both Aramaic-derived). Pins the Aramaic-family second
+        // branch alongside Mongolian (Aramaic-via-Sogdian-Uyghur).
+        // Nineteen non-Latin scripts pinned (+ Syriac).
+        (
+            "notes/mamba_syriac.md",
+            "Mamba ܟ cache Mamba ܟ cache architecture notes syriac",
+        ),
+        // Iter-213 (22nd Unicode — Tifinagh-script extension):
+        // Latin "Mamba" + Tifinagh "ⴽ" (yak, U+2D3D) + Latin
+        // "cache". Tifinagh is the alphabetic script for Berber
+        // languages (North Africa). Pre-Punic origins; modern
+        // revival as Neo-Tifinagh codified in Unicode 4.1. A
+        // distinct script-family from every prior script
+        // (Latin/Greek/Cyrillic; CJK; Arabic family; Aramaic
+        // family; Brahmic; African Ethiopic; modern syllabaries
+        // Hangul/Katakana/Cherokee; Georgian; Armenian). Twenty
+        // non-Latin scripts pinned (+ Tifinagh).
+        (
+            "notes/mamba_tifinagh.md",
+            "Mamba ⴽ cache Mamba ⴽ cache architecture notes tifinagh",
+        ),
+        // Iter-220 (23rd Unicode — Vai-script extension): Latin
+        // "Mamba" + Vai "ꕞ" (U+A55E) + Latin "cache". Vai is
+        // a West African syllabary devised by Mɔmɔlu Duwalu
+        // Bukɛlɛ ca. 1830s for the Vai language (Liberia/Sierra
+        // Leone). A 19th-century indigenous African syllabary,
+        // contemporary with Cherokee. Twenty-one non-Latin scripts
+        // pinned (+ Vai). Brings the indigenous-syllabary count
+        // to 4 (Cherokee + Vai + Japanese-katakana + Korean-
+        // Hangul) and the African-origin script count to 3
+        // (Ethiopic + Tifinagh + Vai).
+        (
+            "notes/mamba_vai.md",
+            "Mamba ꕞ cache Mamba ꕞ cache architecture notes vai",
+        ),
+        // Iter-227 (24th Unicode — Bopomofo-script extension):
+        // Latin "Mamba" + Bopomofo "ㄎ" (k, U+310E) + Latin
+        // "cache". Bopomofo (Zhuyin Fuhao) is the Mandarin
+        // phonetic script — developed early-20th-century to
+        // teach pronunciation independent of Han Ideographs.
+        // Distinct from CJK Han Ideograph block (U+4E00–U+9FFF)
+        // — both Chinese-related but Bopomofo is a phonetic
+        // alphabet, not ideographic. Adds a SECOND East-Asian
+        // script-block beyond Han. Twenty-two non-Latin scripts
+        // pinned (+ Bopomofo).
+        (
+            "notes/mamba_bopomofo.md",
+            "Mamba ㄎ cache Mamba ㄎ cache architecture notes bopomofo",
+        ),
+        // Iter-235 (25th Unicode — Yi-script extension): Latin
+        // "Mamba" + Yi "ꀀ" (it, U+A000) + Latin "cache". Yi is
+        // the modern syllabary for the Yi/Nuosu language family
+        // (SW China). Distinct from Han Ideograph and Bopomofo:
+        // Yi is syllabic — third East-Asian script-block by
+        // typology (ideographic + phonetic-alphabet + syllabary).
+        // Twenty-three non-Latin scripts pinned (+ Yi). Brings
+        // East-Asian script-block count to 3 (Han + Bopomofo +
+        // Yi) — three distinct typologies in one regional area.
+        (
+            "notes/mamba_yi.md",
+            "Mamba ꀀ cache Mamba ꀀ cache architecture notes yi",
+        ),
+        // Iter-242 (26th Unicode — N'Ko-script extension): Latin
+        // "Mamba" + N'Ko "ߞ" (ka, U+07DE) + Latin "cache".
+        // N'Ko is a 1949-invented alphabet for Manding languages
+        // (Mande family, West Africa), RTL — distinct from Vai
+        // syllabary, Tifinagh Berber alphabet, and Ethiopic
+        // abugida. Twenty-four non-Latin scripts pinned (+ N'Ko).
+        // Brings African-origin script count to 4 (Ethiopic
+        // abugida + Tifinagh alphabet + Vai syllabary + N'Ko
+        // RTL-alphabet) — four distinct African writing-system
+        // types. SECOND RTL script in the pin set after Arabic +
+        // Syriac (Arabic-family), and FIRST RTL outside the
+        // Aramaic family.
+        (
+            "notes/mamba_nko.md",
+            "Mamba ߞ cache Mamba ߞ cache architecture notes nko",
+        ),
+        // Iter-249 (27th Unicode — Glagolitic-script extension):
+        // Latin "Mamba" + Glagolitic "ⰽ" (kako, U+2C2D) + Latin
+        // "cache". Glagolitic is the oldest Slavic alphabet,
+        // attributed to Saints Cyril and Methodius (9th century),
+        // predating Cyrillic itself. Distinct historical Slavic
+        // script — same language community (Slavic) as Cyrillic
+        // but different writing system. Adds a SECOND Slavic
+        // script-block alongside Cyrillic. Twenty-five non-Latin
+        // scripts pinned (+ Glagolitic). Parallels the
+        // Han+Bopomofo+Yi pattern (3 East-Asian script-blocks
+        // for one language community) — here adds a 2nd Slavic
+        // script-block to one community.
+        (
+            "notes/mamba_glagolitic.md",
+            "Mamba ⰽ cache Mamba ⰽ cache architecture notes glagolitic",
+        ),
+        // Iter-257 (28th Unicode — Runic-script extension): Latin
+        // "Mamba" + Runic "ᚲ" (kauna, U+16B2) + Latin "cache".
+        // Runic is the historical Germanic script (Elder Futhark
+        // attested ca. 150-800 CE; Younger Futhark 800-1100 CE).
+        // Distinct from every prior script — first historical
+        // Germanic script in the pin set. Twenty-six non-Latin
+        // scripts pinned (+ Runic). Adds an archaic-period
+        // script to the no-script-fold contract, proving the
+        // contract holds across ancient + modern script-blocks.
+        (
+            "notes/mamba_runic.md",
+            "Mamba ᚲ cache Mamba ᚲ cache architecture notes runic",
+        ),
+        // Iter-264 (29th Unicode — Ogham-script extension): Latin
+        // "Mamba" + Ogham "ᚅ" (nion, U+1685) + Latin "cache".
+        // Ogham is the Old Irish script (attested 4th-9th
+        // century CE), characterized by stem-line incisions.
+        // Adds a SECOND historical script-block alongside Runic
+        // (both ancient European scripts). Twenty-seven non-
+        // Latin scripts pinned (+ Ogham). Two historical
+        // European scripts (Runic Germanic + Ogham Celtic)
+        // bracket the ancient-European-language community at
+        // both eastern and western edges.
+        (
+            "notes/mamba_ogham.md",
+            "Mamba ᚅ cache Mamba ᚅ cache architecture notes ogham",
+        ),
+        // Iter-271 (30th Unicode — Sinhala-script extension):
+        // Latin "Mamba" + Sinhala "ක" (ka, U+0D9A) + Latin
+        // "cache". Sinhala is the Brahmic abugida for the
+        // Sinhala language (Sri Lanka). SEVENTH Brahmic abugida
+        // in the pin set (Devanagari + Thai + Khmer + Tibetan +
+        // Lao + Myanmar + Sinhala). Twenty-eight non-Latin
+        // scripts pinned (+ Sinhala). The Brahmic family alone
+        // now covers seven distinct descendant scripts.
+        (
+            "notes/mamba_sinhala.md",
+            "Mamba ක cache Mamba ක cache architecture notes sinhala",
+        ),
+        // Iter-279 (31st Unicode — Coptic-script extension):
+        // Latin "Mamba" + Coptic "ⲕ" (kapa, U+2CB1) + Latin
+        // "cache". Coptic descends from the Greek alphabet —
+        // used historically for the Egyptian language during
+        // the Christian era. Adds the Greek-descendant branch
+        // to the pin set (Coptic + Latin Latin-with-marks +
+        // Cyrillic + Glagolitic are all Greek-influenced or
+        // Greek-derived). Twenty-nine non-Latin scripts pinned
+        // (+ Coptic). Adds a SECOND African-origin language
+        // community via a non-African-typology script: Egyptian
+        // Christian use of Greek-derived Coptic, contrasting
+        // with iter-153 Ethiopic abugida and iter-213 Tifinagh.
+        (
+            "notes/mamba_coptic.md",
+            "Mamba ⲕ cache Mamba ⲕ cache architecture notes coptic",
+        ),
+        // Iter-286 (32nd Unicode — Phoenician-script extension):
+        // Latin "Mamba" + Phoenician "𐤊" (kap, U+1090A) + Latin
+        // "cache". Phoenician is the COMMON ANCESTOR of Greek,
+        // Aramaic, and many other alphabet families (ca. 1050
+        // BCE). Adds the ancestral root to the pin set: now
+        // demonstrates no-script-fold across the COMPLETE
+        // genealogical depth (ancestor + descendant branches:
+        // Phoenician → Greek → Coptic + Cyrillic + Glagolitic;
+        // Phoenician → Aramaic → Hebrew + Syriac + Arabic +
+        // Mongolian). Thirty non-Latin scripts pinned
+        // (+ Phoenician). Uses a 4-byte UTF-16 Supplementary
+        // Multilingual Plane (SMP) codepoint — first SMP-plane
+        // script in the pin set.
+        (
+            "notes/mamba_phoenician.md",
+            "Mamba 𐤊 cache Mamba 𐤊 cache architecture notes phoenician",
+        ),
+        // Iter-293 (33rd Unicode — Old Italic-script extension):
+        // Latin "Mamba" + Old Italic "𐌊" (ka, U+1030A) + Latin
+        // "cache". Old Italic is the ancestor of the Latin
+        // alphabet (used for Etruscan, Oscan, Faliscan ca.
+        // 700-100 BCE). Adds a SECOND SMP-plane codepoint and
+        // — pivotally — the DIRECT ANCESTOR of Latin (which
+        // serves as the fixture's anchor script). The no-
+        // script-fold contract now demonstrably holds against
+        // the genealogical ancestor of the script everything
+        // else is anchored to. Thirty-one non-Latin scripts
+        // pinned (+ Old Italic).
+        (
+            "notes/mamba_old_italic.md",
+            "Mamba 𐌊 cache Mamba 𐌊 cache architecture notes old_italic",
+        ),
+        // Iter-301 (34th Unicode — Brahmi-script extension):
+        // Latin "Mamba" + Brahmi "𑀓" (ka, U+11013) + Latin
+        // "cache". Brahmi (ca. 3rd century BCE - 4th CE) is the
+        // COMMON ANCESTOR of the entire Brahmic family — the 7
+        // Brahmic descendants already pinned (Devanagari + Thai +
+        // Khmer + Tibetan + Lao + Myanmar + Sinhala) all
+        // descend from Brahmi. Adds the THIRD ancestral script
+        // alongside Phoenician (Greek + Aramaic branches) and
+        // Old Italic (Latin branch). Third SMP-plane codepoint
+        // (U+11013 > U+FFFF). Thirty-two non-Latin scripts
+        // pinned (+ Brahmi).
+        (
+            "notes/mamba_brahmi.md",
+            "Mamba 𑀓 cache Mamba 𑀓 cache architecture notes brahmi",
+        ),
+        // Iter-308 (35th Unicode — Egyptian Hieroglyph extension):
+        // Latin "Mamba" + Egyptian Hieroglyph "𓀀" (A001 seated
+        // man, U+13000) + Latin "cache". Egyptian hieroglyphs
+        // (ca. 3200 BCE - 400 CE) — the oldest writing system in
+        // the pin set, predating Phoenician (1050 BCE) by 2+
+        // millennia. Ideographic typology distinct from the
+        // alphabetic ancestor scripts (Phoenician/Old Italic/
+        // Brahmi). FOURTH SMP-plane codepoint. Thirty-three non-
+        // Latin scripts pinned (+ Egyptian Hieroglyphs).
+        (
+            "notes/mamba_egyptian.md",
+            "Mamba 𓀀 cache Mamba 𓀀 cache architecture notes egyptian",
+        ),
+        // Iter-315 (36th Unicode — Cuneiform extension): Latin
+        // "Mamba" + Cuneiform "𒀀" (sign A, U+12000) + Latin
+        // "cache". Cuneiform (ca. 3200 BCE - 75 CE) is the
+        // OLDEST writing system jointly with Egyptian Hieroglyphs
+        // — used for Sumerian, Akkadian, Hittite. Logosyllabic
+        // typology (mixed logograms + syllabic signs). FIFTH
+        // SMP-plane codepoint. Thirty-four non-Latin scripts
+        // pinned (+ Cuneiform). Together with Egyptian
+        // Hieroglyphs the pin set now covers BOTH parallel
+        // origin points of writing (Mesopotamia + Egypt, both
+        // emerged independently ~3200 BCE).
+        (
+            "notes/mamba_cuneiform.md",
+            "Mamba 𒀀 cache Mamba 𒀀 cache architecture notes cuneiform",
+        ),
+        // Iter-322 (37th Unicode — Linear B extension): Latin
+        // "Mamba" + Linear B "𐀀" (a, U+10000) + Latin "cache".
+        // Linear B (ca. 1450–1100 BCE) is the syllabary used
+        // for Mycenaean Greek — the oldest deciphered script
+        // for any form of Greek, predating the Greek alphabet
+        // (which descended from Phoenician ca. 800 BCE) by
+        // ~600 years. Syllabic typology (~89 syllabograms +
+        // logograms). SIXTH SMP-plane codepoint. Thirty-five
+        // non-Latin scripts pinned (+ Linear B). Extends the
+        // ancient-script coverage past 3 millennia BCE: pin
+        // set now covers parallel writing-system origins in
+        // Mesopotamia (Cuneiform ~3200 BCE), Egypt (Hieroglyphs
+        // ~3200 BCE), Mediterranean (Linear B ~1450 BCE +
+        // Phoenician ~1050 BCE), Italy (Old Italic ~700 BCE),
+        // and India (Brahmi ~300 BCE).
+        (
+            "notes/mamba_linear_b.md",
+            "Mamba 𐀀 cache Mamba 𐀀 cache architecture notes linear_b",
+        ),
+        // Iter-329 (38th Unicode — Imperial Aramaic extension):
+        // Latin "Mamba" + Imperial Aramaic "𐡀" (aleph, U+10840)
+        // + Latin "cache". Imperial Aramaic (ca. 700 BCE) was
+        // the formal documentation script of the Achaemenid
+        // Persian Empire — the lingua-franca writing system
+        // across the ancient Near East from Egypt to India.
+        // SEVENTH SMP-plane codepoint. Thirty-six non-Latin
+        // scripts pinned (+ Imperial Aramaic). Imperial Aramaic
+        // is the direct ANCESTOR of multiple descendant scripts
+        // already pinned: Hebrew (Aramaic square script),
+        // Syriac, Arabic, Mongolian (via Sogdian → Uyghur).
+        // Pins the Aramaic-family ancestor alongside Phoenician
+        // (sibling Northwest-Semitic root) — the pin set now
+        // contains both major Northwest-Semitic ancestral
+        // scripts and their convergent descendant branches.
+        (
+            "notes/mamba_imperial_aramaic.md",
+            "Mamba 𐡀 cache Mamba 𐡀 cache architecture notes imperial_aramaic",
+        ),
+        // Iter-336 (39th Unicode — Adlam extension): Latin
+        // "Mamba" + Adlam "𞤀" (capital alif, U+1E900) + Latin
+        // "cache". Adlam (1989) is a modern script invented by
+        // brothers Ibrahima and Abdoulaye Barry for the Fula
+        // language of West Africa (Guinea, Senegal, Mali,
+        // Nigeria). Bicameral alphabetic — distinct typology
+        // from the Tifinagh consonantal abjad already pinned
+        // (iter-213). SECOND modern single-inventor African
+        // script (after Vai-Bukɛlɛ 1830s and N'Ko-Kanté 1949).
+        // Demonstrates the no-script-fold contract on the
+        // YOUNGEST writing system in the pin set (37 years
+        // old at session date 2026). EIGHTH SMP-plane
+        // codepoint. Thirty-seven non-Latin scripts pinned
+        // (+ Adlam). Pin set now spans 5,200 years of writing
+        // history (Cuneiform ~3200 BCE → Adlam 1989 CE).
+        (
+            "notes/mamba_adlam.md",
+            "Mamba 𞤀 cache Mamba 𞤀 cache architecture notes adlam",
+        ),
+        // Iter-343 (40th Unicode — Canadian Aboriginal Syllabics
+        // extension): Latin "Mamba" + UCAS "ᐱ" (Cree pi,
+        // U+1431) + Latin "cache". Canadian Aboriginal
+        // Syllabics (UCAS, 1840) is a featural-syllabic script
+        // invented by Methodist missionary James Evans for the
+        // Cree language. Adapted to ~15 First Nations languages
+        // (Cree, Ojibwe, Inuktitut, Naskapi, Carrier, etc.).
+        // SECOND Indigenous American script in the pin set
+        // (after Cherokee iter-191) — fills the geographic gap
+        // between Sequoyah's Cherokee (1819, Southeast US) and
+        // Adlam (1989, West Africa). Featural typology (glyph
+        // orientation encodes vowel) is unique — neither pure
+        // syllabic (like Cherokee/Vai) nor alphabetic.
+        // Demonstrates a fourth typology in the modern-
+        // invented-script cluster. Thirty-eight non-Latin
+        // scripts pinned (+ UCAS).
+        (
+            "notes/mamba_ucas.md",
+            "Mamba ᐱ cache Mamba ᐱ cache architecture notes ucas",
+        ),
+        // Iter-351 (41st Unicode — Avestan extension): Latin
+        // "Mamba" + Avestan "𐬀" (letter a, U+10B00) + Latin
+        // "cache". Avestan (ca. 4th-7th c CE) is the
+        // liturgical script created specifically for writing
+        // the Avesta, the sacred texts of Zoroastrianism. 53
+        // letters; descends from Pahlavi (Middle Persian)
+        // script which itself descends from Aramaic via the
+        // Imperial Aramaic chancellery script. NINTH SMP-plane
+        // codepoint. THIRD Aramaic-descendant in the pin set
+        // (after Syriac iter-206 + Mongolian iter-198) — Avestan
+        // adds the LITURGICAL branch of the Aramaic genealogy
+        // (sacred-text-specific creation, distinct from Syriac
+        // = direct-evolution and Mongolian = Sogdian-Uyghur-
+        // mediated). Together with iter-329 Imperial Aramaic
+        // ancestor pin, the Unicode plane now pins four
+        // Aramaic-family nodes spanning ancestor + 3 distinct
+        // descendant branches. Thirty-nine non-Latin scripts
+        // pinned (+ Avestan).
+        (
+            "notes/mamba_avestan.md",
+            "Mamba 𐬀 cache Mamba 𐬀 cache architecture notes avestan",
+        ),
+        // Iter-358 (42nd Unicode — Linear A extension): Latin
+        // "Mamba" + Linear A "𐘀" (sign A, U+10600) + Latin
+        // "cache". Linear A (ca. 1800-1450 BCE) is the
+        // UNDECIPHERED Minoan script — the parent (or older
+        // sibling) of Linear B (already pinned iter-322).
+        // Both are Aegean scripts; Linear B was adapted from
+        // Linear A for Mycenaean Greek. Pin set now contains
+        // BOTH halves of the Aegean script pair: deciphered
+        // descendant (Linear B) + undeciphered ancestor
+        // (Linear A). TENTH SMP-plane codepoint. FIRST
+        // undeciphered script in the pin set — demonstrates
+        // the no-script-fold contract on a writing system that
+        // has NO known phonetic or semantic value mapping
+        // (Tantivy treats Linear A codepoints purely as
+        // tokenization units, agnostic to whether they map to
+        // any known language). Forty non-Latin scripts pinned
+        // (+ Linear A).
+        (
+            "notes/mamba_linear_a.md",
+            "Mamba 𐘀 cache Mamba 𐘀 cache architecture notes linear_a",
+        ),
+        // Iter-365 (43rd Unicode — Osmanya extension): Latin
+        // "Mamba" + Osmanya "𐒀" (letter alif, U+10480) + Latin
+        // "cache". Osmanya (1920s) is a modern script invented
+        // by Osman Yusuf Kenadid for the Somali language. It
+        // was used as the official Somali script briefly
+        // (1972) before Latin script was adopted. ELEVENTH
+        // SMP-plane codepoint. THIRD modern single-inventor
+        // African script in the pin set (after Vai-Bukɛlɛ
+        // 1830s, N'Ko-Kanté 1949, Adlam-Barry brothers 1989).
+        // Together the four modern African scripts span the
+        // continent: Vai (Liberia/Sierra Leone, West) + N'Ko
+        // (Mali/Guinea, West) + Adlam (Guinea/Senegal, West)
+        // + Osmanya (Somalia, East). The pin set now covers
+        // both halves of African modern-invented-script
+        // geography. Forty-one non-Latin scripts pinned (+
+        // Osmanya).
+        (
+            "notes/mamba_osmanya.md",
+            "Mamba 𐒀 cache Mamba 𐒀 cache architecture notes osmanya",
+        ),
+        // Iter-372 (44th Unicode — Tagalog/Baybayin extension):
+        // Latin "Mamba" + Baybayin "ᜊ" (letter ba, U+170A) +
+        // Latin "cache". Baybayin (ca. 14th-17th c CE) is the
+        // pre-colonial writing system of the Tagalog language
+        // of the Philippines. Descends Brahmi → Pallava →
+        // Kawi → Baybayin — making it the EIGHTH Brahmic
+        // descendant in the pin set (after Devanagari + Thai
+        // + Khmer + Tibetan + Lao + Myanmar + Sinhala). The
+        // Brahmic family now extends from the Indian
+        // subcontinent (Devanagari/Sinhala) through Southeast
+        // Asia (Thai/Khmer/Lao/Myanmar) up to maritime
+        // Southeast Asia (Baybayin) and the Tibetan plateau
+        // (Tibetan) — full geographic diaspora of the Brahmic
+        // family. BMP-plane codepoint (U+170A). Forty-two non-
+        // Latin scripts pinned (+ Baybayin).
+        (
+            "notes/mamba_baybayin.md",
+            "Mamba ᜊ cache Mamba ᜊ cache architecture notes baybayin",
+        ),
+        // Iter-379 (45th Unicode — Cypriot Syllabary extension):
+        // Latin "Mamba" + Cypriot Syllabary "𐠀" (sign A,
+        // U+10800) + Latin "cache". The Cypriot Syllabary
+        // (ca. 11th-4th c BCE) was used to write the Greek
+        // Cypriot dialect and is descended from Cypro-Minoan
+        // (which is itself related to Linear A). Together with
+        // Linear A (iter-358) + Linear B (iter-322), pin set
+        // now contains all THREE major Bronze Age Aegean
+        // scripts — the complete pre-alphabetic Greek-related
+        // writing-system trio. TWELFTH SMP-plane codepoint.
+        // Demonstrates the no-script-fold contract on a
+        // syllabic script that uses Latin-alphabet-style
+        // sign names (a, e, i, o, u, ka, ke, etc.) but is
+        // genealogically and graphemically distinct from
+        // Linear B's syllabary. Forty-three non-Latin scripts
+        // pinned (+ Cypriot Syllabary).
+        (
+            "notes/mamba_cypriot.md",
+            "Mamba 𐠀 cache Mamba 𐠀 cache architecture notes cypriot",
+        ),
+        // Iter-386 (46th Unicode — Old Persian Cuneiform
+        // extension): Latin "Mamba" + Old Persian Cuneiform
+        // "𐎠" (letter a, U+103A0) + Latin "cache". Old Persian
+        // Cuneiform (ca. 525-330 BCE) is a semi-syllabic
+        // adaptation of Mesopotamian Cuneiform created
+        // specifically for writing Old Persian, the Achaemenid
+        // imperial language. 36 characters (vs Mesopotamian
+        // Cuneiform's hundreds), making it the simplest
+        // cuneiform-family script. Together with regular
+        // Cuneiform (iter-315 Sumerian/Akkadian) the pin set
+        // now contains TWO cuneiform-family scripts — the
+        // ancestor (Mesopotamian Cuneiform) and one of its
+        // major adaptations (Old Persian). THIRTEENTH SMP-
+        // plane codepoint. Forty-four non-Latin scripts pinned
+        // (+ Old Persian Cuneiform).
+        (
+            "notes/mamba_old_persian.md",
+            "Mamba 𐎠 cache Mamba 𐎠 cache architecture notes old_persian",
+        ),
+        // Iter-393 (47th Unicode — Kharoshthi extension):
+        // Latin "Mamba" + Kharoshthi "𐨀" (letter A, U+10A00)
+        // + Latin "cache". Kharoshthi (ca. 3rd c BCE - 3rd c
+        // CE) was used to write Gandhari (an Indic language)
+        // and Sanskrit across northwestern India, Pakistan,
+        // and Afghanistan. RTL alphasyllabary descended from
+        // Aramaic — fourth Aramaic-family descendant in the
+        // pin set (after Syriac iter-206, Mongolian iter-198,
+        // Avestan iter-351). The Aramaic genealogy in the pin
+        // set now spans FOUR distinct descendant branches:
+        // Northwest-Semitic direct (Syriac), Central-Asian
+        // (Mongolian via Sogdian → Uyghur), Iranian-liturgical
+        // (Avestan via Pahlavi), and Indic (Kharoshthi via
+        // Aramaic-NW). FOURTEENTH SMP-plane codepoint. Forty-
+        // five non-Latin scripts pinned (+ Kharoshthi).
+        (
+            "notes/mamba_kharoshthi.md",
+            "Mamba 𐨀 cache Mamba 𐨀 cache architecture notes kharoshthi",
+        ),
+        // Iter-400 (48th Unicode — Meroitic Hieroglyphic
+        // extension, iter-400 milestone): Latin "Mamba" + Meroitic
+        // Hieroglyphic "𐦀" (letter A, U+10980) + Latin "cache".
+        // Meroitic Hieroglyphic (ca. 300 BCE - 400 CE) was used
+        // for the Kushite language in the Kingdom of Kush (modern
+        // Sudan / Upper Egypt). Adapted from Egyptian Hieroglyphs
+        // — first descendant of Egyptian Hieroglyphs (iter-308)
+        // in the pin set; genealogy now spans ancestor +
+        // descendant. FIFTH African-language script (Ethiopic +
+        // Tifinagh + Vai + Coptic + Meroitic). 15th SMP-plane
+        // codepoint. 46 non-Latin scripts pinned.
+        (
+            "notes/mamba_meroitic.md",
+            "Mamba 𐦀 cache Mamba 𐦀 cache architecture notes meroitic",
+        ),
+        // Iter-407 (49th Unicode — Meroitic Cursive extension):
+        // Latin "Mamba" + Meroitic Cursive "𐦠" (letter A,
+        // U+109A0) + Latin "cache". Meroitic Cursive is the
+        // everyday-script variant of Meroitic (contemporaneous
+        // with iter-400's Meroitic Hieroglyphic) — SAME LANGUAGE
+        // (Kushite) at SAME PERIOD using TWO DISTINCT SCRIPTS.
+        // Second descendant of Egyptian Hieroglyphs alongside
+        // iter-400. Sixth African-language script in pin set.
+        // 16th SMP-plane codepoint. 47 non-Latin scripts pinned.
+        (
+            "notes/mamba_meroitic_cursive.md",
+            "Mamba 𐦠 cache Mamba 𐦠 cache architecture notes meroitic_cursive",
+        ),
+        // Iter-414 (50th Unicode — MILESTONE — Pahawh Hmong
+        // extension; Unicode SEVENTH AND FINAL category to
+        // reach the F-VaultRecall-50 target. ALL 7 CATEGORIES
+        // NOW AT DEPTH 50):
+        // Latin "Mamba" + Pahawh Hmong "𖬀" (vowel keeb, U+16B00)
+        // + Latin "cache". Pahawh Hmong (Shong Lue Yang 1959)
+        // is the modern Hmong semi-syllabic script of southern
+        // China + SE Asia (Vietnam / Laos / Thailand). FOURTH
+        // modern single-inventor script in pin set; FIRST
+        // ASIAN modern single-inventor script. Modern-
+        // invented-script axis now spans THREE CONTINENTS:
+        // Africa (Vai + N'Ko + Adlam + Osmanya = 4) + Americas
+        // (Cherokee + UCAS = 2) + Asia (Pahawh Hmong = 1).
+        // 17th SMP-plane codepoint. 48 non-Latin scripts.
+        // No clear etymological connection to any prior pinned
+        // script — independent grapheme inventory pins UTF-8
+        // codepoint-handling at maximum genealogical distance
+        // from Latin.
+        (
+            "notes/mamba_pahawh_hmong.md",
+            "Mamba 𖬀 cache Mamba 𖬀 cache architecture notes pahawh_hmong",
+        ),
+        // Iter-418 (52nd Unicode): mixed CJK + RTL Arabic in one
+        // <=3-token AND query. The English-only Mamba decoy carries
+        // the Latin anchor but neither non-Latin token.
+        (
+            "notes/mamba_chinese_arabic.md",
+            "Mamba 缓存 كاش Mamba 缓存 كاش mixed script notes",
+        ),
+        // Iter-419 (53rd Unicode): mixed Cyrillic + Devanagari
+        // in one <=3-token AND query. The English-only Mamba decoy
+        // carries the Latin anchor but neither non-Latin token.
+        (
+            "notes/mamba_cyrillic_devanagari.md",
+            "Mamba кэш कैश Mamba кэш कैश mixed script notes",
+        ),
+        // Iter-420 (54th Unicode): mixed Arabic + Devanagari
+        // in one <=3-token AND query. The English-only Mamba decoy
+        // carries the Latin anchor but neither non-Latin token.
+        (
+            "notes/mamba_arabic_devanagari.md",
+            "Mamba كاش कैश Mamba كاش कैश mixed script notes",
+        ),
+        // Iter-429 (55th Unicode): mixed Greek + Hebrew in one
+        // <=3-token AND query. The English-only Mamba decoy carries
+        // the Latin anchor but neither non-Latin token.
+        (
+            "notes/mamba_greek_hebrew.md",
+            "Mamba μνήμη זיכרון Mamba μνήμη זיכרון mixed script notes",
+        ),
+        // Iter-430 (56th Unicode): mixed CJK + Hebrew in one
+        // <=3-token AND query. The English-only Mamba decoy carries
+        // the Latin anchor but neither non-Latin token.
+        (
+            "notes/mamba_chinese_hebrew.md",
+            "Mamba 缓存 זיכרון Mamba 缓存 זיכרון mixed script notes",
+        ),
+        // Iter-431 (57th Unicode): mixed Cyrillic + Hebrew in one
+        // <=3-token AND query. The English-only Mamba decoy carries
+        // the Latin anchor but neither non-Latin token.
+        (
+            "notes/mamba_cyrillic_hebrew.md",
+            "Mamba кэш זיכרון Mamba кэш זיכרון mixed script notes",
+        ),
+        // Iter-433 (58th Unicode): mixed Arabic + Hebrew in one
+        // <=3-token AND query. The English-only Mamba decoy carries
+        // the Latin anchor but neither non-Latin token.
+        (
+            "notes/mamba_arabic_hebrew.md",
+            "Mamba كاش זיכרון Mamba كاش זיכרון mixed script notes",
+        ),
+        // Iter-434 (59th Unicode): mixed Devanagari + Hebrew in
+        // one <=3-token AND query. The English-only Mamba decoy
+        // carries the Latin anchor but neither non-Latin token.
+        (
+            "notes/mamba_devanagari_hebrew.md",
+            "Mamba कैश זיכרון Mamba कैश זיכרון mixed script notes",
+        ),
+        // Iter-435 (60th Unicode): mixed Thai + Hebrew in one
+        // <=3-token AND query. The English-only Mamba decoy carries
+        // the Latin anchor but neither non-Latin token.
+        (
+            "notes/mamba_thai_hebrew.md",
+            "Mamba แคช זיכרון Mamba แคช זיכרון mixed script notes",
+        ),
+        // Iter-436 (61st Unicode): mixed Hangul + Hebrew in one
+        // <=3-token AND query. The English-only Mamba decoy carries
+        // the Latin anchor but neither non-Latin token.
+        (
+            "notes/mamba_hangul_hebrew.md",
+            "Mamba 캐시 זיכרון Mamba 캐시 זיכרון mixed script notes",
+        ),
+        // Iter-437 (62nd Unicode): mixed katakana + Hebrew in one
+        // <=3-token AND query. The English-only Mamba decoy carries
+        // the Latin anchor but neither non-Latin token.
+        (
+            "notes/mamba_katakana_hebrew.md",
+            "Mamba メモリ זיכרון Mamba メモリ זיכרון mixed script notes",
+        ),
+        // Iter-440 (63rd Unicode): mixed hiragana + Hebrew in one
+        // <=3-token AND query. Adjacent to iter-437's katakana row,
+        // but using the distinct hiragana syllabary block.
+        (
+            "notes/mamba_hiragana_hebrew.md",
+            "Mamba ひらがな זיכרון Mamba ひらがな זיכרון mixed script notes",
+        ),
+        // Iter-441 (64th Unicode): mixed Armenian + Hebrew in one
+        // <=3-token AND query. Distinct from iter-138's standalone
+        // Armenian row because it pairs Armenian with RTL Hebrew.
+        (
+            "notes/mamba_armenian_hebrew.md",
+            "Mamba կեշ זיכרון Mamba կեշ זיכרון mixed script notes",
+        ),
+    ];
+    for (path, content) in seeds {
+        store
+            .write(path, content, None, false)
+            .await
+            .expect("write seed note");
+    }
+    store.reload_index().expect("reload index");
+}
