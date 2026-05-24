@@ -4534,6 +4534,64 @@ pub fn system_g_runtime_status_json() -> Result<String, AgentErrorFFI> {
     })
 }
 
+/// FFI entry: start a System G run for the encoded `MissionPacket`.
+/// Returns a `run_id` Swift uses to pull events via
+/// `system_g_drain_events_json`. The Swift seam contract lives in
+/// `Epistemos/SystemG/SystemGRunSeam.swift` (file header §FFI gap handoff).
+#[uniffi::export]
+pub fn system_g_start_run_json(mission_json: String) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        crate::agent_runtime_v2::system_g_runtime::start_run(&mission_json).map_err(|e| {
+            AgentErrorFFI::AgentError {
+                message: format!("system_g start_run: {}", e),
+            }
+        })
+    })
+}
+
+/// FFI entry: drain the next batch of `SystemGAgentEvent`s for `run_id`.
+/// Returns a JSON array of events in arrival order. Empty array means
+/// "no events yet, poll again." A trailing `complete` or `failed`
+/// event closes the run; subsequent polls return an empty array.
+#[uniffi::export]
+pub fn system_g_drain_events_json(run_id: String) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let events = crate::agent_runtime_v2::system_g_runtime::drain_events(&run_id).map_err(
+            |e| AgentErrorFFI::AgentError {
+                message: format!("system_g drain_events: {}", e),
+            },
+        )?;
+        serde_json::to_string(&events).map_err(|e| AgentErrorFFI::AgentError {
+            message: format!("system_g drain_events serialize: {}", e),
+        })
+    })
+}
+
+/// FFI entry: snapshot the System G run registry. Returns a JSON
+/// object `{"total":N,"in_flight":M}` where:
+///   - `total` is every entry currently in the registry (in-flight
+///     PLUS terminated runs still inside the
+///     `TERMINATED_RUN_RETENTION` window).
+///   - `in_flight` is just the entries whose terminal event has not
+///     yet been drained — those gated by `MAX_CONCURRENT_RUNS`.
+///
+/// Used by `SystemGHealthRow` to render honest dispatch-registry
+/// counters. Cannot fail under normal operation; a poisoned mutex
+/// surfaces `(0, 0)` so the row degrades to "no dispatches yet"
+/// instead of throwing.
+#[uniffi::export]
+pub fn system_g_registry_stats_json() -> String {
+    let (total, in_flight, total_dispatched) =
+        crate::agent_runtime_v2::system_g_runtime::registry_stats_full();
+    serde_json::json!({
+        "total": total,
+        "in_flight": in_flight,
+        "max_concurrent_runs": crate::agent_runtime_v2::system_g_runtime::MAX_CONCURRENT_RUNS,
+        "total_dispatched_since_launch": total_dispatched,
+    })
+    .to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::build_preview_session_context_with_opener;
