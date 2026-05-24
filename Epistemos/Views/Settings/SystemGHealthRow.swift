@@ -26,6 +26,7 @@ public struct SystemGHealthRow: View {
     @State private var snapshot: SystemGMetrics.Snapshot
     @State private var registryStats: SystemGRegistryStats?
     @State private var registryError: String?
+    @State private var refreshTask: Task<Void, Never>?
 
     public init() {
         self._snapshot = State(initialValue: SystemGMetrics.shared.snapshot())
@@ -82,6 +83,11 @@ public struct SystemGHealthRow: View {
         .onAppear {
             _ = SystemGBridge.status()
             refresh()
+            startTimer()
+        }
+        .onDisappear {
+            refreshTask?.cancel()
+            refreshTask = nil
         }
         .onReceive(NotificationCenter.default.publisher(
             for: SystemGMetrics.didChangeNotification,
@@ -113,6 +119,18 @@ public struct SystemGHealthRow: View {
             return "(no read yet)"
         }
         return "in-flight \(stats.inFlight)/\(stats.maxConcurrentRuns) · parked \(stats.total - stats.inFlight) · \(stats.totalDispatchedSinceLaunch) since launch"
+    }
+
+    private func startTimer() {
+        refreshTask?.cancel()
+        refreshTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                if Task.isCancelled { break }
+                _ = SystemGBridge.status()
+                refresh()
+            }
+        }
     }
 
     private var modeDetail: String {
