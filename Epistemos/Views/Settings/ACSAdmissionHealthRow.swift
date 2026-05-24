@@ -2,15 +2,15 @@ import SwiftUI
 
 // MARK: - ACSAdmissionHealthRow
 //
-// Wiring #6 (T18B ACS dispatch admission gate) — HIGH RISK status-read
-// surface. Mirrors EidosHealthRow / SystemGHealthRow / FUlpHealthRow
+// Wiring #6 (T18B ACS dispatch admission gate) — HIGH RISK production
+// status surface. Mirrors EidosHealthRow / SystemGHealthRow / FUlpHealthRow
 // shape. Reads strict policy summary on appear via
 // `ACSAdmissionBridge.strictPolicySummary()`.
 //
-// **No production gating is installed by this row.** The chips show
-// substrate health only; flipping the flag does NOT enforce admission
-// anywhere — explicit follow-up wirings install hooks per consumer
-// (oplog mutations, tool actions, etc.).
+// The row remains read-only UI, but the underlying ACS admission path
+// is wired into the v2 tool-call handoff and the distillation write
+// path. Legacy consumers that have not adopted those paths are still
+// tracked as explicit follow-up wirings.
 
 @MainActor
 public struct ACSAdmissionHealthRow: View {
@@ -29,13 +29,13 @@ public struct ACSAdmissionHealthRow: View {
                 symbol: "flag.fill",
                 ok: snapshot.isFlagEnabled,
                 detail: snapshot.isFlagEnabled
-                    ? "EPISTEMOS_ACS_ADMISSION_V0 on (status surface only)"
+                    ? "EPISTEMOS_ACS_ADMISSION_V0 on (production gate active)"
                     : "EPISTEMOS_ACS_ADMISSION_V0 off"
             )
             VerifiedFloorChipStrip(
                 flag: snapshot.isFlagEnabled ? "on" : "off",
-                substrate: "substrate-only",
-                substrateTint: .orange
+                substrate: "production gate active",
+                substrateTint: .green
             )
             row(
                 label: "Strict policy",
@@ -101,7 +101,7 @@ public struct ACSAdmissionHealthRow: View {
 
     private var policyDetail: String {
         guard let p = snapshot.lastPolicy else { return "(no read yet)" }
-        return "\(p.policyId) v\(p.version) (gate not installed)"
+        return "\(p.policyId) v\(p.version) (production gate active)"
     }
 
     private var capabilityDetail: String {

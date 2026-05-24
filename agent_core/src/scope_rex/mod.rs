@@ -44,6 +44,7 @@
 //!   (`state: reachable`), and the chat row surfaces its UI
 //!   (`state: visible`)
 
+pub mod admission_proof;
 pub mod answer_packet;
 pub mod btm_semantic;
 pub mod feature_observatory;

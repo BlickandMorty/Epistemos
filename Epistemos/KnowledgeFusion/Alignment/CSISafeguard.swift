@@ -12,6 +12,7 @@ import Foundation
 /// Reference: InfoRM (NeurIPS 2024) — CSI detects over-optimized latent representations.
 @MainActor @Observable
 final class CSISafeguard {
+    static let shared = CSISafeguard()
 
     /// CSI threshold below which training is halted.
     let threshold: Double

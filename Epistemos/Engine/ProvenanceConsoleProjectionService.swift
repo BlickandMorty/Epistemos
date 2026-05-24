@@ -134,6 +134,7 @@ struct ProvenanceConsoleProjectionService: Sendable {
             ("ClaimLedger (Swift)", "\(retractionEventCount) RetractionPropagated events"),
             ("Cognitive DAG (Rust)", cognitiveDagSummary(cognitiveDag)),
             ("Legacy ClaimLedger bridge", "\(rustLedger.claimCount) claims, \(rustLedger.evidenceCount) evidence, \(rustLedger.eventCount) events"),
+            ("ACS verdict column", "visible; not linked until entries carry ACS record ids"),
             ("AgentEvent", "\(agentDiagnostics.totalRows) events across \(agentDiagnostics.distinctRuns) runs"),
             ("GraphEvent", "\(graphDiagnostics.totalRows) events across \(graphDiagnostics.distinctMutations) mutations")
         ])
@@ -184,6 +185,7 @@ struct ProvenanceConsoleProjectionService: Sendable {
             ("sequence", "\(event.sequence)"),
             ("trigger kind", event.triggerKind),
             ("trigger", short(event.triggeredBy)),
+            ("ACS verdict", acsVerdictUnlinked()),
             ("claims at risk", "\(event.claimsMarkedAtRisk)"),
             ("max depth", "\(event.maxDepthReached)"),
             ("depth capped", event.depthCapped ? "true" : "false")
@@ -197,6 +199,7 @@ struct ProvenanceConsoleProjectionService: Sendable {
             ("run", short(event.runID)),
             ("sequence", "\(event.sequence)"),
             ("actor", actorLabel(event.actor)),
+            ("ACS verdict", acsVerdictUnlinked()),
             ("occurred", "\(event.occurredAtMs)ms")
         ]
         if let traceID = event.traceID, !traceID.isEmpty {
@@ -215,6 +218,7 @@ struct ProvenanceConsoleProjectionService: Sendable {
             ("event", short(event.eventID)),
             ("mutation", short(event.mutationID)),
             ("sequence", "\(event.sequence)"),
+            ("ACS verdict", acsVerdictUnlinked()),
             ("occurred", "\(event.occurredAtMs)ms")
         ]
         if let runID = event.runID, !runID.isEmpty {
@@ -251,5 +255,9 @@ struct ProvenanceConsoleProjectionService: Sendable {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count > 12 else { return trimmed.isEmpty ? "unknown" : trimmed }
         return String(trimmed.prefix(12))
+    }
+
+    private static func acsVerdictUnlinked() -> String {
+        "not linked (no ACS record id)"
     }
 }

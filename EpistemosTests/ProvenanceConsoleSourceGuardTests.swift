@@ -61,6 +61,8 @@ struct ProvenanceConsoleSourceGuardTests {
         #expect(source.contains("func subscribeRetractionEvents("))
         #expect(source.contains("RetractionPropagatedProjection"))
         #expect(source.contains("GenUIPayload.provenanceTrace("))
+        #expect(source.contains("(\"ACS verdict\""))
+        #expect(source.contains("ACS verdict column"))
         assertForbiddenTokensAbsent(
             [
                 "saveAgentEvent(",
