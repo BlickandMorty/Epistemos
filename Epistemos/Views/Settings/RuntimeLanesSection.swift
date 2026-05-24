@@ -21,12 +21,19 @@ public struct RuntimeLanesSection: View {
     @State private var laneStates: [String: Bool]
     private let lanes: [RuntimeLane]
 
-    public init(lanes: [RuntimeLane] = RuntimeLane.knownLanes) {
+    public init(lanes: [RuntimeLane] = RuntimeLanesSection.userVisibleLanes()) {
         self.lanes = lanes
         let initial = Dictionary(
             uniqueKeysWithValues: lanes.map { ($0.stableID, RuntimeRouter.shared.isLaneEnabled($0)) }
         )
         self._laneStates = State(initialValue: initial)
+    }
+
+    /// Lanes the user can meaningfully toggle. Excludes `.stub` which
+    /// is an internal "no real executor present" marker — toggling it
+    /// has no user-facing effect and would only confuse the surface.
+    public static func userVisibleLanes() -> [RuntimeLane] {
+        RuntimeLane.knownLanes.filter { $0 != .stub }
     }
 
     public var body: some View {
