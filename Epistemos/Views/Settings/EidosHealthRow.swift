@@ -21,6 +21,7 @@ import SwiftUI
 public struct EidosHealthRow: View {
 
     @State private var snapshot: EidosMetrics.Snapshot
+    @State private var refreshTask: Task<Void, Never>?
 
     public init() {
         self._snapshot = State(initialValue: EidosMetrics.shared.snapshot())
@@ -70,7 +71,14 @@ public struct EidosHealthRow: View {
                 )
             }
         }
-        .onAppear { refresh() }
+        .onAppear {
+            refresh()
+            startTimer()
+        }
+        .onDisappear {
+            refreshTask?.cancel()
+            refreshTask = nil
+        }
         .onReceive(NotificationCenter.default.publisher(
             for: EidosMetrics.didChangeNotification,
             object: EidosMetrics.shared
@@ -83,6 +91,17 @@ public struct EidosHealthRow: View {
 
     public func refresh() {
         snapshot = EidosMetrics.shared.snapshot()
+    }
+
+    private func startTimer() {
+        refreshTask?.cancel()
+        refreshTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                if Task.isCancelled { break }
+                refresh()
+            }
+        }
     }
 
     private var lastQueryDetail: String {
