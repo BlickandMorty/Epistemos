@@ -210,18 +210,29 @@ public final class RuntimeRouter {
     /// long-form text log the diagnostics row pages through.
     public private(set) var escalationLog: [String]
 
-    public init(initialLanes: [any RuntimeExecutor] = []) {
+    /// When `false`, the router neither reads nor writes UserDefaults
+    /// for lane-enable persistence. Tests pass `false` so parallel
+    /// suites cannot race through the global UserDefaults state.
+    /// The production singleton uses `true`.
+    private let usesPersistence: Bool
+
+    public init(initialLanes: [any RuntimeExecutor] = [], persistsToUserDefaults: Bool = true) {
         var laneMap: [RuntimeLane: any RuntimeExecutor] = [:]
         for executor in initialLanes {
             laneMap[executor.id] = executor
         }
         self.lanes = laneMap
+        self.usesPersistence = persistsToUserDefaults
 
         var enabled: [RuntimeLane: Bool] = [:]
         for lane in RuntimeLane.knownLanes {
-            let key = Self.laneEnabledDefaultsKeyPrefix + lane.stableID
-            if let value = UserDefaults.standard.object(forKey: key) as? Bool {
-                enabled[lane] = value
+            if persistsToUserDefaults {
+                let key = Self.laneEnabledDefaultsKeyPrefix + lane.stableID
+                if let value = UserDefaults.standard.object(forKey: key) as? Bool {
+                    enabled[lane] = value
+                } else {
+                    enabled[lane] = true
+                }
             } else {
                 enabled[lane] = true
             }
@@ -264,8 +275,10 @@ public final class RuntimeRouter {
     /// `.escalate(from: lane, to: …, reason: .laneDisabled)`.
     public func setLaneEnabled(_ lane: RuntimeLane, _ enabled: Bool) {
         laneEnabled[lane] = enabled
-        let key = Self.laneEnabledDefaultsKeyPrefix + lane.stableID
-        UserDefaults.standard.set(enabled, forKey: key)
+        if usesPersistence {
+            let key = Self.laneEnabledDefaultsKeyPrefix + lane.stableID
+            UserDefaults.standard.set(enabled, forKey: key)
+        }
         let entry = "[\(Date().formatted(.iso8601))] lane=\(lane.stableID) enabled=\(enabled)"
         escalationLog.append(entry)
         Self.log.info("RuntimeRouter lane=\(lane.stableID) enabled=\(enabled)")

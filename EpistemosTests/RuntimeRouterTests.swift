@@ -56,7 +56,7 @@ struct RuntimeRouterTests {
 
     @Test("router accepts a normal request on the MLX lane")
     func routerAcceptsOnMLXLane() {
-        let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes())
+        let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
         let packet = MissionPacket(
             uasAddress: "uas:test:001",
             role: .code,
@@ -74,7 +74,7 @@ struct RuntimeRouterTests {
 
     @Test("flipping MLX off escalates to GGUF — honest log, not silent fallback")
     func mlxFlippedOffEscalatesHonestly() {
-        let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes())
+        let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
         router._testResetMetrics()
         router.setLaneEnabled(.mlx, false)
 
@@ -110,7 +110,7 @@ struct RuntimeRouterTests {
 
     @Test("privacy-sensitive request rejects when no local lane is available")
     func privacySensitiveRejectsWhenLocalDisabled() {
-        let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes())
+        let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
         for local in [RuntimeLane.mlx, .gguf, .appleIntelligence, .stub] {
             router.setLaneEnabled(local, false)
         }
@@ -135,7 +135,7 @@ struct RuntimeRouterTests {
 
     @Test("metrics ring is bounded to the documented capacity")
     func metricsRingIsBoundedToDocumentedCapacity() {
-        let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes())
+        let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
         router._testResetMetrics()
         // Pump 120 verdicts of mixed kinds to ensure the ring trims.
         for i in 0..<120 {
@@ -197,7 +197,7 @@ struct RuntimeRouterTests {
 
     @Test("router rejects when every lane in the chain is disabled (allLanesDisabled witness)")
     func allLanesDisabledProducesAllLanesDisabledReason() {
-        let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes())
+        let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
         for lane in RuntimeLane.knownLanes {
             router.setLaneEnabled(lane, false)
         }

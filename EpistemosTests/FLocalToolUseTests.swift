@@ -36,7 +36,7 @@ struct FLocalToolUseTests {
 
     @Test("F-LocalToolUse — every canActAsAgent local model has a viable local lane")
     func everyAgentCapableModelHasAViableLocalLane() {
-        let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes())
+        let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
         let agentCapable = LocalTextModelID.allCases.filter(\.canActAsAgent)
         #expect(!agentCapable.isEmpty, "the catalog must surface at least one canActAsAgent model")
 
@@ -59,7 +59,7 @@ struct FLocalToolUseTests {
 
     @Test("F-LocalToolUse — fixture round-trip on the smallest agent-capable model")
     func smallestAgentCapableModelRoundTripsThroughLocalLane() {
-        let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes())
+        let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
         let model = LocalTextModelID.qwen3_4B4Bit
         #expect(model.canActAsAgent)
 
