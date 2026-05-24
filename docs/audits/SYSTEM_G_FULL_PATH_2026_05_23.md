@@ -168,6 +168,27 @@ Iter-8 adds a process-wide lifetime counter so the operator can tell how active 
 
 **Test count after iter-8:** 21 Rust unit + 4 Rust integration + 3 Swift integration = **28 tests** for this seam (was 26, was 13 in the initial PR).
 
+## Hardening (iter-9 thread-contention pin + W-16 first step)
+
+Iter-9 adds a multi-thread stress test pinning the registry's thread-safety under contention, and the first concrete W-16 (replay-from-RunEventLog) primitive.
+
+| Change | File | Effect |
+|---|---|---|
+| `registry_survives_multi_thread_contention_without_panics_or_duplicate_ids` | `system_g_runtime.rs` | 8 threads × 4 missions = 32 concurrent start/drain pairs. Pins: no deadlock, no panic, every run_id unique across threads, lifetime counter advances by exactly 32 |
+| `extension RunEventLog { var replayDescription: String }` | `RealSystemGRunSeam.swift` | Deterministic textual replay of a RunEventLog. Same log → byte-equal output. First concrete piece of W-16 — proves the pipeline reconstructs runs from RunEventLog alone with no per-call randomness |
+| Swift test `runEventLogReplayDescriptionIsDeterministic` | `EpistemosTests/SystemGRunSeamTests.swift` | Pins determinism + format invariants + that diverging logs produce diverging replay |
+
+**Test count after iter-9:** 22 Rust unit + 4 Rust integration + 4 Swift integration = **30 tests** for this seam (was 28, was 13 in the initial PR).
+
+## W-row roll-up (after all iters)
+
+| W-row | Status now |
+|---|---|
+| W-02 (UasKind on agent traces) | Partial — RunEventLog now populated for real runs |
+| W-05 (Active Assembly in agent_runtime) | Partial — wire path landed; provider hook is the next layer |
+| W-15 (AgentBlueprint end-to-end) | Partial — blueprint id flows through |
+| **W-16 (replay-from-RunEventLog UI)** | UNBLOCKED → **first primitive landed** via `RunEventLog.replayDescription`; SwiftUI surface remains future work |
+
 ## Branches with overlapping work (coordination note)
 
 - `wiring/rust-r3-system-g-minimal-slice` — `MissionRun` composition helper (already merged into `main` as commit `1dd7339824`; this PR builds on it directly).

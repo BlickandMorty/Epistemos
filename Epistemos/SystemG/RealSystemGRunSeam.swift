@@ -124,3 +124,49 @@ nonisolated struct RealSystemGRunSeam: SystemGRunSeam {
         }
     }
 }
+
+// MARK: - W-16 replay first step
+//
+// Deterministic textual replay of a RunEventLog. Same log → byte-equal
+// output. The W-16 SwiftUI replay surface will render a richer view;
+// this method is the minimum honest replay primitive that proves the
+// pipeline reconstructs the run from RunEventLog alone (no provider
+// re-call, no clock dependency, no random IDs).
+
+extension RunEventLog {
+    /// Produce a single-line-per-event replay of the log. Format is
+    /// deterministic and stable for log greps / audit diffs. Lines
+    /// are formatted as:
+    ///
+    ///     [turnId] kind detail
+    ///
+    /// where `detail` is the variant payload rendered without
+    /// per-call randomness. Two runs that produced byte-equal logs
+    /// produce byte-equal `replayDescription` outputs.
+    var replayDescription: String {
+        var lines: [String] = []
+        lines.reserveCapacity(events.count + 1)
+        lines.append("RunEventLog mission=\(missionId) events=\(events.count)")
+        for event in events {
+            lines.append("  " + describe(event))
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private func describe(_ event: SystemGAgentEvent) -> String {
+        switch event {
+        case .planStart(let turnId, let plan):
+            return "[\(turnId)] plan_start plan=\(plan)"
+        case .toolStart(let turnId, let toolName, let argsJson):
+            return "[\(turnId)] tool_start tool=\(toolName) args=\(argsJson)"
+        case .toolEnd(let turnId, let toolName, let ok, let outputJson):
+            return "[\(turnId)] tool_end tool=\(toolName) ok=\(ok) output=\(outputJson)"
+        case .tokenChunk(let turnId, let text):
+            return "[\(turnId)] token_chunk text=\(text)"
+        case .complete(let turnId, let answerPacketId):
+            return "[\(turnId)] complete answer_packet_id=\(answerPacketId)"
+        case .failed(let turnId, let error):
+            return "[\(turnId)] failed error=\(error)"
+        }
+    }
+}

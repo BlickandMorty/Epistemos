@@ -687,6 +687,63 @@ mod tests {
     }
 
     #[test]
+    fn registry_survives_multi_thread_contention_without_panics_or_duplicate_ids() {
+        // Stress: 8 threads × 4 missions each (= 32, well under
+        // MAX_CONCURRENT_RUNS=64). Pins that the registry's internal
+        // Mutex correctly serialises concurrent start_run + drain_events
+        // without deadlock, panic, lost insert, or duplicate run_id.
+        //
+        // Holds the test-fixture lock for the duration so this test
+        // doesn't race other registry-mutating tests in the suite.
+        use std::collections::HashSet;
+        use std::sync::Arc;
+        use std::thread;
+
+        let _guard = test_registry_lock();
+        reset_for_test();
+        let dispatched_before = registry_stats_full().2;
+
+        const THREADS: usize = 8;
+        const MISSIONS_PER_THREAD: usize = 4;
+        let json = Arc::new(good_mission_json());
+
+        let mut handles = Vec::with_capacity(THREADS);
+        for _ in 0..THREADS {
+            let json = Arc::clone(&json);
+            handles.push(thread::spawn(move || {
+                let mut ids = Vec::with_capacity(MISSIONS_PER_THREAD);
+                for _ in 0..MISSIONS_PER_THREAD {
+                    let id = start_run(&json).expect("start under cap");
+                    let events = drain_events(&id).expect("drain");
+                    assert_eq!(events.len(), 3, "every run emits the V1 3-event turn");
+                    ids.push(id);
+                }
+                ids
+            }));
+        }
+
+        let mut all_ids: Vec<String> = Vec::with_capacity(THREADS * MISSIONS_PER_THREAD);
+        for h in handles {
+            all_ids.extend(h.join().expect("thread must not panic"));
+        }
+
+        assert_eq!(all_ids.len(), THREADS * MISSIONS_PER_THREAD);
+        let unique: HashSet<&String> = all_ids.iter().collect();
+        assert_eq!(
+            unique.len(),
+            all_ids.len(),
+            "every run_id must be unique across threads"
+        );
+
+        let dispatched_after = registry_stats_full().2;
+        assert_eq!(
+            dispatched_after - dispatched_before,
+            (THREADS * MISSIONS_PER_THREAD) as u64,
+            "lifetime counter must reflect every successful start"
+        );
+    }
+
+    #[test]
     fn total_runs_dispatched_survives_reset_for_test() {
         // `reset_for_test` clears the registry HashMap but MUST NOT
         // zero the lifetime counter. Otherwise the operator's

@@ -157,6 +157,37 @@ struct SystemGRunSeamTests {
         #expect(log.answerPacketId == answerPacketId, "answerPacketId helper agrees with terminal event")
     }
 
+    @Test("RunEventLog.replayDescription is deterministic for byte-equal logs (W-16 step 1)")
+    func runEventLogReplayDescriptionIsDeterministic() {
+        // W-16 first step: replay-from-RunEventLog must produce the
+        // same bytes for the same log. A SwiftUI replay surface lands
+        // later; this primitive proves the pipeline.
+        var log1 = RunEventLog(missionId: "m-replay-1")
+        log1.append(.planStart(turnId: "t1", plan: "go"))
+        log1.append(.tokenChunk(turnId: "t1", text: "hello"))
+        log1.append(.complete(turnId: "t1", answerPacketId: "abc123"))
+
+        var log2 = RunEventLog(missionId: "m-replay-1")
+        log2.append(.planStart(turnId: "t1", plan: "go"))
+        log2.append(.tokenChunk(turnId: "t1", text: "hello"))
+        log2.append(.complete(turnId: "t1", answerPacketId: "abc123"))
+
+        #expect(log1.replayDescription == log2.replayDescription,
+                "byte-equal logs must produce byte-equal replay text")
+
+        let text = log1.replayDescription
+        #expect(text.contains("RunEventLog mission=m-replay-1 events=3"))
+        #expect(text.contains("[t1] plan_start plan=go"))
+        #expect(text.contains("[t1] token_chunk text=hello"))
+        #expect(text.contains("[t1] complete answer_packet_id=abc123"))
+
+        // Diverging logs produce diverging replay.
+        var log3 = log1
+        log3.append(.failed(turnId: "t1", error: "synthetic"))
+        #expect(log1.replayDescription != log3.replayDescription,
+                "different logs must produce different replay text")
+    }
+
     @Test("SystemGRegistryStats decodes from the Rust bridge JSON shape")
     func systemGRegistryStatsDecodesFromBridgeJsonShape() throws {
         // Pin the wire-format contract for the registry stats FFI
