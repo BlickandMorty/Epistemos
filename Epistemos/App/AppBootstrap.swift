@@ -2237,6 +2237,15 @@ final class AppBootstrap {
                 "NightBrain live registration: \(registered.count, privacy: .public) canonical tasks registered"
             )
         }
+
+        // Terminal C / P5 (2026-05-23) — register the real System G run
+        // seam so `SystemGRunSeamRegistry.shared.current().run(mission:)`
+        // routes MissionPacket → AgentEvent → RunEventLog → AnswerPacket
+        // through Rust via `systemGStartRunJson` + `systemGDrainEventsJson`
+        // instead of throwing `SystemGRunSeamError.notWired`. Idempotent
+        // — the registry's last-writer-wins lock makes re-launch safe.
+        SystemGRunSeamRegistry.shared.register(RealSystemGRunSeam())
+        Log.app.info("System G run seam: real dispatch registered")
         // Fallback for missed nights (M-series laptop on battery, lid
         // closed): if launchd skipped > 36 h, run the in-process
         // consolidation inline now while the user is foreground.

@@ -24,6 +24,8 @@ import SwiftUI
 public struct SystemGHealthRow: View {
 
     @State private var snapshot: SystemGMetrics.Snapshot
+    @State private var registryStats: SystemGRegistryStats?
+    @State private var registryError: String?
 
     public init() {
         self._snapshot = State(initialValue: SystemGMetrics.shared.snapshot())
@@ -41,8 +43,8 @@ public struct SystemGHealthRow: View {
             )
             VerifiedFloorChipStrip(
                 flag: snapshot.isFlagEnabled ? "on" : "off",
-                substrate: "status-only",
-                substrateTint: .orange
+                substrate: "production dispatch live",
+                substrateTint: .green
             )
             row(
                 label: "Runtime mode",
@@ -55,6 +57,12 @@ public struct SystemGHealthRow: View {
                 symbol: "checkmark.shield",
                 ok: snapshot.lastStatus?.mode != .subprocess,
                 detail: capabilityDetail
+            )
+            row(
+                label: "Dispatch registry",
+                symbol: "tray.full",
+                ok: registryError == nil,
+                detail: registryDetail
             )
             row(
                 label: "Last status read",
@@ -87,6 +95,24 @@ public struct SystemGHealthRow: View {
 
     public func refresh() {
         snapshot = SystemGMetrics.shared.snapshot()
+        let result = SystemGBridge.registryStats()
+        switch result {
+        case .success(let stats):
+            registryStats = stats
+            registryError = nil
+        case .failure(let error):
+            registryError = String(describing: error)
+        }
+    }
+
+    private var registryDetail: String {
+        if let err = registryError {
+            return "Error: \(err)"
+        }
+        guard let stats = registryStats else {
+            return "(no read yet)"
+        }
+        return "in-flight \(stats.inFlight)/\(stats.maxConcurrentRuns) · parked \(stats.total - stats.inFlight) · \(stats.totalDispatchedSinceLaunch) since launch"
     }
 
     private var modeDetail: String {
@@ -102,7 +128,7 @@ public struct SystemGHealthRow: View {
         }
         let exec = status.allowsExecution ? "exec✓" : "exec✗"
         let sub = status.allowsSubprocess ? "subprocess✓" : "subprocess✗"
-        return "\(exec) \(sub) (status read; no production dispatch yet)"
+        return "\(exec) \(sub) (run seam: real Rust dispatch via systemGStartRunJson + systemGDrainEventsJson)"
     }
 
     private var readDetail: String {

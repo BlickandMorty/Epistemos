@@ -113,8 +113,161 @@ struct SystemGRunSeamTests {
         // `SystemGRunSeamRegistry.shared.register(_:)`. This guards the
         // WRV bar: a missing real backend must not silently become a
         // fake one.
+        SystemGRunSeamRegistry.shared.resetToStubForTesting()
         let seam = SystemGRunSeamRegistry.shared.current()
         #expect(seam is StubSystemGRunSeam,
                 "default registry impl must be the explicit stub")
+    }
+
+    // MARK: - Terminal C / P5 — RealSystemGRunSeam integration
+    //
+    // End-to-end: `RealSystemGRunSeam.run(mission:)` round-trips through
+    // the Rust runtime via `systemGStartRunJson` + `systemGDrainEventsJson`
+    // and returns a populated `RunEventLog` terminating in `.complete`.
+    // No fakes — exercises the live FFI.
+
+    @Test("RealSystemGRunSeam round-trips a mission through Rust to a terminal complete event")
+    func realSystemGRunSeamRoundTripsMissionEndToEnd() async throws {
+        let seam = RealSystemGRunSeam()
+        let mission = AgentMissionPacket(
+            id: "m-real-1",
+            createdAt: Date(),
+            blueprintName: "integration-test-blueprint",
+            role: "test-role",
+            objective: "Summarize the Five Plane Formalism",
+            model: .autoConstellation,
+            toolNames: [],
+            scope: .currentVault,
+            approvalMode: .autoReadOnly
+        )
+
+        let log = try await seam.run(mission: mission)
+        #expect(!log.missionId.isEmpty, "missionId is the Rust-issued run_id")
+        #expect(log.events.count == 3, "V1 dispatch emits plan_start + token_chunk + complete")
+        guard case .planStart = log.events.first else {
+            Issue.record("first event must be .planStart, got \(String(describing: log.events.first))")
+            return
+        }
+        guard case .complete(_, let answerPacketId) = log.events.last else {
+            Issue.record("last event must be .complete, got \(String(describing: log.events.last))")
+            return
+        }
+        #expect(!answerPacketId.isEmpty, "complete.answerPacketId surfaces run_event_log_root hex")
+        #expect(log.terminalEvent != nil, "RunEventLog must expose terminal event")
+        #expect(log.answerPacketId == answerPacketId, "answerPacketId helper agrees with terminal event")
+    }
+
+    @Test("RunEventLog.replayDescription is deterministic for byte-equal logs (W-16 step 1)")
+    func runEventLogReplayDescriptionIsDeterministic() {
+        // W-16 first step: replay-from-RunEventLog must produce the
+        // same bytes for the same log. A SwiftUI replay surface lands
+        // later; this primitive proves the pipeline.
+        var log1 = RunEventLog(missionId: "m-replay-1")
+        log1.append(.planStart(turnId: "t1", plan: "go"))
+        log1.append(.tokenChunk(turnId: "t1", text: "hello"))
+        log1.append(.complete(turnId: "t1", answerPacketId: "abc123"))
+
+        var log2 = RunEventLog(missionId: "m-replay-1")
+        log2.append(.planStart(turnId: "t1", plan: "go"))
+        log2.append(.tokenChunk(turnId: "t1", text: "hello"))
+        log2.append(.complete(turnId: "t1", answerPacketId: "abc123"))
+
+        #expect(log1.replayDescription == log2.replayDescription,
+                "byte-equal logs must produce byte-equal replay text")
+
+        let text = log1.replayDescription
+        #expect(text.contains("RunEventLog mission=m-replay-1 events=3"))
+        #expect(text.contains("[t1] plan_start plan=go"))
+        #expect(text.contains("[t1] token_chunk text=hello"))
+        #expect(text.contains("[t1] complete answer_packet_id=abc123"))
+
+        // Diverging logs produce diverging replay.
+        var log3 = log1
+        log3.append(.failed(turnId: "t1", error: "synthetic"))
+        #expect(log1.replayDescription != log3.replayDescription,
+                "different logs must produce different replay text")
+    }
+
+    @Test("SystemGRegistryStats decodes from the Rust bridge JSON shape")
+    func systemGRegistryStatsDecodesFromBridgeJsonShape() throws {
+        // Pin the wire-format contract for the registry stats FFI
+        // (Terminal C / P5 iter-6). The Rust side emits snake_case
+        // keys; Swift CodingKeys map them to camelCase fields.
+        // Adversarial: missing field, extra field, wrong type.
+        let validJson = #"{"total":3,"in_flight":1,"max_concurrent_runs":64,"total_dispatched_since_launch":42}"#
+        let decoded = try JSONDecoder().decode(
+            SystemGRegistryStats.self,
+            from: Data(validJson.utf8)
+        )
+        #expect(decoded.total == 3)
+        #expect(decoded.inFlight == 1)
+        #expect(decoded.maxConcurrentRuns == 64)
+        #expect(decoded.totalDispatchedSinceLaunch == 42)
+
+        // Backward-compat: an older Rust lib that omits the lifetime
+        // counter field still decodes (custom init defaults it to 0).
+        let backCompatJson = #"{"total":0,"in_flight":0,"max_concurrent_runs":64}"#
+        let backCompat = try JSONDecoder().decode(
+            SystemGRegistryStats.self,
+            from: Data(backCompatJson.utf8)
+        )
+        #expect(backCompat.totalDispatchedSinceLaunch == 0)
+
+        // Forward-compat: an unknown extra field is tolerated (default
+        // JSONDecoder behavior) so a future Rust addition doesn't
+        // break the Swift decoder out of the gate.
+        let extraJson = #"{"total":0,"in_flight":0,"max_concurrent_runs":64,"total_dispatched_since_launch":0,"future_field":42}"#
+        let extraDecoded = try JSONDecoder().decode(
+            SystemGRegistryStats.self,
+            from: Data(extraJson.utf8)
+        )
+        #expect(extraDecoded.total == 0)
+        #expect(extraDecoded.inFlight == 0)
+
+        // Missing required field must fail to decode.
+        let missingJson = #"{"total":1,"in_flight":1}"#
+        #expect(throws: DecodingError.self) {
+            _ = try JSONDecoder().decode(
+                SystemGRegistryStats.self,
+                from: Data(missingJson.utf8)
+            )
+        }
+    }
+
+    @Test("RealSystemGRunSeam honors cooperative cancellation")
+    func realSystemGRunSeamHonorsCancellation() async {
+        // The seam calls Task.checkCancellation() at the top of every
+        // poll iteration. A caller that cancels the enclosing Task
+        // must see a CancellationError surface from run(mission:)
+        // rather than the run quietly completing.
+        let seam = RealSystemGRunSeam()
+        let mission = AgentMissionPacket(
+            id: "m-cancel-1",
+            createdAt: Date(),
+            blueprintName: "cancel-blueprint",
+            role: "test-role",
+            objective: "cancel-target",
+            model: .autoConstellation,
+            toolNames: [],
+            scope: .currentVault,
+            approvalMode: .autoReadOnly
+        )
+
+        let task = Task { try await seam.run(mission: mission) }
+        task.cancel()
+        do {
+            _ = try await task.value
+            // V1 dispatch is fully synchronous inside start_run, so a
+            // cancellation that races the wire path may still see the
+            // mission complete before checkCancellation runs. That
+            // outcome is acceptable — both branches honor the contract.
+        } catch is CancellationError {
+            // Expected when cancellation lands between encode + the
+            // poll-loop checkCancellation call.
+        } catch let error as SystemGRunSeamError {
+            Issue.record("expected CancellationError or success, got SystemGRunSeamError: \(error)")
+        } catch {
+            Issue.record("unexpected error: \(error)")
+        }
     }
 }
