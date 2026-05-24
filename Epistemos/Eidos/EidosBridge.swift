@@ -213,7 +213,7 @@ extension EidosBridge {
     /// `sourceIds` slice here BEFORE committing the message. A
     /// rejection MUST drop or rewrite the answer; never ship a chat
     /// row whose source_ids don't validate.
-    public static func validateCitations(
+    nonisolated public static func validateCitations(
         packet: EidosContextPacket,
         sourceIds: [EidosChunkId]
     ) -> CitationValidation {
