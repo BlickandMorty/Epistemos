@@ -14,7 +14,7 @@ import SwiftUI
 //   - falsifier coverage chip (F-WBO-DriftLedger)
 //   - last accounted append: actor + timestamp
 //
-// Reads from `LatticeWBOBridge.snapshot()` on appear and on a 5s
+// Reads from `LatticeWBOBridge.snapshot()` on appear and on a 1s
 // timer while the Settings sheet is open. The poll cadence is light
 // because the snapshot is a single FFI mutex-guarded read.
 
@@ -33,6 +33,11 @@ public struct LatticeWBOHealthRow: View {
                 symbol: "shield.lefthalf.filled",
                 ok: true,
                 detail: "Always-on per T17B (no feature flag) — \(stats.tier)"
+            )
+            VerifiedFloorChipStrip(
+                flag: "n/a",
+                substrate: "always-on accountant",
+                substrateTint: .green
             )
             row(
                 label: "Appends accounted",
@@ -55,10 +60,10 @@ public struct LatticeWBOHealthRow: View {
         }
         .onAppear { refresh() }
         .task {
-            // Light 5s poll while the row is on-screen. Cheap because
+            // Light 1s poll while the row is on-screen. Cheap because
             // the snapshot read is a single FFI mutex acquire.
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
                 refresh()
             }
         }

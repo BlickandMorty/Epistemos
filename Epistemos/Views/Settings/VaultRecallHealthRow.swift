@@ -9,6 +9,7 @@ import SwiftUI
 //
 // Surfaces:
 //   - flag state (`EPISTEMOS_VAULT_RECALL_CONTRACT_V1` UserDefaults / env)
+//   - W-21 recall rates when a benchmark reporter has recorded them
 //   - last query latency + p95 over ~200 samples
 //   - last candidates retained + signal summary (Lexical / Semantic /
 //     Graph / Recency / Mmr presence chips)
@@ -23,6 +24,7 @@ import SwiftUI
 public struct VaultRecallHealthRow: View {
 
     @State private var snapshot: VaultRecallMetrics.Snapshot
+    @State private var refreshTask: Task<Void, Never>?
 
     public init() {
         self._snapshot = State(initialValue: VaultRecallMetrics.shared.snapshot())
@@ -35,14 +37,15 @@ public struct VaultRecallHealthRow: View {
                 symbol: "flag.fill",
                 ok: snapshot.isFlagEnabled,
                 detail: snapshot.isFlagEnabled
-                    ? "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 on (synthetic trace emission)"
-                    : "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 off (no trace emission)"
+                    ? "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 on (diagnostic trace flag)"
+                    : "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 off (chat still records visible traces)"
             )
             VerifiedFloorChipStrip(
                 flag: snapshot.isFlagEnabled ? "on" : "off",
-                substrate: "stub trace",
-                substrateTint: .orange
+                substrate: vaultRecallSubstrateLabel,
+                substrateTint: vaultRecallSubstrateTint
             )
+            w21MetricChipStrip
             row(
                 label: "Last query",
                 symbol: "clock",
@@ -78,7 +81,14 @@ public struct VaultRecallHealthRow: View {
                 )
             }
         }
-        .onAppear { refresh() }
+        .onAppear {
+            refresh()
+            startTimer()
+        }
+        .onDisappear {
+            refreshTask?.cancel()
+            refreshTask = nil
+        }
         .onReceive(NotificationCenter.default.publisher(
             for: VaultRecallMetrics.didChangeNotification,
             object: VaultRecallMetrics.shared
@@ -93,6 +103,44 @@ public struct VaultRecallHealthRow: View {
         snapshot = VaultRecallMetrics.shared.snapshot()
     }
 
+    private var w21MetricChipStrip: some View {
+        HStack(spacing: 6) {
+            benchmarkChip(
+                title: "Top-1 exact",
+                rate: snapshot.recallBenchmark.top1ExactTitleRate,
+                threshold: 0.95
+            )
+            benchmarkChip(
+                title: "Top-5 paraphrase",
+                rate: snapshot.recallBenchmark.top5ParaphraseRate,
+                threshold: 0.95
+            )
+            benchmarkChip(
+                title: "2-note cite",
+                rate: snapshot.recallBenchmark.synthesisTwoNoteCitationRate,
+                threshold: 0.95
+            )
+            benchmarkChip(
+                title: "Adversarial reject",
+                rate: snapshot.recallBenchmark.adversarialRejectRate,
+                threshold: 0.95
+            )
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+    }
+
+    private func startTimer() {
+        refreshTask?.cancel()
+        refreshTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                if Task.isCancelled { break }
+                refresh()
+            }
+        }
+    }
+
     private var lastQueryDetail: String {
         if let err = snapshot.lastErrorDescription, snapshot.lastQueryAt == nil {
             return "Error: \(err)"
@@ -100,7 +148,7 @@ public struct VaultRecallHealthRow: View {
         guard let date = snapshot.lastQueryAt else {
             return snapshot.isFlagEnabled
                 ? "No queries yet — run a vault search to populate"
-                : "Flag off — contract path not exercised"
+                : "No queries yet — run a vault search to populate"
         }
         let elapsed = formatLatency(snapshot.lastLatencyMs)
         let ago = Self.relativeTime(date)
@@ -120,10 +168,32 @@ public struct VaultRecallHealthRow: View {
         return "\(slugs.joined(separator: ",")) (synthetic; no vault retrieval yet)"
     }
 
+    private var vaultRecallSubstrateLabel: String {
+        vaultRecallBenchmarkPassing ? "W-21 benchmark pass" : "trace scaffold"
+    }
+
+    private var vaultRecallSubstrateTint: Color {
+        vaultRecallBenchmarkPassing ? .green : .orange
+    }
+
+    private var vaultRecallBenchmarkPassing: Bool {
+        let rates = [
+            snapshot.recallBenchmark.top1ExactTitleRate,
+            snapshot.recallBenchmark.top5ParaphraseRate,
+            snapshot.recallBenchmark.synthesisTwoNoteCitationRate,
+            snapshot.recallBenchmark.adversarialRejectRate,
+        ]
+        return rates.allSatisfy { ($0 ?? 0) >= 0.95 }
+    }
+
     private func formatLatency(_ ms: Double) -> String {
         if ms < 1.0 { return String(format: "%.2f ms", ms) }
         if ms < 100.0 { return String(format: "%.1f ms", ms) }
         return String(format: "%.0f ms", ms)
+    }
+
+    private func formatRate(_ rate: Double) -> String {
+        String(format: "%.0f%%", max(0, min(rate, 1)) * 100)
     }
 
     private static func relativeTime(_ date: Date) -> String {
@@ -158,5 +228,14 @@ public struct VaultRecallHealthRow: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private func benchmarkChip(title: String, rate: Double?, threshold: Double) -> some View {
+        let tint: Color = {
+            guard let rate else { return .orange }
+            return rate >= threshold ? .green : .red
+        }()
+        let suffix = rate.map(formatRate) ?? "pending"
+        return ChannelStatusPill(title: "\(title): \(suffix)", tint: tint)
     }
 }

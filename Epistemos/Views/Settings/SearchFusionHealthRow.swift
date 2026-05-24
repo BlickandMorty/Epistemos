@@ -24,6 +24,7 @@ import SwiftUI
 public struct SearchFusionHealthRow: View {
 
     @State private var snapshot: SearchFusionMetrics.Snapshot
+    @State private var refreshTask: Task<Void, Never>?
 
     public init() {
         // Initialize with the live snapshot so first paint isn't blank.
@@ -39,6 +40,11 @@ public struct SearchFusionHealthRow: View {
                 detail: snapshot.isFlagEnabled
                     ? "EPISTEMOS_RRF_FUSION_V1=1 (enabled)"
                     : "EPISTEMOS_RRF_FUSION_V1 unset (legacy per-index path)"
+            )
+            VerifiedFloorChipStrip(
+                flag: snapshot.isFlagEnabled ? "on" : "off",
+                substrate: snapshot.sampleCount > 0 ? "metrics live" : "not exercised",
+                substrateTint: snapshot.sampleCount > 0 ? .green : .orange
             )
             row(
                 label: "Last query",
@@ -67,7 +73,14 @@ public struct SearchFusionHealthRow: View {
                 )
             }
         }
-        .onAppear { refresh() }
+        .onAppear {
+            refresh()
+            startTimer()
+        }
+        .onDisappear {
+            refreshTask?.cancel()
+            refreshTask = nil
+        }
         .onReceive(NotificationCenter.default.publisher(
             for: SearchFusionMetrics.didChangeNotification,
             object: SearchFusionMetrics.shared
@@ -82,6 +95,17 @@ public struct SearchFusionHealthRow: View {
     /// `SearchFusionMetrics` publishes a change.
     public func refresh() {
         snapshot = SearchFusionMetrics.shared.snapshot()
+    }
+
+    private func startTimer() {
+        refreshTask?.cancel()
+        refreshTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                if Task.isCancelled { break }
+                refresh()
+            }
+        }
     }
 
     // MARK: - Display helpers

@@ -30,13 +30,15 @@ import SwiftUI
 //   - Initial snapshot on appear (so first paint isn't blank).
 //   - Event-driven via `AnswerPacketEmitter.didEmitNotification`,
 //     posted on the main queue from inside the actor's `emit()`.
-//   - No polling. No timer.
+//   - 1 Hz Settings-panel polling while visible, matching the
+//     Substrate Health panel cadence.
 
 @MainActor
 public struct AnswerPacketHealthRow: View {
 
     @State private var snapshot: AnswerPacketEmitter.Snapshot
     @State private var refreshTask: Task<Void, Never>?
+    @State private var timerTask: Task<Void, Never>?
 
     public init() {
         // Initialize with an empty snapshot so first paint isn't blank;
@@ -61,6 +63,11 @@ public struct AnswerPacketHealthRow: View {
                 symbol: "antenna.radiowaves.left.and.right",
                 ok: snapshot.totalEmitted > 0,
                 detail: emitChannelDetail
+            )
+            VerifiedFloorChipStrip(
+                flag: "on",
+                substrate: snapshot.totalEmitted > 0 ? "emitting" : "idle",
+                substrateTint: snapshot.totalEmitted > 0 ? .green : .orange
             )
             row(
                 label: "Audit ring",
@@ -110,10 +117,15 @@ public struct AnswerPacketHealthRow: View {
                 )
             }
         }
-        .onAppear { refresh() }
+        .onAppear {
+            refresh()
+            startTimer()
+        }
         .onDisappear {
             refreshTask?.cancel()
             refreshTask = nil
+            timerTask?.cancel()
+            timerTask = nil
         }
         .onReceive(
             NotificationCenter.default.publisher(
@@ -134,6 +146,17 @@ public struct AnswerPacketHealthRow: View {
             // Avoid pointless redraws when nothing changed.
             if next != snapshot {
                 snapshot = next
+            }
+        }
+    }
+
+    private func startTimer() {
+        timerTask?.cancel()
+        timerTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                if Task.isCancelled { break }
+                refresh()
             }
         }
     }

@@ -27,17 +27,29 @@ public struct CognitiveDagHealthRow: View {
 
     private let refreshInterval: TimeInterval
 
-    public init(refreshInterval: TimeInterval = 5.0) {
+    public init(refreshInterval: TimeInterval = 1.0) {
         self.refreshInterval = refreshInterval
     }
 
     public var body: some View {
-        row(
-            label: "Cognitive DAG",
-            symbol: "circle.grid.cross",
-            ok: stats.schemaVersion > 0,
-            detail: detailLabel
-        )
+        VStack(alignment: .leading, spacing: 8) {
+            row(
+                label: "Cognitive DAG",
+                symbol: "circle.grid.cross",
+                ok: stats.schemaVersion > 0,
+                detail: detailLabel
+            )
+            VerifiedFloorChipStrip(
+                flag: "n/a",
+                substrate: stats.schemaVersion > 0 ? "read-only mirror" : "unavailable",
+                substrateTint: stats.schemaVersion > 0 ? .orange : .secondary
+            )
+            SubstrateFalsifierLink(
+                path: "docs/falsifiers/F-ACS-Anchor-Addressing_2026_05_17.md",
+                wRow: "W-26"
+            )
+            .padding(.horizontal, 12)
+        }
         .onAppear {
             refresh()
             startTimer()

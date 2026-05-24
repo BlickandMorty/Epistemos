@@ -4,6 +4,7 @@ import SwiftUI
 public struct LocalAgentDiagnosticsHealthRow: View {
     @Environment(InferenceState.self) private var inference
     @State private var snapshot: LocalAgentDiagnostics.Snapshot
+    @State private var refreshTask: Task<Void, Never>?
 
     public init() {
         self._snapshot = State(initialValue: LocalAgentDiagnostics.snapshot())
@@ -71,7 +72,14 @@ public struct LocalAgentDiagnosticsHealthRow: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .onAppear(perform: refresh)
+        .onAppear {
+            refresh()
+            startTimer()
+        }
+        .onDisappear {
+            refreshTask?.cancel()
+            refreshTask = nil
+        }
         .onReceive(
             NotificationCenter.default.publisher(for: LocalAgentDiagnostics.didChangeNotification)
         ) { _ in
@@ -95,6 +103,17 @@ public struct LocalAgentDiagnosticsHealthRow: View {
 
     private func refresh() {
         snapshot = LocalAgentDiagnostics.snapshot()
+    }
+
+    private func startTimer() {
+        refreshTask?.cancel()
+        refreshTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                if Task.isCancelled { break }
+                refresh()
+            }
+        }
     }
 
     @ViewBuilder
