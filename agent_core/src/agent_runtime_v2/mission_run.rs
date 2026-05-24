@@ -24,10 +24,89 @@
 use super::answer::{AnswerPacket, Citation};
 use super::blueprint::AgentBlueprintId;
 use super::budget::{BudgetDebit, BudgetError, BudgetGate, BudgetLedger, BudgetSpec};
-use super::event::AgentEvent;
+use super::event::{AgentEvent, AgentEventErrorKind};
+use super::mission::{ToolCall, ToolCallError};
 use super::para::StopReason;
 use super::run_event_log::RunEventLog;
+use crate::acs_admission::{
+    ACSAdmissionInput, ACSAdmissionPayload, ACSAdmissionProofError, ACSAdmissionVerdict,
+    ACSAuditError, ACSAuditRecord, ACSOperationKind, ACSPolicy, ACSRiskVector, ACSRunEventLogSink,
+    ACSToolActionRequest,
+};
 use crate::cognitive_dag::node::Hash;
+use crate::effect::receipt::SigningKey;
+use crate::scope_rex::admission_proof::SCOPERexAdmissionProof;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ToolCallAdmissionHandoff {
+    pub event_ordinal: u64,
+    pub call: ToolCall,
+    pub admission_proof: SCOPERexAdmissionProof,
+    pub audit_record: ACSAuditRecord,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ToolCallAdmissionError {
+    MalformedToolCall(ToolCallError),
+    Audit(ACSAuditError),
+    Proof(ACSAdmissionProofError),
+    Blocked {
+        verdict: ACSAdmissionVerdict,
+        record_id: String,
+        reason: String,
+    },
+}
+
+impl ToolCallAdmissionError {
+    #[must_use]
+    pub const fn cause(&self) -> &'static str {
+        match self {
+            Self::MalformedToolCall(_) => "malformed_tool_call",
+            Self::Audit(error) => error.cause(),
+            Self::Proof(error) => error.cause(),
+            Self::Blocked { .. } => "acs_verdict_blocks_tool_call",
+        }
+    }
+}
+
+impl From<ToolCallError> for ToolCallAdmissionError {
+    fn from(error: ToolCallError) -> Self {
+        Self::MalformedToolCall(error)
+    }
+}
+
+impl From<ACSAuditError> for ToolCallAdmissionError {
+    fn from(error: ACSAuditError) -> Self {
+        Self::Audit(error)
+    }
+}
+
+impl From<ACSAdmissionProofError> for ToolCallAdmissionError {
+    fn from(error: ACSAdmissionProofError) -> Self {
+        Self::Proof(error)
+    }
+}
+
+fn tool_call_request_id(call: &ToolCall, submitted_at_ms: i64, audit_len: usize) -> String {
+    let mut bytes = Vec::new();
+    bytes.extend_from_slice(call.name.as_bytes());
+    bytes.push(0);
+    bytes.extend_from_slice(&serde_json::to_vec(&call.arguments).unwrap_or_default());
+    let digest = blake3::hash(&bytes).to_hex().to_string();
+    format!("tool.{}.{}.{}", submitted_at_ms, audit_len, &digest[..16])
+}
+
+fn tool_call_target(call: &ToolCall) -> String {
+    for key in ["target", "path", "address"] {
+        if let Some(target) = call.arguments.get(key).and_then(serde_json::Value::as_str) {
+            let target = target.trim();
+            if !target.is_empty() {
+                return target.to_string();
+            }
+        }
+    }
+    format!("tool.{}", call.name)
+}
 
 /// Composition helper that bundles [`BudgetGate`] + [`BudgetLedger`] +
 /// [`RunEventLog`] for a single mission run. See module doc.
@@ -52,10 +131,73 @@ impl MissionRun {
         }
     }
 
-    /// Append a typed `AgentEvent` to the run log. Returns the
-    /// assigned ordinal.
+    /// Append a non-tool typed `AgentEvent` to the run log. Returns
+    /// the assigned ordinal.
+    ///
+    /// Tool calls must use [`Self::admit_and_record_tool_call`] so
+    /// every invocation receives an ACS admission verdict and proof
+    /// before it can enter the typed RunEventLog.
     pub fn record_event(&mut self, event: AgentEvent) -> u64 {
-        self.log.append_event(event)
+        match event {
+            AgentEvent::ToolCall { call } => self.log.append_event(AgentEvent::Error {
+                kind: AgentEventErrorKind::CapabilityDenied,
+                message: format!(
+                    "tool call {} requires ACS admission via admit_and_record_tool_call",
+                    call.name
+                ),
+            }),
+            event => self.log.append_event(event),
+        }
+    }
+
+    /// ACS-admit a tool call, write the ACS verdict to the audit
+    /// OpLog, sign a SCOPE-Rex admission proof, then append the typed
+    /// `AgentEvent::ToolCall` row. If ACS blocks the call, the audit
+    /// record remains in the OpLog and no tool row is appended.
+    pub fn admit_and_record_tool_call<K: SigningKey>(
+        &mut self,
+        call: ToolCall,
+        sink: &ACSRunEventLogSink<'_>,
+        policy: &ACSPolicy,
+        now_ms: i64,
+        signing_key: &K,
+    ) -> Result<ToolCallAdmissionHandoff, ToolCallAdmissionError> {
+        call.validate()?;
+        let submitted_at_ms = now_ms.max(0);
+        let input = ACSAdmissionInput {
+            request_id: tool_call_request_id(&call, submitted_at_ms, sink.recorded_event_count()),
+            payload: ACSAdmissionPayload::ToolAction {
+                request: ACSToolActionRequest {
+                    tool_name: call.name.clone(),
+                    target: tool_call_target(&call),
+                    mutation_envelope_id: None,
+                },
+            },
+            submitted_at_ms,
+            risk: ACSRiskVector::neutral(),
+            granted_capabilities: policy.required_for(ACSOperationKind::ToolAction),
+        };
+        let decision = sink.admit_and_record(&input, policy, now_ms)?;
+        if !decision.verdict.allows_durable_commit() {
+            return Err(ToolCallAdmissionError::Blocked {
+                verdict: decision.verdict,
+                record_id: decision.audit_record.record_id,
+                reason: decision.audit_record.reason,
+            });
+        }
+
+        let admission_proof =
+            SCOPERexAdmissionProof::signed_from_record(&decision.audit_record, signing_key)?;
+        admission_proof.verify_against_record(&decision.audit_record, signing_key)?;
+        let event_ordinal = self
+            .log
+            .append_event(AgentEvent::ToolCall { call: call.clone() });
+        Ok(ToolCallAdmissionHandoff {
+            event_ordinal,
+            call,
+            admission_proof,
+            audit_record: decision.audit_record,
+        })
     }
 
     /// Atomic budget gate + sealed-mutation record. On success, BOTH
