@@ -1,0 +1,95 @@
+{
+  "falsifier_id": "F-ULP-Oracle",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "cargo run --release --bin falsify_ulp_oracle",
+  "command_digest": "sha256:d6d338270689c87ae76f638d6b36d1ce1fc11521fbcd2eff8d22a580f09581ba",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "04b7331e4cc04e5044003df714c5c98124d7a497",
+  "fixture_id": "fulp_acceptance_grid_412k_log_2k_adversarial_v1",
+  "timestamp_utc": "2026-05-24T02:26:44Z",
+  "result_digest": "sha256:8a2b232dd085cd788a873dbfad9f653067e46bb429c665cc6ca33d8e7586ee6d",
+  "measurements": {
+    "evaluations_total": {
+      "value": 1242144,
+      "unit": "count"
+    },
+    "max_ulp_eml": {
+      "value": 0,
+      "unit": "ulp_fp16"
+    },
+    "max_ulp_exp": {
+      "value": 0,
+      "unit": "ulp_fp16"
+    },
+    "max_ulp_ln": {
+      "value": 0,
+      "unit": "ulp_fp16"
+    },
+    "wall_clock_seconds": {
+      "value": 1.151197916,
+      "unit": "seconds"
+    }
+  },
+  "acceptance_thresholds": {
+    "evaluations_total": {
+      "operator": ">=",
+      "value": 1242144,
+      "unit": "count"
+    },
+    "max_ulp_eml": {
+      "operator": "<=",
+      "value": 2,
+      "unit": "ulp_fp16"
+    },
+    "max_ulp_exp": {
+      "operator": "<=",
+      "value": 2,
+      "unit": "ulp_fp16"
+    },
+    "max_ulp_ln": {
+      "operator": "<=",
+      "value": 2,
+      "unit": "ulp_fp16"
+    },
+    "wall_clock_seconds": {
+      "operator": "<=",
+      "value": 90,
+      "unit": "seconds"
+    }
+  },
+  "pass_per_axis": {
+    "evaluations_total": true,
+    "max_ulp_eml": true,
+    "max_ulp_exp": true,
+    "max_ulp_ln": true,
+    "wall_clock_seconds": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "kernel=cpu_reference_rounded_fp16_v1; grid_fingerprint=4a83ee96a1dffd0251307ebca42c33eb8982992a641dd641c540fd560a42bdb3; budget_target_seconds=90; F-ULP-Oracle CPU reference produces primary witness — Metal morph_eval_reduced.metal kernel measurement still pending (W-40 / T12)"
+}

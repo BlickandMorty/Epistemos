@@ -1,0 +1,94 @@
+{
+  "falsifier_id": "F-ControllerKernelPack",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "fallback_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "cargo run --release --bin falsify_controller_kernel_pack",
+  "command_digest": "sha256:50b5d4e59e57fa98c1bc7ef2616a46f8d4b9b3a5ff212e257aa5bb6d16be2dee",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "04b7331e4cc04e5044003df714c5c98124d7a497",
+  "fixture_id": "controller_pack_deterministic_fp32_v1",
+  "timestamp_utc": "2026-05-24T02:27:03Z",
+  "result_digest": "sha256:456503e5329eb08d9a44fcede65137d398d75ebaf932e38d49e1bfe98a3de44a",
+  "measurements": {
+    "empty_input_contract": {
+      "value": true,
+      "unit": "bool"
+    },
+    "harness_wall_clock_seconds": {
+      "value": 0.068843375,
+      "unit": "seconds"
+    },
+    "kernel_pack_digest": {
+      "value": "sha256:fc85d32c6c2e4784ff276df1fc6b5bad2f17d8ad61e7bec7ff2b3001b4089bea",
+      "unit": "sha256_hex"
+    },
+    "length_mismatch_contract": {
+      "value": true,
+      "unit": "bool"
+    },
+    "violations_aligned_inputs": {
+      "value": 0,
+      "unit": "count"
+    }
+  },
+  "acceptance_thresholds": {
+    "empty_input_contract": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kernel_pack_digest": {
+      "operator": "=~",
+      "value": "^sha256:[0-9a-f]{64}$",
+      "unit": "regex"
+    },
+    "length_mismatch_contract": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "violations_aligned_inputs": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    }
+  },
+  "pass_per_axis": {
+    "empty_input_contract": true,
+    "kernel_pack_digest": true,
+    "length_mismatch_contract": true,
+    "violations_aligned_inputs": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Fallback",
+  "anomalies": [
+    {
+      "kind": "scope_caveat",
+      "detail": "CPU fallback witness. Primary F-ControllerKernelPack gate requires Metal kernel-vs-CPU equivalence (Epistemos/Shaders/ControllerKernelPack.metal) plus threadgroup budget measurement; pending W-41. This artifact certifies the CPU reference's contract closure (empty-input + length-mismatch errors) + deterministic digest of the 6 kernels over 4 input sizes."
+    }
+  ],
+  "notes": "fallback_witness; primary Metal gate W-41; CPU reference contract closure verified over sizes=[16, 256, 4096, 65536]; pack_digest=sha256:fc85d32c6c2e4784ff276df1fc6b5bad2f17d8ad61e7bec7ff2b3001b4089bea"
+}

@@ -1,0 +1,87 @@
+{
+  "falsifier_id": "F-VaultRecall-50",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "cargo run --release --bin falsify_vault_recall",
+  "command_digest": "sha256:26b86b382ff84eceb0807ce6e0b5c455fc00d93e59818bc5df466156d3a86bf3",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "04b7331e4cc04e5044003df714c5c98124d7a497",
+  "fixture_id": "f_vault_recall_50_canonical_v1",
+  "timestamp_utc": "2026-05-24T02:44:24Z",
+  "result_digest": "sha256:41af5855fd7914fe982dd3d39c2db34f4d98153b933dc4ce947fd07293bb9b93",
+  "measurements": {
+    "fixture_categories": {
+      "value": [
+        "Adversarial",
+        "ChattyPrefix",
+        "Paraphrase",
+        "PureChatter",
+        "SignalOnly",
+        "Synthesis",
+        "Unicode"
+      ],
+      "unit": "category_names"
+    },
+    "fixture_row_count": {
+      "value": 370,
+      "unit": "rows"
+    },
+    "harness_wall_clock_seconds": {
+      "value": 92.02026375,
+      "unit": "seconds"
+    },
+    "integration_test_passed": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "fixture_categories": {
+      "operator": ">=",
+      "value": 5,
+      "unit": "distinct"
+    },
+    "fixture_row_count": {
+      "operator": ">=",
+      "value": 50,
+      "unit": "rows"
+    },
+    "integration_test_passed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "fixture_categories": true,
+    "fixture_row_count": true,
+    "integration_test_passed": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "F-VaultRecall-50 integration test f_vault_recall_50_canonical_rows_against_seeded_vault PASSED (tokio + seeded VaultStore + Tantivy). stdout_tail=running 1 test | test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 10.76s"
+}
