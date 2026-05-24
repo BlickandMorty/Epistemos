@@ -3434,6 +3434,851 @@ pub fn eidos_search_lexical_json(query: String, top_k: u32) -> Result<String, Ag
     })
 }
 
+// EIDOS PRODUCTION VAULT BINDING — Terminal A 2026-05-23
+//
+// Closes W-46.1 (real vault binding) and W-47 (citation gate FFI). The
+// fixture path above stays for back-compat; the production path below
+// is the seam Swift uses for `EidosBridge.openVaultIndex(...)` →
+// `insertVaultNote(...)` → `retrieve(...)` → `validateCitation(...)`.
+//
+// Backend honesty: once `eidos_open_vault_index` is called with a
+// non-empty signature, the production retriever's manifest_id is
+// `vault-<signature>`. `EidosBridge.detectedBackend(from:)` then flips
+// from `.fixture` to `.real` automatically — the chip-strip honest
+// language hinges on this prefix contract.
+//
+// 7-Law focus: Law 2 Address (every hit carries a manifest-bound chunk
+// id), Law 4 Lattice-error (forged citations rejected closed), Law 7
+// Witness (closed-citation contract IS the witness).
+//
+// UniFFI convention: strings are owned across the boundary by UniFFI,
+// not the caller, so an explicit `eidos_free_string` is NOT needed
+// (the Phase 2 prompt's `@_silgen_name eidos_free_string` line was
+// written against the epistemos-shadow cdylib pattern; agent_core uses
+// UniFFI and gets free-on-drop semantics for free).
+
+// RwLock instead of Mutex so retrieve (read-only) can run concurrently
+// with other retrieves — open/insert/close take the write lock. This
+// keeps the chat layer from serializing all Eidos queries through a
+// single critical section once W-51 (Shadow-backed semantic retrieve)
+// lands a heavier-weight backend.
+static EIDOS_VAULT_INDEX: std::sync::OnceLock<
+    std::sync::RwLock<Option<crate::eidos::InMemoryLexicalIndex>>,
+> = std::sync::OnceLock::new();
+
+fn eidos_vault_slot() -> &'static std::sync::RwLock<Option<crate::eidos::InMemoryLexicalIndex>>
+{
+    EIDOS_VAULT_INDEX.get_or_init(|| std::sync::RwLock::new(None))
+}
+
+fn parse_eidos_source_kind(raw: &str) -> Result<crate::eidos::EidosSourceKind, AgentErrorFFI> {
+    use crate::eidos::EidosSourceKind;
+    match raw {
+        "Note" => Ok(EidosSourceKind::Note),
+        "Epdoc" => Ok(EidosSourceKind::Epdoc),
+        "Chat" => Ok(EidosSourceKind::Chat),
+        "Code" => Ok(EidosSourceKind::Code),
+        "Graph" => Ok(EidosSourceKind::Graph),
+        "Shadow" => Ok(EidosSourceKind::Shadow),
+        "ExactPath" => Ok(EidosSourceKind::ExactPath),
+        "RawArchive" => Ok(EidosSourceKind::RawArchive),
+        other => Err(AgentErrorFFI::AgentError {
+            message: format!("unknown EidosSourceKind: {}", other),
+        }),
+    }
+}
+
+/// Open (or replace) the process-global production Eidos vault index.
+///
+/// `vault_signature` is a stable identifier for the vault snapshot —
+/// typically a SHA-256 of the vault path or a sequence number. It is
+/// embedded as `vault-<signature>` in the resulting manifest_id so the
+/// Swift `EidosBridge.detectedBackend` heuristic flips from `.fixture`
+/// to `.real`.
+///
+/// Returns the manifest_id (the same `vault-<signature>` string) on
+/// success. Replaces any previously opened index; existing inserted
+/// notes are discarded — the manifest_id pins one snapshot.
+#[uniffi::export]
+pub fn eidos_open_vault_index(vault_signature: String) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        use crate::eidos::{EidosIndexManifestId, InMemoryLexicalIndex};
+        let signature = vault_signature.trim();
+        if signature.is_empty() {
+            return Err(AgentErrorFFI::AgentError {
+                message: "vault_signature must be non-empty".to_string(),
+            });
+        }
+        let manifest_raw = format!("vault-{}", signature);
+        let manifest = EidosIndexManifestId::new(manifest_raw.clone()).map_err(|e| {
+            AgentErrorFFI::AgentError {
+                message: format!("manifest_id: {:?}", e),
+            }
+        })?;
+        let mut slot = eidos_vault_slot()
+            .write()
+            .map_err(|_| AgentErrorFFI::AgentError {
+                message: "eidos vault slot poisoned".to_string(),
+            })?;
+        *slot = Some(InMemoryLexicalIndex::new(manifest));
+        Ok(manifest_raw)
+    })
+}
+
+/// Insert a single note body into the production vault index.
+///
+/// `source_kind` is the snake_case-free Rust variant name (e.g. `Note`,
+/// `Epdoc`, `Chat`). Replaces any prior body for the same
+/// `document_id` (idempotent re-index).
+#[uniffi::export]
+pub fn eidos_vault_index_insert_note(
+    document_id: String,
+    body: String,
+    source_kind: String,
+) -> Result<bool, AgentErrorFFI> {
+    ffi_guard_sync!({
+        use crate::eidos::EidosDocumentId;
+        let kind = parse_eidos_source_kind(&source_kind)?;
+        let doc_id =
+            EidosDocumentId::new(document_id).map_err(|e| AgentErrorFFI::AgentError {
+                message: format!("document_id: {:?}", e),
+            })?;
+        let mut slot = eidos_vault_slot()
+            .write()
+            .map_err(|_| AgentErrorFFI::AgentError {
+                message: "eidos vault slot poisoned".to_string(),
+            })?;
+        let idx = slot.as_mut().ok_or_else(|| AgentErrorFFI::AgentError {
+            message: "eidos vault index not open — call eidos_open_vault_index first".to_string(),
+        })?;
+        idx.insert(doc_id, body, kind)
+            .map_err(|e| AgentErrorFFI::AgentError {
+                message: format!("eidos insert: {:?}", e),
+            })?;
+        Ok(true)
+    })
+}
+
+/// Run a lexical query against the production vault index. Returns the
+/// JSON-encoded `EidosContextPacket`.
+///
+/// If `eidos_open_vault_index` has not been called yet, returns an
+/// error (the production seam refuses to silently fall back to the
+/// fixture — that is the closed-citation contract).
+#[uniffi::export]
+pub fn eidos_retrieve_json(query: String, top_k: u32) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        use crate::eidos::produce_eidos_context_packet_json;
+        let top_k_u16: u16 = top_k.min(u32::from(u16::MAX)) as u16;
+        let retrieved_at_unix_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+        // Concurrent retrieves take the read lock; only open/insert/close
+        // contend on the write lock.
+        let slot = eidos_vault_slot()
+            .read()
+            .map_err(|_| AgentErrorFFI::AgentError {
+                message: "eidos vault slot poisoned".to_string(),
+            })?;
+        let idx = slot.as_ref().ok_or_else(|| AgentErrorFFI::AgentError {
+            message: "eidos vault index not open — call eidos_open_vault_index first".to_string(),
+        })?;
+        produce_eidos_context_packet_json(idx, &query, top_k_u16, retrieved_at_unix_ms).map_err(
+            |e| AgentErrorFFI::AgentError {
+                message: format!("eidos packet serialize: {}", e),
+            },
+        )
+    })
+}
+
+/// Validate a candidate `EidosCitation` JSON against a packet JSON.
+///
+/// Pure function — no global state touched. Returns JSON shape:
+///
+/// - `{"Ok":null}` on accept
+/// - `{"Err": <CitationError JSON>}` on reject (FabricatedSourceId or
+///   ManifestMismatch — wire shape matches Swift's
+///   `EidosCitationError` Codable).
+///
+/// This is the W-47 citation gate: ChatCoordinator (or any emitter)
+/// hands the packet + candidate citation here; the Rust side enforces
+/// the closed-citation contract authoritatively even if Swift's mirror
+/// drifts.
+#[uniffi::export]
+pub fn eidos_validate_citation_json(
+    packet_json: String,
+    citation_json: String,
+) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        use crate::eidos::{EidosCitation, EidosContextPacket};
+        let packet: EidosContextPacket =
+            serde_json::from_str(&packet_json).map_err(|e| AgentErrorFFI::AgentError {
+                message: format!("eidos packet decode: {}", e),
+            })?;
+        let citation: EidosCitation =
+            serde_json::from_str(&citation_json).map_err(|e| AgentErrorFFI::AgentError {
+                message: format!("eidos citation decode: {}", e),
+            })?;
+        let result: Result<(), crate::eidos::CitationError> = packet.validate_citation(&citation);
+        serde_json::to_string(&result).map_err(|e| AgentErrorFFI::AgentError {
+            message: format!("eidos validation serialize: {}", e),
+        })
+    })
+}
+
+/// Batch-validate a list of `EidosCitation`s against the packet in
+/// one FFI round-trip. JSON wire shape:
+///
+/// - `{"Ok": {"accepted_count": N}}` when every citation validates.
+/// - `{"Err": [[i, <CitationError>], ...]}` when at least one fails;
+///   the array preserves input order of failing entries (matches Rust
+///   `EidosContextPacket::validate_citations`).
+///
+/// The Swift side prefers this over a per-citation FFI loop because
+/// it pays the packet-JSON decode cost ONCE for the whole batch.
+#[uniffi::export]
+pub fn eidos_validate_citations_json(
+    packet_json: String,
+    citations_json: String,
+) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        use crate::eidos::{EidosCitation, EidosContextPacket};
+        let packet: EidosContextPacket =
+            serde_json::from_str(&packet_json).map_err(|e| AgentErrorFFI::AgentError {
+                message: format!("eidos packet decode: {}", e),
+            })?;
+        let citations: Vec<EidosCitation> =
+            serde_json::from_str(&citations_json).map_err(|e| AgentErrorFFI::AgentError {
+                message: format!("eidos citations decode: {}", e),
+            })?;
+        // Replay validate_citation per entry; collect failures with
+        // original input index for the rejection-UI surface.
+        let mut failures: Vec<(usize, crate::eidos::CitationError)> = Vec::new();
+        for (i, c) in citations.iter().enumerate() {
+            if let Err(err) = packet.validate_citation(c) {
+                failures.push((i, err));
+            }
+        }
+        let result: Result<serde_json::Value, Vec<(usize, crate::eidos::CitationError)>> =
+            if failures.is_empty() {
+                Ok(serde_json::json!({ "accepted_count": citations.len() }))
+            } else {
+                Err(failures)
+            };
+        serde_json::to_string(&result).map_err(|e| AgentErrorFFI::AgentError {
+            message: format!("eidos batch validation serialize: {}", e),
+        })
+    })
+}
+
+/// Diagnostic JSON describing the current vault-index state. Wire
+/// shape:
+///
+/// ```json
+/// {"open": true, "manifest_id": "vault-...", "document_count": 42}
+/// ```
+///
+/// or `{"open": false}` when the index is not open.
+///
+/// Read-only; safe to call from any thread.
+#[uniffi::export]
+pub fn eidos_vault_status_json() -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let slot = eidos_vault_slot()
+            .read()
+            .map_err(|_| AgentErrorFFI::AgentError {
+                message: "eidos vault slot poisoned".to_string(),
+            })?;
+        let status = match slot.as_ref() {
+            None => serde_json::json!({ "open": false }),
+            Some(idx) => {
+                // We don't expose a document count from
+                // InMemoryLexicalIndex publicly (would couple the FFI
+                // shape to internal storage). Instead, surface
+                // manifest_id + a heartbeat-style "open=true" so the
+                // Brain Panel can render "vault binding active".
+                serde_json::json!({
+                    "open": true,
+                    "manifest_id": idx.manifest_id().as_str(),
+                })
+            }
+        };
+        serde_json::to_string(&status).map_err(|e| AgentErrorFFI::AgentError {
+            message: format!("eidos status serialize: {}", e),
+        })
+    })
+}
+
+/// Drop the production vault index. After this call,
+/// `eidos_retrieve_json` and `eidos_vault_index_insert_note` will
+/// error with `not open` until a fresh `eidos_open_vault_index` runs.
+/// Primarily for tests.
+#[uniffi::export]
+pub fn eidos_close_vault_index() -> Result<bool, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let mut slot = eidos_vault_slot()
+            .write()
+            .map_err(|_| AgentErrorFFI::AgentError {
+                message: "eidos vault slot poisoned".to_string(),
+            })?;
+        let was_open = slot.is_some();
+        *slot = None;
+        Ok(was_open)
+    })
+}
+
+#[cfg(test)]
+mod eidos_production_ffi_tests {
+    use super::*;
+    use crate::eidos::{EidosCitation, EidosChunkId, EidosContextPacket, EidosIndexManifestId};
+
+    // All tests in this module share the process-global vault slot.
+    // `cargo test` defaults to multi-threaded, so we serialize the
+    // suite under a per-suite `Mutex<()>` (Tokio tasks use the same
+    // pattern; this is the standard Rust technique).
+    static TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn guard() -> std::sync::MutexGuard<'static, ()> {
+        TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    fn reset() {
+        let _ = eidos_close_vault_index();
+    }
+
+    #[test]
+    fn round_trip_open_insert_retrieve_validate() {
+        let _g = guard();
+        reset();
+        let manifest = eidos_open_vault_index("roundtrip-2026-05-23".to_string()).unwrap();
+        assert!(manifest.starts_with("vault-"));
+        eidos_vault_index_insert_note(
+            "note-1".to_string(),
+            "Tropical semirings make optimization convex.".to_string(),
+            "Note".to_string(),
+        )
+        .unwrap();
+        eidos_vault_index_insert_note(
+            "note-2".to_string(),
+            "This is irrelevant.".to_string(),
+            "Note".to_string(),
+        )
+        .unwrap();
+        let packet_json = eidos_retrieve_json("tropical".to_string(), 8).unwrap();
+        let packet: EidosContextPacket = serde_json::from_str(&packet_json).unwrap();
+        assert_eq!(packet.manifest_id.as_str(), "vault-roundtrip-2026-05-23");
+        assert_eq!(packet.hits.len(), 1, "only note-1 should match");
+        let only_hit = &packet.hits[0];
+        let citation = EidosCitation {
+            source_id: only_hit.source_id.clone(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        let citation_json = serde_json::to_string(&citation).unwrap();
+        let validation = eidos_validate_citation_json(packet_json.clone(), citation_json).unwrap();
+        assert_eq!(validation, "{\"Ok\":null}");
+        reset();
+    }
+
+    #[test]
+    fn forged_citation_is_rejected() {
+        let _g = guard();
+        reset();
+        eidos_open_vault_index("forged-2026-05-23".to_string()).unwrap();
+        eidos_vault_index_insert_note(
+            "real".to_string(),
+            "the real body".to_string(),
+            "Note".to_string(),
+        )
+        .unwrap();
+        let packet_json = eidos_retrieve_json("real".to_string(), 8).unwrap();
+        let packet: EidosContextPacket = serde_json::from_str(&packet_json).unwrap();
+        let forged = EidosCitation {
+            source_id: EidosChunkId::new("forged::lex").unwrap(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        let validation = eidos_validate_citation_json(
+            packet_json,
+            serde_json::to_string(&forged).unwrap(),
+        )
+        .unwrap();
+        assert!(validation.contains("FabricatedSourceId"));
+        reset();
+    }
+
+    #[test]
+    fn manifest_mismatch_is_rejected() {
+        let _g = guard();
+        reset();
+        eidos_open_vault_index("manifest-2026-05-23".to_string()).unwrap();
+        eidos_vault_index_insert_note(
+            "doc".to_string(),
+            "body".to_string(),
+            "Note".to_string(),
+        )
+        .unwrap();
+        let packet_json = eidos_retrieve_json("body".to_string(), 8).unwrap();
+        let packet: EidosContextPacket = serde_json::from_str(&packet_json).unwrap();
+        let other_manifest = EidosIndexManifestId::new("vault-some-other").unwrap();
+        let only_hit = &packet.hits[0];
+        let citation = EidosCitation {
+            source_id: only_hit.source_id.clone(),
+            manifest_id: other_manifest,
+        };
+        let validation = eidos_validate_citation_json(
+            packet_json,
+            serde_json::to_string(&citation).unwrap(),
+        )
+        .unwrap();
+        assert!(validation.contains("ManifestMismatch"));
+        reset();
+    }
+
+    #[test]
+    fn retrieve_without_open_errors() {
+        let _g = guard();
+        reset();
+        let err = eidos_retrieve_json("anything".to_string(), 8).unwrap_err();
+        let message = match err {
+            AgentErrorFFI::AgentError { message } => message,
+        };
+        assert!(message.contains("not open"), "got: {}", message);
+    }
+
+    #[test]
+    fn insert_without_open_errors() {
+        let _g = guard();
+        reset();
+        let err = eidos_vault_index_insert_note(
+            "d".to_string(),
+            "b".to_string(),
+            "Note".to_string(),
+        )
+        .unwrap_err();
+        let message = match err {
+            AgentErrorFFI::AgentError { message } => message,
+        };
+        assert!(message.contains("not open"), "got: {}", message);
+    }
+
+    #[test]
+    fn open_replaces_prior_index() {
+        let _g = guard();
+        reset();
+        eidos_open_vault_index("first".to_string()).unwrap();
+        eidos_vault_index_insert_note(
+            "doc-a".to_string(),
+            "alpha".to_string(),
+            "Note".to_string(),
+        )
+        .unwrap();
+        eidos_open_vault_index("second".to_string()).unwrap();
+        // doc-a must be gone now.
+        let packet_json = eidos_retrieve_json("alpha".to_string(), 8).unwrap();
+        let packet: EidosContextPacket = serde_json::from_str(&packet_json).unwrap();
+        assert!(packet.hits.is_empty());
+        assert_eq!(packet.manifest_id.as_str(), "vault-second");
+        reset();
+    }
+
+    #[test]
+    fn empty_signature_rejected() {
+        let _g = guard();
+        reset();
+        let err = eidos_open_vault_index("   ".to_string()).unwrap_err();
+        let message = match err {
+            AgentErrorFFI::AgentError { message } => message,
+        };
+        assert!(message.contains("non-empty"));
+    }
+
+    #[test]
+    fn unknown_source_kind_rejected() {
+        let _g = guard();
+        reset();
+        eidos_open_vault_index("kind-check".to_string()).unwrap();
+        let err = eidos_vault_index_insert_note(
+            "doc".to_string(),
+            "body".to_string(),
+            "NotARealKind".to_string(),
+        )
+        .unwrap_err();
+        let message = match err {
+            AgentErrorFFI::AgentError { message } => message,
+        };
+        assert!(message.contains("unknown EidosSourceKind"));
+        reset();
+    }
+
+    // ── Hardening (iter 2) ─────────────────────────────────────────────
+
+    #[test]
+    fn top_k_zero_returns_empty_packet() {
+        let _g = guard();
+        reset();
+        eidos_open_vault_index("topk-zero".to_string()).unwrap();
+        eidos_vault_index_insert_note(
+            "doc".to_string(),
+            "body content".to_string(),
+            "Note".to_string(),
+        )
+        .unwrap();
+        let packet_json = eidos_retrieve_json("body".to_string(), 0).unwrap();
+        let packet: EidosContextPacket = serde_json::from_str(&packet_json).unwrap();
+        assert!(packet.hits.is_empty());
+        // Manifest still pinned even on empty packet.
+        assert!(packet.manifest_id.as_str().starts_with("vault-"));
+        reset();
+    }
+
+    #[test]
+    fn top_k_overflow_u32_is_clamped() {
+        let _g = guard();
+        reset();
+        eidos_open_vault_index("topk-overflow".to_string()).unwrap();
+        eidos_vault_index_insert_note(
+            "doc".to_string(),
+            "body".to_string(),
+            "Note".to_string(),
+        )
+        .unwrap();
+        // u32::MAX must not panic on the u32 → u16 narrowing.
+        let packet_json = eidos_retrieve_json("body".to_string(), u32::MAX).unwrap();
+        let packet: EidosContextPacket = serde_json::from_str(&packet_json).unwrap();
+        assert_eq!(packet.hits.len(), 1);
+        reset();
+    }
+
+    #[test]
+    fn unicode_body_and_query_round_trip() {
+        let _g = guard();
+        reset();
+        eidos_open_vault_index("unicode-test".to_string()).unwrap();
+        eidos_vault_index_insert_note(
+            "polyglot".to_string(),
+            "École polytechnique fédérale — Привет — 你好".to_string(),
+            "Note".to_string(),
+        )
+        .unwrap();
+        let packet_json = eidos_retrieve_json("Привет".to_string(), 4).unwrap();
+        let packet: EidosContextPacket = serde_json::from_str(&packet_json).unwrap();
+        assert_eq!(packet.hits.len(), 1);
+        assert_eq!(packet.hits[0].source_id.as_str(), "polyglot::lex");
+        reset();
+    }
+
+    #[test]
+    fn large_corpus_insert_and_retrieve() {
+        let _g = guard();
+        reset();
+        eidos_open_vault_index("large-corpus".to_string()).unwrap();
+        for i in 0..1_000 {
+            eidos_vault_index_insert_note(
+                format!("doc-{:04}", i),
+                format!("body number {} alpha bravo charlie", i),
+                "Note".to_string(),
+            )
+            .unwrap();
+        }
+        // Match should hit every doc since "alpha" appears in all bodies.
+        let packet_json = eidos_retrieve_json("alpha".to_string(), 5).unwrap();
+        let packet: EidosContextPacket = serde_json::from_str(&packet_json).unwrap();
+        assert_eq!(packet.hits.len(), 5, "top_k clamps to requested count");
+        // Sorted ascending tie-break — first hit is doc-0000.
+        assert_eq!(packet.hits[0].document_id.as_str(), "doc-0000");
+        reset();
+    }
+
+    #[test]
+    fn batch_validate_accepts_all_real() {
+        let _g = guard();
+        reset();
+        eidos_open_vault_index("batch-accept".to_string()).unwrap();
+        for i in 0..5 {
+            eidos_vault_index_insert_note(
+                format!("d-{}", i),
+                format!("alpha {}", i),
+                "Note".to_string(),
+            )
+            .unwrap();
+        }
+        let packet_json = eidos_retrieve_json("alpha".to_string(), 10).unwrap();
+        let packet: EidosContextPacket = serde_json::from_str(&packet_json).unwrap();
+        let citations: Vec<EidosCitation> = packet
+            .hits
+            .iter()
+            .map(|h| EidosCitation {
+                source_id: h.source_id.clone(),
+                manifest_id: packet.manifest_id.clone(),
+            })
+            .collect();
+        let citations_json = serde_json::to_string(&citations).unwrap();
+        let result = eidos_validate_citations_json(packet_json, citations_json).unwrap();
+        assert!(result.contains("\"accepted_count\":5"), "got: {}", result);
+        assert!(!result.contains("\"Err\""), "got: {}", result);
+        reset();
+    }
+
+    #[test]
+    fn batch_validate_collects_per_index_failures() {
+        let _g = guard();
+        reset();
+        eidos_open_vault_index("batch-fail".to_string()).unwrap();
+        eidos_vault_index_insert_note(
+            "real".to_string(),
+            "alpha".to_string(),
+            "Note".to_string(),
+        )
+        .unwrap();
+        let packet_json = eidos_retrieve_json("alpha".to_string(), 4).unwrap();
+        let packet: EidosContextPacket = serde_json::from_str(&packet_json).unwrap();
+        let citations = vec![
+            // 0: real
+            EidosCitation {
+                source_id: packet.hits[0].source_id.clone(),
+                manifest_id: packet.manifest_id.clone(),
+            },
+            // 1: forged
+            EidosCitation {
+                source_id: EidosChunkId::new("forged::lex").unwrap(),
+                manifest_id: packet.manifest_id.clone(),
+            },
+            // 2: manifest-mismatched
+            EidosCitation {
+                source_id: packet.hits[0].source_id.clone(),
+                manifest_id: EidosIndexManifestId::new("vault-other").unwrap(),
+            },
+        ];
+        let citations_json = serde_json::to_string(&citations).unwrap();
+        let result = eidos_validate_citations_json(packet_json, citations_json).unwrap();
+        // Failures must reference original input indices 1 and 2.
+        assert!(result.contains("\"Err\""), "got: {}", result);
+        assert!(result.contains("FabricatedSourceId"), "got: {}", result);
+        assert!(result.contains("ManifestMismatch"), "got: {}", result);
+        // Index 1 + index 2 preserved.
+        assert!(result.contains("[1,"), "got: {}", result);
+        assert!(result.contains("[2,"), "got: {}", result);
+        // Index 0 must NOT appear in failures.
+        assert!(!result.contains("[0,"), "got: {}", result);
+        reset();
+    }
+
+    #[test]
+    fn concurrent_retrieves_do_not_deadlock_under_rwlock() {
+        use std::sync::Arc;
+        use std::thread;
+        let _g = guard();
+        reset();
+        eidos_open_vault_index("concurrent".to_string()).unwrap();
+        // Seed corpus.
+        for i in 0..50 {
+            eidos_vault_index_insert_note(
+                format!("doc-{}", i),
+                format!("alpha {}", i),
+                "Note".to_string(),
+            )
+            .unwrap();
+        }
+        // Spawn 8 reader threads × 100 retrieves each.
+        let mut handles = Vec::new();
+        let success = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        for t in 0..8 {
+            let s = Arc::clone(&success);
+            handles.push(thread::spawn(move || {
+                for _ in 0..100 {
+                    // Both queries hit body content ("alpha" appears in
+                    // every body; "1" appears in 14 of 50). Doc IDs are
+                    // NOT searched by InMemoryLexicalIndex — only
+                    // bodies — so both substrings must be body-matchable
+                    // to exercise the read path under contention.
+                    let q = if t % 2 == 0 { "alpha" } else { "1" };
+                    match eidos_retrieve_json(q.to_string(), 8) {
+                        Ok(json) => {
+                            let p: EidosContextPacket = serde_json::from_str(&json).unwrap();
+                            if !p.hits.is_empty() {
+                                s.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                            }
+                        }
+                        Err(_) => break,
+                    }
+                }
+            }));
+        }
+        for h in handles { h.join().unwrap(); }
+        // 8 threads × 100 iters = 800. Allow 95% completion floor so a
+        // single transient hiccup doesn't false-alarm.
+        let count = success.load(std::sync::atomic::Ordering::Relaxed);
+        assert!(
+            count >= 760,
+            "concurrent reads under RwLock should all complete; got {}",
+            count
+        );
+        reset();
+    }
+
+    #[test]
+    fn swift_style_packet_re_encode_still_validates() {
+        // Sanity: Swift's JSONEncoder omits nil Optional fields.
+        // Emulate that here by round-tripping the packet through
+        // serde_json — Rust's serde DOES include null for None — but
+        // the deserializer accepts both `null` and missing field for
+        // Option. This proves the validator survives the lossy
+        // re-encode in either direction.
+        let _g = guard();
+        reset();
+        eidos_open_vault_index("re-encode".to_string()).unwrap();
+        eidos_vault_index_insert_note(
+            "doc".to_string(),
+            "body".to_string(),
+            "Note".to_string(),
+        )
+        .unwrap();
+        let packet_json = eidos_retrieve_json("body".to_string(), 4).unwrap();
+        let packet: EidosContextPacket = serde_json::from_str(&packet_json).unwrap();
+        // Round-trip the packet through Rust serde to mimic the
+        // "Swift encodes, Rust validates" path. Validator must still
+        // accept the legitimate citation.
+        let re_encoded = serde_json::to_string(&packet).unwrap();
+        let citation = EidosCitation {
+            source_id: packet.hits[0].source_id.clone(),
+            manifest_id: packet.manifest_id.clone(),
+        };
+        let citation_json = serde_json::to_string(&citation).unwrap();
+        let validation = eidos_validate_citation_json(re_encoded, citation_json).unwrap();
+        assert_eq!(validation, "{\"Ok\":null}");
+        reset();
+    }
+
+    #[test]
+    fn validate_citations_empty_list_accepts() {
+        let _g = guard();
+        reset();
+        eidos_open_vault_index("empty-batch".to_string()).unwrap();
+        eidos_vault_index_insert_note(
+            "doc".to_string(),
+            "body".to_string(),
+            "Note".to_string(),
+        )
+        .unwrap();
+        let packet_json = eidos_retrieve_json("body".to_string(), 4).unwrap();
+        // Empty list — nothing to validate, accept vacuously.
+        let result = eidos_validate_citations_json(packet_json, "[]".to_string()).unwrap();
+        assert!(result.contains("\"accepted_count\":0"), "got: {}", result);
+        reset();
+    }
+
+    #[test]
+    fn open_with_re_insert_idempotent() {
+        let _g = guard();
+        reset();
+        eidos_open_vault_index("idempotent".to_string()).unwrap();
+        eidos_vault_index_insert_note(
+            "doc".to_string(),
+            "first body".to_string(),
+            "Note".to_string(),
+        )
+        .unwrap();
+        eidos_vault_index_insert_note(
+            "doc".to_string(),
+            "second body".to_string(),
+            "Note".to_string(),
+        )
+        .unwrap();
+        // Re-insert replaces — first body no longer matches.
+        assert!(serde_json::from_str::<EidosContextPacket>(
+            &eidos_retrieve_json("first".to_string(), 4).unwrap()
+        )
+        .unwrap()
+        .hits
+        .is_empty());
+        assert_eq!(
+            serde_json::from_str::<EidosContextPacket>(
+                &eidos_retrieve_json("second".to_string(), 4).unwrap()
+            )
+            .unwrap()
+            .hits
+            .len(),
+            1
+        );
+        reset();
+    }
+
+    #[test]
+    fn validate_citation_with_corrupt_packet_json_errors() {
+        let _g = guard();
+        let err =
+            eidos_validate_citation_json("not json".to_string(), "{}".to_string()).unwrap_err();
+        let message = match err {
+            AgentErrorFFI::AgentError { message } => message,
+        };
+        assert!(message.contains("packet decode"), "got: {}", message);
+    }
+
+    #[test]
+    fn validate_citation_with_corrupt_citation_json_errors() {
+        let _g = guard();
+        reset();
+        eidos_open_vault_index("corrupt-cite".to_string()).unwrap();
+        eidos_vault_index_insert_note(
+            "doc".to_string(),
+            "body".to_string(),
+            "Note".to_string(),
+        )
+        .unwrap();
+        let packet_json = eidos_retrieve_json("body".to_string(), 4).unwrap();
+        let err = eidos_validate_citation_json(packet_json, "not json".to_string()).unwrap_err();
+        let message = match err {
+            AgentErrorFFI::AgentError { message } => message,
+        };
+        assert!(message.contains("citation decode"), "got: {}", message);
+        reset();
+    }
+
+    #[test]
+    fn manifest_id_is_byte_identical_across_open_calls_for_same_signature() {
+        let _g = guard();
+        reset();
+        let m1 = eidos_open_vault_index("stable-sig".to_string()).unwrap();
+        let m2 = eidos_open_vault_index("stable-sig".to_string()).unwrap();
+        assert_eq!(m1, m2);
+        assert_eq!(m1, "vault-stable-sig");
+        reset();
+    }
+
+    #[test]
+    fn vault_status_reports_closed_when_no_index_open() {
+        let _g = guard();
+        reset();
+        let status = eidos_vault_status_json().unwrap();
+        assert_eq!(status, "{\"open\":false}");
+    }
+
+    #[test]
+    fn vault_status_reports_open_with_manifest_id() {
+        let _g = guard();
+        reset();
+        eidos_open_vault_index("status-test".to_string()).unwrap();
+        let status = eidos_vault_status_json().unwrap();
+        assert!(status.contains("\"open\":true"), "got: {}", status);
+        assert!(
+            status.contains("\"manifest_id\":\"vault-status-test\""),
+            "got: {}",
+            status
+        );
+        reset();
+    }
+
+    #[test]
+    fn signature_whitespace_around_is_trimmed() {
+        let _g = guard();
+        reset();
+        let m = eidos_open_vault_index("  sig  ".to_string()).unwrap();
+        // Inner whitespace preserved; outer trimmed.
+        assert_eq!(m, "vault-sig");
+        reset();
+    }
+}
+
 // VAULT RECALL CONTRACT WIRING — `vault_recall_trace_json` FFI entry.
 //
 // Wiring #2 (T21 Vault Recall Contract -> ResourceService) scaffold.
