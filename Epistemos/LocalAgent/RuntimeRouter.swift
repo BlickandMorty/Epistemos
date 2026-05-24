@@ -502,10 +502,7 @@ public final class RuntimeRouter {
             }
         }
 
-        var lastLane: RuntimeLane = preferredChain[0]
         for lane in preferredChain {
-            lastLane = lane
-
             if packet.privacySensitive && !lane.isLocal {
                 let escalation = RouteVerdict.escalate(
                     from: lane,
@@ -559,7 +556,6 @@ public final class RuntimeRouter {
         // No lane along the preferred chain accepted. Reject honestly.
         let allDisabled = preferredChain.allSatisfy { !isLaneEnabled($0) }
         let reason: RouteVerdict.RejectReason = allDisabled ? .allLanesDisabled : .noLaneAvailable
-        _ = lastLane
         return recordReject(role: packet.role, reason: reason)
     }
 
