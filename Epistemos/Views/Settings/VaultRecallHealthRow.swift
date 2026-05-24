@@ -23,6 +23,7 @@ import SwiftUI
 public struct VaultRecallHealthRow: View {
 
     @State private var snapshot: VaultRecallMetrics.Snapshot
+    @State private var refreshTask: Task<Void, Never>?
 
     public init() {
         self._snapshot = State(initialValue: VaultRecallMetrics.shared.snapshot())
@@ -35,8 +36,8 @@ public struct VaultRecallHealthRow: View {
                 symbol: "flag.fill",
                 ok: snapshot.isFlagEnabled,
                 detail: snapshot.isFlagEnabled
-                    ? "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 on (synthetic trace emission)"
-                    : "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 off (no trace emission)"
+                    ? "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 on (diagnostic trace flag)"
+                    : "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 off (chat still records visible traces)"
             )
             VerifiedFloorChipStrip(
                 flag: snapshot.isFlagEnabled ? "on" : "off",
@@ -78,7 +79,14 @@ public struct VaultRecallHealthRow: View {
                 )
             }
         }
-        .onAppear { refresh() }
+        .onAppear {
+            refresh()
+            startTimer()
+        }
+        .onDisappear {
+            refreshTask?.cancel()
+            refreshTask = nil
+        }
         .onReceive(NotificationCenter.default.publisher(
             for: VaultRecallMetrics.didChangeNotification,
             object: VaultRecallMetrics.shared
@@ -93,6 +101,17 @@ public struct VaultRecallHealthRow: View {
         snapshot = VaultRecallMetrics.shared.snapshot()
     }
 
+    private func startTimer() {
+        refreshTask?.cancel()
+        refreshTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                if Task.isCancelled { break }
+                refresh()
+            }
+        }
+    }
+
     private var lastQueryDetail: String {
         if let err = snapshot.lastErrorDescription, snapshot.lastQueryAt == nil {
             return "Error: \(err)"
@@ -100,7 +119,7 @@ public struct VaultRecallHealthRow: View {
         guard let date = snapshot.lastQueryAt else {
             return snapshot.isFlagEnabled
                 ? "No queries yet — run a vault search to populate"
-                : "Flag off — contract path not exercised"
+                : "No queries yet — run a vault search to populate"
         }
         let elapsed = formatLatency(snapshot.lastLatencyMs)
         let ago = Self.relativeTime(date)
@@ -159,4 +178,5 @@ public struct VaultRecallHealthRow: View {
         .padding(.vertical, 8)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
+
 }

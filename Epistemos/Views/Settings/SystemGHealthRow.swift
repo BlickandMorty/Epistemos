@@ -24,6 +24,7 @@ import SwiftUI
 public struct SystemGHealthRow: View {
 
     @State private var snapshot: SystemGMetrics.Snapshot
+    @State private var refreshTask: Task<Void, Never>?
 
     public init() {
         self._snapshot = State(initialValue: SystemGMetrics.shared.snapshot())
@@ -74,6 +75,11 @@ public struct SystemGHealthRow: View {
         .onAppear {
             _ = SystemGBridge.status()
             refresh()
+            startTimer()
+        }
+        .onDisappear {
+            refreshTask?.cancel()
+            refreshTask = nil
         }
         .onReceive(NotificationCenter.default.publisher(
             for: SystemGMetrics.didChangeNotification,
@@ -87,6 +93,18 @@ public struct SystemGHealthRow: View {
 
     public func refresh() {
         snapshot = SystemGMetrics.shared.snapshot()
+    }
+
+    private func startTimer() {
+        refreshTask?.cancel()
+        refreshTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                if Task.isCancelled { break }
+                _ = SystemGBridge.status()
+                refresh()
+            }
+        }
     }
 
     private var modeDetail: String {

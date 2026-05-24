@@ -3689,6 +3689,175 @@ pub fn system_g_runtime_status_json() -> Result<String, AgentErrorFFI> {
     })
 }
 
+/// Unified substrate-health readout for Settings -> Substrate Health.
+///
+/// This is intentionally observability-only. It reports which substrate
+/// pieces are reachable and which parts are still blocked on later
+/// Terminal G / falsifier work; it does not promote any row to a
+/// production-wired state.
+#[uniffi::export]
+pub fn substrate_health_unified_json() -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        use crate::cognitive_dag::storage::DagStore;
+        use std::collections::BTreeMap;
+
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() as i64)
+            .unwrap_or(0);
+
+        #[cfg(feature = "research")]
+        let (eml_sample_observations, eml_augmented_auc, eml_auc_bar, eml_count, eml_pos, eml_neg, eml_mean) = {
+            use crate::research::cognition_observatory::sae::LabeledScore;
+            let observations = [
+                LabeledScore { score: 0.08, is_hallucination: false },
+                LabeledScore { score: 0.25, is_hallucination: false },
+                LabeledScore { score: 0.73, is_hallucination: true },
+                LabeledScore { score: 0.91, is_hallucination: true },
+            ];
+            let summary =
+                crate::research::eml_integration::observatory::summarize(&observations).map_err(
+                    |err| AgentErrorFFI::AgentError {
+                        message: format!("EML observatory summary failed: {:?}", err),
+                    },
+                )?;
+            let auc =
+                crate::research::eml_integration::observatory::auc_on_augmented(&observations)
+                    .map_err(|err| AgentErrorFFI::AgentError {
+                        message: format!("EML observatory AUC failed: {:?}", err),
+                    })?;
+            (
+                observations.len(),
+                auc,
+                crate::research::cognition_observatory::sae::SAE_DOCTRINE_AUC_BAR,
+                summary.count,
+                summary.positives,
+                summary.negatives,
+                summary.mean_potential,
+            )
+        };
+        #[cfg(not(feature = "research"))]
+        let (eml_sample_observations, eml_augmented_auc, eml_auc_bar, eml_count, eml_pos, eml_neg, eml_mean) =
+            (0_usize, 0.0_f32, 0.90_f32, 0_usize, 0_usize, 0_usize, None::<f64>);
+
+        let store = cognitive_dag_store();
+        let dag_snapshot = store.snapshot().map_err(|err| AgentErrorFFI::AgentError {
+            message: format!("Cognitive DAG substrate health snapshot failed: {err}"),
+        })?;
+        let mut node_kind_counts: BTreeMap<&'static str, usize> = BTreeMap::new();
+        for node in &dag_snapshot.nodes {
+            *node_kind_counts.entry(node.kind.discriminator()).or_insert(0) += 1;
+        }
+        let mut edge_kind_counts: BTreeMap<&'static str, usize> = BTreeMap::new();
+        for edge in &dag_snapshot.edges {
+            *edge_kind_counts.entry(edge.kind.discriminator()).or_insert(0) += 1;
+        }
+
+        let mut merkle_hex = String::with_capacity(64);
+        for byte in dag_snapshot.merkle_root.as_bytes().iter() {
+            use std::fmt::Write;
+            let _ = write!(&mut merkle_hex, "{:02x}", byte);
+        }
+
+        let copy_stats = crate::uas::copy_counter::CopyStats::capture();
+        let wbo_stats = crate::oplog_lattice_wbo::snapshot();
+
+        let payload = serde_json::json!({
+            "generated_at_ms": now_ms,
+            "eml_observatory": {
+                "ffi_reachable": true,
+                "live_stream_wired": false,
+                "sample_observations": eml_sample_observations,
+                "augmented_auc": eml_augmented_auc,
+                "auc_bar": eml_auc_bar,
+                "summary_count": eml_count,
+                "summary_positives": eml_pos,
+                "summary_negatives": eml_neg,
+                "mean_potential": eml_mean,
+                "falsifier": "docs/falsifiers/F-ULP-Oracle_2026_05_17.md",
+                "w_row": "W-07"
+            },
+            "uas_acs": {
+                "ffi_reachable": true,
+                "known_uas_kinds": [
+                    "vault_note",
+                    "graph_node",
+                    "kv_page",
+                    "model_component",
+                    "agent_trace",
+                    "tool_result",
+                    "answer_packet",
+                    "tri_fusion_block"
+                ],
+                "residency_tiers": [
+                    crate::uas::ResidencyTier::CurrentApp.wire_tag(),
+                    crate::uas::ResidencyTier::VerifiedFloor.wire_tag(),
+                    crate::uas::ResidencyTier::CapabilityCeiling.wire_tag()
+                ],
+                "copy_count": copy_stats.copy_count,
+                "alloc_count": copy_stats.alloc_count,
+                "bytes_allocated": copy_stats.bytes_allocated,
+                "production_anchor_lookup_wired": false,
+                "falsifier": "docs/falsifiers/F-UAS-ZeroCopy-Spine_2026_05_17.md",
+                "w_row": "W-10"
+            },
+            "cognitive_dag_counts": {
+                "ffi_reachable": true,
+                "node_count": dag_snapshot.nodes.len(),
+                "edge_count": dag_snapshot.edges.len(),
+                "schema_version": dag_snapshot.schema_version,
+                "merkle_root_hex": merkle_hex,
+                "node_kind_counts": node_kind_counts,
+                "edge_kind_counts": edge_kind_counts,
+                "falsifier": "docs/falsifiers/F-ACS-Anchor-Addressing_2026_05_17.md",
+                "w_row": "W-26"
+            },
+            "plane_placement": {
+                "ffi_reachable": true,
+                "terminal_g_required": true,
+                "plane_fields_wired": false,
+                "state_count": 0,
+                "episodic_count": 0,
+                "assembly_count": 0,
+                "controller_count": 0,
+                "verification_count": 0,
+                "unplaced_count": dag_snapshot.nodes.len(),
+                "dependency": "Terminal G / T14 Five-plane UAS wiring",
+                "falsifier": "docs/falsifiers/F_ACS_ANCHOR_LOOKUP_2026_05_18.md",
+                "w_row": "W-10"
+            },
+            "cognitive_weight": {
+                "ffi_reachable": true,
+                "policy_enforcement_wired": false,
+                "classes": [
+                    {"badge": "W1", "label": "light", "class": "soft", "range": "0.00-0.30", "policy_authority": false},
+                    {"badge": "W2", "label": "medium", "class": "preferred", "range": "0.31-0.60", "policy_authority": false},
+                    {"badge": "W3", "label": "heavy", "class": "strong_anchor", "range": "0.61-0.85", "policy_authority": false},
+                    {"badge": "W4", "label": "extreme", "class": "policy_grade", "range": "0.86-1.00", "policy_authority": true}
+                ],
+                "falsifier": "docs/falsifiers/F_WBO_DRIFT_LEDGER_2026_05_18.md",
+                "w_row": "W-30"
+            },
+            "drift_monitor": {
+                "ffi_reachable": true,
+                "wbo_appends_accounted": wbo_stats.appends_accounted,
+                "wbo_tier": wbo_stats.tier,
+                "wbo_falsifier": wbo_stats.falsifier,
+                "dag_root": merkle_hex,
+                "copy_count": copy_stats.copy_count,
+                "alloc_count": copy_stats.alloc_count,
+                "falsifier_passed": false,
+                "falsifier": "docs/falsifiers/F_WBO_DRIFT_LEDGER_2026_05_18.md",
+                "w_row": "W-33"
+            }
+        });
+
+        serde_json::to_string(&payload).map_err(|e| AgentErrorFFI::AgentError {
+            message: format!("substrate health unified serialize: {}", e),
+        })
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::build_preview_session_context_with_opener;
@@ -3697,6 +3866,7 @@ mod tests {
     use super::list_tools_for_tier;
     use super::nightbrain_outcome_status;
     use super::resolve_provider_selection_preview;
+    use super::substrate_health_unified_json;
     use crate::nightbrain::TaskOutcome;
     use crate::storage::vault::VaultError;
     use serde_json::json;
@@ -3709,6 +3879,19 @@ mod tests {
         assert_eq!(preview.resolution_kind, "forced");
         assert_eq!(preview.effective_provider, "claude_opus");
         assert!(preview.supported);
+    }
+
+    #[test]
+    fn substrate_health_unified_json_surfaces_honest_terminal_g_dependency() {
+        let raw = substrate_health_unified_json().expect("substrate health JSON should encode");
+        let value: serde_json::Value = serde_json::from_str(&raw).expect("valid JSON");
+
+        assert_eq!(value["eml_observatory"]["w_row"], "W-07");
+        assert_eq!(value["uas_acs"]["w_row"], "W-10");
+        assert_eq!(value["cognitive_weight"]["w_row"], "W-30");
+        assert_eq!(value["drift_monitor"]["w_row"], "W-33");
+        assert_eq!(value["plane_placement"]["terminal_g_required"], true);
+        assert_eq!(value["plane_placement"]["plane_fields_wired"], false);
     }
 
     #[test]
