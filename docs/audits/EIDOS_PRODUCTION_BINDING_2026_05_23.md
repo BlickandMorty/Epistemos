@@ -2,8 +2,9 @@
 
 **Tier:** Tier 1 (MAS-shippable).
 **Branch:** `terminal/a-eidos-bridge-2026-05-23`.
-**Closes:** W-46.1 (real vault binding), W-47 (citation gate FFI).
-**Partials:** Brain Panel surface (W-48 deferred to follow-up), DagBackedGraphNeighborhood (W-50 deferred), ShadowBackedSemanticIndex (W-51 deferred).
+**Closes:** W-46.1 (real vault binding), W-47 (citation gate FFI), W-48 (Brain Panel "Retrieved by Eidos" surface), W-50 (DagBackedGraphNeighborhood).
+**Partial:** ShadowBackedSemanticIndex (W-51 deferred — requires shadow cdylib FFI integration).
+**Hardening pass (iter 2-7):** Mutex→RwLock for concurrent reads, batch validation FFI, cross-language wire-shape parity tests, AppBootstrap auto-open, W-48 Brain Panel surface, W-50 DagBacked retriever with NodeId resolver.
 **Companion falsifier:** [F-Eidos-Bridge-RoundTrip_2026_05_23.md](../falsifiers/F-Eidos-Bridge-RoundTrip_2026_05_23.md) — PASS on Rust side.
 
 ## What landed
@@ -17,13 +18,23 @@
 | `EpistemosTests/EidosBridgeProductionTests.swift` | (did not exist) | 10 new Swift Testing tests covering the round-trip + W-47 batch gate. Suite is `.serialized` because it touches the process-global vault slot. |
 | Rust tests (`bridge::eidos_production_ffi_tests::`) | (did not exist) | 8 new tests covering open/insert/retrieve/validate/close, forged-id rejection, manifest-mismatch rejection, signature validation, source-kind validation. |
 
-## What deferred to follow-up
+## Hardening pass (iter 2-7, post-PR #66 audit loop)
+
+The "audit and harden in loop" pass added:
+
+1. **RwLock instead of Mutex** for the production vault slot — concurrent retrieves no longer serialize. Verified by `concurrent_retrieves_do_not_deadlock_under_rwlock` (8 threads × 100 retrieves ≥ 760 successes under contention).
+2. **Batch validation FFI** — `eidos_validate_citations_json(packet, citations[])` decodes packet ONCE per call. Swift batch helper avoids the O(N×M) re-encode loop.
+3. **AppBootstrap auto-open** — `Epistemos/Eidos/EidosVaultBootstrapper.swift` (NEW) opens the production index against `sha256(vaultPath)` on app start + on `.vaultChanged` events. Mirrors the existing shadow re-init pattern.
+4. **W-48 Brain Panel "Retrieved by Eidos" surface** — `Epistemos/Views/Chat/EidosRetrievedSection.swift` (NEW) embeds inside `ChatBrainPanelView`. Reads `EidosMetrics.shared` only — surfaces backend chip honestly.
+5. **W-50 DagBackedGraphNeighborhood** — `agent_core/src/eidos/dag_backed_graph_neighborhood.rs` (NEW). Consumes `DagSnapshot` + a `NodeNameResolver` (Arc-wrapped closures). 12 new cargo tests cover closed-citation contract, deterministic ordering, unresolvable seed/neighbor handling, edge-kind filter, top_k truncation, dedup, replay byte-equality.
+6. **Cross-language wire-shape pin** — `EpistemosTests/EidosValidationParityTests.swift` (NEW). 6 tests pin `{"Ok":null}` / `{"Err":{"FabricatedSourceId":...}}` / `{"Err":{"ManifestMismatch":{...}}}` / batch accept / batch reject + Swift-encoded packet contract.
+7. **+14 new Rust tests** in `bridge::eidos_production_ffi_tests`: top_k=0, top_k u32::MAX overflow, unicode, 1000-doc corpus, batch accept, batch per-index failures, concurrent reads, Swift-style re-encode, empty-list batch, idempotent re-insert, corrupt-JSON errors, byte-identical manifest, signature trim.
+
+## What stayed deferred to follow-up
 
 | Item | Reason | Tracking |
 |---|---|---|
-| **W-50 DagBackedGraphNeighborhood** | `cognitive_dag::NodeId` is opaque `[u8; 32]`; mapping query text → NodeId requires a name layer that doesn't exist yet. Cleanest: add `EidosDocumentId`-keyed naming closure to `InMemoryGraphNeighborhood`, then build a DagBacked impl that wires through a name resolver. | Next-iter Terminal A or a dedicated follow-up. |
 | **W-51 ShadowBackedSemanticIndex** | Requires `epistemos-shadow` cdylib FFI integration (HNSW + tantivy bridge). Substantial cross-crate work that doesn't share scope with the FFI shape this PR lands. | Standalone follow-up; document the design seam. |
-| **W-48 Brain Panel "Retrieved by Eidos" surface** | UI work; risk to bundle UI changes with FFI changes per "Audit-verify each loop unit" memory. Now that `EidosBridge.retrieve` exists + records into `EidosMetrics.shared`, the Brain Panel surface is a downstream observer. | Standalone follow-up; one Swift file. |
 | **T4 `F_VaultRecall_50_*` pull** | The three test files encode FORWARD implementation choices (stopword/boilerplate filter in `sanitizeFTS5Query`, `Phase3FusionConsts.RECENCY_LN_2` in `RRFFusionQuery`, large source-string assertions on `ChatCoordinator.buildIndexedVaultLookupFallbackAnswer`) that are not on `main`. Pulling them as-is = CI red. They cover the vault-recall path that depends on what `Eidos.retrieve` returns — which is exactly the path this PR opens. **Coverage equivalent**: `EidosBridgeProductionTests.swift` (the new file) exercises the same closed-citation contract end-to-end via the bridge. | Track separately: either pull both T4 tests + forward impl in one Terminal B PR, or stage the boilerplate filter / RECENCY_LN_2 features as their own PRs. |
 | **Full ChatCoordinator emit-path wiring (W-47 call site)** | The 5606-line `ChatCoordinator.swift` has one current `request.sourceId` path. Deeper "every emitted source_id list" wiring is Terminal B's scope (Vault Recall Trace + Chat Citation Surface — touches the same file). The gate helper `ChatCoordinator+EidosCitationGate.swift` IS the contract surface Terminal B will call. | Cross-terminal hand-off documented in this audit. |
 

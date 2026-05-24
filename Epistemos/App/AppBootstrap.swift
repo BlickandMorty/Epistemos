@@ -2196,6 +2196,19 @@ final class AppBootstrap {
         // fails on day one. Idempotent on repeat launches.
         initializeShadowBackendIfReady()
 
+        // W-46.1 (Terminal A 2026-05-23) — open the production Eidos
+        // vault index with a vault-path-stable signature so the
+        // closed-citation manifest is `vault-<sig>` (not the fixture
+        // manifest). This is the seam that flips EidosHealthRow's
+        // chip-strip from orange ("fixture path active") to green
+        // ("production vault binding active") once the first retrieve
+        // runs. Bulk crawl insertion is Terminal B's piggyback on
+        // ShadowVaultBootstrapper — until then, callers can insert
+        // per-edit via `EidosBridge.insertVaultNote(...)`.
+        EidosVaultBootstrapper.openProductionIndexIfReady(
+            vaultURL: vaultSync.vaultURL
+        )
+
         #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         // W10.10-FIX — register the NightBrain LaunchAgent so the 3 AM
         // consolidation pass survives the main app being quit. Failure
@@ -3812,6 +3825,13 @@ final class AppBootstrap {
             case .vaultChanged:
                 self.initializeRustResourceServiceIfReady()
                 self.initializeShadowBackendIfReady()
+                // W-46.1 — re-open the Eidos vault index against the
+                // new vault path so the manifest_id flips with the
+                // user's vault switch. Idempotent for repeat fires of
+                // the same vault.
+                EidosVaultBootstrapper.openProductionIndexIfReady(
+                    vaultURL: self.vaultSync.vaultURL
+                )
             case .vaultPageChanged(let pageId):
                 self.enqueueShadowPageReindexIfReady(pageId: pageId)
             default:

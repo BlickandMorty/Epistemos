@@ -200,10 +200,14 @@ extension EidosBridge {
 
     /// Batch gate over a list of candidate `EidosChunkId`s. Builds
     /// `EidosCitation` envelopes pinned to `packet.manifestId` and
-    /// runs each through the Rust validator. Returns `.accepted`
-    /// only if EVERY citation passes; otherwise returns the first
-    /// rejection (in input order). Matches Rust
-    /// `EidosContextPacket::validate_citations` semantics.
+    /// runs them through the single-call Rust batch validator
+    /// (`eidos_validate_citations_json`), which decodes the packet
+    /// JSON exactly once per call — substantially cheaper than the
+    /// per-citation `validateCitation` loop for large source-id
+    /// slices. Returns `.accepted` only if EVERY citation passes;
+    /// otherwise returns the first rejection (in input order),
+    /// matching Rust `EidosContextPacket::validate_citations`
+    /// semantics.
     ///
     /// **W-47 citation gate**: ChatCoordinator hands the per-answer
     /// `sourceIds` slice here BEFORE committing the message. A
@@ -213,15 +217,77 @@ extension EidosBridge {
         packet: EidosContextPacket,
         sourceIds: [EidosChunkId]
     ) -> CitationValidation {
-        for chunkId in sourceIds {
-            let cite = EidosCitation(sourceId: chunkId, manifestId: packet.manifestId)
-            let outcome = validateCitation(packet: packet, citation: cite)
-            switch outcome {
-            case .accepted: continue
-            case .rejected, .bridgeFailure: return outcome
-            }
+        // Vacuous accept on empty input — matches Rust semantics.
+        if sourceIds.isEmpty {
+            return .accepted
         }
-        return .accepted
+        do {
+            let citations = sourceIds.map {
+                EidosCitation(sourceId: $0, manifestId: packet.manifestId)
+            }
+            let enc = JSONEncoder()
+            let packetData = try enc.encode(packet)
+            let citationsData = try enc.encode(citations)
+            guard
+                let packetJson = String(data: packetData, encoding: .utf8),
+                let citationsJson = String(data: citationsData, encoding: .utf8)
+            else {
+                return .bridgeFailure("encode produced non-utf8")
+            }
+            let raw = try eidosValidateCitationsJson(
+                packetJson: packetJson,
+                citationsJson: citationsJson
+            )
+            guard let data = raw.data(using: .utf8) else {
+                return .bridgeFailure("non-utf8 batch validation JSON")
+            }
+            // Wire shape: {"Ok":{"accepted_count":N}} on accept,
+            // {"Err":[[i, <CitationError>], ...]} on reject (input
+            // order preserved, first failure becomes the surface).
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                return .bridgeFailure("batch validation JSON shape unrecognized: \(raw)")
+            }
+            if json.keys.contains("Ok") {
+                return .accepted
+            }
+            if let failures = json["Err"] as? [[Any]],
+               let first = failures.first,
+               first.count == 2 {
+                let errData = try JSONSerialization.data(withJSONObject: first[1])
+                let err = try JSONDecoder().decode(EidosCitationError.self, from: errData)
+                return .rejected(err)
+            }
+            return .bridgeFailure("batch validation JSON shape unrecognized: \(raw)")
+        } catch {
+            EidosMetrics.shared.recordError(error)
+            return .bridgeFailure(String(describing: error))
+        }
+    }
+
+    /// Diagnostic status: is the production vault index open, and
+    /// what manifest_id is it bound to? Returns nil on FFI failure.
+    /// Tier 1 read-only helper — safe to call from a SwiftUI redraw.
+    public struct VaultStatus: Sendable, Equatable {
+        public let isOpen: Bool
+        public let manifestId: EidosIndexManifestId?
+    }
+
+    public static func vaultStatus() -> VaultStatus? {
+        do {
+            let raw = try eidosVaultStatusJson()
+            guard let data = raw.data(using: .utf8) else { return nil }
+            guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                return nil
+            }
+            let open = (json["open"] as? Bool) ?? false
+            if open, let mid = json["manifest_id"] as? String, let typed = EidosIndexManifestId(mid) {
+                return VaultStatus(isOpen: true, manifestId: typed)
+            }
+            return VaultStatus(isOpen: false, manifestId: nil)
+        } catch {
+            EidosMetrics.shared.recordError(error)
+            return nil
+        }
     }
 
     /// Drop the process-global production vault index. Primarily for
