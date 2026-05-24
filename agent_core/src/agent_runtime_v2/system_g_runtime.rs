@@ -53,29 +53,45 @@ use super::para::StopReason;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum SystemGAgentEvent {
+    /// First event of a turn. `plan` is the executor's high-level
+    /// dispatch summary (synthesized in V1; a real planner emits it
+    /// once the model commits to a strategy).
     PlanStart {
         turn_id: String,
         plan: String,
     },
+    /// Executor invoked a tool. `args_json` is the raw JSON payload
+    /// the executor sent — opaque to the seam; the Swift UI surfaces
+    /// it verbatim for replay.
     ToolStart {
         turn_id: String,
         tool_name: String,
         args_json: String,
     },
+    /// Tool invocation returned. `ok=false` means the tool itself
+    /// reported failure — the turn may still continue if the executor
+    /// has a recovery path.
     ToolEnd {
         turn_id: String,
         tool_name: String,
         ok: bool,
         output_json: String,
     },
+    /// Streaming text delta. Concatenation of every `token_chunk`
+    /// within a turn reproduces the final answer body.
     TokenChunk {
         turn_id: String,
         text: String,
     },
+    /// Terminal — happy path. `answer_packet_id` is the seam's
+    /// stable identifier for the produced `AnswerPacket` (V1 uses
+    /// the hex-encoded `run_event_log_root`).
     Complete {
         turn_id: String,
         answer_packet_id: String,
     },
+    /// Terminal — unhappy path. `error` carries a human-readable
+    /// summary; the Swift seam surfaces it as `SystemGRunSeamError.ffi`.
     Failed {
         turn_id: String,
         error: String,
@@ -91,12 +107,25 @@ impl SystemGAgentEvent {
 
 #[derive(Debug)]
 pub enum SystemGRuntimeError {
+    /// `start_run`: the supplied `mission_json` failed JSON decode.
+    /// Carries the serde error message for log triage.
     Decode(String),
+    /// `start_run`: the mission prompt exceeded
+    /// `MissionPacket::MAX_PROMPT_BYTES`. Pre-empts any provider
+    /// call so the executor never sees an over-budget input.
     PromptOversize { size: usize, cap: usize },
+    /// `drain_events`: the supplied `run_id` is not registered.
+    /// Either the run was never started, or its retention window
+    /// expired and the GC reaped it.
     UnknownRun(String),
-    /// Registry is at `MAX_CONCURRENT_RUNS` capacity. Callers should
-    /// retry after draining or terminating prior runs.
+    /// `start_run`: the registry is at `MAX_CONCURRENT_RUNS` capacity.
+    /// Callers should retry after draining or terminating prior runs.
+    /// Distinct from `PromptOversize` so the operator can tell DoS
+    /// pressure apart from a single oversize request.
     CapacityExhausted { in_flight: usize, cap: usize },
+    /// Defensive: a mutex poison or other internal invariant violation.
+    /// Carries the underlying error description. Should never happen
+    /// in production; surface it instead of panicking.
     Internal(String),
 }
 

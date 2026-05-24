@@ -180,6 +180,47 @@ Iter-9 adds a multi-thread stress test pinning the registry's thread-safety unde
 
 **Test count after iter-9:** 22 Rust unit + 4 Rust integration + 4 Swift integration = **30 tests** for this seam (was 28, was 13 in the initial PR).
 
+## How to verify locally (CI is billing-locked on this branch)
+
+GitHub Actions for PR #67 surfaces all checks as failed because of
+`The job was not started because your account is locked due to a
+billing issue` — the runners never executed the test commands.
+Reviewers should run the following locally:
+
+```bash
+# From the worktree root (Epistemos-terminal-c or any checkout of the
+# branch). Each block runs in <2 minutes after the first warm cache.
+
+# (1) Cargo lib build + lint
+cargo check --manifest-path agent_core/Cargo.toml --lib
+cargo clippy --manifest-path agent_core/Cargo.toml --lib --no-deps
+
+# (2) Rust unit tests for the new module (22 tests)
+cargo test --manifest-path agent_core/Cargo.toml --lib agent_runtime_v2::system_g_runtime
+
+# (3) Rust integration tests for the FFI surface (4 tests)
+cargo test --manifest-path agent_core/Cargo.toml --test system_g_full_path
+
+# (4) Sibling tests no-regression (8 tests)
+cargo test --manifest-path agent_core/Cargo.toml --test r3_mission_run_composition
+cargo test --manifest-path agent_core/Cargo.toml --test system_g_bridge
+
+# (5) Full agent_runtime_v2 module sweep (904 tests; pins no
+# cross-module regression in the entire v2 namespace)
+cargo test --manifest-path agent_core/Cargo.toml --lib agent_runtime_v2::
+
+# (6) Swift tests (run from Xcode or `swift test`)
+#     EpistemosTests/SystemGRunSeamTests.swift — 16 @Test functions
+#     including the 4 new for Terminal C / P5.
+xcodebuild -scheme Epistemos -destination 'platform=macOS' test \
+  -only-testing:EpistemosTests/SystemGRunSeamTests 2>&1 | xcbeautify
+```
+
+**Expected:** every command exits 0. The full `cargo test --lib` is
+*pre-existing red* in unrelated modules (`cache/`, `tools_v2/`,
+`skill_discovery/`) per the comment at the top of
+`agent_core/tests/system_g_bridge.rs`; this PR introduces no new red.
+
 ## W-row roll-up (after all iters)
 
 | W-row | Status now |
