@@ -402,6 +402,10 @@ pub fn revoke_macaroon_in_dag(
     let reason = revocation_reason.into();
     // Insert a Revoked Capability node (kind=Other("revoked:<reason>"))
     let revoked_node = Node::new(NodeKind::Capability {
+        uas: None,
+        anchor: None,
+        plane: crate::uas::RuntimePlane::Controller,
+        residency: crate::uas::ResidencyTier::CurrentApp,
         kind: CapabilityKind::Other(format!("revoked:{}", reason)),
         scope: CapabilityScope("revoked".into()),
         expiry: Some(Timestamp::now()),
@@ -782,11 +786,19 @@ mod tests {
         let cap_hash = m.capability_hash();
         let store = InMemoryDagStore::new();
         let from_node = Node::new(NodeKind::Claim {
+            uas: None,
+            anchor: None,
+            plane: crate::uas::RuntimePlane::Episodic,
+            residency: crate::uas::ResidencyTier::CurrentApp,
             proposition: "x".into(),
             scope: ClaimScope::Vault,
             source: SourceRef("u".into()),
         });
         let to_node = Node::new(NodeKind::Evidence {
+            uas: None,
+            anchor: None,
+            plane: crate::uas::RuntimePlane::Episodic,
+            residency: crate::uas::ResidencyTier::CurrentApp,
             kind: EvidenceKind::Citation,
             payload: EvidenceBlob(b"e".to_vec()),
             captured_at: Timestamp(0),
@@ -814,6 +826,10 @@ mod tests {
 
         let store = InMemoryDagStore::new();
         let cap_node = Node::new(NodeKind::Capability {
+            uas: None,
+            anchor: None,
+            plane: crate::uas::RuntimePlane::Controller,
+            residency: crate::uas::ResidencyTier::CurrentApp,
             kind: vault_write_kind(),
             scope: vault_x_scope(),
             expiry: None,
@@ -868,16 +884,28 @@ mod tests {
         let store = InMemoryDagStore::new();
 
         let claim_a = Node::new(NodeKind::Claim {
+            uas: None,
+            anchor: None,
+            plane: crate::uas::RuntimePlane::Episodic,
+            residency: crate::uas::ResidencyTier::CurrentApp,
             proposition: "A".into(),
             scope: ClaimScope::Vault,
             source: SourceRef("u".into()),
         });
         let evidence_a = Node::new(NodeKind::Evidence {
+            uas: None,
+            anchor: None,
+            plane: crate::uas::RuntimePlane::Episodic,
+            residency: crate::uas::ResidencyTier::CurrentApp,
             kind: EvidenceKind::Citation,
             payload: EvidenceBlob(b"a".to_vec()),
             captured_at: Timestamp(0),
         });
         let cap_node = Node::new(NodeKind::Capability {
+            uas: None,
+            anchor: None,
+            plane: crate::uas::RuntimePlane::Controller,
+            residency: crate::uas::ResidencyTier::CurrentApp,
             kind: vault_write_kind(),
             scope: vault_x_scope(),
             expiry: None,

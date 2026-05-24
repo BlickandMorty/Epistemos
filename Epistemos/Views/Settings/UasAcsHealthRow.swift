@@ -5,7 +5,7 @@ import SwiftUI
 // W-10: UAS / ACS (Anchored Cognitive Substrate) status surface.
 // The row is intentionally honest: address taxonomy and residency
 // tiers are reachable, while production anchor lookup remains blocked
-// on Terminal G / T14.
+// until the MAS runtime uses the T14 anchor registry path directly.
 
 @MainActor
 public struct UasAcsHealthRow: View {
@@ -42,7 +42,7 @@ public struct UasAcsHealthRow: View {
                 state: uas.productionAnchorLookupWired ? .pass : .blocked,
                 detail: uas.productionAnchorLookupWired
                     ? "production anchor lookup wired"
-                    : "blocked on Terminal G / F-ACS-AnchorLookup"
+                    : "harness passed; production registry adapter pending"
             )
         }
         .onAppear {

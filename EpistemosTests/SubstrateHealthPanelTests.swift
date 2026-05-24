@@ -6,10 +6,10 @@ import Testing
 // W6 (Terminal 1 WRV mission) test. Verifies the unified Substrate
 // Health panel:
 //
-//   - Mounts the seven existing substrate health rows (Eidos,
-//     VaultRecall, Lattice/WBO, SystemG, F-ULP, ACS, AnswerPacket).
-//   - Documents the still-missing UAS row (W-10) as a placeholder so
-//     the cluster is self-describing about its gaps.
+//   - Mounts the legacy substrate health rows plus the Terminal D
+//     unified floor rows.
+//   - Mounts the T14 UAS plane-placement row so the cluster surfaces
+//     live per-plane DAG counts from the Rust FFI snapshot.
 //   - Is wired into `SettingsView` exactly once and replaces the
 //     scattered per-row mounts that used to live in
 //     General → Diagnostics.
@@ -17,8 +17,8 @@ import Testing
 @Suite("Substrate Health Panel (W6)")
 struct SubstrateHealthPanelTests {
 
-    @Test("SubstrateHealthPanel mounts the seven WRV substrate rows")
-    func substrateHealthPanelMountsAllSevenRows() throws {
+    @Test("SubstrateHealthPanel mounts the WRV substrate rows")
+    func substrateHealthPanelMountsSubstrateRows() throws {
         let panel = try loadMirroredSourceTextFile(
             "Epistemos/Views/Settings/SubstrateHealthPanel.swift"
         )
@@ -30,16 +30,27 @@ struct SubstrateHealthPanelTests {
         #expect(panel.contains("FUlpHealthRow()"))
         #expect(panel.contains("ACSAdmissionHealthRow()"))
         #expect(panel.contains("AnswerPacketHealthRow()"))
+        #expect(panel.contains("EmlObservatoryHealthRow()"))
+        #expect(panel.contains("UasAcsHealthRow()"))
+        #expect(panel.contains("CognitiveDagCountsHealthRow()"))
+        #expect(panel.contains("CognitiveWeightClassHealthRow()"))
+        #expect(panel.contains("SubstrateDriftMonitorHealthRow()"))
     }
 
-    @Test("SubstrateHealthPanel surfaces the missing UAS row as a placeholder")
-    func substrateHealthPanelSurfacesMissingUasRow() throws {
+    @Test("SubstrateHealthPanel mounts the UAS plane-placement witness row")
+    func substrateHealthPanelMountsPlanePlacementRow() throws {
         let panel = try loadMirroredSourceTextFile(
             "Epistemos/Views/Settings/SubstrateHealthPanel.swift"
         )
+        let row = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Settings/PlanePlacementHealthRow.swift"
+        )
 
-        #expect(panel.contains("UAS-ACS substrate health"))
-        #expect(panel.contains("W-10 NOT-STARTED"))
+        #expect(panel.contains("PlanePlacementHealthRow()"))
+        #expect(panel.contains("F-ACS-AnchorLookup_2026_05_24.md"))
+        #expect(row.contains("SubstrateHealthUnifiedClient.snapshot()"))
+        #expect(row.contains("return p.planeFieldsWired ? \"five-plane counts\""))
+        #expect(row.contains("state=\\(p.stateCount) episodic=\\(p.episodicCount) assembly=\\(p.assemblyCount)"))
     }
 
     @Test("SettingsView mounts SubstrateHealthPanel exactly once in Diagnostics")

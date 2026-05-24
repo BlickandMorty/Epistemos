@@ -4595,9 +4595,8 @@ pub fn system_g_registry_stats_json() -> String {
 /// Unified substrate-health readout for Settings -> Substrate Health.
 ///
 /// This is intentionally observability-only. It reports which substrate
-/// pieces are reachable and which parts are still blocked on later
-/// Terminal G / falsifier work; it does not promote any row to a
-/// production-wired state.
+/// pieces are reachable and keeps every green state backed by a concrete
+/// witness or measured falsifier artifact.
 #[uniffi::export]
 pub fn substrate_health_unified_json() -> Result<String, AgentErrorFFI> {
     ffi_guard_sync!({
@@ -4648,9 +4647,27 @@ pub fn substrate_health_unified_json() -> Result<String, AgentErrorFFI> {
             message: format!("Cognitive DAG substrate health snapshot failed: {err}"),
         })?;
         let mut node_kind_counts: BTreeMap<&'static str, usize> = BTreeMap::new();
+        let mut plane_state_count = 0_usize;
+        let mut plane_episodic_count = 0_usize;
+        let mut plane_assembly_count = 0_usize;
+        let mut plane_controller_count = 0_usize;
+        let mut plane_verification_count = 0_usize;
         for node in &dag_snapshot.nodes {
             *node_kind_counts.entry(node.kind.discriminator()).or_insert(0) += 1;
+            match node.kind.plane() {
+                crate::uas::RuntimePlane::State => plane_state_count += 1,
+                crate::uas::RuntimePlane::Episodic => plane_episodic_count += 1,
+                crate::uas::RuntimePlane::Assembly => plane_assembly_count += 1,
+                crate::uas::RuntimePlane::Controller => plane_controller_count += 1,
+                crate::uas::RuntimePlane::Verification => plane_verification_count += 1,
+            }
         }
+        let placed_plane_count = plane_state_count
+            + plane_episodic_count
+            + plane_assembly_count
+            + plane_controller_count
+            + plane_verification_count;
+        let unplaced_plane_count = dag_snapshot.nodes.len().saturating_sub(placed_plane_count);
         let mut edge_kind_counts: BTreeMap<&'static str, usize> = BTreeMap::new();
         for edge in &dag_snapshot.edges {
             *edge_kind_counts.entry(edge.kind.discriminator()).or_insert(0) += 1;
@@ -4717,17 +4734,17 @@ pub fn substrate_health_unified_json() -> Result<String, AgentErrorFFI> {
             },
             "plane_placement": {
                 "ffi_reachable": true,
-                "terminal_g_required": true,
-                "plane_fields_wired": false,
-                "state_count": 0,
-                "episodic_count": 0,
-                "assembly_count": 0,
-                "controller_count": 0,
-                "verification_count": 0,
-                "unplaced_count": dag_snapshot.nodes.len(),
-                "dependency": "Terminal G / T14 Five-plane UAS wiring",
-                "falsifier": "docs/falsifiers/F_ACS_ANCHOR_LOOKUP_2026_05_18.md",
-                "w_row": "W-10"
+                "terminal_g_required": false,
+                "plane_fields_wired": true,
+                "state_count": plane_state_count,
+                "episodic_count": plane_episodic_count,
+                "assembly_count": plane_assembly_count,
+                "controller_count": plane_controller_count,
+                "verification_count": plane_verification_count,
+                "unplaced_count": unplaced_plane_count,
+                "dependency": "T14 DAG plane fields wired",
+                "falsifier": "docs/falsifiers/F-ACS-AnchorLookup_2026_05_24.md",
+                "w_row": "W-24/W-28/T14"
             },
             "cognitive_weight": {
                 "ffi_reachable": true,
@@ -4785,7 +4802,7 @@ mod tests {
     }
 
     #[test]
-    fn substrate_health_unified_json_surfaces_honest_terminal_g_dependency() {
+    fn substrate_health_unified_json_surfaces_t14_plane_counts() {
         let raw = substrate_health_unified_json().expect("substrate health JSON should encode");
         let value: serde_json::Value = serde_json::from_str(&raw).expect("valid JSON");
 
@@ -4793,8 +4810,13 @@ mod tests {
         assert_eq!(value["uas_acs"]["w_row"], "W-10");
         assert_eq!(value["cognitive_weight"]["w_row"], "W-30");
         assert_eq!(value["drift_monitor"]["w_row"], "W-33");
-        assert_eq!(value["plane_placement"]["terminal_g_required"], true);
-        assert_eq!(value["plane_placement"]["plane_fields_wired"], false);
+        assert_eq!(value["plane_placement"]["terminal_g_required"], false);
+        assert_eq!(value["plane_placement"]["plane_fields_wired"], true);
+        assert_eq!(value["plane_placement"]["unplaced_count"], 0);
+        assert_eq!(
+            value["plane_placement"]["falsifier"],
+            "docs/falsifiers/F-ACS-AnchorLookup_2026_05_24.md"
+        );
     }
 
     #[test]

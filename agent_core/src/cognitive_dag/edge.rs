@@ -420,11 +420,19 @@ mod tests {
     #[test]
     fn edge_round_trips_through_canonical_json() {
         let claim_a = Node::new(NodeKind::Claim {
+            uas: None,
+            anchor: None,
+            plane: crate::uas::RuntimePlane::Episodic,
+            residency: crate::uas::ResidencyTier::CurrentApp,
             proposition: "A".into(),
             scope: ClaimScope::Vault,
             source: SourceRef("u".into()),
         });
         let claim_b = Node::new(NodeKind::Claim {
+            uas: None,
+            anchor: None,
+            plane: crate::uas::RuntimePlane::Episodic,
+            residency: crate::uas::ResidencyTier::CurrentApp,
             proposition: "B".into(),
             scope: ClaimScope::Vault,
             source: SourceRef("u".into()),

@@ -1,0 +1,33 @@
+{
+  "schema_version": "2026-05-18.2",
+  "falsifier": "F-UAS-CopyCount",
+  "status": "PASS",
+  "hardware_floor": "M2 Pro 16 GB UMA",
+  "scope": "instrumented UAS shared-backing fixture; tensor-copy counter only",
+  "measurements": {
+    "tensor_copy_count": 0,
+    "data_copy_bytes": 0,
+    "allocator_count_instrumented": 0,
+    "hops": [
+      "swift_shared_buffer",
+      "rust_slice_view",
+      "metal_shared_buffer",
+      "mlx_kv_view",
+      "hnsw_vector_view"
+    ]
+  },
+  "acceptance_thresholds": {
+    "tensor_copy_count": 0,
+    "data_copy_bytes": 0
+  },
+  "pass_per_axis": {
+    "tensor_copy_count": true,
+    "data_copy_bytes": true,
+    "metadata_copy_ledger": true,
+    "stack_label_coverage": true
+  },
+  "metadata_copy_ledger": [
+    "artifact JSON serialization happens after the measured hot path",
+    "payload allocation happens before copy_counter::with_tracking"
+  ]
+}
