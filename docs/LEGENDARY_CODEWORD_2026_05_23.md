@@ -6,12 +6,16 @@ User-invocable codeword. When the user types `LEGENDARY` (or pastes "RUN LEGENDA
 
 Any agent receiving `LEGENDARY` must, in order:
 
-1. **Read the 5 canon anchors:**
+0. **READ FIRST (the single canonical entry point):** [docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md](docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md). This is the flat one-page landing index that answers ~90% of "where do I start?" questions without descending into specific docs. Read this FIRST; only descend below if you need detail the index doesn't already give you.
+
+1. **Read the 5 canon anchors (only if Living Index points you to detail you need):**
    - [docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md](docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md) — UAS-ACS register
+   - [docs/fusion/ADDRESSABLE_NEURAL_SUBSTRATE_CANON_2026_05_24.md](docs/fusion/ADDRESSABLE_NEURAL_SUBSTRATE_CANON_2026_05_24.md) — SSM-router + neuron-cluster target (the user's original no-compromise idea, locked in canon)
+   - [docs/fusion/SHADOW_PROJECTION_AND_RESEARCH_CONSTRUCTION_2026_05_24.md](docs/fusion/SHADOW_PROJECTION_AND_RESEARCH_CONSTRUCTION_2026_05_24.md) — Erdős + Parameter Golf doctrine + substrate-vs-LLM ladder
    - [docs/CANONICAL_CHRONICLE_2026_05_23.md](docs/CANONICAL_CHRONICLE_2026_05_23.md) — 7 Laws + T-track + W-row + drift register
    - [docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md](docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md) — 53 W-rows source
    - [docs/LEGENDARY_ARCHITECTURE_NO_COMPROMISE_AUDIT_2026_05_23.md](docs/LEGENDARY_ARCHITECTURE_NO_COMPROMISE_AUDIT_2026_05_23.md) — final audit
-   - [docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md](docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md) — 7 terminal prompts
+   - [docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md](docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md) — 13 terminal prompts
 
 2. **Verify the 7 Laws are still honored on main:**
    1. Density · 2. Address · 3. Active-support · 4. Lattice-error · 5. Glue · 6. Duplex · 7. Witness
