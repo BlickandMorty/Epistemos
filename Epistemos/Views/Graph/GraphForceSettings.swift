@@ -168,6 +168,13 @@ struct GraphForceSettings: View {
                 .font(.system(size: 11, weight: .medium))
                 .buttonStyle(.bordered)
                 .controlSize(.small)
+
+                Button("Hide All") {
+                    graphState.hideAllUserFilterableNodeTypes()
+                }
+                .font(.system(size: 11, weight: .medium))
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             }
 
             VStack(alignment: .leading, spacing: 10) {
