@@ -95,6 +95,38 @@ Pre-existing `cargo test --lib` errors in `cache/`, `tools_v2/`, `skill_discover
 2. **Tool-call surface:** V1 emits no `tool_start` / `tool_end` events. When the provider hook lands, the executor stream will populate these — `SystemGAgentEvent` already carries the variants.
 3. **W-16 replay UI:** the data is now real; the SwiftUI replay surface (`Epistemos/Views/Replay/...`) needs to subscribe to `RunEventLog`.
 4. **AppBootstrap test coverage:** `SystemGRunSeamRegistry.resetToStubForTesting()` is a test hook; tests that pollute the registry (this PR's integration test does) call it to keep `systemGRunSeamRegistryDefaultsToStub` deterministic.
+5. **Registry stats FFI:** `registry_stats()` is internal-only today. A future FFI surface (`SubstrateHealth` panel, Terminal D) can expose `(total, in_flight)` via a thin bridge wrapper.
+
+## Hardening (iter-2 post-ship audit)
+
+After the initial PR landed, an audit pass added these guards:
+
+| Guard | Constant / Behavior | Defends against |
+|---|---|---|
+| Concurrent-run cap | `MAX_CONCURRENT_RUNS = 64` (in-flight only; terminated runs not counted) | DoS via spam `start_run` from a buggy caller |
+| Terminated-run TTL | `TERMINATED_RUN_RETENTION = 60s` | Memory leak from runs never being reaped |
+| Lazy GC | Runs on every `start_run` (no background thread) | Same; amortises GC cost across starts |
+| `terminated_at: Option<Instant>` | Replaces dead `terminal_seen: bool`; lets the GC compute eligibility precisely | Stale field that conveyed less information |
+| `registry_stats()` | Returns `(total, in_flight)`; pure read | Lack of observability into registry state |
+| Mutex poison recovery | `unwrap_or_else(|p| p.into_inner())` on the test-only lock; production path surfaces `Internal` | Permanent breakage from a panicked thread |
+| Swift `Task.checkCancellation()` | Called once before `start_run` + on every poll iteration | Cancelled SwiftUI Task waits full timeout |
+| Swift FFI error context | `start_run / drain_events (run=…)` prefix on `SystemGRunSeamError.ffi` payloads | Opaque error logs |
+| Swift wire shape | `MissionPacketWire` uses camelCase + `CodingKeys` (Rust still sees snake_case) | `identifier_name` SwiftLint compliance even though the rule is disabled |
+| Removed unused `import os` from Swift seam | n/a | dead import |
+
+**Added tests (iter-2):**
+- `registry_stats_track_total_and_in_flight_distinctly`
+- `capacity_cap_rejects_starts_past_max_concurrent_runs`
+- `gc_does_not_reap_terminated_runs_inside_retention_window`
+- `terminated_at_is_set_only_on_the_drain_that_sees_terminal`
+- `unknown_run_after_reset_for_test_does_not_panic`
+- `agent_event_field_names_match_swift_coding_keys_byte_equal` (wire-shape pin keyed to Swift CodingKeys)
+- `agent_event_kind_discriminator_values_are_pinned_snake_case`
+- `realSystemGRunSeamHonorsCancellation` (Swift)
+
+**Test-lock pattern:** all registry-mutating tests acquire `test_registry_lock()` (a static `Mutex<()>` inside `mod tests`) before calling `reset_for_test()`. Cargo runs tests in parallel; without the lock, one test's `start_run` slips between another's `reset_for_test()` and its assertion. Recovers from mutex poisoning via `unwrap_or_else(|p| p.into_inner())`.
+
+**Test count after iter-2:** 19 Rust unit + 1 Rust integration + 2 Swift integration = **22 tests** for this seam (was 13 in the initial PR).
 
 ## Branches with overlapping work (coordination note)
 

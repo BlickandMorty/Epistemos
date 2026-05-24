@@ -22,12 +22,14 @@
 // they explicitly register.
 
 import Foundation
-import os
 
 /// Production implementation of `SystemGRunSeam`. Encodes the
 /// supplied `AgentMissionPacket` as a `MissionPacket`-shaped JSON
 /// payload, starts a Rust-side run, and polls `drain_events` until
-/// a terminal `.complete` or `.failed` event arrives.
+/// a terminal `.complete` or `.failed` event arrives. Honors
+/// cooperative cancellation: every poll iteration calls
+/// `Task.checkCancellation()` so a swiftui-cancelled mission stops
+/// promptly instead of waiting for the deadline.
 nonisolated struct RealSystemGRunSeam: SystemGRunSeam {
 
     /// Per-poll sleep between `drain_events` calls. Short enough that
@@ -47,9 +49,9 @@ nonisolated struct RealSystemGRunSeam: SystemGRunSeam {
 
     func run(mission: AgentMissionPacket) async throws -> RunEventLog {
         let payload = MissionPacketWire(
-            blueprint_id: mission.blueprintName,
-            user_prompt: mission.objective,
-            vault_scope: mission.scope.rawValue
+            blueprintID: mission.blueprintName,
+            userPrompt: mission.objective,
+            vaultScope: mission.scope.rawValue
         )
         let encoder = JSONEncoder()
         let missionJsonData: Data
@@ -62,11 +64,13 @@ nonisolated struct RealSystemGRunSeam: SystemGRunSeam {
             throw SystemGRunSeamError.decode("mission JSON is not valid utf-8")
         }
 
+        try Task.checkCancellation()
+
         let runId: String
         do {
             runId = try systemGStartRunJson(missionJson: missionJson)
         } catch {
-            throw SystemGRunSeamError.ffi(String(describing: error))
+            throw SystemGRunSeamError.ffi("start_run: \(error)")
         }
 
         var log = RunEventLog(missionId: runId)
@@ -74,20 +78,21 @@ nonisolated struct RealSystemGRunSeam: SystemGRunSeam {
         let decoder = JSONDecoder()
 
         while Date() < deadline {
+            try Task.checkCancellation()
             let rawJson: String
             do {
                 rawJson = try systemGDrainEventsJson(runId: runId)
             } catch {
-                throw SystemGRunSeamError.ffi(String(describing: error))
+                throw SystemGRunSeamError.ffi("drain_events(run=\(runId)): \(error)")
             }
             guard let data = rawJson.data(using: .utf8) else {
-                throw SystemGRunSeamError.decode("drain JSON is not valid utf-8")
+                throw SystemGRunSeamError.decode("drain JSON is not valid utf-8 (run=\(runId))")
             }
             let batch: [SystemGAgentEvent]
             do {
                 batch = try decoder.decode([SystemGAgentEvent].self, from: data)
             } catch {
-                throw SystemGRunSeamError.decode("decode events: \(error)")
+                throw SystemGRunSeamError.decode("decode events (run=\(runId)): \(error)")
             }
             for event in batch {
                 log.append(event)
@@ -97,18 +102,25 @@ nonisolated struct RealSystemGRunSeam: SystemGRunSeam {
             }
             try await Task.sleep(nanoseconds: Self.pollIntervalNanos)
         }
-        throw SystemGRunSeamError.ffi("timeout: no terminal event within \(Self.runTimeoutSeconds)s")
+        throw SystemGRunSeamError.ffi(
+            "timeout: no terminal event within \(Self.runTimeoutSeconds)s (run=\(runId))"
+        )
     }
 
     // MARK: - Wire shape
     //
-    // Matches `agent_core::agent_runtime_v2::mission::MissionPacket`
-    // exactly. Snake_case field names match the Rust serde derive
-    // (no `rename_all` is applied, fields are already snake_case in
-    // the Rust struct).
+    // Mirrors `agent_core::agent_runtime_v2::mission::MissionPacket`.
+    // CodingKeys map Swift camelCase to the snake_case wire shape the
+    // Rust serde derive expects.
     private struct MissionPacketWire: Codable, Sendable {
-        let blueprint_id: String
-        let user_prompt: String
-        let vault_scope: String
+        let blueprintID: String
+        let userPrompt: String
+        let vaultScope: String
+
+        enum CodingKeys: String, CodingKey {
+            case blueprintID = "blueprint_id"
+            case userPrompt = "user_prompt"
+            case vaultScope = "vault_scope"
+        }
     }
 }

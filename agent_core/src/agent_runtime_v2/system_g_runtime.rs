@@ -21,9 +21,23 @@
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+/// Maximum concurrent in-flight runs (not yet terminated). A start_run
+/// past this cap returns `SystemGRuntimeError::CapacityExhausted`. The
+/// V1 deterministic runner emits the full sequence inside `start_run`,
+/// so "in-flight" really means "not yet drained to terminal." Future
+/// async executors will spend more wall-clock time pre-terminal; the
+/// cap protects against a buggy caller spamming starts.
+pub const MAX_CONCURRENT_RUNS: usize = 64;
+
+/// Terminated runs are kept in the registry for this long so late-
+/// arriving Swift polls still see `[]` (per the seam contract) instead
+/// of `UnknownRun`. After the TTL the GC drops them.
+pub const TERMINATED_RUN_RETENTION: Duration = Duration::from_secs(60);
 
 use super::answer::AnswerPacket;
 use super::budget::BudgetSpec;
@@ -79,6 +93,9 @@ pub enum SystemGRuntimeError {
     Decode(String),
     PromptOversize { size: usize, cap: usize },
     UnknownRun(String),
+    /// Registry is at `MAX_CONCURRENT_RUNS` capacity. Callers should
+    /// retry after draining or terminating prior runs.
+    CapacityExhausted { in_flight: usize, cap: usize },
     Internal(String),
 }
 
@@ -90,6 +107,10 @@ impl std::fmt::Display for SystemGRuntimeError {
                 write!(f, "mission prompt {size} bytes exceeds cap {cap}")
             }
             Self::UnknownRun(id) => write!(f, "unknown run_id: {id}"),
+            Self::CapacityExhausted { in_flight, cap } => write!(
+                f,
+                "registry at capacity: {in_flight}/{cap} in-flight runs"
+            ),
             Self::Internal(m) => write!(f, "internal: {m}"),
         }
     }
@@ -109,17 +130,22 @@ impl From<MissionPromptError> for SystemGRuntimeError {
 /// runner pushed into during `start_run`; `drain_events` pops it
 /// front-to-back. After the terminal event drains, the entry stays
 /// in the registry so callers that re-poll get an empty array (per
-/// the Swift seam contract) rather than `UnknownRun`.
+/// the Swift seam contract) rather than `UnknownRun` — until the GC
+/// reaps it `TERMINATED_RUN_RETENTION` after termination.
 struct SystemGRunState {
     pending: VecDeque<SystemGAgentEvent>,
-    terminal_seen: bool,
+    /// `Some(instant)` once the terminal event has been drained; `None`
+    /// while events are still pending. Both the cap accounting (only
+    /// non-terminated runs count toward `MAX_CONCURRENT_RUNS`) and the
+    /// GC eligibility check read this field.
+    terminated_at: Option<Instant>,
 }
 
 impl SystemGRunState {
     fn new() -> Self {
         Self {
             pending: VecDeque::new(),
-            terminal_seen: false,
+            terminated_at: None,
         }
     }
 }
@@ -176,9 +202,28 @@ fn execute_v1_dispatch(packet: &MissionPacket, turn_id: &str) -> (Vec<SystemGAge
     (events, answer_packet_id)
 }
 
+/// Reap terminated runs whose `terminated_at` is at least
+/// `TERMINATED_RUN_RETENTION` old. Called opportunistically from
+/// `start_run` so the GC is amortised across mission starts (no
+/// background thread, no extra FFI surface).
+fn gc_stale_terminated(map: &mut HashMap<String, SystemGRunState>, now: Instant) {
+    map.retain(|_, state| match state.terminated_at {
+        Some(t) => now.duration_since(t) < TERMINATED_RUN_RETENTION,
+        None => true,
+    });
+}
+
+/// Count of runs that have NOT yet drained their terminal event.
+/// `MAX_CONCURRENT_RUNS` gates this number, not the total registry size.
+fn count_in_flight(map: &HashMap<String, SystemGRunState>) -> usize {
+    map.values().filter(|s| s.terminated_at.is_none()).count()
+}
+
 /// Start a run for the given JSON-encoded `MissionPacket`. Returns the
 /// freshly minted `run_id`. The run is fully composed by the time this
-/// call returns; `drain_events` will pop the pending queue.
+/// call returns; `drain_events` will pop the pending queue. Rejects
+/// with `CapacityExhausted` if `MAX_CONCURRENT_RUNS` non-terminated
+/// runs are already parked.
 pub fn start_run(mission_json: &str) -> Result<String, SystemGRuntimeError> {
     let packet: MissionPacket = serde_json::from_str(mission_json)
         .map_err(|e| SystemGRuntimeError::Decode(e.to_string()))?;
@@ -194,15 +239,23 @@ pub fn start_run(mission_json: &str) -> Result<String, SystemGRuntimeError> {
     let mut guard = registry()
         .lock()
         .map_err(|e| SystemGRuntimeError::Internal(format!("registry poisoned: {e}")))?;
+    gc_stale_terminated(&mut guard, Instant::now());
+    let in_flight = count_in_flight(&guard);
+    if in_flight >= MAX_CONCURRENT_RUNS {
+        return Err(SystemGRuntimeError::CapacityExhausted {
+            in_flight,
+            cap: MAX_CONCURRENT_RUNS,
+        });
+    }
     guard.insert(run_id.clone(), state);
     Ok(run_id)
 }
 
 /// Drain all pending events for a given `run_id`. Returns them in
 /// arrival order. After the terminal event drains, the run entry
-/// stays parked but its queue is empty — subsequent calls return an
-/// empty Vec (the Swift seam treats `[]` as "still polling, nothing
-/// yet" if no terminal was seen; once seen, the seam stops).
+/// stays parked (with `terminated_at = Some(now)`) but its queue is
+/// empty — subsequent calls return an empty Vec until the next GC pass
+/// `TERMINATED_RUN_RETENTION` later reaps it.
 pub fn drain_events(run_id: &str) -> Result<Vec<SystemGAgentEvent>, SystemGRuntimeError> {
     let mut guard = registry()
         .lock()
@@ -211,10 +264,21 @@ pub fn drain_events(run_id: &str) -> Result<Vec<SystemGAgentEvent>, SystemGRunti
         return Err(SystemGRuntimeError::UnknownRun(run_id.to_string()));
     };
     let drained: Vec<SystemGAgentEvent> = state.pending.drain(..).collect();
-    if drained.iter().any(SystemGAgentEvent::is_terminal) {
-        state.terminal_seen = true;
+    if state.terminated_at.is_none() && drained.iter().any(SystemGAgentEvent::is_terminal) {
+        state.terminated_at = Some(Instant::now());
     }
     Ok(drained)
+}
+
+/// Observability: snapshot of registry size + in-flight count. Used
+/// by Settings → System G health row and by tests. Returns
+/// `(total_entries, in_flight)`.
+#[must_use]
+pub fn registry_stats() -> (usize, usize) {
+    let Ok(guard) = registry().lock() else {
+        return (0, 0);
+    };
+    (guard.len(), count_in_flight(&guard))
 }
 
 /// Test-only: drop every in-flight run. Production must not call this;
@@ -231,6 +295,15 @@ pub fn reset_for_test() {
 mod tests {
     use super::*;
     use super::super::blueprint::AgentBlueprintId;
+    use std::sync::{Mutex, MutexGuard};
+
+    /// Serialises tests that mutate the process-wide registry. cargo
+    /// runs tests in parallel by default; without this lock, one test's
+    /// `start_run` slips between another's `reset_for_test()` + assertion.
+    fn test_registry_lock() -> MutexGuard<'static, ()> {
+        static LOCK: Mutex<()> = Mutex::new(());
+        LOCK.lock().unwrap_or_else(|p| p.into_inner())
+    }
 
     fn good_mission_json() -> String {
         serde_json::to_string(&MissionPacket {
@@ -312,6 +385,7 @@ mod tests {
 
     #[test]
     fn start_run_emits_three_event_v1_turn_terminated_by_complete() {
+        let _guard = test_registry_lock();
         reset_for_test();
         let run_id = start_run(&good_mission_json()).expect("start");
         let events = drain_events(&run_id).expect("drain");
@@ -323,6 +397,7 @@ mod tests {
 
     #[test]
     fn drain_after_terminal_returns_empty_not_unknown_run() {
+        let _guard = test_registry_lock();
         reset_for_test();
         let run_id = start_run(&good_mission_json()).expect("start");
         let first = drain_events(&run_id).expect("first drain");
@@ -333,7 +408,8 @@ mod tests {
 
     #[test]
     fn drain_unknown_run_id_surfaces_typed_error() {
-        let err = drain_events("nope-not-a-real-id").expect_err("must fail");
+        let _guard = test_registry_lock();
+        let err = drain_events("nope-not-a-real-id-uuid").expect_err("must fail");
         assert!(matches!(err, SystemGRuntimeError::UnknownRun(_)));
     }
 
@@ -344,6 +420,7 @@ mod tests {
         // uses the hex-encoded BLAKE3 run_event_log_root so replay
         // round-trips: a re-run with identical inputs yields the
         // identical id.
+        let _guard = test_registry_lock();
         reset_for_test();
         let json = good_mission_json();
         let run1 = start_run(&json).expect("start 1");
@@ -365,6 +442,7 @@ mod tests {
 
     #[test]
     fn token_chunk_text_echoes_user_prompt_in_v1() {
+        let _guard = test_registry_lock();
         reset_for_test();
         let run_id = start_run(&good_mission_json()).expect("start");
         let events = drain_events(&run_id).expect("drain");
@@ -376,6 +454,7 @@ mod tests {
 
     #[test]
     fn all_v1_events_share_the_same_turn_id() {
+        let _guard = test_registry_lock();
         reset_for_test();
         let run_id = start_run(&good_mission_json()).expect("start");
         let events = drain_events(&run_id).expect("drain");
@@ -396,9 +475,204 @@ mod tests {
 
     #[test]
     fn distinct_runs_have_distinct_run_ids() {
+        let _guard = test_registry_lock();
         reset_for_test();
         let r1 = start_run(&good_mission_json()).expect("start 1");
         let r2 = start_run(&good_mission_json()).expect("start 2");
         assert_ne!(r1, r2);
+    }
+
+    #[test]
+    fn registry_stats_track_total_and_in_flight_distinctly() {
+        // After start_run + drain (which sees the terminal event), the
+        // run is "terminated" (in_flight = 0) but still counted in
+        // `total` until GC. Pin both counters move correctly so the
+        // Settings panel can report honest numbers.
+        let _guard = test_registry_lock();
+        reset_for_test();
+        assert_eq!(registry_stats(), (0, 0));
+        let r1 = start_run(&good_mission_json()).expect("start");
+        let (total1, in_flight1) = registry_stats();
+        assert_eq!(total1, 1);
+        assert_eq!(in_flight1, 1, "run is in-flight until terminal drains");
+        let _ = drain_events(&r1).expect("drain");
+        let (total2, in_flight2) = registry_stats();
+        assert_eq!(total2, 1, "entry parked until GC reaps it");
+        assert_eq!(in_flight2, 0, "drained terminal → no longer in-flight");
+    }
+
+    #[test]
+    fn capacity_cap_rejects_starts_past_max_concurrent_runs() {
+        // Pin the DoS guard: a buggy caller that spams start_run
+        // without draining must hit `CapacityExhausted` rather than
+        // exhaust process memory. Past terminated runs do NOT count
+        // toward the cap (only in-flight do) — drain immediately to
+        // exercise the boundary then verify a fresh start succeeds.
+        let _guard = test_registry_lock();
+        reset_for_test();
+        let json = good_mission_json();
+        let mut ids = Vec::with_capacity(MAX_CONCURRENT_RUNS);
+        for _ in 0..MAX_CONCURRENT_RUNS {
+            ids.push(start_run(&json).expect("start under cap"));
+        }
+        let err = start_run(&json).expect_err("cap-exceeding start must reject");
+        match err {
+            SystemGRuntimeError::CapacityExhausted { in_flight, cap } => {
+                assert_eq!(cap, MAX_CONCURRENT_RUNS);
+                assert_eq!(in_flight, MAX_CONCURRENT_RUNS);
+            }
+            other => panic!("expected CapacityExhausted, got {other:?}"),
+        }
+        // Drain one → cap frees up → next start succeeds.
+        let _ = drain_events(&ids[0]).expect("drain releases a slot");
+        let _ = start_run(&json).expect("start after draining slot");
+    }
+
+    #[test]
+    fn gc_does_not_reap_terminated_runs_inside_retention_window() {
+        // Pin GC discipline: a run that just terminated must remain
+        // queryable (drain_events returns []) for at least the
+        // retention window. The Swift seam contract depends on this
+        // — `[]` means "still polling, nothing yet" if no terminal
+        // was seen; "stop polling, already terminated" if seen.
+        // UnknownRun would falsely suggest the run never existed.
+        let _guard = test_registry_lock();
+        reset_for_test();
+        let run_id = start_run(&good_mission_json()).expect("start");
+        let _ = drain_events(&run_id).expect("drain to terminal");
+        // Trigger a GC pass (lazy GC fires inside start_run).
+        let _ = start_run(&good_mission_json()).expect("start triggers gc");
+        // Original run still drains empty (within retention window).
+        let post_gc = drain_events(&run_id).expect("still queryable after GC pass");
+        assert!(post_gc.is_empty(), "terminated run drains empty post-GC, not UnknownRun");
+    }
+
+    #[test]
+    fn terminated_at_is_set_only_on_the_drain_that_sees_terminal() {
+        // White-box pin via stats: a fresh start has 1 in-flight; the
+        // FIRST drain (which sees the terminal event) sets terminated_at;
+        // subsequent drains do not bump in-flight back up.
+        let _guard = test_registry_lock();
+        reset_for_test();
+        let id = start_run(&good_mission_json()).expect("start");
+        assert_eq!(registry_stats().1, 1);
+        let _ = drain_events(&id).expect("first drain");
+        assert_eq!(registry_stats().1, 0);
+        let _ = drain_events(&id).expect("second drain");
+        assert_eq!(registry_stats().1, 0, "second drain must not flip back to in-flight");
+    }
+
+    #[test]
+    fn unknown_run_after_reset_for_test_does_not_panic() {
+        // Pin that the test hook is safe: any cached run_id from a
+        // prior test fixture cleanly surfaces UnknownRun, not panic.
+        let _guard = test_registry_lock();
+        let r = start_run(&good_mission_json()).expect("start");
+        reset_for_test();
+        let err = drain_events(&r).expect_err("post-reset run is unknown");
+        assert!(matches!(err, SystemGRuntimeError::UnknownRun(_)));
+    }
+
+    #[test]
+    fn agent_event_field_names_match_swift_coding_keys_byte_equal() {
+        // Wire-shape pin keyed to `Epistemos/SystemG/SystemGRunSeam.swift`
+        // CodingKeys. Drift here breaks the Swift decoder silently.
+        let cases: Vec<(SystemGAgentEvent, Vec<&str>)> = vec![
+            (
+                SystemGAgentEvent::PlanStart { turn_id: "t".into(), plan: "p".into() },
+                vec!["kind", "turn_id", "plan"],
+            ),
+            (
+                SystemGAgentEvent::ToolStart {
+                    turn_id: "t".into(),
+                    tool_name: "vault.read".into(),
+                    args_json: "{}".into(),
+                },
+                vec!["kind", "turn_id", "tool_name", "args_json"],
+            ),
+            (
+                SystemGAgentEvent::ToolEnd {
+                    turn_id: "t".into(),
+                    tool_name: "vault.read".into(),
+                    ok: true,
+                    output_json: "{}".into(),
+                },
+                vec!["kind", "turn_id", "tool_name", "ok", "output_json"],
+            ),
+            (
+                SystemGAgentEvent::TokenChunk { turn_id: "t".into(), text: "x".into() },
+                vec!["kind", "turn_id", "text"],
+            ),
+            (
+                SystemGAgentEvent::Complete {
+                    turn_id: "t".into(),
+                    answer_packet_id: "a".into(),
+                },
+                vec!["kind", "turn_id", "answer_packet_id"],
+            ),
+            (
+                SystemGAgentEvent::Failed { turn_id: "t".into(), error: "e".into() },
+                vec!["kind", "turn_id", "error"],
+            ),
+        ];
+        for (event, expected_keys) in cases {
+            let value = serde_json::to_value(&event).expect("encode");
+            let obj = value.as_object().expect("object");
+            for key in &expected_keys {
+                assert!(
+                    obj.contains_key(*key),
+                    "event {event:?} missing key {key}; serialised: {obj:?}"
+                );
+            }
+            assert_eq!(
+                obj.len(),
+                expected_keys.len(),
+                "event {event:?} extra/missing keys; expected {expected_keys:?}, got {:?}",
+                obj.keys().collect::<Vec<_>>()
+            );
+        }
+    }
+
+    #[test]
+    fn agent_event_kind_discriminator_values_are_pinned_snake_case() {
+        // Pin the wire-format `kind` discriminator values exactly.
+        // The Swift `Kind` enum uses these literals; any drift breaks
+        // round-trip decode.
+        let cases: Vec<(SystemGAgentEvent, &str)> = vec![
+            (SystemGAgentEvent::PlanStart { turn_id: "t".into(), plan: "p".into() }, "plan_start"),
+            (
+                SystemGAgentEvent::ToolStart {
+                    turn_id: "t".into(),
+                    tool_name: "v".into(),
+                    args_json: "{}".into(),
+                },
+                "tool_start",
+            ),
+            (
+                SystemGAgentEvent::ToolEnd {
+                    turn_id: "t".into(),
+                    tool_name: "v".into(),
+                    ok: true,
+                    output_json: "{}".into(),
+                },
+                "tool_end",
+            ),
+            (
+                SystemGAgentEvent::TokenChunk { turn_id: "t".into(), text: "x".into() },
+                "token_chunk",
+            ),
+            (
+                SystemGAgentEvent::Complete {
+                    turn_id: "t".into(),
+                    answer_packet_id: "a".into(),
+                },
+                "complete",
+            ),
+            (SystemGAgentEvent::Failed { turn_id: "t".into(), error: "e".into() }, "failed"),
+        ];
+        for (event, expected_kind) in cases {
+            let value = serde_json::to_value(&event).expect("encode");
+            assert_eq!(value["kind"], expected_kind, "for event {event:?}");
+        }
     }
 }
