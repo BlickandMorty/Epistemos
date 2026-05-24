@@ -169,6 +169,43 @@ Six parallel Codex/Claude terminals to drive the W-row backlog (currently ~6/53 
 
 ---
 
+## Terminal G — T14 Five-Plane UAS Wiring + No-Orphan-Data Invariant + 2 new falsifiers (NEW; the bridge piece)
+
+**Goal:** Make the canonical "everything is one substrate object" doctrine REAL by enforcing that EVERY data class carries UAS address + plane placement + residency tier + WBO (if approximate) + WRV status (if product-facing). Plus add `F-UAS-CopyCount` + `F-ACS-AnchorLookup` to the falsifier suite.
+
+**Why this is now the critical terminal:** Per Codex's read of [docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md](docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md), T14 is "the exact bridge from the lattice ontology into the working app." Without it, the substrate doctrine drifts to "everything is only an EML tree" — which is wrong. EML is ONE primitive; the substrate fabric is wider (pixels = vectors = notes = graph nodes = KV pages = model components = AnswerPackets, all typed projections of one address space).
+
+**Substrate already in main:**
+- `epistemos-research/src/five_planes.rs` (308 LOC — `RuntimePlane::{State, Episodic, Assembly, Controller, Verification}` enum)
+- `epistemos-research/src/acs.rs` (190 LOC — `AcsAnchor` + `CmsXField` + `ACS_CANONICAL_PLANE = RuntimePlane::Episodic`)
+- `agent_core/src/uas/` (UasAddress + UasKind)
+- `agent_core/src/lattice_wbo/` (305 tests passing; LatticeBudget + WboLedgerEntry types)
+- `agent_core/src/cognitive_dag/node.rs` (10 NodeKind + 10 EdgeKind)
+- `agent_core/src/scope_rex/` (MutationEnvelope + WitnessedState + ClaimGraph + RunEventLog)
+
+**To wire:**
+1. **Plane + UAS + residency fields on cognitive_dag NodeKind:** add `uas: Option<UasAddress>` + `plane: RuntimePlane` + `residency: ResidencyTier` to every NodeKind variant in `cognitive_dag/node.rs`
+2. **`agent_core` re-export of five_planes types:** add a `pub use` so MAS-build code can address `RuntimePlane` + `ResidencyTier` without depending on `epistemos-research` directly (research crate stays Lane-3-only)
+3. **LatticeBudget field on approximate representations:** add `lattice_budget: Option<LatticeBudget>` to types that compress / approximate (KV pages, embeddings, scan-IR blocks) per Lattice-Error Law §1.4
+4. **`agent_core/src/bin/uas_copy_count.rs` (NEW):** harness counting tensor copies on the UAS hot path (Swift / Rust / Metal / MLX / KV / HNSW). PASS = 0 copies. Produces `artifacts/falsifiers/uas_copy_count/result.json`.
+5. **`agent_core/src/bin/acs_anchor_lookup.rs` (NEW):** harness measuring `anchor_registry.rs` lookup latency over 10,000 claims. PASS = < 1 μs avg.
+6. **`docs/falsifiers/F-UAS-CopyCount_<date>.md`** + **`docs/falsifiers/F-ACS-AnchorLookup_<date>.md`** (NEW spec docs)
+7. **`Epistemos/Views/Settings/PlanePlacementHealthRow.swift` (NEW):** surfaces per-class plane placement count + per-plane node count (Witness Law §1.7). Wired into Terminal D's Substrate Health panel.
+8. **CI lint:** every new `struct` / `enum` / `class` declaration in code MUST have `// UAS: <address-pattern>` + `// Plane: <RuntimePlane>` + `// Residency: <ResidencyTier>` comments OR an explicit `// UAS-EXEMPT: <reason>` waiver. Implement as a `clippy::custom_lint` rule + a Swift source-guard test mirror.
+9. **Audit doc `docs/audits/T14_FIVE_PLANE_NO_ORPHAN_<date>.md`** — enumerate every existing data class against the 5-field checklist; flag every orphan; pin remediations.
+
+**Acceptance:**
+- Every existing NodeKind variant has UAS address + plane + residency (round-trip serde test)
+- F-UAS-CopyCount PASS on M2 Pro (≥ 1 measured run with 0 tensor copies between languages on the hot path)
+- F-ACS-AnchorLookup PASS on M2 Pro (< 1 μs avg over 10k anchors)
+- `PlanePlacementHealthRow` renders in Substrate Health panel with per-plane counts
+- CI lint catches a deliberately-added orphan class in a probe PR
+- T-track register §2 line for T14 flips from 🔴 to ✅
+
+**No-Orphan Invariant — also enforced by every other terminal:** every Phase 2+ PR description (including A-F above) MUST include a §No-Orphan check listing which data classes the PR touches + which 5 invariants are satisfied (UAS address, plane placement, residency tier, WBO/error policy if approximate, WRV status if product-facing) OR explicitly waived with a reason.
+
+---
+
 ## Cross-terminal coordination
 
 - All terminals must read `docs/SANITIZATION_LOOP_TRACKER_2026_05_23.md` first.
@@ -178,9 +215,20 @@ Six parallel Codex/Claude terminals to drive the W-row backlog (currently ~6/53 
 
 ## Expected outcome
 
-After all 6 terminals close:
-- W-row backlog: ~6/53 → ~25/53 (~50% wired)
-- Falsifiers PASS: 0/15 → 5/15
-- Substrate-total: ~70% → ~85%
-- All HealthRow chip strips: orange/red → green where production-wired (honest signal, not cosmetic)
-- Phase 2 substantially closed; Phase 3 = research-tier + Pro-build work
+After all 7 terminals close (A-G):
+- W-row backlog: ~6/53 → ~30/53 (~57% wired)
+- Falsifiers PASS: 0/15+ → 7/17+ (incl. new F-UAS-CopyCount + F-ACS-AnchorLookup)
+- Substrate-total: ~70% → ~90%
+- T14 five-plane wiring LIVE — the bridge piece from lattice ontology to working app
+- No-Orphan-Data invariant enforced via CI lint (catches orphan classes at PR time)
+- All 7 Laws cited in every PR description
+- All HealthRow chip strips: orange/red → green where production-wired (honest signal)
+- Phase 2 substantially closed; Phase 3 = research-tier (Pro + V6.1 kernels + Lean proofs)
+
+## Doctrinal preservation (Pro + Research tiers)
+
+Per `project_mas_first_focus_2026_05_03` + `project_app_store_first_sequencing`, terminals must:
+- **Build for MAS:** any feature that ships in MAS today
+- **Stub for Pro:** every Pro-only path gets `#[cfg(feature = "pro-build")]` / `#if PRO_BUILD` — preserve geometry, don't develop. DO NOT delete Pro hooks.
+- **Preserve for Research:** Lane-3 substrate stays in `epistemos-research/` crate. NEVER ships in MAS. Doctrine targets only. Read-only from MAS code via crate boundary.
+- **Vault:** preserved-speculation only (Hermes namespace in `simulation` worktree — assets-only extraction allowed; Swift Hermes files contradict 2026-05-05 purge).
