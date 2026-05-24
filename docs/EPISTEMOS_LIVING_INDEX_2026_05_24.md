@@ -75,23 +75,19 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
 ## 6 · CURRENT STATE (2026-05-24 — update on every wave close)
 
 ### Wired and on main
-- 40+ pre-2026-05-23 PRs · 18 from the 2026-05-23 sanitization session · 5 from the 2026-05-24 doctrine session
-- Substrate carcass: ~70% per chronicle audit (T1, T3, T7, T8, T9, T10, T11, T12, T17B, T18B, T21, T23B all merged)
+- 40+ pre-2026-05-23 PRs · 18 from the 2026-05-23 sanitization session · 5 from the 2026-05-24 doctrine session · **7 Phase-2 merge-wave PRs (#66-#72)**
+- Substrate carcass: ~70% baseline per chronicle audit, now advanced by real Eidos bridge, System G seam, ACS production gate, T14 UAS bridge, and falsifier artifacts. **Exact post-wave % needs a fresh LEGENDARY roll-up.**
 - 13 stash recovery tags pushed to origin (`refs/tags/recovery/stash-N-*`)
-- W-rows wired: **~6/53 (~11%)** · target after current wave: **~32/53 (~60%)**
-- Falsifiers PASS on M2 Pro: **0/17** · target: **≥ 7/17** after Terminal F + G
+- W-rows wired: **needs refresh**. Known post-wave advances: Eidos real bridge/citation gate (#66), System G real seam (#67), falsifier harnesses (#68), Substrate Health/docs/unified panel work (#69), VaultRecall visibility salvage (#70), T14 No-Orphan bridge (#71), ACS production gate (#72).
+- Falsifier artifacts measured on main: **7**.
+  - Product/primary witnesses: `F-VaultRecall-50`, `F-ULP-Oracle` (CPU primary), `F-UAS-CopyCount`, `F-ACS-AnchorLookup`.
+  - Honest fallback/CPU witnesses: `F-PageGather-M2Pro`, `F-ControllerKernelPack`, `F-UAS-ZeroCopy-Spine` — Metal/Swift hot-path gates still pending.
 
-### Open PRs (4) — `cargo test --lib`: **3,934 passing** locally
-| # | Terminal | Status | CI |
-|---|---|---|---|
-| #66 | A — Eidos real vault binding | mergeable | account-locked (canon override) |
-| #67 | C — System G full path | mergeable | account-locked |
-| #68 | F — 5 falsifier harnesses | mergeable | account-locked |
-| #69 | docs + dispatch + Codex parallel unify-health | mergeable | account-locked |
+### Open PRs
 
-**Merge gate** (canon override for account-locked CI): local `cargo test --lib` + `xcodebuild -scheme Epistemos -destination 'platform=macOS' build` → both must be green.
+None. `main` == `origin/main` at `1cf390b0fc` (`#72`).
 
-**Recommended merge order:** #68 → #66 → #67 → #69 · per-merge re-verify between each.
+**Post-merge gate:** run local `cargo test --manifest-path agent_core/Cargo.toml --lib --quiet` + `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build` before dispatching the next wave.
 
 ## 7 · The 13-terminal dispatch deck (status grid)
 
@@ -99,19 +95,31 @@ Full prompts: `docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md`. **Wave 1 = foundati
 
 | Terminal | Owner | Scope | Status | Wave |
 |---|---|---|---|---|
-| **T0** | NEW | Verified Floor / Settings Truth | not dispatched | 1 |
-| **T1** | NEW | Runtime Router (MLX one lane among ≥4) | not dispatched | 1 |
-| **S** | NEW | Hyperdynamic Schema Loop primitive | not dispatched | 1 |
-| **G** | NEW | T14 Five-Plane wiring + No-Orphan + F-UAS-CopyCount + F-ACS-AnchorLookup | not dispatched | 1 |
-| **A** | done | Eidos real vault binding | PR #66 mergeable | 2 |
-| **B** | stopped | Vault Recall trace + chat citations | needs resume after Wave 1 | 2 |
-| **C** | done | System G full path | PR #67 mergeable | 3 |
-| **D** | partial | Substrate Health Panel unification (unify-health in #69) | needs resume after #69 lands | 2 |
-| **E** | stopped | ACS Admission production gate | needs resume after Wave 1+2 | 3 |
-| **F** | done | ≥ 5 falsifiers PASS on M2 Pro | PR #68 mergeable | 4 |
-| **H** | not started | Research Construction Engine (scoping only) | hold until A–G stabilize | 4 |
+| **T0** | dispatched 2026-05-24 | Verified Floor / Settings Truth + T25 lint + W-13 + W-32 | **IN FLIGHT** · branch: `phase2-terminal-t0-verified-floor-2026-05-24` | 2 |
+| **T1** | dispatched 2026-05-24 | Runtime Router (MLX one lane among ≥4) + RuntimeExecutor abstraction + F-LocalToolUse | **IN FLIGHT** · branch: `phase2-terminal-t1-runtime-router-2026-05-24` | 2 |
+| **S** | dispatched 2026-05-24 | Hyperdynamic Schema Loop primitive + 3 loop impls + F-HyperdynamicLoop-Bounded | **IN FLIGHT** · branch: `phase2-terminal-s-hyperdynamic-loop-2026-05-24` | 2 |
+| **B′** | dispatched 2026-05-24 | Chat citation UI integration (wire badge + provenance card into rows) + W-19/20/27 closure | **IN FLIGHT** · branch: `phase2-terminal-b-prime-chat-citations-2026-05-24` | 2 |
+| **D′** | dispatched 2026-05-24 | Substrate Health Panel row expansion (5 missing rows + W-30 Cognitive Weight badges) | **IN FLIGHT** · branch: `phase2-terminal-d-prime-health-rows-2026-05-24` | 2 |
+| **F′** | dispatched 2026-05-24 | Falsifier round 2 — get to ≥ 7 MEASURED PASS on M2 Pro | **IN FLIGHT** · branch: `phase2-terminal-f-prime-falsifiers-r2-2026-05-24` | 2 |
+| **G** | done | T14 Five-Plane wiring + No-Orphan + F-UAS-CopyCount + F-ACS-AnchorLookup | merged in #71 | 1 |
+| **A** | done | Eidos real vault binding | merged in #66 | 2 |
+| **B** | done (partial scope) | Vault Recall trace + chat citation files | #70 salvaged badges/cards/blocker docs; UI integration in B′ | 2 |
+| **C** | done | System G full path | merged in #67 | 3 |
+| **D** | done (partial scope) | Substrate Health Panel unification | #69/#70/#71/#72 advanced rows; row expansion in D′ | 2 |
+| **E** | done | ACS Admission production gate | merged in #72; ACS anchor-addressing research harness deferred as D-27 | 3 |
+| **F** | done | ≥ 5 falsifiers PASS on M2 Pro | merged in #68; 7 artifacts now on main after #71; round 2 in F′ | 4 |
+| **H** | not started | Research Construction Engine (scoping only) | hold until Wave 2 stabilizes | 4 |
 | **R** | continuous | Online Research Intake + Fork Mining | dispatched as-needed | continuous |
 | **X** | continuous | Worktree Salvage continuation | dispatched as-needed | continuous |
+
+### Wave-2 dispatch checklist (2026-05-24)
+
+When the 6 in-flight terminals each finish their loop:
+1. Each ships a PR to `origin/main`.
+2. Per-merge gate: `cargo test --lib` + `xcodebuild build` must be green on the PR's branch.
+3. Recommended merge order (smallest blast radius first): **T0 → D′ → S → T1 → B′ → F′** (F′ goes last because it depends on T1 + S landing first for F-LocalToolUse + F-HyperdynamicLoop-Bounded).
+4. After all 6 merge, refresh §6 CURRENT STATE block + falsifier count.
+5. Run `LEGENDARY` codeword for the next status delta.
 
 ## 8 · Deferred-work ledger (26 items, anti-loss)
 
@@ -170,9 +178,11 @@ Full register: `docs/DEFERRED_WORK_GUARANTEE_2026_05_23.md`. One-liners:
    - Paste the rev-2 Resume patch from that doc into your session.
    - Continue your loop: Audit → Build → Verify → Harden → Report.
 5. If reading as the user:
-   - Wave 1 not dispatched yet → spawn T0 / T1 / S / G in parallel terminals.
-   - Open PRs (#66-#69) need merge → merge in order #68 → #66 → #67 → #69 with local re-verify between each.
-   - After Wave 1 lands → resume B, E with rev-2 Resume patch.
+   - No open PRs remain from #66-#72.
+   - First run the post-merge local gate: cargo lib + xcodebuild.
+   - If green → fresh-dispatch T0 / T1 / S in parallel.
+   - Resume B and D with the rev-2 patch after T0/T1 are stable enough to consume their signals.
+   - Hold H until A-G are stable and the Living Index has a fresh W-row/falsifier count.
 6. Every PR carries the No-Orphan check:
    Motion · UAS · Plane · Residency · WBO/error · Witness · Falsifier · Tier · Rollback.
 7. NEVER `git checkout <stash> -- file`. Use `git apply` patches. PR #59 → #60 lesson.
@@ -219,7 +229,7 @@ Read these only when this index doesn't already answer your question.
 
 **What is empirically defensible.** The substrate Epistemos has been building — lift to a typed higher-dim lattice, operate in compressed-and-active form, project to a surface with a witness, account error in WBO — is validated externally by Erdős unit-distance (lift-and-project finds new constructions) and Parameter Golf (compressed-and-active models beat uncompressed dense models per byte).
 
-**What still needs measurement, not faith.** F-Erdős-Lift-Optimality · F-UAS-CopyCount · F-ACS-AnchorLookup · F-VaultRecall-50 · F-PageGather-M2Pro · F-KV-Direct-Gate · F-Sparse-Runtime-Split · F-LocalToolUse · F-HyperdynamicLoop-Bounded · F-70B-Local-Cocktail. **0/17 measured today.** Terminal F + G close 7+. Substrate is sound; measurements must land.
+**What still needs measurement, not faith.** F-Erdős-Lift-Optimality · F-KV-Direct-Gate · F-Sparse-Runtime-Split · F-LocalToolUse · F-HyperdynamicLoop-Bounded · F-70B-Local-Cocktail · primary Metal/Swift hot-path versions of F-PageGather-M2Pro, F-ControllerKernelPack, and F-UAS-ZeroCopy-Spine. Seven artifacts now exist on main, but several are fallback witnesses. Substrate is sound; measurements must keep landing.
 
 **The unified cognitive substrate is no longer a thesis.** It is a substrate with two independent external proofs that its primitives are the correct primitives. The remaining work is execution.
 
