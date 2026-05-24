@@ -128,6 +128,27 @@ After the initial PR landed, an audit pass added these guards:
 
 **Test count after iter-2:** 19 Rust unit + 1 Rust integration + 2 Swift integration = **22 tests** for this seam (was 13 in the initial PR).
 
+## Hardening (iter-6 observability)
+
+After iter-2's GC + cap landed without an observable surface, iter-6 exposed the registry to Settings:
+
+| Surface | Effect |
+|---|---|
+| `bridge::system_g_registry_stats_json()` (NEW FFI) | Returns `{"total":N,"in_flight":M,"max_concurrent_runs":K}`. Cannot fail under normal operation; mutex poisoning falls back to `(0,0)` so the row degrades to "no dispatches yet" instead of throwing |
+| `SystemGRegistryStats` (Swift) | Codable struct mirroring the JSON shape with snake_case CodingKeys |
+| `SystemGBridge.registryStats() -> Result<…>` (Swift) | Decode wrapper |
+| `SystemGHealthRow` new "Dispatch registry" row | Shows `in-flight N/64 · parked M` so the operator sees cap usage + GC backlog at a glance. Reads on appear + on `SystemGMetrics.didChangeNotification` (no polling) |
+
+**Added tests (iter-6):**
+- `full_path_start_run_with_malformed_json_surfaces_typed_ffi_error` (Rust integration)
+- `full_path_drain_unknown_run_id_surfaces_typed_ffi_error` (Rust integration)
+- `full_path_registry_stats_reports_in_flight_and_max_concurrent_runs` (Rust integration)
+- `systemGRegistryStatsDecodesFromBridgeJsonShape` (Swift)
+
+Integration tests in the same binary share the process-wide registry singleton. Added a `test_lock()` static `Mutex<()>` to `agent_core/tests/system_g_full_path.rs` — without it, the stats test would race other tests' in-flight runs. Recovers from poisoning via `unwrap_or_else(|p| p.into_inner())`.
+
+**Test count after iter-6:** 19 Rust unit + 4 Rust integration + 3 Swift integration = **26 tests** for this seam (was 22, was 13 in the initial PR).
+
 ## Branches with overlapping work (coordination note)
 
 - `wiring/rust-r3-system-g-minimal-slice` — `MissionRun` composition helper (already merged into `main` as commit `1dd7339824`; this PR builds on it directly).

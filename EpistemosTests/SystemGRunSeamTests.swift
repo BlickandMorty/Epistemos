@@ -157,6 +157,42 @@ struct SystemGRunSeamTests {
         #expect(log.answerPacketId == answerPacketId, "answerPacketId helper agrees with terminal event")
     }
 
+    @Test("SystemGRegistryStats decodes from the Rust bridge JSON shape")
+    func systemGRegistryStatsDecodesFromBridgeJsonShape() throws {
+        // Pin the wire-format contract for the registry stats FFI
+        // (Terminal C / P5 iter-6). The Rust side emits snake_case
+        // keys; Swift CodingKeys map them to camelCase fields.
+        // Adversarial: missing field, extra field, wrong type.
+        let validJson = #"{"total":3,"in_flight":1,"max_concurrent_runs":64}"#
+        let decoded = try JSONDecoder().decode(
+            SystemGRegistryStats.self,
+            from: Data(validJson.utf8)
+        )
+        #expect(decoded.total == 3)
+        #expect(decoded.inFlight == 1)
+        #expect(decoded.maxConcurrentRuns == 64)
+
+        // Forward-compat: an unknown extra field is tolerated (default
+        // JSONDecoder behavior) so a future Rust addition doesn't
+        // break the Swift decoder out of the gate.
+        let extraJson = #"{"total":0,"in_flight":0,"max_concurrent_runs":64,"future_field":42}"#
+        let extraDecoded = try JSONDecoder().decode(
+            SystemGRegistryStats.self,
+            from: Data(extraJson.utf8)
+        )
+        #expect(extraDecoded.total == 0)
+        #expect(extraDecoded.inFlight == 0)
+
+        // Missing required field must fail to decode.
+        let missingJson = #"{"total":1,"in_flight":1}"#
+        #expect(throws: DecodingError.self) {
+            _ = try JSONDecoder().decode(
+                SystemGRegistryStats.self,
+                from: Data(missingJson.utf8)
+            )
+        }
+    }
+
     @Test("RealSystemGRunSeam honors cooperative cancellation")
     func realSystemGRunSeamHonorsCancellation() async {
         // The seam calls Task.checkCancellation() at the top of every
