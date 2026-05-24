@@ -104,18 +104,22 @@ of the four stages on `N = 100` random anchors:
   on main; the F' prompt scopes this harness to the lookup + audit +
   admission-proof boundary.
 
+## Falsifiers handled by other terminals (NOT in this PR)
+
+| Falsifier | Owner | PR | Notes |
+|---|---|---|---|
+| **F-HyperdynamicLoop-Bounded** | Terminal S | PR #75 (`phase2-terminal-s-hyperdynamic-loop-2026-05-24`, OPEN) | Terminal S shipped the harness + artifact + doc itself in its own PR; this F' PR does NOT duplicate. When #75 merges, the falsifier counts toward the M2 Pro PASS register without further work from this branch. |
+
 ## Deferred falsifiers (deps not on main)
 
 | Falsifier | Blocking dep | Re-promotion trigger |
 |---|---|---|
-| **F-HyperdynamicLoop-Bounded** | Terminal S (`phase2-terminal-s-hyperdynamic-loop-2026-05-24`) | When Terminal S lands the loop primitive on main, open a follow-up PR with the 100-prompt adversarial corpus harness. |
 | **F-LocalToolUse** | Terminal T1 (`phase2-terminal-t1-runtime-router-2026-05-24`) | When Terminal T1 lands the runtime router on main, open a follow-up PR with the per-model per-runtime-lane fixture. |
 
-Both terminals are dispatched but not merged as of 2026-05-24
-(`git log origin/main --oneline -20` shows the most recent merge is
-fa337ebbef, the post-merge living-index refresh). Both follow-up
-falsifiers can be wired with the same artifact + doc pattern used by
-this round once their deps land.
+Terminal T1 had not pushed a branch as of 2026-05-24 (`git ls-remote origin`
+shows no `terminal-t1` / `runtime-router` branch yet). Follow-up
+F-LocalToolUse can be wired with the same artifact + doc pattern used
+by this round once the dep lands.
 
 ## 7-Law check
 
