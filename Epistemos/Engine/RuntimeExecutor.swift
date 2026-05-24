@@ -17,9 +17,12 @@ import Foundation
 //                     of the five planes the request belongs to.
 //   * Residency     — `ResidencyTier` carried on MissionPacket and
 //                     surfaced as a per-lane capability (T1..T3).
-//   * WBO           — escalations and grammar-coercions account into
-//                     `RouteVerdict.lossBudget` (a positive delta means
-//                     accuracy was traded for availability).
+//   * WBO           — escalations are tallied in
+//                     `RuntimeRouterMetrics.escalationsByLane` per-lane.
+//                     A follow-up terminal will fold these counts into
+//                     the WBO ledger as availability/accuracy trade-offs
+//                     (counts are observed in the diagnostics surface,
+//                     not yet a WBO entry).
 //   * Witness       — `RouteVerdict` is itself the witness primitive.
 //                     Every dispatch produces a logged verdict.
 //   * Falsifier     — F-LocalToolUse is the per-lane falsifier that
