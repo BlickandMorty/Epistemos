@@ -63,6 +63,9 @@ public final class EpdocEditorToolbarModel {
     /// a no-op so the toolbar is renderable in isolation (previews +
     /// snapshot tests).
     public var dispatch: @Sendable @MainActor (EpdocEditorCommand) -> Void = { _ in }
+    /// Opens a first-class HTML Workspace for interactive DOM work.
+    /// The owning chrome installs the document-creation closure.
+    public var openHTMLWorkspace: @Sendable @MainActor () -> Void = {}
     /// Convert a picked local image into the `src` stored on the
     /// Tiptap image node. `EpdocDocument` installs a package-local
     /// asset writer; previews/tests keep the data-URL fallback.
@@ -143,9 +146,10 @@ public struct EpdocEditorToolbar: View {
         }
         toolButton(symbol: "tablecells",
                    tip: "Table 3×3",      command: .insertSlashChoice(blockType: "table-3x3"))
-        toolButton(symbol: "flowchart",
-                   tip: "Insert document diagram",
-                   command: .runCommand(name: "insertEpdocGraphFromDocument", argsJSON: emptyArgs))
+        toolButton(symbol: "rectangle.3.group",
+                   tip: "HTML Workspace") {
+            model.openHTMLWorkspace()
+        }
         toolButton(symbol: "minus",         shortcut: "⌘⇧R",
                    tip: "Divider",        command: .insertSlashChoice(blockType: "divider"))
     }

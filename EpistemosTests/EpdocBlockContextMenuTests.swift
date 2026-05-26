@@ -24,7 +24,7 @@ struct EpdocBlockContextMenuTests {
             "heading-1", "heading-2", "heading-3",
             "blockquote", "code-block",
             "bullet-list", "numbered-list", "task-list",
-            "math-display", "mermaid",
+            "math-display",
         ]
         #expect(candidateIDs == expected,
                 "convert candidates must cover every other block type; got: \(candidateIDs.symmetricDifference(expected))")

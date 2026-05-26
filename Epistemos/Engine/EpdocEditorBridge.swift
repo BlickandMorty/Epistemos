@@ -438,6 +438,9 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
     /// JS intercepted a pasted/dropped image file and asks the native
     /// document host to store it in the `.epdoc` package assets folder.
     case storeImageAsset(requestID: String, filename: String, mimeType: String, data: Data)
+    /// JS requested a first-class HTML Workspace instead of embedding
+    /// arbitrary HTML/DOM runtime inside the Epdoc body.
+    case requestHTMLWorkspace
 
     /// Decode a raw `WKScriptMessage.body` value into a typed message.
     /// Returns `nil` on shape failure. Accepted shapes:
@@ -449,6 +452,7 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
     ///   `{"type": "caretChanged", "rect": {x,y,w,h}, "selection": {from,to,empty}}`
     ///   `{"type": "requestSlashMenu", "query": "...", "anchor": {x,y,w,h}}`
     ///   `{"type": "requestBubbleMenu", "selection": {from,to,empty}, "anchor": {x,y,w,h}}`
+    ///   `{"type": "requestHTMLWorkspace"}`
     public static func decode(messageBody: Any) -> EpdocBridgeMessage? {
         guard let dict = messageBody as? [String: Any],
               let type = dict["type"] as? String else {
@@ -504,6 +508,8 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
                 mimeType: mimeType,
                 data: data
             )
+        case "requestHTMLWorkspace":
+            return .requestHTMLWorkspace
         default:
             return nil
         }

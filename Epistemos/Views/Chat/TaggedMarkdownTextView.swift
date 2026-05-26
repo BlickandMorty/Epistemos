@@ -781,16 +781,20 @@ struct TaggedMarkdownTextView: View {
                     isDark: theme.isDark
                 )
                 return Font.custom(notesSpec.fontName, size: scaledSize)
+                    .weight(notesSpec.weight)
             }
             let weight: Font.Weight = MarkdownHeadingDisplay.noteHeadingFontWeight(for: level)
             if (1...3).contains(level) {
                 // RCA finalization 2026-05-13: route H1-H3 through
                 // the theme-aware heading font so each ThemePair
-                // picks its own light-mode typeface (Platinum →
-                // MatrixTypeDisplay, Classic → CoralPixels, Ember →
-                // DotempDemo-8bit). Dark mode unchanged (still
-                // RetroGaming).
-                return AppDisplayTypography.headingFont(size: fontSize, weight: weight, theme: theme)
+                // picks its own typeface (Classic/Platinum Matrix H1,
+                // Classic/Ember Chonky H2/H3).
+                return AppDisplayTypography.headingFont(
+                    size: fontSize,
+                    weight: weight,
+                    theme: theme,
+                    level: level
+                )
             } else if (4...5).contains(level) {
                 return AppDisplayTypography.font(size: fontSize, weight: weight, allowDisplayFont: false)
             } else {

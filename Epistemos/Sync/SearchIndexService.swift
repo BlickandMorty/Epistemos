@@ -1638,6 +1638,7 @@ actor SearchIndexService {
             stmt.setUncheckedArguments([id, title, body, tags, updatedAt.timeIntervalSinceReferenceDate])
             try stmt.execute()
         }
+        Self.mirrorPageToEidosIfOpen(id: id, title: title, body: body, tags: tags)
         Self.notifyIndexChanged([.searchPages])
     }
 
@@ -1690,6 +1691,7 @@ actor SearchIndexService {
                 }
             }
         }
+        Self.mirrorPagesToEidosIfOpen(pages)
         Self.notifyIndexChanged([.searchPages])
     }
 
@@ -1771,7 +1773,56 @@ actor SearchIndexService {
             }
         }
         log.info("Rebuilt search index with \(pages.count) pages")
+        Self.mirrorPagesToEidosIfOpen(pages)
         Self.notifyIndexChanged([.searchPages])
+    }
+
+    private nonisolated static func mirrorPagesToEidosIfOpen(
+        _ pages: [(id: String, title: String, body: String, tags: String, updatedAt: Date)]
+    ) {
+        guard EidosBridge.vaultStatus()?.isOpen == true else { return }
+        for page in pages {
+            mirrorPageToEidos(
+                id: page.id,
+                title: page.title,
+                body: page.body,
+                tags: page.tags
+            )
+        }
+    }
+
+    private nonisolated static func mirrorPageToEidosIfOpen(
+        id: String,
+        title: String,
+        body: String,
+        tags: String
+    ) {
+        guard EidosBridge.vaultStatus()?.isOpen == true else { return }
+        mirrorPageToEidos(id: id, title: title, body: body, tags: tags)
+    }
+
+    private nonisolated static func mirrorPageToEidos(
+        id: String,
+        title: String,
+        body: String,
+        tags: String
+    ) {
+        _ = EidosBridge.insertVaultNote(
+            documentId: id,
+            body: eidosDocumentBody(title: title, body: body, tags: tags),
+            kind: .note
+        )
+    }
+
+    private nonisolated static func eidosDocumentBody(
+        title: String,
+        body: String,
+        tags: String
+    ) -> String {
+        [title, tags, body]
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n\n")
     }
 
     func rebuildFromSwiftDataAsync(

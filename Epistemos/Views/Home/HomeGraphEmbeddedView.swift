@@ -39,7 +39,8 @@ import SwiftUI
 //     The landing's color shows through directly.
 //   - `isOverlayMode = true` on the metal view → Rust engine uses
 //     transparent clear color so the SwiftUI Color underneath is visible.
-//   - No rounded corner mask (fills the home window's content area).
+//   - Canvas fills the home window; workspace routes add the same 28pt
+//     continuous rounded boundary used by the mini graph panel.
 //   - The bottom graph toolbar Close action returns to the greeting, and
 //     Esc keeps the same shortcut path.
 //
@@ -94,10 +95,7 @@ struct HomeGraphEmbeddedView: View {
             // 3. Route overlay (note / folder pages). On `.canvas` route
             //    this is hidden so mouse events fall through to the
             //    metal canvas. Same isolation as HologramOverlay.
-            if !graphState.currentRoute.isCanvas {
-                GraphWorkspaceContainer()
-                    .transition(.opacity)
-            }
+            embeddedWorkspaceRoute
 
             // 4. Search sidebar — left edge, top-aligned.
             HStack(alignment: .top, spacing: 0) {
@@ -143,10 +141,6 @@ struct HomeGraphEmbeddedView: View {
         .environment(\.graphSurfacePresentation, .embeddedHome)
         .animation(
             reduceMotion ? nil : .smooth(duration: 0.25),
-            value: graphState.currentRoute
-        )
-        .animation(
-            reduceMotion ? nil : .smooth(duration: 0.25),
             value: graphState.selectedNodeId
         )
         .onKeyPress(.escape) {
@@ -164,6 +158,17 @@ struct HomeGraphEmbeddedView: View {
         }
         .onAppear { handleAppear() }
         .onDisappear { handleDisappear() }
+    }
+
+    @ViewBuilder
+    private var embeddedWorkspaceRoute: some View {
+        if !graphState.currentRoute.isCanvas {
+            GraphWorkspaceContainer()
+                .transaction { transaction in
+                    transaction.animation = nil
+                    transaction.disablesAnimations = true
+                }
+        }
     }
 
     private var shouldRenderCanvas: Bool {

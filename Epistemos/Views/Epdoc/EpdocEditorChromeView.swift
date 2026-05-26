@@ -139,6 +139,8 @@ public final class EpdocEditorChromeController {
     public var onContentChanged: @Sendable @MainActor (Data) -> Void
     /// Open the agent inspector with the selected text.
     public var onAskAgent: @Sendable @MainActor (String) -> Void
+    /// Open a first-class HTML Workspace for DOM/interactive visual work.
+    public var onOpenHTMLWorkspace: @Sendable @MainActor () -> Void
     /// Capture as RawThought (Wave 3.1).
     public var onCaptureAsRawThought: @Sendable @MainActor (String) -> Void
     /// Halo backend search closure for the Insert link picker (W8.4).
@@ -164,6 +166,15 @@ public final class EpdocEditorChromeController {
         self.onSave = { }
         self.onContentChanged = { _ in }
         self.onAskAgent = { _ in }
+        self.onOpenHTMLWorkspace = {
+            do {
+                try NSDocumentController.shared.createUntitledHTMLWorkspaceDocument(
+                    in: AppBootstrap.shared?.vaultSync.vaultURL
+                )
+            } catch {
+                NSApplication.shared.presentError(error)
+            }
+        }
         self.onCaptureAsRawThought = { _ in }
         self.onSearchLinks = { _ in [] }
         self.onPickRun = { _ in }
@@ -176,6 +187,9 @@ public final class EpdocEditorChromeController {
         // panels do.
         self.toolbarModel.dispatch = { [weak self] cmd in
             self?.dispatch(cmd)
+        }
+        self.toolbarModel.openHTMLWorkspace = { [weak self] in
+            self?.openHTMLWorkspace()
         }
     }
 
@@ -200,6 +214,10 @@ public final class EpdocEditorChromeController {
     public func detachEditorDispatch() {
         bridgeDispatchInstalled = false
         dispatch = { _ in }
+    }
+
+    public func openHTMLWorkspace() {
+        onOpenHTMLWorkspace()
     }
 
     private func flushInitialContentIfPossible() {
@@ -313,6 +331,8 @@ public final class EpdocEditorChromeController {
                 return
             }
             dispatch(.runCommand(name: "completeImageAssetRequest", argsJSON: argsJSON))
+        case .requestHTMLWorkspace:
+            openHTMLWorkspace()
         }
     }
 
@@ -535,6 +555,9 @@ private enum EpdocEditorThemeStyle {
         var variables: [(String, String)] = [
             ("--epdoc-bg", "transparent"),
             ("--epdoc-display-font", theme.epdocDisplayFontFamily),
+            ("--epdoc-h1-font", theme.epdocHeadingFontFamily(level: 1)),
+            ("--epdoc-h2-font", theme.epdocHeadingFontFamily(level: 2)),
+            ("--epdoc-h3-font", theme.epdocHeadingFontFamily(level: 3)),
             ("--epdoc-text-color", cssColor(resolved.foreground.nsColor)),
             ("--epdoc-muted", cssColor(resolved.mutedForeground.nsColor)),
             ("--epdoc-accent", cssColor(resolved.accent.nsColor)),

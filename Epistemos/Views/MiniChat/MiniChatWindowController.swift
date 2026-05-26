@@ -53,7 +53,8 @@ final class MiniChatWindowController {
         if let attachment {
             resolvedAttachment = attachment
         } else if let bootstrap = AppBootstrap.shared {
-            resolvedAttachment = activeEpdocAttachment()
+            resolvedAttachment = activeHTMLWorkspaceAttachment()
+                ?? activeEpdocAttachment()
                 ?? activeGraphNoteAttachment(in: bootstrap)
                 ?? activeNoteAttachment(in: bootstrap)
         } else {
@@ -209,6 +210,30 @@ final class MiniChatWindowController {
             return ComposerReferenceHelpers.fileContextAttachment(
                 for: url,
                 displayName: title.isEmpty ? url.lastPathComponent : title
+            )
+        }
+        return nil
+    }
+
+    private func activeHTMLWorkspaceAttachment() -> ContextAttachment? {
+        let controller = NSDocumentController.shared
+        var openDocuments = controller.documents
+        if let current = controller.currentDocument {
+            openDocuments.removeAll { $0 === current }
+            openDocuments.insert(current, at: 0)
+        }
+        let candidates = openDocuments.compactMap { $0 as? HTMLWorkspaceDocument }
+        for document in candidates {
+            let hasVisibleWindow = document.windowControllers.contains { controller in
+                controller.window?.isKeyWindow == true || controller.window?.isVisible == true
+            }
+            guard hasVisibleWindow else { continue }
+            let title = document.package.manifest.title
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return ComposerReferenceHelpers.htmlWorkspaceAttachment(
+                workspaceID: document.package.manifest.id,
+                title: title.isEmpty ? document.fileURL?.deletingPathExtension().lastPathComponent ?? "HTML Workspace" : title,
+                fileURL: document.fileURL
             )
         }
         return nil

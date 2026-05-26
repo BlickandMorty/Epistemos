@@ -54,19 +54,20 @@ nonisolated struct EpdocPasteClassifierTests {
 
     // MARK: - Code fences
 
-    @Test("Mermaid fence classifies + extracts the diagram body")
-    func mermaidFence() {
+    @Test("Mermaid fence stays a code fence instead of creating an Epdoc diagram")
+    func mermaidFenceIsCodeFence() {
         let pasted = """
         ```mermaid
         graph TD
         A --> B
         ```
         """
-        if case let .mermaidFence(diagram) = EpdocPasteClassifier.classify(pasted) {
-            #expect(diagram.contains("graph TD"))
-            #expect(diagram.contains("A --> B"))
+        if case let .codeFence(language, body) = EpdocPasteClassifier.classify(pasted) {
+            #expect(language == "mermaid")
+            #expect(body.contains("graph TD"))
+            #expect(body.contains("A --> B"))
         } else {
-            #expect(Bool(false), "expected .mermaidFence; got \(EpdocPasteClassifier.classify(pasted))")
+            #expect(Bool(false), "expected .codeFence(language: mermaid); got \(EpdocPasteClassifier.classify(pasted))")
         }
     }
 

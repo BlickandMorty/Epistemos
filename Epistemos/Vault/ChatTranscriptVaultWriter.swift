@@ -28,7 +28,7 @@ import SwiftData
 enum ChatTranscriptVaultWriter {
     /// Root directory inside the vault where transcripts go. Creating
     /// the folder is idempotent; all transcripts land here.
-    static let vaultSubdirectory = "Chat Transcripts"
+    nonisolated static let vaultSubdirectory = "Chat Transcripts"
 
     /// Max characters from the title retained in the filename. Keeps
     /// filenames reasonable on filesystems with path length limits.

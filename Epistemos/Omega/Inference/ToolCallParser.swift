@@ -37,7 +37,12 @@ nonisolated enum ToolCallParser {
             return calls
         }
 
-        // Strategy 1c: structured XML-like plans emitted by smaller local models
+        // Strategy 1c: XML-ish tool wrappers emitted by local Qwen / Hermes fallbacks.
+        if let calls = parseToolsWrapperToolCalls(text), !calls.isEmpty {
+            return calls
+        }
+
+        // Strategy 1d: structured XML-like plans emitted by smaller local models
         if let calls = parseStructuredXmlToolCalls(text), !calls.isEmpty {
             return calls
         }
@@ -216,6 +221,43 @@ nonisolated enum ToolCallParser {
         }
 
         return value
+    }
+
+    // MARK: - Tools/Tool Wrapper Format
+
+    /// Parse tool-wrapper output sometimes emitted by smaller local models:
+    /// `<tools><tool>{"name":"file.search","parameters":{...}}</tool></tools>`.
+    /// Orphaned closing tags are tolerated because streaming repair can splice
+    /// wrapper fragments across local-model retries.
+    private static func parseToolsWrapperToolCalls(_ text: String) -> [ParsedToolCall]? {
+        let pattern = #"<tool>(.*?)</tool>"#
+        guard let regex = try? NSRegularExpression(
+            pattern: pattern,
+            options: [.dotMatchesLineSeparators]
+        ) else {
+            return nil
+        }
+
+        let nsText = text as NSString
+        let matches = regex.matches(in: text, range: NSRange(location: 0, length: nsText.length))
+        guard !matches.isEmpty else { return nil }
+
+        var calls: [ParsedToolCall] = []
+        calls.reserveCapacity(matches.count)
+
+        for match in matches {
+            let body = nsText.substring(with: match.range(at: 1))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if let call = parseJsonToolCall(body) {
+                calls.append(call)
+                continue
+            }
+            if let nestedCalls = parseEmbeddedJsonFragments(body) {
+                calls.append(contentsOf: nestedCalls)
+            }
+        }
+
+        return calls.isEmpty ? nil : calls
     }
 
     // MARK: - Structured XML-like Plans

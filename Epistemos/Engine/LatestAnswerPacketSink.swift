@@ -9,7 +9,7 @@
 // on MainActor.
 //
 // Lookup contract: given a `ChatMessage.answerPacketId`, return the
-// matching packet if it's still inside the bounded 32-packet ring,
+// matching packet if it's still inside the bounded 100-packet ring,
 // otherwise nil. Bubbles for older messages whose packet has aged
 // out of the ring silently render no chip — that's the V6.2 first-
 // wiring posture. Persisting the packet alongside the ChatMessage
@@ -37,7 +37,7 @@ public final class LatestAnswerPacketSink {
     )
 
     /// Most-recent-first slice of the AnswerPacketEmitter ring. Bounded
-    /// at `AnswerPacketEmitter.maxRingSize` (32) so this never grows
+    /// at `AnswerPacketEmitter.maxRingSize` (100) so this never grows
     /// unbounded under long sessions. Updated on
     /// `AnswerPacketEmitter.didEmitNotification` via the
     /// `start()`-armed observer.

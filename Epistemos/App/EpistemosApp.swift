@@ -1320,6 +1320,13 @@ struct EpistemosCommands: Commands {
             }
             .keyboardShortcut("n", modifiers: [.command, .option])
 
+            Button("New HTML Workspace") {
+                Task { @MainActor in
+                    createHTMLWorkspaceDocument()
+                }
+            }
+            .keyboardShortcut("n", modifiers: [.command, .option, .shift])
+
             Button("New Note") {
                 Task { @MainActor in
                     if let pageId = await vaultSync.createPage(title: "Untitled", allowVaultSelectionPrompt: true) {
@@ -1359,6 +1366,15 @@ struct EpistemosCommands: Commands {
     private func createEpdocDocument() {
         do {
             try NSDocumentController.shared.createUntitledEpdocDocument(in: vaultSync.vaultURL)
+        } catch {
+            NSApplication.shared.presentError(error)
+        }
+    }
+
+    @MainActor
+    private func createHTMLWorkspaceDocument() {
+        do {
+            try NSDocumentController.shared.createUntitledHTMLWorkspaceDocument(in: vaultSync.vaultURL)
         } catch {
             NSApplication.shared.presentError(error)
         }

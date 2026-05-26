@@ -558,6 +558,15 @@ actor LocalAgentLoop {
         var accumulatedOutput = ""
         var reflexDetection: IncrementalToolCallDetector.Detection?
         var emittedPendingCount = 0
+        let holdPlaintextForRequiredToolStep =
+            Self.nextIncompleteTool(
+                in: requiredFileToolSequence,
+                completedToolNames: completedToolNames
+            ) != nil
+            || Self.nextIncompleteTool(
+                in: requiredNoteToolSequence,
+                completedToolNames: completedToolNames
+            ) != nil
 
         let stream = await streamingGenerator(
             promptText, nil, maxResponseTokens, effectiveReasoningMode, modelID
@@ -576,7 +585,7 @@ actor LocalAgentLoop {
                     )
                     let visibleDelta = String(pendingText[deltaStart...])
                     emittedPendingCount = pendingText.count
-                    if !visibleDelta.isEmpty {
+                    if !holdPlaintextForRequiredToolStep, !visibleDelta.isEmpty {
                         await onToken(visibleDelta)
                     }
                 }
@@ -602,7 +611,7 @@ actor LocalAgentLoop {
         // privacy semantics on hidden tags + malformed tool opens.
         if reflexDetection == nil {
             let flushed = detector.flushOnStreamEnd()
-            if !flushed.isEmpty {
+            if !holdPlaintextForRequiredToolStep, !flushed.isEmpty {
                 await onToken(flushed)
             }
         }
@@ -1448,6 +1457,10 @@ actor LocalAgentLoop {
             for: "vault.read",
             availableTools: availableTools
         ) != nil
+        let hasSearchTool = AgentToolNameAliases.preferredAvailableName(
+            for: "vault.search",
+            availableTools: availableTools
+        ) != nil
 
         let createSignals = [
             "create a new note",
@@ -1470,18 +1483,91 @@ actor LocalAgentLoop {
             "reply with only the note body",
             "exact note body",
         ]
+        let lookupSignals = [
+            "find my note",
+            "find my notes",
+            "find the note",
+            "find this note",
+            "find my essay",
+            "find the essay",
+            "search my note",
+            "search my notes",
+            "search the vault",
+            "search vault",
+            "search for",
+            "look up",
+            "lookup",
+            "locate",
+            "pull up",
+            "open my note",
+            "open the note",
+            "read my note",
+            "read the note",
+            "read my essay",
+            "read the essay",
+            "go deeper on",
+        ]
+        let lookupPatterns = [
+            #"\bfind\s+(?:my|the|this)?\s*[^.?!\n]{0,120}\b(?:note|notes|essay|draft|resource)\b"#,
+            #"\bsearch\s+(?:my|the)?\s*[^.?!\n]{0,120}\b(?:note|notes|vault|essay|draft|resource)\b"#,
+            #"\b(?:look up|lookup|locate|pull up|open|read)\s+(?:my|the|this)?\s*[^.?!\n]{0,120}\b(?:note|notes|essay|draft|resource)\b"#,
+        ]
+        let noteTargetSignals = [
+            "note",
+            "notes",
+            "vault",
+            "essay",
+            "draft",
+            "resource",
+        ]
+        let readAfterLookupSignals = [
+            "read",
+            "full content",
+            "summarize",
+            "summary",
+            "analyze",
+            "review",
+            "explain",
+            "go deeper",
+            "implication",
+            "implications",
+            "what does",
+            "what do",
+            "tell me about",
+            "based on",
+        ]
 
         let requiresWrite = hasWriteTool
             && createSignals.contains(where: normalized.contains)
-        let requiresRead = hasReadTool
+        let requiresReadAfterWrite = hasReadTool
             && requiresWrite
             && readBackSignals.contains(where: normalized.contains)
+        let hasNoteTarget = noteTargetSignals.contains(where: normalized.contains)
+        let requiresSearch = hasSearchTool
+            && hasNoteTarget
+            && (
+                lookupSignals.contains(where: normalized.contains)
+                || lookupPatterns.contains {
+                    normalized.range(of: $0, options: .regularExpression) != nil
+                }
+            )
+        let requiresReadAfterSearch = hasReadTool
+            && requiresSearch
+            && readAfterLookupSignals.contains(where: normalized.contains)
 
         var sequence: [String] = []
         if requiresWrite {
             sequence.append("vault.write")
+            if requiresReadAfterWrite {
+                sequence.append("vault.read")
+            }
+            return sequence
         }
-        if requiresRead {
+
+        if requiresSearch {
+            sequence.append("vault.search")
+        }
+        if requiresReadAfterSearch {
             sequence.append("vault.read")
         }
         return sequence
@@ -1511,6 +1597,12 @@ actor LocalAgentLoop {
             #"(?i)\bcalled\s+`([^`\n]+)`"#,
             #"(?i)\bcalled\s+\"([^\"]+)\""#,
             #"(?i)\bcalled\s+'([^'\n]+)'"#,
+            #"(?i)\b(?:essay|note|draft|resource)\s+(?:on|about|called|titled)\s+`([^`\n]+)`"#,
+            #"(?i)\b(?:essay|note|draft|resource)\s+(?:on|about|called|titled)\s+\"([^\"]+)\""#,
+            #"(?i)\b(?:essay|note|draft|resource)\s+(?:on|about|called|titled)\s+'([^'\n]+)'"#,
+            #"(?i)\b(?:search|find|locate|lookup|look\s+up)\s+(?:for\s+)?(?:the\s+)?(?:essay|note|draft|resource)?(?:\s+(?:on|about|called|titled))?\s+`([^`\n]+)`"#,
+            #"(?i)\b(?:search|find|locate|lookup|look\s+up)\s+(?:for\s+)?(?:the\s+)?(?:essay|note|draft|resource)?(?:\s+(?:on|about|called|titled))?\s+\"([^\"]+)\""#,
+            #"(?i)\b(?:search|find|locate|lookup|look\s+up)\s+(?:for\s+)?(?:the\s+)?(?:essay|note|draft|resource)?(?:\s+(?:on|about|called|titled))?\s+'([^'\n]+)'"#,
             #"(?i)\btitled\s+(.+?)(?:\s+with\b|\s+and\b|\s+then\b|[,.]|$)"#,
             #"(?i)\bcalled\s+(.+?)(?:\s+with\b|\s+and\b|\s+then\b|[,.]|$)"#,
         ]
@@ -1530,6 +1622,31 @@ actor LocalAgentLoop {
                 .trimmingCharacters(in: CharacterSet(charactersIn: "\"'`"))
             if !title.isEmpty {
                 return title
+            }
+        }
+
+        if requiredToolSequence.contains(where: { toolNamesAreEquivalent($0, "vault.search") }) {
+            let delimitedPatterns = [
+                #"`([^`\n]+)`"#,
+                #"\"([^\"\n]+)\""#,
+                #"'([^'\n]+)'"#,
+            ]
+            for pattern in delimitedPatterns {
+                guard let regex = FoundationSafety.regularExpression(pattern) else {
+                    continue
+                }
+                let range = NSRange(request.startIndex..<request.endIndex, in: request)
+                guard let match = regex.firstMatch(in: request, options: [], range: range),
+                      match.numberOfRanges > 1,
+                      let titleRange = Range(match.range(at: 1), in: request) else {
+                    continue
+                }
+                let title = String(request[titleRange])
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .trimmingCharacters(in: CharacterSet(charactersIn: "\"'`"))
+                if !title.isEmpty {
+                    return title
+                }
             }
         }
 
@@ -1655,6 +1772,25 @@ actor LocalAgentLoop {
         """
     }
 
+    private nonisolated static func explicitNoteRepairFollowUpSentence(
+        nextRequiredTool: String,
+        completedToolNames: Set<String>
+    ) -> String {
+        if toolNamesAreEquivalent(nextRequiredTool, "vault.search") {
+            return " Use the requested title or topic as the vault.search query."
+        }
+        if toolNamesAreEquivalent(nextRequiredTool, "vault.read") {
+            if completedToolNamesContain(completedToolNames, "vault.search") {
+                return " Use the exact vault-relative path returned by the successful vault.search step."
+            }
+            if completedToolNamesContain(completedToolNames, "vault.write") {
+                return " Use the same exact note path from the successful vault.write step."
+            }
+            return " Use the exact vault-relative path returned by the preceding successful vault tool step."
+        }
+        return " If you are creating a new note from a title, choose a clear vault-relative .md path that matches that title."
+    }
+
     private nonisolated static func repairPromptForInvalidExplicitNoteToolCall(
         toolCalls: [ParsedToolCall],
         requiredToolSequence: [String],
@@ -1676,10 +1812,10 @@ actor LocalAgentLoop {
         let noteTargetSentence = requestedNoteTitle.map {
             #" for the requested note titled "\#($0)""#
         } ?? ""
-        let followUpSentence =
-            toolNamesAreEquivalent(nextRequiredTool, "vault.read")
-            ? " Use the same exact note path from the successful vault.write step."
-            : " If you are creating a new note from a title, choose a clear vault-relative .md path that matches that title."
+        let followUpSentence = explicitNoteRepairFollowUpSentence(
+            nextRequiredTool: nextRequiredTool,
+            completedToolNames: completedToolNames
+        )
 
         return """
         You have not satisfied the user's explicit note request yet. The next required tool step is \(nextRequiredTool)\(noteTargetSentence). Your last tool call used \(firstToolCall.name) instead. Emit exactly one valid <tool_call> block now for \(nextRequiredTool)\(noteTargetSentence).\(followUpSentence) Wait for the next <tool_response> before continuing.
@@ -2029,10 +2165,10 @@ actor LocalAgentLoop {
         let noteTargetSentence = requestedNoteTitle.map {
             #" for the requested note titled "\#($0)""#
         } ?? ""
-        let followUpSentence =
-            toolNamesAreEquivalent(nextRequiredTool, "vault.read")
-            ? " Use the same exact note path from the successful vault.write step."
-            : " If you are creating a new note from a title, choose a clear vault-relative .md path that matches that title."
+        let followUpSentence = explicitNoteRepairFollowUpSentence(
+            nextRequiredTool: nextRequiredTool,
+            completedToolNames: completedToolNames
+        )
 
         return """
         You have not satisfied the user's explicit note request yet. Your previous answer guessed note success before the missing required tool step completed. Emit exactly one valid <tool_call> block now for the next missing required tool step: \(nextRequiredTool)\(noteTargetSentence).\(followUpSentence) Wait for each <tool_response> before moving to the next step or giving the final answer.
@@ -2075,10 +2211,10 @@ actor LocalAgentLoop {
         let noteTargetSentence = requestedNoteTitle.map {
             #" for the requested note titled "\#($0)""#
         } ?? ""
-        let followUpSentence =
-            toolNamesAreEquivalent(nextRequiredTool, "vault.read")
-            ? " Use the same exact note path from the successful vault.write step."
-            : " If you are creating a new note from a title, choose a clear vault-relative .md path that matches that title."
+        let followUpSentence = explicitNoteRepairFollowUpSentence(
+            nextRequiredTool: nextRequiredTool,
+            completedToolNames: completedToolNames
+        )
 
         return """
         You have not satisfied the user's explicit note request yet. The next required tool step is \(nextRequiredTool)\(noteTargetSentence). Emit exactly one valid <tool_call> block now for \(nextRequiredTool)\(noteTargetSentence).\(followUpSentence) Do not output prose, <think>, <scratch_pad>, or planning text before the <tool_call>. Wait for the next <tool_response> before continuing.

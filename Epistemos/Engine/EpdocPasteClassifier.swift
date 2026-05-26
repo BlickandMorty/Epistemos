@@ -20,10 +20,9 @@ import Foundation
 //
 // Activation tracked under audit register `RCA-P2-008`.
 //
-// Per the W7.17.b plan: "YouTube URL → embed; markdown table →
-// real Tiptap table; mermaid fence → live diagram; code →
-// language-detected code block." Alexandrie's paste handler only
-// does file uploads.
+// Per the current editor contract: YouTube URL → embed; markdown table →
+// real Tiptap table; code fences → code blocks. Interactive diagrams and
+// DOM visuals belong in first-class HTML Workspaces, not Epdoc paste paths.
 
 nonisolated public enum EpdocPasteIntent: Equatable, Sendable {
     /// Plain text — let the editor's default paste run.
@@ -36,8 +35,6 @@ nonisolated public enum EpdocPasteIntent: Equatable, Sendable {
     /// Markdown pipe-table — convert into a real Tiptap table node
     /// with the parsed (rows, cols) shape.
     case markdownTable(rowCount: Int, columnCount: Int)
-    /// `\`\`\`mermaid` fenced block — wrap in the W7.9 Mermaid node.
-    case mermaidFence(diagram: String)
     /// `\`\`\`<lang>` fenced block — wrap in code_block w/ language hint.
     case codeFence(language: String?, body: String)
     /// Bare code-shaped text (lots of indents, semicolons / braces) —
@@ -63,11 +60,6 @@ nonisolated public enum EpdocPasteClassifier {
         // Generic URL — single line, scheme-prefixed.
         if isSingleLineURL(trimmed) {
             return .url(trimmed)
-        }
-
-        // Mermaid fence first (it's a code fence with a special lang).
-        if let mermaid = mermaidFenceBody(trimmed) {
-            return .mermaidFence(diagram: mermaid)
         }
 
         // Generic code fence ```<lang>\n...\n```
@@ -136,16 +128,6 @@ nonisolated public enum EpdocPasteClassifier {
     }
 
     // MARK: - Code fences
-
-    static func mermaidFenceBody(_ s: String) -> String? {
-        let lines = s.split(separator: "\n", omittingEmptySubsequences: false)
-        guard lines.count >= 2 else { return nil }
-        let first = lines[0].trimmingCharacters(in: .whitespaces).lowercased()
-        let last = lines.last?.trimmingCharacters(in: .whitespaces) ?? ""
-        guard first == "```mermaid", last == "```" else { return nil }
-        let body = lines.dropFirst().dropLast().joined(separator: "\n")
-        return body
-    }
 
     static func codeFenceBody(_ s: String) -> (String?, String)? {
         let lines = s.split(separator: "\n", omittingEmptySubsequences: false)

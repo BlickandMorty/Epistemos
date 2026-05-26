@@ -1,6 +1,68 @@
 import AVFoundation
 import Foundation
 
+nonisolated private enum AmbientFrequencyDSP {
+    static let minFrequencyHz: Float = 20
+    static let maxFrequencyHz: Float = 20_000
+    static let defaultWaveformRawValue = 0
+    static let maxWaveformRawValue = 4
+
+    @inline(__always)
+    static func sanitizedFrequency(_ value: Float, fallback: Float) -> Float {
+        guard value.isFinite else { return fallback.isFinite ? fallback : 440 }
+        return min(max(value, minFrequencyHz), maxFrequencyHz)
+    }
+
+    @inline(__always)
+    static func sanitizedPan(_ value: Float) -> Float {
+        guard value.isFinite else { return 0 }
+        return min(max(value, -1), 1)
+    }
+
+    @inline(__always)
+    static func sanitizedGain(_ value: Float) -> Float {
+        guard value.isFinite else { return 0 }
+        return min(max(value, 0), 1)
+    }
+
+    @inline(__always)
+    static func sanitizedLayerVolume(_ value: Float) -> Float {
+        guard value.isFinite else { return 1 }
+        return min(max(value, 0), 2)
+    }
+
+    @inline(__always)
+    static func sanitizedDistortion(_ value: Float) -> Float {
+        guard value.isFinite else { return 0 }
+        return min(max(value, 0), 1)
+    }
+
+    @inline(__always)
+    static func sanitizedWaveform(_ value: Float) -> Int {
+        guard value.isFinite else { return defaultWaveformRawValue }
+        guard value >= 0, value <= Float(maxWaveformRawValue) else {
+            return defaultWaveformRawValue
+        }
+        return min(max(Int(value.rounded()), defaultWaveformRawValue), maxWaveformRawValue)
+    }
+
+    @inline(__always)
+    static func sanitizedBitCrushDepth(_ value: Float) -> Int {
+        guard value.isFinite else { return 16 }
+        if value <= 1 { return 1 }
+        if value >= 16 { return 16 }
+        return Int(value.rounded())
+    }
+
+    @inline(__always)
+    static func sanitizedSampleRateHold(_ value: Float) -> Int {
+        guard value.isFinite else { return 1 }
+        if value <= 1 { return 1 }
+        if value >= 64 { return 64 }
+        return Int(value.rounded())
+    }
+}
+
 /// Real-time live frequency player for the Ambient Frequencies feature.
 ///
 /// Architecture (per research 2026-05-16, primary sources W3C Web Audio §6.3.3,
@@ -78,11 +140,13 @@ final class AmbientFrequencyLivePlayer {
 
     /// Min slider value (Hz) — slightly above zero to avoid divide-by-zero
     /// edge cases and sub-hearing infrasound.
-    static let minFrequencyHz: Float = 20
+    nonisolated static let minFrequencyHz = AmbientFrequencyDSP.minFrequencyHz
 
     /// Max slider value (Hz) — half of the lowest expected sample rate
     /// (22.05 kHz Nyquist at 44.1k) minus a safety margin.
-    static let maxFrequencyHz: Float = 20_000
+    nonisolated static let maxFrequencyHz = AmbientFrequencyDSP.maxFrequencyHz
+    nonisolated private static let renderChannelCount: AVAudioChannelCount = 2
+    nonisolated private static let fallbackRenderSampleRates: [Double] = [48_000, 44_100]
 
     // MARK: - Private state
 
@@ -99,72 +163,58 @@ final class AmbientFrequencyLivePlayer {
 
     /// Start the engine. Idempotent; safe to call multiple times.
     func start() throws {
+        try start(layers: [], controls: [])
+    }
+
+    /// Start the engine with the active Ambient Frequencies preset/module
+    /// layers. Empty `layers` preserves the original single-oscillator tone
+    /// lab path.
+    func start(
+        layers: [AmbientFrequencyLayer],
+        controls: [AmbientFrequencyLayerMixControl] = []
+    ) throws {
         guard !isRunning else { return }
+        params.configureMix(layers: layers, controls: controls)
 
         // Determine the hardware output format the system gives us. Defaults
         // to 48 kHz stereo on most macOS hardware; 44.1 kHz on AirPods etc.
         let outputFormat = engine.outputNode.outputFormat(forBus: 0)
-        let sampleRate = outputFormat.sampleRate
-        let channelCount = outputFormat.channelCount
-        guard sampleRate.isFinite, sampleRate > 0 else {
-            throw AmbientFrequencyLivePlayerError.invalidOutputFormat
-        }
+        let mixerFormat = engine.mainMixerNode.outputFormat(forBus: 0)
 
         // Build a stereo render format so we can deliver per-channel L/R.
-        // Use the same sample rate the hardware chose to avoid format
-        // mismatch + extra conversion in the engine.
-        guard let renderFormat = AVAudioFormat(
-            standardFormatWithSampleRate: sampleRate,
-            channels: max(2, channelCount)
-        ) else {
-            throw AmbientFrequencyLivePlayerError.couldNotCreateRenderFormat
-        }
+        // Prefer the hardware sample rate, then the mixer rate, then known
+        // macOS-safe rates. Some output devices briefly report formats that
+        // cannot seed a source-node format while the route is settling.
+        let renderFormat = try Self.makeStereoRenderFormat(
+            preferredSampleRate: outputFormat.sampleRate,
+            fallbackSampleRates: [mixerFormat.sampleRate] + Self.fallbackRenderSampleRates
+        )
+        let sampleRate = renderFormat.sampleRate
 
         let params = self.params
         params.precomputeSmootherCoefficients(sampleRate: Float(sampleRate))
 
-        // The render block runs on a real-time audio thread. NO Swift class
-        // calls, NO allocations, NO locks. Just pointer math + libm.
-        let node = AVAudioSourceNode(format: renderFormat) { _, _, frameCount, audioBufferList in
-            let bufferList = UnsafeMutableAudioBufferListPointer(audioBufferList)
-            for buffer in bufferList {
-                if let data = buffer.mData {
-                    memset(data, 0, Int(buffer.mDataByteSize))
-                }
-            }
-
-            // Stereo render: write left into buffers[0], right into buffers[1].
-            // SwiftUI standard format is non-interleaved 32-bit float, so each
-            // buffer holds `frameCount` Float32 samples.
-            guard bufferList.count >= 2 else {
-                return noErr
-            }
-
-            let leftPtr = bufferList[0].mData?.assumingMemoryBound(to: Float.self)
-            let rightPtr = bufferList[1].mData?.assumingMemoryBound(to: Float.self)
-            guard let leftPtr, let rightPtr else { return noErr }
-            let leftFrames = Int(bufferList[0].mDataByteSize) / MemoryLayout<Float>.stride
-            let rightFrames = Int(bufferList[1].mDataByteSize) / MemoryLayout<Float>.stride
-            let safeFrameCount = min(Int(frameCount), leftFrames, rightFrames)
-            guard safeFrameCount > 0 else { return noErr }
-
-            params.renderBlock(
-                leftPtr: leftPtr,
-                rightPtr: rightPtr,
-                frameCount: safeFrameCount,
-                sampleRate: Float(sampleRate)
-            )
-
-            return noErr
-        }
+        let node = AmbientFrequencyRenderCallback.makeSourceNode(
+            renderFormat: renderFormat,
+            sampleRate: sampleRate,
+            params: params
+        )
 
         engine.attach(node)
         engine.connect(node, to: engine.mainMixerNode, format: renderFormat)
 
-        engine.prepare()
-        try engine.start()
-        sourceNode = node
-        isRunning = true
+        do {
+            engine.prepare()
+            try engine.start()
+            sourceNode = node
+            isRunning = true
+        } catch {
+            engine.disconnectNodeOutput(node)
+            engine.detach(node)
+            sourceNode = nil
+            isRunning = false
+            throw AmbientFrequencyLivePlayerError.engineStartFailed(underlying: error)
+        }
     }
 
     /// Stop the engine. Idempotent.
@@ -222,6 +272,17 @@ final class AmbientFrequencyLivePlayer {
         params.sampleRateHold = Float(min(max(factor, 1), 64))
     }
 
+    /// Update one active preset layer's live mixer controls without
+    /// rebuilding the audio graph.
+    func setLayerControl(index: Int, control: AmbientFrequencyLayerMixControl) {
+        params.setLayerControl(index: index, control: control)
+    }
+
+    /// Bulk-update all active preset layer controls.
+    func setLayerControls(_ controls: [AmbientFrequencyLayerMixControl]) {
+        params.setLayerControls(controls)
+    }
+
     // MARK: - Read-only state observation (UI side)
 
     var currentSmoothedFrequency: Float { params.smoothedFrequencyForUI }
@@ -229,47 +290,102 @@ final class AmbientFrequencyLivePlayer {
     var currentSmoothedGain: Float { params.smoothedGainForUI }
 
     @inline(__always)
-    static func sanitizedFrequency(_ value: Float, fallback: Float) -> Float {
-        guard value.isFinite else { return fallback.isFinite ? fallback : 440 }
-        return min(max(value, minFrequencyHz), maxFrequencyHz)
+    nonisolated static func sanitizedFrequency(_ value: Float, fallback: Float) -> Float {
+        AmbientFrequencyDSP.sanitizedFrequency(value, fallback: fallback)
     }
 
     @inline(__always)
-    static func sanitizedPan(_ value: Float) -> Float {
-        guard value.isFinite else { return 0 }
-        return min(max(value, -1), 1)
+    nonisolated static func sanitizedPan(_ value: Float) -> Float {
+        AmbientFrequencyDSP.sanitizedPan(value)
     }
 
     @inline(__always)
-    static func sanitizedGain(_ value: Float) -> Float {
-        guard value.isFinite else { return 0 }
-        return min(max(value, 0), 1)
+    nonisolated static func sanitizedGain(_ value: Float) -> Float {
+        AmbientFrequencyDSP.sanitizedGain(value)
     }
 
     @inline(__always)
-    static func sanitizedWaveform(_ value: Float) -> Int {
-        guard value.isFinite else { return Waveform.sineWave.rawValue }
-        guard value >= 0, value <= Float(Waveform.whiteNoise.rawValue) else {
-            return Waveform.sineWave.rawValue
+    nonisolated static func sanitizedWaveform(_ value: Float) -> Int {
+        AmbientFrequencyDSP.sanitizedWaveform(value)
+    }
+
+    @inline(__always)
+    nonisolated static func sanitizedBitCrushDepth(_ value: Float) -> Int {
+        AmbientFrequencyDSP.sanitizedBitCrushDepth(value)
+    }
+
+    @inline(__always)
+    nonisolated static func sanitizedSampleRateHold(_ value: Float) -> Int {
+        AmbientFrequencyDSP.sanitizedSampleRateHold(value)
+    }
+
+    nonisolated static func makeStereoRenderFormat(
+        preferredSampleRate: Double,
+        fallbackSampleRates: [Double] = fallbackRenderSampleRates
+    ) throws -> AVAudioFormat {
+        var seenRates: [Double] = []
+        for sampleRate in [preferredSampleRate] + fallbackSampleRates {
+            guard sampleRate.isFinite, sampleRate > 0 else { continue }
+            guard !seenRates.contains(where: { abs($0 - sampleRate) < 0.0001 }) else { continue }
+            seenRates.append(sampleRate)
+
+            if let format = AVAudioFormat(
+                standardFormatWithSampleRate: sampleRate,
+                channels: renderChannelCount
+            ) {
+                return format
+            }
+            if let format = AVAudioFormat(
+                commonFormat: .pcmFormatFloat32,
+                sampleRate: sampleRate,
+                channels: renderChannelCount,
+                interleaved: false
+            ) {
+                return format
+            }
         }
-        let raw = Int(value.rounded())
-        return Waveform(rawValue: raw) == nil ? Waveform.sineWave.rawValue : raw
+        throw AmbientFrequencyLivePlayerError.couldNotCreateRenderFormat
     }
 
-    @inline(__always)
-    static func sanitizedBitCrushDepth(_ value: Float) -> Int {
-        guard value.isFinite else { return 16 }
-        if value <= 1 { return 1 }
-        if value >= 16 { return 16 }
-        return Int(value.rounded())
-    }
+}
 
-    @inline(__always)
-    static func sanitizedSampleRateHold(_ value: Float) -> Int {
-        guard value.isFinite else { return 1 }
-        if value <= 1 { return 1 }
-        if value >= 64 { return 64 }
-        return Int(value.rounded())
+nonisolated private enum AmbientFrequencyRenderCallback {
+    static func makeSourceNode(
+        renderFormat: AVAudioFormat,
+        sampleRate: Double,
+        params: LivePlayerParameters
+    ) -> AVAudioSourceNode {
+        // The render block runs on a real-time audio thread. Build it from a
+        // nonisolated helper so Swift never stamps the callback as MainActor.
+        AVAudioSourceNode(format: renderFormat) { _, _, frameCount, audioBufferList in
+            let bufferList = UnsafeMutableAudioBufferListPointer(audioBufferList)
+            for buffer in bufferList {
+                if let data = buffer.mData {
+                    memset(data, 0, Int(buffer.mDataByteSize))
+                }
+            }
+
+            guard bufferList.count >= 2 else {
+                return noErr
+            }
+
+            let leftPtr = bufferList[0].mData?.assumingMemoryBound(to: Float.self)
+            let rightPtr = bufferList[1].mData?.assumingMemoryBound(to: Float.self)
+            guard let leftPtr, let rightPtr else { return noErr }
+            let leftFrames = Int(bufferList[0].mDataByteSize) / MemoryLayout<Float>.stride
+            let rightFrames = Int(bufferList[1].mDataByteSize) / MemoryLayout<Float>.stride
+            let safeFrameCount = min(Int(frameCount), leftFrames, rightFrames)
+            guard safeFrameCount > 0 else { return noErr }
+
+            params.renderBlock(
+                leftPtr: leftPtr,
+                rightPtr: rightPtr,
+                frameCount: safeFrameCount,
+                sampleRate: Float(sampleRate)
+            )
+
+            return noErr
+        }
     }
 }
 
@@ -280,13 +396,31 @@ final class AmbientFrequencyLivePlayer {
 /// Marked `@unchecked Sendable` because we manage thread safety manually
 /// per field — Swift's strict concurrency can't see through the atomic
 /// guarantees provided by Apple Silicon's ARM64v8 spec.
-private final class LivePlayerParameters: @unchecked Sendable {
+private nonisolated final class LivePlayerParameters: @unchecked Sendable {
+    private static let maxMixLayerCount = 64
+
+    private var mixLayers: [AmbientFrequencyLayer] = []
+    private var mixFrame: Int = 0
+    private let layerVolumes: UnsafeMutableBufferPointer<Float>
+    private let layerPans: UnsafeMutableBufferPointer<Float>
+    private let layerDistortions: UnsafeMutableBufferPointer<Float>
+    private let layerDelaySends: UnsafeMutableBufferPointer<Float>
+    private let layerDelayTimes: UnsafeMutableBufferPointer<Float>
+    private let layerDelayFeedbacks: UnsafeMutableBufferPointer<Float>
+    private let layerSpaceSends: UnsafeMutableBufferPointer<Float>
+    private let layerTones: UnsafeMutableBufferPointer<Float>
+    private let layerTonePreviousLeft: UnsafeMutableBufferPointer<Float>
+    private let layerTonePreviousRight: UnsafeMutableBufferPointer<Float>
+    private var delayBufferLeft: [Float] = []
+    private var delayBufferRight: [Float] = []
+    private var delayBufferFrames = 1
+    private var delayWriteFrame = 0
 
     // Target values written by UI; read by audio thread.
     var targetFrequency: Float = 440
     var targetPan: Float = 0
     var targetGain: Float = 0.3
-    var waveform: Float = Float(AmbientFrequencyLivePlayer.Waveform.sineWave.rawValue)
+    var waveform: Float = Float(AmbientFrequencyDSP.defaultWaveformRawValue)
     var muted: Float = 0
     /// Bit-depth crush, [1, 16]; 16 = no effect, lower = "pixel crunch."
     var bitCrushDepth: Float = 16
@@ -318,6 +452,82 @@ private final class LivePlayerParameters: @unchecked Sendable {
     private var holdCounter: Int = 0
     private var heldSample: Float = 0
 
+    init() {
+        layerVolumes = UnsafeMutableBufferPointer<Float>.allocate(capacity: Self.maxMixLayerCount)
+        layerPans = UnsafeMutableBufferPointer<Float>.allocate(capacity: Self.maxMixLayerCount)
+        layerDistortions = UnsafeMutableBufferPointer<Float>.allocate(capacity: Self.maxMixLayerCount)
+        layerDelaySends = UnsafeMutableBufferPointer<Float>.allocate(capacity: Self.maxMixLayerCount)
+        layerDelayTimes = UnsafeMutableBufferPointer<Float>.allocate(capacity: Self.maxMixLayerCount)
+        layerDelayFeedbacks = UnsafeMutableBufferPointer<Float>.allocate(capacity: Self.maxMixLayerCount)
+        layerSpaceSends = UnsafeMutableBufferPointer<Float>.allocate(capacity: Self.maxMixLayerCount)
+        layerTones = UnsafeMutableBufferPointer<Float>.allocate(capacity: Self.maxMixLayerCount)
+        layerTonePreviousLeft = UnsafeMutableBufferPointer<Float>.allocate(capacity: Self.maxMixLayerCount)
+        layerTonePreviousRight = UnsafeMutableBufferPointer<Float>.allocate(capacity: Self.maxMixLayerCount)
+        for index in 0..<Self.maxMixLayerCount {
+            layerVolumes[index] = Float(AmbientFrequencyLayerMixControl.neutral.volume)
+            layerPans[index] = Float(AmbientFrequencyLayerMixControl.neutral.pan)
+            layerDistortions[index] = Float(AmbientFrequencyLayerMixControl.neutral.distortion)
+            layerDelaySends[index] = Float(AmbientFrequencyLayerMixControl.neutral.delaySend)
+            layerDelayTimes[index] = Float(AmbientFrequencyLayerMixControl.neutral.delayTimeSeconds)
+            layerDelayFeedbacks[index] = Float(AmbientFrequencyLayerMixControl.neutral.delayFeedback)
+            layerSpaceSends[index] = Float(AmbientFrequencyLayerMixControl.neutral.spaceSend)
+            layerTones[index] = Float(AmbientFrequencyLayerMixControl.neutral.tone)
+            layerTonePreviousLeft[index] = 0
+            layerTonePreviousRight[index] = 0
+        }
+    }
+
+    deinit {
+        layerVolumes.deallocate()
+        layerPans.deallocate()
+        layerDistortions.deallocate()
+        layerDelaySends.deallocate()
+        layerDelayTimes.deallocate()
+        layerDelayFeedbacks.deallocate()
+        layerSpaceSends.deallocate()
+        layerTones.deallocate()
+        layerTonePreviousLeft.deallocate()
+        layerTonePreviousRight.deallocate()
+    }
+
+    func configureMix(
+        layers: [AmbientFrequencyLayer],
+        controls: [AmbientFrequencyLayerMixControl]
+    ) {
+        mixLayers = Array(layers.prefix(Self.maxMixLayerCount))
+        mixFrame = 0
+        delayWriteFrame = 0
+        resetEffectState()
+        setLayerControls(controls)
+    }
+
+    func setLayerControls(_ controls: [AmbientFrequencyLayerMixControl]) {
+        for index in 0..<Self.maxMixLayerCount {
+            let control = index < controls.count ? controls[index].sanitized : .neutral
+            layerVolumes[index] = Float(control.volume)
+            layerPans[index] = Float(control.pan)
+            layerDistortions[index] = Float(control.distortion)
+            layerDelaySends[index] = Float(control.delaySend)
+            layerDelayTimes[index] = Float(control.delayTimeSeconds)
+            layerDelayFeedbacks[index] = Float(control.delayFeedback)
+            layerSpaceSends[index] = Float(control.spaceSend)
+            layerTones[index] = Float(control.tone)
+        }
+    }
+
+    func setLayerControl(index: Int, control: AmbientFrequencyLayerMixControl) {
+        guard index >= 0, index < Self.maxMixLayerCount else { return }
+        let control = control.sanitized
+        layerVolumes[index] = Float(control.volume)
+        layerPans[index] = Float(control.pan)
+        layerDistortions[index] = Float(control.distortion)
+        layerDelaySends[index] = Float(control.delaySend)
+        layerDelayTimes[index] = Float(control.delayTimeSeconds)
+        layerDelayFeedbacks[index] = Float(control.delayFeedback)
+        layerSpaceSends[index] = Float(control.spaceSend)
+        layerTones[index] = Float(control.tone)
+    }
+
     /// Precompute smoother coefficients for the given sample rate. Called
     /// once at engine start (and on sample-rate changes if the OS swaps
     /// audio routes).
@@ -332,6 +542,42 @@ private final class LivePlayerParameters: @unchecked Sendable {
         let frequencyTimeConstant: Float = 0.080 // 80 ms — musical pitch glide
         gainPanAlpha = exp(-1.0 / (gainPanTimeConstant * sampleRate))
         frequencyAlpha = exp(-1.0 / (frequencyTimeConstant * sampleRate))
+        configureEffectBuffers(sampleRate: sampleRate)
+    }
+
+    private func configureEffectBuffers(sampleRate: Float) {
+        let frames = max(1, Int((Double(sampleRate) * 1.6).rounded()))
+        let count = frames * Self.maxMixLayerCount
+        guard count > 0 else { return }
+        if delayBufferFrames != frames || delayBufferLeft.count != count || delayBufferRight.count != count {
+            delayBufferFrames = frames
+            delayBufferLeft = Array(repeating: 0, count: count)
+            delayBufferRight = Array(repeating: 0, count: count)
+            delayWriteFrame = 0
+        } else {
+            resetEffectState()
+        }
+    }
+
+    private func resetEffectState() {
+        if !delayBufferLeft.isEmpty {
+            delayBufferLeft.withUnsafeMutableBufferPointer { buffer in
+                for index in buffer.indices {
+                    buffer[index] = 0
+                }
+            }
+        }
+        if !delayBufferRight.isEmpty {
+            delayBufferRight.withUnsafeMutableBufferPointer { buffer in
+                for index in buffer.indices {
+                    buffer[index] = 0
+                }
+            }
+        }
+        for index in 0..<Self.maxMixLayerCount {
+            layerTonePreviousLeft[index] = 0
+            layerTonePreviousRight[index] = 0
+        }
     }
 
     /// Real-time render block. NO allocations, NO locks, NO Swift class
@@ -345,87 +591,55 @@ private final class LivePlayerParameters: @unchecked Sendable {
         let halfPi: Float = .pi / 2
         let twoPi: Double = 2.0 * .pi
         let sampleRate = sampleRate.isFinite && sampleRate > 0 ? sampleRate : 48_000
+        let sampleRateInt = max(1, Int(sampleRate.rounded()))
         let mutedFlag = muted >= 0.5
 
         for i in 0..<frameCount {
-            let frequencyTarget = AmbientFrequencyLivePlayer.sanitizedFrequency(
+            let frequencyTarget = AmbientFrequencyDSP.sanitizedFrequency(
                 targetFrequency,
                 fallback: smoothedFrequency
             )
-            let panTarget = AmbientFrequencyLivePlayer.sanitizedPan(targetPan)
-            let gainTarget = mutedFlag ? 0 : AmbientFrequencyLivePlayer.sanitizedGain(targetGain)
-            let waveformTarget = AmbientFrequencyLivePlayer.sanitizedWaveform(waveform)
-            let hold = AmbientFrequencyLivePlayer.sanitizedSampleRateHold(sampleRateHold)
-            let bits = AmbientFrequencyLivePlayer.sanitizedBitCrushDepth(bitCrushDepth)
+            let panTarget = AmbientFrequencyDSP.sanitizedPan(targetPan)
+            let gainTarget = mutedFlag ? 0 : AmbientFrequencyDSP.sanitizedGain(targetGain)
+            let waveformTarget = AmbientFrequencyDSP.sanitizedWaveform(waveform)
+            let hold = AmbientFrequencyDSP.sanitizedSampleRateHold(sampleRateHold)
+            let bits = AmbientFrequencyDSP.sanitizedBitCrushDepth(bitCrushDepth)
 
             // 1) Smooth params (one-pole IIR per sample).
             smoothedFrequency = frequencyAlpha * smoothedFrequency + (1 - frequencyAlpha) * frequencyTarget
             smoothedPan = gainPanAlpha * smoothedPan + (1 - gainPanAlpha) * panTarget
             smoothedGain = gainPanAlpha * smoothedGain + (1 - gainPanAlpha) * gainTarget
 
-            // 2) Advance phase accumulator. Phase is double-precision to
-            //    avoid drift over long renders.
-            phase += Double(smoothedFrequency) / Double(sampleRate)
-            phase -= floor(phase)
+            var leftSample: Float
+            var rightSample: Float
 
-            // 3) Compute waveform sample at current phase.
-            let sample: Float
-            switch waveformTarget {
-            case 0: // sineWave
-                sample = Float(sin(phase * twoPi))
-            case 1: // triangleWave
-                // 2/π · asin(sin(2πφ)) — closed-form aliasing-free triangle.
-                sample = Float((2.0 / .pi) * asin(sin(phase * twoPi)))
-            case 2: // sawtoothWave
-                sample = Float(2.0 * phase - 1.0)
-            case 3: // squareWave (50% PWM)
-                sample = phase < 0.5 ? 1 : -1
-            case 4: // whiteNoise
-                // xorshift64* — fast, deterministic, lock-free.
-                var s = noiseState
-                s ^= s << 13
-                s ^= s >> 7
-                s ^= s << 17
-                noiseState = s
-                // Map to [-1, 1] using high 24 bits as a 24-bit signed float.
-                let mantissa = s >> 40
-                sample = (Float(mantissa) / Float(UInt32(1) << 23)) - 1.0
-            default:
-                sample = 0
-            }
-
-            // 4) PIXEL CRUNCH — sample-rate reduce (zero-order hold) BEFORE
-            //    bit-crush, per Sonalksis/TAL canonical Decimator topology.
-            //    Aliasing is the desired effect.
-            var crunched: Float
-            if hold > 1 {
-                if holdCounter == 0 {
-                    heldSample = sample
-                }
-                crunched = heldSample
-                holdCounter = (holdCounter + 1) % hold
+            if mixLayers.isEmpty {
+                let sample = oscillatorSample(
+                    waveform: waveformTarget,
+                    hold: hold,
+                    bits: bits,
+                    twoPi: twoPi,
+                    sampleRate: sampleRate
+                )
+                leftSample = sample
+                rightSample = sample
             } else {
-                crunched = sample
-                holdCounter = 0
+                let sample = mixSample(frame: mixFrame, sampleRate: sampleRateInt)
+                mixFrame &+= 1
+                leftSample = sample.left
+                rightSample = sample.right
             }
 
-            // 5) PIXEL CRUNCH — bit-depth crush (musicdsp.org #124 midrise).
-            //    bitDepth = 16 → no effect; 8 = Amiga/NES; 4 = Atari; 1 = PC speaker.
-            if bits < 16 {
-                let levels = Float(1 << (bits - 1))
-                crunched = (crunched * levels).rounded() / levels
-            }
+            leftSample *= smoothedGain
+            rightSample *= smoothedGain
 
-            // 6) Apply gain.
-            let amped = crunched * smoothedGain
-
-            // 7) Apply equal-power pan (W3C spec).
+            // Apply equal-power master pan (W3C spec).
             let panX = (smoothedPan + 1) * 0.5
             let leftGain = cos(panX * halfPi)
             let rightGain = sin(panX * halfPi)
 
-            leftPtr[i] = amped * leftGain
-            rightPtr[i] = amped * rightGain
+            leftPtr[i] = leftSample * leftGain
+            rightPtr[i] = rightSample * rightGain
         }
 
         // Mirror final smoothed values to UI-readable fields (atomic Float
@@ -434,11 +648,264 @@ private final class LivePlayerParameters: @unchecked Sendable {
         smoothedPanForUI = smoothedPan
         smoothedGainForUI = smoothedGain
     }
+
+    @inline(__always)
+    private func oscillatorSample(
+        waveform: Int,
+        hold: Int,
+        bits: Int,
+        twoPi: Double,
+        sampleRate: Float
+    ) -> Float {
+        // Advance phase accumulator. Phase is double-precision to avoid drift
+        // over long renders.
+        phase += Double(smoothedFrequency) / Double(sampleRate)
+        phase -= floor(phase)
+
+        let sample: Float
+        switch waveform {
+        case 0:
+            sample = Float(sin(phase * twoPi))
+        case 1:
+            sample = Float((2.0 / .pi) * asin(sin(phase * twoPi)))
+        case 2:
+            sample = Float(2.0 * phase - 1.0)
+        case 3:
+            sample = phase < 0.5 ? 1 : -1
+        case 4:
+            var s = noiseState
+            s ^= s << 13
+            s ^= s >> 7
+            s ^= s << 17
+            noiseState = s
+            let mantissa = s >> 40
+            sample = (Float(mantissa) / Float(UInt32(1) << 23)) - 1.0
+        default:
+            sample = 0
+        }
+
+        var crunched: Float
+        if hold > 1 {
+            if holdCounter == 0 {
+                heldSample = sample
+            }
+            crunched = heldSample
+            holdCounter = (holdCounter + 1) % hold
+        } else {
+            crunched = sample
+            holdCounter = 0
+        }
+
+        if bits < 16 {
+            let levels = Float(1 << (bits - 1))
+            crunched = (crunched * levels).rounded() / levels
+        }
+
+        return crunched
+    }
+
+    @inline(__always)
+    private func mixSample(frame: Int, sampleRate: Int) -> (left: Float, right: Float) {
+        let time = Double(frame) / Double(sampleRate)
+        var left: Float = 0
+        var right: Float = 0
+
+        for index in 0..<mixLayers.count {
+            let volume = AmbientFrequencyDSP.sanitizedLayerVolume(layerVolumes[index])
+            let pan = AmbientFrequencyDSP.sanitizedPan(layerPans[index])
+            let distortion = AmbientFrequencyDSP.sanitizedDistortion(layerDistortions[index])
+            let delaySend = AmbientFrequencyDSP.sanitizedDistortion(layerDelaySends[index])
+            let delayTimeSeconds = min(max(layerDelayTimes[index].isFinite ? layerDelayTimes[index] : 0.32, 0.05), 1.5)
+            let delayFeedback = min(max(layerDelayFeedbacks[index].isFinite ? layerDelayFeedbacks[index] : 0.28, 0), 0.85)
+            let spaceSend = AmbientFrequencyDSP.sanitizedDistortion(layerSpaceSends[index])
+            let tone = min(max(layerTones[index].isFinite ? layerTones[index] : 0, -1), 1)
+            let mixed = renderLayerSample(
+                index: index,
+                layer: mixLayers[index],
+                volume: volume,
+                pan: pan,
+                distortion: distortion,
+                delaySend: delaySend,
+                delayTimeSeconds: delayTimeSeconds,
+                delayFeedback: delayFeedback,
+                spaceSend: spaceSend,
+                tone: tone,
+                time: time,
+                frame: frame,
+                sampleRate: sampleRate
+            )
+            left += Float(mixed.left)
+            right += Float(mixed.right)
+        }
+
+        if !mixLayers.isEmpty, delayBufferFrames > 1 {
+            delayWriteFrame += 1
+            if delayWriteFrame >= delayBufferFrames {
+                delayWriteFrame = 0
+            }
+        }
+
+        return (left, right)
+    }
+
+    private func renderLayerSample(
+        index: Int,
+        layer: AmbientFrequencyLayer,
+        volume: Float,
+        pan: Float,
+        distortion: Float,
+        delaySend: Float,
+        delayTimeSeconds: Float,
+        delayFeedback: Float,
+        spaceSend: Float,
+        tone: Float,
+        time: Double,
+        frame: Int,
+        sampleRate: Int
+    ) -> (left: Double, right: Double) {
+        let raw = AmbientFrequencyAudioGenerator.layerSample(
+            layer,
+            time: time,
+            frame: frame,
+            sampleRate: sampleRate
+        )
+        let toned = applyLiveTone(index: index, raw: raw, amount: Double(tone))
+        let dry = applyLiveLayerMix(
+            toned,
+            volume: volume,
+            pan: pan,
+            distortion: distortion
+        )
+        var left = dry.left
+        var right = dry.right
+
+        if delayBufferFrames > 1, !delayBufferLeft.isEmpty, !delayBufferRight.isEmpty {
+            let base = index * delayBufferFrames
+            var feedbackLeft: Float = 0
+            var feedbackRight: Float = 0
+
+            if delaySend > 0 {
+                let delayFrames = max(1, Int((Double(delayTimeSeconds) * Double(sampleRate)).rounded()))
+                let delayed = readDelaySample(base: base, delayFrames: delayFrames)
+                left += Double(delayed.left * delaySend)
+                right += Double(delayed.right * delaySend)
+                feedbackLeft = delayed.left * delayFeedback
+                feedbackRight = delayed.right * delayFeedback
+            }
+
+            if spaceSend > 0 {
+                addSpaceTap(base: base, sampleRate: sampleRate, seconds: 0.029, gain: 0.42, send: spaceSend, left: &left, right: &right)
+                addSpaceTap(base: base, sampleRate: sampleRate, seconds: 0.043, gain: 0.31, send: spaceSend, left: &left, right: &right)
+                addSpaceTap(base: base, sampleRate: sampleRate, seconds: 0.071, gain: 0.23, send: spaceSend, left: &left, right: &right)
+                addSpaceTap(base: base, sampleRate: sampleRate, seconds: 0.113, gain: 0.16, send: spaceSend, left: &left, right: &right)
+            }
+
+            let writeIndex = base + delayWriteFrame
+            delayBufferLeft[writeIndex] = clampLiveSample(Float(dry.left) + feedbackLeft)
+            delayBufferRight[writeIndex] = clampLiveSample(Float(dry.right) + feedbackRight)
+        }
+
+        return (left, right)
+    }
+
+    @inline(__always)
+    private func applyLiveLayerMix(
+        _ leftRight: (left: Double, right: Double),
+        volume: Float,
+        pan: Float,
+        distortion: Float
+    ) -> (left: Double, right: Double) {
+        let left = liveDistort(leftRight.left * Double(volume), amount: distortion)
+        let right = liveDistort(leftRight.right * Double(volume), amount: distortion)
+        return AmbientFrequencyAudioGenerator.applyEqualPowerPan(
+            (left: left, right: right),
+            pan: Double(pan)
+        )
+    }
+
+    @inline(__always)
+    private func liveDistort(_ sample: Double, amount: Float) -> Double {
+        guard amount > 0 else { return sample }
+        let wet = liveSoftClip(sample * Double(1 + amount * 18))
+        return sample * Double(1 - amount) + wet * Double(amount)
+    }
+
+    @inline(__always)
+    private func liveSoftClip(_ sample: Double) -> Double {
+        if sample >= 1 { return 1 }
+        if sample <= -1 { return -1 }
+        return 1.5 * sample - 0.5 * sample * sample * sample
+    }
+
+    @inline(__always)
+    private func addSpaceTap(
+        base: Int,
+        sampleRate: Int,
+        seconds: Double,
+        gain: Float,
+        send: Float,
+        left: inout Double,
+        right: inout Double
+    ) {
+        let tapFrames = max(1, Int((seconds * Double(sampleRate)).rounded()))
+        let sample = readDelaySample(base: base, delayFrames: tapFrames)
+        let tapGain = send * gain
+        left += Double(sample.left * tapGain)
+        right += Double(sample.right * tapGain)
+    }
+
+    private func readDelaySample(base: Int, delayFrames: Int) -> (left: Float, right: Float) {
+        let offset = min(max(delayFrames, 1), delayBufferFrames - 1)
+        let readFrame = (delayWriteFrame - offset + delayBufferFrames) % delayBufferFrames
+        let index = base + readFrame
+        guard index >= 0, index < delayBufferLeft.count, index < delayBufferRight.count else {
+            return (0, 0)
+        }
+        return (delayBufferLeft[index], delayBufferRight[index])
+    }
+
+    private func applyLiveTone(
+        index: Int,
+        raw: (left: Double, right: Double),
+        amount: Double
+    ) -> (left: Double, right: Double) {
+        let amount = min(max(amount.isFinite ? amount : 0, -1), 1)
+        guard abs(amount) > 0.001 else {
+            layerTonePreviousLeft[index] = Float(raw.left)
+            layerTonePreviousRight[index] = Float(raw.right)
+            return raw
+        }
+
+        let previousLeft = Double(layerTonePreviousLeft[index])
+        let previousRight = Double(layerTonePreviousRight[index])
+        layerTonePreviousLeft[index] = Float(raw.left)
+        layerTonePreviousRight[index] = Float(raw.right)
+        return (
+            liveToneSample(raw.left, previous: previousLeft, amount: amount),
+            liveToneSample(raw.right, previous: previousRight, amount: amount)
+        )
+    }
+
+    private func liveToneSample(_ sample: Double, previous: Double, amount: Double) -> Double {
+        if amount < 0 {
+            let warm = (sample + previous) * 0.5
+            return sample * (1 + amount) + warm * -amount
+        }
+        let bright = sample + (sample - previous) * 0.65
+        return sample * (1 - amount) + Double(clampLiveSample(Float(bright))) * amount
+    }
+
+    private func clampLiveSample(_ sample: Float) -> Float {
+        if sample > 1 { return 1 }
+        if sample < -1 { return -1 }
+        return sample
+    }
 }
 
 enum AmbientFrequencyLivePlayerError: Error, LocalizedError {
     case invalidOutputFormat
     case couldNotCreateRenderFormat
+    case engineStartFailed(underlying: Error)
 
     var errorDescription: String? {
         switch self {
@@ -446,6 +913,8 @@ enum AmbientFrequencyLivePlayerError: Error, LocalizedError {
             return "Could not start live playback because the current audio output format has no valid sample rate."
         case .couldNotCreateRenderFormat:
             return "Could not create AVAudioFormat for live playback (stereo 32-bit float)."
+        case .engineStartFailed(let underlying):
+            return "Could not start live playback: \(underlying.localizedDescription)"
         }
     }
 }

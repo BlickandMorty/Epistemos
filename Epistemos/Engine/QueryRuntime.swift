@@ -346,16 +346,12 @@ final class RetrievalRuntime {
         var seen = Set<String>()
         var candidates: [RetrievalCandidate] = []
 
-        // Wiring #1 (T10 Eidos → QueryRuntime). When `EPISTEMOS_EIDOS_V0`
-        // is set, route through `EidosBridge.search` first — closed-citation
-        // retrieval against the manifest-bound Eidos index. Fixture-corpus
-        // IDs that don't match a `GraphNodeRecord` are silently dropped by
-        // `appendNoteResult`; when that produces zero candidates we fall
-        // through to the RRF/legacy path so the user still sees results.
-        // Real vault binding lands in W-46.1; this branch becomes
-        // citation-bearing for production hits at that point.
+        // Wiring #1 (T10 Eidos → QueryRuntime). Prefer the production
+        // vault-bound retriever when AppBootstrap has opened it; otherwise
+        // keep the fixture helper as a diagnostic/back-compat path. Empty
+        // or unmapped Eidos packets fall through to RRF/legacy retrieval.
         if EidosFlags.isEnabled,
-           let packet = EidosBridge.search(query: query, topK: UInt32(max(1, limit))) {
+           let packet = Self.eidosPacket(query: query, limit: limit) {
             for hit in packet.hits {
                 appendNoteResult(
                     pageId: hit.documentId.raw,
@@ -451,6 +447,14 @@ final class RetrievalRuntime {
         return graphEventHintedCandidates(
             scoredCandidates(query: query, candidates: candidates)
         ).map(\.node)
+    }
+
+    private nonisolated static func eidosPacket(query: String, limit: Int) -> EidosContextPacket? {
+        let topK = UInt32(max(1, limit))
+        if EidosBridge.vaultStatus()?.isOpen == true {
+            return EidosBridge.retrieve(query: query, topK: topK)
+        }
+        return EidosBridge.search(query: query, topK: topK)
     }
 
     func semantic(query: String, limit: Int) -> [QueryResultNode] {

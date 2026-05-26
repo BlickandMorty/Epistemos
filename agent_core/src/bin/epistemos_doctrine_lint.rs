@@ -43,6 +43,8 @@
 //! - **7.1** — No-Orphan declarations. New Rust / Swift struct,
 //!   enum, and class declarations in the diff must carry UAS, Plane,
 //!   and Residency comments or an explicit UAS-EXEMPT waiver.
+//! - **T25** — ACS naming reconciliation. Modified docs must expand
+//!   ACS on first mention.
 //!
 //! Gate 4.x anti-patterns from doctrine §4 (no edges without
 //! signatures, no nodes without content addresses, no ad-hoc edge
@@ -66,6 +68,7 @@
 //!   2  — io error (could not walk the tree)
 //!   3  — doctrine violation (one or more gates failed)
 
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
@@ -93,6 +96,7 @@ GATES:
        (doc-comment / prose mentions reported as INFO, not failure)
   6.1  AnswerPacket static_fallback cannot fire without acknowledgement
   7.1  new Rust / Swift declarations carry UAS / Plane / Residency comments
+  T25  modified docs expand ACS on first mention
 ";
 
 fn main() -> ExitCode {
@@ -153,6 +157,7 @@ struct LintReport {
     gate_5_4: GateOutcome,
     gate_6_1: GateOutcome,
     gate_7_1: GateOutcome,
+    gate_t25: GateOutcome,
 }
 
 #[derive(Debug, Default)]
@@ -172,6 +177,7 @@ impl LintReport {
             self.gate_5_4.violation,
             self.gate_6_1.violation,
             self.gate_7_1.violation,
+            self.gate_t25.violation,
         ]
         .iter()
         .filter(|v| **v)
@@ -187,6 +193,7 @@ fn run_all_gates(root: &Path) -> Result<LintReport, String> {
         gate_5_4: check_gate_5_4(root)?,
         gate_6_1: check_gate_6_1(root)?,
         gate_7_1: check_gate_7_1(root)?,
+        gate_t25: check_gate_t25(root)?,
     })
 }
 
@@ -767,6 +774,197 @@ fn is_declaration_modifier(word: &str) -> bool {
     )
 }
 
+// ── T25 — ACS naming reconciliation in modified docs ──────────────────────
+
+fn check_gate_t25(root: &Path) -> Result<GateOutcome, String> {
+    let (paths, source) = acs_doc_lint_modified_paths(root)?;
+    if paths.is_empty() {
+        return Ok(GateOutcome {
+            name: "T25 ACS naming reconciliation",
+            detail: format!("ok (no modified docs in {source})"),
+            violation: false,
+            info_lines: vec![],
+        });
+    }
+
+    let violations = find_acs_naming_violations(root, &paths);
+    let violation = !violations.is_empty();
+    let detail = if violation {
+        format!(
+            "VIOLATION: {} modified doc(s) mention `ACS` without parenthetical \
+             expansion on first mention:\n  {}",
+            violations.len(),
+            violations.join("\n  ")
+        )
+    } else {
+        format!(
+            "ok ({} modified doc(s) expand ACS on first mention in {source})",
+            paths.len()
+        )
+    };
+
+    Ok(GateOutcome {
+        name: "T25 ACS naming reconciliation",
+        detail,
+        violation,
+        info_lines: vec![],
+    })
+}
+
+fn acs_doc_lint_modified_paths(root: &Path) -> Result<(Vec<String>, String), String> {
+    if let Ok(diff) = std::env::var("EPISTEMOS_ACS_DOC_LINT_DIFF") {
+        let paths = parse_modified_doc_paths_from_diff(&diff);
+        return Ok((paths, "EPISTEMOS_ACS_DOC_LINT_DIFF".to_string()));
+    }
+
+    let mut paths = BTreeSet::new();
+    if let Ok(base) = git_diff_name_only_for_docs(root, &["main...HEAD"]) {
+        paths.extend(base);
+    }
+    if let Ok(cached) = git_diff_name_only_for_docs(root, &["--cached"]) {
+        paths.extend(cached);
+    }
+    if let Ok(worktree) = git_diff_name_only_for_docs(root, &[]) {
+        paths.extend(worktree);
+    }
+    if let Ok(untracked) = untracked_doc_paths(root) {
+        paths.extend(untracked);
+    }
+
+    Ok((
+        paths.into_iter().collect(),
+        "git diff main...HEAD + staged + working tree + untracked".to_string(),
+    ))
+}
+
+fn git_diff_name_only_for_docs(root: &Path, extra: &[&str]) -> Result<Vec<String>, String> {
+    let mut command = Command::new("git");
+    command
+        .arg("-C")
+        .arg(root)
+        .arg("diff")
+        .arg("--name-only")
+        .arg("--diff-filter=ACMR");
+    for arg in extra {
+        command.arg(arg);
+    }
+    let output = command
+        .arg("--")
+        .arg("docs")
+        .output()
+        .map_err(|e| format!("git diff for ACS doc lint failed to start: {e}"))?;
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).to_string());
+    }
+    Ok(String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter_map(markdown_doc_path)
+        .collect())
+}
+
+fn untracked_doc_paths(root: &Path) -> Result<Vec<String>, String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .arg("ls-files")
+        .arg("--others")
+        .arg("--exclude-standard")
+        .arg("--")
+        .arg("docs")
+        .output()
+        .map_err(|e| format!("git ls-files for ACS doc lint failed to start: {e}"))?;
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).to_string());
+    }
+    Ok(String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter_map(markdown_doc_path)
+        .collect())
+}
+
+fn parse_modified_doc_paths_from_diff(diff: &str) -> Vec<String> {
+    let mut paths = BTreeSet::new();
+    for line in diff.lines() {
+        if let Some(path) = line.strip_prefix("+++ b/") {
+            if let Some(path) = markdown_doc_path(path) {
+                paths.insert(path);
+            }
+        }
+    }
+    paths.into_iter().collect()
+}
+
+fn markdown_doc_path(raw: &str) -> Option<String> {
+    let path = raw.trim();
+    if path.starts_with("docs/") && path.ends_with(".md") {
+        Some(path.to_string())
+    } else {
+        None
+    }
+}
+
+fn find_acs_naming_violations(root: &Path, paths: &[String]) -> Vec<String> {
+    let mut violations = Vec::new();
+    for rel in paths {
+        let path = root.join(rel);
+        let src = match fs::read_to_string(&path) {
+            Ok(src) => src,
+            Err(e) => {
+                violations.push(format!("{rel}: unreadable modified doc: {e}"));
+                continue;
+            }
+        };
+        if let Some((line_num, line, byte_idx)) = first_acs_mention(&src) {
+            if !acs_first_mention_has_parenthetical_expansion(line, byte_idx) {
+                violations.push(format!(
+                    "{rel}:{line_num}: first `ACS` mention must read like `ACS (Anchored Cognitive Substrate)` or `ACS (Autopoietic Cognitive Stack)`"
+                ));
+            }
+        }
+    }
+    violations
+}
+
+fn first_acs_mention(src: &str) -> Option<(usize, &str, usize)> {
+    for (line_idx, line) in src.lines().enumerate() {
+        let bytes = line.as_bytes();
+        if bytes.len() < 3 {
+            continue;
+        }
+        for idx in 0..=(bytes.len() - 3) {
+            if &bytes[idx..idx + 3] != b"ACS" {
+                continue;
+            }
+            let before = idx.checked_sub(1).and_then(|i| bytes.get(i).copied());
+            let after = bytes.get(idx + 3).copied();
+            if !is_identifier_byte(before) && !is_identifier_byte(after) {
+                return Some((line_idx + 1, line, idx));
+            }
+        }
+    }
+    None
+}
+
+fn is_identifier_byte(byte: Option<u8>) -> bool {
+    matches!(byte, Some(b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'_'))
+}
+
+fn acs_first_mention_has_parenthetical_expansion(line: &str, byte_idx: usize) -> bool {
+    let after = &line[byte_idx + 3..];
+    let trimmed = after.trim_start();
+    if !trimmed.starts_with('(') {
+        return false;
+    }
+    let Some(close_idx) = trimmed.find(')') else {
+        return false;
+    };
+    let expansion = &trimmed[..=close_idx];
+    expansion.contains("Cognitive")
+        && (expansion.contains("Anchored")
+            || expansion.contains("Autopoietic")
+            || expansion.contains("Anchored / Autopoietic"))
+}
+
 // ── Filesystem walkers ─────────────────────────────────────────────────────
 
 fn walk_rs_files(dir: &Path, cb: &mut dyn FnMut(&Path, usize, &str)) -> Result<(), String> {
@@ -892,6 +1090,7 @@ fn print_report(report: &LintReport) {
         &report.gate_5_4,
         &report.gate_6_1,
         &report.gate_7_1,
+        &report.gate_t25,
     ] {
         let prefix = if gate.violation { "FAIL" } else { "PASS" };
         println!("[{prefix}] {} — {}", gate.name, gate.detail);
@@ -1025,5 +1224,38 @@ impl DagStore for InMemoryDagStore {
             "+public struct TaggedView {}\n",
         );
         assert!(find_uas_declaration_violations(diff).is_empty());
+    }
+
+    #[test]
+    fn acs_doc_lint_fails_bare_first_mention() {
+        let src =
+            "ACS gates durable actions.\nLater ACS (Anchored Cognitive Substrate) is expanded.";
+        let (line, text, idx) = first_acs_mention(src).expect("probe must mention ACS");
+        assert_eq!(line, 1);
+        assert!(text.contains("ACS gates"));
+        assert!(!acs_first_mention_has_parenthetical_expansion(text, idx));
+    }
+
+    #[test]
+    fn acs_doc_lint_accepts_parenthetical_first_mention() {
+        let src = "ACS (Anchored Cognitive Substrate / Autopoietic Cognitive Stack) gates durable actions.";
+        let (_, text, idx) = first_acs_mention(src).expect("probe must mention ACS");
+        assert!(acs_first_mention_has_parenthetical_expansion(text, idx));
+    }
+
+    #[test]
+    fn acs_doc_lint_parses_modified_doc_paths_from_diff() {
+        let diff = concat!(
+            "diff --git a/docs/probe.md b/docs/probe.md\n",
+            "+++ b/docs/probe.md\n",
+            "@@ -0,0 +1,1 @@\n",
+            "+ACS gate\n",
+            "diff --git a/Epistemos/Foo.swift b/Epistemos/Foo.swift\n",
+            "+++ b/Epistemos/Foo.swift\n",
+            "@@ -0,0 +1,1 @@\n",
+            "+let x = 1\n",
+        );
+        let paths = parse_modified_doc_paths_from_diff(diff);
+        assert_eq!(paths, vec!["docs/probe.md".to_string()]);
     }
 }

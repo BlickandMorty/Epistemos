@@ -1,0 +1,331 @@
+import AppKit
+import SwiftUI
+
+struct HTMLWorkspaceCodeEditor: NSViewRepresentable {
+    @Binding var text: String
+    var isEditable: Bool = true
+    var colorScheme: ColorScheme = .light
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(text: $text)
+    }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSScrollView()
+        let textView = NSTextView(frame: .zero)
+
+        textView.string = text
+        textView.delegate = context.coordinator
+        context.coordinator.textView = textView
+        configure(textView: textView, scrollView: scrollView)
+        context.coordinator.attach(textView: textView, scrollView: scrollView)
+
+        scrollView.documentView = textView
+        return scrollView
+    }
+
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        guard let textView = scrollView.documentView as? NSTextView else { return }
+        context.coordinator.text = $text
+        if textView.string != text {
+            textView.string = text
+            context.coordinator.invalidateLineNumbers(rebuild: true)
+        }
+        textView.isEditable = isEditable
+        textView.isSelectable = true
+        configure(textView: textView, scrollView: scrollView)
+        context.coordinator.attach(textView: textView, scrollView: scrollView)
+    }
+
+    private func configure(textView: NSTextView, scrollView: NSScrollView) {
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = true
+        scrollView.hasVerticalRuler = true
+        scrollView.rulersVisible = true
+        scrollView.autohidesScrollers = false
+        scrollView.scrollerStyle = .legacy
+        scrollView.borderType = .noBorder
+        scrollView.drawsBackground = false
+        scrollView.backgroundColor = .clear
+        scrollView.contentView.drawsBackground = false
+        scrollView.horizontalScrollElasticity = .allowed
+        scrollView.verticalScrollElasticity = .allowed
+        let appearance = NSAppearance(named: colorScheme == .dark ? .darkAqua : .aqua)
+        scrollView.appearance = appearance
+        scrollView.verticalRulerView = (scrollView.verticalRulerView as? LineNumberRulerView)
+            ?? LineNumberRulerView(textView: textView)
+        scrollView.verticalRulerView?.appearance = appearance
+
+        textView.isRichText = false
+        textView.importsGraphics = false
+        textView.usesFontPanel = false
+        textView.usesFindPanel = true
+        textView.allowsUndo = true
+        textView.isEditable = isEditable
+        textView.isSelectable = true
+        textView.font = .monospacedSystemFont(ofSize: 12.5, weight: .regular)
+        textView.textColor = .labelColor
+        textView.insertionPointColor = .controlAccentColor
+        textView.backgroundColor = .clear
+        textView.drawsBackground = false
+        textView.appearance = appearance
+        textView.textContainerInset = NSSize(width: 14, height: 12)
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = true
+        textView.minSize = NSSize(width: 0, height: 0)
+        textView.maxSize = NSSize(
+            width: CGFloat.greatestFiniteMagnitude,
+            height: CGFloat.greatestFiniteMagnitude
+        )
+        textView.autoresizingMask = [.height]
+        textView.textContainer?.lineFragmentPadding = 0
+        textView.textContainer?.widthTracksTextView = false
+        textView.textContainer?.heightTracksTextView = false
+        textView.textContainer?.containerSize = NSSize(
+            width: CGFloat.greatestFiniteMagnitude,
+            height: CGFloat.greatestFiniteMagnitude
+        )
+        textView.isAutomaticQuoteSubstitutionEnabled = false
+        textView.isAutomaticDashSubstitutionEnabled = false
+        textView.isAutomaticTextReplacementEnabled = false
+        textView.isAutomaticSpellingCorrectionEnabled = false
+        textView.isContinuousSpellCheckingEnabled = false
+    }
+
+    final class Coordinator: NSObject, NSTextViewDelegate {
+        var text: Binding<String>
+        weak var textView: NSTextView?
+        private weak var rulerView: LineNumberRulerView?
+        private weak var observedContentView: NSClipView?
+
+        init(text: Binding<String>) {
+            self.text = text
+        }
+
+        deinit {
+            if let observedContentView {
+                NotificationCenter.default.removeObserver(
+                    self,
+                    name: NSView.boundsDidChangeNotification,
+                    object: observedContentView
+                )
+            }
+        }
+
+        func attach(textView: NSTextView, scrollView: NSScrollView) {
+            self.textView = textView
+            if let rulerView = scrollView.verticalRulerView as? LineNumberRulerView {
+                rulerView.textView = textView
+                self.rulerView = rulerView
+            }
+            let contentView = scrollView.contentView
+            contentView.postsBoundsChangedNotifications = true
+            guard observedContentView !== contentView else { return }
+            if let observedContentView {
+                NotificationCenter.default.removeObserver(
+                    self,
+                    name: NSView.boundsDidChangeNotification,
+                    object: observedContentView
+                )
+            }
+            observedContentView = contentView
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(boundsDidChange(_:)),
+                name: NSView.boundsDidChangeNotification,
+                object: contentView
+            )
+        }
+
+        func textDidChange(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView else { return }
+            text.wrappedValue = textView.string
+            invalidateLineNumbers(rebuild: true)
+        }
+
+        func invalidateLineNumbers(rebuild: Bool = false) {
+            rulerView?.invalidateLineNumbers(rebuild: rebuild)
+        }
+
+        @objc private func boundsDidChange(_ notification: Notification) {
+            invalidateLineNumbers()
+        }
+    }
+}
+
+private final class LineNumberRulerView: NSRulerView {
+    weak var textView: NSTextView? {
+        didSet {
+            clientView = textView
+            invalidateLineNumbers(rebuild: true)
+        }
+    }
+
+    private var lineStarts: [Int] = [0]
+    private let labelAttributes: [NSAttributedString.Key: Any] = {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .right
+        return [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 10.5, weight: .regular),
+            .foregroundColor: NSColor.secondaryLabelColor,
+            .paragraphStyle: paragraph,
+        ]
+    }()
+
+    init(textView: NSTextView) {
+        super.init(scrollView: nil, orientation: .verticalRuler)
+        self.textView = textView
+        self.clientView = textView
+        self.ruleThickness = 46
+        self.reservedThicknessForMarkers = 0
+        self.reservedThicknessForAccessoryView = 0
+        self.invalidateLineNumbers(rebuild: true)
+    }
+
+    required init(coder: NSCoder) {
+        super.init(coder: coder)
+        self.ruleThickness = 46
+        self.reservedThicknessForMarkers = 0
+        self.reservedThicknessForAccessoryView = 0
+    }
+
+    func invalidateLineNumbers(rebuild: Bool = false) {
+        if rebuild {
+            rebuildLineStarts()
+        }
+        needsDisplay = true
+    }
+
+    override func drawHashMarksAndLabels(in rect: NSRect) {
+        guard let textView,
+              let layoutManager = textView.layoutManager,
+              let textContainer = textView.textContainer,
+              let clipView = textView.enclosingScrollView?.contentView else {
+            return
+        }
+
+        NSColor.clear.setFill()
+        rect.fill()
+        layoutManager.ensureLayout(for: textContainer)
+        if lineStarts.isEmpty {
+            rebuildLineStarts()
+        }
+
+        let visibleRect = textView.convert(clipView.bounds, from: clipView)
+        let glyphRange = layoutManager.glyphRange(forBoundingRect: visibleRect, in: textContainer)
+        let textOrigin = textView.textContainerOrigin
+
+        layoutManager.enumerateLineFragments(forGlyphRange: glyphRange) { _, usedRect, _, glyphRange, _ in
+            guard glyphRange.location < layoutManager.numberOfGlyphs else { return }
+            let characterIndex = layoutManager.characterIndexForGlyph(at: glyphRange.location)
+            let lineNumber = self.lineNumber(forUTF16Offset: characterIndex)
+            let y = textOrigin.y + usedRect.minY
+            let point = self.convert(NSPoint(x: 0, y: y), from: textView)
+            let label = "\(lineNumber)" as NSString
+            label.draw(
+                in: NSRect(
+                    x: 4,
+                    y: point.y,
+                    width: self.ruleThickness - 10,
+                    height: usedRect.height
+                ),
+                withAttributes: self.labelAttributes
+            )
+        }
+    }
+
+    private func rebuildLineStarts() {
+        guard let text = textView?.string else {
+            lineStarts = [0]
+            return
+        }
+        let nsText = text as NSString
+        guard nsText.length > 0 else {
+            lineStarts = [0]
+            return
+        }
+
+        var starts: [Int] = []
+        var location = 0
+        while location < nsText.length {
+            var lineStart = 0
+            var lineEnd = 0
+            var contentsEnd = 0
+            nsText.getLineStart(
+                &lineStart,
+                end: &lineEnd,
+                contentsEnd: &contentsEnd,
+                for: NSRange(location: location, length: 0)
+            )
+            if starts.last != lineStart {
+                starts.append(lineStart)
+            }
+            guard lineEnd > location else { break }
+            location = lineEnd
+        }
+        if text.hasSuffix("\n") {
+            starts.append(nsText.length)
+        }
+        lineStarts = starts.isEmpty ? [0] : starts
+    }
+
+    private func lineNumber(forUTF16Offset offset: Int) -> Int {
+        var low = 0
+        var high = max(0, lineStarts.count - 1)
+        while low <= high {
+            let mid = (low + high) / 2
+            if lineStarts[mid] <= offset {
+                low = mid + 1
+            } else {
+                high = mid - 1
+            }
+        }
+        return max(1, high + 1)
+    }
+}
+
+nonisolated enum HTMLWorkspaceDOMOutline {
+    static func outline(for html: String) -> String {
+        let tags = tagSummaries(in: html)
+        guard !tags.isEmpty else { return "No DOM nodes" }
+        return tags.joined(separator: "\n")
+    }
+
+    static func nodeCount(in html: String) -> Int {
+        tagSummaries(in: html).count
+    }
+
+    private static func tagSummaries(in html: String) -> [String] {
+        guard let expression = try? NSRegularExpression(
+            pattern: #"<\s*([A-Za-z][A-Za-z0-9:-]*)([^>]*)>"#
+        ) else { return [] }
+        let range = NSRange(html.startIndex..<html.endIndex, in: html)
+        let matches = expression.matches(in: html, range: range)
+        return matches.compactMap { match in
+            guard let tagRange = Range(match.range(at: 1), in: html) else { return nil }
+            let tag = String(html[tagRange]).lowercased()
+            guard !tag.hasPrefix("!") else { return nil }
+            let attributes = match.range(at: 2).location == NSNotFound
+                ? ""
+                : Range(match.range(at: 2), in: html).map { String(html[$0]) } ?? ""
+            let id = captureAttribute("id", in: attributes).map { "#\($0)" } ?? ""
+            let classes = captureAttribute("class", in: attributes)
+                .map { "." + $0.split(separator: " ").joined(separator: ".") } ?? ""
+            let dataMarker = attributes.contains("data-") ? " data" : ""
+            return "<\(tag)\(id)\(classes)>\(dataMarker)"
+        }
+    }
+
+    private static func captureAttribute(_ name: String, in attributes: String) -> String? {
+        guard let expression = try? NSRegularExpression(
+            pattern: #"\#(name)\s*=\s*["']([^"']+)["']"#,
+            options: [.caseInsensitive]
+        ) else { return nil }
+        let range = NSRange(attributes.startIndex..<attributes.endIndex, in: attributes)
+        guard let match = expression.firstMatch(in: attributes, range: range),
+              let valueRange = Range(match.range(at: 1), in: attributes) else {
+            return nil
+        }
+        return String(attributes[valueRange])
+    }
+}
