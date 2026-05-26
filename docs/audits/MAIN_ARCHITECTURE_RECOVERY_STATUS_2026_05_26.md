@@ -187,7 +187,7 @@ Superseded slice:
 
 ### 5. Graph Filter / Physics WIP (`stash@{15}`)
 
-State: **Recovery slice required, performance gated.**
+State: **Partially recovered, performance gated.**
 
 This one must be handled carefully because `#86` intentionally restored snappy
 graph defaults. Only recover pieces that preserve:
@@ -197,6 +197,14 @@ graph defaults. Only recover pieces that preserve:
 - Fluid field off by default.
 - No per-frame allocations or unbounded inspection work.
 - Existing graph performance tests passing.
+
+Recovered slice:
+
+1. Selected-neighbor expansion is archived in
+   `docs/audits/STASH15_SELECTED_NEIGHBOR_EXPANSION_2026_05_26.md`. The Swift
+   filter UI portion was already present on `main`; the recovered Rust slice
+   only changes direct selected-neighborhood link rest distance while keeping
+   normal no-selection link physics on the original hot path.
 
 ### 6. Claude Shadow Handle (`#81`, `stash@{16}` overlap)
 
