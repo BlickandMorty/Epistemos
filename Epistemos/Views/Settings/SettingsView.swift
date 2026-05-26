@@ -1497,6 +1497,13 @@ private struct InferenceDetailView: View {
                 }
             }
 
+            // Phase 2 Terminal T1 — Runtime Lanes (2026-05-24):
+            // MLX is one lane among MLX / GGUF / Apple Intelligence /
+            // cloud providers. Flipping a lane OFF emits an honest
+            // escalation log entry through `RuntimeRouter`.
+            RuntimeLanesSection()
+            RuntimeRouterHealthRow()
+
             if inference.cloudModelsEnabled {
                 Section("Cloud Access Health") {
                     SettingsDescriptionText(
