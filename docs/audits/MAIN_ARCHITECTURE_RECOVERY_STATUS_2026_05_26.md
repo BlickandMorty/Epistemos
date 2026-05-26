@@ -156,13 +156,23 @@ from these files; do not restore the old shell raw.
 
 ### 3. Chat/VaultRecall WIP (`stash@{6}` and `stash@{3}`)
 
-State: **Recovery slice required.**
+State: **Closed for current product recovery.**
 
 `#79` landed chat citation/provenance rows, but these stashes still contain
 additional chat/VaultRecall/Eidos bridge/doc nuance. Re-promote only after
 diffing against current `ChatCoordinator`, `VaultRecallWiring`,
 `MessageBubble`, `ChatInputBar`, `VRMLabelView`, and
 `ShadowPanelContent`.
+
+Closeout:
+
+- `docs/audits/VAULT_RECALL_EIDOS_STASH_CLOSEOUT_2026_05_26.md` records that
+  current `main` already has the durable product code and that the useful stale
+  docs were promoted.
+- `stash@{3}` is now preservation-only.
+- The chat/VaultRecall/Eidos slice of `stash@{6}` is now closed; any remaining
+  non-chat docs/lattice-coordinate explainer donor material must be handled as
+  a separate focused slice.
 
 ### 4. Settings/Ambient/Voice/App Shell (`stash@{7}`)
 
@@ -310,10 +320,10 @@ not fully closed. The next implementation waves are:
 
 ## Recommended Next Execution Order
 
-1. **VaultRecall/Eidos visibility:** mine `stash@{3}` and `stash@{6}` after the
-   current provenance path is stable.
-2. **Approval UI donor:** inspect `stash@{16}` for `ChatApprovalQueue` /
+1. **Approval UI donor:** inspect `stash@{16}` for `ChatApprovalQueue` /
    approval modal ideas now that the honest-handle FFI slice is closed.
+2. **Remaining stash@{6} non-chat donors:** inspect lattice-coordinate explainer
+   and phase/canon docs without replaying stale chat code.
 3. **Wave 3 architecture:** AgentBlueprint replay UI + model metadata badges.
 
 ## Operational Instruction For Agents

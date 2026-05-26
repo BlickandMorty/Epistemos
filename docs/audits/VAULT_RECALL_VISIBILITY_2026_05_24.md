@@ -6,14 +6,15 @@ Terminal B wires visible vault-recall provenance into chat answers and adjacent 
 Tier classification: **Tier 1 (MAS)**.
 
 This work advances W-19, W-20, W-21, W-23, and W-27. It does not add Pro,
-Research, or Vault-shipping behavior. Terminal A remains the dependency for
-the closed-citation contract end-to-end; this pass records and exposes recall
-trace data, but cannot claim the Eidos bridge citation contract until Terminal A
-lands.
+Research, or Vault-shipping behavior. Terminal A's Eidos bridge is now present
+on `main`; this pass records and exposes recall trace data and fixes the batch
+validator isolation needed by the chat citation gate, but the focused tests did
+not exercise a full live chat closed-citation emit path.
 
-Process note: verification stopped while the worktree was on
-`docs/deferred-work-guarantee-2026-05-23` (`cd0c33165b`), not a fresh Terminal B
-branch from `main`. See `VAULT_RECALL_VISIBILITY_BLOCKER_2026_05_24.md`.
+Process note: the first verification loop stopped on the user-defined
+three-failure rule while an older dirty branch was active. The resumed pass ran
+from current `main` on `phase2-terminal-b-vault-recall-tests-2026-05-24`; see
+`VAULT_RECALL_VISIBILITY_BLOCKER_2026_05_24.md` for the stop/resume trail.
 
 ## Audit
 
@@ -117,38 +118,53 @@ Secondary alignment:
 
 Falsifiers:
 
-- `F-VaultRecall-50`: must still be run on M2 Pro for final acceptance.
-- W-23 rg gate: validates that chat retrieval surfaces do not regress to
-  index-order `LIMIT N` context construction.
+- `F-VaultRecall-50`: measured on M2 Pro with artifact
+  `artifacts/falsifiers/vault_recall_50/result.json`. Exact-title and
+  adversarial-reject axes pass; paraphrase remains informational until the
+  semantic Eidos lane is wired into `VaultBackend`.
+- `F-Eidos-Bridge-RoundTrip`: measured on M2 Pro with artifact
+  `artifacts/falsifiers/eidos_bridge_round_trip/result.json`.
+- W-23 rg gate: passed; chat retrieval surfaces did not regress to index-order
+  `LIMIT N` context construction.
 
 ## Verify
 
-Completed:
+Completed in the resumed pass:
 
-- `bash scripts/check-vault-context-contract.sh` passed.
-- Direct rg gate over `ChatCoordinator.swift`, `Epistemos/Views/Chat`, and
-  `Epistemos/Views/Halo` returned zero hits for `LIMIT N` / first-notes
-  patterns.
+- Focused Xcode tests:
+  `./scripts/xcodebuild_epistemos.sh test -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS,arch=arm64' -derivedDataPath build/derived-data-terminal-b -only-testing:EpistemosTests/AnswerPacketBadgeTests -only-testing:EpistemosTests/VaultRecallWiringTests CODE_SIGNING_ALLOWED=NO`
+  passed.
+  - Swift Testing reported 10 tests passed across
+    `AnswerPacketBadgeTests` and `VaultRecallWiringTests`.
+  - XCTest also reported 0 selected XCTest failures.
+- W-23 gate:
+  `bash scripts/check-vault-context-contract.sh` passed with
+  "Vault context contract OK".
+- F-VaultRecall-50:
+  `cargo +stable-aarch64-apple-darwin test --manifest-path agent_core/Cargo.toml --test f_vault_recall_50 -- --nocapture`
+  passed.
+  - `canonical_chatty_prefix_row_passes_with_fix_b_trace`
+  - `summary_aggregates_run_all_outcomes_for_w21_diagnostics`
+  - `f_vault_recall_50_canonical_rows_against_seeded_vault`
 
-Failed/stopped:
+Earlier stopped attempts:
 
-- Focused Xcode tests did not complete before the stop condition. See
-  `docs/audits/VAULT_RECALL_VISIBILITY_BLOCKER_2026_05_24.md`.
-- The first attempt failed on a shared DerivedData build database lock.
-- The second attempt failed on `EventStore.appendVaultRecallTrace` actor
-  isolation; patched.
-- The third attempt failed on a missing `vaultRecallTrace` argument in
-  `MiniChatView`; patched.
-- No fourth build/test run was started after the third consecutive failure.
+- First attempt failed on a shared DerivedData build database lock.
+- Second attempt failed on `EventStore.appendVaultRecallTrace` actor isolation;
+  patched before this resumed pass.
+- Third attempt failed on a missing `vaultRecallTrace` argument in
+  `MiniChatView`; patched before this resumed pass.
+- Resumed attempt initially exposed Terminal A gate isolation:
+  `EidosBridge.validateCitations(packet:sourceIds:)` was main-actor isolated
+  under `-default-isolation=MainActor` while the chat gate is intentionally
+  nonisolated. This pass fixed the bridge by marking the batch validator
+  `nonisolated`.
 
-Not run:
+Remaining caveat:
 
-- `F-VaultRecall-50` remains to be run and reported honestly.
-
-Blocked/waived:
-
-- Closed-citation end-to-end remains dependent on Terminal A Eidos bridge.
-  This is not waived for acceptance; it is a dependency boundary.
+- Terminal A's Eidos bridge is now present on `main`, and this pass fixed the
+  batch validator isolation needed by the chat citation gate. The focused tests
+  did not exercise a full live chat closed-citation emit path.
 
 ## Harden
 
