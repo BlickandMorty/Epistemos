@@ -330,7 +330,7 @@ impl MissionRun {
 
 use crate::hyperdynamic_loop::{
     run_loop, AdmissionDraft, AdmissionRepairLoop, LoopCounters, RepairBudget, RepairOutcome,
-    WitnessDraft, WitnessRepairLoop, WitnessState,
+    WitnessDraft, WitnessRepairLoop,
 };
 
 /// Gate a tool-call admission draft through `AdmissionRepairLoop`.

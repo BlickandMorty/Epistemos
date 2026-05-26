@@ -61,38 +61,38 @@ nonisolated public struct LocalPolicy: Sendable, Equatable, Codable, Hashable {
 /// `RuntimeRouterHealthRow` can render either source. The lane-aware
 /// fields (`preferredLanes`) are new — they are the reason this
 /// profile replaces the single-lane one.
-nonisolated public struct RouteProfile: Sendable, Equatable, Codable, Hashable, Identifiable {
-    public let role: RuntimeRole
-    public let preferredLanes: [RuntimeLane]
-    public let preferredModelIDs: [String]
-    public let primaryModelID: String?
-    public let primaryModelName: String
-    public let nativeGrammar: LocalToolGrammar.NativeToolGrammar
-    public let minimumConfidence: Double
-    public let maximumComplexity: Double
-    public let maximumToolCount: Int
-    public let idleUnloadDelaySeconds: Int
-    public let idleUnloadMode: String
+nonisolated struct RouteProfile: Sendable, Equatable, Identifiable {
+    let role: RuntimeRole
+    let preferredLanes: [RuntimeLane]
+    let preferredModelIDs: [String]
+    let primaryModelID: String?
+    let primaryModelName: String
+    let nativeGrammar: LocalToolGrammar.NativeToolGrammar
+    let minimumConfidence: Double
+    let maximumComplexity: Double
+    let maximumToolCount: Int
+    let idleUnloadDelaySeconds: Int
+    let idleUnloadMode: String
 
-    public var id: String { role.rawValue }
+    var id: String { role.rawValue }
 
-    public var displayName: String { role.displayName }
+    var displayName: String { role.displayName }
 
-    public var fallbackCount: Int {
+    var fallbackCount: Int {
         max(0, preferredModelIDs.count - 1)
     }
 
-    public var laneCount: Int { preferredLanes.count }
+    var laneCount: Int { preferredLanes.count }
 
-    public var policySummary: String {
+    var policySummary: String {
         "conf \(formatted(minimumConfidence)) · complexity \(formatted(maximumComplexity)) · tools \(maximumToolCount)"
     }
 
-    public var idleUnloadSummary: String {
+    var idleUnloadSummary: String {
         "idle \(idleUnloadDelaySeconds)s \(idleUnloadMode)"
     }
 
-    public var laneSummary: String {
+    var laneSummary: String {
         preferredLanes.map { $0.stableID }.joined(separator: " → ")
     }
 
@@ -290,11 +290,11 @@ public final class RuntimeRouter {
     /// one row per `RuntimeRole`. The data is composed by joining
     /// the `localPolicyTable` (per-role policy) with the
     /// `modelPreferenceTable` (per-role preferred model IDs).
-    public func routeProfiles() -> [RouteProfile] {
+    func routeProfiles() -> [RouteProfile] {
         Self.defaultRouteProfiles()
     }
 
-    public static func defaultRouteProfiles() -> [RouteProfile] {
+    nonisolated static func defaultRouteProfiles() -> [RouteProfile] {
         RuntimeRole.allCases.map { role in
             let policy = localPolicyTable[role] ?? defaultLocalPolicy(for: role)
             let preferred = modelPreferenceTable[role] ?? []
@@ -327,7 +327,7 @@ public final class RuntimeRouter {
     /// Per-role local routing policy. The router reads this when it
     /// has to decide whether the local lane (MLX/GGUF) can serve the
     /// request or must escalate to cloud.
-    public static let localPolicyTable: [RuntimeRole: LocalPolicy] = [
+    nonisolated public static let localPolicyTable: [RuntimeRole: LocalPolicy] = [
         .code: LocalPolicy(
             role: .code,
             minimumConfidence: 0.70,
@@ -394,7 +394,7 @@ public final class RuntimeRouter {
     /// lanes don't appear here — they are reached through the
     /// `preferredLanes` chain. The IDs reference `LocalTextModelID`
     /// raw values from `Epistemos/State/InferenceState.swift`.
-    public static let modelPreferenceTable: [RuntimeRole: [String]] = [
+    nonisolated public static let modelPreferenceTable: [RuntimeRole: [String]] = [
         .code: [
             "mlx-community/Qwen3-Coder-Next-4bit",
             "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit",
@@ -430,7 +430,7 @@ public final class RuntimeRouter {
     /// Apple Intelligence is present in every chain even though its
     /// capability surface is initially narrow — this is the honest
     /// "lane exists" signal the acceptance criterion mandates.
-    public static func defaultPreferredLanes(for role: RuntimeRole) -> [RuntimeLane] {
+    nonisolated public static func defaultPreferredLanes(for role: RuntimeRole) -> [RuntimeLane] {
         switch role {
         case .code:
             return [.mlx, .gguf, .cloud(provider: "claude"), .cloud(provider: "openai"), .appleIntelligence, .stub]
@@ -447,7 +447,7 @@ public final class RuntimeRouter {
         }
     }
 
-    private static func defaultLocalPolicy(for role: RuntimeRole) -> LocalPolicy {
+    nonisolated private static func defaultLocalPolicy(for role: RuntimeRole) -> LocalPolicy {
         LocalPolicy(
             role: role,
             minimumConfidence: 0.60,
@@ -460,7 +460,7 @@ public final class RuntimeRouter {
         )
     }
 
-    private static func displayName(forModelID modelID: String) -> String {
+    nonisolated private static func displayName(forModelID modelID: String) -> String {
         if let lastSegment = modelID.split(separator: "/").last {
             return String(lastSegment)
         }
