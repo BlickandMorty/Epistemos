@@ -115,6 +115,10 @@ name = "falsify_vault_recall"
 path = "src/bin/falsify_vault_recall.rs"
 
 [[bin]]
+name = "falsify_hyperdynamic_loop_bounded"
+path = "src/bin/falsify_hyperdynamic_loop_bounded.rs"
+
+[[bin]]
 name = "falsifier_validator"
 path = "src/bin/falsifier_validator.rs"
 

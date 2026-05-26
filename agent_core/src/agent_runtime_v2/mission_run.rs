@@ -293,3 +293,255 @@ impl MissionRun {
         )
     }
 }
+
+// ─── Terminal S — Hyperdynamic Schema Loop hook ─────────────────────
+//
+// Per `docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md` §Terminal S, every
+// typed model output must pass through ≥ 1 loop kind before reaching
+// `RunEventLog`. The minimal hook is two free helpers that the model
+// adapter (one layer above `MissionRun`) calls BEFORE invoking
+// `record_event` / `admit_and_record_tool_call`:
+//
+// - `gate_admission_draft_through_loop` — wraps the existing
+//   `AdmissionRepairLoop` with the `RepairBudget::DEFAULT` budget so
+//   tool-call drafts whose ACS verdict is `Defer` get a bounded
+//   number of `re_emit` retries before being quarantined.
+//
+// - `gate_witness_draft_through_loop` — same shape, generic over the
+//   witness payload. Today the F-ULP backend lowers into
+//   `WitnessState::{Verified, RepairableMismatch, Invalid}`; tomorrow
+//   any future proof backend (weight-bit replay, etc.) lowers into
+//   the same enum.
+//
+// These helpers intentionally do NOT change `MissionRun`'s surface —
+// the existing `admit_and_record_tool_call` / `record_event` paths
+// remain the only writers to `RunEventLog`. The Terminal S contract
+// is that the adapter MUST call exactly one of these helpers before
+// the existing writers, and the falsifier
+// `F-HyperdynamicLoop-Bounded` (`agent_core/src/bin/
+// falsify_hyperdynamic_loop_bounded.rs`) proves the bounded-retry
+// invariant under the strongest adversarial shape.
+//
+// The `_through_loop` suffix is the canonical marker so a future
+// `cargo doc` or `grep` pass can confirm every adapter call site is
+// gated. Quarantine outcomes flow into the same `RunEventEntry`
+// channel ACS terminal verdicts already populate — the Provenance
+// Console renders them without further changes.
+
+use crate::hyperdynamic_loop::{
+    run_loop, AdmissionDraft, AdmissionRepairLoop, LoopCounters, RepairBudget, RepairOutcome,
+    WitnessDraft, WitnessRepairLoop, WitnessState,
+};
+
+/// Gate a tool-call admission draft through `AdmissionRepairLoop`.
+/// `re_emit` is the adapter's "rerun the ACS admission with tightened
+/// risk parameters" closure — on `Defer` the loop calls it up to
+/// `budget.max_retries` times; on `Allow / AllowWithWarning` it
+/// accepts; on `Quarantine / Reject` it terminates without invoking
+/// `re_emit`.
+///
+/// The returned `RepairOutcome` is the canonical input shape the
+/// adapter pattern-matches against to decide whether to call
+/// `MissionRun::admit_and_record_tool_call` (Accept) or to surface
+/// a quarantine reason into the Provenance Console (Quarantined /
+/// QuarantinedBudgetExhausted).
+pub fn gate_admission_draft_through_loop<F>(
+    initial: AdmissionDraft,
+    budget: RepairBudget,
+    counters: &mut LoopCounters,
+    re_emit: F,
+) -> RepairOutcome<AdmissionDraft>
+where
+    F: FnMut(&AdmissionDraft, &str) -> AdmissionDraft,
+{
+    let loop_impl = AdmissionRepairLoop::new();
+    // AdmissionRepairLoop carries `Error = Infallible`, so `run_loop`
+    // is total — the `expect` documents (and is enforced by the
+    // type system) that this path can never return Err.
+    run_loop(&loop_impl, initial, budget, counters, re_emit)
+        .expect("AdmissionRepairLoop::check is Infallible")
+}
+
+/// Gate a witness draft through `WitnessRepairLoop<T>`. The proof
+/// backend lowers its replay error into `WitnessState` before
+/// invoking this helper, so the loop body remains agnostic to the
+/// concrete proof shape (F-ULP today, weight-bit replay tomorrow).
+pub fn gate_witness_draft_through_loop<T, F>(
+    initial: WitnessDraft<T>,
+    budget: RepairBudget,
+    counters: &mut LoopCounters,
+    re_emit: F,
+) -> RepairOutcome<WitnessDraft<T>>
+where
+    T: Clone,
+    F: FnMut(&WitnessDraft<T>, &str) -> WitnessDraft<T>,
+{
+    let loop_impl = WitnessRepairLoop::<T>::new();
+    run_loop(&loop_impl, initial, budget, counters, re_emit)
+        .expect("WitnessRepairLoop::check is Infallible")
+}
+
+#[cfg(test)]
+mod hyperdynamic_loop_hook_tests {
+    use super::{
+        gate_admission_draft_through_loop, gate_witness_draft_through_loop,
+    };
+    use crate::acs_admission::ACSAdmissionVerdict;
+    use crate::hyperdynamic_loop::{
+        AdmissionDraft, LoopCounters, RepairBudget, RepairOutcome, WitnessDraft, WitnessState,
+    };
+
+    #[test]
+    fn admission_hook_accepts_allow_verdict_without_re_emit() {
+        let mut counters = LoopCounters::new();
+        let mut re_emit_calls = 0;
+        let outcome = gate_admission_draft_through_loop(
+            AdmissionDraft::new(ACSAdmissionVerdict::Allow, "allow"),
+            RepairBudget::DEFAULT,
+            &mut counters,
+            |prev, _hint| {
+                re_emit_calls += 1;
+                prev.clone()
+            },
+        );
+        assert!(matches!(outcome, RepairOutcome::Accepted { .. }));
+        assert_eq!(re_emit_calls, 0);
+        assert_eq!(counters.accepted, 1);
+    }
+
+    #[test]
+    fn admission_hook_repairs_defer_then_allow() {
+        let mut counters = LoopCounters::new();
+        let outcome = gate_admission_draft_through_loop(
+            AdmissionDraft::new(ACSAdmissionVerdict::Defer, "stuck"),
+            RepairBudget::DEFAULT,
+            &mut counters,
+            |_prev, _hint| AdmissionDraft::new(ACSAdmissionVerdict::Allow, "repaired"),
+        );
+        match outcome {
+            RepairOutcome::Accepted { packet, repairs } => {
+                assert_eq!(packet.verdict, ACSAdmissionVerdict::Allow);
+                assert_eq!(repairs, 1);
+            }
+            other => panic!("expected accepted, got {other:?}"),
+        }
+        assert_eq!(counters.accepted, 1);
+        assert_eq!(counters.repaired, 1);
+    }
+
+    #[test]
+    fn admission_hook_quarantines_persistent_defer_at_budget() {
+        let mut counters = LoopCounters::new();
+        let outcome = gate_admission_draft_through_loop(
+            AdmissionDraft::new(ACSAdmissionVerdict::Defer, "stuck"),
+            RepairBudget::tightened(2, std::time::Duration::from_millis(500), 64),
+            &mut counters,
+            |prev, _hint| prev.clone(),
+        );
+        assert!(matches!(
+            outcome,
+            RepairOutcome::QuarantinedBudgetExhausted { repairs: 2, .. }
+        ));
+        assert_eq!(counters.quarantined, 1);
+    }
+
+    #[test]
+    fn admission_hook_terminates_immediately_on_reject() {
+        let mut counters = LoopCounters::new();
+        let mut re_emit_calls = 0;
+        let outcome = gate_admission_draft_through_loop(
+            AdmissionDraft::new(ACSAdmissionVerdict::Reject, "policy"),
+            RepairBudget::DEFAULT,
+            &mut counters,
+            |prev, _hint| {
+                re_emit_calls += 1;
+                prev.clone()
+            },
+        );
+        match outcome {
+            RepairOutcome::Quarantined { reason, repairs } => {
+                assert!(reason.starts_with("acs_terminal:reject"));
+                assert_eq!(repairs, 0);
+            }
+            other => panic!("expected explicit quarantine, got {other:?}"),
+        }
+        assert_eq!(re_emit_calls, 0);
+        assert_eq!(counters.quarantined, 1);
+    }
+
+    #[test]
+    fn witness_hook_accepts_verified_draft() {
+        let mut counters = LoopCounters::new();
+        let outcome = gate_witness_draft_through_loop::<u32, _>(
+            WitnessDraft::new(42u32, WitnessState::verified()),
+            RepairBudget::DEFAULT,
+            &mut counters,
+            |prev, _hint| prev.clone(),
+        );
+        match outcome {
+            RepairOutcome::Accepted { packet, repairs } => {
+                assert_eq!(packet.payload, 42);
+                assert_eq!(repairs, 0);
+            }
+            other => panic!("expected accepted, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn witness_hook_quarantines_invalid_witness_with_zero_repairs() {
+        let mut counters = LoopCounters::new();
+        let outcome = gate_witness_draft_through_loop::<u32, _>(
+            WitnessDraft::new(0u32, WitnessState::invalid("hardware_pin_mismatch")),
+            RepairBudget::DEFAULT,
+            &mut counters,
+            |prev, _hint| prev.clone(),
+        );
+        match outcome {
+            RepairOutcome::Quarantined { reason, repairs } => {
+                assert!(reason.contains("hardware_pin_mismatch"));
+                assert_eq!(repairs, 0);
+            }
+            other => panic!("expected explicit quarantine, got {other:?}"),
+        }
+        assert_eq!(counters.total_repair_attempts, 0);
+    }
+
+    #[test]
+    fn witness_hook_repairs_then_verifies_within_budget() {
+        let mut counters = LoopCounters::new();
+        let outcome = gate_witness_draft_through_loop::<u32, _>(
+            WitnessDraft::new(
+                1u32,
+                WitnessState::repairable("budget_wall_clock_ms_exceeded"),
+            ),
+            RepairBudget::DEFAULT,
+            &mut counters,
+            |prev, _hint| {
+                let mut next = prev.clone();
+                next.state = WitnessState::verified();
+                next.payload += 1;
+                next
+            },
+        );
+        match outcome {
+            RepairOutcome::Accepted { packet, repairs } => {
+                assert_eq!(packet.payload, 2);
+                assert_eq!(packet.state, WitnessState::verified());
+                assert_eq!(repairs, 1);
+            }
+            other => panic!("expected accepted, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn hook_helpers_carry_through_loop_suffix_for_grep() {
+        // Cross-surface invariant: the hook helpers' names end in
+        // `_through_loop` so an auditor's grep covers every adapter
+        // call site that gates a typed packet through the
+        // Hyperdynamic Schema Loop.
+        let admission_name = stringify!(gate_admission_draft_through_loop);
+        let witness_name = stringify!(gate_witness_draft_through_loop);
+        assert!(admission_name.ends_with("_through_loop"));
+        assert!(witness_name.ends_with("_through_loop"));
+    }
+}
