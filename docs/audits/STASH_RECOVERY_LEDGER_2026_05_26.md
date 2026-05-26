@@ -63,6 +63,13 @@ Already mostly represented on main, but still has 27 tracked files that differ
 and 1 missing untracked file. Do not bulk apply because it also contains old
 Mermaid active-path deletions that were intentionally resolved by `#86`.
 
+Recovered slice:
+
+- HTML Workspace source guard follow-up recovered in
+  `docs/audits/B_PRIME_HTML_WORKSPACE_SOURCE_GUARD_2026_05_26.md`. The
+  `legacy-diagram-node.ts` donor file remains intentionally out of live source
+  because new visual creation must route to native HTML Workspace, not Mermaid.
+
 Needs audit:
 
 - Settings health rows:
