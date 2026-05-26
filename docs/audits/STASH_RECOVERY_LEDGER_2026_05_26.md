@@ -66,9 +66,11 @@ Mermaid active-path deletions that were intentionally resolved by `#86`.
 Recovered slice:
 
 - HTML Workspace source guard follow-up recovered in
-  `docs/audits/B_PRIME_HTML_WORKSPACE_SOURCE_GUARD_2026_05_26.md`. The
-  `legacy-diagram-node.ts` donor file remains intentionally out of live source
-  because new visual creation must route to native HTML Workspace, not Mermaid.
+  `docs/audits/B_PRIME_HTML_WORKSPACE_SOURCE_GUARD_2026_05_26.md`.
+- Legacy diagram compatibility recovered in
+  `docs/audits/B_PRIME_LEGACY_DIAGRAM_COMPATIBILITY_2026_05_26.md`. The editor
+  now preserves old `mermaid` schema blocks as inert source while keeping new
+  visual creation on native HTML Workspace.
 - UAS/ACS artifact gates recovered in
   `docs/audits/B_PRIME_UAS_ACS_ARTIFACT_GATES_2026_05_26.md`. The row now reads
   `F-UAS-CopyCount` and `F-ACS-AnchorLookup` result artifacts while keeping the
@@ -84,7 +86,6 @@ Needs audit:
   `SystemGHealthRow`, `SubstrateHealthPanel`, `SettingsSurfaceComponents`,
   `SettingsView`.
 - Editor bundle files: `js-editor/src/...`, compressed editor resources.
-- Missing untracked file: `js-editor/src/extensions/legacy-diagram-node.ts`.
 
 Superseded or dangerous:
 

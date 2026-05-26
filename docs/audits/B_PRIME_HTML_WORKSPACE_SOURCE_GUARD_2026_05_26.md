@@ -22,16 +22,11 @@ was ported onto current `main`.
 
 ## What Was Not Restored Raw
 
-`stash@{0}` contains `js-editor/src/extensions/legacy-diagram-node.ts`, a
-compatibility-only TipTap node named `mermaid` for old Epdoc diagram blocks.
-That file was not restored as live editor code in this slice because current
-product direction routes new visual creation to native HTML Workspace, and
-PR #86 intentionally removed the live Mermaid route to preserve graph/editor
-performance.
-
-If legacy diagram compatibility becomes necessary, recover it as a separate
-compatibility importer with an explicit performance/source-guard test. Do not
-re-register Mermaid as the active visual creation path.
+`js-editor/src/extensions/legacy-diagram-node.ts` was later recovered as the
+separate compatibility slice documented in
+`docs/audits/B_PRIME_LEGACY_DIAGRAM_COMPATIBILITY_2026_05_26.md`. It preserves
+old Epdoc diagram blocks as inert source and does not restore Mermaid as an
+active visual creation path.
 
 ## Verification Target
 
