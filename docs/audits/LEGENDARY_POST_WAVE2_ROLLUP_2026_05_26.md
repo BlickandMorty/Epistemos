@@ -78,7 +78,8 @@ substrate object" doctrine from Settings witnesses into the data plane.
 These are small, parallel-safe hardening terminals:
 
 - W-49: `IMessageDriverService` App Store guard.
-- W-50: `MemoryTier` enum reconciliation.
+- W-50: `MemoryTier` / residency enum reconciliation. Guard live in
+  `docs/audits/W50_RESIDENCY_TIER_RECONCILIATION_2026_05_26.md`.
 - W-53: `ModelDownloadManager` SHA256 / LFS verification.
 - D-27: scoped `F-ACS-Anchor-Addressing` harness, codeword
   `RESUME ACS ANCHOR HARNESS`.

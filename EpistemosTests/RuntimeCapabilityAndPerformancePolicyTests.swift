@@ -587,4 +587,33 @@ struct RuntimeCapabilityAndPerformancePolicyTests {
             #expect(tokens.separator.alphaComponent > 0)
         }
     }
+
+    @Test("W-50 residency tier names keep their three separate meanings")
+    func residencyTierNamesKeepSeparateMeanings() throws {
+        let runtimeSource = try loadMirroredSourceTextFile("Epistemos/Engine/RuntimeExecutor.swift")
+        let uasSource = try loadMirroredSourceTextFile("agent_core/src/uas/residency_tier.rs")
+        let scopeRexSource = try loadMirroredSourceTextFile("agent_core/src/scope_rex/residency.rs")
+        let latticeSource = try loadMirroredSourceTextFile("agent_core/src/lattice_wbo/register.rs")
+
+        #expect(runtimeSource.contains("Mirror of the substrate's three-tier residency axis"))
+        #expect(runtimeSource.contains("case currentApp = \"current_app\""))
+        #expect(runtimeSource.contains("case verifiedFloor = \"verified_floor\""))
+        #expect(runtimeSource.contains("case capabilityCeiling = \"capability_ceiling\""))
+
+        #expect(uasSource.contains("substrate-shipping policy"))
+        #expect(uasSource.contains("Never coerce one into the other."))
+        #expect(uasSource.contains("\"current_app\" => Some(ResidencyTier::CurrentApp)"))
+        #expect(uasSource.contains("\"verified_floor\" => Some(ResidencyTier::VerifiedFloor)"))
+        #expect(uasSource.contains("\"capability_ceiling\" => Some(ResidencyTier::CapabilityCeiling)"))
+
+        #expect(scopeRexSource.contains("HELIOS V5 W4"))
+        #expect(scopeRexSource.contains("TransientContext"))
+        #expect(scopeRexSource.contains("RetrievalMemory"))
+        #expect(scopeRexSource.contains("OsftCore"))
+
+        #expect(latticeSource.contains("L0RamHot"))
+        #expect(latticeSource.contains("L3SsdOracle"))
+        #expect(latticeSource.contains("LSeSelfEvolving"))
+        #expect(latticeSource.contains("Canonical residency tiers named by the lattice/WBO register"))
+    }
 }
