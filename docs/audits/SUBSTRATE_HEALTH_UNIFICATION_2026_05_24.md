@@ -26,6 +26,9 @@ Implemented:
 - Shared falsifier links below every panel row.
 - W-30 W1-W4 cognitive-weight badges.
 - W-33 drift monitor readout combining WBO accounting, DAG root, and UAS copy counters.
+- D-prime hardening: AnswerPacket and Plane Placement chip strips now remain
+  orange for session-only/read-only observability, and W-30 policy-grade badges
+  stay badge-only until policy enforcement is actually wired.
 
 ## Verify
 
@@ -49,10 +52,13 @@ Honest posture rules applied:
 - No missing subsystem reports green.
 - EML Observatory reports FFI reachability but keeps SAE live stream unwired.
 - UAS/ACS reports taxonomy, residency, and copy counters but keeps production anchor lookup blocked.
-- Plane Placement is green only when Terminal G / T14 five-plane fields are
-  present and counted through `substrate_health_unified_json`; otherwise the
-  row degrades to FFI-unavailable or dependency-blocked state.
+- Plane Placement can show passing metric icons when Terminal G / T14 five-plane
+  fields are present and counted through `substrate_health_unified_json`, but
+  the chip strip remains orange because the row is read-only observability, not
+  a production placement authority.
 - Cognitive Weight badges are visible taxonomy only; policy enforcement remains unwired.
+- W-30 `policy_grade` is displayed as badge-only; the unified JSON does not set
+  `policy_authority` while `policy_enforcement_wired` is false.
 - Drift Monitor is monitor-only until an F-WBO-DriftLedger PASS artifact exists.
 
 ## 7 Laws

@@ -66,7 +66,7 @@ public struct AnswerPacketHealthRow: View {
             )
             VerifiedFloorChipStrip(
                 flag: "on",
-                substrate: snapshot.totalEmitted > 0 ? "emitting" : "idle",
+                substrate: snapshot.totalEmitted > 0 ? "session ring only" : "idle",
                 productionWired: snapshot.totalEmitted > 0,
                 falsifierPassed: false,
                 falsifier: "docs/falsifiers/F_WBO_DRIFT_LEDGER_2026_05_18.md",
