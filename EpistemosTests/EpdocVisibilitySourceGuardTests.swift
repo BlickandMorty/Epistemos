@@ -196,9 +196,7 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
         let bridge = try Self.loadSourceText("Epistemos/Engine/EpdocEditorBridge.swift")
         let bubbleMenu = try Self.loadSourceText("Epistemos/Views/Epdoc/EpdocBubbleMenuView.swift")
         let package = try Self.loadSourceText("js-editor/package.json")
-        let mermaid = try Self.loadSourceText("js-editor/src/extensions/mermaid-node.ts")
         let chart = try Self.loadSourceText("js-editor/src/extensions/chart-node.ts")
-        let documentGraph = try Self.loadSourceText("js-editor/src/graph/document-graph.ts")
         let codeBlock = try Self.loadSourceText("js-editor/src/extensions/code-block-node.ts")
         let imageAssetBridge = try Self.loadSourceText("js-editor/src/extensions/image-asset-bridge.ts")
         let imageNode = try Self.loadSourceText("js-editor/src/extensions/image-node.ts")
@@ -240,7 +238,6 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
                 && markdownPaste.contains("export function parseMarkdownPaste")
                 && markdownPaste.contains("type: 'heading'")
                 && markdownPaste.contains("type: 'codeBlock'")
-                && markdownPaste.contains("type: 'mermaid'")
                 && markdownPaste.contains("type: 'epdocChart'")
                 && markdownPaste.contains("type: 'epdocImage'")
                 && markdownPaste.contains("type: 'table'")
@@ -248,7 +245,7 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
                 && markdownPaste.contains("type: 'inlineMath'")
                 && markdownPaste.contains("type: 'highlight'")
                 && markdownPaste.contains("epistemos-doc:wiki/"),
-                "Epdoc must convert pasted markdown syntax (# headings, fenced code, Mermaid, charts, images, tables, tasks, inline marks, math, and wikilinks) into real Tiptap nodes immediately instead of waiting for a backspace/retype input rule.")
+                "Epdoc must convert pasted markdown syntax (# headings, fenced code, charts, images, tables, tasks, inline marks, math, and wikilinks) into real Tiptap nodes immediately instead of waiting for a backspace/retype input rule.")
         #expect(index.contains("epdocMarkdownInputRules()")
                 && markdownInputRules.contains("new InputRule")
                 && markdownInputRules.contains("tableMarkdownInputFinder")
@@ -321,54 +318,18 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
                 "Epdoc images must render as actual scaled document images, not a tiny broken-image/icon affordance.")
         #expect(slash.contains("type: 'blockMath'") && slash.contains("{ type: 'paragraph' }"),
                 "The visible Math toolbar button must insert a valid Tiptap math node and a trailing paragraph so typing does not get trapped on the atom.")
-        #expect(slash.contains("type: 'mermaid'"),
-                "The visible Mermaid toolbar button must insert the custom Mermaid node, not a missing command name.")
-        #expect(toolbar.contains(#"name: "insertEpdocGraphFromDocument""#),
-                "The toolbar flowchart button must derive a graph from the current document, not insert the static Idea/Evidence sample.")
-        #expect(toolbar.contains("tip: \"Insert document diagram\"") && !toolbar.contains("tip: \"Graph from document\"") && !toolbar.contains("tip: \"Mermaid diagram\""),
-                "The toolbar affordance should say what it does now: insert an in-document research diagram, not open the global Knowledge Graph or advertise the old static Mermaid sample.")
+        #expect(slash.contains("id: 'html-workspace'") && slash.contains("requestHTMLWorkspace"),
+                "New visual/DOM creation must route to a first-class HTML Workspace, not an in-document Mermaid node.")
+        #expect(!slash.contains("type: 'mermaid'") && !slash.contains("mermaid-flowchart") && !slash.contains("RESEARCH_DIAGRAM_TEMPLATES"),
+                "The slash menu must not expose new Mermaid creation paths.")
+        #expect(toolbar.contains("tip: \"HTML Workspace\"") && toolbar.contains("openHTMLWorkspace"),
+                "The visible toolbar visual action must open a dedicated HTML Workspace.")
+        #expect(!toolbar.contains(#"name: "insertEpdocGraphFromDocument""#),
+                "The toolbar must not create Mermaid diagrams after the HTML Workspace replacement.")
         #expect(toolbar.contains("Label(tip, systemImage: symbol)") && toolbar.contains(".accessibilityLabel(Text(tip))"),
                 "Icon-only toolbar buttons must carry the semantic action label for accessibility and Computer Use smoke tests.")
-        #expect(inbound.contains("buildMermaidGraphFromDocument(editor.getJSON())"),
-                "Document graph insertion must read the live ProseMirror tree so long pasted docs create structure-specific Mermaid graphs.")
-        #expect(slash.contains("buildMermaidGraphFromDocument(e.getJSON())") && !slash.contains("A[Idea] --> B[Evidence]"),
-                "Slash-menu graph insertion must use the same live document graph builder and must never resurrect the static Idea/Evidence sample.")
-        #expect(documentGraph.contains("collectGraphEntries") && documentGraph.contains("isGraphContentNode"),
-                "The document graph builder must extract real structure from headings, paragraphs, list items, blockquotes, and tables.")
-        #expect(documentGraph.contains("classifyText") && documentGraph.contains("appendClassDefs"),
-                "Document graphs should render as research diagrams with typed claim/evidence/question/method classes, not generic text-only boxes.")
-        let methodClassifierRange = try #require(documentGraph.range(of: #"\b(method|protocol|procedure|experiment|approach|pipeline)\b"#))
-        let evidenceClassifierRange = try #require(documentGraph.range(of: #"\b(evidence|source|citation|dataset|observed|measured|study|paper|result)\b"#))
-        #expect(methodClassifierRange.lowerBound < evidenceClassifierRange.lowerBound,
-                "Document graph classification must prefer explicit Method/Protocol/Procedure language over incidental evidence terms like source guards.")
-        #expect(documentGraph.contains("wikilinkLabels") && documentGraph.contains(#"visit({ label, kind: 'link' })"#),
-                "The document graph builder must include wikilinks as graph entries so pasted/relinked docs surface more than prose snippets.")
-        #expect(!documentGraph.contains("'Document', 'Key Point', 'Evidence'") && !documentGraph.contains("A[Idea] --> B[Evidence]"),
-                "No document-graph path may keep the old generic Idea/Evidence sample or fallback.")
-        #expect(slash.contains("]).focus('end').run()"),
-                "After inserting a Mermaid block, the toolbar must force the caret into the trailing paragraph so the document stays typable.")
-        #expect(mermaid.contains("source.contentEditable = 'false'") && !mermaid.contains("contentDOM: source"),
-                "Mermaid preview/source UI must not become ProseMirror's editable contentDOM; that traps focus and makes the note feel frozen.")
-        #expect(mermaid.contains("researchThemeVariables") && mermaid.contains("securityLevel: 'strict'") && mermaid.contains("sanitizeMermaidSvg") && mermaid.contains("svgCache"),
-                "Mermaid rendering must use research-grade theming, strict-mode rendering, SVG sanitization, and render caching rather than the default Mermaid palette.")
-        #expect(mermaid.contains("epdoc-mermaid-header") && mermaid.contains("Research diagram") && mermaid.contains("Mermaid source"),
-                "Mermaid nodes should present the diagram first with a research-diagram chrome and keep source available on demand.")
-        #expect(css.contains(".epdoc-mermaid-header") && css.contains(".epdoc-mermaid-preview svg") && css.contains(".epdoc-mermaid-source-wrap"),
-                "Epdoc diagrams need polished research-card styling, not a plain bordered source+preview box.")
-        #expect(slash.contains("RESEARCH_DIAGRAM_TEMPLATES")
-                && slash.contains("mermaid-flowchart")
-                && slash.contains("mermaid-sequence")
-                && slash.contains("mermaid-mindmap")
-                && slash.contains("mermaid-quadrant")
-                && slash.contains("mermaid-sankey")
-                && slash.contains("mermaid-pie")
-                && slash.contains("mermaid-gantt")
-                && slash.contains("mermaid-journey")
-                && slash.contains("mermaid-requirement")
-                && slash.contains("mermaid-gitgraph")
-                && slash.contains("mermaid-c4")
-                && slash.contains("mermaid-block"),
-                "The slash menu must expose a broad research-diagram palette, not just one document graph action.")
+        #expect(inbound.contains("name === 'requestHTMLWorkspace'") && !inbound.contains("insertEpdocGraphFromDocument"),
+                "The JS bridge must request the native HTML Workspace surface instead of deriving Mermaid source.")
         #expect(slash.contains("RESEARCH_CHART_TEMPLATES")
                 && slash.contains("chart-scatter")
                 && slash.contains("chart-bar")
@@ -394,7 +355,7 @@ nonisolated struct EpdocVisibilitySourceGuardTests {
                 "Advertised callout slash-menu commands must have a real Tiptap node registered.")
         #expect(css.contains(".ProseMirror table") && css.contains("border-collapse: collapse"),
                 "The Table toolbar action must produce a visible grid, not an invisible empty structure.")
-        #expect(Self.sourceCount(in: slash, needle: "apply: (e)") == 36,
+        #expect(Self.sourceCount(in: slash, needle: "apply: (e)") == 19,
                 "Every advertised JS slash item should carry a concrete command implementation.")
         #expect(outbound.contains("type: 'documentStatsChanged'"))
         #expect(index.contains("postDocumentStats(ed)"),

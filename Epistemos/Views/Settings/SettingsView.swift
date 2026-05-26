@@ -130,6 +130,7 @@ struct SettingsView: View {
         case privacy = "Privacy"
         case provenance = "Provenance Console"
         case substrateHealth = "Substrate Health"
+        case experimentalFeatures = "Experimental Features"
         // HELIOS research scaffold. Preserved for source guards and
         // deep-link compatibility, but not listed in v1 visible settings:
         // HELIOS is frozen as research/doctrine/guardrails until its WRV
@@ -171,6 +172,7 @@ struct SettingsView: View {
                 .privacy,
                 .provenance,
                 .substrateHealth,
+                .experimentalFeatures,
             ]
             return sections
         }
@@ -211,6 +213,7 @@ struct SettingsView: View {
             case .privacy: "hand.raised.fill"
             case .provenance: "list.bullet.rectangle.portrait"
             case .substrateHealth: "waveform.path.ecg.rectangle"
+            case .experimentalFeatures: "slider.horizontal.3"
             case .heliosV5: "sparkles"
             }
         }
@@ -241,6 +244,7 @@ struct SettingsView: View {
             case .privacy:        .privacyStore
             case .provenance:     .privacyStore
             case .substrateHealth: .advanced
+            case .experimentalFeatures: .advanced
             case .general:        .advanced
             case .heliosV5:       .advanced
             }
@@ -289,6 +293,8 @@ struct SettingsView: View {
                 "Read-only audit trail for agent, graph, and mutation projections."
             case .substrateHealth:
                 "Unified WRV panel for substrate health, falsifiers, and drift."
+            case .experimentalFeatures:
+                "Unified UserDefaults feature flags and experimental gates."
             case .heliosV5:
                 "Research-only HELIOS scaffold; v1 runtime controls are deferred."
             }
@@ -314,7 +320,7 @@ struct SettingsView: View {
             .listStyle(.sidebar)
             .scrollContentBackground(.hidden)
             .background {
-                SettingsThemedBlurBackdrop(theme: ui.theme.surfaceVariant(.other), role: .sidebar)
+                SettingsSidebarBackdrop(theme: ui.theme)
                     .ignoresSafeArea()
             }
             .navigationSplitViewColumnWidth(min: 196, ideal: 212, max: 260)
@@ -322,8 +328,7 @@ struct SettingsView: View {
             settingsDetail
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .background {
-                    SettingsThemedBlurBackdrop(theme: ui.theme.surfaceVariant(.other), role: .page)
-                        .ignoresSafeArea()
+                    SettingsDetailBackdrop(theme: ui.theme)
                 }
         }
         .navigationSplitViewStyle(.balanced)
@@ -398,6 +403,7 @@ struct SettingsView: View {
             case .privacy: PrivacyDetailView()
             case .provenance: ProvenanceConsoleView()
             case .substrateHealth: SubstrateHealthPanel()
+            case .experimentalFeatures: ExperimentalFeaturesSettingsPanel()
             case nil: GeneralDetailView()
             }
         }
@@ -1184,6 +1190,123 @@ private struct LandingGreetingEditorRow: View {
     }
 }
 
+// MARK: - Experimental Features Panel
+
+// UAS: settings/experimental-features-panel
+// Plane: RuntimePlane::Verification
+// Residency: ResidencyTier::CurrentApp
+private struct ExperimentalFeaturesSettingsPanel: View {
+    @AppStorage(RRFFusionFlags.userDefaultsKey) private var rrfFusionEnabled = false
+    @AppStorage("EPISTEMOS_GRAPH_INDEX_CHATS") private var graphIndexChatsEnabled = false
+    @AppStorage(PromptTreePreferences.userDefaultsKey) private var promptTreeEnabled = false
+    @AppStorage(EidosFlags.userDefaultsKey) private var eidosEnabled = false
+    @AppStorage(VaultRecallFlags.userDefaultsKey) private var vaultRecallEnabled = false
+    @AppStorage(SystemGFlags.userDefaultsKey) private var systemGEnabled = false
+    @AppStorage(ACSAdmissionFlags.userDefaultsKey) private var acsAdmissionEnabled = false
+    @AppStorage(FUlpFlags.userDefaultsKey) private var fUlpEnabled = false
+    @AppStorage(LocalModelCatalog.powerUserModeDefaultsKey) private var localAgentPowerUserMode = false
+
+    var body: some View {
+        Form {
+            Section("Feature Flags") {
+                flagToggle(
+                    title: "RRF fusion",
+                    key: RRFFusionFlags.userDefaultsKey,
+                    detail: "UserDefaults-backed runtime gate; launch environment can still pin it on.",
+                    isOn: $rrfFusionEnabled
+                )
+                flagToggle(
+                    title: "Graph chat indexing",
+                    key: "EPISTEMOS_GRAPH_INDEX_CHATS",
+                    detail: "Reserved UserDefaults flag; status-only until a runtime reader lands.",
+                    isOn: $graphIndexChatsEnabled
+                )
+                flagToggle(
+                    title: "Prompt tree",
+                    key: PromptTreePreferences.userDefaultsKey,
+                    detail: PromptTreePreferences.isPinnedByEnvironment()
+                        ? "Pinned on by EPISTEMOS_PROMPT_TREE=1."
+                        : "UserDefaults gate for the prompt-as-data surface.",
+                    isOn: $promptTreeEnabled
+                )
+                .disabled(PromptTreePreferences.isPinnedByEnvironment())
+            }
+
+            Section("Substrate Gates") {
+                flagToggle(
+                    title: "Eidos V0",
+                    key: EidosFlags.userDefaultsKey,
+                    detail: "Enables the Eidos path; chip strip stays orange when the backend is fixture or unfalsified.",
+                    isOn: $eidosEnabled
+                )
+                flagToggle(
+                    title: "Vault recall contract",
+                    key: VaultRecallFlags.userDefaultsKey,
+                    detail: "Enables visible recall traces; scaffold traces remain non-production.",
+                    isOn: $vaultRecallEnabled
+                )
+                flagToggle(
+                    title: "System G",
+                    key: SystemGFlags.userDefaultsKey,
+                    detail: "Enables the System G breadcrumb/status path; production chip waits for a falsifier.",
+                    isOn: $systemGEnabled
+                )
+                flagToggle(
+                    title: "ACS admission",
+                    key: ACSAdmissionFlags.userDefaultsKey,
+                    detail: "Displays the admission gate state; production green is tied to F-ACS-AnchorLookup.",
+                    isOn: $acsAdmissionEnabled
+                )
+                flagToggle(
+                    title: "F-ULP oracle",
+                    key: FUlpFlags.userDefaultsKey,
+                    detail: "Research witness runner for the EML arithmetic floor.",
+                    isOn: $fUlpEnabled
+                )
+            }
+
+            Section("Local Agent") {
+                flagToggle(
+                    title: "Power-user mode",
+                    key: LocalModelCatalog.powerUserModeDefaultsKey,
+                    detail: "Lowers the primary-agent RAM gate to \(LocalModelCatalog.minRAMForPrimaryAgentModel(isPowerUser: true)) GB.",
+                    isOn: $localAgentPowerUserMode
+                )
+                LabeledContent("Effective primary-agent floor") {
+                    Text("\(LocalModelCatalog.minRAMForPrimaryAgentModel(isPowerUser: localAgentPowerUserMode)) GB")
+                        .font(.system(.caption, design: .monospaced))
+                }
+                Label(
+                    "Relaunch Epistemos after changing this so launch-time model catalogs and hardware checks re-read the gate.",
+                    systemImage: "arrow.clockwise.circle"
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private func flagToggle(
+        title: String,
+        key: String,
+        detail: String,
+        isOn: Binding<Bool>
+    ) -> some View {
+        Toggle(isOn: isOn) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                Text(key)
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
 // MARK: - Inference Detail
 
 private struct InferenceDetailView: View {
@@ -1192,6 +1315,7 @@ private struct InferenceDetailView: View {
     @Environment(LocalModelManager.self) private var localModelManager
 
     @AppStorage("epistemos.inferenceAdvancedSettingsEnabled") private var showsAdvancedSettings = false
+    @AppStorage(LocalModelCatalog.powerUserModeDefaultsKey) private var localAgentPowerUserMode = false
 
     @State private var showLocalModelManager = false
     @State private var tokenCapEnabled = false
@@ -1323,6 +1447,31 @@ private struct InferenceDetailView: View {
                         onGotIt: { showRoutingHint = false }
                     )
                 }
+            }
+
+            Section {
+                Toggle(isOn: $localAgentPowerUserMode) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Power-user mode")
+                        Text("Allows the 36B primary-agent opt-in gate at \(LocalModelCatalog.minRAMForPrimaryAgentModel(isPowerUser: true)) GB instead of \(LocalModelCatalog.minRAMForPrimaryAgentModel(isPowerUser: false)) GB.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                LabeledContent("Primary agent RAM floor") {
+                    Text("\(LocalModelCatalog.minRAMForPrimaryAgentModel(isPowerUser: localAgentPowerUserMode)) GB")
+                        .font(.system(.caption, design: .monospaced))
+                }
+
+                Label(
+                    "Relaunch Epistemos after changing this so launch-time model catalogs and hardware checks re-read the gate.",
+                    systemImage: "arrow.clockwise.circle"
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            } header: {
+                Text("Inference Lanes")
             }
 
             Section {

@@ -437,11 +437,11 @@ nonisolated struct EpdocEditorBridgeTests {
         let css = try loadMirroredSourceTextFile("js-editor/src/editor.css")
 
         #expect(css.contains(".ProseMirror pre,"))
-        #expect(css.contains(".epdoc-mermaid,"))
+        #expect(css.contains(".epdoc-legacy-diagram,"))
         #expect(css.contains(".epdoc-chart,"))
         #expect(css.contains(".ProseMirror img[data-epdoc-image]"))
         #expect(css.contains("contain: layout paint style;"),
-                "heavy rendered blocks need paint containment so large code, diagram, chart, and image nodes do not invalidate the whole document surface.")
+                "heavy rendered blocks need paint containment so large code, legacy diagram source, chart, and image nodes do not invalidate the whole document surface.")
     }
 
     @Test(".epdoc H1-H3 typography tracks the native prose editor display scale")
@@ -469,9 +469,13 @@ nonisolated struct EpdocEditorBridgeTests {
                 "Prose H2 is also display typography in the active light/dark face.")
         #expect(css.contains("--epdoc-h3-size: 19px;"),
                 "Prose H3 stays in the display face while H4/H5 remain regular body typography.")
-        #expect(css.contains(#"--epdoc-display-font: "Retro Gaming""#))
+        #expect(css.contains(#"--epdoc-display-font: "MatrixTypeDisplay""#))
+        #expect(css.contains(#"--epdoc-h2-font: "ChonkyPixels""#))
+        #expect(css.contains(#"--epdoc-h3-font: "ChonkyPixels""#))
         #expect(css.contains(".ProseMirror h1,\n.ProseMirror h2,\n.ProseMirror h3 {"))
         #expect(!css.contains(".ProseMirror h4,\n.ProseMirror h5 {\n  font-family: var(--epdoc-display-font);"))
-        #expect(css.contains("font-family: var(--epdoc-display-font);"))
+        #expect(css.contains("font-family: var(--epdoc-h1-font);"))
+        #expect(css.contains("font-family: var(--epdoc-h2-font);"))
+        #expect(css.contains("font-family: var(--epdoc-h3-font);"))
     }
 }

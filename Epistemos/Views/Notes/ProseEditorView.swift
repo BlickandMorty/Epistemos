@@ -31,6 +31,7 @@ struct ProseEditorView: View {
     var isEditable: Bool = true
     let initialBodyOverride: String?
     let navigationContext: ProseEditorNavigationContext
+    let themeOverride: EpistemosTheme?
 
     @Environment(\.modelContext) private var modelContext
     @Environment(UIState.self) private var ui
@@ -50,12 +51,14 @@ struct ProseEditorView: View {
         page: SDPage,
         isEditable: Bool = true,
         initialBodyOverride: String? = nil,
-        navigationContext: ProseEditorNavigationContext = .notes
+        navigationContext: ProseEditorNavigationContext = .notes,
+        themeOverride: EpistemosTheme? = nil
     ) {
         self.page = page
         self.isEditable = isEditable
         self.initialBodyOverride = initialBodyOverride
         self.navigationContext = navigationContext
+        self.themeOverride = themeOverride
         let snapshot = Self.initialBodySnapshot(for: page, preferredBody: initialBodyOverride)
         _bodyText = State(initialValue: snapshot.bodyText)
         _lastPersistedBody = State(initialValue: snapshot.lastPersistedBody)
@@ -216,7 +219,7 @@ struct ProseEditorView: View {
             pageId: page.id,
             pageBody: bodyText,
             isFocused: isFocused,
-            theme: ui.theme,
+            theme: themeOverride ?? ui.theme,
             isEditable: isEditable,
             isFocusMode: notesUI.isFocusMode,
             modelContext: modelContext,

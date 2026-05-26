@@ -1167,18 +1167,23 @@ final class ChatCoordinator {
         let callID = UUID().uuidString
         let startedAt = Date()
         let metadata = toolMetadataByName[name]
+        let normalizedArgumentsJson = ToolTierBridge.normalizedInputJson(
+          toolName: name,
+          inputJson: argumentsJson,
+          defaultFileSearchRoot: vaultPath
+        )
 
         await MainActor.run {
           agentChat.activeToolName = name
           agentChat.isAgentExecuting = true
-          agentChat.recordToolUse(id: callID, name: name, inputJson: argumentsJson)
+          agentChat.recordToolUse(id: callID, name: name, inputJson: normalizedArgumentsJson)
           accState.diagnostics.recordActiveTool(name: name)
         }
 
         let permissionRequest = AgentPermissionRequest(
           id: callID,
           toolName: name,
-          inputJson: argumentsJson,
+          inputJson: normalizedArgumentsJson,
           riskLevel: Self.commandCenterToolRiskLevel(for: metadata),
           description: "This chat requested \(name) during a tools run."
         )
@@ -1217,11 +1222,11 @@ final class ChatCoordinator {
               accState.diagnostics.recordToolExecution(
                 ACCToolExecutionRecord(
                   id: callID,
-                  toolName: name,
-                  inputSummary: String(argumentsJson.prefix(200)),
-                  resultSummary: "Denied by user",
-                  durationMs: durationMs,
-                  isError: true
+                toolName: name,
+                inputSummary: String(normalizedArgumentsJson.prefix(200)),
+                resultSummary: "Denied by user",
+                durationMs: durationMs,
+                isError: true
                 )
               )
               accState.diagnostics.recordActiveTool(name: nil)
@@ -1229,7 +1234,7 @@ final class ChatCoordinator {
             await MainActor.run {
               self.bootstrap.mcpBridge.logExecution(
                 toolName: name,
-                argumentsJson: argumentsJson,
+                argumentsJson: normalizedArgumentsJson,
                 resultJson: deniedResult.resultJson,
                 durationMs: durationMs,
                 success: false
@@ -1251,7 +1256,7 @@ final class ChatCoordinator {
           }
         }
 
-        let result = await baseToolExecutor(name, argumentsJson)
+        let result = await baseToolExecutor(name, normalizedArgumentsJson)
         let durationMs = UInt64(Date().timeIntervalSince(startedAt) * 1000)
         await MainActor.run {
           agentChat.recordToolResult(
@@ -1266,7 +1271,7 @@ final class ChatCoordinator {
             ACCToolExecutionRecord(
               id: callID,
               toolName: name,
-              inputSummary: String(argumentsJson.prefix(200)),
+              inputSummary: String(normalizedArgumentsJson.prefix(200)),
               resultSummary: String(result.resultJson.prefix(200)),
               durationMs: durationMs,
               isError: result.isError
@@ -1277,7 +1282,7 @@ final class ChatCoordinator {
         await MainActor.run {
           self.bootstrap.mcpBridge.logExecution(
             toolName: name,
-            argumentsJson: argumentsJson,
+            argumentsJson: normalizedArgumentsJson,
             resultJson: result.resultJson,
             durationMs: durationMs,
             success: !result.isError
@@ -4189,6 +4194,11 @@ final class ChatCoordinator {
       searchNoteIDs: { [vaultSync] query in
         await vaultSync.searchIndex(query: query)
       },
+      fetchHTMLWorkspaceContext: { attachments in
+        await MainActor.run {
+          HTMLWorkspacePatchRouter.contextPack(for: attachments)
+        }
+      },
       fetchChatMessages: { [bootstrap, modelContainer] chatID in
         await MainActor.run {
           if let thread = bootstrap.threadState.chatThreads.first(where: { $0.id == chatID }) {
@@ -4227,6 +4237,7 @@ final class ChatCoordinator {
     findNotesByTitle: @escaping @Sendable (String) async -> [VaultManifest.ManifestEntry],
     fetchNoteBodies: @escaping @Sendable ([String]) async -> [VaultManifest.NoteBody],
     searchNoteIDs: @escaping @Sendable (String) async -> [String],
+    fetchHTMLWorkspaceContext: @escaping @Sendable ([ContextAttachment]) async -> String? = { _ in nil },
     fetchChatMessages: @escaping @Sendable (String) async -> [AssistantMessage]
   ) async -> AttachedContextResolution {
     // Expand `.folder` attachments into per-note `.note` attachments
@@ -4262,6 +4273,9 @@ final class ChatCoordinator {
       for: expandedAttachments.filter { $0.kind == .chat },
       fetchChatMessages: fetchChatMessages
     )
+    let htmlWorkspaceContext = await fetchHTMLWorkspaceContext(
+      expandedAttachments.filter { $0.kind == .htmlWorkspace }
+    )
     var parts: [String] = []
     if let attachedNoteContext = attachedNoteContext.context, !attachedNoteContext.isEmpty {
       parts.append(attachedNoteContext)
@@ -4287,6 +4301,9 @@ final class ChatCoordinator {
     }
     if let chatContext, !chatContext.isEmpty {
       parts.append(chatContext)
+    }
+    if let htmlWorkspaceContext, !htmlWorkspaceContext.isEmpty {
+      parts.append(htmlWorkspaceContext)
     }
     let combinedLoadedNoteIDs = noteResolution.loadedNoteIds.union(
       attachedNoteContext.loadedNoteIds)
@@ -4799,11 +4816,9 @@ final class ChatCoordinator {
           seenNoteIDs.insert(attachment.targetId)
           result.append(attachment)
         }
-      case .chat, .allNotes, .file:
-        // Phase R.4: file-kind attachments pass through unchanged —
-        // they're already resolved (they carry a canonical
-        // file://{path} or attachment://... URI from pick time) and
-        // don't need folder-expansion or dedup by page id.
+      case .chat, .allNotes, .file, .htmlWorkspace:
+        // Live non-folder attachments pass through unchanged; they are
+        // already resolved at attach time and do not need page-id dedup.
         result.append(attachment)
       }
     }

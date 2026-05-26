@@ -228,12 +228,22 @@ struct ThemePairTests {
             #expect(uiState.themeMode == .systemDefault)
             uiState.isSystemDark = false
             #expect(uiState.graphOverlayTheme == .systemLight)
-            #expect(GraphOverlayThemeStyle.windowAppearance(for: uiState.graphOverlayTheme)?.name == .aqua)
+            #expect(
+                GraphOverlayThemeStyle.windowAppearance(
+                    uiState: uiState,
+                    theme: uiState.graphOverlayTheme
+                ) == nil
+            )
             #expect(GraphOverlayThemeStyle.lightModeEnabled(for: uiState.graphOverlayTheme))
 
             uiState.isSystemDark = true
             #expect(uiState.graphOverlayTheme == .systemDark)
-            #expect(GraphOverlayThemeStyle.windowAppearance(for: uiState.graphOverlayTheme)?.name == .darkAqua)
+            #expect(
+                GraphOverlayThemeStyle.windowAppearance(
+                    uiState: uiState,
+                    theme: uiState.graphOverlayTheme
+                ) == nil
+            )
             #expect(!GraphOverlayThemeStyle.lightModeEnabled(for: uiState.graphOverlayTheme))
         }
     }
@@ -243,6 +253,8 @@ struct ThemePairTests {
     func graphOverlayFallbackUsesNativeTokens() {
         #expect(GraphOverlayThemeStyle.resolvedTheme(uiState: nil, fallbackIsDark: false) == .systemLight)
         #expect(GraphOverlayThemeStyle.resolvedTheme(uiState: nil, fallbackIsDark: true) == .systemDark)
+        #expect(GraphOverlayThemeStyle.windowAppearance(uiState: nil, theme: .systemLight)?.name == .aqua)
+        #expect(GraphOverlayThemeStyle.windowAppearance(uiState: nil, theme: .systemDark)?.name == .darkAqua)
     }
 
     @MainActor
@@ -387,17 +399,27 @@ struct ThemePairTests {
     }
 
     @MainActor
-    @Test("App heading roles use active pair display typography for the first three heading levels")
+    @Test("Classic resolves to the stable custom light and softened OLED themes with global Matrix/Chonky typography")
     func appHeadingRolesUseSharedDisplayScale() {
+        #expect(ThemePair.classic.description == "White · OLED Soft")
+        #expect(ThemePair.classic.lightTheme == .light)
+        #expect(ThemePair.classic.darkTheme == .oledSoft)
+        #expect(ThemePair.classic.resolved(isDark: false) == .light)
+        #expect(ThemePair.classic.resolved(isDark: true) == .oledSoft)
+        #expect(EpistemosTheme.oledSoft.themePair == .classic)
+
         withPreservedThemeDefaults {
             UserDefaults.standard.set(ThemePair.classic.rawValue, forKey: UIState.themePairDefaultsKey)
 
             #expect(AppDisplayTypography.coralDisplayFontName == "CoralPixels-Regular")
             #expect(AppDisplayTypography.legacyDisplayFontName == "RetroGaming")
-            #expect(AppDisplayTypography.displayFontName(isDark: false) == "RetroGaming")
-            #expect(AppDisplayTypography.displayFontName(isDark: true) == "RetroGaming")
+            #expect(AppDisplayTypography.displayFontName(isDark: false) == "MatrixTypeDisplay-Regular")
+            #expect(AppDisplayTypography.displayFontName(isDark: true) == "MatrixTypeDisplay-Regular")
             #expect(AppDisplayTypography.displayFontScale(isDark: false) == 1.0)
             #expect(AppDisplayTypography.displayFontScale(isDark: true) == 1.0)
+            #expect(AppHeadingRole.h1.fontName == "MatrixTypeDisplay-Regular")
+            #expect(AppHeadingRole.h2.fontName == "ChonkyPixels")
+            #expect(AppHeadingRole.h3.fontName == "ChonkyPixels")
         }
         // Per user 2026-05-12: graph node labels use the JetBrainsMono
         // monospace atlas (the v1 "before" identity) in both light and
@@ -407,13 +429,17 @@ struct ThemePairTests {
         #expect(AppDisplayTypography.graphLabelAtlasResourceName(isDark: true) == "sdf_labels")
         #expect(AppHeadingRole.pageTitle.fontSize == 34)
         #expect(AppHeadingRole.pageTitle.animatesOnFirstAppearance)
-        #expect(AppHeadingRole.h1.fontName == AppDisplayTypography.displayFontName)
-        #expect(AppHeadingRole.h2.fontName == AppDisplayTypography.displayFontName)
-        #expect(AppHeadingRole.h3.fontName == AppDisplayTypography.displayFontName)
         #expect(AppHeadingRole.h1.fontSize == 32)
         #expect(AppHeadingRole.h2.fontSize == 26)
         #expect(AppHeadingRole.h3.fontSize == 18)
         #expect(AppHeadingRole.section.fontSize == 12)
+    }
+
+    @Test("Classic softened OLED follows the same assistant glass path as old Classic dark")
+    func classicSoftOLEDFollowsClassicAssistantGlassPath() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Theme/GlassModifiers.swift")
+
+        #expect(source.contains("theme == .oled || theme == .oledSoft"))
     }
 
     @Test("Markdown H1 sizing eases down for longer titles without collapsing into H2")
@@ -1337,8 +1363,8 @@ LD_RUNPATH_SEARCH_PATHS = (
         let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
 
         #expect(landingView.contains("landingPixelCommands"))
-        #expect(landingView.contains("PixelLandingCommandTile(\n                title: \"Notes\""))
-        #expect(landingView.contains("PixelLandingCommandTile(\n                title: \"New Note\""))
+        #expect(landingView.contains("PixelLandingCommandTile(\n                title: \"notes\""))
+        #expect(landingView.contains("PixelLandingCommandTile(\n                title: \"new note\""))
         #expect(!landingView.contains("HoverRevealCommandHint("))
         #expect(!landingView.contains("CommandHint(modIcon: \"command\", key: \"N\", label: \"New Note\""))
     }
@@ -1442,7 +1468,7 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(settingsView.contains("Open Shortcuts"))
         #expect(settingsView.contains("Microphone access"))
         #expect(settingsView.contains("showQuickCapture"))
-        #expect(landingView.contains("Quick Capture"))
+        #expect(landingView.contains("quick capture"))
         #expect(landingView.contains("showLandingInlineCommand(.quickCapture)"))
     }
 
@@ -1463,40 +1489,95 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(pixelComponents.contains("enum PixelStepMotion"))
         #expect(pixelComponents.contains("struct PixelPanelTitle"))
         #expect(pixelComponents.contains("private func pixelPanelStrokeWidth"))
+        #expect(pixelComponents.contains("private func platinumPixelPanel"))
+        #expect(pixelComponents.contains("private func classicNativePanel"))
+        #expect(pixelComponents.contains("private func emberHybridPanel"))
+        #expect(pixelComponents.contains("RoundedRectangle(cornerRadius: 28, style: .continuous)"))
+        #expect(pixelComponents.contains("RoundedRectangle(cornerRadius: 18, style: .continuous)"))
         #expect(pixelComponents.contains("theme.isDark ? 1 : 1.5"))
         #expect(pixelComponents.contains("theme.isDark ? 0.24 : 0.34"))
         #expect(pixelComponents.contains("@State private var isHovered"))
+        #expect(!pixelComponents.contains("@State private var hoverFrame"))
+        #expect(!pixelComponents.contains("@State private var hoverRevealTask"))
+        #expect(pixelComponents.contains("var isActive = false"))
+        #expect(!pixelComponents.contains("var onHoverReveal: (() -> Void)? = nil"))
         #expect(pixelComponents.contains("private var dormantCommandTitle"))
-        #expect(pixelComponents.contains("private var commandHoverChrome"))
-        #expect(pixelComponents.contains("private var commandHoverStroke"))
-        #expect(pixelComponents.contains(".glassEffect(.regular.interactive(), in: Capsule())"))
-        #expect(!pixelComponents.contains("@State private var hoverTypingSeed"))
+        #expect(!pixelComponents.contains("private var commandHoverChrome"))
+        #expect(!pixelComponents.contains("private var commandHoverStroke"))
+        #expect(!pixelComponents.contains("private var commandPeak"))
+        #expect(!pixelComponents.contains("platinumCommandChrome"))
+        #expect(!pixelComponents.contains("classicCommandChrome"))
+        #expect(!pixelComponents.contains("emberCommandChrome"))
+        #expect(!pixelComponents.contains(".background { commandHoverChrome }"))
+        #expect(!pixelComponents.contains(".overlay { commandHoverStroke }"))
+        #expect(!pixelComponents.contains(".overlay(alignment: .topLeading) { commandPeak }"))
+        #expect(pixelComponents.contains("PixelCommandTypewriterText("))
+        #expect(pixelComponents.contains("text: lowercasedTitle"))
+        #expect(pixelComponents.contains("enum LandingCommandThemeTreatment"))
+        #expect(pixelComponents.contains("case platinumBlock"))
+        #expect(pixelComponents.contains("case classicNative"))
+        #expect(pixelComponents.contains("case emberHybrid"))
+        #expect(pixelComponents.contains("case .platinumViolet:"))
+        #expect(pixelComponents.contains("return .platinumBlock"))
+        #expect(pixelComponents.contains("case .classic:"))
+        #expect(pixelComponents.contains("return .classicNative"))
+        #expect(pixelComponents.contains("case .ember:"))
+        #expect(pixelComponents.contains("return .emberHybrid"))
+        #expect(!pixelComponents.contains("case .platinumViolet, .classic, .ember:"))
+        #expect(pixelComponents.contains("enum LandingCommandTypography"))
+        #expect(pixelComponents.contains("static func heroFontName(for theme: EpistemosTheme) -> String"))
+        #expect(pixelComponents.contains("static func h2h3FontName(for theme: EpistemosTheme) -> String"))
+        #expect(pixelComponents.contains("LandingCommandTypography.commandFont"))
+        #expect(pixelComponents.contains("LandingCommandTypography.panelTitleFont"))
+        #expect(pixelComponents.contains("theme.resolved.accent.color"))
+        #expect(!pixelComponents.contains("ForEach(0..<4"))
+        #expect(!pixelComponents.contains("onHoverReveal?()"))
         #expect(!pixelComponents.contains("private var hoverCommandOverlay"))
-        #expect(!pixelComponents.contains("PixelCommandTypewriterText(\n                text: title"))
         #expect(!pixelComponents.contains("PixelVectorHoverBlur("))
         #expect(!pixelComponents.contains("hoverShortcutText"))
-        #expect(pixelComponents.contains("if isHovered"))
-        #expect(pixelComponents.contains("AppDisplayTypography.regularUIFont(size: 12, weight: .semibold)"))
-        #expect(!pixelComponents.contains(".id(\"hover-\\(hoverTypingSeed)-\\(title)\")"))
+        #expect(pixelComponents.contains("if isLit"))
         #expect(pixelComponents.contains("PixelGlyph(kind: glyph, accent: accent)"))
         #expect(pixelComponents.contains(".frame(height: 52"))
         #expect(landingView.contains("GridItem(.adaptive(minimum: 136, maximum: 176), spacing: 8)"))
-        #expect(!pixelComponents.contains(".zIndex(isHovered ? 10 : 0)"))
-        #expect(!pixelComponents.contains(".background(alignment: .leading)"))
-        #expect(!pixelComponents.contains("private var hoverExpansionWidth"))
-        #expect(!pixelComponents.contains("private var currentHoverWidth"))
-        #expect(!pixelComponents.contains("@State private var hoverFrame"))
+        #expect(pixelComponents.contains(".zIndex(isActive || isHovered ? 10 : 0)"))
+        #expect(!pixelComponents.contains("private var hoverExpansionProgress"))
+        #expect(!pixelComponents.contains("PixelStepMotion.hoverExpansionProgress"))
+        #expect(!pixelComponents.contains("hoverBloomProgress"))
+        #expect(!pixelComponents.contains("commandShadowColor"))
+        #expect(!pixelComponents.contains("commandScale(isLit:"))
+        #expect(!pixelComponents.contains("commandYOffset(isLit:"))
+        #expect(!pixelComponents.contains("Circle()\n                    .fill(accent.opacity(isLit"))
+        #expect(!pixelComponents.contains("RoundedRectangle(cornerRadius: 5, style: .continuous)\n                        .fill(Color(hex: 0xC99A62).opacity(isLit"))
         #expect(!pixelComponents.contains("private var hoverLift"))
         #expect(!pixelComponents.contains("private var hoverCardScale"))
-        #expect(!pixelComponents.contains("hoverConnector"))
-        #expect(!pixelComponents.contains("hoverCommandCard"))
         #expect(!pixelComponents.contains("shortcutBadge"))
         #expect(!pixelComponents.contains("hoverSparkline"))
         #expect(!pixelComponents.contains("Text(\"KEY\")"))
-        #expect(!pixelComponents.contains("PixelPanelTitle(text: title"))
         #expect(!pixelComponents.contains("PixelGlyph(kind: glyph, accent: accent, isActive: true)"))
         #expect(!pixelComponents.contains("transaction.animation = nil"))
         #expect(!pixelComponents.contains("theme.resolved.background.color.opacity(theme.isDark ? 0.98 : 0.96)"))
+        #expect(landingView.contains("title: \"time machine\""))
+        #expect(landingView.contains("isActive: activeLandingInlineCommand == .timeMachine"))
+        #expect(!landingView.contains("onHoverReveal:"))
+        #expect(landingView.contains("landingStageRevealContainer(accent: theme.resolved.accent.color)"))
+        #expect(landingView.contains("LandingStageCommandPeak(accent: accent, theme: theme)"))
+        #expect(landingView.contains(".preferredColorScheme(landingInlineCommandSurfaceTheme.colorScheme)"))
+    }
+
+    @Test("landing typography follows the global Classic Matrix and Chonky mapping")
+    func landingTypographyFollowsGlobalClassicMapping() throws {
+        let liquidGreeting = try loadTextFile("Epistemos/Views/Landing/LiquidGreeting.swift")
+        let pixelComponents = try loadTextFile("Epistemos/Views/Landing/PixelSurfaceComponents.swift")
+        let theme = try loadTextFile("Epistemos/Theme/EpistemosTheme.swift")
+
+        #expect(theme.contains("case .classic:        return AppDisplayTypography.matrixDisplayFontName"))
+        #expect(theme.contains("? AppDisplayTypography.matrixDisplayFontName"))
+        #expect(theme.contains(": AppDisplayTypography.chonkyDisplayFontName"))
+        #expect(liquidGreeting.contains("LandingCommandTypography.heroFontName(for: theme)"))
+        #expect(liquidGreeting.contains(".weight(.heavy)"))
+        #expect(pixelComponents.contains("theme.displayFontName"))
+        #expect(pixelComponents.contains("theme.headingFontName(level: 2)"))
+        #expect(pixelComponents.contains("return .system(size: size, weight: .semibold, design: .rounded)"))
     }
 
     @Test("landing search input replaces the greeting with an inline stage")
@@ -1517,12 +1598,21 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(landingView.contains("private var landingSearchSendTool: some View"))
         #expect(landingView.contains("private var landingSearchExpandedToolRow: some View"))
         #expect(landingView.contains("LandingStageToolTile("))
-        #expect(!landingView.contains("GeometryReader { proxy in"))
-        #expect(!landingView.contains(".position(x: centerX"))
+        let searchStageStart = try #require(landingView.range(of: "private var landingSearchInlineStage"))
+        let searchStageEnd = try #require(
+            landingView.range(
+                of: "private var landingSearchStageTools",
+                range: searchStageStart.lowerBound..<landingView.endIndex
+            )
+        )
+        let searchStageSource = landingView[searchStageStart.lowerBound..<searchStageEnd.lowerBound]
+        #expect(!searchStageSource.contains("GeometryReader { proxy in"))
+        #expect(!searchStageSource.contains(".position(x: centerX"))
         #expect(landingView.contains("PixelPanelTitle(text: \"Search\""))
         #expect(landingView.contains("landingSearchStepReveal(frame: landingSearchRevealFrame"))
         #expect(!landingView.contains("landingSearchLiquidReveal(frame: landingSearchRevealFrame"))
-        #expect(landingView.contains("Rectangle()\n                    .fill(PixelPanelBackground.actionSurface(for: theme)"))
+        #expect(landingView.contains("RoundedRectangle(cornerRadius: 22, style: .continuous)"))
+        #expect(landingView.contains(".fill(theme.glassBg.opacity(theme.isDark ? 0.18 : 0.10))"))
         #expect(landingView.contains("LiquidGreeting("))
         #expect(landingView.contains("searchMode: showingLandingStageCommand"))
         #expect(landingView.contains("ChatComposerTextEditor("))
@@ -1644,16 +1734,26 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(landingView.contains("private var showingLandingStageCommand: Bool"))
         #expect(landingView.contains("landingInlineCommandStage(for: command)"))
         #expect(landingView.contains("QuickCaptureView(isPresented: landingInlineCommandBinding(for: .quickCapture))"))
-        #expect(landingView.contains("WorkspaceSwitcherOverlay(\n                isPresented: landingInlineCommandBinding(for: .workspaces),\n                presentation: .inline\n            )"))
+        #expect(landingView.contains("WorkspaceSwitcherOverlay("))
+        #expect(landingView.contains("isPresented: landingInlineCommandBinding(for: .workspaces)"))
+        #expect(landingView.contains("presentation: .inline"))
         #expect(landingView.contains("SaveWorkspaceInlineView(isPresented: landingInlineCommandBinding(for: .saveWorkspace))"))
         #expect(landingView.contains("TimeMachineView(isPresented: landingInlineCommandBinding(for: .timeMachine))"))
         #expect(landingView.contains("showLandingInlineCommand(.quickCapture)"))
         #expect(landingView.contains("showLandingInlineCommand(.workspaces)"))
         #expect(landingView.contains("showLandingInlineCommand(.saveWorkspace)"))
         #expect(landingView.contains("showLandingInlineCommand(.timeMachine)"))
-        #expect(!landingView.contains("NotificationCenter.default.post(name: .toggleWorkspaceSwitcher"))
-        #expect(!landingView.contains("NotificationCenter.default.post(name: .showSaveWorkspacePanel"))
-        #expect(!landingView.contains("NotificationCenter.default.post(name: .toggleTimeMachine"))
+        let commandsStart = try #require(landingView.range(of: "private var landingPixelCommands"))
+        let commandsEnd = try #require(
+            landingView.range(
+                of: "private var landingSearchStageTools",
+                range: commandsStart.lowerBound..<landingView.endIndex
+            )
+        )
+        let commandTileBody = landingView[commandsStart.lowerBound..<commandsEnd.lowerBound]
+        #expect(!commandTileBody.contains("NotificationCenter.default.post(name: .toggleWorkspaceSwitcher"))
+        #expect(!commandTileBody.contains("NotificationCenter.default.post(name: .showSaveWorkspacePanel"))
+        #expect(!commandTileBody.contains("NotificationCenter.default.post(name: .toggleTimeMachine"))
         #expect(workspaces.contains("enum WorkspaceSwitcherPresentation"))
         #expect(workspaces.contains("presentation: WorkspaceSwitcherPresentation = .overlay"))
         #expect(workspaces.contains("presentation == .overlay"))

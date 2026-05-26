@@ -165,6 +165,8 @@ struct LocalModelInfrastructureTests {
     @Test("primary-agent host RAM gate matches the published 32 GB threshold")
     func primaryAgentHostRAMGateIsExactlyThirtyTwoGB() {
         #expect(LocalModelCatalog.primaryAgentModelMinHostRAMGB == 32)
+        #expect(LocalModelCatalog.minRAMForPrimaryAgentModel(isPowerUser: false) == 32)
+        #expect(LocalModelCatalog.minRAMForPrimaryAgentModel(isPowerUser: true) == 16)
     }
 
     @Test("Hermes 4.3 36B at 4-bit is honestly reported as ~18 GB resident")

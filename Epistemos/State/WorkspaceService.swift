@@ -841,6 +841,23 @@ final class WorkspaceService {
         }
     }
 
+    private static func welcomeBackInfo(
+        summary: String,
+        userNote: String,
+        snapshot: WorkspaceSnapshot
+    ) -> WelcomeBackInfo {
+        let digest = snapshot.activityDigest
+        return WelcomeBackInfo(
+            intentSummary: WelcomeBackInfo.cleanedSummaryText(from: summary),
+            userNote: userNote,
+            noteCount: max(snapshot.openNoteTabs.count, snapshot.liveDocuments?.count ?? 0),
+            chatCount: snapshot.openMiniChatIds.count + (Self.hasRestorableMainChatWork(snapshot) ? 1 : 0),
+            graphWasOpen: snapshot.graphOverlay.visibility != .hidden || snapshot.graphRoute?.kind != .canvas,
+            sessionMinutes: digest?.sessionDurationMinutes ?? 0,
+            editedNoteTitles: digest?.editedNotes.map(\.title) ?? []
+        )
+    }
+
     // MARK: - Auto-Save / Auto-Restore
 
     func autoSave() {
@@ -903,6 +920,14 @@ final class WorkspaceService {
             return
         }
 
+        if welcomeBack != nil {
+            welcomeBack = Self.welcomeBackInfo(
+                summary: savedWorkspace.summary,
+                userNote: savedWorkspace.userNote,
+                snapshot: snapshot
+            )
+        }
+
         // Also save snapshot to EventStore for permanent session history
         if let bootstrap = AppBootstrap.shared,
            let snapshotJSON = String(data: data, encoding: .utf8) {
@@ -953,15 +978,10 @@ final class WorkspaceService {
         restoreSnapshot(snapshot)
 
         // Build welcome-back info from the restored workspace
-        let digest = snapshot.activityDigest
-        welcomeBack = WelcomeBackInfo(
-            intentSummary: WelcomeBackInfo.cleanedSummaryText(from: workspace.summary),
+        welcomeBack = Self.welcomeBackInfo(
+            summary: workspace.summary,
             userNote: workspace.userNote,
-            noteCount: max(snapshot.openNoteTabs.count, snapshot.liveDocuments?.count ?? 0),
-            chatCount: snapshot.openMiniChatIds.count + (Self.hasRestorableMainChatWork(snapshot) ? 1 : 0),
-            graphWasOpen: snapshot.graphOverlay.visibility != .hidden || snapshot.graphRoute?.kind != .canvas,
-            sessionMinutes: digest?.sessionDurationMinutes ?? 0,
-            editedNoteTitles: digest?.editedNotes.map(\.title) ?? []
+            snapshot: snapshot
         )
     }
 

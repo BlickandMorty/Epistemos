@@ -133,6 +133,61 @@ struct SettingsFeaturedPixelPanel<Content: View>: View {
     }
 }
 
+struct SettingsDisclosureSection<Content: View>: View {
+    @Environment(UIState.self) private var ui
+    let title: String
+    let subtitle: String
+    let systemImage: String
+    @Binding var isExpanded: Bool
+    private let content: Content
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
+
+    init(
+        title: String,
+        subtitle: String,
+        systemImage: String,
+        isExpanded: Binding<Bool>,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.systemImage = systemImage
+        self._isExpanded = isExpanded
+        self.content = content()
+    }
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $isExpanded) {
+            VStack(alignment: .leading, spacing: 12) {
+                content
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 8)
+        } label: {
+            HStack(alignment: .top, spacing: 10) {
+                SettingsPixelGlyphBadge(
+                    systemImage: systemImage,
+                    theme: theme,
+                    tint: theme.resolved.accent.color,
+                    size: 18
+                )
+                .frame(width: 18, height: 18)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.caption.weight(.semibold))
+                    Text(subtitle)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+        }
+        .padding(12)
+        .settingsAppleCardChrome(theme: theme, accent: theme.resolved.accent.color)
+    }
+}
+
 struct SettingsPixelGlyphBadge: View {
     let systemImage: String
     let theme: EpistemosTheme

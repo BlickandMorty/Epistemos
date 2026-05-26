@@ -68,7 +68,6 @@ public struct EpdocBlockContextMenu: View {
             ("numbered-list","Numbered list", "list.number"),
             ("task-list",   "Task list",      "checklist"),
             ("math-display","Math (block)",   "function"),
-            ("mermaid",     "Mermaid diagram","flowchart"),
         ]
         return all.filter { $0.0 != blockKind }
     }

@@ -439,6 +439,7 @@ struct RootView: View {
 
     private func handleAppearanceOnAppear() {
         appearanceObserver.onAppearanceChange = { @MainActor isDark in
+            guard ui.isSystemDark != isDark else { return }
             ui.isSystemDark = isDark
         }
         appearanceObserver.start()

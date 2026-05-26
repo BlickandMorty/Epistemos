@@ -250,6 +250,20 @@ public extension NSDocumentController {
         document.showWindows()
         return document
     }
+
+    @MainActor
+    @discardableResult
+    func createUntitledHTMLWorkspaceDocument(in preferredDirectory: URL? = nil) throws -> NSDocument {
+        let document = try makeUntitledDocument(ofType: "com.epistemos.html-workspace")
+        if let preferredDirectory,
+           let htmlWorkspace = document as? HTMLWorkspaceDocument {
+            try htmlWorkspace.persistInitialDocument(in: preferredDirectory)
+        }
+        addDocument(document)
+        document.makeWindowControllers()
+        document.showWindows()
+        return document
+    }
 }
 
 public extension EpdocDocument {
@@ -283,6 +297,40 @@ public extension EpdocDocument {
         while true {
             let basename = index == 1 ? "Untitled" : "Untitled \(index)"
             let candidate = directory.appendingPathComponent("\(basename).epdoc", isDirectory: true)
+            if !fileManager.fileExists(atPath: candidate.path) {
+                return candidate
+            }
+            index += 1
+        }
+    }
+}
+
+public extension HTMLWorkspaceDocument {
+    @MainActor
+    func persistInitialDocument(in directory: URL) throws {
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let destination = Self.uniqueUntitledWorkspaceURL(in: directory)
+        let wrapper = try fileWrapper(ofType: "com.epistemos.html-workspace")
+        try wrapper.write(
+            to: destination,
+            options: [.atomic],
+            originalContentsURL: nil
+        )
+        fileURL = destination
+        fileType = "com.epistemos.html-workspace"
+        updateChangeCount(.changeCleared)
+    }
+
+    @MainActor
+    static func uniqueUntitledWorkspaceURL(in directory: URL) -> URL {
+        let fileManager = FileManager.default
+        var index = 1
+        while true {
+            let basename = index == 1 ? "Untitled HTML Workspace" : "Untitled HTML Workspace \(index)"
+            let candidate = directory.appendingPathComponent("\(basename).htmlworkspace", isDirectory: true)
             if !fileManager.fileExists(atPath: candidate.path) {
                 return candidate
             }

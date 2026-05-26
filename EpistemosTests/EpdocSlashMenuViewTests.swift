@@ -10,12 +10,12 @@ import Testing
 @MainActor
 struct EpdocSlashMenuViewTests {
 
-    @Test("Default catalogue mirrors the JS DEFAULT_SLASH_ITEMS list (36 entries)")
+    @Test("Default catalogue mirrors the JS DEFAULT_SLASH_ITEMS list (19 entries)")
     func defaultCatalogueSize() {
         // The JS-side catalogue at js-editor/src/extensions/slash-menu.ts
-        // ships 36 entries; the Swift side MUST mirror that count so
+        // ships 19 entries; the Swift side MUST mirror that count so
         // an entry added on one side is added on the other.
-        #expect(EpdocSlashMenuItem.defaultCatalogue.count == 36,
+        #expect(EpdocSlashMenuItem.defaultCatalogue.count == 19,
                 "default catalogue MUST stay in sync with the JS DEFAULT_SLASH_ITEMS; got \(EpdocSlashMenuItem.defaultCatalogue.count)")
     }
 
@@ -35,13 +35,7 @@ struct EpdocSlashMenuViewTests {
             "heading-1", "heading-2", "heading-3",
             "bullet-list", "numbered-list", "task-list",
             "blockquote", "code-block",
-            "math-display", "mermaid",
-            "mermaid-flowchart", "mermaid-sequence", "mermaid-timeline",
-            "mermaid-mindmap", "mermaid-state", "mermaid-class",
-            "mermaid-er", "mermaid-quadrant", "mermaid-xy", "mermaid-sankey",
-            "mermaid-pie", "mermaid-gantt", "mermaid-journey",
-            "mermaid-requirement", "mermaid-gitgraph", "mermaid-c4",
-            "mermaid-block",
+            "math-display", "html-workspace",
             "chart-scatter", "chart-bar", "chart-line",
             "callout-tip", "callout-warning", "callout-danger",
             "table-3x3", "image", "divider",
@@ -51,11 +45,13 @@ struct EpdocSlashMenuViewTests {
                 "Swift slash-menu ids MUST match the JS DEFAULT_SLASH_ITEMS ids exactly; got: \(actualIDs.symmetricDifference(expectedIDs))")
     }
 
-    @Test("Mermaid entry is labelled as a document diagram, not the old static sample")
-    func mermaidEntryIsDocumentDiagram() {
-        let item = EpdocSlashMenuItem.defaultCatalogue.first { $0.id == "mermaid" }
-        #expect(item?.label == "Document diagram",
-                "The flowchart slash item now derives from the live document; it must not advertise the old static Mermaid sample.")
+    @Test("HTML Workspace replaces new Mermaid diagram creation in the slash menu")
+    func htmlWorkspaceReplacesMermaidCreation() {
+        let item = EpdocSlashMenuItem.defaultCatalogue.first { $0.id == "html-workspace" }
+        let ids = EpdocSlashMenuItem.defaultCatalogue.map(\.id)
+        #expect(item?.label == "HTML Workspace")
+        #expect(!ids.contains("mermaid"))
+        #expect(!ids.contains { $0.hasPrefix("mermaid-") })
     }
 
     @Test("Slash image insertion defaults to package-local assets")

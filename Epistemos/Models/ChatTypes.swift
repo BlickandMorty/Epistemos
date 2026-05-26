@@ -112,6 +112,10 @@ enum ContextAttachmentKind: String, Codable, Sendable, Hashable {
     /// the legacy `FileAttachment` on the message struct so that tool
     /// execution can consult the attached-resource manifest.
     case file
+    /// First-class local HTML Workspace document. MiniChat can target
+    /// the active workspace and apply structured HTML/CSS/JS patch ops
+    /// without overloading normal Epdoc blocks.
+    case htmlWorkspace
 
     var systemImageName: String {
         switch self {
@@ -120,6 +124,7 @@ enum ContextAttachmentKind: String, Codable, Sendable, Hashable {
         case .allNotes: "books.vertical"
         case .folder: "folder"
         case .file: "doc"
+        case .htmlWorkspace: "curlybraces.square"
         }
     }
 }
@@ -154,6 +159,7 @@ struct ContextAttachment: Identifiable, Codable, Sendable, Hashable {
     var resourceURI: String?
     var resourceMode: ContextAttachmentResourceMode?
     var resourceCapabilities: [String]?
+    var surfaceTarget: MiniChatTarget?
 
     var id: String { "\(kind.rawValue):\(targetId)" }
     var systemImageName: String { kind.systemImageName }
@@ -165,7 +171,8 @@ struct ContextAttachment: Identifiable, Codable, Sendable, Hashable {
         subtitle: String? = nil,
         resourceURI: String? = nil,
         resourceMode: ContextAttachmentResourceMode? = nil,
-        resourceCapabilities: [String]? = nil
+        resourceCapabilities: [String]? = nil,
+        surfaceTarget: MiniChatTarget? = nil
     ) {
         self.kind = kind
         self.targetId = targetId
@@ -174,6 +181,7 @@ struct ContextAttachment: Identifiable, Codable, Sendable, Hashable {
         self.resourceURI = resourceURI
         self.resourceMode = resourceMode
         self.resourceCapabilities = resourceCapabilities
+        self.surfaceTarget = surfaceTarget
     }
 }
 

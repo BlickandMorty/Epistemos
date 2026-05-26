@@ -641,6 +641,8 @@ private struct MiniChatInputBar: View {
 
     let chatID: String
 
+    private static let sharedCoordinatorTurnTimeoutSeconds = 90.0
+
     private var theme: EpistemosTheme { ui.theme }
     private var composerAccentColor: Color { theme.resolved.accent.color }
     private let composerMetrics = AssistantComposerMetrics.compactChat
@@ -1184,6 +1186,8 @@ private struct MiniChatInputBar: View {
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                 threadState.setMiniChatStreamingText("", chatID: chatID)
                 threadState.clearMiniChatStreamingThinking(chatID: chatID)
+                threadState.setMiniChatActiveTool(name: nil, inputJson: nil, chatID: chatID)
+                threadState.setMiniChatPendingContentBlocks([], chatID: chatID)
                 if !partial.isEmpty {
                     threadState.addMiniChatMessage(
                         AssistantMessage(
@@ -1198,6 +1202,8 @@ private struct MiniChatInputBar: View {
             } catch {
                 threadState.setMiniChatStreamingText("", chatID: chatID)
                 threadState.clearMiniChatStreamingThinking(chatID: chatID)
+                threadState.setMiniChatActiveTool(name: nil, inputJson: nil, chatID: chatID)
+                threadState.setMiniChatPendingContentBlocks([], chatID: chatID)
                 threadState.addMiniChatMessage(
                     AssistantMessage(
                         role: .assistant,
@@ -1286,6 +1292,11 @@ private struct MiniChatInputBar: View {
                         searchNoteIDs: { query in
                             await vaultSync.searchIndex(query: query)
                         },
+                        fetchHTMLWorkspaceContext: { attachments in
+                            await MainActor.run {
+                                HTMLWorkspacePatchRouter.contextPack(for: attachments)
+                            }
+                        },
                         fetchChatMessages: { [self] chatID in
                             await MainActor.run {
                                 if let thread = threadState.chatThreads.first(where: { $0.id == chatID }) {
@@ -1370,6 +1381,10 @@ private struct MiniChatInputBar: View {
                 if let page {
                     final = executeActions(in: final, page: page)
                 }
+                final = HTMLWorkspacePatchRouter.applyPatchCommands(
+                    in: final,
+                    attachments: attachments
+                ).visibleResponse
 
                 threadState.addMiniChatMessage(
                     AssistantMessage(
@@ -1391,6 +1406,8 @@ private struct MiniChatInputBar: View {
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                 threadState.setMiniChatStreamingText("", chatID: chatID)
                 threadState.clearMiniChatStreamingThinking(chatID: chatID)
+                threadState.setMiniChatActiveTool(name: nil, inputJson: nil, chatID: chatID)
+                threadState.setMiniChatPendingContentBlocks([], chatID: chatID)
                 if !partial.isEmpty {
                     threadState.addMiniChatMessage(
                         AssistantMessage(
@@ -1405,6 +1422,8 @@ private struct MiniChatInputBar: View {
             } catch {
                 threadState.setMiniChatStreamingText("", chatID: chatID)
                 threadState.clearMiniChatStreamingThinking(chatID: chatID)
+                threadState.setMiniChatActiveTool(name: nil, inputJson: nil, chatID: chatID)
+                threadState.setMiniChatPendingContentBlocks([], chatID: chatID)
                 threadState.addMiniChatMessage(
                     AssistantMessage(
                         role: .assistant,
@@ -1472,7 +1491,18 @@ private struct MiniChatInputBar: View {
         }
         defer { mirrorTask.cancel() }
 
-        await bridgeTask.value
+        do {
+            try await withTimeout(seconds: Self.sharedCoordinatorTurnTimeoutSeconds) {
+                await bridgeTask.value
+            }
+        } catch is TimeoutError {
+            bridgeTask.cancel()
+            bootstrap.queryTask?.cancel()
+            mirrorSharedCoordinatorState(bridgeState)
+            throw AgentRuntimeError(
+                message: "Mini chat tools took too long, so I stopped this turn. Try a narrower request or attach the exact workspace or note."
+            )
+        }
         mirrorSharedCoordinatorState(bridgeState)
         finalizeSharedCoordinatorTurn(
             from: bridgeState,
@@ -1555,12 +1585,16 @@ private struct MiniChatInputBar: View {
             return
         }
 
-        let finalContent: String
+        var finalContent: String
         if let page {
             finalContent = executeActions(in: assistant.content, page: page)
         } else {
             finalContent = assistant.content
         }
+        finalContent = HTMLWorkspacePatchRouter.applyPatchCommands(
+            in: finalContent,
+            attachments: attachments
+        ).visibleResponse
 
         let finalMessage = AssistantMessage(
             id: assistant.id,

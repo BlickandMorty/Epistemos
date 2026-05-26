@@ -235,6 +235,9 @@ struct NoteWindowManagerTests {
         #expect(window.styleMask.contains(.fullSizeContentView))
         let toolbar = try #require(window.toolbar)
         #expect(toolbar.identifier == "TestNoteToolbar")
+        #expect(toolbar.displayMode == .iconOnly)
+        #expect(!toolbar.allowsUserCustomization)
+        #expect(!toolbar.autosavesConfiguration)
         if #unavailable(macOS 15.0) {
             #expect(!toolbar.showsBaselineSeparator)
         }

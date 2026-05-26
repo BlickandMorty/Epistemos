@@ -51,7 +51,8 @@ public struct AnswerPacketHealthRow: View {
                 lastEmittedAt: nil,
                 latest: nil,
                 modeCounts: [:],
-                bucketCounts: [:]
+                bucketCounts: [:],
+                claimKindCounts: [:]
             )
         )
     }

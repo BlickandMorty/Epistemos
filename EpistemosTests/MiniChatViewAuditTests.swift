@@ -32,7 +32,7 @@ struct MiniChatViewAuditTests {
         #expect(viewSource.contains("threadState.ensureMiniChatSession(id: chatID)"))
     }
 
-    @Test("new mini chats can inherit the active note or epdoc as removable context")
+    @Test("new mini chats can inherit the active workspace note or epdoc as removable context")
     func newMiniChatsCanInheritTheActiveNoteAsRemovableContext() throws {
         let viewSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
         let controllerSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatWindowController.swift")
@@ -41,10 +41,13 @@ struct MiniChatViewAuditTests {
         #expect(viewSource.contains("@State private var appliedInitialContextAttachment = false"))
         #expect(viewSource.contains("applyInitialContextAttachmentIfNeeded()"))
         #expect(viewSource.contains("threadState.addMiniChatContextAttachment(initialContextAttachment, chatID: chatID)"))
-        #expect(controllerSource.contains("resolvedAttachment = activeEpdocAttachment()"))
+        #expect(controllerSource.contains("resolvedAttachment = activeHTMLWorkspaceAttachment()"))
+        #expect(controllerSource.contains("?? activeEpdocAttachment()"))
         #expect(controllerSource.contains("?? activeGraphNoteAttachment(in: bootstrap)"))
         #expect(controllerSource.contains("?? activeNoteAttachment(in: bootstrap)"))
+        #expect(controllerSource.contains("activeHTMLWorkspaceAttachment()"))
         #expect(controllerSource.contains("activeNoteAttachment(in: bootstrap)"))
+        #expect(controllerSource.contains("ComposerReferenceHelpers.htmlWorkspaceAttachment("))
         #expect(controllerSource.contains("ComposerReferenceHelpers.fileContextAttachment("))
         #expect(controllerSource.contains("activeGraphNoteAttachment(in: bootstrap)"))
         #expect(controllerSource.contains("case .note(let pageID) = bootstrap.graphState.currentRoute"))
@@ -64,7 +67,8 @@ struct MiniChatViewAuditTests {
         #expect(noteWorkspaceSource.contains("MiniChatWindowController.shared.openNewChat(attaching: noteChatContextAttachment)"))
 
         #expect(controllerSource.contains("func openNewChat(attaching attachment: ContextAttachment? = nil)"))
-        #expect(controllerSource.contains("resolvedAttachment = activeEpdocAttachment()"))
+        #expect(controllerSource.contains("resolvedAttachment = activeHTMLWorkspaceAttachment()"))
+        #expect(controllerSource.contains("?? activeEpdocAttachment()"))
         #expect(controllerSource.contains("?? activeGraphNoteAttachment(in: bootstrap)"))
         #expect(controllerSource.contains("?? activeNoteAttachment(in: bootstrap)"))
         #expect(controllerSource.contains("openChat(UUID().uuidString, initialContextAttachment: resolvedAttachment)"))
@@ -201,6 +205,19 @@ struct MiniChatViewAuditTests {
         #expect(threadStateSource.contains("func setMiniChatActiveTool("))
         #expect(messageSource.contains("func setContentBlocks(_ blocks: [MessageContentBlock]?)"))
         #expect(miniChatSource.contains("stored.setContentBlocks(message.contentBlocks)"))
+    }
+
+    @Test("mini chat shared coordinator has bounded cleanup for stalled tool turns")
+    func miniChatSharedCoordinatorHasBoundedCleanupForStalledToolTurns() throws {
+        let miniChatSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+
+        #expect(miniChatSource.contains("private static let sharedCoordinatorTurnTimeoutSeconds"))
+        #expect(miniChatSource.contains("try await withTimeout(seconds: Self.sharedCoordinatorTurnTimeoutSeconds)"))
+        #expect(miniChatSource.contains("bridgeTask.cancel()"))
+        #expect(miniChatSource.contains("bootstrap.queryTask?.cancel()"))
+        #expect(miniChatSource.contains("Mini chat tools took too long"))
+        #expect(miniChatSource.contains("threadState.setMiniChatActiveTool(name: nil, inputJson: nil, chatID: chatID)"))
+        #expect(miniChatSource.contains("threadState.setMiniChatPendingContentBlocks([], chatID: chatID)"))
     }
 
     @Test("mini chat exposes shared tools modes without routing into Omega")

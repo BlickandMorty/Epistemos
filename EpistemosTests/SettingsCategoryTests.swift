@@ -14,7 +14,8 @@ import Foundation
 // Provenance Console adds the fourteenth visible section under that
 // same category. HELIOS research scaffold remains source-preserved but
 // is not visible in the v1 runtime sidebar. Ambient Frequencies adds a
-// fifteenth local-only settings surface under Capture.
+// local-only settings surface under Capture; Substrate Health and
+// Experimental Features add Advanced diagnostics surfaces.
 //
 // These tests lock in:
 //   - the six-category shape (count, order, labels)
@@ -47,11 +48,11 @@ struct SettingsCategoryTests {
             // mostly a compile-time guarantee that the switch is total.
             _ = section.category
         }
-        // 15 visible after Agent consolidation + S.6 privacy pane +
-        // the Provenance Console:
+        // 17 visible after Agent consolidation + S.6 privacy pane +
+        // the Provenance Console, Substrate Health, and Experimental Features:
         // agentControl + authority + overseer rolled up into a single
         // .agent entry; .privacy and .provenance live under Privacy & Storage.
-        #expect(SettingsView.SettingsSection.visibleSections.count == 15)
+        #expect(SettingsView.SettingsSection.visibleSections.count == 17)
     }
 
     @Test("Category mapping matches the Phase 7 spec")
@@ -104,7 +105,7 @@ struct SettingsCategoryTests {
         }
     }
 
-    @Test("All 15 visible sections are reachable (Agent consolidation + privacy/provenance)")
+    @Test("All visible sections are reachable (Agent consolidation + privacy/provenance)")
     func allVisibleSectionsAreReachable() {
         // .agent replaces .agentControl + .authority + .overseer in the
         // sidebar; the legacy entries remain enum cases for deep-link
@@ -116,6 +117,7 @@ struct SettingsCategoryTests {
             .knowledgeFusion, .modelVaults, .iMessageDriver,
             .skills, .agent,
             .landing, .appearance, .vault, .privacy, .provenance,
+            .substrateHealth, .experimentalFeatures,
         ]
         #expect(Set(SettingsView.SettingsSection.visibleSections) == expected)
     }
@@ -129,6 +131,21 @@ struct SettingsCategoryTests {
         #expect(settingsSource.contains("initialTab: .control"))
         #expect(settingsSource.contains("initialTab: .authority"))
         #expect(settingsSource.contains("initialTab: .overseer"))
+    }
+
+    @Test("Experimental Features panel unifies UserDefaults feature flags")
+    func experimentalFeaturesPanelUnifiesUserDefaultsFlags() throws {
+        let settingsSource = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
+
+        #expect(settingsSource.contains("case experimentalFeatures = \"Experimental Features\""))
+        #expect(settingsSource.contains("ExperimentalFeaturesSettingsPanel()"))
+        #expect(settingsSource.contains("RRFFusionFlags.userDefaultsKey"))
+        #expect(settingsSource.contains("EPISTEMOS_GRAPH_INDEX_CHATS"))
+        #expect(settingsSource.contains("LocalModelCatalog.powerUserModeDefaultsKey"))
+        #expect(settingsSource.contains("Relaunch Epistemos after changing this"))
+
+        let rrfSource = try loadMirroredSourceTextFile("Epistemos/Sync/RRFFusionQuery.swift")
+        #expect(rrfSource.contains("public static let userDefaultsKey = \"EPISTEMOS_RRF_FUSION_V1\""))
     }
 
     @Test("Spend dashboard never reports untracked costs as zero")
