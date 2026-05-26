@@ -1,0 +1,107 @@
+{
+  "falsifier_id": "F-Eidos-Bridge-RoundTrip",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "cargo run --release --bin falsify_eidos_bridge_round_trip",
+  "command_digest": "sha256:ba8bdbfbf7f439d3ec0a9aac7ac03f322928544ddf8354b50cae4587400e01fc",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "fcdcb161b7008e540119fe144b92966ee70774c1",
+  "fixture_id": "eidos_production_ffi_in_process_v1",
+  "timestamp_utc": "2026-05-26T12:46:22Z",
+  "result_digest": "sha256:b7b0f369bf4eb250cd1060448511cf5170c7663d6d6e6d6da175abcb5f7e7276",
+  "measurements": {
+    "closed_citation_membership": {
+      "value": [
+        {
+          "source_id": "note-tropical::lex",
+          "result": "{\"Ok\":null}"
+        }
+      ],
+      "unit": "bool"
+    },
+    "forged_citation_rejection": {
+      "value": {
+        "result": "Ok(\"{\\\"Err\\\":{\\\"FabricatedSourceId\\\":\\\"forged::lex\\\"}}\")"
+      },
+      "unit": "bool"
+    },
+    "manifest_mismatch_rejection": {
+      "value": {
+        "result": "Ok(\"{\\\"Err\\\":{\\\"ManifestMismatch\\\":{\\\"packet\\\":\\\"vault-fprime-2026-05-24\\\",\\\"citation\\\":\\\"vault-some-other\\\"}}}\")"
+      },
+      "unit": "bool"
+    },
+    "retrieve_hits_present": {
+      "value": {
+        "hit_count": 1,
+        "manifest_id": "vault-fprime-2026-05-24"
+      },
+      "unit": "bool"
+    },
+    "vault_manifest_prefix": {
+      "value": "vault-fprime-2026-05-24",
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "closed_citation_membership": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "forged_citation_rejection": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "manifest_mismatch_rejection": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "retrieve_hits_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "vault_manifest_prefix": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "closed_citation_membership": true,
+    "forged_citation_rejection": true,
+    "manifest_mismatch_rejection": true,
+    "retrieve_hits_present": true,
+    "vault_manifest_prefix": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [],
+  "notes": "Phase 2 Terminal F' Round 2 in-process Eidos FFI round-trip across 5 inserted notes."
+}

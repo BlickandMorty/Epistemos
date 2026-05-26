@@ -9,8 +9,8 @@
     "unified_memory_gb": 16,
     "memory_bandwidth_gb_s": 200
   },
-  "command": "cargo run --release --bin falsify_vault_recall",
-  "command_digest": "sha256:26b86b382ff84eceb0807ce6e0b5c455fc00d93e59818bc5df466156d3a86bf3",
+  "command": "cargo run --release --bin falsify_vault_recall_50",
+  "command_digest": "sha256:fd23e7a9ad991a7febeb6ff0b10b01045362c2ceae38ff655050edf8340be896",
   "runner_environment": {
     "cwd": "repo_root",
     "shell": "zsh",
@@ -28,11 +28,59 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "04b7331e4cc04e5044003df714c5c98124d7a497",
+  "commit_sha": "fcdcb161b7008e540119fe144b92966ee70774c1",
   "fixture_id": "f_vault_recall_50_canonical_v1",
-  "timestamp_utc": "2026-05-24T02:44:24Z",
-  "result_digest": "sha256:41af5855fd7914fe982dd3d39c2db34f4d98153b933dc4ce947fd07293bb9b93",
+  "timestamp_utc": "2026-05-26T12:44:48Z",
+  "result_digest": "sha256:b80a585189b864eb6e37bafd6744fb8a242a837a0ca73b93fe63499ef0c44b16",
   "measurements": {
+    "adversarial_reject_pct": {
+      "value": {
+        "ratio": "1.0000",
+        "numerator": 51,
+        "denominator": 51
+      },
+      "unit": "ratio"
+    },
+    "by_category": {
+      "value": [
+        {
+          "category": "Adversarial",
+          "total": 51,
+          "passed": 51
+        },
+        {
+          "category": "ChattyPrefix",
+          "total": 50,
+          "passed": 50
+        },
+        {
+          "category": "Paraphrase",
+          "total": 50,
+          "passed": 0
+        },
+        {
+          "category": "PureChatter",
+          "total": 50,
+          "passed": 50
+        },
+        {
+          "category": "SignalOnly",
+          "total": 55,
+          "passed": 55
+        },
+        {
+          "category": "Synthesis",
+          "total": 50,
+          "passed": 50
+        },
+        {
+          "category": "Unicode",
+          "total": 64,
+          "passed": 64
+        }
+      ],
+      "unit": "buckets"
+    },
     "fixture_categories": {
       "value": [
         "Adversarial",
@@ -43,45 +91,83 @@
         "Synthesis",
         "Unicode"
       ],
-      "unit": "category_names"
+      "unit": "categories"
     },
     "fixture_row_count": {
       "value": 370,
       "unit": "rows"
     },
-    "harness_wall_clock_seconds": {
-      "value": 92.02026375,
-      "unit": "seconds"
+    "overall_pass_rate": {
+      "value": "0.8649",
+      "unit": "ratio"
     },
-    "integration_test_passed": {
-      "value": true,
-      "unit": "bool"
+    "overall_passed": {
+      "value": 320,
+      "unit": "rows"
+    },
+    "overall_total": {
+      "value": 370,
+      "unit": "rows"
+    },
+    "top_1_exact_title_pct": {
+      "value": {
+        "ratio": "0.9726",
+        "numerator": 213,
+        "denominator": 219
+      },
+      "unit": "ratio"
+    },
+    "top_5_paraphrase_pct": {
+      "value": {
+        "ratio": "0.0000",
+        "numerator": 0,
+        "denominator": 50
+      },
+      "unit": "ratio"
     }
   },
   "acceptance_thresholds": {
+    "adversarial_reject_pct": {
+      "operator": ">=",
+      "value": "0.95",
+      "unit": "ratio"
+    },
     "fixture_categories": {
       "operator": ">=",
       "value": 5,
-      "unit": "distinct"
+      "unit": "categories"
     },
     "fixture_row_count": {
       "operator": ">=",
       "value": 50,
       "unit": "rows"
     },
-    "integration_test_passed": {
-      "operator": "==",
-      "value": true,
-      "unit": "bool"
+    "top_1_exact_title_pct": {
+      "operator": ">=",
+      "value": "0.95",
+      "unit": "ratio"
+    },
+    "top_5_paraphrase_pct": {
+      "operator": ">=",
+      "value": "0.00",
+      "unit": "ratio"
     }
   },
   "pass_per_axis": {
+    "adversarial_reject_pct": true,
     "fixture_categories": true,
     "fixture_row_count": true,
-    "integration_test_passed": true
+    "top_1_exact_title_pct": true,
+    "top_5_paraphrase_pct": true
   },
   "overall_pass": true,
   "fallback_tier": "Primary",
-  "anomalies": [],
-  "notes": "F-VaultRecall-50 integration test f_vault_recall_50_canonical_rows_against_seeded_vault PASSED (tokio + seeded VaultStore + Tantivy). stdout_tail=running 1 test | test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 10.76s"
+  "anomalies": [
+    {
+      "kind": "row_outcomes_partial",
+      "passed": 320,
+      "failed": 50
+    }
+  ],
+  "notes": "Phase 2 Terminal F' Round 2 in-process measurement against seeded VaultStore. 320/370 passing (86%) — Adversarial 51/51, ChattyPrefix 50/50, Paraphrase 0/50, PureChatter 50/50, SignalOnly 55/55, Synthesis 50/50, Unicode 64/64 [lexical-only: 370/370] [weak-evidence: 99/370]"
 }

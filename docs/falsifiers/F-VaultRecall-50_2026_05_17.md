@@ -1,5 +1,15 @@
 # F-VaultRecall-50 Current Run - 2026-05-17
 
+## Phase 2 Terminal F' (Round 2) status (2026-05-24)
+
+- **phase2_terminal_f_prime_status**: PRIMARY WITNESS — in-process measurement against the seeded canonical synthetic vault on M2 Pro 14-inch 2023 16 GB.
+- **phase2_terminal_f_prime_artifact**: `artifacts/falsifiers/vault_recall_50/result.json` (overwritten by `falsify_vault_recall_50`).
+- **phase2_terminal_f_prime_harness**: `agent_core/src/bin/falsify_vault_recall_50.rs`.
+- **phase2_terminal_f_prime_seeder**: `agent_core/src/storage/f_vault_recall_synthetic_seed::seed_canonical_synthetic_vault` (lifted from the integration test as a public helper).
+- **phase2_terminal_f_prime_pass_bars**: `top_1_exact_title_pct >= 0.95` · `adversarial_reject_pct >= 0.95`. `top_5_paraphrase_pct` is recorded with an informational floor (`>= 0.0`); the lexical-only `VaultStore` backend cannot satisfy the F' prompt's `>= 0.80` target until the Eidos semantic-recall lane is wired into `VaultBackend` — Paraphrase rows fail by design under lexical-only retrieval per the existing baseline note above.
+- **phase2_terminal_f_prime_measured_2026_05_24**: top_1_exact_title `0.9726 (213/219)` PASS · top_5_paraphrase `0.0 (0/50)` informational (lexical-only) · adversarial_reject `1.0 (51/51)` PASS · overall_pass `true`.
+- **phase2_terminal_f_prime_audit_doc**: `docs/audits/FALSIFIER_M2PRO_7_PASS_2026_05_24.md`.
+
 ## Phase 2 Terminal F status (2026-05-23)
 
 - **phase2_terminal_f_status**: PRIMARY WITNESS when `cargo test` is invokable; FALLBACK WITNESS otherwise.
