@@ -1,6 +1,6 @@
 # Main Architecture Recovery Status - 2026-05-26
 
-Status: checkpoint audit after PRs `#83`-`#87`
+Status: checkpoint audit after PRs `#83`-`#88`
 
 Purpose: separate what is actually on `main` from work that is merely preserved
 in stashes, draft PRs, old worktrees, or deferred architecture ledgers. This is
@@ -26,7 +26,7 @@ states:
 `main` and `origin/main` are aligned at:
 
 ```text
-fd39f3f9e9 recovery: ledger stashes and restore landing session intelligence wave files (#87)
+a4ea05424f docs(recovery): split finished main from preserved architecture work (#88)
 ```
 
 Recent recovery/checkpoint PRs now on main:
@@ -38,6 +38,7 @@ Recent recovery/checkpoint PRs now on main:
 | `#85` | Merged | Restored preserved audit documents. |
 | `#86` | Merged | Restored snappy graph/editor defaults and HTML Workspace route; removed stale Mermaid active route. |
 | `#87` | Merged | Added this recovery ledger lineage and restored additive Landing Wave + Session Intelligence files from `stash@{17}`. |
+| `#88` | Merged | Split finished main work from preserved stash/worktree/deferred architecture work and refreshed the Living Index pointer. |
 
 Earlier Phase-2 floor PRs already on main:
 
