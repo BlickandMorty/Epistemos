@@ -112,14 +112,17 @@ Recovered slice:
    `docs/audits/B_PRIME_LEGACY_DIAGRAM_COMPATIBILITY_2026_05_26.md`. Old Epdoc
    `mermaid` schema blocks now load as inert source, while active visual
    creation remains routed to HTML Workspace.
+4. Settings health-row follow-up is archived in
+   `docs/audits/B_PRIME_SETTINGS_HEALTH_SUPERSESSION_2026_05_26.md`. The
+   AnswerPacket row now exposes claim-kind histogram data; stale tint-only chip
+   rewrites were retired.
 
 Remaining slices:
 
-1. Remaining Settings truth floor and substrate health row nuance.
-2. Ambient frequency/audio/settings refinements.
-3. Local-agent tool repair.
-4. Eidos/search-index mirroring follow-up.
-5. Doctrine lint and Living Index updates.
+1. Ambient frequency/audio/settings refinements.
+2. Local-agent tool repair.
+3. Eidos/search-index mirroring follow-up.
+4. Doctrine lint and Living Index updates.
 
 Do not raw-merge `#82`; the branch tree is stale relative to main and shows
 deletions of current main files such as HTML Workspace, Runtime Router, Landing
