@@ -1487,6 +1487,11 @@ struct NotesMentionDropdown: View {
                                 .padding(.vertical, 4)
                                 .background(Capsule().fill(theme.resolved.foreground.color.opacity(0.06)))
                         }
+                        VaultRecallCandidateChipStrip(
+                            candidate: nil,
+                            fallbackText: "vault-wide recall",
+                            theme: theme
+                        )
                     }
                 }
             }
@@ -1531,6 +1536,14 @@ struct NotesMentionDropdown: View {
                                 .font(.system(size: 10))
                                 .foregroundStyle(theme.textTertiary.opacity(0.7))
                         }
+
+                        VaultRecallCandidateChipStrip(
+                            candidate: nil,
+                            fallbackText: results.indexedMatchedNoteIDs.contains(entry.pageId)
+                                ? "body match"
+                                : "manifest match",
+                            theme: theme
+                        )
 
                         if !entry.tags.isEmpty {
                             HStack(spacing: 4) {

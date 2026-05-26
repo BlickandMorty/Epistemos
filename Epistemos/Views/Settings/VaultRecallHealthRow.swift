@@ -169,7 +169,14 @@ public struct VaultRecallHealthRow: View {
             return snapshot.lastQueryAt == nil ? "(no query yet)" : "no signals emitted"
         }
         let slugs = snapshot.lastSignalSummary.map { $0.rawValue }.sorted()
-        return "\(slugs.joined(separator: ",")) (synthetic; no vault retrieval yet)"
+        switch snapshot.lastBackend {
+        case .real:
+            return "\(slugs.joined(separator: ",")) (production search-index trace)"
+        case .stub:
+            return "\(slugs.joined(separator: ",")) (scaffold trace)"
+        case .unknown:
+            return "\(slugs.joined(separator: ",")) (unknown trace origin)"
+        }
     }
 
     private var vaultRecallSubstrateLabel: String {

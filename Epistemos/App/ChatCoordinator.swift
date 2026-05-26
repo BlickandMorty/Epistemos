@@ -32,6 +32,21 @@ final class ChatCoordinator {
     let cleanedQuery: String
     let loadedNoteIds: Set<String>
     let loadedNoteTitles: [String]
+    let vaultRecallTrace: VaultRecallTrace?
+
+    init(
+      context: String?,
+      cleanedQuery: String,
+      loadedNoteIds: Set<String>,
+      loadedNoteTitles: [String],
+      vaultRecallTrace: VaultRecallTrace? = nil
+    ) {
+      self.context = context
+      self.cleanedQuery = cleanedQuery
+      self.loadedNoteIds = loadedNoteIds
+      self.loadedNoteTitles = loadedNoteTitles
+      self.vaultRecallTrace = vaultRecallTrace
+    }
   }
 
   private struct PreparedManifestSearchEntry: Sendable {
@@ -53,12 +68,40 @@ final class ChatCoordinator {
     let cleanedQuery: String
     let loadedNoteIds: Set<String>
     let loadedNoteTitles: [String]
+    let vaultRecallTrace: VaultRecallTrace?
+
+    init(
+      context: String?,
+      cleanedQuery: String,
+      loadedNoteIds: Set<String>,
+      loadedNoteTitles: [String],
+      vaultRecallTrace: VaultRecallTrace? = nil
+    ) {
+      self.context = context
+      self.cleanedQuery = cleanedQuery
+      self.loadedNoteIds = loadedNoteIds
+      self.loadedNoteTitles = loadedNoteTitles
+      self.vaultRecallTrace = vaultRecallTrace
+    }
   }
 
   struct VaultLookupFallbackResult: Sendable {
     let answer: String
     let loadedNoteIds: Set<String>
     let loadedNoteTitles: [String]
+    let vaultRecallTrace: VaultRecallTrace?
+
+    init(
+      answer: String,
+      loadedNoteIds: Set<String>,
+      loadedNoteTitles: [String],
+      vaultRecallTrace: VaultRecallTrace? = nil
+    ) {
+      self.answer = answer
+      self.loadedNoteIds = loadedNoteIds
+      self.loadedNoteTitles = loadedNoteTitles
+      self.vaultRecallTrace = vaultRecallTrace
+    }
   }
 
   nonisolated static func validateMissionPacketRuntimeContract(
@@ -129,6 +172,25 @@ final class ChatCoordinator {
       return
     }
     sections.append(instruction)
+  }
+
+  private func recordVaultRecallTrace(
+    chatId: String?,
+    messageId: String,
+    answerPacketId: String?,
+    trace: VaultRecallTrace
+  ) {
+    VaultRecallTraceSink.shared.record(
+      messageId: messageId,
+      answerPacketId: answerPacketId,
+      trace: trace
+    )
+    EventStore.shared?.appendVaultRecallTrace(
+      sessionId: chatId ?? messageId,
+      messageId: messageId,
+      answerPacketId: answerPacketId,
+      trace: trace
+    )
   }
 
   private func fetchAll<T: PersistentModel>(
@@ -1746,6 +1808,7 @@ final class ChatCoordinator {
           resolvedQuery = query
           chatState.loadedNoteIds = []
           chatState.loadedNoteTitles = []
+          chatState.currentVaultRecallTrace = nil
         }
         let slashContextSection = Self.slashCommandContextSection(
           for: requestedSlashCommand
@@ -1790,6 +1853,14 @@ final class ChatCoordinator {
           ? chatState.vaultBriefingManifest?.asContext()
           : nil
         if isVaultBriefing {
+          if chatState.currentVaultRecallTrace == nil,
+             let manifest = chatState.vaultBriefingManifest {
+            chatState.currentVaultRecallTrace = Self.vaultManifestRecallTrace(
+              query: query,
+              manifest: manifest,
+              source: "ChatCoordinator.vaultBriefingManifest"
+            )
+          }
           effectiveNotesContext = Self.mergedContextSections(
             requiredContextContract,
             slashContextSection,
@@ -2053,6 +2124,14 @@ final class ChatCoordinator {
               if processed != lastMsg.content {
                 chatState.updateLastMessageContent(processed)
               }
+              if let trace = lastMsg.vaultRecallTrace {
+                self.recordVaultRecallTrace(
+                  chatId: capturedChatId,
+                  messageId: lastMsg.id,
+                  answerPacketId: lastMsg.answerPacketId,
+                  trace: trace
+                )
+              }
             }
 
             eventBus.emit(.pipelineComplete)
@@ -2087,10 +2166,12 @@ final class ChatCoordinator {
 
             chatState.loadedNoteIds = fallback.loadedNoteIds
             chatState.loadedNoteTitles = fallback.loadedNoteTitles
+            chatState.currentVaultRecallTrace = fallback.vaultRecallTrace
             chatState.appendLocalMessage(
               role: .assistant,
               content: fallback.answer,
-              loadedNoteTitles: fallback.loadedNoteTitles
+              loadedNoteTitles: fallback.loadedNoteTitles,
+              vaultRecallTrace: fallback.vaultRecallTrace
             )
             persistCompletedMainChatTurn()
             return true
@@ -2785,6 +2866,14 @@ final class ChatCoordinator {
         let processed = self.executeVaultActions(in: lastMsg.content)
         if processed != lastMsg.content {
           chatState.updateLastMessageContent(processed)
+        }
+        if let trace = lastMsg.vaultRecallTrace {
+          self.recordVaultRecallTrace(
+            chatId: chatId,
+            messageId: lastMsg.id,
+            answerPacketId: lastMsg.answerPacketId,
+            trace: trace
+          )
         }
       }
 
@@ -3520,7 +3609,8 @@ final class ChatCoordinator {
         context: nil,
         cleanedQuery: query,
         loadedNoteIds: [],
-        loadedNoteTitles: []
+        loadedNoteTitles: [],
+        vaultRecallTrace: nil
       )
     }
 
@@ -3530,6 +3620,8 @@ final class ChatCoordinator {
     var nextLoadedNoteIds: Set<String> = []
     var nextLoadedTitles: [String] = []
     var includeManifest = includeAllNotesContext
+    var touchedVaultRetrieval = includeAllNotesContext
+    let traceStartedAt = Date()
 
     let mentionPattern = #"@\[([^\]]+)\]"#
     do {
@@ -3553,8 +3645,10 @@ final class ChatCoordinator {
         for title in titlesToResolve {
           if title.caseInsensitiveCompare(Self.allNotesMentionToken) == .orderedSame {
             includeManifest = true
+            touchedVaultRetrieval = true
             continue
           }
+          touchedVaultRetrieval = true
           let found = await findNotesByTitle(title)
           let ids = uniquePreservingOrder(found.map(\.pageId))
           if !ids.isEmpty {
@@ -3577,6 +3671,7 @@ final class ChatCoordinator {
     if referencedNotes.isEmpty,
       let referencedTitle = explicitNoteReferenceTitle(in: cleanedQuery)
     {
+      touchedVaultRetrieval = true
       let ids = uniquePreservingOrder((await findNotesByTitle(referencedTitle)).map(\.pageId))
       if !ids.isEmpty {
         let bodies = await fetchNoteBodies(ids)
@@ -3593,6 +3688,7 @@ final class ChatCoordinator {
       referencedNotes.isEmpty,
       queryLikelyTargetsExistingNote(cleanedQuery)
     {
+      touchedVaultRetrieval = true
       let ids = await autoMatchedReferencedNoteIDs(
         for: cleanedQuery,
         manifest: manifest,
@@ -3611,6 +3707,7 @@ final class ChatCoordinator {
     }
 
     if includeManifest {
+      touchedVaultRetrieval = true
       let matchedIDs = await matchedVaultNoteIDs(
         for: cleanedQuery,
         manifest: manifest,
@@ -3634,11 +3731,22 @@ final class ChatCoordinator {
       matchedVaultNotes: matchedVaultNotes,
       cleanedQuery: cleanedQuery.trimmingCharacters(in: .whitespacesAndNewlines)
     )
+    let vaultRecallTrace = touchedVaultRetrieval
+      ? Self.chatContextVaultRecallTrace(
+        query: pack.cleanedQuery,
+        referencedNotes: referencedNotes,
+        matchedVaultNotes: matchedVaultNotes,
+        manifest: includeManifest ? manifest : nil,
+        source: "ChatCoordinator.resolveNotesContext",
+        startedAt: traceStartedAt
+      )
+      : nil
     return NotesContextResolution(
       context: pack.renderedContext(),
       cleanedQuery: pack.cleanedQuery,
       loadedNoteIds: nextLoadedNoteIds,
-      loadedNoteTitles: nextLoadedTitles
+      loadedNoteTitles: nextLoadedTitles,
+      vaultRecallTrace: vaultRecallTrace
     )
   }
 
@@ -3709,7 +3817,13 @@ final class ChatCoordinator {
       return VaultLookupFallbackResult(
         answer: "I couldn't find any indexed vault notes matching \"\(displayQuery)\".",
         loadedNoteIds: [],
-        loadedNoteTitles: []
+        loadedNoteTitles: [],
+        vaultRecallTrace: indexedFallbackVaultRecallTrace(
+          query: displayQuery,
+          selected: [],
+          candidatePoolSize: ranked.count,
+          startedAt: nil
+        )
       )
     }
 
@@ -3732,7 +3846,13 @@ final class ChatCoordinator {
     return VaultLookupFallbackResult(
       answer: lines.joined(separator: "\n"),
       loadedNoteIds: loadedIds,
-      loadedNoteTitles: loadedTitles
+      loadedNoteTitles: loadedTitles,
+      vaultRecallTrace: indexedFallbackVaultRecallTrace(
+        query: displayQuery,
+        selected: selected,
+        candidatePoolSize: ranked.count,
+        startedAt: nil
+      )
     )
   }
 
@@ -4095,6 +4215,7 @@ final class ChatCoordinator {
     )
     chatState.loadedNoteIds = resolution.loadedNoteIds
     chatState.loadedNoteTitles = resolution.loadedNoteTitles
+    chatState.currentVaultRecallTrace = resolution.vaultRecallTrace
     return (resolution.context, resolution.cleanedQuery)
   }
 
@@ -4177,7 +4298,8 @@ final class ChatCoordinator {
       context: parts.isEmpty ? nil : parts.joined(separator: "\n\n"),
       cleanedQuery: noteResolution.cleanedQuery,
       loadedNoteIds: combinedLoadedNoteIDs,
-      loadedNoteTitles: combinedLoadedTitles
+      loadedNoteTitles: combinedLoadedTitles,
+      vaultRecallTrace: noteResolution.vaultRecallTrace ?? attachedNoteContext.vaultRecallTrace
     )
   }
 
@@ -4196,6 +4318,219 @@ final class ChatCoordinator {
       .replacingOccurrences(of: "<b>", with: "")
       .replacingOccurrences(of: "</b>", with: "")
       .trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+
+  private nonisolated static func chatContextVaultRecallTrace(
+    query: String,
+    referencedNotes: [VaultManifest.NoteBody],
+    matchedVaultNotes: [VaultManifest.NoteBody],
+    manifest: VaultManifest?,
+    source: String,
+    startedAt: Date?
+  ) -> VaultRecallTrace {
+    var selected: [VaultManifest.NoteBody] = []
+    var seenIDs = Set<String>()
+    for note in referencedNotes + matchedVaultNotes where seenIDs.insert(note.pageId).inserted {
+      selected.append(note)
+    }
+
+    let candidates = selected.enumerated().map { index, note in
+      vaultRecallCandidate(
+        note: note,
+        index: index,
+        selectionReason: referencedNotes.contains(where: { $0.pageId == note.pageId })
+          ? "resolved explicit vault note context"
+          : "selected vault-wide context match"
+      )
+    }
+
+    let notes = [
+      "\(source) production row trace",
+      "candidate_pool_size reflects resolved chat-context notes and manifest overview rows",
+      "explicit note bodies are required context; vault-wide matches are supplemental context"
+    ]
+    let manifestPoolSize = manifest?.entries.count ?? 0
+    return finishVaultRecallTrace(
+      query: query,
+      candidates: candidates,
+      candidatePoolSize: max(manifestPoolSize, selected.count),
+      notes: notes,
+      startedAt: startedAt
+    )
+  }
+
+  private nonisolated static func vaultManifestRecallTrace(
+    query: String,
+    manifest: VaultManifest,
+    source: String
+  ) -> VaultRecallTrace {
+    let recentCandidates = manifest.recentBodies.enumerated().map { index, note in
+      vaultRecallCandidate(
+        note: note,
+        index: index,
+        selectionReason: "included in vault briefing recent-note context"
+      )
+    }
+    let manifestCandidates = manifest.entries.prefix(max(0, 6 - recentCandidates.count))
+      .enumerated()
+      .map { index, entry in
+        vaultRecallCandidate(
+          entry: entry,
+          index: recentCandidates.count + index,
+          selectionReason: "listed in vault briefing manifest overview"
+        )
+      }
+
+    return finishVaultRecallTrace(
+      query: query,
+      candidates: recentCandidates + manifestCandidates,
+      candidatePoolSize: manifest.entries.count,
+      notes: [
+        "\(source) production row trace",
+        "candidate_pool_size reflects the ambient manifest inventory",
+        "briefing context includes manifest metadata plus recent note bodies"
+      ],
+      startedAt: nil
+    )
+  }
+
+  private nonisolated static func indexedFallbackVaultRecallTrace(
+    query: String,
+    selected: [VaultLookupFallbackCandidate],
+    candidatePoolSize: Int,
+    startedAt: Date?
+  ) -> VaultRecallTrace {
+    let maxScore = max(selected.map(\.score).max() ?? 1, 1)
+    let candidates = selected.enumerated().map { index, candidate in
+      let normalized = max(0, min(1, candidate.score / maxScore))
+      return VaultRecallCandidate(
+        path: cleanVaultRecallPath(candidate.relativePath) ?? candidate.pageId,
+        title: candidate.title.isEmpty ? nil : candidate.title,
+        snippet: candidate.snippet.isEmpty ? nil : candidate.snippet,
+        fusedScore: normalized,
+        signals: [
+          VaultRecallSignalScore(
+            signal: .lexical,
+            raw: candidate.score,
+            normalized: normalized
+          )
+        ],
+        selectionReason: index == 0
+          ? "top indexed vault fallback match"
+          : "indexed vault fallback match"
+      )
+    }
+
+    return finishVaultRecallTrace(
+      query: query,
+      candidates: candidates,
+      candidatePoolSize: candidatePoolSize,
+      notes: [
+        "ChatCoordinator.buildIndexedVaultLookupFallbackAnswer production row trace",
+        "candidate_pool_size reflects unique indexed fallback matches",
+        "lexical signal only; semantic/graph/MMR remain unavailable on this fallback path"
+      ],
+      startedAt: startedAt
+    )
+  }
+
+  private nonisolated static func vaultRecallCandidate(
+    note: VaultManifest.NoteBody,
+    index: Int,
+    selectionReason: String
+  ) -> VaultRecallCandidate {
+    let score = reciprocalRankScore(index)
+    return VaultRecallCandidate(
+      path: cleanVaultRecallPath(note.relativePath) ?? note.pageId,
+      title: note.title.isEmpty ? nil : note.title,
+      snippet: vaultRecallSnippet(note.body),
+      fusedScore: score,
+      signals: [
+        VaultRecallSignalScore(signal: .lexical, raw: Double(index + 1), normalized: score)
+      ],
+      selectionReason: selectionReason
+    )
+  }
+
+  private nonisolated static func vaultRecallCandidate(
+    entry: VaultManifest.ManifestEntry,
+    index: Int,
+    selectionReason: String
+  ) -> VaultRecallCandidate {
+    let score = reciprocalRankScore(index)
+    return VaultRecallCandidate(
+      path: cleanVaultRecallPath(entry.relativePath) ?? entry.pageId,
+      title: entry.title.isEmpty ? nil : entry.title,
+      snippet: entry.snippet.isEmpty ? nil : entry.snippet,
+      fusedScore: score,
+      signals: [
+        VaultRecallSignalScore(signal: .lexical, raw: Double(index + 1), normalized: score)
+      ],
+      selectionReason: selectionReason
+    )
+  }
+
+  private nonisolated static func finishVaultRecallTrace(
+    query: String,
+    candidates: [VaultRecallCandidate],
+    candidatePoolSize: Int,
+    notes: [String],
+    startedAt: Date?
+  ) -> VaultRecallTrace {
+    let cleanQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+    let effectiveQuery = vaultRecallEffectiveQuery(cleanQuery)
+    let trace = VaultRecallTrace(
+      query: cleanQuery.isEmpty ? query : cleanQuery,
+      effectiveQuery: effectiveQuery,
+      ladderTier: "vault-chat-context-v1",
+      candidatePoolSize: max(candidatePoolSize, candidates.count),
+      candidatesRetained: candidates.count,
+      candidates: candidates,
+      signalSummary: effectiveQuery.isEmpty ? [] : [.lexical],
+      generatedAtMs: vaultRecallGeneratedAtMs(),
+      notes: notes,
+      allChatterFallback: !cleanQuery.isEmpty && effectiveQuery.isEmpty
+    )
+
+    if let startedAt {
+      VaultRecallBridge.recordProductionTrace(
+        trace,
+        latencyMs: Date().timeIntervalSince(startedAt) * 1_000
+      )
+    }
+    return trace
+  }
+
+  private nonisolated static func vaultRecallEffectiveQuery(_ query: String) -> String {
+    let capped = query.count > 500 ? String(query.prefix(500)) : query
+    return capped.lowercased()
+      .components(separatedBy: CharacterSet.alphanumerics.inverted)
+      .filter { $0.count >= 2 }
+      .prefix(20)
+      .joined(separator: " ")
+  }
+
+  private nonisolated static func vaultRecallSnippet(_ body: String) -> String? {
+    let compact = body
+      .replacingOccurrences(of: "\n", with: " ")
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !compact.isEmpty else { return nil }
+    return compact.count > 180 ? String(compact.prefix(180)) : compact
+  }
+
+  private nonisolated static func cleanVaultRecallPath(_ path: String?) -> String? {
+    let trimmed = path?.trimmingCharacters(in: .whitespacesAndNewlines)
+    return trimmed?.isEmpty == false ? trimmed : nil
+  }
+
+  private nonisolated static func vaultRecallGeneratedAtMs() -> UInt64 {
+    let value = Date().timeIntervalSince1970 * 1_000
+    guard value.isFinite, value > 0 else { return 0 }
+    return UInt64(value)
+  }
+
+  private nonisolated static func reciprocalRankScore(_ index: Int) -> Double {
+    1.0 / Double(max(1, index + 1))
   }
 
   private nonisolated static func explicitNoteReferenceTitle(in query: String) -> String? {
@@ -4486,7 +4821,8 @@ final class ChatCoordinator {
         context: nil,
         cleanedQuery: "",
         loadedNoteIds: [],
-        loadedNoteTitles: []
+        loadedNoteTitles: [],
+        vaultRecallTrace: nil
       )
     }
 
@@ -4509,6 +4845,7 @@ final class ChatCoordinator {
     var sections: [String] = []
     var loadedIDs = Set<String>()
     var loadedTitles: [String] = []
+    var loadedBodies: [VaultManifest.NoteBody] = []
 
     for attachment in attachments {
       guard let body = bodiesByID[attachment.targetId] else { continue }
@@ -4528,6 +4865,7 @@ final class ChatCoordinator {
         """
       )
       loadedIDs.insert(body.pageId)
+      loadedBodies.append(body)
       if !loadedTitles.contains(body.title) {
         loadedTitles.append(body.title)
       }
@@ -4548,7 +4886,17 @@ final class ChatCoordinator {
       ),
       cleanedQuery: "",
       loadedNoteIds: loadedIDs,
-      loadedNoteTitles: loadedTitles
+      loadedNoteTitles: loadedTitles,
+      vaultRecallTrace: loadedTitles.isEmpty
+        ? nil
+        : chatContextVaultRecallTrace(
+          query: loadedTitles.joined(separator: " "),
+          referencedNotes: loadedBodies,
+          matchedVaultNotes: [],
+          manifest: nil,
+          source: "ChatCoordinator.buildAttachedNoteContext",
+          startedAt: nil
+        )
     )
   }
 
@@ -5431,6 +5779,7 @@ final class ChatCoordinator {
     userMsg.updatePresentationSnapshot(
       attachments: sourceUserMessage?.attachments ?? [],
       loadedNoteTitles: sourceUserMessage?.loadedNoteTitles,
+      vaultRecallTrace: sourceUserMessage?.vaultRecallTrace,
       contextAttachments: sourceUserMessage?.contextAttachments
     )
     userMsg.chat = chat
@@ -5448,6 +5797,7 @@ final class ChatCoordinator {
     assistantMsg.updatePresentationSnapshot(
       attachments: assistantMessage?.attachments ?? [],
       loadedNoteTitles: assistantMessage?.loadedNoteTitles,
+      vaultRecallTrace: assistantMessage?.vaultRecallTrace,
       contextAttachments: assistantMessage?.contextAttachments
     )
     assistantMsg.inferenceMode = mode.rawValue

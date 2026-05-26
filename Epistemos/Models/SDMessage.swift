@@ -52,6 +52,7 @@ final class SDMessage {
     // MARK: - Attachments
     var attachmentsData: Data?          // Encoded [FileAttachment]
     var loadedNoteTitlesData: Data?     // Encoded [String]
+    var vaultRecallTraceData: Data?     // Encoded VaultRecallTrace
     var contextAttachmentsData: Data?   // Encoded [ContextAttachment]
     var artifactsData: Data?            // Encoded [Artifact] — structured output blocks
     var thinkingTrace: String?
@@ -114,6 +115,17 @@ final class SDMessage {
             return try JSONDecoder().decode([String].self, from: loadedNoteTitlesData)
         } catch {
             Log.db.error("Failed to decode loadedNoteTitles for message \(self.id): \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    @MainActor
+    private func decodedVaultRecallTrace() -> VaultRecallTrace? {
+        guard let vaultRecallTraceData else { return nil }
+        do {
+            return try JSONDecoder().decode(VaultRecallTrace.self, from: vaultRecallTraceData)
+        } catch {
+            Log.db.error("Failed to decode VaultRecallTrace for message \(self.id): \(error.localizedDescription)")
             return nil
         }
     }
@@ -225,6 +237,7 @@ final class SDMessage {
     func updatePresentationSnapshot(
         attachments: [FileAttachment],
         loadedNoteTitles: [String]?,
+        vaultRecallTrace: VaultRecallTrace? = nil,
         contextAttachments: [ContextAttachment]?
     ) {
         do {
@@ -240,6 +253,17 @@ final class SDMessage {
         } catch {
             Log.db.error("Failed to encode loadedNoteTitles for message \(self.id): \(error.localizedDescription)")
             loadedNoteTitlesData = nil
+        }
+        if let vaultRecallTrace {
+            do {
+                let encoded = try JSONEncoder().encode(vaultRecallTrace)
+                vaultRecallTraceData = encoded
+            } catch {
+                Log.db.error("Failed to encode VaultRecallTrace for message \(self.id): \(error.localizedDescription)")
+                vaultRecallTraceData = nil
+            }
+        } else {
+            vaultRecallTraceData = nil
         }
         do {
             let encoded = try JSONEncoder().encode(contextAttachments ?? [])
@@ -267,6 +291,7 @@ final class SDMessage {
             createdAt: createdAt,
             isVaultBriefing: isVaultBriefing,
             loadedNoteTitles: decodedLoadedNoteTitles(),
+            vaultRecallTrace: decodedVaultRecallTrace(),
             contextAttachments: decodedContextAttachments(),
             artifacts: decodedArtifacts(),
             contentBlocks: decodedContentBlocks(),

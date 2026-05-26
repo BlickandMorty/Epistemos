@@ -379,6 +379,10 @@ final class ChatState {
     /// Titles of notes loaded via @-mentions (for UI chips on messages).
     var loadedNoteTitles: [String] = []
 
+    /// Vault recall trace captured while assembling the current turn's context.
+    /// Consumed into the completed assistant ChatMessage at turn completion.
+    var currentVaultRecallTrace: VaultRecallTrace?
+
     /// Per-chat history of context envelopes, keyed by `activeChatId`.
     /// Every completed turn appends its snapshot so the side panel can
     /// show both the most-recent pack AND the cumulative set of notes,
@@ -617,6 +621,7 @@ final class ChatState {
         pendingAttachments = []
         loadedNoteIds = []
         loadedNoteTitles = []
+        currentVaultRecallTrace = nil
         pendingContextAttachments = []
         pendingGraphChatRequest = nil
         pendingSlashCommand = nil
@@ -699,6 +704,7 @@ final class ChatState {
         content: String,
         isError: Bool = false,
         loadedNoteTitles: [String]? = nil,
+        vaultRecallTrace: VaultRecallTrace? = nil,
         contextAttachments: [ContextAttachment]? = nil
     ) {
         let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -719,6 +725,7 @@ final class ChatState {
                 content: trimmed,
                 isError: isError,
                 loadedNoteTitles: loadedNoteTitles,
+                vaultRecallTrace: vaultRecallTrace,
                 contextAttachments: contextAttachments
             )
         )
@@ -840,6 +847,7 @@ final class ChatState {
             mode: mode,
             isVaultBriefing: metadata.briefing,
             loadedNoteTitles: metadata.noteTitles,
+            vaultRecallTrace: metadata.vaultRecallTrace,
             contextAttachments: metadata.contextAttachments,
             artifacts: artifacts,
             contentBlocks: completedContentBlocks,
@@ -950,6 +958,7 @@ final class ChatState {
             mode: mode,
             isVaultBriefing: metadata.briefing,
             loadedNoteTitles: metadata.noteTitles,
+            vaultRecallTrace: metadata.vaultRecallTrace,
             contextAttachments: metadata.contextAttachments,
             artifacts: artifacts,
             contentBlocks: completedContentBlocks,
@@ -1344,15 +1353,18 @@ final class ChatState {
     private func consumeStreamingMessageMetadata() -> (
         briefing: Bool,
         noteTitles: [String]?,
+        vaultRecallTrace: VaultRecallTrace?,
         contextAttachments: [ContextAttachment]?
     ) {
         let metadata = (
             briefing: isCurrentVaultBriefing,
             noteTitles: loadedNoteTitles.isEmpty ? nil : loadedNoteTitles,
+            vaultRecallTrace: currentVaultRecallTrace,
             contextAttachments: pendingContextAttachments.isEmpty ? nil : pendingContextAttachments
         )
         isCurrentVaultBriefing = false
         loadedNoteTitles = []
+        currentVaultRecallTrace = nil
         return metadata
     }
 
@@ -1466,6 +1478,7 @@ final class ChatState {
         pendingContextAttachments = []
         loadedNoteIds = []
         loadedNoteTitles = []
+        currentVaultRecallTrace = nil
         // Explicit user action to clear this chat → discard the
         // matching brain-snapshot history. Other chats' snapshots are
         // untouched because the dictionary is keyed by chatId.

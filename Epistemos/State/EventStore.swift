@@ -337,6 +337,24 @@ final class EventStore: Sendable {
 
     // MARK: - Event Logging
 
+    nonisolated static let vaultRecallTraceEventKind = "vault_recall_trace"
+
+    // UAS: vault-recall/trace-event-payload
+    // Plane: RuntimePlane::Projection
+    // Residency: ResidencyTier::EventLog
+    nonisolated struct VaultRecallTraceEventPayload: Codable, Sendable, Equatable {
+        let messageId: String
+        let answerPacketId: String?
+        let trace: VaultRecallTrace
+
+        // UAS-EXEMPT: Codable field mapping for the parent trace payload.
+        enum CodingKeys: String, CodingKey {
+            case messageId = "message_id"
+            case answerPacketId = "answer_packet_id"
+            case trace
+        }
+    }
+
     func appendEvent(sessionId: String, kind: ActivityEventKind) {
         queue.async { [weak self] in
             guard let self else { return }
@@ -368,6 +386,53 @@ final class EventStore: Sendable {
             sqlite3_bind_double(stmt, 1, timestamp)
             sqlite3_bind_text(stmt, 2, (sessionId as NSString).utf8String, -1, nil)
             sqlite3_bind_text(stmt, 3, (kindString as NSString).utf8String, -1, nil)
+            sqlite3_bind_text(stmt, 4, (payload as NSString).utf8String, -1, nil)
+            sqlite3_step(stmt)
+        }
+    }
+
+    nonisolated func appendVaultRecallTrace(
+        sessionId: String,
+        messageId: String,
+        answerPacketId: String?,
+        trace: VaultRecallTrace
+    ) {
+        let cleanSessionId = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanMessageId = messageId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanSessionId.isEmpty, !cleanMessageId.isEmpty else { return }
+
+        let payload: String
+        do {
+            let data = try Self.payloadEncoder.encode(
+                VaultRecallTraceEventPayload(
+                    messageId: cleanMessageId,
+                    answerPacketId: answerPacketId,
+                    trace: trace
+                )
+            )
+            guard let encoded = String(data: data, encoding: .utf8) else {
+                Self.log.error("EventStore: failed to encode VaultRecallTrace payload as UTF-8 text")
+                return
+            }
+            payload = encoded
+        } catch {
+            Self.log.error(
+                "EventStore: failed to encode VaultRecallTrace for message \(cleanMessageId, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return
+        }
+
+        queue.async { [weak self] in
+            guard let self else { return }
+            let timestamp = Date().timeIntervalSince1970
+            var stmt: OpaquePointer?
+            let sql = "INSERT INTO events (timestamp, session_id, kind, payload) VALUES (?, ?, ?, ?);"
+            guard sqlite3_prepare_v2(self.db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
+            defer { sqlite3_finalize(stmt) }
+
+            sqlite3_bind_double(stmt, 1, timestamp)
+            sqlite3_bind_text(stmt, 2, (cleanSessionId as NSString).utf8String, -1, nil)
+            sqlite3_bind_text(stmt, 3, (Self.vaultRecallTraceEventKind as NSString).utf8String, -1, nil)
             sqlite3_bind_text(stmt, 4, (payload as NSString).utf8String, -1, nil)
             sqlite3_step(stmt)
         }
