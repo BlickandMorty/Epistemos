@@ -131,7 +131,8 @@ Wave, and Ambient Frequency state.
 
 ### 2. Large Old Main WIP (`stash@{18}`)
 
-State: **Partially recovered.**
+State: **Closed for current product UI/UX recovery; preserved as donor
+reference.**
 
 This stash is likely the source of many "UI I remember having" concerns.
 
@@ -141,14 +142,11 @@ Recovered slice:
    donor behavior in
    `docs/audits/STASH18_AGENT_COMMAND_CENTER_DONOR_SYNTHESIS_2026_05_26.md`
    and guards that the old live `AgentCommandCenter` shell stays deleted.
-
-Remaining candidate slices:
-
-1. Landing/session UI refinements.
-2. Editor/note UX refinements.
-3. Chat/runtime presentation.
-4. Graph/performance changes.
-5. Theme/font/physics nuance.
+2. Remaining UI/UX donor surfaces are closed by
+   `docs/audits/STASH18_UI_UX_CLOSEOUT_2026_05_26.md`. Current `main` already
+   has the durable chat, landing, graph, syntax-core, typography, artifact, and
+   editable-transclusion surfaces in newer form. Raw recovery would delete
+   those surfaces.
 
 Important: the old `Epistemos/Views/AgentCommandCenter/*` files are not
 merge-ready. Current tests explicitly assert that the legacy Agent Command
@@ -305,22 +303,18 @@ not fully closed. The next implementation waves are:
 
 ### Recovery Wave - Local UI/UX Nuance
 
-- Continue mining `stash@{18}` for non-shell UI refinements now that the Agent
-  Command Center donor synthesis is archived via PR #91.
 - Recover graph-filter ideas from `stash@{15}` only if they pass performance
   gates.
 - Recover T6 UI/UX polish from the donor branch under D-01.
 
 ## Recommended Next Execution Order
 
-1. **Old main UI synthesis:** mine the remaining `stash@{18}` slices for
-   landing, editor, chat/runtime, graph, and theme nuance.
-2. **Graph WIP audit:** mine `stash@{15}` with a graph performance test gate.
-3. **VaultRecall/Eidos visibility:** mine `stash@{3}` and `stash@{6}` after the
+1. **Graph WIP audit:** mine `stash@{15}` with a graph performance test gate.
+2. **VaultRecall/Eidos visibility:** mine `stash@{3}` and `stash@{6}` after the
    current provenance path is stable.
-4. **Approval UI donor:** inspect `stash@{16}` for `ChatApprovalQueue` /
+3. **Approval UI donor:** inspect `stash@{16}` for `ChatApprovalQueue` /
    approval modal ideas now that the honest-handle FFI slice is closed.
-5. **Wave 3 architecture:** AgentBlueprint replay UI + model metadata badges.
+4. **Wave 3 architecture:** AgentBlueprint replay UI + model metadata badges.
 
 ## Operational Instruction For Agents
 
