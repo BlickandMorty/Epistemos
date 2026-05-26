@@ -83,6 +83,11 @@ These are finished enough to count as present on main:
 - Landing Wave source files and Session Intelligence source: restored in `#87`
   and closed by `docs/audits/STASH17_LANDING_WAVE_CLOSEOUT_2026_05_26.md`.
 - Snappy graph defaults: restored in `#86`.
+- Code editor/vendor donor material from `stash@{16}` and `stash@{19}` is
+  closed by `docs/audits/STASH16_19_EDITOR_DONOR_CLOSEOUT_2026_05_26.md`.
+  Current `main` keeps the compressed editor bundle, KaTeX `.woff2` resources,
+  Xcode-style code colors, and live `CodeEditSourceEditor` path; the old
+  minimal `NSTextView` rewrite and Mermaid runtime vendor are not restored.
 
 ## Not Finished But Preserved
 
