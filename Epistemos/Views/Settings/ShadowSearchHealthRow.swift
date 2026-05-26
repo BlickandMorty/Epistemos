@@ -23,6 +23,15 @@ public struct ShadowSearchHealthRow: View {
                 ok: !snapshot.isDegraded,
                 detail: backendDetail
             )
+            VerifiedFloorChipStrip(
+                flag: "n/a",
+                substrate: snapshot.isDegraded ? "degraded" : "status only",
+                productionWired: false,
+                falsifierPassed: false,
+                falsifier: "docs/falsifiers/F-ShadowFirst-PageEscalation_2026_05_17.md",
+                wiredToday: "Shadow backend health and search metrics are reported without poking the index from Settings.",
+                stillStub: "Observed health is not a green retrieval/falsifier claim."
+            )
             row(
                 label: "Last search",
                 symbol: "clock",

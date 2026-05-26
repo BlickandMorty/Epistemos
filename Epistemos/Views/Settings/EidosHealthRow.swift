@@ -38,7 +38,11 @@ public struct EidosHealthRow: View {
             VerifiedFloorChipStrip(
                 flag: snapshot.isFlagEnabled ? "on" : "off",
                 substrate: chipSubstrateLabel,
-                substrateTint: chipSubstrateTint
+                productionWired: snapshot.lastBackend == .real,
+                falsifierPassed: false,
+                falsifier: "docs/falsifiers/F_EIDOS_CLOSED_CITATION_2026_05_18.md",
+                wiredToday: eidosWiredToday,
+                stillStub: eidosStillStub
             )
             row(
                 label: "Last query",
@@ -112,18 +116,25 @@ public struct EidosHealthRow: View {
 
     private var chipSubstrateLabel: String {
         switch snapshot.lastBackend {
-        case .real:    return "production-vault"
-        case .fixture: return "fixture"
+        case .real:    return "production vault observed"
+        case .fixture: return "fixture path active"
         case .unknown: return "unknown"
         }
     }
 
-    private var chipSubstrateTint: Color {
+    private var eidosWiredToday: String {
         switch snapshot.lastBackend {
-        case .real:    return .green
-        case .fixture: return .orange
-        case .unknown: return .secondary
+        case .real:
+            return "Production Eidos vault bridge returned a vault-prefixed manifest."
+        case .fixture:
+            return "Seeded fixture retriever path is active."
+        case .unknown:
+            return "No Eidos packet has reached Settings this launch."
         }
+    }
+
+    private var eidosStillStub: String {
+        "Green blocked until a primary PASS F-Eidos closed-citation witness is present."
     }
 
     private var lastCitationDetail: String {

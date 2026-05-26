@@ -36,6 +36,15 @@ public struct FalsifierArtifactsHealthRow: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             header
+            VerifiedFloorChipStrip(
+                flag: "n/a",
+                substrate: primaryPassCount > 0 ? "primary witness present" : "artifact reader",
+                productionWired: primaryPassCount > 0,
+                falsifierPassed: primaryPassCount > 0,
+                falsifier: "docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md",
+                wiredToday: "Settings scans artifacts/falsifiers/*/result.json and distinguishes primary from fallback evidence.",
+                stillStub: "Rows without primary_witness/overall_pass stay non-green."
+            )
             if snapshots.isEmpty {
                 emptyState
             } else {
@@ -121,11 +130,15 @@ public struct FalsifierArtifactsHealthRow: View {
     }
 
     private var headerDetail: String {
-        let primary = snapshots.filter { $0.fallbackTier == "Primary" && $0.overallPass }.count
+        let primary = primaryPassCount
         let fallback = snapshots.filter { $0.fallbackTier == "Fallback" && $0.overallPass }.count
         let failed = snapshots.filter { !$0.overallPass }.count
         let refreshed = lastRefresh.map { "\(Self.relative($0))" } ?? "—"
         return "\(primary) primary · \(fallback) fallback · \(failed) failed · refreshed \(refreshed)"
+    }
+
+    private var primaryPassCount: Int {
+        snapshots.filter { $0.fallbackTier == "Primary" && $0.overallPass }.count
     }
 
     public func refresh() {

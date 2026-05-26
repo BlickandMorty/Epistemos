@@ -24,6 +24,15 @@ struct OpLogProjectionHealthRow: View {
                 ok: snapshot.deadLetteredRows == 0,
                 detail: projectionDetail
             )
+            VerifiedFloorChipStrip(
+                flag: "n/a",
+                substrate: snapshot.deadLetteredRows == 0 ? "projection status" : "dead letters",
+                productionWired: false,
+                falsifierPassed: false,
+                falsifier: "docs/falsifiers/F_WBO_DRIFT_LEDGER_2026_05_18.md",
+                wiredToday: "EventStore projection outbox and replay-bundle visibility are readable.",
+                stillStub: "Read-only projection diagnostics are not a green mutation/witness claim."
+            )
             row(
                 label: "Dead letters",
                 symbol: snapshot.deadLetteredRows == 0 ? "checkmark.seal" : "tray.full",

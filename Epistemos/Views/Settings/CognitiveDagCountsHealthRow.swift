@@ -26,7 +26,11 @@ public struct CognitiveDagCountsHealthRow: View {
             VerifiedFloorChipStrip(
                 flag: "n/a",
                 substrate: dag.ffiReachable ? "read-only mirror" : "unavailable",
-                substrateTint: dag.ffiReachable ? .orange : .secondary
+                productionWired: false,
+                falsifierPassed: false,
+                falsifier: dag.falsifier,
+                wiredToday: "Cognitive DAG counts and schema version are projected from the unified FFI snapshot.",
+                stillStub: "Counts are status-only until ACS anchor addressing has a primary PASS witness."
             )
             SubstrateHealthMetricLine(
                 label: "Node kinds",

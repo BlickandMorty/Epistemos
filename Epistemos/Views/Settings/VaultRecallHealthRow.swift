@@ -43,7 +43,11 @@ public struct VaultRecallHealthRow: View {
             VerifiedFloorChipStrip(
                 flag: snapshot.isFlagEnabled ? "on" : "off",
                 substrate: vaultRecallSubstrateLabel,
-                substrateTint: vaultRecallSubstrateTint
+                productionWired: snapshot.lastBackend == .real,
+                falsifierPassed: vaultRecallBenchmarkPassing,
+                falsifier: "docs/falsifiers/F-VaultRecall-50_2026_05_17.md",
+                wiredToday: vaultRecallWiredToday,
+                stillStub: vaultRecallStillStub
             )
             w21MetricChipStrip
             row(
@@ -169,11 +173,14 @@ public struct VaultRecallHealthRow: View {
     }
 
     private var vaultRecallSubstrateLabel: String {
-        vaultRecallBenchmarkPassing ? "W-21 benchmark pass" : "trace scaffold"
-    }
-
-    private var vaultRecallSubstrateTint: Color {
-        vaultRecallBenchmarkPassing ? .green : .orange
+        switch snapshot.lastBackend {
+        case .real:
+            vaultRecallBenchmarkPassing ? "vault backend + benchmark" : "vault backend observed"
+        case .stub:
+            "synthetic trace · no backend binding"
+        case .unknown:
+            "trace not observed"
+        }
     }
 
     private var vaultRecallBenchmarkPassing: Bool {
@@ -184,6 +191,21 @@ public struct VaultRecallHealthRow: View {
             snapshot.recallBenchmark.adversarialRejectRate,
         ]
         return rates.allSatisfy { ($0 ?? 0) >= 0.95 }
+    }
+
+    private var vaultRecallWiredToday: String {
+        switch snapshot.lastBackend {
+        case .real:
+            return "Vault recall emitted a production backend trace."
+        case .stub:
+            return "Rust trace scaffold emits synthetic candidates and signal summary."
+        case .unknown:
+            return "No VaultRecall trace has reached Settings this launch."
+        }
+    }
+
+    private var vaultRecallStillStub: String {
+        "Green blocked unless the trace comes from a real VaultBackend and F-VaultRecall-50 benchmark rates pass."
     }
 
     private func formatLatency(_ ms: Double) -> String {

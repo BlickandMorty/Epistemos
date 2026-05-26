@@ -25,7 +25,11 @@ public struct CognitiveWeightClassHealthRow: View {
             VerifiedFloorChipStrip(
                 flag: "n/a",
                 substrate: weight.policyEnforcementWired ? "enforced" : "badges only",
-                substrateTint: weight.policyEnforcementWired ? .green : .orange
+                productionWired: weight.policyEnforcementWired,
+                falsifierPassed: false,
+                falsifier: weight.falsifier,
+                wiredToday: "Cognitive weight badges and ranges are visible from the unified health snapshot.",
+                stillStub: "Policy enforcement is not a green claim until WBO policy authority has a primary PASS witness."
             )
             HStack(spacing: 6) {
                 ForEach(weight.classes) { weightClass in

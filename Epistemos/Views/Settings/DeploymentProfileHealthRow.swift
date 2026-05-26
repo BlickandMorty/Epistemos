@@ -71,6 +71,16 @@ public struct DeploymentProfileHealthRow: View {
             .padding(.vertical, 8)
             .background(.quaternary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
 
+            VerifiedFloorChipStrip(
+                flag: "n/a",
+                substrate: "build profile",
+                productionWired: false,
+                falsifierPassed: false,
+                falsifier: "docs/audits/SETTINGS_TRUTH_FLOOR_2026_05_25.md",
+                wiredToday: "Compile-time MAS/Pro profile is visible in Settings.",
+                stillStub: "Build-profile visibility is not a substrate production PASS claim."
+            )
+
             #if EPISTEMOS_APP_STORE || MAS_SANDBOX
             VStack(alignment: .leading, spacing: 4) {
                 Text("Not available in this build:")

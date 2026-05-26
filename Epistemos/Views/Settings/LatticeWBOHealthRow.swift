@@ -37,7 +37,11 @@ public struct LatticeWBOHealthRow: View {
             VerifiedFloorChipStrip(
                 flag: "n/a",
                 substrate: "always-on accountant",
-                substrateTint: .green
+                productionWired: true,
+                falsifierPassed: false,
+                falsifier: "docs/falsifiers/F_WBO_DRIFT_LEDGER_2026_05_18.md",
+                wiredToday: "Lattice/WBO accountant snapshot is always-on and readable through the Rust bridge.",
+                stillStub: "Green remains blocked until the WBO drift ledger falsifier has a primary PASS witness."
             )
             row(
                 label: "Appends accounted",

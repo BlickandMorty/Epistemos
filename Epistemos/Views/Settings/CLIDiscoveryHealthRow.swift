@@ -37,6 +37,15 @@ public struct CLIDiscoveryHealthRow: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            VerifiedFloorChipStrip(
+                flag: "n/a",
+                substrate: "filesystem probe only",
+                productionWired: false,
+                falsifierPassed: false,
+                falsifier: "docs/falsifiers/F-ActiveAssembly-Minimal_2026_05_17.md",
+                wiredToday: "Settings checks whether known CLI executable paths exist.",
+                stillStub: "The row does not execute a CLI or prove tool-loop production behavior."
+            )
             ForEach(probes) { probe in
                 row(probe: probe)
             }

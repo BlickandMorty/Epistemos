@@ -42,7 +42,11 @@ public struct CognitiveDagHealthRow: View {
             VerifiedFloorChipStrip(
                 flag: "n/a",
                 substrate: stats.schemaVersion > 0 ? "read-only mirror" : "unavailable",
-                substrateTint: stats.schemaVersion > 0 ? .orange : .secondary
+                productionWired: false,
+                falsifierPassed: false,
+                falsifier: "docs/falsifiers/F-ACS-Anchor-Addressing_2026_05_17.md",
+                wiredToday: "Cognitive DAG schema/count mirror is readable when EventStore has data.",
+                stillStub: "Read-only mirror status is not production mutation authority and has no primary PASS witness."
             )
             SubstrateFalsifierLink(
                 path: "docs/falsifiers/F-ACS-Anchor-Addressing_2026_05_17.md",
