@@ -74,6 +74,22 @@ struct SubstrateHealthPanelTests {
         #expect(bridge.contains("\"class\": \"policy_grade\", \"range\": \"0.86-1.00\", \"policy_authority\": false"))
     }
 
+    @Test("UAS ACS row reads measured artifact gates without turning runtime adapter green")
+    func uasAcsRowReadsMeasuredArtifactGatesConservatively() throws {
+        let row = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Settings/UasAcsHealthRow.swift"
+        )
+
+        #expect(row.contains("UasAcsGateSnapshot.load()"))
+        #expect(row.contains("artifacts/falsifiers/uas_copy_count/result.json"))
+        #expect(row.contains("artifacts/falsifiers/acs_anchor_lookup/result.json"))
+        #expect(row.contains("F-UAS-CopyCount"))
+        #expect(row.contains("F-ACS-AnchorLookup"))
+        #expect(row.contains("MAS runtime adapter pending"))
+        #expect(!row.contains("harness passed; production registry adapter pending"),
+                "Measured artifact PASS should be distinct from production adapter wiring.")
+    }
+
     @Test("SettingsView mounts SubstrateHealthPanel exactly once in Diagnostics")
     func settingsViewMountsSubstrateHealthPanel() throws {
         let settings = try loadMirroredSourceTextFile(

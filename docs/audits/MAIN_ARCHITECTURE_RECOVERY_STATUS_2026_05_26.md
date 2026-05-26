@@ -105,10 +105,13 @@ Recovered slice:
 1. HTML Workspace source guard follow-up is archived in
    `docs/audits/B_PRIME_HTML_WORKSPACE_SOURCE_GUARD_2026_05_26.md` and
    guarded by `EpistemosTests/HTMLWorkspaceSourceGuardTests.swift`.
+2. UAS/ACS artifact gate follow-up is archived in
+   `docs/audits/B_PRIME_UAS_ACS_ARTIFACT_GATES_2026_05_26.md` and guarded by
+   `EpistemosTests/SubstrateHealthPanelTests.swift`.
 
 Remaining slices:
 
-1. Settings truth floor and substrate health row nuance.
+1. Remaining Settings truth floor and substrate health row nuance.
 2. Ambient frequency/audio/settings refinements.
 3. Local-agent tool repair.
 4. Eidos/search-index mirroring follow-up.
