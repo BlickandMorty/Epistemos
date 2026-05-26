@@ -160,7 +160,7 @@ diffing against current `ChatCoordinator`, `VaultRecallWiring`,
 
 ### 4. Settings/Ambient/Voice/App Shell (`stash@{7}`)
 
-State: **Recovery slice required.**
+State: **Partially recovered.**
 
 Likely contains useful visible polish for:
 
@@ -170,6 +170,18 @@ Likely contains useful visible polish for:
 - Root/AppBootstrap shell behavior.
 
 Do not merge as one PR because it crosses runtime, settings, audio, and voice.
+
+Recovered slice:
+
+1. Voice input button service bridge is archived in
+   `docs/audits/STASH7_VOICE_INPUT_SERVICE_RECOVERY_2026_05_26.md` and guarded
+   by `EpistemosTests/VoiceInputPermissionTests.swift`.
+
+Remaining slices:
+
+1. Ambient Frequency polish not already represented on main.
+2. Settings health row copy/polish not already represented on main.
+3. Root/AppBootstrap shell behavior.
 
 ### 5. Graph Filter / Physics WIP (`stash@{15}`)
 

@@ -180,6 +180,13 @@ Message: `On master: auto-stash for ff pull 160254`
 Classification: real UI/settings/ambient/voice nuance; recover after larger
 UI slices.
 
+Recovered slice:
+
+- Voice input button service bridge recovered in
+  `docs/audits/STASH7_VOICE_INPUT_SERVICE_RECOVERY_2026_05_26.md`. The button
+  now uses `ComposerVoiceInputService` instead of directly owning the older live
+  `EpistemosSpeechAnalyzer` stream.
+
 Differs from main include:
 
 - App shell and bootstrap: `AppBootstrap`, `RootView`, `ChatCoordinator`.
