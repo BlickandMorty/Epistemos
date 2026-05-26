@@ -187,7 +187,7 @@ Superseded slice:
 
 ### 5. Graph Filter / Physics WIP (`stash@{15}`)
 
-State: **Partially recovered, performance gated.**
+State: **Closed for product recovery, performance gated.**
 
 This one must be handled carefully because `#86` intentionally restored snappy
 graph defaults. Only recover pieces that preserve:

@@ -270,8 +270,8 @@ Differs:
 
 Message: `On master: wip-codex-graph-filters-selected-expansion`
 
-Classification: graph behavior/performance WIP. Recovered in focused slices;
-do not bulk apply because `#86` intentionally restored snappy physics defaults.
+Classification: graph behavior/performance WIP. Closed for product recovery; do
+not bulk apply because `#86` intentionally restored snappy physics defaults.
 
 Recovered slice:
 
