@@ -243,6 +243,14 @@ struct VerifiedFloorChipStrip: View {
     let flag: String
     let substrate: String
     let substrateTint: Color
+    let falsifier: String?
+
+    init(flag: String, substrate: String, substrateTint: Color, falsifier: String? = nil) {
+        self.flag = flag
+        self.substrate = substrate
+        self.substrateTint = substrateTint
+        self.falsifier = falsifier
+    }
 
     private var flagTint: Color {
         switch flag {
@@ -259,6 +267,9 @@ struct VerifiedFloorChipStrip: View {
         HStack(spacing: 6) {
             ChannelStatusPill(title: "Flag: \(flag)", tint: flagTint)
             ChannelStatusPill(title: "Substrate: \(substrate)", tint: substrateTint)
+            if let falsifier {
+                ChannelStatusPill(title: "Falsifier: \(falsifier)", tint: .green)
+            }
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 12)
