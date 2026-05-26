@@ -37,14 +37,12 @@ Current main checkpoint before this ledger:
 3. `stash@{7}` - settings, ambient frequency, voice input, and app bootstrap
    nuance.
 4. `stash@{3}` - VaultRecall visibility and Eidos bridge WIP.
-5. `stash@{15}` - graph filter/physics selected-expansion WIP. Audit against
-   the snappy defaults restored by `#86` before applying anything.
-6. `stash@{16}` - older honest-handle, approval queue, and editor asset WIP.
+5. `stash@{16}` - older honest-handle, approval queue, and editor asset WIP.
    Recover only after current UI/editor slices are stable.
-7. `stash@{19}` - old code-editor invisible-text stash. The Xcode color palette
+6. `stash@{19}` - old code-editor invisible-text stash. The Xcode color palette
    is already on main; the remaining old patch contains a temporary minimal
    editor rewrite and must not be applied wholesale.
-8. `stash@{13}`, `stash@{14}`, `stash@{8}`, `stash@{9}` - substrate/research
+7. `stash@{13}`, `stash@{14}`, `stash@{8}`, `stash@{9}` - substrate/research
     nuances, recover after UI and graph-visible work.
 
 Closed but preserved:
@@ -57,6 +55,11 @@ Closed but preserved:
   closed by `docs/audits/STASH18_AGENT_COMMAND_CENTER_DONOR_SYNTHESIS_2026_05_26.md`
   and `docs/audits/STASH18_UI_UX_CLOSEOUT_2026_05_26.md`; keep the stash only as
   a historical donor reference.
+- `stash@{15}` - graph filter/physics selected-expansion WIP. Current product
+  graph recovery is closed by
+  `docs/audits/STASH15_SELECTED_NEIGHBOR_EXPANSION_2026_05_26.md` and
+  `docs/audits/STASH15_GRAPH_CLOSEOUT_2026_05_26.md`; keep the stash only as a
+  historical graph/performance donor reference.
 
 ## Stash Inventory
 
@@ -284,8 +287,9 @@ Differs:
 
 Message: `On master: wip-codex-graph-filters-selected-expansion`
 
-Classification: graph behavior/performance WIP. Closed for product recovery; do
-not bulk apply because `#86` intentionally restored snappy physics defaults.
+Classification: closed for current product graph recovery; keep as a preserved
+historical graph/performance donor reference. Do not bulk apply because `#86`
+intentionally restored snappy physics defaults.
 
 Recovered slice:
 
@@ -293,6 +297,10 @@ Recovered slice:
   `docs/audits/STASH15_SELECTED_NEIGHBOR_EXPANSION_2026_05_26.md`. Filter UI
   was already present on current `main`; only the Rust selected-neighborhood
   rest-distance behavior was ported, with a three-pass graph physics audit.
+- Closeout recorded in
+  `docs/audits/STASH15_GRAPH_CLOSEOUT_2026_05_26.md`. The remaining raw stash
+  tree is stale and would remove newer graph-engine tests/modules if applied
+  wholesale.
 
 Differs:
 
