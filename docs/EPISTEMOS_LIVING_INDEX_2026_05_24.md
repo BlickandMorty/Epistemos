@@ -5,8 +5,9 @@
 **Living-doc rules:**
 - Update this file in place — never branch a parallel "v2." There is one living index; the old version is `git log`.
 - Update the **Current State** block (§6) on every wave close.
-- Updated **2026-05-26** · latest recovery checkpoint: `a4ea05424f`
-  (`#88`). For the post-stash split of finished vs unfinished work, read
+- Updated **2026-05-26** · recovery baseline: PR `#88` plus the follow-up
+  checkpoint wording refresh. For the post-stash split of finished vs
+  unfinished work, read
   `docs/audits/MAIN_ARCHITECTURE_RECOVERY_STATUS_2026_05_26.md` before
   dispatching another recovery agent. *Run the `LEGENDARY` codeword to refresh
   the full W-row/falsifier percentages.*
@@ -96,8 +97,10 @@ be raw-merged:
 - `#81` — Claude shadow-handle WIP preservation branch.
 - `#82` — B-prime uncommitted follow-up preservation branch.
 
-`main` == `origin/main` at `a4ea05424f` (`#88`, finished-vs-preserved
-architecture recovery split).
+`main` and `origin/main` were aligned when this block was refreshed. The
+finished-vs-preserved architecture recovery split lives in
+`docs/audits/MAIN_ARCHITECTURE_RECOVERY_STATUS_2026_05_26.md`; use `git log -1`
+for the exact current commit.
 
 **Post-merge gate:** passed on 2026-05-26.
 - `cargo run --manifest-path agent_core/Cargo.toml --release --bin falsifier_validator ...` passed for the three Round-2 artifacts.
