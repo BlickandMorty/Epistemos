@@ -146,8 +146,9 @@ Full prompts: `docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md`. **Wave 1 = foundati
 8. `stash@{16}` honest-handle + approval UI donor recovery is closed for current product work by `docs/audits/CLAUDE_SHADOW_HANDLE_CLOSEOUT_2026_05_26.md` and `docs/audits/STASH16_APPROVAL_UI_DONOR_CLOSEOUT_2026_05_26.md`.
 9. `stash@{16}` / `stash@{19}` editor donor recovery is closed by `docs/audits/STASH16_19_EDITOR_DONOR_CLOSEOUT_2026_05_26.md`; current `main` keeps the compressed editor bundle, KaTeX `.woff2` resources, Xcode-style code colors, and live `CodeEditSourceEditor` route.
 10. `stash@{2}`, `stash@{5}`, `stash@{7}`, `stash@{8}`, `stash@{9}`, `stash@{13}`, `stash@{14}`, and the remaining `stash@{18}` donor queue are closed for current product recovery by `docs/audits/STASH_SUBSTRATE_RESEARCH_QUEUE_CLOSEOUT_2026_05_26.md`; no active product-recovery stash rows remain.
-11. Remaining required next work is **Wave 3**, not more Wave-2 merging: AgentBlueprint end-to-end replay UI, agent metadata badges, deeper UAS/ClaimLedger rows, Cognitive DAG visualizer, and Tri-Fusion typed mutations.
-12. Run `LEGENDARY` codeword for a fresh percentage/W-row roll-up.
+11. The lattice coordinate explainer is preserved and checkpointed at `artifacts/lattice-coordinate-explainer/index.html`; it keeps the ambition map but now carries the post-Wave-2 overlay so old "pending Terminal G" rows do not override current main.
+12. Remaining required next work is **Wave 3**, not more Wave-2 merging: AgentBlueprint end-to-end replay UI, agent metadata badges, deeper UAS/ClaimLedger rows, Cognitive DAG visualizer, and Tri-Fusion typed mutations.
+13. Fresh roll-up / dispatch map: `docs/audits/LEGENDARY_POST_WAVE2_ROLLUP_2026_05_26.md`.
 
 ## 8 · Deferred-work ledger (26 items, anti-loss)
 
