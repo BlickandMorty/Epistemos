@@ -72,22 +72,26 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
 - **E8 (candidate)** Erdős Lift-and-Project Optimality
 - **E9 (candidate)** Shadow-Witness Closure
 
-## 6 · CURRENT STATE (2026-05-24 — update on every wave close)
+## 6 · CURRENT STATE (2026-05-26 — Wave 2 checkpoint)
 
 ### Wired and on main
-- 40+ pre-2026-05-23 PRs · 18 from the 2026-05-23 sanitization session · 5 from the 2026-05-24 doctrine session · **7 Phase-2 merge-wave PRs (#66-#72)**
-- Substrate carcass: ~70% baseline per chronicle audit, now advanced by real Eidos bridge, System G seam, ACS production gate, T14 UAS bridge, and falsifier artifacts. **Exact post-wave % needs a fresh LEGENDARY roll-up.**
-- 13 stash recovery tags pushed to origin (`refs/tags/recovery/stash-N-*`)
-- W-rows wired: **needs refresh**. Known post-wave advances: Eidos real bridge/citation gate (#66), System G real seam (#67), falsifier harnesses (#68), Substrate Health/docs/unified panel work (#69), VaultRecall visibility salvage (#70), T14 No-Orphan bridge (#71), ACS production gate (#72).
-- Falsifier artifacts measured on main: **7**.
-  - Product/primary witnesses: `F-VaultRecall-50`, `F-ULP-Oracle` (CPU primary), `F-UAS-CopyCount`, `F-ACS-AnchorLookup`.
-  - Honest fallback/CPU witnesses: `F-PageGather-M2Pro`, `F-ControllerKernelPack`, `F-UAS-ZeroCopy-Spine` — Metal/Swift hot-path gates still pending.
+- 40+ pre-2026-05-23 PRs · 18 from the 2026-05-23 sanitization session · 5 from the 2026-05-24 doctrine session · **14 Phase-2 merge-wave PRs (#66-#79, including #73 index refresh and the direct #76 hotfix `77c7efe9ea`)**
+- Substrate carcass: ~70% baseline per chronicle audit, now advanced by real Eidos bridge, System G seam, ACS production gate, T14 UAS bridge, Verified Floor chip gate, Runtime Router, Hyperdynamic Loop, B-prime chat provenance, and Round-2 falsifier artifacts. **Working estimate after Wave 2: ~92% substrate floor, pending a fresh LEGENDARY roll-up.**
+- 13+ stash recovery tags pushed to origin (`refs/tags/recovery/stash-N-*`) plus Wave-2 recovery tags for PR #74, PR #79, and the B-prime uncommitted follow-up stash.
+- W-rows wired: **estimated ~30/53 (~57%)** after Wave 2. Known advances: Eidos real bridge/citation gate (#66), System G real seam (#67), falsifier harnesses (#68/#74), Substrate Health/docs/unified panel work (#69/#77), VaultRecall visibility salvage (#70/#79), T14 No-Orphan bridge (#71), ACS production gate (#72), Verified Floor truth gate (#78), Hyperdynamic Schema Loop (#75), Runtime Router (#76).
+- Falsifier artifacts on main: **10 artifact files**.
+  - Schema-normalized primary witnesses: `F-VaultRecall-50`, `F-ULP-Oracle`, `F-Eidos-Bridge-RoundTrip`, `F-ACS-Anchor-Addressing`, `F-HyperdynamicLoop-Bounded`.
+  - Schema-normalized fallback/CPU witnesses: `F-PageGather-M2Pro`, `F-ControllerKernelPack`, `F-UAS-ZeroCopy-Spine` — Metal/Swift hot-path gates still pending.
+  - Legacy-shape measured PASS artifacts still to normalize: `F-UAS-CopyCount`, `F-ACS-AnchorLookup`.
 
 ### Open PRs
 
-None. `main` == `origin/main` at `1cf390b0fc` (`#72`).
+None. `main` == `origin/main` at `650f4cbc3e` (`#74`, Wave 2 close).
 
-**Post-merge gate:** run local `cargo test --manifest-path agent_core/Cargo.toml --lib --quiet` + `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build` before dispatching the next wave.
+**Post-merge gate:** passed on 2026-05-26.
+- `cargo run --manifest-path agent_core/Cargo.toml --release --bin falsifier_validator ...` passed for the three Round-2 artifacts.
+- `cargo test --manifest-path agent_core/Cargo.toml --lib --quiet` passed: 4,036 tests.
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""` passed: `BUILD SUCCEEDED`.
 
 ## 7 · The 13-terminal dispatch deck (status grid)
 
@@ -95,12 +99,12 @@ Full prompts: `docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md`. **Wave 1 = foundati
 
 | Terminal | Owner | Scope | Status | Wave |
 |---|---|---|---|---|
-| **T0** | dispatched 2026-05-24 | Verified Floor / Settings Truth + T25 lint + W-13 + W-32 | **IN FLIGHT** · branch: `phase2-terminal-t0-verified-floor-2026-05-24` | 2 |
-| **T1** | dispatched 2026-05-24 | Runtime Router (MLX one lane among ≥4) + RuntimeExecutor abstraction + F-LocalToolUse | **IN FLIGHT** · branch: `phase2-terminal-t1-runtime-router-2026-05-24` | 2 |
-| **S** | dispatched 2026-05-24 | Hyperdynamic Schema Loop primitive + 3 loop impls + F-HyperdynamicLoop-Bounded | **IN FLIGHT** · branch: `phase2-terminal-s-hyperdynamic-loop-2026-05-24` | 2 |
-| **B′** | dispatched 2026-05-24 | Chat citation UI integration (wire badge + provenance card into rows) + W-19/20/27 closure | **IN FLIGHT** · branch: `phase2-terminal-b-prime-chat-citations-2026-05-24` | 2 |
-| **D′** | dispatched 2026-05-24 | Substrate Health Panel row expansion (5 missing rows + W-30 Cognitive Weight badges) | **IN FLIGHT** · branch: `phase2-terminal-d-prime-health-rows-2026-05-24` | 2 |
-| **F′** | dispatched 2026-05-24 | Falsifier round 2 — get to ≥ 7 MEASURED PASS on M2 Pro | **IN FLIGHT** · branch: `phase2-terminal-f-prime-falsifiers-r2-2026-05-24` | 2 |
+| **T0** | done | Verified Floor / Settings Truth + T25 lint + W-13 + W-32 | merged in #78 | 2 |
+| **T1** | done | Runtime Router (MLX one lane among ≥4) + RuntimeExecutor abstraction + F-LocalToolUse scaffold | merged in #76; direct build hotfix `77c7efe9ea` | 2 |
+| **S** | done | Hyperdynamic Schema Loop primitive + 3 loop impls + F-HyperdynamicLoop-Bounded | merged in #75 | 2 |
+| **B′** | done | Chat citation UI integration (wire badge + provenance card into rows) + W-19/20/27 closure | merged in #79; uncommitted follow-up preserved and documented | 2 |
+| **D′** | done | Substrate Health Panel row expansion (5 missing rows + W-30 Cognitive Weight badges) | merged in #77 | 2 |
+| **F′** | done | Falsifier round 2 — get to ≥ 7 MEASURED PASS on M2 Pro | merged in #74 | 2 |
 | **G** | done | T14 Five-Plane wiring + No-Orphan + F-UAS-CopyCount + F-ACS-AnchorLookup | merged in #71 | 1 |
 | **A** | done | Eidos real vault binding | merged in #66 | 2 |
 | **B** | done (partial scope) | Vault Recall trace + chat citation files | #70 salvaged badges/cards/blocker docs; UI integration in B′ | 2 |
@@ -112,14 +116,13 @@ Full prompts: `docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md`. **Wave 1 = foundati
 | **R** | continuous | Online Research Intake + Fork Mining | dispatched as-needed | continuous |
 | **X** | continuous | Worktree Salvage continuation | dispatched as-needed | continuous |
 
-### Wave-2 dispatch checklist (2026-05-24)
+### Wave-2 close checklist (2026-05-26)
 
-When the 6 in-flight terminals each finish their loop:
-1. Each ships a PR to `origin/main`.
-2. Per-merge gate: `cargo test --lib` + `xcodebuild build` must be green on the PR's branch.
-3. Recommended merge order (smallest blast radius first): **T0 → D′ → S → T1 → B′ → F′** (F′ goes last because it depends on T1 + S landing first for F-LocalToolUse + F-HyperdynamicLoop-Bounded).
-4. After all 6 merge, refresh §6 CURRENT STATE block + falsifier count.
-5. Run `LEGENDARY` codeword for the next status delta.
+1. All six Wave-2 PRs merged: **#78 → #77 → #75 → #76 → #79 → #74**.
+2. Main build break from #76 repaired directly on main at `77c7efe9ea`.
+3. B-prime uncommitted follow-up work is not done; it is preserved as stash/tag/patch and documented in `docs/audits/B_PRIME_FOLLOWUP_REPROMOTION_PLAN_2026_05_26.md`.
+4. Remaining required next work is **Wave 3**, not more Wave-2 merging: AgentBlueprint end-to-end replay UI, agent metadata badges, deeper UAS/ClaimLedger rows, Cognitive DAG visualizer, Tri-Fusion typed mutations, and B-prime follow-up repromotion.
+5. Run `LEGENDARY` codeword for a fresh percentage/W-row roll-up.
 
 ## 8 · Deferred-work ledger (26 items, anti-loss)
 
