@@ -7,6 +7,11 @@ created_on: 2026-05-17
 authority: docs/CODEX_DEEP_INVESTIGATION_PROMPT_2026_05_16.md §4.G falsifier ladder (LOCK)
 target_phase: Phase B.G.B3
 target_rig: M2 Pro 16 GB
+phase2_terminal_f_prime_status: SCOPED PRIMARY WITNESS — D-27 mini-harness on M2 Pro (lookup + audit canonicalization + admission proof boundary; 5-plane projection inversion deferred until AcsAnchor::project_to_plane lands).
+phase2_terminal_f_prime_artifact: artifacts/falsifiers/acs_anchor_addressing/result.json
+phase2_terminal_f_prime_harness: agent_core/src/bin/falsify_acs_anchor_addressing.rs
+phase2_terminal_f_prime_n: 100
+phase2_terminal_f_prime_audit_doc: docs/audits/FALSIFIER_M2PRO_7_PASS_2026_05_24.md
 ---
 
 # F-ACS-Anchor-Addressing

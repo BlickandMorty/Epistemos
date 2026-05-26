@@ -107,6 +107,7 @@ pub mod storage {
     pub mod diff_engine;
     pub mod f_vault_recall_50_fixture;
     pub mod f_vault_recall_runner;
+    pub mod f_vault_recall_synthetic_seed;
     pub mod hyperbolic_topology;
     pub mod memory_classifier;
     pub mod memory_decay;
