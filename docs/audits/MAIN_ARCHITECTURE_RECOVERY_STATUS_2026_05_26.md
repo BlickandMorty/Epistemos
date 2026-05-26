@@ -90,7 +90,7 @@ because they are stashed or branched.
 
 ### 1. B-prime Follow-up (`stash@{0}`, PR `#82`)
 
-State: **Recovery slice required.**
+State: **Partially recovered.**
 
 Durable references:
 
@@ -100,12 +100,19 @@ Durable references:
 
 Recover as small PRs:
 
-1. HTML Workspace follow-up/source-vs-bundle review.
-2. Settings truth floor and substrate health row nuance.
-3. Ambient frequency/audio/settings refinements.
-4. Local-agent tool repair.
-5. Eidos/search-index mirroring follow-up.
-6. Doctrine lint and Living Index updates.
+Recovered slice:
+
+1. HTML Workspace source guard follow-up is archived in
+   `docs/audits/B_PRIME_HTML_WORKSPACE_SOURCE_GUARD_2026_05_26.md` and
+   guarded by `EpistemosTests/HTMLWorkspaceSourceGuardTests.swift`.
+
+Remaining slices:
+
+1. Settings truth floor and substrate health row nuance.
+2. Ambient frequency/audio/settings refinements.
+3. Local-agent tool repair.
+4. Eidos/search-index mirroring follow-up.
+5. Doctrine lint and Living Index updates.
 
 Do not raw-merge `#82`; the branch tree is stale relative to main and shows
 deletions of current main files such as HTML Workspace, Runtime Router, Landing
