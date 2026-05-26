@@ -160,9 +160,9 @@ diffing against current `ChatCoordinator`, `VaultRecallWiring`,
 
 ### 4. Settings/Ambient/Voice/App Shell (`stash@{7}`)
 
-State: **Partially recovered.**
+State: **Closed for product recovery.**
 
-Likely contains useful visible polish for:
+Initial audit showed possible visible polish for:
 
 - Ambient Frequency playback/settings.
 - Voice input permissions.
@@ -177,11 +177,13 @@ Recovered slice:
    `docs/audits/STASH7_VOICE_INPUT_SERVICE_RECOVERY_2026_05_26.md` and guarded
    by `EpistemosTests/VoiceInputPermissionTests.swift`.
 
-Remaining slices:
+Superseded slice:
 
-1. Ambient Frequency polish not already represented on main.
-2. Settings health row copy/polish not already represented on main.
-3. Root/AppBootstrap shell behavior.
+1. Remaining ambient/settings/app-shell deltas are retired by
+   `docs/audits/STASH7_AMBIENT_SETTINGS_SUPERSESSION_2026_05_26.md`. Current
+   `main` already has the newer compact ambient flow, persistent live player,
+   richer mixer/music controls, and verified-floor health rows. Raw recovery
+   would delete those newer surfaces.
 
 ### 5. Graph Filter / Physics WIP (`stash@{15}`)
 
