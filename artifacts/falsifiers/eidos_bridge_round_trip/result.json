@@ -28,9 +28,9 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "c1e607fc13aec44e5f37af80067d79894fed23ea",
+  "commit_sha": "fcdcb161b7008e540119fe144b92966ee70774c1",
   "fixture_id": "eidos_production_ffi_in_process_v1",
-  "timestamp_utc": "2026-05-25T23:21:08Z",
+  "timestamp_utc": "2026-05-26T12:46:22Z",
   "result_digest": "sha256:b7b0f369bf4eb250cd1060448511cf5170c7663d6d6e6d6da175abcb5f7e7276",
   "measurements": {
     "closed_citation_membership": {
