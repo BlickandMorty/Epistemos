@@ -5,7 +5,11 @@
 **Living-doc rules:**
 - Update this file in place — never branch a parallel "v2." There is one living index; the old version is `git log`.
 - Update the **Current State** block (§6) on every wave close.
-- Updated **2026-05-24** · *Run the `LEGENDARY` codeword to refresh.*
+- Updated **2026-05-26** · latest recovery checkpoint: `fd39f3f9e9`
+  (`#87`). For the post-stash split of finished vs unfinished work, read
+  `docs/audits/MAIN_ARCHITECTURE_RECOVERY_STATUS_2026_05_26.md` before
+  dispatching another recovery agent. *Run the `LEGENDARY` codeword to refresh
+  the full W-row/falsifier percentages.*
 
 ---
 
@@ -86,7 +90,14 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
 
 ### Open PRs
 
-None. `main` == `origin/main` at `650f4cbc3e` (`#74`, Wave 2 close).
+No merge-ready feature PRs. Two draft preservation PRs remain open and must not
+be raw-merged:
+
+- `#81` — Claude shadow-handle WIP preservation branch.
+- `#82` — B-prime uncommitted follow-up preservation branch.
+
+`main` == `origin/main` at `fd39f3f9e9` (`#87`, stash recovery ledger +
+Landing Wave / Session Intelligence additive recovery).
 
 **Post-merge gate:** passed on 2026-05-26.
 - `cargo run --manifest-path agent_core/Cargo.toml --release --bin falsifier_validator ...` passed for the three Round-2 artifacts.
