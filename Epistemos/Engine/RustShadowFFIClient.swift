@@ -3,59 +3,136 @@ import OSLog
 
 // MARK: - RustShadowFFIClient
 //
-// Wave 8.4.h — production `ShadowFFIClient` impl that talks to the
-// `epistemos_shadow` Rust crate's C ABI surface
-// (`shadow_insert_json`, `shadow_remove_json`, `shadow_search_json`,
-//  `shadow_flush`, `shadow_stats_json`, `shadow_open_at`,
-//  `shadow_free_string`).
+// W9.21 PR4 — Honest-FFI consumer cutover.
 //
-// The C ABI lives in `epistemos-shadow/src/lib.rs` and is linked via
-// the `-lepistemos_shadow` flag in `project.yml` + `project.pbxproj`.
-// All entry points are wrapped in `catch_unwind` on the Rust side so a
-// panic crosses the FFI as code -99 (rustPanic) instead of UBing the
-// Swift process.
+// This file used to bind the legacy global-state surface
+// (`shadow_open_at`, `shadow_search_json`, `shadow_insert_json`,
+// `shadow_remove_json`, `shadow_flush`, `shadow_stats_json`) which
+// opened a `RwLock<Option<Arc<RealBackend>>>` global in the Rust
+// crate. Per `docs/plan/03_EXECUTION_MAP.md` §W9.21 (and Doctrine
+// §6 #14 "no orphan scaffolding"), the consumer now holds an
+// explicit per-instance handle obtained from
+// `shadow_handle_open_at` and dispatches every operation through
+// the handle FFI. This closes the longest orphan-scaffold pattern
+// in the codebase: PR1 (`dcc5521f`) shipped the honest_handle.rs
+// module, PR2 (`b2e4899d`) covered substrate-rt + substrate-core +
+// syntax-core, PR4 (this commit) wires the Swift consumer.
 //
-// Idempotence: `shadow_open_at(path)` may be called multiple times —
-// it replaces the live RealBackend in the global RwLock. The Swift
-// bootstrap calls it once on launch with the vault root + "shadow"
-// suffix; subsequent FFI calls hit the persistent RealBackend.
+// Honest-handle FFI surface (epistemos-shadow/src/honest_handle.rs):
+//   - shadow_handle_open_at(path)          → *const ShadowEngineHandle
+//   - shadow_handle_retain(handle)         → ()
+//   - shadow_handle_release(handle)        → ()
+//   - shadow_handle_search(handle, q, d, n, &err) → *mut c_char
+//   - shadow_handle_insert(handle, doc_json)      → i32
+//   - shadow_handle_remove(handle, doc_id)        → i32
+//   - shadow_handle_flush(handle)                 → i32
+//   - shadow_handle_stats(handle, &err)           → *mut c_char
+//   - shadow_handle_free_string(ptr)              → ()
 //
-// Thread safety: every entry point is `nonisolated`. The Rust side
-// uses parking_lot::RwLock around the backend handle so concurrent
-// calls from the cooperative thread pool are safe.
+// Lifecycle:
+//   - `init(path:)` calls `shadow_handle_open_at`. Refcount starts
+//     at 1; the Swift instance owns the strong reference.
+//   - `deinit` calls `shadow_handle_release`. When the Swift
+//     instance is destroyed, the inner Rust `Arc<RealBackend>` is
+//     dropped (refcount → 0).
+//   - Two `RustShadowFFIClient` instances over the same path open
+//     two independent backends. Per the W8.7 bootstrap design,
+//     there's exactly one client per vault, instantiated in
+//     `AppBootstrap.initializeShadowBackendIfReady`.
+//
+// Thread safety:
+//   - The handle is sealed inside the Rust `Arc<RealBackend>`,
+//     which uses `parking_lot::RwLock` (write) + `RwLock::read`
+//     internally for index access. Concurrent FFI calls from
+//     different cooperative-thread-pool threads are safe.
+//   - The Swift class is `@unchecked Sendable` because the only
+//     stored property (`handle`) is `let` and not mutated after
+//     `init`. Rust enforces synchronization on all reads through
+//     the handle.
+//
+// Rust panic = code -99: every entry point on the Rust side wraps
+// its body in `catch_unwind` so a panic crosses the FFI as
+// `ShadowError::Panic` (discriminant -99) instead of UBing the
+// Swift host. Swift's `ShadowFFIError.from(rustCode:)` decodes -99
+// to `.rustPanic` so callers can log + recover.
 
-@_silgen_name("shadow_insert_json")
-nonisolated private func shadow_insert_json(_ docJSON: UnsafePointer<CChar>?) -> Int32
+// MARK: - Honest-handle FFI bindings
+//
+// The opaque handle type is a forward declaration on the Swift side
+// — Swift never sees the inner Rust struct. Operations take a
+// raw `UnsafePointer<UInt8>?` instead of `OpaquePointer` so the
+// `@_silgen_name` ABI lines up exactly with the Rust `extern "C"`
+// signatures (`*const ShadowEngineHandle` is a raw pointer in C).
 
-@_silgen_name("shadow_remove_json")
-nonisolated private func shadow_remove_json(_ docId: UnsafePointer<CChar>?) -> Int32
+@_silgen_name("shadow_handle_open_at")
+nonisolated private func shadow_handle_open_at(
+    _ path: UnsafePointer<CChar>?
+) -> UnsafePointer<UInt8>?
 
-@_silgen_name("shadow_search_json")
-nonisolated private func shadow_search_json(
+@_silgen_name("shadow_handle_retain")
+nonisolated private func shadow_handle_retain(
+    _ handle: UnsafePointer<UInt8>?
+)
+
+@_silgen_name("shadow_handle_release")
+nonisolated private func shadow_handle_release(
+    _ handle: UnsafePointer<UInt8>?
+)
+
+@_silgen_name("shadow_handle_search")
+nonisolated private func shadow_handle_search(
+    _ handle: UnsafePointer<UInt8>?,
     _ query: UnsafePointer<CChar>?,
     _ domain: UnsafePointer<CChar>?,
-    _ limit: UInt32
+    _ limit: Int,
+    _ outError: UnsafeMutablePointer<Int32>?
 ) -> UnsafeMutablePointer<CChar>?
 
-@_silgen_name("shadow_flush")
-nonisolated private func shadow_flush() -> Int32
+@_silgen_name("shadow_handle_insert")
+nonisolated private func shadow_handle_insert(
+    _ handle: UnsafePointer<UInt8>?,
+    _ docJSON: UnsafePointer<CChar>?
+) -> Int32
 
-@_silgen_name("shadow_stats_json")
-nonisolated private func shadow_stats_json() -> UnsafeMutablePointer<CChar>?
+@_silgen_name("shadow_handle_remove")
+nonisolated private func shadow_handle_remove(
+    _ handle: UnsafePointer<UInt8>?,
+    _ docId: UnsafePointer<CChar>?
+) -> Int32
 
-@_silgen_name("shadow_free_string")
-nonisolated private func shadow_free_string(_ ptr: UnsafeMutablePointer<CChar>?)
+@_silgen_name("shadow_handle_flush")
+nonisolated private func shadow_handle_flush(
+    _ handle: UnsafePointer<UInt8>?
+) -> Int32
 
-@_silgen_name("shadow_open_at")
-nonisolated private func shadow_open_at(_ path: UnsafePointer<CChar>?) -> Int32
+@_silgen_name("shadow_handle_stats")
+nonisolated private func shadow_handle_stats(
+    _ handle: UnsafePointer<UInt8>?,
+    _ outError: UnsafeMutablePointer<Int32>?
+) -> UnsafeMutablePointer<CChar>?
 
-/// Production `ShadowFFIClient` that talks to the Rust crate via C
-/// ABI. The W8.7 bootstrap path constructs one of these and passes
-/// it to `ShadowIndexingService` + `ShadowSearchService`.
+@_silgen_name("shadow_handle_free_string")
+nonisolated private func shadow_handle_free_string(
+    _ ptr: UnsafeMutablePointer<CChar>?
+)
+
+// Suppress the "unused" warning when only some callers reference
+// retain (the production app does not currently retain handles —
+// they're held by exactly one owner per vault). The export is
+// available for future callers (e.g. background ETL jobs that share
+// a handle with the foreground search service).
+@inline(never)
+nonisolated private func _shadow_keep_retain_alive() {
+    shadow_handle_retain(nil)
+}
+
+/// Production `ShadowFFIClient` that talks to the Rust crate via the
+/// honest-handle C ABI. Each instance owns a refcount-1
+/// `*const ShadowEngineHandle` from PR1's `shadow_handle_open_at`;
+/// the handle is released exactly once on `deinit`.
 ///
-/// The class itself holds no mutable state — the backend lives behind
-/// the C ABI in Rust's parking_lot::RwLock — so it's `Sendable` via
-/// `@unchecked` (the protocol can't reach inside Rust to prove it).
+/// The W8.7 bootstrap path constructs one of these per vault and
+/// passes it to `ShadowIndexingService` + `ShadowSearchService`.
 nonisolated public final class RustShadowFFIClient: ShadowFFIClient, @unchecked Sendable {
 
     private static let log = Logger(
@@ -63,23 +140,51 @@ nonisolated public final class RustShadowFFIClient: ShadowFFIClient, @unchecked 
         category: "RustShadowFFIClient"
     )
 
-    public init() {}
+    /// The opaque Rust handle. Set exactly once in `init` (post-open
+    /// success) and not mutated afterwards. Released exactly once in
+    /// `deinit`. Non-optional so call sites never have to nil-check.
+    private let handle: UnsafePointer<UInt8>
 
-    /// Open / re-open the global RealBackend at `path`. Must be
-    /// called once at app start before any other entry point. The
-    /// W8.7 AppBootstrap call site uses `<vault>/.epcache/shadow` so
-    /// the index sits next to the other per-vault caches.
-    public static func openAt(path: String) throws {
-        let code = path.withCString { cstr -> Int32 in
-            shadow_open_at(cstr)
+    /// Open (or create) a Shadow engine rooted at `path`. Returns a
+    /// new instance whose refcount is 1; the Swift instance owns the
+    /// strong reference. Calling `init` twice with the same `path`
+    /// produces two independent backends sharing the on-disk index
+    /// (subject to the same multi-process-write caveats as before —
+    /// the production app instantiates exactly one client per vault).
+    ///
+    /// The W8.7 AppBootstrap call site uses `<vault>/.epcache/shadow`
+    /// so the index sits next to the other per-vault caches.
+    ///
+    /// Throws `ShadowFFIError.backendFailure` if the Rust side returns
+    /// a null pointer (HuggingFace download failed, tantivy directory
+    /// could not be created, etc.). The exact root cause is logged
+    /// on the Rust side; Swift only sees a backendFailure with the
+    /// path detail.
+    public init(path: String) throws {
+        let raw: UnsafePointer<UInt8>? = path.withCString { cstr in
+            shadow_handle_open_at(cstr)
         }
-        if let error = ShadowFFIError.from(rustCode: code, detail: path) {
-            log.error(
-                "shadow_open_at failed (code \(code)) at \(path, privacy: .public)"
+        guard let raw else {
+            Self.log.error(
+                "shadow_handle_open_at returned null at \(path, privacy: .public)"
             )
-            throw error
+            throw ShadowFFIError.backendFailure(
+                detail: "shadow_handle_open_at returned null at \(path)"
+            )
         }
-        log.info("shadow_open_at OK at \(path, privacy: .public)")
+        self.handle = raw
+        Self.log.info(
+            "shadow_handle_open_at OK at \(path, privacy: .public) (handle initialised)"
+        )
+    }
+
+    deinit {
+        // SAFETY: `handle` is non-null (init ensures it; otherwise we
+        // would have thrown). `shadow_handle_release` is safe to call
+        // exactly once per `init`-returned pointer. After this call
+        // the underlying Rust Arc strong count is 0 and the inner
+        // `RealBackend` drops.
+        shadow_handle_release(handle)
     }
 
     public func insert(document: ShadowDocumentDTO) throws {
@@ -90,7 +195,7 @@ nonisolated public final class RustShadowFFIClient: ShadowFFIClient, @unchecked 
             )
         }
         let code = json.withCString { cstr -> Int32 in
-            shadow_insert_json(cstr)
+            shadow_handle_insert(handle, cstr)
         }
         if let error = ShadowFFIError.from(rustCode: code, detail: document.docId) {
             throw error
@@ -99,7 +204,7 @@ nonisolated public final class RustShadowFFIClient: ShadowFFIClient, @unchecked 
 
     public func remove(docId: String) throws {
         let code = docId.withCString { cstr -> Int32 in
-            shadow_remove_json(cstr)
+            shadow_handle_remove(handle, cstr)
         }
         if let error = ShadowFFIError.from(rustCode: code, detail: docId) {
             throw error
@@ -107,25 +212,32 @@ nonisolated public final class RustShadowFFIClient: ShadowFFIClient, @unchecked 
     }
 
     public func search(query: String, domain: ShadowDomain, limit: Int) throws -> [ShadowHit] {
-        let cap = UInt32(max(0, min(limit, Int(UInt32.max))))
+        var errorCode: Int32 = 0
         let raw: UnsafeMutablePointer<CChar>? = query.withCString { qPtr in
             domain.wireValue.withCString { dPtr in
-                shadow_search_json(qPtr, dPtr, cap)
+                shadow_handle_search(handle, qPtr, dPtr, limit, &errorCode)
             }
         }
         guard let cStr = raw else {
-            // FFI returned null — backend signalled failure (logged in
-            // Rust). Surface as backend failure so callers can fall
-            // through to "no hits" without a panic.
+            // Honest FFI populates errorCode on the failure path (null
+            // handle, malformed UTF-8, backend internal). Surface a
+            // typed error so callers can decide between retry and
+            // graceful degradation.
+            if let typed = ShadowFFIError.from(
+                rustCode: errorCode,
+                detail: "query=\(query) domain=\(domain.wireValue)"
+            ) {
+                throw typed
+            }
             throw ShadowFFIError.backendFailure(
-                detail: "shadow_search_json returned null for query=\(query) domain=\(domain.wireValue)"
+                detail: "shadow_handle_search returned null with code 0 — backend bug"
             )
         }
-        defer { shadow_free_string(cStr) }
+        defer { shadow_handle_free_string(cStr) }
         let json = String(cString: cStr)
         guard let data = json.data(using: .utf8) else {
             throw ShadowFFIError.backendFailure(
-                detail: "shadow_search_json returned non-UTF8 payload"
+                detail: "shadow_handle_search returned non-UTF8 payload"
             )
         }
         let dtos = try Self.decoder.decode([ShadowHitDTO].self, from: data)
@@ -133,23 +245,27 @@ nonisolated public final class RustShadowFFIClient: ShadowFFIClient, @unchecked 
     }
 
     public func flush() throws {
-        let code = shadow_flush()
+        let code = shadow_handle_flush(handle)
         if let error = ShadowFFIError.from(rustCode: code) {
             throw error
         }
     }
 
     public func stats() throws -> ShadowStatsDTO {
-        guard let cStr = shadow_stats_json() else {
+        var errorCode: Int32 = 0
+        guard let cStr = shadow_handle_stats(handle, &errorCode) else {
+            if let typed = ShadowFFIError.from(rustCode: errorCode) {
+                throw typed
+            }
             throw ShadowFFIError.backendFailure(
-                detail: "shadow_stats_json returned null"
+                detail: "shadow_handle_stats returned null with code 0 — backend bug"
             )
         }
-        defer { shadow_free_string(cStr) }
+        defer { shadow_handle_free_string(cStr) }
         let json = String(cString: cStr)
         guard let data = json.data(using: .utf8) else {
             throw ShadowFFIError.backendFailure(
-                detail: "shadow_stats_json returned non-UTF8 payload"
+                detail: "shadow_handle_stats returned non-UTF8 payload"
             )
         }
         return try Self.decoder.decode(ShadowStatsDTO.self, from: data)
@@ -202,4 +318,3 @@ nonisolated private struct ShadowHitDTO: Decodable {
         )
     }
 }
-
