@@ -86,7 +86,7 @@ public struct PlanePlacementHealthRow: View {
 
     private func chipLabel(_ p: SubstrateHealthUnifiedSnapshot.PlanePlacement) -> String {
         guard p.ffiReachable else { return "FFI unavailable" }
-        return p.planeFieldsWired ? "five-plane counts" : "Terminal G dependency"
+        return p.planeFieldsWired ? "read-only counts" : "Terminal G dependency"
     }
 
     private func refresh() {
