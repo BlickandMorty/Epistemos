@@ -1,5 +1,7 @@
 # Decision Needed — ACS Anchor Addressing Scope
 
+Superseded by `docs/audits/DECISION_RESOLVED_ACS_ANCHOR_ADDRESSING_2026_05_24.md`. This file is preserved as the original ambiguity record; the resolved scope is Option 2, with canonical typed-anchor falsifier work deferred outside Terminal E.
+
 ## Summary
 
 Terminal E wires ACS admission as a production gate, but cannot honestly claim `F-ACS-Anchor-Addressing` PASS on this branch.
