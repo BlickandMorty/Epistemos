@@ -2902,23 +2902,26 @@ final class VaultSyncService {
     /// any caller that just needs the matched IDs).
     func searchIndex(query: String) async -> [String] {
         guard let svc = searchService else { return [] }
-        // Wiring #2: T21 Vault Recall Contract breadcrumb. When the
-        // EPISTEMOS_VAULT_RECALL_CONTRACT_V1 flag is on, every chat-
-        // retrieval call emits a RetrievalTrace via the Rust T21
-        // substrate. Production retrieval is unchanged; the breadcrumb
-        // populates VaultRecallMetrics so Settings -> Diagnostics ->
-        // VaultRecallHealthRow can show live signal coverage. Real
-        // RetrievalTrace emission from the production VaultBackend
-        // lands in W-21.1.
-        if VaultRecallFlags.isEnabled {
-            _ = VaultRecallBridge.trace(query: query)
-        }
+        let traceStarted = Date()
         do {
             if RRFFusionFlags.isEnabled {
                 let fused = try await svc.fusedSearchAsync(query: query)
+                recordVaultRecallTraceIfEnabled(
+                    query: query,
+                    limit: FusionWeights.default.maxResults,
+                    fusedResults: fused,
+                    startedAt: traceStarted
+                )
                 return fused.map(\.parentDocID)
             }
-            return try await svc.searchAsync(query: query).map(\.pageId)
+            let results = try await svc.searchAsync(query: query)
+            recordVaultRecallTraceIfEnabled(
+                query: query,
+                limit: 50,
+                results: results,
+                startedAt: traceStarted
+            )
+            return results.map(\.pageId)
         } catch {
             log.error("FTS5 search failed (fusion=\(RRFFusionFlags.isEnabled, privacy: .public)): \(error.localizedDescription, privacy: .public)")
             return []
@@ -2933,15 +2936,29 @@ final class VaultSyncService {
     /// source-compatible.
     func searchFull(query: String, limit: Int = 20) -> [SearchResult] {
         guard let svc = searchService else { return [] }
+        let traceStarted = Date()
         do {
             if RRFFusionFlags.isEnabled {
                 let fused = try svc.fusedSearch(
                     query: query,
                     weights: FusionWeights(maxResults: limit)
                 )
+                recordVaultRecallTraceIfEnabled(
+                    query: query,
+                    limit: limit,
+                    fusedResults: fused,
+                    startedAt: traceStarted
+                )
                 return fused.map(Self.mapFusedToSearchResult)
             }
-            return try svc.search(query: query, limit: limit)
+            let results = try svc.search(query: query, limit: limit)
+            recordVaultRecallTraceIfEnabled(
+                query: query,
+                limit: limit,
+                results: results,
+                startedAt: traceStarted
+            )
+            return results
         } catch {
             log.error("searchFull failed (fusion=\(RRFFusionFlags.isEnabled, privacy: .public)): \(error.localizedDescription, privacy: .public)")
             return []
@@ -2950,23 +2967,69 @@ final class VaultSyncService {
 
     func searchFullAsync(query: String, limit: Int = 20) async -> [SearchResult] {
         guard let svc = searchService else { return [] }
-        // Wiring #2: T21 Vault Recall Contract breadcrumb (deep-search path).
-        if VaultRecallFlags.isEnabled {
-            _ = VaultRecallBridge.trace(query: query)
-        }
+        let traceStarted = Date()
         do {
             if RRFFusionFlags.isEnabled {
                 let fused = try await svc.fusedSearchAsync(
                     query: query,
                     weights: FusionWeights(maxResults: limit)
                 )
+                recordVaultRecallTraceIfEnabled(
+                    query: query,
+                    limit: limit,
+                    fusedResults: fused,
+                    startedAt: traceStarted
+                )
                 return fused.map(Self.mapFusedToSearchResult)
             }
-            return try await svc.searchAsync(query: query, limit: limit)
+            let results = try await svc.searchAsync(query: query, limit: limit)
+            recordVaultRecallTraceIfEnabled(
+                query: query,
+                limit: limit,
+                results: results,
+                startedAt: traceStarted
+            )
+            return results
         } catch {
             log.error("searchFullAsync failed (fusion=\(RRFFusionFlags.isEnabled, privacy: .public)): \(error.localizedDescription, privacy: .public)")
             return []
         }
+    }
+
+    private func recordVaultRecallTraceIfEnabled(
+        query: String,
+        limit: Int,
+        results: [SearchResult],
+        startedAt: Date
+    ) {
+        guard VaultRecallFlags.isEnabled else { return }
+        let trace = SearchIndexService.vaultRecallTrace(
+            query: query,
+            limit: limit,
+            results: results
+        )
+        VaultRecallBridge.recordProductionTrace(
+            trace,
+            latencyMs: Date().timeIntervalSince(startedAt) * 1_000
+        )
+    }
+
+    private func recordVaultRecallTraceIfEnabled(
+        query: String,
+        limit: Int,
+        fusedResults: [FusedResult],
+        startedAt: Date
+    ) {
+        guard VaultRecallFlags.isEnabled else { return }
+        let trace = SearchIndexService.vaultRecallTrace(
+            query: query,
+            limit: limit,
+            fusedResults: fusedResults
+        )
+        VaultRecallBridge.recordProductionTrace(
+            trace,
+            latencyMs: Date().timeIntervalSince(startedAt) * 1_000
+        )
     }
 
     /// Translate a `FusedResult` (RRF Phase 3) into the legacy
