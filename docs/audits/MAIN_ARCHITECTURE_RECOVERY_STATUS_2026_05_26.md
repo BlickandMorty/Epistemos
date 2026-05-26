@@ -225,10 +225,9 @@ Recovered slice:
    `docs/audits/STASH15_GRAPH_CLOSEOUT_2026_05_26.md`. The raw stash remains
    preserved but is no longer an active recovery queue item.
 
-### 6. Claude Shadow Handle (`#81`, `stash@{16}` overlap)
+### 6. Claude Shadow Handle + Approval UI (`#81`, `stash@{16}` overlap)
 
-State: **Closed for current honest-handle product recovery; remaining approval
-ideas are separate donor work.**
+State: **Closed for current honest-handle and approval UI product recovery.**
 
 Closeout:
 
@@ -240,10 +239,14 @@ Closeout:
   honest-handle surface.
 - Full closeout:
   `docs/audits/CLAUDE_SHADOW_HANDLE_CLOSEOUT_2026_05_26.md`.
+- The approval queue donor behavior from `stash@{16}` is closed by
+  `docs/audits/STASH16_APPROVAL_UI_DONOR_CLOSEOUT_2026_05_26.md`. Current
+  `ChatApprovalQueue` keeps the fused SwiftUI sheet and now ports per-session
+  args dedup plus `<session>/approvals.jsonl` audit rows.
 
 Do not raw-merge `#81`; the branch tree is stale and would downgrade current
-Shadow client behavior. If the overlapping stash still has approval UI ideas,
-recover those as a separate `ChatApprovalQueue` / approval modal slice.
+Shadow client behavior. Remaining `stash@{16}` material is editor/vendor donor
+payload and must not be restored without source-guard and performance gates.
 
 ## Donor Branches / Worktrees
 
@@ -320,10 +323,10 @@ not fully closed. The next implementation waves are:
 
 ## Recommended Next Execution Order
 
-1. **Approval UI donor:** inspect `stash@{16}` for `ChatApprovalQueue` /
-   approval modal ideas now that the honest-handle FFI slice is closed.
-2. **Remaining stash@{6} non-chat donors:** inspect lattice-coordinate explainer
+1. **Remaining stash@{6} non-chat donors:** inspect lattice-coordinate explainer
    and phase/canon docs without replaying stale chat code.
+2. **Remaining editor/vendor donors:** inspect the `stash@{16}` / `stash@{19}`
+   editor payloads only behind the HTML/editor source guard and performance gate.
 3. **Wave 3 architecture:** AgentBlueprint replay UI + model metadata badges.
 
 ## Operational Instruction For Agents
