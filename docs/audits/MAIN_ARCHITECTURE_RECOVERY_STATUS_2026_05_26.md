@@ -1,6 +1,7 @@
 # Main Architecture Recovery Status - 2026-05-26
 
-Status: checkpoint audit after PRs `#83`-`#88`
+Status: checkpoint audit after PRs `#83`-`#88`, with a later wording-only
+Living Index refresh.
 
 Purpose: separate what is actually on `main` from work that is merely preserved
 in stashes, draft PRs, old worktrees, or deferred architecture ledgers. This is
@@ -23,11 +24,14 @@ states:
 
 ## Current Main
 
-`main` and `origin/main` are aligned at:
+At audit creation, `main` and `origin/main` were aligned at:
 
 ```text
 a4ea05424f docs(recovery): split finished main from preserved architecture work (#88)
 ```
+
+Use `git log -1 --oneline` for the exact current commit if later docs-only
+checkpoint refreshes have landed.
 
 Recent recovery/checkpoint PRs now on main:
 
