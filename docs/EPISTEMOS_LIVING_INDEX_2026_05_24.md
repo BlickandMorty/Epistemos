@@ -138,8 +138,8 @@ Full prompts: `docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md`. **Wave 1 = foundati
 
 1. All six Wave-2 PRs merged: **#78 → #77 → #75 → #76 → #79 → #74**.
 2. Main build break from #76 repaired directly on main at `77c7efe9ea`.
-3. B-prime uncommitted follow-up work is not done; it is preserved as stash/tag/patch and documented in `docs/audits/B_PRIME_FOLLOWUP_REPROMOTION_PLAN_2026_05_26.md`.
-4. Remaining required next work is **Wave 3**, not more Wave-2 merging: AgentBlueprint end-to-end replay UI, agent metadata badges, deeper UAS/ClaimLedger rows, Cognitive DAG visualizer, Tri-Fusion typed mutations, and B-prime follow-up repromotion.
+3. B-prime uncommitted follow-up work is closed for current product recovery; it remains preserved as stash/tag/patch and documented by `docs/audits/B_PRIME_FOLLOWUP_CLOSEOUT_2026_05_26.md` until the user approves retiring old recovery refs.
+4. Remaining required next work is **Wave 3**, not more Wave-2 merging: AgentBlueprint end-to-end replay UI, agent metadata badges, deeper UAS/ClaimLedger rows, Cognitive DAG visualizer, Tri-Fusion typed mutations, and focused donor recovery from the remaining non-closed stashes.
 5. Run `LEGENDARY` codeword for a fresh percentage/W-row roll-up.
 
 ## 8 · Deferred-work ledger (26 items, anti-loss)

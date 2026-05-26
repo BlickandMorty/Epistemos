@@ -305,7 +305,6 @@ not fully closed. The next implementation waves are:
 
 ### Recovery Wave - Local UI/UX Nuance
 
-- Re-promote B-prime follow-up groups from `stash@{0}`.
 - Continue mining `stash@{18}` for non-shell UI refinements now that the Agent
   Command Center donor synthesis is archived via PR #91.
 - Recover graph-filter ideas from `stash@{15}` only if they pass performance
@@ -314,18 +313,14 @@ not fully closed. The next implementation waves are:
 
 ## Recommended Next Execution Order
 
-1. **B-prime follow-up slice 1:** HTML Workspace/source-vs-bundle cleanup and
-   any missing UI controls, from `stash@{0}` / `#82`.
-2. **B-prime follow-up slice 2:** Settings truth/health-row nuance from
-   `stash@{0}`.
-3. **Old main UI synthesis:** mine the remaining `stash@{18}` slices for
+1. **Old main UI synthesis:** mine the remaining `stash@{18}` slices for
    landing, editor, chat/runtime, graph, and theme nuance.
-4. **Graph WIP audit:** mine `stash@{15}` with a graph performance test gate.
-5. **VaultRecall/Eidos visibility:** mine `stash@{3}` and `stash@{6}` after the
+2. **Graph WIP audit:** mine `stash@{15}` with a graph performance test gate.
+3. **VaultRecall/Eidos visibility:** mine `stash@{3}` and `stash@{6}` after the
    current provenance path is stable.
-6. **Approval UI donor:** inspect `stash@{16}` for `ChatApprovalQueue` /
+4. **Approval UI donor:** inspect `stash@{16}` for `ChatApprovalQueue` /
    approval modal ideas now that the honest-handle FFI slice is closed.
-7. **Wave 3 architecture:** AgentBlueprint replay UI + model metadata badges.
+5. **Wave 3 architecture:** AgentBlueprint replay UI + model metadata badges.
 
 ## Operational Instruction For Agents
 

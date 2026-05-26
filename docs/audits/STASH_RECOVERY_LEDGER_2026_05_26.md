@@ -36,20 +36,25 @@ Current main checkpoint before this ledger:
 2. `stash@{18}` - large old main WIP, including Agent Command Center and
    editor/chat/graph subtleties; split into several PRs.
 3. `stash@{6}` - chat provenance, VaultRecall, landing, and phase prompt work.
-4. `stash@{0}` - B-prime follow-up; many files are already on main, but
-   Settings health rows and one legacy editor diagram file need review.
-5. `stash@{7}` - settings, ambient frequency, voice input, and app bootstrap
+4. `stash@{7}` - settings, ambient frequency, voice input, and app bootstrap
    nuance.
-6. `stash@{3}` - VaultRecall visibility and Eidos bridge WIP.
-7. `stash@{15}` - graph filter/physics selected-expansion WIP. Audit against
+5. `stash@{3}` - VaultRecall visibility and Eidos bridge WIP.
+6. `stash@{15}` - graph filter/physics selected-expansion WIP. Audit against
    the snappy defaults restored by `#86` before applying anything.
-8. `stash@{16}` - older honest-handle, approval queue, and editor asset WIP.
+7. `stash@{16}` - older honest-handle, approval queue, and editor asset WIP.
    Recover only after current UI/editor slices are stable.
-9. `stash@{19}` - old code-editor invisible-text stash. The Xcode color palette
+8. `stash@{19}` - old code-editor invisible-text stash. The Xcode color palette
    is already on main; the remaining old patch contains a temporary minimal
    editor rewrite and must not be applied wholesale.
-10. `stash@{13}`, `stash@{14}`, `stash@{8}`, `stash@{9}` - substrate/research
+9. `stash@{13}`, `stash@{14}`, `stash@{8}`, `stash@{9}` - substrate/research
     nuances, recover after UI and graph-visible work.
+
+Closed but preserved:
+
+- `stash@{0}` - B-prime follow-up. Current product recovery is closed by
+  `docs/audits/B_PRIME_FOLLOWUP_CLOSEOUT_2026_05_26.md`; keep the stash/tag/PR
+  only as a preservation reference until the user approves retiring old recovery
+  refs.
 
 ## Stash Inventory
 
