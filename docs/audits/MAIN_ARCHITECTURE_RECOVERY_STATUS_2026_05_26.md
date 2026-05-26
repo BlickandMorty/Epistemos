@@ -89,10 +89,11 @@ These are finished enough to count as present on main:
   Xcode-style code colors, and live `CodeEditSourceEditor` path; the old
   minimal `NSTextView` rewrite and Mermaid runtime vendor are not restored.
 
-## Not Finished But Preserved
+## Closed Preservation References
 
-These are the highest-value remaining recovery surfaces. They are not done just
-because they are stashed or branched.
+These were the highest-value recovery surfaces from the stash queue. They are
+closed for current product recovery, preserved for traceability, and must not be
+raw-merged from their stale stash or draft-PR trees.
 
 ### 1. B-prime Follow-up (`stash@{0}`, PR `#82`)
 
