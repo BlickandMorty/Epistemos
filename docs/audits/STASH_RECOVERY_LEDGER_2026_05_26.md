@@ -313,25 +313,31 @@ Message: `WIP on main: 31214a4d Update progress and mark three runtime issues as
 
 Classification: very important, very large. Split into multiple branches.
 
+Recovered slice:
+
+- Agent Command Center donor UX archived in
+  `docs/audits/STASH18_AGENT_COMMAND_CENTER_DONOR_SYNTHESIS_2026_05_26.md`
+  and guarded by
+  `EpistemosTests/Stash18AgentCommandCenterDonorSynthesisTests.swift`
+  via PR #91. The legacy `Epistemos/Views/AgentCommandCenter/*` files remain
+  intentionally absent from live source.
+
 Likely recovery slices:
 
-1. Agent Command Center missing files:
-   `AgentCommandCenterView`, `BrainPickerMenu`, `CommandBarView`,
-   `InspectorPanelView`, `SuggestionPopoverView`.
-2. Landing/session UI:
+1. Landing/session UI:
    `LandingView`, `SessionIntelligenceOverlay`.
-3. Editor/note UX:
+2. Editor/note UX:
    `CodeEditorView`, `MarkdownContentStorage`, `ProseEditorView`,
    `AIPartnerInlineView`, `AIPartnerService`, `NotesSidebar`,
    `NoteDetailWorkspaceView`, `NoteWindowManager`.
-4. Graph/performance:
+3. Graph/performance:
    `GraphState`, `MetalGraphView`, `HologramOverlay`,
    `graph-engine/src/engine.rs`, `graph-engine/src/simulation.rs`.
-5. Chat/runtime:
+4. Chat/runtime:
    `ChatCoordinator`, `AgentChatState`, `InferenceState`,
    `ArtifactBlockView`, `ContextWindowIndicator`, `MessageBubble`,
    `TaggedMarkdownTextView`.
-6. Theme:
+5. Theme:
    `EpistemosTheme`, `EpistemosFont`, `PhysicsModifiers`.
 
 Do not apply this stash whole. It spans too many ownership boundaries and old
