@@ -1,3 +1,4 @@
+import CryptoKit
 import Observation
 import SwiftUI
 import OSLog
@@ -246,6 +247,14 @@ public enum ChatApprovalResolution: Sendable, Equatable {
     case deny
 }
 
+public enum ChatApprovalEventKind: String, Sendable {
+    case promptShown = "prompt_shown"
+    case userResolved = "user_resolved"
+    case dedupShortCircuit = "dedup_short_circuit"
+    case timeoutDenied = "timeout_denied"
+    case overlappingDenied = "overlapping_denied"
+}
+
 enum ChatApprovalSovereignGate {
     static func requiresConfirmation(for decision: ApprovalModalView.Decision) -> Bool {
         switch decision {
@@ -296,11 +305,47 @@ enum ChatApprovalSovereignGate {
 @MainActor @Observable
 public final class ChatApprovalQueue {
     public var pendingApproval: ApprovalModalView.PendingApproval?
+    @ObservationIgnored public var sessionFolderPathResolver: (@MainActor (String) -> String?)?
+    @ObservationIgnored public var auditLogDirectoryOverride: URL?
 
-    @ObservationIgnored private var continuation: CheckedContinuation<ChatApprovalResolution, Never>?
+    @ObservationIgnored private var pendingContinuations: [String: CheckedContinuation<ChatApprovalResolution, Never>] = [:]
+    @ObservationIgnored private var approvedHashesBySession: [String: Set<String>] = [:]
+    @ObservationIgnored private let auditLog: ChatApprovalAuditLog
     @ObservationIgnored private let log = Logger(subsystem: "com.epistemos", category: "ChatApprovalQueue")
 
-    public init() {}
+    public init(auditLog: ChatApprovalAuditLog = ChatApprovalAuditLog()) {
+        self.auditLog = auditLog
+    }
+
+    public func resetSession(sessionId: String) {
+        approvedHashesBySession[sessionId] = []
+    }
+
+    public static func dedupHash(toolName: String, argsJSON: String) -> String {
+        let bytes = "\(toolName)\u{1F}\(argsJSON)".data(using: .utf8) ?? Data()
+        let digest = SHA256.hash(data: bytes)
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    public func isAlreadyApproved(
+        sessionId: String,
+        toolName: String,
+        argsJSON: String
+    ) -> Bool {
+        let hash = Self.dedupHash(toolName: toolName, argsJSON: argsJSON)
+        return approvedHashesBySession[sessionId]?.contains(hash) == true
+    }
+
+    public func markApproved(
+        sessionId: String,
+        toolName: String,
+        argsJSON: String
+    ) {
+        let hash = Self.dedupHash(toolName: toolName, argsJSON: argsJSON)
+        var current = approvedHashesBySession[sessionId] ?? []
+        current.insert(hash)
+        approvedHashesBySession[sessionId] = current
+    }
 
     public func enqueue(
         sessionId: String,
@@ -310,21 +355,54 @@ public final class ChatApprovalQueue {
         summary: String?,
         authorityCategoryLabel: String?
     ) async -> ChatApprovalResolution {
-        if pendingApproval != nil {
-            log.error("denying overlapping approval request tool=\(toolName, privacy: .public)")
-            return .deny
+        if approvedHashesBySession[sessionId] == nil {
+            approvedHashesBySession[sessionId] = []
         }
-
-        return await withCheckedContinuation { continuation in
-            self.continuation = continuation
-            pendingApproval = ApprovalModalView.PendingApproval(
+        if isAlreadyApproved(sessionId: sessionId, toolName: toolName, argsJSON: argsJSON) {
+            recordAuditEntry(
                 sessionId: sessionId,
                 toolName: toolName,
                 argsJSON: argsJSON,
-                deadline: deadline,
-                summary: summary,
+                resolution: .allowOnce,
+                eventKind: .dedupShortCircuit,
                 authorityCategoryLabel: authorityCategoryLabel
             )
+            return .allowOnce
+        }
+
+        if pendingApproval != nil {
+            log.error("denying overlapping approval request tool=\(toolName, privacy: .public)")
+            recordAuditEntry(
+                sessionId: sessionId,
+                toolName: toolName,
+                argsJSON: argsJSON,
+                resolution: .deny,
+                eventKind: .overlappingDenied,
+                authorityCategoryLabel: authorityCategoryLabel
+            )
+            return .deny
+        }
+
+        let approval = ApprovalModalView.PendingApproval(
+            sessionId: sessionId,
+            toolName: toolName,
+            argsJSON: argsJSON,
+            deadline: deadline,
+            summary: summary,
+            authorityCategoryLabel: authorityCategoryLabel
+        )
+        recordAuditEntry(
+            sessionId: sessionId,
+            toolName: toolName,
+            argsJSON: argsJSON,
+            resolution: nil,
+            eventKind: .promptShown,
+            authorityCategoryLabel: authorityCategoryLabel
+        )
+
+        return await withCheckedContinuation { continuation in
+            pendingContinuations[approval.id] = continuation
+            pendingApproval = approval
         }
     }
 
@@ -332,11 +410,32 @@ public final class ChatApprovalQueue {
         _ approval: ApprovalModalView.PendingApproval,
         decision: ApprovalModalView.Decision
     ) {
-        guard pendingApproval?.id == approval.id, let continuation else { return }
+        guard pendingApproval?.id == approval.id,
+              let continuation = pendingContinuations.removeValue(forKey: approval.id)
+        else { return }
 
-        self.continuation = nil
+        let resolution = resolution(for: decision)
+        let eventKind: ChatApprovalEventKind = decision == .timedOut ? .timeoutDenied : .userResolved
+        recordAuditEntry(
+            sessionId: approval.sessionId,
+            toolName: approval.toolName,
+            argsJSON: approval.argsJSON,
+            resolution: resolution,
+            eventKind: eventKind,
+            authorityCategoryLabel: approval.authorityCategoryLabel
+        )
+        switch resolution {
+        case .allowOnce, .alwaysAllow, .applyLessInterruptions:
+            markApproved(
+                sessionId: approval.sessionId,
+                toolName: approval.toolName,
+                argsJSON: approval.argsJSON
+            )
+        case .deny:
+            break
+        }
         pendingApproval = nil
-        continuation.resume(returning: resolution(for: decision))
+        continuation.resume(returning: resolution)
     }
 
     private func resolution(for decision: ApprovalModalView.Decision) -> ChatApprovalResolution {
@@ -350,6 +449,137 @@ public final class ChatApprovalQueue {
         case .deny, .timedOut:
             return .deny
         }
+    }
+
+    private func recordAuditEntry(
+        sessionId: String,
+        toolName: String,
+        argsJSON: String,
+        resolution: ChatApprovalResolution?,
+        eventKind: ChatApprovalEventKind,
+        authorityCategoryLabel: String?
+    ) {
+        let directory: URL?
+        if let override = auditLogDirectoryOverride {
+            directory = override
+        } else if let path = sessionFolderPathResolver?(sessionId) {
+            directory = URL(fileURLWithPath: path, isDirectory: true)
+        } else {
+            directory = nil
+        }
+        guard let directory else {
+            log.info("approval audit skipped session=\(sessionId, privacy: .public) tool=\(toolName, privacy: .public) event=\(eventKind.rawValue, privacy: .public)")
+            return
+        }
+
+        let entry = ChatApprovalAuditLog.Entry(
+            timestamp: Date(),
+            sessionId: sessionId,
+            toolName: toolName,
+            argsHash: Self.dedupHash(toolName: toolName, argsJSON: argsJSON),
+            argsJSON: argsJSON,
+            resolution: resolution?.auditRawValue,
+            eventKind: eventKind.rawValue,
+            authorityCategoryLabel: authorityCategoryLabel
+        )
+        do {
+            try auditLog.append(entry: entry, sessionFolder: directory)
+        } catch {
+            log.error("approval audit append failed session=\(sessionId, privacy: .public) error=\(error.localizedDescription, privacy: .public)")
+        }
+    }
+}
+
+private extension ChatApprovalResolution {
+    var auditRawValue: String {
+        switch self {
+        case .allowOnce:
+            return "allow_once"
+        case .alwaysAllow:
+            return "always_allow"
+        case .applyLessInterruptions:
+            return "apply_less_interruptions"
+        case .deny:
+            return "deny"
+        }
+    }
+}
+
+public final class ChatApprovalAuditLog: @unchecked Sendable {
+    public struct Entry: Codable, Sendable, Equatable {
+        public let timestamp: Date
+        public let sessionId: String
+        public let toolName: String
+        public let argsHash: String
+        public let argsJSON: String
+        public let resolution: String?
+        public let eventKind: String
+        public let authorityCategoryLabel: String?
+
+        enum CodingKeys: String, CodingKey {
+            case timestamp = "ts"
+            case sessionId = "session_id"
+            case toolName = "tool_name"
+            case argsHash = "args_hash"
+            case argsJSON = "args_json"
+            case resolution
+            case eventKind = "event_kind"
+            case authorityCategoryLabel = "authority_category"
+        }
+    }
+
+    public static let fileName = "approvals.jsonl"
+
+    private let writeQueue = DispatchQueue(label: "com.epistemos.ChatApprovalAuditLog")
+    private let encoder: JSONEncoder
+
+    public init() {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        self.encoder = encoder
+    }
+
+    public func append(entry: Entry, sessionFolder: URL) throws {
+        let payload = try encoder.encode(entry)
+        var line = payload
+        line.append(0x0A)
+        try writeQueue.sync {
+            try Self.appendData(line, sessionFolder: sessionFolder)
+        }
+    }
+
+    public static func entries(in sessionFolder: URL) throws -> [Entry] {
+        let url = sessionFolder.appendingPathComponent(fileName, isDirectory: false)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return []
+        }
+        let data = try Data(contentsOf: url)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        var rows: [Entry] = []
+        for raw in data.split(separator: 0x0A) where !raw.isEmpty {
+            if let entry = try? decoder.decode(Entry.self, from: Data(raw)) {
+                rows.append(entry)
+            }
+        }
+        return rows
+    }
+
+    private static func appendData(_ data: Data, sessionFolder: URL) throws {
+        try FileManager.default.createDirectory(
+            at: sessionFolder,
+            withIntermediateDirectories: true
+        )
+        let url = sessionFolder.appendingPathComponent(fileName, isDirectory: false)
+        if !FileManager.default.fileExists(atPath: url.path) {
+            try data.write(to: url, options: .atomic)
+            return
+        }
+        let handle = try FileHandle(forWritingTo: url)
+        defer { try? handle.close() }
+        try handle.seekToEnd()
+        try handle.write(contentsOf: data)
     }
 }
 
