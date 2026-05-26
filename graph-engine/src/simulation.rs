@@ -802,6 +802,12 @@ pub struct Simulation {
     active_mask: Vec<bool>,
     /// Snapshot of viewport-only nodes before one-hop expansion.
     viewport_seed_mask: Vec<bool>,
+    /// Selected-node focus: direct selected-neighborhood links use a longer
+    /// rest distance so neighbors make readable space without changing global
+    /// forces or adding allocation inside the tick loop.
+    selected_focus_root: Option<usize>,
+    selected_focus_neighbors: Vec<bool>,
+    selected_focus_distance_multiplier: f32,
     // ── Shadow attraction (contextual gravity) ──
     /// Per-node shadow attraction strength (0.0 = no attraction).
     /// Set by Swift after embedding search; cleared when typing stops.
@@ -975,6 +981,9 @@ impl Simulation {
             viewport_bounds: None,
             active_mask: Vec::new(),
             viewport_seed_mask: Vec::new(),
+            selected_focus_root: None,
+            selected_focus_neighbors: Vec::new(),
+            selected_focus_distance_multiplier: 1.0,
             shadow_strength: Vec::new(),
             shadow_target: [0.0, 0.0],
             mass: Vec::new(),
@@ -1043,6 +1052,63 @@ impl Simulation {
             .emit(center_x, center_y, release_vx, release_vy, now_s);
     }
 
+    pub fn set_selection_focus(
+        &mut self,
+        root: usize,
+        neighbors: impl IntoIterator<Item = usize>,
+        distance_multiplier: f32,
+    ) {
+        if root >= self.x.len() {
+            self.clear_selection_focus();
+            return;
+        }
+
+        if self.selected_focus_neighbors.len() != self.x.len() {
+            self.selected_focus_neighbors.resize(self.x.len(), false);
+        } else {
+            self.selected_focus_neighbors.fill(false);
+        }
+
+        self.selected_focus_neighbors[root] = true;
+        for index in neighbors {
+            if index < self.selected_focus_neighbors.len() {
+                self.selected_focus_neighbors[index] = true;
+            }
+        }
+
+        self.selected_focus_root = Some(root);
+        self.selected_focus_distance_multiplier = distance_multiplier.clamp(1.0, 3.0);
+        self.params.alpha = self.params.alpha.max(0.08);
+        self.sustain_interaction_motion_for(std::time::Duration::from_secs_f32(1.2), 0.035);
+        self.is_settled = false;
+    }
+
+    pub fn clear_selection_focus(&mut self) {
+        let had_focus = self.selected_focus_root.is_some()
+            || self.selected_focus_neighbors.iter().any(|visible| *visible);
+        self.selected_focus_root = None;
+        self.selected_focus_neighbors.fill(false);
+        self.selected_focus_distance_multiplier = 1.0;
+        if had_focus && !self.static_layout {
+            self.params.alpha = self.params.alpha.max(0.06);
+            self.is_settled = false;
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn selection_focus_for_tests(&self) -> Option<(usize, usize, f32)> {
+        self.selected_focus_root.map(|root| {
+            (
+                root,
+                self.selected_focus_neighbors
+                    .iter()
+                    .filter(|is_selected| **is_selected)
+                    .count(),
+                self.selected_focus_distance_multiplier,
+            )
+        })
+    }
+
     /// Load graph data into the simulation.
     /// Only includes visible nodes. Edges are re-indexed to simulation indices.
     pub fn load_from_graph(&mut self, graph: &crate::types::Graph) {
@@ -1069,6 +1135,7 @@ impl Simulation {
         self.tick_count = 0;
         self.interaction_motion_until = None;
         self.interaction_motion_alpha_target = 0.0;
+        self.clear_selection_focus();
 
         // Map graph node index → simulation index (only visible nodes).
         let mut graph_to_sim: Vec<Option<usize>> = vec![None; graph.nodes.len()];
@@ -1321,9 +1388,9 @@ impl Simulation {
         // the user-overlay forces after a few seconds. Keep above the
         // settled check below so `is_settled` evaluates false while these
         // are active.
-        let user_overlay_active =
-            (self.cursor_force_mode != 0 && self.cursor_force_strength > 0.001)
-                || (self.shape_bound_kind != 0 && self.shape_bound_radius > 1.0);
+        let user_overlay_active = (self.cursor_force_mode != 0
+            && self.cursor_force_strength > 0.001)
+            || (self.shape_bound_kind != 0 && self.shape_bound_radius > 1.0);
         if user_overlay_active {
             self.params.alpha = self.params.alpha.max(USER_OVERLAY_ALPHA_FLOOR);
         }
@@ -1360,21 +1427,45 @@ impl Simulation {
         // semantic) — only link + center maintain equilibrium. This keeps CPU
         // near-zero when idle while still allowing immediate force response on reheat.
 
-        // Link force (springs along edges, per-edge weight modulates distance)
-        forces::force_link(
-            &self.x,
-            &self.y,
-            &mut self.vx,
-            &mut self.vy,
-            &self.edges,
-            &self.edge_weights,
-            &self.degrees,
-            &self.fx,
-            &self.fy,
-            self.params.link_distance,
-            self.params.link_strength,
-            force_alpha,
-        );
+        // Link force (springs along edges, per-edge weight modulates distance).
+        // Selected focus only changes direct selected-neighborhood rest distance;
+        // the normal no-selection path stays on the original hot function.
+        if let Some(root) = self.selected_focus_root {
+            forces::force_link_with_focus(
+                &self.x,
+                &self.y,
+                &mut self.vx,
+                &mut self.vy,
+                &self.edges,
+                &self.edge_weights,
+                &self.degrees,
+                &self.fx,
+                &self.fy,
+                self.params.link_distance,
+                self.params.link_strength,
+                force_alpha,
+                forces::LinkFocus {
+                    root,
+                    neighbors: &self.selected_focus_neighbors,
+                    distance_multiplier: self.selected_focus_distance_multiplier,
+                },
+            );
+        } else {
+            forces::force_link(
+                &self.x,
+                &self.y,
+                &mut self.vx,
+                &mut self.vy,
+                &self.edges,
+                &self.edge_weights,
+                &self.degrees,
+                &self.fx,
+                &self.fy,
+                self.params.link_distance,
+                self.params.link_strength,
+                force_alpha,
+            );
+        }
 
         if !at_floor {
             // Torsional springs: equalize angular spacing around hub nodes.
