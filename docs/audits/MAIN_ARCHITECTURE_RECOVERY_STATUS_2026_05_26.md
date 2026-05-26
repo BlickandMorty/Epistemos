@@ -108,6 +108,10 @@ Recovered slice:
 2. UAS/ACS artifact gate follow-up is archived in
    `docs/audits/B_PRIME_UAS_ACS_ARTIFACT_GATES_2026_05_26.md` and guarded by
    `EpistemosTests/SubstrateHealthPanelTests.swift`.
+3. Legacy diagram compatibility is archived in
+   `docs/audits/B_PRIME_LEGACY_DIAGRAM_COMPATIBILITY_2026_05_26.md`. Old Epdoc
+   `mermaid` schema blocks now load as inert source, while active visual
+   creation remains routed to HTML Workspace.
 
 Remaining slices:
 
