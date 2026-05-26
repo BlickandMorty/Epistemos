@@ -264,6 +264,48 @@ struct AuditFixRegressionTests {
         #expect(await held.value == .allowOnce)
     }
 
+    @MainActor
+    @Test("chat approval queue dedupes approved args and appends audit JSONL")
+    func chatApprovalQueueDedupesApprovedArgsAndAppendsAuditJSONL() async throws {
+        let queue = ChatApprovalQueue()
+        let sessionFolder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("EpistemosApprovalQueue-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: sessionFolder) }
+        queue.auditLogDirectoryOverride = sessionFolder
+
+        let argsJSON = #"{"command":"pwd"}"#
+        let first = Task { @MainActor in
+            await queue.enqueue(
+                sessionId: "session-audit",
+                toolName: "shell.execute",
+                argsJSON: argsJSON,
+                deadline: Date().addingTimeInterval(60),
+                summary: "List the working directory.",
+                authorityCategoryLabel: "Shell"
+            )
+        }
+        let firstApproval = try await nextPendingApproval(from: queue)
+        queue.resolve(firstApproval, decision: .approveOnce)
+        #expect(await first.value == .allowOnce)
+
+        let duplicate = await queue.enqueue(
+            sessionId: "session-audit",
+            toolName: "shell.execute",
+            argsJSON: argsJSON,
+            deadline: Date().addingTimeInterval(60),
+            summary: "List the working directory again.",
+            authorityCategoryLabel: "Shell"
+        )
+        #expect(duplicate == .allowOnce)
+        #expect(queue.pendingApproval == nil)
+
+        let entries = try ChatApprovalAuditLog.entries(in: sessionFolder)
+        let argsHash = ChatApprovalQueue.dedupHash(toolName: "shell.execute", argsJSON: argsJSON)
+        #expect(entries.contains { $0.eventKind == "prompt_shown" && $0.argsHash == argsHash })
+        #expect(entries.contains { $0.eventKind == "user_resolved" && $0.resolution == "allow_once" })
+        #expect(entries.contains { $0.eventKind == "dedup_short_circuit" && $0.argsHash == argsHash })
+    }
+
     @Test("managed tools use an application-support scratch vault instead of crashing when no vault is attached")
     func managedToolsUseApplicationSupportScratchVaultWhenNoVaultIsAttached() throws {
         let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")

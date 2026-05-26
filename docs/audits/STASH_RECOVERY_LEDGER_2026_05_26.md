@@ -37,8 +37,9 @@ Current main checkpoint before this ledger:
    material after the VaultRecall/Eidos slice closeout.
 3. `stash@{7}` - settings, ambient frequency, voice input, and app bootstrap
    nuance.
-4. `stash@{16}` - older honest-handle, approval queue, and editor asset WIP.
-   Recover only after current UI/editor slices are stable.
+4. `stash@{16}` - remaining editor asset WIP only. Honest-handle and
+   approval-queue donor work are closed; do not restore vendor/editor assets
+   without the editor source guard and performance gate.
 5. `stash@{19}` - old code-editor invisible-text stash. The Xcode color palette
    is already on main; the remaining old patch contains a temporary minimal
    editor rewrite and must not be applied wholesale.
@@ -332,8 +333,9 @@ Differs:
 Message:
 `On master: session-stash-2026-04-27: W9.21 PR4 (X salvaged) + W9.8 wire-up partial; restart-fresh per user`
 
-Classification: older but meaningful. Honest-handle FFI is closed on current
-main; remaining value, if any, is approval/UI donor work.
+Classification: older but meaningful. Honest-handle FFI and approval/UI donor
+work are closed on current main. Remaining value, if any, is editor/vendor
+donor material that must not be raw-restored.
 
 Recovered / superseded slice:
 
@@ -341,6 +343,10 @@ Recovered / superseded slice:
   `docs/audits/CLAUDE_SHADOW_HANDLE_CLOSEOUT_2026_05_26.md`. Current main
   already has the newer `RustShadowFFIClient` honest-handle consumer,
   `epistemos-shadow/src/honest_handle.rs`, and `ShadowHonestHandleSourceGuardTests`.
+- Approval UI donor behavior is closed in
+  `docs/audits/STASH16_APPROVAL_UI_DONOR_CLOSEOUT_2026_05_26.md`. Current main
+  now keeps the fused SwiftUI approval sheet while porting per-session args
+  dedup and `<session>/approvals.jsonl` audit rows.
 
 Tracked differs:
 
@@ -354,8 +360,8 @@ Missing untracked includes:
 - uncompressed editor assets and vendor files
 - `Epistemos/Resources/Editor/editor.html` differs
 
-Do not revive Mermaid/vendor assets without the source-guard and performance
-gate from `#86`.
+Do not revive Mermaid/vendor/editor assets without the source-guard and
+performance gate from `#86`.
 
 ### `stash@{17}` - parallel landing wave session
 

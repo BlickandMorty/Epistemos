@@ -1995,6 +1995,9 @@ final class AppBootstrap {
 
         // Set shared before wiring so that any callbacks can access it.
         AppBootstrap.shared = self
+        chatApprovalQueue.sessionFolderPathResolver = { sessionId in
+            sessionFolderPathLocal(sessionId: sessionId)
+        }
         sovereignGateLifecycleObserver.start(gate: sovereignGate)
 
         // V6.2 Option B: start the LatestAnswerPacketSink so SwiftUI
