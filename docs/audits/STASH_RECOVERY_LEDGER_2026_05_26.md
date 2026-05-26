@@ -270,9 +270,15 @@ Differs:
 
 Message: `On master: wip-codex-graph-filters-selected-expansion`
 
-Classification: graph behavior/performance WIP. High priority for regression
-audit, but dangerous to bulk apply because `#86` intentionally restored snappy
-physics defaults.
+Classification: graph behavior/performance WIP. Recovered in focused slices;
+do not bulk apply because `#86` intentionally restored snappy physics defaults.
+
+Recovered slice:
+
+- Selected-neighbor expansion recovered in
+  `docs/audits/STASH15_SELECTED_NEIGHBOR_EXPANSION_2026_05_26.md`. Filter UI
+  was already present on current `main`; only the Rust selected-neighborhood
+  rest-distance behavior was ported, with a three-pass graph physics audit.
 
 Differs:
 
