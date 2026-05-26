@@ -187,6 +187,14 @@ Recovered slice:
   now uses `ComposerVoiceInputService` instead of directly owning the older live
   `EpistemosSpeechAnalyzer` stream.
 
+Superseded slice:
+
+- Remaining ambient/settings/app-shell deltas reviewed in
+  `docs/audits/STASH7_AMBIENT_SETTINGS_SUPERSESSION_2026_05_26.md`. Current
+  `main` already carries the newer compact ambient flow, persistent live player,
+  richer mixer/music controls, and verified-floor health rows. Do not raw-apply
+  this stash over those surfaces.
+
 Differs from main include:
 
 - App shell and bootstrap: `AppBootstrap`, `RootView`, `ChatCoordinator`.
