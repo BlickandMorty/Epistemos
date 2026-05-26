@@ -252,10 +252,9 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                 text: line,
                 baseFontSize: baseFontSize
             )
-            // 2026-05-19: shrink H1-H3 by theme.headingSizeMultiplier so
-            // Classic (RetroGaming) and Platinum (MatrixTypeDisplay) land
-            // near visual parity with Ember (ChonkyPixels). Ember stays at
-            // multiplier 1.0. Levels 4+ are not display-font headings; leave
+            // 2026-05-19+: shrink H1-H3 by theme.headingSizeMultiplier so
+            // MatrixTypeDisplay themes land near visual parity with
+            // ChonkyPixels. Levels 4+ are not display-font headings; leave
             // them at their canonical sizes.
             let fontSize: CGFloat = (1...3).contains(level)
                 ? rawFontSize * theme.headingSizeMultiplier
@@ -268,17 +267,17 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
             let headingFont =
                 if usesDisplayFont {
                     // 2026-05-13 follow-up: route live-editor H1-H3
-                    // through `theme.headingFontName` (Ember →
-                    // ChonkyPixels, Classic → Coral/RetroGaming,
-                    // Platinum → MatrixTypeDisplay) instead of the
-                    // hero face. Matches the SwiftUI MarkdownTextView
-                    // + chat TaggedMarkdownTextView heading paths so
-                    // editing a note shows the same H1-H3 font that
-                    // its preview / chat reply would render.
+                    // through `theme.headingFontName(level:)` so
+                    // Classic can split Matrix H1 from Chonky H2/H3.
+                    // Matches the SwiftUI MarkdownTextView + chat
+                    // TaggedMarkdownTextView heading paths so editing
+                    // a note shows the same H1-H3 font that its
+                    // preview / chat reply would render.
                     AppDisplayTypography.nsHeadingFont(
                         size: fontSize,
                         weight: weight,
-                        theme: theme
+                        theme: theme,
+                        level: level
                     )
                 } else {
                     AppDisplayTypography.regularUIFont(size: fontSize, weight: weight)

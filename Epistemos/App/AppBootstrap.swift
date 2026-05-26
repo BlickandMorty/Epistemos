@@ -985,6 +985,7 @@ final class AppBootstrap {
     /// `EPISTEMOS_AMBIENT_RECALL_V0` env flag; UI hides itself when
     /// `state.isEnabled == false`.
     let contextualShadowsState = ContextualShadowsState()
+    let ambientFrequencyPlaybackState = AmbientFrequencyPlaybackState()
     let agentAuthorityStore = AgentAuthorityStore(
         persistence: FileBackedAgentAuthorityPersistence()
     )

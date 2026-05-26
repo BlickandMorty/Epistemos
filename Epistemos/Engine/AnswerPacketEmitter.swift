@@ -5,21 +5,22 @@
 // Per `docs/fusion/helios v6.2.md` §1.3 + §3 and the laptop audit
 // checklist (`docs/audits/V6_2_LAPTOP_MANUAL_AUDIT_CHECKLIST_2026_05_07.md`):
 // every chat-turn completion produces one AnswerPacket, recorded in a
-// bounded 32-packet ring for diagnostic, debug, and replay-export
+// bounded 100-packet ring for diagnostic, debug, and replay-export
 // consumption.
 //
 // What this module IS:
 //   * A turn-level audit sink. Every `StreamingDelegate.onComplete` call
 //     produces one packet emitted here (`emit(packet)`).
 //   * Thread-safe (actor isolation).
-//   * Bounded (32-packet ring) so a long-running session can't
+//   * Bounded (100-packet ring) so a long-running session can't
 //     memory-leak.
 //   * Observable via `snapshot()` + `didEmitNotification` so the
 //     Settings diagnostics row + `LatestAnswerPacketSink` (the
 //     MainActor mirror that feeds MessageBubble's chip row) refresh
 //     event-driven, not polled.
-//   * Source for per-mode + per-bucket monotonic histograms (V6.2
-//     §1.4 attention modes and §1.5 calibration corpus buckets).
+//   * Source for per-mode, per-bucket, and per-claim-kind monotonic
+//     histograms (V6.2 §1.4 attention modes, §1.5 calibration corpus
+//     buckets, and W2 claim-kind audit distribution).
 //
 // State 2026-05-12 (`state: rendered FULL`):
 //   ✓ chat path emits packet per turn at StreamingDelegate.onComplete
@@ -31,7 +32,7 @@
 //
 // What's still pending for `state: canonical-product-surface`:
 //   * Persisting the packet alongside the ChatMessage so scrollback
-//     past the 32-packet ring still renders chips.
+//     past the 100-packet ring still renders chips.
 //   * Rust-side `agent_core::scope_rex::AnswerPacket::new` production
 //     caller so claims + residency signals come from the live agent
 //     runtime instead of empty placeholders.
@@ -53,10 +54,10 @@ public actor AnswerPacketEmitter {
         category: "AnswerPacket"
     )
 
-    /// Bounded ring size. 32 turns × a typical few-KB packet ≈ 100 KB.
-    /// Tight enough for memory-safety, deep enough that the diagnostics
-    /// row can show a useful rolling window.
-    public static let maxRingSize = 32
+    /// Bounded ring size. 100 turns × a typical few-KB packet remains
+    /// memory-safe while giving the Settings row the requested "last
+    /// 100" utilization signal.
+    public static let maxRingSize = 100
 
     /// Posted (on the main queue) whenever a packet is emitted so the
     /// Settings → Diagnostics AnswerPacketHealthRow can refresh without
@@ -75,6 +76,7 @@ public actor AnswerPacketEmitter {
     // full session, not just the current ring window.
     private var modeCounts: [AttentionMode: Int] = [:]
     private var bucketCounts: [InterruptBucket: Int] = [:]
+    private var claimKindCounts: [ClaimKind: Int] = [:]
 
     private init() {
         ring.reserveCapacity(Self.maxRingSize)
@@ -100,6 +102,9 @@ public actor AnswerPacketEmitter {
         /// all-LOW would suggest the bucket sampler isn't getting
         /// signal).
         public let bucketCounts: [InterruptBucket: Int]
+        /// Monotonic per-claim-kind count over every emitted claim in
+        /// this process. Sums to total claims, not total packets.
+        public let claimKindCounts: [ClaimKind: Int]
     }
 
     /// Read-only snapshot of the emitter's state. Cheap — clones a
@@ -113,7 +118,8 @@ public actor AnswerPacketEmitter {
             lastEmittedAt: lastEmittedAt,
             latest: ring.last,
             modeCounts: modeCounts,
-            bucketCounts: bucketCounts
+            bucketCounts: bucketCounts,
+            claimKindCounts: claimKindCounts
         )
     }
 
@@ -128,13 +134,22 @@ public actor AnswerPacketEmitter {
         // Monotonic histogram counters — survive ring eviction.
         modeCounts[packet.attentionMode, default: 0] &+= 1
         bucketCounts[packet.interruptBucket, default: 0] &+= 1
+        for claim in packet.claims {
+            claimKindCounts[claim.kind, default: 0] &+= 1
+        }
         let now = Date()
         if firstEmittedAt == nil {
             firstEmittedAt = now
         }
         lastEmittedAt = now
         Self.log.notice(
-            "emit id=\(packet.id, privacy: .public) attentionMode=\(packet.attentionMode.rawValue, privacy: .public) interruptBucket=\(packet.interruptBucket.rawValue, privacy: .public) uiLabel=\(packet.uiLabel.rawValue, privacy: .public) ring=\(self.ring.count)/\(Self.maxRingSize)"
+            """
+            emit id=\(packet.id, privacy: .public) \
+            attentionMode=\(packet.attentionMode.rawValue, privacy: .public) \
+            interruptBucket=\(packet.interruptBucket.rawValue, privacy: .public) \
+            uiLabel=\(packet.uiLabel.rawValue, privacy: .public) \
+            ring=\(self.ring.count)/\(Self.maxRingSize)
+            """
         )
         // Post on the main queue so the Settings → Diagnostics
         // health-row receiver doesn't need to hop threads.
@@ -179,6 +194,7 @@ public actor AnswerPacketEmitter {
         lastEmittedAt = nil
         modeCounts.removeAll(keepingCapacity: true)
         bucketCounts.removeAll(keepingCapacity: true)
+        claimKindCounts.removeAll(keepingCapacity: true)
     }
 }
 

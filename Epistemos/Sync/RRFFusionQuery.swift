@@ -152,16 +152,17 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
 
 // MARK: - Feature flag
 
-/// `EPISTEMOS_RRF_FUSION_V1` env-flag gate. Mirrors the existing
-/// pattern (`EPISTEMOS_RAW_THOUGHTS_V0`, `EPISTEMOS_AMBIENT_RECALL_V0`).
-/// Phase 4 wiring sites read this once at the call site to decide
-/// between the fused path and the legacy per-index search path.
+/// `EPISTEMOS_RRF_FUSION_V1` feature flag gate. The launch environment
+/// still pins the flag on for CI / Xcode scheme overrides; UserDefaults
+/// lets Settings -> Experimental Features expose the same switch.
 nonisolated public enum RRFFusionFlags {
-    /// `true` when the env-var `EPISTEMOS_RRF_FUSION_V1` is set to `1`.
-    /// Default OFF in MAS / signed builds; default ON in dev (set by
-    /// the developer's `.envrc` / xcscheme env block).
+    public static let userDefaultsKey = "EPISTEMOS_RRF_FUSION_V1"
+
     public static var isEnabled: Bool {
-        ProcessInfo.processInfo.environment["EPISTEMOS_RRF_FUSION_V1"] == "1"
+        if ProcessInfo.processInfo.environment[userDefaultsKey] == "1" {
+            return true
+        }
+        return UserDefaults.standard.bool(forKey: userDefaultsKey)
     }
 }
 

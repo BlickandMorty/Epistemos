@@ -84,9 +84,11 @@ struct LandingView: View {
     @Environment(InferenceState.self) private var inference
     @Environment(OrchestratorState.self) private var orchestrator
     @Environment(VaultSyncService.self) private var vaultSync
+    @Environment(WorkspaceService.self) private var workspaceService
     @Environment(DailyBriefState.self) private var dailyBrief
     @Environment(GraphState.self) private var graphState
     @Environment(ContextualShadowsState.self) private var contextualShadows
+    @Environment(AmbientFrequencyPlaybackState.self) private var ambientPlayback
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(MainChatOperatingModePreference.defaultsKey)
@@ -95,6 +97,7 @@ struct LandingView: View {
     @State private var showWelcomeBack = false
     @State private var presentedWelcomeBack: WelcomeBackInfo?
     @State private var welcomeBackDismissTask: Task<Void, Never>?
+    @State private var welcomeBackSyncTask: Task<Void, Never>?
 
     /// Simulation Mode v1.6 — sheet presentation state for the Farm
     /// (creation wizard, delete confirmation, restore from trash).
@@ -135,6 +138,9 @@ struct LandingView: View {
     @State private var landingGreetingReturnTask: Task<Void, Never>?
     @State private var activeLandingInlineCommand: LandingInlineCommand?
     private var theme: EpistemosTheme { ui.theme.surfaceVariant(.landing) }
+    private var landingInlineCommandSurfaceTheme: EpistemosTheme {
+        LandingCommandThemeTreatment.resolve(for: theme).chromeTheme(for: theme)
+    }
     private var showingBrief: Bool { dailyBrief.showDailyBrief }
     private var showingOverlay: Bool { showingBrief || showWelcomeBack }
     private var showingLandingStageCommand: Bool {
@@ -321,6 +327,23 @@ struct LandingView: View {
                     .zIndex(2)
             }
 
+            if ui.homeContent == .greeting, ambientPlayback.isRunning {
+                VStack {
+                    HStack {
+                        landingAmbientFrequencyMediaChip
+                        Spacer(minLength: 0)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.top, 26)
+                .padding(.leading, 28)
+                .padding(.trailing, 28)
+                .opacity(showingOverlay ? 0.45 : 1)
+                .allowsHitTesting(!showingOverlay)
+                .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                .zIndex(2.5)
+            }
+
             if farmShowingCreate, let bootstrap = AppBootstrap.shared {
                 Color.clear
                     .ignoresSafeArea()
@@ -402,9 +425,14 @@ struct LandingView: View {
         .onChange(of: inference.preferredChatModelSelection.rawValue) { _, _ in
             sanitizeStoredOperatingMode()
         }
+        .onChange(of: workspaceService.welcomeBack?.displayText ?? "") { _, _ in
+            scheduleWelcomeBackSync()
+        }
         .onDisappear {
             welcomeBackDismissTask?.cancel()
             welcomeBackDismissTask = nil
+            welcomeBackSyncTask?.cancel()
+            welcomeBackSyncTask = nil
             showWelcomeBack = false
             presentedWelcomeBack = nil
             landingSearchRevealTask?.cancel()
@@ -516,6 +544,61 @@ struct LandingView: View {
             .ignoresSafeArea()
     }
 
+    private var landingAmbientFrequencyMediaChip: some View {
+        Button {
+            UtilityWindowManager.shared.show(.settings)
+        } label: {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(theme.resolved.accent.color.opacity(theme.isDark ? 0.20 : 0.14))
+                    Image(systemName: "waveform")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(theme.resolved.accent.color)
+                }
+                .frame(width: 30, height: 30)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(ambientPlayback.landingMediaTitle)
+                        .font(AppDisplayTypography.font(size: 12, weight: .semibold, allowDisplayFont: false))
+                        .foregroundStyle(theme.textPrimary.opacity(theme.isDark ? 0.94 : 0.84))
+                        .lineLimit(1)
+                    Text(ambientPlayback.landingMediaSubtitle)
+                        .font(AppDisplayTypography.font(size: 10, weight: .medium, allowDisplayFont: false))
+                        .foregroundStyle(theme.textSecondary.opacity(theme.isDark ? 0.82 : 0.66))
+                        .lineLimit(1)
+                }
+
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(theme.textTertiary.opacity(0.72))
+            }
+            .padding(.horizontal, 11)
+            .padding(.vertical, 8)
+            .frame(maxWidth: 260, alignment: .leading)
+            .background {
+                Capsule()
+                    .fill(theme.glassBg.opacity(theme.isDark ? 0.30 : 0.20))
+                    .overlay {
+                        Capsule()
+                            .strokeBorder(
+                                theme.resolved.accent.color.opacity(theme.isDark ? 0.24 : 0.18),
+                                lineWidth: 0.8
+                            )
+                    }
+                    .shadow(
+                        color: theme.resolved.accent.color.opacity(theme.isDark ? 0.16 : 0.10),
+                        radius: 18,
+                        y: 8
+                    )
+            }
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Ambient Frequencies are playing")
+        .help("Open Ambient Frequencies settings")
+    }
+
     // MARK: - Greeting Content (normal landing state)
 
     private var greetingContent: some View {
@@ -548,17 +631,32 @@ struct LandingView: View {
             .allowsHitTesting(false)
 
             if showingSearchPopover {
-                landingSearchInlineStage
+                landingStageRevealContainer(accent: theme.resolved.accent.color) {
+                    landingSearchInlineStage
+                }
                     .landingSearchStepReveal(frame: landingSearchRevealFrame, theme: theme)
                     .transition(.opacity.combined(with: .scale(scale: 0.98)))
             } else if let command = activeLandingInlineCommand {
-                landingInlineCommandStage(for: command)
+                landingStageRevealContainer(accent: theme.resolved.accent.color) {
+                    landingInlineCommandStage(for: command)
+                }
                     .landingSearchStepReveal(frame: landingSearchRevealFrame, theme: theme)
                     .transition(.opacity.combined(with: .scale(scale: 0.98)))
             }
         }
         .frame(maxWidth: .infinity)
         .frame(minHeight: landingStageMinHeight)
+    }
+
+    private func landingStageRevealContainer<Content: View>(
+        accent: Color,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(spacing: 0) {
+            content()
+            LandingStageCommandPeak(accent: accent, theme: theme)
+                .padding(.top, 5)
+        }
     }
 
     private var landingSearchInlineStage: some View {
@@ -571,23 +669,26 @@ struct LandingView: View {
 
     @ViewBuilder
     private func landingInlineCommandStage(for command: LandingInlineCommand) -> some View {
-        switch command {
-        case .quickCapture:
-            QuickCaptureView(isPresented: landingInlineCommandBinding(for: .quickCapture))
-                .frame(width: 560, height: 340)
-        case .workspaces:
-            WorkspaceSwitcherOverlay(
-                isPresented: landingInlineCommandBinding(for: .workspaces),
-                presentation: .inline
-            )
-            .frame(width: 520, height: 370)
-        case .saveWorkspace:
-            SaveWorkspaceInlineView(isPresented: landingInlineCommandBinding(for: .saveWorkspace))
-                .frame(width: 480, height: 370)
-        case .timeMachine:
-            TimeMachineView(isPresented: landingInlineCommandBinding(for: .timeMachine))
-                .frame(width: 760, height: 410)
+        Group {
+            switch command {
+            case .quickCapture:
+                QuickCaptureView(isPresented: landingInlineCommandBinding(for: .quickCapture))
+                    .frame(width: 560, height: 340)
+            case .workspaces:
+                WorkspaceSwitcherOverlay(
+                    isPresented: landingInlineCommandBinding(for: .workspaces),
+                    presentation: .inline
+                )
+                .frame(width: 520, height: 370)
+            case .saveWorkspace:
+                SaveWorkspaceInlineView(isPresented: landingInlineCommandBinding(for: .saveWorkspace))
+                    .frame(width: 480, height: 370)
+            case .timeMachine:
+                TimeMachineView(isPresented: landingInlineCommandBinding(for: .timeMachine))
+                    .frame(width: 760, height: 410)
+            }
         }
+        .preferredColorScheme(landingInlineCommandSurfaceTheme.colorScheme)
     }
 
     private var landingPixelCommands: some View {
@@ -596,55 +697,60 @@ struct LandingView: View {
             spacing: 8
         ) {
             PixelLandingCommandTile(
-                title: "Search",
+                title: "search",
                 shortcut: "click",
                 glyph: .search,
                 theme: theme,
                 accent: theme.resolved.accent.color,
                 haptic: .search,
+                isActive: showingSearchPopover,
                 action: { activateLandingSearch(playHaptic: false) }
             )
             PixelLandingCommandTile(
-                title: "Quick Capture",
+                title: "quick capture",
                 shortcut: "\u{2318}\u{21E7}N",
                 glyph: .capture,
                 theme: theme,
                 accent: Color(hex: 0x4FB477),
                 haptic: .capture,
+                isActive: activeLandingInlineCommand == .quickCapture,
                 action: { showLandingInlineCommand(.quickCapture) }
             )
             PixelLandingCommandTile(
-                title: "Workspaces",
+                title: "workspaces",
                 shortcut: "^\u{2318}W",
                 glyph: .workspace,
                 theme: theme,
                 accent: Color(hex: 0x4C8DFF),
-                haptic: .workspace
+                haptic: .workspace,
+                isActive: activeLandingInlineCommand == .workspaces
             ) {
                 showLandingInlineCommand(.workspaces)
             }
             PixelLandingCommandTile(
-                title: "Save Workspace",
+                title: "save workspace",
                 shortcut: "^\u{2318}S",
                 glyph: .save,
                 theme: theme,
                 accent: Color(hex: 0xE0A53C),
-                haptic: .save
+                haptic: .save,
+                isActive: activeLandingInlineCommand == .saveWorkspace
             ) {
                 showLandingInlineCommand(.saveWorkspace)
             }
             PixelLandingCommandTile(
-                title: "Time Machine",
+                title: "time machine",
                 shortcut: "^\u{2318}T",
                 glyph: .clock,
                 theme: theme,
                 accent: Color(hex: 0xCF6F5F),
-                haptic: .timeMachine
+                haptic: .timeMachine,
+                isActive: activeLandingInlineCommand == .timeMachine
             ) {
                 showLandingInlineCommand(.timeMachine)
             }
             PixelLandingCommandTile(
-                title: "Notes",
+                title: "notes",
                 shortcut: "\u{2318}2",
                 glyph: .notes,
                 theme: theme,
@@ -654,7 +760,7 @@ struct LandingView: View {
                 UtilityWindowManager.shared.show(.notes)
             }
             PixelLandingCommandTile(
-                title: "New Note",
+                title: "new note",
                 shortcut: "\u{2318}N",
                 glyph: .document,
                 theme: theme,
@@ -663,7 +769,7 @@ struct LandingView: View {
                 action: createAndOpenNote
             )
             PixelLandingCommandTile(
-                title: "Mini Chat",
+                title: "mini chat",
                 shortcut: "\u{2318}3",
                 glyph: .chat,
                 theme: theme,
@@ -673,7 +779,7 @@ struct LandingView: View {
                 MiniChatWindowController.shared.openNewChat()
             }
             PixelLandingCommandTile(
-                title: "New Doc",
+                title: "new doc",
                 shortcut: "\u{2325}\u{2318}N",
                 glyph: .document,
                 theme: theme,
@@ -682,7 +788,7 @@ struct LandingView: View {
                 action: createAndOpenDocument
             )
             PixelLandingCommandTile(
-                title: graphState.graphViewLocation == .embedded ? "Home Graph" : "Graph",
+                title: graphState.graphViewLocation == .embedded ? "home graph" : "graph",
                 shortcut: "\u{2318}G",
                 glyph: .graph,
                 theme: theme,
@@ -1566,7 +1672,7 @@ struct LandingView: View {
 
     private func scheduleWelcomeBackPresentationIfNeeded() {
         guard !showWelcomeBack, presentedWelcomeBack == nil else { return }
-        guard let info = AppBootstrap.shared?.workspaceService.welcomeBack,
+        guard let info = workspaceService.welcomeBack,
               !info.displayText.isEmpty else { return }
 
         welcomeBackDismissTask?.cancel()
@@ -1582,7 +1688,7 @@ struct LandingView: View {
                 return
             }
 
-            guard let info = AppBootstrap.shared?.workspaceService.welcomeBack,
+            guard let info = workspaceService.welcomeBack,
                   !info.displayText.isEmpty else {
                 welcomeBackDismissTask = nil
                 return
@@ -1592,6 +1698,45 @@ struct LandingView: View {
             showWelcomeBack = true
             welcomeBackDismissTask = nil
             // Do NOT auto-dismiss — persist until user interacts (ESC, click, or button)
+        }
+    }
+
+    private func scheduleWelcomeBackSync() {
+        welcomeBackSyncTask?.cancel()
+        welcomeBackSyncTask = Task { @MainActor in
+            do {
+                try await Task.sleep(for: .milliseconds(60))
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            syncWelcomeBackPresentation()
+            welcomeBackSyncTask = nil
+        }
+    }
+
+    private func syncWelcomeBackPresentation() {
+        guard let info = workspaceService.welcomeBack,
+              !info.displayText.isEmpty else {
+            welcomeBackDismissTask?.cancel()
+            welcomeBackDismissTask = nil
+            if showWelcomeBack {
+                showWelcomeBack = false
+            }
+            if presentedWelcomeBack != nil {
+                presentedWelcomeBack = nil
+            }
+            return
+        }
+
+        if showWelcomeBack || presentedWelcomeBack != nil {
+            guard presentedWelcomeBack?.displayText != info.displayText || !showWelcomeBack else { return }
+            presentedWelcomeBack = info
+            if !showWelcomeBack {
+                showWelcomeBack = true
+            }
+        } else {
+            scheduleWelcomeBackPresentationIfNeeded()
         }
     }
 
@@ -2015,9 +2160,11 @@ struct LandingView: View {
     private func dismissWelcomeBack() {
         welcomeBackDismissTask?.cancel()
         welcomeBackDismissTask = nil
+        welcomeBackSyncTask?.cancel()
+        welcomeBackSyncTask = nil
         showWelcomeBack = false
         presentedWelcomeBack = nil
-        AppBootstrap.shared?.workspaceService.welcomeBack = nil
+        workspaceService.welcomeBack = nil
     }
 
     private func saveWelcomeBackAsNote(info: WelcomeBackInfo) {

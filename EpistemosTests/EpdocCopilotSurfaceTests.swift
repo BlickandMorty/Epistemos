@@ -17,7 +17,7 @@ nonisolated struct EpdocCopilotSurfaceTests {
     @Test("transform commands use concrete epdoc editor actions")
     func transformCommandsAreConcrete() {
         #expect(EpdocCopilotTransform.visualMap.command == .runCommand(
-            name: "insertEpdocGraphFromDocument",
+            name: "requestHTMLWorkspace",
             argsJSON: Data("[]".utf8)
         ))
         #expect(EpdocCopilotTransform.scatterplot.command == .insertSlashChoice(blockType: "chart-scatter"))
@@ -41,7 +41,7 @@ nonisolated struct EpdocCopilotSurfaceTests {
                 "Epdoc must expose the document actions directly in the native editor chrome.")
         #expect(chrome.contains(".overlay(alignment: .bottomTrailing)"),
                 "The document actions should stay in bottom native chrome, not inside the WebKit document body.")
-        #expect(dock.contains("Visualize document"))
+        #expect(dock.contains("HTML Workspace"))
         #expect(dock.contains("Add frontmatter"))
         #expect(!dock.contains("Ask Epdoc"))
         #expect(!dock.contains("TextField("))
@@ -49,6 +49,7 @@ nonisolated struct EpdocCopilotSurfaceTests {
         #expect(dock.contains(".regularMaterial"))
         #expect(!dock.contains("WKWebView"),
                 "The document action dock is native SwiftUI chrome; the document body stays the only WebKit surface.")
+        #expect(inbound.contains("requestHTMLWorkspace"))
         #expect(inbound.contains("insertEpdocFrontmatter"))
         #expect(inbound.contains("function insertEpdocFrontmatter(editor: Editor): boolean"))
     }

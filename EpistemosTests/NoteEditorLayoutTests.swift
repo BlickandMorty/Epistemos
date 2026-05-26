@@ -78,6 +78,12 @@ struct NoteEditorLayoutTests {
         #expect(ProseTextView2.editorBackgroundColor(for: .systemDark) == .clear)
     }
 
+    @Test("note workspace paints an opaque native canvas behind transparent system editors")
+    func noteWorkspacePaintsOpaqueNativeCanvasBehindSystemEditors() {
+        #expect(NSColor(NoteWorkspaceSurfaceStyle.canvasBackground(for: .systemLight)).alphaComponent >= 0.99)
+        #expect(NSColor(NoteWorkspaceSurfaceStyle.canvasBackground(for: .systemDark)).alphaComponent >= 0.99)
+    }
+
     @MainActor
     @Test("TK2 editor host preserves the redraw-safe scroll configuration")
     func tk2EditorHostPreservesLegacyScrollConfiguration() {
@@ -223,6 +229,85 @@ struct NoteEditorLayoutTests {
         #expect(!surfaceSource.contains("let readableWidth = NoteDualPreviewLayout.editorReadableWidth("))
         #expect(!surfaceSource.contains(".frame(width: readableWidth"))
         #expect(surfaceSource.contains(".frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)"))
+    }
+
+    @MainActor
+    @Test("native code editor keeps horizontal overflow discoverable and bounded")
+    func nativeCodeEditorKeepsHorizontalOverflowDiscoverableAndBounded() {
+        let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: 280, height: 180))
+        let textView = NSTextView(frame: scrollView.bounds)
+        textView.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
+        textView.string = "short\n" + String(repeating: "x", count: 400)
+        scrollView.documentView = textView
+
+        CodeEditorScrollConfigurator.allowTwoAxisScrolling(textView: textView, scrollView: scrollView)
+
+        #expect(scrollView.hasHorizontalScroller)
+        #expect(scrollView.hasVerticalScroller)
+        #expect(!scrollView.autohidesScrollers)
+        #expect(scrollView.scrollerStyle == .legacy)
+        #expect(textView.isHorizontallyResizable)
+        #expect(textView.autoresizingMask == [.height])
+        #expect(textView.textContainer?.widthTracksTextView == false)
+        #expect(textView.textContainer?.heightTracksTextView == false)
+        #expect(textView.frame.width > scrollView.contentSize.width)
+
+        let boundedWidth = CodeEditorScrollConfigurator.estimatedDocumentWidth(
+            text: String(repeating: "w", count: 50_000),
+            font: textView.font,
+            visibleWidth: 280,
+            horizontalInset: 0
+        )
+        #expect(boundedWidth <= 80_000)
+        #expect(
+            CodeEditorScrollConfigurator.longestLineUTF16Length(
+                in: "abc\n" + String(repeating: "z", count: 17),
+                scanLimit: 1_000
+            ) == 17
+        )
+    }
+
+    @Test("code editor defaults to sandboxed WebKit while keeping native fallback")
+    func codeEditorDefaultsToSandboxedWebKitWhileKeepingNativeFallback() throws {
+        let codeEditorSource = try loadRepoTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
+        let webKitSource = try loadRepoTextFile("Epistemos/Views/Notes/WebKitCodeEditorView.swift")
+        let html = WebKitCodeEditorDocument.html
+
+        #expect(codeEditorSource.contains(#"@AppStorage("epistemos.codeEditor.useNativeSourceEditorFallback")"#))
+        #expect(codeEditorSource.contains("private var useNativeSourceEditorFallback = false"))
+        #expect(codeEditorSource.contains("private var usesWebKitEditor: Bool { !useNativeSourceEditorFallback }"))
+        #expect(codeEditorSource.contains("Toggle(\"Native Editor Fallback\", isOn: $useNativeSourceEditorFallback)"))
+        #expect(!codeEditorSource.contains("preferWebKitEditor"))
+        #expect(!codeEditorSource.contains("useWebKitBeta"))
+        #expect(codeEditorSource.contains("WebKitCodeEditorView("))
+        #expect(codeEditorSource.contains("SourceEditor("))
+
+        #expect(webKitSource.contains("WKWebsiteDataStore.nonPersistent()"))
+        #expect(webKitSource.contains("javaScriptCanOpenWindowsAutomatically = false"))
+        #expect(webKitSource.contains("decidePolicyFor navigationAction"))
+        #expect(webKitSource.contains("decisionHandler(.cancel)"))
+        #expect(webKitSource.contains("message.frameInfo.isMainFrame"))
+        #expect(webKitSource.contains("WebKitCodeEditorPolicy.maxRenderedGutterLines"))
+        #expect(webKitSource.contains("WebKitCodeEditorPolicy.maxSyntaxHighlightCharacters"))
+        #expect(webKitSource.contains("WebKitCodeEditorPolicy.changeDebounceMilliseconds"))
+        #expect(webKitSource.contains(WebKitCodeEditorBridge.messageHandlerName))
+        #expect(html.contains("Content-Security-Policy"))
+        #expect(html.contains("default-src 'none'"))
+        #expect(html.contains("style-src 'unsafe-inline'"))
+        #expect(html.contains("script-src 'unsafe-inline'"))
+        #expect(html.contains("textarea id=\"source\""))
+        #expect(html.contains("pre id=\"gutter\""))
+        #expect(html.contains("pre id=\"highlight\""))
+        #expect(html.contains("highlight-code"))
+        #expect(html.contains("function renderHighlight()"))
+        #expect(html.contains("function syntaxSpecs(mode)"))
+        #expect(html.contains("body.plain-source #source"))
+        #expect(html.contains("maxRenderedGutterLines"))
+        #expect(html.contains("maxSyntaxHighlightCharacters"))
+        #expect(html.contains("changeDebounceMilliseconds"))
+        #expect(html.contains("Col ${cursor.column} · ${count} lines"))
+        #expect(html.contains("white-space: pre;"))
+        #expect(html.contains("overflow: auto;"))
     }
 
     @Test("note body paragraph style keeps a calmer writing rhythm")
@@ -466,7 +551,7 @@ struct NoteEditorLayoutTests {
     func codeFilesDoNotShowTheNoteAskBarInTheWorkspaceToolbar() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
         guard let bodyRange = source.range(of: "var body: some View {"),
-              let nextSectionRange = source.range(of: ".preferredColorScheme(ui.preferredColorScheme)", range: bodyRange.upperBound..<source.endIndex) else {
+              let nextSectionRange = source.range(of: ".environment(\\.colorScheme, noteWorkspaceColorScheme)", range: bodyRange.upperBound..<source.endIndex) else {
             Issue.record("Failed to isolate toolbar wiring in NoteDetailWorkspaceView.swift")
             return
         }
@@ -476,6 +561,27 @@ struct NoteEditorLayoutTests {
         #expect(bodySource.contains("if !isCodeFile {"))
         #expect(bodySource.contains("ToolbarItem(placement: .principal) {"))
         #expect(bodySource.contains("noteToolbarAskItem"))
+    }
+
+    @Test("note workspace pins SwiftUI controls to the active note surface theme")
+    func noteWorkspacePinsControlsToActiveSurfaceTheme() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+
+        #expect(source.contains("private var noteWorkspaceColorScheme: ColorScheme"))
+        #expect(source.contains("noteWorkspaceTheme.isDark ? .dark : .light"))
+        #expect(source.contains(".environment(\\.colorScheme, noteWorkspaceColorScheme)"))
+        #expect(!source.contains(".preferredColorScheme(ui.preferredColorScheme)"))
+    }
+
+    @Test("prose editor can inherit the note workspace surface theme")
+    func proseEditorCanInheritNoteWorkspaceSurfaceTheme() throws {
+        let proseSource = try loadRepoTextFile("Epistemos/Views/Notes/ProseEditorView.swift")
+        let workspaceSource = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+
+        #expect(proseSource.contains("let themeOverride: EpistemosTheme?"))
+        #expect(proseSource.contains("themeOverride: EpistemosTheme? = nil"))
+        #expect(proseSource.contains("theme: themeOverride ?? ui.theme"))
+        #expect(workspaceSource.contains("themeOverride: noteWorkspaceTheme"))
     }
 
     @Test("visible note toolbar strip stays lean with only preview history and more controls")
@@ -513,9 +619,25 @@ struct NoteEditorLayoutTests {
                 == 52
         )
         #expect(
-            NotePreviewChromeMetrics.contentTopInset(titlebarInset: 88, hasMultipleTabs: true)
-                == 88
+            NotePreviewChromeMetrics.contentTopInset(titlebarInset: 52, hasMultipleTabs: true)
+                == NotePreviewChromeMetrics.fallbackTabbedTopInset
         )
+        #expect(
+            NotePreviewChromeMetrics.contentTopInset(titlebarInset: 88, hasMultipleTabs: true)
+                == NotePreviewChromeMetrics.fallbackTabbedTopInset
+        )
+        #expect(
+            NotePreviewChromeMetrics.contentTopInset(titlebarInset: 128, hasMultipleTabs: true)
+                == 128
+        )
+    }
+
+    @Test("note preview uses the workspace surface instead of a second material theme")
+    func notePreviewUsesWorkspaceSurfaceInsteadOfMaterial() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+
+        #expect(source.contains("surfaceBackground: noteWorkspaceBackground"))
+        #expect(!source.contains("Rectangle().fill(.regularMaterial)"))
     }
 
     @MainActor

@@ -149,6 +149,7 @@ enum NoteWorkspaceSurfaceStyle {
     static let horizontalPadding: CGFloat = 28
     static let topPadding: CGFloat = 24
     static let bottomPadding: CGFloat = 72
+    static let graphEmbeddedToolbarCornerRadius: CGFloat = 22
     static let graphEmbeddedEditorTopSpacing: CGFloat =
         NoteDualPreviewLayout.outerPadding.top + NotePreviewChromeMetrics.fallbackSingleTopInset
 
@@ -174,7 +175,7 @@ enum NoteWorkspaceSurfaceStyle {
         // the (now-solid) canvas.
         let surfaceTheme = theme.surfaceVariant(.other)
         if surfaceTheme.usesNativeWindowBlur {
-            return .clear
+            return MarkdownPreviewSurfaceStyle.canvasBackground(for: surfaceTheme)
         }
         return MarkdownPreviewSurfaceStyle.solidFlatBackground(for: surfaceTheme)
     }
@@ -252,13 +253,14 @@ enum NotePreviewPerformancePolicy {
 
 enum NotePreviewChromeMetrics {
     static let fallbackSingleTopInset: CGFloat = 46
-    static let fallbackTabbedTopInset: CGFloat = 78
+    static let fallbackTabbedTopInset: CGFloat = 96
 
     static func contentTopInset(titlebarInset: CGFloat, hasMultipleTabs: Bool) -> CGFloat {
+        let fallback = hasMultipleTabs ? fallbackTabbedTopInset : fallbackSingleTopInset
         guard titlebarInset > 0 else {
-            return hasMultipleTabs ? fallbackTabbedTopInset : fallbackSingleTopInset
+            return fallback
         }
-        return titlebarInset
+        return max(titlebarInset, fallback)
     }
 
     static func titlebarInset(for window: NSWindow) -> CGFloat {
@@ -692,7 +694,33 @@ struct NoteDetailWorkspaceView: View {
     }
 
     private var usesOverlayGraphToolbar: Bool {
-        presentation.usesGraphEmbeddedChrome && !graphSurfacePresentation.isEmbeddedHome
+        presentation.usesGraphEmbeddedChrome && !usesNativeGraphWindowToolbar
+    }
+
+    private var usesNativeGraphWindowToolbar: Bool {
+        presentation.usesGraphEmbeddedChrome && graphSurfacePresentation.isEmbeddedHome
+    }
+
+    private var usesEmbeddedHomeGraphSurface: Bool {
+        presentation.usesGraphEmbeddedChrome && graphSurfacePresentation.isEmbeddedHome
+    }
+
+    private var noteWorkspaceTheme: EpistemosTheme {
+        usesEmbeddedHomeGraphSurface ? ui.theme.surfaceVariant(.landing) : ui.theme
+    }
+
+    private var graphEmbeddedToolbarTheme: EpistemosTheme {
+        usesEmbeddedHomeGraphSurface ? noteWorkspaceTheme : ui.theme
+    }
+
+    private var noteWorkspaceBackground: Color {
+        usesEmbeddedHomeGraphSurface
+            ? AppWindowBackdropStyle.background(for: noteWorkspaceTheme)
+            : NoteWorkspaceSurfaceStyle.canvasBackground(for: ui.theme)
+    }
+
+    private var noteWorkspaceColorScheme: ColorScheme {
+        noteWorkspaceTheme.isDark ? .dark : .light
     }
 
     var body: some View {
@@ -701,7 +729,7 @@ struct NoteDetailWorkspaceView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background {
-            NoteWorkspaceSurfaceStyle.canvasBackground(for: ui.theme).ignoresSafeArea()
+            noteWorkspaceBackground.ignoresSafeArea()
         }
         .overlay(alignment: .top) {
             if usesOverlayGraphToolbar, let page = pages.first {
@@ -712,27 +740,24 @@ struct NoteDetailWorkspaceView: View {
             }
         }
         .toolbar {
-            if presentation.usesWindowToolbar {
+            let usesNativeToolbar = presentation.usesWindowToolbar || usesNativeGraphWindowToolbar
+            if usesNativeToolbar {
                 if let nav = navState, nav.hasBreadcrumb {
                     ToolbarItem(placement: .navigation) {
                         wikilinksNavButtons(nav: nav)
                     }
+                } else if usesNativeGraphWindowToolbar {
+                    ToolbarItem(placement: .navigation) {
+                        graphToolbarNavigationControls
+                    }
                 }
                 if !isCodeFile {
                     ToolbarItem(placement: .principal) {
-                        noteToolbarAskItem
-                    }
-                }
-                ToolbarItemGroup(placement: .primaryAction) {
-                    noteToolbarPrimaryActions
-                }
-            } else if presentation.usesGraphEmbeddedChrome, pages.first != nil, !usesOverlayGraphToolbar {
-                ToolbarItem(placement: .navigation) {
-                    graphToolbarNavigationControls
-                }
-                if let page = pages.first {
-                    ToolbarItem(placement: .principal) {
-                        graphEmbeddedToolbarTitle(page)
+                        if usesNativeGraphWindowToolbar, let page = pages.first {
+                            graphEmbeddedToolbarTitle(page)
+                        } else {
+                            noteToolbarAskItem
+                        }
                     }
                 }
                 ToolbarItemGroup(placement: .primaryAction) {
@@ -740,7 +765,8 @@ struct NoteDetailWorkspaceView: View {
                 }
             }
         }
-        .preferredColorScheme(ui.preferredColorScheme)
+        .toolbarBackgroundVisibility(.automatic, for: .windowToolbar)
+        .environment(\.colorScheme, noteWorkspaceColorScheme)
         .background {
             // Hidden keyboard shortcut buttons
             Button("") {
@@ -977,7 +1003,7 @@ struct NoteDetailWorkspaceView: View {
                 )
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(NoteWorkspaceSurfaceStyle.canvasBackground(for: ui.theme))
+            .background(noteWorkspaceBackground)
             .environment(noteChatState)
             .onAppear {
                 Task { @MainActor in
@@ -1205,7 +1231,8 @@ struct NoteDetailWorkspaceView: View {
                     page: page,
                     isEditable: true,
                     initialBodyOverride: initialBodyOverride,
-                    navigationContext: presentation.usesGraphEmbeddedChrome ? .graph : .notes
+                    navigationContext: presentation.usesGraphEmbeddedChrome ? .graph : .notes,
+                    themeOverride: noteWorkspaceTheme
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
@@ -1359,12 +1386,18 @@ struct NoteDetailWorkspaceView: View {
     private func graphEmbeddedToolbarTitle(_ page: SDPage) -> some View {
         GraphEmbeddedToolbarTitle(
             title: NoteTitleDisplay.resolvedTitle(page.title),
-            theme: ui.theme
+            theme: graphEmbeddedToolbarTheme
         )
     }
 
     private func overlayGraphEmbeddedToolbar(page: SDPage) -> some View {
-        HStack(spacing: 12) {
+        let toolbarTheme = graphEmbeddedToolbarTheme
+        let shape = RoundedRectangle(
+            cornerRadius: NoteWorkspaceSurfaceStyle.graphEmbeddedToolbarCornerRadius,
+            style: .continuous
+        )
+
+        return HStack(spacing: 12) {
             graphToolbarNavigationControls
 
             Spacer(minLength: 12)
@@ -1381,17 +1414,24 @@ struct NoteDetailWorkspaceView: View {
         .frame(height: 44)
         .frame(maxWidth: 900)
         .unifiedFrostedGlass(
-            theme: ui.theme,
-            in: Capsule(),
+            theme: toolbarTheme,
+            in: shape,
             extraDarkenOnDark: true,
             interactive: true,
             nativeGlass: true
         )
+        .overlay(
+            shape.strokeBorder(
+                toolbarTheme.glassBorder.opacity(toolbarTheme.isDark ? 0.74 : 0.58),
+                lineWidth: 0.75
+            )
+        )
         .shadow(
-            color: Color.black.opacity(ui.theme.isDark ? 0.26 : 0.10),
+            color: Color.black.opacity(toolbarTheme.isDark ? 0.26 : 0.10),
             radius: 14,
             y: 8
         )
+        .contentShape(shape)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Graph note toolbar")
     }
@@ -1884,8 +1924,9 @@ struct NoteDetailWorkspaceView: View {
     private func notePreview(body: String) -> some View {
         AdaptiveNotePreviewView2(
             content: NotePreviewDisplay.renderedMarkdown(body),
-            theme: ui.theme,
-            hasMultipleTabs: hasMultipleTabs
+            theme: noteWorkspaceTheme,
+            hasMultipleTabs: hasMultipleTabs,
+            surfaceBackground: noteWorkspaceBackground
         )
     }
 
@@ -3388,13 +3429,20 @@ private struct AdaptiveNotePreviewView2: View {
     let content: String
     let theme: EpistemosTheme
     let hasMultipleTabs: Bool
+    let surfaceBackground: Color?
     private let pageContents: [String]
     @State private var titlebarInset: CGFloat = 0
 
-    init(content: String, theme: EpistemosTheme, hasMultipleTabs: Bool) {
+    init(
+        content: String,
+        theme: EpistemosTheme,
+        hasMultipleTabs: Bool,
+        surfaceBackground: Color? = nil
+    ) {
         self.content = content
         self.theme = theme
         self.hasMultipleTabs = hasMultipleTabs
+        self.surfaceBackground = surfaceBackground
         self.pageContents = NoteDualPreviewLayout.columnContents(in: content)
     }
 
@@ -3442,7 +3490,7 @@ private struct AdaptiveNotePreviewView2: View {
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
-            .background(.regularMaterial)
+            .background { previewBackdrop }
             .background {
                 NotePreviewTitlebarInsetReader(titlebarInset: $titlebarInset)
                     .frame(width: 0, height: 0)
@@ -3454,6 +3502,15 @@ private struct AdaptiveNotePreviewView2: View {
                         .padding(.trailing, NoteDualPreviewLayout.outerPadding.trailing)
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var previewBackdrop: some View {
+        if let surfaceBackground {
+            surfaceBackground
+        } else {
+            NoteWorkspaceSurfaceStyle.canvasBackground(for: theme)
         }
     }
 

@@ -67,9 +67,9 @@ enum LiquidGreetingTiming {
 //   2. "Click anywhere"  /  "to start a conversation"
 // Both pairs render in the hero font + size — no separate smaller
 // font. The hero typewriter cycles: types pair 1, holds, backspaces,
-// types pair 2, holds, backspaces, repeats. Each theme's hero font
-// (Classic → CoralPixels, Platinum → MatrixTypeDisplay, Ember →
-// DotempDemo-8bit) applies to BOTH pairs.
+// types pair 2, holds, backspaces, repeats. Landing owns its own scoped
+// typography: Classic + Platinum use MatrixTypeDisplay for this hero,
+// while Ember keeps ColorBasic.
 
 struct LiquidGreeting: View {
     /// Stacked hero pair — both lines render in the hero font + size.
@@ -115,28 +115,20 @@ struct LiquidGreeting: View {
 
     private var theme: EpistemosTheme { ui.theme }
 
-    /// Hero font for the two stacked lines. Theme-resolved: Classic →
-    /// CoralPixels, Platinum → MatrixTypeDisplay, Ember →
-    /// ColorBasic-Regular. Both light + dark modes share the same face
-    /// on each theme.
-    ///
-    /// 2026-05-13 fifth pass: Classic gets a slight size bump per user
-    /// direction ("increase the size of the greeting on the classic
-    /// mode a little"). CoralPixels has a higher x-height than
-    /// MatrixType/ColorBasic so the same point size reads as smaller —
-    /// bumping ~14% closes the perceptual gap.
+    /// Hero font for the two stacked lines. Uses the global theme
+    /// display face so Classic's Matrix typography is consistent with
+    /// note headings, graph chrome, and chat surfaces.
     private var heroFont: Font {
         let baseSize: CGFloat = compact ? 22 : 44
-        let size: CGFloat = theme.themePair == .classic
-            ? baseSize * 1.14
-            : baseSize
-        return Font.custom(theme.displayFontName, size: size)
+        return Font.custom(LandingCommandTypography.heroFontName(for: theme), size: baseSize)
+            .weight(.heavy)
     }
 
     /// Search-line font shrinks as the query grows — same dynamic
     /// curve as before, but anchored to the new smaller hero baseline.
     private var searchFont: Font {
-        Font.custom(theme.displayFontName, size: dynamicSearchFontSize)
+        Font.custom(LandingCommandTypography.heroFontName(for: theme), size: dynamicSearchFontSize)
+            .weight(.heavy)
     }
     private var dynamicSearchFontSize: CGFloat {
         let baseSize: CGFloat = compact ? 22 : 36

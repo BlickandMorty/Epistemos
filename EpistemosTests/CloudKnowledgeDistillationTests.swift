@@ -17,7 +17,7 @@ struct CloudKnowledgeDistillationTests {
         )
     }
 
-    private func makeNote(
+    private nonisolated func makeNote(
         id: String,
         title: String,
         body: String,

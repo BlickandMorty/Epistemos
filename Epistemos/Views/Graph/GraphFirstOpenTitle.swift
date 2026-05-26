@@ -1,7 +1,7 @@
 // GraphFirstOpenTitle.swift
 //
 // Large "knowledge graph" title shown ONCE when the graph overlay is
-// opened for the first time in a session. Uses the RetroGaming font,
+// opened for the first time in a session. Uses the active display font,
 // typewriter character reveal, a soft drop shadow, and a blur-in /
 // blur-out wrapper so it fades in crisp and dissolves out blurry.
 // User 2026-04-04.

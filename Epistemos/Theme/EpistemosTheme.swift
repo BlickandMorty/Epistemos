@@ -31,9 +31,9 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     /// content (note bodies, settings rows, graph panels) doesn't
     /// punch a hole through the window.
     ///
-    /// Not exposed in user-facing pickers — `ThemePair.classic`
-    /// still maps to `.oled` for the dark theme; `oledSoft` is
-    /// reached only through `surfaceVariant(.other)`.
+    /// `ThemePair.classic` now maps directly to this softer dark
+    /// variant so Classic can keep the old light theme while using a
+    /// near-OLED dark surface instead of pure black.
     case oledSoft = "oledSoft"
     case ember = "ember"
     case nocturne = "nocturne"
@@ -347,7 +347,7 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     ///   stays violet platinum elsewhere.
     /// - `.oled` → stays pure OLED on landing + main chat (deep black
     ///   hero), softens to `.oledSoft` on every other surface (near-OLED
-    ///   dark grey 0x0F0F11 background).
+    ///   dark grey 0x08080A background).
     /// - Every other theme is identity.
     nonisolated func surfaceVariant(_ surface: ThemeSurface) -> EpistemosTheme {
         switch self {
@@ -393,46 +393,51 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         }
     }
 
-    /// Display (hero) font name resolved by (themePair, isDark).
-    /// Per user direction 2026-05-13 (eighth pass):
-    ///   Classic       → RetroGaming across BOTH modes
-    ///                   (Coral retired — user feedback: "i actually
-    ///                   kinda rlly odnt like it")
-    ///   Ember         → ColorBasic-Regular across both modes (case-
-    ///                   driven box glyphs via `boxedLabelText`)
-    ///   Platinum      → MatrixTypeDisplay-Regular across both modes
+    /// Display (hero/H1) font name resolved by theme pair.
+    /// Classic intentionally no longer uses the legacy RetroGaming face:
+    /// it now shares Platinum's heavier Matrix identity while retaining
+    /// Classic's stable custom light/dark color pair.
     nonisolated var displayFontName: String {
         switch themePair {
-        case .classic:        return AppDisplayTypography.legacyDisplayFontName
-        case .platinumViolet: return "MatrixTypeDisplay-Regular"
+        case .classic:        return AppDisplayTypography.matrixDisplayFontName
+        case .platinumViolet: return AppDisplayTypography.matrixDisplayFontName
         case .ember:          return "ColorBasic-Regular"
         }
     }
 
-    /// H1-H3 heading font name resolved by (themePair, isDark).
-    /// Eighth pass: Classic = RetroGaming on BOTH light + dark.
-    /// Ember stays on ChonkyPixels in both modes. Platinum stays
-    /// on MatrixType.
+    /// Default H1 heading font name resolved by theme pair. Use
+    /// `headingFontName(level:)` when the caller knows the markdown level.
     nonisolated var headingFontName: String {
+        headingFontName(level: 1)
+    }
+
+    /// H1-H3 heading font name resolved by markdown level.
+    /// Classic uses Matrix for H1/title surfaces and ChonkyPixels for
+    /// H2/H3 throughout the app.
+    nonisolated func headingFontName(level: Int) -> String {
         switch themePair {
-        case .classic:        return AppDisplayTypography.legacyDisplayFontName
-        case .platinumViolet: return "MatrixTypeDisplay-Regular"
-        case .ember:          return "ChonkyPixels"
+        case .classic:
+            return level <= 1
+                ? AppDisplayTypography.matrixDisplayFontName
+                : AppDisplayTypography.chonkyDisplayFontName
+        case .platinumViolet:
+            return AppDisplayTypography.matrixDisplayFontName
+        case .ember:
+            return AppDisplayTypography.chonkyDisplayFontName
         }
     }
 
     /// CSS `font-family` value injected into the Tiptap notes editor as
-    /// `--epdoc-display-font`. Matches the chat side: each theme's H1-H3
-    /// in the WebView use the same intrinsic face as `headingFontName`
-    /// (Classic → "Retro Gaming", Platinum → "MatrixTypeDisplay",
-    /// Ember → "ChonkyPixels"). Replaces the pre-2026-05-19 Coral / Retro
-    /// light-vs-dark scheme. The @font-face declarations live in
-    /// `js-editor/src/editor.css`; the .ttf bytes are served by the
-    /// EpdocEditorBridge URL-scheme handler from the macOS bundle.
+    /// `--epdoc-display-font`. H1 defaults here; H2/H3 can request
+    /// `epdocHeadingFontFamily(level:)` for Classic's Chonky treatment.
     nonisolated var epdocDisplayFontFamily: String {
+        epdocHeadingFontFamily(level: 1)
+    }
+
+    nonisolated func epdocHeadingFontFamily(level: Int) -> String {
         let primary: String
         switch themePair {
-        case .classic:        primary = "Retro Gaming"
+        case .classic:        primary = level <= 1 ? "MatrixTypeDisplay" : "ChonkyPixels"
         case .platinumViolet: primary = "MatrixTypeDisplay"
         case .ember:          primary = "ChonkyPixels"
         }
@@ -441,24 +446,25 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
 
     /// Node-title font for the graph node inspector main heading.
     /// On Ember = ChonkyPixels (clean pixels, no case-driven boxes).
-    /// Classic = RetroGaming on BOTH modes (eighth pass).
+    /// Classic now uses Matrix here too; RetroGaming remains registered
+    /// only for older documents/assets that still reference it directly.
     nonisolated var nodeTitleFontName: String {
         switch themePair {
-        case .classic:        return AppDisplayTypography.legacyDisplayFontName
-        case .platinumViolet: return "MatrixTypeDisplay-Regular"
-        case .ember:          return "ChonkyPixels"
+        case .classic:        return AppDisplayTypography.matrixDisplayFontName
+        case .platinumViolet: return AppDisplayTypography.matrixDisplayFontName
+        case .ember:          return AppDisplayTypography.chonkyDisplayFontName
         }
     }
 
     /// Caption font for footer/metadata text (e.g. note word count,
     /// "model-derived" badge, shortcut hints). Ember = MatrixTypeDisplay
-    /// to avoid case-driven boxes on a small caption. Classic =
-    /// RetroGaming on BOTH modes (eighth pass).
+    /// to avoid case-driven boxes on a small caption. Classic follows
+    /// the new Matrix identity instead of RetroGaming.
     nonisolated var captionFontName: String {
         switch themePair {
-        case .classic:        return AppDisplayTypography.legacyDisplayFontName
-        case .platinumViolet: return "MatrixTypeDisplay-Regular"
-        case .ember:          return "MatrixTypeDisplay-Regular"
+        case .classic:        return AppDisplayTypography.matrixDisplayFontName
+        case .platinumViolet: return AppDisplayTypography.matrixDisplayFontName
+        case .ember:          return AppDisplayTypography.matrixDisplayFontName
         }
     }
 
@@ -524,8 +530,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     /// contexts: chat-message markdown, the Tiptap notes-editor CSS
     /// variables, the auto-extracted chat heading lane, and the
     /// ProseEditor live-editor headings. Per user direction 2026-05-19,
-    /// RetroGaming (Classic) and MatrixTypeDisplay (Platinum Violet)
-    /// render visibly larger than Ember's ChonkyPixels at the same
+    /// MatrixTypeDisplay (Classic/Platinum) renders visibly larger
+    /// than Ember's ChonkyPixels at the same
     /// point size; an initial 15 % shrink wasn't aggressive enough, so
     /// the current value is 0.72 (28 % shrink). Ember stays on 1.0 —
     /// its sizes are the canonical target.
@@ -547,13 +553,13 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     nonisolated func notesMatchingHeadingSpec(
         level: Int
     ) -> NotesMatchingHeadingSpec? {
-        guard themePair == .ember, (2...3).contains(level) else {
+        guard [.classic, .ember].contains(themePair), (2...3).contains(level) else {
             return nil
         }
         let size: CGFloat = level == 2 ? 31 : 19
         let weight: Font.Weight = level == 2 ? .heavy : .semibold
         return NotesMatchingHeadingSpec(
-            fontName: headingFontName,
+            fontName: headingFontName(level: level),
             size: size,
             weight: weight
         )
@@ -813,10 +819,11 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
                 nsBackground: .hex(0x000000)
             )
         case .oledSoft:
-            // RCA finalization 2026-05-13: near-OLED dark grey
+            // RCA finalization 2026-05-13 / tuned 2026-05-24:
+            // near-OLED dark grey
             // palette for non-hero Classic-dark surfaces (Notes,
             // Settings, Graph chrome). Background lifts from
-            // 0x000000 to 0x0F0F11 so embedded surfaces don't
+            // 0x000000 to 0x08080A so embedded surfaces don't
             // punch a hole; muted + card layers nudge up a couple
             // of stops to keep separation visible. Foreground +
             // accents inherit from OLED so the typographic feel
@@ -825,33 +832,33 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
                 isDark: true,
                 isPlatinum: false,
                 usesNativeWindowBlur: false,
-                background: .hex(0x0F0F11),
+                background: .hex(0x08080A),
                 foregroundHex: 0xDADADE,
                 accent: .hex(0xDADADE),
                 headingAccentHex: 0xF4F4F4,
                 markdownHeadingAccentHex: 0xF4F4F4,
                 preferredMarkdownLinkHex: nil,
                 uiAccent: .hex(0xDADADE),
-                muted: .hex(0x1A1A1D),
+                muted: .hex(0x151517),
                 mutedForegroundHex: 0x9A9AA0,
                 assistantBubbleForegroundHex: 0xDADADE,
                 assistantBubbleBackgroundHex: nil,
                 userBubbleBackgroundHex: nil,
                 border: Token.rgba(58.0 / 255.0, 58.0 / 255.0, 62.0 / 255.0, 0.55),
                 codeType: .hex(0x56B6B6),
-                glassBg: Token.rgba(24.0 / 255.0, 24.0 / 255.0, 27.0 / 255.0, 0.82),
+                glassBg: Token.rgba(18.0 / 255.0, 18.0 / 255.0, 21.0 / 255.0, 0.84),
                 glassBorder: Token.rgba(58.0 / 255.0, 58.0 / 255.0, 62.0 / 255.0, 0.32),
-                glassHover: Token.rgba(36.0 / 255.0, 36.0 / 255.0, 40.0 / 255.0, 0.7),
-                floatingSurfaceTint: .hex(0x2E2E33),
-                navPillBg: Token.rgba(18.0 / 255.0, 18.0 / 255.0, 22.0 / 255.0, 0.85),
-                navBubbleActiveBg: Token.rgba(32.0 / 255.0, 32.0 / 255.0, 36.0 / 255.0, 0.7),
+                glassHover: Token.rgba(28.0 / 255.0, 28.0 / 255.0, 32.0 / 255.0, 0.72),
+                floatingSurfaceTint: .hex(0x25252A),
+                navPillBg: Token.rgba(12.0 / 255.0, 12.0 / 255.0, 15.0 / 255.0, 0.86),
+                navBubbleActiveBg: Token.rgba(24.0 / 255.0, 24.0 / 255.0, 28.0 / 255.0, 0.72),
                 navBubbleActiveText: .hex(0xDADADE, opacity: 0.92),
                 navBubbleInactiveText: Token.rgba(180.0 / 255.0, 180.0 / 255.0, 184.0 / 255.0, 0.92),
-                card: Token.rgba(28.0 / 255.0, 28.0 / 255.0, 32.0 / 255.0, 0.92),
-                chatSurface: .hex(0x0F0F11),
-                userBubbleBg: .hex(0x33333A),
+                card: Token.rgba(22.0 / 255.0, 22.0 / 255.0, 26.0 / 255.0, 0.92),
+                chatSurface: .hex(0x08080A),
+                userBubbleBg: .hex(0x2B2B31),
                 userBubbleText: .hex(0xDADADE, opacity: 0.88),
-                nsBackground: .hex(0x0F0F11)
+                nsBackground: .hex(0x08080A)
             )
         case .ember:
             return ResolvedTheme(
@@ -1287,7 +1294,7 @@ enum ThemePair: String, CaseIterable, Codable, Sendable {
     var description: String {
         switch self {
         case .platinumViolet: "Platinum Violet · Platinum Violet Dark"
-        case .classic: "White · OLED"
+        case .classic: "White · OLED Soft"
         case .ember:   "Tan · Ember"
         }
     }
@@ -1303,7 +1310,7 @@ enum ThemePair: String, CaseIterable, Codable, Sendable {
     var darkTheme: EpistemosTheme {
         switch self {
         case .platinumViolet: .platinumVioletDark
-        case .classic: .oled
+        case .classic: .oledSoft
         case .ember:   .ember
         }
     }
@@ -1363,7 +1370,7 @@ enum AppHeadingRole: Sendable {
     nonisolated var fontName: String {
         switch self {
         case .pageTitle, .h1, .h2, .h3, .chatTitle:
-            AppDisplayTypography.displayFontName
+            AppDisplayTypography.headingFontName(for: self)
         case .section:
             AppDisplayTypography.fontName
         }
@@ -1405,8 +1412,10 @@ enum AppHeadingRole: Sendable {
 
     nonisolated var font: Font {
         switch self {
-        case .pageTitle, .h1, .h2, .h3, .chatTitle:
-            AppDisplayTypography.font(size: fontSize)
+        case .pageTitle, .h1, .chatTitle:
+            AppDisplayTypography.font(name: fontName, size: fontSize, weight: .heavy)
+        case .h2, .h3:
+            AppDisplayTypography.font(name: fontName, size: fontSize, weight: .semibold)
         case .section:
             AppDisplayTypography.font(size: fontSize, allowDisplayFont: false)
         }
@@ -1427,6 +1436,8 @@ enum AppDisplayTypography: Sendable {
     nonisolated static let readableFontsDefaultsKey = "epistemos.typography.readableFontsEnabled"
     nonisolated static let coralDisplayFontName = "CoralPixels-Regular"
     nonisolated static let legacyDisplayFontName = "RetroGaming"
+    nonisolated static let matrixDisplayFontName = "MatrixTypeDisplay-Regular"
+    nonisolated static let chonkyDisplayFontName = "ChonkyPixels"
     nonisolated static let monoFontName = "JetBrainsMono-Regular"
     nonisolated static let readableFontRegularName = "AvenirNext-Regular"
     nonisolated static let readableFontMediumName = "AvenirNext-Medium"
@@ -1463,18 +1474,35 @@ enum AppDisplayTypography: Sendable {
     /// theme's identity face without each call site needing a theme
     /// parameter.
     ///
-    /// Eighth pass 2026-05-13: Classic = RetroGaming on BOTH light + dark
-    /// (CoralPixels retired per user feedback: "i actually kinda rlly
-    /// odnt like it"). Ember + Platinum keep their identity face across
-    /// both modes.
+    /// Classic now uses the Matrix display face across both modes.
+    /// RetroGaming remains a registered compatibility asset, but it is
+    /// no longer the Classic theme identity.
     nonisolated static func displayFontName(isDark: Bool) -> String {
-        let raw = UserDefaults.standard.string(forKey: "epistemos.theme.pair") ?? ""
-        switch raw {
-        case "platinumViolet": return "MatrixTypeDisplay-Regular"
-        case "ember":          return "ColorBasic-Regular"
-        case "classic":        return legacyDisplayFontName
-        default:               return "MatrixTypeDisplay-Regular"
+        _ = isDark
+        switch activeThemePair() {
+        case .platinumViolet: return matrixDisplayFontName
+        case .ember:          return "ColorBasic-Regular"
+        case .classic:        return matrixDisplayFontName
         }
+    }
+
+    nonisolated static func headingFontName(for role: AppHeadingRole) -> String {
+        switch activeThemePair() {
+        case .classic:
+            switch role {
+            case .h2, .h3: return chonkyDisplayFontName
+            default:       return matrixDisplayFontName
+            }
+        case .platinumViolet:
+            return matrixDisplayFontName
+        case .ember:
+            return chonkyDisplayFontName
+        }
+    }
+
+    nonisolated private static func activeThemePair() -> ThemePair {
+        let raw = UserDefaults.standard.string(forKey: "epistemos.theme.pair") ?? ""
+        return ThemePair(rawValue: raw) ?? .platinumViolet
     }
 
     nonisolated static func graphLabelAtlasResourceName(isDark: Bool) -> String {
@@ -1489,8 +1517,6 @@ enum AppDisplayTypography: Sendable {
     }
 
     nonisolated static func displayFontScale(isDark: Bool) -> CGFloat {
-        // Eighth pass 2026-05-13: Classic is RetroGaming (legacy)
-        // across BOTH modes now, so the scale is unified too.
         _ = isDark
         return legacyDisplayFontScale
     }
@@ -1551,9 +1577,11 @@ enum AppDisplayTypography: Sendable {
     ) -> Font {
         let resolvedIsDark = isDark ?? SystemAppearanceState.isDark()
         if allowDisplayFont && !readableFontsEnabled() {
-            return Font.custom(
-                displayFontName(isDark: resolvedIsDark),
-                size: displayFontSize(for: size, isDark: resolvedIsDark)
+            return font(
+                name: displayFontName(isDark: resolvedIsDark),
+                size: size,
+                weight: weight,
+                isDark: resolvedIsDark
             )
         } else if design == .default {
             return Font(regularUIFont(size: size, weight: nsWeight(for: weight)))
@@ -1562,23 +1590,40 @@ enum AppDisplayTypography: Sendable {
         }
     }
 
+    nonisolated static func font(
+        name: String,
+        size: CGFloat,
+        weight: Font.Weight = .regular,
+        isDark: Bool? = nil
+    ) -> Font {
+        let resolvedIsDark = isDark ?? SystemAppearanceState.isDark()
+        if !readableFontsEnabled() {
+            return Font.custom(
+                name,
+                size: displayFontSize(for: size, isDark: resolvedIsDark)
+            )
+            .weight(weight)
+        }
+        return Font(regularUIFont(size: size, weight: nsWeight(for: weight)))
+    }
+
     /// Theme-aware heading font for H1-H3 (RCA finalization 2026-05-13).
-    /// Routes through `EpistemosTheme.headingFontName` so each
-    /// ThemePair picks its own light-mode H1-H3 typeface
-    /// (Platinum → MatrixTypeDisplay, Classic → CoralPixels, Ember →
-    /// DotempDemo-8bit). Dark mode falls back to the legacy
-    /// RetroGaming face on every theme.
+    /// Routes through `EpistemosTheme.headingFontName(level:)` so each
+    /// ThemePair picks its own H1-H3 typeface.
     nonisolated static func headingFont(
         size: CGFloat,
         weight: Font.Weight = .regular,
         theme: EpistemosTheme,
+        level: Int = 1,
         allowDisplayFont: Bool = true
     ) -> Font {
         let resolvedIsDark = theme.isDark
         if allowDisplayFont && !readableFontsEnabled() {
-            return Font.custom(
-                theme.headingFontName,
-                size: displayFontSize(for: size, isDark: resolvedIsDark)
+            return font(
+                name: theme.headingFontName(level: level),
+                size: size,
+                weight: weight,
+                isDark: resolvedIsDark
             )
         } else {
             return Font(regularUIFont(size: size, weight: nsWeight(for: weight)))
@@ -1626,11 +1671,11 @@ enum AppDisplayTypography: Sendable {
     ) -> NSFont {
         let resolvedIsDark = isDark ?? SystemAppearanceState.isDark()
         if allowDisplayFont && !readableFontsEnabled() {
-            return NSFont(
+            return displayUIFont(
                 name: displayFontName(isDark: resolvedIsDark),
-                size: displayFontSize(for: size, isDark: resolvedIsDark)
+                size: displayFontSize(for: size, isDark: resolvedIsDark),
+                weight: weight
             )
-                ?? NSFont.systemFont(ofSize: size, weight: weight)
         } else {
             return regularUIFont(size: size, weight: weight)
         }
@@ -1640,9 +1685,9 @@ enum AppDisplayTypography: Sendable {
     /// (TextKit `NSTextView`). 2026-05-13 follow-up: the existing
     /// `nsFont(size:weight:isDark:)` returns the hero face (which on
     /// Ember is ColorBasic-Regular = case-driven box glyphs). Notes
-    /// headings should instead use `theme.headingFontName` (Ember →
-    /// ChonkyPixels, Classic → CoralPixels/RetroGaming, Platinum →
-    /// MatrixTypeDisplay-Regular) — matching the SwiftUI
+    /// headings should instead use `theme.headingFontName(level:)`
+    /// (Classic H1 → Matrix, Classic H2/H3 + Ember → ChonkyPixels,
+    /// Platinum → MatrixTypeDisplay-Regular) — matching the SwiftUI
     /// `MarkdownTextView` + `TaggedMarkdownTextView` chat heading
     /// paths that already go through
     /// `AppDisplayTypography.headingFont(size:weight:theme:)`.
@@ -1650,18 +1695,30 @@ enum AppDisplayTypography: Sendable {
         size: CGFloat,
         weight: NSFont.Weight = .regular,
         theme: EpistemosTheme,
+        level: Int = 1,
         allowDisplayFont: Bool = true
     ) -> NSFont {
         let resolvedIsDark = theme.isDark
         if allowDisplayFont && !readableFontsEnabled() {
-            return NSFont(
-                name: theme.headingFontName,
-                size: displayFontSize(for: size, isDark: resolvedIsDark)
+            return displayUIFont(
+                name: theme.headingFontName(level: level),
+                size: displayFontSize(for: size, isDark: resolvedIsDark),
+                weight: weight
             )
-                ?? NSFont.systemFont(ofSize: size, weight: weight)
         } else {
             return regularUIFont(size: size, weight: weight)
         }
+    }
+
+    nonisolated private static func displayUIFont(
+        name: String,
+        size: CGFloat,
+        weight: NSFont.Weight
+    ) -> NSFont {
+        let base = NSFont(name: name, size: size)
+            ?? NSFont.systemFont(ofSize: size, weight: weight)
+        guard weight >= .bold else { return base }
+        return NSFontManager.shared.convert(base, toHaveTrait: .boldFontMask)
     }
 
     nonisolated static func isDisplayFont(_ font: NSFont) -> Bool {
@@ -1670,6 +1727,9 @@ enum AppDisplayTypography: Sendable {
 
     nonisolated static func isPrimaryDisplayFont(_ font: NSFont) -> Bool {
         font.fontName.contains(coralDisplayFontName)
+            || font.fontName.contains(matrixDisplayFontName)
+            || font.fontName.contains("MatrixTypeDisplay")
+            || font.fontName.contains(chonkyDisplayFontName)
     }
 
     nonisolated static func isLegacyDisplayFont(_ font: NSFont) -> Bool {

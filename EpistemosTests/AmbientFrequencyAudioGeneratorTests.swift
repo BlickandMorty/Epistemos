@@ -104,7 +104,9 @@ struct AmbientFrequencyAudioGeneratorTests {
         #expect(SettingsView.SettingsSection.visibleSections.contains(.ambientFrequencies))
         #expect(SettingsView.SettingsSection.ambientFrequencies.category == .capture)
         #expect(settingsSource.contains("AmbientFrequencySettingsView()"))
-        #expect(detailSource.contains("Preset Zone"))
+        #expect(detailSource.contains("Frequencies & Sounds"))
+        #expect(detailSource.contains("Preset / Vibe"))
+        #expect(detailSource.contains("Playback & Export"))
         #expect(detailSource.contains("32-bit float WAV"))
     }
 
@@ -126,13 +128,64 @@ struct AmbientFrequencyAudioGeneratorTests {
         #expect(AmbientFrequencyLivePlayer.sanitizedWaveform(99) == AmbientFrequencyLivePlayer.Waveform.sineWave.rawValue)
     }
 
-    @Test("Live player stops when Ambient Frequency settings disappear")
-    func livePlayerStopsWhenSettingsDisappear() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/AmbientFrequencySettingsView.swift")
+    @Test("Live player can create a stereo fallback render format")
+    func livePlayerCreatesStereoFallbackRenderFormat() throws {
+        let format = try AmbientFrequencyLivePlayer.makeStereoRenderFormat(
+            preferredSampleRate: .nan,
+            fallbackSampleRates: [0, .infinity, 48_000, 44_100]
+        )
 
+        #expect(format.sampleRate == 48_000)
+        #expect(format.channelCount == 2)
+        #expect(format.commonFormat == .pcmFormatFloat32)
+        #expect(!format.isInterleaved)
+    }
+
+    @Test("Live player render callback is built outside MainActor isolation")
+    func livePlayerRenderCallbackIsBuiltOutsideMainActorIsolation() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Engine/AmbientFrequencyLivePlayer.swift")
+
+        #expect(source.contains("nonisolated private enum AmbientFrequencyDSP"))
+        #expect(source.contains("nonisolated private enum AmbientFrequencyRenderCallback"))
+        #expect(source.contains("private nonisolated final class LivePlayerParameters"))
+        #expect(source.contains("let node = AmbientFrequencyRenderCallback.makeSourceNode("))
+        #expect(!source.contains("let node = AVAudioSourceNode(format: renderFormat) {"))
+        #expect(!source.contains("AmbientFrequencyLivePlayer.sanitizedFrequency(\n                targetFrequency"))
+        #expect(source.contains("throw AmbientFrequencyLivePlayerError.engineStartFailed(underlying: error)"))
+    }
+
+    @Test("Live player engine start failures keep a useful user-facing message")
+    func livePlayerEngineStartFailuresKeepAUsefulMessage() throws {
+        let underlying = NSError(
+            domain: "AudioUnit",
+            code: -10875,
+            userInfo: [NSLocalizedDescriptionKey: "output device unavailable"]
+        )
+
+        let message = try #require(
+            AmbientFrequencyLivePlayerError.engineStartFailed(underlying: underlying).errorDescription
+        )
+
+        #expect(message.contains("Could not start live playback"))
+        #expect(message.contains("output device unavailable"))
+    }
+
+    @Test("Live player persists outside Ambient Frequency settings")
+    func livePlayerPersistsOutsideAmbientFrequencySettings() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/AmbientFrequencySettingsView.swift")
+        let environment = try loadMirroredSourceTextFile("Epistemos/App/AppEnvironment.swift")
+        let bootstrap = try loadMirroredSourceTextFile("Epistemos/App/AppBootstrap.swift")
+        let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
+
+        #expect(source.contains("@Environment(AmbientFrequencyPlaybackState.self)"))
         #expect(source.contains(".onDisappear"))
-        #expect(source.contains("livePlayer.stop()"))
-        #expect(source.contains("livePlayerRunning = false"))
+        #expect(source.contains(".onDisappear {\n            liveRestartTask?.cancel()\n        }"))
+        #expect(!source.contains("livePlayer.stop()"))
+        #expect(source.contains("AmbientFrequencyPlaybackRequest"))
+        #expect(environment.contains(".environment(bootstrap.ambientFrequencyPlaybackState)"))
+        #expect(bootstrap.contains("let ambientFrequencyPlaybackState = AmbientFrequencyPlaybackState()"))
+        #expect(landing.contains("@Environment(AmbientFrequencyPlaybackState.self)"))
+        #expect(landing.contains("landingAmbientFrequencyMediaChip"))
     }
 
     private func temporaryOutputURL() -> URL {
@@ -214,6 +267,136 @@ struct AmbientFrequencyAudioGeneratorTests {
         let panned = AmbientFrequencyAudioGenerator.applyEqualPowerPan((left: 1.0, right: 1.0), pan: 1)
         #expect(abs(panned.left) < 1e-9, "Full-right pan should silence left")
         #expect(abs(panned.right - 1.0) < 1e-9, "Full-right pan should leave right at full")
+    }
+
+    @Test("Per-layer mixer volume can silence a rendered sound")
+    func perLayerMixerVolumeCanSilenceRenderedSound() {
+        let preset = AmbientFrequencyPreset(
+            id: "test-one-sine",
+            title: "Test One Sine",
+            intent: "Test",
+            summary: "Test",
+            requiresHeadphones: false,
+            defaultDurationSeconds: 1,
+            layers: [.sine(frequencyHz: 100, amplitude: 1, channelMode: .stereo)]
+        )
+
+        let audible = AmbientFrequencyAudioGenerator.samplePair(
+            preset: preset,
+            frame: 3,
+            totalFrames: 1_000,
+            sampleRate: 1_000
+        )
+        let muted = AmbientFrequencyAudioGenerator.samplePair(
+            preset: preset,
+            frame: 3,
+            totalFrames: 1_000,
+            sampleRate: 1_000,
+            layerControls: [AmbientFrequencyLayerMixControl(volume: 0, pan: 0, distortion: 0)]
+        )
+
+        #expect(abs(audible.left) > 0.01)
+        #expect(abs(muted.left) < 1e-9)
+        #expect(abs(muted.right) < 1e-9)
+    }
+
+    @Test("Per-layer mixer pan and distortion stay bounded")
+    func perLayerMixerPanAndDistortionStayBounded() {
+        let hardRight = AmbientFrequencyAudioGenerator.applyLayerMix(
+            (left: 1, right: 1),
+            control: AmbientFrequencyLayerMixControl(volume: 1, pan: 1, distortion: 0)
+        )
+        #expect(abs(hardRight.left) < 1e-9)
+        #expect(abs(hardRight.right - 1) < 1e-9)
+
+        let driven = AmbientFrequencyAudioGenerator.applyLayerMix(
+            (left: 0.95, right: 0.95),
+            control: AmbientFrequencyLayerMixControl(volume: 2, pan: 0, distortion: 1)
+        )
+        #expect(abs(driven.left) <= 1)
+        #expect(abs(driven.right) <= 1)
+    }
+
+    @Test("Per-layer mixer delay and space controls add bounded ambience")
+    func perLayerMixerDelayAndSpaceAddAmbience() {
+        let layer: AmbientFrequencyLayer = .pwmSquare(
+            frequencyHz: 1,
+            dutyCycle: 0.5,
+            amplitude: 1,
+            channelMode: .stereo
+        )
+        let dry = AmbientFrequencyAudioGenerator.mixedLayerSample(
+            layer,
+            control: AmbientFrequencyLayerMixControl(volume: 1, pan: 0, distortion: 0),
+            time: 0.05,
+            frame: 50,
+            sampleRate: 1_000
+        )
+        let wet = AmbientFrequencyAudioGenerator.mixedLayerSample(
+            layer,
+            control: AmbientFrequencyLayerMixControl(
+                volume: 1,
+                pan: 0,
+                distortion: 0,
+                delaySend: 0.5,
+                delayTimeSeconds: 0.05,
+                delayFeedback: 0.35,
+                spaceSend: 0.25,
+                tone: 0
+            ),
+            time: 0.05,
+            frame: 50,
+            sampleRate: 1_000
+        )
+
+        #expect(abs(wet.left) > abs(dry.left))
+        #expect(abs(wet.right) > abs(dry.right))
+        #expect(wet.left.isFinite)
+        #expect(wet.right.isFinite)
+    }
+
+    @Test("Nature bandpass noise is smooth filtered noise, not metallic sine stacks")
+    func natureBandpassNoiseUsesSmoothFilteredNoise() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Engine/AmbientFrequencyAudioGenerator.swift")
+
+        #expect(source.contains("smoothBandpassNoiseValue"))
+        #expect(source.contains("smoothNoiseValue"))
+        #expect(!source.contains("for k in 0..<harmonicCount"))
+        #expect(!source.contains("sum += sin(.tau * frequencyHz * time + phase)"))
+    }
+
+    @Test("Live player renders FX with stateful delay buffers")
+    func livePlayerRendersFXWithStatefulDelayBuffers() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Engine/AmbientFrequencyLivePlayer.swift")
+
+        #expect(source.contains("delayBufferLeft"))
+        #expect(source.contains("renderLayerSample"))
+        #expect(source.contains("readDelaySample"))
+        #expect(!source.contains("AmbientFrequencyAudioGenerator.mixedLayerSample("))
+    }
+
+    @Test("Live active mix render path avoids per-sample allocation shapes")
+    func liveActiveMixRenderPathAvoidsPerSampleAllocationShapes() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Engine/AmbientFrequencyLivePlayer.swift")
+
+        #expect(!source.contains("let taps: [(seconds: Double, gain: Double)]"))
+        #expect(!source.contains("let control = AmbientFrequencyLayerMixControl("))
+        #expect(source.contains("addSpaceTap("))
+    }
+
+    @Test("Per-layer mixer decodes old control JSON with neutral FX defaults")
+    func perLayerMixerDecodesOldControlJSONWithNeutralFXDefaults() throws {
+        let data = try #require(#"{"volume":0.4,"pan":-0.25,"distortion":0.2}"#.data(using: .utf8))
+        let control = try JSONDecoder().decode(AmbientFrequencyLayerMixControl.self, from: data)
+
+        #expect(control.volume == 0.4)
+        #expect(control.pan == -0.25)
+        #expect(control.distortion == 0.2)
+        #expect(control.delaySend == AmbientFrequencyLayerMixControl.neutral.delaySend)
+        #expect(control.delayTimeSeconds == AmbientFrequencyLayerMixControl.neutral.delayTimeSeconds)
+        #expect(control.delayFeedback == AmbientFrequencyLayerMixControl.neutral.delayFeedback)
+        #expect(control.spaceSend == AmbientFrequencyLayerMixControl.neutral.spaceSend)
+        #expect(control.tone == AmbientFrequencyLayerMixControl.neutral.tone)
     }
 
     @Test("Indirect .panned layer wraps another layer + preserves its maxFrequencyHz")
@@ -317,6 +500,96 @@ struct AmbientFrequencyAudioGeneratorTests {
         let pink = try #require(AmbientFrequencySoundModule.module(id: "color-pink"))
         #expect(pink.category == .noiseColor)
         #expect(AmbientFrequencySoundModule.module(id: "totally-nonexistent") == nil)
+    }
+
+    @Test("Retro music layer renders a bounded audible pattern")
+    func retroMusicLayerRendersBoundedAudiblePattern() {
+        let layer: AmbientFrequencyLayer = .retroMusic(
+            rootMidiNote: 60,
+            scale: .minorPentatonic,
+            chord: .minor7,
+            pattern: .chipSong,
+            instrument: .pulse25,
+            tempoBPM: 120,
+            amplitude: 0.18
+        )
+
+        var peak = 0.0
+        for frame in 0..<4_000 {
+            let pair = AmbientFrequencyAudioGenerator.layerSample(
+                layer,
+                time: Double(frame) / 44_100,
+                frame: frame,
+                sampleRate: 44_100
+            )
+            #expect(pair.left.isFinite)
+            #expect(pair.right.isFinite)
+            peak = max(peak, abs(pair.left), abs(pair.right))
+        }
+
+        #expect(peak > 0.001)
+        #expect(peak <= 0.35)
+        #expect(layer.label.contains("Retro"))
+        #expect(layer.description.contains("Minor pentatonic"))
+    }
+
+    @Test("Live settings expose retro controls in a dedicated compact section")
+    func liveSettingsExposeRetroControlsInDedicatedCompactSection() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/AmbientFrequencySettingsView.swift")
+
+        #expect(source.contains("title: \"Retro\""))
+        #expect(source.contains("Advanced retro controls"))
+        #expect(source.contains("AmbientFrequencyMusicSongPreset"))
+        #expect(source.contains("musicComposerLayers"))
+        #expect(source.contains(".retroMusic("))
+        #expect(source.contains("Key"))
+        #expect(source.contains("Scale"))
+        #expect(source.contains("Chord"))
+        #expect(source.contains("Pattern"))
+    }
+
+    @Test("Live settings expose active mix and per-sound controls without phantom clutter")
+    func liveSettingsExposeActiveMixPerSoundControlsWithoutPhantomClutter() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/AmbientFrequencySettingsView.swift")
+
+        #expect(source.contains("Playback & Export"))
+        #expect(source.contains("Per-Sound Mix"))
+        #expect(source.contains("layerControls: liveLayerControls"))
+        #expect(source.contains("ambientPlayback.start(livePlaybackRequest)"))
+        #expect(source.contains("layers: selectedPreset.layers"))
+        #expect(source.contains("FX: delay / space / tone"))
+        #expect(source.contains("delaySend"))
+        #expect(source.contains("spaceSend"))
+        #expect(source.contains("tone"))
+        #expect(!source.contains("Phantom / Binaural Pattern"))
+        #expect(!source.contains("AmbientFrequencyPhantomPattern"))
+        #expect(!source.contains("case triadic"))
+        #expect(!source.contains("case quadWeave"))
+    }
+
+    @Test("Ambient settings use a compact Frequencies and Sounds flow")
+    func ambientSettingsUseCompactFrequenciesAndSoundsFlow() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/AmbientFrequencySettingsView.swift")
+        let surface = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsSurfaceComponents.swift")
+
+        #expect(surface.contains("struct SettingsDisclosureSection"))
+        #expect(source.contains("SettingsDisclosureSection("))
+        #expect(source.contains("AmbientFrequencyMixRecipe"))
+        #expect(source.contains("applyMixRecipe("))
+        #expect(source.contains("title: \"Preset / Vibe\""))
+        #expect(source.contains("title: \"Sound Bed\""))
+        #expect(source.contains("title: \"Retro\""))
+        #expect(source.contains("title: \"Per-Sound Mix\""))
+        #expect(source.contains("title: \"Playback & Export\""))
+        #expect(source.contains("Advanced sound modules"))
+        #expect(source.contains("Advanced tone lab"))
+        #expect(source.contains("Export WAV"))
+        #expect(source.contains("@State private var soundStackExpanded"))
+        #expect(source.contains("@State private var mixerExpanded"))
+        #expect(source.contains("layerMixerControls(index: index, control:"))
+        #expect(!source.contains("let control = layerControl(at: index)\n        VStack"))
+        #expect(!source.contains("Custom Mix Builder"))
+        #expect(!source.contains("Research Posture"))
     }
 
     private func littleEndianUInt16(_ data: Data, offset: Int) -> UInt16 {

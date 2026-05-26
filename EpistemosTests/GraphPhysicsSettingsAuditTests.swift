@@ -712,6 +712,8 @@ struct GraphPhysicsSettingsAuditTests {
         let darkFolder = GraphThemeNodePalette.color(for: .folder, theme: .systemDark)
         let lightNote = GraphThemeNodePalette.color(for: .note, theme: .systemLight)
         let darkNote = GraphThemeNodePalette.color(for: .note, theme: .systemDark)
+        let oledNote = GraphThemeNodePalette.color(for: .note, theme: .oled)
+        let oledSoftNote = GraphThemeNodePalette.color(for: .note, theme: .oledSoft)
         let tanIdea = GraphThemeNodePalette.color(for: .idea, theme: .tan)
         let violetIdea = GraphThemeNodePalette.color(for: .idea, theme: .platinumViolet)
 
@@ -725,6 +727,7 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(darkNote.r > 0.85)
         #expect(darkNote.g < 0.25)
         #expect(darkNote.b < 0.25)
+        #expect(oledSoftNote == oledNote)
         #expect(tanIdea.a == 1.0)
         #expect(violetIdea.a == 1.0)
         #expect(abs(tanIdea.r - violetIdea.r) > 0.02 || abs(tanIdea.b - violetIdea.b) > 0.02)

@@ -1070,9 +1070,13 @@ enum LocalModelCatalog {
     /// the canonical 32 GB. Used by `defaultPrimaryAgentModel` accessor
     /// AND by AppBootstrap's hardware-snapshot status string so display
     /// + behavior stay in lock-step.
+    nonisolated static func minRAMForPrimaryAgentModel(isPowerUser: Bool) -> Int {
+        isPowerUser ? primaryAgentModelMinHostRAMGB_powerUser : primaryAgentModelMinHostRAMGB
+    }
+
     nonisolated static var effectivePrimaryAgentModelMinHostRAMGB: Int {
         let isPowerUser = UserDefaults.standard.bool(forKey: powerUserModeDefaultsKey)
-        return isPowerUser ? primaryAgentModelMinHostRAMGB_powerUser : primaryAgentModelMinHostRAMGB
+        return minRAMForPrimaryAgentModel(isPowerUser: isPowerUser)
     }
 
     /// UserDefaults key for the explicit opt-in to the 36B agent model.

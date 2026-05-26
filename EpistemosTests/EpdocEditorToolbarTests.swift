@@ -113,4 +113,15 @@ struct EpdocEditorToolbarTests {
         #expect(inbound.contains("state.tr.setNodeMarkup("))
         #expect(inbound.contains("headingLevelFromArgs(args)"))
     }
+
+    @Test("Inbound heading command isolates hard-break visual lines before changing style")
+    func inboundHeadingCommandIsolatesHardBreakLines() throws {
+        let inbound = try loadMirroredSourceTextFile("js-editor/src/bridge/inbound.ts")
+
+        #expect(inbound.contains("function splitTextblockAroundHardBreaks(editor: Editor, depth: number): boolean"))
+        #expect(inbound.contains("child.type.name !== 'hardBreak'"))
+        #expect(inbound.contains("Fragment.fromArray(pieces)"))
+        #expect(inbound.contains("return setHeadingLevel(editor, level);"))
+        #expect(inbound.contains("return setParagraph(editor);"))
+    }
 }

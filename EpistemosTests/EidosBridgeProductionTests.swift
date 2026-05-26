@@ -266,4 +266,29 @@ struct EidosBridgeProductionTests {
         #expect(packet.hits.isEmpty, "post-reopen retrieve must not see prior notes")
         #expect(packet.manifestId.raw == "vault-second")
     }
+
+    @Test("SearchIndexService page upsert also feeds the production Eidos vault index")
+    func searchIndexUpsertFeedsProductionEidosIndex() throws {
+        reset()
+        defer { reset() }
+
+        _ = EidosBridge.openVaultIndex(signature: "search-index-upsert")
+        let dbURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("eidos-search-index-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("search.sqlite")
+        let searchIndex = try SearchIndexService(databaseURL: dbURL)
+
+        try searchIndex.upsert(
+            id: "page-eidos-live",
+            title: "Live Eidos",
+            body: "production vault retrieval should see this substrate phrase",
+            tags: "",
+            updatedAt: .now
+        )
+
+        let packet = try #require(EidosBridge.retrieve(query: "substrate phrase", topK: 8))
+        #expect(packet.manifestId.raw == "vault-search-index-upsert")
+        #expect(packet.hits.map(\.documentId.raw) == ["page-eidos-live"])
+        #expect(EidosBridge.detectedBackend(from: packet) == .real)
+    }
 }

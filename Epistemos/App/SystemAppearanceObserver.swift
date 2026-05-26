@@ -7,6 +7,7 @@ import AppKit
 final class SystemAppearanceObserver {
     private var workspaceToken: NSObjectProtocol?
     private var themeToken: NSObjectProtocol?
+    private var lastNotifiedIsDark: Bool?
     nonisolated(unsafe) var onAppearanceChange: (@MainActor @Sendable (Bool) -> Void)?
 
     @MainActor
@@ -47,6 +48,9 @@ final class SystemAppearanceObserver {
 
     @MainActor
     private func notifyNow() {
-        onAppearanceChange?(SystemAppearanceState.isDark())
+        let isDark = SystemAppearanceState.isDark()
+        guard lastNotifiedIsDark != isDark else { return }
+        lastNotifiedIsDark = isDark
+        onAppearanceChange?(isDark)
     }
 }

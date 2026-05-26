@@ -254,6 +254,7 @@ nonisolated enum AssistantControlTagSyntax {
         ("<tool_response>", "</tool_response>"),
         ("<tool_call>", "</tool_call>"),
         ("<tool_call<", "</tool_call>"),
+        ("<tools>", "</tools>"),
     ]
 
     static func openingMatch(in text: String) -> (range: Range<String.Index>, closingTag: String)? {
@@ -962,7 +963,10 @@ nonisolated enum UserFacingModelOutput {
         guard !normalized.isEmpty else { return false }
 
         let lowercased = normalized.lowercased()
-        if lowercased.contains("<tool_call") || lowercased.contains("```tool_call") {
+        if lowercased.contains("<tool_call")
+            || lowercased.contains("<tools")
+            || lowercased.contains("<tool>")
+            || lowercased.contains("```tool_call") {
             return true
         }
 
@@ -1098,6 +1102,8 @@ nonisolated enum UserFacingModelOutput {
             suppressIncompleteTail: suppressIncompleteThinkingTail,
             recoveryMode: recoveryMode
         )
+        cleaned = stripStandaloneToolWrappers(in: cleaned)
+        cleaned = stripOrphanToolWrapperClosings(in: cleaned)
         return cleaned
     }
 
@@ -1143,6 +1149,42 @@ nonisolated enum UserFacingModelOutput {
         }
 
         return cleaned
+    }
+
+    private static func stripStandaloneToolWrappers(in text: String) -> String {
+        var cleaned = text
+        var searchStart = cleaned.startIndex
+
+        while searchStart < cleaned.endIndex,
+              let openRange = cleaned.range(of: "<tool>", range: searchStart..<cleaned.endIndex),
+              let closeRange = cleaned.range(of: "</tool>", range: openRange.upperBound..<cleaned.endIndex) {
+            let body = String(cleaned[openRange.upperBound..<closeRange.lowerBound])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let looksLikeToolPayload = !ToolCallParser.parse(body).isEmpty
+                || isStructuredToolPayload(body)
+
+            guard looksLikeToolPayload else {
+                searchStart = closeRange.upperBound
+                continue
+            }
+
+            cleaned.removeSubrange(openRange.lowerBound..<closeRange.upperBound)
+            searchStart = openRange.lowerBound
+        }
+
+        return cleaned
+    }
+
+    private static func stripOrphanToolWrapperClosings(in text: String) -> String {
+        let lowercased = text.lowercased()
+        guard !lowercased.contains("<tool>"),
+              !lowercased.contains("<tools>") else {
+            return text
+        }
+
+        return text
+            .replacingOccurrences(of: "</tool>", with: "")
+            .replacingOccurrences(of: "</tools>", with: "")
     }
 
     private static func recoveredTextFromIncompleteThinkingTail(

@@ -23,7 +23,7 @@ enum GraphThemeNodePalette {
 
     private static func tintAmount(for type: GraphNodeType, theme: EpistemosTheme) -> Float {
         switch theme {
-        case .systemLight, .systemDark, .light, .oled:
+        case .systemLight, .systemDark, .light, .oled, .oledSoft:
             return 0.0
         default:
             switch type {
