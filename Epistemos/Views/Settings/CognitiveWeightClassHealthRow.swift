@@ -63,6 +63,9 @@ public struct CognitiveWeightClassHealthRow: View {
             Text(weightClass.range)
                 .font(.system(size: 9, design: .monospaced))
                 .foregroundStyle(.secondary)
+            Text(weightClass.policyAuthority ? "authority" : "badge only")
+                .font(.system(size: 9, design: .monospaced))
+                .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)

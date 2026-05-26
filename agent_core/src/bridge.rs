@@ -4753,7 +4753,7 @@ pub fn substrate_health_unified_json() -> Result<String, AgentErrorFFI> {
                     {"badge": "W1", "label": "light", "class": "soft", "range": "0.00-0.30", "policy_authority": false},
                     {"badge": "W2", "label": "medium", "class": "preferred", "range": "0.31-0.60", "policy_authority": false},
                     {"badge": "W3", "label": "heavy", "class": "strong_anchor", "range": "0.61-0.85", "policy_authority": false},
-                    {"badge": "W4", "label": "extreme", "class": "policy_grade", "range": "0.86-1.00", "policy_authority": true}
+                    {"badge": "W4", "label": "extreme", "class": "policy_grade", "range": "0.86-1.00", "policy_authority": false}
                 ],
                 "falsifier": "docs/falsifiers/F_WBO_DRIFT_LEDGER_2026_05_18.md",
                 "w_row": "W-30"
@@ -4809,6 +4809,14 @@ mod tests {
         assert_eq!(value["eml_observatory"]["w_row"], "W-07");
         assert_eq!(value["uas_acs"]["w_row"], "W-10");
         assert_eq!(value["cognitive_weight"]["w_row"], "W-30");
+        assert_eq!(
+            value["cognitive_weight"]["classes"][3]["class"],
+            "policy_grade"
+        );
+        assert_eq!(
+            value["cognitive_weight"]["classes"][3]["policy_authority"],
+            false
+        );
         assert_eq!(value["drift_monitor"]["w_row"], "W-33");
         assert_eq!(value["plane_placement"]["terminal_g_required"], false);
         assert_eq!(value["plane_placement"]["plane_fields_wired"], true);

@@ -31,7 +31,7 @@ public struct PlanePlacementHealthRow: View {
             VerifiedFloorChipStrip(
                 flag: "n/a",
                 substrate: chipLabel(plane),
-                substrateTint: plane.planeFieldsWired && plane.ffiReachable ? .green : .red
+                substrateTint: plane.ffiReachable ? .orange : .red
             )
             SubstrateHealthMetricLine(
                 label: "Unplaced nodes",
@@ -82,7 +82,7 @@ public struct PlanePlacementHealthRow: View {
 
     private func chipLabel(_ p: SubstrateHealthUnifiedSnapshot.PlanePlacement) -> String {
         guard p.ffiReachable else { return "FFI unavailable" }
-        return p.planeFieldsWired ? "five-plane counts" : "Terminal G dependency"
+        return p.planeFieldsWired ? "read-only counts" : "Terminal G dependency"
     }
 
     private func refresh() {

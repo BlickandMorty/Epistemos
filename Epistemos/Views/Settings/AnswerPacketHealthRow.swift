@@ -66,8 +66,8 @@ public struct AnswerPacketHealthRow: View {
             )
             VerifiedFloorChipStrip(
                 flag: "on",
-                substrate: snapshot.totalEmitted > 0 ? "emitting" : "idle",
-                substrateTint: snapshot.totalEmitted > 0 ? .green : .orange
+                substrate: snapshot.totalEmitted > 0 ? "session ring only" : "idle",
+                substrateTint: .orange
             )
             row(
                 label: "Audit ring",

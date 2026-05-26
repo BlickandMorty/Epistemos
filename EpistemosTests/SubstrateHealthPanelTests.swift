@@ -49,8 +49,28 @@ struct SubstrateHealthPanelTests {
         #expect(panel.contains("PlanePlacementHealthRow()"))
         #expect(panel.contains("F-ACS-AnchorLookup_2026_05_24.md"))
         #expect(row.contains("SubstrateHealthUnifiedClient.snapshot()"))
-        #expect(row.contains("return p.planeFieldsWired ? \"five-plane counts\""))
+        #expect(row.contains("return p.planeFieldsWired ? \"read-only counts\""))
         #expect(row.contains("state=\\(p.stateCount) episodic=\\(p.episodicCount) assembly=\\(p.assemblyCount)"))
+    }
+
+    @Test("D-prime rows keep chip strips and W-30 badges conservative")
+    func dPrimeRowsKeepChipStripsConservative() throws {
+        let answerPacket = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Settings/AnswerPacketHealthRow.swift"
+        )
+        let planePlacement = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Settings/PlanePlacementHealthRow.swift"
+        )
+        let cognitiveWeight = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Settings/CognitiveWeightClassHealthRow.swift"
+        )
+        let bridge = try loadMirroredSourceTextFile("agent_core/src/bridge.rs")
+
+        #expect(answerPacket.contains("session ring only"))
+        #expect(answerPacket.contains("substrateTint: .orange"))
+        #expect(planePlacement.contains("substrateTint: plane.ffiReachable ? .orange : .red"))
+        #expect(cognitiveWeight.contains("badge only"))
+        #expect(bridge.contains("\"class\": \"policy_grade\", \"range\": \"0.86-1.00\", \"policy_authority\": false"))
     }
 
     @Test("SettingsView mounts SubstrateHealthPanel exactly once in Diagnostics")
