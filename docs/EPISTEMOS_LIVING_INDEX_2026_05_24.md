@@ -149,6 +149,7 @@ Full prompts: `docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md`. **Wave 1 = foundati
 11. The lattice coordinate explainer is preserved and checkpointed at `artifacts/lattice-coordinate-explainer/index.html`; it keeps the ambition map but now carries the post-Wave-2 overlay so old "pending Terminal G" rows do not override current main.
 12. Remaining required next work is **Wave 3**, not more Wave-2 merging: AgentBlueprint end-to-end replay UI, agent metadata badges, deeper UAS/ClaimLedger rows, Cognitive DAG visualizer, and Tri-Fusion typed mutations.
 13. Fresh roll-up / dispatch map: `docs/audits/LEGENDARY_POST_WAVE2_ROLLUP_2026_05_26.md`.
+14. Copy-paste terminal dispatch for the next architecture wave: `docs/audits/WAVE3_WAVE4_TERMINAL_DISPATCH_2026_05_26.md`.
 
 ## 8 · Deferred-work ledger (26 items, anti-loss)
 
