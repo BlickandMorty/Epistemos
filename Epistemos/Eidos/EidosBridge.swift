@@ -35,7 +35,7 @@
 import Foundation
 import os
 
-extension EidosBridge {
+nonisolated extension EidosBridge {
     nonisolated private static let prodLog = Logger(subsystem: "com.epistemos", category: "eidos.production")
 
     /// Outcome of `validateCitation(packet:citation:)`. Mirrors the

@@ -4,6 +4,29 @@ Terminal: D
 Track: P6 + T22 + W-29
 Tier: Tier 1 MAS
 Primary law: Law 7 Witness
+Motion: Project / Compress / Recall - substrate state is projected into Settings as a read-only witness surface.
+LLM-address granularity row: Output schema + whole-model call witness surface; this PR does not claim KV-page, adapter, attention-head, parameter-anchor, or circuit-level control.
+
+## Rev 2 PR Metadata
+
+| Field | Terminal D answer |
+|---|---|
+| Motion | Project / Compress / Recall. The panel projects Rust/Swift substrate health into a Settings witness surface. |
+| UAS | UAS taxonomy, DAG Merkle root, residency tiers, copy counters, AnswerPacket/RunEventLog witness channels. No new durable substrate class is created. |
+| Plane | Verification surface observing State, Episodic, Assembly, Controller, and Verification rows; PlanePlacement consumes Terminal G/T14 five-plane fields when present and stays visible when counts are blocked. |
+| Residency | CurrentApp UI + in-process FFI; VerifiedFloor chip-strip language; CapabilityCeiling only as a displayed residency tag, not a runtime claim. |
+| WBO | WBO accountant and Substrate Drift Monitor show accounting counters and keep falsifier PASS false until a real F-WBO-DriftLedger artifact exists. |
+| Witness | `VerifiedFloorChipStrip`, row-level FFI snapshots, falsifier-doc links, `AnswerPacket`, `RunEventLog`, DAG root, WBO ledger counters. |
+| Falsifier | Links to W-07/W-10/W-14/W-21/W-26/W-29/W-30/W-33 falsifier docs; unblocks visibility for F-ULP-Oracle, F-UAS-ZeroCopy-Spine, F-ACS-AnchorLookup, F-WBO-DriftLedger, F-VaultRecall-50, F-Eidos-Closed-Citation, F-ActiveAssembly-Minimal, and F-ShadowFirst-PageEscalation. |
+| Tier | Tier 1 MAS read-only observability. Pro has no new path. Research-only EML calls stay feature-gated and MAS degrades honestly. Vault preserves speculative finer-granularity model-control rows as doctrine only. |
+| Rollback | Revert the Settings sidebar destination, `SubstrateHealthPanel`, the new row files, `SubstrateHealthSupport`, and `substrate_health_unified_json`; scattered legacy rows remain independently usable if the panel is removed. |
+
+LLM-address granularity per `docs/fusion/SHADOW_PROJECTION_AND_RESEARCH_CONSTRUCTION_2026_05_24.md` §12.2 and `docs/fusion/ADDRESSABLE_NEURAL_SUBSTRATE_CANON_2026_05_24.md` §2A:
+
+- Whole-model call: Local agent/System G/Active Constellation rows observe model-lane and dispatch posture.
+- Output schema: AnswerPacket and local-agent strict-grammar rows observe emitted shape/witness posture.
+- KV cache page: UAS taxonomy lists `kv_page` and drift/copy counters observe substrate readiness; no KV-page routing claim is made.
+- Finer rows (weight-bit, adapter, MoE expert, active assembly, attention head/SSM state, parameter anchor, cross-layer circuit): not touched; preserved as Tier 3 / Vault doctrine only.
 
 ## Audit
 
@@ -81,6 +104,16 @@ Data classes touched:
 - Plane placement summary
 - WBO drift/accounting counters
 - AnswerPacket and agent runtime health surfaces
+
+Rev 2 invariant check:
+
+| Invariant | Status |
+|---|---|
+| UAS address | Satisfied through UAS kind taxonomy, DAG Merkle root, AnswerPacket/RunEventLog witness IDs, and falsifier-doc paths; no anonymous durable payload is introduced. |
+| Plane | Satisfied as a Verification-plane projection. Concrete five-plane placement is consumed from Terminal G/T14 when available; no product claim is made for finer neural planes. |
+| Residency | Satisfied through CurrentApp FFI reads, VerifiedFloor chip-strip posture, and displayed `current_app` / `verified_floor` / `capability_ceiling` tags. |
+| WBO if approximate | Satisfied by Lattice/WBO and Drift Monitor counters; approximate pass claims stay blocked until F-WBO-DriftLedger has an artifact. |
+| WRV if product-facing | Satisfied by chip strips, 1 Hz refresh or event-driven + 1 Hz refresh, and falsifier links on every panel row. |
 
 Five invariants:
 
