@@ -34,8 +34,9 @@ public struct ACSAdmissionHealthRow: View {
             )
             VerifiedFloorChipStrip(
                 flag: snapshot.isFlagEnabled ? "on" : "off",
-                substrate: "production gate active",
-                substrateTint: .green
+                substrate: snapshot.isFlagEnabled ? "production gate active" : "gate disabled",
+                substrateTint: snapshot.isFlagEnabled ? .green : .orange,
+                falsifier: snapshot.isFlagEnabled ? "acs_anchor_lookup" : nil
             )
             row(
                 label: "Strict policy",

@@ -861,12 +861,19 @@ struct QueryRuntimeTests {
     func retrievalRuntimeRoutesAllScopeThroughRRFFusedSearchOnlyBehindFlag() throws {
         let flag = "EPISTEMOS_RRF_FUSION_V1"
         let previous = ProcessInfo.processInfo.environment[flag]
+        let previousDefault = UserDefaults.standard.object(forKey: flag)
         unsetenv(flag)
+        UserDefaults.standard.removeObject(forKey: flag)
         defer {
             if let previous {
                 _ = setenv(flag, previous, 1)
             } else {
                 unsetenv(flag)
+            }
+            if let previousDefault {
+                UserDefaults.standard.set(previousDefault, forKey: flag)
+            } else {
+                UserDefaults.standard.removeObject(forKey: flag)
             }
         }
 
@@ -906,7 +913,9 @@ struct QueryRuntimeTests {
     func retrievalRuntimePreservesLegacyResultsWhenRRFFusedPathFallsBack() throws {
         let flag = "EPISTEMOS_RRF_FUSION_V1"
         let previous = ProcessInfo.processInfo.environment[flag]
+        let previousDefault = UserDefaults.standard.object(forKey: flag)
         _ = setenv(flag, "1", 1)
+        UserDefaults.standard.removeObject(forKey: flag)
         SearchFusionMetrics.shared.reset()
         defer {
             SearchFusionMetrics.shared.reset()
@@ -914,6 +923,11 @@ struct QueryRuntimeTests {
                 _ = setenv(flag, previous, 1)
             } else {
                 unsetenv(flag)
+            }
+            if let previousDefault {
+                UserDefaults.standard.set(previousDefault, forKey: flag)
+            } else {
+                UserDefaults.standard.removeObject(forKey: flag)
             }
         }
 
@@ -948,7 +962,9 @@ struct QueryRuntimeTests {
     func retrievalRuntimeKeepsNonAllScopesOffRRFFusedPath() throws {
         let flag = "EPISTEMOS_RRF_FUSION_V1"
         let previous = ProcessInfo.processInfo.environment[flag]
+        let previousDefault = UserDefaults.standard.object(forKey: flag)
         _ = setenv(flag, "1", 1)
+        UserDefaults.standard.removeObject(forKey: flag)
         SearchFusionMetrics.shared.reset()
         defer {
             SearchFusionMetrics.shared.reset()
@@ -956,6 +972,11 @@ struct QueryRuntimeTests {
                 _ = setenv(flag, previous, 1)
             } else {
                 unsetenv(flag)
+            }
+            if let previousDefault {
+                UserDefaults.standard.set(previousDefault, forKey: flag)
+            } else {
+                UserDefaults.standard.removeObject(forKey: flag)
             }
         }
 
@@ -1280,6 +1301,42 @@ struct QueryRuntimeTests {
         )
 
         #expect(result.nodes.isEmpty)
+    }
+
+    @Test("Eidos full-text path uses production vault retrieval when the vault index is open")
+    func eidosFullTextUsesProductionVaultRetrievalWhenOpen() throws {
+        EidosBridge.closeVaultIndex()
+        EidosMetrics.shared.reset()
+        UserDefaults.standard.set(true, forKey: EidosFlags.userDefaultsKey)
+        defer {
+            UserDefaults.standard.removeObject(forKey: EidosFlags.userDefaultsKey)
+            EidosBridge.closeVaultIndex()
+            EidosMetrics.shared.reset()
+        }
+
+        let store = GraphStore()
+        let graphState = GraphState()
+        let searchIndex = try makeSearchIndex()
+        store.addNode(makeNoteNode(id: "note-eidos", sourceId: "page-eidos", label: "Eidos note"))
+
+        _ = EidosBridge.openVaultIndex(signature: "query-runtime-production")
+        #expect(
+            EidosBridge.insertVaultNote(
+                documentId: "page-eidos",
+                body: "production-only eidos retrieval phrase",
+                kind: .note
+            )
+        )
+
+        let runtime = RetrievalRuntime(
+            graphStore: store,
+            graphState: graphState,
+            searchIndex: searchIndex
+        )
+        let result = runtime.fullText(query: "production-only", scope: .pages, limit: 10)
+
+        #expect(result.map(\.id) == ["note-eidos"])
+        #expect(EidosMetrics.shared.snapshot().lastBackend == .real)
     }
 
     @Test("combined complement returns graph nodes outside the excluded set")

@@ -6,12 +6,12 @@
 // Tiptap editor; unknown commands return false (callers can fall back).
 
 import type { Editor } from '@tiptap/core';
-import type { ResolvedPos } from '@tiptap/pm/model';
+import { Fragment } from '@tiptap/pm/model';
+import type { Node as ProseMirrorNode, ResolvedPos } from '@tiptap/pm/model';
 import { TextSelection } from '@tiptap/pm/state';
 import type { RectPayload, SelectionPayload } from './outbound';
 import { postBridge } from './outbound';
 import { applySlashChoice } from '../extensions/slash-menu';
-import { buildMermaidGraphFromDocument } from '../graph/document-graph';
 import { markHostDocumentLoaded } from './document-load-state';
 import { completeImageAssetRequest } from '../extensions/image-asset-bridge';
 
@@ -65,6 +65,10 @@ export function installInboundCommands(editor: Editor, _callbacks: InboundCallba
     },
 
     runCommand(name: string, ...args: unknown[]): boolean {
+      if (name === 'requestHTMLWorkspace') {
+        postBridge({ type: 'requestHTMLWorkspace' });
+        return true;
+      }
       if (name === 'setLink') {
         const href = linkHrefFromArgs(args) ?? (args.length === 0 ? window.prompt('Link URL') : null);
         if (!href) return false;
@@ -79,18 +83,6 @@ export function installInboundCommands(editor: Editor, _callbacks: InboundCallba
         const image = imageArgs(args);
         if (!image) return false;
         const didRun = editor.chain().focus().insertEpdocImage(image).run();
-        if (didRun) {
-          postDocumentStats(editor);
-          postDocumentSnapshot(editor);
-        }
-        return didRun;
-      }
-      if (name === 'insertEpdocGraphFromDocument') {
-        const diagram = buildMermaidGraphFromDocument(editor.getJSON());
-        const didRun = editor.chain().focus().insertContent([
-          { type: 'mermaid', content: [{ type: 'text', text: diagram }] },
-          { type: 'paragraph' },
-        ]).focus('end').run();
         if (didRun) {
           postDocumentStats(editor);
           postDocumentSnapshot(editor);
@@ -162,6 +154,9 @@ function setHeadingLevel(editor: Editor, level: number): boolean {
   const { state, view } = editor;
   const depth = textblockDepth(state.selection.$from);
   if (depth === null || depth <= 0) return false;
+  if (splitTextblockAroundHardBreaks(editor, depth)) {
+    return setHeadingLevel(editor, level);
+  }
 
   const node = state.selection.$from.node(depth);
   const headingType = state.schema.nodes.heading;
@@ -185,6 +180,9 @@ function setParagraph(editor: Editor): boolean {
   const { state, view } = editor;
   const depth = textblockDepth(state.selection.$from);
   if (depth === null || depth <= 0) return false;
+  if (splitTextblockAroundHardBreaks(editor, depth)) {
+    return setParagraph(editor);
+  }
 
   const node = state.selection.$from.node(depth);
   const paragraphType = state.schema.nodes.paragraph;
@@ -208,6 +206,61 @@ function textblockDepth($pos: ResolvedPos): number | null {
     if ($pos.node(depth).isTextblock) return depth;
   }
   return null;
+}
+
+function splitTextblockAroundHardBreaks(editor: Editor, depth: number): boolean {
+  const { state, view } = editor;
+  const { selection } = state;
+  const node = selection.$from.node(depth);
+  if (!node.isTextblock || node.content.childCount === 0) return false;
+
+  const blockStart = selection.$from.before(depth);
+  const contentStart = blockStart + 1;
+  const cursorOffset = Math.max(0, Math.min(node.content.size, selection.from - contentStart));
+  let lineStart = 0;
+  let lineEnd = node.content.size;
+  let sawHardBreak = false;
+
+  node.forEach((child, offset) => {
+    if (child.type.name !== 'hardBreak') return;
+    sawHardBreak = true;
+    if (offset < cursorOffset) {
+      lineStart = offset + child.nodeSize;
+    } else if (lineEnd === node.content.size) {
+      lineEnd = offset;
+    }
+  });
+
+  if (!sawHardBreak || (lineStart === 0 && lineEnd === node.content.size)) {
+    return false;
+  }
+
+  const beforeEnd = lineStart > 0 ? Math.max(0, lineStart - 1) : 0;
+  const afterStart = lineEnd < node.content.size ? Math.min(node.content.size, lineEnd + 1) : node.content.size;
+  const pieces: ProseMirrorNode[] = [];
+  const beforeContent = node.content.cut(0, beforeEnd);
+  if (beforeContent.size > 0) {
+    pieces.push(node.type.create(node.attrs, beforeContent));
+  }
+
+  const lineContent = node.content.cut(lineStart, lineEnd);
+  const lineIndex = pieces.length;
+  pieces.push(node.type.create(node.attrs, lineContent.size > 0 ? lineContent : undefined));
+
+  const afterContent = node.content.cut(afterStart, node.content.size);
+  if (afterContent.size > 0) {
+    pieces.push(node.type.create(node.attrs, afterContent));
+  }
+
+  const previousSize = pieces.slice(0, lineIndex).reduce((sum, piece) => sum + piece.nodeSize, 0);
+  const lineBlockStart = blockStart + previousSize;
+  const cursorInLine = Math.max(0, Math.min(lineContent.size, cursorOffset - lineStart));
+  const selectionPos = Math.min(lineBlockStart + 1 + cursorInLine, state.doc.content.size);
+  let tr = state.tr.replaceWith(blockStart, blockStart + node.nodeSize, Fragment.fromArray(pieces));
+  tr = tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(selectionPos, tr.doc.content.size))));
+  view.dispatch(tr.scrollIntoView());
+  view.focus();
+  return true;
 }
 
 function headingLevelFromArgs(args: unknown[]): number | null {

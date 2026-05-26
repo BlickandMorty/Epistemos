@@ -1283,11 +1283,14 @@ struct MarkdownTextView: View {
         let fontWeight = MarkdownHeadingDisplay.noteHeadingFontWeight(for: level)
         let font: Font = {
             if (1...3).contains(level) {
-                // RCA finalization 2026-05-13: theme-aware H1-H3 font
-                // — Platinum + Ember swap their light-mode heading
-                // face; Classic keeps CoralPixels; dark mode keeps
-                // RetroGaming.
-                AppDisplayTypography.headingFont(size: fontSize, weight: fontWeight, theme: theme)
+                // Theme-aware H1-H3 font. Classic now splits Matrix H1
+                // from Chonky H2/H3, matching the live note editor.
+                AppDisplayTypography.headingFont(
+                    size: fontSize,
+                    weight: fontWeight,
+                    theme: theme,
+                    level: level
+                )
             } else if headingRole != nil {
                 AppDisplayTypography.font(
                     size: fontSize,

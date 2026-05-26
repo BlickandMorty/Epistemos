@@ -29,10 +29,13 @@
 :root {
   --epdoc-page-padding: 34px 56px 64px;
   --epdoc-content-max-width: 820px;
-  /* Swift injects --epdoc-display-font per theme (Classic → Retro Gaming,
-   * Platinum → MatrixTypeDisplay, Ember → ChonkyPixels). This default is
+  /* Swift injects the heading fonts per theme. Classic uses MatrixTypeDisplay
+   * for H1/title and ChonkyPixels for H2/H3. This default is
    * a fallback used only if the Swift theme injection fails to run. */
-  --epdoc-display-font: "Retro Gaming", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  --epdoc-display-font: "MatrixTypeDisplay", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  --epdoc-h1-font: var(--epdoc-display-font);
+  --epdoc-h2-font: "ChonkyPixels", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  --epdoc-h3-font: "ChonkyPixels", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
   --epdoc-h1-size: 59px;
   --epdoc-h2-size: 31px;
   --epdoc-h3-size: 19px;
@@ -75,7 +78,10 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --epdoc-display-font: "Retro Gaming", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+    --epdoc-display-font: "MatrixTypeDisplay", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+    --epdoc-h1-font: var(--epdoc-display-font);
+    --epdoc-h2-font: "ChonkyPixels", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+    --epdoc-h3-font: "ChonkyPixels", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
     --epdoc-text-color: #f5f5f7;
     --epdoc-bg: transparent;
     --epdoc-muted: #a1a1aa;
@@ -138,6 +144,7 @@ html, body {
 }
 
 .ProseMirror h1 {
+  font-family: var(--epdoc-h1-font);
   font-size: var(--epdoc-h1-size);
   font-weight: 700;
   line-height: 1.08;
@@ -146,6 +153,7 @@ html, body {
 }
 
 .ProseMirror h2 {
+  font-family: var(--epdoc-h2-font);
   font-size: var(--epdoc-h2-size);
   font-weight: 800;
   line-height: 1.18;
@@ -153,7 +161,12 @@ html, body {
   letter-spacing: 0;
 }
 
-.ProseMirror h3 { font-size: var(--epdoc-h3-size); font-weight: 600; margin-top: 1.2em; }
+.ProseMirror h3 {
+  font-family: var(--epdoc-h3-font);
+  font-size: var(--epdoc-h3-size);
+  font-weight: 600;
+  margin-top: 1.2em;
+}
 .ProseMirror h4 { font-size: 1.1em; font-weight: 600; }
 .ProseMirror h5 { font-size: 1.0em; font-weight: 600; text-transform: uppercase; letter-spacing: 0; }
 .ProseMirror h6 { font-size: 0.9em; font-weight: 600; color: var(--epdoc-muted); }
@@ -162,7 +175,7 @@ html, body {
 
 .ProseMirror pre,
 .ProseMirror [data-callout],
-.epdoc-mermaid,
+.epdoc-legacy-diagram,
 .epdoc-chart,
 .ProseMirror img[data-epdoc-image] {
   contain: layout paint style;
@@ -322,89 +335,16 @@ html, body {
 .ProseMirror [data-callout="danger"]  { border-color: var(--epdoc-callout-danger-border);  background: var(--epdoc-callout-danger-bg); }
 .ProseMirror [data-callout="details"] { border-color: var(--epdoc-callout-details-border); background: var(--epdoc-callout-details-bg); }
 
-/* ─── Mermaid ──────────────────────────────────────────────────────── */
-.epdoc-mermaid {
-  border: 1px solid var(--epdoc-card-border);
-  border-radius: var(--epdoc-card-radius);
-  margin: 1.25em 0;
-  overflow: hidden;
-  background: var(--epdoc-card-bg);
-  box-shadow: none;
-}
-@media (prefers-color-scheme: dark) {
-  .epdoc-mermaid {
-    background: var(--epdoc-card-bg);
-    border-color: var(--epdoc-card-border);
-    box-shadow: none;
-  }
-}
-.epdoc-mermaid-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 18px 4px;
-  border-bottom: 0;
-  background: var(--epdoc-card-header-bg);
-}
-.epdoc-mermaid-title {
-  color: var(--epdoc-card-label-fg);
-  font: 650 0.86em/1.2 "SF Pro Text", ui-sans-serif, sans-serif;
-  letter-spacing: 0;
-}
-.epdoc-mermaid-syntax {
-  color: var(--epdoc-muted);
-  font: 0.72em/1.2 "SF Mono", ui-monospace, monospace;
-  max-width: 42%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.epdoc-mermaid-source-wrap {
-  border-top: 1px solid var(--epdoc-card-border);
-  color: var(--epdoc-muted);
-}
-.epdoc-mermaid-source-wrap > summary {
-  cursor: pointer;
-  padding: 9px 18px;
-  font: 0.76em/1.2 "SF Pro Text", ui-sans-serif, sans-serif;
-  letter-spacing: 0.01em;
-}
-.epdoc-mermaid-source {
-  font: 0.85em/1.4 "SF Mono", ui-monospace, monospace;
-  margin: 0;
-  padding: 0 18px 14px;
-  white-space: pre;
+/* ─── Legacy diagram source ───────────────────────────────────────── */
+.epdoc-legacy-diagram {
+  background: var(--epdoc-code-bg);
+  border: 1px solid var(--epdoc-code-border);
   color: var(--epdoc-code-fg);
+  font: 0.86em/1.48 "SF Mono", ui-monospace, "Menlo", monospace;
+  margin: 1.1em 0;
   overflow-x: auto;
-}
-.epdoc-mermaid-preview {
-  min-height: 120px;
-  padding: 12px 18px 18px;
-  text-align: center;
-  overflow-x: auto;
-}
-.epdoc-mermaid-preview svg {
-  max-width: 100%;
-  height: auto;
-  filter: none;
-}
-.epdoc-mermaid-loading {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 82px;
-  color: var(--epdoc-muted);
-  font: 0.9em/1.4 "SF Pro Text", ui-sans-serif, sans-serif;
-}
-.epdoc-mermaid-error {
-  color: var(--epdoc-callout-danger-border);
-  display: inline-block;
-  padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--epdoc-callout-danger-border) 32%, transparent);
-  border-radius: 10px;
-  background: var(--epdoc-callout-danger-bg);
-  font: 0.9em "SF Mono", ui-monospace, monospace;
+  padding: 14px 16px;
+  white-space: pre;
 }
 
 /* ─── Research charts ─────────────────────────────────────────────── */

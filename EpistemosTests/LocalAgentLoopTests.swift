@@ -38,6 +38,25 @@ struct LocalAgentLoopTests {
         #expect(pathValue.contains("\"path\":\"ml/transformers.md\""))
     }
 
+    @Test("tool call parser accepts tools/tool wrapper JSON emitted by local Qwen")
+    func toolCallParserAcceptsToolsWrapperJson() {
+        let output = """
+        </tool>
+        </tools><tools>
+        <tool>
+        {"name":"file.search","parameters":{"pattern":"Jordan Conley — College Resume","path":"","target":"files"}}
+        </tool>
+        </tools>
+        """
+
+        let calls = LocalAgentLoop.parseToolCalls(from: output)
+
+        #expect(calls.count == 1)
+        #expect(calls[0].name == "file.search")
+        #expect(calls[0].argumentsJson.contains("\"pattern\":\"Jordan Conley"))
+        #expect(calls[0].argumentsJson.contains("\"target\":\"files\""))
+    }
+
     @Test("history trimming keeps the original user message and newest context")
     func historyTrimmingKeepsTheOriginalUserMessageAndNewestContext() {
         let history = [
@@ -558,12 +577,85 @@ struct LocalAgentLoopTests {
 
         let executedToolNames = await toolRecorder.snapshot()
         #expect(executedToolNames == ["vault.search"])
-        #expect(visibleText.contains("Planning the next step. "))
+        #expect(!visibleText.contains("Planning the next step. "))
         #expect(visibleText.contains("Transformer notes found after reflex execution."))
         #expect(!visibleText.contains("<tool_call>"))
         #expect(!visibleText.contains("\"vault_search\""))
         #expect(!visibleText.contains("THIS SHOULD NEVER REACH THE USER"))
         #expect(answer == "Transformer notes found after reflex execution.")
+    }
+
+    @Test("reflex mode executes tools/tool wrappers without leaking raw markup")
+    @MainActor
+    func reflexModeExecutesToolsWrapperWithoutLeakingMarkup() async throws {
+        let streamQueue = StreamChunkQueue(streams: [
+            [
+                "I will search first. ",
+                """
+                <tools><tool>
+                {"name":"vault_search","parameters":{"query":"college resume"}}
+                </tool></tools>
+                """,
+                "THIS RAW TOOL TAIL SHOULD NEVER REACH THE USER",
+            ],
+            [
+                "Resume context found after wrapper execution.",
+            ],
+        ])
+
+        var visibleText = ""
+        let toolRecorder = ToolInvocationRecorder()
+
+        let loop = LocalAgentLoop(
+            generator: { _, _, _, _, _, _ in
+                Issue.record("Reflex mode should stay on the streaming path.")
+                return ""
+            },
+            streamingGenerator: { _, _, _, _, _ in
+                let chunks = await streamQueue.nextStream()
+                return AsyncThrowingStream<String, Error> { continuation in
+                    let task = Task {
+                        for chunk in chunks {
+                            guard !Task.isCancelled else {
+                                continuation.finish()
+                                return
+                            }
+                            continuation.yield(chunk)
+                            try? await Task.sleep(for: .milliseconds(1))
+                        }
+                        continuation.finish()
+                    }
+                    continuation.onTermination = { _ in task.cancel() }
+                }
+            },
+            toolExecutor: { name, argumentsJson in
+                await toolRecorder.append(name)
+                #expect(argumentsJson.contains("\"query\":\"college resume\""))
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: #"{"name":"vault_search","content":[{"path":"resume.md","excerpt":"Resume context found."}]}"#,
+                    isError: false
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: "Find the college resume and summarize it.",
+            tools: [sampleTool()],
+            maxTurns: 3,
+            reflexMode: true,
+            onToken: { token in
+                visibleText += token
+            }
+        )
+
+        let executedToolNames = await toolRecorder.snapshot()
+        #expect(executedToolNames == ["vault.search"])
+        #expect(answer == "Resume context found after wrapper execution.")
+        #expect(!visibleText.contains("<tools>"))
+        #expect(!visibleText.contains("<tool>"))
+        #expect(!visibleText.contains("vault_search"))
+        #expect(!visibleText.contains("THIS RAW TOOL TAIL SHOULD NEVER REACH THE USER"))
     }
 
     @Test("reflex mode flushes trailing tag-prefix plaintext once at stream end")
@@ -679,9 +771,101 @@ struct LocalAgentLoopTests {
         let prompts = await promptRecorder.snapshot()
         let executedToolNames = await toolRecorder.snapshot()
         #expect(prompts.count == 3)
-        #expect(prompts[1].contains("You have not produced any user-visible answer yet."))
+        #expect(prompts[1].contains("You have not satisfied the user's explicit note request yet."))
         #expect(executedToolNames == ["vault.search"])
         #expect(answer == "Hegemony notes found after the repair retry.")
+    }
+
+    @Test("reflex mode repairs explicit vault lookup plans before accepting visible planning prose")
+    @MainActor
+    func reflexModeRepairsExplicitVaultLookupPlansBeforeAcceptingVisiblePlanningProse() async throws {
+        let promptRecorder = PromptRecorder()
+        let streamQueue = StreamChunkQueue(streams: [
+            [
+                #"I will help by searching for the essay on "Free Won't" using the vault.search function. Once I find the note, I can read it to get the full content."#,
+            ],
+            [
+                """
+                <tool_call>
+                {"name":"vault_search","arguments":{"query":"Free Won't"}}
+                </tool_call>
+                """,
+            ],
+            [
+                """
+                <tool_call>
+                {"name":"vault_read","arguments":{"path":"essays/Free Won't.md"}}
+                </tool_call>
+                """,
+            ],
+            [
+                "Free Won't argues that responsibility depends on the geometry of agency constraints.",
+            ],
+        ])
+
+        var visibleText = ""
+        let toolCalls = ToolCallRecorder()
+        let loop = LocalAgentLoop(
+            generator: { _, _, _, _, _, _ in
+                Issue.record("Reflex mode should stay on the streaming path.")
+                return ""
+            },
+            streamingGenerator: { prompt, _, _, _, _ in
+                await promptRecorder.record(prompt)
+                let chunks = await streamQueue.nextStream()
+                return AsyncThrowingStream<String, Error> { continuation in
+                    let task = Task {
+                        for chunk in chunks {
+                            guard !Task.isCancelled else {
+                                continuation.finish()
+                                return
+                            }
+                            continuation.yield(chunk)
+                        }
+                        continuation.finish()
+                    }
+                    continuation.onTermination = { _ in task.cancel() }
+                }
+            },
+            toolExecutor: { name, argumentsJson in
+                await toolCalls.record(name, argumentsJson)
+                if name == "vault.search" {
+                    #expect(argumentsJson.contains(#""query":"Free Won't""#))
+                    return LocalToolResult(
+                        toolName: name,
+                        resultJson: #"{"name":"vault_search","content":[{"path":"essays/Free Won't.md","title":"Free Won't","excerpt":"Agency constraints."}]}"#,
+                        isError: false
+                    )
+                }
+                #expect(name == "vault.read")
+                #expect(argumentsJson.contains(#""path":"essays/Free Won't.md""#))
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: #"{"name":"vault_read","content":"Free Won't argues that responsibility depends on the geometry of agency constraints."}"#,
+                    isError: false
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: #"Search for the essay on "Free Won't", read the note, and go deeper on its implications."#,
+            tools: [sampleTool(), vaultReadTool()],
+            maxTurns: 5,
+            reflexMode: true,
+            onToken: { token in
+                visibleText += token
+            }
+        )
+
+        let prompts = await promptRecorder.snapshot()
+        let executedCalls = await toolCalls.snapshot()
+
+        #expect(prompts.contains(where: { $0.contains("You have not satisfied the user's explicit note request yet.") }))
+        #expect(executedCalls.map(\.name) == ["vault.search", "vault.read"])
+        #expect(!visibleText.contains("I will help by searching"))
+        #expect(!visibleText.contains("vault.search function"))
+        #expect(visibleText == "Free Won't argues that responsibility depends on the geometry of agency constraints.")
+        #expect(answer == visibleText)
     }
 
     @Test("reflex mode rejects guessed direct answers until the explicit file round-trip tools finish")

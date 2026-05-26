@@ -22,6 +22,7 @@ extension View {
             .environment(bootstrap.llmService)
             .environment(bootstrap.triageService)
             .environment(bootstrap.vaultSync)
+            .environment(bootstrap.workspaceService)
             .environment(bootstrap.vaultChatMutator)
             .environment(bootstrap.dailyBriefState)
             .environment(bootstrap.threadState)
@@ -46,5 +47,6 @@ extension View {
             .environment(bootstrap.textCapturePipeline)
             .environment(bootstrap.rawThoughtsState)
             .environment(bootstrap.contextualShadowsState)
+            .environment(bootstrap.ambientFrequencyPlaybackState)
     }
 }

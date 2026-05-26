@@ -44,7 +44,7 @@ public struct SearchFusionHealthRow: View {
             VerifiedFloorChipStrip(
                 flag: snapshot.isFlagEnabled ? "on" : "off",
                 substrate: snapshot.sampleCount > 0 ? "metrics live" : "not exercised",
-                substrateTint: snapshot.sampleCount > 0 ? .green : .orange
+                substrateTint: .orange
             )
             row(
                 label: "Last query",

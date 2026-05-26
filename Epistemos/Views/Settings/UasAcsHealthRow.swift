@@ -1,23 +1,29 @@
+import AppKit
 import SwiftUI
 
 // MARK: - UasAcsHealthRow
 //
 // W-10: UAS / ACS (Anchored Cognitive Substrate) status surface.
 // The row is intentionally honest: address taxonomy and residency
-// tiers are reachable, while production anchor lookup remains blocked
-// until the MAS runtime uses the T14 anchor registry path directly.
+// tiers are reachable via FFI; the two concrete falsifier gates are
+// read from their result.json artifacts; production anchor lookup is
+// reported separately so harness PASS does not imply runtime adapter
+// installation.
 
 @MainActor
 public struct UasAcsHealthRow: View {
     @State private var snapshot: SubstrateHealthUnifiedSnapshot
+    @State private var gates: UasAcsGateSnapshot
     @State private var refreshTask: Task<Void, Never>?
 
     public init() {
         self._snapshot = State(initialValue: SubstrateHealthUnifiedClient.snapshot())
+        self._gates = State(initialValue: UasAcsGateSnapshot.load())
     }
 
     public var body: some View {
         let uas = snapshot.uasAcs
+        let gateSnapshot = gates
         VStack(alignment: .leading, spacing: 8) {
             SubstrateHealthMetricLine(
                 label: "UAS address taxonomy",
@@ -27,8 +33,13 @@ public struct UasAcsHealthRow: View {
             )
             VerifiedFloorChipStrip(
                 flag: "n/a",
-                substrate: uas.productionAnchorLookupWired ? "anchor lookup" : "taxonomy only",
-                substrateTint: uas.productionAnchorLookupWired ? .green : .orange
+                substrate: uas.productionAnchorLookupWired
+                    ? "production anchor lookup"
+                    : (gateSnapshot.allPassed ? "falsifiers pass" : "taxonomy + artifacts"),
+                substrateTint: uas.productionAnchorLookupWired
+                    ? .green
+                    : (gateSnapshot.hasAnyPassingGate ? .orange : .secondary),
+                falsifier: uas.productionAnchorLookupWired ? "acs_anchor_lookup" : nil
             )
             SubstrateHealthMetricLine(
                 label: "Copy counters",
@@ -36,13 +47,23 @@ public struct UasAcsHealthRow: View {
                 state: uas.ffiReachable ? .partial : .unavailable,
                 detail: "copies=\(uas.copyCount) allocs=\(uas.allocCount) bytes=\(uas.bytesAllocated)"
             )
+            gateButton(
+                gateSnapshot.copyCount,
+                symbol: "doc.on.doc",
+                defaultLabel: "F-UAS-CopyCount"
+            )
+            gateButton(
+                gateSnapshot.anchorLookup,
+                symbol: "key.horizontal",
+                defaultLabel: "F-ACS-AnchorLookup"
+            )
             SubstrateHealthMetricLine(
-                label: "ACS anchor lookup",
+                label: "Production adapter",
                 symbol: "lock.shield",
-                state: uas.productionAnchorLookupWired ? .pass : .blocked,
+                state: uas.productionAnchorLookupWired ? .pass : .partial,
                 detail: uas.productionAnchorLookupWired
                     ? "production anchor lookup wired"
-                    : "harness passed; production registry adapter pending"
+                    : "anchor_registry.rs exists; MAS runtime adapter pending"
             )
         }
         .onAppear {
@@ -57,6 +78,7 @@ public struct UasAcsHealthRow: View {
 
     private func refresh() {
         snapshot = SubstrateHealthUnifiedClient.snapshot()
+        gates = UasAcsGateSnapshot.load()
     }
 
     private func startTimer() {
@@ -66,6 +88,218 @@ public struct UasAcsHealthRow: View {
                 try? await Task.sleep(for: .seconds(1))
                 if Task.isCancelled { break }
                 refresh()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func gateButton(
+        _ gate: UasAcsGate,
+        symbol: String,
+        defaultLabel: String
+    ) -> some View {
+        Button {
+            openGateDetail(gate)
+        } label: {
+            SubstrateHealthMetricLine(
+                label: gate.falsifier.isEmpty ? defaultLabel : gate.falsifier,
+                symbol: symbol,
+                state: gateState(gate),
+                detail: gate.detail
+            )
+        }
+        .buttonStyle(.plain)
+        .help(gate.helpText)
+        .accessibilityLabel("\(defaultLabel) artifact detail")
+    }
+
+    private func gateState(_ gate: UasAcsGate) -> SubstrateHealthSignalState {
+        guard gate.artifactFound else { return .unavailable }
+        return gate.status.uppercased() == "PASS" ? .pass : .blocked
+    }
+
+    private func openGateDetail(_ gate: UasAcsGate) {
+        if let url = gate.preferredDetailURL {
+            NSWorkspace.shared.open(url)
+        }
+    }
+}
+
+// UAS: settings/uas-acs-gate-snapshot
+// Plane: RuntimePlane::Verification
+// Residency: ResidencyTier::CurrentApp
+nonisolated struct UasAcsGateSnapshot: Sendable, Equatable {
+    let copyCount: UasAcsGate
+    let anchorLookup: UasAcsGate
+
+    var allPassed: Bool {
+        copyCount.isPassing && anchorLookup.isPassing
+    }
+
+    var hasAnyPassingGate: Bool {
+        copyCount.isPassing || anchorLookup.isPassing
+    }
+
+    static func load() -> Self {
+        UasAcsGateSnapshot(
+            copyCount: .copyCount(),
+            anchorLookup: .anchorLookup()
+        )
+    }
+}
+
+// UAS: settings/uas-acs-gate
+// Plane: RuntimePlane::Verification
+// Residency: ResidencyTier::CurrentApp
+nonisolated struct UasAcsGate: Sendable, Equatable {
+    let falsifier: String
+    let status: String
+    let detail: String
+    let artifactPath: String
+    let docPath: String
+    let artifactFound: Bool
+
+    var isPassing: Bool {
+        artifactFound && status.uppercased() == "PASS"
+    }
+
+    var helpText: String {
+        artifactFound
+            ? "\(artifactPath) - \(docPath)"
+            : "Missing \(artifactPath); fallback doc \(docPath)"
+    }
+
+    var preferredDetailURL: URL? {
+        Self.firstExistingURL(for: artifactPath) ?? Self.firstExistingURL(for: docPath)
+    }
+
+    static func copyCount() -> Self {
+        let artifactPath = "artifacts/falsifiers/uas_copy_count/result.json"
+        let docPath = "docs/falsifiers/F-UAS-CopyCount_2026_05_24.md"
+        guard
+            let url = firstExistingURL(for: artifactPath),
+            let data = try? Data(contentsOf: url),
+            let decoded = try? JSONDecoder().decode(CopyCountArtifact.self, from: data)
+        else {
+            return UasAcsGate(
+                falsifier: "F-UAS-CopyCount",
+                status: "MISSING",
+                detail: "missing artifact \(artifactPath)",
+                artifactPath: artifactPath,
+                docPath: docPath,
+                artifactFound: false
+            )
+        }
+
+        let m = decoded.measurements
+        let detail = [
+            "copies=\(m.tensorCopyCount)",
+            "bytes=\(m.dataCopyBytes)",
+            "allocs=\(m.allocatorCountInstrumented)"
+        ].joined(separator: " ")
+        return UasAcsGate(
+            falsifier: decoded.falsifier,
+            status: decoded.status,
+            detail: "\(decoded.status) - \(detail)",
+            artifactPath: artifactPath,
+            docPath: docPath,
+            artifactFound: true
+        )
+    }
+
+    static func anchorLookup() -> Self {
+        let artifactPath = "artifacts/falsifiers/acs_anchor_lookup/result.json"
+        let docPath = "docs/falsifiers/F-ACS-AnchorLookup_2026_05_24.md"
+        guard
+            let url = firstExistingURL(for: artifactPath),
+            let data = try? Data(contentsOf: url),
+            let decoded = try? JSONDecoder().decode(AnchorLookupArtifact.self, from: data)
+        else {
+            return UasAcsGate(
+                falsifier: "F-ACS-AnchorLookup",
+                status: "MISSING",
+                detail: "missing artifact \(artifactPath)",
+                artifactPath: artifactPath,
+                docPath: docPath,
+                artifactFound: false
+            )
+        }
+
+        let m = decoded.measurements
+        let detail = [
+            "avg=\(m.avgLookupNs)ns",
+            "found=\(m.foundCount)/\(m.claimCount)",
+            "reject=\(m.invalidTheoremRejected)"
+        ].joined(separator: " ")
+        return UasAcsGate(
+            falsifier: decoded.falsifier,
+            status: decoded.status,
+            detail: "\(decoded.status) - \(detail)",
+            artifactPath: artifactPath,
+            docPath: docPath,
+            artifactFound: true
+        )
+    }
+
+    private static func firstExistingURL(for path: String) -> URL? {
+        candidateURLs(for: path).first { FileManager.default.fileExists(atPath: $0.path) }
+    }
+
+    private static func candidateURLs(for path: String) -> [URL] {
+        var urls = [
+            URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+                .appendingPathComponent(path)
+        ]
+        if let resourceURL = Bundle.main.resourceURL {
+            urls.append(resourceURL.appendingPathComponent("SourceMirror").appendingPathComponent(path))
+        }
+        return urls
+    }
+
+    // UAS: settings/uas-copy-count-falsifier-artifact
+    // Plane: RuntimePlane::Verification
+    // Residency: ResidencyTier::BundleArtifact
+    private struct CopyCountArtifact: Decodable {
+        let falsifier: String
+        let status: String
+        let measurements: Measurements
+
+        // UAS-EXEMPT: JSON artifact decoding implementation detail.
+        struct Measurements: Decodable {
+            let tensorCopyCount: Int
+            let dataCopyBytes: Int
+            let allocatorCountInstrumented: Int
+
+            // UAS-EXEMPT: JSON artifact field-name mapping.
+            enum CodingKeys: String, CodingKey {
+                case tensorCopyCount = "tensor_copy_count"
+                case dataCopyBytes = "data_copy_bytes"
+                case allocatorCountInstrumented = "allocator_count_instrumented"
+            }
+        }
+    }
+
+    // UAS: settings/acs-anchor-lookup-falsifier-artifact
+    // Plane: RuntimePlane::Verification
+    // Residency: ResidencyTier::BundleArtifact
+    private struct AnchorLookupArtifact: Decodable {
+        let falsifier: String
+        let status: String
+        let measurements: Measurements
+
+        // UAS-EXEMPT: JSON artifact decoding implementation detail.
+        struct Measurements: Decodable {
+            let claimCount: Int
+            let foundCount: Int
+            let avgLookupNs: Int
+            let invalidTheoremRejected: Bool
+
+            // UAS-EXEMPT: JSON artifact field-name mapping.
+            enum CodingKeys: String, CodingKey {
+                case claimCount = "claim_count"
+                case foundCount = "found_count"
+                case avgLookupNs = "avg_lookup_ns"
+                case invalidTheoremRejected = "invalid_theorem_rejected"
             }
         }
     }

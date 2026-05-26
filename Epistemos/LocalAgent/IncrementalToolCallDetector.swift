@@ -18,6 +18,10 @@ nonisolated final class IncrementalToolCallDetector: @unchecked Sendable {
     private static let exactToolOpenTag = "<tool_call>"
     private static let malformedToolOpenTag = "<tool_call<"
     private static let toolCloseTag = "</tool_call>"
+    private static let toolsOpenTag = "<tools>"
+    private static let toolsCloseTag = "</tools>"
+    private static let singleToolOpenTag = "<tool>"
+    private static let singleToolCloseTag = "</tool>"
     private static let hiddenTagPairs: [(open: String, close: String)] = [
         ("<scratch_pad>", "</scratch_pad>"),
         ("<think>", "</think>"),
@@ -26,6 +30,10 @@ nonisolated final class IncrementalToolCallDetector: @unchecked Sendable {
         exactToolOpenTag,
         malformedToolOpenTag,
         toolCloseTag,
+        toolsOpenTag,
+        toolsCloseTag,
+        singleToolOpenTag,
+        singleToolCloseTag,
     ] + hiddenTagPairs.flatMap { [$0.open, $0.close] }
 
     private var buffer = ""
@@ -41,6 +49,11 @@ nonisolated final class IncrementalToolCallDetector: @unchecked Sendable {
         buffer.append(chunk)
 
         while !buffer.isEmpty {
+            if let closingRange = Self.leadingControlClosingRange(in: buffer) {
+                buffer.removeSubrange(closingRange)
+                continue
+            }
+
             if let hiddenRange = Self.leadingHiddenRange(in: buffer) {
                 buffer.removeSubrange(hiddenRange)
                 continue
@@ -115,7 +128,10 @@ nonisolated final class IncrementalToolCallDetector: @unchecked Sendable {
             return ""
         }
         // Don't surface a malformed tool invocation as user text.
-        if buffer.hasPrefix(Self.exactToolOpenTag) || buffer.hasPrefix(Self.malformedToolOpenTag) {
+        if buffer.hasPrefix(Self.exactToolOpenTag)
+            || buffer.hasPrefix(Self.malformedToolOpenTag)
+            || buffer.hasPrefix(Self.toolsOpenTag)
+            || buffer.hasPrefix(Self.singleToolOpenTag) {
             buffer = ""
             return ""
         }
@@ -126,6 +142,14 @@ nonisolated final class IncrementalToolCallDetector: @unchecked Sendable {
     }
 
     private func consumeLeadingToolCall() -> Detection? {
+        if buffer.hasPrefix(Self.toolsOpenTag) {
+            return consumeLeadingToolsWrapper()
+        }
+
+        if buffer.hasPrefix(Self.singleToolOpenTag) {
+            return consumeLeadingSingleToolWrapper()
+        }
+
         let bodyStartOffset: Int
 
         if buffer.hasPrefix(Self.exactToolOpenTag) {
@@ -164,6 +188,85 @@ nonisolated final class IncrementalToolCallDetector: @unchecked Sendable {
         )
     }
 
+    private func consumeLeadingToolsWrapper() -> Detection? {
+        guard let wrapperClose = buffer.range(of: Self.toolsCloseTag) else {
+            return nil
+        }
+
+        let bodyStart = buffer.index(buffer.startIndex, offsetBy: Self.toolsOpenTag.count)
+        guard bodyStart <= wrapperClose.lowerBound else {
+            buffer.removeSubrange(..<wrapperClose.upperBound)
+            return nil
+        }
+
+        let wrapperBody = String(buffer[bodyStart..<wrapperClose.lowerBound])
+        buffer.removeSubrange(..<wrapperClose.upperBound)
+
+        return detectionFromToolsWrapperBody(wrapperBody)
+    }
+
+    private func consumeLeadingSingleToolWrapper() -> Detection? {
+        guard let closeRange = buffer.range(of: Self.singleToolCloseTag) else {
+            return nil
+        }
+
+        let bodyStart = buffer.index(buffer.startIndex, offsetBy: Self.singleToolOpenTag.count)
+        guard bodyStart <= closeRange.lowerBound else {
+            buffer.removeSubrange(..<closeRange.upperBound)
+            return nil
+        }
+
+        let content = String(buffer[bodyStart..<closeRange.lowerBound])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        buffer.removeSubrange(..<closeRange.upperBound)
+
+        return detectionFromToolBody(content)
+    }
+
+    private func detectionFromToolsWrapperBody(_ body: String) -> Detection? {
+        if let openRange = body.range(of: Self.singleToolOpenTag),
+           let closeRange = body.range(
+            of: Self.singleToolCloseTag,
+            range: openRange.upperBound..<body.endIndex
+           ) {
+            let content = String(body[openRange.upperBound..<closeRange.lowerBound])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return detectionFromToolBody(content)
+        }
+
+        return detectionFromToolBody(body.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    private func detectionFromToolBody(_ content: String) -> Detection? {
+        let parsed = ToolCallParser.parse(content)
+        guard let first = parsed.first else {
+            return nil
+        }
+
+        return Detection(
+            toolCall: LocalAgentLoop.ParsedToolCall(
+                name: first.name,
+                argumentsJson: first.argumentsJson
+            ),
+            rawContent: content
+        )
+    }
+
+    private static func leadingControlClosingRange(in text: String) -> Range<String.Index>? {
+        let closingTags = [
+            singleToolCloseTag,
+            toolsCloseTag,
+            toolCloseTag,
+        ] + hiddenTagPairs.map(\.close)
+
+        guard let tag = closingTags.first(where: { text.hasPrefix($0) }) else {
+            return nil
+        }
+
+        let end = text.index(text.startIndex, offsetBy: tag.count)
+        return text.startIndex..<end
+    }
+
     private static func leadingHiddenRange(in text: String) -> Range<String.Index>? {
         for pair in hiddenTagPairs {
             guard text.hasPrefix(pair.open),
@@ -176,7 +279,12 @@ nonisolated final class IncrementalToolCallDetector: @unchecked Sendable {
     }
 
     private static func nextInterestingTagIndex(in text: String) -> String.Index? {
-        let markers = [exactToolOpenTag, malformedToolOpenTag] + hiddenTagPairs.map(\.open)
+        let markers = [
+            exactToolOpenTag,
+            malformedToolOpenTag,
+            toolsOpenTag,
+            singleToolOpenTag,
+        ] + hiddenTagPairs.map(\.open)
         return markers.compactMap { text.range(of: $0)?.lowerBound }.min()
     }
 

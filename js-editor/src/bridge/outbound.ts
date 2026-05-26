@@ -70,6 +70,10 @@ export interface RequestBubbleMenuMessage extends OutboundMessageBase {
   anchor: RectPayload;
 }
 
+export interface RequestHTMLWorkspaceMessage extends OutboundMessageBase {
+  type: 'requestHTMLWorkspace';
+}
+
 /**
  * AR5 — paste classification request. JS posts the raw pasted text to
  * the Swift host so `IntakeValve.shared.classifyAndRoute(...)` can
@@ -101,6 +105,7 @@ export type OutboundMessage =
   | CaretChangedMessage
   | RequestSlashMenuMessage
   | RequestBubbleMenuMessage
+  | RequestHTMLWorkspaceMessage
   | ClassifyPasteMessage
   | StoreImageAssetMessage;
 

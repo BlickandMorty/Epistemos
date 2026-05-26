@@ -44,8 +44,8 @@ public struct SystemGHealthRow: View {
             )
             VerifiedFloorChipStrip(
                 flag: snapshot.isFlagEnabled ? "on" : "off",
-                substrate: "production dispatch live",
-                substrateTint: .green
+                substrate: "dispatch seam live · falsifier pending",
+                substrateTint: .orange
             )
             row(
                 label: "Runtime mode",

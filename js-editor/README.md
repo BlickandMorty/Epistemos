@@ -10,15 +10,15 @@ with [Tiptap 3](https://tiptap.dev) + Webpack. Shipped to
 
 ```
 js-editor/
-├── package.json         # pinned deps (Tiptap 3.22.4, KaTeX 0.16.45, Mermaid 11.14)
-├── webpack.config.js    # web target, copies KaTeX fonts + Mermaid bundle to vendor/
+├── package.json         # pinned deps (Tiptap 3.22.4, KaTeX 0.16.45)
+├── webpack.config.js    # web target, copies KaTeX fonts to vendor/
 ├── tsconfig.json        # ES2022 + DOM, strict, isolatedModules
 ├── src/
 │   ├── index.ts         # editor mount + extension list + bridge wiring
 │   ├── editor.html      # WKWebView landing page (mounted by HtmlWebpackPlugin)
 │   ├── editor.css       # base + Material-3-flavoured chrome
 │   ├── extensions/
-│   │   ├── mermaid-node.ts        # custom Tiptap Node for Mermaid (W7.9)
+│   │   ├── legacy-diagram-node.ts # compatibility source node for old diagram blocks
 │   │   ├── slash-menu.ts          # @tiptap/suggestion config (W7.17.b)
 │   │   └── caret-rect-emitter.ts  # ProseMirror plugin emitting selection rect → Swift
 │   ├── bridge/
@@ -33,7 +33,7 @@ js-editor/
 
 ```sh
 cd js-editor
-npm install                # pulls Tiptap + KaTeX + Mermaid (~250 packages)
+npm install                # pulls Tiptap + KaTeX
 npm run build              # production build → dist/
 npm run dev                # dev build with --watch (sourcemaps + HMR-ish)
 npm run typecheck          # tsc --noEmit
@@ -79,13 +79,13 @@ The editor mounts:
   Subscript / Superscript / TextAlign
 - **Block** — Table (resizable) / TaskList / TaskItem / HorizontalRule
 - **W7.7** — Mathematics (KaTeX) / Footnotes / Highlight (==text==)
-- **W7.9** — MermaidNode (custom; reads `vendor/mermaid/mermaid.min.js`)
+- **HTML Workspace bridge** — new visual/DOM work opens a separate HTML Workspace
+- **Legacy diagram source** — old diagram nodes remain loadable as inert source blocks
 - **W7.17.b** — Suggestion-based slash menu / BubbleMenu / FloatingMenu /
   DragHandle (block-action gutter)
 - **CharacterCount** — drives the W7.17 stats badge
 
 ## Open follow-ups
 
-- Implement `MermaidNode.ts` (W7.9 follow-up — needs `vendor/mermaid/mermaid.min.js` to load on WKWebView's CSP-restricted origin)
-- Implement the slash menu's command catalog (~20 entries: heading 1-6 / bullet / numbered / task / quote / code / math / mermaid / callout / table 3×3 / divider / image / link to doc / embed / template — see `EXTENDED_PROGRAM_PLAN_2026_04_25.md` row W7.17.b)
+- Implement the slash menu's command catalog (~20 entries: heading 1-6 / bullet / numbered / task / quote / code / math / HTML Workspace / callout / table 3x3 / divider / image / link to doc / embed / template — see `EXTENDED_PROGRAM_PLAN_2026_04_25.md` row W7.17.b)
 - Extend `EpdocBridgeMessage` (in `Epistemos/Engine/EpdocEditorBridge.swift`) with `caretChanged` / `requestSlashMenu` / `requestBubbleMenu` decode cases

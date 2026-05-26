@@ -365,7 +365,7 @@ struct AssistantGlassInputChrome: ViewModifier {
 
     private let metrics = AssistantGlassInputMetrics.default
     private var prefersNativeAssistantGlass: Bool {
-        theme.usesNativeWindowBlur || theme == .light || theme == .oled
+        theme.usesNativeWindowBlur || theme == .light || theme == .oled || theme == .oledSoft
     }
 
     func body(content: Content) -> some View {
@@ -665,7 +665,7 @@ struct AssistantComposerChrome: ViewModifier {
     let isActive: Bool
     let lightModeSurfaceTint: Color?
     private var prefersNativeAssistantGlass: Bool {
-        lightModeSurfaceTint == nil && (theme.usesNativeWindowBlur || theme == .light || theme == .oled)
+        lightModeSurfaceTint == nil && (theme.usesNativeWindowBlur || theme == .light || theme == .oled || theme == .oledSoft)
     }
 
     func body(content: Content) -> some View {
@@ -1091,7 +1091,7 @@ private struct AssistantSurfaceBackground: View {
     let theme: EpistemosTheme
     let metrics: AssistantSurfaceMetrics
     private var prefersNativeAssistantGlass: Bool {
-        theme.usesNativeWindowBlur || theme == .light || theme == .oled
+        theme.usesNativeWindowBlur || theme == .light || theme == .oled || theme == .oledSoft
     }
 
     var body: some View {

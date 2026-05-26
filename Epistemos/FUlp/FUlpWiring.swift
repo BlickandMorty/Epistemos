@@ -153,10 +153,19 @@ nonisolated public final class FUlpMetrics: @unchecked Sendable {
     }
 
     private func notifyDidChange() {
-        NotificationCenter.default.post(
-            name: Self.didChangeNotification,
-            object: self
-        )
+        if Thread.isMainThread {
+            NotificationCenter.default.post(
+                name: Self.didChangeNotification,
+                object: self
+            )
+        } else {
+            Task { @MainActor in
+                NotificationCenter.default.post(
+                    name: Self.didChangeNotification,
+                    object: self
+                )
+            }
+        }
     }
 
     public struct Snapshot: Sendable {

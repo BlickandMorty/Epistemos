@@ -46,6 +46,13 @@ enum GraphOverlayThemeStyle {
         NSAppearance(named: appearanceName(for: theme))
     }
 
+    static func windowAppearance(uiState: UIState?, theme: EpistemosTheme) -> NSAppearance? {
+        if let uiState {
+            return uiState.windowAppearance
+        }
+        return windowAppearance(for: theme)
+    }
+
     static func appearanceName(for theme: EpistemosTheme) -> NSAppearance.Name {
         theme.isDark ? .darkAqua : .aqua
     }
@@ -855,7 +862,7 @@ final class HologramOverlay {
         // Observe system appearance changes.
         if appearanceObserver == nil {
             appearanceObserver = NSApp.observe(\.effectiveAppearance) { [weak self] _, _ in
-                MainActor.assumeIsolated {
+                Task { @MainActor in
                     self?.syncTheme()
                 }
             }
@@ -1782,7 +1789,7 @@ final class HologramOverlay {
             for: theme
         ).cgColor
         metalView?.setLightMode(GraphOverlayThemeStyle.lightModeEnabled(for: theme))
-        let appearance = GraphOverlayThemeStyle.windowAppearance(for: theme)
+        let appearance = GraphOverlayThemeStyle.windowAppearance(uiState: uiState, theme: theme)
         window?.appearance = appearance
         miniPanel?.appearance = appearance
         miniInspectorPanel?.appearance = appearance
@@ -1926,7 +1933,7 @@ final class HologramOverlay {
         let initialFrame = GraphMiniPanelLayout.frame(in: screen.visibleFrame)
         let window = GraphOverlayPanel(contentRect: initialFrame)
         window.applyPresentation(.floatingPanel)
-        window.appearance = GraphOverlayThemeStyle.windowAppearance(for: theme)
+        window.appearance = GraphOverlayThemeStyle.windowAppearance(uiState: uiState, theme: theme)
 
         // Build the content: Metal graph + floating controls + search sidebar.
         // No full-screen blur — the floating-panel chrome carries the glass
@@ -2194,7 +2201,7 @@ final class HologramOverlay {
 
         // Observe system appearance changes so the graph reacts to light/dark mode switches.
         self.appearanceObserver = NSApp.observe(\.effectiveAppearance) { [weak self] _, _ in
-            MainActor.assumeIsolated {
+            Task { @MainActor in
                 self?.syncTheme()
             }
         }

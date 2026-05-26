@@ -29,6 +29,7 @@ struct SettingsWindowPresentationTests {
 
         #expect(source.contains(".scrollContentBackground(.hidden)"))
         #expect(source.contains("SettingsSidebarBackdrop(theme: ui.theme)"))
+        #expect(source.contains("SettingsDetailBackdrop(theme: ui.theme)"))
         #expect(source.contains(".toolbarBackgroundVisibility(.hidden, for: .windowToolbar)"))
     }
 

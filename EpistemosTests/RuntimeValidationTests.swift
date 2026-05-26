@@ -682,7 +682,7 @@ struct RuntimeValidationTests {
         #expect(rootView.contains("private var embeddedHomeGraphContentVisible: Bool"))
         #expect(rootView.contains("private var embeddedHomeGraphCanvasVisible: Bool"))
         #expect(rootView.contains("private var embeddedHomeGraphNoteVisible: Bool"))
-        #expect(rootView.contains("return embeddedHomeGraphNoteVisible"))
+        #expect(rootView.contains("if embeddedHomeGraphContentVisible {\n            return embeddedHomeGraphNoteVisible\n        }"))
         #expect(rootView.contains("if !embeddedHomeGraphContentVisible && ui.homeTab == .home && activeHomeChat"))
         #expect(rootView.contains("|| showEmbeddedGraphToolbarControls"))
         #expect(!rootView.contains("floatingGraphToolbarControls"))
@@ -2946,6 +2946,22 @@ struct RuntimeValidationTests {
         #expect(!embeddedInspector.contains("interpolatingSpring"))
     }
 
+    @Test("embedded graph note route opens without animated curtain transaction")
+    func embeddedGraphNoteRouteOpensWithoutAnimatedCurtainTransaction() throws {
+        let embedded = try loadRepoTextFile("Epistemos/Views/Home/HomeGraphEmbeddedView.swift")
+
+        let routeStart = try #require(embedded.range(of: "private var embeddedWorkspaceRoute"))
+        let routeEnd = try #require(
+            embedded.range(of: "private var shouldRenderCanvas", range: routeStart.lowerBound..<embedded.endIndex)
+        )
+        let routeBody = String(embedded[routeStart.lowerBound..<routeEnd.lowerBound])
+
+        #expect(routeBody.contains("GraphWorkspaceContainer()"))
+        #expect(routeBody.contains("transaction.animation = nil"))
+        #expect(routeBody.contains("transaction.disablesAnimations = true"))
+        #expect(!embedded.contains("value: graphState.currentRoute"))
+    }
+
     @Test("graph chat transcript uses the mini-chat assistant formatting path")
     func graphChatTranscriptUsesMiniChatAssistantFormattingPath() throws {
         let sidebar = try loadRepoTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
@@ -3089,7 +3105,7 @@ struct RuntimeValidationTests {
 
         #expect(app.contains(".keyboardShortcut(\"3\", modifiers: .command)"))
         #expect(landing.contains(".keyboardShortcut(\"3\", modifiers: .command)"))
-        #expect(landing.contains("title: \"Mini Chat\""))
+        #expect(landing.contains("title: \"mini chat\""))
         #expect(landing.contains("shortcut: \"\\u{2318}3\""))
         #expect(chatView.contains("Label(\"Open in Mini Chat\""))
         #expect(chatView.contains("openCurrentChatInMiniChat()"))
@@ -3751,11 +3767,22 @@ struct RuntimeValidationTests {
     func primaryLaunchVerifiesRestoredWelcomeBackSummariesAfterRestore() throws {
         let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let environment = try loadRepoTextFile("Epistemos/App/AppEnvironment.swift")
+        let workspaceService = try loadRepoTextFile("Epistemos/State/WorkspaceService.swift")
 
         #expect(appBootstrap.contains("if workspaceService.welcomeBack != nil {"))
         #expect(appBootstrap.contains("await self?.refreshWelcomeBackSummary()"))
         #expect(appBootstrap.contains("func refreshWelcomeBackSummary() async"))
+        #expect(environment.contains(".environment(bootstrap.workspaceService)"))
+        #expect(workspaceService.contains("private static func welcomeBackInfo("))
+        #expect(workspaceService.contains("if welcomeBack != nil {"))
         #expect(landing.contains("@State private var presentedWelcomeBack: WelcomeBackInfo?"))
+        #expect(landing.contains("@State private var welcomeBackSyncTask: Task<Void, Never>?"))
+        #expect(landing.contains("@Environment(WorkspaceService.self) private var workspaceService"))
+        #expect(landing.contains(".onChange(of: workspaceService.welcomeBack?.displayText ?? \"\")"))
+        #expect(landing.contains("scheduleWelcomeBackSync()"))
+        #expect(landing.contains("private func syncWelcomeBackPresentation()"))
+        #expect(landing.contains("guard presentedWelcomeBack?.displayText != info.displayText || !showWelcomeBack else { return }"))
         #expect(landing.contains("presentedWelcomeBack = info"))
         #expect(landing.contains(".pixelPanel(theme: theme, surface: welcomeBackPanelSurface(for: theme))"))
     }
@@ -4987,9 +5014,17 @@ struct RuntimeValidationTests {
         let codeEditor = try loadRepoTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
 
         #expect(codeEditor.contains("forceHorizontalScrollerVisibility(controller: controller)"))
-        #expect(codeEditor.contains("controller.scrollView.scrollerStyle = .legacy"))
-        #expect(codeEditor.contains("controller.scrollView.hasHorizontalScroller = true"))
-        #expect(codeEditor.contains("controller.scrollView.autohidesScrollers = false"))
+        #expect(codeEditor.contains("configureAlwaysVisibleScrollers(controller.scrollView)"))
+        #expect(codeEditor.contains("scrollView.scrollerStyle = .legacy"))
+        #expect(codeEditor.contains("scrollView.hasHorizontalScroller = true"))
+        #expect(codeEditor.contains("scrollView.autohidesScrollers = false"))
+        #expect(codeEditor.contains("CodeEditorScrollConfigurator.allowTwoAxisScrolling"))
+        #expect(codeEditor.contains("textView.textContainer?.widthTracksTextView = false"))
+        #expect(codeEditor.contains("textView.isHorizontallyResizable = true"))
+        #expect(codeEditor.contains("textView.autoresizingMask = [.height]"))
+        #expect(codeEditor.contains("configureNestedScrollViews(in: controller.scrollView)"))
+        #expect(codeEditor.contains("horizontalScrollElasticity = .allowed"))
+        #expect(codeEditor.contains("func reassertTwoAxisScrolling()"))
     }
 
     @Test("code editor theme normalizes transparent and system colors into RGB space")

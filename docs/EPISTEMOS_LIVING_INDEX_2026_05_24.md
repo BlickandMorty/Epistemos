@@ -28,7 +28,7 @@ Every operation is exactly one of **three motions**:
 |---|---|---|---|
 | **Lift / Ingest** | surface → substrate | put raw material in (note bytes, pixels, prompts, model output, traces) | UAS + source hash + plane |
 | **Project / Compress / Recall** | substrate → surface | make object cheaper, smaller, or visible (vault recall, citation, UI row) | ShadowProjection + WBO + citation/proof |
-| **Mutate / Promote** | substrate → substrate | change durable state or promote candidate to authority | MutationEnvelope + ACS verdict + rollback |
+| **Mutate / Promote** | substrate → substrate | change durable state or promote candidate to authority | MutationEnvelope + ACS (Anchored Cognitive Substrate / Autopoietic Cognitive Stack) verdict + rollback |
 
 There is no fourth motion. "Activate a model slice" is a Lift at finer granularity (see §3).
 

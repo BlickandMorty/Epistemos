@@ -17,6 +17,64 @@ struct SettingsSurfaceCard<Content: View>: View {
     }
 }
 
+struct SettingsDisclosureSection<Content: View>: View {
+    @Environment(UIState.self) private var ui
+    let title: String
+    let subtitle: String
+    let systemImage: String
+    @Binding private var isExpanded: Bool
+    private let content: Content
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
+
+    init(
+        title: String,
+        subtitle: String,
+        systemImage: String,
+        isExpanded: Binding<Bool>,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.systemImage = systemImage
+        _isExpanded = isExpanded
+        self.content = content()
+    }
+
+    var body: some View {
+        Section {
+            DisclosureGroup(isExpanded: $isExpanded) {
+                VStack(alignment: .leading, spacing: 12) {
+                    content
+                }
+                .padding(.top, 8)
+            } label: {
+                HStack(alignment: .top, spacing: 10) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(theme.resolved.accent.color.opacity(theme.isDark ? 0.18 : 0.12))
+                        Image(systemName: systemImage)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(theme.resolved.accent.color)
+                    }
+                    .frame(width: 26, height: 26)
+                    .accessibilityHidden(true)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(theme.textPrimary)
+                        Text(subtitle)
+                            .font(.caption2)
+                            .foregroundStyle(theme.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+    }
+}
+
 struct SettingsThemedBlurBackdrop: View {
     enum Role {
         case page
@@ -243,6 +301,19 @@ struct VerifiedFloorChipStrip: View {
     let flag: String
     let substrate: String
     let substrateTint: Color
+    let falsifier: String?
+
+    init(
+        flag: String,
+        substrate: String,
+        substrateTint: Color,
+        falsifier: String? = nil
+    ) {
+        self.flag = flag
+        self.substrate = substrate
+        self.substrateTint = substrateTint
+        self.falsifier = falsifier
+    }
 
     private var flagTint: Color {
         switch flag {
@@ -262,5 +333,13 @@ struct VerifiedFloorChipStrip: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 12)
+        .help(helpText)
+    }
+
+    private var helpText: String {
+        if let falsifier, !falsifier.isEmpty {
+            return "What's wired today / what's still stub / falsifier: artifacts/falsifiers/\(falsifier)/result.json."
+        }
+        return "What's wired today / what's still stub / no production falsifier is attached to this chip strip."
     }
 }

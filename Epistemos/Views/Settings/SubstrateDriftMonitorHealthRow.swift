@@ -27,7 +27,7 @@ public struct SubstrateDriftMonitorHealthRow: View {
             VerifiedFloorChipStrip(
                 flag: "n/a",
                 substrate: drift.falsifierPassed ? "falsifier PASS" : "monitor only",
-                substrateTint: drift.falsifierPassed ? .green : .orange
+                substrateTint: .orange
             )
             SubstrateHealthMetricLine(
                 label: "Copy drift",

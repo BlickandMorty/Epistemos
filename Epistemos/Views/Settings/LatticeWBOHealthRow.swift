@@ -37,7 +37,7 @@ public struct LatticeWBOHealthRow: View {
             VerifiedFloorChipStrip(
                 flag: "n/a",
                 substrate: "always-on accountant",
-                substrateTint: .green
+                substrateTint: .orange
             )
             row(
                 label: "Appends accounted",

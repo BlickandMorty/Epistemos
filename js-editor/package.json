@@ -7,7 +7,6 @@
     "build": "webpack --mode production",
     "check:charts": "node scripts/check-chart-node.mjs",
     "check:code-block": "node scripts/check-code-block-command.mjs",
-    "check:document-graph": "node scripts/check-document-graph.mjs",
     "check:markdown-input-rules": "node scripts/check-markdown-input-rules.mjs",
     "check:markdown-paste": "node scripts/check-markdown-paste.mjs",
     "dev": "webpack --mode development --watch",
@@ -42,7 +41,6 @@
     "highlight.js": "11.11.1",
     "katex": "0.16.45",
     "lowlight": "3.3.0",
-    "mermaid": "11.14.0",
     "tippy.js": "6.3.7",
     "tiptap-footnotes": "3.0.1"
   },

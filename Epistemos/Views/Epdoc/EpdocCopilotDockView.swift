@@ -18,7 +18,7 @@ nonisolated public enum EpdocCopilotTransform: String, CaseIterable, Sendable, H
 
     public var title: String {
         switch self {
-        case .visualMap: return "Visualize document"
+        case .visualMap: return "HTML Workspace"
         case .frontmatter: return "Add frontmatter"
         case .scatterplot: return "Scatterplot"
         case .barChart: return "Bar chart"
@@ -29,7 +29,7 @@ nonisolated public enum EpdocCopilotTransform: String, CaseIterable, Sendable, H
 
     var subtitle: String {
         switch self {
-        case .visualMap: return "derive graph"
+        case .visualMap: return "DOM visual"
         case .frontmatter: return "visible metadata"
         case .scatterplot: return "x/y evidence"
         case .barChart: return "counts"
@@ -40,7 +40,7 @@ nonisolated public enum EpdocCopilotTransform: String, CaseIterable, Sendable, H
 
     var symbol: String {
         switch self {
-        case .visualMap: return "flowchart"
+        case .visualMap: return "rectangle.3.group"
         case .frontmatter: return "tag"
         case .scatterplot: return "chart.xyaxis.line"
         case .barChart: return "chart.bar"
@@ -52,7 +52,7 @@ nonisolated public enum EpdocCopilotTransform: String, CaseIterable, Sendable, H
     public var command: EpdocEditorCommand {
         switch self {
         case .visualMap:
-            return .runCommand(name: "insertEpdocGraphFromDocument", argsJSON: Self.emptyArgs)
+            return .runCommand(name: "requestHTMLWorkspace", argsJSON: Self.emptyArgs)
         case .frontmatter:
             return .runCommand(name: "insertEpdocFrontmatter", argsJSON: Self.emptyArgs)
         case .scatterplot:
@@ -68,7 +68,7 @@ nonisolated public enum EpdocCopilotTransform: String, CaseIterable, Sendable, H
 
     var response: String {
         switch self {
-        case .visualMap: return "Inserted a graph derived from the live document structure."
+        case .visualMap: return "Opened a sandboxed HTML Workspace for the visualization."
         case .frontmatter: return "Added a visible YAML metadata block at the top if one was not already present."
         case .scatterplot: return "Inserted a structured scatterplot block you can edit in place."
         case .barChart: return "Inserted a structured bar chart block you can edit in place."
@@ -92,7 +92,7 @@ nonisolated public enum EpdocCopilotTransform: String, CaseIterable, Sendable, H
     private var aliases: [String] {
         switch self {
         case .visualMap:
-            return ["visual", "graph", "diagram", "map", "flow"]
+            return ["visual", "workspace", "html", "dom", "interactive", "graph", "diagram", "map", "flow"]
         case .frontmatter:
             return ["frontmatter", "front matter", "metadata", "yaml", "properties"]
         case .scatterplot:

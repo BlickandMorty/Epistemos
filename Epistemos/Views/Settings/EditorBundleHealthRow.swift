@@ -35,7 +35,7 @@ public struct EditorBundleHealthRow: View {
             VerifiedFloorChipStrip(
                 flag: "n/a",
                 substrate: bundleAvailable && haloOpen ? "bundle+halo" : "partial",
-                substrateTint: bundleAvailable && haloOpen ? .green : .orange
+                substrateTint: .orange
             )
             row(
                 label: "Halo backend",

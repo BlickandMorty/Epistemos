@@ -482,6 +482,73 @@ final class ToolTierBridge {
         }
     }
 
+    nonisolated static func normalizedInputJson(
+        toolName: String,
+        inputJson: String,
+        defaultFileSearchRoot: String? = nil
+    ) -> String {
+        let canonicalName = AgentToolNameAliases.canonical(toolName)
+        guard canonicalName == "file.search"
+            || canonicalName == "file.read"
+            || canonicalName == "vault.search" else {
+            return inputJson
+        }
+        guard let data = inputJson.data(using: .utf8),
+              var object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            return inputJson
+        }
+        switch canonicalName {
+        case "file.search":
+            if trimmedStringValue(object["pattern"]) == nil {
+                let aliases = ["query", "term", "text", "title", "name"]
+                if let aliasValue = aliases.compactMap({ trimmedStringValue(object[$0]) }).first {
+                    object["pattern"] = aliasValue
+                }
+            }
+            if let maxResults = object["max_results"], object["limit"] == nil {
+                object["limit"] = maxResults
+            }
+            if shouldUseDefaultFileSearchRoot(object["path"]),
+               let defaultFileSearchRoot = normalizedDefaultFileSearchRoot(defaultFileSearchRoot) {
+                object["path"] = defaultFileSearchRoot
+            } else if trimmedStringValue(object["path"]) == nil {
+                object["path"] = "."
+            }
+            object.removeValue(forKey: "query")
+        case "file.read":
+            if trimmedStringValue(object["path"]) == nil {
+                let aliases = ["file", "file_path", "filePath", "title", "name"]
+                if let aliasValue = aliases.compactMap({ trimmedStringValue(object[$0]) }).first {
+                    object["path"] = aliasValue
+                }
+            }
+            if let root = normalizedDefaultFileSearchRoot(defaultFileSearchRoot),
+               let path = trimmedStringValue(object["path"]),
+               let vaultScopedPath = vaultScopedReadPath(for: path, rootPath: root) {
+                object["path"] = vaultScopedPath
+            }
+        case "vault.search":
+            if trimmedStringValue(object["query"]) == nil {
+                let aliases = ["pattern", "term", "text", "title", "name"]
+                if let aliasValue = aliases.compactMap({ trimmedStringValue(object[$0]) }).first {
+                    object["query"] = aliasValue
+                }
+            }
+            object.removeValue(forKey: "path")
+        default:
+            break
+        }
+        guard JSONSerialization.isValidJSONObject(object),
+              let normalizedData = try? JSONSerialization.data(
+                withJSONObject: object,
+                options: [.sortedKeys]
+              ),
+              let normalized = String(data: normalizedData, encoding: .utf8) else {
+            return inputJson
+        }
+        return normalized
+    }
+
     /// Static helper so the executor closure doesn't capture `self`.
     /// Runs the call on a background task so we don't stall the main
     /// thread while the Rust side does I/O (file reads, HTTP fetches).
@@ -499,6 +566,14 @@ final class ToolTierBridge {
         ) {
             return denial
         }
+        let normalizedInputJson = normalizedInputJson(
+            toolName: toolName,
+            inputJson: inputJson,
+            defaultFileSearchRoot: vaultPath
+        )
+        if let denial = emptySearchQueryDenial(toolName: toolName, inputJson: normalizedInputJson) {
+            return denial
+        }
 
         #if canImport(agent_coreFFI)
         do {
@@ -508,7 +583,7 @@ final class ToolTierBridge {
                     vaultPath: vaultPath,
                     tier: tier,
                     toolName: toolName,
-                    inputJson: inputJson,
+                    inputJson: normalizedInputJson,
                     allowedToolNames: allowedToolNames
                 )
             } else {
@@ -516,7 +591,7 @@ final class ToolTierBridge {
                     vaultPath: vaultPath,
                     tier: tier,
                     toolName: toolName,
-                    inputJson: inputJson
+                    inputJson: normalizedInputJson
                 )
             }
             if result.success {
@@ -567,6 +642,119 @@ final class ToolTierBridge {
             resultJson: errorToJson("Tool not found: \(toolName)"),
             isError: true
         )
+    }
+
+    private nonisolated static func emptySearchQueryDenial(
+        toolName: String,
+        inputJson: String
+    ) -> LocalToolResult? {
+        let canonicalName = AgentToolNameAliases.canonical(toolName)
+        guard canonicalName == "file.search" || canonicalName == "vault.search" else {
+            return nil
+        }
+        guard let data = inputJson.data(using: .utf8),
+              let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            return nil
+        }
+        let searchTermKey = canonicalName == "file.search" ? "pattern" : "query"
+        guard trimmedStringValue(object[searchTermKey]) == nil else { return nil }
+        return LocalToolResult(
+            toolName: toolName,
+            resultJson: errorToJson("Tool '\(canonicalName)' requires a non-empty \(searchTermKey)."),
+            isError: true
+        )
+    }
+
+    private nonisolated static func trimmedStringValue(_ value: Any?) -> String? {
+        guard let string = value as? String else { return nil }
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private nonisolated static func shouldUseDefaultFileSearchRoot(_ value: Any?) -> Bool {
+        guard let path = trimmedStringValue(value) else { return true }
+        return path == "." || path == "./"
+    }
+
+    private nonisolated static func normalizedDefaultFileSearchRoot(_ value: String?) -> String? {
+        guard let raw = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !raw.isEmpty else {
+            return nil
+        }
+        return URL(fileURLWithPath: raw, isDirectory: true).standardizedFileURL.path
+    }
+
+    private nonisolated static func vaultScopedReadPath(
+        for rawPath: String,
+        rootPath: String
+    ) -> String? {
+        guard !rawPath.hasPrefix("/") && !rawPath.hasPrefix("~") else {
+            return nil
+        }
+        guard !rawPath.contains("://") else {
+            return nil
+        }
+
+        let rootURL = URL(fileURLWithPath: rootPath, isDirectory: true).standardizedFileURL
+        let relativeCandidate = rootURL
+            .appendingPathComponent(rawPath)
+            .standardizedFileURL
+        if isDescendant(relativeCandidate, of: rootURL),
+           FileManager.default.fileExists(atPath: relativeCandidate.path) {
+            return relativeCandidate.path
+        }
+
+        guard !rawPath.contains("/") else {
+            return isDescendant(relativeCandidate, of: rootURL) ? relativeCandidate.path : nil
+        }
+        return uniqueVaultFileMatchingTitle(rawPath, rootURL: rootURL)?.path
+    }
+
+    private nonisolated static func uniqueVaultFileMatchingTitle(
+        _ title: String,
+        rootURL: URL
+    ) -> URL? {
+        let needle = normalizedVaultFilename(title)
+        guard !needle.isEmpty,
+              let enumerator = FileManager.default.enumerator(
+                at: rootURL,
+                includingPropertiesForKeys: [.isRegularFileKey, .isHiddenKey],
+                options: [.skipsPackageDescendants]
+              ) else {
+            return nil
+        }
+
+        var matches: [URL] = []
+        var scanned = 0
+        for case let url as URL in enumerator {
+            scanned += 1
+            if scanned > 5_000 { break }
+            guard isDescendant(url.standardizedFileURL, of: rootURL) else { continue }
+            guard let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isHiddenKey]),
+                  values.isRegularFile == true,
+                  values.isHidden != true else {
+                continue
+            }
+            let fileName = normalizedVaultFilename(url.deletingPathExtension().lastPathComponent)
+            let fullName = normalizedVaultFilename(url.lastPathComponent)
+            guard fileName == needle || fullName == needle else { continue }
+            matches.append(url.standardizedFileURL)
+            if matches.count > 1 { return nil }
+        }
+        return matches.first
+    }
+
+    private nonisolated static func normalizedVaultFilename(_ value: String) -> String {
+        value
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private nonisolated static func isDescendant(_ url: URL, of rootURL: URL) -> Bool {
+        let rootPath = rootURL.standardizedFileURL.path
+        let path = url.standardizedFileURL.path
+        return path == rootPath || path.hasPrefix(rootPath + "/")
     }
 
     private nonisolated static func errorToJson(_ message: String) -> String {

@@ -31,7 +31,8 @@ public struct PlanePlacementHealthRow: View {
             VerifiedFloorChipStrip(
                 flag: "n/a",
                 substrate: chipLabel(plane),
-                substrateTint: plane.planeFieldsWired && plane.ffiReachable ? .green : .red
+                substrateTint: plane.planeFieldsWired && plane.ffiReachable ? .green : .red,
+                falsifier: plane.planeFieldsWired && plane.ffiReachable ? "acs_anchor_lookup" : nil
             )
             SubstrateHealthMetricLine(
                 label: "Unplaced nodes",

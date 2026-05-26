@@ -22,7 +22,8 @@ import SwiftUI
 //
 // This row exposes:
 //   - lifetime count (total packets emitted this process)
-//   - ring depth (last N packets retained)
+//   - last-100 ring utilization
+//   - per-claim_kind histogram
 //   - latest packet's attentionMode + interruptBucket + uiLabel
 //   - last emit timestamp + relative age
 //
@@ -51,7 +52,8 @@ public struct AnswerPacketHealthRow: View {
                 lastEmittedAt: nil,
                 latest: nil,
                 modeCounts: [:],
-                bucketCounts: [:]
+                bucketCounts: [:],
+                claimKindCounts: [:]
             )
         )
     }
@@ -67,13 +69,13 @@ public struct AnswerPacketHealthRow: View {
             VerifiedFloorChipStrip(
                 flag: "on",
                 substrate: snapshot.totalEmitted > 0 ? "emitting" : "idle",
-                substrateTint: snapshot.totalEmitted > 0 ? .green : .orange
+                substrateTint: .orange
             )
             row(
-                label: "Audit ring",
+                label: "Last 100 ring",
                 symbol: "tray.full",
                 ok: snapshot.count > 0,
-                detail: "\(snapshot.count) / \(AnswerPacketEmitter.maxRingSize) packets retained"
+                detail: ringUtilizationDetail
             )
             if let latest = snapshot.latest {
                 row(
@@ -108,6 +110,12 @@ public struct AnswerPacketHealthRow: View {
                         detail: bucketHistogramDetail
                     )
                 }
+                row(
+                    label: "By claim_kind",
+                    symbol: "chart.bar.doc.horizontal",
+                    ok: !snapshot.claimKindCounts.isEmpty,
+                    detail: claimKindHistogramDetail
+                )
             } else {
                 row(
                     label: "Latest packet",
@@ -185,6 +193,17 @@ public struct AnswerPacketHealthRow: View {
         return Self.relativeTime(date)
     }
 
+    private var ringUtilizationDetail: String {
+        let capacity = max(AnswerPacketEmitter.maxRingSize, 1)
+        let pct = (Double(snapshot.count) / Double(capacity)) * 100.0
+        return String(
+            format: "last-100 utilization %.0f%% (%d / %d packets retained)",
+            pct,
+            snapshot.count,
+            capacity
+        )
+    }
+
     /// `dynamic: 12 · static_fallback: 5 · unavailable: 1` style.
     /// Ordered by canonical AttentionMode declaration so the row
     /// reads stably across sessions.
@@ -206,6 +225,17 @@ public struct AnswerPacketHealthRow: View {
             return "\(bucket.rawValue): \(count)"
         }
         return parts.isEmpty ? "no signal yet" : parts.joined(separator: " · ")
+    }
+
+    /// `empirical: 9 · code_invariant: 2` style. Ordered by the
+    /// canonical ClaimKind declaration so this row stays stable as
+    /// packets arrive.
+    private var claimKindHistogramDetail: String {
+        let parts: [String] = ClaimKind.allCases.compactMap { kind in
+            guard let count = snapshot.claimKindCounts[kind], count > 0 else { return nil }
+            return "\(kind.rawValue): \(count)"
+        }
+        return parts.isEmpty ? "0 claims recorded in emitted packets" : parts.joined(separator: " · ")
     }
 
     // MARK: - Row primitive (matches SearchFusionHealthRow / EditorBundleHealthRow)

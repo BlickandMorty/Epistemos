@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import Epistemos
 
@@ -214,5 +215,142 @@ struct ToolSurfacePolicyTests {
         )
         #expect(deniedThink?.isError == true)
         #expect(deniedThink?.resultJson.contains("Tool not found: think") == true)
+    }
+
+    @Test func fileSearchPatternArgumentsNormalizeToVaultRoot() throws {
+        let vaultRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-file-search-root")
+            .standardizedFileURL
+            .path
+        let normalized = ToolTierBridge.normalizedInputJson(
+            toolName: "file.search",
+            inputJson: #"{"pattern":"Jordan Conley — College Resume","path":"","target":"files"}"#,
+            defaultFileSearchRoot: vaultRoot
+        )
+        let data = try #require(normalized.data(using: .utf8))
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        #expect(object["pattern"] as? String == "Jordan Conley — College Resume")
+        #expect(object["query"] == nil)
+        #expect(object["path"] as? String == vaultRoot)
+        #expect(object["target"] as? String == "files")
+    }
+
+    @Test @MainActor func fileSearchPatternExecutesAsNonEmptyQuery() async throws {
+        let vaultURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-file-search-pattern-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(
+            at: vaultURL,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+        try "resume body".write(
+            to: vaultURL.appendingPathComponent("Jordan Conley — College Resume.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let bridge = ToolTierBridge(
+            vaultPath: vaultURL.path,
+            tier: .agent,
+            allowedToolNames: ["file.search"]
+        )
+        let result = await bridge.toolExecutor()(
+            "file.search",
+            #"{"pattern":"Jordan Conley — College Resume","path":"","target":"files"}"#
+        )
+
+        #expect(!result.isError, Comment(rawValue: result.resultJson))
+        #expect(
+            result.resultJson.contains("Jordan Conley"),
+            Comment(rawValue: result.resultJson)
+        )
+    }
+
+    @Test func fileReadTitleArgumentsNormalizeToUniqueVaultFile() throws {
+        let vaultURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-file-read-title-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(
+            at: vaultURL,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        let resumeURL = vaultURL.appendingPathComponent("Jordan Conley — College Resume.md")
+        try "resume body".write(to: resumeURL, atomically: true, encoding: .utf8)
+
+        let normalized = ToolTierBridge.normalizedInputJson(
+            toolName: "file.read",
+            inputJson: #"{"path":"Jordan Conley — College Resume"}"#,
+            defaultFileSearchRoot: vaultURL.path
+        )
+        let data = try #require(normalized.data(using: .utf8))
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        #expect(object["path"] as? String == resumeURL.standardizedFileURL.path)
+    }
+
+    @Test @MainActor func fileReadTitleExecutesInsideActiveVault() async throws {
+        let vaultURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-file-read-title-exec-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(
+            at: vaultURL,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        try "resume body".write(
+            to: vaultURL.appendingPathComponent("Jordan Conley — College Resume.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let bridge = ToolTierBridge(
+            vaultPath: vaultURL.path,
+            tier: .agent,
+            allowedToolNames: ["file.read"]
+        )
+        let result = await bridge.toolExecutor()(
+            "file.read",
+            #"{"path":"Jordan Conley — College Resume"}"#
+        )
+
+        #expect(!result.isError, Comment(rawValue: result.resultJson))
+        #expect(result.resultJson.contains("resume body"), Comment(rawValue: result.resultJson))
+    }
+
+    @Test func fileReadAmbiguousTitleDoesNotChooseArbitraryVaultFile() throws {
+        let vaultURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-file-read-ambiguous-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(
+            at: vaultURL.appendingPathComponent("A"),
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: vaultURL.appendingPathComponent("B"),
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        try "first".write(
+            to: vaultURL.appendingPathComponent("A/Resume.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "second".write(
+            to: vaultURL.appendingPathComponent("B/Resume.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let normalized = ToolTierBridge.normalizedInputJson(
+            toolName: "file.read",
+            inputJson: #"{"path":"Resume"}"#,
+            defaultFileSearchRoot: vaultURL.path
+        )
+        let data = try #require(normalized.data(using: .utf8))
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        #expect(object["path"] as? String == "Resume")
     }
 }

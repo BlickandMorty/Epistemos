@@ -168,13 +168,6 @@ function parseFence(
   const text = body.join('\n').trimEnd();
   const normalizedLanguage = language.trim().toLowerCase();
 
-  if (normalizedLanguage === 'mermaid') {
-    return {
-      node: { type: 'mermaid', content: textNodeContent(text) },
-      nextIndex,
-    };
-  }
-
   if ((normalizedLanguage === 'json' || normalizedLanguage === 'chart') && isChartSpec(text)) {
     return {
       node: { type: 'epdocChart', content: textNodeContent(text) },

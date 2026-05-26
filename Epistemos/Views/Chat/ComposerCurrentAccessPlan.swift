@@ -109,6 +109,10 @@ struct ComposerCurrentAccessPlan: Equatable {
             return isLiveWritableResource(attachment)
                 ? "Read + Edit attached file"
                 : "Read attached file"
+        case .htmlWorkspace:
+            return isLiveWritableResource(attachment)
+                ? "Read + Edit active HTML workspace"
+                : "Read active HTML workspace"
         }
     }
 

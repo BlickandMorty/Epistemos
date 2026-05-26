@@ -58,6 +58,15 @@ enum ComposerReferenceHelpers {
     /// in sync with `agent_core::resources::attachments::AttachedResource::
     /// attach_via_ui` — the Rust-side Live mode grants Read + Write.
     static let defaultLiveAttachmentCapabilities: [String] = ["Read", "Write"]
+    static let htmlWorkspaceCapabilities: [String] = [
+        "Read",
+        "Write",
+        "Patch",
+        "ExportHTML",
+        "ExportPDF",
+        "Import",
+        "Preview",
+    ]
 
     /// Build the `vault://{vaultId}/note/{relativePath}` URI that maps
     /// to `ResourceId::VaultNote` on the Rust side. Returns `nil` if
@@ -135,6 +144,30 @@ enum ComposerReferenceHelpers {
             targetId: pageID,
             title: title.isEmpty ? "Untitled" : title,
             subtitle: subtitle
+        )
+    }
+
+    static func htmlWorkspaceAttachment(
+        workspaceID: String,
+        title: String,
+        fileURL: URL? = nil,
+        surfaceTarget: MiniChatTarget? = nil
+    ) -> ContextAttachment {
+        let resolvedID = workspaceID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? UUID().uuidString
+            : workspaceID
+        let resolvedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "HTML Workspace"
+            : title
+        return ContextAttachment(
+            kind: .htmlWorkspace,
+            targetId: resolvedID,
+            title: resolvedTitle,
+            subtitle: fileURL?.lastPathComponent ?? "Interactive Doc",
+            resourceURI: "htmlworkspace://\(resolvedID)",
+            resourceMode: .live,
+            resourceCapabilities: htmlWorkspaceCapabilities,
+            surfaceTarget: surfaceTarget
         )
     }
 

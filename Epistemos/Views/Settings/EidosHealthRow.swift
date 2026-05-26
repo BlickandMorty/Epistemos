@@ -112,7 +112,7 @@ public struct EidosHealthRow: View {
 
     private var chipSubstrateLabel: String {
         switch snapshot.lastBackend {
-        case .real:    return "production-vault"
+        case .real:    return "production-vault · falsifier pending"
         case .fixture: return "fixture"
         case .unknown: return "unknown"
         }
@@ -120,7 +120,7 @@ public struct EidosHealthRow: View {
 
     private var chipSubstrateTint: Color {
         switch snapshot.lastBackend {
-        case .real:    return .green
+        case .real:    return .orange
         case .fixture: return .orange
         case .unknown: return .secondary
         }

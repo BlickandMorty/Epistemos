@@ -298,6 +298,8 @@ enum CodeEditorPerformancePolicy {
 
     static let semanticRefreshDelay: Duration = .milliseconds(220)
     static let scrollGuideRefreshDelay: Duration = .milliseconds(50)
+    static let horizontalScrollGeometryRefreshDelay: Duration = .milliseconds(45)
+    static let horizontalScrollScanLimitUTF16 = 250_000
 
     static func indentationGuideRefreshDelay(characterCount: Int) -> Duration {
         switch characterCount {
@@ -308,6 +310,164 @@ enum CodeEditorPerformancePolicy {
         default:
             .milliseconds(160)
         }
+    }
+}
+
+enum CodeEditorScrollConfigurator {
+    private static let estimatedWidthPadding: CGFloat = 96
+    private static let maximumEstimatedDocumentWidth: CGFloat = 80_000
+
+    static func allowTwoAxisScrolling(textView: NSTextView, scrollView: NSScrollView) {
+        configureAlwaysVisibleScrollers(scrollView)
+
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = true
+        textView.minSize = NSSize(width: 0, height: 0)
+        textView.maxSize = NSSize(
+            width: CGFloat.greatestFiniteMagnitude,
+            height: CGFloat.greatestFiniteMagnitude
+        )
+        textView.autoresizingMask = [.height]
+        textView.textContainer?.widthTracksTextView = false
+        textView.textContainer?.heightTracksTextView = false
+        textView.textContainer?.containerSize = NSSize(
+            width: CGFloat.greatestFiniteMagnitude,
+            height: CGFloat.greatestFiniteMagnitude
+        )
+        updateTextKitDocumentWidth(textView: textView, scrollView: scrollView)
+    }
+
+    @MainActor
+    static func allowCodeEditTwoAxisScrolling(controller: TextViewController) {
+        configureAlwaysVisibleScrollers(controller.scrollView)
+        configureNestedScrollViews(in: controller.scrollView)
+        refreshCodeEditDocumentWidth(controller: controller)
+    }
+
+    @MainActor
+    static func refreshCodeEditDocumentWidth(controller: TextViewController) {
+        guard let textView = controller.textView else { return }
+        guard let scrollView = textView.enclosingScrollView ?? controller.scrollView else { return }
+        configureAlwaysVisibleScrollers(scrollView)
+        _ = textView.updateFrameIfNeeded()
+
+        guard !textView.wrapLines else {
+            scrollView.reflectScrolledClipView(scrollView.contentView)
+            return
+        }
+
+        let targetWidth = estimatedDocumentWidth(
+            text: textView.string,
+            font: textView.font,
+            visibleWidth: visibleWidth(for: scrollView),
+            horizontalInset: textView.textInsets.horizontal
+        )
+        if abs(textView.frame.width - targetWidth) > 1 {
+            textView.setFrameSize(NSSize(
+                width: targetWidth,
+                height: max(textView.frame.height, scrollView.contentSize.height)
+            ))
+            textView.needsLayout = true
+            textView.needsDisplay = true
+        }
+        scrollView.reflectScrolledClipView(scrollView.contentView)
+    }
+
+    private static func configureAlwaysVisibleScrollers(_ scrollView: NSScrollView) {
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = true
+        scrollView.autohidesScrollers = false
+        scrollView.scrollerStyle = .legacy
+        scrollView.horizontalScrollElasticity = .allowed
+        scrollView.verticalScrollElasticity = .allowed
+        scrollView.contentView.postsBoundsChangedNotifications = true
+    }
+
+    private static func configureNestedScrollViews(in view: NSView) {
+        if let scrollView = view as? NSScrollView {
+            configureAlwaysVisibleScrollers(scrollView)
+        }
+        if let textView = view as? NSTextView,
+           let scrollView = textView.enclosingScrollView {
+            allowTwoAxisScrolling(textView: textView, scrollView: scrollView)
+        }
+        for subview in view.subviews {
+            configureNestedScrollViews(in: subview)
+        }
+    }
+
+    private static func updateTextKitDocumentWidth(textView: NSTextView, scrollView: NSScrollView) {
+        let inset = textView.textContainerInset.width * 2
+        let targetWidth = estimatedDocumentWidth(
+            text: textView.string,
+            font: textView.font,
+            visibleWidth: visibleWidth(for: scrollView),
+            horizontalInset: inset
+        )
+        textView.minSize = NSSize(width: targetWidth, height: 0)
+        if abs(textView.frame.width - targetWidth) > 1 {
+            textView.setFrameSize(NSSize(
+                width: targetWidth,
+                height: max(textView.frame.height, scrollView.contentSize.height)
+            ))
+            textView.needsLayout = true
+            textView.needsDisplay = true
+        }
+    }
+
+    static func estimatedDocumentWidth(
+        text: String,
+        font: NSFont?,
+        visibleWidth: CGFloat,
+        horizontalInset: CGFloat
+    ) -> CGFloat {
+        let font = font ?? .monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+        let charWidth = max(
+            1,
+            ("W" as NSString).size(withAttributes: [.font: font]).width
+        )
+        let longestLine = longestLineUTF16Length(
+            in: text,
+            scanLimit: CodeEditorPerformancePolicy.horizontalScrollScanLimitUTF16
+        )
+        let estimatedWidth = CGFloat(longestLine) * charWidth + horizontalInset + estimatedWidthPadding
+        let minimumWidth = max(visibleWidth, 1)
+        return min(max(estimatedWidth, minimumWidth), maximumEstimatedDocumentWidth)
+    }
+
+    static func longestLineUTF16Length(in text: String, scanLimit: Int) -> Int {
+        var longest = 0
+        var current = 0
+        var scanned = 0
+        var previousWasCarriageReturn = false
+
+        for unit in text.utf16 {
+            guard scanned < scanLimit else { break }
+            scanned += 1
+
+            if unit == 10 || unit == 13 {
+                longest = max(longest, current)
+                current = 0
+                previousWasCarriageReturn = unit == 13
+                continue
+            }
+
+            if previousWasCarriageReturn {
+                previousWasCarriageReturn = false
+            }
+            current += 1
+        }
+
+        return max(longest, current)
+    }
+
+    private static func visibleWidth(for scrollView: NSScrollView) -> CGFloat {
+        let contentWidth = scrollView.contentSize.width
+        if contentWidth.isFinite, contentWidth > 0 {
+            return contentWidth
+        }
+        let boundsWidth = scrollView.bounds.width
+        return boundsWidth.isFinite && boundsWidth > 0 ? boundsWidth : 1
     }
 }
 
@@ -1620,6 +1780,7 @@ struct CodeEditorView: View {
     @State private var semanticLookupTask: Task<Void, Never>?
     @State private var sourceEditorCoordinator: EpistemosEditorCoordinator?
     @State private var contentDebouncer: CodeEditorContentDebouncer?
+    @State private var webKitSelectionRequest: WebKitCodeEditorSelectionRequest?
     
     // MARK: - Editor Preferences (persisted via AppStorage)
     
@@ -1637,6 +1798,9 @@ struct CodeEditorView: View {
     @AppStorage("epistemos.codeEditor.showLineGutter") private var showLineGutter = true
     @AppStorage("epistemos.codeEditor.showFoldingRibbon") private var showFoldingRibbon = true
     @AppStorage("epistemos.codeEditor.showIndentationGuides") private var showIndentationGuides = true
+    @AppStorage("epistemos.codeEditor.useNativeSourceEditorFallback") private var useNativeSourceEditorFallback = false
+
+    private var usesWebKitEditor: Bool { !useNativeSourceEditorFallback }
     
     // MARK: - UI State
 
@@ -1734,6 +1898,10 @@ struct CodeEditorView: View {
             .onChange(of: ui.theme) { _, _ in
                 applyGutterPreferences()
             }
+            .onChange(of: useNativeSourceEditorFallback) { _, _ in
+                activeSearchRange = nil
+                webKitSelectionRequest = nil
+            }
             .onChange(of: searchQuery) { _, _ in
                 activeSearchRange = nil
             }
@@ -1754,6 +1922,7 @@ struct CodeEditorView: View {
         let editorFont = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
         coordinator.applyEditorBodyFont(editorFont)
         coordinator.setIndentationGuidesEnabled(showIndentationGuides)
+        coordinator.reassertTwoAxisScrolling()
         coordinator.applyIndentationGuideMetrics(font: editorFont, tabWidth: tabWidth)
         coordinator.applyLineGutterState(totalLines: totalLines, cursorLine: cursorLine)
     }
@@ -1848,7 +2017,7 @@ struct CodeEditorView: View {
     
     private func goToLine(line: Int) {
         cursorLine = line
-        editorState.cursorPositions = [CursorPosition(line: line, column: 1)]
+        navigateToLine(line)
     }
     
     // MARK: - Breadcrumb Bar
@@ -1944,28 +2113,51 @@ struct CodeEditorView: View {
     }
     
     private func navigateToLine(_ line: Int) {
-        editorState.cursorPositions = [CursorPosition(line: line, column: 1)]
+        if usesWebKitEditor {
+            let starts = CodeEditorLineMetrics.lineStartUTF16Offsets(in: text)
+            let index = min(max(line - 1, 0), max(starts.count - 1, 0))
+            let location = starts.isEmpty ? 0 : starts[index]
+            webKitSelectionRequest = WebKitCodeEditorSelectionRequest(
+                range: NSRange(location: location, length: 0)
+            )
+        } else {
+            editorState.cursorPositions = [CursorPosition(line: line, column: 1)]
+        }
     }
     
     private var editorWithSearch: some View {
         ZStack(alignment: .top) {
-            SourceEditor(
-                $text,
-                language: codeEditLanguage,
-                configuration: editorConfiguration,
-                state: $editorState,
-                coordinators: sourceEditorCoordinator.map { [$0] } ?? []
-            )
-            // Wave 4.5 / Patch 6a — SUPERSEDED by W9.6 canonical
-            // (`Epistemos/Engine/SwiftTreeSitterLiveHighlighter.swift`).
-            // Per `epistemos_code_verdict.md` §1, live syntax stays in
-            // Swift via direct C bindings to tree-sitter, NOT through
-            // CodeEditSourceEditor's HighlightProviding protocol. The
-            // W9.6 canonical highlighter binds tree_sitter_<lang>() C
-            // symbols via @_silgen_name to CodeLanguagesContainer, no
-            // FFI hop, no Sendable mismatch. Removed the
-            // SyntaxCoreHighlightProvider class + its test as dead
-            // code on 2026-04-26 (audit agent verdict OBSOLETE).
+            if usesWebKitEditor {
+                WebKitCodeEditorView(
+                    text: $text,
+                    cursorLine: $cursorLine,
+                    cursorColumn: $cursorCol,
+                    totalLines: $totalLines,
+                    language: language,
+                    theme: ui.theme,
+                    fontSize: fontSize,
+                    wrapLines: wrapLines,
+                    selectionRequest: webKitSelectionRequest
+                )
+            } else {
+                SourceEditor(
+                    $text,
+                    language: codeEditLanguage,
+                    configuration: editorConfiguration,
+                    state: $editorState,
+                    coordinators: sourceEditorCoordinator.map { [$0] } ?? []
+                )
+                // Wave 4.5 / Patch 6a — SUPERSEDED by W9.6 canonical
+                // (`Epistemos/Engine/SwiftTreeSitterLiveHighlighter.swift`).
+                // Per `epistemos_code_verdict.md` §1, live syntax stays in
+                // Swift via direct C bindings to tree-sitter, NOT through
+                // CodeEditSourceEditor's HighlightProviding protocol. The
+                // W9.6 canonical highlighter binds tree_sitter_<lang>() C
+                // symbols via @_silgen_name to CodeLanguagesContainer, no
+                // FFI hop, no Sendable mismatch. Removed the
+                // SyntaxCoreHighlightProvider class + its test as dead
+                // code on 2026-04-26 (audit agent verdict OBSOLETE).
+            }
 
             searchBarOverlay
         }
@@ -2087,8 +2279,12 @@ struct CodeEditorView: View {
         }
 
         activeSearchRange = match
-        editorState.cursorPositions = [CursorPosition(range: match)]
-        sourceEditorCoordinator?.select(range: match, scrollToVisible: true)
+        if usesWebKitEditor {
+            webKitSelectionRequest = WebKitCodeEditorSelectionRequest(range: match)
+        } else {
+            editorState.cursorPositions = [CursorPosition(range: match)]
+            sourceEditorCoordinator?.select(range: match, scrollToVisible: true)
+        }
     }
 
     // MARK: - Semantic LSP Lookup
@@ -2260,6 +2456,7 @@ struct CodeEditorView: View {
     private var viewOptionsMenu: some View {
         Menu {
             Section("View") {
+                Toggle("Native Editor Fallback", isOn: $useNativeSourceEditorFallback)
                 Toggle("Word Wrap", isOn: $wrapLines)
                 Toggle("Outline Navigator", isOn: $showOutlineNavigator)
                 Toggle("Show Invisibles", isOn: $showInvisibles)
@@ -2487,6 +2684,7 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
     private var lastText: String = ""
     private var lastTextLineStartUTF16Offsets: [Int] = [0]
     private var indentationGuideRefreshTask: Task<Void, Never>?
+    private var horizontalGeometryRefreshTask: Task<Void, Never>?
 
     // Dormant fallback line-number gutter (right-side, theme-aware). The live
     // user surface is CodeEditSourceEditor's native left gutter; this scaffold
@@ -2537,9 +2735,24 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
     /// when wrapLines CHANGES — re-asserting `true` here is harmless
     /// and protects against the initial-config branch missing it.
     private func forceHorizontalScrollerVisibility(controller: TextViewController) {
-        controller.scrollView.scrollerStyle = .legacy
-        controller.scrollView.hasHorizontalScroller = true
-        controller.scrollView.autohidesScrollers = false
+        CodeEditorScrollConfigurator.allowCodeEditTwoAxisScrolling(controller: controller)
+    }
+
+    func reassertTwoAxisScrolling() {
+        guard let controller = textController else { return }
+        forceHorizontalScrollerVisibility(controller: controller)
+    }
+
+    private func scheduleHorizontalScrollGeometryRefresh(immediate: Bool = false) {
+        horizontalGeometryRefreshTask?.cancel()
+        horizontalGeometryRefreshTask = Task { @MainActor [weak self] in
+            if !immediate {
+                try? await Task.sleep(for: CodeEditorPerformancePolicy.horizontalScrollGeometryRefreshDelay)
+            }
+            guard !Task.isCancelled, let self, let controller = self.textController else { return }
+            CodeEditorScrollConfigurator.refreshCodeEditDocumentWidth(controller: controller)
+            self.updateGutterScrollOffset()
+        }
     }
 
     /// Installs the dormant right-side fallback gutter. Mirrors the
@@ -2745,6 +2958,7 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
         // Gutter must follow scroll without debounce — line numbers feel
         // broken if they lag the cursor. Cheap (one needsDisplay).
         updateGutterScrollOffset()
+        scheduleHorizontalScrollGeometryRefresh()
 
         scrollDebounceTask?.cancel()
         scrollDebounceTask = Task { @MainActor [weak self] in
@@ -2941,6 +3155,7 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
         }
 
         scheduleIndentationGuideRefresh(for: newText)
+        scheduleHorizontalScrollGeometryRefresh()
 
         os_signpost(.end, log: Self.perfLog, name: "textDidChange")
     }
@@ -2949,6 +3164,7 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
         cursorUpdateTask?.cancel()
         scrollDebounceTask?.cancel()
         indentationGuideRefreshTask?.cancel()
+        horizontalGeometryRefreshTask?.cancel()
         NotificationCenter.default.removeObserver(self)
         indentGuideView?.removeFromSuperview()
         gutterView?.removeFromSuperview()
@@ -2979,8 +3195,6 @@ struct CodeInspectorPreview: NSViewRepresentable {
 
     func makeNSView(context: Context) -> NSScrollView {
         let scrollView = NSScrollView()
-        scrollView.hasVerticalScroller = true
-        scrollView.autohidesScrollers = true
         scrollView.borderType = .noBorder
         scrollView.drawsBackground = false
 
@@ -2998,6 +3212,7 @@ struct CodeInspectorPreview: NSViewRepresentable {
             ? NSColor(red: 0.12, green: 0.12, blue: 0.14, alpha: 1)
             : NSColor(red: 0.97, green: 0.97, blue: 0.98, alpha: 1)
         textView.textContainerInset = NSSize(width: 12, height: 12)
+        CodeEditorScrollConfigurator.allowTwoAxisScrolling(textView: textView, scrollView: scrollView)
 
         textView.string = content
         scrollView.documentView = textView
@@ -3346,8 +3561,6 @@ struct CodeInspectorEditor: NSViewRepresentable {
 
     func makeNSView(context: Context) -> NSScrollView {
         let scrollView = NSScrollView()
-        scrollView.hasVerticalScroller = true
-        scrollView.autohidesScrollers = true
         scrollView.borderType = .noBorder
         scrollView.drawsBackground = false
 
@@ -3372,6 +3585,7 @@ struct CodeInspectorEditor: NSViewRepresentable {
             : NSColor(red: 0.97, green: 0.97, blue: 0.98, alpha: 1)
         textView.insertionPointColor = theme.isDark ? .white : .black
         textView.textContainerInset = NSSize(width: 12, height: 12)
+        CodeEditorScrollConfigurator.allowTwoAxisScrolling(textView: textView, scrollView: scrollView)
 
         textView.string = text
         scrollView.documentView = textView

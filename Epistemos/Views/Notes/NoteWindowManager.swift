@@ -34,6 +34,9 @@ enum NoteWindowChrome {
         window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
         let toolbar = window.toolbar ?? NSToolbar(identifier: toolbarIdentifier)
+        toolbar.displayMode = .iconOnly
+        toolbar.allowsUserCustomization = false
+        toolbar.autosavesConfiguration = false
         if #unavailable(macOS 15.0) {
             toolbar.showsBaselineSeparator = false
         }
@@ -68,6 +71,7 @@ enum NoteWindowThemeStyler {
             NoteWorkspaceSurfaceStyle.canvasBackground(for: uiState.theme)
         )
         window.backgroundColor = canvasColor
+        window.isOpaque = canvasColor.alphaComponent >= 0.99
 
         if let controller = window.contentViewController as? NoteWindowBackdropController {
             controller.syncTheme(uiState: uiState)

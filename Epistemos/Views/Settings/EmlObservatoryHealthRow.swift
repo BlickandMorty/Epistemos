@@ -4,7 +4,9 @@ import SwiftUI
 //
 // W-07: EML observatory substrate visibility. Polls the unified Rust
 // FFI once per second and reports whether the EML potential adapter is
-// reachable. It does not claim the SAE live stream is product-wired.
+// reachable. It does not claim the SAE live stream is product-wired,
+// and its chip strip remains research-orange even if the Rust fixture
+// reports reachable observatory math.
 
 @MainActor
 public struct EmlObservatoryHealthRow: View {
@@ -28,8 +30,8 @@ public struct EmlObservatoryHealthRow: View {
             )
             VerifiedFloorChipStrip(
                 flag: "n/a",
-                substrate: eml.liveStreamWired ? "live stream" : "substrate self-test",
-                substrateTint: eml.liveStreamWired ? .green : .orange
+                substrate: eml.liveStreamWired ? "research stream" : "substrate self-test",
+                substrateTint: .orange
             )
             SubstrateHealthMetricLine(
                 label: "Augmented AUC",

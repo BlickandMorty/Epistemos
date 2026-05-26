@@ -45,4 +45,70 @@ struct FUlpWiringTests {
         UserDefaults.standard.set(true, forKey: FUlpFlags.userDefaultsKey)
         #expect(FUlpFlags.isEnabled)
     }
+
+    @Test("FUlpMetrics marshals change notifications onto the main actor")
+    func fUlpMetricsNotificationsUseMainActor() async {
+        let probe = NotificationThreadProbe(
+            name: FUlpMetrics.didChangeNotification,
+            object: FUlpMetrics.shared
+        )
+
+        await Task.detached {
+            FUlpMetrics.shared.recordError(FUlpNotificationTestError.sample)
+        }.value
+
+        let postedOnMain = await probe.nextResult(timeoutNanoseconds: 2_000_000_000)
+        #expect(postedOnMain == true)
+    }
+}
+
+private enum FUlpNotificationTestError: Error {
+    case sample
+}
+
+private final class NotificationThreadProbe: @unchecked Sendable {
+    nonisolated(unsafe) private let stream: AsyncStream<Bool>
+    nonisolated(unsafe) private let continuation: AsyncStream<Bool>.Continuation
+    nonisolated(unsafe) private var observer: NSObjectProtocol?
+
+    init(name: Notification.Name, object: AnyObject) {
+        let streamPair = AsyncStream<Bool>.makeStream()
+        stream = streamPair.stream
+        continuation = streamPair.continuation
+        observer = NotificationCenter.default.addObserver(
+            forName: name,
+            object: object,
+            queue: nil
+        ) { [weak self] _ in
+            self?.finish(Thread.isMainThread)
+        }
+    }
+
+    deinit {
+        if let observer {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
+
+    nonisolated func nextResult(timeoutNanoseconds: UInt64) async -> Bool? {
+        await withTaskGroup(of: Bool?.self) { group in
+            group.addTask { [stream] in
+                var iterator = stream.makeAsyncIterator()
+                return await iterator.next()
+            }
+            group.addTask {
+                try? await Task.sleep(nanoseconds: timeoutNanoseconds)
+                return nil
+            }
+
+            let result = await group.next() ?? nil
+            group.cancelAll()
+            return result
+        }
+    }
+
+    nonisolated private func finish(_ value: Bool) {
+        continuation.yield(value)
+        continuation.finish()
+    }
 }

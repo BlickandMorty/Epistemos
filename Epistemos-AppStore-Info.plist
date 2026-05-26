@@ -70,6 +70,24 @@
 				</array>
 			</dict>
 		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.epistemos.html-workspace</string>
+			<key>UTTypeDescription</key>
+			<string>Epistemos HTML Workspace</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>com.apple.package</string>
+				<string>public.composite-content</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>htmlworkspace</string>
+				</array>
+			</dict>
+		</dict>
 	</array>
 	<key>CFBundleDocumentTypes</key>
 	<array>
@@ -86,6 +104,20 @@
 			<string>Editor</string>
 			<key>NSDocumentClass</key>
 			<string>$(PRODUCT_MODULE_NAME).EpdocDocument</string>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Epistemos HTML Workspace</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.epistemos.html-workspace</string>
+			</array>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>NSDocumentClass</key>
+			<string>$(PRODUCT_MODULE_NAME).HTMLWorkspaceDocument</string>
 		</dict>
 	</array>
 </dict>

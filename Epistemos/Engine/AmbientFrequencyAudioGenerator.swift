@@ -34,6 +34,184 @@ struct AmbientFrequencyEnvelope: Equatable, Sendable {
     }
 }
 
+enum AmbientFrequencyMusicKey: String, CaseIterable, Identifiable, Sendable {
+    case c, cSharp, d, dSharp, e, f, fSharp, g, gSharp, a, aSharp, b
+
+    var id: String { rawValue }
+
+    nonisolated var label: String {
+        switch self {
+        case .c: return "C"
+        case .cSharp: return "C#"
+        case .d: return "D"
+        case .dSharp: return "D#"
+        case .e: return "E"
+        case .f: return "F"
+        case .fSharp: return "F#"
+        case .g: return "G"
+        case .gSharp: return "G#"
+        case .a: return "A"
+        case .aSharp: return "A#"
+        case .b: return "B"
+        }
+    }
+
+    nonisolated var semitone: Int {
+        switch self {
+        case .c: return 0
+        case .cSharp: return 1
+        case .d: return 2
+        case .dSharp: return 3
+        case .e: return 4
+        case .f: return 5
+        case .fSharp: return 6
+        case .g: return 7
+        case .gSharp: return 8
+        case .a: return 9
+        case .aSharp: return 10
+        case .b: return 11
+        }
+    }
+}
+
+enum AmbientFrequencyMusicScale: String, CaseIterable, Identifiable, Sendable {
+    case major
+    case naturalMinor
+    case dorian
+    case phrygian
+    case lydian
+    case mixolydian
+    case harmonicMinor
+    case minorPentatonic
+    case blues
+    case wholeTone
+
+    var id: String { rawValue }
+
+    nonisolated var label: String {
+        switch self {
+        case .major: return "Major"
+        case .naturalMinor: return "Natural minor"
+        case .dorian: return "Dorian"
+        case .phrygian: return "Phrygian"
+        case .lydian: return "Lydian"
+        case .mixolydian: return "Mixolydian"
+        case .harmonicMinor: return "Harmonic minor"
+        case .minorPentatonic: return "Minor pentatonic"
+        case .blues: return "Blues"
+        case .wholeTone: return "Whole tone"
+        }
+    }
+
+    nonisolated var semitones: [Int] {
+        switch self {
+        case .major: return [0, 2, 4, 5, 7, 9, 11]
+        case .naturalMinor: return [0, 2, 3, 5, 7, 8, 10]
+        case .dorian: return [0, 2, 3, 5, 7, 9, 10]
+        case .phrygian: return [0, 1, 3, 5, 7, 8, 10]
+        case .lydian: return [0, 2, 4, 6, 7, 9, 11]
+        case .mixolydian: return [0, 2, 4, 5, 7, 9, 10]
+        case .harmonicMinor: return [0, 2, 3, 5, 7, 8, 11]
+        case .minorPentatonic: return [0, 3, 5, 7, 10]
+        case .blues: return [0, 3, 5, 6, 7, 10]
+        case .wholeTone: return [0, 2, 4, 6, 8, 10]
+        }
+    }
+}
+
+enum AmbientFrequencyChordQuality: String, CaseIterable, Identifiable, Sendable {
+    case power
+    case major
+    case minor
+    case sus2
+    case sus4
+    case dominant7
+    case major7
+    case minor7
+    case diminished
+    case augmented
+
+    var id: String { rawValue }
+
+    nonisolated var label: String {
+        switch self {
+        case .power: return "Power"
+        case .major: return "Major"
+        case .minor: return "Minor"
+        case .sus2: return "Sus2"
+        case .sus4: return "Sus4"
+        case .dominant7: return "Dominant 7"
+        case .major7: return "Major 7"
+        case .minor7: return "Minor 7"
+        case .diminished: return "Diminished"
+        case .augmented: return "Augmented"
+        }
+    }
+
+    nonisolated var intervals: [Int] {
+        switch self {
+        case .power: return [0, 7, 12]
+        case .major: return [0, 4, 7]
+        case .minor: return [0, 3, 7]
+        case .sus2: return [0, 2, 7]
+        case .sus4: return [0, 5, 7]
+        case .dominant7: return [0, 4, 7, 10]
+        case .major7: return [0, 4, 7, 11]
+        case .minor7: return [0, 3, 7, 10]
+        case .diminished: return [0, 3, 6, 9]
+        case .augmented: return [0, 4, 8]
+        }
+    }
+}
+
+enum AmbientFrequencyRetroInstrument: String, CaseIterable, Identifiable, Sendable {
+    case pulse25
+    case pulse50
+    case triangle
+    case saw
+    case fmBell
+    case opl2Pad
+    case softPluck
+
+    var id: String { rawValue }
+
+    nonisolated var label: String {
+        switch self {
+        case .pulse25: return "25% pulse"
+        case .pulse50: return "50% pulse"
+        case .triangle: return "Triangle"
+        case .saw: return "Saw"
+        case .fmBell: return "FM bell"
+        case .opl2Pad: return "OPL2 pad"
+        case .softPluck: return "Soft pluck"
+        }
+    }
+}
+
+enum AmbientFrequencyMusicPattern: String, CaseIterable, Identifiable, Sendable {
+    case arpUp
+    case arpDown
+    case chordPulse
+    case bassWalk
+    case melodyWander
+    case triadBounce
+    case chipSong
+
+    var id: String { rawValue }
+
+    nonisolated var label: String {
+        switch self {
+        case .arpUp: return "Arp up"
+        case .arpDown: return "Arp down"
+        case .chordPulse: return "Chord pulse"
+        case .bassWalk: return "Bass walk"
+        case .melodyWander: return "Melody wander"
+        case .triadBounce: return "Triad bounce"
+        case .chipSong: return "Chip song"
+        }
+    }
+}
+
 enum AmbientFrequencyLayer: Equatable, Sendable {
     case amplitudeModulatedCarrier(
         carrierHz: Double,
@@ -103,16 +281,15 @@ enum AmbientFrequencyLayer: Equatable, Sendable {
     /// Very bright, hiss-like; often used for tinnitus masking.
     case violetNoise(seed: UInt64, amplitude: Double, envelope: AmbientFrequencyEnvelope)
 
-    /// 1/f² brown (Brownian) noise via a sliding-window integral approximation
-    /// of white noise. Subjectively warmer / lower than pink noise; popular for
-    /// sleep and deep-focus modes.
+    /// 1/f² brown (Brownian) noise via layered smooth value-noise bands.
+    /// Subjectively warmer / lower than pink noise; popular for sleep and
+    /// deep-focus modes.
     case brownNoise(seed: UInt64, amplitude: Double, envelope: AmbientFrequencyEnvelope)
 
-    /// Bandpass-shaped noise via sum-of-sines at random frequencies sampled
-    /// from `[centerHz - bandwidthHz/2, centerHz + bandwidthHz/2]` with random
-    /// phases. The harmonicCount sets how dense the band is (higher = smoother
-    /// noise; lower = more granular / textured). Useful for rain-on-roof,
-    /// distant wind, ocean surf.
+    /// Bandpass-shaped noise via subtracting smooth value-noise bands. The
+    /// harmonicCount field now acts as a density hint, preserving older preset
+    /// metadata while avoiding fixed sine partials that made nature beds sound
+    /// metallic.
     case bandpassNoise(
         seed: UInt64,
         amplitude: Double,
@@ -227,6 +404,19 @@ enum AmbientFrequencyLayer: Equatable, Sendable {
         channelMode: AmbientFrequencyChannelMode
     )
 
+    /// Small retro-composer voice: key/scale/chord/pattern/instrument all
+    /// synthesized from math, then routed through the same live/export mixer
+    /// as the ambient layers.
+    case retroMusic(
+        rootMidiNote: Int,
+        scale: AmbientFrequencyMusicScale,
+        chord: AmbientFrequencyChordQuality,
+        pattern: AmbientFrequencyMusicPattern,
+        instrument: AmbientFrequencyRetroInstrument,
+        tempoBPM: Double,
+        amplitude: Double
+    )
+
     /// Wrap any layer with an equal-power stereo pan (W3C Web Audio spec).
     /// `pan ∈ [-1, +1]` where -1 = full left, 0 = center (-3 dB equal-power),
     /// +1 = full right. Use this to place any sound layer in the stereo
@@ -293,6 +483,8 @@ enum AmbientFrequencyLayer: Equatable, Sendable {
             return "\(layer.label) ÷\(holdFactor) rate"
         case .opl2FmOperator(let carrierHz, let modulatorHz, _, _, _, _, _):
             return "OPL2 FM \(Self.formatHz(carrierHz)) × \(Self.formatHz(modulatorHz))"
+        case .retroMusic(_, _, _, let pattern, let instrument, _, _):
+            return "Retro \(pattern.label) \(instrument.label)"
         }
     }
 
@@ -335,7 +527,7 @@ enum AmbientFrequencyLayer: Equatable, Sendable {
         case .brownNoise(_, let amplitude, _):
             return "Brown (1/f²) noise shaped by breath envelope, amplitude \(Self.formatDecimal(amplitude))."
         case .bandpassNoise(_, let amplitude, _, let centerHz, let bandwidthHz, let harmonicCount):
-            return "Bandpass-shaped noise centered \(Self.formatHz(centerHz)) ± \(Self.formatHz(bandwidthHz / 2)), \(harmonicCount) harmonics, amplitude \(Self.formatDecimal(amplitude))."
+            return "Smooth bandpass-shaped noise centered \(Self.formatHz(centerHz)) ± \(Self.formatHz(bandwidthHz / 2)), density \(harmonicCount), amplitude \(Self.formatDecimal(amplitude))."
         case .isochronicTone(let carrierHz, let pulseHz, let amplitude, let dutyCycle, _):
             return "Isochronic: \(Self.formatHz(carrierHz)) sine gated at \(Self.formatHz(pulseHz)) with \(Self.formatDecimal(dutyCycle * 100))% duty, amplitude \(Self.formatDecimal(amplitude))."
         case .pwmSquare(let frequencyHz, let dutyCycle, let amplitude, let channelMode):
@@ -356,6 +548,8 @@ enum AmbientFrequencyLayer: Equatable, Sendable {
             return "\(layer.description) Sample-rate reduced ÷\(holdFactor) via zero-order hold (intentional aliasing — vintage chip emulation)."
         case .opl2FmOperator(let carrierHz, let modulatorHz, let modulationIndex, let carrierWave, let modulatorWave, let amplitude, let channelMode):
             return "OPL2 FM: \(Self.formatHz(carrierHz)) carrier (wave \(carrierWave)) × \(Self.formatHz(modulatorHz)) modulator (wave \(modulatorWave)) at index \(Self.formatDecimal(modulationIndex)), \(channelMode.rawValue), amplitude \(Self.formatDecimal(amplitude))."
+        case .retroMusic(let rootMidiNote, let scale, let chord, let pattern, let instrument, let tempoBPM, let amplitude):
+            return "Retro composer: root MIDI \(rootMidiNote), \(scale.label), \(chord.label), \(pattern.label), \(instrument.label), \(Self.formatDecimal(tempoBPM)) BPM, amplitude \(Self.formatDecimal(amplitude))."
         }
     }
 
@@ -399,7 +593,14 @@ enum AmbientFrequencyLayer: Equatable, Sendable {
         case .opl2FmOperator(let carrierHz, let modulatorHz, let modulationIndex, _, _, _, _):
             // Same Carson's rule bandwidth estimate as regular FM
             return carrierHz + 2 * (modulationIndex + 1) * modulatorHz
+        case .retroMusic(let rootMidiNote, _, _, _, _, _, _):
+            return Self.midiFrequency(rootMidiNote + 24)
         }
+    }
+
+    nonisolated static func midiFrequency(_ midiNote: Int) -> Double {
+        let clamped = min(max(midiNote, 0), 127)
+        return 440 * pow(2, (Double(clamped) - 69) / 12)
     }
 
     nonisolated private static func formatHz(_ value: Double) -> String {
@@ -744,35 +945,34 @@ struct AmbientFrequencyPreset: Identifiable, Equatable, Sendable {
 
     // MARK: - Nature Ambient (synthesized)
 
-    /// Forest canopy — bandpass-noise wind through trees + random harmonic
-    /// plucks (birds calling) + faint mid-band bird chirps.
+    /// Forest canopy — smooth filtered wind through trees + short airy
+    /// chirps. Avoids harmonic plucks here because they read as metallic.
     nonisolated static let natureForestCanopy = AmbientFrequencyPreset(
         id: "nature-forest-canopy",
         title: "Nature · Forest Canopy",
         intent: "Wind + birds in the canopy",
-        summary: "Bandpass-noise wind (200–900 Hz) + random harmonic-pluck bird calls every ~12 s.",
+        summary: "Soft filtered wind (200–900 Hz) + short airy bird chirps. Tuned away from bell-like metallic plucks.",
         requiresHeadphones: false,
         defaultDurationSeconds: 45 * 60,
         layers: [
             .bandpassNoise(
                 seed: 0xF08E_57A1_ADAA_C001,
-                amplitude: 0.18,
+                amplitude: 0.15,
                 envelope: .breath,
                 centerHz: 550,
                 bandwidthHz: 700,
-                harmonicCount: 28
+                harmonicCount: 20
             ),
-            .harmonicPluck(
-                fundamentalHz: 1320,
-                amplitude: 0.07,
-                harmonicCount: 4,
-                decaySeconds: 0.6,
-                intervalSeconds: 12,
-                jitterSeconds: 8,
-                startOffsetSeconds: 6,
-                seed: 0xB18D_CA11_5F08_E575
+            .chirp(
+                centerHz: 1850,
+                sweepHz: 900,
+                amplitude: 0.032,
+                durationSeconds: 0.14,
+                intervalSeconds: 13,
+                startOffsetSeconds: 5,
+                harmonicBlend: 0.04
             ),
-            .pinkNoise(seed: 0x91AA_BACA_F08E_5755, amplitude: 0.05, envelope: .breath),
+            .pinkNoise(seed: 0x91AA_BACA_F08E_5755, amplitude: 0.045, envelope: .breath),
         ]
     )
 
@@ -1401,10 +1601,10 @@ struct AmbientFrequencySoundModule: Identifiable, Equatable, Sendable {
         id: "nature-birds-chirping",
         title: "Birds chirping",
         category: .nature,
-        summary: "Random harmonic-pluck bird calls at 1320 Hz with 4 harmonics, triggered every 8-20 s.",
+        summary: "Short airy chirps with a light sweep, tuned away from metallic bell/pluck artifacts.",
         layers: [
-            .harmonicPluck(fundamentalHz: 1320, amplitude: 0.07, harmonicCount: 4, decaySeconds: 0.6, intervalSeconds: 12, jitterSeconds: 8, startOffsetSeconds: 6, seed: 0xB18D_CA11_CB18_D5AB),
-            .harmonicPluck(fundamentalHz: 1760, amplitude: 0.05, harmonicCount: 4, decaySeconds: 0.5, intervalSeconds: 18, jitterSeconds: 11, startOffsetSeconds: 14, seed: 0xB18D_C811_CB18_DAA8),
+            .chirp(centerHz: 1_850, sweepHz: 850, amplitude: 0.035, durationSeconds: 0.12, intervalSeconds: 11, startOffsetSeconds: 4, harmonicBlend: 0.03),
+            .chirp(centerHz: 2_450, sweepHz: 1_150, amplitude: 0.026, durationSeconds: 0.10, intervalSeconds: 17, startOffsetSeconds: 12, harmonicBlend: 0.02),
         ]
     )
 
@@ -1412,9 +1612,9 @@ struct AmbientFrequencySoundModule: Identifiable, Equatable, Sendable {
         id: "nature-gentle-rain",
         title: "Gentle rain",
         category: .nature,
-        summary: "Mid-density bandpass noise centered 2 kHz ± 1.5 kHz. Light steady rain.",
+        summary: "Soft filtered rain bed centered near 2 kHz. Smoother, less metallic than the old sine-stack rain.",
         layers: [
-            .bandpassNoise(seed: 0xCAFE_8A1E_CAFE_8A18, amplitude: 0.14, envelope: .breath, centerHz: 2000, bandwidthHz: 3000, harmonicCount: 28),
+            .bandpassNoise(seed: 0xCAFE_8A1E_CAFE_8A18, amplitude: 0.12, envelope: .breath, centerHz: 2000, bandwidthHz: 3000, harmonicCount: 18),
         ]
     )
 
@@ -1422,9 +1622,9 @@ struct AmbientFrequencySoundModule: Identifiable, Equatable, Sendable {
         id: "nature-heavy-rain",
         title: "Heavy rain",
         category: .nature,
-        summary: "High-density bandpass noise + brown rumble. Driving rain texture.",
+        summary: "Dense filtered rain + brown rumble. Driving rain texture without hard ringing partials.",
         layers: [
-            .bandpassNoise(seed: 0xFACE_BABE_FACE_BABE, amplitude: 0.18, envelope: .breath, centerHz: 2200, bandwidthHz: 4000, harmonicCount: 42),
+            .bandpassNoise(seed: 0xFACE_BABE_FACE_BABE, amplitude: 0.15, envelope: .breath, centerHz: 2200, bandwidthHz: 4000, harmonicCount: 24),
             .brownNoise(seed: 0xBAAD_C0DE_BAAD_C0DE, amplitude: 0.06, envelope: .breath),
         ]
     )
@@ -1639,25 +1839,123 @@ enum AmbientFrequencySoundModuleCategory: String, CaseIterable, Sendable, Identi
     nonisolated var id: String { rawValue }
 }
 
+struct AmbientFrequencyLayerMixControl: Codable, Equatable, Sendable {
+    var volume: Double
+    var pan: Double
+    var distortion: Double
+    var delaySend: Double
+    var delayTimeSeconds: Double
+    var delayFeedback: Double
+    var spaceSend: Double
+    var tone: Double
+
+    nonisolated static let neutral = AmbientFrequencyLayerMixControl(
+        volume: 1,
+        pan: 0,
+        distortion: 0,
+        delaySend: 0,
+        delayTimeSeconds: 0.32,
+        delayFeedback: 0.28,
+        spaceSend: 0,
+        tone: 0
+    )
+
+    nonisolated init(
+        volume: Double,
+        pan: Double,
+        distortion: Double,
+        delaySend: Double = 0,
+        delayTimeSeconds: Double = 0.32,
+        delayFeedback: Double = 0.28,
+        spaceSend: Double = 0,
+        tone: Double = 0
+    ) {
+        self.volume = volume
+        self.pan = pan
+        self.distortion = distortion
+        self.delaySend = delaySend
+        self.delayTimeSeconds = delayTimeSeconds
+        self.delayFeedback = delayFeedback
+        self.spaceSend = spaceSend
+        self.tone = tone
+    }
+
+    nonisolated var sanitized: AmbientFrequencyLayerMixControl {
+        AmbientFrequencyLayerMixControl(
+            volume: Self.clamped(volume, lower: 0, upper: 2),
+            pan: Self.clamped(pan, lower: -1, upper: 1),
+            distortion: Self.clamped(distortion, lower: 0, upper: 1),
+            delaySend: Self.clamped(delaySend, lower: 0, upper: 1),
+            delayTimeSeconds: Self.clamped(delayTimeSeconds, lower: 0.05, upper: 1.5),
+            delayFeedback: Self.clamped(delayFeedback, lower: 0, upper: 0.85),
+            spaceSend: Self.clamped(spaceSend, lower: 0, upper: 1),
+            tone: Self.clamped(tone, lower: -1, upper: 1)
+        )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case volume
+        case pan
+        case distortion
+        case delaySend
+        case delayTimeSeconds
+        case delayFeedback
+        case spaceSend
+        case tone
+    }
+
+    nonisolated init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        volume = try container.decodeIfPresent(Double.self, forKey: .volume) ?? Self.neutral.volume
+        pan = try container.decodeIfPresent(Double.self, forKey: .pan) ?? Self.neutral.pan
+        distortion = try container.decodeIfPresent(Double.self, forKey: .distortion) ?? Self.neutral.distortion
+        delaySend = try container.decodeIfPresent(Double.self, forKey: .delaySend) ?? Self.neutral.delaySend
+        delayTimeSeconds = try container.decodeIfPresent(Double.self, forKey: .delayTimeSeconds) ?? Self.neutral.delayTimeSeconds
+        delayFeedback = try container.decodeIfPresent(Double.self, forKey: .delayFeedback) ?? Self.neutral.delayFeedback
+        spaceSend = try container.decodeIfPresent(Double.self, forKey: .spaceSend) ?? Self.neutral.spaceSend
+        tone = try container.decodeIfPresent(Double.self, forKey: .tone) ?? Self.neutral.tone
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(volume, forKey: .volume)
+        try container.encode(pan, forKey: .pan)
+        try container.encode(distortion, forKey: .distortion)
+        try container.encode(delaySend, forKey: .delaySend)
+        try container.encode(delayTimeSeconds, forKey: .delayTimeSeconds)
+        try container.encode(delayFeedback, forKey: .delayFeedback)
+        try container.encode(spaceSend, forKey: .spaceSend)
+        try container.encode(tone, forKey: .tone)
+    }
+
+    nonisolated private static func clamped(_ value: Double, lower: Double, upper: Double) -> Double {
+        guard value.isFinite else { return lower }
+        return min(max(value, lower), upper)
+    }
+}
+
 struct AmbientFrequencyExportRequest: Sendable {
     var preset: AmbientFrequencyPreset
     var durationSeconds: Double
     var sampleRate: Int
     var outputURL: URL
     var chunkFrames: Int
+    var layerControls: [AmbientFrequencyLayerMixControl]
 
     init(
         preset: AmbientFrequencyPreset,
         durationSeconds: Double,
         sampleRate: Int = AmbientFrequencyAudioGenerator.defaultSampleRate,
         outputURL: URL,
-        chunkFrames: Int = 16_384
+        chunkFrames: Int = 16_384,
+        layerControls: [AmbientFrequencyLayerMixControl] = []
     ) {
         self.preset = preset
         self.durationSeconds = durationSeconds
         self.sampleRate = sampleRate
         self.outputURL = outputURL
         self.chunkFrames = chunkFrames
+        self.layerControls = layerControls
     }
 }
 
@@ -1718,7 +2016,8 @@ enum AmbientFrequencyAudioGenerator {
             preset: request.preset,
             frames: frames,
             sampleRate: request.sampleRate,
-            chunkFrames: request.chunkFrames
+            chunkFrames: request.chunkFrames,
+            layerControls: request.layerControls
         )
         guard peakBeforeNormalization > 0 else {
             throw AmbientFrequencyAudioGeneratorError.emptySignal
@@ -1820,7 +2119,8 @@ enum AmbientFrequencyAudioGenerator {
         preset: AmbientFrequencyPreset,
         frames: Int,
         sampleRate: Int,
-        chunkFrames: Int
+        chunkFrames: Int,
+        layerControls: [AmbientFrequencyLayerMixControl]
     ) -> Double {
         var peak: Double = 0
         var frameStart = 0
@@ -1832,7 +2132,8 @@ enum AmbientFrequencyAudioGenerator {
                     preset: preset,
                     frame: frame,
                     totalFrames: frames,
-                    sampleRate: sampleRate
+                    sampleRate: sampleRate,
+                    layerControls: layerControls
                 )
                 peak = max(peak, abs(sample.left), abs(sample.right))
             }
@@ -1882,7 +2183,8 @@ enum AmbientFrequencyAudioGenerator {
                     preset: request.preset,
                     frame: frame,
                     totalFrames: frames,
-                    sampleRate: request.sampleRate
+                    sampleRate: request.sampleRate,
+                    layerControls: request.layerControls
                 )
                 let writeIndex = offset * channelCount
                 interleaved[writeIndex] = Float(sample.left * gain)
@@ -1917,32 +2219,100 @@ enum AmbientFrequencyAudioGenerator {
         return data
     }
 
-    nonisolated private static func samplePair(
+    nonisolated static func samplePair(
         preset: AmbientFrequencyPreset,
         frame: Int,
         totalFrames: Int,
-        sampleRate: Int
+        sampleRate: Int,
+        layerControls: [AmbientFrequencyLayerMixControl] = []
     ) -> (left: Double, right: Double) {
         let time = Double(frame) / Double(sampleRate)
         var left: Double = 0
         var right: Double = 0
 
-        for layer in preset.layers {
-            let sample = layerSample(
+        for (index, layer) in preset.layers.enumerated() {
+            let control = index < layerControls.count ? layerControls[index] : .neutral
+            let mixed = mixedLayerSample(
                 layer,
+                control: control,
                 time: time,
                 frame: frame,
                 sampleRate: sampleRate
             )
-            left += sample.left
-            right += sample.right
+            left += mixed.left
+            right += mixed.right
         }
 
         let envelope = globalFade(frame: frame, totalFrames: totalFrames, sampleRate: sampleRate)
         return (left * envelope, right * envelope)
     }
 
-    nonisolated private static func layerSample(
+    nonisolated static func mixedLayerSample(
+        _ layer: AmbientFrequencyLayer,
+        control: AmbientFrequencyLayerMixControl,
+        time: Double,
+        frame: Int,
+        sampleRate: Int
+    ) -> (left: Double, right: Double) {
+        let control = control.sanitized
+        let dry = postFaderLayerSample(
+            layer,
+            control: control,
+            time: time,
+            frame: frame,
+            sampleRate: sampleRate
+        )
+        var left = dry.left
+        var right = dry.right
+
+        if control.delaySend > 0 {
+            let delayFrames = max(1, Int((control.delayTimeSeconds * Double(sampleRate)).rounded()))
+            for tap in 1...3 {
+                let delayedFrame = frame - delayFrames * tap
+                guard delayedFrame >= 0 else { continue }
+                let delayedTime = Double(delayedFrame) / Double(sampleRate)
+                let tapGain = control.delaySend * pow(control.delayFeedback, Double(tap - 1))
+                guard tapGain > 0.0001 else { continue }
+                let tapSample = postFaderLayerSample(
+                    layer,
+                    control: control,
+                    time: delayedTime,
+                    frame: delayedFrame,
+                    sampleRate: sampleRate
+                )
+                left += tapSample.left * tapGain
+                right += tapSample.right * tapGain
+            }
+        }
+
+        if control.spaceSend > 0 {
+            let spaceTaps: [(delaySeconds: Double, gain: Double)] = [
+                (0.029, 0.42),
+                (0.043, 0.31),
+                (0.071, 0.23),
+                (0.113, 0.16),
+            ]
+            for tap in spaceTaps {
+                let delayedFrame = frame - max(1, Int((tap.delaySeconds * Double(sampleRate)).rounded()))
+                guard delayedFrame >= 0 else { continue }
+                let delayedTime = Double(delayedFrame) / Double(sampleRate)
+                let tapSample = postFaderLayerSample(
+                    layer,
+                    control: control,
+                    time: delayedTime,
+                    frame: delayedFrame,
+                    sampleRate: sampleRate
+                )
+                let tapGain = control.spaceSend * tap.gain
+                left += tapSample.left * tapGain
+                right += tapSample.right * tapGain
+            }
+        }
+
+        return (left, right)
+    }
+
+    nonisolated static func layerSample(
         _ layer: AmbientFrequencyLayer,
         time: Double,
         frame: Int,
@@ -2025,9 +2395,10 @@ enum AmbientFrequencyAudioGenerator {
             let value = amplitude * envelope.value(at: time) * brownNoiseValue(seed: seed, frame: frame)
             return (value, value)
         case .bandpassNoise(let seed, let amplitude, let envelope, let centerHz, let bandwidthHz, let harmonicCount):
-            let value = amplitude * envelope.value(at: time) * bandpassNoiseValue(
+            let value = amplitude * envelope.value(at: time) * smoothBandpassNoiseValue(
                 seed: seed,
-                time: time,
+                frame: frame,
+                sampleRate: sampleRate,
                 centerHz: centerHz,
                 bandwidthHz: bandwidthHz,
                 harmonicCount: max(1, harmonicCount)
@@ -2102,7 +2473,84 @@ enum AmbientFrequencyAudioGenerator {
             let carrierPhase = carrierHz * time + modulationIndex * modulatorOutput / (2 * .pi)
             let value = amplitude * opl2Waveform(phase: carrierPhase, waveform: carrierWave)
             return channelMode == .stereo ? (value, value) : (value, 0)
+        case .retroMusic(let rootMidiNote, let scale, let chord, let pattern, let instrument, let tempoBPM, let amplitude):
+            let value = retroMusicSample(
+                rootMidiNote: rootMidiNote,
+                scale: scale,
+                chord: chord,
+                pattern: pattern,
+                instrument: instrument,
+                tempoBPM: tempoBPM,
+                amplitude: amplitude,
+                time: time
+            )
+            return (value, value)
         }
+    }
+
+    nonisolated private static func postFaderLayerSample(
+        _ layer: AmbientFrequencyLayer,
+        control: AmbientFrequencyLayerMixControl,
+        time: Double,
+        frame: Int,
+        sampleRate: Int
+    ) -> (left: Double, right: Double) {
+        let raw = layerSample(layer, time: time, frame: frame, sampleRate: sampleRate)
+        let toned = applyTone(
+            raw,
+            layer: layer,
+            control: control,
+            time: time,
+            frame: frame,
+            sampleRate: sampleRate
+        )
+        return applyLayerMix(toned, control: control)
+    }
+
+    nonisolated private static func applyTone(
+        _ current: (left: Double, right: Double),
+        layer: AmbientFrequencyLayer,
+        control: AmbientFrequencyLayerMixControl,
+        time: Double,
+        frame: Int,
+        sampleRate: Int
+    ) -> (left: Double, right: Double) {
+        let amount = control.sanitized.tone
+        guard abs(amount) > 0.001, frame > 0 else {
+            return current
+        }
+        let previousFrame = frame - 1
+        let previousTime = max(0, time - 1 / Double(sampleRate))
+        let previous = layerSample(
+            layer,
+            time: previousTime,
+            frame: previousFrame,
+            sampleRate: sampleRate
+        )
+        return (
+            left: toneSample(current.left, previous: previous.left, amount: amount),
+            right: toneSample(current.right, previous: previous.right, amount: amount)
+        )
+    }
+
+    nonisolated private static func toneSample(_ sample: Double, previous: Double, amount: Double) -> Double {
+        let amount = min(max(amount, -1), 1)
+        if amount < 0 {
+            let warm = (sample + previous) * 0.5
+            return sample * (1 + amount) + warm * -amount
+        }
+        let bright = sample + (sample - previous) * 0.65
+        return sample * (1 - amount) + softClipCubic(bright) * amount
+    }
+
+    nonisolated static func applyLayerMix(
+        _ leftRight: (left: Double, right: Double),
+        control: AmbientFrequencyLayerMixControl
+    ) -> (left: Double, right: Double) {
+        let control = control.sanitized
+        let left = distort(leftRight.left * control.volume, amount: control.distortion)
+        let right = distort(leftRight.right * control.volume, amount: control.distortion)
+        return applyEqualPowerPan((left: left, right: right), pan: control.pan)
     }
 
     /// Bit-depth-quantize a sample to `bitDepth` bits using midrise
@@ -2132,6 +2580,276 @@ enum AmbientFrequencyAudioGenerator {
         }
     }
 
+    nonisolated private static func retroMusicSample(
+        rootMidiNote: Int,
+        scale: AmbientFrequencyMusicScale,
+        chord: AmbientFrequencyChordQuality,
+        pattern: AmbientFrequencyMusicPattern,
+        instrument: AmbientFrequencyRetroInstrument,
+        tempoBPM: Double,
+        amplitude: Double,
+        time: Double
+    ) -> Double {
+        guard time.isFinite else { return 0 }
+        let tempo = min(max(tempoBPM.isFinite ? tempoBPM : 96, 40), 220)
+        let level = min(max(amplitude.isFinite ? amplitude : 0.1, 0), 0.5)
+        guard level > 0 else { return 0 }
+
+        let stepDuration = 30 / tempo
+        let safeTime = max(0, time)
+        let stepIndex = max(0, Int(floor(safeTime / stepDuration)))
+        let localTime = safeTime - Double(stepIndex) * stepDuration
+        let notes = retroMusicNoteSet(
+            rootMidiNote: rootMidiNote,
+            scale: scale,
+            chord: chord,
+            pattern: pattern,
+            stepIndex: stepIndex
+        )
+        guard notes.count > 0 else { return 0 }
+
+        let gate = retroMusicGate(localTime: localTime, stepDuration: stepDuration)
+        var sum = 0.0
+        for index in 0..<notes.count {
+            let note = note(in: notes, at: index)
+            sum += retroInstrumentSample(
+                instrument: instrument,
+                frequencyHz: AmbientFrequencyLayer.midiFrequency(note),
+                time: safeTime,
+                localTime: localTime,
+                stepDuration: stepDuration
+            )
+        }
+        return level * gate * sum / Double(notes.count).squareRoot()
+    }
+
+    nonisolated private static func retroMusicNoteSet(
+        rootMidiNote: Int,
+        scale: AmbientFrequencyMusicScale,
+        chord: AmbientFrequencyChordQuality,
+        pattern: AmbientFrequencyMusicPattern,
+        stepIndex: Int
+    ) -> (a: Int, b: Int, c: Int, d: Int, count: Int) {
+        switch pattern {
+        case .arpUp:
+            let count = chordIntervalCount(chord)
+            return (rootMidiNote + chordInterval(chord, index: stepIndex % count), 0, 0, 0, 1)
+        case .arpDown:
+            let count = chordIntervalCount(chord)
+            let index = (count - 1) - (stepIndex % count)
+            return (rootMidiNote + chordInterval(chord, index: index), 0, 0, 0, 1)
+        case .chordPulse:
+            guard stepIndex % 2 == 0 else { return (0, 0, 0, 0, 0) }
+            return chordNoteSet(rootMidiNote: rootMidiNote, chord: chord)
+        case .bassWalk:
+            let degree = bassWalkDegree(stepIndex)
+            return (scaleNote(rootMidiNote: rootMidiNote - 12, scale: scale, degree: degree), 0, 0, 0, 1)
+        case .melodyWander:
+            let degree = melodyDegree(stepIndex)
+            return (scaleNote(rootMidiNote: rootMidiNote, scale: scale, degree: degree), 0, 0, 0, 1)
+        case .triadBounce:
+            let index = triadBounceIndex(stepIndex)
+            let octave = index == 3 ? 12 : 0
+            return (rootMidiNote + chordInterval(chord, index: index % chordIntervalCount(chord)) + octave, 0, 0, 0, 1)
+        case .chipSong:
+            let lead = scaleNote(rootMidiNote: rootMidiNote, scale: scale, degree: melodyDegree(stepIndex))
+            if stepIndex % 4 == 0 {
+                return (rootMidiNote - 12, lead, 0, 0, 2)
+            }
+            return (lead, 0, 0, 0, 1)
+        }
+    }
+
+    nonisolated private static func chordNoteSet(
+        rootMidiNote: Int,
+        chord: AmbientFrequencyChordQuality
+    ) -> (a: Int, b: Int, c: Int, d: Int, count: Int) {
+        let count = chordIntervalCount(chord)
+        let a = rootMidiNote + chordInterval(chord, index: 0)
+        let b = rootMidiNote + chordInterval(chord, index: 1)
+        let c = rootMidiNote + chordInterval(chord, index: 2)
+        let d = count > 3 ? rootMidiNote + chordInterval(chord, index: 3) : 0
+        return (a, b, c, d, min(count, 4))
+    }
+
+    nonisolated private static func note(
+        in notes: (a: Int, b: Int, c: Int, d: Int, count: Int),
+        at index: Int
+    ) -> Int {
+        switch index {
+        case 0: return notes.a
+        case 1: return notes.b
+        case 2: return notes.c
+        default: return notes.d
+        }
+    }
+
+    nonisolated private static func scaleNote(
+        rootMidiNote: Int,
+        scale: AmbientFrequencyMusicScale,
+        degree: Int
+    ) -> Int {
+        let count = scaleDegreeCount(scale)
+        var octave = degree / count
+        var index = degree % count
+        if index < 0 {
+            index += count
+            octave -= 1
+        }
+        return rootMidiNote + octave * 12 + scaleSemitone(scale, index: index)
+    }
+
+    nonisolated private static func scaleDegreeCount(_ scale: AmbientFrequencyMusicScale) -> Int {
+        switch scale {
+        case .major, .naturalMinor, .dorian, .phrygian, .lydian, .mixolydian, .harmonicMinor:
+            return 7
+        case .minorPentatonic:
+            return 5
+        case .blues, .wholeTone:
+            return 6
+        }
+    }
+
+    nonisolated private static func scaleSemitone(_ scale: AmbientFrequencyMusicScale, index: Int) -> Int {
+        switch scale {
+        case .major:
+            switch index { case 0: return 0; case 1: return 2; case 2: return 4; case 3: return 5; case 4: return 7; case 5: return 9; default: return 11 }
+        case .naturalMinor:
+            switch index { case 0: return 0; case 1: return 2; case 2: return 3; case 3: return 5; case 4: return 7; case 5: return 8; default: return 10 }
+        case .dorian:
+            switch index { case 0: return 0; case 1: return 2; case 2: return 3; case 3: return 5; case 4: return 7; case 5: return 9; default: return 10 }
+        case .phrygian:
+            switch index { case 0: return 0; case 1: return 1; case 2: return 3; case 3: return 5; case 4: return 7; case 5: return 8; default: return 10 }
+        case .lydian:
+            switch index { case 0: return 0; case 1: return 2; case 2: return 4; case 3: return 6; case 4: return 7; case 5: return 9; default: return 11 }
+        case .mixolydian:
+            switch index { case 0: return 0; case 1: return 2; case 2: return 4; case 3: return 5; case 4: return 7; case 5: return 9; default: return 10 }
+        case .harmonicMinor:
+            switch index { case 0: return 0; case 1: return 2; case 2: return 3; case 3: return 5; case 4: return 7; case 5: return 8; default: return 11 }
+        case .minorPentatonic:
+            switch index { case 0: return 0; case 1: return 3; case 2: return 5; case 3: return 7; default: return 10 }
+        case .blues:
+            switch index { case 0: return 0; case 1: return 3; case 2: return 5; case 3: return 6; case 4: return 7; default: return 10 }
+        case .wholeTone:
+            switch index { case 0: return 0; case 1: return 2; case 2: return 4; case 3: return 6; case 4: return 8; default: return 10 }
+        }
+    }
+
+    nonisolated private static func chordIntervalCount(_ chord: AmbientFrequencyChordQuality) -> Int {
+        switch chord {
+        case .dominant7, .major7, .minor7, .diminished:
+            return 4
+        case .power, .major, .minor, .sus2, .sus4, .augmented:
+            return 3
+        }
+    }
+
+    nonisolated private static func chordInterval(_ chord: AmbientFrequencyChordQuality, index: Int) -> Int {
+        switch chord {
+        case .power:
+            switch index { case 0: return 0; case 1: return 7; default: return 12 }
+        case .major:
+            switch index { case 0: return 0; case 1: return 4; default: return 7 }
+        case .minor:
+            switch index { case 0: return 0; case 1: return 3; default: return 7 }
+        case .sus2:
+            switch index { case 0: return 0; case 1: return 2; default: return 7 }
+        case .sus4:
+            switch index { case 0: return 0; case 1: return 5; default: return 7 }
+        case .dominant7:
+            switch index { case 0: return 0; case 1: return 4; case 2: return 7; default: return 10 }
+        case .major7:
+            switch index { case 0: return 0; case 1: return 4; case 2: return 7; default: return 11 }
+        case .minor7:
+            switch index { case 0: return 0; case 1: return 3; case 2: return 7; default: return 10 }
+        case .diminished:
+            switch index { case 0: return 0; case 1: return 3; case 2: return 6; default: return 9 }
+        case .augmented:
+            switch index { case 0: return 0; case 1: return 4; default: return 8 }
+        }
+    }
+
+    nonisolated private static func bassWalkDegree(_ stepIndex: Int) -> Int {
+        switch stepIndex % 8 {
+        case 0: return 0
+        case 1: return 2
+        case 2: return 4
+        case 3: return 5
+        case 4: return 4
+        case 5: return 2
+        case 6: return 1
+        default: return -1
+        }
+    }
+
+    nonisolated private static func melodyDegree(_ stepIndex: Int) -> Int {
+        switch stepIndex % 8 {
+        case 0: return 0
+        case 1: return 2
+        case 2: return 4
+        case 3: return 7
+        case 4: return 6
+        case 5: return 4
+        case 6: return 2
+        default: return 1
+        }
+    }
+
+    nonisolated private static func triadBounceIndex(_ stepIndex: Int) -> Int {
+        switch stepIndex % 6 {
+        case 0: return 0
+        case 1: return 1
+        case 2: return 2
+        case 3: return 3
+        case 4: return 2
+        default: return 1
+        }
+    }
+
+    nonisolated private static func retroMusicGate(localTime: Double, stepDuration: Double) -> Double {
+        guard stepDuration > 0 else { return 0 }
+        let progress = min(max(localTime / stepDuration, 0), 1)
+        let attack = min(1, progress / 0.08)
+        let release = min(1, (1 - progress) / 0.18)
+        return min(attack, release)
+    }
+
+    nonisolated private static func retroInstrumentSample(
+        instrument: AmbientFrequencyRetroInstrument,
+        frequencyHz: Double,
+        time: Double,
+        localTime: Double,
+        stepDuration: Double
+    ) -> Double {
+        guard frequencyHz.isFinite, frequencyHz > 0 else { return 0 }
+        let phase = frequencyHz * time
+        let normalizedPhase = phase - floor(phase)
+        switch instrument {
+        case .pulse25:
+            return normalizedPhase < 0.25 ? 1 : -1
+        case .pulse50:
+            return normalizedPhase < 0.5 ? 1 : -1
+        case .triangle:
+            return (2 / .pi) * asin(sin(.tau * frequencyHz * time))
+        case .saw:
+            return 2 * (phase - floor(phase + 0.5))
+        case .fmBell:
+            let decay = exp(-localTime / max(stepDuration * 0.72, 0.001))
+            let modulator = 2.6 * sin(.tau * frequencyHz * 2.01 * time)
+            return decay * sin(.tau * frequencyHz * time + modulator)
+        case .opl2Pad:
+            let modulator = 0.75 * opl2Waveform(phase: frequencyHz * 1.5 * time, waveform: 1)
+            return opl2Waveform(phase: frequencyHz * time + modulator, waveform: 0) * 0.72
+        case .softPluck:
+            let decay = exp(-localTime / max(stepDuration * 0.52, 0.001))
+            var sum = 0.0
+            for harmonic in 1...4 {
+                sum += sin(.tau * frequencyHz * Double(harmonic) * time) / Double(harmonic * harmonic)
+            }
+            return decay * sum
+        }
+    }
+
     /// W3C Web Audio API §6.3.3 StereoPannerNode equal-power pan formula.
     /// pan ∈ [-1, +1]: -1 = full left, 0 = center (-3 dB), +1 = full right.
     /// Constant-power invariant: leftGain² + rightGain² = 1.
@@ -2144,6 +2862,20 @@ enum AmbientFrequencyAudioGenerator {
         let leftGain = cos(x * .pi / 2)
         let rightGain = sin(x * .pi / 2)
         return (leftRight.left * leftGain, leftRight.right * rightGain)
+    }
+
+    nonisolated private static func distort(_ sample: Double, amount: Double) -> Double {
+        let amount = min(max(amount.isFinite ? amount : 0, 0), 1)
+        guard amount > 0 else { return sample }
+        let drive = 1 + amount * 18
+        let wet = softClipCubic(sample * drive)
+        return sample * (1 - amount) + wet * amount
+    }
+
+    nonisolated private static func softClipCubic(_ sample: Double) -> Double {
+        if sample >= 1 { return 1 }
+        if sample <= -1 { return -1 }
+        return 1.5 * sample - 0.5 * sample * sample * sample
     }
 
     nonisolated private static func eventTone(
@@ -2306,48 +3038,68 @@ enum AmbientFrequencyAudioGenerator {
         return (w0 - 2 * w1 + w2) / 2.0
     }
 
-    /// Brown (Brownian / red / 1/f²) noise via a sliding-window average of
-    /// white noise across `windowFrames` samples. True brown noise is a
-    /// cumulative-sum random walk (stateful); this stateless approximation
-    /// gives the same -6 dB/octave perceived slope by virtue of the
-    /// time-averaging acting as a first-order lowpass.
+    /// Brown (Brownian / red / 1/f²) noise via layered value noise. The old
+    /// sliding window hit 32 hash calls per sample, which was too expensive
+    /// for live stacks; this keeps the warm slope with three smooth bands.
     nonisolated private static func brownNoiseValue(seed: UInt64, frame: Int) -> Double {
-        let windowFrames = 32
-        var sum: Double = 0
-        for offset in 0..<windowFrames {
-            sum += deterministicNoise(seed: seed, frame: frame - offset)
-        }
-        // Normalize so the output stays in [-1, 1] expected range.
-        return sum / Double(windowFrames).squareRoot()
+        let low = smoothNoiseValue(seed: seed &+ 0xB80A_0001, frame: frame, periodFrames: 96)
+        let lower = smoothNoiseValue(seed: seed &+ 0xB80A_0002, frame: frame, periodFrames: 384)
+        let floor = smoothNoiseValue(seed: seed &+ 0xB80A_0003, frame: frame, periodFrames: 1536)
+        return (0.62 * low + 0.28 * lower + 0.10 * floor) / 0.74
     }
 
-    /// Bandpass-shaped noise: sum of `harmonicCount` sines with random
-    /// frequencies sampled from `[centerHz - bandwidthHz/2,
-    /// centerHz + bandwidthHz/2]` and random phases. Mathematically equivalent
-    /// to filtering white noise through an idealized bandpass, while remaining
-    /// stateless (samples per-time, not per-frame). Use for rain on roof,
-    /// distant wind, gentle ocean surf.
-    nonisolated private static func bandpassNoiseValue(
+    /// Bandpass-shaped noise by subtracting two smoothed value-noise bands.
+    /// This avoids the old fixed sine partial bank, which could make rain,
+    /// wind, and streams ring with a metallic comb-filter character.
+    nonisolated private static func smoothBandpassNoiseValue(
         seed: UInt64,
-        time: Double,
+        frame: Int,
+        sampleRate: Int,
         centerHz: Double,
         bandwidthHz: Double,
         harmonicCount: Int
     ) -> Double {
-        var sum: Double = 0
+        let sampleRate = max(1, sampleRate)
         let lowerHz = max(0, centerHz - bandwidthHz / 2)
         let upperHz = centerHz + bandwidthHz / 2
-        let range = max(0, upperHz - lowerHz)
-        for k in 0..<harmonicCount {
-            let frequencySeed = seed &+ UInt64(k) &* 0x6789_ABCD_EF01_2345
-            let phaseSeed = seed &+ UInt64(k) &* 0xFEDC_BA98_7654_3210
-            let frequencyHz = lowerHz + range * deterministicUnit(seed: frequencySeed, frame: 0)
-            let phase = .tau * deterministicUnit(seed: phaseSeed, frame: 0)
-            sum += sin(.tau * frequencyHz * time + phase)
+        let lowCutoff = max(2, lowerHz)
+        let highCutoff = max(lowCutoff + 1, upperHz)
+        let highPeriod = periodFrames(forCutoffHz: highCutoff, sampleRate: sampleRate)
+        let lowPeriod = periodFrames(forCutoffHz: lowCutoff, sampleRate: sampleRate)
+        let density = min(max(harmonicCount, 1), 64)
+        let base = smoothNoiseValue(seed: seed, frame: frame, periodFrames: highPeriod)
+            - smoothNoiseValue(seed: seed &+ 0xBADC_0FFE_EE00_0001, frame: frame, periodFrames: lowPeriod)
+        let air = smoothNoiseValue(
+            seed: seed &+ 0xBADC_0FFE_EE00_0002,
+            frame: frame,
+            periodFrames: max(1, highPeriod / 2)
+        ) * min(0.28, Double(density) / 240)
+        return (base + air) * 0.78
+    }
+
+    nonisolated private static func periodFrames(forCutoffHz cutoffHz: Double, sampleRate: Int) -> Int {
+        guard cutoffHz.isFinite, cutoffHz > 0 else { return sampleRate }
+        return max(1, Int((Double(sampleRate) / (cutoffHz * 2)).rounded()))
+    }
+
+    nonisolated private static func smoothNoiseValue(seed: UInt64, frame: Int, periodFrames: Int) -> Double {
+        let period = max(1, periodFrames)
+        let cell = floorDiv(frame, period)
+        let cellStart = cell * period
+        let progress = Double(frame - cellStart) / Double(period)
+        let eased = progress * progress * (3 - 2 * progress)
+        let a = deterministicNoise(seed: seed, frame: cell)
+        let b = deterministicNoise(seed: seed, frame: cell + 1)
+        return a + (b - a) * eased
+    }
+
+    nonisolated private static func floorDiv(_ value: Int, _ divisor: Int) -> Int {
+        var quotient = value / divisor
+        let remainder = value % divisor
+        if remainder != 0, (remainder < 0) != (divisor < 0) {
+            quotient -= 1
         }
-        // Normalize: the sum of N unit sines with random phases has RMS √(N/2);
-        // dividing by √(N/2) keeps the output's expected amplitude ≈ 1.
-        return sum / (Double(harmonicCount) / 2).squareRoot()
+        return quotient
     }
 
     /// Cosine-edged isochronic gate. Smooths the on/off transition with a
