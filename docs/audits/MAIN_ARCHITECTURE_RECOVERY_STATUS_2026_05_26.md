@@ -113,18 +113,24 @@ Wave, and Ambient Frequency state.
 
 ### 2. Large Old Main WIP (`stash@{18}`)
 
-State: **Recovery slice required.**
+State: **Partially recovered.**
 
 This stash is likely the source of many "UI I remember having" concerns.
 
-Candidate slices:
+Recovered slice:
 
-1. Agent Command Center UX donor synthesis.
-2. Landing/session UI refinements.
-3. Editor/note UX refinements.
-4. Chat/runtime presentation.
-5. Graph/performance changes.
-6. Theme/font/physics nuance.
+1. Agent Command Center UX donor synthesis landed via PR #91. It archives the
+   donor behavior in
+   `docs/audits/STASH18_AGENT_COMMAND_CENTER_DONOR_SYNTHESIS_2026_05_26.md`
+   and guards that the old live `AgentCommandCenter` shell stays deleted.
+
+Remaining candidate slices:
+
+1. Landing/session UI refinements.
+2. Editor/note UX refinements.
+3. Chat/runtime presentation.
+4. Graph/performance changes.
+5. Theme/font/physics nuance.
 
 Important: the old `Epistemos/Views/AgentCommandCenter/*` files are not
 merge-ready. Current tests explicitly assert that the legacy Agent Command
@@ -253,8 +259,8 @@ not fully closed. The next implementation waves are:
 ### Recovery Wave - Local UI/UX Nuance
 
 - Re-promote B-prime follow-up groups from `stash@{0}`.
-- Synthesize `stash@{18}` Agent Command Center ideas into the current fused
-  composer instead of reviving the old shell.
+- Continue mining `stash@{18}` for non-shell UI refinements now that the Agent
+  Command Center donor synthesis is archived via PR #91.
 - Recover graph-filter ideas from `stash@{15}` only if they pass performance
   gates.
 - Recover T6 UI/UX polish from the donor branch under D-01.
@@ -265,8 +271,8 @@ not fully closed. The next implementation waves are:
    any missing UI controls, from `stash@{0}` / `#82`.
 2. **B-prime follow-up slice 2:** Settings truth/health-row nuance from
    `stash@{0}`.
-3. **Old main UI synthesis:** mine `stash@{18}` for Agent Command Center ideas,
-   but port them into current fused chat/landing UI.
+3. **Old main UI synthesis:** mine the remaining `stash@{18}` slices for
+   landing, editor, chat/runtime, graph, and theme nuance.
 4. **Graph WIP audit:** mine `stash@{15}` with a graph performance test gate.
 5. **VaultRecall/Eidos visibility:** mine `stash@{3}` and `stash@{6}` after the
    current provenance path is stable.
