@@ -305,7 +305,7 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(abs(state.simpleOpeningDelaySeconds - GraphOverlayPhysicsPolicy.chaosDelaySeconds) < 0.0001)
         #expect(state.simpleRestingPresetKey == GraphOverlayPhysicsPolicy.restingPresetKey)
         #expect(signature == GraphOverlayPhysicsPolicy.defaultTimelineSignature.map { "\($0.0):\($0.1)" })
-        #expect(UserDefaults.standard.integer(forKey: "epistemos.physics.schedulerDefaultsVersion") == 2)
+        #expect(UserDefaults.standard.integer(forKey: "epistemos.physics.schedulerDefaultsVersion") == 3)
     }
 
     @Test("custom scheduler survives the default-schedule migration")
@@ -328,7 +328,7 @@ struct GraphPhysicsSettingsAuditTests {
         let signature = timelineSignature(state.timelineSteps)
 
         #expect(signature == customSteps.map { "\($0.delaySeconds):\($0.presetKey)" })
-        #expect(UserDefaults.standard.integer(forKey: "epistemos.physics.schedulerDefaultsVersion") == 2)
+        #expect(UserDefaults.standard.integer(forKey: "epistemos.physics.schedulerDefaultsVersion") == 3)
     }
 
     @Test("Semantic clustering defaults off without saved settings")

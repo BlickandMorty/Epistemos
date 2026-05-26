@@ -1589,30 +1589,26 @@ final class GraphState {
     // extended via graph_engine_set_extended_force_params().
 
     // ── Core ──
-    // 2026-05-19 user-spec defaults (replaced the legacy dense-graph
-    // tuning): spacious link distance, strong long-range repulsion,
-    // 0-auto link strength, no center pull, no collision buffer, high
-    // friction.
+    // 2026-05-12 refined defaults: Gravity Well is the canonical boot
+    // preset, with a max link distance and no center/fluid wake so the
+    // graph opens compact and snappy instead of drifting.
     /// Natural resting length of edge springs.
-    var linkDistance: Float = 250.0
+    var linkDistance: Float = 500.0
     /// Many-body charge strength (negative = repulsion).
-    var chargeStrength: Float = -3000.0
+    var chargeStrength: Float = PhysicsPreset.gravityWell.chargeStrength
     /// Maximum range for many-body repulsion.
-    var chargeRange: Float = 100.0
+    var chargeRange: Float = PhysicsPreset.gravityWell.chargeRange
     /// Link spring strength. 0 = auto (d3: 1 / min(degree)).
-    var linkStrength: Float = 0.0
+    var linkStrength: Float = PhysicsPreset.gravityWell.linkStrength
 
     // ── Extended ──
     /// Velocity retain multiplier (d3: 0.6 = retain 60% per tick).
-    /// 2026-05-19 user spec: friction 0.80.
-    var velocityDecay: Float = 0.80
-    /// Center gravity pull strength. 2026-05-19 user spec: 0 (off).
+    var velocityDecay: Float = PhysicsPreset.gravityWell.velocityDecay
+    /// Center gravity pull strength. Canonical boot override: 0 (off).
     var centerStrength: Float = 0.0
-    /// Collision buffer zone in pixels. 2026-05-19 user spec: 0 (no
-    /// extra node spacing — relies on charge repulsion to keep nodes
-    /// apart).
-    var collisionRadius: Float = 0.0
-    private(set) var selectedPhysicsPreset: PhysicsPreset?
+    /// Collision buffer zone in pixels.
+    var collisionRadius: Float = PhysicsPreset.gravityWell.collisionRadius
+    private(set) var selectedPhysicsPreset: PhysicsPreset? = .gravityWell
 
     /// Incremented whenever a force slider changes, so the Metal view can detect it.
     var forceConfigVersion: Int = 0
@@ -1688,9 +1684,9 @@ final class GraphState {
     }
 
     // ── Laboratory (advanced physics toggles + knobs) ──
-    // 2026-05-19 user-spec defaults: experimental fluid wake physics ON
-    // with viscosity 0.30.
-    var enableFluidDynamics: Bool = true
+    // Canonical boot default keeps experimental fluid wake off. Users can
+    // still enable it from Graph settings.
+    var enableFluidDynamics: Bool = false
     var enableTorsionalSprings: Bool = false
     var enableElasticEdges: Bool = true
     var fluidViscosity: Float = 0.30
@@ -1836,19 +1832,19 @@ final class GraphState {
         if let raw = d.string(forKey: "epistemos.physics.selectedPreset") {
             selectedPhysicsPreset = PhysicsPreset(rawValue: raw)
         } else {
-            // 2026-05-19 — per user direction, boot defaults are the
-            // inline values declared above (NOT a preset). Presets only
-            // become active when the user explicitly picks one in the
-            // floating-toolbar Shape settings. We persist the inline
-            // values so first launch matches subsequent launches
-            // byte-identically.
-            //   linkDistance      = 250, chargeStrength = -3000,
-            //   chargeRange       = 100, linkStrength   = 0 (auto),
-            //   velocityDecay     = 0.80 (friction),
-            //   centerStrength    = 0 (center force off),
-            //   collisionRadius   = 0 (no spacing),
-            //   enableFluidDynamics = true, fluidViscosity = 0.30,
-            //   useSemanticClustering = false.
+            // First launch after the V3 reset lands on Gravity Well plus
+            // explicit overrides: linkDistance max, center force off,
+            // fluid wake off. Persist that state so subsequent launches
+            // are byte-identical.
+            selectedPhysicsPreset = .gravityWell
+            linkDistance = 500.0
+            chargeStrength = PhysicsPreset.gravityWell.chargeStrength
+            chargeRange = PhysicsPreset.gravityWell.chargeRange
+            linkStrength = PhysicsPreset.gravityWell.linkStrength
+            velocityDecay = PhysicsPreset.gravityWell.velocityDecay
+            centerStrength = 0.0
+            collisionRadius = PhysicsPreset.gravityWell.collisionRadius
+            enableFluidDynamics = false
             d.set(linkDistance, forKey: "epistemos.physics.linkDistance")
             d.set(chargeStrength, forKey: "epistemos.physics.chargeStrength")
             d.set(chargeRange, forKey: "epistemos.physics.chargeRange")
@@ -1858,6 +1854,7 @@ final class GraphState {
             d.set(collisionRadius, forKey: "epistemos.physics.collisionRadius")
             d.set(enableFluidDynamics, forKey: "epistemos.physics.enableFluid")
             d.set(fluidViscosity, forKey: "epistemos.physics.fluidViscosity")
+            d.set(PhysicsPreset.gravityWell.rawValue, forKey: "epistemos.physics.selectedPreset")
         }
         // Master toggle + saved strengths
         if d.object(forKey: "epistemos.physics.savedClusterStrength") != nil {
