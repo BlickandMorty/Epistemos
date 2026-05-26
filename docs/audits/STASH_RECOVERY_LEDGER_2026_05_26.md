@@ -32,8 +32,11 @@ Current main checkpoint before this ledger:
 
 ## Recovery Priority
 
-1. `stash@{13}`, `stash@{14}`, `stash@{8}`, `stash@{9}` - substrate/research
-    nuances, recover after UI and graph-visible work.
+No active product-recovery stash rows remain.
+
+The remaining stashes are preserved as historical donor references or generated
+build churn. Future work should dispatch from the named architecture backlog
+(Wave 3/Wave 4/deferred codewords), not by replaying stale stash trees.
 
 Closed but preserved:
 
@@ -41,10 +44,24 @@ Closed but preserved:
   `docs/audits/B_PRIME_FOLLOWUP_CLOSEOUT_2026_05_26.md`; keep the stash/tag/PR
   only as a preservation reference until the user approves retiring old recovery
   refs.
+- `stash@{2}` and `stash@{5}` - Terminal E ACS docs/product-lane WIP. Current
+  product recovery is closed by
+  `docs/audits/STASH_SUBSTRATE_RESEARCH_QUEUE_CLOSEOUT_2026_05_26.md`; keep
+  only as ACS history.
+- `stash@{7}` - ambient/settings/voice/app-shell donor. Current product recovery
+  is closed by `docs/audits/STASH7_VOICE_INPUT_SERVICE_RECOVERY_2026_05_26.md`,
+  `docs/audits/STASH7_AMBIENT_SETTINGS_SUPERSESSION_2026_05_26.md`, and
+  `docs/audits/STASH_SUBSTRATE_RESEARCH_QUEUE_CLOSEOUT_2026_05_26.md`.
+- `stash@{8}`, `stash@{9}`, `stash@{13}`, and `stash@{14}` -
+  substrate/research donor stashes. Current product recovery is closed by
+  `docs/audits/STASH_SUBSTRATE_RESEARCH_QUEUE_CLOSEOUT_2026_05_26.md`; the
+  useful F-ULP, macaroon capability, ACS module exposure, and lattice/WBO pieces
+  are already represented on current `main`.
 - `stash@{18}` - large old-main UI/UX donor. Current product UI/UX recovery is
-  closed by `docs/audits/STASH18_AGENT_COMMAND_CENTER_DONOR_SYNTHESIS_2026_05_26.md`
-  and `docs/audits/STASH18_UI_UX_CLOSEOUT_2026_05_26.md`; keep the stash only as
-  a historical donor reference.
+  closed by `docs/audits/STASH18_AGENT_COMMAND_CENTER_DONOR_SYNTHESIS_2026_05_26.md`,
+  `docs/audits/STASH18_UI_UX_CLOSEOUT_2026_05_26.md`, and
+  `docs/audits/STASH_SUBSTRATE_RESEARCH_QUEUE_CLOSEOUT_2026_05_26.md`; keep the
+  stash only as a historical donor reference.
 - `stash@{15}` - graph filter/physics selected-expansion WIP. Current product
   graph recovery is closed by
   `docs/audits/STASH15_SELECTED_NEIGHBOR_EXPANSION_2026_05_26.md` and
@@ -132,11 +149,13 @@ Classification: generated build churn only. No product recovery needed.
 Message:
 `On phase2-terminal-e-acs-gate-2026-05-24: terminal-e-rev2-docs-before-fresh-main-2026-05-24`
 
-Classification: mostly merged. One missing doc may be useful:
+Classification: closed for current product recovery; keep as ACS history.
 
-- `docs/audits/BLOCKER_ACS_ADMISSION_XCODE_VERIFICATION_2026_05_24.md`
+Closeout:
 
-Recover only if the blocker history is still useful for architecture trace.
+- Current `main` already carries the useful ACS production-gate docs, including
+  the resolved anchor-addressing decision and the blocker history. See
+  `docs/audits/STASH_SUBSTRATE_RESEARCH_QUEUE_CLOSEOUT_2026_05_26.md`.
 
 ### `stash@{3}` - auto-pre-pull after PR #72
 
@@ -166,20 +185,19 @@ Classification: generated/no actionable product diff found in filtered audit.
 Message:
 `On phase2-terminal-e-acs-gate-2026-05-24: terminal-e-pre-main-2026-05-24-rev2`
 
-Classification: likely mostly superseded by PR `#72`, but contains ACS docs and
-tests that need comparison before retirement.
+Classification: closed for current product recovery; keep as Terminal E history.
 
-Differs from main:
+Closeout:
 
-- `Epistemos/Views/Settings/ACSAdmissionHealthRow.swift`
-- `EpistemosTests/CloudKnowledgeDistillationTests.swift`
-- `EpistemosTests/SearchFusionHealthRowTests.swift`
-- `agent_core/src/agent_runtime_v2/mission_run.rs`
-- `agent_core/src/agent_runtime_v2/mod.rs`
-- `docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md`
-- untracked docs:
-  `ACS_ADMISSION_PRODUCTION_GATE_2026_05_24.md`,
-  `DECISION_NEEDED_ACS_ANCHOR_ADDRESSING_2026_05_24.md`
+- ACS product wiring is already on current `main`: `ACSRunEventLogSink`,
+  `MissionRun::admit_and_record_tool_call`, `SCOPERexAdmissionProof`, and
+  `CSISafeguard` before distillation persistence.
+- The stale stash posture that would flip the Settings row green is not
+  restored. Current `ACSAdmissionHealthRow` stays honest with
+  `substrate-only · gate not witnessed` until a production admission witness is
+  observed and the canonical anchor-addressing falsifier is closed.
+- Full closeout:
+  `docs/audits/STASH_SUBSTRATE_RESEARCH_QUEUE_CLOSEOUT_2026_05_26.md`.
 
 ### `stash@{6}` - preserve WIP before merge wave
 
@@ -220,8 +238,8 @@ Differs from main:
 
 Message: `On master: auto-stash for ff pull 160254`
 
-Classification: real UI/settings/ambient/voice nuance; recover after larger
-UI slices.
+Classification: closed for current product recovery; keep as a historical
+ambient/settings/voice donor reference.
 
 Recovered slice:
 
@@ -237,6 +255,8 @@ Superseded slice:
   `main` already carries the newer compact ambient flow, persistent live player,
   richer mixer/music controls, and verified-floor health rows. Do not raw-apply
   this stash over those surfaces.
+- Final queue closeout:
+  `docs/audits/STASH_SUBSTRATE_RESEARCH_QUEUE_CLOSEOUT_2026_05_26.md`.
 
 Differs from main include:
 
@@ -252,24 +272,32 @@ Differs from main include:
 Message:
 `WIP on codex/t12-f-ulp-oracle-2026-05-18: a279fe2a38 test(t12): reject missing raw worst case`
 
-Classification: research/substrate nuance.
+Classification: closed for current product recovery; keep as F-ULP donor
+history.
 
-Differs:
+Closeout:
 
-- `agent_core/src/research/eml_ir/witness.rs`
-
-Recover after floor-visible UI work.
+- Current `main` already contains
+  `replay_rejects_operation_gate_tier_type_before_raw_overflow` in
+  `agent_core/src/research/eml_ir/witness.rs`.
+- Full closeout:
+  `docs/audits/STASH_SUBSTRATE_RESEARCH_QUEUE_CLOSEOUT_2026_05_26.md`.
 
 ### `stash@{9}` - T11 agent runtime v2 handoff
 
 Message:
 `On codex/t11-agent-runtime-v2-2026-05-18: PRE-CURSOR-HANDOFF-1779175040`
 
-Classification: small agent-runtime nuance.
+Classification: closed for current product recovery; keep as runtime-capability
+donor history.
 
-Differs:
+Closeout:
 
-- `agent_core/src/agent_runtime_v2/capability.rs`
+- Current `main` already contains
+  `restrict_appends_caveat_at_end_preserving_existing_order_byte_for_byte` in
+  `agent_core/src/agent_runtime_v2/capability.rs`.
+- Full closeout:
+  `docs/audits/STASH_SUBSTRATE_RESEARCH_QUEUE_CLOSEOUT_2026_05_26.md`.
 
 ### `stash@{10}` and `stash@{11}` - removed old terminal branches
 
@@ -291,23 +319,30 @@ Classification: already represented on main in filtered audit.
 Message:
 `On master: wip-multi-terminal-recovery-2026-05-18: lib.rs + acs_admission/ + docs/falsifiers/`
 
-Classification: substrate/ACS nuance.
+Classification: closed for current product recovery; keep as ACS donor history.
 
-Differs or missing:
+Closeout:
 
-- `agent_core/src/lib.rs`
-- `agent_core/src/acs_admission/mod.rs`
-- `docs/falsifiers/M2_PRO_VERIFIED_FLOOR_HANDBOOK_2026_05_18.md`
+- Current `main` exports `pub mod acs_admission;`, has the
+  `agent_core/src/acs_admission/` module tree, and carries the post-Wave-2
+  verified-floor docs in newer form.
+- Full closeout:
+  `docs/audits/STASH_SUBSTRATE_RESEARCH_QUEUE_CLOSEOUT_2026_05_26.md`.
 
 ### `stash@{14}` - T17B lattice format
 
 Message: `On master: codex-preserve-t17b-lattice-format-before-t12`
 
-Classification: WBO/lattice nuance.
+Classification: closed for current product recovery; keep as lattice/WBO donor
+history.
 
-Differs:
+Closeout:
 
-- `agent_core/src/lattice_wbo/mod.rs`
+- The stash hunk targeted the old monolithic `lattice_wbo/mod.rs`. Current
+  `main` has the newer decomposed lattice/WBO module façade with serde
+  round-trip coverage under `agent_core/src/lattice_wbo/tests/`.
+- Full closeout:
+  `docs/audits/STASH_SUBSTRATE_RESEARCH_QUEUE_CLOSEOUT_2026_05_26.md`.
 
 ### `stash@{15}` - graph filters selected expansion
 
@@ -415,9 +450,10 @@ Missing files:
 
 Message: `WIP on main: 31214a4d Update progress and mark three runtime issues as patched`
 
-Classification: very important, very large. Split into multiple branches.
+Classification: closed for current product recovery; keep as a historical
+old-main donor reference.
 
-Recovered slice:
+Recovered slices:
 
 - Agent Command Center donor UX archived in
   `docs/audits/STASH18_AGENT_COMMAND_CENTER_DONOR_SYNTHESIS_2026_05_26.md`
@@ -425,27 +461,14 @@ Recovered slice:
   `EpistemosTests/Stash18AgentCommandCenterDonorSynthesisTests.swift`
   via PR #91. The legacy `Epistemos/Views/AgentCommandCenter/*` files remain
   intentionally absent from live source.
-
-Likely recovery slices:
-
-1. Landing/session UI:
-   `LandingView`, `SessionIntelligenceOverlay`.
-2. Editor/note UX:
-   `CodeEditorView`, `MarkdownContentStorage`, `ProseEditorView`,
-   `AIPartnerInlineView`, `AIPartnerService`, `NotesSidebar`,
-   `NoteDetailWorkspaceView`, `NoteWindowManager`.
-3. Graph/performance:
-   `GraphState`, `MetalGraphView`, `HologramOverlay`,
-   `graph-engine/src/engine.rs`, `graph-engine/src/simulation.rs`.
-4. Chat/runtime:
-   `ChatCoordinator`, `AgentChatState`, `InferenceState`,
-   `ArtifactBlockView`, `ContextWindowIndicator`, `MessageBubble`,
-   `TaggedMarkdownTextView`.
-5. Theme:
-   `EpistemosTheme`, `EpistemosFont`, `PhysicsModifiers`.
+- Remaining UI/UX donor surfaces are closed by
+  `docs/audits/STASH18_UI_UX_CLOSEOUT_2026_05_26.md`.
+- The final queue closeout is recorded in
+  `docs/audits/STASH_SUBSTRATE_RESEARCH_QUEUE_CLOSEOUT_2026_05_26.md`.
 
 Do not apply this stash whole. It spans too many ownership boundaries and old
-project metadata.
+project metadata; current product recovery is complete enough to remove it from
+the active queue.
 
 ### `stash@{19}` - old code editor invisible-text fix
 

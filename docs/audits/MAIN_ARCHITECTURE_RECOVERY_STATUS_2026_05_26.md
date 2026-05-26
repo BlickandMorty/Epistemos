@@ -331,11 +331,16 @@ not fully closed. The next implementation waves are:
 
 ## Recommended Next Execution Order
 
-1. **Remaining editor/vendor donors:** inspect the `stash@{16}` / `stash@{19}`
-   editor payloads only behind the HTML/editor source guard and performance gate.
-2. **Substrate/research donor stashes:** inspect `stash@{13}`, `stash@{14}`,
-   `stash@{8}`, and `stash@{9}` in focused slices.
-3. **Wave 3 architecture:** AgentBlueprint replay UI + model metadata badges.
+1. **Wave 3 architecture:** AgentBlueprint replay UI + model metadata badges.
+2. **Wave 4 substrate closure:** deeper UAS / ClaimLedger rows, Cognitive DAG
+   visualizer, and Tri-Fusion typed mutations.
+3. **Deferred codeword work:** use `docs/DEFERRED_WORK_GUARANTEE_2026_05_23.md`
+   for ACS anchor harness, XPC, L_SE, 70B cocktail, Lean proofs, Pro tools, and
+   other ceiling items.
+
+The active stash recovery queue is closed by
+`docs/audits/STASH_SUBSTRATE_RESEARCH_QUEUE_CLOSEOUT_2026_05_26.md`. Remaining
+stashes are preservation references or generated build churn, not merge queues.
 
 ## Operational Instruction For Agents
 
@@ -344,7 +349,8 @@ When recovering work:
 ```text
 1. Start from current origin/main.
 2. Read this file and STASH_RECOVERY_LEDGER_2026_05_26.md.
-3. Pick exactly one recovery slice.
+3. If you are reviving a preservation stash anyway, pick exactly one recovery
+   slice and write a decision doc before touching code.
 4. Extract a patch with git diff stash/recovery-tag, not git checkout.
 5. Apply with git apply --3way.
 6. Remove generated noise and stale deletes.
