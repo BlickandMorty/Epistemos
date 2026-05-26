@@ -216,16 +216,23 @@ Recovered slice:
 
 ### 6. Claude Shadow Handle (`#81`, `stash@{16}` overlap)
 
-State: **Draft preservation / donor recovery.**
+State: **Closed for current honest-handle product recovery; remaining approval
+ideas are separate donor work.**
 
-Useful targets:
+Closeout:
 
-- `RustShadowFFIClient` honest-handle migration.
-- `epistemos-shadow/src/honest_handle.rs`.
-- `ChatApprovalQueue` / approval modal ideas.
+- `RustShadowFFIClient` already uses the `shadow_handle_*` surface on current
+  `main`.
+- `epistemos-shadow/src/honest_handle.rs` already exports the panic-safe handle
+  ABI.
+- `EpistemosTests/ShadowServicesTests.swift` guards the Swift/Rust
+  honest-handle surface.
+- Full closeout:
+  `docs/audits/CLAUDE_SHADOW_HANDLE_CLOSEOUT_2026_05_26.md`.
 
-Do not raw-merge `#81`; the branch tree is stale and would delete many current
-main files. Extract one small Rust/Swift FFI slice at a time.
+Do not raw-merge `#81`; the branch tree is stale and would downgrade current
+Shadow client behavior. If the overlapping stash still has approval UI ideas,
+recover those as a separate `ChatApprovalQueue` / approval modal slice.
 
 ## Donor Branches / Worktrees
 
@@ -316,7 +323,8 @@ not fully closed. The next implementation waves are:
 4. **Graph WIP audit:** mine `stash@{15}` with a graph performance test gate.
 5. **VaultRecall/Eidos visibility:** mine `stash@{3}` and `stash@{6}` after the
    current provenance path is stable.
-6. **Shadow handle FFI:** split `#81` into one honest-handle FFI PR.
+6. **Approval UI donor:** inspect `stash@{16}` for `ChatApprovalQueue` /
+   approval modal ideas now that the honest-handle FFI slice is closed.
 7. **Wave 3 architecture:** AgentBlueprint replay UI + model metadata badges.
 
 ## Operational Instruction For Agents
