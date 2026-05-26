@@ -258,7 +258,7 @@ Read these only when this index doesn't already answer your question.
 
 **What is empirically defensible.** The substrate Epistemos has been building — lift to a typed higher-dim lattice, operate in compressed-and-active form, project to a surface with a witness, account error in WBO — is validated externally by Erdős unit-distance (lift-and-project finds new constructions) and Parameter Golf (compressed-and-active models beat uncompressed dense models per byte).
 
-**What still needs measurement, not faith.** F-Erdős-Lift-Optimality · F-KV-Direct-Gate · F-Sparse-Runtime-Split · F-LocalToolUse · F-HyperdynamicLoop-Bounded · F-70B-Local-Cocktail · primary Metal/Swift hot-path versions of F-PageGather-M2Pro, F-ControllerKernelPack, and F-UAS-ZeroCopy-Spine. Seven artifacts now exist on main, but several are fallback witnesses. Substrate is sound; measurements must keep landing.
+**What still needs measurement, not faith.** F-Erdős-Lift-Optimality · F-KV-Direct-Gate · F-Sparse-Runtime-Split · F-LocalToolUse · F-HyperdynamicLoop-Bounded · F-70B-Local-Cocktail · primary Metal/Swift hot-path versions of F-PageGather-M2Pro, F-ControllerKernelPack, and F-UAS-ZeroCopy-Spine. Ten falsifier artifact files now exist on main after Wave 2, but several are fallback witnesses. Substrate is sound; measurements must keep landing.
 
 **The unified cognitive substrate is no longer a thesis.** It is a substrate with two independent external proofs that its primitives are the correct primitives. The remaining work is execution.
 
