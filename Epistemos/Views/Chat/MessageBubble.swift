@@ -141,6 +141,7 @@ struct MessageBubble: View {
     @State private var copied = false
     @State private var isHovered = false
     @State private var rating: MessageRating? = nil
+    @State private var isProvenanceExpanded = false
 
     // HELIOS V5 W3.b — Verified Research Mode label guard.
     // HELIOS-W3b guard
@@ -155,6 +156,17 @@ struct MessageBubble: View {
 
     private var contextAttachments: [ContextAttachment] {
         message.contextAttachments ?? []
+    }
+
+    private var loadedNoteTitles: [String] {
+        message.loadedNoteTitles ?? []
+    }
+
+    private var resolvedVaultRecallTrace: VaultRecallTrace? {
+        message.vaultRecallTrace ?? VaultRecallTraceSink.shared.trace(
+            answerPacketId: message.answerPacketId,
+            messageId: message.id
+        )
     }
 
     /// Captured reasoning for this assistant turn. Prefers the explicit
@@ -320,6 +332,8 @@ struct MessageBubble: View {
                         .foregroundStyle(theme.fontAccent)
                 }
 
+                assistantProvenanceSurface
+
                 if let contentBlocks = message.contentBlocks {
                     ToolExecutionPreviewList(blocks: contentBlocks)
                 }
@@ -432,6 +446,38 @@ struct MessageBubble: View {
         }
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
+    }
+
+    private var assistantProvenanceSurface: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                AnswerPacketBadge(
+                    answerPacketId: message.answerPacketId,
+                    theme: theme
+                )
+                Spacer(minLength: 0)
+            }
+
+            DisclosureGroup(isExpanded: $isProvenanceExpanded) {
+                VaultRecallProvenanceCard(
+                    trace: resolvedVaultRecallTrace,
+                    loadedNoteTitles: loadedNoteTitles,
+                    sourceCount: sourceReferences.count,
+                    theme: theme,
+                    compact: false
+                )
+                .padding(.top, 4)
+            } label: {
+                VaultRecallProvenanceCard(
+                    trace: resolvedVaultRecallTrace,
+                    loadedNoteTitles: loadedNoteTitles,
+                    sourceCount: sourceReferences.count,
+                    theme: theme,
+                    compact: true
+                )
+            }
+            .tint(theme.textSecondary)
+        }
     }
 }
 
@@ -943,6 +989,20 @@ private struct ToolExecutionPreviewCard: View {
                 .padding(.top, 2)
             }
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(theme.card.opacity(theme.isDark ? 0.72 : 0.92))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(toneBorderColor.opacity(theme.isDark ? 0.34 : 0.24), lineWidth: 0.8)
+        }
+    }
+
+    private var toneBorderColor: Color {
+        preview.isError ? theme.error : detailTone.tint(theme: theme)
     }
 
     private func stringValue(forAnyOf keys: [String]) -> String? {

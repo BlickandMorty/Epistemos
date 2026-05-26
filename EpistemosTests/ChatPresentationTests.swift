@@ -102,6 +102,29 @@ struct ChatPresentationTests {
     #expect(chatState.thinkingEndedAt != nil)
   }
 
+  @Test("user-facing output hides tools/tool wrapper markup")
+  func userFacingOutputHidesToolsWrapperMarkup() {
+    let raw = """
+      Please wait while I make the necessary changes.
+      </tool>
+      </tools><tools>
+      <tool>
+      {"name":"file.search","parameters":{"pattern":"Jordan Conley — College Resume","path":"","target":"files"}}
+      </tool>
+      </tools>
+      """
+
+    let streaming = UserFacingModelOutput.streamingVisibleText(from: raw)
+    let final = UserFacingModelOutput.finalVisibleText(from: raw)
+
+    #expect(!streaming.contains("<tools>"))
+    #expect(!streaming.contains("<tool>"))
+    #expect(!streaming.contains("file.search"))
+    #expect(!final.contains("<tools>"))
+    #expect(!final.contains("<tool>"))
+    #expect(!final.contains("file.search"))
+  }
+
   @Test("transcript rows precompute assistant presentation metadata")
   func transcriptRowsPrecomputeAssistantPresentationMetadata() {
     let messages = [
@@ -205,7 +228,7 @@ struct ChatPresentationTests {
     let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/TaggedMarkdownTextView.swift")
 
     #expect(source.contains("if (1...3).contains(level) {"))
-    #expect(source.contains("return AppDisplayTypography.headingFont(size: fontSize, weight: weight, theme: theme)"))
+    #expect(source.contains("return AppDisplayTypography.headingFont(\n                    size: fontSize,\n                    weight: weight,\n                    theme: theme,\n                    level: level\n                )"))
     #expect(source.contains("} else if (4...5).contains(level) {"))
     #expect(source.contains("return AppDisplayTypography.font(size: fontSize, weight: weight, allowDisplayFont: false)"))
     #expect(source.contains("return ClaudeAppTypography.monoFont(size: fontSize, weight: weight)"))
@@ -255,6 +278,32 @@ struct ChatPresentationTests {
 
     #expect(!source.contains("ScrollView(.horizontal"))
     #expect(source.contains(".fixedSize(horizontal: false, vertical: true)"))
+  }
+
+  @Test("tool execution previews render as boxed cards instead of loose transcript rows")
+  func toolExecutionPreviewsRenderAsBoxedCards() throws {
+    let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/MessageBubble.swift")
+
+    #expect(source.contains("private struct ToolExecutionPreviewCard: View"))
+    #expect(source.contains(".background(\n            RoundedRectangle(cornerRadius: 12"))
+    #expect(source.contains(".strokeBorder(toneBorderColor.opacity"))
+    #expect(source.contains("private var toneBorderColor: Color"))
+  }
+
+  @Test("assistant rows mount honest answer packet and vault provenance surfaces")
+  func assistantRowsMountHonestAnswerPacketAndVaultProvenanceSurfaces() throws {
+    let bubbleSource = try loadMirroredSourceTextFile("Epistemos/Views/Chat/MessageBubble.swift")
+    let provenanceSource = try loadMirroredSourceTextFile("Epistemos/Views/Chat/VaultRecallProvenanceCard.swift")
+    let coordinatorSource = try loadMirroredSourceTextFile("Epistemos/App/ChatCoordinator.swift")
+
+    #expect(bubbleSource.contains("assistantProvenanceSurface"))
+    #expect(bubbleSource.contains("AnswerPacketBadge("))
+    #expect(bubbleSource.contains("VaultRecallProvenanceCard("))
+    #expect(provenanceSource.contains("Vault trace scaffold"))
+    #expect(provenanceSource.contains("real path"))
+    #expect(!provenanceSource.contains("max(trace.candidatePoolSize, 1)"))
+    #expect(coordinatorSource.contains("vault-chat-context-v1"))
+    #expect(!coordinatorSource.contains("VaultRecallBridge.trace(query:"))
   }
 
   @Test("chat markdown keeps paragraphs, lists, quotes, and code blocks vertically expanded")

@@ -233,6 +233,10 @@ struct ChatMessage: Identifiable, Codable, Sendable {
     var createdAt: Date
     var isVaultBriefing: Bool
     var loadedNoteTitles: [String]?
+    /// Vault recall witness for this assistant turn. When present, the chat
+    /// row renders the same provenance trace that was recorded during context
+    /// assembly instead of inferring citations from displayed text.
+    var vaultRecallTrace: VaultRecallTrace?
     var contextAttachments: [ContextAttachment]?
     /// Structured artifacts extracted from this message (JSON, YAML, code, tables).
     var artifacts: [Artifact]
@@ -306,6 +310,7 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         createdAt: Date = .now,
         isVaultBriefing: Bool = false,
         loadedNoteTitles: [String]? = nil,
+        vaultRecallTrace: VaultRecallTrace? = nil,
         contextAttachments: [ContextAttachment]? = nil,
         artifacts: [Artifact] = [],
         contentBlocks: [MessageContentBlock]? = nil,
@@ -332,6 +337,7 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         self.createdAt = createdAt
         self.isVaultBriefing = isVaultBriefing
         self.loadedNoteTitles = loadedNoteTitles
+        self.vaultRecallTrace = vaultRecallTrace
         self.contextAttachments = contextAttachments
         self.artifacts = artifacts
         self.contentBlocks = contentBlocks

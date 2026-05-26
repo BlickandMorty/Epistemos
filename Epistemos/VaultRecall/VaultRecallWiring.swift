@@ -16,23 +16,22 @@
 //     so the Settings -> Vault recall health row renders in the same
 //     vocabulary as the other diagnostics.
 //
-// Scope lock matches the Rust side: the bridge calls a stub trace
-// builder today. Real `VaultBackend` integration (W-21.1 follow-up)
-// swaps the substrate without touching this file — wire shape pinned.
+// The Rust bridge still exposes a stub trace builder for callers that
+// have no vault handle. Live Swift vault retrieval records production
+// `SearchIndexService` traces through the same Codable wire shape.
 
 import Foundation
 import os
 
 // MARK: - Backend honesty
 //
-// The Rust side currently builds a scaffold trace inside
+// The Rust bridge currently builds a scaffold trace inside
 // `agent_core::bridge::vault_recall_trace_json`: hardcoded
 // `notes/sample.md` + `notes/decoy.md` candidates with
-// `ladder_tier = "scaffold-lexical"`. Real `VaultBackend` integration
-// (W-21.1 in CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md) swaps the
-// stub for a production retriever and emits a different `ladder_tier`.
-// Until then, every trace reaching Swift is stub data, so the hardening
-// bar applies: UI must not claim "working" against stub data.
+// `ladder_tier = "scaffold-lexical"`. Swift live retrieval emits
+// `vault-*` traces from `SearchIndexService` results; a future Rust
+// `VaultBackend` FFI can reuse the same prefix when it gains a shared
+// backend handle.
 //
 // **Detection contract** (forward-compatible with Terminal 2's real
 // VaultBackend wire, no Rust change required to flip Swift to `.real`):
@@ -363,5 +362,11 @@ nonisolated public enum VaultRecallBridge {
             log.error("VaultRecall trace failed for query=\"\(query, privacy: .public)\": \(String(describing: error), privacy: .public)")
             return nil
         }
+    }
+
+    public static func recordProductionTrace(_ trace: VaultRecallTrace, latencyMs: Double) {
+        let backend = detectedBackend(from: trace)
+        VaultRecallMetrics.shared.record(latencyMs: latencyMs, trace: trace, backend: backend)
+        log.info("VaultRecall production trace recorded query=\"\(trace.query, privacy: .public)\" tier=\(trace.ladderTier ?? "(nil)", privacy: .public) signals=\(trace.signalSummary.count, privacy: .public) retained=\(trace.candidatesRetained, privacy: .public) latency_ms=\(latencyMs, privacy: .public) backend=\(backend.rawValue, privacy: .public)")
     }
 }
