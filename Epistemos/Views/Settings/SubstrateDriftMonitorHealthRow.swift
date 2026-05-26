@@ -27,7 +27,11 @@ public struct SubstrateDriftMonitorHealthRow: View {
             VerifiedFloorChipStrip(
                 flag: "n/a",
                 substrate: drift.falsifierPassed ? "falsifier PASS" : "monitor only",
-                substrateTint: drift.falsifierPassed ? .green : .orange
+                productionWired: drift.ffiReachable,
+                falsifierPassed: drift.falsifierPassed,
+                falsifier: drift.falsifier,
+                wiredToday: "Drift monitor counters and DAG root are projected from the unified FFI snapshot.",
+                stillStub: "The chip stays non-green until the primary drift falsifier is marked passed by the snapshot."
             )
             SubstrateHealthMetricLine(
                 label: "Copy drift",

@@ -34,8 +34,12 @@ public struct ACSAdmissionHealthRow: View {
             )
             VerifiedFloorChipStrip(
                 flag: snapshot.isFlagEnabled ? "on" : "off",
-                substrate: "production gate active",
-                substrateTint: .green
+                substrate: "substrate-only · gate not witnessed",
+                productionWired: false,
+                falsifierPassed: false,
+                falsifier: "docs/falsifiers/F-ACS-Anchor-Addressing_2026_05_17.md",
+                wiredToday: "Strict ACS policy summary is readable from Settings.",
+                stillStub: "Settings has not observed a production ACSRunEventLogSink admission witness."
             )
             row(
                 label: "Strict policy",
@@ -101,7 +105,7 @@ public struct ACSAdmissionHealthRow: View {
 
     private var policyDetail: String {
         guard let p = snapshot.lastPolicy else { return "(no read yet)" }
-        return "\(p.policyId) v\(p.version) (production gate active)"
+        return "\(p.policyId) v\(p.version) (policy substrate readable; gate witness pending)"
     }
 
     private var capabilityDetail: String {

@@ -29,7 +29,11 @@ public struct EmlObservatoryHealthRow: View {
             VerifiedFloorChipStrip(
                 flag: "n/a",
                 substrate: eml.liveStreamWired ? "live stream" : "substrate self-test",
-                substrateTint: eml.liveStreamWired ? .green : .orange
+                productionWired: eml.liveStreamWired,
+                falsifierPassed: false,
+                falsifier: eml.falsifier,
+                wiredToday: "EML observatory self-test values are projected from the unified FFI snapshot.",
+                stillStub: "SAE live stream and primary F-ULP witness coupling are not production-green here."
             )
             SubstrateHealthMetricLine(
                 label: "Augmented AUC",

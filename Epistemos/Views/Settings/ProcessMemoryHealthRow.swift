@@ -125,6 +125,15 @@ struct ProcessMemoryHealthRow: View {
                     .foregroundStyle(statusStyle)
                     .font(.system(size: 16))
             }
+            VerifiedFloorChipStrip(
+                flag: "n/a",
+                substrate: "process metric",
+                productionWired: false,
+                falsifierPassed: false,
+                falsifier: "docs/audits/SETTINGS_TRUTH_FLOOR_2026_05_25.md",
+                wiredToday: "Settings reads current RSS and can trigger the existing idle-unload diagnostic.",
+                stillStub: "RSS status is an operational metric, not a substrate falsifier PASS claim."
+            )
 
             // Force-unload diagnostic: tap to run the critical-pressure
             // unload sequence on demand. Reports MB freed + per-subsystem

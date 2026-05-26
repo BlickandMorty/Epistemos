@@ -58,6 +58,15 @@ public struct APIKeysHealthRow: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             let connected = probes.filter(\.hasAccess)
+            VerifiedFloorChipStrip(
+                flag: "n/a",
+                substrate: connected.isEmpty ? "credential status only" : "credential presence only",
+                productionWired: false,
+                falsifierPassed: false,
+                falsifier: "docs/falsifiers/F-ActiveAssembly-Minimal_2026_05_17.md",
+                wiredToday: "Settings can read whether provider sessions or API keys exist without exposing secret values.",
+                stillStub: "Credential presence is not a substrate PASS witness or provider zero-retention proof."
+            )
             if !connected.isEmpty {
                 ForEach(connected) { row(probe: $0) }
             } else {

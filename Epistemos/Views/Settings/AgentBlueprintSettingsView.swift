@@ -65,21 +65,25 @@ struct AgentBlueprintSettingsView: View {
                     ChannelStatusPill(title: diagnosticsStateLabel, tint: diagnosticsStateTint)
                 }
 
-                Text("Blueprint submission queues a MissionPacket through the existing Command Center runtime. System G governed dispatch is not wired yet.")
+                Text("Blueprint submission queues a MissionPacket through the existing Command Center runtime. This page does not invoke the System G seam directly.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
                 VerifiedFloorChipStrip(
                     flag: "n/a",
-                    substrate: "legacy runtime",
-                    substrateTint: .orange
+                    substrate: "queue only",
+                    productionWired: false,
+                    falsifierPassed: false,
+                    falsifier: "docs/falsifiers/F-ActiveAssembly-Minimal_2026_05_17.md",
+                    wiredToday: "Blueprint submission queues a MissionPacket through the existing Command Center path.",
+                    stillStub: "This Settings page does not invoke the System G run seam directly, so the control is not a green runtime claim."
                 )
 
                 HStack(spacing: 10) {
                     Button {
                         submitBlueprint()
                     } label: {
-                        Label(isSubmitting ? "Submitting" : "Queue to Command Center", systemImage: "play.fill")
+                        Label(isSubmitting ? "Submitting" : "Queue (Command Center)", systemImage: "play.fill")
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)

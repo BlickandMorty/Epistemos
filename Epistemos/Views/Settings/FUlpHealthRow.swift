@@ -36,7 +36,11 @@ public struct FUlpHealthRow: View {
             VerifiedFloorChipStrip(
                 flag: snapshot.isFlagEnabled ? "on" : "off",
                 substrate: "research-only",
-                substrateTint: .blue
+                productionWired: false,
+                falsifierPassed: snapshot.lastWitness?.pass ?? false,
+                falsifier: "docs/falsifiers/F-ULP-Oracle_2026_05_17.md",
+                wiredToday: "User-triggered F-ULP acceptance witness can run from Settings.",
+                stillStub: "Research-only oracle is not a MAS production surface."
             )
             row(
                 label: "Acceptance witness",

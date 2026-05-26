@@ -35,7 +35,11 @@ public struct EditorBundleHealthRow: View {
             VerifiedFloorChipStrip(
                 flag: "n/a",
                 substrate: bundleAvailable && haloOpen ? "bundle+halo" : "partial",
-                substrateTint: bundleAvailable && haloOpen ? .green : .orange
+                productionWired: bundleAvailable && haloOpen,
+                falsifierPassed: false,
+                falsifier: "docs/falsifiers/F-ShadowFirst-PageEscalation_2026_05_17.md",
+                wiredToday: "Editor bundle availability and Halo open signal are observable.",
+                stillStub: "This row has no primary PASS witness for a green substrate claim."
             )
             row(
                 label: "Halo backend",
