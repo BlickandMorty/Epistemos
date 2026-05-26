@@ -824,11 +824,13 @@ struct GraphPerformanceTests {
         )
         let store = GraphStore()
         store.addNode(folder)
+        let filter = FilterEngine()
+        filter.setType(.folder, isVisible: true)
 
         let payload = makeVisibleNodeBatchPayload(
             from: [folder],
             store: store,
-            filter: FilterEngine()
+            filter: filter
         )
 
         #expect(payload.linkCounts == [57])

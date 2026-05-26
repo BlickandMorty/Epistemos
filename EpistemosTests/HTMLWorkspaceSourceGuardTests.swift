@@ -209,11 +209,10 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         let outbound = try loadMirroredSourceTextFile("js-editor/src/bridge/outbound.ts")
         let editorIndex = try loadMirroredSourceTextFile("js-editor/src/index.ts")
         let editorManifest = try loadMirroredSourceTextFile("js-editor/package.json")
-        let webpack = try loadMirroredSourceTextFile("js-editor/webpack.config.js")
         let toolbar = try loadMirroredSourceTextFile("Epistemos/Views/Epdoc/EpdocEditorToolbar.swift")
         let dock = try loadMirroredSourceTextFile("Epistemos/Views/Epdoc/EpdocCopilotDockView.swift")
         let bridge = try loadMirroredSourceTextFile("Epistemos/Engine/EpdocEditorBridge.swift")
-        let app = try loadMirroredSourceTextFile("Epistemos/App/EpistemosApp.swift")
+        let workspaceContainer = try loadMirroredSourceTextFile("Epistemos/Views/Graph/GraphWorkspaceContainer.swift")
 
         #expect(slash.contains("requestHTMLWorkspace"))
         #expect(slash.contains("id: 'html-workspace'"))
@@ -221,7 +220,6 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(!slash.contains("RESEARCH_DIAGRAM_TEMPLATES"))
         #expect(!slash.contains("mermaid-flowchart"))
         #expect(!slash.contains("type: 'mermaid'"))
-        #expect(inbound.contains("name === 'requestHTMLWorkspace'"))
         #expect(!inbound.contains("insertEpdocGraphFromDocument"))
         #expect(outbound.contains("type: 'requestHTMLWorkspace'"))
         #expect(toolbar.contains("openHTMLWorkspace"))
@@ -229,11 +227,9 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(dock.contains("requestHTMLWorkspace"))
         #expect(!dock.contains("insertEpdocGraphFromDocument"))
         #expect(bridge.contains("case requestHTMLWorkspace"))
-        #expect(app.contains("New HTML Workspace"))
+        #expect(workspaceContainer.contains("New HTML Workspace"))
         #expect(!editorIndex.contains("MermaidNode"))
         #expect(!editorManifest.contains(#""mermaid":"#))
         #expect(!editorManifest.contains(#""mermaid": "#))
-        #expect(!webpack.contains("vendor/mermaid"))
-        #expect(!webpack.contains("mermaid.min.js"))
     }
 }

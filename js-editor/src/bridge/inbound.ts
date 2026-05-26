@@ -11,7 +11,6 @@ import { TextSelection } from '@tiptap/pm/state';
 import type { RectPayload, SelectionPayload } from './outbound';
 import { postBridge } from './outbound';
 import { applySlashChoice } from '../extensions/slash-menu';
-import { buildMermaidGraphFromDocument } from '../graph/document-graph';
 import { markHostDocumentLoaded } from './document-load-state';
 import { completeImageAssetRequest } from '../extensions/image-asset-bridge';
 
@@ -79,18 +78,6 @@ export function installInboundCommands(editor: Editor, _callbacks: InboundCallba
         const image = imageArgs(args);
         if (!image) return false;
         const didRun = editor.chain().focus().insertEpdocImage(image).run();
-        if (didRun) {
-          postDocumentStats(editor);
-          postDocumentSnapshot(editor);
-        }
-        return didRun;
-      }
-      if (name === 'insertEpdocGraphFromDocument') {
-        const diagram = buildMermaidGraphFromDocument(editor.getJSON());
-        const didRun = editor.chain().focus().insertContent([
-          { type: 'mermaid', content: [{ type: 'text', text: diagram }] },
-          { type: 'paragraph' },
-        ]).focus('end').run();
         if (didRun) {
           postDocumentStats(editor);
           postDocumentSnapshot(editor);

@@ -10,7 +10,7 @@
 //   2. inline             — Link, Highlight
 //   3. block               — CodeBlockLowlight, Table, TaskList, TaskItem
 //   4. W7.7 markdown plugins — Mathematics (KaTeX), Footnotes
-//   5. W7.9 custom         — MermaidNode + EpdocChartNode
+//   5. W7.9 custom         — EpdocChartNode
 //   6. W7.17.b chrome     — BubbleMenu, FloatingMenu, DragHandle
 //   7. W7.17.a bridge     — slash menu, caret-rect emitter
 //   8. CharacterCount     — drives the W7.17 stats badge
@@ -37,7 +37,6 @@ import { Placeholder } from '@tiptap/extensions/placeholder';
 import { Footnotes, FootnoteReference, Footnote } from 'tiptap-footnotes';
 
 import { EpdocCodeBlock } from './extensions/code-block-node';
-import { MermaidNode } from './extensions/mermaid-node';
 import { EpdocChartNode } from './extensions/chart-node';
 import { EpdocImageNode } from './extensions/image-node';
 import { imageAssetBridge } from './extensions/image-asset-bridge';
@@ -140,7 +139,6 @@ const editor = new Editor({
     Footnotes,
     FootnoteReference,
     Footnote,
-    MermaidNode,
     EpdocChartNode,
     EpdocImageNode,
     CalloutNode,

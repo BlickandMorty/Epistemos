@@ -15,7 +15,6 @@ import Suggestion from '@tiptap/suggestion';
 import type { SuggestionOptions } from '@tiptap/suggestion';
 import type { Editor } from '@tiptap/core';
 import { postBridge } from '../bridge/outbound';
-import { buildMermaidGraphFromDocument } from '../graph/document-graph';
 import { requestPackageImageAssetFromPicker } from './image-asset-bridge';
 
 export interface SlashMenuItem {
@@ -31,152 +30,14 @@ export interface SlashMenuItem {
   hint?: string;
 }
 
-function insertMermaid(editor: Editor, source: string): boolean {
-  return editor.chain().focus().insertContent([
-    {
-      type: 'mermaid',
-      content: [{ type: 'text', text: source }],
-    },
-    { type: 'paragraph' },
-  ]).focus('end').run();
+function requestHTMLWorkspace(editor: Editor): boolean {
+  editor.commands.focus();
+  postBridge({
+    type: 'requestHTMLWorkspace',
+    source: 'slash-menu',
+  });
+  return true;
 }
-
-const RESEARCH_DIAGRAM_TEMPLATES = {
-  flowchart: `flowchart TD
-  Question["Research question"]
-  Hypothesis["Working hypothesis"]
-  Method["Method / protocol"]
-  Evidence[/"Evidence ledger"/]
-  Synthesis["Synthesis"]
-  Question --> Hypothesis --> Method --> Evidence --> Synthesis`,
-  sequence: `sequenceDiagram
-  participant Researcher
-  participant Source
-  participant Ledger
-  participant Synthesis
-  Researcher->>Source: inspect claim
-  Source-->>Ledger: cite evidence
-  Ledger-->>Synthesis: update confidence
-  Synthesis-->>Researcher: answer with provenance`,
-  timeline: `timeline
-  title Research timeline
-  Question : frame the problem
-  Sources : collect primary evidence
-  Method : test the claim
-  Synthesis : write the conclusion`,
-  mindmap: `mindmap
-  root((Research Topic))
-    Question
-      Claim
-      Counterclaim
-    Evidence
-      Primary source
-      Dataset
-    Synthesis
-      Implication
-      Open gap`,
-  state: `stateDiagram-v2
-  [*] --> Question
-  Question --> Evidence: collect
-  Evidence --> Analysis: compare
-  Analysis --> Synthesis: converge
-  Analysis --> Question: gap found
-  Synthesis --> [*]`,
-  class: `classDiagram
-  class Claim {
-    +statement
-    +confidence
-  }
-  class Source {
-    +citation
-    +date
-  }
-  class Evidence {
-    +quote
-    +weight
-  }
-  Claim --> Evidence : supported by
-  Evidence --> Source : cites`,
-  er: `erDiagram
-  CLAIM ||--o{ EVIDENCE : supported_by
-  CLAIM ||--o{ COUNTERPOINT : challenged_by
-  EVIDENCE }o--|| SOURCE : cites
-  SOURCE ||--o{ NOTE : summarized_in`,
-  quadrant: `quadrantChart
-  title Evidence matrix
-  x-axis Low certainty --> High certainty
-  y-axis Low impact --> High impact
-  "Primary source": [0.82, 0.74]
-  "Anecdote": [0.32, 0.42]
-  "Replicated result": [0.91, 0.88]
-  "Open gap": [0.48, 0.76]`,
-  xy: `xychart-beta
-  title "Evidence confidence"
-  x-axis ["Source A", "Source B", "Source C"]
-  y-axis "Confidence" 0 --> 100
-  bar [72, 84, 61]`,
-  sankey: `sankey-beta
-  Source review,Evidence ledger,8
-  Evidence ledger,Claim map,6
-  Evidence ledger,Open gaps,2
-  Claim map,Synthesis,5
-  Open gaps,Next experiment,2`,
-  pie: `pie showData
-  title Evidence mix
-  "Primary sources" : 45
-  "Benchmarks" : 30
-  "Open questions" : 25`,
-  gantt: `gantt
-  title Research plan
-  dateFormat YYYY-MM-DD
-  axisFormat %b %d
-  section Discovery
-  Source review :a1, 2026-05-07, 3d
-  Evidence table :after a1, 2d
-  section Synthesis
-  Draft argument :2026-05-12, 2d
-  Review gaps :1d`,
-  journey: `journey
-  title Research workflow
-  section Capture
-    Import sources: 4: Researcher
-    Annotate evidence: 5: Researcher
-  section Synthesize
-    Compare claims: 4: Researcher, Agent
-    Publish note: 5: Researcher`,
-  requirement: `requirementDiagram
-  requirement EpdocMedia {
-    id: W7.11
-    text: Package-local image assets
-    risk: Medium
-    verifymethod: Test
-  }
-  element AssetWriter {
-    type: Swift service
-    docref: EpdocPackage.assets
-  }
-  AssetWriter - satisfies -> EpdocMedia`,
-  gitgraph: `gitGraph
-  commit id: "draft"
-  branch evidence
-  checkout evidence
-  commit id: "sources"
-  checkout main
-  merge evidence
-  commit id: "synthesis"`,
-  c4: `C4Context
-  title Research context
-  Person(researcher, "Researcher")
-  System(epdoc, ".epdoc workspace")
-  System_Ext(source, "Source corpus")
-  Rel(researcher, epdoc, "writes and studies")
-  Rel(epdoc, source, "cites")`,
-  block: `block-beta
-  columns 3
-  Sources["Sources"] Evidence["Evidence"] Synthesis["Synthesis"]
-  Sources --> Evidence
-  Evidence --> Synthesis`,
-} as const;
 
 const RESEARCH_CHART_TEMPLATES = {
   scatter: `{
@@ -241,42 +102,8 @@ export const DEFAULT_SLASH_ITEMS: SlashMenuItem[] = [
       { type: 'paragraph' },
     ]).run(),
   },
-  { id: 'mermaid', label: 'Document diagram', icon: 'flowchart',
-    apply: (e) => insertMermaid(e, buildMermaidGraphFromDocument(e.getJSON())) },
-  { id: 'mermaid-flowchart', label: 'Research flowchart', icon: 'flowchart',
-    apply: (e) => insertMermaid(e, RESEARCH_DIAGRAM_TEMPLATES.flowchart) },
-  { id: 'mermaid-sequence', label: 'Sequence diagram', icon: 'arrow.left.arrow.right',
-    apply: (e) => insertMermaid(e, RESEARCH_DIAGRAM_TEMPLATES.sequence) },
-  { id: 'mermaid-timeline', label: 'Timeline diagram', icon: 'timeline.selection',
-    apply: (e) => insertMermaid(e, RESEARCH_DIAGRAM_TEMPLATES.timeline) },
-  { id: 'mermaid-mindmap', label: 'Mind map', icon: 'brain',
-    apply: (e) => insertMermaid(e, RESEARCH_DIAGRAM_TEMPLATES.mindmap) },
-  { id: 'mermaid-state', label: 'State diagram', icon: 'arrow.triangle.branch',
-    apply: (e) => insertMermaid(e, RESEARCH_DIAGRAM_TEMPLATES.state) },
-  { id: 'mermaid-class', label: 'Class diagram', icon: 'square.stack.3d.up',
-    apply: (e) => insertMermaid(e, RESEARCH_DIAGRAM_TEMPLATES.class) },
-  { id: 'mermaid-er', label: 'Entity relationship', icon: 'tablecells',
-    apply: (e) => insertMermaid(e, RESEARCH_DIAGRAM_TEMPLATES.er) },
-  { id: 'mermaid-quadrant', label: 'Evidence quadrant', icon: 'circle.grid.cross',
-    apply: (e) => insertMermaid(e, RESEARCH_DIAGRAM_TEMPLATES.quadrant) },
-  { id: 'mermaid-xy', label: 'Evidence chart', icon: 'chart.bar',
-    apply: (e) => insertMermaid(e, RESEARCH_DIAGRAM_TEMPLATES.xy) },
-  { id: 'mermaid-sankey', label: 'Evidence flow', icon: 'arrow.down.right.and.arrow.up.left',
-    apply: (e) => insertMermaid(e, RESEARCH_DIAGRAM_TEMPLATES.sankey) },
-  { id: 'mermaid-pie', label: 'Evidence pie chart', icon: 'chart.pie',
-    apply: (e) => insertMermaid(e, RESEARCH_DIAGRAM_TEMPLATES.pie) },
-  { id: 'mermaid-gantt', label: 'Research Gantt', icon: 'calendar',
-    apply: (e) => insertMermaid(e, RESEARCH_DIAGRAM_TEMPLATES.gantt) },
-  { id: 'mermaid-journey', label: 'User journey', icon: 'point.topleft.down.curvedto.point.bottomright.up',
-    apply: (e) => insertMermaid(e, RESEARCH_DIAGRAM_TEMPLATES.journey) },
-  { id: 'mermaid-requirement', label: 'Requirement trace', icon: 'checkmark.seal',
-    apply: (e) => insertMermaid(e, RESEARCH_DIAGRAM_TEMPLATES.requirement) },
-  { id: 'mermaid-gitgraph', label: 'Version graph', icon: 'point.3.connected.trianglepath.dotted',
-    apply: (e) => insertMermaid(e, RESEARCH_DIAGRAM_TEMPLATES.gitgraph) },
-  { id: 'mermaid-c4', label: 'C4 context', icon: 'network',
-    apply: (e) => insertMermaid(e, RESEARCH_DIAGRAM_TEMPLATES.c4) },
-  { id: 'mermaid-block', label: 'Block architecture', icon: 'square.stack.3d.down.right',
-    apply: (e) => insertMermaid(e, RESEARCH_DIAGRAM_TEMPLATES.block) },
+  { id: 'html-workspace', label: 'HTML Workspace', icon: 'rectangle.3.group',
+    apply: requestHTMLWorkspace },
   { id: 'chart-scatter', label: 'Scatterplot', icon: 'chart.xyaxis.line',
     apply: (e) => e.chain().focus().insertEpdocChart({ source: RESEARCH_CHART_TEMPLATES.scatter }).focus('end').run() },
   { id: 'chart-bar', label: 'Bar chart', icon: 'chart.bar',
