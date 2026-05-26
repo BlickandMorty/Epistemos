@@ -33,17 +33,15 @@ Current main checkpoint before this ledger:
 ## Recovery Priority
 
 1. `stash@{17}` - landing wave UI and missing Wave view files.
-2. `stash@{6}` - remaining non-chat docs / lattice-coordinate explainer donor
-   material after the VaultRecall/Eidos slice closeout.
-3. `stash@{7}` - settings, ambient frequency, voice input, and app bootstrap
+2. `stash@{7}` - settings, ambient frequency, voice input, and app bootstrap
    nuance.
-4. `stash@{16}` - remaining editor asset WIP only. Honest-handle and
+3. `stash@{16}` - remaining editor asset WIP only. Honest-handle and
    approval-queue donor work are closed; do not restore vendor/editor assets
    without the editor source guard and performance gate.
-5. `stash@{19}` - old code-editor invisible-text stash. The Xcode color palette
+4. `stash@{19}` - old code-editor invisible-text stash. The Xcode color palette
    is already on main; the remaining old patch contains a temporary minimal
    editor rewrite and must not be applied wholesale.
-6. `stash@{13}`, `stash@{14}`, `stash@{8}`, `stash@{9}` - substrate/research
+5. `stash@{13}`, `stash@{14}`, `stash@{8}`, `stash@{9}` - substrate/research
     nuances, recover after UI and graph-visible work.
 
 Closed but preserved:
@@ -64,6 +62,10 @@ Closed but preserved:
 - `stash@{3}` - VaultRecall visibility and Eidos bridge WIP. Current product
   recovery is closed by
   `docs/audits/VAULT_RECALL_EIDOS_STASH_CLOSEOUT_2026_05_26.md`; keep the stash
+  only as a preservation reference.
+- `stash@{6}` - preserve WIP before merge wave. Current product recovery is
+  closed by `docs/audits/VAULT_RECALL_EIDOS_STASH_CLOSEOUT_2026_05_26.md` and
+  `docs/audits/STASH6_NONCHAT_DONOR_CLOSEOUT_2026_05_26.md`; keep the stash
   only as a preservation reference.
 
 ## Stash Inventory
@@ -179,8 +181,8 @@ Differs from main:
 
 Message: `On master: preserve-wip-before-merge-wave-2026-05-24`
 
-Classification: important product and architecture WIP; recover in focused
-slices.
+Classification: closed for current product recovery; keep as preservation
+reference.
 
 Current closeout:
 
@@ -189,6 +191,10 @@ Current closeout:
   the stale chat/code diffs from this stash onto current `main`; current product
   code already has the provenance cards, trace sink, EventStore event,
   `VaultRecallWiringTests`, and Eidos bridge production tests.
+- The remaining non-chat docs/lattice slice is closed by
+  `docs/audits/STASH6_NONCHAT_DONOR_CLOSEOUT_2026_05_26.md`. The durable deck
+  and research-index addenda were ported; the lattice-coordinate explainer on
+  current `main` is newer than the stash donor and was not downgraded.
 
 Differs from main:
 

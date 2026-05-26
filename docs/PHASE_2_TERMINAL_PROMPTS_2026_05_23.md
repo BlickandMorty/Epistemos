@@ -1,10 +1,12 @@
 # Phase 2 — Terminal Dispatch Deck (rev 2026-05-24)
 
-12 parallel Codex/Claude terminals (T0, T1, S, A, B, C, D, E, F, G, H, R, X) to drive the W-row backlog (currently ~6/53 wired, ~11%) up toward 50%+ Phase-2 closure and to land the post-Erdős/Parameter-Golf doctrine. Each terminal is self-contained — minimal cross-surface conflict between them.
+13 parallel Codex/Claude terminals (T0, T1, S, A, B, C, D, E, F, G, H, R, X) to drive the W-row backlog (currently ~6/53 wired, ~11%) up toward 50%+ Phase-2 closure and to land the post-Erdős/Parameter-Golf doctrine. Each terminal is self-contained — minimal cross-surface conflict between them.
 
 ## What Epistemos is, in one paragraph (the local-AI framing)
 
-Epistemos is a **local cognitive substrate**, not "an app that runs a local model." The local model is the *mouth*; the substrate is everything that decides what part of memory, which runtime, what evidence, what schema, what proof, and what permission path the model is allowed to use before anything becomes an answer or an action. MLX is **one runtime lane**, not the architecture — it can be enabled, disabled, replaced, or paired with GGUF / llama.cpp / cloud / Apple Intelligence. The no-compromise architecture is the routing, residency, schemas, admission gates, proofs, and visible verification *around* those executors.
+Epistemos is a **local cognitive substrate**, not "an app that runs a local model." The local model is the *mouth*; the substrate is everything that decides what part of memory, which runtime, what model component, what evidence, what schema, what proof, and what permission path the model is allowed to use before anything becomes an answer or an action. MLX is **one runtime lane**, not the architecture — it can be enabled, disabled, replaced, or paired with GGUF / llama.cpp / cloud / Apple Intelligence. The no-compromise architecture is the routing, residency, schemas, admission gates, proofs, and visible verification *around* those executors.
+
+The master local-AI endgame is explicitly indexed in `docs/fusion/ADDRESSABLE_NEURAL_SUBSTRATE_CANON_2026_05_24.md`: Epistemos turns a dense model into an addressable neural substrate. An SSM/state router selects active assemblies of layers, rank-one components, KV pages, adapters, residual islands, and kernels; the residency governor pages only that working set into UMA; verification proves the selected path preserves dense/reference behavior within a budget.
 
 The six layers (Codex synthesis 2026-05-23):
 
@@ -18,6 +20,7 @@ The six layers (Codex synthesis 2026-05-23):
 **Authority bar (every terminal):** No fake successes. No hidden cloud fallback. WRV (Wired/Reachable/Visible/Verified) discipline. Universal Loop Block: Audit → Build → Verify → Harden → Report. Use chip-strip + honest language pattern from PR #57. Reference `docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md` + `docs/CANONICAL_CHRONICLE_2026_05_23.md` before any code.
 
 **2026-05-24 addenda (mandatory reads):**
+- `docs/fusion/ADDRESSABLE_NEURAL_SUBSTRATE_CANON_2026_05_24.md`
 - `docs/fusion/SHADOW_PROJECTION_AND_RESEARCH_CONSTRUCTION_2026_05_24.md`
 - `docs/fusion/ONLINE_RESEARCH_INTAKE_SHADOW_PROJECTION_2026_05_24.md`
 
@@ -39,9 +42,38 @@ Every PR must include a **No-Orphan check**:
 - Tier:
 - Rollback:
 
+Every PR touching local inference, model routing, Active Assembly, KV/cache residency, adapters, EML kernels, or "large local model" claims must also include a **Neural Substrate check**:
+
+- Addressed unit: layer | component | KV page | adapter | residual island | activation mask | kernel route
+- LLM-address granularity: whole-model | output-schema | KV-page | weight-bit | adapter | MoE expert | active assembly | attention-head/SSM state | parameter anchor | cross-layer circuit
+- UAS address pattern:
+- Plane:
+- Residency:
+- Router:
+- Dense/reference verifier:
+- Falsifier:
+- Rollback:
+
 `ShadowProjection<H,L>`, `L8?`, `E8?`, `E9?`, `T28`, `W-Lift-N`, and `F-Erdos-Lift-Optimality` are candidate-only until local falsifiers and WRV production caller chains land.
 
 Any PR citing Parameter Golf, the Erdős unit-distance result, EML forks, arXiv papers, GitHub PRs/forks, or forum-derived ideas must classify sources using the Online Research Intake credibility ladder. Public code is motif input, not raw merge material.
+
+---
+
+## A-G resume addendum (do not restart, resume with stricter fields)
+
+The seven stopped production terminals A-G keep their original scope. Paste the
+resume patch below, then add this per-terminal field to the next PR body:
+
+| Terminal | Motion classification | New field to include |
+|---|---|---|
+| A — Eidos | Lift vault source into citation substrate + Project citation back to chat | witness coordinate per citation |
+| B — VaultRecall + AnswerPacket | Project substrate trace into visible chat row | lift coordinate carried on every provenance card |
+| C — System G | Mutate/Promote mission into AnswerPacket | `construction_space_radius` stays candidate until real run path is stable |
+| D — Substrate Health | Project substrate state into Settings | each row consumes T0's honesty signal; chip flips only when production wired |
+| E — ACS Admission | Mutate/Promote verdict on every durable action | future verdicts distinguish `lift_allowed`, `lift_denied`, `lift_quarantined` |
+| F — Falsifiers | Project measurement into artifact | include F-Sparse-Runtime-Split, F-KV-Direct-Gate, F-UAS-CopyCount, F-70B-Local-Cocktail in planning |
+| G — T14 UAS bridge | Lift, Project, and Mutate | owns UAS fields for `ShadowProjection` and neural substrate address sets |
 
 ---
 
@@ -324,6 +356,9 @@ draft (model output)
 3. **F-UAS-ZeroCopy-Spine** — 5 paths (embedding/logits/KV-metadata/graph-search/provenance)
 4. **F-ULP-Oracle** — `max ULP ≤ 2 fp16 in [0.5, 2.0]` over 412k+2k points in ≤ 90 s
 5. **F-ControllerKernelPack** — control kernel correctness vs CPU ref
+6. **F-Sparse-Runtime-Split** — selected sparse/active neural assembly reproduces dense execution within bounded drift
+7. **F-KV-Direct-Gate** — SSD/mmap/residual KV path matches full hot-KV reference
+8. **F-70B-Local-Cocktail** — capability ceiling: 70B-class local run meets quality, RAM, and latency budget
 
 **Procedure for each:**
 - Build harness binary in `agent_core/src/bin/falsify_<name>.rs`
@@ -460,6 +495,7 @@ Resume patch — 2026-05-24 (rev 2 — adds T0 / T1 / S / X + local-AI framing)
 2. Read:
    - docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md (the WHOLE deck, including the new
      "What Epistemos is, in one paragraph" framing + Terminals T0 / T1 / S / X)
+   - docs/fusion/ADDRESSABLE_NEURAL_SUBSTRATE_CANON_2026_05_24.md
    - docs/fusion/SHADOW_PROJECTION_AND_RESEARCH_CONSTRUCTION_2026_05_24.md
    - docs/fusion/ONLINE_RESEARCH_INTAKE_SHADOW_PROJECTION_2026_05_24.md
    - docs/LEGENDARY_ARCHITECTURE_NO_COMPROMISE_AUDIT_2026_05_23.md
@@ -477,15 +513,20 @@ Resume patch — 2026-05-24 (rev 2 — adds T0 / T1 / S / X + local-AI framing)
 6. Add/update the PR No-Orphan check:
    Motion, UAS address, plane, residency, WBO/error policy, witness, falsifier,
    tier, rollback.
-7. Continue the loop:
+7. If your work touches local inference, model routing, Active Assembly,
+   KV/cache residency, adapters, EML kernels, or large-local-model claims, add
+   a Neural Substrate check:
+   addressed unit, UAS address, plane, residency, router, dense/reference
+   verifier, falsifier, rollback.
+8. Continue the loop:
    Audit -> Build -> Verify -> Harden -> Report.
-8. If your work depends on public research, cite the source credibility rank
+9. If your work depends on public research, cite the source credibility rank
    from the Online Research Intake doc.
-9. Do not promote ShadowProjection, L8/E8/E9, T28, W-Lift-N, Research
+10. Do not promote ShadowProjection, L8/E8/E9, T28, W-Lift-N, Research
    Construction Engine, W-PERF rows, Hyperdynamic loop kinds, or new
-   RuntimeExecutor lanes into product behavior unless the falsifier and WRV
-   caller chain are already real.
-10. NEVER `git checkout <stash> -- file` — use `git apply` with patches.
+   RuntimeExecutor lanes, neural-component routing, or 70B local capability
+   into product behavior unless the falsifier and WRV caller chain are already real.
+11. NEVER `git checkout <stash> -- file` — use `git apply` with patches.
     See PR #59 → PR #60 revert lesson.
 ```
 
@@ -494,6 +535,7 @@ Resume patch — 2026-05-24 (rev 2 — adds T0 / T1 / S / X + local-AI framing)
 ## Cross-terminal coordination
 
 - All terminals must read `docs/SANITIZATION_LOOP_TRACKER_2026_05_23.md` first.
+- All terminals touching local inference or model routing must read `docs/fusion/ADDRESSABLE_NEURAL_SUBSTRATE_CANON_2026_05_24.md`.
 - All terminals touching substrate architecture must read `docs/fusion/SHADOW_PROJECTION_AND_RESEARCH_CONSTRUCTION_2026_05_24.md`.
 - Any terminal citing public research must read `docs/fusion/ONLINE_RESEARCH_INTAKE_SHADOW_PROJECTION_2026_05_24.md`.
 - Per-PR gate: every PR's body MUST cite which W-row(s) it advances + which falsifier(s) it unblocks.
