@@ -5,6 +5,16 @@ import Testing
 
 @Suite("HTML Workspace source guards", .serialized)
 nonisolated struct HTMLWorkspaceSourceGuardTests {
+    private var repoRootURL: URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+    }
+
+    private func repoFileExists(_ relativePath: String) -> Bool {
+        FileManager.default.fileExists(atPath: repoRootURL.appendingPathComponent(relativePath).path)
+    }
+
     @Test("preview uses offline WKWebView defaults and no implicit app bridge")
     func previewUsesOfflineWKWebViewDefaults() throws {
         let previewSource = try loadMirroredSourceTextFile("Epistemos/Views/HTMLWorkspace/HTMLWorkspacePreviewView.swift")
@@ -208,6 +218,7 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         let inbound = try loadMirroredSourceTextFile("js-editor/src/bridge/inbound.ts")
         let outbound = try loadMirroredSourceTextFile("js-editor/src/bridge/outbound.ts")
         let editorIndex = try loadMirroredSourceTextFile("js-editor/src/index.ts")
+        let legacyDiagram = try loadMirroredSourceTextFile("js-editor/src/extensions/legacy-diagram-node.ts")
         let editorManifest = try loadMirroredSourceTextFile("js-editor/package.json")
         let webpack = try loadMirroredSourceTextFile("js-editor/webpack.config.js")
         let toolbar = try loadMirroredSourceTextFile("Epistemos/Views/Epdoc/EpdocEditorToolbar.swift")
@@ -229,7 +240,14 @@ nonisolated struct HTMLWorkspaceSourceGuardTests {
         #expect(!dock.contains("insertEpdocGraphFromDocument"))
         #expect(bridge.contains("case requestHTMLWorkspace"))
         #expect(app.contains("New HTML Workspace"))
+        #expect(editorIndex.contains("LegacyDiagramNode"))
         #expect(!editorIndex.contains("MermaidNode"))
+        #expect(legacyDiagram.contains("Compatibility-only schema node"))
+        #expect(legacyDiagram.contains("name: 'mermaid'"))
+        #expect(legacyDiagram.contains("data-legacy-diagram"))
+        #expect(!legacyDiagram.contains("loadMermaid"))
+        #expect(!legacyDiagram.contains("mermaid.min.js"))
+        #expect(!repoFileExists("js-editor/src/extensions/mermaid-node.ts"))
         #expect(!editorManifest.contains(#""mermaid":"#))
         #expect(!editorManifest.contains(#""mermaid": "#))
         #expect(!webpack.contains("vendor/mermaid"))
