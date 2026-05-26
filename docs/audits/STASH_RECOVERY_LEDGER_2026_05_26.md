@@ -302,7 +302,15 @@ Differs:
 Message:
 `On master: session-stash-2026-04-27: W9.21 PR4 (X salvaged) + W9.8 wire-up partial; restart-fresh per user`
 
-Classification: older but meaningful. Recover after current UI/editor work.
+Classification: older but meaningful. Honest-handle FFI is closed on current
+main; remaining value, if any, is approval/UI donor work.
+
+Recovered / superseded slice:
+
+- Claude shadow-handle preservation is closed in
+  `docs/audits/CLAUDE_SHADOW_HANDLE_CLOSEOUT_2026_05_26.md`. Current main
+  already has the newer `RustShadowFFIClient` honest-handle consumer,
+  `epistemos-shadow/src/honest_handle.rs`, and `ShadowHonestHandleSourceGuardTests`.
 
 Tracked differs:
 

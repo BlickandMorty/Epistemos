@@ -94,8 +94,12 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
 No merge-ready feature PRs. Two draft preservation PRs remain open and must not
 be raw-merged:
 
-- `#81` — Claude shadow-handle WIP preservation branch.
-- `#82` — B-prime uncommitted follow-up preservation branch.
+- `#81` — Claude shadow-handle WIP preservation branch. The honest-handle
+  product slice is closed on main; see
+  `docs/audits/CLAUDE_SHADOW_HANDLE_CLOSEOUT_2026_05_26.md`.
+- `#82` — B-prime uncommitted follow-up preservation branch. Current product
+  recovery is closed on main; see
+  `docs/audits/B_PRIME_FOLLOWUP_CLOSEOUT_2026_05_26.md`.
 
 `main` and `origin/main` were aligned when this block was refreshed. The
 finished-vs-preserved architecture recovery split lives in
