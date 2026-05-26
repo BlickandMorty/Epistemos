@@ -33,16 +33,16 @@ Current main checkpoint before this ledger:
 ## Recovery Priority
 
 1. `stash@{17}` - landing wave UI and missing Wave view files.
-2. `stash@{6}` - chat provenance, VaultRecall, landing, and phase prompt work.
+2. `stash@{6}` - remaining non-chat docs / lattice-coordinate explainer donor
+   material after the VaultRecall/Eidos slice closeout.
 3. `stash@{7}` - settings, ambient frequency, voice input, and app bootstrap
    nuance.
-4. `stash@{3}` - VaultRecall visibility and Eidos bridge WIP.
-5. `stash@{16}` - older honest-handle, approval queue, and editor asset WIP.
+4. `stash@{16}` - older honest-handle, approval queue, and editor asset WIP.
    Recover only after current UI/editor slices are stable.
-6. `stash@{19}` - old code-editor invisible-text stash. The Xcode color palette
+5. `stash@{19}` - old code-editor invisible-text stash. The Xcode color palette
    is already on main; the remaining old patch contains a temporary minimal
    editor rewrite and must not be applied wholesale.
-7. `stash@{13}`, `stash@{14}`, `stash@{8}`, `stash@{9}` - substrate/research
+6. `stash@{13}`, `stash@{14}`, `stash@{8}`, `stash@{9}` - substrate/research
     nuances, recover after UI and graph-visible work.
 
 Closed but preserved:
@@ -60,6 +60,10 @@ Closed but preserved:
   `docs/audits/STASH15_SELECTED_NEIGHBOR_EXPANSION_2026_05_26.md` and
   `docs/audits/STASH15_GRAPH_CLOSEOUT_2026_05_26.md`; keep the stash only as a
   historical graph/performance donor reference.
+- `stash@{3}` - VaultRecall visibility and Eidos bridge WIP. Current product
+  recovery is closed by
+  `docs/audits/VAULT_RECALL_EIDOS_STASH_CLOSEOUT_2026_05_26.md`; keep the stash
+  only as a preservation reference.
 
 ## Stash Inventory
 
@@ -131,8 +135,11 @@ Recover only if the blocker history is still useful for architecture trace.
 
 Message: `On master: auto-pre-pull-after-72-merge`
 
-Classification: real VaultRecall visibility WIP; recover after chat
-provenance/VaultRecall branches.
+Classification: closed for current product recovery; keep as a preservation
+reference. The useful resumed-verification facts were promoted into
+`docs/audits/VAULT_RECALL_VISIBILITY_2026_05_24.md`,
+`docs/audits/VAULT_RECALL_VISIBILITY_BLOCKER_2026_05_24.md`, and
+`docs/audits/VAULT_RECALL_EIDOS_STASH_CLOSEOUT_2026_05_26.md`.
 
 Differs from main:
 
@@ -173,6 +180,14 @@ Message: `On master: preserve-wip-before-merge-wave-2026-05-24`
 
 Classification: important product and architecture WIP; recover in focused
 slices.
+
+Current closeout:
+
+- The chat/VaultRecall/Eidos visibility slice is closed by
+  `docs/audits/VAULT_RECALL_EIDOS_STASH_CLOSEOUT_2026_05_26.md`. Do not replay
+  the stale chat/code diffs from this stash onto current `main`; current product
+  code already has the provenance cards, trace sink, EventStore event,
+  `VaultRecallWiringTests`, and Eidos bridge production tests.
 
 Differs from main:
 
