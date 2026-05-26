@@ -40,4 +40,13 @@ struct VoiceInputPermissionTests {
         #expect(source.contains("SingleResumeGate"))
         #expect(source.contains("resumeGate.resume"))
     }
+
+    @Test("shared voice input button uses stable recorder pipeline instead of live audio tap")
+    func voiceInputButtonUsesStableRecorderPipeline() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Shared/VoiceInputButton.swift")
+
+        #expect(source.contains("ComposerVoiceInputService.shared"))
+        #expect(source.contains("service.toggle()"))
+        #expect(!source.contains("EpistemosSpeechAnalyzer.shared.startLive()"))
+    }
 }
