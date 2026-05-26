@@ -2150,6 +2150,116 @@ actor SearchIndexService {
         guard !terms.isEmpty else { return "" }
         return terms.map { "\"\($0)\"*" }.joined(separator: " ")
     }
+
+    nonisolated static func vaultRecallTrace(
+        query: String,
+        limit: Int,
+        results: [SearchResult],
+        generatedAtMs: UInt64? = nil
+    ) -> VaultRecallTrace {
+        let effectiveQuery = vaultRecallEffectiveQuery(query)
+        let candidates = results.enumerated().map { index, result in
+            VaultRecallCandidate(
+                path: result.pageId,
+                title: result.title.isEmpty ? nil : result.title,
+                snippet: result.snippet.isEmpty ? nil : result.snippet,
+                fusedScore: lexicalScore(rank: result.rank, index: index),
+                signals: [
+                    VaultRecallSignalScore(
+                        signal: .lexical,
+                        raw: result.rank,
+                        normalized: lexicalScore(rank: result.rank, index: index)
+                    )
+                ],
+                selectionReason: "search-index page FTS lexical hit"
+            )
+        }
+        return VaultRecallTrace(
+            query: query,
+            effectiveQuery: effectiveQuery,
+            ladderTier: "vault-search-index-v1",
+            candidatePoolSize: results.count,
+            candidatesRetained: candidates.count,
+            candidates: candidates,
+            signalSummary: effectiveQuery.isEmpty ? [] : [.lexical],
+            generatedAtMs: generatedAtMs ?? vaultRecallGeneratedAtMs(),
+            notes: vaultRecallNotes(limit: limit, resultCount: results.count, source: "SearchIndexService.search"),
+            allChatterFallback: !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && effectiveQuery.isEmpty
+        )
+    }
+
+    nonisolated static func vaultRecallTrace(
+        query: String,
+        limit: Int,
+        fusedResults: [FusedResult],
+        generatedAtMs: UInt64? = nil
+    ) -> VaultRecallTrace {
+        let effectiveQuery = vaultRecallEffectiveQuery(query)
+        let candidates = fusedResults.map { result in
+            VaultRecallCandidate(
+                path: result.parentDocID,
+                title: nil,
+                snippet: result.snippet?.isEmpty == false ? result.snippet : nil,
+                fusedScore: result.fusedScore,
+                signals: [
+                    VaultRecallSignalScore(
+                        signal: .lexical,
+                        raw: Double(result.bestSourceRank),
+                        normalized: reciprocalRankScore(result.bestSourceRank)
+                    )
+                ],
+                selectionReason: "search-index RRF fused hit (\(result.entityKind))"
+            )
+        }
+        return VaultRecallTrace(
+            query: query,
+            effectiveQuery: effectiveQuery,
+            ladderTier: "vault-rrf-fusion-v1",
+            candidatePoolSize: fusedResults.count,
+            candidatesRetained: candidates.count,
+            candidates: candidates,
+            signalSummary: effectiveQuery.isEmpty ? [] : [.lexical],
+            generatedAtMs: generatedAtMs ?? vaultRecallGeneratedAtMs(),
+            notes: vaultRecallNotes(limit: limit, resultCount: fusedResults.count, source: "SearchIndexService.fusedSearch"),
+            allChatterFallback: !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && effectiveQuery.isEmpty
+        )
+    }
+
+    private nonisolated static func vaultRecallEffectiveQuery(_ query: String) -> String {
+        normalizedSearchTerms(query).joined(separator: " ")
+    }
+
+    private nonisolated static func vaultRecallGeneratedAtMs() -> UInt64 {
+        let value = millisecondsSinceEpoch(Date())
+        guard value > 0 else { return 0 }
+        return UInt64(value)
+    }
+
+    private nonisolated static func lexicalScore(rank: Double, index: Int) -> Double {
+        let denominator = 1.0 + abs(rank)
+        guard denominator.isFinite, denominator > 0 else {
+            return reciprocalRankScore(Int64(index + 1))
+        }
+        return min(1.0, max(0.0, 1.0 / denominator))
+    }
+
+    private nonisolated static func reciprocalRankScore(_ rank: Int64) -> Double {
+        let boundedRank = max(1, rank)
+        return 1.0 / Double(boundedRank)
+    }
+
+    private nonisolated static func vaultRecallNotes(
+        limit: Int,
+        resultCount: Int,
+        source: String
+    ) -> [String] {
+        [
+            "\(source) production trace",
+            "requested_limit=\(limit)",
+            "candidate_pool_size reflects returned SearchIndexService rows",
+            "lexical signal only; semantic/graph/MMR remain degraded until their producers are wired"
+        ]
+    }
 }
 
 // MARK: - SearchResult
