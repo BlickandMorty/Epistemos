@@ -32,16 +32,13 @@ Current main checkpoint before this ledger:
 
 ## Recovery Priority
 
-1. `stash@{17}` - landing wave UI and missing Wave view files.
-2. `stash@{7}` - settings, ambient frequency, voice input, and app bootstrap
-   nuance.
-3. `stash@{16}` - remaining editor asset WIP only. Honest-handle and
+1. `stash@{16}` - remaining editor asset WIP only. Honest-handle and
    approval-queue donor work are closed; do not restore vendor/editor assets
    without the editor source guard and performance gate.
-4. `stash@{19}` - old code-editor invisible-text stash. The Xcode color palette
+2. `stash@{19}` - old code-editor invisible-text stash. The Xcode color palette
    is already on main; the remaining old patch contains a temporary minimal
    editor rewrite and must not be applied wholesale.
-5. `stash@{13}`, `stash@{14}`, `stash@{8}`, `stash@{9}` - substrate/research
+3. `stash@{13}`, `stash@{14}`, `stash@{8}`, `stash@{9}` - substrate/research
     nuances, recover after UI and graph-visible work.
 
 Closed but preserved:
@@ -67,6 +64,10 @@ Closed but preserved:
   closed by `docs/audits/VAULT_RECALL_EIDOS_STASH_CLOSEOUT_2026_05_26.md` and
   `docs/audits/STASH6_NONCHAT_DONOR_CLOSEOUT_2026_05_26.md`; keep the stash
   only as a preservation reference.
+- `stash@{17}` - parallel Landing Wave / Session Intelligence session. Current
+  product recovery is closed by
+  `docs/audits/STASH17_LANDING_WAVE_CLOSEOUT_2026_05_26.md`; keep the stash
+  only as a historical landing/session UI donor reference.
 
 ## Stash Inventory
 
@@ -373,8 +374,15 @@ performance gate from `#86`.
 
 Message: `On master: codex-wip-parallel-during-landing-wave-session`
 
-Classification: high-priority UI recovery. This likely maps to user-visible
-landing/UI pieces that still feel missing.
+Classification: closed for current product UI recovery; keep as a historical
+landing/session UI donor reference.
+
+Closeout:
+
+- `docs/audits/STASH17_LANDING_WAVE_CLOSEOUT_2026_05_26.md` records that the
+  Landing Wave and Session Intelligence files are already present on current
+  `main`, and that the remaining raw stash tree would downgrade newer fused
+  landing/chat/ambient surfaces if applied wholesale.
 
 Differs:
 

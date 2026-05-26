@@ -80,7 +80,8 @@ These are finished enough to count as present on main:
   `#71`.
 - HTML Workspace direction and UI repromotion: merged through `#83` and guarded
   by `#86`.
-- Landing Wave source files and Session Intelligence source: restored in `#87`.
+- Landing Wave source files and Session Intelligence source: restored in `#87`
+  and closed by `docs/audits/STASH17_LANDING_WAVE_CLOSEOUT_2026_05_26.md`.
 - Snappy graph defaults: restored in `#86`.
 
 ## Not Finished But Preserved
