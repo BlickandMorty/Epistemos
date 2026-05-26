@@ -69,6 +69,10 @@ Recovered slice:
   `docs/audits/B_PRIME_HTML_WORKSPACE_SOURCE_GUARD_2026_05_26.md`. The
   `legacy-diagram-node.ts` donor file remains intentionally out of live source
   because new visual creation must route to native HTML Workspace, not Mermaid.
+- UAS/ACS artifact gates recovered in
+  `docs/audits/B_PRIME_UAS_ACS_ARTIFACT_GATES_2026_05_26.md`. The row now reads
+  `F-UAS-CopyCount` and `F-ACS-AnchorLookup` result artifacts while keeping the
+  production MAS adapter non-green.
 
 Needs audit:
 
@@ -77,8 +81,8 @@ Needs audit:
   `CognitiveWeightClassHealthRow`, `EditorBundleHealthRow`, `EidosHealthRow`,
   `EmlObservatoryHealthRow`, `LatticeWBOHealthRow`, `PlanePlacementHealthRow`,
   `SearchFusionHealthRow`, `SubstrateDriftMonitorHealthRow`,
-  `SystemGHealthRow`, `UasAcsHealthRow`, `SubstrateHealthPanel`,
-  `SettingsSurfaceComponents`, `SettingsView`.
+  `SystemGHealthRow`, `SubstrateHealthPanel`, `SettingsSurfaceComponents`,
+  `SettingsView`.
 - Editor bundle files: `js-editor/src/...`, compressed editor resources.
 - Missing untracked file: `js-editor/src/extensions/legacy-diagram-node.ts`.
 

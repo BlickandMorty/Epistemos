@@ -1,0 +1,34 @@
+# B-Prime UAS ACS Artifact Gates - 2026-05-26
+
+Status: recovered as a focused Settings health-row slice from `stash@{0}`.
+
+Source: `stash@{0}` (`b-prime-uncommitted-followup-2026-05-26`) and draft
+preservation PR #82.
+
+Recovery rule: no stash was popped, dropped, checked out, or bulk-applied. The
+stash was inspected as a donor patch; only the durable UAS/ACS gate behavior was
+ported onto current `main`.
+
+## What Was Recovered
+
+- `UasAcsHealthRow` now reads the measured `F-UAS-CopyCount` artifact at
+  `artifacts/falsifiers/uas_copy_count/result.json`.
+- `UasAcsHealthRow` now reads the measured `F-ACS-AnchorLookup` artifact at
+  `artifacts/falsifiers/acs_anchor_lookup/result.json`.
+- The row renders those gates as detail rows and can open the artifact or
+  fallback falsifier doc.
+- The production adapter remains explicitly non-green until the MAS runtime
+  actually routes through `anchor_registry.rs`.
+
+## What Was Not Recovered Raw
+
+The wider `stash@{0}` settings diff also contains broad surface and ambient
+settings work. That remains queued as separate recovery slices. This slice does
+not bulk-restore the stale draft branch, because that branch predates newer
+HTML Workspace, Runtime Router, Landing Wave, and recovery-ledger work on
+`main`.
+
+## Verification Target
+
+- `EpistemosTests/SubstrateHealthPanelTests.swift`
+- `Epistemos/Views/Settings/UasAcsHealthRow.swift`
