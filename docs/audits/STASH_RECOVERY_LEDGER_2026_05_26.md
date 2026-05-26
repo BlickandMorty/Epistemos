@@ -75,16 +75,13 @@ Recovered slice:
   `docs/audits/B_PRIME_UAS_ACS_ARTIFACT_GATES_2026_05_26.md`. The row now reads
   `F-UAS-CopyCount` and `F-ACS-AnchorLookup` result artifacts while keeping the
   production MAS adapter non-green.
+- Settings health-row follow-up recovered/superseded in
+  `docs/audits/B_PRIME_SETTINGS_HEALTH_SUPERSESSION_2026_05_26.md`. The durable
+  missing metric was the AnswerPacket `claimKindCounts` histogram; stale
+  tint-only chip rewrites were retired.
 
 Needs audit:
 
-- Settings health rows:
-  `ACSAdmissionHealthRow`, `AnswerPacketHealthRow`,
-  `CognitiveWeightClassHealthRow`, `EditorBundleHealthRow`, `EidosHealthRow`,
-  `EmlObservatoryHealthRow`, `LatticeWBOHealthRow`, `PlanePlacementHealthRow`,
-  `SearchFusionHealthRow`, `SubstrateDriftMonitorHealthRow`,
-  `SystemGHealthRow`, `SubstrateHealthPanel`, `SettingsSurfaceComponents`,
-  `SettingsView`.
 - Editor bundle files: `js-editor/src/...`, compressed editor resources.
 
 Superseded or dangerous:
