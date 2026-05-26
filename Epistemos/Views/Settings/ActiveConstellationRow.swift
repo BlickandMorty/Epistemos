@@ -44,7 +44,11 @@ public struct ActiveConstellationRow: View {
             VerifiedFloorChipStrip(
                 flag: "n/a",
                 substrate: "placeholder routes",
-                substrateTint: .orange
+                productionWired: false,
+                falsifierPassed: false,
+                falsifier: "docs/falsifiers/F-ActiveAssembly-Minimal_2026_05_17.md",
+                wiredToday: "Installed/local model states are summarized for diagnostics.",
+                stillStub: "No production route table or ActiveAssembly falsifier witness is wired here."
             )
 
             if models.isEmpty {

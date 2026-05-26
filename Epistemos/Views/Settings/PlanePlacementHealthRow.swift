@@ -31,7 +31,11 @@ public struct PlanePlacementHealthRow: View {
             VerifiedFloorChipStrip(
                 flag: "n/a",
                 substrate: chipLabel(plane),
-                substrateTint: plane.planeFieldsWired && plane.ffiReachable ? .green : .red
+                productionWired: plane.planeFieldsWired && plane.ffiReachable,
+                falsifierPassed: false,
+                falsifier: plane.falsifier,
+                wiredToday: "T14 plane fields and per-plane counts are visible when agent_core FFI is reachable.",
+                stillStub: "Green requires schema-conforming primary PASS evidence for the production placement path."
             )
             SubstrateHealthMetricLine(
                 label: "Unplaced nodes",

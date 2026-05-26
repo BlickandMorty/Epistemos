@@ -67,7 +67,11 @@ public struct AnswerPacketHealthRow: View {
             VerifiedFloorChipStrip(
                 flag: "on",
                 substrate: snapshot.totalEmitted > 0 ? "emitting" : "idle",
-                substrateTint: snapshot.totalEmitted > 0 ? .green : .orange
+                productionWired: snapshot.totalEmitted > 0,
+                falsifierPassed: false,
+                falsifier: "docs/falsifiers/F_WBO_DRIFT_LEDGER_2026_05_18.md",
+                wiredToday: "In-process AnswerPacket emitter and bounded audit ring are observable.",
+                stillStub: "Canonical persistent AnswerPacket product surface and matching primary witness are pending."
             )
             row(
                 label: "Audit ring",

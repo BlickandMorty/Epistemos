@@ -55,6 +55,9 @@ public struct SubstrateHealthPanel: View {
                 SettingsDescriptionText(
                     text: "Witness rows for arithmetic, WBO accounting, EML observability, UAS/ACS, and DAG placement."
                 )
+                surface(falsifier: "docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md", wRow: "T23B") {
+                    FalsifierArtifactsHealthRow()
+                }
                 surface(falsifier: "docs/falsifiers/F-ULP-Oracle_2026_05_17.md", wRow: "W-40") {
                     FUlpHealthRow()
                 }

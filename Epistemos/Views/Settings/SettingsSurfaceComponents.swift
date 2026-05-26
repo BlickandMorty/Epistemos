@@ -242,7 +242,11 @@ struct ChannelStatusPill: View {
 struct VerifiedFloorChipStrip: View {
     let flag: String
     let substrate: String
-    let substrateTint: Color
+    let productionWired: Bool
+    let falsifierPassed: Bool
+    let falsifier: String
+    let wiredToday: String
+    let stillStub: String
 
     private var flagTint: Color {
         switch flag {
@@ -255,12 +259,42 @@ struct VerifiedFloorChipStrip: View {
         }
     }
 
+    private var greenEligible: Bool {
+        productionWired && falsifierPassed
+    }
+
+    private var substrateTint: Color {
+        if greenEligible { return .green }
+        return productionWired ? .orange : .secondary
+    }
+
+    private var witnessTint: Color {
+        if greenEligible { return .green }
+        return falsifierPassed ? .orange : .secondary
+    }
+
+    private var witnessLabel: String {
+        falsifierPassed ? "PASS" : "pending"
+    }
+
+    private var truthTooltip: String {
+        [
+            "Wired today: \(wiredToday)",
+            "Still stub: \(stillStub)",
+            "Falsifier: \(falsifier)",
+            "Green requires production wiring plus primary PASS witness."
+        ].joined(separator: "\n")
+    }
+
     var body: some View {
         HStack(spacing: 6) {
             ChannelStatusPill(title: "Flag: \(flag)", tint: flagTint)
             ChannelStatusPill(title: "Substrate: \(substrate)", tint: substrateTint)
+            ChannelStatusPill(title: "Witness: \(witnessLabel)", tint: witnessTint)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 12)
+        .help(truthTooltip)
+        .accessibilityLabel(truthTooltip)
     }
 }

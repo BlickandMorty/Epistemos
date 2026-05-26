@@ -29,7 +29,11 @@ public struct LocalAgentDiagnosticsHealthRow: View {
             VerifiedFloorChipStrip(
                 flag: "n/a",
                 substrate: "placeholder routes",
-                substrateTint: .orange
+                productionWired: false,
+                falsifierPassed: false,
+                falsifier: "docs/falsifiers/F-ActiveAssembly-Minimal_2026_05_17.md",
+                wiredToday: "Strict grammar, schema drift, and local model counters are visible.",
+                stillStub: "This row does not prove local tool-use production behavior or a primary PASS witness."
             )
 
             diagnosticRow(

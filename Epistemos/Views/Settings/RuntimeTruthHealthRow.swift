@@ -171,6 +171,15 @@ public struct RuntimeTruthHealthRow: View {
                 }
                 Spacer()
             }
+            VerifiedFloorChipStrip(
+                flag: "n/a",
+                substrate: "runtime status",
+                productionWired: false,
+                falsifierPassed: false,
+                falsifier: "docs/falsifiers/F-ActiveAssembly-Minimal_2026_05_17.md",
+                wiredToday: "Mode, provider, capability, and tool-loop route are visible from app state.",
+                stillStub: "This status row does not prove the selected route has a primary PASS falsifier witness."
+            )
 
             // Mode + Provider grid
             VStack(alignment: .leading, spacing: 4) {

@@ -29,6 +29,7 @@ struct SubstrateHealthPanelTests {
         #expect(panel.contains("SystemGHealthRow()"))
         #expect(panel.contains("FUlpHealthRow()"))
         #expect(panel.contains("ACSAdmissionHealthRow()"))
+        #expect(panel.contains("FalsifierArtifactsHealthRow()"))
         #expect(panel.contains("AnswerPacketHealthRow()"))
         #expect(panel.contains("EmlObservatoryHealthRow()"))
         #expect(panel.contains("UasAcsHealthRow()"))

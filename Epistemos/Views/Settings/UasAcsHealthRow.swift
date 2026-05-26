@@ -28,7 +28,11 @@ public struct UasAcsHealthRow: View {
             VerifiedFloorChipStrip(
                 flag: "n/a",
                 substrate: uas.productionAnchorLookupWired ? "anchor lookup" : "taxonomy only",
-                substrateTint: uas.productionAnchorLookupWired ? .green : .orange
+                productionWired: uas.productionAnchorLookupWired,
+                falsifierPassed: false,
+                falsifier: uas.falsifier,
+                wiredToday: "UAS kind taxonomy, residency tiers, and copy counters are readable.",
+                stillStub: "Production anchor lookup is not green until primary PASS evidence is tied to the MAS path."
             )
             SubstrateHealthMetricLine(
                 label: "Copy counters",

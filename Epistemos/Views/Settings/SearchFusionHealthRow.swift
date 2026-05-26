@@ -44,7 +44,11 @@ public struct SearchFusionHealthRow: View {
             VerifiedFloorChipStrip(
                 flag: snapshot.isFlagEnabled ? "on" : "off",
                 substrate: snapshot.sampleCount > 0 ? "metrics live" : "not exercised",
-                substrateTint: snapshot.sampleCount > 0 ? .green : .orange
+                productionWired: snapshot.sampleCount > 0,
+                falsifierPassed: false,
+                falsifier: "docs/falsifiers/F-ShadowFirst-PageEscalation_2026_05_17.md",
+                wiredToday: "Search fusion metrics report observed queries and latency.",
+                stillStub: "Metrics alone are not a production-green retrieval claim without a primary PASS witness."
             )
             row(
                 label: "Last query",

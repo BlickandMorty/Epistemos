@@ -19,24 +19,35 @@ struct ArenaHealthRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: snapshot.ok ? "memorychip" : "memorychip.fill")
-                .symbolRenderingMode(.hierarchical)
-                .frame(width: 18, height: 18)
-                .foregroundStyle(.secondary)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Shared arena")
-                    .font(.system(size: 13, weight: .medium))
-                Text(snapshot.detail)
-                    .font(.system(size: 11, design: .monospaced))
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Image(systemName: snapshot.ok ? "memorychip" : "memorychip.fill")
+                    .symbolRenderingMode(.hierarchical)
+                    .frame(width: 18, height: 18)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Shared arena")
+                        .font(.system(size: 13, weight: .medium))
+                    Text(snapshot.detail)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                Spacer()
+                Image(systemName: snapshot.ok ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    .foregroundStyle(snapshot.ok ? AnyShapeStyle(Color.green) : AnyShapeStyle(Color.orange))
+                    .font(.system(size: 16))
             }
-            Spacer()
-            Image(systemName: snapshot.ok ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                .foregroundStyle(snapshot.ok ? AnyShapeStyle(Color.green) : AnyShapeStyle(Color.orange))
-                .font(.system(size: 16))
+            VerifiedFloorChipStrip(
+                flag: "n/a",
+                substrate: snapshot.ok ? "path resolved" : "unavailable",
+                productionWired: false,
+                falsifierPassed: false,
+                falsifier: "docs/falsifiers/F-UAS-ZeroCopy-Spine_2026_05_17.md",
+                wiredToday: "Shared arena path and bridge budget constants are visible.",
+                stillStub: "This row does not claim mmap activation or zero-copy production routing."
+            )
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)

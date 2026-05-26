@@ -44,8 +44,12 @@ public struct SystemGHealthRow: View {
             )
             VerifiedFloorChipStrip(
                 flag: snapshot.isFlagEnabled ? "on" : "off",
-                substrate: "production dispatch live",
-                substrateTint: .green
+                substrate: "real seam · falsifier pending",
+                productionWired: snapshot.lastStatus != nil && registryError == nil,
+                falsifierPassed: false,
+                falsifier: "docs/falsifiers/F-ActiveAssembly-Minimal_2026_05_17.md",
+                wiredToday: "RealSystemGRunSeam is registered and registry stats are readable when FFI is available.",
+                stillStub: "ActiveAssembly/System G green remains blocked until a primary PASS falsifier witness exists."
             )
             row(
                 label: "Runtime mode",
