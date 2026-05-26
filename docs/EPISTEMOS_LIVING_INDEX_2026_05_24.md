@@ -140,10 +140,11 @@ Full prompts: `docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md`. **Wave 1 = foundati
 2. Main build break from #76 repaired directly on main at `77c7efe9ea`.
 3. B-prime uncommitted follow-up work is closed for current product recovery; it remains preserved as stash/tag/patch and documented by `docs/audits/B_PRIME_FOLLOWUP_CLOSEOUT_2026_05_26.md` until the user approves retiring old recovery refs.
 4. `stash@{15}` graph/filter recovery is closed for current product work by `docs/audits/STASH15_SELECTED_NEIGHBOR_EXPANSION_2026_05_26.md` and `docs/audits/STASH15_GRAPH_CLOSEOUT_2026_05_26.md`; keep it only as a preserved graph/performance donor reference.
-5. VaultRecall/Eidos visibility from `stash@{3}` and the chat/VaultRecall slice of `stash@{6}` is closed for current product work by `docs/audits/VAULT_RECALL_EIDOS_STASH_CLOSEOUT_2026_05_26.md`; keep `stash@{3}` as preservation-only and treat any remaining `stash@{6}` material as non-chat donor work.
-6. `stash@{16}` honest-handle + approval UI donor recovery is closed for current product work by `docs/audits/CLAUDE_SHADOW_HANDLE_CLOSEOUT_2026_05_26.md` and `docs/audits/STASH16_APPROVAL_UI_DONOR_CLOSEOUT_2026_05_26.md`; remaining value there is editor/vendor donor material that needs source-guard + performance gates before any port.
-7. Remaining required next work is **Wave 3**, not more Wave-2 merging: AgentBlueprint end-to-end replay UI, agent metadata badges, deeper UAS/ClaimLedger rows, Cognitive DAG visualizer, Tri-Fusion typed mutations, and focused donor recovery from remaining non-chat `stash@{6}` donors plus substrate/research/editor stashes.
-8. Run `LEGENDARY` codeword for a fresh percentage/W-row roll-up.
+5. VaultRecall/Eidos visibility from `stash@{3}` and the chat/VaultRecall slice of `stash@{6}` is closed for current product work by `docs/audits/VAULT_RECALL_EIDOS_STASH_CLOSEOUT_2026_05_26.md`; keep `stash@{3}` as preservation-only.
+6. The remaining non-chat docs/lattice-coordinate explainer donor slice of `stash@{6}` is closed by `docs/audits/STASH6_NONCHAT_DONOR_CLOSEOUT_2026_05_26.md`; current `main` keeps the newer explainer and ports the Phase 2 / Legendary / Master Research Index addenda.
+7. `stash@{16}` honest-handle + approval UI donor recovery is closed for current product work by `docs/audits/CLAUDE_SHADOW_HANDLE_CLOSEOUT_2026_05_26.md` and `docs/audits/STASH16_APPROVAL_UI_DONOR_CLOSEOUT_2026_05_26.md`; remaining value there is editor/vendor donor material that needs source-guard + performance gates before any port.
+8. Remaining required next work is **Wave 3**, not more Wave-2 merging: AgentBlueprint end-to-end replay UI, agent metadata badges, deeper UAS/ClaimLedger rows, Cognitive DAG visualizer, Tri-Fusion typed mutations, and focused donor recovery from substrate/research/editor stashes.
+9. Run `LEGENDARY` codeword for a fresh percentage/W-row roll-up.
 
 ## 8 · Deferred-work ledger (26 items, anti-loss)
 
