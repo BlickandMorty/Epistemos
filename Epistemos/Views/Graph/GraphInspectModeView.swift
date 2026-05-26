@@ -16,18 +16,3 @@ struct GraphInspectModeView: View {
             .accessibilityHidden(true)
     }
 }
-
-// MARK: - GraphState Extension for Inspect Mode
-
-extension GraphState {
-    /// Deferred v1 compatibility hook. The visible graph inspector is
-    /// `HologramNodeInspector`; this hook intentionally does not mount UI.
-    func enterInspectMode() {
-        guard selectedNodeId != nil else { return }
-    }
-    
-    /// Clear the selected node when callers ask to exit the deferred shell.
-    func exitInspectMode() {
-        selectNode(nil)
-    }
-}

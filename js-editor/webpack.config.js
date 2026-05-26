@@ -103,9 +103,6 @@ module.exports = (_env, argv) => ({
         // KaTeX CSS sets font URLs relative to the CSS — copy fonts so paths work
         { from: 'node_modules/katex/dist/fonts', to: 'vendor/katex/fonts' },
         { from: 'node_modules/katex/dist/katex.min.css', to: 'vendor/katex/katex.min.css' },
-        // Pre-bundled Mermaid (W7.9) — vendor copy avoids dynamic import
-        // chunks, which WKWebView's CSP-default refuses.
-        { from: 'node_modules/mermaid/dist/mermaid.min.js', to: 'vendor/mermaid/mermaid.min.js' },
       ],
     }),
     ...(argv.mode === 'production' ? [

@@ -940,10 +940,13 @@ fragment float4 node_fragment(
             // reads on smaller nodes too. The intensity scales with
             // link_count via the existing z-depth tier (large_folder_node
             // path gets 0.24/0.06; parent-only path gets 0.30/0.08).
-            float glare_mix = large_folder_node ? 0.24 : 0.30;
-            float shadow_mix = large_folder_node ? 0.06 : 0.08;
-            pixel_color = mix(pixel_color, folder_glare_color, folder_pixel_glare * glare_mix);
-            pixel_color = mix(pixel_color, folder_shadow_color, folder_pixel_shadow * shadow_mix);
+            if (large_folder_node) {
+                pixel_color = mix(pixel_color, folder_glare_color, folder_pixel_glare * 0.24);
+                pixel_color = mix(pixel_color, folder_shadow_color, folder_pixel_shadow * 0.06);
+            } else {
+                pixel_color = mix(pixel_color, folder_glare_color, folder_pixel_glare * 0.30);
+                pixel_color = mix(pixel_color, folder_shadow_color, folder_pixel_shadow * 0.08);
+            }
         }
         if (uniforms.pulse_time >= 0.0) {
             // Pixel-art click pulse. Three deliberate departures from the
@@ -1047,10 +1050,13 @@ fragment float4 node_fragment(
             // Same scaling rule as the cinematic path so the two modes
             // produce a consistent hub look. Folder hubs keep the
             // original 0.20/0.05 mix; generic parent hubs get 0.26/0.07.
-            float glare_mix = large_folder_node ? 0.20 : 0.26;
-            float shadow_mix = large_folder_node ? 0.05 : 0.07;
-            result_color = mix(result_color, folder_glare_color, folder_pixel_glare * glare_mix);
-            result_color = mix(result_color, folder_shadow_color, folder_pixel_shadow * shadow_mix);
+            if (large_folder_node) {
+                result_color = mix(result_color, folder_glare_color, folder_pixel_glare * 0.20);
+                result_color = mix(result_color, folder_shadow_color, folder_pixel_shadow * 0.05);
+            } else {
+                result_color = mix(result_color, folder_glare_color, folder_pixel_glare * 0.26);
+                result_color = mix(result_color, folder_shadow_color, folder_pixel_shadow * 0.07);
+            }
         }
 
         bool is_dimmed = in.highlight_dim < 0.99 && in.highlight_dim > 0.001;
