@@ -211,6 +211,9 @@ Recovered slice:
    filter UI portion was already present on `main`; the recovered Rust slice
    only changes direct selected-neighborhood link rest distance while keeping
    normal no-selection link physics on the original hot path.
+2. Product closeout is recorded in
+   `docs/audits/STASH15_GRAPH_CLOSEOUT_2026_05_26.md`. The raw stash remains
+   preserved but is no longer an active recovery queue item.
 
 ### 6. Claude Shadow Handle (`#81`, `stash@{16}` overlap)
 
@@ -303,18 +306,15 @@ not fully closed. The next implementation waves are:
 
 ### Recovery Wave - Local UI/UX Nuance
 
-- Recover graph-filter ideas from `stash@{15}` only if they pass performance
-  gates.
 - Recover T6 UI/UX polish from the donor branch under D-01.
 
 ## Recommended Next Execution Order
 
-1. **Graph WIP audit:** mine `stash@{15}` with a graph performance test gate.
-2. **VaultRecall/Eidos visibility:** mine `stash@{3}` and `stash@{6}` after the
+1. **VaultRecall/Eidos visibility:** mine `stash@{3}` and `stash@{6}` after the
    current provenance path is stable.
-3. **Approval UI donor:** inspect `stash@{16}` for `ChatApprovalQueue` /
+2. **Approval UI donor:** inspect `stash@{16}` for `ChatApprovalQueue` /
    approval modal ideas now that the honest-handle FFI slice is closed.
-4. **Wave 3 architecture:** AgentBlueprint replay UI + model metadata badges.
+3. **Wave 3 architecture:** AgentBlueprint replay UI + model metadata badges.
 
 ## Operational Instruction For Agents
 
