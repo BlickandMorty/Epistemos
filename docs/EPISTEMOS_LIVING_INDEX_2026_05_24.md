@@ -143,8 +143,9 @@ Full prompts: `docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md`. **Wave 1 = foundati
 5. VaultRecall/Eidos visibility from `stash@{3}` and the chat/VaultRecall slice of `stash@{6}` is closed for current product work by `docs/audits/VAULT_RECALL_EIDOS_STASH_CLOSEOUT_2026_05_26.md`; keep `stash@{3}` as preservation-only.
 6. The remaining non-chat docs/lattice-coordinate explainer donor slice of `stash@{6}` is closed by `docs/audits/STASH6_NONCHAT_DONOR_CLOSEOUT_2026_05_26.md`; current `main` keeps the newer explainer and ports the Phase 2 / Legendary / Master Research Index addenda.
 7. `stash@{17}` Landing Wave / Session Intelligence recovery is closed by `docs/audits/STASH17_LANDING_WAVE_CLOSEOUT_2026_05_26.md`; current `main` keeps the newer fused landing/chat/ambient route.
-8. `stash@{16}` honest-handle + approval UI donor recovery is closed for current product work by `docs/audits/CLAUDE_SHADOW_HANDLE_CLOSEOUT_2026_05_26.md` and `docs/audits/STASH16_APPROVAL_UI_DONOR_CLOSEOUT_2026_05_26.md`; remaining value there is editor/vendor donor material that needs source-guard + performance gates before any port.
-9. Remaining required next work is **Wave 3**, not more Wave-2 merging: AgentBlueprint end-to-end replay UI, agent metadata badges, deeper UAS/ClaimLedger rows, Cognitive DAG visualizer, Tri-Fusion typed mutations, and focused donor recovery from substrate/research/editor stashes.
+8. `stash@{16}` honest-handle + approval UI donor recovery is closed for current product work by `docs/audits/CLAUDE_SHADOW_HANDLE_CLOSEOUT_2026_05_26.md` and `docs/audits/STASH16_APPROVAL_UI_DONOR_CLOSEOUT_2026_05_26.md`.
+9. `stash@{16}` / `stash@{19}` editor donor recovery is closed by `docs/audits/STASH16_19_EDITOR_DONOR_CLOSEOUT_2026_05_26.md`; current `main` keeps the compressed editor bundle, KaTeX `.woff2` resources, Xcode-style code colors, and live `CodeEditSourceEditor` route.
+10. Remaining required next work is **Wave 3**, not more Wave-2 merging: AgentBlueprint end-to-end replay UI, agent metadata badges, deeper UAS/ClaimLedger rows, Cognitive DAG visualizer, Tri-Fusion typed mutations, and focused donor recovery from substrate/research stashes.
 10. Run `LEGENDARY` codeword for a fresh percentage/W-row roll-up.
 
 ## 8 · Deferred-work ledger (26 items, anti-loss)

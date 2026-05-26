@@ -32,13 +32,7 @@ Current main checkpoint before this ledger:
 
 ## Recovery Priority
 
-1. `stash@{16}` - remaining editor asset WIP only. Honest-handle and
-   approval-queue donor work are closed; do not restore vendor/editor assets
-   without the editor source guard and performance gate.
-2. `stash@{19}` - old code-editor invisible-text stash. The Xcode color palette
-   is already on main; the remaining old patch contains a temporary minimal
-   editor rewrite and must not be applied wholesale.
-3. `stash@{13}`, `stash@{14}`, `stash@{8}`, `stash@{9}` - substrate/research
+1. `stash@{13}`, `stash@{14}`, `stash@{8}`, `stash@{9}` - substrate/research
     nuances, recover after UI and graph-visible work.
 
 Closed but preserved:
@@ -68,6 +62,15 @@ Closed but preserved:
   product recovery is closed by
   `docs/audits/STASH17_LANDING_WAVE_CLOSEOUT_2026_05_26.md`; keep the stash
   only as a historical landing/session UI donor reference.
+- `stash@{16}` - April 27 editor/vendor donor. Honest-handle, approval queue,
+  and remaining editor/vendor material are closed by
+  `docs/audits/CLAUDE_SHADOW_HANDLE_CLOSEOUT_2026_05_26.md`,
+  `docs/audits/STASH16_APPROVAL_UI_DONOR_CLOSEOUT_2026_05_26.md`, and
+  `docs/audits/STASH16_19_EDITOR_DONOR_CLOSEOUT_2026_05_26.md`; keep the stash
+  only as a historical editor/approval/shadow donor reference.
+- `stash@{19}` - old code-editor invisible-text fix. Current product recovery
+  is closed by `docs/audits/STASH16_19_EDITOR_DONOR_CLOSEOUT_2026_05_26.md`;
+  keep the stash only as a historical editor donor reference.
 
 ## Stash Inventory
 
@@ -340,9 +343,8 @@ Differs:
 Message:
 `On master: session-stash-2026-04-27: W9.21 PR4 (X salvaged) + W9.8 wire-up partial; restart-fresh per user`
 
-Classification: older but meaningful. Honest-handle FFI and approval/UI donor
-work are closed on current main. Remaining value, if any, is editor/vendor
-donor material that must not be raw-restored.
+Classification: closed for current product recovery; keep as a historical
+editor/approval/shadow donor reference.
 
 Recovered / superseded slice:
 
@@ -354,6 +356,11 @@ Recovered / superseded slice:
   `docs/audits/STASH16_APPROVAL_UI_DONOR_CLOSEOUT_2026_05_26.md`. Current main
   now keeps the fused SwiftUI approval sheet while porting per-session args
   dedup and `<session>/approvals.jsonl` audit rows.
+- Remaining editor/vendor donor material is closed in
+  `docs/audits/STASH16_19_EDITOR_DONOR_CLOSEOUT_2026_05_26.md`. Current main
+  keeps the compressed editor bundle, KaTeX `.woff2` assets, Xcode-style color
+  tokens, and `CodeEditSourceEditor` path. Do not raw-restore uncompressed
+  editor bundle files or `vendor/mermaid/mermaid.min.js`.
 
 Tracked differs:
 
@@ -367,8 +374,8 @@ Missing untracked includes:
 - uncompressed editor assets and vendor files
 - `Epistemos/Resources/Editor/editor.html` differs
 
-Do not revive Mermaid/vendor/editor assets without the source-guard and
-performance gate from `#86`.
+Do not revive Mermaid/vendor/editor assets without a new source guard and
+performance gate. Current product recovery is closed.
 
 ### `stash@{17}` - parallel landing wave session
 
@@ -445,7 +452,8 @@ project metadata.
 Message:
 `WIP on main: 29c0ca83 Fix: Invisible text in code editor — isRichText must be true`
 
-Classification: mostly superseded, but preserve intent.
+Classification: closed for current product recovery; keep as a historical code
+editor donor reference.
 
 Current audit:
 
@@ -457,6 +465,11 @@ Current audit:
 - Current main still has two `NSTextView` inspector paths with
   `isRichText = false`; recover only if a focused test proves attributes are
   lost or text can become invisible in those paths.
+- Closeout:
+  `docs/audits/STASH16_19_EDITOR_DONOR_CLOSEOUT_2026_05_26.md` records why the
+  old "MINIMAL TEST" `CodeEditorView` rewrite was not restored and why the
+  remaining `isRichText = false` sites are graph-inspector helper views, not
+  the live `CodeEditSourceEditor` canvas.
 
 ## Closure Rule
 
