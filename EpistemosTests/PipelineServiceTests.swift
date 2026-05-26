@@ -2185,7 +2185,7 @@ struct ChatCoordinatorPersistenceTests {
     }
 
     @Test("shared notes context resolver requires explicit mentions and supports all-notes context")
-    func sharedNotesContextResolverRequiresExplicitMentionsAndSupportsAllNotesContext() async {
+    func sharedNotesContextResolverRequiresExplicitMentionsAndSupportsAllNotesContext() async throws {
         let now = Date()
         let manifest = VaultManifest(
             vaultTitle: "my mind",
@@ -2247,6 +2247,12 @@ struct ChatCoordinatorPersistenceTests {
         #expect(first.loadedNoteTitles == ["Alpha"])
         #expect(first.context?.contains("### Referenced Note: Alpha") == true)
         #expect(first.context?.contains("Canonical vault-relative path (use this with `vault.read`): Research/Alpha.md") == true)
+        let firstTrace = try #require(first.vaultRecallTrace)
+        #expect(firstTrace.ladderTier == "vault-chat-context-v1")
+        #expect(VaultRecallBridge.detectedBackend(from: firstTrace) == .real)
+        #expect(firstTrace.candidatesRetained == 1)
+        #expect(firstTrace.candidates.first?.path == "Research/Alpha.md")
+        #expect(firstTrace.candidates.first?.selectionReason == "resolved explicit vault note context")
 
         let second = await ChatCoordinator.resolveNotesContext(
             query: "Use the same note again",
@@ -2317,6 +2323,12 @@ struct ChatCoordinatorPersistenceTests {
         #expect(third.context?.contains("Canonical vault-relative path (use this with `vault.read`): Beta.md") == true)
         #expect(third.loadedNoteIds == Set(["beta-id", "alpha-id"]))
         #expect(third.loadedNoteTitles == ["Beta", "Alpha"])
+        let thirdTrace = try #require(third.vaultRecallTrace)
+        #expect(thirdTrace.ladderTier == "vault-chat-context-v1")
+        #expect(VaultRecallBridge.detectedBackend(from: thirdTrace) == .real)
+        #expect(thirdTrace.candidatePoolSize == 2)
+        #expect(thirdTrace.candidatesRetained == 2)
+        #expect(thirdTrace.candidates.compactMap(\.title) == ["Beta", "Alpha"])
 
         let attached = await ChatCoordinator.resolveAttachedContext(
             query: "Compare this to that older conversation",
@@ -2349,7 +2361,7 @@ struct ChatCoordinatorPersistenceTests {
     }
 
     @Test("attached notes resolve by exact page id and do not drift through title search")
-    func attachedNotesResolveByExactPageID() async {
+    func attachedNotesResolveByExactPageID() async throws {
         let now = Date()
         let manifest = VaultManifest(
             vaultTitle: "my mind",
@@ -2442,6 +2454,11 @@ struct ChatCoordinatorPersistenceTests {
         #expect(resolution.context?.contains("Alpha full body") == false)
         #expect(resolution.loadedNoteIds == Set(["beta-id"]))
         #expect(resolution.loadedNoteTitles == ["Project Atlas"])
+        let trace = try #require(resolution.vaultRecallTrace)
+        #expect(trace.ladderTier == "vault-chat-context-v1")
+        #expect(VaultRecallBridge.detectedBackend(from: trace) == .real)
+        #expect(trace.candidatesRetained == 1)
+        #expect(trace.candidates.first?.path == "Research/Project Atlas.md")
     }
 
     @Test("live attached notes expose exact vault.write path only when writable")
@@ -2682,7 +2699,7 @@ struct ChatCoordinatorPersistenceTests {
     }
 
     @Test("soft vault mention prompts build an indexed fallback answer")
-    func softVaultMentionPromptBuildsIndexedFallbackAnswer() async {
+    func softVaultMentionPromptBuildsIndexedFallbackAnswer() async throws {
         let now = Date()
         let manifest = VaultManifest(
             vaultTitle: "my mind",
@@ -2730,6 +2747,12 @@ struct ChatCoordinatorPersistenceTests {
         #expect(fallback?.answer.contains("Research/Train Notes.md") == true)
         #expect(fallback?.answer.contains("<b>") == false)
         #expect(fallback?.answer.contains("Freight train schedule notes.") == true)
+        let trace = try #require(fallback?.vaultRecallTrace)
+        #expect(trace.ladderTier == "vault-chat-context-v1")
+        #expect(VaultRecallBridge.detectedBackend(from: trace) == .real)
+        #expect(trace.candidatePoolSize == 1)
+        #expect(trace.candidatesRetained == 1)
+        #expect(trace.candidates.first?.path == "Research/Train Notes.md")
         #expect(
             ChatCoordinator.shouldUseIndexedVaultFallback(
                 forPipelineErrorMessage: "Local agent stopped after 2 consecutive empty repair turns."

@@ -1,4 +1,51 @@
+import Observation
 import SwiftUI
+
+// UAS: vault-recall/provenance-trace-sink
+// Plane: RuntimePlane::Projection
+// Residency: ResidencyTier::CurrentApp
+@MainActor
+@Observable
+final class VaultRecallTraceSink {
+    static let shared = VaultRecallTraceSink()
+
+    private var tracesByAnswerPacketId: [String: VaultRecallTrace] = [:]
+    private var tracesByMessageId: [String: VaultRecallTrace] = [:]
+    private let maxEntries = 64
+
+    private init() {}
+
+    func record(messageId: String, answerPacketId: String?, trace: VaultRecallTrace) {
+        let cleanMessageId = messageId.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !cleanMessageId.isEmpty {
+            tracesByMessageId[cleanMessageId] = trace
+        }
+        if let cleanPacketId = answerPacketId?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !cleanPacketId.isEmpty {
+            tracesByAnswerPacketId[cleanPacketId] = trace
+        }
+        trimIfNeeded()
+    }
+
+    func trace(answerPacketId: String?, messageId: String?) -> VaultRecallTrace? {
+        if let cleanPacketId = answerPacketId?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !cleanPacketId.isEmpty,
+           let trace = tracesByAnswerPacketId[cleanPacketId] {
+            return trace
+        }
+        if let cleanMessageId = messageId?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !cleanMessageId.isEmpty {
+            return tracesByMessageId[cleanMessageId]
+        }
+        return nil
+    }
+
+    private func trimIfNeeded() {
+        guard tracesByMessageId.count > maxEntries || tracesByAnswerPacketId.count > maxEntries else { return }
+        tracesByMessageId = Dictionary(tracesByMessageId.suffix(maxEntries), uniquingKeysWith: { _, latest in latest })
+        tracesByAnswerPacketId = Dictionary(tracesByAnswerPacketId.suffix(maxEntries), uniquingKeysWith: { _, latest in latest })
+    }
+}
 
 struct VaultRecallProvenanceCard: View {
     let trace: VaultRecallTrace?
@@ -14,13 +61,13 @@ struct VaultRecallProvenanceCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 6 : 8) {
             HStack(spacing: 6) {
-                Image(systemName: "checkmark.shield")
+                Image(systemName: headerIconName)
                     .font(.system(size: compact ? 10 : 11, weight: .semibold))
-                Text("Vault provenance")
+                Text(headerTitle)
                     .font(.system(size: compact ? 10 : 11, weight: .semibold))
                 Spacer(minLength: 0)
                 if let trace {
-                    Text("\(trace.candidatesRetained)/\(max(trace.candidatePoolSize, 1)) retained")
+                    Text("\(trace.candidatesRetained)/\(trace.candidatePoolSize) retained")
                         .font(.system(size: 9, weight: .medium, design: .monospaced))
                 }
             }
@@ -61,6 +108,9 @@ struct VaultRecallProvenanceCard: View {
     private func traceSummary(_ trace: VaultRecallTrace) -> some View {
         HStack(spacing: 5) {
             VaultRecallSurfaceChip(text: backendLabel, tint: backendTint, theme: theme)
+            if let tier = trace.ladderTier, !tier.isEmpty {
+                VaultRecallSurfaceChip(text: tier, tint: theme.textSecondary, theme: theme)
+            }
             ForEach(trace.signalSummary.sorted(by: { $0.rawValue < $1.rawValue }), id: \.self) { signal in
                 VaultRecallSurfaceChip(text: signal.rawValue, tint: theme.resolved.accent.color, theme: theme)
             }
@@ -83,19 +133,57 @@ struct VaultRecallProvenanceCard: View {
         }
     }
 
+    private var headerTitle: String {
+        guard let trace else {
+            return loadedNoteTitles.isEmpty && sourceCount == 0
+                ? "No vault retrieval"
+                : "Vault trace unavailable"
+        }
+        switch backend {
+        case .real:
+            return trace.candidatesRetained == 0 ? "Vault retrieval checked" : "Vault provenance"
+        case .stub:
+            return "Vault trace scaffold"
+        case .unknown:
+            return "Vault trace unknown"
+        }
+    }
+
+    private var headerIconName: String {
+        guard trace != nil else {
+            return loadedNoteTitles.isEmpty && sourceCount == 0
+                ? "slash.circle"
+                : "exclamationmark.triangle"
+        }
+        switch backend {
+        case .real:
+            return "checkmark.shield"
+        case .stub:
+            return "wrench.and.screwdriver"
+        case .unknown:
+            return "questionmark.diamond"
+        }
+    }
+
     private var backendLabel: String {
         switch backend {
-        case .real: "real"
-        case .stub: "stub"
-        case .unknown: "unknown"
+        case .real:
+            return "real path"
+        case .stub:
+            return "scaffold"
+        case .unknown:
+            return "unknown"
         }
     }
 
     private var backendTint: Color {
         switch backend {
-        case .real: .green
-        case .stub: .orange
-        case .unknown: .secondary
+        case .real:
+            return theme.resolved.accent.color
+        case .stub:
+            return .orange
+        case .unknown:
+            return .secondary
         }
     }
 
