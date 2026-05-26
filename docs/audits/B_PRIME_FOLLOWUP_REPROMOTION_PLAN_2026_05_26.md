@@ -6,6 +6,11 @@ PR: `#79`
 
 This file is a durable pointer for unrelated follow-up work that was preserved during B-prime cleanup. Stashing is preservation only, not completion.
 
+2026-05-26 update: the preserved B-prime follow-up is closed for current product
+recovery in `docs/audits/B_PRIME_FOLLOWUP_CLOSEOUT_2026_05_26.md`. Keep this
+file as the historical repromotion plan, but do not dispatch new work from this
+list unless a later diff against current `main` finds a genuinely novel hunk.
+
 ## Recovery Pointers
 
 - Stash name: `b-prime-uncommitted-followup-2026-05-26`
@@ -20,6 +25,17 @@ This file is a durable pointer for unrelated follow-up work that was preserved d
 - Local-agent repair
 - Eidos/search follow-up
 - Generated bundle review
+
+Current disposition:
+
+- HTML Workspace: recovered/superseded by the HTML Workspace source guard and
+  legacy diagram compatibility slices.
+- Audio/settings: superseded by current ambient playback state and settings.
+- Local-agent repair: no remaining filtered delta against current `main`.
+- Eidos/search follow-up: live via production VaultRecall traces and
+  SearchIndexService-to-Eidos mirroring.
+- Generated bundle review: recovered where needed for the legacy diagram bundle;
+  remaining generated files are stale preservation noise.
 
 ## Repromotion Rule
 
