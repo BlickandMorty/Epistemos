@@ -57,13 +57,14 @@ Current main checkpoint before this ledger:
 
 Message: `On master: b-prime-uncommitted-followup-2026-05-26`
 
-Classification: real mixed work; recover in slices.
+Classification: closed for current product recovery; keep as preservation
+reference until the user approves retiring old recovery refs.
 
 Already mostly represented on main, but still has 27 tracked files that differ
 and 1 missing untracked file. Do not bulk apply because it also contains old
 Mermaid active-path deletions that were intentionally resolved by `#86`.
 
-Recovered slice:
+Closeout:
 
 - HTML Workspace source guard follow-up recovered in
   `docs/audits/B_PRIME_HTML_WORKSPACE_SOURCE_GUARD_2026_05_26.md`.
@@ -79,16 +80,24 @@ Recovered slice:
   `docs/audits/B_PRIME_SETTINGS_HEALTH_SUPERSESSION_2026_05_26.md`. The durable
   missing metric was the AnswerPacket `claimKindCounts` histogram; stale
   tint-only chip rewrites were retired.
-
-Needs audit:
-
-- Editor bundle files: `js-editor/src/...`, compressed editor resources.
+- Production VaultRecall search traces and Eidos search-index mirroring are on
+  current `main`, with coverage in `VaultRecallWiringTests` and
+  `EidosBridgeProductionTests`.
+- Local-agent tool repair has no remaining filtered delta against current
+  `main` for the detector, local loop, parser, bridge, or related tests.
+- T25 doctrine lint is already on `main` in
+  `agent_core/src/bin/epistemos_doctrine_lint.rs`.
+- Full closeout:
+  `docs/audits/B_PRIME_FOLLOWUP_CLOSEOUT_2026_05_26.md`.
 
 Superseded or dangerous:
 
 - Mermaid active-path files were removed by `#86` to preserve graph/editor
   performance. Do not restore Mermaid as a live route without a new performance
   gate.
+- The draft PR `#82` must not be raw-merged. Its tree is stale and would delete
+  newer HTML Workspace guards, the recovered legacy diagram compatibility path,
+  current Living Index/no-compromise docs, and current ambient playback state.
 
 ### `stash@{1}` - D-prime build churn
 
