@@ -1,6 +1,6 @@
 # Stash Recovery Ledger - 2026-05-26
 
-Status: active recovery queue
+Status: current product-recovery queue closed
 
 Purpose: prevent stashed work from becoming invisible. This ledger records which
 local stashes contain real product work, which are already represented on main,
