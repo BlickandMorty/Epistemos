@@ -222,7 +222,8 @@ Acceptance:
 These can run in parallel with Wave 3 or Wave 4:
 
 1. W-49: `IMessageDriverService` App Store guard.
-2. W-50: `MemoryTier` enum reconciliation.
+2. W-50: `MemoryTier` / residency enum reconciliation - guard live in
+   `docs/audits/W50_RESIDENCY_TIER_RECONCILIATION_2026_05_26.md`.
 3. W-53: `ModelDownloadManager` SHA256 / LFS verification.
 4. D-27: scoped `F-ACS-Anchor-Addressing` harness.
 
@@ -234,7 +235,8 @@ Recommended order:
 
 1. Agent Metadata Badges.
 2. AgentBlueprint Replay UI.
-3. W-49 / W-50 / W-53 hardeners.
+3. W-49 / W-53 hardeners. W-50 is already guarded; only reopen it if the guard
+   fails or a new residency axis lands.
 4. UAS Typed Retrieval / ClaimLedger Bridge.
 5. Page Gather / Vault Escalation.
 6. Cognitive DAG Visualizer.
