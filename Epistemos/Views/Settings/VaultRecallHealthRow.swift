@@ -43,7 +43,8 @@ public struct VaultRecallHealthRow: View {
             VerifiedFloorChipStrip(
                 flag: snapshot.isFlagEnabled ? "on" : "off",
                 substrate: vaultRecallSubstrateLabel,
-                substrateTint: vaultRecallSubstrateTint
+                substrateTint: vaultRecallSubstrateTint,
+                falsifier: vaultRecallBenchmarkPassing ? "vault_recall_50" : nil
             )
             w21MetricChipStrip
             row(
@@ -165,15 +166,28 @@ public struct VaultRecallHealthRow: View {
             return snapshot.lastQueryAt == nil ? "(no query yet)" : "no signals emitted"
         }
         let slugs = snapshot.lastSignalSummary.map { $0.rawValue }.sorted()
-        return "\(slugs.joined(separator: ",")) (synthetic; no vault retrieval yet)"
+        switch snapshot.lastBackend {
+        case .real:
+            return "\(slugs.joined(separator: ",")) (production search-index trace)"
+        case .stub:
+            return "\(slugs.joined(separator: ",")) (scaffold trace)"
+        case .unknown:
+            return "\(slugs.joined(separator: ",")) (unknown trace origin)"
+        }
     }
 
     private var vaultRecallSubstrateLabel: String {
-        vaultRecallBenchmarkPassing ? "W-21 benchmark pass" : "trace scaffold"
+        if vaultRecallBenchmarkPassing { return "W-21 benchmark pass" }
+        switch snapshot.lastBackend {
+        case .real: return "production trace · benchmark pending"
+        case .stub: return "trace scaffold"
+        case .unknown: return "no trace yet"
+        }
     }
 
     private var vaultRecallSubstrateTint: Color {
-        vaultRecallBenchmarkPassing ? .green : .orange
+        if vaultRecallBenchmarkPassing { return .green }
+        return snapshot.lastBackend == .unknown ? .secondary : .orange
     }
 
     private var vaultRecallBenchmarkPassing: Bool {

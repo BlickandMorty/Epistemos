@@ -252,6 +252,9 @@ public struct ShadowRow: View {
     let onOpen: () -> Void
     let onEdit: () -> Void
     let onSummarize: () -> Void
+    @Environment(UIState.self) private var ui
+
+    private var theme: EpistemosTheme { ui.theme }
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -299,18 +302,7 @@ public struct ShadowRow: View {
 
     private var sourceAndActions: some View {
         HStack(spacing: 6) {
-            Text(provenanceLabel)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 3)
-                // 2026-05-20 single-blur policy: tiny pill — use a primary
-                // tint that adapts to light/dark instead of allocating a
-                // `.thinMaterial` blur kernel for a few-pixel capsule.
-                .background(
-                    Capsule().fill(Color.primary.opacity(0.08))
-                )
+            VaultRecallHaloProvenance(hit: hit, theme: theme)
                 .accessibilityLabel("Source \(provenanceLabel)")
 
             Spacer(minLength: 4)

@@ -104,6 +104,50 @@ struct VaultRecallWiringTests {
                 "after a scaffold-lexical trace the snapshot must surface .stub")
     }
 
+    @Test("SearchIndexService production results emit real VaultRecall trace")
+    func searchIndexServiceResultsEmitRealVaultRecallTrace() async throws {
+        VaultRecallMetrics.shared.reset()
+        let databaseURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("vault-recall-search-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("search.sqlite")
+        let service = try SearchIndexService(databaseURL: databaseURL)
+        try service.upsert(
+            id: "page-vault-recall",
+            title: "Vault Recall Production",
+            body: "Production-only vault recall evidence with substrate phrase.",
+            tags: "architecture",
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+
+        let results = try await service.searchAsync(query: "substrate phrase", limit: 20)
+        let trace = SearchIndexService.vaultRecallTrace(
+            query: "substrate phrase",
+            limit: 20,
+            results: results,
+            generatedAtMs: 42
+        )
+
+        #expect(trace.ladderTier == "vault-search-index-v1")
+        #expect(VaultRecallBridge.detectedBackend(from: trace) == .real)
+        #expect(trace.query == "substrate phrase")
+        #expect(trace.effectiveQuery == "substrate phrase")
+        #expect(trace.candidatePoolSize == results.count)
+        #expect(trace.candidatesRetained == results.count)
+        #expect(trace.signalSummary == [.lexical])
+        #expect(trace.generatedAtMs == 42)
+        let firstCandidate = try #require(trace.candidates.first)
+        #expect(firstCandidate.path == "page-vault-recall")
+        #expect(firstCandidate.title == "Vault Recall Production")
+        #expect(firstCandidate.snippet?.contains("substrate") == true)
+        #expect(!trace.candidates.contains { $0.path == "notes/sample.md" })
+
+        VaultRecallBridge.recordProductionTrace(trace, latencyMs: 1.25)
+        let snapshot = VaultRecallMetrics.shared.snapshot()
+        #expect(snapshot.lastBackend == .real)
+        #expect(snapshot.lastCandidatesRetained == results.count)
+        #expect(snapshot.lastSignalSummary == [.lexical])
+    }
+
     @Test("VaultRecallFlags.isEnabled reads UserDefaults + env-var fallback")
     func vaultRecallFlagsReadsUserDefaultsAndEnvFallback() {
         let savedDefault = UserDefaults.standard.bool(forKey: VaultRecallFlags.userDefaultsKey)
