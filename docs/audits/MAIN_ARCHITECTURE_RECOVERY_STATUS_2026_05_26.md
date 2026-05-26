@@ -170,9 +170,11 @@ Closeout:
   current `main` already has the durable product code and that the useful stale
   docs were promoted.
 - `stash@{3}` is now preservation-only.
-- The chat/VaultRecall/Eidos slice of `stash@{6}` is now closed; any remaining
-  non-chat docs/lattice-coordinate explainer donor material must be handled as
-  a separate focused slice.
+- The chat/VaultRecall/Eidos slice of `stash@{6}` is closed.
+- The non-chat docs/lattice-coordinate explainer donor slice of `stash@{6}` is
+  closed by `docs/audits/STASH6_NONCHAT_DONOR_CLOSEOUT_2026_05_26.md`. Current
+  `main` keeps the newer lattice-coordinate explainer and ports the durable
+  Phase 2 / Legendary / Master Research Index addenda.
 
 ### 4. Settings/Ambient/Voice/App Shell (`stash@{7}`)
 
@@ -323,10 +325,10 @@ not fully closed. The next implementation waves are:
 
 ## Recommended Next Execution Order
 
-1. **Remaining stash@{6} non-chat donors:** inspect lattice-coordinate explainer
-   and phase/canon docs without replaying stale chat code.
-2. **Remaining editor/vendor donors:** inspect the `stash@{16}` / `stash@{19}`
+1. **Remaining editor/vendor donors:** inspect the `stash@{16}` / `stash@{19}`
    editor payloads only behind the HTML/editor source guard and performance gate.
+2. **Substrate/research donor stashes:** inspect `stash@{13}`, `stash@{14}`,
+   `stash@{8}`, and `stash@{9}` in focused slices.
 3. **Wave 3 architecture:** AgentBlueprint replay UI + model metadata badges.
 
 ## Operational Instruction For Agents

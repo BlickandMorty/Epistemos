@@ -83,9 +83,9 @@ Per [NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md:97](docs/NO_COMPROMISE_ENDG
 - **Slice2_xpc + epistenos/ research:** preserved under `docs/fusion/jordan's research/kimis deep research/` as Vault-tier (preserved-speculation). Any pattern from there that's worth pulling lands as a Phase 3+ Research-tier addition to current repo, NOT a fork.
 - **If the user ever does fork:** they fork from the post-`v2.0` main, not from current state. The fork inherits everything that landed.
 
-## Full 7-terminal prompt deck (copy-pasteable for dispatch)
+## Full 13-terminal prompt deck (copy-pasteable for dispatch)
 
-Source: [docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md](docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md) (PR #63 + #64).
+Source: [docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md](docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md). Read [docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md](docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md) first for current state and merge/resume order.
 
 Universal Loop Block discipline (every terminal): **Audit → Build → Verify → Harden → Report.** No fake successes. No hidden cloud fallback. Chip-strip + honest language per PR #57. Every PR must (1) cite which 7 Laws are honored, (2) include §No-Orphan check listing data-class invariants satisfied, (3) cite which W-row(s) advance + which falsifier(s) unblock.
 
@@ -129,17 +129,18 @@ Read: docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md §Terminal G (the new one). Ad
 
 ## Next steps (immediate)
 
-1. **User confirms:** ready to launch terminals? Which scope?
-   - **MAS-only scope:** Terminals A, B, C, D, E, G + side tasks (skip F research-tier).
-   - **Full scope:** All 7 terminals + side tasks + Pro/Research-tier preservation.
-   - **One-at-a-time:** start with Terminal A; finish; gate next.
+1. **User confirms:** ready to merge/resume terminals? Which scope?
+   - **Merge-first scope:** land open PRs in the Living Index order, locally re-verifying between each.
+   - **Wave-1 scope:** fresh-dispatch T0, T1, S, G after the merge gate.
+   - **Resume scope:** resume stopped B, D, E only after their dependencies land.
+   - **Continuous scope:** run R and X only as capacity allows.
 
-2. **Dispatch terminals:** spawn parallel Codex/Claude sessions per the deck. Each terminal works on its own branch; PR back to main with per-PR §No-Orphan check + 7-Law citation.
+2. **Dispatch terminals:** spawn parallel Codex/Claude sessions per the deck. Each terminal works on its own branch; PR back to main with per-PR §No-Orphan check + 7-Law citation + Neural Substrate check when touching local inference/model routing.
 
 3. **Loop discipline:** terminals run Audit → Build → Verify → Harden → Report. No fake successes. Chip-strip honest language. If blocked, write blocker doc + STOP; user resumes.
 
-4. **Floor close criteria** (target: 2-3 sessions if 7 parallel):
-   - W-rows 6/53 → ~30/53
+4. **Floor close criteria** (target: current 13-terminal Phase 2 wave):
+   - W-rows 6/53 → ~32/53
    - Falsifiers 0 → 7+ PASS on M2 Pro
    - T14 LIVE
    - No-Orphan CI lint active
