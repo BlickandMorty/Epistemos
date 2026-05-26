@@ -90,17 +90,16 @@ because they are stashed or branched.
 
 ### 1. B-prime Follow-up (`stash@{0}`, PR `#82`)
 
-State: **Partially recovered.**
+State: **Closed for current product recovery.**
 
 Durable references:
 
 - Stash: `stash@{0}` / tag `recovery/stash-b-prime-uncommitted-followup-2026-05-26`
 - Draft PR: `#82`
 - Plan: `docs/audits/B_PRIME_FOLLOWUP_REPROMOTION_PLAN_2026_05_26.md`
+- Closeout: `docs/audits/B_PRIME_FOLLOWUP_CLOSEOUT_2026_05_26.md`
 
-Recover as small PRs:
-
-Recovered slice:
+Recovered / superseded slices:
 
 1. HTML Workspace source guard follow-up is archived in
    `docs/audits/B_PRIME_HTML_WORKSPACE_SOURCE_GUARD_2026_05_26.md` and
@@ -116,13 +115,15 @@ Recovered slice:
    `docs/audits/B_PRIME_SETTINGS_HEALTH_SUPERSESSION_2026_05_26.md`. The
    AnswerPacket row now exposes claim-kind histogram data; stale tint-only chip
    rewrites were retired.
-
-Remaining slices:
-
-1. Ambient frequency/audio/settings refinements.
-2. Local-agent tool repair.
-3. Eidos/search-index mirroring follow-up.
-4. Doctrine lint and Living Index updates.
+5. Production VaultRecall traces and Eidos search-index mirroring are live in
+   `SearchIndexService` / `VaultSyncService`, with coverage in
+   `VaultRecallWiringTests` and `EidosBridgeProductionTests`.
+6. Local-agent tool repair has no remaining filtered delta against current
+   `main`.
+7. T25 doctrine lint and the Living Index/no-compromise docs are already newer
+   on current `main`.
+8. Ambient/audio/settings donor deltas are superseded by current main; the
+   stash would delete `AmbientFrequencyPlaybackState`.
 
 Do not raw-merge `#82`; the branch tree is stale relative to main and shows
 deletions of current main files such as HTML Workspace, Runtime Router, Landing
