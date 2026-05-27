@@ -9,7 +9,10 @@
 //! the 256/512/1024 MB production target since substrate-floor runs on
 //! the per-iter cargo budget). Production-PASS requires Metal kernel
 //! ≥ 70% MEASURED M2 Pro STREAM bandwidth + bit-for-bit Rust vs Metal
-//! on fixed-seed inputs (Phase B.G.B5).
+//! on fixed-seed, locality-aware inputs (Phase B.G.B5). The full
+//! Fisher-Yates random permutation remains a correctness stressor after
+//! the 2026-05-27 Metal failure witness; it is not itself a green
+//! product access pattern.
 //!
 //! This harness proves:
 //! 1. Sequential gather (contiguous indices) returns the source prefix
@@ -21,7 +24,7 @@
 //!    expectations.
 //! 5. Bad inputs surface typed errors.
 
-use agent_core::helios::{gather, gather_with_scale};
+use agent_core::helios::{gather, gather_with_scale, PageGatherAccessClass};
 
 const KB: usize = 1024;
 const WORKING_SET_FLOATS: &[usize] = &[64 * KB, 128 * KB, 256 * KB]; // 256 / 512 / 1024 KB
@@ -78,6 +81,11 @@ fn random_scatter_pattern_matches_indices() {
             assert_eq!(out[i], src[index as usize], "scatter mismatch at i={}, idx={}", i, index);
         }
         assert!(!stats.sequential, "scatter pattern should not flag sequential (size {})", n);
+        assert_eq!(
+            stats.access_class(n),
+            Some(PageGatherAccessClass::FullCoverageRandom),
+            "full Fisher-Yates scatter is a failure stressor, not a product-green layout"
+        );
         assert_eq!(stats.elements_read, n);
     }
 }

@@ -47,14 +47,17 @@ lands the Metal kernel + Swift driver + harness that this gate exercises.
 out[i] = source[indices[i]]   for i in 0..N
 ```
 
-Two flavors:
+Access classes:
 
 - **Gather** (stage 1, easy case): `indices` is a contiguous prefix `[0, 1, 2, ...]`. Prefetcher-friendly.
-- **Scatter** (stage 2, hard case): `indices` is an arbitrary permutation of `0..source.len()`. Random-access;
-  fights the prefetcher.
+- **LocalWindow / SparseScatter** (stage 2, product candidate): the page scheduler keeps the working set local
+  enough that the Metal path can plausibly clear the bandwidth gate.
+- **FullCoverageRandom** (failure stressor): `indices` is an arbitrary permutation of `0..source.len()`.
+  The 2026-05-27 witness proved this is semantically useful but not product-green on the current shader.
 
-The gate is the **scatter** kernel — that's where the 70% target binds. Gather is expected to hit closer to
-100% of STREAM since it is the same access pattern STREAM measures.
+The gate is the **locality-aware scatter** kernel — that's where the 70% target binds. Gather is expected to
+hit closer to 100% of STREAM since it is the same access pattern STREAM measures. Full random permutation is
+retained as an honest failure stressor, not as the required product layout.
 
 ## §3. Pass/fail recipe (the test that decides)
 
@@ -111,8 +114,10 @@ permitted **as fallback** but the gate's true pass requires all three.
 
 ### §3.2 Indices distribution
 
-Scatter indices are drawn from a `ChaCha20Rng` with the fixed seed `[0xBA, 0x7A, 0xC1, 0x5A, …]` so reruns are
-deterministic. The permutation is a true random shuffle (Fisher-Yates) — not a deterministic-stride hash.
+Failure-stressor indices are drawn from a fixed-seed permutation so reruns are
+deterministic. Product-candidate indices must also report their access class
+from `PageGatherStats::access_class(...)` so a full-coverage random layout
+cannot be mislabeled as a locality-aware pass.
 
 The same indices are reused for `Rust scalar` and `Metal kernel` runs so the comparison is apples-to-apples
 on identical workloads.

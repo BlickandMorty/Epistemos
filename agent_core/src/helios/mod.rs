@@ -61,7 +61,7 @@ pub use packet_router::{
     route_1bit, unroute_1bit, PacketRouterError, PacketRouterStats, RoutingOutputs,
 };
 pub use page_gather::{
-    gather, gather_with_scale, HeliosError, PageGatherStats,
+    gather, gather_with_scale, HeliosError, PageGatherAccessClass, PageGatherStats,
 };
 pub use ssd_block_scan::{
     ssd_block_scan_scalar, ssd_scan_scalar, SsdScanError, SsdScanResult,

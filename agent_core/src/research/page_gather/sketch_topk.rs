@@ -76,9 +76,10 @@ pub fn sketch_top_k(
 
 /// Scalar INT8 inner product: `Σ (a[i] as i32) * (b[i] as i32)`.
 ///
-/// Substrate-floor reference. Production uses Metal's INT8 SIMD GEMV
-/// (per F-PageGather-M2Pro Metal kernel) for ~70% of MEASURED M2 Pro
-/// STREAM throughput on 256/512/1024 MB working sets.
+/// Substrate-floor reference. Production promotion requires the Metal
+/// path to use a locality-aware PageGather schedule that reaches the
+/// F-PageGather-M2Pro ≥70% measured STREAM gate on 256/512/1024 MB
+/// working sets. Full random permutation is only a failure stressor.
 #[inline]
 pub fn int8_inner_product(a: &[i8], b: &[i8]) -> i32 {
     debug_assert_eq!(a.len(), b.len());
@@ -110,9 +111,9 @@ mod tests {
     #[test]
     fn top_k_picks_highest_score() {
         let corpus = vec![
-            page(0, vec![1, 1, 1, 1]),      // ip with query = 4
-            page(1, vec![10, 10, 10, 10]),  // ip = 40 (max)
-            page(2, vec![5, 5, 5, 5]),      // ip = 20
+            page(0, vec![1, 1, 1, 1]),         // ip with query = 4
+            page(1, vec![10, 10, 10, 10]),     // ip = 40 (max)
+            page(2, vec![5, 5, 5, 5]),         // ip = 20
             page(3, vec![-10, -10, -10, -10]), // ip = -40
         ];
         let query = vec![1, 1, 1, 1];
@@ -136,7 +137,11 @@ mod tests {
         sketch_top_k(&query, &corpus, &mut output).unwrap();
         let mut ids: Vec<usize> = output.iter().map(|(i, _)| *i).collect();
         ids.sort();
-        assert_eq!(ids, vec![1, 2, 3], "top-3 must be {{40, 20, 12}} = indices {{1, 2, 3}}");
+        assert_eq!(
+            ids,
+            vec![1, 2, 3],
+            "top-3 must be {{40, 20, 12}} = indices {{1, 2, 3}}"
+        );
     }
 
     #[test]
@@ -147,7 +152,10 @@ mod tests {
         let err = sketch_top_k(&query, &corpus, &mut output).unwrap_err();
         assert_eq!(
             err,
-            SketchTopKError::SketchLengthMismatch { expected: 4, got: 3 }
+            SketchTopKError::SketchLengthMismatch {
+                expected: 4,
+                got: 3
+            }
         );
     }
 

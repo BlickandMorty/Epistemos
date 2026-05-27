@@ -19,8 +19,11 @@
 //! The "scatter" half (stage 2) is the random-index variant: indices
 //! are arbitrary u32s into `source`. The "gather" half (stage 1) is
 //! the contiguous variant: indices are a prefix `[0, 1, 2, …]`.
-//! Same kernel, different acceptance threshold (scatter must hit ≥70%
-//! of STREAM since random-pattern access hurts the prefetcher).
+//! Same kernel, different acceptance threshold. The 2026-05-27 M2 Pro
+//! witness shows a full Fisher-Yates permutation is a failure stressor
+//! (~6% of STREAM), not a product-green access pattern. Promotion now
+//! requires a locality-aware gather schedule or equivalent mitigation
+//! before the Metal path can satisfy the ≥70% STREAM gate.
 //!
 //! `gather_with_scale` adds a per-element scale lookup, useful for
 //! the BitNet b1.58 absmean codec where each gathered weight tile
@@ -33,6 +36,15 @@ pub struct PageGatherStats {
     pub elements_read: usize,
     pub max_index: u32,
     pub sequential: bool,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum PageGatherAccessClass {
+    Empty,
+    Sequential,
+    LocalWindow,
+    SparseScatter,
+    FullCoverageRandom,
 }
 
 impl PageGatherStats {
@@ -55,6 +67,32 @@ impl PageGatherStats {
         }
         let touched = (self.max_index as usize).saturating_add(1);
         Some(touched as f32 / source_len as f32)
+    }
+
+    /// Classify the measured access pattern so callers do not confuse
+    /// a correctness stressor with a PageGather-promotable layout.
+    ///
+    /// `FullCoverageRandom` is the 2026-05-27 failed Metal witness:
+    /// correct output, broad Fisher-Yates-like source coverage, and
+    /// far below the ≥70% STREAM target until the caller introduces a
+    /// locality-aware schedule.
+    pub fn access_class(&self, source_len: usize) -> Option<PageGatherAccessClass> {
+        if self.elements_read == 0 {
+            return Some(PageGatherAccessClass::Empty);
+        }
+        if self.sequential {
+            return Some(PageGatherAccessClass::Sequential);
+        }
+
+        let coverage = self.source_coverage(source_len)?;
+        let density = self.elements_read as f32 / source_len as f32;
+        if coverage <= 0.25 {
+            Some(PageGatherAccessClass::LocalWindow)
+        } else if coverage >= 0.80 && density >= 0.80 {
+            Some(PageGatherAccessClass::FullCoverageRandom)
+        } else {
+            Some(PageGatherAccessClass::SparseScatter)
+        }
     }
 }
 
@@ -338,5 +376,35 @@ mod tests {
         // SET TOUCHED, not the elements_read.
         let s = PageGatherStats { elements_read: 1, max_index: 99, sequential: false };
         assert!(approx(s.source_coverage(100).unwrap(), 1.0, 1e-6));
+    }
+
+    #[test]
+    fn access_class_separates_sequential_from_failed_random_stressor() {
+        let sequential = PageGatherStats { elements_read: 100, max_index: 99, sequential: true };
+        assert_eq!(
+            sequential.access_class(100),
+            Some(PageGatherAccessClass::Sequential)
+        );
+
+        let random_full = PageGatherStats { elements_read: 100, max_index: 99, sequential: false };
+        assert_eq!(
+            random_full.access_class(100),
+            Some(PageGatherAccessClass::FullCoverageRandom)
+        );
+    }
+
+    #[test]
+    fn access_class_keeps_local_window_and_sparse_scatter_distinct() {
+        let local = PageGatherStats { elements_read: 16, max_index: 23, sequential: false };
+        assert_eq!(
+            local.access_class(100),
+            Some(PageGatherAccessClass::LocalWindow)
+        );
+
+        let sparse = PageGatherStats { elements_read: 1, max_index: 99, sequential: false };
+        assert_eq!(
+            sparse.access_class(100),
+            Some(PageGatherAccessClass::SparseScatter)
+        );
     }
 }
