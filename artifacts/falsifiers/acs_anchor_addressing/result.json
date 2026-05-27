@@ -28,90 +28,146 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "fcdcb161b7008e540119fe144b92966ee70774c1",
-  "fixture_id": "f_acs_anchor_addressing_scoped_n100_v1",
-  "timestamp_utc": "2026-05-26T12:47:45Z",
-  "result_digest": "sha256:06577b2bb07f9c779484f21459fc59b1bb7a933bc01f634f4420e252db6834b4",
+  "commit_sha": "250b6f66acb5ac0e653d8e0261bc7a166fd64e43",
+  "fixture_id": "f_acs_anchor_addressing_full_n1000_v1",
+  "timestamp_utc": "2026-05-27T15:19:23Z",
+  "result_digest": "sha256:644399f55a6162ccb57d5ea386e2dd9b650509eb5f0551834499575b8d691fe0",
   "measurements": {
-    "scoped_n": {
-      "value": 100,
+    "full_n": {
+      "value": 1000,
       "unit": "anchors"
     },
     "stage_admission_proof_round_trip": {
       "value": {
-        "matches": 100,
-        "total": 100
+        "matches": 1000,
+        "total": 1000
       },
       "unit": "count"
     },
     "stage_admission_proof_tamper_rejected": {
       "value": {
-        "matches": 100,
-        "total": 100
+        "matches": 1000,
+        "total": 1000
       },
       "unit": "count"
+    },
+    "stage_agent_runtime_emission": {
+      "value": {
+        "matches": 1000,
+        "total": 1000
+      },
+      "unit": "count"
+    },
+    "stage_agent_runtime_emission_p99_us": {
+      "value": 1,
+      "unit": "us"
     },
     "stage_audit_canonicalization": {
       "value": {
-        "matches": 100,
-        "total": 100
+        "matches": 1000,
+        "total": 1000
       },
       "unit": "count"
+    },
+    "stage_audit_canonicalization_p99_us": {
+      "value": 3,
+      "unit": "us"
     },
     "stage_lookup_matches": {
       "value": {
-        "matches": 100,
-        "total": 100
+        "matches": 1000,
+        "total": 1000
       },
       "unit": "count"
     },
+    "stage_lookup_p99_us": {
+      "value": 0,
+      "unit": "us"
+    },
     "stage_projection_inversion": {
-      "value": "not_in_scope_round_2",
-      "unit": "status"
+      "value": {
+        "matches": 1000,
+        "total": 1000
+      },
+      "unit": "count"
+    },
+    "stage_projection_inversion_p99_us": {
+      "value": 0,
+      "unit": "us"
     }
   },
   "acceptance_thresholds": {
-    "scoped_n": {
+    "full_n": {
       "operator": ">=",
-      "value": 100,
+      "value": 1000,
       "unit": "anchors"
     },
     "stage_admission_proof_round_trip": {
       "operator": "==",
-      "value": 100,
+      "value": 1000,
       "unit": "count"
     },
     "stage_admission_proof_tamper_rejected": {
       "operator": "==",
-      "value": 100,
+      "value": 1000,
       "unit": "count"
+    },
+    "stage_agent_runtime_emission": {
+      "operator": "==",
+      "value": 1000,
+      "unit": "count"
+    },
+    "stage_agent_runtime_emission_p99_us": {
+      "operator": "<=",
+      "value": 80,
+      "unit": "us"
     },
     "stage_audit_canonicalization": {
       "operator": "==",
-      "value": 100,
+      "value": 1000,
       "unit": "count"
+    },
+    "stage_audit_canonicalization_p99_us": {
+      "operator": "<=",
+      "value": 800,
+      "unit": "us"
     },
     "stage_lookup_matches": {
       "operator": "==",
-      "value": 100,
+      "value": 1000,
       "unit": "count"
+    },
+    "stage_lookup_p99_us": {
+      "operator": "<=",
+      "value": 40,
+      "unit": "us"
     },
     "stage_projection_inversion": {
       "operator": "==",
-      "value": "not_in_scope_round_2",
-      "unit": "status"
+      "value": 1000,
+      "unit": "count"
+    },
+    "stage_projection_inversion_p99_us": {
+      "operator": "<=",
+      "value": 20,
+      "unit": "us"
     }
   },
   "pass_per_axis": {
-    "scoped_n": true,
+    "full_n": true,
     "stage_admission_proof_round_trip": true,
     "stage_admission_proof_tamper_rejected": true,
+    "stage_agent_runtime_emission": true,
+    "stage_agent_runtime_emission_p99_us": true,
     "stage_audit_canonicalization": true,
+    "stage_audit_canonicalization_p99_us": true,
     "stage_lookup_matches": true,
-    "stage_projection_inversion": true
+    "stage_lookup_p99_us": true,
+    "stage_projection_inversion": true,
+    "stage_projection_inversion_p99_us": true
   },
   "overall_pass": true,
   "fallback_tier": "Primary",
   "anomalies": [],
-  "notes": "Phase 2 Terminal F' D-27 scoped mini-harness; N=100 random anchors; three stages measured (lookup / audit canonicalization / admission proof). Stage 4 (5-plane projection inversion) deferred — AcsAnchor::project_to_plane not yet on main."
+  "notes": "D-27 full harness; N=1000 deterministic anchors; four primary stages measured (agent runtime emission / lookup / audit canonicalization / 5-plane projection inversion). Admission proof boundary remains measured as an adjacent tamper-rejection axis."
 }
