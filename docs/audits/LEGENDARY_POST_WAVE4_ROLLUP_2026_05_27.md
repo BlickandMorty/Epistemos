@@ -54,15 +54,15 @@ checkpoint.
 The old `~34/53+` count was intentionally conservative before Wave 4 closed.
 The honest post-Wave-4 accounting is:
 
-- Strictly wired / product-visible enough to count: about `40/53`.
+- Strictly wired / product-visible enough to count: about `41/53`.
 - Meaningfully advanced but still honest-orange or partial: about `7/53`.
-- Still open / research-tier backlog: about `6/53`.
+- Still open / research-tier backlog: about `5/53`.
 
 Percentages:
 
-- Strict wired floor: about 75%.
-- Strict + meaningful partial: about 89%.
-- Substrate floor estimate: about 94%, because the remaining gaps are mostly
+- Strict wired floor: about 77%.
+- Strict + meaningful partial: about 91%.
+- Substrate floor estimate: about 95%, because the remaining gaps are mostly
   visible truth, provenance-detail, and hardware/research gates
   rather than missing substrate skeleton.
 
@@ -75,6 +75,7 @@ Rows closed or materially advanced by Wave 4:
 | W-03 | wired | ClaimLedger claims can carry `UasAddress` and `AcsAnchor` (#121). |
 | W-04 | partial/product trace live | PageGather escalation is trace-visible and LIMIT-first-note fallback is removed (#122); full Metal/PageGather gate remains future. |
 | W-06 | partial/product path live | One safe model-authored note edit travels as typed reversible `MutationEnvelope` (#124). |
+| W-12 | wired/guarded | Per-model agent badges derive `HONEST` / `EXPERIMENTAL` / `OFF` from RuntimeRouter + F-LocalToolUse and surface in Settings, picker rows, ActiveConstellation, and AgentBlueprint. See `docs/audits/POST_WAVE4_AGENT_CAPABILITY_TRUTH_CLOSEOUT_2026_05_27.md`. |
 | W-19 | wired | Chat/Vault retrieval uses provenance instead of hidden LIMIT-first-note context. |
 | W-20 | wired | Provenance cards and citation surfaces are live after B-prime recovery. |
 | W-21 | wired with caveat | VaultRecall metrics have measured artifacts; paraphrase metric remains lexical/informational. |
@@ -151,66 +152,20 @@ Wave 4 satisfies the No-Orphan check at the current floor:
 
 Remaining No-Orphan risks are not lost work; they are the next focused slices:
 
-1. Visible agent capability truth across all model/agent surfaces.
-2. Clickable ACS anchor / residency details in provenance and graph surfaces.
-3. Full hardware research gates for PageGather / ULP / ControllerKernelPack.
+1. Clickable ACS anchor / residency details in provenance and graph surfaces.
+2. Full hardware research gates for PageGather / ULP / ControllerKernelPack.
 
 ## Next Terminals
 
-Start only two terminals next. They are low-conflict and make main more
+Start only one product-floor terminal next. It is low-conflict and makes main more
 truthful instead of opening another broad substrate wave.
 
-### Terminal 1 - Agent Capability Truth
+### Retired Terminal - Agent Capability Truth
 
-Branch:
+Do not dispatch. Current source already closes W-12. Evidence lives in
+`docs/audits/POST_WAVE4_AGENT_CAPABILITY_TRUTH_CLOSEOUT_2026_05_27.md`.
 
-```text
-codex/post-wave4-agent-capability-truth-2026-05-27
-```
-
-Prompt:
-
-```text
-You are Post-Wave-4 Terminal 1: Agent Capability Truth.
-
-cd /Users/jojo/Downloads/Epistemos
-git fetch origin
-git checkout -b codex/post-wave4-agent-capability-truth-2026-05-27 origin/main
-
-Read first:
-1. docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md
-2. docs/audits/LEGENDARY_POST_WAVE4_ROLLUP_2026_05_27.md
-3. docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md
-
-Goal:
-Every model/agent surface shows honest capability state:
-HONEST, EXPERIMENTAL, or OFF.
-
-Scope:
-1. Audit existing RuntimeRouter, AgentBlueprint, model picker, Settings, and
-   chat surfaces for hidden "agent capable" claims.
-2. Add/finish per-model badges grounded in lane witness and F-LocalToolUse
-   status.
-3. Surface the badge in Settings, model picker, and AgentBlueprint selectors.
-4. Add tests for disabled, experimental, verified, and power-user modes.
-
-Rules:
-- No stash pop/drop/bulk apply.
-- No git checkout from stash.
-- No git add -A.
-- Do not resurrect AgentCommandCenter.
-- PR must include Motion, UAS, Plane, Residency, WBO/error, Witness,
-  Falsifier, Tier, Rollback.
-
-Gates:
-git diff --check
-cargo test --manifest-path agent_core/Cargo.toml --lib
-xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
-
-Stop after opening the PR. Do not merge yourself.
-```
-
-### Terminal 2 - Provenance / Residency Detail
+### Terminal 1 - Provenance / Residency Detail
 
 Branch:
 
@@ -282,10 +237,9 @@ Run these only after the three terminals above are merged:
 
 ## Current Best Next Move
 
-Dispatch the two active terminals above, merge in this order:
+Dispatch the one active product-floor terminal above:
 
-1. Agent Capability Truth.
-2. Provenance / Residency Detail.
+1. Provenance / Residency Detail.
 
 Then rerun the local ground-truth gate:
 
