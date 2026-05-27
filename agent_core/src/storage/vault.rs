@@ -11,7 +11,8 @@ use tantivy::schema::{Field, Schema, Value, STORED, STRING, TEXT};
 use tantivy::{doc, Index, IndexReader, IndexWriter, ReloadPolicy, TantivyDocument, Term};
 
 use crate::storage::retrieval_trace::{
-    RetrievalCandidate, RetrievalSignal, RetrievalSignalScore, RetrievalTrace,
+    PageGatherEscalationTrace, RetrievalCandidate, RetrievalSignal, RetrievalSignalScore,
+    RetrievalTrace,
 };
 use crate::uas::{UasAddress, UasKind};
 
@@ -63,6 +64,13 @@ pub fn strip_query_chatter(query: &str) -> String {
         .filter(|token| !QUERY_CHATTER_WORDS.contains(&token.to_lowercase().as_str()))
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+fn vault_recall_candidate_pool_limit(limit: usize) -> usize {
+    if limit == 0 {
+        return 0;
+    }
+    limit.saturating_mul(10).clamp(50, 200)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -777,7 +785,7 @@ impl VaultBackend for VaultStore {
         let top_docs = searcher
             .search(
                 &parsed_query,
-                &TopDocs::with_limit(limit.saturating_mul(2).max(1)),
+                &TopDocs::with_limit(vault_recall_candidate_pool_limit(limit)),
             )
             .map_err(|error| VaultError::IndexError(error.to_string()))?;
 
@@ -860,6 +868,14 @@ impl VaultBackend for VaultStore {
             }
             trace.push_candidate(candidate);
         }
+        trace.record_page_gather_escalation(PageGatherEscalationTrace::vault_escalated(
+            "VaultStore::hybrid_search_with_trace",
+            pool_size,
+            results.len(),
+        ));
+        trace.add_note(
+            "PageGather vault escalation trace recorded; F-PageGather-Scatter measurement remains pending",
+        );
         Ok((results, trace))
     }
 
@@ -1106,10 +1122,9 @@ mod tests {
     /// T21 iter-4: the new `VaultBackend::hybrid_search_with_trace` default
     /// trait method MUST mirror the regular `hybrid_search` result list AND
     /// emit a `RetrievalTrace` carrying at minimum the `Lexical` signal.
-    /// The trace's `candidate_pool_size` equals the result count (default
-    /// impl can't see Tantivy's pre-cull pool — `VaultStore` will override
-    /// in a later iter to record the true 2x pool); each candidate carries
-    /// its raw BM25 score via a `RetrievalSignal::Lexical` `signals` entry.
+    /// The trace's `candidate_pool_size` records the pre-cull pool; each
+    /// candidate carries its raw BM25 score via a `RetrievalSignal::Lexical`
+    /// `signals` entry.
     #[tokio::test]
     async fn hybrid_search_with_trace_emits_lexical_signal_per_candidate() {
         use super::{RetrievalSignal, VaultBackend};
@@ -1148,11 +1163,15 @@ mod tests {
             "trace candidate count must mirror hybrid_search result count"
         );
         assert_eq!(trace.candidates_retained, results.len());
-        assert_eq!(
+        assert!(
+            trace.candidate_pool_size >= results.len(),
+            "VaultStore trace records a pre-cull pool: pool = {}, retained = {}",
             trace.candidate_pool_size,
-            results.len(),
-            "default impl records pool_size == retained; VaultStore override \
-             will record the true Tantivy pool in a later iter"
+            results.len()
+        );
+        assert!(
+            trace.page_gather.is_some(),
+            "VaultStore trace must record PageGather escalation metadata"
         );
         assert!(
             trace.signal_summary.contains(&RetrievalSignal::Lexical),
@@ -1180,6 +1199,49 @@ mod tests {
                 "Lexical.raw must match raw BM25 from SearchResult"
             );
         }
+    }
+
+    #[tokio::test]
+    async fn vaultstore_hybrid_search_with_trace_records_page_gather_escalation() {
+        use super::VaultBackend;
+        use crate::storage::retrieval_trace::PageGatherMeasurementStatus;
+
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
+            .expect("open vault");
+
+        for index in 0..60 {
+            store
+                .write(
+                    &format!("note-{index:02}.md"),
+                    "residency governance residency governance signal",
+                    None,
+                    false,
+                )
+                .await
+                .expect("write note");
+        }
+        store.reload_index().expect("reload index");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace("residency governance", 4, &[])
+            .await
+            .expect("hybrid_search_with_trace");
+
+        assert_eq!(results.len(), 4);
+        assert!(
+            trace.candidate_pool_size >= 50,
+            "PageGather escalation must collect a broad pre-cull pool, got {}",
+            trace.candidate_pool_size
+        );
+        let page_gather = trace.page_gather.expect("page gather trace");
+        assert_eq!(
+            page_gather.measurement_status,
+            PageGatherMeasurementStatus::Deferred
+        );
+        assert_eq!(page_gather.candidate_pool_size, trace.candidate_pool_size);
+        assert_eq!(page_gather.candidates_retained, results.len());
+        assert_eq!(page_gather.deferred_falsifier, "F-PageGather-Scatter");
     }
 
     /// T21 iter-5: `VaultStore`'s override of `hybrid_search_with_trace`

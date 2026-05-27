@@ -111,6 +111,10 @@ struct VaultRecallProvenanceCard: View {
             if let tier = trace.ladderTier, !tier.isEmpty {
                 VaultRecallSurfaceChip(text: tier, tint: theme.textSecondary, theme: theme)
             }
+            if let pageGather = trace.pageGather {
+                VaultRecallSurfaceChip(text: "page_gather", tint: .orange, theme: theme)
+                VaultRecallSurfaceChip(text: "\(pageGather.deferredFalsifier) pending", tint: .orange, theme: theme)
+            }
             ForEach(trace.signalSummary.sorted(by: { $0.rawValue < $1.rawValue }), id: \.self) { signal in
                 VaultRecallSurfaceChip(text: signal.rawValue, tint: theme.resolved.accent.color, theme: theme)
             }
@@ -194,6 +198,9 @@ struct VaultRecallProvenanceCard: View {
                 : "This row has loaded note titles but no stored recall trace."
         }
         let tier = trace.ladderTier ?? "unknown"
+        if let pageGather = trace.pageGather {
+            return "Vault recall trace: \(tier), \(trace.candidatesRetained) retained from \(trace.candidatePoolSize). PageGather escalation observed from \(pageGather.source); \(pageGather.deferredFalsifier) measurement is pending."
+        }
         return "Vault recall trace: \(tier), \(trace.candidatesRetained) retained from \(trace.candidatePoolSize)."
     }
 }

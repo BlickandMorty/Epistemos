@@ -4367,12 +4367,20 @@ final class ChatCoordinator {
       "explicit note bodies are required context; vault-wide matches are supplemental context"
     ]
     let manifestPoolSize = manifest?.entries.count ?? 0
+    let candidatePoolSize = max(manifestPoolSize, selected.count)
     return finishVaultRecallTrace(
       query: query,
       candidates: candidates,
-      candidatePoolSize: max(manifestPoolSize, selected.count),
+      candidatePoolSize: candidatePoolSize,
       notes: notes,
-      startedAt: startedAt
+      startedAt: startedAt,
+      pageGather: manifest == nil
+        ? nil
+        : pageGatherEscalationTrace(
+          source: source,
+          candidatePoolSize: candidatePoolSize,
+          candidatesRetained: candidates.count
+        )
     )
   }
 
@@ -4447,7 +4455,12 @@ final class ChatCoordinator {
         "candidate_pool_size reflects unique indexed fallback matches",
         "lexical signal only; semantic/graph/MMR remain unavailable on this fallback path"
       ],
-      startedAt: startedAt
+      startedAt: startedAt,
+      pageGather: pageGatherEscalationTrace(
+        source: "ChatCoordinator.buildIndexedVaultLookupFallbackAnswer",
+        candidatePoolSize: candidatePoolSize,
+        candidatesRetained: candidates.count
+      )
     )
   }
 
@@ -4492,7 +4505,8 @@ final class ChatCoordinator {
     candidates: [VaultRecallCandidate],
     candidatePoolSize: Int,
     notes: [String],
-    startedAt: Date?
+    startedAt: Date?,
+    pageGather: PageGatherEscalationTrace? = nil
   ) -> VaultRecallTrace {
     let cleanQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
     let effectiveQuery = vaultRecallEffectiveQuery(cleanQuery)
@@ -4506,7 +4520,8 @@ final class ChatCoordinator {
       signalSummary: effectiveQuery.isEmpty ? [] : [.lexical],
       generatedAtMs: vaultRecallGeneratedAtMs(),
       notes: notes,
-      allChatterFallback: !cleanQuery.isEmpty && effectiveQuery.isEmpty
+      allChatterFallback: !cleanQuery.isEmpty && effectiveQuery.isEmpty,
+      pageGather: pageGather
     )
 
     if let startedAt {
@@ -4516,6 +4531,18 @@ final class ChatCoordinator {
       )
     }
     return trace
+  }
+
+  private nonisolated static func pageGatherEscalationTrace(
+    source: String,
+    candidatePoolSize: Int,
+    candidatesRetained: Int
+  ) -> PageGatherEscalationTrace {
+    PageGatherEscalationTrace(
+      source: source,
+      candidatePoolSize: candidatePoolSize,
+      candidatesRetained: candidatesRetained
+    )
   }
 
   private nonisolated static func vaultRecallEffectiveQuery(_ query: String) -> String {
@@ -4761,18 +4788,10 @@ final class ChatCoordinator {
     let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
     if !trimmedQuery.isEmpty {
       let ranked = uniquePreservingOrder(await searchNoteIDs(trimmedQuery))
-      if !ranked.isEmpty {
-        return Array(ranked.prefix(limit))
-      }
+      return Array(ranked.prefix(limit))
     }
 
-    return manifest.entries
-      .sorted {
-        if $0.updatedAt != $1.updatedAt { return $0.updatedAt > $1.updatedAt }
-        return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
-      }
-      .prefix(limit)
-      .map(\.pageId)
+    return []
   }
 
   /// Replace every `.folder` attachment with `.note` attachments for

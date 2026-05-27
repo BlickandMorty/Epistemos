@@ -2329,6 +2329,8 @@ struct ChatCoordinatorPersistenceTests {
         #expect(thirdTrace.candidatePoolSize == 2)
         #expect(thirdTrace.candidatesRetained == 2)
         #expect(thirdTrace.candidates.compactMap(\.title) == ["Beta", "Alpha"])
+        #expect(thirdTrace.pageGather?.status == .vaultEscalated)
+        #expect(thirdTrace.pageGather?.deferredFalsifier == "F-PageGather-Scatter")
 
         let attached = await ChatCoordinator.resolveAttachedContext(
             query: "Compare this to that older conversation",
@@ -2763,6 +2765,72 @@ struct ChatCoordinatorPersistenceTests {
                 forPipelineErrorMessage: "No usable local model is available."
             )
         )
+    }
+
+    @Test("all-notes context does not inject arbitrary note bodies when search misses")
+    func allNotesContextDoesNotInjectArbitraryNoteBodiesWhenSearchMisses() async throws {
+        let now = Date()
+        let manifest = VaultManifest(
+            vaultTitle: "my mind",
+            totalNoteCount: 2,
+            isInventoryComplete: true,
+            entries: [
+                VaultManifest.ManifestEntry(
+                    pageId: "alpha-id",
+                    title: "Alpha",
+                    relativePath: "Alpha.md",
+                    tags: [],
+                    folderName: nil,
+                    wordCount: 100,
+                    snippet: "Alpha summary",
+                    updatedAt: now,
+                    createdAt: now
+                ),
+                VaultManifest.ManifestEntry(
+                    pageId: "beta-id",
+                    title: "Beta",
+                    relativePath: "Beta.md",
+                    tags: [],
+                    folderName: nil,
+                    wordCount: 80,
+                    snippet: "Beta summary",
+                    updatedAt: now.addingTimeInterval(-60),
+                    createdAt: now.addingTimeInterval(-60)
+                )
+            ],
+            recentBodies: [],
+            generatedAt: now
+        )
+
+        let resolution = await ChatCoordinator.resolveNotesContext(
+            query: "@[All Notes] compare themes across quantum banana archive",
+            manifest: manifest,
+            includeAllNotesContext: false,
+            findNotesByTitle: { _ in [] },
+            fetchNoteBodies: { ids in
+                ids.map { id in
+                    VaultManifest.NoteBody(
+                        pageId: id,
+                        title: id == "alpha-id" ? "Alpha" : "Beta",
+                        relativePath: id == "alpha-id" ? "Alpha.md" : "Beta.md",
+                        body: "BODY SHOULD NOT BE INJECTED FOR \(id)"
+                    )
+                }
+            },
+            searchNoteIDs: { _ in [] }
+        )
+
+        #expect(resolution.cleanedQuery == "compare themes across quantum banana archive")
+        #expect(resolution.loadedNoteIds.isEmpty)
+        #expect(resolution.loadedNoteTitles.isEmpty)
+        #expect(resolution.context?.contains("## Vault Overview (2 listed notes)") == true)
+        #expect(resolution.context?.contains("## Matched Vault Notes") != true)
+        #expect(resolution.context?.contains("BODY SHOULD NOT BE INJECTED") != true)
+        let trace = try #require(resolution.vaultRecallTrace)
+        #expect(trace.candidatePoolSize == 2)
+        #expect(trace.candidatesRetained == 0)
+        #expect(trace.pageGather?.status == .vaultEscalated)
+        #expect(trace.pageGather?.measurementStatus == .deferred)
     }
 
     @Test("requested vault note context keeps provenance distinct from attached uploads")
