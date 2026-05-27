@@ -2,10 +2,11 @@
 
 Status: ground-truth checkpoint after Wave 4 and the post-merge audit pass.
 
-Base commit: `38bf5e3130657274b9032648d755e84e4551644d`
-(`test(audit): remove focused gate warnings (#127)`).
+Base commit: `334ce238b2`
+(`docs(post-wave4): close agent capability truth lane (#130)`).
 
-Checkpoint tag: `checkpoint/wave4-trifusion-typed-mutations-2026-05-27`.
+Latest checkpoint tag before the provenance-detail slice:
+`checkpoint/post-wave4-agent-capability-truth-2026-05-27`.
 
 This document is the post-Wave-4 answer to: "What is done, what is preserved
 only, what is still partial, and what terminals should run next?"
@@ -54,15 +55,15 @@ checkpoint.
 The old `~34/53+` count was intentionally conservative before Wave 4 closed.
 The honest post-Wave-4 accounting is:
 
-- Strictly wired / product-visible enough to count: about `41/53`.
+- Strictly wired / product-visible enough to count: about `42/53`.
 - Meaningfully advanced but still honest-orange or partial: about `7/53`.
-- Still open / research-tier backlog: about `5/53`.
+- Still open / research-tier backlog: about `4/53`.
 
 Percentages:
 
-- Strict wired floor: about 77%.
-- Strict + meaningful partial: about 91%.
-- Substrate floor estimate: about 95%, because the remaining gaps are mostly
+- Strict wired floor: about 79%.
+- Strict + meaningful partial: about 92%.
+- Substrate floor estimate: about 96%, because the remaining gaps are mostly
   visible truth, provenance-detail, and hardware/research gates
   rather than missing substrate skeleton.
 
@@ -82,10 +83,10 @@ Rows closed or materially advanced by Wave 4:
 | W-22 | wired | Retrieval returns typed addresses (#121). |
 | W-23 | wired | Vault Context Contract gate exists and passed in Wave 4 validation. |
 | W-24 | wired | DAG/claim rows carry UAS/anchor/plane/residency metadata from T14 + #121. |
-| W-25 | partial | ACS anchor data exists; clickable provenance/detail column still needs a focused UI slice. |
+| W-25 | wired/guarded | ACS anchor data exists and the chat AnswerPacket badge now opens a compact UAS / ACS anchor / plane / residency detail popover. See `docs/audits/POST_WAVE4_PROVENANCE_RESIDENCY_DETAIL_2026_05_27.md`. |
 | W-26 | wired | Cognitive DAG visualizer merged (#123). |
 | W-27 | wired | AnswerPacket badge/provenance row surface is live from B-prime. |
-| W-28 | partial | Residency types/guards exist; broader visible residency indicators remain a next slice. |
+| W-28 | partial/product visible | Residency types/guards exist and AnswerPacket detail now shows residency tier/signals; broader all-surface residency indicators remain a future polish slice. |
 | W-29 | wired | Substrate Health panel is live. |
 | W-30 | partial | Cognitive Weight badges exist in Settings; broader weight/residency display can still improve. |
 | W-49 | wired/guarded | App Store guard for `IMessageDriverService` is already live; see `docs/audits/POST_WAVE4_W49_W53_HARDENER_CLOSEOUT_2026_05_27.md`. |
@@ -152,28 +153,31 @@ Wave 4 satisfies the No-Orphan check at the current floor:
 
 Remaining No-Orphan risks are not lost work; they are the next focused slices:
 
-1. Clickable ACS anchor / residency details in provenance and graph surfaces.
+1. Broader all-surface residency polish outside the AnswerPacket/detail rows.
 2. Full hardware research gates for PageGather / ULP / ControllerKernelPack.
 
 ## Next Terminals
 
-Start only one product-floor terminal next. It is low-conflict and makes main more
-truthful instead of opening another broad substrate wave.
+The product-floor terminals below are retired or complete. Next work should be
+codeword-triggered research/hardware slices, not another broad product merge wave.
 
 ### Retired Terminal - Agent Capability Truth
 
 Do not dispatch. Current source already closes W-12. Evidence lives in
 `docs/audits/POST_WAVE4_AGENT_CAPABILITY_TRUTH_CLOSEOUT_2026_05_27.md`.
 
-### Terminal 1 - Provenance / Residency Detail
+### Retired Terminal - Provenance / Residency Detail
 
-Branch:
+Do not dispatch after this slice merges. The product-floor visibility gap is
+closed by `docs/audits/POST_WAVE4_PROVENANCE_RESIDENCY_DETAIL_2026_05_27.md`.
+
+Branch used:
 
 ```text
 codex/post-wave4-provenance-residency-detail-2026-05-27
 ```
 
-Prompt:
+Historical prompt:
 
 ```text
 You are Post-Wave-4 Terminal 2: Provenance / Residency Detail.
@@ -221,7 +225,8 @@ Do not dispatch. Current source already closes W-49 and W-53. Evidence lives in
 
 ## Later Terminals
 
-Run these only after the three terminals above are merged:
+Run these only after the product-floor closeout PRs are merged and the local
+gate is green:
 
 1. `RESUME ACS ANCHOR HARNESS`
    - Promote the scoped `F-ACS-Anchor-Addressing` N=100 mini-harness into the
@@ -237,11 +242,14 @@ Run these only after the three terminals above are merged:
 
 ## Current Best Next Move
 
-Dispatch the one active product-floor terminal above:
+Do not dispatch another broad product-floor wave. Main is now at the point where
+the remaining work should be summoned by codeword:
 
-1. Provenance / Residency Detail.
+1. `RESUME ACS ANCHOR HARNESS`
+2. `RESUME METAL WITNESS GATES`
+3. `RESEARCH CONSTRUCTION`
 
-Then rerun the local ground-truth gate:
+Then rerun the local ground-truth gate after any future codeword slice:
 
 ```text
 git diff --check
