@@ -14,7 +14,8 @@
   residency UI gap. `RESUME ACS ANCHOR HARNESS` is now complete as a full
   N=1000 four-stage witness, `F-ULP-Oracle` now has a full Metal
   `morphOracleFp16` primary hardware artifact, and `F-PageGather-M2Pro`
-  now has an honest 256 MB Metal failure report instead of a false green.
+  now has an honest 256 MB Metal failure report plus a separate locality probe
+  showing a block-sorted mitigation lead, not a false green.
   For the current W-row/falsifier recount and next codeword
   prompts, read
   `docs/audits/LEGENDARY_POST_WAVE4_ROLLUP_2026_05_27.md`. For the post-stash
@@ -94,9 +95,11 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
 - Substrate carcass: ~70% baseline per chronicle audit, advanced by real Eidos bridge, System G seam, ACS production gate, T14 UAS bridge, Verified Floor chip gate, Runtime Router, Hyperdynamic Loop, B-prime chat provenance, Round-2 falsifier artifacts, typed UAS retrieval/claims, PageGather escalation traces, Cognitive DAG visualizer, Tri-Fusion typed note mutations, focused test-warning cleanup, W-49/W-53 hardener closeout, Agent Capability Truth closeout, and the compact AnswerPacket provenance/residency detail path. **Post-Wave-4 LEGENDARY estimate: ~42/53 strictly wired, ~49/53 strict+meaningful partial, ~96% substrate floor.** Full recount: `docs/audits/LEGENDARY_POST_WAVE4_ROLLUP_2026_05_27.md`.
 - 13+ stash recovery tags pushed to origin (`refs/tags/recovery/stash-N-*`) plus Wave-2 recovery tags for PR #74, PR #79, and the B-prime uncommitted follow-up stash.
 - W-rows wired: **about 42/53 strict, about 49/53 strict+partial** after Wave 4 plus W-49/W-53, Agent Capability Truth, and Provenance / Residency Detail closeouts. Known advances: Eidos real bridge/citation gate (#66), System G real seam (#67), falsifier harnesses (#68/#74), Substrate Health/docs/unified panel work (#69/#77), VaultRecall visibility salvage (#70/#79), T14 No-Orphan bridge (#71), ACS production gate (#72), Verified Floor truth gate (#78), Hyperdynamic Schema Loop (#75), Runtime Router (#76), typed UAS retrieval and ClaimLedger addresses (#121), PageGather vault escalation trace (#122), Cognitive DAG visualizer (#123), Tri-Fusion typed note mutations (#124), test-isolation/warning cleanup (#125/#127), W-49/W-53 source guards (`docs/audits/POST_WAVE4_W49_W53_HARDENER_CLOSEOUT_2026_05_27.md`), Agent Capability Truth source guards (`docs/audits/POST_WAVE4_AGENT_CAPABILITY_TRUTH_CLOSEOUT_2026_05_27.md`), and AnswerPacket substrate detail guards (`docs/audits/POST_WAVE4_PROVENANCE_RESIDENCY_DETAIL_2026_05_27.md`).
-- Falsifier artifacts on main: **10 artifact files**.
+- Falsifier artifacts on main: **10 normalized witness artifact files** plus
+  PageGather Metal side reports (`metal_failure_result.json` and
+  `locality_probe_result.json`).
   - Schema-normalized primary witnesses: `F-VaultRecall-50`, `F-ULP-Oracle`, `F-Eidos-Bridge-RoundTrip`, `F-ACS-Anchor-Addressing` (full N=1000 four-stage harness), `F-HyperdynamicLoop-Bounded`.
-  - Schema-normalized fallback/CPU witnesses: `F-PageGather-M2Pro`, `F-ControllerKernelPack`, `F-UAS-ZeroCopy-Spine` — PageGather and ControllerKernelPack Metal/Swift hot-path throughput gates still pending. `F-PageGather-M2Pro` and `F-ControllerKernelPack` have a 2026-05-27 Metal preflight dispatch/equivalence guard; `F-PageGather-M2Pro` additionally has a 256 MB Metal failure report proving the current shader is correct but too slow; `F-ULP-Oracle` has advanced from preflight to a full Metal primary artifact.
+  - Schema-normalized fallback/CPU witnesses: `F-PageGather-M2Pro`, `F-ControllerKernelPack`, `F-UAS-ZeroCopy-Spine` — PageGather and ControllerKernelPack Metal/Swift hot-path throughput gates still pending. `F-PageGather-M2Pro` and `F-ControllerKernelPack` have a 2026-05-27 Metal preflight dispatch/equivalence guard; `F-PageGather-M2Pro` additionally has a 256 MB Metal failure report proving the current shader is correct but too slow and a locality probe showing an 8,192-element block-sorted scatter candidate at about `0.734x` measured STREAM; `F-ULP-Oracle` has advanced from preflight to a full Metal primary artifact.
   - Legacy-shape measured PASS artifacts still to normalize: `F-UAS-CopyCount`, `F-ACS-AnchorLookup`.
 
 ### Open PRs
@@ -123,6 +126,7 @@ for the exact current commit.
 - `Tools/metal-shader-compile/metal-shader-compile.sh` passed: 26 shaders compile, with honest deferred warnings for PageGather / ControllerKernelPack / PacketRouter1bit.
 - `swift Tools/metal-witness-gates/fulp-metal-oracle-artifact.swift --write-artifact` passed and emitted a primary `F-ULP-Oracle` Metal artifact.
 - `swift Tools/metal-witness-gates/page-gather-metal-artifact.swift --working-sets-mb 256 --window-seconds 5 --trials 3 --warmup-iterations 3 --write-artifact` failed honestly and emitted `artifacts/falsifiers/page_gather/metal_failure_result.json`; no PageGather green promotion.
+- `swift Tools/metal-witness-gates/page-gather-metal-artifact.swift --probe-locality --working-sets-mb 256 --window-seconds 5 --trials 3 --warmup-iterations 3 --write-artifact` emitted `artifacts/falsifiers/page_gather/locality_probe_result.json`; block-sorted scatter crossed `0.70x` at 256 MB, but the canonical 256/512/1024 MB gate remains pending.
 - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosTriFusionTypedMutationGate build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""` passed for the Wave-4 checkpoint; rerun a fresh build after this artifact slice before tagging.
 - Focused graph/editor guard passed after the lost-work restoration: `GraphPerformanceTests`, `GraphPhysicsSettingsAuditTests`, and `HTMLWorkspaceSourceGuardTests` all passed.
 - Latest pushed checkpoint before this artifact slice: `checkpoint/post-wave4-metal-witness-preflight-2026-05-27`.
