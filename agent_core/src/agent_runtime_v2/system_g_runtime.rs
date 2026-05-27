@@ -618,6 +618,7 @@ mod tests {
         // Pin that the test hook is safe: any cached run_id from a
         // prior test fixture cleanly surfaces UnknownRun, not panic.
         let _guard = test_registry_lock();
+        reset_for_test();
         let r = start_run(&good_mission_json()).expect("start");
         reset_for_test();
         let err = drain_events(&r).expect_err("post-reset run is unknown");
@@ -780,6 +781,7 @@ mod tests {
         // would lie about lifetime if a test happened to fire in
         // a test-instrumented build.
         let _guard = test_registry_lock();
+        reset_for_test();
         let _ = start_run(&good_mission_json()).expect("start");
         let before = registry_stats_full().2;
         reset_for_test();
