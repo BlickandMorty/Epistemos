@@ -47,6 +47,66 @@ nonisolated public enum ClaimKind: String, Codable, Hashable, Sendable, CaseIter
     public static let `default`: ClaimKind = .empirical
 }
 
+nonisolated public struct UasAddress: Codable, Hashable, Sendable {
+    public var kind: String
+    public var hash: String
+    public var createdAtMs: UInt64
+
+    public init(kind: String, hash: String, createdAtMs: UInt64) {
+        self.kind = kind
+        self.hash = hash
+        self.createdAtMs = createdAtMs
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case kind
+        case hash
+        case createdAtMs = "created_at_ms"
+    }
+}
+
+nonisolated public struct AcsAnchor: Codable, Hashable, Sendable {
+    public var anchorId: String
+    public var theoremId: String
+    public var plane: RuntimePlane
+    public var residency: ResidencyTier
+    public var sourceHash: String?
+    public var activePacketId: String?
+    public var compatibilityEdge: String?
+    public var salience: Float
+
+    public init(
+        anchorId: String,
+        theoremId: String,
+        plane: RuntimePlane,
+        residency: ResidencyTier,
+        sourceHash: String? = nil,
+        activePacketId: String? = nil,
+        compatibilityEdge: String? = nil,
+        salience: Float
+    ) {
+        self.anchorId = anchorId
+        self.theoremId = theoremId
+        self.plane = plane
+        self.residency = residency
+        self.sourceHash = sourceHash
+        self.activePacketId = activePacketId
+        self.compatibilityEdge = compatibilityEdge
+        self.salience = salience
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case anchorId = "anchor_id"
+        case theoremId = "theorem_id"
+        case plane
+        case residency
+        case sourceHash = "source_hash"
+        case activePacketId = "active_packet_id"
+        case compatibilityEdge = "compatibility_edge"
+        case salience
+    }
+}
+
 /// EPISTEMOS V6.1 — attention/retrieval wake mode for an emitted
 /// AnswerPacket.
 ///
@@ -219,19 +279,25 @@ nonisolated public struct Claim: Codable, Hashable, Sendable {
     public var status: ClaimStatus
     public var createdAtMs: Int64
     public var kind: ClaimKind
+    public var uasAddress: UasAddress?
+    public var acsAnchor: AcsAnchor?
 
     public init(
         id: String,
         text: String,
         status: ClaimStatus,
         createdAtMs: Int64,
-        kind: ClaimKind = .empirical
+        kind: ClaimKind = .empirical,
+        uasAddress: UasAddress? = nil,
+        acsAnchor: AcsAnchor? = nil
     ) {
         self.id = id
         self.text = text
         self.status = status
         self.createdAtMs = createdAtMs
         self.kind = kind
+        self.uasAddress = uasAddress
+        self.acsAnchor = acsAnchor
     }
 
     enum CodingKeys: String, CodingKey {
@@ -240,6 +306,8 @@ nonisolated public struct Claim: Codable, Hashable, Sendable {
         case status
         case createdAtMs = "created_at_ms"
         case kind
+        case uasAddress = "uas_address"
+        case acsAnchor = "acs_anchor"
     }
 
     public init(from decoder: Decoder) throws {
@@ -250,6 +318,8 @@ nonisolated public struct Claim: Codable, Hashable, Sendable {
         self.createdAtMs = try c.decode(Int64.self, forKey: .createdAtMs)
         // V1 backward-compat: missing `kind` decodes as `.empirical`.
         self.kind = try c.decodeIfPresent(ClaimKind.self, forKey: .kind) ?? .empirical
+        self.uasAddress = try c.decodeIfPresent(UasAddress.self, forKey: .uasAddress)
+        self.acsAnchor = try c.decodeIfPresent(AcsAnchor.self, forKey: .acsAnchor)
     }
 }
 

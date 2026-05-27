@@ -24,6 +24,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::uas::UasAddress;
+
 /// The five canonical retrieval signals. **Do not collapse.** Each
 /// retrieval must score every retained candidate against every applicable
 /// signal so downstream consumers (Brain Panel, ChatCoordinator, W-21
@@ -123,11 +125,12 @@ impl RetrievalSignalScore {
 /// `selection_reason` is a human-readable summary — short enough to
 /// render as a provenance-card subtitle, long enough to give the user
 /// a one-line "why this note?" answer. The trace MUST cite the
-/// canonical vault path (a `UasAddress` typed version lands when W-22
-/// is wired and the T3 + T4 branches are merged).
+/// canonical vault path and can carry its typed `UasAddress`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RetrievalCandidate {
     pub path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uas_address: Option<UasAddress>,
     pub title: Option<String>,
     pub snippet: Option<String>,
     pub fused_score: f64,
@@ -139,6 +142,7 @@ impl RetrievalCandidate {
     pub fn new(path: impl Into<String>, fused_score: f64) -> Self {
         Self {
             path: path.into(),
+            uas_address: None,
             title: None,
             snippet: None,
             fused_score,
@@ -149,6 +153,11 @@ impl RetrievalCandidate {
 
     pub fn with_signal(mut self, score: RetrievalSignalScore) -> Self {
         self.signals.push(score);
+        self
+    }
+
+    pub fn with_uas_address(mut self, address: UasAddress) -> Self {
+        self.uas_address = Some(address);
         self
     }
 
@@ -471,6 +480,11 @@ mod tests {
     #[test]
     fn retrieval_candidate_builder_stacks() {
         let candidate = RetrievalCandidate::new("notes/residency.md", 4.21)
+            .with_uas_address(crate::uas::UasAddress::new(
+                crate::uas::UasKind::VaultNote,
+                b"notes/residency.md",
+                0,
+            ))
             .with_title("Residency Governance")
             .with_snippet("Tier 3 residency governance budget …")
             .with_signal(RetrievalSignalScore::new(
@@ -485,6 +499,10 @@ mod tests {
             ))
             .with_selection_reason("lexical:4.21 + semantic:0.91 fused via RRF k=60");
         assert_eq!(candidate.path, "notes/residency.md");
+        assert_eq!(
+            candidate.uas_address.as_ref().map(|address| &address.kind),
+            Some(&crate::uas::UasKind::VaultNote)
+        );
         assert_eq!(candidate.title.as_deref(), Some("Residency Governance"));
         assert!(candidate.snippet.is_some());
         assert_eq!(candidate.signals.len(), 2);

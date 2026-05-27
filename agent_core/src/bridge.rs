@@ -4701,6 +4701,7 @@ pub fn substrate_health_unified_json() -> Result<String, AgentErrorFFI> {
                 "ffi_reachable": true,
                 "known_uas_kinds": [
                     "vault_note",
+                    "claim",
                     "graph_node",
                     "kv_page",
                     "model_component",

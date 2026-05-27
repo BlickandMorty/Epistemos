@@ -42,7 +42,7 @@
 // — the Swift consumer uses `decodeIfPresent` for forward-compat on
 // any new fields, same pattern as the cognitive-DAG stats client.
 
-use crate::provenance::ledger::{Claim, ClaimId, ClaimKind, ClaimStatus};
+use crate::provenance::ledger::{Claim, ClaimId, ClaimKind};
 use crate::scope_rex::answer_packet::{
     AnswerPacket, AnswerPacketId, AttentionMode, MutationEnvelopeId, ResidencySignal, VrmLabel,
     WitnessedStateId,
@@ -135,16 +135,15 @@ pub fn produce_turn_completion_packet(inputs: TurnCompletionInputs) -> AnswerPac
     .with_ui_label(inputs.vrm_label);
 
     // (1) Empirical self-witness — every turn carries one.
-    let self_witness = Claim {
-        id: ClaimId::new(format!("{}::self-witness", packet.id.0)),
-        text: format!(
+    let self_witness = Claim::new(
+        ClaimId::new(format!("{}::self-witness", packet.id.0)),
+        format!(
             "turn completed: {} output tokens, stop_reason={}",
             inputs.output_tokens, inputs.stop_reason
         ),
-        status: ClaimStatus::Active,
-        created_at_ms: inputs.created_at_ms,
-        kind: ClaimKind::Empirical,
-    };
+        inputs.created_at_ms,
+    )
+    .with_kind(ClaimKind::Empirical);
     packet = packet.push_claim(self_witness);
 
     // (2) Empirical tool-use observation — when the provider returned
@@ -152,13 +151,12 @@ pub fn produce_turn_completion_packet(inputs: TurnCompletionInputs) -> AnswerPac
     // claim so audit consumers can correlate AnswerPacket emission
     // with tool execution.
     if inputs.stop_reason == "tool_use" {
-        let tool_witness = Claim {
-            id: ClaimId::new(format!("{}::tool-use", packet.id.0)),
-            text: "agent requested tool execution at turn boundary".to_string(),
-            status: ClaimStatus::Active,
-            created_at_ms: inputs.created_at_ms,
-            kind: ClaimKind::Empirical,
-        };
+        let tool_witness = Claim::new(
+            ClaimId::new(format!("{}::tool-use", packet.id.0)),
+            "agent requested tool execution at turn boundary",
+            inputs.created_at_ms,
+        )
+        .with_kind(ClaimKind::Empirical);
         packet = packet.push_claim(tool_witness);
     }
 
@@ -166,15 +164,12 @@ pub fn produce_turn_completion_packet(inputs: TurnCompletionInputs) -> AnswerPac
     // is StaticFallback. Without this claim, the packet fails
     // `AnswerPacket::acknowledges_static_fallback` and is malformed.
     if inputs.attention_mode == AttentionMode::StaticFallback {
-        let ack = Claim {
-            id: ClaimId::new(format!("{}::static-fallback-ack", packet.id.0)),
-            text:
-                "static 9:1 hybrid attention floor used (dynamic interrupt signals unavailable)"
-                    .to_string(),
-            status: ClaimStatus::Active,
-            created_at_ms: inputs.created_at_ms,
-            kind: ClaimKind::StaticFallbackAcknowledged,
-        };
+        let ack = Claim::new(
+            ClaimId::new(format!("{}::static-fallback-ack", packet.id.0)),
+            "static 9:1 hybrid attention floor used (dynamic interrupt signals unavailable)",
+            inputs.created_at_ms,
+        )
+        .with_kind(ClaimKind::StaticFallbackAcknowledged);
         packet = packet.push_claim(ack);
     }
 
