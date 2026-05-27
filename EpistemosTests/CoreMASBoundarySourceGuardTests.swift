@@ -383,7 +383,70 @@ struct CoreMASBoundarySourceGuardTests {
         }
     }
 
+    @Test("App Store builds compile out native iMessage automation paths")
+    func appStoreBuildsCompileOutNativeIMessageAutomationPaths() throws {
+        let guardedFiles = [
+            "Epistemos/Omega/iMessageDriver/IMessageDriverService.swift",
+            "Epistemos/Omega/iMessageDriver/IMessageReplyDelegate.swift",
+            "Epistemos/Omega/iMessageDriver/IMessageNativeSetupDoctor.swift",
+            "Epistemos/Omega/Channels/ChannelRegistryState.swift",
+            "Epistemos/Omega/Channels/DriverChannelControlPlane.swift",
+            "Epistemos/Views/Settings/IMessageDriverSettingsView.swift",
+            "Epistemos/Views/Settings/ChannelsSettingsView.swift",
+        ]
+
+        for relativePath in guardedFiles {
+            let source = try loadMirroredSourceTextFile(relativePath)
+            #expect(sourceIsDirectDistributionOnly(source),
+                    "\(relativePath) must be fully wrapped in \(Self.directDistributionGuard) so MAS builds do not compile native iMessage/channel automation")
+        }
+
+        let bootstrap = try loadMirroredSourceTextFile("Epistemos/App/AppBootstrap.swift")
+        #expect(bootstrap.contains("\(Self.directDistributionGuard)\n    let channelRegistry: ChannelRegistryState"),
+                "AppBootstrap must not store ChannelRegistryState in MAS builds")
+        #expect(bootstrap.contains("\(Self.directDistributionGuard)\n    private var _iMessageDriver: IMessageDriverService?"),
+                "AppBootstrap must not store IMessageDriverService in MAS builds")
+
+        let driverInit = try sliceBetween(
+            in: bootstrap,
+            startMarker: "\(Self.directDistributionGuard)\n        // Initialize iMessage driver",
+            endMarker: "#endif\n\n        // Initialize device-action infrastructure"
+        )
+        #expect(driverInit.contains("IMessageDriverService("),
+                "Direct builds must still initialize IMessageDriverService")
+        #expect(driverInit.contains("IMessageChannelAdapter()"),
+                "Direct builds must keep the native Messages adapter fallback")
+
+        let environment = try loadMirroredSourceTextFile("Epistemos/App/AppEnvironment.swift")
+        let environmentBranch = try sliceBetween(
+            in: environment,
+            startMarker: Self.directDistributionGuard,
+            endMarker: ".environment(bootstrap.agentCommandCenterState)"
+        )
+        #expect(environmentBranch.contains(".environment(bootstrap.channelRegistry)"),
+                "AppEnvironment must inject ChannelRegistryState only in direct builds")
+        #expect(environmentBranch.contains(".environment(bootstrap.iMessageDriver)"),
+                "AppEnvironment must inject IMessageDriverService only in direct builds")
+
+        let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        #expect(settings.contains("\(Self.directDistributionGuard)\n            sections.append(.channels)"),
+                "App Store settings sidebar must not expose Channels automation")
+        #expect(settings.contains("\(Self.directDistributionGuard)\n            sections += [\n                .iMessageDriver,"),
+                "App Store settings sidebar must not expose the native iMessage driver")
+        #expect(settings.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX\n            case .channels, .knowledgeFusion, .iMessageDriver, .skills:\n                GeneralDetailView()"),
+                "App Store settings detail routing must not instantiate native channel/iMessage panes")
+
+        let project = try loadMirroredSourceTextFile("Epistemos.xcodeproj/project.pbxproj")
+        #expect(project.contains("SWIFT_ACTIVE_COMPILATION_CONDITIONS = \"$(inherited) DEBUG EPISTEMOS_APP_STORE MAS_SANDBOX"),
+                "Epistemos-AppStore Debug must define both EPISTEMOS_APP_STORE and MAS_SANDBOX")
+        #expect(project.contains("SWIFT_ACTIVE_COMPILATION_CONDITIONS = \"$(inherited) EPISTEMOS_APP_STORE MAS_SANDBOX"),
+                "Epistemos-AppStore Release must define both EPISTEMOS_APP_STORE and MAS_SANDBOX")
+    }
+
     // MARK: - Helpers
+
+    private static let directDistributionGuard = "#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"
+    private static let directDistributionEndGuard = "#endif // !(EPISTEMOS_APP_STORE || MAS_SANDBOX) -- native channel/iMessage driver is Pro/direct-distribution only"
 
     private func loadHermesGatewayPolicySource() throws -> String {
         try loadMirroredSourceTextFile("Epistemos/LocalAgent/LocalAgentGatewayPolicy.swift")
@@ -416,6 +479,12 @@ struct CoreMASBoundarySourceGuardTests {
             throw SourceSliceError.missingEndMarker(endMarker)
         }
         return String(afterStart[..<endRange.lowerBound])
+    }
+
+    private func sourceIsDirectDistributionOnly(_ source: String) -> Bool {
+        let trimmed = source.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.hasPrefix(Self.directDistributionGuard)
+            && trimmed.hasSuffix(Self.directDistributionEndGuard)
     }
 
     private enum SourceSliceError: Error {

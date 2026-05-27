@@ -821,10 +821,6 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(SRCROOT)/build-rust/swift-bindings/omega_mcp.swift",
-				"$(SRCROOT)/build-rust/swift-bindings/omega_ax.swift",
-				"$(SRCROOT)/build-rust/swift-bindings/epistemos_core.swift",
-				"$(SRCROOT)/build-rust/swift-bindings/agent_core.swift",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;

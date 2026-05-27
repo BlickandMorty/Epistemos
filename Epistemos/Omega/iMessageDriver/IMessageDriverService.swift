@@ -1,3 +1,4 @@
+#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
 import Foundation
 import os
 
@@ -28,7 +29,6 @@ nonisolated enum DriverChannelError: LocalizedError, Sendable, Equatable {
         }
     }
 }
-
 nonisolated struct DriverChannelToolExecutionResult: Equatable, Sendable {
     let success: Bool
     let outputJson: String
@@ -249,7 +249,6 @@ nonisolated enum DriverChannelToolExecutor {
         return String(value.prefix(limit))
     }
 }
-
 nonisolated struct DriverChannelMessage: Equatable, Sendable {
     let channelID: String
     let messageID: String?
@@ -1709,3 +1708,4 @@ nonisolated final class LocalReplyAccumulator: @unchecked Sendable {
         }
     }
 }
+#endif // !(EPISTEMOS_APP_STORE || MAS_SANDBOX) -- native channel/iMessage driver is Pro/direct-distribution only

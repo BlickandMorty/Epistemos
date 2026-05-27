@@ -1,3 +1,4 @@
+#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
 import Foundation
 
 nonisolated enum DriverChannelCapability: String, CaseIterable, Sendable, Identifiable {
@@ -47,7 +48,6 @@ nonisolated struct DriverChannelAuditEntry: Equatable, Identifiable, Sendable {
         return "\(conversationID):\(senderID):\(unix)"
     }
 }
-
 nonisolated struct DriverChannelFallbackEvent: Equatable, Sendable {
     nonisolated enum Operation: String, Equatable, Sendable {
         case fetchUnread
@@ -86,7 +86,6 @@ extension DriverChannelAdapting {
         throw DriverChannelError.unreadPollingUnsupported(channelID: channelID)
     }
 }
-
 nonisolated func driverChannelStringValue(_ value: Any?) -> String? {
     switch value {
     case let string as String:
@@ -732,3 +731,4 @@ nonisolated struct FallbackDriverChannelAdapter: DriverChannelAdapting {
         )
     }
 }
+#endif // !(EPISTEMOS_APP_STORE || MAS_SANDBOX) -- native channel/iMessage driver is Pro/direct-distribution only

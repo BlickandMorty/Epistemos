@@ -1,3 +1,4 @@
+#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
 import Foundation
 import os
 
@@ -234,3 +235,4 @@ nonisolated final class IMessageReplyDelegate: AgentStreamEventDelegate, @unchec
         "{\"success\":false,\"error\":\"inline_partner disabled in iMessage driver\"}"
     }
 }
+#endif // !(EPISTEMOS_APP_STORE || MAS_SANDBOX) -- native channel/iMessage driver is Pro/direct-distribution only

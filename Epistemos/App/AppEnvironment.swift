@@ -32,12 +32,14 @@ extension View {
             .environment(bootstrap.dialogueChatState)
             .environment(bootstrap.orchestratorState)
             .environment(bootstrap.mcpBridge)
+            #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
             .environment(bootstrap.channelRegistry)
+            #endif
             .environment(bootstrap.constrainedDecoding)
             .environment(bootstrap.hardwareTierManager)
             .environment(bootstrap.ghostBrainCoauthor)
             .environment(bootstrap.epistemosConfig)
-            #if !EPISTEMOS_APP_STORE
+            #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
             .environment(bootstrap.iMessageDriver)
             #endif
             .environment(bootstrap.agentCommandCenterState)
