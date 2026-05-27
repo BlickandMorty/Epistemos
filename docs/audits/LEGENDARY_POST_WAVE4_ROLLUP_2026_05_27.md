@@ -2,11 +2,11 @@
 
 Status: ground-truth checkpoint after Wave 4 and the post-merge audit pass.
 
-Base commit: `334ce238b2`
-(`docs(post-wave4): close agent capability truth lane (#130)`).
+Base commit before the F-ULP Metal artifact slice: `c8c4b50f15`
+(`test(metal): add witness gate preflight (#133)`).
 
-Latest checkpoint tag before the provenance-detail slice:
-`checkpoint/post-wave4-agent-capability-truth-2026-05-27`.
+Latest checkpoint tag before the F-ULP Metal artifact slice:
+`checkpoint/post-wave4-metal-witness-preflight-2026-05-27`.
 
 This document is the post-Wave-4 answer to: "What is done, what is preserved
 only, what is still partial, and what terminals should run next?"
@@ -40,6 +40,17 @@ Performance guard highlights from the focused run:
 
 No stash was popped, dropped, bulk-applied, or checked out from during this
 checkpoint.
+
+Additional 2026-05-27 Metal witness evidence after the preflight slice:
+
+- `Tools/metal-shader-compile/metal-shader-compile.sh`
+  - passed; 26 shaders compile, with deferred warnings still emitted for
+    PageGather / ControllerKernelPack / PacketRouter1bit.
+- `swift Tools/metal-witness-gates/fulp-metal-oracle-artifact.swift --write-artifact`
+  - passed; emitted `artifacts/falsifiers/ulp_oracle/result.json` as a full
+    Metal `morphOracleFp16` primary witness.
+- `cargo run --manifest-path agent_core/Cargo.toml --release --bin falsifier_validator -- artifacts/falsifiers/ulp_oracle/result.json`
+  - passed.
 
 ## Main / PR State
 
@@ -107,7 +118,7 @@ There are 10 `artifacts/falsifiers/*/result.json` files on main:
 | `eidos_bridge_round_trip` | measured true | Real Eidos bridge round-trip witness; Swift side covered by production bridge tests. |
 | `hyperdynamic_loop_bounded` | measured true | Bounded repair loop witness. |
 | `acs_anchor_addressing` | full measured true | N=1000 full harness with agent runtime emission, lookup, audit canonicalization, and five-plane projection inversion. See `docs/audits/ACS_ANCHOR_HARNESS_FULL_2026_05_27.md`. |
-| `ulp_oracle` | measured true | CPU/reference ULP witness; Metal gate remains research/hardware. |
+| `ulp_oracle` | measured true | Full Metal `morphOracleFp16` primary witness over 414,048 points / 1,242,144 evaluations; max ULP axes pass the <=2 budget. |
 | `uas_zero_copy_spine` | measured true | Zero tracked copies in scoped spine; broader hot path can still be expanded. |
 | `page_gather` | measured true | CPU scatter/PageGather artifact; full Metal STREAM-style gate pending. |
 | `controller_kernel_pack` | measured true | CPU/reference kernel-pack witness; full Metal dispatcher pending. |
@@ -154,9 +165,10 @@ Wave 4 satisfies the No-Orphan check at the current floor:
 Remaining No-Orphan risks are not lost work; they are the next focused slices:
 
 1. Broader all-surface residency polish outside the AnswerPacket/detail rows.
-2. Full hardware research gates for PageGather / ULP / ControllerKernelPack.
+2. Full hardware research gates for PageGather / ControllerKernelPack.
    A 2026-05-27 Metal preflight now dispatches the source kernels and keeps
-   the primary measurement artifacts pending instead of green.
+   those primary measurement artifacts pending instead of green. `F-ULP-Oracle`
+   has advanced to a full Metal primary witness.
 
 ## Next Terminals
 
@@ -234,8 +246,9 @@ gate is green:
    - Completed by `docs/audits/ACS_ANCHOR_HARNESS_FULL_2026_05_27.md`.
 2. `RESUME METAL WITNESS GATES`
    - Preflight slice: `docs/audits/METAL_WITNESS_GATES_PREFLIGHT_2026_05_27.md`.
-   - Still remaining: full Metal/PageGather, ULP, and ControllerKernelPack
-     measured artifacts. Keep them research-tier until real hardware
+   - `F-ULP-Oracle` full Metal artifact: `artifacts/falsifiers/ulp_oracle/result.json`.
+   - Still remaining: full Metal/PageGather and ControllerKernelPack measured
+     throughput/latency artifacts. Keep them research-tier until real hardware
      measurements pass.
 3. `RESEARCH CONSTRUCTION`
    - Candidate-only research construction engine. Do not affect live product

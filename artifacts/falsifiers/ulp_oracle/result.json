@@ -1,95 +1,125 @@
 {
-  "falsifier_id": "F-ULP-Oracle",
-  "schema_version": "2026-05-18.2",
-  "artifact_kind": "primary_witness",
-  "hardware_pin": {
-    "machine": "M2 Pro 14-inch 2023",
-    "cpu": "12-core CPU",
-    "gpu": "19-core GPU",
-    "unified_memory_gb": 16,
-    "memory_bandwidth_gb_s": 200
-  },
-  "command": "cargo run --release --bin falsify_ulp_oracle",
-  "command_digest": "sha256:d6d338270689c87ae76f638d6b36d1ce1fc11521fbcd2eff8d22a580f09581ba",
-  "runner_environment": {
-    "cwd": "repo_root",
-    "shell": "zsh",
-    "env_policy": "script_owned",
-    "locale": "C",
-    "timezone": "UTC",
-    "os_build": "Darwin 25 (macOS 26 family)",
-    "toolchain_identity": {
-      "xcodebuild": "not_used",
-      "swift": "not_used",
-      "rustc": "rustc (agent_core 0.1.0)",
-      "python": "not_used"
+  "acceptance_thresholds" : {
+    "evaluations_total" : {
+      "operator" : ">=",
+      "unit" : "count",
+      "value" : 1242144
     },
-    "thermal_state_start": "unknown",
-    "thermal_state_end": "unknown",
-    "power_source": "unknown"
-  },
-  "commit_sha": "04b7331e4cc04e5044003df714c5c98124d7a497",
-  "fixture_id": "fulp_acceptance_grid_412k_log_2k_adversarial_v1",
-  "timestamp_utc": "2026-05-24T02:26:44Z",
-  "result_digest": "sha256:8a2b232dd085cd788a873dbfad9f653067e46bb429c665cc6ca33d8e7586ee6d",
-  "measurements": {
-    "evaluations_total": {
-      "value": 1242144,
-      "unit": "count"
+    "invalid_outputs" : {
+      "operator" : "==",
+      "unit" : "count",
+      "value" : 0
     },
-    "max_ulp_eml": {
-      "value": 0,
-      "unit": "ulp_fp16"
+    "max_ulp_eml" : {
+      "operator" : "<=",
+      "unit" : "ulp_fp16",
+      "value" : 2
     },
-    "max_ulp_exp": {
-      "value": 0,
-      "unit": "ulp_fp16"
+    "max_ulp_exp" : {
+      "operator" : "<=",
+      "unit" : "ulp_fp16",
+      "value" : 2
     },
-    "max_ulp_ln": {
-      "value": 0,
-      "unit": "ulp_fp16"
+    "max_ulp_ln" : {
+      "operator" : "<=",
+      "unit" : "ulp_fp16",
+      "value" : 2
     },
-    "wall_clock_seconds": {
-      "value": 1.151197916,
-      "unit": "seconds"
+    "metal_wall_clock_seconds" : {
+      "operator" : "<=",
+      "unit" : "seconds",
+      "value" : 90
+    },
+    "points_total" : {
+      "operator" : ">=",
+      "unit" : "count",
+      "value" : 414048
     }
   },
-  "acceptance_thresholds": {
-    "evaluations_total": {
-      "operator": ">=",
-      "value": 1242144,
-      "unit": "count"
+  "anomalies" : [
+
+  ],
+  "artifact_kind" : "primary_witness",
+  "command" : "swift Tools\/metal-witness-gates\/fulp-metal-oracle-artifact.swift --write-artifact",
+  "command_digest" : "sha256:58be7bc1b0569e0dd563055a49c10cc8b63acb2dd4d513024a9047946da9afd3",
+  "commit_sha" : "c8c4b50f15ec8eff2de926bf21c2523ee9c17d3a",
+  "fallback_tier" : "Primary",
+  "falsifier_id" : "F-ULP-Oracle",
+  "fixture_id" : "fulp_metal_morph_oracle_412k_log_2k_stress_v1",
+  "hardware_pin" : {
+    "cpu" : "12-core CPU",
+    "gpu" : "19-core GPU",
+    "machine" : "M2 Pro 14-inch 2023",
+    "memory_bandwidth_gb_s" : 200,
+    "unified_memory_gb" : 16
+  },
+  "measurements" : {
+    "evaluations_total" : {
+      "unit" : "count",
+      "value" : 1242144
     },
-    "max_ulp_eml": {
-      "operator": "<=",
-      "value": 2,
-      "unit": "ulp_fp16"
+    "grid_fingerprint" : {
+      "unit" : "sha256_hex",
+      "value" : "sha256:4506e8b79df9d2bd9809340248aa1845a9dbe0e23a34f5f8319b48c4c21e8d0d"
     },
-    "max_ulp_exp": {
-      "operator": "<=",
-      "value": 2,
-      "unit": "ulp_fp16"
+    "harness_wall_clock_seconds" : {
+      "unit" : "seconds",
+      "value" : 0.12697708606719971
     },
-    "max_ulp_ln": {
-      "operator": "<=",
-      "value": 2,
-      "unit": "ulp_fp16"
+    "invalid_outputs" : {
+      "unit" : "count",
+      "value" : 0
     },
-    "wall_clock_seconds": {
-      "operator": "<=",
-      "value": 90,
-      "unit": "seconds"
+    "max_ulp_eml" : {
+      "unit" : "ulp_fp16",
+      "value" : 1
+    },
+    "max_ulp_exp" : {
+      "unit" : "ulp_fp16",
+      "value" : 1
+    },
+    "max_ulp_ln" : {
+      "unit" : "ulp_fp16",
+      "value" : 1
+    },
+    "metal_wall_clock_seconds" : {
+      "unit" : "seconds",
+      "value" : 0.001687416
+    },
+    "points_total" : {
+      "unit" : "count",
+      "value" : 414048
     }
   },
-  "pass_per_axis": {
-    "evaluations_total": true,
-    "max_ulp_eml": true,
-    "max_ulp_exp": true,
-    "max_ulp_ln": true,
-    "wall_clock_seconds": true
+  "notes" : "Metal morphOracleFp16 full hardware witness generated from Epistemos\/Shaders\/morph_eval_reduced.metal with safe math mode in the harness; compares exp\/ln\/eml half outputs against Foundation fp64-rounded-to-fp16 reference over 412,000 log-sampled points + 2,048 stress points. PageGather and ControllerKernelPack primary hardware artifacts remain pending.",
+  "overall_pass" : true,
+  "pass_per_axis" : {
+    "evaluations_total" : true,
+    "invalid_outputs" : true,
+    "max_ulp_eml" : true,
+    "max_ulp_exp" : true,
+    "max_ulp_ln" : true,
+    "metal_wall_clock_seconds" : true,
+    "points_total" : true
   },
-  "overall_pass": true,
-  "fallback_tier": "Primary",
-  "anomalies": [],
-  "notes": "kernel=cpu_reference_rounded_fp16_v1; grid_fingerprint=4a83ee96a1dffd0251307ebca42c33eb8982992a641dd641c540fd560a42bdb3; budget_target_seconds=90; F-ULP-Oracle CPU reference produces primary witness — Metal morph_eval_reduced.metal kernel measurement still pending (W-40 / T12)"
+  "result_digest" : "sha256:f192fe69ffe70078f87a1e14f9464b79c15bb97d62c17083753140f5076d9a9d",
+  "runner_environment" : {
+    "cwd" : "repo_root",
+    "env_policy" : "script_owned",
+    "locale" : "C",
+    "os_build" : "Darwin 25D2128",
+    "power_source" : "unknown",
+    "shell" : "zsh",
+    "thermal_state_end" : "unknown",
+    "thermal_state_start" : "unknown",
+    "timezone" : "UTC",
+    "toolchain_identity" : {
+      "python" : "not_used",
+      "rustc" : "not_used",
+      "swift" : "Apple Swift version 6.3.1 (swiftlang-6.3.1.1.2 clang-2100.0.123.102) Target: arm64-apple-macosx26.0",
+      "xcodebuild" : "Xcode 26.4.1 Build version 17E202"
+    }
+  },
+  "schema_version" : "2026-05-18.2",
+  "timestamp_utc" : "2026-05-27T17:32:26Z"
 }

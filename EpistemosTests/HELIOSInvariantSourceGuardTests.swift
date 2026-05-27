@@ -2032,6 +2032,18 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(audit.contains("F-PageGather-M2Pro"))
         #expect(audit.contains("F-ControllerKernelPack"))
         #expect(audit.contains("F-ULP-Oracle"))
+
+        let fulpArtifactTool = try loadMirroredSourceTextFile("Tools/metal-witness-gates/fulp-metal-oracle-artifact.swift")
+        #expect(fulpArtifactTool.contains("morphOracleFp16"))
+        #expect(fulpArtifactTool.contains("412_000"))
+        #expect(fulpArtifactTool.contains("2_048"))
+        #expect(fulpArtifactTool.contains("options.mathMode = .safe"))
+
+        let fulpArtifact = try loadMirroredSourceTextFile("artifacts/falsifiers/ulp_oracle/result.json")
+        #expect(fulpArtifact.contains(#""artifact_kind" : "primary_witness""#))
+        #expect(fulpArtifact.contains(#""fixture_id" : "fulp_metal_morph_oracle_412k_log_2k_stress_v1""#))
+        #expect(fulpArtifact.contains(#""overall_pass" : true"#))
+        #expect(fulpArtifact.contains(#""metal_wall_clock_seconds""#))
     }
 
     @Test("W26: §2.5.2 compliance audit exists + enforces v1 HELIOS toggle freeze")
