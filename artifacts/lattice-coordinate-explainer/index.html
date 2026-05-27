@@ -1943,7 +1943,7 @@ Lock phrase: <em class="k">One substrate, three motions, five authority fields, 
   <tbody>
     <tr><td>1</td><td>F-VaultRecall-50</td><td>≥ 95% top-1 exact-title · ≥ 80% top-5 paraphrase · adversarial reject ≥ 95%</td><td><span class="tag todo">Baseline shipped</span></td></tr>
     <tr><td>2</td><td>F-Eidos-Bridge-RoundTrip</td><td>Real-vault round-trip · forged citation rejected</td><td><span class="tag ok">Artifact on main</span></td></tr>
-    <tr><td>3</td><td>F-ACS-Anchor-Addressing</td><td>Every claim resolves to AcsAnchor in O(1)</td><td><span class="tag ok">Scoped artifact on main</span></td></tr>
+    <tr><td>3</td><td>F-ACS-Anchor-Addressing</td><td>Every claim resolves to AcsAnchor in O(1) and round-trips through emission, lookup, audit, and five-plane projection</td><td><span class="tag ok">Full N=1000 artifact on main</span></td></tr>
     <tr><td>4</td><td><strong>F-UAS-CopyCount</strong> <em>(new)</em></td><td>0 tensor copies between Swift / Rust / Metal / MLX / KV / HNSW on hot path</td><td><span class="tag partial">Legacy-shape PASS</span></td></tr>
     <tr><td>5</td><td><strong>F-ACS-AnchorLookup</strong> <em>(new)</em></td><td>&lt; 1 μs avg lookup over 10k claims</td><td><span class="tag partial">Legacy-shape PASS</span></td></tr>
     <tr><td>6</td><td>F-PageGather-M2Pro</td><td>≥ 40% read-amplification reduction</td><td><span class="tag partial">Fallback witness</span></td></tr>

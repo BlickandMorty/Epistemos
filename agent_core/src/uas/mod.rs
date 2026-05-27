@@ -35,7 +35,7 @@ pub mod residency_lease;
 pub mod residency_tier;
 pub mod witness;
 
-pub use acs_anchor::AcsAnchor;
+pub use acs_anchor::{AcsAnchor, AcsAnchorPlaneProjection};
 pub use address::{UasAddress, UasAddressParseError};
 pub use anchor_registry::AcsAnchorRegistry;
 pub use five_planes::{RuntimePlane, FIVE_RUNTIME_PLANES};

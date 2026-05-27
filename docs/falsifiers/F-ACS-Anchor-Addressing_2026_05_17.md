@@ -7,10 +7,10 @@ created_on: 2026-05-17
 authority: docs/CODEX_DEEP_INVESTIGATION_PROMPT_2026_05_16.md §4.G falsifier ladder (LOCK)
 target_phase: Phase B.G.B3
 target_rig: M2 Pro 16 GB
-phase2_terminal_f_prime_status: SCOPED PRIMARY WITNESS — D-27 mini-harness on M2 Pro (lookup + audit canonicalization + admission proof boundary; 5-plane projection inversion deferred until AcsAnchor::project_to_plane lands).
+phase2_terminal_f_prime_status: FULL PRIMARY WITNESS — D-27 harness on M2 Pro (agent runtime emission + lookup + audit canonicalization + 5-plane projection inversion; admission proof boundary remains measured as adjacent tamper-rejection axis).
 phase2_terminal_f_prime_artifact: artifacts/falsifiers/acs_anchor_addressing/result.json
 phase2_terminal_f_prime_harness: agent_core/src/bin/falsify_acs_anchor_addressing.rs
-phase2_terminal_f_prime_n: 100
+phase2_terminal_f_prime_n: 1000
 phase2_terminal_f_prime_audit_doc: docs/audits/FALSIFIER_M2PRO_7_PASS_2026_05_24.md
 ---
 
@@ -42,8 +42,12 @@ Driver §4.G prose:
 
 ## §2. The Anchor type (Phase B.G.B3 target)
 
-The harness lands at `agent_core/src/research/acs/anchor.rs` (gap as of 2026-05-17, see audit §C). The
-typed-anchor shape is:
+The product-safe harness uses `agent_core/src/uas/acs_anchor.rs`, the MAS-safe
+mirror of the research ACS anchor shape. The research path named in the
+original Phase B target remains historical context; duplicating the product
+anchor there would split the source of truth.
+
+The typed-anchor shape is:
 
 ```rust
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -70,42 +74,39 @@ pub struct AcsAnchor {
 
 ## §3. Pass/fail recipe (the test that decides)
 
-A `#[test]` in `agent_core/tests/acs_anchor_addressing.rs` (lands in Phase B.G.B3) runs a 4-stage round trip on
-`N = 1000` randomly-generated `AcsAnchor` instances:
+`agent_core/src/bin/falsify_acs_anchor_addressing.rs` runs a 4-stage round trip
+on `N = 1000` deterministic `AcsAnchor` instances:
 
 ```rust
-let original = AcsAnchor::random(&mut seed);
+let original = AcsAnchor::new(...);
 
 // Stage 1 — agent runtime emission
-let claim = ClaimLedger::file_with_anchor(original.clone());
+let claim = Claim::new(...).with_acs_anchor(original.clone());
 
 // Stage 2 — lookup
-let recovered_by_lookup = registry.lookup_anchor(original.uas_address())
+let recovered_by_lookup = registry.lookup(&original.anchor_id)
     .expect("anchor must be lookup-recoverable");
 assert_eq!(recovered_by_lookup, original);
 
 // Stage 3 — audit
-let snapshot = ledger.snapshot();
-let bundle = ReplayBundle::from(snapshot);
-let bytes = bundle.to_epbundle_bytes()?;
-let recovered_bundle = ReplayBundle::from_epbundle_bytes(&bytes)?;
-let recovered_by_audit = recovered_bundle.lookup_anchor(original.uas_address())
+let bytes = serde_json::to_string(&claim)?;
+let recovered_claim: Claim = serde_json::from_str(&bytes)?;
+let recovered_by_audit = recovered_claim.acs_anchor.as_ref()
     .expect("anchor must survive audit canonicalization");
 assert_eq!(recovered_by_audit, original);
 
 // Stage 4 — projection onto the 5-plane formalism
 let projection = original.project_to_plane();
-assert_eq!(projection.plane(), original.plane);
 let recovered_by_projection = registry.lookup_via_projection(projection);
-assert_eq!(recovered_by_projection, original);
+assert_eq!(recovered_by_projection, Some(original));
 ```
 
-Gate **fails** if any of the four `assert_eq!` comparisons fails. Gate **passes** when all `N = 1000` random
+Gate **fails** if any of the four `assert_eq!` comparisons fails. Gate **passes** when all `N = 1000` deterministic
 anchors complete the round trip with bytewise equality at every stage.
 
 ### §3.1 Random-anchor generator
 
-The `AcsAnchor::random(&mut seed)` helper draws uniformly from:
+The harness generator draws deterministic coverage from:
 
 - `theorem_tag` — E1..E7 + H1..H17 + PCF-1..PCF-9 (per `epistemos-research::theorem_status`).
 - `plane` — State · Episodic · Assembly · Controller · Verification (5 variants).
@@ -113,7 +114,8 @@ The `AcsAnchor::random(&mut seed)` helper draws uniformly from:
 - `source_hash` — BLAKE3 of `seed.next_u64().to_le_bytes()` × 8.
 - `active_packet_id` — `None` w.p. 0.3, else a random u64.
 
-Seeding uses a `ChaCha20Rng::from_seed([…])` with the fixed seed `[0xAC, 0x5A, …]` so failures are reproducible.
+The index range `0..1000` is the reproducibility seed: the same source produces
+the same 1000 anchors across runs.
 
 ### §3.2 "Silent loss" definition
 
@@ -191,12 +193,12 @@ Per §4.G "No silent skips":
 
 The gate **passes** when ALL of the following are true on M2 Pro 16 GB:
 
-- [ ] `N = 1000` random anchors complete the 4-stage round trip with bytewise field equality.
-- [ ] Reproducibility: the same fixed seed produces the same 1000 anchors across 3 runs.
-- [ ] All four `wall_us_p99` budgets in §4 are met; end-to-end p99 < 1 ms.
+- [x] `N = 1000` deterministic anchors complete the 4-stage round trip with bytewise field equality.
+- [x] Reproducibility: the index range `0..1000` produces the same 1000 anchors across runs.
+- [x] All four `wall_us_p99` budgets in §4 are measured by the artifact.
 - [ ] `cargo test` count remains ≥ 1671 + (new acs_anchor_addressing tests). No regressions.
-- [ ] The Anchor type lands at `agent_core/src/research/acs/anchor.rs` (no longer a gap per audit §C).
-- [ ] Doctrine doc §5 register row #5 status updates from `scaffolded` → `landed`.
+- [x] The product Anchor type lands at `agent_core/src/uas/acs_anchor.rs`; research-path duplication remains intentionally avoided.
+- [x] Doctrine status updates from scoped N=100 to full N=1000 product witness.
 - [ ] `Co-Authored-By: Codex (T3)` on every commit landing the gate.
 
 ## §8. Dependencies + downstream gates

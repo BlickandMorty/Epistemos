@@ -29,6 +29,18 @@ pub struct AcsAnchor {
 
 impl Eq for AcsAnchor {}
 
+/// Borrowed, allocation-free projection of an [`AcsAnchor`] onto the V6.1
+/// five-plane formalism.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AcsAnchorPlaneProjection<'a> {
+    pub anchor_id: &'a str,
+    pub theorem_id: &'a str,
+    pub plane: RuntimePlane,
+    pub residency: ResidencyTier,
+    pub source_hash: Option<&'a str>,
+    pub active_packet_id: Option<&'a str>,
+}
+
 impl AcsAnchor {
     pub fn new(
         anchor_id: impl Into<String>,
@@ -59,6 +71,17 @@ impl AcsAnchor {
             && self.salience.is_finite()
             && (0.0..=1.0).contains(&self.salience)
     }
+
+    pub fn project_to_plane(&self) -> AcsAnchorPlaneProjection<'_> {
+        AcsAnchorPlaneProjection {
+            anchor_id: &self.anchor_id,
+            theorem_id: &self.theorem_id,
+            plane: self.plane,
+            residency: self.residency,
+            source_hash: self.source_hash.as_deref(),
+            active_packet_id: self.active_packet_id.as_deref(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -87,5 +110,27 @@ mod tests {
             0.7,
         );
         assert!(!anchor.is_well_formed());
+    }
+
+    #[test]
+    fn plane_projection_preserves_inversion_fields_without_allocation() {
+        let mut anchor = AcsAnchor::new(
+            "claim-1",
+            "E1",
+            RuntimePlane::Verification,
+            ResidencyTier::VerifiedFloor,
+            0.7,
+        );
+        anchor.source_hash = Some("blake3:abc".to_string());
+        anchor.active_packet_id = Some("packet-1".to_string());
+
+        let projection = anchor.project_to_plane();
+
+        assert_eq!(projection.anchor_id, "claim-1");
+        assert_eq!(projection.theorem_id, "E1");
+        assert_eq!(projection.plane, RuntimePlane::Verification);
+        assert_eq!(projection.residency, ResidencyTier::VerifiedFloor);
+        assert_eq!(projection.source_hash, Some("blake3:abc"));
+        assert_eq!(projection.active_packet_id, Some("packet-1"));
     }
 }

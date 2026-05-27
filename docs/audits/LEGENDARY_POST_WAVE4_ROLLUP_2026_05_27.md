@@ -106,7 +106,7 @@ There are 10 `artifacts/falsifiers/*/result.json` files on main:
 | `vault_recall_50` | measured true | Current run passes exact-title and adversarial reject; paraphrase remains lexical/informational. |
 | `eidos_bridge_round_trip` | measured true | Real Eidos bridge round-trip witness; Swift side covered by production bridge tests. |
 | `hyperdynamic_loop_bounded` | measured true | Bounded repair loop witness. |
-| `acs_anchor_addressing` | scoped measured true | N=100 mini-harness; full four-stage projection inversion still future. |
+| `acs_anchor_addressing` | full measured true | N=1000 full harness with agent runtime emission, lookup, audit canonicalization, and five-plane projection inversion. See `docs/audits/ACS_ANCHOR_HARNESS_FULL_2026_05_27.md`. |
 | `ulp_oracle` | measured true | CPU/reference ULP witness; Metal gate remains research/hardware. |
 | `uas_zero_copy_spine` | measured true | Zero tracked copies in scoped spine; broader hot path can still be expanded. |
 | `page_gather` | measured true | CPU scatter/PageGather artifact; full Metal STREAM-style gate pending. |
@@ -229,8 +229,7 @@ Run these only after the product-floor closeout PRs are merged and the local
 gate is green:
 
 1. `RESUME ACS ANCHOR HARNESS`
-   - Promote the scoped `F-ACS-Anchor-Addressing` N=100 mini-harness into the
-     full four-stage projection-inversion falsifier.
+   - Completed by `docs/audits/ACS_ANCHOR_HARNESS_FULL_2026_05_27.md`.
 2. `RESUME METAL WITNESS GATES`
    - Full Metal/PageGather, ULP, and ControllerKernelPack gates. Keep them
      research-tier until real hardware measurements pass.
@@ -245,9 +244,9 @@ gate is green:
 Do not dispatch another broad product-floor wave. Main is now at the point where
 the remaining work should be summoned by codeword:
 
-1. `RESUME ACS ANCHOR HARNESS`
-2. `RESUME METAL WITNESS GATES`
-3. `RESEARCH CONSTRUCTION`
+1. `RESUME METAL WITNESS GATES`
+2. `RESEARCH CONSTRUCTION`
+3. `FORK V3` only after the post-v2.0 tag
 
 Then rerun the local ground-truth gate after any future codeword slice:
 

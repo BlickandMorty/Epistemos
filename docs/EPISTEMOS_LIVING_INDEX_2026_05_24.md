@@ -11,7 +11,8 @@
   test-isolation/focused-warning fixes. Post-Wave-4 closeouts also retired
   W-49/W-53 ship hardening and Agent Capability Truth. The provenance/residency
   detail slice closes the compact AnswerPacket UAS / ACS anchor / plane /
-  residency UI gap. For the current W-row/falsifier recount and next codeword
+  residency UI gap. `RESUME ACS ANCHOR HARNESS` is now complete as a full
+  N=1000 four-stage witness. For the current W-row/falsifier recount and next codeword
   prompts, read
   `docs/audits/LEGENDARY_POST_WAVE4_ROLLUP_2026_05_27.md`. For the post-stash
   split of finished vs unfinished work, read
@@ -91,7 +92,7 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
 - 13+ stash recovery tags pushed to origin (`refs/tags/recovery/stash-N-*`) plus Wave-2 recovery tags for PR #74, PR #79, and the B-prime uncommitted follow-up stash.
 - W-rows wired: **about 42/53 strict, about 49/53 strict+partial** after Wave 4 plus W-49/W-53, Agent Capability Truth, and Provenance / Residency Detail closeouts. Known advances: Eidos real bridge/citation gate (#66), System G real seam (#67), falsifier harnesses (#68/#74), Substrate Health/docs/unified panel work (#69/#77), VaultRecall visibility salvage (#70/#79), T14 No-Orphan bridge (#71), ACS production gate (#72), Verified Floor truth gate (#78), Hyperdynamic Schema Loop (#75), Runtime Router (#76), typed UAS retrieval and ClaimLedger addresses (#121), PageGather vault escalation trace (#122), Cognitive DAG visualizer (#123), Tri-Fusion typed note mutations (#124), test-isolation/warning cleanup (#125/#127), W-49/W-53 source guards (`docs/audits/POST_WAVE4_W49_W53_HARDENER_CLOSEOUT_2026_05_27.md`), Agent Capability Truth source guards (`docs/audits/POST_WAVE4_AGENT_CAPABILITY_TRUTH_CLOSEOUT_2026_05_27.md`), and AnswerPacket substrate detail guards (`docs/audits/POST_WAVE4_PROVENANCE_RESIDENCY_DETAIL_2026_05_27.md`).
 - Falsifier artifacts on main: **10 artifact files**.
-  - Schema-normalized primary witnesses: `F-VaultRecall-50`, `F-ULP-Oracle`, `F-Eidos-Bridge-RoundTrip`, `F-ACS-Anchor-Addressing`, `F-HyperdynamicLoop-Bounded`.
+  - Schema-normalized primary witnesses: `F-VaultRecall-50`, `F-ULP-Oracle`, `F-Eidos-Bridge-RoundTrip`, `F-ACS-Anchor-Addressing` (full N=1000 four-stage harness), `F-HyperdynamicLoop-Bounded`.
   - Schema-normalized fallback/CPU witnesses: `F-PageGather-M2Pro`, `F-ControllerKernelPack`, `F-UAS-ZeroCopy-Spine` — Metal/Swift hot-path gates still pending.
   - Legacy-shape measured PASS artifacts still to normalize: `F-UAS-CopyCount`, `F-ACS-AnchorLookup`.
 
@@ -136,7 +137,7 @@ Full prompts: `docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md`. **Wave 1 = foundati
 | **B** | done (partial scope) | Vault Recall trace + chat citation files | #70 salvaged badges/cards/blocker docs; UI integration in B′ | 2 |
 | **C** | done | System G full path | merged in #67; test-isolation fix in #125 | 3 |
 | **D** | done (partial scope) | Substrate Health Panel unification | #69/#70/#71/#72 advanced rows; row expansion in D′ | 2 |
-| **E** | done | ACS Admission production gate | merged in #72; ACS anchor-addressing research harness deferred as D-27 | 3 |
+| **E** | done | ACS Admission production gate | merged in #72; ACS anchor-addressing D-27 full harness completed by `docs/audits/ACS_ANCHOR_HARNESS_FULL_2026_05_27.md` | 3 |
 | **F** | done | ≥ 5 falsifiers PASS on M2 Pro | merged in #68; 7 artifacts now on main after #71; round 2 in F′ | 4 |
 | **UAS-Typed** | done | Typed UAS retrieval + ClaimLedger/ACS anchor address fields | merged in #121 | 4 |
 | **PageGather** | done | Vault escalation trace + no LIMIT-first-note fallback | merged in #122 | 4 |

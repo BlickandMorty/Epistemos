@@ -1,26 +1,21 @@
-//! `falsify_acs_anchor_addressing` — Phase 2 Terminal F' (Round 2)
-//! D-27 scoped mini-harness for F-ACS-Anchor-Addressing.
+//! `falsify_acs_anchor_addressing` — full D-27 F-ACS-Anchor-Addressing
+//! harness.
 //!
-//! The full §3 round trip from `docs/falsifiers/F-ACS-Anchor-Addressing_2026_05_17.md`
-//! is `N = 1000` random anchors across four stages (agent runtime emission
-//! → lookup → audit canonicalization → 5-plane projection). The fourth
-//! stage depends on `AcsAnchor::project_to_plane` + `lookup_via_projection`
-//! which are not yet on main. This Round 2 harness is the SCOPED
-//! mini-version per the F' prompt:
+//! Runs the `N = 1000` four-stage round trip from
+//! `docs/falsifiers/F-ACS-Anchor-Addressing_2026_05_17.md`:
 //!
-//! - **N = 100** random anchors (vs the full 1000)
-//! - Three of the four stages, each independently:
-//!   - Lookup: registry insert + lookup returns bytewise-equal anchor.
-//!   - Audit canonicalization: serde JSON round-trip preserves all
-//!     fields (`Hash` + `Eq` byte-compare).
-//!   - Admission proof boundary: `SCOPERexAdmissionProof::signed_from_record`
-//!     + `verify_against_record` round-trip succeeds; mutated signature
-//!     bytes are rejected.
-//! - The 4th stage (5-plane projection inversion) is left as
-//!   `not_in_scope_round_2` per the F' acceptance bar.
+//! - Agent-runtime emission: claim carries the exact ACS anchor.
+//! - Lookup: registry insert + lookup returns bytewise-equal anchor.
+//! - Audit canonicalization: claim JSON round-trip preserves the anchor.
+//! - Five-plane projection inversion: `project_to_plane` +
+//!   `lookup_via_projection` returns the same anchor without silent loss.
 //!
-//! Emits `primary_witness` when all three measured stages pass on N=100;
-//! `failure_report` otherwise. Always writes to
+//! The ACS admission proof boundary remains measured as an adjacent security
+//! axis because the scoped D-27 harness already used it to guard mutation of
+//! signed admission records.
+//!
+//! Emits `primary_witness` when all measured axes pass; `failure_report`
+//! otherwise. Always writes to
 //! `artifacts/falsifiers/acs_anchor_addressing/result.json`.
 
 #![allow(clippy::doc_lazy_continuation)]
@@ -36,12 +31,14 @@ use agent_core::falsifier_artifacts::{
     now_utc_rfc3339, write_artifact, AcceptanceThreshold, ArtifactBuilder, ArtifactKind,
     FallbackTier, Measurement,
 };
+use agent_core::provenance::ledger::{Claim, ClaimId};
 use agent_core::uas::{AcsAnchor, AcsAnchorRegistry, ResidencyTier, RuntimePlane};
+use std::time::Instant;
 
 const FALSIFIER_ID: &str = "F-ACS-Anchor-Addressing";
-const FIXTURE_ID: &str = "f_acs_anchor_addressing_scoped_n100_v1";
+const FIXTURE_ID: &str = "f_acs_anchor_addressing_full_n1000_v1";
 const COMMAND: &str = "cargo run --release --bin falsify_acs_anchor_addressing";
-const N: usize = 100;
+const N: usize = 1000;
 const FOUNDATIONAL_THEOREMS: [&str; 7] = ["E1", "E2", "E3", "E4", "E5", "E6", "E7"];
 const PLANES: [RuntimePlane; 5] = [
     RuntimePlane::State,
@@ -65,13 +62,59 @@ fn main() {
 
     let anchors: Vec<AcsAnchor> = (0..N).map(synth_anchor).collect();
 
+    let mut emission_us: Vec<u128> = Vec::with_capacity(N);
+    let mut emitted_claims: Vec<Claim> = Vec::with_capacity(N);
+    let mut emission_matches = 0usize;
+    let mut emission_mismatches: Vec<String> = Vec::new();
+    for (i, anchor) in anchors.iter().enumerate() {
+        let started = Instant::now();
+        let claim = Claim::new(
+            ClaimId::new(format!("claim-{i:04}")),
+            format!("ACS anchored claim {i:04}"),
+            i as i64,
+        )
+        .with_acs_anchor(anchor.clone());
+        emission_us.push(started.elapsed().as_micros());
+        if claim.acs_anchor.as_ref() == Some(anchor) {
+            emission_matches += 1;
+        } else {
+            emission_mismatches.push(format!("{}: claim anchor mismatch", anchor.anchor_id));
+        }
+        emitted_claims.push(claim);
+    }
+    insert_count_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "stage_agent_runtime_emission",
+        emission_matches,
+        N,
+    );
+    insert_latency_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "stage_agent_runtime_emission_p99_us",
+        p99_us(&emission_us),
+        80,
+    );
+    if !emission_mismatches.is_empty() {
+        anomalies.push(serde_json::json!({
+            "kind": "stage_agent_runtime_emission_mismatches",
+            "samples": emission_mismatches.iter().take(5).collect::<Vec<_>>(),
+            "total": emission_mismatches.len(),
+        }));
+    }
+
     let mut registry = AcsAnchorRegistry::with_capacity(N);
     for anchor in anchors.iter() {
         registry.insert(anchor.clone());
     }
+    let mut lookup_us: Vec<u128> = Vec::with_capacity(N);
     let mut lookup_matches = 0usize;
     let mut lookup_mismatches: Vec<String> = Vec::new();
     for anchor in anchors.iter() {
+        let started = Instant::now();
         match registry.lookup(&anchor.anchor_id) {
             Some(found) if found == anchor => {
                 lookup_matches += 1;
@@ -83,6 +126,7 @@ fn main() {
                 ));
             }
         }
+        lookup_us.push(started.elapsed().as_micros());
     }
     insert_count_axis(
         &mut measurements,
@@ -92,6 +136,14 @@ fn main() {
         lookup_matches,
         N,
     );
+    insert_latency_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "stage_lookup_p99_us",
+        p99_us(&lookup_us),
+        40,
+    );
     if !lookup_mismatches.is_empty() {
         anomalies.push(serde_json::json!({
             "kind": "stage_lookup_mismatches",
@@ -100,27 +152,34 @@ fn main() {
         }));
     }
 
+    let mut audit_us: Vec<u128> = Vec::with_capacity(N);
     let mut audit_matches = 0usize;
     let mut audit_mismatches: Vec<String> = Vec::new();
-    for anchor in anchors.iter() {
-        let json = match serde_json::to_string(anchor) {
+    for (i, claim) in emitted_claims.iter().enumerate() {
+        let started = Instant::now();
+        let anchor = &anchors[i];
+        let json = match serde_json::to_string(claim) {
             Ok(s) => s,
             Err(e) => {
                 audit_mismatches.push(format!("{}: encode error {}", anchor.anchor_id, e));
                 continue;
             }
         };
-        let decoded: AcsAnchor = match serde_json::from_str(&json) {
+        let decoded: Claim = match serde_json::from_str(&json) {
             Ok(a) => a,
             Err(e) => {
                 audit_mismatches.push(format!("{}: decode error {}", anchor.anchor_id, e));
                 continue;
             }
         };
-        if &decoded == anchor {
+        audit_us.push(started.elapsed().as_micros());
+        if decoded.acs_anchor.as_ref() == Some(anchor) {
             audit_matches += 1;
         } else {
-            audit_mismatches.push(format!("{}: decoded != original", anchor.anchor_id));
+            audit_mismatches.push(format!(
+                "{}: decoded claim anchor != original",
+                anchor.anchor_id
+            ));
         }
     }
     insert_count_axis(
@@ -131,11 +190,60 @@ fn main() {
         audit_matches,
         N,
     );
+    insert_latency_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "stage_audit_canonicalization_p99_us",
+        p99_us(&audit_us),
+        800,
+    );
     if !audit_mismatches.is_empty() {
         anomalies.push(serde_json::json!({
             "kind": "stage_audit_canonicalization_mismatches",
             "samples": audit_mismatches.iter().take(5).collect::<Vec<_>>(),
             "total": audit_mismatches.len(),
+        }));
+    }
+
+    let mut projection_us: Vec<u128> = Vec::with_capacity(N);
+    let mut projection_matches = 0usize;
+    let mut projection_mismatches: Vec<String> = Vec::new();
+    for anchor in anchors.iter() {
+        let started = Instant::now();
+        let projection = anchor.project_to_plane();
+        let found = registry.lookup_via_projection(projection);
+        projection_us.push(started.elapsed().as_micros());
+        if found == Some(anchor) {
+            projection_matches += 1;
+        } else {
+            projection_mismatches.push(format!(
+                "{}: projection inversion mismatch",
+                anchor.anchor_id
+            ));
+        }
+    }
+    insert_count_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "stage_projection_inversion",
+        projection_matches,
+        N,
+    );
+    insert_latency_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "stage_projection_inversion_p99_us",
+        p99_us(&projection_us),
+        20,
+    );
+    if !projection_mismatches.is_empty() {
+        anomalies.push(serde_json::json!({
+            "kind": "stage_projection_inversion_mismatches",
+            "samples": projection_mismatches.iter().take(5).collect::<Vec<_>>(),
+            "total": projection_mismatches.len(),
         }));
     }
 
@@ -159,7 +267,10 @@ fn main() {
         }
         let mut tampered = proof.clone();
         tampered.signature = mutate_signature(&proof.signature);
-        if tampered.verify_against_record(&record, &signing_key).is_err() {
+        if tampered
+            .verify_against_record(&record, &signing_key)
+            .is_err()
+        {
             proof_tamper_rejected += 1;
         } else {
             proof_errors.push(format!("{} tampered signature accepted", record.record_id));
@@ -190,38 +301,21 @@ fn main() {
     }
 
     measurements.insert(
-        "scoped_n".to_string(),
+        "full_n".to_string(),
         Measurement {
             value: serde_json::Value::Number(serde_json::Number::from(N as u64)),
             unit: "anchors".to_string(),
         },
     );
     thresholds.insert(
-        "scoped_n".to_string(),
+        "full_n".to_string(),
         AcceptanceThreshold {
             operator: ">=".to_string(),
             value: serde_json::Value::Number(serde_json::Number::from(N as u64)),
             unit: "anchors".to_string(),
         },
     );
-    pass_per_axis.insert("scoped_n".to_string(), true);
-
-    measurements.insert(
-        "stage_projection_inversion".to_string(),
-        Measurement {
-            value: serde_json::Value::String("not_in_scope_round_2".to_string()),
-            unit: "status".to_string(),
-        },
-    );
-    thresholds.insert(
-        "stage_projection_inversion".to_string(),
-        AcceptanceThreshold {
-            operator: "==".to_string(),
-            value: serde_json::Value::String("not_in_scope_round_2".to_string()),
-            unit: "status".to_string(),
-        },
-    );
-    pass_per_axis.insert("stage_projection_inversion".to_string(), true);
+    pass_per_axis.insert("full_n".to_string(), true);
 
     let overall_pass = pass_per_axis.values().all(|v| *v);
     let artifact_kind = if overall_pass {
@@ -247,16 +341,18 @@ fn main() {
         fallback_tier,
         anomalies,
         notes: format!(
-            "Phase 2 Terminal F' D-27 scoped mini-harness; N={N} random anchors; \
-             three stages measured (lookup / audit canonicalization / admission proof). \
-             Stage 4 (5-plane projection inversion) deferred — \
-             AcsAnchor::project_to_plane not yet on main."
+            "D-27 full harness; N={N} deterministic anchors; four primary stages measured \
+             (agent runtime emission / lookup / audit canonicalization / 5-plane projection inversion). \
+             Admission proof boundary remains measured as an adjacent tamper-rejection axis."
         ),
         timestamp_utc: started_utc,
     };
     let artifact = builder.build();
     write_to_disk(&artifact);
-    println!("{}", serde_json::to_string_pretty(&artifact).expect("serialize"));
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&artifact).expect("serialize")
+    );
 }
 
 fn synth_anchor(seed: usize) -> AcsAnchor {
@@ -355,6 +451,42 @@ fn insert_count_axis(
         },
     );
     pass_per_axis.insert(name.to_string(), actual == target);
+}
+
+fn insert_latency_axis(
+    measurements: &mut BTreeMap<String, Measurement>,
+    thresholds: &mut BTreeMap<String, AcceptanceThreshold>,
+    pass_per_axis: &mut BTreeMap<String, bool>,
+    name: &str,
+    actual_us: u128,
+    target_us: u128,
+) {
+    measurements.insert(
+        name.to_string(),
+        Measurement {
+            value: serde_json::Value::Number(serde_json::Number::from(actual_us as u64)),
+            unit: "us".to_string(),
+        },
+    );
+    thresholds.insert(
+        name.to_string(),
+        AcceptanceThreshold {
+            operator: "<=".to_string(),
+            value: serde_json::Value::Number(serde_json::Number::from(target_us as u64)),
+            unit: "us".to_string(),
+        },
+    );
+    pass_per_axis.insert(name.to_string(), actual_us <= target_us);
+}
+
+fn p99_us(samples: &[u128]) -> u128 {
+    if samples.is_empty() {
+        return u128::MAX;
+    }
+    let mut sorted = samples.to_vec();
+    sorted.sort_unstable();
+    let index = ((sorted.len() as f64) * 0.99).ceil() as usize;
+    sorted[index.saturating_sub(1).min(sorted.len() - 1)]
 }
 
 fn write_to_disk(artifact: &agent_core::falsifier_artifacts::FalsifierArtifact) {
