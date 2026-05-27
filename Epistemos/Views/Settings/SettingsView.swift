@@ -3082,6 +3082,7 @@ private struct LocalModelRow: View {
         Text(descriptor.approximateDownloadLabel)
         if case .installed(let record) = state {
             Text("Installed \(installedStorageLabel(for: record))")
+            Text(record.checksumVerification.displayLabel)
         }
         if let model = LocalTextModelID(rawValue: descriptor.id) {
             Text("Chat \(model.minimumRecommendedInteractiveMemoryGB) GB")
@@ -3110,6 +3111,7 @@ private struct LocalModelRow: View {
         var parts: [String] = [descriptor.familyName, descriptor.approximateDownloadLabel]
         if case .installed(let record) = state {
             parts.append("Installed footprint \(installedStorageLabel(for: record))")
+            parts.append(record.checksumVerification.displayLabel)
         }
         if let model = LocalTextModelID(rawValue: descriptor.id) {
             parts.append("Chat minimum \(model.minimumRecommendedInteractiveMemoryGB) gigabytes")
