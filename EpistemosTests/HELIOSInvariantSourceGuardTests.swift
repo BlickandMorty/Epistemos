@@ -2033,6 +2033,18 @@ struct HELIOSInvariantSourceGuardTests {
         #expect(audit.contains("F-ControllerKernelPack"))
         #expect(audit.contains("F-ULP-Oracle"))
 
+        let pageGatherArtifactTool = try loadMirroredSourceTextFile("Tools/metal-witness-gates/page-gather-metal-artifact.swift")
+        #expect(pageGatherArtifactTool.contains("streamTriad"))
+        #expect(pageGatherArtifactTool.contains("pageGatherScatter"))
+        #expect(pageGatherArtifactTool.contains("isCanonicalPrimaryRun"))
+        #expect(pageGatherArtifactTool.contains("metal_failure_result.json"))
+
+        let pageGatherFailure = try loadMirroredSourceTextFile("artifacts/falsifiers/page_gather/metal_failure_result.json")
+        #expect(pageGatherFailure.contains(#""artifact_kind" : "failure_report""#))
+        #expect(pageGatherFailure.contains(#""overall_pass" : false"#))
+        #expect(pageGatherFailure.contains(#""scatter_stream_ratio_256mb""#))
+        #expect(pageGatherFailure.contains("page_gather_metal_gate_failed"))
+
         let fulpArtifactTool = try loadMirroredSourceTextFile("Tools/metal-witness-gates/fulp-metal-oracle-artifact.swift")
         #expect(fulpArtifactTool.contains("morphOracleFp16"))
         #expect(fulpArtifactTool.contains("412_000"))
