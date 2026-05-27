@@ -271,6 +271,27 @@ valuable pieces must be re-promoted from current `origin/main`.
 | `worktree-simulation` | Donor / deferred ceiling | Simulation/Farm work partially landed, but raw tree deletes current app files. Continue via D-11. |
 | `claude/vigorous-goldberg-3a2d35` | Donor / Quick Capture canon | Pro-tool and Quick Capture substrate work is deferred under D-12 and related codewords. |
 
+### 2026-05-27 Residual Worktree Recheck
+
+After the PageGather Metal locality checkpoint, the active main worktree was
+clean and aligned with `origin/main` at
+`checkpoint/pagegather-locality-probe-2026-05-27`. A follow-up sweep compared
+the remaining non-generated worktree deltas against current main without
+popping, dropping, checking out, or bulk-applying any stash.
+
+Findings:
+
+| Worktree | Residual delta | Decision |
+|---|---|---|
+| `Epistemos-terminal-d-r2` | `Epistemos/Eidos/EidosBridge.swift` removes `nonisolated` markers that current main needs for Swift actor-isolation correctness. Its `SUBSTRATE_HEALTH_UNIFICATION` doc also predates the newer D-prime hardening language. | Do not promote. Current main is newer and safer. |
+| `Epistemos-terminal-d-r3` | `EidosBridge.swift` matches main. Its health-unification doc differs only in stale green/blocked wording for Plane Placement and W-30 policy badges. | Do not promote. Current main keeps the honest-orange/session-only posture. |
+| `Epistemos-terminal-e` | Four ACS docs compare identical to main, including `BLOCKER_ACS_ADMISSION_XCODE_VERIFICATION_2026_05_24.md`. | Closed; no missing content. |
+| `Epistemos-wrv-docs` | `docs/CANONICAL_CHRONICLE_2026_05_23.md` is a shorter older chronicle than the current main version. | Do not promote. Current main is the richer canonical chronicle. |
+
+Target/build churn in older `syntax-core/target` worktrees was ignored as
+regenerable build output. The remaining user-visible recovery queue is therefore
+not these worktree deltas; it is the explicit deferred architecture queue below.
+
 ## Stashes That Look Mostly Closed
 
 These should still not be dropped without explicit approval, but current filtered
