@@ -233,6 +233,14 @@ pub enum PageGatherMeasurementStatus {
     Deferred,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PageGatherScheduleClass {
+    BlockSorted,
+    LocalWindow,
+    FullCoverageRandom,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PageGatherEscalationTrace {
     pub status: PageGatherEscalationStatus,
@@ -241,6 +249,10 @@ pub struct PageGatherEscalationTrace {
     pub candidate_pool_size: usize,
     pub candidates_retained: usize,
     pub deferred_falsifier: String,
+    #[serde(default)]
+    pub schedule_class: Option<PageGatherScheduleClass>,
+    #[serde(default)]
+    pub locality_block_elements: Option<usize>,
 }
 
 impl PageGatherEscalationTrace {
@@ -256,6 +268,8 @@ impl PageGatherEscalationTrace {
             candidate_pool_size,
             candidates_retained,
             deferred_falsifier: "F-PageGather-Scatter".to_string(),
+            schedule_class: Some(PageGatherScheduleClass::BlockSorted),
+            locality_block_elements: Some(crate::helios::DEFAULT_PAGE_GATHER_BLOCK_ELEMENTS),
         }
     }
 }
@@ -426,8 +440,7 @@ impl RetrievalTrace {
     /// Semantic-presence assertions until the wiring lands. See
     /// `docs/F_VAULT_RECALL_50_2026_05_18.md` §8 Q2.
     pub fn has_only_lexical_signals(&self) -> bool {
-        self.signal_summary.len() == 1
-            && self.signal_summary[0] == RetrievalSignal::Lexical
+        self.signal_summary.len() == 1 && self.signal_summary[0] == RetrievalSignal::Lexical
     }
 }
 
@@ -601,9 +614,23 @@ mod tests {
         ));
 
         let escalation = trace.page_gather.expect("page gather trace");
-        assert_eq!(escalation.status, PageGatherEscalationStatus::VaultEscalated);
-        assert_eq!(escalation.measurement_status, PageGatherMeasurementStatus::Deferred);
+        assert_eq!(
+            escalation.status,
+            PageGatherEscalationStatus::VaultEscalated
+        );
+        assert_eq!(
+            escalation.measurement_status,
+            PageGatherMeasurementStatus::Deferred
+        );
         assert_eq!(escalation.deferred_falsifier, "F-PageGather-Scatter");
+        assert_eq!(
+            escalation.schedule_class,
+            Some(PageGatherScheduleClass::BlockSorted)
+        );
+        assert_eq!(
+            escalation.locality_block_elements,
+            Some(crate::helios::DEFAULT_PAGE_GATHER_BLOCK_ELEMENTS)
+        );
         assert_eq!(escalation.candidate_pool_size, 64);
         assert_eq!(escalation.candidates_retained, 4);
     }
@@ -667,7 +694,10 @@ mod tests {
                 0.91,
             ));
         assert_eq!(candidate.signal_score(RetrievalSignal::Lexical), Some(0.85));
-        assert_eq!(candidate.signal_score(RetrievalSignal::Semantic), Some(0.91));
+        assert_eq!(
+            candidate.signal_score(RetrievalSignal::Semantic),
+            Some(0.91)
+        );
         // Graph / Recency / Mmr are not present → None.
         assert_eq!(candidate.signal_score(RetrievalSignal::Graph), None);
         assert_eq!(candidate.signal_score(RetrievalSignal::Recency), None);
@@ -901,8 +931,7 @@ mod tests {
             // serde_json wraps simple enum variants in JSON strings.
             assert!(encoded.starts_with('"') && encoded.ends_with('"'));
             assert!(encoded.contains(strength.slug()));
-            let decoded: EvidenceStrength =
-                serde_json::from_str(&encoded).expect("deserialize");
+            let decoded: EvidenceStrength = serde_json::from_str(&encoded).expect("deserialize");
             assert_eq!(decoded, strength);
         }
     }
@@ -969,8 +998,7 @@ mod tests {
         trace.record_all_chatter_fallback();
 
         let encoded = serde_json::to_string(&trace).expect("serialize");
-        let parsed: serde_json::Value =
-            serde_json::from_str(&encoded).expect("parse JSON");
+        let parsed: serde_json::Value = serde_json::from_str(&encoded).expect("parse JSON");
 
         // Top-level keys the W-20 surface reads by name.
         assert_eq!(parsed["query"], "Pull my notes");
@@ -990,7 +1018,10 @@ mod tests {
         // Candidate-level keys the W-20 chip renderer reads.
         let cand = &parsed["candidates"][0];
         assert_eq!(cand["path"], "a.md");
-        assert!(cand["fused_score"].is_number(), "fused_score must be number");
+        assert!(
+            cand["fused_score"].is_number(),
+            "fused_score must be number"
+        );
         assert!(cand["signals"].is_array(), "signals must be array");
         // Signal-level keys the chip renderer reads.
         let signal = &cand["signals"][0];

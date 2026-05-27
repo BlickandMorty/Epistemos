@@ -15,7 +15,7 @@
   N=1000 four-stage witness, `F-ULP-Oracle` now has a full Metal
   `morphOracleFp16` primary hardware artifact, and `F-PageGather-M2Pro`
   now has an honest 256 MB Metal failure report plus a separate locality probe
-  showing a block-sorted mitigation lead, not a false green.
+  and scheduler-side block-sorted contract, not a false green.
   For the current W-row/falsifier recount and next codeword
   prompts, read
   `docs/audits/LEGENDARY_POST_WAVE4_ROLLUP_2026_05_27.md`. For the post-stash
@@ -99,7 +99,7 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
   PageGather Metal side reports (`metal_failure_result.json` and
   `locality_probe_result.json`).
   - Schema-normalized primary witnesses: `F-VaultRecall-50`, `F-ULP-Oracle`, `F-Eidos-Bridge-RoundTrip`, `F-ACS-Anchor-Addressing` (full N=1000 four-stage harness), `F-HyperdynamicLoop-Bounded`.
-  - Schema-normalized fallback/CPU witnesses: `F-PageGather-M2Pro`, `F-ControllerKernelPack`, `F-UAS-ZeroCopy-Spine` — PageGather and ControllerKernelPack Metal/Swift hot-path throughput gates still pending. `F-PageGather-M2Pro` and `F-ControllerKernelPack` have a 2026-05-27 Metal preflight dispatch/equivalence guard; `F-PageGather-M2Pro` additionally has a 256 MB Metal failure report proving the current shader is correct but too slow and a locality probe showing an 8,192-element block-sorted scatter candidate at about `0.734x` measured STREAM; `F-ULP-Oracle` has advanced from preflight to a full Metal primary artifact.
+  - Schema-normalized fallback/CPU witnesses: `F-PageGather-M2Pro`, `F-ControllerKernelPack`, `F-UAS-ZeroCopy-Spine` — PageGather and ControllerKernelPack Metal/Swift hot-path throughput gates still pending. `F-PageGather-M2Pro` and `F-ControllerKernelPack` have a 2026-05-27 Metal preflight dispatch/equivalence guard; `F-PageGather-M2Pro` additionally has a 256 MB Metal failure report proving the current shader is correct but too slow, a locality probe showing an 8,192-element block-sorted scatter candidate at about `0.734x` measured STREAM, and a Rust/Swift trace contract for that schedule; `F-ULP-Oracle` has advanced from preflight to a full Metal primary artifact.
   - Legacy-shape measured PASS artifacts still to normalize: `F-UAS-CopyCount`, `F-ACS-AnchorLookup`.
 
 ### Open PRs

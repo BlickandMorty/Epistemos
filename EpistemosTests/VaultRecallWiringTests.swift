@@ -111,7 +111,9 @@ struct VaultRecallWiringTests {
             "source": "ChatCoordinator.resolveNotesContext",
             "candidate_pool_size": 64,
             "candidates_retained": 4,
-            "deferred_falsifier": "F-PageGather-Scatter"
+            "deferred_falsifier": "F-PageGather-Scatter",
+            "schedule_class": "block_sorted",
+            "locality_block_elements": 8192
           }
         }
         """
@@ -122,6 +124,9 @@ struct VaultRecallWiringTests {
         #expect(pageGather.deferredFalsifier == "F-PageGather-Scatter")
         #expect(pageGather.candidatePoolSize == 64)
         #expect(pageGather.candidatesRetained == 4)
+        #expect(pageGather.scheduleClass == .blockSorted)
+        #expect(pageGather.localityBlockElements == 8_192)
+        #expect(pageGather.scheduleLabel == "block_sorted 8192")
     }
 
     @Test("VaultRecallMetrics.Snapshot.lastBackend reflects the most recent trace's backend origin")

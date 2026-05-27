@@ -61,6 +61,10 @@ Additional 2026-05-27 Metal witness evidence after the preflight slice:
     block-sorted scatter reached about `0.734x` measured STREAM with zero
     sampled correctness violations. This is a mitigation lead, not a full
     `F-PageGather-M2Pro` pass.
+- `agent_core::helios::block_sorted_schedule` + `gather_block_sorted`
+  - now provide the scheduler-side block-sorted execution contract and restore
+    logical output order. Vault Recall traces surface the schedule as
+    deferred evidence, while the chip remains orange/pending.
 
 ## Main / PR State
 
@@ -130,7 +134,7 @@ There are 10 `artifacts/falsifiers/*/result.json` files on main:
 | `acs_anchor_addressing` | full measured true | N=1000 full harness with agent runtime emission, lookup, audit canonicalization, and five-plane projection inversion. See `docs/audits/ACS_ANCHOR_HARNESS_FULL_2026_05_27.md`. |
 | `ulp_oracle` | measured true | Full Metal `morphOracleFp16` primary witness over 414,048 points / 1,242,144 evaluations; max ULP axes pass the <=2 budget. |
 | `uas_zero_copy_spine` | measured true | Zero tracked copies in scoped spine; broader hot path can still be expanded. |
-| `page_gather` | measured true + Metal failure/locality reports | CPU scatter/PageGather artifact remains the fallback witness; 256 MB Metal STREAM-style run failed the primary ratio and is recorded at `artifacts/falsifiers/page_gather/metal_failure_result.json`. `artifacts/falsifiers/page_gather/locality_probe_result.json` shows a block-sorted mitigation candidate crossing the scatter ratio at 256 MB, but the full primary gate remains pending. |
+| `page_gather` | measured true + Metal failure/locality reports + scheduler contract | CPU scatter/PageGather artifact remains the fallback witness; 256 MB Metal STREAM-style run failed the primary ratio and is recorded at `artifacts/falsifiers/page_gather/metal_failure_result.json`. `artifacts/falsifiers/page_gather/locality_probe_result.json` shows a block-sorted mitigation candidate crossing the scatter ratio at 256 MB, and `block_sorted_schedule` now gives the product path a real execution contract. The full primary gate remains pending. |
 | `controller_kernel_pack` | measured true | CPU/reference kernel-pack witness; full Metal dispatcher pending. |
 
 The `>=7 measured witnesses` objective is satisfied. The verified floor must

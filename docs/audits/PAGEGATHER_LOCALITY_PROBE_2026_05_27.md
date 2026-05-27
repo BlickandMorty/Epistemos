@@ -1,6 +1,7 @@
 # PageGather Locality Probe - 2026-05-27
 
-Status: diagnostic mitigation evidence landed; no product green promotion.
+Status: diagnostic mitigation evidence landed; scheduler contract follow-up now
+exists; no product green promotion.
 
 Branch: `codex/pagegather-locality-probe-2026-05-27`
 
@@ -74,6 +75,12 @@ This is not enough to promote `F-PageGather-M2Pro`, because:
   pass run.
 - No product scheduler has been changed to emit block-sorted work packets yet.
 
+The follow-up scheduler slice is now recorded in
+`docs/audits/PAGEGATHER_BLOCK_SORTED_SCHEDULER_2026_05_27.md`: Rust can build a
+block-sorted execution plan and restore logical output order, and vault traces
+surface the schedule as deferred evidence. The Metal-side output-position
+contract and canonical pass run remain open.
+
 ## No-Orphan Check
 
 - Motion: Project / Verify.
@@ -93,7 +100,8 @@ This is not enough to promote `F-PageGather-M2Pro`, because:
 
 Build the real mitigation, not another label:
 
-1. Add a scheduler-side block-sorted PageGather packet path.
+1. Add the Metal-side destination-position contract for the block-sorted
+   schedule.
 2. Keep the full random permutation as a failure stressor.
 3. Rerun the canonical `256/512/1024 MB`, `5 s`, `3 trial` gate.
 4. Promote only if both gather and locality-aware scatter pass their thresholds
