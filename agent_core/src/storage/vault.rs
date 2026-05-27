@@ -1204,7 +1204,9 @@ mod tests {
     #[tokio::test]
     async fn vaultstore_hybrid_search_with_trace_records_page_gather_escalation() {
         use super::VaultBackend;
-        use crate::storage::retrieval_trace::PageGatherMeasurementStatus;
+        use crate::storage::retrieval_trace::{
+            PageGatherMeasurementStatus, PageGatherScheduleClass,
+        };
 
         let vault_root = tempfile::tempdir().expect("temp vault");
         let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
@@ -1242,6 +1244,14 @@ mod tests {
         assert_eq!(page_gather.candidate_pool_size, trace.candidate_pool_size);
         assert_eq!(page_gather.candidates_retained, results.len());
         assert_eq!(page_gather.deferred_falsifier, "F-PageGather-Scatter");
+        assert_eq!(
+            page_gather.schedule_class,
+            Some(PageGatherScheduleClass::BlockSorted)
+        );
+        assert_eq!(
+            page_gather.locality_block_elements,
+            Some(crate::helios::DEFAULT_PAGE_GATHER_BLOCK_ELEMENTS)
+        );
     }
 
     /// T21 iter-5: `VaultStore`'s override of `hybrid_search_with_trace`

@@ -125,13 +125,23 @@ nonisolated public enum PageGatherMeasurementStatus: String, Codable, Hashable, 
     case deferred
 }
 
+nonisolated public enum PageGatherScheduleClass: String, Codable, Hashable, Sendable {
+    case blockSorted = "block_sorted"
+    case localWindow = "local_window"
+    case fullCoverageRandom = "full_coverage_random"
+}
+
 nonisolated public struct PageGatherEscalationTrace: Codable, Hashable, Sendable {
+    public static let defaultLocalityBlockElements = 8_192
+
     public let status: PageGatherEscalationStatus
     public let measurementStatus: PageGatherMeasurementStatus
     public let source: String
     public let candidatePoolSize: Int
     public let candidatesRetained: Int
     public let deferredFalsifier: String
+    public let scheduleClass: PageGatherScheduleClass?
+    public let localityBlockElements: Int?
 
     enum CodingKeys: String, CodingKey {
         case status
@@ -140,6 +150,8 @@ nonisolated public struct PageGatherEscalationTrace: Codable, Hashable, Sendable
         case candidatePoolSize = "candidate_pool_size"
         case candidatesRetained = "candidates_retained"
         case deferredFalsifier = "deferred_falsifier"
+        case scheduleClass = "schedule_class"
+        case localityBlockElements = "locality_block_elements"
     }
 
     public init(
@@ -148,7 +160,9 @@ nonisolated public struct PageGatherEscalationTrace: Codable, Hashable, Sendable
         source: String,
         candidatePoolSize: Int,
         candidatesRetained: Int,
-        deferredFalsifier: String = "F-PageGather-Scatter"
+        deferredFalsifier: String = "F-PageGather-Scatter",
+        scheduleClass: PageGatherScheduleClass? = .blockSorted,
+        localityBlockElements: Int? = PageGatherEscalationTrace.defaultLocalityBlockElements
     ) {
         self.status = status
         self.measurementStatus = measurementStatus
@@ -156,6 +170,23 @@ nonisolated public struct PageGatherEscalationTrace: Codable, Hashable, Sendable
         self.candidatePoolSize = candidatePoolSize
         self.candidatesRetained = candidatesRetained
         self.deferredFalsifier = deferredFalsifier
+        self.scheduleClass = scheduleClass
+        self.localityBlockElements = localityBlockElements
+    }
+
+    public var scheduleLabel: String? {
+        guard let scheduleClass else { return nil }
+        switch scheduleClass {
+        case .blockSorted:
+            if let localityBlockElements {
+                return "block_sorted \(localityBlockElements)"
+            }
+            return "block_sorted"
+        case .localWindow:
+            return "local_window"
+        case .fullCoverageRandom:
+            return "random stressor"
+        }
     }
 }
 

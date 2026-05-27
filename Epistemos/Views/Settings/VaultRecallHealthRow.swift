@@ -139,6 +139,9 @@ public struct VaultRecallHealthRow: View {
         HStack(spacing: 6) {
             if let pageGather = snapshot.lastPageGather {
                 ChannelStatusPill(title: "PG: vault escalated", tint: .orange)
+                if let schedule = pageGather.scheduleLabel {
+                    ChannelStatusPill(title: schedule, tint: .orange)
+                }
                 ChannelStatusPill(title: "\(pageGather.deferredFalsifier) pending", tint: .orange)
                 ChannelStatusPill(
                     title: "\(pageGather.candidatesRetained)/\(pageGather.candidatePoolSize) retained",
@@ -238,7 +241,8 @@ public struct VaultRecallHealthRow: View {
 
     private var pageGatherTruthTooltip: String {
         if let pageGather = snapshot.lastPageGather {
-            return "PageGather source: \(pageGather.source). Measurement deferred: \(pageGather.deferredFalsifier). F-PageGather-M2Pro Metal gate is still pending."
+            let schedule = pageGather.scheduleLabel.map { " Schedule: \($0)." } ?? ""
+            return "PageGather source: \(pageGather.source).\(schedule) Measurement deferred: \(pageGather.deferredFalsifier). F-PageGather-M2Pro Metal gate is still pending."
         }
         return "PageGather vault escalation has not been observed this launch. F-PageGather-Scatter and F-PageGather-M2Pro remain pending."
     }

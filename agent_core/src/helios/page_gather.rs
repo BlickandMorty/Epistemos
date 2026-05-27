@@ -31,6 +31,8 @@
 
 use serde::{Deserialize, Serialize};
 
+pub const DEFAULT_PAGE_GATHER_BLOCK_ELEMENTS: usize = 8_192;
+
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PageGatherStats {
     pub elements_read: usize,
@@ -43,8 +45,40 @@ pub enum PageGatherAccessClass {
     Empty,
     Sequential,
     LocalWindow,
+    BlockSorted,
     SparseScatter,
     FullCoverageRandom,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum PageGatherScheduleClass {
+    AsSubmitted,
+    BlockSorted,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PageGatherSchedulePlan {
+    pub schedule_class: PageGatherScheduleClass,
+    pub block_elements: usize,
+    pub execution_indices: Vec<u32>,
+    pub logical_positions: Vec<u32>,
+}
+
+impl PageGatherSchedulePlan {
+    pub fn len(&self) -> usize {
+        self.execution_indices.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.execution_indices.is_empty()
+    }
+
+    pub fn access_class(&self) -> PageGatherAccessClass {
+        match self.schedule_class {
+            PageGatherScheduleClass::AsSubmitted => PageGatherAccessClass::SparseScatter,
+            PageGatherScheduleClass::BlockSorted => PageGatherAccessClass::BlockSorted,
+        }
+    }
 }
 
 impl PageGatherStats {
@@ -99,11 +133,21 @@ impl PageGatherStats {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum HeliosError {
     /// `indices[i]` was >= `source.len()`.
-    IndexOutOfRange { i: usize, index: u32, source_len: usize },
+    IndexOutOfRange {
+        i: usize,
+        index: u32,
+        source_len: usize,
+    },
     /// `out.len() != indices.len()`.
     OutLengthMismatch { indices: usize, out: usize },
     /// `scales.len() != indices.len()`.
     ScalesLengthMismatch { indices: usize, scales: usize },
+    /// Block-sorted scheduling requires a non-zero block size.
+    BlockElementsZero,
+    /// Schedule logical-position storage is u32-backed for Metal parity.
+    IndexCountTooLarge { indices: usize },
+    /// Scheduled values did not match the plan length.
+    ScheduleLengthMismatch { schedule: usize, values: usize },
 }
 
 fn validate_gather(
@@ -156,6 +200,130 @@ pub fn gather(
         out[i] = source[idx as usize];
     }
     Ok(stats)
+}
+
+/// Build a locality-aware execution plan for PageGather.
+///
+/// The plan preserves caller-visible logical order through
+/// `logical_positions`, while ordering `execution_indices` by source
+/// block. The Metal path can execute the localized walk, then scatter
+/// results back through the logical positions. This is the scheduler-side
+/// contract proven promising by `locality_probe_result.json`; it is not
+/// by itself a primary F-PageGather-M2Pro pass.
+pub fn block_sorted_schedule(
+    indices: &[u32],
+    source_len: usize,
+    block_elements: usize,
+) -> Result<PageGatherSchedulePlan, HeliosError> {
+    if block_elements == 0 {
+        return Err(HeliosError::BlockElementsZero);
+    }
+    if indices.len() > u32::MAX as usize {
+        return Err(HeliosError::IndexCountTooLarge {
+            indices: indices.len(),
+        });
+    }
+
+    let mut entries: Vec<(u32, u32, u32)> = Vec::with_capacity(indices.len());
+    for (logical_position, &index) in indices.iter().enumerate() {
+        if (index as usize) >= source_len {
+            return Err(HeliosError::IndexOutOfRange {
+                i: logical_position,
+                index,
+                source_len,
+            });
+        }
+        let block = (index as usize / block_elements) as u32;
+        entries.push((block, index, logical_position as u32));
+    }
+    entries
+        .sort_unstable_by_key(|&(block, index, logical_position)| (block, index, logical_position));
+
+    let mut execution_indices = Vec::with_capacity(entries.len());
+    let mut logical_positions = Vec::with_capacity(entries.len());
+    for (_block, index, logical_position) in entries {
+        execution_indices.push(index);
+        logical_positions.push(logical_position);
+    }
+
+    Ok(PageGatherSchedulePlan {
+        schedule_class: PageGatherScheduleClass::BlockSorted,
+        block_elements,
+        execution_indices,
+        logical_positions,
+    })
+}
+
+/// Execute a precomputed PageGather schedule and write results in
+/// caller-visible logical order.
+pub fn gather_scheduled(
+    source: &[f32],
+    plan: &PageGatherSchedulePlan,
+    out: &mut [f32],
+) -> Result<PageGatherStats, HeliosError> {
+    if out.len() != plan.len() {
+        return Err(HeliosError::OutLengthMismatch {
+            indices: plan.len(),
+            out: out.len(),
+        });
+    }
+    if plan.execution_indices.len() != plan.logical_positions.len() {
+        return Err(HeliosError::ScheduleLengthMismatch {
+            schedule: plan.execution_indices.len(),
+            values: plan.logical_positions.len(),
+        });
+    }
+
+    let mut max_index = 0_u32;
+    let mut sequential = matches!(plan.schedule_class, PageGatherScheduleClass::AsSubmitted);
+    for (execution_slot, &index) in plan.execution_indices.iter().enumerate() {
+        if (index as usize) >= source.len() {
+            return Err(HeliosError::IndexOutOfRange {
+                i: execution_slot,
+                index,
+                source_len: source.len(),
+            });
+        }
+        let logical_position = plan.logical_positions[execution_slot] as usize;
+        if logical_position >= out.len() {
+            return Err(HeliosError::OutLengthMismatch {
+                indices: plan.len(),
+                out: logical_position + 1,
+            });
+        }
+        if index > max_index {
+            max_index = index;
+        }
+        if index as usize != logical_position {
+            sequential = false;
+        }
+        out[logical_position] = source[index as usize];
+    }
+
+    Ok(PageGatherStats {
+        elements_read: plan.len(),
+        max_index,
+        sequential,
+    })
+}
+
+/// Convenience wrapper for the product-candidate schedule measured by
+/// the 2026-05-27 locality probe.
+pub fn gather_block_sorted(
+    source: &[f32],
+    indices: &[u32],
+    block_elements: usize,
+    out: &mut [f32],
+) -> Result<(PageGatherSchedulePlan, PageGatherStats), HeliosError> {
+    if out.len() != indices.len() {
+        return Err(HeliosError::OutLengthMismatch {
+            indices: indices.len(),
+            out: out.len(),
+        });
+    }
+    let plan = block_sorted_schedule(indices, source.len(), block_elements)?;
+    let stats = gather_scheduled(source, &plan, out)?;
+    Ok((plan, stats))
 }
 
 /// `out[i] = source[indices[i]] * scales[i]`. Two-input variant for
@@ -215,7 +383,11 @@ mod tests {
         let err = gather(&src, &idx, &mut out).unwrap_err();
         assert_eq!(
             err,
-            HeliosError::IndexOutOfRange { i: 0, index: 5, source_len: 2 }
+            HeliosError::IndexOutOfRange {
+                i: 0,
+                index: 5,
+                source_len: 2
+            }
         );
     }
 
@@ -225,10 +397,7 @@ mod tests {
         let idx: Vec<u32> = vec![0, 1];
         let mut out = vec![0.0_f32; 3];
         let err = gather(&src, &idx, &mut out).unwrap_err();
-        assert_eq!(
-            err,
-            HeliosError::OutLengthMismatch { indices: 2, out: 3 }
-        );
+        assert_eq!(err, HeliosError::OutLengthMismatch { indices: 2, out: 3 });
     }
 
     #[test]
@@ -262,7 +431,10 @@ mod tests {
         let err = gather_with_scale(&src, &idx, &scales, &mut out).unwrap_err();
         assert_eq!(
             err,
-            HeliosError::ScalesLengthMismatch { indices: 2, scales: 3 }
+            HeliosError::ScalesLengthMismatch {
+                indices: 2,
+                scales: 3
+            }
         );
     }
 
@@ -296,7 +468,11 @@ mod tests {
 
     #[test]
     fn stats_serializes_through_serde_json() {
-        let s = PageGatherStats { elements_read: 3, max_index: 99, sequential: false };
+        let s = PageGatherStats {
+            elements_read: 3,
+            max_index: 99,
+            sequential: false,
+        };
         let json = serde_json::to_string(&s).unwrap();
         let back: PageGatherStats = serde_json::from_str(&json).unwrap();
         assert_eq!(s, back);
@@ -319,19 +495,31 @@ mod tests {
 
     #[test]
     fn bytes_read_f32_is_four_per_element() {
-        let s = PageGatherStats { elements_read: 100, max_index: 99, sequential: true };
+        let s = PageGatherStats {
+            elements_read: 100,
+            max_index: 99,
+            sequential: true,
+        };
         assert_eq!(s.bytes_read(4), 400);
     }
 
     #[test]
     fn bytes_read_f16_is_two_per_element() {
-        let s = PageGatherStats { elements_read: 100, max_index: 99, sequential: true };
+        let s = PageGatherStats {
+            elements_read: 100,
+            max_index: 99,
+            sequential: true,
+        };
         assert_eq!(s.bytes_read(2), 200);
     }
 
     #[test]
     fn bytes_read_zero_elements_is_zero() {
-        let s = PageGatherStats { elements_read: 0, max_index: 0, sequential: true };
+        let s = PageGatherStats {
+            elements_read: 0,
+            max_index: 0,
+            sequential: true,
+        };
         assert_eq!(s.bytes_read(4), 0);
     }
 
@@ -351,20 +539,32 @@ mod tests {
     fn source_coverage_full_sweep_returns_one() {
         // gather over the whole source [0..len-1] → max_index = len-1
         // → coverage = len/len = 1.0.
-        let s = PageGatherStats { elements_read: 100, max_index: 99, sequential: true };
+        let s = PageGatherStats {
+            elements_read: 100,
+            max_index: 99,
+            sequential: true,
+        };
         assert!(approx(s.source_coverage(100).unwrap(), 1.0, 1e-6));
     }
 
     #[test]
     fn source_coverage_window_quarter_returns_quarter() {
         // gather first 25 of 100 → max_index = 24 → coverage = 25/100 = 0.25.
-        let s = PageGatherStats { elements_read: 25, max_index: 24, sequential: true };
+        let s = PageGatherStats {
+            elements_read: 25,
+            max_index: 24,
+            sequential: true,
+        };
         assert!(approx(s.source_coverage(100).unwrap(), 0.25, 1e-6));
     }
 
     #[test]
     fn source_coverage_empty_source_returns_none() {
-        let s = PageGatherStats { elements_read: 0, max_index: 0, sequential: true };
+        let s = PageGatherStats {
+            elements_read: 0,
+            max_index: 0,
+            sequential: true,
+        };
         assert!(s.source_coverage(0).is_none());
     }
 
@@ -374,19 +574,31 @@ mod tests {
         // → coverage = 1.0 even though only 1 element gathered. This
         // is the design point: source_coverage measures the WORKING
         // SET TOUCHED, not the elements_read.
-        let s = PageGatherStats { elements_read: 1, max_index: 99, sequential: false };
+        let s = PageGatherStats {
+            elements_read: 1,
+            max_index: 99,
+            sequential: false,
+        };
         assert!(approx(s.source_coverage(100).unwrap(), 1.0, 1e-6));
     }
 
     #[test]
     fn access_class_separates_sequential_from_failed_random_stressor() {
-        let sequential = PageGatherStats { elements_read: 100, max_index: 99, sequential: true };
+        let sequential = PageGatherStats {
+            elements_read: 100,
+            max_index: 99,
+            sequential: true,
+        };
         assert_eq!(
             sequential.access_class(100),
             Some(PageGatherAccessClass::Sequential)
         );
 
-        let random_full = PageGatherStats { elements_read: 100, max_index: 99, sequential: false };
+        let random_full = PageGatherStats {
+            elements_read: 100,
+            max_index: 99,
+            sequential: false,
+        };
         assert_eq!(
             random_full.access_class(100),
             Some(PageGatherAccessClass::FullCoverageRandom)
@@ -395,16 +607,106 @@ mod tests {
 
     #[test]
     fn access_class_keeps_local_window_and_sparse_scatter_distinct() {
-        let local = PageGatherStats { elements_read: 16, max_index: 23, sequential: false };
+        let local = PageGatherStats {
+            elements_read: 16,
+            max_index: 23,
+            sequential: false,
+        };
         assert_eq!(
             local.access_class(100),
             Some(PageGatherAccessClass::LocalWindow)
         );
 
-        let sparse = PageGatherStats { elements_read: 1, max_index: 99, sequential: false };
+        let sparse = PageGatherStats {
+            elements_read: 1,
+            max_index: 99,
+            sequential: false,
+        };
         assert_eq!(
             sparse.access_class(100),
             Some(PageGatherAccessClass::SparseScatter)
         );
+    }
+
+    #[test]
+    fn block_sorted_schedule_groups_by_source_block() {
+        let idx: Vec<u32> = vec![7, 0, 3, 6, 1, 4, 2, 5];
+        let plan = block_sorted_schedule(&idx, 8, 2).unwrap();
+        assert_eq!(plan.schedule_class, PageGatherScheduleClass::BlockSorted);
+        assert_eq!(plan.block_elements, 2);
+        assert_eq!(plan.access_class(), PageGatherAccessClass::BlockSorted);
+        assert_eq!(plan.execution_indices, vec![0, 1, 2, 3, 4, 5, 6, 7]);
+        assert_eq!(plan.logical_positions, vec![1, 4, 6, 2, 5, 7, 3, 0]);
+    }
+
+    #[test]
+    fn gather_block_sorted_preserves_logical_output() {
+        let src: Vec<f32> = (0..8).map(|i| i as f32 * 10.0).collect();
+        let idx: Vec<u32> = vec![7, 0, 3, 6, 1, 4, 2, 5];
+        let mut scheduled_out = vec![0.0_f32; idx.len()];
+        let (plan, stats) = gather_block_sorted(&src, &idx, 2, &mut scheduled_out).unwrap();
+
+        let expected: Vec<f32> = idx.iter().map(|&index| src[index as usize]).collect();
+        assert_eq!(scheduled_out, expected);
+        assert_eq!(plan.execution_indices, vec![0, 1, 2, 3, 4, 5, 6, 7]);
+        assert_eq!(stats.elements_read, idx.len());
+        assert_eq!(stats.max_index, 7);
+        assert!(!stats.sequential);
+    }
+
+    #[test]
+    fn block_sorted_schedule_rejects_zero_block_size() {
+        let err = block_sorted_schedule(&[0, 1], 2, 0).unwrap_err();
+        assert_eq!(err, HeliosError::BlockElementsZero);
+    }
+
+    #[test]
+    fn block_sorted_schedule_rejects_bad_source_index() {
+        let err = block_sorted_schedule(&[0, 8], 8, 2).unwrap_err();
+        assert_eq!(
+            err,
+            HeliosError::IndexOutOfRange {
+                i: 1,
+                index: 8,
+                source_len: 8
+            }
+        );
+    }
+
+    #[test]
+    fn scheduled_gather_detects_corrupt_plan_lengths() {
+        let src: Vec<f32> = (0..4).map(|i| i as f32).collect();
+        let mut out = vec![0.0_f32; 2];
+        let plan = PageGatherSchedulePlan {
+            schedule_class: PageGatherScheduleClass::BlockSorted,
+            block_elements: 2,
+            execution_indices: vec![0, 1],
+            logical_positions: vec![0],
+        };
+        let err = gather_scheduled(&src, &plan, &mut out).unwrap_err();
+        assert_eq!(
+            err,
+            HeliosError::ScheduleLengthMismatch {
+                schedule: 2,
+                values: 1
+            }
+        );
+    }
+
+    #[test]
+    fn as_submitted_schedule_reports_actual_sequentiality() {
+        let src: Vec<f32> = (0..4).map(|i| i as f32).collect();
+        let mut out = vec![0.0_f32; 4];
+        let plan = PageGatherSchedulePlan {
+            schedule_class: PageGatherScheduleClass::AsSubmitted,
+            block_elements: 0,
+            execution_indices: vec![0, 2, 1, 3],
+            logical_positions: vec![0, 1, 2, 3],
+        };
+
+        let stats = gather_scheduled(&src, &plan, &mut out).unwrap();
+
+        assert_eq!(out, vec![0.0, 2.0, 1.0, 3.0]);
+        assert!(!stats.sequential);
     }
 }

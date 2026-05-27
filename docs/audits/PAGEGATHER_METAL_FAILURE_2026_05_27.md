@@ -100,11 +100,16 @@ scatter reached about `1.08x` measured STREAM and block-sorted scatter reached
 about `0.734x` measured STREAM with zero sampled correctness violations. That
 is promising scheduler evidence, not a product-green pass.
 
+The scheduler contract follow-up now lives in
+`docs/audits/PAGEGATHER_BLOCK_SORTED_SCHEDULER_2026_05_27.md`: Rust can build a
+block-sorted execution plan and restore logical output order, and Vault Recall
+traces surface the schedule as deferred measurement metadata.
+
 Continue the kernel/scheduler mitigation slice before any downstream PageGather
 promotion:
 
 1. Sweep threadgroup sizes `{32, 64, 128, 256}`.
-2. Turn the block-sorted probe into a scheduler-emitted work-packet path.
+2. Add the Metal-side destination-position contract for block-sorted execution.
 3. Add a 4-wide vectorized gather variant if gather still stays below `0.95x`.
 4. Re-run the 256 MB gate first.
 5. Only after 256 MB passes, run the full 256/512/1024 MB canonical gate.

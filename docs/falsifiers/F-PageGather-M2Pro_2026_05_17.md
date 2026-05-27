@@ -185,9 +185,11 @@ scheduler must make the memory walk local enough":
   sampled violations.
 
 The block-sorted candidate is the product-relevant lead because it preserves
-full source coverage while improving traversal locality. It is not a pass until
-the scheduler emits this layout and the full `256/512/1024 MB` canonical gate
-passes.
+full source coverage while improving traversal locality. The scheduler-side
+contract now exists in `agent_core::helios::block_sorted_schedule` and
+`gather_block_sorted`, with trace metadata mirrored into Vault Recall surfaces.
+It is still not a pass until the Metal path accepts the same schedule/output
+contract and the full `256/512/1024 MB` canonical gate passes.
 
 ## §5. Measurement methodology
 

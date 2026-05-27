@@ -24,7 +24,10 @@
 //!    expectations.
 //! 5. Bad inputs surface typed errors.
 
-use agent_core::helios::{gather, gather_with_scale, PageGatherAccessClass};
+use agent_core::helios::{
+    gather, gather_block_sorted, gather_with_scale, PageGatherAccessClass,
+    DEFAULT_PAGE_GATHER_BLOCK_ELEMENTS,
+};
 
 const KB: usize = 1024;
 const WORKING_SET_FLOATS: &[usize] = &[64 * KB, 128 * KB, 256 * KB]; // 256 / 512 / 1024 KB
@@ -32,9 +35,14 @@ const WORKING_SET_FLOATS: &[usize] = &[64 * KB, 128 * KB, 256 * KB]; // 256 / 51
 struct MiniRng(u64);
 
 impl MiniRng {
-    fn new(seed: u64) -> Self { Self(seed) }
+    fn new(seed: u64) -> Self {
+        Self(seed)
+    }
     fn next_u32(&mut self, modulo: u32) -> u32 {
-        self.0 = self.0.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1_442_695_040_888_963_407);
+        self.0 = self
+            .0
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
         ((self.0 >> 32) as u32) % modulo
     }
 }
@@ -56,8 +64,15 @@ fn sequential_gather_returns_source_prefix() {
         let idx: Vec<u32> = (0..n as u32).collect();
         let mut out = vec![0.0_f32; n];
         let stats = gather(&src, &idx, &mut out).unwrap();
-        assert_eq!(out, src, "sequential gather should return source prefix at size {}", n);
-        assert!(stats.sequential, "stats.sequential must be true for contiguous indices");
+        assert_eq!(
+            out, src,
+            "sequential gather should return source prefix at size {}",
+            n
+        );
+        assert!(
+            stats.sequential,
+            "stats.sequential must be true for contiguous indices"
+        );
     }
 }
 
@@ -78,15 +93,51 @@ fn random_scatter_pattern_matches_indices() {
         let stats = gather(&src, &idx, &mut out).unwrap();
         // out[i] must equal source[idx[i]]
         for (i, &index) in idx.iter().enumerate() {
-            assert_eq!(out[i], src[index as usize], "scatter mismatch at i={}, idx={}", i, index);
+            assert_eq!(
+                out[i], src[index as usize],
+                "scatter mismatch at i={}, idx={}",
+                i, index
+            );
         }
-        assert!(!stats.sequential, "scatter pattern should not flag sequential (size {})", n);
+        assert!(
+            !stats.sequential,
+            "scatter pattern should not flag sequential (size {})",
+            n
+        );
         assert_eq!(
             stats.access_class(n),
             Some(PageGatherAccessClass::FullCoverageRandom),
             "full Fisher-Yates scatter is a failure stressor, not a product-green layout"
         );
         assert_eq!(stats.elements_read, n);
+    }
+}
+
+#[test]
+fn block_sorted_schedule_preserves_output_order_for_product_candidate() {
+    for &n in WORKING_SET_FLOATS {
+        let src = deterministic_source(n, 0xABCD_0004);
+        let mut idx: Vec<u32> = (0..n as u32).collect();
+        let mut rng = MiniRng::new(0xB10C_50A7);
+        for i in (1..n).rev() {
+            let j = rng.next_u32((i + 1) as u32) as usize;
+            idx.swap(i, j);
+        }
+
+        let mut out = vec![0.0_f32; n];
+        let (plan, stats) =
+            gather_block_sorted(&src, &idx, DEFAULT_PAGE_GATHER_BLOCK_ELEMENTS, &mut out).unwrap();
+
+        for (i, &index) in idx.iter().enumerate() {
+            assert_eq!(
+                out[i], src[index as usize],
+                "block-sorted schedule must preserve logical output at i={i}"
+            );
+        }
+        assert_eq!(plan.access_class(), PageGatherAccessClass::BlockSorted);
+        assert_eq!(stats.elements_read, n);
+        assert_eq!(stats.max_index, n as u32 - 1);
+        assert!(!stats.sequential);
     }
 }
 

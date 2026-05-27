@@ -113,6 +113,9 @@ struct VaultRecallProvenanceCard: View {
             }
             if let pageGather = trace.pageGather {
                 VaultRecallSurfaceChip(text: "page_gather", tint: .orange, theme: theme)
+                if let schedule = pageGather.scheduleLabel {
+                    VaultRecallSurfaceChip(text: schedule, tint: .orange, theme: theme)
+                }
                 VaultRecallSurfaceChip(text: "\(pageGather.deferredFalsifier) pending", tint: .orange, theme: theme)
             }
             ForEach(trace.signalSummary.sorted(by: { $0.rawValue < $1.rawValue }), id: \.self) { signal in
@@ -199,7 +202,8 @@ struct VaultRecallProvenanceCard: View {
         }
         let tier = trace.ladderTier ?? "unknown"
         if let pageGather = trace.pageGather {
-            return "Vault recall trace: \(tier), \(trace.candidatesRetained) retained from \(trace.candidatePoolSize). PageGather escalation observed from \(pageGather.source); \(pageGather.deferredFalsifier) measurement is pending."
+            let schedule = pageGather.scheduleLabel.map { " Schedule: \($0)." } ?? ""
+            return "Vault recall trace: \(tier), \(trace.candidatesRetained) retained from \(trace.candidatePoolSize). PageGather escalation observed from \(pageGather.source);\(schedule) \(pageGather.deferredFalsifier) measurement is pending."
         }
         return "Vault recall trace: \(tier), \(trace.candidatesRetained) retained from \(trace.candidatePoolSize)."
     }

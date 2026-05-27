@@ -46,23 +46,23 @@ pub mod page_gather;
 pub mod ssd_block_scan;
 
 pub use controller_pack::{
-    argmax_reduce, copy_range, max_reduce, scalar_add_in_place, scalar_mul_in_place,
-    zero_fill, ControllerKernelError,
+    argmax_reduce, copy_range, max_reduce, scalar_add_in_place, scalar_mul_in_place, zero_fill,
+    ControllerKernelError,
 };
 pub use local_recall_island::{
-    passkey_retrieve, run_passkey_trials, single_passkey_trial, RecallError,
-    RecallReport, RecallStore,
+    passkey_retrieve, run_passkey_trials, single_passkey_trial, RecallError, RecallReport,
+    RecallStore,
 };
 pub use long_context_harness::{
-    aggregate_results, run_synthetic_harness, HarnessError, HarnessReport, Task,
-    TaskResult, STAGE_8_BUDGET_MS,
+    aggregate_results, run_synthetic_harness, HarnessError, HarnessReport, Task, TaskResult,
+    STAGE_8_BUDGET_MS,
 };
 pub use packet_router::{
     route_1bit, unroute_1bit, PacketRouterError, PacketRouterStats, RoutingOutputs,
 };
 pub use page_gather::{
-    gather, gather_with_scale, HeliosError, PageGatherAccessClass, PageGatherStats,
+    block_sorted_schedule, gather, gather_block_sorted, gather_scheduled, gather_with_scale,
+    HeliosError, PageGatherAccessClass, PageGatherScheduleClass, PageGatherSchedulePlan,
+    PageGatherStats, DEFAULT_PAGE_GATHER_BLOCK_ELEMENTS,
 };
-pub use ssd_block_scan::{
-    ssd_block_scan_scalar, ssd_scan_scalar, SsdScanError, SsdScanResult,
-};
+pub use ssd_block_scan::{ssd_block_scan_scalar, ssd_scan_scalar, SsdScanError, SsdScanResult};
