@@ -1,3 +1,4 @@
+#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
 import AppKit
 import CoreServices
 import Foundation
@@ -217,3 +218,4 @@ enum IMessageNativeSetupDoctor {
         }
     }
 }
+#endif // !(EPISTEMOS_APP_STORE || MAS_SANDBOX) -- native channel/iMessage driver is Pro/direct-distribution only

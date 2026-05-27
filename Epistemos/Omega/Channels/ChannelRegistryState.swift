@@ -1,3 +1,4 @@
+#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
 import Foundation
 import Observation
 import os
@@ -114,7 +115,6 @@ nonisolated enum ChannelPairingState: String, CaseIterable, Codable, Sendable {
         }
     }
 }
-
 nonisolated struct ChannelPairingMetadata: Codable, Hashable, Sendable {
     var relayEndpoint: String
     var relayCredential: String
@@ -136,7 +136,6 @@ nonisolated struct ChannelPairingMetadata: Codable, Hashable, Sendable {
         self.keepAliveOnLaunch = keepAliveOnLaunch
     }
 }
-
 nonisolated struct ChannelThreadLocator: Codable, Hashable, Sendable {
     var defaultRecipient: String
     var defaultSubject: String
@@ -499,3 +498,4 @@ final class ChannelRegistryState {
         }
     }
 }
+#endif // !(EPISTEMOS_APP_STORE || MAS_SANDBOX) -- native channel/iMessage driver is Pro/direct-distribution only

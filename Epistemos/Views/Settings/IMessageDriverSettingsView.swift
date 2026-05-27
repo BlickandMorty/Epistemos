@@ -1,3 +1,4 @@
+#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
 import AppKit
 import os
 import SwiftUI
@@ -1050,3 +1051,4 @@ enum IMessageContactsStore {
         )
     }
 }
+#endif // !(EPISTEMOS_APP_STORE || MAS_SANDBOX) -- native channel/iMessage driver is Pro/direct-distribution only

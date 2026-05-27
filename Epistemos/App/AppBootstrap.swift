@@ -1004,11 +1004,15 @@ final class AppBootstrap {
     }
     private var commandCenterLocalHotkeyMonitor: Any?
     private var commandCenterGlobalHotkeyMonitor: Any?
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     let channelRegistry: ChannelRegistryState
+    #endif
     let constrainedDecoding = ConstrainedDecodingService()
     let hardwareTierManager = HardwareTierManager()
+    #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
     private var _iMessageDriver: IMessageDriverService?
     var iMessageDriver: IMessageDriverService { Self.requireInitialized(_iMessageDriver, name: "iMessageDriver") }
+    #endif
     private var _deviceAgent: DeviceAgentService?
     var deviceAgent: DeviceAgentService { Self.requireInitialized(_deviceAgent, name: "deviceAgent") }
     // Computer-use chain: lazy. ScreenCaptureService, Screen2AXFusion, and
@@ -1705,8 +1709,10 @@ final class AppBootstrap {
             companionState?.seedDefaultIfEmpty()
         }
 
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         let channelRegistry = ChannelRegistryState()
         self.channelRegistry = channelRegistry
+        #endif
 
         // InferenceState reads Keychain + checks Apple Intelligence availability
         let inference = InferenceState()
@@ -2040,7 +2046,7 @@ final class AppBootstrap {
         KnowledgeFusionViewModel.shared.configure(triageService: triage)
         #endif
 
-        #if !EPISTEMOS_APP_STORE
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         // Initialize iMessage driver (starts disabled — user toggles via Settings).
         // Local-model contacts route through `LocalAgentLoop` via the
         // localModelClientProvider; cloud contacts continue to use
