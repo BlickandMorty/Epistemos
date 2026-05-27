@@ -5,13 +5,15 @@
 **Living-doc rules:**
 - Update this file in place — never branch a parallel "v2." There is one living index; the old version is `git log`.
 - Update the **Current State** block (§6) on every wave close.
-- Updated **2026-05-27** · Wave 4 checkpoint: PRs `#121`-`#125` are on
+- Updated **2026-05-27** · Wave 4 checkpoint: PRs `#121`-`#127` are on
   `main`, including typed UAS retrieval/claims, PageGather escalation traces,
   Cognitive DAG visualizer, Tri-Fusion typed note mutations, and the System G
-  test-isolation fix. For the post-stash split of finished vs unfinished work,
-  read `docs/audits/MAIN_ARCHITECTURE_RECOVERY_STATUS_2026_05_26.md` before
-  dispatching another recovery agent. *Run the `LEGENDARY` codeword to refresh
-  the full W-row/falsifier percentages.*
+  test-isolation/focused-warning fixes. For the current W-row/falsifier
+  recount and next terminal prompts, read
+  `docs/audits/LEGENDARY_POST_WAVE4_ROLLUP_2026_05_27.md`. For the post-stash
+  split of finished vs unfinished work, read
+  `docs/audits/MAIN_ARCHITECTURE_RECOVERY_STATUS_2026_05_26.md` before
+  dispatching another recovery agent.
 
 ---
 
@@ -81,10 +83,10 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
 ## 6 · CURRENT STATE (2026-05-27 — Wave 4 checkpoint)
 
 ### Wired and on main
-- 40+ pre-2026-05-23 PRs · 18 from the 2026-05-23 sanitization session · 5 from the 2026-05-24 doctrine session · **14 Phase-2 merge-wave PRs (#66-#79, including #73 index refresh and the direct #76 hotfix `77c7efe9ea`)** · **Wave 3/4 substrate PRs #121-#125**.
-- Substrate carcass: ~70% baseline per chronicle audit, advanced by real Eidos bridge, System G seam, ACS production gate, T14 UAS bridge, Verified Floor chip gate, Runtime Router, Hyperdynamic Loop, B-prime chat provenance, Round-2 falsifier artifacts, typed UAS retrieval/claims, PageGather escalation traces, Cognitive DAG visualizer, and Tri-Fusion typed note mutations. **Working estimate remains ~92% substrate floor until a fresh LEGENDARY roll-up recalculates W-row/falsifier percentages.**
+- 40+ pre-2026-05-23 PRs · 18 from the 2026-05-23 sanitization session · 5 from the 2026-05-24 doctrine session · **14 Phase-2 merge-wave PRs (#66-#79, including #73 index refresh and the direct #76 hotfix `77c7efe9ea`)** · **Wave 3/4 substrate PRs #121-#127**.
+- Substrate carcass: ~70% baseline per chronicle audit, advanced by real Eidos bridge, System G seam, ACS production gate, T14 UAS bridge, Verified Floor chip gate, Runtime Router, Hyperdynamic Loop, B-prime chat provenance, Round-2 falsifier artifacts, typed UAS retrieval/claims, PageGather escalation traces, Cognitive DAG visualizer, Tri-Fusion typed note mutations, and focused test-warning cleanup. **Post-Wave-4 LEGENDARY estimate: ~38/53 strictly wired, ~45/53 strict+meaningful partial, ~93% substrate floor.** Full recount: `docs/audits/LEGENDARY_POST_WAVE4_ROLLUP_2026_05_27.md`.
 - 13+ stash recovery tags pushed to origin (`refs/tags/recovery/stash-N-*`) plus Wave-2 recovery tags for PR #74, PR #79, and the B-prime uncommitted follow-up stash.
-- W-rows wired: **estimated ~34/53+** after Wave 4, pending LEGENDARY recount. Known advances: Eidos real bridge/citation gate (#66), System G real seam (#67), falsifier harnesses (#68/#74), Substrate Health/docs/unified panel work (#69/#77), VaultRecall visibility salvage (#70/#79), T14 No-Orphan bridge (#71), ACS production gate (#72), Verified Floor truth gate (#78), Hyperdynamic Schema Loop (#75), Runtime Router (#76), typed UAS retrieval and ClaimLedger addresses (#121), PageGather vault escalation trace (#122), Cognitive DAG visualizer (#123), Tri-Fusion typed note mutations (#124).
+- W-rows wired: **about 38/53 strict, about 45/53 strict+partial** after Wave 4. Known advances: Eidos real bridge/citation gate (#66), System G real seam (#67), falsifier harnesses (#68/#74), Substrate Health/docs/unified panel work (#69/#77), VaultRecall visibility salvage (#70/#79), T14 No-Orphan bridge (#71), ACS production gate (#72), Verified Floor truth gate (#78), Hyperdynamic Schema Loop (#75), Runtime Router (#76), typed UAS retrieval and ClaimLedger addresses (#121), PageGather vault escalation trace (#122), Cognitive DAG visualizer (#123), Tri-Fusion typed note mutations (#124), and test-isolation/warning cleanup (#125/#127).
 - Falsifier artifacts on main: **10 artifact files**.
   - Schema-normalized primary witnesses: `F-VaultRecall-50`, `F-ULP-Oracle`, `F-Eidos-Bridge-RoundTrip`, `F-ACS-Anchor-Addressing`, `F-HyperdynamicLoop-Bounded`.
   - Schema-normalized fallback/CPU witnesses: `F-PageGather-M2Pro`, `F-ControllerKernelPack`, `F-UAS-ZeroCopy-Spine` — Metal/Swift hot-path gates still pending.
@@ -102,7 +104,7 @@ be raw-merged:
   recovery is closed on main; see
   `docs/audits/B_PRIME_FOLLOWUP_CLOSEOUT_2026_05_26.md`.
 
-`main` and `origin/main` are aligned at `91d757b2b9` when this block was refreshed. The
+`main` and `origin/main` are aligned at `38bf5e3130` when this block was refreshed. The
 finished-vs-preserved architecture recovery split lives in
 `docs/audits/MAIN_ARCHITECTURE_RECOVERY_STATUS_2026_05_26.md`; use `git log -1`
 for the exact current commit.
@@ -111,6 +113,7 @@ for the exact current commit.
 - `cargo run --manifest-path agent_core/Cargo.toml --release --bin falsifier_validator ...` passed for the three Round-2 artifacts.
 - `cargo test --manifest-path agent_core/Cargo.toml --lib --quiet` passed: 4,042 tests.
 - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosTriFusionTypedMutationGate build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""` passed.
+- Focused graph/editor guard passed after the lost-work restoration: `GraphPerformanceTests`, `GraphPhysicsSettingsAuditTests`, and `HTMLWorkspaceSourceGuardTests` all passed.
 - Checkpoint tag pushed: `checkpoint/wave4-trifusion-typed-mutations-2026-05-27`.
 
 ## 7 · The 13-terminal dispatch deck (status grid)
@@ -154,8 +157,8 @@ Full prompts: `docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md`. **Wave 1 = foundati
 10. `stash@{2}`, `stash@{5}`, `stash@{7}`, `stash@{8}`, `stash@{9}`, `stash@{13}`, `stash@{14}`, and the remaining `stash@{18}` donor queue are closed for current product recovery by `docs/audits/STASH_SUBSTRATE_RESEARCH_QUEUE_CLOSEOUT_2026_05_26.md`; no active product-recovery stash rows remain.
 11. The lattice coordinate explainer is preserved and checkpointed at `artifacts/lattice-coordinate-explainer/index.html`; it keeps the ambition map but now carries the post-Wave-2 overlay so old "pending Terminal G" rows do not override current main.
 12. Wave 3/4 closure through `#125` is on `main`: typed UAS retrieval/ClaimLedger rows, PageGather escalation traces, Cognitive DAG visualizer, and Tri-Fusion typed mutations are no longer pending.
-13. Fresh roll-up / dispatch map: `docs/audits/LEGENDARY_POST_WAVE2_ROLLUP_2026_05_26.md`.
-14. Copy-paste terminal dispatch for the next architecture wave: `docs/audits/WAVE3_WAVE4_TERMINAL_DISPATCH_2026_05_26.md`.
+13. Fresh roll-up / dispatch map: `docs/audits/LEGENDARY_POST_WAVE4_ROLLUP_2026_05_27.md`.
+14. Historical Wave 3/4 terminal deck: `docs/audits/WAVE3_WAVE4_TERMINAL_DISPATCH_2026_05_26.md`.
 
 ## 8 · Deferred-work ledger (26 items, anti-loss)
 
@@ -217,7 +220,7 @@ Full register: `docs/DEFERRED_WORK_GUARANTEE_2026_05_23.md`. One-liners:
    - Current checkpoint: `checkpoint/wave4-trifusion-typed-mutations-2026-05-27`.
    - No open merge-ready feature PRs remain; only preservation draft PRs `#81` and `#82` are open.
    - First run the post-merge local gate: cargo lib + xcodebuild.
-   - If green → dispatch the next named architecture slice from §8/§9 or run `LEGENDARY` for a fresh W-row/falsifier roll-up before starting more parallel terminals.
+   - If green → dispatch the three post-Wave-4 terminals in `docs/audits/LEGENDARY_POST_WAVE4_ROLLUP_2026_05_27.md`.
 6. Every PR carries the No-Orphan check:
    Motion · UAS · Plane · Residency · WBO/error · Witness · Falsifier · Tier · Rollback.
 7. NEVER `git checkout <stash> -- file`. Use `git apply` patches. PR #59 → #60 lesson.
