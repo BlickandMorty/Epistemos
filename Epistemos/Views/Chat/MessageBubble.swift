@@ -542,6 +542,10 @@ private struct AnswerPacketChipRow: View {
                         icon: bucketIcon(packet.interruptBucket)
                     )
                 }
+                if isDeterministicReplay(packet) {
+                    miniChip(text: "replay", icon: "checkmark.seal")
+                        .help("Deterministic replay verified from RunEventLog")
+                }
             }
         } else {
             EmptyView()
@@ -580,6 +584,10 @@ private struct AnswerPacketChipRow: View {
         case .high: return "bolt"
         case .unavailable: return "questionmark"
         }
+    }
+
+    private func isDeterministicReplay(_ packet: AnswerPacket) -> Bool {
+        packet.witnessedStateRef.contains("run_event_log:")
     }
 }
 

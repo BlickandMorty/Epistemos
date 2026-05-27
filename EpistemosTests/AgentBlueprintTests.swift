@@ -386,7 +386,112 @@ struct AgentBlueprintTests {
         #expect(snapshot.shortRunID == "run-newer")
         #expect(snapshot.eventCount == 2)
         #expect(snapshot.latestEventKind == AgentProvenanceEventKind.runCompleted.rawValue)
-        #expect(snapshot.summary == "2 events · run_completed")
+        #expect(snapshot.answerPacketId == "packet-123")
+        #expect(snapshot.replayStatus == .missingPacket)
+        #expect(snapshot.summary == "2 events · missing packet")
         #expect(record.replaySnapshot(from: [unrelated]) == nil)
+    }
+
+    @Test("Minimal AgentBlueprint run emits replayable AnswerPacket evidence into chat row")
+    @MainActor
+    func minimalAgentBlueprintRunEmitsReplayableAnswerPacketEvidenceIntoChatRow() async throws {
+        await AnswerPacketEmitter.shared.resetForTesting()
+
+        let packet = AgentBlueprintDraft(
+            name: "Research Assistant",
+            role: "Research",
+            objective: "Summarize the replay witness.",
+            model: .autoConstellation,
+            toolNames: ["vault.search"],
+            scope: .currentVault,
+            approvalMode: .autoReadOnly
+        ).missionPacket(id: "mission-e2e-replay", createdAt: Date(timeIntervalSince1970: 10))
+        let record = AgentBlueprintRunRecord(
+            packet: packet,
+            queuedAt: Date(timeIntervalSince1970: 11)
+        )
+
+        let log = try await RealSystemGRunSeam().run(mission: packet)
+        let answerPacket = try #require(await AnswerPacketEmitter.shared.recentPackets().last)
+        let events = try AgentBlueprintRunEventProjector.events(
+            packet: packet,
+            log: log,
+            answerPacket: answerPacket
+        )
+
+        let snapshot = try #require(record.replaySnapshot(
+            from: events,
+            packets: [answerPacket]
+        ))
+        #expect(snapshot.runID == log.missionId)
+        #expect(snapshot.answerPacketId == answerPacket.id)
+        #expect(snapshot.replayStatus == .verified)
+        #expect(snapshot.summary == "3 events · replay verified")
+
+        let chat = AgentChatState()
+        chat.submitAgentQuery(packet.objective)
+        chat.startStreaming()
+        chat.appendStreamingText(try RunEventLogReplayProjection.answerText(from: log))
+        chat.completeProcessing(
+            mode: .local,
+            resolvedModelLabel: "System G",
+            answerPacketId: answerPacket.id
+        )
+
+        let assistant = try #require(chat.messages.last)
+        #expect(assistant.role == .assistant)
+        #expect(assistant.answerPacketId == answerPacket.id)
+        #expect(assistant.content == "Summarize the replay witness.")
+
+        let timeline = AgentRunTimelineItem.replayItems(from: events)
+        #expect(timeline.map(\.title) == ["Plan", "Summary", "Output"])
+        #expect(timeline.last?.detail.contains(answerPacket.id) == true)
+    }
+
+    @Test("RunEventLog replay status fails explicit instead of promoting missing or invalid evidence")
+    func runEventLogReplayStatusFailsExplicitInsteadOfPromotingMissingOrInvalidEvidence() throws {
+        let packet = AgentBlueprintDraft(
+            name: "Research Assistant",
+            role: "Research",
+            objective: "Check replay status.",
+            model: .autoConstellation,
+            toolNames: ["vault.search"],
+            scope: .currentVault,
+            approvalMode: .autoReadOnly
+        ).missionPacket(id: "mission-status", createdAt: Date(timeIntervalSince1970: 20))
+        let record = AgentBlueprintRunRecord(
+            packet: packet,
+            queuedAt: Date(timeIntervalSince1970: 21)
+        )
+        let completion = AgentProvenanceEvent(
+            eventID: "status-complete",
+            runID: "run-status",
+            sequence: 1,
+            kind: .runCompleted,
+            actor: .agent(id: "system_g", modelID: "auto_constellation"),
+            occurredAtMs: 21_001,
+            metadata: [
+                "mission_packet_id": packet.id,
+                "answer_packet_id": "packet-status"
+            ]
+        )
+        let invalidPacket = AnswerPacket(
+            id: "packet-status",
+            claims: [],
+            uiLabel: .verified,
+            witnessedStateRef: "run_event_log:other-run",
+            mutationEnvelopeRef: "packet-status"
+        )
+
+        let missingPacket = try #require(record.replaySnapshot(from: [completion], packets: []))
+        #expect(missingPacket.replayStatus == .missingPacket)
+        #expect(missingPacket.summary == "1 events · missing packet")
+
+        let invalidProof = try #require(record.replaySnapshot(
+            from: [completion],
+            packets: [invalidPacket]
+        ))
+        #expect(invalidProof.replayStatus == .invalidProof)
+        #expect(invalidProof.summary == "1 events · invalid proof")
     }
 }

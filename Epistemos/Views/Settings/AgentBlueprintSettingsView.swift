@@ -62,28 +62,28 @@ struct AgentBlueprintSettingsView: View {
                     Label("AgentBlueprint", systemImage: "person.crop.rectangle.stack")
                         .font(.title2.weight(.semibold))
                     Spacer()
-                    ChannelStatusPill(title: diagnosticsStateLabel, tint: diagnosticsStateTint)
+                    ChannelStatusPill(title: isSubmitting ? "Running" : "System G", tint: isSubmitting ? .blue : .green)
                 }
 
-                Text("Blueprint submission queues a MissionPacket through the existing Command Center runtime. This page does not invoke the System G seam directly.")
+                Text("Blueprint runs dispatch a MissionPacket through System G and replay the resulting RunEventLog into the agent chat row.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
                 VerifiedFloorChipStrip(
-                    flag: "n/a",
-                    substrate: "queue only",
-                    productionWired: false,
-                    falsifierPassed: false,
-                    falsifier: "docs/falsifiers/F-ActiveAssembly-Minimal_2026_05_17.md",
-                    wiredToday: "Blueprint submission queues a MissionPacket through the existing Command Center path.",
-                    stillStub: "This Settings page does not invoke the System G run seam directly, so the control is not a green runtime claim."
+                    flag: "on",
+                    substrate: "System G replay",
+                    productionWired: true,
+                    falsifierPassed: true,
+                    falsifier: "EpistemosTests/AgentBlueprintTests.swift::minimalAgentBlueprintRunEmitsReplayableAnswerPacketEvidenceIntoChatRow",
+                    wiredToday: "Blueprint submission dispatches MissionPacket through the System G run seam, persists RunEventLog-derived AgentProvenanceEvent rows, emits AnswerPacket evidence, and binds the packet id to the agent chat row.",
+                    stillStub: "Rust System G V1 remains deterministic and compact; this page executes through the System G replay path."
                 )
 
                 HStack(spacing: 10) {
                     Button {
                         submitBlueprint()
                     } label: {
-                        Label(isSubmitting ? "Submitting" : "Queue (Command Center)", systemImage: "play.fill")
+                        Label(isSubmitting ? "Running" : "Run (System G)", systemImage: "play.fill")
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
@@ -354,7 +354,10 @@ struct AgentBlueprintSettingsView: View {
     }
 
     private func recentMissionRunRow(_ record: AgentBlueprintRunRecord) -> some View {
-        let replaySnapshot = record.replaySnapshot(from: recentRunEvents)
+        let replaySnapshot = record.replaySnapshot(
+            from: recentRunEvents,
+            packets: LatestAnswerPacketSink.shared.recentPackets
+        )
         return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text(record.packet.blueprintName)
@@ -370,15 +373,17 @@ struct AgentBlueprintSettingsView: View {
                 Button {
                     loadMissionRecord(record)
                 } label: {
-                    Label("Replay", systemImage: "arrow.uturn.backward")
+                    Label("Load", systemImage: "arrow.uturn.backward")
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
 
                 Button {
-                    queueMissionPacket(record.packet, statusPrefix: "Replayed", persist: true)
+                    Task {
+                        await runMissionPacket(record.packet, statusPrefix: "Replayed", persist: true)
+                    }
                 } label: {
-                    Label("Queue", systemImage: "play.fill")
+                    Label("Run", systemImage: "play.fill")
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
@@ -412,6 +417,10 @@ struct AgentBlueprintSettingsView: View {
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(.secondary)
             if let replaySnapshot {
+                ChannelStatusPill(
+                    title: replaySnapshot.replayStatus.displayName,
+                    tint: replayStatusTint(replaySnapshot.replayStatus)
+                )
                 Text("\(replaySnapshot.shortRunID) · \(replaySnapshot.summary)")
                     .font(.caption2.monospaced())
                     .foregroundStyle(.secondary)
@@ -481,18 +490,16 @@ struct AgentBlueprintSettingsView: View {
     private func submitBlueprint() {
         refreshMissionPacket()
         guard let packet = lastMissionPacket else { return }
-        queueMissionPacket(packet, statusPrefix: "Queued", persist: true)
+        Task {
+            await runMissionPacket(packet, statusPrefix: "Ran", persist: true)
+        }
     }
 
-    private func queueMissionPacket(
+    private func runMissionPacket(
         _ packet: AgentMissionPacket,
         statusPrefix: String,
         persist: Bool
-    ) {
-        guard let bootstrap = AppBootstrap.shared else {
-            submissionStatus = "Runtime unavailable."
-            return
-        }
+    ) async {
         let packetBrain = AgentBlueprintBrainResolver.brainSelection(
             for: packet.model,
             availableBrains: commandCenter.availableBrains
@@ -503,29 +510,48 @@ struct AgentBlueprintSettingsView: View {
         }
 
         isSubmitting = true
-        commandCenter.selectedOperatingMode = .agent
         selectedBrain = packetBrain
-        commandCenter.selectedBrain = packetBrain
-        commandCenter.inputText = packet.commandCenterQuery
-        commandCenter.inspectorState = .expanded(.execution)
-        commandCenter.present()
+        agentChat.submitAgentQuery(packet.objective)
+        agentChat.startStreaming()
 
-        bootstrap.coordinator.chatCoordinator.handleCommandCenterSubmission(
-            query: packet.commandCenterQuery,
-            slashToken: nil,
-            mentions: [],
-            toolRestrictions: Set(packet.toolNames),
-            brainOverride: packetBrain,
-            pipeline: bootstrap.coordinator.pipelineService,
-            agentChat: agentChat,
-            accState: commandCenter
-        )
+        do {
+            let log = try await SystemGRunSeamRegistry.shared.current().run(mission: packet)
+            let answerText = try RunEventLogReplayProjection.answerText(from: log)
+            let recentPackets = await AnswerPacketEmitter.shared.recentPackets()
+            guard let answerPacket = recentPackets.last(where: { $0.id == log.answerPacketId }) else {
+                throw RunEventLogReplayError.missingAnswerPacketID
+            }
+            let events = try AgentBlueprintRunEventProjector.events(
+                packet: packet,
+                log: log,
+                answerPacket: answerPacket
+            )
+            guard let eventStore = EventStore.shared else {
+                throw SystemGRunSeamError.ffi("EventStore unavailable for AgentBlueprint RunEventLog replay")
+            }
+            for event in events {
+                guard eventStore.saveAgentEvent(event) else {
+                    throw SystemGRunSeamError.ffi("could not persist AgentBlueprint replay event \(event.eventID)")
+                }
+            }
 
-        if persist {
-            recentMissionRecords = AgentBlueprintRunStore.record(packet)
+            agentChat.appendStreamingText(answerText)
+            agentChat.completeProcessing(
+                mode: .local,
+                resolvedModelLabel: "System G",
+                answerPacketId: answerPacket.id
+            )
+            await LatestAnswerPacketSink.shared.refresh()
+
+            if persist {
+                recentMissionRecords = AgentBlueprintRunStore.record(packet)
+            }
+            refreshRecentRunEvents()
+            submissionStatus = "\(statusPrefix) \(packet.id.prefix(8)) through System G replay."
+        } catch {
+            agentChat.addErrorMessage(from: error)
+            submissionStatus = "System G replay failed for \(packet.id.prefix(8)): \(UserFacingChatError.message(from: error))"
         }
-        refreshRecentRunEvents()
-        submissionStatus = "\(statusPrefix) \(packet.id.prefix(8)) through Command Center runtime; System G dispatch pending."
         isSubmitting = false
     }
 
@@ -540,18 +566,12 @@ struct AgentBlueprintSettingsView: View {
         selectedBrain = brainSelection(for: packet.model)
         lastMissionPacket = packet
 
-        commandCenter.selectedOperatingMode = .agent
-        commandCenter.selectedBrain = selectedBrain
-        commandCenter.inputText = packet.commandCenterQuery
-        commandCenter.inspectorState = .expanded(.execution)
-        commandCenter.present()
         refreshRecentRunEvents()
-        submissionStatus = "Replayed \(packet.id.prefix(8)) into Command Center."
+        submissionStatus = "Loaded \(packet.id.prefix(8)); run to replay through System G."
     }
 
     private func refreshRuntimeCatalogs() {
         commandCenter.refreshBrainCatalog(from: inference)
-        commandCenter.selectedOperatingMode = .agent
         commandCenter.refreshToolCatalog(
             from: mcpBridge,
             vaultPath: vaultSync.vaultURL?.path ?? ""
@@ -629,38 +649,21 @@ struct AgentBlueprintSettingsView: View {
         }
     }
 
+    private func replayStatusTint(_ status: AgentBlueprintReplayStatus) -> Color {
+        switch status {
+        case .verified:
+            .green
+        case .missingEvent, .missingPacket:
+            .orange
+        case .invalidProof, .failed:
+            .red
+        }
+    }
+
     private func toolSort(_ lhs: OmegaToolDefinition, _ rhs: OmegaToolDefinition) -> Bool {
         if lhs.agent != rhs.agent {
             return lhs.agent < rhs.agent
         }
         return lhs.name < rhs.name
-    }
-
-    private var diagnosticsStateLabel: String {
-        switch commandCenter.diagnostics.state {
-        case .idle:
-            "Idle"
-        case .compiling:
-            "Compiling"
-        case .running:
-            "Running"
-        case .completed:
-            "Completed"
-        case .failed:
-            "Failed"
-        }
-    }
-
-    private var diagnosticsStateTint: Color {
-        switch commandCenter.diagnostics.state {
-        case .idle:
-            .secondary
-        case .compiling, .running:
-            .blue
-        case .completed:
-            .green
-        case .failed:
-            .orange
-        }
     }
 }
