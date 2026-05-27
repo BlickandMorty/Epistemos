@@ -50,6 +50,7 @@ struct Harness {
     let queue: MTLCommandQueue
     let streamTriad: MTLComputePipelineState
     let pageGather: MTLComputePipelineState
+    let pageGatherScheduled: MTLComputePipelineState
 }
 
 struct SampleStats {
@@ -206,6 +207,7 @@ let outputLocalityProbePath = outputDirectory.appendingPathComponent("locality_p
 let actualCommandString = "swift " + CommandLine.arguments.joined(separator: " ")
 let fp32Bytes = 4
 let pageGatherTrafficBytesPerElement = 12
+let pageGatherScheduledTrafficBytesPerElement = 16
 let streamTrafficBytesPerElement = 16
 
 let streamShader = """
@@ -295,12 +297,16 @@ func makeHarness() throws -> Harness {
     guard let gatherFn = library.makeFunction(name: "pageGatherScatter") else {
         throw PageGatherArtifactError.noFunction("pageGatherScatter")
     }
+    guard let scheduledGatherFn = library.makeFunction(name: "pageGatherScatterScheduled") else {
+        throw PageGatherArtifactError.noFunction("pageGatherScatterScheduled")
+    }
     do {
         return Harness(
             device: device,
             queue: queue,
             streamTriad: try device.makeComputePipelineState(function: streamFn),
-            pageGather: try device.makeComputePipelineState(function: gatherFn)
+            pageGather: try device.makeComputePipelineState(function: gatherFn),
+            pageGatherScheduled: try device.makeComputePipelineState(function: scheduledGatherFn)
         )
     } catch {
         throw PageGatherArtifactError.noPipeline(error.localizedDescription)
@@ -507,6 +513,32 @@ func sampleViolations(
     return bad
 }
 
+func sampleScheduledViolations(
+    source: MTLBuffer,
+    indices: MTLBuffer,
+    logicalPositions: MTLBuffer,
+    out: MTLBuffer,
+    count: Int
+) -> Int {
+    let sourcePointer = source.contents().bindMemory(to: Float.self, capacity: count)
+    let indexPointer = indices.contents().bindMemory(to: UInt32.self, capacity: count)
+    let logicalPositionPointer = logicalPositions.contents().bindMemory(to: UInt32.self, capacity: count)
+    let outPointer = out.contents().bindMemory(to: Float.self, capacity: count)
+    let sampleCount = min(4096, max(1, count))
+    let step = max(1, count / sampleCount)
+    var bad = 0
+    var index = 0
+    while index < count {
+        let sourceIndex = Int(indexPointer[index])
+        let logicalPosition = Int(logicalPositionPointer[index])
+        if outPointer[logicalPosition] != sourcePointer[sourceIndex] {
+            bad += 1
+        }
+        index += step
+    }
+    return bad
+}
+
 func runWorkingSet(config: RunConfig, harness: Harness, mb: Int) throws -> WorkingSetResult {
     let bytes = mb * 1024 * 1024
     let count = bytes / fp32Bytes
@@ -534,6 +566,7 @@ func runWorkingSet(config: RunConfig, harness: Harness, mb: Int) throws -> Worki
     let source = try makeBuffer(device: harness.device, length: bytes, label: "pageGather.\(mb)mb.source")
     let out = try makeBuffer(device: harness.device, length: bytes, label: "pageGather.\(mb)mb.out")
     let indices = try makeBuffer(device: harness.device, length: count * MemoryLayout<UInt32>.stride, label: "pageGather.\(mb)mb.indices")
+    let logicalPositions = try makeBuffer(device: harness.device, length: count * MemoryLayout<UInt32>.stride, label: "pageGather.\(mb)mb.logicalPositions")
     initializeFloatBuffer(source, count: count)
 
     initializeIdentityIndices(indices, count: count)
@@ -591,17 +624,28 @@ func runWorkingSet(config: RunConfig, harness: Harness, mb: Int) throws -> Worki
             blockElements: config.localityBlockElements,
             seed: UInt64(mb) ^ 0xB10C_50A7
         )
+        initializeFisherYatesIndices(
+            logicalPositions,
+            count: count,
+            seed: UInt64(mb) ^ 0xD35A_D05E
+        )
         blockSorted = try measure(
             harness: harness,
-            pipeline: harness.pageGather,
-            buffers: [source, indices, out, countBuffer],
+            pipeline: harness.pageGatherScheduled,
+            buffers: [source, indices, logicalPositions, out, countBuffer],
             count: count,
-            bytesPerElement: pageGatherTrafficBytesPerElement,
+            bytesPerElement: pageGatherScheduledTrafficBytesPerElement,
             windowSeconds: config.windowSeconds,
             warmupIterations: config.warmupIterations,
             trials: config.trials
         )
-        blockSortedViolations = sampleViolations(source: source, indices: indices, out: out, count: count)
+        blockSortedViolations = sampleScheduledViolations(
+            source: source,
+            indices: indices,
+            logicalPositions: logicalPositions,
+            out: out,
+            count: count
+        )
     }
 
     return WorkingSetResult(
@@ -825,7 +869,7 @@ func runArtifact(config: RunConfig) throws -> RunResult {
             let blockSortedValue = blockSorted.median
             let blockSortedRatio = stream > 0 ? blockSortedValue / stream : 0
             addAxis(
-                name: "block_sorted_scatter_gbs_\(mb)mb",
+                name: "block_sorted_scheduled_scatter_gbs_\(mb)mb",
                 value: blockSortedValue,
                 unit: "GB_per_second",
                 op: ">",
@@ -836,7 +880,7 @@ func runArtifact(config: RunConfig) throws -> RunResult {
                 passPerAxis: &passPerAxis
             )
             addAxis(
-                name: "block_sorted_scatter_stream_ratio_\(mb)mb",
+                name: "block_sorted_scheduled_scatter_stream_ratio_\(mb)mb",
                 value: blockSortedRatio,
                 unit: "ratio",
                 op: ">=",
@@ -847,7 +891,7 @@ func runArtifact(config: RunConfig) throws -> RunResult {
                 passPerAxis: &passPerAxis
             )
             addAxis(
-                name: "block_sorted_scatter_correctness_violations_\(mb)mb",
+                name: "block_sorted_scheduled_scatter_correctness_violations_\(mb)mb",
                 value: blockSortedViolations,
                 unit: "violations",
                 op: "==",
@@ -858,7 +902,7 @@ func runArtifact(config: RunConfig) throws -> RunResult {
                 passPerAxis: &passPerAxis
             )
             addAxis(
-                name: "block_sorted_scatter_stability_range_over_mean_\(mb)mb",
+                name: "block_sorted_scheduled_scatter_stability_range_over_mean_\(mb)mb",
                 value: blockSorted.rangeOverMean,
                 unit: "ratio",
                 op: "<",
@@ -868,7 +912,7 @@ func runArtifact(config: RunConfig) throws -> RunResult {
                 thresholds: &thresholds,
                 passPerAxis: &passPerAxis
             )
-            measurements["block_sorted_scatter_samples_gbs_\(mb)mb"] = metric(blockSorted.samples, unit: "GB_per_second")
+            measurements["block_sorted_scheduled_scatter_samples_gbs_\(mb)mb"] = metric(blockSorted.samples, unit: "GB_per_second")
         }
     }
 
@@ -918,7 +962,7 @@ func runArtifact(config: RunConfig) throws -> RunResult {
     if config.probeLocality {
         anomalies.append([
             "kind": "locality_probe",
-            "detail": "Diagnostic run includes local-window and block-sorted scatter candidates. It cannot promote F-PageGather-M2Pro by itself.",
+            "detail": "Diagnostic run includes local-window and block-sorted scheduled scatter candidates. It cannot promote F-PageGather-M2Pro by itself.",
         ])
     }
 
@@ -968,7 +1012,7 @@ func runArtifact(config: RunConfig) throws -> RunResult {
         "overall_pass": axesPass,
         "fallback_tier": fallbackTier,
         "anomalies": anomalies,
-        "notes": "Metal PageGather witness generated from Epistemos/Shaders/PageGather.metal with an in-harness STREAM triad baseline. Ratios use measured traffic bytes (STREAM=16 bytes/element; PageGather=12 bytes/element). result.json is written only on full pass; failed primary runs write metal_failure_result.json unless --force-write-result is explicitly supplied. --probe-locality writes locality_probe_result.json and is diagnostic only.",
+        "notes": "Metal PageGather witness generated from Epistemos/Shaders/PageGather.metal with an in-harness STREAM triad baseline. Ratios use measured traffic bytes (STREAM=16 bytes/element; PageGather=12 bytes/element; scheduled PageGather=16 bytes/element). result.json is written only on full pass; failed primary runs write metal_failure_result.json unless --force-write-result is explicitly supplied. --probe-locality writes locality_probe_result.json and is diagnostic only.",
     ]
 
     return RunResult(artifact: artifact, overallPass: overallPass, outputPath: outputPath)

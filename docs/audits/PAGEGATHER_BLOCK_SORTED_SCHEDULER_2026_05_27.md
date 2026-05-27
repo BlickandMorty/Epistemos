@@ -1,6 +1,7 @@
 # PageGather Block-Sorted Scheduler - 2026-05-27
 
-Status: scheduler-side mitigation path landed; primary Metal gate still pending.
+Status: scheduler-side mitigation path landed; Metal destination contract now
+exists; primary throughput gate still pending.
 
 Branch: `codex/pagegather-block-sorted-scheduler-2026-05-27`
 
@@ -43,11 +44,16 @@ This does not promote `F-PageGather-M2Pro`.
 
 Remaining blockers:
 
-- The Metal kernel still needs a destination-position variant or equivalent
-  execution/output contract.
+- The Metal destination-position variant exists, but the first smoke probe
+  shows the true scheduled restore path is still too slow for promotion.
 - The full `256/512/1024 MB`, `5 s`, `3 trial` canonical gate has not passed.
 - Sequential gather remains below the `0.95x` bar in the current witness.
 - Thermal/reproducibility axes still need the canonical pass run.
+
+Follow-up: `docs/audits/PAGEGATHER_METAL_DESTINATION_CONTRACT_2026_05_27.md`
+adds `pageGatherScatterScheduled` and records a noncanonical 16 MB smoke probe:
+`0` correctness violations, but only `0.3556x` STREAM for block-sorted scheduled
+scatter. That keeps the gate orange/pending.
 
 ## Verification
 
@@ -83,12 +89,10 @@ xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'p
 
 ## Next Slice
 
-Add the Metal-side output-position contract:
+Optimize the scheduled Metal path, not the label:
 
-```text
-out[logical_positions[gid]] = source[indices[gid]]
-```
-
-Then rerun the 256 MB gate first. Only after both gather and block-sorted
-scatter pass at 256 MB should the full 256/512/1024 MB canonical run be
-attempted.
+1. Try a threadgroup-tiled destination restore, vectorized logical-position
+   loads, or a two-pass block-local compaction path.
+2. Rerun the 256 MB scheduled diagnostic first.
+3. Only after both gather and scheduled block-sorted scatter pass at 256 MB
+   should the full 256/512/1024 MB canonical run be attempted.

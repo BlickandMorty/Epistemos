@@ -62,6 +62,27 @@ kernel void pageGatherScatter(
     out[gid] = source[indices[gid]];
 }
 
+/// Scheduled PageGather: `out[logicalPositions[i]] = source[indices[i]]`.
+///
+/// This is the product-candidate contract for locality-aware schedules:
+/// callers may execute reads in source-local order while preserving the
+/// caller-visible logical output positions. This kernel is deliberately
+/// separate from `pageGatherScatter` so the falsifier can distinguish a
+/// read-local probe from the real destination-position restore cost.
+kernel void pageGatherScatterScheduled(
+    device const float* source           [[buffer(0)]],
+    device const uint*  indices          [[buffer(1)]],
+    device const uint*  logicalPositions [[buffer(2)]],
+    device       float* out              [[buffer(3)]],
+    constant     uint&  count            [[buffer(4)]],
+    uint                gid              [[thread_position_in_grid]]
+) {
+    if (gid >= count) {
+        return;
+    }
+    out[logicalPositions[gid]] = source[indices[gid]];
+}
+
 /// PageGather with per-element scale: `out[i] = source[indices[i]] * scales[i]`.
 ///
 /// Two-input variant for the BitNet b1.58 absmean codec where each

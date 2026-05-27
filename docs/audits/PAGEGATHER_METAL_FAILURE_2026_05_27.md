@@ -105,11 +105,19 @@ The scheduler contract follow-up now lives in
 block-sorted execution plan and restore logical output order, and Vault Recall
 traces surface the schedule as deferred measurement metadata.
 
+The Metal destination-position contract now lives in
+`docs/audits/PAGEGATHER_METAL_DESTINATION_CONTRACT_2026_05_27.md`:
+`pageGatherScatterScheduled` restores logical output positions and passes the
+deterministic Metal witness test. A tiny noncanonical smoke probe recorded `0`
+correctness violations but only `0.3556x` STREAM at 16 MB, so this is still
+optimization work, not promotion.
+
 Continue the kernel/scheduler mitigation slice before any downstream PageGather
 promotion:
 
 1. Sweep threadgroup sizes `{32, 64, 128, 256}`.
-2. Add the Metal-side destination-position contract for block-sorted execution.
+2. Optimize the Metal-side destination-position contract for block-sorted
+   execution.
 3. Add a 4-wide vectorized gather variant if gather still stays below `0.95x`.
 4. Re-run the 256 MB gate first.
 5. Only after 256 MB passes, run the full 256/512/1024 MB canonical gate.
