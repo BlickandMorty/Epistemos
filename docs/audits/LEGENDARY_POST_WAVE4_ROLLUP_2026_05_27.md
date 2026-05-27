@@ -54,16 +54,16 @@ checkpoint.
 The old `~34/53+` count was intentionally conservative before Wave 4 closed.
 The honest post-Wave-4 accounting is:
 
-- Strictly wired / product-visible enough to count: about `38/53`.
+- Strictly wired / product-visible enough to count: about `40/53`.
 - Meaningfully advanced but still honest-orange or partial: about `7/53`.
-- Still open / research-tier / ship-hardener backlog: about `8/53`.
+- Still open / research-tier backlog: about `6/53`.
 
 Percentages:
 
-- Strict wired floor: about 72%.
-- Strict + meaningful partial: about 85%.
-- Substrate floor estimate: about 93%, because the remaining gaps are mostly
-  visible truth, supply-chain, provenance-detail, and hardware/research gates
+- Strict wired floor: about 75%.
+- Strict + meaningful partial: about 89%.
+- Substrate floor estimate: about 94%, because the remaining gaps are mostly
+  visible truth, provenance-detail, and hardware/research gates
   rather than missing substrate skeleton.
 
 Rows closed or materially advanced by Wave 4:
@@ -87,8 +87,8 @@ Rows closed or materially advanced by Wave 4:
 | W-28 | partial | Residency types/guards exist; broader visible residency indicators remain a next slice. |
 | W-29 | wired | Substrate Health panel is live. |
 | W-30 | partial | Cognitive Weight badges exist in Settings; broader weight/residency display can still improve. |
-| W-49 | open hardener | App Store guard for `IMessageDriverService` still needs a focused PR. |
-| W-53 | open hardener | `ModelDownloadManager` SHA256/LFS verification needs a focused PR if not already fully enforced. |
+| W-49 | wired/guarded | App Store guard for `IMessageDriverService` is already live; see `docs/audits/POST_WAVE4_W49_W53_HARDENER_CLOSEOUT_2026_05_27.md`. |
+| W-53 | wired/guarded | `ModelDownloadManager` SHA256/LFS verification is already live; see `docs/audits/POST_WAVE4_W49_W53_HARDENER_CLOSEOUT_2026_05_27.md`. |
 
 This recount does not delete the older 53-row audit. It gives a current
 execution map from actual merged code and tests.
@@ -153,12 +153,11 @@ Remaining No-Orphan risks are not lost work; they are the next focused slices:
 
 1. Visible agent capability truth across all model/agent surfaces.
 2. Clickable ACS anchor / residency details in provenance and graph surfaces.
-3. App Store and supply-chain hardeners.
-4. Full hardware research gates for PageGather / ULP / ControllerKernelPack.
+3. Full hardware research gates for PageGather / ULP / ControllerKernelPack.
 
 ## Next Terminals
 
-Start only three terminals next. They are low-conflict and make main more
+Start only two terminals next. They are low-conflict and make main more
 truthful instead of opening another broad substrate wave.
 
 ### Terminal 1 - Agent Capability Truth
@@ -260,57 +259,10 @@ xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform
 Stop after opening the PR. Do not merge yourself.
 ```
 
-### Terminal 3 - Ship Hardening
+### Retired Terminal - Ship Hardening W-49/W-53
 
-Branch:
-
-```text
-codex/post-wave4-ship-hardening-w49-w53-2026-05-27
-```
-
-Prompt:
-
-```text
-You are Post-Wave-4 Terminal 3: Ship Hardening W-49/W-53.
-
-cd /Users/jojo/Downloads/Epistemos
-git fetch origin
-git checkout -b codex/post-wave4-ship-hardening-w49-w53-2026-05-27 origin/main
-
-Read first:
-1. docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md
-2. docs/audits/LEGENDARY_POST_WAVE4_ROLLUP_2026_05_27.md
-3. docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md
-
-Goal:
-Close the two low-conflict ship hardeners:
-W-49 IMessageDriverService App Store guard and W-53 ModelDownloadManager
-SHA256/LFS verification.
-
-Scope:
-1. Audit IMessageDriverService for App Store build exposure and add a strict
-   compile-time/runtime guard if missing.
-2. Audit ModelDownloadManager for SHA256/LFS verification and make the
-   verification explicit, testable, and visible in Settings if needed.
-3. Add focused Swift tests for guard-on, guard-off, missing checksum, wrong
-   checksum, and happy path.
-
-Rules:
-- Minimal fixes only.
-- No adjacent refactors.
-- No stash pop/drop/bulk apply.
-- No git checkout from stash.
-- No git add -A.
-- PR must include Motion, UAS, Plane, Residency, WBO/error, Witness,
-  Falsifier, Tier, Rollback.
-
-Gates:
-git diff --check
-cargo test --manifest-path agent_core/Cargo.toml --lib
-xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
-
-Stop after opening the PR. Do not merge yourself.
-```
+Do not dispatch. Current source already closes W-49 and W-53. Evidence lives in
+`docs/audits/POST_WAVE4_W49_W53_HARDENER_CLOSEOUT_2026_05_27.md`.
 
 ## Later Terminals
 
@@ -330,11 +282,10 @@ Run these only after the three terminals above are merged:
 
 ## Current Best Next Move
 
-Dispatch the three terminals above, merge in this order:
+Dispatch the two active terminals above, merge in this order:
 
-1. Ship Hardening W-49/W-53.
-2. Agent Capability Truth.
-3. Provenance / Residency Detail.
+1. Agent Capability Truth.
+2. Provenance / Residency Detail.
 
 Then rerun the local ground-truth gate:
 
