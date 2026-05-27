@@ -1,7 +1,7 @@
 # PageGather Locality Probe - 2026-05-27
 
-Status: diagnostic mitigation evidence landed; scheduler contract follow-up now
-exists; no product green promotion.
+Status: diagnostic mitigation evidence landed; scheduler and Metal
+destination-position contracts now exist; no product green promotion.
 
 Branch: `codex/pagegather-locality-probe-2026-05-27`
 
@@ -71,6 +71,9 @@ This is not enough to promote `F-PageGather-M2Pro`, because:
 
 - The canonical gate requires `256/512/1024 MB`, not only `256 MB`.
 - Sequential gather is still below its `0.95x` bar.
+- The first scheduled-destination smoke probe shows the real restore path drops
+  to `0.3556x` STREAM at a tiny 16 MB noncanonical working set, even though
+  correctness remains clean.
 - Thermal second-run and full reproducibility evidence still need the canonical
   pass run.
 - No product scheduler has been changed to emit block-sorted work packets yet.
@@ -79,7 +82,9 @@ The follow-up scheduler slice is now recorded in
 `docs/audits/PAGEGATHER_BLOCK_SORTED_SCHEDULER_2026_05_27.md`: Rust can build a
 block-sorted execution plan and restore logical output order, and vault traces
 surface the schedule as deferred evidence. The Metal-side output-position
-contract and canonical pass run remain open.
+contract now exists in
+`docs/audits/PAGEGATHER_METAL_DESTINATION_CONTRACT_2026_05_27.md`; the
+canonical pass run and optimization work remain open.
 
 ## No-Orphan Check
 
@@ -100,9 +105,10 @@ contract and canonical pass run remain open.
 
 Build the real mitigation, not another label:
 
-1. Add the Metal-side destination-position contract for the block-sorted
+1. Optimize the Metal-side destination-position contract for the block-sorted
    schedule.
 2. Keep the full random permutation as a failure stressor.
-3. Rerun the canonical `256/512/1024 MB`, `5 s`, `3 trial` gate.
+3. Rerun a 256 MB scheduled diagnostic before attempting the canonical
+   `256/512/1024 MB`, `5 s`, `3 trial` gate.
 4. Promote only if both gather and locality-aware scatter pass their thresholds
    at all three sizes.

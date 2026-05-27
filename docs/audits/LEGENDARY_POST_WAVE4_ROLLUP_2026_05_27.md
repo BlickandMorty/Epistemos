@@ -58,13 +58,18 @@ Additional 2026-05-27 Metal witness evidence after the preflight slice:
 - `swift Tools/metal-witness-gates/page-gather-metal-artifact.swift --probe-locality --working-sets-mb 256 --window-seconds 5 --trials 3 --warmup-iterations 3 --write-artifact`
   - wrote `artifacts/falsifiers/page_gather/locality_probe_result.json`.
   - Local-window scatter reached about `1.08x` measured STREAM and
-    block-sorted scatter reached about `0.734x` measured STREAM with zero
+    block-sorted read-local scatter reached about `0.734x` measured STREAM with zero
     sampled correctness violations. This is a mitigation lead, not a full
     `F-PageGather-M2Pro` pass.
 - `agent_core::helios::block_sorted_schedule` + `gather_block_sorted`
   - now provide the scheduler-side block-sorted execution contract and restore
     logical output order. Vault Recall traces surface the schedule as
     deferred evidence, while the chip remains orange/pending.
+- `pageGatherScatterScheduled`
+  - now provides the Metal destination-position contract. A tiny noncanonical
+    smoke probe showed `0` correctness violations but only `0.3556x` STREAM at
+    16 MB, so the real scheduled path still needs optimization before any green
+    promotion.
 
 ## Main / PR State
 
@@ -134,7 +139,7 @@ There are 10 `artifacts/falsifiers/*/result.json` files on main:
 | `acs_anchor_addressing` | full measured true | N=1000 full harness with agent runtime emission, lookup, audit canonicalization, and five-plane projection inversion. See `docs/audits/ACS_ANCHOR_HARNESS_FULL_2026_05_27.md`. |
 | `ulp_oracle` | measured true | Full Metal `morphOracleFp16` primary witness over 414,048 points / 1,242,144 evaluations; max ULP axes pass the <=2 budget. |
 | `uas_zero_copy_spine` | measured true | Zero tracked copies in scoped spine; broader hot path can still be expanded. |
-| `page_gather` | measured true + Metal failure/locality reports + scheduler contract | CPU scatter/PageGather artifact remains the fallback witness; 256 MB Metal STREAM-style run failed the primary ratio and is recorded at `artifacts/falsifiers/page_gather/metal_failure_result.json`. `artifacts/falsifiers/page_gather/locality_probe_result.json` shows a block-sorted mitigation candidate crossing the scatter ratio at 256 MB, and `block_sorted_schedule` now gives the product path a real execution contract. The full primary gate remains pending. |
+| `page_gather` | measured true + Metal failure/locality reports + scheduler/destination contract | CPU scatter/PageGather artifact remains the fallback witness; 256 MB Metal STREAM-style run failed the primary ratio and is recorded at `artifacts/falsifiers/page_gather/metal_failure_result.json`. `artifacts/falsifiers/page_gather/locality_probe_result.json` shows a block-sorted read-local mitigation candidate crossing the scatter ratio at 256 MB, `block_sorted_schedule` gives the product path a real execution contract, and `pageGatherScatterScheduled` now restores logical output positions. The first destination-position smoke probe was correct but too slow, so the full primary gate remains pending. |
 | `controller_kernel_pack` | measured true | CPU/reference kernel-pack witness; full Metal dispatcher pending. |
 
 The `>=7 measured witnesses` objective is satisfied. The verified floor must
@@ -261,8 +266,9 @@ gate is green:
 2. `RESUME METAL WITNESS GATES`
    - Preflight slice: `docs/audits/METAL_WITNESS_GATES_PREFLIGHT_2026_05_27.md`.
    - `F-ULP-Oracle` full Metal artifact: `artifacts/falsifiers/ulp_oracle/result.json`.
-   - `F-PageGather-M2Pro` now has a real 256 MB failure report and a
-     locality-probe artifact; next step is scheduler/kernel mitigation, not
+   - `F-PageGather-M2Pro` now has a real 256 MB failure report, a
+     locality-probe artifact, a scheduler contract, and a Metal
+     destination-position contract; next step is kernel optimization, not
      promotion.
    - Still remaining: full Metal/PageGather pass artifact and ControllerKernelPack
      measured throughput/latency artifacts. Keep them research-tier until real

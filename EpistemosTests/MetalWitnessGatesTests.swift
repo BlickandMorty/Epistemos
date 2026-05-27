@@ -168,6 +168,7 @@ nonisolated struct MetalWitnessGatesTests {
     func pageGatherMetalKernelsMatchCpuReferences() throws {
         let harness = try Self.makeHarness()
         let scatter = try Self.makePipeline("pageGatherScatter", harness: harness)
+        let scheduled = try Self.makePipeline("pageGatherScatterScheduled", harness: harness)
         let scaled = try Self.makePipeline("pageGatherScatterScaled", harness: harness)
 
         let source: [Float] = [10, 20, 30, 40, 50, 60, 70, 80]
@@ -189,6 +190,22 @@ nonisolated struct MetalWitnessGatesTests {
         let gathered = Self.readArray(outBuffer, count: indices.count, as: Float.self)
         let expectedGathered = indices.map { source[Int($0)] }
         #expect(gathered == expectedGathered)
+
+        let scheduledIndices: [UInt32] = [0, 1, 2, 3, 4, 5]
+        let logicalPositions: [UInt32] = [1, 4, 5, 2, 3, 0]
+        let scheduledIndexBuffer = try Self.makeBuffer(scheduledIndices, device: harness.device, label: "pageGather.scheduledIndices")
+        let logicalPositionBuffer = try Self.makeBuffer(logicalPositions, device: harness.device, label: "pageGather.logicalPositions")
+        let scheduledOut = try Self.makeZeroedBuffer(type: Float.self, count: scheduledIndices.count, device: harness.device, label: "pageGather.scheduledOut")
+        try Self.dispatch(
+            pipeline: scheduled,
+            harness: harness,
+            buffers: [sourceBuffer, scheduledIndexBuffer, logicalPositionBuffer, scheduledOut, countBuffer],
+            threads: scheduledIndices.count
+        )
+
+        let scheduledValues = Self.readArray(scheduledOut, count: scheduledIndices.count, as: Float.self)
+        let expectedScheduled: [Float] = [60, 10, 40, 50, 20, 30]
+        #expect(scheduledValues == expectedScheduled)
 
         let scalesBuffer = try Self.makeBuffer(scales, device: harness.device, label: "pageGather.scales")
         let scaledOut = try Self.makeZeroedBuffer(type: Float.self, count: indices.count, device: harness.device, label: "pageGather.scaledOut")

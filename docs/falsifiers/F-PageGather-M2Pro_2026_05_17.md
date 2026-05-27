@@ -188,8 +188,11 @@ The block-sorted candidate is the product-relevant lead because it preserves
 full source coverage while improving traversal locality. The scheduler-side
 contract now exists in `agent_core::helios::block_sorted_schedule` and
 `gather_block_sorted`, with trace metadata mirrored into Vault Recall surfaces.
-It is still not a pass until the Metal path accepts the same schedule/output
-contract and the full `256/512/1024 MB` canonical gate passes.
+The Metal path now accepts the same schedule/output contract through
+`pageGatherScatterScheduled`, but the first noncanonical smoke probe measured
+only `0.3556x` STREAM for block-sorted scheduled scatter at 16 MB, with `0`
+correctness violations. That is a useful witness, not a pass: the full
+`256/512/1024 MB` canonical gate still has to pass before promotion.
 
 ## §5. Measurement methodology
 

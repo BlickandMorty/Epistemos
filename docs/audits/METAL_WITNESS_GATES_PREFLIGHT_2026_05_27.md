@@ -39,7 +39,7 @@ the live Metal device, and match deterministic CPU/oracle fixtures on small inpu
 
 | Gate | Current status after this slice | Not promoted to green because |
 |---|---|---|
-| `F-PageGather-M2Pro` | Metal dispatch/equivalence preflight exists; `artifacts/falsifiers/page_gather/metal_failure_result.json` records a 256 MB sustained failure; `artifacts/falsifiers/page_gather/locality_probe_result.json` records a 256 MB block-sorted mitigation lead; `block_sorted_schedule` is now the product-candidate schedule contract | The primary 256/512/1024 MB pass artifact is still not produced; current random-scatter layout is correct but too slow, and the Metal kernel still needs the destination-position contract. |
+| `F-PageGather-M2Pro` | Metal dispatch/equivalence preflight exists; `artifacts/falsifiers/page_gather/metal_failure_result.json` records a 256 MB sustained failure; `artifacts/falsifiers/page_gather/locality_probe_result.json` records a 256 MB block-sorted mitigation lead; `block_sorted_schedule` is the product-candidate schedule contract; `pageGatherScatterScheduled` now verifies the destination-position contract | The primary 256/512/1024 MB pass artifact is still not produced; the first scheduled-destination smoke probe was correct but only `0.3556x` STREAM at 16 MB, so optimization is still required before green. |
 | `F-ControllerKernelPack` | Metal dispatch/equivalence preflight exists | p99 dispatch latency, sequence wall time, and full 7-size x 100-seed artifact are still not produced. |
 | `F-ULP-Oracle` | `artifacts/falsifiers/ulp_oracle/result.json` is now a full Metal `morphOracleFp16` primary witness over 414,048 points / 1,242,144 evaluations | No caveat remains for this gate's Metal/oracle axis; PageGather and ControllerKernelPack remain orange/pending. |
 
@@ -48,8 +48,9 @@ slice rewrote only `artifacts/falsifiers/ulp_oracle/result.json` after the full
 Metal/oracle run passed. The PageGather follow-up wrote a separate failure
 report, not `result.json`, because the measured ratio failed. A later
 PageGather locality probe wrote a second side report proving block-sorted
-locality is promising at 256 MB, and the scheduler contract now exists on the
-Rust/trace side. Existing fallback/CPU artifacts remain the authority for
+read-locality is promising at 256 MB, the scheduler contract exists on the
+Rust/trace side, and the Metal destination-position kernel now preserves
+logical output order. Existing fallback/CPU artifacts remain the authority for
 PageGather and ControllerKernelPack until their real hardware measurement runs
 replace them.
 
@@ -71,9 +72,9 @@ replace them.
 
 The next slice must generate the remaining primary hardware artifacts:
 
-1. PageGather Metal destination-position mitigation that consumes the
-   block-sorted scheduler contract, then reruns STREAM-on-Metal plus
-   scatter/gather ratios for the documented working-set ladder.
+1. PageGather Metal optimization for the destination-position mitigation, then
+   rerun STREAM-on-Metal plus scatter/gather ratios for the documented
+   working-set ladder.
 2. ControllerKernelPack p50/p99 latency and 100-cycle sequence wall time with full fixture matrix.
 
 Until those exist, Settings and docs must keep those throughput gates
