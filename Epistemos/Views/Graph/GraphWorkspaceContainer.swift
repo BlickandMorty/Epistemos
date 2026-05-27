@@ -79,6 +79,7 @@ struct GraphWorkspaceContainer: View {
             }
 
             graphHTMLWorkspaceDockLayer
+            graphCognitiveDagVisualizerLayer
         }
         .modifier(EmbeddedGraphRouteChrome(
             isEnabled: graphSurfacePresentation.isEmbeddedHome,
@@ -122,6 +123,23 @@ struct GraphWorkspaceContainer: View {
                 )
                 .padding(.trailing, 14)
                 .padding(.vertical, 18)
+            }
+            .allowsHitTesting(true)
+            .transition(.opacity)
+        }
+    }
+
+    @ViewBuilder
+    private var graphCognitiveDagVisualizerLayer: some View {
+        if graphState.currentRoute.isCanvas {
+            VStack {
+                HStack {
+                    Spacer(minLength: 0)
+                    CognitiveDagVisualizerPanel(theme: theme)
+                        .padding(.top, graphSurfacePresentation.isEmbeddedHome ? 14 : 18)
+                        .padding(.trailing, 14)
+                }
+                Spacer(minLength: 0)
             }
             .allowsHitTesting(true)
             .transition(.opacity)
