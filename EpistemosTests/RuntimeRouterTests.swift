@@ -195,6 +195,32 @@ struct RuntimeRouterTests {
         #expect(mlxTally.escalations == 1)
     }
 
+    @Test("agent badge data is derived from router lane capability evidence")
+    func agentBadgeDataComesFromRuntimeRouterLaneCapabilities() {
+        let verified = RuntimeRouter.agentCapabilityBadgeData(
+            forLocalModelID: LocalTextModelID.qwen3_8B4Bit.rawValue
+        )
+        #expect(verified.state == .honest)
+        #expect(verified.title == "HONEST")
+        #expect(verified.lane == .mlx)
+        #expect(verified.witness.contains("RuntimeRouter"))
+        #expect(verified.falsifier == "F-LocalToolUse")
+
+        let experimental = RuntimeRouter.agentCapabilityBadgeData(
+            forLocalModelID: LocalTextModelID.devstralSmall2505_4Bit.rawValue
+        )
+        #expect(experimental.state == .experimental)
+        #expect(experimental.title == "EXPERIMENTAL")
+        #expect(experimental.falsifier == "F-LocalToolUse pending")
+
+        let off = RuntimeRouter.agentCapabilityBadgeData(
+            forLocalModelID: LocalTextModelID.smolLM3_3B4Bit.rawValue
+        )
+        #expect(off.state == .off)
+        #expect(off.title == "OFF")
+        #expect(off.toolCallMode == .none)
+    }
+
     @Test("router rejects when every lane in the chain is disabled (allLanesDisabled witness)")
     func allLanesDisabledProducesAllLanesDisabledReason() {
         let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
