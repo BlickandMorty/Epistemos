@@ -97,6 +97,48 @@ nonisolated public struct VaultRecallCandidate: Codable, Hashable, Sendable {
     }
 }
 
+nonisolated public enum PageGatherEscalationStatus: String, Codable, Hashable, Sendable {
+    case vaultEscalated = "vault_escalated"
+}
+
+nonisolated public enum PageGatherMeasurementStatus: String, Codable, Hashable, Sendable {
+    case deferred
+}
+
+nonisolated public struct PageGatherEscalationTrace: Codable, Hashable, Sendable {
+    public let status: PageGatherEscalationStatus
+    public let measurementStatus: PageGatherMeasurementStatus
+    public let source: String
+    public let candidatePoolSize: Int
+    public let candidatesRetained: Int
+    public let deferredFalsifier: String
+
+    enum CodingKeys: String, CodingKey {
+        case status
+        case measurementStatus = "measurement_status"
+        case source
+        case candidatePoolSize = "candidate_pool_size"
+        case candidatesRetained = "candidates_retained"
+        case deferredFalsifier = "deferred_falsifier"
+    }
+
+    public init(
+        status: PageGatherEscalationStatus = .vaultEscalated,
+        measurementStatus: PageGatherMeasurementStatus = .deferred,
+        source: String,
+        candidatePoolSize: Int,
+        candidatesRetained: Int,
+        deferredFalsifier: String = "F-PageGather-Scatter"
+    ) {
+        self.status = status
+        self.measurementStatus = measurementStatus
+        self.source = source
+        self.candidatePoolSize = candidatePoolSize
+        self.candidatesRetained = candidatesRetained
+        self.deferredFalsifier = deferredFalsifier
+    }
+}
+
 nonisolated public struct VaultRecallTrace: Codable, Hashable, Sendable {
     public let query: String
     public let effectiveQuery: String
@@ -108,6 +150,7 @@ nonisolated public struct VaultRecallTrace: Codable, Hashable, Sendable {
     public let generatedAtMs: UInt64
     public let notes: [String]
     public let allChatterFallback: Bool
+    public let pageGather: PageGatherEscalationTrace?
 
     enum CodingKeys: String, CodingKey {
         case query
@@ -120,6 +163,33 @@ nonisolated public struct VaultRecallTrace: Codable, Hashable, Sendable {
         case generatedAtMs = "generated_at_ms"
         case notes
         case allChatterFallback = "all_chatter_fallback"
+        case pageGather = "page_gather"
+    }
+
+    public init(
+        query: String,
+        effectiveQuery: String,
+        ladderTier: String?,
+        candidatePoolSize: Int,
+        candidatesRetained: Int,
+        candidates: [VaultRecallCandidate],
+        signalSummary: [VaultRecallSignal],
+        generatedAtMs: UInt64,
+        notes: [String],
+        allChatterFallback: Bool,
+        pageGather: PageGatherEscalationTrace? = nil
+    ) {
+        self.query = query
+        self.effectiveQuery = effectiveQuery
+        self.ladderTier = ladderTier
+        self.candidatePoolSize = candidatePoolSize
+        self.candidatesRetained = candidatesRetained
+        self.candidates = candidates
+        self.signalSummary = signalSummary
+        self.generatedAtMs = generatedAtMs
+        self.notes = notes
+        self.allChatterFallback = allChatterFallback
+        self.pageGather = pageGather
     }
 }
 
@@ -154,6 +224,7 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
     private var lastSignalSummary: [VaultRecallSignal] = []
     private var lastAllChatterFallback: Bool = false
     private var lastBackendValue: VaultRecallBackend = .unknown
+    private var lastPageGatherValue: PageGatherEscalationTrace?
     private var totalQueries: UInt64 = 0
     private var lastErrorDescription: String?
     private var lastErrorAt: Date?
@@ -172,6 +243,7 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
         lastSignalSummary = trace.signalSummary
         lastAllChatterFallback = trace.allChatterFallback
         lastBackendValue = backend
+        lastPageGatherValue = trace.pageGather
         totalQueries &+= 1
         lastErrorDescription = nil
         lock.unlock()
@@ -199,6 +271,7 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
             lastSignalSummary:       lastSignalSummary,
             lastAllChatterFallback:  lastAllChatterFallback,
             lastBackend:             lastBackendValue,
+            lastPageGather:          lastPageGatherValue,
             lastErrorDescription:    lastErrorDescription,
             lastErrorAt:             lastErrorAt
         )
@@ -213,6 +286,7 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
         lastSignalSummary = []
         lastAllChatterFallback = false
         lastBackendValue = .unknown
+        lastPageGatherValue = nil
         totalQueries = 0
         lastErrorDescription = nil
         lastErrorAt = nil
@@ -238,6 +312,7 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
         public let lastSignalSummary: [VaultRecallSignal]
         public let lastAllChatterFallback: Bool
         public let lastBackend: VaultRecallBackend
+        public let lastPageGather: PageGatherEscalationTrace?
         public let lastErrorDescription: String?
         public let lastErrorAt: Date?
 
@@ -261,6 +336,7 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
             lastSignalSummary: [VaultRecallSignal],
             lastAllChatterFallback: Bool,
             lastBackend: VaultRecallBackend,
+            lastPageGather: PageGatherEscalationTrace? = nil,
             lastErrorDescription: String?,
             lastErrorAt: Date?,
             recallBenchmark: VaultRecallBenchmark = VaultRecallBenchmark()
@@ -275,6 +351,7 @@ nonisolated public final class VaultRecallMetrics: @unchecked Sendable {
             self.lastSignalSummary = lastSignalSummary
             self.lastAllChatterFallback = lastAllChatterFallback
             self.lastBackend = lastBackend
+            self.lastPageGather = lastPageGather
             self.lastErrorDescription = lastErrorDescription
             self.lastErrorAt = lastErrorAt
             self.recallBenchmark = recallBenchmark

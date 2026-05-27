@@ -2235,7 +2235,12 @@ actor SearchIndexService {
             signalSummary: effectiveQuery.isEmpty ? [] : [.lexical],
             generatedAtMs: generatedAtMs ?? vaultRecallGeneratedAtMs(),
             notes: vaultRecallNotes(limit: limit, resultCount: results.count, source: "SearchIndexService.search"),
-            allChatterFallback: !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && effectiveQuery.isEmpty
+            allChatterFallback: !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && effectiveQuery.isEmpty,
+            pageGather: searchIndexPageGatherTrace(
+                source: "SearchIndexService.search",
+                candidatePoolSize: results.count,
+                candidatesRetained: candidates.count
+            )
         )
     }
 
@@ -2272,7 +2277,24 @@ actor SearchIndexService {
             signalSummary: effectiveQuery.isEmpty ? [] : [.lexical],
             generatedAtMs: generatedAtMs ?? vaultRecallGeneratedAtMs(),
             notes: vaultRecallNotes(limit: limit, resultCount: fusedResults.count, source: "SearchIndexService.fusedSearch"),
-            allChatterFallback: !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && effectiveQuery.isEmpty
+            allChatterFallback: !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && effectiveQuery.isEmpty,
+            pageGather: searchIndexPageGatherTrace(
+                source: "SearchIndexService.fusedSearch",
+                candidatePoolSize: fusedResults.count,
+                candidatesRetained: candidates.count
+            )
+        )
+    }
+
+    private nonisolated static func searchIndexPageGatherTrace(
+        source: String,
+        candidatePoolSize: Int,
+        candidatesRetained: Int
+    ) -> PageGatherEscalationTrace {
+        PageGatherEscalationTrace(
+            source: source,
+            candidatePoolSize: candidatePoolSize,
+            candidatesRetained: candidatesRetained
         )
     }
 

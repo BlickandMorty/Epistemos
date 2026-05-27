@@ -207,6 +207,50 @@ impl RetrievalCandidate {
     }
 }
 
+/// PageGather-to-vault escalation metadata.
+///
+/// This is a routing/provenance witness only. It must not be treated as a
+/// passing PageGather performance measurement; the Metal scatter falsifier
+/// remains deferred until `F-PageGather-Scatter` is run against the live path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PageGatherEscalationStatus {
+    VaultEscalated,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PageGatherMeasurementStatus {
+    Deferred,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PageGatherEscalationTrace {
+    pub status: PageGatherEscalationStatus,
+    pub measurement_status: PageGatherMeasurementStatus,
+    pub source: String,
+    pub candidate_pool_size: usize,
+    pub candidates_retained: usize,
+    pub deferred_falsifier: String,
+}
+
+impl PageGatherEscalationTrace {
+    pub fn vault_escalated(
+        source: impl Into<String>,
+        candidate_pool_size: usize,
+        candidates_retained: usize,
+    ) -> Self {
+        Self {
+            status: PageGatherEscalationStatus::VaultEscalated,
+            measurement_status: PageGatherMeasurementStatus::Deferred,
+            source: source.into(),
+            candidate_pool_size,
+            candidates_retained,
+            deferred_falsifier: "F-PageGather-Scatter".to_string(),
+        }
+    }
+}
+
 /// Top-level retrieval trace. One emitted per `VaultBackend::hybrid_search`
 /// call once the emission seam lands. The trace is the W-19 / W-20 / W-21
 /// payload: ChatCoordinator's "Retrieved by …" surface, the Brain Panel
@@ -228,6 +272,8 @@ pub struct RetrievalTrace {
     pub signal_summary: Vec<RetrievalSignal>,
     pub generated_at_ms: u64,
     pub notes: Vec<String>,
+    #[serde(default)]
+    pub page_gather: Option<PageGatherEscalationTrace>,
     /// T21 iter-10 (2026-05-18): set by the retrieval backend when
     /// `strip_query_chatter` reduced the query to the empty string
     /// (e.g. user typed "show me my notes" — every token is chatter).
@@ -256,6 +302,7 @@ impl RetrievalTrace {
             signal_summary: Vec::new(),
             generated_at_ms: 0,
             notes: Vec::new(),
+            page_gather: None,
             all_chatter_fallback: false,
         }
     }
@@ -293,6 +340,10 @@ impl RetrievalTrace {
 
     pub fn add_note(&mut self, note: impl Into<String>) {
         self.notes.push(note.into());
+    }
+
+    pub fn record_page_gather_escalation(&mut self, trace: PageGatherEscalationTrace) {
+        self.page_gather = Some(trace);
     }
 
     /// T21 iter-38: human-readable one-line render of the trace, useful
@@ -518,6 +569,25 @@ mod tests {
 
         trace.add_note("Tier 1 accepted after Fix-B chatter strip");
         assert_eq!(trace.notes.len(), 1);
+    }
+
+    #[test]
+    fn retrieval_trace_records_page_gather_escalation_without_measurement_promotion() {
+        let mut trace = RetrievalTrace::new("compare themes", "compare themes")
+            .with_ladder_tier("production-hybrid")
+            .with_pool_size(64);
+        trace.record_page_gather_escalation(PageGatherEscalationTrace::vault_escalated(
+            "VaultStore::hybrid_search_with_trace",
+            64,
+            4,
+        ));
+
+        let escalation = trace.page_gather.expect("page gather trace");
+        assert_eq!(escalation.status, PageGatherEscalationStatus::VaultEscalated);
+        assert_eq!(escalation.measurement_status, PageGatherMeasurementStatus::Deferred);
+        assert_eq!(escalation.deferred_falsifier, "F-PageGather-Scatter");
+        assert_eq!(escalation.candidate_pool_size, 64);
+        assert_eq!(escalation.candidates_retained, 4);
     }
 
     /// T21 iter-9: empty trace classifies as Weak — there's no retained
@@ -891,6 +961,7 @@ mod tests {
         assert_eq!(parsed["candidate_pool_size"], 7);
         assert_eq!(parsed["candidates_retained"], 1);
         assert_eq!(parsed["all_chatter_fallback"], true);
+        assert!(parsed["page_gather"].is_null());
         assert!(parsed["notes"].is_array(), "notes must be array");
         assert!(parsed["candidates"].is_array(), "candidates must be array");
         assert!(

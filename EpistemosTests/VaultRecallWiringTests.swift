@@ -91,6 +91,39 @@ struct VaultRecallWiringTests {
         #expect(VaultRecallBridge.detectedBackend(from: trace) == .real)
     }
 
+    @Test("VaultRecallTrace decodes honest PageGather escalation metadata")
+    func vaultRecallTraceDecodesPageGatherEscalationMetadata() throws {
+        let json = """
+        {
+          "query": "compare themes",
+          "effective_query": "compare themes",
+          "ladder_tier": "vault-chat-context-v1",
+          "candidate_pool_size": 64,
+          "candidates_retained": 4,
+          "candidates": [],
+          "signal_summary": ["lexical"],
+          "generated_at_ms": 123,
+          "notes": [],
+          "all_chatter_fallback": false,
+          "page_gather": {
+            "status": "vault_escalated",
+            "measurement_status": "deferred",
+            "source": "ChatCoordinator.resolveNotesContext",
+            "candidate_pool_size": 64,
+            "candidates_retained": 4,
+            "deferred_falsifier": "F-PageGather-Scatter"
+          }
+        }
+        """
+        let trace = try JSONDecoder().decode(VaultRecallTrace.self, from: Data(json.utf8))
+        let pageGather = try #require(trace.pageGather)
+        #expect(pageGather.status == .vaultEscalated)
+        #expect(pageGather.measurementStatus == .deferred)
+        #expect(pageGather.deferredFalsifier == "F-PageGather-Scatter")
+        #expect(pageGather.candidatePoolSize == 64)
+        #expect(pageGather.candidatesRetained == 4)
+    }
+
     @Test("VaultRecallMetrics.Snapshot.lastBackend reflects the most recent trace's backend origin")
     func vaultRecallMetricsSnapshotCarriesLastBackend() throws {
         VaultRecallMetrics.shared.reset()
