@@ -50,6 +50,7 @@ public struct VaultRecallHealthRow: View {
                 stillStub: vaultRecallStillStub
             )
             w21MetricChipStrip
+            pageGatherChipStrip
             row(
                 label: "Last query",
                 symbol: "clock",
@@ -134,6 +135,26 @@ public struct VaultRecallHealthRow: View {
         .padding(.horizontal, 12)
     }
 
+    private var pageGatherChipStrip: some View {
+        HStack(spacing: 6) {
+            if let pageGather = snapshot.lastPageGather {
+                ChannelStatusPill(title: "PG: vault escalated", tint: .orange)
+                ChannelStatusPill(title: "\(pageGather.deferredFalsifier) pending", tint: .orange)
+                ChannelStatusPill(
+                    title: "\(pageGather.candidatesRetained)/\(pageGather.candidatePoolSize) retained",
+                    tint: .secondary
+                )
+            } else {
+                ChannelStatusPill(title: "PG: not observed", tint: .orange)
+                ChannelStatusPill(title: "F-PageGather-Scatter pending", tint: .orange)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .help(pageGatherTruthTooltip)
+        .accessibilityLabel(pageGatherTruthTooltip)
+    }
+
     private func startTimer() {
         refreshTask?.cancel()
         refreshTask = Task { @MainActor in
@@ -213,6 +234,13 @@ public struct VaultRecallHealthRow: View {
 
     private var vaultRecallStillStub: String {
         "Green blocked unless the trace comes from a real VaultBackend and F-VaultRecall-50 benchmark rates pass."
+    }
+
+    private var pageGatherTruthTooltip: String {
+        if let pageGather = snapshot.lastPageGather {
+            return "PageGather source: \(pageGather.source). Measurement deferred: \(pageGather.deferredFalsifier). F-PageGather-M2Pro Metal gate is still pending."
+        }
+        return "PageGather vault escalation has not been observed this launch. F-PageGather-Scatter and F-PageGather-M2Pro remain pending."
     }
 
     private func formatLatency(_ ms: Double) -> String {
