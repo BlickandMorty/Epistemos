@@ -1355,11 +1355,21 @@ private struct InferenceDetailView: View {
         let selectableIDs = Set(inference.releaseSelectableInstalledLocalTextModelIDs)
         return localModelManager.textDescriptors.filter { selectableIDs.contains($0.id) }
     }
+    private var activeLocalAgentBadgeData: RuntimeAgentCapabilityBadgeData {
+        RuntimeRouter.agentCapabilityBadgeData(
+            forLocalModelID: inference.activeLocalTextModelID ?? inference.preferredLocalTextModelID
+        )
+    }
     private var cloudModelsEnabledBinding: Binding<Bool> {
         Binding(
             get: { inference.cloudModelsEnabled },
             set: { inference.setCloudModelsEnabled($0) }
         )
+    }
+
+    private func localModelPickerLabel(for modelID: String) -> String {
+        let badge = RuntimeRouter.agentCapabilityBadgeData(forLocalModelID: modelID)
+        return "\(inference.localModelPickerDisplayName(for: modelID)) · \(badge.title)"
     }
 
     var body: some View {
@@ -1558,10 +1568,20 @@ private struct InferenceDetailView: View {
                     )
                 ) {
                     ForEach(releaseSelectableLocalDescriptors, id: \.id) { descriptor in
-                        Text(inference.localModelPickerDisplayName(for: descriptor.id)).tag(descriptor.id)
+                        Text(localModelPickerLabel(for: descriptor.id)).tag(descriptor.id)
                     }
                 }
                 .disabled(releaseSelectableLocalDescriptors.isEmpty)
+
+                LabeledContent("Agent Badge") {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(activeLocalAgentBadgeData.title)
+                            .font(.caption.weight(.semibold))
+                        Text("\(activeLocalAgentBadgeData.falsifier) · \(activeLocalAgentBadgeData.witness)")
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
+                }
 
                 if releaseSelectableLocalDescriptors.isEmpty {
                     SettingsDescriptionText(

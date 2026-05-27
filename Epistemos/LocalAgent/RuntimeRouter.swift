@@ -176,6 +176,26 @@ nonisolated public struct RuntimeRouterMetrics: Sendable, Equatable, Codable {
     }
 }
 
+// MARK: - RuntimeAgentCapabilityBadgeData
+
+nonisolated enum RuntimeAgentCapabilityState: String, Sendable, Codable, Hashable, CaseIterable {
+    case honest = "HONEST"
+    case experimental = "EXPERIMENTAL"
+    case off = "OFF"
+}
+
+nonisolated struct RuntimeAgentCapabilityBadgeData: Sendable, Equatable {
+    let state: RuntimeAgentCapabilityState
+    let lane: RuntimeLane
+    let nativeGrammar: LocalToolGrammar.NativeToolGrammar
+    let toolCallMode: RuntimeToolCallMode
+    let witness: String
+    let falsifier: String
+    let reason: String
+
+    var title: String { state.rawValue }
+}
+
 // MARK: - RuntimeRouter
 
 /// Observable, MainActor-isolated multi-lane router. The router is
@@ -467,6 +487,74 @@ public final class RuntimeRouter {
         return modelID
     }
 
+    nonisolated static func agentCapabilityBadgeData(
+        forLocalModelID modelID: String
+    ) -> RuntimeAgentCapabilityBadgeData {
+        let model = LocalTextModelID(rawValue: modelID)
+        let lane = localLane(for: model)
+        let laneCapability = defaultStubCapability(for: lane)
+        let grammar = LocalToolGrammar.nativeGrammar(forModelID: modelID)
+        let witness = "RuntimeRouter \(lane.stableID) lane capability + LocalTextModelID witness"
+
+        guard laneCapability.toolCallMode != .none else {
+            return RuntimeAgentCapabilityBadgeData(
+                state: .off,
+                lane: lane,
+                nativeGrammar: grammar,
+                toolCallMode: .none,
+                witness: witness,
+                falsifier: "F-LocalToolUse unavailable",
+                reason: "Lane does not expose a local tool-call path."
+            )
+        }
+
+        let laneHonorsGrammar = laneCapability.grammarSupport.contains(grammar.rawValue)
+            || laneCapability.toolCallMode == .softGuidance
+
+        if model?.canActAsAgent == true, laneHonorsGrammar {
+            return RuntimeAgentCapabilityBadgeData(
+                state: .honest,
+                lane: lane,
+                nativeGrammar: grammar,
+                toolCallMode: laneCapability.toolCallMode,
+                witness: witness,
+                falsifier: "F-LocalToolUse",
+                reason: "Model and lane have a witnessed local tool path."
+            )
+        }
+
+        if model?.supportsNativeToolCalling == true || grammar != .canonicalXML {
+            return RuntimeAgentCapabilityBadgeData(
+                state: .experimental,
+                lane: lane,
+                nativeGrammar: grammar,
+                toolCallMode: .softGuidance,
+                witness: witness,
+                falsifier: "F-LocalToolUse pending",
+                reason: "Model has tool-use signals, but no named local falsifier witness yet."
+            )
+        }
+
+        return RuntimeAgentCapabilityBadgeData(
+            state: .off,
+            lane: lane,
+            nativeGrammar: grammar,
+            toolCallMode: .none,
+            witness: witness,
+            falsifier: "F-LocalToolUse absent",
+            reason: "No model witness or experimental grammar support is present."
+        )
+    }
+
+    nonisolated private static func localLane(for model: LocalTextModelID?) -> RuntimeLane {
+        switch model?.runtimeKind {
+        case .some(.gguf):
+            return .gguf
+        case .some(.mlx), .some(.remote), .none:
+            return .mlx
+        }
+    }
+
     // MARK: - route(_:) — multi-lane decision
 
     /// Resolve a verdict for the request by walking the preferred
@@ -625,7 +713,7 @@ public final class RuntimeRouter {
         }
     }
 
-    public static func defaultStubCapability(for lane: RuntimeLane) -> RuntimeCapability {
+    nonisolated public static func defaultStubCapability(for lane: RuntimeLane) -> RuntimeCapability {
         switch lane {
         case .mlx:
             return RuntimeCapability(

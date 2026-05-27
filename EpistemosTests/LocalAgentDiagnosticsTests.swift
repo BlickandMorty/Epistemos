@@ -118,8 +118,8 @@ struct LocalAgentDiagnosticsTests {
         #expect(models.first { $0.modelID == toolCaller.rawValue }?.state == .cold)
         #expect(models.first { $0.modelID == coder.rawValue }?.schemaMode == "SOFT")
         #expect(models.first { $0.modelID == coder.rawValue }?.rolesSummary == "Coding")
-        #expect(models.first { $0.modelID == coder.rawValue }?.agentCapabilityBadge.title == "Agent OK")
-        #expect(models.first { $0.modelID == experimental.rawValue }?.agentCapabilityBadge.title == "Experimental - soft guidance")
-        #expect(models.first { $0.modelID == noGrammar.rawValue }?.agentCapabilityBadge.title == "No agent grammar")
+        #expect(models.first { $0.modelID == coder.rawValue }?.agentCapabilityBadge.title == "HONEST")
+        #expect(models.first { $0.modelID == experimental.rawValue }?.agentCapabilityBadge.title == "EXPERIMENTAL")
+        #expect(models.first { $0.modelID == noGrammar.rawValue }?.agentCapabilityBadge.title == "OFF")
     }
 }

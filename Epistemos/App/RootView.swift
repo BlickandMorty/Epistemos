@@ -1554,7 +1554,7 @@ struct LocalModelToolbarMenu: View {
                 HStack(spacing: 0) {
                     selectionRow(
                         title: inference.localModelPickerDisplayName(for: model.id),
-                        subtitle: localModelSubtitle(for: model),
+                        subtitle: localModelSubtitleWithAgentBadge(for: model),
                         systemImage: "memorychip",
                         isSelected: selectedMenuItem == .inProcess(model)
                     ) {
@@ -1583,7 +1583,7 @@ struct LocalModelToolbarMenu: View {
             ForEach(installableSelectableModels, id: \.id) { model in
                 selectionRow(
                     title: inference.localModelPickerDisplayName(for: model.id),
-                    subtitle: "Available to install • \(localModelSubtitle(for: model))",
+                    subtitle: "Available to install • \(localModelSubtitleWithAgentBadge(for: model))",
                     systemImage: "arrow.down.circle",
                     isSelected: false
                 ) {
@@ -1744,6 +1744,11 @@ struct LocalModelToolbarMenu: View {
             for: model,
             qwen3UnifiedPickerPairAvailable: false
         )
+    }
+
+    private func localModelSubtitleWithAgentBadge(for model: LocalModelDescriptor) -> String {
+        let badge = RuntimeRouter.agentCapabilityBadgeData(forLocalModelID: model.id)
+        return "Agent \(badge.title) • \(localModelSubtitle(for: model))"
     }
 
     private static func staticLocalModelSubtitle(

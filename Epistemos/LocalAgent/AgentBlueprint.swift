@@ -110,28 +110,25 @@ nonisolated enum AgentBlueprintModelChoice: Codable, Sendable, Equatable, Hashab
             [
                 .init(title: "HONEST", tone: .good),
                 .init(title: "LOCAL-FIRST", tone: .good),
-                .init(title: "Agent OK", tone: .good),
                 .init(title: "ROUTER", tone: .neutral),
                 .init(title: "STRICT-GRAMMAR", tone: .good),
             ]
         case .local(let modelID, _):
             [
-                .init(title: "HONEST", tone: .good),
-                .init(title: "LOCAL", tone: .good),
                 Self.localAgentCapabilityBadge(forModelID: modelID),
+                .init(title: "LOCAL", tone: .good),
                 .init(title: LocalToolGrammar.nativeGrammar(forModelID: modelID).displayName, tone: .neutral),
                 Self.localGrammarConfidenceBadge(forModelID: modelID),
             ].filter { !$0.title.isEmpty }
         case .cloud:
             [
                 .init(title: "HONEST", tone: .good),
-                .init(title: "Agent OK", tone: .good),
                 .init(title: "CLOUD", tone: .warning),
                 .init(title: "ESCALATION", tone: .warning),
             ]
         case .appleIntelligence:
             [
-                .init(title: "No agent grammar", tone: .disabled),
+                .init(title: "OFF", tone: .disabled),
                 .init(title: "APPLE", tone: .neutral),
                 .init(title: "FAST-ONLY", tone: .neutral),
                 .init(title: "NO-TOOLS", tone: .disabled),
@@ -199,45 +196,42 @@ nonisolated enum AgentBlueprintModelChoice: Codable, Sendable, Equatable, Hashab
     }
 
     static func localAgentCapabilityBadge(forModelID modelID: String) -> AgentBlueprintModelBadge {
-        if localHasValidatedAgentGrammar(for: modelID) {
-            return .init(title: "Agent OK", tone: .good)
-        }
-        if localHasExperimentalGrammar(for: modelID) {
-            return .init(title: "Experimental - soft guidance", tone: .warning)
-        }
-        return .init(title: "No agent grammar", tone: .disabled)
+        let data = RuntimeRouter.agentCapabilityBadgeData(forLocalModelID: modelID)
+        return .init(title: data.title, tone: badgeTone(for: data.state))
     }
 
     static func localGrammarConfidenceBadge(forModelID modelID: String) -> AgentBlueprintModelBadge {
-        if localHasValidatedAgentGrammar(for: modelID) {
+        let data = RuntimeRouter.agentCapabilityBadgeData(forLocalModelID: modelID)
+        switch data.state {
+        case .honest:
             return .init(title: "STRICT-GRAMMAR", tone: .good)
-        }
-        if localHasExperimentalGrammar(for: modelID) {
+        case .experimental:
             return .init(title: "SOFT-GUIDED", tone: .warning)
+        case .off:
+            return .init(title: "NO-TOOLS", tone: .disabled)
         }
-        return .init(title: "NO-TOOLS", tone: .disabled)
     }
 
     static func localStrictGrammarStatus(forModelID modelID: String) -> String {
-        if localHasValidatedAgentGrammar(for: modelID) {
+        switch RuntimeRouter.agentCapabilityBadgeData(forLocalModelID: modelID).state {
+        case .honest:
             return "enabled"
-        }
-        if localHasExperimentalGrammar(for: modelID) {
+        case .experimental:
             return "soft_guidance"
+        case .off:
+            return "no_tools"
         }
-        return "no_tools"
     }
 
-    private static func localHasValidatedAgentGrammar(for modelID: String) -> Bool {
-        guard let model = LocalTextModelID(rawValue: modelID) else { return false }
-        return model.canActAsAgent
-    }
-
-    private static func localHasExperimentalGrammar(for modelID: String) -> Bool {
-        if let model = LocalTextModelID(rawValue: modelID), model.supportsNativeToolCalling {
-            return true
+    private static func badgeTone(for state: RuntimeAgentCapabilityState) -> AgentBlueprintModelBadgeTone {
+        switch state {
+        case .honest:
+            return .good
+        case .experimental:
+            return .warning
+        case .off:
+            return .disabled
         }
-        return LocalToolGrammar.nativeGrammar(forModelID: modelID) != .canonicalXML
     }
 }
 
