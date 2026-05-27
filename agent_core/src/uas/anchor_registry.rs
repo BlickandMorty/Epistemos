@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use crate::uas::AcsAnchor;
+use crate::uas::{AcsAnchor, AcsAnchorPlaneProjection};
 
 // UAS: uas/acs-anchor-registry/<anchor_id>
 // Plane: RuntimePlane::Episodic
@@ -28,6 +28,14 @@ impl AcsAnchorRegistry {
         self.anchors.get(anchor_id)
     }
 
+    pub fn lookup_via_projection(
+        &self,
+        projection: AcsAnchorPlaneProjection<'_>,
+    ) -> Option<&AcsAnchor> {
+        let anchor = self.lookup(projection.anchor_id)?;
+        (anchor.project_to_plane() == projection).then_some(anchor)
+    }
+
     pub fn len(&self) -> usize {
         self.anchors.len()
     }
@@ -45,15 +53,40 @@ mod tests {
     #[test]
     fn lookup_returns_inserted_anchor() {
         let mut registry = AcsAnchorRegistry::with_capacity(1);
-        let anchor = AcsAnchor::new(
+        let mut anchor = AcsAnchor::new(
             "claim-1",
             "E1",
             RuntimePlane::Episodic,
             ResidencyTier::VerifiedFloor,
             0.8,
         );
+        anchor.source_hash = Some("blake3:abc".to_string());
         registry.insert(anchor.clone());
         assert_eq!(registry.lookup("claim-1"), Some(&anchor));
+        assert_eq!(
+            registry.lookup_via_projection(anchor.project_to_plane()),
+            Some(&anchor)
+        );
         assert!(registry.lookup("missing").is_none());
+    }
+
+    #[test]
+    fn projection_lookup_rejects_silent_field_loss() {
+        let mut registry = AcsAnchorRegistry::with_capacity(1);
+        let mut anchor = AcsAnchor::new(
+            "claim-1",
+            "E1",
+            RuntimePlane::Episodic,
+            ResidencyTier::VerifiedFloor,
+            0.8,
+        );
+        anchor.source_hash = Some("blake3:abc".to_string());
+        let mut projection_source = anchor.clone();
+        projection_source.source_hash = Some("blake3:changed".to_string());
+        registry.insert(anchor);
+
+        assert!(registry
+            .lookup_via_projection(projection_source.project_to_plane())
+            .is_none());
     }
 }
