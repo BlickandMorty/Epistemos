@@ -1,3 +1,4 @@
+#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
 import os
 import SwiftUI
 
@@ -873,7 +874,6 @@ private enum RelayHealthFailure: LocalizedError {
         }
     }
 }
-
 private struct ChannelSenderRoutesSheet: View {
     @Environment(ChannelRegistryState.self) private var registry
 
@@ -1118,3 +1118,4 @@ private struct ChannelSenderRoutesSheet: View {
         }
     }
 }
+#endif // !(EPISTEMOS_APP_STORE || MAS_SANDBOX) -- native channel/iMessage driver is Pro/direct-distribution only
