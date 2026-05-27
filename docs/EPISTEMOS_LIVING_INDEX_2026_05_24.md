@@ -8,8 +8,11 @@
 - Updated **2026-05-27** · Wave 4 checkpoint: PRs `#121`-`#127` are on
   `main`, including typed UAS retrieval/claims, PageGather escalation traces,
   Cognitive DAG visualizer, Tri-Fusion typed note mutations, and the System G
-  test-isolation/focused-warning fixes. For the current W-row/falsifier
-  recount and next terminal prompts, read
+  test-isolation/focused-warning fixes. Post-Wave-4 closeouts also retired
+  W-49/W-53 ship hardening and Agent Capability Truth. The provenance/residency
+  detail slice closes the compact AnswerPacket UAS / ACS anchor / plane /
+  residency UI gap. For the current W-row/falsifier recount and next codeword
+  prompts, read
   `docs/audits/LEGENDARY_POST_WAVE4_ROLLUP_2026_05_27.md`. For the post-stash
   split of finished vs unfinished work, read
   `docs/audits/MAIN_ARCHITECTURE_RECOVERY_STATUS_2026_05_26.md` before
@@ -80,13 +83,13 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
 - **E8 (candidate)** Erdős Lift-and-Project Optimality
 - **E9 (candidate)** Shadow-Witness Closure
 
-## 6 · CURRENT STATE (2026-05-27 — Wave 4 checkpoint)
+## 6 · CURRENT STATE (2026-05-27 — Wave 4 checkpoint + closeouts)
 
 ### Wired and on main
 - 40+ pre-2026-05-23 PRs · 18 from the 2026-05-23 sanitization session · 5 from the 2026-05-24 doctrine session · **14 Phase-2 merge-wave PRs (#66-#79, including #73 index refresh and the direct #76 hotfix `77c7efe9ea`)** · **Wave 3/4 substrate PRs #121-#127**.
-- Substrate carcass: ~70% baseline per chronicle audit, advanced by real Eidos bridge, System G seam, ACS production gate, T14 UAS bridge, Verified Floor chip gate, Runtime Router, Hyperdynamic Loop, B-prime chat provenance, Round-2 falsifier artifacts, typed UAS retrieval/claims, PageGather escalation traces, Cognitive DAG visualizer, Tri-Fusion typed note mutations, focused test-warning cleanup, W-49/W-53 hardener closeout, and Agent Capability Truth closeout. **Post-Wave-4 LEGENDARY estimate: ~41/53 strictly wired, ~48/53 strict+meaningful partial, ~95% substrate floor.** Full recount: `docs/audits/LEGENDARY_POST_WAVE4_ROLLUP_2026_05_27.md`.
+- Substrate carcass: ~70% baseline per chronicle audit, advanced by real Eidos bridge, System G seam, ACS production gate, T14 UAS bridge, Verified Floor chip gate, Runtime Router, Hyperdynamic Loop, B-prime chat provenance, Round-2 falsifier artifacts, typed UAS retrieval/claims, PageGather escalation traces, Cognitive DAG visualizer, Tri-Fusion typed note mutations, focused test-warning cleanup, W-49/W-53 hardener closeout, Agent Capability Truth closeout, and the compact AnswerPacket provenance/residency detail path. **Post-Wave-4 LEGENDARY estimate: ~42/53 strictly wired, ~49/53 strict+meaningful partial, ~96% substrate floor.** Full recount: `docs/audits/LEGENDARY_POST_WAVE4_ROLLUP_2026_05_27.md`.
 - 13+ stash recovery tags pushed to origin (`refs/tags/recovery/stash-N-*`) plus Wave-2 recovery tags for PR #74, PR #79, and the B-prime uncommitted follow-up stash.
-- W-rows wired: **about 41/53 strict, about 48/53 strict+partial** after Wave 4 plus W-49/W-53 and Agent Capability Truth closeouts. Known advances: Eidos real bridge/citation gate (#66), System G real seam (#67), falsifier harnesses (#68/#74), Substrate Health/docs/unified panel work (#69/#77), VaultRecall visibility salvage (#70/#79), T14 No-Orphan bridge (#71), ACS production gate (#72), Verified Floor truth gate (#78), Hyperdynamic Schema Loop (#75), Runtime Router (#76), typed UAS retrieval and ClaimLedger addresses (#121), PageGather vault escalation trace (#122), Cognitive DAG visualizer (#123), Tri-Fusion typed note mutations (#124), test-isolation/warning cleanup (#125/#127), W-49/W-53 source guards (`docs/audits/POST_WAVE4_W49_W53_HARDENER_CLOSEOUT_2026_05_27.md`), and Agent Capability Truth source guards (`docs/audits/POST_WAVE4_AGENT_CAPABILITY_TRUTH_CLOSEOUT_2026_05_27.md`).
+- W-rows wired: **about 42/53 strict, about 49/53 strict+partial** after Wave 4 plus W-49/W-53, Agent Capability Truth, and Provenance / Residency Detail closeouts. Known advances: Eidos real bridge/citation gate (#66), System G real seam (#67), falsifier harnesses (#68/#74), Substrate Health/docs/unified panel work (#69/#77), VaultRecall visibility salvage (#70/#79), T14 No-Orphan bridge (#71), ACS production gate (#72), Verified Floor truth gate (#78), Hyperdynamic Schema Loop (#75), Runtime Router (#76), typed UAS retrieval and ClaimLedger addresses (#121), PageGather vault escalation trace (#122), Cognitive DAG visualizer (#123), Tri-Fusion typed note mutations (#124), test-isolation/warning cleanup (#125/#127), W-49/W-53 source guards (`docs/audits/POST_WAVE4_W49_W53_HARDENER_CLOSEOUT_2026_05_27.md`), Agent Capability Truth source guards (`docs/audits/POST_WAVE4_AGENT_CAPABILITY_TRUTH_CLOSEOUT_2026_05_27.md`), and AnswerPacket substrate detail guards (`docs/audits/POST_WAVE4_PROVENANCE_RESIDENCY_DETAIL_2026_05_27.md`).
 - Falsifier artifacts on main: **10 artifact files**.
   - Schema-normalized primary witnesses: `F-VaultRecall-50`, `F-ULP-Oracle`, `F-Eidos-Bridge-RoundTrip`, `F-ACS-Anchor-Addressing`, `F-HyperdynamicLoop-Bounded`.
   - Schema-normalized fallback/CPU witnesses: `F-PageGather-M2Pro`, `F-ControllerKernelPack`, `F-UAS-ZeroCopy-Spine` — Metal/Swift hot-path gates still pending.
@@ -104,7 +107,7 @@ be raw-merged:
   recovery is closed on main; see
   `docs/audits/B_PRIME_FOLLOWUP_CLOSEOUT_2026_05_26.md`.
 
-`main` and `origin/main` are aligned at `38bf5e3130` when this block was refreshed. The
+`main` and `origin/main` are aligned at `334ce238b2` before the provenance/detail slice. The
 finished-vs-preserved architecture recovery split lives in
 `docs/audits/MAIN_ARCHITECTURE_RECOVERY_STATUS_2026_05_26.md`; use `git log -1`
 for the exact current commit.
@@ -220,7 +223,7 @@ Full register: `docs/DEFERRED_WORK_GUARANTEE_2026_05_23.md`. One-liners:
    - Current checkpoint: `checkpoint/wave4-trifusion-typed-mutations-2026-05-27`.
    - No open merge-ready feature PRs remain; only preservation draft PRs `#81` and `#82` are open.
    - First run the post-merge local gate: cargo lib + xcodebuild.
-   - If green → dispatch the three post-Wave-4 terminals in `docs/audits/LEGENDARY_POST_WAVE4_ROLLUP_2026_05_27.md`.
+   - If green → use the codeword queue in `docs/audits/LEGENDARY_POST_WAVE4_ROLLUP_2026_05_27.md`; the product-floor terminals are retired or complete.
 6. Every PR carries the No-Orphan check:
    Motion · UAS · Plane · Residency · WBO/error · Witness · Falsifier · Tier · Rollback.
 7. NEVER `git checkout <stash> -- file`. Use `git apply` patches. PR #59 → #60 lesson.
