@@ -53,6 +53,24 @@ The shader is semantically correct but not architecturally fast enough. The
 current scalar one-thread-per-output pattern cannot be promoted to the
 PageGather primary witness.
 
+## Access-Pattern Reclassification
+
+The failure witness changes the canonical meaning of "scatter" in code and
+docs:
+
+- `Sequential`: correctness + easy-path throughput baseline.
+- `LocalWindow`: product-promotable candidate pattern when the page scheduler
+  keeps source coverage narrow.
+- `SparseScatter`: product-promotable candidate pattern only if the scheduler
+  keeps density low enough to avoid full-source churn.
+- `FullCoverageRandom`: failure stressor. It proves semantic correctness but
+  must not be treated as a green product layout until a locality-aware schedule
+  or equivalent mitigation clears the measured gate.
+
+`agent_core::helios::PageGatherStats::access_class(...)` now makes this
+distinction explicit so future callers cannot silently collapse the failure
+stressor into the product path.
+
 ## No-Orphan Check
 
 - Motion: Project / Verify.

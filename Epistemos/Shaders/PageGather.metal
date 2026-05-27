@@ -11,8 +11,10 @@
 // **Acceptance bar:**
 //   * Stage 1 baseline: ≥ 63-73 GB/s on M2 Pro 16 GB (STREAM-on-Metal
 //     reference for 256 MB working set).
-//   * Stage 2 scatter:  ≥ 70% of baseline on the same working set at
-//     {256 MB, 512 MB} on M2 Pro 16 GB (acceptance contract).
+//   * Stage 2 locality-aware scatter: ≥ 70% of the measured baseline
+//     on the same working set at {256 MB, 512 MB} on M2 Pro 16 GB.
+//     The 2026-05-27 full Fisher-Yates permutation witness is a
+//     failure stressor (~6% of STREAM), not a product-green layout.
 //
 // **HARDWARE-BUDGET:** canonical Wave J target was M2 Max 64 GB with
 // {512 MB, 1024 MB} working-set pairs. Terminal B adapts to M2 Pro
@@ -39,13 +41,14 @@ using namespace metal;
 /// PageGather scatter: `out[i] = source[indices[i]]`.
 ///
 /// One thread per output element. Maximum throughput when indices are
-/// sequential (degenerates to memcpy); falls to the scatter-throughput
-/// acceptance bar (≥70% of baseline) when indices are random.
+/// sequential (degenerates to memcpy). Full-coverage random indices are
+/// correctness stressors; they require a future locality-aware schedule
+/// before this shader can clear the ≥70% STREAM promotion gate.
 ///
 /// NOT YET DISPATCHED. Falsifier harness will run STREAM-on-Metal
 /// baseline first, then this kernel with sequential indices (stage 1)
-/// and random indices (stage 2) — must clear ≥70% of baseline on both
-/// working-set sizes.
+/// and classified scatter indices (stage 2). Full random permutation
+/// failures stay orange/pending until mitigated.
 kernel void pageGatherScatter(
     device const float* source        [[buffer(0)]],
     device const uint*  indices       [[buffer(1)]],

@@ -2,8 +2,10 @@
 //! F-PageGather (CPU baseline / fallback witness).
 //!
 //! Per `docs/falsifiers/F-PageGather-M2Pro_2026_05_17.md` the primary
-//! gate is a **Metal scatter kernel** sustaining ≥ 70% of
-//! STREAM-on-Metal. The CPU scalar reference at
+//! gate is a **Metal locality-aware scatter kernel** sustaining ≥ 70%
+//! of STREAM-on-Metal. The full Fisher-Yates permutation is now a
+//! recorded 2026-05-27 failure stressor, not a green layout. The CPU
+//! scalar reference at
 //! `agent_core/src/helios/page_gather.rs` is the bit-exact ground truth
 //! the Metal kernel must match. This binary runs the CPU reference
 //! across the canonical 256/512/1024 MB working sets, records sustained
