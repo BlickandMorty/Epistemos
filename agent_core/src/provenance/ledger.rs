@@ -46,6 +46,8 @@ use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::uas::{AcsAnchor, UasAddress, UasKind};
+
 /// Maximum walk depth for retraction propagation. Per
 /// `docs/_consolidated/00_canonical_authority/01_DOCTRINE.md §3.3`:
 /// retraction walks deeper than 16 hops indicate a derivation graph
@@ -186,18 +188,29 @@ pub struct Claim {
     /// `ClaimKind::Empirical` if absent (v1 backward-compat).
     #[serde(default)]
     pub kind: ClaimKind,
+    /// W-03 bridge: typed UAS identity for this claim. Legacy archives
+    /// decode as `None`; new `Claim::new` claims are addressed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uas_address: Option<UasAddress>,
+    /// W-03 bridge: optional ACS anchor carried with the claim.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub acs_anchor: Option<AcsAnchor>,
 }
 
 impl Claim {
     /// Create a new active Claim with the default kind ([`ClaimKind::Empirical`]).
     /// Use [`Claim::with_kind`] to set a non-default kind on the same object.
     pub fn new<S: Into<String>>(id: ClaimId, text: S, created_at_ms: i64) -> Self {
+        let text = text.into();
+        let uas_address = Some(claim_uas_address(&id, &text, created_at_ms));
         Self {
             id,
-            text: text.into(),
+            text,
             status: ClaimStatus::Active,
             created_at_ms,
             kind: ClaimKind::Empirical,
+            uas_address,
+            acs_anchor: None,
         }
     }
 
@@ -213,6 +226,26 @@ impl Claim {
         self.kind = kind;
         self
     }
+
+    pub fn with_uas_address(mut self, address: UasAddress) -> Self {
+        self.uas_address = Some(address);
+        self
+    }
+
+    pub fn with_acs_anchor(mut self, anchor: AcsAnchor) -> Self {
+        self.acs_anchor = Some(anchor);
+        self
+    }
+}
+
+pub fn claim_uas_address(id: &ClaimId, text: &str, created_at_ms: i64) -> UasAddress {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(b"agent_core.claim.v1\n");
+    hasher.update(id.0.as_bytes());
+    hasher.update(b"\0");
+    hasher.update(text.as_bytes());
+    let created_at = created_at_ms.max(0) as u64;
+    UasAddress::from_hash(UasKind::Claim, hasher.finalize(), created_at)
 }
 
 /// One Phase-1 Evidence. `source` is a free-form string in Phase 1; the
@@ -868,6 +901,30 @@ mod tests {
 
     fn t() -> i64 {
         1_745_000_000_000
+    }
+
+    #[test]
+    fn claim_new_carries_typed_uas_claim_address() {
+        let claim = Claim::new(ClaimId::new("c-typed"), "typed claim", t());
+        let address = claim.uas_address.as_ref().expect("claim UAS address");
+
+        assert_eq!(address.kind, crate::uas::UasKind::Claim);
+        assert_eq!(address.created_at_ms, t() as u64);
+    }
+
+    #[test]
+    fn claim_can_carry_acs_anchor_for_ledger_bridge() {
+        let anchor = AcsAnchor::new(
+            "claim-anchor",
+            "E1",
+            crate::uas::RuntimePlane::Episodic,
+            crate::uas::ResidencyTier::VerifiedFloor,
+            0.7,
+        );
+        let claim = Claim::new(ClaimId::new("c-anchor"), "anchored claim", t())
+            .with_acs_anchor(anchor.clone());
+
+        assert_eq!(claim.acs_anchor, Some(anchor));
     }
 
     fn seed_basic_ledger() -> ClaimLedger {

@@ -27,6 +27,8 @@ pub struct AcsAnchor {
     pub salience: f32,
 }
 
+impl Eq for AcsAnchor {}
+
 impl AcsAnchor {
     pub fn new(
         anchor_id: impl Into<String>,

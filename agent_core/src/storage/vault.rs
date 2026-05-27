@@ -13,6 +13,7 @@ use tantivy::{doc, Index, IndexReader, IndexWriter, ReloadPolicy, TantivyDocumen
 use crate::storage::retrieval_trace::{
     RetrievalCandidate, RetrievalSignal, RetrievalSignalScore, RetrievalTrace,
 };
+use crate::uas::{UasAddress, UasKind};
 
 /// Chatter words stripped from `hybrid_search` queries before parsing.
 ///
@@ -72,6 +73,28 @@ pub struct SearchResult {
     pub tags: Vec<String>,
 }
 
+impl SearchResult {
+    pub fn projected_uas_address(&self) -> UasAddress {
+        vault_note_path_uas_address(&self.path)
+    }
+}
+
+pub fn vault_note_path_uas_address(path: &str) -> UasAddress {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(b"agent_core.vault_note.path.v1\n");
+    hasher.update(path.as_bytes());
+    UasAddress::from_hash(UasKind::VaultNote, hasher.finalize(), 0)
+}
+
+pub fn vault_note_content_uas_address(path: &str, content: &str) -> UasAddress {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(b"agent_core.vault_note.content.v1\n");
+    hasher.update(path.as_bytes());
+    hasher.update(b"\0");
+    hasher.update(content.as_bytes());
+    UasAddress::from_hash(UasKind::VaultNote, hasher.finalize(), 0)
+}
+
 #[async_trait]
 pub trait VaultBackend: Send + Sync {
     async fn hybrid_search(
@@ -80,6 +103,20 @@ pub trait VaultBackend: Send + Sync {
         limit: usize,
         tag_filter: &[String],
     ) -> Result<Vec<SearchResult>, VaultError>;
+
+    async fn hybrid_search_uas_addresses(
+        &self,
+        query: &str,
+        limit: usize,
+        tag_filter: &[String],
+    ) -> Result<Vec<UasAddress>, VaultError> {
+        let results = self.hybrid_search(query, limit, tag_filter).await?;
+        let mut addresses = Vec::with_capacity(results.len());
+        for result in &results {
+            addresses.push(result.projected_uas_address());
+        }
+        Ok(addresses)
+    }
 
     /// Tier-1 lexical-only search per
     /// `COGNITIVE_VARIANT_LADDER_DOCTRINE_2026_05_04.md` §4.2 — pure
@@ -747,6 +784,7 @@ impl VaultBackend for VaultStore {
         let pool_size = top_docs.len();
         let mut results = Vec::new();
         let mut trace_excerpts: Vec<String> = Vec::new();
+        let mut trace_addresses: Vec<UasAddress> = Vec::new();
         for (score, address) in top_docs {
             let document: TantivyDocument = searcher
                 .doc(address)
@@ -760,6 +798,7 @@ impl VaultBackend for VaultStore {
                 .get_first(self.field_content)
                 .and_then(|value| value.as_str())
                 .unwrap_or("");
+            let uas_address = vault_note_content_uas_address(&path, content);
             let tags = Self::extract_tags(content);
 
             if !tag_filter.is_empty() && !tag_filter.iter().all(|tag| tags.contains(tag)) {
@@ -768,6 +807,7 @@ impl VaultBackend for VaultStore {
 
             let excerpt = Self::excerpt(content, 500);
             trace_excerpts.push(excerpt.clone());
+            trace_addresses.push(uas_address);
 
             // T21 Fix C (2026-05-18): preserve raw BM25. Tantivy scores are
             // unbounded above; the previous `.clamp(0.0, 1.0)` flattened
@@ -803,8 +843,13 @@ impl VaultBackend for VaultStore {
                 results.len()
             ));
         }
-        for (result, excerpt) in results.iter().zip(trace_excerpts.into_iter()) {
+        for ((result, excerpt), address) in results
+            .iter()
+            .zip(trace_excerpts.into_iter())
+            .zip(trace_addresses.into_iter())
+        {
             let mut candidate = RetrievalCandidate::new(result.path.clone(), result.score)
+                .with_uas_address(address)
                 .with_signal(RetrievalSignalScore::new(
                     RetrievalSignal::Lexical,
                     result.score,
@@ -929,7 +974,7 @@ impl VaultBackend for VaultStore {
 
 #[cfg(test)]
 mod tests {
-    use super::{strip_query_chatter, VaultStore};
+    use super::{strip_query_chatter, SearchResult, VaultStore};
 
     /// F-VaultRecall-50 Fix B test 1: a chatty prefix is stripped down to
     /// the signal-bearing terms.
@@ -972,6 +1017,20 @@ mod tests {
         let cleaned = strip_query_chatter(input);
         // "show" "me" "the" "notes" stripped; "Mamba" "SSM" "Cache" survive.
         assert_eq!(cleaned, "Mamba SSM Cache");
+    }
+
+    #[test]
+    fn search_result_projects_typed_vault_note_address() {
+        let result = SearchResult {
+            path: "notes/residency.md".to_string(),
+            excerpt: String::new(),
+            score: 1.0,
+            tags: Vec::new(),
+        };
+
+        let address = result.projected_uas_address();
+        assert_eq!(address.kind, crate::uas::UasKind::VaultNote);
+        assert_eq!(address.created_at_ms, 0);
     }
 
     /// T21 Fix C contract test (2026-05-18): `hybrid_search` MUST NOT clamp

@@ -13,9 +13,20 @@
 use serde::{Deserialize, Serialize};
 
 use crate::cognitive_dag::node::Hash;
+use crate::uas::{UasAddress, UasKind};
 
 use super::budget::{BudgetDebit, BudgetLedger};
 use super::event::AgentEvent;
+
+pub fn agent_trace_uas_address(ordinal: u64, event: &AgentEvent) -> UasAddress {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(b"agent_runtime_v2.agent_trace.v1\n");
+    hasher.update(&ordinal.to_le_bytes());
+    if let Ok(bytes) = serde_json::to_vec(event) {
+        hasher.update(&bytes);
+    }
+    UasAddress::from_hash(UasKind::AgentTrace, hasher.finalize(), 0)
+}
 
 /// A single typed row in the run event log.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -47,6 +58,13 @@ impl RunEventEntry {
             Self::Event { ordinal, .. }
             | Self::SealedMutation { ordinal, .. }
             | Self::LedgerSnapshot { ordinal, .. } => *ordinal,
+        }
+    }
+
+    pub fn agent_trace_address(&self) -> Option<UasAddress> {
+        match self {
+            Self::Event { ordinal, event } => Some(agent_trace_uas_address(*ordinal, event)),
+            Self::SealedMutation { .. } | Self::LedgerSnapshot { .. } => None,
         }
     }
 }
@@ -121,6 +139,16 @@ impl RunEventLog {
     /// Convenience.
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
+    }
+
+    pub fn agent_trace_addresses(&self) -> Vec<UasAddress> {
+        let mut addresses = Vec::with_capacity(self.entries.len());
+        for entry in &self.entries {
+            if let Some(address) = entry.agent_trace_address() {
+                addresses.push(address);
+            }
+        }
+        addresses
     }
 
     /// Return the most recent `LedgerSnapshot` at-or-before the
@@ -630,6 +658,20 @@ mod tests {
         let h1 = log.root_hash();
         let h2 = log.root_hash();
         assert_eq!(h1, h2, "root_hash must be deterministic");
+    }
+
+    #[test]
+    fn run_event_log_projects_agent_trace_uas_addresses() {
+        let mut log = RunEventLog::new();
+        log.append_event(AgentEvent::ReasoningDelta { text: "r".into() });
+        log.append_sealed_mutation(Hash::zero(), BudgetDebit::default());
+        log.append_event(AgentEvent::FinalText { text: "done".into() });
+
+        let addresses = log.agent_trace_addresses();
+        assert_eq!(addresses.len(), 2);
+        assert!(addresses
+            .iter()
+            .all(|address| address.kind == crate::uas::UasKind::AgentTrace));
     }
 
     #[test]
