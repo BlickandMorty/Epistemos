@@ -12,6 +12,7 @@ phase2_terminal_f_artifact: artifacts/falsifiers/controller_kernel_pack/result.j
 phase2_terminal_f_harness: agent_core/src/bin/falsify_controller_kernel_pack.rs
 phase2_terminal_f_caveat: Verifies 6 CPU kernels in `helios::controller_pack` over 4 sizes; records deterministic `kernel_pack_digest` plus empty-input + length-mismatch error contracts. Metal kernel-vs-CPU equivalence + threadgroup budget measurement requires W-41 Swift+Metal dispatch.
 phase2_terminal_f_audit_doc: docs/audits/FALSIFIER_M2PRO_5_PASS_2026_05_23.md
+metal_preflight_status: runtime dispatch/equivalence smoke test added in EpistemosTests/MetalWitnessGatesTests.swift; primary latency/fixture artifact still pending
 ---
 
 # F-ControllerKernelPack

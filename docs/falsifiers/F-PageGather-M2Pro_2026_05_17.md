@@ -12,6 +12,7 @@ phase2_terminal_f_artifact: artifacts/falsifiers/page_gather/result.json
 phase2_terminal_f_harness: agent_core/src/bin/falsify_page_gather.rs
 phase2_terminal_f_caveat: CPU scatter benchmark over 16/64/256 MB working sets via `helios::page_gather::gather` (not the Metal scatter kernel). The artifact records CPU-bound sustained GB/s; this is NOT the 70%-of-STREAM-on-Metal bar. Full gate requires Metal kernel + STREAM-on-Metal triad baseline (W-41).
 phase2_terminal_f_audit_doc: docs/audits/FALSIFIER_M2PRO_5_PASS_2026_05_23.md
+metal_preflight_status: runtime dispatch/equivalence smoke test added in EpistemosTests/MetalWitnessGatesTests.swift; primary bandwidth artifact still pending
 ---
 
 # F-PageGather-M2Pro

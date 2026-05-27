@@ -12,6 +12,7 @@ phase2_terminal_f_artifact: artifacts/falsifiers/ulp_oracle/result.json
 phase2_terminal_f_harness: agent_core/src/bin/falsify_ulp_oracle.rs
 phase2_terminal_f_caveat: Metal `morph_eval_reduced.metal` kernel measurement still pending (W-41 Apple-platform external work). The CPU `ReferenceRoundedKernel` produces the oracle reference itself, so max ULP ≤ 2 is by construction on this artifact; the Metal kernel must match this reference within the same 2-ULP budget once W-41 lands.
 phase2_terminal_f_audit_doc: docs/audits/FALSIFIER_M2PRO_5_PASS_2026_05_23.md
+metal_preflight_status: `morphOracleFp16` runtime dispatch smoke test added in EpistemosTests/MetalWitnessGatesTests.swift; full 414,048-point Metal artifact still pending
 ---
 
 # F-ULP-Oracle

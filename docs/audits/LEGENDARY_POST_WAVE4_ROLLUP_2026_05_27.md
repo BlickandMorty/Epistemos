@@ -155,6 +155,8 @@ Remaining No-Orphan risks are not lost work; they are the next focused slices:
 
 1. Broader all-surface residency polish outside the AnswerPacket/detail rows.
 2. Full hardware research gates for PageGather / ULP / ControllerKernelPack.
+   A 2026-05-27 Metal preflight now dispatches the source kernels and keeps
+   the primary measurement artifacts pending instead of green.
 
 ## Next Terminals
 
@@ -231,8 +233,10 @@ gate is green:
 1. `RESUME ACS ANCHOR HARNESS`
    - Completed by `docs/audits/ACS_ANCHOR_HARNESS_FULL_2026_05_27.md`.
 2. `RESUME METAL WITNESS GATES`
-   - Full Metal/PageGather, ULP, and ControllerKernelPack gates. Keep them
-     research-tier until real hardware measurements pass.
+   - Preflight slice: `docs/audits/METAL_WITNESS_GATES_PREFLIGHT_2026_05_27.md`.
+   - Still remaining: full Metal/PageGather, ULP, and ControllerKernelPack
+     measured artifacts. Keep them research-tier until real hardware
+     measurements pass.
 3. `RESEARCH CONSTRUCTION`
    - Candidate-only research construction engine. Do not affect live product
      behavior.
