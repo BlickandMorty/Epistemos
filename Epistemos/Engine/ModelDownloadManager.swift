@@ -1,9 +1,11 @@
 import Foundation
+import CryptoKit
 import HuggingFace
 
 actor ModelDownloadManager: LocalModelArtifactInstalling {
     private let fileManager = FileManager.default
     private let session: URLSession
+    private let checksumChunkSize = 8 * 1024 * 1024
 
     init(session: URLSession? = nil) {
         if let session {
@@ -65,7 +67,14 @@ actor ModelDownloadManager: LocalModelArtifactInstalling {
             progressHandler: progressHandler
         )
 
-        try verifySnapshot(at: stagingDirectory, descriptor: descriptor)
+        let snapshot = try verifySnapshot(at: stagingDirectory, descriptor: descriptor)
+        let checksumVerification = try await verifyChecksums(
+            for: snapshot.weightFiles,
+            in: stagingDirectory,
+            descriptor: descriptor,
+            repoID: repoID,
+            client: client
+        )
         let directorySize = try byteSize(of: stagingDirectory)
         try fileManager.createDirectory(
             at: activeDirectory.deletingLastPathComponent(),
@@ -85,7 +94,8 @@ actor ModelDownloadManager: LocalModelArtifactInstalling {
             activeDirectoryPath: activeDirectory.path,
             revision: descriptor.revision,
             installedAt: Date(),
-            sizeBytes: directorySize
+            sizeBytes: directorySize,
+            checksumVerification: checksumVerification
         )
     }
 
@@ -93,7 +103,7 @@ actor ModelDownloadManager: LocalModelArtifactInstalling {
         return HubClient(session: session, cache: cache)
     }
 
-    private func verifySnapshot(at directory: URL, descriptor: LocalModelDescriptor) throws {
+    private func verifySnapshot(at directory: URL, descriptor: LocalModelDescriptor) throws -> SnapshotValidation {
         // Allow both full 40-char SHA revisions and branch names like "main"
         let isValidRevision = descriptor.revision == "main"
             || descriptor.revision.range(of: "^[0-9a-f]{40}$", options: .regularExpression) != nil
@@ -108,18 +118,8 @@ actor ModelDownloadManager: LocalModelArtifactInstalling {
         )
 
         let hasConfig = contents.contains { $0.lastPathComponent == "config.json" }
-        let hasWeights = contents.contains { url in
-            guard url.pathExtension == "safetensors" else { return false }
-            do {
-                let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
-                return size > 0
-            } catch {
-                Log.engine.error(
-                    "ModelDownloadManager: failed to read size for \(url.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
-                )
-                return false
-            }
-        }
+        let weightFiles = try modelWeightFiles(in: directory)
+        let hasWeights = !weightFiles.isEmpty
         let hasTokenizer = contents.contains { url in
             [
                 "tokenizer.json",
@@ -131,6 +131,109 @@ actor ModelDownloadManager: LocalModelArtifactInstalling {
         guard hasConfig, hasWeights, hasTokenizer else {
             throw LocalModelManagerError.invalidInstall(descriptor.id)
         }
+        return SnapshotValidation(weightFiles: weightFiles)
+    }
+
+    private func modelWeightFiles(in directory: URL) throws -> [URL] {
+        let enumerator = fileManager.enumerator(
+            at: directory,
+            includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey],
+            options: [.skipsHiddenFiles]
+        )
+        var files: [URL] = []
+        while let file = enumerator?.nextObject() as? URL {
+            guard file.pathExtension == "safetensors" else { continue }
+            let values = try file.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+            guard values.isRegularFile == true, (values.fileSize ?? 0) > 0 else { continue }
+            files.append(file)
+        }
+        return files
+    }
+
+    private func verifyChecksums(
+        for weightFiles: [URL],
+        in directory: URL,
+        descriptor: LocalModelDescriptor,
+        repoID: Repo.ID,
+        client: HubClient
+    ) async throws -> LocalModelChecksumVerification {
+        var verifiedCount = 0
+        for file in weightFiles {
+            let relativePath = try repositoryRelativePath(for: file, in: directory)
+            let metadata: File
+            do {
+                metadata = try await client.getFile(
+                    at: relativePath,
+                    in: repoID,
+                    kind: .model,
+                    revision: descriptor.revision
+                )
+            } catch {
+                return .unverifiedChecksum(
+                    reason: "Remote SHA256/LFS checksum metadata could not be read for downloaded weight files."
+                )
+            }
+            guard metadata.exists,
+                  metadata.isLFS,
+                  let expectedSHA256 = metadata.etag.flatMap(normalizedSHA256Hex) else {
+                return .unverifiedChecksum(
+                    reason: "No SHA256/LFS checksum metadata was available for downloaded weight files."
+                )
+            }
+
+            let actualSHA256 = try sha256Hex(for: file)
+            guard actualSHA256 == expectedSHA256 else {
+                throw LocalModelManagerError.checksumMismatch(
+                    modelID: descriptor.id,
+                    file: relativePath
+                )
+            }
+            verifiedCount += 1
+        }
+
+        guard verifiedCount == weightFiles.count, verifiedCount > 0 else {
+            return .unverifiedChecksum(
+                reason: "No SHA256/LFS checksum metadata was available for downloaded weight files."
+            )
+        }
+        return .verifiedSHA256(fileCount: verifiedCount)
+    }
+
+    private func repositoryRelativePath(for file: URL, in directory: URL) throws -> String {
+        let rootPath = directory.standardizedFileURL.path
+        let filePath = file.standardizedFileURL.path
+        let prefix = rootPath.hasSuffix("/") ? rootPath : rootPath + "/"
+        guard filePath.hasPrefix(prefix) else {
+            throw LocalModelManagerError.invalidInstall(directory.lastPathComponent)
+        }
+        return String(filePath.dropFirst(prefix.count))
+    }
+
+    private func normalizedSHA256Hex(_ etag: String) -> String? {
+        var normalized = etag.trimmingCharacters(in: .whitespacesAndNewlines)
+        if normalized.hasPrefix("W/") {
+            normalized = String(normalized.dropFirst(2))
+        }
+        if normalized.hasPrefix("\""), normalized.hasSuffix("\"") {
+            normalized = String(normalized.dropFirst().dropLast())
+        }
+        normalized = normalized.lowercased()
+        guard normalized.range(of: "^[0-9a-f]{64}$", options: .regularExpression) != nil else {
+            return nil
+        }
+        return normalized
+    }
+
+    private func sha256Hex(for file: URL) throws -> String {
+        let handle = try FileHandle(forReadingFrom: file)
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        while true {
+            let data = try handle.read(upToCount: checksumChunkSize) ?? Data()
+            guard !data.isEmpty else { break }
+            hasher.update(data: data)
+        }
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
     private func byteSize(of directory: URL) throws -> Int64 {
@@ -146,4 +249,8 @@ actor ModelDownloadManager: LocalModelArtifactInstalling {
         }
         return total
     }
+}
+
+private struct SnapshotValidation: Sendable {
+    let weightFiles: [URL]
 }

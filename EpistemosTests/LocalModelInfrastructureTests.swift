@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import Testing
 @testable import Epistemos
 
@@ -60,7 +61,9 @@ struct LocalModelInfrastructureTests {
         #expect(source.contains("installedStorageLabel(for record: LocalModelInstallRecord)"))
         #expect(source.contains("ByteCountFormatter.string(fromByteCount: record.sizeBytes, countStyle: .file)"))
         #expect(source.contains("Text(\"Installed \\(installedStorageLabel(for: record))\")"))
+        #expect(source.contains("Text(record.checksumVerification.displayLabel)"))
         #expect(source.contains("parts.append(\"Installed footprint \\(installedStorageLabel(for: record))\")"))
+        #expect(source.contains("parts.append(record.checksumVerification.displayLabel)"))
     }
 
     @Test("live install smoke accepts the same tokenizer artifacts as the installer")
@@ -1915,6 +1918,194 @@ private actor FakeLocalModelInstaller: LocalModelArtifactInstalling {
             installedAt: Date(timeIntervalSince1970: 42),
             sizeBytes: 3
         )
+    }
+}
+
+@Suite("ModelDownloadManager Integrity", .serialized)
+struct ModelDownloadManagerIntegrityTests {
+    @Test("installer records verified sha256 state when LFS metadata matches staged weights")
+    func installerRecordsVerifiedSHA256State() async throws {
+        let bytes = Data("verified weight bytes".utf8)
+        let root = makeTemporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root.rootDirectory) }
+
+        ModelDownloadURLProtocol.fixture = .init(weightBytes: bytes, remoteETag: sha256Hex(bytes), isLFS: true)
+        let manager = ModelDownloadManager(session: modelDownloadSession())
+
+        let record = try await manager.install(
+            descriptor: Self.descriptor,
+            paths: root,
+            progressHandler: nil
+        )
+
+        #expect(record.checksumVerification == .verifiedSHA256(fileCount: 1))
+    }
+
+    @Test("installer records unverified checksum state when remote metadata has no sha256 hash")
+    func installerRecordsUnverifiedChecksumWhenHashMissing() async throws {
+        let bytes = Data("missing hash weight bytes".utf8)
+        let root = makeTemporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root.rootDirectory) }
+
+        ModelDownloadURLProtocol.fixture = .init(
+            weightBytes: bytes,
+            remoteETag: String(repeating: "b", count: 40),
+            isLFS: false
+        )
+        let manager = ModelDownloadManager(session: modelDownloadSession())
+
+        let record = try await manager.install(
+            descriptor: Self.descriptor,
+            paths: root,
+            progressHandler: nil
+        )
+
+        #expect(record.checksumVerification.state == .unverifiedChecksum)
+        #expect(record.checksumVerification.reason?.contains("No SHA256") == true)
+    }
+
+    @Test("installer rejects checksum mismatches and leaves no staged snapshot behind")
+    func installerRejectsChecksumMismatchAndCleansStaging() async throws {
+        let bytes = Data("actual weight bytes".utf8)
+        let root = makeTemporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root.rootDirectory) }
+
+        let wrongDigest = String(repeating: "a", count: 64)
+        ModelDownloadURLProtocol.fixture = .init(weightBytes: bytes, remoteETag: wrongDigest, isLFS: true)
+        let manager = ModelDownloadManager(session: modelDownloadSession())
+
+        await #expect(throws: LocalModelManagerError.checksumMismatch(modelID: Self.descriptor.id, file: "model.safetensors")) {
+            try await manager.install(
+                descriptor: Self.descriptor,
+                paths: root,
+                progressHandler: nil
+            )
+        }
+
+        #expect(!FileManager.default.fileExists(atPath: root.activeDirectory(for: Self.descriptor).path))
+        let stagedRoot = root.stagingDirectory.appendingPathComponent(Self.descriptor.kind.rawValue, isDirectory: true)
+        let stagedEntries = (try? FileManager.default.contentsOfDirectory(atPath: stagedRoot.path)) ?? []
+        #expect(stagedEntries.isEmpty)
+    }
+
+    fileprivate nonisolated static let descriptor = LocalModelDescriptor(
+        id: "fixture/model",
+        kind: .text,
+        displayName: "Fixture Model",
+        familyName: "Fixture",
+        summary: "Tiny test fixture.",
+        approximateDownloadBytes: 64,
+        minimumRecommendedMemoryGB: 1,
+        revision: "1234567890abcdef1234567890abcdef12345678",
+        matchingGlobs: ["*.json", "*.safetensors", "tokenizer.*"]
+    )
+
+    private func makeTemporaryRoot() -> LocalModelPaths {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        return LocalModelPaths(rootDirectory: root)
+    }
+
+    private func modelDownloadSession() -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [ModelDownloadURLProtocol.self]
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        return URLSession(configuration: configuration)
+    }
+
+    private func sha256Hex(_ data: Data) -> String {
+        let digest = SHA256.hash(data: data)
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+}
+
+private nonisolated final class ModelDownloadURLProtocol: URLProtocol {
+    struct Fixture: Sendable {
+        let weightBytes: Data
+        let remoteETag: String
+        let isLFS: Bool
+    }
+
+    nonisolated(unsafe) static var fixture: Fixture?
+
+    override class func canInit(with request: URLRequest) -> Bool {
+        true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        guard let fixture = Self.fixture,
+              let url = request.url else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+            return
+        }
+
+        do {
+            let (response, data) = try Self.response(for: request, url: url, fixture: fixture)
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            if !data.isEmpty {
+                client?.urlProtocol(self, didLoad: data)
+            }
+            client?.urlProtocolDidFinishLoading(self)
+        } catch {
+            client?.urlProtocol(self, didFailWithError: error)
+        }
+    }
+
+    override func stopLoading() {}
+
+    private static func response(
+        for request: URLRequest,
+        url: URL,
+        fixture: Fixture
+    ) throws -> (HTTPURLResponse, Data) {
+        let revision = ModelDownloadManagerIntegrityTests.descriptor.revision
+        if url.path == "/api/models/fixture/model/tree/\(revision)" {
+            let tree = """
+            [
+              {"path": "config.json", "type": "file", "oid": "config", "size": 2},
+              {"path": "tokenizer.json", "type": "file", "oid": "tokenizer", "size": 2},
+              {"path": "model.safetensors", "type": "file", "oid": "weights", "size": \(fixture.weightBytes.count)}
+            ]
+            """
+            return (try httpResponse(url: url, headers: ["Content-Type": "application/json"]), Data(tree.utf8))
+        }
+
+        let payload: Data
+        if url.path.hasSuffix("/config.json") {
+            payload = Data("{}".utf8)
+        } else if url.path.hasSuffix("/tokenizer.json") {
+            payload = Data("{}".utf8)
+        } else if url.path.hasSuffix("/model.safetensors") {
+            payload = fixture.weightBytes
+        } else {
+            throw URLError(.fileDoesNotExist)
+        }
+
+        var headers = [
+            "Content-Length": "\(payload.count)",
+            "ETag": "\"\(fixture.remoteETag)\"",
+            "X-Repo-Commit": revision,
+        ]
+        if fixture.isLFS {
+            headers["X-Linked-Size"] = "\(payload.count)"
+            headers["X-Linked-Etag"] = "\"\(fixture.remoteETag)\""
+        }
+
+        let data = request.httpMethod == "HEAD" ? Data() : payload
+        return (try httpResponse(url: url, headers: headers), data)
+    }
+
+    private static func httpResponse(
+        url: URL,
+        headers: [String: String] = [:]
+    ) throws -> HTTPURLResponse {
+        guard let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: headers) else {
+            throw URLError(.badServerResponse)
+        }
+        return response
     }
 }
 
