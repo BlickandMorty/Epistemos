@@ -138,9 +138,93 @@ nonisolated struct LocalModelInstallRecord: Identifiable, Codable, Equatable, Se
     let revision: String
     let installedAt: Date
     let sizeBytes: Int64
+    let checksumVerification: LocalModelChecksumVerification
+
+    init(
+        modelID: String,
+        kind: LocalModelKind,
+        activeDirectoryPath: String,
+        revision: String,
+        installedAt: Date,
+        sizeBytes: Int64,
+        checksumVerification: LocalModelChecksumVerification = .unverifiedChecksum(
+            reason: "Legacy install record has no checksum verification metadata."
+        )
+    ) {
+        self.modelID = modelID
+        self.kind = kind
+        self.activeDirectoryPath = activeDirectoryPath
+        self.revision = revision
+        self.installedAt = installedAt
+        self.sizeBytes = sizeBytes
+        self.checksumVerification = checksumVerification
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case modelID
+        case kind
+        case activeDirectoryPath
+        case revision
+        case installedAt
+        case sizeBytes
+        case checksumVerification
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        modelID = try container.decode(String.self, forKey: .modelID)
+        kind = try container.decode(LocalModelKind.self, forKey: .kind)
+        activeDirectoryPath = try container.decode(String.self, forKey: .activeDirectoryPath)
+        revision = try container.decode(String.self, forKey: .revision)
+        installedAt = try container.decode(Date.self, forKey: .installedAt)
+        sizeBytes = try container.decode(Int64.self, forKey: .sizeBytes)
+        checksumVerification = try container.decodeIfPresent(
+            LocalModelChecksumVerification.self,
+            forKey: .checksumVerification
+        ) ?? .unverifiedChecksum(reason: "Legacy install record has no checksum verification metadata.")
+    }
 
     var id: String { modelID }
     var activeDirectoryURL: URL { URL(fileURLWithPath: activeDirectoryPath) }
+}
+
+nonisolated struct LocalModelChecksumVerification: Codable, Equatable, Sendable {
+    enum State: String, Codable, Sendable {
+        case verifiedSHA256 = "verified_sha256"
+        case unverifiedChecksum = "unverified_checksum"
+    }
+
+    let state: State
+    let algorithm: String?
+    let fileCount: Int
+    let reason: String?
+
+    static func verifiedSHA256(fileCount: Int) -> LocalModelChecksumVerification {
+        LocalModelChecksumVerification(
+            state: .verifiedSHA256,
+            algorithm: "sha256",
+            fileCount: fileCount,
+            reason: nil
+        )
+    }
+
+    static func unverifiedChecksum(reason: String) -> LocalModelChecksumVerification {
+        LocalModelChecksumVerification(
+            state: .unverifiedChecksum,
+            algorithm: nil,
+            fileCount: 0,
+            reason: reason
+        )
+    }
+
+    var displayLabel: String {
+        switch state {
+        case .verifiedSHA256:
+            return "Checksum verified"
+        case .unverifiedChecksum:
+            return "Checksum unverified"
+        }
+    }
 }
 
 struct LocalModelInstallManifest: Codable, Sendable {
@@ -160,6 +244,7 @@ nonisolated enum LocalModelManagerError: LocalizedError, Equatable {
     case installAlreadyRunning(String)
     case notInstalled(String)
     case invalidInstall(String)
+    case checksumMismatch(modelID: String, file: String)
     case corruptedManifest
 
     var errorDescription: String? {
@@ -178,6 +263,8 @@ nonisolated enum LocalModelManagerError: LocalizedError, Equatable {
             return "\(modelID) is not currently installed."
         case .invalidInstall(let modelID):
             return "The local install for \(modelID) is incomplete or corrupted."
+        case .checksumMismatch(let modelID, let file):
+            return "Checksum mismatch for \(file) in \(modelID). The staged download was discarded; retry the install."
         case .corruptedManifest:
             return "The local model manifest is corrupted."
         }
