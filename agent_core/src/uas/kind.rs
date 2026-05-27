@@ -45,6 +45,8 @@ pub enum UasKind {
     AnswerPacket,
     /// T1 tri-fusion content-fabric block (T1 to refine).
     TriFusionBlock,
+    /// ClaimLedger claim / AnswerPacket claim witness.
+    Claim,
     /// Forward-compat escape hatch. An unknown wire tag deserializes here.
     Other(String),
 }
@@ -64,6 +66,7 @@ impl UasKind {
             UasKind::ToolResult => Cow::Borrowed("tool_result"),
             UasKind::AnswerPacket => Cow::Borrowed("answer_packet"),
             UasKind::TriFusionBlock => Cow::Borrowed("tri_fusion_block"),
+            UasKind::Claim => Cow::Borrowed("claim"),
             UasKind::Other(s) => Cow::Borrowed(s.as_str()),
         }
     }
@@ -83,6 +86,7 @@ impl UasKind {
             "tool_result" => UasKind::ToolResult,
             "answer_packet" => UasKind::AnswerPacket,
             "tri_fusion_block" => UasKind::TriFusionBlock,
+            "claim" => UasKind::Claim,
             unknown => UasKind::Other(unknown.to_string()),
         }
     }
@@ -102,6 +106,7 @@ mod tests {
     fn known_variants_round_trip_through_wire_tag() {
         let known = [
             UasKind::VaultNote,
+            UasKind::Claim,
             UasKind::GraphNode,
             UasKind::KvPage,
             UasKind::ModelComponent,
@@ -109,6 +114,7 @@ mod tests {
             UasKind::ToolResult,
             UasKind::AnswerPacket,
             UasKind::TriFusionBlock,
+            UasKind::Claim,
         ];
         for variant in &known {
             let tag = variant.wire_tag();
