@@ -1,10 +1,12 @@
 # Metal Witness Gates Preflight - 2026-05-27
 
-Status: preflight evidence landed; `F-ULP-Oracle` full Metal primary artifact now landed; primary throughput artifacts remain pending for PageGather and ControllerKernelPack.
+Status: preflight evidence landed; `F-ULP-Oracle` full Metal primary artifact now landed; PageGather has a real 256 MB failure witness; primary throughput artifacts remain pending for PageGather and ControllerKernelPack.
 
 Branch: `codex/resume-metal-witness-gates-2026-05-27`
 
 Follow-up branch: `codex/canonical-metal-artifact-gates-2026-05-27`
+
+PageGather failure branch: `codex/pagegather-metal-primary-witness-2026-05-27`
 
 ## Scope
 
@@ -37,15 +39,16 @@ the live Metal device, and match deterministic CPU/oracle fixtures on small inpu
 
 | Gate | Current status after this slice | Not promoted to green because |
 |---|---|---|
-| `F-PageGather-M2Pro` | Metal dispatch/equivalence preflight exists | The 70%-of-measured-STREAM sustained bandwidth artifact is still not produced. |
+| `F-PageGather-M2Pro` | Metal dispatch/equivalence preflight exists; `artifacts/falsifiers/page_gather/metal_failure_result.json` records a 256 MB sustained failure | The primary 256/512/1024 MB pass artifact is still not produced; current shader is correct but too slow. |
 | `F-ControllerKernelPack` | Metal dispatch/equivalence preflight exists | p99 dispatch latency, sequence wall time, and full 7-size x 100-seed artifact are still not produced. |
 | `F-ULP-Oracle` | `artifacts/falsifiers/ulp_oracle/result.json` is now a full Metal `morphOracleFp16` primary witness over 414,048 points / 1,242,144 evaluations | No caveat remains for this gate's Metal/oracle axis; PageGather and ControllerKernelPack remain orange/pending. |
 
 The preflight itself did not rewrite artifacts. The follow-up Metal artifact
 slice rewrote only `artifacts/falsifiers/ulp_oracle/result.json` after the full
-Metal/oracle run passed. Existing fallback/CPU artifacts remain the authority for
-PageGather and ControllerKernelPack until their real hardware measurement runs
-replace them.
+Metal/oracle run passed. The PageGather follow-up wrote a separate failure
+report, not `result.json`, because the measured ratio failed. Existing
+fallback/CPU artifacts remain the authority for PageGather and ControllerKernelPack
+until their real hardware measurement runs replace them.
 
 ## No-Orphan Check
 
@@ -53,7 +56,7 @@ replace them.
 - UAS: no new UAS address shape; consumes existing falsifier names and shader paths.
 - Plane: PageGather is retrieval/page plane; ControllerKernelPack is controller plane; F-ULP is verification plane.
 - Residency: Apple Silicon UMA via `.storageModeShared` buffers in the test harness.
-- WBO/error: failures throw test errors; no fallback is hidden as a pass.
+- WBO/error: failures throw test errors or write explicit failure reports; no fallback is hidden as a pass.
 - Witness: Swift Testing runtime dispatch plus this audit doc.
 - Falsifier: `F-ULP-Oracle` has a primary Metal artifact; `F-PageGather-M2Pro`
   and `F-ControllerKernelPack` are referenced but not fully promoted.

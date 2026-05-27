@@ -51,6 +51,10 @@ Additional 2026-05-27 Metal witness evidence after the preflight slice:
     Metal `morphOracleFp16` primary witness.
 - `cargo run --manifest-path agent_core/Cargo.toml --release --bin falsifier_validator -- artifacts/falsifiers/ulp_oracle/result.json`
   - passed.
+- `swift Tools/metal-witness-gates/page-gather-metal-artifact.swift --working-sets-mb 256 --window-seconds 5 --trials 3 --warmup-iterations 3 --write-artifact`
+  - failed honestly; wrote `artifacts/falsifiers/page_gather/metal_failure_result.json`.
+  - The shader produced correct values but random scatter reached only about
+    `0.064x` measured STREAM, so `F-PageGather-M2Pro` remains orange/pending.
 
 ## Main / PR State
 
@@ -120,7 +124,7 @@ There are 10 `artifacts/falsifiers/*/result.json` files on main:
 | `acs_anchor_addressing` | full measured true | N=1000 full harness with agent runtime emission, lookup, audit canonicalization, and five-plane projection inversion. See `docs/audits/ACS_ANCHOR_HARNESS_FULL_2026_05_27.md`. |
 | `ulp_oracle` | measured true | Full Metal `morphOracleFp16` primary witness over 414,048 points / 1,242,144 evaluations; max ULP axes pass the <=2 budget. |
 | `uas_zero_copy_spine` | measured true | Zero tracked copies in scoped spine; broader hot path can still be expanded. |
-| `page_gather` | measured true | CPU scatter/PageGather artifact; full Metal STREAM-style gate pending. |
+| `page_gather` | measured true + Metal failure report | CPU scatter/PageGather artifact remains the fallback witness; 256 MB Metal STREAM-style run failed the primary ratio and is recorded at `artifacts/falsifiers/page_gather/metal_failure_result.json`. |
 | `controller_kernel_pack` | measured true | CPU/reference kernel-pack witness; full Metal dispatcher pending. |
 
 The `>=7 measured witnesses` objective is satisfied. The verified floor must
@@ -247,9 +251,11 @@ gate is green:
 2. `RESUME METAL WITNESS GATES`
    - Preflight slice: `docs/audits/METAL_WITNESS_GATES_PREFLIGHT_2026_05_27.md`.
    - `F-ULP-Oracle` full Metal artifact: `artifacts/falsifiers/ulp_oracle/result.json`.
-   - Still remaining: full Metal/PageGather and ControllerKernelPack measured
-     throughput/latency artifacts. Keep them research-tier until real hardware
-     measurements pass.
+   - `F-PageGather-M2Pro` now has a real 256 MB failure report; next step is
+     kernel mitigation, not promotion.
+   - Still remaining: full Metal/PageGather pass artifact and ControllerKernelPack
+     measured throughput/latency artifacts. Keep them research-tier until real
+     hardware measurements pass.
 3. `RESEARCH CONSTRUCTION`
    - Candidate-only research construction engine. Do not affect live product
      behavior.

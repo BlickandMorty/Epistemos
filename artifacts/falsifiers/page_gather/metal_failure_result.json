@@ -1,0 +1,180 @@
+{
+  "acceptance_thresholds" : {
+    "gather_correctness_violations_256mb" : {
+      "operator" : "==",
+      "unit" : "violations",
+      "value" : 0
+    },
+    "gather_gbs_256mb" : {
+      "operator" : ">",
+      "unit" : "GB_per_second",
+      "value" : 0
+    },
+    "gather_stream_ratio_256mb" : {
+      "operator" : ">=",
+      "unit" : "ratio",
+      "value" : 0.94999999999999996
+    },
+    "scatter_correctness_violations_256mb" : {
+      "operator" : "==",
+      "unit" : "violations",
+      "value" : 0
+    },
+    "scatter_gbs_256mb" : {
+      "operator" : ">",
+      "unit" : "GB_per_second",
+      "value" : 0
+    },
+    "scatter_second_run_ratio_256mb" : {
+      "operator" : ">=",
+      "unit" : "ratio",
+      "value" : 0.90000000000000002
+    },
+    "scatter_stability_range_over_mean_256mb" : {
+      "operator" : "<",
+      "unit" : "ratio",
+      "value" : 0.14999999999999999
+    },
+    "scatter_stream_ratio_256mb" : {
+      "operator" : ">=",
+      "unit" : "ratio",
+      "value" : 0.69999999999999996
+    },
+    "stream_triad_gbs_256mb" : {
+      "operator" : ">",
+      "unit" : "GB_per_second",
+      "value" : 0
+    }
+  },
+  "anomalies" : [
+    {
+      "detail" : "The Metal PageGather witness failed at least one ratio, correctness, or stability axis. Do not promote F-PageGather-M2Pro; inspect metal_failure_result.json.",
+      "kind" : "page_gather_metal_gate_failed"
+    }
+  ],
+  "artifact_kind" : "failure_report",
+  "command" : "swift Tools\/metal-witness-gates\/page-gather-metal-artifact.swift --working-sets-mb 256 --window-seconds 5 --trials 3 --warmup-iterations 3 --write-artifact",
+  "command_digest" : "sha256:b8705669a2dc4fb88b881be0f47acf66e1c31903c95f655fbe83957296c429c3",
+  "commit_sha" : "e557543df697233d199f4a68c42ffd4ea4e846c7",
+  "fallback_tier" : "Fail",
+  "falsifier_id" : "F-PageGather-M2Pro",
+  "fixture_id" : "page_gather_metal_stream_scatter_256mb_3x_5p00s_v1",
+  "hardware_pin" : {
+    "cpu" : "12-core CPU",
+    "gpu" : "19-core GPU",
+    "machine" : "M2 Pro 14-inch 2023",
+    "memory_bandwidth_gb_s" : 200,
+    "unified_memory_gb" : 16
+  },
+  "measurements" : {
+    "gather_correctness_violations_256mb" : {
+      "unit" : "violations",
+      "value" : 0
+    },
+    "gather_gbs_256mb" : {
+      "unit" : "GB_per_second",
+      "value" : 175.36314454851717
+    },
+    "gather_samples_gbs_256mb" : {
+      "unit" : "GB_per_second",
+      "value" : [
+        177.62859244832757,
+        175.36314454851717,
+        170.84295742273773
+      ]
+    },
+    "gather_stream_ratio_256mb" : {
+      "unit" : "ratio",
+      "value" : 0.74272745358834691
+    },
+    "harness_wall_clock_seconds" : {
+      "unit" : "seconds",
+      "value" : 95.909235954284668
+    },
+    "scatter_correctness_violations_256mb" : {
+      "unit" : "violations",
+      "value" : 0
+    },
+    "scatter_gbs_256mb" : {
+      "unit" : "GB_per_second",
+      "value" : 15.15720943348432
+    },
+    "scatter_samples_gbs_256mb" : {
+      "unit" : "GB_per_second",
+      "value" : [
+        15.146928303860669,
+        15.193023544587321,
+        15.15720943348432
+      ]
+    },
+    "scatter_second_run_ratio_256mb" : {
+      "unit" : "ratio",
+      "value" : 1.0030432071639834
+    },
+    "scatter_stability_range_over_mean_256mb" : {
+      "unit" : "ratio",
+      "value" : 0.0030394362699475079
+    },
+    "scatter_stream_ratio_256mb" : {
+      "unit" : "ratio",
+      "value" : 0.06419636004486938
+    },
+    "stream_samples_gbs_256mb" : {
+      "unit" : "GB_per_second",
+      "value" : [
+        237.23161015891671,
+        233.16617514176733,
+        236.10699146945944
+      ]
+    },
+    "stream_triad_gbs_256mb" : {
+      "unit" : "GB_per_second",
+      "value" : 236.10699146945944
+    },
+    "trial_count" : {
+      "unit" : "count",
+      "value" : 3
+    },
+    "warmup_iterations" : {
+      "unit" : "count",
+      "value" : 3
+    },
+    "window_seconds" : {
+      "unit" : "seconds",
+      "value" : 5
+    }
+  },
+  "notes" : "Metal PageGather witness generated from Epistemos\/Shaders\/PageGather.metal with an in-harness STREAM triad baseline. Ratios use measured traffic bytes (STREAM=16 bytes\/element; PageGather=12 bytes\/element). result.json is written only on full pass; failed runs write metal_failure_result.json unless --force-write-result is explicitly supplied.",
+  "overall_pass" : false,
+  "pass_per_axis" : {
+    "gather_correctness_violations_256mb" : true,
+    "gather_gbs_256mb" : true,
+    "gather_stream_ratio_256mb" : false,
+    "scatter_correctness_violations_256mb" : true,
+    "scatter_gbs_256mb" : true,
+    "scatter_second_run_ratio_256mb" : true,
+    "scatter_stability_range_over_mean_256mb" : true,
+    "scatter_stream_ratio_256mb" : false,
+    "stream_triad_gbs_256mb" : true
+  },
+  "result_digest" : "sha256:cf22560c9a2ba988af1a5cf86887b7d9868ced6f5c77c41ba5e878aa0ada99fa",
+  "runner_environment" : {
+    "cwd" : "repo_root",
+    "env_policy" : "script_owned",
+    "locale" : "C",
+    "os_build" : "Darwin 25D2128",
+    "power_source" : "unknown",
+    "shell" : "zsh",
+    "thermal_state_end" : "unknown",
+    "thermal_state_start" : "unknown",
+    "timezone" : "UTC",
+    "toolchain_identity" : {
+      "python" : "not_used",
+      "rustc" : "not_used",
+      "swift" : "Apple Swift version 6.3.1 (swiftlang-6.3.1.1.2 clang-2100.0.123.102) Target: arm64-apple-macosx26.0",
+      "xcodebuild" : "Xcode 26.4.1 Build version 17E202"
+    }
+  },
+  "schema_version" : "2026-05-18.2",
+  "timestamp_utc" : "2026-05-27T18:32:42Z"
+}

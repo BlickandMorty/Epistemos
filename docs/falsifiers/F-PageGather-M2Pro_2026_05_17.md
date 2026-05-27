@@ -12,7 +12,7 @@ phase2_terminal_f_artifact: artifacts/falsifiers/page_gather/result.json
 phase2_terminal_f_harness: agent_core/src/bin/falsify_page_gather.rs
 phase2_terminal_f_caveat: CPU scatter benchmark over 16/64/256 MB working sets via `helios::page_gather::gather` (not the Metal scatter kernel). The artifact records CPU-bound sustained GB/s; this is NOT the 70%-of-STREAM-on-Metal bar. Full gate requires Metal kernel + STREAM-on-Metal triad baseline (W-41).
 phase2_terminal_f_audit_doc: docs/audits/FALSIFIER_M2PRO_5_PASS_2026_05_23.md
-metal_preflight_status: runtime dispatch/equivalence smoke test added in EpistemosTests/MetalWitnessGatesTests.swift; primary bandwidth artifact still pending
+metal_preflight_status: runtime dispatch/equivalence smoke test added in EpistemosTests/MetalWitnessGatesTests.swift; 2026-05-27 256 MB sustained witness failed the primary bandwidth ratio and is recorded at artifacts/falsifiers/page_gather/metal_failure_result.json
 ---
 
 # F-PageGather-M2Pro
@@ -126,6 +126,33 @@ on identical workloads.
 | **Window stability** | range(max, min) / mean over the 1 s+ window < 15% (no spikes/dips) |
 | **Thermal stability** | second run within 5 s of first run holds ≥ 90% of first-run throughput (i.e. no major thermal throttling kicks in) |
 | **Peak resident memory** | working_set + ~32 MB harness overhead |
+
+### §4.1 2026-05-27 Metal failure evidence
+
+`Tools/metal-witness-gates/page-gather-metal-artifact.swift` now runs the
+Metal shader against an in-harness STREAM triad baseline.
+
+The 256 MB required-size run was measured with:
+
+```text
+swift Tools/metal-witness-gates/page-gather-metal-artifact.swift --working-sets-mb 256 --window-seconds 5 --trials 3 --warmup-iterations 3 --write-artifact
+```
+
+Result: **FAIL**, recorded at
+`artifacts/falsifiers/page_gather/metal_failure_result.json`.
+
+The shader is correct (`0` sampled gather/scatter violations), but the current
+one-thread-per-output scatter kernel does not meet the throughput floor:
+
+- STREAM triad median: about `236 GB/s`.
+- Sequential gather median: about `175 GB/s` (`0.74x` STREAM; below the `0.95x`
+  gather bar).
+- Random scatter median: about `15 GB/s` (`0.064x` STREAM; below the `0.70x`
+  scatter bar).
+
+Therefore `artifacts/falsifiers/page_gather/result.json` remains the CPU
+fallback witness. The product-facing PageGather / Vault escalation UI must stay
+orange/pending until a mitigation run clears the full 256/512/1024 MB gate.
 
 ## §5. Measurement methodology
 
