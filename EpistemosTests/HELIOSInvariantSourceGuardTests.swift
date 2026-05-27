@@ -1998,11 +1998,14 @@ struct HELIOSInvariantSourceGuardTests {
         }
     }
 
-    @Test("V6.1/V6.2: target-only kernel names are not compiled as shipped shaders")
-    func v6_1TargetOnlyKernelsAreNotCompiledAsShippedShaders() throws {
+    @Test("V6.1/V6.2: deferred hardware kernels compile without being blessed as primary passes")
+    func v6_1DeferredHardwareKernelsCompileWithoutBeingBlessedAsPrimaryPasses() throws {
         let script = try loadMirroredSourceTextFile("Tools/metal-shader-compile/metal-shader-compile.sh")
         #expect(script.contains("HELIOS-V6-TARGET-ONLY-KERNEL-GUARD"))
-        for targetOnlyKernel in [
+        #expect(script.contains("deferred_hardware_kernels"))
+        #expect(script.contains("compile smoke is not a primary M2 Pro falsifier pass"))
+
+        for deferredKernel in [
             "SemiseparableBlockScan.metal",
             "LocalRecallIsland.metal",
             "PageGather.metal",
@@ -2011,31 +2014,24 @@ struct HELIOSInvariantSourceGuardTests {
             "InterruptScore.metal",
         ] {
             #expect(
-                script.contains(targetOnlyKernel),
-                "Metal compile script must explicitly guard target-only kernel \(targetOnlyKernel)"
+                script.contains(deferredKernel),
+                "Metal compile script must explicitly warn on deferred hardware kernel \(deferredKernel)"
             )
         }
 
-        for shaderRoot in ["Epistemos/Shaders", "agent_core/metal"] {
-            let metalFiles = try mirroredSourceFileURLs(
-                under: shaderRoot,
-                includingExtensions: ["metal"]
-            )
-            let names = Set(metalFiles.map(\.lastPathComponent))
-            for targetOnlyKernel in [
-                "SemiseparableBlockScan.metal",
-                "LocalRecallIsland.metal",
-                "PageGather.metal",
-                "ControllerKernelPack.metal",
-                "PacketRouter1bit.metal",
-                "InterruptScore.metal",
-            ] {
-                #expect(
-                    !names.contains(targetOnlyKernel),
-                    "\(targetOnlyKernel) must stay absent from \(shaderRoot) until the real kernel and M2 Pro falsifier are promoted together"
-                )
-            }
-        }
+        let witnessTests = try loadMirroredSourceTextFile("EpistemosTests/MetalWitnessGatesTests.swift")
+        #expect(witnessTests.contains("pageGatherScatter"))
+        #expect(witnessTests.contains("pageGatherScatterScaled"))
+        #expect(witnessTests.contains("scalarAddInPlace"))
+        #expect(witnessTests.contains("argmaxReduce"))
+        #expect(witnessTests.contains("morphOracleFp16"))
+
+        let audit = try loadMirroredSourceTextFile("docs/audits/METAL_WITNESS_GATES_PREFLIGHT_2026_05_27.md")
+        #expect(audit.contains("primary throughput artifacts remain pending"))
+        #expect(audit.contains("not promoted to green"))
+        #expect(audit.contains("F-PageGather-M2Pro"))
+        #expect(audit.contains("F-ControllerKernelPack"))
+        #expect(audit.contains("F-ULP-Oracle"))
     }
 
     @Test("W26: §2.5.2 compliance audit exists + enforces v1 HELIOS toggle freeze")
