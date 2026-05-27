@@ -212,30 +212,87 @@ var isTerminal: Bool {
 // gets a Sendable copy and renders without races).
 
 nonisolated struct RunEventLog: Codable, Hashable, Sendable {
-let missionId: String
-private(set) var events: [SystemGAgentEvent]
+    let missionId: String
+    private(set) var events: [SystemGAgentEvent]
 
-init(missionId: String, events: [SystemGAgentEvent] = []) {
+    init(missionId: String, events: [SystemGAgentEvent] = []) {
         self.missionId = missionId
         self.events = events
     }
 
-mutating func append(_ event: SystemGAgentEvent) {
+    mutating func append(_ event: SystemGAgentEvent) {
         events.append(event)
     }
 
     /// The terminal `.complete` or `.failed` event if the run has
     /// concluded. `nil` while the run is still open.
-var terminalEvent: SystemGAgentEvent? {
+    var terminalEvent: SystemGAgentEvent? {
         events.last(where: { $0.isTerminal })
     }
 
     /// `answerPacketId` from the terminal `.complete` event, if any.
     /// Callers resolve the packet via `AnswerPacketEmitter.shared
     /// .recentPackets()`.
-var answerPacketId: String? {
+    var answerPacketId: String? {
         guard case .complete(_, let id) = terminalEvent else { return nil }
         return id
+    }
+}
+
+nonisolated enum RunEventLogReplayError: Error, Equatable, Sendable {
+    case failed(String)
+    case missingTerminalEvent
+    case missingAnswerPacketID
+    case missingAnswerText
+}
+
+nonisolated enum RunEventLogReplayProjection {
+    static func answerText(from log: RunEventLog) throws -> String {
+        guard let terminal = log.terminalEvent else {
+            throw RunEventLogReplayError.missingTerminalEvent
+        }
+        if case .failed(_, let error) = terminal {
+            throw RunEventLogReplayError.failed(error)
+        }
+        var text = ""
+        text.reserveCapacity(log.events.reduce(0) { partial, event in
+            guard case .tokenChunk(_, let delta) = event else { return partial }
+            return partial + delta.count
+        })
+        for event in log.events {
+            if case .tokenChunk(_, let delta) = event {
+                text += delta
+            }
+        }
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw RunEventLogReplayError.missingAnswerText
+        }
+        return text
+    }
+
+    static func answerPacket(from log: RunEventLog, emittedAtMs: Int64 = 0) throws -> AnswerPacket {
+        guard let packetID = log.answerPacketId,
+              !packetID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw RunEventLogReplayError.missingAnswerPacketID
+        }
+        let claim = Claim(
+            id: "claim-\(packetID)-run-event-log",
+            text: "System G replay reconstructed this AnswerPacket from RunEventLog \(log.missionId).",
+            status: .active,
+            createdAtMs: emittedAtMs,
+            kind: .empirical
+        )
+        return AnswerPacket(
+            id: packetID,
+            claims: [claim],
+            residencySignals: [.neutral],
+            uiLabel: .verified,
+            attentionMode: .unavailable,
+            interruptBucket: .unavailable,
+            witnessedStateRef: "run_event_log:\(log.missionId);answer_packet:\(packetID);events:\(log.events.count)",
+            semanticDeltaRef: "system_g_replay:\(log.missionId)",
+            mutationEnvelopeRef: "run_event_log:\(log.missionId)"
+        )
     }
 }
 

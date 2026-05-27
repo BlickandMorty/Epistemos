@@ -437,7 +437,10 @@ nonisolated struct AgentBlueprintRunRecord: Codable, Sendable, Equatable, Identi
 
     var id: String { packet.id }
 
-    func replaySnapshot(from events: [AgentProvenanceEvent]) -> AgentBlueprintRunReplaySnapshot? {
+    func replaySnapshot(
+        from events: [AgentProvenanceEvent],
+        packets: [AnswerPacket] = []
+    ) -> AgentBlueprintRunReplaySnapshot? {
         let missionEvents = events.filter { event in
             event.metadata["mission_packet_id"] == packet.id
         }
@@ -450,11 +453,19 @@ nonisolated struct AgentBlueprintRunRecord: Codable, Sendable, Equatable, Identi
             .filter { $0.runID == runID }
             .sorted(by: Self.eventSortAscending)
         let latestEvent = runEvents.last ?? latestMissionEvent
+        let answerPacketID = Self.latestAnswerPacketID(in: runEvents)
         return AgentBlueprintRunReplaySnapshot(
             runID: runID,
             eventCount: runEvents.count,
             latestEventKind: latestEvent.kind.rawValue,
-            latestOccurredAt: Date(timeIntervalSince1970: Double(latestEvent.occurredAtMs) / 1_000)
+            latestOccurredAt: Date(timeIntervalSince1970: Double(latestEvent.occurredAtMs) / 1_000),
+            answerPacketId: answerPacketID,
+            replayStatus: Self.replayStatus(
+                runID: runID,
+                runEvents: runEvents,
+                answerPacketID: answerPacketID,
+                packets: packets
+            )
         )
     }
 
@@ -470,6 +481,89 @@ nonisolated struct AgentBlueprintRunRecord: Codable, Sendable, Equatable, Identi
         }
         return lhs.eventID < rhs.eventID
     }
+
+    private static func latestAnswerPacketID(in events: [AgentProvenanceEvent]) -> String? {
+        events.reversed().compactMap { clean($0.metadata["answer_packet_id"]) }.first
+    }
+
+    private static func replayStatus(
+        runID: String,
+        runEvents: [AgentProvenanceEvent],
+        answerPacketID: String?,
+        packets: [AnswerPacket]
+    ) -> AgentBlueprintReplayStatus {
+        if runEvents.contains(where: isFailedTerminalRun) {
+            return .failed
+        }
+        guard let answerPacketID else {
+            return .missingPacket
+        }
+        guard let packet = packets.first(where: { $0.id == answerPacketID }) else {
+            return .missingPacket
+        }
+        guard packet.witnessedStateRef.contains("run_event_log:\(runID)") else {
+            return .invalidProof
+        }
+        let hasStart = runEvents.contains { $0.kind == .runStarted }
+        let hasCompletion = runEvents.contains { $0.kind == .runCompleted }
+        guard hasStart && hasCompletion else {
+            return .missingEvent
+        }
+        return .verified
+    }
+
+    private static func isFailedTerminalRun(_ event: AgentProvenanceEvent) -> Bool {
+        guard event.kind == .runCompleted else { return false }
+        let outcome = clean(event.metadata["outcome"])?.lowercased()
+        let stopReason = clean(event.metadata["stop_reason"])?.lowercased()
+        return outcome == "failed"
+            || stopReason == "error"
+            || stopReason == "failed"
+            || stopReason == "cancelled"
+    }
+
+    private static func clean(_ value: String?) -> String? {
+        let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
+    }
+}
+
+nonisolated enum AgentBlueprintReplayStatus: String, Codable, Sendable, Equatable, Hashable, CaseIterable {
+    case verified
+    case missingEvent = "missing_event"
+    case missingPacket = "missing_packet"
+    case invalidProof = "invalid_proof"
+    case failed
+
+    var displayName: String {
+        switch self {
+        case .verified:
+            "Replay verified"
+        case .missingEvent:
+            "Missing event"
+        case .missingPacket:
+            "Missing packet"
+        case .invalidProof:
+            "Invalid proof"
+        case .failed:
+            "Run failed"
+        }
+    }
+
+    var summaryLabel: String {
+        switch self {
+        case .verified:
+            "replay verified"
+        case .missingEvent:
+            "missing event"
+        case .missingPacket:
+            "missing packet"
+        case .invalidProof:
+            "invalid proof"
+        case .failed:
+            "failed"
+        }
+    }
 }
 
 nonisolated struct AgentBlueprintRunReplaySnapshot: Sendable, Equatable {
@@ -477,13 +571,202 @@ nonisolated struct AgentBlueprintRunReplaySnapshot: Sendable, Equatable {
     let eventCount: Int
     let latestEventKind: String
     let latestOccurredAt: Date
+    let answerPacketId: String?
+    let replayStatus: AgentBlueprintReplayStatus
 
     var shortRunID: String {
         String(runID.prefix(12))
     }
 
     var summary: String {
-        "\(eventCount) events · \(latestEventKind)"
+        "\(eventCount) events · \(replayStatus.summaryLabel)"
+    }
+}
+
+nonisolated enum AgentBlueprintRunEventProjectionError: Error, Equatable, Sendable {
+    case answerPacketMismatch(expected: String?, actual: String)
+    case invalidAnswerPacketProof(runID: String, packetID: String)
+}
+
+nonisolated enum AgentBlueprintRunEventProjector {
+    static func events(
+        packet: AgentMissionPacket,
+        log: RunEventLog,
+        answerPacket: AnswerPacket
+    ) throws -> [AgentProvenanceEvent] {
+        if log.answerPacketId != answerPacket.id {
+            throw AgentBlueprintRunEventProjectionError.answerPacketMismatch(
+                expected: log.answerPacketId,
+                actual: answerPacket.id
+            )
+        }
+        guard answerPacket.witnessedStateRef.contains("run_event_log:\(log.missionId)") else {
+            throw AgentBlueprintRunEventProjectionError.invalidAnswerPacketProof(
+                runID: log.missionId,
+                packetID: answerPacket.id
+            )
+        }
+
+        let baseMs = timestampMs(packet.createdAt)
+        var projected: [AgentProvenanceEvent] = []
+        projected.reserveCapacity(log.events.count)
+        for (index, event) in log.events.enumerated() {
+            projected.append(provenanceEvent(
+                packet: packet,
+                log: log,
+                answerPacket: answerPacket,
+                event: event,
+                index: index,
+                baseMs: baseMs
+            ))
+        }
+        return projected
+    }
+
+    private static func provenanceEvent(
+        packet: AgentMissionPacket,
+        log: RunEventLog,
+        answerPacket: AnswerPacket,
+        event: SystemGAgentEvent,
+        index: Int,
+        baseMs: Int64
+    ) -> AgentProvenanceEvent {
+        var metadata = baseMetadata(packet: packet, log: log, answerPacket: answerPacket, event: event)
+        let kind: AgentProvenanceEventKind
+        let tool: AgentToolProvenance?
+
+        switch event {
+        case .planStart(let turnId, let plan):
+            kind = .runStarted
+            tool = nil
+            metadata["system_g_turn_id"] = turnId
+            metadata["plan"] = plan
+        case .tokenChunk(let turnId, let text):
+            kind = .summaryDelta
+            tool = nil
+            metadata["system_g_turn_id"] = turnId
+            metadata["token_delta_chars"] = "\(text.count)"
+        case .complete(let turnId, let answerPacketId):
+            kind = .runCompleted
+            tool = nil
+            metadata["system_g_turn_id"] = turnId
+            metadata["answer_packet_id"] = answerPacketId
+            metadata["outcome"] = "completed"
+            metadata["stop_reason"] = "end_turn"
+        case .failed(let turnId, let error):
+            kind = .runCompleted
+            tool = nil
+            metadata["system_g_turn_id"] = turnId
+            metadata["outcome"] = "failed"
+            metadata["stop_reason"] = "error"
+            metadata["error"] = error
+        case .toolStart(let turnId, let toolName, let argsJson):
+            kind = .toolCallStarted
+            let callID = toolCallID(log: log, index: index, toolName: toolName)
+            tool = AgentToolProvenance(
+                toolCallID: callID,
+                toolName: toolName,
+                argumentsJSON: argsJson,
+                resultJSON: nil,
+                durationMs: nil,
+                approvalID: nil,
+                status: .started
+            )
+            metadata["system_g_turn_id"] = turnId
+            metadata["tool_call_id"] = callID
+        case .toolEnd(let turnId, let toolName, let ok, let outputJson):
+            kind = ok ? .toolCallCompleted : .toolCallFailed
+            let callID = toolCallID(log: log, index: index, toolName: toolName)
+            tool = AgentToolProvenance(
+                toolCallID: callID,
+                toolName: toolName,
+                argumentsJSON: "{}",
+                resultJSON: outputJson,
+                durationMs: nil,
+                approvalID: nil,
+                status: ok ? .completed : .failed,
+                errorMessage: ok ? nil : outputJson
+            )
+            metadata["system_g_turn_id"] = turnId
+            metadata["tool_call_id"] = callID
+        }
+
+        return AgentProvenanceEvent(
+            eventID: "system-g-\(log.missionId)-\(index)",
+            runID: log.missionId,
+            traceID: "mission_packet:\(packet.id)",
+            sequence: UInt64(index),
+            kind: kind,
+            actor: .agent(id: "system_g", modelID: packet.model.routingID),
+            occurredAtMs: safeOffset(baseMs: baseMs, offset: index),
+            tool: tool,
+            metadata: metadata
+        )
+    }
+
+    private static func baseMetadata(
+        packet: AgentMissionPacket,
+        log: RunEventLog,
+        answerPacket: AnswerPacket,
+        event: SystemGAgentEvent
+    ) -> [String: String] {
+        var metadata = AgentMissionPacket.runtimeMetadata(
+            fromCommandCenterQuery: packet.commandCenterQuery
+        )
+        metadata["source"] = "agent_blueprint_system_g_replay"
+        metadata["system_g_run_id"] = log.missionId
+        metadata["system_g_event_kind"] = systemGKind(event)
+        metadata["run_event_log_event_count"] = "\(log.events.count)"
+        metadata["deterministic_replay"] = "verified"
+        metadata["answer_packet_id"] = answerPacket.id
+        metadata["answer_packet_ui_label"] = answerPacket.uiLabel.rawValue
+        metadata["answer_packet_attention_mode"] = answerPacket.attentionMode.rawValue
+        metadata["answer_packet_interrupt_bucket"] = answerPacket.interruptBucket.rawValue
+        metadata["answer_packet_replay_status"] = AgentBlueprintReplayStatus.verified.rawValue
+        metadata["answer_packet_witness"] = answerPacket.witnessedStateRef
+        return metadata
+    }
+
+    private static func systemGKind(_ event: SystemGAgentEvent) -> String {
+        switch event {
+        case .planStart:
+            "plan_start"
+        case .toolStart:
+            "tool_start"
+        case .toolEnd:
+            "tool_end"
+        case .tokenChunk:
+            "token_chunk"
+        case .complete:
+            "complete"
+        case .failed:
+            "failed"
+        }
+    }
+
+    private static func toolCallID(log: RunEventLog, index: Int, toolName: String) -> String {
+        let cleaned = toolName
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: " ", with: "_")
+        return "system-g-\(log.missionId)-tool-\(index)-\(cleaned)"
+    }
+
+    private static func timestampMs(_ date: Date) -> Int64 {
+        let ms = date.timeIntervalSince1970 * 1_000
+        guard ms.isFinite,
+              ms >= Double(Int64.min),
+              ms <= Double(Int64.max) else {
+            return 0
+        }
+        return Int64(ms.rounded())
+    }
+
+    private static func safeOffset(baseMs: Int64, offset: Int) -> Int64 {
+        let boundedOffset = Int64(max(offset, 0))
+        guard baseMs <= Int64.max - boundedOffset else {
+            return baseMs
+        }
+        return baseMs + boundedOffset
     }
 }
 

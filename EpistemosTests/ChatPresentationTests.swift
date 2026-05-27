@@ -299,6 +299,8 @@ struct ChatPresentationTests {
     #expect(bubbleSource.contains("assistantProvenanceSurface"))
     #expect(bubbleSource.contains("AnswerPacketBadge("))
     #expect(bubbleSource.contains("VaultRecallProvenanceCard("))
+    #expect(bubbleSource.contains("Deterministic replay verified from RunEventLog"))
+    #expect(bubbleSource.contains("witnessedStateRef.contains(\"run_event_log:\")"))
     #expect(provenanceSource.contains("Vault trace scaffold"))
     #expect(provenanceSource.contains("real path"))
     #expect(!provenanceSource.contains("max(trace.candidatePoolSize, 1)"))
