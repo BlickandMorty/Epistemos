@@ -1923,17 +1923,26 @@ private actor FakeLocalModelInstaller: LocalModelArtifactInstalling {
 
 @Suite("ModelDownloadManager Integrity", .serialized)
 struct ModelDownloadManagerIntegrityTests {
-    @Test("installer records verified sha256 state when LFS metadata matches staged weights")
-    func installerRecordsVerifiedSHA256State() async throws {
+    @Test("installer records verified, unverified, and rejected checksum states")
+    func installerRecordsChecksumStates() async throws {
+        try await Self.verifyMatchingLFSMetadataRecordsVerifiedState()
+        try await Self.verifyMissingHashMetadataRecordsUnverifiedState()
+        try await Self.verifyChecksumMismatchRejectsAndCleansStaging()
+    }
+
+    private static func verifyMatchingLFSMetadataRecordsVerifiedState() async throws {
         let bytes = Data("verified weight bytes".utf8)
         let root = makeTemporaryRoot()
         defer { try? FileManager.default.removeItem(at: root.rootDirectory) }
 
-        ModelDownloadURLProtocol.fixture = .init(weightBytes: bytes, remoteETag: sha256Hex(bytes), isLFS: true)
-        let manager = ModelDownloadManager(session: modelDownloadSession())
+        let manager = ModelDownloadManager(
+            session: modelDownloadSession(
+                fixture: .init(weightBytes: bytes, remoteETag: sha256Hex(bytes), isLFS: true)
+            )
+        )
 
         let record = try await manager.install(
-            descriptor: Self.descriptor,
+            descriptor: descriptor,
             paths: root,
             progressHandler: nil
         )
@@ -1941,21 +1950,23 @@ struct ModelDownloadManagerIntegrityTests {
         #expect(record.checksumVerification == .verifiedSHA256(fileCount: 1))
     }
 
-    @Test("installer records unverified checksum state when remote metadata has no sha256 hash")
-    func installerRecordsUnverifiedChecksumWhenHashMissing() async throws {
+    private static func verifyMissingHashMetadataRecordsUnverifiedState() async throws {
         let bytes = Data("missing hash weight bytes".utf8)
         let root = makeTemporaryRoot()
         defer { try? FileManager.default.removeItem(at: root.rootDirectory) }
 
-        ModelDownloadURLProtocol.fixture = .init(
-            weightBytes: bytes,
-            remoteETag: String(repeating: "b", count: 40),
-            isLFS: false
+        let manager = ModelDownloadManager(
+            session: modelDownloadSession(
+                fixture: .init(
+                    weightBytes: bytes,
+                    remoteETag: String(repeating: "b", count: 40),
+                    isLFS: false
+                )
+            )
         )
-        let manager = ModelDownloadManager(session: modelDownloadSession())
 
         let record = try await manager.install(
-            descriptor: Self.descriptor,
+            descriptor: descriptor,
             paths: root,
             progressHandler: nil
         )
@@ -1964,26 +1975,28 @@ struct ModelDownloadManagerIntegrityTests {
         #expect(record.checksumVerification.reason?.contains("No SHA256") == true)
     }
 
-    @Test("installer rejects checksum mismatches and leaves no staged snapshot behind")
-    func installerRejectsChecksumMismatchAndCleansStaging() async throws {
+    private static func verifyChecksumMismatchRejectsAndCleansStaging() async throws {
         let bytes = Data("actual weight bytes".utf8)
         let root = makeTemporaryRoot()
         defer { try? FileManager.default.removeItem(at: root.rootDirectory) }
 
         let wrongDigest = String(repeating: "a", count: 64)
-        ModelDownloadURLProtocol.fixture = .init(weightBytes: bytes, remoteETag: wrongDigest, isLFS: true)
-        let manager = ModelDownloadManager(session: modelDownloadSession())
+        let manager = ModelDownloadManager(
+            session: modelDownloadSession(
+                fixture: .init(weightBytes: bytes, remoteETag: wrongDigest, isLFS: true)
+            )
+        )
 
-        await #expect(throws: LocalModelManagerError.checksumMismatch(modelID: Self.descriptor.id, file: "model.safetensors")) {
+        await #expect(throws: LocalModelManagerError.checksumMismatch(modelID: descriptor.id, file: "model.safetensors")) {
             try await manager.install(
-                descriptor: Self.descriptor,
+                descriptor: descriptor,
                 paths: root,
                 progressHandler: nil
             )
         }
 
-        #expect(!FileManager.default.fileExists(atPath: root.activeDirectory(for: Self.descriptor).path))
-        let stagedRoot = root.stagingDirectory.appendingPathComponent(Self.descriptor.kind.rawValue, isDirectory: true)
+        #expect(!FileManager.default.fileExists(atPath: root.activeDirectory(for: descriptor).path))
+        let stagedRoot = root.stagingDirectory.appendingPathComponent(descriptor.kind.rawValue, isDirectory: true)
         let stagedEntries = (try? FileManager.default.contentsOfDirectory(atPath: stagedRoot.path)) ?? []
         #expect(stagedEntries.isEmpty)
     }
@@ -2000,32 +2013,51 @@ struct ModelDownloadManagerIntegrityTests {
         matchingGlobs: ["*.json", "*.safetensors", "tokenizer.*"]
     )
 
-    private func makeTemporaryRoot() -> LocalModelPaths {
+    private static func makeTemporaryRoot() -> LocalModelPaths {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         return LocalModelPaths(rootDirectory: root)
     }
 
-    private func modelDownloadSession() -> URLSession {
+    private static func modelDownloadSession(fixture: ModelDownloadURLProtocol.Fixture) -> URLSession {
+        let fixtureID = ModelDownloadURLProtocol.store(fixture)
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [ModelDownloadURLProtocol.self]
+        configuration.httpAdditionalHeaders = [ModelDownloadURLProtocol.fixtureHeader: fixtureID]
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
         return URLSession(configuration: configuration)
     }
 
-    private func sha256Hex(_ data: Data) -> String {
+    private static func sha256Hex(_ data: Data) -> String {
         let digest = SHA256.hash(data: data)
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 }
 
 private nonisolated final class ModelDownloadURLProtocol: URLProtocol {
+    static let fixtureHeader = "X-Epistemos-ModelDownload-Fixture-ID"
+
     struct Fixture: Sendable {
         let weightBytes: Data
         let remoteETag: String
         let isLFS: Bool
     }
 
-    nonisolated(unsafe) static var fixture: Fixture?
+    private static let fixtureLock = NSLock()
+    nonisolated(unsafe) private static var fixturesByID: [String: Fixture] = [:]
+
+    static func store(_ fixture: Fixture) -> String {
+        let id = UUID().uuidString
+        fixtureLock.lock()
+        fixturesByID[id] = fixture
+        fixtureLock.unlock()
+        return id
+    }
+
+    private static func fixture(for id: String) -> Fixture? {
+        fixtureLock.lock()
+        defer { fixtureLock.unlock() }
+        return fixturesByID[id]
+    }
 
     override class func canInit(with request: URLRequest) -> Bool {
         true
@@ -2036,7 +2068,8 @@ private nonisolated final class ModelDownloadURLProtocol: URLProtocol {
     }
 
     override func startLoading() {
-        guard let fixture = Self.fixture,
+        guard let fixtureID = request.value(forHTTPHeaderField: Self.fixtureHeader),
+              let fixture = Self.fixture(for: fixtureID),
               let url = request.url else {
             client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
             return
@@ -2061,7 +2094,7 @@ private nonisolated final class ModelDownloadURLProtocol: URLProtocol {
         url: URL,
         fixture: Fixture
     ) throws -> (HTTPURLResponse, Data) {
-        let revision = ModelDownloadManagerIntegrityTests.descriptor.revision
+        let revision = "1234567890abcdef1234567890abcdef12345678"
         if url.path == "/api/models/fixture/model/tree/\(revision)" {
             let tree = """
             [
