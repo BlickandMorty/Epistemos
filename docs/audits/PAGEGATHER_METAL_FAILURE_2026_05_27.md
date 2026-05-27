@@ -89,12 +89,25 @@ stressor into the product path.
 
 ## Next Mitigation
 
-Run a focused kernel mitigation slice before any downstream PageGather wiring:
+The first focused mitigation probe now exists:
+
+`docs/audits/PAGEGATHER_LOCALITY_PROBE_2026_05_27.md`
+
+It writes
+`artifacts/falsifiers/page_gather/locality_probe_result.json` and keeps the
+primary failure report intact. On a 256 MB, 5 s, 3-trial run, local-window
+scatter reached about `1.08x` measured STREAM and block-sorted scatter reached
+about `0.734x` measured STREAM with zero sampled correctness violations. That
+is promising scheduler evidence, not a product-green pass.
+
+Continue the kernel/scheduler mitigation slice before any downstream PageGather
+promotion:
 
 1. Sweep threadgroup sizes `{32, 64, 128, 256}`.
-2. Add a 4-wide vectorized gather variant or block-sorted scatter variant.
-3. Re-run the 256 MB gate first.
-4. Only after 256 MB passes, run the full 256/512/1024 MB canonical gate.
+2. Turn the block-sorted probe into a scheduler-emitted work-packet path.
+3. Add a 4-wide vectorized gather variant if gather still stays below `0.95x`.
+4. Re-run the 256 MB gate first.
+5. Only after 256 MB passes, run the full 256/512/1024 MB canonical gate.
 
 Until that happens, `F-PageGather-M2Pro` remains pending and must not be shown
 as green.

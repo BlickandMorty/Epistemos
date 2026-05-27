@@ -1,6 +1,6 @@
 # Metal Witness Gates Preflight - 2026-05-27
 
-Status: preflight evidence landed; `F-ULP-Oracle` full Metal primary artifact now landed; PageGather has a real 256 MB failure witness; primary throughput artifacts remain pending for PageGather and ControllerKernelPack.
+Status: preflight evidence landed; `F-ULP-Oracle` full Metal primary artifact now landed; PageGather has a real 256 MB failure witness plus a locality probe; primary throughput artifacts remain pending for PageGather and ControllerKernelPack.
 
 Branch: `codex/resume-metal-witness-gates-2026-05-27`
 
@@ -39,16 +39,18 @@ the live Metal device, and match deterministic CPU/oracle fixtures on small inpu
 
 | Gate | Current status after this slice | Not promoted to green because |
 |---|---|---|
-| `F-PageGather-M2Pro` | Metal dispatch/equivalence preflight exists; `artifacts/falsifiers/page_gather/metal_failure_result.json` records a 256 MB sustained failure | The primary 256/512/1024 MB pass artifact is still not produced; current shader is correct but too slow. |
+| `F-PageGather-M2Pro` | Metal dispatch/equivalence preflight exists; `artifacts/falsifiers/page_gather/metal_failure_result.json` records a 256 MB sustained failure; `artifacts/falsifiers/page_gather/locality_probe_result.json` records a 256 MB block-sorted mitigation lead | The primary 256/512/1024 MB pass artifact is still not produced; current random-scatter layout is correct but too slow, and the locality probe is not yet wired as a product scheduler path. |
 | `F-ControllerKernelPack` | Metal dispatch/equivalence preflight exists | p99 dispatch latency, sequence wall time, and full 7-size x 100-seed artifact are still not produced. |
 | `F-ULP-Oracle` | `artifacts/falsifiers/ulp_oracle/result.json` is now a full Metal `morphOracleFp16` primary witness over 414,048 points / 1,242,144 evaluations | No caveat remains for this gate's Metal/oracle axis; PageGather and ControllerKernelPack remain orange/pending. |
 
 The preflight itself did not rewrite artifacts. The follow-up Metal artifact
 slice rewrote only `artifacts/falsifiers/ulp_oracle/result.json` after the full
 Metal/oracle run passed. The PageGather follow-up wrote a separate failure
-report, not `result.json`, because the measured ratio failed. Existing
-fallback/CPU artifacts remain the authority for PageGather and ControllerKernelPack
-until their real hardware measurement runs replace them.
+report, not `result.json`, because the measured ratio failed. A later
+PageGather locality probe wrote a second side report proving block-sorted
+locality is promising at 256 MB, but existing fallback/CPU artifacts remain the
+authority for PageGather and ControllerKernelPack until their real hardware
+measurement runs replace them.
 
 ## No-Orphan Check
 
@@ -68,7 +70,9 @@ until their real hardware measurement runs replace them.
 
 The next slice must generate the remaining primary hardware artifacts:
 
-1. PageGather STREAM-on-Metal baseline plus scatter/gather ratios for the documented working-set ladder.
+1. PageGather scheduler/kernel mitigation that turns the block-sorted locality
+   probe into a product path, then reruns STREAM-on-Metal plus scatter/gather
+   ratios for the documented working-set ladder.
 2. ControllerKernelPack p50/p99 latency and 100-cycle sequence wall time with full fixture matrix.
 
 Until those exist, Settings and docs must keep those throughput gates

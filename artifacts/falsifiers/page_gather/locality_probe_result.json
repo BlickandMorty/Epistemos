@@ -1,0 +1,292 @@
+{
+  "acceptance_thresholds" : {
+    "block_sorted_scatter_correctness_violations_256mb" : {
+      "operator" : "==",
+      "unit" : "violations",
+      "value" : 0
+    },
+    "block_sorted_scatter_gbs_256mb" : {
+      "operator" : ">",
+      "unit" : "GB_per_second",
+      "value" : 0
+    },
+    "block_sorted_scatter_stability_range_over_mean_256mb" : {
+      "operator" : "<",
+      "unit" : "ratio",
+      "value" : 0.14999999999999999
+    },
+    "block_sorted_scatter_stream_ratio_256mb" : {
+      "operator" : ">=",
+      "unit" : "ratio",
+      "value" : 0.69999999999999996
+    },
+    "gather_correctness_violations_256mb" : {
+      "operator" : "==",
+      "unit" : "violations",
+      "value" : 0
+    },
+    "gather_gbs_256mb" : {
+      "operator" : ">",
+      "unit" : "GB_per_second",
+      "value" : 0
+    },
+    "gather_stream_ratio_256mb" : {
+      "operator" : ">=",
+      "unit" : "ratio",
+      "value" : 0.94999999999999996
+    },
+    "local_window_correctness_violations_256mb" : {
+      "operator" : "==",
+      "unit" : "violations",
+      "value" : 0
+    },
+    "local_window_gbs_256mb" : {
+      "operator" : ">",
+      "unit" : "GB_per_second",
+      "value" : 0
+    },
+    "local_window_stability_range_over_mean_256mb" : {
+      "operator" : "<",
+      "unit" : "ratio",
+      "value" : 0.14999999999999999
+    },
+    "local_window_stream_ratio_256mb" : {
+      "operator" : ">=",
+      "unit" : "ratio",
+      "value" : 0.69999999999999996
+    },
+    "scatter_correctness_violations_256mb" : {
+      "operator" : "==",
+      "unit" : "violations",
+      "value" : 0
+    },
+    "scatter_gbs_256mb" : {
+      "operator" : ">",
+      "unit" : "GB_per_second",
+      "value" : 0
+    },
+    "scatter_second_run_ratio_256mb" : {
+      "operator" : ">=",
+      "unit" : "ratio",
+      "value" : 0.90000000000000002
+    },
+    "scatter_stability_range_over_mean_256mb" : {
+      "operator" : "<",
+      "unit" : "ratio",
+      "value" : 0.14999999999999999
+    },
+    "scatter_stream_ratio_256mb" : {
+      "operator" : ">=",
+      "unit" : "ratio",
+      "value" : 0.69999999999999996
+    },
+    "stream_triad_gbs_256mb" : {
+      "operator" : ">",
+      "unit" : "GB_per_second",
+      "value" : 0
+    }
+  },
+  "anomalies" : [
+    {
+      "detail" : "The Metal PageGather witness failed at least one ratio, correctness, or stability axis. Do not promote F-PageGather-M2Pro; inspect metal_failure_result.json.",
+      "kind" : "page_gather_metal_gate_failed"
+    },
+    {
+      "detail" : "Diagnostic run includes local-window and block-sorted scatter candidates. It cannot promote F-PageGather-M2Pro by itself.",
+      "kind" : "locality_probe"
+    }
+  ],
+  "artifact_kind" : "failure_report",
+  "command" : "swift Tools\/metal-witness-gates\/page-gather-metal-artifact.swift --probe-locality --working-sets-mb 256 --window-seconds 5 --trials 3 --warmup-iterations 3 --write-artifact",
+  "command_digest" : "sha256:5606a4a5e2e538bc211db2732335b82509b943929e2a60e5573b418d2d6b94be",
+  "commit_sha" : "037e56d1f63c3d2dee754a9a2972e812da0abc49",
+  "fallback_tier" : "Fail",
+  "falsifier_id" : "F-PageGather-M2Pro",
+  "fixture_id" : "page_gather_metal_stream_scatter_256mb_3x_5p00s_locality_probe_v1",
+  "hardware_pin" : {
+    "cpu" : "12-core CPU",
+    "gpu" : "19-core GPU",
+    "machine" : "M2 Pro 14-inch 2023",
+    "memory_bandwidth_gb_s" : 200,
+    "unified_memory_gb" : 16
+  },
+  "measurements" : {
+    "block_sorted_scatter_correctness_violations_256mb" : {
+      "unit" : "violations",
+      "value" : 0
+    },
+    "block_sorted_scatter_gbs_256mb" : {
+      "unit" : "GB_per_second",
+      "value" : 167.80084681721505
+    },
+    "block_sorted_scatter_samples_gbs_256mb" : {
+      "unit" : "GB_per_second",
+      "value" : [
+        167.80084681721505,
+        165.28853995961842,
+        168.34003344918222
+      ]
+    },
+    "block_sorted_scatter_stability_range_over_mean_256mb" : {
+      "unit" : "ratio",
+      "value" : 0.018256767751212273
+    },
+    "block_sorted_scatter_stream_ratio_256mb" : {
+      "unit" : "ratio",
+      "value" : 0.7339196325931181
+    },
+    "gather_correctness_violations_256mb" : {
+      "unit" : "violations",
+      "value" : 0
+    },
+    "gather_gbs_256mb" : {
+      "unit" : "GB_per_second",
+      "value" : 171.70944956764518
+    },
+    "gather_samples_gbs_256mb" : {
+      "unit" : "GB_per_second",
+      "value" : [
+        174.9681347150229,
+        171.36617987257398,
+        171.70944956764518
+      ]
+    },
+    "gather_stream_ratio_256mb" : {
+      "unit" : "ratio",
+      "value" : 0.75101489968478474
+    },
+    "harness_wall_clock_seconds" : {
+      "unit" : "seconds",
+      "value" : 140.02911400794983
+    },
+    "local_window_correctness_violations_256mb" : {
+      "unit" : "violations",
+      "value" : 0
+    },
+    "local_window_gbs_256mb" : {
+      "unit" : "GB_per_second",
+      "value" : 246.90459167775438
+    },
+    "local_window_samples_gbs_256mb" : {
+      "unit" : "GB_per_second",
+      "value" : [
+        240.96255667045313,
+        251.53952538421035,
+        246.90459167775438
+      ]
+    },
+    "local_window_stability_range_over_mean_256mb" : {
+      "unit" : "ratio",
+      "value" : 0.042914011015208524
+    },
+    "local_window_stream_ratio_256mb" : {
+      "unit" : "ratio",
+      "value" : 1.0798999566854439
+    },
+    "locality_block_elements" : {
+      "unit" : "elements",
+      "value" : 8192
+    },
+    "locality_window_elements" : {
+      "unit" : "elements",
+      "value" : 65536
+    },
+    "probe_locality_enabled" : {
+      "unit" : "bool",
+      "value" : true
+    },
+    "scatter_correctness_violations_256mb" : {
+      "unit" : "violations",
+      "value" : 0
+    },
+    "scatter_gbs_256mb" : {
+      "unit" : "GB_per_second",
+      "value" : 15.131492115364839
+    },
+    "scatter_samples_gbs_256mb" : {
+      "unit" : "GB_per_second",
+      "value" : [
+        15.23590996753115,
+        15.098992513491085,
+        15.131492115364839
+      ]
+    },
+    "scatter_second_run_ratio_256mb" : {
+      "unit" : "ratio",
+      "value" : 0.99101350333968596
+    },
+    "scatter_stability_range_over_mean_256mb" : {
+      "unit" : "ratio",
+      "value" : 0.0090341969220676614
+    },
+    "scatter_stream_ratio_256mb" : {
+      "unit" : "ratio",
+      "value" : 0.066181424852946036
+    },
+    "stream_samples_gbs_256mb" : {
+      "unit" : "GB_per_second",
+      "value" : [
+        231.19872055882749,
+        224.01333109791898,
+        228.63654188447512
+      ]
+    },
+    "stream_triad_gbs_256mb" : {
+      "unit" : "GB_per_second",
+      "value" : 228.63654188447512
+    },
+    "trial_count" : {
+      "unit" : "count",
+      "value" : 3
+    },
+    "warmup_iterations" : {
+      "unit" : "count",
+      "value" : 3
+    },
+    "window_seconds" : {
+      "unit" : "seconds",
+      "value" : 5
+    }
+  },
+  "notes" : "Metal PageGather witness generated from Epistemos\/Shaders\/PageGather.metal with an in-harness STREAM triad baseline. Ratios use measured traffic bytes (STREAM=16 bytes\/element; PageGather=12 bytes\/element). result.json is written only on full pass; failed primary runs write metal_failure_result.json unless --force-write-result is explicitly supplied. --probe-locality writes locality_probe_result.json and is diagnostic only.",
+  "overall_pass" : false,
+  "pass_per_axis" : {
+    "block_sorted_scatter_correctness_violations_256mb" : true,
+    "block_sorted_scatter_gbs_256mb" : true,
+    "block_sorted_scatter_stability_range_over_mean_256mb" : true,
+    "block_sorted_scatter_stream_ratio_256mb" : true,
+    "gather_correctness_violations_256mb" : true,
+    "gather_gbs_256mb" : true,
+    "gather_stream_ratio_256mb" : false,
+    "local_window_correctness_violations_256mb" : true,
+    "local_window_gbs_256mb" : true,
+    "local_window_stability_range_over_mean_256mb" : true,
+    "local_window_stream_ratio_256mb" : true,
+    "scatter_correctness_violations_256mb" : true,
+    "scatter_gbs_256mb" : true,
+    "scatter_second_run_ratio_256mb" : true,
+    "scatter_stability_range_over_mean_256mb" : true,
+    "scatter_stream_ratio_256mb" : false,
+    "stream_triad_gbs_256mb" : true
+  },
+  "result_digest" : "sha256:805a64004dace423790de09d39073c6abfe1f8d2788e0e5858dd715ff341de0a",
+  "runner_environment" : {
+    "cwd" : "repo_root",
+    "env_policy" : "script_owned",
+    "locale" : "C",
+    "os_build" : "Darwin 25D2128",
+    "power_source" : "unknown",
+    "shell" : "zsh",
+    "thermal_state_end" : "unknown",
+    "thermal_state_start" : "unknown",
+    "timezone" : "UTC",
+    "toolchain_identity" : {
+      "python" : "not_used",
+      "rustc" : "not_used",
+      "swift" : "Apple Swift version 6.3.1 (swiftlang-6.3.1.1.2 clang-2100.0.123.102) Target: arm64-apple-macosx26.0",
+      "xcodebuild" : "Xcode 26.4.1 Build version 17E202"
+    }
+  },
+  "schema_version" : "2026-05-18.2",
+  "timestamp_utc" : "2026-05-27T19:25:01Z"
+}

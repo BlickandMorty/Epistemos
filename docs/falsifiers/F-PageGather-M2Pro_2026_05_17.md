@@ -159,6 +159,36 @@ Therefore `artifacts/falsifiers/page_gather/result.json` remains the CPU
 fallback witness. The product-facing PageGather / Vault escalation UI must stay
 orange/pending until a mitigation run clears the full 256/512/1024 MB gate.
 
+### §4.2 2026-05-27 locality probe evidence
+
+The same Swift harness now supports a diagnostic locality probe:
+
+```text
+swift Tools/metal-witness-gates/page-gather-metal-artifact.swift --probe-locality --working-sets-mb 256 --window-seconds 5 --trials 3 --warmup-iterations 3 --write-artifact
+```
+
+Result: **diagnostic failure report**, recorded at
+`artifacts/falsifiers/page_gather/locality_probe_result.json`.
+
+The primary gate still fails, and `F-PageGather-M2Pro` stays pending. The probe
+is useful because it separates "the shader can never be fast" from "the
+scheduler must make the memory walk local enough":
+
+- STREAM triad median: about `229 GB/s`.
+- Sequential gather median: about `172 GB/s` (`0.751x` STREAM; below the
+  `0.95x` gather bar).
+- Full random scatter median: about `15 GB/s` (`0.066x` STREAM; still the
+  failure stressor).
+- Local-window scatter median: about `247 GB/s` (`1.08x` STREAM), with `0`
+  sampled violations.
+- Block-sorted scatter median: about `168 GB/s` (`0.734x` STREAM), with `0`
+  sampled violations.
+
+The block-sorted candidate is the product-relevant lead because it preserves
+full source coverage while improving traversal locality. It is not a pass until
+the scheduler emits this layout and the full `256/512/1024 MB` canonical gate
+passes.
+
 ## §5. Measurement methodology
 
 This is the V6.2 M2 Pro methodology spelled out:

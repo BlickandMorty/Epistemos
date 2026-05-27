@@ -89,8 +89,12 @@ struct WorkingSetResult {
     let stream: SampleStats
     let gather: SampleStats
     let scatter: SampleStats
+    let localWindow: SampleStats?
+    let blockSorted: SampleStats?
     let gatherViolations: Int
     let scatterViolations: Int
+    let localWindowViolations: Int?
+    let blockSortedViolations: Int?
 }
 
 struct RunConfig {
@@ -100,9 +104,12 @@ struct RunConfig {
     var warmupIterations: Int = 3
     var writeArtifact = false
     var forceWriteResult = false
+    var probeLocality = false
+    var localityWindowElements = 65_536
+    var localityBlockElements = 8_192
 
     var isCanonicalPrimaryRun: Bool {
-        workingSetsMB == [256, 512, 1024] && windowSeconds >= 5.0 && trials >= 3
+        !probeLocality && workingSetsMB == [256, 512, 1024] && windowSeconds >= 5.0 && trials >= 3
     }
 
     var fixtureSuffix: String {
@@ -121,6 +128,24 @@ struct RunConfig {
                 config.writeArtifact = true
             case "--force-write-result":
                 config.forceWriteResult = true
+            case "--probe-locality":
+                config.probeLocality = true
+            case "--locality-window-elements":
+                index += 1
+                guard index < CommandLine.arguments.count,
+                      let parsed = Int(CommandLine.arguments[index]),
+                      parsed > 0 else {
+                    throw PageGatherArtifactError.invalidArgument("--locality-window-elements requires a positive integer")
+                }
+                config.localityWindowElements = parsed
+            case "--locality-block-elements":
+                index += 1
+                guard index < CommandLine.arguments.count,
+                      let parsed = Int(CommandLine.arguments[index]),
+                      parsed > 0 else {
+                    throw PageGatherArtifactError.invalidArgument("--locality-block-elements requires a positive integer")
+                }
+                config.localityBlockElements = parsed
             case "--working-sets-mb":
                 index += 1
                 guard index < CommandLine.arguments.count else {
@@ -177,6 +202,7 @@ let repoRoot = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
 let outputDirectory = repoRoot.appendingPathComponent("artifacts/falsifiers/page_gather")
 let outputResultPath = outputDirectory.appendingPathComponent("result.json").path
 let outputFailurePath = outputDirectory.appendingPathComponent("metal_failure_result.json").path
+let outputLocalityProbePath = outputDirectory.appendingPathComponent("locality_probe_result.json").path
 let actualCommandString = "swift " + CommandLine.arguments.joined(separator: " ")
 let fp32Bytes = 4
 let pageGatherTrafficBytesPerElement = 12
@@ -357,6 +383,42 @@ func initializeFisherYatesIndices(_ buffer: MTLBuffer, count: Int, seed: UInt64)
     }
 }
 
+func initializeLocalWindowIndices(_ buffer: MTLBuffer, count: Int, windowElements: Int) {
+    let pointer = buffer.contents().bindMemory(to: UInt32.self, capacity: count)
+    let window = max(1, min(windowElements, count))
+    for index in 0..<count {
+        pointer[index] = UInt32(index % window)
+    }
+}
+
+func initializeBlockSortedIndices(
+    _ buffer: MTLBuffer,
+    count: Int,
+    blockElements: Int,
+    seed: UInt64
+) {
+    let pointer = buffer.contents().bindMemory(to: UInt32.self, capacity: count)
+    let blockSize = max(1, min(blockElements, count))
+    var blockStarts = Array(stride(from: 0, to: count, by: blockSize))
+    var state = seed &* 0xD1B5_4A32_D192_ED03 | 1
+    if blockStarts.count > 1 {
+        for index in stride(from: blockStarts.count - 1, through: 1, by: -1) {
+            let next = xorshift64(&state)
+            let swapIndex = Int(next % UInt64(index + 1))
+            blockStarts.swapAt(index, swapIndex)
+        }
+    }
+
+    var writeIndex = 0
+    for start in blockStarts {
+        let end = min(start + blockSize, count)
+        for sourceIndex in start..<end {
+            pointer[writeIndex] = UInt32(sourceIndex)
+            writeIndex += 1
+        }
+    }
+}
+
 func dispatch(
     harness: Harness,
     pipeline: MTLComputePipelineState,
@@ -500,13 +562,59 @@ func runWorkingSet(config: RunConfig, harness: Harness, mb: Int) throws -> Worki
     )
     let scatterViolations = sampleViolations(source: source, indices: indices, out: out, count: count)
 
+    var localWindow: SampleStats?
+    var localWindowViolations: Int?
+    var blockSorted: SampleStats?
+    var blockSortedViolations: Int?
+
+    if config.probeLocality {
+        initializeLocalWindowIndices(
+            indices,
+            count: count,
+            windowElements: config.localityWindowElements
+        )
+        localWindow = try measure(
+            harness: harness,
+            pipeline: harness.pageGather,
+            buffers: [source, indices, out, countBuffer],
+            count: count,
+            bytesPerElement: pageGatherTrafficBytesPerElement,
+            windowSeconds: config.windowSeconds,
+            warmupIterations: config.warmupIterations,
+            trials: config.trials
+        )
+        localWindowViolations = sampleViolations(source: source, indices: indices, out: out, count: count)
+
+        initializeBlockSortedIndices(
+            indices,
+            count: count,
+            blockElements: config.localityBlockElements,
+            seed: UInt64(mb) ^ 0xB10C_50A7
+        )
+        blockSorted = try measure(
+            harness: harness,
+            pipeline: harness.pageGather,
+            buffers: [source, indices, out, countBuffer],
+            count: count,
+            bytesPerElement: pageGatherTrafficBytesPerElement,
+            windowSeconds: config.windowSeconds,
+            warmupIterations: config.warmupIterations,
+            trials: config.trials
+        )
+        blockSortedViolations = sampleViolations(source: source, indices: indices, out: out, count: count)
+    }
+
     return WorkingSetResult(
         mb: mb,
         stream: stream,
         gather: gather,
         scatter: scatter,
+        localWindow: localWindow,
+        blockSorted: blockSorted,
         gatherViolations: gatherViolations,
-        scatterViolations: scatterViolations
+        scatterViolations: scatterViolations,
+        localWindowViolations: localWindowViolations,
+        blockSortedViolations: blockSortedViolations
     )
 }
 
@@ -660,6 +768,108 @@ func runArtifact(config: RunConfig) throws -> RunResult {
         measurements["stream_samples_gbs_\(mb)mb"] = metric(result.stream.samples, unit: "GB_per_second")
         measurements["gather_samples_gbs_\(mb)mb"] = metric(result.gather.samples, unit: "GB_per_second")
         measurements["scatter_samples_gbs_\(mb)mb"] = metric(result.scatter.samples, unit: "GB_per_second")
+
+        if let localWindow = result.localWindow,
+           let localWindowViolations = result.localWindowViolations {
+            let localWindowValue = localWindow.median
+            let localWindowRatio = stream > 0 ? localWindowValue / stream : 0
+            addAxis(
+                name: "local_window_gbs_\(mb)mb",
+                value: localWindowValue,
+                unit: "GB_per_second",
+                op: ">",
+                thresholdValue: 0,
+                pass: localWindowValue > 0,
+                measurements: &measurements,
+                thresholds: &thresholds,
+                passPerAxis: &passPerAxis
+            )
+            addAxis(
+                name: "local_window_stream_ratio_\(mb)mb",
+                value: localWindowRatio,
+                unit: "ratio",
+                op: ">=",
+                thresholdValue: 0.70,
+                pass: localWindowRatio >= 0.70,
+                measurements: &measurements,
+                thresholds: &thresholds,
+                passPerAxis: &passPerAxis
+            )
+            addAxis(
+                name: "local_window_correctness_violations_\(mb)mb",
+                value: localWindowViolations,
+                unit: "violations",
+                op: "==",
+                thresholdValue: 0,
+                pass: localWindowViolations == 0,
+                measurements: &measurements,
+                thresholds: &thresholds,
+                passPerAxis: &passPerAxis
+            )
+            addAxis(
+                name: "local_window_stability_range_over_mean_\(mb)mb",
+                value: localWindow.rangeOverMean,
+                unit: "ratio",
+                op: "<",
+                thresholdValue: 0.15,
+                pass: localWindow.rangeOverMean < 0.15,
+                measurements: &measurements,
+                thresholds: &thresholds,
+                passPerAxis: &passPerAxis
+            )
+            measurements["local_window_samples_gbs_\(mb)mb"] = metric(localWindow.samples, unit: "GB_per_second")
+        }
+
+        if let blockSorted = result.blockSorted,
+           let blockSortedViolations = result.blockSortedViolations {
+            let blockSortedValue = blockSorted.median
+            let blockSortedRatio = stream > 0 ? blockSortedValue / stream : 0
+            addAxis(
+                name: "block_sorted_scatter_gbs_\(mb)mb",
+                value: blockSortedValue,
+                unit: "GB_per_second",
+                op: ">",
+                thresholdValue: 0,
+                pass: blockSortedValue > 0,
+                measurements: &measurements,
+                thresholds: &thresholds,
+                passPerAxis: &passPerAxis
+            )
+            addAxis(
+                name: "block_sorted_scatter_stream_ratio_\(mb)mb",
+                value: blockSortedRatio,
+                unit: "ratio",
+                op: ">=",
+                thresholdValue: 0.70,
+                pass: blockSortedRatio >= 0.70,
+                measurements: &measurements,
+                thresholds: &thresholds,
+                passPerAxis: &passPerAxis
+            )
+            addAxis(
+                name: "block_sorted_scatter_correctness_violations_\(mb)mb",
+                value: blockSortedViolations,
+                unit: "violations",
+                op: "==",
+                thresholdValue: 0,
+                pass: blockSortedViolations == 0,
+                measurements: &measurements,
+                thresholds: &thresholds,
+                passPerAxis: &passPerAxis
+            )
+            addAxis(
+                name: "block_sorted_scatter_stability_range_over_mean_\(mb)mb",
+                value: blockSorted.rangeOverMean,
+                unit: "ratio",
+                op: "<",
+                thresholdValue: 0.15,
+                pass: blockSorted.rangeOverMean < 0.15,
+                measurements: &measurements,
+                thresholds: &thresholds,
+                passPerAxis: &passPerAxis
+            )
+            measurements["block_sorted_scatter_samples_gbs_\(mb)mb"] = metric(blockSorted.samples, unit: "GB_per_second")
+        }
     }
 
     let elapsed = Date().timeIntervalSince(started)
@@ -667,6 +877,9 @@ func runArtifact(config: RunConfig) throws -> RunResult {
     measurements["window_seconds"] = metric(config.windowSeconds, unit: "seconds")
     measurements["trial_count"] = metric(config.trials, unit: "count")
     measurements["warmup_iterations"] = metric(config.warmupIterations, unit: "count")
+    measurements["probe_locality_enabled"] = metric(config.probeLocality, unit: "bool")
+    measurements["locality_window_elements"] = metric(config.localityWindowElements, unit: "elements")
+    measurements["locality_block_elements"] = metric(config.localityBlockElements, unit: "elements")
 
     let axesPass = passPerAxis.values.allSatisfy { $0 }
     let overallPass = axesPass && config.isCanonicalPrimaryRun
@@ -682,7 +895,12 @@ func runArtifact(config: RunConfig) throws -> RunResult {
         artifactKind = "failure_report"
         fallbackTier = "Fail"
     }
-    let outputPath = overallPass || config.forceWriteResult ? outputResultPath : outputFailurePath
+    let outputPath: String
+    if config.probeLocality {
+        outputPath = outputLocalityProbePath
+    } else {
+        outputPath = overallPass || config.forceWriteResult ? outputResultPath : outputFailurePath
+    }
 
     var anomalies: [[String: String]] = []
     if !axesPass {
@@ -695,6 +913,12 @@ func runArtifact(config: RunConfig) throws -> RunResult {
         anomalies.append([
             "kind": "noncanonical_probe",
             "detail": "This run passed its measured axes but did not use the canonical 256/512/1024 MB, >=5s, >=3-trial gate. It is not a primary witness.",
+        ])
+    }
+    if config.probeLocality {
+        anomalies.append([
+            "kind": "locality_probe",
+            "detail": "Diagnostic run includes local-window and block-sorted scatter candidates. It cannot promote F-PageGather-M2Pro by itself.",
         ])
     }
 
@@ -735,7 +959,7 @@ func runArtifact(config: RunConfig) throws -> RunResult {
             "power_source": "unknown",
         ],
         "commit_sha": commit,
-        "fixture_id": "page_gather_metal_stream_scatter_\(config.fixtureSuffix)_v1",
+        "fixture_id": "page_gather_metal_stream_scatter_\(config.fixtureSuffix)\(config.probeLocality ? "_locality_probe" : "")_v1",
         "timestamp_utc": timestampUTC(),
         "result_digest": resultDigest,
         "measurements": measurements,
@@ -744,7 +968,7 @@ func runArtifact(config: RunConfig) throws -> RunResult {
         "overall_pass": axesPass,
         "fallback_tier": fallbackTier,
         "anomalies": anomalies,
-        "notes": "Metal PageGather witness generated from Epistemos/Shaders/PageGather.metal with an in-harness STREAM triad baseline. Ratios use measured traffic bytes (STREAM=16 bytes/element; PageGather=12 bytes/element). result.json is written only on full pass; failed runs write metal_failure_result.json unless --force-write-result is explicitly supplied.",
+        "notes": "Metal PageGather witness generated from Epistemos/Shaders/PageGather.metal with an in-harness STREAM triad baseline. Ratios use measured traffic bytes (STREAM=16 bytes/element; PageGather=12 bytes/element). result.json is written only on full pass; failed primary runs write metal_failure_result.json unless --force-write-result is explicitly supplied. --probe-locality writes locality_probe_result.json and is diagnostic only.",
     ]
 
     return RunResult(artifact: artifact, overallPass: overallPass, outputPath: outputPath)
