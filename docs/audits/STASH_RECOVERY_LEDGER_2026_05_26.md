@@ -22,13 +22,26 @@ Ground rules:
 
 ## Current Checkpoint
 
-Current main checkpoint before this ledger:
+Original recovery checkpoint before this ledger:
 
 - `#83` restored preserved local UI work.
 - `#84` restored source-guard and verified-floor tests.
 - `#85` restored audit docs.
 - `#86` restored snappy graph/editor defaults and the HTML workspace route.
 - Tag: `checkpoint/ui-restored-graph-audited-2026-05-26`.
+
+Current architecture checkpoint after the Wave 4 merge wave:
+
+- `#121` typed UAS retrieval and claims.
+- `#122` PageGather vault escalation trace.
+- `#123` Cognitive DAG visualizer.
+- `#124` Tri-Fusion typed note mutations.
+- `#125` System G runtime test-isolation fix.
+- Tag: `checkpoint/wave4-trifusion-typed-mutations-2026-05-27`.
+
+This later checkpoint does not reopen any stash row below. Stashes remain
+preservation/donor references unless a new focused recovery PR explicitly
+promotes a slice.
 
 ## Recovery Priority
 
