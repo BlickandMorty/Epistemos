@@ -7,12 +7,12 @@ created_on: 2026-05-17
 authority: docs/fusion/EPISTENOS_HELIOS_V6_1_FOUNDATION_INTAKE_2026_05_07.md §"W1 F-ULP Oracle" (LOCK) + docs/CODEX_DEEP_INVESTIGATION_PROMPT_2026_05_16.md §4.G residency-tier examples (Verified Floor)
 target_phase: Phase B (kernel) + Phase B (harness)
 target_rig: M2 Pro 16 GB
-phase2_terminal_f_status: PRIMARY WITNESS (CPU reference path)
+phase2_terminal_f_status: PRIMARY WITNESS (Metal morphOracleFp16 full hardware path)
 phase2_terminal_f_artifact: artifacts/falsifiers/ulp_oracle/result.json
-phase2_terminal_f_harness: agent_core/src/bin/falsify_ulp_oracle.rs
-phase2_terminal_f_caveat: Metal `morph_eval_reduced.metal` kernel measurement still pending (W-41 Apple-platform external work). The CPU `ReferenceRoundedKernel` produces the oracle reference itself, so max ULP ≤ 2 is by construction on this artifact; the Metal kernel must match this reference within the same 2-ULP budget once W-41 lands.
+phase2_terminal_f_harness: Tools/metal-witness-gates/fulp-metal-oracle-artifact.swift
+phase2_terminal_f_caveat: The current artifact is the full Metal `morphOracleFp16` run over 412,000 log-sampled points plus 2,048 stress points. It compares the Metal half outputs against the Foundation fp64-rounded-to-fp16 oracle reference and passes the <=2 ULP / <=90s budget. The earlier CPU `ReferenceRoundedKernel` artifact remains historical in git.
 phase2_terminal_f_audit_doc: docs/audits/FALSIFIER_M2PRO_5_PASS_2026_05_23.md
-metal_preflight_status: `morphOracleFp16` runtime dispatch smoke test added in EpistemosTests/MetalWitnessGatesTests.swift; full 414,048-point Metal artifact still pending
+metal_preflight_status: `morphOracleFp16` runtime dispatch smoke test added in EpistemosTests/MetalWitnessGatesTests.swift; full 414,048-point Metal artifact landed on 2026-05-27
 ---
 
 # F-ULP-Oracle
@@ -81,7 +81,9 @@ Per `docs/fusion/EPISTENOS_HELIOS_V6_1_FOUNDATION_INTAKE_2026_05_07.md` §"W1 F-
 > - oracle reference: `oxieml::EmlTree::eval_real`.
 > - kernel under test: `morph_eval_reduced.metal v0.1`.
 
-A Swift test at `EpistemosTests/FUlpOracleTests.swift` (lands in Phase B):
+A Swift hardware artifact runner at
+`Tools/metal-witness-gates/fulp-metal-oracle-artifact.swift` now performs the
+full run. The historical planned test shape was:
 
 ```swift
 let logSampledPoints = LogSampler.draw(count: 412_000, range: 0.5...2.0, seed: 0xULPA_0001)
@@ -108,6 +110,20 @@ XCTAssertLessThanOrEqual(wallSeconds, 90,
 ```
 
 Gate **fails** if max ULP abs-diff > 2 OR wall-clock > 90 s.
+
+### §4.3 Current 2026-05-27 artifact
+
+`artifacts/falsifiers/ulp_oracle/result.json` now records the full Metal
+`morphOracleFp16` hardware witness:
+
+- 414,048 input pairs: 412,000 log-sampled points plus 2,048 stress points.
+- 1,242,144 total half-output evaluations across `exp`, `ln`, and `eml`.
+- `max_ulp_exp`, `max_ulp_ln`, and `max_ulp_eml` all pass the `<= 2` budget.
+- `metal_wall_clock_seconds` passes the `<= 90s` M2 Pro budget.
+
+The runner compiles `Epistemos/Shaders/morph_eval_reduced.metal` with safe math
+mode inside the witness harness. PageGather and ControllerKernelPack remain on
+their preflight/fallback tracks until their throughput artifacts land.
 
 ### §4.1 Sampler specifications
 

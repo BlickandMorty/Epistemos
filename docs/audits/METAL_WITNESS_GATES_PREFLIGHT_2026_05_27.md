@@ -1,8 +1,10 @@
 # Metal Witness Gates Preflight - 2026-05-27
 
-Status: preflight evidence landed; primary throughput artifacts remain pending.
+Status: preflight evidence landed; `F-ULP-Oracle` full Metal primary artifact now landed; primary throughput artifacts remain pending for PageGather and ControllerKernelPack.
 
 Branch: `codex/resume-metal-witness-gates-2026-05-27`
+
+Follow-up branch: `codex/canonical-metal-artifact-gates-2026-05-27`
 
 ## Scope
 
@@ -37,10 +39,13 @@ the live Metal device, and match deterministic CPU/oracle fixtures on small inpu
 |---|---|---|
 | `F-PageGather-M2Pro` | Metal dispatch/equivalence preflight exists | The 70%-of-measured-STREAM sustained bandwidth artifact is still not produced. |
 | `F-ControllerKernelPack` | Metal dispatch/equivalence preflight exists | p99 dispatch latency, sequence wall time, and full 7-size x 100-seed artifact are still not produced. |
-| `F-ULP-Oracle` | CPU primary witness remains; Metal `morphOracleFp16` smoke test exists | The full 414,048-point Metal-vs-oracle run and <=90s M2 Pro wall-clock artifact are still not produced. |
+| `F-ULP-Oracle` | `artifacts/falsifiers/ulp_oracle/result.json` is now a full Metal `morphOracleFp16` primary witness over 414,048 points / 1,242,144 evaluations | No caveat remains for this gate's Metal/oracle axis; PageGather and ControllerKernelPack remain orange/pending. |
 
-No falsifier artifact was rewritten by this preflight. Existing fallback/CPU artifacts remain the authority
-until a real hardware measurement run replaces them.
+The preflight itself did not rewrite artifacts. The follow-up Metal artifact
+slice rewrote only `artifacts/falsifiers/ulp_oracle/result.json` after the full
+Metal/oracle run passed. Existing fallback/CPU artifacts remain the authority for
+PageGather and ControllerKernelPack until their real hardware measurement runs
+replace them.
 
 ## No-Orphan Check
 
@@ -50,16 +55,18 @@ until a real hardware measurement run replaces them.
 - Residency: Apple Silicon UMA via `.storageModeShared` buffers in the test harness.
 - WBO/error: failures throw test errors; no fallback is hidden as a pass.
 - Witness: Swift Testing runtime dispatch plus this audit doc.
-- Falsifier: `F-PageGather-M2Pro`, `F-ControllerKernelPack`, and `F-ULP-Oracle` are referenced but not fully promoted.
-- Tier: research / verified-floor preflight, not live product green.
+- Falsifier: `F-ULP-Oracle` has a primary Metal artifact; `F-PageGather-M2Pro`
+  and `F-ControllerKernelPack` are referenced but not fully promoted.
+- Tier: `F-ULP-Oracle` is verified-floor hardware evidence; PageGather and
+  ControllerKernelPack remain research / verified-floor preflight, not live product green.
 - Rollback: remove the test file and restore the compile script guard if the preflight proves unstable.
 
 ## Remaining Primary Work
 
-The next slice must generate primary hardware artifacts:
+The next slice must generate the remaining primary hardware artifacts:
 
 1. PageGather STREAM-on-Metal baseline plus scatter/gather ratios for the documented working-set ladder.
 2. ControllerKernelPack p50/p99 latency and 100-cycle sequence wall time with full fixture matrix.
-3. F-ULP full Metal-vs-oracle fixture over 412,000 log-sampled points plus 2,048 stress points.
 
-Until those exist, Settings and docs must keep these gates orange/pending, not promoted to green.
+Until those exist, Settings and docs must keep those throughput gates
+orange/pending, not promoted to green.

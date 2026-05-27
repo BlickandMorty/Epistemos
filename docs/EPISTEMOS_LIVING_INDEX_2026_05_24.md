@@ -12,7 +12,8 @@
   W-49/W-53 ship hardening and Agent Capability Truth. The provenance/residency
   detail slice closes the compact AnswerPacket UAS / ACS anchor / plane /
   residency UI gap. `RESUME ACS ANCHOR HARNESS` is now complete as a full
-  N=1000 four-stage witness. For the current W-row/falsifier recount and next codeword
+  N=1000 four-stage witness, and `F-ULP-Oracle` now has a full Metal
+  `morphOracleFp16` primary hardware artifact. For the current W-row/falsifier recount and next codeword
   prompts, read
   `docs/audits/LEGENDARY_POST_WAVE4_ROLLUP_2026_05_27.md`. For the post-stash
   split of finished vs unfinished work, read
@@ -93,7 +94,7 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
 - W-rows wired: **about 42/53 strict, about 49/53 strict+partial** after Wave 4 plus W-49/W-53, Agent Capability Truth, and Provenance / Residency Detail closeouts. Known advances: Eidos real bridge/citation gate (#66), System G real seam (#67), falsifier harnesses (#68/#74), Substrate Health/docs/unified panel work (#69/#77), VaultRecall visibility salvage (#70/#79), T14 No-Orphan bridge (#71), ACS production gate (#72), Verified Floor truth gate (#78), Hyperdynamic Schema Loop (#75), Runtime Router (#76), typed UAS retrieval and ClaimLedger addresses (#121), PageGather vault escalation trace (#122), Cognitive DAG visualizer (#123), Tri-Fusion typed note mutations (#124), test-isolation/warning cleanup (#125/#127), W-49/W-53 source guards (`docs/audits/POST_WAVE4_W49_W53_HARDENER_CLOSEOUT_2026_05_27.md`), Agent Capability Truth source guards (`docs/audits/POST_WAVE4_AGENT_CAPABILITY_TRUTH_CLOSEOUT_2026_05_27.md`), and AnswerPacket substrate detail guards (`docs/audits/POST_WAVE4_PROVENANCE_RESIDENCY_DETAIL_2026_05_27.md`).
 - Falsifier artifacts on main: **10 artifact files**.
   - Schema-normalized primary witnesses: `F-VaultRecall-50`, `F-ULP-Oracle`, `F-Eidos-Bridge-RoundTrip`, `F-ACS-Anchor-Addressing` (full N=1000 four-stage harness), `F-HyperdynamicLoop-Bounded`.
-  - Schema-normalized fallback/CPU witnesses: `F-PageGather-M2Pro`, `F-ControllerKernelPack`, `F-UAS-ZeroCopy-Spine` — Metal/Swift hot-path gates still pending. `F-PageGather-M2Pro`, `F-ControllerKernelPack`, and `F-ULP-Oracle` now have a 2026-05-27 Metal preflight dispatch/equivalence guard, but their primary hardware artifacts remain pending.
+  - Schema-normalized fallback/CPU witnesses: `F-PageGather-M2Pro`, `F-ControllerKernelPack`, `F-UAS-ZeroCopy-Spine` — PageGather and ControllerKernelPack Metal/Swift hot-path throughput gates still pending. `F-PageGather-M2Pro` and `F-ControllerKernelPack` have a 2026-05-27 Metal preflight dispatch/equivalence guard; `F-ULP-Oracle` has advanced from preflight to a full Metal primary artifact.
   - Legacy-shape measured PASS artifacts still to normalize: `F-UAS-CopyCount`, `F-ACS-AnchorLookup`.
 
 ### Open PRs
@@ -108,17 +109,20 @@ be raw-merged:
   recovery is closed on main; see
   `docs/audits/B_PRIME_FOLLOWUP_CLOSEOUT_2026_05_26.md`.
 
-`main` and `origin/main` are aligned at `334ce238b2` before the provenance/detail slice. The
+`main` and `origin/main` were aligned at `c8c4b50f15` before the F-ULP Metal
+artifact slice. The
 finished-vs-preserved architecture recovery split lives in
 `docs/audits/MAIN_ARCHITECTURE_RECOVERY_STATUS_2026_05_26.md`; use `git log -1`
 for the exact current commit.
 
 **Post-merge gate:** passed on 2026-05-27.
 - `cargo run --manifest-path agent_core/Cargo.toml --release --bin falsifier_validator ...` passed for the three Round-2 artifacts.
-- `cargo test --manifest-path agent_core/Cargo.toml --lib --quiet` passed: 4,042 tests.
-- `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosTriFusionTypedMutationGate build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""` passed.
+- `cargo test --manifest-path agent_core/Cargo.toml --lib --quiet` passed: 4,044 tests after the Metal preflight slice.
+- `Tools/metal-shader-compile/metal-shader-compile.sh` passed: 26 shaders compile, with honest deferred warnings for PageGather / ControllerKernelPack / PacketRouter1bit.
+- `swift Tools/metal-witness-gates/fulp-metal-oracle-artifact.swift --write-artifact` passed and emitted a primary `F-ULP-Oracle` Metal artifact.
+- `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosTriFusionTypedMutationGate build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""` passed for the Wave-4 checkpoint; rerun a fresh build after this artifact slice before tagging.
 - Focused graph/editor guard passed after the lost-work restoration: `GraphPerformanceTests`, `GraphPhysicsSettingsAuditTests`, and `HTMLWorkspaceSourceGuardTests` all passed.
-- Checkpoint tag pushed: `checkpoint/wave4-trifusion-typed-mutations-2026-05-27`.
+- Latest pushed checkpoint before this artifact slice: `checkpoint/post-wave4-metal-witness-preflight-2026-05-27`.
 
 ## 7 · The 13-terminal dispatch deck (status grid)
 
@@ -221,7 +225,7 @@ Full register: `docs/DEFERRED_WORK_GUARANTEE_2026_05_23.md`. One-liners:
    - Paste the rev-2 Resume patch from that doc into your session.
    - Continue your loop: Audit → Build → Verify → Harden → Report.
 5. If reading as the user:
-   - Current checkpoint: `checkpoint/wave4-trifusion-typed-mutations-2026-05-27`.
+   - Current checkpoint before this artifact slice: `checkpoint/post-wave4-metal-witness-preflight-2026-05-27`.
    - No open merge-ready feature PRs remain; only preservation draft PRs `#81` and `#82` are open.
    - First run the post-merge local gate: cargo lib + xcodebuild.
    - If green → use the codeword queue in `docs/audits/LEGENDARY_POST_WAVE4_ROLLUP_2026_05_27.md`; the product-floor terminals are retired or complete.
@@ -271,7 +275,7 @@ Read these only when this index doesn't already answer your question.
 
 **What is empirically defensible.** The substrate Epistemos has been building — lift to a typed higher-dim lattice, operate in compressed-and-active form, project to a surface with a witness, account error in WBO — is validated externally by Erdős unit-distance (lift-and-project finds new constructions) and Parameter Golf (compressed-and-active models beat uncompressed dense models per byte).
 
-**What still needs measurement, not faith.** F-Erdős-Lift-Optimality · F-KV-Direct-Gate · F-Sparse-Runtime-Split · F-LocalToolUse · F-HyperdynamicLoop-Bounded · F-70B-Local-Cocktail · primary Metal/Swift hot-path versions of F-PageGather-M2Pro, F-ControllerKernelPack, and F-UAS-ZeroCopy-Spine. A Metal witness preflight now exists for PageGather, ControllerKernelPack, and F-ULP, but the throughput/latency/full-grid artifacts remain pending. Ten falsifier artifact files now exist on main after Wave 2, but several are fallback witnesses. Substrate is sound; measurements must keep landing.
+**What still needs measurement, not faith.** F-Erdős-Lift-Optimality · F-KV-Direct-Gate · F-Sparse-Runtime-Split · F-LocalToolUse · F-HyperdynamicLoop-Bounded · F-70B-Local-Cocktail · primary Metal/Swift hot-path versions of F-PageGather-M2Pro, F-ControllerKernelPack, and F-UAS-ZeroCopy-Spine. A Metal witness preflight now exists for PageGather and ControllerKernelPack, while F-ULP has a full Metal primary artifact. PageGather throughput and ControllerKernelPack latency artifacts remain pending. Ten falsifier artifact files now exist on main after Wave 2, but several are fallback witnesses. Substrate is sound; measurements must keep landing.
 
 **The unified cognitive substrate is no longer a thesis.** It is a substrate with two independent external proofs that its primitives are the correct primitives. The remaining work is execution.
 
