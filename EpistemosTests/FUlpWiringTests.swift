@@ -67,8 +67,8 @@ private enum FUlpNotificationTestError: Error {
 }
 
 private final class NotificationThreadProbe: @unchecked Sendable {
-    nonisolated(unsafe) private let stream: AsyncStream<Bool>
-    nonisolated(unsafe) private let continuation: AsyncStream<Bool>.Continuation
+    private let stream: AsyncStream<Bool>
+    private let continuation: AsyncStream<Bool>.Continuation
     nonisolated(unsafe) private var observer: NSObjectProtocol?
 
     init(name: Notification.Name, object: AnyObject) {
