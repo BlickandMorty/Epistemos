@@ -1,6 +1,15 @@
 # Wave 3 / Wave 4 Terminal Dispatch - 2026-05-26
 
-Status: next architecture work from current `main`.
+Status: historical Wave 3 / Wave 4 dispatch deck. PRs `#121` through `#127`
+have landed since this was written.
+
+For the current post-Wave-4 ground truth and next terminal prompts, use:
+
+- `docs/audits/LEGENDARY_POST_WAVE4_ROLLUP_2026_05_27.md`
+
+Keep this file as the historical prompt source for the Wave 3 / Wave 4 work
+that produced typed UAS retrieval, PageGather traces, Cognitive DAG visualizer,
+and Tri-Fusion typed mutations.
 
 Use this when opening fresh Codex/Claude/Codex-YOLO terminals after the
 Wave-2 merge and stash recovery closeout.
