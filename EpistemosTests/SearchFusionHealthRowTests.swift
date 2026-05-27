@@ -117,9 +117,9 @@ struct SearchFusionHealthRowTests {
         #expect(acs.contains("production gate active"))
         #expect(localAgent.contains("substrate: \"placeholder routes\""))
         #expect(activeConstellation.contains("production route table"))
-        #expect(blueprint.contains("System G governed dispatch is not wired yet"))
-        #expect(blueprint.contains("substrate: \"legacy runtime\""))
-        #expect(blueprint.contains("Queue to Command Center"))
+        #expect(blueprint.contains("Blueprint runs dispatch a MissionPacket through System G"))
+        #expect(blueprint.contains("substrate: \"System G replay\""))
+        #expect(blueprint.contains("Run (System G)"))
     }
 
     @Test("Search Fusion metrics summarize latency, hits, and errors")

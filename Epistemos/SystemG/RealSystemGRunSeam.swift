@@ -97,6 +97,10 @@ nonisolated struct RealSystemGRunSeam: SystemGRunSeam {
             for event in batch {
                 log.append(event)
                 if event.isTerminal {
+                    if case .complete = event {
+                        let packet = try RunEventLogReplayProjection.answerPacket(from: log)
+                        await AnswerPacketEmitter.shared.emit(packet)
+                    }
                     return log
                 }
             }
