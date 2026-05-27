@@ -496,7 +496,6 @@ mod tests {
     fn cell_reduce_quarantines_nan_position_inputs() {
         // Two nodes in cell 0, one with NaN position. The finite one wins;
         // the NaN one contributes 0 to the sum but still counts as mass.
-        let cfg = UniformGridConfig { world_half: 10.0, cells_per_axis: 2 };
         // Note: NaN won't map to any cell via `cell_of`, so grid_build will
         // skip it. Use a real position for both nodes but mock the scatter
         // / scan to put both in the same cell with one having a NaN position.
