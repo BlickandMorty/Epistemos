@@ -647,3 +647,21 @@ user wants disk cleanup, is:
    marked superseded here or ported into a current commit.
 3. Preserve dirty worktrees until build-artifact churn is separated from real
    source edits, preferably by archiving the worktree paths before removal.
+
+## Follow-up Safety Check - 2026-05-30
+
+After this audit was committed, the inventory was refreshed at:
+
+```text
+57e507428898
+```
+
+`git worktree prune --dry-run` produced no output, so there is no stale Git
+worktree metadata to prune. A next-session prompt was added at:
+
+```text
+docs/audits/NEXT_SESSION_WORKTREE_SALVAGE_PROMPT_2026_05_30.md
+```
+
+That prompt is the intended pickup surface for continuing worktree salvage
+without destructive cleanup, bulk merges, or heavy runtime probes.
