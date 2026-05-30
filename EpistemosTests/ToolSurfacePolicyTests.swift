@@ -267,6 +267,58 @@ struct ToolSurfacePolicyTests {
         #expect(object["limit"] as? Int == 5)
     }
 
+    @Test func vaultScopedFileSearchBuildsAppFirstVaultSearchInput() throws {
+        let vaultRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-app-first-vault-root")
+            .standardizedFileURL
+            .path
+        let normalized = ToolTierBridge.normalizedInputJson(
+            toolName: "file.search",
+            inputJson: #"{"pattern":"My Autobiography","path":"~/","target":"files","limit":250}"#,
+            defaultFileSearchRoot: vaultRoot
+        )
+        let preflight = try #require(ToolTierBridge.appFirstVaultSearchInputForFileSearch(
+            toolName: "file.search",
+            normalizedInputJson: normalized,
+            defaultFileSearchRoot: vaultRoot,
+            allowedToolNames: ["vault.search", "file.search"]
+        ))
+        let data = try #require(preflight.data(using: .utf8))
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        #expect(object["query"] as? String == "My Autobiography")
+        #expect(object["limit"] as? Int == 20)
+    }
+
+    @Test func explicitNonVaultFileSearchSkipsAppFirstVaultSearchInput() throws {
+        let vaultRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-app-first-vault-root")
+            .standardizedFileURL
+            .path
+        let normalized = ToolTierBridge.normalizedInputJson(
+            toolName: "file.search",
+            inputJson: #"{"pattern":"QueryRuntime","path":"/Users/jojo/Downloads/Epistemos","target":"content"}"#,
+            defaultFileSearchRoot: vaultRoot
+        )
+
+        #expect(ToolTierBridge.appFirstVaultSearchInputForFileSearch(
+            toolName: "file.search",
+            normalizedInputJson: normalized,
+            defaultFileSearchRoot: vaultRoot,
+            allowedToolNames: ["vault.search", "file.search"]
+        ) == nil)
+    }
+
+    @Test func vaultSearchResultDetectorRequiresRealMatches() {
+        #expect(ToolTierBridge.vaultSearchOutputHasUsableResults("""
+        1. **Notes/My Autobiography.md** (score: 12.00, tier: T3, variant: rrf)
+        A paragraph about the note.
+        """))
+        #expect(!ToolTierBridge.vaultSearchOutputHasUsableResults(
+            "No notes matched with high enough confidence (ladder declined; no tier above floor)."
+        ))
+    }
+
     @Test @MainActor func fileSearchPatternExecutesAsNonEmptyQuery() async throws {
         let vaultURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("epistemos-file-search-pattern-\(UUID().uuidString)")

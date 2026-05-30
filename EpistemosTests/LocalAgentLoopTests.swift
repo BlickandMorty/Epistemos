@@ -2103,6 +2103,46 @@ struct LocalAgentLoopTests {
         """)
     }
 
+    @Test("explicit note lookup synthesizes vault search when model only narrates")
+    func explicitNoteLookupSynthesizesVaultSearchWhenModelOnlyNarrates() async throws {
+        let responseQueue = ResponseQueue(outputs: [
+            "I will search your notes for that.",
+            "My Autobiography is about projects, school, and personal systems.",
+        ])
+        let toolRecorder = ToolCallRecorder()
+
+        let loop = LocalAgentLoop(
+            generator: { _, _, _, _, _, onToken in
+                let output = await responseQueue.nextOutput()
+                await onToken(output)
+                return output
+            },
+            toolExecutor: { name, argumentsJson in
+                await toolRecorder.record(name, argumentsJson)
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: """
+                    1. **some essays/My Autobiography.md** (score: 12.00, tier: T3, variant: rrf)
+                    I grew up around projects, school, and personal systems.
+                    """,
+                    isError: false
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: #"Find the note titled "My Autobiography" and explain it."#,
+            tools: [sampleTool()],
+            maxTurns: 3,
+            onToken: { _ in }
+        )
+
+        let calls = await toolRecorder.snapshot()
+        #expect(calls.map(\.name) == ["vault.search"])
+        #expect(calls.first?.argumentsJson.contains("\"query\":\"My Autobiography\"") == true)
+        #expect(answer == "My Autobiography is about projects, school, and personal systems.")
+    }
+
     private func sampleTool() -> OmegaToolDefinition {
         OmegaToolDefinition(
             name: "vault_search",

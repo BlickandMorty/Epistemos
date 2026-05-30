@@ -467,7 +467,21 @@ actor LocalAgentLoop {
                 ) {
                     resetInvisibleTurnStreak()
                     history.append(LocalMessage(role: .assistant, content: output))
-                    history.append(LocalMessage(role: .user, content: repairPrompt))
+                    if let syntheticToolCall = Self.syntheticExplicitNoteToolCall(
+                        objective: objective,
+                        requiredToolSequence: requiredNoteToolSequence,
+                        completedToolNames: completedToolNames,
+                        requestedNoteTitle: requestedExplicitNoteTitle
+                    ) {
+                        await executeSyntheticExplicitNoteToolCall(
+                            syntheticToolCall,
+                            runID: runID,
+                            completedToolNames: &completedToolNames,
+                            history: &history
+                        )
+                    } else {
+                        history.append(LocalMessage(role: .user, content: repairPrompt))
+                    }
                     continue
                 }
                 let visibleOutput = Self.stripAssistantMeta(from: output)
@@ -752,6 +766,20 @@ actor LocalAgentLoop {
                         history: &history
                     )
                 }
+                if let syntheticToolCall = Self.syntheticExplicitNoteToolCall(
+                    objective: objective,
+                    requiredToolSequence: requiredNoteToolSequence,
+                    completedToolNames: completedToolNames,
+                    requestedNoteTitle: requestedExplicitNoteTitle
+                ) {
+                    await executeSyntheticExplicitNoteToolCall(
+                        syntheticToolCall,
+                        runID: runID,
+                        completedToolNames: &completedToolNames,
+                        history: &history
+                    )
+                    return nil
+                }
                 history.append(LocalMessage(role: .assistant, content: repairedOutput))
                 history.append(LocalMessage(
                     role: .user,
@@ -838,7 +866,21 @@ actor LocalAgentLoop {
             ) {
                 consecutiveInvisibleTurns = 0
                 history.append(LocalMessage(role: .assistant, content: output))
-                history.append(LocalMessage(role: .user, content: repairPrompt))
+                if let syntheticToolCall = Self.syntheticExplicitNoteToolCall(
+                    objective: objective,
+                    requiredToolSequence: requiredNoteToolSequence,
+                    completedToolNames: completedToolNames,
+                    requestedNoteTitle: requestedExplicitNoteTitle
+                ) {
+                    await executeSyntheticExplicitNoteToolCall(
+                        syntheticToolCall,
+                        runID: runID,
+                        completedToolNames: &completedToolNames,
+                        history: &history
+                    )
+                } else {
+                    history.append(LocalMessage(role: .user, content: repairPrompt))
+                }
                 return nil
             }
             let visibleOutput = Self.stripAssistantMeta(from: output)
@@ -943,6 +985,31 @@ actor LocalAgentLoop {
             requiredToolSequence: requiredToolSequence,
             completedToolNames: completedToolNames
         )
+    }
+
+    private func executeSyntheticExplicitNoteToolCall(
+        _ toolCall: ParsedToolCall,
+        runID: String,
+        completedToolNames: inout Set<String>,
+        history: inout [LocalMessage]
+    ) async {
+        let query = Self.toolArgumentValue(
+            named: "query",
+            from: toolCall.argumentsJson
+        ) ?? Self.toolArgumentValue(
+            named: "path",
+            from: toolCall.argumentsJson
+        ) ?? "unknown"
+        Log.pipeline.info(
+            "Local agent explicit-note repair (synthetic step) — nextRequired=\(toolCall.name, privacy: .public) query=\(query, privacy: .public)"
+        )
+        history.append(LocalMessage(
+            role: .assistant,
+            content: Self.renderedToolCallMessage(for: toolCall)
+        ))
+        let toolResults = await executeToolCalls([toolCall], runID: runID)
+        Self.recordCompletedToolNames([toolCall.name], into: &completedToolNames)
+        history.append(Self.toolResponseMessage(for: toolResults))
     }
 
     private func reflexRepairOutput(
@@ -1887,6 +1954,66 @@ actor LocalAgentLoop {
         default:
             return nil
         }
+    }
+
+    private nonisolated static func syntheticExplicitNoteToolCall(
+        objective: String,
+        requiredToolSequence: [String],
+        completedToolNames: Set<String>,
+        requestedNoteTitle: String?
+    ) -> ParsedToolCall? {
+        guard let nextRequiredTool = nextIncompleteTool(
+            in: requiredToolSequence,
+            completedToolNames: completedToolNames
+        ) else {
+            return nil
+        }
+
+        switch AgentToolNameAliases.canonical(nextRequiredTool) {
+        case "vault.search":
+            guard let query = noteSearchQuery(
+                objective: objective,
+                requestedNoteTitle: requestedNoteTitle
+            ),
+            let argumentsJson = toolArgumentsJSONString([
+                "limit": 5,
+                "query": query,
+            ]) else {
+                return nil
+            }
+            return ParsedToolCall(name: nextRequiredTool, argumentsJson: argumentsJson)
+        case "vault.read":
+            guard let requestedNoteTitle,
+                  let argumentsJson = toolArgumentsJSONString([
+                    "path": requestedNoteTitle,
+                  ]) else {
+                return nil
+            }
+            return ParsedToolCall(name: nextRequiredTool, argumentsJson: argumentsJson)
+        default:
+            return nil
+        }
+    }
+
+    private nonisolated static func noteSearchQuery(
+        objective: String,
+        requestedNoteTitle: String?
+    ) -> String? {
+        if let title = requestedNoteTitle?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !title.isEmpty {
+            return title
+        }
+        let request = currentRequestText(from: objective)
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !request.isEmpty else {
+            return nil
+        }
+        if request.count <= 240 {
+            return request
+        }
+        let end = request.index(request.startIndex, offsetBy: 240)
+        return String(request[..<end]).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private nonisolated static func requestedExplicitWriteContent(

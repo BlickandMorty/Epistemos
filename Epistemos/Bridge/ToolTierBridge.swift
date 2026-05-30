@@ -580,23 +580,22 @@ final class ToolTierBridge {
 
         #if canImport(agent_coreFFI)
         do {
-            let result: ToolExecutionResultFfi
-            if let allowedToolNames {
-                result = try await executeToolCallFiltered(
-                    vaultPath: vaultPath,
-                    tier: tier,
-                    toolName: toolName,
-                    inputJson: normalizedInputJson,
-                    allowedToolNames: allowedToolNames
-                )
-            } else {
-                result = try await executeToolCall(
-                    vaultPath: vaultPath,
-                    tier: tier,
-                    toolName: toolName,
-                    inputJson: normalizedInputJson
-                )
+            if let appFirstResult = try await executeVaultSearchBeforeFileSearchIfNeeded(
+                vaultPath: vaultPath,
+                tier: tier,
+                requestedToolName: toolName,
+                normalizedInputJson: normalizedInputJson,
+                allowedToolNames: allowedToolNames
+            ) {
+                return appFirstResult
             }
+            let result = try await executeRustToolCall(
+                vaultPath: vaultPath,
+                tier: tier,
+                toolName: toolName,
+                inputJson: normalizedInputJson,
+                allowedToolNames: allowedToolNames
+            )
             if result.success {
                 return LocalToolResult(
                     toolName: toolName,
@@ -628,6 +627,71 @@ final class ToolTierBridge {
         )
         #endif
     }
+
+    #if canImport(agent_coreFFI)
+    private static func executeRustToolCall(
+        vaultPath: String,
+        tier: String,
+        toolName: String,
+        inputJson: String,
+        allowedToolNames: [String]?
+    ) async throws -> ToolExecutionResultFfi {
+        if let allowedToolNames {
+            return try await executeToolCallFiltered(
+                vaultPath: vaultPath,
+                tier: tier,
+                toolName: toolName,
+                inputJson: inputJson,
+                allowedToolNames: allowedToolNames
+            )
+        }
+        return try await executeToolCall(
+            vaultPath: vaultPath,
+            tier: tier,
+            toolName: toolName,
+            inputJson: inputJson
+        )
+    }
+
+    private static func executeVaultSearchBeforeFileSearchIfNeeded(
+        vaultPath: String,
+        tier: String,
+        requestedToolName: String,
+        normalizedInputJson: String,
+        allowedToolNames: [String]?
+    ) async throws -> LocalToolResult? {
+        guard let vaultSearchInputJson = appFirstVaultSearchInputForFileSearch(
+            toolName: requestedToolName,
+            normalizedInputJson: normalizedInputJson,
+            defaultFileSearchRoot: vaultPath,
+            allowedToolNames: allowedToolNames
+        ) else {
+            return nil
+        }
+
+        let result = try await executeRustToolCall(
+            vaultPath: vaultPath,
+            tier: tier,
+            toolName: "vault.search",
+            inputJson: vaultSearchInputJson,
+            allowedToolNames: allowedToolNames
+        )
+        guard result.success,
+              vaultSearchOutputHasUsableResults(result.outputJson) else {
+            return nil
+        }
+
+        return LocalToolResult(
+            toolName: requestedToolName,
+            resultJson: """
+            App-first vault search ran before file.search and found note matches. Use the returned vault-relative path with vault.read before falling back to Finder/filesystem search.
+
+            \(result.outputJson)
+            """,
+            isError: false
+        )
+    }
+    #endif
 
     nonisolated static func executionPolicyDenial(
         toolName: String,
@@ -666,6 +730,76 @@ final class ToolTierBridge {
             resultJson: errorToJson("Tool '\(canonicalName)' requires a non-empty \(searchTermKey)."),
             isError: true
         )
+    }
+
+    nonisolated static func appFirstVaultSearchInputForFileSearch(
+        toolName: String,
+        normalizedInputJson: String,
+        defaultFileSearchRoot: String?,
+        allowedToolNames: [String]? = nil
+    ) -> String? {
+        guard AgentToolNameAliases.canonical(toolName) == "file.search" else {
+            return nil
+        }
+        if let allowedToolNames {
+            let allowed = Set(allowedToolNames.map(AgentToolNameAliases.canonical))
+            guard allowed.contains("vault.search") else {
+                return nil
+            }
+        }
+        guard let root = normalizedDefaultFileSearchRoot(defaultFileSearchRoot),
+              let data = normalizedInputJson.data(using: .utf8),
+              let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let pattern = trimmedStringValue(object["pattern"]),
+              let requestedRoot = trimmedStringValue(object["path"]) else {
+            return nil
+        }
+
+        let searchRoot = URL(
+            fileURLWithPath: (requestedRoot as NSString).expandingTildeInPath,
+            isDirectory: true
+        ).standardizedFileURL
+        let vaultRoot = URL(fileURLWithPath: root, isDirectory: true).standardizedFileURL
+        guard isDescendant(searchRoot, of: vaultRoot) else {
+            return nil
+        }
+
+        let requestedLimit = object["limit"] as? Int
+            ?? (object["limit"] as? NSNumber)?.intValue
+            ?? 5
+        let vaultLimit = max(1, min(requestedLimit, 20))
+        let vaultInput: [String: Any] = [
+            "query": pattern,
+            "limit": vaultLimit,
+        ]
+        guard let encoded = try? JSONSerialization.data(
+            withJSONObject: vaultInput,
+            options: [.sortedKeys]
+        ) else {
+            return nil
+        }
+        return String(data: encoded, encoding: .utf8)
+    }
+
+    nonisolated static func vaultSearchOutputHasUsableResults(_ output: String) -> Bool {
+        let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return false
+        }
+        let lowercased = trimmed.lowercased()
+        let noMatchSignals = [
+            "no notes matched",
+            "no vault note",
+            "no recovery candidates",
+            "ladder declined",
+        ]
+        guard !noMatchSignals.contains(where: lowercased.contains) else {
+            return false
+        }
+        return trimmed.range(
+            of: #"(?m)^\s*\d+\.\s+\*\*.+\*\*"#,
+            options: .regularExpression
+        ) != nil
     }
 
     private nonisolated static func trimmedStringValue(_ value: Any?) -> String? {
