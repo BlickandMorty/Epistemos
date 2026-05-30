@@ -111,12 +111,7 @@ impl ProviderReferenceManifest {
         if self.schema_version != Self::SCHEMA_VERSION {
             return Err(ProviderReferenceManifestError::BadSchemaVersion);
         }
-        if self.model_id.trim().is_empty() {
-            return Err(ProviderReferenceManifestError::MissingModelId);
-        }
-        if self.model_id.trim() != self.model_id {
-            return Err(ProviderReferenceManifestError::ModelIdHasSurroundingWhitespace);
-        }
+        validate_model_id(&self.model_id)?;
         if !self.replay_allowed {
             return Err(ProviderReferenceManifestError::ReplayNotAllowed);
         }
@@ -128,9 +123,7 @@ impl ProviderReferenceManifest {
         {
             return Err(ProviderReferenceManifestError::InsufficientPromptLevelPrompts);
         }
-        if self.prompt_suite_id.trim().is_empty() {
-            return Err(ProviderReferenceManifestError::MissingPromptSuiteId);
-        }
+        validate_prompt_suite_id(&self.prompt_suite_id)?;
         validate_row_root_path(&self.artifact_ref)?;
         validate_sha256(&self.artifact_sha256)?;
         validate_prompt_suite_path(&self.prompt_suite_artifact_ref)?;
@@ -182,6 +175,9 @@ pub enum ProviderReferenceManifestError {
     BadSchemaVersion,
     MissingModelId,
     ModelIdHasSurroundingWhitespace,
+    ManifestFieldHasSurroundingWhitespace { field: &'static str },
+    ManifestFieldContainsControlCharacter { field: &'static str },
+    ManifestFieldContainsPreimageDelimiter { field: &'static str },
     ReplayNotAllowed,
     EmptyPromptSet,
     InsufficientPromptLevelPrompts,
@@ -212,6 +208,24 @@ impl std::fmt::Display for ProviderReferenceManifestError {
                 write!(
                     f,
                     "provider reference model_id must not contain leading or trailing whitespace"
+                )
+            }
+            Self::ManifestFieldHasSurroundingWhitespace { field } => {
+                write!(
+                    f,
+                    "provider reference {field} must not contain leading or trailing whitespace"
+                )
+            }
+            Self::ManifestFieldContainsControlCharacter { field } => {
+                write!(
+                    f,
+                    "provider reference {field} must not contain control characters"
+                )
+            }
+            Self::ManifestFieldContainsPreimageDelimiter { field } => {
+                write!(
+                    f,
+                    "provider reference {field} must not contain preimage delimiters"
                 )
             }
             Self::ReplayNotAllowed => write!(f, "provider reference must be replayable"),
@@ -274,6 +288,47 @@ impl std::fmt::Display for ProviderReferenceManifestError {
 }
 
 impl std::error::Error for ProviderReferenceManifestError {}
+
+fn validate_model_id(value: &str) -> Result<(), ProviderReferenceManifestError> {
+    if value.trim().is_empty() {
+        return Err(ProviderReferenceManifestError::MissingModelId);
+    }
+    if value.trim() != value {
+        return Err(ProviderReferenceManifestError::ModelIdHasSurroundingWhitespace);
+    }
+    validate_stable_identity_field("model_id", value)
+}
+
+fn validate_prompt_suite_id(value: &str) -> Result<(), ProviderReferenceManifestError> {
+    if value.trim().is_empty() {
+        return Err(ProviderReferenceManifestError::MissingPromptSuiteId);
+    }
+    if value.trim() != value {
+        return Err(
+            ProviderReferenceManifestError::ManifestFieldHasSurroundingWhitespace {
+                field: "prompt_suite_id",
+            },
+        );
+    }
+    validate_stable_identity_field("prompt_suite_id", value)
+}
+
+fn validate_stable_identity_field(
+    field: &'static str,
+    value: &str,
+) -> Result<(), ProviderReferenceManifestError> {
+    if value.chars().any(char::is_control) {
+        return Err(
+            ProviderReferenceManifestError::ManifestFieldContainsControlCharacter { field },
+        );
+    }
+    if value.contains('|') {
+        return Err(
+            ProviderReferenceManifestError::ManifestFieldContainsPreimageDelimiter { field },
+        );
+    }
+    Ok(())
+}
 
 fn validate_row_root_path(path: &str) -> Result<(), ProviderReferenceManifestError> {
     if has_dot_segment(path) {
@@ -401,6 +456,48 @@ mod tests {
             manifest.validate(),
             Err(ProviderReferenceManifestError::ModelIdHasSurroundingWhitespace)
         );
+    }
+
+    #[test]
+    fn rejects_manifest_identity_control_characters_and_delimiters() {
+        for (field, value, expected) in [
+            (
+                "model_id",
+                "qwen3-70b\nfp16-reference",
+                ProviderReferenceManifestError::ManifestFieldContainsControlCharacter {
+                    field: "model_id",
+                },
+            ),
+            (
+                "model_id",
+                "qwen3-70b|fp16-reference",
+                ProviderReferenceManifestError::ManifestFieldContainsPreimageDelimiter {
+                    field: "model_id",
+                },
+            ),
+            (
+                "prompt_suite_id",
+                " qwen3_8b_128k_kv_direct_prompt_suite_v1",
+                ProviderReferenceManifestError::ManifestFieldHasSurroundingWhitespace {
+                    field: "prompt_suite_id",
+                },
+            ),
+            (
+                "prompt_suite_id",
+                "qwen3_8b_128k\nkv_direct_prompt_suite_v1",
+                ProviderReferenceManifestError::ManifestFieldContainsControlCharacter {
+                    field: "prompt_suite_id",
+                },
+            ),
+        ] {
+            let mut manifest = local_manifest();
+            match field {
+                "model_id" => manifest.model_id = value.to_string(),
+                "prompt_suite_id" => manifest.prompt_suite_id = value.to_string(),
+                _ => unreachable!("test field is exhaustive"),
+            }
+            assert_eq!(manifest.validate(), Err(expected));
+        }
     }
 
     #[test]
