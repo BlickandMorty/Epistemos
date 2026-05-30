@@ -62,6 +62,22 @@ it is still a Vault/Research candidate. Agents may inspect existing artifacts
 and run light source/artifact validators by default; they must not launch
 65K/128K/70B-class probes without the explicit heavy-run environment opt-in.
 
+The bench helper also supports a no-execution preview:
+
+```bash
+Tools/falsifiers/run_qwen3_8b_128k_gguf_bench.sh \
+  --dry-run \
+  --allow-full-suite \
+  --context-tokens 128000 \
+  --decode-tokens 1 \
+  --output-dir artifacts/falsifiers/qwen3_8b_128k_gguf_route/dry_run_128k_preview
+```
+
+Dry-run mode writes only a manifest with `dry_run=true`,
+`not_executed=true`, `metrics=not_written`, and the exact command preview. It
+does not launch llama.cpp, read the GGUF file, create a Metal command buffer, or
+advance the falsifier.
+
 ## Required Inputs
 
 | Variable | Meaning |

@@ -47,17 +47,27 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no-kv-offload", type=int, choices=[0, 1], default=0)
     parser.add_argument("--timeout-seconds", type=float, default=None)
     parser.add_argument("--allow-full-suite", action="store_true")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Write a command-preview manifest without launching llama.cpp or reading the model.",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    if not args.allow_full_suite and (
-        args.context_tokens > 4096 or args.decode_tokens > 64
-    ):
-        raise SystemExit(
-            "refusing non-smoke GGUF bench without --allow-full-suite"
-        )
+    plan = read_json(args.asset_plan)
+    model_path = args.model_path or Path(plan["default_local_paths"]["model_file"])
+    runner = args.runner or find_runner("llama-bench")
+    if args.dry_run and runner is None:
+        runner = Path("<llama-bench>")
+    if args.dry_run:
+        command = bench_command(args, runner, model_path)
+        return write_dry_run_manifest(args, runner, model_path, command)
+
+    if not args.allow_full_suite and (args.context_tokens > 4096 or args.decode_tokens > 64):
+        raise SystemExit("refusing non-smoke GGUF bench without --allow-full-suite")
     if args.context_tokens > SAFE_CONTEXT_TOKENS and os.environ.get(HEAVY_RUN_ENV) != "1":
         raise SystemExit(
             f"refusing >{SAFE_CONTEXT_TOKENS} context GGUF bench without "
@@ -65,13 +75,11 @@ def main() -> int:
             "the laptop"
         )
 
-    plan = read_json(args.asset_plan)
-    model_path = args.model_path or Path(plan["default_local_paths"]["model_file"])
-    runner = args.runner or find_runner("llama-bench")
     if runner is None:
         raise SystemExit("llama-bench not found; install llama.cpp or pass --runner")
     if not model_path.is_file():
         raise SystemExit(f"GGUF model file is missing: {model_path}")
+    command = bench_command(args, runner, model_path)
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     stdout_path = args.output_dir / "bench.json"
@@ -79,35 +87,6 @@ def main() -> int:
     metrics_path = args.output_dir / "metrics.json"
     manifest_path = args.output_dir / "manifest.json"
 
-    command = [
-        "/usr/bin/time",
-        "-l",
-        str(runner),
-        "-m",
-        str(model_path),
-        "-p",
-        str(args.context_tokens),
-        "-n",
-        str(args.decode_tokens),
-        "-r",
-        "1",
-        "-b",
-        str(args.batch_size),
-        "-ub",
-        str(args.ubatch_size),
-        "-ngl",
-        str(args.gpu_layers),
-        "-ctk",
-        args.cache_type_k,
-        "-ctv",
-        args.cache_type_v,
-        "-fa",
-        str(args.flash_attn),
-        "-nkvo",
-        str(args.no_kv_offload),
-        "-o",
-        "json",
-    ]
     started = time.perf_counter()
     timed_out = False
     proc = subprocess.Popen(
@@ -196,6 +175,75 @@ def main() -> int:
     }
     manifest["env_for_falsifier"] = {
         "EPISTEMOS_QWEN3_8B_128K_GGUF_METRICS_PATH": str(metrics_path)
+    }
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    print(json.dumps(manifest, indent=2))
+    return 0
+
+
+def bench_command(args: argparse.Namespace, runner: Path, model_path: Path) -> list[str]:
+    return [
+        "/usr/bin/time",
+        "-l",
+        str(runner),
+        "-m",
+        str(model_path),
+        "-p",
+        str(args.context_tokens),
+        "-n",
+        str(args.decode_tokens),
+        "-r",
+        "1",
+        "-b",
+        str(args.batch_size),
+        "-ub",
+        str(args.ubatch_size),
+        "-ngl",
+        str(args.gpu_layers),
+        "-ctk",
+        args.cache_type_k,
+        "-ctv",
+        args.cache_type_v,
+        "-fa",
+        str(args.flash_attn),
+        "-nkvo",
+        str(args.no_kv_offload),
+        "-o",
+        "json",
+    ]
+
+
+def write_dry_run_manifest(
+    args: argparse.Namespace,
+    runner: Path,
+    model_path: Path,
+    command: list[str],
+) -> int:
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = args.output_dir / "manifest.json"
+    metrics_path = args.output_dir / "metrics.json"
+    if metrics_path.exists():
+        metrics_path.unlink()
+    manifest = {
+        "runner": str(runner),
+        "model_path": str(model_path),
+        "command": command,
+        "exit_status": 0,
+        "timed_out": False,
+        "timeout_seconds": args.timeout_seconds,
+        "context_window_tokens": args.context_tokens,
+        "decode_tokens_per_prompt": args.decode_tokens,
+        "output_dir": str(args.output_dir),
+        "bench_json": "not_written",
+        "bench_stderr": "not_written",
+        "metrics": "not_written",
+        "dry_run": True,
+        "not_executed": True,
+        "falsifier_green_capable": False,
+        "would_require_allow_full_suite": args.context_tokens > 4096 or args.decode_tokens > 64,
+        "would_require_heavy_env": args.context_tokens > SAFE_CONTEXT_TOKENS,
+        "required_heavy_env": HEAVY_RUN_ENV,
+        "reason": "dry-run command preview only; no llama.cpp process launched, no model file read, and no metrics written.",
     }
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     print(json.dumps(manifest, indent=2))
