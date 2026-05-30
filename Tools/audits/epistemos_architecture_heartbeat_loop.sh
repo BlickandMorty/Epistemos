@@ -272,8 +272,8 @@ run_autopilot() {
   codex exec \
     -C "$ROOT" \
     --add-dir "$ROOT/.." \
-    -s danger-full-access \
-    -a never \
+    --sandbox danger-full-access \
+    --ask-for-approval never \
     --output-last-message "$run_dir/final.md" \
     - < "$AUTOPILOT_PROMPT" > "$run_dir/stdout.log" 2> "$run_dir/stderr.log"
   local status=$?
