@@ -80,6 +80,101 @@ fn normalized_query_terms(query: &str) -> Vec<String> {
         .collect()
 }
 
+fn normalized_title_key(value: &str) -> Option<String> {
+    let key = normalized_query_terms(value).join(" ");
+    (!key.is_empty()).then_some(key)
+}
+
+fn insert_title_candidate(candidates: &mut HashSet<String>, value: &str) {
+    if let Some(key) = normalized_title_key(value) {
+        candidates.insert(key);
+    }
+}
+
+fn dequoted(value: &str) -> &str {
+    value
+        .trim()
+        .trim_matches(|ch| matches!(ch, '"' | '\'' | '`' | ' ' | '\t' | '\n' | '\r' | '<' | '>'))
+}
+
+fn quoted_segments(query: &str) -> Vec<String> {
+    let mut segments = Vec::new();
+    for quote in ['"', '`'] {
+        let mut active = false;
+        let mut current = String::new();
+        for ch in query.chars() {
+            if ch == quote {
+                if active && !current.trim().is_empty() {
+                    segments.push(current.trim().to_string());
+                }
+                current.clear();
+                active = !active;
+            } else if active {
+                current.push(ch);
+            }
+        }
+    }
+    segments
+}
+
+fn suffix_after_marker(query: &str, markers: &[&str]) -> Vec<String> {
+    let parts: Vec<&str> = query.split_whitespace().collect();
+    let mut suffixes = Vec::new();
+    for (index, part) in parts.iter().enumerate() {
+        let token = part
+            .trim_matches(|ch: char| !ch.is_alphanumeric())
+            .to_lowercase();
+        if markers.iter().any(|marker| token == *marker) && index + 1 < parts.len() {
+            suffixes.push(parts[index + 1..].join(" "));
+        }
+    }
+    suffixes
+}
+
+fn stripped_title_prefix(query: &str) -> Option<String> {
+    const PREFIX_WORDS: &[&str] = &[
+        "pull", "find", "show", "get", "give", "tell", "list", "search", "look", "open", "read",
+        "edit", "update", "please", "can", "could", "would", "the", "a", "an", "note", "notes",
+        "file", "files",
+    ];
+
+    let parts: Vec<&str> = query.split_whitespace().collect();
+    let start = parts
+        .iter()
+        .position(|part| {
+            let token = part
+                .trim_matches(|ch: char| !ch.is_alphanumeric())
+                .to_lowercase();
+            !PREFIX_WORDS.contains(&token.as_str())
+        })
+        .unwrap_or(parts.len());
+    (start > 0 && start < parts.len()).then(|| parts[start..].join(" "))
+}
+
+fn title_query_candidates(query: &str) -> HashSet<String> {
+    const TITLE_MARKERS: &[&str] = &["title", "titled", "called", "named", "alias", "aliases"];
+    const TOPIC_MARKERS: &[&str] = &["about", "topic"];
+
+    let mut candidates = HashSet::new();
+    insert_title_candidate(&mut candidates, query);
+
+    if let Some(stripped) = stripped_title_prefix(query) {
+        insert_title_candidate(&mut candidates, &stripped);
+    }
+
+    for segment in quoted_segments(query) {
+        insert_title_candidate(&mut candidates, &segment);
+    }
+    for suffix in suffix_after_marker(query, TITLE_MARKERS) {
+        insert_title_candidate(&mut candidates, &suffix);
+    }
+    for suffix in suffix_after_marker(query, TOPIC_MARKERS) {
+        insert_title_candidate(&mut candidates, &suffix);
+    }
+
+    candidates
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SearchResult {
     pub path: String,
@@ -590,6 +685,221 @@ impl VaultStore {
         }
     }
 
+    fn frontmatter_block(content: &str) -> Option<&str> {
+        let after_open = content.strip_prefix("---")?;
+        after_open.find("---").map(|end| &after_open[..end])
+    }
+
+    fn clean_frontmatter_value(value: &str) -> String {
+        value
+            .trim()
+            .trim_end_matches(',')
+            .trim_matches(|ch| matches!(ch, '"' | '\'' | '[' | ']'))
+            .trim()
+            .to_string()
+    }
+
+    fn split_inline_frontmatter_values(value: &str) -> Vec<String> {
+        let trimmed = value.trim();
+        if trimmed.starts_with('[') && trimmed.ends_with(']') {
+            trimmed
+                .trim_matches(|ch| ch == '[' || ch == ']')
+                .split(',')
+                .map(Self::clean_frontmatter_value)
+                .filter(|value| !value.is_empty())
+                .collect()
+        } else {
+            let cleaned = Self::clean_frontmatter_value(trimmed);
+            if cleaned.is_empty() {
+                Vec::new()
+            } else {
+                vec![cleaned]
+            }
+        }
+    }
+
+    fn extract_title_metadata(content: &str) -> Vec<String> {
+        const TITLE_KEYS: &[&str] = &["title", "name", "alias", "aliases"];
+        let Some(frontmatter) = Self::frontmatter_block(content) else {
+            return Vec::new();
+        };
+
+        let mut values = Vec::new();
+        let mut list_mode = false;
+        for line in frontmatter.lines() {
+            let trimmed = line.trim();
+            if list_mode {
+                if let Some(rest) = trimmed.strip_prefix('-') {
+                    let cleaned = Self::clean_frontmatter_value(rest);
+                    if !cleaned.is_empty() {
+                        values.push(cleaned);
+                    }
+                    continue;
+                }
+                list_mode = false;
+            }
+
+            let Some((raw_key, raw_value)) = trimmed.split_once(':') else {
+                continue;
+            };
+            let key = raw_key.trim().to_lowercase();
+            if !TITLE_KEYS.contains(&key.as_str()) {
+                continue;
+            }
+            let parsed_values = Self::split_inline_frontmatter_values(raw_value);
+            if parsed_values.is_empty() {
+                list_mode = key == "alias" || key == "aliases";
+            } else {
+                values.extend(parsed_values);
+            }
+        }
+
+        values
+    }
+
+    fn title_keys_for_note(path: &str, content: &str) -> HashSet<String> {
+        let mut keys = HashSet::new();
+        let stem = Path::new(path)
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .unwrap_or(path);
+        insert_title_candidate(&mut keys, stem);
+
+        let path_without_extension = Path::new(path)
+            .with_extension("")
+            .to_string_lossy()
+            .replace(['/', '\\', '_', '-'], " ");
+        insert_title_candidate(&mut keys, &path_without_extension);
+
+        for value in Self::extract_title_metadata(content) {
+            insert_title_candidate(&mut keys, &value);
+        }
+
+        keys
+    }
+
+    fn path_candidates_from_query(query: &str) -> Vec<String> {
+        let mut candidates = Vec::new();
+        let mut push_candidate = |candidate: &str| {
+            let candidate = dequoted(candidate);
+            if candidate.is_empty() {
+                return;
+            }
+            if !candidates.iter().any(|existing| existing == candidate) {
+                candidates.push(candidate.to_string());
+            }
+        };
+
+        push_candidate(query);
+        for line in query.lines() {
+            push_candidate(line);
+        }
+        for segment in quoted_segments(query) {
+            push_candidate(&segment);
+        }
+
+        candidates
+    }
+
+    fn expand_home_path(path: &str) -> PathBuf {
+        if let Some(rest) = path.strip_prefix("~/") {
+            if let Some(home) = std::env::var_os("HOME") {
+                return PathBuf::from(home).join(rest);
+            }
+        }
+        PathBuf::from(path)
+    }
+
+    fn note_result_for_relative_path(
+        &self,
+        relative_path: &str,
+        score: f64,
+        tag_filter: &[String],
+    ) -> Result<Option<SearchResult>, VaultError> {
+        let absolute = self.resolve_path(relative_path)?;
+        if !absolute.is_file() || absolute.extension().and_then(|ext| ext.to_str()) != Some("md") {
+            return Ok(None);
+        }
+
+        let content = std::fs::read_to_string(&absolute).unwrap_or_default();
+        let tags = Self::extract_tags(&content);
+        if !tag_filter.is_empty() && !tag_filter.iter().all(|tag| tags.contains(tag)) {
+            return Ok(None);
+        }
+
+        Ok(Some(SearchResult {
+            path: relative_path.trim_matches('/').to_string(),
+            excerpt: Self::excerpt(&content, 500),
+            score,
+            tags,
+        }))
+    }
+
+    fn explicit_path_search(
+        &self,
+        query: &str,
+        limit: usize,
+        tag_filter: &[String],
+    ) -> Result<Vec<SearchResult>, VaultError> {
+        if limit == 0 {
+            return Ok(Vec::new());
+        }
+
+        let root = self
+            .vault_root
+            .canonicalize()
+            .unwrap_or_else(|_| self.vault_root.clone());
+        let mut seen = HashSet::new();
+        let mut results = Vec::new();
+        for raw_candidate in Self::path_candidates_from_query(query) {
+            let mut candidate = raw_candidate.replace("%20", " ");
+            if let Some(rest) = candidate.strip_prefix("file://localhost/") {
+                candidate = format!("/{rest}");
+            } else if let Some(rest) = candidate.strip_prefix("file://") {
+                candidate = rest.to_string();
+            }
+
+            let pathish = candidate.starts_with("~/")
+                || candidate.starts_with('/')
+                || candidate.contains('/')
+                || candidate.contains('\\')
+                || candidate.ends_with(".md");
+            if !pathish {
+                continue;
+            }
+
+            let path = Self::expand_home_path(&candidate);
+            let relative = if path.is_absolute() {
+                let absolute = path.canonicalize().unwrap_or(path);
+                if !absolute.starts_with(&root) {
+                    continue;
+                }
+                match absolute.strip_prefix(&root) {
+                    Ok(relative) => relative.to_string_lossy().to_string(),
+                    Err(_) => continue,
+                }
+            } else {
+                candidate.trim_start_matches('/').to_string()
+            };
+
+            for relative_candidate in [relative.clone(), format!("{relative}.md")] {
+                if !seen.insert(relative_candidate.clone()) {
+                    continue;
+                }
+                if let Some(result) =
+                    self.note_result_for_relative_path(&relative_candidate, 12.0, tag_filter)?
+                {
+                    results.push(result);
+                    if results.len() >= limit {
+                        return Ok(results);
+                    }
+                }
+            }
+        }
+
+        Ok(results)
+    }
+
     fn path_title_search(
         &self,
         query: &str,
@@ -597,8 +907,8 @@ impl VaultStore {
         tag_filter: &[String],
         existing_paths: &HashSet<String>,
     ) -> Result<Vec<SearchResult>, VaultError> {
-        let query_title = normalized_query_terms(query).join(" ");
-        if query_title.is_empty() || limit == 0 {
+        let query_titles = title_query_candidates(query);
+        if query_titles.is_empty() || limit == 0 {
             return Ok(Vec::new());
         }
 
@@ -618,11 +928,8 @@ impl VaultStore {
                 continue;
             }
 
-            let stem = Path::new(&path)
-                .file_stem()
-                .and_then(|stem| stem.to_str())
-                .unwrap_or(&path);
-            if normalized_query_terms(stem).join(" ") != query_title {
+            let title_keys = Self::title_keys_for_note(&path, &content);
+            if title_keys.is_disjoint(&query_titles) {
                 continue;
             }
             results.push(SearchResult {
@@ -835,6 +1142,39 @@ impl VaultBackend for VaultStore {
             return Ok((Vec::new(), trace));
         }
 
+        let explicit_path_matches = self.explicit_path_search(query, limit, tag_filter)?;
+        if !explicit_path_matches.is_empty() {
+            let mut trace = build_trace(explicit_path_matches.len());
+            trace.add_note(format!(
+                "Explicit path fallback retained {} vault-relative or Finder-path matches for query {query:?}",
+                explicit_path_matches.len()
+            ));
+            for result in &explicit_path_matches {
+                let absolute = self.resolve_path(&result.path)?;
+                let content = std::fs::read_to_string(&absolute).unwrap_or_default();
+                let mut candidate = RetrievalCandidate::new(result.path.clone(), result.score)
+                    .with_uas_address(vault_note_content_uas_address(&result.path, &content))
+                    .with_signal(RetrievalSignalScore::new(
+                        RetrievalSignal::Lexical,
+                        result.score,
+                        result.score,
+                    ));
+                if !result.excerpt.is_empty() {
+                    candidate = candidate.with_snippet(result.excerpt.clone());
+                }
+                trace.push_candidate(candidate);
+            }
+            trace.record_page_gather_escalation(PageGatherEscalationTrace::vault_escalated(
+                "VaultStore::hybrid_search_with_trace:explicit_path",
+                explicit_path_matches.len(),
+                explicit_path_matches.len(),
+            ));
+            trace.add_note(
+                "Explicit path lookup bypassed broad filesystem search; retained path is vault-scoped",
+            );
+            return Ok((explicit_path_matches, trace));
+        }
+
         let parsed_query = query_parser
             .parse_query(effective_query)
             .map_err(|error| VaultError::IndexError(error.to_string()))?;
@@ -948,7 +1288,7 @@ impl VaultBackend for VaultStore {
         }
         if path_title_match_count > 0 {
             trace.add_note(format!(
-                "Path/title fallback retained {path_title_match_count} vault-relative exact-title matches for query {query:?}"
+                "Path/title fallback retained {path_title_match_count} vault-relative exact title/alias/metadata matches for query {query:?}"
             ));
         }
         for result in &results {
@@ -1289,6 +1629,137 @@ mod tests {
                 .any(|candidate| candidate.path == "some essays/My Autobiography.md"),
             "trace candidates must include the path/title fallback hit: {:?}",
             trace.candidates
+        );
+    }
+
+    #[tokio::test]
+    async fn hybrid_search_resolves_chatty_title_marker_when_body_omits_query_terms() {
+        use super::VaultBackend;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
+
+        store
+            .write(
+                "some essays/My Autobiography.md",
+                "I grew up around projects, school, and personal systems.",
+                None,
+                false,
+            )
+            .await
+            .expect("write note");
+        store.reload_index().expect("reload index");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace("please find the note titled My Autobiography", 5, &[])
+            .await
+            .expect("hybrid_search_with_trace");
+
+        assert_eq!(
+            results.first().map(|result| result.path.as_str()),
+            Some("some essays/My Autobiography.md"),
+            "title-marker fallback should preserve `My` as part of the exact title"
+        );
+        assert!(
+            trace
+                .notes
+                .iter()
+                .any(|note| note.contains("exact title/alias/metadata")),
+            "trace should disclose title-marker fallback: {:?}",
+            trace.notes
+        );
+    }
+
+    #[tokio::test]
+    async fn hybrid_search_resolves_frontmatter_alias_when_body_omits_query_terms() {
+        use super::VaultBackend;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
+
+        store
+            .write(
+                "archive/private-draft.md",
+                "---\ntitle: Private Draft\naliases:\n  - My Autobiography\n---\n\nI grew up around projects, school, and personal systems.",
+                None,
+                false,
+            )
+            .await
+            .expect("write note");
+        store.reload_index().expect("reload index");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace("My Autobiography", 5, &[])
+            .await
+            .expect("hybrid_search_with_trace");
+
+        assert_eq!(
+            results.first().map(|result| result.path.as_str()),
+            Some("archive/private-draft.md"),
+            "frontmatter aliases should participate in title fallback"
+        );
+        assert!(
+            trace
+                .candidates
+                .iter()
+                .any(|candidate| candidate.path == "archive/private-draft.md"),
+            "frontmatter alias hit should remain visible in trace candidates: {:?}",
+            trace.candidates
+        );
+    }
+
+    #[test]
+    fn title_keys_for_note_include_frontmatter_title_and_aliases() {
+        let keys = VaultStore::title_keys_for_note(
+            "archive/private-draft.md",
+            "---\ntitle: Private Draft\naliases:\n  - My Autobiography\n  - Early Memoir\n---\n\nBody",
+        );
+
+        assert!(keys.contains("private draft"));
+        assert!(keys.contains("my autobiography"));
+        assert!(keys.contains("early memoir"));
+    }
+
+    #[tokio::test]
+    async fn hybrid_search_resolves_finder_absolute_path_inside_vault() {
+        use super::VaultBackend;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
+
+        store
+            .write(
+                "some essays/My Autobiography.md",
+                "I grew up around projects, school, and personal systems.",
+                None,
+                false,
+            )
+            .await
+            .expect("write note");
+        store.reload_index().expect("reload index");
+
+        let absolute = vault_root
+            .path()
+            .join("some essays/My Autobiography.md")
+            .to_string_lossy()
+            .to_string();
+        let (results, trace) = store
+            .hybrid_search_with_trace(&absolute, 5, &[])
+            .await
+            .expect("hybrid_search_with_trace");
+
+        assert_eq!(
+            results.first().map(|result| result.path.as_str()),
+            Some("some essays/My Autobiography.md"),
+            "Finder-copied absolute paths inside the vault should resolve to vault-relative hits"
+        );
+        assert!(
+            trace
+                .notes
+                .iter()
+                .any(|note| note.contains("Explicit path fallback retained")),
+            "trace should disclose explicit-path fallback: {:?}",
+            trace.notes
         );
     }
 
