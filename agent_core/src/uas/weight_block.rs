@@ -420,6 +420,10 @@ pub enum ResidencyPlanViolation {
     DenseReferenceMissing {
         address: String,
     },
+    RollbackReferenceKindMismatch {
+        address: String,
+        actual_kind: String,
+    },
     ExternalCandidateRequiresQuarantine {
         address: String,
     },
@@ -544,10 +548,19 @@ impl ResidencyPlan {
             }
             if block.requires_dense_reference() {
                 totals.dense_reference_required_count += 1;
-                if block.rollback_reference.is_none() {
-                    violations.push(ResidencyPlanViolation::DenseReferenceMissing {
-                        address: block.uas_address.to_string(),
-                    });
+                match block.rollback_reference.as_ref() {
+                    None => {
+                        violations.push(ResidencyPlanViolation::DenseReferenceMissing {
+                            address: block.uas_address.to_string(),
+                        });
+                    }
+                    Some(reference) if reference.kind != UasKind::ModelComponent => {
+                        violations.push(ResidencyPlanViolation::RollbackReferenceKindMismatch {
+                            address: reference.to_string(),
+                            actual_kind: reference.kind.wire_tag().into_owned(),
+                        });
+                    }
+                    Some(_) => {}
                 }
             }
         }
@@ -1021,6 +1034,33 @@ mod tests {
             .violations
             .iter()
             .any(|v| matches!(v, ResidencyPlanViolation::WboBudgetExceeded { .. })));
+    }
+
+    #[test]
+    fn residency_plan_rejects_non_model_component_rollback_reference() {
+        let non_model_rollback = UasAddress::new(UasKind::AnswerPacket, b"answer-packet", 7);
+        let cold = manifest(
+            "cold",
+            0,
+            b"cold-nf4-block",
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            Some(non_model_rollback),
+        );
+        let budget = ResidencyBudget::new(1024, 1024, 4096, 0.10, 16).unwrap();
+
+        let plan = ResidencyPlan::evaluate([cold], budget, 42);
+
+        assert_eq!(plan.status, ResidencyPlanStatus::RejectedBeforeRuntime);
+        assert!(plan.violations.iter().any(|v| {
+            matches!(
+                v,
+                ResidencyPlanViolation::RollbackReferenceKindMismatch {
+                    actual_kind,
+                    ..
+                } if actual_kind == "answer_packet"
+            )
+        }));
     }
 
     #[test]
