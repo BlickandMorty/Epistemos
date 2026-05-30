@@ -31,12 +31,12 @@ public struct LocalAgentDiagnosticsHealthRow: View {
             }
             VerifiedFloorChipStrip(
                 flag: "n/a",
-                substrate: "placeholder routes",
-                productionWired: false,
+                substrate: "RuntimeRouter profiles",
+                productionWired: true,
                 falsifierPassed: false,
                 falsifier: "docs/falsifiers/F-ActiveAssembly-Minimal_2026_05_17.md",
-                wiredToday: "Strict grammar, schema drift, and local model counters are visible.",
-                stillStub: "This row does not prove local tool-use production behavior or a primary PASS witness."
+                wiredToday: "Strict grammar, schema drift, local model counters, and route policy profiles are visible.",
+                stillStub: "This row does not prove local tool-use production behavior or an ActiveAssembly PASS witness."
             )
 
             diagnosticRow(
