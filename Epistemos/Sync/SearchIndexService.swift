@@ -204,6 +204,8 @@ actor SearchIndexService {
     private nonisolated static func databaseConfiguration() -> Configuration {
         var config = Configuration()
         config.prepareDatabase { db in
+            RRFFusionQuery.installSQLiteFunctions(in: db)
+
             // Wave 2.3 canonical GRDB pragma block (dpp §1.1 Task 0.3).
             //
             // ZERO_CORRUPTION_SPEC interaction (FINAL DOCS/1. CORRUPTION §1.1):
