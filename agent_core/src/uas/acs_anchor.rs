@@ -1,4 +1,4 @@
-//! MAS-safe ACS (Anchored Cognitive Substrate) anchor reference.
+//! MAS-safe ACS (Active Cold Storage) anchor reference.
 //!
 //! This is the product-code mirror of the research-only
 //! `epistemos-research::acs::AcsAnchor`. It carries the lookup fields needed
@@ -14,7 +14,7 @@ const FOUNDATIONAL_SEVEN_IDS: [&str; 7] = ["E1", "E2", "E3", "E4", "E5", "E6", "
 // UAS: uas/acs-anchor/<anchor_id>
 // Plane: RuntimePlane::Episodic
 // Residency: ResidencyTier::VerifiedFloor
-/// Typed ACS (Anchored Cognitive Substrate) anchor for MAS-visible metadata.
+/// Typed ACS (Active Cold Storage) anchor for MAS-visible metadata.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AcsAnchor {
     pub anchor_id: String,
@@ -66,7 +66,7 @@ impl AcsAnchor {
     }
 
     pub fn is_well_formed(&self) -> bool {
-        !self.anchor_id.trim().is_empty()
+        is_valid_anchor_id(&self.anchor_id)
             && self.is_foundational_theorem_anchor()
             && self.salience.is_finite()
             && (0.0..=1.0).contains(&self.salience)
@@ -82,6 +82,14 @@ impl AcsAnchor {
             active_packet_id: self.active_packet_id.as_deref(),
         }
     }
+}
+
+fn is_valid_anchor_id(value: &str) -> bool {
+    !value.is_empty()
+        && value.trim() == value
+        && !value
+            .chars()
+            .any(|ch| ch.is_control() || ch.is_whitespace() || matches!(ch, '|' | '@'))
 }
 
 #[cfg(test)]
@@ -110,6 +118,23 @@ mod tests {
             0.7,
         );
         assert!(!anchor.is_well_formed());
+    }
+
+    #[test]
+    fn malformed_anchor_ids_fail_closed_before_projection() {
+        for anchor_id in [" claim-1", "claim-1 ", "claim\n1", "claim|1", "claim@1"] {
+            let anchor = AcsAnchor::new(
+                anchor_id,
+                "E1",
+                RuntimePlane::Episodic,
+                ResidencyTier::VerifiedFloor,
+                0.7,
+            );
+            assert!(
+                !anchor.is_well_formed(),
+                "malformed anchor_id {anchor_id:?} must not pass the UAS/ACS read guard"
+            );
+        }
     }
 
     #[test]
