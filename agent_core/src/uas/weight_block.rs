@@ -509,6 +509,10 @@ pub enum ResidencyPlanViolation {
         address: String,
         field: String,
     },
+    InvalidBlockUasKind {
+        address: String,
+        actual_kind: String,
+    },
     ByteTotalOverflow {
         counter: String,
     },
@@ -610,6 +614,12 @@ impl ResidencyPlan {
             model_ids.insert(block.model_id.as_str());
             let address = block.uas_address.to_string();
             validate_block_identity_fields(block, &address, &mut violations);
+            if block.uas_address.kind != UasKind::ModelComponent {
+                violations.push(ResidencyPlanViolation::InvalidBlockUasKind {
+                    address: address.clone(),
+                    actual_kind: block.uas_address.kind.wire_tag().into_owned(),
+                });
+            }
             validate_block_content_hash(block, &address, &mut violations);
             if !seen_addresses.insert(address.clone()) {
                 violations.push(ResidencyPlanViolation::DuplicateUasAddress {
@@ -2177,6 +2187,33 @@ mod tests {
             .violations
             .iter()
             .any(|v| matches!(v, ResidencyPlanViolation::ContentHashAddressMismatch { .. })));
+    }
+
+    #[test]
+    fn residency_plan_rejects_publicly_mutated_non_model_component_block_address() {
+        let mut block = manifest(
+            "mutated-address-kind",
+            0,
+            b"dense-hot-block",
+            WeightBlockEncoding::DenseBf16,
+            WeightBlockResidencyClass::HotUma,
+            None,
+        );
+        block.uas_address = UasAddress::from_hash(UasKind::AnswerPacket, block.uas_address.hash, 1);
+        let budget = ResidencyBudget::new(1024, 1024, 4096, 0.10, 16).unwrap();
+
+        let plan = ResidencyPlan::evaluate([block], budget, 42);
+
+        assert_eq!(plan.status, ResidencyPlanStatus::RejectedBeforeRuntime);
+        assert!(plan.violations.iter().any(|v| {
+            matches!(
+                v,
+                ResidencyPlanViolation::InvalidBlockUasKind {
+                    actual_kind,
+                    ..
+                } if actual_kind == "answer_packet"
+            )
+        }));
     }
 
     #[test]
