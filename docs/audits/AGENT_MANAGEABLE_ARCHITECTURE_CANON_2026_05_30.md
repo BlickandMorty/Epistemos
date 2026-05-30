@@ -29,7 +29,7 @@ Definitions:
 
 | Term | Canonical meaning | Agent check |
 |---|---|---|
-| One substrate | UAS + AcsAnchor coordinate layer + ColdStore/Residency Governor + Active Assembly + WBO/LatticeBudget + SCOPE-Rex/SovereignGate + Eidos + AnswerPacket. | Do not build a detached app, agent, memory, search, proof, or model stack. Plug into the substrate. |
+| One substrate | UAS + OAS + AcsAnchor coordinate layer + ColdStore/ResidencyGovernor + ActiveAssembly + WBO/LatticeBudget + SCOPE-Rex/SovereignGate + Eidos + AnswerPacket. | Do not build a detached app, agent, memory, search, proof, or model stack. Plug into the substrate. |
 | Three motions | Lift/Ingest, Project/Compress/Recall, Mutate/Promote. | Name which motion the change implements. |
 | Five authority fields | RuntimePlane, ResidencyTier, WBO/error budget, WitnessRef/proof, RouteProfile/dispatch route. UAS address is the identity that carries them. | New durable objects must declare these fields or an explicit exemption. |
 | Visible proof | User-visible evidence, route, admission, run event, claim label, and rollback where relevant. | A hidden green status is not enough. Surface WRV: Wired, Reachable, Visible, Verified. |
@@ -53,19 +53,20 @@ touching Rust/substrate files.
 | Organ | Role | Allowed aliases or sublayers | Forbidden drift |
 |---|---|---|---|
 | UAS | Identity fabric for notes, graph nodes, claims, tool results, agent events, KV pages, model components, proofs, and projections. | UasAddress, UasKind, Ontological Address Space as semantic layer on top. | Do not call EML, MLX, or the vault the identity primitive. |
+| OAS | Semantic meaning/state over UAS addresses. | Ontological Address Space, semantic object state. | Do not use OAS as a second identity system detached from UAS. |
 | RuntimePlane | Authority separation for State, Episodic, Assembly, Controller, Verification. | Five-plane runtime. | Do not mix model state, user notes, tool actions, and proofs without plane labels. |
 | ResidencyTier | Where an object lives and what may claim it. | CurrentApp, VerifiedFloor, CapabilityCeiling, Research/Vault. | Do not promote research artifacts into product UI as shipped behavior. |
 | WBO / LatticeBudget | Error, compression, quantization, semantic, and numeric drift accounting. | Lattice/WBO, T_W/T_K/T_R/T_Q/T_S/T_SE/T_num. | Do not make lattice replace UAS, ColdStore, or AcsAnchor. |
 | AcsAnchor / Anchored Cognitive Substrate | Existing coordinate/provenance anchor layer carried by UAS objects. | AcsAnchor, AcsAnchorRegistry, F-ACS-AnchorLookup, legacy UAS-ACS docs. | Do not reinterpret existing AcsAnchor source as cold storage; migrate deliberately if needed. |
-| ACS Kuramoto | Research-tier resonance/autopoiesis candidate for coordinating firing subsets. | Kuramoto cellular resonance, acs_meta_layer, sparse substrate candidates. | Do not productize it or use it as the product residency layer without falsifiers. |
-| ColdStore / Cold Residency Layer | Active Cold Storage idea: dormant-but-addressable cognitive material that stays cold until selected. | SSD/disk pages, note atoms, vector pages, KV pages, adapters, weight blocks, parameter anchors, graph islands. | Do not abbreviate this as ACS; do not confuse it with AcsAnchor, admission, or Active Assembly. |
-| Residency Governor | Policy that decides leases, residency tiers, residency plans, copy-count limits, page/mmap safety, eviction, defer, or quarantine. | ResidencyTier, ResidencyLease, ResidencyPlan, WeightBlockManifest. | Do not call this ACS; make live residency claims only after falsifiers pass. |
+| KuramotoSync / ResonanceSync | Research-tier phase/coherence candidate for coordinating firing subsets. | Legacy ACS/Kuramoto wording, Kuramoto cellular resonance, acs_meta_layer, sparse substrate candidates. | Do not productize it or use it as the product residency layer without falsifiers. |
+| ColdStore / Cold Residency Layer | Active Cold Storage idea: dormant-but-addressable cognitive material that stays cold until selected. | SSD/disk pages, note atoms, vector pages, KV pages, adapters, weight blocks, parameter anchors, graph islands. | Do not abbreviate this as ACS; do not confuse it with AcsAnchor, admission, or ActiveAssembly. |
+| ResidencyGovernor | Policy that decides leases, residency tiers, residency plans, copy-count limits, page/mmap safety, eviction, defer, or quarantine. | ResidencyTier, ResidencyLease, ResidencyPlan, WeightBlockManifest. | Do not call this ACS; make live residency claims only after falsifiers pass. |
 | SCOPE-Rex / SovereignGate | Governance and admission layer. Produces allow/warn/defer/quarantine/reject verdicts and proofs. | SCOPE-Rex Admission, SovereignGate, AdmissionGate, SCOPERexAdmissionProof. | Do not call admission "ACS"; do not let tool calls or durable changes bypass witness records. |
 | Eidos | Evidence gate and closed-citation contract. It validates which retrieved evidence may be cited and shapes agent-consumable evidence packets. | eidos.query, citation universe, closed citation, Eidos card. | Do not reduce Eidos to a generic search bar or create AgentCitation as a separate authority. |
 | VaultRecall | Candidate retrieval contract over the user's vault. | vault.search, knowledge.recall, retrieval trace, RRF/BM25, future semantic/HNSW/Metal rerank. | Do not let agents browse the filesystem first for vault notes. App/vault retrieval comes first; Finder/file search is fallback or explicit-path only. |
 | Halo | Ambient recall while the user types. | search/readable blocks, contextual note recall. | Do not make Halo the deliberate agent evidence gate. |
 | Shadow | Semantic projection/index layer. | ShadowBackedSemanticIndex, ShadowProjection candidates. | Do not claim ShadowProjection product behavior without falsifier and WRV. |
-| ActiveAssembly | Waking support-set selector before inference/action. It reads from ColdStore, VaultRecall, graph, KV pages, adapters, and parameter anchors. | ActiveAssemblyPacket, ActiveAssemblySelector. | Do not call Active Assembly ACS; do not claim it is product-wired until chat/agent/runtime consume it visibly. |
+| ActiveAssembly | Waking support-set selector before inference/action. It reads from ColdStore, VaultRecall, graph, KV pages, adapters, and parameter anchors. | ActiveAssemblyPacket, ActiveAssemblySelector. | Do not call ActiveAssembly ACS; do not claim it is product-wired until chat/agent/runtime consume it visibly. |
 | PageGather | Sketch/residual/exact page selection and packetized retrieval primitive. | PageGather packetized floor, dense primary pending. | Do not treat packetized mitigation as dense primary PageGather. |
 | RuntimeRouter / RouteProfile | Chooses model, support, WBO, route, witness, and fallback. | RouteProfile, LocalPolicy, model badges. | Do not let chat call a model without route evidence. |
 | System G / AgentRuntime | Governed execution path from MissionPacket through AgentEvent and RunEventLog to AnswerPacket. | AgentBlueprint, MissionPacket, ExecutorTrait, LocalAgentLoop. | Do not recreate old Hermes subprocess branding or hidden agent memory. |
@@ -105,8 +106,8 @@ The minimum path that makes the architecture legible is:
 User intent
   -> CognitivePacket / MissionPacket forms the task
   -> OAS/UAS resolves what exists and where it lives
-  -> ColdStore / Residency Governor surfaces cold candidates without waking everything
-  -> Active Assembly selects the minimal waking set
+  -> ColdStore / ResidencyGovernor surfaces cold candidates without waking everything
+  -> ActiveAssembly selects the minimal waking set
   -> Eidos pre-validates candidate evidence and missing context
   -> SCOPE-Rex / SovereignGate admits the proposed mission and route
   -> Runtime Router chooses local model / MLX / Apple Intelligence / tool / kernel
