@@ -9,6 +9,7 @@ STATE_DIR="${EPISTEMOS_ARCH_LOOP_STATE_DIR:-/tmp/epistemos_architecture_heartbea
 PID_FILE="$STATE_DIR/loop.pid"
 LOG_FILE="$STATE_DIR/loop.log"
 LOCK_DIR="$STATE_DIR/tick.lock"
+SCREEN_NAME="${EPISTEMOS_ARCH_LOOP_SCREEN_NAME:-epistemos_architecture_heartbeat_loop}"
 
 usage() {
   cat <<'USAGE'
@@ -52,9 +53,27 @@ start_loop() {
   fi
 
   rm -f "$PID_FILE"
-  nohup "$0" run >> "$LOG_FILE" 2>&1 &
-  local pid=$!
-  echo "$pid" > "$PID_FILE"
+  rm -rf "$LOCK_DIR"
+  local script="$ROOT/Tools/audits/epistemos_architecture_heartbeat_loop.sh"
+  local pid
+  if command -v screen >/dev/null 2>&1; then
+    screen -dmS "$SCREEN_NAME" bash -lc \
+      'cd "$1" && echo $$ > "$2" && exec "$3" run >> "$4" 2>&1' \
+      _ "$ROOT" "$PID_FILE" "$script" "$LOG_FILE"
+    for _ in 1 2 3 4 5; do
+      [[ -f "$PID_FILE" ]] && break
+      sleep 0.1
+    done
+    pid="$(read_pid || true)"
+  else
+    nohup "$script" run >> "$LOG_FILE" 2>&1 &
+    pid=$!
+    echo "$pid" > "$PID_FILE"
+  fi
+  if [[ -z "${pid:-}" ]]; then
+    echo "failed to start architecture heartbeat loop"
+    return 1
+  fi
   echo "started architecture heartbeat loop pid=$pid interval=${INTERVAL_SECONDS}s"
   echo "log: $LOG_FILE"
 }
@@ -78,6 +97,9 @@ status_loop() {
   ensure_state_dir
   if is_running; then
     echo "architecture heartbeat loop running pid=$(read_pid)"
+    if command -v screen >/dev/null 2>&1; then
+      screen -list | grep -F "$SCREEN_NAME" || true
+    fi
   else
     echo "architecture heartbeat loop stopped"
   fi
