@@ -35,7 +35,7 @@ impl ByteRange {
     }
 
     pub fn end_exclusive(&self) -> u64 {
-        self.start + self.len
+        self.start.saturating_add(self.len)
     }
 }
 
@@ -1284,6 +1284,16 @@ mod tests {
             .expect("valid upper-bound byte range should deserialize");
 
         assert_eq!(valid.end_exclusive(), u64::MAX);
+    }
+
+    #[test]
+    fn publicly_mutated_byte_range_end_exclusive_saturates_instead_of_trapping() {
+        let mutated = ByteRange {
+            start: u64::MAX,
+            len: 2,
+        };
+
+        assert_eq!(mutated.end_exclusive(), u64::MAX);
     }
 
     #[test]
