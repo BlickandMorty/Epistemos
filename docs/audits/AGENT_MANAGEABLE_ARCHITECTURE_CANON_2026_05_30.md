@@ -99,20 +99,24 @@ These are hard rules for future agents:
 The minimum path that makes the architecture legible is:
 
 ```text
-chat/user intent
-  -> MissionPacket or query intent
-  -> UAS address resolution
-  -> Active Cold Storage exposes dormant candidates
-  -> ActiveAssembly support-set request
-  -> VaultRecall candidate retrieval
-  -> Eidos evidence/citation gate
-  -> SCOPE-Rex/SovereignGate admission where action or durable claim is involved
-  -> RuntimeRouter/RouteProfile
-  -> model/tool execution
-  -> RunEventLog
-  -> AnswerPacket
-  -> Provenance Console / Eidos card / visible badges
+User intent
+  -> CognitivePacket / MissionPacket forms the task
+  -> OAS/UAS resolves what exists and where it lives
+  -> ACS / Residency Governor surfaces cold candidates without waking everything
+  -> Active Assembly selects the minimal waking set
+  -> Eidos gathers and validates evidence/citations
+  -> SCOPE-Rex checks claim/state validity
+  -> SovereignGate admits/rejects user-impacting actions
+  -> Runtime Router chooses local model / MLX / Apple Intelligence / tool / kernel
+  -> Execution emits RunEventLog events
+  -> AnswerPacket makes result, evidence, uncertainty, and mode visible
 ```
+
+Cloud is not a silent fallback in the live app. Cloud/provider lanes may exist
+only as explicit, gated routes with visible provider/mode labels and policy
+evidence. The live app target remains local-first: Apple Intelligence plus
+local Qwen/local model/tool/kernel routes unless the user explicitly enables a
+cloud lane.
 
 Current source truth has pieces of this path, including `eidos.query` over the
 vault recall trace backend. The backend status is intentionally honest:
