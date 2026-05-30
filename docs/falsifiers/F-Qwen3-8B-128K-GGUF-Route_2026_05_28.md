@@ -78,6 +78,18 @@ Dry-run mode writes only a manifest with `dry_run=true`,
 does not launch llama.cpp, read the GGUF file, create a Metal command buffer, or
 advance the falsifier.
 
+The route artifact now ingests that dry-run manifest through two explicit
+safety axes:
+
+```text
+dry_run_preview_manifest_available
+dry_run_preview_not_executed
+```
+
+Those axes are safety evidence only. They prove the dangerous 128K command is
+known and non-executing in normal loops; they cannot compensate for missing
+live metrics, prompt-level logits, throughput, or the current Metal stall.
+
 ## Required Inputs
 
 | Variable | Meaning |
@@ -173,6 +185,8 @@ The candidate route must prove:
 
 - target identity: `unsloth/Qwen3-8B-128K-GGUF`;
 - context support: `model_context_window_tokens >= 128000`;
+- dry-run preview: `dry_run_preview_manifest_available=true` and
+  `dry_run_preview_not_executed=true`;
 - prompt suite: `>=100` prompts, `>=128000` context, `>=256` decode tokens,
   balanced families;
 - paired logits: average `D_KL < 0.05`;

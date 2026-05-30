@@ -228,7 +228,10 @@ worktree-sprawl warning system.
      artifact now consumes that manifest directly and reports current
      bottleneck `repair_qwen3_8b_128k_gguf_metal_stall`. The GGUF bench runner
      now has `--timeout-seconds` and removes stale metrics when a probe fails
-     or times out.
+     or times out. It also has a dry-run preview path that writes a
+     `not_executed=true` / `falsifier_green_capable=false` manifest for the
+     dangerous 128K command without launching llama.cpp, reading the model
+     file, submitting Metal work, or writing metrics.
    - The 2026-05-29 probe ladder is now part of the route artifact. It reads
      10 local shape-probe manifests. Best successful probe is `32768` context /
      `256` decode with `ctk=f16 ctv=f16 flash_attn=false`. Quantized KV
