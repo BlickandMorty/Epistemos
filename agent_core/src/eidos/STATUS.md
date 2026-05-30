@@ -67,7 +67,7 @@ Both Rust types are `Serialize + Deserialize` and survive byte-equal Rust-side r
 | W-47   | NOT-STARTED (ChatCoordinator emit-gate wiring through `validate_citations`)  |
 | W-48   | NOT-STARTED (Brain Panel "Retrieved by Eidos" surface)                       |
 | W-49   | **RUST-LANDED** (commit `ce69d4f28`; 9 tests; snapshot-isolated)            |
-| W-50   | NOT-STARTED (DagBackedGraphNeighborhood)                                     |
+| W-50   | **RUST-LANDED** (DagBackedGraphNeighborhood; 12 tests; snapshot-isolated)    |
 | W-51   | NOT-STARTED (ShadowBackedSemanticIndex via epistemos-shadow HNSW)            |
 
 Source: `docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md` §4b.
