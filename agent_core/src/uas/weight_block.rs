@@ -16,7 +16,7 @@ use crate::uas::{ResidencyTier, UasAddress, UasKind};
 pub const GIB: u64 = 1024 * 1024 * 1024;
 pub const RANGE_HASH_CHUNK_BYTES: usize = 64 * 1024;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
 pub struct ByteRange {
     pub start: u64,
     pub len: u64,
@@ -35,6 +35,22 @@ impl ByteRange {
 
     pub fn end_exclusive(&self) -> u64 {
         self.start + self.len
+    }
+}
+
+impl<'de> Deserialize<'de> for ByteRange {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct ByteRangeFields {
+            start: u64,
+            len: u64,
+        }
+
+        let fields = ByteRangeFields::deserialize(deserializer)?;
+        Self::new(fields.start, fields.len).map_err(serde::de::Error::custom)
     }
 }
 
@@ -963,6 +979,18 @@ mod tests {
             ByteRange::new(0, 0).unwrap_err(),
             WeightBlockManifestError::EmptyByteRange
         );
+    }
+
+    #[test]
+    fn deserialized_byte_ranges_use_constructor_guardrails() {
+        let overflowing = format!(r#"{{"start":{},"len":2}}"#, u64::MAX);
+        assert!(serde_json::from_str::<ByteRange>(&overflowing).is_err());
+        assert!(serde_json::from_str::<ByteRange>(r#"{"start":0,"len":0}"#).is_err());
+
+        let valid: ByteRange = serde_json::from_str(r#"{"start":18446744073709551614,"len":1}"#)
+            .expect("valid upper-bound byte range should deserialize");
+
+        assert_eq!(valid.end_exclusive(), u64::MAX);
     }
 
     #[test]
