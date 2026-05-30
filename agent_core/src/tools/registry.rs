@@ -2795,6 +2795,67 @@ struct VaultReadHandler {
     vault: Arc<dyn VaultBackend>,
 }
 
+fn normalized_read_recovery_terms(value: &str) -> Vec<String> {
+    value
+        .split(|ch: char| !ch.is_alphanumeric())
+        .map(str::trim)
+        .filter(|term| !term.is_empty())
+        .map(str::to_lowercase)
+        .collect()
+}
+
+fn normalized_read_recovery_key(value: &str) -> String {
+    normalized_read_recovery_terms(value).join(" ")
+}
+
+fn vault_read_recovery_queries(path: &str) -> Vec<String> {
+    let mut queries = Vec::new();
+    let mut push = |value: &str| {
+        let trimmed = value
+            .trim()
+            .trim_matches(|ch| matches!(ch, '"' | '\'' | '`' | '<' | '>'));
+        if trimmed.is_empty() {
+            return;
+        }
+        if !queries.iter().any(|existing| existing == trimmed) {
+            queries.push(trimmed.to_string());
+        }
+    };
+
+    push(path);
+    if let Some(stem) = std::path::Path::new(path)
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+    {
+        push(stem);
+    }
+    queries
+}
+
+fn vault_read_recovery_is_confident(
+    requested_path: &str,
+    result: &crate::storage::vault::SearchResult,
+) -> bool {
+    if result.score >= 12.0 {
+        return true;
+    }
+
+    let requested_keys: HashSet<String> = vault_read_recovery_queries(requested_path)
+        .into_iter()
+        .map(|query| normalized_read_recovery_key(&query))
+        .filter(|key| !key.is_empty())
+        .collect();
+    if requested_keys.is_empty() {
+        return false;
+    }
+
+    let result_stem = std::path::Path::new(&result.path)
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or(&result.path);
+    requested_keys.contains(&normalized_read_recovery_key(result_stem))
+}
+
 #[async_trait]
 impl ToolHandler for VaultReadHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
@@ -2802,7 +2863,69 @@ impl ToolHandler for VaultReadHandler {
             .get("path")
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("path required".to_string()))?;
-        self.vault.read(path).await.map_err(map_vault_error)
+        match self.vault.read(path).await {
+            Ok(content) => Ok(content),
+            Err(VaultError::NotFound(_)) => {
+                let mut recovery_results = Vec::new();
+                for query in vault_read_recovery_queries(path) {
+                    let mut results = self
+                        .vault
+                        .hybrid_search(&query, 3, &[])
+                        .await
+                        .map_err(map_vault_error)?;
+                    recovery_results.append(&mut results);
+                }
+                recovery_results.sort_by(|lhs, rhs| {
+                    rhs.score
+                        .partial_cmp(&lhs.score)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                        .then_with(|| lhs.path.cmp(&rhs.path))
+                });
+                recovery_results.dedup_by(|lhs, rhs| lhs.path == rhs.path);
+
+                if let Some(result) = recovery_results
+                    .first()
+                    .filter(|result| vault_read_recovery_is_confident(path, result))
+                {
+                    let content = self
+                        .vault
+                        .read(&result.path)
+                        .await
+                        .map_err(map_vault_error)?;
+                    return Ok(format!(
+                        "Auto-routed missing vault.read path `{path}` through vault.search and read `{}`.\n\n{}",
+                        result.path, content
+                    ));
+                }
+
+                if recovery_results.is_empty() {
+                    return Ok(format!(
+                        "No vault note exists at `{path}`. Retried through vault.search, but no recovery candidates matched. \
+                         Use vault.search with a natural-language query, exact title, alias, or Finder path inside the vault."
+                    ));
+                }
+
+                let suggestions = recovery_results
+                    .iter()
+                    .take(3)
+                    .enumerate()
+                    .map(|(index, result)| {
+                        format!(
+                            "{}. **{}** (score: {:.2})\n{}",
+                            index + 1,
+                            result.path,
+                            result.score,
+                            result.excerpt
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n\n");
+                Ok(format!(
+                    "No vault note exists at `{path}`. Retried through vault.search, but no single exact path/title recovery was safe to auto-read. Candidate notes:\n\n{suggestions}"
+                ))
+            }
+            Err(error) => Err(map_vault_error(error)),
+        }
     }
 }
 
@@ -3402,8 +3525,12 @@ mod tier_tests {
             }
         }
 
-        async fn read(&self, _path: &str) -> Result<String, VaultError> {
-            Ok(String::new())
+        async fn read(&self, path: &str) -> Result<String, VaultError> {
+            if path == "some essays/My Autobiography.md" {
+                Ok("I grew up around projects, school, and personal systems.".to_string())
+            } else {
+                Err(VaultError::NotFound(path.to_string()))
+            }
         }
 
         async fn write(
@@ -3841,6 +3968,37 @@ mod tier_tests {
         assert!(
             result.contains("some essays/My Autobiography.md"),
             "vault.list path fallback should surface the vault.search hit; got: {result}"
+        );
+    }
+
+    #[tokio::test]
+    async fn vault_read_retries_missing_title_through_vault_search() {
+        // Local-model recovery path: if the agent calls vault.read with
+        // a title instead of the canonical vault-relative path, read can
+        // recover through vault.search when the returned title match is
+        // exact enough to auto-read.
+        let registry = ToolRegistry::with_tier(
+            Arc::new(TitleFallbackVault),
+            true,
+            None::<std::path::PathBuf>,
+            ToolTier::Agent,
+        );
+
+        let result = registry
+            .execute_v2(
+                "vault.read",
+                &serde_json::json!({ "path": "My Autobiography" }),
+            )
+            .await
+            .expect("vault.read title fallback should execute");
+
+        assert!(
+            result.contains("Auto-routed missing vault.read path"),
+            "vault.read should disclose the recovery search; got: {result}"
+        );
+        assert!(
+            result.contains("I grew up around projects"),
+            "vault.read should return the recovered note body; got: {result}"
         );
     }
 

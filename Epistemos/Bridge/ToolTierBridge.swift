@@ -508,7 +508,10 @@ final class ToolTierBridge {
             if let maxResults = object["max_results"], object["limit"] == nil {
                 object["limit"] = maxResults
             }
-            if shouldUseDefaultFileSearchRoot(object["path"]),
+            if shouldUseDefaultFileSearchRoot(
+                object["path"],
+                defaultFileSearchRoot: defaultFileSearchRoot
+            ),
                let defaultFileSearchRoot = normalizedDefaultFileSearchRoot(defaultFileSearchRoot) {
                 object["path"] = defaultFileSearchRoot
             } else if trimmedStringValue(object["path"]) == nil {
@@ -529,7 +532,7 @@ final class ToolTierBridge {
             }
         case "vault.search":
             if trimmedStringValue(object["query"]) == nil {
-                let aliases = ["pattern", "term", "text", "title", "name"]
+                let aliases = ["pattern", "term", "text", "title", "name", "path"]
                 if let aliasValue = aliases.compactMap({ trimmedStringValue(object[$0]) }).first {
                     object["query"] = aliasValue
                 }
@@ -671,9 +674,26 @@ final class ToolTierBridge {
         return trimmed.isEmpty ? nil : trimmed
     }
 
-    private nonisolated static func shouldUseDefaultFileSearchRoot(_ value: Any?) -> Bool {
+    private nonisolated static func shouldUseDefaultFileSearchRoot(
+        _ value: Any?,
+        defaultFileSearchRoot: String? = nil
+    ) -> Bool {
         guard let path = trimmedStringValue(value) else { return true }
-        return path == "." || path == "./"
+        if path == "." || path == "./" {
+            return true
+        }
+        guard normalizedDefaultFileSearchRoot(defaultFileSearchRoot) != nil else {
+            return false
+        }
+
+        let expanded = (path as NSString).expandingTildeInPath
+        let standardized = URL(fileURLWithPath: expanded, isDirectory: true)
+            .standardizedFileURL
+            .path
+        let home = FileManager.default.homeDirectoryForCurrentUser
+            .standardizedFileURL
+            .path
+        return standardized == home
     }
 
     private nonisolated static func normalizedDefaultFileSearchRoot(_ value: String?) -> String? {
