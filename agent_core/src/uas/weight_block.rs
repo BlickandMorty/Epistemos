@@ -563,7 +563,7 @@ impl ResidencyPlan {
         let mut violations = Vec::new();
         let mut model_ids = HashSet::new();
         let mut seen_addresses = HashSet::new();
-        let mut last_range_by_source_uri: HashMap<String, ByteRange> = HashMap::new();
+        let mut last_range_by_source_uri: HashMap<String, (u64, u64)> = HashMap::new();
         let dense_reference_requirement_by_address: HashMap<String, bool> = blocks
             .iter()
             .map(|block| {
@@ -599,25 +599,31 @@ impl ResidencyPlan {
                     address: address.clone(),
                 });
             }
-            if let Some(previous) = last_range_by_source_uri.get(&block.source_uri) {
-                if block.byte_range.start < previous.end_exclusive() {
-                    violations.push(ResidencyPlanViolation::OverlappingByteRange {
-                        source_uri: block.source_uri.clone(),
-                        first_start: previous.start,
-                        first_end: previous.end_exclusive(),
-                        second_start: block.byte_range.start,
-                        second_end: block.byte_range.end_exclusive(),
-                    });
-                }
-            }
-            last_range_by_source_uri
-                .entry(block.source_uri.clone())
-                .and_modify(|previous| {
-                    if block.byte_range.end_exclusive() > previous.end_exclusive() {
-                        *previous = block.byte_range;
+            if let Some(block_end) = block.byte_range.start.checked_add(block.byte_range.len) {
+                if let Some((previous_start, previous_end)) =
+                    last_range_by_source_uri.get(&block.source_uri)
+                {
+                    if block.byte_range.start < *previous_end {
+                        violations.push(ResidencyPlanViolation::OverlappingByteRange {
+                            source_uri: block.source_uri.clone(),
+                            first_start: *previous_start,
+                            first_end: *previous_end,
+                            second_start: block.byte_range.start,
+                            second_end: block_end,
+                        });
                     }
-                })
-                .or_insert(block.byte_range);
+                }
+                last_range_by_source_uri
+                    .entry(block.source_uri.clone())
+                    .and_modify(|previous| {
+                        if block_end > previous.1 {
+                            *previous = (block.byte_range.start, block_end);
+                        }
+                    })
+                    .or_insert((block.byte_range.start, block_end));
+            } else {
+                push_byte_total_overflow(&mut violations, "byte_range_end_exclusive");
+            }
             if block.residency_tier == ResidencyTier::CapabilityCeiling {
                 effective_residency_tier = ResidencyTier::CapabilityCeiling;
             }
@@ -1869,6 +1875,34 @@ mod tests {
                 v,
                 ResidencyPlanViolation::ByteTotalOverflow { counter }
                     if counter == "active_runtime_bytes"
+            )
+        }));
+    }
+
+    #[test]
+    fn residency_plan_rejects_publicly_mutated_overflowing_byte_range() {
+        let mut block = manifest(
+            "mutated-overflow",
+            0,
+            b"cold-nf4-block",
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            Some(rollback_reference()),
+        );
+        block.byte_range = ByteRange {
+            start: u64::MAX,
+            len: 2,
+        };
+        let budget = ResidencyBudget::new(1024, 1024, 4096, 0.10, 16).unwrap();
+
+        let plan = ResidencyPlan::evaluate([block], budget, 42);
+
+        assert_eq!(plan.status, ResidencyPlanStatus::RejectedBeforeRuntime);
+        assert!(plan.violations.iter().any(|v| {
+            matches!(
+                v,
+                ResidencyPlanViolation::ByteTotalOverflow { counter }
+                    if counter == "byte_range_end_exclusive"
             )
         }));
     }
