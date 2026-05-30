@@ -494,6 +494,9 @@ pub enum ResidencyPlanViolation {
     InvalidBlockWboBudget {
         address: String,
     },
+    ByteTotalOverflow {
+        counter: String,
+    },
     DenseReferenceMissing {
         address: String,
     },
@@ -625,22 +628,36 @@ impl ResidencyPlan {
             } else {
                 totals.wbo_budget_nats += block.wbo_budget_nats;
             }
-            totals.total_addressed_bytes = totals
-                .total_addressed_bytes
-                .saturating_add(block.byte_range.len);
+            add_plan_bytes(
+                &mut totals.total_addressed_bytes,
+                block.byte_range.len,
+                &mut violations,
+                "total_addressed_bytes",
+            );
             match block.residency_class {
                 WeightBlockResidencyClass::HotUma => {
-                    totals.hot_uma_bytes = totals.hot_uma_bytes.saturating_add(block.byte_range.len)
+                    add_plan_bytes(
+                        &mut totals.hot_uma_bytes,
+                        block.byte_range.len,
+                        &mut violations,
+                        "hot_uma_bytes",
+                    );
                 }
                 WeightBlockResidencyClass::WarmCompressedUma => {
-                    totals.warm_compressed_uma_bytes = totals
-                        .warm_compressed_uma_bytes
-                        .saturating_add(block.byte_range.len)
+                    add_plan_bytes(
+                        &mut totals.warm_compressed_uma_bytes,
+                        block.byte_range.len,
+                        &mut violations,
+                        "warm_compressed_uma_bytes",
+                    );
                 }
                 WeightBlockResidencyClass::ColdMmapSsd => {
-                    totals.cold_mmap_ssd_bytes = totals
-                        .cold_mmap_ssd_bytes
-                        .saturating_add(block.byte_range.len);
+                    add_plan_bytes(
+                        &mut totals.cold_mmap_ssd_bytes,
+                        block.byte_range.len,
+                        &mut violations,
+                        "cold_mmap_ssd_bytes",
+                    );
                     totals.cold_block_count += 1;
                 }
                 WeightBlockResidencyClass::ExternalCandidate => {
@@ -688,9 +705,20 @@ impl ResidencyPlan {
             }
         }
 
-        totals.active_runtime_bytes = totals
+        let active_inputs_overflowed = byte_total_overflowed(&violations, "hot_uma_bytes")
+            || byte_total_overflowed(&violations, "warm_compressed_uma_bytes");
+        if active_inputs_overflowed {
+            totals.active_runtime_bytes = u64::MAX;
+            push_byte_total_overflow(&mut violations, "active_runtime_bytes");
+        } else if let Some(active_bytes) = totals
             .hot_uma_bytes
-            .saturating_add(totals.warm_compressed_uma_bytes);
+            .checked_add(totals.warm_compressed_uma_bytes)
+        {
+            totals.active_runtime_bytes = active_bytes;
+        } else {
+            totals.active_runtime_bytes = u64::MAX;
+            push_byte_total_overflow(&mut violations, "active_runtime_bytes");
+        }
 
         if model_ids.len() > 1 {
             violations.push(ResidencyPlanViolation::MixedModelIds);
@@ -843,6 +871,38 @@ fn wbo_budget_preimage(value: f32) -> String {
     } else {
         format!("invalid:{value:?}")
     }
+}
+
+fn add_plan_bytes(
+    total: &mut u64,
+    amount: u64,
+    violations: &mut Vec<ResidencyPlanViolation>,
+    counter: &'static str,
+) {
+    if let Some(next) = total.checked_add(amount) {
+        *total = next;
+    } else {
+        *total = u64::MAX;
+        push_byte_total_overflow(violations, counter);
+    }
+}
+
+fn push_byte_total_overflow(violations: &mut Vec<ResidencyPlanViolation>, counter: &'static str) {
+    if !byte_total_overflowed(violations, counter) {
+        violations.push(ResidencyPlanViolation::ByteTotalOverflow {
+            counter: counter.to_string(),
+        });
+    }
+}
+
+fn byte_total_overflowed(violations: &[ResidencyPlanViolation], counter: &'static str) -> bool {
+    violations.iter().any(|violation| {
+        matches!(
+            violation,
+            ResidencyPlanViolation::ByteTotalOverflow { counter: existing }
+                if existing.as_str() == counter
+        )
+    })
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1751,5 +1811,65 @@ mod tests {
             .violations
             .iter()
             .any(|v| matches!(v, ResidencyPlanViolation::OverlappingByteRange { .. })));
+    }
+
+    #[test]
+    fn residency_plan_rejects_byte_total_overflow_before_runtime() {
+        let first = WeightBlockManifest::from_known_hash_hex(
+            "local/70b-candidate",
+            "file:///models/70b/model-00001-of-00008.safetensors",
+            0,
+            u64::MAX,
+            blake3::hash(b"first-huge-range").to_hex().as_str(),
+            99,
+            WeightBlockEncoding::DenseBf16,
+            WeightBlockResidencyClass::HotUma,
+            WeightBlockIrChart::OpaqueWithWitness,
+            0.0,
+            "precomputed_range_hash_plus_dense_reference",
+            None,
+        )
+        .expect("first huge known-hash manifest should build");
+        let second = WeightBlockManifest::from_known_hash_hex(
+            "local/70b-candidate",
+            "file:///models/70b/model-00002-of-00008.safetensors",
+            0,
+            u64::MAX,
+            blake3::hash(b"second-huge-range").to_hex().as_str(),
+            99,
+            WeightBlockEncoding::DenseBf16,
+            WeightBlockResidencyClass::HotUma,
+            WeightBlockIrChart::OpaqueWithWitness,
+            0.0,
+            "precomputed_range_hash_plus_dense_reference",
+            None,
+        )
+        .expect("second huge known-hash manifest should build");
+        let budget = ResidencyBudget::new(u64::MAX, u64::MAX, u64::MAX, 0.0, 16).unwrap();
+
+        let plan = ResidencyPlan::evaluate([first, second], budget, 42);
+
+        assert_eq!(plan.status, ResidencyPlanStatus::RejectedBeforeRuntime);
+        assert!(plan.violations.iter().any(|v| {
+            matches!(
+                v,
+                ResidencyPlanViolation::ByteTotalOverflow { counter }
+                    if counter == "total_addressed_bytes"
+            )
+        }));
+        assert!(plan.violations.iter().any(|v| {
+            matches!(
+                v,
+                ResidencyPlanViolation::ByteTotalOverflow { counter }
+                    if counter == "hot_uma_bytes"
+            )
+        }));
+        assert!(plan.violations.iter().any(|v| {
+            matches!(
+                v,
+                ResidencyPlanViolation::ByteTotalOverflow { counter }
+                    if counter == "active_runtime_bytes"
+            )
+        }));
     }
 }
