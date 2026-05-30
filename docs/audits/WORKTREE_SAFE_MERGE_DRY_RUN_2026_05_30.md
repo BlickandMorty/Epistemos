@@ -334,3 +334,63 @@ Not done by this port:
 - no ignored local-user-vault baseline test copied;
 - no live caller wiring changed;
 - no app/Xcode build or runtime probe run.
+
+## Salvage Port 4 - ACS ClaimLedger Read Surface
+
+Status: **built in current tree; no branch merge.**
+
+This closes the narrow W-03 bridge gap that was still awkward for downstream
+Provenance / AnswerPacket / UI work: current `Claim` already carried optional
+`AcsAnchor`, but `ClaimLedger` did not expose a deterministic anchor read
+surface. Added:
+
+```text
+ClaimLedger::claim_acs_anchor(&ClaimId) -> Result<Option<&AcsAnchor>, LedgerError>
+ClaimLedger::anchored_claims() -> Vec<&Claim>
+ClaimLedger::claims_for_acs_theorem(&str) -> Vec<&Claim>
+```
+
+Why this matters: UI and agent surfaces can now inspect anchored claims by
+theorem id without crawling private ledger maps or duplicating ACS anchor logic.
+Legacy claims remain allowed to have no anchor, so this is a product bridge,
+not a false claim that every archived claim is already fully anchored.
+
+Verification:
+
+```text
+rustfmt --edition 2021 agent_core/src/provenance/ledger.rs --check
+
+cargo test --manifest-path agent_core/Cargo.toml provenance::ledger:: --lib
+
+31 passed; 0 failed; 4123 filtered out
+```
+
+Not done by this port:
+
+- no Provenance Console ACS theorem-tag column yet;
+- no Swift/Xcode build or UI probe run;
+- no heavy runtime/model/Metal test run.
+
+## Donor Branch Skip - Mermaid Live Diagram Node
+
+Status: **intentionally not ported.**
+
+Multiple old donor branches contain:
+
+```text
+js-editor/src/extensions/mermaid-node.ts
+Epistemos/Resources/Editor/vendor/mermaid/...
+```
+
+Current source guards require Mermaid to remain a legacy inert diagram surface
+handled by `legacy-diagram-node.ts` / HTML Workspace replacement paths:
+
+```text
+EpistemosTests/HTMLWorkspaceSourceGuardTests.swift
+EpistemosTests/EpdocSlashMenuViewTests.swift
+EpistemosTests/EpdocPasteClassifierTests.swift
+```
+
+Reason: the user reported the `graph TD` button causing an Epdoc typing glitch.
+Restoring the donor live Mermaid extension would fight the current guardrails
+and likely resurrect that bug.

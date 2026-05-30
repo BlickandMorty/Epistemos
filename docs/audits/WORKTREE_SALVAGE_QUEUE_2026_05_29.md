@@ -98,6 +98,17 @@ ported to `agent_core/src/retrieval/mod.rs` and exposed in `agent_core/src/lib.r
 Only the Rust contract surface was copied. Donor Swift tests, ignored local
 vault baseline tests, old UI, and project files remain unmerged.
 
+2026-05-30 update: the W-03 ACS ClaimLedger bridge was hardened in current
+code without a branch merge. `ClaimLedger` now exposes deterministic
+`claim_acs_anchor`, `anchored_claims`, and `claims_for_acs_theorem` read
+surfaces. Focused Rust verification: `cargo test --manifest-path
+agent_core/Cargo.toml provenance::ledger:: --lib` passed 31/31.
+
+2026-05-30 update: old donor Mermaid live-diagram files were deliberately
+skipped. Current source guards require the inert legacy diagram / HTML
+Workspace replacement route, and reintroducing donor Mermaid would risk the
+Epdoc `graph TD` typing glitch the user reported.
+
 ## Dirty But Mostly Generated Churn
 
 Many old worktrees report 2955 dirty files, almost entirely tracked build
