@@ -176,8 +176,7 @@ impl WeightBlockManifest {
             wbo_budget_nats,
         )?;
         let byte_range = ByteRange::new(byte_start, byte_len)?;
-        let hash = blake3::Hash::from_hex(content_hash_hex.as_ref())
-            .map_err(|_| WeightBlockManifestError::InvalidContentHash)?;
+        let hash = parse_canonical_blake3_hash_hex(content_hash_hex.as_ref())?;
         Self::from_validated_hash(
             model_id,
             source_uri,
@@ -395,6 +394,17 @@ fn validate_identity_field(
         return Err(WeightBlockManifestError::IdentityFieldContainsPreimageDelimiter { field });
     }
     Ok(())
+}
+
+fn parse_canonical_blake3_hash_hex(value: &str) -> Result<blake3::Hash, WeightBlockManifestError> {
+    if value.len() != 64
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+    {
+        return Err(WeightBlockManifestError::InvalidContentHash);
+    }
+    blake3::Hash::from_hex(value).map_err(|_| WeightBlockManifestError::InvalidContentHash)
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -852,7 +862,7 @@ impl ResidencyPlan {
 }
 
 fn content_hash_preimage(value: &str) -> String {
-    match blake3::Hash::from_hex(value) {
+    match parse_canonical_blake3_hash_hex(value) {
         Ok(hash) => format!("hash:{}", hash.to_hex()),
         Err(_) => format!("invalid:{}", blake3::hash(value.as_bytes()).to_hex()),
     }
@@ -1014,7 +1024,7 @@ fn validate_block_content_hash(
     address: &str,
     violations: &mut Vec<ResidencyPlanViolation>,
 ) {
-    let parsed = blake3::Hash::from_hex(&block.content_hash_hex);
+    let parsed = parse_canonical_blake3_hash_hex(&block.content_hash_hex);
     if parsed.as_ref().ok() != Some(&block.uas_address.hash) {
         violations.push(ResidencyPlanViolation::ContentHashAddressMismatch {
             address: address.to_string(),
@@ -1478,6 +1488,29 @@ mod tests {
             0,
             1024,
             "not-a-blake3-hash",
+            99,
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            WeightBlockIrChart::OpaqueWithWitness,
+            0.04,
+            "precomputed_range_hash",
+            Some(rollback_reference()),
+        )
+        .unwrap_err();
+
+        assert_eq!(err, WeightBlockManifestError::InvalidContentHash);
+    }
+
+    #[test]
+    fn known_hash_manifest_rejects_noncanonical_hash_hex() {
+        let uppercase_hash = blake3::hash(b"range").to_hex().to_string().to_uppercase();
+
+        let err = WeightBlockManifest::from_known_hash_hex(
+            "local/70b-candidate",
+            "file:///models/70b/model.safetensors",
+            0,
+            1024,
+            uppercase_hash.as_str(),
             99,
             WeightBlockEncoding::Nf4,
             WeightBlockResidencyClass::ColdMmapSsd,
@@ -2135,6 +2168,28 @@ mod tests {
             Some(rollback_reference()),
         );
         block.content_hash_hex = blake3::hash(b"different-range").to_hex().to_string();
+        let budget = ResidencyBudget::new(1024, 1024, 4096, 0.10, 16).unwrap();
+
+        let plan = ResidencyPlan::evaluate([block], budget, 42);
+
+        assert_eq!(plan.status, ResidencyPlanStatus::RejectedBeforeRuntime);
+        assert!(plan
+            .violations
+            .iter()
+            .any(|v| matches!(v, ResidencyPlanViolation::ContentHashAddressMismatch { .. })));
+    }
+
+    #[test]
+    fn residency_plan_rejects_publicly_mutated_noncanonical_content_hash_hex() {
+        let mut block = manifest(
+            "mutated-content-hash-case",
+            0,
+            b"cold-nf4-block",
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            Some(rollback_reference()),
+        );
+        block.content_hash_hex = block.content_hash_hex.to_uppercase();
         let budget = ResidencyBudget::new(1024, 1024, 4096, 0.10, 16).unwrap();
 
         let plan = ResidencyPlan::evaluate([block], budget, 42);
