@@ -454,6 +454,8 @@ struct SearchIndexServiceFusionTests {
     func emptyQueryReturnsEmpty() throws {
         let (service, _) = try makeService()
         let now = Date()
+        SearchFusionMetrics.shared.reset()
+        defer { SearchFusionMetrics.shared.reset() }
         try seedDoc(
             id: "p",
             title: "anything",
@@ -469,6 +471,33 @@ struct SearchIndexServiceFusionTests {
         let whitespace = try service.fusedSearch(query: "   ", weights: .default, now: now)
         #expect(whitespace.isEmpty,
                 "whitespace-only query must short-circuit; got \(whitespace.count)")
+    }
+
+    @Test("Empty fused search clears stale SearchFusionMetrics hits")
+    func emptyFusedSearchClearsStaleMetricsHits() throws {
+        let (service, _) = try makeService()
+        let now = Date()
+        SearchFusionMetrics.shared.reset()
+        defer { SearchFusionMetrics.shared.reset() }
+        try seedDoc(
+            id: "p",
+            title: "anything",
+            body: "anything",
+            updatedAt: now,
+            in: service
+        )
+
+        let hit = try service.fusedSearch(query: "anything", weights: .default, now: now)
+        #expect(!hit.isEmpty)
+        #expect(!SearchFusionMetrics.shared.snapshot().hitsBySource.isEmpty)
+
+        let blank = try service.fusedSearch(query: "   ", weights: .default, now: now)
+
+        let snapshot = SearchFusionMetrics.shared.snapshot()
+        #expect(blank.isEmpty)
+        #expect(snapshot.hitsBySource.isEmpty)
+        #expect(snapshot.sampleCount == 2)
+        #expect(snapshot.totalQueries == 2)
     }
 
     // MARK: - 7. Snippet projection
@@ -1033,6 +1062,8 @@ struct SearchIndexServiceFusionTests {
     func invalidFusedSearchAsyncInputsDoNotRecordAgentEvents() async throws {
         let sink = SearchIndexAgentEventSink()
         let (service, _) = try makeService(recordingTo: sink)
+        SearchFusionMetrics.shared.reset()
+        defer { SearchFusionMetrics.shared.reset() }
 
         _ = try await service.fusedSearchAsync(query: "", weights: .default, now: Date())
         _ = try await service.fusedSearchAsync(query: "   \n\t  ", weights: .default, now: Date())
@@ -1113,6 +1144,8 @@ struct SearchIndexServiceFusionTests {
     func invalidFusedSearchSyncInputsDoNotRecordAgentEvents() throws {
         let capture = SearchIndexAgentEventCapture()
         let (service, _) = try makeService(recordingSyncTo: capture)
+        SearchFusionMetrics.shared.reset()
+        defer { SearchFusionMetrics.shared.reset() }
 
         _ = try service.fusedSearch(query: "", weights: .default, now: Date())
         _ = try service.fusedSearch(query: "   \n\t  ", weights: .default, now: Date())
