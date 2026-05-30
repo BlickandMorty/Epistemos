@@ -426,6 +426,9 @@ pub enum ResidencyPlanViolation {
         address: String,
         actual_kind: String,
     },
+    RollbackReferenceSelfReference {
+        address: String,
+    },
     ExternalCandidateRequiresQuarantine {
         address: String,
     },
@@ -560,6 +563,11 @@ impl ResidencyPlan {
                         violations.push(ResidencyPlanViolation::RollbackReferenceKindMismatch {
                             address: reference.to_string(),
                             actual_kind: reference.kind.wire_tag().into_owned(),
+                        });
+                    }
+                    Some(reference) if reference == &block.uas_address => {
+                        violations.push(ResidencyPlanViolation::RollbackReferenceSelfReference {
+                            address: reference.to_string(),
                         });
                     }
                     Some(_) => {}
@@ -1162,6 +1170,28 @@ mod tests {
                 } if actual_kind == "answer_packet"
             )
         }));
+    }
+
+    #[test]
+    fn residency_plan_rejects_self_referential_rollback_reference() {
+        let mut cold = manifest(
+            "cold",
+            0,
+            b"cold-nf4-block",
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            Some(rollback_reference()),
+        );
+        cold.rollback_reference = Some(cold.uas_address.clone());
+        let budget = ResidencyBudget::new(1024, 1024, 4096, 0.10, 16).unwrap();
+
+        let plan = ResidencyPlan::evaluate([cold], budget, 42);
+
+        assert_eq!(plan.status, ResidencyPlanStatus::RejectedBeforeRuntime);
+        assert!(plan.violations.iter().any(|v| matches!(
+            v,
+            ResidencyPlanViolation::RollbackReferenceSelfReference { .. }
+        )));
     }
 
     #[test]
