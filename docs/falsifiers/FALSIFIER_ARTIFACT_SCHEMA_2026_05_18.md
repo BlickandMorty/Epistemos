@@ -445,7 +445,7 @@ These are the minimum axis keys each F-* artifact must cover in `measurements`, 
 | `F-ProviderReferenceManifest-DryRun` | `shape_fixture_written`, `manifest_valid`, `prompt_level_reference`, `does_not_advance_70b_reference_gate`, `row_root_path`, `digest_matches_sidecar`, `replay_files_valid`, `prompt_suite_bound`, `no_provider_call` |
 | `F-WeightBlockRangeHash-DryRun` | `bounded_range_hashed`, `range_len_bytes`, `over_limit_rejected_before_read`, `short_reader_rejected`, `known_hash_manifest_valid`, `no_model_file_touched` |
 | `F-70B-Local-Cocktail-Lite` | `d_kl_nats`, `decode_tok_s`, `ttft_seconds`, `resident_memory_gb`, `bottleneck_identified`, `provider_reference_replay_files_valid`, `weight_block_range_hash_dry_run_available` |
-| `F-Agent-Local-Model-Runtime-Bridge` | `local_model_catalog_available`, `provider_policy_local_mlx_available`, `system_g_event_seam_available`, `local_agent_adapter_dispatch_wired`, `system_g_local_model_provider_dispatch_wired`, `live_local_model_answerpacket_provenance_wired` |
+| `F-Agent-Local-Model-Runtime-Bridge` | `local_model_catalog_available`, `provider_policy_local_mlx_available`, `system_g_event_seam_available`, `local_agent_adapter_dispatch_wired`, `system_g_local_model_provider_dispatch_wired`, `live_local_model_answerpacket_provenance_wired`, `live_agent_local_model_prompt_suite_passed` |
 
 ## T12 F-ULP Witness Correspondence
 
@@ -1578,7 +1578,8 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
               "system_g_event_seam_available",
               "local_agent_adapter_dispatch_wired",
               "system_g_local_model_provider_dispatch_wired",
-              "live_local_model_answerpacket_provenance_wired"
+              "live_local_model_answerpacket_provenance_wired",
+              "live_agent_local_model_prompt_suite_passed"
             ]
           },
           "acceptance_thresholds": {
@@ -1588,7 +1589,8 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
               "system_g_event_seam_available",
               "local_agent_adapter_dispatch_wired",
               "system_g_local_model_provider_dispatch_wired",
-              "live_local_model_answerpacket_provenance_wired"
+              "live_local_model_answerpacket_provenance_wired",
+              "live_agent_local_model_prompt_suite_passed"
             ]
           },
           "pass_per_axis": {
@@ -1598,7 +1600,8 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
               "system_g_event_seam_available",
               "local_agent_adapter_dispatch_wired",
               "system_g_local_model_provider_dispatch_wired",
-              "live_local_model_answerpacket_provenance_wired"
+              "live_local_model_answerpacket_provenance_wired",
+              "live_agent_local_model_prompt_suite_passed"
             ]
           }
         }

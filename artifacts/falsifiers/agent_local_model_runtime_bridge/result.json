@@ -28,9 +28,9 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "ba6f15e6fb08c772c5bbce4d303aff864f39e9c2",
+  "commit_sha": "fb7f8bf32bc67271641dc8ddab4a4c1ec066fab3",
   "fixture_id": "agent_local_model_runtime_bridge_source_audit_v1",
-  "timestamp_utc": "2026-05-29T13:58:00Z",
+  "timestamp_utc": "2026-05-30T12:59:41Z",
   "result_digest": "sha256:46a74a5184a0f106622567db212e17d0d8bf4676b6543d875e54c9b185dc02b5",
   "measurements": {
     "agent_blueprint_source": {
