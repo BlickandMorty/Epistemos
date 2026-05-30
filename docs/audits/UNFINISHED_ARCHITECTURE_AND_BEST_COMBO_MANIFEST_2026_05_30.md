@@ -10,6 +10,13 @@ ambition with shipped product behavior. This document is the anti-loss ledger
 for the "best combo" Epistemos architecture: local models as engines, Epistemos
 as the verifiable cognition substrate.
 
+Drift-control companion: read
+`docs/audits/AGENT_MANAGEABLE_ARCHITECTURE_CANON_2026_05_30.md` before naming a
+new search, memory, citation, route, proof, or model-substrate surface. That
+register defines the stable organ names and adapter rules so future agents do
+not invent parallel authorities such as detached AgentSearch, AgentMemory, or
+AgentCitation.
+
 ## Non-Negotiables
 
 1. WRV remains the floor: Wired, Reachable, Visible, Verified.
