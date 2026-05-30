@@ -154,6 +154,69 @@ AnswerPacket provenance remains required
 lightweight Swift/Rust checks only unless user allows app build
 ```
 
+## 2026-05-30 Post-Checkpoint Inventory Refresh
+
+Current active checkpoint:
+
+```text
+cac98f826b harden provider reference replay file gate
+```
+
+The active `/Users/jojo/Downloads/Epistemos` worktree is clean. No stale branch
+was merged, cherry-picked, checked out, reset, or deleted during this refresh.
+
+Current `git worktree list --porcelain` shows 38 registered worktrees,
+including the active tree and 3 `.claude/worktrees/*` donors. The important
+classification is:
+
+| Class | Worktrees / branches | Safe action |
+|---|---|---|
+| Already ancestor of current checkpoint | `wiring/app-systemg-run-seam-2026-05-23`, `wiring/rust-r3-system-g-minimal-slice` | removable candidates after explicit approval; content already represented |
+| Clean but not ancestor | `Epistemos-terminal-t1-runtime-router`, `Epistemos-ui-repromotion`, `Epistemos-wave4-page-gather-vault-escalation`, `Epistemos-wave4-uas-typed-retrieval`, `Epistemos-terminal-d-prime`, `Epistemos-terminal-f-prime`, `.claude/worktrees/simulation`, `.claude/worktrees/vigorous-goldberg-3a2d35`, `.claude/worktrees/agent-a0550f9c` | preserve as donors; mine only named missing files or fields |
+| Dirty due generated/target churn | most `Epistemos-t*`, `Epistemos-terminal-*`, and `Epistemos-wirings-2026-05-23` worktrees report thousands of changes under `target/` directories | do not interpret as source work; do not bulk-clean without approval |
+| Detached but clean | `Epistemos-wrv-audit` | inspect purpose before removal |
+| Has one untracked doc | `Epistemos-wrv-docs` has `docs/CANONICAL_CHRONICLE_2026_05_23.md` | read/compare before any cleanup |
+
+Sample dirty status confirms the large dirty counts are not useful app-source
+work: `Epistemos-t09-product-ledger` reports deleted `substrate-core/target/*`
+artifacts, and `Epistemos-terminal-s` reports modified
+`syntax-core/target/*` build outputs. These are build artifact directories, not
+canon-bearing source changes.
+
+Current safe-deletion posture:
+
+```text
+do not delete any worktree in this loop
+do not force-remove dirty worktrees
+do not merge broad donor branches
+commit current-main salvage first, then remove only after explicit approval
+```
+
+Current safe mining posture:
+
+```text
+1. choose one branch/donor by named feature
+2. compare donor file to current file
+3. port one narrow source/doc/test surface by hand
+4. run lightweight Rust/doc guard only
+5. commit
+```
+
+Most useful next donor checks, in order:
+
+1. `Epistemos-terminal-t1-runtime-router` - local-agent/model-mixture router
+   doctrine; compare only `RuntimeExecutor`, `RuntimeRouter`,
+   `RuntimeRouterHealthRow`, and focused tests.
+2. `Epistemos-wave4-uas-typed-retrieval` - UAS/ACS typed retrieval fields;
+   compare only after current UAS docs/tests name the missing field.
+3. `Epistemos-terminal-c` - System G full path; donor-only until a single
+   missing event/run seam is named.
+4. `Epistemos-wrv-docs` - inspect `CANONICAL_CHRONICLE_2026_05_23.md` before
+   deciding whether it has already been absorbed.
+
+This preserves the user's goal: keep every beneficial idea, but prevent the
+old-worktree regression where a stale donor branch rolls the app backward.
+
 ## Salvage Port 1 - T5 EML Closure Slice
 
 Status: **ported surgically; branch still donor-only.**
