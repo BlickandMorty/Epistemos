@@ -125,7 +125,13 @@ impl WeightBlockManifest {
         let model_id = model_id.into();
         let source_uri = source_uri.into();
         let verifier = verifier.into();
-        Self::validate_fields(&model_id, &source_uri, &verifier, wbo_budget_nats)?;
+        Self::validate_fields(
+            &model_id,
+            &source_uri,
+            &encoding,
+            &verifier,
+            wbo_budget_nats,
+        )?;
         let byte_range = ByteRange::new(byte_start, bytes.len() as u64)?;
         let hash = blake3::hash(bytes);
         Self::from_validated_hash(
@@ -161,7 +167,13 @@ impl WeightBlockManifest {
         let model_id = model_id.into();
         let source_uri = source_uri.into();
         let verifier = verifier.into();
-        Self::validate_fields(&model_id, &source_uri, &verifier, wbo_budget_nats)?;
+        Self::validate_fields(
+            &model_id,
+            &source_uri,
+            &encoding,
+            &verifier,
+            wbo_budget_nats,
+        )?;
         let byte_range = ByteRange::new(byte_start, byte_len)?;
         let hash = blake3::Hash::from_hex(content_hash_hex.as_ref())
             .map_err(|_| WeightBlockManifestError::InvalidContentHash)?;
@@ -199,7 +211,13 @@ impl WeightBlockManifest {
         let model_id = model_id.into();
         let source_uri = source_uri.into();
         let verifier = verifier.into();
-        Self::validate_fields(&model_id, &source_uri, &verifier, wbo_budget_nats)?;
+        Self::validate_fields(
+            &model_id,
+            &source_uri,
+            &encoding,
+            &verifier,
+            wbo_budget_nats,
+        )?;
         let byte_range = ByteRange::new(byte_start, byte_len)?;
         if byte_len > max_bytes_to_hash {
             return Err(WeightBlockManifestError::RangeHashLimitExceeded {
@@ -272,6 +290,7 @@ impl WeightBlockManifest {
     fn validate_fields(
         model_id: &str,
         source_uri: &str,
+        encoding: &WeightBlockEncoding,
         verifier: &str,
         wbo_budget_nats: f32,
     ) -> Result<(), WeightBlockManifestError> {
@@ -290,6 +309,13 @@ impl WeightBlockManifest {
             verifier,
             WeightBlockManifestError::MissingVerifier,
         )?;
+        if let WeightBlockEncoding::Other(label) = encoding {
+            validate_identity_field(
+                "encoding",
+                label,
+                WeightBlockManifestError::MissingCustomEncodingLabel,
+            )?;
+        }
         if !wbo_budget_nats.is_finite() || wbo_budget_nats < 0.0 {
             return Err(WeightBlockManifestError::InvalidWboBudget);
         }
@@ -843,6 +869,7 @@ pub enum WeightBlockManifestError {
     MissingVerifier,
     IdentityFieldHasSurroundingWhitespace { field: &'static str },
     IdentityFieldContainsControlCharacter { field: &'static str },
+    MissingCustomEncodingLabel,
     InvalidContentHash,
     RangeHashLimitExceeded { requested: u64, max: u64 },
     RangeHashIo { kind: String },
@@ -862,6 +889,9 @@ impl std::fmt::Display for WeightBlockManifestError {
             }
             WeightBlockManifestError::IdentityFieldContainsControlCharacter { field } => {
                 write!(f, "{field} must not contain control characters")
+            }
+            WeightBlockManifestError::MissingCustomEncodingLabel => {
+                write!(f, "custom encoding label is required")
             }
             WeightBlockManifestError::InvalidContentHash => {
                 write!(f, "content_hash_hex must be a valid BLAKE3 hex hash")
@@ -1163,6 +1193,49 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(err, WeightBlockManifestError::InvalidContentHash);
+    }
+
+    #[test]
+    fn rejects_invalid_custom_encoding_labels() {
+        let hash = blake3::hash(b"range");
+        let cases = [
+            (
+                WeightBlockEncoding::Other(String::new()),
+                WeightBlockManifestError::MissingCustomEncodingLabel,
+            ),
+            (
+                WeightBlockEncoding::Other(" opaque ".to_string()),
+                WeightBlockManifestError::IdentityFieldHasSurroundingWhitespace {
+                    field: "encoding",
+                },
+            ),
+            (
+                WeightBlockEncoding::Other("opaque\nwitness".to_string()),
+                WeightBlockManifestError::IdentityFieldContainsControlCharacter {
+                    field: "encoding",
+                },
+            ),
+        ];
+
+        for (encoding, expected) in cases {
+            let err = WeightBlockManifest::from_known_hash_hex(
+                "local/70b-candidate",
+                "file:///models/70b/model.safetensors",
+                0,
+                1024,
+                hash.to_hex().as_str(),
+                99,
+                encoding,
+                WeightBlockResidencyClass::ColdMmapSsd,
+                WeightBlockIrChart::OpaqueWithWitness,
+                0.04,
+                "precomputed_range_hash",
+                Some(rollback_reference()),
+            )
+            .unwrap_err();
+
+            assert_eq!(err, expected);
+        }
     }
 
     #[test]
