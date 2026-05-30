@@ -120,6 +120,9 @@ pub enum SystemGRuntimeError {
     /// JSON decode. Kept distinct from mission decode so the operator can
     /// triage whether the mission envelope or executor selection drifted.
     DecodeProviderPolicy(String),
+    /// Provider-aware start: the decoded provider policy is structurally valid
+    /// JSON but cannot produce an honest route.
+    InvalidProviderPolicy(String),
     /// `start_run`: the mission prompt exceeded
     /// `MissionPacket::MAX_PROMPT_BYTES`. Pre-empts any provider
     /// call so the executor never sees an over-budget input.
@@ -144,6 +147,7 @@ impl std::fmt::Display for SystemGRuntimeError {
         match self {
             Self::Decode(m) => write!(f, "mission JSON decode: {m}"),
             Self::DecodeProviderPolicy(m) => write!(f, "provider policy JSON decode: {m}"),
+            Self::InvalidProviderPolicy(m) => write!(f, "provider policy invalid: {m}"),
             Self::PromptOversize { size, cap } => {
                 write!(f, "mission prompt {size} bytes exceeds cap {cap}")
             }
@@ -331,6 +335,19 @@ fn execute_provider_policy_route(
     ]
 }
 
+fn validate_provider_policy_for_system_g(
+    provider_policy: &ProviderPolicy,
+) -> Result<(), SystemGRuntimeError> {
+    if let ProviderPolicy::LocalMlx { model_id } = provider_policy {
+        if model_id.trim().is_empty() {
+            return Err(SystemGRuntimeError::InvalidProviderPolicy(
+                "LocalMlx model_id is required".to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// Reap terminated runs whose `terminated_at` is at least
 /// `TERMINATED_RUN_RETENTION` old. Called opportunistically from
 /// `start_run` so the GC is amortised across mission starts (no
@@ -402,6 +419,7 @@ pub fn start_run_with_provider_policy(
     packet.validate_prompt()?;
     let provider_policy: ProviderPolicy = serde_json::from_str(provider_policy_json)
         .map_err(|e| SystemGRuntimeError::DecodeProviderPolicy(e.to_string()))?;
+    validate_provider_policy_for_system_g(&provider_policy)?;
 
     let run_id = Uuid::new_v4().to_string();
     let turn_id = format!("turn-{}", &run_id[..8]);
@@ -626,6 +644,36 @@ mod tests {
         let err = start_run_with_provider_policy(&good_mission_json(), "{ not provider")
             .expect_err("malformed provider policy must reject");
         assert!(matches!(err, SystemGRuntimeError::DecodeProviderPolicy(_)));
+    }
+
+    #[test]
+    fn start_run_with_provider_policy_rejects_empty_local_mlx_model_id_without_dispatch() {
+        let _guard = test_registry_lock();
+        reset_for_test();
+        let dispatched_before = registry_stats_full().2;
+        let provider_policy = serde_json::to_string(&ProviderPolicy::LocalMlx {
+            model_id: "  ".into(),
+        })
+        .expect("provider encode");
+
+        let err = start_run_with_provider_policy(&good_mission_json(), &provider_policy)
+            .expect_err("empty local model id must reject before dispatch");
+
+        let message = err.to_string();
+        assert!(
+            message.contains("provider policy invalid"),
+            "unexpected error message: {message}"
+        );
+        assert_eq!(
+            registry_stats(),
+            (0, 0),
+            "invalid provider policy must not insert a run"
+        );
+        assert_eq!(
+            registry_stats_full().2,
+            dispatched_before,
+            "invalid provider policy must not bump the lifetime counter"
+        );
     }
 
     #[test]
