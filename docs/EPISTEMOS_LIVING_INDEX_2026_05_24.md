@@ -32,7 +32,7 @@
   `F-Capability-Ceiling-Evaluation-Kernel` emits
   `artifacts/falsifiers/capability_ceiling_evaluation_kernel/result.json` and
   currently reports `vault_research_route_with_packetized_mitigation` with
-  next bottleneck `expand_qwen3_8b_128k_gguf_fixture_shape`.
+  next bottleneck `repair_qwen3_8b_128k_gguf_metal_stall`.
   `F-UAS-CopyCount` and `F-ACS-AnchorLookup` are now schema-normalized primary
   witnesses. `F-UAS-ACS-MmapResidency` is now a primary witness for a 16 MiB
   file-backed mmap KV-page slice with UAS address round-trip, ACS projection

@@ -113,7 +113,7 @@ The GGUF split is now executable as a separate falsifier:
 falsifier_id = F-Qwen3-8B-128K-GGUF-Route
 artifact = artifacts/falsifiers/qwen3_8b_128k_gguf_route/result.json
 command = Tools/falsifiers/f_qwen3_8b_128k_gguf_route.sh
-current_next_bottleneck = expand_qwen3_8b_128k_gguf_fixture_shape
+current_next_bottleneck = repair_qwen3_8b_128k_gguf_metal_stall
 ```
 
 This route targets `unsloth/Qwen3-8B-128K-GGUF`, validates under the shared
@@ -154,25 +154,26 @@ same_top_p_percent = 100.0
 
 These smoke witnesses prove that the candidate asset loads locally and that the
 llama.cpp route can emit throughput/RSS and KL evidence. They do not prove the
-Capability Ceiling. The next work is expanding the same route to the required
-shape without deleting the canonical MLX red gate.
+Capability Ceiling.
 
-One failed expansion attempt is preserved under
-`artifacts/falsifiers/qwen3_8b_128k_gguf_route/shape_probes/`: the `8192` /
-`128`, `16384` / `128`, `32768` / `128`, and `32768` / `256` f16-KV probes
-passed, while the `8192` / `128` q4_0-KV context creation failed. Treat
-quantized-KV-on-llama.cpp as a separate runtime repair surface, not a reason to
-erase the successful f16 shape ladder.
+The preserved probe ladder now narrows the repair surface:
+`32768` / `256` with f16 KV is the best successful point; quantized KV
+without flash-attention fails context creation; flash-attention times out even
+at 8K; disabling KV offload is not a repair. The route also retains a
+non-executing 128K dry-run preview with `not_executed=true` and
+`falsifier_green_capable=false`. Treat the current blocker as a
+backend/cache-policy stall, not a reason to recreate model download, prompt
+suite, shard planner, or runner scaffolding.
 
 ## Next Build Cursor
 
 The duplicate-work guard cursor is now:
 
 ```text
-expand_qwen3_8b_128k_gguf_fixture_shape
+repair_qwen3_8b_128k_gguf_metal_stall
 ```
 
 Interpret this narrowly: the canonical MLX model/context contradiction remains
 red, but the already-mapped GGUF split has advanced past asset/runner/smoke-KL
-setup. Do not duplicate prompt-suite, shard planner, merge, model download, or
-runner scaffolding.
+setup and now has a 128K stall witness plus a dry-run preview. Do not duplicate
+prompt-suite, shard planner, merge, model download, or runner scaffolding.
