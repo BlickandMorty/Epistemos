@@ -54,7 +54,7 @@ The biggest scope-lock cost was: T3 built UAS-ACS, T1 built Tri-Fusion, T7 built
 |---|---|---|---|---|---|---|---|
 | **W-01** | T3 (`agent_core/src/uas/address.rs`) | `agent_core/src/storage/vault.rs` (vault notes get a UasAddress on insert/retrieve) | none directly; enables every UasKind-aware feature downstream | `vault.rs::hybrid_search()` returns `Vec<(UasAddress, Note)>`; round-trip property test on 50-note vault | P1 | merge T3 + T4 | NOT-STARTED |
 | **W-02** | T3 (`UasKind` enum) | `agent_core/src/agent_runtime/` (every agent trace tagged with `UasKind::AgentTrace`) | enables replayable agent runs in run timeline | T2's `RunEventLog` event records carry `UasAddress { kind: UasKind::AgentTrace, ... }`; replay UI can reconstruct trace from address alone | P1 | merge T2 + T3 | NOT-STARTED |
-| **W-03** | T3 (`AcsAnchor` type + `anchor_registry.rs`) | `agent_core/src/provenance/ledger.rs::ClaimLedger` | Provenance Console shows anchored claims with theorem tags | every `Claim` stored in `ClaimLedger` carries an `AcsAnchor`; Provenance Console UI displays the theorem tag column | P1 | merge T3 | NOT-STARTED |
+| **W-03** | T3 (`AcsAnchor` type + `anchor_registry.rs`) | `agent_core/src/provenance/ledger.rs::ClaimLedger` | Provenance Console shows anchored claims with theorem tags | current bridge: `Claim` can carry `AcsAnchor`, `ClaimLedger` exposes deterministic `claim_acs_anchor`, `anchored_claims`, and `claims_for_acs_theorem`; remaining acceptance: Provenance Console theorem-tag column + migration policy for legacy unanchored claims | P1 | merge T3 | PARTIAL-LEDGER-READ-SURFACE |
 | **W-04** | T3 (`page_gather/{helios_page,sketch_topk,residual_rescore,escalation_policy}.rs`) | `agent_core/src/storage/vault.rs` (vault retrieval uses sketch→residual→exact escalation) | F-VaultRecall-50 PASS becomes credible by using shadow-first paging on actual notes | `vault.rs::hybrid_search()` invokes `EscalationPolicy::escalate(query_sketch, query_residual, corpus)`; uses `EscalationVerdict` to decide read path; benchmark shows ≥ 40% read-amplification reduction vs naive scan | P1 | merge T3 + T4; W-01 | NOT-STARTED |
 | **W-05** | T3 (`active_assembly/{packet,selector}.rs`) | `agent_core/src/agent_runtime/` (agent loop only activates relevant packets per Active Assembly selector) | none directly; cuts agent latency by skipping irrelevant tool surfaces | `agent_runtime` calls `Selector::pull(query_packet, available_packets)` before dispatching; assembly-PASS within WBO budget | P2 | merge T2 + T3 | NOT-STARTED |
 | **W-06** | T1 (`agent_core/src/tri_fusion/mod.rs` + `LocalToolGrammar` Tri-Fusion mutation grammar) | `agent_core/src/agent_runtime/` (local models emit Tri-Fusion mutations as typed tool calls) | model-authored note edits appear as structured operations in Epdoc with provenance badge | `agent_runtime` parses `TriFusionMutation` from model output; Epdoc receiver renders structured-mutation cards; LocalAgentPromptBuilder emits at least one Tri-Fusion mutation in a real chat turn | P1 | merge T1 + T2 | NOT-STARTED |
@@ -299,7 +299,7 @@ Once T1 + T2 + T6 each have a landed PR, T8's gate auto-opens. T8's Phase B impl
 
 Land **P2 + P3 wirings** as bandwidth allows:
 - W-02 UasAddress in agent traces
-- W-03 AcsAnchor in ClaimLedger
+- W-03 AcsAnchor in ClaimLedger UI / legacy-claim migration policy
 - W-05 Active Assembly in agent_runtime
 - W-08 EML potential in ConfidenceRouter
 - W-09 Scan-IR consumer

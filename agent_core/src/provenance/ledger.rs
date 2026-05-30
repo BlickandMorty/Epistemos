@@ -466,6 +466,37 @@ impl ClaimLedger {
         self.claims.get(id)
     }
 
+    pub fn claim_acs_anchor(&self, id: &ClaimId) -> Result<Option<&AcsAnchor>, LedgerError> {
+        self.claims
+            .get(id)
+            .map(|claim| claim.acs_anchor.as_ref())
+            .ok_or_else(|| LedgerError::ClaimNotFound(id.clone()))
+    }
+
+    pub fn anchored_claims(&self) -> Vec<&Claim> {
+        let mut ids: Vec<&ClaimId> = self.claims.keys().collect();
+        ids.sort();
+
+        ids.into_iter()
+            .filter_map(|id| {
+                let claim = &self.claims[id];
+                claim.acs_anchor.as_ref().map(|_| claim)
+            })
+            .collect()
+    }
+
+    pub fn claims_for_acs_theorem(&self, theorem_id: &str) -> Vec<&Claim> {
+        self.anchored_claims()
+            .into_iter()
+            .filter(|claim| {
+                claim
+                    .acs_anchor
+                    .as_ref()
+                    .is_some_and(|anchor| anchor.theorem_id == theorem_id)
+            })
+            .collect()
+    }
+
     pub fn evidence(&self, id: &EvidenceId) -> Option<&Evidence> {
         self.evidence.get(id)
     }
@@ -921,6 +952,108 @@ mod tests {
             .with_acs_anchor(anchor.clone());
 
         assert_eq!(claim.acs_anchor, Some(anchor));
+    }
+
+    #[test]
+    fn ledger_exposes_deterministic_acs_anchor_read_surface() {
+        let mut ledger = ClaimLedger::new();
+        let e1_anchor = AcsAnchor::new(
+            "anchor-e1",
+            "E1",
+            crate::uas::RuntimePlane::Episodic,
+            crate::uas::ResidencyTier::VerifiedFloor,
+            0.8,
+        );
+        let e2_anchor = AcsAnchor::new(
+            "anchor-e2",
+            "E2",
+            crate::uas::RuntimePlane::Verification,
+            crate::uas::ResidencyTier::VerifiedFloor,
+            0.6,
+        );
+
+        ledger
+            .commit_claim(
+                Claim::new(ClaimId::new("c-b"), "second anchored", t())
+                    .with_acs_anchor(e2_anchor.clone()),
+                vec![],
+                vec![],
+            )
+            .unwrap();
+        ledger
+            .commit_claim(
+                Claim::new(ClaimId::new("c-a"), "first anchored", t())
+                    .with_acs_anchor(e1_anchor.clone()),
+                vec![],
+                vec![],
+            )
+            .unwrap();
+        ledger
+            .commit_claim(
+                Claim::new(ClaimId::new("c-z"), "not anchored", t()),
+                vec![],
+                vec![],
+            )
+            .unwrap();
+
+        assert_eq!(
+            ledger.claim_acs_anchor(&ClaimId::new("c-a")).unwrap(),
+            Some(&e1_anchor)
+        );
+        assert_eq!(ledger.claim_acs_anchor(&ClaimId::new("c-z")).unwrap(), None);
+        assert_eq!(
+            ledger
+                .claim_acs_anchor(&ClaimId::new("missing"))
+                .unwrap_err(),
+            LedgerError::ClaimNotFound(ClaimId::new("missing"))
+        );
+
+        let anchored_ids: Vec<&str> = ledger
+            .anchored_claims()
+            .iter()
+            .map(|claim| claim.id.0.as_str())
+            .collect();
+        assert_eq!(anchored_ids, vec!["c-a", "c-b"]);
+    }
+
+    #[test]
+    fn ledger_filters_anchored_claims_by_theorem_id() {
+        let mut ledger = ClaimLedger::new();
+        let anchor = AcsAnchor::new(
+            "anchor-e3",
+            "E3",
+            crate::uas::RuntimePlane::Episodic,
+            crate::uas::ResidencyTier::VerifiedFloor,
+            0.9,
+        );
+        ledger
+            .commit_claim(
+                Claim::new(ClaimId::new("c-e3"), "anchored to E3", t()).with_acs_anchor(anchor),
+                vec![],
+                vec![],
+            )
+            .unwrap();
+        ledger
+            .commit_claim(
+                Claim::new(ClaimId::new("c-free"), "unanchored", t()),
+                vec![],
+                vec![],
+            )
+            .unwrap();
+
+        let e3_ids: Vec<&str> = ledger
+            .claims_for_acs_theorem("E3")
+            .iter()
+            .map(|claim| claim.id.0.as_str())
+            .collect();
+        let e4_ids: Vec<&str> = ledger
+            .claims_for_acs_theorem("E4")
+            .iter()
+            .map(|claim| claim.id.0.as_str())
+            .collect();
+
+        assert_eq!(e3_ids, vec!["c-e3"]);
+        assert!(e4_ids.is_empty());
     }
 
     fn seed_basic_ledger() -> ClaimLedger {
