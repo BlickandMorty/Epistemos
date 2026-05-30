@@ -1907,12 +1907,13 @@ impl ToolRegistry {
             name: "vault_search".to_string(),
             description: "Hybrid semantic and keyword search across the personal knowledge vault. \
                 Use this first when the user names or describes a note but you do not yet have \
-                its exact vault-relative path."
+                its exact vault-relative path. Accepts natural sentences, exact titles, aliases, \
+                tags, vault-relative paths, and Finder-copied absolute paths inside the vault."
                 .to_string(),
             parameters: json!({
                 "type": "object",
                 "properties": {
-                    "query": { "type": "string", "description": "Natural language search query" },
+                    "query": { "type": "string", "description": "Natural language search query, exact note title, alias, metadata phrase, vault-relative path, or Finder path inside the vault" },
                     "limit": {
                         "type": "integer",
                         "description": "Maximum results to return",
@@ -1962,7 +1963,8 @@ impl ToolRegistry {
                 Returns paths sorted alphabetically (not by relevance). \
                 IF YOU WANT NOTES ABOUT A TOPIC or relevance-ranked results, USE vault.search INSTEAD — \
                 list_notes is only for browsing a known folder structure. \
-                Pass `query` to auto-route this call to vault.search for convenience."
+                Pass `query` to auto-route this call to vault.search for convenience. If `path` \
+                is not a real folder, this tool retries it as a vault.search query before giving up."
                 .to_string(),
             parameters: json!({
                 "type": "object",
@@ -2887,7 +2889,47 @@ impl ToolHandler for VaultListHandler {
         entries.dedup();
 
         if entries.is_empty() {
-            return Ok(format!("No notes found under `{path_prefix}`."));
+            // Small local models often pass a note title as `path` instead
+            // of `query` (for example `path: "My Autobiography"`). Treat an
+            // empty folder listing as a relevance-search retry before
+            // returning nothing so the agent stays in the vault stack instead
+            // of falling through to broad file.search.
+            if path_prefix != "." {
+                let fallback_limit = limit.clamp(1, 20);
+                let results = self
+                    .vault
+                    .hybrid_search(path_prefix, fallback_limit, &[])
+                    .await
+                    .map_err(map_vault_error)?;
+                if !results.is_empty() {
+                    let header = format!(
+                        "No folder matched `{path_prefix}`. Auto-routed to vault.search for relevance. \
+                         Returned {} result{}:",
+                        results.len(),
+                        if results.len() == 1 { "" } else { "s" }
+                    );
+                    let body = results
+                        .iter()
+                        .enumerate()
+                        .map(|(index, result)| {
+                            format!(
+                                "{}. **{}** (score: {:.2})\n{}",
+                                index + 1,
+                                result.path,
+                                result.score,
+                                result.excerpt
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n\n");
+                    return Ok(format!("{header}\n\n{body}"));
+                }
+            }
+
+            return Ok(format!(
+                "No notes found under `{path_prefix}`. If `{path_prefix}` is a title or topic, \
+                 call vault.search with it as `query`."
+            ));
         }
 
         let total = entries.len();
@@ -3338,6 +3380,55 @@ mod tier_tests {
         }
     }
 
+    struct TitleFallbackVault;
+
+    #[async_trait]
+    impl VaultBackend for TitleFallbackVault {
+        async fn hybrid_search(
+            &self,
+            query: &str,
+            _limit: usize,
+            _tag_filter: &[String],
+        ) -> Result<Vec<SearchResult>, VaultError> {
+            if query == "My Autobiography" {
+                Ok(vec![SearchResult {
+                    path: "some essays/My Autobiography.md".to_string(),
+                    excerpt: "I grew up around projects, school, and personal systems.".to_string(),
+                    score: 8.0,
+                    tags: Vec::new(),
+                }])
+            } else {
+                Ok(Vec::new())
+            }
+        }
+
+        async fn read(&self, _path: &str) -> Result<String, VaultError> {
+            Ok(String::new())
+        }
+
+        async fn write(
+            &self,
+            _path: &str,
+            _content: &str,
+            _tags: Option<&[String]>,
+            _append: bool,
+        ) -> Result<(), VaultError> {
+            Ok(())
+        }
+
+        async fn list(&self, _path_prefix: &str) -> Result<Vec<String>, VaultError> {
+            Ok(Vec::new())
+        }
+
+        async fn exists(&self, _path: &str) -> Result<bool, VaultError> {
+            Ok(false)
+        }
+
+        async fn delete(&self, _path: &str) -> Result<bool, VaultError> {
+            Ok(false)
+        }
+    }
+
     fn build_registry(tier: ToolTier) -> ToolRegistry {
         ToolRegistry::with_tier(
             Arc::new(NullVault::default()),
@@ -3720,6 +3811,36 @@ mod tier_tests {
             "list_notes with `query` must surface the auto-route disclaimer so the agent \
              knows the call took the vault.search path (relevance), not the alphabetical \
              path; got: {result}"
+        );
+    }
+
+    #[tokio::test]
+    async fn list_notes_retries_path_as_vault_search_when_folder_is_missing() {
+        // Local-model recovery path: if the agent accidentally puts a
+        // note title in `path`, `vault.list` should retry through the
+        // relevance stack before returning an empty folder listing.
+        let registry = ToolRegistry::with_tier(
+            Arc::new(TitleFallbackVault),
+            true,
+            None::<std::path::PathBuf>,
+            ToolTier::Agent,
+        );
+
+        let result = registry
+            .execute_v2(
+                "vault.list",
+                &serde_json::json!({ "path": "My Autobiography", "limit": 5 }),
+            )
+            .await
+            .expect("vault.list path fallback should execute");
+
+        assert!(
+            result.contains("Auto-routed to vault.search"),
+            "vault.list should disclose the relevance retry; got: {result}"
+        );
+        assert!(
+            result.contains("some essays/My Autobiography.md"),
+            "vault.list path fallback should surface the vault.search hit; got: {result}"
         );
     }
 
