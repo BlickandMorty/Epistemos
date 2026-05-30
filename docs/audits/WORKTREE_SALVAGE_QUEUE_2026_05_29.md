@@ -227,6 +227,11 @@ Safe, non-runtime hardening that is already represented in the current repo:
   planner rungs while refusing to pretend live 70B works;
 - `F-Architecture-Pending-Work-Guard`, which now checks those rungs plus the
   worktree/model-context inventories before any recursive architecture loop.
+- Eidos W-49 and W-50 Rust substrates are already in the current tree:
+  `LedgerBackedClaimEvidence` and `DagBackedGraphNeighborhood` pass the
+  closed-citation test surface. Terminal A remains a donor reference, not a
+  merge target, because the useful Rust pieces are already represented and the
+  branch would roll back newer runtime/app files.
 
 Preserve these worktree families before deleting anything because they map to
 the user's non-runtime architecture surface:

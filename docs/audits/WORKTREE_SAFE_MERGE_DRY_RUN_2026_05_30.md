@@ -394,3 +394,37 @@ EpistemosTests/EpdocPasteClassifierTests.swift
 Reason: the user reported the `graph TD` button causing an Epdoc typing glitch.
 Restoring the donor live Mermaid extension would fight the current guardrails
 and likely resurrect that bug.
+
+## Donor Branch Check - Terminal A Eidos
+
+Status: **do not merge; current tree already carries the useful Rust substrate.**
+
+The donor branch:
+
+```text
+terminal/a-eidos-bridge-2026-05-23
+```
+
+would delete or roll back current runtime, HTML workspace, AnswerPacket,
+falsifier, and app files if merged wholesale. Current `agent_core/src/eidos/`
+already contains the valuable W-49/W-50 Rust surfaces:
+
+```text
+agent_core/src/eidos/ledger_backed_claim_evidence.rs
+agent_core/src/eidos/dag_backed_graph_neighborhood.rs
+```
+
+Current verification:
+
+```text
+cargo test --manifest-path agent_core/Cargo.toml eidos:: --lib
+
+463 passed; 0 failed; 3691 filtered out
+```
+
+Remaining Eidos work is not branch salvage; it is forward wiring:
+
+- W-46 Swift/Rust FFI bridge;
+- W-47 ChatCoordinator closed-citation emit gate;
+- W-48 Brain Panel "Retrieved by Eidos" surface;
+- W-51 ShadowBackedSemanticIndex over the current shadow backend.
