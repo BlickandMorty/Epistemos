@@ -390,6 +390,9 @@ fn validate_identity_field(
     if value.chars().any(char::is_control) {
         return Err(WeightBlockManifestError::IdentityFieldContainsControlCharacter { field });
     }
+    if value.contains('|') {
+        return Err(WeightBlockManifestError::IdentityFieldContainsPreimageDelimiter { field });
+    }
     Ok(())
 }
 
@@ -869,6 +872,7 @@ pub enum WeightBlockManifestError {
     MissingVerifier,
     IdentityFieldHasSurroundingWhitespace { field: &'static str },
     IdentityFieldContainsControlCharacter { field: &'static str },
+    IdentityFieldContainsPreimageDelimiter { field: &'static str },
     MissingCustomEncodingLabel,
     InvalidContentHash,
     RangeHashLimitExceeded { requested: u64, max: u64 },
@@ -889,6 +893,12 @@ impl std::fmt::Display for WeightBlockManifestError {
             }
             WeightBlockManifestError::IdentityFieldContainsControlCharacter { field } => {
                 write!(f, "{field} must not contain control characters")
+            }
+            WeightBlockManifestError::IdentityFieldContainsPreimageDelimiter { field } => {
+                write!(
+                    f,
+                    "{field} must not contain residency-plan preimage delimiters"
+                )
             }
             WeightBlockManifestError::MissingCustomEncodingLabel => {
                 write!(f, "custom encoding label is required")
@@ -1144,6 +1154,62 @@ mod tests {
             assert_eq!(
                 err,
                 WeightBlockManifestError::IdentityFieldContainsControlCharacter { field }
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_identity_fields_with_plan_preimage_delimiters() {
+        let hash = blake3::hash(b"range");
+        for (model_id, source_uri, verifier, encoding, field) in [
+            (
+                "local/70b|candidate",
+                "file:///models/70b/model.safetensors",
+                "precomputed_range_hash",
+                WeightBlockEncoding::Nf4,
+                "model_id",
+            ),
+            (
+                "local/70b-candidate",
+                "file:///models/70b/model|shadow.safetensors",
+                "precomputed_range_hash",
+                WeightBlockEncoding::Nf4,
+                "source_uri",
+            ),
+            (
+                "local/70b-candidate",
+                "file:///models/70b/model.safetensors",
+                "precomputed|range_hash",
+                WeightBlockEncoding::Nf4,
+                "verifier",
+            ),
+            (
+                "local/70b-candidate",
+                "file:///models/70b/model.safetensors",
+                "precomputed_range_hash",
+                WeightBlockEncoding::Other("opaque|witness".to_string()),
+                "encoding",
+            ),
+        ] {
+            let err = WeightBlockManifest::from_known_hash_hex(
+                model_id,
+                source_uri,
+                0,
+                1024,
+                hash.to_hex().as_str(),
+                99,
+                encoding,
+                WeightBlockResidencyClass::ColdMmapSsd,
+                WeightBlockIrChart::OpaqueWithWitness,
+                0.04,
+                verifier,
+                Some(rollback_reference()),
+            )
+            .unwrap_err();
+
+            assert_eq!(
+                err,
+                WeightBlockManifestError::IdentityFieldContainsPreimageDelimiter { field }
             );
         }
     }
