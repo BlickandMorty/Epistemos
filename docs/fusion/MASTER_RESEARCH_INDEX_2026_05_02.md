@@ -149,6 +149,41 @@ ProjectionPacket, Witness, Budget, Falsifier, Rollback, and Tier.
 
 ---
 
+## 0E. 2026-05-30 Canonical Rename Patch — ACS Means Active Cold Storage
+
+**New drift-control source:** `docs/audits/ACS_ACTIVE_COLD_STORAGE_RENAME_2026_05_30.md`.
+
+**Correction.** ACS means **Active Cold Storage**. It is the
+dormant-but-addressable memory/model substrate: note atoms, graph islands,
+vector pages, KV pages, model shards, adapters, rank-one components, parameter
+anchors, and circuit candidates that stay cold until selected.
+
+**Not ACS.** Admission/verdict behavior is now named SCOPE-Rex Admission,
+SovereignGate, or AdmissionGate. Active Assembly is the waking-set selector
+that reads from ACS; it is not ACS. L3 SSD Oracle / KV-Direct is one
+implementation track inside ACS, not the whole ACS layer.
+
+**Correct flow.**
+
+```text
+User intent
+  -> UAS resolves addresses
+  -> Active Cold Storage exposes dormant candidates
+  -> Active Assembly selects the waking set
+  -> Eidos validates evidence
+  -> SCOPE-Rex / SovereignGate admits or rejects action
+  -> Runtime Router chooses MLX / local / cloud / tool / kernel
+  -> RunEventLog + AnswerPacket make it visible
+```
+
+**Agent rule.** Future work must use UAS as the primitive identity fabric and
+ACS only for Active Cold Storage. EML is one elementary-function chart inside
+the substrate, not the substrate identity primitive. Any stale doc using ACS
+for "Anchored Cognitive Substrate," "Admission Control System," or "ACS
+Admission" is superseded by this rename patch for future naming.
+
+---
+
 ## 1. Truth-Router and Authority Order
 
 **Authority hierarchy (when sources disagree):**
