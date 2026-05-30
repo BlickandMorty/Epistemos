@@ -283,10 +283,13 @@ pub trait VaultBackend: Send + Sync {
         let mut trace = RetrievalTrace::new(query, query).with_pool_size(results.len());
         trace.record_signal(RetrievalSignal::Lexical);
         for result in &results {
-            let mut candidate =
-                RetrievalCandidate::new(result.path.clone(), result.score).with_signal(
-                    RetrievalSignalScore::new(RetrievalSignal::Lexical, result.score, result.score),
-                );
+            let mut candidate = RetrievalCandidate::new(result.path.clone(), result.score)
+                .with_uas_address(result.projected_uas_address())
+                .with_signal(RetrievalSignalScore::new(
+                    RetrievalSignal::Lexical,
+                    result.score,
+                    result.score,
+                ));
             if !result.excerpt.is_empty() {
                 candidate = candidate.with_snippet(result.excerpt.clone());
             }
@@ -1437,7 +1440,64 @@ impl VaultBackend for VaultStore {
 
 #[cfg(test)]
 mod tests {
-    use super::{strip_query_chatter, SearchResult, VaultStore};
+    use async_trait::async_trait;
+
+    use super::{strip_query_chatter, SearchResult, VaultBackend, VaultError, VaultStore};
+
+    struct DefaultTraceBackend;
+
+    #[async_trait]
+    impl VaultBackend for DefaultTraceBackend {
+        async fn hybrid_search(
+            &self,
+            _query: &str,
+            limit: usize,
+            _tag_filter: &[String],
+        ) -> Result<Vec<SearchResult>, VaultError> {
+            let mut results = vec![
+                SearchResult {
+                    path: "notes/residency.md".to_string(),
+                    excerpt: "residency governance".to_string(),
+                    score: 4.0,
+                    tags: Vec::new(),
+                },
+                SearchResult {
+                    path: "notes/runtime.md".to_string(),
+                    excerpt: "runtime router policy".to_string(),
+                    score: 3.0,
+                    tags: Vec::new(),
+                },
+            ];
+            results.truncate(limit);
+            Ok(results)
+        }
+
+        async fn read(&self, path: &str) -> Result<String, VaultError> {
+            Ok(format!("content for {path}"))
+        }
+
+        async fn write(
+            &self,
+            _path: &str,
+            _content: &str,
+            _tags: Option<&[String]>,
+            _append: bool,
+        ) -> Result<(), VaultError> {
+            Ok(())
+        }
+
+        async fn list(&self, _path_prefix: &str) -> Result<Vec<String>, VaultError> {
+            Ok(Vec::new())
+        }
+
+        async fn exists(&self, _path: &str) -> Result<bool, VaultError> {
+            Ok(false)
+        }
+
+        async fn delete(&self, _path: &str) -> Result<bool, VaultError> {
+            Ok(false)
+        }
+    }
 
     /// F-VaultRecall-50 Fix B test 1: a chatty prefix is stripped down to
     /// the signal-bearing terms.
@@ -1500,6 +1560,26 @@ mod tests {
         let address = result.projected_uas_address();
         assert_eq!(address.kind, crate::uas::UasKind::VaultNote);
         assert_eq!(address.created_at_ms, 0);
+    }
+
+    #[tokio::test]
+    async fn default_hybrid_search_with_trace_projects_typed_uas_addresses() {
+        let backend = DefaultTraceBackend;
+
+        let (results, trace) = backend
+            .hybrid_search_with_trace("residency governance", 2, &[])
+            .await
+            .expect("default trace");
+
+        assert_eq!(trace.candidates.len(), results.len());
+        for (candidate, result) in trace.candidates.iter().zip(results.iter()) {
+            assert_eq!(candidate.path, result.path);
+            assert_eq!(
+                candidate.uas_address.as_ref(),
+                Some(&result.projected_uas_address()),
+                "default trace candidates must carry typed VaultNote UAS addresses"
+            );
+        }
     }
 
     /// T21 Fix C contract test (2026-05-18): `hybrid_search` MUST NOT clamp
