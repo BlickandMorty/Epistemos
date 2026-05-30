@@ -17,12 +17,14 @@ register defines the stable organ names and adapter rules so future agents do
 not invent parallel authorities such as detached AgentSearch, AgentMemory, or
 AgentCitation.
 
-Canonical rename companion: read
-`docs/audits/ACS_ACTIVE_COLD_STORAGE_RENAME_2026_05_30.md`. From this point
-forward, ACS means Active Cold Storage. Admission/verdict behavior should be
-called SCOPE-Rex Admission, SovereignGate, or AdmissionGate. Existing source
-paths containing `acs_admission` are transitional naming debt, not permission
-to reuse ACS for admission in new docs or UI.
+Namespace companion: read
+`docs/audits/ACS_NAMESPACE_RECONCILIATION_2026_05_30.md`. From this point
+forward, Active Cold Storage is named ColdStore or Cold Residency Layer, not
+ACS. Existing `AcsAnchor` source remains the anchored coordinate/provenance
+lineage, ACS Kuramoto remains research-tier, and admission/verdict behavior is
+SCOPE-Rex Admission, SovereignGate, or AdmissionGate. Existing source paths
+containing `acs_admission` are transitional naming debt, not permission to
+reuse ACS for admission in new docs or UI.
 
 ## Non-Negotiables
 
@@ -35,7 +37,7 @@ to reuse ACS for admission in new docs or UI.
    explicitly approved.
 5. Lattice/WBO, ternary/Sherry research, KV-Direct, self-evolving adapters, and
    the autogenous-kernel idea are retained, but they live behind falsifier and
-   residency gates. They do not replace UAS, Active Cold Storage, VaultRecall,
+   residency gates. They do not replace UAS, ColdStore, VaultRecall,
    Eidos, or provenance.
 6. A scheduler heartbeat is not proof of architecture progress. It is only a
    liveness hook for future loop runners. A heartbeat-backed run may advance a
@@ -52,7 +54,7 @@ signal, but every scheduled run must obey this covenant:
 2. Pick one row, not an entire architecture region.
 3. Prove current source truth before editing: code path, caller, flag, UI
    surface, tests, and falsifier/artifact state.
-4. If the row touches Phase 2+ local inference, UAS/Active Cold Storage,
+4. If the row touches Phase 2+ local inference, UAS/ColdStore/AcsAnchor,
    Active Assembly,
    KV-Direct, 70B, lattice/WBO, EML/F-ULP, Lean, or autogenous-kernel work, run
    the relevant No-Orphan check: addressed unit, UAS address, plane, residency,
@@ -73,7 +75,7 @@ The old ledgers mix several namespaces. They must stay separate.
 |---|---|---|
 | Broad substrate tracks `T0`-`T18` | Original product/research feature map: Sovereign, Hermes, Simulation, Local Model, Halo, Graph, UX, Multi-Agent, Ternary/Research, ANE, Live File Compiler, Cognitive Weight, Variant Ladder. | `docs/fusion/SUBSTRATE_TRACK_REGISTER_2026_05_03.md` |
 | Phase-1 May-16 branches `T1`-`T9` | Salvage branches from the May-16 archeology pass. Some were cherry-picked; some remain donor-only. | Phase C / salvage docs |
-| Phase-2 terminal workcards `T09`-`T27` | The no-compromise workcard set: Eidos, System G, UAS, Lattice/WBO, Active Cold Storage, VaultRecall, F-70B, Lean, WRV surfacing. Older decks may say ACS; read that as Active Cold Storage only. | `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` |
+| Phase-2 terminal workcards `T09`-`T27` | The no-compromise workcard set: Eidos, System G, UAS, Lattice/WBO, ColdStore, AcsAnchor, VaultRecall, F-70B, Lean, WRV surfacing. Older decks may say ACS; inspect context: AcsAnchor/Anchored Cognitive Substrate, ACS Kuramoto research, or stale admission naming. | `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` |
 | W-rows | Cross-terminal production wires. These decide whether substrate is actually used by app behavior. | `docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md` |
 | Deferred codewords `D-*` | Long-horizon architecture that is preserved but intentionally not on the hot path yet. | `docs/DEFERRED_WORK_GUARANTEE_2026_05_23.md` |
 
@@ -143,9 +145,8 @@ Target shape:
 ### 5. Permission and witness layer
 
 SCOPE-Rex Admission, SovereignGate, CapabilityBridge, ClaimKind, and Provenance
-Console are the permission/witness layer. Do not call this layer ACS. ACS now
-means Active Cold Storage; older `acs_admission` source paths are transitional
-naming debt until migrated.
+Console are the permission/witness layer. Do not call this layer ACS. Existing
+`acs_admission` source paths are transitional naming debt until migrated.
 
 Target shape:
 
@@ -159,7 +160,7 @@ Target shape:
 
 The lattice work is retained as accounting and falsification infrastructure. It
 tracks compression, residuals, drift, quantization, semantic error, and numeric
-cost. It does not replace UAS or Active Cold Storage.
+cost. It does not replace UAS, AcsAnchor, or ColdStore.
 
 Best-combo placement:
 
@@ -290,7 +291,7 @@ ledger. Current next work should follow this order.
 | T11 System G | Rust and local-agent seams exist; more Swift bridge/runtime migration and replay UI remains. |
 | T12 F-ULP | Substrate present; witness emission path remains. |
 | T13 F-KV-Direct Gate | Deferred capability-ceiling gate. Do not run heavy KV probes. |
-| T14 Five-plane UAS / Active Cold Storage | Core bridge exists; typed consumer closure remains. |
+| T14 Five-plane UAS / AcsAnchor / ColdStore | Core bridge exists; typed consumer closure remains. |
 | T15 Executor Trait | Deferred. Fold into System G execution once route policy and SCOPE-Rex/SovereignGate admission are stable. |
 | T16 Live File Compiler | Deferred production compiler. Keep typed seams separate from hot path. |
 | T17 Cognitive Weight Class Enforcement | Deferred/partial. Connect to ResidencyPlan/WeightBlockManifest before runtime claims. |
@@ -305,7 +306,7 @@ ledger. Current next work should follow this order.
 | T23 F-70B Local Cocktail | Deferred D-09; do not run heavy probes. |
 | T23B M2 Pro Falsifier Handbook | Present; dedupe and wiring into UI remain. |
 | T24 Lean ClaimLedger Schema Authority | Deferred D-10. |
-| T25 ACS Naming and Plane Reconciliation | Reopened by `ACS_ACTIVE_COLD_STORAGE_RENAME_2026_05_30.md`: ACS means Active Cold Storage; admission names must migrate to SCOPE-Rex Admission / SovereignGate / AdmissionGate. |
+| T25 ACS Naming and Plane Reconciliation | Reopened by `ACS_NAMESPACE_RECONCILIATION_2026_05_30.md`: ColdStore names Active Cold Storage; ACS remains context-bound to AcsAnchor/Anchored Cognitive Substrate or ACS Kuramoto research; admission names must migrate to SCOPE-Rex Admission / SovereignGate / AdmissionGate. |
 | T26 Self-Evolving Adapter Lane | Deferred D-06; candidate home for autogenous-kernel research. |
 | T27 WRV Product Surfacing | Still the capstone: make the first P0 W-rows visible and verified. |
 
@@ -323,7 +324,7 @@ workcards and should be treated as architecture lanes.
 | T18 Variant Ladder | Build as model/runtime policy generalization, not as one-off provider preference. |
 | Simulation / Farm | Use for safe sandbox/applier work only after product-surface decision. |
 | Quick Capture | Keep as future pro-tool ingestion lane; gate on System G/live routing and typed receipts. |
-| Autogenous kernel | Treat as Research Construction plus L_SE/self-evolving adapter lane. It must have UAS identity, Active-Cold-Storage residency, SCOPE-Rex/SovereignGate admission, WBO accounting, rollback, and falsifier proof before it can become product behavior. |
+| Autogenous kernel | Treat as Research Construction plus L_SE/self-evolving adapter lane. It must have UAS identity, ColdStore residency, SCOPE-Rex/SovereignGate admission, WBO accounting, rollback, and falsifier proof before it can become product behavior. |
 
 ## Auxiliary Branches To Audit, Not Merge
 
@@ -334,7 +335,7 @@ non-mutating audit proves a small current-head patch is useful:
 |---|---|
 | `codex/release-stabilization-and-runtime-hardening` | Audit for already-superseded runtime guards; do not raw merge. |
 | `codex/research-snapshot-2026-05-08` | Preserve as research snapshot. |
-| `codex/runtime-input-audit` | Audit against current SCOPE-Rex/SovereignGate runtime input code plus Active-Cold-Storage naming debt. |
+| `codex/runtime-input-audit` | Audit against current SCOPE-Rex/SovereignGate runtime input code plus ColdStore/ACS naming debt. |
 | `codex/runtime-memory-hardening` | Audit against current residency/runtime-hardening code. |
 | `feature/knowledge-fusion-v1` | Deep-dive only; likely massive. |
 | `feature/landing-liquid-wave` | Superseded by newer landing/pixel surface; preserve only. |

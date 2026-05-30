@@ -149,38 +149,50 @@ ProjectionPacket, Witness, Budget, Falsifier, Rollback, and Tier.
 
 ---
 
-## 0E. 2026-05-30 Canonical Rename Patch — ACS Means Active Cold Storage
+## 0E. 2026-05-30 Namespace Patch — ColdStore Versus ACS
 
-**New drift-control source:** `docs/audits/ACS_ACTIVE_COLD_STORAGE_RENAME_2026_05_30.md`.
+**New drift-control source:** `docs/audits/ACS_NAMESPACE_RECONCILIATION_2026_05_30.md`.
 
-**Correction.** ACS means **Active Cold Storage**. It is the
-dormant-but-addressable memory/model substrate: note atoms, graph islands,
-vector pages, KV pages, model shards, adapters, rank-one components, parameter
-anchors, and circuit candidates that stay cold until selected.
+**Correction.** Do not abbreviate Active Cold Storage as ACS. Use
+**ColdStore** or **Cold Residency Layer** for the dormant-but-addressable
+memory/model substrate: note atoms, graph islands, vector pages, KV pages,
+model shards, adapters, rank-one components, parameter anchors, and circuit
+candidates that stay cold until selected.
 
-**Not ACS.** Admission/verdict behavior is now named SCOPE-Rex Admission,
-SovereignGate, or AdmissionGate. Active Assembly is the waking-set selector
-that reads from ACS; it is not ACS. L3 SSD Oracle / KV-Direct is one
-implementation track inside ACS, not the whole ACS layer.
+**ACS namespace.** Existing `AcsAnchor` / `AcsAnchorRegistry` / F-ACS anchor
+lookup source truth remains the Anchored Cognitive Substrate coordinate and
+provenance lineage. ACS Kuramoto cellular resonance remains a research-tier
+resonance/autopoiesis candidate under Active Assembly. Admission/verdict
+behavior is named SCOPE-Rex Admission, SovereignGate, or AdmissionGate; older
+`acs_admission` paths are migration debt.
 
 **Correct flow.**
 
 ```text
 User intent
-  -> UAS resolves addresses
-  -> Active Cold Storage exposes dormant candidates
+  -> Intent Intake / MissionPacket classifies the task
+  -> OAS/UAS resolves what exists and where it lives
+  -> ColdStore / Residency Governor surfaces cold candidates
   -> Active Assembly selects the waking set
-  -> Eidos validates evidence
-  -> SCOPE-Rex / SovereignGate admits or rejects action
-  -> Runtime Router chooses MLX / local / cloud / tool / kernel
+  -> Eidos pre-validates candidate evidence
+  -> SCOPE-Rex / SovereignGate admits the mission and route
+  -> Runtime Router chooses local model / MLX / Apple Intelligence / tool / kernel
+  -> Executor runs under policy
+  -> Eidos post-validates output, citations, and mutations
+  -> SCOPE-Rex / SovereignGate admits or rejects user-impacting mutations
   -> RunEventLog + AnswerPacket make it visible
 ```
 
+Short doctrine: Intent -> Address -> Awaken -> Assemble -> Verify -> Govern ->
+Execute -> Verify -> Witness. SCOPE-Rex/SovereignGate wraps the whole mission
+and must gate cloud calls, external tools, shell actions, file writes, memory
+updates, and durable mutations rather than appearing only at the end.
+
 **Agent rule.** Future work must use UAS as the primitive identity fabric and
-ACS only for Active Cold Storage. EML is one elementary-function chart inside
+ColdStore for Active Cold Storage. EML is one elementary-function chart inside
 the substrate, not the substrate identity primitive. Any stale doc using ACS
-for "Anchored Cognitive Substrate," "Admission Control System," or "ACS
-Admission" is superseded by this rename patch for future naming.
+for cold residency, admission, KV spill, or Active Assembly is superseded by
+this namespace patch for future naming.
 
 ---
 
