@@ -7,8 +7,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::uas::{
-    weight_block::is_valid_wbo_budget_nats, ResidencyPlan, ResidencyPlanStatus, UasAddress,
-    UasKind, WeightBlockIrChart,
+    weight_block::{is_valid_wbo_budget_nats, weight_block_ir_chart_preimage},
+    ResidencyPlan, ResidencyPlanStatus, UasAddress, UasKind, WeightBlockIrChart,
 };
 
 const RANGE_HASH_FALSIFIER_ID: &str = "F-WeightBlockRangeHash-DryRun";
@@ -202,7 +202,8 @@ impl ConstructionCard {
         preimage.push_str(problem_card);
         preimage.push('\n');
         for chart in lift_charts {
-            preimage.push_str(&format!("{chart:?}\n"));
+            preimage.push_str(weight_block_ir_chart_preimage(chart));
+            preimage.push('\n');
         }
         preimage.push_str(projection_packet);
         preimage.push('\n');
@@ -224,7 +225,8 @@ impl ConstructionCard {
         }
         preimage.push_str(rollback_reference);
         preimage.push('\n');
-        preimage.push_str(&format!("{tier:?}\n"));
+        preimage.push_str(construction_tier_preimage(tier));
+        preimage.push('\n');
         if let Some(address) = residency_plan_address {
             preimage.push_str(&address.to_string());
         }
@@ -233,6 +235,15 @@ impl ConstructionCard {
             preimage.as_bytes(),
             created_at_ms,
         )
+    }
+}
+
+fn construction_tier_preimage(tier: &ConstructionTier) -> &'static str {
+    match tier {
+        ConstructionTier::Mas => "mas",
+        ConstructionTier::Pro => "pro",
+        ConstructionTier::Vault => "vault",
+        ConstructionTier::ResearchConstruction => "research_construction",
     }
 }
 
@@ -516,5 +527,48 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(err, ConstructionCardError::InvalidBudget);
+    }
+
+    #[test]
+    fn construction_card_address_uses_stable_wire_labels() {
+        let budget = ConstructionBudget {
+            hot_uma_bytes: 1,
+            warm_compressed_uma_bytes: 2,
+            cold_mmap_ssd_bytes: 3,
+            wbo_budget_nats: 0.01,
+            copy_budget: 4,
+        };
+
+        let card = ConstructionCard::new(
+            "problem",
+            vec![WeightBlockIrChart::OpaqueWithWitness],
+            "projection",
+            "witness",
+            budget,
+            "F-Test",
+            "rollback",
+            ConstructionTier::ResearchConstruction,
+            None,
+            10,
+        )
+        .unwrap();
+        let expected_preimage = concat!(
+            "construction_card_v1\n",
+            "problem\n",
+            "opaque_with_witness\n",
+            "projection\n",
+            "witness\n",
+            "1:2:3:10:4\n",
+            "F-Test\n",
+            "rollback\n",
+            "research_construction\n"
+        );
+        let expected = UasAddress::new(
+            UasKind::Other("construction_card".to_string()),
+            expected_preimage.as_bytes(),
+            10,
+        );
+
+        assert_eq!(card.card_address, expected);
     }
 }
