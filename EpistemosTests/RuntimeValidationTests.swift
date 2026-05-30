@@ -1083,6 +1083,25 @@ struct RuntimeValidationTests {
         #expect(paperclipStore.contains("sqlite3_bind_int64"))
     }
 
+    @Test("paperclip heartbeat clock is a lightweight two-minute bootstrap loop")
+    func paperclipHeartbeatClockIsLightweightTwoMinuteBootstrapLoop() throws {
+        let bootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
+        let heartbeatClock = try loadRepoTextFile("Epistemos/State/PaperclipHeartbeatClock.swift")
+
+        #expect(heartbeatClock.contains("static let defaultInterval: Duration = .seconds(120)"))
+        #expect(heartbeatClock.contains("Task.sleep(for: interval)"))
+        #expect(heartbeatClock.contains("while !Task.isCancelled"))
+        #expect(heartbeatClock.contains("try await store.recordHeartbeat(heartbeat)"))
+        #expect(heartbeatClock.contains("durationMs: durationMs"))
+        #expect(!heartbeatClock.contains("MLX"))
+        #expect(!heartbeatClock.contains("import Metal"))
+
+        #expect(bootstrap.contains("private var _paperclipHeartbeatClock: PaperclipHeartbeatClock?"))
+        #expect(bootstrap.contains("PaperclipHeartbeatClock(store: store)"))
+        #expect(bootstrap.contains("if !Self.isRunningTests {"))
+        #expect(bootstrap.contains("paperclipHeartbeatClock.start()"))
+    }
+
     @Test("capture config avoids silent JSON fallback for allowlist and blocklist")
     func captureConfigAvoidsSilentJSONFallback() throws {
         let config = try loadRepoTextFile("Epistemos/State/EpistemosConfig.swift")
