@@ -502,6 +502,9 @@ pub enum ResidencyPlanViolation {
     ByteTotalOverflow {
         counter: String,
     },
+    ContentHashAddressMismatch {
+        address: String,
+    },
     DenseReferenceMissing {
         address: String,
     },
@@ -597,6 +600,7 @@ impl ResidencyPlan {
             model_ids.insert(block.model_id.as_str());
             let address = block.uas_address.to_string();
             validate_block_identity_fields(block, &address, &mut violations);
+            validate_block_content_hash(block, &address, &mut violations);
             if !seen_addresses.insert(address.clone()) {
                 violations.push(ResidencyPlanViolation::DuplicateUasAddress {
                     address: address.clone(),
@@ -964,6 +968,19 @@ fn validate_block_identity_fields(
             "encoding",
             violations,
         );
+    }
+}
+
+fn validate_block_content_hash(
+    block: &WeightBlockManifest,
+    address: &str,
+    violations: &mut Vec<ResidencyPlanViolation>,
+) {
+    let parsed = blake3::Hash::from_hex(&block.content_hash_hex);
+    if parsed.as_ref().ok() != Some(&block.uas_address.hash) {
+        violations.push(ResidencyPlanViolation::ContentHashAddressMismatch {
+            address: address.to_string(),
+        });
     }
 }
 
@@ -2029,5 +2046,27 @@ mod tests {
                 } if field == "source_uri"
             )
         }));
+    }
+
+    #[test]
+    fn residency_plan_rejects_publicly_mutated_content_hash_mismatch() {
+        let mut block = manifest(
+            "mutated-content-hash",
+            0,
+            b"cold-nf4-block",
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            Some(rollback_reference()),
+        );
+        block.content_hash_hex = blake3::hash(b"different-range").to_hex().to_string();
+        let budget = ResidencyBudget::new(1024, 1024, 4096, 0.10, 16).unwrap();
+
+        let plan = ResidencyPlan::evaluate([block], budget, 42);
+
+        assert_eq!(plan.status, ResidencyPlanStatus::RejectedBeforeRuntime);
+        assert!(plan
+            .violations
+            .iter()
+            .any(|v| matches!(v, ResidencyPlanViolation::ContentHashAddressMismatch { .. })));
     }
 }
