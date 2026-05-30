@@ -93,6 +93,11 @@ the pinned Lean 4.16 syntax, but the local mathlib cache fetch failed with a
 dyld cache-binary error, so this is preserved schema work rather than a green
 Lean proof gate.
 
+2026-05-30 update: the missing T4 Shadow-first retrieval contract module was
+ported to `agent_core/src/retrieval/mod.rs` and exposed in `agent_core/src/lib.rs`.
+Only the Rust contract surface was copied. Donor Swift tests, ignored local
+vault baseline tests, old UI, and project files remain unmerged.
+
 ## Dirty But Mostly Generated Churn
 
 Many old worktrees report 2955 dirty files, almost entirely tracked build
