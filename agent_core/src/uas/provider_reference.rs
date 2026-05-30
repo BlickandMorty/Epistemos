@@ -149,6 +149,11 @@ impl ProviderReferenceManifest {
                 }
             }
             ProviderReferenceKind::HostedZeroRetentionReceipt => {
+                if self.evidence_scope != ReferenceEvidenceScope::PromptLevelComparison {
+                    return Err(
+                        ProviderReferenceManifestError::HostedReferenceRequiresPromptLevelEvidence,
+                    );
+                }
                 if self.data_sent_class == ReferenceDataSentClass::LocalOnly {
                     return Err(ProviderReferenceManifestError::HostedReferenceMissingDataClass);
                 }
@@ -188,6 +193,7 @@ pub enum ProviderReferenceManifestError {
     InvalidSha256,
     LocalReferenceSentData,
     LocalReferenceCarriesHostedReceiptDigest,
+    HostedReferenceRequiresPromptLevelEvidence,
     HostedReferenceMissingDataClass,
     BadRetentionClaim,
     MissingHostedReceiptDigest,
@@ -260,6 +266,10 @@ impl std::fmt::Display for ProviderReferenceManifestError {
             Self::LocalReferenceCarriesHostedReceiptDigest => write!(
                 f,
                 "local fp16 reference must not carry hosted receipt digests"
+            ),
+            Self::HostedReferenceRequiresPromptLevelEvidence => write!(
+                f,
+                "hosted reference receipt must be prompt-level comparison evidence"
             ),
             Self::HostedReferenceMissingDataClass => {
                 write!(f, "hosted reference must name a non-local data-sent class")
@@ -562,6 +572,23 @@ mod tests {
         manifest.request_id_hash = Some(sha('b'));
         manifest.redaction_digest = Some(sha('c'));
         assert!(manifest.validate().is_ok());
+    }
+
+    #[test]
+    fn hosted_reference_cannot_be_shape_only_fixture() {
+        let mut manifest = local_manifest();
+        manifest.reference_kind = ProviderReferenceKind::HostedZeroRetentionReceipt;
+        manifest.evidence_scope = ReferenceEvidenceScope::ShapeOnlyFixture;
+        manifest.data_sent_class = ReferenceDataSentClass::HashedPromptIds;
+        manifest.retention_claim = ReferenceRetentionClaim::ZeroRetention;
+        manifest.request_id_hash = Some(sha('b'));
+        manifest.redaction_digest = Some(sha('c'));
+        manifest.prompt_count = 1;
+
+        assert_eq!(
+            manifest.validate(),
+            Err(ProviderReferenceManifestError::HostedReferenceRequiresPromptLevelEvidence)
+        );
     }
 
     #[test]
