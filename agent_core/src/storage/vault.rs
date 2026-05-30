@@ -1,3 +1,4 @@
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
@@ -68,6 +69,15 @@ fn vault_recall_candidate_pool_limit(limit: usize) -> usize {
         return 0;
     }
     limit.saturating_mul(10).clamp(50, 200)
+}
+
+fn normalized_query_terms(query: &str) -> Vec<String> {
+    query
+        .split(|ch: char| !ch.is_alphanumeric())
+        .map(str::trim)
+        .filter(|term| !term.is_empty())
+        .map(str::to_lowercase)
+        .collect()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -580,6 +590,59 @@ impl VaultStore {
         }
     }
 
+    fn path_title_search(
+        &self,
+        query: &str,
+        limit: usize,
+        tag_filter: &[String],
+        existing_paths: &HashSet<String>,
+    ) -> Result<Vec<SearchResult>, VaultError> {
+        let query_title = normalized_query_terms(query).join(" ");
+        if query_title.is_empty() || limit == 0 {
+            return Ok(Vec::new());
+        }
+
+        let mut paths = Vec::new();
+        Self::walk_dir(&self.vault_root, &self.vault_root, &mut paths)?;
+
+        let mut results = Vec::new();
+        for path in paths {
+            if existing_paths.contains(&path) {
+                continue;
+            }
+
+            let absolute = self.resolve_path(&path)?;
+            let content = std::fs::read_to_string(&absolute).unwrap_or_default();
+            let tags = Self::extract_tags(&content);
+            if !tag_filter.is_empty() && !tag_filter.iter().all(|tag| tags.contains(tag)) {
+                continue;
+            }
+
+            let stem = Path::new(&path)
+                .file_stem()
+                .and_then(|stem| stem.to_str())
+                .unwrap_or(&path);
+            if normalized_query_terms(stem).join(" ") != query_title {
+                continue;
+            }
+            results.push(SearchResult {
+                path,
+                excerpt: Self::excerpt(&content, 500),
+                score: 8.0,
+                tags,
+            });
+        }
+
+        results.sort_by(|lhs, rhs| {
+            rhs.score
+                .partial_cmp(&lhs.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| lhs.path.cmp(&rhs.path))
+        });
+        results.truncate(limit);
+        Ok(results)
+    }
+
     fn content_hash(content: &str) -> String {
         let mut digest = Sha256::new();
         digest.update(content.as_bytes());
@@ -786,8 +849,7 @@ impl VaultBackend for VaultStore {
         let page_gather_score_source: Vec<f32> =
             top_docs.iter().map(|(score, _address)| *score).collect();
         let mut results = Vec::new();
-        let mut trace_excerpts: Vec<String> = Vec::new();
-        let mut trace_addresses: Vec<UasAddress> = Vec::new();
+        let mut trace_candidates: HashMap<String, (String, UasAddress)> = HashMap::new();
         let mut trace_source_positions: Vec<u32> = Vec::new();
         for (source_position, (score, address)) in top_docs.into_iter().enumerate() {
             let document: TantivyDocument = searcher
@@ -810,8 +872,8 @@ impl VaultBackend for VaultStore {
             }
 
             let excerpt = Self::excerpt(content, 500);
-            trace_excerpts.push(excerpt.clone());
-            trace_addresses.push(uas_address);
+            let score = score as f64;
+            trace_candidates.insert(path.clone(), (excerpt.clone(), uas_address));
             trace_source_positions.push(source_position as u32);
 
             // T21 Fix C (2026-05-18): preserve raw BM25. Tantivy scores are
@@ -824,7 +886,7 @@ impl VaultBackend for VaultStore {
             results.push(SearchResult {
                 path,
                 excerpt,
-                score: score as f64,
+                score,
                 tags,
             });
 
@@ -833,26 +895,66 @@ impl VaultBackend for VaultStore {
             }
         }
 
-        let mut trace = build_trace(pool_size);
-        if pool_size == 0 {
+        let path_title_matches = if results.is_empty() && !all_chatter_fallback {
+            let existing_paths: HashSet<String> =
+                results.iter().map(|result| result.path.clone()).collect();
+            self.path_title_search(
+                query,
+                limit.saturating_sub(results.len()),
+                tag_filter,
+                &existing_paths,
+            )?
+        } else {
+            Vec::new()
+        };
+        let path_title_match_count = path_title_matches.len();
+        if path_title_match_count > 0 {
+            for result in &path_title_matches {
+                let absolute = self.resolve_path(&result.path)?;
+                let content = std::fs::read_to_string(&absolute).unwrap_or_default();
+                trace_candidates.insert(
+                    result.path.clone(),
+                    (
+                        result.excerpt.clone(),
+                        vault_note_content_uas_address(&result.path, &content),
+                    ),
+                );
+            }
+            results.extend(path_title_matches);
+            results.sort_by(|lhs, rhs| {
+                rhs.score
+                    .partial_cmp(&lhs.score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .then_with(|| lhs.path.cmp(&rhs.path))
+            });
+            results.truncate(limit);
+        }
+
+        let trace_pool_size = pool_size + path_title_match_count;
+        let mut trace = build_trace(trace_pool_size);
+        if pool_size == 0 && path_title_match_count == 0 {
             trace.add_note(format!(
                 "Zero-result guard: no lexical matches for effective query {effective_query:?}"
             ));
         } else if !tag_filter.is_empty() && results.is_empty() {
             trace.add_note(format!(
-                "Zero-result guard: tag filter culled {pool_size} lexical matches"
+                "Zero-result guard: tag filter culled {trace_pool_size} lexical/path-title matches"
             ));
-        } else if !tag_filter.is_empty() && results.len() < pool_size {
+        } else if !tag_filter.is_empty() && results.len() < trace_pool_size {
             trace.add_note(format!(
-                "Tag filter retained {} of {pool_size} lexical matches",
+                "Tag filter retained {} of {trace_pool_size} lexical/path-title matches",
                 results.len()
             ));
         }
-        for ((result, excerpt), address) in results
-            .iter()
-            .zip(trace_excerpts.into_iter())
-            .zip(trace_addresses.into_iter())
-        {
+        if path_title_match_count > 0 {
+            trace.add_note(format!(
+                "Path/title fallback retained {path_title_match_count} vault-relative exact-title matches for query {query:?}"
+            ));
+        }
+        for result in &results {
+            let (excerpt, address) = trace_candidates
+                .remove(&result.path)
+                .unwrap_or_else(|| (result.excerpt.clone(), result.projected_uas_address()));
             let mut candidate = RetrievalCandidate::new(result.path.clone(), result.score)
                 .with_uas_address(address)
                 .with_signal(RetrievalSignalScore::new(
@@ -1132,6 +1234,61 @@ mod tests {
             "expected raw BM25 top score > 1.0 (no unit clamp); got top_score = {top_score}. \
              The score.clamp(0.0, 1.0) regression at vault.rs:606 destroys floor-ladder signal — \
              see F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md §1 Defect 3."
+        );
+    }
+
+    #[tokio::test]
+    async fn hybrid_search_finds_filename_title_when_body_omits_query_terms() {
+        use super::VaultBackend;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
+
+        store
+            .write(
+                "some essays/My Autobiography.md",
+                "I grew up around projects, school, and personal systems.",
+                None,
+                false,
+            )
+            .await
+            .expect("write note");
+        store.reload_index().expect("reload index");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace("My Autobiography", 5, &[])
+            .await
+            .expect("hybrid_search_with_trace");
+
+        let first = results
+            .first()
+            .expect("filename-title fallback should return the named note");
+        assert_eq!(first.path, "some essays/My Autobiography.md");
+        assert!(
+            first.score >= 4.0,
+            "path/title fallback must clear the vault.search ladder floor; got {}",
+            first.score
+        );
+        assert!(
+            trace
+                .notes
+                .iter()
+                .any(|note| note.contains("Path/title fallback retained")),
+            "trace must disclose filename-title fallback: {:?}",
+            trace.notes
+        );
+        assert_eq!(
+            trace.candidates.len(),
+            results.len(),
+            "path/title fallback results must remain visible in retrieval trace candidates"
+        );
+        assert!(
+            trace
+                .candidates
+                .iter()
+                .any(|candidate| candidate.path == "some essays/My Autobiography.md"),
+            "trace candidates must include the path/title fallback hit: {:?}",
+            trace.candidates
         );
     }
 
