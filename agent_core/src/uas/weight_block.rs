@@ -308,6 +308,9 @@ pub fn hash_reader_range<R: Read>(
     reader: &mut R,
     byte_len: u64,
 ) -> Result<blake3::Hash, WeightBlockManifestError> {
+    if byte_len == 0 {
+        return Err(WeightBlockManifestError::EmptyByteRange);
+    }
     let mut hasher = blake3::Hasher::new();
     let mut remaining = byte_len;
     let mut buffer = [0_u8; RANGE_HASH_CHUNK_BYTES];
@@ -1072,6 +1075,14 @@ mod tests {
                 kind: "UnexpectedEof".to_string()
             }
         );
+    }
+
+    #[test]
+    fn range_hash_helper_rejects_empty_ranges() {
+        let mut reader = std::io::Cursor::new(Vec::<u8>::new());
+        let err = hash_reader_range(&mut reader, 0).unwrap_err();
+
+        assert_eq!(err, WeightBlockManifestError::EmptyByteRange);
     }
 
     #[test]
