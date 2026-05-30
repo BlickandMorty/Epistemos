@@ -241,6 +241,8 @@ pub enum ConstructionCardError {
     MissingWitness,
     MissingFalsifier,
     MissingRollback,
+    FieldHasSurroundingWhitespace { field: &'static str },
+    FieldContainsControlCharacter { field: &'static str },
     InvalidBudget,
     PlanRejected,
 }
@@ -254,6 +256,12 @@ impl std::fmt::Display for ConstructionCardError {
             Self::MissingWitness => write!(f, "witness is required"),
             Self::MissingFalsifier => write!(f, "falsifier_id is required"),
             Self::MissingRollback => write!(f, "rollback_reference is required"),
+            Self::FieldHasSurroundingWhitespace { field } => {
+                write!(f, "{field} must not contain leading or trailing whitespace")
+            }
+            Self::FieldContainsControlCharacter { field } => {
+                write!(f, "{field} must not contain control characters")
+            }
             Self::InvalidBudget => write!(f, "construction budget is invalid"),
             Self::PlanRejected => write!(f, "residency plan must be FitForDryRun"),
         }
@@ -262,17 +270,27 @@ impl std::fmt::Display for ConstructionCardError {
 
 impl std::error::Error for ConstructionCardError {}
 
-fn validate_nonempty(field: &str, value: &str) -> Result<(), ConstructionCardError> {
-    if !value.trim().is_empty() {
-        return Ok(());
+fn validate_nonempty(field: &'static str, value: &str) -> Result<(), ConstructionCardError> {
+    if value.trim().is_empty() {
+        return Err(missing_field_error(field));
     }
+    if value.trim() != value {
+        return Err(ConstructionCardError::FieldHasSurroundingWhitespace { field });
+    }
+    if value.chars().any(char::is_control) {
+        return Err(ConstructionCardError::FieldContainsControlCharacter { field });
+    }
+    Ok(())
+}
+
+fn missing_field_error(field: &'static str) -> ConstructionCardError {
     match field {
-        "problem_card" => Err(ConstructionCardError::MissingProblemCard),
-        "projection_packet" => Err(ConstructionCardError::MissingProjectionPacket),
-        "witness" => Err(ConstructionCardError::MissingWitness),
-        "falsifier_id" => Err(ConstructionCardError::MissingFalsifier),
-        "rollback_reference" => Err(ConstructionCardError::MissingRollback),
-        _ => Err(ConstructionCardError::InvalidBudget),
+        "problem_card" => ConstructionCardError::MissingProblemCard,
+        "projection_packet" => ConstructionCardError::MissingProjectionPacket,
+        "witness" => ConstructionCardError::MissingWitness,
+        "falsifier_id" => ConstructionCardError::MissingFalsifier,
+        "rollback_reference" => ConstructionCardError::MissingRollback,
+        _ => ConstructionCardError::InvalidBudget,
     }
 }
 
@@ -418,5 +436,56 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(err, ConstructionCardError::MissingProblemCard);
+    }
+
+    #[test]
+    fn construction_card_rejects_noncanonical_preimage_fields() {
+        let budget = ConstructionBudget {
+            hot_uma_bytes: 0,
+            warm_compressed_uma_bytes: 0,
+            cold_mmap_ssd_bytes: 0,
+            wbo_budget_nats: 0.0,
+            copy_budget: 0,
+        };
+
+        let spaced = ConstructionCard::new(
+            " problem ",
+            vec![WeightBlockIrChart::Scan],
+            "projection",
+            "witness",
+            budget.clone(),
+            "F-Test",
+            "rollback",
+            ConstructionTier::ResearchConstruction,
+            None,
+            10,
+        )
+        .unwrap_err();
+        let controlled = ConstructionCard::new(
+            "problem",
+            vec![WeightBlockIrChart::Scan],
+            "projection\npacket",
+            "witness",
+            budget,
+            "F-Test",
+            "rollback",
+            ConstructionTier::ResearchConstruction,
+            None,
+            10,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            spaced,
+            ConstructionCardError::FieldHasSurroundingWhitespace {
+                field: "problem_card"
+            }
+        );
+        assert_eq!(
+            controlled,
+            ConstructionCardError::FieldContainsControlCharacter {
+                field: "projection_packet"
+            }
+        );
     }
 }
