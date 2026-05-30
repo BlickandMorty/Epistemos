@@ -850,6 +850,18 @@ nonisolated enum AgentBlueprintRunStore {
 }
 
 enum AgentBlueprintBrainResolver {
+    static func modelChoice(for brain: ACCBrainSelection?) -> AgentBlueprintModelChoice {
+        guard let brain else { return .autoConstellation }
+        switch brain {
+        case .local(let modelID, let displayName, _, _, _):
+            return .local(modelID: modelID, displayName: displayName)
+        case .cloud(let provider):
+            return .cloud(provider: provider.rawValue, displayName: provider.displayName)
+        case .appleIntelligence:
+            return .appleIntelligence
+        }
+    }
+
     static func brainSelection(
         for choice: AgentBlueprintModelChoice,
         availableBrains: [ACCBrainSelection]

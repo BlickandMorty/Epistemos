@@ -83,6 +83,7 @@ struct LandingView: View {
     @Environment(ChatState.self) private var chat
     @Environment(InferenceState.self) private var inference
     @Environment(OrchestratorState.self) private var orchestrator
+    @Environment(AgentCommandCenterState.self) private var agentCommandCenter
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(WorkspaceService.self) private var workspaceService
     @Environment(DailyBriefState.self) private var dailyBrief
@@ -104,6 +105,7 @@ struct LandingView: View {
     /// Each is nil when not presented; non-nil triggers a `.sheet`
     /// modifier on the body.
     @State private var farmShowingCreate: Bool = false
+    @State private var farmEditTarget: CompanionRosterEntry? = nil
     @State private var farmDeleteTarget: CompanionRosterEntry? = nil
     @State private var farmShowingRestore: Bool = false
 
@@ -344,17 +346,20 @@ struct LandingView: View {
                 .zIndex(2.5)
             }
 
-            if farmShowingCreate, let bootstrap = AppBootstrap.shared {
+            if (farmShowingCreate || farmEditTarget != nil), let bootstrap = AppBootstrap.shared {
                 Color.clear
                     .ignoresSafeArea()
                     .contentShape(Rectangle())
-                    .onTapGesture { farmShowingCreate = false }
+                    .onTapGesture { dismissFarmAgentEditor() }
                     .zIndex(3.5)
 
                 CompanionCreationFlow(
                     companionState: bootstrap.companionState,
                     theme: theme,
-                    onDismiss: { farmShowingCreate = false }
+                    editingEntry: farmEditTarget,
+                    availableBrains: agentCommandCenter.availableBrains,
+                    availableTools: agentCommandCenter.availableTools,
+                    onDismiss: dismissFarmAgentEditor
                 )
                 .transition(.opacity)
                 .zIndex(4)
@@ -809,8 +814,9 @@ struct LandingView: View {
                         companionState: bootstrap.companionState,
                         theme: theme,
                         isAnimationActive: false,
-                        onCreate: { farmShowingCreate = true },
+                        onCreate: presentFarmAgentCreate,
                         onOpenTrash: { farmShowingRestore = true },
+                        onRequestEdit: presentFarmAgentEdit,
                         onRequestDelete: { entry in farmDeleteTarget = entry }
                     )
                     .padding(.top, 24)
@@ -1764,6 +1770,7 @@ struct LandingView: View {
             chat.addContextAttachment(attachment)
         }
         chat.queuePendingSlashCommand(slashCommand)
+        applyActiveLandingAgentRuntimePreference()
         ui.setActivePanel(.home)
         MainChatSubmissionRouter.submit(
             trimmed,
@@ -1772,6 +1779,45 @@ struct LandingView: View {
             orchestrator: orchestrator,
             inference: inference
         )
+    }
+
+    private func presentFarmAgentCreate() {
+        farmEditTarget = nil
+        farmShowingCreate = true
+    }
+
+    private func presentFarmAgentEdit(_ entry: CompanionRosterEntry) {
+        farmShowingCreate = false
+        farmEditTarget = entry
+    }
+
+    private func dismissFarmAgentEditor() {
+        farmShowingCreate = false
+        farmEditTarget = nil
+    }
+
+    private func applyActiveLandingAgentRuntimePreference() {
+        guard let entry = AppBootstrap.shared?.companionState.activeAgentEntry else { return }
+        switch entry.agentModelChoice {
+        case .autoConstellation:
+            return
+        case .local(let modelID, _):
+            inference.setPreferredChatModelSelection(.localMLX(modelID))
+        case .cloud(let providerRaw, _):
+            guard let provider = CloudModelProvider(rawValue: providerRaw) else { return }
+            if let model = preferredLandingCloudModel(for: provider) {
+                inference.setPreferredChatModelSelection(.cloud(model))
+            } else {
+                inference.setActiveAIProvider(AIProviderSelection(cloudProvider: provider))
+            }
+        case .appleIntelligence:
+            inference.setPreferredChatModelSelection(.appleIntelligence)
+        }
+    }
+
+    private func preferredLandingCloudModel(for provider: CloudModelProvider) -> CloudTextModelID? {
+        let models = CloudTextModelID.models(for: provider)
+        return models.first { $0.supportedOperatingModes.contains(.agent) } ?? models.first
     }
 
     private func sanitizeStoredOperatingMode() {

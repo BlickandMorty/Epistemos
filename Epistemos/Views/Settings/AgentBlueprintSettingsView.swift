@@ -618,15 +618,7 @@ struct AgentBlueprintSettingsView: View {
     }
 
     private func modelChoice(for brain: ACCBrainSelection?) -> AgentBlueprintModelChoice {
-        guard let brain else { return .autoConstellation }
-        switch brain {
-        case .local(let modelID, let displayName, _, _, _):
-            return .local(modelID: modelID, displayName: displayName)
-        case .cloud(let provider):
-            return .cloud(provider: provider.rawValue, displayName: provider.displayName)
-        case .appleIntelligence:
-            return .appleIntelligence
-        }
+        AgentBlueprintBrainResolver.modelChoice(for: brain)
     }
 
     private func brainSelection(for choice: AgentBlueprintModelChoice) -> ACCBrainSelection? {

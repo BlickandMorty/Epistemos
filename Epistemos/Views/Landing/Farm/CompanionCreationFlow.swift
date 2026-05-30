@@ -1,23 +1,17 @@
 import SwiftUI
 
-/// 4-step Landing agent creation wizard. Per Simulation v1.6 Invariant
-/// I-10, every cosmetic choice maps to a functional ModelProfile —
-/// body grammar selects the silhouette + animation vocabulary, accent
-/// color drives chat surface tinting, persona prompt augments the
-/// system prompt for chats run under this companion.
+/// Landing AgentBlueprint creation/edit wizard.
 ///
-/// Steps:
-///   1. Body grammar (parameterized Block / Sage / Orb)
-///   2. Name + tagline
-///   3. Accent color + persona prompt
-///   4. Confirm + create
-///
-/// Confirm calls `companionState.createCompanion(...)` directly — no
-/// Sovereign Gate prompt for creation (Reversible action class per
-/// doctrine §A.7; the user can delete the agent freely after).
+/// This is the public "AGENTS +" surface: it keeps the visible avatar/persona
+/// controls users already know, then binds each agent to the canonical
+/// AgentBlueprint contract (model/provider, tools, scope, approval). The
+/// runtime still owns truth, writes, and tool gates.
 struct CompanionCreationFlow: View {
     @Bindable var companionState: CompanionState
     var theme: EpistemosTheme
+    var editingEntry: CompanionRosterEntry?
+    var availableBrains: [ACCBrainSelection] = []
+    var availableTools: [OmegaToolDefinition] = []
     var onDismiss: () -> Void = {}
 
     @State private var step: Int = 0
@@ -26,6 +20,15 @@ struct CompanionCreationFlow: View {
     @State private var tagline: String = ""
     @State private var accentHex: String = AgentColorPreset.presets[0].hex
     @State private var personaPrompt: String = ""
+    @State private var selectedModelRoutingID: String = AgentBlueprintModelChoice.autoConstellation.routingID
+    @State private var selectedToolNames: Set<String> = []
+    @State private var scope: AgentBlueprintScope = .currentVault
+    @State private var approvalMode: AgentBlueprintApprovalMode = .approveOncePerSession
+    @State private var hydratedEditingEntryID: String?
+
+    private let stepCount = 5
+
+    private var isEditing: Bool { editingEntry != nil }
 
     private struct AgentColorPreset: Hashable {
         let name: String
@@ -50,27 +53,28 @@ struct CompanionCreationFlow: View {
             content
                 .padding(.horizontal, 24)
                 .padding(.vertical, 22)
-                .frame(minHeight: 280)
+                .frame(minHeight: 340)
             Divider().opacity(0.18)
             footer
         }
-        .frame(width: 520)
+        .frame(width: 580)
         .foregroundStyle(theme.resolved.foreground.color)
         .pixelPanel(theme: theme)
         .settingsAppleCardChrome(theme: theme, accent: theme.resolved.accent.color)
+        .onAppear(perform: hydrateFromEditingEntryIfNeeded)
     }
 
     // MARK: - Header / Footer
 
     private var stepHeader: some View {
         HStack(spacing: 12) {
-            Image(systemName: "person.crop.circle.badge.plus")
+            Image(systemName: isEditing ? "person.crop.circle.badge.checkmark" : "person.crop.circle.badge.plus")
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(theme.resolved.accent.color)
-            PixelPanelTitle(text: "New Agent", theme: theme, size: 15)
+            PixelPanelTitle(text: isEditing ? "Edit Agent" : "New Agent", theme: theme, size: 15)
             Spacer()
             HStack(spacing: 6) {
-                ForEach(0..<4) { idx in
+                ForEach(0..<stepCount, id: \.self) { idx in
                     Rectangle()
                         .fill(idx == step
                               ? theme.resolved.accent.color
@@ -100,7 +104,7 @@ struct CompanionCreationFlow: View {
                     .font(.system(size: 12, weight: .medium))
             }
             Spacer()
-            if step < 3 {
+            if step < stepCount - 1 {
                 Button {
                     step += 1
                 } label: {
@@ -123,8 +127,8 @@ struct CompanionCreationFlow: View {
                     submit()
                 } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: "sparkles")
-                        Text("Create Agent")
+                        Image(systemName: isEditing ? "checkmark" : "sparkles")
+                        Text(isEditing ? "Save Agent" : "Create Agent")
                     }
                     .font(.system(size: 12, weight: .semibold))
                     .padding(.horizontal, 14)
@@ -133,7 +137,7 @@ struct CompanionCreationFlow: View {
                     .foregroundStyle(.white)
                 }
                 .buttonStyle(.plain)
-                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
         .padding(.horizontal, 18)
@@ -142,10 +146,11 @@ struct CompanionCreationFlow: View {
 
     private var canAdvance: Bool {
         switch step {
-        case 0: return true
-        case 1: return !name.trimmingCharacters(in: .whitespaces).isEmpty
-        case 2: return true
-        default: return true
+        case 0: true
+        case 1: !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case 2: true
+        case 3: true
+        default: true
         }
     }
 
@@ -156,8 +161,9 @@ struct CompanionCreationFlow: View {
         switch step {
         case 0: bodyStep
         case 1: nameStep
-        case 2: accentStep
-        case 3: confirmStep
+        case 2: modelStep
+        case 3: contractStep
+        case 4: confirmStep
         default: EmptyView()
         }
     }
@@ -212,82 +218,102 @@ struct CompanionCreationFlow: View {
 
     private var nameStep: some View {
         VStack(alignment: .leading, spacing: 14) {
-            stepTitle("Name + role", subtitle: "What do they answer to? One short role makes the active agent obvious.")
+            stepTitle("Name + role", subtitle: "One short role makes the active agent obvious in the dock and prompt.")
+            labeledTextField("Name", text: $name, prompt: "e.g. Scout, Quill, Nova")
+            labeledTextField("Role", text: $tagline, prompt: "e.g. careful code reviewer")
             VStack(alignment: .leading, spacing: 6) {
-                Text("Name")
+                Text("Behavior")
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .foregroundStyle(theme.textTertiary)
-                TextField("", text: $name, prompt: Text("e.g. Scout, Quill, Nova"))
-                    .textFieldStyle(.plain)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 7)
-                    .background(PixelPanelBackground.actionSurface(for: theme), in: Rectangle())
-                    .overlay(Rectangle().stroke(theme.textTertiary.opacity(theme.isDark ? 0.18 : 0.26), lineWidth: theme.isDark ? 0.75 : 1))
-            }
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Role (optional)")
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(theme.textTertiary)
-                TextField("", text: $tagline, prompt: Text("e.g. \"careful code reviewer\""))
-                    .textFieldStyle(.plain)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 7)
-                    .background(PixelPanelBackground.actionSurface(for: theme), in: Rectangle())
+                TextEditor(text: $personaPrompt)
+                    .font(.system(size: 12, design: .monospaced))
+                    .frame(minHeight: 96, maxHeight: 132)
+                    .padding(6)
+                    .background(Rectangle().fill(PixelPanelBackground.actionSurface(for: theme)))
                     .overlay(Rectangle().stroke(theme.textTertiary.opacity(theme.isDark ? 0.18 : 0.26), lineWidth: theme.isDark ? 0.75 : 1))
             }
         }
     }
 
-    private var accentStep: some View {
+    private var modelStep: some View {
         VStack(alignment: .leading, spacing: 14) {
-            stepTitle("Accent + behavior", subtitle: "Color identifies the agent. Behavior is injected into the next chat turn when active.")
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Accent")
+            stepTitle("Provider + model", subtitle: "Choose Auto or pin this agent to a local, Apple, or provider-native runtime.")
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Runtime")
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .foregroundStyle(theme.textTertiary)
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 78), spacing: 8)], spacing: 8) {
-                    ForEach(AgentColorPreset.presets, id: \.self) { preset in
-                        Button {
-                            accentHex = preset.hex
-                        } label: {
-                            HStack(spacing: 7) {
-                                Rectangle()
-                                    .fill(Color(hex: preset.hex) ?? .gray)
-                                    .frame(width: 18, height: 18)
-                                Text(preset.name)
-                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                    .foregroundStyle(theme.textSecondary)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 6)
-                            .overlay(
-                                Rectangle()
-                                    .stroke(
-                                        accentHex == preset.hex
-                                            ? theme.textPrimary.opacity(0.65)
-                                            : theme.textTertiary.opacity(0.18),
-                                        lineWidth: 1
-                                    )
-                            )
-                        }
-                        .buttonStyle(.plain)
+                Picker("Runtime", selection: $selectedModelRoutingID) {
+                    ForEach(modelChoices, id: \.routingID) { choice in
+                        Label(choice.displayName, systemImage: modelIcon(for: choice))
+                            .tag(choice.routingID)
                     }
                 }
+                .pickerStyle(.menu)
+                modelBadgeStrip(for: selectedModelChoice)
+                Text(selectedModelFootnote(for: selectedModelChoice))
+                    .font(.system(size: 10, weight: .regular))
+                    .foregroundStyle(theme.textTertiary)
             }
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Agent behavior (optional)")
+            .padding(10)
+            .background(PixelPanelBackground.actionSurface(for: theme), in: Rectangle())
+            .overlay(Rectangle().stroke(theme.textTertiary.opacity(theme.isDark ? 0.16 : 0.24), lineWidth: theme.isDark ? 0.75 : 1))
+        }
+    }
+
+    private var contractStep: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            stepTitle("Tools + guardrails", subtitle: "Bind the agent to a scope and approval mode. Runtime gates still verify every action.")
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Scope")
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
                     .foregroundStyle(theme.textTertiary)
-                TextEditor(text: $personaPrompt)
-                    .font(.system(size: 12, design: .monospaced))
-                    .frame(minHeight: 80, maxHeight: 120)
-                    .padding(6)
-                    .background(
-                        Rectangle()
-                            .fill(PixelPanelBackground.actionSurface(for: theme))
-                    )
-                    .overlay(Rectangle().stroke(theme.textTertiary.opacity(theme.isDark ? 0.18 : 0.26), lineWidth: theme.isDark ? 0.75 : 1))
+                Picker("Scope", selection: $scope) {
+                    ForEach(AgentBlueprintScope.allCases, id: \.rawValue) { option in
+                        Text(option.displayName).tag(option)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Approval")
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(theme.textTertiary)
+                Picker("Approval", selection: $approvalMode) {
+                    ForEach(AgentBlueprintApprovalMode.allCases, id: \.rawValue) { option in
+                        Text(option.displayName).tag(option)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Tools")
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(theme.textTertiary)
+                    Spacer()
+                    Text("\(selectedToolNames.count) selected")
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(theme.textTertiary)
+                }
+                if availableTools.isEmpty {
+                    Text("No tools are available for this build profile yet.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(theme.textTertiary)
+                        .padding(.vertical, 8)
+                } else {
+                    ScrollView {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 172), spacing: 8)], alignment: .leading, spacing: 8) {
+                            ForEach(availableTools.sorted(by: toolSort), id: \.name) { tool in
+                                toolToggle(tool)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                    .frame(maxHeight: 128)
+                }
             }
         }
     }
@@ -298,16 +324,23 @@ struct CompanionCreationFlow: View {
             tagline: tagline,
             bodyKind: bodyKind,
             accentHex: accentHex,
-            personaPrompt: personaPrompt
+            personaPrompt: personaPrompt,
+            agentModelChoice: selectedModelChoice,
+            agentToolNames: Array(selectedToolNames),
+            agentScope: scope,
+            agentApprovalMode: approvalMode
         ))
         return VStack(alignment: .center, spacing: 16) {
-            stepTitle("Confirm", subtitle: "This is how they'll appear in the AGENTS dock.")
+            stepTitle("Confirm", subtitle: "This is the visible agent plus the runtime contract behind it.")
             CompanionView(entry: preview, size: 64)
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text("Body: \(bodyKind.displayName)")
-                Text("Accent: \(accentHex)")
+                Text("Runtime: \(selectedModelChoice.displayName)")
+                Text("Scope: \(scope.displayName)")
+                Text("Approval: \(approvalMode.displayName)")
+                Text("Tools: \(selectedToolNames.isEmpty ? "none" : selectedToolNames.sorted().joined(separator: ", "))")
                 if !personaPrompt.isEmpty {
-                    Text("Behavior: \(personaPrompt.prefix(80))…")
+                    Text("Behavior: \(personaPrompt.prefix(80))...")
                         .lineLimit(2)
                 }
             }
@@ -315,6 +348,61 @@ struct CompanionCreationFlow: View {
             .foregroundStyle(theme.textTertiary)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    // MARK: - Local controls
+
+    private func labeledTextField(
+        _ title: String,
+        text: Binding<String>,
+        prompt: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .foregroundStyle(theme.textTertiary)
+            TextField("", text: text, prompt: Text(prompt))
+                .textFieldStyle(.plain)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background(PixelPanelBackground.actionSurface(for: theme), in: Rectangle())
+                .overlay(Rectangle().stroke(theme.textTertiary.opacity(theme.isDark ? 0.18 : 0.26), lineWidth: theme.isDark ? 0.75 : 1))
+        }
+    }
+
+    private func toolToggle(_ tool: OmegaToolDefinition) -> some View {
+        Toggle(isOn: Binding(
+            get: { selectedToolNames.contains(tool.name) },
+            set: { enabled in
+                if enabled {
+                    selectedToolNames.insert(tool.name)
+                } else {
+                    selectedToolNames.remove(tool.name)
+                }
+            }
+        )) {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 5) {
+                    Text(tool.name)
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .lineLimit(1)
+                    if tool.requiresConfirmation || tool.destructive {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.orange)
+                    }
+                }
+                Text(tool.description)
+                    .font(.system(size: 9))
+                    .foregroundStyle(theme.textTertiary)
+                    .lineLimit(2)
+            }
+        }
+        .toggleStyle(.checkbox)
+        .padding(8)
+        .frame(maxWidth: .infinity, minHeight: 58, alignment: .topLeading)
+        .background(PixelPanelBackground.actionSurface(for: theme), in: Rectangle())
+        .overlay(Rectangle().stroke(theme.textTertiary.opacity(theme.isDark ? 0.14 : 0.22), lineWidth: theme.isDark ? 0.75 : 1))
     }
 
     private func stepTitle(_ title: String, subtitle: String) -> some View {
@@ -328,18 +416,135 @@ struct CompanionCreationFlow: View {
         }
     }
 
+    private func modelBadgeStrip(for choice: AgentBlueprintModelChoice) -> some View {
+        HStack(spacing: 6) {
+            ForEach(choice.badges, id: \.title) { badge in
+                Text(badge.title)
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .lineLimit(1)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(badgeTint(badge.tone).opacity(0.12), in: Capsule())
+                    .foregroundStyle(badgeTint(badge.tone))
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    // MARK: - Model/tool helpers
+
+    private var modelChoices: [AgentBlueprintModelChoice] {
+        var choices = [AgentBlueprintModelChoice.autoConstellation]
+        if let editingEntry {
+            choices.append(editingEntry.agentModelChoice)
+        }
+        choices.append(contentsOf: availableBrains.map { AgentBlueprintBrainResolver.modelChoice(for: Optional($0)) })
+
+        var seen = Set<String>()
+        return choices.filter { seen.insert($0.routingID).inserted }
+    }
+
+    private var selectedModelChoice: AgentBlueprintModelChoice {
+        modelChoices.first { $0.routingID == selectedModelRoutingID }
+            ?? editingEntry?.agentModelChoice
+            ?? .autoConstellation
+    }
+
+    private func hydrateFromEditingEntryIfNeeded() {
+        guard hydratedEditingEntryID != editingEntry?.id else { return }
+        hydratedEditingEntryID = editingEntry?.id
+        guard let editingEntry else { return }
+        bodyKind = editingEntry.bodyKind
+        name = editingEntry.name
+        tagline = editingEntry.tagline
+        accentHex = editingEntry.accentHex
+        personaPrompt = editingEntry.personaPrompt ?? ""
+        selectedModelRoutingID = editingEntry.agentModelChoice.routingID
+        selectedToolNames = Set(editingEntry.agentToolNames)
+        scope = editingEntry.agentScope
+        approvalMode = editingEntry.agentApprovalMode
+    }
+
+    private func modelIcon(for choice: AgentBlueprintModelChoice) -> String {
+        switch choice {
+        case .autoConstellation:
+            "point.3.connected.trianglepath.dotted"
+        case .local:
+            "memorychip"
+        case .cloud:
+            "cloud"
+        case .appleIntelligence:
+            "apple.logo"
+        }
+    }
+
+    private func selectedModelFootnote(for choice: AgentBlueprintModelChoice) -> String {
+        switch choice {
+        case .autoConstellation:
+            "Auto keeps Epistemos local-first and lets the router choose the safest available runtime."
+        case .local:
+            "Local model preference is applied before Landing chat submission when this agent is active."
+        case .cloud:
+            "Cloud provider preference is explicit. Missing credentials keep routing on the safe local fallback."
+        case .appleIntelligence:
+            "Apple Intelligence is fast-only and has no tool authority."
+        }
+    }
+
+    private func badgeTint(_ tone: AgentBlueprintModelBadgeTone) -> Color {
+        switch tone {
+        case .good:
+            .green
+        case .neutral:
+            theme.textSecondary
+        case .warning:
+            .orange
+        case .disabled:
+            .red
+        }
+    }
+
+    private func toolSort(_ lhs: OmegaToolDefinition, _ rhs: OmegaToolDefinition) -> Bool {
+        lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+    }
+
     private func submit() {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else { return }
         let trimmedPersona = personaPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
-        _ = companionState.createCompanion(
-            name: trimmedName,
-            tagline: tagline.trimmingCharacters(in: .whitespacesAndNewlines),
-            bodyKind: bodyKind,
-            accentHex: accentHex,
-            personaPrompt: trimmedPersona.isEmpty ? nil : trimmedPersona,
-            activateOnCreate: true
-        )
+        let cleanedTools = Array(selectedToolNames).map {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        .filter { !$0.isEmpty }
+        .sorted()
+
+        if let editingEntry {
+            _ = companionState.updateCompanion(
+                id: editingEntry.id,
+                name: trimmedName,
+                tagline: tagline.trimmingCharacters(in: .whitespacesAndNewlines),
+                bodyKind: bodyKind,
+                accentHex: accentHex,
+                personaPrompt: trimmedPersona.isEmpty ? nil : trimmedPersona,
+                agentModelChoice: selectedModelChoice,
+                agentToolNames: cleanedTools,
+                agentScope: scope,
+                agentApprovalMode: approvalMode
+            )
+        } else {
+            _ = companionState.createCompanion(
+                name: trimmedName,
+                tagline: tagline.trimmingCharacters(in: .whitespacesAndNewlines),
+                bodyKind: bodyKind,
+                accentHex: accentHex,
+                personaPrompt: trimmedPersona.isEmpty ? nil : trimmedPersona,
+                agentModelChoice: selectedModelChoice,
+                agentToolNames: cleanedTools,
+                agentScope: scope,
+                agentApprovalMode: approvalMode,
+                activateOnCreate: true
+            )
+        }
         onDismiss()
     }
 }
