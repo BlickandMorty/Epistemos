@@ -55,9 +55,7 @@ fn assert_iter_format_canonical(s: &str, source: &str) -> u32 {
     let n: u32 = s
         .strip_prefix("iter ")
         .and_then(|t| t.parse().ok())
-        .unwrap_or_else(|| {
-            panic!("{source} entry {s:?} not parseable as `iter N` format")
-        });
+        .unwrap_or_else(|| panic!("{source} entry {s:?} not parseable as `iter N` format"));
     assert!(
         (100..=999).contains(&n),
         "{source} entry {s:?} parses to {n}, outside the canonical \
@@ -216,8 +214,12 @@ fn assert_lexical_saturation_adversarial_fixture_score_stays_finite_and_closed()
     .expect("FiniteSaturatingScore adversarial fixture exists");
     let mut lex = InMemoryLexicalIndex::new(manifest());
     let repeated_body = format!("{} ", fixture.query_text).repeat(256);
-    lex.insert(doc("saturation-source"), repeated_body, EidosSourceKind::Note)
-        .unwrap();
+    lex.insert(
+        doc("saturation-source"),
+        repeated_body,
+        EidosSourceKind::Note,
+    )
+    .unwrap();
 
     let query = EidosQuery::new(fixture.query_text, EidosRetrievalMode::Lexical, 8);
     let packet = lex.retrieve(&query, 1_700_000_000_000);
@@ -263,7 +265,11 @@ fn assert_lexical_near_duplicate_adversarial_fixture_tie_break_is_deterministic_
 
     let query = EidosQuery::new(fixture.query_text, EidosRetrievalMode::Lexical, 8);
     let packet = lex.retrieve(&query, 1_700_000_000_000);
-    let ids: Vec<&str> = packet.hits.iter().map(|hit| hit.source_id.as_str()).collect();
+    let ids: Vec<&str> = packet
+        .hits
+        .iter()
+        .map(|hit| hit.source_id.as_str())
+        .collect();
     assert_eq!(ids, vec!["a-near-dup::lex", "z-near-dup::lex"]);
 
     for hit in &packet.hits {
@@ -287,14 +293,12 @@ fn assert_lexical_near_duplicate_adversarial_fixture_tie_break_is_deterministic_
 #[test]
 fn lexical_single_character_query_does_not_panic() {
     let mut idx = InMemoryLexicalIndex::new(manifest());
-    idx.insert(
-        doc("note-1"),
-        "aaaa bbbb cccc",
-        EidosSourceKind::Note,
-    )
-    .unwrap();
-    idx.insert(doc("note-2"), "a", EidosSourceKind::Note).unwrap();
-    idx.insert(doc("note-3"), "zzz", EidosSourceKind::Note).unwrap();
+    idx.insert(doc("note-1"), "aaaa bbbb cccc", EidosSourceKind::Note)
+        .unwrap();
+    idx.insert(doc("note-2"), "a", EidosSourceKind::Note)
+        .unwrap();
+    idx.insert(doc("note-3"), "zzz", EidosSourceKind::Note)
+        .unwrap();
 
     let q = EidosQuery::new("a", EidosRetrievalMode::Lexical, 16);
     let packet = idx.retrieve(&q, 1_700_000_000_000);
@@ -309,24 +313,12 @@ fn lexical_single_character_query_does_not_panic() {
 #[test]
 fn lexical_all_stopword_query_still_deterministic() {
     let mut idx = InMemoryLexicalIndex::new(manifest());
-    idx.insert(
-        doc("a"),
-        "the cat sat on the mat",
-        EidosSourceKind::Note,
-    )
-    .unwrap();
-    idx.insert(
-        doc("b"),
-        "the the the the the",
-        EidosSourceKind::Note,
-    )
-    .unwrap();
-    idx.insert(
-        doc("c"),
-        "totally unrelated content",
-        EidosSourceKind::Note,
-    )
-    .unwrap();
+    idx.insert(doc("a"), "the cat sat on the mat", EidosSourceKind::Note)
+        .unwrap();
+    idx.insert(doc("b"), "the the the the the", EidosSourceKind::Note)
+        .unwrap();
+    idx.insert(doc("c"), "totally unrelated content", EidosSourceKind::Note)
+        .unwrap();
 
     let q = EidosQuery::new("the", EidosRetrievalMode::Lexical, 16);
     let p1 = idx.retrieve(&q, 1_700_000_000_000);
@@ -593,12 +585,7 @@ fn cross_mode_source_id_namespaces_are_isolated() {
     sem.insert(doc("shared"), vec![1.0, 0.0], EidosSourceKind::Note)
         .unwrap();
     let sem_packet = sem.retrieve(
-        &EidosQuery::with_vector(
-            "hello",
-            EidosRetrievalMode::Semantic,
-            8,
-            vec![1.0, 0.0],
-        ),
+        &EidosQuery::with_vector("hello", EidosRetrievalMode::Semantic, 8, vec![1.0, 0.0]),
         1_700_000_000_000,
     );
 
@@ -664,9 +651,7 @@ fn all_retrievers_are_send_and_sync() {
     assert_send_and_sync::<InMemoryCodeSymbolIndex>();
     assert_send_and_sync::<InMemoryGraphNeighborhood>();
     assert_send_and_sync::<InMemoryClaimEvidence>();
-    assert_send_and_sync::<
-        HybridRetriever<InMemoryLexicalIndex, InMemorySemanticIndex>,
-    >();
+    assert_send_and_sync::<HybridRetriever<InMemoryLexicalIndex, InMemorySemanticIndex>>();
 }
 
 /// Core types must travel cleanly across thread / FFI boundaries so the
@@ -781,8 +766,7 @@ fn core_types_are_send_and_sync() {
 /// the trait bounds drop `Send + Sync`.
 #[test]
 fn dyn_retriever_is_boxable_send_sync() {
-    let retriever: Box<dyn EidosRetriever> =
-        Box::new(InMemoryLexicalIndex::new(manifest()));
+    let retriever: Box<dyn EidosRetriever> = Box::new(InMemoryLexicalIndex::new(manifest()));
     let _: &(dyn EidosRetriever + Send + Sync) = retriever.as_ref();
     // Smoke-test that the boxed retriever still behaves correctly.
     let q = EidosQuery::new("", EidosRetrievalMode::Lexical, 8);
@@ -807,18 +791,10 @@ fn citation_drift_across_packets_is_caught_by_each_packets_closed_set() {
 
     // Packet A: corpus = {alpha, beta} both matching "tropical".
     let mut idx = InMemoryLexicalIndex::new(manifest());
-    idx.insert(
-        doc("alpha"),
-        "alpha tropical",
-        EidosSourceKind::Note,
-    )
-    .unwrap();
-    idx.insert(
-        doc("beta"),
-        "beta tropical",
-        EidosSourceKind::Note,
-    )
-    .unwrap();
+    idx.insert(doc("alpha"), "alpha tropical", EidosSourceKind::Note)
+        .unwrap();
+    idx.insert(doc("beta"), "beta tropical", EidosSourceKind::Note)
+        .unwrap();
     let packet_a = idx.retrieve(
         &EidosQuery::new("tropical", EidosRetrievalMode::Lexical, 16),
         1_700_000_000_000,
@@ -917,14 +893,16 @@ fn adversarial_queries_do_not_panic_any_retriever() {
 
     // --- Lexical ---
     let mut lex = InMemoryLexicalIndex::new(m.clone());
-    lex.insert(doc("d-1"), "hello world", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("d-1"), "hello world", EidosSourceKind::Note)
+        .unwrap();
     // --- RawArchive ---
     let mut raw = InMemoryRawArchive::new(m.clone());
     raw.insert(doc("d-1"), "body", EidosSourceKind::Note);
     // --- Semantic (requires query_vector; substring query.text path
     //     deferred to empty packet for these queries, which is fine).
     let mut sem = InMemorySemanticIndex::new(m.clone(), 2);
-    sem.insert(doc("d-1"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+    sem.insert(doc("d-1"), vec![1.0, 0.0], EidosSourceKind::Note)
+        .unwrap();
 
     // Each retriever × each adversarial query. The contract: no panic,
     // emitted hits all validate.
@@ -1057,7 +1035,10 @@ fn adversarial_query_fixture_categories_are_typed_not_description_parsed() {
             "typo-transposition",
             AdversarialQueryFixtureKind::TypoTransposition,
         ),
-        ("bm25-saturation", AdversarialQueryFixtureKind::Bm25Saturation),
+        (
+            "bm25-saturation",
+            AdversarialQueryFixtureKind::Bm25Saturation,
+        ),
         (
             "near-duplicate-paragraph-tie",
             AdversarialQueryFixtureKind::NearDuplicateParagraphTie,
@@ -1078,7 +1059,10 @@ fn adversarial_query_fixture_outcomes_are_typed_not_label_parsed() {
     use super::adversarial::{adversarial_query_fixture, AdversarialQueryExpectedOutcome};
 
     let expected = [
-        ("typo-transposition", AdversarialQueryExpectedOutcome::NoFuzzyMatch),
+        (
+            "typo-transposition",
+            AdversarialQueryExpectedOutcome::NoFuzzyMatch,
+        ),
         (
             "bm25-saturation",
             AdversarialQueryExpectedOutcome::FiniteSaturatingScore,
@@ -1124,26 +1108,20 @@ fn adversarial_query_fixture_lookup_by_expected_outcome_is_exact() {
 
 #[test]
 fn adversarial_query_fixture_lookup_by_kind_is_exact() {
-    use super::adversarial::{
-        adversarial_query_fixture_for_kind, AdversarialQueryFixtureKind,
-    };
+    use super::adversarial::{adversarial_query_fixture_for_kind, AdversarialQueryFixtureKind};
 
-    let typo = adversarial_query_fixture_for_kind(
-        AdversarialQueryFixtureKind::TypoTransposition,
-    )
-    .expect("typo-transposition fixture exists");
+    let typo = adversarial_query_fixture_for_kind(AdversarialQueryFixtureKind::TypoTransposition)
+        .expect("typo-transposition fixture exists");
     assert_eq!(typo.label, "typo-transposition");
 
-    let saturation = adversarial_query_fixture_for_kind(
-        AdversarialQueryFixtureKind::Bm25Saturation,
-    )
-    .expect("bm25-saturation fixture exists");
+    let saturation =
+        adversarial_query_fixture_for_kind(AdversarialQueryFixtureKind::Bm25Saturation)
+            .expect("bm25-saturation fixture exists");
     assert_eq!(saturation.label, "bm25-saturation");
 
-    let tie = adversarial_query_fixture_for_kind(
-        AdversarialQueryFixtureKind::NearDuplicateParagraphTie,
-    )
-    .expect("near-duplicate paragraph tie fixture exists");
+    let tie =
+        adversarial_query_fixture_for_kind(AdversarialQueryFixtureKind::NearDuplicateParagraphTie)
+            .expect("near-duplicate paragraph tie fixture exists");
     assert_eq!(tie.label, "near-duplicate-paragraph-tie");
 }
 
@@ -1442,7 +1420,10 @@ fn adversarial_query_fixture_expected_outcome_tokens_are_ordered_unique_and_comp
         ],
         "fixture expected-outcome tokens are a stable behavior wire contract"
     );
-    assert_eq!(tokens.len(), adversarial_query_fixture_expected_outcomes().len());
+    assert_eq!(
+        tokens.len(),
+        adversarial_query_fixture_expected_outcomes().len()
+    );
     assert_eq!(tokens.len(), ADVERSARIAL_QUERY_FIXTURES.len());
 
     let unique: std::collections::BTreeSet<&str> = tokens.iter().copied().collect();
@@ -1579,8 +1560,7 @@ fn adversarial_query_fixture_token_lookups_reject_smuggling_inputs() {
 fn adversarial_query_fixture_token_smuggling_inputs_are_ordered_unique_and_rejected() {
     use super::adversarial::{
         adversarial_query_fixture_for_expected_outcome_token,
-        adversarial_query_fixture_for_kind_token,
-        adversarial_query_fixture_token_smuggling_inputs,
+        adversarial_query_fixture_for_kind_token, adversarial_query_fixture_token_smuggling_inputs,
     };
 
     let inputs = adversarial_query_fixture_token_smuggling_inputs();
@@ -1768,12 +1748,9 @@ fn adversarial_query_fixture_token_smuggling_cases_are_stable_and_complete() {
         "adversarial fixture token-smuggling cases must stay complete"
     );
     assert!(
-        cases
-            .iter()
-            .copied()
-            .enumerate()
-            .all(|(index, case)| adversarial_query_fixture_token_smuggling_case_at(index)
-                == Some(case)),
+        cases.iter().copied().enumerate().all(|(index, case)| {
+            adversarial_query_fixture_token_smuggling_case_at(index) == Some(case)
+        }),
         "adversarial fixture token-smuggling case slice must match ordinal lookup"
     );
 }
@@ -1844,9 +1821,7 @@ fn adversarial_query_fixture_token_smuggling_case_count_matches_surface() {
 
 #[test]
 fn adversarial_query_fixture_descriptions_are_ordered_unique_and_nonempty() {
-    use super::adversarial::{
-        adversarial_query_fixture_descriptions, ADVERSARIAL_QUERY_FIXTURES,
-    };
+    use super::adversarial::{adversarial_query_fixture_descriptions, ADVERSARIAL_QUERY_FIXTURES};
 
     let descriptions = adversarial_query_fixture_descriptions();
     assert_eq!(
@@ -1942,8 +1917,7 @@ fn adversarial_query_fixture_lookup_by_index_is_ordered_and_bounded() {
 #[test]
 fn adversarial_query_fixture_indices_are_ordered_unique_and_lookup_complete() {
     use super::adversarial::{
-        adversarial_query_fixture_at, adversarial_query_fixture_indices,
-        ADVERSARIAL_QUERY_FIXTURES,
+        adversarial_query_fixture_at, adversarial_query_fixture_indices, ADVERSARIAL_QUERY_FIXTURES,
     };
 
     let indices = adversarial_query_fixture_indices();
@@ -2031,7 +2005,8 @@ fn adversarial_query_text_with_internal_nul_byte_is_treated_as_substring_filter(
     // 1-byte substring filter. Lexical searches for the NUL character;
     // since no document contains it, the packet is empty (no panic).
     let mut lex = InMemoryLexicalIndex::new(manifest());
-    lex.insert(doc("d-1"), "no nul here", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("d-1"), "no nul here", EidosSourceKind::Note)
+        .unwrap();
     let q = EidosQuery::new("\x00", EidosRetrievalMode::Lexical, 8);
     let packet = lex.retrieve(&q, 1_700_000_000_000);
     assert!(packet.hits.is_empty());
@@ -2084,12 +2059,14 @@ fn top_k_zero_yields_empty_packet_for_hybrid_and_hybrid_n() {
 
     let build_lex = || {
         let mut l = InMemoryLexicalIndex::new(manifest());
-        l.insert(doc("a"), "tropical content", EidosSourceKind::Note).unwrap();
+        l.insert(doc("a"), "tropical content", EidosSourceKind::Note)
+            .unwrap();
         l
     };
     let build_sem = || {
         let mut s = InMemorySemanticIndex::new(manifest(), 2);
-        s.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+        s.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
         s
     };
 
@@ -2104,8 +2081,8 @@ fn top_k_zero_yields_empty_packet_for_hybrid_and_hybrid_n() {
     );
 
     // Hybrid_N: same invariant for the N-way fold.
-    let hybrid_n = HybridRetrieverN::new(vec![Box::new(build_lex()), Box::new(build_sem())])
-        .unwrap();
+    let hybrid_n =
+        HybridRetrieverN::new(vec![Box::new(build_lex()), Box::new(build_sem())]).unwrap();
     let packet_n = hybrid_n.retrieve(&q, 1_700_000_000_000);
     assert!(
         packet_n.hits.is_empty(),
@@ -2147,22 +2124,17 @@ fn falsifier_accepts_span_past_body_length_intentionally() {
     use super::code_symbol::InMemoryCodeSymbolIndex;
     let mut cs = InMemoryCodeSymbolIndex::new(manifest());
     cs.insert("past_body_symbol", doc("d"), 1_000, 2_000);
-    let retrievers: Vec<Box<dyn super::retriever::EidosRetriever>> =
-        vec![Box::new(cs)];
+    let retrievers: Vec<Box<dyn super::retriever::EidosRetriever>> = vec![Box::new(cs)];
     let queries = vec![EidosQuery::new(
         "past_body_symbol",
         EidosRetrievalMode::CodeSymbol,
         8,
     )];
-    let witness = super::falsifier::f_eidos_closed_citation_falsifier(
-        &retrievers,
-        &queries,
-        0,
-    )
-    .expect(
-        "span past body length is ACCEPT-by-design; falsifier has no body \
+    let witness = super::falsifier::f_eidos_closed_citation_falsifier(&retrievers, &queries, 0)
+        .expect(
+            "span past body length is ACCEPT-by-design; falsifier has no body \
          to compare against (EidosHit carries the span, not the body)",
-    );
+        );
     assert_eq!(witness.retrievers_checked, 1);
     assert!(
         witness.total_hits_validated >= 1,
@@ -2192,16 +2164,14 @@ fn code_symbol_inverted_span_fires_hit_span_invalid_through_falsifier() {
     let mut cs = InMemoryCodeSymbolIndex::new(manifest());
     // byte_start=10 > byte_end=5 — explicitly inverted.
     cs.insert("inverted_symbol", doc("d"), 10, 5);
-    let retrievers: Vec<Box<dyn super::retriever::EidosRetriever>> =
-        vec![Box::new(cs)];
-    let queries =
-        vec![EidosQuery::new("inverted_symbol", EidosRetrievalMode::CodeSymbol, 8)];
-    let err = super::falsifier::f_eidos_closed_citation_falsifier(
-        &retrievers,
-        &queries,
-        0,
-    )
-    .expect_err("inverted span MUST fire HitSpanInvalid through the falsifier");
+    let retrievers: Vec<Box<dyn super::retriever::EidosRetriever>> = vec![Box::new(cs)];
+    let queries = vec![EidosQuery::new(
+        "inverted_symbol",
+        EidosRetrievalMode::CodeSymbol,
+        8,
+    )];
+    let err = super::falsifier::f_eidos_closed_citation_falsifier(&retrievers, &queries, 0)
+        .expect_err("inverted span MUST fire HitSpanInvalid through the falsifier");
     match err {
         super::falsifier::FalsifierFailure::HitSpanInvalid {
             byte_start,
@@ -2213,9 +2183,9 @@ fn code_symbol_inverted_span_fires_hit_span_invalid_through_falsifier() {
             assert_eq!(byte_end, 5);
             assert_eq!(retriever_mode, EidosRetrievalMode::CodeSymbol);
         }
-        other => panic!(
-            "expected HitSpanInvalid {{ byte_start: 10, byte_end: 5 }}, got {other:?}",
-        ),
+        other => {
+            panic!("expected HitSpanInvalid {{ byte_start: 10, byte_end: 5 }}, got {other:?}",)
+        }
     }
 }
 
@@ -2235,16 +2205,14 @@ fn falsifier_accepts_zero_width_span_as_half_open_valid() {
     use super::code_symbol::InMemoryCodeSymbolIndex;
     let mut cs = InMemoryCodeSymbolIndex::new(manifest());
     cs.insert("zero_width_symbol", doc("d"), 5, 5); // byte_start == byte_end
-    let retrievers: Vec<Box<dyn super::retriever::EidosRetriever>> =
-        vec![Box::new(cs)];
-    let queries =
-        vec![EidosQuery::new("zero_width_symbol", EidosRetrievalMode::CodeSymbol, 8)];
-    let witness = super::falsifier::f_eidos_closed_citation_falsifier(
-        &retrievers,
-        &queries,
-        0,
-    )
-    .expect("zero-width span [n, n) is half-open valid and must pass the falsifier");
+    let retrievers: Vec<Box<dyn super::retriever::EidosRetriever>> = vec![Box::new(cs)];
+    let queries = vec![EidosQuery::new(
+        "zero_width_symbol",
+        EidosRetrievalMode::CodeSymbol,
+        8,
+    )];
+    let witness = super::falsifier::f_eidos_closed_citation_falsifier(&retrievers, &queries, 0)
+        .expect("zero-width span [n, n) is half-open valid and must pass the falsifier");
     assert_eq!(witness.retrievers_checked, 1);
     // Sanity: a hit actually fired (otherwise this test would trivially
     // pass even if a future change broke span validation).
@@ -2264,7 +2232,8 @@ fn lexical_document_body_with_nul_byte_is_matched_by_nul_query() {
     let mut lex = InMemoryLexicalIndex::new(manifest());
     lex.insert(doc("with-nul"), "before\0after", EidosSourceKind::Note)
         .unwrap();
-    lex.insert(doc("no-nul"), "clean body", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("no-nul"), "clean body", EidosSourceKind::Note)
+        .unwrap();
 
     let q = EidosQuery::new("\x00", EidosRetrievalMode::Lexical, 8);
     let packet = lex.retrieve(&q, 1_700_000_000_000);
@@ -2309,14 +2278,17 @@ fn provenance_verified_wraps_hybrid_n_correctly() {
 
     let m = manifest();
     let mut lex = InMemoryLexicalIndex::new(m.clone());
-    lex.insert(doc("a"), "tropical content", EidosSourceKind::Note).unwrap();
-    lex.insert(doc("b"), "tropical other", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("a"), "tropical content", EidosSourceKind::Note)
+        .unwrap();
+    lex.insert(doc("b"), "tropical other", EidosSourceKind::Note)
+        .unwrap();
     let mut sem = InMemorySemanticIndex::new(m.clone(), 2);
-    sem.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
-    sem.insert(doc("b"), vec![0.0, 1.0], EidosSourceKind::Note).unwrap();
+    sem.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note)
+        .unwrap();
+    sem.insert(doc("b"), vec![0.0, 1.0], EidosSourceKind::Note)
+        .unwrap();
 
-    let hybrid_n =
-        HybridRetrieverN::new(vec![Box::new(lex), Box::new(sem)]).unwrap();
+    let hybrid_n = HybridRetrieverN::new(vec![Box::new(lex), Box::new(sem)]).unwrap();
 
     // Admit only "a::hybrid" — "b::hybrid" should be dropped fail-closed.
     let mut pv = ProvenanceVerifiedRetriever::new(hybrid_n);
@@ -2422,8 +2394,18 @@ fn recency_hits_always_have_no_span() {
     use super::recency::InMemoryRecencyIndex;
 
     let mut r = InMemoryRecencyIndex::new(manifest());
-    r.insert(doc("a"), "alpha content", 1_700_000_000_000, EidosSourceKind::Note);
-    r.insert(doc("b"), "beta content", 1_700_000_000_000 - 86_400_000, EidosSourceKind::Note);
+    r.insert(
+        doc("a"),
+        "alpha content",
+        1_700_000_000_000,
+        EidosSourceKind::Note,
+    );
+    r.insert(
+        doc("b"),
+        "beta content",
+        1_700_000_000_000 - 86_400_000,
+        EidosSourceKind::Note,
+    );
     let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16);
     let packet = r.retrieve(&q, 1_700_000_000_000);
     assert!(!packet.hits.is_empty());
@@ -2478,7 +2460,11 @@ fn source_kind_canon_all_covers_every_variant_uniquely() {
     let all = EidosSourceKind::CANON_ALL;
     assert_eq!(all.len(), 8);
     let dedup: HashSet<EidosSourceKind> = all.iter().copied().collect();
-    assert_eq!(dedup.len(), all.len(), "duplicate EidosSourceKind in CANON_ALL");
+    assert_eq!(
+        dedup.len(),
+        all.len(),
+        "duplicate EidosSourceKind in CANON_ALL"
+    );
 }
 
 /// `EidosRetrievalMode::CANON_ALL` enumerates every variant once and only
@@ -2498,7 +2484,11 @@ fn canon_all_covers_every_variant_uniquely() {
 
     // Uniqueness check: every variant appears exactly once.
     let dedup: HashSet<EidosRetrievalMode> = all.iter().copied().collect();
-    assert_eq!(dedup.len(), all.len(), "CANON_ALL contains duplicate variants");
+    assert_eq!(
+        dedup.len(),
+        all.len(),
+        "CANON_ALL contains duplicate variants"
+    );
 
     // Spot-check the boundary variants are present.
     assert!(all.contains(&EidosRetrievalMode::Lexical));
@@ -2521,7 +2511,8 @@ fn ledger_commit_retract_recommit_full_lifecycle() {
     let mut led = ClaimLedger::new();
 
     // Phase 1: commit ev-1 + claim c-1 supported by ev-1.
-    led.commit_evidence(Evidence::new(EvidenceId("ev-1".to_string()), "s", 0)).unwrap();
+    led.commit_evidence(Evidence::new(EvidenceId("ev-1".to_string()), "s", 0))
+        .unwrap();
     led.commit_claim(
         Claim::new(ClaimId("c-1".to_string()), "claim one", 0),
         vec![],
@@ -2535,14 +2526,19 @@ fn ledger_commit_retract_recommit_full_lifecycle() {
     assert_eq!(p1.hits.len(), 1, "phase 1: ev-1 should appear");
 
     // Phase 2: retract ev-1. claim c-1's active evidence drops to zero.
-    led.retract_evidence(&EvidenceId("ev-1".to_string())).unwrap();
+    led.retract_evidence(&EvidenceId("ev-1".to_string()))
+        .unwrap();
     let r2 = LedgerBackedClaimEvidence::from_ledger(&led, manifest());
     let p2 = r2.retrieve(&q1, 1_700_000_000_000);
-    assert!(p2.hits.is_empty(), "phase 2: ev-1 retracted, no active evidence");
+    assert!(
+        p2.hits.is_empty(),
+        "phase 2: ev-1 retracted, no active evidence"
+    );
 
     // Phase 3: commit a NEW evidence supporting a NEW claim. ev-1 stays
     // retracted (ClaimLedger does NOT support un-retraction).
-    led.commit_evidence(Evidence::new(EvidenceId("ev-2".to_string()), "s2", 0)).unwrap();
+    led.commit_evidence(Evidence::new(EvidenceId("ev-2".to_string()), "s2", 0))
+        .unwrap();
     led.commit_claim(
         Claim::new(ClaimId("c-2".to_string()), "claim two", 0),
         vec![],
@@ -2552,7 +2548,10 @@ fn ledger_commit_retract_recommit_full_lifecycle() {
 
     let r3 = LedgerBackedClaimEvidence::from_ledger(&led, manifest());
     let p3_c1 = r3.retrieve(&q1, 1_700_000_000_000);
-    assert!(p3_c1.hits.is_empty(), "phase 3: c-1 still empty (ev-1 stays retracted)");
+    assert!(
+        p3_c1.hits.is_empty(),
+        "phase 3: c-1 still empty (ev-1 stays retracted)"
+    );
 
     let q2 = EidosQuery::new("c-2", EidosRetrievalMode::ClaimEvidence, 16);
     let p3_c2 = r3.retrieve(&q2, 1_700_000_000_000);
@@ -2575,7 +2574,8 @@ fn lexical_1000_occurrences_no_overflow() {
     let needle = "x";
     let body = needle.repeat(1000);
     let mut lex = InMemoryLexicalIndex::new(manifest());
-    lex.insert(doc("doc-1k"), body, EidosSourceKind::Note).unwrap();
+    lex.insert(doc("doc-1k"), body, EidosSourceKind::Note)
+        .unwrap();
 
     let q = EidosQuery::new(needle, EidosRetrievalMode::Lexical, 8);
     let packet = lex.retrieve(&q, 1_700_000_000_000);
@@ -2657,16 +2657,14 @@ fn hybrid_n_dedups_ledger_and_in_memory_claim_evidence_by_doc_id() {
 #[test]
 fn retrieve_n_times_on_same_retriever_is_byte_equal() {
     let mut lex = InMemoryLexicalIndex::new(manifest());
-    lex.insert(doc("d"), "alpha tropical content", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("d"), "alpha tropical content", EidosSourceKind::Note)
+        .unwrap();
     let q = EidosQuery::new("tropical", EidosRetrievalMode::Lexical, 8);
 
     let baseline = lex.retrieve(&q, 1_700_000_000_000);
     for i in 0..100 {
         let again = lex.retrieve(&q, 1_700_000_000_000);
-        assert_eq!(
-            again, baseline,
-            "retrieve call {i} drifted from baseline"
-        );
+        assert_eq!(again, baseline, "retrieve call {i} drifted from baseline");
     }
 }
 
@@ -2686,27 +2684,21 @@ fn hybrid_n_nested_over_hybrid_2way_preserves_closed_citation() {
 
     // Inner 2-way hybrid (Lex + Sem).
     let mut lex = InMemoryLexicalIndex::new(m.clone());
-    lex.insert(doc("a"), "alpha tropical", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("a"), "alpha tropical", EidosSourceKind::Note)
+        .unwrap();
     let mut sem = InMemorySemanticIndex::new(m.clone(), 2);
-    sem.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+    sem.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note)
+        .unwrap();
     let inner_hybrid = HybridRetriever::new(lex, sem).unwrap();
 
     // A standalone Lexical alongside, also covering doc "a".
     let mut lex2 = InMemoryLexicalIndex::new(m.clone());
-    lex2.insert(doc("a"), "alpha tropical raw", EidosSourceKind::Note).unwrap();
+    lex2.insert(doc("a"), "alpha tropical raw", EidosSourceKind::Note)
+        .unwrap();
 
-    let outer = HybridRetrieverN::new(vec![
-        Box::new(inner_hybrid),
-        Box::new(lex2),
-    ])
-    .unwrap();
+    let outer = HybridRetrieverN::new(vec![Box::new(inner_hybrid), Box::new(lex2)]).unwrap();
 
-    let q = EidosQuery::with_vector(
-        "tropical",
-        EidosRetrievalMode::Hybrid,
-        16,
-        vec![1.0, 0.0],
-    );
+    let q = EidosQuery::with_vector("tropical", EidosRetrievalMode::Hybrid, 16, vec![1.0, 0.0]);
     let packet = outer.retrieve(&q, 1_700_000_000_000);
     // Document_id-based dedup: one hit for "a".
     assert_eq!(packet.hits.len(), 1);
@@ -2754,10 +2746,7 @@ fn swift_eidos_parity_test_count_floor() {
 /// the other when modes / W-rows evolve.
 #[test]
 fn status_md_lists_all_backends_and_w_rows() {
-    let path = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/src/eidos/STATUS.md"
-    );
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/eidos/STATUS.md");
     let doc = std::fs::read_to_string(path).expect("read STATUS.md");
 
     let required_backends = [
@@ -2901,19 +2890,10 @@ fn hybrid_n_all_empty_inner_returns_empty_packet() {
     let lex = InMemoryLexicalIndex::new(m.clone());
     let sem = InMemorySemanticIndex::new(m.clone(), 2);
     let recency = super::recency::InMemoryRecencyIndex::new(m.clone());
-    let outer = HybridRetrieverN::new(vec![
-        Box::new(lex),
-        Box::new(sem),
-        Box::new(recency),
-    ])
-    .unwrap();
+    let outer =
+        HybridRetrieverN::new(vec![Box::new(lex), Box::new(sem), Box::new(recency)]).unwrap();
 
-    let q = EidosQuery::with_vector(
-        "anything",
-        EidosRetrievalMode::Hybrid,
-        16,
-        vec![1.0, 0.0],
-    );
+    let q = EidosQuery::with_vector("anything", EidosRetrievalMode::Hybrid, 16, vec![1.0, 0.0]);
     let packet = outer.retrieve(&q, 1_700_000_000_000);
     assert!(packet.hits.is_empty());
     assert_eq!(packet.manifest_id, m);
@@ -2939,7 +2919,10 @@ fn ledger_backed_claim_with_no_evidence_returns_empty_packet() {
     let r = LedgerBackedClaimEvidence::from_ledger(&led, manifest());
     let q = EidosQuery::new("orphan-claim", EidosRetrievalMode::ClaimEvidence, 16);
     let packet = r.retrieve(&q, 1_700_000_000_000);
-    assert!(packet.hits.is_empty(), "claim with no evidence yields zero hits");
+    assert!(
+        packet.hits.is_empty(),
+        "claim with no evidence yields zero hits"
+    );
     assert_eq!(packet.manifest_id, manifest());
 }
 
@@ -2956,17 +2939,13 @@ fn hybrid_n_one_empty_one_populated_inner_still_emits() {
     let m = manifest();
     // Populated lexical with one hit.
     let mut lex = InMemoryLexicalIndex::new(m.clone());
-    lex.insert(doc("a"), "tropical alpha", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("a"), "tropical alpha", EidosSourceKind::Note)
+        .unwrap();
     // Empty semantic — no documents inserted at all.
     let sem = InMemorySemanticIndex::new(m.clone(), 2);
 
     let outer = HybridRetrieverN::new(vec![Box::new(lex), Box::new(sem)]).unwrap();
-    let q = EidosQuery::with_vector(
-        "tropical",
-        EidosRetrievalMode::Hybrid,
-        16,
-        vec![1.0, 0.0],
-    );
+    let q = EidosQuery::with_vector("tropical", EidosRetrievalMode::Hybrid, 16, vec![1.0, 0.0]);
     let packet = outer.retrieve(&q, 1_700_000_000_000);
 
     // The populated lexical side's hit surfaces in the fused output.
@@ -3016,8 +2995,14 @@ fn empty_query_text_defers_for_both_claim_evidence_backends() {
     let p_im = im.retrieve(&q, 0);
     let p_lb = lb.retrieve(&q, 0);
 
-    assert!(p_im.hits.is_empty(), "in-memory must defer on empty claim id");
-    assert!(p_lb.hits.is_empty(), "ledger-backed must defer on empty claim id");
+    assert!(
+        p_im.hits.is_empty(),
+        "in-memory must defer on empty claim id"
+    );
+    assert!(
+        p_lb.hits.is_empty(),
+        "ledger-backed must defer on empty claim id"
+    );
     // Both empty packets carry the correct manifest_id.
     assert_eq!(p_im.manifest_id, m);
     assert_eq!(p_lb.manifest_id, m);
@@ -3194,21 +3179,25 @@ fn hybrid_n_kitchen_sink_fusion_across_all_retriever_shapes() {
         // 1. Lexical
         {
             let mut x = InMemoryLexicalIndex::new(m.clone());
-            x.insert(doc("a"), "tropical content alpha", EidosSourceKind::Note).unwrap();
+            x.insert(doc("a"), "tropical content alpha", EidosSourceKind::Note)
+                .unwrap();
             Box::new(x)
         },
         // 2. Semantic
         {
             let mut x = InMemorySemanticIndex::new(m.clone(), 2);
-            x.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+            x.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note)
+                .unwrap();
             Box::new(x)
         },
         // 3. 2-way Hybrid (Lex + Sem)
         {
             let mut lex = InMemoryLexicalIndex::new(m.clone());
-            lex.insert(doc("a"), "tropical beta", EidosSourceKind::Note).unwrap();
+            lex.insert(doc("a"), "tropical beta", EidosSourceKind::Note)
+                .unwrap();
             let mut sem = InMemorySemanticIndex::new(m.clone(), 2);
-            sem.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+            sem.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note)
+                .unwrap();
             Box::new(HybridRetriever::new(lex, sem).unwrap())
         },
         // 4. RawArchive
@@ -3243,13 +3232,19 @@ fn hybrid_n_kitchen_sink_fusion_across_all_retriever_shapes() {
         // 8. Recency
         {
             let mut x = InMemoryRecencyIndex::new(m.clone());
-            x.insert(doc("a"), "tropical recent", 1_700_000_000_000, EidosSourceKind::Note);
+            x.insert(
+                doc("a"),
+                "tropical recent",
+                1_700_000_000_000,
+                EidosSourceKind::Note,
+            );
             Box::new(x)
         },
         // 9. LedgerBackedClaimEvidence
         {
             let mut led = ClaimLedger::new();
-            led.commit_evidence(LEv::new(EvidenceId("a".to_string()), "s", 0)).unwrap();
+            led.commit_evidence(LEv::new(EvidenceId("a".to_string()), "s", 0))
+                .unwrap();
             led.commit_claim(
                 LCl::new(ClaimId("c".to_string()), "claim", 0),
                 vec![],
@@ -3261,7 +3256,8 @@ fn hybrid_n_kitchen_sink_fusion_across_all_retriever_shapes() {
         // 10. ProvenanceVerified wrapping Lexical (admit "a::lex")
         {
             let mut lex = InMemoryLexicalIndex::new(m.clone());
-            lex.insert(doc("a"), "tropical pv", EidosSourceKind::Note).unwrap();
+            lex.insert(doc("a"), "tropical pv", EidosSourceKind::Note)
+                .unwrap();
             let mut pv = ProvenanceVerifiedRetriever::new(lex);
             pv.admit(super::types::EidosChunkId::new("a::lex").unwrap());
             Box::new(pv)
@@ -3271,12 +3267,7 @@ fn hybrid_n_kitchen_sink_fusion_across_all_retriever_shapes() {
 
     let outer = HybridRetrieverN::new(inner).unwrap();
     // Query "tropical" — exercises Lexical, Hybrid, Recency, PV.
-    let q = EidosQuery::with_vector(
-        "tropical",
-        EidosRetrievalMode::Hybrid,
-        16,
-        vec![1.0, 0.0],
-    );
+    let q = EidosQuery::with_vector("tropical", EidosRetrievalMode::Hybrid, 16, vec![1.0, 0.0]);
     let packet = outer.retrieve(&q, 1_700_000_000_000);
     assert!(!packet.hits.is_empty());
     // The shared document_id "a" must dedup to ONE hit in the fused
@@ -3286,7 +3277,11 @@ fn hybrid_n_kitchen_sink_fusion_across_all_retriever_shapes() {
         .iter()
         .filter(|h| h.document_id.as_str() == "a")
         .collect();
-    assert_eq!(a_hits.len(), 1, "document_id 'a' must dedup to one hybrid hit");
+    assert_eq!(
+        a_hits.len(),
+        1,
+        "document_id 'a' must dedup to one hybrid hit"
+    );
     assert_eq!(a_hits[0].source_id.as_str(), "a::hybrid");
 
     // Closed-citation contract holds for every emitted hit.
@@ -3317,8 +3312,10 @@ fn empty_query_text_defers_across_lexical_hybrid_and_hybrid_n() {
     // Populated lexical corpus with two docs that would both score
     // against any non-empty query containing "alpha" or "beta".
     let mut lex = InMemoryLexicalIndex::new(manifest());
-    lex.insert(doc("a"), "alpha lives here", EidosSourceKind::Note).unwrap();
-    lex.insert(doc("b"), "beta lives too", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("a"), "alpha lives here", EidosSourceKind::Note)
+        .unwrap();
+    lex.insert(doc("b"), "beta lives too", EidosSourceKind::Note)
+        .unwrap();
 
     let q_empty = EidosQuery::new("", EidosRetrievalMode::Lexical, 16);
 
@@ -3335,12 +3332,14 @@ fn empty_query_text_defers_across_lexical_hybrid_and_hybrid_n() {
     //    against empty text — fused packet is empty.
     let lex2 = {
         let mut l = InMemoryLexicalIndex::new(manifest());
-        l.insert(doc("a"), "alpha lives here", EidosSourceKind::Note).unwrap();
+        l.insert(doc("a"), "alpha lives here", EidosSourceKind::Note)
+            .unwrap();
         l
     };
     let sem2 = {
         let mut s = InMemorySemanticIndex::new(manifest(), 2);
-        s.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+        s.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
         s
     };
     let hybrid = HybridRetriever::new(lex2, sem2).unwrap();
@@ -3354,12 +3353,14 @@ fn empty_query_text_defers_across_lexical_hybrid_and_hybrid_n() {
     //    composition.
     let lex_n = {
         let mut l = InMemoryLexicalIndex::new(manifest());
-        l.insert(doc("a"), "alpha lives here", EidosSourceKind::Note).unwrap();
+        l.insert(doc("a"), "alpha lives here", EidosSourceKind::Note)
+            .unwrap();
         l
     };
     let sem_n = {
         let mut s = InMemorySemanticIndex::new(manifest(), 2);
-        s.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+        s.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
         s
     };
     let hybrid_n = HybridRetrieverN::new(vec![Box::new(lex_n), Box::new(sem_n)]).unwrap();
@@ -3382,8 +3383,10 @@ fn whitespace_only_query_text_defers_across_lexical_hybrid_and_hybrid_n() {
     use super::semantic::InMemorySemanticIndex;
 
     let mut lex = InMemoryLexicalIndex::new(manifest());
-    lex.insert(doc("a"), "alpha   beta", EidosSourceKind::Note).unwrap();
-    lex.insert(doc("b"), "gamma delta", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("a"), "alpha   beta", EidosSourceKind::Note)
+        .unwrap();
+    lex.insert(doc("b"), "gamma delta", EidosSourceKind::Note)
+        .unwrap();
 
     let q_blank = EidosQuery::new("   ", EidosRetrievalMode::Lexical, 16);
     assert!(
@@ -3393,12 +3396,14 @@ fn whitespace_only_query_text_defers_across_lexical_hybrid_and_hybrid_n() {
 
     let lex2 = {
         let mut l = InMemoryLexicalIndex::new(manifest());
-        l.insert(doc("a"), "alpha   beta", EidosSourceKind::Note).unwrap();
+        l.insert(doc("a"), "alpha   beta", EidosSourceKind::Note)
+            .unwrap();
         l
     };
     let sem2 = {
         let mut s = InMemorySemanticIndex::new(manifest(), 2);
-        s.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+        s.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
         s
     };
     let hybrid = HybridRetriever::new(lex2, sem2).unwrap();
@@ -3410,17 +3415,18 @@ fn whitespace_only_query_text_defers_across_lexical_hybrid_and_hybrid_n() {
 
     let lex3 = {
         let mut l = InMemoryLexicalIndex::new(manifest());
-        l.insert(doc("a"), "alpha   beta", EidosSourceKind::Note).unwrap();
+        l.insert(doc("a"), "alpha   beta", EidosSourceKind::Note)
+            .unwrap();
         l
     };
     let sem3 = {
         let mut s = InMemorySemanticIndex::new(manifest(), 2);
-        s.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+        s.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
         s
     };
     let hybrid_n = HybridRetrieverN::new(vec![Box::new(lex3), Box::new(sem3)]).unwrap();
-    let q_hybrid_n_blank =
-        EidosQuery::new("   ", EidosRetrievalMode::Hybrid, 16);
+    let q_hybrid_n_blank = EidosQuery::new("   ", EidosRetrievalMode::Hybrid, 16);
     assert!(
         hybrid_n.retrieve(&q_hybrid_n_blank, 0).hits.is_empty(),
         "HybridRetrieverN must defer when query.text is whitespace-only",
@@ -3454,7 +3460,9 @@ fn lexical_empty_body_document_yields_empty_packet() {
 #[test]
 fn at_risk_claim_status_does_not_filter_remaining_active_evidence() {
     use super::ledger_backed_claim_evidence::LedgerBackedClaimEvidence;
-    use crate::provenance::ledger::{Claim, ClaimId, ClaimLedger, ClaimStatus, Evidence, EvidenceId};
+    use crate::provenance::ledger::{
+        Claim, ClaimId, ClaimLedger, ClaimStatus, Evidence, EvidenceId,
+    };
 
     let mut led = ClaimLedger::new();
     led.commit_evidence(Evidence::new(EvidenceId("ev-keep".to_string()), "src", 0))
@@ -3473,7 +3481,8 @@ fn at_risk_claim_status_does_not_filter_remaining_active_evidence() {
 
     // Retract ev-drop → claim "c" propagates to AtRisk per the ledger
     // doctrine; ev-drop is now Retracted.
-    led.retract_evidence(&EvidenceId("ev-drop".to_string())).unwrap();
+    led.retract_evidence(&EvidenceId("ev-drop".to_string()))
+        .unwrap();
     assert_eq!(
         led.claim(&ClaimId("c".to_string())).unwrap().status,
         ClaimStatus::AtRisk,
@@ -3509,12 +3518,8 @@ fn hybrid_n_fuses_lexical_and_ledger_backed_by_document_id() {
 
     let m = manifest();
     let mut lex = InMemoryLexicalIndex::new(m.clone());
-    lex.insert(
-        doc("ev-shared"),
-        "tropical content",
-        EidosSourceKind::Note,
-    )
-    .unwrap();
+    lex.insert(doc("ev-shared"), "tropical content", EidosSourceKind::Note)
+        .unwrap();
     lex.insert(
         doc("lex-only"),
         "tropical-only-in-lex",
@@ -3523,12 +3528,8 @@ fn hybrid_n_fuses_lexical_and_ledger_backed_by_document_id() {
     .unwrap();
 
     let mut led = ClaimLedger::new();
-    led.commit_evidence(Evidence::new(
-        EvidenceId("ev-shared".to_string()),
-        "src",
-        0,
-    ))
-    .unwrap();
+    led.commit_evidence(Evidence::new(EvidenceId("ev-shared".to_string()), "src", 0))
+        .unwrap();
     led.commit_evidence(Evidence::new(
         EvidenceId("ev-ledger-only".to_string()),
         "src",
@@ -3546,8 +3547,7 @@ fn hybrid_n_fuses_lexical_and_ledger_backed_by_document_id() {
     .unwrap();
     let ledger_retriever = LedgerBackedClaimEvidence::from_ledger(&led, m.clone());
 
-    let hybrid =
-        HybridRetrieverN::new(vec![Box::new(lex), Box::new(ledger_retriever)]).unwrap();
+    let hybrid = HybridRetrieverN::new(vec![Box::new(lex), Box::new(ledger_retriever)]).unwrap();
 
     // The Hybrid query feeds the SAME query.text to both retrievers.
     // For Lexical, "tropical" matches both lex docs. For
@@ -3587,10 +3587,7 @@ fn hybrid_n_fuses_lexical_and_ledger_backed_by_document_id() {
     // "ev-shared::claim::c::supports"; only "ev-shared::hybrid"
     // appears in the fused output for the claim-id query.
     let pre_fusion = EidosCitation {
-        source_id: super::types::EidosChunkId::new(
-            "ev-shared::claim::c::supports",
-        )
-        .unwrap(),
+        source_id: super::types::EidosChunkId::new("ev-shared::claim::c::supports").unwrap(),
         manifest_id: p_led.manifest_id.clone(),
     };
     assert!(p_led.validate_citation(&pre_fusion).is_err());
@@ -3663,8 +3660,7 @@ fn pv_wrapping_hybrid_n_advertises_provenance_verified() {
 
     let lex = InMemoryLexicalIndex::new(manifest());
     let sem = InMemorySemanticIndex::new(manifest(), 2);
-    let hybrid_n =
-        HybridRetrieverN::new(vec![Box::new(lex), Box::new(sem)]).unwrap();
+    let hybrid_n = HybridRetrieverN::new(vec![Box::new(lex), Box::new(sem)]).unwrap();
     let pv = ProvenanceVerifiedRetriever::new(hybrid_n);
     assert_eq!(pv.mode(), EidosRetrievalMode::ProvenanceVerified);
 }
@@ -3743,7 +3739,10 @@ fn claim_evidence_stance_tokens_are_lowercase_ascii() {
     // Negative: no other casing leaks through.
     for id in &ids {
         assert!(!id.contains("Supports"), "stance must not capitalize: {id}");
-        assert!(!id.contains("Contradicts"), "stance must not capitalize: {id}");
+        assert!(
+            !id.contains("Contradicts"),
+            "stance must not capitalize: {id}"
+        );
         assert!(!id.contains("SUPPORTS"), "stance must not shout: {id}");
     }
 }
@@ -3797,20 +3796,23 @@ fn hybrid_n_over_mixed_k_inner_hybrids_keeps_confidence_in_unit() {
     let m = manifest();
     // Inner hybrid #1: k=10
     let mut lex1 = InMemoryLexicalIndex::new(m.clone());
-    lex1.insert(doc("a"), "tropical alpha", EidosSourceKind::Note).unwrap();
+    lex1.insert(doc("a"), "tropical alpha", EidosSourceKind::Note)
+        .unwrap();
     let mut sem1 = InMemorySemanticIndex::new(m.clone(), 2);
-    sem1.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+    sem1.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note)
+        .unwrap();
     let inner_k10 = HybridRetriever::new(lex1, sem1).unwrap().with_k(10);
 
     // Inner hybrid #2: k=60 (default)
     let mut lex2 = InMemoryLexicalIndex::new(m.clone());
-    lex2.insert(doc("a"), "tropical alpha", EidosSourceKind::Note).unwrap();
+    lex2.insert(doc("a"), "tropical alpha", EidosSourceKind::Note)
+        .unwrap();
     let mut sem2 = InMemorySemanticIndex::new(m.clone(), 2);
-    sem2.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+    sem2.insert(doc("a"), vec![1.0, 0.0], EidosSourceKind::Note)
+        .unwrap();
     let inner_k60 = HybridRetriever::new(lex2, sem2).unwrap();
 
-    let outer =
-        HybridRetrieverN::new(vec![Box::new(inner_k10), Box::new(inner_k60)]).unwrap();
+    let outer = HybridRetrieverN::new(vec![Box::new(inner_k10), Box::new(inner_k60)]).unwrap();
 
     let q = EidosQuery::with_vector("tropical", EidosRetrievalMode::Hybrid, 8, vec![1.0, 0.0]);
     let packet = outer.retrieve(&q, 1_700_000_000_000);
@@ -3849,8 +3851,18 @@ fn chat_layer_emit_gate_all_legitimate_citations_passes() {
     use super::types::EidosCitation;
 
     let mut lex = InMemoryLexicalIndex::new(manifest());
-    lex.insert(doc("note-a"), "alpha tropical content", EidosSourceKind::Note).unwrap();
-    lex.insert(doc("note-b"), "beta tropical content", EidosSourceKind::Note).unwrap();
+    lex.insert(
+        doc("note-a"),
+        "alpha tropical content",
+        EidosSourceKind::Note,
+    )
+    .unwrap();
+    lex.insert(
+        doc("note-b"),
+        "beta tropical content",
+        EidosSourceKind::Note,
+    )
+    .unwrap();
     let q = EidosQuery::new("tropical", EidosRetrievalMode::Lexical, 16);
     let packet = lex.retrieve(&q, 1_700_000_000_000);
     assert_eq!(packet.hits.len(), 2);
@@ -3877,8 +3889,10 @@ fn chat_layer_emit_gate_refuses_wholesale_on_any_forgery() {
     use super::types::{CitationError, EidosCitation};
 
     let mut lex = InMemoryLexicalIndex::new(manifest());
-    lex.insert(doc("note-a"), "alpha tropical", EidosSourceKind::Note).unwrap();
-    lex.insert(doc("note-b"), "beta tropical", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("note-a"), "alpha tropical", EidosSourceKind::Note)
+        .unwrap();
+    lex.insert(doc("note-b"), "beta tropical", EidosSourceKind::Note)
+        .unwrap();
     let q = EidosQuery::new("tropical", EidosRetrievalMode::Lexical, 16);
     let packet = lex.retrieve(&q, 1_700_000_000_000);
 
@@ -3900,15 +3914,15 @@ fn chat_layer_emit_gate_refuses_wholesale_on_any_forgery() {
     let errors = packet.validate_citations(&citations).unwrap_err();
     assert_eq!(errors.len(), 1, "exactly one forgery, exactly one error");
     assert_eq!(errors[0].0, 1, "forgery at input index 1");
-    assert!(matches!(
-        errors[0].1,
-        CitationError::FabricatedSourceId(_)
-    ));
+    assert!(matches!(errors[0].1, CitationError::FabricatedSourceId(_)));
 
     // The chat layer's "all or nothing" semantic — if validate_citations
     // returns Err, do NOT emit any part of the answer.
     let should_emit = packet.validate_citations(&citations).is_ok();
-    assert!(!should_emit, "answer with any forged citation must not emit");
+    assert!(
+        !should_emit,
+        "answer with any forged citation must not emit"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -4004,20 +4018,17 @@ fn hybrid_collision_on_document_id_emits_exactly_one_fused_hit() {
     let m = manifest();
     // Lexical: doc has body "tropical alpha".
     let mut lex = InMemoryLexicalIndex::new(m.clone());
-    lex.insert(doc("shared"), "tropical alpha", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("shared"), "tropical alpha", EidosSourceKind::Note)
+        .unwrap();
     // Semantic: SAME doc id but a fresh vector — internally, the lexical
     // and semantic retrievers know nothing about each other; the only
     // shared key is the EidosDocumentId.
     let mut sem = InMemorySemanticIndex::new(m.clone(), 2);
-    sem.insert(doc("shared"), vec![0.9, 0.4], EidosSourceKind::Note).unwrap();
+    sem.insert(doc("shared"), vec![0.9, 0.4], EidosSourceKind::Note)
+        .unwrap();
 
     let hybrid = HybridRetriever::new(lex, sem).unwrap();
-    let q = EidosQuery::with_vector(
-        "tropical",
-        EidosRetrievalMode::Hybrid,
-        16,
-        vec![1.0, 0.0],
-    );
+    let q = EidosQuery::with_vector("tropical", EidosRetrievalMode::Hybrid, 16, vec![1.0, 0.0]);
     let packet = hybrid.retrieve(&q, 1_700_000_000_000);
 
     // Exactly one hit despite the document appearing under two distinct
@@ -4089,8 +4100,10 @@ fn provenance_verified_can_nest_without_double_rewrite() {
 
     let m = manifest();
     let mut lex = InMemoryLexicalIndex::new(m.clone());
-    lex.insert(doc("a"), "tropical content", EidosSourceKind::Note).unwrap();
-    lex.insert(doc("b"), "tropical other", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("a"), "tropical content", EidosSourceKind::Note)
+        .unwrap();
+    lex.insert(doc("b"), "tropical other", EidosSourceKind::Note)
+        .unwrap();
 
     // Inner wrapper admits both ids.
     let mut inner = ProvenanceVerifiedRetriever::new(lex);
@@ -4270,12 +4283,10 @@ fn every_retriever_empty_corpus_returns_byte_equal_empty_packet() {
     // Hybrid_N — empty inner retrievers.
     let lex_n1 = InMemoryLexicalIndex::new(m.clone());
     let sem_n1 = InMemorySemanticIndex::new(m.clone(), 3);
-    let hybrid_n_a =
-        HybridRetrieverN::new(vec![Box::new(lex_n1), Box::new(sem_n1)]).unwrap();
+    let hybrid_n_a = HybridRetrieverN::new(vec![Box::new(lex_n1), Box::new(sem_n1)]).unwrap();
     let lex_n2 = InMemoryLexicalIndex::new(m.clone());
     let sem_n2 = InMemorySemanticIndex::new(m.clone(), 3);
-    let hybrid_n_b =
-        HybridRetrieverN::new(vec![Box::new(lex_n2), Box::new(sem_n2)]).unwrap();
+    let hybrid_n_b = HybridRetrieverN::new(vec![Box::new(lex_n2), Box::new(sem_n2)]).unwrap();
     let pa = hybrid_n_a.retrieve(&q_h, ts);
     let pb = hybrid_n_b.retrieve(&q_h, ts);
     assert_eq!(pa, pb);
@@ -4305,7 +4316,10 @@ fn every_retriever_empty_corpus_returns_byte_equal_empty_packet() {
     let led_b = LedgerBackedClaimEvidence::from_ledger(&ClaimLedger::new(), m.clone());
     let pa = led_a.retrieve(&q_claim, ts);
     let pb = led_b.retrieve(&q_claim, ts);
-    assert_eq!(pa, pb, "LedgerBackedClaimEvidence empty-corpus packets must be byte-equal");
+    assert_eq!(
+        pa, pb,
+        "LedgerBackedClaimEvidence empty-corpus packets must be byte-equal"
+    );
     assert!(pa.hits.is_empty());
     assert_eq!(pa.manifest_id, m);
 }
@@ -4527,10 +4541,7 @@ fn falsifier_module_docstring_lists_all_five_per_hit_invariants() {
 
     // Three closed-citation contract checks (1, 2a-2c, 3) + two
     // hit-shape checks (2d, 2e) = 5 per-hit invariants total.
-    for variant in [
-        "HitConfidenceOutOfRange",
-        "HitSpanInvalid",
-    ] {
+    for variant in ["HitConfidenceOutOfRange", "HitSpanInvalid"] {
         assert!(
             head.contains(variant),
             "falsifier module docstring must reference \
@@ -4657,8 +4668,8 @@ fn lexical_and_semantic_module_docstrings_reference_nine_canonical_modes() {
 #[test]
 fn validate_citation_is_byte_strict_against_unicode_normalization() {
     use super::types::{
-        CitationError, EidosChunkId, EidosCitation, EidosContextPacket, EidosHit,
-        EidosProvenance, EidosScoreComponents,
+        CitationError, EidosChunkId, EidosCitation, EidosContextPacket, EidosHit, EidosProvenance,
+        EidosScoreComponents,
     };
 
     let m = manifest();
@@ -4668,7 +4679,11 @@ fn validate_citation_is_byte_strict_against_unicode_normalization() {
     // NFD: "café::lex" with e + combining acute (U+0301). 11 bytes,
     // visually identical, canonically equivalent under Unicode NFKC/NFC.
     let nfd = "cafe\u{0301}::lex";
-    assert_ne!(nfc.as_bytes(), nfd.as_bytes(), "NFC/NFD must differ at byte level");
+    assert_ne!(
+        nfc.as_bytes(),
+        nfd.as_bytes(),
+        "NFC/NFD must differ at byte level"
+    );
     assert_ne!(nfc.len(), nfd.len(), "byte length differs (10 vs 11)");
 
     let hit = EidosHit {
@@ -4746,7 +4761,8 @@ fn validate_citations_does_not_dedup_duplicate_input_citations() {
     use super::types::{CitationError, EidosCitation};
 
     let mut lex = InMemoryLexicalIndex::new(manifest());
-    lex.insert(doc("note-a"), "alpha mango content", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("note-a"), "alpha mango content", EidosSourceKind::Note)
+        .unwrap();
     let q = EidosQuery::new("mango", EidosRetrievalMode::Lexical, 16);
     let packet = lex.retrieve(&q, 1_700_000_000_000);
     assert_eq!(packet.hits.len(), 1);
@@ -4784,13 +4800,20 @@ fn validate_citations_does_not_dedup_duplicate_input_citations() {
         },
     ];
     let errs = packet.validate_citations(&twin_forged).unwrap_err();
-    assert_eq!(errs.len(), 2, "duplicate fabrication must surface twice (no dedup, no short-circuit)");
+    assert_eq!(
+        errs.len(),
+        2,
+        "duplicate fabrication must surface twice (no dedup, no short-circuit)"
+    );
     assert_eq!(errs[0].0, 0, "first error at input index 0");
     assert_eq!(errs[1].0, 1, "second error at input index 1");
     for (_, err) in &errs {
         match err {
             CitationError::FabricatedSourceId(id) => {
-                assert_eq!(id, &forged_src, "diagnostic payload identical on both indices");
+                assert_eq!(
+                    id, &forged_src,
+                    "diagnostic payload identical on both indices"
+                );
             }
             other => panic!("expected FabricatedSourceId, got {other:?}"),
         }
@@ -4813,8 +4836,15 @@ fn validate_citations_does_not_dedup_duplicate_input_citations() {
         },
     ];
     let mixed_errs = packet.validate_citations(&mixed).unwrap_err();
-    assert_eq!(mixed_errs.len(), 1, "only the forgery errors, legit duplicates pass independently");
-    assert_eq!(mixed_errs[0].0, 1, "forgery at input index 1, surrounded by passing legits");
+    assert_eq!(
+        mixed_errs.len(),
+        1,
+        "only the forgery errors, legit duplicates pass independently"
+    );
+    assert_eq!(
+        mixed_errs[0].0, 1,
+        "forgery at input index 1, surrounded by passing legits"
+    );
 }
 
 /// Empty-vault → empty-packet → zero-citation gate is the "honest
@@ -4848,7 +4878,7 @@ fn validate_citations_does_not_dedup_duplicate_input_citations() {
 /// surfaces here.
 #[test]
 fn empty_vault_empty_packet_zero_citation_gate_is_ok() {
-    use super::types::{CitationError, EidosCitation, EidosChunkId};
+    use super::types::{CitationError, EidosChunkId, EidosCitation};
 
     // Zero documents inserted into the lexical retriever.
     let lex = InMemoryLexicalIndex::new(manifest());
@@ -4857,14 +4887,25 @@ fn empty_vault_empty_packet_zero_citation_gate_is_ok() {
 
     // (1) Retrieval against empty vault is not an error and yields an
     // empty packet.
-    assert!(packet.hits.is_empty(), "empty vault must yield empty hits, not error");
+    assert!(
+        packet.hits.is_empty(),
+        "empty vault must yield empty hits, not error"
+    );
 
     // (2) Packet still carries the correct manifest_id — no degenerate
     // empty-manifest leak.
-    assert_eq!(packet.manifest_id, manifest(), "empty-corpus packet must still carry manifest_id");
+    assert_eq!(
+        packet.manifest_id,
+        manifest(),
+        "empty-corpus packet must still carry manifest_id"
+    );
 
     // (3) Closed citation universe is empty.
-    assert_eq!(packet.citable_source_ids().count(), 0, "empty packet has empty citable universe");
+    assert_eq!(
+        packet.citable_source_ids().count(),
+        0,
+        "empty packet has empty citable universe"
+    );
 
     // (4) Zero-citation gate trivially passes.
     assert_eq!(
@@ -4920,7 +4961,8 @@ fn validate_citation_manifest_mismatch_precedes_fabricated_source_id() {
     use super::types::{CitationError, EidosCitation};
 
     let mut lex = InMemoryLexicalIndex::new(manifest());
-    lex.insert(doc("note-a"), "alpha guava content", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("note-a"), "alpha guava content", EidosSourceKind::Note)
+        .unwrap();
     let q = EidosQuery::new("guava", EidosRetrievalMode::Lexical, 16);
     let packet = lex.retrieve(&q, 1_700_000_000_000);
     assert_eq!(packet.hits.len(), 1);
@@ -4936,9 +4978,15 @@ fn validate_citation_manifest_mismatch_precedes_fabricated_source_id() {
         manifest_id: stale_manifest.clone(),
     };
     match packet.validate_citation(&stale_and_fake).unwrap_err() {
-        CitationError::ManifestMismatch { packet: pm, citation: cm } => {
+        CitationError::ManifestMismatch {
+            packet: pm,
+            citation: cm,
+        } => {
             assert_eq!(pm, manifest(), "diagnostic must surface packet's manifest");
-            assert_eq!(cm, stale_manifest, "diagnostic must surface citation's stale manifest");
+            assert_eq!(
+                cm, stale_manifest,
+                "diagnostic must surface citation's stale manifest"
+            );
         }
         CitationError::FabricatedSourceId(_) => {
             panic!(
@@ -5010,10 +5058,11 @@ fn validate_citation_manifest_mismatch_precedes_fabricated_source_id() {
 ///     with the legits at 1/3/5 NOT producing entries
 #[test]
 fn validate_citations_reports_errors_in_input_index_order() {
-    use super::types::{CitationError, EidosCitation, EidosChunkId};
+    use super::types::{CitationError, EidosChunkId, EidosCitation};
 
     let mut lex = InMemoryLexicalIndex::new(manifest());
-    lex.insert(doc("note-a"), "alpha kiwi content", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("note-a"), "alpha kiwi content", EidosSourceKind::Note)
+        .unwrap();
     let q = EidosQuery::new("kiwi", EidosRetrievalMode::Lexical, 16);
     let packet = lex.retrieve(&q, 1_700_000_000_000);
     assert_eq!(packet.hits.len(), 1);
@@ -5144,7 +5193,11 @@ fn citable_source_ids_does_not_dedup_duplicate_hit_source_ids() {
 
     // (1) citable_source_ids enumerates exactly hits.len() items.
     let ids: Vec<&EidosChunkId> = packet.citable_source_ids().collect();
-    assert_eq!(ids.len(), 3, "iterator must NOT dedup — 3 hits → 3 IDs yielded");
+    assert_eq!(
+        ids.len(),
+        3,
+        "iterator must NOT dedup — 3 hits → 3 IDs yielded"
+    );
 
     // (2) Yielded in exact hits order, duplicates preserved at their
     // original positions.
@@ -5205,10 +5258,11 @@ fn citable_source_ids_does_not_dedup_duplicate_hit_source_ids() {
 ///   - positive control: the clean id IS accepted
 #[test]
 fn validate_citation_rejects_zero_width_space_smuggling() {
-    use super::types::{CitationError, EidosCitation, EidosChunkId};
+    use super::types::{CitationError, EidosChunkId, EidosCitation};
 
     let mut lex = InMemoryLexicalIndex::new(manifest());
-    lex.insert(doc("note-a"), "alpha lychee content", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("note-a"), "alpha lychee content", EidosSourceKind::Note)
+        .unwrap();
     let q = EidosQuery::new("lychee", EidosRetrievalMode::Lexical, 16);
     let packet = lex.retrieve(&q, 1_700_000_000_000);
     assert_eq!(packet.hits.len(), 1);
@@ -5301,9 +5355,7 @@ fn citation_error_variant_count_is_two() {
     use super::types::{CitationError, EidosChunkId};
 
     let m = manifest();
-    let fab = CitationError::FabricatedSourceId(
-        EidosChunkId::new("drift-detector-id").unwrap(),
-    );
+    let fab = CitationError::FabricatedSourceId(EidosChunkId::new("drift-detector-id").unwrap());
     let mm = CitationError::ManifestMismatch {
         packet: m.clone(),
         citation: EidosIndexManifestId::new("drift-detector-other").unwrap(),
@@ -5393,9 +5445,7 @@ fn citation_error_variant_count_is_two() {
 fn citation_error_display_format_is_stable() {
     use super::types::{CitationError, EidosChunkId};
 
-    let fab = CitationError::FabricatedSourceId(
-        EidosChunkId::new("ghost-id::lex").unwrap(),
-    );
+    let fab = CitationError::FabricatedSourceId(EidosChunkId::new("ghost-id::lex").unwrap());
     assert_eq!(
         fab.to_string(),
         r#"fabricated source_id rejected by closed-citation contract: EidosChunkId("ghost-id::lex")"#,
@@ -5428,9 +5478,8 @@ fn citation_error_display_format_is_stable() {
     // a custom Display, not yet implemented), the escape would
     // collapse and invisible smuggling would silently disappear from
     // diagnostics — this test trips first.
-    let smuggled = CitationError::FabricatedSourceId(
-        EidosChunkId::new("note\u{200B}-a::lex").unwrap(),
-    );
+    let smuggled =
+        CitationError::FabricatedSourceId(EidosChunkId::new("note\u{200B}-a::lex").unwrap());
     let rendered = smuggled.to_string();
     assert!(
         rendered.contains("\\u{200b}"),
@@ -5452,9 +5501,8 @@ fn citation_error_display_format_is_stable() {
     // of every byte after it, so an operator reading the diagnostic
     // would see scrambled / reversed text and miss the attack. The
     // Debug-escape form makes the smuggling attempt visible.
-    let bidi_smuggled = CitationError::FabricatedSourceId(
-        EidosChunkId::new("\u{202E}note-a::lex").unwrap(),
-    );
+    let bidi_smuggled =
+        CitationError::FabricatedSourceId(EidosChunkId::new("\u{202E}note-a::lex").unwrap());
     let bidi_rendered = bidi_smuggled.to_string();
     assert!(
         bidi_rendered.contains("\\u{202e}"),
@@ -5503,17 +5551,15 @@ fn citation_error_display_renders_multilingual_ids_verbatim() {
     // mixed cases together cover the four major non-Latin script
     // families a vault is realistically authored in.
     let multilingual: &[(&str, &str)] = &[
-        ("Han (Chinese)",       "笔记-a::lex"),
-        ("Hangul (Korean)",     "노트-a::lex"),
-        ("Arabic",              "ملاحظة-a::lex"),
-        ("Devanagari",          "नोट-a::lex"),
-        ("Mixed Han+Latin",     "笔note-a::lex"),
+        ("Han (Chinese)", "笔记-a::lex"),
+        ("Hangul (Korean)", "노트-a::lex"),
+        ("Arabic", "ملاحظة-a::lex"),
+        ("Devanagari", "नोट-a::lex"),
+        ("Mixed Han+Latin", "笔note-a::lex"),
     ];
 
     for (label, raw_id) in multilingual {
-        let err = CitationError::FabricatedSourceId(
-            EidosChunkId::new(*raw_id).unwrap(),
-        );
+        let err = CitationError::FabricatedSourceId(EidosChunkId::new(*raw_id).unwrap());
         let rendered = err.to_string();
 
         // (1) The exact non-Latin payload appears verbatim in the
@@ -5599,8 +5645,10 @@ fn validate_citation_is_safe_under_concurrent_reads() {
     use std::sync::Arc;
 
     let mut lex = InMemoryLexicalIndex::new(manifest());
-    lex.insert(doc("note-a"), "alpha guanabana", EidosSourceKind::Note).unwrap();
-    lex.insert(doc("note-b"), "beta guanabana", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("note-a"), "alpha guanabana", EidosSourceKind::Note)
+        .unwrap();
+    lex.insert(doc("note-b"), "beta guanabana", EidosSourceKind::Note)
+        .unwrap();
     let q = EidosQuery::new("guanabana", EidosRetrievalMode::Lexical, 16);
     let packet = Arc::new(lex.retrieve(&q, 1_700_000_000_000));
     assert_eq!(packet.hits.len(), 2);
@@ -5626,8 +5674,14 @@ fn validate_citation_is_safe_under_concurrent_reads() {
     let baseline_stale = format!("{:?}", packet.validate_citation(&cite_stale));
     // Sanity on baseline.
     assert!(baseline_legit.contains("Ok"), "legit baseline must be Ok");
-    assert!(baseline_forged.contains("FabricatedSourceId"), "forged baseline must be FabricatedSourceId");
-    assert!(baseline_stale.contains("ManifestMismatch"), "stale baseline must be ManifestMismatch");
+    assert!(
+        baseline_forged.contains("FabricatedSourceId"),
+        "forged baseline must be FabricatedSourceId"
+    );
+    assert!(
+        baseline_stale.contains("ManifestMismatch"),
+        "stale baseline must be ManifestMismatch"
+    );
 
     // Spawn 4 workers, each running 100 mixed-citation validate
     // calls. Each worker accumulates divergence reports if any
@@ -5705,11 +5759,13 @@ fn validate_citation_is_safe_under_concurrent_reads() {
 ///     equal results (no per-packet state leaks in)
 #[test]
 fn validate_citations_is_deterministic_across_repeated_calls() {
-    use super::types::{CitationError, EidosCitation, EidosChunkId};
+    use super::types::{CitationError, EidosChunkId, EidosCitation};
 
     let mut lex = InMemoryLexicalIndex::new(manifest());
-    lex.insert(doc("note-a"), "alpha pomegranate", EidosSourceKind::Note).unwrap();
-    lex.insert(doc("note-b"), "beta pomegranate", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("note-a"), "alpha pomegranate", EidosSourceKind::Note)
+        .unwrap();
+    lex.insert(doc("note-b"), "beta pomegranate", EidosSourceKind::Note)
+        .unwrap();
     let q = EidosQuery::new("pomegranate", EidosRetrievalMode::Lexical, 16);
     let packet = lex.retrieve(&q, 1_700_000_000_000);
     assert_eq!(packet.hits.len(), 2);
@@ -5775,8 +5831,10 @@ fn validate_citations_is_deterministic_across_repeated_calls() {
     // retriever build to rule out per-instance state leaks (memoization
     // caches, interior mutability, etc.).
     let mut lex2 = InMemoryLexicalIndex::new(manifest());
-    lex2.insert(doc("note-a"), "alpha pomegranate", EidosSourceKind::Note).unwrap();
-    lex2.insert(doc("note-b"), "beta pomegranate", EidosSourceKind::Note).unwrap();
+    lex2.insert(doc("note-a"), "alpha pomegranate", EidosSourceKind::Note)
+        .unwrap();
+    lex2.insert(doc("note-b"), "beta pomegranate", EidosSourceKind::Note)
+        .unwrap();
     let packet2 = lex2.retrieve(&q, 1_700_000_000_000);
     assert_eq!(
         packet, packet2,
@@ -5800,7 +5858,10 @@ fn validate_citations_is_deterministic_across_repeated_calls() {
             CitationError::ManifestMismatch { .. } => saw_mm = true,
         }
     }
-    assert!(saw_fab && saw_mm, "test must cover both CitationError variants");
+    assert!(
+        saw_fab && saw_mm,
+        "test must cover both CitationError variants"
+    );
 }
 
 /// Closed-citation contract rejects **homoglyph smuggling** —
@@ -5843,12 +5904,13 @@ fn validate_citations_is_deterministic_across_repeated_calls() {
 ///     using identical Latin/Cyrillic representations)
 #[test]
 fn validate_citation_rejects_cyrillic_latin_homoglyph_smuggling() {
-    use super::types::{CitationError, EidosCitation, EidosChunkId};
+    use super::types::{CitationError, EidosChunkId, EidosCitation};
 
     let mut lex = InMemoryLexicalIndex::new(manifest());
     // Latin ASCII source content. The retriever's source_id will be
     // "note-a::lex" composed entirely of Latin ASCII.
-    lex.insert(doc("note-a"), "alpha papaya content", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("note-a"), "alpha papaya content", EidosSourceKind::Note)
+        .unwrap();
     let q = EidosQuery::new("papaya", EidosRetrievalMode::Lexical, 16);
     let packet = lex.retrieve(&q, 1_700_000_000_000);
     assert_eq!(packet.hits.len(), 1);
@@ -5944,7 +6006,7 @@ fn validate_citation_rejects_cyrillic_latin_homoglyph_smuggling() {
 /// optimization that breaks the all-hits scan.
 #[test]
 fn validate_citation_iterates_all_hits_not_just_early_ones() {
-    use super::types::{EidosCitation, EidosChunkId};
+    use super::types::{EidosChunkId, EidosCitation};
 
     let mut lex = InMemoryLexicalIndex::new(manifest());
     // 25 documents, all matching the query so all surface in the packet.
@@ -5957,11 +6019,16 @@ fn validate_citation_iterates_all_hits_not_just_early_ones() {
             doc(&format!("note-{i:02}")),
             "alpha quince",
             EidosSourceKind::Note,
-        ).unwrap();
+        )
+        .unwrap();
     }
     let q = EidosQuery::new("quince", EidosRetrievalMode::Lexical, 32);
     let packet = lex.retrieve(&q, 1_700_000_000_000);
-    assert_eq!(packet.hits.len(), N, "all 25 docs must surface in the packet");
+    assert_eq!(
+        packet.hits.len(),
+        N,
+        "all 25 docs must surface in the packet"
+    );
 
     // Build citations for first, middle, and last hits.
     let make_cite = |src: EidosChunkId| EidosCitation {
@@ -6051,7 +6118,8 @@ fn closed_citation_contract_holds_at_scale_1000_hits() {
             doc(&format!("scale-{i:04}")),
             "alpha sapota",
             EidosSourceKind::Note,
-        ).unwrap();
+        )
+        .unwrap();
     }
     let q = EidosQuery::new("sapota", EidosRetrievalMode::Lexical, u16::MAX);
     let packet = lex.retrieve(&q, 1_700_000_000_000);
@@ -6149,7 +6217,7 @@ fn closed_citation_contract_holds_at_scale_1000_hits() {
 ///     drift detector.
 #[test]
 fn eidos_citation_json_wire_format_is_stable_and_round_trips() {
-    use super::types::{EidosCitation, EidosChunkId};
+    use super::types::{EidosChunkId, EidosCitation};
 
     // (1) Exact shape — the Swift bridge depends on this.
     let simple = EidosCitation {
@@ -6158,8 +6226,7 @@ fn eidos_citation_json_wire_format_is_stable_and_round_trips() {
     };
     let json = serde_json::to_string(&simple).expect("serialize");
     assert_eq!(
-        json,
-        r#"{"source_id":"note-a::lex","manifest_id":"snap-A"}"#,
+        json, r#"{"source_id":"note-a::lex","manifest_id":"snap-A"}"#,
         "EidosCitation JSON wire shape drifted — Swift bridge \
          (EpistemosTests/EidosParityTests.swift) must update in \
          lock-step. Newtype-struct serde default: inner String of \
@@ -6206,8 +6273,8 @@ fn eidos_citation_json_wire_format_is_stable_and_round_trips() {
         };
         let j = serde_json::to_string(&cite)
             .unwrap_or_else(|e| panic!("{label}: serialize failed: {e}"));
-        let back: EidosCitation = serde_json::from_str(&j)
-            .unwrap_or_else(|e| panic!("{label}: deserialize failed: {e}"));
+        let back: EidosCitation =
+            serde_json::from_str(&j).unwrap_or_else(|e| panic!("{label}: deserialize failed: {e}"));
 
         // Critical: round-trip preserves the EXACT byte payload of
         // source_id. If serde silently normalized at either side, the
@@ -6265,19 +6332,19 @@ fn eidos_citation_json_wire_format_is_stable_and_round_trips() {
 /// unchanged.
 #[test]
 fn eidos_citation_json_wire_round_trips_for_multilingual_non_latin_ids() {
-    use super::types::{EidosCitation, EidosChunkId};
+    use super::types::{EidosChunkId, EidosCitation};
 
     let manifest_id = EidosIndexManifestId::new("snap-A").unwrap();
     let multilingual_ids: &[(&str, &str)] = &[
-        ("Han (Chinese)",        "笔记-a::lex"),
-        ("Hangul (Korean)",      "노트-a::lex"),
-        ("Arabic",               "ملاحظة-a::lex"),
-        ("Devanagari",           "नोट-a::lex"),
-        ("Mixed Han+Latin",      "笔note-a::lex"),
+        ("Han (Chinese)", "笔记-a::lex"),
+        ("Hangul (Korean)", "노트-a::lex"),
+        ("Arabic", "ملاحظة-a::lex"),
+        ("Devanagari", "नोट-a::lex"),
+        ("Mixed Han+Latin", "笔note-a::lex"),
         // Anchor case — combined script + script-internal NFC form
         // (Hangul jamo decomposed). Catches a future "we'll NFC-fold
         // at serialize" regression specifically on jamo.
-        ("Hangul jamo NFD",      "\u{1102}\u{1169}트-a::lex"),
+        ("Hangul jamo NFD", "\u{1102}\u{1169}트-a::lex"),
     ];
 
     for (label, raw_id) in multilingual_ids {
@@ -6287,8 +6354,8 @@ fn eidos_citation_json_wire_round_trips_for_multilingual_non_latin_ids() {
         };
         let j = serde_json::to_string(&cite)
             .unwrap_or_else(|e| panic!("{label}: serialize failed: {e}"));
-        let back: EidosCitation = serde_json::from_str(&j)
-            .unwrap_or_else(|e| panic!("{label}: deserialize failed: {e}"));
+        let back: EidosCitation =
+            serde_json::from_str(&j).unwrap_or_else(|e| panic!("{label}: deserialize failed: {e}"));
 
         assert_eq!(
             back.source_id.as_str().as_bytes(),
@@ -6345,10 +6412,15 @@ fn eidos_citation_json_wire_round_trips_for_multilingual_non_latin_ids() {
 /// operator can see what was injected.
 #[test]
 fn validate_citation_rejects_whitespace_padding_smuggling() {
-    use super::types::{CitationError, EidosCitation, EidosChunkId};
+    use super::types::{CitationError, EidosChunkId, EidosCitation};
 
     let mut lex = InMemoryLexicalIndex::new(manifest());
-    lex.insert(doc("note-a"), "alpha rambutan content", EidosSourceKind::Note).unwrap();
+    lex.insert(
+        doc("note-a"),
+        "alpha rambutan content",
+        EidosSourceKind::Note,
+    )
+    .unwrap();
     let q = EidosQuery::new("rambutan", EidosRetrievalMode::Lexical, 16);
     let packet = lex.retrieve(&q, 1_700_000_000_000);
     assert_eq!(packet.hits.len(), 1);
@@ -6356,11 +6428,11 @@ fn validate_citation_rejects_whitespace_padding_smuggling() {
     assert_eq!(clean, "note-a::lex");
 
     let variants: &[(&str, String)] = &[
-        ("trailing-space",   format!("{clean} ")),
-        ("leading-space",    format!(" {clean}")),
+        ("trailing-space", format!("{clean} ")),
+        ("leading-space", format!(" {clean}")),
         ("trailing-newline", format!("{clean}\n")),
-        ("trailing-tab",     format!("{clean}\t")),
-        ("embedded-space",   "note-a ::lex".to_string()),
+        ("trailing-tab", format!("{clean}\t")),
+        ("embedded-space", "note-a ::lex".to_string()),
     ];
 
     for (label, padded) in variants {
@@ -6433,10 +6505,11 @@ fn validate_citation_rejects_whitespace_padding_smuggling() {
 /// so operators can spot the injection).
 #[test]
 fn validate_citation_rejects_control_character_smuggling() {
-    use super::types::{CitationError, EidosCitation, EidosChunkId};
+    use super::types::{CitationError, EidosChunkId, EidosCitation};
 
     let mut lex = InMemoryLexicalIndex::new(manifest());
-    lex.insert(doc("note-a"), "alpha jujube content", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("note-a"), "alpha jujube content", EidosSourceKind::Note)
+        .unwrap();
     let q = EidosQuery::new("jujube", EidosRetrievalMode::Lexical, 16);
     let packet = lex.retrieve(&q, 1_700_000_000_000);
     assert_eq!(packet.hits.len(), 1);
@@ -6444,10 +6517,10 @@ fn validate_citation_rejects_control_character_smuggling() {
     assert_eq!(clean, "note-a::lex");
 
     let variants: &[(&str, String, char)] = &[
-        ("SOH-prefix",    format!("\u{0001}{clean}"),                    '\u{0001}'),
-        ("BEL-suffix",    format!("{clean}\u{0007}"),                    '\u{0007}'),
-        ("ESC-mid",       format!("note\u{001B}-a::lex"),                '\u{001B}'),
-        ("DEL-suffix",    format!("{clean}\u{007F}"),                    '\u{007F}'),
+        ("SOH-prefix", format!("\u{0001}{clean}"), '\u{0001}'),
+        ("BEL-suffix", format!("{clean}\u{0007}"), '\u{0007}'),
+        ("ESC-mid", format!("note\u{001B}-a::lex"), '\u{001B}'),
+        ("DEL-suffix", format!("{clean}\u{007F}"), '\u{007F}'),
     ];
 
     for (label, smuggled, ctrl) in variants {
@@ -6525,10 +6598,11 @@ fn validate_citation_rejects_control_character_smuggling() {
 /// attack vector is visible in logs).
 #[test]
 fn validate_citation_rejects_bidirectional_text_override_smuggling() {
-    use super::types::{CitationError, EidosCitation, EidosChunkId};
+    use super::types::{CitationError, EidosChunkId, EidosCitation};
 
     let mut lex = InMemoryLexicalIndex::new(manifest());
-    lex.insert(doc("note-a"), "alpha okra content", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("note-a"), "alpha okra content", EidosSourceKind::Note)
+        .unwrap();
     let q = EidosQuery::new("okra", EidosRetrievalMode::Lexical, 16);
     let packet = lex.retrieve(&q, 1_700_000_000_000);
     assert_eq!(packet.hits.len(), 1);
@@ -6536,10 +6610,26 @@ fn validate_citation_rejects_bidirectional_text_override_smuggling() {
     assert_eq!(clean, "note-a::lex");
 
     let variants: &[(&str, String, char)] = &[
-        ("RLO-prepended (U+202E)", format!("\u{202E}{clean}"),     '\u{202E}'),
-        ("LRO-mid (U+202D)",       format!("note\u{202D}-a::lex"), '\u{202D}'),
-        ("RLE-appended (U+202B)",  format!("{clean}\u{202B}"),     '\u{202B}'),
-        ("FSI-mid (U+2068)",       format!("note-\u{2068}a::lex"), '\u{2068}'),
+        (
+            "RLO-prepended (U+202E)",
+            format!("\u{202E}{clean}"),
+            '\u{202E}',
+        ),
+        (
+            "LRO-mid (U+202D)",
+            format!("note\u{202D}-a::lex"),
+            '\u{202D}',
+        ),
+        (
+            "RLE-appended (U+202B)",
+            format!("{clean}\u{202B}"),
+            '\u{202B}',
+        ),
+        (
+            "FSI-mid (U+2068)",
+            format!("note-\u{2068}a::lex"),
+            '\u{2068}',
+        ),
     ];
 
     for (label, smuggled, bidi) in variants {
@@ -6642,16 +6732,27 @@ fn validate_citation_accepts_multilingual_non_latin_source_ids() {
     // shape as iter 137 but composed with non-Latin context to prove
     // the byte-strict gate holds across script boundaries.
     let cases: &[(&str, &str, &str, &str)] = &[
-        ("Han (Chinese)",     "笔记-a",        "alpha durian content", "筆記-a"),
-        ("Hangul (Korean)",   "노트-a",        "alpha durian content", "노드-a"),
-        ("Arabic",            "ملاحظة-a",      "alpha durian content", "ملاحضة-a"),
-        ("Devanagari",        "नोट-a",         "alpha durian content", "नौट-a"),
-        ("Mixed Han+Latin",   "笔note-a",      "alpha durian content", "笔nоte-a"),
+        ("Han (Chinese)", "笔记-a", "alpha durian content", "筆記-a"),
+        (
+            "Hangul (Korean)",
+            "노트-a",
+            "alpha durian content",
+            "노드-a",
+        ),
+        ("Arabic", "ملاحظة-a", "alpha durian content", "ملاحضة-a"),
+        ("Devanagari", "नोट-a", "alpha durian content", "नौट-a"),
+        (
+            "Mixed Han+Latin",
+            "笔note-a",
+            "alpha durian content",
+            "笔nоte-a",
+        ),
     ];
 
     for (label, doc_id, body, smuggled_doc_id) in cases {
         let mut lex = InMemoryLexicalIndex::new(manifest());
-        lex.insert(doc(doc_id), *body, EidosSourceKind::Note).unwrap();
+        lex.insert(doc(doc_id), *body, EidosSourceKind::Note)
+            .unwrap();
         let q = EidosQuery::new("durian", EidosRetrievalMode::Lexical, 16);
         let packet = lex.retrieve(&q, 1_700_000_000_000);
         assert_eq!(packet.hits.len(), 1, "{label}: retriever must find the doc");
@@ -6741,17 +6842,18 @@ fn validate_citation_accepts_multilingual_non_latin_manifest_ids() {
     use super::types::{CitationError, EidosCitation};
 
     let cases: &[(&str, &str, &str)] = &[
-        ("Han (Chinese)",     "快照-α",        "快照-β"),
-        ("Hangul (Korean)",   "스냅샷-a",      "스냅숏-a"),
-        ("Arabic",            "لقطة-a",        "لقطه-a"),
-        ("Devanagari",        "स्नैपशॉट-a",   "स्नैपशौट-a"),
-        ("Mixed Han+Latin",   "快照-snap",     "快照-snар"),
+        ("Han (Chinese)", "快照-α", "快照-β"),
+        ("Hangul (Korean)", "스냅샷-a", "스냅숏-a"),
+        ("Arabic", "لقطة-a", "لقطه-a"),
+        ("Devanagari", "स्नैपशॉट-a", "स्नैपशौट-a"),
+        ("Mixed Han+Latin", "快照-snap", "快照-snар"),
     ];
 
     for (label, legit_manifest, smuggled_manifest) in cases {
         let manifest = EidosIndexManifestId::new(*legit_manifest).unwrap();
         let mut lex = InMemoryLexicalIndex::new(manifest.clone());
-        lex.insert(doc("note-a"), "alpha durian content", EidosSourceKind::Note).unwrap();
+        lex.insert(doc("note-a"), "alpha durian content", EidosSourceKind::Note)
+            .unwrap();
         let q = EidosQuery::new("durian", EidosRetrievalMode::Lexical, 16);
         let packet = lex.retrieve(&q, 1_700_000_000_000);
         assert_eq!(packet.hits.len(), 1, "{label}: retriever must find the doc");
@@ -6793,7 +6895,10 @@ fn validate_citation_accepts_multilingual_non_latin_manifest_ids() {
             manifest_id: smuggled_mid.clone(),
         };
         match packet.validate_citation(&smuggled_cite).unwrap_err() {
-            CitationError::ManifestMismatch { packet: pm, citation: cm } => {
+            CitationError::ManifestMismatch {
+                packet: pm,
+                citation: cm,
+            } => {
                 assert_eq!(
                     pm, packet.manifest_id,
                     "{label}: packet manifest preserved verbatim in diagnostic"
@@ -6860,17 +6965,34 @@ fn validate_citation_holds_byte_strict_with_both_non_latin_axes() {
     // (label, legit doc_id non-Latin, legit manifest non-Latin,
     //  smuggled doc_id variant, smuggled manifest variant)
     let cases: &[(&str, &str, &str, &str, &str)] = &[
-        ("Han (Chinese)",   "笔记-a",       "快照-α",       "筆記-a",       "快照-β"),
-        ("Hangul (Korean)", "노트-a",       "스냅샷-a",     "노드-a",       "스냅숏-a"),
-        ("Arabic",          "ملاحظة-a",     "لقطة-a",       "ملاحضة-a",     "لقطه-a"),
-        ("Devanagari",      "नोट-a",        "स्नैपशॉट-a",  "नौट-a",        "स्नैपशौट-a"),
-        ("Mixed Han+Latin", "笔note-a",     "快照-snap",    "笔nоte-a",     "快照-snар"),
+        ("Han (Chinese)", "笔记-a", "快照-α", "筆記-a", "快照-β"),
+        (
+            "Hangul (Korean)",
+            "노트-a",
+            "스냅샷-a",
+            "노드-a",
+            "스냅숏-a",
+        ),
+        ("Arabic", "ملاحظة-a", "لقطة-a", "ملاحضة-a", "لقطه-a"),
+        ("Devanagari", "नोट-a", "स्नैपशॉट-a", "नौट-a", "स्नैपशौट-a"),
+        (
+            "Mixed Han+Latin",
+            "笔note-a",
+            "快照-snap",
+            "笔nоte-a",
+            "快照-snар",
+        ),
     ];
 
     for (label, legit_doc, legit_manifest, smug_doc, smug_manifest) in cases {
         let m = EidosIndexManifestId::new(*legit_manifest).unwrap();
         let mut lex = InMemoryLexicalIndex::new(m.clone());
-        lex.insert(doc(*legit_doc), "alpha durian content", EidosSourceKind::Note).unwrap();
+        lex.insert(
+            doc(*legit_doc),
+            "alpha durian content",
+            EidosSourceKind::Note,
+        )
+        .unwrap();
         let q = EidosQuery::new("durian", EidosRetrievalMode::Lexical, 16);
         let packet = lex.retrieve(&q, 1_700_000_000_000);
         assert_eq!(packet.hits.len(), 1, "{label}: retriever must find the doc");
@@ -6907,23 +7029,37 @@ fn validate_citation_holds_byte_strict_with_both_non_latin_axes() {
             CitationError::FabricatedSourceId(returned) => {
                 assert_eq!(returned.as_str(), &smug_src, "{label}: src-only mutation");
             }
-            other => panic!("{label}: expected FabricatedSourceId (src-only mutation), got {other:?}"),
+            other => {
+                panic!("{label}: expected FabricatedSourceId (src-only mutation), got {other:?}")
+            }
         }
 
         // (3) Source legit, manifest mutated → ManifestMismatch
         // (iter 130 precedence holds).
         let smug_mid = EidosIndexManifestId::new(*smug_manifest).unwrap();
-        assert_ne!(smug_mid.as_str().as_bytes(), packet.manifest_id.as_str().as_bytes());
+        assert_ne!(
+            smug_mid.as_str().as_bytes(),
+            packet.manifest_id.as_str().as_bytes()
+        );
         let cite_manifest_only = EidosCitation {
             source_id: legit_src.clone(),
             manifest_id: smug_mid.clone(),
         };
         match packet.validate_citation(&cite_manifest_only).unwrap_err() {
-            CitationError::ManifestMismatch { packet: pm, citation: cm } => {
+            CitationError::ManifestMismatch {
+                packet: pm,
+                citation: cm,
+            } => {
                 assert_eq!(pm, packet.manifest_id);
-                assert_eq!(cm.as_str(), *smug_manifest, "{label}: manifest-only mutation");
+                assert_eq!(
+                    cm.as_str(),
+                    *smug_manifest,
+                    "{label}: manifest-only mutation"
+                );
             }
-            other => panic!("{label}: expected ManifestMismatch (manifest-only mutation), got {other:?}"),
+            other => {
+                panic!("{label}: expected ManifestMismatch (manifest-only mutation), got {other:?}")
+            }
         }
 
         // (4) BOTH axes mutated → ManifestMismatch (iter 130 precedence
@@ -6934,10 +7070,14 @@ fn validate_citation_holds_byte_strict_with_both_non_latin_axes() {
             manifest_id: smug_mid.clone(),
         };
         match packet.validate_citation(&cite_both).unwrap_err() {
-            CitationError::ManifestMismatch { packet: pm, citation: cm } => {
+            CitationError::ManifestMismatch {
+                packet: pm,
+                citation: cm,
+            } => {
                 assert_eq!(pm, packet.manifest_id);
                 assert_eq!(
-                    cm.as_str(), *smug_manifest,
+                    cm.as_str(),
+                    *smug_manifest,
                     "{label}: both-axis mutation must surface as ManifestMismatch \
                      by iter 130 precedence — even though source_id is ALSO \
                      fabricated, the manifest check fires first and shadows it"
@@ -7009,8 +7149,8 @@ fn validate_citation_is_byte_strict_against_non_latin_nfc_nfd() {
         // U+1102 + U+1169 (6 bytes).
         (
             "Hangul (precomposed vs jamo)",
-            "\u{B178}트-a",                    // 노트-a NFC
-            "\u{1102}\u{1169}트-a",            // 노트-a NFD (first syllable only)
+            "\u{B178}트-a",         // 노트-a NFC
+            "\u{1102}\u{1169}트-a", // 노트-a NFD (first syllable only)
         ),
         // Devanagari: 'का' precomposed = U+0915 U+093E (4 bytes
         // total, 2 codepoints). Decomposed equivalent forms exist
@@ -7020,22 +7160,23 @@ fn validate_citation_is_byte_strict_against_non_latin_nfc_nfd() {
         // semantic equivalence is not.
         (
             "Devanagari (composed vs decomposed-ish)",
-            "\u{0915}\u{0940}-a",              // की-a NFC (KA + I-sign-long)
-            "\u{0915}\u{093F}\u{0901}-a",      // कि‌ँ-a (KA + I-sign-short + candrabindu)
+            "\u{0915}\u{0940}-a",         // की-a NFC (KA + I-sign-long)
+            "\u{0915}\u{093F}\u{0901}-a", // कि‌ँ-a (KA + I-sign-short + candrabindu)
         ),
         // Latin extended: 'é' precomposed U+00E9 (2 bytes) vs
         // decomposed 'e' + combining acute U+0301 (3 bytes).
         // Anchors back to iter 127's vector style on Latin extended.
         (
             "Latin extended (é precomposed vs decomposed)",
-            "caf\u{00E9}-a",                   // café-a NFC
-            "cafe\u{0301}-a",                  // café-a NFD
+            "caf\u{00E9}-a",  // café-a NFC
+            "cafe\u{0301}-a", // café-a NFD
         ),
     ];
 
     for (label, nfc_doc, nfd_doc) in cases {
         let mut lex = InMemoryLexicalIndex::new(manifest());
-        lex.insert(doc(*nfc_doc), "alpha durian content", EidosSourceKind::Note).unwrap();
+        lex.insert(doc(*nfc_doc), "alpha durian content", EidosSourceKind::Note)
+            .unwrap();
         let q = EidosQuery::new("durian", EidosRetrievalMode::Lexical, 16);
         let packet = lex.retrieve(&q, 1_700_000_000_000);
         assert_eq!(packet.hits.len(), 1, "{label}: retriever must find the doc");
@@ -7122,7 +7263,8 @@ fn validate_citation_rejects_wire_smuggled_empty_payload_ids() {
     use super::types::{CitationError, EidosCitation};
 
     let mut lex = InMemoryLexicalIndex::new(manifest());
-    lex.insert(doc("note-a"), "alpha durian content", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("note-a"), "alpha durian content", EidosSourceKind::Note)
+        .unwrap();
     let q = EidosQuery::new("durian", EidosRetrievalMode::Lexical, 16);
     let packet = lex.retrieve(&q, 1_700_000_000_000);
     assert_eq!(packet.hits.len(), 1);
@@ -7168,7 +7310,10 @@ fn validate_citation_rejects_wire_smuggled_empty_payload_ids() {
         .expect("wire deserialize allows empty manifest_id");
     assert_eq!(smuggled_manifest.manifest_id.as_str(), "");
     match packet.validate_citation(&smuggled_manifest).unwrap_err() {
-        CitationError::ManifestMismatch { packet: pm, citation: cm } => {
+        CitationError::ManifestMismatch {
+            packet: pm,
+            citation: cm,
+        } => {
             assert_eq!(pm, packet.manifest_id, "packet manifest preserved");
             assert_eq!(
                 cm.as_str(),
@@ -7233,8 +7378,10 @@ fn validate_citations_is_consistent_with_validate_citation_lift() {
     use super::types::{EidosChunkId, EidosCitation};
 
     let mut lex = InMemoryLexicalIndex::new(manifest());
-    lex.insert(doc("note-a"), "alpha persimmon", EidosSourceKind::Note).unwrap();
-    lex.insert(doc("note-b"), "beta persimmon", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("note-a"), "alpha persimmon", EidosSourceKind::Note)
+        .unwrap();
+    lex.insert(doc("note-b"), "beta persimmon", EidosSourceKind::Note)
+        .unwrap();
     let q = EidosQuery::new("persimmon", EidosRetrievalMode::Lexical, 16);
     let packet = lex.retrieve(&q, 1_700_000_000_000);
     assert_eq!(packet.hits.len(), 2);
@@ -7304,8 +7451,7 @@ fn validate_citations_is_consistent_with_validate_citation_lift() {
 
         // (1) The iff property: Ok ⟺ all singular Ok.
         assert_eq!(
-            batch_ok,
-            singular_all_ok,
+            batch_ok, singular_all_ok,
             "{label}: validate_citations.is_ok() must equal \
              cs.iter().all(validate_citation(c).is_ok())"
         );
@@ -7526,7 +7672,10 @@ fn validate_citation_ignores_hit_metadata_only_source_id_matters() {
             source_id: EidosChunkId::new("hit-shadow::lex").unwrap(),
             document_id: doc("doc-shadow"),
             kind: EidosSourceKind::Shadow,
-            span: Some(EidosSpan { byte_start: 5, byte_end: 5 }),
+            span: Some(EidosSpan {
+                byte_start: 5,
+                byte_end: 5,
+            }),
             confidence: 0.001,
             score: EidosScoreComponents::default(),
             provenance: EidosProvenance {
@@ -7542,7 +7691,10 @@ fn validate_citation_ignores_hit_metadata_only_source_id_matters() {
             source_id: EidosChunkId::new("hit-mixedmode::lex").unwrap(),
             document_id: doc("doc-mixedmode"),
             kind: EidosSourceKind::Note,
-            span: Some(EidosSpan { byte_start: 0, byte_end: 100 }),
+            span: Some(EidosSpan {
+                byte_start: 0,
+                byte_end: 100,
+            }),
             confidence: 1.0,
             score: EidosScoreComponents {
                 lexical: 0.5,
@@ -7629,11 +7781,26 @@ fn eidos_citation_eq_is_conjunctive_on_both_fields() {
     let man_a = EidosIndexManifestId::new("manifest-A").unwrap();
     let man_b = EidosIndexManifestId::new("manifest-B").unwrap();
 
-    let aa = EidosCitation { source_id: src_a.clone(), manifest_id: man_a.clone() };
-    let aa_twin = EidosCitation { source_id: src_a.clone(), manifest_id: man_a.clone() };
-    let ab = EidosCitation { source_id: src_a.clone(), manifest_id: man_b.clone() };
-    let ba = EidosCitation { source_id: src_b.clone(), manifest_id: man_a.clone() };
-    let bb = EidosCitation { source_id: src_b.clone(), manifest_id: man_b.clone() };
+    let aa = EidosCitation {
+        source_id: src_a.clone(),
+        manifest_id: man_a.clone(),
+    };
+    let aa_twin = EidosCitation {
+        source_id: src_a.clone(),
+        manifest_id: man_a.clone(),
+    };
+    let ab = EidosCitation {
+        source_id: src_a.clone(),
+        manifest_id: man_b.clone(),
+    };
+    let ba = EidosCitation {
+        source_id: src_b.clone(),
+        manifest_id: man_a.clone(),
+    };
+    let bb = EidosCitation {
+        source_id: src_b.clone(),
+        manifest_id: man_b.clone(),
+    };
 
     // (a) Same source_id, same manifest_id → equal.
     assert_eq!(aa, aa_twin, "same/same must be equal");
@@ -7808,7 +7975,9 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
 
     // Sanity: confirm the drift detector itself references each
     // iter number so a future archaeologist can trace the lineage.
-    for iter_num in ["iter 127", "iter 133", "iter 137", "iter 140", "iter 154", "iter 195"] {
+    for iter_num in [
+        "iter 127", "iter 133", "iter 137", "iter 140", "iter 154", "iter 195",
+    ] {
         assert!(
             src.contains(iter_num),
             "drift detector requires citation of {iter_num} for lineage \
@@ -7888,7 +8057,10 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
             "VECTOR_ITER_NUMBERS must be strictly monotonic ({} < {} \
              violated by {:?} → {:?}). Array order reflects chronological \
              pin order.",
-            a, b, w[0], w[1]
+            a,
+            b,
+            w[0],
+            w[1]
         );
     }
     // Canonical-first lock: VECTOR_ITER_NUMBERS[0] must be "iter 127"
@@ -7904,7 +8076,8 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
     // When a 7th vector is added, this assertion fires and forces
     // a deliberate update.
     assert_eq!(
-        VECTOR_ITER_NUMBERS.last(), Some(&"iter 195"),
+        VECTOR_ITER_NUMBERS.last(),
+        Some(&"iter 195"),
         "smuggling-vector cluster tip is iter 195 (bidi-override / \
          Trojan Source). If a 7th vector is added, update this assertion \
          + the array + the count + the module docstring + STATUS.md in \
@@ -7925,7 +8098,10 @@ fn closed_citation_named_smuggling_vector_tests_are_all_present() {
         // Iter 239: non-trivial label length before `(iter N)` anchor.
         // Catches a future "shorter label" cleanup that strips
         // meaningful descriptors and leaves only iter anchors.
-        let prefix_len = label.find("(iter ").map(|j| label[..j].trim().len()).unwrap_or(0);
+        let prefix_len = label
+            .find("(iter ")
+            .map(|j| label[..j].trim().len())
+            .unwrap_or(0);
         assert!(
             prefix_len > 5,
             "smuggling vector label {label:?} at position {i} has trivial \
@@ -8105,12 +8281,13 @@ fn status_md_test_count_matches_actual_attribute_count() {
         .expect("STATUS.md must contain the canonical 'N unit tests' claim line");
     let head = &status[..idx];
     // Walk backwards to find the integer.
-    let last_space = head.rfind(|c: char| !c.is_ascii_digit())
+    let last_space = head
+        .rfind(|c: char| !c.is_ascii_digit())
         .map(|i| i + 1)
         .unwrap_or(0);
-    let claimed: usize = head[last_space..]
-        .parse()
-        .unwrap_or_else(|e| panic!("could not parse test count from STATUS.md: {e}; head ends at {head:?}"));
+    let claimed: usize = head[last_space..].parse().unwrap_or_else(|e| {
+        panic!("could not parse test count from STATUS.md: {e}; head ends at {head:?}")
+    });
 
     // Walk the eidos directory, count #[test] attribute lines in
     // each .rs file.
@@ -8122,8 +8299,7 @@ fn status_md_test_count_matches_actual_attribute_count() {
         if path.extension().and_then(|s| s.to_str()) != Some("rs") {
             continue;
         }
-        let src = std::fs::read_to_string(&path)
-            .unwrap_or_else(|e| panic!("read {path:?}: {e}"));
+        let src = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {path:?}: {e}"));
         for line in src.lines() {
             if line.trim() == "#[test]" {
                 actual += 1;
@@ -8242,7 +8418,8 @@ fn closed_citation_contract_holds_across_retrieval_modes() {
     // here as the cross-mode anchor.
     {
         let mut lex = InMemoryLexicalIndex::new(m.clone());
-        lex.insert(doc("note-a"), "alpha sapodilla", EidosSourceKind::Note).unwrap();
+        lex.insert(doc("note-a"), "alpha sapodilla", EidosSourceKind::Note)
+            .unwrap();
         let q = EidosQuery::new("sapodilla", EidosRetrievalMode::Lexical, 8);
         sweep("Lexical", lex.retrieve(&q, ts));
     }
@@ -8250,7 +8427,8 @@ fn closed_citation_contract_holds_across_retrieval_modes() {
     // (2) Semantic — vector retrieval with cosine ranking.
     {
         let mut sem = InMemorySemanticIndex::new(m.clone(), 3);
-        sem.insert(doc("emb-a"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note).unwrap();
+        sem.insert(doc("emb-a"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
         let q = EidosQuery::with_vector(
             "anything",
             EidosRetrievalMode::Semantic,
@@ -8263,7 +8441,12 @@ fn closed_citation_contract_holds_across_retrieval_modes() {
     // (3) Recency — time-ordered.
     {
         let mut rec = InMemoryRecencyIndex::new(m.clone());
-        rec.insert(doc("recent-a"), "any body", ts - 1000, EidosSourceKind::Note);
+        rec.insert(
+            doc("recent-a"),
+            "any body",
+            ts - 1000,
+            EidosSourceKind::Note,
+        );
         let q = EidosQuery::new("", EidosRetrievalMode::Recency, 8);
         sweep("Recency", rec.retrieve(&q, ts));
     }
@@ -8279,7 +8462,11 @@ fn closed_citation_contract_holds_across_retrieval_modes() {
     // (5) RawArchive — direct doc-id lookup.
     {
         let mut raw = InMemoryRawArchive::new(m.clone());
-        raw.insert(doc("vault-a"), "raw body content", EidosSourceKind::RawArchive);
+        raw.insert(
+            doc("vault-a"),
+            "raw body content",
+            EidosSourceKind::RawArchive,
+        );
         let q = EidosQuery::new("vault-a", EidosRetrievalMode::RawArchive, 8);
         sweep("RawArchive", raw.retrieve(&q, ts));
     }
@@ -8394,22 +8581,34 @@ fn closed_citation_contract_holds_across_modes_for_multilingual_ids() {
     // (1) Lexical — Han doc_id.
     {
         let mut lex = InMemoryLexicalIndex::new(m.clone());
-        lex.insert(doc("笔记-a"), "alpha durian content", EidosSourceKind::Note).unwrap();
+        lex.insert(doc("笔记-a"), "alpha durian content", EidosSourceKind::Note)
+            .unwrap();
         let q = EidosQuery::new("durian", EidosRetrievalMode::Lexical, 8);
-        sweep("Lexical-Han", lex.retrieve(&q, ts), "笔记-a", "筆記-a::lex".to_string());
+        sweep(
+            "Lexical-Han",
+            lex.retrieve(&q, ts),
+            "笔记-a",
+            "筆記-a::lex".to_string(),
+        );
     }
 
     // (2) Semantic — Hangul doc_id.
     {
         let mut sem = InMemorySemanticIndex::new(m.clone(), 3);
-        sem.insert(doc("노트-a"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note).unwrap();
+        sem.insert(doc("노트-a"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
         let q = EidosQuery::with_vector(
             "anything",
             EidosRetrievalMode::Semantic,
             8,
             vec![1.0, 0.0, 0.0],
         );
-        sweep("Semantic-Hangul", sem.retrieve(&q, ts), "노트-a", "노드-a::sem".to_string());
+        sweep(
+            "Semantic-Hangul",
+            sem.retrieve(&q, ts),
+            "노트-a",
+            "노드-a::sem".to_string(),
+        );
     }
 
     // (3) Recency — Arabic doc_id.
@@ -8417,7 +8616,12 @@ fn closed_citation_contract_holds_across_modes_for_multilingual_ids() {
         let mut rec = InMemoryRecencyIndex::new(m.clone());
         rec.insert(doc("ملاحظة-a"), "any body", ts - 1000, EidosSourceKind::Note);
         let q = EidosQuery::new("", EidosRetrievalMode::Recency, 8);
-        sweep("Recency-Arabic", rec.retrieve(&q, ts), "ملاحظة-a", "ملاحضة-a::recency".to_string());
+        sweep(
+            "Recency-Arabic",
+            rec.retrieve(&q, ts),
+            "ملاحظة-a",
+            "ملاحضة-a::recency".to_string(),
+        );
     }
 
     // (4) CodeSymbol — Devanagari doc_id (the SYMBOL stays ASCII;
@@ -8441,7 +8645,11 @@ fn closed_citation_contract_holds_across_modes_for_multilingual_ids() {
     // document_id for RawArchive, so the query is also multilingual).
     {
         let mut raw = InMemoryRawArchive::new(m.clone());
-        raw.insert(doc("笔note-a"), "raw body content", EidosSourceKind::RawArchive);
+        raw.insert(
+            doc("笔note-a"),
+            "raw body content",
+            EidosSourceKind::RawArchive,
+        );
         let q = EidosQuery::new("笔note-a", EidosRetrievalMode::RawArchive, 8);
         sweep(
             "RawArchive-MixedHanLatin",
@@ -8501,10 +8709,14 @@ fn validate_citations_preserves_input_order_across_multilingual_batch() {
     // smuggled entries don't have corresponding hits — they should
     // surface as fabricated or stale-manifest errors.
     let mut lex = InMemoryLexicalIndex::new(m.clone());
-    lex.insert(doc("note-a"), "alpha durian", EidosSourceKind::Note).unwrap();
-    lex.insert(doc("笔记-a"), "alpha durian", EidosSourceKind::Note).unwrap();
-    lex.insert(doc("笔记-b"), "alpha durian", EidosSourceKind::Note).unwrap();
-    lex.insert(doc("नोट-a"), "alpha durian", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("note-a"), "alpha durian", EidosSourceKind::Note)
+        .unwrap();
+    lex.insert(doc("笔记-a"), "alpha durian", EidosSourceKind::Note)
+        .unwrap();
+    lex.insert(doc("笔记-b"), "alpha durian", EidosSourceKind::Note)
+        .unwrap();
+    lex.insert(doc("नोट-a"), "alpha durian", EidosSourceKind::Note)
+        .unwrap();
     let q = EidosQuery::new("durian", EidosRetrievalMode::Lexical, 16);
     let packet = lex.retrieve(&q, ts);
     assert_eq!(packet.hits.len(), 4);
@@ -8596,7 +8808,11 @@ fn validate_citations_preserves_input_order_across_multilingual_batch() {
     // Variant at each index.
     match &errors[0].1 {
         CitationError::FabricatedSourceId(id) => {
-            assert_eq!(id.as_str(), "筆記-a::lex", "index 1: Han-traditional smuggled");
+            assert_eq!(
+                id.as_str(),
+                "筆記-a::lex",
+                "index 1: Han-traditional smuggled"
+            );
         }
         other => panic!("index 1: expected FabricatedSourceId, got {other:?}"),
     }
@@ -8607,16 +8823,26 @@ fn validate_citations_preserves_input_order_across_multilingual_batch() {
         other => panic!("index 3: expected FabricatedSourceId, got {other:?}"),
     }
     match &errors[2].1 {
-        CitationError::ManifestMismatch { packet: pm, citation: cm } => {
-            assert_eq!(pm, &packet.manifest_id, "index 4: packet manifest preserved");
-            assert_eq!(cm, &stale, "index 4: stale manifest preserved (iter 130 precedence)");
+        CitationError::ManifestMismatch {
+            packet: pm,
+            citation: cm,
+        } => {
+            assert_eq!(
+                pm, &packet.manifest_id,
+                "index 4: packet manifest preserved"
+            );
+            assert_eq!(
+                cm, &stale,
+                "index 4: stale manifest preserved (iter 130 precedence)"
+            );
         }
         other => panic!("index 4: expected ManifestMismatch, got {other:?}"),
     }
     match &errors[3].1 {
         CitationError::FabricatedSourceId(id) => {
             assert_eq!(
-                id.as_str(), "笔nоte-a::lex",
+                id.as_str(),
+                "笔nоte-a::lex",
                 "index 6: mixed Han+Cyrillic-homoglyph smuggled — \
                  diagnostic preserves the mixed-script bytes verbatim"
             );
@@ -8662,7 +8888,8 @@ fn validate_citation_is_invariant_under_hit_permutation() {
             doc(&format!("note-{i}")),
             "alpha tamarillo",
             EidosSourceKind::Note,
-        ).unwrap();
+        )
+        .unwrap();
     }
     let q = EidosQuery::new("tamarillo", EidosRetrievalMode::Lexical, 16);
     let canonical = lex.retrieve(&q, 1_700_000_000_000);
@@ -8800,7 +9027,10 @@ fn closed_citation_contract_holds_for_fusion_filter_ledger_retrievers() {
     // independently of the iter-147 surface if either needs
     // retriever-specific assertions later.
     let sweep = |label: &str, packet: super::types::EidosContextPacket| {
-        assert!(!packet.hits.is_empty(), "{label}: non-empty packet required");
+        assert!(
+            !packet.hits.is_empty(),
+            "{label}: non-empty packet required"
+        );
         assert_eq!(packet.manifest_id, m, "{label}: manifest_id binding");
 
         let real = packet.hits[0].source_id.clone();
@@ -8846,9 +9076,15 @@ fn closed_citation_contract_holds_for_fusion_filter_ledger_retrievers() {
     // so the fusion has a real candidate set.
     {
         let mut lex = InMemoryLexicalIndex::new(m.clone());
-        lex.insert(doc("hybrid-a"), "alpha cherimoya content", EidosSourceKind::Note).unwrap();
+        lex.insert(
+            doc("hybrid-a"),
+            "alpha cherimoya content",
+            EidosSourceKind::Note,
+        )
+        .unwrap();
         let mut sem = InMemorySemanticIndex::new(m.clone(), 3);
-        sem.insert(doc("hybrid-a"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note).unwrap();
+        sem.insert(doc("hybrid-a"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
         let hybrid = HybridRetriever::new(lex, sem).unwrap();
         let q = EidosQuery::with_vector(
             "cherimoya",
@@ -8865,8 +9101,12 @@ fn closed_citation_contract_holds_for_fusion_filter_ledger_retrievers() {
     // direction) AND fabricated ids (this iter's negative control).
     {
         let mut inner = InMemoryLexicalIndex::new(m.clone());
-        inner.insert(doc("note-a"), "alpha mangosteen", EidosSourceKind::Note).unwrap();
-        inner.insert(doc("note-b"), "beta mangosteen", EidosSourceKind::Note).unwrap();
+        inner
+            .insert(doc("note-a"), "alpha mangosteen", EidosSourceKind::Note)
+            .unwrap();
+        inner
+            .insert(doc("note-b"), "beta mangosteen", EidosSourceKind::Note)
+            .unwrap();
         let mut pv = ProvenanceVerifiedRetriever::new(inner);
         // Admit only note-a's chunk id (matches Lexical's `::lex`
         // suffix convention).
@@ -8898,10 +9138,18 @@ fn closed_citation_contract_holds_for_fusion_filter_ledger_retrievers() {
     // supporting one claim.
     {
         let mut led = ClaimLedger::new();
-        led.commit_evidence(Evidence::new(EvidenceId("ev-1".to_string()), "src-1", 1_000))
-            .unwrap();
-        led.commit_evidence(Evidence::new(EvidenceId("ev-2".to_string()), "src-2", 1_001))
-            .unwrap();
+        led.commit_evidence(Evidence::new(
+            EvidenceId("ev-1".to_string()),
+            "src-1",
+            1_000,
+        ))
+        .unwrap();
+        led.commit_evidence(Evidence::new(
+            EvidenceId("ev-2".to_string()),
+            "src-2",
+            1_001,
+        ))
+        .unwrap();
         led.commit_claim(
             Claim::new(ClaimId("claim:tamarind-is-tangy".to_string()), "x", 1_002),
             vec![],
@@ -9187,30 +9435,54 @@ fn closed_citation_structural_shape_locks_are_all_present() {
     let src = std::fs::read_to_string(path).expect("read hardening_tests.rs");
 
     let required_shape_locks: &[(&str, &str)] = &[
-        ("CitationError 2-variant (iter 134)",
-         "fn citation_error_variant_count_is_two"),
-        ("6-vector taxonomy (iter 158)",
-         "fn closed_citation_named_smuggling_vector_tests_are_all_present"),
-        ("EidosCitation 2-field (iter 172)",
-         "fn eidos_citation_has_exactly_two_public_fields"),
-        ("EidosContextPacket 3-field (iter 173)",
-         "fn eidos_context_packet_has_exactly_three_public_fields"),
-        ("EidosHit 7-field (iter 174)",
-         "fn eidos_hit_has_exactly_seven_public_fields"),
-        ("EidosProvenance 3-field (iter 175)",
-         "fn eidos_provenance_has_exactly_three_public_fields"),
-        ("EidosScoreComponents 4-field (iter 176)",
-         "fn eidos_score_components_has_exactly_four_public_fields"),
-        ("EidosSpan 2-field (iter 177)",
-         "fn eidos_span_has_exactly_two_public_fields"),
-        ("EidosQuery 5-field (iter 178)",
-         "fn eidos_query_has_exactly_five_public_fields"),
-        ("IdError 1-variant (iter 179)",
-         "fn id_error_has_exactly_one_variant"),
-        ("EidosIndexManifest 4-field (iter 183)",
-         "fn eidos_index_manifest_has_exactly_four_public_fields"),
-        ("EidosCitationEnvelope 2-field (iter 683)",
-         "fn eidos_citation_envelope_has_exactly_two_public_fields"),
+        (
+            "CitationError 2-variant (iter 134)",
+            "fn citation_error_variant_count_is_two",
+        ),
+        (
+            "6-vector taxonomy (iter 158)",
+            "fn closed_citation_named_smuggling_vector_tests_are_all_present",
+        ),
+        (
+            "EidosCitation 2-field (iter 172)",
+            "fn eidos_citation_has_exactly_two_public_fields",
+        ),
+        (
+            "EidosContextPacket 3-field (iter 173)",
+            "fn eidos_context_packet_has_exactly_three_public_fields",
+        ),
+        (
+            "EidosHit 7-field (iter 174)",
+            "fn eidos_hit_has_exactly_seven_public_fields",
+        ),
+        (
+            "EidosProvenance 3-field (iter 175)",
+            "fn eidos_provenance_has_exactly_three_public_fields",
+        ),
+        (
+            "EidosScoreComponents 4-field (iter 176)",
+            "fn eidos_score_components_has_exactly_four_public_fields",
+        ),
+        (
+            "EidosSpan 2-field (iter 177)",
+            "fn eidos_span_has_exactly_two_public_fields",
+        ),
+        (
+            "EidosQuery 5-field (iter 178)",
+            "fn eidos_query_has_exactly_five_public_fields",
+        ),
+        (
+            "IdError 1-variant (iter 179)",
+            "fn id_error_has_exactly_one_variant",
+        ),
+        (
+            "EidosIndexManifest 4-field (iter 183)",
+            "fn eidos_index_manifest_has_exactly_four_public_fields",
+        ),
+        (
+            "EidosCitationEnvelope 2-field (iter 683)",
+            "fn eidos_citation_envelope_has_exactly_two_public_fields",
+        ),
     ];
 
     assert_eq!(
@@ -9257,8 +9529,7 @@ fn closed_citation_structural_shape_locks_are_all_present() {
     // duplicate entry would silently leave one shape-lock unpinned
     // while the count assertion still passed.
     use std::collections::HashSet;
-    let shape_needles: HashSet<&str> =
-        required_shape_locks.iter().map(|(_, n)| *n).collect();
+    let shape_needles: HashSet<&str> = required_shape_locks.iter().map(|(_, n)| *n).collect();
     assert_eq!(
         shape_needles.len(),
         required_shape_locks.len(),
@@ -9266,8 +9537,7 @@ fn closed_citation_structural_shape_locks_are_all_present() {
          shape-lock must have a UNIQUE test fn. Likely a copy-paste \
          error when adding a new entry."
     );
-    let shape_labels: HashSet<&str> =
-        required_shape_locks.iter().map(|(l, _)| *l).collect();
+    let shape_labels: HashSet<&str> = required_shape_locks.iter().map(|(l, _)| *l).collect();
     assert_eq!(
         shape_labels.len(),
         required_shape_locks.len(),
@@ -9342,7 +9612,10 @@ fn closed_citation_structural_shape_locks_are_all_present() {
         // Iter 239: non-trivial label length before `(iter N)` anchor.
         // Catches a future "shorter label" cleanup that strips
         // meaningful descriptors and leaves only iter anchors.
-        let prefix_len = label.find("(iter ").map(|i| label[..i].trim().len()).unwrap_or(0);
+        let prefix_len = label
+            .find("(iter ")
+            .map(|i| label[..i].trim().len())
+            .unwrap_or(0);
         assert!(
             prefix_len > 5,
             "shape-lock label {label:?} has trivial descriptor (≤5 chars \
@@ -9435,9 +9708,8 @@ fn closed_citation_structural_shape_locks_are_all_present() {
     // 2-field (iter 172)" to "EidosHit 7-field (iter 172)" instead
     // of "(iter 174)").
     const SHAPE_LOCK_ITER_NUMBERS: [&str; 12] = [
-        "iter 134", "iter 158", "iter 172", "iter 173", "iter 174",
-        "iter 175", "iter 176", "iter 177", "iter 178", "iter 179",
-        "iter 183", "iter 683",
+        "iter 134", "iter 158", "iter 172", "iter 173", "iter 174", "iter 175", "iter 176",
+        "iter 177", "iter 178", "iter 179", "iter 183", "iter 683",
     ];
     // Length-equality lock: parallel to iter 224 for vectors. The
     // zip silently truncates if the arrays differ in length.
@@ -9475,7 +9747,10 @@ fn closed_citation_structural_shape_locks_are_all_present() {
             "SHAPE_LOCK_ITER_NUMBERS must be strictly monotonic ({} < {} \
              violated by {:?} → {:?}). Array order reflects chronological \
              pin order — keep it sorted ascending.",
-            a, b, w[0], w[1]
+            a,
+            b,
+            w[0],
+            w[1]
         );
     }
     // Canonical-first lock: SHAPE_LOCK_ITER_NUMBERS[0] must be
@@ -9494,7 +9769,8 @@ fn closed_citation_structural_shape_locks_are_all_present() {
     // added shape-lock). When a 13th shape-lock is added, this
     // assertion fires and forces a deliberate update.
     assert_eq!(
-        SHAPE_LOCK_ITER_NUMBERS.last(), Some(&"iter 683"),
+        SHAPE_LOCK_ITER_NUMBERS.last(),
+        Some(&"iter 683"),
         "shape-lock cluster tip is iter 683 (EidosCitationEnvelope 2-field). \
          If a 13th shape-lock is added, update this assertion + the array \
          + the count + the module docstring + STATUS.md in lock-step."
@@ -9766,8 +10042,18 @@ fn chat_layer_hashset_dedup_then_validate_composes_correctly() {
     use std::collections::HashSet;
 
     let mut lex = InMemoryLexicalIndex::new(manifest());
-    lex.insert(doc("note-a"), "alpha mulberry content", EidosSourceKind::Note).unwrap();
-    lex.insert(doc("note-b"), "beta mulberry content", EidosSourceKind::Note).unwrap();
+    lex.insert(
+        doc("note-a"),
+        "alpha mulberry content",
+        EidosSourceKind::Note,
+    )
+    .unwrap();
+    lex.insert(
+        doc("note-b"),
+        "beta mulberry content",
+        EidosSourceKind::Note,
+    )
+    .unwrap();
     let q = EidosQuery::new("mulberry", EidosRetrievalMode::Lexical, 16);
     let packet = lex.retrieve(&q, 1_700_000_000_000);
     assert_eq!(packet.hits.len(), 2);
@@ -9813,7 +10099,11 @@ fn chat_layer_hashset_dedup_then_validate_composes_correctly() {
     // The HashSet must contain exactly 4 distinct citations
     // (iter 181 truth table).
     let deduped_set: HashSet<EidosCitation> = full.iter().cloned().collect();
-    assert_eq!(deduped_set.len(), 4, "deduped HashSet has 4 distinct entries");
+    assert_eq!(
+        deduped_set.len(),
+        4,
+        "deduped HashSet has 4 distinct entries"
+    );
 
     let deduped: Vec<EidosCitation> = deduped_set.into_iter().collect();
     let deduped_errs = packet.validate_citations(&deduped).unwrap_err();
@@ -9881,11 +10171,26 @@ fn hashset_dedup_follows_eidos_citation_full_truth_table() {
     let man_a = EidosIndexManifestId::new("manifest-A").unwrap();
     let man_b = EidosIndexManifestId::new("manifest-B").unwrap();
 
-    let aa = EidosCitation { source_id: src_a.clone(), manifest_id: man_a.clone() };
-    let aa_dup = EidosCitation { source_id: src_a.clone(), manifest_id: man_a.clone() };
-    let ab = EidosCitation { source_id: src_a, manifest_id: man_b.clone() };
-    let ba = EidosCitation { source_id: src_b.clone(), manifest_id: man_a };
-    let bb = EidosCitation { source_id: src_b, manifest_id: man_b };
+    let aa = EidosCitation {
+        source_id: src_a.clone(),
+        manifest_id: man_a.clone(),
+    };
+    let aa_dup = EidosCitation {
+        source_id: src_a.clone(),
+        manifest_id: man_a.clone(),
+    };
+    let ab = EidosCitation {
+        source_id: src_a,
+        manifest_id: man_b.clone(),
+    };
+    let ba = EidosCitation {
+        source_id: src_b.clone(),
+        manifest_id: man_a,
+    };
+    let bb = EidosCitation {
+        source_id: src_b,
+        manifest_id: man_b,
+    };
 
     let mut set: HashSet<EidosCitation> = HashSet::new();
     set.insert(aa);
@@ -10170,11 +10475,11 @@ fn eidos_context_packet_clone_is_byte_perfect_for_multilingual_packets() {
 
     // (label, source_id non-Latin, manifest_id non-Latin)
     let cases: &[(&str, &str, &str)] = &[
-        ("Han (Chinese)",     "笔记-a::lex",       "快照-α"),
-        ("Hangul (Korean)",   "노트-a::lex",       "스냅샷-a"),
-        ("Arabic",            "ملاحظة-a::lex",     "لقطة-a"),
-        ("Devanagari",        "नोट-a::lex",        "स्नैपशॉट-a"),
-        ("Mixed Han+Latin",   "笔note-a::lex",     "快照-snap"),
+        ("Han (Chinese)", "笔记-a::lex", "快照-α"),
+        ("Hangul (Korean)", "노트-a::lex", "스냅샷-a"),
+        ("Arabic", "ملاحظة-a::lex", "لقطة-a"),
+        ("Devanagari", "नोट-a::lex", "स्नैपशॉट-a"),
+        ("Mixed Han+Latin", "笔note-a::lex", "快照-snap"),
     ];
 
     for (label, src_id, manifest_str) in cases {
@@ -10293,18 +10598,16 @@ fn eidos_context_packet_clone_is_byte_perfect_for_multilingual_packets() {
 /// provenance.manifest_id).
 #[test]
 fn eidos_hit_clone_is_byte_perfect_for_multilingual_non_latin_ids() {
-    use super::types::{
-        EidosChunkId, EidosHit, EidosProvenance, EidosScoreComponents,
-    };
+    use super::types::{EidosChunkId, EidosHit, EidosProvenance, EidosScoreComponents};
 
     // (label, source_id non-Latin, document_id non-Latin,
     //  provenance.manifest_id non-Latin)
     let cases: &[(&str, &str, &str, &str)] = &[
-        ("Han (Chinese)",     "笔记-a::lex",       "笔记-a",       "快照-α"),
-        ("Hangul (Korean)",   "노트-a::lex",       "노트-a",       "스냅샷-a"),
-        ("Arabic",            "ملاحظة-a::lex",     "ملاحظة-a",     "لقطة-a"),
-        ("Devanagari",        "नोट-a::lex",        "नोट-a",        "स्नैपशॉट-a"),
-        ("Mixed Han+Latin",   "笔note-a::lex",     "笔note-a",     "快照-snap"),
+        ("Han (Chinese)", "笔记-a::lex", "笔记-a", "快照-α"),
+        ("Hangul (Korean)", "노트-a::lex", "노트-a", "스냅샷-a"),
+        ("Arabic", "ملاحظة-a::lex", "ملاحظة-a", "لقطة-a"),
+        ("Devanagari", "नोट-a::lex", "नोट-a", "स्नैपशॉट-a"),
+        ("Mixed Han+Latin", "笔note-a::lex", "笔note-a", "快照-snap"),
     ];
 
     for (label, src_id, doc_id, provenance_manifest) in cases {
@@ -10437,16 +10740,17 @@ fn lexical_source_id_sort_is_deterministic_byte_lex_across_scripts() {
     // scrambled (non-sorted) order to force the retriever's
     // tie-break to do real work.
     let doc_ids: [&str; 7] = [
-        "笔记-a",      // Han
-        "note-a",      // Latin ASCII
-        "नोट-a",       // Devanagari
-        "café-a",      // Latin extended (single combining)
-        "ملاحظة-a",    // Arabic
-        "노트-a",      // Hangul
-        "笔note-a",    // Mixed Han+Latin
+        "笔记-a",   // Han
+        "note-a",   // Latin ASCII
+        "नोट-a",    // Devanagari
+        "café-a",   // Latin extended (single combining)
+        "ملاحظة-a",  // Arabic
+        "노트-a",   // Hangul
+        "笔note-a", // Mixed Han+Latin
     ];
     for did in &doc_ids {
-        lex.insert(doc(*did), "alpha durian content", EidosSourceKind::Note).unwrap();
+        lex.insert(doc(*did), "alpha durian content", EidosSourceKind::Note)
+            .unwrap();
     }
 
     let q = EidosQuery::new("durian", EidosRetrievalMode::Lexical, 32);
@@ -10456,10 +10760,7 @@ fn lexical_source_id_sort_is_deterministic_byte_lex_across_scripts() {
     // Compute the expected byte-lex order independently — sort the
     // source_id strings via the canonical `&str::cmp` which IS
     // byte-lex on UTF-8.
-    let mut expected: Vec<String> = doc_ids
-        .iter()
-        .map(|d| format!("{d}::lex"))
-        .collect();
+    let mut expected: Vec<String> = doc_ids.iter().map(|d| format!("{d}::lex")).collect();
     expected.sort_by(|a, b| a.as_str().cmp(b.as_str()));
 
     let actual: Vec<String> = packet
@@ -10564,19 +10865,19 @@ fn id_constructors_accept_and_round_trip_arbitrary_non_latin_utf8() {
     use super::types::{EidosChunkId, EidosDocumentId};
 
     let cases: &[(&str, &str)] = &[
-        ("Han only",              "笔记"),
-        ("Hangul only",           "노트"),
-        ("Arabic only",           "ملاحظة"),
-        ("Devanagari only",       "नोट"),
-        ("Mixed Han+Latin",       "笔note-a"),
-        ("Hangul jamo NFD",       "\u{1102}\u{1169}트-a"),
+        ("Han only", "笔记"),
+        ("Hangul only", "노트"),
+        ("Arabic only", "ملاحظة"),
+        ("Devanagari only", "नोट"),
+        ("Mixed Han+Latin", "笔note-a"),
+        ("Hangul jamo NFD", "\u{1102}\u{1169}트-a"),
         ("Latin extended (é NFC)", "café-a"),
-        ("Latin extended NFD",    "cafe\u{0301}-a"),
+        ("Latin extended NFD", "cafe\u{0301}-a"),
         ("Mixed scripts (4-way)", "笔note-노트-ملاحظة"),
         // Single-codepoint Han (the smallest possible non-ASCII id —
         // catches a "minimum length" guard that requires N chars
         // before accepting a non-ASCII payload).
-        ("Single Han",            "笔"),
+        ("Single Han", "笔"),
     ];
 
     for (label, payload) in cases {
@@ -10676,18 +10977,19 @@ fn closed_citation_contract_holds_for_multilingual_fusion_retrievers() {
     // (A) Hybrid 2-way fusion — Han doc_id.
     {
         let mut lex = InMemoryLexicalIndex::new(m.clone());
-        lex.insert(doc("笔记-a"), "alpha durian content", EidosSourceKind::Note).unwrap();
+        lex.insert(doc("笔记-a"), "alpha durian content", EidosSourceKind::Note)
+            .unwrap();
         let mut sem = InMemorySemanticIndex::new(m.clone(), 3);
-        sem.insert(doc("笔记-a"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note).unwrap();
+        sem.insert(doc("笔记-a"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
         let hybrid = HybridRetriever::new(lex, sem).unwrap();
-        let q = EidosQuery::with_vector(
-            "durian",
-            EidosRetrievalMode::Hybrid,
-            8,
-            vec![1.0, 0.0, 0.0],
-        );
+        let q =
+            EidosQuery::with_vector("durian", EidosRetrievalMode::Hybrid, 8, vec![1.0, 0.0, 0.0]);
         let packet = hybrid.retrieve(&q, ts);
-        assert!(!packet.hits.is_empty(), "Hybrid 2-way must surface the Han doc");
+        assert!(
+            !packet.hits.is_empty(),
+            "Hybrid 2-way must surface the Han doc"
+        );
 
         let fused_src = packet.hits[0].source_id.clone();
         let fused_str = fused_src.as_str().to_string();
@@ -10741,26 +11043,35 @@ fn closed_citation_contract_holds_for_multilingual_fusion_retrievers() {
     // a Hangul-jamo-NFD smuggling vector (cross-references iter 661).
     {
         let mut lex = InMemoryLexicalIndex::new(m.clone());
-        lex.insert(doc("\u{B178}트-a"), "alpha durian content", EidosSourceKind::Note).unwrap();
-        let mut sem = InMemorySemanticIndex::new(m.clone(), 3);
-        sem.insert(doc("\u{B178}트-a"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note).unwrap();
-        let mut rec = InMemoryRecencyIndex::new(m.clone());
-        rec.insert(doc("\u{B178}트-a"), "any body", ts - 1000, EidosSourceKind::Note);
-
-        let hn = HybridRetrieverN::new(vec![
-            Box::new(lex),
-            Box::new(sem),
-            Box::new(rec),
-        ])
+        lex.insert(
+            doc("\u{B178}트-a"),
+            "alpha durian content",
+            EidosSourceKind::Note,
+        )
         .unwrap();
-        let q = EidosQuery::with_vector(
-            "durian",
-            EidosRetrievalMode::Hybrid,
-            8,
+        let mut sem = InMemorySemanticIndex::new(m.clone(), 3);
+        sem.insert(
+            doc("\u{B178}트-a"),
             vec![1.0, 0.0, 0.0],
+            EidosSourceKind::Note,
+        )
+        .unwrap();
+        let mut rec = InMemoryRecencyIndex::new(m.clone());
+        rec.insert(
+            doc("\u{B178}트-a"),
+            "any body",
+            ts - 1000,
+            EidosSourceKind::Note,
         );
+
+        let hn = HybridRetrieverN::new(vec![Box::new(lex), Box::new(sem), Box::new(rec)]).unwrap();
+        let q =
+            EidosQuery::with_vector("durian", EidosRetrievalMode::Hybrid, 8, vec![1.0, 0.0, 0.0]);
         let packet = hn.retrieve(&q, ts);
-        assert!(!packet.hits.is_empty(), "Hybrid_N 3-way must surface the Hangul doc");
+        assert!(
+            !packet.hits.is_empty(),
+            "Hybrid_N 3-way must surface the Hangul doc"
+        );
 
         let fused_src = packet.hits[0].source_id.clone();
         let fused_str = fused_src.as_str().to_string();
@@ -10857,11 +11168,7 @@ fn closed_citation_contract_holds_for_multilingual_graph_neighborhood() {
     graph.add_edge(han_seed.clone(), arabic_neighbor.clone());
 
     // Query with the Han seed.
-    let q = EidosQuery::new(
-        han_seed.as_str(),
-        EidosRetrievalMode::GraphNeighborhood,
-        8,
-    );
+    let q = EidosQuery::new(han_seed.as_str(), EidosRetrievalMode::GraphNeighborhood, 8);
     let packet = graph.retrieve(&q, ts);
     assert_eq!(packet.hits.len(), 2, "graph must surface both neighbors");
 
@@ -10870,11 +11177,7 @@ fn closed_citation_contract_holds_for_multilingual_graph_neighborhood() {
     // ascending — Arabic comes first because the first byte of 'م'
     // (U+0645, UTF-8: D9 85) is less than first byte of '노' (U+B178,
     // UTF-8: EB 85 B8).
-    let actual_srcs: Vec<&str> = packet
-        .hits
-        .iter()
-        .map(|h| h.source_id.as_str())
-        .collect();
+    let actual_srcs: Vec<&str> = packet.hits.iter().map(|h| h.source_id.as_str()).collect();
 
     let expected_arabic = "ملاحظة-a::graph::from::笔记-a";
     let expected_hangul = "노트-a::graph::from::笔记-a";
@@ -10952,7 +11255,10 @@ fn closed_citation_contract_holds_for_multilingual_graph_neighborhood() {
         source_id: EidosChunkId::new(smuggled_neighbor).unwrap(),
         manifest_id: packet.manifest_id.clone(),
     };
-    match packet.validate_citation(&cite_neighbor_smuggle).unwrap_err() {
+    match packet
+        .validate_citation(&cite_neighbor_smuggle)
+        .unwrap_err()
+    {
         CitationError::FabricatedSourceId(returned) => {
             assert_eq!(
                 returned.as_str(),
@@ -11006,8 +11312,10 @@ fn closed_citation_contract_holds_for_multilingual_provenance_verified() {
 
     // Inner Lexical with Han doc_id.
     let mut lex = InMemoryLexicalIndex::new(m.clone());
-    lex.insert(doc("笔记-a"), "alpha durian content", EidosSourceKind::Note).unwrap();
-    lex.insert(doc("노트-a"), "alpha durian content", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("笔记-a"), "alpha durian content", EidosSourceKind::Note)
+        .unwrap();
+    lex.insert(doc("노트-a"), "alpha durian content", EidosSourceKind::Note)
+        .unwrap();
 
     // PV wrapper — admit ONLY the Han source_id, NOT the Hangul one.
     let mut pv = ProvenanceVerifiedRetriever::new(lex);
@@ -11144,12 +11452,15 @@ fn closed_citation_contract_holds_for_multilingual_claim_evidence() {
 
     let q = EidosQuery::new(han_claim, EidosRetrievalMode::ClaimEvidence, 8);
     let packet = ce.retrieve(&q, ts);
-    assert_eq!(packet.hits.len(), 1, "ClaimEvidence must surface the Han evidence");
+    assert_eq!(
+        packet.hits.len(),
+        1,
+        "ClaimEvidence must surface the Han evidence"
+    );
 
     let legit_src = packet.hits[0].source_id.as_str().to_string();
     assert_eq!(
-        legit_src,
-        "笔记-a::claim::claim:主张-α::supports",
+        legit_src, "笔记-a::claim::claim:主张-α::supports",
         "ClaimEvidence source_id template must concatenate both \
          multilingual segments verbatim, no canonicalization"
     );
@@ -11305,12 +11616,15 @@ fn closed_citation_contract_holds_for_multilingual_ledger_backed_claim_evidence(
     let retriever = LedgerBackedClaimEvidence::from_ledger(&led, m.clone());
     let q = EidosQuery::new("claim:主张-α", EidosRetrievalMode::ClaimEvidence, 8);
     let packet = retriever.retrieve(&q, ts);
-    assert_eq!(packet.hits.len(), 1, "LedgerBackedClaimEvidence must surface the multilingual evidence");
+    assert_eq!(
+        packet.hits.len(),
+        1,
+        "LedgerBackedClaimEvidence must surface the multilingual evidence"
+    );
 
     let legit_src = packet.hits[0].source_id.as_str().to_string();
     assert_eq!(
-        legit_src,
-        "笔记-a::claim::claim:主张-α::supports",
+        legit_src, "笔记-a::claim::claim:主张-α::supports",
         "LedgerBackedClaimEvidence source_id template must produce \
          byte-identical output to InMemoryClaimEvidence's iter 675 \
          pin (W-49 parity invariant at the multilingual axis)"
@@ -11343,7 +11657,9 @@ fn closed_citation_contract_holds_for_multilingual_ledger_backed_claim_evidence(
         CitationError::FabricatedSourceId(returned) => {
             assert_eq!(returned.as_str(), smug_evidence);
         }
-        other => panic!("LedgerBacked: expected FabricatedSourceId (evidence smuggle), got {other:?}"),
+        other => {
+            panic!("LedgerBacked: expected FabricatedSourceId (evidence smuggle), got {other:?}")
+        }
     }
 
     // (3) Claim-id-half smuggle (主张 → 主張).
@@ -11430,8 +11746,7 @@ fn recency_with_since_filter_preserves_multilingual_source_ids() {
 
     // (1) with_since(t_minus_2) — all 3 surface (inclusive lower bound).
     {
-        let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16)
-            .with_since(t_minus_2);
+        let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16).with_since(t_minus_2);
         let packet = rec.retrieve(&q, t0);
         assert_eq!(packet.hits.len(), 3, "with_since(t_minus_2): all 3 surface");
 
@@ -11482,10 +11797,13 @@ fn recency_with_since_filter_preserves_multilingual_source_ids() {
     // (2) with_since(t_minus_1) — Hangul filtered out (t_minus_2 < t_minus_1),
     //     Arabic and Han survive.
     {
-        let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16)
-            .with_since(t_minus_1);
+        let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16).with_since(t_minus_1);
         let packet = rec.retrieve(&q, t0);
-        assert_eq!(packet.hits.len(), 2, "with_since(t_minus_1): Hangul filtered");
+        assert_eq!(
+            packet.hits.len(),
+            2,
+            "with_since(t_minus_1): Hangul filtered"
+        );
 
         let srcs: Vec<&str> = packet.hits.iter().map(|h| h.source_id.as_str()).collect();
         assert!(!srcs.contains(&"노트-a::recency"), "Hangul filtered out");
@@ -11516,8 +11834,7 @@ fn recency_with_since_filter_preserves_multilingual_source_ids() {
 
     // (3) with_since(t0 + 1) — post-floor, zero hits, empty packet.
     {
-        let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16)
-            .with_since(t0 + 1);
+        let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16).with_since(t0 + 1);
         let packet = rec.retrieve(&q, t0);
         assert!(
             packet.hits.is_empty(),
@@ -11571,8 +11888,7 @@ fn closed_citation_validator_harness_rejects_mixed_multilingual_recency_batch() 
     rec.insert(doc("ملاحظة-a"), "body", t0 - 1_000, EidosSourceKind::Note);
     rec.insert(doc("笔记-a"), "body", t0, EidosSourceKind::Note);
 
-    let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16)
-        .with_since(t0 - 1_000);
+    let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16).with_since(t0 - 1_000);
     let packet = rec.retrieve(&q, t0);
     let m = packet.manifest_id.clone();
     let stale = EidosIndexManifestId::new("stale-recency-manifest").unwrap();
@@ -11598,15 +11914,28 @@ fn closed_citation_validator_harness_rejects_mixed_multilingual_recency_batch() 
 
     let err = enforce_closed_citation_contract(&packet, &citations)
         .expect_err("mixed multilingual batch must reject wholesale");
-    assert_eq!(err.errors.len(), 2, "two rejected citations, no best-effort pass");
-    assert_eq!(err.errors[0].0, 1, "filtered-out Hangul error stays at input index 1");
+    assert_eq!(
+        err.errors.len(),
+        2,
+        "two rejected citations, no best-effort pass"
+    );
+    assert_eq!(
+        err.errors[0].0, 1,
+        "filtered-out Hangul error stays at input index 1"
+    );
     match &err.errors[0].1 {
         CitationError::FabricatedSourceId(id) => assert_eq!(id.as_str(), "노트-a::recency"),
         other => panic!("index 1 expected FabricatedSourceId, got {other:?}"),
     }
-    assert_eq!(err.errors[1].0, 2, "stale-manifest Han error stays at input index 2");
+    assert_eq!(
+        err.errors[1].0, 2,
+        "stale-manifest Han error stays at input index 2"
+    );
     match &err.errors[1].1 {
-        CitationError::ManifestMismatch { packet: pm, citation: cm } => {
+        CitationError::ManifestMismatch {
+            packet: pm,
+            citation: cm,
+        } => {
             assert_eq!(pm.as_str(), packet.manifest_id.as_str());
             assert_eq!(cm.as_str(), "stale-recency-manifest");
         }
@@ -11624,7 +11953,8 @@ fn closed_citation_validator_harness_outputs_serialize_to_stable_json() {
     use super::validator::enforce_closed_citation_contract;
 
     let mut lex = InMemoryLexicalIndex::new(manifest());
-    lex.insert(doc("note-a"), "alpha validator", EidosSourceKind::Note).unwrap();
+    lex.insert(doc("note-a"), "alpha validator", EidosSourceKind::Note)
+        .unwrap();
     let packet = lex.retrieve(
         &EidosQuery::new("validator", EidosRetrievalMode::Lexical, 8),
         1_700_000_000_000,
@@ -11668,9 +11998,7 @@ fn closed_citation_validator_harness_outputs_serialize_to_stable_json() {
 /// matching iter 190's vector taxonomy.
 #[test]
 fn eidos_hit_clone_is_byte_perfect_across_smuggling_vectors() {
-    use super::types::{
-        EidosChunkId, EidosHit, EidosProvenance, EidosScoreComponents,
-    };
+    use super::types::{EidosChunkId, EidosHit, EidosProvenance, EidosScoreComponents};
 
     let m = manifest();
     let vectors: &[(&str, &str)] = &[
@@ -11768,7 +12096,10 @@ fn eidos_citation_clone_is_byte_perfect_across_smuggling_vectors() {
             "{label}: clone() must preserve manifest_id bytes exactly"
         );
         // Full equality (covers both fields via PartialEq).
-        assert_eq!(cloned, original, "{label}: cloned citation must equal source");
+        assert_eq!(
+            cloned, original,
+            "{label}: cloned citation must equal source"
+        );
     }
 }
 
@@ -11800,12 +12131,12 @@ fn eidos_citation_clone_is_byte_perfect_for_multilingual_non_latin_ids() {
 
     let m = manifest();
     let multilingual_vectors: &[(&str, &str)] = &[
-        ("Han (Chinese)",        "笔记-a::lex"),
-        ("Hangul (Korean)",      "노트-a::lex"),
-        ("Arabic",               "ملاحظة-a::lex"),
-        ("Devanagari",           "नोट-a::lex"),
-        ("Mixed Han+Latin",      "笔note-a::lex"),
-        ("Hangul jamo NFD",      "\u{1102}\u{1169}트-a::lex"),
+        ("Han (Chinese)", "笔记-a::lex"),
+        ("Hangul (Korean)", "노트-a::lex"),
+        ("Arabic", "ملاحظة-a::lex"),
+        ("Devanagari", "नोट-a::lex"),
+        ("Mixed Han+Latin", "笔note-a::lex"),
+        ("Hangul jamo NFD", "\u{1102}\u{1169}트-a::lex"),
     ];
 
     for (label, raw_id) in multilingual_vectors {
@@ -11888,9 +12219,7 @@ fn both_error_types_are_leaf_errors_no_source_chain() {
     );
 
     // CitationError variants — all of them.
-    let fab = CitationError::FabricatedSourceId(
-        EidosChunkId::new("leaf-test").unwrap(),
-    );
+    let fab = CitationError::FabricatedSourceId(EidosChunkId::new("leaf-test").unwrap());
     assert!(
         std::error::Error::source(&fab).is_none(),
         "CitationError::FabricatedSourceId must be a leaf error"
@@ -11946,11 +12275,9 @@ fn both_error_types_implement_std_error() {
     // Also probe via Box<dyn Error> upcasting — the chat-layer's
     // `Box<dyn std::error::Error>` containers must accept both.
     let _id_boxed: Box<dyn std::error::Error> = Box::new(IdError::EmptyPayload);
-    let _cite_boxed: Box<dyn std::error::Error> = Box::new(
-        CitationError::FabricatedSourceId(
-            super::types::EidosChunkId::new("upcast-probe").unwrap(),
-        ),
-    );
+    let _cite_boxed: Box<dyn std::error::Error> = Box::new(CitationError::FabricatedSourceId(
+        super::types::EidosChunkId::new("upcast-probe").unwrap(),
+    ));
 }
 
 /// `IdError::EmptyPayload`'s `Display` (via `thiserror`) is a
@@ -12279,9 +12606,7 @@ fn eidos_provenance_has_exactly_three_public_fields() {
 /// field/variant anywhere requires a deliberate lock-step update.
 #[test]
 fn eidos_hit_has_exactly_seven_public_fields() {
-    use super::types::{
-        EidosHit, EidosProvenance, EidosScoreComponents,
-    };
+    use super::types::{EidosHit, EidosProvenance, EidosScoreComponents};
 
     let h = EidosHit {
         source_id: super::types::EidosChunkId::new("shape-test").unwrap(),
@@ -12452,9 +12777,7 @@ fn eidos_citation_has_exactly_two_public_fields() {
 /// plus the provenance that authorized it.
 #[test]
 fn eidos_citation_envelope_has_exactly_two_public_fields() {
-    use super::types::{
-        EidosChunkId, EidosCitation, EidosCitationEnvelope, EidosProvenance,
-    };
+    use super::types::{EidosChunkId, EidosCitation, EidosCitationEnvelope, EidosProvenance};
 
     let envelope = EidosCitationEnvelope {
         citation: EidosCitation {
@@ -12573,8 +12896,7 @@ fn validate_citation_ignores_hit_document_id() {
     // Distinctive document_id with unicode + length, far from any
     // typical retriever-emitted form. The gate must ignore this.
     let weird_doc_id =
-        super::types::EidosDocumentId::new("/vault/notes/路径/note-with-長文字-name.md")
-            .unwrap();
+        super::types::EidosDocumentId::new("/vault/notes/路径/note-with-長文字-name.md").unwrap();
 
     let hit = EidosHit {
         source_id: source_id.clone(),
@@ -12649,13 +12971,16 @@ fn validate_citation_ignores_hit_document_id() {
 ///     against both
 #[test]
 fn validate_citation_is_insensitive_to_packet_query() {
-    use super::types::{
-        CitationError, EidosChunkId, EidosCitation, EidosContextPacket,
-    };
+    use super::types::{CitationError, EidosChunkId, EidosCitation, EidosContextPacket};
 
     // Build a baseline packet with a real retriever.
     let mut lex = InMemoryLexicalIndex::new(manifest());
-    lex.insert(doc("note-a"), "alpha breadfruit content", EidosSourceKind::Note).unwrap();
+    lex.insert(
+        doc("note-a"),
+        "alpha breadfruit content",
+        EidosSourceKind::Note,
+    )
+    .unwrap();
     let q_baseline = EidosQuery::new("breadfruit", EidosRetrievalMode::Lexical, 16);
     let packet_baseline = lex.retrieve(&q_baseline, 1_700_000_000_000);
     assert_eq!(packet_baseline.hits.len(), 1);
@@ -12678,7 +13003,10 @@ fn validate_citation_is_insensitive_to_packet_query() {
 
     // Sanity: the two packets are byte-distinct (different query)
     // but share manifest_id + hits.
-    assert_ne!(packet_baseline.query, packet_alt.query, "queries must differ");
+    assert_ne!(
+        packet_baseline.query, packet_alt.query,
+        "queries must differ"
+    );
     assert_eq!(packet_baseline.manifest_id, packet_alt.manifest_id);
     assert_eq!(packet_baseline.hits, packet_alt.hits);
     assert_ne!(packet_baseline, packet_alt, "packets are not byte-equal");
@@ -12694,7 +13022,11 @@ fn validate_citation_is_insensitive_to_packet_query() {
     let r_base = packet_baseline.validate_citation(&legit);
     let r_alt = packet_alt.validate_citation(&legit);
     assert_eq!(r_base, Ok(()), "legit against baseline must be Ok");
-    assert_eq!(r_alt, Ok(()), "legit against alt-query packet must also be Ok");
+    assert_eq!(
+        r_alt,
+        Ok(()),
+        "legit against alt-query packet must also be Ok"
+    );
 
     // (2) Fabricated citation errors identically against both.
     let forged = EidosCitation {
@@ -12783,7 +13115,10 @@ fn closed_citation_contract_holds_for_in_memory_claim_evidence() {
     );
     let packet = ce.retrieve(&q, ts);
 
-    assert!(!packet.hits.is_empty(), "non-empty evidence map → non-empty packet");
+    assert!(
+        !packet.hits.is_empty(),
+        "non-empty evidence map → non-empty packet"
+    );
     assert_eq!(packet.manifest_id, m, "ClaimEvidence: manifest_id binding");
 
     // Confirm InMemoryClaimEvidence's source_id shape is consistent
@@ -12876,9 +13211,15 @@ fn closed_citation_contract_holds_for_hybrid_n() {
     // Build three inners with overlapping shared docs so RRF has
     // material to fuse.
     let mut lex = InMemoryLexicalIndex::new(m.clone());
-    lex.insert(doc("note-a"), "alpha kumquat content", EidosSourceKind::Note).unwrap();
+    lex.insert(
+        doc("note-a"),
+        "alpha kumquat content",
+        EidosSourceKind::Note,
+    )
+    .unwrap();
     let mut sem = InMemorySemanticIndex::new(m.clone(), 3);
-    sem.insert(doc("note-a"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note).unwrap();
+    sem.insert(doc("note-a"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note)
+        .unwrap();
     let mut rec = InMemoryRecencyIndex::new(m.clone());
     rec.insert(doc("note-a"), "any body", ts - 1000, EidosSourceKind::Note);
 
@@ -12897,7 +13238,10 @@ fn closed_citation_contract_holds_for_hybrid_n() {
     );
     let packet = h.retrieve(&q, ts);
 
-    assert!(!packet.hits.is_empty(), "3-way Hybrid_N must fuse to non-empty packet");
+    assert!(
+        !packet.hits.is_empty(),
+        "3-way Hybrid_N must fuse to non-empty packet"
+    );
     assert_eq!(packet.manifest_id, m, "Hybrid_N: manifest_id binding holds");
 
     let real = packet.hits[0].source_id.clone();
@@ -12918,9 +13262,7 @@ fn closed_citation_contract_holds_for_hybrid_n() {
         .unwrap_err()
     {
         CitationError::FabricatedSourceId(_) => {}
-        other => panic!(
-            "Hybrid_N: fabricated id → expected FabricatedSourceId, got {other:?}"
-        ),
+        other => panic!("Hybrid_N: fabricated id → expected FabricatedSourceId, got {other:?}"),
     }
 
     match packet

@@ -40,11 +40,15 @@ fn build_synthetic_graph(seed: u64) -> PacketGraph {
     let mut rng = seed;
     for i in 0..200 {
         // LCG for predecessor count + pattern.
-        rng = rng.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1_442_695_040_888_963_407);
+        rng = rng
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
         let pred_count = if i == 0 { 0 } else { 1 + ((rng % 3) as usize) }; // 1..=3
         let mut preds = Vec::with_capacity(pred_count);
         for _ in 0..pred_count {
-            rng = rng.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1_442_695_040_888_963_407);
+            rng = rng
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
             let candidate = (rng as usize) % i; // strictly less than i; topological
             if !preds.iter().any(|p: &PacketId| p.0 == candidate) {
                 preds.push(PacketId(candidate));
@@ -52,12 +56,17 @@ fn build_synthetic_graph(seed: u64) -> PacketGraph {
         }
         let cost_units = ((i % 16) + 1) as u8; // 1..=16
 
-        rng = rng.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1_442_695_040_888_963_407);
+        rng = rng
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
         let input = rng;
-        rng = rng.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1_442_695_040_888_963_407);
+        rng = rng
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
         let output = rng;
 
-        g.add(Packet::new(PacketId(i), input, output, cost_units, preds)).unwrap();
+        g.add(Packet::new(PacketId(i), input, output, cost_units, preds))
+            .unwrap();
     }
     g
 }
@@ -71,9 +80,13 @@ fn selector_saves_work_across_50_queries() {
     let mut firing_counts = Vec::with_capacity(50);
     let mut rng = 0xABCD_1234_u64;
     for _ in 0..50 {
-        rng = rng.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1_442_695_040_888_963_407);
+        rng = rng
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
         let query = rng;
-        let active = selector.select(&graph, sink, query).expect("select must succeed");
+        let active = selector
+            .select(&graph, sink, query)
+            .expect("select must succeed");
         firing_counts.push(active.len());
     }
 
@@ -84,7 +97,9 @@ fn selector_saves_work_across_50_queries() {
     assert!(
         firing_ratio < 1.0,
         "selector must save work; avg firing_ratio = {} (avg active = {} / total = {})",
-        firing_ratio, avg_firing, total
+        firing_ratio,
+        avg_firing,
+        total
     );
     // Substrate-floor budget: at least SOME pruning. Production gate is
     // < 0.50 (per falsifier §3); substrate-floor uses < 0.95 to lock in
@@ -105,10 +120,19 @@ fn sink_always_in_active_set() {
 
     let mut rng = 0xDCBA_5678_u64;
     for _ in 0..20 {
-        rng = rng.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1_442_695_040_888_963_407);
+        rng = rng
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
         let query = rng;
-        let active = selector.select(&graph, sink, query).expect("select must succeed");
-        assert!(active.contains(&sink), "sink {:?} must always be active for query 0x{:x}", sink, query);
+        let active = selector
+            .select(&graph, sink, query)
+            .expect("select must succeed");
+        assert!(
+            active.contains(&sink),
+            "sink {:?} must always be active for query 0x{:x}",
+            sink,
+            query
+        );
     }
 }
 
@@ -120,9 +144,13 @@ fn active_set_only_contains_graph_packet_ids() {
 
     let mut rng = 0x1357_2468_u64;
     for _ in 0..20 {
-        rng = rng.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1_442_695_040_888_963_407);
+        rng = rng
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
         let query = rng;
-        let active = selector.select(&graph, sink, query).expect("select must succeed");
+        let active = selector
+            .select(&graph, sink, query)
+            .expect("select must succeed");
         for &active_id in &active {
             assert!(
                 graph.contains(active_id),
@@ -148,7 +176,10 @@ fn reproducibility_same_seed_same_result() {
     let sink = PacketId(199);
     let active_a = selector.select(&graph_a, sink, 0xCAFE_BABE).unwrap();
     let active_b = selector.select(&graph_b, sink, 0xCAFE_BABE).unwrap();
-    assert_eq!(active_a, active_b, "same graph + query must produce same active set");
+    assert_eq!(
+        active_a, active_b,
+        "same graph + query must produce same active set"
+    );
 }
 
 #[test]
@@ -161,7 +192,8 @@ fn graph_is_well_formed_dag() {
             assert!(
                 pred.0 < packet.id.0,
                 "edge {:?} -> {:?} violates topological invariant (predecessor must have lower id)",
-                packet.id, pred
+                packet.id,
+                pred
             );
         }
     }

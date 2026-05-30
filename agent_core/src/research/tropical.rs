@@ -192,8 +192,14 @@ pub fn relu_as_tropical_polynomial() -> TropicalPolynomial {
     TropicalPolynomial {
         dim: 1,
         monomials: vec![
-            TropicalMonomial { coeffs: vec![0.0], bias: 0.0 },
-            TropicalMonomial { coeffs: vec![1.0], bias: 0.0 },
+            TropicalMonomial {
+                coeffs: vec![0.0],
+                bias: 0.0,
+            },
+            TropicalMonomial {
+                coeffs: vec![1.0],
+                bias: 0.0,
+            },
         ],
     }
 }
@@ -265,9 +271,18 @@ mod tests {
 
     #[test]
     fn new_rejects_dim_mismatch_in_monomial() {
-        let m = TropicalMonomial { coeffs: vec![1.0, 2.0], bias: 0.0 };
+        let m = TropicalMonomial {
+            coeffs: vec![1.0, 2.0],
+            bias: 0.0,
+        };
         let err = TropicalPolynomial::new(3, vec![m]).unwrap_err();
-        assert!(matches!(err, TropicalError::DimMismatch { expected: 3, actual: 2 }));
+        assert!(matches!(
+            err,
+            TropicalError::DimMismatch {
+                expected: 3,
+                actual: 2
+            }
+        ));
     }
 
     #[test]
@@ -275,9 +290,18 @@ mod tests {
         let p = TropicalPolynomial::new(
             1,
             vec![
-                TropicalMonomial { coeffs: vec![0.0], bias: 3.0 },
-                TropicalMonomial { coeffs: vec![0.0], bias: 5.0 },
-                TropicalMonomial { coeffs: vec![0.0], bias: 1.0 },
+                TropicalMonomial {
+                    coeffs: vec![0.0],
+                    bias: 3.0,
+                },
+                TropicalMonomial {
+                    coeffs: vec![0.0],
+                    bias: 5.0,
+                },
+                TropicalMonomial {
+                    coeffs: vec![0.0],
+                    bias: 1.0,
+                },
             ],
         )
         .unwrap();
@@ -288,12 +312,21 @@ mod tests {
     fn evaluate_with_input_dim_mismatch_errors() {
         let p = relu_as_tropical_polynomial();
         let err = p.evaluate(&[1.0, 2.0]).unwrap_err();
-        assert!(matches!(err, TropicalError::DimMismatch { expected: 1, actual: 2 }));
+        assert!(matches!(
+            err,
+            TropicalError::DimMismatch {
+                expected: 1,
+                actual: 2
+            }
+        ));
     }
 
     #[test]
     fn evaluate_empty_polynomial_errors() {
-        let p = TropicalPolynomial { dim: 1, monomials: vec![] };
+        let p = TropicalPolynomial {
+            dim: 1,
+            monomials: vec![],
+        };
         let err = p.evaluate(&[0.0]).unwrap_err();
         assert_eq!(err, TropicalError::EmptyPolynomial);
     }
@@ -330,8 +363,14 @@ mod tests {
         let p = TropicalPolynomial::new(
             2,
             vec![
-                TropicalMonomial { coeffs: vec![1.0, 0.0], bias: 0.0 },
-                TropicalMonomial { coeffs: vec![0.0, 1.0], bias: 0.0 },
+                TropicalMonomial {
+                    coeffs: vec![1.0, 0.0],
+                    bias: 0.0,
+                },
+                TropicalMonomial {
+                    coeffs: vec![0.0, 1.0],
+                    bias: 0.0,
+                },
             ],
         )
         .unwrap();
@@ -345,7 +384,13 @@ mod tests {
         for x in &[-3.5_f32, -0.7, 0.0, 0.5, 2.5, 100.0] {
             let tropical = p.evaluate(&[*x]).unwrap();
             let naive = x.max(0.0);
-            assert!(approx(tropical, naive, 1e-6), "x={} tropical={} naive={}", x, tropical, naive);
+            assert!(
+                approx(tropical, naive, 1e-6),
+                "x={} tropical={} naive={}",
+                x,
+                tropical,
+                naive
+            );
         }
     }
 
@@ -361,7 +406,10 @@ mod tests {
     fn single_monomial_polynomial_is_pure_affine() {
         let p = TropicalPolynomial::new(
             2,
-            vec![TropicalMonomial { coeffs: vec![2.0, -1.0], bias: 5.0 }],
+            vec![TropicalMonomial {
+                coeffs: vec![2.0, -1.0],
+                bias: 5.0,
+            }],
         )
         .unwrap();
         // 2·x + (-1)·y + 5
@@ -376,9 +424,18 @@ mod tests {
         let p = TropicalPolynomial::new(
             1,
             vec![
-                TropicalMonomial { coeffs: vec![0.0], bias: -10.0 },
-                TropicalMonomial { coeffs: vec![0.0], bias: -3.0 },
-                TropicalMonomial { coeffs: vec![0.0], bias: -7.0 },
+                TropicalMonomial {
+                    coeffs: vec![0.0],
+                    bias: -10.0,
+                },
+                TropicalMonomial {
+                    coeffs: vec![0.0],
+                    bias: -3.0,
+                },
+                TropicalMonomial {
+                    coeffs: vec![0.0],
+                    bias: -7.0,
+                },
             ],
         )
         .unwrap();
@@ -406,7 +463,12 @@ mod tests {
         let polys = relu_layer_as_tropical(&weights, &biases).unwrap();
         assert_eq!(polys.len(), 2);
 
-        for x in &[vec![0.0, 0.0], vec![1.0, 1.0], vec![-1.0, 2.0], vec![3.5, -0.7]] {
+        for x in &[
+            vec![0.0, 0.0],
+            vec![1.0, 1.0],
+            vec![-1.0, 2.0],
+            vec![3.5, -0.7],
+        ] {
             let expected = relu_dense(&weights, &biases, x);
             let got: Vec<f32> = polys.iter().map(|p| p.evaluate(x).unwrap()).collect();
             for i in 0..expected.len() {
@@ -480,9 +542,15 @@ mod tests {
     #[test]
     fn error_cause_distinct_per_variant() {
         let variants = [
-            TropicalError::DimMismatch { expected: 1, actual: 2 },
+            TropicalError::DimMismatch {
+                expected: 1,
+                actual: 2,
+            },
             TropicalError::EmptyPolynomial,
-            TropicalError::NonFiniteInput { index: 0, value: f32::NAN },
+            TropicalError::NonFiniteInput {
+                index: 0,
+                value: f32::NAN,
+            },
         ];
         let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
         assert_eq!(causes.len(), 3);
@@ -491,25 +559,47 @@ mod tests {
     #[test]
     fn error_classifiers_partition_variants() {
         let variants = [
-            TropicalError::DimMismatch { expected: 1, actual: 2 },
+            TropicalError::DimMismatch {
+                expected: 1,
+                actual: 2,
+            },
             TropicalError::EmptyPolynomial,
-            TropicalError::NonFiniteInput { index: 0, value: f32::NAN },
+            TropicalError::NonFiniteInput {
+                index: 0,
+                value: f32::NAN,
+            },
         ];
         // Cross-surface invariant: exactly one of the three predicates is true.
         for e in variants {
-            let trio = [e.is_dim_mismatch(), e.is_empty_polynomial(), e.is_non_finite_input()];
+            let trio = [
+                e.is_dim_mismatch(),
+                e.is_empty_polynomial(),
+                e.is_non_finite_input(),
+            ];
             assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", e);
         }
     }
 
     #[test]
     fn monomial_is_zero_monomial_identifies_constant_zero() {
-        let zero1 = TropicalMonomial { coeffs: vec![0.0], bias: 0.0 };
-        let zero3 = TropicalMonomial { coeffs: vec![0.0, 0.0, 0.0], bias: 0.0 };
+        let zero1 = TropicalMonomial {
+            coeffs: vec![0.0],
+            bias: 0.0,
+        };
+        let zero3 = TropicalMonomial {
+            coeffs: vec![0.0, 0.0, 0.0],
+            bias: 0.0,
+        };
         assert!(zero1.is_zero_monomial());
         assert!(zero3.is_zero_monomial());
-        let nonzero_bias = TropicalMonomial { coeffs: vec![0.0], bias: 0.1 };
-        let nonzero_coeff = TropicalMonomial { coeffs: vec![1.0], bias: 0.0 };
+        let nonzero_bias = TropicalMonomial {
+            coeffs: vec![0.0],
+            bias: 0.1,
+        };
+        let nonzero_coeff = TropicalMonomial {
+            coeffs: vec![1.0],
+            bias: 0.0,
+        };
         assert!(!nonzero_bias.is_zero_monomial());
         assert!(!nonzero_coeff.is_zero_monomial());
     }
@@ -521,15 +611,26 @@ mod tests {
         let p = TropicalPolynomial::new(
             2,
             vec![
-                TropicalMonomial { coeffs: vec![1.0, 0.0], bias: 0.0 },
-                TropicalMonomial { coeffs: vec![0.0, 1.0], bias: 0.0 },
-                TropicalMonomial { coeffs: vec![0.5, 0.5], bias: -2.0 },
+                TropicalMonomial {
+                    coeffs: vec![1.0, 0.0],
+                    bias: 0.0,
+                },
+                TropicalMonomial {
+                    coeffs: vec![0.0, 1.0],
+                    bias: 0.0,
+                },
+                TropicalMonomial {
+                    coeffs: vec![0.5, 0.5],
+                    bias: -2.0,
+                },
             ],
         )
         .unwrap();
         for x in &[vec![1.0_f32, 2.0], vec![3.0, -1.0], vec![0.0, 0.0]] {
             let p_val = p.evaluate(x).unwrap();
-            let m_max = p.monomials.iter()
+            let m_max = p
+                .monomials
+                .iter()
                 .map(|m| m.evaluate(x).unwrap())
                 .fold(f32::NEG_INFINITY, f32::max);
             assert!(approx(p_val, m_max, 1e-6));
@@ -539,13 +640,19 @@ mod tests {
     #[test]
     fn polynomial_monomial_count_and_is_empty_consistent() {
         // Cross-surface: is_empty iff monomial_count == 0.
-        let empty = TropicalPolynomial { dim: 2, monomials: vec![] };
+        let empty = TropicalPolynomial {
+            dim: 2,
+            monomials: vec![],
+        };
         assert!(empty.is_empty());
         assert_eq!(empty.monomial_count(), 0);
 
         let one = TropicalPolynomial::new(
             1,
-            vec![TropicalMonomial { coeffs: vec![1.0], bias: 0.0 }],
+            vec![TropicalMonomial {
+                coeffs: vec![1.0],
+                bias: 0.0,
+            }],
         )
         .unwrap();
         assert!(!one.is_empty());

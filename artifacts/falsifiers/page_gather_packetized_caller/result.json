@@ -1,0 +1,138 @@
+{
+  "falsifier_id": "F-PageGather-Packetized-Caller",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "fallback_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_page_gather_packetized_caller.sh",
+  "command_digest": "sha256:087141825ef439b758c162dbb4e97f4c547745b76ba917de211e6191e13ec45a",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "ba6f15e6fb08c772c5bbce4d303aff864f39e9c2",
+  "fixture_id": "vault_hybrid_search_trace_packetized_page_gather_v1",
+  "timestamp_utc": "2026-05-28T04:41:24Z",
+  "result_digest": "sha256:030b547d1a334a3293c59cf52d64200a78ea9f32764c4c91ed77e18588dfa17a",
+  "measurements": {
+    "candidate_pool_broad": {
+      "value": true,
+      "unit": "bool"
+    },
+    "candidate_pool_size": {
+      "value": 50,
+      "unit": "candidates"
+    },
+    "dense_restore_deferred": {
+      "value": true,
+      "unit": "bool"
+    },
+    "measurement_status_deferred": {
+      "value": true,
+      "unit": "bool"
+    },
+    "packetized_caller_consumed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "packets_emitted": {
+      "value": 4,
+      "unit": "packets"
+    },
+    "packets_match_results": {
+      "value": true,
+      "unit": "bool"
+    },
+    "page_gather_trace_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "retained_limit_honored": {
+      "value": true,
+      "unit": "bool"
+    },
+    "schedule_block_sorted": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "candidate_pool_broad": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "dense_restore_deferred": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "measurement_status_deferred": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "packetized_caller_consumed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "packets_match_results": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "page_gather_trace_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "retained_limit_honored": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "schedule_block_sorted": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "candidate_pool_broad": true,
+    "dense_restore_deferred": true,
+    "measurement_status_deferred": true,
+    "packetized_caller_consumed": true,
+    "packets_match_results": true,
+    "page_gather_trace_present": true,
+    "retained_limit_honored": true,
+    "schedule_block_sorted": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Fallback",
+  "anomalies": [
+    {
+      "kind": "not_dense_primary_gate",
+      "detail": "This caller witness proves packet consumption and dense-restore deferral only; F-PageGather-M2Pro dense Metal throughput remains red."
+    }
+  ],
+  "notes": "fallback_witness; VaultStore hybrid_search_with_trace consumes PageGather packets for retained candidate scores and defers dense restore"
+}

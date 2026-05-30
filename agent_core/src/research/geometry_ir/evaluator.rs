@@ -871,11 +871,7 @@ pub fn multivector_grade_softmin_entropy(m: &Multivector, beta: f64) -> f64 {
 /// Theory" (2nd ed., 2006) §2.3. Grade-orthogonal decomposition:
 /// Hestenes & Sobczyk, "Clifford Algebra to Geometric Calculus"
 /// (Reidel, 1984) Ch. 1 §1.3.
-pub fn multivector_grade_softmax_kl_divergence(
-    a: &Multivector,
-    b: &Multivector,
-    beta: f64,
-) -> f64 {
+pub fn multivector_grade_softmax_kl_divergence(a: &Multivector, b: &Multivector, beta: f64) -> f64 {
     if beta <= 0.0 || !beta.is_finite() {
         return f64::NAN;
     }
@@ -987,11 +983,7 @@ pub fn multivector_componentwise_negate(m: &Multivector) -> Multivector {
 /// projected-gradient and trust-region optimization; cf. Boyd
 /// & Vandenberghe, Convex Optimization (2004) §8.1 — projection
 /// onto box constraints `B = {x | lo ≤ x ≤ hi}`.
-pub fn multivector_componentwise_clamp(
-    m: &Multivector,
-    lo: f64,
-    hi: f64,
-) -> Multivector {
+pub fn multivector_componentwise_clamp(m: &Multivector, lo: f64, hi: f64) -> Multivector {
     if lo > hi {
         return Multivector::zero();
     }
@@ -1124,10 +1116,7 @@ pub fn multivector_l1_norm(m: &Multivector) -> f64 {
 ///
 /// Source. Standard ℓ_p-norm definition for `p = ∞`.
 pub fn multivector_linf_norm(m: &Multivector) -> f64 {
-    m.components
-        .iter()
-        .map(|x| x.abs())
-        .fold(0.0_f64, f64::max)
+    m.components.iter().map(|x| x.abs()).fold(0.0_f64, f64::max)
 }
 
 /// LSE-smoothed L∞ norm over the eight Cl(3, 0) component
@@ -1240,10 +1229,7 @@ pub fn multivector_grade_norm_l2_distance(a: &Multivector, b: &Multivector) -> f
 /// Vandenberghe, "Convex Optimization" (2004) §A.1.2. Grade-
 /// orthogonal decomposition target: Hestenes & Sobczyk, "Clifford
 /// Algebra to Geometric Calculus" (Reidel, 1984) Ch. 1 §1.3.
-pub fn multivector_grade_norms_chebyshev_distance(
-    a: &Multivector,
-    b: &Multivector,
-) -> f64 {
+pub fn multivector_grade_norms_chebyshev_distance(a: &Multivector, b: &Multivector) -> f64 {
     let na = multivector_grade_norms(a);
     let nb = multivector_grade_norms(b);
     let mut m = 0.0_f64;
@@ -1278,10 +1264,7 @@ pub fn multivector_grade_norms_chebyshev_distance(
 /// Vandenberghe, "Convex Optimization" (2004) §A.1.2. Grade-
 /// orthogonal decomposition target: Hestenes & Sobczyk, "Clifford
 /// Algebra to Geometric Calculus" (Reidel, 1984) Ch. 1 §1.3.
-pub fn multivector_grade_norms_l1_distance(
-    a: &Multivector,
-    b: &Multivector,
-) -> f64 {
+pub fn multivector_grade_norms_l1_distance(a: &Multivector, b: &Multivector) -> f64 {
     let na = multivector_grade_norms(a);
     let nb = multivector_grade_norms(b);
     let mut s = 0.0_f64;
@@ -1743,11 +1726,7 @@ pub fn vector_inverse(v: &Multivector) -> Option<Multivector> {
 pub fn vector_cross_product(u: &Multivector, v: &Multivector) -> Multivector {
     let (ux, uy, uz) = u.vector_part();
     let (vx, vy, vz) = v.vector_part();
-    Multivector::vector(
-        uy * vz - uz * vy,
-        uz * vx - ux * vz,
-        ux * vy - uy * vx,
-    )
+    Multivector::vector(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx)
 }
 
 /// Reflect a vector `v` through the hyperplane orthogonal to a
@@ -1998,8 +1977,7 @@ mod iter_85_tests {
 
     #[test]
     fn approx_pure_grade_rejects_mixed_grade() {
-        let mixed = Multivector::vector(1.0, 0.0, 0.0)
-            .add(&Multivector::bivector(1.0, 0.0, 0.0));
+        let mixed = Multivector::vector(1.0, 0.0, 0.0).add(&Multivector::bivector(1.0, 0.0, 0.0));
         assert!(!multivector_is_approximately_pure_grade(&mixed, 1, 1e-9));
     }
 
@@ -2154,8 +2132,7 @@ mod iter_85_tests {
     #[test]
     fn vector_distance_l1_ignores_bivector_part() {
         // Only grade-1 components contribute.
-        let u = Multivector::vector(1.0, 0.0, 0.0)
-            .add(&Multivector::bivector(100.0, 100.0, 100.0));
+        let u = Multivector::vector(1.0, 0.0, 0.0).add(&Multivector::bivector(100.0, 100.0, 100.0));
         let v = Multivector::vector(0.0, 0.0, 0.0);
         assert_eq!(vector_distance_l1(&u, &v), 1.0);
     }
@@ -2190,9 +2167,10 @@ mod iter_85_tests {
     fn distance_squared_symmetric() {
         let a = Multivector::vector(1.0, 0.0, 0.0);
         let b = Multivector::bivector(0.0, 1.0, 0.0);
-        assert!((multivector_distance_squared(&a, &b)
-            - multivector_distance_squared(&b, &a))
-        .abs() < 1e-12);
+        assert!(
+            (multivector_distance_squared(&a, &b) - multivector_distance_squared(&b, &a)).abs()
+                < 1e-12
+        );
     }
 
     // ── iter-246: multivector_distance ────────────────────────────
@@ -2442,7 +2420,12 @@ mod iter_85_tests {
         let r = Multivector::scalar(0.6).add(&Multivector::bivector(0.0, 0.8, 0.0));
         let n0 = multivector_grade_norm(&r, 0);
         let n2 = multivector_grade_norm(&r, 2);
-        assert!((n0 * n0 + n2 * n2 - 1.0).abs() < 1e-12, "n0={} n2={}", n0, n2);
+        assert!(
+            (n0 * n0 + n2 * n2 - 1.0).abs() < 1e-12,
+            "n0={} n2={}",
+            n0,
+            n2
+        );
     }
 
     #[test]
@@ -2913,7 +2896,10 @@ mod iter_85_tests {
         for i in 0..8 {
             assert!(
                 (prod.components[i] - sum.components[i]).abs() < 1e-12,
-                "component {}: prod={}, dot+wedge={}", i, prod.components[i], sum.components[i]
+                "component {}: prod={}, dot+wedge={}",
+                i,
+                prod.components[i],
+                sum.components[i]
             );
         }
     }
@@ -2943,7 +2929,8 @@ mod iter_85_tests {
         assert!(
             (v.grade_norm_squared(1) - refl.grade_norm_squared(1)).abs() < 1e-12,
             "norm² before = {}, after = {}",
-            v.grade_norm_squared(1), refl.grade_norm_squared(1)
+            v.grade_norm_squared(1),
+            refl.grade_norm_squared(1)
         );
     }
 }
@@ -3093,7 +3080,11 @@ mod tests {
         let b = Multivector::bivector(1.0, 2.0, 3.0);
         let e = GeoExpr::reverse(GeoExpr::literal(b));
         let r = evaluate(&e);
-        assert!(approx_mv(&r, &Multivector::bivector(-1.0, -2.0, -3.0), 1e-12));
+        assert!(approx_mv(
+            &r,
+            &Multivector::bivector(-1.0, -2.0, -3.0),
+            1e-12
+        ));
     }
 
     #[test]
@@ -3531,10 +3522,7 @@ mod tests {
 
     #[test]
     fn grade_norm_amplitude_zero_multivector_is_zero() {
-        assert_eq!(
-            multivector_grade_norm_amplitude(&Multivector::zero()),
-            0.0
-        );
+        assert_eq!(multivector_grade_norm_amplitude(&Multivector::zero()), 0.0);
     }
 
     #[test]
@@ -3915,12 +3903,7 @@ mod tests {
         };
         for beta in [0.1_f64, 0.5, 1.0, 2.0, 100.0] {
             let r = multivector_smooth_dominant_grade(&m, beta);
-            assert!(
-                (0.0..=3.0).contains(&r),
-                "β={}: got {}",
-                beta,
-                r
-            );
+            assert!((0.0..=3.0).contains(&r), "β={}: got {}", beta, r);
         }
     }
 
@@ -3965,12 +3948,7 @@ mod tests {
         };
         for beta in [0.1_f64, 0.5, 1.0, 2.0, 100.0] {
             let r = multivector_smooth_weakest_grade(&m, beta);
-            assert!(
-                (0.0..=3.0).contains(&r),
-                "β={}: got {}",
-                beta,
-                r
-            );
+            assert!((0.0..=3.0).contains(&r), "β={}: got {}", beta, r);
         }
     }
 
@@ -4079,7 +4057,10 @@ mod tests {
 
     #[test]
     fn approximately_zero_zero_multivector_is_true() {
-        assert!(multivector_is_approximately_zero(&Multivector::zero(), 1e-9));
+        assert!(multivector_is_approximately_zero(
+            &Multivector::zero(),
+            1e-9
+        ));
         // Even with zero tolerance, exact zero satisfies |c| ≤ 0.
         assert!(multivector_is_approximately_zero(&Multivector::zero(), 0.0));
     }
@@ -4112,7 +4093,10 @@ mod tests {
 
     #[test]
     fn approximately_zero_negative_tolerance_is_false() {
-        assert!(!multivector_is_approximately_zero(&Multivector::zero(), -1e-9));
+        assert!(!multivector_is_approximately_zero(
+            &Multivector::zero(),
+            -1e-9
+        ));
     }
 
     // ── iter-330: multivector_componentwise_clamp ─────────────────
@@ -4563,10 +4547,7 @@ mod tests {
         };
         let beta = 1.5_f64;
         let w = multivector_grade_softmax(&m, beta);
-        let h_direct: f64 = w.iter()
-            .filter(|w| **w > 0.0)
-            .map(|w| -w * w.ln())
-            .sum();
+        let h_direct: f64 = w.iter().filter(|w| **w > 0.0).map(|w| -w * w.ln()).sum();
         let h_helper = multivector_grade_softmax_entropy(&m, beta);
         assert!((h_helper - h_direct).abs() < 1e-12);
     }
@@ -4618,10 +4599,7 @@ mod tests {
         };
         let beta = 1.5_f64;
         let w = multivector_grade_softmin(&m, beta);
-        let h_direct: f64 = w.iter()
-            .filter(|w| **w > 0.0)
-            .map(|w| -w * w.ln())
-            .sum();
+        let h_direct: f64 = w.iter().filter(|w| **w > 0.0).map(|w| -w * w.ln()).sum();
         let h_helper = multivector_grade_softmin_entropy(&m, beta);
         assert!((h_helper - h_direct).abs() < 1e-12);
     }

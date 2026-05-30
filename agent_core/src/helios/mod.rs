@@ -61,8 +61,9 @@ pub use packet_router::{
     route_1bit, unroute_1bit, PacketRouterError, PacketRouterStats, RoutingOutputs,
 };
 pub use page_gather::{
-    block_sorted_schedule, gather, gather_block_sorted, gather_scheduled, gather_with_scale,
-    HeliosError, PageGatherAccessClass, PageGatherScheduleClass, PageGatherSchedulePlan,
+    block_sorted_schedule, gather, gather_block_sorted, gather_block_sorted_packetized,
+    gather_packetized, gather_scheduled, gather_with_scale, restore_packets, HeliosError,
+    PageGatherAccessClass, PageGatherPacket, PageGatherScheduleClass, PageGatherSchedulePlan,
     PageGatherStats, DEFAULT_PAGE_GATHER_BLOCK_ELEMENTS,
 };
 pub use ssd_block_scan::{ssd_block_scan_scalar, ssd_scan_scalar, SsdScanError, SsdScanResult};

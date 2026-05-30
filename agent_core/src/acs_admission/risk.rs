@@ -17,7 +17,6 @@ use crate::{
     },
 };
 
-use super::*;
 use super::admit::*;
 use super::audit_sink::*;
 use super::common::*;
@@ -29,6 +28,7 @@ use super::requests::*;
 use super::validation::*;
 use super::verdict::*;
 use super::wire::*;
+use super::*;
 
 /// Risk vector evaluated by ACS admission before a request can become
 /// durable or promote into a stronger runtime lane.
@@ -94,7 +94,10 @@ impl<'de> Deserialize<'de> for ACSRiskVector {
     }
 }
 
-pub(crate) fn require_risk_number_field<E>(value: &serde_json::Value, field: &'static str) -> Result<(), E>
+pub(crate) fn require_risk_number_field<E>(
+    value: &serde_json::Value,
+    field: &'static str,
+) -> Result<(), E>
 where
     E: serde::de::Error,
 {
@@ -114,7 +117,10 @@ where
     }
 }
 
-pub(crate) fn require_risk_bool_field<E>(value: &serde_json::Value, field: &'static str) -> Result<(), E>
+pub(crate) fn require_risk_bool_field<E>(
+    value: &serde_json::Value,
+    field: &'static str,
+) -> Result<(), E>
 where
     E: serde::de::Error,
 {

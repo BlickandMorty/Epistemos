@@ -32,14 +32,11 @@ use agent_core::hyperdynamic_loop::{
 #[cfg(feature = "research")]
 use agent_core::hyperdynamic_loop::{SchemaDraft, SchemaRepairLoop};
 #[cfg(feature = "research")]
-use agent_core::research::hyperdynamic_schemas::repair::{
-    FieldSchema, FieldType, Schema, Value,
-};
+use agent_core::research::hyperdynamic_schemas::repair::{FieldSchema, FieldType, Schema, Value};
 
 const FALSIFIER_ID: &str = "F-HyperdynamicLoop-Bounded";
 const FIXTURE_ID: &str = "hyperdynamic_loop_xorshift32_100prompt_v1";
-const COMMAND: &str =
-    "cargo run --release --bin falsify_hyperdynamic_loop_bounded -- --output \
+const COMMAND: &str = "cargo run --release --bin falsify_hyperdynamic_loop_bounded -- --output \
      artifacts/falsifiers/hyperdynamic_loop_bounded/result.json";
 const HYPERDYNAMIC_LOOP_BOUNDED_SEED: u32 = 0x5_20_25_24;
 const CORPUS_SIZE: u32 = 100;
@@ -64,10 +61,7 @@ fn pick_admission_verdict(state: &mut u32) -> (ACSAdmissionVerdict, &'static str
     } else if roll < 65 {
         (ACSAdmissionVerdict::Allow, "allow")
     } else if roll < 80 {
-        (
-            ACSAdmissionVerdict::AllowWithWarning,
-            "allow_with_warning",
-        )
+        (ACSAdmissionVerdict::AllowWithWarning, "allow_with_warning")
     } else if roll < 90 {
         (ACSAdmissionVerdict::Quarantine, "egress_unsafe")
     } else {
@@ -248,9 +242,8 @@ fn main() {
     let total_wall_clock = start.elapsed();
     let total_runs = admission.runs + witness.runs + schema.runs;
     let total_accepted = admission.accepted + witness.accepted + schema.accepted;
-    let total_quarantined_explicit = admission.quarantined_explicit
-        + witness.quarantined_explicit
-        + schema.quarantined_explicit;
+    let total_quarantined_explicit =
+        admission.quarantined_explicit + witness.quarantined_explicit + schema.quarantined_explicit;
     let total_quarantined_budget_exhausted = admission.quarantined_budget_exhausted
         + witness.quarantined_budget_exhausted
         + schema.quarantined_budget_exhausted;
@@ -363,14 +356,10 @@ fn main() {
     );
     insert_axis(
         "seed_matches_canon",
-        serde_json::Value::Number(serde_json::Number::from(
-            HYPERDYNAMIC_LOOP_BOUNDED_SEED,
-        )),
+        serde_json::Value::Number(serde_json::Number::from(HYPERDYNAMIC_LOOP_BOUNDED_SEED)),
         "u32",
         "==",
-        serde_json::Value::Number(serde_json::Number::from(
-            HYPERDYNAMIC_LOOP_BOUNDED_SEED,
-        )),
+        serde_json::Value::Number(serde_json::Number::from(HYPERDYNAMIC_LOOP_BOUNDED_SEED)),
         true,
         &mut measurements,
         &mut thresholds,
@@ -387,8 +376,7 @@ fn main() {
         ("schema", &schema),
     ];
     #[cfg(not(feature = "research"))]
-    let per_loop_aggs: &[(&str, &Aggregate)] =
-        &[("admission", &admission), ("witness", &witness)];
+    let per_loop_aggs: &[(&str, &Aggregate)] = &[("admission", &admission), ("witness", &witness)];
     for (prefix, agg) in per_loop_aggs.iter().copied() {
         for (suffix, value) in [
             ("accepted", agg.accepted),

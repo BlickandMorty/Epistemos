@@ -26,9 +26,7 @@
 
 #![cfg(feature = "research")]
 
-use agent_core::research::info_ir::{
-    dual_map, entropy, kl_divergence, log_partition, ExpFamily,
-};
+use agent_core::research::info_ir::{dual_map, entropy, kl_divergence, log_partition, ExpFamily};
 use agent_core::research::scan_ir::{sequential_scan, ScanProgram};
 
 #[test]
@@ -52,7 +50,11 @@ fn scan_accumulates_natural_params_running_log_partition_grows() {
         assert!(w[1] > w[0], "log_Z not monotone: {} → {}", w[0], w[1]);
     }
     // log_partition saturates to θ for θ ≫ 0.
-    assert!((log_z[5] - 5.0).abs() < 0.01, "log_Z(5) ≈ 5; got {}", log_z[5]);
+    assert!(
+        (log_z[5] - 5.0).abs() < 0.01,
+        "log_Z(5) ≈ 5; got {}",
+        log_z[5]
+    );
 }
 
 #[test]
@@ -104,7 +106,10 @@ fn scan_kl_between_consecutive_distributions_is_decreasing_with_evidence() {
             assert!(
                 kl < prev_kl,
                 "KL between θ={} and θ={} is {}, not less than prev {}",
-                w[0], w[1], kl, prev_kl
+                w[0],
+                w[1],
+                kl,
+                prev_kl
             );
         }
         prev_kl = kl;
@@ -178,7 +183,9 @@ fn scan_consecutive_log_partition_differences_equal_added_evidence_amount() {
         // Within 0.05 of the linearization for these moderate inputs.
         assert!(
             (delta_a - approx).abs() < 0.05,
-            "δA = {}; first-order approx = {}", delta_a, approx
+            "δA = {}; first-order approx = {}",
+            delta_a,
+            approx
         );
     }
 }

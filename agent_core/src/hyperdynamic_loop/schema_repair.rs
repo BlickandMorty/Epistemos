@@ -187,9 +187,14 @@ mod tests {
             ("age", Value::Integer(30)),
         ]);
         let mut c = LoopCounters::new();
-        let outcome =
-            run_loop(&l, d.clone(), RepairBudget::DEFAULT, &mut c, |p, _| p.clone()).unwrap();
-        assert!(matches!(outcome, RepairOutcome::Accepted { repairs: 0, .. }));
+        let outcome = run_loop(&l, d.clone(), RepairBudget::DEFAULT, &mut c, |p, _| {
+            p.clone()
+        })
+        .unwrap();
+        assert!(matches!(
+            outcome,
+            RepairOutcome::Accepted { repairs: 0, .. }
+        ));
         assert_eq!(c.accepted, 1);
     }
 
@@ -218,7 +223,10 @@ mod tests {
         let v = l.check(&d).unwrap();
         match v {
             RepairVerdict::RepairWith { hint, .. } => {
-                assert!(hint.contains("missing required field `age`"), "hint: {hint}");
+                assert!(
+                    hint.contains("missing required field `age`"),
+                    "hint: {hint}"
+                );
             }
             other => panic!("expected RepairWith, got {other:?}"),
         }
@@ -239,19 +247,12 @@ mod tests {
         let l = SchemaRepairLoop::new(user_schema());
         let initial = draft(&[("name", Value::String("Alice".into()))]);
         let mut c = LoopCounters::new();
-        let outcome = run_loop(
-            &l,
-            initial,
-            RepairBudget::DEFAULT,
-            &mut c,
-            |prev, _hint| {
-                // Simulated re-emit: add the missing age.
-                let mut next = prev.clone();
-                next.value
-                    .insert("age".to_string(), Value::Integer(42));
-                next
-            },
-        )
+        let outcome = run_loop(&l, initial, RepairBudget::DEFAULT, &mut c, |prev, _hint| {
+            // Simulated re-emit: add the missing age.
+            let mut next = prev.clone();
+            next.value.insert("age".to_string(), Value::Integer(42));
+            next
+        })
         .unwrap();
         match outcome {
             RepairOutcome::Accepted { packet, repairs } => {

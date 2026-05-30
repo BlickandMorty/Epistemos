@@ -33,19 +33,30 @@ pub struct LinearNetwork {
 /// Construction-validation error for a [`LinearNetwork`].
 #[derive(Clone, Debug, PartialEq)]
 pub enum LinearNetworkError {
-    NonRectangular { expected_cols: usize, actual_cols: usize, row: usize },
-    BiasShapeMismatch { expected: usize, actual: usize },
-    NonFiniteWeight { row: usize, col: usize, value: f64 },
-    NonFiniteBias { row: usize, value: f64 },
+    NonRectangular {
+        expected_cols: usize,
+        actual_cols: usize,
+        row: usize,
+    },
+    BiasShapeMismatch {
+        expected: usize,
+        actual: usize,
+    },
+    NonFiniteWeight {
+        row: usize,
+        col: usize,
+        value: f64,
+    },
+    NonFiniteBias {
+        row: usize,
+        value: f64,
+    },
     Empty,
 }
 
 impl LinearNetwork {
     /// Construct + validate.
-    pub fn new(
-        weights: Vec<Vec<f64>>,
-        biases: Vec<f64>,
-    ) -> Result<Self, LinearNetworkError> {
+    pub fn new(weights: Vec<Vec<f64>>, biases: Vec<f64>) -> Result<Self, LinearNetworkError> {
         if weights.is_empty() {
             return Err(LinearNetworkError::Empty);
         }
@@ -164,9 +175,15 @@ pub enum OperatorExprError {
     /// Branch and trunk output dims must match (they form the
     /// inner-product sum in DeepONet's `G(u)(y) ≈ Σ_k branch_k(u)·
     /// trunk_k(y)`).
-    OutputDimMismatch { branch_dim: usize, trunk_dim: usize },
+    OutputDimMismatch {
+        branch_dim: usize,
+        trunk_dim: usize,
+    },
     /// Fourier kernel `modes` must be ≤ trunk's output dim.
-    FourierModesTooLarge { modes: usize, trunk_output_dim: usize },
+    FourierModesTooLarge {
+        modes: usize,
+        trunk_output_dim: usize,
+    },
     /// Fourier kernel needs at least one retained mode for Lean's
     /// positive-mode isometry obligation.
     FourierModesZero,
@@ -217,11 +234,7 @@ mod tests {
 
     fn linear_2_to_3() -> LinearNetwork {
         LinearNetwork::new(
-            vec![
-                vec![1.0, 0.0],
-                vec![0.0, 1.0],
-                vec![1.0, 1.0],
-            ],
+            vec![vec![1.0, 0.0], vec![0.0, 1.0], vec![1.0, 1.0]],
             vec![0.0, 0.0, 0.0],
         )
         .unwrap()
@@ -254,15 +267,8 @@ mod tests {
 
     #[test]
     fn linear_network_non_rectangular_rejected() {
-        let err = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![1.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap_err();
-        assert!(matches!(
-            err,
-            LinearNetworkError::NonRectangular { .. }
-        ));
+        let err = LinearNetwork::new(vec![vec![1.0, 0.0], vec![1.0]], vec![0.0, 0.0]).unwrap_err();
+        assert!(matches!(err, LinearNetworkError::NonRectangular { .. }));
     }
 
     #[test]
@@ -273,8 +279,7 @@ mod tests {
 
     #[test]
     fn linear_network_non_finite_bias_rejected() {
-        let err =
-            LinearNetwork::new(vec![vec![1.0]], vec![f64::INFINITY]).unwrap_err();
+        let err = LinearNetwork::new(vec![vec![1.0]], vec![f64::INFINITY]).unwrap_err();
         assert!(matches!(err, LinearNetworkError::NonFiniteBias { .. }));
     }
 
@@ -296,8 +301,7 @@ mod tests {
     fn operator_rejects_mismatched_output_dims() {
         let branch = linear_2_to_3();
         let trunk = LinearNetwork::new(vec![vec![1.0, 0.0]], vec![0.0]).unwrap(); // out = 1
-        let err =
-            OperatorExpr::new(branch, trunk, KernelTransform::Identity).unwrap_err();
+        let err = OperatorExpr::new(branch, trunk, KernelTransform::Identity).unwrap_err();
         assert_eq!(
             err,
             OperatorExprError::OutputDimMismatch {
@@ -311,12 +315,8 @@ mod tests {
     fn operator_rejects_fourier_modes_too_large() {
         let branch = linear_2_to_3();
         let trunk = linear_2_to_3();
-        let err = OperatorExpr::new(
-            branch,
-            trunk,
-            KernelTransform::Fourier { modes: 5 },
-        )
-        .unwrap_err();
+        let err =
+            OperatorExpr::new(branch, trunk, KernelTransform::Fourier { modes: 5 }).unwrap_err();
         assert!(matches!(
             err,
             OperatorExprError::FourierModesTooLarge { .. }
@@ -327,12 +327,8 @@ mod tests {
     fn operator_rejects_zero_fourier_modes() {
         let branch = linear_2_to_3();
         let trunk = linear_2_to_3();
-        let err = OperatorExpr::new(
-            branch,
-            trunk,
-            KernelTransform::Fourier { modes: 0 },
-        )
-        .unwrap_err();
+        let err =
+            OperatorExpr::new(branch, trunk, KernelTransform::Fourier { modes: 0 }).unwrap_err();
         assert_eq!(err, OperatorExprError::FourierModesZero);
     }
 
@@ -340,12 +336,7 @@ mod tests {
     fn operator_accepts_fourier_modes_within_range() {
         let branch = linear_2_to_3();
         let trunk = linear_2_to_3();
-        let op = OperatorExpr::new(
-            branch,
-            trunk,
-            KernelTransform::Fourier { modes: 2 },
-        )
-        .unwrap();
+        let op = OperatorExpr::new(branch, trunk, KernelTransform::Fourier { modes: 2 }).unwrap();
         assert_eq!(op.output_dim(), 3);
         assert_eq!(op.kernel.modes(), Some(2));
     }
@@ -354,12 +345,7 @@ mod tests {
     fn round_trips_through_serde_json() {
         let branch = linear_2_to_3();
         let trunk = linear_2_to_3();
-        let op = OperatorExpr::new(
-            branch,
-            trunk,
-            KernelTransform::Fourier { modes: 2 },
-        )
-        .unwrap();
+        let op = OperatorExpr::new(branch, trunk, KernelTransform::Fourier { modes: 2 }).unwrap();
         let json = serde_json::to_string(&op).unwrap();
         let back: OperatorExpr = serde_json::from_str(&json).unwrap();
         assert_eq!(op, back);
@@ -384,8 +370,7 @@ mod tests {
     fn display_operator_identity() {
         let branch = linear_2_to_3();
         let trunk = linear_2_to_3();
-        let op =
-            OperatorExpr::new(branch, trunk, KernelTransform::Identity).unwrap();
+        let op = OperatorExpr::new(branch, trunk, KernelTransform::Identity).unwrap();
         assert_eq!(
             format!("{}", op),
             "OperatorExpr{branch=2x3, trunk=2x3, kernel=Identity}"
@@ -396,12 +381,7 @@ mod tests {
     fn display_operator_fourier() {
         let branch = linear_2_to_3();
         let trunk = linear_2_to_3();
-        let op = OperatorExpr::new(
-            branch,
-            trunk,
-            KernelTransform::Fourier { modes: 2 },
-        )
-        .unwrap();
+        let op = OperatorExpr::new(branch, trunk, KernelTransform::Fourier { modes: 2 }).unwrap();
         assert_eq!(
             format!("{}", op),
             "OperatorExpr{branch=2x3, trunk=2x3, kernel=Fourier{modes=2}}"
@@ -412,12 +392,7 @@ mod tests {
     fn output_dim_equals_branch_output_dim() {
         let branch = linear_2_to_3();
         let trunk = linear_2_to_3();
-        let op = OperatorExpr::new(
-            branch.clone(),
-            trunk,
-            KernelTransform::Identity,
-        )
-        .unwrap();
+        let op = OperatorExpr::new(branch.clone(), trunk, KernelTransform::Identity).unwrap();
         assert_eq!(op.output_dim(), branch.output_dim());
     }
 }

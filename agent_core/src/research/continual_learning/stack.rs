@@ -207,7 +207,9 @@ pub enum NeverRetrainStackError {
         attempted_slot: NeverRetrainLayer,
         canonical_slot: NeverRetrainLayer,
     },
-    WriteToReadOnlyLayer { layer: NeverRetrainLayer },
+    WriteToReadOnlyLayer {
+        layer: NeverRetrainLayer,
+    },
 }
 
 /// Validate that a primitive submission targets its canonical layer.
@@ -220,7 +222,9 @@ pub fn validate_submission(
         return Err(NeverRetrainStackError::BasePrimitiveSubmitted);
     }
     if !attempted_slot.is_writable() {
-        return Err(NeverRetrainStackError::WriteToReadOnlyLayer { layer: attempted_slot });
+        return Err(NeverRetrainStackError::WriteToReadOnlyLayer {
+            layer: attempted_slot,
+        });
     }
     let canonical = primitive.slot();
     if canonical != attempted_slot {
@@ -280,11 +284,26 @@ mod tests {
 
     #[test]
     fn primitive_slot_mapping_is_canonical() {
-        assert_eq!(ContinualPrimitive::Oftv2.slot(), NeverRetrainLayer::Adaptation);
-        assert_eq!(ContinualPrimitive::Dsc.slot(), NeverRetrainLayer::Adaptation);
-        assert_eq!(ContinualPrimitive::Ewc.slot(), NeverRetrainLayer::Protection);
-        assert_eq!(ContinualPrimitive::TitansMac.slot(), NeverRetrainLayer::Memory);
-        assert_eq!(ContinualPrimitive::SealDora.slot(), NeverRetrainLayer::History);
+        assert_eq!(
+            ContinualPrimitive::Oftv2.slot(),
+            NeverRetrainLayer::Adaptation
+        );
+        assert_eq!(
+            ContinualPrimitive::Dsc.slot(),
+            NeverRetrainLayer::Adaptation
+        );
+        assert_eq!(
+            ContinualPrimitive::Ewc.slot(),
+            NeverRetrainLayer::Protection
+        );
+        assert_eq!(
+            ContinualPrimitive::TitansMac.slot(),
+            NeverRetrainLayer::Memory
+        );
+        assert_eq!(
+            ContinualPrimitive::SealDora.slot(),
+            NeverRetrainLayer::History
+        );
     }
 
     #[test]
@@ -297,16 +316,12 @@ mod tests {
 
     #[test]
     fn correct_slot_submission_passes() {
-        assert!(validate_submission(
-            ContinualPrimitive::Ewc,
-            NeverRetrainLayer::Protection
-        )
-        .is_ok());
-        assert!(validate_submission(
-            ContinualPrimitive::Oftv2,
-            NeverRetrainLayer::Adaptation
-        )
-        .is_ok());
+        assert!(
+            validate_submission(ContinualPrimitive::Ewc, NeverRetrainLayer::Protection).is_ok()
+        );
+        assert!(
+            validate_submission(ContinualPrimitive::Oftv2, NeverRetrainLayer::Adaptation).is_ok()
+        );
     }
 
     #[test]
@@ -318,11 +333,8 @@ mod tests {
 
     #[test]
     fn read_only_layer_submission_rejected() {
-        let err = validate_submission(
-            ContinualPrimitive::SealDora,
-            NeverRetrainLayer::Governance,
-        )
-        .unwrap_err();
+        let err = validate_submission(ContinualPrimitive::SealDora, NeverRetrainLayer::Governance)
+            .unwrap_err();
         assert_eq!(
             err,
             NeverRetrainStackError::WriteToReadOnlyLayer {
@@ -352,11 +364,8 @@ mod tests {
         // update is consumed *from* it, not written *to* it through
         // this validation surface). The substrate enforces this with
         // a precedence rule: read-only check fires before slot-match.
-        let err = validate_submission(
-            ContinualPrimitive::SealDora,
-            NeverRetrainLayer::History,
-        )
-        .unwrap_err();
+        let err = validate_submission(ContinualPrimitive::SealDora, NeverRetrainLayer::History)
+            .unwrap_err();
         assert_eq!(
             err,
             NeverRetrainStackError::WriteToReadOnlyLayer {
@@ -414,8 +423,20 @@ mod tests {
         for l in NeverRetrainLayer::ALL.iter().copied() {
             assert_ne!(l.is_writable(), l.is_read_only());
         }
-        assert_eq!(NeverRetrainLayer::ALL.iter().filter(|l| l.is_writable()).count(), 3);
-        assert_eq!(NeverRetrainLayer::ALL.iter().filter(|l| l.is_read_only()).count(), 4);
+        assert_eq!(
+            NeverRetrainLayer::ALL
+                .iter()
+                .filter(|l| l.is_writable())
+                .count(),
+            3
+        );
+        assert_eq!(
+            NeverRetrainLayer::ALL
+                .iter()
+                .filter(|l| l.is_read_only())
+                .count(),
+            4
+        );
     }
 
     #[test]
@@ -459,7 +480,11 @@ mod tests {
         // Cross-surface invariant: is_base_submitted XOR is_slot_mismatch
         // XOR is_read_only.
         for e in variants {
-            let trio = [e.is_base_submitted(), e.is_slot_mismatch(), e.is_read_only()];
+            let trio = [
+                e.is_base_submitted(),
+                e.is_slot_mismatch(),
+                e.is_read_only(),
+            ];
             assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", e);
         }
     }
@@ -471,11 +496,8 @@ mod tests {
             validate_submission(ContinualPrimitive::Ewc, NeverRetrainLayer::Base).unwrap_err();
         assert!(err.is_base_submitted());
 
-        let err = validate_submission(
-            ContinualPrimitive::SealDora,
-            NeverRetrainLayer::Governance,
-        )
-        .unwrap_err();
+        let err = validate_submission(ContinualPrimitive::SealDora, NeverRetrainLayer::Governance)
+            .unwrap_err();
         assert!(err.is_read_only());
 
         let err =
@@ -491,9 +513,18 @@ mod tests {
         for p in ContinualPrimitive::ALL.iter().copied() {
             let slot = p.slot();
             if p == ContinualPrimitive::SealDora {
-                assert!(slot.is_read_only(), "SealDora's slot ({:?}) should be read-only", slot);
+                assert!(
+                    slot.is_read_only(),
+                    "SealDora's slot ({:?}) should be read-only",
+                    slot
+                );
             } else {
-                assert!(slot.is_writable(), "{:?}'s slot ({:?}) should be writable", p, slot);
+                assert!(
+                    slot.is_writable(),
+                    "{:?}'s slot ({:?}) should be writable",
+                    p,
+                    slot
+                );
             }
         }
     }

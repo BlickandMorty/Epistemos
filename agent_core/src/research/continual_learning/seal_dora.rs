@@ -73,8 +73,16 @@ pub struct LoraDelta {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SealDoraError {
-    ShapeMismatch { kind: &'static str, expected: usize, actual: usize },
-    DimensionMismatch { dora_dim: usize, lora_dim: usize, axis: &'static str },
+    ShapeMismatch {
+        kind: &'static str,
+        expected: usize,
+        actual: usize,
+    },
+    DimensionMismatch {
+        dora_dim: usize,
+        lora_dim: usize,
+        axis: &'static str,
+    },
     /// A direction row had zero norm — happens when the caller decomposed
     /// a base weight matrix with an all-zero row. Surfaces so the caller
     /// can drop / regularize that row before adapter composition.
@@ -110,7 +118,11 @@ impl SealDoraError {
 impl DoraDecomposition {
     /// Decompose `weights` (row-major `out_dim × in_dim`) into magnitude +
     /// unit-norm direction. Rejects all-zero rows.
-    pub fn from_weights(out_dim: usize, in_dim: usize, weights: &[f32]) -> Result<Self, SealDoraError> {
+    pub fn from_weights(
+        out_dim: usize,
+        in_dim: usize,
+        weights: &[f32],
+    ) -> Result<Self, SealDoraError> {
         if weights.len() != out_dim * in_dim {
             return Err(SealDoraError::ShapeMismatch {
                 kind: "weights",
@@ -132,7 +144,12 @@ impl DoraDecomposition {
                 direction[r * in_dim + c] = row[c] / norm;
             }
         }
-        Ok(Self { out_dim, in_dim, magnitude, direction })
+        Ok(Self {
+            out_dim,
+            in_dim,
+            magnitude,
+            direction,
+        })
     }
 }
 
@@ -341,7 +358,11 @@ mod tests {
         let err = DoraDecomposition::from_weights(2, 2, &[1.0, 2.0]).unwrap_err();
         assert_eq!(
             err,
-            SealDoraError::ShapeMismatch { kind: "weights", expected: 4, actual: 2 }
+            SealDoraError::ShapeMismatch {
+                kind: "weights",
+                expected: 4,
+                actual: 2
+            }
         );
     }
 
@@ -365,7 +386,11 @@ mod tests {
         let err = compose_dora(&dora, &delta).unwrap_err();
         assert_eq!(
             err,
-            SealDoraError::DimensionMismatch { dora_dim: 2, lora_dim: 3, axis: "out_dim" }
+            SealDoraError::DimensionMismatch {
+                dora_dim: 2,
+                lora_dim: 3,
+                axis: "out_dim"
+            }
         );
     }
 
@@ -376,7 +401,11 @@ mod tests {
         let err = compose_dora(&dora, &delta).unwrap_err();
         assert_eq!(
             err,
-            SealDoraError::DimensionMismatch { dora_dim: 2, lora_dim: 3, axis: "in_dim" }
+            SealDoraError::DimensionMismatch {
+                dora_dim: 2,
+                lora_dim: 3,
+                axis: "in_dim"
+            }
         );
     }
 
@@ -527,8 +556,16 @@ mod tests {
     #[test]
     fn error_cause_distinct_per_variant() {
         let variants = [
-            SealDoraError::ShapeMismatch { kind: "weights", expected: 4, actual: 2 },
-            SealDoraError::DimensionMismatch { dora_dim: 2, lora_dim: 3, axis: "out_dim" },
+            SealDoraError::ShapeMismatch {
+                kind: "weights",
+                expected: 4,
+                actual: 2,
+            },
+            SealDoraError::DimensionMismatch {
+                dora_dim: 2,
+                lora_dim: 3,
+                axis: "out_dim",
+            },
             SealDoraError::ZeroNormDirection { row: 0 },
         ];
         let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
@@ -538,8 +575,16 @@ mod tests {
     #[test]
     fn error_classifiers_3way_partition() {
         let variants = [
-            SealDoraError::ShapeMismatch { kind: "weights", expected: 4, actual: 2 },
-            SealDoraError::DimensionMismatch { dora_dim: 2, lora_dim: 3, axis: "out_dim" },
+            SealDoraError::ShapeMismatch {
+                kind: "weights",
+                expected: 4,
+                actual: 2,
+            },
+            SealDoraError::DimensionMismatch {
+                dora_dim: 2,
+                lora_dim: 3,
+                axis: "out_dim",
+            },
             SealDoraError::ZeroNormDirection { row: 0 },
         ];
         // Cross-surface invariant: 3-way classifier partition.

@@ -17,7 +17,6 @@ use crate::{
     },
 };
 
-use super::*;
 use super::admit::*;
 use super::audit_sink::*;
 use super::common::*;
@@ -29,6 +28,7 @@ use super::risk::*;
 use super::validation::*;
 use super::verdict::*;
 use super::wire::*;
+use super::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -131,7 +131,9 @@ impl<'de> Deserialize<'de> for ACSMemoryWriteRequest {
     }
 }
 
-pub(crate) fn require_memory_write_request_known_fields<E>(value: &serde_json::Value) -> Result<(), E>
+pub(crate) fn require_memory_write_request_known_fields<E>(
+    value: &serde_json::Value,
+) -> Result<(), E>
 where
     E: serde::de::Error,
 {
@@ -208,7 +210,9 @@ impl<'de> Deserialize<'de> for ACSToolActionRequest {
     }
 }
 
-pub(crate) fn require_tool_action_request_known_fields<E>(value: &serde_json::Value) -> Result<(), E>
+pub(crate) fn require_tool_action_request_known_fields<E>(
+    value: &serde_json::Value,
+) -> Result<(), E>
 where
     E: serde::de::Error,
 {
@@ -277,7 +281,9 @@ impl<'de> Deserialize<'de> for ACSKernelPromotionRequest {
     }
 }
 
-pub(crate) fn require_kernel_promotion_request_known_fields<E>(value: &serde_json::Value) -> Result<(), E>
+pub(crate) fn require_kernel_promotion_request_known_fields<E>(
+    value: &serde_json::Value,
+) -> Result<(), E>
 where
     E: serde::de::Error,
 {
@@ -351,7 +357,9 @@ impl<'de> Deserialize<'de> for ACSModelAdaptationRequest {
     }
 }
 
-pub(crate) fn require_model_adaptation_request_known_fields<E>(value: &serde_json::Value) -> Result<(), E>
+pub(crate) fn require_model_adaptation_request_known_fields<E>(
+    value: &serde_json::Value,
+) -> Result<(), E>
 where
     E: serde::de::Error,
 {
@@ -385,7 +393,10 @@ impl ACSModelAdaptationRequest {
     }
 }
 
-pub(crate) fn require_non_empty(value: &str, field: &'static str) -> Result<(), ACSAdmissionInputError> {
+pub(crate) fn require_non_empty(
+    value: &str,
+    field: &'static str,
+) -> Result<(), ACSAdmissionInputError> {
     if value.trim().is_empty() || value != value.trim() {
         Err(ACSAdmissionInputError::Forged { field })
     } else {
@@ -403,7 +414,10 @@ pub(crate) fn require_optional_non_empty(
     Ok(())
 }
 
-pub(crate) fn require_non_negative_ms(value: i64, field: &'static str) -> Result<(), ACSAdmissionInputError> {
+pub(crate) fn require_non_negative_ms(
+    value: i64,
+    field: &'static str,
+) -> Result<(), ACSAdmissionInputError> {
     if value < 0 {
         Err(ACSAdmissionInputError::Forged { field })
     } else {

@@ -229,9 +229,15 @@ mod tests {
     fn copy_stats_is_zero_predicate() {
         let zero = CopyStats::default();
         assert!(zero.is_zero_copy_and_zero_alloc());
-        let with_copy = CopyStats { copy_count: 1, ..Default::default() };
+        let with_copy = CopyStats {
+            copy_count: 1,
+            ..Default::default()
+        };
         assert!(!with_copy.is_zero_copy_and_zero_alloc());
-        let with_alloc = CopyStats { alloc_count: 1, ..Default::default() };
+        let with_alloc = CopyStats {
+            alloc_count: 1,
+            ..Default::default()
+        };
         assert!(!with_alloc.is_zero_copy_and_zero_alloc());
     }
 

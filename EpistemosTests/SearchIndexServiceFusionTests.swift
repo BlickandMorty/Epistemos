@@ -194,6 +194,57 @@ struct SearchIndexServiceFusionTests {
         )
     }
 
+    @Test("Startup repairs missing readable_blocks_fts and rebuilds existing rows")
+    func startupRepairsMissingReadableBlocksFTSAndRebuildsRows() throws {
+        let databaseURL = makeDatabaseURL()
+        let now = Date()
+        do {
+            let original = try SearchIndexService(databaseURL: databaseURL)
+            try original.upsert(
+                id: "repair-page",
+                title: "Repair Page",
+                body: "page body intentionally lacks the readable-only token",
+                tags: "",
+                updatedAt: now
+            )
+            let readableBlock = ReadableBlock(
+                artifactID: "repair-page",
+                artifactKind: .document,
+                blockID: "repair-page#readable",
+                blockKind: .paragraph,
+                titlePath: "Repair Page",
+                body: "readablesentinel",
+                updatedAt: ReadableBlock.iso8601(now),
+                vaultID: "test-vault"
+            )
+            try original.databaseWriter().write { db in
+                try ReadableBlocksIndex.insert(readableBlock, in: db)
+                try db.execute(sql: "DROP TABLE IF EXISTS readable_blocks_fts")
+                let missing = try Bool.fetchOne(
+                    db,
+                    sql: "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'readable_blocks_fts')"
+                ) ?? false
+                #expect(!missing)
+            }
+        }
+
+        let repaired = try SearchIndexService(databaseURL: databaseURL)
+        let hasReadableFTS = try repaired.databaseWriter().write { db in
+            try Bool.fetchOne(
+                db,
+                sql: "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'readable_blocks_fts')"
+            ) ?? false
+        }
+        #expect(hasReadableFTS)
+
+        let results = try repaired.fusedSearch(
+            query: "readablesentinel",
+            weights: FusionWeights(maxResults: 5),
+            now: now
+        )
+        #expect(results.map(\.parentDocID).contains("repair-page"))
+    }
+
     // MARK: - 1. Single-source query
 
     @Test("Single-source query: page-level term returns the matching page first")

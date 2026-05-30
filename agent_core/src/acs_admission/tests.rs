@@ -16,7 +16,6 @@ mod proof_and_audit_sink;
 
 use serde::{Deserialize, Serialize};
 
-use super::*;
 use super::admit::*;
 use super::audit_sink::*;
 use super::common::*;
@@ -29,6 +28,7 @@ use super::risk::*;
 use super::validation::*;
 use super::verdict::*;
 use super::wire::*;
+use super::*;
 use crate::{
     artifacts::ArtifactRef,
     effect::receipt::{Capability, SigningKey},

@@ -248,7 +248,11 @@ fn measure_path_5_provenance_snapshot() -> Path5Stats {
         };
         let claim = Claim::new(ClaimId::new(format!("c-{i}")), format!("text-{i}"), t);
         ledger
-            .commit_claim(claim, parents, vec![EvidenceId::new(format!("ev-{}", i % 8))])
+            .commit_claim(
+                claim,
+                parents,
+                vec![EvidenceId::new(format!("ev-{}", i % 8))],
+            )
             .expect("commit claim");
     }
 

@@ -3,7 +3,6 @@
 use serde::{Deserialize, Serialize};
 
 use super::*;
-use crate::acs_admission::*;
 use crate::acs_admission::admit::*;
 use crate::acs_admission::audit_sink::*;
 use crate::acs_admission::common::*;
@@ -16,6 +15,7 @@ use crate::acs_admission::risk::*;
 use crate::acs_admission::validation::*;
 use crate::acs_admission::verdict::*;
 use crate::acs_admission::wire::*;
+use crate::acs_admission::*;
 use crate::{
     artifacts::ArtifactRef,
     effect::receipt::{Capability, SigningKey},
@@ -39,11 +39,9 @@ fn acs_admission_scope_rex_proof_carries_verdict_record_ref_and_signature() {
     let record = audit_record_fixture(ACSAdmissionVerdict::AllowWithWarning);
     let signature = "11".repeat(CAPABILITY_SIGNATURE_BYTES);
 
-    let proof = SCOPERexAdmissionProof::from_record(
-        &record,
-        CapabilitySignature::new(signature.clone()),
-    )
-    .expect("valid audit record and signature produce proof");
+    let proof =
+        SCOPERexAdmissionProof::from_record(&record, CapabilitySignature::new(signature.clone()))
+            .expect("valid audit record and signature produce proof");
 
     assert_eq!(proof.verdict, ACSAdmissionVerdict::AllowWithWarning);
     assert_eq!(proof.operation, ACSOperationKind::MemoryWrite);
@@ -73,8 +71,8 @@ fn acs_admission_scope_rex_proof_carries_verdict_record_ref_and_signature() {
     });
     assert!(serde_json::from_value::<SCOPERexAdmissionProof>(non_allowing).is_err());
 
-    let err = SCOPERexAdmissionProof::from_record(&record, CapabilitySignature::new(" "))
-        .unwrap_err();
+    let err =
+        SCOPERexAdmissionProof::from_record(&record, CapabilitySignature::new(" ")).unwrap_err();
     assert_eq!(err.cause(), "missing_capability_signature");
     assert_eq!(err.field(), Some("signature"));
 
@@ -112,8 +110,7 @@ fn acs_admission_audit_record_id_decode_rejects_boundary_spaced_refs() {
 #[test]
 fn acs_admission_audit_record_id_decode_errors_preserve_record_ref() {
     let record_id = "run-event:external-record";
-    let err =
-        serde_json::from_value::<AuditRecordId>(serde_json::json!(record_id)).unwrap_err();
+    let err = serde_json::from_value::<AuditRecordId>(serde_json::json!(record_id)).unwrap_err();
     let message = err.to_string();
 
     assert!(message.contains("invalid_audit_record_id"), "{message}");
@@ -519,9 +516,8 @@ fn acs_admission_scope_rex_proof_verifies_from_run_event_log() {
     let policy = ACSPolicy::strict("policy-scope-rex-proof-log", 1_000);
     let decision =
         admit_and_record(&input, &policy, 1_001, &sink).expect("RunEventLog sink records");
-    let proof =
-        SCOPERexAdmissionProof::signed_from_record(&decision.audit_record, &signing_key)
-            .expect("audit record signs");
+    let proof = SCOPERexAdmissionProof::signed_from_record(&decision.audit_record, &signing_key)
+        .expect("audit record signs");
 
     let resolved = proof
         .verify_against_run_event_log(&run_event_log, &signing_key)
@@ -574,9 +570,8 @@ fn acs_admission_scope_rex_proof_invalid_log_precedes_invalid_proof() {
     let db_path = temp_dir.path().join("acs-proof-log-chain.sqlite");
     let signing_key = crate::effect::receipt::HmacSha256SigningKey::new([7; 32]);
     let mut proof = {
-        let run_event_log =
-            crate::oplog::OpLog::open_persistent("acs-proof-chain-test", &db_path)
-                .expect("persistent RunEventLog opens");
+        let run_event_log = crate::oplog::OpLog::open_persistent("acs-proof-chain-test", &db_path)
+            .expect("persistent RunEventLog opens");
         let sink = ACSRunEventLogSink::new(&run_event_log);
         let input = ACSAdmissionInput {
             request_id: "req-proof-chain".to_string(),
@@ -620,9 +615,8 @@ fn acs_admission_scope_rex_proof_reports_audit_log_gap() {
     let db_path = temp_dir.path().join("acs-proof-log-gap.sqlite");
     let signing_key = crate::effect::receipt::HmacSha256SigningKey::new([7; 32]);
     let proof = {
-        let run_event_log =
-            crate::oplog::OpLog::open_persistent("acs-proof-gap-test", &db_path)
-                .expect("persistent RunEventLog opens");
+        let run_event_log = crate::oplog::OpLog::open_persistent("acs-proof-gap-test", &db_path)
+            .expect("persistent RunEventLog opens");
         let sink = ACSRunEventLogSink::new(&run_event_log);
         let first_input = ACSAdmissionInput {
             request_id: "req-proof-gap-first".to_string(),
@@ -736,8 +730,7 @@ fn acs_admission_in_memory_audit_sink_records_decisions() {
     };
     let policy = ACSPolicy::strict("policy-sink", 1_000);
 
-    let decision =
-        admit_and_record(&input, &policy, 1_001, &sink).expect("in-memory sink records");
+    let decision = admit_and_record(&input, &policy, 1_001, &sink).expect("in-memory sink records");
 
     assert_eq!(decision.verdict, ACSAdmissionVerdict::Allow);
     assert_eq!(sink.records().unwrap(), vec![decision.audit_record]);
@@ -1264,4 +1257,3 @@ fn acs_admission_run_event_log_sink_records_reserved_malformed_request_without_c
     assert!(second.audit_record.validate().is_ok());
     assert_eq!(run_event_log.len(), 2);
 }
-

@@ -71,7 +71,10 @@ impl TableOfContentsProps {
                 return Err(TableOfContentsError::EmptyAnchor { index: i });
             }
             if !(TOC_MIN_DEPTH..=TOC_MAX_DEPTH).contains(&e.depth) {
-                return Err(TableOfContentsError::DepthOutOfRange { index: i, depth: e.depth });
+                return Err(TableOfContentsError::DepthOutOfRange {
+                    index: i,
+                    depth: e.depth,
+                });
             }
         }
         Ok(())
@@ -102,7 +105,11 @@ mod tests {
     use super::*;
 
     fn entry(a: &str, t: &str, d: u8) -> TocEntry {
-        TocEntry { anchor: a.into(), title: t.into(), depth: d }
+        TocEntry {
+            anchor: a.into(),
+            title: t.into(),
+            depth: d,
+        }
     }
 
     #[test]
@@ -113,39 +120,62 @@ mod tests {
 
     #[test]
     fn valid_passes() {
-        let p = TableOfContentsProps { entries: vec![entry("#intro", "Intro", 1)] };
+        let p = TableOfContentsProps {
+            entries: vec![entry("#intro", "Intro", 1)],
+        };
         assert!(p.validate().is_ok());
     }
 
     #[test]
     fn empty_anchor_rejected() {
-        let p = TableOfContentsProps { entries: vec![entry("", "x", 1)] };
-        assert!(matches!(p.validate().unwrap_err(), TableOfContentsError::EmptyAnchor { .. }));
+        let p = TableOfContentsProps {
+            entries: vec![entry("", "x", 1)],
+        };
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            TableOfContentsError::EmptyAnchor { .. }
+        ));
     }
 
     #[test]
     fn depth_zero_rejected() {
-        let p = TableOfContentsProps { entries: vec![entry("#a", "x", 0)] };
-        assert!(matches!(p.validate().unwrap_err(), TableOfContentsError::DepthOutOfRange { .. }));
+        let p = TableOfContentsProps {
+            entries: vec![entry("#a", "x", 0)],
+        };
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            TableOfContentsError::DepthOutOfRange { .. }
+        ));
     }
 
     #[test]
     fn depth_seven_rejected() {
-        let p = TableOfContentsProps { entries: vec![entry("#a", "x", 7)] };
-        assert!(matches!(p.validate().unwrap_err(), TableOfContentsError::DepthOutOfRange { .. }));
+        let p = TableOfContentsProps {
+            entries: vec![entry("#a", "x", 7)],
+        };
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            TableOfContentsError::DepthOutOfRange { .. }
+        ));
     }
 
     #[test]
     fn max_depth_correct() {
         let p = TableOfContentsProps {
-            entries: vec![entry("#a", "A", 1), entry("#b", "B", 3), entry("#c", "C", 2)],
+            entries: vec![
+                entry("#a", "A", 1),
+                entry("#b", "B", 3),
+                entry("#c", "C", 2),
+            ],
         };
         assert_eq!(p.max_depth(), 3);
     }
 
     #[test]
     fn serde_json_roundtrip() {
-        let p = TableOfContentsProps { entries: vec![entry("#a", "A", 1)] };
+        let p = TableOfContentsProps {
+            entries: vec![entry("#a", "A", 1)],
+        };
         let json = serde_json::to_string(&p).unwrap();
         let back: TableOfContentsProps = serde_json::from_str(&json).unwrap();
         assert_eq!(p, back);
@@ -191,7 +221,11 @@ mod tests {
     #[test]
     fn min_depth_picks_smallest() {
         let p = TableOfContentsProps {
-            entries: vec![entry("#a", "A", 3), entry("#b", "B", 1), entry("#c", "C", 5)],
+            entries: vec![
+                entry("#a", "A", 3),
+                entry("#b", "B", 1),
+                entry("#c", "C", 5),
+            ],
         };
         assert_eq!(p.min_depth(), Some(1));
     }
@@ -200,7 +234,11 @@ mod tests {
     fn min_depth_leq_max_depth_invariant() {
         // Cross-surface invariant: min_depth ≤ max_depth for non-empty TOC.
         let p = TableOfContentsProps {
-            entries: vec![entry("#a", "A", 2), entry("#b", "B", 4), entry("#c", "C", 1)],
+            entries: vec![
+                entry("#a", "A", 2),
+                entry("#b", "B", 4),
+                entry("#c", "C", 1),
+            ],
         };
         assert!(p.min_depth().unwrap() <= p.max_depth());
     }
@@ -215,7 +253,9 @@ mod tests {
 
     #[test]
     fn is_valid_matches_validate_ok() {
-        let good = TableOfContentsProps { entries: vec![entry("#a", "A", 1)] };
+        let good = TableOfContentsProps {
+            entries: vec![entry("#a", "A", 1)],
+        };
         assert_eq!(good.is_valid(), good.validate().is_ok());
         assert!(good.is_valid());
     }

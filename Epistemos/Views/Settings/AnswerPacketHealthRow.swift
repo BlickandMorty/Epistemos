@@ -63,7 +63,7 @@ public struct AnswerPacketHealthRow: View {
             row(
                 label: "Emit channel",
                 symbol: "antenna.radiowaves.left.and.right",
-                ok: snapshot.totalEmitted > 0,
+                state: snapshot.totalEmitted > 0 ? .pass : .partial,
                 detail: emitChannelDetail
             )
             VerifiedFloorChipStrip(
@@ -78,20 +78,20 @@ public struct AnswerPacketHealthRow: View {
             row(
                 label: "Last 100 ring",
                 symbol: "tray.full",
-                ok: snapshot.count > 0,
+                state: snapshot.count > 0 ? .pass : .partial,
                 detail: ringUtilizationDetail
             )
             if let latest = snapshot.latest {
                 row(
                     label: "Latest packet",
                     symbol: "checkmark.shield",
-                    ok: true,
+                    state: .pass,
                     detail: latestPacketDetail(latest)
                 )
                 row(
                     label: "Last emit",
                     symbol: "clock",
-                    ok: true,
+                    state: .pass,
                     detail: lastEmitDetail
                 )
                 // Histogram rows — per-mode + per-bucket distributions
@@ -102,7 +102,7 @@ public struct AnswerPacketHealthRow: View {
                     row(
                         label: "By attention mode",
                         symbol: "chart.bar.horizontal",
-                        ok: true,
+                        state: .pass,
                         detail: modeHistogramDetail
                     )
                 }
@@ -110,7 +110,7 @@ public struct AnswerPacketHealthRow: View {
                     row(
                         label: "By interrupt bucket",
                         symbol: "chart.bar.fill",
-                        ok: true,
+                        state: .pass,
                         detail: bucketHistogramDetail
                     )
                 }
@@ -118,7 +118,7 @@ public struct AnswerPacketHealthRow: View {
                     row(
                         label: "By claim_kind",
                         symbol: "chart.bar.doc.horizontal",
-                        ok: true,
+                        state: .pass,
                         detail: claimKindHistogramDetail
                     )
                 }
@@ -126,7 +126,7 @@ public struct AnswerPacketHealthRow: View {
                 row(
                     label: "Latest packet",
                     symbol: "tray",
-                    ok: false,
+                    state: .partial,
                     detail: "No packets yet — send a chat message to populate."
                 )
             }
@@ -247,10 +247,10 @@ public struct AnswerPacketHealthRow: View {
     // MARK: - Row primitive (matches SearchFusionHealthRow / EditorBundleHealthRow)
 
     @ViewBuilder
-    private func row(label: String, symbol: String, ok: Bool, detail: String) -> some View {
+    private func row(label: String, symbol: String, state: SubstrateHealthSignalState, detail: String) -> some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: symbol)
-                .foregroundStyle(ok ? Color.green : Color.secondary)
+                .foregroundStyle(state.tint)
                 .frame(width: 16, alignment: .center)
             VStack(alignment: .leading, spacing: 1) {
                 Text(label)
@@ -261,6 +261,9 @@ public struct AnswerPacketHealthRow: View {
                     .textSelection(.enabled)
             }
             Spacer(minLength: 0)
+            Image(systemName: state.symbol)
+                .foregroundStyle(state.tint)
+                .font(.system(size: 16))
         }
     }
 

@@ -3,7 +3,6 @@
 use serde::{Deserialize, Serialize};
 
 use super::*;
-use crate::acs_admission::*;
 use crate::acs_admission::admit::*;
 use crate::acs_admission::audit_sink::*;
 use crate::acs_admission::common::*;
@@ -16,6 +15,7 @@ use crate::acs_admission::risk::*;
 use crate::acs_admission::validation::*;
 use crate::acs_admission::verdict::*;
 use crate::acs_admission::wire::*;
+use crate::acs_admission::*;
 use crate::{
     artifacts::ArtifactRef,
     effect::receipt::{Capability, SigningKey},
@@ -56,9 +56,8 @@ fn acs_admission_run_event_log_sink_requires_valid_chain() {
     .expect("tamper write succeeds");
     drop(conn);
 
-    let reopened =
-        crate::oplog::OpLog::open_persistent("acs-admission-sink-chain-test", &db_path)
-            .expect("tampered RunEventLog reopens");
+    let reopened = crate::oplog::OpLog::open_persistent("acs-admission-sink-chain-test", &db_path)
+        .expect("tampered RunEventLog reopens");
     assert!(!reopened.verify_chain(None).valid);
     let sink = ACSRunEventLogSink::new(&reopened);
     let mut record = audit_record_fixture(ACSAdmissionVerdict::AllowWithWarning);
@@ -99,9 +98,8 @@ fn acs_admission_run_event_log_sink_rejects_sequence_gaps() {
         .expect("tamper delete succeeds");
     drop(conn);
 
-    let reopened =
-        crate::oplog::OpLog::open_persistent("acs-admission-sink-gap-test", &db_path)
-            .expect("gapped RunEventLog reopens");
+    let reopened = crate::oplog::OpLog::open_persistent("acs-admission-sink-gap-test", &db_path)
+        .expect("gapped RunEventLog reopens");
     let report = reopened.verify_chain(None);
     assert!(!report.valid);
     assert_eq!(report.failure_reason.as_deref(), Some("seq_gap"));
@@ -185,9 +183,8 @@ fn acs_admission_run_event_log_resolves_proof_record_refs() {
     let policy = ACSPolicy::strict("policy-run-event-log-resolve", 1_000);
     let decision =
         admit_and_record(&input, &policy, 1_001, &sink).expect("RunEventLog sink records");
-    let proof =
-        SCOPERexAdmissionProof::signed_from_record(&decision.audit_record, &signing_key)
-            .expect("audit record signs");
+    let proof = SCOPERexAdmissionProof::signed_from_record(&decision.audit_record, &signing_key)
+        .expect("audit record signs");
 
     let resolved = resolve_acs_audit_record(&run_event_log, &proof.record_id)
         .expect("record id resolves from RunEventLog");
@@ -628,8 +625,7 @@ fn acs_admission_missing_risk_axis_is_rejected_on_decode() {
 
 #[test]
 fn acs_admission_missing_risk_axis_names_decode_field() {
-    let mut value =
-        serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
+    let mut value = serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
     value
         .as_object_mut()
         .expect("risk vector encodes as object")
@@ -644,8 +640,7 @@ fn acs_admission_missing_risk_axis_names_decode_field() {
 
 #[test]
 fn acs_admission_missing_risk_axis_names_risk_namespace() {
-    let mut value =
-        serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
+    let mut value = serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
     value
         .as_object_mut()
         .expect("risk vector encodes as object")
@@ -660,8 +655,7 @@ fn acs_admission_missing_risk_axis_names_risk_namespace() {
 
 #[test]
 fn acs_admission_null_risk_axis_names_decode_field() {
-    let mut value =
-        serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
+    let mut value = serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
     value["truth_risk"] = serde_json::json!(null);
 
     let err = serde_json::from_value::<ACSRiskVector>(value).unwrap_err();
@@ -673,8 +667,7 @@ fn acs_admission_null_risk_axis_names_decode_field() {
 
 #[test]
 fn acs_admission_typed_risk_axis_names_decode_field() {
-    let mut value =
-        serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
+    let mut value = serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
     value["privacy_risk"] = serde_json::json!("0.1");
 
     let err = serde_json::from_value::<ACSRiskVector>(value).unwrap_err();
@@ -698,8 +691,7 @@ fn acs_admission_nonobject_risk_vector_names_decode_field() {
 
 #[test]
 fn acs_admission_typed_evidence_field_names_decode_field() {
-    let mut value =
-        serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
+    let mut value = serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
     value["evidence_present"] = serde_json::json!("true");
 
     let err = serde_json::from_value::<ACSRiskVector>(value).unwrap_err();
@@ -711,8 +703,7 @@ fn acs_admission_typed_evidence_field_names_decode_field() {
 
 #[test]
 fn acs_admission_shadow_risk_axis_is_rejected_on_decode() {
-    let mut value =
-        serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
+    let mut value = serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
     value["shadow_risk"] = serde_json::json!(1.0);
 
     let decoded = serde_json::from_value::<ACSRiskVector>(value);
@@ -722,8 +713,7 @@ fn acs_admission_shadow_risk_axis_is_rejected_on_decode() {
 
 #[test]
 fn acs_admission_shadow_risk_axis_names_malformed_risk_vector_field() {
-    let mut value =
-        serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
+    let mut value = serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
     value["shadow_risk"] = serde_json::json!(1.0);
 
     let err = serde_json::from_value::<ACSRiskVector>(value).unwrap_err();
@@ -735,8 +725,7 @@ fn acs_admission_shadow_risk_axis_names_malformed_risk_vector_field() {
 
 #[test]
 fn acs_admission_shadow_risk_axis_names_risk_namespace() {
-    let mut value =
-        serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
+    let mut value = serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
     value["shadow_risk"] = serde_json::json!(1.0);
 
     let err = serde_json::from_value::<ACSRiskVector>(value).unwrap_err();
@@ -748,8 +737,7 @@ fn acs_admission_shadow_risk_axis_names_risk_namespace() {
 
 #[test]
 fn acs_admission_out_of_range_risk_axis_is_rejected_on_decode() {
-    let mut value =
-        serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
+    let mut value = serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
     value["safety_risk"] = serde_json::json!(1.01);
 
     let err = serde_json::from_value::<ACSRiskVector>(value).unwrap_err();
@@ -761,8 +749,7 @@ fn acs_admission_out_of_range_risk_axis_is_rejected_on_decode() {
 
 #[test]
 fn acs_admission_out_of_range_risk_axis_names_risk_namespace() {
-    let mut value =
-        serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
+    let mut value = serde_json::to_value(ACSRiskVector::neutral()).expect("risk vector encodes");
     value["safety_risk"] = serde_json::json!(1.01);
 
     let err = serde_json::from_value::<ACSRiskVector>(value).unwrap_err();
@@ -774,8 +761,7 @@ fn acs_admission_out_of_range_risk_axis_names_risk_namespace() {
 
 #[test]
 fn acs_admission_shadow_threshold_axis_is_rejected_on_decode() {
-    let mut value =
-        serde_json::to_value(ACSRiskThresholds::standard()).expect("thresholds encode");
+    let mut value = serde_json::to_value(ACSRiskThresholds::standard()).expect("thresholds encode");
     value["escalate_at"] = serde_json::json!(0.95);
 
     let decoded = serde_json::from_value::<ACSRiskThresholds>(value);
@@ -785,8 +771,7 @@ fn acs_admission_shadow_threshold_axis_is_rejected_on_decode() {
 
 #[test]
 fn acs_admission_shadow_threshold_axis_names_malformed_policy_field() {
-    let mut value =
-        serde_json::to_value(ACSRiskThresholds::standard()).expect("thresholds encode");
+    let mut value = serde_json::to_value(ACSRiskThresholds::standard()).expect("thresholds encode");
     value["escalate_at"] = serde_json::json!(0.95);
 
     let err = serde_json::from_value::<ACSRiskThresholds>(value).unwrap_err();
@@ -798,8 +783,7 @@ fn acs_admission_shadow_threshold_axis_names_malformed_policy_field() {
 
 #[test]
 fn acs_admission_shadow_threshold_axis_names_threshold_namespace() {
-    let mut value =
-        serde_json::to_value(ACSRiskThresholds::standard()).expect("thresholds encode");
+    let mut value = serde_json::to_value(ACSRiskThresholds::standard()).expect("thresholds encode");
     value["escalate_at"] = serde_json::json!(0.95);
 
     let err = serde_json::from_value::<ACSRiskThresholds>(value).unwrap_err();
@@ -811,8 +795,7 @@ fn acs_admission_shadow_threshold_axis_names_threshold_namespace() {
 
 #[test]
 fn acs_admission_missing_threshold_axis_names_malformed_policy_field() {
-    let mut value =
-        serde_json::to_value(ACSRiskThresholds::standard()).expect("thresholds encode");
+    let mut value = serde_json::to_value(ACSRiskThresholds::standard()).expect("thresholds encode");
     value
         .as_object_mut()
         .expect("thresholds encode as object")
@@ -827,8 +810,7 @@ fn acs_admission_missing_threshold_axis_names_malformed_policy_field() {
 
 #[test]
 fn acs_admission_missing_threshold_axis_names_threshold_namespace() {
-    let mut value =
-        serde_json::to_value(ACSRiskThresholds::standard()).expect("thresholds encode");
+    let mut value = serde_json::to_value(ACSRiskThresholds::standard()).expect("thresholds encode");
     value
         .as_object_mut()
         .expect("thresholds encode as object")
@@ -843,8 +825,7 @@ fn acs_admission_missing_threshold_axis_names_threshold_namespace() {
 
 #[test]
 fn acs_admission_null_threshold_axis_names_malformed_policy_field() {
-    let mut value =
-        serde_json::to_value(ACSRiskThresholds::standard()).expect("thresholds encode");
+    let mut value = serde_json::to_value(ACSRiskThresholds::standard()).expect("thresholds encode");
     value["warn_at"] = serde_json::json!(null);
 
     let err = serde_json::from_value::<ACSRiskThresholds>(value).unwrap_err();
@@ -856,8 +837,7 @@ fn acs_admission_null_threshold_axis_names_malformed_policy_field() {
 
 #[test]
 fn acs_admission_typed_threshold_axis_names_malformed_policy_field() {
-    let mut value =
-        serde_json::to_value(ACSRiskThresholds::standard()).expect("thresholds encode");
+    let mut value = serde_json::to_value(ACSRiskThresholds::standard()).expect("thresholds encode");
     value["reject_at"] = serde_json::json!("0.9");
 
     let err = serde_json::from_value::<ACSRiskThresholds>(value).unwrap_err();
@@ -1021,8 +1001,7 @@ fn acs_admission_shadow_policy_field_names_malformed_policy_field() {
 
 #[test]
 fn acs_admission_nonmonotonic_thresholds_are_rejected_on_decode() {
-    let mut value =
-        serde_json::to_value(ACSRiskThresholds::standard()).expect("thresholds encode");
+    let mut value = serde_json::to_value(ACSRiskThresholds::standard()).expect("thresholds encode");
     value["quarantine_at"] = serde_json::json!(0.4);
 
     let err = serde_json::from_value::<ACSRiskThresholds>(value).unwrap_err();
@@ -1250,4 +1229,3 @@ fn acs_admission_shadow_capability_rule_field_names_required_namespace() {
         "{message}"
     );
 }
-

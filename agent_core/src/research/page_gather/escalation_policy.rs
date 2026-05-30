@@ -57,7 +57,10 @@ pub enum EscalationError {
     ResidualStage(ResidualRescoreError),
     /// K_RESIDUAL was larger than K_SKETCH; substrate-floor invariant
     /// violation.
-    ResidualLargerThanSketch { k_sketch: usize, k_residual: usize },
+    ResidualLargerThanSketch {
+        k_sketch: usize,
+        k_residual: usize,
+    },
     /// All candidates were sentinel-empty (corpus had no scoreable
     /// pages).
     EmptyResidualResult,
@@ -207,7 +210,12 @@ mod tests {
     use super::*;
     use crate::uas::{UasAddress, UasKind};
 
-    fn page_with_sketch_and_residual(seed: u64, sketch: Vec<i8>, residual: Vec<ResidualBlock>, block_size: usize) -> HeliosPage {
+    fn page_with_sketch_and_residual(
+        seed: u64,
+        sketch: Vec<i8>,
+        residual: Vec<ResidualBlock>,
+        block_size: usize,
+    ) -> HeliosPage {
         let address = UasAddress::new(UasKind::KvPage, &seed.to_le_bytes(), 0);
         HeliosPage::sketch_only(address, sketch)
             .unwrap()
@@ -217,9 +225,16 @@ mod tests {
 
     #[test]
     fn k_residual_larger_than_k_sketch_errors() {
-        let bad = EscalationThresholds { k_sketch: 32, k_residual: 64, ..Default::default() };
+        let bad = EscalationThresholds {
+            k_sketch: 32,
+            k_residual: 64,
+            ..Default::default()
+        };
         let err = EscalationPolicy::new(bad).unwrap_err();
-        assert!(matches!(err, EscalationError::ResidualLargerThanSketch { .. }));
+        assert!(matches!(
+            err,
+            EscalationError::ResidualLargerThanSketch { .. }
+        ));
     }
 
     #[test]
@@ -238,37 +253,58 @@ mod tests {
             page_with_sketch_and_residual(
                 0,
                 vec![100, 100],
-                vec![ResidualBlock { data: vec![100, 100], scale: 0.1 }],
+                vec![ResidualBlock {
+                    data: vec![100, 100],
+                    scale: 0.1,
+                }],
                 bs,
             ),
             page_with_sketch_and_residual(
                 1,
                 vec![1, 1],
-                vec![ResidualBlock { data: vec![1, 1], scale: 0.01 }],
+                vec![ResidualBlock {
+                    data: vec![1, 1],
+                    scale: 0.01,
+                }],
                 bs,
             ),
             page_with_sketch_and_residual(
                 2,
                 vec![1, 1],
-                vec![ResidualBlock { data: vec![1, 1], scale: 0.01 }],
+                vec![ResidualBlock {
+                    data: vec![1, 1],
+                    scale: 0.01,
+                }],
                 bs,
             ),
             page_with_sketch_and_residual(
                 3,
                 vec![1, 1],
-                vec![ResidualBlock { data: vec![1, 1], scale: 0.01 }],
+                vec![ResidualBlock {
+                    data: vec![1, 1],
+                    scale: 0.01,
+                }],
                 bs,
             ),
         ];
         let query_sketch = vec![100, 100];
-        let query_residual = vec![ResidualBlock { data: vec![100, 100], scale: 0.1 }];
+        let query_residual = vec![ResidualBlock {
+            data: vec![100, 100],
+            scale: 0.1,
+        }];
 
-        let verdict = policy.escalate(&query_sketch, &query_residual, &corpus).unwrap();
+        let verdict = policy
+            .escalate(&query_sketch, &query_residual, &corpus)
+            .unwrap();
         match verdict {
-            EscalationVerdict::CheapResidual { winner_page_index, .. } => {
+            EscalationVerdict::CheapResidual {
+                winner_page_index, ..
+            } => {
                 assert_eq!(winner_page_index, 0, "page 0 has clearly-better residual");
             }
-            EscalationVerdict::ExactDecode { .. } => panic!("expected cheap-residual path; got exact-decode"),
+            EscalationVerdict::ExactDecode { .. } => {
+                panic!("expected cheap-residual path; got exact-decode")
+            }
         }
     }
 
@@ -284,27 +320,66 @@ mod tests {
 
         let bs = 2;
         let corpus = vec![
-            page_with_sketch_and_residual(0, vec![10, 10], vec![ResidualBlock { data: vec![10, 10], scale: 0.1 }], bs),
-            page_with_sketch_and_residual(1, vec![10, 10], vec![ResidualBlock { data: vec![10, 10], scale: 0.1 }], bs),
+            page_with_sketch_and_residual(
+                0,
+                vec![10, 10],
+                vec![ResidualBlock {
+                    data: vec![10, 10],
+                    scale: 0.1,
+                }],
+                bs,
+            ),
+            page_with_sketch_and_residual(
+                1,
+                vec![10, 10],
+                vec![ResidualBlock {
+                    data: vec![10, 10],
+                    scale: 0.1,
+                }],
+                bs,
+            ),
         ];
         let query_sketch = vec![10, 10];
-        let query_residual = vec![ResidualBlock { data: vec![10, 10], scale: 0.1 }];
+        let query_residual = vec![ResidualBlock {
+            data: vec![10, 10],
+            scale: 0.1,
+        }];
 
-        let verdict = policy.escalate(&query_sketch, &query_residual, &corpus).unwrap();
+        let verdict = policy
+            .escalate(&query_sketch, &query_residual, &corpus)
+            .unwrap();
         assert!(matches!(verdict, EscalationVerdict::ExactDecode { .. }));
     }
 
     #[test]
     fn single_result_has_infinite_margin() {
-        let thresholds = EscalationThresholds { k_sketch: 1, k_residual: 1, exact_threshold: 0.5, residual_threshold: 0.2 };
+        let thresholds = EscalationThresholds {
+            k_sketch: 1,
+            k_residual: 1,
+            exact_threshold: 0.5,
+            residual_threshold: 0.2,
+        };
         let mut policy = EscalationPolicy::new(thresholds).unwrap();
 
         let bs = 2;
-        let corpus = vec![page_with_sketch_and_residual(0, vec![10, 10], vec![ResidualBlock { data: vec![10, 10], scale: 0.1 }], bs)];
+        let corpus = vec![page_with_sketch_and_residual(
+            0,
+            vec![10, 10],
+            vec![ResidualBlock {
+                data: vec![10, 10],
+                scale: 0.1,
+            }],
+            bs,
+        )];
         let query_sketch = vec![10, 10];
-        let query_residual = vec![ResidualBlock { data: vec![10, 10], scale: 0.1 }];
+        let query_residual = vec![ResidualBlock {
+            data: vec![10, 10],
+            scale: 0.1,
+        }];
 
-        let verdict = policy.escalate(&query_sketch, &query_residual, &corpus).unwrap();
+        let verdict = policy
+            .escalate(&query_sketch, &query_residual, &corpus)
+            .unwrap();
         // With only 1 result, margin = INFINITY > any exact_threshold,
         // so cheap-residual.
         assert!(matches!(verdict, EscalationVerdict::CheapResidual { .. }));

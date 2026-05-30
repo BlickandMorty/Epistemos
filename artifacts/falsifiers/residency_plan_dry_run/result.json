@@ -1,0 +1,128 @@
+{
+  "falsifier_id": "F-ResidencyPlan-DryRun",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_residency_plan_dry_run.sh",
+  "command_digest": "sha256:02d901face64606dbfab8b90a7ca696c7e5a41d37269cde16a5b9abf8e00564b",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "ba6f15e6fb08c772c5bbce4d303aff864f39e9c2",
+  "fixture_id": "residency_plan_dry_run_70b_shape_v1",
+  "timestamp_utc": "2026-05-30T10:37:35Z",
+  "result_digest": "sha256:e640c104fa83f1d3babb9e84ece757d0cf8cc9f3d9cca07134de721dd9d8e77e",
+  "measurements": {
+    "active_runtime_bytes": {
+      "value": 872415232,
+      "unit": "bytes"
+    },
+    "block_count": {
+      "value": 4,
+      "unit": "count"
+    },
+    "cold_mmap_ssd_bytes": {
+      "value": 77309411328,
+      "unit": "bytes"
+    },
+    "deterministic_plan_address": {
+      "value": true,
+      "unit": "bool"
+    },
+    "fit_for_dry_run": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "plan_address": {
+      "value": "residency_plan:8e0ce507c0a815d006cbda10d28c1a565b1e8bcc1bde4eeda4c4313bab74718d@1779000000000",
+      "unit": "uas_address"
+    },
+    "runtime_model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "sherry_and_leech_codec_names_present": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "active_runtime_bytes": {
+      "operator": "<=",
+      "value": 15032385536,
+      "unit": "bytes"
+    },
+    "cold_mmap_ssd_bytes": {
+      "operator": ">=",
+      "value": 75161927680,
+      "unit": "bytes"
+    },
+    "deterministic_plan_address": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "fit_for_dry_run": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_rollback_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "sherry_and_leech_codec_names_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "active_runtime_bytes": true,
+    "cold_mmap_ssd_bytes": true,
+    "deterministic_plan_address": true,
+    "fit_for_dry_run": true,
+    "missing_rollback_rejected": true,
+    "runtime_model_bytes_loaded": true,
+    "sherry_and_leech_codec_names_present": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "dry-run planner only; no mmap, decode, MLX, Metal, KV, or 70B inference executed"
+    }
+  ],
+  "notes": "Proves budgeted active-set planning over WeightBlockManifest; does not prove live 70B inference."
+}

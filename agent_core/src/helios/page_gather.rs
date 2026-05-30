@@ -64,6 +64,12 @@ pub struct PageGatherSchedulePlan {
     pub logical_positions: Vec<u32>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PageGatherPacket {
+    pub logical_position: u32,
+    pub value: f32,
+}
+
 impl PageGatherSchedulePlan {
     pub fn len(&self) -> usize {
         self.execution_indices.len()
@@ -148,6 +154,12 @@ pub enum HeliosError {
     IndexCountTooLarge { indices: usize },
     /// Scheduled values did not match the plan length.
     ScheduleLengthMismatch { schedule: usize, values: usize },
+    /// A schedule or packet stream reused the same logical position twice.
+    DuplicateLogicalPosition {
+        logical_position: u32,
+        first_slot: usize,
+        duplicate_slot: usize,
+    },
 }
 
 fn validate_gather(
@@ -307,6 +319,114 @@ pub fn gather_scheduled(
     })
 }
 
+/// Execute a PageGather schedule as a compact packet stream instead of
+/// restoring dense logical order immediately.
+///
+/// This mirrors `pageGatherPacketizeScheduled` in Metal:
+/// `packets[i] = (logical_positions[i], source[execution_indices[i]])`.
+/// Callers that can consume witness-coordinate packets avoid the random
+/// destination writes that made dense scheduled restore the current
+/// `F-PageGather-M2Pro` bottleneck.
+pub fn gather_packetized(
+    source: &[f32],
+    plan: &PageGatherSchedulePlan,
+) -> Result<(Vec<PageGatherPacket>, PageGatherStats), HeliosError> {
+    if plan.execution_indices.len() != plan.logical_positions.len() {
+        return Err(HeliosError::ScheduleLengthMismatch {
+            schedule: plan.execution_indices.len(),
+            values: plan.logical_positions.len(),
+        });
+    }
+
+    let mut first_slot_by_logical_position: Vec<Option<usize>> = vec![None; plan.len()];
+    let mut packets = Vec::with_capacity(plan.len());
+    let mut max_index = 0_u32;
+    let mut sequential = matches!(plan.schedule_class, PageGatherScheduleClass::AsSubmitted);
+
+    for (execution_slot, &index) in plan.execution_indices.iter().enumerate() {
+        if (index as usize) >= source.len() {
+            return Err(HeliosError::IndexOutOfRange {
+                i: execution_slot,
+                index,
+                source_len: source.len(),
+            });
+        }
+
+        let logical_position = plan.logical_positions[execution_slot];
+        let logical_index = logical_position as usize;
+        if logical_index >= plan.len() {
+            return Err(HeliosError::OutLengthMismatch {
+                indices: plan.len(),
+                out: logical_index + 1,
+            });
+        }
+        if let Some(first_slot) = first_slot_by_logical_position[logical_index] {
+            return Err(HeliosError::DuplicateLogicalPosition {
+                logical_position,
+                first_slot,
+                duplicate_slot: execution_slot,
+            });
+        }
+        first_slot_by_logical_position[logical_index] = Some(execution_slot);
+
+        if index > max_index {
+            max_index = index;
+        }
+        if index as usize != logical_index {
+            sequential = false;
+        }
+        packets.push(PageGatherPacket {
+            logical_position,
+            value: source[index as usize],
+        });
+    }
+
+    Ok((
+        packets,
+        PageGatherStats {
+            elements_read: plan.len(),
+            max_index,
+            sequential,
+        },
+    ))
+}
+
+/// Restore a packetized PageGather stream into dense caller-visible order.
+///
+/// This is intentionally a separate step so product paths can remain
+/// packetized through retrieval, ranking, and witness rendering, then pay
+/// dense projection only at surfaces that truly require it.
+pub fn restore_packets(packets: &[PageGatherPacket], out: &mut [f32]) -> Result<(), HeliosError> {
+    if out.len() != packets.len() {
+        return Err(HeliosError::OutLengthMismatch {
+            indices: packets.len(),
+            out: out.len(),
+        });
+    }
+
+    let mut first_slot_by_logical_position: Vec<Option<usize>> = vec![None; out.len()];
+    for (slot, packet) in packets.iter().enumerate() {
+        let logical_index = packet.logical_position as usize;
+        if logical_index >= out.len() {
+            return Err(HeliosError::OutLengthMismatch {
+                indices: packets.len(),
+                out: logical_index + 1,
+            });
+        }
+        if let Some(first_slot) = first_slot_by_logical_position[logical_index] {
+            return Err(HeliosError::DuplicateLogicalPosition {
+                logical_position: packet.logical_position,
+                first_slot,
+                duplicate_slot: slot,
+            });
+        }
+        first_slot_by_logical_position[logical_index] = Some(slot);
+        out[logical_index] = packet.value;
+    }
+
+    Ok(())
+}
+
 /// Convenience wrapper for the product-candidate schedule measured by
 /// the 2026-05-27 locality probe.
 pub fn gather_block_sorted(
@@ -324,6 +444,25 @@ pub fn gather_block_sorted(
     let plan = block_sorted_schedule(indices, source.len(), block_elements)?;
     let stats = gather_scheduled(source, &plan, out)?;
     Ok((plan, stats))
+}
+
+/// Convenience wrapper for the packetized product-candidate schedule measured
+/// by the 2026-05-27 locality probe.
+pub fn gather_block_sorted_packetized(
+    source: &[f32],
+    indices: &[u32],
+    block_elements: usize,
+) -> Result<
+    (
+        PageGatherSchedulePlan,
+        Vec<PageGatherPacket>,
+        PageGatherStats,
+    ),
+    HeliosError,
+> {
+    let plan = block_sorted_schedule(indices, source.len(), block_elements)?;
+    let (packets, stats) = gather_packetized(source, &plan)?;
+    Ok((plan, packets, stats))
 }
 
 /// `out[i] = source[indices[i]] * scales[i]`. Two-input variant for
@@ -652,6 +791,153 @@ mod tests {
         assert_eq!(stats.elements_read, idx.len());
         assert_eq!(stats.max_index, 7);
         assert!(!stats.sequential);
+    }
+
+    #[test]
+    fn packetized_block_sorted_preserves_source_local_order_and_witness_positions() {
+        let src: Vec<f32> = (0..8).map(|i| i as f32 * 10.0).collect();
+        let idx: Vec<u32> = vec![7, 0, 3, 6, 1, 4, 2, 5];
+
+        let (plan, packets, stats) = gather_block_sorted_packetized(&src, &idx, 2).unwrap();
+
+        assert_eq!(plan.execution_indices, vec![0, 1, 2, 3, 4, 5, 6, 7]);
+        assert_eq!(plan.logical_positions, vec![1, 4, 6, 2, 5, 7, 3, 0]);
+        assert_eq!(
+            packets,
+            vec![
+                PageGatherPacket {
+                    logical_position: 1,
+                    value: 0.0
+                },
+                PageGatherPacket {
+                    logical_position: 4,
+                    value: 10.0
+                },
+                PageGatherPacket {
+                    logical_position: 6,
+                    value: 20.0
+                },
+                PageGatherPacket {
+                    logical_position: 2,
+                    value: 30.0
+                },
+                PageGatherPacket {
+                    logical_position: 5,
+                    value: 40.0
+                },
+                PageGatherPacket {
+                    logical_position: 7,
+                    value: 50.0
+                },
+                PageGatherPacket {
+                    logical_position: 3,
+                    value: 60.0
+                },
+                PageGatherPacket {
+                    logical_position: 0,
+                    value: 70.0
+                },
+            ]
+        );
+        assert_eq!(stats.elements_read, idx.len());
+        assert_eq!(stats.max_index, 7);
+        assert!(!stats.sequential);
+    }
+
+    #[test]
+    fn restore_packets_reconstructs_dense_logical_order() {
+        let src: Vec<f32> = (0..8).map(|i| i as f32 * 10.0).collect();
+        let idx: Vec<u32> = vec![7, 0, 3, 6, 1, 4, 2, 5];
+        let (_plan, packets, _stats) = gather_block_sorted_packetized(&src, &idx, 2).unwrap();
+
+        let mut restored = vec![0.0_f32; packets.len()];
+        restore_packets(&packets, &mut restored).unwrap();
+
+        let expected: Vec<f32> = idx.iter().map(|&index| src[index as usize]).collect();
+        assert_eq!(restored, expected);
+    }
+
+    #[test]
+    fn packetized_gather_rejects_duplicate_logical_positions() {
+        let src: Vec<f32> = (0..4).map(|i| i as f32).collect();
+        let plan = PageGatherSchedulePlan {
+            schedule_class: PageGatherScheduleClass::BlockSorted,
+            block_elements: 2,
+            execution_indices: vec![0, 1],
+            logical_positions: vec![0, 0],
+        };
+
+        let err = gather_packetized(&src, &plan).unwrap_err();
+
+        assert_eq!(
+            err,
+            HeliosError::DuplicateLogicalPosition {
+                logical_position: 0,
+                first_slot: 0,
+                duplicate_slot: 1
+            }
+        );
+    }
+
+    #[test]
+    fn restore_packets_rejects_duplicate_logical_positions() {
+        let packets = vec![
+            PageGatherPacket {
+                logical_position: 0,
+                value: 1.0,
+            },
+            PageGatherPacket {
+                logical_position: 0,
+                value: 2.0,
+            },
+        ];
+        let mut out = vec![0.0_f32; 2];
+
+        let err = restore_packets(&packets, &mut out).unwrap_err();
+
+        assert_eq!(
+            err,
+            HeliosError::DuplicateLogicalPosition {
+                logical_position: 0,
+                first_slot: 0,
+                duplicate_slot: 1
+            }
+        );
+    }
+
+    #[test]
+    fn restore_packets_rejects_out_of_range_logical_position() {
+        let packets = vec![PageGatherPacket {
+            logical_position: 2,
+            value: 1.0,
+        }];
+        let mut out = vec![0.0_f32; 1];
+
+        let err = restore_packets(&packets, &mut out).unwrap_err();
+
+        assert_eq!(err, HeliosError::OutLengthMismatch { indices: 1, out: 3 });
+    }
+
+    #[test]
+    fn packetized_gather_rejects_bad_source_index() {
+        let src: Vec<f32> = vec![0.0, 1.0];
+        let plan = PageGatherSchedulePlan {
+            schedule_class: PageGatherScheduleClass::BlockSorted,
+            block_elements: 2,
+            execution_indices: vec![0, 2],
+            logical_positions: vec![0, 1],
+        };
+
+        let err = gather_packetized(&src, &plan).unwrap_err();
+
+        assert_eq!(
+            err,
+            HeliosError::IndexOutOfRange {
+                i: 1,
+                index: 2,
+                source_len: 2
+            }
+        );
     }
 
     #[test]

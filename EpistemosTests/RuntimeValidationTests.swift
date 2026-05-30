@@ -6780,6 +6780,11 @@ struct InferenceCloudSelectionTests {
         #expect(source.contains("inference.configuredCloudProviders"))
         #expect(source.contains("inference.releaseSelectableInstalledLocalTextModelIDs"))
         #expect(source.contains("private func configuredTargets() -> [ModelVaultTarget]"))
+        #expect(source.contains("CapabilityCeilingHealthSnapshot.load()"))
+        #expect(source.contains("Capability Ceiling Context"))
+        #expect(source.contains("canonical red"))
+        #expect(source.contains("candidate evidence only, not the canonical KV-Direct route"))
+        #expect(source.contains("contextInventoryEntry(for: descriptor.id)"))
     }
 
     @Test("model vault sidebar resolves authored model ids from vault metadata instead of sanitized directory names")

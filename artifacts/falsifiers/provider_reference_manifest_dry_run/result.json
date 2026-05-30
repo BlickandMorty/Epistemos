@@ -1,0 +1,142 @@
+{
+  "falsifier_id": "F-ProviderReferenceManifest-DryRun",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_provider_reference_manifest_dry_run.sh",
+  "command_digest": "sha256:02762b1bc56f50fce4645517161a2afc4020ac41102a06438b5d7a72da714d80",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "ba6f15e6fb08c772c5bbce4d303aff864f39e9c2",
+  "fixture_id": "provider_reference_manifest_shape_only_v1",
+  "timestamp_utc": "2026-05-30T10:51:28Z",
+  "result_digest": "sha256:ee50be2ad602297a720b3e3065c398b491ad7820d5ad9268496b41b2ccbfc878",
+  "measurements": {
+    "digest_matches_sidecar": {
+      "value": true,
+      "unit": "bool"
+    },
+    "does_not_advance_70b_reference_gate": {
+      "value": true,
+      "unit": "bool"
+    },
+    "manifest_path": {
+      "value": "artifacts/falsifiers/70b_local_cocktail_lite/provider_reference_manifest_dry_run/shape_only_manifest.json",
+      "unit": "path"
+    },
+    "manifest_valid": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_provider_call": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_level_reference": {
+      "value": false,
+      "unit": "bool"
+    },
+    "prompt_suite_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_suite_sha256": {
+      "value": "sha256:5892577b40c971665b0a251e1472d6f40d8f165ca6e1266f7fc15efd10e522a1",
+      "unit": "sha256"
+    },
+    "row_root_path": {
+      "value": true,
+      "unit": "bool"
+    },
+    "shape_fixture_written": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sidecar_sha256": {
+      "value": "sha256:dc2bfbc33478b441417ed282c259deb5de3fd05bcbf403618e9fc274af699a79",
+      "unit": "sha256"
+    }
+  },
+  "acceptance_thresholds": {
+    "digest_matches_sidecar": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "does_not_advance_70b_reference_gate": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "manifest_valid": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_provider_call": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_level_reference": {
+      "operator": "==",
+      "value": false,
+      "unit": "bool"
+    },
+    "prompt_suite_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "row_root_path": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "shape_fixture_written": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "digest_matches_sidecar": true,
+    "does_not_advance_70b_reference_gate": true,
+    "manifest_valid": true,
+    "no_provider_call": true,
+    "prompt_level_reference": true,
+    "prompt_suite_bound": true,
+    "row_root_path": true,
+    "shape_fixture_written": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "shape-only provider-reference fixture; no provider call, no prompts sent, no fp16 logits, prompt suite is digest-bound, no 70B runtime gate advancement"
+    }
+  ],
+  "notes": "Validates provider-reference manifest shape only; does not count as prompt-level fp16/provider reference."
+}

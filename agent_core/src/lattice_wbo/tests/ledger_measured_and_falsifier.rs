@@ -122,11 +122,10 @@ fn lattice_budget_composes_measured_totals_only_when_complete() {
 
 #[test]
 fn lattice_budget_measured_total_includes_numerical_post_correction() {
-    let residual =
-        LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual", 0.20)
-            .expect("valid contribution")
-            .with_measured(0.18)
-            .expect("valid residual measurement");
+    let residual = LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual", 0.20)
+        .expect("valid contribution")
+        .with_measured(0.18)
+        .expect("valid residual measurement");
     let numerics = LatticeErrorContribution::new(
         WboTermCode::NumericalPostCorrection,
         "softmax half correction",
@@ -161,22 +160,16 @@ fn lattice_budget_measured_total_sums_duplicate_semantic_and_numerical_axes() {
             .expect("valid residual contribution")
             .with_measured(0.0625)
             .expect("valid residual measurement");
-    let numerics_a = LatticeErrorContribution::new(
-        WboTermCode::NumericalPostCorrection,
-        "numerics a",
-        0.0625,
-    )
-    .expect("valid numerical contribution")
-    .with_measured(0.03125)
-    .expect("valid numerical measurement");
-    let numerics_b = LatticeErrorContribution::new(
-        WboTermCode::NumericalPostCorrection,
-        "numerics b",
-        0.03125,
-    )
-    .expect("valid numerical contribution")
-    .with_measured(0.015625)
-    .expect("valid numerical measurement");
+    let numerics_a =
+        LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics a", 0.0625)
+            .expect("valid numerical contribution")
+            .with_measured(0.03125)
+            .expect("valid numerical measurement");
+    let numerics_b =
+        LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics b", 0.03125)
+            .expect("valid numerical contribution")
+            .with_measured(0.015625)
+            .expect("valid numerical measurement");
     let budget = LatticeBudget::new(
         LatticeCoderKind::LatticeWynerZivResidual,
         Some(1250),
@@ -212,22 +205,16 @@ fn lattice_budget_duplicate_axis_measured_totals_are_order_invariant() {
             .expect("valid residual contribution")
             .with_measured(0.0625)
             .expect("valid residual measurement");
-    let numerics_a = LatticeErrorContribution::new(
-        WboTermCode::NumericalPostCorrection,
-        "numerics a",
-        0.0625,
-    )
-    .expect("valid numerical contribution")
-    .with_measured(0.03125)
-    .expect("valid numerical measurement");
-    let numerics_b = LatticeErrorContribution::new(
-        WboTermCode::NumericalPostCorrection,
-        "numerics b",
-        0.03125,
-    )
-    .expect("valid numerical contribution")
-    .with_measured(0.015625)
-    .expect("valid numerical measurement");
+    let numerics_a =
+        LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics a", 0.0625)
+            .expect("valid numerical contribution")
+            .with_measured(0.03125)
+            .expect("valid numerical measurement");
+    let numerics_b =
+        LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics b", 0.03125)
+            .expect("valid numerical contribution")
+            .with_measured(0.015625)
+            .expect("valid numerical measurement");
 
     for contributions in [
         vec![
@@ -270,32 +257,25 @@ fn lattice_budget_duplicate_axis_measured_totals_are_order_invariant() {
 
 #[test]
 fn lattice_budget_measured_slices_partition_complete_total() {
-    let residual =
-        LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual", 0.25)
-            .expect("valid residual contribution")
-            .with_measured(0.125)
-            .expect("valid residual measurement");
+    let residual = LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual", 0.25)
+        .expect("valid residual contribution")
+        .with_measured(0.125)
+        .expect("valid residual measurement");
     let quantization =
         LatticeErrorContribution::new(WboTermCode::Quantization, "quantization", 0.5)
             .expect("valid quantization contribution")
             .with_measured(0.25)
             .expect("valid quantization measurement");
-    let numerics_a = LatticeErrorContribution::new(
-        WboTermCode::NumericalPostCorrection,
-        "numerics a",
-        0.0625,
-    )
-    .expect("valid numerical contribution")
-    .with_measured(0.03125)
-    .expect("valid numerical measurement");
-    let numerics_b = LatticeErrorContribution::new(
-        WboTermCode::NumericalPostCorrection,
-        "numerics b",
-        0.03125,
-    )
-    .expect("valid numerical contribution")
-    .with_measured(0.015625)
-    .expect("valid numerical measurement");
+    let numerics_a =
+        LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics a", 0.0625)
+            .expect("valid numerical contribution")
+            .with_measured(0.03125)
+            .expect("valid numerical measurement");
+    let numerics_b =
+        LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics b", 0.03125)
+            .expect("valid numerical contribution")
+            .with_measured(0.015625)
+            .expect("valid numerical measurement");
     let budget = LatticeBudget::new(
         LatticeCoderKind::LatticeWynerZivResidual,
         Some(1250),
@@ -348,20 +328,14 @@ fn lattice_budget_measured_slices_require_complete_cross_axis_measurements() {
     let unmeasured_residual =
         LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual", 0.25)
             .expect("valid residual contribution");
-    let measured_numerics = LatticeErrorContribution::new(
-        WboTermCode::NumericalPostCorrection,
-        "numerics",
-        0.03125,
-    )
-    .expect("valid numerical contribution")
-    .with_measured(0.015625)
-    .expect("valid numerical measurement");
-    let unmeasured_numerics = LatticeErrorContribution::new(
-        WboTermCode::NumericalPostCorrection,
-        "numerics",
-        0.03125,
-    )
-    .expect("valid numerical contribution");
+    let measured_numerics =
+        LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.03125)
+            .expect("valid numerical contribution")
+            .with_measured(0.015625)
+            .expect("valid numerical measurement");
+    let unmeasured_numerics =
+        LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.03125)
+            .expect("valid numerical contribution");
 
     for budget in [
         LatticeBudget::new(
@@ -389,12 +363,9 @@ fn lattice_budget_measured_slices_require_complete_duplicate_axis_measurements()
             .expect("valid residual contribution")
             .with_measured(0.125)
             .expect("valid residual measurement");
-    let unmeasured_residual = LatticeErrorContribution::new(
-        WboTermCode::ResidualWynerZiv,
-        "unmeasured residual",
-        0.125,
-    )
-    .expect("valid residual contribution");
+    let unmeasured_residual =
+        LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "unmeasured residual", 0.125)
+            .expect("valid residual contribution");
     let measured_numerics = LatticeErrorContribution::new(
         WboTermCode::NumericalPostCorrection,
         "measured numerics",
@@ -435,14 +406,11 @@ fn lattice_budget_measured_slices_require_complete_duplicate_axis_measurements()
 
 #[test]
 fn lattice_budget_measured_status_handles_zero_and_over_budget_edges() {
-    let zero_numerics = LatticeErrorContribution::new(
-        WboTermCode::NumericalPostCorrection,
-        "zero numerics",
-        0.0,
-    )
-    .expect("valid zero contribution")
-    .with_measured(0.0)
-    .expect("valid zero measurement");
+    let zero_numerics =
+        LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "zero numerics", 0.0)
+            .expect("valid zero contribution")
+            .with_measured(0.0)
+            .expect("valid zero measurement");
     let zero_budget = LatticeBudget::new(
         LatticeCoderKind::ExactHot,
         None,
@@ -457,11 +425,10 @@ fn lattice_budget_measured_status_handles_zero_and_over_budget_edges() {
     );
     assert_eq!(zero_budget.measured_within_budget(), Some(true));
 
-    let residual =
-        LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual", 0.1)
-            .expect("valid contribution")
-            .with_measured(0.15)
-            .expect("valid measurement");
+    let residual = LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual", 0.1)
+        .expect("valid contribution")
+        .with_measured(0.15)
+        .expect("valid measurement");
     let quantization =
         LatticeErrorContribution::new(WboTermCode::Quantization, "quantization", 0.2)
             .expect("valid contribution")
@@ -513,8 +480,7 @@ fn budget_validation_rejects_noncanonical_exact_engram_network_and_adapter_side_
     ];
 
     for (coder, side_information) in cases {
-        let budget =
-            LatticeBudget::new(coder, None, side_information, vec![contribution.clone()]);
+        let budget = LatticeBudget::new(coder, None, side_information, vec![contribution.clone()]);
         assert_eq!(
             budget.validate_side_information(),
             Err(LatticeWboError::InvalidSideInformation)
@@ -565,12 +531,9 @@ fn budget_validation_rejects_zero_explicit_rate() {
         .filter(|coder| coder.allows_rate_parameter())
     {
         checked += 1;
-        let contribution = LatticeErrorContribution::new(
-            WboTermCode::NumericalPostCorrection,
-            "numerics",
-            0.0,
-        )
-        .expect("valid contribution");
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
+                .expect("valid contribution");
         let budget = LatticeBudget::new(
             coder,
             Some(0),
@@ -668,8 +631,7 @@ fn budget_validation_accepts_nonzero_rate_on_rate_codecs() {
         .filter(|coder| coder.allows_rate_parameter())
     {
         checked += 1;
-        let canonical =
-            side_information_probe_budget(coder, coder.canonical_side_information()[0]);
+        let canonical = side_information_probe_budget(coder, coder.canonical_side_information()[0]);
         assert_eq!(canonical.validate(), Ok(()), "{coder:?}");
 
         let max_rate = LatticeBudget::new(
@@ -1070,12 +1032,8 @@ fn ledger_validation_requires_term_specific_security_verifier_for_t_se() {
     let adapter_contributions = vec![
         LatticeErrorContribution::new(WboTermCode::WeightRuntime, "adapter weight delta", 0.01)
             .expect("valid weight contribution"),
-        LatticeErrorContribution::new(
-            WboTermCode::SelfEvolvingSecurity,
-            "adapter promotion",
-            0.01,
-        )
-        .expect("valid security contribution"),
+        LatticeErrorContribution::new(WboTermCode::SelfEvolvingSecurity, "adapter promotion", 0.01)
+            .expect("valid security contribution"),
         LatticeErrorContribution::new(
             WboTermCode::NumericalPostCorrection,
             "softmax half correction",
@@ -1200,12 +1158,8 @@ fn ledger_validation_requires_layerwise_reconstruction_for_weight_runtime_term()
     let contributions = vec![
         LatticeErrorContribution::new(WboTermCode::WeightRuntime, "adapter delta", 0.01)
             .expect("valid weight contribution"),
-        LatticeErrorContribution::new(
-            WboTermCode::SelfEvolvingSecurity,
-            "adapter replay",
-            0.01,
-        )
-        .expect("valid security contribution"),
+        LatticeErrorContribution::new(WboTermCode::SelfEvolvingSecurity, "adapter replay", 0.01)
+            .expect("valid security contribution"),
         LatticeErrorContribution::new(
             WboTermCode::NumericalPostCorrection,
             "softmax half correction",
@@ -1298,12 +1252,9 @@ fn ledger_validation_rejects_unowned_falsifier_hooks() {
         "βF-WBO-DriftLedger; F-ULP-Oracle",
         "f-wbo-driftledger; f-ulp-oracle",
     ] {
-        let contribution = LatticeErrorContribution::new(
-            WboTermCode::NumericalPostCorrection,
-            "numerics",
-            0.0,
-        )
-        .expect("valid contribution");
+        let contribution =
+            LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.0)
+                .expect("valid contribution");
         let budget = LatticeBudget::new(
             LatticeCoderKind::ExactHot,
             None,

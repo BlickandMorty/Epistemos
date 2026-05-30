@@ -15,8 +15,8 @@
 
 use agent_core::eidos::{
     produce_eidos_context_packet, produce_eidos_context_packet_json, EidosCitation,
-    EidosContextPacket, EidosDocumentId, EidosIndexManifestId, EidosRetrievalMode,
-    EidosSourceKind, EvidenceStance, InMemoryClaimEvidence, InMemoryLexicalIndex,
+    EidosContextPacket, EidosDocumentId, EidosIndexManifestId, EidosRetrievalMode, EidosSourceKind,
+    EvidenceStance, InMemoryClaimEvidence, InMemoryLexicalIndex,
 };
 
 const FIXED_RETRIEVED_AT_MS: u64 = 1_700_000_000_000;
@@ -59,8 +59,7 @@ fn seeded_claim_evidence() -> InMemoryClaimEvidence {
 #[test]
 fn produce_eidos_context_packet_returns_real_hits_against_lexical_retriever() {
     let idx = seeded_lexical_index();
-    let packet =
-        produce_eidos_context_packet(&idx, "governance", 5, FIXED_RETRIEVED_AT_MS);
+    let packet = produce_eidos_context_packet(&idx, "governance", 5, FIXED_RETRIEVED_AT_MS);
 
     assert!(
         !packet.hits.is_empty(),
@@ -100,8 +99,12 @@ fn produce_eidos_context_packet_canonicalizes_mode_from_retriever() {
     );
 
     let claims = seeded_claim_evidence();
-    let packet_claim =
-        produce_eidos_context_packet(&claims, "claim-residency-governance", 3, FIXED_RETRIEVED_AT_MS);
+    let packet_claim = produce_eidos_context_packet(
+        &claims,
+        "claim-residency-governance",
+        3,
+        FIXED_RETRIEVED_AT_MS,
+    );
     assert_eq!(
         packet_claim.query.mode,
         EidosRetrievalMode::ClaimEvidence,
@@ -154,7 +157,10 @@ fn produce_eidos_context_packet_json_round_trips_to_typed_helper() {
         .expect("JSON helper must serialize cleanly for a well-formed packet");
     let decoded: EidosContextPacket =
         serde_json::from_str(&json).expect("round-trip JSON deserializes to packet");
-    assert_eq!(typed, decoded, "JSON helper output must round-trip to the typed packet");
+    assert_eq!(
+        typed, decoded,
+        "JSON helper output must round-trip to the typed packet"
+    );
 }
 
 /// Empty query text yields an empty hit list (the lexical retriever's

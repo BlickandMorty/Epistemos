@@ -17,9 +17,8 @@
 #[cfg(test)]
 mod tests {
     use crate::agent_runtime_v2::{
-        AgentRuntimeV2Capability, BudgetDebit, BudgetError, BudgetGate, BudgetLedger,
-        BudgetSpec, BudgetTerm, CapabilityError, MutationEnvelope, MutationWriter, SealError,
-        Sealer,
+        AgentRuntimeV2Capability, BudgetDebit, BudgetError, BudgetGate, BudgetLedger, BudgetSpec,
+        BudgetTerm, CapabilityError, MutationEnvelope, MutationWriter, SealError, Sealer,
     };
     use crate::cognitive_dag::macaroons::{RuntimeContext, VerifyError};
     use crate::cognitive_dag::node::{CapabilityKind, CapabilityScope, Hash};
@@ -277,7 +276,12 @@ mod tests {
             additional: Default::default(),
         };
         let err = sealer
-            .seal_and_apply(&out_of_scope_ctx, BudgetLedger::default(), envelope, &mut writer)
+            .seal_and_apply(
+                &out_of_scope_ctx,
+                BudgetLedger::default(),
+                envelope,
+                &mut writer,
+            )
             .expect_err("out-of-scope use must be rejected");
         assert!(
             matches!(

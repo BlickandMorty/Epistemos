@@ -254,6 +254,8 @@ nonisolated enum AssistantControlTagSyntax {
         ("<tool_response>", "</tool_response>"),
         ("<tool_call>", "</tool_call>"),
         ("<tool_call<", "</tool_call>"),
+        ("<function_call>", "</function_call>"),
+        ("<action>", "</action>"),
         ("<tools>", "</tools>"),
     ]
 

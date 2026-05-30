@@ -3,7 +3,6 @@
 use serde::{Deserialize, Serialize};
 
 use super::*;
-use crate::acs_admission::*;
 use crate::acs_admission::admit::*;
 use crate::acs_admission::audit_sink::*;
 use crate::acs_admission::common::*;
@@ -16,6 +15,7 @@ use crate::acs_admission::risk::*;
 use crate::acs_admission::validation::*;
 use crate::acs_admission::verdict::*;
 use crate::acs_admission::wire::*;
+use crate::acs_admission::*;
 use crate::{
     artifacts::ArtifactRef,
     effect::receipt::{Capability, SigningKey},
@@ -1168,4 +1168,3 @@ fn acs_admission_audit_record_round_trips() {
     assert!(message.contains("corrupt_acs_audit_record"), "{message}");
     assert!(message.contains(record.record_id.as_str()), "{message}");
 }
-

@@ -76,7 +76,9 @@ pub struct DeterministicLcgSampler {
 
 impl DeterministicLcgSampler {
     pub fn new(seed: u64) -> Self {
-        Self { state: seed.wrapping_add(0x9E37_79B9_7F4A_7C15) }
+        Self {
+            state: seed.wrapping_add(0x9E37_79B9_7F4A_7C15),
+        }
     }
 
     fn next_u01(&mut self) -> f64 {
@@ -221,7 +223,10 @@ mod tests {
     #[test]
     fn empty_input_rejected() {
         let mut s = ZeroNoiseSampler;
-        assert_eq!(dp_aggregate(&[], 0.5, &mut s).unwrap_err(), DpError::EmptyInput);
+        assert_eq!(
+            dp_aggregate(&[], 0.5, &mut s).unwrap_err(),
+            DpError::EmptyInput
+        );
     }
 
     #[test]
@@ -397,7 +402,10 @@ mod tests {
     fn error_cause_returns_distinct_per_variant() {
         let empties: std::collections::HashSet<_> = [
             DpError::EmptyInput,
-            DpError::EpsilonOutOfRange { epsilon: 1.0, max: 0.5 },
+            DpError::EpsilonOutOfRange {
+                epsilon: 1.0,
+                max: 0.5,
+            },
             DpError::NonFinite,
         ]
         .iter()
@@ -410,13 +418,20 @@ mod tests {
     fn error_classifier_predicates_partition() {
         let variants = [
             DpError::EmptyInput,
-            DpError::EpsilonOutOfRange { epsilon: 1.0, max: 0.5 },
+            DpError::EpsilonOutOfRange {
+                epsilon: 1.0,
+                max: 0.5,
+            },
             DpError::NonFinite,
         ];
         // Cross-surface invariant: exactly one of the three predicates
         // is true for every variant.
         for v in &variants {
-            let trio = [v.is_empty_input(), v.is_epsilon_out_of_range(), v.is_non_finite()];
+            let trio = [
+                v.is_empty_input(),
+                v.is_epsilon_out_of_range(),
+                v.is_non_finite(),
+            ];
             assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", v);
         }
     }

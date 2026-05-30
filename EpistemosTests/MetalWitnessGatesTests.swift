@@ -169,6 +169,7 @@ nonisolated struct MetalWitnessGatesTests {
         let harness = try Self.makeHarness()
         let scatter = try Self.makePipeline("pageGatherScatter", harness: harness)
         let scheduled = try Self.makePipeline("pageGatherScatterScheduled", harness: harness)
+        let packetized = try Self.makePipeline("pageGatherPacketizeScheduled", harness: harness)
         let scaled = try Self.makePipeline("pageGatherScatterScaled", harness: harness)
 
         let source: [Float] = [10, 20, 30, 40, 50, 60, 70, 80]
@@ -206,6 +207,18 @@ nonisolated struct MetalWitnessGatesTests {
         let scheduledValues = Self.readArray(scheduledOut, count: scheduledIndices.count, as: Float.self)
         let expectedScheduled: [Float] = [60, 10, 40, 50, 20, 30]
         #expect(scheduledValues == expectedScheduled)
+
+        let packetValues = try Self.makeZeroedBuffer(type: Float.self, count: scheduledIndices.count, device: harness.device, label: "pageGather.packetValues")
+        let packetPositions = try Self.makeZeroedBuffer(type: UInt32.self, count: scheduledIndices.count, device: harness.device, label: "pageGather.packetPositions")
+        try Self.dispatch(
+            pipeline: packetized,
+            harness: harness,
+            buffers: [sourceBuffer, scheduledIndexBuffer, logicalPositionBuffer, packetValues, packetPositions, countBuffer],
+            threads: scheduledIndices.count
+        )
+
+        #expect(Self.readArray(packetValues, count: scheduledIndices.count, as: Float.self) == [10, 20, 30, 40, 50, 60])
+        #expect(Self.readArray(packetPositions, count: scheduledIndices.count, as: UInt32.self) == logicalPositions)
 
         let scalesBuffer = try Self.makeBuffer(scales, device: harness.device, label: "pageGather.scales")
         let scaledOut = try Self.makeZeroedBuffer(type: Float.self, count: indices.count, device: harness.device, label: "pageGather.scaledOut")

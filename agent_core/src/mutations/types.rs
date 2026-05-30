@@ -200,18 +200,19 @@ mod tests {
         // status string this build doesn't know; decoder must Err
         // rather than panic so replay can mark the envelope as
         // unparseable and continue with the rest of the bundle.
-        let result: Result<MutationStatus, _> =
-            serde_json::from_str("\"queued\"");
-        assert!(result.is_err(),
-                "MutationStatus decoder must reject unknown statuses");
-        let result: Result<MutationStatus, _> =
-            serde_json::from_str("\"\"");
+        let result: Result<MutationStatus, _> = serde_json::from_str("\"queued\"");
+        assert!(
+            result.is_err(),
+            "MutationStatus decoder must reject unknown statuses"
+        );
+        let result: Result<MutationStatus, _> = serde_json::from_str("\"\"");
         assert!(result.is_err());
         // PascalCase rejects.
-        let result: Result<MutationStatus, _> =
-            serde_json::from_str("\"Pending\"");
-        assert!(result.is_err(),
-                "PascalCase must reject — only snake_case is canonical");
+        let result: Result<MutationStatus, _> = serde_json::from_str("\"Pending\"");
+        assert!(
+            result.is_err(),
+            "PascalCase must reject — only snake_case is canonical"
+        );
     }
 
     #[test]
@@ -297,23 +298,21 @@ mod tests {
         // a 4th sensitivity ("classified") or reversibility
         // ("compensated_via_external") must decode to Err on this
         // build rather than panic mid-replay.
-        let result: Result<Sensitivity, _> =
-            serde_json::from_str("\"classified\"");
-        assert!(result.is_err(),
-                "Sensitivity decoder must reject unknown buckets");
-        let result: Result<Sensitivity, _> =
-            serde_json::from_str("\"Internal\"");
-        assert!(result.is_err(),
-                "PascalCase must reject");
+        let result: Result<Sensitivity, _> = serde_json::from_str("\"classified\"");
+        assert!(
+            result.is_err(),
+            "Sensitivity decoder must reject unknown buckets"
+        );
+        let result: Result<Sensitivity, _> = serde_json::from_str("\"Internal\"");
+        assert!(result.is_err(), "PascalCase must reject");
 
-        let result: Result<Reversibility, _> =
-            serde_json::from_str("\"compensated_via_external\"");
-        assert!(result.is_err(),
-                "Reversibility decoder must reject unknown values");
-        let result: Result<Reversibility, _> =
-            serde_json::from_str("\"Reversible\"");
-        assert!(result.is_err(),
-                "PascalCase must reject");
+        let result: Result<Reversibility, _> = serde_json::from_str("\"compensated_via_external\"");
+        assert!(
+            result.is_err(),
+            "Reversibility decoder must reject unknown values"
+        );
+        let result: Result<Reversibility, _> = serde_json::from_str("\"Reversible\"");
+        assert!(result.is_err(), "PascalCase must reject");
     }
 
     #[test]

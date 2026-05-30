@@ -50,7 +50,10 @@ pub enum LivePlanValidationError {
     EmptyIntentSummary,
     NoTriggers,
     ZeroBudget,
-    ExpiresBeforeCompiled { compiled_at: String, expires_at: String },
+    ExpiresBeforeCompiled {
+        compiled_at: String,
+        expires_at: String,
+    },
 }
 
 impl LivePlanValidationError {
@@ -148,11 +151,11 @@ pub fn validate_plan(plan: &LivePlanV1) -> Result<(), LivePlanValidationError> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::{
-        BatteryRequirement, LivePlanBudget, LivePlanEligibility, LivePlanIntent,
-        LivePlanTrigger, ThermalRequirement,
+        BatteryRequirement, LivePlanBudget, LivePlanEligibility, LivePlanIntent, LivePlanTrigger,
+        ThermalRequirement,
     };
+    use super::*;
     use crate::cognitive_weight::CognitiveWeight;
 
     fn ok_plan() -> LivePlanV1 {
@@ -192,49 +195,70 @@ mod tests {
     fn empty_livefile_id_rejected() {
         let mut p = ok_plan();
         p.livefile_id = String::new();
-        assert_eq!(validate_plan(&p).unwrap_err(), LivePlanValidationError::EmptyLivefileId);
+        assert_eq!(
+            validate_plan(&p).unwrap_err(),
+            LivePlanValidationError::EmptyLivefileId
+        );
     }
 
     #[test]
     fn empty_source_uri_rejected() {
         let mut p = ok_plan();
         p.source_uri = String::new();
-        assert_eq!(validate_plan(&p).unwrap_err(), LivePlanValidationError::EmptySourceUri);
+        assert_eq!(
+            validate_plan(&p).unwrap_err(),
+            LivePlanValidationError::EmptySourceUri
+        );
     }
 
     #[test]
     fn empty_plan_version_rejected() {
         let mut p = ok_plan();
         p.plan_version = String::new();
-        assert_eq!(validate_plan(&p).unwrap_err(), LivePlanValidationError::EmptyPlanVersion);
+        assert_eq!(
+            validate_plan(&p).unwrap_err(),
+            LivePlanValidationError::EmptyPlanVersion
+        );
     }
 
     #[test]
     fn empty_plan_hash_rejected() {
         let mut p = ok_plan();
         p.plan_hash = String::new();
-        assert_eq!(validate_plan(&p).unwrap_err(), LivePlanValidationError::EmptyPlanHash);
+        assert_eq!(
+            validate_plan(&p).unwrap_err(),
+            LivePlanValidationError::EmptyPlanHash
+        );
     }
 
     #[test]
     fn empty_compiled_at_rejected() {
         let mut p = ok_plan();
         p.compiled_at = String::new();
-        assert_eq!(validate_plan(&p).unwrap_err(), LivePlanValidationError::EmptyCompiledAt);
+        assert_eq!(
+            validate_plan(&p).unwrap_err(),
+            LivePlanValidationError::EmptyCompiledAt
+        );
     }
 
     #[test]
     fn empty_intent_summary_rejected() {
         let mut p = ok_plan();
         p.intent.summary = String::new();
-        assert_eq!(validate_plan(&p).unwrap_err(), LivePlanValidationError::EmptyIntentSummary);
+        assert_eq!(
+            validate_plan(&p).unwrap_err(),
+            LivePlanValidationError::EmptyIntentSummary
+        );
     }
 
     #[test]
     fn empty_triggers_rejected() {
         let mut p = ok_plan();
         p.triggers.clear();
-        assert_eq!(validate_plan(&p).unwrap_err(), LivePlanValidationError::NoTriggers);
+        assert_eq!(
+            validate_plan(&p).unwrap_err(),
+            LivePlanValidationError::NoTriggers
+        );
     }
 
     #[test]
@@ -245,7 +269,10 @@ mod tests {
             ms: 0,
             usd: 0.0,
         };
-        assert_eq!(validate_plan(&p).unwrap_err(), LivePlanValidationError::ZeroBudget);
+        assert_eq!(
+            validate_plan(&p).unwrap_err(),
+            LivePlanValidationError::ZeroBudget
+        );
     }
 
     #[test]
@@ -286,7 +313,10 @@ mod tests {
         let mut p = ok_plan();
         p.expires_at = Some("2026-05-01T00:00:00Z".into()); // before compiled_at 2026-05-16
         let err = validate_plan(&p).unwrap_err();
-        assert!(matches!(err, LivePlanValidationError::ExpiresBeforeCompiled { .. }));
+        assert!(matches!(
+            err,
+            LivePlanValidationError::ExpiresBeforeCompiled { .. }
+        ));
     }
 
     #[test]
@@ -312,7 +342,10 @@ mod tests {
         p.livefile_id = String::new();
         p.source_uri = String::new();
         p.intent.summary = String::new();
-        assert_eq!(validate_plan(&p).unwrap_err(), LivePlanValidationError::EmptyLivefileId);
+        assert_eq!(
+            validate_plan(&p).unwrap_err(),
+            LivePlanValidationError::EmptyLivefileId
+        );
     }
 
     // ── diagnostic surface (iter 147) ────────────────────────────────────────
@@ -405,7 +438,11 @@ mod tests {
         assert!(err.is_empty_field());
 
         let mut p = ok_plan();
-        p.eligibility.budget = LivePlanBudget { tokens: 0, ms: 0, usd: 0.0 };
+        p.eligibility.budget = LivePlanBudget {
+            tokens: 0,
+            ms: 0,
+            usd: 0.0,
+        };
         let err = validate_plan(&p).unwrap_err();
         assert_eq!(err.field(), "eligibility.budget");
         assert!(err.is_zero_budget());

@@ -118,7 +118,10 @@ impl LiveFileState {
     /// can make progress (LiveCandidate: awaiting compile; Quarantined:
     /// awaiting user review). The "what needs attention?" filter.
     pub const fn requires_user_action(self) -> bool {
-        matches!(self, LiveFileState::LiveCandidate | LiveFileState::Quarantined)
+        matches!(
+            self,
+            LiveFileState::LiveCandidate | LiveFileState::Quarantined
+        )
     }
 
     /// Predicate: this state is the kill switch (Revoked) — no
@@ -396,12 +399,18 @@ mod tests {
             event: "x".into(),
             selector: "y".into(),
         };
-        let schedule = LivePlanTrigger::Schedule { cron: "* * * * *".into() };
+        let schedule = LivePlanTrigger::Schedule {
+            cron: "* * * * *".into(),
+        };
         let manual = LivePlanTrigger::Manual;
         assert_eq!(event.kind(), "event");
         assert_eq!(schedule.kind(), "schedule");
         assert_eq!(manual.kind(), "manual");
-        for (t, k) in [(&event, "event"), (&schedule, "schedule"), (&manual, "manual")] {
+        for (t, k) in [
+            (&event, "event"),
+            (&schedule, "schedule"),
+            (&manual, "manual"),
+        ] {
             let json = serde_json::to_string(t).unwrap();
             assert!(json.contains(k), "json={} kind={}", json, k);
         }
@@ -409,10 +418,26 @@ mod tests {
 
     #[test]
     fn budget_has_zero_dimension_detects_any_zero() {
-        let none_zero = LivePlanBudget { tokens: 1, ms: 1, usd: 0.01 };
-        let zero_tokens = LivePlanBudget { tokens: 0, ms: 1, usd: 0.01 };
-        let zero_ms = LivePlanBudget { tokens: 1, ms: 0, usd: 0.01 };
-        let zero_usd = LivePlanBudget { tokens: 1, ms: 1, usd: 0.0 };
+        let none_zero = LivePlanBudget {
+            tokens: 1,
+            ms: 1,
+            usd: 0.01,
+        };
+        let zero_tokens = LivePlanBudget {
+            tokens: 0,
+            ms: 1,
+            usd: 0.01,
+        };
+        let zero_ms = LivePlanBudget {
+            tokens: 1,
+            ms: 0,
+            usd: 0.01,
+        };
+        let zero_usd = LivePlanBudget {
+            tokens: 1,
+            ms: 1,
+            usd: 0.0,
+        };
         assert!(!none_zero.has_zero_dimension());
         assert!(zero_tokens.has_zero_dimension());
         assert!(zero_ms.has_zero_dimension());

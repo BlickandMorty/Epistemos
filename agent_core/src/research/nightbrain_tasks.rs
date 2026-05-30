@@ -67,7 +67,10 @@ impl NightBrainTaskKind {
     /// unknown names. Used by the registry that maps wire-form
     /// task names back to typed kinds.
     pub fn from_canonical_name(name: &str) -> Option<Self> {
-        Self::ALL.iter().copied().find(|k| k.canonical_name() == name)
+        Self::ALL
+            .iter()
+            .copied()
+            .find(|k| k.canonical_name() == name)
     }
 }
 
@@ -369,7 +372,10 @@ pub fn skill_evolution_analysis(
         });
     }
     let total: u32 = skills.iter().map(|(_, c)| *c).sum();
-    let top = skills.iter().max_by_key(|(_, c)| *c).map(|(s, _)| s.clone());
+    let top = skills
+        .iter()
+        .max_by_key(|(_, c)| *c)
+        .map(|(s, _)| s.clone());
     Ok((
         top,
         total,
@@ -462,28 +468,44 @@ mod tests {
 
     #[test]
     fn six_distinct_task_kinds() {
-        let s: std::collections::HashSet<_> =
-            NightBrainTaskKind::ALL.iter().copied().collect();
+        let s: std::collections::HashSet<_> = NightBrainTaskKind::ALL.iter().copied().collect();
         assert_eq!(s.len(), 6);
     }
 
     #[test]
     fn only_cloud_distillation_requires_pro() {
         for &k in &NightBrainTaskKind::ALL {
-            let expected =
-                k == NightBrainTaskKind::CloudKnowledgeDistillation;
+            let expected = k == NightBrainTaskKind::CloudKnowledgeDistillation;
             assert_eq!(k.requires_pro(), expected);
         }
     }
 
     #[test]
     fn canonical_names_match_master_registry() {
-        assert_eq!(NightBrainTaskKind::DedupeArtifacts.canonical_name(), "dedupe_artifacts");
-        assert_eq!(NightBrainTaskKind::MemoryDistillation.canonical_name(), "memory_distillation");
-        assert_eq!(NightBrainTaskKind::CloudKnowledgeDistillation.canonical_name(), "cloud_knowledge_distillation");
-        assert_eq!(NightBrainTaskKind::SessionGraphGeneration.canonical_name(), "session_graph_generation");
-        assert_eq!(NightBrainTaskKind::SkillEvolutionAnalysis.canonical_name(), "skill_evolution_analysis");
-        assert_eq!(NightBrainTaskKind::SsmStatePruning.canonical_name(), "ssm_state_pruning");
+        assert_eq!(
+            NightBrainTaskKind::DedupeArtifacts.canonical_name(),
+            "dedupe_artifacts"
+        );
+        assert_eq!(
+            NightBrainTaskKind::MemoryDistillation.canonical_name(),
+            "memory_distillation"
+        );
+        assert_eq!(
+            NightBrainTaskKind::CloudKnowledgeDistillation.canonical_name(),
+            "cloud_knowledge_distillation"
+        );
+        assert_eq!(
+            NightBrainTaskKind::SessionGraphGeneration.canonical_name(),
+            "session_graph_generation"
+        );
+        assert_eq!(
+            NightBrainTaskKind::SkillEvolutionAnalysis.canonical_name(),
+            "skill_evolution_analysis"
+        );
+        assert_eq!(
+            NightBrainTaskKind::SsmStatePruning.canonical_name(),
+            "ssm_state_pruning"
+        );
     }
 
     #[test]
@@ -501,7 +523,9 @@ mod tests {
         let err = dedupe_artifacts(&[]).unwrap_err();
         assert_eq!(
             err,
-            TaskError::EmptyInput { kind: NightBrainTaskKind::DedupeArtifacts }
+            TaskError::EmptyInput {
+                kind: NightBrainTaskKind::DedupeArtifacts
+            }
         );
     }
 
@@ -519,7 +543,9 @@ mod tests {
         let err = cloud_knowledge_distillation(false).unwrap_err();
         assert_eq!(
             err,
-            TaskError::ProEntitlementRequired { kind: NightBrainTaskKind::CloudKnowledgeDistillation }
+            TaskError::ProEntitlementRequired {
+                kind: NightBrainTaskKind::CloudKnowledgeDistillation
+            }
         );
         assert!(cloud_knowledge_distillation(true).is_ok());
     }
@@ -558,7 +584,9 @@ mod tests {
         let err = ssm_state_pruning(&[], 100).unwrap_err();
         assert_eq!(
             err,
-            TaskError::EmptyInput { kind: NightBrainTaskKind::SsmStatePruning }
+            TaskError::EmptyInput {
+                kind: NightBrainTaskKind::SsmStatePruning
+            }
         );
     }
 
@@ -608,8 +636,7 @@ mod tests {
     fn trigram_dedupe_drops_near_duplicates() {
         // "hello world" and "hello worlds" share many trigrams.
         let inp = ids(&["hello world", "hello worlds", "goodbye world"]);
-        let (out, rep) =
-            dedupe_artifacts_by_trigram_similarity(&inp, 0.5).unwrap();
+        let (out, rep) = dedupe_artifacts_by_trigram_similarity(&inp, 0.5).unwrap();
         assert!(out.len() < inp.len());
         assert_eq!(rep.items_processed, 3);
     }
@@ -617,8 +644,7 @@ mod tests {
     #[test]
     fn trigram_dedupe_keeps_dissimilar() {
         let inp = ids(&["alpha bravo", "charlie delta", "echo foxtrot"]);
-        let (out, _) =
-            dedupe_artifacts_by_trigram_similarity(&inp, 0.5).unwrap();
+        let (out, _) = dedupe_artifacts_by_trigram_similarity(&inp, 0.5).unwrap();
         assert_eq!(out.len(), 3);
     }
 
@@ -626,8 +652,7 @@ mod tests {
     fn trigram_dedupe_threshold_one_only_drops_exact() {
         // Threshold 1.0 means trigram sets must be IDENTICAL.
         let inp = ids(&["hello world", "hello world", "hello world!"]);
-        let (out, _) =
-            dedupe_artifacts_by_trigram_similarity(&inp, 1.0).unwrap();
+        let (out, _) = dedupe_artifacts_by_trigram_similarity(&inp, 1.0).unwrap();
         // First and second have identical trigrams; third differs by '!'.
         assert_eq!(out.len(), 2);
     }
@@ -637,9 +662,11 @@ mod tests {
         // Strings shorter than 3 chars have empty trigram set and fall
         // back to exact-string equality.
         let inp = ids(&["a", "a", "b", "bc"]);
-        let (out, _) =
-            dedupe_artifacts_by_trigram_similarity(&inp, 0.5).unwrap();
-        assert_eq!(out, vec!["a".to_string(), "b".to_string(), "bc".to_string()]);
+        let (out, _) = dedupe_artifacts_by_trigram_similarity(&inp, 0.5).unwrap();
+        assert_eq!(
+            out,
+            vec!["a".to_string(), "b".to_string(), "bc".to_string()]
+        );
     }
 
     #[test]
@@ -663,16 +690,14 @@ mod tests {
     #[test]
     fn trigram_dedupe_single_input_kept() {
         let inp = ids(&["only one"]);
-        let (out, _) =
-            dedupe_artifacts_by_trigram_similarity(&inp, 0.5).unwrap();
+        let (out, _) = dedupe_artifacts_by_trigram_similarity(&inp, 0.5).unwrap();
         assert_eq!(out, ids(&["only one"]));
     }
 
     #[test]
     fn trigram_dedupe_preserves_first_occurrence_order() {
         let inp = ids(&["zulu", "yankee", "xray", "zulu"]);
-        let (out, _) =
-            dedupe_artifacts_by_trigram_similarity(&inp, 0.5).unwrap();
+        let (out, _) = dedupe_artifacts_by_trigram_similarity(&inp, 0.5).unwrap();
         assert_eq!(out[0], "zulu");
         assert_eq!(out[1], "yankee");
         assert_eq!(out[2], "xray");
@@ -683,10 +708,8 @@ mod tests {
         // High threshold = stricter "must be very similar" rule → fewer
         // drops, more kept.
         let inp = ids(&["hello world", "hello worlds", "hello worldz"]);
-        let (out_low, _) =
-            dedupe_artifacts_by_trigram_similarity(&inp, 0.3).unwrap();
-        let (out_high, _) =
-            dedupe_artifacts_by_trigram_similarity(&inp, 0.99).unwrap();
+        let (out_low, _) = dedupe_artifacts_by_trigram_similarity(&inp, 0.3).unwrap();
+        let (out_high, _) = dedupe_artifacts_by_trigram_similarity(&inp, 0.99).unwrap();
         assert!(out_low.len() <= out_high.len());
     }
 
@@ -694,9 +717,12 @@ mod tests {
 
     #[test]
     fn session_graph_edges_for_similar_sessions() {
-        let inp = ids(&["meeting about onboarding", "meeting about onboarding tomorrow", "rust project status"]);
-        let (edges, rep) =
-            session_graph_generation_with_edges(&inp, 0.4).unwrap();
+        let inp = ids(&[
+            "meeting about onboarding",
+            "meeting about onboarding tomorrow",
+            "rust project status",
+        ]);
+        let (edges, rep) = session_graph_generation_with_edges(&inp, 0.4).unwrap();
         // Indexes 0 and 1 share many trigrams.
         assert!(edges.contains(&(0, 1)));
         // Index 2 is dissimilar; no edge to it.
@@ -707,7 +733,11 @@ mod tests {
 
     #[test]
     fn session_graph_no_edges_when_all_dissimilar() {
-        let inp = ids(&["alpha bravo charlie", "delta echo foxtrot", "golf hotel india"]);
+        let inp = ids(&[
+            "alpha bravo charlie",
+            "delta echo foxtrot",
+            "golf hotel india",
+        ]);
         let (edges, _) = session_graph_generation_with_edges(&inp, 0.5).unwrap();
         assert!(edges.is_empty());
     }
@@ -787,15 +817,22 @@ mod tests {
                 Some(k),
             );
         }
-        assert_eq!(NightBrainTaskKind::from_canonical_name("DedupeArtifacts"), None);
+        assert_eq!(
+            NightBrainTaskKind::from_canonical_name("DedupeArtifacts"),
+            None
+        );
         assert_eq!(NightBrainTaskKind::from_canonical_name(""), None);
     }
 
     #[test]
     fn task_error_cause_distinct() {
         let variants = [
-            TaskError::EmptyInput { kind: NightBrainTaskKind::DedupeArtifacts },
-            TaskError::ProEntitlementRequired { kind: NightBrainTaskKind::CloudKnowledgeDistillation },
+            TaskError::EmptyInput {
+                kind: NightBrainTaskKind::DedupeArtifacts,
+            },
+            TaskError::ProEntitlementRequired {
+                kind: NightBrainTaskKind::CloudKnowledgeDistillation,
+            },
         ];
         let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
         assert_eq!(causes.len(), 2);
@@ -804,8 +841,12 @@ mod tests {
     #[test]
     fn task_error_classifier_partition() {
         let variants = [
-            TaskError::EmptyInput { kind: NightBrainTaskKind::DedupeArtifacts },
-            TaskError::ProEntitlementRequired { kind: NightBrainTaskKind::CloudKnowledgeDistillation },
+            TaskError::EmptyInput {
+                kind: NightBrainTaskKind::DedupeArtifacts,
+            },
+            TaskError::ProEntitlementRequired {
+                kind: NightBrainTaskKind::CloudKnowledgeDistillation,
+            },
         ];
         // Cross-surface invariant: is_empty_input XOR is_pro_required.
         for e in &variants {
@@ -823,7 +864,10 @@ mod tests {
         let pro = TaskError::ProEntitlementRequired {
             kind: NightBrainTaskKind::CloudKnowledgeDistillation,
         };
-        assert_eq!(pro.task_kind(), NightBrainTaskKind::CloudKnowledgeDistillation);
+        assert_eq!(
+            pro.task_kind(),
+            NightBrainTaskKind::CloudKnowledgeDistillation
+        );
     }
 
     #[test]

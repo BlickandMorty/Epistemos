@@ -334,29 +334,15 @@ struct MessageBubble: View {
 
                 assistantProvenanceSurface
 
-                if let contentBlocks = message.contentBlocks {
-                    ToolExecutionPreviewList(blocks: contentBlocks)
-                }
-
-                TaggedMarkdownTextView(
-                    content: displayContent,
-                    theme: theme,
-                    typographyRole: .assistant
+                AssistantInlineTranscriptView(
+                    rawContent: message.content,
+                    displayContent: displayContent,
+                    contentBlocks: message.contentBlocks,
+                    persistedThinking: persistedThinking,
+                    thinkingDurationSeconds: message.thinkingDurationSeconds,
+                    isStreaming: false,
+                    theme: theme
                 )
-
-                // Extended thinking trail — collapsible reasoning section.
-                // Prefer the explicit `thinkingTrace` field (populated by
-                // ChatState on turn completion from streamingThinking,
-                // including inline `<think>…</think>` captured by the
-                // streaming router). Fall back to `contentBlocks.thinkingContent`
-                // for legacy persisted messages whose reasoning arrived
-                // as structured Anthropic thinking blocks pre-router.
-                if let thinking = persistedThinking, !thinking.isEmpty {
-                    ThinkingTrailView(
-                        content: thinking,
-                        durationSeconds: message.thinkingDurationSeconds
-                    )
-                }
 
                 // Structured artifacts — interactive cards for JSON, code, tables
                 if !message.artifacts.isEmpty {

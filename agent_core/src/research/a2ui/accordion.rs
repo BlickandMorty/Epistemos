@@ -118,12 +118,20 @@ mod tests {
     use super::*;
 
     fn item(k: &str, exp: bool) -> AccordionItem {
-        AccordionItem { key: k.into(), title: "t".into(), body: "b".into(), expanded: exp }
+        AccordionItem {
+            key: k.into(),
+            title: "t".into(),
+            body: "b".into(),
+            expanded: exp,
+        }
     }
 
     #[test]
     fn empty_rejected() {
-        let a = AccordionProps { items: vec![], allow_multi_expand: false };
+        let a = AccordionProps {
+            items: vec![],
+            allow_multi_expand: false,
+        };
         assert_eq!(a.validate().unwrap_err(), AccordionError::Empty);
     }
 
@@ -142,7 +150,10 @@ mod tests {
             items: vec![item("", false)],
             allow_multi_expand: false,
         };
-        assert!(matches!(a.validate().unwrap_err(), AccordionError::EmptyKey { .. }));
+        assert!(matches!(
+            a.validate().unwrap_err(),
+            AccordionError::EmptyKey { .. }
+        ));
     }
 
     #[test]
@@ -160,7 +171,10 @@ mod tests {
             items: vec![item("a", true), item("b", true)],
             allow_multi_expand: false,
         };
-        assert_eq!(a.validate().unwrap_err(), AccordionError::MultiExpandViolation);
+        assert_eq!(
+            a.validate().unwrap_err(),
+            AccordionError::MultiExpandViolation
+        );
     }
 
     #[test]

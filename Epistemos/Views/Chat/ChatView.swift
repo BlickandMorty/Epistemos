@@ -562,35 +562,38 @@ private struct StreamingIndicator: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            // ChatGPT-style inline thinking panel — shown above the
-            // streaming response whenever we have either an active
-            // thinking phase OR captured thinking text from this turn.
-            // Collapses into a "Thought for Ns" chip as soon as the
-            // first answer token arrives, persists until the turn
-            // finalizes into a ChatMessage.
-            if expectsThinkingUI || chat.isThinkingActive || !chat.streamingThinking.isEmpty {
-                ThinkingPopoverView(
-                    thinkingContent: chat.streamingThinking,
-                    isThinkingActive: expectsThinkingUI || chat.isThinkingActive,
-                    thinkingStartedAt: chat.thinkingStartedAt,
-                    thinkingEndedAt: chat.thinkingEndedAt
+            if ChatStreamingDisplayPolicy.showsLiveResponseText, !visibleStreamingText.isEmpty {
+                AssistantInlineTranscriptView(
+                    rawContent: chat.streamingText,
+                    displayContent: visibleStreamingText + (chat.isStreaming ? " ▍" : ""),
+                    contentBlocks: chat.pendingContentBlocks,
+                    persistedThinking: chat.streamingThinking,
+                    thinkingDurationSeconds: nil,
+                    isStreaming: chat.isStreaming,
+                    theme: theme
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
-            }
-
-            ToolExecutionPreviewList(
-                blocks: chat.pendingContentBlocks,
-                isStreaming: chat.isStreaming
-            )
-
-            if ChatStreamingDisplayPolicy.showsLiveResponseText, !visibleStreamingText.isEmpty {
-                TaggedMarkdownTextView(
-                    content: visibleStreamingText + (chat.isStreaming ? " ▍" : ""),
+            } else if expectsThinkingUI || chat.isThinkingActive || !chat.streamingThinking.isEmpty || !chat.pendingContentBlocks.isEmpty {
+                AssistantInlineTranscriptView(
+                    rawContent: chat.streamingText,
+                    displayContent: "",
+                    contentBlocks: chat.pendingContentBlocks,
+                    persistedThinking: chat.streamingThinking,
+                    thinkingDurationSeconds: nil,
+                    isStreaming: chat.isStreaming,
                     theme: theme
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else if !chat.isStreaming, !finalStreamingText.isEmpty {
-                TaggedMarkdownTextView(content: finalStreamingText, theme: theme)
+                AssistantInlineTranscriptView(
+                    rawContent: chat.streamingText,
+                    displayContent: finalStreamingText,
+                    contentBlocks: chat.pendingContentBlocks,
+                    persistedThinking: chat.streamingThinking,
+                    thinkingDurationSeconds: nil,
+                    isStreaming: false,
+                    theme: theme
+                )
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else if pipeline.isProcessing && !chat.isStreaming && !chat.isAgentExecuting {
                 HStack(spacing: Spacing.sm) {

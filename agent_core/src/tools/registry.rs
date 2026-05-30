@@ -2704,8 +2704,7 @@ impl ToolHandler for VaultSearchHandler {
             .get("query")
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("query required".to_string()))?;
-        let limit = (input.get("limit").and_then(Value::as_u64).unwrap_or(5) as usize)
-            .clamp(1, 20);
+        let limit = (input.get("limit").and_then(Value::as_u64).unwrap_or(5) as usize).clamp(1, 20);
         let tags: Vec<String> = input
             .get("tags")
             .and_then(Value::as_array)
@@ -2724,8 +2723,8 @@ impl ToolHandler for VaultSearchHandler {
             tags,
             backend: self.vault.clone(),
         };
-        let ladder = build_vault_search_ladder()
-            .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+        let ladder =
+            build_vault_search_ladder().map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
         let walk = ladder.resolve_walk(&ladder_input).await;
 
@@ -2735,8 +2734,8 @@ impl ToolHandler for VaultSearchHandler {
         // Provenance Console. `LadderAttempt` now derives Serialize
         // (added in B.1 5/N) so the attempts vec serializes directly
         // via serde — no manual JSON construction needed.
-        let attempts_json = serde_json::to_string(&walk.attempts)
-            .unwrap_or_else(|_| "[]".to_string());
+        let attempts_json =
+            serde_json::to_string(&walk.attempts).unwrap_or_else(|_| "[]".to_string());
         let resolved_variant = walk
             .resolution
             .as_ref()

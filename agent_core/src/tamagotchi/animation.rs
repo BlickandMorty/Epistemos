@@ -75,18 +75,12 @@ impl CompanionAnimation {
 
     /// Whether this is an "active" state (vs. resting Idle/Sleep).
     pub const fn is_active(self) -> bool {
-        !matches!(
-            self,
-            CompanionAnimation::Idle | CompanionAnimation::Sleep
-        )
+        !matches!(self, CompanionAnimation::Idle | CompanionAnimation::Sleep)
     }
 
     /// Complement to [`Self::is_active`]: Idle or Sleep.
     pub const fn is_resting(self) -> bool {
-        matches!(
-            self,
-            CompanionAnimation::Idle | CompanionAnimation::Sleep
-        )
+        matches!(self, CompanionAnimation::Idle | CompanionAnimation::Sleep)
     }
 
     /// One of Error / Success / Sleep — states whose outbound
@@ -213,10 +207,12 @@ mod tests {
 
     #[test]
     fn handoff_pair_cannot_self_dance() {
-        assert!(!CompanionAnimation::HandoffGive
-            .may_transition_to(CompanionAnimation::HandoffReceive));
-        assert!(!CompanionAnimation::HandoffReceive
-            .may_transition_to(CompanionAnimation::HandoffGive));
+        assert!(
+            !CompanionAnimation::HandoffGive.may_transition_to(CompanionAnimation::HandoffReceive)
+        );
+        assert!(
+            !CompanionAnimation::HandoffReceive.may_transition_to(CompanionAnimation::HandoffGive)
+        );
     }
 
     #[test]
@@ -282,7 +278,10 @@ mod tests {
 
     #[test]
     fn is_handoff_includes_give_and_receive_only() {
-        let handoff = [CompanionAnimation::HandoffGive, CompanionAnimation::HandoffReceive];
+        let handoff = [
+            CompanionAnimation::HandoffGive,
+            CompanionAnimation::HandoffReceive,
+        ];
         for a in CompanionAnimation::ALL.iter() {
             assert_eq!(a.is_handoff(), handoff.contains(a));
         }
@@ -300,7 +299,10 @@ mod tests {
     fn sleep_only_transitions_to_self_or_idle() {
         let next = CompanionAnimation::Sleep.allowed_next_states();
         let expected: std::collections::HashSet<_> =
-            [CompanionAnimation::Sleep, CompanionAnimation::Idle].iter().copied().collect();
+            [CompanionAnimation::Sleep, CompanionAnimation::Idle]
+                .iter()
+                .copied()
+                .collect();
         let got: std::collections::HashSet<_> = next.into_iter().collect();
         assert_eq!(got, expected);
     }
@@ -324,7 +326,10 @@ mod tests {
     fn success_only_transitions_to_self_or_idle() {
         let next = CompanionAnimation::Success.allowed_next_states();
         let expected: std::collections::HashSet<_> =
-            [CompanionAnimation::Success, CompanionAnimation::Idle].iter().copied().collect();
+            [CompanionAnimation::Success, CompanionAnimation::Idle]
+                .iter()
+                .copied()
+                .collect();
         let got: std::collections::HashSet<_> = next.into_iter().collect();
         assert_eq!(got, expected);
     }

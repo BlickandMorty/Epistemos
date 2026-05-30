@@ -257,9 +257,8 @@ fn falsifier_hook_owner_registry_hook_keys_are_trimmed_ascii_dash_format() {
 
     let register = include_str!("../../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
     assert!(
-        register.contains(
-            "`falsifier_hook_owner_registry_hook_keys_are_trimmed_ascii_dash_format`"
-        ),
+        register
+            .contains("`falsifier_hook_owner_registry_hook_keys_are_trimmed_ascii_dash_format`"),
         "register doc must cross-link falsifier hook key format safety"
     );
 }
@@ -639,8 +638,7 @@ fn residency_primary_falsifier_hook_sets_are_pinned_to_owner_registry() {
 
     let register = include_str!("../../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
     assert!(
-        register
-            .contains("`residency_primary_falsifier_hook_sets_are_pinned_to_owner_registry`"),
+        register.contains("`residency_primary_falsifier_hook_sets_are_pinned_to_owner_registry`"),
         "register doc must cross-link residency falsifier owner hook matrix"
     );
 }
@@ -713,9 +711,8 @@ fn falsifier_hook_registry_owner_paths_are_trimmed_ascii_unix_source_files() {
 
     let register = include_str!("../../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
     assert!(
-        register.contains(
-            "`falsifier_hook_registry_owner_paths_are_trimmed_ascii_unix_source_files`"
-        ),
+        register
+            .contains("`falsifier_hook_registry_owner_paths_are_trimmed_ascii_unix_source_files`"),
         "register doc must cross-link falsifier owner path format safety"
     );
 }
@@ -815,8 +812,7 @@ fn register_doc_cross_links_duplicate_axis_order_invariance() {
 fn register_doc_cross_links_codec_wrong_side_information_matrix_counts() {
     let register = include_str!("../../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
     assert!(
-        register
-            .contains("codec_noncanonical_side_information_rejection_matrix_counts_are_pinned"),
+        register.contains("codec_noncanonical_side_information_rejection_matrix_counts_are_pinned"),
         "register must cross-link codec wrong-side-information matrix counts"
     );
 }
@@ -825,9 +821,8 @@ fn register_doc_cross_links_codec_wrong_side_information_matrix_counts() {
 fn register_doc_cross_links_residency_wrong_side_information_matrix_counts() {
     let register = include_str!("../../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
     assert!(
-        register.contains(
-            "residency_nonprimary_side_information_rejection_matrix_counts_are_pinned"
-        ),
+        register
+            .contains("residency_nonprimary_side_information_rejection_matrix_counts_are_pinned"),
         "register must cross-link residency wrong-side-information matrix counts"
     );
 }
@@ -872,9 +867,8 @@ fn register_doc_cross_links_active_support_residency_matrix_counts() {
 fn register_doc_cross_links_active_support_disallowed_rejection_matrix_counts() {
     let register = include_str!("../../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
     assert!(
-        register.contains(
-            "active_support_budget_disallowed_tier_rejection_matrix_counts_are_pinned"
-        ),
+        register
+            .contains("active_support_budget_disallowed_tier_rejection_matrix_counts_are_pinned"),
         "register must cross-link active-support disallowed-tier rejection matrix counts"
     );
 }
@@ -892,9 +886,8 @@ fn register_doc_cross_links_active_support_wrong_tag_rejection_matrix_counts() {
 fn register_doc_cross_links_active_support_partial_zero_axis_matrix_counts() {
     let register = include_str!("../../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
     assert!(
-        register.contains(
-            "active_support_budget_partial_zero_axis_rejection_matrix_counts_are_pinned"
-        ),
+        register
+            .contains("active_support_budget_partial_zero_axis_rejection_matrix_counts_are_pinned"),
         "register must cross-link active-support partial-zero axis matrix counts"
     );
 }

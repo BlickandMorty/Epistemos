@@ -230,9 +230,8 @@ fn self_evolving_security_axis_is_owned_only_by_network_and_adapter_codecs() {
 
     let register = include_str!("../../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
     assert!(
-        register.contains(
-            "`self_evolving_security_axis_is_owned_only_by_network_and_adapter_codecs`"
-        ),
+        register
+            .contains("`self_evolving_security_axis_is_owned_only_by_network_and_adapter_codecs`"),
         "register doc must cross-link T_SE network and adapter ownership invariant"
     );
 }

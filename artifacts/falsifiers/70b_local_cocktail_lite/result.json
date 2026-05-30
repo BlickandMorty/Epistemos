@@ -1,0 +1,331 @@
+{
+  "falsifier_id": "F-70B-Local-Cocktail-Lite",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "failure_report",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_70b_local_cocktail_lite.sh",
+  "command_digest": "sha256:9db29898192f0ec942b3185a2276b58063259b85f8f7ded7079fcdb1d4cc4b31",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "ba6f15e6fb08c772c5bbce4d303aff864f39e9c2",
+  "fixture_id": "70b_cocktail_lite_preflight_v1",
+  "timestamp_utc": "2026-05-30T10:51:58Z",
+  "result_digest": "sha256:334504cb95f4111f154788e6f8995e3983c420e7e6e5033b50277512a3af62ae",
+  "measurements": {
+    "active_assembly_artifact_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "active_assembly_component_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "auto_discovered_largest_model": {
+      "value": {
+        "path": "/Users/jojo/Library/Application Support/Epistemos/Models/text/hub/models--mlx-community--Qwen3-Coder-Next-4bit/snapshots/7b9321eabb85ce79625cac3f61ea691e4ea984b5",
+        "weight_bytes": 44844286500,
+        "config_model_type": "qwen3_next",
+        "max_position_embeddings": 262144
+      },
+      "unit": "object"
+    },
+    "bottleneck_identified": {
+      "value": true,
+      "unit": "bool"
+    },
+    "d_kl_nats": {
+      "value": 999.0,
+      "unit": "nats"
+    },
+    "decode_tok_s": {
+      "value": 0.0,
+      "unit": "tokens_per_second"
+    },
+    "eml_geometry_scan_chart_coverage_available": {
+      "value": false,
+      "unit": "bool"
+    },
+    "kv_direct_artifact_available": {
+      "value": false,
+      "unit": "bool"
+    },
+    "kv_direct_artifact_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "large_model_min_bytes": {
+      "value": 32212254720,
+      "unit": "bytes"
+    },
+    "model_path_env": {
+      "value": "EPISTEMOS_70B_MODEL_PATH=unset",
+      "unit": "path_or_env"
+    },
+    "model_weights_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "page_gather_packetized_artifact_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "primary_bottleneck": {
+      "value": "missing_fp16_or_provider_reference",
+      "unit": "label"
+    },
+    "provider_reference_available": {
+      "value": false,
+      "unit": "bool"
+    },
+    "provider_reference_env": {
+      "value": "EPISTEMOS_70B_PROVIDER_REFERENCE=unset",
+      "unit": "path_or_env"
+    },
+    "provider_reference_manifest_valid": {
+      "value": false,
+      "unit": "bool"
+    },
+    "provider_reference_status": {
+      "value": "env_unset",
+      "unit": "label"
+    },
+    "residency_plan_dry_run_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "resident_memory_gb": {
+      "value": 999.0,
+      "unit": "GB"
+    },
+    "sparse_70b_runtime_available": {
+      "value": false,
+      "unit": "bool"
+    },
+    "sparse_runtime_path_env": {
+      "value": "EPISTEMOS_70B_SPARSE_RUNTIME_PATH=unset",
+      "unit": "path_or_env"
+    },
+    "sparse_runtime_split_artifact_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "synthetic_ir_chart_coverage_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ttft_seconds": {
+      "value": 9999.0,
+      "unit": "seconds"
+    },
+    "uas_acs_mmap_residency_artifact_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_copy_count_artifact_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_zero_copy_spine_artifact_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "weight_block_range_hash_dry_run_available": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "active_assembly_artifact_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "active_assembly_component_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "bottleneck_identified": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "d_kl_nats": {
+      "operator": "<",
+      "value": 0.1,
+      "unit": "nats"
+    },
+    "decode_tok_s": {
+      "operator": ">=",
+      "value": 5.0,
+      "unit": "tokens_per_second"
+    },
+    "eml_geometry_scan_chart_coverage_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_artifact_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_artifact_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_weights_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "page_gather_packetized_artifact_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_reference_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_reference_manifest_valid": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "residency_plan_dry_run_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "resident_memory_gb": {
+      "operator": "<",
+      "value": 14.0,
+      "unit": "GB"
+    },
+    "sparse_70b_runtime_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "sparse_runtime_split_artifact_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "synthetic_ir_chart_coverage_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ttft_seconds": {
+      "operator": "<=",
+      "value": 30.0,
+      "unit": "seconds"
+    },
+    "uas_acs_mmap_residency_artifact_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_copy_count_artifact_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_zero_copy_spine_artifact_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "weight_block_range_hash_dry_run_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "active_assembly_artifact_available": true,
+    "active_assembly_component_available": true,
+    "bottleneck_identified": true,
+    "d_kl_nats": false,
+    "decode_tok_s": false,
+    "eml_geometry_scan_chart_coverage_available": false,
+    "kv_direct_artifact_available": false,
+    "kv_direct_artifact_present": true,
+    "model_weights_available": true,
+    "page_gather_packetized_artifact_available": true,
+    "provider_reference_available": false,
+    "provider_reference_manifest_valid": false,
+    "residency_plan_dry_run_available": true,
+    "resident_memory_gb": false,
+    "sparse_70b_runtime_available": false,
+    "sparse_runtime_split_artifact_available": true,
+    "synthetic_ir_chart_coverage_available": true,
+    "ttft_seconds": false,
+    "uas_acs_mmap_residency_artifact_available": true,
+    "uas_copy_count_artifact_available": true,
+    "uas_zero_copy_spine_artifact_available": true,
+    "weight_block_range_hash_dry_run_available": true
+  },
+  "overall_pass": false,
+  "fallback_tier": "Fail",
+  "anomalies": [
+    {
+      "kind": "capability_ceiling_not_product",
+      "detail": "70B remains Vault/Research-only until this artifact becomes a primary witness with local prompt-level quality, latency, and RSS measurements."
+    },
+    {
+      "kind": "missing_sparse_70b_runtime",
+      "detail": "No live sparse 70B runtime path is wired yet. The synthetic F-Sparse-Runtime-Split artifact is a substrate witness, not a replacement for a model-backed sparse runtime."
+    },
+    {
+      "kind": "missing_ir_chart_coverage",
+      "detail": "Synthetic EML/Geometry/Scan/Operator chart coverage exists only if F-Sparse-Runtime-Split passes. Live 70B chart coverage remains red until model weights and the sparse runtime path are present."
+    },
+    {
+      "kind": "component_artifact_gap",
+      "detail": "model_weights_available=true; provider_reference_available=false; kv_direct_artifact_available=false; page_gather_packetized_artifact_available=true; uas_acs_mmap_residency_artifact_available=true; weight_block_range_hash_dry_run_available=true; active_assembly_artifact_available=true; sparse_runtime_split_artifact_available=true; synthetic_ir_chart_coverage_available=true; live_70b_ir_chart_coverage_available=false"
+    },
+    {
+      "kind": "weight_block_range_hash_dry_run_status",
+      "detail": "weight_block_range_hash_dry_run_available=true; this proves bounded byte-range fingerprinting only, not model loading or mmap residency."
+    },
+    {
+      "kind": "residency_plan_dry_run_status",
+      "detail": "residency_plan_dry_run_available=true; this proves model-shaped active-set planning only, not live model execution."
+    },
+    {
+      "kind": "auto_discovered_large_model",
+      "detail": "discovered_large_model_available=true; threshold_bytes=32212254720; this is a local large-model candidate, not proof of a working 70B sparse runtime."
+    },
+    {
+      "kind": "uas_acs_mmap_component_status",
+      "detail": "uas_acs_mmap_residency_artifact_available=true; this proves file-backed UAS/ACS residency only, not live 70B token generation."
+    }
+  ],
+  "notes": "preflight_failure_report; no 70B local product claim; primary_bottleneck=missing_fp16_or_provider_reference; set EPISTEMOS_70B_MODEL_PATH, EPISTEMOS_70B_PROVIDER_REFERENCE, and EPISTEMOS_70B_SPARSE_RUNTIME_PATH, then replace sentinel quality/latency values with measured prompt-level D_KL, TTFT, tok/s, RSS, cache state, and bottleneck attribution"
+}

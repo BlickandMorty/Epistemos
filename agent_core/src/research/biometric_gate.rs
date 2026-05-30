@@ -118,9 +118,15 @@ impl NextAction {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BiometricGateError {
     MountTierMissing,
-    PerOpTierExpired { last_auth_at_unix_ms: u64, now_unix_ms: u64, window_ms: u64 },
+    PerOpTierExpired {
+        last_auth_at_unix_ms: u64,
+        now_unix_ms: u64,
+        window_ms: u64,
+    },
     PerOpNeverAuthenticated,
-    NonPositiveWindow { window_ms: u64 },
+    NonPositiveWindow {
+        window_ms: u64,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -168,7 +174,9 @@ impl BiometricWriteGate {
         if !self.mount_authenticated {
             return Err(BiometricGateError::MountTierMissing);
         }
-        let last = self.last_per_op_unix_ms.ok_or(BiometricGateError::PerOpNeverAuthenticated)?;
+        let last = self
+            .last_per_op_unix_ms
+            .ok_or(BiometricGateError::PerOpNeverAuthenticated)?;
         if now_unix_ms < last {
             return Err(BiometricGateError::PerOpTierExpired {
                 last_auth_at_unix_ms: last,
@@ -227,7 +235,9 @@ impl BiometricWriteGate {
                     }
                 } else {
                     let remaining_ms = self.per_op_window_ms - elapsed;
-                    AdmissionDecision::Admit { remaining_per_op_ms: remaining_ms }
+                    AdmissionDecision::Admit {
+                        remaining_per_op_ms: remaining_ms,
+                    }
                 }
             }
         }
@@ -255,8 +265,13 @@ pub enum NextAction {
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum AdmissionDecision {
-    Admit { remaining_per_op_ms: u64 },
-    Deny { reason: DenyReason, next_action: NextAction },
+    Admit {
+        remaining_per_op_ms: u64,
+    },
+    Deny {
+        reason: DenyReason,
+        next_action: NextAction,
+    },
 }
 
 impl AdmissionDecision {
@@ -293,8 +308,10 @@ mod tests {
 
     #[test]
     fn two_distinct_tiers() {
-        let s: std::collections::HashSet<_> =
-            [BiometricTier::Mount, BiometricTier::PerOp].iter().copied().collect();
+        let s: std::collections::HashSet<_> = [BiometricTier::Mount, BiometricTier::PerOp]
+            .iter()
+            .copied()
+            .collect();
         assert_eq!(s.len(), 2);
     }
 
@@ -468,7 +485,9 @@ mod tests {
         let d = g.decide(30_000);
         assert_eq!(
             d,
-            AdmissionDecision::Admit { remaining_per_op_ms: 30_000 }
+            AdmissionDecision::Admit {
+                remaining_per_op_ms: 30_000
+            }
         );
         assert!(d.is_admitted());
     }
@@ -571,7 +590,9 @@ mod tests {
     fn admit_xor_deny_partitions_decisions() {
         // Cross-surface invariant: every AdmissionDecision is exactly
         // one of admitted / denied.
-        let admit = AdmissionDecision::Admit { remaining_per_op_ms: 100 };
+        let admit = AdmissionDecision::Admit {
+            remaining_per_op_ms: 100,
+        };
         let deny = AdmissionDecision::Deny {
             reason: DenyReason::MountTierMissing,
             next_action: NextAction::PromptForMount,
@@ -590,7 +611,9 @@ mod tests {
         assert_eq!(d.deny_reason(), Some(DenyReason::PerOpExpired));
         assert_eq!(d.next_action(), Some(NextAction::PromptForPerOp));
 
-        let a = AdmissionDecision::Admit { remaining_per_op_ms: 1 };
+        let a = AdmissionDecision::Admit {
+            remaining_per_op_ms: 1,
+        };
         assert_eq!(a.deny_reason(), None);
         assert_eq!(a.next_action(), None);
     }
@@ -607,9 +630,15 @@ mod tests {
         assert_eq!(g.decide(0).is_admitted(), g.admit_write(0).is_ok());
         // Mount + per-op within window.
         g.grant_per_op(0);
-        assert_eq!(g.decide(30_000).is_admitted(), g.admit_write(30_000).is_ok());
+        assert_eq!(
+            g.decide(30_000).is_admitted(),
+            g.admit_write(30_000).is_ok()
+        );
         // Expired.
-        assert_eq!(g.decide(60_001).is_admitted(), g.admit_write(60_001).is_ok());
+        assert_eq!(
+            g.decide(60_001).is_admitted(),
+            g.admit_write(60_001).is_ok()
+        );
     }
 
     #[test]
@@ -636,7 +665,9 @@ mod tests {
         g.grant_per_op(0);
         let d = g.decide(20_000);
         match d {
-            AdmissionDecision::Admit { remaining_per_op_ms } => {
+            AdmissionDecision::Admit {
+                remaining_per_op_ms,
+            } => {
                 assert_eq!(Some(remaining_per_op_ms), g.remaining_per_op_ms(20_000));
             }
             _ => panic!("expected admit"),
@@ -645,7 +676,9 @@ mod tests {
 
     #[test]
     fn decision_roundtrips_through_serde_json() {
-        let d = AdmissionDecision::Admit { remaining_per_op_ms: 12_345 };
+        let d = AdmissionDecision::Admit {
+            remaining_per_op_ms: 12_345,
+        };
         let json = serde_json::to_string(&d).unwrap();
         let back: AdmissionDecision = serde_json::from_str(&json).unwrap();
         assert_eq!(d, back);

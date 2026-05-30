@@ -1,6 +1,7 @@
 # PageGather Metal Destination Contract - 2026-05-27
 
-Status: Metal correctness contract landed; primary throughput gate still pending.
+Status: Metal dense-restore correctness contract landed; packetized scheduled
+mitigation witness added; primary dense throughput gate still pending.
 
 Branch: `codex/pagegather-metal-destination-contract-2026-05-27`
 
@@ -18,19 +19,30 @@ read-locality, not the full read-local/write-positioned product path.
 ## What Changed
 
 - `Epistemos/Shaders/PageGather.metal` adds `pageGatherScatterScheduled`.
+- `Epistemos/Shaders/PageGather.metal` also adds
+  `pageGatherPacketizeScheduled`.
 - The scheduled kernel writes:
 
 ```text
 out[logicalPositions[gid]] = source[indices[gid]]
 ```
 
+- The packetized scheduled kernel writes:
+
+```text
+packetValues[gid] = source[indices[gid]]
+packetLogicalPositions[gid] = logicalPositions[gid]
+```
+
 - `EpistemosTests/MetalWitnessGatesTests.swift` now verifies the scheduled
-  kernel against a deterministic CPU fixture.
+  dense-restore and packetized kernels against deterministic CPU fixtures.
 - `Tools/metal-witness-gates/page-gather-metal-artifact.swift` now loads the
-  scheduled pipeline and measures block-sorted locality probes through the
-  destination-position contract.
+  scheduled and packetized pipelines and measures block-sorted locality probes
+  through both contracts.
 - The probe accounts for the extra logical-position read:
   `scheduled PageGather = 16 bytes/element`.
+- The packetized probe accounts for the extra logical-position write:
+  `packetized scheduled PageGather = 20 bytes/element`.
 
 ## Diagnostic Result
 
@@ -52,12 +64,36 @@ This is the honest result: the scheduled kernel is correct, but the real
 destination-position restore path is not yet fast enough to promote
 `F-PageGather-M2Pro`.
 
+## Packetized Mitigation Result
+
+A later 256/512 MB M2 Pro diagnostic run wrote
+`artifacts/falsifiers/page_gather/locality_probe_result.json`:
+
+```text
+swift Tools/metal-witness-gates/page-gather-metal-artifact.swift --probe-locality --working-sets-mb 256,512 --window-seconds 2 --trials 2 --warmup-iterations 1 --write-artifact
+```
+
+The dense restore path stayed slow (`0.092x` STREAM at 256 MB and `0.058x` at
+512 MB), but packetized scheduled PageGather crossed the mitigation floor:
+
+| Working set | Packetized ratio vs STREAM | Correctness |
+|---|---:|---:|
+| 256 MB | `0.729x` | `0` sampled violations |
+| 512 MB | `0.752x` | `0` sampled violations |
+
+This does not promote the original dense-output gate. It does identify the
+lean architecture path: PageGather recall should move as packet streams with
+logical-position witness coordinates, and dense order should be a later
+projection only when a caller proves it needs dense order.
+
 ## What This Does Not Claim
 
 - No `artifacts/falsifiers/page_gather/result.json` promotion.
 - No green Settings chip.
-- No 256/512/1024 MB canonical pass.
+- No 256/512/1024 MB dense canonical pass.
 - No claim that block-sorted scheduling alone clears the product gate.
+- No claim that packetized output is wire-compatible with dense output without
+  an explicit downstream projection.
 
 ## No-Orphan Check
 
@@ -66,7 +102,8 @@ destination-position restore path is not yet fast enough to promote
 - Plane: retrieval / page plane.
 - Residency: Apple Silicon UMA through shared Metal buffers.
 - WBO/error: the previous read-local-only optimism is now bounded by a
-  destination-position witness.
+  destination-position witness; packetized output records the cheaper witness
+  coordinate path separately.
 - Witness: `MetalWitnessGatesTests`, the smoke probe, this audit note, and the
   existing locality/failure artifacts.
 - Falsifier: `F-PageGather-M2Pro`.
@@ -78,8 +115,11 @@ destination-position restore path is not yet fast enough to promote
 
 Optimization, not promotion:
 
-1. Try a threadgroup-tiled destination restore, vectorized logical-position
-   loads, or a two-pass block-local compaction path.
-2. Rerun a 256 MB diagnostic first.
-3. Attempt the full canonical `256/512/1024 MB`, `5 s`, `3 trial` gate only
-   after the 256 MB scheduled path approaches the `0.70x` ratio.
+1. Decide whether the PageGather product caller consumes packetized output
+   directly or requires dense order at the kernel boundary.
+2. If dense order is required, try a threadgroup-tiled destination restore,
+   vectorized logical-position loads, or a two-pass block-local compaction path.
+3. If packetized output is accepted, add a caller-path witness that consumes
+   `(logical_position, value)` packets without dense restore.
+4. Attempt the full canonical dense gate only after the scheduled dense path
+   approaches the `0.70x` ratio.

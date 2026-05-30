@@ -163,6 +163,34 @@ struct UserFacingModelOutputTests {
         )
     }
 
+    @Test("function call envelopes stay out of plain chat output")
+    func functionCallEnvelopesStayOutOfPlainChatOutput() {
+        let raw = """
+        Let me try that first.
+
+        <function_call>
+        {"name":"note.research_digest","content":{"notes":["All Things Must Go"]}}
+        </function_call>
+        """
+
+        #expect(UserFacingModelOutput.streamingVisibleText(from: raw).isEmpty)
+        #expect(UserFacingModelOutput.finalVisibleText(from: raw).isEmpty)
+    }
+
+    @Test("action envelopes stay out of plain chat output")
+    func actionEnvelopesStayOutOfPlainChatOutput() {
+        let raw = """
+        I will create the note if it does not exist.
+
+        <action>
+        {"type":"note.create","parameters":{"title":"Agent Research Inbox"}}
+        </action>
+        """
+
+        #expect(UserFacingModelOutput.streamingVisibleText(from: raw).isEmpty)
+        #expect(UserFacingModelOutput.finalVisibleText(from: raw).isEmpty)
+    }
+
     @Test("streaming reasoning strips dangling final-answer markers without content")
     func streamingReasoningTextDropsDanglingAnswerMarker() {
         let raw = """

@@ -175,6 +175,17 @@ Investigation Log:
   Mistral families) confirmed doctrinally honest per RCA-LOCAL-AGENT-GRAMMAR-001.
   No source files changed; this audit doc is the doctrine cross-check
   deliverable the issue called for. PR #53.
+- 2026-05-27 (Codex): No-compromise correction. The 16 GB power-user path was
+  reclassified as Capability Ceiling posture, not a dense MLX memory bypass.
+  `primaryAgentModelMinHostRAMGB_powerUser` now intentionally matches the
+  32 GB dense gate until `F-70B-Local-Cocktail` or an equivalent SSD/RAM
+  addressable-substrate falsifier passes. See
+  `docs/audits/CAPABILITY_CEILING_MODEL_GATE_2026_05_27.md`.
+- 2026-05-27 (Codex): Added the first executable 70B cocktail preflight:
+  `tools/falsifiers/f_70b_local_cocktail_lite.sh`. It writes a schema-valid
+  red artifact under `artifacts/falsifiers/70b_local_cocktail_lite/result.json`
+  and validates it, but exits non-zero until the real prompt-level 70B/ACS/UAS
+  composition metrics replace the sentinel failures.
 
 ---
 

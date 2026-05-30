@@ -32,7 +32,7 @@ public struct EidosHealthRow: View {
             row(
                 label: "Eidos V0 flag",
                 symbol: "flag.fill",
-                ok: snapshot.isFlagEnabled,
+                state: snapshot.isFlagEnabled ? .pass : .unavailable,
                 detail: flagDetail
             )
             VerifiedFloorChipStrip(
@@ -47,26 +47,26 @@ public struct EidosHealthRow: View {
             row(
                 label: "Last query",
                 symbol: "clock",
-                ok: snapshot.lastQueryAt != nil && snapshot.lastErrorDescription == nil,
+                state: lastQueryState,
                 detail: lastQueryDetail
             )
             row(
                 label: "p95 latency",
                 symbol: "chart.line.uptrend.xyaxis",
-                ok: snapshot.sampleCount > 0 && snapshot.p95LatencyMs <= 30.0,
+                state: p95State,
                 detail: p95Detail
             )
             row(
                 label: "Last citation count",
                 symbol: "quote.bubble",
-                ok: snapshot.lastCitationCount > 0 || !snapshot.isFlagEnabled,
+                state: lastCitationState,
                 detail: lastCitationDetail
             )
             if let err = snapshot.lastErrorDescription {
                 row(
                     label: "Last error",
                     symbol: "exclamationmark.triangle",
-                    ok: false,
+                    state: .blocked,
                     detail: err
                 )
             }
@@ -149,6 +149,25 @@ public struct EidosHealthRow: View {
         }
     }
 
+    private var lastQueryState: SubstrateHealthSignalState {
+        if snapshot.lastErrorDescription != nil { return .blocked }
+        if snapshot.lastQueryAt != nil { return .pass }
+        return snapshot.isFlagEnabled ? .partial : .unavailable
+    }
+
+    private var p95State: SubstrateHealthSignalState {
+        guard snapshot.sampleCount > 0 else {
+            return snapshot.isFlagEnabled ? .partial : .unavailable
+        }
+        return snapshot.p95LatencyMs <= 30.0 ? .pass : .blocked
+    }
+
+    private var lastCitationState: SubstrateHealthSignalState {
+        if !snapshot.isFlagEnabled { return .unavailable }
+        guard snapshot.lastQueryAt != nil else { return .partial }
+        return snapshot.lastCitationCount > 0 ? .pass : .blocked
+    }
+
     // MARK: - Periodic refresh (from unify-substrate-health 2026-05-23)
     //
     // 1 Hz refresh so chip strip + backend label stay live without polling
@@ -199,7 +218,7 @@ public struct EidosHealthRow: View {
     }
 
     @ViewBuilder
-    private func row(label: String, symbol: String, ok: Bool, detail: String) -> some View {
+    private func row(label: String, symbol: String, state: SubstrateHealthSignalState, detail: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: symbol)
                 .symbolRenderingMode(.hierarchical)
@@ -215,8 +234,8 @@ public struct EidosHealthRow: View {
                     .truncationMode(.middle)
             }
             Spacer()
-            Image(systemName: ok ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .foregroundStyle(ok ? AnyShapeStyle(Color.green) : AnyShapeStyle(Color.red))
+            Image(systemName: state.symbol)
+                .foregroundStyle(state.tint)
                 .font(.system(size: 16))
         }
         .padding(.horizontal, 12)

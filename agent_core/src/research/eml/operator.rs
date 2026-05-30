@@ -23,7 +23,11 @@ pub fn eml(x: f64, y: f64) -> Result<f64, EmlError> {
         return Err(EmlError::NonPositiveLogArg { y });
     }
     if !x.is_finite() {
-        return Err(EmlError::NonFiniteResult { x, y, result: f64::NAN });
+        return Err(EmlError::NonFiniteResult {
+            x,
+            y,
+            result: f64::NAN,
+        });
     }
     let r = x.exp() - y.ln();
     if !r.is_finite() {
@@ -38,11 +42,19 @@ pub fn eml(x: f64, y: f64) -> Result<f64, EmlError> {
 /// [`eml_partial_y`].
 pub fn eml_partial_x(x: f64, _y: f64) -> Result<f64, EmlError> {
     if !x.is_finite() {
-        return Err(EmlError::NonFiniteResult { x, y: _y, result: f64::NAN });
+        return Err(EmlError::NonFiniteResult {
+            x,
+            y: _y,
+            result: f64::NAN,
+        });
     }
     let r = x.exp();
     if !r.is_finite() {
-        return Err(EmlError::NonFiniteResult { x, y: _y, result: r });
+        return Err(EmlError::NonFiniteResult {
+            x,
+            y: _y,
+            result: r,
+        });
     }
     Ok(r)
 }
@@ -66,7 +78,11 @@ pub fn eml_inverse_x(z: f64, y: f64) -> Result<f64, EmlError> {
         return Err(EmlError::NonPositiveLogArg { y });
     }
     if !z.is_finite() {
-        return Err(EmlError::NonFiniteResult { x: z, y, result: f64::NAN });
+        return Err(EmlError::NonFiniteResult {
+            x: z,
+            y,
+            result: f64::NAN,
+        });
     }
     let inner = z + y.ln();
     if inner <= 0.0 {
@@ -153,7 +169,11 @@ mod tests {
 
     #[test]
     fn partial_x_at_one_is_e() {
-        assert!(approx(eml_partial_x(1.0, 1.0).unwrap(), std::f64::consts::E, 1e-12));
+        assert!(approx(
+            eml_partial_x(1.0, 1.0).unwrap(),
+            std::f64::consts::E,
+            1e-12
+        ));
     }
 
     #[test]
@@ -232,7 +252,10 @@ mod tests {
                     assert!(
                         approx(rec, x, 1e-9),
                         "x={}, y={}: z={}, recovered={}",
-                        x, y, z, rec
+                        x,
+                        y,
+                        z,
+                        rec
                     );
                 }
             }

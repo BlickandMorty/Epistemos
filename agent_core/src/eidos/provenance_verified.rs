@@ -75,11 +75,7 @@ impl<R: EidosRetriever> EidosRetriever for ProvenanceVerifiedRetriever<R> {
         self.inner.manifest_id()
     }
 
-    fn retrieve(
-        &self,
-        query: &EidosQuery,
-        retrieved_at_unix_ms: u64,
-    ) -> EidosContextPacket {
+    fn retrieve(&self, query: &EidosQuery, retrieved_at_unix_ms: u64) -> EidosContextPacket {
         if is_blank_query_text(&query.text) || query.top_k == 0 {
             return EidosContextPacket {
                 query: query.clone(),
@@ -136,9 +132,12 @@ mod tests {
 
     fn build_inner() -> InMemoryLexicalIndex {
         let mut lex = InMemoryLexicalIndex::new(manifest());
-        lex.insert(doc("a"), "alpha tropical", EidosSourceKind::Note).unwrap();
-        lex.insert(doc("b"), "beta tropical", EidosSourceKind::Note).unwrap();
-        lex.insert(doc("c"), "gamma tropical", EidosSourceKind::Note).unwrap();
+        lex.insert(doc("a"), "alpha tropical", EidosSourceKind::Note)
+            .unwrap();
+        lex.insert(doc("b"), "beta tropical", EidosSourceKind::Note)
+            .unwrap();
+        lex.insert(doc("c"), "gamma tropical", EidosSourceKind::Note)
+            .unwrap();
         lex
     }
 
@@ -166,11 +165,7 @@ mod tests {
             &self.manifest_id
         }
 
-        fn retrieve(
-            &self,
-            query: &EidosQuery,
-            retrieved_at_unix_ms: u64,
-        ) -> EidosContextPacket {
+        fn retrieve(&self, query: &EidosQuery, retrieved_at_unix_ms: u64) -> EidosContextPacket {
             EidosContextPacket {
                 query: query.clone(),
                 manifest_id: self.manifest_id.clone(),

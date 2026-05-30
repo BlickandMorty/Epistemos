@@ -260,9 +260,7 @@ mod tests {
         };
         let dbg = format!("{output:?}");
         assert!(
-            dbg.starts_with(
-                "ParaSeqOutput { inner: ParaOutput { value: 1, stop_reason: EndTurn,"
-            ),
+            dbg.starts_with("ParaSeqOutput { inner: ParaOutput { value: 1, stop_reason: EndTurn,"),
             "ParaSeqOutput Debug repr must start with inner field first: {dbg}"
         );
         assert!(
@@ -349,7 +347,10 @@ mod tests {
         // LenStage (first/inner) computes len("DISTINCT-INPUT") = 14.
         assert_eq!(out.inner.value, 14, "first arg = inner stage = LenStage");
         // LabelStage (second/outer) wraps the length as "len=14".
-        assert_eq!(out.outer.value, "len=14", "second arg = outer stage = LabelStage");
+        assert_eq!(
+            out.outer.value, "len=14",
+            "second arg = outer stage = LabelStage"
+        );
     }
 
     #[test]
@@ -376,9 +377,7 @@ mod tests {
             log: &'l Mutex<Vec<&'static str>>,
             out_value: T,
         }
-        impl<'l, A, B: Clone + Send + Sync + 'static> Para<u32, A, B>
-            for RecordingStage<'l, B>
-        {
+        impl<'l, A, B: Clone + Send + Sync + 'static> Para<u32, A, B> for RecordingStage<'l, B> {
             fn fwd(&self, _p: &u32, _input: A) -> Result<ParaOutput<B>, ParaError> {
                 self.log.lock().expect("lock").push(self.tag);
                 Ok(ParaOutput::new(
@@ -502,9 +501,7 @@ mod tests {
             log: &'l Mutex<Vec<&'static str>>,
             out_value: T,
         }
-        impl<'l, A, B: Clone + Send + Sync + 'static> Para<u32, A, B>
-            for RecordingStage<'l, B>
-        {
+        impl<'l, A, B: Clone + Send + Sync + 'static> Para<u32, A, B> for RecordingStage<'l, B> {
             fn fwd(&self, _p: &u32, _input: A) -> Result<ParaOutput<B>, ParaError> {
                 self.log.lock().expect("lock").push(self.fwd_tag);
                 Ok(ParaOutput::new(
@@ -569,7 +566,10 @@ mod tests {
         assert_eq!(out.outer.value, "len=0");
         assert_eq!(out.inner.stop_reason, StopReason::EndTurn);
         assert_eq!(out.outer.stop_reason, StopReason::EndTurn);
-        assert_eq!(out.inner.thinking.as_deref(), Some(b"len-thinking".as_slice()));
+        assert_eq!(
+            out.inner.thinking.as_deref(),
+            Some(b"len-thinking".as_slice())
+        );
         assert_eq!(
             out.outer.thinking.as_deref(),
             Some(b"label-thinking".as_slice())
@@ -604,9 +604,7 @@ mod tests {
         // Right grouping.
         let right_a = LenStage.fwd(&0, "hello").expect("right stage1 fwd ok");
         let seq_right = ParaSeq::new(&LabelStage, &LabelLenStage);
-        let right_outer = seq_right
-            .fwd(&0, right_a.value)
-            .expect("right seq fwd ok");
+        let right_outer = seq_right.fwd(&0, right_a.value).expect("right seq fwd ok");
 
         // Final C-stage value must be byte-equal.
         assert_eq!(left_outer_c.value, right_outer.outer.value);
@@ -618,7 +616,10 @@ mod tests {
         // produced the same thinking-block payload regardless of
         // grouping. This is the strongest associativity bar we can
         // assert without the dispatcher unifying ParaSeq into a Para.
-        assert_eq!(left_outer_c.thinking_digest, right_outer.outer.thinking_digest);
+        assert_eq!(
+            left_outer_c.thinking_digest,
+            right_outer.outer.thinking_digest
+        );
         // And both terminal outputs must still pass the digest_intact
         // forensic gate (no silent mutation in either path).
         assert!(left_outer_c.digest_intact());
@@ -707,7 +708,9 @@ mod tests {
     struct OuterFwdFails;
     impl Para<u32, usize, String> for OuterFwdFails {
         fn fwd(&self, _p: &u32, input: usize) -> Result<ParaOutput<String>, ParaError> {
-            Err(ParaError::Transport(format!("outer fwd refuses after {input}")))
+            Err(ParaError::Transport(format!(
+                "outer fwd refuses after {input}"
+            )))
         }
         fn rev(
             &self,
@@ -738,11 +741,7 @@ mod tests {
         fn fwd(&self, _p: &u32, _input: I) -> Result<ParaOutput<O>, ParaError> {
             Ok(ParaOutput::new(self.out.clone(), self.reason, None))
         }
-        fn rev(
-            &self,
-            _p: &u32,
-            _output: &ParaOutput<O>,
-        ) -> Result<ParaFeedback<u32>, ParaError> {
+        fn rev(&self, _p: &u32, _output: &ParaOutput<O>) -> Result<ParaFeedback<u32>, ParaError> {
             Ok(ParaFeedback { delta: 0 })
         }
     }
@@ -767,7 +766,8 @@ mod tests {
         for &inner_reason in &all {
             for &outer_reason in &all {
                 let inner = ConfigurableStage::<&'static str, usize>::new(0, inner_reason);
-                let outer = ConfigurableStage::<usize, String>::new("done".to_string(), outer_reason);
+                let outer =
+                    ConfigurableStage::<usize, String>::new("done".to_string(), outer_reason);
                 let seq = ParaSeq::new(&inner, &outer);
                 let out = seq
                     .fwd(&0, "input")
@@ -996,8 +996,7 @@ mod tests {
         // rely on. Pin the exact contract: Err(Transport(...)) with
         // the doctrine string verbatim.
         let id = IdentityPara::<u32>::new();
-        let dummy_output: ParaOutput<u32> =
-            ParaOutput::new(42, StopReason::EndTurn, None);
+        let dummy_output: ParaOutput<u32> = ParaOutput::new(42, StopReason::EndTurn, None);
         let err = id
             .rev(&0u32, &dummy_output)
             .expect_err("IdentityPara::rev must return Err by design");
@@ -1044,7 +1043,10 @@ mod tests {
         let out = id.fwd(&0, 42usize).expect("identity fwd ok");
         assert_eq!(out.value, 42);
         assert_eq!(out.stop_reason, StopReason::EndTurn);
-        assert!(out.thinking.is_none(), "IdentityPara must produce no thinking");
+        assert!(
+            out.thinking.is_none(),
+            "IdentityPara must produce no thinking"
+        );
         assert_eq!(out.thinking_digest, [0u8; 32]);
         assert!(out.digest_intact());
 
@@ -1217,8 +1219,14 @@ mod tests {
         assert_eq!(cloned, original);
         assert_eq!(cloned.inner.value, original.inner.value);
         assert_eq!(cloned.outer.value, original.outer.value);
-        assert_eq!(cloned.inner.stop_reason_digest, original.inner.stop_reason_digest);
-        assert_eq!(cloned.outer.stop_reason_digest, original.outer.stop_reason_digest);
+        assert_eq!(
+            cloned.inner.stop_reason_digest,
+            original.inner.stop_reason_digest
+        );
+        assert_eq!(
+            cloned.outer.stop_reason_digest,
+            original.outer.stop_reason_digest
+        );
         assert_eq!(cloned.inner.thinking_digest, original.inner.thinking_digest);
         assert_eq!(cloned.outer.thinking_digest, original.outer.thinking_digest);
         // Forensic intactness lifts through clone.

@@ -1012,7 +1012,7 @@ extension ProseEditorRepresentable2 {
 
         private func showHaloPanel() {
             guard let controller = haloController,
-                  controller.state.isPanelOpen,
+                  controller.state.isPanelOpen || controller.state.isRecoverableError,
                   let panelController = haloPanelController,
                   let scrollView,
                   let window = scrollView.window else { return }

@@ -5,8 +5,8 @@ use std::sync::OnceLock;
 
 use serde_json::Value;
 
-use crate::tools_v2::legacy_adapter::{generic_text_or_object_output_schema, AdapterSpec};
 use crate::tools::workspace_search::GET_CHANGE_IMPACT_TOOL_SCHEMA;
+use crate::tools_v2::legacy_adapter::{generic_text_or_object_output_schema, AdapterSpec};
 use crate::tools_v2::{Profile, VariantId};
 
 pub fn input_schema() -> &'static Value {

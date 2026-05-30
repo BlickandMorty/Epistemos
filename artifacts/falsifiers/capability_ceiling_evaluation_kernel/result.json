@@ -1,0 +1,681 @@
+{
+  "falsifier_id": "F-Capability-Ceiling-Evaluation-Kernel",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "failure_report",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_capability_ceiling_evaluation_kernel.sh",
+  "command_digest": "sha256:b386fc348e9d560457c6fafa88290bb5ee820e9115d836ff49ef1baf1de11f7a",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "ba6f15e6fb08c772c5bbce4d303aff864f39e9c2",
+  "fixture_id": "capability_ceiling_gate_rollup_v1",
+  "timestamp_utc": "2026-05-30T04:15:44Z",
+  "result_digest": "sha256:5e9016e8c7735c1c77df39a81dea1232d6b07afc95440efbcc36449ee6318f6c",
+  "measurements": {
+    "acs_anchor_lookup_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "acs_anchor_lookup_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/acs_anchor_lookup/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
+    "active_assembly_runtime_artifact_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "active_assembly_shape_proof_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "agent_local_model_runtime_bridge_next_bottleneck": {
+      "value": "ready_for_capability_ceiling_recheck",
+      "unit": "label"
+    },
+    "agent_local_model_runtime_bridge_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "agent_local_model_runtime_bridge_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/agent_local_model_runtime_bridge/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
+    "all_gate_artifacts_schema_normalized": {
+      "value": true,
+      "unit": "bool"
+    },
+    "canonical_build_queue_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cocktail_primary_bottleneck": {
+      "value": "missing_fp16_or_provider_reference",
+      "unit": "label"
+    },
+    "kv_direct_full_suite_run_plan_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_live_128k_pass": {
+      "value": false,
+      "unit": "bool"
+    },
+    "kv_direct_live_contract_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_live_metrics_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_live_shape_floor_pass": {
+      "value": false,
+      "unit": "bool"
+    },
+    "kv_direct_logits_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_model_assets_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_model_context_supports_required_context": {
+      "value": false,
+      "unit": "bool"
+    },
+    "kv_direct_model_identity_matches_canonical": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_prompt_suite_manifest_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_prompt_suite_shape_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_spill_trace_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_spill_trace_contract_pass": {
+      "value": false,
+      "unit": "bool"
+    },
+    "kv_direct_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/kv_direct_gate/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": false,
+        "status_pass": false,
+        "pass_axes_all_true": false,
+        "fallback_tier": "Fail"
+      },
+      "unit": "object"
+    },
+    "kv_direct_tier1_preflight_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_bottleneck": {
+      "value": "repair_qwen3_8b_128k_gguf_metal_stall",
+      "unit": "label"
+    },
+    "ordered_build_queue": {
+      "value": [
+        {
+          "order": 0,
+          "gap_id": "mas_current_app_guard",
+          "tier": "MAS / CurrentApp",
+          "status": "completed",
+          "falsifier_or_gate": "MODEL_GATING_MATRIX + Capability Ceiling Model Gate",
+          "witness": "docs/audits/CAPABILITY_CEILING_MODEL_GATE_2026_05_27.md",
+          "promotion_condition": "Dense 36B remains 32 GB + explicit opt-in; 70B remains Vault/Research-only until artifact gates pass.",
+          "rollback": "Keep product route on practical local MLX and cloud/provider lanes; never lower dense RAM gate from research artifacts."
+        },
+        {
+          "order": 1,
+          "gap_id": "schema_normalized_artifact_floor",
+          "tier": "Verified Floor",
+          "status": "completed",
+          "falsifier_or_gate": "F-UAS-CopyCount + F-ACS-AnchorLookup + F-UAS-ACS-MmapResidency + route source artifacts",
+          "witness": "artifacts/falsifiers/*/result.json",
+          "promotion_condition": "All gate artifacts consumed by the route kernel use the shared schema shape.",
+          "rollback": "Do not promote routes from legacy PASS keys; normalize artifact shape first."
+        },
+        {
+          "order": 2,
+          "gap_id": "verified_floor_primary_metal",
+          "tier": "Verified Floor",
+          "status": "completed",
+          "falsifier_or_gate": "F-ULP-Oracle + F-ControllerKernelPack",
+          "witness": "artifacts/falsifiers/ulp_oracle/result.json; artifacts/falsifiers/controller_kernel_pack/result.json",
+          "promotion_condition": "Metal ULP and controller-kernel primary witnesses remain green on M2 Pro floor.",
+          "rollback": "Keep CPU/fallback witnesses separate from Metal primary claims."
+        },
+        {
+          "order": 3,
+          "gap_id": "uas_acs_hot_path_floor",
+          "tier": "Verified Floor",
+          "status": "completed",
+          "falsifier_or_gate": "F-UAS-CopyCount + F-ACS-AnchorLookup + F-UAS-ACS-MmapResidency",
+          "witness": "artifacts/falsifiers/uas_copy_count/result.json; artifacts/falsifiers/acs_anchor_lookup/result.json; artifacts/falsifiers/uas_acs_mmap_residency/result.json",
+          "promotion_condition": "UAS copy-count, ACS anchor lookup, and file-backed mmap residency pass as schema-normalized witnesses.",
+          "rollback": "Keep full production generation/KV residual-spill copy-count as a separate future measurement if not yet covered."
+        },
+        {
+          "order": 4,
+          "gap_id": "pagegather_packetized_floor_and_caller",
+          "tier": "Capability Ceiling",
+          "status": "completed",
+          "falsifier_or_gate": "F-PageGather-M2Pro + F-PageGather-Packetized-Caller",
+          "witness": "artifacts/falsifiers/page_gather/locality_probe_result.json; artifacts/falsifiers/page_gather_packetized_caller/result.json",
+          "promotion_condition": "Packetized PageGather clears mitigation floor and one caller path consumes packets before dense restore.",
+          "rollback": "Dense restore remains non-primary; do not claim dense PageGather green from packet mitigation alone."
+        },
+        {
+          "order": 5,
+          "gap_id": "pagegather_dense_primary_or_policy_acceptance",
+          "tier": "Capability Ceiling",
+          "status": "pending",
+          "falsifier_or_gate": "F-PageGather-M2Pro",
+          "witness": "artifacts/falsifiers/page_gather/locality_probe_result.json",
+          "promotion_condition": "Either dense primary PageGather clears the STREAM bar or canon explicitly accepts a packetized policy for the relevant product route.",
+          "rollback": "Use packetized caller path as fallback; keep dense scatter off hot product claims until measured."
+        },
+        {
+          "order": 6,
+          "gap_id": "kv_direct_live_128k_inputs",
+          "tier": "Capability Ceiling",
+          "status": "pending_128k_context_model",
+          "falsifier_or_gate": "F-KV-Direct-Gate",
+          "witness": "artifacts/falsifiers/kv_direct_gate/result.json",
+          "promotion_condition": "Set or auto-detect the canonical Qwen/Qwen3-8B-MLX-4bit asset, require its config to honestly support >=128K context, generate the canonical 100-prompt 128K suite manifest, write the restartable full-suite shard plan, then provide paired reference/test logits, >=128K context metrics, >=256 decode tokens per prompt, RSS/tok/s/wall-clock metrics, and SSD-spill trace; all axes pass.",
+          "rollback": "Keep QK equality as preflight only; no 128K local context product claim without live prompt metrics."
+        },
+        {
+          "order": 7,
+          "gap_id": "qwen3_8b_128k_gguf_candidate_split",
+          "tier": "Research / Capability Candidate",
+          "status": "repair_qwen3_8b_128k_gguf_metal_stall",
+          "falsifier_or_gate": "F-Qwen3-8B-128K-GGUF-Route",
+          "witness": "artifacts/falsifiers/qwen3_8b_128k_gguf_route/result.json",
+          "promotion_condition": "Separate GGUF 128K route either passes as fallback witness with model file, context metadata, runner, paired logits, and live metrics, or stays a red candidate split. It never satisfies the canonical MLX KV gate.",
+          "rollback": "Keep F-KV-Direct-Gate pinned to Qwen/Qwen3-8B-MLX-4bit; remove/disable this candidate if it cannot meet 16 GB floor metrics."
+        },
+        {
+          "order": 8,
+          "gap_id": "agent_local_model_runtime_bridge",
+          "tier": "Pro / Agent Runtime",
+          "status": "completed",
+          "falsifier_or_gate": "F-Agent-Local-Model-Runtime-Bridge",
+          "witness": "artifacts/falsifiers/agent_local_model_runtime_bridge/result.json",
+          "promotion_condition": "System G routes ProviderPolicy::LocalMlx through live MLX/GGUF generation, streams local-model events, and emits AnswerPackets with model provenance; provider-aware fail-closed routing alone is not enough.",
+          "rollback": "Keep AgentRuntimeV2 provider dispatch fail-closed/scaffold-labeled until live local generation and provenance pass; do not claim frontier-replacement local agents from catalog metadata alone."
+        },
+        {
+          "order": 9,
+          "gap_id": "active_assembly_runtime_floor",
+          "tier": "Capability Ceiling",
+          "status": "completed",
+          "falsifier_or_gate": "F-ActiveAssembly-Minimal",
+          "witness": "artifacts/falsifiers/active_assembly_minimal/result.json",
+          "promotion_condition": "Synthetic runtime witness proves small active support with bounded output drift.",
+          "rollback": "Treat live model packet routing as a later promotion, not implied by the synthetic fixture."
+        },
+        {
+          "order": 10,
+          "gap_id": "sparse_runtime_split_floor",
+          "tier": "Capability Ceiling",
+          "status": "completed",
+          "falsifier_or_gate": "F-Sparse-Runtime-Split",
+          "witness": "artifacts/falsifiers/sparse_runtime_split/result.json",
+          "promotion_condition": "Synthetic sparse/reference split passes bounded KL, active ratio, cost ratio, and chart labels.",
+          "rollback": "Keep live sparse 70B runtime and live chart coverage red until model-backed rows exist."
+        },
+        {
+          "order": 11,
+          "gap_id": "live_sparse_70b_runtime_and_chart_coverage",
+          "tier": "Vault / Capability Ceiling",
+          "status": "pending_live_model_runtime",
+          "falsifier_or_gate": "F-70B-Local-Cocktail-Lite",
+          "witness": "artifacts/falsifiers/70b_local_cocktail_lite/result.json",
+          "promotion_condition": "Provide local 70B weights, provider/fp16 reference, live sparse runtime trace, and live chart rows for weights/layers/KV/kernels.",
+          "rollback": "Keep 70B route Vault/Research-only; dense MLX must not impersonate ACS/UAS."
+        },
+        {
+          "order": 12,
+          "gap_id": "seventy_b_prompt_level_cocktail",
+          "tier": "Vault / Beyond",
+          "status": "missing_fp16_or_provider_reference",
+          "falsifier_or_gate": "F-70B-Local-Cocktail-Lite",
+          "witness": "artifacts/falsifiers/70b_local_cocktail_lite/result.json",
+          "promotion_condition": "Prompt-level D_KL, TTFT, tok/s, RSS, cache state, bottleneck attribution, and rollback all pass.",
+          "rollback": "Publish failure report and route to smaller/cascade model; do not expose 70B as product."
+        },
+        {
+          "order": 13,
+          "gap_id": "research_construction_engine",
+          "tier": "Research Construction",
+          "status": "planned_after_measured_runtime_gates",
+          "falsifier_or_gate": "RCE / ProblemCard / ConstructionGraph / AnswerPacket",
+          "witness": "docs/fusion/SHADOW_PROJECTION_AND_RESEARCH_CONSTRUCTION_2026_05_24.md",
+          "promotion_condition": "Open research motifs become ProblemCards with WBO budget, falsifier, witness, tier, and rollback.",
+          "rollback": "Keep candidate laws and public-research motifs candidate-only until local falsifiers pass."
+        }
+      ],
+      "unit": "queue"
+    },
+    "page_gather_dense_primary_pass": {
+      "value": false,
+      "unit": "bool"
+    },
+    "page_gather_packetized_caller_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "page_gather_packetized_caller_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/page_gather_packetized_caller/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Fallback"
+      },
+      "unit": "object"
+    },
+    "page_gather_packetized_floor_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "page_gather_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/page_gather/locality_probe_result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": false,
+        "status_pass": false,
+        "pass_axes_all_true": false,
+        "fallback_tier": "Fail"
+      },
+      "unit": "object"
+    },
+    "qwen3_8b_128k_gguf_candidate_artifact_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "qwen3_8b_128k_gguf_route_pass": {
+      "value": false,
+      "unit": "bool_observed_candidate"
+    },
+    "qwen3_8b_128k_gguf_route_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/qwen3_8b_128k_gguf_route/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": false,
+        "status_pass": false,
+        "pass_axes_all_true": false,
+        "fallback_tier": "Fail"
+      },
+      "unit": "object"
+    },
+    "route_status": {
+      "value": "vault_research_route_with_packetized_mitigation",
+      "unit": "label"
+    },
+    "seventy_b_bottleneck_identified": {
+      "value": true,
+      "unit": "bool"
+    },
+    "seventy_b_lite_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/70b_local_cocktail_lite/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": false,
+        "status_pass": false,
+        "pass_axes_all_true": false,
+        "fallback_tier": "Fail"
+      },
+      "unit": "object"
+    },
+    "seventy_b_route_pass": {
+      "value": false,
+      "unit": "bool"
+    },
+    "source_artifacts_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sparse_runtime_split_artifact_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "sparse_runtime_split_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/sparse_runtime_split/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
+    "uas_acs_mmap_residency_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_acs_mmap_residency_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/uas_acs_mmap_residency/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
+    "uas_copy_count_hot_path_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_copy_count_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/uas_copy_count/result.json",
+        "exists": true,
+        "schema_normalized": true,
+        "overall_pass": true,
+        "status_pass": false,
+        "pass_axes_all_true": true,
+        "fallback_tier": "Primary"
+      },
+      "unit": "object"
+    },
+    "uas_zero_copy_spine_pass": {
+      "value": true,
+      "unit": "bool"
+    },
+    "unmapped_architecture_gap_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "verified_floor_green": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "acs_anchor_lookup_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "active_assembly_runtime_artifact_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "active_assembly_shape_proof_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "agent_local_model_runtime_bridge_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "all_gate_artifacts_schema_normalized": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "canonical_build_queue_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_full_suite_run_plan_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_live_128k_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_live_contract_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_live_metrics_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_live_shape_floor_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_logits_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_model_assets_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_model_context_supports_required_context": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_model_identity_matches_canonical": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_prompt_suite_manifest_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_prompt_suite_shape_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_spill_trace_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_spill_trace_contract_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_direct_tier1_preflight_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "page_gather_dense_primary_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "page_gather_packetized_caller_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "page_gather_packetized_floor_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "qwen3_8b_128k_gguf_candidate_artifact_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "seventy_b_bottleneck_identified": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "seventy_b_route_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_artifacts_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "sparse_runtime_split_artifact_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_acs_mmap_residency_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_copy_count_hot_path_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "uas_zero_copy_spine_pass": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "unmapped_architecture_gap_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "verified_floor_green": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "acs_anchor_lookup_pass": true,
+    "active_assembly_runtime_artifact_pass": true,
+    "active_assembly_shape_proof_available": true,
+    "agent_local_model_runtime_bridge_pass": true,
+    "all_gate_artifacts_schema_normalized": true,
+    "canonical_build_queue_present": true,
+    "kv_direct_full_suite_run_plan_available": true,
+    "kv_direct_live_128k_pass": false,
+    "kv_direct_live_contract_present": true,
+    "kv_direct_live_metrics_available": true,
+    "kv_direct_live_shape_floor_pass": false,
+    "kv_direct_logits_available": true,
+    "kv_direct_model_assets_available": true,
+    "kv_direct_model_context_supports_required_context": false,
+    "kv_direct_model_identity_matches_canonical": true,
+    "kv_direct_prompt_suite_manifest_available": true,
+    "kv_direct_prompt_suite_shape_pass": true,
+    "kv_direct_spill_trace_available": true,
+    "kv_direct_spill_trace_contract_pass": false,
+    "kv_direct_tier1_preflight_pass": true,
+    "page_gather_dense_primary_pass": false,
+    "page_gather_packetized_caller_pass": true,
+    "page_gather_packetized_floor_pass": true,
+    "qwen3_8b_128k_gguf_candidate_artifact_available": true,
+    "seventy_b_bottleneck_identified": true,
+    "seventy_b_route_pass": false,
+    "source_artifacts_present": true,
+    "sparse_runtime_split_artifact_pass": true,
+    "uas_acs_mmap_residency_pass": true,
+    "uas_copy_count_hot_path_pass": true,
+    "uas_zero_copy_spine_pass": true,
+    "unmapped_architecture_gap_count": true,
+    "verified_floor_green": true
+  },
+  "overall_pass": false,
+  "fallback_tier": "Fail",
+  "anomalies": [
+    {
+      "kind": "page_gather_dense_route_red",
+      "detail": "PageGather packetized scheduled output clears the 0.70x mitigation floor, but dense restore remains below the primary stream-ratio gate."
+    },
+    {
+      "kind": "kv_direct_live_gate_red",
+      "detail": "KV-Direct Rust equality passes, but the Qwen3-8B 128K SSD-spill D_KL/RSS/tok/s gate is still sentinel red."
+    },
+    {
+      "kind": "kv_direct_model_context_red",
+      "detail": "The resolved KV-Direct model asset does not currently prove a >=128K context window, so the 128K live run is blocked before logits."
+    },
+    {
+      "kind": "seventy_b_route_red",
+      "detail": "70B Local Cocktail Lite remains a failure report; dense MLX must not impersonate the ACS/UAS capability ceiling route."
+    },
+    {
+      "kind": "next_bottleneck",
+      "detail": "repair_qwen3_8b_128k_gguf_metal_stall"
+    }
+  ],
+  "notes": "route_rollup_failure_report; status=vault_research_route_with_packetized_mitigation; next_bottleneck=repair_qwen3_8b_128k_gguf_metal_stall; dense 36B MLX gate remains 32 GB; 16 GB Capability Ceiling route remains Vault/Research until PageGather dense primary or accepted packetized policy, live KV-Direct 128K, live AgentRuntimeV2 local-model dispatch, live sparse 70B, and schema-normalized artifacts pass"
+}

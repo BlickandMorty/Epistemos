@@ -909,8 +909,8 @@ struct QueryRuntimeTests {
         #expect(runtime.fullText(query: "metaphysics", scope: .all).map(\.id) == ["note-readable"])
     }
 
-    @Test("retrieval runtime preserves legacy full-text results when RRF fused path falls back")
-    func retrievalRuntimePreservesLegacyResultsWhenRRFFusedPathFallsBack() throws {
+    @Test("retrieval runtime keeps RRF page hits when readable-block FTS is missing")
+    func retrievalRuntimeKeepsRRFPageHitsWhenReadableBlockFTSIsMissing() throws {
         let flag = "EPISTEMOS_RRF_FUSION_V1"
         let previous = ProcessInfo.processInfo.environment[flag]
         let previousDefault = UserDefaults.standard.object(forKey: flag)
@@ -955,7 +955,8 @@ struct QueryRuntimeTests {
         let results = runtime.fullText(query: "physics", scope: .all)
 
         #expect(results.map(\.id) == ["note-legacy"])
-        #expect(SearchFusionMetrics.shared.snapshot().lastErrorDescription != nil)
+        #expect(SearchFusionMetrics.shared.snapshot().lastErrorDescription == nil)
+        #expect(SearchFusionMetrics.shared.snapshot().sampleCount == 1)
     }
 
     @Test("retrieval runtime keeps page and block scopes on legacy search when RRF flag is enabled")
@@ -1038,11 +1039,17 @@ struct QueryRuntimeTests {
     @Test("QueryRuntime RRF fused path stays flag-gated and falls back")
     func queryRuntimeRRFFusedPathStaysFlagGatedAndFallsBack() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Engine/QueryRuntime.swift")
+        let searchIndex = try loadMirroredSourceTextFile("Epistemos/Sync/SearchIndexService.swift")
+        let rrfQuery = try loadMirroredSourceTextFile("Epistemos/Sync/RRFFusionQuery.swift")
 
         #expect(source.contains("RRFFusionFlags.isEnabled && scope == .all"))
         #expect(source.contains("searchIndex.fusedSearch("))
         #expect(source.contains("FusionWeights(maxResults: limit)"))
         #expect(source.contains("Falling back to legacy per-index dispatch"))
+        #expect(searchIndex.contains("includeReadableBlocks"))
+        #expect(searchIndex.contains("tableExists(\"readable_blocks_fts\""))
+        #expect(rrfQuery.contains("pageBlockOnlySQL"))
+        #expect(rrfQuery.contains("includeReadableBlocks: Bool = true"))
         #expect(!source.contains("fusedSearchAsync("))
         #expect(!source.contains("saveGraphEvent"))
         #expect(!source.contains("saveMutationEnvelope"))

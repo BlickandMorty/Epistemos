@@ -224,11 +224,7 @@ mod tests {
     #[test]
     fn has_event_log_true_after_with_event_log() {
         let log = Arc::new(HealEventLog::open_in_memory().unwrap());
-        let loop_ = HealLoop::new(Arc::new(GiveUpDiagnostician)).with_event_log(
-            log,
-            "edit",
-            "v1",
-        );
+        let loop_ = HealLoop::new(Arc::new(GiveUpDiagnostician)).with_event_log(log, "edit", "v1");
         assert!(loop_.has_event_log());
         assert_eq!(loop_.tool_name(), "edit");
         assert_eq!(loop_.variant_id(), "v1");

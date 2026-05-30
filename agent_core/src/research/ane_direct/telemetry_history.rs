@@ -162,7 +162,9 @@ impl AneTelemetryHistory {
             utils.push(s.derived_utilization);
         }
         utils.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-        let p95_idx = ((n as f32 * 0.95).ceil() as usize).saturating_sub(1).min(n - 1);
+        let p95_idx = ((n as f32 * 0.95).ceil() as usize)
+            .saturating_sub(1)
+            .min(n - 1);
         let p95 = utils[p95_idx];
 
         Ok(WindowStats {

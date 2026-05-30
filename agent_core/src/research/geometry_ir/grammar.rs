@@ -36,7 +36,9 @@ pub struct Multivector {
 impl Multivector {
     /// Zero multivector.
     pub fn zero() -> Self {
-        Multivector { components: [0.0; 8] }
+        Multivector {
+            components: [0.0; 8],
+        }
     }
 
     /// Scalar `s` lifted to a grade-0-only multivector.
@@ -75,7 +77,7 @@ impl Multivector {
         let mut c = [0.0_f64; 8];
         c[0] = w;
         c[4] = -z; // b_12
-        c[5] = y;  // b_13
+        c[5] = y; // b_13
         c[6] = -x; // b_23
         Multivector { components: c }
     }
@@ -119,25 +121,39 @@ impl Multivector {
     }
 
     /// Unit basis vector `e_1` along x-axis. Iter-137.
-    pub fn e1() -> Multivector { Self::vector(1.0, 0.0, 0.0) }
+    pub fn e1() -> Multivector {
+        Self::vector(1.0, 0.0, 0.0)
+    }
 
     /// Unit basis vector `e_2` along y-axis. Iter-137.
-    pub fn e2() -> Multivector { Self::vector(0.0, 1.0, 0.0) }
+    pub fn e2() -> Multivector {
+        Self::vector(0.0, 1.0, 0.0)
+    }
 
     /// Unit basis vector `e_3` along z-axis. Iter-137.
-    pub fn e3() -> Multivector { Self::vector(0.0, 0.0, 1.0) }
+    pub fn e3() -> Multivector {
+        Self::vector(0.0, 0.0, 1.0)
+    }
 
     /// Unit basis bivector `e_12` (xy-plane). Iter-137.
-    pub fn e12() -> Multivector { Self::bivector(1.0, 0.0, 0.0) }
+    pub fn e12() -> Multivector {
+        Self::bivector(1.0, 0.0, 0.0)
+    }
 
     /// Unit basis bivector `e_13` (xz-plane). Iter-137.
-    pub fn e13() -> Multivector { Self::bivector(0.0, 1.0, 0.0) }
+    pub fn e13() -> Multivector {
+        Self::bivector(0.0, 1.0, 0.0)
+    }
 
     /// Unit basis bivector `e_23` (yz-plane). Iter-137.
-    pub fn e23() -> Multivector { Self::bivector(0.0, 0.0, 1.0) }
+    pub fn e23() -> Multivector {
+        Self::bivector(0.0, 0.0, 1.0)
+    }
 
     /// Unit pseudoscalar `I = e_123`. Iter-137.
-    pub fn pseudoscalar_unit() -> Multivector { Self::pseudoscalar(1.0) }
+    pub fn pseudoscalar_unit() -> Multivector {
+        Self::pseudoscalar(1.0)
+    }
 
     /// Pseudoscalar `s e_123` as a grade-3-only multivector.
     pub fn pseudoscalar(s: f64) -> Self {
@@ -183,7 +199,10 @@ impl Multivector {
             3 => &[7],
             _ => &[],
         };
-        indices.iter().map(|&i| self.components[i] * self.components[i]).sum()
+        indices
+            .iter()
+            .map(|&i| self.components[i] * self.components[i])
+            .sum()
     }
 
     /// Total multivector norm² = sum of squares across all 8 components.
@@ -300,15 +319,13 @@ impl Multivector {
 
     /// True iff this multivector is grade-1 only (pure vector).
     pub fn is_vector(&self) -> bool {
-        self.components[0] == 0.0
-            && (4..8).all(|i| self.components[i] == 0.0)
+        self.components[0] == 0.0 && (4..8).all(|i| self.components[i] == 0.0)
     }
 
     /// True iff this multivector is a rotor candidate (scalar +
     /// bivector parts only, grades 1 and 3 zero).
     pub fn is_rotor_candidate(&self) -> bool {
-        (1..4).all(|i| self.components[i] == 0.0)
-            && self.components[7] == 0.0
+        (1..4).all(|i| self.components[i] == 0.0) && self.components[7] == 0.0
     }
 
     /// Reverse (~): for grade k, multiply by `(-1)^{k(k-1)/2}`.
@@ -317,7 +334,7 @@ impl Multivector {
         let c = &self.components;
         Multivector {
             components: [
-                c[0],   // scalar (+)
+                c[0], // scalar (+)
                 c[1], c[2], c[3], // vector (+)
                 -c[4], -c[5], -c[6], // bivector (−)
                 -c[7], // pseudoscalar (−)
@@ -349,9 +366,7 @@ impl fmt::Display for Multivector {
     /// ` + ` (or ` - ` for negative coefficients). Zero components
     /// are omitted. Zero multivector prints as `0`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        const LABELS: [&str; 8] = [
-            "", "e_1", "e_2", "e_3", "e_12", "e_13", "e_23", "e_123",
-        ];
+        const LABELS: [&str; 8] = ["", "e_1", "e_2", "e_3", "e_12", "e_13", "e_23", "e_123"];
         let mut first = true;
         for (i, &c) in self.components.iter().enumerate() {
             if c == 0.0 {
@@ -480,8 +495,7 @@ mod tests {
     #[test]
     fn from_quaternion_roundtrips_with_rotor_to_quaternion() {
         // Build rotor → quaternion → rotor, check identity.
-        let r = Multivector::scalar(0.6)
-            .add(&Multivector::bivector(0.3, 0.5, 0.4));
+        let r = Multivector::scalar(0.6).add(&Multivector::bivector(0.3, 0.5, 0.4));
         let q = r.rotor_to_quaternion().unwrap();
         let r2 = Multivector::from_quaternion(q.0, q.1, q.2, q.3);
         for (a, b) in r.components.iter().zip(r2.components.iter()) {
@@ -513,8 +527,7 @@ mod tests {
     #[test]
     fn rotor_to_quaternion_xy_bivector_rotor() {
         // R = cos(θ/2) + sin(θ/2) e_12. q = (cos, 0, 0, -sin).
-        let r = Multivector::scalar(0.5)
-            .add(&Multivector::bivector(0.866, 0.0, 0.0));
+        let r = Multivector::scalar(0.5).add(&Multivector::bivector(0.866, 0.0, 0.0));
         let q = r.rotor_to_quaternion().unwrap();
         assert!((q.0 - 0.5).abs() < 1e-12);
         assert!((q.1 - 0.0).abs() < 1e-12);
@@ -531,8 +544,7 @@ mod tests {
     #[test]
     fn rotor_to_quaternion_unit_norm_preserved() {
         // ||q||² = w² + x² + y² + z² should match rotor's norm_squared.
-        let r = Multivector::scalar(0.5)
-            .add(&Multivector::bivector(0.5, 0.5, 0.5));
+        let r = Multivector::scalar(0.5).add(&Multivector::bivector(0.5, 0.5, 0.5));
         let (w, x, y, z) = r.rotor_to_quaternion().unwrap();
         let q_norm_sq = w * w + x * x + y * y + z * z;
         assert!((q_norm_sq - r.norm_squared()).abs() < 1e-12);
@@ -636,8 +648,11 @@ mod tests {
         assert!(identity.is_approximately_unit_rotor(1e-12));
 
         // Half rotor: scalar = 1/√2, bivector e_12 = 1/√2 → norm² = 1.
-        let half = Multivector::scalar(1.0 / 2.0_f64.sqrt())
-            .add(&Multivector::bivector(1.0 / 2.0_f64.sqrt(), 0.0, 0.0));
+        let half = Multivector::scalar(1.0 / 2.0_f64.sqrt()).add(&Multivector::bivector(
+            1.0 / 2.0_f64.sqrt(),
+            0.0,
+            0.0,
+        ));
         assert!(half.is_approximately_unit_rotor(1e-12));
 
         // Not a rotor: any vector part.

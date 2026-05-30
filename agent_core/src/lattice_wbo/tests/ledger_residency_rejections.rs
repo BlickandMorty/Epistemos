@@ -118,8 +118,7 @@ fn ledger_validation_rejects_standalone_codecs_for_every_residency_tier() {
     assert_eq!(checked, ResidencyTier::ALL.len() * 6);
     let register = include_str!("../../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
     assert!(
-        register
-            .contains("`ledger_validation_rejects_standalone_codecs_for_every_residency_tier`"),
+        register.contains("`ledger_validation_rejects_standalone_codecs_for_every_residency_tier`"),
         "register doc must cross-link standalone product-lane rejection"
     );
 }
@@ -207,9 +206,11 @@ fn ledger_validation_rejects_nonprimary_codec_before_foreign_terms() {
         );
 
         assert!(
-            entry.budget.contributions.iter().any(|contribution| !tier
-                .canonical_register_terms()
-                .contains(&contribution.term)),
+            entry
+                .budget
+                .contributions
+                .iter()
+                .any(|contribution| !tier.canonical_register_terms().contains(&contribution.term)),
             "{} fixture must carry a real residency-term mismatch",
             tier.canonical_name()
         );
@@ -265,12 +266,8 @@ fn ledger_validation_rejects_every_term_outside_residency_tier_map() {
 
             let mut contributions = tier_probe_contributions(tier);
             contributions.push(
-                LatticeErrorContribution::new(
-                    term,
-                    format!("foreign term {}", term.code()),
-                    0.0,
-                )
-                .expect("foreign probe contribution should be valid"),
+                LatticeErrorContribution::new(term, format!("foreign term {}", term.code()), 0.0)
+                    .expect("foreign probe contribution should be valid"),
             );
             let budget = LatticeBudget::new(
                 tier.primary_coder(),
@@ -462,9 +459,11 @@ fn ledger_validation_rejects_foreign_terms_before_nonprimary_side_information() 
             tier.canonical_name()
         );
         assert!(
-            entry.budget.contributions.iter().any(|contribution| !tier
-                .canonical_register_terms()
-                .contains(&contribution.term)),
+            entry
+                .budget
+                .contributions
+                .iter()
+                .any(|contribution| !tier.canonical_register_terms().contains(&contribution.term)),
             "{} fixture must carry a real residency-term mismatch",
             tier.canonical_name()
         );
@@ -482,12 +481,9 @@ fn ledger_validation_rejects_foreign_terms_before_nonprimary_side_information() 
 
 #[test]
 fn ledger_validation_rejects_side_information_outside_residency_primary() {
-    let contribution = LatticeErrorContribution::new(
-        WboTermCode::ResidualWynerZiv,
-        "LWZ residual transfer",
-        0.01,
-    )
-    .expect("valid contribution");
+    let contribution =
+        LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "LWZ residual transfer", 0.01)
+            .expect("valid contribution");
     let budget = LatticeBudget::new(
         LatticeCoderKind::LatticeWynerZivResidual,
         Some(1250),
@@ -567,9 +563,7 @@ fn residency_nonprimary_side_information_rejection_matrix_counts_are_pinned() {
         .map(|tier| {
             let rejected = SideInformationKind::ALL
                 .iter()
-                .filter(|side_information| {
-                    **side_information != tier.primary_side_information()
-                })
+                .filter(|side_information| **side_information != tier.primary_side_information())
                 .count();
             let codec_accepted_borrowed = SideInformationKind::ALL
                 .iter()

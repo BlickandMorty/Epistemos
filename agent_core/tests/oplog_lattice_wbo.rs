@@ -48,17 +48,13 @@ fn oplog_append_increments_lattice_wbo_accounting_counter() {
         "lattice/WBO accountant must increment exactly once per OpLog::append"
     );
     assert_eq!(after.tier, ResidencyTier::L0RamHot.canonical_name());
-    assert_eq!(
-        after.falsifier,
-        ResidencyTier::L0RamHot.primary_falsifier()
-    );
+    assert_eq!(after.falsifier, ResidencyTier::L0RamHot.primary_falsifier());
     assert_eq!(after.last_actor_id.as_deref(), Some("test-actor-wiring3"));
 }
 
 #[test]
 fn oplog_lattice_wbo_stats_json_roundtrips_against_snapshot() {
-    let raw = oplog_lattice_wbo_stats_json()
-        .expect("FFI export must not error on snapshot read");
+    let raw = oplog_lattice_wbo_stats_json().expect("FFI export must not error on snapshot read");
     let decoded: LatticeWboOplogStats =
         serde_json::from_str(&raw).expect("snapshot JSON must round-trip");
     let direct = snapshot();
@@ -80,12 +76,11 @@ fn l0_ram_hot_wbo_ledger_entry_validates_with_canonical_register_terms() {
         .first()
         .copied()
         .expect("L0RamHot tier must declare at least one canonical register term");
-    let contributions = vec![LatticeErrorContribution::new(
-        term,
-        "wiring3-oplog-accounting",
-        0.0_f64,
-    )
-    .expect("zero-budget contribution must construct")];
+    let contributions =
+        vec![
+            LatticeErrorContribution::new(term, "wiring3-oplog-accounting", 0.0_f64)
+                .expect("zero-budget contribution must construct"),
+        ];
     let budget = LatticeBudget::new(
         tier.primary_coder(),
         tier.primary_rate_milli_bits_per_symbol(),

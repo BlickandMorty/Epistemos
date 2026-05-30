@@ -14,11 +14,11 @@ use async_trait::async_trait;
 use eventsource_stream::Eventsource;
 use futures::StreamExt;
 use reqwest::Client;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use tracing::{debug, warn};
 
 use crate::agent_loop::{AgentConfig, AgentError};
-use crate::error::{RetryConfig, with_retry};
+use crate::error::{with_retry, RetryConfig};
 use crate::provider::{AgentProvider, MessageStream, ProviderCapabilities, StreamEvent};
 use crate::providers::schema::normalized_strict_tool_parameters;
 use crate::types::{
@@ -976,12 +976,10 @@ mod tests {
         assert_eq!(input[0]["content"][0]["type"], "input_text");
         assert_eq!(input[0]["content"][0]["text"], "What is this?");
         assert_eq!(input[0]["content"][1]["type"], "input_image");
-        assert!(
-            input[0]["content"][1]["image_url"]
-                .as_str()
-                .unwrap()
-                .starts_with("data:image/png;base64,")
-        );
+        assert!(input[0]["content"][1]["image_url"]
+            .as_str()
+            .unwrap()
+            .starts_with("data:image/png;base64,"));
         assert_eq!(input[1]["type"], "function_call_output");
         assert_eq!(input[1]["call_id"], "fc_call_1");
         assert_eq!(input[1]["output"], "found 3 results");

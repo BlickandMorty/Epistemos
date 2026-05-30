@@ -156,8 +156,7 @@ fn lattice_coder_canonical_names_are_trimmed_kebab_case_keys() {
 
 #[test]
 fn residency_tier_round_trips_json() {
-    let encoded =
-        serde_json::to_string(&ResidencyTier::ALL).expect("serialize residency tiers");
+    let encoded = serde_json::to_string(&ResidencyTier::ALL).expect("serialize residency tiers");
     let decoded: [ResidencyTier; 7] =
         serde_json::from_str(&encoded).expect("deserialize residency tier");
 
@@ -170,8 +169,7 @@ fn residency_tier_round_trips_json() {
 
 #[test]
 fn residency_tier_json_uses_canonical_names_and_rejects_debug_labels() {
-    let encoded =
-        serde_json::to_string(&ResidencyTier::ALL).expect("serialize residency tiers");
+    let encoded = serde_json::to_string(&ResidencyTier::ALL).expect("serialize residency tiers");
     let expected_keys = ResidencyTier::ALL
         .iter()
         .map(|tier| tier.canonical_name())
@@ -334,8 +332,7 @@ fn side_information_json_uses_explicit_public_keys() {
 #[test]
 fn wbo_term_code_round_trips_json() {
     let encoded = serde_json::to_string(&WboTermCode::ALL).expect("serialize wbo terms");
-    let decoded: [WboTermCode; 7] =
-        serde_json::from_str(&encoded).expect("deserialize wbo terms");
+    let decoded: [WboTermCode; 7] = serde_json::from_str(&encoded).expect("deserialize wbo terms");
 
     assert_eq!(decoded, WboTermCode::ALL);
     assert_eq!(decoded[6].code(), "T_num");
@@ -549,18 +546,12 @@ fn lattice_error_contribution_json_rejects_invalid_public_fields() {
 
 #[test]
 fn lattice_budget_round_trips_json() {
-    let residual_contribution = LatticeErrorContribution::new(
-        WboTermCode::ResidualWynerZiv,
-        "LWZ residual codec",
-        0.04,
-    )
-    .expect("valid contribution");
-    let numerical_contribution = LatticeErrorContribution::new(
-        WboTermCode::NumericalPostCorrection,
-        "exact ULP guard",
-        0.0,
-    )
-    .expect("valid numerical contribution");
+    let residual_contribution =
+        LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "LWZ residual codec", 0.04)
+            .expect("valid contribution");
+    let numerical_contribution =
+        LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "exact ULP guard", 0.0)
+            .expect("valid numerical contribution");
     let value = LatticeBudget::new(
         LatticeCoderKind::LatticeWynerZivResidual,
         Some(1250),
@@ -578,12 +569,9 @@ fn lattice_budget_round_trips_json() {
 
 #[test]
 fn lattice_budget_serializes_public_accounting_keys() {
-    let contribution = LatticeErrorContribution::new(
-        WboTermCode::ResidualWynerZiv,
-        "LWZ residual codec",
-        0.04,
-    )
-    .expect("valid contribution");
+    let contribution =
+        LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "LWZ residual codec", 0.04)
+            .expect("valid contribution");
     let value = LatticeBudget::new(
         LatticeCoderKind::LatticeWynerZivResidual,
         Some(1250),
@@ -623,12 +611,9 @@ fn lattice_budget_serializes_public_accounting_keys() {
 
 #[test]
 fn lattice_budget_serializes_non_rate_rate_field_as_null() {
-    let contribution = LatticeErrorContribution::new(
-        WboTermCode::NumericalPostCorrection,
-        "exact ULP guard",
-        0.0,
-    )
-    .expect("valid numerical contribution");
+    let contribution =
+        LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "exact ULP guard", 0.0)
+            .expect("valid numerical contribution");
     let value = LatticeBudget::new(
         LatticeCoderKind::ExactHot,
         None,
@@ -763,8 +748,7 @@ fn lattice_budget_json_rejects_every_codec_wrong_side_information_fixture() {
             }
 
             let budget = side_information_probe_budget(coder, side_information);
-            let encoded =
-                serde_json::to_value(&budget).expect("serialize wrong side-info budget");
+            let encoded = serde_json::to_value(&budget).expect("serialize wrong side-info budget");
 
             assert!(
                 serde_json::from_value::<LatticeBudget>(encoded).is_err(),
@@ -783,9 +767,8 @@ fn lattice_budget_json_rejects_every_codec_wrong_side_information_fixture() {
 
     let register = include_str!("../../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
     assert!(
-        register.contains(
-            "`lattice_budget_json_rejects_every_codec_wrong_side_information_fixture`"
-        ),
+        register
+            .contains("`lattice_budget_json_rejects_every_codec_wrong_side_information_fixture`"),
         "register doc must cross-link JSON wrong-side-information adversarial matrix"
     );
 }
@@ -1045,8 +1028,7 @@ fn wbo_ledger_entry_round_trips_json() {
     );
 
     let encoded = serde_json::to_string(&value).expect("serialize ledger entry");
-    let decoded: WboLedgerEntry =
-        serde_json::from_str(&encoded).expect("deserialize ledger entry");
+    let decoded: WboLedgerEntry = serde_json::from_str(&encoded).expect("deserialize ledger entry");
 
     assert_eq!(decoded, value);
     assert_eq!(

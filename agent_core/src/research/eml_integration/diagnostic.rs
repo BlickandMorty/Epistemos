@@ -144,8 +144,7 @@ pub fn compute_live_readout_with_observations(
 fn compute_live_readout_inner(
     observation_summary: Option<AugmentedSummary>,
 ) -> Result<EmlEnergyDiagnostic, DiagnosticError> {
-    let gate = check_answer_packet_freeze_allowed()
-        .map_err(|_| DiagnosticError::OracleFailed)?;
+    let gate = check_answer_packet_freeze_allowed().map_err(|_| DiagnosticError::OracleFailed)?;
     let report = gate.report().clone();
     let (allowed, reason) = match &gate {
         GateStatus::Allowed { .. } => (true, None),
@@ -191,17 +190,27 @@ mod tests {
         // For s = 1: value = (1+1) − ln(1+1) = 2 − ln(2) ≈ 1.3068528...
         let d = compute_live_readout().unwrap();
         let expected = 2.0_f64 - 2.0_f64.ln();
-        assert!(approx(d.potential_sentinel_at_one, expected, 1e-12),
-            "sentinel was {}, expected {}", d.potential_sentinel_at_one, expected);
+        assert!(
+            approx(d.potential_sentinel_at_one, expected, 1e-12),
+            "sentinel was {}, expected {}",
+            d.potential_sentinel_at_one,
+            expected
+        );
     }
 
     #[test]
     fn universality_fence_text_present_and_mentions_smith() {
         let d = compute_live_readout().unwrap();
-        assert!(d.universality_fence_text.contains("Smith"),
-            "fence text missing Smith reference: {:?}", d.universality_fence_text);
-        assert!(d.universality_fence_text.contains("Liouvillian"),
-            "fence text missing Liouvillian reference: {:?}", d.universality_fence_text);
+        assert!(
+            d.universality_fence_text.contains("Smith"),
+            "fence text missing Smith reference: {:?}",
+            d.universality_fence_text
+        );
+        assert!(
+            d.universality_fence_text.contains("Liouvillian"),
+            "fence text missing Liouvillian reference: {:?}",
+            d.universality_fence_text
+        );
     }
 
     #[test]
@@ -260,7 +269,10 @@ mod tests {
     // ── compute_live_readout_with_observations tests (iter 16) ──────────────
 
     fn obs(score: f32, is_hallucination: bool) -> LabeledScore {
-        LabeledScore { score, is_hallucination }
+        LabeledScore {
+            score,
+            is_hallucination,
+        }
     }
 
     #[test]
@@ -272,7 +284,10 @@ mod tests {
     #[test]
     fn with_observations_attaches_summary_with_correct_count() {
         let observations = vec![
-            obs(0.1, false), obs(0.3, true), obs(0.5, false), obs(0.7, true),
+            obs(0.1, false),
+            obs(0.3, true),
+            obs(0.5, false),
+            obs(0.7, true),
         ];
         let d = compute_live_readout_with_observations(&observations).unwrap();
         let s = d.observation_summary.unwrap();
@@ -316,10 +331,19 @@ mod tests {
         let observations = vec![obs(0.4, true), obs(0.6, false)];
         let with_obs = compute_live_readout_with_observations(&observations).unwrap();
         assert_eq!(base.ulp_smoke_max_error, with_obs.ulp_smoke_max_error);
-        assert_eq!(base.ulp_smoke_samples_total, with_obs.ulp_smoke_samples_total);
+        assert_eq!(
+            base.ulp_smoke_samples_total,
+            with_obs.ulp_smoke_samples_total
+        );
         assert_eq!(base.schema_freeze_allowed, with_obs.schema_freeze_allowed);
-        assert_eq!(base.potential_sentinel_at_one, with_obs.potential_sentinel_at_one);
-        assert_eq!(base.universality_fence_text, with_obs.universality_fence_text);
+        assert_eq!(
+            base.potential_sentinel_at_one,
+            with_obs.potential_sentinel_at_one
+        );
+        assert_eq!(
+            base.universality_fence_text,
+            with_obs.universality_fence_text
+        );
     }
 
     #[test]
@@ -329,7 +353,10 @@ mod tests {
         let json = serde_json::to_string(&d).unwrap();
         let back: EmlEnergyDiagnostic = serde_json::from_str(&json).unwrap();
         assert_eq!(d, back);
-        assert!(json.contains("\"observation_summary\""),
-            "json was {}", json);
+        assert!(
+            json.contains("\"observation_summary\""),
+            "json was {}",
+            json
+        );
     }
 }

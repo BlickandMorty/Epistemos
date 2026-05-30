@@ -154,9 +154,8 @@ fn wbo_term_catalog_keeps_t_num_outside_semantic_wbo6() {
 
 #[test]
 fn lattice_budget_reports_semantic_and_numerical_budget_slices() {
-    let residual =
-        LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual", 0.20)
-            .expect("valid residual contribution");
+    let residual = LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual", 0.20)
+        .expect("valid residual contribution");
     let quantization =
         LatticeErrorContribution::new(WboTermCode::Quantization, "quantization", 0.10)
             .expect("valid quantization contribution");
@@ -310,8 +309,7 @@ fn lattice_budget_slice_partition_conserves_every_codec_catalog() {
 
         assert_eq!(budget.validate(), Ok(()), "{coder:?}");
         assert_eq!(
-            budget.semantic_wbo6_pre_softmax_budget()
-                + budget.numerical_post_correction_budget(),
+            budget.semantic_wbo6_pre_softmax_budget() + budget.numerical_post_correction_budget(),
             budget.pre_softmax_budget(),
             "{coder:?} failed reserved slice conservation"
         );
@@ -369,8 +367,7 @@ fn budget_validation_rejects_side_information_outside_codec_map() {
     ];
 
     for (coder, side_information) in cases {
-        let budget =
-            LatticeBudget::new(coder, None, side_information, vec![contribution.clone()]);
+        let budget = LatticeBudget::new(coder, None, side_information, vec![contribution.clone()]);
         assert_eq!(
             budget.validate_side_information(),
             Err(LatticeWboError::InvalidSideInformation)

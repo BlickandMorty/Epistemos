@@ -86,7 +86,11 @@ pub enum GemvError {
     InputColMismatch { expected: usize, actual: usize },
     /// Rows had differing block counts. Callers must pad to a uniform
     /// `blocks_per_row` before invoking the kernel.
-    RaggedRows { row_index: usize, this_row: usize, first_row: usize },
+    RaggedRows {
+        row_index: usize,
+        this_row: usize,
+        first_row: usize,
+    },
     /// A packed-trit slot held the reserved `0b11` pattern. Surfaces the
     /// control-room hook from [`super::pack::PackError`].
     Pack(PackError),
@@ -196,8 +200,7 @@ mod tests {
     use crate::research::ternary::trit::Trit;
 
     fn block(trits: &[Trit], scale: f32) -> GemvBlock {
-        let nonzero_count =
-            trits.iter().filter(|&&t| t != Trit::Zero).count() as u8;
+        let nonzero_count = trits.iter().filter(|&&t| t != Trit::Zero).count() as u8;
         GemvBlock {
             packed: pack_trits_u32(trits).unwrap(),
             scale,
@@ -303,7 +306,10 @@ mod tests {
         let err = gemv_block_scaled(&weights, &input, &mut output).unwrap_err();
         assert_eq!(
             err,
-            GemvError::OutputRowMismatch { expected: 1, actual: 2 }
+            GemvError::OutputRowMismatch {
+                expected: 1,
+                actual: 2
+            }
         );
     }
 
@@ -336,7 +342,11 @@ mod tests {
         let err = gemv_block_scaled(&weights, &input, &mut output).unwrap_err();
         assert_eq!(
             err,
-            GemvError::RaggedRows { row_index: 1, this_row: 2, first_row: 1 }
+            GemvError::RaggedRows {
+                row_index: 1,
+                this_row: 2,
+                first_row: 1
+            }
         );
     }
 
@@ -365,8 +375,7 @@ mod tests {
         trits[15] = Trit::Neg;
         let row = vec![block(&trits, 0.5)];
         let weights = vec![row];
-        let input: Vec<f32> =
-            (0..GEMV_BLOCK_TRITS).map(|i| (i as f32) + 1.0).collect();
+        let input: Vec<f32> = (0..GEMV_BLOCK_TRITS).map(|i| (i as f32) + 1.0).collect();
         let mut output = vec![0.0_f32];
         gemv_block_scaled(&weights, &input, &mut output).unwrap();
         let expected = 0.5 * (input[0] - input[3] + input[7] - input[15]);
@@ -391,19 +400,31 @@ mod tests {
 
     #[test]
     fn sparsity_fraction_all_zero_is_one() {
-        let b = GemvBlock { packed: 0, scale: 1.0, nonzero_count: 0 };
+        let b = GemvBlock {
+            packed: 0,
+            scale: 1.0,
+            nonzero_count: 0,
+        };
         assert!(approx(b.sparsity_fraction(), 1.0, 1e-6));
     }
 
     #[test]
     fn sparsity_fraction_all_nonzero_is_zero() {
-        let b = GemvBlock { packed: 0, scale: 1.0, nonzero_count: GEMV_BLOCK_TRITS as u8 };
+        let b = GemvBlock {
+            packed: 0,
+            scale: 1.0,
+            nonzero_count: GEMV_BLOCK_TRITS as u8,
+        };
         assert!(approx(b.sparsity_fraction(), 0.0, 1e-6));
     }
 
     #[test]
     fn sparsity_fraction_half_nonzero_is_half() {
-        let b = GemvBlock { packed: 0, scale: 1.0, nonzero_count: (GEMV_BLOCK_TRITS / 2) as u8 };
+        let b = GemvBlock {
+            packed: 0,
+            scale: 1.0,
+            nonzero_count: (GEMV_BLOCK_TRITS / 2) as u8,
+        };
         assert!(approx(b.sparsity_fraction(), 0.5, 1e-6));
     }
 
@@ -412,7 +433,11 @@ mod tests {
         // nonzero_count > GEMV_BLOCK_TRITS is a caller bug; the
         // sparsity fraction clamps to 0.0 (saturates at "fully dense")
         // rather than going negative.
-        let b = GemvBlock { packed: 0, scale: 1.0, nonzero_count: 250 };
+        let b = GemvBlock {
+            packed: 0,
+            scale: 1.0,
+            nonzero_count: 250,
+        };
         assert!(approx(b.sparsity_fraction(), 0.0, 1e-6));
     }
 

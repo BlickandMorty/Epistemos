@@ -65,11 +65,16 @@ struct SubstrateHealthPanelTests {
         let cognitiveWeight = try loadMirroredSourceTextFile(
             "Epistemos/Views/Settings/CognitiveWeightClassHealthRow.swift"
         )
+        let components = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Settings/SettingsSurfaceComponents.swift"
+        )
         let bridge = try loadMirroredSourceTextFile("agent_core/src/bridge.rs")
 
         #expect(answerPacket.contains("session ring only"))
-        #expect(answerPacket.contains("substrateTint: .orange"))
-        #expect(planePlacement.contains("substrateTint: plane.ffiReachable ? .orange : .red"))
+        #expect(answerPacket.contains("falsifierPassed: false"))
+        #expect(planePlacement.contains("falsifierPassed: false"))
+        #expect(components.contains("private var substrateTint: Color"))
+        #expect(components.contains("return productionWired ? .orange : .secondary"))
         #expect(cognitiveWeight.contains("badge only"))
         #expect(bridge.contains("\"class\": \"policy_grade\", \"range\": \"0.86-1.00\", \"policy_authority\": false"))
     }
@@ -88,6 +93,35 @@ struct SubstrateHealthPanelTests {
         #expect(row.contains("MAS runtime adapter pending"))
         #expect(!row.contains("harness passed; production registry adapter pending"),
                 "Measured artifact PASS should be distinct from production adapter wiring.")
+    }
+
+    @Test("Local agent diagnostics surfaces the capability-ceiling cursor without duplicating runtime routes")
+    func localAgentDiagnosticsSurfacesCapabilityCeilingCursor() throws {
+        let panel = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Settings/SubstrateHealthPanel.swift"
+        )
+        let row = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Settings/LocalAgentDiagnosticsHealthRow.swift"
+        )
+
+        #expect(panel.contains("LocalAgentDiagnosticsHealthRow()"))
+        #expect(row.contains("CapabilityCeilingHealthSnapshot.load()"))
+        #expect(row.contains("artifacts/falsifiers/capability_ceiling_evaluation_kernel/result.json"))
+        #expect(row.contains("artifacts/falsifiers/kv_direct_gate/result.json"))
+        #expect(row.contains("docs/audits/KV_DIRECT_MODEL_CONTEXT_INVENTORY_2026_05_28.json"))
+        #expect(row.contains("artifacts/falsifiers/architecture_pending_work_guard/result.json"))
+        #expect(row.contains("docs/audits/LOCAL_EPISTEMOS_WORKTREE_INVENTORY_2026_05_28.json"))
+        #expect(row.contains("artifacts/falsifiers/qwen3_8b_128k_gguf_route/result.json"))
+        #expect(row.contains("Heavy long-context opt-in"))
+        #expect(row.contains("heavy_long_context_guard_present"))
+        #expect(row.contains("EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1"))
+        #expect(row.contains("resolve_qwen3_8b_128k_context_model_assets_for_kv_direct"))
+        #expect(row.contains("canonical red"))
+        #expect(row.contains("best_required_context_candidate_repo_id"))
+        #expect(row.contains("high_duplicate_risk_count"))
+        #expect(row.contains("preserve-before-new-work risk"))
+        #expect(row.contains("candidate only"))
+        #expect(row.contains("canonical MLX KV-Direct"))
     }
 
     @Test("SettingsView mounts SubstrateHealthPanel exactly once in Diagnostics")

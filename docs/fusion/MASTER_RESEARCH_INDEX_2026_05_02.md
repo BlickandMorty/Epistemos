@@ -60,9 +60,91 @@ These are findings the deep-scan surfaced that **contradict or sharpen** earlier
 
 > Epistemos turns a dense model into an addressable neural substrate. An SSM/state router selects active assemblies of layers, rank-one components, KV pages, adapters, residual islands, and kernels; the residency governor pages only that working set into UMA; verification proves the selected path preserves dense/reference behavior within a budget.
 
-**Canonical distinction.** This is canon as the target architecture and vocabulary. It is **not** a production claim until the falsifiers pass: `F-Sparse-Runtime-Split`, `F-KV-Direct-Gate`, `F-UAS-CopyCount`, `F-ActiveAssembly-Minimal`, `F-ULP-Oracle`, and `F-70B-Local-Cocktail`.
+**Canonical distinction.** This is canon as the target architecture and vocabulary. It is **not** a production claim until the falsifiers pass: `F-Sparse-Runtime-Split`, `F-KV-Direct-Gate`, `F-UAS-CopyCount`, `F-UAS-ACS-MmapResidency`, `F-ActiveAssembly-Minimal`, `F-ULP-Oracle`, `F-Agent-Local-Model-Runtime-Bridge`, and `F-70B-Local-Cocktail`. Current nuance: `F-UAS-ACS-MmapResidency` proves file-backed UAS/ACS residency for one deterministic mmap slice; it does not prove live MLX generation or 70B local inference.
 
 **Agent rule.** Any Phase 2+ PR touching local inference, model routing, Active Assembly, KV/cache residency, adapters, EML kernels, or "large local model" claims must cite this source and include a Neural Substrate check: addressed unit, UAS address, plane, residency, router, dense/reference verifier, falsifier, and rollback.
+
+---
+
+## 0C. 2026-05-30 Candidate Intake — AetherLink / OAS / AletheiaFS
+
+**New candidate-intake source:** `docs/fusion/AETHERLINK_OAS_CANON_INTAKE_2026_05_30.md`.
+
+**Cleanup companion:** `docs/audits/AETHERLINK_KIT_AND_WORKTREE_CANON_CHECK_2026_05_30.md`.
+
+**Source kit:** `/Users/jojo/Downloads/AETHERLINK_APPLICATION_KIT_FULL/AETHERLINK_APPLICATION_PROJECT`.
+
+**Why it exists.** The AetherLink kit sharpens the existing doctrine into a
+proof-carrying coordinate-state runtime: models propose, the runtime verifies,
+and the ledger remembers. This is canon-aligned with Helios / SCOPE-Rex /
+System G / ACS / UAS, but it is an intake addendum, not a new product route.
+
+**Large-model impact.** AetherLink's Ontological Address Space language adds
+the missing large-model bridge artifact: a `WeightBlockManifest` /
+`ResidencyPlan` over model file byte ranges, UAS addresses, lattice/ternary/NF4
+encodings, WBO budgets, dense/reference rollback, and verifier witnesses. Build
+that manifest/simulator before launching more 65K/128K/70B probes.
+
+**Status discipline.** Antigravity, gravitophoton propulsion, zero-latency,
+infinite precision, and perfect optimal control remain `DROP` for public/product
+claims. seL4, SMC, neural HJB, and learned certificates are external grounding
+sources only; they do not make AetherLink flight-ready or product-ready.
+
+**Agent rule.** Any Phase 2+ PR touching AetherLink, OAS, AletheiaFS, cognitive
+file-system sidecars, WeightBlock manifests, or SpaceX-facing application
+materials must cite this source and include an AetherLink/OAS check: addressed
+object, UAS kind, floor state, promotion contract, verifier, ledger event,
+model role, falsifier, and rollback.
+
+## 0D. 2026-05-30 Candidate Intake — Erdos / Parameter Golf / Construction Engine
+
+**New candidate-intake source:** `docs/fusion/AETHERLINK_ERDOS_PARAMETER_GOLF_INTAKE_2026_05_30.md`.
+
+**Non-runtime audit companion:** `docs/audits/NON_RUNTIME_FEATURE_WORKTREE_CHECK_2026_05_30.md`.
+
+**Why it exists.** Live research intake found that the Erdos unit-distance
+ecosystem is currently small and mostly reproduction/explanation/formalization,
+while Parameter Golf is the large runnable fork ecosystem. Therefore agents
+should mine Erdos for the lift/search/project/witness doctrine and Parameter
+Golf for the reproducible compression/search discipline.
+
+**Canonical build implication.** Do not launch more heavy 128K/70B probes until
+the non-executing planner layer exists: bounded `WeightBlockManifest` range
+hash -> `ResidencyPlan` -> `LargeModelConstructionCard` -> local
+budget/falsifier gate. This keeps the no-compromise 70B/UAS/ACS ambition alive
+without crashing the laptop.
+
+**First planner witness.** `F-ResidencyPlan-DryRun` now emits
+`artifacts/falsifiers/residency_plan_dry_run/result.json`: a dry-run
+model-shaped plan with `72 GiB` cold addressed bytes, `872,415,232` active
+runtime bytes, zero model bytes loaded, deterministic plan address, Sherry /
+Leech codec labels, and missing-rollback rejection. Scope guard: this is not
+live 70B inference.
+
+**Safe hardening.** The planner layer now includes bounded 64 KiB chunked range
+hashing, known-hash manifests for externally precomputed model byte ranges, and
+`F-WeightBlockRangeHash-DryRun`, which proves over-limit range rejection,
+short-reader rejection, known-hash parity, and no model-file access on a tiny
+fixture. `ConstructionCard` binds ProblemCard / LiftChart / ProjectionPacket /
+Witness / Budget / Falsifier / Rollback to a passed `ResidencyPlan` and records
+the upstream `F-WeightBlockRangeHash-DryRun` -> `F-ResidencyPlan-DryRun` proof
+chain.
+`ProviderReferenceManifest` now guards the next bottleneck by requiring row-root
+artifact refs, sha256 digests, replay permission, local-vs-hosted
+retention/data-class discipline, prompt-suite digest binding, and an evidence
+scope that distinguishes `shape_only_fixture` from `prompt_level_comparison`
+before a fp16/cloud/local reference can count. Prompt-level references also
+require at least 50 prompts.
+The 70B preflight consumes the range-hash artifact as
+`weight_block_range_hash_dry_run_available=true`, then the planner artifact as
+`residency_plan_dry_run_available=true`, and remains red on
+`missing_fp16_or_provider_reference` until prompt-level comparison evidence
+exists.
+
+**Agent rule.** Any Phase 2+ PR or terminal invoking Erdos, Parameter Golf,
+Research Construction Engine, ShadowProjection, OAS, ACS, or the 70B local
+cocktail must include a Construction check: ProblemCard, LiftChart,
+ProjectionPacket, Witness, Budget, Falsifier, Rollback, and Tier.
 
 ---
 

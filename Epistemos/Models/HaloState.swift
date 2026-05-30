@@ -110,4 +110,14 @@ nonisolated public enum HaloState: Sendable, Hashable {
         default: return false
         }
     }
+
+    /// Recoverable backend failures still render the Halo glyph and must be
+    /// openable so the panel can show the failure instead of becoming a dead
+    /// affordance.
+    public var isRecoverableError: Bool {
+        if case .errorRecoverable = self {
+            return true
+        }
+        return false
+    }
 }

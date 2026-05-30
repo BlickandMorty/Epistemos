@@ -79,14 +79,20 @@ mod tests {
 
     #[test]
     fn mas_default_is_disabled() {
-        assert_eq!(AgentRuntimeV2Mode::mas_default(), AgentRuntimeV2Mode::Disabled);
+        assert_eq!(
+            AgentRuntimeV2Mode::mas_default(),
+            AgentRuntimeV2Mode::Disabled
+        );
         assert!(!AgentRuntimeV2Mode::Disabled.allows_execution());
         assert!(!AgentRuntimeV2Mode::Disabled.allows_subprocess());
     }
 
     #[test]
     fn pro_default_is_bounded_not_subprocess() {
-        assert_eq!(AgentRuntimeV2Mode::pro_default(), AgentRuntimeV2Mode::IpcBounded);
+        assert_eq!(
+            AgentRuntimeV2Mode::pro_default(),
+            AgentRuntimeV2Mode::IpcBounded
+        );
         assert!(AgentRuntimeV2Mode::IpcBounded.allows_execution());
         assert!(!AgentRuntimeV2Mode::IpcBounded.allows_subprocess());
     }
@@ -256,7 +262,10 @@ mod tests {
                 .strip_prefix('"')
                 .and_then(|x| x.strip_suffix('"'))
                 .expect("Mode serialises to a JSON string");
-            assert!(!inner.is_empty(), "mode form must be non-empty for {mode:?}");
+            assert!(
+                !inner.is_empty(),
+                "mode form must be non-empty for {mode:?}"
+            );
             for ch in inner.chars() {
                 assert!(
                     ch.is_ascii_lowercase() || ch == '_',
@@ -264,8 +273,14 @@ mod tests {
                      char {ch:?} violates [a-z_] charset"
                 );
             }
-            assert!(!inner.starts_with('_'), "mode form {inner:?} must not start with '_'");
-            assert!(!inner.ends_with('_'), "mode form {inner:?} must not end with '_'");
+            assert!(
+                !inner.starts_with('_'),
+                "mode form {inner:?} must not start with '_'"
+            );
+            assert!(
+                !inner.ends_with('_'),
+                "mode form {inner:?} must not end with '_'"
+            );
         }
     }
 
@@ -361,8 +376,14 @@ mod tests {
             ]
         );
         // Max / min usage as practical convenience.
-        assert_eq!(modes.iter().max().copied(), Some(AgentRuntimeV2Mode::Subprocess));
-        assert_eq!(modes.iter().min().copied(), Some(AgentRuntimeV2Mode::Disabled));
+        assert_eq!(
+            modes.iter().max().copied(),
+            Some(AgentRuntimeV2Mode::Subprocess)
+        );
+        assert_eq!(
+            modes.iter().min().copied(),
+            Some(AgentRuntimeV2Mode::Disabled)
+        );
     }
 
     #[test]
@@ -380,14 +401,14 @@ mod tests {
         // taxonomy is snake_case-exact), and the legacy "off" /
         // "on" shapes a maintainer might "helpfully" allow.
         for bad in [
-            "\"research\"",        // semantically plausible but not in the taxonomy
-            "\"unrestricted\"",    // adjacent vocabulary
-            "\"DISABLED\"",        // case variant of a known mode
-            "\"Ipc_Bounded\"",     // pascal-snake mix
-            "\"ipcBounded\"",      // camelCase variant
-            "\"off\"",             // legacy on/off shape
+            "\"research\"",     // semantically plausible but not in the taxonomy
+            "\"unrestricted\"", // adjacent vocabulary
+            "\"DISABLED\"",     // case variant of a known mode
+            "\"Ipc_Bounded\"",  // pascal-snake mix
+            "\"ipcBounded\"",   // camelCase variant
+            "\"off\"",          // legacy on/off shape
             "\"on\"",
-            "\"\"",                // empty string
+            "\"\"", // empty string
         ] {
             let r: Result<AgentRuntimeV2Mode, _> = serde_json::from_str(bad);
             assert!(
@@ -498,8 +519,14 @@ mod tests {
         map.insert(AgentRuntimeV2Mode::Subprocess, "pro-research");
         assert_eq!(map.len(), 3);
         assert_eq!(map.get(&AgentRuntimeV2Mode::Disabled), Some(&"mas"));
-        assert_eq!(map.get(&AgentRuntimeV2Mode::IpcBounded), Some(&"pro-bounded"));
-        assert_eq!(map.get(&AgentRuntimeV2Mode::Subprocess), Some(&"pro-research"));
+        assert_eq!(
+            map.get(&AgentRuntimeV2Mode::IpcBounded),
+            Some(&"pro-bounded")
+        );
+        assert_eq!(
+            map.get(&AgentRuntimeV2Mode::Subprocess),
+            Some(&"pro-research")
+        );
 
         // Hash-consistent-with-Eq: same value produces same hash bucket
         // (functionally pinned via the duplicate-insert no-op above,

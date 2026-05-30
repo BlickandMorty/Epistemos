@@ -1,0 +1,186 @@
+{
+  "falsifier_id": "F-ActiveAssembly-Minimal",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_active_assembly_minimal.sh",
+  "command_digest": "sha256:6a7ce3de42c892ccad74b289a2e776135db48b06bb5524faa69d6f097217ae05",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "ba6f15e6fb08c772c5bbce4d303aff864f39e9c2",
+  "fixture_id": "synthetic_packet_graph_1024q100_runtime_v1",
+  "timestamp_utc": "2026-05-28T05:21:51Z",
+  "result_digest": "sha256:a61e5fe2b5f7088f6886d1b8f7b62e2383ad2249e3c692363f96a711659a9cc5",
+  "measurements": {
+    "active_set_orphan_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "average_active_packets": {
+      "value": 33.0,
+      "unit": "packets"
+    },
+    "average_output_hamming_distance": {
+      "value": 0.0,
+      "unit": "bits"
+    },
+    "cost_ratio": {
+      "value": 0.002076908553087041,
+      "unit": "ratio"
+    },
+    "firing_ratio": {
+      "value": 0.0322265625,
+      "unit": "ratio"
+    },
+    "graph_packet_count": {
+      "value": 1024,
+      "unit": "count"
+    },
+    "output_bound_violation_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "peak_ram_mb_estimate": {
+      "value": 0.054931640625,
+      "unit": "MB"
+    },
+    "query_count": {
+      "value": 100,
+      "unit": "count"
+    },
+    "reproducibility_same_seed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_artifact_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_semantics": {
+      "value": "query-thresholded packet contribution over full-fire vs selected active set",
+      "unit": "label"
+    },
+    "selector": {
+      "value": "MarginAnchoredGreedyPull::default",
+      "unit": "label"
+    },
+    "selector_overhead_ratio": {
+      "value": 0.012607587928126841,
+      "unit": "ratio"
+    },
+    "sink_selected_all_queries": {
+      "value": true,
+      "unit": "bool"
+    },
+    "wall_us_p99": {
+      "value": 117.70899999999999,
+      "unit": "microseconds"
+    }
+  },
+  "acceptance_thresholds": {
+    "active_set_orphan_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "cost_ratio": {
+      "operator": "<",
+      "value": 0.4,
+      "unit": "ratio"
+    },
+    "firing_ratio": {
+      "operator": "<",
+      "value": 0.5,
+      "unit": "ratio"
+    },
+    "graph_packet_count": {
+      "operator": "==",
+      "value": 1024,
+      "unit": "count"
+    },
+    "output_bound_violation_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "peak_ram_mb_estimate": {
+      "operator": "<",
+      "value": 100.0,
+      "unit": "MB"
+    },
+    "query_count": {
+      "operator": "==",
+      "value": 100,
+      "unit": "count"
+    },
+    "reproducibility_same_seed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_artifact_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "selector_overhead_ratio": {
+      "operator": "<",
+      "value": 0.05,
+      "unit": "ratio"
+    },
+    "sink_selected_all_queries": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "wall_us_p99": {
+      "operator": "<",
+      "value": 10000.0,
+      "unit": "microseconds"
+    }
+  },
+  "pass_per_axis": {
+    "active_set_orphan_count": true,
+    "cost_ratio": true,
+    "firing_ratio": true,
+    "graph_packet_count": true,
+    "output_bound_violation_count": true,
+    "peak_ram_mb_estimate": true,
+    "query_count": true,
+    "reproducibility_same_seed": true,
+    "runtime_artifact_present": true,
+    "selector_overhead_ratio": true,
+    "sink_selected_all_queries": true,
+    "wall_us_p99": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "synthetic_runtime_scope",
+      "detail": "Pass is a deterministic synthetic packet-graph runtime witness, not a live model packet-router witness."
+    }
+  ],
+  "notes": "active_assembly_runtime_artifact; synthetic packet graph N=1024 Q=100; proves selective firing with bounded output under deterministic fixture semantics; live model packet routing remains a later Capability Ceiling slice"
+}

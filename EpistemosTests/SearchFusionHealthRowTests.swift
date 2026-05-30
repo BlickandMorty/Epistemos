@@ -8,13 +8,15 @@ struct SearchFusionHealthRowTests {
     @Test("Search Fusion Health row is mounted in Settings diagnostics")
     func searchFusionHealthRowIsMountedInSettings() throws {
         let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        let substratePanel = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SubstrateHealthPanel.swift")
 
-        #expect(settings.contains("SearchFusionHealthRow()"))
+        #expect(settings.contains("SubstrateHealthPanel()"))
+        #expect(substratePanel.contains("SearchFusionHealthRow()"))
+        #expect(substratePanel.contains("Retrieval and Indexing"))
+        #expect(substratePanel.contains("Read-only substrate health for retrieval, citations, editor assets, and cross-index search."))
         #expect(settings.contains("ShadowSearchHealthRow()"))
         #expect(settings.contains("ProcessMemoryHealthRow()"))
-        #expect(settings.contains("Shadow Search shows live Halo backend health and degraded failure classes"))
-        #expect(settings.contains("Process Memory reports resident footprint and pressure state without claiming allocation root cause"))
-        #expect(settings.contains("Search Fusion shows live latency + per-source hit distribution"))
+        #expect(settings.contains("Substrate-specific rows now live in Settings -> Substrate Health"))
         #expect(!settings.contains("setenv(\"EPISTEMOS_RRF_FUSION_V1\""))
     }
 
@@ -107,19 +109,36 @@ struct SearchFusionHealthRowTests {
         #expect(component.contains("Flag: \\(flag)"))
         #expect(component.contains("Substrate: \\(substrate)"))
         #expect(eidos.contains("fixture path active"))
-        #expect(eidos.contains("case .fixture: return \"fixture\""))
+        #expect(eidos.contains("case .fixture: return \"fixture path active\""))
         #expect(eidos.contains("fixture corpus, not vault"))
         #expect(vaultRecall.contains("trace scaffold"))
-        #expect(vaultRecall.contains("falsifier: vaultRecallBenchmarkPassing ? \"vault_recall_50\" : nil"))
-        #expect(systemG.contains("dispatch seam live · falsifier pending"))
-        #expect(acs.contains("substrate: \"production gate active\""))
-        #expect(acs.contains("falsifier: \"acs_anchor_lookup\""))
+        #expect(vaultRecall.contains("falsifierPassed: vaultRecallBenchmarkPassing"))
+        #expect(vaultRecall.contains("falsifier: \"docs/falsifiers/F-VaultRecall-50_2026_05_17.md\""))
+        #expect(systemG.contains("real seam · falsifier pending"))
+        #expect(acs.contains("substrate: \"substrate-only · gate not witnessed\""))
+        #expect(acs.contains("falsifier: \"docs/falsifiers/F-ACS-Anchor-Addressing_2026_05_17.md\""))
         #expect(acs.contains("production gate active"))
         #expect(localAgent.contains("substrate: \"placeholder routes\""))
         #expect(activeConstellation.contains("production route table"))
         #expect(blueprint.contains("Blueprint runs dispatch a MissionPacket through System G"))
         #expect(blueprint.contains("substrate: \"System G replay\""))
         #expect(blueprint.contains("Run (System G)"))
+    }
+
+    @Test("cold retrieval health rows do not render no-query state as red failure")
+    func coldRetrievalHealthRowsDoNotRenderNoQueryAsRedFailure() throws {
+        let eidos = try loadMirroredSourceTextFile("Epistemos/Views/Settings/EidosHealthRow.swift")
+        let vaultRecall = try loadMirroredSourceTextFile("Epistemos/Views/Settings/VaultRecallHealthRow.swift")
+        let fusion = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SearchFusionHealthRow.swift")
+        let shadow = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ShadowSearchHealthRow.swift")
+
+        #expect(eidos.contains("return snapshot.isFlagEnabled ? .partial : .unavailable"))
+        #expect(vaultRecall.contains("return snapshot.lastQueryAt == nil ? .partial : .pass"))
+        #expect(vaultRecall.contains("guard snapshot.sampleCount > 0 else { return .partial }"))
+        #expect(fusion.contains("return snapshot.isFlagEnabled ? .partial : .unavailable"))
+        #expect(fusion.contains("isReadableBlocksSchemaBootstrapError(error) ? .partial : .blocked"))
+        #expect(shadow.contains("return snapshot.totalSearches > 0 ? .pass : .partial"))
+        #expect(shadow.contains("snapshot.consecutiveFailures == 0 ? .pass : .blocked"))
     }
 
     @Test("Search Fusion metrics summarize latency, hits, and errors")

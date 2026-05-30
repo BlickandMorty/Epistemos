@@ -169,9 +169,7 @@ fn register_doc_names_every_codec_and_side_information_kind() {
         }
         let caveat = match side_information {
             SideInformationKind::None => "L0 still pays `T_num`",
-            SideInformationKind::DecoderLmState => {
-                "Calibration Hessian or runtime KV curvature"
-            }
+            SideInformationKind::DecoderLmState => "Calibration Hessian or runtime KV curvature",
             SideInformationKind::ResidualStream => "Weight-only quantization evidence",
             SideInformationKind::CalibrationHessian => "Runtime KV Hessian",
             SideInformationKind::RuntimeKvHessian => "Offline calibration Hessian",
@@ -329,9 +327,7 @@ fn register_doc_names_tier_specific_security_verifier_clauses() {
         let row = register
             .lines()
             .find(|line| line.starts_with(&needle))
-            .unwrap_or_else(|| {
-                panic!("missing register doc row for {}", tier.canonical_name())
-            });
+            .unwrap_or_else(|| panic!("missing register doc row for {}", tier.canonical_name()));
         let cells = row
             .trim_matches('|')
             .split('|')

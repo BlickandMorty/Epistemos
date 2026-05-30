@@ -89,7 +89,10 @@ impl ResidencyTier {
     /// Returns `true` if a falsifier gate on M2 Pro 16 GB must pass before
     /// the concept moves up from this tier.
     pub const fn requires_falsifier_pass_to_advance(&self) -> bool {
-        matches!(self, ResidencyTier::VerifiedFloor | ResidencyTier::CapabilityCeiling)
+        matches!(
+            self,
+            ResidencyTier::VerifiedFloor | ResidencyTier::CapabilityCeiling
+        )
     }
 }
 
@@ -129,7 +132,8 @@ mod tests {
             ResidencyTier::CapabilityCeiling,
         ] {
             let json = serde_json::to_string(&tier).expect("serialize must succeed");
-            let parsed: ResidencyTier = serde_json::from_str(&json).expect("deserialize must succeed");
+            let parsed: ResidencyTier =
+                serde_json::from_str(&json).expect("deserialize must succeed");
             assert_eq!(tier, parsed);
         }
     }
@@ -170,6 +174,9 @@ mod tests {
     fn wire_tags_locked_for_cross_language_parity() {
         assert_eq!(ResidencyTier::CurrentApp.wire_tag(), "current_app");
         assert_eq!(ResidencyTier::VerifiedFloor.wire_tag(), "verified_floor");
-        assert_eq!(ResidencyTier::CapabilityCeiling.wire_tag(), "capability_ceiling");
+        assert_eq!(
+            ResidencyTier::CapabilityCeiling.wire_tag(),
+            "capability_ceiling"
+        );
     }
 }

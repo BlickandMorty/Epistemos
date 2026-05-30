@@ -256,9 +256,15 @@ public final class HaloController {
 
     /// User clicked the Halo glyph. Opens the panel for the current domain.
     public func openPanel() {
-        guard case .available = state else { return }
-        refreshGraphProjectionReport()
-        transition(to: .open(domain: domain))
+        switch state {
+        case .available:
+            refreshGraphProjectionReport()
+            transition(to: .open(domain: domain))
+        case .errorRecoverable:
+            refreshGraphProjectionReport()
+        default:
+            return
+        }
     }
 
     /// User pressed Esc / clicked outside / focus returned to editor.

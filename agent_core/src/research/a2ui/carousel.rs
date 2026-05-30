@@ -123,12 +123,20 @@ mod tests {
     use super::*;
 
     fn slide(k: &str, media: &str) -> CarouselSlide {
-        CarouselSlide { key: k.into(), caption: "c".into(), media_uri: media.into() }
+        CarouselSlide {
+            key: k.into(),
+            caption: "c".into(),
+            media_uri: media.into(),
+        }
     }
 
     #[test]
     fn no_slides_rejected() {
-        let c = CarouselProps { slides: vec![], active_index: 0, autoplay_ms: None };
+        let c = CarouselProps {
+            slides: vec![],
+            active_index: 0,
+            autoplay_ms: None,
+        };
         assert_eq!(c.validate().unwrap_err(), CarouselError::NoSlides);
     }
 
@@ -149,7 +157,10 @@ mod tests {
             active_index: 0,
             autoplay_ms: None,
         };
-        assert!(matches!(c.validate().unwrap_err(), CarouselError::EmptyMediaUri { .. }));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            CarouselError::EmptyMediaUri { .. }
+        ));
     }
 
     #[test]
@@ -159,7 +170,10 @@ mod tests {
             active_index: 5,
             autoplay_ms: None,
         };
-        assert!(matches!(c.validate().unwrap_err(), CarouselError::ActiveOutOfRange { .. }));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            CarouselError::ActiveOutOfRange { .. }
+        ));
     }
 
     #[test]
@@ -169,7 +183,10 @@ mod tests {
             active_index: 0,
             autoplay_ms: Some(100),
         };
-        assert!(matches!(c.validate().unwrap_err(), CarouselError::AutoplayTooFast { .. }));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            CarouselError::AutoplayTooFast { .. }
+        ));
     }
 
     #[test]

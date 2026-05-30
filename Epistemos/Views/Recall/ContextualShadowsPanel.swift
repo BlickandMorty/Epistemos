@@ -136,7 +136,25 @@ struct ContextualShadowsPanel: View {
     @ViewBuilder
     private var content: some View {
         let hits = (effectiveSelectedTab == .note) ? noteHits : chatHits
-        if hits.isEmpty {
+        if hits.isEmpty, let error = state.lastErrorMessage {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 7) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.orange)
+                    Text("Shadow backend unavailable")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.primary)
+                }
+                Text(error)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color(nsColor: .secondaryLabelColor))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else if hits.isEmpty {
             VStack {
                 Spacer()
                 Text("No matches")

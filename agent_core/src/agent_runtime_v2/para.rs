@@ -222,8 +222,7 @@ mod tests {
     }
 
     #[test]
-    fn stop_reason_canonical_bytes_pinned_to_exact_byte_sequences(
-    ) {
+    fn stop_reason_canonical_bytes_pinned_to_exact_byte_sequences() {
         // Phase 1 hardening MILESTONE iter-450 — replay-parity-critical
         // pin for the exact canonical byte sequence of each StopReason
         // variant. Companion to:
@@ -253,9 +252,12 @@ mod tests {
             (StopReason::Error, b"error"),
         ];
         for (reason, expected) in cases {
-            assert_eq!(reason.canonical_bytes(), *expected,
+            assert_eq!(
+                reason.canonical_bytes(),
+                *expected,
                 "canonical_bytes for {reason:?} must equal {:?} byte-for-byte",
-                std::str::from_utf8(expected).unwrap());
+                std::str::from_utf8(expected).unwrap()
+            );
             // Length spot-check (catches a 1-byte typo that preserved
             // most of the variant string).
             assert_eq!(
@@ -349,7 +351,8 @@ mod tests {
         for (reason, expected) in cases {
             let canon = reason.canonical_bytes();
             assert_eq!(
-                canon, expected.as_bytes(),
+                canon,
+                expected.as_bytes(),
                 "canonical_bytes for {reason:?} must equal {expected:?}"
             );
             let serde_form = serde_json::to_string(reason).expect("serialize");
@@ -459,16 +462,16 @@ mod tests {
         // budget_exhausted, capability_denied, error. Anything else
         // must fail.
         for bad in [
-            "\"completed\"",          // adjacent vocabulary
+            "\"completed\"", // adjacent vocabulary
             "\"finished\"",
             "\"halted\"",
-            "\"END_TURN\"",           // case variants
+            "\"END_TURN\"", // case variants
             "\"EndTurn\"",
             "\"endTurn\"",
             "\"Tool_Use\"",
-            "\"tool-use\"",           // kebab-case (not snake_case)
+            "\"tool-use\"", // kebab-case (not snake_case)
             "\"max-tokens\"",
-            "\"timeout\"",            // legacy / OpenAI-style vocab
+            "\"timeout\"", // legacy / OpenAI-style vocab
             "\"length\"",
             "\"stop\"",
             "\"\"",
@@ -605,7 +608,10 @@ mod tests {
             StopReason::Error,
         ] {
             let bytes = reason.canonical_bytes();
-            assert!(!bytes.is_empty(), "canonical_bytes for {reason:?} must be non-empty");
+            assert!(
+                !bytes.is_empty(),
+                "canonical_bytes for {reason:?} must be non-empty"
+            );
             for &b in bytes {
                 assert!(
                     b.is_ascii_lowercase() || b == b'_',
@@ -614,7 +620,10 @@ mod tests {
             }
             // Belt-and-braces: the underscore must not anchor (no leading /
             // trailing _ in snake_case identifiers per doctrine).
-            assert_ne!(bytes[0], b'_', "canonical_bytes for {reason:?} must not start with '_'");
+            assert_ne!(
+                bytes[0], b'_',
+                "canonical_bytes for {reason:?} must not start with '_'"
+            );
             assert_ne!(
                 *bytes.last().unwrap(),
                 b'_',
@@ -748,7 +757,11 @@ mod tests {
         // can pull out the failure context. A future refactor that
         // hides the inner string (e.g. via a custom Debug impl)
         // would silently strip diagnostic info.
-        let cases = ["conn closed", "EOF reading SSE", "TLS handshake failed: 0x42"];
+        let cases = [
+            "conn closed",
+            "EOF reading SSE",
+            "TLS handshake failed: 0x42",
+        ];
         for msg in cases {
             let err = ParaError::Transport(msg.to_string());
             let dbg = format!("{err:?}");
@@ -766,9 +779,18 @@ mod tests {
         // ParaError variants. Pin each one's leading discriminant
         // so a maintainer rename surfaces at PR review (audit log
         // greps would silently break otherwise).
-        assert_eq!(format!("{:?}", ParaError::BudgetExhausted), "BudgetExhausted");
-        assert_eq!(format!("{:?}", ParaError::CapabilityDenied), "CapabilityDenied");
-        assert_eq!(format!("{:?}", ParaError::MalformedToolCall), "MalformedToolCall");
+        assert_eq!(
+            format!("{:?}", ParaError::BudgetExhausted),
+            "BudgetExhausted"
+        );
+        assert_eq!(
+            format!("{:?}", ParaError::CapabilityDenied),
+            "CapabilityDenied"
+        );
+        assert_eq!(
+            format!("{:?}", ParaError::MalformedToolCall),
+            "MalformedToolCall"
+        );
         let transport = ParaError::Transport("conn closed".into());
         let dbg = format!("{transport:?}");
         assert!(dbg.starts_with("Transport("), "got {dbg}");
@@ -789,8 +811,7 @@ mod tests {
         // A future "let me hide stop_reason_digest behind a getter for
         // mutation safety" refactor would silently break call sites
         // that compare digests via direct field access.
-        let out: ParaOutput<u32> =
-            ParaOutput::new(42, StopReason::EndTurn, Some(b"x".to_vec()));
+        let out: ParaOutput<u32> = ParaOutput::new(42, StopReason::EndTurn, Some(b"x".to_vec()));
         // Direct read access on every field.
         assert_eq!(out.value, 42);
         assert_eq!(out.stop_reason, StopReason::EndTurn);
@@ -798,8 +819,7 @@ mod tests {
         assert!(out.thinking_digest.iter().any(|&b| b != 0));
         assert!(out.thinking.is_some());
         // Mutate via &mut self (also pub).
-        let mut out2: ParaOutput<u32> =
-            ParaOutput::new(0, StopReason::EndTurn, None);
+        let mut out2: ParaOutput<u32> = ParaOutput::new(0, StopReason::EndTurn, None);
         out2.value = 99;
         assert_eq!(out2.value, 99);
     }
@@ -839,8 +859,7 @@ mod tests {
         //
         // ParaFeedback<P>: EXACTLY 1 field
         //   - delta: P
-        let out: ParaOutput<u32> =
-            ParaOutput::new(42, StopReason::EndTurn, Some(b"x".to_vec()));
+        let out: ParaOutput<u32> = ParaOutput::new(42, StopReason::EndTurn, Some(b"x".to_vec()));
         let ParaOutput {
             value,
             stop_reason,
@@ -879,8 +898,11 @@ mod tests {
         // distinct outputs compare equal AND collapse the forensic
         // audit chain (digest tamper detection vs. payload tamper
         // detection rely on independent equality of each field).
-        let base: ParaOutput<String> =
-            ParaOutput::new("hello".to_string(), StopReason::EndTurn, Some(b"think".to_vec()));
+        let base: ParaOutput<String> = ParaOutput::new(
+            "hello".to_string(),
+            StopReason::EndTurn,
+            Some(b"think".to_vec()),
+        );
 
         let mut diff_value = base.clone();
         diff_value.value.push_str("X");
@@ -894,7 +916,10 @@ mod tests {
         if let Some(t) = diff_thinking.thinking.as_mut() {
             t.push(b'!');
         }
-        assert_ne!(diff_thinking, base, "thinking must participate in PartialEq");
+        assert_ne!(
+            diff_thinking, base,
+            "thinking must participate in PartialEq"
+        );
 
         let mut diff_sr_digest = base.clone();
         diff_sr_digest.stop_reason_digest[0] ^= 0xFF;
@@ -942,10 +967,8 @@ mod tests {
         // thinking block" (the latter is what a provider sends
         // when the assistant has thinking enabled but produced
         // none for a turn). Both must still pass digest_intact.
-        let none_out: ParaOutput<u32> =
-            ParaOutput::new(0, StopReason::EndTurn, None);
-        let empty_some_out: ParaOutput<u32> =
-            ParaOutput::new(0, StopReason::EndTurn, Some(vec![]));
+        let none_out: ParaOutput<u32> = ParaOutput::new(0, StopReason::EndTurn, None);
+        let empty_some_out: ParaOutput<u32> = ParaOutput::new(0, StopReason::EndTurn, Some(vec![]));
         assert_eq!(none_out.thinking_digest, [0u8; 32]);
         assert_ne!(
             empty_some_out.thinking_digest, [0u8; 32],
@@ -957,7 +980,10 @@ mod tests {
         assert!(empty_some_out.digest_intact());
         // Stop-reason digests differ too (because thinking_digest
         // is fed into the stop_reason hasher).
-        assert_ne!(none_out.stop_reason_digest, empty_some_out.stop_reason_digest);
+        assert_ne!(
+            none_out.stop_reason_digest,
+            empty_some_out.stop_reason_digest
+        );
     }
 
     #[test]
@@ -1082,9 +1108,9 @@ mod tests {
         // swap could be confusable. Pin via DISTINCT identifiable
         // values per field.
         let out: ParaOutput<String> = ParaOutput::new(
-            /*value=*/        "DISTINCT-VALUE-CONTENT".to_string(),
-            /*stop_reason=*/  StopReason::Refusal, // distinctive 4/7
-            /*thinking=*/     Some(b"DISTINCT-THINKING-BYTES".to_vec()),
+            /*value=*/ "DISTINCT-VALUE-CONTENT".to_string(),
+            /*stop_reason=*/ StopReason::Refusal, // distinctive 4/7
+            /*thinking=*/ Some(b"DISTINCT-THINKING-BYTES".to_vec()),
         );
         assert_eq!(out.value, "DISTINCT-VALUE-CONTENT");
         assert_eq!(out.stop_reason, StopReason::Refusal);
@@ -1206,11 +1232,7 @@ mod tests {
             StopReason::ToolUse,
             Some(thinking.clone()),
         );
-        let errored = ParaOutput::new(
-            "err".to_string(),
-            StopReason::Error,
-            Some(thinking.clone()),
-        );
+        let errored = ParaOutput::new("err".to_string(), StopReason::Error, Some(thinking.clone()));
         let recovered = ParaOutput::new(
             "after-err".to_string(),
             StopReason::EndTurn,
@@ -1232,8 +1254,7 @@ mod tests {
         // mid-stream-error fixtures. A failed attempt may be retried,
         // but the retry path must not strip signed thinking bytes,
         // rewrite them, or replace them with None.
-        let signed_thinking =
-            b"anthropic-signature:v1:retry-preserved\nthinking payload".to_vec();
+        let signed_thinking = b"anthropic-signature:v1:retry-preserved\nthinking payload".to_vec();
         let independent = *blake3::hash(&signed_thinking).as_bytes();
 
         let first_attempt = ParaOutput::new(
@@ -1267,11 +1288,7 @@ mod tests {
         let positions = [0usize, thinking_len / 2, thinking_len - 1];
         for byte_idx in positions {
             let thinking: Vec<u8> = (0u8..thinking_len as u8).collect();
-            let mut out = ParaOutput::new(
-                0u32,
-                StopReason::EndTurn,
-                Some(thinking.clone()),
-            );
+            let mut out = ParaOutput::new(0u32, StopReason::EndTurn, Some(thinking.clone()));
             assert!(out.digest_intact());
             // Tamper the chosen byte WITHOUT touching the digest field.
             if let Some(t) = out.thinking.as_mut() {
@@ -1318,7 +1335,10 @@ mod tests {
         for byte_idx in [0usize, 15, 31] {
             let mut out: ParaOutput<u32> =
                 ParaOutput::new(0, StopReason::EndTurn, Some(b"intact".to_vec()));
-            assert!(out.digest_intact(), "baseline intact for byte_idx={byte_idx}");
+            assert!(
+                out.digest_intact(),
+                "baseline intact for byte_idx={byte_idx}"
+            );
             out.thinking_digest[byte_idx] ^= 0xFF;
             assert!(
                 !out.digest_intact(),
@@ -1420,11 +1440,7 @@ mod tests {
         let payload: Vec<u8> = (0..SIZE).map(|i| (i % 256) as u8).collect();
         let independent_digest = *blake3::hash(&payload).as_bytes();
 
-        let out: ParaOutput<u32> = ParaOutput::new(
-            0,
-            StopReason::EndTurn,
-            Some(payload.clone()),
-        );
+        let out: ParaOutput<u32> = ParaOutput::new(0, StopReason::EndTurn, Some(payload.clone()));
 
         // No truncation.
         let stored = out
@@ -1468,29 +1484,21 @@ mod tests {
         // that would silently lose adversarial content before signing.
         let adversarial: Vec<u8> = vec![
             // "fake signature" prefix to confuse a naive parser
-            b's', b'i', b'g', b':', b'0', b'x',
-            // embedded NUL bytes mid-payload
-            0x00, 0x00,
-            // valid ASCII to ensure recovery from the NULs
-            b'A', b'B', b'C',
-            // a NUL again
+            b's', b'i', b'g', b':', b'0', b'x', // embedded NUL bytes mid-payload
+            0x00, 0x00, // valid ASCII to ensure recovery from the NULs
+            b'A', b'B', b'C', // a NUL again
             0x00,
             // invalid UTF-8 (lone continuation byte + lone start of
             // 4-byte sequence with no continuation)
-            0x80, 0xC0, 0xF0, 0x90,
-            // high-bit bytes
-            0xFF, 0xFE, 0xFD,
-            // trailing NUL to defeat strlen-style truncation
+            0x80, 0xC0, 0xF0, 0x90, // high-bit bytes
+            0xFF, 0xFE, 0xFD, // trailing NUL to defeat strlen-style truncation
             0x00,
         ];
         let expected_len = adversarial.len();
         let independent_digest = *blake3::hash(&adversarial).as_bytes();
 
-        let out: ParaOutput<u32> = ParaOutput::new(
-            0,
-            StopReason::EndTurn,
-            Some(adversarial.clone()),
-        );
+        let out: ParaOutput<u32> =
+            ParaOutput::new(0, StopReason::EndTurn, Some(adversarial.clone()));
 
         // Byte-for-byte preservation through the field — no truncation
         // at NUL, no normalisation of invalid UTF-8.
@@ -1498,7 +1506,11 @@ mod tests {
             .thinking
             .as_deref()
             .expect("thinking field must be Some after Some(...) construction");
-        assert_eq!(stored.len(), expected_len, "no truncation at NUL or invalid UTF-8");
+        assert_eq!(
+            stored.len(),
+            expected_len,
+            "no truncation at NUL or invalid UTF-8"
+        );
         assert_eq!(stored, adversarial.as_slice(), "byte-for-byte preservation");
 
         // BLAKE3 digest matches independent recompute over the FULL
@@ -1542,8 +1554,7 @@ mod tests {
 
         let e = ParaError::BudgetExhausted;
         assert_eq!(e.clone(), e);
-        let o: ParaOutput<u32> =
-            ParaOutput::new(42, StopReason::EndTurn, Some(b"x".to_vec()));
+        let o: ParaOutput<u32> = ParaOutput::new(42, StopReason::EndTurn, Some(b"x".to_vec()));
         assert_eq!(o.clone(), o);
     }
 
@@ -1608,7 +1619,11 @@ mod tests {
 
         // HashSet of all 7 variants → 7 distinct slots.
         let set: HashSet<StopReason> = all.iter().copied().collect();
-        assert_eq!(set.len(), 7, "all 7 stop_reasons must occupy distinct hash slots");
+        assert_eq!(
+            set.len(),
+            7,
+            "all 7 stop_reasons must occupy distinct hash slots"
+        );
 
         // Duplicate insert is a no-op.
         let mut s2 = HashSet::new();

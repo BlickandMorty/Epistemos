@@ -2905,14 +2905,18 @@ final class VaultSyncService {
         let traceStarted = Date()
         do {
             if RRFFusionFlags.isEnabled {
-                let fused = try await svc.fusedSearchAsync(query: query)
-                recordVaultRecallTraceIfEnabled(
-                    query: query,
-                    limit: FusionWeights.default.maxResults,
-                    fusedResults: fused,
-                    startedAt: traceStarted
-                )
-                return fused.map(\.parentDocID)
+                do {
+                    let fused = try await svc.fusedSearchAsync(query: query)
+                    recordVaultRecallTraceIfEnabled(
+                        query: query,
+                        limit: FusionWeights.default.maxResults,
+                        fusedResults: fused,
+                        startedAt: traceStarted
+                    )
+                    return fused.map(\.parentDocID)
+                } catch {
+                    log.error("RRF fused searchIndex failed; falling back to legacy page search: \(error.localizedDescription, privacy: .public)")
+                }
             }
             let results = try await svc.searchAsync(query: query)
             recordVaultRecallTraceIfEnabled(
@@ -2939,17 +2943,21 @@ final class VaultSyncService {
         let traceStarted = Date()
         do {
             if RRFFusionFlags.isEnabled {
-                let fused = try svc.fusedSearch(
-                    query: query,
-                    weights: FusionWeights(maxResults: limit)
-                )
-                recordVaultRecallTraceIfEnabled(
-                    query: query,
-                    limit: limit,
-                    fusedResults: fused,
-                    startedAt: traceStarted
-                )
-                return fused.map(Self.mapFusedToSearchResult)
+                do {
+                    let fused = try svc.fusedSearch(
+                        query: query,
+                        weights: FusionWeights(maxResults: limit)
+                    )
+                    recordVaultRecallTraceIfEnabled(
+                        query: query,
+                        limit: limit,
+                        fusedResults: fused,
+                        startedAt: traceStarted
+                    )
+                    return fused.map(Self.mapFusedToSearchResult)
+                } catch {
+                    log.error("RRF fused searchFull failed; falling back to legacy page search: \(error.localizedDescription, privacy: .public)")
+                }
             }
             let results = try svc.search(query: query, limit: limit)
             recordVaultRecallTraceIfEnabled(
@@ -2970,17 +2978,21 @@ final class VaultSyncService {
         let traceStarted = Date()
         do {
             if RRFFusionFlags.isEnabled {
-                let fused = try await svc.fusedSearchAsync(
-                    query: query,
-                    weights: FusionWeights(maxResults: limit)
-                )
-                recordVaultRecallTraceIfEnabled(
-                    query: query,
-                    limit: limit,
-                    fusedResults: fused,
-                    startedAt: traceStarted
-                )
-                return fused.map(Self.mapFusedToSearchResult)
+                do {
+                    let fused = try await svc.fusedSearchAsync(
+                        query: query,
+                        weights: FusionWeights(maxResults: limit)
+                    )
+                    recordVaultRecallTraceIfEnabled(
+                        query: query,
+                        limit: limit,
+                        fusedResults: fused,
+                        startedAt: traceStarted
+                    )
+                    return fused.map(Self.mapFusedToSearchResult)
+                } catch {
+                    log.error("RRF fused searchFullAsync failed; falling back to legacy page search: \(error.localizedDescription, privacy: .public)")
+                }
             }
             let results = try await svc.searchAsync(query: query, limit: limit)
             recordVaultRecallTraceIfEnabled(

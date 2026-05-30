@@ -314,9 +314,9 @@ fn default_tools_for_objective(objective: &str) -> Vec<String> {
 // routing layer hasn't shipped yet; we surface the closest measurable
 // proxy and document the gap.
 
-use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
+use std::sync::OnceLock;
 
 /// Compact signature of the last routing decision. Two decisions
 /// with identical signatures are considered "same route." The cloud-
@@ -488,8 +488,10 @@ mod stats_tests {
         };
         let s1 = route_signature(&cloud_haiku);
         let s2 = route_signature(&local_haiku_fallback);
-        assert_ne!(s1, s2,
-            "Cloud(Haiku) and LocalWithFallback(_, Haiku) must produce distinct route signatures");
+        assert_ne!(
+            s1, s2,
+            "Cloud(Haiku) and LocalWithFallback(_, Haiku) must produce distinct route signatures"
+        );
     }
 }
 

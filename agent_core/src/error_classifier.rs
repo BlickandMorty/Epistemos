@@ -349,8 +349,7 @@ mod tests {
         // credentials, etc.) or strip the cloud-provider naming so
         // the message becomes vague.
         let error = AgentError::LocalProviderNotAllowed(
-            "provider 'qwen3.5-4b' runs on-device; the agent loop requires a cloud provider"
-                .into(),
+            "provider 'qwen3.5-4b' runs on-device; the agent loop requires a cloud provider".into(),
         );
         let classified = classify(&error);
         assert_eq!(classified.category, ErrorCategory::Unrecoverable);
@@ -361,9 +360,11 @@ mod tests {
         assert!(!classified.should_rotate_credential);
         // Hint MUST tell the user the actionable fix and name at least
         // one cloud provider so they know what to switch to.
-        assert!(classified.recovery_hint.contains("cloud provider"),
-                "recovery hint must reference 'cloud provider' explicitly; got: {}",
-                classified.recovery_hint);
+        assert!(
+            classified.recovery_hint.contains("cloud provider"),
+            "recovery hint must reference 'cloud provider' explicitly; got: {}",
+            classified.recovery_hint
+        );
         assert!(
             classified.recovery_hint.contains("Claude")
                 || classified.recovery_hint.contains("GPT")

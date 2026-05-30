@@ -63,17 +63,10 @@ fn recurrent_linear_scan_first_output_is_initial_state() {
 #[test]
 fn recurrent_linear_scan_identity_layer_accumulates_inputs() {
     // L = I, b = 0 → state_{t+1} = state_t + x_t (pure accumulation).
-    let layer = linear_2x2(
-        vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-        vec![0.0, 0.0],
-    );
+    let layer = linear_2x2(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]);
     let prog = ScanProgram::new(
         vec![0.0, 0.0],
-        vec![
-            vec![1.0, 2.0],
-            vec![3.0, 4.0],
-            vec![5.0, 6.0],
-        ],
+        vec![vec![1.0, 2.0], vec![3.0, 4.0], vec![5.0, 6.0]],
     );
     let out = sequential_scan(&prog, |state, input| {
         let combined: Vec<f64> = state.iter().zip(input.iter()).map(|(s, i)| s + i).collect();
@@ -94,14 +87,8 @@ fn recurrent_linear_scan_identity_layer_accumulates_inputs() {
 fn recurrent_linear_scan_with_nontrivial_weights() {
     // L = [[2, 0], [0, 0.5]], b = [1, -1].
     // Update: state_{t+1} = 2·(state_t[0] + x_t[0]) + 1, 0.5·(state_t[1] + x_t[1]) - 1.
-    let layer = linear_2x2(
-        vec![vec![2.0, 0.0], vec![0.0, 0.5]],
-        vec![1.0, -1.0],
-    );
-    let prog = ScanProgram::new(
-        vec![0.0, 0.0],
-        vec![vec![1.0, 2.0], vec![0.5, 4.0]],
-    );
+    let layer = linear_2x2(vec![vec![2.0, 0.0], vec![0.0, 0.5]], vec![1.0, -1.0]);
+    let prog = ScanProgram::new(vec![0.0, 0.0], vec![vec![1.0, 2.0], vec![0.5, 4.0]]);
     let out = sequential_scan(&prog, |state, input| {
         let combined: Vec<f64> = state.iter().zip(input.iter()).map(|(s, i)| s + i).collect();
         evaluate_linear(&layer, &combined).unwrap()
@@ -118,10 +105,7 @@ fn recurrent_linear_scan_with_nontrivial_weights() {
 fn recurrent_linear_scan_matches_unrolled_chain() {
     // Property test: scan output ≡ manually-unrolled application of
     // the layer across the input sequence.
-    let layer = linear_2x2(
-        vec![vec![0.5, 0.3], vec![-0.1, 0.7]],
-        vec![0.2, -0.4],
-    );
+    let layer = linear_2x2(vec![vec![0.5, 0.3], vec![-0.1, 0.7]], vec![0.2, -0.4]);
     let initial = vec![1.5, -0.5];
     let inputs = vec![
         vec![0.5, 1.0],
@@ -156,14 +140,8 @@ fn recurrent_linear_scan_matches_unrolled_chain() {
 #[test]
 fn recurrent_linear_scan_zero_layer_collapses_to_bias() {
     // W = 0 → state_{t+1} = b always (the bias).
-    let layer = linear_2x2(
-        vec![vec![0.0, 0.0], vec![0.0, 0.0]],
-        vec![1.0, -1.0],
-    );
-    let prog = ScanProgram::new(
-        vec![5.0, 5.0],
-        vec![vec![10.0, 10.0], vec![100.0, 100.0]],
-    );
+    let layer = linear_2x2(vec![vec![0.0, 0.0], vec![0.0, 0.0]], vec![1.0, -1.0]);
+    let prog = ScanProgram::new(vec![5.0, 5.0], vec![vec![10.0, 10.0], vec![100.0, 100.0]]);
     let out = sequential_scan(&prog, |state, input| {
         let combined: Vec<f64> = state.iter().zip(input.iter()).map(|(s, i)| s + i).collect();
         evaluate_linear(&layer, &combined).unwrap()

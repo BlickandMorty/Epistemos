@@ -24,7 +24,6 @@ import SwiftUI
 public struct SearchFusionHealthRow: View {
 
     @State private var snapshot: SearchFusionMetrics.Snapshot
-    @State private var refreshTask: Task<Void, Never>?
 
     public init() {
         // Initialize with the live snapshot so first paint isn't blank.
@@ -36,7 +35,7 @@ public struct SearchFusionHealthRow: View {
             row(
                 label: "RRF Fusion flag",
                 symbol: "flag.fill",
-                ok: snapshot.isFlagEnabled,
+                state: snapshot.isFlagEnabled ? .pass : .unavailable,
                 detail: snapshot.isFlagEnabled
                     ? "EPISTEMOS_RRF_FUSION_V1=1 (enabled)"
                     : "EPISTEMOS_RRF_FUSION_V1 unset (legacy per-index path)"
@@ -53,37 +52,32 @@ public struct SearchFusionHealthRow: View {
             row(
                 label: "Last query",
                 symbol: "clock",
-                ok: snapshot.lastQueryAt != nil && snapshot.lastErrorDescription == nil,
+                state: lastQueryState,
                 detail: lastQueryDetail
             )
             row(
                 label: "p95 latency",
                 symbol: "chart.line.uptrend.xyaxis",
-                ok: p95IsHealthy,
+                state: p95State,
                 detail: p95Detail
             )
             row(
                 label: "Hit distribution",
                 symbol: "square.stack.3d.up",
-                ok: !snapshot.hitsBySource.isEmpty,
+                state: hitDistributionState,
                 detail: hitDistributionDetail
             )
             if let err = snapshot.lastErrorDescription {
                 row(
                     label: "Last error",
                     symbol: "exclamationmark.triangle",
-                    ok: false,
-                    detail: err
+                    state: displayErrorState(for: err),
+                    detail: displayErrorDetail(for: err)
                 )
             }
         }
         .onAppear {
             refresh()
-            startTimer()
-        }
-        .onDisappear {
-            refreshTask?.cancel()
-            refreshTask = nil
         }
         .onReceive(NotificationCenter.default.publisher(
             for: SearchFusionMetrics.didChangeNotification,
@@ -101,22 +95,11 @@ public struct SearchFusionHealthRow: View {
         snapshot = SearchFusionMetrics.shared.snapshot()
     }
 
-    private func startTimer() {
-        refreshTask?.cancel()
-        refreshTask = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-                if Task.isCancelled { break }
-                refresh()
-            }
-        }
-    }
-
     // MARK: - Display helpers
 
     private var lastQueryDetail: String {
         if let err = snapshot.lastErrorDescription, snapshot.lastQueryAt == nil {
-            return "Error: \(err)"
+            return displayErrorDetail(for: err)
         }
         guard let date = snapshot.lastQueryAt else {
             return snapshot.isFlagEnabled
@@ -136,20 +119,57 @@ public struct SearchFusionHealthRow: View {
         return "\(value) over \(snapshot.sampleCount) samples"
     }
 
-    private var p95IsHealthy: Bool {
-        // Healthy = under the 30 ms p95 budget from the user mission
-        // brief (`docs/RRF_FUSION_PROMPT.md` Phase 5 perf gate).
-        snapshot.sampleCount > 0 && snapshot.p95LatencyMs <= 30.0
-    }
-
     private var hitDistributionDetail: String {
         guard !snapshot.hitsBySource.isEmpty else {
-            return "(no recent query)"
+            return snapshot.lastQueryAt == nil ? "(no recent query)" : "(zero-hit result)"
         }
         let parts = snapshot.hitsBySource
             .sorted { $0.key < $1.key }
             .map { "\($0.key)=\($0.value)" }
         return parts.joined(separator: " ")
+    }
+
+    private var lastQueryState: SubstrateHealthSignalState {
+        if let err = snapshot.lastErrorDescription {
+            return displayErrorState(for: err)
+        }
+        if snapshot.lastQueryAt != nil { return .pass }
+        return snapshot.isFlagEnabled ? .partial : .unavailable
+    }
+
+    private var p95State: SubstrateHealthSignalState {
+        guard snapshot.sampleCount > 0 else {
+            return snapshot.isFlagEnabled ? .partial : .unavailable
+        }
+        // Healthy = under the 30 ms p95 budget from the user mission
+        // brief (`docs/RRF_FUSION_PROMPT.md` Phase 5 perf gate).
+        return snapshot.p95LatencyMs <= 30.0 ? .pass : .blocked
+    }
+
+    private var hitDistributionState: SubstrateHealthSignalState {
+        if let err = snapshot.lastErrorDescription {
+            return displayErrorState(for: err)
+        }
+        guard snapshot.lastQueryAt != nil else {
+            return snapshot.isFlagEnabled ? .partial : .unavailable
+        }
+        return .pass
+    }
+
+    private func displayErrorState(for error: String) -> SubstrateHealthSignalState {
+        isReadableBlocksSchemaBootstrapError(error) ? .partial : .blocked
+    }
+
+    private func displayErrorDetail(for error: String) -> String {
+        if isReadableBlocksSchemaBootstrapError(error) {
+            return "Readable-blocks FTS index not initialized — run vault sync/index rebuild"
+        }
+        return error
+    }
+
+    private func isReadableBlocksSchemaBootstrapError(_ error: String) -> Bool {
+        error.localizedCaseInsensitiveContains("no such table: readable_blocks_fts")
+            || error.localizedCaseInsensitiveContains("no such table: main.readable_blocks_fts")
     }
 
     private func formatLatency(_ ms: Double) -> String {
@@ -171,7 +191,7 @@ public struct SearchFusionHealthRow: View {
     }
 
     @ViewBuilder
-    private func row(label: String, symbol: String, ok: Bool, detail: String) -> some View {
+    private func row(label: String, symbol: String, state: SubstrateHealthSignalState, detail: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: symbol)
                 .symbolRenderingMode(.hierarchical)
@@ -187,8 +207,8 @@ public struct SearchFusionHealthRow: View {
                     .truncationMode(.middle)
             }
             Spacer()
-            Image(systemName: ok ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .foregroundStyle(ok ? AnyShapeStyle(Color.green) : AnyShapeStyle(Color.red))
+            Image(systemName: state.symbol)
+                .foregroundStyle(state.tint)
                 .font(.system(size: 16))
         }
         .padding(.horizontal, 12)

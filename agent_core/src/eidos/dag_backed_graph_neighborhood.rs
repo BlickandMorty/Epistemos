@@ -44,8 +44,8 @@ use std::sync::Arc;
 use super::retriever::EidosRetriever;
 use super::types::{
     is_blank_query_text, EidosChunkId, EidosContextPacket, EidosDocumentId, EidosHit,
-    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode,
-    EidosScoreComponents, EidosSourceKind,
+    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode, EidosScoreComponents,
+    EidosSourceKind,
 };
 use crate::cognitive_dag::edge::EdgeKindSelector;
 use crate::cognitive_dag::node::NodeId;
@@ -112,11 +112,7 @@ impl EidosRetriever for DagBackedGraphNeighborhood {
         &self.manifest_id
     }
 
-    fn retrieve(
-        &self,
-        query: &EidosQuery,
-        retrieved_at_unix_ms: u64,
-    ) -> EidosContextPacket {
+    fn retrieve(&self, query: &EidosQuery, retrieved_at_unix_ms: u64) -> EidosContextPacket {
         if is_blank_query_text(&query.text) || query.top_k == 0 {
             return empty_packet(query, &self.manifest_id);
         }
@@ -240,9 +236,7 @@ mod tests {
     /// Build a tiny bidirectional name map (`hub` ↔ NodeId([1; 32]),
     /// `a` ↔ NodeId([2; 32]), etc.). Returns a snapshot containing
     /// the seeded edges + a resolver that round-trips both ways.
-    fn build_resolver_and_snapshot(
-        edges: &[(&str, &str)],
-    ) -> (DagSnapshot, NodeNameResolver) {
+    fn build_resolver_and_snapshot(edges: &[(&str, &str)]) -> (DagSnapshot, NodeNameResolver) {
         // Stable name ↔ id assignment: hash-of-name → first non-zero
         // 32-byte filling. We use `seed_byte` indexed by the name to
         // produce a deterministic, collision-free NodeId.
@@ -269,7 +263,12 @@ mod tests {
         for (a, b) in edges {
             let from = by_name[*a];
             let to = by_name[*b];
-            edge_vec.push(Edge::new(from, to, EdgeKind::DerivesFrom { strength: 1.0 }, cap));
+            edge_vec.push(Edge::new(
+                from,
+                to,
+                EdgeKind::DerivesFrom { strength: 1.0 },
+                cap,
+            ));
         }
         let snapshot = synthetic_snapshot(edge_vec);
 
@@ -291,8 +290,7 @@ mod tests {
 
     #[test]
     fn neighbors_returned_in_deterministic_order() {
-        let (snap, res) =
-            build_resolver_and_snapshot(&[("hub", "a"), ("hub", "b"), ("hub", "c")]);
+        let (snap, res) = build_resolver_and_snapshot(&[("hub", "a"), ("hub", "b"), ("hub", "c")]);
         let r = DagBackedGraphNeighborhood::from_snapshot(snap, manifest(), res);
         let q = EidosQuery::new("hub", EidosRetrievalMode::GraphNeighborhood, 16);
         let packet = r.retrieve(&q, 1_700_000_000_000);
@@ -318,8 +316,7 @@ mod tests {
     fn unresolvable_neighbor_is_skipped_closed() {
         // Build a snapshot where a neighbor exists but the resolver
         // returns None for its NodeId (drop the entry from the map).
-        let (snap, _real_res) =
-            build_resolver_and_snapshot(&[("hub", "a"), ("hub", "b")]);
+        let (snap, _real_res) = build_resolver_and_snapshot(&[("hub", "a"), ("hub", "b")]);
         // Re-build a resolver that omits `a` from the reverse map.
         let mut name_to_id: BTreeMap<String, NodeId> = BTreeMap::new();
         let mut id_to_name: BTreeMap<NodeId, String> = BTreeMap::new();
@@ -356,8 +353,7 @@ mod tests {
 
     #[test]
     fn closed_citation_contract_holds_through_dag_backed_neighborhood() {
-        let (snap, res) =
-            build_resolver_and_snapshot(&[("hub", "a"), ("hub", "b"), ("hub", "c")]);
+        let (snap, res) = build_resolver_and_snapshot(&[("hub", "a"), ("hub", "b"), ("hub", "c")]);
         let r = DagBackedGraphNeighborhood::from_snapshot(snap, manifest(), res);
         let q = EidosQuery::new("hub", EidosRetrievalMode::GraphNeighborhood, 16);
         let packet = r.retrieve(&q, 1_700_000_000_000);
@@ -420,8 +416,7 @@ mod tests {
 
     #[test]
     fn top_k_truncates_neighborhood() {
-        let (snap, res) =
-            build_resolver_and_snapshot(&[("hub", "a"), ("hub", "b"), ("hub", "c")]);
+        let (snap, res) = build_resolver_and_snapshot(&[("hub", "a"), ("hub", "b"), ("hub", "c")]);
         let r = DagBackedGraphNeighborhood::from_snapshot(snap, manifest(), res);
         let q = EidosQuery::new("hub", EidosRetrievalMode::GraphNeighborhood, 1);
         let packet = r.retrieve(&q, 0);
@@ -454,8 +449,7 @@ mod tests {
 
     #[test]
     fn replay_byte_equal_for_pinned_clock_on_same_snapshot() {
-        let (snap, res) =
-            build_resolver_and_snapshot(&[("hub", "a"), ("hub", "b"), ("hub", "c")]);
+        let (snap, res) = build_resolver_and_snapshot(&[("hub", "a"), ("hub", "b"), ("hub", "c")]);
         let snap2 = snap.clone();
         let res2 = res.clone();
         let a = DagBackedGraphNeighborhood::from_snapshot(snap, manifest(), res);
