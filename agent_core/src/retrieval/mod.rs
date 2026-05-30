@@ -1139,10 +1139,13 @@ fn ranked_shadow_candidates(
 
 fn push_non_empty_unique(values: &mut Vec<String>, value: &str) {
     let value = value.trim();
-    if value.is_empty()
-        || values
-            .iter()
-            .any(|existing| existing.eq_ignore_ascii_case(value))
+    if value.is_empty() {
+        return;
+    }
+    let value_key = value.to_lowercase();
+    if values
+        .iter()
+        .any(|existing| existing.to_lowercase() == value_key)
     {
         return;
     }
@@ -2023,6 +2026,23 @@ mod tests {
             queries[1].chars().count(),
             SHADOW_EXACT_ESCALATION_QUERY_CHAR_LIMIT
         );
+    }
+
+    #[test]
+    fn shadow_first_exact_queries_dedupe_unicode_case_insensitively() {
+        let request = ShadowExactEscalationRequest {
+            query: "CAFÉ".to_string(),
+            reasons: vec![ShadowExactEscalationReason::DenseOnly],
+            targets: vec![ShadowExactEscalationTarget {
+                doc_id: "café".to_string(),
+                title: "Café".to_string(),
+                source: ShadowFirstSource::Dense,
+                score: 0.04,
+                snippet: Some("café".to_string()),
+            }],
+        };
+
+        assert_eq!(request.exact_queries(), vec!["CAFÉ".to_string()]);
     }
 
     #[test]
