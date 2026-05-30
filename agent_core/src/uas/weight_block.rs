@@ -281,7 +281,9 @@ impl WeightBlockManifest {
     pub fn requires_dense_reference(&self) -> bool {
         !matches!(
             self.encoding,
-            WeightBlockEncoding::DenseFp16 | WeightBlockEncoding::DenseBf16
+            WeightBlockEncoding::DenseFp16
+                | WeightBlockEncoding::DenseBf16
+                | WeightBlockEncoding::DenseFp32
         )
     }
 
@@ -801,6 +803,27 @@ mod tests {
 
         assert_eq!(manifest.residency_tier, ResidencyTier::VerifiedFloor);
         assert!(!manifest.is_cold_ssd_candidate());
+        assert!(!manifest.requires_dense_reference());
+    }
+
+    #[test]
+    fn dense_fp32_manifest_is_exact_and_needs_no_dense_rollback() {
+        let manifest = WeightBlockManifest::from_bytes(
+            "Qwen/Qwen3-8B-MLX-4bit",
+            "file:///models/qwen3/hot-fp32-block.safetensors",
+            0,
+            b"hot-fp32-block",
+            1,
+            WeightBlockEncoding::DenseFp32,
+            WeightBlockResidencyClass::HotUma,
+            WeightBlockIrChart::Scan,
+            0.0,
+            "bit_exact_reference",
+            None,
+        )
+        .expect("manifest should build");
+
+        assert_eq!(manifest.canonical_lattice_codec(), "exact-hot");
         assert!(!manifest.requires_dense_reference());
     }
 
