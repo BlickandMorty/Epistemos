@@ -357,11 +357,12 @@ impl ToolHandler for ReadFileHandler {
 pub fn read_file_schema() -> crate::types::ToolSchema {
     crate::types::ToolSchema {
         name: "read_file".to_string(),
-        description: "Read a text file with line numbers and pagination. Rejects binary files. \
+        description:
+            "Read a text file with line numbers and pagination. Rejects binary files. \
              Use 'offset' and 'limit' to page through large files (1-indexed lines, default 500, \
-             max 2000 per call). Do not use this to find a vault note by title; use vault.search \
-             first and then vault.read with the returned vault-relative path."
-            .to_string(),
+             max 2000 per call). Do not use this to find a vault note by title; use eidos.query \
+             first to select vault evidence, then vault.read with the returned vault-relative path."
+                .to_string(),
         parameters: json!({
             "type": "object",
             "properties": {
@@ -386,7 +387,7 @@ fn missing_file_recovery_hint(path_arg: &str) -> String {
 
     if looks_like_note_lookup {
         " If you are trying to open a vault note by title or guessed markdown path, call \
-         vault.search first and then vault.read with the exact vault-relative path it returns."
+         eidos.query first and then vault.read with the exact vault-relative path it returns."
             .to_string()
     } else {
         String::new()
@@ -1247,7 +1248,7 @@ mod tests {
             .await
             .unwrap_err();
         let message = format!("{err}");
-        assert!(message.contains("vault.search first"));
+        assert!(message.contains("eidos.query first"));
         assert!(message.contains("vault.read"));
     }
 

@@ -207,7 +207,7 @@ struct CoreMASBoundarySourceGuardTests {
         // here without a corresponding capability gate is Pro leakage.
         for required in ["vault.search", "vault.read", "vault.write", "vault.list",
                          "file.read", "file.write", "file.patch", "file.search",
-                         "system.todo", "graph.query", "memory.curated",
+                         "system.todo", "graph.query", "memory.curated", "eidos.query",
                          "web.search", "web.extract", "web.crawl",
                          "note.template", "note.linker", "clarify.ask"] {
             #expect(allowlist.contains("\"\(required)\""),

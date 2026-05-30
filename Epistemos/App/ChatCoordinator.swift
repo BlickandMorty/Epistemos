@@ -5368,9 +5368,9 @@ final class ChatCoordinator {
         Do not describe those notes as attached files or uploads.
         Conversation history or attached context may mention the same note, but that is not proof that a vault lookup succeeded for this turn.
         If note context below includes a canonical vault-relative path, pass that exact path to `vault.read`.
-        When you need the note body and no canonical path is already provided, use `vault.search` first and then `vault.read` with the exact vault-relative path it returns.
+        When you need the note body and no canonical path is already provided, use `eidos.query` first to select citable vault evidence, then `vault.read` with the exact vault-relative path it returns.
         Never turn a note title by itself into a `file.read` path or broad `file.search`/Finder search.
-        For note lookup, stay on the vault/search-index tools: `vault.search`, `knowledge.recall`, `vault.list` only for known folders, then `vault.read`.
+        For note lookup, stay on the app retrieval tools: `eidos.query`, `knowledge.recall`, `vault.search`, `vault.list` only for known folders, then `vault.read`.
         If approval is required, wait for it and continue the lookup after approval instead of answering from memory or nearby context.
         If the first lookup attempt fails, retry with a title or fuzzy vault search before you give up.
         If no real vault read succeeds, say plainly that you couldn't find or read the note in the user's notes.

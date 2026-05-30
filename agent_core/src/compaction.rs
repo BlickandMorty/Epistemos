@@ -390,7 +390,7 @@ mod tests {
             messages.push(Message::assistant(vec![
                 ContentBlock::Thinking {
                     thinking: format!(
-                        "I should search for topic {i}. Decision: use vault.search first."
+                        "I should search for topic {i}. Decision: use eidos.query first."
                     ),
                     signature: format!("sig-{i}"),
                 },
@@ -531,7 +531,7 @@ mod tests {
 
         assert_eq!(
             retained_thinking,
-            Some("I should search for topic 7. Decision: use vault.search first.")
+            Some("I should search for topic 7. Decision: use eidos.query first.")
         );
     }
 

@@ -353,6 +353,8 @@ pub const LEGACY_TO_V2_ALIASES: &[(&str, &str)] = &[
     ("list_files", "file.list"),
     ("move_file", "file.move"),
     ("todo", "system.todo"),
+    ("eidos_query", "eidos.query"),
+    ("eidos_search", "eidos.query"),
     ("vault_recall", "knowledge.recall"),
     ("contradiction_check", "knowledge.contradiction_check"),
     ("analyzecontradiction", "knowledge.contradiction_check"),
@@ -1009,6 +1011,7 @@ impl ToolRegistry {
             // Vault reads
             "vault_search",
             "vault_read",
+            "eidos_query",
             "vault_recall",
             "pkm_graph_neighbors",
             "graph_query",
@@ -1635,10 +1638,20 @@ impl ToolRegistry {
 
     fn register_phase_two_knowledge(&mut self) {
         use crate::tools::knowledge::{
-            contradiction_check_schema, evidence_score_schema, neural_recall_schema,
-            vault_recall_schema, ContradictionCheckHandler, EvidenceScoreHandler,
-            NeuralRecallHandler, VaultRecallHandler,
+            contradiction_check_schema, eidos_query_schema, evidence_score_schema,
+            neural_recall_schema, vault_recall_schema, ContradictionCheckHandler,
+            EidosQueryHandler, EvidenceScoreHandler, NeuralRecallHandler, VaultRecallHandler,
         };
+
+        let eidos = eidos_query_schema();
+        self.register(RegisteredTool {
+            name: eidos.name,
+            description: eidos.description,
+            parameters: eidos.parameters,
+            handler: Box::new(EidosQueryHandler::new(Arc::clone(&self.vault))),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
 
         let vr = vault_recall_schema();
         self.register(RegisteredTool {
@@ -3653,6 +3666,10 @@ mod tier_tests {
             names.contains(&"knowledge.recall".to_string()),
             "chat_lite must expose knowledge.recall"
         );
+        assert!(
+            names.contains(&"eidos.query".to_string()),
+            "chat_lite must expose eidos.query as the agent-facing evidence selector"
+        );
         assert!(names.contains(&"think".to_string()));
         assert!(names.contains(&"file.read".to_string()));
         assert!(names.contains(&"web.fetch".to_string()));
@@ -3746,6 +3763,8 @@ mod tier_tests {
         );
         assert_eq!(v2_name_for_legacy("vault_search"), Some("vault.search"));
         assert_eq!(legacy_name_for_v2("vault.search"), Some("vault_search"));
+        assert_eq!(v2_name_for_legacy("eidos_query"), Some("eidos.query"));
+        assert_eq!(legacy_name_for_v2("eidos.query"), Some("eidos_query"));
         assert_eq!(v2_name_for_legacy("read_file"), Some("file.read"));
         assert_eq!(legacy_name_for_v2("file.read"), Some("read_file"));
         assert_eq!(
@@ -3764,6 +3783,26 @@ mod tier_tests {
             .expect("dotted v2 vault.read must route through the current registry");
 
         assert_eq!(result, "");
+    }
+
+    #[tokio::test]
+    async fn execute_v2_routes_eidos_query_through_vault_trace_backend() {
+        let registry = build_registry(ToolTier::ChatLite);
+        let result = registry
+            .execute_v2(
+                "eidos.query",
+                &serde_json::json!({ "query": "missing note" }),
+            )
+            .await
+            .expect("dotted v2 eidos.query must route through the current registry");
+        let parsed: Value = serde_json::from_str(&result).expect("eidos.query returns JSON");
+
+        assert_eq!(parsed["tool"], serde_json::json!("eidos.query"));
+        assert_eq!(parsed["mode"], serde_json::json!("hybrid"));
+        assert_eq!(
+            parsed["backend_status"],
+            serde_json::json!("production_lexical_trace_semantic_pending")
+        );
     }
 
     #[test]
@@ -3786,6 +3825,7 @@ mod tier_tests {
             "research.search_papers",
             "file.read",
             "file.search",
+            "eidos.query",
             "knowledge.recall",
             "knowledge.evidence_score",
             "graph.neighbors",
@@ -3807,6 +3847,8 @@ mod tier_tests {
             "searchpapers",
             "read_file",
             "search_files",
+            "eidos_query",
+            "eidos_search",
             "vault_recall",
             "scoreevidence",
             "pkm_graph_neighbors",
@@ -3824,6 +3866,7 @@ mod tier_tests {
         let names = registry.allowed_tool_names();
 
         assert!(names.contains(&"vault.search".to_string()));
+        assert!(names.contains(&"eidos.query".to_string()));
         assert!(names.contains(&"file.read".to_string()));
         assert!(names.contains(&"vault.list".to_string()));
         assert!(names.contains(&"note.create".to_string()));
@@ -3831,6 +3874,7 @@ mod tier_tests {
         assert!(names.contains(&"citation.save".to_string()));
         assert!(names.contains(&"research.search_papers".to_string()));
         assert!(!names.contains(&"vault_search".to_string()));
+        assert!(!names.contains(&"eidos_query".to_string()));
         assert!(!names.contains(&"read_file".to_string()));
         assert!(!names.contains(&"list_notes".to_string()));
     }

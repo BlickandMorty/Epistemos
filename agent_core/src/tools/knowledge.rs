@@ -23,8 +23,9 @@ use serde_json::{json, Value};
 use crate::storage::contradiction_detector::detect_contradictions;
 use crate::storage::memory_classifier::VaultFact;
 use crate::storage::neural_cache::NeuralCache;
+use crate::storage::retrieval_trace::RetrievalTrace;
 use crate::storage::session_store::list_session_folders;
-use crate::storage::vault::VaultBackend;
+use crate::storage::vault::{SearchResult, VaultBackend};
 
 use super::registry::{ToolError, ToolHandler};
 
@@ -88,28 +89,108 @@ fn optional_u64(input: &Value, key: &str) -> Result<Option<u64>, ToolError> {
 }
 
 fn parse_note_filter(input: &Value) -> Result<Vec<String>, ToolError> {
-    let Some(value) = input.get("note_filter") else {
+    let (value, label) = if let Some(value) = input.get("note_filter") {
+        (value, "note_filter")
+    } else if let Some(value) = input.get("tags") {
+        (value, "tags")
+    } else {
         return Ok(Vec::new());
     };
+
     let Value::Array(items) = value else {
-        return Err(ToolError::InvalidArguments(
-            "'note_filter' must be an array of strings".into(),
-        ));
+        return Err(ToolError::InvalidArguments(format!(
+            "'{label}' must be an array of strings"
+        )));
     };
     if items.len() > MAX_NOTE_FILTER_TAGS {
         return Err(ToolError::InvalidArguments(format!(
-            "note_filter supports at most {MAX_NOTE_FILTER_TAGS} tags"
+            "{label} supports at most {MAX_NOTE_FILTER_TAGS} tags"
         )));
     }
     let mut tags = Vec::with_capacity(items.len());
     for (idx, item) in items.iter().enumerate() {
         let tag = item.as_str().ok_or_else(|| {
-            ToolError::InvalidArguments(format!("'note_filter[{idx}]' must be a string"))
+            ToolError::InvalidArguments(format!("'{label}[{idx}]' must be a string"))
         })?;
-        ensure_char_cap(&format!("note_filter[{idx}]"), tag, MAX_TAG_CHARS)?;
+        ensure_char_cap(&format!("{label}[{idx}]"), tag, MAX_TAG_CHARS)?;
         tags.push(tag.to_string());
     }
     Ok(tags)
+}
+
+fn evidence_hits_json(results: &[SearchResult], trace: &RetrievalTrace) -> Vec<Value> {
+    results
+        .iter()
+        .map(|result| {
+            let trace_candidate = trace
+                .candidates
+                .iter()
+                .find(|candidate| candidate.path == result.path);
+            let uas_address = trace_candidate
+                .and_then(|candidate| candidate.uas_address.as_ref())
+                .map(ToString::to_string)
+                .unwrap_or_else(|| result.projected_uas_address().to_string());
+            let signal_summary: Vec<String> = trace_candidate
+                .map(|candidate| {
+                    candidate
+                        .signals
+                        .iter()
+                        .map(|score| score.signal.slug().to_string())
+                        .collect()
+                })
+                .unwrap_or_else(|| {
+                    trace
+                        .signal_summary
+                        .iter()
+                        .map(|signal| signal.slug().to_string())
+                        .collect()
+                });
+            let why_matched = trace_candidate
+                .and_then(|candidate| {
+                    (!candidate.selection_reason.is_empty())
+                        .then(|| candidate.selection_reason.clone())
+                })
+                .unwrap_or_else(|| {
+                    if signal_summary.is_empty() {
+                        "vault recall ranked hit".to_string()
+                    } else {
+                        format!("matched by {}", signal_summary.join("+"))
+                    }
+                });
+            let title = Path::new(&result.path)
+                .file_stem()
+                .and_then(|stem| stem.to_str())
+                .unwrap_or(&result.path);
+            json!({
+                "id": result.path,
+                "title": title,
+                "path": result.path,
+                "snippet": result.excerpt,
+                "score": result.score,
+                "source_kind": "note",
+                "citation_token": format!("vault-note:{}", uas_address),
+                "uas_address": uas_address,
+                "last_modified": Value::Null,
+                "why_matched": why_matched,
+                "signals": signal_summary,
+                "tags": result.tags,
+            })
+        })
+        .collect()
+}
+
+fn evidence_trace_json(trace: &RetrievalTrace) -> Value {
+    json!({
+        "ladder_tier": trace.ladder_tier.clone(),
+        "candidate_pool_size": trace.candidate_pool_size,
+        "candidates_retained": trace.candidates_retained,
+        "signal_summary": trace
+            .signal_summary
+            .iter()
+            .map(|signal| signal.slug().to_string())
+            .collect::<Vec<_>>(),
+        "notes": trace.notes.clone(),
+    })
 }
 
 // MARK: - vault_recall
@@ -143,64 +224,7 @@ impl ToolHandler for VaultRecallHandler {
             .map_err(|e| ToolError::ExecutionFailed(format!("vault search failed: {e}")))?;
         let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
 
-        let hits: Vec<Value> = results
-            .iter()
-            .map(|r| {
-                let trace_candidate = trace
-                    .candidates
-                    .iter()
-                    .find(|candidate| candidate.path == r.path);
-                let uas_address = trace_candidate
-                    .and_then(|candidate| candidate.uas_address.as_ref())
-                    .map(ToString::to_string)
-                    .unwrap_or_else(|| r.projected_uas_address().to_string());
-                let signal_summary: Vec<String> = trace_candidate
-                    .map(|candidate| {
-                        candidate
-                            .signals
-                            .iter()
-                            .map(|score| score.signal.slug().to_string())
-                            .collect()
-                    })
-                    .unwrap_or_else(|| {
-                        trace
-                            .signal_summary
-                            .iter()
-                            .map(|signal| signal.slug().to_string())
-                            .collect()
-                    });
-                let why_matched = trace_candidate
-                    .and_then(|candidate| {
-                        (!candidate.selection_reason.is_empty())
-                            .then(|| candidate.selection_reason.clone())
-                    })
-                    .unwrap_or_else(|| {
-                        if signal_summary.is_empty() {
-                            "vault recall ranked hit".to_string()
-                        } else {
-                            format!("matched by {}", signal_summary.join("+"))
-                        }
-                    });
-                let title = Path::new(&r.path)
-                    .file_stem()
-                    .and_then(|stem| stem.to_str())
-                    .unwrap_or(&r.path);
-                json!({
-                    "id": r.path,
-                    "title": title,
-                    "path": r.path,
-                    "snippet": r.excerpt,
-                    "score": r.score,
-                    "source_kind": "note",
-                    "citation_token": format!("vault-note:{}", uas_address),
-                    "uas_address": uas_address,
-                    "last_modified": Value::Null,
-                    "why_matched": why_matched,
-                    "signals": signal_summary,
-                    "tags": r.tags,
-                })
-            })
-            .collect();
+        let hits = evidence_hits_json(&results, &trace);
 
         Ok(json!({
             "query": query,
@@ -209,15 +233,100 @@ impl ToolHandler for VaultRecallHandler {
             "count": hits.len(),
             "latency_ms": latency_ms,
             "results": hits,
-            "trace": {
-                "ladder_tier": trace.ladder_tier.clone(),
-                "candidate_pool_size": trace.candidate_pool_size,
-                "candidates_retained": trace.candidates_retained,
-                "signal_summary": trace.signal_summary.iter().map(|signal| signal.slug().to_string()).collect::<Vec<_>>(),
-                "notes": trace.notes.clone(),
-            },
+            "trace": evidence_trace_json(&trace),
         })
         .to_string())
+    }
+}
+
+// MARK: - eidos_query
+
+pub struct EidosQueryHandler {
+    vault: Arc<dyn VaultBackend>,
+}
+
+impl EidosQueryHandler {
+    pub fn new(vault: Arc<dyn VaultBackend>) -> Self {
+        Self { vault }
+    }
+}
+
+#[async_trait]
+impl ToolHandler for EidosQueryHandler {
+    async fn execute(&self, input: &Value) -> Result<String, ToolError> {
+        let query = input
+            .get("query")
+            .and_then(Value::as_str)
+            .ok_or_else(|| ToolError::InvalidArguments("missing 'query'".into()))?;
+        ensure_char_cap("query", query, MAX_QUERY_CHARS)?;
+        let top_k = optional_u64_range(input, "top_k", 5, 1, 20)? as usize;
+        let tag_filter = parse_note_filter(input)?;
+
+        let start = Instant::now();
+        let (results, trace) = self
+            .vault
+            .hybrid_search_with_trace(query, top_k, &tag_filter)
+            .await
+            .map_err(|e| ToolError::ExecutionFailed(format!("eidos query failed: {e}")))?;
+        let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
+        let evidence = evidence_hits_json(&results, &trace);
+        let citation_universe: Vec<Value> = evidence
+            .iter()
+            .filter_map(|hit| hit.get("citation_token").cloned())
+            .collect();
+
+        Ok(json!({
+            "tool": "eidos.query",
+            "query": query,
+            "effective_query": trace.effective_query,
+            "mode": "hybrid",
+            "scope": input.get("scope").cloned().unwrap_or_else(|| json!("vault")),
+            "top_k": top_k,
+            "count": evidence.len(),
+            "latency_ms": latency_ms,
+            "backend": "vault_recall_trace",
+            "backend_status": "production_lexical_trace_semantic_pending",
+            "results": evidence,
+            "citation_universe": citation_universe,
+            "trace": evidence_trace_json(&trace),
+            "next_step": "Use vault.read with a returned path when full note text is needed.",
+        })
+        .to_string())
+    }
+}
+
+pub fn eidos_query_schema() -> crate::types::ToolSchema {
+    crate::types::ToolSchema {
+        name: "eidos_query".to_string(),
+        description: "Eidos agent-native local evidence selector. Search the user's vault first and return structured, citable evidence with ids, paths, snippets, scores, UAS addresses, why_matched, and citation tokens. Use this before vault.read when the user names, describes, or asks about a note."
+            .to_string(),
+        parameters: json!({
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Natural-language question, exact title, topic, metadata phrase, alias, or path to retrieve evidence for."
+                },
+                "top_k": {
+                    "type": "integer",
+                    "description": "Maximum evidence hits to return.",
+                    "default": 5,
+                    "minimum": 1,
+                    "maximum": 20
+                },
+                "scope": {
+                    "type": "string",
+                    "description": "Retrieval scope. Current production value is vault.",
+                    "default": "vault"
+                },
+                "tags": {
+                    "type": "array",
+                    "description": "Optional tag filter.",
+                    "items": { "type": "string" }
+                }
+            },
+            "required": ["query"]
+        }),
     }
 }
 
@@ -781,6 +890,67 @@ mod tests {
             .starts_with("vault-note:vault_note:"));
         assert_eq!(results[0]["why_matched"], json!("matched by lexical"));
         assert_eq!(parsed["trace"]["signal_summary"][0], json!("lexical"));
+    }
+
+    #[tokio::test]
+    async fn eidos_query_returns_structured_evidence_packet() {
+        let vault: Arc<dyn VaultBackend> = Arc::new(StubVault::new(vec![make_result(
+            "Ideas/My Autobiography.md",
+            "A note about the author's life arc and core themes.",
+            12.5,
+        )]));
+        let handler = EidosQueryHandler::new(vault);
+        let result = handler
+            .execute(&json!({
+                "query": "note titled My Autobiography",
+                "top_k": 5
+            }))
+            .await
+            .unwrap();
+        let parsed: Value = serde_json::from_str(&result).unwrap();
+
+        assert_eq!(parsed["tool"], json!("eidos.query"));
+        assert_eq!(parsed["mode"], json!("hybrid"));
+        assert_eq!(
+            parsed["backend_status"],
+            json!("production_lexical_trace_semantic_pending")
+        );
+        assert_eq!(parsed["count"], json!(1));
+        assert_eq!(
+            parsed["results"][0]["id"],
+            json!("Ideas/My Autobiography.md")
+        );
+        assert_eq!(parsed["results"][0]["title"], json!("My Autobiography"));
+        assert_eq!(parsed["results"][0]["source_kind"], json!("note"));
+        assert!(parsed["results"][0]["citation_token"]
+            .as_str()
+            .unwrap()
+            .starts_with("vault-note:vault_note:"));
+        assert_eq!(
+            parsed["citation_universe"][0],
+            parsed["results"][0]["citation_token"]
+        );
+        assert_eq!(
+            parsed["next_step"],
+            json!("Use vault.read with a returned path when full note text is needed.")
+        );
+    }
+
+    #[tokio::test]
+    async fn eidos_query_accepts_tags_alias_for_note_filter() {
+        let vault: Arc<dyn VaultBackend> = Arc::new(StubVault::new(Vec::new()));
+        let handler = EidosQueryHandler::new(vault);
+        let result = handler
+            .execute(&json!({
+                "query": "architecture",
+                "tags": ["research"]
+            }))
+            .await
+            .unwrap();
+        let parsed: Value = serde_json::from_str(&result).unwrap();
+
+        assert_eq!(parsed["tool"], json!("eidos.query"));
+        assert_eq!(parsed["count"], json!(0));
     }
 
     #[tokio::test]

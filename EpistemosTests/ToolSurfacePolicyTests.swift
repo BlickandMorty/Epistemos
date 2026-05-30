@@ -267,6 +267,20 @@ struct ToolSurfacePolicyTests {
         #expect(object["limit"] as? Int == 5)
     }
 
+    @Test func eidosQueryPathArgumentNormalizesToEvidenceQuery() throws {
+        let normalized = ToolTierBridge.normalizedInputJson(
+            toolName: "eidos.query",
+            inputJson: #"{"path":"My Autobiography","limit":5}"#
+        )
+        let data = try #require(normalized.data(using: .utf8))
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        #expect(object["query"] as? String == "My Autobiography")
+        #expect(object["path"] == nil)
+        #expect(object["top_k"] as? Int == 5)
+        #expect(object["limit"] as? Int == 5)
+    }
+
     @Test func vaultScopedFileSearchBuildsAppFirstVaultSearchInput() throws {
         let vaultRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent("epistemos-app-first-vault-root")
@@ -288,6 +302,30 @@ struct ToolSurfacePolicyTests {
 
         #expect(object["query"] as? String == "My Autobiography")
         #expect(object["limit"] as? Int == 20)
+    }
+
+    @Test func vaultScopedFileSearchPrefersEidosForAppFirstLookup() throws {
+        let vaultRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-app-first-eidos-root")
+            .standardizedFileURL
+            .path
+        let normalized = ToolTierBridge.normalizedInputJson(
+            toolName: "file.search",
+            inputJson: #"{"pattern":"My Autobiography","path":"~/","target":"files","limit":250}"#,
+            defaultFileSearchRoot: vaultRoot
+        )
+        let preflight = try #require(ToolTierBridge.appFirstVaultLookupForFileSearch(
+            toolName: "file.search",
+            normalizedInputJson: normalized,
+            defaultFileSearchRoot: vaultRoot,
+            allowedToolNames: ["eidos.query", "vault.search", "file.search"]
+        ))
+        let data = try #require(preflight.inputJson.data(using: .utf8))
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        #expect(preflight.toolName == "eidos.query")
+        #expect(object["query"] as? String == "My Autobiography")
+        #expect(object["top_k"] as? Int == 20)
     }
 
     @Test func explicitNonVaultFileSearchSkipsAppFirstVaultSearchInput() throws {
@@ -314,9 +352,15 @@ struct ToolSurfacePolicyTests {
         1. **Notes/My Autobiography.md** (score: 12.00, tier: T3, variant: rrf)
         A paragraph about the note.
         """))
+        #expect(ToolTierBridge.vaultSearchOutputHasUsableResults("""
+        {"tool":"eidos.query","count":1,"results":[{"path":"Notes/My Autobiography.md"}]}
+        """))
         #expect(!ToolTierBridge.vaultSearchOutputHasUsableResults(
             "No notes matched with high enough confidence (ladder declined; no tier above floor)."
         ))
+        #expect(!ToolTierBridge.vaultSearchOutputHasUsableResults("""
+        {"tool":"eidos.query","count":0,"results":[]}
+        """))
     }
 
     @Test @MainActor func fileSearchPatternExecutesAsNonEmptyQuery() async throws {
