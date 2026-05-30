@@ -6,7 +6,10 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::uas::{ResidencyPlan, ResidencyPlanStatus, UasAddress, UasKind, WeightBlockIrChart};
+use crate::uas::{
+    weight_block::is_valid_wbo_budget_nats, ResidencyPlan, ResidencyPlanStatus, UasAddress,
+    UasKind, WeightBlockIrChart,
+};
 
 const RANGE_HASH_FALSIFIER_ID: &str = "F-WeightBlockRangeHash-DryRun";
 const RESIDENCY_PLAN_FALSIFIER_ID: &str = "F-ResidencyPlan-DryRun";
@@ -148,7 +151,7 @@ impl ConstructionCard {
         if lift_charts.is_empty() {
             return Err(ConstructionCardError::MissingLiftChart);
         }
-        if !budget.wbo_budget_nats.is_finite() || budget.wbo_budget_nats < 0.0 {
+        if !is_valid_wbo_budget_nats(budget.wbo_budget_nats) {
             return Err(ConstructionCardError::InvalidBudget);
         }
         let card_address = Self::address(
@@ -307,6 +310,7 @@ fn unique_lift_charts(plan: &ResidencyPlan) -> Vec<WeightBlockIrChart> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::uas::weight_block::MAX_WBO_BUDGET_NATS;
     use crate::uas::{
         ResidencyBudget, WeightBlockEncoding, WeightBlockIrChart, WeightBlockManifest,
         WeightBlockResidencyClass,
@@ -487,5 +491,30 @@ mod tests {
                 field: "projection_packet"
             }
         );
+    }
+
+    #[test]
+    fn construction_card_rejects_wbo_budget_above_residency_ceiling() {
+        let err = ConstructionCard::new(
+            "problem",
+            vec![WeightBlockIrChart::Scan],
+            "projection",
+            "witness",
+            ConstructionBudget {
+                hot_uma_bytes: 0,
+                warm_compressed_uma_bytes: 0,
+                cold_mmap_ssd_bytes: 0,
+                wbo_budget_nats: MAX_WBO_BUDGET_NATS + 1.0,
+                copy_budget: 0,
+            },
+            "F-Test",
+            "rollback",
+            ConstructionTier::ResearchConstruction,
+            None,
+            10,
+        )
+        .unwrap_err();
+
+        assert_eq!(err, ConstructionCardError::InvalidBudget);
     }
 }

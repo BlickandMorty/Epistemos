@@ -882,7 +882,7 @@ fn wbo_budget_preimage(value: f32) -> String {
     }
 }
 
-fn is_valid_wbo_budget_nats(value: f32) -> bool {
+pub(crate) fn is_valid_wbo_budget_nats(value: f32) -> bool {
     value.is_finite() && (0.0..=MAX_WBO_BUDGET_NATS).contains(&value)
 }
 
