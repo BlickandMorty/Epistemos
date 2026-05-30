@@ -438,7 +438,7 @@ These are the minimum axis keys each F-* artifact must cover in `measurements`, 
 | `F-SemiseparableBlockScan` | `core_max_abs_diff`, `final_state_diff`, `chunk_size`, `ngroups`, `stretch_labeling` |
 | `F-LocalRecallIsland` | `peak_memory_gb`, `passkey_recall`, `niah_single_1`, `depth_failure_labels` |
 | `F-KV-Direct-Gate` | `average_d_kl_nats`, `peak_ram_gb`, `decode_tok_s`, `suite_wall_clock_min`, `spill_labeling` |
-| `F-Qwen3-8B-128K-GGUF-Route` | `model_identity_matches_gguf_target`, `model_context_window_tokens`, `average_d_kl_nats`, `peak_ram_gb`, `decode_tok_s`, `suite_wall_clock_min` |
+| `F-Qwen3-8B-128K-GGUF-Route` | `model_identity_matches_gguf_target`, `model_context_window_tokens`, `dry_run_preview_manifest_available`, `dry_run_preview_not_executed`, `average_d_kl_nats`, `peak_ram_gb`, `decode_tok_s`, `suite_wall_clock_min` |
 | `F-WBO-DriftLedger` | `finite_nonnegative_terms`, `envelope_bound`, `post_softmax_drift`, `missing_term_fail_closed` |
 | `F-ULP-Oracle` | `max_ulp`, `comparable_points_over_2ulp`, `stress_case_classification`, `wall_clock_seconds` |
 | `F-ResidencyPlan-DryRun` | `fit_for_dry_run`, `deterministic_plan_address`, `active_runtime_bytes`, `cold_mmap_ssd_bytes`, `runtime_model_bytes_loaded`, `missing_rollback_rejected`, `overlapping_ranges_rejected`, `sherry_and_leech_codec_names_present` |
@@ -1469,9 +1469,9 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
       },
       "then": {
         "properties": {
-          "measurements": { "required": ["model_identity_matches_gguf_target", "model_context_window_tokens", "average_d_kl_nats", "peak_ram_gb", "decode_tok_s", "suite_wall_clock_min"] },
-          "acceptance_thresholds": { "required": ["model_identity_matches_gguf_target", "model_context_window_tokens", "average_d_kl_nats", "peak_ram_gb", "decode_tok_s", "suite_wall_clock_min"] },
-          "pass_per_axis": { "required": ["model_identity_matches_gguf_target", "model_context_window_tokens", "average_d_kl_nats", "peak_ram_gb", "decode_tok_s", "suite_wall_clock_min"] }
+          "measurements": { "required": ["model_identity_matches_gguf_target", "model_context_window_tokens", "dry_run_preview_manifest_available", "dry_run_preview_not_executed", "average_d_kl_nats", "peak_ram_gb", "decode_tok_s", "suite_wall_clock_min"] },
+          "acceptance_thresholds": { "required": ["model_identity_matches_gguf_target", "model_context_window_tokens", "dry_run_preview_manifest_available", "dry_run_preview_not_executed", "average_d_kl_nats", "peak_ram_gb", "decode_tok_s", "suite_wall_clock_min"] },
+          "pass_per_axis": { "required": ["model_identity_matches_gguf_target", "model_context_window_tokens", "dry_run_preview_manifest_available", "dry_run_preview_not_executed", "average_d_kl_nats", "peak_ram_gb", "decode_tok_s", "suite_wall_clock_min"] }
         }
       }
     },

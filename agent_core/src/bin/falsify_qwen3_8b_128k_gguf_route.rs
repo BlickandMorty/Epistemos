@@ -24,6 +24,8 @@ const DEFAULT_BENCH_METRICS_PATH: &str =
     "artifacts/falsifiers/qwen3_8b_128k_gguf_route/live_bench/metrics.json";
 const DEFAULT_BENCH_MANIFEST_PATH: &str =
     "artifacts/falsifiers/qwen3_8b_128k_gguf_route/live_bench_128k_q4_0_fa_probe/manifest.json";
+const DEFAULT_DRY_RUN_MANIFEST_PATH: &str =
+    "artifacts/falsifiers/qwen3_8b_128k_gguf_route/dry_run_128k_preview/manifest.json";
 const DEFAULT_KL_METRICS_PATH: &str =
     "artifacts/falsifiers/qwen3_8b_128k_gguf_route/live_kl/kl_metrics.json";
 const SHAPE_PROBES_DIR: &str = "artifacts/falsifiers/qwen3_8b_128k_gguf_route/shape_probes";
@@ -225,6 +227,20 @@ fn build_report() -> RouteReport {
                 && manifest.context_window_tokens >= REQUIRED_CONTEXT_WINDOW_TOKENS
         })
         .unwrap_or(false);
+    let dry_run_preview_manifest_available = inputs.dry_run_manifest.is_some();
+    let dry_run_preview_not_executed = inputs
+        .dry_run_manifest
+        .as_ref()
+        .map(|manifest| {
+            manifest.dry_run
+                && manifest.not_executed
+                && !manifest.falsifier_green_capable
+                && manifest.bench_json_not_written
+                && manifest.metrics_not_written
+                && manifest.context_window_tokens >= REQUIRED_CONTEXT_WINDOW_TOKENS
+                && manifest.would_require_heavy_env
+        })
+        .unwrap_or(false);
     let probe_ladder = summarize_probe_ladder(&inputs.probe_manifests);
     let next_bottleneck = choose_next_bottleneck(
         inputs.model_file_available,
@@ -366,6 +382,20 @@ fn build_report() -> RouteReport {
         &mut pass_per_axis,
         "full_context_probe_not_stalled",
         full_context_probe_not_stalled,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "dry_run_preview_manifest_available",
+        dry_run_preview_manifest_available,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "dry_run_preview_not_executed",
+        dry_run_preview_not_executed,
     );
     add_bool_measurement(
         &mut measurements,
@@ -596,6 +626,16 @@ fn build_report() -> RouteReport {
     );
     add_label(
         &mut measurements,
+        "dry_run_manifest_path",
+        inputs
+            .dry_run_manifest_path
+            .as_ref()
+            .map(|path| path.display().to_string())
+            .as_deref()
+            .unwrap_or("unset"),
+    );
+    add_label(
+        &mut measurements,
         "kl_reference_route",
         inputs
             .kl_metrics
@@ -712,6 +752,12 @@ fn build_report() -> RouteReport {
             }));
         }
     }
+    if !dry_run_preview_not_executed {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_safe_dry_run_preview",
+            "detail": "The GGUF route should retain a dry-run manifest that records the dangerous 128K command shape with not_executed=true, falsifier_green_capable=false, no metrics, and the heavy-run opt-in requirement before any live retry."
+        }));
+    }
     if probe_ladder.best_success_context_tokens > 0
         && probe_ladder.best_success_context_tokens < REQUIRED_CONTEXT_WINDOW_TOKENS
     {
@@ -817,6 +863,8 @@ struct CandidateInputs {
     metrics: Option<LiveMetrics>,
     bench_manifest_path: Option<PathBuf>,
     bench_manifest: Option<BenchManifest>,
+    dry_run_manifest_path: Option<PathBuf>,
+    dry_run_manifest: Option<BenchManifest>,
     probe_manifests: Vec<BenchManifest>,
     parse_errors: Vec<String>,
 }
@@ -909,6 +957,20 @@ impl CandidateInputs {
             },
             None => None,
         };
+        let dry_run_manifest_path = {
+            let default_manifest = PathBuf::from(DEFAULT_DRY_RUN_MANIFEST_PATH);
+            default_manifest.exists().then_some(default_manifest)
+        };
+        let dry_run_manifest = match dry_run_manifest_path.as_deref() {
+            Some(path) => match load_bench_manifest(path) {
+                Ok(manifest) => Some(manifest),
+                Err(error) => {
+                    parse_errors.push(format!("{}: {error}", path.display()));
+                    None
+                }
+            },
+            None => None,
+        };
         let probe_manifests = load_probe_manifests(Path::new(SHAPE_PROBES_DIR), &mut parse_errors);
 
         Self {
@@ -926,6 +988,8 @@ impl CandidateInputs {
             metrics,
             bench_manifest_path,
             bench_manifest,
+            dry_run_manifest_path,
+            dry_run_manifest,
             probe_manifests,
             parse_errors,
         }
@@ -1014,6 +1078,12 @@ struct BenchManifest {
     cache_type_v: String,
     flash_attn: bool,
     no_kv_offload: bool,
+    dry_run: bool,
+    not_executed: bool,
+    falsifier_green_capable: bool,
+    bench_json_not_written: bool,
+    metrics_not_written: bool,
+    would_require_heavy_env: bool,
 }
 
 #[derive(Debug, Default)]
@@ -1256,6 +1326,32 @@ fn load_bench_manifest(path: &Path) -> Result<BenchManifest, String> {
         no_kv_offload: optional_u64(object, &["no_kv_offload"])
             .or_else(|| command_value(&command, "-nkvo").and_then(|value| value.parse().ok()))
             .map(|value| value != 0)
+            .unwrap_or(false),
+        dry_run: object
+            .get("dry_run")
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false),
+        not_executed: object
+            .get("not_executed")
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false),
+        falsifier_green_capable: object
+            .get("falsifier_green_capable")
+            .and_then(|value| value.as_bool())
+            .unwrap_or(true),
+        bench_json_not_written: object
+            .get("bench_json")
+            .and_then(|value| value.as_str())
+            .map(|value| value == "not_written")
+            .unwrap_or(false),
+        metrics_not_written: object
+            .get("metrics")
+            .and_then(|value| value.as_str())
+            .map(|value| value == "not_written")
+            .unwrap_or(false),
+        would_require_heavy_env: object
+            .get("would_require_heavy_env")
+            .and_then(|value| value.as_bool())
             .unwrap_or(false),
     })
 }
@@ -1971,6 +2067,12 @@ mod tests {
                 cache_type_v: "f16".into(),
                 flash_attn: false,
                 no_kv_offload: false,
+                dry_run: false,
+                not_executed: false,
+                falsifier_green_capable: true,
+                bench_json_not_written: false,
+                metrics_not_written: false,
+                would_require_heavy_env: false,
             },
             BenchManifest {
                 exit_status: 1,
@@ -1981,6 +2083,12 @@ mod tests {
                 cache_type_v: "q4_0".into(),
                 flash_attn: false,
                 no_kv_offload: true,
+                dry_run: false,
+                not_executed: false,
+                falsifier_green_capable: true,
+                bench_json_not_written: false,
+                metrics_not_written: false,
+                would_require_heavy_env: false,
             },
             BenchManifest {
                 exit_status: 124,
@@ -1991,6 +2099,12 @@ mod tests {
                 cache_type_v: "f16".into(),
                 flash_attn: true,
                 no_kv_offload: false,
+                dry_run: false,
+                not_executed: false,
+                falsifier_green_capable: true,
+                bench_json_not_written: false,
+                metrics_not_written: false,
+                would_require_heavy_env: false,
             },
         ]);
         assert_eq!(summary.manifest_count, 3);
@@ -2006,5 +2120,40 @@ mod tests {
         assert!(!summary.flash_attention_success);
         assert!(summary.no_kv_offload_failure_or_timeout_seen);
         assert!(!summary.no_kv_offload_success);
+    }
+
+    #[test]
+    fn dry_run_manifest_preserves_non_execution_contract() {
+        let path = std::env::temp_dir().join(format!(
+            "epistemos_qwen3_gguf_dry_run_manifest_{}.json",
+            std::process::id()
+        ));
+        std::fs::write(
+            &path,
+            serde_json::to_vec(&serde_json::json!({
+                "command": ["llama-bench", "-p", "128000", "-n", "1", "-ctk", "f16", "-ctv", "f16", "-fa", "0", "-nkvo", "0"],
+                "exit_status": 0,
+                "timed_out": false,
+                "context_window_tokens": 128000,
+                "decode_tokens_per_prompt": 1,
+                "bench_json": "not_written",
+                "metrics": "not_written",
+                "dry_run": true,
+                "not_executed": true,
+                "falsifier_green_capable": false,
+                "would_require_heavy_env": true
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        let manifest = load_bench_manifest(&path).expect("dry-run manifest parse");
+        std::fs::remove_file(&path).ok();
+        assert!(manifest.dry_run);
+        assert!(manifest.not_executed);
+        assert!(!manifest.falsifier_green_capable);
+        assert!(manifest.bench_json_not_written);
+        assert!(manifest.metrics_not_written);
+        assert!(manifest.would_require_heavy_env);
+        assert_eq!(manifest.context_window_tokens, 128_000);
     }
 }
