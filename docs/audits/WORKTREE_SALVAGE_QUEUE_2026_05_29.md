@@ -86,6 +86,13 @@ normalization, Lean-certificate string emitters, and four focused integration
 tests. This is **not** a whole-branch merge; T5 remains a donor reference for
 Lean files, research custody files, and any still-unmined IR work.
 
+2026-05-30 update: the T5 Lean schema / research-custody slice was also
+ported additively. Primitive-IR Lean files are now present and import-wired
+without importing existing H/PCF side stubs. `lakefile.lean` was patched for
+the pinned Lean 4.16 syntax, but the local mathlib cache fetch failed with a
+dyld cache-binary error, so this is preserved schema work rather than a green
+Lean proof gate.
+
 ## Dirty But Mostly Generated Churn
 
 Many old worktrees report 2955 dirty files, almost entirely tracked build

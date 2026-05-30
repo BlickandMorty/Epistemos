@@ -1,6 +1,19 @@
 -- HELIOS V5 W24 — top-level Epistemos library entry.
--- Imports each E1-E7 foundational theorem stub so `lake build`
--- checks them all.
+-- Imports each E1-E7 foundational theorem stub plus Primitive-IR
+-- schema modules selected for Lean schema authority.
+
+import Epistemos.EML
+import Epistemos.EMLGeneratedSample
+import Epistemos.Tropical
+import Epistemos.TropicalGeneratedSample
+import Epistemos.Scan
+import Epistemos.ScanGeneratedSample
+import Epistemos.Operator
+import Epistemos.OperatorGeneratedSample
+import Epistemos.Info
+import Epistemos.InfoGeneratedSample
+import Epistemos.Geometry
+import Epistemos.GeometryGeneratedSample
 
 import Epistemos.E1
 import Epistemos.E2

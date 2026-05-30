@@ -205,3 +205,85 @@ Not done by this port:
 - no `research_custody/` files copied yet;
 - no old LandingWave / app UI files resurrected;
 - no branch merge, checkout, or Xcode project rewrite.
+
+## Salvage Port 2 - T5 Lean Schema + Research Custody Slice
+
+Status: **ported additively; build blocked by mathlib cache/runtime tooling.**
+
+Source branch:
+
+```text
+codex/t5-emlir-2026-05-16
+```
+
+Ported Primitive-IR Lean schema files:
+
+```text
+lean/Epistemos/Epistemos/EML.lean
+lean/Epistemos/Epistemos/EMLGeneratedSample.lean
+lean/Epistemos/Epistemos/Geometry.lean
+lean/Epistemos/Epistemos/GeometryGeneratedSample.lean
+lean/Epistemos/Epistemos/Info.lean
+lean/Epistemos/Epistemos/InfoGeneratedSample.lean
+lean/Epistemos/Epistemos/Operator.lean
+lean/Epistemos/Epistemos/OperatorGeneratedSample.lean
+lean/Epistemos/Epistemos/Scan.lean
+lean/Epistemos/Epistemos/ScanGeneratedSample.lean
+lean/Epistemos/Epistemos/Tropical.lean
+lean/Epistemos/Epistemos/TropicalGeneratedSample.lean
+```
+
+Also ported:
+
+```text
+research_custody/{eml,geometry,info,operator,scan,tropical}/...
+lean/Epistemos/.gitignore
+lean/Epistemos/lake-manifest.json
+```
+
+Current `lean/Epistemos/Epistemos.lean` imports only the new Primitive-IR
+schema modules plus the existing E1-E7 stubs. It intentionally does not import
+H1-H17 or PCF_1-PCF_10 because those existing side files still contain `sorry`
+placeholders and the previous top-level file documented them as filesystem
+budget-tracked rather than aggregate-build-ready.
+
+Compatibility fix:
+
+```text
+lean/Epistemos/lakefile.lean
+```
+
+was patched from the newer `↦` Lake option syntax back to the v4.16-compatible
+tuple syntax used by the donor branch and by the pinned
+`leanprover/lean4:v4.16.0` toolchain.
+
+Verification:
+
+```text
+rg --pcre2 '(^|[^A-Za-z_-])(sorry|admit)([^A-Za-z_-]|$)' \
+  lean/Epistemos/Epistemos/{EML,EMLGeneratedSample,Geometry,GeometryGeneratedSample,Info,InfoGeneratedSample,Operator,OperatorGeneratedSample,Scan,ScanGeneratedSample,Tropical,TropicalGeneratedSample}.lean
+
+0 executable sorry/admit matches
+
+cd lean/Epistemos && lake env lean --version
+
+Lean 4.16.0, arm64-apple-darwin23.6.0
+```
+
+Lean build caveat:
+
+```text
+lake env lean --version
+```
+
+created the manifest and cloned mathlib, but the mathlib cache fetch emitted:
+
+```text
+dyld: __DATA_CONST segment missing SG_READ_ONLY flag ...
+error: mathlib: failed to fetch cache
+```
+
+Therefore this port does **not** claim `lake build` green. The schema files are
+preserved and import-wired; a later Lean tooling pass must repair the mathlib
+cache path or build dependencies from source before promoting this to a green
+proof gate.
