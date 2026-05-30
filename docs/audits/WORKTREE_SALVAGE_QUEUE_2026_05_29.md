@@ -33,15 +33,17 @@ Summary:
 
 - candidates: 40
 - sibling git worktrees: 34
-- dirty candidates: 25
+- dirty candidates: 24
 - high duplicate risk: 24
 - non-git candidates: 5
-- current repo dirty count at scan time: 526
+- current repo dirty count at scan time: 0 before the generated inventory file
+  was refreshed
 
 2026-05-30 refresh: `Tools/audits/epistemos_worktree_inventory.sh` was rerun
-from the current repo. No folder was removed. The cleanup posture remains
-preserve-first because the current repo is dirty and multiple sibling
-worktrees still contain unique commits or small real docs.
+from the current repo at `6557488793a6`. No folder was removed. The cleanup
+posture remains preserve-first because multiple sibling worktrees still contain
+unique commits or small real docs, even though most "dirty" counts are generated
+`target/` artifact churn.
 
 ## Clean And Graph-Merged
 
@@ -79,6 +81,16 @@ Dry-run merge detail is now tracked in
 `docs/audits/WORKTREE_SAFE_MERGE_DRY_RUN_2026_05_30.md`. Current result:
 `wrv-app` and `wrv-rust` need no merge; every other clean useful branch should
 be manually ported, not wholesale-merged.
+
+2026-05-30 current-checkpoint update: a second non-mutating merge sweep at
+`6557488793a6` found zero missing files across the clean-but-divergent donor
+branches. The remaining differences are divergent hunks in files current main
+already owns. Direct merge would conflict for D-prime, F-prime, T1,
+UI-repromotion, Wave4 PageGather, and Wave4 UAS typed retrieval. Current code is
+newer on the important truth surfaces: F-prime now has full-scope falsifiers
+instead of the older scoped mini-harnesses, D-prime health rows preserve orange
+partial states, PageGather traces carry UAS/schedule fields, and W-03 ACS
+ledger reads are partial rather than overclaimed.
 
 2026-05-30 update: the first T5 EML/IR code slice was ported manually from
 `codex/t5-emlir-2026-05-16`: EML closure typestate, closure builders,
@@ -275,12 +287,15 @@ Current local evidence:
 - `agent_core/src/bin/falsify_uas_zero_copy_spine.rs` is an honest fallback
   witness: it measures only the in-process Rust provenance path and records the
   Swift / Metal / MLX / IOSurface paths as unmeasured anomalies.
-- `agent_core/src/bin/falsify_agent_local_model_runtime_bridge.rs` says the
-  local model catalog and runtime clients exist, but System G must not be
-  promoted until `ProviderPolicy::LocalMlx` reaches live MLX/GGUF generation
-  and emitted AnswerPackets carry local-model provenance.
-- `agent_core/src/bridge.rs` exposes System G provider-aware start, but comments
-  state local MLX/GGUF is fail-closed until live streaming is bound.
+- `agent_core/src/bin/falsify_agent_local_model_runtime_bridge.rs` has since
+  been promoted from the old red state to a guarded primary witness for the
+  local bridge seam. The artifact proves catalog selection, guarded local
+  client construction, streamed token chunks, and local-model provenance on the
+  safe Qwen3-8B MLX route. It does **not** prove the 128K/70B/SSD-resident
+  runtime.
+- `agent_core/src/bridge.rs` exposes System G provider-aware start and now has a
+  guarded local-model bridge path; the next hard gate remains the
+  Qwen3-8B-128K GGUF / repair stall, not another unsafe 70B probe.
 
 Salvage implication: prioritize branches that contain the missing runtime
 bridge and measurement pieces before deleting anything that looks duplicated:
