@@ -429,6 +429,9 @@ pub enum ResidencyPlanViolation {
     RollbackReferenceSelfReference {
         address: String,
     },
+    RollbackReferenceTargetsNonDenseBlock {
+        address: String,
+    },
     ExternalCandidateRequiresQuarantine {
         address: String,
     },
@@ -483,6 +486,15 @@ impl ResidencyPlan {
         let mut model_ids = HashSet::new();
         let mut seen_addresses = HashSet::new();
         let mut last_range_by_source_uri: HashMap<String, ByteRange> = HashMap::new();
+        let dense_reference_requirement_by_address: HashMap<String, bool> = blocks
+            .iter()
+            .map(|block| {
+                (
+                    block.uas_address.to_string(),
+                    block.requires_dense_reference(),
+                )
+            })
+            .collect();
         let mut effective_residency_tier = ResidencyTier::VerifiedFloor;
 
         if blocks.is_empty() {
@@ -569,6 +581,18 @@ impl ResidencyPlan {
                         violations.push(ResidencyPlanViolation::RollbackReferenceSelfReference {
                             address: reference.to_string(),
                         });
+                    }
+                    Some(reference)
+                        if dense_reference_requirement_by_address
+                            .get(&reference.to_string())
+                            .copied()
+                            .unwrap_or(false) =>
+                    {
+                        violations.push(
+                            ResidencyPlanViolation::RollbackReferenceTargetsNonDenseBlock {
+                                address: reference.to_string(),
+                            },
+                        );
                     }
                     Some(_) => {}
                 }
@@ -1191,6 +1215,39 @@ mod tests {
         assert!(plan.violations.iter().any(|v| matches!(
             v,
             ResidencyPlanViolation::RollbackReferenceSelfReference { .. }
+        )));
+    }
+
+    #[test]
+    fn residency_plan_rejects_in_plan_compressed_rollback_reference() {
+        let referenced_compressed = manifest(
+            "compressed-a",
+            0,
+            b"compressed-nf4-a",
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            Some(rollback_reference()),
+        );
+        let compressed_with_bad_rollback = manifest(
+            "compressed-b",
+            128,
+            b"compressed-nf4-b",
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            Some(referenced_compressed.uas_address.clone()),
+        );
+        let budget = ResidencyBudget::new(1024, 1024, 4096, 0.10, 16).unwrap();
+
+        let plan = ResidencyPlan::evaluate(
+            [referenced_compressed, compressed_with_bad_rollback],
+            budget,
+            42,
+        );
+
+        assert_eq!(plan.status, ResidencyPlanStatus::RejectedBeforeRuntime);
+        assert!(plan.violations.iter().any(|v| matches!(
+            v,
+            ResidencyPlanViolation::RollbackReferenceTargetsNonDenseBlock { .. }
         )));
     }
 
