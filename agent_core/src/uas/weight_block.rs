@@ -361,6 +361,9 @@ fn validate_identity_field(
     if value.trim() != value {
         return Err(WeightBlockManifestError::IdentityFieldHasSurroundingWhitespace { field });
     }
+    if value.chars().any(char::is_control) {
+        return Err(WeightBlockManifestError::IdentityFieldContainsControlCharacter { field });
+    }
     Ok(())
 }
 
@@ -813,6 +816,7 @@ pub enum WeightBlockManifestError {
     MissingSourceUri,
     MissingVerifier,
     IdentityFieldHasSurroundingWhitespace { field: &'static str },
+    IdentityFieldContainsControlCharacter { field: &'static str },
     InvalidContentHash,
     RangeHashLimitExceeded { requested: u64, max: u64 },
     RangeHashIo { kind: String },
@@ -829,6 +833,9 @@ impl std::fmt::Display for WeightBlockManifestError {
             WeightBlockManifestError::MissingVerifier => write!(f, "verifier is required"),
             WeightBlockManifestError::IdentityFieldHasSurroundingWhitespace { field } => {
                 write!(f, "{field} must not contain leading or trailing whitespace")
+            }
+            WeightBlockManifestError::IdentityFieldContainsControlCharacter { field } => {
+                write!(f, "{field} must not contain control characters")
             }
             WeightBlockManifestError::InvalidContentHash => {
                 write!(f, "content_hash_hex must be a valid BLAKE3 hex hash")
@@ -1035,6 +1042,52 @@ mod tests {
             assert_eq!(
                 err,
                 WeightBlockManifestError::IdentityFieldHasSurroundingWhitespace { field }
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_identity_fields_with_control_characters() {
+        let hash = blake3::hash(b"range");
+        for (model_id, source_uri, verifier, field) in [
+            (
+                "local/70b-candidate\nshadow",
+                "file:///models/70b/model.safetensors",
+                "precomputed_range_hash",
+                "model_id",
+            ),
+            (
+                "local/70b-candidate",
+                "file:///models/70b/model.safetensors\nshadow",
+                "precomputed_range_hash",
+                "source_uri",
+            ),
+            (
+                "local/70b-candidate",
+                "file:///models/70b/model.safetensors",
+                "precomputed_range_hash\tshadow",
+                "verifier",
+            ),
+        ] {
+            let err = WeightBlockManifest::from_known_hash_hex(
+                model_id,
+                source_uri,
+                0,
+                1024,
+                hash.to_hex().as_str(),
+                99,
+                WeightBlockEncoding::Nf4,
+                WeightBlockResidencyClass::ColdMmapSsd,
+                WeightBlockIrChart::OpaqueWithWitness,
+                0.04,
+                verifier,
+                Some(rollback_reference()),
+            )
+            .unwrap_err();
+
+            assert_eq!(
+                err,
+                WeightBlockManifestError::IdentityFieldContainsControlCharacter { field }
             );
         }
     }
