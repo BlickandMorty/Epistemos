@@ -312,8 +312,9 @@ final class UIState {
     var graphOverlayTheme: EpistemosTheme {
         theme
     }
+    var typographySettingsRevision = 0
     var appearanceSyncKey: String {
-        "\(themeMode.rawValue):\(activePair.rawValue):\(isSystemDark ? 1 : 0)"
+        "\(themeMode.rawValue):\(activePair.rawValue):\(isSystemDark ? 1 : 0):\(typographySettingsRevision)"
     }
 
     var readableFontsEnabled: Bool = false {
@@ -559,6 +560,11 @@ final class UIState {
 
     func setReadableFontsEnabled(_ enabled: Bool) {
         readableFontsEnabled = enabled
+        refreshTypographySettings()
+    }
+
+    func refreshTypographySettings() {
+        typographySettingsRevision &+= 1
     }
 
     // MARK: - Navigation Methods

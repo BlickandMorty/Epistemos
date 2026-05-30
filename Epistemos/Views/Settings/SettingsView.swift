@@ -3422,6 +3422,7 @@ private struct AppearanceDetailContainer: View {
     private var appearanceForm: some View {
         Form {
             AppearanceThemePairSection(ui: ui, theme: theme)
+            AppearanceCustomThemeSection(ui: ui)
             AppearanceTypographySection(ui: ui)
             AppearanceGraphNodeVisibilitySection()
             AppearanceGraphPerformanceSection()
@@ -3662,7 +3663,11 @@ private struct ThemePairCard: View {
                     }
                 }
 
-                ThemePairCinematicPreview(pair: pair)
+                if pair == .custom {
+                    CustomThemeCinematicPreview()
+                } else {
+                    ThemePairCinematicPreview(pair: pair)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(Spacing.sm)
@@ -3733,7 +3738,7 @@ private struct ThemePairCinematicHalf: View {
     let accentSide: AccentSide
 
     var body: some View {
-        let resolved = theme.resolved
+        let resolved = theme.presetResolved
         // ALL-CAPS for Classic per the user direction; other themes
         // keep mixed case so each pair shows off its actual feel.
         let heroText = theme.prefersUppercaseDisplay ? "GREETINGS" : "Greetings"
@@ -3797,6 +3802,200 @@ private struct ThemePairCinematicHalf: View {
             .foregroundStyle(bodyColor)
         }
         .frame(maxWidth: .infinity)
+    }
+}
+
+private struct CustomThemeCinematicPreview: View {
+    private static let cornerRadius: CGFloat = 8
+    private static let height: CGFloat = 78
+
+    var body: some View {
+        HStack(spacing: 0) {
+            CustomThemeCinematicHalf(isDark: false)
+            CustomThemeCinematicHalf(isDark: true)
+        }
+        .frame(height: Self.height)
+        .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.14), lineWidth: 1)
+        )
+        .overlay(Rectangle().fill(Color.primary.opacity(0.18)).frame(width: 1))
+    }
+}
+
+private struct CustomThemeCinematicHalf: View {
+    let isDark: Bool
+
+    var body: some View {
+        let resolved = AppCustomTheme.resolved(isDark: isDark)
+        let heroFontName = AppDisplayTypography.storedHeadingFontOverride(level: 1)
+            ?? AppDisplayTypography.matrixDisplayFontName
+        return ZStack {
+            LinearGradient(
+                colors: [
+                    resolved.background.color,
+                    resolved.card.color.opacity(0.82),
+                    resolved.accent.color.opacity(0.26),
+                ],
+                startPoint: isDark ? .topLeading : .topTrailing,
+                endPoint: isDark ? .bottomTrailing : .bottomLeading
+            )
+            VStack(alignment: .leading, spacing: 6) {
+                Text("CUSTOM")
+                    .font(.custom(heroFontName, size: 12).weight(.bold))
+                    .foregroundStyle(resolved.headingAccent.color)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                Capsule()
+                    .fill(resolved.foreground.color.opacity(0.24))
+                    .frame(width: 58, height: 4)
+                Capsule()
+                    .fill(resolved.accent.color.opacity(0.55))
+                    .frame(width: 38, height: 4)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 9)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private struct AppearanceCustomThemeSection: View {
+    let ui: UIState
+
+    private let columns = [
+        GridItem(.adaptive(minimum: 146), spacing: Spacing.sm, alignment: .top),
+    ]
+
+    var body: some View {
+        Section {
+            HStack(alignment: .center, spacing: Spacing.sm) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Custom theme")
+                        .font(.caption.weight(.semibold))
+                    Text("Presets stay untouched. These colors and heading fonts apply only when the Custom theme is selected.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button(ui.activePair == .custom ? "Selected" : "Use Custom") {
+                    ui.setPair(.custom)
+                    ui.setThemeMode(.custom)
+                    ui.refreshTypographySettings()
+                }
+                .controlSize(.small)
+                .disabled(ui.activePair == .custom)
+            }
+
+            LazyVGrid(columns: columns, alignment: .leading, spacing: Spacing.sm) {
+                ForEach(AppCustomThemeColorSlot.allCases) { slot in
+                    CustomThemeColorTile(
+                        slot: slot,
+                        color: colorBinding(slot: slot)
+                    )
+                }
+            }
+
+            HStack {
+                CustomThemeLivePreview()
+                    .frame(maxWidth: 260)
+                Spacer()
+                Button("Reset Custom Colors") {
+                    AppCustomTheme.reset()
+                    ui.refreshTypographySettings()
+                }
+                .controlSize(.small)
+            }
+        } header: {
+            Text("Custom Appearance")
+        }
+    }
+
+    private func colorBinding(slot: AppCustomThemeColorSlot) -> Binding<Color> {
+        Binding(
+            get: { Color(hex: AppCustomTheme.hex(for: slot)) },
+            set: { color in
+                guard let hex = color.rgbHex else { return }
+                AppCustomTheme.setHex(hex, for: slot)
+                ui.refreshTypographySettings()
+            }
+        )
+    }
+}
+
+private struct CustomThemeColorTile: View {
+    let slot: AppCustomThemeColorSlot
+    @Binding var color: Color
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ColorPicker("", selection: $color, supportsOpacity: false)
+                .labelsHidden()
+                .frame(width: 32)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(slot.title)
+                    .font(.caption.weight(.semibold))
+                Text(slot.detail)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .padding(8)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+private struct CustomThemeLivePreview: View {
+    var body: some View {
+        let resolved = AppCustomTheme.resolved(isDark: false)
+        let fontName = AppDisplayTypography.storedHeadingFontOverride(level: 1)
+            ?? AppDisplayTypography.matrixDisplayFontName
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("Custom Preview")
+                .font(.custom(fontName, size: 15).weight(.bold))
+                .foregroundStyle(resolved.headingAccent.color)
+            HStack(spacing: 6) {
+                Capsule()
+                    .fill(resolved.accent.color)
+                    .frame(width: 42, height: 7)
+                Capsule()
+                    .fill(resolved.foreground.color.opacity(0.28))
+                    .frame(width: 72, height: 7)
+            }
+            Text("Heading, text, panels, and chat stay together.")
+                .font(.caption2)
+                .foregroundStyle(resolved.foreground.color.opacity(0.82))
+                .lineLimit(2)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(resolved.background.color, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(resolved.border.color, lineWidth: 1)
+        )
+    }
+}
+
+private extension Color {
+    var rgbHex: UInt32? {
+        guard let color = NSColor(self).usingColorSpace(.sRGB) else {
+            return nil
+        }
+        let red = UInt32((color.redComponent * 255).rounded()).clampedToByte
+        let green = UInt32((color.greenComponent * 255).rounded()).clampedToByte
+        let blue = UInt32((color.blueComponent * 255).rounded()).clampedToByte
+        return (red << 16) | (green << 8) | blue
+    }
+}
+
+private extension UInt32 {
+    var clampedToByte: UInt32 {
+        min(max(self, 0), 255)
     }
 }
 
@@ -3867,6 +4066,7 @@ private extension GraphNodeType {
 
 private struct AppearanceTypographySection: View {
     let ui: UIState
+    @State private var showsFontLibrary = false
 
     var body: some View {
         Section {
@@ -3879,9 +4079,171 @@ private struct AppearanceTypographySection: View {
             Text("Uses Avenir Next for app chrome, notes, chat, and document text. Landing-page display typography stays unchanged.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+
+            DisclosureGroup(isExpanded: $showsFontLibrary) {
+                FontLibraryPreviewGrid()
+                    .padding(.top, 6)
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Font Library")
+                        .font(.caption.weight(.semibold))
+                    Text("Every bundled display face is labeled with its own preview.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Heading Typography")
+                            .font(.caption.weight(.semibold))
+                        Text("Custom theme only. Preset themes keep their locked typography.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button("Reset") {
+                        AppDisplayTypography.resetHeadingTypography()
+                        ui.refreshTypographySettings()
+                    }
+                    .controlSize(.small)
+                }
+
+                ForEach([1, 2, 3], id: \.self) { level in
+                    HeadingTypographyControlRow(
+                        level: level,
+                        fontSelection: headingFontBinding(level: level),
+                        sizeScale: headingSizeScaleBinding(level: level),
+                        previewFontName: selectedHeadingFontName(level: level),
+                        previewSize: previewSize(level: level)
+                    )
+                }
+            }
+            .padding(.top, 4)
         } header: {
             Text("Typography")
         }
+    }
+
+    private func headingFontBinding(level: Int) -> Binding<String> {
+        Binding(
+            get: { AppDisplayTypography.storedHeadingFontOverride(level: level) ?? "" },
+            set: { newValue in
+                AppDisplayTypography.setHeadingFontOverride(newValue.isEmpty ? nil : newValue, level: level)
+                ui.refreshTypographySettings()
+            }
+        )
+    }
+
+    private func headingSizeScaleBinding(level: Int) -> Binding<Double> {
+        Binding(
+            get: { Double(AppDisplayTypography.storedHeadingSizeScale(level: level)) },
+            set: { newValue in
+                AppDisplayTypography.setHeadingSizeScale(CGFloat(newValue), level: level)
+                ui.refreshTypographySettings()
+            }
+        )
+    }
+
+    private func selectedHeadingFontName(level: Int) -> String {
+        AppDisplayTypography.storedHeadingFontOverride(level: level)
+            ?? ui.theme.headingFontName(level: level)
+    }
+
+    private func previewSize(level: Int) -> CGFloat {
+        let base: CGFloat = switch level {
+        case 1: 22
+        case 2: 18
+        default: 15
+        }
+        return base * AppDisplayTypography.storedHeadingSizeScale(level: level)
+    }
+}
+
+private struct FontLibraryPreviewGrid: View {
+    private let columns = [
+        GridItem(.adaptive(minimum: 156), spacing: 8, alignment: .top),
+    ]
+
+    var body: some View {
+        LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
+            ForEach(AppDisplayTypography.displayFontOptions) { option in
+                FontLibraryPreviewTile(option: option)
+            }
+        }
+    }
+}
+
+private struct FontLibraryPreviewTile: View {
+    let option: AppBundledDisplayFont
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(option.displayName)
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+            Text("EPST H1")
+                .font(.custom(option.postScriptName, size: 17))
+                .lineLimit(1)
+                .minimumScaleFactor(0.55)
+            Text(option.postScriptName)
+                .font(.caption2.monospaced())
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+private struct HeadingTypographyControlRow: View {
+    let level: Int
+    @Binding var fontSelection: String
+    @Binding var sizeScale: Double
+    let previewFontName: String
+    let previewSize: CGFloat
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center, spacing: 10) {
+                Text("H\(level)")
+                    .font(.caption.weight(.bold))
+                    .frame(width: 28, alignment: .leading)
+                Picker("Font", selection: $fontSelection) {
+                    Text("Theme default").tag("")
+                    ForEach(AppDisplayTypography.displayFontOptions) { option in
+                        Text(option.displayName)
+                            .font(.custom(option.postScriptName, size: 13))
+                            .tag(option.postScriptName)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(maxWidth: 240)
+
+                Slider(
+                    value: $sizeScale,
+                    in: Double(AppDisplayTypography.minimumHeadingSizeScale)...Double(AppDisplayTypography.maximumHeadingSizeScale),
+                    step: 0.05
+                )
+                .frame(minWidth: 120)
+
+                Text("\(Int((sizeScale * 100).rounded()))%")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: 44, alignment: .trailing)
+            }
+
+            Text("Heading \(level) Preview")
+                .font(.custom(previewFontName, size: previewSize))
+                .fontWeight(level == 1 ? .heavy : .semibold)
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+        }
+        .padding(.vertical, 4)
     }
 }
 

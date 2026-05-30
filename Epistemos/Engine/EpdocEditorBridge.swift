@@ -51,8 +51,23 @@ nonisolated public struct EpdocEditorDocumentAsset: Sendable, Equatable {
     }
 }
 
+nonisolated struct EpdocBundledFontAsset: Sendable, Equatable {
+    let resourceName: String
+    let resourceExtension: String
+
+    var filename: String { "\(resourceName).\(resourceExtension)" }
+}
+
 nonisolated enum EpdocEditorAssetResolver {
     static let documentAssetPrefix = "assets/"
+    static var bundledFontAssets: [EpdocBundledFontAsset] {
+        AppDisplayTypography.displayFontOptions.map {
+            EpdocBundledFontAsset(
+                resourceName: $0.resourceName,
+                resourceExtension: $0.resourceExtension
+            )
+        }
+    }
 
     static func resolve(relativePath: String, assetRoot: URL) throws -> EpdocEditorAssetResponse {
         let relative = relativePath.hasPrefix("/")
@@ -105,6 +120,7 @@ nonisolated enum EpdocEditorAssetResolver {
         case "woff":            return "font/woff"
         case "woff2":           return "font/woff2"
         case "ttf":             return "font/ttf"
+        case "otf":             return "font/otf"
         default:                return "application/octet-stream"
         }
     }
@@ -112,6 +128,21 @@ nonisolated enum EpdocEditorAssetResolver {
     static func bundleFont(named name: String, extension ext: String) -> URL? {
         Bundle.main.url(forResource: name, withExtension: ext)
             ?? Bundle.main.url(forResource: name, withExtension: ext, subdirectory: "Fonts")
+    }
+
+    static func bundledFontAsset(relativePath: String) -> EpdocEditorAssetResponse? {
+        let normalized = relativePath.hasPrefix("/")
+            ? String(relativePath.dropFirst())
+            : relativePath
+        guard let asset = bundledFontAssets.first(where: { $0.filename == normalized }),
+              let url = bundleFont(named: asset.resourceName, extension: asset.resourceExtension) else {
+            return nil
+        }
+        return EpdocEditorAssetResponse(
+            fileURL: url,
+            mimeType: mimeType(for: asset.resourceExtension),
+            contentEncoding: nil
+        )
     }
 
     private static func isBrotliEligible(extension ext: String) -> Bool {
@@ -205,46 +236,12 @@ public final class EpdocEditorURLSchemeHandler: NSObject, WKURLSchemeHandler {
         let asset: EpdocEditorAssetResponse
         do {
             asset = try EpdocEditorAssetResolver.resolve(relativePath: url.path, assetRoot: assetRoot)
-        } catch EpdocBridgeError.assetNotFound where url.path == "/CoralPixels-Regular.ttf" {
-            guard let fontURL = EpdocEditorAssetResolver.bundleFont(named: "CoralPixels-Regular", extension: "ttf") else {
+        } catch EpdocBridgeError.assetNotFound {
+            guard let fontAsset = EpdocEditorAssetResolver.bundledFontAsset(relativePath: url.path) else {
                 urlSchemeTask.didFailWithError(EpdocBridgeError.assetNotFound(path: url.path))
                 return
             }
-            asset = EpdocEditorAssetResponse(
-                fileURL: fontURL,
-                mimeType: "font/ttf",
-                contentEncoding: nil
-            )
-        } catch EpdocBridgeError.assetNotFound where url.path == "/RetroGaming.ttf" {
-            guard let fontURL = EpdocEditorAssetResolver.bundleFont(named: "RetroGaming", extension: "ttf") else {
-                urlSchemeTask.didFailWithError(EpdocBridgeError.assetNotFound(path: url.path))
-                return
-            }
-            asset = EpdocEditorAssetResponse(
-                fileURL: fontURL,
-                mimeType: "font/ttf",
-                contentEncoding: nil
-            )
-        } catch EpdocBridgeError.assetNotFound where url.path == "/ChonkyPixels.ttf" {
-            guard let fontURL = EpdocEditorAssetResolver.bundleFont(named: "ChonkyPixels", extension: "ttf") else {
-                urlSchemeTask.didFailWithError(EpdocBridgeError.assetNotFound(path: url.path))
-                return
-            }
-            asset = EpdocEditorAssetResponse(
-                fileURL: fontURL,
-                mimeType: "font/ttf",
-                contentEncoding: nil
-            )
-        } catch EpdocBridgeError.assetNotFound where url.path == "/MatrixtypeDisplay-9MyE5.ttf" {
-            guard let fontURL = EpdocEditorAssetResolver.bundleFont(named: "MatrixtypeDisplay-9MyE5", extension: "ttf") else {
-                urlSchemeTask.didFailWithError(EpdocBridgeError.assetNotFound(path: url.path))
-                return
-            }
-            asset = EpdocEditorAssetResponse(
-                fileURL: fontURL,
-                mimeType: "font/ttf",
-                contentEncoding: nil
-            )
+            asset = fontAsset
         } catch let error as EpdocBridgeError {
             urlSchemeTask.didFailWithError(error)
             return

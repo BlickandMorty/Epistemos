@@ -326,7 +326,7 @@ struct MessageBubble: View {
                     Text(MarkdownHeadingDisplay.displayText(heading, level: 1, theme: theme))
                         .font(
                             AppDisplayTypography.font(
-                                size: AppHeadingRole.h2.fontSize * theme.headingSizeMultiplier
+                                size: AppHeadingRole.h2.fontSize * theme.headingSizeMultiplier(level: 2)
                             )
                         )
                         .foregroundStyle(theme.fontAccent)
