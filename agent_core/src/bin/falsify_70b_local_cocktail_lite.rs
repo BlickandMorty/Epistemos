@@ -216,6 +216,13 @@ fn build_report() -> PreflightReport {
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "provider_reference_replay_files_valid",
+        provider_reference_status.replay_files_valid,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "uas_copy_count_artifact_available",
         uas_copy_count_artifact_available,
     );
@@ -451,14 +458,20 @@ fn path_exists(path: Option<&str>) -> bool {
 struct ProviderReferenceStatus {
     prompt_level_available: bool,
     manifest_valid: bool,
+    replay_files_valid: bool,
     label: String,
 }
 
 fn provider_reference_status(path: Option<&str>) -> ProviderReferenceStatus {
+    provider_reference_status_at(path, Path::new("."))
+}
+
+fn provider_reference_status_at(path: Option<&str>, base_dir: &Path) -> ProviderReferenceStatus {
     let Some(path) = path else {
         return ProviderReferenceStatus {
             prompt_level_available: false,
             manifest_valid: false,
+            replay_files_valid: false,
             label: "env_unset".to_string(),
         };
     };
@@ -466,23 +479,35 @@ fn provider_reference_status(path: Option<&str>) -> ProviderReferenceStatus {
         return ProviderReferenceStatus {
             prompt_level_available: false,
             manifest_valid: false,
+            replay_files_valid: false,
             label: "path_missing".to_string(),
         };
     }
     match ProviderReferenceManifest::from_path(path) {
-        Ok(manifest) if manifest.is_prompt_level_reference() => ProviderReferenceStatus {
-            prompt_level_available: true,
-            manifest_valid: true,
-            label: "prompt_level_replayable_manifest".to_string(),
-        },
-        Ok(_) => ProviderReferenceStatus {
-            prompt_level_available: false,
-            manifest_valid: true,
-            label: "shape_only_manifest".to_string(),
-        },
+        Ok(manifest) => {
+            let replay_result = manifest.validate_replay_files_at(base_dir);
+            let replay_files_valid = replay_result.is_ok();
+            let prompt_level_available = manifest.is_prompt_level_reference() && replay_files_valid;
+            let label = match (
+                manifest.is_prompt_level_reference(),
+                replay_result.as_ref().err(),
+            ) {
+                (true, None) => "prompt_level_replayable_manifest".to_string(),
+                (true, Some(error)) => format!("prompt_level_replay_files_invalid:{error}"),
+                (false, None) => "shape_only_manifest".to_string(),
+                (false, Some(error)) => format!("shape_only_replay_files_invalid:{error}"),
+            };
+            ProviderReferenceStatus {
+                prompt_level_available,
+                manifest_valid: true,
+                replay_files_valid,
+                label,
+            }
+        }
         Err(error) => ProviderReferenceStatus {
             prompt_level_available: false,
             manifest_valid: false,
+            replay_files_valid: false,
             label: format!("invalid_manifest:{error}"),
         },
     }
@@ -707,6 +732,58 @@ fn number(value: f64) -> serde_json::Number {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use agent_core::falsifier_artifacts::sha256_hex;
+    use agent_core::uas::{
+        ProviderReferenceKind, ReferenceDataSentClass, ReferenceEvidenceScope,
+        ReferenceRetentionClaim,
+    };
+
+    fn write_provider_reference_fixture(
+        root: &Path,
+        scope: ReferenceEvidenceScope,
+        prompt_count: u32,
+        write_prompt_suite: bool,
+    ) -> String {
+        let artifact_ref =
+            "artifacts/falsifiers/70b_local_cocktail_lite/test_reference.jsonl".to_string();
+        let prompt_suite_artifact_ref =
+            "artifacts/falsifiers/kv_direct_gate/test_prompt_suite.json".to_string();
+        let artifact_path = root.join(&artifact_ref);
+        let prompt_suite_path = root.join(&prompt_suite_artifact_ref);
+        std::fs::create_dir_all(artifact_path.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(prompt_suite_path.parent().unwrap()).unwrap();
+        let reference_bytes = b"{\"scope\":\"test-reference\"}\n";
+        let prompt_suite_bytes = b"{\"suite\":\"test-suite\"}\n";
+        std::fs::write(&artifact_path, reference_bytes).unwrap();
+        if write_prompt_suite {
+            std::fs::write(&prompt_suite_path, prompt_suite_bytes).unwrap();
+        }
+        let manifest = ProviderReferenceManifest {
+            schema_version: ProviderReferenceManifest::SCHEMA_VERSION.to_string(),
+            model_id: "test-70b-reference".to_string(),
+            reference_kind: ProviderReferenceKind::LocalFp16Replay,
+            evidence_scope: scope,
+            artifact_ref,
+            artifact_sha256: sha256_hex(reference_bytes),
+            prompt_suite_id: "test_suite".to_string(),
+            prompt_suite_artifact_ref,
+            prompt_suite_artifact_sha256: sha256_hex(prompt_suite_bytes),
+            request_id_hash: None,
+            redaction_digest: None,
+            data_sent_class: ReferenceDataSentClass::LocalOnly,
+            retention_claim: ReferenceRetentionClaim::LocalFileOnly,
+            replay_allowed: true,
+            prompt_count,
+            notes: "test fixture".to_string(),
+        };
+        let manifest_path = root.join("provider_reference.json");
+        std::fs::write(
+            &manifest_path,
+            serde_json::to_vec_pretty(&manifest).unwrap(),
+        )
+        .unwrap();
+        manifest_path.display().to_string()
+    }
 
     #[test]
     fn missing_model_is_first_bottleneck() {
@@ -757,6 +834,59 @@ mod tests {
     }
 
     #[test]
+    fn prompt_level_reference_requires_replay_files() {
+        let temp = tempfile::tempdir().unwrap();
+        let manifest_path = write_provider_reference_fixture(
+            temp.path(),
+            ReferenceEvidenceScope::PromptLevelComparison,
+            50,
+            false,
+        );
+        let status = provider_reference_status_at(Some(&manifest_path), temp.path());
+
+        assert!(status.manifest_valid);
+        assert!(!status.replay_files_valid);
+        assert!(!status.prompt_level_available);
+        assert!(status
+            .label
+            .starts_with("prompt_level_replay_files_invalid:"));
+    }
+
+    #[test]
+    fn prompt_level_reference_with_retained_replay_files_can_advance_reference_gate() {
+        let temp = tempfile::tempdir().unwrap();
+        let manifest_path = write_provider_reference_fixture(
+            temp.path(),
+            ReferenceEvidenceScope::PromptLevelComparison,
+            50,
+            true,
+        );
+        let status = provider_reference_status_at(Some(&manifest_path), temp.path());
+
+        assert!(status.manifest_valid);
+        assert!(status.replay_files_valid);
+        assert!(status.prompt_level_available);
+        assert_eq!(status.label, "prompt_level_replayable_manifest");
+    }
+
+    #[test]
+    fn shape_only_reference_keeps_reference_gate_closed_even_with_replay_files() {
+        let temp = tempfile::tempdir().unwrap();
+        let manifest_path = write_provider_reference_fixture(
+            temp.path(),
+            ReferenceEvidenceScope::ShapeOnlyFixture,
+            1,
+            true,
+        );
+        let status = provider_reference_status_at(Some(&manifest_path), temp.path());
+
+        assert!(status.manifest_valid);
+        assert!(status.replay_files_valid);
+        assert!(!status.prompt_level_available);
+        assert_eq!(status.label, "shape_only_manifest");
+    }
+
+    #[test]
     fn preflight_artifact_never_accidentally_passes_today() {
         let report = build_report();
         assert!(!report.artifact.overall_pass);
@@ -770,6 +900,7 @@ mod tests {
             "resident_memory_gb",
             "bottleneck_identified",
             "provider_reference_manifest_valid",
+            "provider_reference_replay_files_valid",
             "weight_block_range_hash_dry_run_available",
             "uas_acs_mmap_residency_artifact_available",
             "sparse_runtime_split_artifact_available",

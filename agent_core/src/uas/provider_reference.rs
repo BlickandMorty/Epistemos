@@ -5,6 +5,7 @@
 //! provider call, or prompt-level KL probe is attempted.
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::path::Path;
 
 const ROW_ROOT: &str = "artifacts/falsifiers/70b_local_cocktail_lite/";
@@ -76,6 +77,34 @@ impl ProviderReferenceManifest {
         let input =
             std::fs::read_to_string(path).map_err(|_| ProviderReferenceManifestError::Io)?;
         Self::from_json_str(&input)
+    }
+
+    pub fn validate_replay_files_at(
+        &self,
+        base_dir: impl AsRef<Path>,
+    ) -> Result<(), ProviderReferenceManifestError> {
+        self.validate()?;
+        let base_dir = base_dir.as_ref();
+        validate_file_digest(base_dir, &self.artifact_ref, &self.artifact_sha256).map_err(
+            |error| match error {
+                ReplayFileError::Missing => ProviderReferenceManifestError::ArtifactFileMissing,
+                ReplayFileError::DigestMismatch => {
+                    ProviderReferenceManifestError::ArtifactDigestMismatch
+                }
+            },
+        )?;
+        validate_file_digest(
+            base_dir,
+            &self.prompt_suite_artifact_ref,
+            &self.prompt_suite_artifact_sha256,
+        )
+        .map_err(|error| match error {
+            ReplayFileError::Missing => ProviderReferenceManifestError::PromptSuiteFileMissing,
+            ReplayFileError::DigestMismatch => {
+                ProviderReferenceManifestError::PromptSuiteDigestMismatch
+            }
+        })?;
+        Ok(())
     }
 
     pub fn validate(&self) -> Result<(), ProviderReferenceManifestError> {
@@ -156,6 +185,10 @@ pub enum ProviderReferenceManifestError {
     HostedReferenceMissingDataClass,
     BadRetentionClaim,
     MissingHostedReceiptDigest,
+    ArtifactFileMissing,
+    PromptSuiteFileMissing,
+    ArtifactDigestMismatch,
+    PromptSuiteDigestMismatch,
 }
 
 impl std::fmt::Display for ProviderReferenceManifestError {
@@ -204,6 +237,18 @@ impl std::fmt::Display for ProviderReferenceManifestError {
             Self::MissingHostedReceiptDigest => {
                 write!(f, "hosted reference requires request and redaction digests")
             }
+            Self::ArtifactFileMissing => {
+                write!(f, "provider reference artifact file is missing")
+            }
+            Self::PromptSuiteFileMissing => {
+                write!(f, "provider reference prompt-suite file is missing")
+            }
+            Self::ArtifactDigestMismatch => {
+                write!(f, "provider reference artifact digest mismatch")
+            }
+            Self::PromptSuiteDigestMismatch => {
+                write!(f, "provider reference prompt-suite digest mismatch")
+            }
         }
     }
 }
@@ -247,6 +292,37 @@ fn validate_sha256(value: &str) -> Result<(), ProviderReferenceManifestError> {
     } else {
         Err(ProviderReferenceManifestError::InvalidSha256)
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ReplayFileError {
+    Missing,
+    DigestMismatch,
+}
+
+fn validate_file_digest(
+    base_dir: &Path,
+    artifact_ref: &str,
+    expected_sha256: &str,
+) -> Result<(), ReplayFileError> {
+    let path = base_dir.join(artifact_ref);
+    let bytes = std::fs::read(path).map_err(|_| ReplayFileError::Missing)?;
+    let actual = format!("sha256:{}", hex_lower(&Sha256::digest(&bytes)));
+    if actual == expected_sha256 {
+        Ok(())
+    } else {
+        Err(ReplayFileError::DigestMismatch)
+    }
+}
+
+fn hex_lower(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        out.push(HEX[(byte >> 4) as usize] as char);
+        out.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    out
 }
 
 #[cfg(test)]
@@ -367,6 +443,55 @@ mod tests {
         assert_eq!(
             manifest.validate(),
             Err(ProviderReferenceManifestError::LocalReferenceSentData)
+        );
+    }
+
+    #[test]
+    fn replay_file_validation_requires_existing_digest_matched_files() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut manifest = local_manifest();
+        manifest.artifact_ref =
+            "artifacts/falsifiers/70b_local_cocktail_lite/local_reference.jsonl".to_string();
+        manifest.prompt_suite_artifact_ref =
+            "artifacts/falsifiers/kv_direct_gate/prompt_suite.json".to_string();
+        let reference_path = temp.path().join(&manifest.artifact_ref);
+        let suite_path = temp.path().join(&manifest.prompt_suite_artifact_ref);
+        std::fs::create_dir_all(reference_path.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(suite_path.parent().unwrap()).unwrap();
+        let reference_bytes = b"{\"logits_digest\":\"reference\"}\n";
+        let suite_bytes = b"{\"suite\":\"prompt-suite\"}\n";
+        std::fs::write(&reference_path, reference_bytes).unwrap();
+        std::fs::write(&suite_path, suite_bytes).unwrap();
+        manifest.artifact_sha256 = crate::falsifier_artifacts::sha256_hex(reference_bytes);
+        manifest.prompt_suite_artifact_sha256 = crate::falsifier_artifacts::sha256_hex(suite_bytes);
+
+        assert!(manifest.validate_replay_files_at(temp.path()).is_ok());
+
+        std::fs::write(&reference_path, b"tampered\n").unwrap();
+        assert_eq!(
+            manifest.validate_replay_files_at(temp.path()),
+            Err(ProviderReferenceManifestError::ArtifactDigestMismatch)
+        );
+    }
+
+    #[test]
+    fn replay_file_validation_rejects_missing_prompt_suite_file() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut manifest = local_manifest();
+        manifest.artifact_ref =
+            "artifacts/falsifiers/70b_local_cocktail_lite/local_reference.jsonl".to_string();
+        manifest.prompt_suite_artifact_ref =
+            "artifacts/falsifiers/kv_direct_gate/prompt_suite.json".to_string();
+        let reference_path = temp.path().join(&manifest.artifact_ref);
+        std::fs::create_dir_all(reference_path.parent().unwrap()).unwrap();
+        let reference_bytes = b"{\"logits_digest\":\"reference\"}\n";
+        std::fs::write(&reference_path, reference_bytes).unwrap();
+        manifest.artifact_sha256 = crate::falsifier_artifacts::sha256_hex(reference_bytes);
+        manifest.prompt_suite_artifact_sha256 = crate::falsifier_artifacts::sha256_hex(b"missing");
+
+        assert_eq!(
+            manifest.validate_replay_files_at(temp.path()),
+            Err(ProviderReferenceManifestError::PromptSuiteFileMissing)
         );
     }
 }

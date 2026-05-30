@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "89befafd1cc749a5ecf257b9bf5924a8126fa0db",
+  "commit_sha": "2bf3ff4e87cefbc97381fb6f4aafa33a1fb6563d",
   "fixture_id": "70b_cocktail_lite_preflight_v1",
-  "timestamp_utc": "2026-05-30T12:26:21Z",
-  "result_digest": "sha256:334504cb95f4111f154788e6f8995e3983c420e7e6e5033b50277512a3af62ae",
+  "timestamp_utc": "2026-05-30T12:35:34Z",
+  "result_digest": "sha256:f58be667a50e4570eca47aec33e910ef409b12aaf6aa46c3a4fc5e1338177671",
   "measurements": {
     "active_assembly_artifact_available": {
       "value": true,
@@ -103,6 +103,10 @@
       "unit": "path_or_env"
     },
     "provider_reference_manifest_valid": {
+      "value": false,
+      "unit": "bool"
+    },
+    "provider_reference_replay_files_valid": {
       "value": false,
       "unit": "bool"
     },
@@ -216,6 +220,11 @@
       "value": true,
       "unit": "bool"
     },
+    "provider_reference_replay_files_valid": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "residency_plan_dry_run_available": {
       "operator": "==",
       "value": true,
@@ -280,6 +289,7 @@
     "page_gather_packetized_artifact_available": true,
     "provider_reference_available": false,
     "provider_reference_manifest_valid": false,
+    "provider_reference_replay_files_valid": false,
     "residency_plan_dry_run_available": true,
     "resident_memory_gb": false,
     "sparse_70b_runtime_available": false,

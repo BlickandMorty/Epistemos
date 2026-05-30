@@ -442,9 +442,9 @@ These are the minimum axis keys each F-* artifact must cover in `measurements`, 
 | `F-WBO-DriftLedger` | `finite_nonnegative_terms`, `envelope_bound`, `post_softmax_drift`, `missing_term_fail_closed` |
 | `F-ULP-Oracle` | `max_ulp`, `comparable_points_over_2ulp`, `stress_case_classification`, `wall_clock_seconds` |
 | `F-ResidencyPlan-DryRun` | `fit_for_dry_run`, `deterministic_plan_address`, `active_runtime_bytes`, `cold_mmap_ssd_bytes`, `runtime_model_bytes_loaded`, `missing_rollback_rejected`, `overlapping_ranges_rejected`, `sherry_and_leech_codec_names_present` |
-| `F-ProviderReferenceManifest-DryRun` | `shape_fixture_written`, `manifest_valid`, `prompt_level_reference`, `does_not_advance_70b_reference_gate`, `row_root_path`, `digest_matches_sidecar`, `prompt_suite_bound`, `no_provider_call` |
+| `F-ProviderReferenceManifest-DryRun` | `shape_fixture_written`, `manifest_valid`, `prompt_level_reference`, `does_not_advance_70b_reference_gate`, `row_root_path`, `digest_matches_sidecar`, `replay_files_valid`, `prompt_suite_bound`, `no_provider_call` |
 | `F-WeightBlockRangeHash-DryRun` | `bounded_range_hashed`, `range_len_bytes`, `over_limit_rejected_before_read`, `short_reader_rejected`, `known_hash_manifest_valid`, `no_model_file_touched` |
-| `F-70B-Local-Cocktail-Lite` | `d_kl_nats`, `decode_tok_s`, `ttft_seconds`, `resident_memory_gb`, `bottleneck_identified`, `weight_block_range_hash_dry_run_available` |
+| `F-70B-Local-Cocktail-Lite` | `d_kl_nats`, `decode_tok_s`, `ttft_seconds`, `resident_memory_gb`, `bottleneck_identified`, `provider_reference_replay_files_valid`, `weight_block_range_hash_dry_run_available` |
 | `F-Agent-Local-Model-Runtime-Bridge` | `local_model_catalog_available`, `provider_policy_local_mlx_available`, `system_g_event_seam_available`, `local_agent_adapter_dispatch_wired`, `system_g_local_model_provider_dispatch_wired`, `live_local_model_answerpacket_provenance_wired` |
 
 ## T12 F-ULP Witness Correspondence
@@ -1521,9 +1521,9 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
       },
       "then": {
         "properties": {
-          "measurements": { "required": ["shape_fixture_written", "manifest_valid", "prompt_level_reference", "does_not_advance_70b_reference_gate", "row_root_path", "digest_matches_sidecar", "prompt_suite_bound", "no_provider_call"] },
-          "acceptance_thresholds": { "required": ["shape_fixture_written", "manifest_valid", "prompt_level_reference", "does_not_advance_70b_reference_gate", "row_root_path", "digest_matches_sidecar", "prompt_suite_bound", "no_provider_call"] },
-          "pass_per_axis": { "required": ["shape_fixture_written", "manifest_valid", "prompt_level_reference", "does_not_advance_70b_reference_gate", "row_root_path", "digest_matches_sidecar", "prompt_suite_bound", "no_provider_call"] }
+          "measurements": { "required": ["shape_fixture_written", "manifest_valid", "prompt_level_reference", "does_not_advance_70b_reference_gate", "row_root_path", "digest_matches_sidecar", "replay_files_valid", "prompt_suite_bound", "no_provider_call"] },
+          "acceptance_thresholds": { "required": ["shape_fixture_written", "manifest_valid", "prompt_level_reference", "does_not_advance_70b_reference_gate", "row_root_path", "digest_matches_sidecar", "replay_files_valid", "prompt_suite_bound", "no_provider_call"] },
+          "pass_per_axis": { "required": ["shape_fixture_written", "manifest_valid", "prompt_level_reference", "does_not_advance_70b_reference_gate", "row_root_path", "digest_matches_sidecar", "replay_files_valid", "prompt_suite_bound", "no_provider_call"] }
         }
       }
     },
@@ -1547,9 +1547,9 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
       },
       "then": {
         "properties": {
-          "measurements": { "required": ["d_kl_nats", "decode_tok_s", "ttft_seconds", "resident_memory_gb", "bottleneck_identified", "weight_block_range_hash_dry_run_available"] },
-          "acceptance_thresholds": { "required": ["d_kl_nats", "decode_tok_s", "ttft_seconds", "resident_memory_gb", "bottleneck_identified", "weight_block_range_hash_dry_run_available"] },
-          "pass_per_axis": { "required": ["d_kl_nats", "decode_tok_s", "ttft_seconds", "resident_memory_gb", "bottleneck_identified", "weight_block_range_hash_dry_run_available"] }
+          "measurements": { "required": ["d_kl_nats", "decode_tok_s", "ttft_seconds", "resident_memory_gb", "bottleneck_identified", "provider_reference_replay_files_valid", "weight_block_range_hash_dry_run_available"] },
+          "acceptance_thresholds": { "required": ["d_kl_nats", "decode_tok_s", "ttft_seconds", "resident_memory_gb", "bottleneck_identified", "provider_reference_replay_files_valid", "weight_block_range_hash_dry_run_available"] },
+          "pass_per_axis": { "required": ["d_kl_nats", "decode_tok_s", "ttft_seconds", "resident_memory_gb", "bottleneck_identified", "provider_reference_replay_files_valid", "weight_block_range_hash_dry_run_available"] }
         },
         "anyOf": [
           { "required": ["provider_receipts"] },
