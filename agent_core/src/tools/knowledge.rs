@@ -136,9 +136,9 @@ impl ToolHandler for VaultRecallHandler {
         let tag_filter = parse_note_filter(input)?;
 
         let start = Instant::now();
-        let results = self
+        let (results, trace) = self
             .vault
-            .hybrid_search(query, top_k, &tag_filter)
+            .hybrid_search_with_trace(query, top_k, &tag_filter)
             .await
             .map_err(|e| ToolError::ExecutionFailed(format!("vault search failed: {e}")))?;
         let latency_ms = start.elapsed().as_secs_f64() * 1000.0;
@@ -146,10 +146,57 @@ impl ToolHandler for VaultRecallHandler {
         let hits: Vec<Value> = results
             .iter()
             .map(|r| {
+                let trace_candidate = trace
+                    .candidates
+                    .iter()
+                    .find(|candidate| candidate.path == r.path);
+                let uas_address = trace_candidate
+                    .and_then(|candidate| candidate.uas_address.as_ref())
+                    .map(ToString::to_string)
+                    .unwrap_or_else(|| r.projected_uas_address().to_string());
+                let signal_summary: Vec<String> = trace_candidate
+                    .map(|candidate| {
+                        candidate
+                            .signals
+                            .iter()
+                            .map(|score| score.signal.slug().to_string())
+                            .collect()
+                    })
+                    .unwrap_or_else(|| {
+                        trace
+                            .signal_summary
+                            .iter()
+                            .map(|signal| signal.slug().to_string())
+                            .collect()
+                    });
+                let why_matched = trace_candidate
+                    .and_then(|candidate| {
+                        (!candidate.selection_reason.is_empty())
+                            .then(|| candidate.selection_reason.clone())
+                    })
+                    .unwrap_or_else(|| {
+                        if signal_summary.is_empty() {
+                            "vault recall ranked hit".to_string()
+                        } else {
+                            format!("matched by {}", signal_summary.join("+"))
+                        }
+                    });
+                let title = Path::new(&r.path)
+                    .file_stem()
+                    .and_then(|stem| stem.to_str())
+                    .unwrap_or(&r.path);
                 json!({
+                    "id": r.path,
+                    "title": title,
                     "path": r.path,
                     "snippet": r.excerpt,
                     "score": r.score,
+                    "source_kind": "note",
+                    "citation_token": format!("vault-note:{}", uas_address),
+                    "uas_address": uas_address,
+                    "last_modified": Value::Null,
+                    "why_matched": why_matched,
+                    "signals": signal_summary,
                     "tags": r.tags,
                 })
             })
@@ -157,10 +204,18 @@ impl ToolHandler for VaultRecallHandler {
 
         Ok(json!({
             "query": query,
+            "effective_query": trace.effective_query,
             "top_k": top_k,
             "count": hits.len(),
             "latency_ms": latency_ms,
             "results": hits,
+            "trace": {
+                "ladder_tier": trace.ladder_tier.clone(),
+                "candidate_pool_size": trace.candidate_pool_size,
+                "candidates_retained": trace.candidates_retained,
+                "signal_summary": trace.signal_summary.iter().map(|signal| signal.slug().to_string()).collect::<Vec<_>>(),
+                "notes": trace.notes.clone(),
+            },
         })
         .to_string())
     }
@@ -718,6 +773,14 @@ mod tests {
         assert!(parsed["latency_ms"].as_f64().unwrap() >= 0.0);
         let results = parsed["results"].as_array().unwrap();
         assert_eq!(results[0]["path"], json!("a.md"));
+        assert_eq!(results[0]["id"], json!("a.md"));
+        assert_eq!(results[0]["source_kind"], json!("note"));
+        assert!(results[0]["citation_token"]
+            .as_str()
+            .unwrap()
+            .starts_with("vault-note:vault_note:"));
+        assert_eq!(results[0]["why_matched"], json!("matched by lexical"));
+        assert_eq!(parsed["trace"]["signal_summary"][0], json!("lexical"));
     }
 
     #[tokio::test]
