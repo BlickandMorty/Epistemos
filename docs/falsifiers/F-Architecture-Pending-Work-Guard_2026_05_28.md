@@ -66,6 +66,13 @@ tokens, and anything larger requires the explicit
 `EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1` environment gate. This is an execution
 safety bit, not a demotion of the UAS/ACS/70B ambition.
 
+The GGUF bench helper must also preserve a dry-run preview mode. That preview
+is allowed to write only a manifest with `not_executed=true`,
+`falsifier_green_capable=false`, command shape, and opt-in requirements. It
+must not launch `llama.cpp`, touch the model file, submit Metal work, or write
+metrics. This gives agents a safe way to inspect the next runtime command while
+the crash-prone 128K/70B route remains gated.
+
 The guard now also consumes the safe non-runtime large-model rungs that must
 exist before another 128K/70B runtime probe:
 
@@ -137,6 +144,7 @@ prompt suite, planner, or parallel scaffold.
 - `kv_model_context_canonical_context_ok`
 - `qwen3_8b_128k_gguf_candidate_artifact_available`
 - `heavy_long_context_guard_present`
+- `qwen3_gguf_bench_dry_run_guard_present`
 - `weight_block_range_hash_dry_run_available`
 - `residency_plan_dry_run_available`
 - `provider_reference_manifest_dry_run_available`
@@ -146,6 +154,11 @@ The `residency_plan_dry_run_available` axis includes the
 `overlapping_ranges_rejected` sub-axis from `F-ResidencyPlan-DryRun`; a planner
 that permits overlapping weight byte ranges must not advance to any mmap,
 MLX, Metal, KV, or 70B runtime probe.
+
+The `provider_reference_manifest_dry_run_available` axis includes the
+`replay_files_valid` sub-axis from `F-ProviderReferenceManifest-DryRun`; a
+manifest whose JSON shape is valid but whose retained replay files are missing
+or digest-drifted must not count as reference readiness.
 
 ## Non-Drift Rule
 

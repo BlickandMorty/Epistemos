@@ -145,6 +145,7 @@ fn build_report() -> GuardReport {
             "does_not_advance_70b_reference_gate",
             "row_root_path",
             "digest_matches_sidecar",
+            "replay_files_valid",
             "prompt_suite_bound",
             "no_provider_call",
         ],
@@ -158,14 +159,21 @@ fn build_report() -> GuardReport {
             && artifact_axis_true_value(value, "residency_plan_dry_run_available")
             && !artifact_axis_true_value(value, "provider_reference_available")
     });
+    let gguf_bench_runner_source =
+        std::fs::read_to_string(QWEN3_8B_128K_GGUF_BENCH_RUNNER_PATH).ok();
     let heavy_long_context_guard_present =
-        std::fs::read_to_string(QWEN3_8B_128K_GGUF_BENCH_RUNNER_PATH)
-            .map(|source| {
-                source.contains("EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT")
-                    && source.contains("SAFE_CONTEXT_TOKENS")
-                    && source.contains("refusing >")
-            })
-            .unwrap_or(false);
+        gguf_bench_runner_source.as_ref().is_some_and(|source| {
+            source.contains("EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT")
+                && source.contains("SAFE_CONTEXT_TOKENS")
+                && source.contains("refusing >")
+        });
+    let qwen3_gguf_bench_dry_run_guard_present =
+        gguf_bench_runner_source.as_ref().is_some_and(|source| {
+            source.contains("--dry-run")
+                && source.contains("not_executed")
+                && source.contains("falsifier_green_capable")
+                && source.contains("dry-run command preview only")
+        });
     let qwen3_gguf_next_bottleneck = qwen3_gguf_route
         .as_ref()
         .and_then(|v| measurement_string(v, "next_bottleneck"))
@@ -207,6 +215,7 @@ fn build_report() -> GuardReport {
         && provider_reference_manifest_dry_run_available
         && local_70b_cocktail_honest_red
         && heavy_long_context_guard_present
+        && qwen3_gguf_bench_dry_run_guard_present
         && worktree_inventory.is_some()
         && model_context_inventory.is_some()
         && next_existing_work != "unset";
@@ -329,6 +338,13 @@ fn build_report() -> GuardReport {
         &mut pass_per_axis,
         "heavy_long_context_guard_present",
         heavy_long_context_guard_present,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "qwen3_gguf_bench_dry_run_guard_present",
+        qwen3_gguf_bench_dry_run_guard_present,
     );
     add_bool_axis(
         &mut measurements,
@@ -550,6 +566,7 @@ fn build_report() -> GuardReport {
                 "exists": qwen3_gguf_route.is_some(),
                 "heavy_run_guard_path": QWEN3_8B_128K_GGUF_BENCH_RUNNER_PATH,
                 "heavy_long_context_guard_present": heavy_long_context_guard_present,
+                "dry_run_guard_present": qwen3_gguf_bench_dry_run_guard_present,
                 "next_bottleneck": qwen3_gguf_next_bottleneck
             },
             "large_model_non_runtime_rungs": {
@@ -622,6 +639,12 @@ fn build_report() -> GuardReport {
         anomalies.push(serde_json::json!({
             "kind": "missing_heavy_long_context_guard",
             "detail": "Long-context GGUF probes above the known-safe envelope must require EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT=1 so the loop cannot accidentally repeat a watchdog-triggering Metal stall."
+        }));
+    }
+    if !qwen3_gguf_bench_dry_run_guard_present {
+        anomalies.push(serde_json::json!({
+            "kind": "missing_qwen3_gguf_bench_dry_run_guard",
+            "detail": "The GGUF bench helper must retain a dry-run preview path that writes not_executed=true and falsifier_green_capable=false without launching llama.cpp, reading the model file, or writing metrics."
         }));
     }
     if !weight_block_range_hash_dry_run_available {
