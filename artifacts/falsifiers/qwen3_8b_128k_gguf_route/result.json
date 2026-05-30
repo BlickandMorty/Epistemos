@@ -28,9 +28,9 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "ba6f15e6fb08c772c5bbce4d303aff864f39e9c2",
+  "commit_sha": "eb5c804035eab9443f9b1c25c7f0939c47ca7df2",
   "fixture_id": "qwen3_8b_128k_gguf_candidate_route_v1",
-  "timestamp_utc": "2026-05-30T00:37:20Z",
+  "timestamp_utc": "2026-05-30T12:43:43Z",
   "result_digest": "sha256:dd2fdbba4492dbd018b1f09b89a75f7fb8e18d8797915078ed9b5d5fe0979322",
   "measurements": {
     "asset_plan_path": {
