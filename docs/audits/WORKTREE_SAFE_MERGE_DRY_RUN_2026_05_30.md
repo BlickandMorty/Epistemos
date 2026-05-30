@@ -106,6 +106,26 @@ T4 VaultRecall
 Wave4 PageGather vault escalation
 ```
 
+## Dirty High-Priority Branch Reality
+
+The dirty worktrees were inspected by branch head, not by their dirty
+`target/` directories. Current-vs-branch stats show why broad merges are
+forbidden:
+
+| Branch | Current-vs-branch risk | Decision |
+|---|---|---|
+| `codex/t17b-lattice-wbo-register-2026-05-18` | ancestor of checkpoint; diff none | no merge needed; generated dirt only |
+| `codex/t18b-acs-admission-field-2026-05-18` | ancestor of checkpoint; diff none | no merge needed; generated dirt only |
+| `phase2-terminal-s-hyperdynamic-loop-2026-05-24` | hundreds of files differ; branch would delete current RuntimeRouter/HTML workspace/current surfaces | donor reference only |
+| `terminal/c-system-g-full-path-2026-05-23` | hundreds of files differ; branch lacks current post-Wave surfaces | donor reference only |
+| `codex/t5-emlir-2026-05-16` | over a thousand files differ; branch would delete many current app/runtime files | mine only specific IR modules/docs after current-code read |
+| `codex/t2-agent-2026-05-16` | over a thousand files differ; branch would delete current app/runtime files | mine only specific local-agent diagnostics if absent |
+| `codex/t4-vault-2026-05-16` | over a thousand files differ; branch would delete current app/runtime files | mine only specific VaultRecall tests/policy if absent |
+
+This is the concrete cause of the prior "app went back in time" failure mode:
+old donor branches are valuable, but they are not valid merge bases for the
+current app.
+
 ## Next Safe Port Target
 
 The best next code-facing target is **not** a branch merge. It is a small
