@@ -263,13 +263,7 @@ impl WeightBlockManifest {
         rollback_reference: Option<UasAddress>,
     ) -> Result<Self, WeightBlockManifestError> {
         let uas_address = UasAddress::from_hash(UasKind::ModelComponent, hash, created_at_ms);
-        let residency_tier = match residency_class {
-            WeightBlockResidencyClass::HotUma | WeightBlockResidencyClass::WarmCompressedUma => {
-                ResidencyTier::VerifiedFloor
-            }
-            WeightBlockResidencyClass::ColdMmapSsd
-            | WeightBlockResidencyClass::ExternalCandidate => ResidencyTier::CapabilityCeiling,
-        };
+        let residency_tier = residency_tier_for_class(residency_class);
 
         Ok(Self {
             model_id,
@@ -513,6 +507,11 @@ pub enum ResidencyPlanViolation {
         address: String,
         actual_kind: String,
     },
+    ResidencyTierMismatch {
+        address: String,
+        expected_tier: String,
+        actual_tier: String,
+    },
     ByteTotalOverflow {
         counter: String,
     },
@@ -621,6 +620,14 @@ impl ResidencyPlan {
                 });
             }
             validate_block_content_hash(block, &address, &mut violations);
+            let expected_residency_tier = residency_tier_for_class(block.residency_class);
+            if block.residency_tier != expected_residency_tier {
+                violations.push(ResidencyPlanViolation::ResidencyTierMismatch {
+                    address: address.clone(),
+                    expected_tier: expected_residency_tier.wire_tag().to_string(),
+                    actual_tier: block.residency_tier.wire_tag().to_string(),
+                });
+            }
             if !seen_addresses.insert(address.clone()) {
                 violations.push(ResidencyPlanViolation::DuplicateUasAddress {
                     address: address.clone(),
@@ -651,7 +658,7 @@ impl ResidencyPlan {
             } else {
                 push_byte_total_overflow(&mut violations, "byte_range_end_exclusive");
             }
-            if block.residency_tier == ResidencyTier::CapabilityCeiling {
+            if expected_residency_tier == ResidencyTier::CapabilityCeiling {
                 effective_residency_tier = ResidencyTier::CapabilityCeiling;
             }
             if !is_valid_wbo_budget_nats(block.wbo_budget_nats) {
@@ -921,6 +928,17 @@ fn weight_block_residency_class_preimage(
         WeightBlockResidencyClass::WarmCompressedUma => "warm_compressed_uma",
         WeightBlockResidencyClass::ColdMmapSsd => "cold_mmap_ssd",
         WeightBlockResidencyClass::ExternalCandidate => "external_candidate",
+    }
+}
+
+fn residency_tier_for_class(residency_class: WeightBlockResidencyClass) -> ResidencyTier {
+    match residency_class {
+        WeightBlockResidencyClass::HotUma | WeightBlockResidencyClass::WarmCompressedUma => {
+            ResidencyTier::VerifiedFloor
+        }
+        WeightBlockResidencyClass::ColdMmapSsd | WeightBlockResidencyClass::ExternalCandidate => {
+            ResidencyTier::CapabilityCeiling
+        }
     }
 }
 
@@ -2212,6 +2230,34 @@ mod tests {
                     actual_kind,
                     ..
                 } if actual_kind == "answer_packet"
+            )
+        }));
+    }
+
+    #[test]
+    fn residency_plan_rejects_publicly_mutated_residency_tier_mismatch() {
+        let mut block = manifest(
+            "mutated-residency-tier",
+            0,
+            b"cold-nf4-block",
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            Some(rollback_reference()),
+        );
+        block.residency_tier = ResidencyTier::CurrentApp;
+        let budget = ResidencyBudget::new(1024, 1024, 4096, 0.10, 16).unwrap();
+
+        let plan = ResidencyPlan::evaluate([block], budget, 42);
+
+        assert_eq!(plan.status, ResidencyPlanStatus::RejectedBeforeRuntime);
+        assert!(plan.violations.iter().any(|v| {
+            matches!(
+                v,
+                ResidencyPlanViolation::ResidencyTierMismatch {
+                    expected_tier,
+                    actual_tier,
+                    ..
+                } if expected_tier == "capability_ceiling" && actual_tier == "current_app"
             )
         }));
     }
