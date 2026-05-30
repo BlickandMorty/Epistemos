@@ -52,9 +52,9 @@ impl UasAddress {
 pub enum UasAddressParseError {
     /// Wire string lacked the canonical `<kind>:<hex>@<ms>` shape.
     BadShape,
-    /// `<kind>` segment is wire-format malformed (empty). Unknown tags do
-    /// NOT trigger this — they deserialize to `UasKind::Other` per the
-    /// forward-compat escape hatch.
+    /// `<kind>` segment is wire-format malformed. Unknown valid tags do NOT
+    /// trigger this — they deserialize to `UasKind::Other` per the forward-
+    /// compat escape hatch.
     BadKind(String),
     /// `<hex>` segment was not a valid 64-hex-char BLAKE3 representation.
     BadHash(String),
@@ -69,7 +69,7 @@ impl fmt::Display for UasAddressParseError {
                 write!(f, "UasAddress wire-format must be `<kind>:<hex>@<ms>`")
             }
             UasAddressParseError::BadKind(k) => {
-                write!(f, "malformed UasKind wire tag `{}` (empty)", k)
+                write!(f, "malformed UasKind wire tag `{}`", k)
             }
             UasAddressParseError::BadHash(h) => {
                 write!(f, "invalid BLAKE3 hex `{}` (expected 64 hex chars)", h)
@@ -102,12 +102,11 @@ impl FromStr for UasAddress {
         let (kind_part, rest) = s.split_once(':').ok_or(UasAddressParseError::BadShape)?;
         let (hex_part, ms_part) = rest.split_once('@').ok_or(UasAddressParseError::BadShape)?;
 
-        // UasKind::from_wire_tag is total — unknown tags deserialize to
-        // UasKind::Other(tag.to_string()). BadKind in the error enum is
-        // reserved for kind segments that are wire-format malformed (empty
-        // string) rather than unknown.
-        if kind_part.is_empty() {
-            return Err(UasAddressParseError::BadKind(String::new()));
+        // UasKind::from_wire_tag is total — unknown valid tags deserialize to
+        // UasKind::Other(tag.to_string()). BadKind is reserved for kind
+        // segments that are wire-format malformed rather than merely unknown.
+        if !is_valid_kind_wire_tag(kind_part) {
+            return Err(UasAddressParseError::BadKind(kind_part.to_string()));
         }
         let kind = UasKind::from_wire_tag(kind_part);
 
@@ -124,6 +123,14 @@ impl FromStr for UasAddress {
             created_at_ms,
         })
     }
+}
+
+fn is_valid_kind_wire_tag(tag: &str) -> bool {
+    !tag.is_empty()
+        && tag.trim() == tag
+        && !tag
+            .chars()
+            .any(|ch| ch.is_control() || ch.is_whitespace() || matches!(ch, '|' | '@'))
 }
 
 mod serde_blake3_hash {
@@ -193,6 +200,22 @@ mod tests {
         let s = format!(":{}@0", fake_hex);
         let err = UasAddress::from_str(&s).unwrap_err();
         assert_eq!(err, UasAddressParseError::BadKind(String::new()));
+    }
+
+    #[test]
+    fn malformed_kind_tags_fail_closed_before_other_escape_hatch() {
+        let fake_hex: String = std::iter::repeat('a').take(64).collect();
+        for kind in [
+            " future_variant",
+            "future_variant ",
+            "future\nvariant",
+            "future|variant",
+            "future@variant",
+        ] {
+            let s = format!("{kind}:{}@0", fake_hex);
+            let err = UasAddress::from_str(&s).unwrap_err();
+            assert_eq!(err, UasAddressParseError::BadKind(kind.to_string()));
+        }
     }
 
     #[test]
