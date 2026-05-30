@@ -1235,15 +1235,10 @@ impl VaultBackend for VaultStore {
             }
         }
 
-        let path_title_matches = if results.is_empty() && !all_chatter_fallback {
+        let path_title_matches = if !all_chatter_fallback {
             let existing_paths: HashSet<String> =
                 results.iter().map(|result| result.path.clone()).collect();
-            self.path_title_search(
-                query,
-                limit.saturating_sub(results.len()),
-                tag_filter,
-                &existing_paths,
-            )?
+            self.path_title_search(query, limit, tag_filter, &existing_paths)?
         } else {
             Vec::new()
         };
@@ -1629,6 +1624,59 @@ mod tests {
                 .any(|candidate| candidate.path == "some essays/My Autobiography.md"),
             "trace candidates must include the path/title fallback hit: {:?}",
             trace.candidates
+        );
+    }
+
+    #[tokio::test]
+    async fn hybrid_search_keeps_exact_title_fallback_when_lexical_returns_weak_results() {
+        use super::VaultBackend;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
+
+        store
+            .write(
+                "some essays/My Autobiography.md",
+                "I grew up around projects, school, and personal systems.",
+                None,
+                false,
+            )
+            .await
+            .expect("write title-only note");
+        store
+            .write(
+                "reference/autobiography-genre.md",
+                "Autobiography can be treated as a literary genre.",
+                None,
+                false,
+            )
+            .await
+            .expect("write lexical distractor");
+        store.reload_index().expect("reload index");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace("My Autobiography", 5, &[])
+            .await
+            .expect("hybrid_search_with_trace");
+
+        assert_eq!(
+            results.first().map(|result| result.path.as_str()),
+            Some("some essays/My Autobiography.md"),
+            "exact title fallback should outrank weak lexical distractors"
+        );
+        assert!(
+            results
+                .iter()
+                .any(|result| result.path == "reference/autobiography-genre.md"),
+            "lexical candidates should remain available after title fallback"
+        );
+        assert!(
+            trace
+                .notes
+                .iter()
+                .any(|note| note.contains("Path/title fallback retained")),
+            "trace must disclose title fallback even when lexical search returned candidates: {:?}",
+            trace.notes
         );
     }
 
