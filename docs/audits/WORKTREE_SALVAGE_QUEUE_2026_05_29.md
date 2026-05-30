@@ -80,6 +80,12 @@ Dry-run merge detail is now tracked in
 `wrv-app` and `wrv-rust` need no merge; every other clean useful branch should
 be manually ported, not wholesale-merged.
 
+2026-05-30 update: the first T5 EML/IR code slice was ported manually from
+`codex/t5-emlir-2026-05-16`: EML closure typestate, closure builders,
+normalization, Lean-certificate string emitters, and four focused integration
+tests. This is **not** a whole-branch merge; T5 remains a donor reference for
+Lean files, research custody files, and any still-unmined IR work.
+
 ## Dirty But Mostly Generated Churn
 
 Many old worktrees report 2955 dirty files, almost entirely tracked build

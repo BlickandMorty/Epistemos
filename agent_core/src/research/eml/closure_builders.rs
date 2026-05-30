@@ -1,0 +1,7534 @@
+//! Source:
+//! - iter-59 `tests/cross_ir_info_to_eml.rs` — softplus via EML.
+//! - iter-63 `tests/cross_ir_tropical_to_eml.rs` — log-sum-exp via EML.
+//! - iter-64 `docs/fusion/CROSS_IR_LATTICE_STATUS_2026_05_17.md` §5 —
+//!   the "closure-form reusability pattern": same ln-via-eml +
+//!   exp-via-eml idioms used by both cross-IR arrows.
+//!
+//! # Closure-form builder helpers
+//!
+//! Reusable EmlClosureExpr-construction helpers for the common
+//! "real-valued" function patterns that Phase C cross-IR composition
+//! arrows need. Each helper returns a closure-form expression tree
+//! that, when paired with the right constants, evaluates to the
+//! named function.
+//!
+//! ## Idioms
+//!
+//! - **Zero leaf**: `closure_zero()` = `Minus(One, One)` = 0.
+//! - **exp(slot_i)**: `closure_exp(i)` = `eml(Slot(i), One)` =
+//!   `exp(slot[i]) − ln(1)` = `exp(slot[i])`.
+//! - **ln(y)**: `closure_ln(y)` = `Minus(One, eml(zero, y))` =
+//!   `1 − (exp(0) − ln(y))` = `1 − (1 − ln(y))` = `ln(y)`.
+//! - **lse(args)**: `closure_lse(args)` = `closure_ln(fold_plus(args))`.
+//! - **softplus(slot_i)**: `closure_softplus(i)` = `closure_ln(Plus(One,
+//!   closure_exp(i)))` = `ln(1 + exp(slot[i]))`.
+
+use super::closure::EmlClosureExpr;
+
+/// Closure-form encoding of the constant `0` as
+/// `Minus(One, One)`. Used as the left argument to
+/// [`closure_ln`].
+pub fn closure_zero() -> EmlClosureExpr {
+    EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::one())
+}
+
+/// `exp(slot[i])` encoded as `eml(Slot(i), One)`.
+///
+/// The identity used: `eml(x, 1) = exp(x) − ln(1) = exp(x)`.
+pub fn closure_exp(slot_idx: u32) -> EmlClosureExpr {
+    EmlClosureExpr::eml(EmlClosureExpr::slot(slot_idx), EmlClosureExpr::one())
+}
+
+/// `ln(y)` encoded as `Minus(One, eml(zero, y))`.
+///
+/// The identity used: `eml(0, y) = exp(0) − ln(y) = 1 − ln(y)`,
+/// so `ln(y) = 1 − eml(0, y) = Minus(One, eml(0, y))`.
+pub fn closure_ln(y: EmlClosureExpr) -> EmlClosureExpr {
+    EmlClosureExpr::minus(
+        EmlClosureExpr::one(),
+        EmlClosureExpr::eml(closure_zero(), y),
+    )
+}
+
+/// `lse(args)` = log-sum-exp = `ln(Σ exp(arg_i))`.
+///
+/// Builds `closure_ln(Plus(arg_0, Plus(arg_1, … Plus(arg_{n-1}, arg_n))))`.
+/// Each `arg_i` is expected to already be in "exp-form" (e.g. from
+/// [`closure_exp`]).
+///
+/// `args.len() == 0` returns `closure_ln(One)` = `Minus(One, eml(0, One))`
+/// = `1 − (1 − 0)` = `0` (the additive identity for the empty sum;
+/// equivalently `ln(1) = 0`).
+///
+/// `args.len() == 1` returns `closure_ln(args[0])`.
+pub fn closure_lse(args: Vec<EmlClosureExpr>) -> EmlClosureExpr {
+    let sum = fold_plus_left(args);
+    closure_ln(sum)
+}
+
+/// Softplus inverse `softplus⁻¹(x) = ln(exp(x) − 1)` for `x > 0`.
+///
+/// Useful for initialization: if a downstream layer applies
+/// softplus to produce a positive output, `softplus⁻¹` converts
+/// a target positive value back to the pre-activation that
+/// yields it. Standard "initialize positivity-constrained
+/// parameter at a target value" pattern.
+///
+/// Closure form: `closure_ln(Minus(closure_exp(slot), One))`.
+/// Caller must guarantee `x > 0` else `ln(0)` or `ln(negative)`
+/// is surfaced by the evaluator.
+///
+/// Iter-289 — companion to [`closure_softplus`].
+pub fn closure_softplus_inverse(slot_idx: u32) -> EmlClosureExpr {
+    let exp_x = closure_exp(slot_idx);
+    let exp_x_minus_1 = EmlClosureExpr::minus(exp_x, EmlClosureExpr::one());
+    closure_ln(exp_x_minus_1)
+}
+
+/// `softplus(slot[i])` = `ln(1 + exp(slot[i]))`.
+///
+/// Builds `closure_ln(Plus(One, closure_exp(i)))`.
+pub fn closure_softplus(slot_idx: u32) -> EmlClosureExpr {
+    let one_plus_exp = EmlClosureExpr::plus(EmlClosureExpr::one(), closure_exp(slot_idx));
+    closure_ln(one_plus_exp)
+}
+
+/// `-slot[i]` encoded as `Minus(Zero, Slot(i))`. Iter-67 helper —
+/// negation primitive built from Minus + closure_zero. Used to
+/// express `exp(-θ)` for the sigmoid identity.
+pub fn closure_neg_slot(slot_idx: u32) -> EmlClosureExpr {
+    EmlClosureExpr::minus(closure_zero(), EmlClosureExpr::slot(slot_idx))
+}
+
+/// Negation of an arbitrary subtree: `f(arg) = -arg`.
+///
+/// Closure form: `Minus(Zero, arg)`. Expression-input
+/// generalization of [`closure_neg_slot`].
+///
+/// Iter-349 — completes the (slot, expression) overload pair on
+/// the negation primitive, mirroring the `_of` extensions for
+/// exp / softplus / squared / sigmoid (iters 99 / 331 / 337 /
+/// 343). Useful for composing negation on top of computed
+/// quantities, e.g.
+///   `closure_softplus_of(closure_neg(arg))` ≡ `log(1 + e^(-arg))`
+/// — the log-1-plus-neg-exp form used in log-sigmoid and
+/// binary-cross-entropy expressions.
+///
+/// Source. Negation as `Minus(Zero, ·)`; the slot-form
+/// `closure_neg_slot` is documented as "the iter-67 helper" in
+/// the existing EML builder doc; the `_of` overload follows
+/// the same pattern as the other `_of` extensions.
+pub fn closure_neg(arg: EmlClosureExpr) -> EmlClosureExpr {
+    EmlClosureExpr::minus(closure_zero(), arg)
+}
+
+/// `exp(-slot[i])` encoded as `eml(Minus(Zero, Slot(i)), One)`.
+/// Companion to [`closure_exp`] for negated argument.
+pub fn closure_neg_exp(slot_idx: u32) -> EmlClosureExpr {
+    EmlClosureExpr::eml(closure_neg_slot(slot_idx), EmlClosureExpr::one())
+}
+
+/// Complementary sigmoid `1 − σ(x) = σ(−x) = 1 / (1 + exp(x))`.
+///
+/// Closure form: `Divide(One, Plus(One, closure_exp(slot)))`.
+/// Equivalent to `closure_sigmoid` applied to the negated slot —
+/// this builder produces the same expression but with a cleaner
+/// call site.
+///
+/// Iter-307 — companion to `closure_sigmoid` (Bernoulli-tail
+/// primitive). Useful as the q = 1 − p term in two-class
+/// posterior expressions.
+pub fn closure_complementary_sigmoid(slot_idx: u32) -> EmlClosureExpr {
+    let denom = EmlClosureExpr::plus(EmlClosureExpr::one(), closure_exp(slot_idx));
+    EmlClosureExpr::divide(EmlClosureExpr::one(), denom)
+}
+
+/// `sigmoid(slot[i])` = `1 / (1 + exp(-slot[i]))`.
+///
+/// Builds `Divide(One, Plus(One, closure_neg_exp(i)))`. Iter-67 — the
+/// first cross-IR sigmoid demo using the Divide primitive
+/// (iter-66 extension).
+pub fn closure_sigmoid(slot_idx: u32) -> EmlClosureExpr {
+    let denom = EmlClosureExpr::plus(EmlClosureExpr::one(), closure_neg_exp(slot_idx));
+    EmlClosureExpr::divide(EmlClosureExpr::one(), denom)
+}
+
+/// Sigmoid of an arbitrary subtree: `σ(arg) = 1 / (1 + exp(-arg))`.
+///
+/// Closure form: `Divide(One, Plus(One, closure_exp_of(neg)))`
+/// where `neg = Minus(Zero, arg)`. The expression-input
+/// generalization of [`closure_sigmoid`] (slot-form).
+///
+/// Iter-343 — completes the (slot, expression) pair on sigmoid,
+/// mirroring iter-331 (softplus_of) and iter-337 (squared_of).
+/// Composes cleanly with arbitrary subtrees, e.g.
+///   `closure_sigmoid_of(closure_linear_form(x, w, b))`
+/// gives logistic regression in one builder call.
+///
+/// Source. Logistic sigmoid as the canonical Bernoulli-mean
+/// link function — Wainwright & Jordan, FnT in ML 1(1-2), 2008,
+/// §3.1.1 Table 1 (Bernoulli row, A'(η) = σ(η)).
+pub fn closure_sigmoid_of(arg: EmlClosureExpr) -> EmlClosureExpr {
+    let neg = EmlClosureExpr::minus(closure_zero(), arg);
+    let exp_neg = closure_exp_of(neg);
+    let denom = EmlClosureExpr::plus(EmlClosureExpr::one(), exp_neg);
+    EmlClosureExpr::divide(EmlClosureExpr::one(), denom)
+}
+
+/// Complementary sigmoid of an arbitrary subtree:
+/// `1 − σ(arg) = σ(−arg) = 1 / (1 + exp(arg))`.
+///
+/// Closure form: `Divide(One, Plus(One, closure_exp_of(arg)))`.
+/// Expression-input generalization of
+/// [`closure_complementary_sigmoid`] (slot-form).
+///
+/// Iter-415 — sibling of [`closure_sigmoid_of`] (iter-343).
+/// Together the pair gives both class posteriors for a binary
+/// logistic classifier on a computed logit:
+///   p(y = 1 | x) = closure_sigmoid_of(logit)
+///   p(y = 0 | x) = closure_complementary_sigmoid_of(logit)
+///
+/// Source. Bernoulli mean-link function: Wainwright & Jordan,
+/// FnT in ML 1(1-2) 2008 §3.1.1 Table 1.
+pub fn closure_complementary_sigmoid_of(arg: EmlClosureExpr) -> EmlClosureExpr {
+    let exp_arg = closure_exp_of(arg);
+    let denom = EmlClosureExpr::plus(EmlClosureExpr::one(), exp_arg);
+    EmlClosureExpr::divide(EmlClosureExpr::one(), denom)
+}
+
+/// `tanh(slot[i])` = `(exp(slot[i]) − exp(-slot[i])) / (exp(slot[i]) + exp(-slot[i]))`.
+///
+/// Builds `Divide(Minus(closure_exp(i), closure_neg_exp(i)),
+///                Plus(closure_exp(i), closure_neg_exp(i)))`.
+/// Iter-68 — completes the canonical-activation family alongside
+/// `closure_sigmoid` (iter-67).
+pub fn closure_tanh(slot_idx: u32) -> EmlClosureExpr {
+    let e_pos = closure_exp(slot_idx);
+    let e_neg = closure_neg_exp(slot_idx);
+    let num = EmlClosureExpr::minus(e_pos.clone(), e_neg.clone());
+    let den = EmlClosureExpr::plus(e_pos, e_neg);
+    EmlClosureExpr::divide(num, den)
+}
+
+/// Tanh of an arbitrary subtree:
+/// `tanh(arg) = (e^arg − e^{−arg}) / (e^arg + e^{−arg})`.
+///
+/// Closure form:
+///   `Divide(Minus(exp_of(arg), exp_of(neg(arg))),
+///           Plus(exp_of(arg), exp_of(neg(arg))))`
+///
+/// Expression-input generalization of [`closure_tanh`] (slot-
+/// form).
+///
+/// Iter-361 — completes the (slot, expression) overload pair on
+/// tanh, alongside sigmoid_of (iter-343), softplus_of (iter-331),
+/// log_sigmoid_of (iter-355), neg (iter-349), squared_of
+/// (iter-337). Useful for tanh-on-computed-quantity composition:
+///   `closure_tanh_of(closure_linear_form(x, w, b))`
+/// gives a one-neuron hyperbolic-tangent activation in one
+/// builder call.
+///
+/// Source. Hyperbolic tangent: standard identity tanh(x) =
+/// (e^x − e^−x)/(e^x + e^−x); the slot/expression overload
+/// pattern mirrors all the iter-99/331/337/343/349/355 _of
+/// extensions.
+pub fn closure_tanh_of(arg: EmlClosureExpr) -> EmlClosureExpr {
+    let e_pos = closure_exp_of(arg.clone());
+    let e_neg = closure_exp_of(closure_neg(arg));
+    let num = EmlClosureExpr::minus(e_pos.clone(), e_neg.clone());
+    let den = EmlClosureExpr::plus(e_pos, e_neg);
+    EmlClosureExpr::divide(num, den)
+}
+
+/// `a * b` — proper multiplication primitive. Iter-70 follow-up
+/// to the original Divide-trick implementation, which broke when
+/// `b == 0`. Now uses [`EmlClosureExpr::Mul`] directly.
+pub fn closure_mul(a: EmlClosureExpr, b: EmlClosureExpr) -> EmlClosureExpr {
+    EmlClosureExpr::mul(a, b)
+}
+
+/// Categorical log-partition `A(θ) = ln(1 + Σ_i exp(θ_i))` for a
+/// `k`-class distribution with natural parameters `θ ∈ ℝ^{k-1}`.
+///
+/// Builds the closure form using closure_lse over the slot indices
+/// together with a "One" term for the implicit zero-pinned class:
+/// `closure_lse([One, exp(θ_0), exp(θ_1), …, exp(θ_{k-2})])`.
+///
+/// Iter-72 — extends Info → EML cross-wiring from Bernoulli
+/// (closure_softplus) to general Categorical.
+pub fn closure_categorical_log_partition(slot_indices: &[u32]) -> EmlClosureExpr {
+    let mut args = Vec::with_capacity(slot_indices.len() + 1);
+    args.push(EmlClosureExpr::one()); // exp(0) = 1, the pinned class
+    for &idx in slot_indices {
+        args.push(closure_exp(idx));
+    }
+    closure_lse(args)
+}
+
+/// Raw Categorical normalizer `Z(θ) = 1 + Σ_i exp(θ_i)`, the
+/// non-log denominator of the softmax. Used internally by the
+/// softmax helpers below.
+fn categorical_partition_inner(slot_indices: &[u32]) -> EmlClosureExpr {
+    let mut acc = EmlClosureExpr::one(); // exp(0) for the pinned class
+    for &idx in slot_indices {
+        acc = EmlClosureExpr::plus(acc, closure_exp(idx));
+    }
+    acc
+}
+
+/// Softmax slot probability `η_i = exp(θ_{target}) / (1 + Σ_j exp(θ_j))`.
+///
+/// This is one component of `info_ir::dual_map(Categorical{k}, θ)`,
+/// the dual / mean-parameter map for the Categorical family. The
+/// `target_slot` must be one of the slot indices listed in
+/// `slot_indices` (the full set of k-1 non-pinned slots).
+///
+/// Encoding:
+/// `Divide(closure_exp(target_slot),
+///         Plus(One, closure_exp(slot_indices[0]), …))`.
+///
+/// Iter-73 — extends Info → EML Categorical wiring from
+/// log_partition (iter-72) to dual_map / softmax.
+pub fn closure_categorical_softmax_slot(target_slot: u32, slot_indices: &[u32]) -> EmlClosureExpr {
+    EmlClosureExpr::divide(
+        closure_exp(target_slot),
+        categorical_partition_inner(slot_indices),
+    )
+}
+
+/// Softmax probability for the pinned reference class
+/// `η_{k-1} = 1 / (1 + Σ_j exp(θ_j))`.
+///
+/// Iter-73 — companion to `closure_categorical_softmax_slot`. The
+/// pinned class is the implicit one with `θ = 0`; it isn't returned
+/// by `info_ir::dual_map`, but `1 − Σ slot_probs` equals this
+/// quantity and we expose it as a first-class helper.
+pub fn closure_categorical_softmax_pinned(slot_indices: &[u32]) -> EmlClosureExpr {
+    EmlClosureExpr::divide(
+        EmlClosureExpr::one(),
+        categorical_partition_inner(slot_indices),
+    )
+}
+
+/// KL(P || Q) for Bernoulli on natural-parameter coordinates p, q.
+///
+/// `KL(p, q) = A(p) − A(q) − ∇A(q) · (p − q)`
+///         `= softplus(p) − softplus(q) − sigmoid(q) · (p − q)`
+///
+/// Builds the closure-form expression entirely through helpers:
+/// `Minus(Minus(softplus(p), softplus(q)), mul(sigmoid(q), Minus(Slot(p), Slot(q))))`.
+///
+/// Iter-70 — third Info-IR → EML-IR composition wiring after
+/// softplus (iter-59) and sigmoid (iter-67).
+pub fn closure_kl_bernoulli(p_slot: u32, q_slot: u32) -> EmlClosureExpr {
+    let p_minus_q =
+        EmlClosureExpr::minus(EmlClosureExpr::slot(p_slot), EmlClosureExpr::slot(q_slot));
+    let sig_q = closure_sigmoid(q_slot);
+    let product = closure_mul(sig_q, p_minus_q);
+    let a_diff = EmlClosureExpr::minus(closure_softplus(p_slot), closure_softplus(q_slot));
+    EmlClosureExpr::minus(a_diff, product)
+}
+
+/// Exponential-distribution KL divergence
+/// `D_KL(Exp(λ_p) ‖ Exp(λ_q)) = ln(λ_p) − ln(λ_q) + λ_q/λ_p − 1`.
+///
+/// Closed form follows from integrating
+/// `λ_p · exp(−λ_p · x) · ln(λ_p · exp(−λ_p · x) / (λ_q · exp(−λ_q · x)))`
+/// over `x ∈ [0, ∞)`; the integration yields the right-hand side
+/// with no special-function calls.
+///
+/// Closure form:
+///   `Plus(Minus(closure_ln(slot(λ_p)), closure_ln(slot(λ_q))),
+///         Minus(Divide(slot(λ_q), slot(λ_p)), One))`.
+///
+/// Caller must guarantee `λ_p, λ_q > 0` (each `closure_ln` is
+/// only defined for positive arguments under EML semantics).
+///
+/// Iter-373 — continuous-distribution KL companion to
+/// `closure_kl_bernoulli` (iter-70), `closure_kl_gaussian`
+/// (iter-?), `closure_kl_categorical` (existing). With this
+/// addition, EML closures cover KL on five canonical
+/// distributions: Bernoulli, Gaussian, categorical, exponential,
+/// and (via subtraction) any pair of natural-parameter-form
+/// exp-family members.
+///
+/// Source. Exponential-distribution KL in closed form: Cover &
+/// Thomas, "Elements of Information Theory" (2nd ed., 2006)
+/// §2.3 Example 2.3 (or equivalent in any standard
+/// information-theory reference); exp-family canonical form:
+/// Wainwright & Jordan, FnT in ML 1(1-2) 2008 §3.1.1 Table 1.
+pub fn closure_kl_exponential(p_lambda_slot: u32, q_lambda_slot: u32) -> EmlClosureExpr {
+    let log_p = closure_ln(EmlClosureExpr::slot(p_lambda_slot));
+    let log_q = closure_ln(EmlClosureExpr::slot(q_lambda_slot));
+    let log_diff = EmlClosureExpr::minus(log_p, log_q);
+    let ratio = EmlClosureExpr::divide(
+        EmlClosureExpr::slot(q_lambda_slot),
+        EmlClosureExpr::slot(p_lambda_slot),
+    );
+    let ratio_minus_one = EmlClosureExpr::minus(ratio, EmlClosureExpr::one());
+    EmlClosureExpr::plus(log_diff, ratio_minus_one)
+}
+
+/// Exponential Jeffreys (symmetric KL) in EML closure form:
+/// `J(Exp(λ_p), Exp(λ_q)) = λ_q / λ_p + λ_p / λ_q − 2`.
+///
+/// The two log-ratio terms in forward + reverse Exp KL cancel
+/// pairwise, leaving the elegant ratio-sum form. Caller guarantees
+/// `λ_p, λ_q > 0`.
+///
+/// Closure form:
+///   `Minus(Plus(Divide(slot(λ_q), slot(λ_p)),
+///              Divide(slot(λ_p), slot(λ_q))),
+///         Plus(One, One))`.
+///
+/// Iter-476 — closure-form mirror of the scalar Info-IR primitive
+/// `exponential_jeffreys_divergence` (iter-435). Pairs with
+/// `closure_kl_exponential` (iter-373, asymmetric form). Identical
+/// algebraic shape to `closure_pareto_jeffreys_same_x_min`
+/// (iter-464) — by the Exp ↔ Pareto log-transform.
+///
+/// Source. Same as iter-435: Jeffreys, Proc. R. Soc. A 186 (1946)
+/// §3 — symmetric-KL definition. Cover & Thomas, "Elements of
+/// Information Theory" (2nd ed., 2006) §2.3 Example 2.3 —
+/// Exponential KL closed form.
+pub fn closure_exponential_jeffreys_divergence(
+    p_lambda_slot: u32,
+    q_lambda_slot: u32,
+) -> EmlClosureExpr {
+    let ratio_qp = EmlClosureExpr::divide(
+        EmlClosureExpr::slot(q_lambda_slot),
+        EmlClosureExpr::slot(p_lambda_slot),
+    );
+    let ratio_pq = EmlClosureExpr::divide(
+        EmlClosureExpr::slot(p_lambda_slot),
+        EmlClosureExpr::slot(q_lambda_slot),
+    );
+    let sum = EmlClosureExpr::plus(ratio_qp, ratio_pq);
+    let two = EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one());
+    EmlClosureExpr::minus(sum, two)
+}
+
+/// Poisson-distribution KL divergence
+/// `D_KL(Poisson(λ_p) ‖ Poisson(λ_q)) = λ_p · ln(λ_p / λ_q) − λ_p + λ_q`.
+///
+/// Closed form follows from the exp-family natural parameter
+/// `η = ln(λ)` and log-partition `A(η) = exp(η) = λ`; the KL is
+/// the standard Bregman divergence of A at the two parameters.
+///
+/// Closure form:
+///   `Plus(Mul(slot(λ_p), Minus(ln(slot(λ_p)), ln(slot(λ_q)))),
+///         Minus(slot(λ_q), slot(λ_p)))`.
+///
+/// Caller must guarantee `λ_p, λ_q > 0`.
+///
+/// Iter-379 — discrete-distribution KL companion to
+/// `closure_kl_bernoulli` (Bernoulli, iter-70),
+/// `closure_kl_gaussian` (Gaussian, existing),
+/// `closure_kl_categorical` (categorical, existing),
+/// `closure_kl_exponential` (exponential, iter-373).
+/// With this, EML covers KL on six canonical distributions
+/// across the discrete (Bernoulli, categorical, Poisson) and
+/// continuous (Gaussian, exponential) regimes.
+///
+/// Source. Poisson-distribution KL closed form: Cover & Thomas,
+/// "Elements of Information Theory" (2nd ed., 2006) §2.3
+/// Example 2.4; exp-family Bregman-divergence interpretation:
+/// Wainwright & Jordan, FnT in ML 1(1-2) 2008 §3.3.
+pub fn closure_kl_poisson(p_lambda_slot: u32, q_lambda_slot: u32) -> EmlClosureExpr {
+    let log_p = closure_ln(EmlClosureExpr::slot(p_lambda_slot));
+    let log_q = closure_ln(EmlClosureExpr::slot(q_lambda_slot));
+    let log_ratio = EmlClosureExpr::minus(log_p, log_q);
+    let lambda_p_log_ratio = closure_mul(EmlClosureExpr::slot(p_lambda_slot), log_ratio);
+    let q_minus_p = EmlClosureExpr::minus(
+        EmlClosureExpr::slot(q_lambda_slot),
+        EmlClosureExpr::slot(p_lambda_slot),
+    );
+    EmlClosureExpr::plus(lambda_p_log_ratio, q_minus_p)
+}
+
+/// Poisson Jeffreys (symmetric KL) in EML closure form:
+/// `J(Pois(λ_p), Pois(λ_q)) = (λ_p − λ_q) · ln(λ_p / λ_q)`.
+///
+/// Both log-ratio terms in forward + reverse Poisson KL collapse
+/// to this elegant product form (linear `λ_p`/`λ_q` cross-terms
+/// cancel pairwise). Caller guarantees `λ_p, λ_q > 0`.
+///
+/// Closure form:
+///   `closure_mul(Minus(slot(λ_p), slot(λ_q)),
+///                Minus(ln(slot(λ_p)), ln(slot(λ_q))))`.
+///
+/// Iter-470 — closure-form mirror of the scalar Info-IR primitive
+/// `poisson_jeffreys_divergence` (iter-465). Pairs with
+/// `closure_kl_poisson` (iter-379, asymmetric form) and
+/// `closure_poisson_log_likelihood` (iter-?, log-pdf).
+///
+/// Source. Same as iter-465: Jeffreys, Proc. R. Soc. A 186 (1946)
+/// §3 — symmetric-KL definition. Cover & Thomas, "Elements of
+/// Information Theory" (2nd ed., 2006) §2.3 Example 2.4 — Poisson
+/// KL closed form.
+pub fn closure_poisson_jeffreys_divergence(
+    p_lambda_slot: u32,
+    q_lambda_slot: u32,
+) -> EmlClosureExpr {
+    let lambda_diff = EmlClosureExpr::minus(
+        EmlClosureExpr::slot(p_lambda_slot),
+        EmlClosureExpr::slot(q_lambda_slot),
+    );
+    let log_p = closure_ln(EmlClosureExpr::slot(p_lambda_slot));
+    let log_q = closure_ln(EmlClosureExpr::slot(q_lambda_slot));
+    let log_ratio = EmlClosureExpr::minus(log_p, log_q);
+    closure_mul(lambda_diff, log_ratio)
+}
+
+/// Geometric-distribution KL divergence:
+/// `D_KL(Geom(p_p) ‖ Geom(p_q)) = ln(p_p / p_q) +
+///                                ((1 − p_p) / p_p) · ln((1 − p_p) / (1 − p_q))`.
+///
+/// Closed form derived from integrating
+/// `p_p · (1 − p_p)^k · ln(Geom(p_p; k) / Geom(p_q; k))` over
+/// `k = 0, 1, 2, …` using `E_Geom(p)[k] = (1 − p)/p`.
+///
+/// Closure form composes the four sub-builders:
+/// `Plus(Minus(ln(slot(p_p)), ln(slot(p_q))),
+///       Mul(Divide(Minus(One, slot(p_p)), slot(p_p)),
+///           Minus(ln(Minus(One, slot(p_p))), ln(Minus(One, slot(p_q))))))`
+///
+/// Caller must guarantee `0 < p_p, p_q < 1`.
+///
+/// Iter-391 — closes the EML KL family across seven canonical
+/// distributions: Bernoulli (iter-70), categorical (existing),
+/// Gaussian (existing), exponential (iter-373), Poisson
+/// (iter-379), Geometric (this iter), and via two-class
+/// projection Multinomial. Companion of
+/// `closure_geometric_log_likelihood` (iter-319) — together
+/// they cover likelihood + KL for the Geometric exponential-
+/// family member.
+///
+/// Source. Geometric-distribution KL closed form: direct
+/// computation in the zero-indexed parameterization; cf. Cover
+/// & Thomas, "Elements of Information Theory" (2nd ed., 2006)
+/// §2.3 (general exp-family KL pattern). Exp-family canonical
+/// form for Geometric: Wainwright & Jordan, FnT in ML 1(1-2)
+/// 2008 §3.1.1 Table 1.
+/// Continuous-uniform KL divergence between two intervals:
+/// `D_KL(Unif(a_p, b_p) ‖ Unif(a_q, b_q)) = ln((b_q − a_q) / (b_p − a_p))
+///                                        = ln(b_q − a_q) − ln(b_p − a_p)`.
+///
+/// Valid (finite, non-negative) iff `[a_p, b_p] ⊂ [a_q, b_q]`. The
+/// closure does not enforce containment — caller must guarantee
+/// `a_p < b_p`, `a_q < b_q`, and `a_q ≤ a_p ∧ b_p ≤ b_q` for a
+/// meaningful KL; otherwise the formula evaluates symbolically
+/// but is no longer the information-theoretic divergence.
+///
+/// Encoding:
+/// `Minus(ln(Minus(slot(b_q), slot(a_q))),
+///        ln(Minus(slot(b_p), slot(a_p))))`.
+///
+/// Iter-434 — extends the EML KL family from the discrete /
+/// exponential-family closures (Bernoulli iter-70, Categorical
+/// existing, Gaussian existing, Exponential iter-373, Poisson
+/// iter-379, Geometric iter-391) to the bounded-support
+/// continuous case. Companion of `closure_uniform_log_likelihood`
+/// (the negative-log-width form for any single uniform sample).
+///
+/// Source. Uniform-distribution KL closed form: direct integration
+/// `∫_{a_p}^{b_p} (1/(b_p − a_p)) · ln((1/(b_p − a_p)) / (1/(b_q − a_q))) dx`
+///  = ln((b_q − a_q) / (b_p − a_p)).
+/// See Cover & Thomas, "Elements of Information Theory" (2nd ed.,
+/// 2006) §2.3 (general KL definition); the bounded-support case
+/// is the canonical example in §8.5 (differential entropy of the
+/// uniform).
+pub fn closure_kl_uniform(
+    a_p_slot: u32,
+    b_p_slot: u32,
+    a_q_slot: u32,
+    b_q_slot: u32,
+) -> EmlClosureExpr {
+    let width_p = EmlClosureExpr::minus(
+        EmlClosureExpr::slot(b_p_slot),
+        EmlClosureExpr::slot(a_p_slot),
+    );
+    let width_q = EmlClosureExpr::minus(
+        EmlClosureExpr::slot(b_q_slot),
+        EmlClosureExpr::slot(a_q_slot),
+    );
+    let log_width_p = closure_ln(width_p);
+    let log_width_q = closure_ln(width_q);
+    EmlClosureExpr::minus(log_width_q, log_width_p)
+}
+
+pub fn closure_kl_geometric(p_p_slot: u32, p_q_slot: u32) -> EmlClosureExpr {
+    let log_p_p = closure_ln(EmlClosureExpr::slot(p_p_slot));
+    let log_p_q = closure_ln(EmlClosureExpr::slot(p_q_slot));
+    let log_ratio_p = EmlClosureExpr::minus(log_p_p, log_p_q);
+
+    let one_minus_p_p =
+        EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::slot(p_p_slot));
+    let one_minus_p_q =
+        EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::slot(p_q_slot));
+    let ratio = EmlClosureExpr::divide(one_minus_p_p.clone(), EmlClosureExpr::slot(p_p_slot));
+    let log_one_minus_p_p = closure_ln(one_minus_p_p);
+    let log_one_minus_p_q = closure_ln(one_minus_p_q);
+    let log_ratio_q = EmlClosureExpr::minus(log_one_minus_p_p, log_one_minus_p_q);
+    let product = closure_mul(ratio, log_ratio_q);
+
+    EmlClosureExpr::plus(log_ratio_p, product)
+}
+
+/// Gaussian log-partition `A(θ; σ²) = (σ² · θ²) / 2` for a single
+/// scalar natural parameter `θ` with variance `σ²` provided as a
+/// slot value.
+///
+/// The closure form has no constant variant, so `σ²` is encoded
+/// as a slot input rather than a compile-time literal — the caller
+/// supplies the variance at evaluation time alongside `θ`.
+///
+/// Encoding:
+/// `Divide(Mul(Slot(σ²), Mul(Slot(θ), Slot(θ))), Plus(One, One))`.
+///
+/// Iter-75 — extends Info → EML cross-wiring from Categorical
+/// (iters 72-74) to the Gaussian exp-family.
+pub fn closure_gaussian_log_partition(theta_slot: u32, sigma2_slot: u32) -> EmlClosureExpr {
+    let theta_sq = closure_mul(
+        EmlClosureExpr::slot(theta_slot),
+        EmlClosureExpr::slot(theta_slot),
+    );
+    let scaled = closure_mul(EmlClosureExpr::slot(sigma2_slot), theta_sq);
+    let two = EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one());
+    EmlClosureExpr::divide(scaled, two)
+}
+
+/// Gaussian dual / mean parameter `η = ∇A(θ; σ²) = σ² · θ`.
+///
+/// Single-term linear map; encoded as `Mul(Slot(σ²), Slot(θ))`.
+///
+/// Iter-76 — completes Gaussian's A + ∇A pair after iter-75
+/// log_partition. KL (iter-77) closes the Gaussian Bregman trio.
+pub fn closure_gaussian_dual_map(theta_slot: u32, sigma2_slot: u32) -> EmlClosureExpr {
+    closure_mul(
+        EmlClosureExpr::slot(sigma2_slot),
+        EmlClosureExpr::slot(theta_slot),
+    )
+}
+
+/// Bernoulli log-probability of the `X=1` outcome,
+/// `log P(X=1) = log σ(θ) = -softplus(-θ)`.
+///
+/// Encoding via the closure-form negation trick:
+/// `Minus(Zero, closure_softplus(neg_θ_slot))` — but here we save
+/// the round-trip by going through closure_softplus on a negated
+/// slot: `Minus(zero, closure_softplus_of(-θ))`.
+///
+/// Iter-78 — log-probability primitive for cross-entropy /
+/// likelihood under Bernoulli.
+pub fn closure_bernoulli_log_prob_one(theta_slot: u32) -> EmlClosureExpr {
+    // -softplus(-θ): negation of softplus applied to the negated slot.
+    // closure_neg_slot returns Minus(zero, Slot(idx)) — we cannot
+    // directly pass it as the argument to closure_softplus (which
+    // takes a slot index). Build the softplus manually with the
+    // negated slot as the argument to closure_ln(Plus(One, exp_neg)).
+    let exp_neg = EmlClosureExpr::eml(closure_neg_slot(theta_slot), EmlClosureExpr::one());
+    let one_plus_exp_neg = EmlClosureExpr::plus(EmlClosureExpr::one(), exp_neg);
+    let log_one_plus_exp_neg = closure_ln(one_plus_exp_neg);
+    EmlClosureExpr::minus(closure_zero(), log_one_plus_exp_neg)
+}
+
+/// Bernoulli log-probability of the `X=0` outcome,
+/// `log P(X=0) = log(1 − σ(θ)) = -softplus(θ)`.
+///
+/// Encoding: `Minus(Zero, closure_softplus(θ))`.
+///
+/// Iter-78 — companion to `closure_bernoulli_log_prob_one`.
+pub fn closure_bernoulli_log_prob_zero(theta_slot: u32) -> EmlClosureExpr {
+    EmlClosureExpr::minus(closure_zero(), closure_softplus(theta_slot))
+}
+
+/// Categorical log-probability of a specific non-pinned slot,
+/// `log P(X=i) = θ_i − A(θ)` where `A(θ) = log(1 + Σ_j exp(θ_j))`.
+///
+/// Encoding:
+/// `Minus(Slot(target_slot), closure_categorical_log_partition(slots))`.
+///
+/// Iter-78 — Categorical log-prob; pairs with
+/// `closure_categorical_softmax_slot` (exp gives back the prob).
+pub fn closure_categorical_log_prob_slot(target_slot: u32, slot_indices: &[u32]) -> EmlClosureExpr {
+    EmlClosureExpr::minus(
+        EmlClosureExpr::slot(target_slot),
+        closure_categorical_log_partition(slot_indices),
+    )
+}
+
+/// Categorical log-probability of the pinned reference class,
+/// `log P(X=k-1) = 0 − A(θ) = -A(θ)`.
+///
+/// Iter-78 — companion to `closure_categorical_log_prob_slot`.
+pub fn closure_categorical_log_prob_pinned(slot_indices: &[u32]) -> EmlClosureExpr {
+    EmlClosureExpr::minus(
+        closure_zero(),
+        closure_categorical_log_partition(slot_indices),
+    )
+}
+
+/// Build `exp(<arg>)` in closure form for an ARBITRARY closure
+/// expression (not just a single slot).
+///
+/// Useful for composing exp on top of arbitrary sub-trees:
+/// `closure_exp_of(closure_mul(neg_scale, distance_squared))` for
+/// RBF kernels, `closure_exp_of(closure_softplus(theta))` for
+/// double-exp transforms, etc.
+///
+/// Promoted to public in iter-99 (was a private helper in iter-83).
+pub fn closure_exp_of(arg: EmlClosureExpr) -> EmlClosureExpr {
+    EmlClosureExpr::eml(arg, EmlClosureExpr::one())
+}
+
+/// Square root of an arbitrary positive subtree:
+/// `sqrt(arg) = exp(½ · ln(arg))`.
+///
+/// Closure form:
+///   `closure_exp_of(Divide(closure_ln(arg), Plus(One, One)))`.
+///
+/// Caller must guarantee `arg > 0`; otherwise the `closure_ln`
+/// subpath surfaces the evaluator's non-positive-domain error.
+/// This is the named version of the half-log/exp idiom previously
+/// used inline by absolute-value and distribution closures.
+///
+/// Iter-494 — elementary-function helper on EML-IR. Pairs with
+/// `closure_exp_of`, `closure_ln`, `closure_squared_of`, and
+/// downstream Hellinger / RMS-style closure forms that need a
+/// reusable principal square-root builder.
+///
+/// Source. Principal square root identity on positive reals:
+/// `sqrt(x)=exp(0.5 ln x)`, a standard elementary-function
+/// composition inside the EML Liouvillian-solvable subdomain.
+pub fn closure_sqrt_of(arg: EmlClosureExpr) -> EmlClosureExpr {
+    let two = EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one());
+    let half_ln = EmlClosureExpr::divide(closure_ln(arg), two);
+    closure_exp_of(half_ln)
+}
+
+/// `softplus(arg) = ln(1 + exp(arg))` for an arbitrary subtree
+/// `arg` — the expression-input generalization of
+/// [`closure_softplus`] (which only takes a slot index).
+///
+/// Closure form: `closure_ln(Plus(One, closure_exp_of(arg)))`.
+///
+/// Iter-331 — completes the (slot, expression) pair on softplus
+/// alongside `closure_exp` / `closure_exp_of` (iter-83/99) and
+/// `closure_ln` (iter-67 — already expression-input). Useful for
+/// composing softplus on top of computed sub-expressions:
+/// `closure_softplus_of(closure_diff_squared(x, μ))`,
+/// `closure_softplus_of(closure_mul(α, slot(x)))`, etc.
+///
+/// Source. Softplus = log(1 + exp(x)) is the canonical smooth
+/// approximation of ReLU; cf. Dugas, Bengio, Bélisle, Nadeau,
+/// Garcia, "Incorporating Second-Order Functional Knowledge for
+/// Better Option Pricing", NeurIPS 2001 — first explicit use of
+/// the softplus name.
+pub fn closure_softplus_of(arg: EmlClosureExpr) -> EmlClosureExpr {
+    let exp_arg = closure_exp_of(arg);
+    let one_plus_exp = EmlClosureExpr::plus(EmlClosureExpr::one(), exp_arg);
+    closure_ln(one_plus_exp)
+}
+
+/// Horner-style polynomial evaluation:
+/// `p(x) = a_0 + a_1·x + a_2·x² + … + a_n·x^n`
+/// evaluated as `((a_n·x + a_{n-1})·x + … + a_1)·x + a_0`.
+///
+/// Both the variable `x` and the coefficients `a_i` are slot
+/// inputs, so the same closure form evaluates against any
+/// (x, coefficient) tuple at runtime.
+///
+/// Empty coefficient list returns the zero polynomial `0`.
+///
+/// Iter-118 — companion to [`closure_l2_penalty`] / [`closure_dot_product`]
+/// for vector-of-slots aggregation in polynomial form.
+pub fn closure_polynomial(x_slot: u32, coeff_slots: &[u32]) -> EmlClosureExpr {
+    let mut iter = coeff_slots.iter().rev();
+    let mut acc = match iter.next() {
+        Some(&first) => EmlClosureExpr::slot(first),
+        None => return closure_zero(),
+    };
+    for &c in iter {
+        acc = EmlClosureExpr::plus(
+            closure_mul(acc, EmlClosureExpr::slot(x_slot)),
+            EmlClosureExpr::slot(c),
+        );
+    }
+    acc
+}
+
+/// Horner-form polynomial with expression-input variable `x`
+/// and expression-input coefficients:
+///   `p(x) = a_0 + a_1·x + … + a_n·xⁿ`
+/// evaluated as `((a_n·x + a_{n-1})·x + … + a_1)·x + a_0`.
+///
+/// Expression-input generalization of [`closure_polynomial`]
+/// (slot-form). Both the variable and each coefficient are
+/// arbitrary subtrees. Empty coefficient list returns the zero
+/// polynomial.
+///
+/// Iter-427 — composable polynomial evaluation on computed
+/// subtrees. Useful when:
+/// - The variable `x` is a computed feature (e.g.,
+///   `slot_a − slot_b`).
+/// - Coefficients are computed from another network output
+///   (e.g., MoE gating produces the polynomial coefficients
+///   for a downstream regression).
+/// - Both the predictor and coefficients are softmax-weighted
+///   mixtures.
+///
+/// Source. Horner's method: standard polynomial-evaluation
+/// scheme; cf. Knuth, "The Art of Computer Programming", Vol 2
+/// (3rd ed., 1997) §4.6.4. Expression-input generalization
+/// follows the iter-99/331/337 etc. `_of` pattern.
+pub fn closure_polynomial_of(x: EmlClosureExpr, coeffs: &[EmlClosureExpr]) -> EmlClosureExpr {
+    let mut iter = coeffs.iter().rev();
+    let mut acc = match iter.next() {
+        Some(first) => first.clone(),
+        None => return closure_zero(),
+    };
+    for c in iter {
+        acc = EmlClosureExpr::plus(closure_mul(acc, x.clone()), c.clone());
+    }
+    acc
+}
+
+/// Cosine similarity `cos(x, y) = (x · y) / (||x|| · ||y||)`.
+///
+/// The Euclidean norms `||x||` and `||y||` are NOT EML-expressible
+/// (square root isn't in the elementary closure), so the caller
+/// supplies them as pre-computed slot inputs.
+///
+/// To get a self-contained closure-form similarity that doesn't
+/// require external sqrt, use [`closure_squared_cosine_similarity`]
+/// (returns cos²).
+///
+/// Iter-112 — staple of similarity-based retrieval (cosine LSH,
+/// embedding retrieval, attention key-value matching when scaling
+/// isn't a single 1/√d_k constant).
+pub fn closure_cosine_similarity(
+    x_slots: &[u32],
+    y_slots: &[u32],
+    x_norm_slot: u32,
+    y_norm_slot: u32,
+) -> EmlClosureExpr {
+    let dot = closure_dot_product(x_slots, y_slots);
+    let denom = closure_mul(
+        EmlClosureExpr::slot(x_norm_slot),
+        EmlClosureExpr::slot(y_norm_slot),
+    );
+    EmlClosureExpr::divide(dot, denom)
+}
+
+/// Squared cosine similarity `cos²(x, y) = (x · y)² / (||x||² · ||y||²)`.
+///
+/// Fully self-contained: no sqrt needed. Loses the sign of the
+/// dot product but is sufficient for similarity-ranking tasks
+/// where only magnitude matters. Equivalent to the cosine
+/// similarity squared.
+///
+/// Iter-112 — pure-EML alternative to [`closure_cosine_similarity`].
+pub fn closure_squared_cosine_similarity(x_slots: &[u32], y_slots: &[u32]) -> EmlClosureExpr {
+    let dot = closure_dot_product(x_slots, y_slots);
+    let dot_squared = closure_mul(dot.clone(), dot);
+
+    let xx = closure_dot_product(x_slots, x_slots);
+    let yy = closure_dot_product(y_slots, y_slots);
+    let denom = closure_mul(xx, yy);
+
+    EmlClosureExpr::divide(dot_squared, denom)
+}
+
+/// Gaussian Radial Basis Function (RBF) kernel:
+/// `k(x, y) = exp(-scale · ||x - y||²)`
+///
+/// where `scale = 1 / (2 · σ²)` is a slot input controlling the
+/// kernel bandwidth. Setting `scale = 0.5` recovers the standard
+/// `exp(-||x-y||² / 2)` (unit-σ) Gaussian kernel.
+///
+/// Properties: `k(x, x) = 1`; `k(x, y) ∈ (0, 1]`; symmetric;
+/// approaches 0 as `||x - y|| → ∞`. Used in:
+/// - SVMs / kernel methods (Schölkopf-Smola 2002).
+/// - Gaussian process regression (Rasmussen-Williams 2006).
+/// - Neural-tangent-kernel limits (Jacot-Gabriel-Hongler 2018).
+///
+/// Iter-99 — composes [`closure_squared_distance`] +
+/// [`closure_exp_of`] + a negated scale slot.
+pub fn closure_rbf_kernel(x_slots: &[u32], y_slots: &[u32], scale_slot: u32) -> EmlClosureExpr {
+    let neg_scale = EmlClosureExpr::minus(closure_zero(), EmlClosureExpr::slot(scale_slot));
+    let neg_scaled_dist = closure_mul(neg_scale, closure_squared_distance(x_slots, y_slots));
+    closure_exp_of(neg_scaled_dist)
+}
+
+/// Scaled squared distance `scale · Σ_i (p_i - q_i)²`.
+///
+/// Composes [`closure_squared_distance`] (iter-98) with a slot
+/// multiplier. Used for:
+/// - KL between diagonal Gaussians (same variance): scale = σ²/2.
+/// - Scaled MSE losses where the scaling factor varies per task.
+/// - Per-example weighted distances.
+///
+/// Iter-128 — common composition pattern surfaced as a primitive.
+pub fn closure_scaled_squared_distance(
+    p_slots: &[u32],
+    q_slots: &[u32],
+    scale_slot: u32,
+) -> EmlClosureExpr {
+    closure_mul(
+        EmlClosureExpr::slot(scale_slot),
+        closure_squared_distance(p_slots, q_slots),
+    )
+}
+
+/// Weighted MSE: `Σ_i w_i · (pred_i - target_i)² / n` where each
+/// example carries its own weight.
+///
+/// Used in:
+/// - Importance-weighted regression.
+/// - Heteroscedastic regression (weight by inverse variance).
+/// - Class-weighted training.
+///
+/// Iter-128 — `pred_slots`, `target_slots`, `weight_slots` must
+/// have equal length; `n_slot` provides the count for normalization.
+pub fn closure_weighted_mse_loss(
+    pred_slots: &[u32],
+    target_slots: &[u32],
+    weight_slots: &[u32],
+    n_slot: u32,
+) -> EmlClosureExpr {
+    assert_eq!(pred_slots.len(), target_slots.len());
+    assert_eq!(pred_slots.len(), weight_slots.len());
+    assert!(!pred_slots.is_empty());
+
+    let mut terms = pred_slots
+        .iter()
+        .zip(target_slots.iter())
+        .zip(weight_slots.iter())
+        .map(|((&p, &t), &w)| closure_mul(EmlClosureExpr::slot(w), closure_squared_error(p, t)));
+    let first = terms.next().unwrap();
+    let sum = terms.fold(first, |acc, term| EmlClosureExpr::plus(acc, term));
+
+    EmlClosureExpr::divide(sum, EmlClosureExpr::slot(n_slot))
+}
+
+/// Complementary probability `1 − p`.
+///
+/// Encoded as `Minus(One, Slot(p))`. Useful for Bernoulli
+/// complement and ratio-of-probability transforms.
+///
+/// Iter-158 — small named primitive for a common pattern.
+pub fn closure_complement_prob(p_slot: u32) -> EmlClosureExpr {
+    EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::slot(p_slot))
+}
+
+/// Odds ratio `p / (1 − p)`.
+///
+/// Iter-158 — building block for logit and binary log-odds.
+pub fn closure_odds(p_slot: u32) -> EmlClosureExpr {
+    EmlClosureExpr::divide(
+        EmlClosureExpr::slot(p_slot),
+        closure_complement_prob(p_slot),
+    )
+}
+
+/// One-hot weighted selection: `Σ_i mask_i · v_i`.
+///
+/// When `mask_slots` holds a one-hot encoding (single 1.0 with rest
+/// zeros), this returns the corresponding `v_i`. With a general
+/// soft mask, this is a weighted average. Both slot vectors must
+/// have equal length.
+///
+/// Iter-153 — used for one-hot-encoded target selection in
+/// classification losses and gather-style operations.
+pub fn closure_one_hot_select(mask_slots: &[u32], value_slots: &[u32]) -> EmlClosureExpr {
+    assert_eq!(mask_slots.len(), value_slots.len());
+    assert!(!mask_slots.is_empty());
+
+    let mut terms = mask_slots
+        .iter()
+        .zip(value_slots.iter())
+        .map(|(&m, &v)| closure_mul(EmlClosureExpr::slot(m), EmlClosureExpr::slot(v)));
+    let first = terms.next().unwrap();
+    terms.fold(first, |acc, t| EmlClosureExpr::plus(acc, t))
+}
+
+/// Step-size decay schedule: `lr_t = lr_initial · decay_factor`.
+///
+/// Single-step multiplicative learning-rate update. Caller supplies
+/// `decay_factor` as a slot (e.g. `(1 - t/T)` for linear decay,
+/// `0.5·(1 + cos(π·t/T))` for cosine annealing, or `γ^t` for
+/// exponential decay; all pre-computed externally).
+///
+/// Iter-150 — closure-form named primitive for learning-rate
+/// schedules.
+pub fn closure_step_size_decay(lr_initial_slot: u32, decay_factor_slot: u32) -> EmlClosureExpr {
+    closure_mul(
+        EmlClosureExpr::slot(lr_initial_slot),
+        EmlClosureExpr::slot(decay_factor_slot),
+    )
+}
+
+/// Adam optimizer parameter update step:
+///
+/// `θ_new = θ − lr · m̂ / (√v̂ + ε)`
+///
+/// All inputs are slots: `θ` (current parameter), `m̂` (bias-corrected
+/// first moment), `sqrt_v_hat_plus_eps` (caller pre-computes
+/// `√v̂ + ε`), and `lr` (learning rate).
+///
+/// Iter-164 — full Adam step (Kingma & Ba 2014) in closure form.
+/// Pair with closure_bias_corrected_ema (iter-144) to bias-correct
+/// both moments externally.
+pub fn closure_adam_step(
+    theta_slot: u32,
+    m_hat_slot: u32,
+    sqrt_v_hat_plus_eps_slot: u32,
+    lr_slot: u32,
+) -> EmlClosureExpr {
+    let update = EmlClosureExpr::divide(
+        closure_mul(
+            EmlClosureExpr::slot(lr_slot),
+            EmlClosureExpr::slot(m_hat_slot),
+        ),
+        EmlClosureExpr::slot(sqrt_v_hat_plus_eps_slot),
+    );
+    EmlClosureExpr::minus(EmlClosureExpr::slot(theta_slot), update)
+}
+
+/// Bias-corrected EMA estimate, as used in the Adam optimizer:
+/// `m̂_t = m_t / (1 − β^t)`.
+///
+/// Inputs are all slots: `m_slot` holds the running EMA, `one_minus_beta_pow_t_slot`
+/// holds `1 − β^t` (the bias-correction factor). The caller computes
+/// β^t externally and supplies `1 − β^t` as a slot.
+///
+/// Iter-144 — composes Divide; named for clarity in optimizer code.
+pub fn closure_bias_corrected_ema(m_slot: u32, one_minus_beta_pow_t_slot: u32) -> EmlClosureExpr {
+    EmlClosureExpr::divide(
+        EmlClosureExpr::slot(m_slot),
+        EmlClosureExpr::slot(one_minus_beta_pow_t_slot),
+    )
+}
+
+/// Binary log-sum-exp `log(exp(a) + exp(b))` in closure form.
+///
+/// Equivalent to `closure_lse([closure_exp(a), closure_exp(b)])`
+/// but named for clarity. Useful for log-domain accumulation in
+/// numerical loops (avoids underflow via the log-domain encoding).
+///
+/// Iter-181 — binary LSE primitive.
+pub fn closure_log_addexp(a_slot: u32, b_slot: u32) -> EmlClosureExpr {
+    closure_lse(vec![closure_exp(a_slot), closure_exp(b_slot)])
+}
+
+/// `log(exp(a) + exp(b))` for arbitrary subtrees `a`, `b`.
+///
+/// Expression-input generalization of [`closure_log_addexp`]
+/// (slot-form). Composes as
+///   `closure_lse(vec![closure_exp_of(a), closure_exp_of(b)])`.
+///
+/// Iter-367 — log-domain accumulation primitive on expression
+/// inputs. The slot form (iter-181) is the most common pattern
+/// (combining two log-probabilities by index); the `_of` form
+/// handles computed log-probabilities like
+/// `closure_log_addexp_of(closure_log_sigmoid_of(arg1),
+///                         closure_log_sigmoid_of(arg2))`
+/// — log-prob mixture without leaving the log domain.
+///
+/// Source. Log-sum-exp / softmax-fold pattern: Wainwright &
+/// Jordan, FnT in ML 1(1-2) 2008 §3.3 — log-partition function
+/// computation.
+pub fn closure_log_addexp_of(a: EmlClosureExpr, b: EmlClosureExpr) -> EmlClosureExpr {
+    closure_lse(vec![closure_exp_of(a), closure_exp_of(b)])
+}
+
+/// Log ratio `log(num / denom) = log(num) − log(denom)`.
+///
+/// Useful for Bayes factor / likelihood ratio expressions.
+/// Both inputs must be positive at evaluation time.
+///
+/// Iter-138 — log-domain arithmetic primitive.
+pub fn closure_log_ratio(num_slot: u32, denom_slot: u32) -> EmlClosureExpr {
+    EmlClosureExpr::minus(
+        closure_ln(EmlClosureExpr::slot(num_slot)),
+        closure_ln(EmlClosureExpr::slot(denom_slot)),
+    )
+}
+
+/// Sum of slot values `Σ_i Slot(i)`.
+///
+/// Plus-chain across all given slots. Empty input returns the zero
+/// expression.
+///
+/// Iter-133 — aggregate primitive.
+pub fn closure_sum_slots(slot_indices: &[u32]) -> EmlClosureExpr {
+    if slot_indices.is_empty() {
+        return closure_zero();
+    }
+    let mut iter = slot_indices.iter().map(|&i| EmlClosureExpr::slot(i));
+    let first = iter.next().unwrap();
+    iter.fold(first, |acc, term| EmlClosureExpr::plus(acc, term))
+}
+
+/// Product of slot values `Π_i Slot(i)`.
+///
+/// Mul-chain across all given slots. Empty input returns
+/// [`EmlClosureExpr::One`] (the multiplicative identity).
+///
+/// Iter-133 — aggregate primitive.
+pub fn closure_product_slots(slot_indices: &[u32]) -> EmlClosureExpr {
+    if slot_indices.is_empty() {
+        return EmlClosureExpr::one();
+    }
+    let mut iter = slot_indices.iter().map(|&i| EmlClosureExpr::slot(i));
+    let first = iter.next().unwrap();
+    iter.fold(first, |acc, term| closure_mul(acc, term))
+}
+
+/// Arithmetic mean of slot values: `(1/n) · Σ_i Slot(i)`.
+///
+/// `n_slot` provides the count `n` at evaluation time. Caller must
+/// ensure `n` matches `slot_indices.len()` for the standard
+/// arithmetic mean; alternatively `n_slot` can hold any divisor for
+/// generalized weighted aggregation.
+///
+/// Iter-133 — companion to closure_sum_slots / closure_product_slots.
+pub fn closure_arithmetic_mean(slot_indices: &[u32], n_slot: u32) -> EmlClosureExpr {
+    EmlClosureExpr::divide(
+        closure_sum_slots(slot_indices),
+        EmlClosureExpr::slot(n_slot),
+    )
+}
+
+/// Gaussian log-likelihood (data-dependent part):
+///
+///   ℓ(x; μ, σ²) = −½ · ln(σ²) − (x − μ)² / (2σ²).
+///
+/// Drops the `−½ · ln(2π)` constant since it is x-, μ-, σ²-
+/// independent.
+///
+/// Closure form (all primitives EML-native):
+/// composes `closure_ln`, `closure_mul`, `closure_squared`-style
+/// diff, and `Divide(_, Plus(One, One))` to halve.
+///
+/// Caller must supply `σ² > 0`; the closure evaluator surfaces
+/// the usual `ln(0)` error otherwise.
+///
+/// Iter-259 — closes the (Bernoulli, Multinomial, Poisson,
+/// Gaussian) exp-family log-likelihood quartet in EML closure
+/// form alongside `closure_logistic_loss`,
+/// `closure_softmax_cross_entropy_from_logits`, and
+/// `closure_poisson_log_likelihood`.
+pub fn closure_gaussian_log_likelihood(
+    x_slot: u32,
+    mu_slot: u32,
+    sigma2_slot: u32,
+) -> EmlClosureExpr {
+    let two = EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one());
+    // -0.5 · ln(σ²)
+    let ln_sig2 = closure_ln(EmlClosureExpr::slot(sigma2_slot));
+    let half_ln = EmlClosureExpr::divide(ln_sig2, two.clone());
+    let neg_half_ln = EmlClosureExpr::minus(closure_zero(), half_ln);
+    // -(x - μ)² / (2 · σ²)
+    let diff = EmlClosureExpr::minus(EmlClosureExpr::slot(x_slot), EmlClosureExpr::slot(mu_slot));
+    let diff_sq = closure_mul(diff.clone(), diff);
+    let two_sigma2 = closure_mul(two, EmlClosureExpr::slot(sigma2_slot));
+    let quadratic = EmlClosureExpr::divide(diff_sq, two_sigma2);
+    let neg_quadratic = EmlClosureExpr::minus(closure_zero(), quadratic);
+    EmlClosureExpr::plus(neg_half_ln, neg_quadratic)
+}
+
+/// Poisson log-likelihood contribution (data-dependent part):
+///
+///   ln P(k | λ) − ln(k!) = k · ln(λ) − λ.
+///
+/// The `ln(k!)` term is a λ-independent constant and is dropped
+/// (standard convention in MLE / Poisson regression training).
+/// Closure form: `Minus(closure_mul(slot(k), closure_ln(slot(λ))),
+/// slot(λ))`.
+///
+/// Caller must supply `λ > 0`; the closure evaluator surfaces
+/// the usual `ln(0)` error otherwise.
+///
+/// Iter-253 — Poisson-regression building block. Pairs with
+/// `closure_categorical_log_prob_pinned` (categorical) and
+/// `closure_logistic_loss` (Bernoulli) to give all three of the
+/// canonical exponential-family log-likelihoods in EML form
+/// without the partition-function constants.
+pub fn closure_poisson_log_likelihood(k_slot: u32, lambda_slot: u32) -> EmlClosureExpr {
+    let log_lambda = closure_ln(EmlClosureExpr::slot(lambda_slot));
+    let k_log_lambda = closure_mul(EmlClosureExpr::slot(k_slot), log_lambda);
+    EmlClosureExpr::minus(k_log_lambda, EmlClosureExpr::slot(lambda_slot))
+}
+
+/// Exponential-distribution log-likelihood:
+/// `ln p(x; λ) = ln(λ) − λ·x` for `x ≥ 0`, `λ > 0`.
+///
+/// Closure form: `Minus(closure_ln(slot(λ)), Mul(slot(λ), slot(x)))`.
+/// Drops the indicator on `x ≥ 0` (caller's responsibility, same as
+/// the Poisson builder which trusts `λ > 0` and integer `k`).
+///
+/// Iter-319 — extends the exponential-family log-likelihood quartet
+/// (Bernoulli / Multinomial / Poisson / Gaussian) with the
+/// continuous-positive-support exponential. Standard exp-family
+/// canonical form: natural parameter `η = −λ`, sufficient statistic
+/// `T(x) = x`, log-partition `A(η) = −ln(−η) = ln(λ)`.
+///
+/// Source. Wainwright/Jordan, "Graphical Models, Exponential Families,
+/// and Variational Inference" (Foundations and Trends in ML, 2008)
+/// §3.1.1 Table 1 — exponential distribution row, natural parameter
+/// + log-partition columns.
+pub fn closure_exponential_log_likelihood(x_slot: u32, lambda_slot: u32) -> EmlClosureExpr {
+    let log_lambda = closure_ln(EmlClosureExpr::slot(lambda_slot));
+    let lambda_x = closure_mul(
+        EmlClosureExpr::slot(lambda_slot),
+        EmlClosureExpr::slot(x_slot),
+    );
+    EmlClosureExpr::minus(log_lambda, lambda_x)
+}
+
+/// Uniform-distribution log-likelihood (bounded support):
+/// `ln p(x; a, b) = −ln(b − a)` for `x ∈ [a, b]`, undefined
+/// elsewhere.
+///
+/// The indicator on `[a, b]` is the caller's responsibility (the
+/// EML closure DSL has no native indicator function; matching
+/// the convention of every other distribution closure that
+/// trusts the support).
+///
+/// Closure form:
+///   `Minus(Zero, closure_ln(Minus(slot(b_slot), slot(a_slot))))`.
+///
+/// Requires `b > a` strictly (else `ln(0)` or `ln(negative)` is
+/// surfaced by the evaluator).
+///
+/// Iter-385 — bounded-support continuous log-likelihood that
+/// completes the EML distribution family alongside:
+/// - Bernoulli / Categorical (discrete bounded).
+/// - Poisson / Geometric (discrete unbounded).
+/// - Gaussian / Exponential / Pareto (continuous unbounded /
+///   heavy-tail).
+/// - Uniform (this iter) — continuous bounded.
+///
+/// Source. Uniform distribution PDF: standard probability
+/// textbook; e.g., Casella & Berger, "Statistical Inference"
+/// (2nd ed., 2002) §3.6.
+pub fn closure_uniform_log_likelihood(a_slot: u32, b_slot: u32) -> EmlClosureExpr {
+    let width = EmlClosureExpr::minus(EmlClosureExpr::slot(b_slot), EmlClosureExpr::slot(a_slot));
+    let log_width = closure_ln(width);
+    EmlClosureExpr::minus(closure_zero(), log_width)
+}
+
+/// Geometric-distribution log-likelihood (zero-indexed convention):
+/// `ln p(k; p) = ln(p) + k · ln(1 − p)` for `k ∈ {0, 1, 2, …}`,
+/// `0 < p < 1`.
+///
+/// Closure form: `Plus(closure_ln(slot(p)),
+///                     Mul(slot(k), closure_ln(Minus(One, slot(p)))))`.
+/// Uses the standard "number of failures before first success"
+/// parameterization (`k = 0, 1, …`); for the "number of trials"
+/// parameterization (`k = 1, 2, …`), call with `(k − 1)` in
+/// `k_slot`.
+///
+/// Iter-319 — discrete-support companion to
+/// [`closure_exponential_log_likelihood`]. Memoryless-distribution
+/// pair: the geometric is the discrete analog of the exponential
+/// (both maximize entropy under their support + mean constraints).
+///
+/// Source. Wainwright/Jordan (2008) §3.1.1 Table 1 — geometric
+/// distribution row. Memorylessness pair documented in Cover/Thomas
+/// "Elements of Information Theory" (2nd ed.) Ch. 12 Problem 12.3.
+pub fn closure_geometric_log_likelihood(k_slot: u32, p_slot: u32) -> EmlClosureExpr {
+    let log_p = closure_ln(EmlClosureExpr::slot(p_slot));
+    let one_minus_p = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::slot(p_slot));
+    let log_one_minus_p = closure_ln(one_minus_p);
+    let k_log_q = closure_mul(EmlClosureExpr::slot(k_slot), log_one_minus_p);
+    EmlClosureExpr::plus(log_p, k_log_q)
+}
+
+/// Pareto (type I) distribution log-likelihood:
+/// `ln p(x; α, x_min) = ln(α) + α·ln(x_min) − (α+1)·ln(x)`
+/// for `x ≥ x_min > 0` and `α > 0`.
+///
+/// Algebraically re-grouped to avoid `α + 1` (which would require
+/// a sub-term that fuses a slot with the `One` constant before
+/// multiplying by `ln(x)`):
+///   `ln(α) − ln(x) + α·(ln(x_min) − ln(x))`.
+///
+/// Closure form:
+///   `Plus(Minus(closure_ln(slot(α)), closure_ln(slot(x))),
+///         Mul(slot(α),
+///             Minus(closure_ln(slot(x_min)), closure_ln(slot(x)))))`
+///
+/// Iter-325 — adds the canonical heavy-tail / power-law
+/// distribution to the EML closure log-likelihood library
+/// alongside the exponential (iter-319, light tail) and the
+/// Gaussian (iter-?, sub-exponential tail). With Pareto, EML
+/// covers the heavy-tail regime explicitly — important in
+/// robust-statistics and scaling-law modeling contexts.
+///
+/// Source. Pareto, V. "Cours d'économie politique" (1896);
+/// modern canonical form: Johnson/Kotz/Balakrishnan, "Continuous
+/// Univariate Distributions Vol. 1" (2nd ed., 1994) §20.1
+/// eq. (20.4).
+/// Laplace-distribution log-likelihood:
+/// `ln p(x; μ, b) = −ln(2b) − |x − μ| / b`
+///   = `−ln(2) − ln(b) − |x − μ| / b`, for `b > 0`.
+///
+/// Uses the EML-native abs identity `|x − μ| = exp(½ · ln((x − μ)²))`
+/// (same trick as `closure_abs`, iter-271). Caller must guarantee
+/// `x ≠ μ` (else `ln(0)` is surfaced) and `b > 0` (else
+/// `ln(b)` is surfaced).
+///
+/// Closure form, breaking out the three additive terms:
+///   `Plus(Minus(Zero, ln(Plus(One, One)))   // −ln(2)
+///         , Plus(Minus(Zero, ln(slot(b)))   // −ln(b)
+///                , Minus(Zero, Divide(|x − μ|, slot(b)))))`.
+///
+/// Iter-440 — adds the canonical *robust* / heavy-tail-symmetric
+/// continuous distribution to the EML log-likelihood library
+/// alongside Gaussian (sub-exponential tail), Exponential
+/// (one-sided light tail), Pareto (power-law heavy tail), and
+/// Uniform (bounded support). The Laplace closure unlocks L¹-
+/// regression NLLs in pure EML form (since the Laplace MLE for μ
+/// is the median, and `−log p ∝ |x − μ|`).
+///
+/// Source. Laplace distribution pdf: Laplace, P.-S., "Mémoire sur
+/// la probabilité des causes par les évènements", Mémoires de
+/// l'Académie Royale des Sciences (1774). Modern reference: Kotz,
+/// Kozubowski, Podgórski, "The Laplace Distribution and
+/// Generalizations" (Birkhäuser, 2001) §2.1 eq. (2.1.1).
+/// Same-scale Laplace KL divergence in EML closure form:
+/// `D_KL(Laplace(μ_p, b) ‖ Laplace(μ_q, b)) = z + exp(−z) − 1`,
+///   where `z = |μ_p − μ_q| / b`.
+///
+/// Uses the EML-native abs identity from `closure_abs` (iter-271)
+/// on the slot difference (μ_p − μ_q) and `closure_exp_of`
+/// (iter-83/99) on the negated quotient. Caller guarantees
+/// `μ_p ≠ μ_q` (else `ln(0)` is surfaced) and `b > 0`.
+///
+/// Iter-452 — closure-form mirror of the scalar Info-IR primitive
+/// `laplace_kl_same_scale` (iter-447). Pairs with
+/// `closure_laplace_log_likelihood` (iter-440) on the EML side and
+/// `laplace_pdf` / `laplace_log_pdf` (iter-441) on the scalar side
+/// to close the same-scale Laplace family (log-pdf, scalar KL,
+/// closure KL).
+///
+/// Source. Same as iter-447 (scalar form): Kotz, Kozubowski,
+/// Podgórski, "The Laplace Distribution and Generalizations"
+/// (Birkhäuser, 2001) §2.5 — same-scale Laplace KL closed form via
+/// `E_{Laplace(μ_p, b)}[|x − μ_q|] = |μ_q − μ_p| + b · exp(−|μ_q − μ_p|/b)`.
+/// Same-x_min Pareto KL divergence in EML closure form:
+/// `D_KL(Pareto(α_p, m) ‖ Pareto(α_q, m))
+///       = ln(α_p) − ln(α_q) + α_q / α_p − 1`.
+///
+/// Both distributions share the support lower bound `m > 0`, so
+/// the closure encodes only the α-only formula. Caller guarantees
+/// `α_p, α_q > 0`.
+///
+/// Closure form composes three additive terms:
+/// `Plus(Minus(ln(α_p), ln(α_q)),
+///       Minus(Divide(slot(α_q), slot(α_p)), One))`.
+///
+/// Iter-458 — closure-form mirror of the scalar Info-IR primitive
+/// `pareto_kl_same_x_min` (iter-453). Pairs with
+/// `closure_pareto_log_likelihood` (iter-325) to give pdf + KL on
+/// the EML side, mirroring the Laplace pair iter-440 + iter-452.
+///
+/// Source. Same as iter-453: Arnold, "Pareto Distributions"
+/// (CRC Press, 2nd ed., 2015) §3.6 — logarithmic moments;
+/// `E_{Pareto(α, m)}[ln(x/m)] = 1/α`.
+pub fn closure_pareto_kl_same_x_min(alpha_p_slot: u32, alpha_q_slot: u32) -> EmlClosureExpr {
+    let log_p = closure_ln(EmlClosureExpr::slot(alpha_p_slot));
+    let log_q = closure_ln(EmlClosureExpr::slot(alpha_q_slot));
+    let log_ratio = EmlClosureExpr::minus(log_p, log_q);
+    let ratio = EmlClosureExpr::divide(
+        EmlClosureExpr::slot(alpha_q_slot),
+        EmlClosureExpr::slot(alpha_p_slot),
+    );
+    let ratio_minus_one = EmlClosureExpr::minus(ratio, EmlClosureExpr::one());
+    EmlClosureExpr::plus(log_ratio, ratio_minus_one)
+}
+
+/// Same-x_min Pareto Jeffreys (symmetric KL) in EML closure form:
+/// `J(Pareto(α_p, m), Pareto(α_q, m)) = α_q / α_p + α_p / α_q − 2`.
+///
+/// Caller guarantees `α_p, α_q > 0`. Closure form, three-term:
+/// `Minus(Plus(Divide(slot(α_q), slot(α_p)),
+///              Divide(slot(α_p), slot(α_q))),
+///        Plus(One, One))`.
+///
+/// Iter-464 — closure-form mirror of the scalar Info-IR primitive
+/// `pareto_jeffreys_same_x_min` (iter-459). Pairs with
+/// `closure_pareto_kl_same_x_min` (iter-458, asymmetric form) and
+/// `closure_pareto_log_likelihood` (iter-325, log-pdf). Same
+/// algebraic shape as the same-rate Exponential Jeffreys
+/// `λ_q/λ_p + λ_p/λ_q − 2` — by the Pareto ↔ Exponential
+/// log-transform.
+///
+/// Source. Same as iter-459: Jeffreys, Proc. R. Soc. A 186 (1946)
+/// §3 — symmetric-KL definition. Arnold, "Pareto Distributions"
+/// (CRC Press, 2nd ed., 2015) §3.6 — Pareto KL closed form.
+pub fn closure_pareto_jeffreys_same_x_min(alpha_p_slot: u32, alpha_q_slot: u32) -> EmlClosureExpr {
+    let ratio_qp = EmlClosureExpr::divide(
+        EmlClosureExpr::slot(alpha_q_slot),
+        EmlClosureExpr::slot(alpha_p_slot),
+    );
+    let ratio_pq = EmlClosureExpr::divide(
+        EmlClosureExpr::slot(alpha_p_slot),
+        EmlClosureExpr::slot(alpha_q_slot),
+    );
+    let sum = EmlClosureExpr::plus(ratio_qp, ratio_pq);
+    let two = EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one());
+    EmlClosureExpr::minus(sum, two)
+}
+
+pub fn closure_laplace_kl_same_scale(
+    mu_p_slot: u32,
+    mu_q_slot: u32,
+    b_slot: u32,
+) -> EmlClosureExpr {
+    let two = EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one());
+    let diff_sq = closure_diff_squared(mu_p_slot, mu_q_slot);
+    let half_ln_diff_sq = EmlClosureExpr::divide(closure_ln(diff_sq), two);
+    let abs_diff = EmlClosureExpr::eml(half_ln_diff_sq, EmlClosureExpr::one());
+    let z = EmlClosureExpr::divide(abs_diff, EmlClosureExpr::slot(b_slot));
+    let neg_z = closure_neg(z.clone());
+    let exp_neg_z = closure_exp_of(neg_z);
+    // z + exp(−z) − 1.
+    let plus = EmlClosureExpr::plus(z, exp_neg_z);
+    EmlClosureExpr::minus(plus, EmlClosureExpr::one())
+}
+
+pub fn closure_laplace_log_likelihood(x_slot: u32, mu_slot: u32, b_slot: u32) -> EmlClosureExpr {
+    let two = EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one());
+    let log_two = closure_ln(two);
+    let log_b = closure_ln(EmlClosureExpr::slot(b_slot));
+    let diff_sq = closure_diff_squared(x_slot, mu_slot);
+    let two_for_half = EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one());
+    let half_ln_diff_sq = EmlClosureExpr::divide(closure_ln(diff_sq), two_for_half);
+    // |x − μ| = exp(½ · ln((x − μ)²)) = eml(half_ln_diff_sq, One).
+    let abs_diff = EmlClosureExpr::eml(half_ln_diff_sq, EmlClosureExpr::one());
+    let scaled_abs = EmlClosureExpr::divide(abs_diff, EmlClosureExpr::slot(b_slot));
+    // ln p = −ln(2) − ln(b) − |x − μ| / b.
+    let neg_log_two = EmlClosureExpr::minus(closure_zero(), log_two);
+    let neg_log_b = EmlClosureExpr::minus(closure_zero(), log_b);
+    let neg_scaled_abs = EmlClosureExpr::minus(closure_zero(), scaled_abs);
+    EmlClosureExpr::plus(neg_log_two, EmlClosureExpr::plus(neg_log_b, neg_scaled_abs))
+}
+
+pub fn closure_pareto_log_likelihood(
+    x_slot: u32,
+    alpha_slot: u32,
+    x_min_slot: u32,
+) -> EmlClosureExpr {
+    let log_alpha = closure_ln(EmlClosureExpr::slot(alpha_slot));
+    let log_x = closure_ln(EmlClosureExpr::slot(x_slot));
+    let log_xmin = closure_ln(EmlClosureExpr::slot(x_min_slot));
+    let log_ratio = EmlClosureExpr::minus(log_xmin, log_x.clone());
+    let alpha_log_ratio = closure_mul(EmlClosureExpr::slot(alpha_slot), log_ratio);
+    let base = EmlClosureExpr::minus(log_alpha, log_x);
+    EmlClosureExpr::plus(base, alpha_log_ratio)
+}
+
+/// L¹ distance between two slot vectors: `Σᵢ |aᵢ − bᵢ|`.
+///
+/// Each term `|aᵢ − bᵢ|` uses the EML-native abs identity
+/// `|x| = exp(½ · ln(x²))` applied to the slot difference.
+/// Caller must ensure no `aᵢ = bᵢ` (else `ln(0)` is surfaced).
+///
+/// Iter-283 — L¹ regression / Lasso-style residual primitive
+/// in EML closure form.
+pub fn closure_l1_distance(a_slots: &[u32], b_slots: &[u32]) -> EmlClosureExpr {
+    let two = EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one());
+    let terms: Vec<EmlClosureExpr> = a_slots
+        .iter()
+        .zip(b_slots.iter())
+        .map(|(&a, &b)| {
+            let sq = closure_diff_squared(a, b);
+            let ln_sq = closure_ln(sq);
+            let half_ln_sq = EmlClosureExpr::divide(ln_sq, two.clone());
+            EmlClosureExpr::eml(half_ln_sq, EmlClosureExpr::one())
+        })
+        .collect();
+    fold_plus_left(terms)
+}
+
+/// L¹ norm of a slot list `Σᵢ |xᵢ|`.
+///
+/// Composes [`closure_abs`] over each slot and folds with
+/// `closure_sum_slots`-style addition. The standard LASSO
+/// regularizer term in EML closure form.
+///
+/// Caller must guarantee every `slot[i] ≠ 0` (else `closure_abs`
+/// surfaces `ln(0)`); the empty list returns `One − eml(0, One) = 0`
+/// via the empty-fold convention.
+///
+/// Iter-277 — surfaces L¹ regularization in closure form.
+pub fn closure_l1_norm(slot_indices: &[u32]) -> EmlClosureExpr {
+    let terms: Vec<EmlClosureExpr> = slot_indices.iter().map(|&i| closure_abs(i)).collect();
+    fold_plus_left(terms)
+}
+
+/// Absolute value `closure_abs(slot) = |slot| = exp(½ · ln(slot²))`.
+///
+/// Composed entirely from the EML alphabet (exp, ln, mul,
+/// divide, plus). The identity uses
+///   |x| = exp(½ · ln(x²))    (defined for `x ≠ 0`).
+///
+/// At `x = 0` the closure surfaces the `ln(0)` evaluator error
+/// (no defined value); callers needing a total fallback must
+/// guard `x = 0` separately. For all non-zero `x` this is exact.
+///
+/// Iter-271 — surfaces |·| as an EML-native primitive, plumbing
+/// the previously missing absolute-value operation onto the
+/// closure DSL. Pairs with `closure_squared` (iter-241) and
+/// `closure_diff_squared` (iter-265) to give all (x², (a−b)²,
+/// |x|) building blocks for L¹/L² robust losses.
+pub fn closure_abs(slot_idx: u32) -> EmlClosureExpr {
+    let two = EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one());
+    let sq = closure_squared(slot_idx);
+    let ln_sq = closure_ln(sq);
+    let half_ln_sq = EmlClosureExpr::divide(ln_sq, two);
+    // exp(arg) = eml(arg, One) — same trick as closure_exp on an arbitrary expr.
+    EmlClosureExpr::eml(half_ln_sq, EmlClosureExpr::one())
+}
+
+/// Squared difference `closure_diff_squared(a, b) = (slot(a) − slot(b))²`.
+///
+/// Closure form: `closure_mul(Minus(slot(a), slot(b)),
+/// Minus(slot(a), slot(b)))`. The base term in MSE, Mahalanobis
+/// distance, and squared L²-distance composition.
+///
+/// Iter-265 — sugar over [`closure_squared`] applied to a slot
+/// difference. Cleaner than spelling out `Mul(Minus(_, _),
+/// Minus(_, _))` at every call site.
+pub fn closure_diff_squared(a_slot: u32, b_slot: u32) -> EmlClosureExpr {
+    let diff = EmlClosureExpr::minus(EmlClosureExpr::slot(a_slot), EmlClosureExpr::slot(b_slot));
+    closure_mul(diff.clone(), diff)
+}
+
+/// Cubed slot value `closure_cube(i) = slot(i)³`.
+///
+/// Closure form: `closure_mul(slot(i), closure_squared(i))`. The
+/// next polynomial primitive after [`closure_squared`] (iter-241);
+/// useful for skewness moment terms, cubic-spline kernels, and
+/// the Bregman generator `x³/3` on the positive reals.
+///
+/// Iter-247 — completes the (x, x², x³) monomial set in closure
+/// form. Higher powers can compose via `closure_mul`.
+pub fn closure_cube(slot_idx: u32) -> EmlClosureExpr {
+    closure_mul(EmlClosureExpr::slot(slot_idx), closure_squared(slot_idx))
+}
+
+/// Inverse-temperature scaling `closure_inverse_temperature_scaling
+/// (theta_slot, beta_slot) = β · θ`.
+///
+/// Sugar over `closure_mul(slot(β), slot(θ))`. Appears in:
+/// - Boltzmann distribution scaling (β = 1/T in the partition
+///   function).
+/// - Temperature-controlled softmax (multiply logits by β before
+///   exp).
+/// - Inverse-variance weighting in Gaussian likelihoods.
+///
+/// Iter-301 — clean call site for the most common
+/// scalar-slot-by-slot multiplication pattern.
+pub fn closure_inverse_temperature_scaling(theta_slot: u32, beta_slot: u32) -> EmlClosureExpr {
+    closure_mul(
+        EmlClosureExpr::slot(beta_slot),
+        EmlClosureExpr::slot(theta_slot),
+    )
+}
+
+/// Reciprocal `closure_inverse(slot) = 1 / slot`.
+///
+/// Sugar over `Divide(One, slot(i))`. Caller must guarantee
+/// `slot ≠ 0` else the closure evaluator surfaces div-by-zero.
+///
+/// Iter-295 — base reciprocal primitive; appears in harmonic
+/// means, Fisher information denominators, inverse-temperature
+/// reparameterizations, and any closure-form rational
+/// expression.
+pub fn closure_inverse(slot_idx: u32) -> EmlClosureExpr {
+    EmlClosureExpr::divide(EmlClosureExpr::one(), EmlClosureExpr::slot(slot_idx))
+}
+
+/// Squared slot value `closure_squared(i) = slot(i)²`.
+///
+/// Closure form: `closure_mul(slot(i), slot(i))`. The base
+/// quadratic primitive; many derived losses (MSE, L²-penalty,
+/// Bregman-of-the-Mahalanobis form) reduce to a sum of these.
+///
+/// Iter-241 — sugar over [`closure_mul`]; cleaner call site when
+/// the same slot is multiplied by itself than spelling out the
+/// `Mul` constructor.
+pub fn closure_squared(slot_idx: u32) -> EmlClosureExpr {
+    closure_mul(
+        EmlClosureExpr::slot(slot_idx),
+        EmlClosureExpr::slot(slot_idx),
+    )
+}
+
+/// Squared of an arbitrary subtree: `f(arg) = arg²`.
+///
+/// Closure form: `closure_mul(arg.clone(), arg)`. The expression-
+/// input generalization of [`closure_squared`] (slot-form) and
+/// the building block underlying [`closure_diff_squared`].
+///
+/// Iter-337 — completes the (slot, expression) pair on the
+/// quadratic primitive, mirroring iter-331's softplus_of pattern.
+/// Composes cleanly with arbitrary subtrees: e.g.,
+///   `closure_squared_of(closure_softplus_of(arg))`
+/// gives `softplus(arg)²` in a single builder call.
+///
+/// Source. Squared is the canonical degree-2 base in the EML
+/// monomial decomposition (Carney 2009, "Elementary Mathematical
+/// Logic"); the slot/expression overload follows the same
+/// pattern as exp/exp_of, softplus/softplus_of.
+pub fn closure_squared_of(arg: EmlClosureExpr) -> EmlClosureExpr {
+    closure_mul(arg.clone(), arg)
+}
+
+/// Bernoulli KL divergence from explicit probabilities:
+///
+///   KL(p || q) = p·ln(p/q) + (1−p)·ln((1−p)/(1−q))
+///              = p·(ln(p) − ln(q)) + (1−p)·(ln(1−p) − ln(1−q)).
+///
+/// Caller must guarantee `p, q ∈ (0, 1)` (else ln(0) is surfaced).
+/// Closure form composes ln, slot, mul, plus, minus.
+///
+/// Iter-313 — explicit-prob Bernoulli KL closure; the two-class
+/// specialization of [`closure_categorical_kl_from_probs`]
+/// (iter-235) when callers hold a single (p, q) probability pair.
+pub fn closure_bernoulli_kl_from_probs(p_slot: u32, q_slot: u32) -> EmlClosureExpr {
+    let ln_p = closure_ln(EmlClosureExpr::slot(p_slot));
+    let ln_q = closure_ln(EmlClosureExpr::slot(q_slot));
+    let one_minus_p = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::slot(p_slot));
+    let one_minus_q = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::slot(q_slot));
+    let ln_one_minus_p = closure_ln(one_minus_p.clone());
+    let ln_one_minus_q = closure_ln(one_minus_q);
+    let pos_term = closure_mul(
+        EmlClosureExpr::slot(p_slot),
+        EmlClosureExpr::minus(ln_p, ln_q),
+    );
+    let neg_term = closure_mul(
+        one_minus_p,
+        EmlClosureExpr::minus(ln_one_minus_p, ln_one_minus_q),
+    );
+    EmlClosureExpr::plus(pos_term, neg_term)
+}
+
+/// Chi-squared divergence between two Bernoulli distributions
+/// (explicit-probability form) in EML closure DSL:
+/// `χ²(p ‖ q) = (p − q)² / (q · (1 − q))`.
+///
+/// Derivation: for two-class p, q with class probabilities
+/// `(p, 1 − p)` and `(q, 1 − q)`,
+///   `χ²(p ‖ q) = (p − q)²/q + ((1 − p) − (1 − q))²/(1 − q)
+///              = (p − q)² · [1/q + 1/(1 − q)]
+///              = (p − q)² / (q · (1 − q))`.
+///
+/// Caller guarantees `p ∈ [0, 1]` and `q ∈ (0, 1)` (the divergence
+/// is undefined at q ∈ {0, 1}; the closure surfaces ln(0)-style
+/// blow-up via the `q · (1 − q)` denominator there).
+///
+/// Closure form:
+///   `Divide(closure_diff_squared(p, q),
+///           closure_mul(slot(q), Minus(One, slot(q))))`.
+///
+/// Iter-488 — pairs with `binary_chi_squared_divergence`
+/// (Info-IR scalar) on the closure side; completes the EML
+/// closure-form Bernoulli divergence quartet (KL exists as
+/// closure_bernoulli_kl_from_probs iter-313; JS / TV / χ² remain
+/// for completeness).
+///
+/// Source. Chi-squared divergence: Pearson, "On the Criterion that
+/// a Given System of Deviations from the Probable in the Case of
+/// a Correlated System of Variables is Such that it Can be
+/// Reasonably Supposed to have Arisen from Random Sampling",
+/// Philos. Magazine 50 (1900). Pinsker upper bound: Cover &
+/// Thomas, "Elements of Information Theory" (2nd ed., 2006) §11.6
+/// (KL ≤ χ²).
+pub fn closure_chi_squared_bernoulli(p_slot: u32, q_slot: u32) -> EmlClosureExpr {
+    let diff_sq = closure_diff_squared(p_slot, q_slot);
+    let one_minus_q = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::slot(q_slot));
+    let denom = closure_mul(EmlClosureExpr::slot(q_slot), one_minus_q);
+    EmlClosureExpr::divide(diff_sq, denom)
+}
+
+/// Categorical KL divergence from explicit probabilities:
+///
+///   KL(P || Q) = Σᵢ pᵢ · (ln(pᵢ) − ln(qᵢ)).
+///
+/// Closure form: `Σᵢ closure_mul(slot(pᵢ), Minus(closure_ln(slot(pᵢ)),
+/// closure_ln(slot(qᵢ))))`. Slots are paired positionally.
+///
+/// Distinct from [`closure_kl_categorical`] (iter-?), which takes
+/// natural-parameter (logit) slots and uses the log-partition
+/// formulation; this version is the right call site when callers
+/// hold probability vectors directly.
+///
+/// Caller is responsible for `pᵢ, qᵢ > 0` wherever needed; the
+/// evaluator surfaces ln(0) errors otherwise.
+///
+/// Iter-235 — explicit-prob KL closure; the Info-IR
+/// `kl_from_probs` mirror in the EML closure DSL.
+pub fn closure_categorical_kl_from_probs(p_slots: &[u32], q_slots: &[u32]) -> EmlClosureExpr {
+    let terms: Vec<EmlClosureExpr> = p_slots
+        .iter()
+        .zip(q_slots.iter())
+        .map(|(&pi, &qi)| {
+            let ln_p = closure_ln(EmlClosureExpr::slot(pi));
+            let ln_q = closure_ln(EmlClosureExpr::slot(qi));
+            closure_mul(EmlClosureExpr::slot(pi), EmlClosureExpr::minus(ln_p, ln_q))
+        })
+        .collect();
+    fold_plus_left(terms)
+}
+
+/// Binary cross-entropy from explicit probabilities:
+///
+///   BCE(y, p) = −[y · ln(p) + (1 − y) · ln(1 − p)].
+///
+/// Closure form (all primitives EML-native):
+///   `Minus(Zero, Plus(closure_mul(slot(y), closure_ln(slot(p))),
+///                     closure_mul(Minus(One, slot(y)),
+///                                 closure_ln(Minus(One, slot(p))))))`.
+///
+/// Distinct from [`closure_logistic_loss`] (iter-193), which takes
+/// a logit `θ` and uses softplus for numerical stability; this
+/// form expects `p ∈ (0, 1)` already.
+///
+/// Iter-229 — binary BCE on probabilities; the standard
+/// supervised-learning loss when callers hold a sigmoid output.
+pub fn closure_binary_cross_entropy_from_probs(y_slot: u32, p_slot: u32) -> EmlClosureExpr {
+    let ln_p = closure_ln(EmlClosureExpr::slot(p_slot));
+    let ln_neg_p = closure_ln(EmlClosureExpr::minus(
+        EmlClosureExpr::one(),
+        EmlClosureExpr::slot(p_slot),
+    ));
+    let y_lnp = closure_mul(EmlClosureExpr::slot(y_slot), ln_p);
+    let one_minus_y = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::slot(y_slot));
+    let one_minus_y_ln_neg_p = closure_mul(one_minus_y, ln_neg_p);
+    let sum = EmlClosureExpr::plus(y_lnp, one_minus_y_ln_neg_p);
+    EmlClosureExpr::minus(closure_zero(), sum)
+}
+
+/// Softmax cross-entropy from logits for a one-hot target:
+///
+///   L(θ, k) = lse(θ) − θ_k = ln(Σⱼ exp(θⱼ)) − θ_k.
+///
+/// THE classification training loss for raw logits and a single
+/// target-class index `k`. Numerically stable: composes
+/// [`closure_lse`] (which is itself stable via the EML alphabet's
+/// exp/ln directly, with caveats noted there) and a single slot
+/// subtraction.
+///
+/// Slots layout: `theta_slots[k]` is the logit for class `k`;
+/// `target_idx` is the index *into theta_slots* of the target
+/// class. The expression is undefined if `target_idx >=
+/// theta_slots.len()` — caller must enforce.
+///
+/// Iter-223 — companion to [`closure_categorical_cross_entropy`]
+/// (which takes explicit probabilities) and
+/// [`closure_logistic_loss`] (binary case). Lowers to the same
+/// gradient that PyTorch's `cross_entropy(logits, target)` computes.
+pub fn closure_softmax_cross_entropy_from_logits(
+    theta_slots: &[u32],
+    target_idx: usize,
+) -> EmlClosureExpr {
+    let exp_args: Vec<EmlClosureExpr> = theta_slots.iter().map(|&i| closure_exp(i)).collect();
+    let lse_term = closure_lse(exp_args);
+    EmlClosureExpr::minus(lse_term, EmlClosureExpr::slot(theta_slots[target_idx]))
+}
+
+/// Categorical cross-entropy `H(P, Q) = −Σᵢ pᵢ · ln(qᵢ)`.
+///
+/// Closure form: `Minus(Zero, Σᵢ closure_mul(slot(pᵢ),
+/// closure_ln(slot(qᵢ))))`. Caller is responsible for ensuring
+/// `qᵢ > 0` wherever `pᵢ > 0` (the EML evaluator surfaces the
+/// usual `ln(0)` error otherwise).
+///
+/// Slots are paired positionally: `p_slots[k]` is paired with
+/// `q_slots[k]`. Mismatched lengths take only the common prefix
+/// (caller's structural concern; this builder does not enforce
+/// length equality at construction time, matching
+/// `closure_dot_product`'s convention).
+///
+/// Iter-217 — companion to `closure_kl_categorical` (which is
+/// `H(P, Q) − H(P)`); the no-entropy-baseline form here is the
+/// standard supervised-classification training loss when `p` is
+/// the one-hot target.
+pub fn closure_categorical_cross_entropy(p_slots: &[u32], q_slots: &[u32]) -> EmlClosureExpr {
+    let terms: Vec<EmlClosureExpr> = p_slots
+        .iter()
+        .zip(q_slots.iter())
+        .map(|(&pi, &qi)| {
+            closure_mul(
+                EmlClosureExpr::slot(pi),
+                closure_ln(EmlClosureExpr::slot(qi)),
+            )
+        })
+        .collect();
+    let sum = fold_plus_left(terms);
+    EmlClosureExpr::minus(closure_zero(), sum)
+}
+
+/// Log-cosh loss `L(r) = ln(cosh(r)) = ln(exp(r) + exp(-r)) − ln 2`.
+///
+/// Smooth Huber-like regression loss:
+/// - quadratic near zero (`≈ r² / 2` for small `|r|`),
+/// - linear away from zero (`≈ |r| − ln 2` for large `|r|`),
+/// - symmetric in `r` (even function).
+///
+/// Closure form (all primitives EML-native):
+///   `Minus(closure_ln(Plus(closure_exp(r), closure_neg_exp(r))),
+///          closure_ln(Plus(One, One)))`.
+///
+/// Iter-211 — robust-regression alternative to MSE that doesn't
+/// need a sqrt primitive (which the EML alphabet doesn't have).
+/// Composes cleanly with autodiff because both `cosh` derivatives
+/// (`tanh`) are first-class in the exp/ln-only fragment.
+pub fn closure_log_cosh(r_slot: u32) -> EmlClosureExpr {
+    let exp_r = closure_exp(r_slot);
+    let exp_neg_r = closure_neg_exp(r_slot);
+    let sum = EmlClosureExpr::plus(exp_r, exp_neg_r);
+    let lse_term = closure_ln(sum);
+    let ln_2 = closure_ln(EmlClosureExpr::plus(
+        EmlClosureExpr::one(),
+        EmlClosureExpr::one(),
+    ));
+    EmlClosureExpr::minus(lse_term, ln_2)
+}
+
+/// Log-cosh of an arbitrary subtree:
+/// `log_cosh(arg) = ln((exp(arg) + exp(−arg)) / 2)`.
+///
+/// Closure form:
+///   `Minus(ln(Plus(exp_of(arg), exp_of(neg(arg)))),
+///          ln(Plus(One, One)))`.
+///
+/// Expression-input generalization of [`closure_log_cosh`]
+/// (slot-form). Useful for log-cosh on computed quantities:
+///   `closure_log_cosh_of(closure_minus(slot(y_pred), slot(y_true)))`
+/// — robust regression loss on a computed residual.
+///
+/// Iter-397 — completes the (slot, expression) overload trio
+/// for the (log_cosh, log_sigmoid, softplus) smooth-ramp family.
+///
+/// Source. log-cosh as smooth |x|: standard robust-regression
+/// alternative to Huber loss; cf. Hastie, Tibshirani, Friedman,
+/// "Elements of Statistical Learning" (2nd ed., 2009) §10.6.
+pub fn closure_log_cosh_of(arg: EmlClosureExpr) -> EmlClosureExpr {
+    let exp_r = closure_exp_of(arg.clone());
+    let exp_neg_r = closure_exp_of(closure_neg(arg));
+    let sum = EmlClosureExpr::plus(exp_r, exp_neg_r);
+    let lse_term = closure_ln(sum);
+    let ln_2 = closure_ln(EmlClosureExpr::plus(
+        EmlClosureExpr::one(),
+        EmlClosureExpr::one(),
+    ));
+    EmlClosureExpr::minus(lse_term, ln_2)
+}
+
+/// Log-sigmoid `ln σ(x) = −ln(1 + exp(−x))` in closure form.
+///
+/// Numerically stable: for large positive `x`, `exp(-x) → 0` and
+/// the log term goes to 0 (so `ln σ(x) → 0`). For large negative
+/// `x`, `1 + exp(-x) → exp(-x)` so `ln σ(x) → x`. Avoids the
+/// catastrophic `ln(0)` that `ln(sigmoid(x))` hits at very negative
+/// `x` if computed naively.
+///
+/// Closure form: `Minus(Zero, closure_ln(Plus(One, closure_neg_exp(i))))`,
+/// equivalently `−closure_softplus_neg(i)`.
+///
+/// Iter-205 — companion to `closure_logistic_loss` (iter-193):
+/// BCE-with-logits for `y = 1` equals `−closure_log_sigmoid(θ)`.
+pub fn closure_log_sigmoid(slot_idx: u32) -> EmlClosureExpr {
+    let one_plus_neg_exp = EmlClosureExpr::plus(EmlClosureExpr::one(), closure_neg_exp(slot_idx));
+    let log_term = closure_ln(one_plus_neg_exp);
+    EmlClosureExpr::minus(closure_zero(), log_term)
+}
+
+/// Log-sigmoid of an arbitrary subtree:
+/// `ln σ(arg) = −ln(1 + exp(−arg)) = −softplus(−arg)`.
+///
+/// Closure form: `closure_neg(closure_softplus_of(closure_neg(arg)))`.
+/// Expression-input generalization of [`closure_log_sigmoid`]
+/// (slot-form).
+///
+/// Iter-355 — completes the (slot, expression) overload pair on
+/// log-sigmoid, mirroring iter-331 (softplus_of), iter-343
+/// (sigmoid_of), iter-349 (neg). Useful as the natural BCE-with-
+/// logits building block on computed quantities:
+///   `closure_log_sigmoid_of(closure_linear_form(x_slots, w_slots, b))`
+/// gives the positive-class log-likelihood for one logistic
+/// regression observation.
+///
+/// Source.
+/// - log-sigmoid + numerical stability: Wainwright & Jordan,
+///   FnT in ML 1(1-2) 2008 §3.1.1 (Bernoulli row, log-likelihood
+///   parameterization).
+/// - softplus(−x) form: Dugas et al., NeurIPS 2001.
+pub fn closure_log_sigmoid_of(arg: EmlClosureExpr) -> EmlClosureExpr {
+    closure_neg(closure_softplus_of(closure_neg(arg)))
+}
+
+/// Harmonic mean `H(x) = n / Σᵢ (1/xᵢ)`.
+///
+/// Closure form: `Divide(slot(n_slot), Σᵢ Divide(One, slot(i)))`.
+/// Requires every input slot value to be positive (the AM-GM-HM
+/// inequality regime). Empty slot list returns `n/0` → caller-
+/// surfaced divide-by-zero.
+///
+/// Iter-199 — completes the (arithmetic, geometric, harmonic)
+/// mean triad on the EML alphabet. The AM-GM-HM inequality
+///
+///   AM(x) ≥ GM(x) ≥ HM(x)
+///
+/// holds for any positive data and is empirically verifiable on
+/// these three primitives.
+pub fn closure_harmonic_mean(slot_indices: &[u32], n_slot: u32) -> EmlClosureExpr {
+    let reciprocals: Vec<EmlClosureExpr> = slot_indices
+        .iter()
+        .map(|&i| EmlClosureExpr::divide(EmlClosureExpr::one(), EmlClosureExpr::slot(i)))
+        .collect();
+    let sum_reciprocals = fold_plus_left(reciprocals);
+    EmlClosureExpr::divide(EmlClosureExpr::slot(n_slot), sum_reciprocals)
+}
+
+/// Binary cross-entropy-from-logits (logistic loss) for `y ∈ {0, 1}`:
+///
+///   L(y, θ) = softplus(θ) − y · θ = ln(1 + exp(θ)) − y · θ.
+///
+/// Equivalently, `−ln σ(θ)` when `y = 1` and `−ln(1 − σ(θ))` when
+/// `y = 0`. Numerically the softplus form is preferred over the
+/// raw `−y·ln σ(θ) − (1−y)·ln(1−σ(θ))` form because `σ` saturates.
+///
+/// Composition: `Minus(closure_softplus(theta_slot),
+/// closure_mul(slot(y_slot), slot(theta_slot)))`.
+///
+/// Iter-193 — BCE-from-logits primitive, the gradient of which
+/// matches `closure_neg_log_likelihood_categorical_*` in the
+/// 2-class case.
+pub fn closure_logistic_loss(theta_slot: u32, y_slot: u32) -> EmlClosureExpr {
+    let softplus_theta = closure_softplus(theta_slot);
+    let y_theta = closure_mul(
+        EmlClosureExpr::slot(y_slot),
+        EmlClosureExpr::slot(theta_slot),
+    );
+    EmlClosureExpr::minus(softplus_theta, y_theta)
+}
+
+/// Geometric mean `(Π_i x_i)^{1/n} = exp((1/n) · Σ_i ln(x_i))`.
+///
+/// Closure form: `eml(Divide(Σ ln(slot_i), n_slot), One)`.
+/// Requires every input slot value to be positive; matches the
+/// arithmetic-geometric-harmonic inequality regime when paired with
+/// [`closure_arithmetic_mean`].
+///
+/// Empty slot list returns `exp(0/n)` regardless of `n_slot`, but
+/// the divide-by-zero case is the caller's responsibility — the
+/// closure evaluator surfaces the `Divide`-on-zero error path.
+///
+/// Iter-187 — completes the (arithmetic, geometric) mean pair on
+/// the EML alphabet. Reads as an unambiguous EML primitive because
+/// exp and ln are first-class.
+pub fn closure_geometric_mean(slot_indices: &[u32], n_slot: u32) -> EmlClosureExpr {
+    if slot_indices.is_empty() {
+        return EmlClosureExpr::eml(
+            EmlClosureExpr::divide(closure_zero(), EmlClosureExpr::slot(n_slot)),
+            EmlClosureExpr::one(),
+        );
+    }
+    let ln_terms: Vec<EmlClosureExpr> = slot_indices
+        .iter()
+        .map(|&i| closure_ln(EmlClosureExpr::slot(i)))
+        .collect();
+    let sum_of_logs = fold_plus_left(ln_terms);
+    let mean_of_logs = EmlClosureExpr::divide(sum_of_logs, EmlClosureExpr::slot(n_slot));
+    EmlClosureExpr::eml(mean_of_logs, EmlClosureExpr::one())
+}
+
+/// Squared L2 norm `||x||² = Σ_i x_i²`.
+///
+/// Alias for [`closure_l2_penalty`] with a clearer name when used
+/// in a norm context (as opposed to regularization context).
+///
+/// Iter-124 — vector-norm primitive.
+pub fn closure_l2_norm_squared(slot_indices: &[u32]) -> EmlClosureExpr {
+    closure_l2_penalty(slot_indices)
+}
+
+/// Linear form `y = Σ_i w_i · x_i + b` — a single-neuron output.
+///
+/// Composes [`closure_dot_product`] + [`EmlClosureExpr::plus`].
+/// The classical perceptron's pre-activation; combine with any
+/// closure-form activation (sigmoid, swish, mish, etc.) to get a
+/// full neuron.
+///
+/// Iter-124 — primitive for single-neuron / linear-regression
+/// closure-form composition.
+pub fn closure_linear_form(
+    x_slots: &[u32],
+    weight_slots: &[u32],
+    bias_slot: u32,
+) -> EmlClosureExpr {
+    let dot = closure_dot_product(weight_slots, x_slots);
+    EmlClosureExpr::plus(dot, EmlClosureExpr::slot(bias_slot))
+}
+
+/// Dice coefficient: `2·Σ(x·y) / (Σx + Σy)`.
+///
+/// Bounded in [0, 1] for non-negative slot values. Used in
+/// segmentation tasks to measure overlap between prediction and
+/// target masks.
+///
+/// Iter-176 — dice / F1 similarity measure.
+pub fn closure_dice_coefficient(x_slots: &[u32], y_slots: &[u32]) -> EmlClosureExpr {
+    let dot = closure_dot_product(x_slots, y_slots);
+    let two_dot = closure_mul(
+        EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one()),
+        dot,
+    );
+    let sum_x = closure_sum_slots(x_slots);
+    let sum_y = closure_sum_slots(y_slots);
+    let denom = EmlClosureExpr::plus(sum_x, sum_y);
+    EmlClosureExpr::divide(two_dot, denom)
+}
+
+/// Dice loss: `1 − dice_coefficient`.
+///
+/// Iter-176 — companion loss form (lower is better).
+pub fn closure_dice_loss(x_slots: &[u32], y_slots: &[u32]) -> EmlClosureExpr {
+    EmlClosureExpr::minus(
+        EmlClosureExpr::one(),
+        closure_dice_coefficient(x_slots, y_slots),
+    )
+}
+
+/// Squared error `(pred - target)²` for a scalar prediction and
+/// target. Used as the per-example MSE building block.
+///
+/// Iter-106 — scalar MSE primitive; vectorize via Plus chain.
+pub fn closure_squared_error(pred_slot: u32, target_slot: u32) -> EmlClosureExpr {
+    let diff = EmlClosureExpr::minus(
+        EmlClosureExpr::slot(pred_slot),
+        EmlClosureExpr::slot(target_slot),
+    );
+    closure_mul(diff.clone(), diff)
+}
+
+/// Squared error of arbitrary subtrees: `(pred − target)²`.
+///
+/// Expression-input generalization of [`closure_squared_error`]
+/// (slot-form, iter-106). Useful when prediction or target is a
+/// computed subtree rather than a raw slot value.
+///
+/// Closure form: `closure_squared_of(Minus(pred, target))`.
+///
+/// Iter-409 — completes the (slot, expression) overload on
+/// squared_error, mirroring iter-337 (squared_of), iter-331
+/// (softplus_of), iter-343 (sigmoid_of), iter-349 (neg), and
+/// iter-355/361/367/397/403 (other _of extensions). Useful for
+/// MSE on:
+///   `closure_squared_error_of(closure_linear_form(x, w, b),
+///                             EmlClosureExpr::slot(y_target))`
+/// — single-call regression loss on a linear-model prediction.
+///
+/// Source. Squared-error loss with computed predictor: standard
+/// MSE composition; cf. Goodfellow/Bengio/Courville 2016 §5.1.4
+/// eq. (5.4).
+pub fn closure_squared_error_of(pred: EmlClosureExpr, target: EmlClosureExpr) -> EmlClosureExpr {
+    let diff = EmlClosureExpr::minus(pred, target);
+    closure_squared_of(diff)
+}
+
+/// Mean squared error over a batch of (prediction, target) pairs:
+/// `MSE = (1/n) · Σ_i (pred_i - target_i)²`.
+///
+/// Caller provides `n_slot` holding the count `n` at evaluation
+/// time (to avoid hard-coding a constant in the closure form).
+///
+/// Iter-106 — composes squared_error + division by count. The
+/// canonical regression loss.
+pub fn closure_mse_loss(pred_slots: &[u32], target_slots: &[u32], n_slot: u32) -> EmlClosureExpr {
+    assert_eq!(
+        pred_slots.len(),
+        target_slots.len(),
+        "MSE requires equal-length pred and target slot vectors",
+    );
+    assert!(!pred_slots.is_empty(), "MSE requires ≥ 1 example");
+
+    let mut terms = pred_slots
+        .iter()
+        .zip(target_slots.iter())
+        .map(|(&p, &t)| closure_squared_error(p, t));
+    let first = terms.next().unwrap();
+    let sum = terms.fold(first, |acc, term| EmlClosureExpr::plus(acc, term));
+
+    EmlClosureExpr::divide(sum, EmlClosureExpr::slot(n_slot))
+}
+
+/// L2 regularization penalty `Σ_i w_i²` over a slot vector.
+///
+/// Standard "weight decay" / Tikhonov regularizer. Scale by
+/// regularization strength λ at the caller's site (closure_mul
+/// against a λ slot if needed).
+///
+/// Iter-106 — composes squared_error pattern with self-comparison
+/// (subtracting zero implicitly via Mul(slot, slot)).
+pub fn closure_l2_penalty(slot_indices: &[u32]) -> EmlClosureExpr {
+    assert!(
+        !slot_indices.is_empty(),
+        "L2 penalty requires ≥ 1 weight slot"
+    );
+
+    let mut terms = slot_indices
+        .iter()
+        .map(|&i| closure_mul(EmlClosureExpr::slot(i), EmlClosureExpr::slot(i)));
+    let first = terms.next().unwrap();
+    terms.fold(first, |acc, term| EmlClosureExpr::plus(acc, term))
+}
+
+/// Vector dot product `Σ_i x_i · y_i` over equal-length slot vectors.
+///
+/// Encoded as a `Plus` chain of `Mul(Slot(x_i), Slot(y_i))` terms.
+///
+/// Panics if `left_slots` and `right_slots` have different lengths
+/// or are both empty.
+///
+/// Iter-98 — multi-slot vector primitive. Building block for
+/// attention scores, kernel evaluations, and inner-product
+/// quadratic forms.
+pub fn closure_dot_product(left_slots: &[u32], right_slots: &[u32]) -> EmlClosureExpr {
+    assert_eq!(
+        left_slots.len(),
+        right_slots.len(),
+        "dot_product requires equal-length slot vectors",
+    );
+    assert!(!left_slots.is_empty(), "dot_product requires ≥ 1 dim");
+
+    let mut terms = left_slots
+        .iter()
+        .zip(right_slots.iter())
+        .map(|(&l, &r)| closure_mul(EmlClosureExpr::slot(l), EmlClosureExpr::slot(r)));
+    let first = terms.next().unwrap();
+    terms.fold(first, |acc, term| EmlClosureExpr::plus(acc, term))
+}
+
+/// Squared Euclidean distance `Σ_i (x_i - y_i)²` between two
+/// slot vectors of equal length.
+///
+/// Iter-98 — pairs with [`closure_dot_product`] for kernel /
+/// distance-based attention variants (e.g. RBF kernels).
+pub fn closure_squared_distance(left_slots: &[u32], right_slots: &[u32]) -> EmlClosureExpr {
+    assert_eq!(
+        left_slots.len(),
+        right_slots.len(),
+        "squared_distance requires equal-length slot vectors",
+    );
+    assert!(!left_slots.is_empty(), "squared_distance requires ≥ 1 dim");
+
+    let mut terms = left_slots.iter().zip(right_slots.iter()).map(|(&l, &r)| {
+        let diff = EmlClosureExpr::minus(EmlClosureExpr::slot(l), EmlClosureExpr::slot(r));
+        closure_mul(diff.clone(), diff)
+    });
+    let first = terms.next().unwrap();
+    terms.fold(first, |acc, term| EmlClosureExpr::plus(acc, term))
+}
+
+/// Scaled-dot-product attention score `(q · k) / sqrt(d_k)`.
+///
+/// `q_slots` and `k_slots` must have equal length (the
+/// dimensionality `d_k` of the key/query space). `inv_sqrt_d_slot`
+/// holds `1 / √d_k` — the caller pre-computes this constant.
+///
+/// Returns the unnormalized score; standard transformer attention
+/// then softmaxes a row of these scores over the key positions.
+///
+/// Iter-98 — Vaswani et al. 2017 §3.2.1 ("Scaled Dot-Product
+/// Attention"). Combined with [`closure_softmax_temperature_slot`]
+/// or [`closure_categorical_softmax_slot`], this expresses a full
+/// attention head's score computation in EML closure form.
+pub fn closure_attention_score(
+    q_slots: &[u32],
+    k_slots: &[u32],
+    inv_sqrt_d_slot: u32,
+) -> EmlClosureExpr {
+    closure_mul(
+        closure_dot_product(q_slots, k_slots),
+        EmlClosureExpr::slot(inv_sqrt_d_slot),
+    )
+}
+
+/// Residual / skip connection: `y = x + r`.
+///
+/// Encoded as `Plus(Slot(x), Slot(r))`. Trivial structurally,
+/// but named as a primitive to document the residual-connection
+/// pattern in transformer / ResNet blocks.
+///
+/// Iter-88 — LayerNorm decomposition helper #1.
+pub fn closure_residual_add(x_slot: u32, residual_slot: u32) -> EmlClosureExpr {
+    EmlClosureExpr::plus(
+        EmlClosureExpr::slot(x_slot),
+        EmlClosureExpr::slot(residual_slot),
+    )
+}
+
+/// Centering: `y = x − μ`.
+///
+/// First half of LayerNorm / BatchNorm: subtract the mean before
+/// dividing by the standard deviation. Caller supplies the
+/// pre-computed mean `μ` as a slot.
+///
+/// Iter-88 — LayerNorm decomposition helper #2.
+pub fn closure_center(x_slot: u32, mean_slot: u32) -> EmlClosureExpr {
+    EmlClosureExpr::minus(
+        EmlClosureExpr::slot(x_slot),
+        EmlClosureExpr::slot(mean_slot),
+    )
+}
+
+/// Standardization: `y = (x − μ) / σ`.
+///
+/// Standard z-score: subtract mean, divide by standard deviation.
+/// Composes [`closure_center`] with [`EmlClosureExpr::divide`].
+/// Caller supplies pre-computed `μ` and `σ` as slots; `σ` must
+/// be > 0.
+///
+/// Iter-88 — LayerNorm decomposition helper #3.
+pub fn closure_standardize(x_slot: u32, mean_slot: u32, sigma_slot: u32) -> EmlClosureExpr {
+    EmlClosureExpr::divide(
+        closure_center(x_slot, mean_slot),
+        EmlClosureExpr::slot(sigma_slot),
+    )
+}
+
+/// Affine transform: `y = γ · x + β` (learned LayerNorm scale + shift).
+///
+/// Standard "rescale and re-bias" applied AFTER standardization
+/// in LayerNorm. `γ` and `β` are typically learned parameters
+/// supplied as slots.
+///
+/// Iter-88 — LayerNorm decomposition helper #4.
+pub fn closure_affine(x_slot: u32, gain_slot: u32, bias_slot: u32) -> EmlClosureExpr {
+    EmlClosureExpr::plus(
+        closure_mul(
+            EmlClosureExpr::slot(gain_slot),
+            EmlClosureExpr::slot(x_slot),
+        ),
+        EmlClosureExpr::slot(bias_slot),
+    )
+}
+
+/// Full LayerNorm: `y = γ · (x − μ) / σ + β`.
+///
+/// Composes [`closure_standardize`] with [`closure_affine`]. All
+/// statistics (`μ`, `σ`) and learned parameters (`γ`, `β`) enter
+/// as slots; the caller is responsible for computing `μ` and `σ`
+/// over the appropriate axis at evaluation time.
+///
+/// Iter-88 — top-level LayerNorm helper. Composes 4 primitives:
+/// Slot · Minus · Divide · Mul · Plus.
+pub fn closure_layer_norm(
+    x_slot: u32,
+    mean_slot: u32,
+    sigma_slot: u32,
+    gain_slot: u32,
+    bias_slot: u32,
+) -> EmlClosureExpr {
+    let standardized = closure_standardize(x_slot, mean_slot, sigma_slot);
+    EmlClosureExpr::plus(
+        closure_mul(EmlClosureExpr::slot(gain_slot), standardized),
+        EmlClosureExpr::slot(bias_slot),
+    )
+}
+
+/// Logit (inverse sigmoid): `logit(p) = log(p / (1-p))`.
+///
+/// Maps a probability `p ∈ (0, 1)` to its natural-parameter coordinate
+/// in the Bernoulli family. Caller is responsible for keeping `p`
+/// strictly in (0, 1); `p = 0` or `p = 1` produces `±∞`.
+///
+/// Encoding: `Minus(closure_ln(Slot(p)), closure_ln(Minus(One, Slot(p))))`.
+///
+/// Iter-86 — inverse of [`closure_sigmoid`]; pairs with logit to
+/// move between probability and natural-param spaces.
+pub fn closure_logit(p_slot: u32) -> EmlClosureExpr {
+    let ln_p = closure_ln(EmlClosureExpr::slot(p_slot));
+    let one_minus_p = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::slot(p_slot));
+    let ln_one_minus_p = closure_ln(one_minus_p);
+    EmlClosureExpr::minus(ln_p, ln_one_minus_p)
+}
+
+/// Temperature-scaled Categorical softmax probability for a
+/// non-pinned slot:
+///
+/// `softmax_T(i; θ) = exp(θ_i / T) / Σ_j exp(θ_j / T)`
+///
+/// where `T` is a temperature slot (T > 0). High T → uniform
+/// distribution; T → 0 → argmax distribution. Standard in
+/// knowledge distillation (Hinton et al. 2015) and softmax
+/// annealing.
+///
+/// This helper takes `inv_temp_slot` (β = 1/T) rather than T itself
+/// to avoid Divide-by-T at every exponent; the caller provides β
+/// at evaluation. β = 1 recovers `closure_categorical_softmax_slot`.
+///
+/// Iter-86 — generalizes Categorical softmax with explicit
+/// temperature/sharpness parameter.
+pub fn closure_softmax_temperature_slot(
+    target_slot: u32,
+    slot_indices: &[u32],
+    inv_temp_slot: u32,
+) -> EmlClosureExpr {
+    let beta = EmlClosureExpr::slot(inv_temp_slot);
+
+    let exp_beta_target = EmlClosureExpr::eml(
+        closure_mul(beta.clone(), EmlClosureExpr::slot(target_slot)),
+        EmlClosureExpr::one(),
+    );
+
+    // Denominator: exp(β·0) + Σ exp(β·θ_i) = 1 + Σ exp(β·θ_i).
+    let mut denom = EmlClosureExpr::one();
+    for &idx in slot_indices {
+        let exp_term = EmlClosureExpr::eml(
+            closure_mul(beta.clone(), EmlClosureExpr::slot(idx)),
+            EmlClosureExpr::one(),
+        );
+        denom = EmlClosureExpr::plus(denom, exp_term);
+    }
+
+    EmlClosureExpr::divide(exp_beta_target, denom)
+}
+
+/// Temperature-scaled Categorical softmax for the pinned reference
+/// class: `1 / Σ_j exp(β · θ_j)` (note the pinned class contributes
+/// `exp(β · 0) = 1` to the denominator).
+///
+/// Iter-86 — companion to `closure_softmax_temperature_slot`.
+pub fn closure_softmax_temperature_pinned(
+    slot_indices: &[u32],
+    inv_temp_slot: u32,
+) -> EmlClosureExpr {
+    let beta = EmlClosureExpr::slot(inv_temp_slot);
+
+    let mut denom = EmlClosureExpr::one();
+    for &idx in slot_indices {
+        let exp_term = EmlClosureExpr::eml(
+            closure_mul(beta.clone(), EmlClosureExpr::slot(idx)),
+            EmlClosureExpr::one(),
+        );
+        denom = EmlClosureExpr::plus(denom, exp_term);
+    }
+
+    EmlClosureExpr::divide(EmlClosureExpr::one(), denom)
+}
+
+/// Smooth maximum (a.k.a. softmax-with-temperature on raw inputs)
+/// `SmoothMax(x; β) = (1/β) · log Σ_i exp(β · x_i)`.
+///
+/// Converges to `max(x)` as `β → ∞`, and to the arithmetic mean
+/// as `β → 0⁺` (limit). At `β = 1`, equals `closure_lse(exp(x_i))`.
+///
+/// Used as a differentiable / smooth approximation to `max` in
+/// continuous optimization, attention temperature controls, and
+/// tropical-IR ↔ EML composition.
+///
+/// Iter-84 — temperature-controlled aggregation primitive.
+/// Caller must supply `β > 0` at evaluation; β = 0 produces a
+/// 0/0 NaN.
+pub fn closure_smooth_max(slot_indices: &[u32], beta_slot: u32) -> EmlClosureExpr {
+    assert!(
+        !slot_indices.is_empty(),
+        "SmoothMax requires ≥ 1 input slot"
+    );
+    let beta = EmlClosureExpr::slot(beta_slot);
+
+    let scaled_exps: Vec<EmlClosureExpr> = slot_indices
+        .iter()
+        .map(|&idx| {
+            let beta_x = closure_mul(beta.clone(), EmlClosureExpr::slot(idx));
+            EmlClosureExpr::eml(beta_x, EmlClosureExpr::one())
+        })
+        .collect();
+
+    let log_sum = closure_lse(scaled_exps);
+    EmlClosureExpr::divide(log_sum, beta)
+}
+
+/// Smooth minimum `SmoothMin(x; β) = -(1/β) · log Σ_i exp(-β · x_i)`.
+///
+/// Identity: `SmoothMin(x; β) = -SmoothMax(-x; β)`.
+///
+/// Converges to `min(x)` as `β → ∞`. Useful for tropical-IR's
+/// `(min, +)` semiring counterpart to SmoothMax.
+///
+/// Iter-84 — companion to SmoothMax via the negation duality.
+pub fn closure_smooth_min(slot_indices: &[u32], beta_slot: u32) -> EmlClosureExpr {
+    assert!(
+        !slot_indices.is_empty(),
+        "SmoothMin requires ≥ 1 input slot"
+    );
+    let beta = EmlClosureExpr::slot(beta_slot);
+
+    // Build the inner LSE over -β · x_i (note the sign).
+    let neg_beta = EmlClosureExpr::minus(closure_zero(), beta.clone());
+    let scaled_exps: Vec<EmlClosureExpr> = slot_indices
+        .iter()
+        .map(|&idx| {
+            let neg_beta_x = closure_mul(neg_beta.clone(), EmlClosureExpr::slot(idx));
+            EmlClosureExpr::eml(neg_beta_x, EmlClosureExpr::one())
+        })
+        .collect();
+
+    let log_sum = closure_lse(scaled_exps);
+    // -(1/β) · log_sum = -log_sum / β.
+    let neg_log_sum = EmlClosureExpr::minus(closure_zero(), log_sum);
+    EmlClosureExpr::divide(neg_log_sum, beta)
+}
+
+/// Scaled sigmoid `σ_β(x) = 1 / (1 + exp(-β · x))`.
+///
+/// Equivalent to `closure_sigmoid` but with β as a slot input so
+/// callers can implement temperature-sharpened or temperature-relaxed
+/// sigmoids without rewriting the closure form.
+///
+/// `β = 1` recovers the standard sigmoid; `β → ∞` approaches the
+/// step function; `β → 0⁺` approaches the constant 0.5.
+///
+/// Iter-83 — temperature-controlled sigmoid; building block for
+/// β-Swish and the sigmoid GELU approximation.
+pub fn closure_sigmoid_scaled(x_slot: u32, beta_slot: u32) -> EmlClosureExpr {
+    let neg_beta = EmlClosureExpr::minus(closure_zero(), EmlClosureExpr::slot(beta_slot));
+    let neg_beta_x = closure_mul(neg_beta, EmlClosureExpr::slot(x_slot));
+    let exp_neg = closure_exp_of(neg_beta_x);
+    EmlClosureExpr::divide(
+        EmlClosureExpr::one(),
+        EmlClosureExpr::plus(EmlClosureExpr::one(), exp_neg),
+    )
+}
+
+/// β-Swish (also called E-Swish): `swish_β(x) = x · σ(β · x)`.
+///
+/// Generalizes [`closure_swish`] with a learnable / configurable
+/// gating sharpness. The original Swish paper found β = 1 optimal
+/// in most experiments; later work (e.g. Mish, EfficientNet's
+/// β-Swish variants) varies β per layer or makes it trainable.
+///
+/// Iter-83 — extends the swish family.
+pub fn closure_swish_scaled(x_slot: u32, beta_slot: u32) -> EmlClosureExpr {
+    closure_mul(
+        EmlClosureExpr::slot(x_slot),
+        closure_sigmoid_scaled(x_slot, beta_slot),
+    )
+}
+
+/// Sigmoid GELU approximation: `GELU(x) ≈ x · σ(c · x)`
+/// where the canonical scale constant is `c ≈ 1.702` (Hendrycks
+/// & Gimpel 2016, "Bridging Nonlinearities and Stochastic
+/// Regularizers with Gaussian Error Linear Units").
+///
+/// `c` is passed as a slot to keep the closure form independent
+/// of compile-time constants. Caller supplies 1.702 at evaluation.
+///
+/// Iter-83 — sigmoid GELU; structurally identical to β-Swish but
+/// distinguished by its semantic role (smooth-ReLU approximation
+/// to true GELU = x · Φ(x), which involves erf and is NOT
+/// EML-expressible).
+pub fn closure_gelu_sigmoid_approx(x_slot: u32, c_slot: u32) -> EmlClosureExpr {
+    closure_swish_scaled(x_slot, c_slot)
+}
+
+/// Shannon entropy of a Bernoulli distribution parameterized by
+/// natural parameter θ:
+///
+/// `H(P_θ) = -p·log p - (1-p)·log(1-p)`  where `p = σ(θ)`.
+///
+/// Via Fenchel duality between entropy and the log-partition,
+/// this simplifies to:
+///
+/// `H(P_θ) = A(θ) − θ·∇A(θ) = softplus(θ) − θ·σ(θ)`.
+///
+/// Iter-82 — entropy primitive; pairs with cross-entropy (iter-79)
+/// to enable KL = CE − H.
+pub fn closure_entropy_bernoulli(theta_slot: u32) -> EmlClosureExpr {
+    EmlClosureExpr::minus(
+        closure_softplus(theta_slot),
+        closure_mul(
+            EmlClosureExpr::slot(theta_slot),
+            closure_sigmoid(theta_slot),
+        ),
+    )
+}
+
+/// Shannon entropy of a Categorical distribution parameterized by
+/// natural parameters θ ∈ ℝ^{k-1}:
+///
+/// `H(P_θ) = -Σ_i p_i log p_i`  where `p = softmax([0, θ])`.
+///
+/// Via Fenchel duality:
+///
+/// `H(P_θ) = A(θ) − ⟨∇A(θ), θ⟩ = A(θ) − Σ_i softmax_slot_i(θ) · θ_i`
+///
+/// (The pinned class contributes 0 to the inner product since
+///  its natural parameter is pinned to 0.)
+///
+/// Iter-82 — extends entropy wiring to Categorical for cross-entropy
+/// and information-theoretic loss decomposition.
+pub fn closure_entropy_categorical(slot_indices: &[u32]) -> EmlClosureExpr {
+    let a = closure_categorical_log_partition(slot_indices);
+
+    let mut terms = slot_indices.iter().map(|&slot| {
+        closure_mul(
+            closure_categorical_softmax_slot(slot, slot_indices),
+            EmlClosureExpr::slot(slot),
+        )
+    });
+    let first = terms
+        .next()
+        .expect("entropy needs at least one slot (k ≥ 2)");
+    let inner = terms.fold(first, |acc, term| EmlClosureExpr::plus(acc, term));
+
+    EmlClosureExpr::minus(a, inner)
+}
+
+/// Gated Linear Unit `GLU(x, g) = x · σ(g)`.
+///
+/// Two-slot multiplicative gating. Dauphin et al. 2017 — the
+/// original GLU formulation, now standard in transformer FFN
+/// blocks (e.g. T5 / PaLM / LLaMA variants).
+///
+/// Iter-81 — gated activation primitive.
+pub fn closure_glu(x_slot: u32, gate_slot: u32) -> EmlClosureExpr {
+    closure_mul(EmlClosureExpr::slot(x_slot), closure_sigmoid(gate_slot))
+}
+
+/// SwiGLU activation `SwiGLU(x, g) = x · swish(g) = x · g · σ(g)`.
+///
+/// Shazeer 2020 ("GLU Variants Improve Transformer"). The default
+/// gated FFN in PaLM, LLaMA, T5.1.1, Gemma.
+///
+/// Iter-81 — gated swish; composes [`closure_swish`] with [`closure_mul`].
+pub fn closure_swiglu(x_slot: u32, gate_slot: u32) -> EmlClosureExpr {
+    closure_mul(EmlClosureExpr::slot(x_slot), closure_swish(gate_slot))
+}
+
+/// ReGLU activation `ReGLU(x, g) = x · softplus(g)`.
+///
+/// Smooth-ReLU-gated variant from Shazeer 2020. True ReLU is not
+/// expressible in EML (piecewise linear, non-smooth); softplus
+/// is the canonical smooth approximation: `softplus(g) ≈ max(0, g)`
+/// for |g| ≫ 0.
+///
+/// Iter-81 — gated softplus.
+pub fn closure_reglu(x_slot: u32, gate_slot: u32) -> EmlClosureExpr {
+    closure_mul(EmlClosureExpr::slot(x_slot), closure_softplus(gate_slot))
+}
+
+/// Swish activation `swish(x) = x · σ(x)`.
+///
+/// Encoded as `Mul(Slot(x), closure_sigmoid(x))`.
+///
+/// Note: also called SiLU (Sigmoid Linear Unit). The Swish/SiLU
+/// names are interchangeable; we expose both for ergonomics.
+///
+/// Iter-80 — modern transformer activation. Used in many
+/// post-2019 architectures (e.g. GLU variants in T5 MLP blocks).
+pub fn closure_swish(theta_slot: u32) -> EmlClosureExpr {
+    closure_mul(
+        EmlClosureExpr::slot(theta_slot),
+        closure_sigmoid(theta_slot),
+    )
+}
+
+/// SiLU activation — alias for [`closure_swish`].
+///
+/// `SiLU(x) = x · σ(x) ≡ swish(x)`.
+pub fn closure_silu(theta_slot: u32) -> EmlClosureExpr {
+    closure_swish(theta_slot)
+}
+
+/// Mish activation `mish(x) = x · tanh(softplus(x))`.
+///
+/// Encoded by composing closure_mul + closure_tanh evaluated on a
+/// softplus-shifted slot. Since closure_tanh takes a SLOT (not an
+/// arbitrary expression), we cannot directly nest softplus inside
+/// it; instead we manually build the tanh-of-softplus formula:
+///
+/// `tanh(s) = (exp(s) − exp(-s)) / (exp(s) + exp(-s))`
+///
+/// with `s = softplus(x) = log(1 + exp(x))`. Then `exp(s) = 1 + exp(x)`
+/// and `exp(-s) = 1 / (1 + exp(x))`. So:
+///
+/// `tanh(softplus(x)) = ((1 + exp(x))² − 1) / ((1 + exp(x))² + 1)`
+///
+/// Final form: `mish(x) = x · ((1+e^x)² − 1) / ((1+e^x)² + 1)`.
+///
+/// Iter-80 — transformer activation; outperforms swish on some
+/// vision tasks (Misra 2019).
+pub fn closure_mish(theta_slot: u32) -> EmlClosureExpr {
+    // u = 1 + exp(x).
+    let exp_x = closure_exp(theta_slot);
+    let u = EmlClosureExpr::plus(EmlClosureExpr::one(), exp_x);
+    let u_squared = closure_mul(u.clone(), u);
+    let numer = EmlClosureExpr::minus(u_squared.clone(), EmlClosureExpr::one());
+    let denom = EmlClosureExpr::plus(u_squared, EmlClosureExpr::one());
+    let tanh_softplus = EmlClosureExpr::divide(numer, denom);
+    closure_mul(EmlClosureExpr::slot(theta_slot), tanh_softplus)
+}
+
+/// Temperature-scaled softplus `(1/β) · log(1 + exp(β·x))`.
+///
+/// Smooth ReLU with adjustable sharpness:
+/// - β = 1 recovers standard softplus.
+/// - β → ∞ approaches sharp ReLU.
+/// - β → 0⁺ produces very soft approximation.
+///
+/// Both `x` and `β` are slot inputs. `β > 0` required at
+/// evaluation.
+///
+/// Iter-169 — temperature-controlled activation; pairs with
+/// closure_sigmoid_scaled (iter-83) and closure_smooth_max (iter-84).
+pub fn closure_softplus_scaled(x_slot: u32, beta_slot: u32) -> EmlClosureExpr {
+    let beta = EmlClosureExpr::slot(beta_slot);
+    let beta_x = closure_mul(beta.clone(), EmlClosureExpr::slot(x_slot));
+    let exp_beta_x = EmlClosureExpr::eml(beta_x, EmlClosureExpr::one());
+    let one_plus = EmlClosureExpr::plus(EmlClosureExpr::one(), exp_beta_x);
+    let log_term = closure_ln(one_plus);
+    EmlClosureExpr::divide(log_term, beta)
+}
+
+/// Log-complement-sigmoid: `ln(1 − σ(x)) = ln σ(−x) = −softplus(x)`.
+///
+/// Closure form: `closure_neg(closure_softplus(slot))`.
+///
+/// Numerically stable: for large positive x, this returns −x
+/// asymptotically (matching log(1 − 1) = −∞ behavior near
+/// saturation without the catastrophic ln(0) blowup that
+/// `closure_ln(closure_complementary_sigmoid(slot))` would
+/// suffer).
+///
+/// Iter-403 — negative-class log-likelihood primitive that
+/// completes the (positive, negative) BCE-with-logits pair:
+/// - Positive class: `closure_log_sigmoid(x)` = ln σ(x).
+/// - Negative class (this iter): `closure_log_sigmoid_complement(x)`
+///   = ln(1 − σ(x)) = ln σ(−x).
+///
+/// Source. Numerically-stable BCE-with-logits: Goodfellow,
+/// Bengio, Courville, "Deep Learning" (MIT Press, 2016)
+/// §6.2.2.2 eq. (6.31) — the softplus(±x) parameterization of
+/// binary cross-entropy.
+pub fn closure_log_sigmoid_complement(slot_idx: u32) -> EmlClosureExpr {
+    closure_neg(closure_softplus(slot_idx))
+}
+
+/// Smooth-ReLU alias for [`closure_softplus`], named for clarity
+/// when used as an activation rather than as a log-partition.
+///
+/// `softplus(x) = log(1 + exp(x))` is a smooth approximation to
+/// `relu(x) = max(0, x)`.
+pub fn closure_smooth_relu(theta_slot: u32) -> EmlClosureExpr {
+    closure_softplus(theta_slot)
+}
+
+/// Bernoulli cross-entropy loss
+/// `CE(y, θ) = -y · log σ(θ) - (1-y) · log(1-σ(θ))`
+///         `= y · softplus(-θ) + (1-y) · softplus(θ)`
+/// for a soft target `y ∈ [0, 1]` and a natural-parameter prediction `θ`.
+///
+/// Used as the canonical loss function for binary logistic
+/// regression / Bernoulli classification.
+///
+/// Iter-79 — loss-function primitive in EML closure form,
+/// composing softplus + Slot + Mul + Plus.
+pub fn closure_cross_entropy_bernoulli(target_slot: u32, theta_slot: u32) -> EmlClosureExpr {
+    let target = EmlClosureExpr::slot(target_slot);
+    let one_minus_target =
+        EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::slot(target_slot));
+
+    // softplus(-θ) — uses the negated slot.
+    let exp_neg_theta = EmlClosureExpr::eml(closure_neg_slot(theta_slot), EmlClosureExpr::one());
+    let softplus_neg = closure_ln(EmlClosureExpr::plus(EmlClosureExpr::one(), exp_neg_theta));
+
+    let softplus_pos = closure_softplus(theta_slot);
+
+    EmlClosureExpr::plus(
+        closure_mul(target, softplus_neg),
+        closure_mul(one_minus_target, softplus_pos),
+    )
+}
+
+/// Bernoulli cross-entropy with expression-input target and
+/// logit:
+///   `CE(y, θ) = y · softplus(−θ) + (1 − y) · softplus(θ)`.
+///
+/// Expression-input generalization of
+/// [`closure_cross_entropy_bernoulli`] (slot-form, iter-79).
+/// Useful when both the soft target and the logit are computed
+/// subtrees (e.g., predicted soft-target from another network,
+/// logit from a linear layer composition).
+///
+/// Iter-421 — completes the (slot, expression) overload on
+/// binary cross-entropy. Composes from existing _of primitives:
+/// closure_softplus_of (iter-331) + closure_neg (iter-349) +
+/// closure_mul.
+///
+/// Source. BCE-with-logits numerically-stable softplus
+/// parameterization: Goodfellow, Bengio, Courville, "Deep
+/// Learning" (MIT Press, 2016) §6.2.2.2 eq. (6.31).
+pub fn closure_cross_entropy_bernoulli_of(
+    target: EmlClosureExpr,
+    theta: EmlClosureExpr,
+) -> EmlClosureExpr {
+    let one_minus_target = EmlClosureExpr::minus(EmlClosureExpr::one(), target.clone());
+    let softplus_neg = closure_softplus_of(closure_neg(theta.clone()));
+    let softplus_pos = closure_softplus_of(theta);
+    EmlClosureExpr::plus(
+        closure_mul(target, softplus_neg),
+        closure_mul(one_minus_target, softplus_pos),
+    )
+}
+
+/// Negative log-likelihood for a Categorical observation of a
+/// specific non-pinned class slot:
+/// `NLL(target, θ) = -log P(X=target) = A(θ) - θ_target`.
+///
+/// Iter-79 — companion to `closure_cross_entropy_bernoulli`. For
+/// soft / one-hot Categorical targets, the user composes
+/// `Σ y_i · -log P_i` with closure_mul.
+pub fn closure_neg_log_likelihood_categorical_slot(
+    target_slot: u32,
+    slot_indices: &[u32],
+) -> EmlClosureExpr {
+    EmlClosureExpr::minus(
+        closure_categorical_log_partition(slot_indices),
+        EmlClosureExpr::slot(target_slot),
+    )
+}
+
+/// Negative log-likelihood for a Categorical observation of the
+/// pinned reference class:
+/// `NLL(pinned, θ) = -log P(X=k-1) = A(θ)`.
+///
+/// Iter-79 — used together with `closure_neg_log_likelihood_categorical_slot`
+/// to cover the full simplex.
+pub fn closure_neg_log_likelihood_categorical_pinned(slot_indices: &[u32]) -> EmlClosureExpr {
+    closure_categorical_log_partition(slot_indices)
+}
+
+/// KL(P || Q) for the Gaussian{σ²} exp-family on natural-parameter
+/// coordinates `p, q`. Both distributions share the same variance.
+///
+/// `KL(p, q) = A(p) − A(q) − ∇A(q) · (p − q)`
+///         `= (σ²/2) · (p − q)²`
+///
+/// The closure form mirrors the Bregman composition exactly (not
+/// the simplified squared-distance form), to stay structurally
+/// parallel with [`closure_kl_bernoulli`] and [`closure_kl_categorical`].
+///
+/// Iter-77 — completes the third Info-IR Bregman trio. After this,
+/// every (A, ∇A, KL) triple from `info_ir` is wired to EML closure
+/// form for Bernoulli, Categorical, AND Gaussian.
+pub fn closure_kl_gaussian(p_slot: u32, q_slot: u32, sigma2_slot: u32) -> EmlClosureExpr {
+    let a_p = closure_gaussian_log_partition(p_slot, sigma2_slot);
+    let a_q = closure_gaussian_log_partition(q_slot, sigma2_slot);
+    let eta_q = closure_gaussian_dual_map(q_slot, sigma2_slot);
+    let p_minus_q =
+        EmlClosureExpr::minus(EmlClosureExpr::slot(p_slot), EmlClosureExpr::slot(q_slot));
+    let inner = closure_mul(eta_q, p_minus_q);
+    EmlClosureExpr::minus(EmlClosureExpr::minus(a_p, a_q), inner)
+}
+
+/// Zero-mean Gaussian KL divergence specialization:
+/// `D_KL(N(0, σ_p²) ‖ N(0, σ_q²))
+///    = ½ · (σ_p² / σ_q² − 1 − ln(σ_p² / σ_q²))
+///    = ½ · (σ_p² / σ_q² − 1) + ½ · (ln(σ_q²) − ln(σ_p²))`.
+///
+/// User-friendly parameterization (variance slots, no natural-
+/// parameter conversion). Caller guarantees `σ_p², σ_q² > 0`.
+///
+/// Closure form, four-term composition:
+///   `Plus(Divide(Minus(Divide(slot(σ_p²), slot(σ_q²)), One), Plus(One, One))
+///         , Divide(Minus(ln(slot(σ_q²)), ln(slot(σ_p²))), Plus(One, One)))`.
+///
+/// Iter-446 — variance-only specialization of `closure_kl_gaussian`
+/// (iter-77, natural-parameter form, same-variance). Useful for:
+/// - Variational priors on scale parameters (zero-mean prior).
+/// - Information-theoretic regularizers on Gaussian noise channels.
+/// - Closed-form ELBO terms when the location parameter is pinned
+///   at the prior mean by symmetry.
+///
+/// Source. Zero-mean Gaussian KL closed form: direct simplification
+/// of the full Gaussian KL (e.g., Hershey & Olsen, "Approximating
+/// the Kullback-Leibler Divergence Between Gaussian Mixture
+/// Models", ICASSP 2007 eq. (3)) when both means vanish; recurrent
+/// in variational autoencoders (Kingma & Welling, "Auto-Encoding
+/// Variational Bayes", ICLR 2014 §3 + Appendix B).
+/// Full Gaussian KL divergence in EML closure form, with explicit
+/// (μ, σ²) parameters for both distributions:
+/// `D_KL(N(μ_p, σ_p²) ‖ N(μ_q, σ_q²))
+///    = ½ · [(μ_p − μ_q)² / σ_q² + σ_p²/σ_q² − 1 − ln(σ_p²/σ_q²)]`.
+///
+/// User-friendly variant of [`closure_kl_gaussian`] (iter-77,
+/// natural-parameter form, same-variance) and
+/// [`closure_kl_normal_zero_mean`] (iter-446, variance-only).
+/// Caller guarantees `σ_p², σ_q² > 0`.
+///
+/// Iter-482 — scalar Info-IR companion is `gaussian_kl_full`
+/// (iter-?). Closes the (zero-mean, same-variance, full) Gaussian
+/// KL closure trio on the EML side. The four slots map directly
+/// to the four scalar parameters; this is the canonical form for
+/// ELBO computations in variational autoencoders with diagonal
+/// covariance, and for Gaussian Bayesian inference KL projection.
+///
+/// Closure form, broken into four additive terms:
+/// 1. mean: `(μ_p − μ_q)² / σ_q²` via closure_diff_squared then divide
+/// 2. variance ratio: `σ_p² / σ_q²`
+/// 3. log ratio: `ln(σ_q²) − ln(σ_p²)`
+/// 4. constant: `−1`
+/// summed and halved.
+///
+/// Source. Full Gaussian KL closed form: Hershey & Olsen,
+/// "Approximating the Kullback-Leibler Divergence Between Gaussian
+/// Mixture Models", ICASSP 2007 eq. (3). ELBO regularizer in VAEs:
+/// Kingma & Welling, "Auto-Encoding Variational Bayes", ICLR 2014
+/// §3 + Appendix B.
+pub fn closure_kl_normal_full(
+    mu_p_slot: u32,
+    sigma2_p_slot: u32,
+    mu_q_slot: u32,
+    sigma2_q_slot: u32,
+) -> EmlClosureExpr {
+    let two = EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one());
+    let mu_diff_sq = closure_diff_squared(mu_p_slot, mu_q_slot);
+    let mean_term = EmlClosureExpr::divide(mu_diff_sq, EmlClosureExpr::slot(sigma2_q_slot));
+    let variance_ratio = EmlClosureExpr::divide(
+        EmlClosureExpr::slot(sigma2_p_slot),
+        EmlClosureExpr::slot(sigma2_q_slot),
+    );
+    let log_p = closure_ln(EmlClosureExpr::slot(sigma2_p_slot));
+    let log_q = closure_ln(EmlClosureExpr::slot(sigma2_q_slot));
+    let log_diff = EmlClosureExpr::minus(log_q, log_p);
+    // Sum the four pieces: mean + var_ratio + log_diff − 1.
+    let sum1 = EmlClosureExpr::plus(mean_term, variance_ratio);
+    let sum2 = EmlClosureExpr::plus(sum1, log_diff);
+    let body = EmlClosureExpr::minus(sum2, EmlClosureExpr::one());
+    EmlClosureExpr::divide(body, two)
+}
+
+pub fn closure_kl_normal_zero_mean(sigma2_p_slot: u32, sigma2_q_slot: u32) -> EmlClosureExpr {
+    let two = EmlClosureExpr::plus(EmlClosureExpr::one(), EmlClosureExpr::one());
+    let ratio = EmlClosureExpr::divide(
+        EmlClosureExpr::slot(sigma2_p_slot),
+        EmlClosureExpr::slot(sigma2_q_slot),
+    );
+    let ratio_minus_one = EmlClosureExpr::minus(ratio, EmlClosureExpr::one());
+    let half_ratio_minus_one = EmlClosureExpr::divide(ratio_minus_one, two.clone());
+
+    let log_sig_p = closure_ln(EmlClosureExpr::slot(sigma2_p_slot));
+    let log_sig_q = closure_ln(EmlClosureExpr::slot(sigma2_q_slot));
+    let log_diff = EmlClosureExpr::minus(log_sig_q, log_sig_p);
+    let half_log_diff = EmlClosureExpr::divide(log_diff, two);
+
+    EmlClosureExpr::plus(half_ratio_minus_one, half_log_diff)
+}
+
+/// KL(P || Q) for a Categorical{k} distribution on natural-parameter
+/// coordinates `p, q ∈ ℝ^{k-1}`.
+///
+/// `KL(p, q) = A(p) − A(q) − ⟨∇A(q), p − q⟩`
+///         `= categorical_log_partition(p)`
+///         `- categorical_log_partition(q)`
+///         `- Σ_i softmax_slot_i(q) · (p_i − q_i)`
+///
+/// `p_slots` and `q_slots` are the slot-index vectors for the two
+/// distributions and must have equal length (the family's k-1).
+/// The function panics if they differ in length or are empty.
+///
+/// Iter-74 — completes the Categorical Bregman trio (after iter-72
+/// log_partition and iter-73 softmax/dual_map).
+pub fn closure_kl_categorical(p_slots: &[u32], q_slots: &[u32]) -> EmlClosureExpr {
+    assert_eq!(
+        p_slots.len(),
+        q_slots.len(),
+        "p_slots and q_slots must share dimensionality (k-1)",
+    );
+    assert!(
+        !p_slots.is_empty(),
+        "Categorical requires k ≥ 2 → at least 1 slot"
+    );
+
+    let a_p = closure_categorical_log_partition(p_slots);
+    let a_q = closure_categorical_log_partition(q_slots);
+
+    let mut terms = p_slots.iter().zip(q_slots.iter()).map(|(p, q)| {
+        let eta_i = closure_categorical_softmax_slot(*q, q_slots);
+        let diff = EmlClosureExpr::minus(EmlClosureExpr::slot(*p), EmlClosureExpr::slot(*q));
+        closure_mul(eta_i, diff)
+    });
+    let first = terms.next().unwrap();
+    let inner = terms.fold(first, |acc, term| EmlClosureExpr::plus(acc, term));
+
+    EmlClosureExpr::minus(EmlClosureExpr::minus(a_p, a_q), inner)
+}
+
+/// Left-fold a vector of [`EmlClosureExpr`] under [`EmlClosureExpr::plus`].
+/// Empty → [`EmlClosureExpr::One`] (the additive-but-encoded-as-multiplicative
+/// identity in this context — sum is 1 when there's nothing else, matching
+/// the `lse(0 args) = 0 = ln(1)` convention).
+fn fold_plus_left(parts: Vec<EmlClosureExpr>) -> EmlClosureExpr {
+    let mut iter = parts.into_iter();
+    let mut acc = match iter.next() {
+        Some(first) => first,
+        None => return EmlClosureExpr::One,
+    };
+    for next in iter {
+        acc = EmlClosureExpr::plus(acc, next);
+    }
+    acc
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::closure::EmlClosure;
+    use super::super::normalize::evaluate_closure;
+    use super::*;
+
+    fn eval_with_slots(tree: EmlClosureExpr, slots: Vec<f64>) -> f64 {
+        let c = EmlClosure::new(tree, slots).unwrap();
+        evaluate_closure(&c).unwrap()
+    }
+
+    #[test]
+    fn closure_zero_evaluates_to_zero() {
+        let v = eval_with_slots(closure_zero(), vec![]);
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_exp_at_zero_is_one() {
+        // exp(0) = 1.
+        let v = eval_with_slots(closure_exp(0), vec![0.0]);
+        assert!((v - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_exp_at_one_is_e() {
+        let v = eval_with_slots(closure_exp(0), vec![1.0]);
+        assert!((v - std::f64::consts::E).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_exp_at_negative() {
+        let v = eval_with_slots(closure_exp(0), vec![-1.0]);
+        assert!((v - (-1.0_f64).exp()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_ln_of_one_is_zero() {
+        // ln(1) = 0.
+        let v = eval_with_slots(closure_ln(EmlClosureExpr::one()), vec![]);
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_ln_of_e_is_one() {
+        // ln(e) = 1. Use closure_exp(0) with slot=1 to make e.
+        let inner = closure_exp(0);
+        let v = eval_with_slots(closure_ln(inner), vec![1.0]);
+        assert!((v - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_softplus_at_zero_is_ln_two() {
+        let v = eval_with_slots(closure_softplus(0), vec![0.0]);
+        assert!((v - 2.0_f64.ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_softplus_at_one() {
+        let v = eval_with_slots(closure_softplus(0), vec![1.0]);
+        let expected = (1.0_f64 + 1.0_f64.exp()).ln();
+        assert!((v - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_softplus_at_grid() {
+        // Match against Rust's reference across a θ grid.
+        for theta in [-3.0_f64, -1.0, 0.0, 1.0, 3.0] {
+            let v = eval_with_slots(closure_softplus(0), vec![theta]);
+            let expected = (1.0_f64 + theta.exp()).ln();
+            assert!(
+                (v - expected).abs() < 1e-12,
+                "softplus({}) = {}; expected {}",
+                theta,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_lse_two_args_matches_log_sum_exp() {
+        // lse(a, b) = ln(exp(a) + exp(b)) with closure_exp helpers.
+        let args = vec![closure_exp(0), closure_exp(1)];
+        let v = eval_with_slots(closure_lse(args), vec![1.0, 2.0]);
+        let expected = (1.0_f64.exp() + 2.0_f64.exp()).ln();
+        assert!((v - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_lse_three_args() {
+        let args = vec![closure_exp(0), closure_exp(1), closure_exp(2)];
+        let v = eval_with_slots(closure_lse(args), vec![0.0, 0.5, 1.0]);
+        let expected = (1.0_f64 + 0.5_f64.exp() + 1.0_f64.exp()).ln();
+        assert!((v - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_lse_one_arg_is_ln() {
+        // lse([x]) = ln(x). For x = closure_exp(0) at slot=2:
+        //   x evaluates to e^2; ln(e^2) = 2.
+        let v = eval_with_slots(closure_lse(vec![closure_exp(0)]), vec![2.0]);
+        assert!((v - 2.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_lse_empty_is_zero() {
+        // lse([]) = ln(1) = 0 by our convention.
+        let v = eval_with_slots(closure_lse(vec![]), vec![]);
+        assert!(v.abs() < 1e-12);
+    }
+
+    // ── Cross-check vs hand-built constructions ────────────────────
+
+    // ── closure_softplus_of (iter-331) ────────────────────────────
+
+    #[test]
+    fn closure_softplus_of_on_single_slot_matches_closure_softplus() {
+        // Compose softplus_of on a single slot argument; result
+        // must agree with the slot-form closure_softplus(0) on every
+        // grid point.
+        let arg = EmlClosureExpr::slot(0);
+        let of_form = closure_softplus_of(arg);
+        let slot_form = closure_softplus(0);
+        for x in [-3.0_f64, -1.0, 0.0, 1.0, 3.0] {
+            let v_of = eval_with_slots(of_form.clone(), vec![x]);
+            let v_slot = eval_with_slots(slot_form.clone(), vec![x]);
+            assert!(
+                (v_of - v_slot).abs() < 1e-9,
+                "x={}: of={} slot={}",
+                x,
+                v_of,
+                v_slot
+            );
+        }
+    }
+
+    #[test]
+    fn closure_softplus_of_of_zero_expr_is_ln_two() {
+        // softplus_of(zero_subtree) = softplus(0) = ln(1 + 1) = ln(2).
+        let zero = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::one());
+        let e = closure_softplus_of(zero);
+        let v = eval_with_slots(e, vec![]);
+        assert!((v - 2.0_f64.ln()).abs() < 1e-9);
+    }
+
+    #[test]
+    fn closure_softplus_of_composed_with_diff_squared() {
+        // softplus_of((x-μ)²) at x=2, μ=1: arg = 1 → ln(1 + e^1).
+        let e = closure_softplus_of(closure_diff_squared(0, 1));
+        let v = eval_with_slots(e, vec![2.0, 1.0]);
+        let expected = (1.0_f64.exp() + 1.0).ln();
+        assert!((v - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn closure_softplus_matches_hand_built_from_iter_59() {
+        // Iter-59 built softplus manually; this helper should match.
+        // Hand-built:
+        //   zero = Minus(One, One)
+        //   exp_theta = eml(Slot(0), One)
+        //   one_plus_exp = Plus(One, exp_theta)
+        //   eml_zero_x = eml(zero, one_plus_exp)
+        //   tree = Minus(One, eml_zero_x)
+        let hand = {
+            let zero = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::one());
+            let exp_theta = EmlClosureExpr::eml(EmlClosureExpr::slot(0), EmlClosureExpr::one());
+            let one_plus_exp = EmlClosureExpr::plus(EmlClosureExpr::one(), exp_theta);
+            let eml_zero_x = EmlClosureExpr::eml(zero, one_plus_exp);
+            EmlClosureExpr::minus(EmlClosureExpr::one(), eml_zero_x)
+        };
+        let helper = closure_softplus(0);
+        assert_eq!(hand, helper);
+    }
+
+    // ── Sigmoid via EML (iter-67) ─────────────────────────────────
+
+    fn rust_sigmoid(theta: f64) -> f64 {
+        1.0 / (1.0 + (-theta).exp())
+    }
+
+    #[test]
+    fn closure_neg_slot_evaluates_to_negation() {
+        let v = eval_with_slots(closure_neg_slot(0), vec![3.5]);
+        assert_eq!(v, -3.5);
+    }
+
+    #[test]
+    fn closure_neg_exp_matches_rust() {
+        for theta in [-2.0_f64, -0.5, 0.0, 0.5, 2.0] {
+            let v = eval_with_slots(closure_neg_exp(0), vec![theta]);
+            let expected = (-theta).exp();
+            assert!(
+                (v - expected).abs() < 1e-12,
+                "neg_exp({}) = {}; expected {}",
+                theta,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_sigmoid_at_zero_is_half() {
+        let v = eval_with_slots(closure_sigmoid(0), vec![0.0]);
+        assert!((v - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_sigmoid_at_large_positive_is_near_one() {
+        let v = eval_with_slots(closure_sigmoid(0), vec![20.0]);
+        assert!((v - 1.0).abs() < 1e-8);
+    }
+
+    #[test]
+    fn closure_sigmoid_at_large_negative_is_near_zero() {
+        let v = eval_with_slots(closure_sigmoid(0), vec![-20.0]);
+        assert!(v.abs() < 1e-8);
+    }
+
+    #[test]
+    fn closure_sigmoid_matches_rust_across_grid() {
+        for theta in [-3.0_f64, -1.0, -0.5, 0.0, 0.5, 1.0, 3.0] {
+            let v = eval_with_slots(closure_sigmoid(0), vec![theta]);
+            let expected = rust_sigmoid(theta);
+            assert!(
+                (v - expected).abs() < 1e-12,
+                "sigmoid({}) = {}; expected {}",
+                theta,
+                v,
+                expected
+            );
+        }
+    }
+
+    // ── closure_neg (iter-349) ────────────────────────────────────
+
+    #[test]
+    fn closure_neg_on_slot_matches_closure_neg_slot() {
+        let of_form = closure_neg(EmlClosureExpr::slot(0));
+        let slot_form = closure_neg_slot(0);
+        for x in [-3.0_f64, -1.0, 0.0, 1.0, 3.0] {
+            let v_of = eval_with_slots(of_form.clone(), vec![x]);
+            let v_slot = eval_with_slots(slot_form.clone(), vec![x]);
+            assert!((v_of - v_slot).abs() < 1e-9, "x={}", x);
+        }
+    }
+
+    #[test]
+    fn closure_neg_on_zero_subtree_is_zero() {
+        let zero = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::one());
+        let v = eval_with_slots(closure_neg(zero), vec![]);
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_neg_composed_with_softplus_of_yields_log_one_plus_neg_exp() {
+        // softplus_of(neg(slot(0))) = ln(1 + e^(-x)) = log_sigmoid form.
+        let e = closure_softplus_of(closure_neg(EmlClosureExpr::slot(0)));
+        for x in [-3.0_f64, -1.0, 0.0, 1.0, 3.0] {
+            let v = eval_with_slots(e.clone(), vec![x]);
+            let expected = (1.0_f64 + (-x).exp()).ln();
+            assert!((v - expected).abs() < 1e-9, "x={}", x);
+        }
+    }
+
+    // ── closure_sigmoid_of (iter-343) ─────────────────────────────
+
+    #[test]
+    fn closure_sigmoid_of_on_single_slot_matches_closure_sigmoid() {
+        let of_form = closure_sigmoid_of(EmlClosureExpr::slot(0));
+        let slot_form = closure_sigmoid(0);
+        for x in [-3.0_f64, -1.0, 0.0, 1.0, 3.0] {
+            let v_of = eval_with_slots(of_form.clone(), vec![x]);
+            let v_slot = eval_with_slots(slot_form.clone(), vec![x]);
+            assert!((v_of - v_slot).abs() < 1e-9, "x={}", x);
+        }
+    }
+
+    #[test]
+    fn closure_sigmoid_of_zero_subtree_is_half() {
+        // σ(zero) = σ(0) = 0.5.
+        let zero = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::one());
+        let v = eval_with_slots(closure_sigmoid_of(zero), vec![]);
+        assert!((v - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_sigmoid_of_composes_with_linear_form() {
+        // σ(w·x + b) — single-slot weighted input + bias.
+        // slot 0 = x, slot 1 = w, slot 2 = b.
+        let arg = EmlClosureExpr::plus(
+            closure_mul(EmlClosureExpr::slot(1), EmlClosureExpr::slot(0)),
+            EmlClosureExpr::slot(2),
+        );
+        let e = closure_sigmoid_of(arg);
+        // At x=2, w=3, b=-5: arg = 6 - 5 = 1, σ(1) ≈ 0.7311.
+        let v = eval_with_slots(e, vec![2.0, 3.0, -5.0]);
+        let expected = 1.0 / (1.0 + (-1.0_f64).exp());
+        assert!((v - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn closure_sigmoid_is_monotone() {
+        let thetas = [-3.0_f64, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0];
+        let values: Vec<f64> = thetas
+            .iter()
+            .map(|&t| eval_with_slots(closure_sigmoid(0), vec![t]))
+            .collect();
+        for w in values.windows(2) {
+            assert!(w[0] < w[1], "sigmoid not monotone: {:?}", values);
+        }
+    }
+
+    #[test]
+    fn closure_sigmoid_matches_info_ir_bernoulli_dual_map() {
+        // Bernoulli's η = ∇A(θ) = sigmoid(θ). Verify the closure
+        // sigmoid matches Info-IR's dual_map(Bernoulli, [θ]).
+        use super::super::super::info_ir::{dual_map, ExpFamily};
+        for theta in [-2.0_f64, -1.0, -0.5, 0.0, 0.5, 1.0, 2.0] {
+            let via_eml = eval_with_slots(closure_sigmoid(0), vec![theta]);
+            let via_info = dual_map(&ExpFamily::Bernoulli, &[theta])[0];
+            assert!(
+                (via_eml - via_info).abs() < 1e-12,
+                "sigmoid({}): eml={} info={}",
+                theta,
+                via_eml,
+                via_info
+            );
+        }
+    }
+
+    // ── tanh via EML (iter-68) ────────────────────────────────────
+
+    #[test]
+    fn closure_tanh_at_zero_is_zero() {
+        let v = eval_with_slots(closure_tanh(0), vec![0.0]);
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_tanh_at_one_matches_rust() {
+        let v = eval_with_slots(closure_tanh(0), vec![1.0]);
+        assert!((v - 1.0_f64.tanh()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_tanh_at_negative_matches_rust() {
+        let v = eval_with_slots(closure_tanh(0), vec![-1.5]);
+        assert!((v - (-1.5_f64).tanh()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_tanh_at_large_positive_approaches_one() {
+        let v = eval_with_slots(closure_tanh(0), vec![10.0]);
+        assert!((v - 1.0).abs() < 1e-8);
+    }
+
+    #[test]
+    fn closure_tanh_at_large_negative_approaches_minus_one() {
+        let v = eval_with_slots(closure_tanh(0), vec![-10.0]);
+        assert!((v - (-1.0)).abs() < 1e-8);
+    }
+
+    #[test]
+    fn closure_tanh_matches_rust_across_grid() {
+        for theta in [-3.0_f64, -1.0, -0.5, 0.0, 0.5, 1.0, 3.0] {
+            let v = eval_with_slots(closure_tanh(0), vec![theta]);
+            let expected = theta.tanh();
+            assert!(
+                (v - expected).abs() < 1e-12,
+                "tanh({}) = {}; expected {}",
+                theta,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_tanh_is_odd() {
+        // tanh(-x) = -tanh(x).
+        for theta in [0.5_f64, 1.0, 2.0, 5.0] {
+            let pos = eval_with_slots(closure_tanh(0), vec![theta]);
+            let neg = eval_with_slots(closure_tanh(0), vec![-theta]);
+            assert!(
+                (pos + neg).abs() < 1e-12,
+                "tanh oddness fail: tanh({})={} tanh({})={}",
+                theta,
+                pos,
+                -theta,
+                neg
+            );
+        }
+    }
+
+    #[test]
+    fn closure_tanh_is_sigmoid_2x_minus_1_shifted_identity() {
+        // Classical identity: tanh(x) = 2*sigmoid(2x) - 1.
+        // Verify the two closure_builders families agree on this
+        // identity within numerical tolerance.
+        for theta in [-1.5_f64, -0.5, 0.0, 0.5, 1.5] {
+            let direct = eval_with_slots(closure_tanh(0), vec![theta]);
+            let via_sigmoid = 2.0 * eval_with_slots(closure_sigmoid(0), vec![2.0 * theta]) - 1.0;
+            assert!(
+                (direct - via_sigmoid).abs() < 1e-12,
+                "tanh({}) = {}; via sigmoid identity = {}",
+                theta,
+                direct,
+                via_sigmoid
+            );
+        }
+    }
+
+    // ── closure_tanh_of (iter-361) ────────────────────────────────
+
+    #[test]
+    fn closure_tanh_of_on_single_slot_matches_closure_tanh() {
+        let of_form = closure_tanh_of(EmlClosureExpr::slot(0));
+        let slot_form = closure_tanh(0);
+        for x in [-3.0_f64, -1.0, 0.0, 0.5, 1.0, 3.0] {
+            let v_of = eval_with_slots(of_form.clone(), vec![x]);
+            let v_slot = eval_with_slots(slot_form.clone(), vec![x]);
+            assert!((v_of - v_slot).abs() < 1e-9, "x={}", x);
+        }
+    }
+
+    #[test]
+    fn closure_tanh_of_zero_subtree_is_zero() {
+        let zero = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::one());
+        let v = eval_with_slots(closure_tanh_of(zero), vec![]);
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_tanh_of_composed_with_linear_form() {
+        // tanh(w·x + b) at (x=2, w=3, b=−5) → tanh(1).
+        let arg = EmlClosureExpr::plus(
+            closure_mul(EmlClosureExpr::slot(1), EmlClosureExpr::slot(0)),
+            EmlClosureExpr::slot(2),
+        );
+        let e = closure_tanh_of(arg);
+        let v = eval_with_slots(e, vec![2.0, 3.0, -5.0]);
+        let expected = 1.0_f64.tanh();
+        assert!((v - expected).abs() < 1e-9);
+    }
+
+    // ── closure_mul + closure_kl_bernoulli (iter-70) ──────────────
+
+    #[test]
+    fn closure_mul_simple() {
+        // 3 * 4 = 12. Use closure_zero for slot-less constants? No —
+        // build literal trees: 3 = Plus(Plus(One,One), One), 4 = Plus(3, One).
+        // Simpler: use slots.
+        let mul = closure_mul(EmlClosureExpr::slot(0), EmlClosureExpr::slot(1));
+        let v = eval_with_slots(mul, vec![3.0, 4.0]);
+        assert!((v - 12.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_mul_with_negative() {
+        let mul = closure_mul(EmlClosureExpr::slot(0), EmlClosureExpr::slot(1));
+        let v = eval_with_slots(mul, vec![-2.5, 4.0]);
+        assert!((v - (-10.0)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_mul_by_one_is_identity() {
+        let mul = closure_mul(EmlClosureExpr::slot(0), EmlClosureExpr::one());
+        let v = eval_with_slots(mul, vec![7.5]);
+        assert!((v - 7.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_kl_bernoulli_zero_when_p_equals_q() {
+        // KL(p, p) = 0.
+        for theta in [-1.0_f64, 0.0, 1.0] {
+            let v = eval_with_slots(closure_kl_bernoulli(0, 1), vec![theta, theta]);
+            assert!(v.abs() < 1e-12, "KL({}, {}) = {} ≠ 0", theta, theta, v);
+        }
+    }
+
+    #[test]
+    fn closure_kl_bernoulli_nonnegative() {
+        // KL ≥ 0 always.
+        let pairs = [
+            (1.0_f64, 0.0),
+            (0.0, 1.0),
+            (-1.0, 2.0),
+            (-0.5, 0.5),
+            (2.0, -2.0),
+        ];
+        for (p, q) in pairs {
+            let v = eval_with_slots(closure_kl_bernoulli(0, 1), vec![p, q]);
+            assert!(v >= -1e-12, "KL({}, {}) = {} < 0", p, q, v);
+        }
+    }
+
+    #[test]
+    fn closure_kl_bernoulli_matches_info_ir() {
+        use super::super::super::info_ir::{kl_divergence, ExpFamily};
+        let pairs = [
+            (1.0_f64, 0.0),
+            (0.0, 1.0),
+            (-1.0, 2.0),
+            (-0.5, 0.5),
+            (2.0, -2.0),
+            (0.5, 0.5),
+        ];
+        for (p, q) in pairs {
+            let via_eml = eval_with_slots(closure_kl_bernoulli(0, 1), vec![p, q]);
+            let via_info = kl_divergence(&ExpFamily::Bernoulli, &[p], &[q]);
+            assert!(
+                (via_eml - via_info).abs() < 1e-10,
+                "KL({}, {}): eml={} info={}",
+                p,
+                q,
+                via_eml,
+                via_info
+            );
+        }
+    }
+
+    // ── closure_kl_exponential (iter-373) ─────────────────────────
+
+    #[test]
+    fn closure_kl_exponential_self_is_zero() {
+        for lambda in [0.5_f64, 1.0, 2.0, 5.0] {
+            let v = eval_with_slots(closure_kl_exponential(0, 1), vec![lambda, lambda]);
+            assert!(v.abs() < 1e-12, "λ={}: KL={}", lambda, v);
+        }
+    }
+
+    #[test]
+    fn closure_kl_exponential_matches_closed_form() {
+        // KL(Exp(λ_p) ‖ Exp(λ_q)) = ln(λ_p/λ_q) + λ_q/λ_p − 1.
+        for (lp, lq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0), (4.0, 1.0)] {
+            let v = eval_with_slots(closure_kl_exponential(0, 1), vec![lp, lq]);
+            let expected = (lp / lq).ln() + lq / lp - 1.0;
+            assert!(
+                (v - expected).abs() < 1e-9,
+                "(λ_p, λ_q) = ({}, {}): got {} expected {}",
+                lp,
+                lq,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_kl_exponential_nonneg_on_grid() {
+        for (lp, lq) in [(0.5_f64, 1.0), (1.0, 2.0), (2.0, 0.5), (4.0, 1.0)] {
+            let v = eval_with_slots(closure_kl_exponential(0, 1), vec![lp, lq]);
+            assert!(v >= -1e-9, "(λ_p, λ_q) = ({}, {}): KL = {} < 0", lp, lq, v);
+        }
+    }
+
+    // ── closure_exponential_jeffreys_divergence (iter-476) ────────
+
+    #[test]
+    fn closure_exponential_jeffreys_self_is_zero() {
+        for lambda in [0.5_f64, 1.0, 2.0, 5.0] {
+            let v = eval_with_slots(
+                closure_exponential_jeffreys_divergence(0, 1),
+                vec![lambda, lambda],
+            );
+            assert!(v.abs() < 1e-12, "λ={}: J={}", lambda, v);
+        }
+    }
+
+    #[test]
+    fn closure_exponential_jeffreys_matches_closed_form() {
+        // J = λ_q/λ_p + λ_p/λ_q − 2.
+        for (lp, lq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0), (4.0, 1.0)] {
+            let v = eval_with_slots(closure_exponential_jeffreys_divergence(0, 1), vec![lp, lq]);
+            let expected = lq / lp + lp / lq - 2.0;
+            assert!(
+                (v - expected).abs() < 1e-12,
+                "(λ_p, λ_q) = ({}, {}): got {} expected {}",
+                lp,
+                lq,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_exponential_jeffreys_symmetric() {
+        for (lp, lq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0)] {
+            let ab = eval_with_slots(closure_exponential_jeffreys_divergence(0, 1), vec![lp, lq]);
+            let ba = eval_with_slots(closure_exponential_jeffreys_divergence(0, 1), vec![lq, lp]);
+            assert!((ab - ba).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn closure_exponential_jeffreys_matches_kl_pair_sum() {
+        // J ≡ KL(p ‖ q) + KL(q ‖ p) via closure_kl_exponential.
+        for (lp, lq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0)] {
+            let j = eval_with_slots(closure_exponential_jeffreys_divergence(0, 1), vec![lp, lq]);
+            let kpq = eval_with_slots(closure_kl_exponential(0, 1), vec![lp, lq]);
+            let kqp = eval_with_slots(closure_kl_exponential(0, 1), vec![lq, lp]);
+            assert!((j - (kpq + kqp)).abs() < 1e-9);
+        }
+    }
+
+    // ── closure_kl_poisson (iter-379) ─────────────────────────────
+
+    #[test]
+    fn closure_kl_poisson_self_is_zero() {
+        for lambda in [0.5_f64, 1.0, 2.0, 5.0] {
+            let v = eval_with_slots(closure_kl_poisson(0, 1), vec![lambda, lambda]);
+            assert!(v.abs() < 1e-9, "λ={}: KL={}", lambda, v);
+        }
+    }
+
+    #[test]
+    fn closure_kl_poisson_matches_closed_form() {
+        for (lp, lq) in [(1.0_f64, 2.0), (3.0, 1.0), (4.0, 2.5)] {
+            let v = eval_with_slots(closure_kl_poisson(0, 1), vec![lp, lq]);
+            let expected = lp * (lp / lq).ln() - lp + lq;
+            assert!(
+                (v - expected).abs() < 1e-9,
+                "(λ_p, λ_q) = ({}, {}): got {} expected {}",
+                lp,
+                lq,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_kl_poisson_nonneg_on_grid() {
+        for (lp, lq) in [(0.5_f64, 1.0), (1.0, 2.0), (2.0, 0.5), (4.0, 1.0)] {
+            let v = eval_with_slots(closure_kl_poisson(0, 1), vec![lp, lq]);
+            assert!(v >= -1e-9, "(λ_p, λ_q) = ({}, {}): KL = {} < 0", lp, lq, v);
+        }
+    }
+
+    // ── closure_poisson_jeffreys_divergence (iter-470) ────────────
+
+    #[test]
+    fn closure_poisson_jeffreys_self_is_zero() {
+        for lambda in [0.5_f64, 1.0, 2.0, 5.0] {
+            let v = eval_with_slots(
+                closure_poisson_jeffreys_divergence(0, 1),
+                vec![lambda, lambda],
+            );
+            assert!(v.abs() < 1e-12, "λ={}: J={}", lambda, v);
+        }
+    }
+
+    #[test]
+    fn closure_poisson_jeffreys_matches_closed_form() {
+        // J = (λ_p − λ_q) · ln(λ_p / λ_q).
+        for (lp, lq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0), (4.0, 1.0)] {
+            let v = eval_with_slots(closure_poisson_jeffreys_divergence(0, 1), vec![lp, lq]);
+            let expected = (lp - lq) * (lp / lq).ln();
+            assert!(
+                (v - expected).abs() < 1e-9,
+                "(λ_p, λ_q) = ({}, {}): got {} expected {}",
+                lp,
+                lq,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_poisson_jeffreys_symmetric() {
+        for (lp, lq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0)] {
+            let ab = eval_with_slots(closure_poisson_jeffreys_divergence(0, 1), vec![lp, lq]);
+            let ba = eval_with_slots(closure_poisson_jeffreys_divergence(0, 1), vec![lq, lp]);
+            assert!((ab - ba).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn closure_poisson_jeffreys_matches_kl_pair_sum() {
+        // J ≡ KL(p ‖ q) + KL(q ‖ p).
+        for (lp, lq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0)] {
+            let j = eval_with_slots(closure_poisson_jeffreys_divergence(0, 1), vec![lp, lq]);
+            let kpq = eval_with_slots(closure_kl_poisson(0, 1), vec![lp, lq]);
+            let kqp = eval_with_slots(closure_kl_poisson(0, 1), vec![lq, lp]);
+            assert!((j - (kpq + kqp)).abs() < 1e-9);
+        }
+    }
+
+    // ── closure_kl_geometric (iter-391) ───────────────────────────
+
+    #[test]
+    fn closure_kl_geometric_self_is_zero() {
+        for p in [0.1_f64, 0.3, 0.5, 0.7, 0.9] {
+            let v = eval_with_slots(closure_kl_geometric(0, 1), vec![p, p]);
+            assert!(v.abs() < 1e-9, "p={}: KL={}", p, v);
+        }
+    }
+
+    #[test]
+    fn closure_kl_geometric_matches_closed_form() {
+        for (pp, pq) in [(0.3_f64, 0.5), (0.6, 0.4), (0.2, 0.8)] {
+            let v = eval_with_slots(closure_kl_geometric(0, 1), vec![pp, pq]);
+            let expected = (pp / pq).ln() + (1.0 - pp) / pp * ((1.0 - pp) / (1.0 - pq)).ln();
+            assert!(
+                (v - expected).abs() < 1e-9,
+                "(p_p, p_q) = ({}, {}): got {} expected {}",
+                pp,
+                pq,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_kl_geometric_nonneg_on_grid() {
+        for pp in [0.1_f64, 0.3, 0.5, 0.7, 0.9] {
+            for pq in [0.1_f64, 0.3, 0.5, 0.7, 0.9] {
+                let v = eval_with_slots(closure_kl_geometric(0, 1), vec![pp, pq]);
+                assert!(v >= -1e-9, "(p_p, p_q) = ({}, {}): KL = {} < 0", pp, pq, v);
+            }
+        }
+    }
+
+    // ── closure_kl_uniform (iter-434) ─────────────────────────────
+
+    #[test]
+    fn closure_kl_uniform_self_is_zero() {
+        for (a, b) in [(0.0_f64, 1.0), (-1.0, 2.0), (10.0, 11.5)] {
+            let v = eval_with_slots(closure_kl_uniform(0, 1, 2, 3), vec![a, b, a, b]);
+            assert!(v.abs() < 1e-12, "(a, b) = ({}, {}): KL = {}", a, b, v);
+        }
+    }
+
+    #[test]
+    fn closure_kl_uniform_matches_closed_form() {
+        // KL(Unif(a_p,b_p) ‖ Unif(a_q,b_q)) = ln((b_q − a_q) / (b_p − a_p))
+        // when [a_p, b_p] ⊂ [a_q, b_q].
+        for (ap, bp, aq, bq) in [
+            (0.25_f64, 0.75, 0.0, 1.0),
+            (-0.5, 0.5, -2.0, 2.0),
+            (1.0, 1.5, 0.0, 3.0),
+        ] {
+            let v = eval_with_slots(closure_kl_uniform(0, 1, 2, 3), vec![ap, bp, aq, bq]);
+            let expected = ((bq - aq) / (bp - ap)).ln();
+            assert!(
+                (v - expected).abs() < 1e-12,
+                "(ap,bp,aq,bq)=({},{},{},{}): got {} expected {}",
+                ap,
+                bp,
+                aq,
+                bq,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_kl_uniform_nonneg_when_p_contained_in_q() {
+        // Containment [a_p, b_p] ⊂ [a_q, b_q] makes the formula
+        // non-negative (KL property within its valid regime).
+        for (ap, bp, aq, bq) in [
+            (0.1_f64, 0.9, 0.0, 1.0),
+            (-1.0, 1.0, -5.0, 5.0),
+            (2.0, 2.5, 0.0, 10.0),
+        ] {
+            let v = eval_with_slots(closure_kl_uniform(0, 1, 2, 3), vec![ap, bp, aq, bq]);
+            assert!(
+                v >= -1e-12,
+                "(ap,bp,aq,bq)=({},{},{},{}): KL = {} < 0",
+                ap,
+                bp,
+                aq,
+                bq,
+                v
+            );
+        }
+    }
+
+    // ── closure_kl_normal_full (iter-482) ─────────────────────────
+
+    #[test]
+    fn closure_kl_normal_full_self_is_zero() {
+        for (mu, sig2) in [(0.0_f64, 1.0), (1.5, 0.5), (-2.0, 3.0)] {
+            let v = eval_with_slots(closure_kl_normal_full(0, 1, 2, 3), vec![mu, sig2, mu, sig2]);
+            assert!(v.abs() < 1e-12, "(μ, σ²)=({}, {}): KL={}", mu, sig2, v);
+        }
+    }
+
+    #[test]
+    fn closure_kl_normal_full_matches_closed_form() {
+        // KL = ½ · [(μ_p − μ_q)²/σ_q² + σ_p²/σ_q² − 1 − ln(σ_p²/σ_q²)].
+        for (mp, sp, mq, sq) in [
+            (0.0_f64, 1.0, 1.0, 2.0),
+            (-0.5, 0.25, 2.5, 0.75),
+            (3.0, 2.0, 0.0, 1.0),
+        ] {
+            let v = eval_with_slots(closure_kl_normal_full(0, 1, 2, 3), vec![mp, sp, mq, sq]);
+            let d = mp - mq;
+            let ratio = sp / sq;
+            let expected = 0.5 * (d * d / sq + ratio - 1.0 - ratio.ln());
+            assert!(
+                (v - expected).abs() < 1e-9,
+                "(μ_p, σ_p², μ_q, σ_q²) = ({}, {}, {}, {}): got {} expected {}",
+                mp,
+                sp,
+                mq,
+                sq,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_kl_normal_full_nonneg_on_grid() {
+        for (mp, sp, mq, sq) in [
+            (0.0_f64, 1.0, 0.5, 1.5),
+            (1.0, 0.25, -1.0, 0.5),
+            (2.0, 2.0, 2.0, 1.0),
+        ] {
+            let v = eval_with_slots(closure_kl_normal_full(0, 1, 2, 3), vec![mp, sp, mq, sq]);
+            assert!(
+                v >= -1e-9,
+                "(μ_p, σ_p², μ_q, σ_q²) = ({}, {}, {}, {}): KL = {}",
+                mp,
+                sp,
+                mq,
+                sq,
+                v
+            );
+        }
+    }
+
+    #[test]
+    fn closure_kl_normal_full_collapses_to_zero_mean_form() {
+        // At μ_p = μ_q = 0, closure_kl_normal_full ≡ closure_kl_normal_zero_mean.
+        for (sp, sq) in [(0.25_f64, 1.0), (1.0, 0.5), (3.0, 2.0)] {
+            let full = eval_with_slots(closure_kl_normal_full(0, 1, 2, 3), vec![0.0, sp, 0.0, sq]);
+            let zm = eval_with_slots(closure_kl_normal_zero_mean(0, 1), vec![sp, sq]);
+            assert!((full - zm).abs() < 1e-12);
+        }
+    }
+
+    // ── closure_kl_normal_zero_mean (iter-446) ────────────────────
+
+    #[test]
+    fn closure_kl_normal_zero_mean_self_is_zero() {
+        for sigma2 in [0.25_f64, 1.0, 2.5, 9.0] {
+            let v = eval_with_slots(closure_kl_normal_zero_mean(0, 1), vec![sigma2, sigma2]);
+            assert!(v.abs() < 1e-12, "σ²={}: KL={}", sigma2, v);
+        }
+    }
+
+    #[test]
+    fn closure_kl_normal_zero_mean_matches_closed_form() {
+        // KL(N(0, σ_p²) ‖ N(0, σ_q²)) = ½ (σ_p²/σ_q² − 1 − ln(σ_p²/σ_q²)).
+        for (sp, sq) in [(1.0_f64, 2.0), (0.5, 0.25), (3.0, 1.0), (0.1, 0.9)] {
+            let v = eval_with_slots(closure_kl_normal_zero_mean(0, 1), vec![sp, sq]);
+            let ratio = sp / sq;
+            let expected = 0.5 * (ratio - 1.0 - ratio.ln());
+            assert!(
+                (v - expected).abs() < 1e-9,
+                "(σ_p², σ_q²) = ({}, {}): got {} expected {}",
+                sp,
+                sq,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_kl_normal_zero_mean_nonneg_on_grid() {
+        for (sp, sq) in [(0.25_f64, 1.0), (1.0, 0.25), (2.0, 0.5), (4.0, 4.5)] {
+            let v = eval_with_slots(closure_kl_normal_zero_mean(0, 1), vec![sp, sq]);
+            assert!(v >= -1e-12, "(σ_p², σ_q²) = ({}, {}): KL={}", sp, sq, v);
+        }
+    }
+
+    // ── Categorical log_partition via EML (iter-72) ───────────────
+
+    #[test]
+    fn closure_categorical_log_partition_k2_matches_bernoulli() {
+        // For k=2, Categorical with 1 natural parameter should
+        // produce the same A(θ) as Bernoulli.
+        for theta in [-1.0_f64, 0.0, 1.0] {
+            let cat = eval_with_slots(closure_categorical_log_partition(&[0]), vec![theta]);
+            let bern = eval_with_slots(closure_softplus(0), vec![theta]);
+            assert!(
+                (cat - bern).abs() < 1e-12,
+                "Categorical_k=2({}) = {}; Bernoulli softplus = {}",
+                theta,
+                cat,
+                bern
+            );
+        }
+    }
+
+    #[test]
+    fn closure_categorical_log_partition_k3_at_zeros() {
+        // A([0, 0]) = ln(1 + 1 + 1) = ln 3 for Categorical{k=3}.
+        let v = eval_with_slots(closure_categorical_log_partition(&[0, 1]), vec![0.0, 0.0]);
+        assert!((v - 3.0_f64.ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_categorical_log_partition_matches_info_ir() {
+        use super::super::super::info_ir::{log_partition, ExpFamily};
+
+        // k=3 cases.
+        let cases = [
+            (vec![0.0_f64, 0.0]),
+            (vec![1.0, -1.0]),
+            (vec![-0.5, 0.5]),
+            (vec![2.0, 1.0]),
+        ];
+        for theta in &cases {
+            let via_eml =
+                eval_with_slots(closure_categorical_log_partition(&[0, 1]), theta.clone());
+            let via_info = log_partition(&ExpFamily::Categorical { k: 3 }, theta);
+            assert!(
+                (via_eml - via_info).abs() < 1e-12,
+                "Categorical_k=3({:?}): eml={} info={}",
+                theta,
+                via_eml,
+                via_info
+            );
+        }
+
+        // k=4 case.
+        let theta_k4 = vec![0.5_f64, -0.3, 1.0];
+        let via_eml = eval_with_slots(
+            closure_categorical_log_partition(&[0, 1, 2]),
+            theta_k4.clone(),
+        );
+        let via_info = log_partition(&ExpFamily::Categorical { k: 4 }, &theta_k4);
+        assert!(
+            (via_eml - via_info).abs() < 1e-12,
+            "Categorical_k=4({:?}): eml={} info={}",
+            theta_k4,
+            via_eml,
+            via_info
+        );
+    }
+
+    #[test]
+    fn closure_categorical_log_partition_grows_with_k() {
+        // A_k(all zeros) = ln(k). Verify monotone growth.
+        let a_k2 = eval_with_slots(closure_categorical_log_partition(&[0]), vec![0.0]);
+        let a_k3 = eval_with_slots(closure_categorical_log_partition(&[0, 1]), vec![0.0, 0.0]);
+        let a_k4 = eval_with_slots(
+            closure_categorical_log_partition(&[0, 1, 2]),
+            vec![0.0, 0.0, 0.0],
+        );
+        assert!(a_k2 < a_k3);
+        assert!(a_k3 < a_k4);
+        assert!((a_k2 - 2.0_f64.ln()).abs() < 1e-12);
+        assert!((a_k3 - 3.0_f64.ln()).abs() < 1e-12);
+        assert!((a_k4 - 4.0_f64.ln()).abs() < 1e-12);
+    }
+
+    // ── Categorical softmax / dual_map via EML (iter-73) ──────────
+
+    #[test]
+    fn closure_categorical_softmax_slot_k2_matches_sigmoid() {
+        // For k=2 (1 slot), softmax_slot(0, [0]) === sigmoid(θ_0).
+        for theta in [-2.0_f64, -0.5, 0.0, 0.7, 3.0] {
+            let cat = eval_with_slots(closure_categorical_softmax_slot(0, &[0]), vec![theta]);
+            let sig = eval_with_slots(closure_sigmoid(0), vec![theta]);
+            assert!(
+                (cat - sig).abs() < 1e-12,
+                "softmax_slot(k=2, {}) = {}; sigmoid = {}",
+                theta,
+                cat,
+                sig
+            );
+        }
+    }
+
+    #[test]
+    fn closure_categorical_softmax_at_zero_is_uniform() {
+        // For k=3 at θ=(0,0), each slot probability = 1/3, and the
+        // pinned class also = 1/3.
+        let slots = [0_u32, 1];
+        let p0 = eval_with_slots(closure_categorical_softmax_slot(0, &slots), vec![0.0, 0.0]);
+        let p1 = eval_with_slots(closure_categorical_softmax_slot(1, &slots), vec![0.0, 0.0]);
+        let pp = eval_with_slots(closure_categorical_softmax_pinned(&slots), vec![0.0, 0.0]);
+        for p in [p0, p1, pp] {
+            assert!((p - 1.0 / 3.0).abs() < 1e-12, "p={}", p);
+        }
+    }
+
+    #[test]
+    fn closure_categorical_softmax_probabilities_sum_to_one() {
+        // p_0 + p_1 + p_pinned = 1 for k=3 over a grid of θ.
+        let cases = [
+            (0.0_f64, 0.0),
+            (1.0, -1.0),
+            (-2.0, 3.0),
+            (0.5, 0.5),
+            (-0.7, 0.2),
+        ];
+        let slots = [0_u32, 1];
+        for (a, b) in cases {
+            let p0 = eval_with_slots(closure_categorical_softmax_slot(0, &slots), vec![a, b]);
+            let p1 = eval_with_slots(closure_categorical_softmax_slot(1, &slots), vec![a, b]);
+            let pp = eval_with_slots(closure_categorical_softmax_pinned(&slots), vec![a, b]);
+            let s = p0 + p1 + pp;
+            assert!((s - 1.0).abs() < 1e-12, "sum at ({}, {}) = {}", a, b, s);
+        }
+    }
+
+    #[test]
+    fn closure_categorical_softmax_matches_info_ir_dual_map() {
+        use super::super::super::info_ir::{dual_map, ExpFamily};
+
+        let cases_k3 = [
+            vec![0.0_f64, 0.0],
+            vec![1.0, -1.0],
+            vec![-0.5, 0.5],
+            vec![2.0, 1.0],
+            vec![-3.0, 2.5],
+        ];
+        let slots_k3 = [0_u32, 1];
+        for theta in &cases_k3 {
+            let via_info = dual_map(&ExpFamily::Categorical { k: 3 }, theta);
+            for (i, &slot) in slots_k3.iter().enumerate() {
+                let via_eml = eval_with_slots(
+                    closure_categorical_softmax_slot(slot, &slots_k3),
+                    theta.clone(),
+                );
+                assert!(
+                    (via_eml - via_info[i]).abs() < 1e-12,
+                    "k=3 slot {} at {:?}: eml={} info={}",
+                    slot,
+                    theta,
+                    via_eml,
+                    via_info[i]
+                );
+            }
+        }
+
+        // k=4 case.
+        let theta_k4 = vec![0.5_f64, -0.3, 1.0];
+        let slots_k4 = [0_u32, 1, 2];
+        let via_info = dual_map(&ExpFamily::Categorical { k: 4 }, &theta_k4);
+        for (i, &slot) in slots_k4.iter().enumerate() {
+            let via_eml = eval_with_slots(
+                closure_categorical_softmax_slot(slot, &slots_k4),
+                theta_k4.clone(),
+            );
+            assert!(
+                (via_eml - via_info[i]).abs() < 1e-12,
+                "k=4 slot {}: eml={} info={}",
+                slot,
+                via_eml,
+                via_info[i]
+            );
+        }
+    }
+
+    // ── Categorical KL via EML (iter-74) ──────────────────────────
+
+    #[test]
+    fn closure_kl_categorical_reflexivity_distinct_slots() {
+        // KL(p, p) = 0 when p_slots and q_slots are *different* slot
+        // indices that happen to hold identical values. Verifies the
+        // closure form genuinely encodes the math, not slot identity.
+        let kl = eval_with_slots(
+            closure_kl_categorical(&[0, 1], &[2, 3]),
+            vec![1.0, -0.5, 1.0, -0.5],
+        );
+        assert!(kl.abs() < 1e-12, "KL(p, p) = {} (should be 0)", kl);
+    }
+
+    #[test]
+    fn closure_kl_categorical_non_negative() {
+        // Gibbs' inequality: KL ≥ 0 for all p, q.
+        let cases = [
+            (vec![1.0_f64, 0.5], vec![0.0, 0.0]),
+            (vec![0.0, 0.0], vec![1.0, 0.5]),
+            (vec![-2.0, 3.0], vec![0.5, -0.5]),
+            (vec![1.0, -1.0], vec![-1.0, 1.0]),
+        ];
+        for (p, q) in cases {
+            let mut slots = p.clone();
+            slots.extend(q.clone());
+            let kl = eval_with_slots(closure_kl_categorical(&[0, 1], &[2, 3]), slots);
+            assert!(
+                kl >= -1e-12,
+                "KL(p={:?}, q={:?}) = {} (must be ≥ 0)",
+                p,
+                q,
+                kl
+            );
+        }
+    }
+
+    #[test]
+    fn closure_kl_categorical_k2_matches_kl_bernoulli() {
+        // For k=2, Categorical KL must equal Bernoulli KL on the
+        // single slot of natural parameters.
+        let cases = [
+            (1.0_f64, 0.0),
+            (0.0, 1.0),
+            (-1.0, 2.0),
+            (0.5, -0.5),
+            (2.0, -2.0),
+        ];
+        for (p, q) in cases {
+            let cat = eval_with_slots(closure_kl_categorical(&[0], &[1]), vec![p, q]);
+            let bern = eval_with_slots(closure_kl_bernoulli(0, 1), vec![p, q]);
+            assert!(
+                (cat - bern).abs() < 1e-10,
+                "k=2 cat KL({}, {}) = {}; bern KL = {}",
+                p,
+                q,
+                cat,
+                bern
+            );
+        }
+    }
+
+    #[test]
+    fn closure_kl_categorical_matches_info_ir() {
+        use super::super::super::info_ir::{kl_divergence, ExpFamily};
+
+        // k=3 cases.
+        let cases_k3: &[(Vec<f64>, Vec<f64>)] = &[
+            (vec![1.0, -1.0], vec![0.0, 0.0]),
+            (vec![0.0, 0.0], vec![1.0, -1.0]),
+            (vec![-0.5, 0.5], vec![2.0, 1.0]),
+            (vec![2.0, 1.0], vec![-0.5, 0.5]),
+            (vec![-2.0, 3.0], vec![0.5, -0.7]),
+        ];
+        for (p, q) in cases_k3 {
+            let mut slots = p.clone();
+            slots.extend(q.clone());
+            let via_eml = eval_with_slots(closure_kl_categorical(&[0, 1], &[2, 3]), slots);
+            let via_info = kl_divergence(&ExpFamily::Categorical { k: 3 }, p, q);
+            assert!(
+                (via_eml - via_info).abs() < 1e-10,
+                "k=3 KL(p={:?}, q={:?}): eml={} info={}",
+                p,
+                q,
+                via_eml,
+                via_info
+            );
+        }
+
+        // k=4 case.
+        let p_k4 = vec![0.5_f64, -0.3, 1.0];
+        let q_k4 = vec![0.0_f64, 0.5, -0.5];
+        let mut slots_k4 = p_k4.clone();
+        slots_k4.extend(q_k4.clone());
+        let via_eml = eval_with_slots(closure_kl_categorical(&[0, 1, 2], &[3, 4, 5]), slots_k4);
+        let via_info = kl_divergence(&ExpFamily::Categorical { k: 4 }, &p_k4, &q_k4);
+        assert!(
+            (via_eml - via_info).abs() < 1e-10,
+            "k=4 KL: eml={} info={}",
+            via_eml,
+            via_info
+        );
+    }
+
+    // ── Gaussian log_partition via EML (iter-75) ──────────────────
+
+    #[test]
+    fn closure_gaussian_log_partition_at_theta_zero_is_zero() {
+        // A(0; σ²) = 0 for any σ².
+        for sigma2 in [0.5_f64, 1.0, 2.0, 4.0] {
+            let v = eval_with_slots(closure_gaussian_log_partition(0, 1), vec![0.0, sigma2]);
+            assert_eq!(v, 0.0);
+        }
+    }
+
+    #[test]
+    fn closure_gaussian_log_partition_unit_variance_known_values() {
+        // σ² = 1: A(θ) = θ²/2.
+        // θ=2  → 2.0
+        // θ=√2 → 1.0
+        let v = eval_with_slots(closure_gaussian_log_partition(0, 1), vec![2.0, 1.0]);
+        assert!((v - 2.0).abs() < 1e-12, "A(2; 1) = {}", v);
+
+        let v2 = eval_with_slots(
+            closure_gaussian_log_partition(0, 1),
+            vec![std::f64::consts::SQRT_2, 1.0],
+        );
+        assert!((v2 - 1.0).abs() < 1e-12, "A(√2; 1) = {}", v2);
+    }
+
+    #[test]
+    fn closure_gaussian_log_partition_is_even_in_theta() {
+        // A(-θ; σ²) = A(θ; σ²) — quadratic symmetry.
+        for theta in [-3.0_f64, -1.0, -0.25, 0.25, 1.0, 3.0] {
+            for sigma2 in [0.5_f64, 1.0, 2.0] {
+                let v_pos = eval_with_slots(
+                    closure_gaussian_log_partition(0, 1),
+                    vec![theta.abs(), sigma2],
+                );
+                let v_neg = eval_with_slots(
+                    closure_gaussian_log_partition(0, 1),
+                    vec![-theta.abs(), sigma2],
+                );
+                assert!(
+                    (v_pos - v_neg).abs() < 1e-12,
+                    "A({}, {}) = {}; A({}, {}) = {}",
+                    theta.abs(),
+                    sigma2,
+                    v_pos,
+                    -theta.abs(),
+                    sigma2,
+                    v_neg
+                );
+            }
+        }
+    }
+
+    // ── Log-probability helpers (iter-78) ─────────────────────────
+
+    #[test]
+    fn closure_bernoulli_log_prob_one_matches_log_sigmoid() {
+        // log P(X=1) = log σ(θ). Compare to log of closure_sigmoid.
+        for theta in [-3.0_f64, -0.5, 0.0, 0.7, 3.0] {
+            let lp = eval_with_slots(closure_bernoulli_log_prob_one(0), vec![theta]);
+            let sig = eval_with_slots(closure_sigmoid(0), vec![theta]);
+            let expected = sig.ln();
+            assert!(
+                (lp - expected).abs() < 1e-12,
+                "log P(X=1; θ={}) = {}; log σ = {}",
+                theta,
+                lp,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_bernoulli_log_prob_zero_matches_log_one_minus_sigmoid() {
+        // log P(X=0) = log(1 − σ(θ)).
+        for theta in [-3.0_f64, -0.5, 0.0, 0.7, 3.0] {
+            let lp = eval_with_slots(closure_bernoulli_log_prob_zero(0), vec![theta]);
+            let sig = eval_with_slots(closure_sigmoid(0), vec![theta]);
+            let expected = (1.0 - sig).ln();
+            assert!(
+                (lp - expected).abs() < 1e-12,
+                "log P(X=0; θ={}) = {}; log(1-σ) = {}",
+                theta,
+                lp,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_bernoulli_log_probs_exp_sum_to_one() {
+        // exp(log P(X=1)) + exp(log P(X=0)) = 1.
+        for theta in [-2.0_f64, -0.5, 0.0, 1.0, 4.0] {
+            let lp1 = eval_with_slots(closure_bernoulli_log_prob_one(0), vec![theta]);
+            let lp0 = eval_with_slots(closure_bernoulli_log_prob_zero(0), vec![theta]);
+            let s = lp1.exp() + lp0.exp();
+            assert!((s - 1.0).abs() < 1e-12, "sum = {} at θ={}", s, theta);
+        }
+    }
+
+    #[test]
+    fn closure_categorical_log_prob_slot_matches_log_softmax() {
+        // log P(X=i) should equal log of softmax_slot(i, slots).
+        let slots = [0_u32, 1];
+        let theta_cases = [
+            vec![0.0_f64, 0.0],
+            vec![1.0, -1.0],
+            vec![-0.5, 0.5],
+            vec![2.0, 1.0],
+        ];
+        for theta in &theta_cases {
+            for (i, &slot) in slots.iter().enumerate() {
+                let lp = eval_with_slots(
+                    closure_categorical_log_prob_slot(slot, &slots),
+                    theta.clone(),
+                );
+                let prob = eval_with_slots(
+                    closure_categorical_softmax_slot(slot, &slots),
+                    theta.clone(),
+                );
+                assert!(
+                    (lp - prob.ln()).abs() < 1e-10,
+                    "slot {} at {:?}: log P = {}, log softmax = {}",
+                    i,
+                    theta,
+                    lp,
+                    prob.ln()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn closure_categorical_log_prob_pinned_matches_log_softmax_pinned() {
+        let slots = [0_u32, 1];
+        for theta in [vec![0.0_f64, 0.0], vec![1.0, -1.0], vec![-0.5, 0.5]] {
+            let lp = eval_with_slots(closure_categorical_log_prob_pinned(&slots), theta.clone());
+            let prob = eval_with_slots(closure_categorical_softmax_pinned(&slots), theta.clone());
+            assert!(
+                (lp - prob.ln()).abs() < 1e-10,
+                "pinned at {:?}: log P = {}, log softmax = {}",
+                theta,
+                lp,
+                prob.ln()
+            );
+        }
+    }
+
+    #[test]
+    fn closure_categorical_log_probs_exp_sum_to_one() {
+        // For k=3, exp(log P_0) + exp(log P_1) + exp(log P_pinned) = 1.
+        let slots = [0_u32, 1];
+        for theta in [
+            vec![0.0_f64, 0.0],
+            vec![1.0, -1.0],
+            vec![-2.0, 3.0],
+            vec![0.5, 0.5],
+        ] {
+            let lp0 = eval_with_slots(closure_categorical_log_prob_slot(0, &slots), theta.clone());
+            let lp1 = eval_with_slots(closure_categorical_log_prob_slot(1, &slots), theta.clone());
+            let lpp = eval_with_slots(closure_categorical_log_prob_pinned(&slots), theta.clone());
+            let s = lp0.exp() + lp1.exp() + lpp.exp();
+            assert!((s - 1.0).abs() < 1e-12, "sum = {} at {:?}", s, theta);
+        }
+    }
+
+    #[test]
+    fn closure_categorical_log_prob_k2_matches_bernoulli_log_prob() {
+        // For k=2, closure_categorical_log_prob_slot(0, [0]) === log σ(θ_0).
+        for theta in [-2.0_f64, -0.5, 0.0, 0.7, 3.0] {
+            let cat = eval_with_slots(closure_categorical_log_prob_slot(0, &[0]), vec![theta]);
+            let bern = eval_with_slots(closure_bernoulli_log_prob_one(0), vec![theta]);
+            assert!(
+                (cat - bern).abs() < 1e-12,
+                "k=2 log P(slot=0; θ={}) = {}; bern log σ = {}",
+                theta,
+                cat,
+                bern
+            );
+        }
+    }
+
+    // ── closure_polynomial (iter-118) ─────────────────────────────
+
+    #[test]
+    fn closure_polynomial_empty_is_zero() {
+        let v = eval_with_slots(closure_polynomial(0, &[]), vec![5.0]);
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_polynomial_constant_returns_coefficient() {
+        // p(x) = a_0 = slot[1].
+        for c in [3.5_f64, -2.0, 0.0, 100.0] {
+            let v = eval_with_slots(closure_polynomial(0, &[1]), vec![999.0, c]);
+            assert_eq!(v, c);
+        }
+    }
+
+    #[test]
+    fn closure_polynomial_linear_at_zero_returns_a0() {
+        // p(0) = a_0 regardless of higher coefficients.
+        let slots = vec![0.0, 5.0, 7.0]; // x=0, a_0=5, a_1=7
+        let v = eval_with_slots(closure_polynomial(0, &[1, 2]), slots);
+        assert_eq!(v, 5.0);
+    }
+
+    #[test]
+    fn closure_polynomial_linear_at_one_sums_coefficients() {
+        // p(1) = Σ a_i.
+        let slots = vec![1.0, 3.0, 4.0, 5.0]; // x=1, a_0=3, a_1=4, a_2=5
+        let v = eval_with_slots(closure_polynomial(0, &[1, 2, 3]), slots);
+        assert_eq!(v, 12.0);
+    }
+
+    #[test]
+    fn closure_polynomial_quadratic_matches_direct() {
+        // p(x) = 1 + 2x + 3x² at x = 4:
+        // = 1 + 8 + 48 = 57.
+        let slots = vec![4.0, 1.0, 2.0, 3.0];
+        let v = eval_with_slots(closure_polynomial(0, &[1, 2, 3]), slots);
+        assert_eq!(v, 57.0);
+    }
+
+    #[test]
+    fn closure_polynomial_cubic_matches_direct() {
+        // p(x) = 1 + 2x + 3x² + x³ at x = 2:
+        // = 1 + 4 + 12 + 8 = 25.
+        let slots = vec![2.0, 1.0, 2.0, 3.0, 1.0];
+        let v = eval_with_slots(closure_polynomial(0, &[1, 2, 3, 4]), slots);
+        assert_eq!(v, 25.0);
+    }
+
+    // ── closure_polynomial_of (iter-427) ──────────────────────────
+
+    #[test]
+    fn closure_polynomial_of_empty_is_zero() {
+        let v = eval_with_slots(
+            closure_polynomial_of(EmlClosureExpr::slot(0), &[]),
+            vec![1.0],
+        );
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_polynomial_of_on_slot_inputs_matches_polynomial_slot_form() {
+        // p(x) = 1 + 2x + 3x² at x = 4 → 1 + 8 + 48 = 57.
+        let coeffs_of: Vec<EmlClosureExpr> =
+            [1, 2, 3].iter().map(|&s| EmlClosureExpr::slot(s)).collect();
+        let of_form = closure_polynomial_of(EmlClosureExpr::slot(0), &coeffs_of);
+        let v_of = eval_with_slots(of_form, vec![4.0, 1.0, 2.0, 3.0]);
+        let v_slot = eval_with_slots(closure_polynomial(0, &[1, 2, 3]), vec![4.0, 1.0, 2.0, 3.0]);
+        assert!((v_of - v_slot).abs() < 1e-9);
+        assert_eq!(v_of, 57.0);
+    }
+
+    #[test]
+    fn closure_polynomial_of_with_computed_variable() {
+        // p(x) = 1 + 2x with x = slot(0) − slot(1) at (5, 3) →
+        // x = 2 → p = 1 + 4 = 5.
+        let x = EmlClosureExpr::minus(EmlClosureExpr::slot(0), EmlClosureExpr::slot(1));
+        let coeffs = vec![EmlClosureExpr::slot(2), EmlClosureExpr::slot(3)];
+        let e = closure_polynomial_of(x, &coeffs);
+        let v = eval_with_slots(e, vec![5.0, 3.0, 1.0, 2.0]);
+        assert!((v - 5.0).abs() < 1e-9);
+    }
+
+    // ── Cosine similarity (iter-112) ──────────────────────────────
+
+    #[test]
+    fn closure_cosine_similarity_aligned_vectors_is_one() {
+        // x = y = (1, 0): cos = 1 / (1·1) = 1.
+        let v = eval_with_slots(
+            closure_cosine_similarity(&[0, 1], &[2, 3], 4, 5),
+            vec![1.0, 0.0, 1.0, 0.0, 1.0, 1.0],
+        );
+        assert!((v - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_cosine_similarity_orthogonal_is_zero() {
+        let v = eval_with_slots(
+            closure_cosine_similarity(&[0, 1], &[2, 3], 4, 5),
+            vec![1.0, 0.0, 0.0, 1.0, 1.0, 1.0],
+        );
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_cosine_similarity_anti_aligned_is_neg_one() {
+        // x = (1, 0), y = (-1, 0); norms = 1, 1; cos = -1.
+        let v = eval_with_slots(
+            closure_cosine_similarity(&[0, 1], &[2, 3], 4, 5),
+            vec![1.0, 0.0, -1.0, 0.0, 1.0, 1.0],
+        );
+        assert!((v - (-1.0)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_squared_cosine_similarity_self_is_one() {
+        // cos²(x, x) = (x·x)² / (x·x)·(x·x) = 1.
+        let v = eval_with_slots(
+            closure_squared_cosine_similarity(&[0, 1], &[2, 3]),
+            vec![1.0, 2.0, 1.0, 2.0],
+        );
+        assert!((v - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_squared_cosine_similarity_orthogonal_is_zero() {
+        let v = eval_with_slots(
+            closure_squared_cosine_similarity(&[0, 1], &[2, 3]),
+            vec![1.0, 0.0, 0.0, 1.0],
+        );
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_squared_cosine_similarity_bounded_by_one() {
+        for slots in [
+            vec![1.0_f64, 2.0, 3.0, 4.0],
+            vec![1.5, -0.5, 2.0, 1.0],
+            vec![1.0, 1.0, -1.0, -1.0],
+        ] {
+            let v = eval_with_slots(closure_squared_cosine_similarity(&[0, 1], &[2, 3]), slots);
+            assert!(v >= -1e-12 && v <= 1.0 + 1e-12);
+        }
+    }
+
+    #[test]
+    fn closure_squared_cosine_similarity_anti_aligned_is_one() {
+        // x = (1, 0), y = (-1, 0): cos² = 1 (sign lost in squaring).
+        let v = eval_with_slots(
+            closure_squared_cosine_similarity(&[0, 1], &[2, 3]),
+            vec![1.0, 0.0, -1.0, 0.0],
+        );
+        assert!((v - 1.0).abs() < 1e-12);
+    }
+
+    // ── RBF kernel (iter-99) ──────────────────────────────────────
+
+    #[test]
+    fn closure_rbf_kernel_self_is_one() {
+        // k(x, x) = exp(0) = 1.
+        let v = eval_with_slots(
+            closure_rbf_kernel(&[0, 1], &[2, 3], 4),
+            vec![1.5, -2.0, 1.5, -2.0, 0.5],
+        );
+        assert!((v - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_rbf_kernel_bounded_by_one() {
+        // k(x, y) ≤ 1 for all x, y (and any positive scale).
+        for slots in [
+            vec![1.0_f64, 2.0, 3.0, 4.0, 0.5], // scale=0.5
+            vec![1.5, -0.5, 0.7, 2.1, 1.0],
+            vec![0.0, 0.0, 1.0, 1.0, 2.0],
+        ] {
+            let v = eval_with_slots(closure_rbf_kernel(&[0, 1], &[2, 3], 4), slots);
+            assert!(v > 0.0 && v <= 1.0 + 1e-12);
+        }
+    }
+
+    #[test]
+    fn closure_rbf_kernel_symmetric() {
+        let xy = eval_with_slots(
+            closure_rbf_kernel(&[0, 1], &[2, 3], 4),
+            vec![1.0, 0.5, -0.5, 1.5, 0.7],
+        );
+        let yx = eval_with_slots(
+            closure_rbf_kernel(&[2, 3], &[0, 1], 4),
+            vec![1.0, 0.5, -0.5, 1.5, 0.7],
+        );
+        assert!((xy - yx).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_rbf_kernel_decays_with_distance() {
+        // k(x, y) decreases as ||x - y|| grows.
+        let close = eval_with_slots(
+            closure_rbf_kernel(&[0, 1], &[2, 3], 4),
+            vec![0.0, 0.0, 0.1, 0.1, 1.0],
+        );
+        let far = eval_with_slots(
+            closure_rbf_kernel(&[0, 1], &[2, 3], 4),
+            vec![0.0, 0.0, 3.0, 3.0, 1.0],
+        );
+        assert!(
+            close > far,
+            "k(close) = {} should > k(far) = {}",
+            close,
+            far
+        );
+        assert!(far < 1e-4, "k(far=√18, scale=1) = {} should be near 0", far);
+    }
+
+    #[test]
+    fn closure_rbf_kernel_unit_sigma_known_value() {
+        // x=(0,0), y=(1,0), σ²=1 → scale=0.5, dist²=1 → k=exp(-0.5).
+        let v = eval_with_slots(
+            closure_rbf_kernel(&[0, 1], &[2, 3], 4),
+            vec![0.0, 0.0, 1.0, 0.0, 0.5],
+        );
+        let expected = (-0.5_f64).exp();
+        assert!(
+            (v - expected).abs() < 1e-12,
+            "k = {}, expected {}",
+            v,
+            expected
+        );
+    }
+
+    #[test]
+    fn closure_exp_of_arbitrary_expression() {
+        // exp_of(slot(0)) ≡ closure_exp(0).
+        let direct = eval_with_slots(closure_exp(0), vec![1.5]);
+        let arg = EmlClosureExpr::slot(0);
+        let via_helper = eval_with_slots(closure_exp_of(arg), vec![1.5]);
+        assert!((direct - via_helper).abs() < 1e-12);
+
+        // exp_of(Plus(slot(0), One)) = e^(x+1).
+        let arg = EmlClosureExpr::plus(EmlClosureExpr::slot(0), EmlClosureExpr::one());
+        let v = eval_with_slots(closure_exp_of(arg), vec![2.0]);
+        let expected = (2.0_f64 + 1.0).exp();
+        assert!((v - expected).abs() < 1e-12);
+    }
+
+    // ── closure_complement_prob + closure_odds (iter-158) ─────────
+
+    #[test]
+    fn closure_complement_prob_at_half_is_half() {
+        let v = eval_with_slots(closure_complement_prob(0), vec![0.5]);
+        assert_eq!(v, 0.5);
+    }
+
+    #[test]
+    fn closure_complement_prob_at_extremes() {
+        assert_eq!(eval_with_slots(closure_complement_prob(0), vec![0.0]), 1.0);
+        assert_eq!(eval_with_slots(closure_complement_prob(0), vec![1.0]), 0.0);
+    }
+
+    #[test]
+    fn closure_odds_known() {
+        // p=0.5 → odds = 1.
+        let v = eval_with_slots(closure_odds(0), vec![0.5]);
+        assert_eq!(v, 1.0);
+        // p=0.75 → odds = 3.
+        let v2 = eval_with_slots(closure_odds(0), vec![0.75]);
+        assert_eq!(v2, 3.0);
+    }
+
+    #[test]
+    fn closure_odds_logarithm_equals_logit() {
+        // log(odds(p)) = logit(p).
+        for p in [0.1_f64, 0.3, 0.7, 0.9] {
+            let o = eval_with_slots(closure_odds(0), vec![p]);
+            let l = eval_with_slots(closure_logit(0), vec![p]);
+            assert!(
+                (o.ln() - l).abs() < 1e-12,
+                "p={}: ln(odds)={}, logit={}",
+                p,
+                o.ln(),
+                l
+            );
+        }
+    }
+
+    // ── closure_one_hot_select (iter-153) ─────────────────────────
+
+    #[test]
+    fn closure_one_hot_select_picks_one_value() {
+        // Mask (0, 1, 0), values (10, 20, 30) → 20.
+        let v = eval_with_slots(
+            closure_one_hot_select(&[0, 1, 2], &[3, 4, 5]),
+            vec![0.0, 1.0, 0.0, 10.0, 20.0, 30.0],
+        );
+        assert_eq!(v, 20.0);
+    }
+
+    #[test]
+    fn closure_one_hot_select_zero_mask_returns_zero() {
+        let v = eval_with_slots(
+            closure_one_hot_select(&[0, 1, 2], &[3, 4, 5]),
+            vec![0.0, 0.0, 0.0, 1.0, 2.0, 3.0],
+        );
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_one_hot_select_soft_mask_is_weighted_average() {
+        // Mask (0.5, 0.5, 0), values (10, 20, 30) → 0.5·10 + 0.5·20 = 15.
+        let v = eval_with_slots(
+            closure_one_hot_select(&[0, 1, 2], &[3, 4, 5]),
+            vec![0.5, 0.5, 0.0, 10.0, 20.0, 30.0],
+        );
+        assert_eq!(v, 15.0);
+    }
+
+    // ── closure_step_size_decay (iter-150) ────────────────────────
+
+    #[test]
+    fn closure_step_size_decay_factor_one_returns_lr() {
+        let v = eval_with_slots(closure_step_size_decay(0, 1), vec![0.001, 1.0]);
+        assert_eq!(v, 0.001);
+    }
+
+    #[test]
+    fn closure_step_size_decay_factor_half_halves_lr() {
+        let v = eval_with_slots(closure_step_size_decay(0, 1), vec![0.01, 0.5]);
+        assert_eq!(v, 0.005);
+    }
+
+    #[test]
+    fn closure_step_size_decay_factor_zero_returns_zero() {
+        let v = eval_with_slots(closure_step_size_decay(0, 1), vec![0.1, 0.0]);
+        assert_eq!(v, 0.0);
+    }
+
+    // ── closure_adam_step (iter-164) ──────────────────────────────
+
+    #[test]
+    fn closure_adam_step_known() {
+        // θ=10, m̂=1, √v̂+ε=2, lr=0.1 → 10 - 0.1·1/2 = 10 - 0.05 = 9.95.
+        let v = eval_with_slots(closure_adam_step(0, 1, 2, 3), vec![10.0, 1.0, 2.0, 0.1]);
+        assert!((v - 9.95).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_adam_step_zero_gradient_no_update() {
+        // m̂ = 0 → no change.
+        let v = eval_with_slots(closure_adam_step(0, 1, 2, 3), vec![5.0, 0.0, 1.0, 0.01]);
+        assert_eq!(v, 5.0);
+    }
+
+    #[test]
+    fn closure_adam_step_zero_lr_no_update() {
+        // lr = 0 → no change.
+        let v = eval_with_slots(closure_adam_step(0, 1, 2, 3), vec![5.0, 1.0, 1.0, 0.0]);
+        assert_eq!(v, 5.0);
+    }
+
+    // ── closure_bias_corrected_ema (iter-144) ─────────────────────
+
+    #[test]
+    fn closure_bias_corrected_ema_at_t1_is_input_div_alpha() {
+        // m̂ = m / (1 - β^1) = m / (1 - 0.9) = m / 0.1 = 10·m.
+        let v = eval_with_slots(closure_bias_corrected_ema(0, 1), vec![3.0, 0.1]);
+        assert!((v - 30.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_bias_corrected_ema_at_large_t_approaches_m() {
+        // As t → ∞, β^t → 0, so 1 - β^t → 1, and m̂ → m.
+        let v = eval_with_slots(closure_bias_corrected_ema(0, 1), vec![5.0, 1.0 - 1e-9]);
+        assert!((v - 5.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn closure_bias_corrected_ema_zero_m_is_zero() {
+        let v = eval_with_slots(closure_bias_corrected_ema(0, 1), vec![0.0, 0.5]);
+        assert_eq!(v, 0.0);
+    }
+
+    // ── closure_log_addexp (iter-181) ─────────────────────────────
+
+    #[test]
+    fn closure_log_addexp_symmetric() {
+        // log(e^a + e^b) = log(e^b + e^a).
+        for (a, b) in [(1.0_f64, 2.0), (-1.0, 0.5), (5.0, -5.0)] {
+            let ab = eval_with_slots(closure_log_addexp(0, 1), vec![a, b]);
+            let ba = eval_with_slots(closure_log_addexp(1, 0), vec![b, a]);
+            assert!((ab - ba).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn closure_log_addexp_known_value() {
+        // log(e^0 + e^0) = log(2).
+        let v = eval_with_slots(closure_log_addexp(0, 1), vec![0.0, 0.0]);
+        assert!((v - 2.0_f64.ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_log_addexp_large_dominates() {
+        // log(e^100 + e^0) ≈ 100.
+        let v = eval_with_slots(closure_log_addexp(0, 1), vec![100.0, 0.0]);
+        assert!((v - 100.0).abs() < 1e-6);
+    }
+
+    // ── closure_log_addexp_of (iter-367) ──────────────────────────
+
+    #[test]
+    fn closure_log_addexp_of_on_slots_matches_closure_log_addexp() {
+        let of_form = closure_log_addexp_of(EmlClosureExpr::slot(0), EmlClosureExpr::slot(1));
+        let slot_form = closure_log_addexp(0, 1);
+        for (a, b) in [(0.0_f64, 0.0), (1.0, 2.0), (-1.0, 0.5), (5.0, -3.0)] {
+            let v_of = eval_with_slots(of_form.clone(), vec![a, b]);
+            let v_slot = eval_with_slots(slot_form.clone(), vec![a, b]);
+            assert!((v_of - v_slot).abs() < 1e-9, "(a, b) = ({}, {})", a, b);
+        }
+    }
+
+    #[test]
+    fn closure_log_addexp_of_with_zero_subtrees_is_ln_two() {
+        let zero = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::one());
+        let e = closure_log_addexp_of(zero.clone(), zero);
+        let v = eval_with_slots(e, vec![]);
+        assert!((v - 2.0_f64.ln()).abs() < 1e-9);
+    }
+
+    #[test]
+    fn closure_log_addexp_of_composes_with_minus() {
+        // log(e^(slot0 - slot1) + e^(slot2)) at (3, 1, 0) = log(e^2 + 1).
+        let a = EmlClosureExpr::minus(EmlClosureExpr::slot(0), EmlClosureExpr::slot(1));
+        let b = EmlClosureExpr::slot(2);
+        let e = closure_log_addexp_of(a, b);
+        let v = eval_with_slots(e, vec![3.0, 1.0, 0.0]);
+        let expected = (2.0_f64.exp() + 1.0).ln();
+        assert!((v - expected).abs() < 1e-9);
+    }
+
+    // ── closure_log_ratio (iter-138) ──────────────────────────────
+
+    #[test]
+    fn closure_log_ratio_equal_args_is_zero() {
+        let v = eval_with_slots(closure_log_ratio(0, 1), vec![3.5, 3.5]);
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_log_ratio_2_over_1_is_ln_2() {
+        let v = eval_with_slots(closure_log_ratio(0, 1), vec![2.0, 1.0]);
+        assert!((v - 2.0_f64.ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_log_ratio_matches_direct_ln_diff() {
+        for (n, d) in [(2.0_f64, 3.0), (10.0, 5.0), (0.5, 2.0), (1.0, 4.0)] {
+            let v = eval_with_slots(closure_log_ratio(0, 1), vec![n, d]);
+            let expected = (n / d).ln();
+            assert!((v - expected).abs() < 1e-12);
+        }
+    }
+
+    // ── sum / product / mean aggregators (iter-133) ───────────────
+
+    #[test]
+    fn closure_sum_slots_2d_known() {
+        let v = eval_with_slots(closure_sum_slots(&[0, 1, 2]), vec![1.0, 2.0, 3.0]);
+        assert_eq!(v, 6.0);
+    }
+
+    #[test]
+    fn closure_sum_slots_empty_returns_zero() {
+        let v = eval_with_slots(closure_sum_slots(&[]), vec![5.0, 5.0]);
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_product_slots_2d_known() {
+        let v = eval_with_slots(closure_product_slots(&[0, 1, 2]), vec![2.0, 3.0, 4.0]);
+        assert_eq!(v, 24.0);
+    }
+
+    #[test]
+    fn closure_product_slots_empty_returns_one() {
+        let v = eval_with_slots(closure_product_slots(&[]), vec![5.0, 5.0]);
+        assert_eq!(v, 1.0);
+    }
+
+    #[test]
+    fn closure_arithmetic_mean_2d_known() {
+        // mean of (1, 2, 3, 4) = 2.5; n=4.
+        let v = eval_with_slots(
+            closure_arithmetic_mean(&[0, 1, 2, 3], 4),
+            vec![1.0, 2.0, 3.0, 4.0, 4.0],
+        );
+        assert_eq!(v, 2.5);
+    }
+
+    #[test]
+    fn closure_arithmetic_mean_with_zero_in_slots() {
+        // (0, 4, 8) / 3 = 4.
+        let v = eval_with_slots(
+            closure_arithmetic_mean(&[0, 1, 2], 3),
+            vec![0.0, 4.0, 8.0, 3.0],
+        );
+        assert_eq!(v, 4.0);
+    }
+
+    // ── closure_geometric_mean (iter-187) ─────────────────────────
+
+    #[test]
+    fn closure_geometric_mean_equal_values_recovers_value() {
+        // x_i = 4 for all i → geometric mean = 4.
+        let v = eval_with_slots(
+            closure_geometric_mean(&[0, 1, 2, 3], 4),
+            vec![4.0, 4.0, 4.0, 4.0, 4.0],
+        );
+        assert!((v - 4.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_geometric_mean_2_8_known() {
+        // GM(2, 8) = √16 = 4.
+        let v = eval_with_slots(closure_geometric_mean(&[0, 1], 2), vec![2.0, 8.0, 2.0]);
+        assert!((v - 4.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_geometric_mean_1_4_16_64_known() {
+        // ∏ = 4096; (4096)^{1/4} = 8.
+        let v = eval_with_slots(
+            closure_geometric_mean(&[0, 1, 2, 3], 4),
+            vec![1.0, 4.0, 16.0, 64.0, 4.0],
+        );
+        assert!((v - 8.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_geometric_mean_at_most_arithmetic_mean() {
+        // GM ≤ AM (Cauchy's inequality) on positive data.
+        let slots = vec![1.0_f64, 2.0, 4.0, 8.0, 4.0]; // 4 values + n=4
+        let gm = eval_with_slots(closure_geometric_mean(&[0, 1, 2, 3], 4), slots.clone());
+        let am = eval_with_slots(closure_arithmetic_mean(&[0, 1, 2, 3], 4), slots);
+        assert!(gm <= am + 1e-12, "GM={}, AM={}", gm, am);
+    }
+
+    // ── closure_logistic_loss (iter-193) ──────────────────────────
+
+    #[test]
+    fn closure_logistic_loss_y0_theta0_is_ln_2() {
+        // L(y=0, θ=0) = softplus(0) - 0·0 = ln(2).
+        let v = eval_with_slots(closure_logistic_loss(0, 1), vec![0.0, 0.0]);
+        assert!((v - 2.0_f64.ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_logistic_loss_y1_theta0_is_ln_2() {
+        // L(y=1, θ=0) = softplus(0) - 1·0 = ln(2). Symmetric at θ=0.
+        let v = eval_with_slots(closure_logistic_loss(0, 1), vec![0.0, 1.0]);
+        assert!((v - 2.0_f64.ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_logistic_loss_correct_classification_small() {
+        // y=1, θ=10: L = softplus(10) - 10 ≈ 10 + ε - 10 ≈ 0.
+        let v = eval_with_slots(closure_logistic_loss(0, 1), vec![10.0, 1.0]);
+        assert!(v < 1e-3, "correct classification but loss = {}", v);
+    }
+
+    #[test]
+    fn closure_logistic_loss_wrong_classification_large() {
+        // y=1, θ=-10: L = softplus(-10) - (-10) ≈ 0 + 10 = 10.
+        let v = eval_with_slots(closure_logistic_loss(0, 1), vec![-10.0, 1.0]);
+        assert!(v > 9.9, "wrong classification but loss = {}", v);
+    }
+
+    #[test]
+    fn closure_logistic_loss_matches_sigmoid_form() {
+        // L(y=1, θ) = -ln σ(θ); L(y=0, θ) = -ln(1 - σ(θ)).
+        for theta in [-2.0_f64, -0.5, 0.5, 2.0] {
+            let sigma = 1.0 / (1.0 + (-theta).exp());
+            let l1 = eval_with_slots(closure_logistic_loss(0, 1), vec![theta, 1.0]);
+            let l0 = eval_with_slots(closure_logistic_loss(0, 1), vec![theta, 0.0]);
+            assert!(
+                (l1 - (-sigma.ln())).abs() < 1e-9,
+                "y=1: {} vs {}",
+                l1,
+                -sigma.ln()
+            );
+            assert!((l0 - (-(1.0 - sigma).ln())).abs() < 1e-9, "y=0");
+        }
+    }
+
+    // ── closure_gaussian_log_likelihood (iter-259) ────────────────
+
+    #[test]
+    fn gaussian_log_likelihood_at_mean_sigma1() {
+        // x = μ, σ² = 1 → ℓ = -0.5·ln(1) - 0/2 = 0.
+        let v = eval_with_slots(
+            closure_gaussian_log_likelihood(0, 1, 2),
+            vec![5.0, 5.0, 1.0],
+        );
+        assert!(v.abs() < 1e-9, "got {}", v);
+    }
+
+    #[test]
+    fn gaussian_log_likelihood_one_sigma_offset() {
+        // x = μ + σ; σ² = 1 → ℓ = -0.5·0 - 1/2 = -0.5.
+        let v = eval_with_slots(
+            closure_gaussian_log_likelihood(0, 1, 2),
+            vec![1.0, 0.0, 1.0],
+        );
+        assert!((v - (-0.5)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn gaussian_log_likelihood_maximized_at_x_eq_mu() {
+        // For fixed σ², ℓ is maximized at x = μ.
+        let at_mu = eval_with_slots(
+            closure_gaussian_log_likelihood(0, 1, 2),
+            vec![5.0, 5.0, 1.0],
+        );
+        let off_left = eval_with_slots(
+            closure_gaussian_log_likelihood(0, 1, 2),
+            vec![3.0, 5.0, 1.0],
+        );
+        let off_right = eval_with_slots(
+            closure_gaussian_log_likelihood(0, 1, 2),
+            vec![7.0, 5.0, 1.0],
+        );
+        assert!(at_mu >= off_left - 1e-9);
+        assert!(at_mu >= off_right - 1e-9);
+    }
+
+    // ── closure_poisson_log_likelihood (iter-253) ─────────────────
+
+    #[test]
+    fn poisson_log_likelihood_k_zero_is_negative_lambda() {
+        // k=0: log p = 0·ln(λ) - λ = -λ.
+        let v = eval_with_slots(closure_poisson_log_likelihood(0, 1), vec![0.0, 2.5]);
+        assert!((v - (-2.5)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn poisson_log_likelihood_k_one_lambda_one_is_minus_one() {
+        // k=1, λ=1: log p = 1·ln(1) - 1 = -1.
+        let v = eval_with_slots(closure_poisson_log_likelihood(0, 1), vec![1.0, 1.0]);
+        assert!((v - (-1.0)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn poisson_log_likelihood_maximized_when_lambda_equals_k() {
+        // For fixed k, the MLE for λ is k (the Poisson MLE). Verify
+        // by comparing k=5 with λ=5 vs nearby values.
+        let at_5 = eval_with_slots(closure_poisson_log_likelihood(0, 1), vec![5.0, 5.0]);
+        let at_4 = eval_with_slots(closure_poisson_log_likelihood(0, 1), vec![5.0, 4.0]);
+        let at_6 = eval_with_slots(closure_poisson_log_likelihood(0, 1), vec![5.0, 6.0]);
+        assert!(at_5 >= at_4 - 1e-9 && at_5 >= at_6 - 1e-9, "MLE not at k=5");
+    }
+
+    // ── closure_exponential_log_likelihood (iter-319) ─────────────
+
+    #[test]
+    fn exponential_log_likelihood_x_zero_is_log_lambda() {
+        // At x=0: log p(0; λ) = ln(λ) - 0 = ln(λ).
+        let v = eval_with_slots(closure_exponential_log_likelihood(0, 1), vec![0.0, 2.0]);
+        let expected = 2.0_f64.ln();
+        assert!((v - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn exponential_log_likelihood_lambda_one_decays_linearly() {
+        // λ=1: log p(x; 1) = 0 - x = -x.
+        let v_at_3 = eval_with_slots(closure_exponential_log_likelihood(0, 1), vec![3.0, 1.0]);
+        assert!((v_at_3 - (-3.0)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn exponential_log_likelihood_mle_at_lambda_equals_inverse_x() {
+        // For one observation x, the MLE for λ is 1/x. With x=2,
+        // λ=0.5 should maximize the log-likelihood relative to
+        // nearby λ values.
+        let at_half = eval_with_slots(closure_exponential_log_likelihood(0, 1), vec![2.0, 0.5]);
+        let at_p4 = eval_with_slots(closure_exponential_log_likelihood(0, 1), vec![2.0, 0.4]);
+        let at_p6 = eval_with_slots(closure_exponential_log_likelihood(0, 1), vec![2.0, 0.6]);
+        assert!(
+            at_half >= at_p4 - 1e-9 && at_half >= at_p6 - 1e-9,
+            "MLE not at λ=0.5"
+        );
+    }
+
+    // ── closure_geometric_log_likelihood (iter-319) ───────────────
+
+    #[test]
+    fn geometric_log_likelihood_k_zero_is_log_p() {
+        // P(K=0) = p, so log p = ln(p). Use p=0.3.
+        let v = eval_with_slots(closure_geometric_log_likelihood(0, 1), vec![0.0, 0.3]);
+        let expected = 0.3_f64.ln();
+        assert!((v - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn geometric_log_likelihood_decreases_in_k_for_fixed_p() {
+        // ln p + k·ln(1-p); ln(1-p) < 0 for p > 0, so monotone-↓ in k.
+        let v0 = eval_with_slots(closure_geometric_log_likelihood(0, 1), vec![0.0, 0.4]);
+        let v1 = eval_with_slots(closure_geometric_log_likelihood(0, 1), vec![1.0, 0.4]);
+        let v2 = eval_with_slots(closure_geometric_log_likelihood(0, 1), vec![2.0, 0.4]);
+        assert!(v0 > v1 + 1e-9);
+        assert!(v1 > v2 + 1e-9);
+    }
+
+    #[test]
+    fn geometric_log_likelihood_uniform_geometric_p_half() {
+        // p=0.5: log p(k=2) = ln(0.5) + 2·ln(0.5) = 3·ln(0.5).
+        let v = eval_with_slots(closure_geometric_log_likelihood(0, 1), vec![2.0, 0.5]);
+        let expected = 3.0 * 0.5_f64.ln();
+        assert!((v - expected).abs() < 1e-9);
+    }
+
+    // ── closure_pareto_log_likelihood (iter-325) ──────────────────
+
+    #[test]
+    fn pareto_log_likelihood_x_equals_xmin_is_log_alpha_minus_log_xmin() {
+        // log p(x_min; α, x_min) = ln(α) − ln(x_min).
+        // For α=2, x_min=1: ln(2) − ln(1) = ln(2).
+        let v = eval_with_slots(closure_pareto_log_likelihood(0, 1, 2), vec![1.0, 2.0, 1.0]);
+        let expected = 2.0_f64.ln();
+        assert!((v - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn pareto_log_likelihood_decreases_in_x_for_fixed_alpha_xmin() {
+        // The density decreases monotonically in x for x ≥ x_min,
+        // so the log-likelihood does too.
+        let v_at_2 = eval_with_slots(closure_pareto_log_likelihood(0, 1, 2), vec![2.0, 2.0, 1.0]);
+        let v_at_3 = eval_with_slots(closure_pareto_log_likelihood(0, 1, 2), vec![3.0, 2.0, 1.0]);
+        let v_at_5 = eval_with_slots(closure_pareto_log_likelihood(0, 1, 2), vec![5.0, 2.0, 1.0]);
+        assert!(v_at_2 > v_at_3 + 1e-9);
+        assert!(v_at_3 > v_at_5 + 1e-9);
+    }
+
+    #[test]
+    fn pareto_log_likelihood_matches_closed_form() {
+        // For (x=4, α=3, x_min=2): ln(3) + 3·ln(2) − 4·ln(4)
+        // = 3·ln(2) + ln(3) − 4·ln(4).
+        let v = eval_with_slots(closure_pareto_log_likelihood(0, 1, 2), vec![4.0, 3.0, 2.0]);
+        let alpha = 3.0_f64;
+        let x = 4.0_f64;
+        let xmin = 2.0_f64;
+        let expected = alpha.ln() + alpha * xmin.ln() - (alpha + 1.0) * x.ln();
+        assert!((v - expected).abs() < 1e-9, "v={} expected={}", v, expected);
+    }
+
+    // ── closure_pareto_jeffreys_same_x_min (iter-464) ─────────────
+
+    #[test]
+    fn closure_pareto_jeffreys_self_is_zero() {
+        for alpha in [0.5_f64, 1.0, 2.0, 5.0] {
+            let v = eval_with_slots(closure_pareto_jeffreys_same_x_min(0, 1), vec![alpha, alpha]);
+            assert!(v.abs() < 1e-12, "α={}: J={}", alpha, v);
+        }
+    }
+
+    #[test]
+    fn closure_pareto_jeffreys_matches_closed_form() {
+        for (ap, aq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0), (4.0, 1.0)] {
+            let v = eval_with_slots(closure_pareto_jeffreys_same_x_min(0, 1), vec![ap, aq]);
+            let expected = aq / ap + ap / aq - 2.0;
+            assert!(
+                (v - expected).abs() < 1e-12,
+                "(α_p, α_q) = ({}, {}): got {} expected {}",
+                ap,
+                aq,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_pareto_jeffreys_symmetric() {
+        for (ap, aq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0)] {
+            let ab = eval_with_slots(closure_pareto_jeffreys_same_x_min(0, 1), vec![ap, aq]);
+            let ba = eval_with_slots(closure_pareto_jeffreys_same_x_min(0, 1), vec![aq, ap]);
+            assert!((ab - ba).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn closure_pareto_jeffreys_matches_kl_pair_sum() {
+        // J(p, q) ≡ KL(p ‖ q) + KL(q ‖ p) by definition.
+        for (ap, aq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0)] {
+            let j = eval_with_slots(closure_pareto_jeffreys_same_x_min(0, 1), vec![ap, aq]);
+            let kpq = eval_with_slots(closure_pareto_kl_same_x_min(0, 1), vec![ap, aq]);
+            let kqp = eval_with_slots(closure_pareto_kl_same_x_min(0, 1), vec![aq, ap]);
+            let expected = kpq + kqp;
+            assert!((j - expected).abs() < 1e-9);
+        }
+    }
+
+    // ── closure_pareto_kl_same_x_min (iter-458) ───────────────────
+
+    #[test]
+    fn closure_pareto_kl_same_x_min_self_is_zero() {
+        for alpha in [0.5_f64, 1.0, 2.0, 5.0] {
+            let v = eval_with_slots(closure_pareto_kl_same_x_min(0, 1), vec![alpha, alpha]);
+            assert!(v.abs() < 1e-12, "α={}: KL={}", alpha, v);
+        }
+    }
+
+    #[test]
+    fn closure_pareto_kl_same_x_min_matches_closed_form() {
+        // KL = ln(α_p/α_q) + α_q/α_p − 1.
+        for (ap, aq) in [(1.0_f64, 2.0), (0.5, 1.5), (3.0, 1.0), (4.0, 2.0)] {
+            let v = eval_with_slots(closure_pareto_kl_same_x_min(0, 1), vec![ap, aq]);
+            let expected = (ap / aq).ln() + aq / ap - 1.0;
+            assert!(
+                (v - expected).abs() < 1e-9,
+                "(α_p, α_q) = ({}, {}): got {} expected {}",
+                ap,
+                aq,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_pareto_kl_same_x_min_nonneg_on_grid() {
+        for (ap, aq) in [(0.5_f64, 1.0), (1.0, 2.0), (2.0, 0.5), (4.0, 1.0)] {
+            let v = eval_with_slots(closure_pareto_kl_same_x_min(0, 1), vec![ap, aq]);
+            assert!(v >= -1e-12, "(α_p, α_q) = ({}, {}): KL={}", ap, aq, v);
+        }
+    }
+
+    // ── closure_laplace_kl_same_scale (iter-452) ──────────────────
+
+    #[test]
+    fn closure_laplace_kl_same_scale_matches_closed_form() {
+        // KL = z + exp(−z) − 1, z = |μ_p − μ_q|/b.
+        for (mu_p, mu_q, b) in [(0.0_f64, 1.0, 1.0), (-0.5, 2.5, 0.75), (3.0, 0.0, 2.0)] {
+            let v = eval_with_slots(closure_laplace_kl_same_scale(0, 1, 2), vec![mu_p, mu_q, b]);
+            let z = (mu_p - mu_q).abs() / b;
+            let expected = z + (-z).exp() - 1.0;
+            assert!(
+                (v - expected).abs() < 1e-9,
+                "(μ_p, μ_q, b) = ({}, {}, {}): got {} expected {}",
+                mu_p,
+                mu_q,
+                b,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_laplace_kl_same_scale_symmetric() {
+        // KL(p ‖ q) ≡ KL(q ‖ p) at the same scale.
+        for (mu_p, mu_q, b) in [(0.0_f64, 1.0, 1.0), (-0.5, 2.5, 0.75), (3.0, 0.0, 2.0)] {
+            let ab = eval_with_slots(closure_laplace_kl_same_scale(0, 1, 2), vec![mu_p, mu_q, b]);
+            let ba = eval_with_slots(closure_laplace_kl_same_scale(0, 1, 2), vec![mu_q, mu_p, b]);
+            assert!((ab - ba).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn closure_laplace_kl_same_scale_nonneg_on_grid() {
+        for (mu_p, mu_q, b) in [(0.0_f64, 1.0, 1.0), (-0.5, 2.5, 0.75), (3.0, 0.0, 2.0)] {
+            let v = eval_with_slots(closure_laplace_kl_same_scale(0, 1, 2), vec![mu_p, mu_q, b]);
+            assert!(
+                v >= -1e-9,
+                "(μ_p, μ_q, b) = ({}, {}, {}): KL = {} < 0",
+                mu_p,
+                mu_q,
+                b,
+                v
+            );
+        }
+    }
+
+    // ── closure_laplace_log_likelihood (iter-440) ─────────────────
+
+    #[test]
+    fn laplace_log_likelihood_matches_closed_form() {
+        // For (x, μ, b) = (2.5, 1.0, 0.75):
+        // log p = −ln(2) − ln(0.75) − |2.5 − 1.0|/0.75
+        //       = −ln(1.5) − 1.5/0.75 = −ln(1.5) − 2.
+        let v = eval_with_slots(
+            closure_laplace_log_likelihood(0, 1, 2),
+            vec![2.5, 1.0, 0.75],
+        );
+        let expected = -(2.0_f64.ln()) - (0.75_f64).ln() - (1.5_f64 / 0.75);
+        assert!((v - expected).abs() < 1e-9, "v={} expected={}", v, expected);
+    }
+
+    #[test]
+    fn laplace_log_likelihood_symmetric_in_x_about_mu() {
+        // Symmetric pdf ⇒ log p(μ + d; μ, b) = log p(μ − d; μ, b).
+        for (mu, b, d) in [(0.0_f64, 1.0, 0.5), (3.0, 0.25, 1.5), (-1.0, 2.0, 0.75)] {
+            let v_right =
+                eval_with_slots(closure_laplace_log_likelihood(0, 1, 2), vec![mu + d, mu, b]);
+            let v_left =
+                eval_with_slots(closure_laplace_log_likelihood(0, 1, 2), vec![mu - d, mu, b]);
+            assert!(
+                (v_right - v_left).abs() < 1e-9,
+                "asymmetry at μ={} b={} d={}: right={} left={}",
+                mu,
+                b,
+                d,
+                v_right,
+                v_left
+            );
+        }
+    }
+
+    #[test]
+    fn laplace_log_likelihood_decreases_in_distance_from_mu() {
+        // Monotone in |x − μ| — closer to μ should give higher log p.
+        let v_close = eval_with_slots(closure_laplace_log_likelihood(0, 1, 2), vec![1.1, 1.0, 0.5]);
+        let v_far = eval_with_slots(closure_laplace_log_likelihood(0, 1, 2), vec![3.5, 1.0, 0.5]);
+        assert!(v_close > v_far + 1e-9);
+    }
+
+    // ── closure_uniform_log_likelihood (iter-385) ─────────────────
+
+    #[test]
+    fn closure_uniform_log_likelihood_unit_width_is_zero() {
+        // [a, b] = [0, 1] → b - a = 1 → log p = -ln(1) = 0.
+        let v = eval_with_slots(closure_uniform_log_likelihood(0, 1), vec![0.0, 1.0]);
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_uniform_log_likelihood_width_two_is_minus_ln_two() {
+        // [a, b] = [1, 3] → width 2 → log p = -ln(2).
+        let v = eval_with_slots(closure_uniform_log_likelihood(0, 1), vec![1.0, 3.0]);
+        let expected = -2.0_f64.ln();
+        assert!((v - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_uniform_log_likelihood_invariant_under_shift() {
+        // log p depends only on width = b − a, not on the location.
+        let v1 = eval_with_slots(closure_uniform_log_likelihood(0, 1), vec![0.0, 1.5]);
+        let v2 = eval_with_slots(closure_uniform_log_likelihood(0, 1), vec![100.0, 101.5]);
+        assert!((v1 - v2).abs() < 1e-12);
+    }
+
+    // ── closure_l1_distance (iter-283) ────────────────────────────
+
+    #[test]
+    fn closure_l1_distance_known() {
+        // a = (1, 5), b = (3, 2): |1-3| + |5-2| = 5.
+        let v = eval_with_slots(
+            closure_l1_distance(&[0, 1], &[2, 3]),
+            vec![1.0, 5.0, 3.0, 2.0],
+        );
+        assert!((v - 5.0).abs() < 1e-7);
+    }
+
+    #[test]
+    fn closure_l1_distance_signed_diffs() {
+        // a = (-1, 4), b = (2, -3): |−3| + |7| = 10.
+        let v = eval_with_slots(
+            closure_l1_distance(&[0, 1], &[2, 3]),
+            vec![-1.0, 4.0, 2.0, -3.0],
+        );
+        assert!((v - 10.0).abs() < 1e-7);
+    }
+
+    #[test]
+    fn closure_l1_distance_is_nonnegative() {
+        let v = eval_with_slots(
+            closure_l1_distance(&[0, 1, 2], &[3, 4, 5]),
+            vec![1.0, 2.0, 3.0, -2.0, 1.5, 0.5],
+        );
+        assert!(v > 0.0);
+    }
+
+    // ── closure_l1_norm (iter-277) ────────────────────────────────
+
+    #[test]
+    fn closure_l1_norm_all_positive() {
+        // |1| + |2| + |3| = 6.
+        let v = eval_with_slots(closure_l1_norm(&[0, 1, 2]), vec![1.0, 2.0, 3.0]);
+        assert!((v - 6.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn closure_l1_norm_signed_uses_magnitudes() {
+        // |1| + |-2| + |3| = 6.
+        let v = eval_with_slots(closure_l1_norm(&[0, 1, 2]), vec![1.0, -2.0, 3.0]);
+        assert!((v - 6.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn closure_l1_norm_at_least_max_abs() {
+        // L¹ ≥ max |xᵢ| (norm inequality).
+        let slots = vec![3.0_f64, -7.0, 2.0];
+        let l1 = eval_with_slots(closure_l1_norm(&[0, 1, 2]), slots.clone());
+        let max_abs = slots.iter().map(|x| x.abs()).fold(0.0_f64, f64::max);
+        assert!(l1 >= max_abs - 1e-9);
+    }
+
+    // ── closure_softplus_inverse (iter-289) ───────────────────────
+
+    #[test]
+    fn closure_softplus_inverse_at_ln_2_is_zero() {
+        // softplus⁻¹(ln 2) = ln(exp(ln 2) − 1) = ln(2 − 1) = ln(1) = 0.
+        let v = eval_with_slots(closure_softplus_inverse(0), vec![2.0_f64.ln()]);
+        assert!(v.abs() < 1e-9);
+    }
+
+    #[test]
+    fn closure_softplus_inverse_inverts_softplus_on_positive_slot() {
+        // softplus(x) → y, then softplus⁻¹(y) → x.
+        for x in [0.5_f64, 1.0, 2.0, 5.0] {
+            let y = eval_with_slots(closure_softplus(0), vec![x]);
+            let x_back = eval_with_slots(closure_softplus_inverse(0), vec![y]);
+            assert!((x - x_back).abs() < 1e-7, "x={} y={} back={}", x, y, x_back);
+        }
+    }
+
+    #[test]
+    fn closure_softplus_inverse_matches_native() {
+        for y in [0.5_f64, 1.0, 3.0, 7.0] {
+            let v = eval_with_slots(closure_softplus_inverse(0), vec![y]);
+            let native = (y.exp() - 1.0).ln();
+            assert!((v - native).abs() < 1e-9);
+        }
+    }
+
+    // ── closure_abs (iter-271) ────────────────────────────────────
+
+    #[test]
+    fn closure_abs_positive_passes_through() {
+        let v = eval_with_slots(closure_abs(0), vec![3.0]);
+        assert!((v - 3.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn closure_abs_negative_returns_magnitude() {
+        let v = eval_with_slots(closure_abs(0), vec![-5.0]);
+        assert!((v - 5.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn closure_abs_matches_native_on_sweep() {
+        for x in [-100.0_f64, -1.0, 0.5, 2.5, 100.0] {
+            let v = eval_with_slots(closure_abs(0), vec![x]);
+            assert!(
+                (v - x.abs()).abs() < 1e-7,
+                "x={}: closure={} expected={}",
+                x,
+                v,
+                x.abs()
+            );
+        }
+    }
+
+    // ── closure_diff_squared (iter-265) ───────────────────────────
+
+    #[test]
+    fn diff_squared_basic() {
+        // (3 - 1)² = 4.
+        let v = eval_with_slots(closure_diff_squared(0, 1), vec![3.0, 1.0]);
+        assert!((v - 4.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn diff_squared_self_is_zero() {
+        // (x - x)² = 0.
+        let v = eval_with_slots(closure_diff_squared(0, 0), vec![7.5]);
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn diff_squared_symmetric_in_signed_diff() {
+        // (a - b)² = (b - a)² for any a, b.
+        let ab = eval_with_slots(closure_diff_squared(0, 1), vec![5.0, 2.0]);
+        let ba = eval_with_slots(closure_diff_squared(1, 0), vec![5.0, 2.0]);
+        assert!((ab - ba).abs() < 1e-12);
+    }
+
+    // ── closure_cube (iter-247) ───────────────────────────────────
+
+    #[test]
+    fn closure_cube_basic() {
+        for x in [-3.0_f64, -1.0, 0.0, 1.0, 2.0, 5.0] {
+            let v = eval_with_slots(closure_cube(0), vec![x]);
+            assert!((v - x * x * x).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn closure_cube_preserves_sign() {
+        // x³ has the same sign as x.
+        assert!(eval_with_slots(closure_cube(0), vec![-2.0]) < 0.0);
+        assert!(eval_with_slots(closure_cube(0), vec![2.0]) > 0.0);
+    }
+
+    #[test]
+    fn closure_cube_matches_squared_times_slot() {
+        let v_cube = eval_with_slots(closure_cube(0), vec![3.0]);
+        let v_sq = eval_with_slots(closure_squared(0), vec![3.0]);
+        assert!((v_cube - 3.0 * v_sq).abs() < 1e-12);
+    }
+
+    // ── closure_complementary_sigmoid (iter-307) ──────────────────
+
+    #[test]
+    fn complementary_sigmoid_at_zero_is_half() {
+        let v = eval_with_slots(closure_complementary_sigmoid(0), vec![0.0]);
+        assert!((v - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn complementary_sigmoid_equals_sigmoid_negated_arg() {
+        // 1 - σ(x) = σ(-x).
+        for x in [-3.0_f64, -1.0, 0.0, 1.0, 3.0] {
+            let comp = eval_with_slots(closure_complementary_sigmoid(0), vec![x]);
+            let sig_neg = eval_with_slots(closure_sigmoid(0), vec![-x]);
+            assert!((comp - sig_neg).abs() < 1e-9, "x={}", x);
+        }
+    }
+
+    #[test]
+    fn complementary_sigmoid_sums_to_one_with_sigmoid() {
+        // σ(x) + (1 - σ(x)) = 1.
+        for x in [-3.0_f64, -1.0, 0.0, 1.0, 3.0] {
+            let s = eval_with_slots(closure_sigmoid(0), vec![x]);
+            let c = eval_with_slots(closure_complementary_sigmoid(0), vec![x]);
+            assert!((s + c - 1.0).abs() < 1e-9, "x={}: s+c={}", x, s + c);
+        }
+    }
+
+    // ── closure_complementary_sigmoid_of (iter-415) ───────────────
+
+    #[test]
+    fn closure_complementary_sigmoid_of_on_single_slot_matches_slot_form() {
+        let of_form = closure_complementary_sigmoid_of(EmlClosureExpr::slot(0));
+        let slot_form = closure_complementary_sigmoid(0);
+        for x in [-3.0_f64, -1.0, 0.0, 1.0, 3.0] {
+            let v_of = eval_with_slots(of_form.clone(), vec![x]);
+            let v_slot = eval_with_slots(slot_form.clone(), vec![x]);
+            assert!((v_of - v_slot).abs() < 1e-9, "x={}", x);
+        }
+    }
+
+    #[test]
+    fn closure_complementary_sigmoid_of_zero_subtree_is_half() {
+        let zero = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::one());
+        let v = eval_with_slots(closure_complementary_sigmoid_of(zero), vec![]);
+        assert!((v - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_complementary_sigmoid_of_plus_sigmoid_of_is_one() {
+        // σ_of(arg) + (1 − σ)_of(arg) = 1 pointwise.
+        let arg = EmlClosureExpr::slot(0);
+        let s_of = closure_sigmoid_of(arg.clone());
+        let c_of = closure_complementary_sigmoid_of(arg);
+        for x in [-3.0_f64, -1.0, 0.0, 1.0, 3.0] {
+            let s = eval_with_slots(s_of.clone(), vec![x]);
+            let c = eval_with_slots(c_of.clone(), vec![x]);
+            assert!((s + c - 1.0).abs() < 1e-9, "x={}: s+c={}", x, s + c);
+        }
+    }
+
+    // ── closure_inverse_temperature_scaling (iter-301) ────────────
+
+    #[test]
+    fn closure_inverse_temperature_basic() {
+        // β·θ at (θ=3, β=2) = 6.
+        let v = eval_with_slots(closure_inverse_temperature_scaling(0, 1), vec![3.0, 2.0]);
+        assert!((v - 6.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_inverse_temperature_beta_zero_is_zero() {
+        let v = eval_with_slots(closure_inverse_temperature_scaling(0, 1), vec![5.0, 0.0]);
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_inverse_temperature_beta_one_is_theta() {
+        let v = eval_with_slots(closure_inverse_temperature_scaling(0, 1), vec![3.7, 1.0]);
+        assert!((v - 3.7).abs() < 1e-12);
+    }
+
+    // ── closure_inverse (iter-295) ────────────────────────────────
+
+    #[test]
+    fn closure_inverse_basic() {
+        for x in [0.5_f64, 1.0, 2.0, 10.0, -3.0] {
+            let v = eval_with_slots(closure_inverse(0), vec![x]);
+            assert!((v - 1.0 / x).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn closure_inverse_of_inverse_is_self() {
+        // 1 / (1 / x) = x.
+        let x = 7.5_f64;
+        let inv = eval_with_slots(closure_inverse(0), vec![x]);
+        let inv_inv = eval_with_slots(closure_inverse(0), vec![inv]);
+        assert!((inv_inv - x).abs() < 1e-9);
+    }
+
+    // ── closure_squared (iter-241) ────────────────────────────────
+
+    #[test]
+    fn closure_squared_basic() {
+        for x in [-3.0_f64, -1.0, 0.0, 1.0, 2.5, 100.0] {
+            let v = eval_with_slots(closure_squared(0), vec![x]);
+            assert!((v - x * x).abs() < 1e-9);
+        }
+    }
+
+    #[test]
+    fn closure_squared_is_always_nonnegative() {
+        for x in [-5.0_f64, -1.0, 0.0, 1.0, 5.0] {
+            let v = eval_with_slots(closure_squared(0), vec![x]);
+            assert!(v >= 0.0);
+        }
+    }
+
+    #[test]
+    fn closure_squared_zero_is_zero() {
+        let v = eval_with_slots(closure_squared(0), vec![0.0]);
+        assert_eq!(v, 0.0);
+    }
+
+    // ── closure_squared_of (iter-337) ─────────────────────────────
+
+    #[test]
+    fn closure_squared_of_on_single_slot_matches_closure_squared() {
+        let of_form = closure_squared_of(EmlClosureExpr::slot(0));
+        let slot_form = closure_squared(0);
+        for x in [-3.0_f64, -1.0, 0.0, 1.0, 2.5] {
+            let v_of = eval_with_slots(of_form.clone(), vec![x]);
+            let v_slot = eval_with_slots(slot_form.clone(), vec![x]);
+            assert!((v_of - v_slot).abs() < 1e-9, "x={}", x);
+        }
+    }
+
+    #[test]
+    fn closure_squared_of_composes_with_minus() {
+        // squared_of(slot(0) − slot(1)) ≡ closure_diff_squared(0, 1).
+        let diff = EmlClosureExpr::minus(EmlClosureExpr::slot(0), EmlClosureExpr::slot(1));
+        let sq_of = closure_squared_of(diff);
+        for (a, b) in [(2.0_f64, 5.0), (-1.0, 3.0), (0.0, 0.0), (-2.5, -1.5)] {
+            let v_of = eval_with_slots(sq_of.clone(), vec![a, b]);
+            let v_native = eval_with_slots(closure_diff_squared(0, 1), vec![a, b]);
+            assert!((v_of - v_native).abs() < 1e-9, "(a, b) = ({}, {})", a, b);
+        }
+    }
+
+    #[test]
+    fn closure_squared_of_is_always_nonneg() {
+        let e = closure_squared_of(closure_neg_slot(0));
+        // squared_of(-x) = x²; non-negative for every x.
+        for x in [-5.0_f64, -1.0, 0.0, 1.0, 5.0] {
+            let v = eval_with_slots(e.clone(), vec![x]);
+            assert!(v >= -1e-12, "x={}: v={}", x, v);
+        }
+    }
+
+    // ── closure_sqrt_of (iter-494) ────────────────────────────────
+
+    #[test]
+    fn closure_sqrt_of_matches_std_sqrt() {
+        let e = closure_sqrt_of(EmlClosureExpr::slot(0));
+        for x in [0.1_f64, 0.25, 1.0, 2.0, 9.0, 25.0] {
+            let v = eval_with_slots(e.clone(), vec![x]);
+            assert!((v - x.sqrt()).abs() < 1e-12, "x={}: sqrt={}", x, v);
+        }
+    }
+
+    #[test]
+    fn closure_sqrt_of_squared_recovers_positive_input() {
+        let root = closure_sqrt_of(EmlClosureExpr::slot(0));
+        let squared = closure_squared_of(root);
+        for x in [0.1_f64, 0.25, 1.0, 2.0, 9.0, 25.0] {
+            let v = eval_with_slots(squared.clone(), vec![x]);
+            assert!((v - x).abs() < 1e-10, "x={}: sqrt(x)^2={}", x, v);
+        }
+    }
+
+    #[test]
+    fn closure_sqrt_of_product_factorizes_on_positive_inputs() {
+        let product = closure_mul(EmlClosureExpr::slot(0), EmlClosureExpr::slot(1));
+        let root_product = closure_sqrt_of(product);
+        let root_a = closure_sqrt_of(EmlClosureExpr::slot(0));
+        let root_b = closure_sqrt_of(EmlClosureExpr::slot(1));
+        let product_of_roots = closure_mul(root_a, root_b);
+        for (a, b) in [(0.25_f64, 9.0), (2.0, 8.0), (3.5, 4.5)] {
+            let left = eval_with_slots(root_product.clone(), vec![a, b]);
+            let right = eval_with_slots(product_of_roots.clone(), vec![a, b]);
+            assert!(
+                (left - right).abs() < 1e-12,
+                "(a,b)=({},{}): {} vs {}",
+                a,
+                b,
+                left,
+                right
+            );
+        }
+    }
+
+    #[test]
+    fn closure_sqrt_of_square_matches_abs_for_nonzero_inputs() {
+        let root_square = closure_sqrt_of(closure_squared(0));
+        let abs = closure_abs(0);
+        for x in [-5.0_f64, -2.0, -0.5, 0.5, 2.0, 5.0] {
+            let left = eval_with_slots(root_square.clone(), vec![x]);
+            let right = eval_with_slots(abs.clone(), vec![x]);
+            assert!(
+                (left - right).abs() < 1e-12,
+                "x={}: {} vs {}",
+                x,
+                left,
+                right
+            );
+        }
+    }
+
+    // ── closure_chi_squared_bernoulli (iter-488) ──────────────────
+
+    #[test]
+    fn closure_chi_squared_bernoulli_self_is_zero() {
+        for p in [0.1_f64, 0.3, 0.5, 0.7, 0.9] {
+            let v = eval_with_slots(closure_chi_squared_bernoulli(0, 1), vec![p, p]);
+            assert!(v.abs() < 1e-12, "p={}: χ²={}", p, v);
+        }
+    }
+
+    #[test]
+    fn closure_chi_squared_bernoulli_matches_closed_form() {
+        // χ² = (p − q)² / (q · (1 − q)).
+        for (p, q) in [(0.1_f64, 0.5), (0.3, 0.7), (0.9, 0.1)] {
+            let v = eval_with_slots(closure_chi_squared_bernoulli(0, 1), vec![p, q]);
+            let expected = (p - q).powi(2) / (q * (1.0 - q));
+            assert!(
+                (v - expected).abs() < 1e-12,
+                "(p, q) = ({}, {}): got {} expected {}",
+                p,
+                q,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_chi_squared_bernoulli_nonneg_on_grid() {
+        for (p, q) in [(0.1_f64, 0.5), (0.3, 0.7), (0.9, 0.1), (0.5, 0.5)] {
+            let v = eval_with_slots(closure_chi_squared_bernoulli(0, 1), vec![p, q]);
+            assert!(v >= -1e-12, "(p, q) = ({}, {}): χ²={}", p, q, v);
+        }
+    }
+
+    // ── closure_bernoulli_kl_from_probs (iter-313) ────────────────
+
+    #[test]
+    fn bernoulli_kl_self_is_zero() {
+        let v = eval_with_slots(closure_bernoulli_kl_from_probs(0, 1), vec![0.3, 0.3]);
+        assert!(v.abs() < 1e-9);
+    }
+
+    #[test]
+    fn bernoulli_kl_known() {
+        // KL(0.5 || 0.9) = 0.5·ln(0.5/0.9) + 0.5·ln(0.5/0.1).
+        let v = eval_with_slots(closure_bernoulli_kl_from_probs(0, 1), vec![0.5, 0.9]);
+        let expected = 0.5 * (0.5_f64 / 0.9).ln() + 0.5 * (0.5_f64 / 0.1).ln();
+        assert!(
+            (v - expected).abs() < 1e-9,
+            "got {} expected {}",
+            v,
+            expected
+        );
+    }
+
+    #[test]
+    fn bernoulli_kl_non_negative_on_distinct_probs() {
+        let v = eval_with_slots(closure_bernoulli_kl_from_probs(0, 1), vec![0.7, 0.2]);
+        assert!(v > 0.0);
+    }
+
+    // ── closure_categorical_kl_from_probs (iter-235) ──────────────
+
+    #[test]
+    fn closure_kl_from_probs_self_is_zero() {
+        // KL(p, p) = 0.
+        let v = eval_with_slots(
+            closure_categorical_kl_from_probs(&[0, 1], &[0, 1]),
+            vec![0.5, 0.5],
+        );
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_kl_from_probs_uniform_vs_skewed_known() {
+        // KL((0.5, 0.5) || (0.9, 0.1)) = 0.5·ln(0.5/0.9) + 0.5·ln(0.5/0.1).
+        let v = eval_with_slots(
+            closure_categorical_kl_from_probs(&[0, 1], &[2, 3]),
+            vec![0.5, 0.5, 0.9, 0.1],
+        );
+        let expected = 0.5 * (0.5_f64 / 0.9).ln() + 0.5 * (0.5_f64 / 0.1).ln();
+        assert!(
+            (v - expected).abs() < 1e-9,
+            "got {} expected {}",
+            v,
+            expected
+        );
+    }
+
+    #[test]
+    fn closure_kl_from_probs_matches_cross_entropy_minus_entropy_identity() {
+        // KL(p || q) = H(p, q) - H(p), where H(p) = -Σ p ln p.
+        let p = vec![0.2_f64, 0.3, 0.5];
+        let q = vec![0.4_f64, 0.4, 0.2];
+        let slots = vec![p[0], p[1], p[2], q[0], q[1], q[2]];
+        let kl = eval_with_slots(
+            closure_categorical_kl_from_probs(&[0, 1, 2], &[3, 4, 5]),
+            slots.clone(),
+        );
+        let ce = eval_with_slots(
+            closure_categorical_cross_entropy(&[0, 1, 2], &[3, 4, 5]),
+            slots.clone(),
+        );
+        let h_p = eval_with_slots(
+            closure_categorical_cross_entropy(&[0, 1, 2], &[0, 1, 2]),
+            slots,
+        );
+        // KL = CE(p, q) - H(p).
+        assert!(
+            (kl - (ce - h_p)).abs() < 1e-9,
+            "KL = {} vs CE - H = {}",
+            kl,
+            ce - h_p
+        );
+    }
+
+    // ── closure_binary_cross_entropy_from_probs (iter-229) ────────
+
+    #[test]
+    fn bce_from_probs_y1_confident_correct_is_small() {
+        // y=1, p=0.999 → -[1·ln(0.999) + 0·ln(0.001)] ≈ 0.001 (the
+        // 0·ln(0) limit is left to caller; expression is undefined
+        // at p∈{0,1}).
+        let v = eval_with_slots(
+            closure_binary_cross_entropy_from_probs(0, 1),
+            vec![1.0, 0.999],
+        );
+        assert!(v < 1e-2 && v > 0.0, "got {}", v);
+    }
+
+    #[test]
+    fn bce_from_probs_y0_confident_correct_is_small() {
+        let v = eval_with_slots(
+            closure_binary_cross_entropy_from_probs(0, 1),
+            vec![0.0, 1e-3],
+        );
+        assert!(v < 1e-2 && v > 0.0, "got {}", v);
+    }
+
+    #[test]
+    fn bce_from_probs_y1_p_half_is_ln_2() {
+        // y=1, p=0.5 → -ln(0.5) = ln 2.
+        let v = eval_with_slots(
+            closure_binary_cross_entropy_from_probs(0, 1),
+            vec![1.0, 0.5],
+        );
+        assert!((v - 2.0_f64.ln()).abs() < 1e-9);
+    }
+
+    #[test]
+    fn bce_from_probs_y0_p_half_is_ln_2() {
+        let v = eval_with_slots(
+            closure_binary_cross_entropy_from_probs(0, 1),
+            vec![0.0, 0.5],
+        );
+        assert!((v - 2.0_f64.ln()).abs() < 1e-9);
+    }
+
+    // ── closure_softmax_cross_entropy_from_logits (iter-223) ──────
+
+    #[test]
+    fn softmax_ce_logits_uniform_is_ln_n() {
+        // θ = (0, 0, 0), target = 0 → lse = ln 3, θ_0 = 0 → loss = ln 3.
+        let v = eval_with_slots(
+            closure_softmax_cross_entropy_from_logits(&[0, 1, 2], 0),
+            vec![0.0, 0.0, 0.0],
+        );
+        assert!((v - 3.0_f64.ln()).abs() < 1e-9);
+    }
+
+    #[test]
+    fn softmax_ce_logits_correct_class_dominant_is_small() {
+        // θ = (10, 0, 0), target = 0 → lse ≈ 10, θ_0 = 10 → loss ≈ 0.
+        let v = eval_with_slots(
+            closure_softmax_cross_entropy_from_logits(&[0, 1, 2], 0),
+            vec![10.0, 0.0, 0.0],
+        );
+        assert!(v < 1e-3, "expected near-zero, got {}", v);
+    }
+
+    #[test]
+    fn softmax_ce_logits_wrong_class_with_large_gap_is_large() {
+        // θ = (0, 0, 10), target = 0 → lse ≈ 10, θ_0 = 0 → loss ≈ 10.
+        let v = eval_with_slots(
+            closure_softmax_cross_entropy_from_logits(&[0, 1, 2], 0),
+            vec![0.0, 0.0, 10.0],
+        );
+        assert!((v - 10.0).abs() < 1e-3, "expected ≈ 10, got {}", v);
+    }
+
+    // ── closure_categorical_cross_entropy (iter-217) ──────────────
+
+    #[test]
+    fn cross_entropy_one_hot_target_matches_neg_log_q_at_class() {
+        // p = (1, 0, 0); q = (0.7, 0.2, 0.1) → H(P,Q) = -ln(0.7).
+        let v = eval_with_slots(
+            closure_categorical_cross_entropy(&[0, 1, 2], &[3, 4, 5]),
+            vec![1.0, 0.0, 0.0, 0.7, 0.2, 0.1],
+        );
+        let expected = -0.7_f64.ln();
+        assert!((v - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn cross_entropy_equal_distribution_recovers_entropy() {
+        // p = q = (0.5, 0.5) → H(P,Q) = H(P) = ln 2.
+        let v = eval_with_slots(
+            closure_categorical_cross_entropy(&[0, 1], &[0, 1]),
+            vec![0.5, 0.5],
+        );
+        let expected = 2.0_f64.ln();
+        assert!((v - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn cross_entropy_uniform_p_is_negative_log_geometric_mean_q() {
+        // p uniform on n → H(P,Q) = -(1/n) Σ ln q_i = -ln GM(q).
+        // q = (0.5, 0.5) → GM = 0.5 → -ln 0.5 = ln 2.
+        let v = eval_with_slots(
+            closure_categorical_cross_entropy(&[0, 1], &[2, 3]),
+            vec![0.5, 0.5, 0.5, 0.5],
+        );
+        let expected = 2.0_f64.ln();
+        assert!((v - expected).abs() < 1e-9);
+    }
+
+    // ── closure_log_cosh (iter-211) ───────────────────────────────
+
+    #[test]
+    fn closure_log_cosh_at_zero_is_zero() {
+        let v = eval_with_slots(closure_log_cosh(0), vec![0.0]);
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_log_cosh_symmetric() {
+        // L(r) = L(-r) — log-cosh is even.
+        for r in [0.3_f64, 1.0, 2.5, 5.0] {
+            let pos = eval_with_slots(closure_log_cosh(0), vec![r]);
+            let neg = eval_with_slots(closure_log_cosh(0), vec![-r]);
+            assert!(
+                (pos - neg).abs() < 1e-12,
+                "asymmetric at r={}: {} vs {}",
+                r,
+                pos,
+                neg
+            );
+        }
+    }
+
+    #[test]
+    fn closure_log_cosh_matches_native_log_cosh() {
+        // Cross-check against the native libm log-cosh.
+        for r in [-3.0_f64, -0.5, 0.0, 0.5, 3.0] {
+            let v = eval_with_slots(closure_log_cosh(0), vec![r]);
+            let native = r.cosh().ln();
+            assert!(
+                (v - native).abs() < 1e-9,
+                "r={}: closure={} native={}",
+                r,
+                v,
+                native
+            );
+        }
+    }
+
+    #[test]
+    fn closure_log_cosh_quadratic_near_zero() {
+        // L(r) ≈ r² / 2 for small |r|. At r=0.1: r²/2 = 0.005.
+        let v = eval_with_slots(closure_log_cosh(0), vec![0.1]);
+        let expected = 0.1_f64.powi(2) / 2.0;
+        assert!(
+            (v - expected).abs() < 1e-4,
+            "got {}, expected ≈ {}",
+            v,
+            expected
+        );
+    }
+
+    #[test]
+    fn closure_log_cosh_linear_at_large_argument() {
+        // L(r) ≈ |r| - ln 2 for large |r|.
+        let v = eval_with_slots(closure_log_cosh(0), vec![20.0]);
+        let expected = 20.0 - 2.0_f64.ln();
+        assert!(
+            (v - expected).abs() < 1e-7,
+            "got {}, expected ≈ {}",
+            v,
+            expected
+        );
+    }
+
+    // ── closure_log_cosh_of (iter-397) ────────────────────────────
+
+    #[test]
+    fn closure_log_cosh_of_on_single_slot_matches_closure_log_cosh() {
+        let of_form = closure_log_cosh_of(EmlClosureExpr::slot(0));
+        let slot_form = closure_log_cosh(0);
+        for r in [-3.0_f64, -1.0, 0.0, 0.5, 1.0, 3.0] {
+            let v_of = eval_with_slots(of_form.clone(), vec![r]);
+            let v_slot = eval_with_slots(slot_form.clone(), vec![r]);
+            assert!((v_of - v_slot).abs() < 1e-9, "r={}", r);
+        }
+    }
+
+    #[test]
+    fn closure_log_cosh_of_zero_subtree_is_zero() {
+        let zero = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::one());
+        let v = eval_with_slots(closure_log_cosh_of(zero), vec![]);
+        assert!(v.abs() < 1e-9);
+    }
+
+    #[test]
+    fn closure_log_cosh_of_residual_robust_regression() {
+        // log_cosh(y_pred − y_true) on a computed residual:
+        // at (y_pred=3.5, y_true=2.0), residual = 1.5, log_cosh(1.5).
+        let residual = EmlClosureExpr::minus(EmlClosureExpr::slot(0), EmlClosureExpr::slot(1));
+        let e = closure_log_cosh_of(residual);
+        let v = eval_with_slots(e, vec![3.5, 2.0]);
+        // Direct closed-form: ln((e^1.5 + e^-1.5) / 2).
+        let expected = ((1.5_f64.exp() + (-1.5_f64).exp()) / 2.0).ln();
+        assert!((v - expected).abs() < 1e-9);
+    }
+
+    // ── closure_log_sigmoid_complement (iter-403) ─────────────────
+
+    #[test]
+    fn closure_log_sigmoid_complement_at_zero_is_minus_ln_2() {
+        // ln(1 − σ(0)) = ln(0.5) = −ln(2).
+        let v = eval_with_slots(closure_log_sigmoid_complement(0), vec![0.0]);
+        assert!((v - (-2.0_f64.ln())).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_log_sigmoid_complement_equals_log_sigmoid_of_neg() {
+        // ln(1 − σ(x)) ≡ ln σ(−x).
+        for x in [-3.0_f64, -1.0, 0.0, 1.0, 3.0] {
+            let v_complement = eval_with_slots(closure_log_sigmoid_complement(0), vec![x]);
+            let v_log_sig_neg = eval_with_slots(closure_log_sigmoid(0), vec![-x]);
+            assert!((v_complement - v_log_sig_neg).abs() < 1e-9, "x={}", x);
+        }
+    }
+
+    #[test]
+    fn closure_log_sigmoid_complement_large_positive_approaches_minus_x() {
+        // For large positive x: ln(1 − σ(x)) → −x.
+        let v = eval_with_slots(closure_log_sigmoid_complement(0), vec![20.0]);
+        assert!((v - (-20.0)).abs() < 1e-7);
+    }
+
+    // ── closure_log_sigmoid (iter-205) ────────────────────────────
+
+    #[test]
+    fn closure_log_sigmoid_at_zero_is_minus_ln_2() {
+        let v = eval_with_slots(closure_log_sigmoid(0), vec![0.0]);
+        assert!((v - (-2.0_f64.ln())).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_log_sigmoid_large_positive_approaches_zero() {
+        let v = eval_with_slots(closure_log_sigmoid(0), vec![20.0]);
+        assert!(
+            v > -1e-7 && v < 0.0,
+            "expected near-zero negative, got {}",
+            v
+        );
+    }
+
+    #[test]
+    fn closure_log_sigmoid_large_negative_approaches_x() {
+        // For very negative x: ln σ(x) ≈ x.
+        let v = eval_with_slots(closure_log_sigmoid(0), vec![-20.0]);
+        assert!((v - (-20.0)).abs() < 1e-7, "expected ≈ -20, got {}", v);
+    }
+
+    #[test]
+    fn closure_log_sigmoid_matches_logistic_loss_y_eq_one() {
+        // BCE(y=1, θ) = -ln σ(θ) = -closure_log_sigmoid(θ).
+        for theta in [-3.0_f64, -1.0, 0.0, 1.0, 3.0] {
+            let log_sig = eval_with_slots(closure_log_sigmoid(0), vec![theta]);
+            let bce = eval_with_slots(closure_logistic_loss(0, 1), vec![theta, 1.0]);
+            assert!(
+                (bce - (-log_sig)).abs() < 1e-9,
+                "θ={}: bce={} expected={}",
+                theta,
+                bce,
+                -log_sig
+            );
+        }
+    }
+
+    // ── closure_log_sigmoid_of (iter-355) ─────────────────────────
+
+    #[test]
+    fn closure_log_sigmoid_of_on_single_slot_matches_closure_log_sigmoid() {
+        let of_form = closure_log_sigmoid_of(EmlClosureExpr::slot(0));
+        let slot_form = closure_log_sigmoid(0);
+        for x in [-5.0_f64, -1.0, 0.0, 1.0, 5.0] {
+            let v_of = eval_with_slots(of_form.clone(), vec![x]);
+            let v_slot = eval_with_slots(slot_form.clone(), vec![x]);
+            assert!((v_of - v_slot).abs() < 1e-9, "x={}", x);
+        }
+    }
+
+    #[test]
+    fn closure_log_sigmoid_of_at_zero_subtree_is_minus_ln_2() {
+        let zero = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::one());
+        let v = eval_with_slots(closure_log_sigmoid_of(zero), vec![]);
+        assert!((v - (-2.0_f64.ln())).abs() < 1e-9);
+    }
+
+    #[test]
+    fn closure_log_sigmoid_of_on_linear_form_matches_log_sigmoid_of_linear_value() {
+        // log σ(w·x + b) — at x=2, w=3, b=−5 → arg = 1, expected
+        // = log σ(1) = -ln(1 + e^-1).
+        let arg = EmlClosureExpr::plus(
+            closure_mul(EmlClosureExpr::slot(1), EmlClosureExpr::slot(0)),
+            EmlClosureExpr::slot(2),
+        );
+        let e = closure_log_sigmoid_of(arg);
+        let v = eval_with_slots(e, vec![2.0, 3.0, -5.0]);
+        let expected = -(1.0 + (-1.0_f64).exp()).ln();
+        assert!((v - expected).abs() < 1e-9);
+    }
+
+    // ── closure_harmonic_mean (iter-199) ──────────────────────────
+
+    #[test]
+    fn closure_harmonic_mean_equal_values_recovers_value() {
+        // x_i = 5 for all i → HM = 5.
+        let v = eval_with_slots(
+            closure_harmonic_mean(&[0, 1, 2, 3], 4),
+            vec![5.0, 5.0, 5.0, 5.0, 4.0],
+        );
+        assert!((v - 5.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_harmonic_mean_1_2_known() {
+        // HM(1, 2) = 2/(1 + 1/2) = 2/1.5 = 4/3.
+        let v = eval_with_slots(closure_harmonic_mean(&[0, 1], 2), vec![1.0, 2.0, 2.0]);
+        assert!((v - 4.0 / 3.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_harmonic_mean_2_3_6_known() {
+        // HM(2, 3, 6) = 3 / (1/2 + 1/3 + 1/6) = 3 / 1 = 3.
+        let v = eval_with_slots(
+            closure_harmonic_mean(&[0, 1, 2], 3),
+            vec![2.0, 3.0, 6.0, 3.0],
+        );
+        assert!((v - 3.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_am_gm_hm_inequality() {
+        // AM ≥ GM ≥ HM for any positive data, with equality iff all equal.
+        let slots = vec![1.0_f64, 2.0, 4.0, 8.0, 4.0];
+        let am = eval_with_slots(closure_arithmetic_mean(&[0, 1, 2, 3], 4), slots.clone());
+        let gm = eval_with_slots(closure_geometric_mean(&[0, 1, 2, 3], 4), slots.clone());
+        let hm = eval_with_slots(closure_harmonic_mean(&[0, 1, 2, 3], 4), slots);
+        assert!(am >= gm - 1e-12, "AM={} GM={}", am, gm);
+        assert!(gm >= hm - 1e-12, "GM={} HM={}", gm, hm);
+    }
+
+    // ── scaled_squared_distance + weighted_mse (iter-128) ─────────
+
+    #[test]
+    fn closure_scaled_squared_distance_matches_factored_form() {
+        // scale=2, p=(1,2), q=(0,0): ||p-q||²=5; scaled=10.
+        let v = eval_with_slots(
+            closure_scaled_squared_distance(&[0, 1], &[2, 3], 4),
+            vec![1.0, 2.0, 0.0, 0.0, 2.0],
+        );
+        assert_eq!(v, 10.0);
+    }
+
+    #[test]
+    fn closure_scaled_squared_distance_zero_scale_returns_zero() {
+        let v = eval_with_slots(
+            closure_scaled_squared_distance(&[0, 1], &[2, 3], 4),
+            vec![1.0, 2.0, 3.0, 4.0, 0.0],
+        );
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_weighted_mse_uniform_weights_matches_mse() {
+        // All weights = 1 → weighted_mse ≡ mse.
+        let v_w = eval_with_slots(
+            closure_weighted_mse_loss(&[0, 1, 2], &[3, 4, 5], &[6, 7, 8], 9),
+            vec![1.0, 2.0, 3.0, 1.5, 2.5, 4.0, 1.0, 1.0, 1.0, 3.0],
+        );
+        let v_m = eval_with_slots(
+            closure_mse_loss(&[0, 1, 2], &[3, 4, 5], 9),
+            vec![1.0, 2.0, 3.0, 1.5, 2.5, 4.0, 1.0, 1.0, 1.0, 3.0],
+        );
+        assert!((v_w - v_m).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_weighted_mse_zero_weights_returns_zero() {
+        let v = eval_with_slots(
+            closure_weighted_mse_loss(&[0, 1], &[2, 3], &[4, 5], 6),
+            vec![1.0, 2.0, 0.0, 0.0, 0.0, 0.0, 2.0],
+        );
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_weighted_mse_emphasizes_heavy_weight() {
+        // Weights (10, 0): only first example contributes.
+        // pred=(1, 100), target=(0, 0), n=2: weighted_sum = 10·1² + 0·100² = 10.
+        // weighted_mse = 10 / 2 = 5.
+        let v = eval_with_slots(
+            closure_weighted_mse_loss(&[0, 1], &[2, 3], &[4, 5], 6),
+            vec![1.0, 100.0, 0.0, 0.0, 10.0, 0.0, 2.0],
+        );
+        assert_eq!(v, 5.0);
+    }
+
+    // ── L2 norm + linear form (iter-124) ──────────────────────────
+
+    #[test]
+    fn closure_l2_norm_squared_is_alias_for_l2_penalty() {
+        let v_norm = eval_with_slots(closure_l2_norm_squared(&[0, 1, 2]), vec![1.0, 2.0, 3.0]);
+        let v_penalty = eval_with_slots(closure_l2_penalty(&[0, 1, 2]), vec![1.0, 2.0, 3.0]);
+        assert_eq!(v_norm, v_penalty);
+    }
+
+    #[test]
+    fn closure_linear_form_classical_single_neuron() {
+        // y = w·x + b, w = (2, 3), x = (1, 4), b = 0.5.
+        // = 2·1 + 3·4 + 0.5 = 14.5.
+        let v = eval_with_slots(
+            closure_linear_form(&[0, 1], &[2, 3], 4),
+            vec![1.0, 4.0, 2.0, 3.0, 0.5],
+        );
+        assert!((v - 14.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_linear_form_zero_weights_returns_bias() {
+        let v = eval_with_slots(
+            closure_linear_form(&[0, 1], &[2, 3], 4),
+            vec![10.0, -10.0, 0.0, 0.0, 7.0],
+        );
+        assert_eq!(v, 7.0);
+    }
+
+    #[test]
+    fn closure_linear_form_zero_bias_returns_dot_product() {
+        let v = eval_with_slots(
+            closure_linear_form(&[0, 1], &[2, 3], 4),
+            vec![3.0, 4.0, 5.0, 6.0, 0.0],
+        );
+        // 3·5 + 4·6 + 0 = 39.
+        assert_eq!(v, 39.0);
+    }
+
+    // ── Dice coefficient / loss (iter-176) ────────────────────────
+
+    #[test]
+    fn closure_dice_perfect_overlap_is_one() {
+        // x = y → dice = 2·|x|²/(2|x|) = |x|. Wait — for matching
+        // masks (both 1s), Σ(x·y)=Σx²; Σx+Σy=2Σx. Dice = 2Σx²/(2Σx) = Σx²/Σx.
+        // For all-1 masks of length 2: Σx²=2, Σx=2 → dice = 2/2 = 1.
+        let v = eval_with_slots(
+            closure_dice_coefficient(&[0, 1], &[2, 3]),
+            vec![1.0, 1.0, 1.0, 1.0],
+        );
+        assert!((v - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_dice_no_overlap_is_zero() {
+        // x = (1, 0), y = (0, 1). Dot = 0. Dice = 0/(1+1) = 0.
+        let v = eval_with_slots(
+            closure_dice_coefficient(&[0, 1], &[2, 3]),
+            vec![1.0, 0.0, 0.0, 1.0],
+        );
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_dice_loss_no_overlap_is_one() {
+        let v = eval_with_slots(
+            closure_dice_loss(&[0, 1], &[2, 3]),
+            vec![1.0, 0.0, 0.0, 1.0],
+        );
+        assert_eq!(v, 1.0);
+    }
+
+    #[test]
+    fn closure_dice_loss_perfect_overlap_is_zero() {
+        let v = eval_with_slots(
+            closure_dice_loss(&[0, 1], &[2, 3]),
+            vec![1.0, 1.0, 1.0, 1.0],
+        );
+        assert!(v.abs() < 1e-12);
+    }
+
+    // ── Loss primitives — MSE / L2 (iter-106) ────────────────────
+
+    #[test]
+    fn closure_squared_error_zero_at_match() {
+        let v = eval_with_slots(closure_squared_error(0, 1), vec![3.0, 3.0]);
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_squared_error_is_non_negative() {
+        for (p, t) in [(1.0_f64, 0.0), (-2.0, 3.0), (5.0, -5.0)] {
+            let v = eval_with_slots(closure_squared_error(0, 1), vec![p, t]);
+            assert!(v >= 0.0);
+            // (pred - target)² = (target - pred)² (symmetry).
+            let v_rev = eval_with_slots(closure_squared_error(1, 0), vec![p, t]);
+            assert_eq!(v, v_rev);
+        }
+    }
+
+    #[test]
+    fn closure_squared_error_quadratic() {
+        // For pred = 0, target = c: error = c².
+        for c in [1.0_f64, 2.0, -3.0, 5.0] {
+            let v = eval_with_slots(closure_squared_error(0, 1), vec![0.0, c]);
+            assert_eq!(v, c * c);
+        }
+    }
+
+    // ── closure_squared_error_of (iter-409) ───────────────────────
+
+    #[test]
+    fn closure_squared_error_of_on_slots_matches_closure_squared_error() {
+        let of_form = closure_squared_error_of(EmlClosureExpr::slot(0), EmlClosureExpr::slot(1));
+        let slot_form = closure_squared_error(0, 1);
+        for (p, t) in [(1.0_f64, 2.0), (3.0, -1.0), (0.0, 0.0), (-2.0, 5.0)] {
+            let v_of = eval_with_slots(of_form.clone(), vec![p, t]);
+            let v_slot = eval_with_slots(slot_form.clone(), vec![p, t]);
+            assert!((v_of - v_slot).abs() < 1e-9, "(p, t) = ({}, {})", p, t);
+        }
+    }
+
+    #[test]
+    fn closure_squared_error_of_on_computed_linear_predictor() {
+        // pred = w·x + b, target = y_true. At (x=2, w=3, b=-5,
+        // y_true=2): pred = 1, error = (1 - 2)² = 1.
+        let pred = EmlClosureExpr::plus(
+            closure_mul(EmlClosureExpr::slot(1), EmlClosureExpr::slot(0)),
+            EmlClosureExpr::slot(2),
+        );
+        let target = EmlClosureExpr::slot(3);
+        let e = closure_squared_error_of(pred, target);
+        let v = eval_with_slots(e, vec![2.0, 3.0, -5.0, 2.0]);
+        assert!((v - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn closure_squared_error_of_zero_when_pred_equals_target() {
+        let arg = EmlClosureExpr::slot(0);
+        let e = closure_squared_error_of(arg.clone(), arg);
+        for x in [1.0_f64, -2.0, 5.0] {
+            let v = eval_with_slots(e.clone(), vec![x]);
+            assert!(v.abs() < 1e-12, "x={}", x);
+        }
+    }
+
+    #[test]
+    fn closure_mse_loss_at_perfect_prediction_is_zero() {
+        // pred ≡ target → MSE = 0.
+        let v = eval_with_slots(
+            closure_mse_loss(&[0, 1, 2], &[3, 4, 5], 6),
+            vec![1.0, 2.0, 3.0, 1.0, 2.0, 3.0, 3.0],
+        );
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_mse_loss_known_value() {
+        // pred = (1, 2, 3), target = (1.5, 2.5, 4), n = 3.
+        // errors: 0.25, 0.25, 1.0; sum = 1.5; MSE = 0.5.
+        let v = eval_with_slots(
+            closure_mse_loss(&[0, 1, 2], &[3, 4, 5], 6),
+            vec![1.0, 2.0, 3.0, 1.5, 2.5, 4.0, 3.0],
+        );
+        assert!((v - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_l2_penalty_zero_at_zero_weights() {
+        let v = eval_with_slots(closure_l2_penalty(&[0, 1, 2]), vec![0.0, 0.0, 0.0]);
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_l2_penalty_sum_of_squares() {
+        // (3, 4, 5) → 9 + 16 + 25 = 50.
+        let v = eval_with_slots(closure_l2_penalty(&[0, 1, 2]), vec![3.0, 4.0, 5.0]);
+        assert_eq!(v, 50.0);
+    }
+
+    #[test]
+    fn closure_l2_penalty_non_negative_always() {
+        for slots in [
+            vec![1.0_f64, -2.0, 3.0],
+            vec![-5.0_f64, 0.0, 0.5],
+            vec![0.1_f64, 0.1, 0.1],
+        ] {
+            let v = eval_with_slots(closure_l2_penalty(&[0, 1, 2]), slots);
+            assert!(v >= 0.0);
+        }
+    }
+
+    // ── Vector primitives (iter-98) ───────────────────────────────
+
+    #[test]
+    fn closure_dot_product_2d() {
+        // (1,2) · (3,4) = 1·3 + 2·4 = 11.
+        let v = eval_with_slots(
+            closure_dot_product(&[0, 1], &[2, 3]),
+            vec![1.0, 2.0, 3.0, 4.0],
+        );
+        assert_eq!(v, 11.0);
+    }
+
+    #[test]
+    fn closure_dot_product_orthogonal_is_zero() {
+        // (1,0,0) · (0,1,0) = 0.
+        let v = eval_with_slots(
+            closure_dot_product(&[0, 1, 2], &[3, 4, 5]),
+            vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+        );
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_dot_product_symmetric() {
+        // x · y = y · x.
+        let xy = eval_with_slots(
+            closure_dot_product(&[0, 1, 2], &[3, 4, 5]),
+            vec![1.5, -0.7, 2.0, -0.3, 1.2, 0.8],
+        );
+        let yx = eval_with_slots(
+            closure_dot_product(&[3, 4, 5], &[0, 1, 2]),
+            vec![1.5, -0.7, 2.0, -0.3, 1.2, 0.8],
+        );
+        assert!((xy - yx).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_squared_distance_zero_for_identical_vectors() {
+        // Same slot indices → squared distance = 0.
+        let v = eval_with_slots(
+            closure_squared_distance(&[0, 1], &[2, 3]),
+            vec![1.5, -2.0, 1.5, -2.0],
+        );
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_squared_distance_equals_sum_of_squared_diffs() {
+        // (1,2,3) - (4,5,6) = (-3,-3,-3); squared = 27.
+        let v = eval_with_slots(
+            closure_squared_distance(&[0, 1, 2], &[3, 4, 5]),
+            vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+        );
+        assert_eq!(v, 27.0);
+    }
+
+    #[test]
+    fn closure_squared_distance_expands_via_dot_product() {
+        // ||x - y||² = ||x||² - 2·x·y + ||y||².
+        // Property test across 3 (x, y) pairs.
+        for slots in [
+            vec![1.0_f64, 2.0, 0.5, 1.5],
+            vec![-1.0, 3.0, 2.0, -0.5],
+            vec![0.0, 0.0, 1.0, 1.0],
+        ] {
+            let dist_sq =
+                eval_with_slots(closure_squared_distance(&[0, 1], &[2, 3]), slots.clone());
+            let x_dot_x = eval_with_slots(closure_dot_product(&[0, 1], &[0, 1]), slots.clone());
+            let x_dot_y = eval_with_slots(closure_dot_product(&[0, 1], &[2, 3]), slots.clone());
+            let y_dot_y = eval_with_slots(closure_dot_product(&[2, 3], &[2, 3]), slots.clone());
+            let expected = x_dot_x - 2.0 * x_dot_y + y_dot_y;
+            assert!(
+                (dist_sq - expected).abs() < 1e-12,
+                "{:?}: ||x-y||² = {}; expansion = {}",
+                slots,
+                dist_sq,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_attention_score_unit_query_key() {
+        // q = (1, 0), k = (1, 0), 1/sqrt(d) = 1/sqrt(2).
+        // score = 1·1 + 0·0 = 1; scaled = 1 / sqrt(2).
+        let v = eval_with_slots(
+            closure_attention_score(&[0, 1], &[2, 3], 4),
+            vec![1.0, 0.0, 1.0, 0.0, 1.0 / 2.0_f64.sqrt()],
+        );
+        let expected = 1.0 / 2.0_f64.sqrt();
+        assert!((v - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_attention_score_orthogonal_is_zero() {
+        let v = eval_with_slots(
+            closure_attention_score(&[0, 1, 2], &[3, 4, 5], 6),
+            vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.5],
+        );
+        assert_eq!(v, 0.0);
+    }
+
+    #[test]
+    fn closure_attention_score_anti_aligned_is_negative() {
+        // q = (1, 0), k = (-1, 0) → score = -1 · (1/√d) < 0.
+        let v = eval_with_slots(
+            closure_attention_score(&[0, 1], &[2, 3], 4),
+            vec![1.0, 0.0, -1.0, 0.0, 0.5],
+        );
+        assert!(v < 0.0);
+        assert!((v + 0.5).abs() < 1e-12);
+    }
+
+    // ── LayerNorm decomposition (iter-88) ─────────────────────────
+
+    #[test]
+    fn closure_residual_add_is_simple_sum() {
+        // residual_add(x, r) = x + r.
+        for (x, r) in [(1.0_f64, 2.0), (-1.0, 3.5), (0.0, 0.0)] {
+            let v = eval_with_slots(closure_residual_add(0, 1), vec![x, r]);
+            assert_eq!(v, x + r);
+        }
+    }
+
+    #[test]
+    fn closure_center_subtracts_mean() {
+        // center(x, μ) = x - μ.
+        for (x, mu) in [(5.0_f64, 3.0), (-2.0, -2.0), (1.0, 4.0)] {
+            let v = eval_with_slots(closure_center(0, 1), vec![x, mu]);
+            assert_eq!(v, x - mu);
+        }
+    }
+
+    #[test]
+    fn closure_standardize_z_score() {
+        // standardize(x, μ, σ) = (x - μ) / σ.
+        let v = eval_with_slots(closure_standardize(0, 1, 2), vec![6.0, 4.0, 2.0]);
+        assert!((v - 1.0).abs() < 1e-12);
+
+        // Sign and magnitude check.
+        let v2 = eval_with_slots(closure_standardize(0, 1, 2), vec![3.0, 5.0, 0.5]);
+        assert!((v2 - (-4.0)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_affine_gain_bias() {
+        // affine(x, γ, β) = γx + β.
+        let v = eval_with_slots(closure_affine(0, 1, 2), vec![2.0, 3.0, 1.0]);
+        assert_eq!(v, 7.0);
+
+        // γ=0: y = β only.
+        let v0 = eval_with_slots(closure_affine(0, 1, 2), vec![5.0, 0.0, 10.0]);
+        assert_eq!(v0, 10.0);
+    }
+
+    #[test]
+    fn closure_layer_norm_full_pipeline() {
+        // layer_norm(x, μ, σ, γ, β) = γ·(x-μ)/σ + β.
+        let v = eval_with_slots(
+            closure_layer_norm(0, 1, 2, 3, 4),
+            vec![6.0, 4.0, 2.0, 0.5, 1.0],
+        );
+        // (6-4)/2 = 1; 0.5·1 + 1 = 1.5.
+        assert!((v - 1.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_layer_norm_identity_with_gain_one_bias_zero() {
+        // With γ=1, β=0, layer_norm reduces to standardization.
+        for (x, mu, sigma) in [(10.0_f64, 5.0, 2.5), (-3.0, -1.0, 1.5), (0.0, 0.0, 1.0)] {
+            let ln = eval_with_slots(
+                closure_layer_norm(0, 1, 2, 3, 4),
+                vec![x, mu, sigma, 1.0, 0.0],
+            );
+            let std = eval_with_slots(closure_standardize(0, 1, 2), vec![x, mu, sigma]);
+            assert!((ln - std).abs() < 1e-12, "ln = {}; std = {}", ln, std);
+        }
+    }
+
+    #[test]
+    fn closure_layer_norm_centered_input_at_zero_output() {
+        // x = μ → (x - μ) = 0 → output = β.
+        let v = eval_with_slots(
+            closure_layer_norm(0, 1, 2, 3, 4),
+            vec![4.0, 4.0, 2.0, 0.5, 3.7],
+        );
+        assert!((v - 3.7).abs() < 1e-12);
+    }
+
+    // ── Logit + temperature softmax (iter-86) ─────────────────────
+
+    #[test]
+    fn closure_logit_at_half_is_zero() {
+        let v = eval_with_slots(closure_logit(0), vec![0.5]);
+        assert!(v.abs() < 1e-12, "logit(0.5) = {}", v);
+    }
+
+    #[test]
+    fn closure_logit_inverts_sigmoid() {
+        // logit(σ(θ)) = θ for any θ.
+        for theta in [-3.0_f64, -1.0, -0.3, 0.0, 0.3, 1.0, 3.0] {
+            let p = eval_with_slots(closure_sigmoid(0), vec![theta]);
+            let recovered = eval_with_slots(closure_logit(0), vec![p]);
+            assert!(
+                (recovered - theta).abs() < 1e-10,
+                "logit(σ({})) = {}",
+                theta,
+                recovered
+            );
+        }
+    }
+
+    #[test]
+    fn closure_logit_matches_log_p_over_one_minus_p() {
+        for p in [0.1_f64, 0.3, 0.5, 0.7, 0.9, 0.99] {
+            let v = eval_with_slots(closure_logit(0), vec![p]);
+            let expected = (p / (1.0 - p)).ln();
+            assert!(
+                (v - expected).abs() < 1e-12,
+                "logit({}) = {}, expected {}",
+                p,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_softmax_temperature_at_beta_one_matches_unscaled() {
+        // β=1 recovers closure_categorical_softmax_slot.
+        let slots = [0_u32, 1];
+        for theta in [vec![1.0_f64, -1.0], vec![0.0, 0.0], vec![-2.0, 3.0]] {
+            for &target in &slots {
+                let mut slots_plus_beta = theta.clone();
+                slots_plus_beta.push(1.0); // β = 1
+
+                let scaled = eval_with_slots(
+                    closure_softmax_temperature_slot(target, &slots, 2),
+                    slots_plus_beta,
+                );
+                let plain = eval_with_slots(
+                    closure_categorical_softmax_slot(target, &slots),
+                    theta.clone(),
+                );
+                assert!(
+                    (scaled - plain).abs() < 1e-12,
+                    "target={} θ={:?}: β=1 scaled = {}, plain = {}",
+                    target,
+                    theta,
+                    scaled,
+                    plain
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn closure_softmax_temperature_high_beta_concentrates_on_argmax() {
+        // At β=20, the largest θ wins.
+        let slots = [0_u32, 1];
+        let v_top = eval_with_slots(
+            closure_softmax_temperature_slot(1, &slots, 2),
+            vec![0.0, 5.0, 20.0],
+        );
+        assert!(v_top > 1.0 - 1e-6, "high-β softmax top = {}", v_top);
+    }
+
+    #[test]
+    fn closure_softmax_temperature_at_low_beta_is_uniform() {
+        // β=0: all exp(β·θ_i) = 1, so softmax_T(i) = 1/k.
+        let slots = [0_u32, 1];
+        let v = eval_with_slots(
+            closure_softmax_temperature_slot(0, &slots, 2),
+            vec![3.0, 7.0, 0.0],
+        );
+        assert!((v - 1.0 / 3.0).abs() < 1e-12, "softmax_T at β=0: {}", v);
+    }
+
+    #[test]
+    fn closure_softmax_temperature_probs_sum_to_one() {
+        let slots = [0_u32, 1];
+        for beta in [0.5_f64, 1.0, 2.5, 10.0] {
+            for theta in [vec![1.0_f64, -1.0], vec![-2.0, 3.0]] {
+                let mut slots_plus_beta = theta.clone();
+                slots_plus_beta.push(beta);
+                let p0 = eval_with_slots(
+                    closure_softmax_temperature_slot(0, &slots, 2),
+                    slots_plus_beta.clone(),
+                );
+                let p1 = eval_with_slots(
+                    closure_softmax_temperature_slot(1, &slots, 2),
+                    slots_plus_beta.clone(),
+                );
+                let pp = eval_with_slots(
+                    closure_softmax_temperature_pinned(&slots, 2),
+                    slots_plus_beta,
+                );
+                let sum = p0 + p1 + pp;
+                assert!(
+                    (sum - 1.0).abs() < 1e-12,
+                    "β={} θ={:?}: sum = {}",
+                    beta,
+                    theta,
+                    sum
+                );
+            }
+        }
+    }
+
+    // ── Smooth max / smooth min (iter-84) ─────────────────────────
+
+    #[test]
+    fn closure_smooth_max_at_beta_one_matches_lse() {
+        // β=1: SmoothMax(x; 1) = log Σ exp(x_i).
+        let v = eval_with_slots(closure_smooth_max(&[0, 1], 2), vec![1.0, 2.0, 1.0]);
+        let expected = (1.0_f64.exp() + 2.0_f64.exp()).ln();
+        assert!((v - expected).abs() < 1e-12, "smooth_max = {}", v);
+    }
+
+    #[test]
+    fn closure_smooth_max_at_large_beta_approaches_max() {
+        // β=50: SmoothMax(x; 50) ≈ max(x).
+        let v = eval_with_slots(
+            closure_smooth_max(&[0, 1, 2], 3),
+            vec![1.0, 3.7, -2.0, 50.0],
+        );
+        assert!(
+            (v - 3.7).abs() < 1e-2,
+            "SmoothMax({{1, 3.7, -2}}; 50) = {} should ≈ max = 3.7",
+            v
+        );
+    }
+
+    #[test]
+    fn closure_smooth_max_single_element_is_that_element() {
+        // SmoothMax([x]; β) = (1/β) · log exp(β·x) = x for any β > 0.
+        let v = eval_with_slots(closure_smooth_max(&[0], 1), vec![2.5, 3.0]);
+        assert!((v - 2.5).abs() < 1e-12, "single-element SmoothMax = {}", v);
+    }
+
+    #[test]
+    fn closure_smooth_max_is_translation_equivariant() {
+        // SmoothMax(x + c; β) = SmoothMax(x; β) + c (use slot for c offset).
+        let base = eval_with_slots(closure_smooth_max(&[0, 1], 2), vec![1.0, 2.0, 1.0]);
+        let shifted = eval_with_slots(closure_smooth_max(&[0, 1], 2), vec![6.0, 7.0, 1.0]);
+        assert!(
+            (shifted - base - 5.0).abs() < 1e-12,
+            "shift = {}",
+            shifted - base
+        );
+    }
+
+    #[test]
+    fn closure_smooth_min_at_beta_one_matches_neg_lse_of_neg() {
+        // β=1: SmoothMin(x; 1) = -log Σ exp(-x_i).
+        let v = eval_with_slots(closure_smooth_min(&[0, 1], 2), vec![1.0, 2.0, 1.0]);
+        let expected = -((-1.0_f64).exp() + (-2.0_f64).exp()).ln();
+        assert!((v - expected).abs() < 1e-12, "smooth_min = {}", v);
+    }
+
+    #[test]
+    fn closure_smooth_min_at_large_beta_approaches_min() {
+        // β=50: SmoothMin(x; 50) ≈ min(x).
+        let v = eval_with_slots(
+            closure_smooth_min(&[0, 1, 2], 3),
+            vec![1.0, 3.7, -2.0, 50.0],
+        );
+        assert!(
+            (v - (-2.0)).abs() < 1e-2,
+            "SmoothMin({{1, 3.7, -2}}; 50) = {} should ≈ min = -2",
+            v
+        );
+    }
+
+    #[test]
+    fn closure_smooth_min_negates_smooth_max_of_negated() {
+        // Algebraic identity: SmoothMin(x; β) = -SmoothMax(-x; β).
+        // Verify by constructing both via different slot vectors.
+        for beta in [1.0_f64, 2.5, 10.0] {
+            let smax = eval_with_slots(closure_smooth_max(&[0, 1], 2), vec![-1.5, 0.7, beta]);
+            let smin_of_neg =
+                eval_with_slots(closure_smooth_min(&[0, 1], 2), vec![1.5, -0.7, beta]);
+            assert!(
+                (smin_of_neg + smax).abs() < 1e-12,
+                "β={}: SmoothMin(-x) = {}; -SmoothMax(x) = {}",
+                beta,
+                smin_of_neg,
+                -smax
+            );
+        }
+    }
+
+    #[test]
+    fn closure_smooth_max_is_upper_bound_on_inputs() {
+        // SmoothMax(x; β) ≥ max(x_i) - log(k)/β (lower bound on overshoot).
+        // Test the weaker: SmoothMax(x; β) ≥ each x_i / k upper for k=2.
+        // Tighter: SmoothMax ≥ max(x) - ln(k)/β.
+        let v = eval_with_slots(closure_smooth_max(&[0, 1, 2], 3), vec![0.0, 1.0, 2.0, 5.0]);
+        let max_inp = 2.0_f64;
+        let bound_low = max_inp;
+        let bound_high = max_inp + (3.0_f64.ln()) / 5.0;
+        assert!(
+            v >= bound_low - 1e-9 && v <= bound_high + 1e-9,
+            "SmoothMax = {} should be in [{}, {}]",
+            v,
+            bound_low,
+            bound_high
+        );
+    }
+
+    // ── closure_softplus_scaled (iter-169) ────────────────────────
+
+    #[test]
+    fn closure_softplus_scaled_at_beta_one_matches_softplus() {
+        for x in [-2.0_f64, -0.5, 0.0, 0.5, 2.0] {
+            let scaled = eval_with_slots(closure_softplus_scaled(0, 1), vec![x, 1.0]);
+            let plain = eval_with_slots(closure_softplus(0), vec![x]);
+            assert!(
+                (scaled - plain).abs() < 1e-12,
+                "softplus_β=1({}) = {}; softplus = {}",
+                x,
+                scaled,
+                plain
+            );
+        }
+    }
+
+    #[test]
+    fn closure_softplus_scaled_large_beta_approaches_relu() {
+        // At β=50, softplus_β(x) ≈ max(0, x).
+        let v_pos = eval_with_slots(closure_softplus_scaled(0, 1), vec![1.0, 50.0]);
+        let v_neg = eval_with_slots(closure_softplus_scaled(0, 1), vec![-1.0, 50.0]);
+        assert!((v_pos - 1.0).abs() < 1e-3, "softplus_50(1) = {}", v_pos);
+        assert!(v_neg.abs() < 1e-3, "softplus_50(-1) = {}", v_neg);
+    }
+
+    #[test]
+    fn closure_softplus_scaled_positive_for_all_inputs() {
+        for x in [-10.0_f64, -1.0, 0.0, 1.0, 10.0] {
+            for beta in [0.5_f64, 1.0, 5.0] {
+                let v = eval_with_slots(closure_softplus_scaled(0, 1), vec![x, beta]);
+                assert!(v > -1e-12, "softplus({}, β={}) = {}", x, beta, v);
+            }
+        }
+    }
+
+    // ── Scaled sigmoid / β-Swish / GELU (iter-83) ─────────────────
+
+    #[test]
+    fn closure_sigmoid_scaled_at_beta_one_matches_sigmoid() {
+        for x in [-3.0_f64, -0.5, 0.0, 0.5, 3.0] {
+            let scaled = eval_with_slots(closure_sigmoid_scaled(0, 1), vec![x, 1.0]);
+            let plain = eval_with_slots(closure_sigmoid(0), vec![x]);
+            assert!(
+                (scaled - plain).abs() < 1e-12,
+                "σ_1({}) = {}; σ = {}",
+                x,
+                scaled,
+                plain
+            );
+        }
+    }
+
+    #[test]
+    fn closure_sigmoid_scaled_at_beta_zero_is_half() {
+        // σ_0(x) = 1 / (1 + exp(0)) = 0.5 for any x.
+        for x in [-5.0_f64, 0.0, 5.0] {
+            let v = eval_with_slots(closure_sigmoid_scaled(0, 1), vec![x, 0.0]);
+            assert!((v - 0.5).abs() < 1e-12, "σ_0({}) = {}", x, v);
+        }
+    }
+
+    #[test]
+    fn closure_sigmoid_scaled_large_beta_sharpens() {
+        // At β=10, σ_β(x) is much sharper around 0.
+        let v_pos = eval_with_slots(closure_sigmoid_scaled(0, 1), vec![0.5, 10.0]);
+        let v_neg = eval_with_slots(closure_sigmoid_scaled(0, 1), vec![-0.5, 10.0]);
+        assert!(v_pos > 0.99, "σ_10(0.5) = {} should be ≈ 1", v_pos);
+        assert!(v_neg < 0.01, "σ_10(-0.5) = {} should be ≈ 0", v_neg);
+    }
+
+    #[test]
+    fn closure_swish_scaled_at_beta_one_matches_swish() {
+        for x in [-2.0_f64, -0.5, 0.0, 0.5, 2.0] {
+            let scaled = eval_with_slots(closure_swish_scaled(0, 1), vec![x, 1.0]);
+            let plain = eval_with_slots(closure_swish(0), vec![x]);
+            assert!(
+                (scaled - plain).abs() < 1e-12,
+                "swish_1({}) = {}; swish = {}",
+                x,
+                scaled,
+                plain
+            );
+        }
+    }
+
+    #[test]
+    fn closure_swish_scaled_beta_two_is_double_input_swish() {
+        // swish_2(x) = x · σ(2x).
+        for x in [-1.5_f64, 0.5, 2.0] {
+            let v = eval_with_slots(closure_swish_scaled(0, 1), vec![x, 2.0]);
+            let expected = x / (1.0 + (-2.0 * x).exp());
+            assert!(
+                (v - expected).abs() < 1e-12,
+                "swish_2({}) = {}; expected {}",
+                x,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_gelu_sigmoid_approx_matches_hendrycks_form() {
+        // GELU(x) ≈ x · σ(1.702 · x). Hendrycks & Gimpel 2016.
+        for x in [-3.0_f64, -1.0, -0.5, 0.0, 0.5, 1.0, 3.0] {
+            let v = eval_with_slots(closure_gelu_sigmoid_approx(0, 1), vec![x, 1.702]);
+            let expected = x / (1.0 + (-1.702 * x).exp());
+            assert!(
+                (v - expected).abs() < 1e-12,
+                "GELU_approx({}) = {}; expected {}",
+                x,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_gelu_sigmoid_approx_at_zero_is_zero() {
+        let v = eval_with_slots(closure_gelu_sigmoid_approx(0, 1), vec![0.0, 1.702]);
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_gelu_sigmoid_approx_close_to_true_gelu_for_large_inputs() {
+        // For |x| large, both GELU forms saturate (GELU(x) → x for
+        // x ≫ 0, GELU(x) → 0 for x ≪ 0). At x=±10 with c=1.702,
+        // σ(±17) is within 1e-7 of {1, 0}, well under the asymptote.
+        let v_pos = eval_with_slots(closure_gelu_sigmoid_approx(0, 1), vec![10.0, 1.702]);
+        let v_neg = eval_with_slots(closure_gelu_sigmoid_approx(0, 1), vec![-10.0, 1.702]);
+        assert!((v_pos - 10.0).abs() < 1e-5, "GELU(10) ≈ {}", v_pos);
+        assert!(v_neg.abs() < 1e-5, "GELU(-10) ≈ {}", v_neg);
+    }
+
+    // ── Entropy primitives (iter-82) ──────────────────────────────
+
+    #[test]
+    fn closure_entropy_bernoulli_at_zero_is_ln_2() {
+        // At θ=0, σ=0.5, so H = -0.5·log 0.5 - 0.5·log 0.5 = ln 2.
+        let h = eval_with_slots(closure_entropy_bernoulli(0), vec![0.0]);
+        assert!((h - 2.0_f64.ln()).abs() < 1e-12, "H(B(0.5)) = {}", h);
+    }
+
+    #[test]
+    fn closure_entropy_bernoulli_is_non_negative() {
+        for theta in [-5.0_f64, -1.0, -0.3, 0.0, 0.3, 1.0, 5.0] {
+            let h = eval_with_slots(closure_entropy_bernoulli(0), vec![theta]);
+            assert!(h >= -1e-12, "H({}) = {} (must be ≥ 0)", theta, h);
+        }
+    }
+
+    #[test]
+    fn closure_entropy_bernoulli_max_at_zero() {
+        // Concave with maximum at θ=0 (where p=0.5).
+        let h_neg2 = eval_with_slots(closure_entropy_bernoulli(0), vec![-2.0]);
+        let h_zero = eval_with_slots(closure_entropy_bernoulli(0), vec![0.0]);
+        let h_pos2 = eval_with_slots(closure_entropy_bernoulli(0), vec![2.0]);
+        assert!(h_zero > h_neg2);
+        assert!(h_zero > h_pos2);
+    }
+
+    #[test]
+    fn closure_entropy_bernoulli_saturates_to_zero() {
+        // H → 0 as θ → ±∞ (one outcome becomes certain).
+        let h_large = eval_with_slots(closure_entropy_bernoulli(0), vec![10.0]);
+        let h_small = eval_with_slots(closure_entropy_bernoulli(0), vec![-10.0]);
+        assert!(h_large < 1e-3, "H(10) = {} should be near 0", h_large);
+        assert!(h_small < 1e-3, "H(-10) = {} should be near 0", h_small);
+    }
+
+    #[test]
+    fn closure_entropy_bernoulli_matches_direct_computation() {
+        // H = -p log p - (1-p) log(1-p).
+        for theta in [-2.0_f64, -0.5, 0.5, 2.0] {
+            let h = eval_with_slots(closure_entropy_bernoulli(0), vec![theta]);
+            let p = 1.0 / (1.0 + (-theta).exp());
+            let expected = -p * p.ln() - (1.0 - p) * (1.0 - p).ln();
+            assert!(
+                (h - expected).abs() < 1e-12,
+                "H({}) = {}; expected {}",
+                theta,
+                h,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_entropy_categorical_at_zero_is_ln_k() {
+        // Uniform distribution: H = ln k.
+        let h_k3 = eval_with_slots(closure_entropy_categorical(&[0, 1]), vec![0.0, 0.0]);
+        assert!(
+            (h_k3 - 3.0_f64.ln()).abs() < 1e-12,
+            "H_uniform(k=3) = {}",
+            h_k3
+        );
+
+        let h_k4 = eval_with_slots(closure_entropy_categorical(&[0, 1, 2]), vec![0.0, 0.0, 0.0]);
+        assert!(
+            (h_k4 - 4.0_f64.ln()).abs() < 1e-12,
+            "H_uniform(k=4) = {}",
+            h_k4
+        );
+    }
+
+    #[test]
+    fn closure_entropy_categorical_is_non_negative() {
+        for theta in [
+            vec![0.0_f64, 0.0],
+            vec![1.0, -1.0],
+            vec![-2.0, 3.0],
+            vec![5.0, 5.0],
+        ] {
+            let h = eval_with_slots(closure_entropy_categorical(&[0, 1]), theta.clone());
+            assert!(h >= -1e-12, "H({:?}) = {} (must be ≥ 0)", theta, h);
+        }
+    }
+
+    #[test]
+    fn closure_entropy_categorical_k2_matches_bernoulli() {
+        // For k=2, Categorical entropy ≡ Bernoulli entropy.
+        for theta in [-2.0_f64, -0.5, 0.0, 0.7, 3.0] {
+            let h_cat = eval_with_slots(closure_entropy_categorical(&[0]), vec![theta]);
+            let h_bern = eval_with_slots(closure_entropy_bernoulli(0), vec![theta]);
+            assert!(
+                (h_cat - h_bern).abs() < 1e-12,
+                "Cat_k=2({}) = {}; Bern = {}",
+                theta,
+                h_cat,
+                h_bern
+            );
+        }
+    }
+
+    #[test]
+    fn closure_entropy_categorical_matches_direct_computation() {
+        // H = -Σ p_i log p_i over the full simplex (including pinned).
+        let slots = [0_u32, 1];
+        let cases = [
+            vec![0.0_f64, 0.0],
+            vec![1.0, -1.0],
+            vec![-0.5, 0.5],
+            vec![2.0, 1.0],
+        ];
+        for theta in &cases {
+            let h_eml = eval_with_slots(closure_entropy_categorical(&slots), theta.clone());
+
+            // Compute softmax probabilities directly.
+            let logits = std::iter::once(0.0_f64).chain(theta.iter().copied());
+            let max_logit = logits.clone().fold(f64::NEG_INFINITY, f64::max);
+            let exp_shifted: Vec<f64> = logits.map(|l| (l - max_logit).exp()).collect();
+            let z: f64 = exp_shifted.iter().sum();
+            let probs: Vec<f64> = exp_shifted.iter().map(|e| e / z).collect();
+            let h_direct: f64 = probs.iter().map(|p| -p * p.ln()).sum();
+
+            assert!(
+                (h_eml - h_direct).abs() < 1e-10,
+                "H({:?}) eml={} direct={}",
+                theta,
+                h_eml,
+                h_direct
+            );
+        }
+    }
+
+    // ── Gated Linear Units (iter-81) ──────────────────────────────
+
+    #[test]
+    fn closure_glu_at_zero_gate_is_half_x() {
+        // GLU(x, 0) = x · σ(0) = x · 0.5 = x/2.
+        for x in [-3.0_f64, -0.5, 1.0, 4.0] {
+            let v = eval_with_slots(closure_glu(0, 1), vec![x, 0.0]);
+            assert!((v - 0.5 * x).abs() < 1e-12, "GLU({}, 0) = {}", x, v);
+        }
+    }
+
+    #[test]
+    fn closure_glu_with_large_positive_gate_passes_through() {
+        // GLU(x, g→∞) → x.
+        for x in [-2.0_f64, 0.5, 3.0] {
+            let v = eval_with_slots(closure_glu(0, 1), vec![x, 20.0]);
+            assert!((v - x).abs() < 1e-6, "GLU({}, 20) = {}", x, v);
+        }
+    }
+
+    #[test]
+    fn closure_glu_with_large_negative_gate_zeros_out() {
+        // GLU(x, g→-∞) → 0.
+        for x in [-2.0_f64, 0.5, 3.0] {
+            let v = eval_with_slots(closure_glu(0, 1), vec![x, -20.0]);
+            assert!(v.abs() < 1e-6, "GLU({}, -20) = {}", x, v);
+        }
+    }
+
+    #[test]
+    fn closure_swiglu_matches_x_times_swish_gate() {
+        // SwiGLU(x, g) ≡ x · swish(g).
+        for x in [-2.0_f64, 0.0, 1.0, 3.0] {
+            for g in [-3.0_f64, 0.0, 1.0, 3.0] {
+                let v = eval_with_slots(closure_swiglu(0, 1), vec![x, g]);
+                let swish_g = eval_with_slots(closure_swish(0), vec![g]);
+                let expected = x * swish_g;
+                assert!(
+                    (v - expected).abs() < 1e-12,
+                    "SwiGLU({}, {}) = {}; x·swish(g) = {}",
+                    x,
+                    g,
+                    v,
+                    expected
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn closure_swiglu_at_zero_gate_is_zero() {
+        // swish(0) = 0, so SwiGLU(x, 0) = 0 for any x.
+        for x in [-2.0_f64, 1.0, 4.0] {
+            let v = eval_with_slots(closure_swiglu(0, 1), vec![x, 0.0]);
+            assert!(v.abs() < 1e-12, "SwiGLU({}, 0) = {}", x, v);
+        }
+    }
+
+    #[test]
+    fn closure_reglu_matches_x_times_softplus_gate() {
+        // ReGLU(x, g) ≡ x · softplus(g).
+        for x in [-2.0_f64, 0.0, 1.0, 3.0] {
+            for g in [-3.0_f64, 0.0, 1.0, 3.0] {
+                let v = eval_with_slots(closure_reglu(0, 1), vec![x, g]);
+                let sp_g = (1.0_f64 + g.exp()).ln();
+                let expected = x * sp_g;
+                assert!(
+                    (v - expected).abs() < 1e-12,
+                    "ReGLU({}, {}) = {}; x·softplus(g) = {}",
+                    x,
+                    g,
+                    v,
+                    expected
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn closure_reglu_with_large_negative_gate_zeros_out() {
+        // softplus(-∞) → 0, so ReGLU(x, -∞) → 0.
+        for x in [-2.0_f64, 1.0, 4.0] {
+            let v = eval_with_slots(closure_reglu(0, 1), vec![x, -20.0]);
+            assert!(v.abs() < 1e-6, "ReGLU({}, -20) = {}", x, v);
+        }
+    }
+
+    #[test]
+    fn closure_glu_swiglu_reglu_distinguish_on_unit_input() {
+        // x=1, g=1: each gate produces a different value.
+        let glu = eval_with_slots(closure_glu(0, 1), vec![1.0, 1.0]);
+        let swiglu = eval_with_slots(closure_swiglu(0, 1), vec![1.0, 1.0]);
+        let reglu = eval_with_slots(closure_reglu(0, 1), vec![1.0, 1.0]);
+
+        // GLU(1, 1) = σ(1) ≈ 0.731
+        // SwiGLU(1, 1) = 1 · swish(1) = 1·σ(1) ≈ 0.731
+        // ReGLU(1, 1) = softplus(1) ≈ 1.313
+        assert!((glu - 0.7310585786300049).abs() < 1e-10);
+        assert!((swiglu - 0.7310585786300049).abs() < 1e-10);
+        assert!((reglu - 1.3132616875182228).abs() < 1e-10);
+
+        // GLU ≡ SwiGLU only when x=1 (since swish(g) = σ(g) · g, and
+        // at x=1 the equality fails for g ≠ 1, but at x=g=1 the
+        // values happen to coincide because swish(1) = σ(1)·1 = σ(1)).
+        assert!((glu - swiglu).abs() < 1e-10);
+        // ReGLU diverges from both.
+        assert!(reglu > glu);
+    }
+
+    // ── Modern transformer activations (iter-80) ──────────────────
+
+    #[test]
+    fn closure_swish_at_zero_is_zero() {
+        let v = eval_with_slots(closure_swish(0), vec![0.0]);
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_swish_matches_x_times_sigmoid() {
+        // swish(x) = x · σ(x) — compare against numerical sigmoid.
+        for x in [-3.0_f64, -1.0, -0.5, 0.0, 0.5, 1.0, 3.0] {
+            let v = eval_with_slots(closure_swish(0), vec![x]);
+            let expected = x / (1.0 + (-x).exp());
+            assert!(
+                (v - expected).abs() < 1e-12,
+                "swish({}) = {}; expected {}",
+                x,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_swish_saturates_to_x_for_large_positive() {
+        // swish(x) → x as x → ∞.
+        let v = eval_with_slots(closure_swish(0), vec![20.0]);
+        assert!((v - 20.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn closure_swish_saturates_to_zero_for_large_negative() {
+        // swish(x) → 0 as x → -∞.
+        let v = eval_with_slots(closure_swish(0), vec![-20.0]);
+        assert!(v.abs() < 1e-6);
+    }
+
+    #[test]
+    fn closure_silu_is_swish_alias() {
+        // Numerical equality across a grid.
+        for x in [-2.0_f64, -0.3, 0.0, 0.3, 2.0] {
+            let s = eval_with_slots(closure_swish(0), vec![x]);
+            let u = eval_with_slots(closure_silu(0), vec![x]);
+            assert!((s - u).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn closure_mish_at_zero_is_zero() {
+        let v = eval_with_slots(closure_mish(0), vec![0.0]);
+        assert!(v.abs() < 1e-12);
+    }
+
+    #[test]
+    fn closure_mish_matches_x_tanh_softplus_grid() {
+        // Reference computation: mish(x) = x · tanh(softplus(x))
+        // with softplus and tanh from std.
+        let softplus = |x: f64| (1.0 + x.exp()).ln();
+        let tanh = |x: f64| x.tanh();
+        for x in [-3.0_f64, -1.0, -0.25, 0.0, 0.25, 1.0, 3.0] {
+            let v = eval_with_slots(closure_mish(0), vec![x]);
+            let expected = x * tanh(softplus(x));
+            assert!(
+                (v - expected).abs() < 1e-10,
+                "mish({}) = {}; expected {}",
+                x,
+                v,
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn closure_mish_saturates_to_x_for_large_positive() {
+        let v = eval_with_slots(closure_mish(0), vec![10.0]);
+        assert!((v - 10.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn closure_smooth_relu_is_softplus_alias() {
+        for x in [-2.0_f64, 0.0, 1.0, 3.0] {
+            let s = eval_with_slots(closure_softplus(0), vec![x]);
+            let r = eval_with_slots(closure_smooth_relu(0), vec![x]);
+            assert!((s - r).abs() < 1e-12);
+        }
+    }
+
+    // ── Cross-entropy / NLL primitives (iter-79) ──────────────────
+
+    #[test]
+    fn closure_cross_entropy_bernoulli_at_target_1_is_softplus_neg() {
+        // y=1 → CE = softplus(-θ).
+        for theta in [-3.0_f64, -0.5, 0.0, 0.7, 3.0] {
+            let ce = eval_with_slots(closure_cross_entropy_bernoulli(0, 1), vec![1.0, theta]);
+            // softplus(-θ) computed directly:
+            let sp_neg = (1.0_f64 + (-theta).exp()).ln();
+            assert!(
+                (ce - sp_neg).abs() < 1e-12,
+                "CE(y=1, θ={}) = {}; softplus(-θ) = {}",
+                theta,
+                ce,
+                sp_neg
+            );
+        }
+    }
+
+    #[test]
+    fn closure_cross_entropy_bernoulli_at_target_0_is_softplus_pos() {
+        // y=0 → CE = softplus(θ).
+        for theta in [-3.0_f64, -0.5, 0.0, 0.7, 3.0] {
+            let ce = eval_with_slots(closure_cross_entropy_bernoulli(0, 1), vec![0.0, theta]);
+            let sp_pos = (1.0_f64 + theta.exp()).ln();
+            assert!(
+                (ce - sp_pos).abs() < 1e-12,
+                "CE(y=0, θ={}) = {}; softplus(θ) = {}",
+                theta,
+                ce,
+                sp_pos
+            );
+        }
+    }
+
+    #[test]
+    fn closure_cross_entropy_bernoulli_is_non_negative() {
+        // CE ≥ 0 for any y ∈ [0,1] and θ ∈ ℝ.
+        let cases = [
+            (1.0_f64, 0.0),
+            (0.0, 1.0),
+            (0.5, 0.0),
+            (0.7, 2.0),
+            (0.3, -2.0),
+            (1.0, 10.0), // confident-correct: CE ≈ 0
+            (0.0, -10.0),
+        ];
+        for (y, theta) in cases {
+            let ce = eval_with_slots(closure_cross_entropy_bernoulli(0, 1), vec![y, theta]);
+            assert!(
+                ce >= -1e-12,
+                "CE(y={}, θ={}) = {} (must be ≥ 0)",
+                y,
+                theta,
+                ce
+            );
+        }
+    }
+
+    #[test]
+    fn closure_cross_entropy_bernoulli_matches_log_prob_decomposition() {
+        // CE(y, θ) = -y·log P(X=1; θ) - (1-y)·log P(X=0; θ).
+        for y in [0.0_f64, 0.3, 0.5, 0.7, 1.0] {
+            for theta in [-2.0_f64, 0.0, 1.0] {
+                let ce = eval_with_slots(closure_cross_entropy_bernoulli(0, 1), vec![y, theta]);
+                let lp1 = eval_with_slots(closure_bernoulli_log_prob_one(0), vec![theta]);
+                let lp0 = eval_with_slots(closure_bernoulli_log_prob_zero(0), vec![theta]);
+                let expected = -y * lp1 - (1.0 - y) * lp0;
+                assert!(
+                    (ce - expected).abs() < 1e-12,
+                    "CE(y={}, θ={}) = {}; -y·logP1 - (1-y)·logP0 = {}",
+                    y,
+                    theta,
+                    ce,
+                    expected
+                );
+            }
+        }
+    }
+
+    // ── closure_cross_entropy_bernoulli_of (iter-421) ─────────────
+
+    #[test]
+    fn closure_cross_entropy_bernoulli_of_on_slots_matches_slot_form() {
+        let of_form =
+            closure_cross_entropy_bernoulli_of(EmlClosureExpr::slot(0), EmlClosureExpr::slot(1));
+        let slot_form = closure_cross_entropy_bernoulli(0, 1);
+        for (y, theta) in [(0.0_f64, 0.5), (1.0, -1.0), (0.5, 0.0), (0.3, 2.0)] {
+            let v_of = eval_with_slots(of_form.clone(), vec![y, theta]);
+            let v_slot = eval_with_slots(slot_form.clone(), vec![y, theta]);
+            assert!((v_of - v_slot).abs() < 1e-9, "(y, θ) = ({}, {})", y, theta);
+        }
+    }
+
+    #[test]
+    fn closure_cross_entropy_bernoulli_of_with_computed_logit() {
+        // CE(y=1, θ = w·x + b) at (x=2, w=3, b=−5, y=1) → CE(1, 1).
+        // CE(1, 1) = softplus(−1) = ln(1 + e^−1).
+        let logit = EmlClosureExpr::plus(
+            closure_mul(EmlClosureExpr::slot(2), EmlClosureExpr::slot(1)),
+            EmlClosureExpr::slot(3),
+        );
+        let e = closure_cross_entropy_bernoulli_of(EmlClosureExpr::slot(0), logit);
+        let v = eval_with_slots(e, vec![1.0, 3.0, 2.0, -5.0]);
+        let expected = (1.0 + (-1.0_f64).exp()).ln();
+        assert!((v - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn closure_nll_categorical_slot_at_uniform_is_ln_k() {
+        // At θ=0, NLL for any class = -log(1/k) = ln(k).
+        let slots = [0_u32, 1];
+        let nll = eval_with_slots(
+            closure_neg_log_likelihood_categorical_slot(0, &slots),
+            vec![0.0, 0.0],
+        );
+        assert!(
+            (nll - 3.0_f64.ln()).abs() < 1e-12,
+            "NLL = {} for k=3 uniform",
+            nll
+        );
+    }
+
+    #[test]
+    fn closure_nll_categorical_pinned_at_uniform_is_ln_k() {
+        let slots = [0_u32, 1];
+        let nll = eval_with_slots(
+            closure_neg_log_likelihood_categorical_pinned(&slots),
+            vec![0.0, 0.0],
+        );
+        assert!(
+            (nll - 3.0_f64.ln()).abs() < 1e-12,
+            "pinned NLL = {} at uniform",
+            nll
+        );
+    }
+
+    #[test]
+    fn closure_nll_categorical_decreases_with_target_logit() {
+        // NLL(target, θ) decreases monotonically as θ_target increases.
+        let slots = [0_u32, 1];
+        let nll_low = eval_with_slots(
+            closure_neg_log_likelihood_categorical_slot(0, &slots),
+            vec![-2.0, 0.0],
+        );
+        let nll_mid = eval_with_slots(
+            closure_neg_log_likelihood_categorical_slot(0, &slots),
+            vec![0.0, 0.0],
+        );
+        let nll_high = eval_with_slots(
+            closure_neg_log_likelihood_categorical_slot(0, &slots),
+            vec![3.0, 0.0],
+        );
+        assert!(nll_low > nll_mid);
+        assert!(nll_mid > nll_high);
+        assert!(nll_high > 0.0);
+    }
+
+    #[test]
+    fn closure_nll_categorical_matches_neg_log_prob() {
+        // NLL ≡ -log P for each class slot.
+        let slots = [0_u32, 1];
+        for theta in [vec![1.0_f64, -1.0], vec![0.0, 0.0], vec![-2.0, 3.0]] {
+            for &slot in &slots {
+                let nll = eval_with_slots(
+                    closure_neg_log_likelihood_categorical_slot(slot, &slots),
+                    theta.clone(),
+                );
+                let lp = eval_with_slots(
+                    closure_categorical_log_prob_slot(slot, &slots),
+                    theta.clone(),
+                );
+                assert!(
+                    (nll + lp).abs() < 1e-12,
+                    "slot {} at {:?}: NLL = {}, -log P = {}",
+                    slot,
+                    theta,
+                    nll,
+                    -lp
+                );
+            }
+        }
+    }
+
+    // ── Gaussian KL via EML (iter-77) ─────────────────────────────
+
+    #[test]
+    fn closure_kl_gaussian_reflexivity_distinct_slots() {
+        // KL(p, p) = 0 with p_slot and q_slot distinct but holding
+        // the same value.
+        let kl = eval_with_slots(closure_kl_gaussian(0, 1, 2), vec![1.5, 1.5, 2.0]);
+        assert!(kl.abs() < 1e-12, "KL(p, p) = {} (should be 0)", kl);
+    }
+
+    #[test]
+    fn closure_kl_gaussian_non_negative() {
+        // Gibbs' inequality.
+        let cases = [
+            (0.0_f64, 1.0, 1.0),
+            (1.0, 0.0, 1.0),
+            (-1.0, 2.0, 0.5),
+            (2.0, -2.0, 2.0),
+            (0.3, -0.7, 4.0),
+        ];
+        for (p, q, sigma2) in cases {
+            let kl = eval_with_slots(closure_kl_gaussian(0, 1, 2), vec![p, q, sigma2]);
+            assert!(
+                kl >= -1e-12,
+                "KL(p={}, q={}, σ²={}) = {} (must be ≥ 0)",
+                p,
+                q,
+                sigma2,
+                kl
+            );
+        }
+    }
+
+    #[test]
+    fn closure_kl_gaussian_closed_form_squared_distance() {
+        // Gaussian Bregman simplifies to (σ²/2)·(p-q)².
+        for sigma2 in [0.5_f64, 1.0, 2.0] {
+            for (p, q) in [(1.0_f64, 0.0), (-1.0, 2.0), (3.0, 0.5), (-0.5, -1.5)] {
+                let via_eml = eval_with_slots(closure_kl_gaussian(0, 1, 2), vec![p, q, sigma2]);
+                let expected = 0.5 * sigma2 * (p - q).powi(2);
+                assert!(
+                    (via_eml - expected).abs() < 1e-12,
+                    "KL(p={}, q={}, σ²={}) = {}; expected (σ²/2)(p-q)² = {}",
+                    p,
+                    q,
+                    sigma2,
+                    via_eml,
+                    expected
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn closure_kl_gaussian_matches_info_ir() {
+        use super::super::super::info_ir::{kl_divergence, ExpFamily};
+
+        for variance in [0.5_f64, 1.0, 1.5, 2.0, 4.0] {
+            let cases = [
+                (1.0_f64, 0.0),
+                (0.0, 1.0),
+                (-1.0, 2.0),
+                (2.0, -2.0),
+                (0.5, -0.5),
+                (3.0, 1.0),
+            ];
+            for (p, q) in cases {
+                let via_eml = eval_with_slots(closure_kl_gaussian(0, 1, 2), vec![p, q, variance]);
+                let via_info = kl_divergence(&ExpFamily::Gaussian { variance }, &[p], &[q]);
+                assert!(
+                    (via_eml - via_info).abs() < 1e-10,
+                    "KL(p={}, q={}, σ²={}): eml={} info={}",
+                    p,
+                    q,
+                    variance,
+                    via_eml,
+                    via_info
+                );
+            }
+        }
+    }
+
+    // ── Gaussian dual_map via EML (iter-76) ───────────────────────
+
+    #[test]
+    fn closure_gaussian_dual_map_at_theta_zero_is_zero() {
+        for sigma2 in [0.5_f64, 1.0, 2.0] {
+            let v = eval_with_slots(closure_gaussian_dual_map(0, 1), vec![0.0, sigma2]);
+            assert_eq!(v, 0.0);
+        }
+    }
+
+    #[test]
+    fn closure_gaussian_dual_map_unit_variance_is_identity() {
+        // σ² = 1: η = θ.
+        for theta in [-3.0_f64, -1.0, 0.0, 0.5, 2.0] {
+            let v = eval_with_slots(closure_gaussian_dual_map(0, 1), vec![theta, 1.0]);
+            assert!((v - theta).abs() < 1e-12, "η = {} for θ = {}", v, theta);
+        }
+    }
+
+    #[test]
+    fn closure_gaussian_dual_map_is_linear_in_theta() {
+        // η(αθ; σ²) = α · η(θ; σ²). Linearity follows from η = σ²θ.
+        let sigma2 = 1.5_f64;
+        let theta = 0.7_f64;
+        let base = eval_with_slots(closure_gaussian_dual_map(0, 1), vec![theta, sigma2]);
+        for alpha in [0.0_f64, 0.5, 2.0, -3.0] {
+            let scaled =
+                eval_with_slots(closure_gaussian_dual_map(0, 1), vec![alpha * theta, sigma2]);
+            assert!(
+                (scaled - alpha * base).abs() < 1e-12,
+                "η({}·θ) = {}; α·η(θ) = {}",
+                alpha,
+                scaled,
+                alpha * base
+            );
+        }
+    }
+
+    #[test]
+    fn closure_gaussian_dual_map_matches_info_ir() {
+        use super::super::super::info_ir::{dual_map, ExpFamily};
+
+        for variance in [0.5_f64, 1.0, 2.0, 4.0] {
+            for theta in [-3.0_f64, -1.0, 0.0, 0.5, 2.0, 3.0] {
+                let via_eml =
+                    eval_with_slots(closure_gaussian_dual_map(0, 1), vec![theta, variance]);
+                let via_info = dual_map(&ExpFamily::Gaussian { variance }, &[theta]);
+                assert!(
+                    (via_eml - via_info[0]).abs() < 1e-12,
+                    "η(θ={}, σ²={}): eml={} info={}",
+                    theta,
+                    variance,
+                    via_eml,
+                    via_info[0]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn closure_gaussian_log_partition_matches_info_ir() {
+        use super::super::super::info_ir::{log_partition, ExpFamily};
+
+        for variance in [0.5_f64, 1.0, 1.5, 2.0, 4.0] {
+            for theta in [-3.0_f64, -1.0, -0.5, 0.0, 0.25, 1.0, 3.0] {
+                let via_eml =
+                    eval_with_slots(closure_gaussian_log_partition(0, 1), vec![theta, variance]);
+                let via_info = log_partition(&ExpFamily::Gaussian { variance }, &[theta]);
+                assert!(
+                    (via_eml - via_info).abs() < 1e-12,
+                    "A(θ={}, σ²={}): eml={} info={}",
+                    theta,
+                    variance,
+                    via_eml,
+                    via_info
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn closure_categorical_softmax_saturates() {
+        // At large positive θ_0 only, slot 0 → 1 and pinned → 0.
+        let p0 = eval_with_slots(closure_categorical_softmax_slot(0, &[0]), vec![20.0]);
+        let pp = eval_with_slots(closure_categorical_softmax_pinned(&[0]), vec![20.0]);
+        assert!(p0 > 1.0 - 1e-8);
+        assert!(pp < 1e-8);
+    }
+
+    #[test]
+    fn closure_lse_matches_hand_built_from_iter_63() {
+        // Iter-63 built lse(a, b) manually; the helper with two
+        // closure_exp args should produce the same tree.
+        let hand = {
+            let zero = EmlClosureExpr::minus(EmlClosureExpr::one(), EmlClosureExpr::one());
+            let exp_a = EmlClosureExpr::eml(EmlClosureExpr::slot(0), EmlClosureExpr::one());
+            let exp_b = EmlClosureExpr::eml(EmlClosureExpr::slot(1), EmlClosureExpr::one());
+            let sum = EmlClosureExpr::plus(exp_a, exp_b);
+            let eml_zero_sum = EmlClosureExpr::eml(zero, sum);
+            EmlClosureExpr::minus(EmlClosureExpr::one(), eml_zero_sum)
+        };
+        let helper = closure_lse(vec![closure_exp(0), closure_exp(1)]);
+        assert_eq!(hand, helper);
+    }
+}

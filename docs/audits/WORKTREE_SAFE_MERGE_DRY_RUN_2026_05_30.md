@@ -153,3 +153,55 @@ provider policy remains fail-closed until live MLX/GGUF is bound
 AnswerPacket provenance remains required
 lightweight Swift/Rust checks only unless user allows app build
 ```
+
+## Salvage Port 1 - T5 EML Closure Slice
+
+Status: **ported surgically; branch still donor-only.**
+
+Source branch:
+
+```text
+codex/t5-emlir-2026-05-16
+```
+
+Ported only additive EML research files, not the stale app/UI/project surfaces:
+
+```text
+agent_core/src/research/eml/branched.rs
+agent_core/src/research/eml/certificate.rs
+agent_core/src/research/eml/closure.rs
+agent_core/src/research/eml/closure_builders.rs
+agent_core/src/research/eml/normalize.rs
+agent_core/tests/cross_ir_attention_via_closure.rs
+agent_core/tests/cross_ir_info_to_eml.rs
+agent_core/tests/cross_ir_tropical_to_eml.rs
+agent_core/tests/eml_ir_corpus_round_trip.rs
+```
+
+Current `agent_core/src/research/eml/mod.rs` was patched by hand so the newer
+current ULP gate stays intact while the donor closure / normalization /
+certificate surface becomes callable.
+
+Verification:
+
+```text
+cargo test --manifest-path agent_core/Cargo.toml --features research \
+  --test eml_ir_corpus_round_trip \
+  --test cross_ir_attention_via_closure \
+  --test cross_ir_info_to_eml \
+  --test cross_ir_tropical_to_eml
+
+29 passed; 0 failed
+
+cargo test --manifest-path agent_core/Cargo.toml --features research \
+  research::eml:: --lib
+
+579 passed; 0 failed; 8168 filtered out
+```
+
+Not done by this port:
+
+- no Lean files copied yet;
+- no `research_custody/` files copied yet;
+- no old LandingWave / app UI files resurrected;
+- no branch merge, checkout, or Xcode project rewrite.
