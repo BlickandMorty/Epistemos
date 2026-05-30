@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "ba6f15e6fb08c772c5bbce4d303aff864f39e9c2",
+  "commit_sha": "2bf3ff4e87cefbc97381fb6f4aafa33a1fb6563d",
   "fixture_id": "provider_reference_manifest_shape_only_v1",
-  "timestamp_utc": "2026-05-30T10:51:28Z",
-  "result_digest": "sha256:ee50be2ad602297a720b3e3065c398b491ad7820d5ad9268496b41b2ccbfc878",
+  "timestamp_utc": "2026-05-30T12:35:34Z",
+  "result_digest": "sha256:2ed7455844f3e9ff07f96fea37f9c4b0aeb9d4b3a254e8635a0c62612a41cf08",
   "measurements": {
     "digest_matches_sidecar": {
       "value": true,
@@ -64,6 +64,10 @@
     "prompt_suite_sha256": {
       "value": "sha256:5892577b40c971665b0a251e1472d6f40d8f165ca6e1266f7fc15efd10e522a1",
       "unit": "sha256"
+    },
+    "replay_files_valid": {
+      "value": true,
+      "unit": "bool"
     },
     "row_root_path": {
       "value": true,
@@ -109,6 +113,11 @@
       "value": true,
       "unit": "bool"
     },
+    "replay_files_valid": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "row_root_path": {
       "operator": "==",
       "value": true,
@@ -127,6 +136,7 @@
     "no_provider_call": true,
     "prompt_level_reference": true,
     "prompt_suite_bound": true,
+    "replay_files_valid": true,
     "row_root_path": true,
     "shape_fixture_written": true
   },

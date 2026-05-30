@@ -26,6 +26,11 @@ The manifest validates as a `ProviderReferenceManifest`, but its
 `evidence_scope` is `shape_only_fixture`, so the 70B preflight must not count it
 as a prompt-level fp16/provider reference.
 
+The gate also re-opens the retained sidecar and prompt-suite files and checks
+their bytes against the declared `sha256:<64hex>` digests. A manifest whose JSON
+shape is valid but whose replay files are missing or tampered remains unusable
+as reference evidence.
+
 ## Artifact Summary
 
 Artifact:
@@ -44,6 +49,7 @@ Minimum axes:
 | Does not advance 70B reference gate | `true` |
 | Row-root path | `true` |
 | Digest matches sidecar | `true` |
+| Replay files valid | `true` |
 | Prompt suite bound | `true` |
 | No provider call | `true` |
 
@@ -73,6 +79,6 @@ The invariant is:
 ```text
 reference manifest shape can be tested early
   -> shape-only fixtures are preserved
-  -> prompt-suite identity is digest-bound
+  -> prompt-suite identity and retained replay bytes are digest-bound
   -> only prompt-level replay manifests advance the 70B comparison gate
 ```

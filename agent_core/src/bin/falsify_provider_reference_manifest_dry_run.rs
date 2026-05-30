@@ -97,6 +97,7 @@ fn build_report(
     let manifest_bytes = serde_json::to_vec_pretty(&manifest)?;
     std::fs::write(MANIFEST, &manifest_bytes)?;
     let reloaded = ProviderReferenceManifest::from_path(MANIFEST)?;
+    let replay_files_valid = reloaded.validate_replay_files_at(".").is_ok();
 
     let mut measurements = BTreeMap::new();
     let mut thresholds = BTreeMap::new();
@@ -145,6 +146,13 @@ fn build_report(
         &mut pass_per_axis,
         "digest_matches_sidecar",
         reloaded.artifact_sha256 == sidecar_digest,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "replay_files_valid",
+        replay_files_valid,
     );
     add_bool_axis(
         &mut measurements,
@@ -257,5 +265,6 @@ mod tests {
                 .get("does_not_advance_70b_reference_gate"),
             Some(&true)
         );
+        assert_eq!(report.pass_per_axis.get("replay_files_valid"), Some(&true));
     }
 }

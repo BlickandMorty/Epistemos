@@ -180,7 +180,9 @@ TTFT, and RSS values.
 
 The next bottleneck is now stricter than "file exists." The preflight reads
 `EPISTEMOS_70B_PROVIDER_REFERENCE` as a replay manifest and only passes
-`provider_reference_available` when the manifest validates.
+`provider_reference_available` when the manifest validates, its retained
+artifact files exist, the prompt-suite sidecar exists, and both retained files
+match their declared SHA256 digests.
 
 Source ABI:
 
@@ -194,8 +196,11 @@ Source ABI:
 New preflight axis:
 
 - `provider_reference_manifest_valid`
+- `provider_reference_replay_files_valid`
 - A shape-only retained fixture can make `provider_reference_manifest_valid=true`
   while keeping `provider_reference_available=false`.
+- A prompt-level manifest with missing or tampered replay files keeps
+  `provider_reference_replay_files_valid=false` and cannot advance the gate.
 
 Required safety:
 
@@ -205,6 +210,8 @@ Required safety:
 - `replay_allowed=true`
 - prompt-level references require at least 50 prompts and a digest-bound prompt
   suite under the 70B row root or the canonical KV-Direct prompt-suite root
+- retained reference and prompt-suite files must exist on disk and hash-match
+  the manifest; JSON alone is never enough
 - local fp16 references use `LocalOnly` data and `LocalFileOnly` retention
 - hosted references use non-local data class, `ZeroRetention`, request digest,
   and redaction digest
@@ -223,6 +230,7 @@ When the 70B preflight is pointed at that fixture, it reports:
 
 ```text
 provider_reference_manifest_valid=true
+provider_reference_replay_files_valid=true
 provider_reference_available=false
 provider_reference_status=shape_only_manifest
 primary_bottleneck=missing_fp16_or_provider_reference

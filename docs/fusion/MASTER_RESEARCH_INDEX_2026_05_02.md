@@ -131,10 +131,11 @@ the upstream `F-WeightBlockRangeHash-DryRun` -> `F-ResidencyPlan-DryRun` proof
 chain.
 `ProviderReferenceManifest` now guards the next bottleneck by requiring row-root
 artifact refs, sha256 digests, replay permission, local-vs-hosted
-retention/data-class discipline, prompt-suite digest binding, and an evidence
-scope that distinguishes `shape_only_fixture` from `prompt_level_comparison`
-before a fp16/cloud/local reference can count. Prompt-level references also
-require at least 50 prompts.
+retention/data-class discipline, prompt-suite digest binding, retained replay
+files that exist and match their declared hashes, and an evidence scope that
+distinguishes `shape_only_fixture` from `prompt_level_comparison` before a
+fp16/cloud/local reference can count. Prompt-level references also require at
+least 50 prompts.
 The 70B preflight consumes the range-hash artifact as
 `weight_block_range_hash_dry_run_available=true`, then the planner artifact as
 `residency_plan_dry_run_available=true`, and remains red on
