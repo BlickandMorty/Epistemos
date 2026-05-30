@@ -909,7 +909,10 @@ actor SearchIndexService {
         defer { Sig.storage.endInterval("fused_search", state) }
 
         let terms = Self.normalizedSearchTerms(query)
-        guard !terms.isEmpty else { return [] }
+        guard !terms.isEmpty else {
+            Self.recordEmptyFusedSearchMetricsSnapshot()
+            return []
+        }
         let sanitized = Self.sanitizeFTS5Query(terms)
         let recorder = agentProvenanceSyncRecorder
         let runID = "search-index-fused-sync-\(UUID().uuidString.uppercased())"
@@ -1019,7 +1022,10 @@ actor SearchIndexService {
         now: Date = Date()
     ) async throws -> [FusedResult] {
         let terms = Self.normalizedSearchTerms(query)
-        guard !terms.isEmpty else { return [] }
+        guard !terms.isEmpty else {
+            Self.recordEmptyFusedSearchMetricsSnapshot()
+            return []
+        }
         let sanitized = Self.sanitizeFTS5Query(terms)
         let recorder = await resolvedAgentProvenanceRecorder()
         let runID = "search-index-fused-async-\(UUID().uuidString.uppercased())"
@@ -1621,6 +1627,10 @@ actor SearchIndexService {
             return "{}"
         }
         return json
+    }
+
+    private nonisolated static func recordEmptyFusedSearchMetricsSnapshot() {
+        SearchFusionMetrics.shared.record(latencyMs: 0, results: [])
     }
 
     // MARK: - Block Upsert / Delete
