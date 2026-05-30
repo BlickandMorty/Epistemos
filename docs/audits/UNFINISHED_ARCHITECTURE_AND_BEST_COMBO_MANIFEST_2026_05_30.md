@@ -21,10 +21,11 @@ Namespace companion: read
 `docs/audits/ACS_NAMESPACE_RECONCILIATION_2026_05_30.md`. From this point
 forward, Active Cold Storage is named ColdStore or Cold Residency Layer, not
 ACS. Existing `AcsAnchor` source remains the anchored coordinate/provenance
-lineage, ACS Kuramoto remains research-tier, and admission/verdict behavior is
-SCOPE-Rex Admission, SovereignGate, or AdmissionGate. Existing source paths
-containing `acs_admission` are transitional naming debt, not permission to
-reuse ACS for admission in new docs or UI.
+lineage, legacy ACS/Kuramoto wording is renamed forward to KuramotoSync/ResonanceSync,
+and admission/verdict behavior is SCOPE-Rex Admission, SovereignGate, or
+AdmissionGate. Existing source paths containing `acs_admission` are
+transitional naming debt, not permission to reuse ACS for admission in new docs
+or UI.
 
 ## Non-Negotiables
 
@@ -54,8 +55,8 @@ signal, but every scheduled run must obey this covenant:
 2. Pick one row, not an entire architecture region.
 3. Prove current source truth before editing: code path, caller, flag, UI
    surface, tests, and falsifier/artifact state.
-4. If the row touches Phase 2+ local inference, UAS/ColdStore/AcsAnchor,
-   Active Assembly,
+4. If the row touches Phase 2+ local inference, UAS/OAS/ColdStore/AcsAnchor,
+   ActiveAssembly,
    KV-Direct, 70B, lattice/WBO, EML/F-ULP, Lean, or autogenous-kernel work, run
    the relevant No-Orphan check: addressed unit, UAS address, plane, residency,
    WBO/error policy, witness, falsifier, tier, rollback.
@@ -75,7 +76,7 @@ The old ledgers mix several namespaces. They must stay separate.
 |---|---|---|
 | Broad substrate tracks `T0`-`T18` | Original product/research feature map: Sovereign, Hermes, Simulation, Local Model, Halo, Graph, UX, Multi-Agent, Ternary/Research, ANE, Live File Compiler, Cognitive Weight, Variant Ladder. | `docs/fusion/SUBSTRATE_TRACK_REGISTER_2026_05_03.md` |
 | Phase-1 May-16 branches `T1`-`T9` | Salvage branches from the May-16 archeology pass. Some were cherry-picked; some remain donor-only. | Phase C / salvage docs |
-| Phase-2 terminal workcards `T09`-`T27` | The no-compromise workcard set: Eidos, System G, UAS, Lattice/WBO, ColdStore, AcsAnchor, VaultRecall, F-70B, Lean, WRV surfacing. Older decks may say ACS; inspect context: AcsAnchor/Anchored Cognitive Substrate, ACS Kuramoto research, or stale admission naming. | `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` |
+| Phase-2 terminal workcards `T09`-`T27` | The no-compromise workcard set: Eidos, System G, UAS/OAS, Lattice/WBO, ColdStore, AcsAnchor, VaultRecall, F-70B, Lean, WRV surfacing. Older decks may say ACS; inspect context: AcsAnchor/Anchored Cognitive Substrate, legacy ACS/Kuramoto research now named KuramotoSync/ResonanceSync, or stale admission naming. | `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` |
 | W-rows | Cross-terminal production wires. These decide whether substrate is actually used by app behavior. | `docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md` |
 | Deferred codewords `D-*` | Long-horizon architecture that is preserved but intentionally not on the hot path yet. | `docs/DEFERRED_WORK_GUARANTEE_2026_05_23.md` |
 
@@ -296,7 +297,7 @@ ledger. Current next work should follow this order.
 | T16 Live File Compiler | Deferred production compiler. Keep typed seams separate from hot path. |
 | T17 Cognitive Weight Class Enforcement | Deferred/partial. Connect to ResidencyPlan/WeightBlockManifest before runtime claims. |
 | T17B Lattice/WBO | Oplog hook exists; semantic accounting, falsifier proof, and UI remain. |
-| T18 Residency Governor | Dry-run/planner surfaces exist; live residency governor remains deferred. |
+| T18 ResidencyGovernor | Dry-run/planner surfaces exist; live residency governor remains deferred. |
 | T18B SCOPE-Rex/SovereignGate Admission | Substrate and System G/tool-call slices exist; full gate remains high-risk. |
 | T19 Halo V1 plus Eidos control vectors | Deferred product/research surface. |
 | T20 Variant Ladder | Deferred D-05. |
@@ -306,7 +307,7 @@ ledger. Current next work should follow this order.
 | T23 F-70B Local Cocktail | Deferred D-09; do not run heavy probes. |
 | T23B M2 Pro Falsifier Handbook | Present; dedupe and wiring into UI remain. |
 | T24 Lean ClaimLedger Schema Authority | Deferred D-10. |
-| T25 ACS Naming and Plane Reconciliation | Reopened by `ACS_NAMESPACE_RECONCILIATION_2026_05_30.md`: ColdStore names Active Cold Storage; ACS remains context-bound to AcsAnchor/Anchored Cognitive Substrate or ACS Kuramoto research; admission names must migrate to SCOPE-Rex Admission / SovereignGate / AdmissionGate. |
+| T25 ACS Naming and Plane Reconciliation | Reopened by `ACS_NAMESPACE_RECONCILIATION_2026_05_30.md`: ColdStore names Active Cold Storage; ACS remains context-bound to AcsAnchor/Anchored Cognitive Substrate or legacy ACS/Kuramoto research now named KuramotoSync/ResonanceSync; admission names must migrate to SCOPE-Rex Admission / SovereignGate / AdmissionGate. |
 | T26 Self-Evolving Adapter Lane | Deferred D-06; candidate home for autogenous-kernel research. |
 | T27 WRV Product Surfacing | Still the capstone: make the first P0 W-rows visible and verified. |
 

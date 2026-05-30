@@ -62,7 +62,7 @@ These are findings the deep-scan surfaced that **contradict or sharpen** earlier
 
 **Canonical distinction.** This is canon as the target architecture and vocabulary. It is **not** a production claim until the falsifiers pass: `F-Sparse-Runtime-Split`, `F-KV-Direct-Gate`, `F-UAS-CopyCount`, `F-UAS-ACS-MmapResidency`, `F-ActiveAssembly-Minimal`, `F-ULP-Oracle`, `F-Agent-Local-Model-Runtime-Bridge`, and `F-70B-Local-Cocktail`. Current nuance: `F-UAS-ACS-MmapResidency` proves file-backed UAS/ACS residency for one deterministic mmap slice; it does not prove live MLX generation or 70B local inference.
 
-**Agent rule.** Any Phase 2+ PR touching local inference, model routing, Active Assembly, KV/cache residency, adapters, EML kernels, or "large local model" claims must cite this source and include a Neural Substrate check: addressed unit, UAS address, plane, residency, router, dense/reference verifier, falsifier, and rollback.
+**Agent rule.** Any Phase 2+ PR touching local inference, model routing, ActiveAssembly, KV/cache residency, adapters, EML kernels, or "large local model" claims must cite this source and include a Neural Substrate check: addressed unit, UAS address, plane, residency, router, dense/reference verifier, falsifier, and rollback.
 
 ---
 
@@ -161,10 +161,11 @@ candidates that stay cold until selected.
 
 **ACS namespace.** Existing `AcsAnchor` / `AcsAnchorRegistry` / F-ACS anchor
 lookup source truth remains the Anchored Cognitive Substrate coordinate and
-provenance lineage. ACS Kuramoto cellular resonance remains a research-tier
-resonance/autopoiesis candidate under Active Assembly. Admission/verdict
-behavior is named SCOPE-Rex Admission, SovereignGate, or AdmissionGate; older
-`acs_admission` paths are migration debt.
+provenance lineage. Legacy ACS/Kuramoto cellular resonance is renamed forward
+to **KuramotoSync** / **ResonanceSync**, a research-tier phase/coherence
+candidate under ActiveAssembly. Admission/verdict behavior is named SCOPE-Rex
+Admission, SovereignGate, or AdmissionGate; older `acs_admission` paths are
+migration debt.
 
 **Correct flow.**
 
@@ -172,8 +173,8 @@ behavior is named SCOPE-Rex Admission, SovereignGate, or AdmissionGate; older
 User intent
   -> Intent Intake / MissionPacket classifies the task
   -> OAS/UAS resolves what exists and where it lives
-  -> ColdStore / Residency Governor surfaces cold candidates
-  -> Active Assembly selects the waking set
+  -> ColdStore / ResidencyGovernor surfaces cold candidates
+  -> ActiveAssembly selects the waking set
   -> Eidos pre-validates candidate evidence
   -> SCOPE-Rex / SovereignGate admits the mission and route
   -> Runtime Router chooses local model / MLX / Apple Intelligence / tool / kernel
@@ -191,7 +192,7 @@ updates, and durable mutations rather than appearing only at the end.
 **Agent rule.** Future work must use UAS as the primitive identity fabric and
 ColdStore for Active Cold Storage. EML is one elementary-function chart inside
 the substrate, not the substrate identity primitive. Any stale doc using ACS
-for cold residency, admission, KV spill, or Active Assembly is superseded by
+for cold residency, admission, KV spill, or ActiveAssembly is superseded by
 this namespace patch for future naming.
 
 ---
