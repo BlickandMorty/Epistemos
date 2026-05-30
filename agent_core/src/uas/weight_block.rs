@@ -815,10 +815,25 @@ impl ResidencyPlan {
                 .as_ref()
                 .map(ToString::to_string)
                 .unwrap_or_else(|| "none".to_string());
+            let model_id = identity_preimage(
+                "model_id",
+                &block.model_id,
+                WeightBlockManifestError::MissingModelId,
+            );
+            let source_uri = identity_preimage(
+                "source_uri",
+                &block.source_uri,
+                WeightBlockManifestError::MissingSourceUri,
+            );
+            let verifier = identity_preimage(
+                "verifier",
+                &block.verifier,
+                WeightBlockManifestError::MissingVerifier,
+            );
             preimage.push_str(&format!(
                 "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n",
-                block.model_id,
-                block.source_uri,
+                model_id,
+                source_uri,
                 block.byte_range.start,
                 block.byte_range.len,
                 content_hash_preimage(&block.content_hash_hex),
@@ -828,7 +843,7 @@ impl ResidencyPlan {
                 block.residency_tier.wire_tag(),
                 weight_block_ir_chart_preimage(&block.ir_chart),
                 wbo_budget_preimage(block.wbo_budget_nats),
-                block.verifier,
+                verifier,
                 rollback_reference
             ));
         }
@@ -847,6 +862,18 @@ fn content_hash_preimage(value: &str) -> String {
     }
 }
 
+fn identity_preimage(
+    field: &'static str,
+    value: &str,
+    missing: WeightBlockManifestError,
+) -> String {
+    if validate_identity_field(field, value, missing).is_ok() {
+        value.to_string()
+    } else {
+        format!("invalid:{}", blake3::hash(value.as_bytes()).to_hex())
+    }
+}
+
 fn weight_block_encoding_preimage(encoding: &WeightBlockEncoding) -> String {
     match encoding {
         WeightBlockEncoding::DenseFp16 => "dense_fp16".to_string(),
@@ -859,7 +886,14 @@ fn weight_block_encoding_preimage(encoding: &WeightBlockEncoding) -> String {
         WeightBlockEncoding::Sherry125 => "sherry125".to_string(),
         WeightBlockEncoding::LeechVq => "leech_vq".to_string(),
         WeightBlockEncoding::ResidualIsland => "residual_island".to_string(),
-        WeightBlockEncoding::Other(value) => format!("other:{value}"),
+        WeightBlockEncoding::Other(value) => format!(
+            "other:{}",
+            identity_preimage(
+                "encoding",
+                value,
+                WeightBlockManifestError::MissingCustomEncodingLabel,
+            )
+        ),
     }
 }
 
@@ -2101,5 +2135,30 @@ mod tests {
             ResidencyPlanStatus::RejectedBeforeRuntime
         );
         assert_ne!(valid_plan.plan_address, rejected_plan.plan_address);
+    }
+
+    #[test]
+    fn residency_plan_address_separates_invalid_identity_field_boundaries() {
+        let mut left = manifest(
+            "identity-boundary",
+            0,
+            b"dense-hot-block",
+            WeightBlockEncoding::DenseBf16,
+            WeightBlockResidencyClass::HotUma,
+            None,
+        );
+        let mut right = left.clone();
+        left.model_id = "local|70b".to_string();
+        left.source_uri = "candidate".to_string();
+        right.model_id = "local".to_string();
+        right.source_uri = "70b|candidate".to_string();
+        let budget = ResidencyBudget::new(1024, 1024, 4096, 0.10, 16).unwrap();
+
+        let left_plan = ResidencyPlan::evaluate([left], budget.clone(), 42);
+        let right_plan = ResidencyPlan::evaluate([right], budget, 42);
+
+        assert_eq!(left_plan.status, ResidencyPlanStatus::RejectedBeforeRuntime);
+        assert_eq!(right_plan.status, ResidencyPlanStatus::RejectedBeforeRuntime);
+        assert_ne!(left_plan.plan_address, right_plan.plan_address);
     }
 }
