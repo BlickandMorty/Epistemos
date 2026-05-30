@@ -259,15 +259,21 @@ impl WeightBlockManifest {
         verifier: &str,
         wbo_budget_nats: f32,
     ) -> Result<(), WeightBlockManifestError> {
-        if model_id.trim().is_empty() {
-            return Err(WeightBlockManifestError::MissingModelId);
-        }
-        if source_uri.trim().is_empty() {
-            return Err(WeightBlockManifestError::MissingSourceUri);
-        }
-        if verifier.trim().is_empty() {
-            return Err(WeightBlockManifestError::MissingVerifier);
-        }
+        validate_identity_field(
+            "model_id",
+            model_id,
+            WeightBlockManifestError::MissingModelId,
+        )?;
+        validate_identity_field(
+            "source_uri",
+            source_uri,
+            WeightBlockManifestError::MissingSourceUri,
+        )?;
+        validate_identity_field(
+            "verifier",
+            verifier,
+            WeightBlockManifestError::MissingVerifier,
+        )?;
         if !wbo_budget_nats.is_finite() || wbo_budget_nats < 0.0 {
             return Err(WeightBlockManifestError::InvalidWboBudget);
         }
@@ -326,6 +332,20 @@ pub fn hash_reader_range<R: Read>(
         remaining -= take as u64;
     }
     Ok(hasher.finalize())
+}
+
+fn validate_identity_field(
+    field: &'static str,
+    value: &str,
+    missing: WeightBlockManifestError,
+) -> Result<(), WeightBlockManifestError> {
+    if value.trim().is_empty() {
+        return Err(missing);
+    }
+    if value.trim() != value {
+        return Err(WeightBlockManifestError::IdentityFieldHasSurroundingWhitespace { field });
+    }
+    Ok(())
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -776,6 +796,7 @@ pub enum WeightBlockManifestError {
     MissingModelId,
     MissingSourceUri,
     MissingVerifier,
+    IdentityFieldHasSurroundingWhitespace { field: &'static str },
     InvalidContentHash,
     RangeHashLimitExceeded { requested: u64, max: u64 },
     RangeHashIo { kind: String },
@@ -790,6 +811,9 @@ impl std::fmt::Display for WeightBlockManifestError {
             WeightBlockManifestError::MissingModelId => write!(f, "model_id is required"),
             WeightBlockManifestError::MissingSourceUri => write!(f, "source_uri is required"),
             WeightBlockManifestError::MissingVerifier => write!(f, "verifier is required"),
+            WeightBlockManifestError::IdentityFieldHasSurroundingWhitespace { field } => {
+                write!(f, "{field} must not contain leading or trailing whitespace")
+            }
             WeightBlockManifestError::InvalidContentHash => {
                 write!(f, "content_hash_hex must be a valid BLAKE3 hex hash")
             }
@@ -939,6 +963,52 @@ mod tests {
             ByteRange::new(0, 0).unwrap_err(),
             WeightBlockManifestError::EmptyByteRange
         );
+    }
+
+    #[test]
+    fn rejects_identity_fields_with_surrounding_whitespace() {
+        let hash = blake3::hash(b"range");
+        for (model_id, source_uri, verifier, field) in [
+            (
+                " local/70b-candidate",
+                "file:///models/70b/model.safetensors",
+                "precomputed_range_hash",
+                "model_id",
+            ),
+            (
+                "local/70b-candidate",
+                "file:///models/70b/model.safetensors ",
+                "precomputed_range_hash",
+                "source_uri",
+            ),
+            (
+                "local/70b-candidate",
+                "file:///models/70b/model.safetensors",
+                "\tprecomputed_range_hash",
+                "verifier",
+            ),
+        ] {
+            let err = WeightBlockManifest::from_known_hash_hex(
+                model_id,
+                source_uri,
+                0,
+                1024,
+                hash.to_hex().as_str(),
+                99,
+                WeightBlockEncoding::Nf4,
+                WeightBlockResidencyClass::ColdMmapSsd,
+                WeightBlockIrChart::OpaqueWithWitness,
+                0.04,
+                verifier,
+                Some(rollback_reference()),
+            )
+            .unwrap_err();
+
+            assert_eq!(
+                err,
+                WeightBlockManifestError::IdentityFieldHasSurroundingWhitespace { field }
+            );
+        }
     }
 
     #[test]
