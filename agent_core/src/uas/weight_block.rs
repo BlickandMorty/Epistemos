@@ -15,6 +15,7 @@ use crate::uas::{ResidencyTier, UasAddress, UasKind};
 
 pub const GIB: u64 = 1024 * 1024 * 1024;
 pub const RANGE_HASH_CHUNK_BYTES: usize = 64 * 1024;
+pub const MAX_WBO_BUDGET_NATS: f32 = 4_294_967.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
 pub struct ByteRange {
@@ -316,7 +317,7 @@ impl WeightBlockManifest {
                 WeightBlockManifestError::MissingCustomEncodingLabel,
             )?;
         }
-        if !wbo_budget_nats.is_finite() || wbo_budget_nats < 0.0 {
+        if !is_valid_wbo_budget_nats(wbo_budget_nats) {
             return Err(WeightBlockManifestError::InvalidWboBudget);
         }
         Ok(())
@@ -413,7 +414,7 @@ impl ResidencyBudget {
         wbo_budget_nats: f32,
         max_blocks: usize,
     ) -> Result<Self, ResidencyPlanError> {
-        if !wbo_budget_nats.is_finite() || wbo_budget_nats < 0.0 {
+        if !is_valid_wbo_budget_nats(wbo_budget_nats) {
             return Err(ResidencyPlanError::InvalidBudget);
         }
         if max_blocks == 0 {
@@ -588,10 +589,7 @@ impl ResidencyPlan {
                 max: budget.max_blocks,
             });
         }
-        if !budget.wbo_budget_nats.is_finite()
-            || budget.wbo_budget_nats < 0.0
-            || budget.max_blocks == 0
-        {
+        if !is_valid_wbo_budget_nats(budget.wbo_budget_nats) || budget.max_blocks == 0 {
             violations.push(ResidencyPlanViolation::InvalidResidencyBudget);
         }
 
@@ -632,7 +630,7 @@ impl ResidencyPlan {
             if block.residency_tier == ResidencyTier::CapabilityCeiling {
                 effective_residency_tier = ResidencyTier::CapabilityCeiling;
             }
-            if !block.wbo_budget_nats.is_finite() || block.wbo_budget_nats < 0.0 {
+            if !is_valid_wbo_budget_nats(block.wbo_budget_nats) {
                 violations.push(ResidencyPlanViolation::InvalidBlockWboBudget {
                     address: address.clone(),
                 });
@@ -877,11 +875,15 @@ fn weight_block_ir_chart_preimage(ir_chart: &WeightBlockIrChart) -> &'static str
 }
 
 fn wbo_budget_preimage(value: f32) -> String {
-    if value.is_finite() && value >= 0.0 {
+    if is_valid_wbo_budget_nats(value) {
         ((value * 1000.0).round() as u32).to_string()
     } else {
         format!("invalid:{value:?}")
     }
+}
+
+fn is_valid_wbo_budget_nats(value: f32) -> bool {
+    value.is_finite() && (0.0..=MAX_WBO_BUDGET_NATS).contains(&value)
 }
 
 fn add_plan_bytes(
@@ -990,7 +992,7 @@ impl std::fmt::Display for ResidencyPlanError {
             ResidencyPlanError::InvalidBudget => {
                 write!(
                     f,
-                    "residency budget must have finite non-negative WBO and at least one block"
+                    "residency budget must have finite non-negative WBO <= {MAX_WBO_BUDGET_NATS} and at least one block"
                 )
             }
         }
@@ -1051,9 +1053,10 @@ impl std::fmt::Display for WeightBlockManifestError {
             }
             WeightBlockManifestError::EmptyByteRange => write!(f, "byte range must be non-empty"),
             WeightBlockManifestError::ByteRangeOverflow => write!(f, "byte range overflows u64"),
-            WeightBlockManifestError::InvalidWboBudget => {
-                write!(f, "wbo_budget_nats must be finite and non-negative")
-            }
+            WeightBlockManifestError::InvalidWboBudget => write!(
+                f,
+                "wbo_budget_nats must be finite, non-negative, and <= {MAX_WBO_BUDGET_NATS}"
+            ),
         }
     }
 }
@@ -1436,6 +1439,32 @@ mod tests {
 
             assert_eq!(err, expected);
         }
+    }
+
+    #[test]
+    fn rejects_wbo_budgets_that_cannot_round_trip_through_plan_millis() {
+        let hash = blake3::hash(b"range");
+        let too_large = MAX_WBO_BUDGET_NATS + 1.0;
+
+        let manifest_err = WeightBlockManifest::from_known_hash_hex(
+            "local/70b-candidate",
+            "file:///models/70b/model.safetensors",
+            0,
+            1024,
+            hash.to_hex().as_str(),
+            99,
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            WeightBlockIrChart::OpaqueWithWitness,
+            too_large,
+            "precomputed_range_hash",
+            Some(rollback_reference()),
+        )
+        .unwrap_err();
+        let budget_err = ResidencyBudget::new(1024, 1024, 1024, too_large, 16).unwrap_err();
+
+        assert_eq!(manifest_err, WeightBlockManifestError::InvalidWboBudget);
+        assert_eq!(budget_err, ResidencyPlanError::InvalidBudget);
     }
 
     #[test]
