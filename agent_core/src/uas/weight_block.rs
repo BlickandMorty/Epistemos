@@ -461,6 +461,10 @@ pub enum ResidencyPlanViolation {
         actual_millis: u32,
         max_millis: u32,
     },
+    InvalidResidencyBudget,
+    InvalidBlockWboBudget {
+        address: String,
+    },
     DenseReferenceMissing {
         address: String,
     },
@@ -548,12 +552,20 @@ impl ResidencyPlan {
                 max: budget.max_blocks,
             });
         }
+        if !budget.wbo_budget_nats.is_finite()
+            || budget.wbo_budget_nats < 0.0
+            || budget.max_blocks == 0
+        {
+            violations.push(ResidencyPlanViolation::InvalidResidencyBudget);
+        }
 
         for block in &blocks {
             model_ids.insert(block.model_id.as_str());
             let address = block.uas_address.to_string();
             if !seen_addresses.insert(address.clone()) {
-                violations.push(ResidencyPlanViolation::DuplicateUasAddress { address });
+                violations.push(ResidencyPlanViolation::DuplicateUasAddress {
+                    address: address.clone(),
+                });
             }
             if let Some(previous) = last_range_by_source_uri.get(&block.source_uri) {
                 if block.byte_range.start < previous.end_exclusive() {
@@ -577,7 +589,13 @@ impl ResidencyPlan {
             if block.residency_tier == ResidencyTier::CapabilityCeiling {
                 effective_residency_tier = ResidencyTier::CapabilityCeiling;
             }
-            totals.wbo_budget_nats += block.wbo_budget_nats;
+            if !block.wbo_budget_nats.is_finite() || block.wbo_budget_nats < 0.0 {
+                violations.push(ResidencyPlanViolation::InvalidBlockWboBudget {
+                    address: address.clone(),
+                });
+            } else {
+                totals.wbo_budget_nats += block.wbo_budget_nats;
+            }
             totals.total_addressed_bytes = totals
                 .total_addressed_bytes
                 .saturating_add(block.byte_range.len);
@@ -718,7 +736,7 @@ impl ResidencyPlan {
             budget.hot_uma_bytes,
             budget.warm_compressed_uma_bytes,
             budget.cold_mmap_ssd_bytes,
-            (budget.wbo_budget_nats * 1000.0).round() as u32,
+            wbo_budget_preimage(budget.wbo_budget_nats),
             budget.max_blocks
         ));
         for block in blocks {
@@ -738,7 +756,7 @@ impl ResidencyPlan {
                 weight_block_residency_class_preimage(block.residency_class),
                 block.residency_tier.wire_tag(),
                 weight_block_ir_chart_preimage(&block.ir_chart),
-                (block.wbo_budget_nats * 1000.0).round() as u32,
+                wbo_budget_preimage(block.wbo_budget_nats),
                 block.verifier,
                 rollback_reference
             ));
@@ -787,6 +805,14 @@ fn weight_block_ir_chart_preimage(ir_chart: &WeightBlockIrChart) -> &'static str
         WeightBlockIrChart::Info => "info",
         WeightBlockIrChart::Tropical => "tropical",
         WeightBlockIrChart::OpaqueWithWitness => "opaque_with_witness",
+    }
+}
+
+fn wbo_budget_preimage(value: f32) -> String {
+    if value.is_finite() && value >= 0.0 {
+        ((value * 1000.0).round() as u32).to_string()
+    } else {
+        format!("invalid:{value:?}")
     }
 }
 
@@ -1301,6 +1327,33 @@ mod tests {
             .violations
             .iter()
             .any(|v| matches!(v, ResidencyPlanViolation::WboBudgetExceeded { .. })));
+    }
+
+    #[test]
+    fn residency_plan_rejects_invalid_public_wbo_fields() {
+        let mut cold = manifest(
+            "cold",
+            0,
+            b"cold-nf4-block",
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            Some(rollback_reference()),
+        );
+        cold.wbo_budget_nats = f32::NAN;
+        let mut budget = ResidencyBudget::new(1024, 1024, 4096, 0.10, 16).unwrap();
+        budget.wbo_budget_nats = f32::NAN;
+
+        let plan = ResidencyPlan::evaluate([cold], budget, 42);
+
+        assert_eq!(plan.status, ResidencyPlanStatus::RejectedBeforeRuntime);
+        assert_eq!(plan.totals.wbo_budget_nats, 0.0);
+        assert!(plan
+            .violations
+            .iter()
+            .any(|v| matches!(v, ResidencyPlanViolation::InvalidBlockWboBudget { .. })));
+        assert!(plan
+            .violations
+            .contains(&ResidencyPlanViolation::InvalidResidencyBudget));
     }
 
     #[test]
