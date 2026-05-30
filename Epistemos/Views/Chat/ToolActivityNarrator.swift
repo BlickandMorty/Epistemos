@@ -12,12 +12,175 @@ import Foundation
 /// allocations. All helpers are `nonisolated` so the narrator can be
 /// called from any actor — including background stream handlers.
 enum ToolActivityNarrator {
+    enum Surface: Equatable {
+        case eidosEvidence
+        case vaultEvidence
+        case vaultMutation
+        case web
+        case file
+        case workspaceSearch
+        case shell
+        case reasoning
+        case plan
+        case generic
+
+        var isEvidenceBubble: Bool {
+            switch self {
+            case .eidosEvidence, .vaultEvidence, .vaultMutation:
+                return true
+            case .web, .file, .workspaceSearch, .shell, .reasoning, .plan, .generic:
+                return false
+            }
+        }
+
+        var badgeTitle: String {
+            switch self {
+            case .eidosEvidence, .vaultEvidence, .vaultMutation:
+                return "EIDOS"
+            case .web:
+                return "WEB"
+            case .file, .workspaceSearch:
+                return "FILE"
+            case .shell:
+                return "RUN"
+            case .reasoning:
+                return "THINK"
+            case .plan:
+                return "PLAN"
+            case .generic:
+                return "TOOL"
+            }
+        }
+
+        var symbolName: String {
+            switch self {
+            case .eidosEvidence:
+                return "magnifyingglass.circle"
+            case .vaultEvidence:
+                return "doc.text.magnifyingglass"
+            case .vaultMutation:
+                return "square.and.pencil"
+            case .web:
+                return "globe"
+            case .file:
+                return "doc.text"
+            case .workspaceSearch:
+                return "magnifyingglass"
+            case .shell:
+                return "terminal"
+            case .reasoning:
+                return "brain.head.profile"
+            case .plan:
+                return "checklist"
+            case .generic:
+                return "wrench.and.screwdriver"
+            }
+        }
+
+        var inputDetailTitle: String {
+            switch self {
+            case .eidosEvidence, .vaultEvidence:
+                return "Evidence input"
+            case .vaultMutation:
+                return "Vault input"
+            default:
+                return "Input"
+            }
+        }
+
+        var resultDetailTitle: String {
+            switch self {
+            case .eidosEvidence, .vaultEvidence:
+                return "Evidence result"
+            case .vaultMutation:
+                return "Vault result"
+            default:
+                return "Result"
+            }
+        }
+
+        var completedLabel: String {
+            switch self {
+            case .eidosEvidence, .vaultEvidence, .vaultMutation:
+                return "FINISHED"
+            default:
+                return "SUCCESS"
+            }
+        }
+    }
+
     /// Max characters of a quoted argument we inline into the narration.
     /// Anything longer gets ellipsized so the pill doesn't blow out the
     /// composer layout with a 200-char query. `nonisolated` because the
     /// narrator is called from background stream handlers and Swift 6
     /// otherwise treats module-level static state as main-actor-isolated.
     nonisolated private static let inlineArgumentBudget: Int = 48
+
+    nonisolated static func surface(name toolName: String) -> Surface {
+        let trimmed = toolName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return .generic }
+
+        let canonical = canonicalKey(trimmed)
+        switch canonical {
+        case "eidos.query",
+             "knowledge.recall",
+             "knowledge.neural_recall",
+             "knowledge.session_search",
+             "knowledge.evidence_score",
+             "knowledge.contradiction_check":
+            return .eidosEvidence
+        case "vault.search",
+             "vault.list",
+             "memory_search",
+             "knowledge_search":
+            return .vaultEvidence
+        case "vault.read":
+            return .vaultEvidence
+        case "vault.write",
+             "note.create",
+             "note.edit",
+             "note.template",
+             "note.research_digest":
+            return .vaultMutation
+        case "web.search",
+             "browser_search",
+             "safari_search",
+             "web.fetch",
+             "web.extract",
+             "web.crawl",
+             "browser_navigate",
+             "browser_open":
+            return .web
+        case "file.read",
+             "file.write",
+             "file.patch",
+             "file.search",
+             "file.list",
+             "file.move",
+             "file.delete":
+            return .file
+        case "grep",
+             "search",
+             "code_search",
+             "ripgrep":
+            return .workspaceSearch
+        case "action.terminal",
+             "action.bash",
+             "terminal_run",
+             "bash",
+             "shell",
+             "exec":
+            return .shell
+        case "think":
+            return .reasoning
+        case "system.todo",
+             "todo_write",
+             "todo_update":
+            return .plan
+        default:
+            return .generic
+        }
+    }
 
     /// Primary entry point. Returns a short phrase suitable for the
     /// composer pill's detail slot. Returns nil only when `toolName` is
@@ -29,7 +192,33 @@ enum ToolActivityNarrator {
 
         let input = inputJson.flatMap { decode($0) } ?? [:]
 
-        switch AgentToolNameAliases.canonical(trimmed) {
+        switch canonicalKey(trimmed) {
+        case "eidos.query":
+            if let query = firstString(in: input, keys: evidenceQueryKeys) {
+                return "Selecting citable evidence with Eidos for \(quote(query))"
+            }
+            return "Selecting citable evidence with Eidos"
+
+        case "knowledge.recall",
+             "knowledge.neural_recall",
+             "knowledge.session_search":
+            if let query = firstString(in: input, keys: evidenceQueryKeys) {
+                return "Recalling vault evidence for \(quote(query))"
+            }
+            return "Recalling vault evidence"
+
+        case "knowledge.evidence_score":
+            if let query = firstString(in: input, keys: evidenceQueryKeys) {
+                return "Scoring evidence for \(quote(query))"
+            }
+            return "Scoring evidence"
+
+        case "knowledge.contradiction_check":
+            if let query = firstString(in: input, keys: evidenceQueryKeys) {
+                return "Checking evidence against \(quote(query))"
+            }
+            return "Checking evidence"
+
         case "web.search", "browser_search", "safari_search":
             if let query = firstString(in: input, keys: ["query", "q", "search"]) {
                 return "Searching the web for \(quote(query))"
@@ -73,22 +262,28 @@ enum ToolActivityNarrator {
             return "Searching the workspace"
 
         case "vault.read":
-            if let title = firstString(in: input, keys: ["title", "path", "note"]) {
-                return "Reading note \(quote(title))"
+            if let title = firstString(in: input, keys: ["title", "path", "note", "note_id", "id"]) {
+                return "Reading vault note \(quote(title))"
             }
-            return "Reading a note"
+            return "Reading a vault note"
 
         case "vault.write":
-            if let title = firstString(in: input, keys: ["title", "path", "note"]) {
-                return "Writing note \(quote(title))"
+            if let title = firstString(in: input, keys: ["title", "path", "note", "note_id", "id"]) {
+                return "Writing vault note \(quote(title))"
             }
-            return "Writing a note"
+            return "Writing a vault note"
 
         case "vault.search", "memory_search", "knowledge_search":
-            if let query = firstString(in: input, keys: ["query", "q"]) {
-                return "Searching memory for \(quote(query))"
+            if let query = firstString(in: input, keys: evidenceQueryKeys) {
+                return "Searching vault evidence for \(quote(query))"
             }
-            return "Searching memory"
+            return "Searching vault evidence"
+
+        case "vault.list":
+            if let path = firstString(in: input, keys: ["path", "folder", "directory"]) {
+                return "Listing vault notes under \(quote(path))"
+            }
+            return "Listing vault notes"
 
         case "action.terminal", "action.bash", "terminal_run", "bash", "shell", "exec":
             if let command = firstString(in: input, keys: ["command", "cmd", "script"]) {
@@ -108,6 +303,21 @@ enum ToolActivityNarrator {
     }
 
     // MARK: - Decoding helpers
+
+    nonisolated private static var evidenceQueryKeys: [String] {
+        ["query", "q", "search", "pattern", "title", "path", "note", "note_id", "id", "text"]
+    }
+
+    nonisolated private static func canonicalKey(_ toolName: String) -> String {
+        let aliased = AgentToolNameAliases.canonical(toolName)
+            .replacingOccurrences(of: "__", with: ".")
+        switch aliased {
+        case "knowledge_recall":
+            return "knowledge.recall"
+        default:
+            return aliased
+        }
+    }
 
     nonisolated private static func decode(_ json: String) -> [String: Any]? {
         guard let data = json.data(using: .utf8) else { return nil }

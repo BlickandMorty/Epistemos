@@ -422,7 +422,7 @@ private struct InlineToolTranscriptSegment: View {
                         .foregroundStyle(theme.textTertiary)
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
 
-                    Image(systemName: tool.isError ? "exclamationmark.octagon" : "terminal")
+                    Image(systemName: tool.isError ? "exclamationmark.octagon" : activitySurface.symbolName)
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(statusColor)
 
@@ -455,16 +455,16 @@ private struct InlineToolTranscriptSegment: View {
                 VStack(alignment: .leading, spacing: 10) {
                     if !inputDetail.isEmpty {
                         ProcessDisclosureDetailBlock(
-                            title: "Input",
+                            title: activitySurface.inputDetailTitle,
                             content: inputDetail,
-                            tone: tool.isError ? .error : .tool
+                            tone: detailTone
                         )
                     }
                     if let result = tool.result, !result.isEmpty {
                         ProcessDisclosureDetailBlock(
-                            title: "Result",
+                            title: activitySurface.resultDetailTitle,
                             content: String(result.prefix(800)),
-                            tone: tool.isError ? .error : .success
+                            tone: tool.isError ? .error : resultTone
                         )
                     }
                 }
@@ -485,6 +485,7 @@ private struct InlineToolTranscriptSegment: View {
     }
 
     private var statusVerb: String {
+        if activitySurface.isEvidenceBubble { return "Eidos" }
         if isStreaming && tool.result == nil { return "Running" }
         if tool.result != nil { return "Ran" }
         return "Tool use"
@@ -492,14 +493,30 @@ private struct InlineToolTranscriptSegment: View {
 
     private var statusLabel: String {
         if tool.isError { return "ERROR" }
-        if tool.result != nil { return "SUCCESS" }
+        if tool.result != nil { return activitySurface.completedLabel }
         return "REQUESTED"
     }
 
     private var statusColor: Color {
         if tool.isError { return theme.error }
+        if activitySurface.isEvidenceBubble { return ProcessDisclosureTone.evidence.tint(theme: theme) }
         if tool.result != nil { return theme.success }
         return theme.textTertiary
+    }
+
+    private var detailTone: ProcessDisclosureTone {
+        if tool.isError { return .error }
+        if activitySurface.isEvidenceBubble { return .evidence }
+        return .tool
+    }
+
+    private var resultTone: ProcessDisclosureTone {
+        if activitySurface.isEvidenceBubble { return .evidence }
+        return .success
+    }
+
+    private var activitySurface: ToolActivityNarrator.Surface {
+        ToolActivityNarrator.surface(name: tool.name)
     }
 
     private var summary: String {
