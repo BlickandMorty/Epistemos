@@ -175,7 +175,7 @@ classification is:
 | Clean but not ancestor | `Epistemos-terminal-t1-runtime-router`, `Epistemos-ui-repromotion`, `Epistemos-wave4-page-gather-vault-escalation`, `Epistemos-wave4-uas-typed-retrieval`, `Epistemos-terminal-d-prime`, `Epistemos-terminal-f-prime`, `.claude/worktrees/simulation`, `.claude/worktrees/vigorous-goldberg-3a2d35`, `.claude/worktrees/agent-a0550f9c` | preserve as donors; mine only named missing files or fields |
 | Dirty due generated/target churn | most `Epistemos-t*`, `Epistemos-terminal-*`, and `Epistemos-wirings-2026-05-23` worktrees report thousands of changes under `target/` directories | do not interpret as source work; do not bulk-clean without approval |
 | Detached but clean | `Epistemos-wrv-audit` | inspect purpose before removal |
-| Has one untracked doc | `Epistemos-wrv-docs` has `docs/CANONICAL_CHRONICLE_2026_05_23.md` | read/compare before any cleanup |
+| Has one untracked doc | `Epistemos-wrv-docs` has an older `docs/CANONICAL_CHRONICLE_2026_05_23.md` | no promotion; current main has the richer chronicle |
 
 Sample dirty status confirms the large dirty counts are not useful app-source
 work: `Epistemos-t09-product-ledger` reports deleted `substrate-core/target/*`
@@ -211,8 +211,10 @@ Most useful next donor checks, in order:
    compare only after current UAS docs/tests name the missing field.
 3. `Epistemos-terminal-c` - System G full path; donor-only until a single
    missing event/run seam is named.
-4. `Epistemos-wrv-docs` - inspect `CANONICAL_CHRONICLE_2026_05_23.md` before
-   deciding whether it has already been absorbed.
+4. `Epistemos-wrv-docs` - no source promotion needed; the donor's untracked
+   25 KB chronicle is older than current main's 160 KB canonical chronicle, and
+   `docs/audits/MAIN_ARCHITECTURE_RECOVERY_STATUS_2026_05_26.md` already says
+   "Do not promote."
 
 This preserves the user's goal: keep every beneficial idea, but prevent the
 old-worktree regression where a stale donor branch rolls the app backward.
