@@ -209,12 +209,8 @@ impl BudgetLedger {
             tokens_used: self.tokens_used.saturating_sub(debit.tokens),
             wall_used_ms: self.wall_used_ms.saturating_sub(debit.wall_ms),
             tool_calls_used: self.tool_calls_used.saturating_sub(debit.tool_calls),
-            subprocess_used_ms: self
-                .subprocess_used_ms
-                .saturating_sub(debit.subprocess_ms),
-            memory_bytes_used: self
-                .memory_bytes_used
-                .saturating_sub(debit.memory_bytes),
+            subprocess_used_ms: self.subprocess_used_ms.saturating_sub(debit.subprocess_ms),
+            memory_bytes_used: self.memory_bytes_used.saturating_sub(debit.memory_bytes),
         }
     }
 }
@@ -271,7 +267,9 @@ impl BudgetGate {
         // Subprocess (Research only — but check regardless; MAS sets cap=0
         // and never produces nonzero subprocess_ms because Subprocess mode
         // is unreachable in MAS).
-        let sub_total = ledger.subprocess_used_ms.saturating_add(debit.subprocess_ms);
+        let sub_total = ledger
+            .subprocess_used_ms
+            .saturating_add(debit.subprocess_ms);
         if self.spec.max_subprocess_ms > 0 && sub_total > self.spec.max_subprocess_ms {
             return Err(BudgetError::Exhausted {
                 term: BudgetTerm::SubprocessMs,
@@ -312,7 +310,13 @@ mod tests {
         };
         // Debit of 100 would push total to 1_050 > 1_000 cap.
         let err = gate
-            .check_and_debit(ledger, BudgetDebit { tokens: 100, ..Default::default() })
+            .check_and_debit(
+                ledger,
+                BudgetDebit {
+                    tokens: 100,
+                    ..Default::default()
+                },
+            )
             .expect_err("over-budget debit must be rejected");
         assert!(
             matches!(
@@ -339,9 +343,21 @@ mod tests {
         };
         let original = ledger; // copy; struct is Copy
         let err = gate
-            .check_and_debit(ledger, BudgetDebit { tool_calls: 1, ..Default::default() })
+            .check_and_debit(
+                ledger,
+                BudgetDebit {
+                    tool_calls: 1,
+                    ..Default::default()
+                },
+            )
             .expect_err("rejected debit");
-        assert!(matches!(err, BudgetError::Exhausted { term: BudgetTerm::ToolCalls, .. }));
+        assert!(matches!(
+            err,
+            BudgetError::Exhausted {
+                term: BudgetTerm::ToolCalls,
+                ..
+            }
+        ));
         // Caller's ledger (passed by value) is bitwise-equal to original.
         assert_eq!(ledger, original);
     }
@@ -623,7 +639,8 @@ mod tests {
             memory_bytes: u64::MAX / 2,
         };
         let ledger = BudgetLedger::default();
-        gate.check_and_debit(ledger, huge).expect("unbounded gate must accept any debit");
+        gate.check_and_debit(ledger, huge)
+            .expect("unbounded gate must accept any debit");
     }
 
     #[test]
@@ -645,11 +662,21 @@ mod tests {
         let err = gate_wm
             .check_and_debit(
                 BudgetLedger::default(),
-                BudgetDebit { wall_ms: 100, tool_calls: u64::MAX, ..Default::default() },
+                BudgetDebit {
+                    wall_ms: 100,
+                    tool_calls: u64::MAX,
+                    ..Default::default()
+                },
             )
             .expect_err("over wall + over tool_calls");
         assert!(
-            matches!(err, BudgetError::Exhausted { term: BudgetTerm::WallMs, .. }),
+            matches!(
+                err,
+                BudgetError::Exhausted {
+                    term: BudgetTerm::WallMs,
+                    ..
+                }
+            ),
             "WallMs must take priority over ToolCalls, got {err:?}"
         );
 
@@ -658,11 +685,21 @@ mod tests {
         let err = gate_tc
             .check_and_debit(
                 BudgetLedger::default(),
-                BudgetDebit { tool_calls: 10, subprocess_ms: u64::MAX, ..Default::default() },
+                BudgetDebit {
+                    tool_calls: 10,
+                    subprocess_ms: u64::MAX,
+                    ..Default::default()
+                },
             )
             .expect_err("over tool_calls + over subprocess");
         assert!(
-            matches!(err, BudgetError::Exhausted { term: BudgetTerm::ToolCalls, .. }),
+            matches!(
+                err,
+                BudgetError::Exhausted {
+                    term: BudgetTerm::ToolCalls,
+                    ..
+                }
+            ),
             "ToolCalls must take priority over SubprocessMs, got {err:?}"
         );
 
@@ -671,11 +708,21 @@ mod tests {
         let err = gate_sm
             .check_and_debit(
                 BudgetLedger::default(),
-                BudgetDebit { subprocess_ms: 100, memory_bytes: 100, ..Default::default() },
+                BudgetDebit {
+                    subprocess_ms: 100,
+                    memory_bytes: 100,
+                    ..Default::default()
+                },
             )
             .expect_err("over subprocess + over memory");
         assert!(
-            matches!(err, BudgetError::Exhausted { term: BudgetTerm::SubprocessMs, .. }),
+            matches!(
+                err,
+                BudgetError::Exhausted {
+                    term: BudgetTerm::SubprocessMs,
+                    ..
+                }
+            ),
             "SubprocessMs must take priority over MemoryBytes, got {err:?}"
         );
     }
@@ -689,10 +736,20 @@ mod tests {
         let err = gate
             .check_and_debit(
                 ledger,
-                BudgetDebit { tokens: 100, wall_ms: 100, ..Default::default() },
+                BudgetDebit {
+                    tokens: 100,
+                    wall_ms: 100,
+                    ..Default::default()
+                },
             )
             .expect_err("either term over cap");
-        assert!(matches!(err, BudgetError::Exhausted { term: BudgetTerm::Tokens, .. }));
+        assert!(matches!(
+            err,
+            BudgetError::Exhausted {
+                term: BudgetTerm::Tokens,
+                ..
+            }
+        ));
     }
 
     #[test]
@@ -756,7 +813,10 @@ mod tests {
 
         let mut diff_tokens = base;
         diff_tokens.max_tokens += 1;
-        assert_ne!(diff_tokens, base, "max_tokens must participate in PartialEq");
+        assert_ne!(
+            diff_tokens, base,
+            "max_tokens must participate in PartialEq"
+        );
 
         let mut diff_wall = base;
         diff_wall.max_wall_ms += 1;
@@ -764,15 +824,24 @@ mod tests {
 
         let mut diff_tool = base;
         diff_tool.max_tool_calls += 1;
-        assert_ne!(diff_tool, base, "max_tool_calls must participate in PartialEq");
+        assert_ne!(
+            diff_tool, base,
+            "max_tool_calls must participate in PartialEq"
+        );
 
         let mut diff_sub = base;
         diff_sub.max_subprocess_ms += 1;
-        assert_ne!(diff_sub, base, "max_subprocess_ms must participate in PartialEq");
+        assert_ne!(
+            diff_sub, base,
+            "max_subprocess_ms must participate in PartialEq"
+        );
 
         let mut diff_mem = base;
         diff_mem.max_memory_bytes += 1;
-        assert_ne!(diff_mem, base, "max_memory_bytes must participate in PartialEq");
+        assert_ne!(
+            diff_mem, base,
+            "max_memory_bytes must participate in PartialEq"
+        );
 
         // Sanity preserved (Copy semantics).
         assert_eq!(base, base);
@@ -808,7 +877,10 @@ mod tests {
 
         let mut diff_sub = base;
         diff_sub.subprocess_ms += 1;
-        assert_ne!(diff_sub, base, "subprocess_ms must participate in PartialEq");
+        assert_ne!(
+            diff_sub, base,
+            "subprocess_ms must participate in PartialEq"
+        );
 
         let mut diff_mem = base;
         diff_mem.memory_bytes += 1;
@@ -838,23 +910,38 @@ mod tests {
 
         let mut diff_tokens = base;
         diff_tokens.tokens_used += 1;
-        assert_ne!(diff_tokens, base, "tokens_used must participate in PartialEq");
+        assert_ne!(
+            diff_tokens, base,
+            "tokens_used must participate in PartialEq"
+        );
 
         let mut diff_wall = base;
         diff_wall.wall_used_ms += 1;
-        assert_ne!(diff_wall, base, "wall_used_ms must participate in PartialEq");
+        assert_ne!(
+            diff_wall, base,
+            "wall_used_ms must participate in PartialEq"
+        );
 
         let mut diff_tool = base;
         diff_tool.tool_calls_used += 1;
-        assert_ne!(diff_tool, base, "tool_calls_used must participate in PartialEq");
+        assert_ne!(
+            diff_tool, base,
+            "tool_calls_used must participate in PartialEq"
+        );
 
         let mut diff_sub = base;
         diff_sub.subprocess_used_ms += 1;
-        assert_ne!(diff_sub, base, "subprocess_used_ms must participate in PartialEq");
+        assert_ne!(
+            diff_sub, base,
+            "subprocess_used_ms must participate in PartialEq"
+        );
 
         let mut diff_mem = base;
         diff_mem.memory_bytes_used += 1;
-        assert_ne!(diff_mem, base, "memory_bytes_used must participate in PartialEq");
+        assert_ne!(
+            diff_mem, base,
+            "memory_bytes_used must participate in PartialEq"
+        );
 
         // Sanity preserved.
         assert_eq!(base, base);
@@ -874,7 +961,11 @@ mod tests {
         // — especially the concurrent dispatcher pool — depend on.
         let gate = BudgetGate::new(BudgetSpec::new(1_000, 0, 5, 0));
         let ledger = BudgetLedger::default();
-        let debit = BudgetDebit { tokens: 25, tool_calls: 1, ..Default::default() };
+        let debit = BudgetDebit {
+            tokens: 25,
+            tool_calls: 1,
+            ..Default::default()
+        };
 
         let first = gate.check_and_debit(ledger, debit);
         let second = gate.check_and_debit(ledger, debit);
@@ -885,7 +976,10 @@ mod tests {
         assert_eq!(gate.spec(), BudgetSpec::new(1_000, 0, 5, 0));
 
         // Same property holds for the rejection path.
-        let over_budget = BudgetDebit { tokens: 10_000, ..Default::default() };
+        let over_budget = BudgetDebit {
+            tokens: 10_000,
+            ..Default::default()
+        };
         let r1 = gate.check_and_debit(ledger, over_budget);
         let r2 = gate.check_and_debit(ledger, over_budget);
         assert_eq!(r1, r2);
@@ -926,13 +1020,17 @@ mod tests {
 
         // Runtime sanity: copy + use both bindings.
         let term = BudgetTerm::MemoryBytes;
-        let _ta = term; let _tb = term; assert_eq!(term, term);
+        let _ta = term;
+        let _tb = term;
+        assert_eq!(term, term);
         let err = BudgetError::Exhausted {
             term: BudgetTerm::Tokens,
             attempted_total: 100,
             cap: 50,
         };
-        let _ea = err; let _eb = err; assert_eq!(err, err);
+        let _ea = err;
+        let _eb = err;
+        assert_eq!(err, err);
     }
 
     #[test]
@@ -992,7 +1090,10 @@ mod tests {
             handle.join().expect("worker thread joins");
         }
 
-        assert_eq!(*ledger.lock().expect("ledger lock"), BudgetLedger::default());
+        assert_eq!(
+            *ledger.lock().expect("ledger lock"),
+            BudgetLedger::default()
+        );
     }
 
     #[test]
@@ -1065,8 +1166,7 @@ mod tests {
         // Phase 1 hardening — defensive: the spec() getter has been
         // present since the gate landed (iter-3). Pin its behaviour
         // so a future refactor doesn't silently drop it.
-        let spec = BudgetSpec::new(1_234, 5_678, 9, 42)
-            .with_memory_bytes(98_765);
+        let spec = BudgetSpec::new(1_234, 5_678, 9, 42).with_memory_bytes(98_765);
         let gate = BudgetGate::new(spec);
         let read_back = gate.spec();
         assert_eq!(read_back.max_tokens, 1_234);
@@ -1103,7 +1203,11 @@ mod tests {
             .check_and_debit(over_cap_ledger, BudgetDebit::default())
             .expect_err("zero debit on over-cap ledger must still trip Exhausted");
         match err {
-            BudgetError::Exhausted { term: BudgetTerm::Tokens, attempted_total, cap } => {
+            BudgetError::Exhausted {
+                term: BudgetTerm::Tokens,
+                attempted_total,
+                cap,
+            } => {
                 assert_eq!(attempted_total, 2_000);
                 assert_eq!(cap, 1_000);
             }
@@ -1115,9 +1219,18 @@ mod tests {
     fn boundary_equal_to_cap_accepted() {
         // Exactly at the cap is allowed (the comparison is strict `>`).
         let gate = BudgetGate::new(BudgetSpec::new(1_000, 0, 0, 0));
-        let ledger = BudgetLedger { tokens_used: 900, ..Default::default() };
+        let ledger = BudgetLedger {
+            tokens_used: 900,
+            ..Default::default()
+        };
         let advanced = gate
-            .check_and_debit(ledger, BudgetDebit { tokens: 100, ..Default::default() })
+            .check_and_debit(
+                ledger,
+                BudgetDebit {
+                    tokens: 100,
+                    ..Default::default()
+                },
+            )
             .expect("debit landing exactly on cap must be accepted");
         assert_eq!(advanced.tokens_used, 1_000);
     }
@@ -1139,12 +1252,25 @@ mod tests {
 
         // wall_ms axis.
         let gate_w = BudgetGate::new(BudgetSpec::new(0, 1_000, 0, 0));
-        let l_w = BudgetLedger { wall_used_ms: 900, ..Default::default() };
+        let l_w = BudgetLedger {
+            wall_used_ms: 900,
+            ..Default::default()
+        };
         let err_w = gate_w
-            .check_and_debit(l_w, BudgetDebit { wall_ms: 101, ..Default::default() })
+            .check_and_debit(
+                l_w,
+                BudgetDebit {
+                    wall_ms: 101,
+                    ..Default::default()
+                },
+            )
             .expect_err("wall_ms cap+1 must reject");
         match err_w {
-            BudgetError::Exhausted { term: BudgetTerm::WallMs, attempted_total, cap } => {
+            BudgetError::Exhausted {
+                term: BudgetTerm::WallMs,
+                attempted_total,
+                cap,
+            } => {
                 assert_eq!(attempted_total, 1_001);
                 assert_eq!(cap, 1_000);
             }
@@ -1153,12 +1279,25 @@ mod tests {
 
         // tool_calls axis.
         let gate_tc = BudgetGate::new(BudgetSpec::new(0, 0, 10, 0));
-        let l_tc = BudgetLedger { tool_calls_used: 9, ..Default::default() };
+        let l_tc = BudgetLedger {
+            tool_calls_used: 9,
+            ..Default::default()
+        };
         let err_tc = gate_tc
-            .check_and_debit(l_tc, BudgetDebit { tool_calls: 2, ..Default::default() })
+            .check_and_debit(
+                l_tc,
+                BudgetDebit {
+                    tool_calls: 2,
+                    ..Default::default()
+                },
+            )
             .expect_err("tool_calls cap+1 must reject");
         match err_tc {
-            BudgetError::Exhausted { term: BudgetTerm::ToolCalls, attempted_total, cap } => {
+            BudgetError::Exhausted {
+                term: BudgetTerm::ToolCalls,
+                attempted_total,
+                cap,
+            } => {
                 assert_eq!(attempted_total, 11);
                 assert_eq!(cap, 10);
             }
@@ -1167,12 +1306,25 @@ mod tests {
 
         // subprocess_ms axis.
         let gate_sm = BudgetGate::new(BudgetSpec::new(0, 0, 0, 1_000));
-        let l_sm = BudgetLedger { subprocess_used_ms: 900, ..Default::default() };
+        let l_sm = BudgetLedger {
+            subprocess_used_ms: 900,
+            ..Default::default()
+        };
         let err_sm = gate_sm
-            .check_and_debit(l_sm, BudgetDebit { subprocess_ms: 101, ..Default::default() })
+            .check_and_debit(
+                l_sm,
+                BudgetDebit {
+                    subprocess_ms: 101,
+                    ..Default::default()
+                },
+            )
             .expect_err("subprocess_ms cap+1 must reject");
         match err_sm {
-            BudgetError::Exhausted { term: BudgetTerm::SubprocessMs, attempted_total, cap } => {
+            BudgetError::Exhausted {
+                term: BudgetTerm::SubprocessMs,
+                attempted_total,
+                cap,
+            } => {
                 assert_eq!(attempted_total, 1_001);
                 assert_eq!(cap, 1_000);
             }
@@ -1181,12 +1333,25 @@ mod tests {
 
         // memory_bytes axis.
         let gate_mb = BudgetGate::new(BudgetSpec::default().with_memory_bytes(1_024));
-        let l_mb = BudgetLedger { memory_bytes_used: 1_000, ..Default::default() };
+        let l_mb = BudgetLedger {
+            memory_bytes_used: 1_000,
+            ..Default::default()
+        };
         let err_mb = gate_mb
-            .check_and_debit(l_mb, BudgetDebit { memory_bytes: 25, ..Default::default() })
+            .check_and_debit(
+                l_mb,
+                BudgetDebit {
+                    memory_bytes: 25,
+                    ..Default::default()
+                },
+            )
             .expect_err("memory_bytes cap+1 must reject");
         match err_mb {
-            BudgetError::Exhausted { term: BudgetTerm::MemoryBytes, attempted_total, cap } => {
+            BudgetError::Exhausted {
+                term: BudgetTerm::MemoryBytes,
+                attempted_total,
+                cap,
+            } => {
                 assert_eq!(attempted_total, 1_025);
                 assert_eq!(cap, 1_024);
             }
@@ -1211,33 +1376,69 @@ mod tests {
 
         // wall_ms axis.
         let gate_w = BudgetGate::new(BudgetSpec::new(0, 1_000, 0, 0));
-        let l_w = BudgetLedger { wall_used_ms: 900, ..Default::default() };
+        let l_w = BudgetLedger {
+            wall_used_ms: 900,
+            ..Default::default()
+        };
         let a_w = gate_w
-            .check_and_debit(l_w, BudgetDebit { wall_ms: 100, ..Default::default() })
+            .check_and_debit(
+                l_w,
+                BudgetDebit {
+                    wall_ms: 100,
+                    ..Default::default()
+                },
+            )
             .expect("wall_ms at-cap debit must accept");
         assert_eq!(a_w.wall_used_ms, 1_000);
 
         // tool_calls axis.
         let gate_tc = BudgetGate::new(BudgetSpec::new(0, 0, 10, 0));
-        let l_tc = BudgetLedger { tool_calls_used: 9, ..Default::default() };
+        let l_tc = BudgetLedger {
+            tool_calls_used: 9,
+            ..Default::default()
+        };
         let a_tc = gate_tc
-            .check_and_debit(l_tc, BudgetDebit { tool_calls: 1, ..Default::default() })
+            .check_and_debit(
+                l_tc,
+                BudgetDebit {
+                    tool_calls: 1,
+                    ..Default::default()
+                },
+            )
             .expect("tool_calls at-cap debit must accept");
         assert_eq!(a_tc.tool_calls_used, 10);
 
         // subprocess_ms axis.
         let gate_sm = BudgetGate::new(BudgetSpec::new(0, 0, 0, 1_000));
-        let l_sm = BudgetLedger { subprocess_used_ms: 900, ..Default::default() };
+        let l_sm = BudgetLedger {
+            subprocess_used_ms: 900,
+            ..Default::default()
+        };
         let a_sm = gate_sm
-            .check_and_debit(l_sm, BudgetDebit { subprocess_ms: 100, ..Default::default() })
+            .check_and_debit(
+                l_sm,
+                BudgetDebit {
+                    subprocess_ms: 100,
+                    ..Default::default()
+                },
+            )
             .expect("subprocess_ms at-cap debit must accept");
         assert_eq!(a_sm.subprocess_used_ms, 1_000);
 
         // memory_bytes axis.
         let gate_mb = BudgetGate::new(BudgetSpec::default().with_memory_bytes(1_024));
-        let l_mb = BudgetLedger { memory_bytes_used: 1_000, ..Default::default() };
+        let l_mb = BudgetLedger {
+            memory_bytes_used: 1_000,
+            ..Default::default()
+        };
         let a_mb = gate_mb
-            .check_and_debit(l_mb, BudgetDebit { memory_bytes: 24, ..Default::default() })
+            .check_and_debit(
+                l_mb,
+                BudgetDebit {
+                    memory_bytes: 24,
+                    ..Default::default()
+                },
+            )
             .expect("memory_bytes at-cap debit must accept");
         assert_eq!(a_mb.memory_bytes_used, 1_024);
     }
@@ -1320,7 +1521,8 @@ mod tests {
         let json = serde_json::to_string(&debit).expect("serialize debit");
         for (term, expected_field) in cases {
             assert_eq!(
-                term.code(), expected_field,
+                term.code(),
+                expected_field,
                 "BudgetTerm::{term:?}::code() must equal BudgetDebit field name {expected_field:?}"
             );
             assert!(
@@ -1356,7 +1558,8 @@ mod tests {
         for (term, expected_field) in cases {
             let derived = format!("max_{}", term.code());
             assert_eq!(
-                derived, expected_field,
+                derived,
+                expected_field,
                 "BudgetTerm::{term:?}::code() = {:?}, derived field name {derived:?} \
                  must match BudgetSpec field {expected_field:?}",
                 term.code()
@@ -1391,27 +1594,42 @@ mod tests {
             //  expected BudgetTerm)
             (
                 BudgetSpec::new(10, 0, 0, 0),
-                BudgetDebit { tokens: 100, ..Default::default() },
+                BudgetDebit {
+                    tokens: 100,
+                    ..Default::default()
+                },
                 BudgetTerm::Tokens,
             ),
             (
                 BudgetSpec::new(0, 10, 0, 0),
-                BudgetDebit { wall_ms: 100, ..Default::default() },
+                BudgetDebit {
+                    wall_ms: 100,
+                    ..Default::default()
+                },
                 BudgetTerm::WallMs,
             ),
             (
                 BudgetSpec::new(0, 0, 1, 0),
-                BudgetDebit { tool_calls: 10, ..Default::default() },
+                BudgetDebit {
+                    tool_calls: 10,
+                    ..Default::default()
+                },
                 BudgetTerm::ToolCalls,
             ),
             (
                 BudgetSpec::new(0, 0, 0, 10),
-                BudgetDebit { subprocess_ms: 100, ..Default::default() },
+                BudgetDebit {
+                    subprocess_ms: 100,
+                    ..Default::default()
+                },
                 BudgetTerm::SubprocessMs,
             ),
             (
                 BudgetSpec::default().with_memory_bytes(10),
-                BudgetDebit { memory_bytes: 100, ..Default::default() },
+                BudgetDebit {
+                    memory_bytes: 100,
+                    ..Default::default()
+                },
                 BudgetTerm::MemoryBytes,
             ),
         ];
@@ -1429,9 +1647,7 @@ mod tests {
 
     #[test]
     fn multi_axis_over_budget_reports_first_canonical_axis() {
-        let gate = BudgetGate::new(
-            BudgetSpec::new(10, 20, 1, 30).with_memory_bytes(40),
-        );
+        let gate = BudgetGate::new(BudgetSpec::new(10, 20, 1, 30).with_memory_bytes(40));
         let err = gate
             .check_and_debit(
                 BudgetLedger::default(),
@@ -1457,13 +1673,25 @@ mod tests {
     #[test]
     fn subprocess_cap_enforced_independently() {
         let gate = BudgetGate::new(BudgetSpec::new(0, 0, 0, 5_000));
-        let ledger = BudgetLedger { subprocess_used_ms: 4_900, ..Default::default() };
+        let ledger = BudgetLedger {
+            subprocess_used_ms: 4_900,
+            ..Default::default()
+        };
         let err = gate
-            .check_and_debit(ledger, BudgetDebit { subprocess_ms: 200, ..Default::default() })
+            .check_and_debit(
+                ledger,
+                BudgetDebit {
+                    subprocess_ms: 200,
+                    ..Default::default()
+                },
+            )
             .expect_err("subprocess cap exceeded");
         assert!(matches!(
             err,
-            BudgetError::Exhausted { term: BudgetTerm::SubprocessMs, .. }
+            BudgetError::Exhausted {
+                term: BudgetTerm::SubprocessMs,
+                ..
+            }
         ));
     }
 
@@ -1477,7 +1705,10 @@ mod tests {
             for completion in [0u64, 1, 100] {
                 let t1 = BudgetDebit::for_tool_call(prompt, completion);
                 let t2 = BudgetDebit::for_tool_call(prompt, completion);
-                assert_eq!(t1, t2, "tool_call non-determinism for ({prompt}, {completion})");
+                assert_eq!(
+                    t1, t2,
+                    "tool_call non-determinism for ({prompt}, {completion})"
+                );
                 let th1 = BudgetDebit::for_thinking_turn(prompt, completion);
                 let th2 = BudgetDebit::for_thinking_turn(prompt, completion);
                 assert_eq!(
@@ -1523,14 +1754,20 @@ mod tests {
         assert_eq!(tc.wall_ms, 0);
         assert_eq!(tc.tool_calls, 1);
         assert_eq!(tc.subprocess_ms, 0);
-        assert_eq!(tc.memory_bytes, 0, "for_tool_call must default memory_bytes to 0");
+        assert_eq!(
+            tc.memory_bytes, 0,
+            "for_tool_call must default memory_bytes to 0"
+        );
 
         let th = BudgetDebit::for_thinking_turn(200, 100);
         assert_eq!(th.tokens, 300);
         assert_eq!(th.wall_ms, 0);
         assert_eq!(th.tool_calls, 0);
         assert_eq!(th.subprocess_ms, 0);
-        assert_eq!(th.memory_bytes, 0, "for_thinking_turn must default memory_bytes to 0");
+        assert_eq!(
+            th.memory_bytes, 0,
+            "for_thinking_turn must default memory_bytes to 0"
+        );
     }
 
     #[test]
@@ -1551,7 +1788,11 @@ mod tests {
         // sentinel even at zero tokens" refactor would silently
         // diverge for_thinking_turn(0, 0) from BudgetDebit::default().
         let d = BudgetDebit::for_thinking_turn(0, 0);
-        assert_eq!(d, BudgetDebit::default(), "for_thinking_turn(0, 0) must equal default debit");
+        assert_eq!(
+            d,
+            BudgetDebit::default(),
+            "for_thinking_turn(0, 0) must equal default debit"
+        );
         assert_eq!(d.tokens, 0);
         assert_eq!(d.tool_calls, 0);
         assert_eq!(d.wall_ms, 0);
@@ -1573,7 +1814,10 @@ mod tests {
         // calls for deterministic-tier tools.
         let d = BudgetDebit::for_tool_call(0, 0);
         assert_eq!(d.tokens, 0);
-        assert_eq!(d.tool_calls, 1, "for_tool_call ALWAYS bumps tool_calls regardless of token cost");
+        assert_eq!(
+            d.tool_calls, 1,
+            "for_tool_call ALWAYS bumps tool_calls regardless of token cost"
+        );
         assert_eq!(d.wall_ms, 0);
         assert_eq!(d.subprocess_ms, 0);
         assert_eq!(d.memory_bytes, 0);
@@ -1621,7 +1865,11 @@ mod tests {
         // would succeed).
         let gate = BudgetGate::new(BudgetSpec::new(1_000, 0, 5, 0));
         let initial = BudgetLedger::default();
-        let debit = BudgetDebit { tokens: 700, tool_calls: 2, ..Default::default() };
+        let debit = BudgetDebit {
+            tokens: 700,
+            tool_calls: 2,
+            ..Default::default()
+        };
         let after_apply = gate.check_and_debit(initial, debit).expect("fits");
         assert_eq!(after_apply.tokens_used, 700);
         let after_refund = after_apply.refund(debit);
@@ -1629,7 +1877,13 @@ mod tests {
         assert_eq!(after_refund.tool_calls_used, 0);
         // A subsequent debit at the cap still fits.
         let final_ = gate
-            .check_and_debit(after_refund, BudgetDebit { tokens: 1_000, ..Default::default() })
+            .check_and_debit(
+                after_refund,
+                BudgetDebit {
+                    tokens: 1_000,
+                    ..Default::default()
+                },
+            )
             .expect("post-refund debit fits original cap");
         assert_eq!(final_.tokens_used, 1_000);
     }
@@ -1732,15 +1986,24 @@ mod tests {
         // Also: a default-ledger refunded by default-debit stays at
         // default. Identity-on-identity.
         let fresh = BudgetLedger::default();
-        assert_eq!(fresh.refund(BudgetDebit::default()), BudgetLedger::default());
+        assert_eq!(
+            fresh.refund(BudgetDebit::default()),
+            BudgetLedger::default()
+        );
     }
 
     #[test]
     fn refund_saturates_at_zero_when_over_refunded() {
         // Defensive: a refund larger than the current usage must clamp
         // to zero, not wrap to u64::MAX.
-        let l = BudgetLedger { tokens_used: 50, ..Default::default() };
-        let refunded = l.refund(BudgetDebit { tokens: 200, ..Default::default() });
+        let l = BudgetLedger {
+            tokens_used: 50,
+            ..Default::default()
+        };
+        let refunded = l.refund(BudgetDebit {
+            tokens: 200,
+            ..Default::default()
+        });
         assert_eq!(refunded.tokens_used, 0);
     }
 
@@ -1759,21 +2022,54 @@ mod tests {
         // exercised axes (wall_ms / memory_bytes).
         //
         // Tokens already covered — start at wall_ms.
-        let l_w = BudgetLedger { wall_used_ms: 50, ..Default::default() };
-        let r_w = l_w.refund(BudgetDebit { wall_ms: 200, ..Default::default() });
+        let l_w = BudgetLedger {
+            wall_used_ms: 50,
+            ..Default::default()
+        };
+        let r_w = l_w.refund(BudgetDebit {
+            wall_ms: 200,
+            ..Default::default()
+        });
         assert_eq!(r_w.wall_used_ms, 0, "wall_ms over-refund must clamp to 0");
 
-        let l_tc = BudgetLedger { tool_calls_used: 2, ..Default::default() };
-        let r_tc = l_tc.refund(BudgetDebit { tool_calls: 99, ..Default::default() });
-        assert_eq!(r_tc.tool_calls_used, 0, "tool_calls over-refund must clamp to 0");
+        let l_tc = BudgetLedger {
+            tool_calls_used: 2,
+            ..Default::default()
+        };
+        let r_tc = l_tc.refund(BudgetDebit {
+            tool_calls: 99,
+            ..Default::default()
+        });
+        assert_eq!(
+            r_tc.tool_calls_used, 0,
+            "tool_calls over-refund must clamp to 0"
+        );
 
-        let l_sm = BudgetLedger { subprocess_used_ms: 100, ..Default::default() };
-        let r_sm = l_sm.refund(BudgetDebit { subprocess_ms: 10_000, ..Default::default() });
-        assert_eq!(r_sm.subprocess_used_ms, 0, "subprocess_ms over-refund must clamp to 0");
+        let l_sm = BudgetLedger {
+            subprocess_used_ms: 100,
+            ..Default::default()
+        };
+        let r_sm = l_sm.refund(BudgetDebit {
+            subprocess_ms: 10_000,
+            ..Default::default()
+        });
+        assert_eq!(
+            r_sm.subprocess_used_ms, 0,
+            "subprocess_ms over-refund must clamp to 0"
+        );
 
-        let l_mb = BudgetLedger { memory_bytes_used: 1_024, ..Default::default() };
-        let r_mb = l_mb.refund(BudgetDebit { memory_bytes: u64::MAX, ..Default::default() });
-        assert_eq!(r_mb.memory_bytes_used, 0, "memory_bytes over-refund must clamp to 0");
+        let l_mb = BudgetLedger {
+            memory_bytes_used: 1_024,
+            ..Default::default()
+        };
+        let r_mb = l_mb.refund(BudgetDebit {
+            memory_bytes: u64::MAX,
+            ..Default::default()
+        });
+        assert_eq!(
+            r_mb.memory_bytes_used, 0,
+            "memory_bytes over-refund must clamp to 0"
+        );
 
         // Cross-axis: all 5 axes simultaneously over-refunded.
         let big_debit = BudgetDebit {
@@ -1791,7 +2087,11 @@ mod tests {
             memory_bytes_used: 1,
         };
         let cleared = small_ledger.refund(big_debit);
-        assert_eq!(cleared, BudgetLedger::default(), "cross-axis over-refund clears the ledger");
+        assert_eq!(
+            cleared,
+            BudgetLedger::default(),
+            "cross-axis over-refund clears the ledger"
+        );
     }
 
     #[test]
@@ -1803,7 +2103,10 @@ mod tests {
             subprocess_used_ms: 10_000,
             ..Default::default()
         };
-        let r = l.refund(BudgetDebit { tokens: 25, ..Default::default() });
+        let r = l.refund(BudgetDebit {
+            tokens: 25,
+            ..Default::default()
+        });
         assert_eq!(r.tokens_used, 75);
         // Other terms untouched.
         assert_eq!(r.wall_used_ms, 5_000);
@@ -1830,14 +2133,26 @@ mod tests {
         let h1 = thread::spawn(move || {
             let mut guard = l1.lock().expect("lock");
             let next = gate
-                .check_and_debit(*guard, BudgetDebit { tokens: 50, ..Default::default() })
+                .check_and_debit(
+                    *guard,
+                    BudgetDebit {
+                        tokens: 50,
+                        ..Default::default()
+                    },
+                )
                 .expect("first debit");
             *guard = next;
         });
         let h2 = thread::spawn(move || {
             let mut guard = l2.lock().expect("lock");
             let next = gate
-                .check_and_debit(*guard, BudgetDebit { tokens: 50, ..Default::default() })
+                .check_and_debit(
+                    *guard,
+                    BudgetDebit {
+                        tokens: 50,
+                        ..Default::default()
+                    },
+                )
                 .expect("second debit");
             *guard = next;
         });
@@ -1849,9 +2164,21 @@ mod tests {
 
         // One more debit must trip the cap exactly at the boundary.
         let err = gate
-            .check_and_debit(final_ledger, BudgetDebit { tokens: 1, ..Default::default() })
+            .check_and_debit(
+                final_ledger,
+                BudgetDebit {
+                    tokens: 1,
+                    ..Default::default()
+                },
+            )
             .expect_err("post-burst debit must trip cap");
-        assert!(matches!(err, BudgetError::Exhausted { term: BudgetTerm::Tokens, .. }));
+        assert!(matches!(
+            err,
+            BudgetError::Exhausted {
+                term: BudgetTerm::Tokens,
+                ..
+            }
+        ));
     }
 
     #[test]
@@ -1885,24 +2212,35 @@ mod tests {
                     let advanced = gate
                         .check_and_debit(
                             *guard,
-                            BudgetDebit { wall_ms: PER_CALL, ..Default::default() },
+                            BudgetDebit {
+                                wall_ms: PER_CALL,
+                                ..Default::default()
+                            },
                         )
                         .expect("wall_ms debit fits");
                     *guard = advanced;
                 }));
             }
-            for h in handles { h.join().expect("join"); }
+            for h in handles {
+                h.join().expect("join");
+            }
             let final_ledger = *ledger.lock().expect("lock");
             assert_eq!(final_ledger.wall_used_ms, N * PER_CALL);
             let err = gate
                 .check_and_debit(
                     final_ledger,
-                    BudgetDebit { wall_ms: 1, ..Default::default() },
+                    BudgetDebit {
+                        wall_ms: 1,
+                        ..Default::default()
+                    },
                 )
                 .expect_err("post-burst wall_ms debit must trip cap");
             assert!(matches!(
                 err,
-                BudgetError::Exhausted { term: BudgetTerm::WallMs, .. }
+                BudgetError::Exhausted {
+                    term: BudgetTerm::WallMs,
+                    ..
+                }
             ));
         }
 
@@ -1918,24 +2256,35 @@ mod tests {
                     let advanced = gate
                         .check_and_debit(
                             *guard,
-                            BudgetDebit { tool_calls: PER_CALL, ..Default::default() },
+                            BudgetDebit {
+                                tool_calls: PER_CALL,
+                                ..Default::default()
+                            },
                         )
                         .expect("tool_calls debit fits");
                     *guard = advanced;
                 }));
             }
-            for h in handles { h.join().expect("join"); }
+            for h in handles {
+                h.join().expect("join");
+            }
             let final_ledger = *ledger.lock().expect("lock");
             assert_eq!(final_ledger.tool_calls_used, N * PER_CALL);
             let err = gate
                 .check_and_debit(
                     final_ledger,
-                    BudgetDebit { tool_calls: 1, ..Default::default() },
+                    BudgetDebit {
+                        tool_calls: 1,
+                        ..Default::default()
+                    },
                 )
                 .expect_err("post-burst tool_calls debit must trip cap");
             assert!(matches!(
                 err,
-                BudgetError::Exhausted { term: BudgetTerm::ToolCalls, .. }
+                BudgetError::Exhausted {
+                    term: BudgetTerm::ToolCalls,
+                    ..
+                }
             ));
         }
 
@@ -1951,24 +2300,35 @@ mod tests {
                     let advanced = gate
                         .check_and_debit(
                             *guard,
-                            BudgetDebit { subprocess_ms: PER_CALL, ..Default::default() },
+                            BudgetDebit {
+                                subprocess_ms: PER_CALL,
+                                ..Default::default()
+                            },
                         )
                         .expect("subprocess_ms debit fits");
                     *guard = advanced;
                 }));
             }
-            for h in handles { h.join().expect("join"); }
+            for h in handles {
+                h.join().expect("join");
+            }
             let final_ledger = *ledger.lock().expect("lock");
             assert_eq!(final_ledger.subprocess_used_ms, N * PER_CALL);
             let err = gate
                 .check_and_debit(
                     final_ledger,
-                    BudgetDebit { subprocess_ms: 1, ..Default::default() },
+                    BudgetDebit {
+                        subprocess_ms: 1,
+                        ..Default::default()
+                    },
                 )
                 .expect_err("post-burst subprocess_ms debit must trip cap");
             assert!(matches!(
                 err,
-                BudgetError::Exhausted { term: BudgetTerm::SubprocessMs, .. }
+                BudgetError::Exhausted {
+                    term: BudgetTerm::SubprocessMs,
+                    ..
+                }
             ));
         }
     }
@@ -1991,9 +2351,7 @@ mod tests {
 
         const N: u64 = 16;
         const PER_CALL: u64 = 4_096;
-        let gate = BudgetGate::new(
-            BudgetSpec::default().with_memory_bytes(N * PER_CALL),
-        );
+        let gate = BudgetGate::new(BudgetSpec::default().with_memory_bytes(N * PER_CALL));
         let ledger = Arc::new(Mutex::new(BudgetLedger::default()));
         let mut handles = Vec::with_capacity(N as usize);
         for _ in 0..N {
@@ -2027,12 +2385,18 @@ mod tests {
         let err = gate
             .check_and_debit(
                 final_ledger,
-                BudgetDebit { memory_bytes: 1, ..Default::default() },
+                BudgetDebit {
+                    memory_bytes: 1,
+                    ..Default::default()
+                },
             )
             .expect_err("post-burst memory_bytes debit must trip cap");
         assert!(matches!(
             err,
-            BudgetError::Exhausted { term: BudgetTerm::MemoryBytes, .. }
+            BudgetError::Exhausted {
+                term: BudgetTerm::MemoryBytes,
+                ..
+            }
         ));
     }
 
@@ -2082,9 +2446,21 @@ mod tests {
         assert_eq!(final_ledger.memory_bytes_used, N * per_call.memory_bytes);
 
         let err = gate
-            .check_and_debit(final_ledger, BudgetDebit { tokens: 1, ..Default::default() })
+            .check_and_debit(
+                final_ledger,
+                BudgetDebit {
+                    tokens: 1,
+                    ..Default::default()
+                },
+            )
             .expect_err("post-burst debit must trip exact cap");
-        assert!(matches!(err, BudgetError::Exhausted { term: BudgetTerm::Tokens, .. }));
+        assert!(matches!(
+            err,
+            BudgetError::Exhausted {
+                term: BudgetTerm::Tokens,
+                ..
+            }
+        ));
     }
 
     #[test]
@@ -2109,7 +2485,10 @@ mod tests {
                 let advanced = gate
                     .check_and_debit(
                         *guard,
-                        BudgetDebit { tokens: PER_CALL, ..Default::default() },
+                        BudgetDebit {
+                            tokens: PER_CALL,
+                            ..Default::default()
+                        },
                     )
                     .expect("debit fits");
                 *guard = advanced;
@@ -2126,10 +2505,19 @@ mod tests {
         let err = gate
             .check_and_debit(
                 final_ledger,
-                BudgetDebit { tokens: 1, ..Default::default() },
+                BudgetDebit {
+                    tokens: 1,
+                    ..Default::default()
+                },
             )
             .expect_err("post-burst debit must trip cap");
-        assert!(matches!(err, BudgetError::Exhausted { term: BudgetTerm::Tokens, .. }));
+        assert!(matches!(
+            err,
+            BudgetError::Exhausted {
+                term: BudgetTerm::Tokens,
+                ..
+            }
+        ));
     }
 
     #[test]
@@ -2182,8 +2570,7 @@ mod tests {
             BudgetTerm::SubprocessMs,
             BudgetTerm::MemoryBytes,
         ];
-        let codes: std::collections::HashSet<&str> =
-            fixture.iter().map(|t| t.code()).collect();
+        let codes: std::collections::HashSet<&str> = fixture.iter().map(|t| t.code()).collect();
         assert_eq!(codes.len(), 5, "expected 5 distinct term codes");
         for term in fixture {
             assert!(!term.code().is_empty(), "{term:?} code must be non-empty");
@@ -2210,7 +2597,11 @@ mod tests {
             cap: 1_000,
         };
         match err {
-            BudgetError::Exhausted { term, attempted_total, cap } => {
+            BudgetError::Exhausted {
+                term,
+                attempted_total,
+                cap,
+            } => {
                 // Exactly 3 fields. Type assertions verify the typed shape.
                 let _: BudgetTerm = term;
                 let _: u64 = attempted_total;
@@ -2309,7 +2700,11 @@ mod tests {
             BudgetTerm::SubprocessMs,
             BudgetTerm::MemoryBytes,
         ] {
-            let e = BudgetError::Exhausted { term, attempted_total: 1, cap: 0 };
+            let e = BudgetError::Exhausted {
+                term,
+                attempted_total: 1,
+                cap: 0,
+            };
             let s = format!("{e:?}");
             assert!(s.contains(&format!("{term:?}")), "debug includes {term:?}");
         }
@@ -2409,7 +2804,9 @@ mod tests {
         ];
         let mut last_idx: Option<usize> = None;
         for key in expected_keys_in_order {
-            let pos = s.find(key).unwrap_or_else(|| panic!("key {key} not found in {s}"));
+            let pos = s
+                .find(key)
+                .unwrap_or_else(|| panic!("key {key} not found in {s}"));
             if let Some(prev) = last_idx {
                 assert!(
                     pos > prev,
@@ -2430,7 +2827,9 @@ mod tests {
         // dashboards, and Swift bridge BudgetSpec mirrors.
         let spec = BudgetSpec::new(1_000, 60_000, 5, 30_000).with_memory_bytes(1_024);
         let json = serde_json::to_value(&spec).expect("serialise");
-        let obj = json.as_object().expect("BudgetSpec serialises as JSON object");
+        let obj = json
+            .as_object()
+            .expect("BudgetSpec serialises as JSON object");
         for key in [
             "max_tokens",
             "max_wall_ms",
@@ -2496,15 +2895,13 @@ mod tests {
         // Pin the lenient behaviour so a future
         // #[serde(deny_unknown_fields)] addition surfaces at PR review
         // as a deliberate doctrine change.
-        let spec = BudgetSpec::new(1_000, 60_000, 5, 30_000)
-            .with_memory_bytes(1_048_576);
+        let spec = BudgetSpec::new(1_000, 60_000, 5, 30_000).with_memory_bytes(1_048_576);
         let s = serde_json::to_string(&spec).expect("serialise");
         let last_brace = s.rfind('}').expect("trailing brace");
         let mut augmented = String::with_capacity(s.len() + 40);
         augmented.push_str(&s[..last_brace]);
         augmented.push_str(r#","max_network_bytes":1024}"#);
-        let parsed: BudgetSpec =
-            serde_json::from_str(&augmented).expect("unknown field tolerated");
+        let parsed: BudgetSpec = serde_json::from_str(&augmented).expect("unknown field tolerated");
         assert_eq!(parsed, spec);
     }
 
@@ -2583,7 +2980,9 @@ mod tests {
         ];
         let mut last_idx: Option<usize> = None;
         for key in expected_keys_in_order {
-            let pos = s.find(key).unwrap_or_else(|| panic!("key {key} not found in {s}"));
+            let pos = s
+                .find(key)
+                .unwrap_or_else(|| panic!("key {key} not found in {s}"));
             if let Some(prev) = last_idx {
                 assert!(
                     pos > prev,
@@ -2610,7 +3009,9 @@ mod tests {
             memory_bytes_used: 500,
         };
         let json = serde_json::to_value(&ledger).expect("serialise");
-        let obj = json.as_object().expect("BudgetLedger serialises as JSON object");
+        let obj = json
+            .as_object()
+            .expect("BudgetLedger serialises as JSON object");
         for key in [
             "tokens_used",
             "wall_used_ms",
@@ -2754,7 +3155,9 @@ mod tests {
         ];
         let mut last_idx: Option<usize> = None;
         for key in expected_keys_in_order {
-            let pos = s.find(key).unwrap_or_else(|| panic!("key {key} not found in {s}"));
+            let pos = s
+                .find(key)
+                .unwrap_or_else(|| panic!("key {key} not found in {s}"));
             if let Some(prev) = last_idx {
                 assert!(
                     pos > prev,
@@ -2780,7 +3183,9 @@ mod tests {
             memory_bytes: 500,
         };
         let json = serde_json::to_value(&debit).expect("serialise");
-        let obj = json.as_object().expect("BudgetDebit serialises as JSON object");
+        let obj = json
+            .as_object()
+            .expect("BudgetDebit serialises as JSON object");
         for key in [
             "tokens",
             "wall_ms",
@@ -2815,7 +3220,12 @@ mod tests {
         let ledger_obj = ledger_value
             .as_object()
             .expect("BudgetLedger serialises as JSON object");
-        for missing in ["tokens_used", "wall_used_ms", "tool_calls_used", "subprocess_used_ms"] {
+        for missing in [
+            "tokens_used",
+            "wall_used_ms",
+            "tool_calls_used",
+            "subprocess_used_ms",
+        ] {
             let mut tampered = ledger_obj.clone();
             tampered.remove(missing);
             let parsed: Result<BudgetLedger, _> =
@@ -2888,10 +3298,20 @@ mod tests {
         // attempted_total saturates at u64::MAX (which is > 1_000_000),
         // so we get Exhausted with the saturated total.
         let err = gate
-            .check_and_debit(near_max, BudgetDebit { tokens: 100, ..Default::default() })
+            .check_and_debit(
+                near_max,
+                BudgetDebit {
+                    tokens: 100,
+                    ..Default::default()
+                },
+            )
             .expect_err("near-MAX ledger debit must surface Exhausted, not panic");
         match err {
-            BudgetError::Exhausted { term: BudgetTerm::Tokens, attempted_total, cap } => {
+            BudgetError::Exhausted {
+                term: BudgetTerm::Tokens,
+                attempted_total,
+                cap,
+            } => {
                 assert_eq!(attempted_total, u64::MAX);
                 assert_eq!(cap, 1_000_000);
             }
@@ -2916,12 +3336,25 @@ mod tests {
         //
         // Tokens already pinned by the original test — start at wall_ms.
         let gate_w = BudgetGate::new(BudgetSpec::new(0, 1_000, 0, 0));
-        let near_w = BudgetLedger { wall_used_ms: u64::MAX - 5, ..Default::default() };
+        let near_w = BudgetLedger {
+            wall_used_ms: u64::MAX - 5,
+            ..Default::default()
+        };
         let err_w = gate_w
-            .check_and_debit(near_w, BudgetDebit { wall_ms: 100, ..Default::default() })
+            .check_and_debit(
+                near_w,
+                BudgetDebit {
+                    wall_ms: 100,
+                    ..Default::default()
+                },
+            )
             .expect_err("wall_ms near-MAX must surface Exhausted");
         match err_w {
-            BudgetError::Exhausted { term: BudgetTerm::WallMs, attempted_total, cap } => {
+            BudgetError::Exhausted {
+                term: BudgetTerm::WallMs,
+                attempted_total,
+                cap,
+            } => {
                 assert_eq!(attempted_total, u64::MAX);
                 assert_eq!(cap, 1_000);
             }
@@ -2929,12 +3362,25 @@ mod tests {
         }
 
         let gate_tc = BudgetGate::new(BudgetSpec::new(0, 0, 5, 0));
-        let near_tc = BudgetLedger { tool_calls_used: u64::MAX - 5, ..Default::default() };
+        let near_tc = BudgetLedger {
+            tool_calls_used: u64::MAX - 5,
+            ..Default::default()
+        };
         let err_tc = gate_tc
-            .check_and_debit(near_tc, BudgetDebit { tool_calls: 100, ..Default::default() })
+            .check_and_debit(
+                near_tc,
+                BudgetDebit {
+                    tool_calls: 100,
+                    ..Default::default()
+                },
+            )
             .expect_err("tool_calls near-MAX must surface Exhausted");
         match err_tc {
-            BudgetError::Exhausted { term: BudgetTerm::ToolCalls, attempted_total, cap } => {
+            BudgetError::Exhausted {
+                term: BudgetTerm::ToolCalls,
+                attempted_total,
+                cap,
+            } => {
                 assert_eq!(attempted_total, u64::MAX);
                 assert_eq!(cap, 5);
             }
@@ -2942,12 +3388,25 @@ mod tests {
         }
 
         let gate_sm = BudgetGate::new(BudgetSpec::new(0, 0, 0, 1_000));
-        let near_sm = BudgetLedger { subprocess_used_ms: u64::MAX - 5, ..Default::default() };
+        let near_sm = BudgetLedger {
+            subprocess_used_ms: u64::MAX - 5,
+            ..Default::default()
+        };
         let err_sm = gate_sm
-            .check_and_debit(near_sm, BudgetDebit { subprocess_ms: 100, ..Default::default() })
+            .check_and_debit(
+                near_sm,
+                BudgetDebit {
+                    subprocess_ms: 100,
+                    ..Default::default()
+                },
+            )
             .expect_err("subprocess_ms near-MAX must surface Exhausted");
         match err_sm {
-            BudgetError::Exhausted { term: BudgetTerm::SubprocessMs, attempted_total, cap } => {
+            BudgetError::Exhausted {
+                term: BudgetTerm::SubprocessMs,
+                attempted_total,
+                cap,
+            } => {
                 assert_eq!(attempted_total, u64::MAX);
                 assert_eq!(cap, 1_000);
             }
@@ -2955,12 +3414,25 @@ mod tests {
         }
 
         let gate_mb = BudgetGate::new(BudgetSpec::default().with_memory_bytes(1_048_576));
-        let near_mb = BudgetLedger { memory_bytes_used: u64::MAX - 5, ..Default::default() };
+        let near_mb = BudgetLedger {
+            memory_bytes_used: u64::MAX - 5,
+            ..Default::default()
+        };
         let err_mb = gate_mb
-            .check_and_debit(near_mb, BudgetDebit { memory_bytes: 100, ..Default::default() })
+            .check_and_debit(
+                near_mb,
+                BudgetDebit {
+                    memory_bytes: 100,
+                    ..Default::default()
+                },
+            )
             .expect_err("memory_bytes near-MAX must surface Exhausted");
         match err_mb {
-            BudgetError::Exhausted { term: BudgetTerm::MemoryBytes, attempted_total, cap } => {
+            BudgetError::Exhausted {
+                term: BudgetTerm::MemoryBytes,
+                attempted_total,
+                cap,
+            } => {
                 assert_eq!(attempted_total, u64::MAX);
                 assert_eq!(cap, 1_048_576);
             }
@@ -2977,7 +3449,13 @@ mod tests {
             ..Default::default()
         };
         let advanced = gate
-            .check_and_debit(near_max, BudgetDebit { tokens: u64::MAX, ..Default::default() })
+            .check_and_debit(
+                near_max,
+                BudgetDebit {
+                    tokens: u64::MAX,
+                    ..Default::default()
+                },
+            )
             .expect("unbounded gate accepts even near-MAX debits without panic");
         assert_eq!(advanced.tokens_used, u64::MAX);
     }
@@ -3086,10 +3564,22 @@ mod tests {
         // Apply two 3_000-token debits under the loose cap (6_000
         // total).
         ledger = loose
-            .check_and_debit(ledger, BudgetDebit { tokens: 3_000, ..Default::default() })
+            .check_and_debit(
+                ledger,
+                BudgetDebit {
+                    tokens: 3_000,
+                    ..Default::default()
+                },
+            )
             .expect("first debit");
         ledger = loose
-            .check_and_debit(ledger, BudgetDebit { tokens: 3_000, ..Default::default() })
+            .check_and_debit(
+                ledger,
+                BudgetDebit {
+                    tokens: 3_000,
+                    ..Default::default()
+                },
+            )
             .expect("second debit");
         assert_eq!(ledger.tokens_used, 6_000);
 
@@ -3106,7 +3596,11 @@ mod tests {
             .expect_err("post-tightening fresh debit must trip");
         assert!(matches!(
             err,
-            BudgetError::Exhausted { term: BudgetTerm::Tokens, attempted_total: 6_000, cap: 5_000 }
+            BudgetError::Exhausted {
+                term: BudgetTerm::Tokens,
+                attempted_total: 6_000,
+                cap: 5_000
+            }
         ));
         // The historical ledger itself was NOT mutated by the
         // tightening — the prior debits persist. Replay-safe.
@@ -3119,7 +3613,10 @@ mod tests {
         // succeed. The gate is pure; specs are interchangeable.
         let tight = BudgetGate::new(BudgetSpec::new(1_000, 0, 0, 0));
         let ledger = BudgetLedger::default();
-        let big_debit = BudgetDebit { tokens: 2_000, ..Default::default() };
+        let big_debit = BudgetDebit {
+            tokens: 2_000,
+            ..Default::default()
+        };
         let _ = tight
             .check_and_debit(ledger, big_debit)
             .expect_err("tight gate rejects");
@@ -3141,12 +3638,18 @@ mod tests {
         let err = gate
             .check_and_debit(
                 near_cap,
-                BudgetDebit { memory_bytes: 200, ..Default::default() },
+                BudgetDebit {
+                    memory_bytes: 200,
+                    ..Default::default()
+                },
             )
             .expect_err("memory cap exceeded");
         assert!(matches!(
             err,
-            BudgetError::Exhausted { term: BudgetTerm::MemoryBytes, .. }
+            BudgetError::Exhausted {
+                term: BudgetTerm::MemoryBytes,
+                ..
+            }
         ));
     }
 
@@ -3156,7 +3659,10 @@ mod tests {
         let advanced = gate
             .check_and_debit(
                 BudgetLedger::default(),
-                BudgetDebit { memory_bytes: 4_096, ..Default::default() },
+                BudgetDebit {
+                    memory_bytes: 4_096,
+                    ..Default::default()
+                },
             )
             .expect("under-cap memory debit");
         assert_eq!(advanced.memory_bytes_used, 4_096);
@@ -3166,7 +3672,10 @@ mod tests {
     fn memory_bytes_refund_restores_cap() {
         let gate = BudgetGate::new(BudgetSpec::default().with_memory_bytes(1_024));
         let ledger = BudgetLedger::default();
-        let debit = BudgetDebit { memory_bytes: 900, ..Default::default() };
+        let debit = BudgetDebit {
+            memory_bytes: 900,
+            ..Default::default()
+        };
         let after = gate.check_and_debit(ledger, debit).expect("fits");
         assert_eq!(after.memory_bytes_used, 900);
         let refunded = after.refund(debit);
@@ -3185,8 +3694,7 @@ mod tests {
         // No test pins this. A future "let me make with_memory_bytes
         // saturate at the previous value if N < current" tightening
         // would silently break the reset-to-unbounded pattern.
-        let bounded = BudgetSpec::default()
-            .with_memory_bytes(1_048_576);
+        let bounded = BudgetSpec::default().with_memory_bytes(1_048_576);
         assert_eq!(bounded.max_memory_bytes, 1_048_576);
 
         // Chain a second with_memory_bytes(0) → resets to 0 (unbounded).
@@ -3255,8 +3763,7 @@ mod tests {
         // Defends against a future "let me add overflow checks at
         // construction" tightening that would silently reject the
         // unbounded-cap-via-MAX-value pattern callers might use.
-        let s = BudgetSpec::new(u64::MAX, u64::MAX, u64::MAX, u64::MAX)
-            .with_memory_bytes(u64::MAX);
+        let s = BudgetSpec::new(u64::MAX, u64::MAX, u64::MAX, u64::MAX).with_memory_bytes(u64::MAX);
         assert_eq!(s.max_tokens, u64::MAX);
         assert_eq!(s.max_wall_ms, u64::MAX);
         assert_eq!(s.max_tool_calls, u64::MAX);
@@ -3285,10 +3792,10 @@ mod tests {
         // field by being far apart in magnitude — a swap is
         // immediately catchable.
         let spec = BudgetSpec::new(
-            /*max_tokens=*/        1_000,
-            /*max_wall_ms=*/       60_000_000, // 60M ms = ~16hr; large
-            /*max_tool_calls=*/    5,           // small
-            /*max_subprocess_ms=*/ 12_345,      // mid
+            /*max_tokens=*/ 1_000,
+            /*max_wall_ms=*/ 60_000_000, // 60M ms = ~16hr; large
+            /*max_tool_calls=*/ 5, // small
+            /*max_subprocess_ms=*/ 12_345, // mid
         );
         assert_eq!(spec.max_tokens, 1_000);
         assert_eq!(spec.max_wall_ms, 60_000_000);
@@ -3395,8 +3902,14 @@ mod tests {
         };
         // 4 fixtures where d ≤ initial on every axis.
         let debits = [
-            BudgetDebit { tokens: 100, ..Default::default() },
-            BudgetDebit { tool_calls: 1, ..Default::default() },
+            BudgetDebit {
+                tokens: 100,
+                ..Default::default()
+            },
+            BudgetDebit {
+                tool_calls: 1,
+                ..Default::default()
+            },
             BudgetDebit {
                 tokens: 50,
                 wall_ms: 100,
@@ -3452,12 +3965,24 @@ mod tests {
         // Both refunds stay well within the ledger's used balance.
         let pairs: &[(BudgetDebit, BudgetDebit)] = &[
             (
-                BudgetDebit { tokens: 100, ..Default::default() },
-                BudgetDebit { wall_ms: 500, ..Default::default() },
+                BudgetDebit {
+                    tokens: 100,
+                    ..Default::default()
+                },
+                BudgetDebit {
+                    wall_ms: 500,
+                    ..Default::default()
+                },
             ),
             (
-                BudgetDebit { tokens: 200, ..Default::default() },
-                BudgetDebit { tokens: 300, ..Default::default() },
+                BudgetDebit {
+                    tokens: 200,
+                    ..Default::default()
+                },
+                BudgetDebit {
+                    tokens: 300,
+                    ..Default::default()
+                },
             ),
             (
                 BudgetDebit {
@@ -3512,13 +4037,25 @@ mod tests {
         let pairs: &[(BudgetDebit, BudgetDebit)] = &[
             // Disjoint axes — the easy case.
             (
-                BudgetDebit { tokens: 100, ..Default::default() },
-                BudgetDebit { wall_ms: 200, ..Default::default() },
+                BudgetDebit {
+                    tokens: 100,
+                    ..Default::default()
+                },
+                BudgetDebit {
+                    wall_ms: 200,
+                    ..Default::default()
+                },
             ),
             // Overlapping single-axis.
             (
-                BudgetDebit { tokens: 100, ..Default::default() },
-                BudgetDebit { tokens: 200, ..Default::default() },
+                BudgetDebit {
+                    tokens: 100,
+                    ..Default::default()
+                },
+                BudgetDebit {
+                    tokens: 200,
+                    ..Default::default()
+                },
             ),
             // Multi-axis — every axis non-zero in both debits.
             (
@@ -3539,8 +4076,16 @@ mod tests {
             ),
             // Asymmetric: one debit zero on some axes, the other zero on different axes.
             (
-                BudgetDebit { tokens: 100, tool_calls: 1, ..Default::default() },
-                BudgetDebit { wall_ms: 200, subprocess_ms: 100, ..Default::default() },
+                BudgetDebit {
+                    tokens: 100,
+                    tool_calls: 1,
+                    ..Default::default()
+                },
+                BudgetDebit {
+                    wall_ms: 200,
+                    subprocess_ms: 100,
+                    ..Default::default()
+                },
             ),
         ];
         for (idx, (d1, d2)) in pairs.iter().enumerate() {
@@ -3582,18 +4127,36 @@ mod tests {
         let pairs: &[(BudgetDebit, BudgetDebit)] = &[
             // Single-axis tokens.
             (
-                BudgetDebit { tokens: 100, ..Default::default() },
-                BudgetDebit { tokens: 200, ..Default::default() },
+                BudgetDebit {
+                    tokens: 100,
+                    ..Default::default()
+                },
+                BudgetDebit {
+                    tokens: 200,
+                    ..Default::default()
+                },
             ),
             // Single-axis tool_calls.
             (
-                BudgetDebit { tool_calls: 1, ..Default::default() },
-                BudgetDebit { tool_calls: 2, ..Default::default() },
+                BudgetDebit {
+                    tool_calls: 1,
+                    ..Default::default()
+                },
+                BudgetDebit {
+                    tool_calls: 2,
+                    ..Default::default()
+                },
             ),
             // Disjoint axes.
             (
-                BudgetDebit { tokens: 50, ..Default::default() },
-                BudgetDebit { wall_ms: 100, ..Default::default() },
+                BudgetDebit {
+                    tokens: 50,
+                    ..Default::default()
+                },
+                BudgetDebit {
+                    wall_ms: 100,
+                    ..Default::default()
+                },
             ),
             // Multi-axis: each debit non-zero on every axis.
             (
@@ -3616,7 +4179,10 @@ mod tests {
             // is consistent with sequencing.
             (
                 BudgetDebit::default(),
-                BudgetDebit { tokens: 500, ..Default::default() },
+                BudgetDebit {
+                    tokens: 500,
+                    ..Default::default()
+                },
             ),
         ];
         for (idx, (d1, d2)) in pairs.iter().enumerate() {
@@ -3631,9 +4197,7 @@ mod tests {
             let after_d1 = gate.check_and_debit(initial, *d1).expect("d1 fits");
             let after_d1_d2 = gate.check_and_debit(after_d1, *d2).expect("d2 fits");
             // Single-step path.
-            let after_combined = gate
-                .check_and_debit(initial, combined)
-                .expect("d1+d2 fits");
+            let after_combined = gate.check_and_debit(initial, combined).expect("d1+d2 fits");
             assert_eq!(
                 after_d1_d2, after_combined,
                 "fixture {idx}: two-step debit must equal single-step combined"
@@ -3669,11 +4233,26 @@ mod tests {
         };
         // 5 single-axis debits + 1 multi-axis debit + 1 saturation-safe debit.
         let debits = [
-            BudgetDebit { tokens: 100, ..Default::default() },
-            BudgetDebit { wall_ms: 200, ..Default::default() },
-            BudgetDebit { tool_calls: 1, ..Default::default() },
-            BudgetDebit { subprocess_ms: 300, ..Default::default() },
-            BudgetDebit { memory_bytes: 500, ..Default::default() },
+            BudgetDebit {
+                tokens: 100,
+                ..Default::default()
+            },
+            BudgetDebit {
+                wall_ms: 200,
+                ..Default::default()
+            },
+            BudgetDebit {
+                tool_calls: 1,
+                ..Default::default()
+            },
+            BudgetDebit {
+                subprocess_ms: 300,
+                ..Default::default()
+            },
+            BudgetDebit {
+                memory_bytes: 500,
+                ..Default::default()
+            },
             // Multi-axis: every axis non-zero, all fit.
             BudgetDebit {
                 tokens: 50,
@@ -3704,10 +4283,7 @@ mod tests {
             assert_eq!(after_refund.tokens_used, initial.tokens_used);
             assert_eq!(after_refund.wall_used_ms, initial.wall_used_ms);
             assert_eq!(after_refund.tool_calls_used, initial.tool_calls_used);
-            assert_eq!(
-                after_refund.subprocess_used_ms,
-                initial.subprocess_used_ms
-            );
+            assert_eq!(after_refund.subprocess_used_ms, initial.subprocess_used_ms);
             assert_eq!(after_refund.memory_bytes_used, initial.memory_bytes_used);
         }
     }

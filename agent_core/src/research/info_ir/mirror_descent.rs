@@ -61,13 +61,12 @@ pub fn mirror_descent_step(
 /// Computes the gradient of the negative log-likelihood for one
 /// (x, y) pair with weights `theta`, then applies a single mirror-
 /// descent step.
-pub fn logistic_regression_step(
-    theta: &[f64],
-    x: &[f64],
-    y: f64,
-    step_size: f64,
-) -> Vec<f64> {
-    assert_eq!(theta.len(), x.len(), "logistic_regression_step: theta + x len mismatch");
+pub fn logistic_regression_step(theta: &[f64], x: &[f64], y: f64, step_size: f64) -> Vec<f64> {
+    assert_eq!(
+        theta.len(),
+        x.len(),
+        "logistic_regression_step: theta + x len mismatch"
+    );
     let score: f64 = theta.iter().zip(x.iter()).map(|(t, xi)| t * xi).sum();
     let sigmoid = 1.0 / (1.0 + (-score).exp());
     let scale = sigmoid - y;
@@ -125,12 +124,7 @@ mod tests {
 
     #[test]
     fn step_with_unit_gradient_subtracts_step_size() {
-        let next = mirror_descent_step(
-            &ExpFamily::Gaussian { variance: 1.0 },
-            &[5.0],
-            &[1.0],
-            0.5,
-        );
+        let next = mirror_descent_step(&ExpFamily::Gaussian { variance: 1.0 }, &[5.0], &[1.0], 0.5);
         assert!(approx_vec(&next, &[4.5], 1e-12));
     }
 
@@ -172,13 +166,7 @@ mod tests {
     #[test]
     fn logistic_trajectory_first_entry_is_initial() {
         let init = vec![0.5, -0.5];
-        let traj = logistic_regression_trajectory(
-            &init,
-            &[vec![1.0, 1.0]],
-            &[1.0],
-            0.1,
-            5,
-        );
+        let traj = logistic_regression_trajectory(&init, &[vec![1.0, 1.0]], &[1.0], 0.1, 5);
         assert_eq!(traj[0], init);
     }
 
@@ -233,12 +221,7 @@ mod tests {
 
     #[test]
     fn step_at_finite_inputs_yields_finite_output() {
-        let next = mirror_descent_step(
-            &ExpFamily::Bernoulli,
-            &[1.5, -2.5],
-            &[0.3, -0.7],
-            0.2,
-        );
+        let next = mirror_descent_step(&ExpFamily::Bernoulli, &[1.5, -2.5], &[0.3, -0.7], 0.2);
         for v in &next {
             assert!(v.is_finite());
         }

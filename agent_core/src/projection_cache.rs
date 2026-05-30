@@ -148,9 +148,7 @@ impl ProjectionCache {
     /// Resolve the canonical on-disk path for a given vault.
     /// `<vault>/.epcache/projection.bin`.
     pub fn cache_path(vault_root: &Path) -> PathBuf {
-        vault_root
-            .join(".epcache")
-            .join(PROJECTION_CACHE_FILENAME)
+        vault_root.join(".epcache").join(PROJECTION_CACHE_FILENAME)
     }
 
     /// Load + deserialize the cache from disk. Returns `None` if the
@@ -188,10 +186,7 @@ impl ProjectionCache {
     /// background task) can then re-index only those files instead of
     /// crawling the whole vault. Empty result means the cache is
     /// fully fresh.
-    pub fn diff_against_live(
-        &self,
-        live_files: &[(String, i64, String)],
-    ) -> Vec<DiffEntry> {
+    pub fn diff_against_live(&self, live_files: &[(String, i64, String)]) -> Vec<DiffEntry> {
         let mut by_path = std::collections::HashMap::with_capacity(self.sidebar_tree.len());
         for node in &self.sidebar_tree {
             if let Some(rel) = &node.rel_path {
@@ -302,8 +297,16 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let cache = sample_cache(dir.path());
         let live = vec![
-            ("notes/hello.md".to_string(), 1_700_000_001, "abc124".to_string()), // mtime changed
-            ("notes/new.md".to_string(), 1_700_000_005, "def456".to_string()),    // new file
+            (
+                "notes/hello.md".to_string(),
+                1_700_000_001,
+                "abc124".to_string(),
+            ), // mtime changed
+            (
+                "notes/new.md".to_string(),
+                1_700_000_005,
+                "def456".to_string(),
+            ), // new file
         ];
         let diffs = cache.diff_against_live(&live);
         assert!(
@@ -320,7 +323,11 @@ mod tests {
     fn diff_empty_when_live_matches_cache() {
         let dir = TempDir::new().unwrap();
         let cache = sample_cache(dir.path());
-        let live = vec![("notes/hello.md".to_string(), 1_700_000_000, "abc123".to_string())];
+        let live = vec![(
+            "notes/hello.md".to_string(),
+            1_700_000_000,
+            "abc123".to_string(),
+        )];
         let diffs = cache.diff_against_live(&live);
         assert!(diffs.is_empty(), "expected empty diff, got {diffs:?}");
     }
@@ -346,7 +353,13 @@ mod tests {
         });
         cache.save(dir.path()).unwrap();
         let loaded = ProjectionCache::load(dir.path(), "1.0.0").unwrap();
-        assert_eq!(loaded.graph_snapshot.as_ref().unwrap().node_positions.len(), 1);
-        assert_eq!(loaded.graph_snapshot.as_ref().unwrap().cluster_centroids[0].cluster_id, 0);
+        assert_eq!(
+            loaded.graph_snapshot.as_ref().unwrap().node_positions.len(),
+            1
+        );
+        assert_eq!(
+            loaded.graph_snapshot.as_ref().unwrap().cluster_centroids[0].cluster_id,
+            0
+        );
     }
 }

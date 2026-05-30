@@ -27,8 +27,8 @@
 //! orchestrator. The form-layer slice (`EidosKind`, canonical schemas) lands
 //! in T10B against `eidos::forms` later in the loop.
 
-pub mod claim_evidence;
 pub mod adversarial;
+pub mod claim_evidence;
 pub mod code_symbol;
 pub mod dag_backed_graph_neighborhood;
 pub mod falsifier;

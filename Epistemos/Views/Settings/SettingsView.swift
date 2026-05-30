@@ -1201,6 +1201,7 @@ private struct ExperimentalFeaturesSettingsPanel: View {
     @AppStorage(PromptTreePreferences.userDefaultsKey) private var promptTreeEnabled = false
     @AppStorage(EidosFlags.userDefaultsKey) private var eidosEnabled = false
     @AppStorage(VaultRecallFlags.userDefaultsKey) private var vaultRecallEnabled = false
+    @AppStorage(ContextualShadowsState.userDefaultsKey) private var ambientRecallEnabled = ContextualShadowsState.defaultEnabled
     @AppStorage(SystemGFlags.userDefaultsKey) private var systemGEnabled = false
     @AppStorage(ACSAdmissionFlags.userDefaultsKey) private var acsAdmissionEnabled = false
     @AppStorage(FUlpFlags.userDefaultsKey) private var fUlpEnabled = false
@@ -1246,6 +1247,12 @@ private struct ExperimentalFeaturesSettingsPanel: View {
                     isOn: $vaultRecallEnabled
                 )
                 flagToggle(
+                    title: "Contextual Shadows",
+                    key: ContextualShadowsState.userDefaultsKey,
+                    detail: "Enables local Halo/Shadow suggestions while typing in chat, landing, and note surfaces.",
+                    isOn: $ambientRecallEnabled
+                )
+                flagToggle(
                     title: "System G",
                     key: SystemGFlags.userDefaultsKey,
                     detail: "Enables the System G breadcrumb/status path; production chip waits for a falsifier.",
@@ -1269,7 +1276,7 @@ private struct ExperimentalFeaturesSettingsPanel: View {
                 flagToggle(
                     title: "Power-user mode",
                     key: LocalModelCatalog.powerUserModeDefaultsKey,
-                    detail: "Lowers the primary-agent RAM gate to \(LocalModelCatalog.minRAMForPrimaryAgentModel(isPowerUser: true)) GB.",
+                    detail: "Preserves Capability Ceiling / 70B research controls, but does not lower the 36B memory gate until F-70B-Local-Cocktail or an equivalent SSD/RAM composition falsifier passes.",
                     isOn: $localAgentPowerUserMode
                 )
                 LabeledContent("Effective primary-agent floor") {
@@ -1463,7 +1470,7 @@ private struct InferenceDetailView: View {
                 Toggle(isOn: $localAgentPowerUserMode) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Power-user mode")
-                        Text("Allows the 36B primary-agent opt-in gate at \(LocalModelCatalog.minRAMForPrimaryAgentModel(isPowerUser: true)) GB instead of \(LocalModelCatalog.minRAMForPrimaryAgentModel(isPowerUser: false)) GB.")
+                        Text("Preserves Capability Ceiling / 70B research controls, but does not lower the 36B memory gate until F-70B-Local-Cocktail or an equivalent SSD/RAM composition falsifier passes.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -2876,6 +2883,7 @@ private struct InferenceDetailView: View {
 private struct LocalModelManagerSheet: View {
     @Environment(LocalModelManager.self) private var localModelManager
     @Environment(UIState.self) private var ui
+    @State private var capabilityCeiling = CapabilityCeilingHealthSnapshot.load()
 
     private var curatedBaselineDescriptors: [LocalModelDescriptor] {
         localModelManager.curatedBaselineDescriptors
@@ -2917,6 +2925,7 @@ private struct LocalModelManagerSheet: View {
 
                             Button("Refresh") {
                                 localModelManager.refreshFromDisk()
+                                capabilityCeiling = CapabilityCeilingHealthSnapshot.load()
                             }
                             .buttonStyle(.bordered)
                         }
@@ -2924,16 +2933,24 @@ private struct LocalModelManagerSheet: View {
                     .padding(.vertical, 4)
                 }
 
+                capabilityCeilingContextSection
+
                 Section("Recommended Baseline") {
                     ForEach(curatedBaselineDescriptors, id: \.id) { descriptor in
-                        LocalModelRow(descriptor: descriptor)
+                        LocalModelRow(
+                            descriptor: descriptor,
+                            capabilityCeiling: capabilityCeiling
+                        )
                     }
                 }
 
                 if !optionalBaselineDescriptors.isEmpty {
                     Section("Optional Flagship + Fallbacks") {
                         ForEach(optionalBaselineDescriptors, id: \.id) { descriptor in
-                            LocalModelRow(descriptor: descriptor)
+                            LocalModelRow(
+                                descriptor: descriptor,
+                                capabilityCeiling: capabilityCeiling
+                            )
                         }
                     }
                 }
@@ -2945,7 +2962,10 @@ private struct LocalModelManagerSheet: View {
                             .foregroundStyle(.secondary)
 
                         ForEach(legacyInstalledDescriptors, id: \.id) { descriptor in
-                            LocalModelRow(descriptor: descriptor)
+                            LocalModelRow(
+                                descriptor: descriptor,
+                                capabilityCeiling: capabilityCeiling
+                            )
                         }
                     }
                 }
@@ -2954,6 +2974,44 @@ private struct LocalModelManagerSheet: View {
             .navigationTitle("Local Models")
         }
     }
+
+    @ViewBuilder
+    private var capabilityCeilingContextSection: some View {
+        Section("Capability Ceiling Context") {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Canonical KV-Direct remains pinned to Qwen 3 8B until its local asset proves a 128K context window. Other 128K-capable local models are shown as candidates only, so Manage Local Models does not silently retarget the falsifier.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                LabeledContent("Canonical gate") {
+                    Text(capabilityCeiling.contextInventoryCanonicalOK ? "128K ready" : "canonical red")
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(capabilityCeiling.contextInventoryCanonicalOK ? .green : ui.theme.warning)
+                }
+                LabeledContent("Best candidate") {
+                    Text(bestContextCandidateLabel)
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+                LabeledContent("Next work") {
+                    Text(capabilityCeiling.nextBottleneck)
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
+    private var bestContextCandidateLabel: String {
+        guard capabilityCeiling.contextInventoryFound else {
+            return "missing inventory"
+        }
+        let repo = capabilityCeiling.contextInventoryBestCandidateRepoID.isEmpty
+            ? "no candidate"
+            : capabilityCeiling.contextInventoryBestCandidateRepoID
+        return "\(repo) · \(capabilityCeiling.contextInventoryBestCandidateTokens) tokens"
+    }
 }
 
 private struct LocalModelRow: View {
@@ -2961,6 +3019,7 @@ private struct LocalModelRow: View {
     @Environment(InferenceState.self) private var inference
 
     let descriptor: LocalModelDescriptor
+    let capabilityCeiling: CapabilityCeilingHealthSnapshot
 
     private var state: LocalModelPresentationState {
         localModelManager.presentationState(for: descriptor)
@@ -3013,6 +3072,12 @@ private struct LocalModelRow: View {
             Text(descriptor.summary)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+
+            if let contextCapabilitySummary {
+                Text(contextCapabilitySummary)
+                    .font(.caption2)
+                    .foregroundStyle(contextCapabilityColor)
+            }
 
             // Footer meta row: compact HStack pinned to its natural
             // width, stacked fallback at large sizes.
@@ -3091,6 +3156,11 @@ private struct LocalModelRow: View {
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(.orange)
         }
+        if let contextCapabilityBadge {
+            Text(contextCapabilityBadge)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(contextCapabilityColor)
+        }
         Text(state.title)
             .font(.caption2.weight(.medium))
             .foregroundStyle(.secondary)
@@ -3123,6 +3193,9 @@ private struct LocalModelRow: View {
            model.isExperimentalForEpistemos {
             parts.append("Experimental")
         }
+        if let contextCapabilityBadge {
+            parts.append(contextCapabilityBadge)
+        }
         parts.append(state.title)
         return parts.joined(separator: ", ")
     }
@@ -3139,6 +3212,41 @@ private struct LocalModelRow: View {
             parts.append("Minimum \(descriptor.minimumRecommendedMemoryGB) gigabytes")
         }
         return parts.joined(separator: ", ")
+    }
+
+    private var contextInventoryEntry: CapabilityCeilingContextInventoryEntry? {
+        capabilityCeiling.contextInventoryEntry(for: descriptor.id)
+    }
+
+    private var contextCapabilityBadge: String? {
+        guard let entry = contextInventoryEntry else { return nil }
+        if entry.isCanonicalKVDirectModel {
+            return entry.satisfiesRequiredContext ? "KV 128K" : "KV red"
+        }
+        guard entry.isTextGenerationCandidate else { return nil }
+        return entry.satisfiesRequiredContext ? "128K candidate" : "Context gated"
+    }
+
+    private var contextCapabilitySummary: String? {
+        guard let entry = contextInventoryEntry else { return nil }
+        let context = entry.effectiveContextTokens > 0 ? "\(entry.effectiveContextTokens) token context" : "context metadata missing"
+        if entry.isCanonicalKVDirectModel {
+            return entry.satisfiesRequiredContext
+                ? "Canonical KV-Direct asset satisfies the 128K context contract."
+                : "Canonical KV-Direct asset is installed but only reports \(context); F-KV-Direct-Gate stays red."
+        }
+        guard entry.isTextGenerationCandidate else { return nil }
+        return entry.satisfiesRequiredContext
+            ? "\(context); candidate evidence only, not the canonical KV-Direct route."
+            : "\(context); below the Capability Ceiling 128K requirement."
+    }
+
+    private var contextCapabilityColor: Color {
+        guard let entry = contextInventoryEntry else { return .secondary }
+        if entry.isCanonicalKVDirectModel {
+            return entry.satisfiesRequiredContext ? .green : .orange
+        }
+        return entry.satisfiesRequiredContext ? .blue : .secondary
     }
 
     private func installedStorageLabel(for record: LocalModelInstallRecord) -> String {

@@ -640,6 +640,13 @@ nonisolated enum AgentBlueprintRunEventProjector {
             tool = nil
             metadata["system_g_turn_id"] = turnId
             metadata["token_delta_chars"] = "\(text.count)"
+        case .localModelHandoff(let turnId, let modelID, let providerPolicyJSON):
+            kind = .routerDecision
+            tool = nil
+            metadata["system_g_turn_id"] = turnId
+            metadata["provider"] = "local_mlx"
+            metadata["model_id"] = modelID
+            metadata["provider_policy_json"] = providerPolicyJSON
         case .complete(let turnId, let answerPacketId):
             kind = .runCompleted
             tool = nil
@@ -731,6 +738,8 @@ nonisolated enum AgentBlueprintRunEventProjector {
             "tool_end"
         case .tokenChunk:
             "token_chunk"
+        case .localModelHandoff:
+            "local_model_handoff"
         case .complete:
             "complete"
         case .failed:

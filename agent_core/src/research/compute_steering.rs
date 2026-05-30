@@ -35,13 +35,15 @@ pub struct ComputeBudget {
 
 impl ComputeBudget {
     pub fn new(tokens: u32, ms: u32, kv: u32) -> Self {
-        Self { tokens_remaining: tokens, ms_remaining: ms, kv_slots_remaining: kv }
+        Self {
+            tokens_remaining: tokens,
+            ms_remaining: ms,
+            kv_slots_remaining: kv,
+        }
     }
 
     pub fn is_exhausted(&self) -> bool {
-        self.tokens_remaining == 0
-            || self.ms_remaining == 0
-            || self.kv_slots_remaining == 0
+        self.tokens_remaining == 0 || self.ms_remaining == 0 || self.kv_slots_remaining == 0
     }
 
     /// The smallest of `(tokens_remaining, ms_remaining,
@@ -97,9 +99,18 @@ pub struct DispatchDecision {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SteeringError {
-    TokenBudgetExceeded { requested: u32, remaining: u32 },
-    TimeBudgetExceeded { requested_ms: u32, remaining_ms: u32 },
-    KvBudgetExceeded { requested: u32, remaining: u32 },
+    TokenBudgetExceeded {
+        requested: u32,
+        remaining: u32,
+    },
+    TimeBudgetExceeded {
+        requested_ms: u32,
+        remaining_ms: u32,
+    },
+    KvBudgetExceeded {
+        requested: u32,
+        remaining: u32,
+    },
     NoExpertsAvailable,
 }
 
@@ -280,7 +291,10 @@ mod tests {
         let err = b.debit(99, 100, 5).unwrap_err();
         assert_eq!(
             err,
-            SteeringError::TokenBudgetExceeded { requested: 99, remaining: 10 }
+            SteeringError::TokenBudgetExceeded {
+                requested: 99,
+                remaining: 10
+            }
         );
     }
 
@@ -290,7 +304,10 @@ mod tests {
         let err = b.debit(10, 999, 5).unwrap_err();
         assert_eq!(
             err,
-            SteeringError::TimeBudgetExceeded { requested_ms: 999, remaining_ms: 100 }
+            SteeringError::TimeBudgetExceeded {
+                requested_ms: 999,
+                remaining_ms: 100
+            }
         );
     }
 
@@ -300,13 +317,19 @@ mod tests {
         let err = b.debit(10, 100, 99).unwrap_err();
         assert_eq!(
             err,
-            SteeringError::KvBudgetExceeded { requested: 99, remaining: 5 }
+            SteeringError::KvBudgetExceeded {
+                requested: 99,
+                remaining: 5
+            }
         );
     }
 
     #[test]
     fn greedy_policy_dispatches_one_expert() {
-        let p = GreedySingleExpertPolicy { kv_per_call: 8, max_tokens_per_call: 50 };
+        let p = GreedySingleExpertPolicy {
+            kv_per_call: 8,
+            max_tokens_per_call: 50,
+        };
         let b = ComputeBudget::new(100, 1000, 64);
         let d = p.decide(&b, 4).unwrap();
         assert_eq!(d.experts, vec![0]);
@@ -317,7 +340,10 @@ mod tests {
 
     #[test]
     fn greedy_policy_short_circuits_when_exhausted() {
-        let p = GreedySingleExpertPolicy { kv_per_call: 8, max_tokens_per_call: 50 };
+        let p = GreedySingleExpertPolicy {
+            kv_per_call: 8,
+            max_tokens_per_call: 50,
+        };
         let b = ComputeBudget::new(0, 1000, 64);
         let d = p.decide(&b, 4).unwrap();
         assert!(d.experts.is_empty());
@@ -326,7 +352,10 @@ mod tests {
 
     #[test]
     fn greedy_policy_clamps_kv_to_remaining() {
-        let p = GreedySingleExpertPolicy { kv_per_call: 100, max_tokens_per_call: 50 };
+        let p = GreedySingleExpertPolicy {
+            kv_per_call: 100,
+            max_tokens_per_call: 50,
+        };
         let b = ComputeBudget::new(100, 1000, 8);
         let d = p.decide(&b, 4).unwrap();
         assert_eq!(d.kv_allocate, 8);
@@ -334,7 +363,10 @@ mod tests {
 
     #[test]
     fn greedy_policy_no_experts_available_errors() {
-        let p = GreedySingleExpertPolicy { kv_per_call: 8, max_tokens_per_call: 50 };
+        let p = GreedySingleExpertPolicy {
+            kv_per_call: 8,
+            max_tokens_per_call: 50,
+        };
         let b = ComputeBudget::new(100, 1000, 64);
         let err = p.decide(&b, 0).unwrap_err();
         assert_eq!(err, SteeringError::NoExpertsAvailable);
@@ -374,7 +406,11 @@ mod tests {
 
     #[test]
     fn multi_expert_dispatches_top_k() {
-        let p = MultiExpertSparsePolicy { top_k: 2, kv_per_call: 16, max_tokens_per_call: 64 };
+        let p = MultiExpertSparsePolicy {
+            top_k: 2,
+            kv_per_call: 16,
+            max_tokens_per_call: 64,
+        };
         let b = ComputeBudget::new(100, 1000, 64);
         let d = p.decide(&b, 8).unwrap();
         assert_eq!(d.experts, vec![0, 1]);
@@ -385,7 +421,11 @@ mod tests {
 
     #[test]
     fn multi_expert_degrades_when_fewer_experts_available() {
-        let p = MultiExpertSparsePolicy { top_k: 8, kv_per_call: 16, max_tokens_per_call: 64 };
+        let p = MultiExpertSparsePolicy {
+            top_k: 8,
+            kv_per_call: 16,
+            max_tokens_per_call: 64,
+        };
         let b = ComputeBudget::new(100, 1000, 64);
         let d = p.decide(&b, 3).unwrap();
         assert_eq!(d.experts, vec![0, 1, 2]);
@@ -393,7 +433,11 @@ mod tests {
 
     #[test]
     fn multi_expert_short_circuits_when_budget_exhausted() {
-        let p = MultiExpertSparsePolicy { top_k: 2, kv_per_call: 16, max_tokens_per_call: 64 };
+        let p = MultiExpertSparsePolicy {
+            top_k: 2,
+            kv_per_call: 16,
+            max_tokens_per_call: 64,
+        };
         let b = ComputeBudget::new(0, 1000, 64);
         let d = p.decide(&b, 8).unwrap();
         assert!(d.experts.is_empty());
@@ -402,7 +446,11 @@ mod tests {
 
     #[test]
     fn multi_expert_no_experts_available_errors() {
-        let p = MultiExpertSparsePolicy { top_k: 2, kv_per_call: 16, max_tokens_per_call: 64 };
+        let p = MultiExpertSparsePolicy {
+            top_k: 2,
+            kv_per_call: 16,
+            max_tokens_per_call: 64,
+        };
         let b = ComputeBudget::new(100, 1000, 64);
         let err = p.decide(&b, 0).unwrap_err();
         assert_eq!(err, SteeringError::NoExpertsAvailable);
@@ -410,7 +458,11 @@ mod tests {
 
     #[test]
     fn multi_expert_top_k_zero_errors() {
-        let p = MultiExpertSparsePolicy { top_k: 0, kv_per_call: 16, max_tokens_per_call: 64 };
+        let p = MultiExpertSparsePolicy {
+            top_k: 0,
+            kv_per_call: 16,
+            max_tokens_per_call: 64,
+        };
         let b = ComputeBudget::new(100, 1000, 64);
         let err = p.decide(&b, 8).unwrap_err();
         assert_eq!(err, SteeringError::NoExpertsAvailable);
@@ -418,7 +470,11 @@ mod tests {
 
     #[test]
     fn multi_expert_clamps_kv_and_tokens_to_remaining() {
-        let p = MultiExpertSparsePolicy { top_k: 2, kv_per_call: 100, max_tokens_per_call: 100 };
+        let p = MultiExpertSparsePolicy {
+            top_k: 2,
+            kv_per_call: 100,
+            max_tokens_per_call: 100,
+        };
         let b = ComputeBudget::new(10, 1000, 8);
         let d = p.decide(&b, 4).unwrap();
         assert_eq!(d.kv_allocate, 8);
@@ -427,7 +483,11 @@ mod tests {
 
     #[test]
     fn multi_expert_top_k_equals_available_dispatches_all() {
-        let p = MultiExpertSparsePolicy { top_k: 4, kv_per_call: 16, max_tokens_per_call: 64 };
+        let p = MultiExpertSparsePolicy {
+            top_k: 4,
+            kv_per_call: 16,
+            max_tokens_per_call: 64,
+        };
         let b = ComputeBudget::new(100, 1000, 64);
         let d = p.decide(&b, 4).unwrap();
         assert_eq!(d.experts.len(), 4);
@@ -439,9 +499,18 @@ mod tests {
     #[test]
     fn error_cause_distinct_per_variant() {
         let variants = [
-            SteeringError::TokenBudgetExceeded { requested: 1, remaining: 0 },
-            SteeringError::TimeBudgetExceeded { requested_ms: 1, remaining_ms: 0 },
-            SteeringError::KvBudgetExceeded { requested: 1, remaining: 0 },
+            SteeringError::TokenBudgetExceeded {
+                requested: 1,
+                remaining: 0,
+            },
+            SteeringError::TimeBudgetExceeded {
+                requested_ms: 1,
+                remaining_ms: 0,
+            },
+            SteeringError::KvBudgetExceeded {
+                requested: 1,
+                remaining: 0,
+            },
             SteeringError::NoExpertsAvailable,
         ];
         let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
@@ -451,9 +520,18 @@ mod tests {
     #[test]
     fn error_classifiers_partition_variants() {
         let variants = [
-            SteeringError::TokenBudgetExceeded { requested: 1, remaining: 0 },
-            SteeringError::TimeBudgetExceeded { requested_ms: 1, remaining_ms: 0 },
-            SteeringError::KvBudgetExceeded { requested: 1, remaining: 0 },
+            SteeringError::TokenBudgetExceeded {
+                requested: 1,
+                remaining: 0,
+            },
+            SteeringError::TimeBudgetExceeded {
+                requested_ms: 1,
+                remaining_ms: 0,
+            },
+            SteeringError::KvBudgetExceeded {
+                requested: 1,
+                remaining: 0,
+            },
             SteeringError::NoExpertsAvailable,
         ];
         // Cross-surface invariant: is_budget_error XOR is_expert_error.
@@ -511,7 +589,10 @@ mod tests {
     fn greedy_policy_short_circuit_matches_decision_invariant() {
         // Cross-surface: actual policy outputs satisfy the
         // short_circuit/empty-experts invariant.
-        let p = GreedySingleExpertPolicy { kv_per_call: 8, max_tokens_per_call: 50 };
+        let p = GreedySingleExpertPolicy {
+            kv_per_call: 8,
+            max_tokens_per_call: 50,
+        };
         let exhausted = ComputeBudget::new(0, 1000, 64);
         let d = p.decide(&exhausted, 4).unwrap();
         assert_eq!(d.short_circuit, d.expert_count() == 0);

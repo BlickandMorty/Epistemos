@@ -19,9 +19,7 @@
 
 #![cfg(feature = "research")]
 
-use agent_core::research::info_ir::{
-    logistic_regression_step, logistic_regression_trajectory,
-};
+use agent_core::research::info_ir::{logistic_regression_step, logistic_regression_trajectory};
 
 /// Raw / hand-rolled logistic-regression step. Mirrors
 /// agent_core::research::info_ir::mirror_descent::logistic_regression_step
@@ -157,8 +155,12 @@ fn convergence_reaches_low_loss_under_500_steps() {
     }
     let initial_loss = loss(&traj[0], &xs, &ys);
     let final_loss = loss(traj.last().unwrap(), &xs, &ys);
-    assert!(final_loss < initial_loss * 0.5,
-        "loss did not decrease by 50%: {} → {}", initial_loss, final_loss);
+    assert!(
+        final_loss < initial_loss * 0.5,
+        "loss did not decrease by 50%: {} → {}",
+        initial_loss,
+        final_loss
+    );
 }
 
 #[test]
@@ -174,7 +176,10 @@ fn varying_step_sizes_all_match_raw() {
                     ai.to_bits(),
                     bi.to_bits(),
                     "step_size={} step={} info={} raw={}",
-                    step_size, step, ai, bi
+                    step_size,
+                    step,
+                    ai,
+                    bi
                 );
             }
         }

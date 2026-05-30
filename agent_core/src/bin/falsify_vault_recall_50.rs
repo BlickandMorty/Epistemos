@@ -324,7 +324,10 @@ async fn main() {
     };
     let artifact = builder.build();
     write_to_disk(&artifact);
-    println!("{}", serde_json::to_string_pretty(&artifact).expect("serialize"));
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&artifact).expect("serialize")
+    );
 }
 
 fn insert_pct_axis(

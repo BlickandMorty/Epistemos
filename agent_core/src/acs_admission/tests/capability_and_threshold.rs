@@ -3,7 +3,6 @@
 use serde::{Deserialize, Serialize};
 
 use super::*;
-use crate::acs_admission::*;
 use crate::acs_admission::admit::*;
 use crate::acs_admission::audit_sink::*;
 use crate::acs_admission::common::*;
@@ -16,6 +15,7 @@ use crate::acs_admission::risk::*;
 use crate::acs_admission::validation::*;
 use crate::acs_admission::verdict::*;
 use crate::acs_admission::wire::*;
+use crate::acs_admission::*;
 use crate::{
     artifacts::ArtifactRef,
     effect::receipt::{Capability, SigningKey},
@@ -149,8 +149,8 @@ fn acs_admission_payload_rejects_boundary_spaced_mutation_id_on_decode() {
 
 #[test]
 fn acs_admission_payload_rejects_shadow_mutation_envelope_field_on_decode() {
-    let mut envelope = serde_json::to_value(mutation_envelope_fixture())
-        .expect("mutation envelope serializes");
+    let mut envelope =
+        serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
     envelope["shadow_integrity_hash"] = serde_json::json!("hash-shadow");
     let value = serde_json::json!({
         "kind": "mutation_envelope",
@@ -162,8 +162,8 @@ fn acs_admission_payload_rejects_shadow_mutation_envelope_field_on_decode() {
 
 #[test]
 fn acs_admission_payload_rejects_shadow_mutation_actor_field_on_decode() {
-    let mut envelope = serde_json::to_value(mutation_envelope_fixture())
-        .expect("mutation envelope serializes");
+    let mut envelope =
+        serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
     envelope["actor"]["shadow_run_id"] = serde_json::json!("run-shadow");
     let value = serde_json::json!({
         "kind": "mutation_envelope",
@@ -175,8 +175,8 @@ fn acs_admission_payload_rejects_shadow_mutation_actor_field_on_decode() {
 
 #[test]
 fn acs_admission_payload_rejects_null_mutation_user_actor_run_id_on_decode() {
-    let mut envelope = serde_json::to_value(mutation_envelope_fixture())
-        .expect("mutation envelope serializes");
+    let mut envelope =
+        serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
     envelope["actor"] = serde_json::json!({
         "kind": "user",
         "run_id": null,
@@ -191,8 +191,8 @@ fn acs_admission_payload_rejects_null_mutation_user_actor_run_id_on_decode() {
 
 #[test]
 fn acs_admission_payload_rejects_shadow_mutation_source_op_field_on_decode() {
-    let mut envelope = serde_json::to_value(mutation_envelope_fixture())
-        .expect("mutation envelope serializes");
+    let mut envelope =
+        serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
     envelope["op"]["shadow_artifact_id"] = serde_json::json!("artifact-shadow");
     let value = serde_json::json!({
         "kind": "mutation_envelope",
@@ -204,8 +204,8 @@ fn acs_admission_payload_rejects_shadow_mutation_source_op_field_on_decode() {
 
 #[test]
 fn acs_admission_payload_rejects_null_mutation_source_op_extra_field_on_decode() {
-    let mut envelope = serde_json::to_value(mutation_envelope_fixture())
-        .expect("mutation envelope serializes");
+    let mut envelope =
+        serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
     envelope["op"] = serde_json::json!({
         "kind": "artifact_update",
         "artifact_id": "artifact-1",
@@ -221,8 +221,8 @@ fn acs_admission_payload_rejects_null_mutation_source_op_extra_field_on_decode()
 
 #[test]
 fn acs_admission_payload_rejects_shadow_mutation_touched_artifact_field_on_decode() {
-    let mut envelope = serde_json::to_value(mutation_envelope_fixture())
-        .expect("mutation envelope serializes");
+    let mut envelope =
+        serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
     envelope["touched_artifacts"] = serde_json::json!([
         {
             "id": "artifact-1",
@@ -239,8 +239,8 @@ fn acs_admission_payload_rejects_shadow_mutation_touched_artifact_field_on_decod
 
 #[test]
 fn acs_admission_payload_rejects_shadow_mutation_touched_block_field_on_decode() {
-    let mut envelope = serde_json::to_value(mutation_envelope_fixture())
-        .expect("mutation envelope serializes");
+    let mut envelope =
+        serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
     envelope["touched_blocks"] = serde_json::json!([
         {
             "artifact_id": "artifact-1",
@@ -258,8 +258,8 @@ fn acs_admission_payload_rejects_shadow_mutation_touched_block_field_on_decode()
 
 #[test]
 fn acs_admission_payload_rejects_shadow_mutation_relation_change_field_on_decode() {
-    let mut envelope = serde_json::to_value(mutation_envelope_fixture())
-        .expect("mutation envelope serializes");
+    let mut envelope =
+        serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
     envelope["relation_changes"] = serde_json::json!([
         {
             "op": "added",
@@ -279,8 +279,8 @@ fn acs_admission_payload_rejects_shadow_mutation_relation_change_field_on_decode
 
 #[test]
 fn acs_admission_payload_rejects_null_mutation_relation_extra_field_on_decode() {
-    let mut envelope = serde_json::to_value(mutation_envelope_fixture())
-        .expect("mutation envelope serializes");
+    let mut envelope =
+        serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
     envelope["relation_changes"] = serde_json::json!([
         {
             "op": "added",
@@ -300,8 +300,8 @@ fn acs_admission_payload_rejects_null_mutation_relation_extra_field_on_decode() 
 
 #[test]
 fn acs_admission_payload_rejects_boundary_spaced_mutation_hash_on_decode() {
-    let mut envelope = serde_json::to_value(mutation_envelope_fixture())
-        .expect("mutation envelope serializes");
+    let mut envelope =
+        serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
     envelope["integrity_hash"] = serde_json::json!(" hash-1");
     let value = serde_json::json!({
         "kind": "mutation_envelope",
@@ -403,8 +403,8 @@ fn acs_admission_payload_rejects_missing_mutation_agent_run_id_on_decode() {
 
 #[test]
 fn acs_admission_payload_rejects_null_mutation_run_id_on_decode() {
-    let mut envelope = serde_json::to_value(mutation_envelope_fixture())
-        .expect("mutation envelope serializes");
+    let mut envelope =
+        serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
     envelope["run_id"] = serde_json::json!(null);
     let value = serde_json::json!({
         "kind": "mutation_envelope",
@@ -474,8 +474,8 @@ fn acs_admission_payload_rejects_pending_mutation_committed_at_on_decode() {
 
 #[test]
 fn acs_admission_payload_rejects_null_mutation_committed_at_on_decode() {
-    let mut envelope = serde_json::to_value(mutation_envelope_fixture())
-        .expect("mutation envelope serializes");
+    let mut envelope =
+        serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
     envelope["committed_at_ms"] = serde_json::json!(null);
     let value = serde_json::json!({
         "kind": "mutation_envelope",
@@ -573,8 +573,8 @@ fn acs_admission_payload_rejects_boundary_spaced_mutation_touched_artifact_id_on
 
 #[test]
 fn acs_admission_payload_rejects_null_mutation_touched_artifact_title_on_decode() {
-    let mut envelope = serde_json::to_value(mutation_envelope_fixture())
-        .expect("mutation envelope serializes");
+    let mut envelope =
+        serde_json::to_value(mutation_envelope_fixture()).expect("mutation envelope serializes");
     envelope["touched_artifacts"] = serde_json::json!([
         {
             "id": "artifact-1",
@@ -628,8 +628,7 @@ fn acs_admission_payload_rejects_duplicate_mutation_touched_block_on_decode() {
 }
 
 #[test]
-fn acs_admission_payload_rejects_boundary_spaced_mutation_touched_block_artifact_id_on_decode()
-{
+fn acs_admission_payload_rejects_boundary_spaced_mutation_touched_block_artifact_id_on_decode() {
     let mut envelope = mutation_envelope_fixture();
     envelope
         .touched_blocks
@@ -957,8 +956,7 @@ fn acs_admission_input_round_trips_with_payload_operation() {
     };
 
     let json = serde_json::to_string(&input).expect("input must serialize");
-    let decoded: ACSAdmissionInput =
-        serde_json::from_str(&json).expect("input must deserialize");
+    let decoded: ACSAdmissionInput = serde_json::from_str(&json).expect("input must deserialize");
 
     assert_eq!(decoded.operation(), ACSOperationKind::MemoryWrite);
     assert_eq!(decoded, input);
@@ -1248,4 +1246,3 @@ fn acs_admission_shadow_kernel_promotion_field_names_forged_admission_input_fiel
         "{message}"
     );
 }
-

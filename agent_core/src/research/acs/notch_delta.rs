@@ -50,7 +50,12 @@ pub struct NotchDeltaParams {
 
 impl Default for NotchDeltaParams {
     fn default() -> Self {
-        Self { k: 2.0, h: 2.0, a: 0.01, b: 100.0 }
+        Self {
+            k: 2.0,
+            h: 2.0,
+            a: 0.01,
+            b: 100.0,
+        }
     }
 }
 
@@ -64,10 +69,22 @@ pub struct NotchDeltaNetwork {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum NotchDeltaError {
     EmptyNetwork,
-    AdjacencyLengthMismatch { cells: usize, adjacency: usize },
-    AdjacencyIndexOutOfRange { cell: usize, neighbor: usize, n: usize },
-    NonPositiveDt { dt: f32 },
-    NonPositiveHillParam { which: &'static str, value: f32 },
+    AdjacencyLengthMismatch {
+        cells: usize,
+        adjacency: usize,
+    },
+    AdjacencyIndexOutOfRange {
+        cell: usize,
+        neighbor: usize,
+        n: usize,
+    },
+    NonPositiveDt {
+        dt: f32,
+    },
+    NonPositiveHillParam {
+        which: &'static str,
+        value: f32,
+    },
 }
 
 fn hill_up(x: f32, exponent: f32, sat: f32) -> f32 {
@@ -101,10 +118,16 @@ fn validate_network(net: &NotchDeltaNetwork) -> Result<(), NotchDeltaError> {
         }
     }
     if net.params.a <= 0.0 {
-        return Err(NotchDeltaError::NonPositiveHillParam { which: "a", value: net.params.a });
+        return Err(NotchDeltaError::NonPositiveHillParam {
+            which: "a",
+            value: net.params.a,
+        });
     }
     if net.params.b <= 0.0 {
-        return Err(NotchDeltaError::NonPositiveHillParam { which: "b", value: net.params.b });
+        return Err(NotchDeltaError::NonPositiveHillParam {
+            which: "b",
+            value: net.params.b,
+        });
     }
     Ok(())
 }
@@ -251,8 +274,14 @@ mod tests {
     fn pair_network(notch_a: f32, delta_a: f32, notch_b: f32, delta_b: f32) -> NotchDeltaNetwork {
         NotchDeltaNetwork {
             cells: vec![
-                NotchDeltaCell { notch: notch_a, delta: delta_a },
-                NotchDeltaCell { notch: notch_b, delta: delta_b },
+                NotchDeltaCell {
+                    notch: notch_a,
+                    delta: delta_a,
+                },
+                NotchDeltaCell {
+                    notch: notch_b,
+                    delta: delta_b,
+                },
             ],
             adjacency: vec![vec![1], vec![0]],
             params: NotchDeltaParams::default(),
@@ -273,28 +302,41 @@ mod tests {
     #[test]
     fn adjacency_length_mismatch_errors() {
         let mut net = NotchDeltaNetwork {
-            cells: vec![NotchDeltaCell { notch: 0.5, delta: 0.5 }],
+            cells: vec![NotchDeltaCell {
+                notch: 0.5,
+                delta: 0.5,
+            }],
             adjacency: vec![vec![], vec![]],
             params: NotchDeltaParams::default(),
         };
         let err = notch_delta_step(&mut net, 0.01).unwrap_err();
         assert_eq!(
             err,
-            NotchDeltaError::AdjacencyLengthMismatch { cells: 1, adjacency: 2 }
+            NotchDeltaError::AdjacencyLengthMismatch {
+                cells: 1,
+                adjacency: 2
+            }
         );
     }
 
     #[test]
     fn adjacency_index_out_of_range_errors() {
         let mut net = NotchDeltaNetwork {
-            cells: vec![NotchDeltaCell { notch: 0.5, delta: 0.5 }],
+            cells: vec![NotchDeltaCell {
+                notch: 0.5,
+                delta: 0.5,
+            }],
             adjacency: vec![vec![5]],
             params: NotchDeltaParams::default(),
         };
         let err = notch_delta_step(&mut net, 0.01).unwrap_err();
         assert_eq!(
             err,
-            NotchDeltaError::AdjacencyIndexOutOfRange { cell: 0, neighbor: 5, n: 1 }
+            NotchDeltaError::AdjacencyIndexOutOfRange {
+                cell: 0,
+                neighbor: 5,
+                n: 1
+            }
         );
     }
 
@@ -312,7 +354,10 @@ mod tests {
         let err = notch_delta_step(&mut net, 0.01).unwrap_err();
         assert_eq!(
             err,
-            NotchDeltaError::NonPositiveHillParam { which: "a", value: 0.0 }
+            NotchDeltaError::NonPositiveHillParam {
+                which: "a",
+                value: 0.0
+            }
         );
     }
 
@@ -323,7 +368,10 @@ mod tests {
         let err = notch_delta_step(&mut net, 0.01).unwrap_err();
         assert_eq!(
             err,
-            NotchDeltaError::NonPositiveHillParam { which: "b", value: -1.0 }
+            NotchDeltaError::NonPositiveHillParam {
+                which: "b",
+                value: -1.0
+            }
         );
     }
 
@@ -346,7 +394,10 @@ mod tests {
     #[test]
     fn solo_cell_with_no_neighbors_notch_decays_to_zero_input_baseline() {
         let mut net = NotchDeltaNetwork {
-            cells: vec![NotchDeltaCell { notch: 0.5, delta: 0.0 }],
+            cells: vec![NotchDeltaCell {
+                notch: 0.5,
+                delta: 0.0,
+            }],
             adjacency: vec![vec![]],
             params: NotchDeltaParams::default(),
         };
@@ -359,7 +410,10 @@ mod tests {
     #[test]
     fn delta_high_when_notch_zero_per_hill_down() {
         let mut net = NotchDeltaNetwork {
-            cells: vec![NotchDeltaCell { notch: 0.0, delta: 0.0 }],
+            cells: vec![NotchDeltaCell {
+                notch: 0.0,
+                delta: 0.0,
+            }],
             adjacency: vec![vec![]],
             params: NotchDeltaParams::default(),
         };

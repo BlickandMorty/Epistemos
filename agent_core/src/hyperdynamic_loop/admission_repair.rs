@@ -67,11 +67,7 @@ impl HyperdynamicLoop for AdmissionRepairLoop {
             }),
             ACSAdmissionVerdict::Quarantine | ACSAdmissionVerdict::Reject => {
                 Ok(RepairVerdict::Quarantine {
-                    reason: format!(
-                        "acs_terminal:{}: {}",
-                        draft.verdict.code(),
-                        draft.reason
-                    ),
+                    reason: format!("acs_terminal:{}: {}", draft.verdict.code(), draft.reason),
                 })
             }
         }
@@ -122,7 +118,10 @@ mod tests {
         let d = AdmissionDraft::new(ACSAdmissionVerdict::Quarantine, "egress_unsafe");
         match l.check(&d).unwrap() {
             RepairVerdict::Quarantine { reason } => {
-                assert!(reason.starts_with("acs_terminal:quarantine"), "reason: {reason}");
+                assert!(
+                    reason.starts_with("acs_terminal:quarantine"),
+                    "reason: {reason}"
+                );
                 assert!(reason.contains("egress_unsafe"), "reason: {reason}");
             }
             other => panic!("expected Quarantine, got {other:?}"),

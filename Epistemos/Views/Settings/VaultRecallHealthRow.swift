@@ -35,7 +35,7 @@ public struct VaultRecallHealthRow: View {
             row(
                 label: "Vault recall contract flag",
                 symbol: "flag.fill",
-                ok: snapshot.isFlagEnabled,
+                state: snapshot.isFlagEnabled ? .pass : .partial,
                 detail: snapshot.isFlagEnabled
                     ? "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 on (diagnostic trace flag)"
                     : "EPISTEMOS_VAULT_RECALL_CONTRACT_V1 off (chat still records visible traces)"
@@ -54,26 +54,26 @@ public struct VaultRecallHealthRow: View {
             row(
                 label: "Last query",
                 symbol: "clock",
-                ok: snapshot.lastQueryAt != nil && snapshot.lastErrorDescription == nil,
+                state: lastQueryState,
                 detail: lastQueryDetail
             )
             row(
                 label: "p95 latency",
                 symbol: "chart.line.uptrend.xyaxis",
-                ok: snapshot.sampleCount > 0 && snapshot.p95LatencyMs <= 50.0,
+                state: p95State,
                 detail: p95Detail
             )
             row(
                 label: "Signal coverage",
                 symbol: "antenna.radiowaves.left.and.right",
-                ok: !snapshot.lastSignalSummary.isEmpty || !snapshot.isFlagEnabled,
+                state: signalCoverageState,
                 detail: signalCoverageDetail
             )
             if snapshot.lastAllChatterFallback {
                 row(
                     label: "Chatter fallback fired",
                     symbol: "exclamationmark.bubble",
-                    ok: false,
+                    state: .blocked,
                     detail: "Query reduced to empty after chatter strip — treat as Weak evidence"
                 )
             }
@@ -81,7 +81,7 @@ public struct VaultRecallHealthRow: View {
                 row(
                     label: "Last error",
                     symbol: "exclamationmark.triangle",
-                    ok: false,
+                    state: .blocked,
                     detail: err
                 )
             }
@@ -203,6 +203,22 @@ public struct VaultRecallHealthRow: View {
         }
     }
 
+    private var lastQueryState: SubstrateHealthSignalState {
+        if snapshot.lastErrorDescription != nil { return .blocked }
+        return snapshot.lastQueryAt == nil ? .partial : .pass
+    }
+
+    private var p95State: SubstrateHealthSignalState {
+        guard snapshot.sampleCount > 0 else { return .partial }
+        return snapshot.p95LatencyMs <= 50.0 ? .pass : .blocked
+    }
+
+    private var signalCoverageState: SubstrateHealthSignalState {
+        if !snapshot.isFlagEnabled { return .partial }
+        guard snapshot.lastQueryAt != nil else { return .partial }
+        return snapshot.lastSignalSummary.isEmpty ? .blocked : .pass
+    }
+
     private var vaultRecallSubstrateLabel: String {
         switch snapshot.lastBackend {
         case .real:
@@ -266,7 +282,7 @@ public struct VaultRecallHealthRow: View {
     }
 
     @ViewBuilder
-    private func row(label: String, symbol: String, ok: Bool, detail: String) -> some View {
+    private func row(label: String, symbol: String, state: SubstrateHealthSignalState, detail: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: symbol)
                 .symbolRenderingMode(.hierarchical)
@@ -282,8 +298,8 @@ public struct VaultRecallHealthRow: View {
                     .truncationMode(.middle)
             }
             Spacer()
-            Image(systemName: ok ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .foregroundStyle(ok ? AnyShapeStyle(Color.green) : AnyShapeStyle(Color.red))
+            Image(systemName: state.symbol)
+                .foregroundStyle(state.tint)
                 .font(.system(size: 16))
         }
         .padding(.horizontal, 12)

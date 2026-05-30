@@ -17,9 +17,7 @@
 
 #![cfg(feature = "research")]
 
-use agent_core::research::scan_ir::{
-    sequential_scan, ssd_block_scan, ScanProgram,
-};
+use agent_core::research::scan_ir::{sequential_scan, ssd_block_scan, ScanProgram};
 
 /// 100-element fixture sequence (deterministic — seeded by the
 /// arithmetic series 1..=100).
@@ -74,7 +72,11 @@ fn ssd_matches_sequential_f64_sum_at_block_sizes_within_tolerance() {
             assert!(
                 (a - b).abs() < rel_tol,
                 "f64 sum block_size={} idx={} ssd={} seq={} diff={}",
-                bs, i, a, b, (a - b).abs()
+                bs,
+                i,
+                a,
+                b,
+                (a - b).abs()
             );
         }
     }
@@ -112,8 +114,26 @@ fn ssd_associative_invariance_holds_across_block_sizes() {
     for (i, ((a, b), c)) in out_8.iter().zip(&out_16).zip(&out_32).enumerate() {
         let s = seq[i];
         let rel_tol = s.abs().max(1.0) * 1e-12;
-        assert!((a - s).abs() < rel_tol, "out_8[{}] vs seq: {} vs {}", i, a, s);
-        assert!((b - s).abs() < rel_tol, "out_16[{}] vs seq: {} vs {}", i, b, s);
-        assert!((c - s).abs() < rel_tol, "out_32[{}] vs seq: {} vs {}", i, c, s);
+        assert!(
+            (a - s).abs() < rel_tol,
+            "out_8[{}] vs seq: {} vs {}",
+            i,
+            a,
+            s
+        );
+        assert!(
+            (b - s).abs() < rel_tol,
+            "out_16[{}] vs seq: {} vs {}",
+            i,
+            b,
+            s
+        );
+        assert!(
+            (c - s).abs() < rel_tol,
+            "out_32[{}] vs seq: {} vs {}",
+            i,
+            c,
+            s
+        );
     }
 }

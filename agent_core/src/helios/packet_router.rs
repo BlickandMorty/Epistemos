@@ -94,14 +94,9 @@ pub enum RoutingQuality {
 /// that exercises both [`route_1bit`] and [`unroute_1bit`]. Returns
 /// `Ok(())` on byte-identical reconstruction or `Err(usize)` of the
 /// first differing index.
-pub fn roundtrip_verify(
-    inputs: &[f32],
-    bits: &[bool],
-) -> Result<(), RoundtripError> {
-    let (routed, _stats) = route_1bit(inputs, bits)
-        .map_err(RoundtripError::Router)?;
-    let restored = unroute_1bit(&routed, inputs.len())
-        .map_err(RoundtripError::Router)?;
+pub fn roundtrip_verify(inputs: &[f32], bits: &[bool]) -> Result<(), RoundtripError> {
+    let (routed, _stats) = route_1bit(inputs, bits).map_err(RoundtripError::Router)?;
+    let restored = unroute_1bit(&routed, inputs.len()).map_err(RoundtripError::Router)?;
     for i in 0..inputs.len() {
         if inputs[i] != restored[i] {
             return Err(RoundtripError::Mismatch {
@@ -117,7 +112,11 @@ pub fn roundtrip_verify(
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum RoundtripError {
     Router(PacketRouterError),
-    Mismatch { index: usize, original: f32, restored: f32 },
+    Mismatch {
+        index: usize,
+        original: f32,
+        restored: f32,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -180,10 +179,7 @@ pub fn route_1bit(
 /// Inverse of [`route_1bit`]: given the per-lane outputs + the
 /// recorded original-index lists, reassemble the original-order batch.
 /// Used by downstream kernels that want to merge expert outputs.
-pub fn unroute_1bit(
-    routed: &RoutingOutputs,
-    total: usize,
-) -> Result<Vec<f32>, PacketRouterError> {
+pub fn unroute_1bit(routed: &RoutingOutputs, total: usize) -> Result<Vec<f32>, PacketRouterError> {
     if routed.lane_0.len() != routed.original_indices_lane_0.len() {
         return Err(PacketRouterError::BitsLengthMismatch {
             inputs: routed.lane_0.len(),

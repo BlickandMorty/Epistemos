@@ -1,0 +1,684 @@
+{
+  "current_git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+  "current_git_toplevel": "/Users/jojo/Downloads/Epistemos",
+  "current_repo": "/Users/jojo/Downloads/Epistemos",
+  "entries": [
+    {
+      "branch": "codex/inline-tool-loop-transcript-2026-05-27",
+      "classification": "current_repo",
+      "duplicate_risk": "active_surface",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos",
+      "head": "ba6f15e6fb08",
+      "is_git": true,
+      "name": "Epistemos",
+      "path": "/Users/jojo/Downloads/Epistemos",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 568,
+        "tracked_dirty": 381,
+        "untracked": 187
+      }
+    },
+    {
+      "classification": "non_git_epistemos_folder",
+      "duplicate_risk": "unknown_non_git_folder",
+      "is_git": false,
+      "name": "Epistemos-live-data-backup-20260401-191422",
+      "path": "/Users/jojo/Downloads/Epistemos-live-data-backup-20260401-191422"
+    },
+    {
+      "classification": "non_git_epistemos_folder",
+      "duplicate_risk": "unknown_non_git_folder",
+      "is_git": false,
+      "name": "Epistemos-live-data-backup-20260401-191440",
+      "path": "/Users/jojo/Downloads/Epistemos-live-data-backup-20260401-191440"
+    },
+    {
+      "classification": "non_git_epistemos_folder",
+      "duplicate_risk": "unknown_non_git_folder",
+      "is_git": false,
+      "name": "epistemos-public",
+      "path": "/Users/jojo/Downloads/epistemos-public"
+    },
+    {
+      "classification": "non_git_epistemos_folder",
+      "duplicate_risk": "unknown_non_git_folder",
+      "is_git": false,
+      "name": "Epistemos-safety-backup-20260401-183510",
+      "path": "/Users/jojo/Downloads/Epistemos-safety-backup-20260401-183510"
+    },
+    {
+      "branch": "codex/t09-product-architecture-ledger-2026-05-18",
+      "classification": "sibling_worktree_dirty",
+      "duplicate_risk": "high_preserve_before_new_work",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-t09-product-ledger",
+      "head": "17a798a474a9",
+      "is_git": true,
+      "name": "Epistemos-t09-product-ledger",
+      "path": "/Users/jojo/Downloads/Epistemos-t09-product-ledger",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 2955,
+        "tracked_dirty": 2955,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "codex/t10-eidos-v0-2026-05-18",
+      "classification": "sibling_worktree_dirty",
+      "duplicate_risk": "high_preserve_before_new_work",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-t10-eidos",
+      "head": "85b9992e33b0",
+      "is_git": true,
+      "name": "Epistemos-t10-eidos",
+      "path": "/Users/jojo/Downloads/Epistemos-t10-eidos",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 2955,
+        "tracked_dirty": 2955,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "codex/t11-agent-runtime-v2-2026-05-18",
+      "classification": "sibling_worktree_dirty",
+      "duplicate_risk": "high_preserve_before_new_work",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-t11-agent-runtime-v2",
+      "head": "4a8f47623057",
+      "is_git": true,
+      "name": "Epistemos-t11-agent-runtime-v2",
+      "path": "/Users/jojo/Downloads/Epistemos-t11-agent-runtime-v2",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 2955,
+        "tracked_dirty": 2955,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "codex/t12-f-ulp-oracle-2026-05-18",
+      "classification": "sibling_worktree_dirty",
+      "duplicate_risk": "high_preserve_before_new_work",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-t12-f-ulp",
+      "head": "48f1009b3930",
+      "is_git": true,
+      "name": "Epistemos-t12-f-ulp",
+      "path": "/Users/jojo/Downloads/Epistemos-t12-f-ulp",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 2955,
+        "tracked_dirty": 2955,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "codex/t17b-lattice-wbo-register-2026-05-18",
+      "classification": "sibling_worktree_dirty",
+      "duplicate_risk": "high_preserve_before_new_work",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-t17b-lattice-wbo-register",
+      "head": "c56847b436b2",
+      "is_git": true,
+      "name": "Epistemos-t17b-lattice-wbo-register",
+      "path": "/Users/jojo/Downloads/Epistemos-t17b-lattice-wbo-register",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 2955,
+        "tracked_dirty": 2955,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "codex/t18b-acs-admission-field-2026-05-18",
+      "classification": "sibling_worktree_dirty",
+      "duplicate_risk": "high_preserve_before_new_work",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-t18b-acs-admission-field",
+      "head": "1184af19ad22",
+      "is_git": true,
+      "name": "Epistemos-t18b-acs-admission-field",
+      "path": "/Users/jojo/Downloads/Epistemos-t18b-acs-admission-field",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 2955,
+        "tracked_dirty": 2955,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "codex/t2-agent-2026-05-16",
+      "classification": "sibling_worktree_dirty",
+      "duplicate_risk": "high_preserve_before_new_work",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-t2-agent",
+      "head": "b187813cf66e",
+      "is_git": true,
+      "name": "Epistemos-t2-agent",
+      "path": "/Users/jojo/Downloads/Epistemos-t2-agent",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 2955,
+        "tracked_dirty": 2955,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "codex/t21-vault-recall-contract-2026-05-18",
+      "classification": "sibling_worktree_dirty",
+      "duplicate_risk": "high_preserve_before_new_work",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-t21-vault",
+      "head": "4b982453b178",
+      "is_git": true,
+      "name": "Epistemos-t21-vault",
+      "path": "/Users/jojo/Downloads/Epistemos-t21-vault",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 2955,
+        "tracked_dirty": 2955,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "codex/t23b-m2pro-falsifier-handbook-2026-05-18",
+      "classification": "sibling_worktree_dirty",
+      "duplicate_risk": "high_preserve_before_new_work",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-t23b-m2pro-falsifier-handbook",
+      "head": "1e5308253e0a",
+      "is_git": true,
+      "name": "Epistemos-t23b-m2pro-falsifier-handbook",
+      "path": "/Users/jojo/Downloads/Epistemos-t23b-m2pro-falsifier-handbook",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 2955,
+        "tracked_dirty": 2955,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "codex/t4-vault-2026-05-16",
+      "classification": "sibling_worktree_dirty",
+      "duplicate_risk": "high_preserve_before_new_work",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-t4-vault",
+      "head": "8cff8701fcb5",
+      "is_git": true,
+      "name": "Epistemos-t4-vault",
+      "path": "/Users/jojo/Downloads/Epistemos-t4-vault",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 2955,
+        "tracked_dirty": 2955,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "codex/t5-emlir-2026-05-16",
+      "classification": "sibling_worktree_dirty",
+      "duplicate_risk": "high_preserve_before_new_work",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-t5-emlir",
+      "head": "2ba7142e28f0",
+      "is_git": true,
+      "name": "Epistemos-t5-emlir",
+      "path": "/Users/jojo/Downloads/Epistemos-t5-emlir",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 2955,
+        "tracked_dirty": 2955,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "codex/t6-uiux-2026-05-16",
+      "classification": "sibling_worktree_dirty",
+      "duplicate_risk": "high_preserve_before_new_work",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-t6-uiux",
+      "head": "775137b8315f",
+      "is_git": true,
+      "name": "Epistemos-t6-uiux",
+      "path": "/Users/jojo/Downloads/Epistemos-t6-uiux",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 2955,
+        "tracked_dirty": 2955,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "terminal/a-eidos-bridge-2026-05-23",
+      "classification": "sibling_worktree_dirty",
+      "duplicate_risk": "high_preserve_before_new_work",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-terminal-a",
+      "head": "0e1ec8627714",
+      "is_git": true,
+      "name": "Epistemos-terminal-a",
+      "path": "/Users/jojo/Downloads/Epistemos-terminal-a",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 2955,
+        "tracked_dirty": 2955,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "terminal/c-system-g-full-path-2026-05-23",
+      "classification": "sibling_worktree_dirty",
+      "duplicate_risk": "high_preserve_before_new_work",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-terminal-c",
+      "head": "6d68f7c6b634",
+      "is_git": true,
+      "name": "Epistemos-terminal-c",
+      "path": "/Users/jojo/Downloads/Epistemos-terminal-c",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 2955,
+        "tracked_dirty": 2955,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "phase2-terminal-d-substrate-health-wrv-2026-05-24",
+      "classification": "sibling_worktree_dirty",
+      "duplicate_risk": "high_preserve_before_new_work",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-terminal-d",
+      "head": "d7cbc69ceb92",
+      "is_git": true,
+      "name": "Epistemos-terminal-d",
+      "path": "/Users/jojo/Downloads/Epistemos-terminal-d",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 2955,
+        "tracked_dirty": 2955,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "phase2-terminal-d-prime-health-rows-2026-05-24",
+      "classification": "sibling_worktree_clean",
+      "duplicate_risk": "medium_existing_branch_surface",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-terminal-d-prime",
+      "head": "48b142a8fede",
+      "is_git": true,
+      "name": "Epistemos-terminal-d-prime",
+      "path": "/Users/jojo/Downloads/Epistemos-terminal-d-prime",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 0,
+        "tracked_dirty": 0,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "phase2-terminal-d-substrate-health-wrv-2026-05-24-r2",
+      "classification": "sibling_worktree_dirty",
+      "duplicate_risk": "high_preserve_before_new_work",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-terminal-d-r2",
+      "head": "f4b8a244f0fa",
+      "is_git": true,
+      "name": "Epistemos-terminal-d-r2",
+      "path": "/Users/jojo/Downloads/Epistemos-terminal-d-r2",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 2957,
+        "tracked_dirty": 2957,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "phase2-terminal-d-substrate-health-wrv-2026-05-24-r3",
+      "classification": "sibling_worktree_dirty",
+      "duplicate_risk": "high_preserve_before_new_work",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-terminal-d-r3",
+      "head": "1cf390b0fc4e",
+      "is_git": true,
+      "name": "Epistemos-terminal-d-r3",
+      "path": "/Users/jojo/Downloads/Epistemos-terminal-d-r3",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 2957,
+        "tracked_dirty": 2957,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "phase2-terminal-e-acs-gate-rev2-2026-05-24",
+      "classification": "sibling_worktree_dirty",
+      "duplicate_risk": "high_preserve_before_new_work",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-terminal-e",
+      "head": "1cf390b0fc4e",
+      "is_git": true,
+      "name": "Epistemos-terminal-e",
+      "path": "/Users/jojo/Downloads/Epistemos-terminal-e",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 2959,
+        "tracked_dirty": 2958,
+        "untracked": 1
+      }
+    },
+    {
+      "branch": "phase2-terminal-f-falsifiers-m2pro-2026-05-23",
+      "classification": "sibling_worktree_dirty",
+      "duplicate_risk": "high_preserve_before_new_work",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-terminal-f",
+      "head": "3119c55d97bf",
+      "is_git": true,
+      "name": "Epistemos-terminal-f",
+      "path": "/Users/jojo/Downloads/Epistemos-terminal-f",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 2955,
+        "tracked_dirty": 2955,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "phase2-terminal-f-prime-falsifiers-r2-2026-05-24",
+      "classification": "sibling_worktree_clean",
+      "duplicate_risk": "medium_existing_branch_surface",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-terminal-f-prime",
+      "head": "4674b8e4494a",
+      "is_git": true,
+      "name": "Epistemos-terminal-f-prime",
+      "path": "/Users/jojo/Downloads/Epistemos-terminal-f-prime",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 0,
+        "tracked_dirty": 0,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "phase2-terminal-g-t14-uas-no-orphan-2026-05-24",
+      "classification": "sibling_worktree_dirty",
+      "duplicate_risk": "high_preserve_before_new_work",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-terminal-g",
+      "head": "8e7848a7d7f4",
+      "is_git": true,
+      "name": "Epistemos-terminal-g",
+      "path": "/Users/jojo/Downloads/Epistemos-terminal-g",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 2955,
+        "tracked_dirty": 2955,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "phase2-terminal-s-hyperdynamic-loop-2026-05-24",
+      "classification": "sibling_worktree_dirty",
+      "duplicate_risk": "high_preserve_before_new_work",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-terminal-s",
+      "head": "2bb97b100c26",
+      "is_git": true,
+      "name": "Epistemos-terminal-s",
+      "path": "/Users/jojo/Downloads/Epistemos-terminal-s",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 95,
+        "tracked_dirty": 95,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "phase2-terminal-t0-verified-floor-2026-05-24",
+      "classification": "sibling_worktree_dirty",
+      "duplicate_risk": "high_preserve_before_new_work",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-terminal-t0",
+      "head": "bf615d5377db",
+      "is_git": true,
+      "name": "Epistemos-terminal-t0",
+      "path": "/Users/jojo/Downloads/Epistemos-terminal-t0",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 95,
+        "tracked_dirty": 95,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "phase2-terminal-t1-runtime-router-2026-05-24",
+      "classification": "sibling_worktree_clean",
+      "duplicate_risk": "medium_existing_branch_surface",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-terminal-t1-runtime-router",
+      "head": "07b89103021f",
+      "is_git": true,
+      "name": "Epistemos-terminal-t1-runtime-router",
+      "path": "/Users/jojo/Downloads/Epistemos-terminal-t1-runtime-router",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 0,
+        "tracked_dirty": 0,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "codex/repromote-ui-wip-2026-05-26",
+      "classification": "sibling_worktree_clean",
+      "duplicate_risk": "medium_existing_branch_surface",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-ui-repromotion",
+      "head": "73ec369e919c",
+      "is_git": true,
+      "name": "Epistemos-ui-repromotion",
+      "path": "/Users/jojo/Downloads/Epistemos-ui-repromotion",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 0,
+        "tracked_dirty": 0,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "codex/wave4-page-gather-vault-escalation-2026-05-26",
+      "classification": "sibling_worktree_clean",
+      "duplicate_risk": "medium_existing_branch_surface",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-wave4-page-gather-vault-escalation",
+      "head": "18a18d358866",
+      "is_git": true,
+      "name": "Epistemos-wave4-page-gather-vault-escalation",
+      "path": "/Users/jojo/Downloads/Epistemos-wave4-page-gather-vault-escalation",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 0,
+        "tracked_dirty": 0,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "codex/wave4-uas-typed-retrieval-2026-05-26",
+      "classification": "sibling_worktree_clean",
+      "duplicate_risk": "medium_existing_branch_surface",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-wave4-uas-typed-retrieval",
+      "head": "b45ccd7b6a09",
+      "is_git": true,
+      "name": "Epistemos-wave4-uas-typed-retrieval",
+      "path": "/Users/jojo/Downloads/Epistemos-wave4-uas-typed-retrieval",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 0,
+        "tracked_dirty": 0,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "wiring/localagent-diagnostics-row-2026-05-23",
+      "classification": "sibling_worktree_dirty",
+      "duplicate_risk": "high_preserve_before_new_work",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-wirings-2026-05-23",
+      "head": "2269f7d321bb",
+      "is_git": true,
+      "name": "Epistemos-wirings-2026-05-23",
+      "path": "/Users/jojo/Downloads/Epistemos-wirings-2026-05-23",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 2955,
+        "tracked_dirty": 2955,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "wiring/app-systemg-run-seam-2026-05-23",
+      "classification": "sibling_worktree_clean",
+      "duplicate_risk": "medium_existing_branch_surface",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-wrv-app",
+      "head": "3c8a1e7f63dc",
+      "is_git": true,
+      "name": "Epistemos-wrv-app",
+      "path": "/Users/jojo/Downloads/Epistemos-wrv-app",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 0,
+        "tracked_dirty": 0,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "detached",
+      "classification": "sibling_worktree_clean",
+      "duplicate_risk": "medium_existing_branch_surface",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-wrv-audit",
+      "head": "24b5052cf2ea",
+      "is_git": true,
+      "name": "Epistemos-wrv-audit",
+      "path": "/Users/jojo/Downloads/Epistemos-wrv-audit",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 0,
+        "tracked_dirty": 0,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "docs/canon-chronicle-2026-05-23",
+      "classification": "sibling_worktree_dirty",
+      "duplicate_risk": "high_preserve_before_new_work",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-wrv-docs",
+      "head": "24b5052cf2ea",
+      "is_git": true,
+      "name": "Epistemos-wrv-docs",
+      "path": "/Users/jojo/Downloads/Epistemos-wrv-docs",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 1,
+        "tracked_dirty": 0,
+        "untracked": 1
+      }
+    },
+    {
+      "branch": "wiring/rust-r3-system-g-minimal-slice",
+      "classification": "sibling_worktree_clean",
+      "duplicate_risk": "medium_existing_branch_surface",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-wrv-rust",
+      "head": "1dd733982451",
+      "is_git": true,
+      "name": "Epistemos-wrv-rust",
+      "path": "/Users/jojo/Downloads/Epistemos-wrv-rust",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 0,
+        "tracked_dirty": 0,
+        "untracked": 0
+      }
+    },
+    {
+      "branch": "salvage/t6-uiux-status-2026-05-23",
+      "classification": "sibling_worktree_clean",
+      "duplicate_risk": "medium_existing_branch_surface",
+      "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
+      "git_toplevel": "/Users/jojo/Downloads/Epistemos-wrv-salvage",
+      "head": "1642f5e8de8e",
+      "is_git": true,
+      "name": "Epistemos-wrv-salvage",
+      "path": "/Users/jojo/Downloads/Epistemos-wrv-salvage",
+      "remote_origin": "https://github.com/BlickandMorty/Epistemos",
+      "shares_current_common_git_dir": true,
+      "status": {
+        "dirty_total": 0,
+        "tracked_dirty": 0,
+        "untracked": 0
+      }
+    },
+    {
+      "classification": "non_git_epistemos_folder",
+      "duplicate_risk": "unknown_non_git_folder",
+      "is_git": false,
+      "name": "EPISTEMOS_HELIOS_MASTER_ARCHIVE_2026_05_05_PRESERVATION_BUNDLE",
+      "path": "/Users/jojo/Downloads/EPISTEMOS_HELIOS_MASTER_ARCHIVE_2026_05_05_PRESERVATION_BUNDLE"
+    }
+  ],
+  "generated_at_utc": "2026-05-30T11:07:35Z",
+  "next_rule": "Before creating a new Epistemos worktree/folder, inspect entries where classification is current_repo, sibling_worktree, or dirty_epistemos_copy. Continue or preserve existing work instead of duplicating it.",
+  "non_destructive": true,
+  "scan_root": "/Users/jojo/Downloads",
+  "summary": {
+    "candidate_count": 40,
+    "dirty_candidate_count": 25,
+    "git_candidate_count": 35,
+    "high_duplicate_risk_count": 24,
+    "non_git_candidate_count": 5,
+    "sibling_worktree_count": 34
+  }
+}

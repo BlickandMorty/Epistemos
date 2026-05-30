@@ -286,7 +286,11 @@ mod tests {
 
     #[test]
     fn task_result_roundtrips_through_serde_json() {
-        let tr = TaskResult { task: Task::BabiLong, passed: true, wall_clock_ms: 250 };
+        let tr = TaskResult {
+            task: Task::BabiLong,
+            passed: true,
+            wall_clock_ms: 250,
+        };
         let json = serde_json::to_string(&tr).unwrap();
         let back: TaskResult = serde_json::from_str(&json).unwrap();
         assert_eq!(tr, back);
@@ -304,8 +308,11 @@ mod tests {
             (Task::NiahSingle1, 5, 5, 50),
         ];
         let report = run_synthetic_harness(32_768, STAGE_8_BUDGET_MS, &plan).unwrap();
-        let codes: Vec<&str> =
-            report.per_task_accuracy.iter().map(|(t, _)| t.code()).collect();
+        let codes: Vec<&str> = report
+            .per_task_accuracy
+            .iter()
+            .map(|(t, _)| t.code())
+            .collect();
         let mut sorted = codes.clone();
         sorted.sort();
         assert_eq!(codes, sorted);
@@ -370,10 +377,7 @@ mod tests {
     fn tasks_below_threshold_empty_when_all_pass() {
         let r = HarnessReport {
             context_tokens: 32_768,
-            per_task_accuracy: vec![
-                (Task::NiahSingle1, 0.96),
-                (Task::NiahMultikey1, 0.98),
-            ],
+            per_task_accuracy: vec![(Task::NiahSingle1, 0.96), (Task::NiahMultikey1, 0.98)],
             overall_accuracy: 0.97,
             total_wall_clock_ms: 100,
             budget_ms: 1000,

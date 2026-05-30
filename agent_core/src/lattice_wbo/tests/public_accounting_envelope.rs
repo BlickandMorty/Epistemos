@@ -532,12 +532,9 @@ fn public_accounting_json_rejects_wrong_type_public_fields() {
 
 #[test]
 fn wbo_ledger_entry_serializes_absent_active_support_as_null() {
-    let contribution = LatticeErrorContribution::new(
-        WboTermCode::NumericalPostCorrection,
-        "exact ULP guard",
-        0.0,
-    )
-    .expect("valid numerical contribution");
+    let contribution =
+        LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "exact ULP guard", 0.0)
+            .expect("valid numerical contribution");
     let budget = LatticeBudget::new(
         LatticeCoderKind::ExactHot,
         None,

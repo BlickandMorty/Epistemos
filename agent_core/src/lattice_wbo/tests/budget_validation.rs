@@ -198,11 +198,8 @@ fn lattice_budget_measured_status_returns_none_for_invalid_rate() {
         .filter(|coder| coder.allows_rate_parameter())
     {
         for invalid_rate in [None, Some(0)] {
-            let budget = measured_probe_budget(
-                coder,
-                invalid_rate,
-                coder.canonical_side_information()[0],
-            );
+            let budget =
+                measured_probe_budget(coder, invalid_rate, coder.canonical_side_information()[0]);
 
             assert_eq!(budget.validate(), Err(LatticeWboError::InvalidRate));
             assert_eq!(
@@ -277,12 +274,9 @@ fn lattice_budget_validation_rejects_terms_outside_codec_map() {
         }
     }
 
-    let valid_term = LatticeErrorContribution::new(
-        WboTermCode::SelfEvolvingSecurity,
-        "adapter replay",
-        0.01,
-    )
-    .expect("valid contribution");
+    let valid_term =
+        LatticeErrorContribution::new(WboTermCode::SelfEvolvingSecurity, "adapter replay", 0.01)
+            .expect("valid contribution");
     let numerical = LatticeErrorContribution::new(
         WboTermCode::NumericalPostCorrection,
         "softmax half correction",
@@ -644,14 +638,11 @@ fn lattice_budget_composition_rejects_nan_axes_with_mixed_max_peer() {
 
 #[test]
 fn lattice_budget_composition_property_matrix_pins_zero_max_mixed_and_nan_axes() {
-    let zero_numerics = LatticeErrorContribution::new(
-        WboTermCode::NumericalPostCorrection,
-        "zero numerics",
-        0.0,
-    )
-    .expect("valid zero numerics")
-    .with_measured(0.0)
-    .expect("valid zero measurement");
+    let zero_numerics =
+        LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "zero numerics", 0.0)
+            .expect("valid zero numerics")
+            .with_measured(0.0)
+            .expect("valid zero measurement");
     let finite_residual =
         LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "finite residual", 0.25)
             .expect("valid finite residual")
@@ -793,14 +784,11 @@ fn lattice_budget_measured_status_returns_none_for_invalid_public_fields() {
 
 #[test]
 fn lattice_budget_validation_accepts_zero_and_single_max_budget_edges() {
-    let zero_contribution = LatticeErrorContribution::new(
-        WboTermCode::NumericalPostCorrection,
-        "zero numerics",
-        0.0,
-    )
-    .expect("valid zero contribution")
-    .with_measured(0.0)
-    .expect("valid zero measurement");
+    let zero_contribution =
+        LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "zero numerics", 0.0)
+            .expect("valid zero contribution")
+            .with_measured(0.0)
+            .expect("valid zero measurement");
     let zero_budget = LatticeBudget::new(
         LatticeCoderKind::ExactHot,
         None,
@@ -834,11 +822,10 @@ fn lattice_budget_validation_accepts_zero_and_single_max_budget_edges() {
 
 #[test]
 fn lattice_budget_softmax_half_pre_post_helpers_match_canonical_totals() {
-    let residual =
-        LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual", 0.20)
-            .expect("valid residual")
-            .with_measured(0.18)
-            .expect("valid residual measurement");
+    let residual = LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "residual", 0.20)
+        .expect("valid residual")
+        .with_measured(0.18)
+        .expect("valid residual measurement");
     let numerics =
         LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "numerics", 0.04)
             .expect("valid numerics")
@@ -890,14 +877,11 @@ fn lattice_budget_composition_handles_signed_max_and_mixed_axes() {
             .expect("single finite max residual")
             .with_measured(f64::MAX)
             .expect("single finite max residual measurement");
-    let zero_numerics = LatticeErrorContribution::new(
-        WboTermCode::NumericalPostCorrection,
-        "zero numerics",
-        0.0,
-    )
-    .expect("valid zero numerical guard")
-    .with_measured(0.0)
-    .expect("valid zero numerical measurement");
+    let zero_numerics =
+        LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "zero numerics", 0.0)
+            .expect("valid zero numerical guard")
+            .with_measured(0.0)
+            .expect("valid zero numerical measurement");
     let single_max_mixed_axis = LatticeBudget::new(
         LatticeCoderKind::LatticeWynerZivResidual,
         Some(1250),
@@ -975,14 +959,11 @@ fn lattice_budget_composition_handles_signed_max_and_mixed_axes() {
 
 #[test]
 fn lattice_budget_composition_rejects_axis_local_overflow_slices() {
-    let zero_numerics = LatticeErrorContribution::new(
-        WboTermCode::NumericalPostCorrection,
-        "zero numerics",
-        0.0,
-    )
-    .expect("valid zero numerical guard")
-    .with_measured(0.0)
-    .expect("valid zero numerical measurement");
+    let zero_numerics =
+        LatticeErrorContribution::new(WboTermCode::NumericalPostCorrection, "zero numerics", 0.0)
+            .expect("valid zero numerical guard")
+            .with_measured(0.0)
+            .expect("valid zero numerical measurement");
     let finite_residual =
         LatticeErrorContribution::new(WboTermCode::ResidualWynerZiv, "finite residual", 1.0)
             .expect("valid finite residual")

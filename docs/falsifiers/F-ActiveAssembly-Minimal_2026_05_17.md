@@ -7,9 +7,34 @@ created_on: 2026-05-17
 authority: docs/CODEX_DEEP_INVESTIGATION_PROMPT_2026_05_16.md §4.G falsifier ladder (LOCK)
 target_phase: Phase B.G.B6
 target_rig: M2 Pro 16 GB
+status: PRIMARY SYNTHETIC RUNTIME WITNESS IMPLEMENTED
 ---
 
 # F-ActiveAssembly-Minimal
+
+## 2026-05-28 Runtime Artifact
+
+`Tools/falsifiers/f_active_assembly_minimal.sh` now emits and validates
+`artifacts/falsifiers/active_assembly_minimal/result.json` as a schema-valid
+primary witness for the synthetic packet-graph variant of this gate.
+
+Current measured axes:
+
+| Axis | Current value | Threshold |
+|---|---:|---:|
+| `output_bound_violation_count` | 0 | 0 |
+| `cost_ratio` | 0.0020769 | < 0.40 |
+| `firing_ratio` | 0.0322266 | < 0.50 |
+| `selector_overhead_ratio` | 0.0126076 | < 0.05 |
+| `wall_us_p99` | 117.709 us | < 10,000 us |
+| `peak_ram_mb_estimate` | 0.0549 MB | < 100 MB |
+| `active_set_orphan_count` | 0 | 0 |
+| `reproducibility_same_seed` | true | true |
+
+Scope note: this is a deterministic synthetic runtime witness, not a live model
+packet-router witness. It is enough to flip the Capability Ceiling kernel's
+`active_assembly_runtime_artifact_pass` axis, but it does not prove active
+support selection inside Qwen/MLX weights or KV pages.
 
 > Gate #6 in the §4.G falsifier ladder. **On a tiny model or synthetic packet graph, active packet selection
 > avoids executing irrelevant assemblies while preserving output within bound.** The first runtime proof that

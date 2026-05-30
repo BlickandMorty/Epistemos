@@ -47,9 +47,5 @@ pub trait EidosRetriever: Send + Sync {
     /// `retrieved_at_unix_ms` is caller-supplied so tests can pin the clock
     /// and prove byte-equal replay across runs. In production this is the
     /// monotonic wall-clock at query time.
-    fn retrieve(
-        &self,
-        query: &EidosQuery,
-        retrieved_at_unix_ms: u64,
-    ) -> EidosContextPacket;
+    fn retrieve(&self, query: &EidosQuery, retrieved_at_unix_ms: u64) -> EidosContextPacket;
 }

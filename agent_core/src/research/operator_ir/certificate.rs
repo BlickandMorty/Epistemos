@@ -212,11 +212,7 @@ mod tests {
     use crate::research::operator_ir::grammar::LinearNetwork;
 
     fn fixture(kernel: KernelTransform) -> OperatorExpr {
-        let l = LinearNetwork::new(
-            vec![vec![1.0, 0.0], vec![0.0, 1.0]],
-            vec![0.0, 0.0],
-        )
-        .unwrap();
+        let l = LinearNetwork::new(vec![vec![1.0, 0.0], vec![0.0, 1.0]], vec![0.0, 0.0]).unwrap();
         OperatorExpr::new(l.clone(), l, kernel).unwrap()
     }
 
@@ -282,9 +278,9 @@ mod tests {
     fn fno_equivalence_closes_from_schema_field() {
         let op = fixture(KernelTransform::Identity);
         let c = lean_certificate(&op);
-        assert!(c.contains(
-            "exact Epistemos.Operator.fnoEquivalenceObligationCarries operator_expr_"
-        ));
+        assert!(
+            c.contains("exact Epistemos.Operator.fnoEquivalenceObligationCarries operator_expr_")
+        );
         assert!(!c.contains("exact operator_fno_obligation_"));
         assert!(!c.contains("iter-39 integration test exercises this bit-exact"));
         assert_eq!(c.matches("sorry").count(), 0);
@@ -321,7 +317,9 @@ mod tests {
     fn certificate_carries_target_dim_consistency() {
         let op = fixture(KernelTransform::Identity);
         let c = lean_certificate(&op);
-        assert!(c.contains("sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Operator-IR\""));
+        assert!(c.contains(
+            "sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Operator-IR\""
+        ));
         assert!(c.contains("theorem operator_certificate_source_row_"));
         assert!(c.contains("Epistemos.Operator.CertificateTarget.sourceRowMatches"));
         assert!(c.contains("theorem operator_certificate_dim_consistency_"));

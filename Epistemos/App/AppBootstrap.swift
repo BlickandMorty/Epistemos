@@ -2248,14 +2248,16 @@ final class AppBootstrap {
             )
         }
 
-        // Terminal C / P5 (2026-05-23) — register the real System G run
-        // seam so `SystemGRunSeamRegistry.shared.current().run(mission:)`
-        // routes MissionPacket → AgentEvent → RunEventLog → AnswerPacket
-        // through Rust via `systemGStartRunJson` + `systemGDrainEventsJson`
-        // instead of throwing `SystemGRunSeamError.notWired`. Idempotent
-        // — the registry's last-writer-wins lock makes re-launch safe.
-        SystemGRunSeamRegistry.shared.register(RealSystemGRunSeam())
-        Log.app.info("System G run seam: real dispatch registered")
+        // Terminal C / P5 (2026-05-23) + local-model bridge (2026-05-29):
+        // register the real System G run seam. Local / auto missions stream
+        // through the app's live local model client; unsupported provider
+        // routes still fall back to the Rust witness seam instead of faking
+        // success. Idempotent — the registry's last-writer-wins lock makes
+        // re-launch safe.
+        SystemGRunSeamRegistry.shared.register(
+            RealSystemGRunSeam(localModelClient: localLLMClient)
+        )
+        Log.app.info("System G run seam: local model dispatch registered")
         // Fallback for missed nights (M-series laptop on battery, lid
         // closed): if launchd skipped > 36 h, run the in-process
         // consolidation inline now while the user is foreground.
@@ -2386,9 +2388,9 @@ final class AppBootstrap {
         // can verify which local agent is selected. Default is the 7-8B 4-bit
         // fallback that fits the 16 GB Mac ceiling; the 36B LocalAgent is
         // gated on ≥32 GB host RAM + explicit opt-in. Power-user mode
-        // (epistemos.localAgent.powerUserMode in UserDefaults) lowers the
-        // threshold to 16 GB so the 36B can be tried on the M2 Pro 16 GB
-        // rig WITH FULL DISCLOSURE OF OOM RISK.
+        // preserves Capability Ceiling controls, but does not lower the dense
+        // MLX gate until F-70B-Local-Cocktail or an equivalent SSD/RAM
+        // addressable-substrate falsifier passes.
         let primaryAgent = LocalModelCatalog.defaultPrimaryAgentModel
         let effectiveThreshold = LocalModelCatalog.effectivePrimaryAgentModelMinHostRAMGB
         let isPowerUser = UserDefaults.standard.bool(
@@ -2400,7 +2402,7 @@ final class AppBootstrap {
             \(primaryAgent.displayName, privacy: .public), \
             ~\(primaryAgent.estimated4BitWeightsGB, privacy: .public) GB \
             (host \(inference.hardwareCapabilitySnapshot.roundedMemoryGB, privacy: .public) GB, \
-            36B opt-in min \(effectiveThreshold, privacy: .public) GB, \
+            dense 36B opt-in min \(effectiveThreshold, privacy: .public) GB, \
             power-user mode \(isPowerUser ? "ON" : "OFF", privacy: .public))
             """
         )

@@ -14,17 +14,25 @@ struct ContextualShadowsStateTests {
     /// Mirrors the production gate. The state class reads it on demand, so we
     /// observe the live value rather than mutating env mid-test (which would
     /// race with siblings in the suite).
-    private static var envFlagIsEnabled: Bool {
-        ProcessInfo.processInfo.environment["EPISTEMOS_AMBIENT_RECALL_V0"] == "1"
+    private static var ambientRecallGateIsEnabled: Bool {
+        if ProcessInfo.processInfo.environment[ContextualShadowsState.userDefaultsKey] == "1" {
+            return true
+        }
+        if let persisted = UserDefaults.standard.object(
+            forKey: ContextualShadowsState.userDefaultsKey
+        ) as? Bool {
+            return persisted
+        }
+        return ContextualShadowsState.defaultEnabled
     }
 
     // MARK: - Flag gating
 
     @MainActor
-    @Test("isEnabled reflects EPISTEMOS_AMBIENT_RECALL_V0 process env")
-    func isEnabledMatchesEnv() {
+    @Test("isEnabled reflects the ambient recall product gate")
+    func isEnabledMatchesProductGate() {
         let state = ContextualShadowsState()
-        #expect(state.isEnabled == Self.envFlagIsEnabled)
+        #expect(state.isEnabled == Self.ambientRecallGateIsEnabled)
     }
 
     // MARK: - Panel visibility
@@ -35,7 +43,7 @@ struct ContextualShadowsStateTests {
         let state = ContextualShadowsState()
         #expect(state.isPanelVisible == false)
         state.openPanel()
-        if Self.envFlagIsEnabled {
+        if Self.ambientRecallGateIsEnabled {
             #expect(state.isPanelVisible == true)
         } else {
             #expect(state.isPanelVisible == false)
@@ -95,7 +103,7 @@ struct ContextualShadowsStateTests {
             originId: UUID()
         )
         state.requestRecall(snapshot: snapshot, instantRecall: recall)
-        if Self.envFlagIsEnabled {
+        if Self.ambientRecallGateIsEnabled {
             // Flag ON path — a task SHOULD be scheduled.
             #expect(state.pendingTask != nil)
             state.pendingTask?.cancel()
@@ -108,7 +116,7 @@ struct ContextualShadowsStateTests {
     @MainActor
     @Test("requestRecall cancels in-flight task before scheduling a new one")
     func backpressureSupersedes() async {
-        guard Self.envFlagIsEnabled else {
+        guard Self.ambientRecallGateIsEnabled else {
             // Without the flag, requestRecall short-circuits and never
             // schedules — the cancellation behavior is moot.
             return
@@ -168,31 +176,71 @@ struct ContextualShadowsStateTests {
     func configuredShadowBackendFeedsV0Recall() async {
         let state = ContextualShadowsState(isEnabledOverride: true)
         let recall = InstantRecallService()
-        let shadow = ContextualShadowsMockSearch(results: [
-            ShadowHit(
+        let noteHit = ShadowHit(
                 id: "shadow-note-1",
                 title: "Shadow Note",
                 snippet: "A durable shadow backend result.",
                 score: 0.82,
                 domain: .notes,
                 source: "stub-shadow"
-            ),
+        )
+        let chatHit = ShadowHit(
+                id: "shadow-chat-1",
+                title: "Shadow Chat",
+                snippet: "A durable chat shadow backend result.",
+                score: 0.77,
+                domain: .chats,
+                source: "stub-shadow"
+        )
+        let shadow = ContextualShadowsMockSearch(resultsByDomain: [
+            .notes: [noteHit],
+            .chats: [chatHit],
         ])
         state.configureShadowSearch(shadow)
 
         let snapshot = RecallContextSnapshot(
             text: "durable shadow backend query",
-            kind: .note,
+            kind: .chat,
             originId: UUID()
         )
         state.requestRecall(snapshot: snapshot, instantRecall: recall)
 
-        await Self.waitForResults(state, expectedCount: 1)
-        #expect(shadow.callCount == 1)
+        await Self.waitForResults(state, expectedCount: 2)
+        #expect(shadow.callCount == 2)
         #expect(shadow.lastQuery == "durable shadow backend query")
-        #expect(shadow.lastDomain == .notes)
-        #expect(state.currentResults.first?.id == "shadow-note-1")
-        #expect(state.currentResults.first?.source == "stub-shadow")
+        #expect(Set(shadow.domains) == Set([.chats, .notes]))
+        #expect(state.currentResults.map(\.id).contains("shadow-note-1"))
+        #expect(state.currentResults.map(\.id).contains("shadow-chat-1"))
+        #expect(state.currentResults.allSatisfy { $0.source == "stub-shadow" })
+        #expect(state.isPanelVisible)
+    }
+
+    @MainActor
+    @Test("Shadow backend errors surface in the mounted Contextual Shadows panel")
+    func shadowBackendErrorSurfacesInMountedPanel() async {
+        let state = ContextualShadowsState(isEnabledOverride: true)
+        let recall = InstantRecallService()
+        let shadow = ContextualShadowsMockSearch(
+            resultsByDomain: [:],
+            errorsByDomain: [
+                .notes: "Search backend unavailable. Try reopening the vault.",
+                .chats: "Search backend unavailable. Try reopening the vault.",
+            ]
+        )
+        state.configureShadowSearch(shadow)
+
+        let snapshot = RecallContextSnapshot(
+            text: "shadow backend failure query",
+            kind: .chat,
+            originId: UUID()
+        )
+        state.requestRecall(snapshot: snapshot, instantRecall: recall)
+
+        await Self.waitForPanelPayload(state)
+        #expect(state.currentResults.isEmpty)
+        #expect(state.lastErrorMessage == "Search backend unavailable. Try reopening the vault.")
+        #expect(state.hasPanelPayload)
+        #expect(state.isPanelVisible)
     }
 
     @Test("convert falls back to the first non-empty line when no heading exists")
@@ -259,6 +307,12 @@ struct ContextualShadowsStateTests {
         #expect(stateSource.contains("instantRecall.searchAsync("))
         #expect(stateSource.contains("ShadowSearchServicing"),
                 "The approved V0 route should prefer the Shadow backend when AppBootstrap configures it.")
+        #expect(stateSource.contains("searchReportingErrors("),
+                "The mounted V0 route must not hide Shadow backend failures as empty recall.")
+        #expect(stateSource.contains("shadowDomains(for: snapshot.kind)"),
+                "Any typing surface should search both note and chat Shadow domains so Halo suggestions are not surface-fragmented.")
+        #expect(stateSource.contains("self.isPanelVisible = !hits.isEmpty"),
+                "Contextual Shadows must auto-surface when a live typing query produces hits.")
         #expect(!stateSource.contains("HaloController"),
                 "The production-mounted V0 surface should not silently become the unmounted V1 Halo controller.")
     }
@@ -266,8 +320,11 @@ struct ContextualShadowsStateTests {
     @Test("Contextual Shadows panel displays recall source provenance")
     func contextualShadowsPanelDisplaysSourceProvenance() throws {
         let panelSource = try repoText("Epistemos/Views/Recall/ContextualShadowsPanel.swift")
+        let buttonSource = try repoText("Epistemos/Views/Recall/ContextualShadowsButton.swift")
 
         #expect(panelSource.contains("hit.source"))
+        #expect(panelSource.contains("Shadow backend unavailable"))
+        #expect(buttonSource.contains("state.hasPanelPayload"))
     }
 
     @Test("AppBootstrap ignores stale Shadow backend init during vault switches")
@@ -309,17 +366,37 @@ struct ContextualShadowsStateTests {
             try? await Task.sleep(nanoseconds: 10_000_000)
         }
     }
+
+    @MainActor
+    private static func waitForPanelPayload(
+        _ state: ContextualShadowsState,
+        timeout: TimeInterval = 1.0
+    ) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if state.hasPanelPayload {
+                return
+            }
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+    }
 }
 
 @MainActor
 private final class ContextualShadowsMockSearch: ShadowSearchServicing, @unchecked Sendable {
-    var results: [ShadowHit]
+    var resultsByDomain: [ShadowDomain: [ShadowHit]]
+    var errorsByDomain: [ShadowDomain: String]
     private(set) var callCount = 0
     private(set) var lastQuery = ""
     private(set) var lastDomain: ShadowDomain = .notes
+    private(set) var domains: [ShadowDomain] = []
 
-    init(results: [ShadowHit]) {
-        self.results = results
+    init(
+        resultsByDomain: [ShadowDomain: [ShadowHit]],
+        errorsByDomain: [ShadowDomain: String] = [:]
+    ) {
+        self.resultsByDomain = resultsByDomain
+        self.errorsByDomain = errorsByDomain
     }
 
     nonisolated func search(text: String, domain: ShadowDomain, limit: Int) async -> [ShadowHit] {
@@ -327,7 +404,18 @@ private final class ContextualShadowsMockSearch: ShadowSearchServicing, @uncheck
             self.callCount += 1
             self.lastQuery = text
             self.lastDomain = domain
+            self.domains.append(domain)
         }
-        return await MainActor.run { Array(self.results.prefix(limit)) }
+        return await MainActor.run { Array((self.resultsByDomain[domain] ?? []).prefix(limit)) }
+    }
+
+    nonisolated func searchReportingErrors(
+        text: String,
+        domain: ShadowDomain,
+        limit: Int
+    ) async -> (hits: [ShadowHit], errorMessage: String?) {
+        let hits = await search(text: text, domain: domain, limit: limit)
+        let error = await MainActor.run { self.errorsByDomain[domain] }
+        return (hits: hits, errorMessage: error)
     }
 }

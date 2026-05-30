@@ -46,19 +46,16 @@ impl StubBackend {
     fn cloned(&self) -> Result<(Vec<SearchResult>, RetrievalTrace), VaultError> {
         match &self.outcome {
             Ok((results, trace)) => Ok((results.clone(), trace.clone())),
-            Err(VaultError::IndexError(message)) => {
-                Err(VaultError::IndexError(message.clone()))
-            }
+            Err(VaultError::IndexError(message)) => Err(VaultError::IndexError(message.clone())),
             Err(VaultError::NotFound(path)) => Err(VaultError::NotFound(path.clone())),
             Err(VaultError::DatabaseError(message)) => {
                 Err(VaultError::DatabaseError(message.clone()))
             }
-            Err(VaultError::PathTraversal(path)) => {
-                Err(VaultError::PathTraversal(path.clone()))
-            }
-            Err(VaultError::IoError(error)) => Err(VaultError::IoError(
-                std::io::Error::new(error.kind(), error.to_string()),
-            )),
+            Err(VaultError::PathTraversal(path)) => Err(VaultError::PathTraversal(path.clone())),
+            Err(VaultError::IoError(error)) => Err(VaultError::IoError(std::io::Error::new(
+                error.kind(),
+                error.to_string(),
+            ))),
         }
     }
 }
@@ -124,8 +121,8 @@ fn lexical_candidate(path: &str, score: f64) -> RetrievalCandidate {
 /// (which tags itself `"scaffold-lexical"`).
 #[tokio::test]
 async fn produce_vault_recall_trace_defaults_ladder_tier_when_backend_omits_it() {
-    let mut trace = RetrievalTrace::new("residency governance", "residency governance")
-        .with_pool_size(1);
+    let mut trace =
+        RetrievalTrace::new("residency governance", "residency governance").with_pool_size(1);
     trace.record_signal(RetrievalSignal::Lexical);
     trace.push_candidate(lexical_candidate("notes/governance.md", 3.42));
     assert!(
@@ -194,9 +191,7 @@ async fn produce_vault_recall_trace_preserves_backend_supplied_ladder_tier() {
 /// index failures (e.g. closed Tantivy index, locked DB).
 #[tokio::test]
 async fn produce_vault_recall_trace_propagates_backend_error() {
-    let backend = StubBackend::err(VaultError::IndexError(
-        "tantivy reader closed".to_string(),
-    ));
+    let backend = StubBackend::err(VaultError::IndexError("tantivy reader closed".to_string()));
     let result = produce_vault_recall_trace(&backend, "anything", 3, &[]).await;
 
     match result {
@@ -287,8 +282,7 @@ impl VaultBackend for RecordingBackend {
 /// `ladder_tier` (and only to apply the default).
 #[tokio::test]
 async fn produce_vault_recall_trace_passes_args_through_and_does_not_mutate_other_fields() {
-    let mut trace = RetrievalTrace::new("raw query", "effective query")
-        .with_pool_size(7);
+    let mut trace = RetrievalTrace::new("raw query", "effective query").with_pool_size(7);
     trace.record_signal(RetrievalSignal::Lexical);
     trace.record_signal(RetrievalSignal::Recency);
     trace.push_candidate(lexical_candidate("notes/a.md", 1.0));
@@ -300,10 +294,9 @@ async fn produce_vault_recall_trace_passes_args_through_and_does_not_mutate_othe
     let backend = RecordingBackend::new(trace.clone());
     let tag_filter = vec!["governance".to_string(), "rust".to_string()];
 
-    let (results, out_trace) =
-        produce_vault_recall_trace(&backend, "raw query", 9, &tag_filter)
-            .await
-            .expect("production helper succeeds");
+    let (results, out_trace) = produce_vault_recall_trace(&backend, "raw query", 9, &tag_filter)
+        .await
+        .expect("production helper succeeds");
 
     let (seen_query, seen_limit, seen_tags) = backend.last_call();
     assert_eq!(seen_query, "raw query", "query MUST reach backend verbatim");
@@ -313,7 +306,10 @@ async fn produce_vault_recall_trace_passes_args_through_and_does_not_mutate_othe
         "tag_filter MUST reach backend verbatim"
     );
 
-    assert!(results.is_empty(), "results pass-through preserves empty list");
+    assert!(
+        results.is_empty(),
+        "results pass-through preserves empty list"
+    );
     assert_eq!(out_trace.query, "raw query", "trace.query unmodified");
     assert_eq!(
         out_trace.effective_query, "effective query",
@@ -323,11 +319,7 @@ async fn produce_vault_recall_trace_passes_args_through_and_does_not_mutate_othe
         out_trace.candidate_pool_size, 7,
         "trace.candidate_pool_size unmodified"
     );
-    assert_eq!(
-        out_trace.candidates.len(),
-        2,
-        "trace.candidates unmodified"
-    );
+    assert_eq!(out_trace.candidates.len(), 2, "trace.candidates unmodified");
     assert_eq!(
         out_trace.signal_summary,
         vec![RetrievalSignal::Lexical, RetrievalSignal::Recency],
@@ -338,7 +330,10 @@ async fn produce_vault_recall_trace_passes_args_through_and_does_not_mutate_othe
         vec!["backend note".to_string()],
         "trace.notes unmodified"
     );
-    assert!(out_trace.all_chatter_fallback, "all_chatter_fallback unmodified");
+    assert!(
+        out_trace.all_chatter_fallback,
+        "all_chatter_fallback unmodified"
+    );
     assert_eq!(out_trace.generated_at_ms, 42, "generated_at_ms unmodified");
     assert_eq!(
         out_trace.ladder_tier.as_deref(),

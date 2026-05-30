@@ -915,13 +915,17 @@ struct ThemePairTests {
     func chatStreamingStaysPlainWithoutThinkingAccordion() throws {
         let chatView = try loadTextFile("Epistemos/Views/Chat/ChatView.swift")
         let messageBubble = try loadTextFile("Epistemos/Views/Chat/MessageBubble.swift")
+        let inlineTranscript = try loadTextFile("Epistemos/Views/Chat/AssistantInlineTranscriptView.swift")
 
-        #expect(chatView.contains("TaggedMarkdownTextView("))
+        #expect(chatView.contains("MessageBubble("))
         #expect(chatView.contains("UserFacingModelOutput.streamingVisibleText"))
+        #expect(messageBubble.contains("AssistantInlineTranscriptView("))
+        #expect(inlineTranscript.contains("TaggedMarkdownTextView("))
         #expect(!chatView.contains("ThinkingAccordion"))
         #expect(!chatView.contains("chat.isReasoning"))
         #expect(!messageBubble.contains("ThinkingAccordion"))
         #expect(!messageBubble.contains("reasoningText"))
+        #expect(!inlineTranscript.contains("ThinkingAccordion"))
     }
 
     @Test("LocalModelToolbarMenu is owned by standalone surfaces, not main chat or landing")
@@ -1837,8 +1841,10 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(!components.contains("PixelPanelBackground.actionSurface"))
         #expect(!components.contains(".ultraThinMaterial"))
         #expect(settingsView.contains(".settingsThemedBlurPage(theme: ui.theme.surfaceVariant(.other))"))
-        #expect(settingsView.contains("SettingsThemedBlurBackdrop(theme: ui.theme.surfaceVariant(.other), role: .sidebar)"))
-        #expect(settingsView.contains("SettingsThemedBlurBackdrop(theme: ui.theme.surfaceVariant(.other), role: .page)"))
+        #expect(settingsView.contains("SettingsSidebarBackdrop(theme: ui.theme)"))
+        #expect(settingsView.contains("SettingsDetailBackdrop(theme: ui.theme)"))
+        #expect(settingsView.contains("SettingsThemedBlurBackdrop(theme: theme.surfaceVariant(.other), role: .sidebar)"))
+        #expect(settingsView.contains("SettingsThemedBlurBackdrop(theme: theme.surfaceVariant(.other), role: .page)"))
         #expect(settingsView.contains("SettingsPixelGlyphBadge(systemImage: section.icon"))
         #expect(settingsView.contains("SettingsFeaturedPixelPanel(theme: settingsTheme)"))
         #expect(!settingsView.contains("pixelPanel(theme: settingsTheme)"))

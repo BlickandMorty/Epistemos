@@ -114,9 +114,7 @@ fn main() {
                 "evaluations_total".to_string(),
                 AcceptanceThreshold {
                     operator: ">=".to_string(),
-                    value: serde_json::Value::Number(serde_json::Number::from(
-                        414_048u64 * 3,
-                    )),
+                    value: serde_json::Value::Number(serde_json::Number::from(414_048u64 * 3)),
                     unit: "count".to_string(),
                 },
             );

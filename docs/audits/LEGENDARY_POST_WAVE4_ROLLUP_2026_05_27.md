@@ -45,12 +45,24 @@ Additional 2026-05-27 Metal witness evidence after the preflight slice:
 
 - `Tools/metal-shader-compile/metal-shader-compile.sh`
   - passed; 26 shaders compile, with deferred warnings still emitted for
-    PageGather / ControllerKernelPack / PacketRouter1bit.
+    SemiseparableBlockScan / PageGather / PacketRouter1bit.
 - `swift Tools/metal-witness-gates/fulp-metal-oracle-artifact.swift --write-artifact`
   - passed; emitted `artifacts/falsifiers/ulp_oracle/result.json` as a full
     Metal `morphOracleFp16` primary witness.
 - `cargo run --manifest-path agent_core/Cargo.toml --release --bin falsifier_validator -- artifacts/falsifiers/ulp_oracle/result.json`
   - passed.
+- `swift Tools/metal-witness-gates/controller-kernel-pack-artifact.swift --write-artifact`
+  - passed; emitted `artifacts/falsifiers/controller_kernel_pack/result.json`
+    as a full Metal `ControllerKernelPack` primary witness.
+  - Zero correctness violations; empty `maxReduce` returns `NaN`; empty
+    `argmaxReduce` returns `UInt32.max`; worst p99 is `20.06510408136819 us`;
+    100-cycle wall is `2.745417 ms`.
+- `cargo run --manifest-path agent_core/Cargo.toml --release --bin falsifier_validator -- artifacts/falsifiers/controller_kernel_pack/result.json`
+  - passed.
+- `./scripts/xcodebuild_epistemos.sh ... test -only-testing:EpistemosTests/MetalWitnessGatesTests`
+  - passed; 3 Swift Testing tests in the Metal witness suite.
+- `cargo test --manifest-path agent_core/Cargo.toml --lib --quiet`
+  - passed; 4,052 tests.
 - `swift Tools/metal-witness-gates/page-gather-metal-artifact.swift --working-sets-mb 256 --window-seconds 5 --trials 3 --warmup-iterations 3 --write-artifact`
   - failed honestly; wrote `artifacts/falsifiers/page_gather/metal_failure_result.json`.
   - The shader produced correct values but random scatter reached only about
@@ -70,6 +82,80 @@ Additional 2026-05-27 Metal witness evidence after the preflight slice:
     smoke probe showed `0` correctness violations but only `0.3556x` STREAM at
     16 MB, so the real scheduled path still needs optimization before any green
     promotion.
+- `pageGatherPacketizeScheduled`
+  - now provides the lean witness-coordinate packet contract. The 256/512 MB
+    diagnostic artifact at `artifacts/falsifiers/page_gather/locality_probe_result.json`
+    shows packetized scheduled PageGather at `0.729x` / `0.752x` measured
+    STREAM with `0` sampled violations. Dense restore remains too slow
+    (`0.092x` / `0.058x`), so this is mitigation evidence, not a dense green.
+- Capability Ceiling model gate hardening
+  - `docs/audits/CAPABILITY_CEILING_MODEL_GATE_2026_05_27.md` preserves the
+    70B / ACS / UAS / SSD+RAM northstar while preventing dense 36B MLX
+    power-user mode from pretending the cocktail has passed. Dense 36B remains
+    a 32 GB + explicit opt-in path until `F-70B-Local-Cocktail` or an
+    equivalent SSD/RAM composition artifact passes. EML-everything is preserved
+    as the rule that eligible weights, layers, kernels, and transforms expose
+    EML / Geometry / Scan / Operator charts rather than opaque blobs.
+- 70B cocktail preflight row-root
+  - `Tools/falsifiers/f_70b_local_cocktail_lite.sh` now writes and validates
+    `artifacts/falsifiers/70b_local_cocktail_lite/result.json` as an
+    intentional red failure report. The artifact records sentinel D_KL /
+    decode / TTFT / RSS failures plus a named bottleneck, so future work has a
+    concrete axis to turn green without weakening the dense MLX gate.
+- KV-Direct preflight row-root
+  - `Tools/falsifiers/kv_direct_prompt_suite.sh` now writes the canonical
+    100-prompt / 128K / 256-decode prompt suite at
+    `artifacts/falsifiers/kv_direct_gate/prompt_suite.json`.
+  - `Tools/falsifiers/run_kv_direct_mlx_live.sh` now loads the local Qwen3-8B
+    MLX snapshot and emits MLX runner contract files under
+    `artifacts/falsifiers/kv_direct_gate/live_mlx/`; the first smoke run is
+    intentionally undersized and non-SSD. The runner now also has a
+    `prompt_cache_reload` route that saves an MLX prompt cache to disk,
+    reloads it, and emits test logits. The smoke cache-reload run produced a
+    75 MB cache file with low D_KL, but it is still a file-backed reload
+    witness, not the residual-patched mmap/NF4 SSD-spill oracle.
+  - The same runner now accepts `--prompt-offset`, and
+    `Tools/falsifiers/merge_kv_direct_mlx_shards.sh` merges restartable shard
+    directories into one paired-logit / metrics / spill-trace bundle for the
+    falsifier. This makes the real 100-prompt run resumable without weakening
+    the SSD-spill axis.
+  - `Tools/falsifiers/plan_kv_direct_mlx_shards.sh --shard-size 1 --prefill-step-size 512 --write-shell` now writes
+    the 100 one-prompt shard full-suite execution plan at
+    `artifacts/falsifiers/kv_direct_gate/live_mlx_full_suite_plan/full_suite_run_plan.json`
+    plus `run_all_shards.sh`. The Capability Ceiling kernel consumes this as
+    `kv_direct_full_suite_run_plan_available=true`, while the plan stays
+    `falsifier_green_capable=false` for the current `prompt_cache_reload`
+    development route. The planner also accepts explicit `--model-path` and
+    records model identity; the separate
+    `live_mlx_candidate_qwen3_coder_next_plan` is marked
+    `model_identity_matches_canonical=false` and stays candidate-tier.
+  - The first planned 128K shard, `shard_000_000`, now has failure evidence:
+    `prefill_step_size=2048` hit a Metal interactivity command-buffer abort,
+    and `prefill_step_size=512` was stopped after about 14 minutes with zero
+    completed prompt rows. That failure remains preserved, but the KV gate now
+    separately guards model identity and context. The resolved model identity is
+    canonical (`Qwen/Qwen3-8B-MLX-4bit`), while the local config declares only
+    `40960` context tokens with no rope scaling. The pending-work guard therefore names
+    `resolve_qwen3_8b_128k_context_model_assets_for_kv_direct` as the next
+    cursor.
+  - `Tools/falsifiers/f_kv_direct_gate.sh` now writes and validates
+    `artifacts/falsifiers/kv_direct_gate/result.json` as an intentional red
+    failure report. The artifact records zero Tier-1 Rust QK equality
+    violations over 1,000 traces and a passing prompt-suite shape, then keeps
+    the live Qwen3-8B / 128K / SSD-spill metrics red until a canonical
+    128K-capable model/config and actual MLX measurement land.
+  - The KV spill trace is now semantic, not just present. A green path must
+    name `residual_patched_mmap_nf4_ssd_spill`, set residual patching and
+    mmap-backed cold KV evidence, label NF4/equivalent storage, and report
+    positive cold-KV bytes. Prompt-cache reload cannot satisfy this axis.
+- Qwen3-8B 128K GGUF candidate split
+  - `Tools/falsifiers/f_qwen3_8b_128k_gguf_route.sh` now writes and validates
+    `artifacts/falsifiers/qwen3_8b_128k_gguf_route/result.json` as a
+    schema-valid red failure report for the separate
+    `unsloth/Qwen3-8B-128K-GGUF` fallback lane. Current bottleneck is
+    `download_or_register_qwen3_8b_128k_gguf_model_file`. This route is
+    fallback/candidate only and does not satisfy the canonical MLX
+    `F-KV-Direct-Gate`.
 
 ## Main / PR State
 
@@ -139,8 +225,8 @@ There are 10 `artifacts/falsifiers/*/result.json` files on main:
 | `acs_anchor_addressing` | full measured true | N=1000 full harness with agent runtime emission, lookup, audit canonicalization, and five-plane projection inversion. See `docs/audits/ACS_ANCHOR_HARNESS_FULL_2026_05_27.md`. |
 | `ulp_oracle` | measured true | Full Metal `morphOracleFp16` primary witness over 414,048 points / 1,242,144 evaluations; max ULP axes pass the <=2 budget. |
 | `uas_zero_copy_spine` | measured true | Zero tracked copies in scoped spine; broader hot path can still be expanded. |
-| `page_gather` | measured true + Metal failure/locality reports + scheduler/destination contract | CPU scatter/PageGather artifact remains the fallback witness; 256 MB Metal STREAM-style run failed the primary ratio and is recorded at `artifacts/falsifiers/page_gather/metal_failure_result.json`. `artifacts/falsifiers/page_gather/locality_probe_result.json` shows a block-sorted read-local mitigation candidate crossing the scatter ratio at 256 MB, `block_sorted_schedule` gives the product path a real execution contract, and `pageGatherScatterScheduled` now restores logical output positions. The first destination-position smoke probe was correct but too slow, so the full primary gate remains pending. |
-| `controller_kernel_pack` | measured true | CPU/reference kernel-pack witness; full Metal dispatcher pending. |
+| `page_gather` | measured true + Metal failure/locality reports + scheduler/destination/packetized contracts | CPU scatter/PageGather artifact remains the fallback witness; 256 MB Metal STREAM-style run failed the dense primary ratio and is recorded at `artifacts/falsifiers/page_gather/metal_failure_result.json`. `artifacts/falsifiers/page_gather/locality_probe_result.json` now records the 256/512 MB M2 Pro packetized scheduled mitigation: `0.729x` / `0.752x` measured STREAM with `0` sampled violations. `block_sorted_schedule` gives the product path a real execution contract, `pageGatherScatterScheduled` restores dense logical output positions, and `pageGatherPacketizeScheduled` emits compact `(logical_position, value)` packets. Dense restore remains too slow, so the full primary gate remains pending. |
+| `controller_kernel_pack` | primary Metal measured true | Full Metal primary witness at `artifacts/falsifiers/controller_kernel_pack/result.json`: 7-size x 100-seed correctness, empty-input contracts, p50/p99 latency budget, and 100-cycle sequence budget all pass. |
 
 The `>=7 measured witnesses` objective is satisfied. The verified floor must
 still keep hardware-caveat artifacts orange until their full production/hot-path
@@ -184,10 +270,10 @@ Wave 4 satisfies the No-Orphan check at the current floor:
 Remaining No-Orphan risks are not lost work; they are the next focused slices:
 
 1. Broader all-surface residency polish outside the AnswerPacket/detail rows.
-2. Full hardware research gates for PageGather / ControllerKernelPack.
-   A 2026-05-27 Metal preflight now dispatches the source kernels and keeps
-   those primary measurement artifacts pending instead of green. `F-ULP-Oracle`
-   has advanced to a full Metal primary witness.
+2. Full hardware research gate for PageGather.
+   A 2026-05-27 Metal preflight now dispatches the source kernels. `F-ULP-Oracle`
+   and `F-ControllerKernelPack` have advanced to full Metal primary witnesses;
+   PageGather remains pending instead of green.
 
 ## Next Terminals
 
@@ -266,13 +352,14 @@ gate is green:
 2. `RESUME METAL WITNESS GATES`
    - Preflight slice: `docs/audits/METAL_WITNESS_GATES_PREFLIGHT_2026_05_27.md`.
    - `F-ULP-Oracle` full Metal artifact: `artifacts/falsifiers/ulp_oracle/result.json`.
-   - `F-PageGather-M2Pro` now has a real 256 MB failure report, a
-     locality-probe artifact, a scheduler contract, and a Metal
-     destination-position contract; next step is kernel optimization, not
-     promotion.
-   - Still remaining: full Metal/PageGather pass artifact and ControllerKernelPack
-     measured throughput/latency artifacts. Keep them research-tier until real
-     hardware measurements pass.
+   - `F-PageGather-M2Pro` now has a real 256 MB dense failure report, a
+     256/512 MB packetized mitigation artifact, a scheduler contract, and Metal
+     dense + packetized contracts; next step is caller-path packet consumption
+     or dense kernel optimization, not green promotion.
+   - `F-ControllerKernelPack` now has a full Metal primary artifact with all
+     correctness, empty-contract, p50/p99, and sequence axes passing.
+   - Still remaining: full Metal/PageGather pass artifact. Keep it research-tier
+     until real hardware measurements pass.
 3. `RESEARCH CONSTRUCTION`
    - Candidate-only research construction engine. Do not affect live product
      behavior.

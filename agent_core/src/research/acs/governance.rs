@@ -242,7 +242,10 @@ pub fn validate_dispatch(
             if primitive.allows_scale(attempted) {
                 Ok(())
             } else {
-                Err(AcsDispatchError::ScaleMismatch { primitive, attempted })
+                Err(AcsDispatchError::ScaleMismatch {
+                    primitive,
+                    attempted,
+                })
             }
         }
     }
@@ -408,8 +411,14 @@ mod tests {
             assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", s);
         }
         assert_eq!(AcsScale::ALL.iter().filter(|s| s.is_physical()).count(), 1);
-        assert_eq!(AcsScale::ALL.iter().filter(|s| s.is_biological()).count(), 4);
-        assert_eq!(AcsScale::ALL.iter().filter(|s| s.is_federation()).count(), 1);
+        assert_eq!(
+            AcsScale::ALL.iter().filter(|s| s.is_biological()).count(),
+            4
+        );
+        assert_eq!(
+            AcsScale::ALL.iter().filter(|s| s.is_federation()).count(),
+            1
+        );
     }
 
     #[test]
@@ -426,7 +435,13 @@ mod tests {
         for p in AcsPrimitive::ALL.iter().copied() {
             let allowed = p.allowed_scales();
             for s in AcsScale::ALL.iter().copied() {
-                assert_eq!(allowed.contains(&s), p.allows_scale(s), "p={:?} s={:?}", p, s);
+                assert_eq!(
+                    allowed.contains(&s),
+                    p.allows_scale(s),
+                    "p={:?} s={:?}",
+                    p,
+                    s
+                );
             }
         }
     }
@@ -470,7 +485,11 @@ mod tests {
         // Cross-surface invariant: is_scale_mismatch XOR is_transistor XOR
         // is_ecosystem_unwired.
         for e in variants {
-            let trio = [e.is_scale_mismatch(), e.is_transistor(), e.is_ecosystem_unwired()];
+            let trio = [
+                e.is_scale_mismatch(),
+                e.is_transistor(),
+                e.is_ecosystem_unwired(),
+            ];
             assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", e);
         }
     }

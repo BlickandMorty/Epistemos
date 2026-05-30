@@ -15,8 +15,13 @@ use super::ulp_oracle::{run_smoke_oracle, UlpOracleReport, UlpToleranceFp16};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum GateStatus {
-    Allowed { report: UlpOracleReport },
-    Blocked { report: UlpOracleReport, reason: &'static str },
+    Allowed {
+        report: UlpOracleReport,
+    },
+    Blocked {
+        report: UlpOracleReport,
+        reason: &'static str,
+    },
 }
 
 impl GateStatus {
@@ -69,11 +74,8 @@ pub fn check_answer_packet_freeze_allowed() -> Result<GateStatus, GateError> {
 /// caller supply a custom tolerance bar — useful for "what would the
 /// gate verdict be at a stricter / looser bar?" exploration without
 /// shipping that bar.
-pub fn check_with_custom_tolerance(
-    tolerance: UlpToleranceFp16,
-) -> Result<GateStatus, GateError> {
-    let report =
-        run_smoke_oracle(tolerance).map_err(|_| GateError::OracleFailedToRun)?;
+pub fn check_with_custom_tolerance(tolerance: UlpToleranceFp16) -> Result<GateStatus, GateError> {
+    let report = run_smoke_oracle(tolerance).map_err(|_| GateError::OracleFailedToRun)?;
     if report.all_within_bar {
         Ok(GateStatus::Allowed { report })
     } else {

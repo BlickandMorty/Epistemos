@@ -47,10 +47,22 @@ pub struct LearnedMemoryModule {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TitansError {
-    ShapeMismatch { out_dim: usize, in_dim: usize, weights_len: usize },
-    KeyDimMismatch { in_dim: usize, key_len: usize },
-    ValueDimMismatch { out_dim: usize, value_len: usize },
-    NonPositiveLearningRate { lr: f32 },
+    ShapeMismatch {
+        out_dim: usize,
+        in_dim: usize,
+        weights_len: usize,
+    },
+    KeyDimMismatch {
+        in_dim: usize,
+        key_len: usize,
+    },
+    ValueDimMismatch {
+        out_dim: usize,
+        value_len: usize,
+    },
+    NonPositiveLearningRate {
+        lr: f32,
+    },
 }
 
 impl TitansError {
@@ -100,7 +112,11 @@ impl LearnedMemoryModule {
                 weights_len: weights.len(),
             });
         }
-        Ok(Self { out_dim, in_dim, weights })
+        Ok(Self {
+            out_dim,
+            in_dim,
+            weights,
+        })
     }
 
     /// Total scalar parameter count `out_dim × in_dim`. Used for
@@ -120,10 +136,7 @@ impl LearnedMemoryModule {
     /// during the inner test-time loop — runaway values flag that
     /// `lr` is too high. Returns 0.0 for an empty / zero-sized LMM.
     pub fn max_abs_weight(&self) -> f32 {
-        self.weights
-            .iter()
-            .map(|w| w.abs())
-            .fold(0.0_f32, f32::max)
+        self.weights.iter().map(|w| w.abs()).fold(0.0_f32, f32::max)
     }
 
     /// `M · k` → `out`.
@@ -268,7 +281,11 @@ mod tests {
         let err = LearnedMemoryModule::new(2, 3, vec![0.0; 5]).unwrap_err();
         assert_eq!(
             err,
-            TitansError::ShapeMismatch { out_dim: 2, in_dim: 3, weights_len: 5 }
+            TitansError::ShapeMismatch {
+                out_dim: 2,
+                in_dim: 3,
+                weights_len: 5
+            }
         );
     }
 
@@ -331,14 +348,26 @@ mod tests {
         let m = LearnedMemoryModule::zeros(2, 3);
         let mut out = vec![0.0_f32; 2];
         let err = m.predict(&[1.0, 2.0], &mut out).unwrap_err();
-        assert_eq!(err, TitansError::KeyDimMismatch { in_dim: 3, key_len: 2 });
+        assert_eq!(
+            err,
+            TitansError::KeyDimMismatch {
+                in_dim: 3,
+                key_len: 2
+            }
+        );
     }
 
     #[test]
     fn value_dim_mismatch_in_surprise_errors() {
         let m = LearnedMemoryModule::zeros(2, 2);
         let err = surprise(&m, &[1.0, 2.0], &[1.0]).unwrap_err();
-        assert_eq!(err, TitansError::ValueDimMismatch { out_dim: 2, value_len: 1 });
+        assert_eq!(
+            err,
+            TitansError::ValueDimMismatch {
+                out_dim: 2,
+                value_len: 1
+            }
+        );
     }
 
     #[test]
@@ -438,8 +467,7 @@ mod tests {
     #[test]
     fn batch_apply_empty_input_returns_empty_surprises() {
         let mut m = LearnedMemoryModule::zeros(1, 1);
-        let surprises =
-            apply_surprise_batch(&mut m, &[], &[], 0.1).unwrap();
+        let surprises = apply_surprise_batch(&mut m, &[], &[], 0.1).unwrap();
         assert!(surprises.is_empty());
     }
 
@@ -459,9 +487,19 @@ mod tests {
     #[test]
     fn error_cause_distinct_per_variant() {
         let variants = [
-            TitansError::ShapeMismatch { out_dim: 2, in_dim: 3, weights_len: 5 },
-            TitansError::KeyDimMismatch { in_dim: 3, key_len: 2 },
-            TitansError::ValueDimMismatch { out_dim: 2, value_len: 3 },
+            TitansError::ShapeMismatch {
+                out_dim: 2,
+                in_dim: 3,
+                weights_len: 5,
+            },
+            TitansError::KeyDimMismatch {
+                in_dim: 3,
+                key_len: 2,
+            },
+            TitansError::ValueDimMismatch {
+                out_dim: 2,
+                value_len: 3,
+            },
             TitansError::NonPositiveLearningRate { lr: 0.0 },
         ];
         let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
@@ -471,9 +509,19 @@ mod tests {
     #[test]
     fn error_classifiers_partition() {
         let variants = [
-            TitansError::ShapeMismatch { out_dim: 2, in_dim: 3, weights_len: 5 },
-            TitansError::KeyDimMismatch { in_dim: 3, key_len: 2 },
-            TitansError::ValueDimMismatch { out_dim: 2, value_len: 3 },
+            TitansError::ShapeMismatch {
+                out_dim: 2,
+                in_dim: 3,
+                weights_len: 5,
+            },
+            TitansError::KeyDimMismatch {
+                in_dim: 3,
+                key_len: 2,
+            },
+            TitansError::ValueDimMismatch {
+                out_dim: 2,
+                value_len: 3,
+            },
             TitansError::NonPositiveLearningRate { lr: 0.0 },
         ];
         // Cross-surface invariant: is_dim_error XOR is_hyperparam_error.
@@ -481,7 +529,10 @@ mod tests {
             assert_ne!(e.is_dim_error(), e.is_hyperparam_error());
         }
         assert_eq!(variants.iter().filter(|e| e.is_dim_error()).count(), 3);
-        assert_eq!(variants.iter().filter(|e| e.is_hyperparam_error()).count(), 1);
+        assert_eq!(
+            variants.iter().filter(|e| e.is_hyperparam_error()).count(),
+            1
+        );
     }
 
     #[test]

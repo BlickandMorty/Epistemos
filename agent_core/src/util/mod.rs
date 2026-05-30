@@ -97,6 +97,11 @@ mod tests {
             .filter_map(|e| e.ok())
             .map(|e| e.file_name())
             .collect();
-        assert_eq!(entries.len(), 1, "exactly one file post-write: {:?}", entries);
+        assert_eq!(
+            entries.len(),
+            1,
+            "exactly one file post-write: {:?}",
+            entries
+        );
     }
 }

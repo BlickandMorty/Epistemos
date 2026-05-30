@@ -1,0 +1,11 @@
+{
+  "context_window_tokens": 512,
+  "decode_tok_s": 0.3804955387301409,
+  "decode_tokens_per_prompt": 1,
+  "file_backed_cache_reload": true,
+  "peak_ram_gb": 1.918468096,
+  "prompt_count": 1,
+  "spill_labeling": false,
+  "suite_wall_clock_min": 0.09096307083333334,
+  "test_route": "prompt_cache_reload"
+}

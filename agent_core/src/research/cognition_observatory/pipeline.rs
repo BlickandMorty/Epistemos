@@ -133,11 +133,17 @@ pub struct IntervenerCapability {
 
 impl IntervenerCapability {
     pub const fn none() -> Self {
-        Self { may_intervene_kv: false, may_intervene_weights: false }
+        Self {
+            may_intervene_kv: false,
+            may_intervene_weights: false,
+        }
     }
 
     pub const fn all() -> Self {
-        Self { may_intervene_kv: true, may_intervene_weights: true }
+        Self {
+            may_intervene_kv: true,
+            may_intervene_weights: true,
+        }
     }
 
     pub const fn permits(&self, probe: ProbeKind) -> bool {
@@ -204,10 +210,16 @@ mod tests {
 
     #[test]
     fn class_partition_two_two() {
-        let intervention: Vec<_> =
-            ProbeKind::ALL.iter().filter(|p| p.is_intervention()).copied().collect();
-        let read_only: Vec<_> =
-            ProbeKind::ALL.iter().filter(|p| !p.is_intervention()).copied().collect();
+        let intervention: Vec<_> = ProbeKind::ALL
+            .iter()
+            .filter(|p| p.is_intervention())
+            .copied()
+            .collect();
+        let read_only: Vec<_> = ProbeKind::ALL
+            .iter()
+            .filter(|p| !p.is_intervention())
+            .copied()
+            .collect();
         assert_eq!(intervention.len(), 2);
         assert_eq!(read_only.len(), 2);
         assert!(intervention.contains(&ProbeKind::KvImplant));
@@ -236,24 +248,34 @@ mod tests {
         let cap = IntervenerCapability::none();
         assert_eq!(
             validate_dispatch(ProbeKind::KvImplant, &cap).unwrap_err(),
-            DispatchError::InterventionRequiresCapability { probe: ProbeKind::KvImplant }
+            DispatchError::InterventionRequiresCapability {
+                probe: ProbeKind::KvImplant
+            }
         );
         assert_eq!(
             validate_dispatch(ProbeKind::WeightPatch, &cap).unwrap_err(),
-            DispatchError::InterventionRequiresCapability { probe: ProbeKind::WeightPatch }
+            DispatchError::InterventionRequiresCapability {
+                probe: ProbeKind::WeightPatch
+            }
         );
     }
 
     #[test]
     fn kv_capability_does_not_grant_weight_capability() {
-        let cap = IntervenerCapability { may_intervene_kv: true, may_intervene_weights: false };
+        let cap = IntervenerCapability {
+            may_intervene_kv: true,
+            may_intervene_weights: false,
+        };
         assert!(validate_dispatch(ProbeKind::KvImplant, &cap).is_ok());
         assert!(validate_dispatch(ProbeKind::WeightPatch, &cap).is_err());
     }
 
     #[test]
     fn weight_capability_does_not_grant_kv_capability() {
-        let cap = IntervenerCapability { may_intervene_kv: false, may_intervene_weights: true };
+        let cap = IntervenerCapability {
+            may_intervene_kv: false,
+            may_intervene_weights: true,
+        };
         assert!(validate_dispatch(ProbeKind::WeightPatch, &cap).is_ok());
         assert!(validate_dispatch(ProbeKind::KvImplant, &cap).is_err());
     }
@@ -268,7 +290,10 @@ mod tests {
 
     #[test]
     fn none_capability_is_default() {
-        assert_eq!(IntervenerCapability::default(), IntervenerCapability::none());
+        assert_eq!(
+            IntervenerCapability::default(),
+            IntervenerCapability::none()
+        );
     }
 
     #[test]
@@ -281,7 +306,10 @@ mod tests {
 
     #[test]
     fn capability_serde_roundtrip() {
-        let cap = IntervenerCapability { may_intervene_kv: true, may_intervene_weights: false };
+        let cap = IntervenerCapability {
+            may_intervene_kv: true,
+            may_intervene_weights: false,
+        };
         let json = serde_json::to_string(&cap).unwrap();
         let back: IntervenerCapability = serde_json::from_str(&json).unwrap();
         assert_eq!(cap, back);
@@ -352,13 +380,18 @@ mod tests {
 
     #[test]
     fn capability_permits_count_one_for_partial() {
-        let cap = IntervenerCapability { may_intervene_kv: true, may_intervene_weights: false };
+        let cap = IntervenerCapability {
+            may_intervene_kv: true,
+            may_intervene_weights: false,
+        };
         assert_eq!(cap.permits_count(), 1);
     }
 
     #[test]
     fn dispatch_error_cause_and_probe_extract() {
-        let e = DispatchError::InterventionRequiresCapability { probe: ProbeKind::WeightPatch };
+        let e = DispatchError::InterventionRequiresCapability {
+            probe: ProbeKind::WeightPatch,
+        };
         assert_eq!(e.cause(), "intervention_requires_capability");
         assert_eq!(e.probe(), ProbeKind::WeightPatch);
     }

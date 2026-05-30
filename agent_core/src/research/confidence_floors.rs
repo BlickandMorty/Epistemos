@@ -26,8 +26,11 @@ pub enum ConfidenceFloor {
 }
 
 impl ConfidenceFloor {
-    pub const ALL: [ConfidenceFloor; 3] =
-        [ConfidenceFloor::T1, ConfidenceFloor::T2, ConfidenceFloor::T3];
+    pub const ALL: [ConfidenceFloor; 3] = [
+        ConfidenceFloor::T1,
+        ConfidenceFloor::T2,
+        ConfidenceFloor::T3,
+    ];
 
     pub const fn threshold(self) -> f32 {
         match self {
@@ -166,11 +169,7 @@ impl ConfidenceLadderLog {
     /// score ≥ floor.threshold(). If none accept and
     /// `escalate_on_empty` is set, return Escalated; otherwise
     /// EmptyNoEscalate. Returns the decision and appends a log entry.
-    pub fn decide(
-        &mut self,
-        score: f32,
-        escalate_on_empty: bool,
-    ) -> LadderDecision {
+    pub fn decide(&mut self, score: f32, escalate_on_empty: bool) -> LadderDecision {
         let decision = if score >= ConfidenceFloor::T1.threshold() {
             LadderDecision::Accepted(ConfidenceFloor::T1)
         } else if score >= ConfidenceFloor::T2.threshold() {
@@ -182,7 +181,11 @@ impl ConfidenceLadderLog {
         } else {
             LadderDecision::EmptyNoEscalate
         };
-        self.entries.push(LadderLogEntry { score, decision, escalate_on_empty });
+        self.entries.push(LadderLogEntry {
+            score,
+            decision,
+            escalate_on_empty,
+        });
         decision
     }
 
@@ -349,9 +352,18 @@ mod tests {
     #[test]
     fn exact_threshold_accepts_at_that_tier() {
         let mut log = ConfidenceLadderLog::new();
-        assert_eq!(log.decide(0.85, false), LadderDecision::Accepted(ConfidenceFloor::T1));
-        assert_eq!(log.decide(0.75, false), LadderDecision::Accepted(ConfidenceFloor::T2));
-        assert_eq!(log.decide(0.70, false), LadderDecision::Accepted(ConfidenceFloor::T3));
+        assert_eq!(
+            log.decide(0.85, false),
+            LadderDecision::Accepted(ConfidenceFloor::T1)
+        );
+        assert_eq!(
+            log.decide(0.75, false),
+            LadderDecision::Accepted(ConfidenceFloor::T2)
+        );
+        assert_eq!(
+            log.decide(0.70, false),
+            LadderDecision::Accepted(ConfidenceFloor::T3)
+        );
     }
 
     #[test]
@@ -360,7 +372,10 @@ mod tests {
         log.decide(0.95, false);
         log.decide(0.5, true);
         assert_eq!(log.len(), 2);
-        assert!(matches!(log.entries[0].decision, LadderDecision::Accepted(ConfidenceFloor::T1)));
+        assert!(matches!(
+            log.entries[0].decision,
+            LadderDecision::Accepted(ConfidenceFloor::T1)
+        ));
         assert_eq!(log.entries[1].decision, LadderDecision::Escalated);
     }
 
@@ -453,7 +468,7 @@ mod tests {
             log.decide(0.95, false); // T1
         }
         log.decide(0.78, false); // T2
-        // T1 + T2 rate = 1.0; degraded = 0.0.
+                                 // T1 + T2 rate = 1.0; degraded = 0.0.
         assert_eq!(log.health_verdict(), Some(LadderHealth::Healthy));
     }
 

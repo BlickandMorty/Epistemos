@@ -80,10 +80,7 @@ fn main() {
             unit: "rows".to_string(),
         },
     );
-    pass_per_axis.insert(
-        "fixture_row_count".to_string(),
-        row_count >= MIN_ROW_COUNT,
-    );
+    pass_per_axis.insert("fixture_row_count".to_string(), row_count >= MIN_ROW_COUNT);
 
     // -- Axis 2: category coverage ---------------------------------
     let mut categories: std::collections::BTreeSet<String> = Default::default();

@@ -125,8 +125,7 @@ impl HybridMemoryError {
     pub const fn is_schema_error(&self) -> bool {
         matches!(
             self,
-            HybridMemoryError::MissingSchemaField
-                | HybridMemoryError::UnknownSchemaKind { .. }
+            HybridMemoryError::MissingSchemaField | HybridMemoryError::UnknownSchemaKind { .. }
         )
     }
 }
@@ -156,12 +155,16 @@ pub fn parse_hybrid(text: &str) -> Result<HybridDoc, HybridMemoryError> {
         .trim_start_matches('\n')
         .to_string();
 
-    let schema_code = extract_schema_field(&frontmatter_json)
-        .ok_or(HybridMemoryError::MissingSchemaField)?;
+    let schema_code =
+        extract_schema_field(&frontmatter_json).ok_or(HybridMemoryError::MissingSchemaField)?;
     let schema = HybridSchemaKind::from_code(&schema_code)
         .ok_or(HybridMemoryError::UnknownSchemaKind { code: schema_code })?;
 
-    Ok(HybridDoc { schema, frontmatter_json, markdown_body })
+    Ok(HybridDoc {
+        schema,
+        frontmatter_json,
+        markdown_body,
+    })
 }
 
 /// Very simple field extractor — looks for `"schema":` then captures
@@ -192,8 +195,13 @@ fn extract_schema_field(json: &str) -> Option<String> {
 pub enum SchemaFieldError {
     FrontmatterJsonInvalid,
     FrontmatterNotObject,
-    MissingField { field: &'static str },
-    FieldWrongType { field: &'static str, expected: &'static str },
+    MissingField {
+        field: &'static str,
+    },
+    FieldWrongType {
+        field: &'static str,
+        expected: &'static str,
+    },
 }
 
 impl SchemaFieldError {
@@ -254,7 +262,10 @@ fn require_string(
 ) -> Result<(), SchemaFieldError> {
     match obj.get(name) {
         Some(serde_json::Value::String(_)) => Ok(()),
-        Some(_) => Err(SchemaFieldError::FieldWrongType { field: name, expected: "string" }),
+        Some(_) => Err(SchemaFieldError::FieldWrongType {
+            field: name,
+            expected: "string",
+        }),
         None => Err(SchemaFieldError::MissingField { field: name }),
     }
 }
@@ -265,7 +276,10 @@ fn require_array(
 ) -> Result<(), SchemaFieldError> {
     match obj.get(name) {
         Some(serde_json::Value::Array(_)) => Ok(()),
-        Some(_) => Err(SchemaFieldError::FieldWrongType { field: name, expected: "array" }),
+        Some(_) => Err(SchemaFieldError::FieldWrongType {
+            field: name,
+            expected: "array",
+        }),
         None => Err(SchemaFieldError::MissingField { field: name }),
     }
 }
@@ -316,8 +330,7 @@ mod tests {
 
     #[test]
     fn four_distinct_schema_kinds() {
-        let s: std::collections::HashSet<_> =
-            HybridSchemaKind::ALL.iter().copied().collect();
+        let s: std::collections::HashSet<_> = HybridSchemaKind::ALL.iter().copied().collect();
         assert_eq!(s.len(), 4);
     }
 
@@ -375,7 +388,9 @@ mod tests {
         let err = parse_hybrid(text).unwrap_err();
         assert_eq!(
             err,
-            HybridMemoryError::UnknownSchemaKind { code: "epistemos.unknown.v9".into() }
+            HybridMemoryError::UnknownSchemaKind {
+                code: "epistemos.unknown.v9".into()
+            }
         );
     }
 
@@ -481,7 +496,10 @@ mod tests {
         );
         assert_eq!(
             validate_soul_v1(&d).unwrap_err(),
-            SchemaFieldError::FieldWrongType { field: "pillars", expected: "array" }
+            SchemaFieldError::FieldWrongType {
+                field: "pillars",
+                expected: "array"
+            }
         );
     }
 
@@ -569,24 +587,30 @@ mod tests {
     #[test]
     fn frontmatter_not_object_rejected() {
         let d = doc(HybridSchemaKind::SoulV1, "[1, 2, 3]");
-        assert_eq!(validate_soul_v1(&d).unwrap_err(), SchemaFieldError::FrontmatterNotObject);
+        assert_eq!(
+            validate_soul_v1(&d).unwrap_err(),
+            SchemaFieldError::FrontmatterNotObject
+        );
     }
 
     #[test]
     fn frontmatter_invalid_json_rejected() {
         let d = doc(HybridSchemaKind::SoulV1, "not json {");
-        assert_eq!(validate_soul_v1(&d).unwrap_err(), SchemaFieldError::FrontmatterJsonInvalid);
+        assert_eq!(
+            validate_soul_v1(&d).unwrap_err(),
+            SchemaFieldError::FrontmatterJsonInvalid
+        );
     }
 
     #[test]
     fn field_wrong_type_for_string_field_rejected() {
-        let d = doc(
-            HybridSchemaKind::SoulV1,
-            r#"{"name":42,"pillars":[]}"#,
-        );
+        let d = doc(HybridSchemaKind::SoulV1, r#"{"name":42,"pillars":[]}"#);
         assert_eq!(
             validate_soul_v1(&d).unwrap_err(),
-            SchemaFieldError::FieldWrongType { field: "name", expected: "string" }
+            SchemaFieldError::FieldWrongType {
+                field: "name",
+                expected: "string"
+            }
         );
     }
 
@@ -601,7 +625,10 @@ mod tests {
             for &field in kind.required_fields() {
                 // Build a minimal doc with ALL required fields EXCEPT `field`.
                 let mut obj = serde_json::Map::new();
-                obj.insert("schema".into(), serde_json::Value::String(kind.code().into()));
+                obj.insert(
+                    "schema".into(),
+                    serde_json::Value::String(kind.code().into()),
+                );
                 for &other in kind.required_fields() {
                     if other == field {
                         continue;
@@ -618,7 +645,9 @@ mod tests {
                 assert!(
                     matches!(err, SchemaFieldError::MissingField { field: f } if f == field),
                     "schema={:?} missing field={} got err={:?}",
-                    kind, field, err,
+                    kind,
+                    field,
+                    err,
                 );
             }
         }
@@ -667,7 +696,10 @@ mod tests {
             SchemaFieldError::FrontmatterJsonInvalid,
             SchemaFieldError::FrontmatterNotObject,
             SchemaFieldError::MissingField { field: "name" },
-            SchemaFieldError::FieldWrongType { field: "name", expected: "string" },
+            SchemaFieldError::FieldWrongType {
+                field: "name",
+                expected: "string",
+            },
         ];
         let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
         assert_eq!(causes.len(), 4);
@@ -679,7 +711,10 @@ mod tests {
             SchemaFieldError::FrontmatterJsonInvalid,
             SchemaFieldError::FrontmatterNotObject,
             SchemaFieldError::MissingField { field: "name" },
-            SchemaFieldError::FieldWrongType { field: "name", expected: "string" },
+            SchemaFieldError::FieldWrongType {
+                field: "name",
+                expected: "string",
+            },
         ];
         // Cross-surface invariant: is_envelope_error XOR is_field_error.
         for e in &variants {
@@ -696,7 +731,11 @@ mod tests {
             Some("name"),
         );
         assert_eq!(
-            SchemaFieldError::FieldWrongType { field: "id", expected: "string" }.field(),
+            SchemaFieldError::FieldWrongType {
+                field: "id",
+                expected: "string"
+            }
+            .field(),
             Some("id"),
         );
         assert_eq!(SchemaFieldError::FrontmatterJsonInvalid.field(), None);

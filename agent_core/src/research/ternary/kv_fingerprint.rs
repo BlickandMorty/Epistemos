@@ -73,7 +73,9 @@ pub fn fingerprint_k_vector(
     threshold_ratio: f32,
 ) -> Result<KvFingerprint, FingerprintError> {
     if !(0.0..=1.0).contains(&threshold_ratio) {
-        return Err(FingerprintError::ThresholdOutOfRange { ratio: threshold_ratio });
+        return Err(FingerprintError::ThresholdOutOfRange {
+            ratio: threshold_ratio,
+        });
     }
     if k.is_empty() {
         return Ok(KvFingerprint {
@@ -120,10 +122,7 @@ pub fn fingerprint_k_vector(
 /// Maximum per-channel = 2; total max = `2 * channel_count`. Returned
 /// value is the raw sum / max, so 0.0 = identical, 1.0 = every channel
 /// flipped sign.
-pub fn fingerprint_distance(
-    a: &KvFingerprint,
-    b: &KvFingerprint,
-) -> Result<f32, FingerprintError> {
+pub fn fingerprint_distance(a: &KvFingerprint, b: &KvFingerprint) -> Result<f32, FingerprintError> {
     if a.channel_count != b.channel_count {
         return Err(FingerprintError::ChannelCountMismatch {
             left: a.channel_count,
@@ -272,7 +271,9 @@ mod tests {
 
     #[test]
     fn channel_count_beyond_block_size_packs_into_multiple_blocks() {
-        let k: Vec<f32> = (0..20).map(|i| if i % 2 == 0 { 1.0 } else { -1.0 }).collect();
+        let k: Vec<f32> = (0..20)
+            .map(|i| if i % 2 == 0 { 1.0 } else { -1.0 })
+            .collect();
         let fp = fingerprint_k_vector(&k, 0.5).unwrap();
         assert_eq!(fp.channel_count, 20);
         assert_eq!(fp.blocks.len(), 2);

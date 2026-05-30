@@ -32,9 +32,14 @@ use agent_core::uas::{UasAddress, UasKind};
 struct MiniRng(u64);
 
 impl MiniRng {
-    fn new(seed: u64) -> Self { Self(seed) }
+    fn new(seed: u64) -> Self {
+        Self(seed)
+    }
     fn next_u64(&mut self) -> u64 {
-        self.0 = self.0.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1_442_695_040_888_963_407);
+        self.0 = self
+            .0
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
         self.0
     }
     fn next_i8(&mut self) -> i8 {
@@ -43,7 +48,13 @@ impl MiniRng {
     }
 }
 
-fn build_synthetic_corpus(n_pages: usize, sketch_dim: usize, n_residual_blocks: usize, block_size: usize, seed: u64) -> Vec<HeliosPage> {
+fn build_synthetic_corpus(
+    n_pages: usize,
+    sketch_dim: usize,
+    n_residual_blocks: usize,
+    block_size: usize,
+    seed: u64,
+) -> Vec<HeliosPage> {
     let mut rng = MiniRng::new(seed);
     let mut pages = Vec::with_capacity(n_pages);
     for i in 0..n_pages {
@@ -64,11 +75,19 @@ fn build_synthetic_corpus(n_pages: usize, sketch_dim: usize, n_residual_blocks: 
     pages
 }
 
-fn build_synthetic_query(sketch_dim: usize, n_residual_blocks: usize, block_size: usize, seed: u64) -> (Vec<i8>, Vec<ResidualBlock>) {
+fn build_synthetic_query(
+    sketch_dim: usize,
+    n_residual_blocks: usize,
+    block_size: usize,
+    seed: u64,
+) -> (Vec<i8>, Vec<ResidualBlock>) {
     let mut rng = MiniRng::new(seed);
     let sketch: Vec<i8> = (0..sketch_dim).map(|_| rng.next_i8()).collect();
     let residual: Vec<ResidualBlock> = (0..n_residual_blocks)
-        .map(|_| ResidualBlock { data: (0..block_size).map(|_| rng.next_i8()).collect(), scale: 0.1 })
+        .map(|_| ResidualBlock {
+            data: (0..block_size).map(|_| rng.next_i8()).collect(),
+            scale: 0.1,
+        })
         .collect();
     (sketch, residual)
 }
@@ -92,15 +111,30 @@ fn shadow_escalation_produces_well_formed_verdicts() {
     let mut exact_count = 0;
 
     for q_seed in 0..20_u64 {
-        let (q_sketch, q_residual) = build_synthetic_query(sketch_dim, n_blocks, block_size, 0xCAFE_0000 + q_seed);
-        let verdict = policy.escalate(&q_sketch, &q_residual, &corpus).expect("escalate must succeed");
+        let (q_sketch, q_residual) =
+            build_synthetic_query(sketch_dim, n_blocks, block_size, 0xCAFE_0000 + q_seed);
+        let verdict = policy
+            .escalate(&q_sketch, &q_residual, &corpus)
+            .expect("escalate must succeed");
         match verdict {
-            EscalationVerdict::CheapResidual { winner_page_index, .. } => {
-                assert!(winner_page_index < corpus.len(), "winner page id must be valid");
+            EscalationVerdict::CheapResidual {
+                winner_page_index, ..
+            } => {
+                assert!(
+                    winner_page_index < corpus.len(),
+                    "winner page id must be valid"
+                );
                 cheap_count += 1;
             }
-            EscalationVerdict::ExactDecode { provisional_winner, candidates, .. } => {
-                assert!(provisional_winner < corpus.len(), "provisional winner must be valid");
+            EscalationVerdict::ExactDecode {
+                provisional_winner,
+                candidates,
+                ..
+            } => {
+                assert!(
+                    provisional_winner < corpus.len(),
+                    "provisional winner must be valid"
+                );
                 assert!(!candidates.is_empty(), "exact path must list candidates");
                 exact_count += 1;
             }
@@ -135,9 +169,14 @@ fn reproducibility_same_seeds_same_verdicts() {
     let mut policy_a = EscalationPolicy::new(thresholds.clone()).unwrap();
     let mut policy_b = EscalationPolicy::new(thresholds).unwrap();
 
-    let (q_sketch, q_residual) = build_synthetic_query(sketch_dim, n_blocks, block_size, 0xDEAD_BEEF);
-    let verdict_a = policy_a.escalate(&q_sketch, &q_residual, &corpus_a).unwrap();
-    let verdict_b = policy_b.escalate(&q_sketch, &q_residual, &corpus_b).unwrap();
+    let (q_sketch, q_residual) =
+        build_synthetic_query(sketch_dim, n_blocks, block_size, 0xDEAD_BEEF);
+    let verdict_a = policy_a
+        .escalate(&q_sketch, &q_residual, &corpus_a)
+        .unwrap();
+    let verdict_b = policy_b
+        .escalate(&q_sketch, &q_residual, &corpus_b)
+        .unwrap();
     assert_eq!(verdict_a, verdict_b, "same seeds → same verdicts");
 }
 
@@ -156,7 +195,8 @@ fn high_exact_threshold_forces_exact_path() {
     };
     let mut policy = EscalationPolicy::new(thresholds).unwrap();
 
-    let (q_sketch, q_residual) = build_synthetic_query(sketch_dim, n_blocks, block_size, 0xFACE_FEED);
+    let (q_sketch, q_residual) =
+        build_synthetic_query(sketch_dim, n_blocks, block_size, 0xFACE_FEED);
     let verdict = policy.escalate(&q_sketch, &q_residual, &corpus).unwrap();
     assert!(matches!(verdict, EscalationVerdict::ExactDecode { .. }));
 }
@@ -176,7 +216,8 @@ fn low_exact_threshold_favors_cheap_path() {
     };
     let mut policy = EscalationPolicy::new(thresholds).unwrap();
 
-    let (q_sketch, q_residual) = build_synthetic_query(sketch_dim, n_blocks, block_size, 0xBEEF_CAFE);
+    let (q_sketch, q_residual) =
+        build_synthetic_query(sketch_dim, n_blocks, block_size, 0xBEEF_CAFE);
     let verdict = policy.escalate(&q_sketch, &q_residual, &corpus).unwrap();
     assert!(matches!(verdict, EscalationVerdict::CheapResidual { .. }));
 }

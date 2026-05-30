@@ -397,20 +397,23 @@ mod tests {
         // packets must Err on this build (and the V6.1 safe default
         // contract takes over) rather than panic.
         let result: Result<VrmLabel, _> = serde_json::from_str("\"unknown_label\"");
-        assert!(result.is_err(),
-                "VrmLabel decoder must reject unknown labels");
+        assert!(
+            result.is_err(),
+            "VrmLabel decoder must reject unknown labels"
+        );
         let result: Result<VrmLabel, _> = serde_json::from_str("\"Verified\"");
-        assert!(result.is_err(),
-                "PascalCase must reject — only snake_case is canonical");
+        assert!(
+            result.is_err(),
+            "PascalCase must reject — only snake_case is canonical"
+        );
 
-        let result: Result<AttentionMode, _> =
-            serde_json::from_str("\"unknown_mode\"");
-        assert!(result.is_err(),
-                "AttentionMode decoder must reject unknown modes");
-        let result: Result<AttentionMode, _> =
-            serde_json::from_str("\"StaticFallback\"");
-        assert!(result.is_err(),
-                "PascalCase AttentionMode must reject");
+        let result: Result<AttentionMode, _> = serde_json::from_str("\"unknown_mode\"");
+        assert!(
+            result.is_err(),
+            "AttentionMode decoder must reject unknown modes"
+        );
+        let result: Result<AttentionMode, _> = serde_json::from_str("\"StaticFallback\"");
+        assert!(result.is_err(), "PascalCase AttentionMode must reject");
     }
 
     #[test]
@@ -437,8 +440,11 @@ mod tests {
         // claim Dynamic. (The Default impl already enforces this at
         // the type level; this assertion pins it at the test level so
         // a future rewrite of Default doesn't shift the safety contract.)
-        assert_eq!(AttentionMode::default(), AttentionMode::Unavailable,
-                   "pre-V6.1 packets MUST decode to Unavailable — never Dynamic by accident");
+        assert_eq!(
+            AttentionMode::default(),
+            AttentionMode::Unavailable,
+            "pre-V6.1 packets MUST decode to Unavailable — never Dynamic by accident"
+        );
 
         // Round-trip in: historic packets with the canonical strings
         // must decode cleanly.

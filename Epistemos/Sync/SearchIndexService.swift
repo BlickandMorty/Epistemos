@@ -133,6 +133,7 @@ actor SearchIndexService {
     nonisolated private let queryQueue: DispatchQueue
     nonisolated private let supportsPageFTS5: Bool
     nonisolated private let supportsBlockFTS5: Bool
+    nonisolated private let supportsReadableBlocksFTS5: Bool
     nonisolated private let agentProvenanceSyncRecorder: AgentToolProvenanceSyncRecorder
     nonisolated private let directPageSyncSearchToolSequence = Mutex<UInt64>(0)
     nonisolated private let blockSyncSearchToolSequence = Mutex<UInt64>(0)
@@ -183,11 +184,12 @@ actor SearchIndexService {
         self.queryQueue = queryQueue
         supportsPageFTS5 = features.pageFTS5
         supportsBlockFTS5 = features.blockFTS5
+        supportsReadableBlocksFTS5 = features.readableBlocksFTS5
         self.agentProvenanceRecorder = agentProvenanceRecorder
         self.agentProvenanceSyncRecorder = agentProvenanceSyncRecorder
 
         log.info(
-            "SearchIndexService initialized at \(resolvedDatabaseURL.path, privacy: .public) fts5_pages=\(features.pageFTS5) fts5_blocks=\(features.blockFTS5)"
+            "SearchIndexService initialized at \(resolvedDatabaseURL.path, privacy: .public) fts5_pages=\(features.pageFTS5) fts5_blocks=\(features.blockFTS5) fts5_readable_blocks=\(features.readableBlocksFTS5)"
         )
     }
 
@@ -196,6 +198,7 @@ actor SearchIndexService {
     private struct SearchIndexFeatures: Sendable {
         let pageFTS5: Bool
         let blockFTS5: Bool
+        let readableBlocksFTS5: Bool
     }
 
     private nonisolated static func databaseConfiguration() -> Configuration {
@@ -458,15 +461,23 @@ actor SearchIndexService {
             if !fts5Available {
                 try dropFTSDependentTriggers(db)
             } else {
+                let hadReadableBlocksFTS = try tableExists("readable_blocks_fts", db: db)
                 try createPageSearchArtifactsIfAvailable(db)
                 try createBlockSearchArtifactsIfAvailable(db)
+                try ReadableBlocksIndex.installFTSAndTriggersIfAvailable(in: db)
+                if !hadReadableBlocksFTS,
+                   try tableExists("readable_blocks_fts", db: db) {
+                    try ReadableBlocksIndex.rebuildFTSIndexIfAvailable(in: db)
+                }
             }
 
             let pageFTS5 = fts5Available ? try tableExists("page_search", db: db) : false
             let blockFTS5 = fts5Available ? try tableExists("block_search", db: db) : false
+            let readableBlocksFTS5 = fts5Available ? try tableExists("readable_blocks_fts", db: db) : false
             return SearchIndexFeatures(
                 pageFTS5: pageFTS5,
-                blockFTS5: blockFTS5
+                blockFTS5: blockFTS5,
+                readableBlocksFTS5: readableBlocksFTS5
             )
         }
     }
@@ -501,6 +512,9 @@ actor SearchIndexService {
         try db.execute(sql: "DROP TRIGGER IF EXISTS indexed_blocks_ai")
         try db.execute(sql: "DROP TRIGGER IF EXISTS indexed_blocks_ad")
         try db.execute(sql: "DROP TRIGGER IF EXISTS indexed_blocks_au")
+        try db.execute(sql: "DROP TRIGGER IF EXISTS readable_blocks_ai")
+        try db.execute(sql: "DROP TRIGGER IF EXISTS readable_blocks_ad")
+        try db.execute(sql: "DROP TRIGGER IF EXISTS readable_blocks_au")
     }
 
     // MARK: - Search
@@ -941,10 +955,17 @@ actor SearchIndexService {
 
         do {
             let results = try dbPool.read { db in
-                try RRFFusionQuery.execute(
+                let includePageSearch = try Self.tableExists("page_search", db: db)
+                let includeBlockSearch = try Self.tableExists("block_search", db: db)
+                let includeReadableBlocks = try Self.tableExists("readable_blocks_fts", db: db)
+                guard includePageSearch, includeBlockSearch else {
+                    return try Self.fusedSearchFallback(terms: terms, weights: weights, in: db)
+                }
+                return try RRFFusionQuery.execute(
                     query: sanitized,
                     weights: weights,
                     now: now,
+                    includeReadableBlocks: includeReadableBlocks,
                     in: db
                 )
             }
@@ -1067,11 +1088,18 @@ actor SearchIndexService {
 
                 do {
                     let results = try dbPool.read { db in
-                        try Self.withSQLiteCancellation(db: db, cancellation: cancellation) {
-                            try RRFFusionQuery.execute(
+                        return try Self.withSQLiteCancellation(db: db, cancellation: cancellation) {
+                            let includePageSearch = try Self.tableExists("page_search", db: db)
+                            let includeBlockSearch = try Self.tableExists("block_search", db: db)
+                            let includeReadableBlocks = try Self.tableExists("readable_blocks_fts", db: db)
+                            guard includePageSearch, includeBlockSearch else {
+                                return try Self.fusedSearchFallback(terms: terms, weights: weights, in: db)
+                            }
+                            return try RRFFusionQuery.execute(
                                 query: sanitized,
                                 weights: weights,
                                 now: now,
+                                includeReadableBlocks: includeReadableBlocks,
                                 in: db
                             )
                         }
@@ -2129,6 +2157,117 @@ actor SearchIndexService {
                 rank: row["rank"] ?? 0.0
             )
         }
+    }
+
+    private nonisolated static func fusedSearchFallback(
+        terms: [String],
+        weights: FusionWeights,
+        in db: Database
+    ) throws -> [FusedResult] {
+        let finalLimit = max(0, weights.maxResults)
+        guard finalLimit > 0 else { return [] }
+        let sourceLimit = max(finalLimit, weights.perSourceLimit)
+
+        struct Accumulator {
+            var entityKind: String
+            var parentDocID: String
+            var fusedScore: Double
+            var bestSourceRank: Int64
+            var snippetBlockID: String?
+            var snippet: String?
+            var updatedAtUnix: Double?
+        }
+
+        var rolledUp: [String: Accumulator] = [:]
+
+        func merge(
+            entityID: String,
+            entityKind: String,
+            sourceWeight: Double,
+            sourceRank: Int,
+            snippetBlockID: String?,
+            snippet: String?,
+            updatedAtUnix: Double?
+        ) {
+            let rank = Int64(sourceRank)
+            let score = sourceWeight / (Phase3FusionConsts.K_RRF + Double(sourceRank))
+            if var existing = rolledUp[entityID] {
+                existing.fusedScore += score
+                if let updatedAtUnix {
+                    existing.updatedAtUnix = existing.updatedAtUnix.map {
+                        max($0, updatedAtUnix)
+                    } ?? updatedAtUnix
+                }
+                if rank < existing.bestSourceRank {
+                    existing.entityKind = entityKind
+                    existing.bestSourceRank = rank
+                    existing.snippetBlockID = snippetBlockID
+                    existing.snippet = snippet
+                }
+                rolledUp[entityID] = existing
+            } else {
+                rolledUp[entityID] = Accumulator(
+                    entityKind: entityKind,
+                    parentDocID: entityID,
+                    fusedScore: score,
+                    bestSourceRank: rank,
+                    snippetBlockID: snippetBlockID,
+                    snippet: snippet,
+                    updatedAtUnix: updatedAtUnix
+                )
+            }
+        }
+
+        for (offset, result) in try searchPagesFallback(db, terms: terms, limit: sourceLimit).enumerated() {
+            merge(
+                entityID: result.pageId,
+                entityKind: "page",
+                sourceWeight: weights.pageWeight,
+                sourceRank: offset + 1,
+                snippetBlockID: nil,
+                snippet: result.snippet,
+                updatedAtUnix: result.rank > 0 ? result.rank : nil
+            )
+        }
+
+        for (offset, result) in try searchBlocksFallback(db, terms: terms, limit: sourceLimit).enumerated() {
+            merge(
+                entityID: result.pageId,
+                entityKind: "block",
+                sourceWeight: weights.blockWeight,
+                sourceRank: offset + 1,
+                snippetBlockID: result.blockId,
+                snippet: result.snippet,
+                updatedAtUnix: nil
+            )
+        }
+
+        return rolledUp
+            .map { entityID, hit in
+                FusedResult(
+                    entityID: entityID,
+                    entityKind: hit.entityKind,
+                    parentDocID: hit.parentDocID,
+                    fusedScore: hit.fusedScore,
+                    bestSourceRank: hit.bestSourceRank,
+                    snippetBlockID: hit.snippetBlockID,
+                    snippet: hit.snippet,
+                    updatedAtUnix: hit.updatedAtUnix
+                )
+            }
+            .sorted { lhs, rhs in
+                if lhs.fusedScore == rhs.fusedScore {
+                    let leftUpdated = lhs.updatedAtUnix ?? 0
+                    let rightUpdated = rhs.updatedAtUnix ?? 0
+                    if leftUpdated == rightUpdated {
+                        return lhs.entityID < rhs.entityID
+                    }
+                    return leftUpdated > rightUpdated
+                }
+                return lhs.fusedScore > rhs.fusedScore
+            }
+            .prefix(finalLimit)
+            .map { $0 }
     }
 
     private nonisolated static func searchBlocksFallback(

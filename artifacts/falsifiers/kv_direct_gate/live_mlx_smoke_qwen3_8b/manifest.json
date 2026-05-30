@@ -1,0 +1,30 @@
+{
+  "allow_full_suite": false,
+  "canonical_model_repo_id": "Qwen/Qwen3-8B-MLX-4bit",
+  "context_window_tokens": 512,
+  "decode_tokens_per_prompt": 1,
+  "env_for_falsifier": {
+    "EPISTEMOS_KV_DIRECT_METRICS_PATH": "artifacts/falsifiers/kv_direct_gate/live_mlx_smoke_qwen3_8b/metrics.json",
+    "EPISTEMOS_KV_DIRECT_MODEL_PATH": "/Users/jojo/Library/Application Support/Epistemos/Models/text/hub/models--Qwen--Qwen3-8B-MLX-4bit/snapshots/383413e909f3bc5303ce195ebbdf0339c5a1a2a3",
+    "EPISTEMOS_KV_DIRECT_PROMPT_SUITE": "/Users/jojo/Downloads/Epistemos/artifacts/falsifiers/kv_direct_gate/prompt_suite.json",
+    "EPISTEMOS_KV_DIRECT_REFERENCE_LOGITS": "artifacts/falsifiers/kv_direct_gate/live_mlx_smoke_qwen3_8b/reference_logits.json",
+    "EPISTEMOS_KV_DIRECT_SPILL_TRACE": "artifacts/falsifiers/kv_direct_gate/live_mlx_smoke_qwen3_8b/spill_trace.json",
+    "EPISTEMOS_KV_DIRECT_TEST_LOGITS": "artifacts/falsifiers/kv_direct_gate/live_mlx_smoke_qwen3_8b/test_logits.json"
+  },
+  "metrics": "artifacts/falsifiers/kv_direct_gate/live_mlx_smoke_qwen3_8b/metrics.json",
+  "model_identity_matches_canonical": true,
+  "model_path": "/Users/jojo/Library/Application Support/Epistemos/Models/text/hub/models--Qwen--Qwen3-8B-MLX-4bit/snapshots/383413e909f3bc5303ce195ebbdf0339c5a1a2a3",
+  "model_repo_id": "Qwen/Qwen3-8B-MLX-4bit",
+  "output_dir": "artifacts/falsifiers/kv_direct_gate/live_mlx_smoke_qwen3_8b",
+  "prompt_count": 1,
+  "prompt_ids": [
+    "long_prefix_recall_000"
+  ],
+  "prompt_offset": 0,
+  "prompt_suite": "/Users/jojo/Downloads/Epistemos/artifacts/falsifiers/kv_direct_gate/prompt_suite.json",
+  "reference_logits": "artifacts/falsifiers/kv_direct_gate/live_mlx_smoke_qwen3_8b/reference_logits.json",
+  "spill_trace": "artifacts/falsifiers/kv_direct_gate/live_mlx_smoke_qwen3_8b/spill_trace.json",
+  "test_logits": "artifacts/falsifiers/kv_direct_gate/live_mlx_smoke_qwen3_8b/test_logits.json",
+  "test_route": "prompt_cache_reload",
+  "will_satisfy_shape_floor": false
+}

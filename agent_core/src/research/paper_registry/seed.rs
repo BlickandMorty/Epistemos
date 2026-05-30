@@ -43,7 +43,8 @@ pub fn seed_wave_j_registry() -> Result<PaperRegistry, RegistryError> {
         venue: Venue::ArXiv,
         year: 2024,
         arxiv_id: Some("2402.17764".into()),
-        claim: "Ternary {−1, 0, +1} weights with absmean per-group scale match fp16 perplexity".into(),
+        claim: "Ternary {−1, 0, +1} weights with absmean per-group scale match fp16 perplexity"
+            .into(),
         realized_at: "agent_core/src/research/ternary/".into(),
         status: ClaimStatus::SubstrateFloor,
     })?;
@@ -54,7 +55,8 @@ pub fn seed_wave_j_registry() -> Result<PaperRegistry, RegistryError> {
         venue: Venue::ArXiv,
         year: 2024,
         arxiv_id: Some("2407.00088".into()),
-        claim: "LUT-centric ternary GEMM achieves 30-71 tok/s on BitNet-b1.58-3B on M2 Ultra".into(),
+        claim: "LUT-centric ternary GEMM achieves 30-71 tok/s on BitNet-b1.58-3B on M2 Ultra"
+            .into(),
         realized_at: "Epistemos/Shaders/tmac_lut.metal (W12)".into(),
         status: ClaimStatus::Referenced,
     })?;
@@ -76,7 +78,8 @@ pub fn seed_wave_j_registry() -> Result<PaperRegistry, RegistryError> {
         venue: Venue::ArXiv,
         year: 2025,
         arxiv_id: Some("2506.19847".into()),
-        claim: "Input-centric R·(Wx) avoids materializing R·W; 10× faster, 3× lower GPU memory".into(),
+        claim: "Input-centric R·(Wx) avoids materializing R·W; 10× faster, 3× lower GPU memory"
+            .into(),
         realized_at: "agent_core/src/research/continual_learning/oftv2.rs".into(),
         status: ClaimStatus::SubstrateFloor,
     })?;
@@ -120,7 +123,8 @@ pub fn seed_wave_j_registry() -> Result<PaperRegistry, RegistryError> {
         venue: Venue::Icml,
         year: 2024,
         arxiv_id: Some("2402.09353".into()),
-        claim: "Magnitude + normalized direction decomposition; LoRA delta on direction only".into(),
+        claim: "Magnitude + normalized direction decomposition; LoRA delta on direction only"
+            .into(),
         realized_at: "agent_core/src/research/continual_learning/seal_dora.rs".into(),
         status: ClaimStatus::SubstrateFloor,
     })?;
@@ -208,7 +212,8 @@ pub fn seed_wave_j_registry() -> Result<PaperRegistry, RegistryError> {
         venue: Venue::JournalArticle,
         year: 1982,
         arxiv_id: None,
-        claim: "AUC = (S_pos - n_pos*(n_pos+1)/2) / (n_pos * n_neg) via Mann-Whitney rank sum".into(),
+        claim: "AUC = (S_pos - n_pos*(n_pos+1)/2) / (n_pos * n_neg) via Mann-Whitney rank sum"
+            .into(),
         realized_at: "agent_core/src/research/cognition_observatory/sae.rs".into(),
         status: ClaimStatus::SubstrateFloor,
     })?;
@@ -255,9 +260,17 @@ mod tests {
         for c in &r.claims {
             if let Some(id) = &c.arxiv_id {
                 let bytes = id.as_bytes();
-                assert!(bytes.len() == 10 || bytes.len() == 11,
-                    "claim {} has odd-length arxiv id {}", c.key, id);
-                assert_eq!(bytes[4], b'.', "claim {} arxiv id {} missing dot at pos 4", c.key, id);
+                assert!(
+                    bytes.len() == 10 || bytes.len() == 11,
+                    "claim {} has odd-length arxiv id {}",
+                    c.key,
+                    id
+                );
+                assert_eq!(
+                    bytes[4], b'.',
+                    "claim {} arxiv id {} missing dot at pos 4",
+                    c.key, id
+                );
             }
         }
     }
@@ -268,8 +281,7 @@ mod tests {
         for c in &r.claims {
             let p = &c.realized_at;
             assert!(
-                p.starts_with("agent_core/src/research/")
-                    || p.starts_with("Epistemos/Shaders/"),
+                p.starts_with("agent_core/src/research/") || p.starts_with("Epistemos/Shaders/"),
                 "claim {} realized_at outside Terminal-B scope: {}",
                 c.key,
                 p
@@ -311,7 +323,9 @@ mod tests {
         for c in &r.claims {
             assert!(
                 ClaimStatus::ALL.iter().any(|s| *s == c.status),
-                "claim {} has status {:?} not in ALL", c.key, c.status,
+                "claim {} has status {:?} not in ALL",
+                c.key,
+                c.status,
             );
         }
     }
@@ -323,7 +337,9 @@ mod tests {
         for c in &r.claims {
             assert!(
                 Venue::ALL.iter().any(|v| *v == c.venue),
-                "claim {} has venue {:?} not in ALL", c.key, c.venue,
+                "claim {} has venue {:?} not in ALL",
+                c.key,
+                c.venue,
             );
         }
     }
@@ -348,7 +364,9 @@ mod tests {
         assert!(!cl.is_empty(), "expected continual_learning papers in seed");
         // Cross-surface: every returned claim's realized_at starts with prefix.
         for c in &cl {
-            assert!(c.realized_at.starts_with("agent_core/src/research/continual_learning/"));
+            assert!(c
+                .realized_at
+                .starts_with("agent_core/src/research/continual_learning/"));
         }
     }
 
@@ -364,6 +382,10 @@ mod tests {
         // (sanity check that it's not all arxiv).
         let r = seed_wave_j_registry().unwrap();
         let venues: std::collections::HashSet<_> = r.claims.iter().map(|c| c.venue).collect();
-        assert!(venues.len() >= 3, "seed venue diversity too low: {:?}", venues);
+        assert!(
+            venues.len() >= 3,
+            "seed venue diversity too low: {:?}",
+            venues
+        );
     }
 }

@@ -54,10 +54,17 @@ pub enum VsmError {
     /// Root unit was not at S5 (the policy / identity level).
     RootNotS5 { actual: VsmLevel },
     /// An S5 unit was missing one of the four required inner levels.
-    S5MissingInner { name: String, missing: Vec<VsmLevel> },
+    S5MissingInner {
+        name: String,
+        missing: Vec<VsmLevel>,
+    },
     /// A non-S5 parent had children at a level inconsistent with the
     /// parent's role.
-    InvalidChildLevel { parent: String, parent_level: VsmLevel, child_level: VsmLevel },
+    InvalidChildLevel {
+        parent: String,
+        parent_level: VsmLevel,
+        child_level: VsmLevel,
+    },
     /// An S1 component was not itself a viable root (recursive check).
     /// The inner error explains why.
     S1ChildNotViable { name: String, inner: Box<VsmError> },
@@ -114,7 +121,10 @@ fn check_unit(unit: &VsmUnit) -> Result<(), VsmError> {
             missing.push(VsmLevel::S4);
         }
         if !missing.is_empty() {
-            return Err(VsmError::S5MissingInner { name: unit.name.clone(), missing });
+            return Err(VsmError::S5MissingInner {
+                name: unit.name.clone(),
+                missing,
+            });
         }
     }
 
@@ -200,7 +210,11 @@ mod tests {
     use super::*;
 
     fn unit(name: &str, level: VsmLevel, children: Vec<VsmUnit>) -> VsmUnit {
-        VsmUnit { name: name.to_string(), level, children }
+        VsmUnit {
+            name: name.to_string(),
+            level,
+            children,
+        }
     }
 
     fn minimal_viable(name: &str) -> VsmUnit {
@@ -218,7 +232,13 @@ mod tests {
 
     #[test]
     fn five_distinct_levels() {
-        let levels = vec![VsmLevel::S1, VsmLevel::S2, VsmLevel::S3, VsmLevel::S4, VsmLevel::S5];
+        let levels = vec![
+            VsmLevel::S1,
+            VsmLevel::S2,
+            VsmLevel::S3,
+            VsmLevel::S4,
+            VsmLevel::S5,
+        ];
         let set: std::collections::HashSet<_> = levels.iter().copied().collect();
         assert_eq!(set.len(), 5);
     }
@@ -233,7 +253,12 @@ mod tests {
     fn root_not_s5_errors() {
         let bad = unit("bad", VsmLevel::S3, vec![]);
         let err = check_vsm_consistency(&bad).unwrap_err();
-        assert_eq!(err, VsmError::RootNotS5 { actual: VsmLevel::S3 });
+        assert_eq!(
+            err,
+            VsmError::RootNotS5 {
+                actual: VsmLevel::S3
+            }
+        );
     }
 
     #[test]
@@ -241,7 +266,10 @@ mod tests {
         let bad = unit(
             "thin",
             VsmLevel::S5,
-            vec![unit("ops", VsmLevel::S1, vec![]), unit("intel", VsmLevel::S4, vec![])],
+            vec![
+                unit("ops", VsmLevel::S1, vec![]),
+                unit("intel", VsmLevel::S4, vec![]),
+            ],
         );
         let err = check_vsm_consistency(&bad).unwrap_err();
         match err {
@@ -288,12 +316,20 @@ mod tests {
                 unit("ops", VsmLevel::S1, vec![]),
                 unit("coord", VsmLevel::S2, vec![]),
                 unit("control", VsmLevel::S3, vec![]),
-                unit("intel", VsmLevel::S4, vec![unit("rogue", VsmLevel::S1, vec![])]),
+                unit(
+                    "intel",
+                    VsmLevel::S4,
+                    vec![unit("rogue", VsmLevel::S1, vec![])],
+                ),
             ],
         );
         let err = check_vsm_consistency(&bad).unwrap_err();
         match err {
-            VsmError::InvalidChildLevel { parent, parent_level, child_level } => {
+            VsmError::InvalidChildLevel {
+                parent,
+                parent_level,
+                child_level,
+            } => {
                 assert_eq!(parent, "intel");
                 assert_eq!(parent_level, VsmLevel::S4);
                 assert_eq!(child_level, VsmLevel::S1);
@@ -310,13 +346,21 @@ mod tests {
             vec![
                 unit("ops", VsmLevel::S1, vec![]),
                 unit("coord", VsmLevel::S2, vec![]),
-                unit("control", VsmLevel::S3, vec![unit("rogue", VsmLevel::S4, vec![])]),
+                unit(
+                    "control",
+                    VsmLevel::S3,
+                    vec![unit("rogue", VsmLevel::S4, vec![])],
+                ),
                 unit("intel", VsmLevel::S4, vec![]),
             ],
         );
         let err = check_vsm_consistency(&bad).unwrap_err();
         match err {
-            VsmError::InvalidChildLevel { parent_level, child_level, .. } => {
+            VsmError::InvalidChildLevel {
+                parent_level,
+                child_level,
+                ..
+            } => {
                 assert_eq!(parent_level, VsmLevel::S3);
                 assert_eq!(child_level, VsmLevel::S4);
             }
@@ -331,11 +375,15 @@ mod tests {
             "outer",
             VsmLevel::S5,
             vec![
-                unit("ops_with_inner_vsm", VsmLevel::S3, vec![VsmUnit {
-                    name: "inner_unit".into(),
-                    level: VsmLevel::S1,
-                    children: inner.children,
-                }]),
+                unit(
+                    "ops_with_inner_vsm",
+                    VsmLevel::S3,
+                    vec![VsmUnit {
+                        name: "inner_unit".into(),
+                        level: VsmLevel::S1,
+                        children: inner.children,
+                    }],
+                ),
                 unit("coord", VsmLevel::S2, vec![]),
                 unit("control2", VsmLevel::S3, vec![]),
                 unit("intel", VsmLevel::S4, vec![]),
@@ -365,13 +413,21 @@ mod tests {
     fn s1_no_children_is_valid() {
         let root = minimal_viable("org");
         assert!(check_vsm_consistency(&root).is_ok());
-        let s1_child = &root.children.iter().find(|c| c.level == VsmLevel::S1).unwrap();
+        let s1_child = &root
+            .children
+            .iter()
+            .find(|c| c.level == VsmLevel::S1)
+            .unwrap();
         assert!(s1_child.children.is_empty());
     }
 
     #[test]
     fn s5_with_only_subset_of_required_inner_lists_all_missing() {
-        let bad = unit("just_ops", VsmLevel::S5, vec![unit("ops", VsmLevel::S1, vec![])]);
+        let bad = unit(
+            "just_ops",
+            VsmLevel::S5,
+            vec![unit("ops", VsmLevel::S1, vec![])],
+        );
         let err = check_vsm_consistency(&bad).unwrap_err();
         match err {
             VsmError::S5MissingInner { missing, .. } => {
@@ -464,7 +520,13 @@ mod tests {
 
     #[test]
     fn level_counts_serde_roundtrip() {
-        let c = VsmLevelCounts { s1: 5, s2: 1, s3: 2, s4: 1, s5: 1 };
+        let c = VsmLevelCounts {
+            s1: 5,
+            s2: 1,
+            s3: 2,
+            s4: 1,
+            s5: 1,
+        };
         let json = serde_json::to_string(&c).unwrap();
         let back: VsmLevelCounts = serde_json::from_str(&json).unwrap();
         assert_eq!(c, back);

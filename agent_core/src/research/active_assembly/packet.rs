@@ -47,7 +47,13 @@ impl Packet {
         cost_units: u8,
         predecessors: Vec<PacketId>,
     ) -> Self {
-        Self { id, input_pattern, output_pattern, cost_units, predecessors }
+        Self {
+            id,
+            input_pattern,
+            output_pattern,
+            cost_units,
+            predecessors,
+        }
     }
 }
 
@@ -56,7 +62,10 @@ impl Packet {
 pub enum PacketGraphError {
     /// Predecessor `pred` of packet `p` was not yet defined when `p` was
     /// added. Construct packets in topological order.
-    UndefinedPredecessor { packet: PacketId, predecessor: PacketId },
+    UndefinedPredecessor {
+        packet: PacketId,
+        predecessor: PacketId,
+    },
     /// A packet's predecessor list referenced itself.
     SelfReference { packet: PacketId },
     /// A packet's predecessor count exceeded the falsifier-§2 max of 4.
@@ -81,14 +90,20 @@ pub struct PacketGraph {
 
 impl PacketGraph {
     pub fn new() -> Self {
-        Self { packets: Vec::new(), by_id: BTreeSet::new() }
+        Self {
+            packets: Vec::new(),
+            by_id: BTreeSet::new(),
+        }
     }
 
     /// Add a packet. Returns `Err` if any of the graph invariants are
     /// violated.
     pub fn add(&mut self, packet: Packet) -> Result<(), PacketGraphError> {
         if !(1..=16).contains(&packet.cost_units) {
-            return Err(PacketGraphError::BadCost { packet: packet.id, cost: packet.cost_units });
+            return Err(PacketGraphError::BadCost {
+                packet: packet.id,
+                cost: packet.cost_units,
+            });
         }
         if self.by_id.contains(&packet.id) {
             return Err(PacketGraphError::DuplicateId { packet: packet.id });
@@ -175,7 +190,10 @@ mod tests {
         let err = g.add(p(1, vec![0])).unwrap_err();
         assert_eq!(
             err,
-            PacketGraphError::UndefinedPredecessor { packet: PacketId(1), predecessor: PacketId(0) }
+            PacketGraphError::UndefinedPredecessor {
+                packet: PacketId(1),
+                predecessor: PacketId(0)
+            }
         );
     }
 
@@ -183,8 +201,15 @@ mod tests {
     fn self_reference_errors() {
         let mut g = PacketGraph::new();
         g.add(p(0, vec![])).unwrap();
-        let err = g.add(Packet::new(PacketId(1), 0, 0, 1, vec![PacketId(1)])).unwrap_err();
-        assert_eq!(err, PacketGraphError::SelfReference { packet: PacketId(1) });
+        let err = g
+            .add(Packet::new(PacketId(1), 0, 0, 1, vec![PacketId(1)]))
+            .unwrap_err();
+        assert_eq!(
+            err,
+            PacketGraphError::SelfReference {
+                packet: PacketId(1)
+            }
+        );
     }
 
     #[test]
@@ -192,7 +217,12 @@ mod tests {
         let mut g = PacketGraph::new();
         g.add(p(0, vec![])).unwrap();
         let err = g.add(p(0, vec![])).unwrap_err();
-        assert_eq!(err, PacketGraphError::DuplicateId { packet: PacketId(0) });
+        assert_eq!(
+            err,
+            PacketGraphError::DuplicateId {
+                packet: PacketId(0)
+            }
+        );
     }
 
     #[test]
@@ -203,7 +233,13 @@ mod tests {
         }
         // 6th packet referencing 5 predecessors should fail (max 4).
         let err = g.add(p(5, vec![0, 1, 2, 3, 4])).unwrap_err();
-        assert_eq!(err, PacketGraphError::TooManyPredecessors { packet: PacketId(5), count: 5 });
+        assert_eq!(
+            err,
+            PacketGraphError::TooManyPredecessors {
+                packet: PacketId(5),
+                count: 5
+            }
+        );
     }
 
     #[test]
@@ -211,17 +247,30 @@ mod tests {
         let mut g = PacketGraph::new();
         let bad = Packet::new(PacketId(0), 0, 0, 0, vec![]); // cost 0 — bad
         let err = g.add(bad).unwrap_err();
-        assert_eq!(err, PacketGraphError::BadCost { packet: PacketId(0), cost: 0 });
+        assert_eq!(
+            err,
+            PacketGraphError::BadCost {
+                packet: PacketId(0),
+                cost: 0
+            }
+        );
         let bad = Packet::new(PacketId(0), 0, 0, 17, vec![]); // cost 17 — bad
         let err = g.add(bad).unwrap_err();
-        assert_eq!(err, PacketGraphError::BadCost { packet: PacketId(0), cost: 17 });
+        assert_eq!(
+            err,
+            PacketGraphError::BadCost {
+                packet: PacketId(0),
+                cost: 17
+            }
+        );
     }
 
     #[test]
     fn iter_walks_in_insertion_order() {
         let mut g = PacketGraph::new();
         for i in 0..5 {
-            g.add(p(i, if i == 0 { vec![] } else { vec![i - 1] })).unwrap();
+            g.add(p(i, if i == 0 { vec![] } else { vec![i - 1] }))
+                .unwrap();
         }
         let ids: Vec<usize> = g.iter().map(|p| p.id.0).collect();
         assert_eq!(ids, vec![0, 1, 2, 3, 4]);

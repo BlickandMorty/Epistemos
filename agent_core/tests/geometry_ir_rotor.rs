@@ -34,7 +34,11 @@ fn identity_rotation_fixture_grid() {
         let rotated = rotate(&v, &r);
         assert!(
             approx_vector(rotated.vector_part(), (*x, *y, *z), 1e-12),
-            "v=({},{},{}) rotated={:?}", x, y, z, rotated.vector_part()
+            "v=({},{},{}) rotated={:?}",
+            x,
+            y,
+            z,
+            rotated.vector_part()
         );
     }
 }
@@ -58,7 +62,9 @@ fn composition_law_three_axis_rotation() {
     let b = v_via_steps.vector_part();
     assert!(
         approx_vector(a, b, 1e-9),
-        "combined: {:?}; stepwise: {:?}", a, b
+        "combined: {:?}; stepwise: {:?}",
+        a,
+        b
     );
 }
 
@@ -79,7 +85,9 @@ fn rotation_preserves_norm_across_fixture_grid() {
         let n = v_rot.grade_norm_squared(1);
         assert!(
             (n - v_norm_sq).abs() < 1e-9,
-            "rotor preserved norm² {} → {}", v_norm_sq, n
+            "rotor preserved norm² {} → {}",
+            v_norm_sq,
+            n
         );
     }
 }
@@ -94,7 +102,8 @@ fn quarter_turn_cycle_returns_to_origin_after_four_steps() {
     }
     assert!(
         approx_vector(v.vector_part(), (1.0, 0.0, 0.0), 1e-9),
-        "after 4 quarter turns: {:?}", v.vector_part()
+        "after 4 quarter turns: {:?}",
+        v.vector_part()
     );
 }
 
@@ -106,7 +115,8 @@ fn inverse_rotation_undoes_rotation() {
     let v_round_trip = rotate(&rotate(&v, &r), &r_inv);
     assert!(
         approx_vector(v_round_trip.vector_part(), (1.0, 2.0, 3.0), 1e-9),
-        "round trip: {:?}", v_round_trip.vector_part()
+        "round trip: {:?}",
+        v_round_trip.vector_part()
     );
 }
 
@@ -125,6 +135,8 @@ fn associativity_of_rotor_composition_across_three_rotations() {
 
     assert!(
         approx_vector(left.vector_part(), step.vector_part(), 1e-9),
-        "compose: {:?}; stepwise: {:?}", left.vector_part(), step.vector_part()
+        "compose: {:?}; stepwise: {:?}",
+        left.vector_part(),
+        step.vector_part()
     );
 }

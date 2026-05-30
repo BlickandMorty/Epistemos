@@ -170,8 +170,7 @@ mod tests {
             tap.record(&[i as f32, 99.0]).unwrap();
         }
         assert_eq!(tap.len(), 3);
-        let samples: Vec<f32> =
-            tap.snapshot().iter().map(|s| s[0]).collect();
+        let samples: Vec<f32> = tap.snapshot().iter().map(|s| s[0]).collect();
         assert_eq!(samples, vec![2.0, 3.0, 4.0]);
     }
 
@@ -189,7 +188,10 @@ mod tests {
         let err = tap.record(&[1.0, 2.0]).unwrap_err();
         assert_eq!(
             err,
-            ActivationTapError::ChannelOutOfRange { channel: 5, input_len: 2 }
+            ActivationTapError::ChannelOutOfRange {
+                channel: 5,
+                input_len: 2
+            }
         );
     }
 
@@ -219,8 +221,7 @@ mod tests {
         tap.record(&[2.0]).unwrap();
         assert_eq!(tap.len(), 2);
         tap.record(&[3.0]).unwrap();
-        let samples: Vec<f32> =
-            tap.snapshot().iter().map(|s| s[0]).collect();
+        let samples: Vec<f32> = tap.snapshot().iter().map(|s| s[0]).collect();
         assert_eq!(samples, vec![2.0, 3.0]);
     }
 

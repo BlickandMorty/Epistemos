@@ -38,8 +38,13 @@ pub struct RecallStore {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum RecallError {
     ZeroCapacity,
-    CapacityExceeded { capacity: usize, attempted_len: usize },
-    InvalidDepth { depth: f32 },
+    CapacityExceeded {
+        capacity: usize,
+        attempted_len: usize,
+    },
+    InvalidDepth {
+        depth: f32,
+    },
     NoTrials,
 }
 
@@ -87,7 +92,10 @@ impl RecallStore {
         if capacity == 0 {
             return Err(RecallError::ZeroCapacity);
         }
-        Ok(Self { capacity, tokens: Vec::new() })
+        Ok(Self {
+            capacity,
+            tokens: Vec::new(),
+        })
     }
 
     pub fn insert(&mut self, position: usize, token: u64) -> Result<(), RecallError> {
@@ -135,11 +143,7 @@ pub fn passkey_retrieve(store: &RecallStore, key: u64) -> Option<usize> {
 /// `key` at the position computed from `depth ∈ [0.0, 1.0]`, and try
 /// to retrieve it. Returns `true` iff retrieval found the right
 /// position.
-pub fn single_passkey_trial(
-    context_len: usize,
-    depth: f32,
-    key: u64,
-) -> Result<bool, RecallError> {
+pub fn single_passkey_trial(context_len: usize, depth: f32, key: u64) -> Result<bool, RecallError> {
     if !(0.0..=1.0).contains(&depth) {
         return Err(RecallError::InvalidDepth { depth });
     }
@@ -147,10 +151,14 @@ pub fn single_passkey_trial(
         return Err(RecallError::ZeroCapacity);
     }
     let mut store = RecallStore::new(context_len)?;
-    let insert_pos = ((depth * (context_len.saturating_sub(1)) as f32).round() as usize)
-        .min(context_len - 1);
+    let insert_pos =
+        ((depth * (context_len.saturating_sub(1)) as f32).round() as usize).min(context_len - 1);
     for i in 0..context_len {
-        let token = if i == insert_pos { key } else { (i as u64).wrapping_add(1) };
+        let token = if i == insert_pos {
+            key
+        } else {
+            (i as u64).wrapping_add(1)
+        };
         store.insert(i, token)?;
     }
     Ok(passkey_retrieve(&store, key) == Some(insert_pos))
@@ -225,7 +233,10 @@ mod tests {
         let err = s.insert(2, 3).unwrap_err();
         assert_eq!(
             err,
-            RecallError::CapacityExceeded { capacity: 2, attempted_len: 3 }
+            RecallError::CapacityExceeded {
+                capacity: 2,
+                attempted_len: 3
+            }
         );
     }
 

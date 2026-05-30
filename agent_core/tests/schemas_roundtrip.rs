@@ -85,9 +85,7 @@ fn every_schema_file_loads_and_declares_canonical_schema_rev_const() {
             .and_then(|r| r.as_array())
             .unwrap_or_else(|| panic!("schema {} must declare a `required` array", rev.as_str()));
         assert!(
-            required
-                .iter()
-                .any(|v| v.as_str() == Some("schema_rev")),
+            required.iter().any(|v| v.as_str() == Some("schema_rev")),
             "schema {} must list `schema_rev` as required",
             rev.as_str()
         );
@@ -209,7 +207,10 @@ fn episode_known_bad_fixture_is_rejected_for_invalid_linked_id() {
         "linked_episodes": ["NOT_LOWERCASE"]
     });
     let err = validate_epistemos_payload(&bad).expect_err("must reject bad linked id");
-    assert!(matches!(err, SchemaValidationError::InvalidIdPattern { .. }));
+    assert!(matches!(
+        err,
+        SchemaValidationError::InvalidIdPattern { .. }
+    ));
 }
 
 #[test]
@@ -235,9 +236,8 @@ fn semantic_known_good_fixture_validates_all_nine_claim_kinds() {
             "confidence": 1.0,
             "claim_kind": json_key
         });
-        let payload = validate_epistemos_payload(&v).unwrap_or_else(|e| {
-            panic!("claim_kind={json_key} must validate, got error: {e}")
-        });
+        let payload = validate_epistemos_payload(&v)
+            .unwrap_or_else(|e| panic!("claim_kind={json_key} must validate, got error: {e}"));
         if let EpistemosPayload::Semantic(s) = payload {
             assert_eq!(s.claim_kind, expected, "claim_kind {json_key} mismatch");
         } else {

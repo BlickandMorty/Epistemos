@@ -21,7 +21,10 @@ use crate::research::page_gather::helios_page::{HeliosPage, ResidualBlock};
 #[derive(Clone, Debug, PartialEq)]
 pub enum ResidualRescoreError {
     /// A candidate's page index was out of range for the corpus.
-    CandidateOutOfRange { candidate_index: usize, corpus_len: usize },
+    CandidateOutOfRange {
+        candidate_index: usize,
+        corpus_len: usize,
+    },
     /// Query residual block count or block size did not match the page's
     /// residual layout for at least one candidate.
     QueryResidualShapeMismatch { page_index: usize },
@@ -74,10 +77,15 @@ pub fn residual_rescore(
         // promoted, else fall back to scaled sketch score.
         let rescored = if let Some(page_residual) = &page.residual {
             if page_residual.len() != query_residual.len() {
-                return Err(ResidualRescoreError::QueryResidualShapeMismatch { page_index: page_idx });
+                return Err(ResidualRescoreError::QueryResidualShapeMismatch {
+                    page_index: page_idx,
+                });
             }
-            dequantized_residual_inner_product(query_residual, page_residual)
-                .map_err(|_| ResidualRescoreError::QueryResidualShapeMismatch { page_index: page_idx })?
+            dequantized_residual_inner_product(query_residual, page_residual).map_err(|_| {
+                ResidualRescoreError::QueryResidualShapeMismatch {
+                    page_index: page_idx,
+                }
+            })?
         } else {
             // No residual; fall back to sketch score scaled to f32. Scale
             // factor 1/128.0 brings raw INT8 sketch dot-products into the
@@ -166,19 +174,46 @@ mod tests {
         let err = residual_rescore(&query_residual, &candidates, &corpus, &mut output).unwrap_err();
         assert_eq!(
             err,
-            ResidualRescoreError::CandidateOutOfRange { candidate_index: 99, corpus_len: 1 }
+            ResidualRescoreError::CandidateOutOfRange {
+                candidate_index: 99,
+                corpus_len: 1
+            }
         );
     }
 
     #[test]
     fn rescore_picks_best_when_all_have_residual() {
         let block_size = 2;
-        let q = vec![ResidualBlock { data: vec![10, 10], scale: 0.1 }];
+        let q = vec![ResidualBlock {
+            data: vec![10, 10],
+            scale: 0.1,
+        }];
 
         let corpus = vec![
-            page_with_residual(0, vec![ResidualBlock { data: vec![10, 10], scale: 0.1 }], block_size),
-            page_with_residual(1, vec![ResidualBlock { data: vec![20, 20], scale: 0.1 }], block_size),
-            page_with_residual(2, vec![ResidualBlock { data: vec![5, 5], scale: 0.1 }], block_size),
+            page_with_residual(
+                0,
+                vec![ResidualBlock {
+                    data: vec![10, 10],
+                    scale: 0.1,
+                }],
+                block_size,
+            ),
+            page_with_residual(
+                1,
+                vec![ResidualBlock {
+                    data: vec![20, 20],
+                    scale: 0.1,
+                }],
+                block_size,
+            ),
+            page_with_residual(
+                2,
+                vec![ResidualBlock {
+                    data: vec![5, 5],
+                    scale: 0.1,
+                }],
+                block_size,
+            ),
         ];
         // page 1 has largest signal (20 * 10 * 2 * 0.01 = 4.0); page 0 has 2.0; page 2 has 1.0
         let candidates = vec![(0_usize, 100), (1_usize, 100), (2_usize, 100)];
@@ -198,7 +233,10 @@ mod tests {
 
         residual_rescore(&q, &candidates, &corpus, &mut output).unwrap();
         assert_eq!(output[0].0, 0);
-        assert!((output[0].1 - 1.0).abs() < 1e-6, "fallback score = sketch_score / 128.0");
+        assert!(
+            (output[0].1 - 1.0).abs() < 1e-6,
+            "fallback score = sketch_score / 128.0"
+        );
     }
 
     #[test]
@@ -207,7 +245,10 @@ mod tests {
         let q: Vec<ResidualBlock> = vec![]; // empty query residual
         let corpus = vec![page_with_residual(
             0,
-            vec![ResidualBlock { data: vec![1, 1], scale: 1.0 }],
+            vec![ResidualBlock {
+                data: vec![1, 1],
+                scale: 1.0,
+            }],
             block_size,
         )];
         let candidates = vec![(0_usize, 1)];
@@ -222,9 +263,19 @@ mod tests {
     #[test]
     fn mixed_corpus_some_residual_some_sketch_only() {
         let block_size = 2;
-        let q = vec![ResidualBlock { data: vec![10, 10], scale: 0.1 }];
+        let q = vec![ResidualBlock {
+            data: vec![10, 10],
+            scale: 0.1,
+        }];
         let corpus = vec![
-            page_with_residual(0, vec![ResidualBlock { data: vec![10, 10], scale: 0.1 }], block_size),
+            page_with_residual(
+                0,
+                vec![ResidualBlock {
+                    data: vec![10, 10],
+                    scale: 0.1,
+                }],
+                block_size,
+            ),
             page_sketch_only(1),
         ];
         // page 0 residual: 10*10*2 * 0.01 = 2.0

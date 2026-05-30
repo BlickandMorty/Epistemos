@@ -17,7 +17,6 @@ use crate::{
     },
 };
 
-use super::*;
 use super::admit::*;
 use super::audit_sink::*;
 use super::common::*;
@@ -29,6 +28,7 @@ use super::requests::*;
 use super::risk::*;
 use super::validation::*;
 use super::verdict::*;
+use super::*;
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case", tag = "kind", deny_unknown_fields)]
@@ -234,7 +234,9 @@ pub(crate) fn reject_json_fields<E: serde::de::Error>(
     Ok(())
 }
 
-pub(crate) fn deserialize_optional_string_no_null<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+pub(crate) fn deserialize_optional_string_no_null<'de, D>(
+    deserializer: D,
+) -> Result<Option<String>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -249,7 +251,9 @@ where
     }
 }
 
-pub(crate) fn deserialize_optional_i64_no_null<'de, D>(deserializer: D) -> Result<Option<i64>, D::Error>
+pub(crate) fn deserialize_optional_i64_no_null<'de, D>(
+    deserializer: D,
+) -> Result<Option<i64>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {

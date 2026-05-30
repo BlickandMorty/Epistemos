@@ -9,14 +9,16 @@ use std::str::FromStr;
 fn uas_address_display_fromstr_round_trip() {
     let addr = UasAddress::new(UasKind::VaultNote, b"integration-display", 9999);
     let s = addr.to_string();
-    let parsed = UasAddress::from_str(&s).expect("Display + FromStr must round-trip in integration test");
+    let parsed =
+        UasAddress::from_str(&s).expect("Display + FromStr must round-trip in integration test");
     assert_eq!(addr, parsed, "Display/FromStr must preserve equality");
 }
 
 #[test]
 fn uas_address_serde_round_trip() {
     let addr = UasAddress::new(UasKind::VaultNote, b"integration-serde", 9999);
-    let json = serde_json::to_string(&addr).expect("serde serialize must succeed in integration test");
+    let json =
+        serde_json::to_string(&addr).expect("serde serialize must succeed in integration test");
     let parsed: UasAddress = serde_json::from_str(&json).expect("serde deserialize must succeed");
     assert_eq!(addr, parsed, "serde round-trip must preserve equality");
 }

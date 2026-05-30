@@ -267,8 +267,8 @@ impl ToolCache for PersistentCache {
         };
         let now = Utc::now();
         let ttl = default_ttl(tool);
-        let expires = now
-            + chrono::Duration::from_std(ttl).unwrap_or_else(|_| chrono::Duration::seconds(60));
+        let expires =
+            now + chrono::Duration::from_std(ttl).unwrap_or_else(|_| chrono::Duration::seconds(60));
         let blob = vec_to_blob(&embed);
 
         let g = self.conn.lock().expect("cache mutex poisoned");
@@ -380,10 +380,7 @@ mod tests {
         let c = cache();
         let r1 = ok_result(1);
         c.put("vault.search", &json!({"q": "x"}), &r1).await;
-        assert_eq!(
-            c.get("vault.search", &json!({"q": "x"})).await,
-            Some(r1)
-        );
+        assert_eq!(c.get("vault.search", &json!({"q": "x"})).await, Some(r1));
         c.invalidate_tool("vault.search").unwrap();
         assert_eq!(c.get("vault.search", &json!({"q": "x"})).await, None);
     }
@@ -415,8 +412,10 @@ mod tests {
     async fn entries_count_tracks_inserts() {
         let c = cache();
         assert_eq!(c.entries_count().unwrap(), 0);
-        c.put("vault.search", &json!({"q": "1"}), &ok_result(1)).await;
-        c.put("vault.search", &json!({"q": "2"}), &ok_result(2)).await;
+        c.put("vault.search", &json!({"q": "1"}), &ok_result(1))
+            .await;
+        c.put("vault.search", &json!({"q": "2"}), &ok_result(2))
+            .await;
         assert_eq!(c.entries_count().unwrap(), 2);
     }
 
@@ -434,8 +433,7 @@ mod tests {
             serde_json::to_string(&json!({"q": "b"})).unwrap(),
             v_paraphrase_b,
         );
-        let embedder: Arc<dyn EmbeddingProvider> =
-            Arc::new(MapEmbedder { map, dim: 4 });
+        let embedder: Arc<dyn EmbeddingProvider> = Arc::new(MapEmbedder { map, dim: 4 });
         let c = PersistentCache::open_in_memory(embedder).unwrap();
 
         let r = ok_result(42);
@@ -457,10 +455,10 @@ mod tests {
             serde_json::to_string(&json!({"q": "z"})).unwrap(),
             vec![0.0, 1.0, 0.0, 0.0],
         );
-        let embedder: Arc<dyn EmbeddingProvider> =
-            Arc::new(MapEmbedder { map, dim: 4 });
+        let embedder: Arc<dyn EmbeddingProvider> = Arc::new(MapEmbedder { map, dim: 4 });
         let c = PersistentCache::open_in_memory(embedder).unwrap();
-        c.put("vault.search", &json!({"q": "a"}), &ok_result(1)).await;
+        c.put("vault.search", &json!({"q": "a"}), &ok_result(1))
+            .await;
         // Below-threshold cosine → miss.
         assert_eq!(c.get("vault.search", &json!({"q": "z"})).await, None);
     }
@@ -489,7 +487,8 @@ mod tests {
         let embedder: Arc<dyn EmbeddingProvider> = Arc::new(StubEmbedder { dim: 8 });
         let c = PersistentCache::open(&path, embedder).unwrap();
         // Write something so the WAL file is created.
-        c.put("vault.search", &json!({"q": "x"}), &ok_result(1)).await;
+        c.put("vault.search", &json!({"q": "x"}), &ok_result(1))
+            .await;
         // WAL file lands beside the main db when journal_mode=WAL.
         let wal_path = path.with_extension("sqlite-wal");
         assert!(

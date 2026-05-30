@@ -106,7 +106,9 @@ impl LeechError {
 
 impl Leech24Point {
     pub fn zero() -> Self {
-        Self { coords: [0.0; LEECH_DIMENSION] }
+        Self {
+            coords: [0.0; LEECH_DIMENSION],
+        }
     }
 
     pub fn from_slice(slice: &[f64]) -> Result<Self, LeechError> {
@@ -244,12 +246,18 @@ mod tests {
         let bad = vec![0.0; 23];
         assert!(matches!(
             Leech24Point::from_slice(&bad).unwrap_err(),
-            LeechError::DimensionMismatch { got: 23, expected: 24 }
+            LeechError::DimensionMismatch {
+                got: 23,
+                expected: 24
+            }
         ));
         let bad = vec![0.0; 25];
         assert!(matches!(
             Leech24Point::from_slice(&bad).unwrap_err(),
-            LeechError::DimensionMismatch { got: 25, expected: 24 }
+            LeechError::DimensionMismatch {
+                got: 25,
+                expected: 24
+            }
         ));
     }
 
@@ -348,7 +356,10 @@ mod tests {
     #[test]
     fn error_cause_distinct() {
         let variants = [
-            LeechError::DimensionMismatch { got: 23, expected: 24 },
+            LeechError::DimensionMismatch {
+                got: 23,
+                expected: 24,
+            },
             LeechError::NonFiniteCoordinate { index: 0 },
         ];
         let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
@@ -359,7 +370,10 @@ mod tests {
     fn error_classifiers_partition() {
         // Cross-surface invariant: is_dimension_mismatch XOR is_non_finite_coordinate.
         for e in [
-            LeechError::DimensionMismatch { got: 23, expected: 24 },
+            LeechError::DimensionMismatch {
+                got: 23,
+                expected: 24,
+            },
             LeechError::NonFiniteCoordinate { index: 0 },
         ] {
             assert_ne!(e.is_dimension_mismatch(), e.is_non_finite_coordinate());
@@ -369,8 +383,7 @@ mod tests {
     #[test]
     fn sub_is_pointwise_and_inverse_of_add() {
         // Cross-surface invariant: a.sub(b).add(b) == a.
-        let a = Leech24Point::from_slice(&(1..=24).map(|i| i as f64).collect::<Vec<_>>())
-            .unwrap();
+        let a = Leech24Point::from_slice(&(1..=24).map(|i| i as f64).collect::<Vec<_>>()).unwrap();
         let b = Leech24Point::from_slice(&vec![0.5; 24]).unwrap();
         let diff = a.sub(&b);
         let back = diff.add(&b);
@@ -389,8 +402,7 @@ mod tests {
     #[test]
     fn distance_squared_symmetric() {
         // Cross-surface invariant: d²(a,b) == d²(b,a).
-        let a = Leech24Point::from_slice(&(1..=24).map(|i| i as f64).collect::<Vec<_>>())
-            .unwrap();
+        let a = Leech24Point::from_slice(&(1..=24).map(|i| i as f64).collect::<Vec<_>>()).unwrap();
         let b = Leech24Point::from_slice(&vec![0.5; 24]).unwrap();
         assert!((a.distance_squared(&b) - b.distance_squared(&a)).abs() < 1e-9);
     }
@@ -408,8 +420,9 @@ mod tests {
     fn is_zero_matches_zero_factory() {
         let z = Leech24Point::zero();
         assert!(z.is_zero());
-        let nz = Leech24Point::from_slice(&vec![0.0; 23].into_iter().chain([0.001]).collect::<Vec<_>>())
-            .unwrap();
+        let nz =
+            Leech24Point::from_slice(&vec![0.0; 23].into_iter().chain([0.001]).collect::<Vec<_>>())
+                .unwrap();
         assert!(!nz.is_zero());
     }
 
@@ -441,11 +454,9 @@ mod tests {
     #[test]
     fn leech_quantization_error_alias_matches_distance_squared() {
         // Cross-surface: leech_quantization_error(a, b) == a.distance_squared(b).
-        let a = Leech24Point::from_slice(&(0..24).map(|i| i as f64 * 0.5).collect::<Vec<_>>())
-            .unwrap();
+        let a =
+            Leech24Point::from_slice(&(0..24).map(|i| i as f64 * 0.5).collect::<Vec<_>>()).unwrap();
         let b = nearest_leech_point_placeholder(&a);
-        assert!(
-            (leech_quantization_error(&a, &b) - a.distance_squared(&b)).abs() < 1e-9
-        );
+        assert!((leech_quantization_error(&a, &b) - a.distance_squared(&b)).abs() < 1e-9);
     }
 }

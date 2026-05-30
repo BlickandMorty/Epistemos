@@ -160,8 +160,15 @@ pub enum SpriteAtlasError {
     ZeroCellPixels,
     ZeroCols,
     ZeroRows,
-    CellOutOfRange { row: u32, col: u32, rows: u32, cols: u32 },
-    NonPositiveScale { scale: f32 },
+    CellOutOfRange {
+        row: u32,
+        col: u32,
+        rows: u32,
+        cols: u32,
+    },
+    NonPositiveScale {
+        scale: f32,
+    },
 }
 
 impl SpriteAtlasError {
@@ -199,7 +206,11 @@ impl SpriteAtlas {
         if rows == 0 {
             return Err(SpriteAtlasError::ZeroRows);
         }
-        Ok(Self { cell_pixels, cols, rows })
+        Ok(Self {
+            cell_pixels,
+            cols,
+            rows,
+        })
     }
 
     /// Compute the UV rectangle for the cell at `(row, col)`. UVs are
@@ -236,7 +247,13 @@ impl InstancedQuad {
         if scale <= 0.0 {
             return Err(SpriteAtlasError::NonPositiveScale { scale });
         }
-        Ok(Self { world_x, world_y, cell_row, cell_col, scale })
+        Ok(Self {
+            world_x,
+            world_y,
+            cell_row,
+            cell_col,
+            scale,
+        })
     }
 }
 
@@ -309,7 +326,12 @@ mod tests {
         let err = a.cell_uv_rect(5, 0).unwrap_err();
         assert_eq!(
             err,
-            SpriteAtlasError::CellOutOfRange { row: 5, col: 0, rows: 4, cols: 4 }
+            SpriteAtlasError::CellOutOfRange {
+                row: 5,
+                col: 0,
+                rows: 4,
+                cols: 4
+            }
         );
     }
 
@@ -379,7 +401,9 @@ mod tests {
                 assert_eq!(
                     a.is_within(row, col),
                     a.cell_uv_rect(row, col).is_ok(),
-                    "row={} col={}", row, col,
+                    "row={} col={}",
+                    row,
+                    col,
                 );
             }
         }
@@ -439,11 +463,26 @@ mod tests {
 
     #[test]
     fn sprite_rect_is_not_normalized_when_swapped() {
-        let bad = SpriteRect { u_min: 0.5, v_min: 0.0, u_max: 0.2, v_max: 1.0 };
+        let bad = SpriteRect {
+            u_min: 0.5,
+            v_min: 0.0,
+            u_max: 0.2,
+            v_max: 1.0,
+        };
         assert!(!bad.is_normalized());
-        let oob = SpriteRect { u_min: -0.1, v_min: 0.0, u_max: 1.0, v_max: 1.0 };
+        let oob = SpriteRect {
+            u_min: -0.1,
+            v_min: 0.0,
+            u_max: 1.0,
+            v_max: 1.0,
+        };
         assert!(!oob.is_normalized());
-        let high = SpriteRect { u_min: 0.0, v_min: 0.0, u_max: 1.5, v_max: 1.0 };
+        let high = SpriteRect {
+            u_min: 0.0,
+            v_min: 0.0,
+            u_max: 1.5,
+            v_max: 1.0,
+        };
         assert!(!high.is_normalized());
     }
 
@@ -452,7 +491,12 @@ mod tests {
         let zp = SpriteAtlasError::ZeroCellPixels;
         let zc = SpriteAtlasError::ZeroCols;
         let zr = SpriteAtlasError::ZeroRows;
-        let oor = SpriteAtlasError::CellOutOfRange { row: 0, col: 0, rows: 0, cols: 0 };
+        let oor = SpriteAtlasError::CellOutOfRange {
+            row: 0,
+            col: 0,
+            rows: 0,
+            cols: 0,
+        };
         let nps = SpriteAtlasError::NonPositiveScale { scale: 0.0 };
         // Cross-surface invariant: is_zero_dim XOR is_indexing partitions all variants.
         for e in &[zp, zc, zr, oor, nps] {

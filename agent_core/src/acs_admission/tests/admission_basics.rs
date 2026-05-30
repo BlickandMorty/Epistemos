@@ -3,7 +3,6 @@
 use serde::{Deserialize, Serialize};
 
 use super::*;
-use crate::acs_admission::*;
 use crate::acs_admission::admit::*;
 use crate::acs_admission::audit_sink::*;
 use crate::acs_admission::common::*;
@@ -16,6 +15,7 @@ use crate::acs_admission::risk::*;
 use crate::acs_admission::validation::*;
 use crate::acs_admission::verdict::*;
 use crate::acs_admission::wire::*;
+use crate::acs_admission::*;
 use crate::{
     artifacts::ArtifactRef,
     effect::receipt::{Capability, SigningKey},
@@ -414,11 +414,10 @@ fn acs_admission_noncanonical_network_host_required_is_malformed_policy() {
 
 #[test]
 fn acs_admission_overlong_biometric_session_required_is_malformed_policy() {
-    let policy = ACSPolicy::strict("policy-overlong-biometric-session", 1_000)
-        .require_capability(
-            ACSOperationKind::KernelPromotion,
-            Capability::BiometricSession { ttl_secs: 301 },
-        );
+    let policy = ACSPolicy::strict("policy-overlong-biometric-session", 1_000).require_capability(
+        ACSOperationKind::KernelPromotion,
+        Capability::BiometricSession { ttl_secs: 301 },
+    );
 
     let err = policy.validate_at(1_001).unwrap_err();
 
@@ -729,14 +728,8 @@ fn acs_admission_per_operation_threshold_overrides_apply_as_complete_matrix() {
 fn acs_admission_duplicate_operation_threshold_is_malformed_policy() {
     let mut policy = ACSPolicy::strict("policy-duplicate-threshold", 1_000);
     policy.operation_thresholds = vec![
-        ACSOperationThresholdRule::new(
-            ACSOperationKind::ToolAction,
-            ACSRiskThresholds::standard(),
-        ),
-        ACSOperationThresholdRule::new(
-            ACSOperationKind::ToolAction,
-            ACSRiskThresholds::standard(),
-        ),
+        ACSOperationThresholdRule::new(ACSOperationKind::ToolAction, ACSRiskThresholds::standard()),
+        ACSOperationThresholdRule::new(ACSOperationKind::ToolAction, ACSRiskThresholds::standard()),
     ];
 
     let err = policy.validate_at(1_001).unwrap_err();
@@ -1181,4 +1174,3 @@ fn acs_admission_broader_vault_path_grant_does_not_satisfy_narrow_policy_scope()
     assert_eq!(decision.audit_record.reason, "missing_capability");
     assert_eq!(audit_log.len(), 1);
 }
-

@@ -64,7 +64,13 @@ impl BelnapValue {
         match (self, other) {
             (False, _) | (_, False) => False,
             (Neither, _) | (_, Neither) => {
-                if self == True || other == True { Neither } else if self == Both || other == Both { False } else { Neither }
+                if self == True || other == True {
+                    Neither
+                } else if self == Both || other == Both {
+                    False
+                } else {
+                    Neither
+                }
             }
             (Both, Both) => Both,
             (Both, True) | (True, Both) => Both,
@@ -77,7 +83,13 @@ impl BelnapValue {
         match (self, other) {
             (True, _) | (_, True) => True,
             (Neither, _) | (_, Neither) => {
-                if self == False || other == False { Neither } else if self == Both || other == Both { True } else { Neither }
+                if self == False || other == False {
+                    Neither
+                } else if self == Both || other == Both {
+                    True
+                } else {
+                    Neither
+                }
             }
             (Both, Both) => Both,
             (Both, False) | (False, Both) => Both,
@@ -299,14 +311,23 @@ mod tests {
 
     #[test]
     fn or_false_false_is_false() {
-        assert_eq!(BelnapValue::False.or(BelnapValue::False), BelnapValue::False);
+        assert_eq!(
+            BelnapValue::False.or(BelnapValue::False),
+            BelnapValue::False
+        );
     }
 
     #[test]
     fn and_or_are_commutative() {
         for &a in &BelnapValue::ALL {
             for &b in &BelnapValue::ALL {
-                assert_eq!(a.and(b), b.and(a), "AND not commutative at {:?}, {:?}", a, b);
+                assert_eq!(
+                    a.and(b),
+                    b.and(a),
+                    "AND not commutative at {:?}, {:?}",
+                    a,
+                    b
+                );
                 assert_eq!(a.or(b), b.or(a), "OR not commutative at {:?}, {:?}", a, b);
             }
         }
@@ -314,10 +335,22 @@ mod tests {
 
     #[test]
     fn implies_classical_cases() {
-        assert_eq!(BelnapValue::True.implies(BelnapValue::True), BelnapValue::True);
-        assert_eq!(BelnapValue::True.implies(BelnapValue::False), BelnapValue::False);
-        assert_eq!(BelnapValue::False.implies(BelnapValue::True), BelnapValue::True);
-        assert_eq!(BelnapValue::False.implies(BelnapValue::False), BelnapValue::True);
+        assert_eq!(
+            BelnapValue::True.implies(BelnapValue::True),
+            BelnapValue::True
+        );
+        assert_eq!(
+            BelnapValue::True.implies(BelnapValue::False),
+            BelnapValue::False
+        );
+        assert_eq!(
+            BelnapValue::False.implies(BelnapValue::True),
+            BelnapValue::True
+        );
+        assert_eq!(
+            BelnapValue::False.implies(BelnapValue::False),
+            BelnapValue::True
+        );
     }
 
     #[test]
@@ -436,10 +469,7 @@ mod tests {
         );
         // On the truth lattice, True OR False = True.
         // On the info lattice, True ⊔ False = Both.
-        assert_eq!(
-            BelnapValue::True.or(BelnapValue::False),
-            BelnapValue::True
-        );
+        assert_eq!(BelnapValue::True.or(BelnapValue::False), BelnapValue::True);
         assert_eq!(
             BelnapValue::True.info_join(BelnapValue::False),
             BelnapValue::Both
@@ -545,7 +575,9 @@ mod tests {
                 assert!(
                     a.info_join(b).is_designated(),
                     "{:?} ⊔ {:?} = {:?} not designated",
-                    a, b, a.info_join(b),
+                    a,
+                    b,
+                    a.info_join(b),
                 );
             }
         }

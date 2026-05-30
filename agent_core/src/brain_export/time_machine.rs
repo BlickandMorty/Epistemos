@@ -57,10 +57,7 @@ impl BrainDelta {
     /// Compute the delta `from → to`. Only fields that differ are
     /// recorded. Returns an error if `to.timestamp_unix_ms <=
     /// from.timestamp_unix_ms` (time may not run backward or pause).
-    pub fn between(
-        from: &BrainSnapshot,
-        to: &BrainSnapshot,
-    ) -> Result<Self, TimeMachineError> {
+    pub fn between(from: &BrainSnapshot, to: &BrainSnapshot) -> Result<Self, TimeMachineError> {
         if to.timestamp_unix_ms <= from.timestamp_unix_ms {
             return Err(TimeMachineError::DeltaGoesBackward {
                 from: from.timestamp_unix_ms,
@@ -71,7 +68,11 @@ impl BrainDelta {
             return Err(TimeMachineError::SchemaMismatch);
         }
         let diff = |a: &String, b: &String| -> Option<String> {
-            if a == b { None } else { Some(b.clone()) }
+            if a == b {
+                None
+            } else {
+                Some(b.clone())
+            }
         };
         Ok(BrainDelta {
             timestamp_to: to.timestamp_unix_ms,
@@ -187,10 +188,15 @@ pub fn reconstruct(
         });
     }
     if delta.is_noop() {
-        return Err(TimeMachineError::DeltaIsNoop { at: delta.timestamp_to });
+        return Err(TimeMachineError::DeltaIsNoop {
+            at: delta.timestamp_to,
+        });
     }
     let next = BrainSnapshot {
-        model_id: delta.model_id.clone().unwrap_or_else(|| base.model_id.clone()),
+        model_id: delta
+            .model_id
+            .clone()
+            .unwrap_or_else(|| base.model_id.clone()),
         dag_merkle_root: delta
             .dag_merkle_root
             .clone()
@@ -210,12 +216,17 @@ pub fn reconstruct(
         timestamp_unix_ms: delta.timestamp_to,
         schema_version: base.schema_version.clone(),
     };
-    next.matches_schema().map_err(TimeMachineError::InvalidResult)?;
+    next.matches_schema()
+        .map_err(TimeMachineError::InvalidResult)?;
     if next.model_id.is_empty() {
-        return Err(TimeMachineError::InvalidResult(BrainExportError::EmptyModelId));
+        return Err(TimeMachineError::InvalidResult(
+            BrainExportError::EmptyModelId,
+        ));
     }
     if next.dag_merkle_root.is_empty() {
-        return Err(TimeMachineError::InvalidResult(BrainExportError::EmptyMerkleRoot));
+        return Err(TimeMachineError::InvalidResult(
+            BrainExportError::EmptyMerkleRoot,
+        ));
     }
     Ok(next)
 }
@@ -459,7 +470,10 @@ mod tests {
             vault_state_hash: Some("e".into()),
         };
         assert_eq!(mixed.changes().len(), mixed.changed_field_count());
-        assert_eq!(mixed.changes(), vec!["model_id", "claim_ledger_hash", "vault_state_hash"]);
+        assert_eq!(
+            mixed.changes(),
+            vec!["model_id", "claim_ledger_hash", "vault_state_hash"]
+        );
     }
 
     #[test]

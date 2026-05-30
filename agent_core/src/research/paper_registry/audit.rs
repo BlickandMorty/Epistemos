@@ -44,8 +44,7 @@ impl RegistryAuditReport {
     /// doesn't require one, AND every claim has a non-empty
     /// `realized_at`.
     pub fn is_clean(&self) -> bool {
-        self.claims_missing_identifier.is_empty()
-            && self.claims_missing_realized_at.is_empty()
+        self.claims_missing_identifier.is_empty() && self.claims_missing_realized_at.is_empty()
     }
 
     pub fn count_in_status(&self, status: ClaimStatus) -> usize {
@@ -159,9 +158,9 @@ pub fn audit_registry(registry: &PaperRegistry) -> RegistryAuditReport {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::claim::PaperClaim;
     use super::super::seed::seed_wave_j_registry;
+    use super::*;
 
     fn arxiv_claim(key: &str) -> PaperClaim {
         PaperClaim {
@@ -201,7 +200,10 @@ mod tests {
         r.add(c).unwrap();
         let rep = audit_registry(&r);
         assert!(!rep.is_clean());
-        assert_eq!(rep.claims_missing_identifier, vec!["missing-id".to_string()]);
+        assert_eq!(
+            rep.claims_missing_identifier,
+            vec!["missing-id".to_string()]
+        );
     }
 
     #[test]
@@ -364,8 +366,14 @@ mod tests {
         c.realized_at = String::new();
         r.add(c).unwrap();
         let rep = audit_registry(&r);
-        assert_eq!(rep.missing_identifier_count(), rep.claims_missing_identifier.len());
-        assert_eq!(rep.missing_realized_count(), rep.claims_missing_realized_at.len());
+        assert_eq!(
+            rep.missing_identifier_count(),
+            rep.claims_missing_identifier.len()
+        );
+        assert_eq!(
+            rep.missing_realized_count(),
+            rep.claims_missing_realized_at.len()
+        );
         assert_eq!(rep.missing_identifier_count(), 1);
         assert_eq!(rep.missing_realized_count(), 1);
     }

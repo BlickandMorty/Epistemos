@@ -175,13 +175,17 @@ mod tests {
         // "video" / "audio" / "spreadsheet" kind decodes to Err on
         // this build rather than panicking mid-replay.
         let result: Result<ArtifactKind, _> = serde_json::from_str("\"video\"");
-        assert!(result.is_err(),
-                "ArtifactKind serde decoder must reject unknown kinds");
+        assert!(
+            result.is_err(),
+            "ArtifactKind serde decoder must reject unknown kinds"
+        );
         let result: Result<ArtifactKind, _> = serde_json::from_str("\"\"");
         assert!(result.is_err());
         // PascalCase rejects — only snake_case is canonical.
         let result: Result<ArtifactKind, _> = serde_json::from_str("\"ProseNote\"");
-        assert!(result.is_err(),
-                "PascalCase must reject — only snake_case is canonical");
+        assert!(
+            result.is_err(),
+            "PascalCase must reject — only snake_case is canonical"
+        );
     }
 }

@@ -47,10 +47,7 @@ pub enum TropicalEvalError {
 /// permitted intermediates and outputs — tropical semantics use
 /// `f64::NEG_INFINITY` as the additive identity, and overflow to
 /// `f64::INFINITY` is a valid tropical-multiplication result.
-pub fn evaluate(
-    expr: &TropicalExpr,
-    valuation: &[f64],
-) -> Result<f64, TropicalEvalError> {
+pub fn evaluate(expr: &TropicalExpr, valuation: &[f64]) -> Result<f64, TropicalEvalError> {
     let v = match expr {
         TropicalExpr::Const(c) => *c,
         TropicalExpr::Var(i) => {
@@ -783,11 +780,7 @@ pub fn tropical_chebyshev_distance(a: &[f64], b: &[f64]) -> Option<f64> {
 /// Source. LSE-smooth max: Nielsen & Sun, Entropy 18(12):442
 /// (2016) §2. Chebyshev distance reference: Cuninghame-Green,
 /// "Minimax Algebra", LNEMS 166 (1979) §1.2.
-pub fn tropical_smooth_chebyshev_distance(
-    a: &[f64],
-    b: &[f64],
-    beta: f64,
-) -> Option<f64> {
+pub fn tropical_smooth_chebyshev_distance(a: &[f64], b: &[f64], beta: f64) -> Option<f64> {
     if a.len() != b.len() {
         return None;
     }
@@ -833,11 +826,7 @@ pub fn tropical_l1_distance(a: &[f64], b: &[f64]) -> Option<f64> {
     if a.is_empty() {
         return Some(0.0);
     }
-    let sum: f64 = a
-        .iter()
-        .zip(b.iter())
-        .map(|(&x, &y)| (x - y).abs())
-        .sum();
+    let sum: f64 = a.iter().zip(b.iter()).map(|(&x, &y)| (x - y).abs()).sum();
     Some(sum)
 }
 
@@ -936,10 +925,7 @@ pub fn tropical_vector_max(v: &[f64]) -> f64 {
 /// Iter-214 — min-plus companion to iter-208's max-plus ⊕.
 /// In the shortest-paths interpretation: combining two relaxation
 /// candidate matrices by entrywise min.
-pub fn min_plus_matrix_min_pointwise(
-    a: &[Vec<f64>],
-    b: &[Vec<f64>],
-) -> Option<Vec<Vec<f64>>> {
+pub fn min_plus_matrix_min_pointwise(a: &[Vec<f64>], b: &[Vec<f64>]) -> Option<Vec<Vec<f64>>> {
     if a.len() != b.len() {
         return None;
     }
@@ -968,10 +954,7 @@ pub fn min_plus_matrix_min_pointwise(
 /// Iter-208 — semigroup-operation companion to
 /// `tropical_matrix_multiply` (the semiring "multiplication");
 /// together they make the matrix space `(Mₙ, ⊕, ⊗)` a semiring.
-pub fn tropical_matrix_max_pointwise(
-    a: &[Vec<f64>],
-    b: &[Vec<f64>],
-) -> Option<Vec<Vec<f64>>> {
+pub fn tropical_matrix_max_pointwise(a: &[Vec<f64>], b: &[Vec<f64>]) -> Option<Vec<Vec<f64>>> {
     if a.len() != b.len() {
         return None;
     }
@@ -1455,11 +1438,7 @@ pub fn tropical_softmin_entropy(v: &[f64], beta: f64) -> f64 {
 /// Hinton, Vinyals, Dean, "Distilling the Knowledge in a Neural
 /// Network", arXiv:1503.02531 (2015) §2. KL definition: Cover &
 /// Thomas, "Elements of Information Theory" (2nd ed., 2006) §2.3.
-pub fn tropical_softmax_kl_divergence(
-    p: &[f64],
-    q: &[f64],
-    beta: f64,
-) -> Option<f64> {
+pub fn tropical_softmax_kl_divergence(p: &[f64], q: &[f64], beta: f64) -> Option<f64> {
     if p.is_empty() || q.is_empty() || p.len() != q.len() {
         return None;
     }
@@ -1499,11 +1478,7 @@ pub fn tropical_softmax_kl_divergence(
 /// "Elements of Information Theory" (2nd ed., 2006) §2.3.
 /// Softmax classifier loss: Goodfellow, Bengio, Courville,
 /// "Deep Learning" (MIT Press, 2016) §6.2.2.3.
-pub fn tropical_softmax_cross_entropy(
-    p: &[f64],
-    q: &[f64],
-    beta: f64,
-) -> Option<f64> {
+pub fn tropical_softmax_cross_entropy(p: &[f64], q: &[f64], beta: f64) -> Option<f64> {
     if p.is_empty() || q.is_empty() || p.len() != q.len() {
         return None;
     }
@@ -2001,10 +1976,7 @@ pub fn tropical_polynomial_argmax_at(coeffs: &[f64], x: f64) -> Option<usize> {
 ///
 /// Source. Argmax-with-value packed pattern; cf. Rockafellar
 /// "Convex Analysis" (1970) §25.
-pub fn tropical_polynomial_argmax_value_at(
-    coeffs: &[f64],
-    x: f64,
-) -> Option<(usize, f64)> {
+pub fn tropical_polynomial_argmax_value_at(coeffs: &[f64], x: f64) -> Option<(usize, f64)> {
     if coeffs.is_empty() {
         return None;
     }
@@ -2139,10 +2111,7 @@ pub fn tropical_min_polynomial_argmin_at(coeffs: &[f64], x: f64) -> Option<usize
 ///
 /// Source. Argmin-with-value packed pattern; semiring duality:
 /// Cuninghame-Green, "Minimax Algebra", LNEMS 166 (1979) §1.2.
-pub fn tropical_min_polynomial_argmin_value_at(
-    coeffs: &[f64],
-    x: f64,
-) -> Option<(usize, f64)> {
+pub fn tropical_min_polynomial_argmin_value_at(coeffs: &[f64], x: f64) -> Option<(usize, f64)> {
     if coeffs.is_empty() {
         return None;
     }
@@ -2248,10 +2217,7 @@ mod tests {
     #[test]
     fn tropical_eigenvalue_identity_matrix_is_zero() {
         // A = ((0, -∞), (-∞, 0)): tropical identity. Eigenvalue = 0.
-        let a = vec![
-            vec![0.0, f64::NEG_INFINITY],
-            vec![f64::NEG_INFINITY, 0.0],
-        ];
+        let a = vec![vec![0.0, f64::NEG_INFINITY], vec![f64::NEG_INFINITY, 0.0]];
         let lambda = tropical_eigenvalue_estimate(&a, 30).unwrap();
         assert!(lambda.abs() < 1e-6, "λ = {}", lambda);
     }
@@ -2368,7 +2334,10 @@ mod tests {
     #[test]
     fn tropical_inner_product_empty_returns_neg_infinity() {
         assert_eq!(tropical_inner_product(&[], &[]), f64::NEG_INFINITY);
-        assert_eq!(tropical_inner_product(&[1.0, 2.0], &[1.0]), f64::NEG_INFINITY);
+        assert_eq!(
+            tropical_inner_product(&[1.0, 2.0], &[1.0]),
+            f64::NEG_INFINITY
+        );
     }
 
     #[test]
@@ -2699,7 +2668,10 @@ mod tests {
 
     #[test]
     fn vector_negate_basic() {
-        assert_eq!(tropical_vector_negate(&[1.0, -2.0, 3.0]), vec![-1.0, 2.0, -3.0]);
+        assert_eq!(
+            tropical_vector_negate(&[1.0, -2.0, 3.0]),
+            vec![-1.0, 2.0, -3.0]
+        );
     }
 
     #[test]
@@ -3221,17 +3193,12 @@ mod tests {
 
     #[test]
     fn smooth_chebyshev_distance_length_mismatch_is_none() {
-        assert!(
-            tropical_smooth_chebyshev_distance(&[1.0, 2.0], &[1.0, 2.0, 3.0], 1.0).is_none()
-        );
+        assert!(tropical_smooth_chebyshev_distance(&[1.0, 2.0], &[1.0, 2.0, 3.0], 1.0).is_none());
     }
 
     #[test]
     fn smooth_chebyshev_distance_empty_is_zero() {
-        assert_eq!(
-            tropical_smooth_chebyshev_distance(&[], &[], 1.0),
-            Some(0.0)
-        );
+        assert_eq!(tropical_smooth_chebyshev_distance(&[], &[], 1.0), Some(0.0));
     }
 
     #[test]
@@ -3310,11 +3277,8 @@ mod tests {
             &tropical_vector_pairwise_add(&b, &c).unwrap(),
         )
         .unwrap();
-        let rhs_max = tropical_vector_pairwise_add(
-            &tropical_pairwise_max(&a, &b).unwrap(),
-            &c,
-        )
-        .unwrap();
+        let rhs_max =
+            tropical_vector_pairwise_add(&tropical_pairwise_max(&a, &b).unwrap(), &c).unwrap();
         assert_eq!(lhs_max, rhs_max);
     }
 
@@ -3530,10 +3494,7 @@ mod tests {
         let v = vec![1.0, 5.0, 2.0, 3.0];
         let beta = 1.5_f64;
         let p = tropical_softmax(&v, beta);
-        let h_direct: f64 = p.iter()
-            .filter(|p| **p > 0.0)
-            .map(|p| -p * p.ln())
-            .sum();
+        let h_direct: f64 = p.iter().filter(|p| **p > 0.0).map(|p| -p * p.ln()).sum();
         let h_helper = tropical_softmax_entropy(&v, beta);
         assert!((h_helper - h_direct).abs() < 1e-12);
     }
@@ -3624,7 +3585,9 @@ mod tests {
         let kl_helper = tropical_softmax_kl_divergence(&p, &q, beta).unwrap();
         let pa = tropical_softmax(&p, beta);
         let qb = tropical_softmax(&q, beta);
-        let kl_direct: f64 = pa.iter().zip(qb.iter())
+        let kl_direct: f64 = pa
+            .iter()
+            .zip(qb.iter())
             .filter(|(p, _)| **p > 0.0)
             .map(|(p, q)| p * (p.ln() - q.ln()))
             .sum();
@@ -3659,7 +3622,9 @@ mod tests {
         let beta = 1.5_f64;
         let pa = tropical_softmax(&p, beta);
         let qb = tropical_softmax(&q, beta);
-        let direct: f64 = pa.iter().zip(qb.iter())
+        let direct: f64 = pa
+            .iter()
+            .zip(qb.iter())
             .filter(|(p, _)| **p > 0.0)
             .map(|(p, q)| -p * q.ln())
             .sum();
@@ -3753,7 +3718,13 @@ mod tests {
         for x in [-2.0_f64, -0.5, 0.0, 0.5, 2.0] {
             let lhs = tropical_min_polynomial(&a, x);
             let rhs = -tropical_polynomial(&neg_a, -x);
-            assert!((lhs - rhs).abs() < 1e-12, "x={}: lhs={} rhs={}", x, lhs, rhs);
+            assert!(
+                (lhs - rhs).abs() < 1e-12,
+                "x={}: lhs={} rhs={}",
+                x,
+                lhs,
+                rhs
+            );
         }
     }
 
@@ -3761,7 +3732,7 @@ mod tests {
     fn min_polynomial_linear_with_two_coeffs_is_min_of_lines() {
         // p_min(x; [a_0, a_1]) = min(a_0, a_1 + x).
         let coeffs = [3.0, 1.0]; // y = 3 vs y = 1 + x; cross at x=2.
-        // At x = 0: min(3, 1) = 1.
+                                 // At x = 0: min(3, 1) = 1.
         let v0 = tropical_min_polynomial(&coeffs, 0.0);
         assert_eq!(v0, 1.0);
         // At x = 5: min(3, 6) = 3.
@@ -4460,17 +4431,17 @@ mod tests {
     fn tropical_matrix_transpose_involution() {
         // (Aᵀ)ᵀ = A.
         let a = vec![vec![1.0, 2.0], vec![3.0, 4.0], vec![5.0, 6.0]];
-        let att = tropical_matrix_transpose(
-            &tropical_matrix_transpose(&a).unwrap(),
-        )
-        .unwrap();
+        let att = tropical_matrix_transpose(&tropical_matrix_transpose(&a).unwrap()).unwrap();
         assert_eq!(att, a);
     }
 
     #[test]
     fn tropical_matrix_transpose_empty_is_empty() {
         let a: Vec<Vec<f64>> = vec![];
-        assert_eq!(tropical_matrix_transpose(&a).unwrap(), Vec::<Vec<f64>>::new());
+        assert_eq!(
+            tropical_matrix_transpose(&a).unwrap(),
+            Vec::<Vec<f64>>::new()
+        );
     }
 
     #[test]
@@ -4484,10 +4455,7 @@ mod tests {
     #[test]
     fn tropical_matrix_vector_identity_like() {
         // A = ((0, -∞), (-∞, 0)) — tropical identity.
-        let a = vec![
-            vec![0.0, f64::NEG_INFINITY],
-            vec![f64::NEG_INFINITY, 0.0],
-        ];
+        let a = vec![vec![0.0, f64::NEG_INFINITY], vec![f64::NEG_INFINITY, 0.0]];
         let x = vec![5.0, 7.0];
         let out = tropical_matrix_vector(&a, &x).unwrap();
         assert_eq!(out, vec![5.0, 7.0]);
@@ -4637,7 +4605,9 @@ mod tests {
         assert!(
             p_mid <= (p_x + p_y) / 2.0 + 1e-12,
             "convexity fails: p({}) = {}, average = {}",
-            mid, p_mid, (p_x + p_y) / 2.0
+            mid,
+            p_mid,
+            (p_x + p_y) / 2.0
         );
     }
 
@@ -4660,10 +4630,7 @@ mod tests {
 
     #[test]
     fn smooth_polynomial_empty_is_neg_infinity() {
-        assert_eq!(
-            tropical_smooth_polynomial(&[], 1.0, 1.0),
-            f64::NEG_INFINITY
-        );
+        assert_eq!(tropical_smooth_polynomial(&[], 1.0, 1.0), f64::NEG_INFINITY);
     }
 
     #[test]
@@ -4850,7 +4817,12 @@ mod tests {
         );
         let min_conv = min_plus_convolution(&a, &b);
         for (m, n) in max_conv.iter().zip(min_conv.iter()) {
-            assert!((m + n).abs() < 1e-12, "duality fails: max={} + min={}", m, n);
+            assert!(
+                (m + n).abs() < 1e-12,
+                "duality fails: max={} + min={}",
+                m,
+                n
+            );
         }
     }
 
@@ -4896,10 +4868,7 @@ mod tests {
     #[test]
     fn plus_is_standard_real_addition() {
         // Tropical multiplication: 2 ⊗ 3 = 2 + 3 = 5.
-        let e = TropicalExpr::plus(
-            TropicalExpr::constant(2.0),
-            TropicalExpr::constant(3.0),
-        );
+        let e = TropicalExpr::plus(TropicalExpr::constant(2.0), TropicalExpr::constant(3.0));
         assert_eq!(evaluate(&e, &[]).unwrap(), 5.0);
     }
 
@@ -4915,20 +4884,14 @@ mod tests {
 
     #[test]
     fn max_propagates_var_out_of_range_error() {
-        let e = TropicalExpr::max(vec![
-            TropicalExpr::constant(1.0),
-            TropicalExpr::var(9),
-        ]);
+        let e = TropicalExpr::max(vec![TropicalExpr::constant(1.0), TropicalExpr::var(9)]);
         let err = evaluate(&e, &[3.0]).unwrap_err();
         assert!(matches!(err, TropicalEvalError::VarOutOfRange { .. }));
     }
 
     #[test]
     fn plus_propagates_var_out_of_range_error() {
-        let e = TropicalExpr::plus(
-            TropicalExpr::constant(1.0),
-            TropicalExpr::var(9),
-        );
+        let e = TropicalExpr::plus(TropicalExpr::constant(1.0), TropicalExpr::var(9));
         let err = evaluate(&e, &[3.0]).unwrap_err();
         assert!(matches!(err, TropicalEvalError::VarOutOfRange { .. }));
     }
@@ -4941,7 +4904,10 @@ mod tests {
             TropicalExpr::constant(0.0),
         );
         let err = evaluate(&e, &[]).unwrap_err();
-        assert!(matches!(err, TropicalEvalError::NonFiniteIntermediate { .. }));
+        assert!(matches!(
+            err,
+            TropicalEvalError::NonFiniteIntermediate { .. }
+        ));
     }
 
     #[test]
@@ -4956,10 +4922,7 @@ mod tests {
 
     #[test]
     fn rational_evaluates_as_numerator_minus_denominator() {
-        let r = TropicalRational::new(
-            TropicalExpr::constant(7.0),
-            TropicalExpr::constant(3.0),
-        );
+        let r = TropicalRational::new(TropicalExpr::constant(7.0), TropicalExpr::constant(3.0));
         assert_eq!(evaluate_rational(&r, &[]).unwrap(), 4.0);
     }
 
@@ -4981,10 +4944,7 @@ mod tests {
     #[test]
     fn empty_max_in_rational_yields_neg_infinity_or_finite_diff() {
         // numerator empty Max → -inf; denominator 0 → -inf - 0 = -inf
-        let r = TropicalRational::new(
-            TropicalExpr::max(vec![]),
-            TropicalExpr::constant(0.0),
-        );
+        let r = TropicalRational::new(TropicalExpr::max(vec![]), TropicalExpr::constant(0.0));
         assert_eq!(evaluate_rational(&r, &[]).unwrap(), f64::NEG_INFINITY);
     }
 
@@ -5034,10 +4994,7 @@ mod tests {
             ),
             TropicalExpr::constant(-1.0),
         );
-        let relu = TropicalExpr::max(vec![
-            TropicalExpr::constant(0.0),
-            pre_activation,
-        ]);
+        let relu = TropicalExpr::max(vec![TropicalExpr::constant(0.0), pre_activation]);
         // x = (1, 1) → max(0, 2+3-1) = max(0, 4) = 4.
         assert_eq!(evaluate(&relu, &[1.0, 1.0]).unwrap(), 4.0);
         // x = (-1, 0) → max(0, -2 + 0 - 1) = max(0, -3) = 0.

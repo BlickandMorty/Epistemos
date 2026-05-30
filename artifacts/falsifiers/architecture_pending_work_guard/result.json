@@ -1,0 +1,578 @@
+{
+  "falsifier_id": "F-Architecture-Pending-Work-Guard",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_architecture_pending_work_guard.sh",
+  "command_digest": "sha256:abc67aaabf02fbfc0cdd60f9b85ca0a3c12caadbc769f338d58e209505c26739",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "ba6f15e6fb08c772c5bbce4d303aff864f39e9c2",
+  "fixture_id": "capability_ceiling_pending_work_dedup_v1",
+  "timestamp_utc": "2026-05-30T11:07:45Z",
+  "result_digest": "sha256:a50ade2c42bce7b4a89ac140678bd35192451a863f456129a13e0d6d73bab446",
+  "measurements": {
+    "already_mapped_work": {
+      "value": {
+        "kv_prompt_suite": {
+          "path": "artifacts/falsifiers/kv_direct_gate/prompt_suite.json",
+          "exists": true
+        },
+        "kv_full_suite_plan": {
+          "path": "artifacts/falsifiers/kv_direct_gate/live_mlx_full_suite_plan/full_suite_run_plan.json",
+          "exists": true,
+          "falsifier_green_capable": false
+        },
+        "kv_smoke_contract_dir": {
+          "path": "artifacts/falsifiers/kv_direct_gate/live_mlx",
+          "status": "complete"
+        },
+        "kv_merged_contract_dir": {
+          "path": "artifacts/falsifiers/kv_direct_gate/live_mlx_merged",
+          "status": "missing"
+        },
+        "local_worktree_inventory": {
+          "path": "docs/audits/LOCAL_EPISTEMOS_WORKTREE_INVENTORY_2026_05_28.json",
+          "exists": true,
+          "candidate_count": 40,
+          "high_duplicate_risk_count": 24
+        },
+        "kv_model_context_inventory": {
+          "path": "docs/audits/KV_DIRECT_MODEL_CONTEXT_INVENTORY_2026_05_28.json",
+          "exists": true,
+          "canonical_context_ok": false,
+          "required_text_candidate_count": 6,
+          "best_required_context_candidate_repo_id": "mlx-community/Qwen3-Coder-Next-4bit"
+        },
+        "qwen3_8b_128k_gguf_candidate_route": {
+          "path": "artifacts/falsifiers/qwen3_8b_128k_gguf_route/result.json",
+          "exists": true,
+          "heavy_run_guard_path": "Tools/falsifiers/run_qwen3_8b_128k_gguf_bench.py",
+          "heavy_long_context_guard_present": true,
+          "next_bottleneck": "repair_qwen3_8b_128k_gguf_metal_stall"
+        },
+        "large_model_non_runtime_rungs": {
+          "weight_block_range_hash_dry_run": {
+            "path": "artifacts/falsifiers/weight_block_range_hash_dry_run/result.json",
+            "available": true
+          },
+          "residency_plan_dry_run": {
+            "path": "artifacts/falsifiers/residency_plan_dry_run/result.json",
+            "available": true
+          },
+          "provider_reference_manifest_dry_run": {
+            "path": "artifacts/falsifiers/provider_reference_manifest_dry_run/result.json",
+            "available": true
+          },
+          "local_70b_cocktail_preflight": {
+            "path": "artifacts/falsifiers/70b_local_cocktail_lite/result.json",
+            "honest_red": true,
+            "primary_bottleneck": "missing_fp16_or_provider_reference"
+          }
+        }
+      },
+      "unit": "object"
+    },
+    "capability_kernel_artifact_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "failed_shards": {
+      "value": [
+        "shard_000_000"
+      ],
+      "unit": "object"
+    },
+    "first_incomplete_shard": {
+      "value": "shard_000_000",
+      "unit": "label"
+    },
+    "first_incomplete_shard_status": {
+      "value": "failed",
+      "unit": "label"
+    },
+    "heavy_long_context_guard_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "incomplete_shards": {
+      "value": [
+        "shard_000_000",
+        "shard_001_001",
+        "shard_002_002",
+        "shard_003_003",
+        "shard_004_004",
+        "shard_005_005",
+        "shard_006_006",
+        "shard_007_007",
+        "shard_008_008",
+        "shard_009_009",
+        "shard_010_010",
+        "shard_011_011",
+        "shard_012_012",
+        "shard_013_013",
+        "shard_014_014",
+        "shard_015_015",
+        "shard_016_016",
+        "shard_017_017",
+        "shard_018_018",
+        "shard_019_019",
+        "shard_020_020",
+        "shard_021_021",
+        "shard_022_022",
+        "shard_023_023",
+        "shard_024_024",
+        "shard_025_025",
+        "shard_026_026",
+        "shard_027_027",
+        "shard_028_028",
+        "shard_029_029",
+        "shard_030_030",
+        "shard_031_031",
+        "shard_032_032",
+        "shard_033_033",
+        "shard_034_034",
+        "shard_035_035",
+        "shard_036_036",
+        "shard_037_037",
+        "shard_038_038",
+        "shard_039_039",
+        "shard_040_040",
+        "shard_041_041",
+        "shard_042_042",
+        "shard_043_043",
+        "shard_044_044",
+        "shard_045_045",
+        "shard_046_046",
+        "shard_047_047",
+        "shard_048_048",
+        "shard_049_049",
+        "shard_050_050",
+        "shard_051_051",
+        "shard_052_052",
+        "shard_053_053",
+        "shard_054_054",
+        "shard_055_055",
+        "shard_056_056",
+        "shard_057_057",
+        "shard_058_058",
+        "shard_059_059",
+        "shard_060_060",
+        "shard_061_061",
+        "shard_062_062",
+        "shard_063_063",
+        "shard_064_064",
+        "shard_065_065",
+        "shard_066_066",
+        "shard_067_067",
+        "shard_068_068",
+        "shard_069_069",
+        "shard_070_070",
+        "shard_071_071",
+        "shard_072_072",
+        "shard_073_073",
+        "shard_074_074",
+        "shard_075_075",
+        "shard_076_076",
+        "shard_077_077",
+        "shard_078_078",
+        "shard_079_079",
+        "shard_080_080",
+        "shard_081_081",
+        "shard_082_082",
+        "shard_083_083",
+        "shard_084_084",
+        "shard_085_085",
+        "shard_086_086",
+        "shard_087_087",
+        "shard_088_088",
+        "shard_089_089",
+        "shard_090_090",
+        "shard_091_091",
+        "shard_092_092",
+        "shard_093_093",
+        "shard_094_094",
+        "shard_095_095",
+        "shard_096_096",
+        "shard_097_097",
+        "shard_098_098",
+        "shard_099_099"
+      ],
+      "unit": "object"
+    },
+    "kv_complete_shard_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "kv_failed_shard_count": {
+      "value": 1,
+      "unit": "count"
+    },
+    "kv_full_suite_run_plan_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_full_suite_run_plan_shape_ok": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_missing_shard_count": {
+      "value": 99,
+      "unit": "count"
+    },
+    "kv_model_context_best_candidate_repo_id": {
+      "value": "mlx-community/Qwen3-Coder-Next-4bit",
+      "unit": "label"
+    },
+    "kv_model_context_canonical_context_ok": {
+      "value": false,
+      "unit": "bool"
+    },
+    "kv_model_context_inventory_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_model_context_inventory_non_destructive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_model_context_required_candidate_count": {
+      "value": 7,
+      "unit": "count"
+    },
+    "kv_model_context_required_text_candidate_count": {
+      "value": 6,
+      "unit": "count"
+    },
+    "kv_partial_shard_count": {
+      "value": 1,
+      "unit": "count"
+    },
+    "kv_plan_duplicate_output_dir_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "kv_plan_duplicate_prompt_id_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "kv_plan_output_dirs_unique": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_plan_prompt_ids_unique": {
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_plan_shard_count": {
+      "value": 100,
+      "unit": "count"
+    },
+    "kv_prompt_suite_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "local_70b_cocktail_honest_red": {
+      "value": true,
+      "unit": "bool"
+    },
+    "local_dirty_candidate_count": {
+      "value": 25,
+      "unit": "count"
+    },
+    "local_epistemos_candidate_count": {
+      "value": 40,
+      "unit": "count"
+    },
+    "local_high_duplicate_risk_count": {
+      "value": 24,
+      "unit": "count"
+    },
+    "local_sibling_worktree_count": {
+      "value": 34,
+      "unit": "count"
+    },
+    "local_worktree_current_repo_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "local_worktree_inventory_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "local_worktree_inventory_non_destructive": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_bottleneck": {
+      "value": "repair_qwen3_8b_128k_gguf_metal_stall",
+      "unit": "label"
+    },
+    "next_existing_work": {
+      "value": "repair_qwen3_8b_128k_gguf_metal_stall",
+      "unit": "label"
+    },
+    "no_duplicate_rebuild_risk": {
+      "value": true,
+      "unit": "bool"
+    },
+    "ordered_queue_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pending_work_cursor_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_reference_manifest_dry_run_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "queue_duplicate_gap_id_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "queue_duplicate_order_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "queue_gap_ids_unique": {
+      "value": true,
+      "unit": "bool"
+    },
+    "queue_item_count": {
+      "value": 14,
+      "unit": "count"
+    },
+    "queue_missing_required_field_count": {
+      "value": 0,
+      "unit": "count"
+    },
+    "queue_orders_unique": {
+      "value": true,
+      "unit": "bool"
+    },
+    "queue_pending_item_count": {
+      "value": 6,
+      "unit": "count"
+    },
+    "queue_required_fields_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "qwen3_8b_128k_gguf_candidate_artifact_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "qwen3_8b_128k_gguf_next_bottleneck": {
+      "value": "repair_qwen3_8b_128k_gguf_metal_stall",
+      "unit": "label"
+    },
+    "residency_plan_dry_run_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "shard_cursor_mapped": {
+      "value": true,
+      "unit": "bool"
+    },
+    "weight_block_range_hash_dry_run_available": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "capability_kernel_artifact_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "heavy_long_context_guard_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_full_suite_run_plan_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_full_suite_run_plan_shape_ok": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_model_context_inventory_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_model_context_inventory_non_destructive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_plan_output_dirs_unique": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_plan_prompt_ids_unique": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "kv_prompt_suite_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "local_70b_cocktail_honest_red": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "local_worktree_current_repo_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "local_worktree_inventory_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "local_worktree_inventory_non_destructive": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_duplicate_rebuild_risk": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "ordered_queue_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pending_work_cursor_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_reference_manifest_dry_run_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "queue_gap_ids_unique": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "queue_orders_unique": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "queue_required_fields_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "qwen3_8b_128k_gguf_candidate_artifact_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "residency_plan_dry_run_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "shard_cursor_mapped": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "weight_block_range_hash_dry_run_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "capability_kernel_artifact_available": true,
+    "heavy_long_context_guard_present": true,
+    "kv_full_suite_run_plan_available": true,
+    "kv_full_suite_run_plan_shape_ok": true,
+    "kv_model_context_inventory_available": true,
+    "kv_model_context_inventory_non_destructive": true,
+    "kv_plan_output_dirs_unique": true,
+    "kv_plan_prompt_ids_unique": true,
+    "kv_prompt_suite_available": true,
+    "local_70b_cocktail_honest_red": true,
+    "local_worktree_current_repo_present": true,
+    "local_worktree_inventory_available": true,
+    "local_worktree_inventory_non_destructive": true,
+    "no_duplicate_rebuild_risk": true,
+    "ordered_queue_available": true,
+    "pending_work_cursor_available": true,
+    "provider_reference_manifest_dry_run_available": true,
+    "queue_gap_ids_unique": true,
+    "queue_orders_unique": true,
+    "queue_required_fields_present": true,
+    "qwen3_8b_128k_gguf_candidate_artifact_available": true,
+    "residency_plan_dry_run_available": true,
+    "shard_cursor_mapped": true,
+    "weight_block_range_hash_dry_run_available": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "mapped_nonpromoting_kv_route",
+      "detail": "The current full-suite plan is useful continuation work, but it is still prompt_cache_reload development evidence and cannot promote F-KV-Direct-Gate."
+    },
+    {
+      "kind": "local_worktree_sprawl",
+      "detail": "24 high duplicate-risk Epistemos sibling/copy surfaces are present under Downloads; inspect docs/audits/LOCAL_EPISTEMOS_WORKTREE_INVENTORY_2026_05_28.json before opening more worktrees."
+    },
+    {
+      "kind": "partial_kv_shard_outputs",
+      "detail": "At least one KV shard output directory is partial; repair or rerun that shard before starting a later shard."
+    },
+    {
+      "kind": "failed_kv_shard_outputs",
+      "detail": "At least one KV shard recorded failed progress; repair the runtime bottleneck before rerunning the same shard."
+    },
+    {
+      "kind": "alternate_128k_model_candidates_available",
+      "detail": "Canonical Qwen3-8B 128K context is not satisfied, but 6 local text-generation candidates meet the context floor. Best candidate: mlx-community/Qwen3-Coder-Next-4bit. Treat alternates as development evidence unless canon explicitly changes the F-KV-Direct-Gate model."
+    }
+  ],
+  "notes": "pending_work_guard; next_existing_work=repair_qwen3_8b_128k_gguf_metal_stall; do not recreate prompt suite or shard plan while their artifacts exist; continue the first incomplete shard or merge/feed existing shards before building new surfaces"
+}

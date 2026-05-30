@@ -58,7 +58,11 @@ impl CodeBlockProps {
     }
 
     pub fn line_count(&self) -> usize {
-        if self.source.is_empty() { 0 } else { self.source.lines().count() }
+        if self.source.is_empty() {
+            0
+        } else {
+            self.source.lines().count()
+        }
     }
 
     pub fn is_valid(&self) -> bool {

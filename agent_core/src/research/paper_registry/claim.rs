@@ -48,7 +48,10 @@ impl Venue {
     /// Predicate: this venue is a refereed ML conference (ICLR /
     /// NeurIPS / MLSys / ICML).
     pub const fn is_conference(self) -> bool {
-        matches!(self, Venue::Iclr | Venue::NeurIps | Venue::MlSys | Venue::Icml)
+        matches!(
+            self,
+            Venue::Iclr | Venue::NeurIps | Venue::MlSys | Venue::Icml
+        )
     }
 
     /// Predicate: this venue is the arXiv preprint server.
@@ -109,7 +112,10 @@ impl ClaimStatus {
     /// Predicate: this status indicates active implementation work
     /// (SubstrateFloor / SubstrateLanded).
     pub const fn is_implementation_active(self) -> bool {
-        matches!(self, ClaimStatus::SubstrateFloor | ClaimStatus::SubstrateLanded)
+        matches!(
+            self,
+            ClaimStatus::SubstrateFloor | ClaimStatus::SubstrateLanded
+        )
     }
 
     /// Predicate: this status indicates a fully-validated claim.
@@ -301,7 +307,9 @@ mod tests {
         let err = r.add(sample_claim()).unwrap_err();
         assert_eq!(
             err,
-            RegistryError::DuplicateKey { key: "bitnet-b158".to_string() }
+            RegistryError::DuplicateKey {
+                key: "bitnet-b158".to_string()
+            }
         );
     }
 
@@ -451,17 +459,35 @@ mod tests {
             ];
             assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", s);
         }
-        assert_eq!(ClaimStatus::ALL.iter().filter(|s| s.is_implementation_active()).count(), 2);
-        assert_eq!(ClaimStatus::ALL.iter().filter(|s| s.is_validated()).count(), 1);
-        assert_eq!(ClaimStatus::ALL.iter().filter(|s| s.is_off_path()).count(), 2);
+        assert_eq!(
+            ClaimStatus::ALL
+                .iter()
+                .filter(|s| s.is_implementation_active())
+                .count(),
+            2
+        );
+        assert_eq!(
+            ClaimStatus::ALL.iter().filter(|s| s.is_validated()).count(),
+            1
+        );
+        assert_eq!(
+            ClaimStatus::ALL.iter().filter(|s| s.is_off_path()).count(),
+            2
+        );
     }
 
     #[test]
     fn registry_error_cause_distinct_per_variant() {
         let variants = [
-            RegistryError::InvalidArxivId { key: "a".into(), arxiv_id: "x".into() },
+            RegistryError::InvalidArxivId {
+                key: "a".into(),
+                arxiv_id: "x".into(),
+            },
             RegistryError::DuplicateKey { key: "b".into() },
-            RegistryError::YearOutOfRange { key: "c".into(), year: 1500 },
+            RegistryError::YearOutOfRange {
+                key: "c".into(),
+                year: 1500,
+            },
         ];
         let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
         assert_eq!(causes.len(), 3);
@@ -471,12 +497,20 @@ mod tests {
     fn registry_error_key_total_accessor() {
         // Cross-surface: every variant has a key, extracted correctly.
         assert_eq!(
-            RegistryError::InvalidArxivId { key: "a".into(), arxiv_id: "x".into() }.key(),
+            RegistryError::InvalidArxivId {
+                key: "a".into(),
+                arxiv_id: "x".into()
+            }
+            .key(),
             "a",
         );
         assert_eq!(RegistryError::DuplicateKey { key: "b".into() }.key(), "b");
         assert_eq!(
-            RegistryError::YearOutOfRange { key: "c".into(), year: 1500 }.key(),
+            RegistryError::YearOutOfRange {
+                key: "c".into(),
+                year: 1500
+            }
+            .key(),
             "c",
         );
     }

@@ -242,7 +242,9 @@ mod tests {
         let c = lean_certificate(&p);
         assert!(c.contains("def scan_certificate_target_"));
         assert!(c.contains("Epistemos.Scan.CertificateTarget T :="));
-        assert!(c.contains("sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Scan-IR\""));
+        assert!(c.contains(
+            "sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Scan-IR\""
+        ));
         assert!(c.contains("output_matches := h"));
         assert!(c.contains("theorem scan_certificate_source_row_"));
         assert!(c.contains("Epistemos.Scan.CertificateTarget.sourceRowMatches"));
@@ -359,9 +361,9 @@ mod tests {
             "Schema module built with explicit ~/.elan/bin PATH; obligations sharpened through iter-698"
         ));
         assert!(c.contains("Generated SSD proof body closes from explicit SSDEquivalenceLemma"));
-        assert!(c.contains(
-            "Generated monoid law bundle closes from MonoidWitness.scanLawWitnesses"
-        ));
+        assert!(
+            c.contains("Generated monoid law bundle closes from MonoidWitness.scanLawWitnesses")
+        );
         assert!(c.contains(
             "Generated SSD obligation predicate closes from SSDEquivalenceObligation.toSchemaPredicate"
         ));

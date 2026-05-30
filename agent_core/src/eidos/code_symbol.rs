@@ -20,8 +20,8 @@ use std::collections::BTreeMap;
 use super::retriever::EidosRetriever;
 use super::types::{
     is_blank_query_text, EidosChunkId, EidosContextPacket, EidosDocumentId, EidosHit,
-    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode,
-    EidosScoreComponents, EidosSourceKind, EidosSpan,
+    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode, EidosScoreComponents,
+    EidosSourceKind, EidosSpan,
 };
 
 /// One occurrence of a symbol in a document. The (`document_id`, `byte_start`)
@@ -69,9 +69,10 @@ impl InMemoryCodeSymbolIndex {
             byte_start,
             byte_end,
         };
-        if !occurrences.iter().any(|o| {
-            o.document_id == new_occ.document_id && o.byte_start == new_occ.byte_start
-        }) {
+        if !occurrences
+            .iter()
+            .any(|o| o.document_id == new_occ.document_id && o.byte_start == new_occ.byte_start)
+        {
             occurrences.push(new_occ);
         }
     }
@@ -86,11 +87,7 @@ impl EidosRetriever for InMemoryCodeSymbolIndex {
         &self.manifest_id
     }
 
-    fn retrieve(
-        &self,
-        query: &EidosQuery,
-        retrieved_at_unix_ms: u64,
-    ) -> EidosContextPacket {
+    fn retrieve(&self, query: &EidosQuery, retrieved_at_unix_ms: u64) -> EidosContextPacket {
         if is_blank_query_text(&query.text) || query.top_k == 0 {
             return empty_packet(query, &self.manifest_id);
         }
@@ -273,10 +270,7 @@ mod tests {
         let q = EidosQuery::new("résumé_πᵢ", EidosRetrievalMode::CodeSymbol, 8);
         let packet = idx.retrieve(&q, 1_700_000_000_000);
         assert_eq!(packet.hits.len(), 1);
-        assert_eq!(
-            packet.hits[0].source_id.as_str(),
-            "notes/util.rs::sym@0"
-        );
+        assert_eq!(packet.hits[0].source_id.as_str(), "notes/util.rs::sym@0");
     }
 
     #[test]
@@ -348,7 +342,11 @@ mod tests {
         let q = EidosQuery::new("foo", EidosRetrievalMode::CodeSymbol, 8);
         let packet = idx.retrieve(&q, 0);
 
-        assert_eq!(packet.hits.len(), 1, "dedup must coalesce same-offset inserts");
+        assert_eq!(
+            packet.hits.len(),
+            1,
+            "dedup must coalesce same-offset inserts"
+        );
         let span = packet.hits[0].span.expect("span must be present");
         assert_eq!(span.byte_start, 0);
         assert_eq!(
@@ -366,13 +364,7 @@ mod tests {
         let packet = idx.retrieve(&q, 0);
         assert_eq!(packet.hits.len(), 2);
         // Sorted by byte_start ascending within the same document.
-        assert_eq!(
-            packet.hits[0].source_id.as_str(),
-            "a.rs::sym@100"
-        );
-        assert_eq!(
-            packet.hits[1].source_id.as_str(),
-            "a.rs::sym@200"
-        );
+        assert_eq!(packet.hits[0].source_id.as_str(), "a.rs::sym@100");
+        assert_eq!(packet.hits[1].source_id.as_str(), "a.rs::sym@200");
     }
 }

@@ -629,13 +629,12 @@ fn register_doc_names_every_residency_tier_and_wbo_term() {
             "{} row must name primary side-information validation key {primary_side_information}",
             tier.canonical_name()
         );
-        let first_side_information =
-            side_information_cell.split('`').nth(1).unwrap_or_else(|| {
-                panic!(
-                    "{} row must begin side-information cell with a canonical witness key",
-                    tier.canonical_name()
-                )
-            });
+        let first_side_information = side_information_cell.split('`').nth(1).unwrap_or_else(|| {
+            panic!(
+                "{} row must begin side-information cell with a canonical witness key",
+                tier.canonical_name()
+            )
+        });
         assert_eq!(
             first_side_information,
             format!("{:?}", tier.primary_side_information()),
@@ -654,9 +653,9 @@ fn register_doc_names_every_residency_tier_and_wbo_term() {
                 tier.canonical_name()
             );
         }
-        let falsifier_cell = cells.get(4).unwrap_or_else(|| {
-            panic!("{} row must have falsifier cell", tier.canonical_name())
-        });
+        let falsifier_cell = cells
+            .get(4)
+            .unwrap_or_else(|| panic!("{} row must have falsifier cell", tier.canonical_name()));
         let mut expected_hooks = f_hooks_in(tier.primary_falsifier());
         for term in tier.canonical_register_terms() {
             for hook in f_hooks_in(term.falsifier()) {
@@ -903,9 +902,7 @@ fn register_doc_residency_side_information_cells_follow_witness_order() {
         let row = register
             .lines()
             .find(|line| line.starts_with(&needle))
-            .unwrap_or_else(|| {
-                panic!("missing register doc row for {}", tier.canonical_name())
-            });
+            .unwrap_or_else(|| panic!("missing register doc row for {}", tier.canonical_name()));
         let side_information_cell = row
             .trim_matches('|')
             .split('|')
@@ -947,17 +944,13 @@ fn register_doc_residency_falsifier_cells_follow_primary_and_term_hook_order() {
         let row = register
             .lines()
             .find(|line| line.starts_with(&needle))
-            .unwrap_or_else(|| {
-                panic!("missing register doc row for {}", tier.canonical_name())
-            });
+            .unwrap_or_else(|| panic!("missing register doc row for {}", tier.canonical_name()));
         let falsifier_cell = row
             .trim_matches('|')
             .split('|')
             .map(str::trim)
             .nth(4)
-            .unwrap_or_else(|| {
-                panic!("{} row must have falsifier cell", tier.canonical_name())
-            });
+            .unwrap_or_else(|| panic!("{} row must have falsifier cell", tier.canonical_name()));
         let mut expected_hooks = f_hooks_in(tier.primary_falsifier());
         for term in tier.canonical_register_terms() {
             for hook in f_hooks_in(term.falsifier()) {
@@ -1222,7 +1215,11 @@ fn register_doc_json_surface_source_line_anchors_match_current_code() {
     let verifier_source = include_str!("../verifier.rs");
     let required_structs: [(&str, &str, &str); 5] = [
         ("FalsifierHookOwner", "verifier.rs", verifier_source),
-        ("LatticeErrorContribution", "accounting.rs", accounting_source),
+        (
+            "LatticeErrorContribution",
+            "accounting.rs",
+            accounting_source,
+        ),
         ("LatticeBudget", "accounting.rs", accounting_source),
         ("ActiveSupportBudget", "accounting.rs", accounting_source),
         ("WboLedgerEntry", "register.rs", register_source),
@@ -1259,9 +1256,9 @@ fn register_doc_canonical_anchor_list_matches_guardrail_rows() {
         let path_needle = format!("`{}`", anchor.path);
         let section_line_needle = format!("{} line {}", anchor.section, anchor.line_number);
         assert!(
-            canonical_anchor_lines.iter().any(|line| {
-                line.contains(&path_needle) && line.contains(&section_line_needle)
-            }),
+            canonical_anchor_lines
+                .iter()
+                .any(|line| { line.contains(&path_needle) && line.contains(&section_line_needle) }),
             "canonical anchor list missing {path_needle} {section_line_needle}"
         );
         assert!(

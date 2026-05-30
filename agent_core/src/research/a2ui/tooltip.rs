@@ -152,7 +152,10 @@ mod tests {
             placement: TooltipPlacement::Top,
             delay_ms: 6_000,
         };
-        assert!(matches!(t.validate().unwrap_err(), TooltipError::DelayTooLong { .. }));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            TooltipError::DelayTooLong { .. }
+        ));
     }
 
     #[test]

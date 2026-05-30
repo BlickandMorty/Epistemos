@@ -112,7 +112,10 @@ pub fn calibrate_interrupt_classifier(
             .partial_cmp(&b.interrupt_score)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
-    let n_pos = observations.iter().filter(|o| o.ground_truth_needed).count();
+    let n_pos = observations
+        .iter()
+        .filter(|o| o.ground_truth_needed)
+        .count();
     let n_neg = observations.len() - n_pos;
 
     let mut best_j: f32 = f32::NEG_INFINITY;
@@ -297,7 +300,10 @@ mod tests {
     use super::*;
 
     fn obs(score: f32, needed: bool) -> InterruptObservation {
-        InterruptObservation { interrupt_score: score, ground_truth_needed: needed }
+        InterruptObservation {
+            interrupt_score: score,
+            ground_truth_needed: needed,
+        }
     }
 
     #[test]
@@ -603,7 +609,10 @@ mod tests {
             false_negative: 1,
         };
         assert_eq!(cm.actual_positives() + cm.actual_negatives(), cm.total());
-        assert_eq!(cm.predicted_positives() + cm.predicted_negatives(), cm.total());
+        assert_eq!(
+            cm.predicted_positives() + cm.predicted_negatives(),
+            cm.total()
+        );
         assert_eq!(cm.actual_positives(), 6); // TP + FN
         assert_eq!(cm.actual_negatives(), 10); // FP + TN
         assert_eq!(cm.predicted_positives(), 7); // TP + FP
@@ -648,12 +657,22 @@ mod tests {
     #[test]
     fn doctrine_gap_aligns_with_passes() {
         // Cross-surface invariant: doctrine_gap >= 0 iff passes_doctrine.
-        let v_pass = vec![obs(0.1, false), obs(0.9, true), obs(0.05, false), obs(0.95, true)];
+        let v_pass = vec![
+            obs(0.1, false),
+            obs(0.9, true),
+            obs(0.05, false),
+            obs(0.95, true),
+        ];
         let r_pass = calibrate_interrupt_classifier(&v_pass).unwrap();
         assert!(r_pass.doctrine_gap() >= 0.0);
         assert!(r_pass.passes_doctrine);
 
-        let v_fail = vec![obs(0.1, true), obs(0.2, false), obs(0.3, true), obs(0.4, false)];
+        let v_fail = vec![
+            obs(0.1, true),
+            obs(0.2, false),
+            obs(0.3, true),
+            obs(0.4, false),
+        ];
         let r_fail = calibrate_interrupt_classifier(&v_fail).unwrap();
         assert!(r_fail.doctrine_gap() < 0.0);
         assert!(!r_fail.passes_doctrine);

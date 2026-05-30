@@ -524,7 +524,9 @@ mod tests {
     #[test]
     fn certificate_projects_target_semiring_obligation() {
         let c = lean_certificate(&TropicalExpr::constant(0.0));
-        assert!(c.contains("sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Tropical-IR\""));
+        assert!(c.contains(
+            "sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Tropical-IR\""
+        ));
         assert!(c.contains("theorem tropical_certificate_source_row_"));
         assert!(c.contains("Epistemos.Tropical.CertificateTarget.sourceRowMatches"));
         assert!(c.contains("theorem tropical_certificate_source_rows_match_"));
@@ -559,10 +561,7 @@ mod tests {
 
     #[test]
     fn lean_term_plus() {
-        let e = TropicalExpr::plus(
-            TropicalExpr::var(0),
-            TropicalExpr::constant(1.0),
-        );
+        let e = TropicalExpr::plus(TropicalExpr::var(0), TropicalExpr::constant(1.0));
         assert_eq!(lean_term(&e), "(x_0 + (1 : ℝ))");
     }
 
@@ -579,10 +578,7 @@ mod tests {
 
     #[test]
     fn lean_term_two_arg_max_is_right_fold() {
-        let e = TropicalExpr::max(vec![
-            TropicalExpr::var(0),
-            TropicalExpr::var(1),
-        ]);
+        let e = TropicalExpr::max(vec![TropicalExpr::var(0), TropicalExpr::var(1)]);
         // Right fold: max(args[0], args[1]) → "max x_0 x_1"
         assert_eq!(lean_term(&e), "max x_0 x_1");
     }
@@ -599,10 +595,7 @@ mod tests {
 
     #[test]
     fn certificate_includes_var_binders() {
-        let e = TropicalExpr::plus(
-            TropicalExpr::var(0),
-            TropicalExpr::var(1),
-        );
+        let e = TropicalExpr::plus(TropicalExpr::var(0), TropicalExpr::var(1));
         let c = lean_certificate(&e);
         assert!(c.contains("Tree var-count: 2"));
         assert!(c.contains("arity := 2"));
@@ -642,32 +635,20 @@ mod tests {
 
     #[test]
     fn tree_hash_is_stable() {
-        let e = TropicalExpr::plus(
-            TropicalExpr::var(0),
-            TropicalExpr::constant(1.0),
-        );
+        let e = TropicalExpr::plus(TropicalExpr::var(0), TropicalExpr::constant(1.0));
         assert_eq!(tree_hash_suffix(&e), tree_hash_suffix(&e));
     }
 
     #[test]
     fn tree_hash_distinguishes_structure() {
-        let a = TropicalExpr::max(vec![
-            TropicalExpr::var(0),
-            TropicalExpr::var(1),
-        ]);
-        let b = TropicalExpr::plus(
-            TropicalExpr::var(0),
-            TropicalExpr::var(1),
-        );
+        let a = TropicalExpr::max(vec![TropicalExpr::var(0), TropicalExpr::var(1)]);
+        let b = TropicalExpr::plus(TropicalExpr::var(0), TropicalExpr::var(1));
         assert_ne!(tree_hash_suffix(&a), tree_hash_suffix(&b));
     }
 
     #[test]
     fn rational_certificate_has_both_hashes() {
-        let r = TropicalRational::new(
-            TropicalExpr::var(0),
-            TropicalExpr::constant(1.0),
-        );
+        let r = TropicalRational::new(TropicalExpr::var(0), TropicalExpr::constant(1.0));
         let c = lean_certificate_rational(&r);
         assert!(c.contains("numerator hash"));
         assert!(c.contains("denominator hash"));
@@ -679,17 +660,12 @@ mod tests {
         assert!(c.contains("theorem tropical_rational_certificate_numerator_hash_"));
         assert!(c.contains("Epistemos.Tropical.RationalCertificateTarget.numeratorHashMatches"));
         assert!(c.contains("theorem tropical_rational_certificate_denominator_hash_"));
-        assert!(c.contains(
-            "Epistemos.Tropical.RationalCertificateTarget.denominatorHashMatches"
-        ));
+        assert!(c.contains("Epistemos.Tropical.RationalCertificateTarget.denominatorHashMatches"));
     }
 
     #[test]
     fn rational_certificate_targets_tropical_schema_module() {
-        let r = TropicalRational::new(
-            TropicalExpr::var(0),
-            TropicalExpr::constant(1.0),
-        );
+        let r = TropicalRational::new(TropicalExpr::var(0), TropicalExpr::constant(1.0));
         let c = lean_certificate_rational(&r);
         assert!(c.contains("import Epistemos.Tropical"));
         assert!(c.contains("Epistemos.Tropical.RationalForm"));
@@ -700,10 +676,7 @@ mod tests {
 
     #[test]
     fn rational_certificate_uses_named_representation_obligation() {
-        let r = TropicalRational::new(
-            TropicalExpr::var(0),
-            TropicalExpr::constant(1.0),
-        );
+        let r = TropicalRational::new(TropicalExpr::var(0), TropicalExpr::constant(1.0));
         let c = lean_certificate_rational(&r);
         assert!(c.contains("Epistemos.Tropical.RationalRepresentationObligation"));
         assert!(c.contains("def tropical_rational_obligation_"));
@@ -715,17 +688,15 @@ mod tests {
         assert!(c.contains("theorem tropical_rational_obligation_hash_fields_"));
         assert!(c.contains("Epistemos.Tropical.RationalRepresentationObligation.hashFieldsMatch"));
         assert!(c.contains("theorem tropical_rational_obligation_numerator_hash_"));
-        assert!(c.contains(
-            "Epistemos.Tropical.RationalRepresentationObligation.numeratorHashMatches"
-        ));
+        assert!(
+            c.contains("Epistemos.Tropical.RationalRepresentationObligation.numeratorHashMatches")
+        );
         assert!(c.contains("theorem tropical_rational_obligation_denominator_hash_"));
         assert!(c.contains(
             "Epistemos.Tropical.RationalRepresentationObligation.denominatorHashMatches"
         ));
         assert!(c.contains("theorem tropical_rational_obligation_source_row_"));
-        assert!(c.contains(
-            "Epistemos.Tropical.RationalRepresentationObligation.sourceRowMatches"
-        ));
+        assert!(c.contains("Epistemos.Tropical.RationalRepresentationObligation.sourceRowMatches"));
         assert!(c.contains("(numeratorShapeWitness :"));
         assert!(c.contains("exact numeratorShapeWitness"));
         assert!(c.contains("(denominatorShapeWitness :"));
@@ -737,10 +708,7 @@ mod tests {
 
     #[test]
     fn rational_certificate_projects_representation_target() {
-        let r = TropicalRational::new(
-            TropicalExpr::var(0),
-            TropicalExpr::constant(1.0),
-        );
+        let r = TropicalRational::new(TropicalExpr::var(0), TropicalExpr::constant(1.0));
         let c = lean_certificate_rational(&r);
         assert!(c.contains("theorem tropical_rational_certificate_representation_"));
         assert!(c.contains(".representation = tropical_rational_obligation_"));
@@ -756,14 +724,12 @@ mod tests {
         assert!(c.contains("theorem tropical_rational_certificate_source_row_"));
         assert!(c.contains("Epistemos.Tropical.RationalCertificateTarget.sourceRowMatches"));
         assert!(c.contains("theorem tropical_rational_certificate_target_source_row_"));
-        assert!(c.contains(
-            "Epistemos.Tropical.RationalCertificateTarget.targetSourceRowMatches"
-        ));
+        assert!(c.contains("Epistemos.Tropical.RationalCertificateTarget.targetSourceRowMatches"));
         assert!(c.contains("theorem tropical_rational_certificate_source_rows_match_"));
         assert!(c.contains("Epistemos.Tropical.RationalCertificateTarget.sourceRowsMatch"));
-        assert!(c.contains(
-            "theorem tropical_rational_certificate_target_hashes_from_representation_"
-        ));
+        assert!(
+            c.contains("theorem tropical_rational_certificate_target_hashes_from_representation_")
+        );
         assert!(c.contains(
             "Epistemos.Tropical.RationalCertificateTarget.targetHashFieldsFromRepresentation"
         ));
@@ -771,31 +737,27 @@ mod tests {
 
     #[test]
     fn rational_certificate_carries_representation_obligation_target() {
-        let r = TropicalRational::new(
-            TropicalExpr::var(0),
-            TropicalExpr::constant(1.0),
-        );
+        let r = TropicalRational::new(TropicalExpr::var(0), TropicalExpr::constant(1.0));
         let c = lean_certificate_rational(&r);
         assert!(c.contains("def tropical_rational_certificate_representation_obligation_"));
-        assert!(c.contains(
-            "exact Epistemos.Tropical.RationalCertificateTarget.representationCarries"
-        ));
+        assert!(
+            c.contains("exact Epistemos.Tropical.RationalCertificateTarget.representationCarries")
+        );
         assert!(c.contains("tropical_rational_certificate_"));
     }
 
     #[test]
     fn rational_certificate_carries_target_shapes() {
-        let r = TropicalRational::new(
-            TropicalExpr::var(0),
-            TropicalExpr::constant(1.0),
-        );
+        let r = TropicalRational::new(TropicalExpr::var(0), TropicalExpr::constant(1.0));
         let c = lean_certificate_rational(&r);
         assert!(c.contains("theorem tropical_rational_certificate_numerator_shape_"));
         assert!(c.contains("exact Epistemos.Tropical.RationalCertificateTarget.numeratorShape"));
         assert!(c.contains("theorem tropical_rational_certificate_denominator_shape_"));
         assert!(c.contains("exact Epistemos.Tropical.RationalCertificateTarget.denominatorShape"));
         assert!(c.contains("theorem tropical_rational_certificate_shapes_"));
-        assert!(c.contains("exact Epistemos.Tropical.RationalCertificateTarget.representationShapes"));
+        assert!(
+            c.contains("exact Epistemos.Tropical.RationalCertificateTarget.representationShapes")
+        );
         assert!(c.contains("tropical_rational_certificate_"));
     }
 }

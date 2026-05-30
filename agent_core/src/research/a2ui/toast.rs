@@ -141,7 +141,10 @@ mod tests {
             message: "x".into(),
             auto_dismiss_ms: Some(100),
         };
-        assert!(matches!(t.validate().unwrap_err(), ToastError::DismissTooFast { .. }));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            ToastError::DismissTooFast { .. }
+        ));
     }
 
     #[test]

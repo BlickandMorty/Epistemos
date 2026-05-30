@@ -238,7 +238,14 @@ where
     L: HyperdynamicLoop,
     F: FnMut(&L::Packet, &str) -> L::Packet,
 {
-    run_loop_with_clock(loop_impl, initial, budget, counters, &mut re_emit, Instant::now)
+    run_loop_with_clock(
+        loop_impl,
+        initial,
+        budget,
+        counters,
+        &mut re_emit,
+        Instant::now,
+    )
 }
 
 /// `run_loop` with an injected clock — only used by tests + the
@@ -386,9 +393,21 @@ mod tests {
     #[test]
     fn accept_first_try_records_no_repair() {
         let mut c = LoopCounters::new();
-        let outcome = run_loop(&AlwaysAccept, 7u32, RepairBudget::DEFAULT, &mut c, |p, _| *p)
-            .expect("loop runs");
-        assert!(matches!(outcome, RepairOutcome::Accepted { packet: 7, repairs: 0 }));
+        let outcome = run_loop(
+            &AlwaysAccept,
+            7u32,
+            RepairBudget::DEFAULT,
+            &mut c,
+            |p, _| *p,
+        )
+        .expect("loop runs");
+        assert!(matches!(
+            outcome,
+            RepairOutcome::Accepted {
+                packet: 7,
+                repairs: 0
+            }
+        ));
         assert_eq!(c.drafts, 1);
         assert_eq!(c.accepted, 1);
         assert_eq!(c.repaired, 0);
@@ -401,13 +420,9 @@ mod tests {
     fn repair_then_accept_records_repaired_bucket() {
         let mut c = LoopCounters::new();
         let loop_impl = AcceptAfterN(3);
-        let outcome = run_loop(
-            &loop_impl,
-            0u32,
-            RepairBudget::DEFAULT,
-            &mut c,
-            |p, _| *p + 1,
-        )
+        let outcome = run_loop(&loop_impl, 0u32, RepairBudget::DEFAULT, &mut c, |p, _| {
+            *p + 1
+        })
         .expect("loop runs");
         match outcome {
             RepairOutcome::Accepted { packet, repairs } => {
@@ -428,14 +443,8 @@ mod tests {
     fn budget_caps_retries_and_quarantines() {
         let mut c = LoopCounters::new();
         let budget = RepairBudget::tightened(2, Duration::from_millis(100), 64);
-        let outcome = run_loop(
-            &AlwaysRepair,
-            0u32,
-            budget,
-            &mut c,
-            |p, _| *p + 1,
-        )
-        .expect("loop runs");
+        let outcome =
+            run_loop(&AlwaysRepair, 0u32, budget, &mut c, |p, _| *p + 1).expect("loop runs");
         match outcome {
             RepairOutcome::QuarantinedBudgetExhausted { repairs, .. } => {
                 assert_eq!(repairs, 2);
@@ -459,15 +468,8 @@ mod tests {
         let mut c = LoopCounters::new();
         let mut re = |p: &u32, _: &str| *p + 1;
         let budget = RepairBudget::tightened(99, Duration::from_millis(80), 64);
-        let outcome = run_loop_with_clock(
-            &AlwaysRepair,
-            0u32,
-            budget,
-            &mut c,
-            &mut re,
-            &mut clk,
-        )
-        .expect("loop runs");
+        let outcome = run_loop_with_clock(&AlwaysRepair, 0u32, budget, &mut c, &mut re, &mut clk)
+            .expect("loop runs");
         assert!(matches!(
             outcome,
             RepairOutcome::QuarantinedBudgetExhausted { .. }
@@ -511,8 +513,22 @@ mod tests {
     fn avg_repair_count_averages_only_finalized() {
         let mut c = LoopCounters::new();
         // Two accepts at 0 + 2 repairs.
-        let _ = run_loop(&AlwaysAccept, 1u32, RepairBudget::DEFAULT, &mut c, |p, _| *p).unwrap();
-        let _ = run_loop(&AcceptAfterN(2), 0u32, RepairBudget::DEFAULT, &mut c, |p, _| *p + 1).unwrap();
+        let _ = run_loop(
+            &AlwaysAccept,
+            1u32,
+            RepairBudget::DEFAULT,
+            &mut c,
+            |p, _| *p,
+        )
+        .unwrap();
+        let _ = run_loop(
+            &AcceptAfterN(2),
+            0u32,
+            RepairBudget::DEFAULT,
+            &mut c,
+            |p, _| *p + 1,
+        )
+        .unwrap();
         assert_eq!(c.accepted, 2);
         assert_eq!(c.total_repair_attempts, 2);
         assert!((c.avg_repair_count() - 1.0).abs() < f64::EPSILON);

@@ -28,6 +28,11 @@ struct SystemGRunSeamTests {
             .toolStart(turnId: "t1", toolName: "vault_search", argsJson: #"{"q":"residency"}"#),
             .toolEnd(turnId: "t1", toolName: "vault_search", ok: true, outputJson: #"{"hits":[]}"#),
             .tokenChunk(turnId: "t1", text: "Hello "),
+            .localModelHandoff(
+                turnId: "t1",
+                modelID: "Qwen/Qwen3-8B-MLX-4bit",
+                providerPolicyJSON: #"{"kind":"local_mlx","model_id":"Qwen/Qwen3-8B-MLX-4bit"}"#
+            ),
             .complete(turnId: "t1", answerPacketId: "ap-42"),
             .failed(turnId: "t1", error: "ffi timeout"),
         ]
@@ -157,6 +162,125 @@ struct SystemGRunSeamTests {
         #expect(log.answerPacketId == answerPacketId, "answerPacketId helper agrees with terminal event")
     }
 
+    @Test("RealSystemGRunSeam streams local model missions when a local client is registered")
+    @MainActor func realSystemGRunSeamStreamsLocalModelMission() async throws {
+        let client = SystemGRecordingLocalClient(streamChunks: ["local ", "System G answer"])
+        let seam = RealSystemGRunSeam(localModelClient: client)
+        let mission = AgentMissionPacket(
+            id: "m-local-system-g-1",
+            createdAt: Date(),
+            blueprintName: "local-blueprint",
+            role: "local research agent",
+            objective: "Use the local model path.",
+            model: .local(
+                modelID: "Qwen/Qwen3-8B-MLX-4bit",
+                displayName: "Qwen3 8B MLX"
+            ),
+            toolNames: [],
+            scope: .currentVault,
+            approvalMode: .autoReadOnly
+        )
+
+        let log = try await seam.run(mission: mission)
+        #expect(client.streamCallCount == 1)
+        #expect(client.generateCallCount == 0)
+        #expect(client.lastModelID == "Qwen/Qwen3-8B-MLX-4bit")
+        #expect(!log.missionId.isEmpty)
+        #expect(log.events.count == 5)
+        guard case .localModelHandoff(_, let modelID, let providerPolicyJSON) = log.events[1] else {
+            Issue.record("second event must be Rust local_model_handoff, got \(log.events[1])")
+            return
+        }
+        #expect(modelID == "Qwen/Qwen3-8B-MLX-4bit")
+        #expect(providerPolicyJSON.contains(#""kind":"local_mlx""#))
+        #expect(
+            log.replayDescription.contains("token_chunk text=local ")
+                && log.replayDescription.contains("token_chunk text=System G answer")
+        )
+        #expect(log.answerPacketId == "system-g-local-m-local-system-g-1")
+
+        let packets = await AnswerPacketEmitter.shared.recentPackets()
+        let packet = packets.last { $0.id == "system-g-local-m-local-system-g-1" }
+        #expect(packet?.witnessedStateRef.contains("model_id:Qwen/Qwen3-8B-MLX-4bit") == true)
+        #expect(packet?.attentionMode == .unavailable)
+    }
+
+    @Test("RealSystemGRunSeam live local model bridge writes falsifier artifact")
+    @MainActor func realSystemGLiveLocalModelBridgeWritesArtifact() async throws {
+        guard Self.liveSystemGLocalBridgeRequested() else {
+            return
+        }
+
+        let modelID = LocalTextModelID.qwen3_8B4Bit.rawValue
+        let bootstrap = try await LocalRuntimeSmokeSupport.preparedBootstrap(for: modelID)
+        await AnswerPacketEmitter.shared.resetForTesting()
+
+        let seam = RealSystemGRunSeam(
+            localModelClient: bootstrap.localLLMClient,
+            localMaxTokens: 48
+        )
+        let mission = AgentMissionPacket(
+            id: "m-live-system-g-local-\(UUID().uuidString)",
+            createdAt: Date(),
+            blueprintName: "live-local-bridge",
+            role: "local bridge verifier",
+            objective: "Reply with one concise sentence: Epistemos local System G bridge is alive.",
+            model: .local(
+                modelID: modelID,
+                displayName: LocalTextModelID.qwen3_8B4Bit.displayName
+            ),
+            toolNames: [],
+            scope: .currentVault,
+            approvalMode: .autoReadOnly
+        )
+
+        let startedAt = Date()
+        let log = try await seam.run(mission: mission)
+        let elapsedMs = Int(Date().timeIntervalSince(startedAt) * 1_000.0)
+        let tokenChunks = log.events.compactMap { event -> String? in
+            if case .tokenChunk(_, let text) = event {
+                return text
+            }
+            return nil
+        }
+        let outputText = tokenChunks.joined()
+        let handoffSeen = log.events.contains { event in
+            if case .localModelHandoff(_, let handoffModelID, _) = event {
+                return handoffModelID == modelID
+            }
+            return false
+        }
+        let packets = await AnswerPacketEmitter.shared.recentPackets()
+        let packet = packets.last { $0.id == log.answerPacketId }
+        let provenanceSeen = packet?.witnessedStateRef.contains("system_g_local_model") == true
+            && packet?.witnessedStateRef.contains("model_id:\(modelID)") == true
+
+        #expect(handoffSeen)
+        #expect(!outputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        #expect(provenanceSeen)
+        #expect(packet?.attentionMode == .unavailable)
+
+        let artifact = LiveSystemGLocalBridgeArtifact(
+            overallPass: handoffSeen
+                && !outputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && provenanceSeen,
+            promptCount: 1,
+            tokenChunkCount: tokenChunks.count,
+            totalOutputChars: outputText.count,
+            systemGLocalModelHandoffSeen: handoffSeen,
+            answerpacketLocalModelProvenanceSeen: provenanceSeen,
+            modelID: modelID,
+            missionID: mission.id,
+            runID: log.missionId,
+            answerPacketID: log.answerPacketId ?? "",
+            elapsedMs: elapsedMs,
+            generatedAtUnixMs: Int(Date().timeIntervalSince1970 * 1_000.0)
+        )
+        try Self.writeLiveSystemGLocalBridgeArtifact(artifact)
+
+        await bootstrap.localInferenceService.unload()
+    }
+
     @Test("RunEventLog.replayDescription is deterministic for byte-equal logs (W-16 step 1)")
     func runEventLogReplayDescriptionIsDeterministic() {
         // W-16 first step: replay-from-RunEventLog must produce the
@@ -268,6 +392,140 @@ struct SystemGRunSeamTests {
             Issue.record("expected CancellationError or success, got SystemGRunSeamError: \(error)")
         } catch {
             Issue.record("unexpected error: \(error)")
+        }
+    }
+
+    private struct LiveSystemGLocalBridgeArtifact: Encodable {
+        let overallPass: Bool
+        let promptCount: Int
+        let tokenChunkCount: Int
+        let totalOutputChars: Int
+        let systemGLocalModelHandoffSeen: Bool
+        let answerpacketLocalModelProvenanceSeen: Bool
+        let modelID: String
+        let missionID: String
+        let runID: String
+        let answerPacketID: String
+        let elapsedMs: Int
+        let generatedAtUnixMs: Int
+
+        enum CodingKeys: String, CodingKey {
+            case overallPass = "overall_pass"
+            case promptCount = "prompt_count"
+            case tokenChunkCount = "token_chunk_count"
+            case totalOutputChars = "total_output_chars"
+            case systemGLocalModelHandoffSeen = "system_g_local_model_handoff_seen"
+            case answerpacketLocalModelProvenanceSeen = "answerpacket_local_model_provenance_seen"
+            case modelID = "model_id"
+            case missionID = "mission_id"
+            case runID = "run_id"
+            case answerPacketID = "answer_packet_id"
+            case elapsedMs = "elapsed_ms"
+            case generatedAtUnixMs = "generated_at_unix_ms"
+        }
+    }
+
+    private static func writeLiveSystemGLocalBridgeArtifact(
+        _ artifact: LiveSystemGLocalBridgeArtifact
+    ) throws {
+        let url = repositoryRootURL()
+            .appendingPathComponent(
+                "artifacts/falsifiers/agent_local_model_runtime_bridge/live_prompt_suite.json"
+            )
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        try encoder.encode(artifact).write(to: url, options: .atomic)
+    }
+
+    private static func liveSystemGLocalBridgeRequested() -> Bool {
+        if ProcessInfo.processInfo.environment["EPISTEMOS_RUN_LIVE_SYSTEM_G_LOCAL_BRIDGE"] == "1" {
+            return true
+        }
+        let sentinel = repositoryRootURL()
+            .appendingPathComponent(".epistemos_run_live_system_g_local_bridge")
+        return FileManager.default.fileExists(atPath: sentinel.path)
+    }
+
+    private static func repositoryRootURL() -> URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+    }
+}
+
+@MainActor
+private final class SystemGRecordingLocalClient: LocalConfigurableLLMClient {
+    private let streamChunks: [String]
+    private(set) var generateCallCount = 0
+    private(set) var streamCallCount = 0
+    private(set) var lastModelID: String?
+
+    init(streamChunks: [String]) {
+        self.streamChunks = streamChunks
+    }
+
+    func generate(prompt: String, systemPrompt: String?, maxTokens: Int) async throws -> String {
+        try await generate(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens,
+            reasoningMode: .fast,
+            modelID: nil,
+            steeringHintsJSON: nil
+        )
+    }
+
+    func stream(prompt: String, systemPrompt: String?, maxTokens: Int) -> AsyncThrowingStream<String, Error> {
+        stream(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens,
+            reasoningMode: .fast,
+            modelID: nil,
+            steeringHintsJSON: nil
+        )
+    }
+
+    func testConnection() async -> ConnectionTestResult {
+        ConnectionTestResult(success: true, message: "ok")
+    }
+
+    func configSnapshot() -> LLMSnapshot {
+        LLMSnapshot(provider: .localMLX, model: "test-local", reasoningMode: .fast)
+    }
+
+    func generate(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        reasoningMode: LocalReasoningMode,
+        modelID: String?,
+        steeringHintsJSON: String?
+    ) async throws -> String {
+        generateCallCount += 1
+        lastModelID = modelID
+        return streamChunks.joined()
+    }
+
+    func stream(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        reasoningMode: LocalReasoningMode,
+        modelID: String?,
+        steeringHintsJSON: String?
+    ) -> AsyncThrowingStream<String, Error> {
+        streamCallCount += 1
+        lastModelID = modelID
+        return AsyncThrowingStream { continuation in
+            for chunk in streamChunks {
+                continuation.yield(chunk)
+            }
+            continuation.finish()
         }
     }
 }

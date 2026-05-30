@@ -39,7 +39,11 @@ impl UasAddress {
 
     /// Build from an already-computed hash.
     pub fn from_hash(kind: UasKind, hash: Hash, created_at_ms: u64) -> Self {
-        Self { kind, hash, created_at_ms }
+        Self {
+            kind,
+            hash,
+            created_at_ms,
+        }
     }
 }
 
@@ -61,10 +65,18 @@ pub enum UasAddressParseError {
 impl fmt::Display for UasAddressParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            UasAddressParseError::BadShape => write!(f, "UasAddress wire-format must be `<kind>:<hex>@<ms>`"),
-            UasAddressParseError::BadKind(k) => write!(f, "malformed UasKind wire tag `{}` (empty)", k),
-            UasAddressParseError::BadHash(h) => write!(f, "invalid BLAKE3 hex `{}` (expected 64 hex chars)", h),
-            UasAddressParseError::BadCreatedAt(ms) => write!(f, "invalid created_at_ms `{}` (expected u64)", ms),
+            UasAddressParseError::BadShape => {
+                write!(f, "UasAddress wire-format must be `<kind>:<hex>@<ms>`")
+            }
+            UasAddressParseError::BadKind(k) => {
+                write!(f, "malformed UasKind wire tag `{}` (empty)", k)
+            }
+            UasAddressParseError::BadHash(h) => {
+                write!(f, "invalid BLAKE3 hex `{}` (expected 64 hex chars)", h)
+            }
+            UasAddressParseError::BadCreatedAt(ms) => {
+                write!(f, "invalid created_at_ms `{}` (expected u64)", ms)
+            }
         }
     }
 }
@@ -106,7 +118,11 @@ impl FromStr for UasAddress {
             .parse::<u64>()
             .map_err(|_| UasAddressParseError::BadCreatedAt(ms_part.to_string()))?;
 
-        Ok(UasAddress { kind, hash, created_at_ms })
+        Ok(UasAddress {
+            kind,
+            hash,
+            created_at_ms,
+        })
     }
 }
 
@@ -163,8 +179,12 @@ mod tests {
         // malformed (empty) tag segments.
         let fake_hex: String = std::iter::repeat('a').take(64).collect();
         let s = format!("future_variant_xyz:{}@0", fake_hex);
-        let parsed = UasAddress::from_str(&s).expect("unknown kind must fall back to Other, not error");
-        assert_eq!(parsed.kind, UasKind::Other("future_variant_xyz".to_string()));
+        let parsed =
+            UasAddress::from_str(&s).expect("unknown kind must fall back to Other, not error");
+        assert_eq!(
+            parsed.kind,
+            UasKind::Other("future_variant_xyz".to_string())
+        );
     }
 
     #[test]

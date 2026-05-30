@@ -1,0 +1,12 @@
+0.00.071.333 I common_init_result: fitting params to device memory ...
+0.00.071.335 I common_init_result: (for bugs during this step try to reproduce them with -fit off, or provide --verbose logs if the bug only occurs with -fit on)
+0.00.332.613 W load: control-looking token: 128247 '</s>' was not control-type; this is probably a bug in the model. its type will be overridden
+0.00.849.705 W llama_context: n_ctx_seq (256) < n_ctx_train (131072) -- the full capacity of the model will not be utilized
+0.00.871.241 I common_init_from_params: warming up the model with an empty run - please wait ... (--no-warmup to disable)
+0.00.966.937 I 
+0.00.966.969 I system_info: n_threads = 8 (n_threads_batch = 8) / 12 | MTL : EMBED_LIBRARY = 1 | CPU : NEON = 1 | ARM_FMA = 1 | MATMUL_INT8 = 1 | DOTPROD = 1 | ACCELERATE = 1 | OPENMP = 1 | REPACK = 1 | 
+0.00.967.326 I perplexity: saving all logits to /Users/jojo/Downloads/Epistemos/artifacts/falsifiers/qwen3_8b_128k_gguf_route/live_kl/reference_logits.bin
+0.00.967.334 I perplexity: tokenizing the input ..
+0.00.976.049 I perplexity: tokenization took 8.713 ms
+0.00.976.244 I perplexity: calculating perplexity over 84 chunks, n_ctx=128, batch_size=64, n_seq=1
+0.01.470.018 I perplexity: 0.49 seconds per pass - ETA 0.41.085.521 I Final estimate: PPL = 1.0025 +/- 0.00018

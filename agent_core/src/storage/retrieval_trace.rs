@@ -253,6 +253,12 @@ pub struct PageGatherEscalationTrace {
     pub schedule_class: Option<PageGatherScheduleClass>,
     #[serde(default)]
     pub locality_block_elements: Option<usize>,
+    #[serde(default)]
+    pub packetized_caller_consumed: bool,
+    #[serde(default)]
+    pub packets_emitted: usize,
+    #[serde(default)]
+    pub dense_restore_deferred: bool,
 }
 
 impl PageGatherEscalationTrace {
@@ -270,7 +276,17 @@ impl PageGatherEscalationTrace {
             deferred_falsifier: "F-PageGather-Scatter".to_string(),
             schedule_class: Some(PageGatherScheduleClass::BlockSorted),
             locality_block_elements: Some(crate::helios::DEFAULT_PAGE_GATHER_BLOCK_ELEMENTS),
+            packetized_caller_consumed: false,
+            packets_emitted: 0,
+            dense_restore_deferred: false,
         }
+    }
+
+    pub fn with_packetized_caller(mut self, packets_emitted: usize) -> Self {
+        self.packetized_caller_consumed = true;
+        self.packets_emitted = packets_emitted;
+        self.dense_restore_deferred = true;
+        self
     }
 }
 

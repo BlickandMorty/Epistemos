@@ -56,11 +56,11 @@ For the next schema bump, `machine` maps to `model_identifier`, `cpu` maps to `c
 
 ## Falsifier ID Rule
 
-`falsifier_id` must be the exact canonical row identifier from the handbook and the matching fragment frontmatter. The JSON Schema fragment enumerates the 15 accepted IDs; aliases such as `F-ULP`, `F-KV-Direct`, or `F-VaultRecall` are allowed in prose only and fail artifact identity.
+`falsifier_id` must be the exact canonical row identifier from the handbook and the matching fragment frontmatter. The JSON Schema fragment enumerates the accepted IDs; aliases such as `F-ULP`, `F-KV-Direct`, or `F-VaultRecall` are allowed in prose only and fail artifact identity.
 
 ## Falsifier Map Alignment Rule
 
-The `falsifier_id` enum, cross-gate axis floor table, command path map, and expected artifact root map must cover the same 15 canonical IDs. Adding, removing, or renaming a gate is invalid unless all four surfaces change together.
+The `falsifier_id` enum, cross-gate axis floor table, command path map, and expected artifact root map must cover the same canonical ID set. Adding, removing, or renaming a gate is invalid unless all four surfaces change together.
 
 ## Schema Version Rule
 
@@ -158,15 +158,23 @@ The command string is normalized only by removing the handbook's leading `NOT IM
 | `F-PageGather-Scatter` | `tools/falsifiers/f_page_gather_scatter.sh` |
 | `F-UAS-CopyCount` | `tools/falsifiers/f_uas_copy_count.sh` |
 | `F-ACS-AnchorLookup` | `tools/falsifiers/f_acs_anchor_lookup.sh` |
+| `F-UAS-ACS-MmapResidency` | `tools/falsifiers/f_uas_acs_mmap_residency.sh` |
 | `F-InterruptScore-CPU` | `tools/falsifiers/f_interrupt_score_cpu.sh` |
 | `F-PacketRouter1bit` | `tools/falsifiers/f_packet_router_1bit.sh` |
 | `F-ControllerKernelPack` | `tools/falsifiers/f_controller_kernel_pack.sh` |
 | `F-SemiseparableBlockScan` | `tools/falsifiers/f_semiseparable_block_scan.sh` |
 | `F-LocalRecallIsland` | `tools/falsifiers/f_local_recall_island.sh` |
 | `F-KV-Direct-Gate` | `tools/falsifiers/f_kv_direct_gate.sh` |
+| `F-Qwen3-8B-128K-GGUF-Route` | `tools/falsifiers/f_qwen3_8b_128k_gguf_route.sh` |
 | `F-WBO-DriftLedger` | `tools/falsifiers/f_wbo_drift_ledger.sh` |
 | `F-ULP-Oracle` | `tools/falsifiers/f_ulp_oracle.sh` |
+| `F-ResidencyPlan-DryRun` | `Tools/falsifiers/f_residency_plan_dry_run.sh` |
+| `F-ProviderReferenceManifest-DryRun` | `Tools/falsifiers/f_provider_reference_manifest_dry_run.sh` |
+| `F-WeightBlockRangeHash-DryRun` | `Tools/falsifiers/f_weight_block_range_hash_dry_run.sh` |
 | `F-70B-Local-Cocktail-Lite` | `tools/falsifiers/f_70b_local_cocktail_lite.sh` |
+| `F-Agent-Local-Model-Runtime-Bridge` | `tools/falsifiers/f_agent_local_model_runtime_bridge.sh` |
+| `F-Capability-Ceiling-Evaluation-Kernel` | `tools/falsifiers/f_capability_ceiling_evaluation_kernel.sh` |
+| `F-Architecture-Pending-Work-Guard` | `tools/falsifiers/f_architecture_pending_work_guard.sh` |
 
 ## Timestamp Rule
 
@@ -224,8 +232,8 @@ Downstream falsifiers must name their upstream artifacts when a pass claim depen
 |---|---|---|
 | `F-PageGather-Scatter` | `F-PageGather-Baseline` | Scatter throughput thresholds must include `upstream_artifact` and `upstream_axis` pointing at the baseline calibration artifact. |
 | `F-LocalRecallIsland` | `F-SemiseparableBlockScan` when citing state-kernel acceleration | Any recall-island artifact that cites semiseparable acceleration must reference the block-scan correctness artifact. |
-| `F-KV-Direct-Gate` | `F-WBO-DriftLedger` when claiming bounded approximation debt | Any residual-patched or compressed KV pass claim must reference a WBO drift artifact for the same prompt class. |
-| `F-70B-Local-Cocktail-Lite` | Any component falsifier it uses as a cocktail dependency | PageGather, KV-Direct, LocalRecallIsland, WBO, or provider-reference components must be linked by artifact path or provider receipt. |
+| `F-KV-Direct-Gate` | `F-UAS-ACS-MmapResidency` for file-backed residency and `F-WBO-DriftLedger` when claiming bounded approximation debt | Any residual-patched or compressed KV pass claim must reference the mmap residency witness plus a WBO drift artifact for the same prompt class. |
+| `F-70B-Local-Cocktail-Lite` | Any component falsifier it uses as a cocktail dependency, including `F-WeightBlockRangeHash-DryRun` before `F-ResidencyPlan-DryRun` and before any live 70B probe | PageGather, KV-Direct, LocalRecallIsland, WBO, range-hash, residency-plan, or provider-reference components must be linked by artifact path or provider receipt. |
 
 ## Artifact Reference Rule
 
@@ -249,15 +257,23 @@ If a threshold includes `upstream_artifact`, it must also include `upstream_axis
 | `F-PageGather-Scatter` | `artifacts/falsifiers/page_gather/scatter/` |
 | `F-UAS-CopyCount` | `artifacts/falsifiers/uas_copy_count/` |
 | `F-ACS-AnchorLookup` | `artifacts/falsifiers/acs_anchor_lookup/` |
+| `F-UAS-ACS-MmapResidency` | `artifacts/falsifiers/uas_acs_mmap_residency/` |
 | `F-InterruptScore-CPU` | `artifacts/falsifiers/interrupt_score_cpu/` |
 | `F-PacketRouter1bit` | `artifacts/falsifiers/packet_router_1bit/` |
 | `F-ControllerKernelPack` | `artifacts/falsifiers/controller_kernel_pack/` |
 | `F-SemiseparableBlockScan` | `artifacts/falsifiers/semiseparable_block_scan/` |
 | `F-LocalRecallIsland` | `artifacts/falsifiers/local_recall_island/` |
 | `F-KV-Direct-Gate` | `artifacts/falsifiers/kv_direct_gate/` |
+| `F-Qwen3-8B-128K-GGUF-Route` | `artifacts/falsifiers/qwen3_8b_128k_gguf_route/` |
 | `F-WBO-DriftLedger` | `artifacts/falsifiers/wbo_drift_ledger/` |
 | `F-ULP-Oracle` | `artifacts/falsifiers/ulp_oracle/` |
+| `F-ResidencyPlan-DryRun` | `artifacts/falsifiers/residency_plan_dry_run/` |
+| `F-ProviderReferenceManifest-DryRun` | `artifacts/falsifiers/provider_reference_manifest_dry_run/` |
+| `F-WeightBlockRangeHash-DryRun` | `artifacts/falsifiers/weight_block_range_hash_dry_run/` |
 | `F-70B-Local-Cocktail-Lite` | `artifacts/falsifiers/70b_local_cocktail_lite/` |
+| `F-Agent-Local-Model-Runtime-Bridge` | `artifacts/falsifiers/agent_local_model_runtime_bridge/` |
+| `F-Capability-Ceiling-Evaluation-Kernel` | `artifacts/falsifiers/capability_ceiling_evaluation_kernel/` |
+| `F-Architecture-Pending-Work-Guard` | `artifacts/falsifiers/architecture_pending_work_guard/` |
 
 The artifact file path is validator input, not a JSON payload field. Adding `artifact_path` inside the witness JSON fails `additionalProperties: false`; placing the file outside its mapped root fails replay eligibility. Canonical witness filenames are `result.json` for object artifacts and `result.jsonl` only for row-stream artifacts such as `F-WBO-DriftLedger`; every other falsifier must use `result.json`. Sidecars may be referenced as raw evidence but cannot replace the canonical witness file.
 
@@ -415,15 +431,21 @@ These are the minimum axis keys each F-* artifact must cover in `measurements`, 
 | `F-PageGather-Scatter` | `scatter_bw_256mb`, `scatter_bw_512mb`, `baseline_ratio`, `correctness_digest`, `window_seconds` |
 | `F-UAS-CopyCount` | `tensor_copy_count`, `data_copy_bytes`, `metadata_copy_ledger`, `stack_label_coverage` |
 | `F-ACS-AnchorLookup` | `round_trip_field_digest`, `invalid_theorem_rejection`, `projection_integrity` |
+| `F-UAS-ACS-MmapResidency` | `mmap_backed_bytes`, `file_len_matches_mmap`, `uas_address_round_trip`, `acs_projection_lookup`, `residency_lease_round_trip`, `sampled_page_checksum_match`, `invalid_offset_rejection`, `hot_path_tracked_copies`, `hot_path_data_copy_bytes` |
 | `F-InterruptScore-CPU` | `equation_match`, `clamp_bounds`, `bucket_boundaries`, `p99_latency_us` |
 | `F-PacketRouter1bit` | `p99_latency_us`, `reconstruction_digest`, `mask_class_breakdown`, `lane_balance_report` |
 | `F-ControllerKernelPack` | `per_kernel_equivalence`, `fp32_max_diff`, `threadgroup_budget`, `unsupported_case_ledger` |
 | `F-SemiseparableBlockScan` | `core_max_abs_diff`, `final_state_diff`, `chunk_size`, `ngroups`, `stretch_labeling` |
 | `F-LocalRecallIsland` | `peak_memory_gb`, `passkey_recall`, `niah_single_1`, `depth_failure_labels` |
 | `F-KV-Direct-Gate` | `average_d_kl_nats`, `peak_ram_gb`, `decode_tok_s`, `suite_wall_clock_min`, `spill_labeling` |
+| `F-Qwen3-8B-128K-GGUF-Route` | `model_identity_matches_gguf_target`, `model_context_window_tokens`, `average_d_kl_nats`, `peak_ram_gb`, `decode_tok_s`, `suite_wall_clock_min` |
 | `F-WBO-DriftLedger` | `finite_nonnegative_terms`, `envelope_bound`, `post_softmax_drift`, `missing_term_fail_closed` |
 | `F-ULP-Oracle` | `max_ulp`, `comparable_points_over_2ulp`, `stress_case_classification`, `wall_clock_seconds` |
-| `F-70B-Local-Cocktail-Lite` | `d_kl_nats`, `decode_tok_s`, `ttft_seconds`, `resident_memory_gb`, `bottleneck_identified` |
+| `F-ResidencyPlan-DryRun` | `fit_for_dry_run`, `deterministic_plan_address`, `active_runtime_bytes`, `cold_mmap_ssd_bytes`, `runtime_model_bytes_loaded`, `missing_rollback_rejected`, `sherry_and_leech_codec_names_present` |
+| `F-ProviderReferenceManifest-DryRun` | `shape_fixture_written`, `manifest_valid`, `prompt_level_reference`, `does_not_advance_70b_reference_gate`, `row_root_path`, `digest_matches_sidecar`, `prompt_suite_bound`, `no_provider_call` |
+| `F-WeightBlockRangeHash-DryRun` | `bounded_range_hashed`, `range_len_bytes`, `over_limit_rejected_before_read`, `short_reader_rejected`, `known_hash_manifest_valid`, `no_model_file_touched` |
+| `F-70B-Local-Cocktail-Lite` | `d_kl_nats`, `decode_tok_s`, `ttft_seconds`, `resident_memory_gb`, `bottleneck_identified`, `weight_block_range_hash_dry_run_available` |
+| `F-Agent-Local-Model-Runtime-Bridge` | `local_model_catalog_available`, `provider_policy_local_mlx_available`, `system_g_event_seam_available`, `local_agent_adapter_dispatch_wired`, `system_g_local_model_provider_dispatch_wired`, `live_local_model_answerpacket_provenance_wired` |
 
 ## T12 F-ULP Witness Correspondence
 
@@ -720,15 +742,21 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
         "F-PageGather-Scatter",
         "F-UAS-CopyCount",
         "F-ACS-AnchorLookup",
+        "F-UAS-ACS-MmapResidency",
         "F-InterruptScore-CPU",
         "F-PacketRouter1bit",
         "F-ControllerKernelPack",
         "F-SemiseparableBlockScan",
         "F-LocalRecallIsland",
         "F-KV-Direct-Gate",
+        "F-Qwen3-8B-128K-GGUF-Route",
         "F-WBO-DriftLedger",
         "F-ULP-Oracle",
-        "F-70B-Local-Cocktail-Lite"
+        "F-ResidencyPlan-DryRun",
+        "F-ProviderReferenceManifest-DryRun",
+        "F-WeightBlockRangeHash-DryRun",
+        "F-70B-Local-Cocktail-Lite",
+        "F-Agent-Local-Model-Runtime-Bridge"
       ]
     },
     "schema_version": {
@@ -745,7 +773,7 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
     "command": {
       "type": "string",
       "minLength": 1,
-      "pattern": "^tools/falsifiers/[a-z0-9_]+\\.sh(?: [A-Za-z0-9._=:/,-]+)*$"
+      "pattern": "^(?:tools|Tools)/falsifiers/[a-z0-9_]+\\.sh(?: [A-Za-z0-9._=:/,-]+)*$"
     },
     "command_digest": {
       "type": "string",
@@ -1345,6 +1373,19 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
     },
     {
       "if": {
+        "properties": { "falsifier_id": { "const": "F-UAS-ACS-MmapResidency" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["mmap_backed_bytes", "file_len_matches_mmap", "uas_address_round_trip", "acs_projection_lookup", "residency_lease_round_trip", "sampled_page_checksum_match", "invalid_offset_rejection", "hot_path_tracked_copies", "hot_path_data_copy_bytes"] },
+          "acceptance_thresholds": { "required": ["mmap_backed_bytes", "file_len_matches_mmap", "uas_address_round_trip", "acs_projection_lookup", "residency_lease_round_trip", "sampled_page_checksum_match", "invalid_offset_rejection", "hot_path_tracked_copies", "hot_path_data_copy_bytes"] },
+          "pass_per_axis": { "required": ["mmap_backed_bytes", "file_len_matches_mmap", "uas_address_round_trip", "acs_projection_lookup", "residency_lease_round_trip", "sampled_page_checksum_match", "invalid_offset_rejection", "hot_path_tracked_copies", "hot_path_data_copy_bytes"] }
+        }
+      }
+    },
+    {
+      "if": {
         "properties": { "falsifier_id": { "const": "F-InterruptScore-CPU" } },
         "required": ["falsifier_id"]
       },
@@ -1423,6 +1464,19 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
     },
     {
       "if": {
+        "properties": { "falsifier_id": { "const": "F-Qwen3-8B-128K-GGUF-Route" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["model_identity_matches_gguf_target", "model_context_window_tokens", "average_d_kl_nats", "peak_ram_gb", "decode_tok_s", "suite_wall_clock_min"] },
+          "acceptance_thresholds": { "required": ["model_identity_matches_gguf_target", "model_context_window_tokens", "average_d_kl_nats", "peak_ram_gb", "decode_tok_s", "suite_wall_clock_min"] },
+          "pass_per_axis": { "required": ["model_identity_matches_gguf_target", "model_context_window_tokens", "average_d_kl_nats", "peak_ram_gb", "decode_tok_s", "suite_wall_clock_min"] }
+        }
+      }
+    },
+    {
+      "if": {
         "properties": { "falsifier_id": { "const": "F-WBO-DriftLedger" } },
         "required": ["falsifier_id"]
       },
@@ -1449,14 +1503,53 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
     },
     {
       "if": {
+        "properties": { "falsifier_id": { "const": "F-ResidencyPlan-DryRun" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["fit_for_dry_run", "deterministic_plan_address", "active_runtime_bytes", "cold_mmap_ssd_bytes", "runtime_model_bytes_loaded", "missing_rollback_rejected", "sherry_and_leech_codec_names_present"] },
+          "acceptance_thresholds": { "required": ["fit_for_dry_run", "deterministic_plan_address", "active_runtime_bytes", "cold_mmap_ssd_bytes", "runtime_model_bytes_loaded", "missing_rollback_rejected", "sherry_and_leech_codec_names_present"] },
+          "pass_per_axis": { "required": ["fit_for_dry_run", "deterministic_plan_address", "active_runtime_bytes", "cold_mmap_ssd_bytes", "runtime_model_bytes_loaded", "missing_rollback_rejected", "sherry_and_leech_codec_names_present"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "falsifier_id": { "const": "F-ProviderReferenceManifest-DryRun" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["shape_fixture_written", "manifest_valid", "prompt_level_reference", "does_not_advance_70b_reference_gate", "row_root_path", "digest_matches_sidecar", "prompt_suite_bound", "no_provider_call"] },
+          "acceptance_thresholds": { "required": ["shape_fixture_written", "manifest_valid", "prompt_level_reference", "does_not_advance_70b_reference_gate", "row_root_path", "digest_matches_sidecar", "prompt_suite_bound", "no_provider_call"] },
+          "pass_per_axis": { "required": ["shape_fixture_written", "manifest_valid", "prompt_level_reference", "does_not_advance_70b_reference_gate", "row_root_path", "digest_matches_sidecar", "prompt_suite_bound", "no_provider_call"] }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "falsifier_id": { "const": "F-WeightBlockRangeHash-DryRun" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": { "required": ["bounded_range_hashed", "range_len_bytes", "over_limit_rejected_before_read", "short_reader_rejected", "known_hash_manifest_valid", "no_model_file_touched"] },
+          "acceptance_thresholds": { "required": ["bounded_range_hashed", "range_len_bytes", "over_limit_rejected_before_read", "short_reader_rejected", "known_hash_manifest_valid", "no_model_file_touched"] },
+          "pass_per_axis": { "required": ["bounded_range_hashed", "range_len_bytes", "over_limit_rejected_before_read", "short_reader_rejected", "known_hash_manifest_valid", "no_model_file_touched"] }
+        }
+      }
+    },
+    {
+      "if": {
         "properties": { "falsifier_id": { "const": "F-70B-Local-Cocktail-Lite" } },
         "required": ["falsifier_id"]
       },
       "then": {
         "properties": {
-          "measurements": { "required": ["d_kl_nats", "decode_tok_s", "ttft_seconds", "resident_memory_gb", "bottleneck_identified"] },
-          "acceptance_thresholds": { "required": ["d_kl_nats", "decode_tok_s", "ttft_seconds", "resident_memory_gb", "bottleneck_identified"] },
-          "pass_per_axis": { "required": ["d_kl_nats", "decode_tok_s", "ttft_seconds", "resident_memory_gb", "bottleneck_identified"] }
+          "measurements": { "required": ["d_kl_nats", "decode_tok_s", "ttft_seconds", "resident_memory_gb", "bottleneck_identified", "weight_block_range_hash_dry_run_available"] },
+          "acceptance_thresholds": { "required": ["d_kl_nats", "decode_tok_s", "ttft_seconds", "resident_memory_gb", "bottleneck_identified", "weight_block_range_hash_dry_run_available"] },
+          "pass_per_axis": { "required": ["d_kl_nats", "decode_tok_s", "ttft_seconds", "resident_memory_gb", "bottleneck_identified", "weight_block_range_hash_dry_run_available"] }
         },
         "anyOf": [
           { "required": ["provider_receipts"] },
@@ -1469,6 +1562,46 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
             "required": ["notes"]
           }
         ]
+      }
+    },
+    {
+      "if": {
+        "properties": { "falsifier_id": { "const": "F-Agent-Local-Model-Runtime-Bridge" } },
+        "required": ["falsifier_id"]
+      },
+      "then": {
+        "properties": {
+          "measurements": {
+            "required": [
+              "local_model_catalog_available",
+              "provider_policy_local_mlx_available",
+              "system_g_event_seam_available",
+              "local_agent_adapter_dispatch_wired",
+              "system_g_local_model_provider_dispatch_wired",
+              "live_local_model_answerpacket_provenance_wired"
+            ]
+          },
+          "acceptance_thresholds": {
+            "required": [
+              "local_model_catalog_available",
+              "provider_policy_local_mlx_available",
+              "system_g_event_seam_available",
+              "local_agent_adapter_dispatch_wired",
+              "system_g_local_model_provider_dispatch_wired",
+              "live_local_model_answerpacket_provenance_wired"
+            ]
+          },
+          "pass_per_axis": {
+            "required": [
+              "local_model_catalog_available",
+              "provider_policy_local_mlx_available",
+              "system_g_event_seam_available",
+              "local_agent_adapter_dispatch_wired",
+              "system_g_local_model_provider_dispatch_wired",
+              "live_local_model_answerpacket_provenance_wired"
+            ]
+          }
+        }
       }
     }
   ],

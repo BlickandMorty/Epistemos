@@ -107,15 +107,26 @@ pub enum KvImplantError {
     /// Restore targeted a layer index outside `0..impl.layer_count()`.
     LayerOutOfRange { layer: usize, layer_count: usize },
     /// Restore position would walk off the end of the destination cache.
-    PositionOutOfRange { position: usize, dest_seq_len: usize, src_seq_len: usize },
+    PositionOutOfRange {
+        position: usize,
+        dest_seq_len: usize,
+        src_seq_len: usize,
+    },
     /// dtype mismatch between snapshot and destination cache.
-    DtypeMismatch { snapshot: KvDtype, destination: KvDtype },
+    DtypeMismatch {
+        snapshot: KvDtype,
+        destination: KvDtype,
+    },
 }
 
 pub trait KvCacheImplanter {
     fn layer_count(&self) -> usize;
 
-    fn snapshot(&self, model_id: &str, created_at_unix_secs: i64) -> Result<KvCacheSnapshot, KvImplantError>;
+    fn snapshot(
+        &self,
+        model_id: &str,
+        created_at_unix_secs: i64,
+    ) -> Result<KvCacheSnapshot, KvImplantError>;
 
     fn restore(
         &mut self,
@@ -156,10 +167,13 @@ impl KvCacheImplanter for MockKvCacheImplanter {
         self.layers.len()
     }
 
-    fn snapshot(&self, model_id: &str, created_at_unix_secs: i64) -> Result<KvCacheSnapshot, KvImplantError> {
+    fn snapshot(
+        &self,
+        model_id: &str,
+        created_at_unix_secs: i64,
+    ) -> Result<KvCacheSnapshot, KvImplantError> {
         for layer in &self.layers {
-            let key_expected =
-                layer.shape.element_count() * layer.keys_dtype.byte_size();
+            let key_expected = layer.shape.element_count() * layer.keys_dtype.byte_size();
             if layer.keys.len() != key_expected {
                 return Err(KvImplantError::SnapshotShapeMismatch {
                     expected: key_expected,
@@ -167,8 +181,7 @@ impl KvCacheImplanter for MockKvCacheImplanter {
                     which: "keys",
                 });
             }
-            let val_expected =
-                layer.shape.element_count() * layer.values_dtype.byte_size();
+            let val_expected = layer.shape.element_count() * layer.values_dtype.byte_size();
             if layer.values.len() != val_expected {
                 return Err(KvImplantError::SnapshotShapeMismatch {
                     expected: val_expected,
@@ -239,7 +252,11 @@ mod tests {
     use super::*;
 
     fn shape_for(seq_len: usize) -> KvShape {
-        KvShape { n_heads: 2, head_dim: 3, seq_len }
+        KvShape {
+            n_heads: 2,
+            head_dim: 3,
+            seq_len,
+        }
     }
 
     #[test]
@@ -251,7 +268,11 @@ mod tests {
 
     #[test]
     fn element_count_multiplies_three_axes() {
-        let s = KvShape { n_heads: 4, head_dim: 8, seq_len: 16 };
+        let s = KvShape {
+            n_heads: 4,
+            head_dim: 8,
+            seq_len: 16,
+        };
         assert_eq!(s.element_count(), 4 * 8 * 16);
     }
 
@@ -294,7 +315,13 @@ mod tests {
         let snap = mock_src.snapshot("m", 0).unwrap();
         let mut mock_dst = MockKvCacheImplanter::empty(1, shape_for(4), KvDtype::Float32);
         let err = mock_dst.restore(&snap, 99, 0).unwrap_err();
-        assert_eq!(err, KvImplantError::LayerOutOfRange { layer: 99, layer_count: 1 });
+        assert_eq!(
+            err,
+            KvImplantError::LayerOutOfRange {
+                layer: 99,
+                layer_count: 1
+            }
+        );
     }
 
     #[test]
@@ -304,7 +331,11 @@ mod tests {
         let mut mock_dst = MockKvCacheImplanter::empty(1, shape_for(3), KvDtype::Float32);
         let err = mock_dst.restore(&snap, 0, 2).unwrap_err();
         match err {
-            KvImplantError::PositionOutOfRange { position, dest_seq_len, src_seq_len } => {
+            KvImplantError::PositionOutOfRange {
+                position,
+                dest_seq_len,
+                src_seq_len,
+            } => {
                 assert_eq!(position, 2);
                 assert_eq!(dest_seq_len, 3);
                 assert_eq!(src_seq_len, 2);
@@ -373,7 +404,11 @@ mod tests {
 
     #[test]
     fn shape_byte_size_multiplies_element_count_by_dtype() {
-        let s = KvShape { n_heads: 4, head_dim: 64, seq_len: 32 };
+        let s = KvShape {
+            n_heads: 4,
+            head_dim: 64,
+            seq_len: 32,
+        };
         // element_count = 4*64*32 = 8192
         assert_eq!(s.element_count(), 8192);
         assert_eq!(s.byte_size(KvDtype::Float16), 8192 * 2);
@@ -425,7 +460,11 @@ mod tests {
         // 32K seq_len, fp16. Per layer: 32 * 128 * 32768 * 2 (fp16) = 256 MB
         // keys + 256 MB values = 512 MB/layer × 32 layers = 16 GB total
         // (the canonical "why we need KV-cache compression" number).
-        let shape = KvShape { n_heads: 32, head_dim: 128, seq_len: 32_768 };
+        let shape = KvShape {
+            n_heads: 32,
+            head_dim: 128,
+            seq_len: 32_768,
+        };
         let per_layer = shape.byte_size(KvDtype::Float16);
         assert_eq!(per_layer, 256 * 1024 * 1024); // 256 MB
         let mock = MockKvCacheImplanter::empty(32, shape, KvDtype::Float16);

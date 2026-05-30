@@ -148,7 +148,12 @@ mod tests {
         let input = json!({"thought": "I should search vault.notes before answering."});
 
         let r = run_with_variants(&tool, &ctx, input.clone()).await;
-        assert_eq!(r.meta.status, Status::Ok, "expected Ok, got {:?}", r.meta.status);
+        assert_eq!(
+            r.meta.status,
+            Status::Ok,
+            "expected Ok, got {:?}",
+            r.meta.status
+        );
         assert_eq!(r.meta.variant_used, VariantId::A);
         assert_eq!(
             r.result["thought"].as_str().unwrap(),

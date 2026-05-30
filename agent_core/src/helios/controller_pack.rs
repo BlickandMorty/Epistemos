@@ -41,7 +41,9 @@ pub fn scalar_mul_in_place(a: &mut [f32], scalar: f32) {
 
 pub fn max_reduce(a: &[f32]) -> Result<f32, ControllerKernelError> {
     if a.is_empty() {
-        return Err(ControllerKernelError::EmptyInput { which: "max_reduce" });
+        return Err(ControllerKernelError::EmptyInput {
+            which: "max_reduce",
+        });
     }
     let mut best = a[0];
     for &v in &a[1..] {
@@ -54,7 +56,9 @@ pub fn max_reduce(a: &[f32]) -> Result<f32, ControllerKernelError> {
 
 pub fn argmax_reduce(a: &[f32]) -> Result<usize, ControllerKernelError> {
     if a.is_empty() {
-        return Err(ControllerKernelError::EmptyInput { which: "argmax_reduce" });
+        return Err(ControllerKernelError::EmptyInput {
+            which: "argmax_reduce",
+        });
     }
     let mut best_idx: usize = 0;
     let mut best_val = a[0];
@@ -90,7 +94,9 @@ pub fn zero_fill(a: &mut [f32]) {
 /// non-NaN side.
 pub fn min_reduce(a: &[f32]) -> Result<f32, ControllerKernelError> {
     if a.is_empty() {
-        return Err(ControllerKernelError::EmptyInput { which: "min_reduce" });
+        return Err(ControllerKernelError::EmptyInput {
+            which: "min_reduce",
+        });
     }
     let mut best = a[0];
     for &v in &a[1..] {
@@ -105,7 +111,9 @@ pub fn min_reduce(a: &[f32]) -> Result<f32, ControllerKernelError> {
 /// [`argmax_reduce`].
 pub fn argmin_reduce(a: &[f32]) -> Result<usize, ControllerKernelError> {
     if a.is_empty() {
-        return Err(ControllerKernelError::EmptyInput { which: "argmin_reduce" });
+        return Err(ControllerKernelError::EmptyInput {
+            which: "argmin_reduce",
+        });
     }
     let mut best_idx: usize = 0;
     let mut best_val = a[0];
@@ -125,7 +133,9 @@ pub fn argmin_reduce(a: &[f32]) -> Result<usize, ControllerKernelError> {
 /// well-conditioned (no catastrophic cancellation).
 pub fn sum_reduce(a: &[f32]) -> Result<f32, ControllerKernelError> {
     if a.is_empty() {
-        return Err(ControllerKernelError::EmptyInput { which: "sum_reduce" });
+        return Err(ControllerKernelError::EmptyInput {
+            which: "sum_reduce",
+        });
     }
     let mut acc = 0.0_f32;
     for &v in a {
@@ -181,7 +191,12 @@ mod tests {
     #[test]
     fn max_reduce_empty_errors() {
         let err = max_reduce(&[]).unwrap_err();
-        assert_eq!(err, ControllerKernelError::EmptyInput { which: "max_reduce" });
+        assert_eq!(
+            err,
+            ControllerKernelError::EmptyInput {
+                which: "max_reduce"
+            }
+        );
     }
 
     #[test]
@@ -195,7 +210,9 @@ mod tests {
         let err = argmax_reduce(&[]).unwrap_err();
         assert_eq!(
             err,
-            ControllerKernelError::EmptyInput { which: "argmax_reduce" }
+            ControllerKernelError::EmptyInput {
+                which: "argmax_reduce"
+            }
         );
     }
 
@@ -259,12 +276,20 @@ mod tests {
 
     #[test]
     fn error_variants_distinguishable_by_pattern_match() {
-        let empty = ControllerKernelError::EmptyInput { which: "max_reduce" };
+        let empty = ControllerKernelError::EmptyInput {
+            which: "max_reduce",
+        };
         let mismatch = ControllerKernelError::LengthMismatch { dst: 3, src: 2 };
         let oob = ControllerKernelError::RangeOutOfBounds { len: 5, end: 10 };
         assert!(matches!(empty, ControllerKernelError::EmptyInput { .. }));
-        assert!(matches!(mismatch, ControllerKernelError::LengthMismatch { .. }));
-        assert!(matches!(oob, ControllerKernelError::RangeOutOfBounds { .. }));
+        assert!(matches!(
+            mismatch,
+            ControllerKernelError::LengthMismatch { .. }
+        ));
+        assert!(matches!(
+            oob,
+            ControllerKernelError::RangeOutOfBounds { .. }
+        ));
     }
 
     // ── min_reduce + argmin_reduce + sum_reduce (iter 124) ──────────────────
@@ -273,7 +298,12 @@ mod tests {
     fn min_reduce_empty_errors() {
         let a: Vec<f32> = vec![];
         let err = min_reduce(&a).unwrap_err();
-        assert!(matches!(err, ControllerKernelError::EmptyInput { which: "min_reduce" }));
+        assert!(matches!(
+            err,
+            ControllerKernelError::EmptyInput {
+                which: "min_reduce"
+            }
+        ));
     }
 
     #[test]
@@ -319,7 +349,12 @@ mod tests {
     fn sum_reduce_empty_errors() {
         let a: Vec<f32> = vec![];
         let err = sum_reduce(&a).unwrap_err();
-        assert!(matches!(err, ControllerKernelError::EmptyInput { which: "sum_reduce" }));
+        assert!(matches!(
+            err,
+            ControllerKernelError::EmptyInput {
+                which: "sum_reduce"
+            }
+        ));
     }
 
     #[test]

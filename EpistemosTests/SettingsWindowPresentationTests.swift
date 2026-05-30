@@ -9,6 +9,7 @@ struct SettingsWindowPresentationTests {
         let source = try loadRepoTextFile("Epistemos/App/UtilityWindowManager.swift")
 
         #expect(!source.contains("case .settings: NSSize(width: 680, height: 10000)"))
+        #expect(source.contains("case .settings: NSSize(width: 1040, height: 760)"))
         #expect(source.contains("panel.toolbarStyle = .unified"))
         #expect(source.contains("cornerRadius: CGFloat? = kind == .settings ? 22 : nil"))
     }
@@ -19,7 +20,8 @@ struct SettingsWindowPresentationTests {
 
         #expect(source.contains("case .notes: NSSize(width: 380, height: 520)"))
         #expect(source.contains("case .notes: NSSize(width: 300, height: 320)"))
-        #expect(source.contains("if kind == .notes {\n                host.sizingOptions = []"))
+        #expect(source.contains("case .notes: NSSize(width: 520, height: 720)"))
+        #expect(source.contains("if kind == .notes || kind == .settings {\n                host.sizingOptions = []"))
         #expect(source.contains("host.sizingOptions = .minSize"))
     }
 

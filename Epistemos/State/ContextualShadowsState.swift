@@ -3,9 +3,9 @@ import OSLog
 
 // MARK: - ContextualShadowsState
 // Patch 7 / AMBIENT_RECALL_WIRING_PLAN.md §5 — V0 ambient-recall surface state.
-// Gated behind `EPISTEMOS_AMBIENT_RECALL_V0`. Owns the latest top-K recall hit
-// list, panel visibility, and the in-flight `Task` so a fresh keystroke can
-// cancel the previous query before launching a new one.
+// Gated by the `EPISTEMOS_AMBIENT_RECALL_V0` product flag. Owns the latest
+// top-K recall hit list, panel visibility, and the in-flight `Task` so a fresh
+// keystroke can cancel the previous query before launching a new one.
 //
 // Off-MainActor discipline: the actual encoder + HNSW search runs inside
 // `Task.detached(priority: .utility)`. Only the final `currentResults`
@@ -55,10 +55,22 @@ final class ContextualShadowsState {
     /// Default top-K shown in each tab. Plan §2.5 — top-5 related notes.
     static let defaultTopK: Int = 5
 
+    /// UserDefaults-backed product gate. The environment variable can
+    /// still pin the surface on for CI/schemes; the persisted setting keeps
+    /// the user-facing app from silently disabling Halo/Contextual Shadows
+    /// when no launch environment is present.
+    nonisolated static let userDefaultsKey = "EPISTEMOS_AMBIENT_RECALL_V0"
+    nonisolated static let defaultEnabled = true
+
     // MARK: - Published state
 
     /// Top-K results from the most recently completed recall query.
     var currentResults: [RecallHit] = []
+
+    /// Recoverable backend error from the mounted Shadow route. Kept separate
+    /// from `currentResults` so a broken Shadow index does not masquerade as
+    /// a valid zero-hit recall query.
+    private(set) var lastErrorMessage: String?
 
     /// Whether the lightweight slide-in panel is currently visible.
     var isPanelVisible: Bool = false
@@ -73,7 +85,13 @@ final class ContextualShadowsState {
         if let isEnabledOverride {
             return isEnabledOverride
         }
-        return ProcessInfo.processInfo.environment["EPISTEMOS_AMBIENT_RECALL_V0"] == "1"
+        if ProcessInfo.processInfo.environment[Self.userDefaultsKey] == "1" {
+            return true
+        }
+        if let persisted = UserDefaults.standard.object(forKey: Self.userDefaultsKey) as? Bool {
+            return persisted
+        }
+        return Self.defaultEnabled
     }
 
     // MARK: - Internals
@@ -85,6 +103,10 @@ final class ContextualShadowsState {
     var haloSearchService: (any ShadowSearchServicing)? {
         guard isEnabled else { return nil }
         return shadowSearch
+    }
+
+    var hasPanelPayload: Bool {
+        !currentResults.isEmpty || lastErrorMessage != nil
     }
 
     nonisolated private static let log = Logger(
@@ -150,18 +172,36 @@ final class ContextualShadowsState {
         let originId = snapshot.originId
 
         if let shadowSearch {
-            let domain = Self.shadowDomain(for: snapshot.kind)
+            let domains = Self.shadowDomains(for: snapshot.kind)
             pendingTask = Task { [weak self, shadowSearch] in
-                let raw = await shadowSearch.search(
+                async let first = shadowSearch.searchReportingErrors(
                     text: queryText,
-                    domain: domain,
+                    domain: domains.first,
                     limit: Self.defaultTopK
                 )
+                async let second = shadowSearch.searchReportingErrors(
+                    text: queryText,
+                    domain: domains.second,
+                    limit: Self.defaultTopK
+                )
+                let firstOutcome = await first
+                let secondOutcome = await second
+                let raw = firstOutcome.hits + secondOutcome.hits
+                let errorMessage = firstOutcome.errorMessage ?? secondOutcome.errorMessage
 
                 await MainActor.run {
                     guard let self else { return }
                     guard !Task.isCancelled else { return }
-                    self.currentResults = Self.convert(raw: raw, originId: originId)
+                    let hits = Self.convert(raw: raw, originId: originId)
+                    if hits.isEmpty, let errorMessage {
+                        self.currentResults = []
+                        self.lastErrorMessage = errorMessage
+                        self.isPanelVisible = true
+                        return
+                    }
+                    self.lastErrorMessage = nil
+                    self.currentResults = hits
+                    self.isPanelVisible = !hits.isEmpty
                 }
             }
             return
@@ -189,7 +229,9 @@ final class ContextualShadowsState {
                     resultKind: .note,
                     originId: originId
                 )
+                self.lastErrorMessage = nil
                 self.currentResults = hits
+                self.isPanelVisible = !hits.isEmpty
             }
         }
     }
@@ -208,11 +250,13 @@ final class ContextualShadowsState {
     func closePanel() {
         isPanelVisible = false
         currentResults = []
+        lastErrorMessage = nil
     }
 
     private func clearResults() {
         isPanelVisible = false
         currentResults = []
+        lastErrorMessage = nil
     }
 
     // MARK: - Conversion
@@ -293,12 +337,12 @@ final class ContextualShadowsState {
         return String(collapsed.prefix(160))
     }
 
-    nonisolated private static func shadowDomain(for kind: RecallContextKind) -> ShadowDomain {
+    nonisolated private static func shadowDomains(for kind: RecallContextKind) -> (first: ShadowDomain, second: ShadowDomain) {
         switch kind {
         case .note:
-            return .notes
+            return (.notes, .chats)
         case .chat:
-            return .chats
+            return (.chats, .notes)
         }
     }
 

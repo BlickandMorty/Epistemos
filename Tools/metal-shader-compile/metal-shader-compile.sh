@@ -21,7 +21,6 @@ deferred_hardware_kernels=(
   "SemiseparableBlockScan.metal"
   "LocalRecallIsland.metal"
   "PageGather.metal"
-  "ControllerKernelPack.metal"
   "PacketRouter1bit.metal"
   "InterruptScore.metal"
 )

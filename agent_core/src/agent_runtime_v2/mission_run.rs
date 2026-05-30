@@ -383,9 +383,7 @@ where
 
 #[cfg(test)]
 mod hyperdynamic_loop_hook_tests {
-    use super::{
-        gate_admission_draft_through_loop, gate_witness_draft_through_loop,
-    };
+    use super::{gate_admission_draft_through_loop, gate_witness_draft_through_loop};
     use crate::acs_admission::ACSAdmissionVerdict;
     use crate::hyperdynamic_loop::{
         AdmissionDraft, LoopCounters, RepairBudget, RepairOutcome, WitnessDraft, WitnessState,

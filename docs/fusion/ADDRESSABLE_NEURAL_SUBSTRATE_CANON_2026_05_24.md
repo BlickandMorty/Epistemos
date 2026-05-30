@@ -6,6 +6,8 @@ production_status: Not a production claim. This canonizes the target architectur
 local_anchors:
   - docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION_2026_05_16.md
   - docs/fusion/SHADOW_PROJECTION_AND_RESEARCH_CONSTRUCTION_2026_05_24.md
+  - docs/fusion/AETHERLINK_OAS_CANON_INTAKE_2026_05_30.md
+  - docs/fusion/AETHERLINK_ERDOS_PARAMETER_GOLF_INTAKE_2026_05_30.md
   - docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md
   - docs/fusion/UNIFIED_ACTIVE_SUBSTRATE_CANON_2026_05_16.md
   - epistemos-research/src/five_planes.rs
@@ -54,6 +56,93 @@ The LLM remains present, but it is no longer the sole reasoning engine. It is on
 - vault / graph / vector memory
 - ACS + WBO + AnswerPacket verification
 
+## 1A. AetherLink / OAS sharpening
+
+The AetherLink application kit adds a useful name for the same substrate
+movement: **Ontological Address Space**. In Epistemos terms, OAS is not a
+replacement for UAS. It is the semantic/control layer on top of UAS:
+
+```text
+UAS = where the addressed bytes/state live.
+OAS = what the addressed thing means, what floor state it starts in, and what
+      contract may promote it.
+ACS = whether the thing may become resident / active / committed.
+SCOPE-Rex = whether the claim or state transition is witnessed and allowed.
+```
+
+This matters for the large-model route because "SSD holds the model" is not
+enough. The model must be broken into addressed cognitive/runtime units:
+
+```text
+WeightBlockManifest
+  + UAS address
+  + byte range / content hash
+  + lattice / ternary / NF4 / residual-island encoding
+  + residency tier
+  + active-assembly selector key
+  + WBO drift budget
+  + dense/reference rollback
+```
+
+AetherLink therefore reinforces the current build order: create the
+manifest/residency simulator before launching another full 128K or 70B probe.
+
+The Erdos / Parameter Golf intake adds the construction rule for that
+simulator:
+
+```text
+lift the model into addressed weight/KV/component charts
+  -> search a budgeted active set
+  -> project to an executable active assembly
+  -> carry WBO/copy/memory witnesses and dense rollback
+```
+
+Agents must not treat "SSD holds the model" as a proof. The proof surface is a
+`ResidencyPlan` with a falsifier-backed memory/copy/WBO budget.
+
+Range-hash prerequisite:
+
+```text
+F-WeightBlockRangeHash-DryRun
+  artifact: artifacts/falsifiers/weight_block_range_hash_dry_run/result.json
+  result: bounded fixture range hashed, over-limit rejected before read,
+          short-reader rejected, known-hash manifest valid, no model file touched
+```
+
+First planner witness:
+
+```text
+F-ResidencyPlan-DryRun
+  artifact: artifacts/falsifiers/residency_plan_dry_run/result.json
+  result: 72 GiB cold addressed bytes, 872,415,232 active runtime bytes,
+          zero runtime model bytes loaded, overall_pass=true
+```
+
+Scope guard: this proves budgeted active-set planning only. It does not prove
+live KV-Direct, MLX/Metal execution, or 70B generation.
+
+Hardening landed with the first witness:
+
+- bounded model-range hashing (`from_reader_range`) uses 64 KiB chunks and a
+  caller-provided max byte limit;
+- known-hash range manifests (`from_known_hash_hex`) allow precomputed model
+  range hashes without loading the range into RAM;
+- `F-WeightBlockRangeHash-DryRun` proves the range-hash ABI on a tiny fixture:
+  over-limit ranges reject before read, short readers fail closed, and no
+  model file is touched;
+- `ConstructionCard` turns ProblemCard / LiftChart / ProjectionPacket /
+  Witness / Budget / Falsifier / Rollback into a checked UAS object tied to a
+  passed `ResidencyPlan` and records the upstream
+  `F-WeightBlockRangeHash-DryRun` -> `F-ResidencyPlan-DryRun` proof chain.
+- `ProviderReferenceManifest` makes the next 70B comparison gate replayable:
+  local fp16 references must stay local-only under the 70B row root, hosted
+  receipts must use zero-retention request/redaction digests, and a mere path
+  existing on disk no longer counts as a reference. It also separates
+  `shape_only_fixture` from `prompt_level_comparison`, requires prompt-suite
+  digest binding, and requires at least 50 prompts for prompt-level references,
+  so retained ABI fixtures cannot accidentally satisfy the real 70B reference
+  gate.
+
 ## 2. The addressable units
 
 "Neuron cluster" should be implemented as a typed addressable unit, not a vague metaphor.
@@ -62,7 +151,8 @@ The LLM remains present, but it is no longer the sole reasoning engine. It is on
 |---|---|---|---|
 | Layer block | transformer or SSM block, including fragile dense layers that must not be quantized | State plane | target |
 | Rank-one component | Goodfire/VPD-style decomposed model feature or subcomponent | `UasKind::ModelComponent` / Assembly plane | atlas evidence; runtime candidate |
-| KV page | attention cache region, hot/warm/cold | `UasKind::KvPage` / L3 SSD Oracle | shader/Rust ref exists; end-to-end harness not started |
+| KV page | attention cache region, hot/warm/cold | `UasKind::KvPage` / L3 SSD Oracle | file-backed mmap residency witness passes; live KV-Direct harness still red |
+| Weight block | file-backed model byte range, possibly compressed/lattice-coded | future `WeightBlockManifest` over `UasKind::ModelComponent` / `KvPage` until a dedicated kind exists | next safe build surface |
 | Adapter delta | LoRA/DoRA/Titans-MAC/L_SE small mutable specialization | L_SE research lane | research construction |
 | Residual island | dense islands preserved inside otherwise ternary/quantized route | State plane | research target |
 | Activation mask | selected active subset for current pass | Assembly plane | candidate |
@@ -160,8 +250,19 @@ EML can certify:
 - morph/eval witnesses
 - math-lab/self-proving derivations
 - parts of kernel correctness where the domain is formalizable
+- eligible weight/layer transforms when they can be lowered into elementary
+  charts or certified typed shadows
 
-EML does not make every pixel, vector, KV page, or model component literally an EML tree. Those objects become "the same data" because they share UAS addressing, plane placement, residency, WBO policy, and witnesses.
+No-compromise reading of "EML is everything":
+
+> Every substrate operation should expose a canonical IR chart when possible.
+> EML is the elementary-function chart; Geometry-IR and Scan-IR are co-equal
+> charts for metric/connection and recurrent-state structure. A model layer,
+> weight block, KV page, or neural component is therefore either an EML tree,
+> a Geometry/Scan/Operator shadow, or an explicitly opaque object with a UAS
+> address, residency plan, WBO budget, and witness.
+
+EML does not make every pixel, vector, KV page, or model component literally an EML tree today. Those objects become "the same data" because they share UAS addressing, plane placement, residency, WBO policy, and witnesses, and because every eligible transform is pushed toward EML/Geometry/Scan lowering instead of being left as an untyped blob.
 
 ## 7. Verification gates
 
@@ -172,11 +273,18 @@ This target architecture is canonical, but runtime activation is gated:
 | `F-Sparse-Runtime-Split` | selected sparse/active assembly reproduces dense execution within bounded drift | neural assembly routing works |
 | `F-KV-Direct-Gate` | SSD/mmap/residual KV path matches full hot KV reference | L3 SSD Oracle works |
 | `F-UAS-CopyCount` | no hidden tensor copies across Swift/Rust/Metal/MLX hot paths | zero-copy substrate works |
+| `F-UAS-ACS-MmapResidency` | deterministic file-backed mmap bytes round-trip through UAS address, residency lease, and ACS projection lookup | UAS/ACS residency is a real file-backed substrate slice |
+| `F-WeightBlockRangeHash-DryRun` | explicit model byte ranges can be fingerprinted within a caller-provided bound and fail closed | future large-model manifests cannot hash/load huge ranges accidentally |
+| `F-ResidencyPlan-DryRun` | active model-shaped weight blocks fit memory/WBO/rollback budgets before runtime | large-model probes are pre-gated instead of crash-first |
 | `F-ActiveAssembly-Minimal` | selected support is small but sufficient | active routing is useful |
 | `F-ULP-Oracle` | EML/Metal arithmetic floor is within tolerance | proof/kernels safe enough |
 | `F-70B-Local-Cocktail` | 70B-class local run meets quality, RAM, latency budget | the capability ceiling is real |
 
 Until these pass, this is a canonical target and research program, not a shipped capability.
+
+Current nuance: `F-UAS-ACS-MmapResidency` is green as a Verified Floor slice,
+but `F-KV-Direct-Gate` and `F-70B-Local-Cocktail` remain red. The SSD/RAM
+ambition is preserved; it is not yet a live model-generation claim.
 
 ## 8. Agent rule
 
@@ -207,7 +315,7 @@ The existing seven production terminals A-G keep their original ownership, but e
 | C — System G | Mutate/Promote mission into AnswerPacket | `construction_space_radius` remains candidate until real run path is stable |
 | D — Substrate Health | Project substrate state into Settings | chip flips consume T0 honesty signal only |
 | E — ACS Admission | Mutate/Promote verdict on every durable action | verdict distinguishes `lift_allowed`, `lift_denied`, `lift_quarantined` when RCE arrives |
-| F — Falsifiers | Project measurement into artifact | include F-Sparse-Runtime-Split, F-KV-Direct-Gate, F-UAS-CopyCount, and F-70B-Local-Cocktail in planning |
+| F — Falsifiers | Project measurement into artifact | include F-Sparse-Runtime-Split, F-KV-Direct-Gate, F-UAS-CopyCount, F-UAS-ACS-MmapResidency, and F-70B-Local-Cocktail in planning |
 | G — T14 UAS bridge | all three motions | owns UAS fields for `ShadowProjection` and neural substrate address sets |
 
 This addendum prevents the old A-G prompts from drifting while allowing T0/T1/S/H/R/X to extend the deck around them.

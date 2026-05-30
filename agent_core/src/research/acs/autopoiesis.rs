@@ -67,7 +67,9 @@ pub struct OperationalClosureVerdict {
     pub largest_scc_size: usize,
 }
 
-fn build_adjacency(net: &ProductionNetwork) -> Result<HashMap<usize, Vec<usize>>, AutopoiesisError> {
+fn build_adjacency(
+    net: &ProductionNetwork,
+) -> Result<HashMap<usize, Vec<usize>>, AutopoiesisError> {
     let id_to_idx: HashMap<&ComponentId, usize> = net
         .components
         .iter()
@@ -229,7 +231,10 @@ pub fn verify_component_production(
         .map(|i| net.components[i].clone())
         .collect();
     let satisfied = unproduced.is_empty();
-    Ok(ComponentProductionVerdict { satisfied, unproduced })
+    Ok(ComponentProductionVerdict {
+        satisfied,
+        unproduced,
+    })
 }
 
 /// Total count of strongly connected components in the production
@@ -269,12 +274,18 @@ mod tests {
     }
 
     fn edge(a: &str, b: &str) -> ProductionEdge {
-        ProductionEdge { producer: cid(a), produced: cid(b) }
+        ProductionEdge {
+            producer: cid(a),
+            produced: cid(b),
+        }
     }
 
     #[test]
     fn empty_network_errors() {
-        let net = ProductionNetwork { components: vec![], edges: vec![] };
+        let net = ProductionNetwork {
+            components: vec![],
+            edges: vec![],
+        };
         let err = check_operational_closure(&net).unwrap_err();
         assert_eq!(err, AutopoiesisError::EmptyNetwork);
     }

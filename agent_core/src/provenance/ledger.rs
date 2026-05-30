@@ -834,11 +834,7 @@ impl ClaimLedger {
             .into_iter()
             .map(|id| {
                 let claim = &self.claims[id];
-                let dependents = self
-                    .claim_derives
-                    .get(id)
-                    .map(|s| s.len())
-                    .unwrap_or(0);
+                let dependents = self.claim_derives.get(id).map(|s| s.len()).unwrap_or(0);
                 let dependencies = self
                     .claim_derived_from
                     .get(id)
@@ -1355,9 +1351,13 @@ mod tests {
         ledger.retract_evidence(&EvidenceId::new("ev-a")).unwrap();
 
         let ranked = ledger.rank_by_prime_composite_gap();
-        assert!(ranked.iter().all(|r| r.tier == ClaimTier::Gap),
+        assert!(
+            ranked.iter().all(|r| r.tier == ClaimTier::Gap),
             "after evidence retraction every claim must fall into Gap tier; got {:?}",
-            ranked.iter().map(|r| (r.claim_id.0.clone(), r.tier)).collect::<Vec<_>>()
+            ranked
+                .iter()
+                .map(|r| (r.claim_id.0.clone(), r.tier))
+                .collect::<Vec<_>>()
         );
     }
 
@@ -1500,14 +1500,15 @@ mod tests {
         // this build must reject the unknown string rather than
         // panic mid-render of the audit console.
         let result: Result<ClaimTier, _> = serde_json::from_str("\"synthesized\"");
-        assert!(result.is_err(),
-                "decoder must reject unknown claim tiers");
+        assert!(result.is_err(), "decoder must reject unknown claim tiers");
         let result: Result<ClaimTier, _> = serde_json::from_str("\"\"");
         assert!(result.is_err());
         // PascalCase rejects — only snake_case is canonical.
         let result: Result<ClaimTier, _> = serde_json::from_str("\"Composite\"");
-        assert!(result.is_err(),
-                "PascalCase tier names must reject — only snake_case is canonical");
+        assert!(
+            result.is_err(),
+            "PascalCase tier names must reject — only snake_case is canonical"
+        );
     }
 
     #[test]

@@ -20,9 +20,7 @@
 //!
 //! Scope-locked: uses only public `agent_core::storage::*` APIs.
 
-use agent_core::storage::f_vault_recall_50_fixture::{
-    load_canonical, FVaultRecallCategory,
-};
+use agent_core::storage::f_vault_recall_50_fixture::{load_canonical, FVaultRecallCategory};
 use agent_core::storage::f_vault_recall_runner::{run_all, run_row, summarize};
 use agent_core::storage::vault::{VaultBackend, VaultStore};
 
@@ -55,8 +53,14 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
         // Row 1 ChattyPrefix forbidden decoys — chatter-laden but no
         // residency-governance signal terms.
         ("ui/hermes_branding.md", "ui branding hermes design feel"),
-        ("ui/character_dna_specs.md", "character dna design specs visual"),
-        ("user_hardware.md", "user hardware specifications M2 Pro 16 GB"),
+        (
+            "ui/character_dna_specs.md",
+            "character dna design specs visual",
+        ),
+        (
+            "user_hardware.md",
+            "user hardware specifications M2 Pro 16 GB",
+        ),
         // Rows 2 (SignalOnly) + 5 (Paraphrase) — shared doc.
         // Content has mamba/ssm/cache (Row 2 passes via AND-conjunction)
         // but explicitly NOT "state-space-model" or "caching" (so
@@ -159,10 +163,7 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
         // Row 23 (pure-CJK) expected — two CJK tokens with whitespace
         // between so they tokenize distinctly. 缓存 = cache, 架构 =
         // architecture.
-        (
-            "notes/pure_chinese.md",
-            "缓存 架构 缓存 架构 笔记 notes",
-        ),
+        ("notes/pure_chinese.md", "缓存 架构 缓存 架构 笔记 notes"),
         // Row 23 forbidden — Latin equivalent only; AND on CJK
         // tokens cannot match.
         (
@@ -1296,8 +1297,8 @@ async fn seed_synthetic_vault_for_fixture(store: &VaultStore) {
 #[tokio::test]
 async fn f_vault_recall_50_canonical_rows_against_seeded_vault() {
     let vault_root = tempfile::tempdir().expect("temp vault");
-    let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
-        .expect("open vault");
+    let store =
+        VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
     seed_synthetic_vault_for_fixture(&store).await;
 
     let fixture = load_canonical();
@@ -1331,7 +1332,12 @@ async fn f_vault_recall_50_canonical_rows_against_seeded_vault() {
         passed_rows.len(),
         failed_rows
             .iter()
-            .map(|(c, q, o)| (*c, *q, o.expected_missed.clone(), o.forbidden_present.clone()))
+            .map(|(c, q, o)| (
+                *c,
+                *q,
+                o.expected_missed.clone(),
+                o.forbidden_present.clone()
+            ))
             .collect::<Vec<_>>()
     );
     assert_eq!(
@@ -1380,8 +1386,8 @@ async fn f_vault_recall_50_canonical_rows_against_seeded_vault() {
 #[tokio::test]
 async fn canonical_chatty_prefix_row_passes_with_fix_b_trace() {
     let vault_root = tempfile::tempdir().expect("temp vault");
-    let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
-        .expect("open vault");
+    let store =
+        VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
     seed_synthetic_vault_for_fixture(&store).await;
 
     let row = load_canonical()
@@ -1396,7 +1402,10 @@ async fn canonical_chatty_prefix_row_passes_with_fix_b_trace() {
          that the entire T21 mission exists to make pass. Outcome: {:?}",
         outcome
     );
-    assert_eq!(outcome.expected_seen, vec!["MASTER_FUSION/3_2_residency_governor.md"]);
+    assert_eq!(
+        outcome.expected_seen,
+        vec!["MASTER_FUSION/3_2_residency_governor.md"]
+    );
     assert!(outcome.forbidden_present.is_empty());
 
     // Fix-B is observable in the trace.
@@ -1405,12 +1414,18 @@ async fn canonical_chatty_prefix_row_passes_with_fix_b_trace() {
         "Fix-B chatter strip must reduce the chatty input to its signal-bearing terms"
     );
     assert!(
-        trace.notes.iter().any(|n| n.contains("Fix-B chatter strip")),
+        trace
+            .notes
+            .iter()
+            .any(|n| n.contains("Fix-B chatter strip")),
         "trace must carry the Fix-B note: {:?}",
         trace.notes
     );
     assert!(
-        trace.notes.iter().any(|n| n.contains("AND conjunction applied")),
+        trace
+            .notes
+            .iter()
+            .any(|n| n.contains("AND conjunction applied")),
         "trace must carry the AND-conjunction note (2 surviving terms ≤ 3): {:?}",
         trace.notes
     );
@@ -1432,13 +1447,11 @@ async fn canonical_chatty_prefix_row_passes_with_fix_b_trace() {
 #[tokio::test]
 async fn summary_aggregates_run_all_outcomes_for_w21_diagnostics() {
     let vault_root = tempfile::tempdir().expect("temp vault");
-    let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
-        .expect("open vault");
+    let store =
+        VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
     seed_synthetic_vault_for_fixture(&store).await;
 
-    let pairs = run_all(&store, load_canonical())
-        .await
-        .expect("run_all");
+    let pairs = run_all(&store, load_canonical()).await.expect("run_all");
     let outcomes: Vec<_> = pairs.iter().map(|(o, _t)| o.clone()).collect();
     let summary = summarize(&outcomes);
 

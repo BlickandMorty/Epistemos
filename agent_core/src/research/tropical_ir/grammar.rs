@@ -140,9 +140,12 @@ impl TropicalExpr {
     pub fn depth(&self) -> usize {
         match self {
             TropicalExpr::Const(_) | TropicalExpr::Var(_) => 0,
-            TropicalExpr::Max(args) => {
-                args.iter().map(|a| a.depth()).max().map(|d| d + 1).unwrap_or(0)
-            }
+            TropicalExpr::Max(args) => args
+                .iter()
+                .map(|a| a.depth())
+                .max()
+                .map(|d| d + 1)
+                .unwrap_or(0),
             TropicalExpr::Plus(l, r) => 1 + l.depth().max(r.depth()),
             TropicalExpr::Scale(_, e) => 1 + e.depth(),
         }
@@ -176,9 +179,7 @@ impl TropicalExpr {
         match self {
             TropicalExpr::Const(_) => None,
             TropicalExpr::Var(i) => Some(*i),
-            TropicalExpr::Max(args) => {
-                args.iter().filter_map(|a| a.max_var_index()).max()
-            }
+            TropicalExpr::Max(args) => args.iter().filter_map(|a| a.max_var_index()).max(),
             TropicalExpr::Plus(l, r) => match (l.max_var_index(), r.max_var_index()) {
                 (None, None) => None,
                 (Some(a), None) | (None, Some(a)) => Some(a),
@@ -304,10 +305,7 @@ mod tests {
         // Plus(Const, Max([Var, Const])) → 1 + 1 + (1 + 1 + 1) = 5
         let e = TropicalExpr::plus(
             TropicalExpr::constant(0.0),
-            TropicalExpr::max(vec![
-                TropicalExpr::var(0),
-                TropicalExpr::constant(1.0),
-            ]),
+            TropicalExpr::max(vec![TropicalExpr::var(0), TropicalExpr::constant(1.0)]),
         );
         assert_eq!(e.size(), 5);
     }
@@ -369,10 +367,7 @@ mod tests {
 
     #[test]
     fn rational_open_when_either_side_open() {
-        let r = TropicalRational::new(
-            TropicalExpr::constant(1.0),
-            TropicalExpr::var(0),
-        );
+        let r = TropicalRational::new(TropicalExpr::constant(1.0), TropicalExpr::var(0));
         assert!(!r.is_closed());
     }
 
@@ -388,10 +383,7 @@ mod tests {
     #[test]
     fn expr_round_trips_through_serde_json() {
         let e = TropicalExpr::plus(
-            TropicalExpr::max(vec![
-                TropicalExpr::constant(1.0),
-                TropicalExpr::var(0),
-            ]),
+            TropicalExpr::max(vec![TropicalExpr::constant(1.0), TropicalExpr::var(0)]),
             TropicalExpr::constant(-2.5),
         );
         let json = serde_json::to_string(&e).unwrap();
@@ -401,10 +393,7 @@ mod tests {
 
     #[test]
     fn rational_round_trips_through_serde_json() {
-        let r = TropicalRational::new(
-            TropicalExpr::constant(1.0),
-            TropicalExpr::var(0),
-        );
+        let r = TropicalRational::new(TropicalExpr::constant(1.0), TropicalExpr::var(0));
         let json = serde_json::to_string(&r).unwrap();
         let back: TropicalRational = serde_json::from_str(&json).unwrap();
         assert_eq!(r, back);
@@ -424,10 +413,7 @@ mod tests {
 
     #[test]
     fn display_plus_parenthesizes() {
-        let e = TropicalExpr::plus(
-            TropicalExpr::var(0),
-            TropicalExpr::constant(1.0),
-        );
+        let e = TropicalExpr::plus(TropicalExpr::var(0), TropicalExpr::constant(1.0));
         assert_eq!(format!("{}", e), "(x_0 + 1)");
     }
 
@@ -439,20 +425,14 @@ mod tests {
 
     #[test]
     fn display_two_arg_max() {
-        let e = TropicalExpr::max(vec![
-            TropicalExpr::var(0),
-            TropicalExpr::var(1),
-        ]);
+        let e = TropicalExpr::max(vec![TropicalExpr::var(0), TropicalExpr::var(1)]);
         assert_eq!(format!("{}", e), "max(x_0, x_1)");
     }
 
     #[test]
     fn display_nested() {
         let e = TropicalExpr::max(vec![
-            TropicalExpr::plus(
-                TropicalExpr::var(0),
-                TropicalExpr::constant(1.0),
-            ),
+            TropicalExpr::plus(TropicalExpr::var(0), TropicalExpr::constant(1.0)),
             TropicalExpr::constant(2.0),
         ]);
         assert_eq!(format!("{}", e), "max((x_0 + 1), 2)");
@@ -460,10 +440,7 @@ mod tests {
 
     #[test]
     fn display_tropical_rational() {
-        let r = TropicalRational::new(
-            TropicalExpr::var(0),
-            TropicalExpr::constant(1.0),
-        );
+        let r = TropicalRational::new(TropicalExpr::var(0), TropicalExpr::constant(1.0));
         assert_eq!(format!("{}", r), "(x_0) / (1)");
     }
 

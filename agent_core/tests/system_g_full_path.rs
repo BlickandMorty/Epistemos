@@ -10,6 +10,7 @@ use std::sync::{Mutex, MutexGuard};
 
 use agent_core::bridge::{
     system_g_drain_events_json, system_g_registry_stats_json, system_g_start_run_json,
+    system_g_start_run_with_provider_json,
 };
 
 /// Tests inside one integration-test binary share the process-wide
@@ -44,7 +45,9 @@ fn full_path_mission_round_trips_to_complete_event_through_ffi() {
     assert_eq!(arr[1]["kind"], "token_chunk", "second event is token_chunk");
     assert_eq!(arr[2]["kind"], "complete", "terminal event is complete");
 
-    let answer_id = arr[2]["answer_packet_id"].as_str().expect("answer_packet_id field");
+    let answer_id = arr[2]["answer_packet_id"]
+        .as_str()
+        .expect("answer_packet_id field");
     assert!(!answer_id.is_empty(), "answer_packet_id must be non-empty");
     assert!(
         answer_id.chars().all(|c| c.is_ascii_hexdigit()),
@@ -59,6 +62,51 @@ fn full_path_mission_round_trips_to_complete_event_through_ffi() {
         events2.as_array().expect("array").len(),
         0,
         "post-terminal drain returns empty array"
+    );
+}
+
+#[test]
+fn full_path_provider_aware_local_mlx_run_emits_handoff_through_ffi() {
+    let _guard = test_lock();
+    let provider_policy = serde_json::json!({
+        "kind": "local_mlx",
+        "model_id": "qwen3-8b-mlx-4bit",
+    })
+    .to_string();
+    let run_id = system_g_start_run_with_provider_json(good_mission_json(), provider_policy)
+        .expect("provider-aware start FFI must succeed");
+    let raw =
+        system_g_drain_events_json(run_id.clone()).expect("provider-aware drain must succeed");
+    let events: serde_json::Value = serde_json::from_str(&raw).expect("drain JSON must decode");
+    let arr = events.as_array().expect("drain JSON must be an array");
+    assert_eq!(arr.len(), 2, "provider handoff run emits 2 Rust-leg events");
+    assert_eq!(arr[0]["kind"], "plan_start", "first event is plan_start");
+    assert_eq!(
+        arr[1]["kind"], "local_model_handoff",
+        "Rust leg hands local generation to the Swift host"
+    );
+    assert_eq!(
+        arr[1]["model_id"], "qwen3-8b-mlx-4bit",
+        "handoff must preserve model id"
+    );
+    let provider_policy_json = arr[1]["provider_policy_json"]
+        .as_str()
+        .expect("handoff.provider_policy_json field");
+    assert!(
+        provider_policy_json.contains("\"kind\":\"local_mlx\"")
+            && provider_policy_json.contains("\"model_id\":\"qwen3-8b-mlx-4bit\""),
+        "handoff must preserve provider policy JSON: {provider_policy_json}"
+    );
+    assert!(
+        arr.iter().all(|event| event["kind"] != "token_chunk"),
+        "provider-aware Rust path must not synthesize local model tokens"
+    );
+    let raw2 = system_g_drain_events_json(run_id).expect("second provider-aware drain still ok");
+    let events2: serde_json::Value = serde_json::from_str(&raw2).expect("second drain JSON");
+    assert_eq!(
+        events2.as_array().expect("array").len(),
+        0,
+        "post-handoff drain returns empty array because Swift owns generation"
     );
 }
 

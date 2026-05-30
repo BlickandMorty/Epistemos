@@ -31,17 +31,14 @@ const QUERY_CHATTER_WORDS: &[&str] = &[
     // Imperative chat prefixes
     "pull", "find", "show", "get", "give", "tell", "list", "search", "look",
     // First/second person
-    "me", "my", "i", "you", "your", "us", "our",
-    // Discourse particles
+    "me", "my", "i", "you", "your", "us", "our", // Discourse particles
     "please", "can", "could", "would", "should",
     // Common stop-words that appear in chatty prefixes
-    "the", "a", "an", "of", "in", "on", "to", "for", "with", "about",
-    "and", "or", "but", "is", "are", "was", "were",
-    // Generic referents
+    "the", "a", "an", "of", "in", "on", "to", "for", "with", "about", "and", "or", "but", "is",
+    "are", "was", "were", // Generic referents
     "notes", "note", "files", "file", "stuff", "things", "thing",
     // Wh-question words (kept narrow — these can be legitimate signal)
-    "what", "where", "when", "how", "why", "which",
-    // Misc filler
+    "what", "where", "when", "how", "why", "which", // Misc filler
     "any", "some", "all", "want", "need",
 ];
 
@@ -181,12 +178,10 @@ pub trait VaultBackend: Send + Sync {
         let mut trace = RetrievalTrace::new(query, query).with_pool_size(results.len());
         trace.record_signal(RetrievalSignal::Lexical);
         for result in &results {
-            let mut candidate = RetrievalCandidate::new(result.path.clone(), result.score)
-                .with_signal(RetrievalSignalScore::new(
-                    RetrievalSignal::Lexical,
-                    result.score,
-                    result.score,
-                ));
+            let mut candidate =
+                RetrievalCandidate::new(result.path.clone(), result.score).with_signal(
+                    RetrievalSignalScore::new(RetrievalSignal::Lexical, result.score, result.score),
+                );
             if !result.excerpt.is_empty() {
                 candidate = candidate.with_snippet(result.excerpt.clone());
             }
@@ -773,9 +768,7 @@ impl VaultBackend for VaultStore {
 
         if limit == 0 {
             let mut trace = build_trace(0);
-            trace.add_note(
-                "Zero-result guard: limit = 0; skipped Tantivy collection".to_string(),
-            );
+            trace.add_note("Zero-result guard: limit = 0; skipped Tantivy collection".to_string());
             return Ok((Vec::new(), trace));
         }
 
@@ -790,10 +783,13 @@ impl VaultBackend for VaultStore {
             .map_err(|error| VaultError::IndexError(error.to_string()))?;
 
         let pool_size = top_docs.len();
+        let page_gather_score_source: Vec<f32> =
+            top_docs.iter().map(|(score, _address)| *score).collect();
         let mut results = Vec::new();
         let mut trace_excerpts: Vec<String> = Vec::new();
         let mut trace_addresses: Vec<UasAddress> = Vec::new();
-        for (score, address) in top_docs {
+        let mut trace_source_positions: Vec<u32> = Vec::new();
+        for (source_position, (score, address)) in top_docs.into_iter().enumerate() {
             let document: TantivyDocument = searcher
                 .doc(address)
                 .map_err(|error| VaultError::IndexError(error.to_string()))?;
@@ -816,6 +812,7 @@ impl VaultBackend for VaultStore {
             let excerpt = Self::excerpt(content, 500);
             trace_excerpts.push(excerpt.clone());
             trace_addresses.push(uas_address);
+            trace_source_positions.push(source_position as u32);
 
             // T21 Fix C (2026-05-18): preserve raw BM25. Tantivy scores are
             // unbounded above; the previous `.clamp(0.0, 1.0)` flattened
@@ -868,13 +865,26 @@ impl VaultBackend for VaultStore {
             }
             trace.push_candidate(candidate);
         }
-        trace.record_page_gather_escalation(PageGatherEscalationTrace::vault_escalated(
+        let mut page_gather_trace = PageGatherEscalationTrace::vault_escalated(
             "VaultStore::hybrid_search_with_trace",
             pool_size,
             results.len(),
-        ));
+        );
+        if !trace_source_positions.is_empty() {
+            let (_plan, packets, _stats) =
+                crate::helios::page_gather::gather_block_sorted_packetized(
+                    &page_gather_score_source,
+                    &trace_source_positions,
+                    crate::helios::DEFAULT_PAGE_GATHER_BLOCK_ELEMENTS,
+                )
+                .map_err(|error| {
+                    VaultError::IndexError(format!("page gather packetized caller: {error:?}"))
+                })?;
+            page_gather_trace = page_gather_trace.with_packetized_caller(packets.len());
+        }
+        trace.record_page_gather_escalation(page_gather_trace);
         trace.add_note(
-            "PageGather vault escalation trace recorded; F-PageGather-Scatter measurement remains pending",
+            "PageGather vault escalation trace recorded; packetized caller consumed retained-score packets; F-PageGather-Scatter measurement remains pending",
         );
         Ok((results, trace))
     }
@@ -1000,8 +1010,11 @@ mod tests {
     fn strip_query_chatter_drops_chatty_prefix_and_keeps_signal() {
         let input = "Pull my notes on residency governance";
         let cleaned = strip_query_chatter(input);
-        assert_eq!(cleaned, "residency governance",
-            "expected chatty prefix to be stripped; got {:?}", cleaned);
+        assert_eq!(
+            cleaned, "residency governance",
+            "expected chatty prefix to be stripped; got {:?}",
+            cleaned
+        );
     }
 
     /// F-VaultRecall-50 Fix B test 2: signal-only query is unchanged.
@@ -1020,8 +1033,11 @@ mod tests {
     fn strip_query_chatter_returns_empty_on_pure_chatter() {
         let input = "pull my notes";
         let cleaned = strip_query_chatter(input);
-        assert_eq!(cleaned, "",
-            "expected pure-chatter query to filter to empty; got {:?}", cleaned);
+        assert_eq!(
+            cleaned, "",
+            "expected pure-chatter query to filter to empty; got {:?}",
+            cleaned
+        );
     }
 
     /// F-VaultRecall-50 Fix B test 4: mixed case + multi-word signal +
@@ -1067,8 +1083,8 @@ mod tests {
     async fn hybrid_search_returns_raw_bm25_without_unit_clamp() {
         use super::VaultBackend;
         let vault_root = tempfile::tempdir().expect("temp vault");
-        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
-            .expect("open vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
 
         // Seed several notes whose content repeats the topical bigram so
         // BM25 scores them well above the 1.0 ceiling that the prior
@@ -1129,8 +1145,8 @@ mod tests {
     async fn hybrid_search_with_trace_emits_lexical_signal_per_candidate() {
         use super::{RetrievalSignal, VaultBackend};
         let vault_root = tempfile::tempdir().expect("temp vault");
-        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
-            .expect("open vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
 
         let docs: [(&str, &str); 3] = [
             (
@@ -1209,8 +1225,8 @@ mod tests {
         };
 
         let vault_root = tempfile::tempdir().expect("temp vault");
-        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
-            .expect("open vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
 
         for index in 0..60 {
             store
@@ -1252,6 +1268,15 @@ mod tests {
             page_gather.locality_block_elements,
             Some(crate::helios::DEFAULT_PAGE_GATHER_BLOCK_ELEMENTS)
         );
+        assert!(
+            page_gather.packetized_caller_consumed,
+            "VaultStore trace must consume retained candidates as PageGather packets"
+        );
+        assert_eq!(page_gather.packets_emitted, results.len());
+        assert!(
+            page_gather.dense_restore_deferred,
+            "trace caller must defer dense restore instead of claiming the dense PageGather gate"
+        );
     }
 
     /// T21 iter-5: `VaultStore`'s override of `hybrid_search_with_trace`
@@ -1264,8 +1289,8 @@ mod tests {
     async fn vaultstore_hybrid_search_with_trace_records_fix_b_and_pool_size() {
         use super::VaultBackend;
         let vault_root = tempfile::tempdir().expect("temp vault");
-        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
-            .expect("open vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
 
         let docs: [(&str, &str); 3] = [
             ("a.md", "residency governance tier residency governance"),
@@ -1329,8 +1354,8 @@ mod tests {
     {
         use super::VaultBackend;
         let vault_root = tempfile::tempdir().expect("temp vault");
-        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
-            .expect("open vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
 
         // Write 3 notes whose tantivy content matches the query, but
         // give each a unique frontmatter tag so a tag_filter retains
@@ -1396,8 +1421,8 @@ mod tests {
         use super::VaultBackend;
         use crate::storage::retrieval_trace::EvidenceStrength;
         let vault_root = tempfile::tempdir().expect("temp vault");
-        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
-            .expect("open vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
 
         // Seed enough notes containing chatter tokens that the raw
         // query "show me my notes" can plausibly match 3+ of them
@@ -1454,8 +1479,8 @@ mod tests {
         use super::VaultBackend;
         use crate::storage::retrieval_trace::EvidenceStrength;
         let vault_root = tempfile::tempdir().expect("temp vault");
-        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
-            .expect("open vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
 
         let (results, trace) = store
             .hybrid_search_with_trace("", 5, &[])
@@ -1482,11 +1507,16 @@ mod tests {
         use super::VaultBackend;
         use crate::storage::retrieval_trace::EvidenceStrength;
         let vault_root = tempfile::tempdir().expect("temp vault");
-        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
-            .expect("open vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
 
         store
-            .write("signal.md", "residency governance unrelated content", None, false)
+            .write(
+                "signal.md",
+                "residency governance unrelated content",
+                None,
+                false,
+            )
             .await
             .expect("write note");
         store.reload_index().expect("reload index");
@@ -1516,8 +1546,8 @@ mod tests {
         use super::VaultBackend;
         use crate::storage::retrieval_trace::EvidenceStrength;
         let vault_root = tempfile::tempdir().expect("temp vault");
-        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
-            .expect("open vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
 
         store
             .write("signal.md", "residency governance signal", None, false)
@@ -1542,8 +1572,8 @@ mod tests {
         use super::VaultBackend;
         use crate::storage::retrieval_trace::EvidenceStrength;
         let vault_root = tempfile::tempdir().expect("temp vault");
-        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
-            .expect("open vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
 
         store
             .write("unrelated.md", "coffee archive unrelated", None, false)
@@ -1579,8 +1609,8 @@ mod tests {
         use super::VaultBackend;
         use crate::storage::retrieval_trace::EvidenceStrength;
         let vault_root = tempfile::tempdir().expect("temp vault");
-        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
-            .expect("open vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
 
         store
             .write(
@@ -1630,12 +1660,11 @@ mod tests {
     /// Q2 in `docs/F_VAULT_RECALL_50_2026_05_18.md` §8 and the
     /// cross-link doc comment at `RetrievalSignal::Semantic`.
     #[tokio::test]
-    async fn vaultstore_trace_currently_omits_semantic_and_other_non_lexical_signals_documenting()
-    {
+    async fn vaultstore_trace_currently_omits_semantic_and_other_non_lexical_signals_documenting() {
         use super::{RetrievalSignal, VaultBackend};
         let vault_root = tempfile::tempdir().expect("temp vault");
-        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
-            .expect("open vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
 
         let docs: [(&str, &str); 3] = [
             ("a.md", "residency governance tier compression"),

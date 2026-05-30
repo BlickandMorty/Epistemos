@@ -1,0 +1,118 @@
+{
+  "falsifier_id": "F-WeightBlockRangeHash-DryRun",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_weight_block_range_hash_dry_run.sh",
+  "command_digest": "sha256:8555655b538d37d589d683628f4605d34afb3002eeb587eda928476c2475f59c",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "ba6f15e6fb08c772c5bbce4d303aff864f39e9c2",
+  "fixture_id": "weight_block_range_hash_tiny_fixture_v1",
+  "timestamp_utc": "2026-05-30T10:37:32Z",
+  "result_digest": "sha256:43c663224da88738023332fde9d9f5a0f506cc7c4177e23e25f17bcea0cbd5a6",
+  "measurements": {
+    "bounded_range_hashed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "content_hash_hex": {
+      "value": "b933760be677e56ee7bed0d780ec7ad4858fa5ab53b6b8d2af51647a61260c0a",
+      "unit": "blake3_hex"
+    },
+    "known_hash_manifest_valid": {
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_file_touched": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_limit_rejected_before_read": {
+      "value": true,
+      "unit": "bool"
+    },
+    "range_hash_chunk_bytes": {
+      "value": 65536,
+      "unit": "bytes"
+    },
+    "range_len_bytes": {
+      "value": 1536,
+      "unit": "bytes"
+    },
+    "short_reader_rejected": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "bounded_range_hashed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "known_hash_manifest_valid": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "no_model_file_touched": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "over_limit_rejected_before_read": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "range_len_bytes": {
+      "operator": "<=",
+      "value": 2048,
+      "unit": "bytes"
+    },
+    "short_reader_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "bounded_range_hashed": true,
+    "known_hash_manifest_valid": true,
+    "no_model_file_touched": true,
+    "over_limit_rejected_before_read": true,
+    "range_len_bytes": true,
+    "short_reader_rejected": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "tiny in-memory fixture only; no model file, mmap, MLX, Metal, KV, or inference executed"
+    }
+  ],
+  "notes": "Validates bounded WeightBlockManifest range hashing; not a model/runtime pass."
+}

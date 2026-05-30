@@ -28,10 +28,10 @@
 // Phase 2E: canary `reason.think` — first native Tool impl.
 
 // Phase 2F: bridge legacy ToolHandler into the new Tool trait surface.
-pub mod legacy_adapter;
 pub mod breaker;
-pub mod runner;
+pub mod legacy_adapter;
 pub mod reason_think;
+pub mod runner;
 pub mod v2_catalog;
 
 /// Phase 2G-4 helper macro — wires a `ToolHandler` into a `Tool` impl
@@ -384,9 +384,15 @@ mod tests {
         let r = ToolResult::ok(VariantId::A, 5, serde_json::json!({"hits": []}));
         let s = serde_json::to_string(&r).unwrap();
         assert!(s.contains("\"_meta\":"), "envelope must be _meta");
-        assert!(s.contains("\"result\":"), "payload field must be `result` per §3.1");
+        assert!(
+            s.contains("\"result\":"),
+            "payload field must be `result` per §3.1"
+        );
         assert!(!s.contains("\"payload\":"), "must never use `payload`");
-        assert!(!s.contains("\"data\":"), "must never use `data` for the payload");
+        assert!(
+            !s.contains("\"data\":"),
+            "must never use `data` for the payload"
+        );
     }
 
     #[test]
@@ -414,17 +420,23 @@ mod tests {
         struct StubCache;
         #[async_trait]
         impl ToolCache for StubCache {
-            async fn get(&self, _: &str, _: &Value) -> Option<ToolResult> { None }
+            async fn get(&self, _: &str, _: &Value) -> Option<ToolResult> {
+                None
+            }
             async fn put(&self, _: &str, _: &Value, _: &ToolResult) {}
         }
         struct StubHealth;
         #[async_trait]
         impl HealthCheck for StubHealth {
-            async fn is_available(&self, _: &str, _: VariantId) -> bool { true }
+            async fn is_available(&self, _: &str, _: VariantId) -> bool {
+                true
+            }
         }
         struct StubValidator;
         impl SchemaValidator for StubValidator {
-            fn validate(&self, _: &Value, _: &Value) -> Result<(), String> { Ok(()) }
+            fn validate(&self, _: &Value, _: &Value) -> Result<(), String> {
+                Ok(())
+            }
         }
         struct StubTracer;
         impl Tracer for StubTracer {
@@ -457,18 +469,25 @@ mod tests {
 
     #[async_trait]
     impl Tool for MockTool {
-        fn name(&self) -> &'static str { "mock.canary" }
-        fn input_schema(&self) -> &'static Value { self.input }
-        fn output_schema(&self) -> &'static Value { self.output }
-        fn variants(&self) -> &[VariantId] { &[VariantId::A] }
-        fn profile(&self) -> Profile { Profile::AppStoreSafe }
-        fn small_model_safe(&self) -> bool { true }
-        async fn invoke(
-            &self,
-            _ctx: &ToolCtx,
-            variant: VariantId,
-            input: Value,
-        ) -> ToolResult {
+        fn name(&self) -> &'static str {
+            "mock.canary"
+        }
+        fn input_schema(&self) -> &'static Value {
+            self.input
+        }
+        fn output_schema(&self) -> &'static Value {
+            self.output
+        }
+        fn variants(&self) -> &[VariantId] {
+            &[VariantId::A]
+        }
+        fn profile(&self) -> Profile {
+            Profile::AppStoreSafe
+        }
+        fn small_model_safe(&self) -> bool {
+            true
+        }
+        async fn invoke(&self, _ctx: &ToolCtx, variant: VariantId, input: Value) -> ToolResult {
             ToolResult::ok(variant, 1, input)
         }
     }
@@ -493,17 +512,23 @@ mod tests {
         struct C;
         #[async_trait]
         impl ToolCache for C {
-            async fn get(&self, _: &str, _: &Value) -> Option<ToolResult> { None }
+            async fn get(&self, _: &str, _: &Value) -> Option<ToolResult> {
+                None
+            }
             async fn put(&self, _: &str, _: &Value, _: &ToolResult) {}
         }
         struct H;
         #[async_trait]
         impl HealthCheck for H {
-            async fn is_available(&self, _: &str, _: VariantId) -> bool { true }
+            async fn is_available(&self, _: &str, _: VariantId) -> bool {
+                true
+            }
         }
         struct V;
         impl SchemaValidator for V {
-            fn validate(&self, _: &Value, _: &Value) -> Result<(), String> { Ok(()) }
+            fn validate(&self, _: &Value, _: &Value) -> Result<(), String> {
+                Ok(())
+            }
         }
         struct T;
         impl Tracer for T {

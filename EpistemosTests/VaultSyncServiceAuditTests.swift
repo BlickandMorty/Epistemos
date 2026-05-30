@@ -936,6 +936,89 @@ struct VaultSyncServiceAuditTests {
         #expect(hits.first(where: { $0.pageId == page.id })?.snippet.isEmpty == false)
     }
 
+    @Test("RRF-enabled vault search falls back to legacy page search when readable FTS is missing")
+    func rrfEnabledVaultSearchFallsBackToLegacyPageSearchWhenReadableFTSIsMissing() async throws {
+        let flag = RRFFusionFlags.userDefaultsKey
+        let previousEnvironment = ProcessInfo.processInfo.environment[flag]
+        let previousDefault = UserDefaults.standard.object(forKey: flag)
+        _ = setenv(flag, "1", 1)
+        UserDefaults.standard.removeObject(forKey: flag)
+        defer {
+            if let previousEnvironment {
+                _ = setenv(flag, previousEnvironment, 1)
+            } else {
+                unsetenv(flag)
+            }
+            if let previousDefault {
+                UserDefaults.standard.set(previousDefault, forKey: flag)
+            } else {
+                UserDefaults.standard.removeObject(forKey: flag)
+            }
+        }
+
+        let container = try makeContainer()
+        let service = VaultSyncService(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        let searchURL = vaultURL.appendingPathComponent("search.sqlite")
+        defer {
+            service.stopWatching(preserveData: true)
+            try? FileManager.default.removeItem(at: vaultURL)
+        }
+
+        service.setSearchDatabaseURLForTesting(searchURL)
+        service.startWatching(vaultURL: vaultURL)
+        try await waitUntil(timeout: .seconds(30)) {
+            service.isWatching && !service.isIndexing
+        }
+
+        let token = "rrffallback\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))"
+        let searchService = try #require(service.searchService)
+        try searchService.upsert(
+            id: "legacy-fallback-page",
+            title: "Legacy Fallback Page",
+            body: "Legacy page body contains \(token)",
+            tags: "",
+            updatedAt: .now
+        )
+        try await searchService.databaseWriter().write { db in
+            try db.execute(sql: "DROP TABLE IF EXISTS readable_blocks_fts")
+        }
+
+        let asyncHits = await service.searchFullAsync(query: token, limit: 5)
+        #expect(asyncHits.contains { $0.pageId == "legacy-fallback-page" })
+
+        let syncHits = service.searchFull(query: token, limit: 5)
+        #expect(syncHits.contains { $0.pageId == "legacy-fallback-page" })
+
+        let idHits = await service.searchIndex(query: token)
+        #expect(idHits.contains("legacy-fallback-page"))
+    }
+
+    @Test("RRF readable FTS repair and fallback source guards stay wired")
+    func rrfReadableFTSRepairAndFallbackSourceGuardsStayWired() throws {
+        let testsDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        let repoRoot = testsDirectory.deletingLastPathComponent()
+        let vaultSync = try String(
+            contentsOf: repoRoot.appendingPathComponent("Epistemos/Sync/VaultSyncService.swift"),
+            encoding: .utf8
+        )
+        let searchIndex = try String(
+            contentsOf: repoRoot.appendingPathComponent("Epistemos/Sync/SearchIndexService.swift"),
+            encoding: .utf8
+        )
+        let readableBlocks = try String(
+            contentsOf: repoRoot.appendingPathComponent("Epistemos/Sync/ReadableBlocksIndex.swift"),
+            encoding: .utf8
+        )
+
+        #expect(vaultSync.contains("RRF fused searchIndex failed; falling back to legacy page search"))
+        #expect(vaultSync.contains("RRF fused searchFull failed; falling back to legacy page search"))
+        #expect(vaultSync.contains("RRF fused searchFullAsync failed; falling back to legacy page search"))
+        #expect(searchIndex.contains("rebuildFTSIndexIfAvailable"))
+        #expect(searchIndex.contains("readableBlocksFTS5"))
+        #expect(readableBlocks.contains("INSERT INTO readable_blocks_fts(readable_blocks_fts) VALUES ('rebuild')"))
+    }
+
     @Test("initial vault import publishes vaultChanged after the restored vault is usable")
     func initialVaultImportPublishesVaultChangedAfterImport() async throws {
         let container = try makeContainer()

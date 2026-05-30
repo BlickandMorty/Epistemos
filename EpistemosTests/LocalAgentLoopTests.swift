@@ -1533,6 +1533,39 @@ struct LocalAgentLoopTests {
         #expect(answer == "tool smoke ok")
     }
 
+    @Test("live loop automatic token budget stays below heavy long-context boundary")
+    func liveLoopAutomaticTokenBudgetStaysBelowHeavyLongContextBoundary() {
+        #expect(LocalAgentLoop.heavyLongContextEnvironmentKey == "EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT")
+        #expect(LocalAgentLoop.maxSafeAutomaticTokenBudget == 32_768)
+        #expect(
+            LocalAgentLoop.defaultMaxTokenBudget(forModelID: LocalTextModelID.qwen3CoderNext4Bit.rawValue)
+                == 32_768
+        )
+        #expect(
+            LocalAgentLoop.defaultMaxTokenBudget(forModelID: LocalTextModelID.qwen3_8B4Bit.rawValue)
+                == 32_768
+        )
+        #expect(
+            LocalAgentLoop.defaultMaxTokenBudget(forModelID: LocalTextModelID.bonsai4B2Bit.rawValue)
+                == 22_937
+        )
+        #expect(LocalAgentLoop.defaultMaxTokenBudget(forModelID: nil) == 6_144)
+        #expect(
+            LocalAgentLoop.resolvedMaxTokenBudget(
+                requested: 65_536,
+                modelID: LocalTextModelID.qwen3_8B4Bit.rawValue,
+                environment: [:]
+            ) == 32_768
+        )
+        #expect(
+            LocalAgentLoop.resolvedMaxTokenBudget(
+                requested: 65_536,
+                modelID: LocalTextModelID.qwen3_8B4Bit.rawValue,
+                environment: ["EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT": "1"]
+            ) == 65_536
+        )
+    }
+
     @Test("live loop repairs empty streaming turns with one-shot local generation")
     @MainActor
     func liveLoopRepairsEmptyStreamingTurnsWithOneShotLocalGeneration() async throws {

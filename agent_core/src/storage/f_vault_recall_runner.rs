@@ -243,12 +243,18 @@ impl FVaultRecallSummary {
             breakdown
         };
         let lexical_chip = if self.lexical_only_count > 0 {
-            format!(" [lexical-only: {}/{}]", self.lexical_only_count, self.total)
+            format!(
+                " [lexical-only: {}/{}]",
+                self.lexical_only_count, self.total
+            )
         } else {
             String::new()
         };
         let weak_chip = if self.weak_evidence_count > 0 {
-            format!(" [weak-evidence: {}/{}]", self.weak_evidence_count, self.total)
+            format!(
+                " [weak-evidence: {}/{}]",
+                self.weak_evidence_count, self.total
+            )
         } else {
             String::new()
         };
@@ -312,9 +318,7 @@ pub fn summarize(outcomes: &[FVaultRecallRowOutcome]) -> FVaultRecallSummary {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::f_vault_recall_50_fixture::{
-        FVaultRecallCategory, FVaultRecallRow,
-    };
+    use crate::storage::f_vault_recall_50_fixture::{FVaultRecallCategory, FVaultRecallRow};
     use crate::storage::vault::VaultStore;
 
     /// Build a row inline and run it through `run_row` against a vault
@@ -326,8 +330,8 @@ mod tests {
     async fn run_row_passes_when_expected_note_outranks_others() {
         use crate::storage::retrieval_trace::RetrievalSignal;
         let vault_root = tempfile::tempdir().expect("temp vault");
-        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
-            .expect("open vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
 
         // Seed the expected note + 3 unrelated decoys.
         let docs: [(&str, &str); 4] = [
@@ -336,7 +340,10 @@ mod tests {
                 "mamba ssm cache mamba ssm cache notes on the Mamba SSM cache architecture",
             ),
             ("notes/general_layout.md", "ui layout design general notes"),
-            ("notes/random_a.md", "miscellaneous note about something else"),
+            (
+                "notes/random_a.md",
+                "miscellaneous note about something else",
+            ),
             ("notes/random_b.md", "another miscellaneous note unrelated"),
         ];
         for (path, content) in docs.iter() {
@@ -357,11 +364,7 @@ mod tests {
         };
 
         let (outcome, trace) = run_row(&store, &row).await.expect("run_row");
-        assert!(
-            outcome.passed,
-            "expected pass; outcome = {:?}",
-            outcome
-        );
+        assert!(outcome.passed, "expected pass; outcome = {:?}", outcome);
         assert_eq!(outcome.expected_seen, vec!["notes/mamba_ssm_cache.md"]);
         assert!(outcome.expected_missed.is_empty());
         assert!(outcome.forbidden_present.is_empty());
@@ -386,8 +389,8 @@ mod tests {
     #[tokio::test]
     async fn run_row_fails_when_expected_note_is_missing() {
         let vault_root = tempfile::tempdir().expect("temp vault");
-        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
-            .expect("open vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
 
         // Seed only decoys — no `mamba_ssm_cache.md`.
         for (path, content) in [
@@ -553,9 +556,7 @@ mod tests {
         assert!(line.starts_with("2/3 passing"));
         assert!(line.contains("(67%)"));
         // ChattyPrefix sorts before Paraphrase (alphabetical).
-        let chatty_idx = line
-            .find("ChattyPrefix")
-            .expect("ChattyPrefix must appear");
+        let chatty_idx = line.find("ChattyPrefix").expect("ChattyPrefix must appear");
         let para_idx = line.find("Paraphrase").expect("Paraphrase must appear");
         assert!(
             chatty_idx < para_idx,
@@ -636,8 +637,8 @@ mod tests {
     #[tokio::test]
     async fn run_all_returns_outcome_per_row() {
         let vault_root = tempfile::tempdir().expect("temp vault");
-        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
-            .expect("open vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
 
         let fixture: [FVaultRecallRow; 2] = [
             FVaultRecallRow {
@@ -679,8 +680,8 @@ mod tests {
     #[tokio::test]
     async fn run_row_snapshots_lexical_only_and_summary_aggregates() {
         let vault_root = tempfile::tempdir().expect("temp vault");
-        let store = VaultStore::open(vault_root.path().to_str().expect("vault path"))
-            .expect("open vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
         // Seed a doc so the retrieval is non-empty (otherwise the
         // signal_summary is empty and `has_only_lexical_signals()`
         // returns false — that case is covered in iter-65 already).
@@ -845,8 +846,7 @@ mod tests {
             evidence_strength: EvidenceStrength::Weak.slug().into(),
         };
         let json = serde_json::to_string(&outcome).expect("serialize outcome");
-        let parsed: serde_json::Value =
-            serde_json::from_str(&json).expect("parse outcome JSON");
+        let parsed: serde_json::Value = serde_json::from_str(&json).expect("parse outcome JSON");
 
         // Identity fields.
         assert_eq!(parsed["query"], "vault index refresh");
@@ -866,7 +866,8 @@ mod tests {
         assert!(parsed["top_paths"].is_array());
         assert_eq!(parsed["expected_missed"].as_array().unwrap().len(), 1);
         assert_eq!(
-            parsed["expected_missed"][0], "notes/vault_index_reload_canon.md"
+            parsed["expected_missed"][0],
+            "notes/vault_index_reload_canon.md"
         );
     }
 
@@ -908,8 +909,7 @@ mod tests {
         ];
         let summary = summarize(&outcomes);
         let json = serde_json::to_string(&summary).expect("serialize summary");
-        let parsed: serde_json::Value =
-            serde_json::from_str(&json).expect("parse summary JSON");
+        let parsed: serde_json::Value = serde_json::from_str(&json).expect("parse summary JSON");
 
         // Core counts — pinned by key name.
         assert_eq!(parsed["total"], 2);

@@ -199,10 +199,7 @@ mod tests {
         // and break downstream filters keyed on MalformedToolCall.
         use crate::agent_runtime_v2::mission::ToolCallError;
         let cases = [
-            (
-                ToolCallError::EmptyName,
-                "EmptyName",
-            ),
+            (ToolCallError::EmptyName, "EmptyName"),
             (
                 ToolCallError::BadName {
                     name: "vault read".into(),
@@ -212,7 +209,10 @@ mod tests {
                 "BadName",
             ),
             (
-                ToolCallError::OversizeName { size: 999, cap: 256 },
+                ToolCallError::OversizeName {
+                    size: 999,
+                    cap: 256,
+                },
                 "OversizeName",
             ),
             (
@@ -220,7 +220,10 @@ mod tests {
                 "BadArguments",
             ),
             (
-                ToolCallError::OversizeArguments { size: 99_999, cap: 65_536 },
+                ToolCallError::OversizeArguments {
+                    size: 99_999,
+                    cap: 65_536,
+                },
                 "OversizeArguments",
             ),
         ];
@@ -256,8 +259,12 @@ mod tests {
         //   Error { kind, message }
         // Each must survive byte-equal through serde.
         let cases = [
-            AgentEvent::ReasoningDelta { text: "考えている…🤔".into() },
-            AgentEvent::FinalText { text: "回答: 42 ✓".into() },
+            AgentEvent::ReasoningDelta {
+                text: "考えている…🤔".into(),
+            },
+            AgentEvent::FinalText {
+                text: "回答: 42 ✓".into(),
+            },
             AgentEvent::ToolResult {
                 name: "vault.read".into(),
                 result: serde_json::json!({"内容": "笔记内容"}),
@@ -277,8 +284,12 @@ mod tests {
     #[test]
     fn event_variants_round_trip_through_json() {
         let cases = vec![
-            AgentEvent::ReasoningDelta { text: "think".into() },
-            AgentEvent::FinalText { text: "answer".into() },
+            AgentEvent::ReasoningDelta {
+                text: "think".into(),
+            },
+            AgentEvent::FinalText {
+                text: "answer".into(),
+            },
             AgentEvent::ToolCall {
                 call: ToolCall {
                     name: "vault.read".into(),
@@ -289,7 +300,9 @@ mod tests {
                 name: "vault.read".into(),
                 result: serde_json::json!({"ok": true}),
             },
-            AgentEvent::Stop { reason: StopReason::EndTurn },
+            AgentEvent::Stop {
+                reason: StopReason::EndTurn,
+            },
             AgentEvent::Error {
                 kind: AgentEventErrorKind::Provider,
                 message: "transport".into(),
@@ -321,7 +334,10 @@ mod tests {
             result: serde_json::json!({}),
         }
         .is_streaming_delta());
-        assert!(!AgentEvent::Stop { reason: StopReason::EndTurn }.is_streaming_delta());
+        assert!(!AgentEvent::Stop {
+            reason: StopReason::EndTurn
+        }
+        .is_streaming_delta());
         assert!(!AgentEvent::Error {
             kind: AgentEventErrorKind::Provider,
             message: "x".into(),
@@ -332,8 +348,14 @@ mod tests {
     #[test]
     fn is_terminal_returns_true_for_stop_and_error_only() {
         // Stop + Error terminate; all other variants continue the stream.
-        assert!(AgentEvent::Stop { reason: StopReason::EndTurn }.is_terminal());
-        assert!(AgentEvent::Stop { reason: StopReason::BudgetExhausted }.is_terminal());
+        assert!(AgentEvent::Stop {
+            reason: StopReason::EndTurn
+        }
+        .is_terminal());
+        assert!(AgentEvent::Stop {
+            reason: StopReason::BudgetExhausted
+        }
+        .is_terminal());
         assert!(AgentEvent::Error {
             kind: AgentEventErrorKind::Provider,
             message: "x".into(),
@@ -401,7 +423,10 @@ mod tests {
             let msg = format!("synthetic {kind:?}");
             let ev = AgentEvent::error(kind, msg.clone());
             match ev {
-                AgentEvent::Error { kind: k, message: m } => {
+                AgentEvent::Error {
+                    kind: k,
+                    message: m,
+                } => {
                     assert_eq!(k, kind, "kind must round-trip");
                     assert_eq!(m, msg, "message must round-trip verbatim");
                 }
@@ -441,10 +466,7 @@ mod tests {
         // Also: the impl Into<String> bound must accept both &str
         // and String (positive type-checker probe).
         let _from_str = AgentEvent::error(AgentEventErrorKind::Provider, "literal");
-        let _from_string = AgentEvent::error(
-            AgentEventErrorKind::Provider,
-            String::from("owned"),
-        );
+        let _from_string = AgentEvent::error(AgentEventErrorKind::Provider, String::from("owned"));
     }
 
     #[test]
@@ -466,19 +488,28 @@ mod tests {
         // surface here via destructure compile-fail.
         let ev = AgentEvent::ReasoningDelta { text: "x".into() };
         match ev {
-            AgentEvent::ReasoningDelta { text } => { let _: String = text; }
+            AgentEvent::ReasoningDelta { text } => {
+                let _: String = text;
+            }
             _ => unreachable!(),
         }
         let ev = AgentEvent::FinalText { text: "x".into() };
         match ev {
-            AgentEvent::FinalText { text } => { let _: String = text; }
+            AgentEvent::FinalText { text } => {
+                let _: String = text;
+            }
             _ => unreachable!(),
         }
         let ev = AgentEvent::ToolCall {
-            call: ToolCall { name: "vault.read".into(), arguments: serde_json::json!({}) },
+            call: ToolCall {
+                name: "vault.read".into(),
+                arguments: serde_json::json!({}),
+            },
         };
         match ev {
-            AgentEvent::ToolCall { call } => { let _: ToolCall = call; }
+            AgentEvent::ToolCall { call } => {
+                let _: ToolCall = call;
+            }
             _ => unreachable!(),
         }
         let ev = AgentEvent::ToolResult {
@@ -492,9 +523,13 @@ mod tests {
             }
             _ => unreachable!(),
         }
-        let ev = AgentEvent::Stop { reason: StopReason::EndTurn };
+        let ev = AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        };
         match ev {
-            AgentEvent::Stop { reason } => { let _: StopReason = reason; }
+            AgentEvent::Stop { reason } => {
+                let _: StopReason = reason;
+            }
             _ => unreachable!(),
         }
         let ev = AgentEvent::Error {
@@ -532,7 +567,9 @@ mod tests {
                 name: "n".into(),
                 result: serde_json::json!({}),
             },
-            AgentEvent::Stop { reason: StopReason::EndTurn },
+            AgentEvent::Stop {
+                reason: StopReason::EndTurn,
+            },
             AgentEvent::Error {
                 kind: AgentEventErrorKind::Provider,
                 message: "x".into(),
@@ -623,11 +660,15 @@ mod tests {
         // external readers / grep-based audit dashboards break.
         let cases = [
             (
-                AgentEvent::ReasoningDelta { text: "think".into() },
+                AgentEvent::ReasoningDelta {
+                    text: "think".into(),
+                },
                 vec!["\"text\":\"think\""],
             ),
             (
-                AgentEvent::FinalText { text: "answer".into() },
+                AgentEvent::FinalText {
+                    text: "answer".into(),
+                },
                 vec!["\"text\":\"answer\""],
             ),
             (
@@ -647,7 +688,9 @@ mod tests {
                 vec!["\"name\":\"vault.read\"", "\"result\":"],
             ),
             (
-                AgentEvent::Stop { reason: StopReason::EndTurn },
+                AgentEvent::Stop {
+                    reason: StopReason::EndTurn,
+                },
                 vec!["\"reason\":\"end_turn\""],
             ),
             (
@@ -736,8 +779,13 @@ mod tests {
                     arguments: serde_json::json!({}),
                 },
             },
-            AgentEvent::ToolResult { name: "vault.read".into(), result: serde_json::json!({}) },
-            AgentEvent::Stop { reason: StopReason::EndTurn },
+            AgentEvent::ToolResult {
+                name: "vault.read".into(),
+                result: serde_json::json!({}),
+            },
+            AgentEvent::Stop {
+                reason: StopReason::EndTurn,
+            },
             AgentEvent::Error {
                 kind: AgentEventErrorKind::Provider,
                 message: "x".into(),
@@ -750,7 +798,10 @@ mod tests {
                 .get("event_type")
                 .and_then(|v| v.as_str())
                 .expect("event_type field missing");
-            assert!(!tag.is_empty(), "event_type tag must be non-empty for {event:?}");
+            assert!(
+                !tag.is_empty(),
+                "event_type tag must be non-empty for {event:?}"
+            );
             for ch in tag.chars() {
                 assert!(
                     ch.is_ascii_lowercase() || ch == '_',
@@ -772,7 +823,10 @@ mod tests {
         // canonical string. A rename would silently break
         // RunEventLog persistence + cross-version replay.
         let canon: &[(AgentEvent, &str)] = &[
-            (AgentEvent::ReasoningDelta { text: "t".into() }, "reasoning_delta"),
+            (
+                AgentEvent::ReasoningDelta { text: "t".into() },
+                "reasoning_delta",
+            ),
             (AgentEvent::FinalText { text: "t".into() }, "final_text"),
             (
                 AgentEvent::ToolCall {
@@ -784,10 +838,18 @@ mod tests {
                 "tool_call",
             ),
             (
-                AgentEvent::ToolResult { name: "vault.read".into(), result: serde_json::json!({}) },
+                AgentEvent::ToolResult {
+                    name: "vault.read".into(),
+                    result: serde_json::json!({}),
+                },
                 "tool_result",
             ),
-            (AgentEvent::Stop { reason: StopReason::EndTurn }, "stop"),
+            (
+                AgentEvent::Stop {
+                    reason: StopReason::EndTurn,
+                },
+                "stop",
+            ),
             (
                 AgentEvent::Error {
                     kind: AgentEventErrorKind::Provider,
@@ -814,7 +876,10 @@ mod tests {
         // RunEventLog rows, and human-readable surfaces never
         // disagree on the label.
         for (kind, expected) in [
-            (AgentEventErrorKind::MalformedToolCall, "malformed_tool_call"),
+            (
+                AgentEventErrorKind::MalformedToolCall,
+                "malformed_tool_call",
+            ),
             (AgentEventErrorKind::BudgetExhausted, "budget_exhausted"),
             (AgentEventErrorKind::CapabilityDenied, "capability_denied"),
             (AgentEventErrorKind::Provider, "provider"),
@@ -841,8 +906,18 @@ mod tests {
     #[test]
     fn agent_event_debug_repr_starts_with_variant_name_for_audit_logs() {
         let samples = [
-            (AgentEvent::ReasoningDelta { text: "think".into() }, "ReasoningDelta"),
-            (AgentEvent::FinalText { text: "final".into() }, "FinalText"),
+            (
+                AgentEvent::ReasoningDelta {
+                    text: "think".into(),
+                },
+                "ReasoningDelta",
+            ),
+            (
+                AgentEvent::FinalText {
+                    text: "final".into(),
+                },
+                "FinalText",
+            ),
             (
                 AgentEvent::ToolCall {
                     call: ToolCall {
@@ -859,7 +934,12 @@ mod tests {
                 },
                 "ToolResult",
             ),
-            (AgentEvent::Stop { reason: StopReason::EndTurn }, "Stop"),
+            (
+                AgentEvent::Stop {
+                    reason: StopReason::EndTurn,
+                },
+                "Stop",
+            ),
             (
                 AgentEvent::Error {
                     kind: AgentEventErrorKind::Provider,
@@ -927,7 +1007,9 @@ mod tests {
         assert_copy_clone_send_sync::<AgentEventErrorKind>();
 
         let k = AgentEventErrorKind::CapabilityDenied;
-        let _a = k; let _b = k; assert_eq!(k, k);
+        let _a = k;
+        let _b = k;
+        assert_eq!(k, k);
     }
 
     #[test]
@@ -995,9 +1077,15 @@ mod tests {
         }
         // Sanity: every valid variant still round-trips byte-equal.
         for (variant, expected) in [
-            (AgentEventErrorKind::MalformedToolCall, "\"malformed_tool_call\""),
+            (
+                AgentEventErrorKind::MalformedToolCall,
+                "\"malformed_tool_call\"",
+            ),
             (AgentEventErrorKind::BudgetExhausted, "\"budget_exhausted\""),
-            (AgentEventErrorKind::CapabilityDenied, "\"capability_denied\""),
+            (
+                AgentEventErrorKind::CapabilityDenied,
+                "\"capability_denied\"",
+            ),
             (AgentEventErrorKind::Provider, "\"provider\""),
         ] {
             let s = serde_json::to_string(&variant).unwrap();
@@ -1009,14 +1097,7 @@ mod tests {
 
     #[test]
     fn agent_event_error_kind_non_string_json_shapes_fail_to_deserialise() {
-        for bad in [
-            "null",
-            "true",
-            "0",
-            "{}",
-            "[]",
-            r#"{"kind":"provider"}"#,
-        ] {
+        for bad in ["null", "true", "0", "{}", "[]", r#"{"kind":"provider"}"#] {
             let parsed: Result<AgentEventErrorKind, _> = serde_json::from_str(bad);
             assert!(
                 parsed.is_err(),
@@ -1198,7 +1279,10 @@ mod tests {
         // Same guardrail for AgentEventErrorKind — closed taxonomy
         // persisted in RunEventLog rows.
         for (kind, expected) in &[
-            (AgentEventErrorKind::MalformedToolCall, "malformed_tool_call"),
+            (
+                AgentEventErrorKind::MalformedToolCall,
+                "malformed_tool_call",
+            ),
             (AgentEventErrorKind::BudgetExhausted, "budget_exhausted"),
             (AgentEventErrorKind::CapabilityDenied, "capability_denied"),
             (AgentEventErrorKind::Provider, "provider"),
@@ -1216,11 +1300,21 @@ mod tests {
         // the purity series). Both concat_* functions walk an
         // immutable slice and build a fresh String; pure.
         let events = [
-            AgentEvent::ReasoningDelta { text: "think-a ".into() },
-            AgentEvent::FinalText { text: "final-a ".into() },
-            AgentEvent::ReasoningDelta { text: "think-b".into() },
-            AgentEvent::FinalText { text: "final-b".into() },
-            AgentEvent::Stop { reason: StopReason::EndTurn },
+            AgentEvent::ReasoningDelta {
+                text: "think-a ".into(),
+            },
+            AgentEvent::FinalText {
+                text: "final-a ".into(),
+            },
+            AgentEvent::ReasoningDelta {
+                text: "think-b".into(),
+            },
+            AgentEvent::FinalText {
+                text: "final-b".into(),
+            },
+            AgentEvent::Stop {
+                reason: StopReason::EndTurn,
+            },
         ];
         for _ in 0..3 {
             assert_eq!(
@@ -1232,23 +1326,34 @@ mod tests {
                 AgentEvent::concat_final_text(&events),
             );
         }
-        assert_eq!(AgentEvent::concat_reasoning_text(&events), "think-a think-b");
+        assert_eq!(
+            AgentEvent::concat_reasoning_text(&events),
+            "think-a think-b"
+        );
         assert_eq!(AgentEvent::concat_final_text(&events), "final-a final-b");
     }
 
     #[test]
     fn concat_final_text_joins_only_final_deltas() {
         let events = [
-            AgentEvent::ReasoningDelta { text: "skip-me".into() },
-            AgentEvent::FinalText { text: "the ".into() },
+            AgentEvent::ReasoningDelta {
+                text: "skip-me".into(),
+            },
+            AgentEvent::FinalText {
+                text: "the ".into(),
+            },
             AgentEvent::ToolCall {
                 call: ToolCall {
                     name: "x.y".into(),
                     arguments: serde_json::json!({}),
                 },
             },
-            AgentEvent::FinalText { text: "answer".into() },
-            AgentEvent::Stop { reason: StopReason::EndTurn },
+            AgentEvent::FinalText {
+                text: "answer".into(),
+            },
+            AgentEvent::Stop {
+                reason: StopReason::EndTurn,
+            },
         ];
         assert_eq!(AgentEvent::concat_final_text(&events), "the answer");
     }
@@ -1261,11 +1366,21 @@ mod tests {
         // sort order — proves the concat is order-preserving (not
         // accidentally sorted) and that all 3+ fragments survive.
         let events = [
-            AgentEvent::FinalText { text: "zulu-".into() },
-            AgentEvent::ReasoningDelta { text: "SKIP".into() },
-            AgentEvent::FinalText { text: "alpha-".into() },
-            AgentEvent::FinalText { text: "mike".into() },
-            AgentEvent::Stop { reason: StopReason::EndTurn },
+            AgentEvent::FinalText {
+                text: "zulu-".into(),
+            },
+            AgentEvent::ReasoningDelta {
+                text: "SKIP".into(),
+            },
+            AgentEvent::FinalText {
+                text: "alpha-".into(),
+            },
+            AgentEvent::FinalText {
+                text: "mike".into(),
+            },
+            AgentEvent::Stop {
+                reason: StopReason::EndTurn,
+            },
         ];
         let joined = AgentEvent::concat_final_text(&events);
         assert_eq!(joined, "zulu-alpha-mike");
@@ -1283,9 +1398,15 @@ mod tests {
     #[test]
     fn concat_reasoning_text_joins_only_reasoning_deltas() {
         let events = [
-            AgentEvent::ReasoningDelta { text: "Hello".into() },
-            AgentEvent::FinalText { text: "skip me".into() },
-            AgentEvent::ReasoningDelta { text: " world".into() },
+            AgentEvent::ReasoningDelta {
+                text: "Hello".into(),
+            },
+            AgentEvent::FinalText {
+                text: "skip me".into(),
+            },
+            AgentEvent::ReasoningDelta {
+                text: " world".into(),
+            },
             AgentEvent::ToolCall {
                 call: ToolCall {
                     name: "x.y".into(),
@@ -1293,7 +1414,9 @@ mod tests {
                 },
             },
             AgentEvent::ReasoningDelta { text: "!".into() },
-            AgentEvent::Stop { reason: StopReason::EndTurn },
+            AgentEvent::Stop {
+                reason: StopReason::EndTurn,
+            },
         ];
         let combined = AgentEvent::concat_reasoning_text(&events);
         assert_eq!(combined, "Hello world!");
@@ -1314,11 +1437,21 @@ mod tests {
         // reasoning fragments" refactor that would silently lose the
         // executor's emit-order signal.
         let events = [
-            AgentEvent::ReasoningDelta { text: "zulu-".into() },
-            AgentEvent::FinalText { text: "SKIP".into() },
-            AgentEvent::ReasoningDelta { text: "alpha-".into() },
-            AgentEvent::ReasoningDelta { text: "mike".into() },
-            AgentEvent::Stop { reason: StopReason::EndTurn },
+            AgentEvent::ReasoningDelta {
+                text: "zulu-".into(),
+            },
+            AgentEvent::FinalText {
+                text: "SKIP".into(),
+            },
+            AgentEvent::ReasoningDelta {
+                text: "alpha-".into(),
+            },
+            AgentEvent::ReasoningDelta {
+                text: "mike".into(),
+            },
+            AgentEvent::Stop {
+                reason: StopReason::EndTurn,
+            },
         ];
         let joined = AgentEvent::concat_reasoning_text(&events);
         assert_eq!(joined, "zulu-alpha-mike");
@@ -1336,11 +1469,21 @@ mod tests {
     #[test]
     fn concat_streaming_text_preserves_unicode_and_embedded_nul_verbatim() {
         let events = [
-            AgentEvent::ReasoningDelta { text: "考え\0".into() },
-            AgentEvent::FinalText { text: "答え\0".into() },
-            AgentEvent::ReasoningDelta { text: "🙂".into() },
-            AgentEvent::FinalText { text: "🚀".into() },
-            AgentEvent::Stop { reason: StopReason::EndTurn },
+            AgentEvent::ReasoningDelta {
+                text: "考え\0".into(),
+            },
+            AgentEvent::FinalText {
+                text: "答え\0".into(),
+            },
+            AgentEvent::ReasoningDelta {
+                text: "🙂".into()
+            },
+            AgentEvent::FinalText {
+                text: "🚀".into()
+            },
+            AgentEvent::Stop {
+                reason: StopReason::EndTurn,
+            },
         ];
         assert_eq!(AgentEvent::concat_reasoning_text(&events), "考え\0🙂");
         assert_eq!(AgentEvent::concat_final_text(&events), "答え\0🚀");
@@ -1349,8 +1492,12 @@ mod tests {
     #[test]
     fn concat_reasoning_text_no_reasoning_returns_empty() {
         let events = [
-            AgentEvent::FinalText { text: "answer".into() },
-            AgentEvent::Stop { reason: StopReason::EndTurn },
+            AgentEvent::FinalText {
+                text: "answer".into(),
+            },
+            AgentEvent::Stop {
+                reason: StopReason::EndTurn,
+            },
         ];
         assert_eq!(AgentEvent::concat_reasoning_text(&events), "");
     }
@@ -1396,13 +1543,18 @@ mod tests {
             },
             AgentEvent::FinalText { text: "F2-".into() },
             AgentEvent::ReasoningDelta { text: "R3".into() },
-            AgentEvent::ToolResult { name: "vault.read".into(), result: serde_json::json!({}) },
+            AgentEvent::ToolResult {
+                name: "vault.read".into(),
+                result: serde_json::json!({}),
+            },
             AgentEvent::FinalText { text: "F3".into() },
             AgentEvent::Error {
                 kind: AgentEventErrorKind::Provider,
                 message: "ignored".into(),
             },
-            AgentEvent::Stop { reason: StopReason::EndTurn },
+            AgentEvent::Stop {
+                reason: StopReason::EndTurn,
+            },
         ];
 
         let reasoning = AgentEvent::concat_reasoning_text(&events);
@@ -1418,12 +1570,21 @@ mod tests {
         // Reasoning output contains no F-prefixed token; final
         // output contains no R-prefixed token.
         for r_token in ["R1", "R2", "R3"] {
-            assert!(reasoning.contains(r_token), "reasoning must include {r_token}");
-            assert!(!final_text.contains(r_token), "final must NOT include {r_token}");
+            assert!(
+                reasoning.contains(r_token),
+                "reasoning must include {r_token}"
+            );
+            assert!(
+                !final_text.contains(r_token),
+                "final must NOT include {r_token}"
+            );
         }
         for f_token in ["F1", "F2", "F3"] {
             assert!(final_text.contains(f_token), "final must include {f_token}");
-            assert!(!reasoning.contains(f_token), "reasoning must NOT include {f_token}");
+            assert!(
+                !reasoning.contains(f_token),
+                "reasoning must NOT include {f_token}"
+            );
         }
 
         // Byte-sum coverage: concat byte counts EQUAL the per-variant
@@ -1442,16 +1603,28 @@ mod tests {
                 _ => None,
             })
             .sum();
-        assert_eq!(reasoning.len(), expected_reasoning_bytes,
-            "concat_reasoning_text byte count must equal sum of ReasoningDelta lengths");
-        assert_eq!(final_text.len(), expected_final_bytes,
-            "concat_final_text byte count must equal sum of FinalText lengths");
+        assert_eq!(
+            reasoning.len(),
+            expected_reasoning_bytes,
+            "concat_reasoning_text byte count must equal sum of ReasoningDelta lengths"
+        );
+        assert_eq!(
+            final_text.len(),
+            expected_final_bytes,
+            "concat_final_text byte count must equal sum of FinalText lengths"
+        );
 
         // ToolCall name + Error message + Stop are present in the
         // events but MUST NOT bleed into either concat output.
         for forbidden in ["vault.read", "ignored"] {
-            assert!(!reasoning.contains(forbidden), "reasoning must not bleed {forbidden}");
-            assert!(!final_text.contains(forbidden), "final must not bleed {forbidden}");
+            assert!(
+                !reasoning.contains(forbidden),
+                "reasoning must not bleed {forbidden}"
+            );
+            assert!(
+                !final_text.contains(forbidden),
+                "final must not bleed {forbidden}"
+            );
         }
     }
 
@@ -1492,8 +1665,10 @@ mod tests {
                 AgentEvent::Stop { reason: r } => assert_eq!(r, reason),
                 other => panic!("expected Stop variant for {reason:?}, got {other:?}"),
             }
-            assert!(AgentEvent::stop(reason).is_terminal(),
-                "stop event for {reason:?} must be terminal");
+            assert!(
+                AgentEvent::stop(reason).is_terminal(),
+                "stop event for {reason:?} must be terminal"
+            );
         }
     }
 
@@ -1529,9 +1704,8 @@ mod tests {
         // Sanity preserved: at least one valid known tag still
         // deserialises (so the negative cases above aren't masking
         // a broader serde breakage).
-        let ok: AgentEvent =
-            serde_json::from_str(r#"{"event_type":"final_text","text":"ok"}"#)
-                .expect("valid tag still deserialises");
+        let ok: AgentEvent = serde_json::from_str(r#"{"event_type":"final_text","text":"ok"}"#)
+            .expect("valid tag still deserialises");
         match ok {
             AgentEvent::FinalText { text } => assert_eq!(text, "ok"),
             other => panic!("expected FinalText, got {other:?}"),
@@ -1677,7 +1851,9 @@ mod tests {
                 name: "n".into(),
                 result: serde_json::json!({}),
             },
-            AgentEvent::Stop { reason: StopReason::EndTurn },
+            AgentEvent::Stop {
+                reason: StopReason::EndTurn,
+            },
             AgentEvent::Error {
                 kind: AgentEventErrorKind::Provider,
                 message: "x".into(),
@@ -1715,7 +1891,10 @@ mod tests {
         // A future variant addition that doesn't update this assert
         // surfaces here.
         assert_eq!(bucket_a, 2, "expected 2 streaming-delta variants");
-        assert_eq!(bucket_b, 2, "expected 2 neither variants (ToolCall, ToolResult)");
+        assert_eq!(
+            bucket_b, 2,
+            "expected 2 neither variants (ToolCall, ToolResult)"
+        );
         assert_eq!(bucket_c, 2, "expected 2 terminal variants (Stop, Error)");
     }
 
@@ -1761,7 +1940,9 @@ mod tests {
 
     #[test]
     fn stop_event_carries_typed_reason() {
-        let s = AgentEvent::Stop { reason: StopReason::BudgetExhausted };
+        let s = AgentEvent::Stop {
+            reason: StopReason::BudgetExhausted,
+        };
         match s {
             AgentEvent::Stop { reason } => assert_eq!(reason, StopReason::BudgetExhausted),
             _ => panic!(),
@@ -1798,8 +1979,7 @@ mod tests {
                 result: result.clone(),
             };
             let s = serde_json::to_string(&ev).expect("serialise");
-            let back: AgentEvent =
-                serde_json::from_str(&s).expect("deserialise");
+            let back: AgentEvent = serde_json::from_str(&s).expect("deserialise");
             assert_eq!(back, ev, "tool_result must round-trip byte-equal");
             match back {
                 AgentEvent::ToolResult { name: n, result: r } => {
@@ -1832,8 +2012,7 @@ mod tests {
         for msg in adversarial {
             let ev = AgentEvent::error(AgentEventErrorKind::Provider, msg);
             let s = serde_json::to_string(&ev).expect("serialise");
-            let back: AgentEvent =
-                serde_json::from_str(&s).expect("deserialise");
+            let back: AgentEvent = serde_json::from_str(&s).expect("deserialise");
             assert_eq!(back, ev, "error message must round-trip byte-equal");
             match back {
                 AgentEvent::Error { message, .. } => assert_eq!(message, msg),
@@ -1859,16 +2038,21 @@ mod tests {
         // empty, which is fine, but the structural equality would
         // break for any tests that compared before-vs-after).
         for ev in [
-            AgentEvent::ReasoningDelta { text: String::new() },
-            AgentEvent::FinalText { text: String::new() },
+            AgentEvent::ReasoningDelta {
+                text: String::new(),
+            },
+            AgentEvent::FinalText {
+                text: String::new(),
+            },
         ] {
             let s = serde_json::to_string(&ev).expect("serialise");
-            let back: AgentEvent =
-                serde_json::from_str(&s).expect("deserialise");
+            let back: AgentEvent = serde_json::from_str(&s).expect("deserialise");
             assert_eq!(back, ev, "empty-text streaming event must round-trip");
             // The serialised form should explicitly contain "text":"".
-            assert!(s.contains("\"text\":\"\""),
-                "serialised form must explicitly contain text:\"\" for {ev:?}, got {s}");
+            assert!(
+                s.contains("\"text\":\"\""),
+                "serialised form must explicitly contain text:\"\" for {ev:?}, got {s}"
+            );
         }
     }
 
@@ -1893,8 +2077,7 @@ mod tests {
         ] {
             let ev = AgentEvent::Stop { reason };
             let s = serde_json::to_string(&ev).expect("serialise");
-            let back: AgentEvent =
-                serde_json::from_str(&s).expect("deserialise");
+            let back: AgentEvent = serde_json::from_str(&s).expect("deserialise");
             assert_eq!(back, ev, "stop event must round-trip for {reason:?}");
             // Specifically the inner reason is preserved.
             match back {

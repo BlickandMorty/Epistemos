@@ -31,9 +31,7 @@ use agent_core::bridge::{
     eidos_close_vault_index, eidos_open_vault_index, eidos_retrieve_json,
     eidos_validate_citation_json, eidos_vault_index_insert_note,
 };
-use agent_core::eidos::{
-    EidosChunkId, EidosCitation, EidosContextPacket, EidosIndexManifestId,
-};
+use agent_core::eidos::{EidosChunkId, EidosCitation, EidosContextPacket, EidosIndexManifestId};
 use agent_core::falsifier_artifacts::{
     now_utc_rfc3339, write_artifact, AcceptanceThreshold, ArtifactBuilder, ArtifactKind,
     FallbackTier, Measurement,
@@ -70,18 +68,36 @@ fn main() {
     );
 
     let notes = [
-        ("note-tropical", "Tropical semirings make optimization convex.", "Note"),
-        ("note-residency", "Residency governance tier compression matters.", "Note"),
-        ("note-mamba", "Mamba SSM cache architecture notes for the lab.", "Note"),
-        ("note-falsifier", "Falsifier handbook M2 Pro hardware floor 16 GB.", "Note"),
-        ("note-acs", "ACS anchor lookup over typed anchor registry.", "Note"),
+        (
+            "note-tropical",
+            "Tropical semirings make optimization convex.",
+            "Note",
+        ),
+        (
+            "note-residency",
+            "Residency governance tier compression matters.",
+            "Note",
+        ),
+        (
+            "note-mamba",
+            "Mamba SSM cache architecture notes for the lab.",
+            "Note",
+        ),
+        (
+            "note-falsifier",
+            "Falsifier handbook M2 Pro hardware floor 16 GB.",
+            "Note",
+        ),
+        (
+            "note-acs",
+            "ACS anchor lookup over typed anchor registry.",
+            "Note",
+        ),
     ];
     for (id, body, kind) in notes.iter() {
-        if let Err(e) = eidos_vault_index_insert_note(
-            id.to_string(),
-            body.to_string(),
-            kind.to_string(),
-        ) {
+        if let Err(e) =
+            eidos_vault_index_insert_note(id.to_string(), body.to_string(), kind.to_string())
+        {
             let _ = eidos_close_vault_index();
             return write_setup_failure(
                 format!("eidos_vault_index_insert_note({id}): {e:?}"),
@@ -104,15 +120,12 @@ fn main() {
         Ok(p) => p,
         Err(e) => {
             let _ = eidos_close_vault_index();
-            return write_setup_failure(
-                format!("packet decode: {e}"),
-                started_utc,
-            );
+            return write_setup_failure(format!("packet decode: {e}"), started_utc);
         }
     };
 
-    let retrieve_hits_present = !packet.hits.is_empty()
-        && packet.manifest_id.as_str().starts_with("vault-");
+    let retrieve_hits_present =
+        !packet.hits.is_empty() && packet.manifest_id.as_str().starts_with("vault-");
     insert_bool_axis(
         &mut measurements,
         &mut thresholds,
@@ -328,7 +341,10 @@ fn finalize(
     };
     let artifact = builder.build();
     write_to_disk(&artifact);
-    println!("{}", serde_json::to_string_pretty(&artifact).expect("serialize"));
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&artifact).expect("serialize")
+    );
 }
 
 fn write_to_disk(artifact: &agent_core::falsifier_artifacts::FalsifierArtifact) {

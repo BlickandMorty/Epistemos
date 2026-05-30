@@ -342,12 +342,7 @@ mod tests {
 
     #[test]
     fn certificate_uses_named_info_obligation_predicates() {
-        let e = InfoExpr::kl_projection(
-            ExpFamily::Bernoulli,
-            vec![0.25],
-            vec![0.75],
-        )
-        .unwrap();
+        let e = InfoExpr::kl_projection(ExpFamily::Bernoulli, vec![0.25], vec![0.75]).unwrap();
         let c = lean_certificate(&e);
         assert!(c.contains("Epistemos.Info.convexLogPartitionObligation"));
         assert!(c.contains("Epistemos.Info.bregmanPositivityObligation"));
@@ -385,7 +380,9 @@ mod tests {
     fn certificate_projects_info_target_obligations() {
         let e = InfoExpr::log_partition(ExpFamily::Bernoulli, vec![0.0]).unwrap();
         let c = lean_certificate(&e);
-        assert!(c.contains("sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Info-IR\""));
+        assert!(c.contains(
+            "sourceRow := \"docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md §5 Info-IR\""
+        ));
         assert!(c.contains("theorem info_certificate_source_row_"));
         assert!(c.contains("Epistemos.Info.CertificateTarget.sourceRowMatches"));
         assert!(c.contains("theorem info_certificate_obligations_"));
@@ -413,9 +410,7 @@ mod tests {
         assert!(c.contains("theorem info_certificate_convexity_field_"));
         assert!(c.contains("Epistemos.Info.CertificateTarget.convexityOptionMatches"));
         assert!(c.contains("theorem info_certificate_convexity_target_"));
-        assert!(c.contains(
-            "exact Epistemos.Info.CertificateTarget.convexityObligationCarries"
-        ));
+        assert!(c.contains("exact Epistemos.Info.CertificateTarget.convexityObligationCarries"));
         assert!(c.contains("info_certificate_"));
     }
 
@@ -440,9 +435,7 @@ mod tests {
         let e = InfoExpr::log_partition(ExpFamily::Bernoulli, vec![0.0]).unwrap();
         let c = lean_certificate(&e);
         assert!(c.contains("theorem info_certificate_mirror_equivalence_"));
-        assert!(c.contains(
-            "exact Epistemos.Info.CertificateTarget.mirrorEquivalenceCarries"
-        ));
+        assert!(c.contains("exact Epistemos.Info.CertificateTarget.mirrorEquivalenceCarries"));
         assert!(c.contains("info_certificate_"));
     }
 
@@ -471,22 +464,12 @@ mod tests {
             .filter(|line| line.trim_start().starts_with("sorry  --"))
             .count();
         assert_eq!(proof_body_count, 0);
-        assert!(c.contains(
-            "exact Epistemos.Info.convexLogPartitionObligationCarries"
-        ));
-        assert!(c.contains(
-            "exact Epistemos.Info.bregmanPositivityObligationNonnegative"
-        ));
-        assert!(c.contains(
-            "exact Epistemos.Info.bregmanPositivityObligationZeroIffEqual"
-        ));
+        assert!(c.contains("exact Epistemos.Info.convexLogPartitionObligationCarries"));
+        assert!(c.contains("exact Epistemos.Info.bregmanPositivityObligationNonnegative"));
+        assert!(c.contains("exact Epistemos.Info.bregmanPositivityObligationZeroIffEqual"));
         assert!(c.contains("theorem info_bregman_obligations_"));
-        assert!(c.contains(
-            "exact Epistemos.Info.bregmanPositivityObligationCarries"
-        ));
-        assert!(c.contains(
-            "exact Epistemos.Info.mirrorDescentEquivalenceObligationCarries"
-        ));
+        assert!(c.contains("exact Epistemos.Info.bregmanPositivityObligationCarries"));
+        assert!(c.contains("exact Epistemos.Info.mirrorDescentEquivalenceObligationCarries"));
     }
 
     #[test]

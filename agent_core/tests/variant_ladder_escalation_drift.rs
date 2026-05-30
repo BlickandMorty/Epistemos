@@ -93,11 +93,8 @@ fn every_escalation_policy_call_site_carries_a_defer_marker() {
             }
             // Otherwise look back up to MARKER_LOOKBACK_LINES.
             let start = idx.saturating_sub(MARKER_LOOKBACK_LINES);
-            let has_marker = (start..idx).any(|i| {
-                lines
-                    .get(i)
-                    .is_some_and(|prev| prev.contains(DEFER_MARKER))
-            });
+            let has_marker =
+                (start..idx).any(|i| lines.get(i).is_some_and(|prev| prev.contains(DEFER_MARKER)));
             if !has_marker {
                 offenders.push(format!(
                     "{}:{} — escalation policy call without `// {DEFER_MARKER}` marker within {MARKER_LOOKBACK_LINES} preceding lines:\n    {}",
@@ -148,11 +145,8 @@ fn drift_gate_self_check_finds_escalation_calls() {
             }
             let start = idx.saturating_sub(MARKER_LOOKBACK_LINES);
             let has_marker = line.contains(DEFER_MARKER)
-                || (start..idx).any(|i| {
-                    lines
-                        .get(i)
-                        .is_some_and(|prev| prev.contains(DEFER_MARKER))
-                });
+                || (start..idx)
+                    .any(|i| lines.get(i).is_some_and(|prev| prev.contains(DEFER_MARKER)));
             if has_marker {
                 found_marked_escalation = true;
                 break;

@@ -17,7 +17,6 @@ use crate::{
     },
 };
 
-use super::*;
 use super::admit::*;
 use super::audit_sink::*;
 use super::common::*;
@@ -29,6 +28,7 @@ use super::risk::*;
 use super::validation::*;
 use super::verdict::*;
 use super::wire::*;
+use super::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(transparent)]
@@ -93,7 +93,10 @@ struct SCOPERexAdmissionProofWire {
     signature: Option<serde_json::Value>,
 }
 
-pub(crate) fn scope_rex_proof_wire_text(value: Option<serde_json::Value>, invalid_sentinel: &str) -> String {
+pub(crate) fn scope_rex_proof_wire_text(
+    value: Option<serde_json::Value>,
+    invalid_sentinel: &str,
+) -> String {
     match value {
         Some(serde_json::Value::String(value)) => value,
         Some(_) => invalid_sentinel.to_string(),
@@ -155,7 +158,10 @@ where
     Ok(())
 }
 
-pub(crate) fn require_scope_rex_proof_field<E>(value: &serde_json::Value, field: &'static str) -> Result<(), E>
+pub(crate) fn require_scope_rex_proof_field<E>(
+    value: &serde_json::Value,
+    field: &'static str,
+) -> Result<(), E>
 where
     E: serde::de::Error,
 {
@@ -355,7 +361,9 @@ impl SCOPERexAdmissionProof {
     }
 }
 
-pub(crate) fn corrupt_audit_record_proof_error(error: ACSAuditRecordError) -> ACSAdmissionProofError {
+pub(crate) fn corrupt_audit_record_proof_error(
+    error: ACSAuditRecordError,
+) -> ACSAdmissionProofError {
     ACSAdmissionProofError::CorruptAuditRecord {
         field: error.field(),
         record_id: error.record_id().unwrap_or("").to_string(),

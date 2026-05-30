@@ -129,13 +129,22 @@ mod tests {
     use super::*;
 
     fn line(kind: DiffLineKind, text: &str) -> DiffLine {
-        DiffLine { kind, text: text.into() }
+        DiffLine {
+            kind,
+            text: text.into(),
+        }
     }
 
     #[test]
     fn three_distinct_kinds() {
-        let s: std::collections::HashSet<_> =
-            [DiffLineKind::Context, DiffLineKind::Added, DiffLineKind::Removed].iter().copied().collect();
+        let s: std::collections::HashSet<_> = [
+            DiffLineKind::Context,
+            DiffLineKind::Added,
+            DiffLineKind::Removed,
+        ]
+        .iter()
+        .copied()
+        .collect();
         assert_eq!(s.len(), 3);
     }
 
@@ -161,7 +170,11 @@ mod tests {
 
     #[test]
     fn empty_lines_rejected() {
-        let d = DiffProps { file_a: "a".into(), file_b: "b".into(), lines: vec![] };
+        let d = DiffProps {
+            file_a: "a".into(),
+            file_b: "b".into(),
+            lines: vec![],
+        };
         assert_eq!(d.validate().unwrap_err(), DiffError::EmptyLines);
     }
 
@@ -214,7 +227,11 @@ mod tests {
 
     #[test]
     fn error_cause_distinct_per_variant() {
-        let variants = [DiffError::EmptyFileA, DiffError::EmptyFileB, DiffError::EmptyLines];
+        let variants = [
+            DiffError::EmptyFileA,
+            DiffError::EmptyFileB,
+            DiffError::EmptyLines,
+        ];
         let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
         assert_eq!(causes.len(), 3);
     }
@@ -222,7 +239,11 @@ mod tests {
     #[test]
     fn error_classifiers_partition() {
         // Cross-surface invariant: is_file_metadata_error XOR is_content_error.
-        for e in [DiffError::EmptyFileA, DiffError::EmptyFileB, DiffError::EmptyLines] {
+        for e in [
+            DiffError::EmptyFileA,
+            DiffError::EmptyFileB,
+            DiffError::EmptyLines,
+        ] {
             assert_ne!(e.is_file_metadata_error(), e.is_content_error());
         }
     }

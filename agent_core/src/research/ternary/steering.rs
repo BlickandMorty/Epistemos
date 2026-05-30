@@ -229,7 +229,10 @@ mod tests {
         let err = stack.apply(&mut a).unwrap_err();
         assert_eq!(
             err,
-            SteeringError::ChannelOutOfRange { channel: 99, input_len: 2 }
+            SteeringError::ChannelOutOfRange {
+                channel: 99,
+                input_len: 2
+            }
         );
         assert_eq!(a, vec![5.0, 5.0]);
     }
@@ -276,7 +279,10 @@ mod tests {
         let err = apply_delta(&mut a, &d, 1.0).unwrap_err();
         assert_eq!(
             err,
-            SteeringError::ChannelOutOfRange { channel: 99, input_len: 2 }
+            SteeringError::ChannelOutOfRange {
+                channel: 99,
+                input_len: 2
+            }
         );
     }
 

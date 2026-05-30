@@ -273,24 +273,25 @@ mod tests {
         // rather than panicking — the W1 silent-downgrade contract
         // (§6) wants the SwiftUI layer to be able to degrade
         // gracefully without crashing.
-        let result: Result<CognitiveWeightClass, _> =
-            serde_json::from_str("\"unknown_class\"");
-        assert!(result.is_err(),
-                "decoder must reject unknown CognitiveWeightClass variants");
+        let result: Result<CognitiveWeightClass, _> = serde_json::from_str("\"unknown_class\"");
+        assert!(
+            result.is_err(),
+            "decoder must reject unknown CognitiveWeightClass variants"
+        );
         // PascalCase rejects.
-        let result: Result<CognitiveWeightClass, _> =
-            serde_json::from_str("\"PolicyGrade\"");
-        assert!(result.is_err(),
-                "PascalCase must reject — only snake_case is canonical");
+        let result: Result<CognitiveWeightClass, _> = serde_json::from_str("\"PolicyGrade\"");
+        assert!(
+            result.is_err(),
+            "PascalCase must reject — only snake_case is canonical"
+        );
 
-        let result: Result<ContextPlacement, _> =
-            serde_json::from_str("\"unknown_placement\"");
-        assert!(result.is_err(),
-                "decoder must reject unknown ContextPlacement variants");
-        let result: Result<ContextPlacement, _> =
-            serde_json::from_str("\"ImmutableSystem\"");
-        assert!(result.is_err(),
-                "PascalCase placements must reject");
+        let result: Result<ContextPlacement, _> = serde_json::from_str("\"unknown_placement\"");
+        assert!(
+            result.is_err(),
+            "decoder must reject unknown ContextPlacement variants"
+        );
+        let result: Result<ContextPlacement, _> = serde_json::from_str("\"ImmutableSystem\"");
+        assert!(result.is_err(), "PascalCase placements must reject");
     }
 
     #[test]
@@ -310,7 +311,10 @@ mod tests {
         // which produces `small_l_l_m` — so these stay clean.)
         use serde_json::to_string;
         assert_eq!(to_string(&CognitiveWeightClass::Soft).unwrap(), "\"soft\"");
-        assert_eq!(to_string(&CognitiveWeightClass::Preferred).unwrap(), "\"preferred\"");
+        assert_eq!(
+            to_string(&CognitiveWeightClass::Preferred).unwrap(),
+            "\"preferred\""
+        );
         assert_eq!(
             to_string(&CognitiveWeightClass::StrongAnchor).unwrap(),
             "\"strong_anchor\""
@@ -320,7 +324,10 @@ mod tests {
             "\"policy_grade\""
         );
 
-        assert_eq!(to_string(&ContextPlacement::Trailing).unwrap(), "\"trailing\"");
+        assert_eq!(
+            to_string(&ContextPlacement::Trailing).unwrap(),
+            "\"trailing\""
+        );
         assert_eq!(to_string(&ContextPlacement::Inline).unwrap(), "\"inline\"");
         assert_eq!(
             to_string(&ContextPlacement::AboveFold).unwrap(),

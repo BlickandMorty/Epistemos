@@ -104,10 +104,22 @@ mod tests {
     #[test]
     fn full_word_roundtrip() {
         let input: [Trit; TRITS_PER_U32] = [
-            Trit::Neg, Trit::Zero, Trit::Pos, Trit::Neg,
-            Trit::Pos, Trit::Pos, Trit::Zero, Trit::Neg,
-            Trit::Zero, Trit::Pos, Trit::Neg, Trit::Zero,
-            Trit::Pos, Trit::Neg, Trit::Zero, Trit::Pos,
+            Trit::Neg,
+            Trit::Zero,
+            Trit::Pos,
+            Trit::Neg,
+            Trit::Pos,
+            Trit::Pos,
+            Trit::Zero,
+            Trit::Neg,
+            Trit::Zero,
+            Trit::Pos,
+            Trit::Neg,
+            Trit::Zero,
+            Trit::Pos,
+            Trit::Neg,
+            Trit::Zero,
+            Trit::Pos,
         ];
         let word = pack_trits_u32(&input).unwrap();
         let output = unpack_trits_u32(word).unwrap();
@@ -148,7 +160,10 @@ mod tests {
         let input = [Trit::Pos];
         let word = pack_trits_u32(&input).unwrap();
         assert_eq!(word & 0b11, Trit::Pos.to_bits() as u32);
-        assert_eq!(word >> 2, 0u32 | ((Trit::Zero.to_bits() as u32) * 0x55555555 >> 2));
+        assert_eq!(
+            word >> 2,
+            0u32 | ((Trit::Zero.to_bits() as u32) * 0x55555555 >> 2)
+        );
     }
 
     // ── count_nonzero_in_word + validate_word tests (iter 114) ──────────────
@@ -179,14 +194,29 @@ mod tests {
         // Cross-check vs the obvious unpack-then-filter implementation
         // across a non-trivial sample.
         let trits = [
-            Trit::Neg, Trit::Zero, Trit::Pos, Trit::Neg,
-            Trit::Zero, Trit::Pos, Trit::Zero, Trit::Neg,
-            Trit::Zero, Trit::Zero, Trit::Pos, Trit::Pos,
-            Trit::Zero, Trit::Neg, Trit::Zero, Trit::Pos,
+            Trit::Neg,
+            Trit::Zero,
+            Trit::Pos,
+            Trit::Neg,
+            Trit::Zero,
+            Trit::Pos,
+            Trit::Zero,
+            Trit::Neg,
+            Trit::Zero,
+            Trit::Zero,
+            Trit::Pos,
+            Trit::Pos,
+            Trit::Zero,
+            Trit::Neg,
+            Trit::Zero,
+            Trit::Pos,
         ];
         let word = pack_trits_u32(&trits).unwrap();
-        let unpack_count =
-            unpack_trits_u32(word).unwrap().iter().filter(|&&t| t != Trit::Zero).count() as u8;
+        let unpack_count = unpack_trits_u32(word)
+            .unwrap()
+            .iter()
+            .filter(|&&t| t != Trit::Zero)
+            .count() as u8;
         assert_eq!(count_nonzero_in_word(word), unpack_count);
     }
 

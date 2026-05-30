@@ -82,7 +82,11 @@ impl<P> MutationEnvelope<P> {
     #[must_use]
     pub fn log_summary(&self) -> String {
         let hex = self.capability_hash.to_hex();
-        let short = if hex.len() >= 8 { &hex[..8] } else { hex.as_str() };
+        let short = if hex.len() >= 8 {
+            &hex[..8]
+        } else {
+            hex.as_str()
+        };
         format!(
             "envelope{{cap={}, tokens={}, tool_calls={}}}",
             short, self.debit.tokens, self.debit.tool_calls
@@ -248,7 +252,9 @@ mod tests {
         fn assert_send_sync<T: Send + Sync + ?Sized>() {}
         // Trait surface: dyn MutationWriter<String> (the form the
         // dispatcher sees behind a trait object).
-        assert_send_sync::<dyn MutationWriter<String, Receipt = u64, WriteError = std::convert::Infallible>>();
+        assert_send_sync::<
+            dyn MutationWriter<String, Receipt = u64, WriteError = std::convert::Infallible>,
+        >();
         // Concrete implementor from the test suite.
         assert_send_sync::<RecordingWriter>();
     }
@@ -321,7 +327,11 @@ mod tests {
         };
         let envelope = MutationEnvelope::new(
             bad_cap.macaroon().capability_hash(),
-            BudgetDebit { tokens: 25, tool_calls: 1, ..Default::default() },
+            BudgetDebit {
+                tokens: 25,
+                tool_calls: 1,
+                ..Default::default()
+            },
             "post-denial-retry".to_string(),
         );
 
@@ -346,7 +356,11 @@ mod tests {
         };
         let good_envelope = MutationEnvelope::new(
             good_cap.macaroon().capability_hash(),
-            BudgetDebit { tokens: 25, tool_calls: 1, ..Default::default() },
+            BudgetDebit {
+                tokens: 25,
+                tool_calls: 1,
+                ..Default::default()
+            },
             "post-denial-retry".to_string(),
         );
         let mut good_writer = RecordingWriter::new();
@@ -385,7 +399,11 @@ mod tests {
         };
         let envelope = MutationEnvelope::new(
             cap.macaroon().capability_hash(),
-            BudgetDebit { tokens: 25, tool_calls: 1, ..Default::default() },
+            BudgetDebit {
+                tokens: 25,
+                tool_calls: 1,
+                ..Default::default()
+            },
             "post-budget-denial-retry".to_string(),
         );
 
@@ -440,7 +458,11 @@ mod tests {
         };
         let envelope = MutationEnvelope::new(
             cap.macaroon().capability_hash(),
-            BudgetDebit { tokens: 5, tool_calls: 1, ..Default::default() },
+            BudgetDebit {
+                tokens: 5,
+                tool_calls: 1,
+                ..Default::default()
+            },
             "tool-overflow".to_string(),
         );
         let mut writer = RecordingWriter::new();
@@ -471,7 +493,10 @@ mod tests {
         };
         let envelope = MutationEnvelope::new(
             cap.macaroon().capability_hash(),
-            BudgetDebit { tokens: 500, ..Default::default() },
+            BudgetDebit {
+                tokens: 500,
+                ..Default::default()
+            },
             "payload".to_string(),
         );
         let mut writer = RecordingWriter::new();
@@ -497,7 +522,10 @@ mod tests {
         let cap = valid_capability(Some(10_000));
         let spec = BudgetSpec::new(10_000, 60_000, 100, 30_000).with_memory_bytes(1_000_000);
         let gate = BudgetGate::new(spec);
-        let sealer = Sealer { capability: &cap, gate };
+        let sealer = Sealer {
+            capability: &cap,
+            gate,
+        };
         let envelope = MutationEnvelope::new(
             cap.macaroon().capability_hash(),
             BudgetDebit {
@@ -538,7 +566,11 @@ mod tests {
         };
         let envelope = MutationEnvelope::new(
             cap.macaroon().capability_hash(),
-            BudgetDebit { tokens: 25, tool_calls: 1, ..Default::default() },
+            BudgetDebit {
+                tokens: 25,
+                tool_calls: 1,
+                ..Default::default()
+            },
             "hello world".to_string(),
         );
         let mut writer = RecordingWriter::new();
@@ -624,7 +656,10 @@ mod tests {
                     debit,
                 } => {
                     assert_eq!(*ordinal, 0);
-                    assert_eq!(*capability_hash, pre_envelope_cap, "cap_hash must round-trip");
+                    assert_eq!(
+                        *capability_hash, pre_envelope_cap,
+                        "cap_hash must round-trip"
+                    );
                     assert_eq!(*debit, pre_envelope_debit, "5-axis debit must round-trip");
                 }
                 other => panic!("expected SealedMutation row, got {other:?}"),
@@ -645,7 +680,9 @@ mod tests {
         use crate::agent_runtime_v2::event::AgentEvent;
         use crate::agent_runtime_v2::para::StopReason as PStopReason;
         log.append_ledger_snapshot(ledger);
-        log.append_event(AgentEvent::Stop { reason: PStopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: PStopReason::EndTurn,
+        });
 
         let root = log.root_hash();
         let packet = crate::agent_runtime_v2::answer::AnswerPacket::emit(
@@ -718,7 +755,11 @@ mod tests {
         };
         let envelope = MutationEnvelope::new(
             cap.macaroon().capability_hash(),
-            BudgetDebit { tokens: 25, tool_calls: 1, ..Default::default() },
+            BudgetDebit {
+                tokens: 25,
+                tool_calls: 1,
+                ..Default::default()
+            },
             "idempotency-payload".to_string(),
         );
         let mut writer = RecordingWriter::new();
@@ -748,7 +789,11 @@ mod tests {
         // interior mutability would break the &self contract.
         let envelope = MutationEnvelope::new(
             Hash::from_bytes([0xCD; 32]),
-            BudgetDebit { tokens: 42, tool_calls: 7, ..Default::default() },
+            BudgetDebit {
+                tokens: 42,
+                tool_calls: 7,
+                ..Default::default()
+            },
             "payload".to_string(),
         );
         let first = envelope.log_summary();
@@ -774,7 +819,11 @@ mod tests {
         ] {
             let envelope = MutationEnvelope::new(
                 Hash::from_bytes(bytes),
-                BudgetDebit { tokens: 1, tool_calls: 0, ..Default::default() },
+                BudgetDebit {
+                    tokens: 1,
+                    tool_calls: 0,
+                    ..Default::default()
+                },
                 "p".to_string(),
             );
             let s = envelope.log_summary();
@@ -848,7 +897,11 @@ mod tests {
         for (tokens, tool_calls) in cases {
             let envelope = MutationEnvelope::new(
                 Hash::zero(),
-                BudgetDebit { tokens, tool_calls, ..Default::default() },
+                BudgetDebit {
+                    tokens,
+                    tool_calls,
+                    ..Default::default()
+                },
                 "payload".to_string(),
             );
             let summary = envelope.log_summary();
@@ -881,7 +934,11 @@ mod tests {
         // layout — surface here via find-position comparison.
         let envelope = MutationEnvelope::new(
             Hash::from_bytes([0xAB; 32]),
-            BudgetDebit { tokens: 42, tool_calls: 7, ..Default::default() },
+            BudgetDebit {
+                tokens: 42,
+                tool_calls: 7,
+                ..Default::default()
+            },
             "payload".to_string(),
         );
         let summary = envelope.log_summary();
@@ -889,7 +946,10 @@ mod tests {
         let tokens_pos = summary.find("tokens=").expect("tokens field");
         let tool_calls_pos = summary.find("tool_calls=").expect("tool_calls field");
         assert!(cap_pos < tokens_pos, "cap must precede tokens");
-        assert!(tokens_pos < tool_calls_pos, "tokens must precede tool_calls");
+        assert!(
+            tokens_pos < tool_calls_pos,
+            "tokens must precede tool_calls"
+        );
     }
 
     #[test]
@@ -907,14 +967,22 @@ mod tests {
         // refactor would silently break the grep contract.
         let envelope = MutationEnvelope::new(
             Hash::from_bytes([0xAB; 32]),
-            BudgetDebit { tokens: 42, tool_calls: 7, ..Default::default() },
+            BudgetDebit {
+                tokens: 42,
+                tool_calls: 7,
+                ..Default::default()
+            },
             "payload".to_string(),
         );
         let summary = envelope.log_summary();
-        assert!(summary.starts_with("envelope{"),
-            "log_summary must start with literal 'envelope{{', got: {summary}");
-        assert!(summary.ends_with('}'),
-            "log_summary must end with literal '}}', got: {summary}");
+        assert!(
+            summary.starts_with("envelope{"),
+            "log_summary must start with literal 'envelope{{', got: {summary}"
+        );
+        assert!(
+            summary.ends_with('}'),
+            "log_summary must end with literal '}}', got: {summary}"
+        );
     }
 
     #[test]
@@ -926,11 +994,18 @@ mod tests {
         // separated key=value pairs are the load-bearing surface.
         let envelope = MutationEnvelope::new(
             Hash::from_bytes([0xAB; 32]),
-            BudgetDebit { tokens: 42, tool_calls: 7, ..Default::default() },
+            BudgetDebit {
+                tokens: 42,
+                tool_calls: 7,
+                ..Default::default()
+            },
             "payload".to_string(),
         );
         let summary = envelope.log_summary();
-        assert!(summary.starts_with("envelope{"), "must start with envelope{{: {summary}");
+        assert!(
+            summary.starts_with("envelope{"),
+            "must start with envelope{{: {summary}"
+        );
         assert!(summary.ends_with('}'), "must end with }}: {summary}");
         // Three comma-separated fields between the braces (cap,
         // tokens, tool_calls).
@@ -980,14 +1055,20 @@ mod tests {
         assert!(summary.contains("tokens=42"));
         assert!(summary.contains("tool_calls=7"));
         // The 3 omitted axes' values are NOT in the summary.
-        assert!(!summary.contains("9999"), "wall_ms must not appear in {summary}");
-        assert!(!summary.contains("12345"), "subprocess_ms must not appear in {summary}");
-        assert!(!summary.contains("1000000"), "memory_bytes must not appear in {summary}");
-        // Exact shape preserved.
-        assert_eq!(
-            summary,
-            "envelope{cap=abababab, tokens=42, tool_calls=7}"
+        assert!(
+            !summary.contains("9999"),
+            "wall_ms must not appear in {summary}"
         );
+        assert!(
+            !summary.contains("12345"),
+            "subprocess_ms must not appear in {summary}"
+        );
+        assert!(
+            !summary.contains("1000000"),
+            "memory_bytes must not appear in {summary}"
+        );
+        // Exact shape preserved.
+        assert_eq!(summary, "envelope{cap=abababab, tokens=42, tool_calls=7}");
     }
 
     #[test]
@@ -999,7 +1080,11 @@ mod tests {
         // "all zeros" hex prefix a reader can spot.
         let envelope = MutationEnvelope::new(
             Hash::zero(),
-            BudgetDebit { tokens: 0, tool_calls: 0, ..Default::default() },
+            BudgetDebit {
+                tokens: 0,
+                tool_calls: 0,
+                ..Default::default()
+            },
             "payload".to_string(),
         );
         let summary = envelope.log_summary();
@@ -1019,7 +1104,11 @@ mod tests {
         let cap = valid_capability(None);
         let envelope = MutationEnvelope::new(
             cap.macaroon().capability_hash(),
-            BudgetDebit { tokens: 100, tool_calls: 3, ..Default::default() },
+            BudgetDebit {
+                tokens: 100,
+                tool_calls: 3,
+                ..Default::default()
+            },
             "TOP_SECRET_PAYLOAD_DO_NOT_LEAK".to_string(),
         );
         let summary = envelope.log_summary();
@@ -1067,7 +1156,10 @@ mod tests {
         };
         let envelope = MutationEnvelope::new(
             cap.macaroon().capability_hash(),
-            BudgetDebit { tokens: 10, ..Default::default() },
+            BudgetDebit {
+                tokens: 10,
+                ..Default::default()
+            },
             "under-cap".to_string(),
         );
         // Always-failing writer — would trip if reached.
@@ -1112,7 +1204,10 @@ mod tests {
         };
         let envelope = MutationEnvelope::new(
             cap.macaroon().capability_hash(),
-            BudgetDebit { tokens: 100, ..Default::default() }, // > 10 cap
+            BudgetDebit {
+                tokens: 100,
+                ..Default::default()
+            }, // > 10 cap
             "would-fail-via-budget".to_string(),
         );
         // Use an always-failing writer; budget rejects first, so the
@@ -1169,7 +1264,10 @@ mod tests {
         };
         let envelope = MutationEnvelope::new(
             cap.macaroon().capability_hash(),
-            BudgetDebit { tokens: 100, ..Default::default() }, // 100 > 10 cap
+            BudgetDebit {
+                tokens: 100,
+                ..Default::default()
+            }, // 100 > 10 cap
             "double-denied".to_string(),
         );
         let mut writer = RecordingWriter::new();
@@ -1242,7 +1340,10 @@ mod tests {
                 until_ts_ms: 100,
                 now_ms: 200,
             }));
-        assert_ne!(forged, violated, "Forged and Violated inner variants must be distinct");
+        assert_ne!(
+            forged, violated,
+            "Forged and Violated inner variants must be distinct"
+        );
     }
 
     #[test]
@@ -1335,9 +1436,9 @@ mod tests {
         // print for SealError variants. A maintainer rename would
         // silently change the printed form and break log greps. Pin
         // the leading discriminant for each variant.
-        let cap_err = SealError::Capability::<std::convert::Infallible>(
-            CapabilityError::Forged(VerifyError::SignatureMismatch),
-        );
+        let cap_err = SealError::Capability::<std::convert::Infallible>(CapabilityError::Forged(
+            VerifyError::SignatureMismatch,
+        ));
         let dbg = format!("{cap_err:?}");
         assert!(dbg.starts_with("Capability("), "got {dbg}");
         let bud_err = SealError::Budget::<std::convert::Infallible>(BudgetError::Exhausted {
@@ -1374,7 +1475,10 @@ mod tests {
         // row appending which reads envelope.capability_hash directly.
         let envelope = MutationEnvelope::new(
             Hash::from_bytes([0x42; 32]),
-            BudgetDebit { tokens: 100, ..Default::default() },
+            BudgetDebit {
+                tokens: 100,
+                ..Default::default()
+            },
             "payload".to_string(),
         );
         assert_eq!(envelope.capability_hash, Hash::from_bytes([0x42; 32]));
@@ -1397,11 +1501,8 @@ mod tests {
         // would silently change the on-disk JSON shape for every
         // SealedMutation row — surface here via destructure
         // compile-fail + per-field type assertions.
-        let envelope = MutationEnvelope::new(
-            Hash::zero(),
-            BudgetDebit::default(),
-            "payload".to_string(),
-        );
+        let envelope =
+            MutationEnvelope::new(Hash::zero(), BudgetDebit::default(), "payload".to_string());
         let MutationEnvelope {
             capability_hash,
             debit,
@@ -1426,13 +1527,20 @@ mod tests {
         // proves SAME=SAME but not DIFFERENT≠DIFFERENT).
         let base = MutationEnvelope::new(
             Hash::from_bytes([7u8; 32]),
-            BudgetDebit { tokens: 25, tool_calls: 1, ..Default::default() },
+            BudgetDebit {
+                tokens: 25,
+                tool_calls: 1,
+                ..Default::default()
+            },
             "base-payload".to_string(),
         );
 
         let mut diff_hash = base.clone();
         diff_hash.capability_hash = Hash::from_bytes([8u8; 32]);
-        assert_ne!(diff_hash, base, "capability_hash must participate in PartialEq");
+        assert_ne!(
+            diff_hash, base,
+            "capability_hash must participate in PartialEq"
+        );
 
         let mut diff_debit = base.clone();
         diff_debit.debit.tokens += 1;
@@ -1498,11 +1606,7 @@ mod tests {
         assert_clone_send_sync::<MutationEnvelope<String>>();
         assert_clone_send_sync::<MutationEnvelope<Vec<u8>>>();
 
-        let e = MutationEnvelope::new(
-            Hash::zero(),
-            BudgetDebit::default(),
-            "payload".to_string(),
-        );
+        let e = MutationEnvelope::new(Hash::zero(), BudgetDebit::default(), "payload".to_string());
         assert_eq!(e.clone(), e);
     }
 
@@ -1514,7 +1618,11 @@ mod tests {
         let cap = valid_capability(None);
         let original = MutationEnvelope::new(
             cap.macaroon().capability_hash(),
-            BudgetDebit { tokens: 25, tool_calls: 1, ..Default::default() },
+            BudgetDebit {
+                tokens: 25,
+                tool_calls: 1,
+                ..Default::default()
+            },
             "payload".to_string(),
         );
         let cloned = original.clone();
@@ -1602,7 +1710,11 @@ mod tests {
         };
         let envelope = MutationEnvelope::new(
             cap.macaroon().capability_hash(),
-            BudgetDebit { tokens: 100, tool_calls: 1, ..Default::default() },
+            BudgetDebit {
+                tokens: 100,
+                tool_calls: 1,
+                ..Default::default()
+            },
             "DISTINCT-PAYLOAD".to_string(),
         );
         let mut writer = RecordingWriter::new();
@@ -1666,11 +1778,7 @@ mod tests {
         //
         // Pin the all-zero acceptance + verify the round-trip
         // serialise/deserialise still works.
-        let envelope = MutationEnvelope::new(
-            Hash::zero(),
-            BudgetDebit::default(),
-            String::new(),
-        );
+        let envelope = MutationEnvelope::new(Hash::zero(), BudgetDebit::default(), String::new());
         assert_eq!(envelope.capability_hash, Hash::zero());
         assert_eq!(envelope.debit, BudgetDebit::default());
         assert_eq!(envelope.payload, "");
@@ -1688,7 +1796,10 @@ mod tests {
 
     #[test]
     fn payload_size_constant_is_4_mib() {
-        assert_eq!(MutationEnvelope::<String>::MAX_RECOMMENDED_PAYLOAD_BYTES, 4 * 1024 * 1024);
+        assert_eq!(
+            MutationEnvelope::<String>::MAX_RECOMMENDED_PAYLOAD_BYTES,
+            4 * 1024 * 1024
+        );
     }
 
     #[test]
@@ -1737,10 +1848,15 @@ mod tests {
 
     #[test]
     fn estimate_payload_bytes_matches_serde_size_for_string() {
-        let envelope =
-            MutationEnvelope::new(Hash::zero(), BudgetDebit::default(), "hello-world".to_string());
+        let envelope = MutationEnvelope::new(
+            Hash::zero(),
+            BudgetDebit::default(),
+            "hello-world".to_string(),
+        );
         let bytes = envelope.estimate_payload_bytes().expect("serialises");
-        let independent = serde_json::to_vec(&"hello-world".to_string()).unwrap().len();
+        let independent = serde_json::to_vec(&"hello-world".to_string())
+            .unwrap()
+            .len();
         assert_eq!(bytes, independent);
     }
 
@@ -1750,11 +1866,8 @@ mod tests {
         // (companion to iter-268 estimate_payload_bytes determinism).
         // exceeds_recommended_payload_size delegates to
         // estimate_payload_bytes + a constant comparison; pure.
-        let envelope = MutationEnvelope::new(
-            Hash::zero(),
-            BudgetDebit::default(),
-            "small".to_string(),
-        );
+        let envelope =
+            MutationEnvelope::new(Hash::zero(), BudgetDebit::default(), "small".to_string());
         for _ in 0..3 {
             assert!(!envelope.exceeds_recommended_payload_size());
         }
@@ -1794,21 +1907,13 @@ mod tests {
         // SERIALISES to exactly MAX bytes, we use N = MAX - 2.
         let cap = MutationEnvelope::<String>::MAX_RECOMMENDED_PAYLOAD_BYTES;
         let at_cap = "x".repeat(cap - 2);
-        let envelope_at = MutationEnvelope::new(
-            Hash::zero(),
-            BudgetDebit::default(),
-            at_cap,
-        );
+        let envelope_at = MutationEnvelope::new(Hash::zero(), BudgetDebit::default(), at_cap);
         assert_eq!(envelope_at.estimate_payload_bytes(), Some(cap));
         assert!(!envelope_at.exceeds_recommended_payload_size());
 
         // One byte over → trips.
         let over = "x".repeat(cap - 1);
-        let envelope_over = MutationEnvelope::new(
-            Hash::zero(),
-            BudgetDebit::default(),
-            over,
-        );
+        let envelope_over = MutationEnvelope::new(Hash::zero(), BudgetDebit::default(), over);
         assert_eq!(envelope_over.estimate_payload_bytes(), Some(cap + 1));
         assert!(envelope_over.exceeds_recommended_payload_size());
     }
@@ -1830,11 +1935,8 @@ mod tests {
         // as oversize for some reason" refactor that would silently
         // change the audit-surface contract for capability-denial-
         // before-any-bytes scenarios.
-        let envelope_empty = MutationEnvelope::new(
-            Hash::zero(),
-            BudgetDebit::default(),
-            String::new(),
-        );
+        let envelope_empty =
+            MutationEnvelope::new(Hash::zero(), BudgetDebit::default(), String::new());
         // String "" serialises to 2 bytes: the open + close quote.
         assert_eq!(
             envelope_empty.estimate_payload_bytes(),
@@ -1871,18 +1973,16 @@ mod tests {
             Hash::from_bytes([0xFF; 32]),
             Hash::from_bytes([0x42; 32]),
             Hash::from_bytes([
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-                0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
-                0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
-                0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20,
+                0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
+                0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C,
+                0x1D, 0x1E, 0x1F, 0x20,
             ]),
         ] {
-            let envelope = MutationEnvelope::new(
-                h,
-                BudgetDebit::default(),
-                "payload".to_string(),
+            let envelope = MutationEnvelope::new(h, BudgetDebit::default(), "payload".to_string());
+            assert_eq!(
+                envelope.capability_hash, h,
+                "capability_hash must be byte-equal for {h:?}"
             );
-            assert_eq!(envelope.capability_hash, h, "capability_hash must be byte-equal for {h:?}");
         }
     }
 
@@ -1890,8 +1990,7 @@ mod tests {
     fn capability_hash_in_envelope_matches_macaroon() {
         let cap = valid_capability(None);
         let hash = cap.macaroon().capability_hash();
-        let envelope =
-            MutationEnvelope::new(hash, BudgetDebit::default(), "payload".to_string());
+        let envelope = MutationEnvelope::new(hash, BudgetDebit::default(), "payload".to_string());
         assert_eq!(envelope.capability_hash, hash);
         assert_eq!(envelope.capability_hash, cap.macaroon().capability_hash());
     }
@@ -1933,7 +2032,11 @@ mod tests {
         assert_ne!(actual_cap_hash, Hash::zero());
         let envelope = MutationEnvelope::new(
             Hash::zero(),
-            BudgetDebit { tokens: 25, tool_calls: 1, ..Default::default() },
+            BudgetDebit {
+                tokens: 25,
+                tool_calls: 1,
+                ..Default::default()
+            },
             "payload".to_string(),
         );
         let mut writer = RecordingWriter::new();
@@ -1968,7 +2071,11 @@ mod tests {
         };
         let mut writer = RecordingWriter::new();
         let mut ledger = BudgetLedger::default();
-        let debit_each = BudgetDebit { tokens: 100, tool_calls: 1, ..Default::default() };
+        let debit_each = BudgetDebit {
+            tokens: 100,
+            tool_calls: 1,
+            ..Default::default()
+        };
 
         for i in 1..=3 {
             let envelope = MutationEnvelope::new(
@@ -1999,14 +2106,17 @@ mod tests {
         let gate = BudgetGate::new(BudgetSpec::new(1_000, 0, 5, 0));
         let envelope = MutationEnvelope::new(
             cap.macaroon().capability_hash(),
-            BudgetDebit { tokens: 50, tool_calls: 1, ..Default::default() },
+            BudgetDebit {
+                tokens: 50,
+                tool_calls: 1,
+                ..Default::default()
+            },
             "replay-payload".to_string(),
         );
 
         // Persist + reload.
         let s = serde_json::to_string(&envelope).expect("serialize");
-        let replayed: MutationEnvelope<String> =
-            serde_json::from_str(&s).expect("deserialize");
+        let replayed: MutationEnvelope<String> = serde_json::from_str(&s).expect("deserialize");
         assert_eq!(replayed, envelope);
 
         // Re-verify with a fresh Sealer reading the replayed envelope.
@@ -2059,7 +2169,11 @@ mod tests {
         };
         let envelope = MutationEnvelope::new(
             cap.macaroon().capability_hash(),
-            BudgetDebit { tokens: 25, tool_calls: 1, ..Default::default() },
+            BudgetDebit {
+                tokens: 25,
+                tool_calls: 1,
+                ..Default::default()
+            },
             "partial-failure-payload".to_string(),
         );
 
@@ -2218,7 +2332,11 @@ mod tests {
         let envelope_template = || {
             MutationEnvelope::new(
                 cap.macaroon().capability_hash(),
-                BudgetDebit { tokens: 30, tool_calls: 1, ..Default::default() },
+                BudgetDebit {
+                    tokens: 30,
+                    tool_calls: 1,
+                    ..Default::default()
+                },
                 "retry-payload".to_string(),
             )
         };
@@ -2266,9 +2384,15 @@ mod tests {
             .seal_and_apply(&ctx(), ledger_pre, envelope_template(), &mut writer)
             .expect("6th attempt must succeed");
         // Writer was invoked one more time (total 6 across the chain).
-        assert_eq!(writer.writes, 6, "writer invoked exactly 6 times across chain");
+        assert_eq!(
+            writer.writes, 6,
+            "writer invoked exactly 6 times across chain"
+        );
         // Single debit applied (30 tokens + 1 tool_call), NOT 6×.
-        assert_eq!(ledger_after.tokens_used, 30, "single debit, not 6× accumulation");
+        assert_eq!(
+            ledger_after.tokens_used, 30,
+            "single debit, not 6× accumulation"
+        );
         assert_eq!(ledger_after.tool_calls_used, 1, "single tool_call debit");
         // Pre-call ledger remained zero.
         assert_eq!(ledger_pre, BudgetLedger::default());
@@ -2362,13 +2486,15 @@ mod tests {
         // the default lenient behaviour applies. Pin it.
         let base = MutationEnvelope::new(
             Hash::from_bytes([3u8; 32]),
-            BudgetDebit { tokens: 50, tool_calls: 1, ..Default::default() },
+            BudgetDebit {
+                tokens: 50,
+                tool_calls: 1,
+                ..Default::default()
+            },
             "forward-compat-payload".to_string(),
         );
         let s = serde_json::to_string(&base).expect("serialise");
-        let augmented = s
-            .trim_end_matches('}')
-            .to_string()
+        let augmented = s.trim_end_matches('}').to_string()
             + r#","future_audit_annotation":"v3-experimental"}"#;
         let parsed: MutationEnvelope<String> =
             serde_json::from_str(&augmented).expect("unknown field tolerated");
@@ -2387,14 +2513,12 @@ mod tests {
             "payload".to_string(),
         );
         let s = serde_json::to_string(&envelope).expect("serialise");
-        let expected_keys_in_order = [
-            "\"capability_hash\":",
-            "\"debit\":",
-            "\"payload\":",
-        ];
+        let expected_keys_in_order = ["\"capability_hash\":", "\"debit\":", "\"payload\":"];
         let mut last_idx: Option<usize> = None;
         for key in expected_keys_in_order {
-            let pos = s.find(key).unwrap_or_else(|| panic!("key {key} not found in {s}"));
+            let pos = s
+                .find(key)
+                .unwrap_or_else(|| panic!("key {key} not found in {s}"));
             if let Some(prev) = last_idx {
                 assert!(
                     pos > prev,
@@ -2420,7 +2544,9 @@ mod tests {
             "payload".to_string(),
         );
         let json = serde_json::to_value(&envelope).expect("serialise");
-        let obj = json.as_object().expect("envelope serialises as JSON object");
+        let obj = json
+            .as_object()
+            .expect("envelope serialises as JSON object");
         for key in ["capability_hash", "debit", "payload"] {
             assert!(
                 obj.contains_key(key),
@@ -2444,7 +2570,9 @@ mod tests {
             "payload".to_string(),
         );
         let value = serde_json::to_value(&envelope).expect("serialise");
-        let obj = value.as_object().expect("envelope serialises as JSON object");
+        let obj = value
+            .as_object()
+            .expect("envelope serialises as JSON object");
         for missing in ["capability_hash", "debit", "payload"] {
             let mut tampered = obj.clone();
             tampered.remove(missing);
@@ -2479,13 +2607,19 @@ mod tests {
         });
         let envelope = MutationEnvelope::new(
             Hash::from_bytes([0x11; 32]),
-            BudgetDebit { tokens: 25, ..Default::default() },
+            BudgetDebit {
+                tokens: 25,
+                ..Default::default()
+            },
             value_payload.clone(),
         );
         let s = serde_json::to_string(&envelope).expect("serialise");
         let back: MutationEnvelope<serde_json::Value> =
             serde_json::from_str(&s).expect("deserialise");
-        assert_eq!(back.payload, value_payload, "Value payload must round-trip deep-equal");
+        assert_eq!(
+            back.payload, value_payload,
+            "Value payload must round-trip deep-equal"
+        );
         assert_eq!(back, envelope);
         // Independent walk to catch any silent type coercion.
         assert_eq!(back.payload["scalar"], 42);
@@ -2508,16 +2642,14 @@ mod tests {
         // bytes, etc. A future #[serde(with = "...")] base64 escape
         // would silently change the on-disk representation.
         let payload: Vec<u8> = (0..=255u8).collect();
-        let envelope = MutationEnvelope::new(
-            Hash::zero(),
-            BudgetDebit::default(),
-            payload.clone(),
-        );
+        let envelope = MutationEnvelope::new(Hash::zero(), BudgetDebit::default(), payload.clone());
         let s = serde_json::to_string(&envelope).expect("serialise");
-        let back: MutationEnvelope<Vec<u8>> =
-            serde_json::from_str(&s).expect("deserialise");
+        let back: MutationEnvelope<Vec<u8>> = serde_json::from_str(&s).expect("deserialise");
         assert_eq!(back.payload.len(), 256);
-        assert_eq!(back.payload, payload, "Vec<u8> payload must round-trip byte-equal");
+        assert_eq!(
+            back.payload, payload,
+            "Vec<u8> payload must round-trip byte-equal"
+        );
         assert_eq!(back, envelope);
 
         // Serialised form contains the JSON-array literal (no base64).
@@ -2544,14 +2676,10 @@ mod tests {
             "control\x01char\x02survives",
         ];
         for payload in adversarial {
-            let envelope = MutationEnvelope::new(
-                Hash::zero(),
-                BudgetDebit::default(),
-                payload.to_string(),
-            );
+            let envelope =
+                MutationEnvelope::new(Hash::zero(), BudgetDebit::default(), payload.to_string());
             let s = serde_json::to_string(&envelope).expect("serialise");
-            let back: MutationEnvelope<String> =
-                serde_json::from_str(&s).expect("deserialise");
+            let back: MutationEnvelope<String> = serde_json::from_str(&s).expect("deserialise");
             assert_eq!(back.payload, payload, "payload must round-trip byte-equal");
             assert_eq!(back, envelope);
         }
@@ -2574,8 +2702,7 @@ mod tests {
             "保存: ノート 📝🌸".to_string(),
         );
         let s = serde_json::to_string(&envelope).expect("serialise");
-        let back: MutationEnvelope<String> =
-            serde_json::from_str(&s).expect("deserialise");
+        let back: MutationEnvelope<String> = serde_json::from_str(&s).expect("deserialise");
         assert_eq!(back, envelope);
         assert_eq!(back.payload, "保存: ノート 📝🌸");
         // Literal multi-byte chars appear in the JSON.
@@ -2588,7 +2715,10 @@ mod tests {
         let cap = valid_capability(None);
         let envelope = MutationEnvelope::new(
             cap.macaroon().capability_hash(),
-            BudgetDebit { tokens: 10, ..Default::default() },
+            BudgetDebit {
+                tokens: 10,
+                ..Default::default()
+            },
             "json-payload".to_string(),
         );
         let s = serde_json::to_string(&envelope).expect("serialize");
@@ -2607,7 +2737,10 @@ mod tests {
         let cap = valid_capability(Some(10_000));
         let spec = BudgetSpec::new(1_000, 100, 0, 0);
         let gate = BudgetGate::new(spec);
-        let sealer = Sealer { capability: &cap, gate };
+        let sealer = Sealer {
+            capability: &cap,
+            gate,
+        };
         let _cap_ref: &MacaroonCapability = sealer.capability;
         let _gate_ref: &BudgetGate = &sealer.gate;
     }

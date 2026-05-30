@@ -52,8 +52,8 @@ pub mod quote;
 pub mod table;
 pub mod table_of_contents;
 pub mod tabs;
-pub mod tool_call_trace;
 pub mod toast;
+pub mod tool_call_trace;
 pub mod tooltip;
 
 pub use accordion::{AccordionError, AccordionItem, AccordionProps};
@@ -288,7 +288,10 @@ mod tests {
             assert_eq!(k.is_overlay(), overlays.contains(&k));
         }
         assert_eq!(
-            WaveIComponentKind::ALL.iter().filter(|k| k.is_overlay()).count(),
+            WaveIComponentKind::ALL
+                .iter()
+                .filter(|k| k.is_overlay())
+                .count(),
             4,
         );
     }
@@ -306,7 +309,10 @@ mod tests {
             assert_eq!(k.is_navigation(), nav.contains(&k));
         }
         assert_eq!(
-            WaveIComponentKind::ALL.iter().filter(|k| k.is_navigation()).count(),
+            WaveIComponentKind::ALL
+                .iter()
+                .filter(|k| k.is_navigation())
+                .count(),
             5,
         );
     }
@@ -324,7 +330,10 @@ mod tests {
             assert_eq!(k.is_provenance(), prov.contains(&k));
         }
         assert_eq!(
-            WaveIComponentKind::ALL.iter().filter(|k| k.is_provenance()).count(),
+            WaveIComponentKind::ALL
+                .iter()
+                .filter(|k| k.is_provenance())
+                .count(),
             5,
         );
     }
@@ -337,7 +346,11 @@ mod tests {
         // etc.) but never in multiple.
         for k in WaveIComponentKind::ALL.iter().copied() {
             let trio = [k.is_overlay(), k.is_navigation(), k.is_provenance()];
-            assert!(trio.iter().filter(|t| **t).count() <= 1, "{:?} in multiple", k);
+            assert!(
+                trio.iter().filter(|t| **t).count() <= 1,
+                "{:?} in multiple",
+                k
+            );
         }
     }
 }

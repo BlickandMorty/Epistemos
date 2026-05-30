@@ -106,12 +106,8 @@ impl SchedulerError {
     /// E.g., a SpriteCapExceeded{requested:53} returns Some(3).
     pub const fn cap_overage(&self) -> Option<u32> {
         match self {
-            SchedulerError::SpriteCapExceeded { requested } => {
-                Some(*requested - MAX_SPRITES)
-            }
-            SchedulerError::EmoteCapExceeded { requested } => {
-                Some(*requested - MAX_EMOTES)
-            }
+            SchedulerError::SpriteCapExceeded { requested } => Some(*requested - MAX_SPRITES),
+            SchedulerError::EmoteCapExceeded { requested } => Some(*requested - MAX_EMOTES),
             SchedulerError::ZeroFrameCount => None,
         }
     }
@@ -192,7 +188,11 @@ mod tests {
 
     #[test]
     fn pick_frame_index_reduce_motion_returns_zero() {
-        for &m in &[AnimationMode::Idle, AnimationMode::Walk, AnimationMode::Other] {
+        for &m in &[
+            AnimationMode::Idle,
+            AnimationMode::Walk,
+            AnimationMode::Other,
+        ] {
             for &f in &[0_u64, 1, 99, 12345] {
                 let r = pick_frame_index(m, f, 8, ReduceMotion::On).unwrap();
                 assert_eq!(r, 0, "mode={:?} frame={}", m, f);
@@ -235,8 +235,14 @@ mod tests {
 
     #[test]
     fn animation_mode_three_distinct() {
-        let s: std::collections::HashSet<_> =
-            [AnimationMode::Idle, AnimationMode::Walk, AnimationMode::Other].iter().copied().collect();
+        let s: std::collections::HashSet<_> = [
+            AnimationMode::Idle,
+            AnimationMode::Walk,
+            AnimationMode::Other,
+        ]
+        .iter()
+        .copied()
+        .collect();
         assert_eq!(s.len(), 3);
     }
 
@@ -295,7 +301,8 @@ mod tests {
             assert_eq!(
                 admit_sprite_count(n).is_ok(),
                 sprite_headroom(n).is_some(),
-                "mismatch at n={}", n
+                "mismatch at n={}",
+                n
             );
         }
     }
@@ -306,7 +313,8 @@ mod tests {
             assert_eq!(
                 admit_emote_count(n).is_ok(),
                 emote_headroom(n).is_some(),
-                "mismatch at n={}", n
+                "mismatch at n={}",
+                n
             );
         }
     }
@@ -317,9 +325,15 @@ mod tests {
         let e = SchedulerError::EmoteCapExceeded { requested: 99 };
         let z = SchedulerError::ZeroFrameCount;
         // Each predicate is true for exactly one variant.
-        assert!(s.is_sprite_cap_exceeded() && !s.is_emote_cap_exceeded() && !s.is_zero_frame_count());
-        assert!(!e.is_sprite_cap_exceeded() && e.is_emote_cap_exceeded() && !e.is_zero_frame_count());
-        assert!(!z.is_sprite_cap_exceeded() && !z.is_emote_cap_exceeded() && z.is_zero_frame_count());
+        assert!(
+            s.is_sprite_cap_exceeded() && !s.is_emote_cap_exceeded() && !s.is_zero_frame_count()
+        );
+        assert!(
+            !e.is_sprite_cap_exceeded() && e.is_emote_cap_exceeded() && !e.is_zero_frame_count()
+        );
+        assert!(
+            !z.is_sprite_cap_exceeded() && !z.is_emote_cap_exceeded() && z.is_zero_frame_count()
+        );
     }
 
     #[test]

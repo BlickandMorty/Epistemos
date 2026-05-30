@@ -63,10 +63,14 @@ pub fn rmsnorm_into(
     if eps <= 0.0 {
         return Err(FusedRmsnormError::NonPositiveEps { eps });
     }
-    let mean_sq: f32 =
-        input.iter().map(|x| x * x).sum::<f32>() / (input.len() as f32);
+    let mean_sq: f32 = input.iter().map(|x| x * x).sum::<f32>() / (input.len() as f32);
     let inv_rms = (mean_sq + eps).sqrt().recip();
-    for (i, ((&x, &g), o)) in input.iter().zip(gain.iter()).zip(out.iter_mut()).enumerate() {
+    for (i, ((&x, &g), o)) in input
+        .iter()
+        .zip(gain.iter())
+        .zip(out.iter_mut())
+        .enumerate()
+    {
         let _ = i;
         *o = x * inv_rms * g;
     }
@@ -94,11 +98,7 @@ pub fn compute_rms(input: &[f32], eps: f32) -> Option<f32> {
 /// `Ok(actual_rms)` on success or the computed RMS in
 /// `Err` otherwise. Substrate-floor caller-supplied tolerance —
 /// fp32-pipeline tests typically use 1e-4.
-pub fn verify_rms_normalized(
-    out: &[f32],
-    expected_rms: f32,
-    tol: f32,
-) -> Result<f32, f32> {
+pub fn verify_rms_normalized(out: &[f32], expected_rms: f32, tol: f32) -> Result<f32, f32> {
     if out.is_empty() {
         return Err(0.0);
     }
@@ -138,8 +138,7 @@ mod tests {
     use crate::research::ternary::trit::Trit;
 
     fn block(trits: &[Trit], scale: f32) -> GemvBlock {
-        let nonzero_count =
-            trits.iter().filter(|&&t| t != Trit::Zero).count() as u8;
+        let nonzero_count = trits.iter().filter(|&&t| t != Trit::Zero).count() as u8;
         GemvBlock {
             packed: pack_trits_u32(trits).unwrap(),
             scale,
@@ -196,7 +195,10 @@ mod tests {
         let err = rmsnorm_into(&input, &gain, 1e-6, &mut out).unwrap_err();
         assert_eq!(
             err,
-            FusedRmsnormError::GainLengthMismatch { input_len: 3, gain_len: 2 }
+            FusedRmsnormError::GainLengthMismatch {
+                input_len: 3,
+                gain_len: 2
+            }
         );
     }
 
@@ -223,12 +225,8 @@ mod tests {
         let mut normalized = vec![0.0_f32; GEMV_BLOCK_TRITS];
         rmsnorm_into(&input, &gain, 1e-6, &mut normalized).unwrap();
         let mut two_stage = vec![0.0_f32; 1];
-        crate::research::ternary::gemv::gemv_block_scaled(
-            &weights,
-            &normalized,
-            &mut two_stage,
-        )
-        .unwrap();
+        crate::research::ternary::gemv::gemv_block_scaled(&weights, &normalized, &mut two_stage)
+            .unwrap();
 
         let mut fused = vec![0.0_f32; 1];
         fused_rmsnorm_gemv(&weights, &input, &gain, 1e-6, &mut fused).unwrap();
@@ -244,8 +242,7 @@ mod tests {
         let short_input = vec![1.0_f32; GEMV_BLOCK_TRITS - 1];
         let gain: Vec<f32> = vec![1.0_f32; GEMV_BLOCK_TRITS - 1];
         let mut output = vec![0.0_f32; 1];
-        let err = fused_rmsnorm_gemv(&weights, &short_input, &gain, 1e-6, &mut output)
-            .unwrap_err();
+        let err = fused_rmsnorm_gemv(&weights, &short_input, &gain, 1e-6, &mut output).unwrap_err();
         match err {
             FusedRmsnormError::Gemv(GemvError::InputColMismatch { .. }) => {}
             other => panic!("expected forwarded InputColMismatch, got {:?}", other),

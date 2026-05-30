@@ -90,18 +90,12 @@ pub enum DiscoveryOutcome {
     /// Trace already matches an existing skill — not novel.
     NotNovel,
     /// Composition exceeded the latency budget.
-    OverBudget {
-        actual_ms: u32,
-        budget_ms: u32,
-    },
+    OverBudget { actual_ms: u32, budget_ms: u32 },
     /// User rejected the result (⌘Z within window).
     UserRejected,
     /// Frequency below the surfacing threshold; tracked but no
     /// digest entry yet.
-    BelowFrequencyThreshold {
-        seen: u32,
-        threshold: u32,
-    },
+    BelowFrequencyThreshold { seen: u32, threshold: u32 },
 }
 
 /// In-memory tracker. Production should persist this to a SQLite
@@ -317,10 +311,22 @@ mod tests {
 
     #[test]
     fn sequence_hash_is_order_dependent() {
-        let a = trace(&["vault.search", "knowledge.recall", "reason.think"], 0, true);
-        let b = trace(&["vault.search", "knowledge.recall", "reason.think"], 0, true);
+        let a = trace(
+            &["vault.search", "knowledge.recall", "reason.think"],
+            0,
+            true,
+        );
+        let b = trace(
+            &["vault.search", "knowledge.recall", "reason.think"],
+            0,
+            true,
+        );
         assert_eq!(a.sequence_hash(), b.sequence_hash());
-        let c = trace(&["knowledge.recall", "vault.search", "reason.think"], 0, true);
+        let c = trace(
+            &["knowledge.recall", "vault.search", "reason.think"],
+            0,
+            true,
+        );
         assert_ne!(a.sequence_hash(), c.sequence_hash());
     }
 
@@ -341,11 +347,13 @@ mod tests {
                     serde_json::json!(["vault.search", "reason.think"])
                 );
                 let md_path = path.with_extension("md");
-                let md_path = md_path
-                    .with_file_name(
-                        path.file_stem().unwrap().to_string_lossy().to_string() + ".md",
-                    );
-                assert!(md_path.is_file(), "expected .skill.md companion at {md_path:?}");
+                let md_path = md_path.with_file_name(
+                    path.file_stem().unwrap().to_string_lossy().to_string() + ".md",
+                );
+                assert!(
+                    md_path.is_file(),
+                    "expected .skill.md companion at {md_path:?}"
+                );
             }
             other => panic!("expected Drafted, got {other:?}"),
         }
@@ -356,10 +364,7 @@ mod tests {
         let (_tmp, mut d) = fresh();
         d.register_existing_skill(
             "summarize-research",
-            &[
-                "vault.search".to_string(),
-                "reason.think".to_string(),
-            ],
+            &["vault.search".to_string(), "reason.think".to_string()],
         );
         let t = trace(&["vault.search", "reason.think"], 1500, true);
         assert_eq!(d.observe(&t).unwrap(), DiscoveryOutcome::NotNovel);
@@ -408,7 +413,10 @@ mod tests {
 
     #[test]
     fn slugify_handles_messy_inputs() {
-        assert_eq!(slugify("Summarize Recent Research"), "summarize-recent-research");
+        assert_eq!(
+            slugify("Summarize Recent Research"),
+            "summarize-recent-research"
+        );
         assert_eq!(slugify("foo_bar  baz"), "foo-bar-baz");
         assert_eq!(slugify("---trim---"), "trim");
         assert_eq!(slugify(""), "");

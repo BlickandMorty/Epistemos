@@ -50,7 +50,12 @@ impl ResidencyLease {
     /// Construct a new lease anchored at `granted_at_ms` with the given
     /// `ttl_ms` window.
     pub fn new(address: UasAddress, tier: ResidencyTier, granted_at_ms: u64, ttl_ms: u64) -> Self {
-        Self { address, tier, granted_at_ms, ttl_ms }
+        Self {
+            address,
+            tier,
+            granted_at_ms,
+            ttl_ms,
+        }
     }
 
     /// Absolute expiry time in milliseconds since epoch.
@@ -132,7 +137,12 @@ mod tests {
     #[test]
     fn expiry_saturates_on_overflow() {
         // granted + ttl > u64::MAX must saturate to u64::MAX, not wrap.
-        let lease = ResidencyLease::new(sample_address(), ResidencyTier::CurrentApp, u64::MAX - 10, 100);
+        let lease = ResidencyLease::new(
+            sample_address(),
+            ResidencyTier::CurrentApp,
+            u64::MAX - 10,
+            100,
+        );
         assert_eq!(lease.expires_at_ms(), u64::MAX);
         assert!(!lease.is_expired(u64::MAX - 5));
     }

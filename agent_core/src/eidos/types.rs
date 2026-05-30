@@ -275,14 +275,12 @@ impl EidosContextPacket {
                 citation: citation.manifest_id.clone(),
             });
         }
-        if self
-            .hits
-            .iter()
-            .any(|h| h.source_id == citation.source_id)
-        {
+        if self.hits.iter().any(|h| h.source_id == citation.source_id) {
             Ok(())
         } else {
-            Err(CitationError::FabricatedSourceId(citation.source_id.clone()))
+            Err(CitationError::FabricatedSourceId(
+                citation.source_id.clone(),
+            ))
         }
     }
 
@@ -445,7 +443,9 @@ pub enum CitationError {
     /// The citation referenced a different index snapshot than the packet
     /// was retrieved against. Cross-snapshot citations are unsafe because
     /// the underlying content may have changed.
-    #[error("manifest mismatch: packet retrieved against {packet:?}, citation references {citation:?}")]
+    #[error(
+        "manifest mismatch: packet retrieved against {packet:?}, citation references {citation:?}"
+    )]
     ManifestMismatch {
         packet: EidosIndexManifestId,
         citation: EidosIndexManifestId,
@@ -545,7 +545,10 @@ mod tests {
         EidosContextPacket {
             query: EidosQuery::new("tropical optimization", EidosRetrievalMode::Lexical, 8),
             manifest_id: manifest.clone(),
-            hits: vec![sample_hit("chunk-1", &manifest), sample_hit("chunk-2", &manifest)],
+            hits: vec![
+                sample_hit("chunk-1", &manifest),
+                sample_hit("chunk-2", &manifest),
+            ],
         }
     }
 
@@ -704,13 +707,8 @@ mod tests {
         // Specifically: a future change that reset text/mode/top_k
         // or clobbered query_vector would surface here even though
         // the floor-filter behavior tests still pass.
-        let q = EidosQuery::with_vector(
-            "alpha",
-            EidosRetrievalMode::Recency,
-            8,
-            vec![1.0, 0.0],
-        )
-        .with_since(1_700_000_000_000);
+        let q = EidosQuery::with_vector("alpha", EidosRetrievalMode::Recency, 8, vec![1.0, 0.0])
+            .with_since(1_700_000_000_000);
 
         // The targeted field — only mutation.
         assert_eq!(q.since_unix_ms, Some(1_700_000_000_000));

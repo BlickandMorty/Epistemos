@@ -28,17 +28,33 @@
 pub mod acs_anchor;
 pub mod address;
 pub mod anchor_registry;
+pub mod construction_card;
 pub mod copy_counter;
 pub mod five_planes;
 pub mod kind;
+pub mod provider_reference;
 pub mod residency_lease;
 pub mod residency_tier;
+pub mod weight_block;
 pub mod witness;
 
 pub use acs_anchor::{AcsAnchor, AcsAnchorPlaneProjection};
 pub use address::{UasAddress, UasAddressParseError};
 pub use anchor_registry::AcsAnchorRegistry;
+pub use construction_card::{
+    ConstructionBudget, ConstructionCard, ConstructionCardError, ConstructionTier,
+};
 pub use five_planes::{RuntimePlane, FIVE_RUNTIME_PLANES};
 pub use kind::UasKind;
+pub use provider_reference::{
+    ProviderReferenceKind, ProviderReferenceManifest, ProviderReferenceManifestError,
+    ReferenceDataSentClass, ReferenceEvidenceScope, ReferenceRetentionClaim,
+};
 pub use residency_lease::ResidencyLease;
 pub use residency_tier::ResidencyTier;
+pub use weight_block::{
+    ByteRange, ResidencyBudget, ResidencyPlan, ResidencyPlanError, ResidencyPlanStatus,
+    ResidencyPlanTotals, ResidencyPlanViolation, WeightBlockEncoding, WeightBlockIrChart,
+    WeightBlockManifest, WeightBlockManifestError, WeightBlockResidencyClass, GIB,
+    RANGE_HASH_CHUNK_BYTES,
+};

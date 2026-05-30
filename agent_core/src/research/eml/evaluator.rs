@@ -94,7 +94,12 @@ mod tests {
         let outer = pair(inner, one());
         let v = evaluate(&outer).unwrap();
         let expected = std::f64::consts::E.exp();
-        assert!((v - expected).abs() < 1e-9, "got {}, expected {}", v, expected);
+        assert!(
+            (v - expected).abs() < 1e-9,
+            "got {}, expected {}",
+            v,
+            expected
+        );
     }
 
     #[test]

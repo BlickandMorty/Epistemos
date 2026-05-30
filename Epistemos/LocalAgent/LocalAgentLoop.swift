@@ -63,6 +63,9 @@ private final class MainActorLocalModelClientBox: @unchecked Sendable {
 
 actor LocalAgentLoop {
     private nonisolated static let invisibleRepairLoopLimit = 2
+    nonisolated static let heavyLongContextEnvironmentKey = "EPISTEMOS_ALLOW_HEAVY_LONG_CONTEXT"
+    nonisolated static let maxSafeAutomaticTokenBudget = 32_768
+    nonisolated static let fallbackAutomaticTokenBudget = 6_144
 
     nonisolated struct ParsedToolCall: Sendable, Equatable {
         let name: String
@@ -216,16 +219,7 @@ actor LocalAgentLoop {
         maxResponseTokens: Int = 2_048,
         defaultReasoningMode: LocalReasoningMode = .fast
     ) -> LocalAgentLoop {
-        // Derive token budget from model config: use 70% of maxContextTokens
-        // to leave room for system prompt + response. Falls back to 6K for unknown models.
-        let resolvedBudget: Int
-        if let budget = maxTokenBudget {
-            resolvedBudget = budget
-        } else if let id = modelID, let model = LocalTextModelID(rawValue: id) {
-            resolvedBudget = model.maxContextTokens * 70 / 100
-        } else {
-            resolvedBudget = 6_144
-        }
+        let resolvedBudget = resolvedMaxTokenBudget(requested: maxTokenBudget, modelID: modelID)
 
         return LocalAgentLoop(
             generator: mlxGenerator(using: modelClient, steeringHintsJSON: steeringHintsJSON),
@@ -241,6 +235,27 @@ actor LocalAgentLoop {
             maxResponseTokens: maxResponseTokens,
             defaultReasoningMode: defaultReasoningMode
         )
+    }
+
+    nonisolated static func resolvedMaxTokenBudget(
+        requested: Int?,
+        modelID: String?,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Int {
+        let budget = requested ?? defaultMaxTokenBudget(forModelID: modelID)
+        guard environment[heavyLongContextEnvironmentKey] == "1" else {
+            return min(budget, maxSafeAutomaticTokenBudget)
+        }
+        return budget
+    }
+
+    nonisolated static func defaultMaxTokenBudget(forModelID modelID: String?) -> Int {
+        guard let modelID,
+              let model = LocalTextModelID(rawValue: modelID) else {
+            return fallbackAutomaticTokenBudget
+        }
+        let declaredBudget = model.maxContextTokens * 70 / 100
+        return min(declaredBudget, maxSafeAutomaticTokenBudget)
     }
 
     /// Run the local agent loop.
