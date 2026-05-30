@@ -12,7 +12,9 @@ does `AgentRuntimeV2` actually route `ProviderPolicy::LocalMlx` into live local
 model generation, stream those events through System G, and emit an
 `AnswerPacket` with local-model provenance?
 
-Current answer: no. The artifact is intentionally red.
+Current answer: yes for the guarded local-model bridge slice. The artifact is
+a primary witness for local-model handoff, live prompt-suite execution, and
+AnswerPacket provenance. It is not a 70B, 128K, or capability-ceiling pass.
 
 ## Artifact
 
@@ -20,12 +22,12 @@ Current answer: no. The artifact is intentionally red.
 artifacts/falsifiers/agent_local_model_runtime_bridge/result.json
 ```
 
-Current status: schema-valid failure report.
+Current status: schema-valid primary witness.
 
 Current bottleneck:
 
 ```text
-wire_system_g_provider_policy_local_mlx_to_live_generation
+ready_for_capability_ceiling_recheck
 ```
 
 ## Command
@@ -34,8 +36,9 @@ wire_system_g_provider_policy_local_mlx_to_live_generation
 Tools/falsifiers/f_agent_local_model_runtime_bridge.sh
 ```
 
-Expected exit is non-zero until the live local-model agent bridge is wired. The
-script still validates the artifact shape with `falsifier_validator`.
+Expected exit is zero while the local-model bridge source audit and retained
+live prompt-suite artifact remain valid. The script validates the artifact
+shape with `falsifier_validator` and does not launch a new model run by itself.
 
 ## Current Axes
 
@@ -49,28 +52,40 @@ script still validates the artifact shape with `falsifier_validator`.
 | `provider_policy_local_mlx_available` | Agent blueprints can name a local MLX provider policy. |
 | `system_g_event_seam_available` | System G can stream events and produce witnessed AnswerPackets. |
 | `local_agent_adapter_dispatch_wired` | The Rust LocalAgent adapter has a real dispatch body. **Pass as of 2026-05-28.** |
-| `system_g_provider_policy_fail_closed_wired` | System G can accept a provider-aware `ProviderPolicy::LocalMlx` request and terminates with `local_provider_not_bound` instead of synthesizing model tokens. **Pass as of 2026-05-28.** |
-| `system_g_local_model_provider_dispatch_wired` | System G calls live local model generation for `ProviderPolicy::LocalMlx`. **Still red.** |
+| `rust_local_mlx_handoff_wired` | Rust System G accepts `ProviderPolicy::LocalMlx` and emits a local-model handoff instead of pretending Rust owns Swift/MLX generation. |
+| `swift_local_model_handoff_event_wired` | Swift mirrors the local-model handoff event and provider policy payload. |
+| `swift_local_model_handoff_consumed` | The real System G seam consumes the handoff through the registered local client. |
+| `app_bootstrap_local_client_registered` | App bootstrap registers `RealSystemGRunSeam` with the local model client. |
+| `system_g_local_model_provider_dispatch_wired` | System G hands `ProviderPolicy::LocalMlx` to live local generation. **Pass as of the retained prompt-suite witness.** |
 | `live_local_model_answerpacket_provenance_wired` | The emitted AnswerPacket records the live local model identity/provenance. |
+| `live_agent_local_model_prompt_suite_passed` | Retained local prompt-suite witness shows at least one live local-model handoff, token stream, model id, and AnswerPacket provenance. |
 
 ## Non-Drift Rule
 
-This falsifier is not allowed to turn green from catalog metadata alone. A pass
-requires live local generation on the laptop and witnessed provenance in the
-packet path.
+This falsifier is not allowed to turn green from catalog metadata alone. Its
+current primary witness depends on the retained live prompt-suite artifact:
 
-Until then:
+```text
+artifacts/falsifiers/agent_local_model_runtime_bridge/live_prompt_suite.json
+```
+
+That artifact records `Qwen/Qwen3-8B-MLX-4bit`, `token_chunk_count=10`,
+`total_output_chars=41`, `system_g_local_model_handoff_seen=true`, and
+`answerpacket_local_model_provenance_seen=true`.
+
+Even while green:
 
 - local models may be exposed only through the already-gated product routes;
-- System G / AgentRuntimeV2 provider dispatch may fail closed, but must stay
-  scaffold-labeled for live generation;
+- System G V1 deterministic dispatch remains synthetic for non-local provider
+  routes; the local-model handoff route is the witnessed path;
 - the 70B/UAS route remains Vault/Research-only;
 - a long-context candidate model cannot satisfy the canonical Qwen3 floor
   unless the matching falsifier is explicitly retargeted.
 
 ## Promotion Condition
 
-Promote only when one local prompt suite proves:
+This row is promoted only for the local-agent runtime bridge slice because one
+retained local prompt suite proves:
 
 1. `AgentBlueprint.provider_policy == ProviderPolicy::LocalMlx` reaches live
    MLX or GGUF generation.

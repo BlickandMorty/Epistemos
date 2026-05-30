@@ -34,7 +34,7 @@ const LIVE_PROMPT_SUITE_RESULT: &str =
 
 fn main() {
     let report = build_report();
-    let path = PathBuf::from("artifacts/falsifiers/agent_local_model_runtime_bridge/result.json");
+    let path = repo_path("artifacts/falsifiers/agent_local_model_runtime_bridge/result.json");
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).expect("create agent local runtime bridge artifact dir");
     }
@@ -380,10 +380,11 @@ struct SourceFile {
 
 impl SourceFile {
     fn read(path: &'static str) -> Self {
-        let text = std::fs::read_to_string(path).unwrap_or_default();
+        let resolved = repo_path(path);
+        let text = std::fs::read_to_string(&resolved).unwrap_or_default();
         Self {
             path,
-            exists: Path::new(path).exists(),
+            exists: resolved.exists(),
             text,
         }
     }
@@ -493,7 +494,8 @@ struct LivePromptSuiteArtifact {
 
 impl LivePromptSuiteArtifact {
     fn read(path: &str) -> Self {
-        let Ok(text) = std::fs::read_to_string(path) else {
+        let resolved = repo_path(path);
+        let Ok(text) = std::fs::read_to_string(&resolved) else {
             return Self {
                 passed: false,
                 summary: serde_json::json!({
@@ -562,6 +564,21 @@ impl LivePromptSuiteArtifact {
                 "model_id_present": model_id_present,
             }),
         }
+    }
+}
+
+fn repo_path(path: &str) -> PathBuf {
+    let path = Path::new(path);
+    if path.is_absolute() {
+        return path.to_path_buf();
+    }
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let repo_root = manifest_dir.parent().unwrap_or(&manifest_dir);
+    let candidate = repo_root.join(path);
+    if candidate.exists() {
+        candidate
+    } else {
+        path.to_path_buf()
     }
 }
 
@@ -660,12 +677,16 @@ mod tests {
     }
 
     #[test]
-    fn current_source_audit_is_expected_to_be_red_until_live_provider_wiring() {
+    fn current_source_audit_tracks_live_prompt_suite_artifact() {
         let report = build_report();
         assert_eq!(report.artifact.falsifier_id, FALSIFIER_ID);
-        assert_eq!(report.artifact.artifact_kind, "failure_report");
-        assert_eq!(report.artifact.fallback_tier, "Fail");
-        assert!(!report.artifact.overall_pass);
+        assert_eq!(report.artifact.artifact_kind, "primary_witness");
+        assert_eq!(report.artifact.fallback_tier, "Primary");
+        assert!(report.artifact.overall_pass);
+        assert_eq!(
+            report.next_bottleneck,
+            "ready_for_capability_ceiling_recheck"
+        );
         assert!(report
             .artifact
             .pass_per_axis

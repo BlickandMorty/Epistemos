@@ -54,15 +54,14 @@
   `unsloth/Qwen3-8B-128K-GGUF`; it does not satisfy the canonical MLX
   `F-KV-Direct-Gate`, ingests a non-executing 128K dry-run preview, and
   currently waits on `repair_qwen3_8b_128k_gguf_metal_stall`.
-  `F-Agent-Local-Model-Runtime-Bridge` now exists as a schema-valid red gate:
-  the local model catalog, MLX client, GGUF client, `ProviderPolicy::LocalMlx`,
-  and System G event seam are present. The LocalAgent adapter dispatch slice is
-  now present, and System G can accept a provider-aware local MLX request and
-  fail closed with `local_provider_not_bound` instead of synthesizing tokens.
-  The remaining red bridge is live System G local-model provider dispatch plus
-  AnswerPacket provenance. This keeps the
+  `F-Agent-Local-Model-Runtime-Bridge` now exists as a schema-valid primary
+  witness for the guarded local-model bridge slice: the local model catalog,
+  MLX client, GGUF client, `ProviderPolicy::LocalMlx`, System G event seam,
+  LocalAgent adapter dispatch, Rust-to-Swift local-model handoff, registered
+  local-client consumption, retained live prompt-suite artifact, and
+  AnswerPacket local-model provenance are present. This keeps the
   agent/local-model core feature explicit instead of hiding it behind catalog
-  metadata.
+  metadata, while 128K KV and 70B capability routes remain separately red.
   `F-ActiveAssembly-Minimal` now has a primary synthetic runtime
   witness, flipping `active_assembly_runtime_artifact_pass=true` in the route
   kernel. `F-Sparse-Runtime-Split` now has a primary synthetic sparse/reference
@@ -197,7 +196,7 @@ for the exact current commit.
 - The KV spill trace parser now rejects noncanonical route labels. Prompt-cache reload remains useful plumbing evidence, but cannot flip `F-KV-Direct-Gate` even with low D_KL unless the trace proves the residual-patched mmap/NF4 SSD-spill oracle.
 - `Tools/falsifiers/f_sparse_runtime_split.sh` now emits and validates `artifacts/falsifiers/sparse_runtime_split/result.json` as a schema-valid primary synthetic sparse/runtime witness: `0.0` average KL over 1000 prompts, `0.0176` active assembly ratio, `0.0067` cost ratio, and EML/Geometry/Scan/Operator chart labels. This is substrate evidence, not a live 70B sparse runtime.
 - `Tools/falsifiers/f_70b_local_cocktail_lite.sh` now emits and validates `artifacts/falsifiers/70b_local_cocktail_lite/result.json` as a schema-valid red preflight. Expected exit is non-zero while sentinel quality/latency axes fail; the artifact names the current 70B bottleneck instead of allowing dense MLX to impersonate the ACS/UAS cocktail.
-- `Tools/falsifiers/f_agent_local_model_runtime_bridge.sh` now emits and validates `artifacts/falsifiers/agent_local_model_runtime_bridge/result.json` as a schema-valid red gate. It proves the local catalog/runtime surfaces exist, the Rust LocalAgent adapter can produce a typed local MLX dispatch plan, and System G can fail closed for provider-aware LocalMlx runs. It names the remaining bridge: `wire_system_g_provider_policy_local_mlx_to_live_generation`, followed by AnswerPacket model provenance.
+- `Tools/falsifiers/f_agent_local_model_runtime_bridge.sh` now emits and validates `artifacts/falsifiers/agent_local_model_runtime_bridge/result.json` as a schema-valid primary witness for the guarded local-model bridge slice. It proves the local catalog/runtime surfaces exist, the Rust LocalAgent adapter can produce a typed local MLX dispatch plan, Rust System G emits a local-model handoff for provider-aware LocalMlx runs, Swift consumes that handoff through the registered local client, and the retained live prompt-suite artifact records local-model AnswerPacket provenance. Its current bottleneck is `ready_for_capability_ceiling_recheck`; 128K KV and 70B/UAS routes remain separately gated.
 - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosTriFusionTypedMutationGate build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""` passed for the Wave-4 checkpoint; rerun a fresh build after this artifact slice before tagging.
 - Focused Metal witness test passed after the ControllerKernelPack artifact slice: `./scripts/xcodebuild_epistemos.sh ... test -only-testing:EpistemosTests/MetalWitnessGatesTests` ran 3 Swift Testing tests successfully.
 - Focused graph/editor guard passed after the lost-work restoration: `GraphPerformanceTests`, `GraphPhysicsSettingsAuditTests`, and `HTMLWorkspaceSourceGuardTests` all passed.
@@ -365,7 +364,7 @@ Read these only when this index doesn't already answer your question.
 
 **What is empirically defensible.** The substrate Epistemos has been building — lift to a typed higher-dim lattice, operate in compressed-and-active form, project to a surface with a witness, account error in WBO — is validated externally by Erdős unit-distance (lift-and-project finds new constructions) and Parameter Golf (compressed-and-active models beat uncompressed dense models per byte).
 
-**What still needs measurement, not faith.** F-Erdős-Lift-Optimality · F-KV-Direct-Gate prompt-level 128K run · F-Agent-Local-Model-Runtime-Bridge live dispatch · live model-backed F-Sparse-Runtime-Split · F-LocalToolUse · F-HyperdynamicLoop-Bounded · F-70B-Local-Cocktail prompt-level run · primary Metal/Swift hot-path versions of F-PageGather-M2Pro and F-UAS-ZeroCopy-Spine. F-ULP and F-ControllerKernelPack now have full Metal primary artifacts, PageGather has packetized mitigation evidence plus a dense-restore failure, Active Assembly and Sparse Runtime Split have primary synthetic runtime witnesses, KV-Direct has a red harness contract proving Tier-1 equality and ready to consume real Qwen/MLX logits and metrics but not the live SSD-spill gate, the agent local-model bridge has a schema-valid red row-root, and the 70B cocktail now has a schema-valid red preflight row-root. Substrate is sound; measurements must keep landing.
+**What still needs measurement, not faith.** F-Erdős-Lift-Optimality · F-KV-Direct-Gate prompt-level 128K run · live model-backed F-Sparse-Runtime-Split · F-LocalToolUse · F-HyperdynamicLoop-Bounded · F-70B-Local-Cocktail prompt-level run · primary Metal/Swift hot-path versions of F-PageGather-M2Pro and F-UAS-ZeroCopy-Spine. F-ULP and F-ControllerKernelPack now have full Metal primary artifacts, PageGather has packetized mitigation evidence plus a dense-restore failure, Active Assembly and Sparse Runtime Split have primary synthetic runtime witnesses, KV-Direct has a red harness contract proving Tier-1 equality and ready to consume real Qwen/MLX logits and metrics but not the live SSD-spill gate, the agent local-model bridge has a schema-valid primary witness for the guarded local bridge slice, and the 70B cocktail now has a schema-valid red preflight row-root. Substrate is sound; measurements must keep landing.
 
 **The unified cognitive substrate is no longer a thesis.** It is a substrate with two independent external proofs that its primitives are the correct primitives. The remaining work is execution.
 

@@ -55,7 +55,7 @@ Human-readable queue mirror:
 | `kv_direct_live_128k_pass` | fail | Qwen3-8B 128K SSD-spill D_KL/RSS/tok/s metrics are not measured yet; the 2026-05-28 harness contract exists, can run smoke logits, supports restartable prompt shards, refuses undersized fixtures, and now refuses model configs that do not support the target context. |
 | `qwen3_8b_128k_gguf_candidate_artifact_available` | pass | Separate GGUF candidate split exists at `artifacts/falsifiers/qwen3_8b_128k_gguf_route/result.json`. |
 | `qwen3_8b_128k_gguf_route_pass` | observed fail | Candidate route is red with next bottleneck `repair_qwen3_8b_128k_gguf_metal_stall`; the local GGUF file, 131,072-token metadata, llama.cpp runner, smoke bench metrics, smoke KL witness, and 128K q4_0/flash-attn probe manifest exist. The 128K probe reached Metal residency but emitted no metrics, so this remains fallback/candidate evidence only. |
-| `agent_local_model_runtime_bridge_pass` | fail | `F-Agent-Local-Model-Runtime-Bridge` exists as a schema-valid red artifact. The model catalog, MLX client, GGUF client, `ProviderPolicy::LocalMlx`, System G event seam, Rust LocalAgent adapter dispatch, and provider-aware fail-closed System G route exist; the live System G local-model provider path is not wired yet. Current bottleneck: `wire_system_g_provider_policy_local_mlx_to_live_generation`. |
+| `agent_local_model_runtime_bridge_pass` | pass | `F-Agent-Local-Model-Runtime-Bridge` exists as a schema-valid primary witness for the guarded local-model bridge slice. The model catalog, MLX client, GGUF client, `ProviderPolicy::LocalMlx`, System G event seam, Rust LocalAgent adapter dispatch, Rust-to-Swift local-model handoff, registered local client consumption, retained live prompt-suite artifact, and AnswerPacket local-model provenance are present. This does not promote KV-Direct, 128K, or 70B capability-ceiling routes. Current bridge bottleneck: `ready_for_capability_ceiling_recheck`. |
 | `active_assembly_shape_proof_available` | pass | Shape proof/test exists. |
 | `active_assembly_runtime_artifact_pass` | pass | `F-ActiveAssembly-Minimal` now has a schema-valid primary synthetic runtime witness: 0 output-bound violations, `0.0021` cost ratio, `0.0322` firing ratio, and `117.709 us` p99 wall time. |
 | `sparse_runtime_split_artifact_pass` | pass | `F-Sparse-Runtime-Split` now has a schema-valid primary synthetic runtime witness over 1000 prompts with `0.0` KL, `0.0176` active ratio, `0.0067` cost ratio, and EML/Geometry/Scan/Operator chart labels. |
@@ -260,7 +260,7 @@ worktree-sprawl warning system.
      floor, logits, metrics, spill trace, and live fixture shape floor all
      exist and pass the thresholds.
 
-3B. Wire the agent local-model runtime bridge. **Red gate added on 2026-05-28; adapter dispatch and System G fail-closed provider route landed.**
+3B. Wire the agent local-model runtime bridge. **Primary guarded bridge witness is present; adapter dispatch, System G local-model handoff, Swift local-client consumption, retained live prompt suite, and AnswerPacket provenance are landed.**
    - `Tools/falsifiers/f_agent_local_model_runtime_bridge.sh` emits
      `artifacts/falsifiers/agent_local_model_runtime_bridge/result.json`.
    - Current pass axes prove the catalog and local runtime clients are present:
@@ -268,16 +268,17 @@ worktree-sprawl warning system.
      available, GGUF client available, `ProviderPolicy::LocalMlx` available,
      and System G event seam available.
    - The LocalAgent adapter now admits/refuses capabilities and produces a
-     typed local MLX provider plan without executing the model.
-   - System G now exposes a provider-aware start seam that accepts
-     `ProviderPolicy::LocalMlx` and fails closed with `local_provider_not_bound`
-     until the live MLX/GGUF streaming bridge exists.
-   - Current red axes are the real core-feature gap: System G still uses
-     deterministic V1 prompt echo on the non-provider path and fail-closed
-     provider routing on the LocalMlx path rather than live provider generation;
-     AnswerPackets do not yet carry local-model provenance for this route.
-   - Kernel axis expected to flip:
+     typed local MLX provider plan.
+   - Rust System G accepts `ProviderPolicy::LocalMlx`, emits a local-model
+     handoff, and does not falsely pretend the Rust V1 seam owns Swift/MLX
+     generation.
+   - Swift consumes that handoff through the registered local client, and the
+     retained live prompt-suite artifact records `Qwen/Qwen3-8B-MLX-4bit`, `10`
+     token chunks, local-model handoff visibility, and AnswerPacket provenance.
+   - Kernel axis flipped for the guarded local bridge slice:
      `agent_local_model_runtime_bridge_pass`.
+   - Remaining red capability-ceiling surfaces are separate: canonical
+     KV-Direct 128K, GGUF 128K Metal stall, and 70B/UAS prompt-level runtime.
 
 4. Promote Active Assembly from shape proof to runtime artifact. **Done on 2026-05-28 for the synthetic packet-graph gate.**
    - `Tools/falsifiers/f_active_assembly_minimal.sh` emits
