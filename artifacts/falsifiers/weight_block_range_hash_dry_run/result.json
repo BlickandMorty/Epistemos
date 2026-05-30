@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "ba6f15e6fb08c772c5bbce4d303aff864f39e9c2",
+  "commit_sha": "d94ef7e5f9a6a40b1d7632d43d5961950f9b1a21",
   "fixture_id": "weight_block_range_hash_tiny_fixture_v1",
-  "timestamp_utc": "2026-05-30T10:37:32Z",
-  "result_digest": "sha256:43c663224da88738023332fde9d9f5a0f506cc7c4177e23e25f17bcea0cbd5a6",
+  "timestamp_utc": "2026-05-30T23:09:54Z",
+  "result_digest": "sha256:31c7298e1e3eb513c095f0838cc0a54afa6636c1f1a4b2cef812442264e6f70b",
   "measurements": {
     "bounded_range_hashed": {
       "value": true,
@@ -46,6 +46,10 @@
       "unit": "bool"
     },
     "no_model_file_touched": {
+      "value": true,
+      "unit": "bool"
+    },
+    "over_limit_reader_position_unchanged": {
       "value": true,
       "unit": "bool"
     },
@@ -82,6 +86,11 @@
       "value": true,
       "unit": "bool"
     },
+    "over_limit_reader_position_unchanged": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "over_limit_rejected_before_read": {
       "operator": "==",
       "value": true,
@@ -102,6 +111,7 @@
     "bounded_range_hashed": true,
     "known_hash_manifest_valid": true,
     "no_model_file_touched": true,
+    "over_limit_reader_position_unchanged": true,
     "over_limit_rejected_before_read": true,
     "range_len_bytes": true,
     "short_reader_rejected": true
