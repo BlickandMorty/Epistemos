@@ -191,13 +191,13 @@ struct CompanionAvatarGrammarSourceGuardTests {
         #expect(creation.contains("New Agent"))
         #expect(creation.contains("AgentColorPreset"))
         #expect(creation.contains("pixelPanel(theme:"))
-        #expect(creation.contains("PixelPanelTitle(text: \"New Agent\""))
+        #expect(creation.contains("PixelPanelTitle(text: isEditing ? \"Edit Agent\" : \"New Agent\""))
         #expect(creation.contains("settingsAppleCardChrome(theme:"))
         #expect(creation.contains("PixelPanelBackground.actionSurface(for: theme)"))
         #expect(!creation.contains(".background(.regularMaterial)"))
         #expect(!creation.contains("RoundedRectangle(cornerRadius: 16"))
         #expect(!creation.contains(".textFieldStyle(.roundedBorder)"))
-        #expect(landing.contains("if farmShowingCreate"))
+        #expect(landing.contains("if (farmShowingCreate || farmEditTarget != nil)"))
         #expect(landing.contains("CompanionCreationFlow("))
         #expect(landing.contains("Color.clear"))
         #expect(!landing.contains(".sheet(isPresented: $farmShowingCreate)"))
@@ -230,6 +230,53 @@ struct CompanionAvatarGrammarSourceGuardTests {
         #expect(!graphSources.contains("CompanionRoamingField("))
         #expect(!graphSources.contains("CompanionView("))
         #expect(!graphSources.contains("CompanionAvatarGlyph("))
+    }
+
+    @Test("Landing agents expose AgentBlueprint provider editing without fake adapter scope")
+    func landingAgentsExposeAgentBlueprintProviderEditing() throws {
+        let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let farm = try loadMirroredSourceTextFile("Epistemos/Views/Landing/Farm/LandingFarmView.swift")
+        let roaming = try loadMirroredSourceTextFile("Epistemos/Views/Landing/Farm/CompanionRoamingField.swift")
+        let creation = try loadMirroredSourceTextFile("Epistemos/Views/Landing/Farm/CompanionCreationFlow.swift")
+        let model = try loadMirroredSourceTextFile("Epistemos/Models/Companion/CompanionModel.swift")
+        let state = try loadMirroredSourceTextFile("Epistemos/State/Companion/CompanionState.swift")
+        let blueprint = try loadMirroredSourceTextFile("Epistemos/LocalAgent/AgentBlueprint.swift")
+
+        #expect(model.contains("agentModelRoutingID"),
+                "Landing agents must persist the selected AgentBlueprint model/provider")
+        #expect(model.contains("agentScopeRaw"),
+                "Landing agents must persist AgentBlueprint scope")
+        #expect(model.contains("agentApprovalModeRaw"),
+                "Landing agents must persist AgentBlueprint approval mode")
+        #expect(model.contains("agentToolNamesRaw"),
+                "Landing agents must persist selected runtime tools")
+
+        #expect(state.contains("func updateCompanion("),
+                "Landing agents need an edit path, not create/delete only")
+        #expect(state.contains("agentModelChoice"),
+                "Active-agent prompt context must include the persisted AgentBlueprint routing choice")
+        #expect(blueprint.contains("static func modelChoice("),
+                "ACC brain to AgentBlueprint conversion should be shared instead of duplicated across surfaces")
+
+        #expect(creation.contains("availableBrains: [ACCBrainSelection]"),
+                "The Landing creation flow must receive the live provider/model catalog")
+        #expect(creation.contains("AgentBlueprintModelChoice"),
+                "The Landing creation flow must use canonical AgentBlueprint model choices")
+        #expect(creation.contains("AgentBlueprintScope.allCases"),
+                "The Landing creation flow must expose canonical AgentBlueprint scope")
+        #expect(creation.contains("AgentBlueprintApprovalMode.allCases"),
+                "The Landing creation flow must expose canonical AgentBlueprint approval")
+        #expect(creation.contains("selectedToolNames"),
+                "The Landing creation flow must let users bind tools to the agent")
+
+        #expect(farm.contains("onRequestEdit"),
+                "The AGENTS dock must expose an edit route")
+        #expect(roaming.contains("Label(\"Edit\", systemImage: \"pencil\")"),
+                "Agent context menus must support editing existing provider/tool choices")
+        #expect(landing.contains("farmEditTarget"),
+                "Landing must distinguish create from edit instead of overwriting active agents")
+        #expect(landing.contains("applyActiveLandingAgentRuntimePreference"),
+                "Submitting from Landing should apply the active agent's provider preference before routing")
     }
 
     @Test("Companion roaming phase math stays bounded for large absolute dates")

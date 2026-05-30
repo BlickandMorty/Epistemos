@@ -58,6 +58,10 @@ final class CompanionState {
         accentHex: String = "#7BA8E0",
         loraAdapterPath: String? = nil,
         personaPrompt: String? = nil,
+        agentModelChoice: AgentBlueprintModelChoice = .autoConstellation,
+        agentToolNames: [String] = [],
+        agentScope: AgentBlueprintScope = .currentVault,
+        agentApprovalMode: AgentBlueprintApprovalMode = .approveOncePerSession,
         activateOnCreate: Bool = true
     ) -> CompanionRosterEntry? {
         guard let context = modelContext else {
@@ -70,7 +74,11 @@ final class CompanionState {
             bodyKind: bodyKind,
             accentHex: accentHex,
             loraAdapterPath: loraAdapterPath,
-            personaPrompt: personaPrompt
+            personaPrompt: personaPrompt,
+            agentModelChoice: agentModelChoice,
+            agentToolNames: agentToolNames,
+            agentScope: agentScope,
+            agentApprovalMode: agentApprovalMode
         )
         context.insert(model)
         do {
@@ -81,6 +89,51 @@ final class CompanionState {
         }
         if activateOnCreate {
             activeCompanionID = model.id
+        }
+        reloadRoster()
+        return CompanionRosterEntry(from: model)
+    }
+
+    @discardableResult
+    func updateCompanion(
+        id: String,
+        name: String,
+        tagline: String = "",
+        bodyKind: CompanionBodyKind,
+        accentHex: String,
+        personaPrompt: String? = nil,
+        agentModelChoice: AgentBlueprintModelChoice = .autoConstellation,
+        agentToolNames: [String] = [],
+        agentScope: AgentBlueprintScope = .currentVault,
+        agentApprovalMode: AgentBlueprintApprovalMode = .approveOncePerSession
+    ) -> CompanionRosterEntry? {
+        guard let context = modelContext else {
+            Self.log.error("updateCompanion: ModelContext not attached")
+            return nil
+        }
+        guard let model = fetch(by: id) else { return nil }
+
+        model.name = name
+        model.tagline = tagline
+        model.bodyKind = bodyKind
+        model.accentHex = accentHex
+        model.personaPrompt = personaPrompt
+        model.agentModelChoice = agentModelChoice
+        model.agentToolNames = agentToolNames
+        model.agentScope = agentScope
+        model.agentApprovalMode = agentApprovalMode
+        model.identityHash = CompanionModel.computeIdentityHash(
+            id: model.id,
+            bodyKindRaw: model.bodyKindRaw,
+            name: model.name
+        )
+        model.lastInteractedAt = .now
+
+        do {
+            try context.save()
+        } catch {
+            Self.log.error("updateCompanion: save failed: \(error.localizedDescription, privacy: .public)")
+            return nil
         }
         reloadRoster()
         return CompanionRosterEntry(from: model)
@@ -182,7 +235,13 @@ final class CompanionState {
         if !persona.isEmpty {
             lines.append("Persona: \(persona)")
         }
-        lines.append("Scope: prompt/persona layer over the selected model and tool tier.")
+        lines.append("AgentBlueprint model: \(entry.agentModelChoice.displayName) [\(entry.agentModelChoice.routingID)]")
+        lines.append("AgentBlueprint scope: \(entry.agentScope.displayName)")
+        lines.append("AgentBlueprint approval: \(entry.agentApprovalMode.displayName)")
+        if !entry.agentToolNames.isEmpty {
+            lines.append("AgentBlueprint tools: \(entry.agentToolNames.joined(separator: ", "))")
+        }
+        lines.append("Scope: active runtime preference plus prompt/persona layer; runtime gates still own truth, tools, and writes.")
         return lines.joined(separator: "\n")
     }
 
@@ -193,7 +252,8 @@ final class CompanionState {
         var lines = [
             "Active Epistemos landing agent: \(name).",
             "Use this agent as the visible working persona for this turn while still following all Epistemos safety, evidence, and tool-permission rules.",
-            "This agent is a user-selected persona over the currently selected model/runtime; do not claim a separate model, unavailable tool access, or autonomous background action.",
+            "This agent carries an AgentBlueprint runtime preference: \(entry.agentModelChoice.routingID) (\(entry.agentModelChoice.displayName)).",
+            "Do not claim unavailable tool access or autonomous background action; tool use must obey \(entry.agentApprovalMode.displayName) and \(entry.agentScope.displayName).",
         ]
         let role = boundedPromptField(entry.tagline, limit: 160)
         if !role.isEmpty {
@@ -202,6 +262,9 @@ final class CompanionState {
         let persona = boundedPromptField(entry.personaPrompt ?? "", limit: 800)
         if !persona.isEmpty {
             lines.append("Persona directive: \(persona)")
+        }
+        if !entry.agentToolNames.isEmpty {
+            lines.append("Preferred tools: \(entry.agentToolNames.joined(separator: ", ")).")
         }
         return lines.joined(separator: "\n")
     }
@@ -324,6 +387,10 @@ struct CompanionRosterEntry: Identifiable, Equatable, Sendable {
     let identityHash: String
     let loraAdapterPath: String?
     let personaPrompt: String?
+    let agentModelChoice: AgentBlueprintModelChoice
+    let agentToolNames: [String]
+    let agentScope: AgentBlueprintScope
+    let agentApprovalMode: AgentBlueprintApprovalMode
     let createdAt: Date
     let lastInteractedAt: Date
     let archivedAt: Date?
@@ -337,6 +404,10 @@ struct CompanionRosterEntry: Identifiable, Equatable, Sendable {
         self.identityHash = model.identityHash
         self.loraAdapterPath = model.loraAdapterPath
         self.personaPrompt = model.personaPrompt
+        self.agentModelChoice = model.agentModelChoice
+        self.agentToolNames = model.agentToolNames
+        self.agentScope = model.agentScope
+        self.agentApprovalMode = model.agentApprovalMode
         self.createdAt = model.createdAt
         self.lastInteractedAt = model.lastInteractedAt
         self.archivedAt = model.archivedAt

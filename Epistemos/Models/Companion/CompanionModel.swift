@@ -48,6 +48,18 @@ final class CompanionModel {
     /// Optional brief persona description that augments the
     /// system prompt when this companion is active.
     var personaPrompt: String?
+    /// Optional AgentBlueprint model/provider route. Nil means the
+    /// canonical auto constellation should pick the runtime.
+    var agentModelRoutingID: String?
+    /// Display label captured at creation time so old agents still show
+    /// a useful route label if a model is later unavailable.
+    var agentModelDisplayName: String?
+    /// Newline-separated tool names selected for this landing agent.
+    var agentToolNamesRaw: String?
+    /// AgentBlueprint scope raw value.
+    var agentScopeRaw: String?
+    /// AgentBlueprint approval raw value.
+    var agentApprovalModeRaw: String?
 
     init(
         id: String = UUID().uuidString,
@@ -57,6 +69,10 @@ final class CompanionModel {
         accentHex: String = "#7BA8E0",
         loraAdapterPath: String? = nil,
         personaPrompt: String? = nil,
+        agentModelChoice: AgentBlueprintModelChoice = .autoConstellation,
+        agentToolNames: [String] = [],
+        agentScope: AgentBlueprintScope = .currentVault,
+        agentApprovalMode: AgentBlueprintApprovalMode = .approveOncePerSession,
         createdAt: Date = .now
     ) {
         self.id = id
@@ -66,6 +82,11 @@ final class CompanionModel {
         self.accentHex = accentHex
         self.loraAdapterPath = loraAdapterPath
         self.personaPrompt = personaPrompt
+        self.agentModelRoutingID = agentModelChoice.routingID
+        self.agentModelDisplayName = agentModelChoice.displayName
+        self.agentToolNamesRaw = Self.encodeToolNames(agentToolNames)
+        self.agentScopeRaw = agentScope.rawValue
+        self.agentApprovalModeRaw = agentApprovalMode.rawValue
         self.createdAt = createdAt
         self.lastInteractedAt = createdAt
         self.archivedAt = nil
@@ -79,12 +100,87 @@ final class CompanionModel {
         set { bodyKindRaw = newValue.rawValue }
     }
 
+    var agentModelChoice: AgentBlueprintModelChoice {
+        get {
+            Self.modelChoice(
+                routingID: agentModelRoutingID,
+                displayName: agentModelDisplayName
+            )
+        }
+        set {
+            agentModelRoutingID = newValue.routingID
+            agentModelDisplayName = newValue.displayName
+        }
+    }
+
+    var agentToolNames: [String] {
+        get { Self.decodeToolNames(agentToolNamesRaw) }
+        set { agentToolNamesRaw = Self.encodeToolNames(newValue) }
+    }
+
+    var agentScope: AgentBlueprintScope {
+        get { AgentBlueprintScope(rawValue: agentScopeRaw ?? "") ?? .currentVault }
+        set { agentScopeRaw = newValue.rawValue }
+    }
+
+    var agentApprovalMode: AgentBlueprintApprovalMode {
+        get {
+            AgentBlueprintApprovalMode(rawValue: agentApprovalModeRaw ?? "") ?? .approveOncePerSession
+        }
+        set { agentApprovalModeRaw = newValue.rawValue }
+    }
+
     var isArchived: Bool { archivedAt != nil }
+
+    private static func modelChoice(
+        routingID: String?,
+        displayName: String?
+    ) -> AgentBlueprintModelChoice {
+        guard let routingID, !routingID.isEmpty else { return .autoConstellation }
+        if routingID == AgentBlueprintModelChoice.autoConstellation.routingID {
+            return .autoConstellation
+        }
+        if routingID == AgentBlueprintModelChoice.appleIntelligence.routingID || routingID == "apple" {
+            return .appleIntelligence
+        }
+        if routingID.hasPrefix("local:") {
+            let modelID = String(routingID.dropFirst("local:".count))
+            let label = displayName ?? LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
+            return .local(modelID: modelID, displayName: label)
+        }
+        if routingID.hasPrefix("cloud:") {
+            let providerRaw = String(routingID.dropFirst("cloud:".count))
+            let label = displayName
+                ?? CloudModelProvider(rawValue: providerRaw)?.displayName
+                ?? providerRaw
+            return .cloud(provider: providerRaw, displayName: label)
+        }
+        return .autoConstellation
+    }
+
+    private static func encodeToolNames(_ names: [String]) -> String? {
+        let normalized = Array(Set(
+            names
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+        ))
+        .sorted()
+        guard !normalized.isEmpty else { return nil }
+        return normalized.joined(separator: "\n")
+    }
+
+    private static func decodeToolNames(_ rawValue: String?) -> [String] {
+        guard let rawValue else { return [] }
+        return rawValue
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
 
     /// FNV-1a-ish lightweight hash for the identity seed. Fine for
     /// cosmetic determinism — not a security primitive. Replace with
     /// BLAKE3 if/when DAG node hashing lands (Phase 8).
-    private static func computeIdentityHash(id: String, bodyKindRaw: String, name: String) -> String {
+    static func computeIdentityHash(id: String, bodyKindRaw: String, name: String) -> String {
         let combined = "\(id):\(bodyKindRaw):\(name)"
         var hash: UInt64 = 0xcbf29ce484222325
         for byte in combined.utf8 {
