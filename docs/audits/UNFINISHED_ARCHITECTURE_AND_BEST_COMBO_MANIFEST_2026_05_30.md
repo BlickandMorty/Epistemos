@@ -17,6 +17,13 @@ register defines the stable organ names and adapter rules so future agents do
 not invent parallel authorities such as detached AgentSearch, AgentMemory, or
 AgentCitation.
 
+Canonical rename companion: read
+`docs/audits/ACS_ACTIVE_COLD_STORAGE_RENAME_2026_05_30.md`. From this point
+forward, ACS means Active Cold Storage. Admission/verdict behavior should be
+called SCOPE-Rex Admission, SovereignGate, or AdmissionGate. Existing source
+paths containing `acs_admission` are transitional naming debt, not permission
+to reuse ACS for admission in new docs or UI.
+
 ## Non-Negotiables
 
 1. WRV remains the floor: Wired, Reachable, Visible, Verified.
@@ -28,8 +35,8 @@ AgentCitation.
    explicitly approved.
 5. Lattice/WBO, ternary/Sherry research, KV-Direct, self-evolving adapters, and
    the autogenous-kernel idea are retained, but they live behind falsifier and
-   residency gates. They do not replace UAS, ACS, VaultRecall, Eidos, or
-   provenance.
+   residency gates. They do not replace UAS, Active Cold Storage, VaultRecall,
+   Eidos, or provenance.
 6. A scheduler heartbeat is not proof of architecture progress. It is only a
    liveness hook for future loop runners. A heartbeat-backed run may advance a
    row only when it leaves code, tests, artifact evidence, and an updated WRV
@@ -45,7 +52,8 @@ signal, but every scheduled run must obey this covenant:
 2. Pick one row, not an entire architecture region.
 3. Prove current source truth before editing: code path, caller, flag, UI
    surface, tests, and falsifier/artifact state.
-4. If the row touches Phase 2+ local inference, UAS/ACS, Active Assembly,
+4. If the row touches Phase 2+ local inference, UAS/Active Cold Storage,
+   Active Assembly,
    KV-Direct, 70B, lattice/WBO, EML/F-ULP, Lean, or autogenous-kernel work, run
    the relevant No-Orphan check: addressed unit, UAS address, plane, residency,
    WBO/error policy, witness, falsifier, tier, rollback.
@@ -65,7 +73,7 @@ The old ledgers mix several namespaces. They must stay separate.
 |---|---|---|
 | Broad substrate tracks `T0`-`T18` | Original product/research feature map: Sovereign, Hermes, Simulation, Local Model, Halo, Graph, UX, Multi-Agent, Ternary/Research, ANE, Live File Compiler, Cognitive Weight, Variant Ladder. | `docs/fusion/SUBSTRATE_TRACK_REGISTER_2026_05_03.md` |
 | Phase-1 May-16 branches `T1`-`T9` | Salvage branches from the May-16 archeology pass. Some were cherry-picked; some remain donor-only. | Phase C / salvage docs |
-| Phase-2 terminal workcards `T09`-`T27` | The no-compromise workcard set: Eidos, System G, UAS, Lattice/WBO, ACS, VaultRecall, F-70B, Lean, WRV surfacing. | `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` |
+| Phase-2 terminal workcards `T09`-`T27` | The no-compromise workcard set: Eidos, System G, UAS, Lattice/WBO, Active Cold Storage, VaultRecall, F-70B, Lean, WRV surfacing. Older decks may say ACS; read that as Active Cold Storage only. | `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` |
 | W-rows | Cross-terminal production wires. These decide whether substrate is actually used by app behavior. | `docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md` |
 | Deferred codewords `D-*` | Long-horizon architecture that is preserved but intentionally not on the hot path yet. | `docs/DEFERRED_WORK_GUARANTEE_2026_05_23.md` |
 
@@ -113,7 +121,8 @@ Target shape:
   AnswerPacket output.
 - Per-model badges show honest capability state: `HONEST`, `EXPERIMENTAL`, or
   `OFF`.
-- Tool actions and durable mutations carry ACS admission proof before commit.
+- Tool actions and durable mutations carry SCOPE-Rex/SovereignGate admission
+  proof before commit.
 
 ### 4. Address and residency layer
 
@@ -133,13 +142,15 @@ Target shape:
 
 ### 5. Permission and witness layer
 
-ACS admission, SCOPE-Rex proof, SovereignGate, CapabilityBridge, ClaimKind, and
-Provenance Console are the permission/witness layer. ACS is not just a settings
-row. It is the gate that durable state changes and tool actions must pass.
+SCOPE-Rex Admission, SovereignGate, CapabilityBridge, ClaimKind, and Provenance
+Console are the permission/witness layer. Do not call this layer ACS. ACS now
+means Active Cold Storage; older `acs_admission` source paths are transitional
+naming debt until migrated.
 
 Target shape:
 
-- Every mutation/tool/kernel-promotion path calls admission before commit.
+- Every mutation/tool/kernel-promotion path calls SCOPE-Rex/SovereignGate
+  admission before commit.
 - Rejections are visible as records, not silent fallbacks.
 - Proof IDs resolve back to audit records.
 - The UI can show why a claim/action was allowed, denied, or escalated.
@@ -148,7 +159,7 @@ Target shape:
 
 The lattice work is retained as accounting and falsification infrastructure. It
 tracks compression, residuals, drift, quantization, semantic error, and numeric
-cost. It does not replace UAS or ACS.
+cost. It does not replace UAS or Active Cold Storage.
 
 Best-combo placement:
 
@@ -211,7 +222,7 @@ restarted from stale donor branches:
 | T10 Eidos -> QueryRuntime | `RetrievalRuntime.fullText` checks `EidosFlags.isEnabled`, prefers `EidosBridge.retrieve` when the vault index is open, falls back to fixture search, then falls through to RRF/legacy when unmapped. `QueryRuntimeTests` cover the production-vault route. Remaining work is product-depth and contract unification, not "not wired at all." |
 | T21 VaultRecall | Swift wiring, metrics, health row, and production trace recording exist. Some paths still report stub or fixture backends honestly. Final work is unification and typed retrieval, not raw substrate creation. |
 | T17B Lattice/WBO -> oplog | `agent_core/src/oplog.rs` calls `oplog_lattice_wbo::account_append` after successful in-memory append. The stale "0 entries because nothing writes" claim is no longer globally true. Remaining work is semantics, proof, tests, and visibility. |
-| T18B ACS | `agent_core/src/acs_admission/`, `SCOPERexAdmissionProof`, `ACSRunEventLogSink`, and System G tool-call admission surfaces exist. Full pre-commit coverage of every mutation/tool/kernel-promotion path remains high-risk follow-up. |
+| T18B SCOPE-Rex/SovereignGate admission | Transitional source paths still include `agent_core/src/acs_admission/`, `SCOPERexAdmissionProof`, `ACSRunEventLogSink`, and System G tool-call admission surfaces. Full pre-commit coverage of every mutation/tool/kernel-promotion path remains high-risk follow-up. New docs must not call this ACS. |
 | T14 terminal UAS bridge | `UasAddress`, `UasKind`, `AcsAnchor`, `AcsAnchorPlaneProjection`, anchor registry, vault-note addresses, claim addresses, and agent-trace addresses exist. More consumer wiring remains. |
 | T22 Substrate Health | `SubstrateHealthPanel`, `EidosHealthRow`, `VaultRecallHealthRow`, `SystemGHealthRow`, `UasAcsHealthRow`, `ACSAdmissionHealthRow`, `FUlpHealthRow`, and falsifier rows exist with tests. Falsifier drill-down/product panel depth remains follow-up. |
 | T2 Agent/UI substrate | `AgentBlueprintSettingsView`, `AgentRunTimelineView`, and `AnswerPacketBadge` exist. End-to-end replay and real run-flow insertion remain unfinished. |
@@ -265,7 +276,7 @@ ledger. Current next work should follow this order.
 | 5 | Runtime route policy behavior | Policy tables are visible; production dispatch proof still needs focused tests. | Prove `RuntimeRouter.route(_:)` consumes the same policy table under lane enable/disable and confidence gates. |
 | 6 | W-01/W-04/W-22 typed vault retrieval | Rust has UAS addresses and vault trace methods, but every retrieval consumer is not yet typed end-to-end. | `hybrid_search` consumers use/return typed `Vec<UasAddress>` where appropriate; PageGather escalates through vault retrieval. |
 | 7 | W-06 Tri-Fusion typed mutations | Not closed. | Graph/vault/agent mutations emit typed mutation envelopes and UAS-backed graph events. |
-| 8 | W-25/W-26 provenance and Cognitive DAG | Partial provenance source exists, UI depth remains. | Clickable ACS/provenance records and Cognitive DAG visualizer. |
+| 8 | W-25/W-26 provenance and Cognitive DAG | Partial provenance source exists, UI depth remains. | Clickable SCOPE-Rex/SovereignGate provenance records and Cognitive DAG visualizer. |
 | 9 | T12 F-ULP -> EML witness | Substrate exists, production witness path incomplete. | EML certificates call F-ULP witness and carry result into ClaimLedger/provenance. |
 | 10 | T18B full admission gate | Tool-call/System G slices exist, but all durable paths are not proven gated. | Gate every mutation/tool/kernel-promotion path. Do this last with broad tests. |
 
@@ -279,13 +290,13 @@ ledger. Current next work should follow this order.
 | T11 System G | Rust and local-agent seams exist; more Swift bridge/runtime migration and replay UI remains. |
 | T12 F-ULP | Substrate present; witness emission path remains. |
 | T13 F-KV-Direct Gate | Deferred capability-ceiling gate. Do not run heavy KV probes. |
-| T14 Five-plane UAS-ACS | Core bridge exists; typed consumer closure remains. |
-| T15 Executor Trait | Deferred. Fold into System G execution once route policy and ACS gating are stable. |
+| T14 Five-plane UAS / Active Cold Storage | Core bridge exists; typed consumer closure remains. |
+| T15 Executor Trait | Deferred. Fold into System G execution once route policy and SCOPE-Rex/SovereignGate admission are stable. |
 | T16 Live File Compiler | Deferred production compiler. Keep typed seams separate from hot path. |
 | T17 Cognitive Weight Class Enforcement | Deferred/partial. Connect to ResidencyPlan/WeightBlockManifest before runtime claims. |
 | T17B Lattice/WBO | Oplog hook exists; semantic accounting, falsifier proof, and UI remain. |
 | T18 Residency Governor | Dry-run/planner surfaces exist; live residency governor remains deferred. |
-| T18B ACS Admission | Substrate and System G/tool-call slices exist; full gate remains high-risk. |
+| T18B SCOPE-Rex/SovereignGate Admission | Substrate and System G/tool-call slices exist; full gate remains high-risk. |
 | T19 Halo V1 plus Eidos control vectors | Deferred product/research surface. |
 | T20 Variant Ladder | Deferred D-05. |
 | T21 Vault Recall Contract | Present but not final umbrella over all retrieval. |
@@ -294,7 +305,7 @@ ledger. Current next work should follow this order.
 | T23 F-70B Local Cocktail | Deferred D-09; do not run heavy probes. |
 | T23B M2 Pro Falsifier Handbook | Present; dedupe and wiring into UI remain. |
 | T24 Lean ClaimLedger Schema Authority | Deferred D-10. |
-| T25 ACS Naming and Plane Reconciliation | Partially addressed by current naming/tests; keep lint/doc guard. |
+| T25 ACS Naming and Plane Reconciliation | Reopened by `ACS_ACTIVE_COLD_STORAGE_RENAME_2026_05_30.md`: ACS means Active Cold Storage; admission names must migrate to SCOPE-Rex Admission / SovereignGate / AdmissionGate. |
 | T26 Self-Evolving Adapter Lane | Deferred D-06; candidate home for autogenous-kernel research. |
 | T27 WRV Product Surfacing | Still the capstone: make the first P0 W-rows visible and verified. |
 
@@ -312,7 +323,7 @@ workcards and should be treated as architecture lanes.
 | T18 Variant Ladder | Build as model/runtime policy generalization, not as one-off provider preference. |
 | Simulation / Farm | Use for safe sandbox/applier work only after product-surface decision. |
 | Quick Capture | Keep as future pro-tool ingestion lane; gate on System G/live routing and typed receipts. |
-| Autogenous kernel | Treat as Research Construction plus L_SE/self-evolving adapter lane. It must have UAS identity, ACS permission, WBO accounting, residency rollback, and falsifier proof before it can become product behavior. |
+| Autogenous kernel | Treat as Research Construction plus L_SE/self-evolving adapter lane. It must have UAS identity, Active-Cold-Storage residency, SCOPE-Rex/SovereignGate admission, WBO accounting, rollback, and falsifier proof before it can become product behavior. |
 
 ## Auxiliary Branches To Audit, Not Merge
 
@@ -323,7 +334,7 @@ non-mutating audit proves a small current-head patch is useful:
 |---|---|
 | `codex/release-stabilization-and-runtime-hardening` | Audit for already-superseded runtime guards; do not raw merge. |
 | `codex/research-snapshot-2026-05-08` | Preserve as research snapshot. |
-| `codex/runtime-input-audit` | Audit against current ACS/runtime input code. |
+| `codex/runtime-input-audit` | Audit against current SCOPE-Rex/SovereignGate runtime input code plus Active-Cold-Storage naming debt. |
 | `codex/runtime-memory-hardening` | Audit against current residency/runtime-hardening code. |
 | `feature/knowledge-fusion-v1` | Deep-dive only; likely massive. |
 | `feature/landing-liquid-wave` | Superseded by newer landing/pixel surface; preserve only. |
@@ -347,11 +358,11 @@ and the current product truth in one executable path.
 6. Per-model runtime badges backed by policy decisions and replay records.
 7. Typed vault retrieval and PageGather escalation with UAS addresses.
 8. Tri-Fusion typed mutations and graph event contracts.
-9. Provenance/ACS drill-down and Cognitive DAG visualizer.
+9. Provenance/admission drill-down and Cognitive DAG visualizer.
 10. F-ULP -> EML witness emission.
 11. Lean ClaimLedger schema authority.
 12. Residency governor over WeightBlockManifest and ResidencyPlan dry-runs.
-13. Full ACS gate across every durable mutation/tool/kernel path.
+13. Full SCOPE-Rex/SovereignGate admission gate across every durable mutation/tool/kernel path.
 14. Only then capability ceiling: KV-Direct, 128K, 70B, Metal/ANE kernels,
     L_SE/autogenous kernel, active assembly, and measured runtime probes.
 
@@ -396,7 +407,7 @@ combination of:
 - Retrieval organ: T4 + T10 + T21 + PageGather under one contract.
 - Runtime mouth: RuntimeRouter + System G + Hyperdynamic Loop.
 - Address/residency: UAS/UASA + ResidencyPlan + WeightBlockManifest.
-- Permission/witness: ACS + SCOPE-Rex + provenance + ClaimKind.
+- Permission/witness: SCOPE-Rex/SovereignGate + provenance + ClaimKind.
 - Accounting: lattice/WBO/Sherry/ternary as falsifier-backed cost truth.
 - Proof: EML/F-ULP/Lean as schema and certificate authority.
 - Visible truth: diagnostics, source panels, badges, timelines, DAGs.

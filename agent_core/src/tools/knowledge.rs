@@ -285,7 +285,7 @@ impl ToolHandler for EidosQueryHandler {
             "count": evidence.len(),
             "latency_ms": latency_ms,
             "backend": "vault_recall_trace",
-            "backend_status": "production_lexical_trace_semantic_pending",
+            "backend_status": "production_lexical_path_title_paragraph_trace_semantic_pending",
             "results": evidence,
             "citation_universe": citation_universe,
             "trace": evidence_trace_json(&trace),
@@ -913,7 +913,7 @@ mod tests {
         assert_eq!(parsed["mode"], json!("hybrid"));
         assert_eq!(
             parsed["backend_status"],
-            json!("production_lexical_trace_semantic_pending")
+            json!("production_lexical_path_title_paragraph_trace_semantic_pending")
         );
         assert_eq!(parsed["count"], json!(1));
         assert_eq!(

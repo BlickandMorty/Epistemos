@@ -80,6 +80,13 @@ fn normalized_query_terms(query: &str) -> Vec<String> {
         .collect()
 }
 
+fn normalized_signal_terms(query: &str) -> HashSet<String> {
+    normalized_query_terms(query)
+        .into_iter()
+        .filter(|term| term.len() > 1 && !QUERY_CHATTER_WORDS.contains(&term.as_str()))
+        .collect()
+}
+
 fn normalized_title_key(value: &str) -> Option<String> {
     let key = normalized_query_terms(value).join(" ");
     (!key.is_empty()).then_some(key)
@@ -173,6 +180,42 @@ fn title_query_candidates(query: &str) -> HashSet<String> {
     }
 
     candidates
+}
+
+fn title_match_score(query_titles: &HashSet<String>, title_keys: &HashSet<String>) -> Option<f64> {
+    if !query_titles.is_disjoint(title_keys) {
+        return Some(12.0);
+    }
+
+    let mut best: Option<f64> = None;
+    for query in query_titles {
+        let query_terms = normalized_signal_terms(query);
+        if query_terms.is_empty() {
+            continue;
+        }
+        for title in title_keys {
+            let title_terms = normalized_signal_terms(title);
+            if title_terms.is_empty() {
+                continue;
+            }
+            let overlap = query_terms
+                .iter()
+                .filter(|term| title_terms.contains(*term))
+                .count();
+            if overlap == 0 {
+                continue;
+            }
+            let query_coverage = overlap as f64 / query_terms.len() as f64;
+            let title_coverage = overlap as f64 / title_terms.len() as f64;
+            if query_coverage < 0.67 && title_coverage < 0.67 {
+                continue;
+            }
+            let score = 6.0 + (2.0 * query_coverage) + (2.0 * title_coverage) + overlap as f64;
+            best = Some(best.map_or(score, |existing| existing.max(score)));
+        }
+    }
+
+    best
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -665,27 +708,60 @@ impl VaultStore {
         tags
     }
 
-    fn excerpt(content: &str, max_chars: usize) -> String {
+    fn body_without_frontmatter(content: &str) -> &str {
         // Skip a YAML/TOML frontmatter block delimited by `---` if
         // present. Using `strip_prefix` instead of `&content[3..]`
         // means a future prefix-length change can't silently desync
         // the slice index.
-        let body = match content.strip_prefix("---") {
+        match content.strip_prefix("---") {
             Some(after_open) => after_open
                 .find("---")
                 .map(|i| after_open[i + 3..].trim_start())
                 .unwrap_or(content),
             None => content,
-        };
-
-        if body.len() <= max_chars {
-            body.to_string()
-        } else {
-            let boundary = body[..max_chars]
-                .rfind(char::is_whitespace)
-                .unwrap_or(max_chars);
-            format!("{}…", &body[..boundary])
         }
+    }
+
+    fn truncate_excerpt(value: &str, max_chars: usize) -> String {
+        let value = value.trim();
+        if value.chars().count() <= max_chars {
+            return value.to_string();
+        }
+
+        let mut end = value.len();
+        for (idx, _) in value.char_indices().skip(max_chars) {
+            end = idx;
+            break;
+        }
+        let prefix = &value[..end];
+        let boundary = prefix
+            .rfind(char::is_whitespace)
+            .filter(|idx| *idx > 0)
+            .unwrap_or(prefix.len());
+        format!("{}…", prefix[..boundary].trim_end())
+    }
+
+    fn excerpt(content: &str, max_chars: usize) -> String {
+        Self::truncate_excerpt(Self::body_without_frontmatter(content), max_chars)
+    }
+
+    fn excerpt_for_query(content: &str, query: &str, max_chars: usize) -> String {
+        let body = Self::body_without_frontmatter(content);
+        let terms = normalized_signal_terms(query);
+        if !terms.is_empty() {
+            for paragraph in body.split("\n\n") {
+                let paragraph = paragraph.trim();
+                if paragraph.is_empty() {
+                    continue;
+                }
+                let paragraph_terms = normalized_signal_terms(paragraph);
+                if terms.iter().any(|term| paragraph_terms.contains(term)) {
+                    return Self::truncate_excerpt(paragraph, max_chars);
+                }
+            }
+        }
+
+        Self::excerpt(content, max_chars)
     }
 
     fn frontmatter_block(content: &str) -> Option<&str> {
@@ -932,13 +1008,13 @@ impl VaultStore {
             }
 
             let title_keys = Self::title_keys_for_note(&path, &content);
-            if title_keys.is_disjoint(&query_titles) {
+            let Some(score) = title_match_score(&query_titles, &title_keys) else {
                 continue;
-            }
+            };
             results.push(SearchResult {
                 path,
-                excerpt: Self::excerpt(&content, 500),
-                score: 8.0,
+                excerpt: Self::excerpt_for_query(&content, query, 500),
+                score,
                 tags,
             });
         }
@@ -1157,6 +1233,7 @@ impl VaultBackend for VaultStore {
                 let content = std::fs::read_to_string(&absolute).unwrap_or_default();
                 let mut candidate = RetrievalCandidate::new(result.path.clone(), result.score)
                     .with_uas_address(vault_note_content_uas_address(&result.path, &content))
+                    .with_selection_reason("matched by explicit vault path")
                     .with_signal(RetrievalSignalScore::new(
                         RetrievalSignal::Lexical,
                         result.score,
@@ -1214,7 +1291,7 @@ impl VaultBackend for VaultStore {
                 continue;
             }
 
-            let excerpt = Self::excerpt(content, 500);
+            let excerpt = Self::excerpt_for_query(content, effective_query, 500);
             let score = score as f64;
             trace_candidates.insert(path.clone(), (excerpt.clone(), uas_address));
             trace_source_positions.push(source_position as u32);
@@ -1246,6 +1323,10 @@ impl VaultBackend for VaultStore {
             Vec::new()
         };
         let path_title_match_count = path_title_matches.len();
+        let path_title_paths: HashSet<String> = path_title_matches
+            .iter()
+            .map(|result| result.path.clone())
+            .collect();
         if path_title_match_count > 0 {
             for result in &path_title_matches {
                 let absolute = self.resolve_path(&result.path)?;
@@ -1295,6 +1376,11 @@ impl VaultBackend for VaultStore {
                 .unwrap_or_else(|| (result.excerpt.clone(), result.projected_uas_address()));
             let mut candidate = RetrievalCandidate::new(result.path.clone(), result.score)
                 .with_uas_address(address)
+                .with_selection_reason(if path_title_paths.contains(&result.path) {
+                    "matched by vault path/title/alias metadata"
+                } else {
+                    "matched by lexical vault content/tags"
+                })
                 .with_signal(RetrievalSignalScore::new(
                     RetrievalSignal::Lexical,
                     result.score,
@@ -1704,6 +1790,82 @@ mod tests {
                 .any(|candidate| candidate.path == "some essays/My Autobiography.md"),
             "trace candidates must include the path/title fallback hit: {:?}",
             trace.candidates
+        );
+    }
+
+    #[tokio::test]
+    async fn hybrid_search_resolves_partial_filename_title_when_body_omits_query_terms() {
+        use super::VaultBackend;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
+
+        store
+            .write(
+                "some essays/My Autobiography.md",
+                "I grew up around projects, school, and personal systems.",
+                None,
+                false,
+            )
+            .await
+            .expect("write note");
+        store.reload_index().expect("reload index");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace("autobiography", 5, &[])
+            .await
+            .expect("hybrid_search_with_trace");
+
+        assert_eq!(
+            results.first().map(|result| result.path.as_str()),
+            Some("some essays/My Autobiography.md"),
+            "partial title query should still find the named vault note"
+        );
+        assert!(
+            trace
+                .notes
+                .iter()
+                .any(|note| note.contains("Path/title fallback retained")),
+            "trace must disclose partial path/title fallback: {:?}",
+            trace.notes
+        );
+    }
+
+    #[tokio::test]
+    async fn hybrid_search_excerpt_centers_matching_paragraph() {
+        use super::VaultBackend;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
+
+        let long_preface = "preface ".repeat(120);
+        store
+            .write(
+                "research/runtime-note.md",
+                &format!(
+                    "{long_preface}\n\nThe semantic kernel maps a paragraph idea into UAS evidence before answer synthesis."
+                ),
+                None,
+                false,
+            )
+            .await
+            .expect("write note");
+        store.reload_index().expect("reload index");
+
+        let results = store
+            .hybrid_search("semantic kernel", 3, &[])
+            .await
+            .expect("hybrid_search");
+        let first = results.first().expect("semantic kernel match");
+
+        assert!(
+            first.excerpt.contains("semantic kernel"),
+            "excerpt should focus the matching paragraph, got {:?}",
+            first.excerpt
+        );
+        assert!(
+            !first.excerpt.starts_with("preface preface"),
+            "excerpt should not be the unrelated leading paragraph"
         );
     }
 

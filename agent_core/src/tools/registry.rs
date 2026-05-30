@@ -3801,7 +3801,7 @@ mod tier_tests {
         assert_eq!(parsed["mode"], serde_json::json!("hybrid"));
         assert_eq!(
             parsed["backend_status"],
-            serde_json::json!("production_lexical_trace_semantic_pending")
+            serde_json::json!("production_lexical_path_title_paragraph_trace_semantic_pending")
         );
     }
 
