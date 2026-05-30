@@ -53,6 +53,27 @@ merged and no cherry-pick was run.
 | `codex/wave4-uas-typed-retrieval-2026-05-26` | conflicts across AnswerPacket, bridge, provenance, storage, UAS | port only missing typed-address fields after current UAS docs/tests agree |
 | `codex/repromote-ui-wip-2026-05-26` | broad conflicts across app bootstrap, Epdoc, landing, settings, tests, HTML workspace | do not merge; mine only isolated UI fixes with manual review |
 
+## Same-Day Deepening
+
+After checking the donor files against the checkpoint, several branches proved
+to be already represented in current code:
+
+- T1's `RuntimeExecutor.swift`, `RuntimeRouterHealthRow.swift`,
+  `RuntimeLanesSection.swift`, `FLocalToolUseTests.swift`, and audit doc are
+  already present. Current `RuntimeRouter.swift` and `RuntimeRouterTests.swift`
+  are newer/larger than the donor branch.
+- F-prime's falsifier binaries and M2 Pro artifacts are already present.
+  Current ACS-anchor, Eidos, and VaultRecall falsifier files are generally
+  newer than the donor branch.
+- Wave4 PageGather vault escalation has a later merge commit in history
+  (`966bbffacf`) in addition to the donor branch commit (`18a18d3588`).
+- D-prime health-row work has a later merge commit in history (`b842ac5db1`)
+  and current health/bridge files are generally newer than the donor branch.
+
+Conclusion: the safest action for these branches is **do not merge**. Treat
+them as preservation references and mine only a named missing field after a
+current-code read proves the field is absent.
+
 ## Current Cleanup Classification
 
 Allowed after explicit user approval:
@@ -88,7 +109,7 @@ Wave4 PageGather vault escalation
 ## Next Safe Port Target
 
 The best next code-facing target is **not** a branch merge. It is a small
-manual comparison of Terminal T1:
+manual comparison of current code against the Terminal T1 doctrine:
 
 ```text
 RuntimeExecutor.swift
@@ -99,8 +120,9 @@ RuntimeRouterTests.swift
 ```
 
 Reason: local agents and model mixtures are core to the app, but this branch
-touches Xcode project files and settings surfaces, so the branch itself is too
-stale to merge wholesale.
+touches Xcode project files and settings surfaces, and the current tree already
+contains a newer RuntimeRouter surface. The branch itself is too stale to merge
+wholesale.
 
 Exit condition for a T1 port:
 
