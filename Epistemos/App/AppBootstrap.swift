@@ -1063,6 +1063,8 @@ final class AppBootstrap {
     let orphanCleanup = OrphanSubprocessCleanup()
     private var _paperclipStore: PaperclipStateStore?
     var paperclipStore: PaperclipStateStore { Self.requireInitialized(_paperclipStore, name: "paperclipStore") }
+    private var _paperclipHeartbeatClock: PaperclipHeartbeatClock?
+    var paperclipHeartbeatClock: PaperclipHeartbeatClock? { _paperclipHeartbeatClock }
 
     // MARK: - Cognitive Substrates
     let epistemosConfig = EpistemosConfig()
@@ -2353,7 +2355,15 @@ final class AppBootstrap {
 
         // Initialize Paperclip high-frequency state store (SQLite WAL mode)
         do {
-            self._paperclipStore = try PaperclipStateStore()
+            let store = try PaperclipStateStore()
+            self._paperclipStore = store
+            let paperclipHeartbeatClock = PaperclipHeartbeatClock(store: store)
+            self._paperclipHeartbeatClock = paperclipHeartbeatClock
+            if !Self.isRunningTests {
+                Task(priority: .utility) {
+                    await paperclipHeartbeatClock.start()
+                }
+            }
         } catch {
             Log.app.error("PaperclipStateStore init failed: \(error.localizedDescription)")
         }
