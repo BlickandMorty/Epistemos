@@ -206,7 +206,13 @@ Most useful next donor checks, in order:
 
 1. `Epistemos-terminal-t1-runtime-router` - local-agent/model-mixture router
    doctrine; compare only `RuntimeExecutor`, `RuntimeRouter`,
-   `RuntimeRouterHealthRow`, and focused tests.
+   `RuntimeRouterHealthRow`, and focused tests. Current refresh result:
+   `RuntimeExecutor.swift`, `RuntimeRouterHealthRow.swift`,
+   `FLocalToolUseTests.swift`, `InferenceState+RouteProfiles.swift`,
+   `RuntimeLanesSection.swift`, and `LocalToolGrammar.swift` are identical to
+   the donor; current `Epistemos/LocalAgent/RuntimeRouter.swift` is newer
+   because it retains the agent capability badge truth surface and tests. Do
+   not merge T1 wholesale.
 2. `Epistemos-wave4-uas-typed-retrieval` - UAS/ACS typed retrieval fields;
    compare only after current UAS docs/tests name the missing field.
 3. `Epistemos-terminal-c` - System G full path; donor-only until a single
