@@ -1540,9 +1540,12 @@ actor LocalAgentLoop {
             availableTools: availableTools
         ) != nil
         let hasSearchTool = AgentToolNameAliases.preferredAvailableName(
+            for: "eidos.query",
+            availableTools: availableTools
+        ) ?? AgentToolNameAliases.preferredAvailableName(
             for: "vault.search",
             availableTools: availableTools
-        ) != nil
+        )
 
         let createSignals = [
             "create a new note",
@@ -1625,7 +1628,7 @@ actor LocalAgentLoop {
             && requiresWrite
             && readBackSignals.contains(where: normalized.contains)
         let hasNoteTarget = noteTargetSignals.contains(where: normalized.contains)
-        let requiresSearch = hasSearchTool
+        let requiresSearch = hasSearchTool != nil
             && hasNoteTarget
             && (
                 lookupSignals.contains(where: normalized.contains)
@@ -1647,7 +1650,7 @@ actor LocalAgentLoop {
         }
 
         if requiresSearch {
-            sequence.append("vault.search")
+            sequence.append(hasSearchTool ?? "vault.search")
         }
         if requiresReadAfterSearch {
             sequence.append("vault.read")
@@ -1707,7 +1710,10 @@ actor LocalAgentLoop {
             }
         }
 
-        if requiredToolSequence.contains(where: { toolNamesAreEquivalent($0, "vault.search") }) {
+        if requiredToolSequence.contains(where: {
+            toolNamesAreEquivalent($0, "eidos.query")
+                || toolNamesAreEquivalent($0, "vault.search")
+        }) {
             let delimitedPatterns = [
                 #"`([^`\n]+)`"#,
                 #"\"([^\"\n]+)\""#,
@@ -1858,10 +1864,16 @@ actor LocalAgentLoop {
         nextRequiredTool: String,
         completedToolNames: Set<String>
     ) -> String {
+        if toolNamesAreEquivalent(nextRequiredTool, "eidos.query") {
+            return " Use the requested title or topic as the eidos.query query."
+        }
         if toolNamesAreEquivalent(nextRequiredTool, "vault.search") {
             return " Use the requested title or topic as the vault.search query."
         }
         if toolNamesAreEquivalent(nextRequiredTool, "vault.read") {
+            if completedToolNamesContain(completedToolNames, "eidos.query") {
+                return " Use the exact vault-relative path returned by the successful eidos.query step."
+            }
             if completedToolNamesContain(completedToolNames, "vault.search") {
                 return " Use the exact vault-relative path returned by the successful vault.search step."
             }
@@ -1970,6 +1982,18 @@ actor LocalAgentLoop {
         }
 
         switch AgentToolNameAliases.canonical(nextRequiredTool) {
+        case "eidos.query":
+            guard let query = noteSearchQuery(
+                objective: objective,
+                requestedNoteTitle: requestedNoteTitle
+            ),
+            let argumentsJson = toolArgumentsJSONString([
+                "query": query,
+                "top_k": 5,
+            ]) else {
+                return nil
+            }
+            return ParsedToolCall(name: nextRequiredTool, argumentsJson: argumentsJson)
         case "vault.search":
             guard let query = noteSearchQuery(
                 objective: objective,
