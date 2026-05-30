@@ -816,11 +816,12 @@ impl ResidencyPlan {
                 .map(ToString::to_string)
                 .unwrap_or_else(|| "none".to_string());
             preimage.push_str(&format!(
-                "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n",
+                "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n",
                 block.model_id,
                 block.source_uri,
                 block.byte_range.start,
                 block.byte_range.len,
+                content_hash_preimage(&block.content_hash_hex),
                 block.uas_address,
                 weight_block_encoding_preimage(&block.encoding),
                 weight_block_residency_class_preimage(block.residency_class),
@@ -836,6 +837,13 @@ impl ResidencyPlan {
             preimage.as_bytes(),
             created_at_ms,
         )
+    }
+}
+
+fn content_hash_preimage(value: &str) -> String {
+    match blake3::Hash::from_hex(value) {
+        Ok(hash) => format!("hash:{}", hash.to_hex()),
+        Err(_) => format!("invalid:{}", blake3::hash(value.as_bytes()).to_hex()),
     }
 }
 
@@ -2068,5 +2076,30 @@ mod tests {
             .violations
             .iter()
             .any(|v| matches!(v, ResidencyPlanViolation::ContentHashAddressMismatch { .. })));
+    }
+
+    #[test]
+    fn residency_plan_address_binds_public_content_hash_field() {
+        let block = manifest(
+            "hash-bound-plan",
+            0,
+            b"cold-nf4-block",
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            Some(rollback_reference()),
+        );
+        let mut mutated = block.clone();
+        mutated.content_hash_hex = blake3::hash(b"different-range").to_hex().to_string();
+        let budget = ResidencyBudget::new(1024, 1024, 4096, 0.10, 16).unwrap();
+
+        let valid_plan = ResidencyPlan::evaluate([block], budget.clone(), 42);
+        let rejected_plan = ResidencyPlan::evaluate([mutated], budget, 42);
+
+        assert_eq!(valid_plan.status, ResidencyPlanStatus::FitForDryRun);
+        assert_eq!(
+            rejected_plan.status,
+            ResidencyPlanStatus::RejectedBeforeRuntime
+        );
+        assert_ne!(valid_plan.plan_address, rejected_plan.plan_address);
     }
 }
