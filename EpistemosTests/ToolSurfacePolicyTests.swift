@@ -236,6 +236,37 @@ struct ToolSurfacePolicyTests {
         #expect(object["target"] as? String == "files")
     }
 
+    @Test func fileSearchHomeRootNormalizesToVaultRoot() throws {
+        let vaultRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-file-search-home-root")
+            .standardizedFileURL
+            .path
+        let normalized = ToolTierBridge.normalizedInputJson(
+            toolName: "file.search",
+            inputJson: #"{"pattern":"My Autobiography","path":"~/","target":"files"}"#,
+            defaultFileSearchRoot: vaultRoot
+        )
+        let data = try #require(normalized.data(using: .utf8))
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        #expect(object["pattern"] as? String == "My Autobiography")
+        #expect(object["path"] as? String == vaultRoot)
+        #expect(object["target"] as? String == "files")
+    }
+
+    @Test func vaultSearchPathArgumentNormalizesToQuery() throws {
+        let normalized = ToolTierBridge.normalizedInputJson(
+            toolName: "vault.search",
+            inputJson: #"{"path":"My Autobiography","limit":5}"#
+        )
+        let data = try #require(normalized.data(using: .utf8))
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        #expect(object["query"] as? String == "My Autobiography")
+        #expect(object["path"] == nil)
+        #expect(object["limit"] as? Int == 5)
+    }
+
     @Test @MainActor func fileSearchPatternExecutesAsNonEmptyQuery() async throws {
         let vaultURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("epistemos-file-search-pattern-\(UUID().uuidString)")
