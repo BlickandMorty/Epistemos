@@ -10,6 +10,9 @@ PID_FILE="$STATE_DIR/loop.pid"
 LOG_FILE="$STATE_DIR/loop.log"
 LOCK_DIR="$STATE_DIR/tick.lock"
 SCREEN_NAME="${EPISTEMOS_ARCH_LOOP_SCREEN_NAME:-epistemos_architecture_heartbeat_loop}"
+AUTOPILOT="${EPISTEMOS_ARCH_LOOP_AUTOPILOT:-0}"
+AUTOPILOT_PROMPT="${EPISTEMOS_ARCH_LOOP_AUTOPILOT_PROMPT:-$ROOT/docs/audits/ARCHITECTURE_AUTOPILOT_PROMPT_2026_05_30.md}"
+AUTOPILOT_LOG_DIR="$STATE_DIR/codex_runs"
 
 usage() {
   cat <<'USAGE'
@@ -19,10 +22,15 @@ Environment:
   EPISTEMOS_ARCH_LOOP_INTERVAL_SECONDS=120
   EPISTEMOS_ARCH_LOOP_STATE_DIR=/tmp/epistemos_architecture_heartbeat_loop
   EPISTEMOS_ARCH_LOOP_REFRESH_FALSIFIERS=0
+  EPISTEMOS_ARCH_LOOP_AUTOPILOT=0
+  EPISTEMOS_ARCH_LOOP_AUTOPILOT_PROMPT=docs/audits/ARCHITECTURE_AUTOPILOT_PROMPT_2026_05_30.md
 
 This is a conservative unattended architecture loop. It logs the current
 architecture cursor, runs read-only/local-safe audits, and refuses heavy model,
 Metal, mmap, SSD, Xcode, and live inference probes by default.
+
+Set EPISTEMOS_ARCH_LOOP_AUTOPILOT=1 to run one non-interactive Codex work
+session per cycle using the autopilot prompt.
 USAGE
 }
 
@@ -75,6 +83,7 @@ start_loop() {
     return 1
   fi
   echo "started architecture heartbeat loop pid=$pid interval=${INTERVAL_SECONDS}s"
+  echo "autopilot: $AUTOPILOT"
   echo "log: $LOG_FILE"
 }
 
@@ -104,6 +113,7 @@ status_loop() {
     echo "architecture heartbeat loop stopped"
   fi
   echo "interval: ${INTERVAL_SECONDS}s"
+  echo "autopilot: $AUTOPILOT"
   echo "state: $STATE_DIR"
   echo "log: $LOG_FILE"
   if [[ -f "$LOG_FILE" ]]; then
@@ -117,6 +127,7 @@ run_loop() {
   echo "architecture heartbeat loop booted at $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
   echo "root: $ROOT"
   echo "interval: ${INTERVAL_SECONDS}s"
+  echo "autopilot: $AUTOPILOT"
   while true; do
     "$0" tick || true
     sleep "$INTERVAL_SECONDS"
@@ -224,7 +235,58 @@ PY
     echo "Set EPISTEMOS_ARCH_LOOP_REFRESH_FALSIFIERS=1 to refresh schema artifacts."
   fi
 
+  if [[ "$AUTOPILOT" == "1" ]]; then
+    run_autopilot "$now"
+  else
+    echo
+    echo "[autopilot: skipped]"
+    echo "Set EPISTEMOS_ARCH_LOOP_AUTOPILOT=1 to run one Codex work session per cycle."
+  fi
+
   echo "=== tick complete $now ==="
+}
+
+run_autopilot() {
+  local tick_id="$1"
+  local safe_tick_id="${tick_id//:/}"
+  safe_tick_id="${safe_tick_id//-/}"
+  mkdir -p "$AUTOPILOT_LOG_DIR"
+
+  echo
+  echo "[autopilot: enabled]"
+  if ! command -v codex >/dev/null 2>&1; then
+    echo "autopilot skipped: codex CLI not found"
+    return 0
+  fi
+  if [[ ! -f "$AUTOPILOT_PROMPT" ]]; then
+    echo "autopilot skipped: prompt not found at $AUTOPILOT_PROMPT"
+    return 0
+  fi
+
+  local run_dir="$AUTOPILOT_LOG_DIR/$safe_tick_id"
+  mkdir -p "$run_dir"
+  echo "autopilot_run_dir=$run_dir"
+  echo "autopilot_prompt=$AUTOPILOT_PROMPT"
+
+  set +e
+  codex exec \
+    -C "$ROOT" \
+    --add-dir "$ROOT/.." \
+    -s danger-full-access \
+    -a never \
+    --output-last-message "$run_dir/final.md" \
+    - < "$AUTOPILOT_PROMPT" > "$run_dir/stdout.log" 2> "$run_dir/stderr.log"
+  local status=$?
+  set -e
+
+  echo "autopilot_exit=$status"
+  echo "autopilot_stdout=$run_dir/stdout.log"
+  echo "autopilot_stderr=$run_dir/stderr.log"
+  echo "autopilot_final=$run_dir/final.md"
+  if [[ -s "$run_dir/final.md" ]]; then
+    echo "--- autopilot final ---"
+    tail -80 "$run_dir/final.md"
+  fi
 }
 
 case "${1:-}" in
