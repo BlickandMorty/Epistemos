@@ -22,13 +22,9 @@ nonisolated protocol LocalAgentOutputVerifying: Sendable {
 nonisolated struct ConfidenceRouter {
     // T2 salvage 2026-05-23: TaskClass + RouteProfile + 3 static items.
     // PURE-ADDITIVE: no fields added to existing structs (Request /
-    // Classification / Decision) and no existing initializers touched.
-    // `routeProfiles()` returns an empty array as a safe placeholder
-    // — `LocalAgentDiagnostics` renders "0 task-class routes · 0 native
-    // grammar routes" until a follow-up wires the per-task model
-    // preference + policy tables. The forbidden symbols
-    // (`modelPreferenceTable`, `localPolicyTable`, `LocalPolicy`) are
-    // NOT added in this PR per the salvage scope agreement.
+    // Classification / Decision) and no existing initializers touched. The
+    // production policy table now lives in RuntimeRouter; this legacy
+    // surface adapts it for LocalAgentDiagnostics and older call sites.
     nonisolated enum TaskClass: String, Sendable, Equatable, CaseIterable {
         case fastChat = "fast_chat"
         case coding
@@ -39,6 +35,7 @@ nonisolated struct ConfidenceRouter {
         case synthesis
         case toolUse = "tool_use"
         case general
+        case vision
 
         var displayName: String {
             rawValue
@@ -90,14 +87,40 @@ nonisolated struct ConfidenceRouter {
         "idle unload \(localAgentIdleUnloadDelaySeconds)s/\(localAgentIdleUnloadMode)"
     }
 
-    /// Returns the per-task-class routing profiles. **Placeholder**
-    /// returning `[]` in this PR — the production implementation
-    /// depends on `modelPreferenceTable` + `localPolicyTable` +
-    /// `LocalPolicy` which are deferred per the T2 salvage scope.
-    /// `LocalAgentDiagnostics` renders "0 task-class routes" until
-    /// these are wired in a follow-up.
+    /// Returns the production per-task routing profiles by adapting
+    /// RuntimeRouter's role table into the older TaskClass shape.
     nonisolated static func routeProfiles() -> [RouteProfile] {
-        []
+        RuntimeRouter.defaultRouteProfiles().map { profile in
+            RouteProfile(
+                taskClass: taskClass(for: profile.role),
+                preferredModelIDs: profile.preferredModelIDs,
+                primaryModelID: profile.primaryModelID,
+                primaryModelName: profile.primaryModelName,
+                nativeGrammar: profile.nativeGrammar,
+                minimumConfidence: profile.minimumConfidence,
+                maximumComplexity: profile.maximumComplexity,
+                maximumToolCount: profile.maximumToolCount,
+                idleUnloadDelaySeconds: profile.idleUnloadDelaySeconds,
+                idleUnloadMode: profile.idleUnloadMode
+            )
+        }
+    }
+
+    nonisolated private static func taskClass(for role: RuntimeRole) -> TaskClass {
+        switch role {
+        case .code:
+            .coding
+        case .reasoning:
+            .reasoning
+        case .quick:
+            .fastChat
+        case .toolCaller:
+            .toolUse
+        case .trivial:
+            .general
+        case .vision:
+            .vision
+        }
     }
 
     nonisolated struct Request: Sendable, Equatable {
