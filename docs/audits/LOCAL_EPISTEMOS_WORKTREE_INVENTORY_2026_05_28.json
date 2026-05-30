@@ -9,7 +9,7 @@
       "duplicate_risk": "active_surface",
       "git_common_dir": "/Users/jojo/Downloads/Epistemos/.git",
       "git_toplevel": "/Users/jojo/Downloads/Epistemos",
-      "head": "57e507428898",
+      "head": "97f22f399414",
       "is_git": true,
       "name": "Epistemos",
       "path": "/Users/jojo/Downloads/Epistemos",
@@ -669,7 +669,7 @@
       "path": "/Users/jojo/Downloads/EPISTEMOS_HELIOS_MASTER_ARCHIVE_2026_05_05_PRESERVATION_BUNDLE"
     }
   ],
-  "generated_at_utc": "2026-05-30T14:07:58Z",
+  "generated_at_utc": "2026-05-30T14:11:53Z",
   "next_rule": "Before creating a new Epistemos worktree/folder, inspect entries where classification is current_repo, sibling_worktree, or dirty_epistemos_copy. Continue or preserve existing work instead of duplicating it.",
   "non_destructive": true,
   "scan_root": "/Users/jojo/Downloads",

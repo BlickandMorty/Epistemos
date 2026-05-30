@@ -121,6 +121,15 @@ skipped. Current source guards require the inert legacy diagram / HTML
 Workspace replacement route, and reintroducing donor Mermaid would risk the
 Epdoc `graph TD` typing glitch the user reported.
 
+2026-05-30 follow-up: Wave4 UAS typed retrieval was rechecked with
+`git merge-base --is-ancestor`, `git merge-tree`, and file-level UAS diffs.
+It remains a surgical donor only. Current already has donor `UasKind::Claim`
+and `AcsAnchor: Eq`, while the donor would remove current
+`AcsAnchorPlaneProjection` read fields. No donor hunk was ported. Instead, the
+current non-runtime planner was hardened so compressed/lattice
+`WeightBlockManifest` entries cannot satisfy the dense rollback gate with a
+non-`ModelComponent` UAS address.
+
 ## Dirty But Mostly Generated Churn
 
 Many old worktrees report 2955 dirty files, almost entirely tracked build

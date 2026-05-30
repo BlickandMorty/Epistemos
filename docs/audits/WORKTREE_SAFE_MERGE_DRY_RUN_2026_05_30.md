@@ -665,3 +665,125 @@ docs/audits/NEXT_SESSION_WORKTREE_SALVAGE_PROMPT_2026_05_30.md
 
 That prompt is the intended pickup surface for continuing worktree salvage
 without destructive cleanup, bulk merges, or heavy runtime probes.
+
+## Follow-up Salvage Loop - 2026-05-30 Residency Guard
+
+Starting checkpoint before this loop:
+
+```text
+branch: codex/inline-tool-loop-transcript-2026-05-27
+head:   97f22f399414
+tag:    checkpoint/pre-worktree-merge-salvage-2026-05-30-6557488793
+```
+
+The active repo was clean before the inventory refresh. Rerunning:
+
+```text
+Tools/audits/epistemos_worktree_inventory.sh
+```
+
+produced the same worktree classification counts as the prior sweep:
+
+```text
+candidates: 40
+sibling git worktrees: 34
+dirty candidates: 24
+high duplicate risk: 24
+non-git candidates: 5
+```
+
+The generated inventory diff changed only the active repo HEAD and
+`generated_at_utc` in:
+
+```text
+docs/audits/LOCAL_EPISTEMOS_WORKTREE_INVENTORY_2026_05_28.json
+```
+
+The source/doc dirty filter was rerun with `target/`, `.build/`, `build/`,
+`DerivedData/`, `node_modules/`, `dist/`, `.swiftpm/`, `xcuserdata/`, and
+`.xcresult` outputs excluded. The only non-artifact dirty entries remain:
+
+```text
+Epistemos-terminal-d-r2:
+  Epistemos/Eidos/EidosBridge.swift
+  docs/audits/SUBSTRATE_HEALTH_UNIFICATION_2026_05_24.md
+
+Epistemos-terminal-d-r3:
+  Epistemos/Eidos/EidosBridge.swift
+  docs/audits/SUBSTRATE_HEALTH_UNIFICATION_2026_05_24.md
+
+Epistemos-terminal-e:
+  docs/audits/ACS_ADMISSION_PRODUCTION_GATE_2026_05_24.md
+  docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md
+  docs/audits/DECISION_NEEDED_ACS_ANCHOR_ADDRESSING_2026_05_24.md
+  docs/audits/BLOCKER_ACS_ADMISSION_XCODE_VERIFICATION_2026_05_24.md
+
+Epistemos-wrv-docs:
+  docs/CANONICAL_CHRONICLE_2026_05_23.md
+```
+
+### Donor check - Wave4 UAS typed retrieval
+
+Non-mutating checks were rerun for:
+
+```text
+codex/wave4-uas-typed-retrieval-2026-05-26
+```
+
+`git merge-base --is-ancestor` returned `1`, so the branch is still not an
+ancestor of current HEAD. `git merge-tree` still reports conflicts in
+VaultRecall wiring, provenance ledger, retrieval trace, vault storage,
+`agent_core/src/uas/acs_anchor.rs`, and `agent_core/src/uas/kind.rs`.
+
+The UAS donor hunks are already absorbed or superseded:
+
+- donor `UasKind::Claim` already exists in current;
+- donor `AcsAnchor` adds `Eq`, already present in current;
+- donor `acs_anchor.rs` would remove current `AcsAnchorPlaneProjection`
+  fields (`anchor_id`, `theorem_id`, `plane`, `residency`, `source_hash`,
+  `active_packet_id`), which are stricter current read-surface truth fields.
+
+Decision: **skip donor port**. Do not merge Wave4 UAS typed retrieval; current
+keeps the stricter ACS plane projection and ClaimLedger read surfaces.
+
+### Safe build - dense rollback kind guard
+
+Runtime-heavy probes remained paused. The safe code change was limited to the
+non-executing `WeightBlockManifest` -> `ResidencyPlan` planner:
+
+```text
+agent_core/src/uas/weight_block.rs
+```
+
+Added:
+
+```text
+ResidencyPlanViolation::RollbackReferenceKindMismatch
+```
+
+Compressed / lattice / NF4 weight blocks still require a rollback reference,
+but a rollback reference now must point to `UasKind::ModelComponent`. This keeps
+an arbitrary claim, answer packet, or tool result address from satisfying the
+dense-reference rollback gate before runtime.
+
+Test-first result:
+
+```text
+cargo test --manifest-path agent_core/Cargo.toml \
+  uas::weight_block::tests::residency_plan_rejects_non_model_component_rollback_reference --lib
+
+initial failure: no variant named `RollbackReferenceKindMismatch`
+post-fix: 1 passed; 0 failed
+```
+
+Focused verification:
+
+```text
+rustfmt --edition 2021 --check agent_core/src/uas/weight_block.rs
+cargo test --manifest-path agent_core/Cargo.toml uas::weight_block::tests --lib
+
+15 passed; 0 failed
+```
+
+No Xcode build, full app test, live MLX/GGUF route, full Metal witness, 70B,
+128K, mmap/SSD stress, or heavy runtime probe was run.
