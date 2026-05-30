@@ -1,4 +1,4 @@
-//! MAS-safe ACS (Active Cold Storage) anchor reference.
+//! MAS-safe ACS (Anchored Cognitive Substrate) anchor reference.
 //!
 //! This is the product-code mirror of the research-only
 //! `epistemos-research::acs::AcsAnchor`. It carries the lookup fields needed
@@ -14,7 +14,7 @@ const FOUNDATIONAL_SEVEN_IDS: [&str; 7] = ["E1", "E2", "E3", "E4", "E5", "E6", "
 // UAS: uas/acs-anchor/<anchor_id>
 // Plane: RuntimePlane::Episodic
 // Residency: ResidencyTier::VerifiedFloor
-/// Typed ACS (Active Cold Storage) anchor for MAS-visible metadata.
+/// Typed ACS (Anchored Cognitive Substrate) anchor for MAS-visible metadata.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AcsAnchor {
     pub anchor_id: String,
@@ -132,7 +132,7 @@ mod tests {
             );
             assert!(
                 !anchor.is_well_formed(),
-                "malformed anchor_id {anchor_id:?} must not pass the UAS/ACS read guard"
+                "malformed anchor_id {anchor_id:?} must not pass the UAS/AcsAnchor read guard"
             );
         }
     }
