@@ -534,3 +534,116 @@ overlapping_ranges_rejected
 
 and the 70B Lite preflight requires that axis before it can advance past the
 residency-plan rung.
+
+## Safe Merge Sweep - 2026-05-30 Current Checkpoint
+
+Status: **checkpointed and classified; no wholesale branch merge.**
+
+Current branch and checkpoint:
+
+```text
+branch: codex/inline-tool-loop-transcript-2026-05-27
+head:   6557488793a62b8b7c7e6aa861c0fbff7e670ea8
+tag:    checkpoint/pre-worktree-merge-salvage-2026-05-30-6557488793
+```
+
+Inventory refresh:
+
+```text
+Tools/audits/epistemos_worktree_inventory.sh
+
+candidates: 40
+sibling git worktrees: 34
+dirty candidates: 24
+high duplicate risk: 24
+non-git candidates: 5
+```
+
+The current repo was clean before the inventory refresh. The only local diff
+created by this sweep was the generated inventory timestamp / current HEAD in:
+
+```text
+docs/audits/LOCAL_EPISTEMOS_WORKTREE_INVENTORY_2026_05_28.json
+```
+
+### Graph-merged cleanup candidates
+
+These branch heads are ancestors of the current HEAD and need no merge. They
+are **cleanup candidates only after explicit user approval**, not automatic
+deletion targets:
+
+```text
+wiring/app-systemg-run-seam-2026-05-23
+wiring/rust-r3-system-g-minimal-slice
+```
+
+The detached `Epistemos-wrv-audit` worktree is still preservation-only; do not
+delete it automatically because it is detached and may contain local context
+outside branch ancestry.
+
+### Clean donor branches that must not be wholesale-merged
+
+`git merge-tree` was used as a non-mutating check. These clean worktrees are
+not ancestors, but direct merges conflict or would downgrade current code:
+
+| Donor branch | Non-mutating merge result | Current decision |
+|---|---|---|
+| `phase2-terminal-d-prime-health-rows-2026-05-24` | conflict in `EpistemosTests/SubstrateHealthPanelTests.swift` | do not merge; current has stricter partial/orange truth-floor rows |
+| `phase2-terminal-f-prime-falsifiers-r2-2026-05-24` | add/add conflicts across falsifier binaries/artifacts | do not merge; current F-prime harnesses are newer/full-scope, e.g. ACS anchor is N=1000 with projection inversion rather than donor N=100 scoped mini-harness |
+| `phase2-terminal-t1-runtime-router-2026-05-24` | project file + RuntimeRouter add/add conflicts | do not merge; useful runtime surfaces already exist, current adds guarded capability-badge semantics |
+| `codex/repromote-ui-wip-2026-05-26` | multiple UI/test/explainer conflicts | do not merge; current UI contains the absorbed HTML Workspace / Epdoc guard work plus newer local-model and architecture guards |
+| `codex/wave4-page-gather-vault-escalation-2026-05-26` | conflicts in VaultRecall UI/tests + Rust trace/vault files | do not merge; current trace carries UAS address + PageGather schedule-class fields, donor would remove them |
+| `codex/wave4-uas-typed-retrieval-2026-05-26` | conflicts in VaultRecall, run-event log, ledger, vault, ACS anchor | do not merge; current ledger exposes ACS read surfaces and typed retrieval is already present in stricter form |
+
+Absorption check over the clean donor branches found **zero missing files**:
+every path changed by those branches exists in current. Remaining differences
+are divergent hunks, not absent work. The rule remains surgical mining only.
+
+### Dirty worktrees: real edits versus build churn
+
+Most dirty worktrees are noisy because old tracked `substrate-core/target` or
+`syntax-core/target` build artifacts differ from disk. A source/doc filter found
+no non-artifact edits in the old T09/T10/T11/T12/T17/T18/T2/T21/T23/T4/T5/T6,
+Terminal A/C/D/F/G, wiring, Terminal S, and Terminal T0 worktrees.
+
+The only dirty worktrees with non-artifact edits in this sweep were:
+
+```text
+Epistemos-terminal-d-r2:
+  Epistemos/Eidos/EidosBridge.swift
+  docs/audits/SUBSTRATE_HEALTH_UNIFICATION_2026_05_24.md
+
+Epistemos-terminal-d-r3:
+  Epistemos/Eidos/EidosBridge.swift
+  docs/audits/SUBSTRATE_HEALTH_UNIFICATION_2026_05_24.md
+
+Epistemos-terminal-e:
+  docs/audits/ACS_ADMISSION_PRODUCTION_GATE_2026_05_24.md
+  docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md
+  docs/audits/DECISION_NEEDED_ACS_ANCHOR_ADDRESSING_2026_05_24.md
+  docs/audits/BLOCKER_ACS_ADMISSION_XCODE_VERIFICATION_2026_05_24.md
+
+Epistemos-wrv-docs:
+  docs/CANONICAL_CHRONICLE_2026_05_23.md
+```
+
+Terminal D-r2/r3 docs were older than current: current keeps the D-prime
+hardening that leaves AnswerPacket / Plane Placement / policy-grade badges
+orange until enforcement is wired. Terminal E's ACS docs were either identical
+or older than current; the current backlog correctly records W-03 as a partial
+ledger read surface, while the donor still says every ledger claim carries an
+ACS anchor. The WRV chronicle donor is older than the current
+`docs/CANONICAL_CHRONICLE_2026_05_23.md` already in main: the current file is
+the fuller 1251-line chronicle, while the donor is a shorter 478-line
+predecessor. It was inspected but not ported.
+
+### Removal posture
+
+Do not remove any worktree in this sweep. The next safe cleanup step, if the
+user wants disk cleanup, is:
+
+1. Remove only the graph-merged clean worktrees after user approval.
+2. Preserve clean-but-divergent branches until their divergent hunks are either
+   marked superseded here or ported into a current commit.
+3. Preserve dirty worktrees until build-artifact churn is separated from real
+   source edits, preferably by archiving the worktree paths before removal.
