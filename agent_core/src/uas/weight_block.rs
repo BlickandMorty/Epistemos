@@ -684,36 +684,32 @@ impl ResidencyPlan {
             }
             if block.requires_dense_reference() {
                 totals.dense_reference_required_count += 1;
-                match block.rollback_reference.as_ref() {
-                    None => {
-                        violations.push(ResidencyPlanViolation::DenseReferenceMissing {
-                            address: block.uas_address.to_string(),
-                        });
-                    }
-                    Some(reference) if reference.kind != UasKind::ModelComponent => {
-                        violations.push(ResidencyPlanViolation::RollbackReferenceKindMismatch {
+                if block.rollback_reference.is_none() {
+                    violations.push(ResidencyPlanViolation::DenseReferenceMissing {
+                        address: block.uas_address.to_string(),
+                    });
+                }
+            }
+            if let Some(reference) = block.rollback_reference.as_ref() {
+                if reference.kind != UasKind::ModelComponent {
+                    violations.push(ResidencyPlanViolation::RollbackReferenceKindMismatch {
+                        address: address.clone(),
+                        actual_kind: reference.kind.wire_tag().into_owned(),
+                    });
+                } else if reference == &block.uas_address {
+                    violations.push(ResidencyPlanViolation::RollbackReferenceSelfReference {
+                        address: reference.to_string(),
+                    });
+                } else if dense_reference_requirement_by_address
+                    .get(&reference.to_string())
+                    .copied()
+                    .unwrap_or(false)
+                {
+                    violations.push(
+                        ResidencyPlanViolation::RollbackReferenceTargetsNonDenseBlock {
                             address: reference.to_string(),
-                            actual_kind: reference.kind.wire_tag().into_owned(),
-                        });
-                    }
-                    Some(reference) if reference == &block.uas_address => {
-                        violations.push(ResidencyPlanViolation::RollbackReferenceSelfReference {
-                            address: reference.to_string(),
-                        });
-                    }
-                    Some(reference)
-                        if dense_reference_requirement_by_address
-                            .get(&reference.to_string())
-                            .copied()
-                            .unwrap_or(false) =>
-                    {
-                        violations.push(
-                            ResidencyPlanViolation::RollbackReferenceTargetsNonDenseBlock {
-                                address: reference.to_string(),
-                            },
-                        );
-                    }
-                    Some(_) => {}
+                        },
+                    );
                 }
             }
         }
@@ -1198,6 +1194,34 @@ mod tests {
         assert_eq!(manifest.residency_tier, ResidencyTier::VerifiedFloor);
         assert!(!manifest.is_cold_ssd_candidate());
         assert!(!manifest.requires_dense_reference());
+    }
+
+    #[test]
+    fn residency_plan_rejects_malformed_optional_rollback_on_dense_blocks() {
+        let bad_rollback = UasAddress::new(UasKind::AnswerPacket, b"answer-packet", 7);
+        let dense = manifest(
+            "dense-with-bad-rollback",
+            0,
+            b"dense-hot-block",
+            WeightBlockEncoding::DenseBf16,
+            WeightBlockResidencyClass::HotUma,
+            Some(bad_rollback),
+        );
+        let dense_address = dense.uas_address.to_string();
+        let budget = ResidencyBudget::new(1024, 1024, 4096, 0.10, 16).unwrap();
+
+        let plan = ResidencyPlan::evaluate([dense], budget, 42);
+
+        assert_eq!(plan.status, ResidencyPlanStatus::RejectedBeforeRuntime);
+        assert!(plan.violations.iter().any(|v| {
+            matches!(
+                v,
+                ResidencyPlanViolation::RollbackReferenceKindMismatch {
+                    address,
+                    actual_kind,
+                } if address == &dense_address && actual_kind == "answer_packet"
+            )
+        }));
     }
 
     #[test]
@@ -2158,7 +2182,10 @@ mod tests {
         let right_plan = ResidencyPlan::evaluate([right], budget, 42);
 
         assert_eq!(left_plan.status, ResidencyPlanStatus::RejectedBeforeRuntime);
-        assert_eq!(right_plan.status, ResidencyPlanStatus::RejectedBeforeRuntime);
+        assert_eq!(
+            right_plan.status,
+            ResidencyPlanStatus::RejectedBeforeRuntime
+        );
         assert_ne!(left_plan.plan_address, right_plan.plan_address);
     }
 }
