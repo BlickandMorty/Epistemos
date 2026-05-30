@@ -70,6 +70,11 @@ current `HEAD` or `origin/main`.
 | `/Users/jojo/Downloads/Epistemos-wave4-uas-typed-retrieval` | `codex/wave4-uas-typed-retrieval-2026-05-26` | patch-equivalent (`-`) | likely superseded; verify typed UAS retrieval/claims before removal |
 | `/Users/jojo/Downloads/Epistemos-wrv-salvage` | `salvage/t6-uiux-status-2026-05-23` | unique (`+`, 1 commit) | docs-only status; preserve until copied or intentionally dropped |
 
+2026-05-30 update: the docs-only T6 status was ported into
+`docs/T6-UIUX-STATUS-2026-05-23.md`. This does not mean the T6 UI/UX branch is
+merged; it records the opposite, namely that broad T6 code mining is deferred
+because the branch is old and modification-heavy.
+
 ## Dirty But Mostly Generated Churn
 
 Many old worktrees report 2955 dirty files, almost entirely tracked build
