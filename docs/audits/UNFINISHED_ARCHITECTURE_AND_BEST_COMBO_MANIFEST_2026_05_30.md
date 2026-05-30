@@ -1,7 +1,8 @@
 # Unfinished Architecture And Best-Combo Manifest - 2026-05-30
 
 Status: canon reconciliation after the worktree salvage checkpoint
-`b37c24041b2f`, updated by the route-policy diagnostics checkpoint.
+`b37c24041b2f`, updated by the route-policy diagnostics and Paperclip
+heartbeat checkpoints.
 
 Purpose: preserve the full Phase 1 / Phase 2 architecture without confusing
 old branch-local promises, stale audit rows, generated fixtures, or research
@@ -22,6 +23,32 @@ as the verifiable cognition substrate.
    the autogenous-kernel idea are retained, but they live behind falsifier and
    residency gates. They do not replace UAS, ACS, VaultRecall, Eidos, or
    provenance.
+6. A scheduler heartbeat is not proof of architecture progress. It is only a
+   liveness hook for future loop runners. A heartbeat-backed run may advance a
+   row only when it leaves code, tests, artifact evidence, and an updated WRV
+   claim trail.
+
+## Heartbeat Scheduler Covenant
+
+`PaperclipHeartbeatClock` now provides a two-minute persisted liveness pulse in
+the Paperclip WAL store. Future automation may use that pulse as a scheduling
+signal, but every scheduled run must obey this covenant:
+
+1. Start from this manifest plus `ARCHITECTURE_NO_GAP_BUILD_ORDER_2026_05_28`.
+2. Pick one row, not an entire architecture region.
+3. Prove current source truth before editing: code path, caller, flag, UI
+   surface, tests, and falsifier/artifact state.
+4. If the row touches Phase 2+ local inference, UAS/ACS, Active Assembly,
+   KV-Direct, 70B, lattice/WBO, EML/F-ULP, Lean, or autogenous-kernel work, run
+   the relevant No-Orphan check: addressed unit, UAS address, plane, residency,
+   WBO/error policy, witness, falsifier, tier, rollback.
+5. Leave a durable result: commit, focused verification, and either a green
+   WRV row or an explicit skip reason.
+
+The heartbeat must never launch 70B, 128K, full Metal, GGUF/MLX heavy probes,
+mmap/SSD stress, or memory-pressure experiments. The safe 70B sequence remains:
+WeightBlockManifest range guard -> ResidencyPlan -> non-executing witnesses ->
+crash-safe harness -> measured probe -> product claim.
 
 ## Track Namespaces
 
@@ -183,6 +210,7 @@ restarted from stale donor branches:
 | T2 Agent/UI substrate | `AgentBlueprintSettingsView`, `AgentRunTimelineView`, and `AnswerPacketBadge` exist. End-to-end replay and real run-flow insertion remain unfinished. |
 | Runtime Router | `LocalPolicy`, `localPolicyTable`, and `modelPreferenceTable` exist in `RuntimeRouter`; `ConfidenceRouter.routeProfiles()` now adapts those profiles for LocalAgentDiagnostics and ActiveConstellation. Remaining work is live route decisions, replay, per-model behavior proof, and ActiveAssembly falsifier witness. |
 | T4 retrieval | `agent_core/src/retrieval/mod.rs` and vault trace/search code exist in current source. T4 donor still needs unique-value diffing before being declared fully absorbed. |
+| Paperclip heartbeat scheduler | `PaperclipHeartbeatClock` records an immediate heartbeat and then sleeps for 120 seconds between ticks. It is wired from `AppBootstrap` outside XCTest. This is a liveness/scheduling hook only, not a WRV proof for unfinished architecture rows. |
 
 ## Checkpoint Evidence
 
@@ -319,6 +347,14 @@ and the current product truth in one executable path.
 13. Full ACS gate across every durable mutation/tool/kernel path.
 14. Only then capability ceiling: KV-Direct, 128K, 70B, Metal/ANE kernels,
     L_SE/autogenous kernel, active assembly, and measured runtime probes.
+
+Before any row can be marked "done," apply the end-to-end gate:
+
+- **Wired:** production caller uses the substrate, not just a scaffold.
+- **Reachable:** a real app path, CLI, falsifier, or test can invoke it.
+- **Visible:** the user/operator can see the status, provenance, or result.
+- **Verified:** focused tests or schema-valid artifacts prove the behavior.
+- **Rollback:** stricter current truth-floor fields remain intact.
 
 ## Resume Prompts
 

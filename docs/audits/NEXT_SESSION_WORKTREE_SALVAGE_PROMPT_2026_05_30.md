@@ -15,11 +15,14 @@ and audit files before changing anything:
 3. docs/audits/WORKTREE_SALVAGE_QUEUE_2026_05_29.md
 4. docs/audits/LOCAL_EPISTEMOS_WORKTREE_INVENTORY_2026_05_28.json
 5. docs/audits/KV_DIRECT_MODEL_CONTEXT_INVENTORY_2026_05_28.json
+6. docs/audits/UNFINISHED_ARCHITECTURE_AND_BEST_COMBO_MANIFEST_2026_05_30.md
+7. docs/audits/ARCHITECTURE_NO_GAP_BUILD_ORDER_2026_05_28.md
 
 Current safe checkpoint:
 
 - branch: codex/inline-tool-loop-transcript-2026-05-27
-- current audited commit: 57e507428898
+- current committed heartbeat checkpoint: 224cd588a1
+- prior audited salvage commit: 57e507428898
 - pre-salvage tag: checkpoint/pre-worktree-merge-salvage-2026-05-30-6557488793
 
 Safety rules:
@@ -37,6 +40,9 @@ Safety rules:
   product ship claim. Preserve WRV: Wired, Reachable, Visible, Verified.
 - If a donor would remove stricter current truth-floor fields, skip it and
   record why.
+- The two-minute Paperclip heartbeat is a liveness/scheduler hook only. It is
+  not architecture proof and must not trigger heavy probes, broad donor merges,
+  or "done" claims without code, tests, artifact evidence, and WRV.
 
 Known worktree state from the last audit:
 
@@ -84,6 +90,10 @@ Current truth:
   not proven. The safe path is ResidencyPlan over WeightBlockManifest first,
   then guarded dry-run witnesses, then crash-safe harnesses, then measured
   runtime probes.
+- The best-combo architecture is preserved in
+  `docs/audits/UNFINISHED_ARCHITECTURE_AND_BEST_COMBO_MANIFEST_2026_05_30.md`.
+  Nothing from Phase 1/Phase 2/T25+ is dropped; every row must be reconciled
+  against current code and advanced only through WRV.
 - The local model bridge has a guarded primary witness on the safe Qwen3-8B MLX
   route, but the 128K/70B/GGUF SSD-resident capability remains pending.
 - Current clean divergent donors have no missing files; remaining differences
@@ -100,3 +110,6 @@ verification ran, whether the repo is clean, and which worktree/folder is next.
 - No wholesale merge was attempted.
 - No heavy model, mmap, Xcode, or Metal probe was run.
 - The live worktree inventory was refreshed at `57e507428898`.
+- `224cd588a1` added `PaperclipHeartbeatClock`, a lightweight two-minute
+  Paperclip WAL heartbeat wired from `AppBootstrap` outside XCTest. It is a
+  future scheduler/liveness hook, not a product architecture claim.
