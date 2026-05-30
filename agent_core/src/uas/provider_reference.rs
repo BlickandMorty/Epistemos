@@ -114,6 +114,9 @@ impl ProviderReferenceManifest {
         if self.model_id.trim().is_empty() {
             return Err(ProviderReferenceManifestError::MissingModelId);
         }
+        if self.model_id.trim() != self.model_id {
+            return Err(ProviderReferenceManifestError::ModelIdHasSurroundingWhitespace);
+        }
         if !self.replay_allowed {
             return Err(ProviderReferenceManifestError::ReplayNotAllowed);
         }
@@ -178,6 +181,7 @@ pub enum ProviderReferenceManifestError {
     Io,
     BadSchemaVersion,
     MissingModelId,
+    ModelIdHasSurroundingWhitespace,
     ReplayNotAllowed,
     EmptyPromptSet,
     InsufficientPromptLevelPrompts,
@@ -204,6 +208,12 @@ impl std::fmt::Display for ProviderReferenceManifestError {
             Self::Io => write!(f, "provider reference manifest could not be read"),
             Self::BadSchemaVersion => write!(f, "provider reference schema version mismatch"),
             Self::MissingModelId => write!(f, "provider reference model_id is required"),
+            Self::ModelIdHasSurroundingWhitespace => {
+                write!(
+                    f,
+                    "provider reference model_id must not contain leading or trailing whitespace"
+                )
+            }
             Self::ReplayNotAllowed => write!(f, "provider reference must be replayable"),
             Self::EmptyPromptSet => write!(f, "provider reference prompt_count must be nonzero"),
             Self::InsufficientPromptLevelPrompts => {
@@ -380,6 +390,17 @@ mod tests {
             manifest
         );
         assert!(manifest.is_prompt_level_reference());
+    }
+
+    #[test]
+    fn rejects_model_id_with_surrounding_whitespace() {
+        let mut manifest = local_manifest();
+        manifest.model_id = " qwen3-70b-fp16-reference".to_string();
+
+        assert_eq!(
+            manifest.validate(),
+            Err(ProviderReferenceManifestError::ModelIdHasSurroundingWhitespace)
+        );
     }
 
     #[test]
