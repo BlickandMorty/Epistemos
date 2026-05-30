@@ -494,6 +494,10 @@ pub enum ResidencyPlanViolation {
     InvalidBlockWboBudget {
         address: String,
     },
+    InvalidBlockIdentityField {
+        address: String,
+        field: String,
+    },
     ByteTotalOverflow {
         counter: String,
     },
@@ -594,6 +598,7 @@ impl ResidencyPlan {
         for block in &blocks {
             model_ids.insert(block.model_id.as_str());
             let address = block.uas_address.to_string();
+            validate_block_identity_fields(block, &address, &mut violations);
             if !seen_addresses.insert(address.clone()) {
                 violations.push(ResidencyPlanViolation::DuplicateUasAddress {
                     address: address.clone(),
@@ -909,6 +914,69 @@ fn byte_total_overflowed(violations: &[ResidencyPlanViolation], counter: &'stati
                 if existing.as_str() == counter
         )
     })
+}
+
+fn validate_block_identity_fields(
+    block: &WeightBlockManifest,
+    address: &str,
+    violations: &mut Vec<ResidencyPlanViolation>,
+) {
+    push_block_identity_violation(
+        validate_identity_field(
+            "model_id",
+            &block.model_id,
+            WeightBlockManifestError::MissingModelId,
+        ),
+        address,
+        "model_id",
+        violations,
+    );
+    push_block_identity_violation(
+        validate_identity_field(
+            "source_uri",
+            &block.source_uri,
+            WeightBlockManifestError::MissingSourceUri,
+        ),
+        address,
+        "source_uri",
+        violations,
+    );
+    push_block_identity_violation(
+        validate_identity_field(
+            "verifier",
+            &block.verifier,
+            WeightBlockManifestError::MissingVerifier,
+        ),
+        address,
+        "verifier",
+        violations,
+    );
+    if let WeightBlockEncoding::Other(label) = &block.encoding {
+        push_block_identity_violation(
+            validate_identity_field(
+                "encoding",
+                label,
+                WeightBlockManifestError::MissingCustomEncodingLabel,
+            ),
+            address,
+            "encoding",
+            violations,
+        );
+    }
+}
+
+fn push_block_identity_violation(
+    result: Result<(), WeightBlockManifestError>,
+    address: &str,
+    field: &'static str,
+    violations: &mut Vec<ResidencyPlanViolation>,
+) {
+    if result.is_err() {
+        violations.push(ResidencyPlanViolation::InvalidBlockIdentityField {
+            address: address.to_string(),
+            field: field.to_string(),
+        });
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1903,6 +1971,33 @@ mod tests {
                 v,
                 ResidencyPlanViolation::ByteTotalOverflow { counter }
                     if counter == "byte_range_end_exclusive"
+            )
+        }));
+    }
+
+    #[test]
+    fn residency_plan_rejects_publicly_mutated_identity_fields() {
+        let mut block = manifest(
+            "mutated-identity",
+            0,
+            b"cold-nf4-block",
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            Some(rollback_reference()),
+        );
+        block.source_uri = "file:///models/70b/model|shadow.safetensors".to_string();
+        let budget = ResidencyBudget::new(1024, 1024, 4096, 0.10, 16).unwrap();
+
+        let plan = ResidencyPlan::evaluate([block], budget, 42);
+
+        assert_eq!(plan.status, ResidencyPlanStatus::RejectedBeforeRuntime);
+        assert!(plan.violations.iter().any(|v| {
+            matches!(
+                v,
+                ResidencyPlanViolation::InvalidBlockIdentityField {
+                    field,
+                    ..
+                } if field == "source_uri"
             )
         }));
     }
