@@ -130,6 +130,7 @@ fn build_report() -> GuardReport {
             "deterministic_plan_address",
             "runtime_model_bytes_loaded",
             "missing_rollback_rejected",
+            "overlapping_ranges_rejected",
             "sherry_and_leech_codec_names_present",
         ],
     );

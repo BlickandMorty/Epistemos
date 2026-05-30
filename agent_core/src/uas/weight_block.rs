@@ -8,7 +8,7 @@
 //! not decode weights, run inference, or prove the 70B route.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::io::{Read, Seek, SeekFrom};
 
 use crate::uas::{ResidencyTier, UasAddress, UasKind};
@@ -393,15 +393,43 @@ pub enum ResidencyPlanStatus {
 #[serde(rename_all = "snake_case")]
 pub enum ResidencyPlanViolation {
     EmptyActiveSet,
-    TooManyBlocks { actual: usize, max: usize },
+    TooManyBlocks {
+        actual: usize,
+        max: usize,
+    },
     MixedModelIds,
-    DuplicateUasAddress { address: String },
-    HotUmaBudgetExceeded { actual: u64, max: u64 },
-    WarmCompressedUmaBudgetExceeded { actual: u64, max: u64 },
-    ColdMmapSsdBudgetExceeded { actual: u64, max: u64 },
-    WboBudgetExceeded { actual_millis: u32, max_millis: u32 },
-    DenseReferenceMissing { address: String },
-    ExternalCandidateRequiresQuarantine { address: String },
+    DuplicateUasAddress {
+        address: String,
+    },
+    HotUmaBudgetExceeded {
+        actual: u64,
+        max: u64,
+    },
+    WarmCompressedUmaBudgetExceeded {
+        actual: u64,
+        max: u64,
+    },
+    ColdMmapSsdBudgetExceeded {
+        actual: u64,
+        max: u64,
+    },
+    WboBudgetExceeded {
+        actual_millis: u32,
+        max_millis: u32,
+    },
+    DenseReferenceMissing {
+        address: String,
+    },
+    ExternalCandidateRequiresQuarantine {
+        address: String,
+    },
+    OverlappingByteRange {
+        source_uri: String,
+        first_start: u64,
+        first_end: u64,
+        second_start: u64,
+        second_end: u64,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -445,6 +473,7 @@ impl ResidencyPlan {
         let mut violations = Vec::new();
         let mut model_ids = HashSet::new();
         let mut seen_addresses = HashSet::new();
+        let mut last_range_by_source_uri: HashMap<String, ByteRange> = HashMap::new();
         let mut effective_residency_tier = ResidencyTier::VerifiedFloor;
 
         if blocks.is_empty() {
@@ -463,6 +492,25 @@ impl ResidencyPlan {
             if !seen_addresses.insert(address.clone()) {
                 violations.push(ResidencyPlanViolation::DuplicateUasAddress { address });
             }
+            if let Some(previous) = last_range_by_source_uri.get(&block.source_uri) {
+                if block.byte_range.start < previous.end_exclusive() {
+                    violations.push(ResidencyPlanViolation::OverlappingByteRange {
+                        source_uri: block.source_uri.clone(),
+                        first_start: previous.start,
+                        first_end: previous.end_exclusive(),
+                        second_start: block.byte_range.start,
+                        second_end: block.byte_range.end_exclusive(),
+                    });
+                }
+            }
+            last_range_by_source_uri
+                .entry(block.source_uri.clone())
+                .and_modify(|previous| {
+                    if block.byte_range.end_exclusive() > previous.end_exclusive() {
+                        *previous = block.byte_range;
+                    }
+                })
+                .or_insert(block.byte_range);
             if block.residency_tier == ResidencyTier::CapabilityCeiling {
                 effective_residency_tier = ResidencyTier::CapabilityCeiling;
             }
@@ -1021,5 +1069,105 @@ mod tests {
 
         assert_eq!(sherry.canonical_lattice_codec(), "sherry-3-of-4-ternary");
         assert_eq!(leech.canonical_lattice_codec(), "nested-leech-24");
+    }
+
+    #[test]
+    fn residency_plan_rejects_overlapping_ranges_for_same_source_uri() {
+        let first = WeightBlockManifest::from_known_hash_hex(
+            "local/70b-candidate",
+            "file:///models/70b/model-00001-of-00008.safetensors",
+            0,
+            1024,
+            blake3::hash(b"first-range").to_hex().as_str(),
+            99,
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            WeightBlockIrChart::OpaqueWithWitness,
+            0.01,
+            "precomputed_range_hash_plus_dense_reference",
+            Some(rollback_reference()),
+        )
+        .expect("first known-hash manifest should build");
+        let overlapping = WeightBlockManifest::from_known_hash_hex(
+            "local/70b-candidate",
+            "file:///models/70b/model-00001-of-00008.safetensors",
+            512,
+            1024,
+            blake3::hash(b"overlapping-range").to_hex().as_str(),
+            99,
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            WeightBlockIrChart::OpaqueWithWitness,
+            0.01,
+            "precomputed_range_hash_plus_dense_reference",
+            Some(rollback_reference()),
+        )
+        .expect("overlapping known-hash manifest should build");
+
+        let plan = ResidencyPlan::evaluate(
+            [first, overlapping],
+            ResidencyBudget::m2_pro_16gb_safety_floor(),
+            42,
+        );
+
+        assert_eq!(plan.status, ResidencyPlanStatus::RejectedBeforeRuntime);
+        assert!(plan.violations.iter().any(|v| {
+            matches!(
+                v,
+                ResidencyPlanViolation::OverlappingByteRange {
+                    source_uri,
+                    first_start: 0,
+                    first_end: 1024,
+                    second_start: 512,
+                    second_end: 1536,
+                } if source_uri == "file:///models/70b/model-00001-of-00008.safetensors"
+            )
+        }));
+    }
+
+    #[test]
+    fn residency_plan_allows_adjacent_ranges_for_same_source_uri() {
+        let first = WeightBlockManifest::from_known_hash_hex(
+            "local/70b-candidate",
+            "file:///models/70b/model-00001-of-00008.safetensors",
+            0,
+            1024,
+            blake3::hash(b"first-adjacent-range").to_hex().as_str(),
+            99,
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            WeightBlockIrChart::OpaqueWithWitness,
+            0.01,
+            "precomputed_range_hash_plus_dense_reference",
+            Some(rollback_reference()),
+        )
+        .expect("first known-hash manifest should build");
+        let adjacent = WeightBlockManifest::from_known_hash_hex(
+            "local/70b-candidate",
+            "file:///models/70b/model-00001-of-00008.safetensors",
+            1024,
+            2048,
+            blake3::hash(b"second-adjacent-range").to_hex().as_str(),
+            99,
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            WeightBlockIrChart::OpaqueWithWitness,
+            0.01,
+            "precomputed_range_hash_plus_dense_reference",
+            Some(rollback_reference()),
+        )
+        .expect("adjacent known-hash manifest should build");
+
+        let plan = ResidencyPlan::evaluate(
+            [adjacent, first],
+            ResidencyBudget::m2_pro_16gb_safety_floor(),
+            42,
+        );
+
+        assert_eq!(plan.status, ResidencyPlanStatus::FitForDryRun);
+        assert!(!plan
+            .violations
+            .iter()
+            .any(|v| matches!(v, ResidencyPlanViolation::OverlappingByteRange { .. })));
     }
 }
