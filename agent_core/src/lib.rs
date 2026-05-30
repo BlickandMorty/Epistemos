@@ -60,6 +60,7 @@ pub mod reasoning_metrics;
 pub mod research;
 pub mod resonance;
 pub mod resources;
+pub mod retrieval;
 pub mod tamagotchi;
 // HELIOS V5 W1 — SCOPE-Rex full surface module entry. Hosts AnswerPacket
 // (W1), Residency Governor (W4), Semantic BTM V1.5 (W5), Active-Support

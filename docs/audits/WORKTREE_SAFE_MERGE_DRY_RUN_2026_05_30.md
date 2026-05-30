@@ -287,3 +287,50 @@ Therefore this port does **not** claim `lake build` green. The schema files are
 preserved and import-wired; a later Lean tooling pass must repair the mathlib
 cache path or build dependencies from source before promoting this to a green
 proof gate.
+
+## Salvage Port 3 - T4 Shadow-First Retrieval Contract
+
+Status: **ported surgically; branch still donor-only.**
+
+Source branch:
+
+```text
+codex/t4-vault-2026-05-16
+```
+
+Ported only the missing Rust contract module:
+
+```text
+agent_core/src/retrieval/mod.rs
+```
+
+and exposed it through:
+
+```text
+agent_core/src/lib.rs
+```
+
+Why this was safe to port: current docs already claimed
+`agent_core/src/retrieval/` as the Shadow-first answerability contract home,
+but current code did not contain that module. The newer current
+`storage::retrieval_trace` remains intact; this port adds the missing
+Shadow-first / exact-escalation / residual-decode contract surface without
+rewriting live vault storage, Swift UI, Xcode project files, or old LandingWave
+code.
+
+Verification:
+
+```text
+rustfmt --edition 2021 --check agent_core/src/lib.rs agent_core/src/retrieval/mod.rs
+
+cargo test --manifest-path agent_core/Cargo.toml retrieval:: --lib
+
+77 passed; 0 failed; 4075 filtered out
+```
+
+Not done by this port:
+
+- no donor Swift VaultRecall tests copied yet;
+- no ignored local-user-vault baseline test copied;
+- no live caller wiring changed;
+- no app/Xcode build or runtime probe run.
