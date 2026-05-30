@@ -146,6 +146,11 @@ impl ProviderReferenceManifest {
                 if self.retention_claim != ReferenceRetentionClaim::LocalFileOnly {
                     return Err(ProviderReferenceManifestError::BadRetentionClaim);
                 }
+                if self.request_id_hash.is_some() || self.redaction_digest.is_some() {
+                    return Err(
+                        ProviderReferenceManifestError::LocalReferenceCarriesHostedReceiptDigest,
+                    );
+                }
             }
             ProviderReferenceKind::HostedZeroRetentionReceipt => {
                 if self.data_sent_class == ReferenceDataSentClass::LocalOnly {
@@ -182,6 +187,7 @@ pub enum ProviderReferenceManifestError {
     ArtifactContainsDotSegment,
     InvalidSha256,
     LocalReferenceSentData,
+    LocalReferenceCarriesHostedReceiptDigest,
     HostedReferenceMissingDataClass,
     BadRetentionClaim,
     MissingHostedReceiptDigest,
@@ -226,6 +232,10 @@ impl std::fmt::Display for ProviderReferenceManifestError {
             Self::LocalReferenceSentData => write!(
                 f,
                 "local fp16 reference must not claim hosted data was sent"
+            ),
+            Self::LocalReferenceCarriesHostedReceiptDigest => write!(
+                f,
+                "local fp16 reference must not carry hosted receipt digests"
             ),
             Self::HostedReferenceMissingDataClass => {
                 write!(f, "hosted reference must name a non-local data-sent class")
@@ -443,6 +453,23 @@ mod tests {
         assert_eq!(
             manifest.validate(),
             Err(ProviderReferenceManifestError::LocalReferenceSentData)
+        );
+    }
+
+    #[test]
+    fn local_reference_rejects_hosted_receipt_digests() {
+        let mut manifest = local_manifest();
+        manifest.request_id_hash = Some(sha('b'));
+        assert_eq!(
+            manifest.validate(),
+            Err(ProviderReferenceManifestError::LocalReferenceCarriesHostedReceiptDigest)
+        );
+
+        manifest.request_id_hash = None;
+        manifest.redaction_digest = Some(sha('c'));
+        assert_eq!(
+            manifest.validate(),
+            Err(ProviderReferenceManifestError::LocalReferenceCarriesHostedReceiptDigest)
         );
     }
 
