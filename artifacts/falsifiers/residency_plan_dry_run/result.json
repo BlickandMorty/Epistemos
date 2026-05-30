@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "89befafd1cc749a5ecf257b9bf5924a8126fa0db",
+  "commit_sha": "7e4efa118c3346d8fc497e39f52bab1f63270185",
   "fixture_id": "residency_plan_dry_run_70b_shape_v1",
-  "timestamp_utc": "2026-05-30T12:26:09Z",
-  "result_digest": "sha256:31059f531230b74ad25e8f7d54115368c078b55419617cb07e5a9e656096a594",
+  "timestamp_utc": "2026-05-30T18:01:16Z",
+  "result_digest": "sha256:872d94da966f73f87f3fa7df39e70fa1fbb061aa70da73166359b92d5ecdabee",
   "measurements": {
     "active_runtime_bytes": {
       "value": 872415232,
@@ -62,7 +62,7 @@
       "unit": "bool"
     },
     "plan_address": {
-      "value": "residency_plan:8e0ce507c0a815d006cbda10d28c1a565b1e8bcc1bde4eeda4c4313bab74718d@1779000000000",
+      "value": "residency_plan:1b60fc6e4cd447da0cb780e6c09b737274706e41ed45a974cbfdace0767e1b38@1779000000000",
       "unit": "uas_address"
     },
     "runtime_model_bytes_loaded": {

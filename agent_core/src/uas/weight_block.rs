@@ -648,14 +648,25 @@ impl ResidencyPlan {
             budget.max_blocks
         ));
         for block in blocks {
+            let rollback_reference = block
+                .rollback_reference
+                .as_ref()
+                .map(ToString::to_string)
+                .unwrap_or_else(|| "none".to_string());
             preimage.push_str(&format!(
-                "{}|{}|{}|{}|{}|{}\n",
+                "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}\n",
                 block.model_id,
                 block.source_uri,
                 block.byte_range.start,
                 block.byte_range.len,
                 block.uas_address,
-                block.canonical_lattice_codec()
+                weight_block_encoding_preimage(&block.encoding),
+                weight_block_residency_class_preimage(block.residency_class),
+                block.residency_tier.wire_tag(),
+                weight_block_ir_chart_preimage(&block.ir_chart),
+                (block.wbo_budget_nats * 1000.0).round() as u32,
+                block.verifier,
+                rollback_reference
             ));
         }
         UasAddress::new(
@@ -663,6 +674,45 @@ impl ResidencyPlan {
             preimage.as_bytes(),
             created_at_ms,
         )
+    }
+}
+
+fn weight_block_encoding_preimage(encoding: &WeightBlockEncoding) -> String {
+    match encoding {
+        WeightBlockEncoding::DenseFp16 => "dense_fp16".to_string(),
+        WeightBlockEncoding::DenseBf16 => "dense_bf16".to_string(),
+        WeightBlockEncoding::DenseFp32 => "dense_fp32".to_string(),
+        WeightBlockEncoding::Int8 => "int8".to_string(),
+        WeightBlockEncoding::FourBit => "four_bit".to_string(),
+        WeightBlockEncoding::Nf4 => "nf4".to_string(),
+        WeightBlockEncoding::Ternary => "ternary".to_string(),
+        WeightBlockEncoding::Sherry125 => "sherry125".to_string(),
+        WeightBlockEncoding::LeechVq => "leech_vq".to_string(),
+        WeightBlockEncoding::ResidualIsland => "residual_island".to_string(),
+        WeightBlockEncoding::Other(value) => format!("other:{value}"),
+    }
+}
+
+fn weight_block_residency_class_preimage(
+    residency_class: WeightBlockResidencyClass,
+) -> &'static str {
+    match residency_class {
+        WeightBlockResidencyClass::HotUma => "hot_uma",
+        WeightBlockResidencyClass::WarmCompressedUma => "warm_compressed_uma",
+        WeightBlockResidencyClass::ColdMmapSsd => "cold_mmap_ssd",
+        WeightBlockResidencyClass::ExternalCandidate => "external_candidate",
+    }
+}
+
+fn weight_block_ir_chart_preimage(ir_chart: &WeightBlockIrChart) -> &'static str {
+    match ir_chart {
+        WeightBlockIrChart::Eml => "eml",
+        WeightBlockIrChart::Geometry => "geometry",
+        WeightBlockIrChart::Scan => "scan",
+        WeightBlockIrChart::Operator => "operator",
+        WeightBlockIrChart::Info => "info",
+        WeightBlockIrChart::Tropical => "tropical",
+        WeightBlockIrChart::OpaqueWithWitness => "opaque_with_witness",
     }
 }
 
@@ -1057,6 +1107,34 @@ mod tests {
             .violations
             .iter()
             .any(|v| matches!(v, ResidencyPlanViolation::WboBudgetExceeded { .. })));
+    }
+
+    #[test]
+    fn residency_plan_address_changes_when_rollback_gate_changes() {
+        let with_rollback = manifest(
+            "cold",
+            0,
+            b"same-cold-nf4-block",
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            Some(rollback_reference()),
+        );
+        let without_rollback = manifest(
+            "cold",
+            0,
+            b"same-cold-nf4-block",
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            None,
+        );
+        let budget = ResidencyBudget::new(1024, 1024, 4096, 0.10, 16).unwrap();
+
+        let admitted = ResidencyPlan::evaluate([with_rollback], budget.clone(), 42);
+        let rejected = ResidencyPlan::evaluate([without_rollback], budget, 42);
+
+        assert_eq!(admitted.status, ResidencyPlanStatus::FitForDryRun);
+        assert_eq!(rejected.status, ResidencyPlanStatus::RejectedBeforeRuntime);
+        assert_ne!(admitted.plan_address, rejected.plan_address);
     }
 
     #[test]
