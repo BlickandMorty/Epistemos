@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "eb5c804035eab9443f9b1c25c7f0939c47ca7df2",
+  "commit_sha": "f0c5b7c79dc391a31f2d3afd8936bc852672aa9d",
   "fixture_id": "capability_ceiling_pending_work_dedup_v1",
-  "timestamp_utc": "2026-05-30T12:43:51Z",
-  "result_digest": "sha256:81677a5feb61880549c6ba2d549d2a2e370ce9f778cc776efc499da161cedf6b",
+  "timestamp_utc": "2026-05-30T12:49:44Z",
+  "result_digest": "sha256:5f770f5957ea5a50fece4f036d2da0019b6fb2a9fe40f19e831011b8fbfcfe59",
   "measurements": {
     "already_mapped_work": {
       "value": {
@@ -70,6 +70,7 @@
           "exists": true,
           "heavy_run_guard_path": "Tools/falsifiers/run_qwen3_8b_128k_gguf_bench.py",
           "heavy_long_context_guard_present": true,
+          "dry_run_guard_present": true,
           "next_bottleneck": "repair_qwen3_8b_128k_gguf_metal_stall"
         },
         "large_model_non_runtime_rungs": {
@@ -389,6 +390,10 @@
       "value": "repair_qwen3_8b_128k_gguf_metal_stall",
       "unit": "label"
     },
+    "qwen3_gguf_bench_dry_run_guard_present": {
+      "value": true,
+      "unit": "bool"
+    },
     "residency_plan_dry_run_available": {
       "value": true,
       "unit": "bool"
@@ -508,6 +513,11 @@
       "value": true,
       "unit": "bool"
     },
+    "qwen3_gguf_bench_dry_run_guard_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "residency_plan_dry_run_available": {
       "operator": "==",
       "value": true,
@@ -546,6 +556,7 @@
     "queue_orders_unique": true,
     "queue_required_fields_present": true,
     "qwen3_8b_128k_gguf_candidate_artifact_available": true,
+    "qwen3_gguf_bench_dry_run_guard_present": true,
     "residency_plan_dry_run_available": true,
     "shard_cursor_mapped": true,
     "weight_block_range_hash_dry_run_available": true
