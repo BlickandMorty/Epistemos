@@ -924,7 +924,7 @@ fn weight_block_residency_class_preimage(
     }
 }
 
-fn weight_block_ir_chart_preimage(ir_chart: &WeightBlockIrChart) -> &'static str {
+pub(crate) fn weight_block_ir_chart_preimage(ir_chart: &WeightBlockIrChart) -> &'static str {
     match ir_chart {
         WeightBlockIrChart::Eml => "eml",
         WeightBlockIrChart::Geometry => "geometry",
