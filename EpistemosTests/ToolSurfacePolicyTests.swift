@@ -281,6 +281,40 @@ struct ToolSurfacePolicyTests {
         #expect(object["limit"] as? Int == 5)
     }
 
+    @Test func narratorTreatsEidosAndVaultToolsAsOneEvidenceSurface() {
+        #expect(ToolActivityNarrator.surface(name: "eidos.query").isEvidenceBubble)
+        #expect(ToolActivityNarrator.surface(name: "eidos__query").isEvidenceBubble)
+        #expect(ToolActivityNarrator.surface(name: "knowledge.recall").isEvidenceBubble)
+        #expect(ToolActivityNarrator.surface(name: "knowledge_recall").isEvidenceBubble)
+        #expect(ToolActivityNarrator.surface(name: "vault.search").isEvidenceBubble)
+        #expect(ToolActivityNarrator.surface(name: "vault.read").isEvidenceBubble)
+        #expect(ToolActivityNarrator.surface(name: "vault.write").isEvidenceBubble)
+        #expect(ToolActivityNarrator.surface(name: "file.search").isEvidenceBubble == false)
+
+        #expect(ToolActivityNarrator.surface(name: "vault.read").badgeTitle == "EIDOS")
+        #expect(ToolActivityNarrator.surface(name: "vault.write").badgeTitle == "EIDOS")
+    }
+
+    @Test func narratorNamesEidosBeforeFilesystemFallback() {
+        let eidosPhrase = ToolActivityNarrator.phrase(
+            name: "eidos.query",
+            inputJson: #"{"query":"My Autobiography"}"#
+        )
+        let vaultPhrase = ToolActivityNarrator.phrase(
+            name: "vault.search",
+            inputJson: #"{"query":"My Autobiography"}"#
+        )
+        let readPhrase = ToolActivityNarrator.phrase(
+            name: "vault.read",
+            inputJson: #"{"path":"Notes/My Autobiography.md"}"#
+        )
+
+        #expect(eidosPhrase?.contains("Eidos") == true)
+        #expect(eidosPhrase?.contains("My Autobiography") == true)
+        #expect(vaultPhrase?.contains("vault evidence") == true)
+        #expect(readPhrase?.contains("vault note") == true)
+    }
+
     @Test func vaultScopedFileSearchBuildsAppFirstVaultSearchInput() throws {
         let vaultRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent("epistemos-app-first-vault-root")
