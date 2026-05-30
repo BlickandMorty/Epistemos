@@ -142,6 +142,11 @@ prompt suite, planner, or parallel scaffold.
 - `provider_reference_manifest_dry_run_available`
 - `local_70b_cocktail_honest_red`
 
+The `residency_plan_dry_run_available` axis includes the
+`overlapping_ranges_rejected` sub-axis from `F-ResidencyPlan-DryRun`; a planner
+that permits overlapping weight byte ranges must not advance to any mmap,
+MLX, Metal, KV, or 70B runtime probe.
+
 ## Non-Drift Rule
 
 This is not a product-performance gate. It is an execution hygiene gate. It can

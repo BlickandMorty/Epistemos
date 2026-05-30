@@ -139,6 +139,47 @@ fn build_report() -> Result<ResidencyPlanDryRunReport, Box<dyn std::error::Error
         ResidencyBudget::m2_pro_16gb_safety_floor(),
         1_779_000_000_000,
     );
+    let overlap_first = WeightBlockManifest::from_known_hash_hex(
+        "local/70b-residency-plan-candidate",
+        "manifest:///local/70b-residency-plan/overlap-model-00001",
+        0,
+        1024,
+        blake3::hash(b"overlap-first").to_hex().as_str(),
+        1_779_000_000_000,
+        WeightBlockEncoding::Nf4,
+        WeightBlockResidencyClass::ColdMmapSsd,
+        WeightBlockIrChart::OpaqueWithWitness,
+        0.01,
+        "precomputed_hash_plus_dense_reference",
+        Some(UasAddress::new(
+            UasKind::ModelComponent,
+            b"dense-overlap-reference",
+            1,
+        )),
+    )?;
+    let overlap_second = WeightBlockManifest::from_known_hash_hex(
+        "local/70b-residency-plan-candidate",
+        "manifest:///local/70b-residency-plan/overlap-model-00001",
+        512,
+        1024,
+        blake3::hash(b"overlap-second").to_hex().as_str(),
+        1_779_000_000_000,
+        WeightBlockEncoding::Nf4,
+        WeightBlockResidencyClass::ColdMmapSsd,
+        WeightBlockIrChart::OpaqueWithWitness,
+        0.01,
+        "precomputed_hash_plus_dense_reference",
+        Some(UasAddress::new(
+            UasKind::ModelComponent,
+            b"dense-overlap-reference",
+            1,
+        )),
+    )?;
+    let overlap_plan = ResidencyPlan::evaluate(
+        [overlap_first, overlap_second],
+        ResidencyBudget::m2_pro_16gb_safety_floor(),
+        1_779_000_000_000,
+    );
 
     let mut measurements = BTreeMap::new();
     let mut thresholds = BTreeMap::new();
@@ -194,6 +235,17 @@ fn build_report() -> Result<ResidencyPlanDryRunReport, Box<dyn std::error::Error
             matches!(v, ResidencyPlanViolation::DenseReferenceMissing { .. })
                 && bad_plan.status == ResidencyPlanStatus::RejectedBeforeRuntime
         }),
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "overlapping_ranges_rejected",
+        overlap_plan.status == ResidencyPlanStatus::RejectedBeforeRuntime
+            && overlap_plan
+                .violations
+                .iter()
+                .any(|v| matches!(v, ResidencyPlanViolation::OverlappingByteRange { .. })),
     );
     add_bool_axis(
         &mut measurements,
@@ -383,4 +435,30 @@ fn add_count_min_axis(
         },
     );
     pass_per_axis.insert(name.to_string(), pass);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn report_requires_overlapping_range_rejection_axis() {
+        let report = build_report().expect("dry-run report should build");
+
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("overlapping_ranges_rejected"),
+            Some(&true)
+        );
+        assert!(report
+            .artifact
+            .measurements
+            .contains_key("overlapping_ranges_rejected"));
+        assert!(report
+            .artifact
+            .acceptance_thresholds
+            .contains_key("overlapping_ranges_rejected"));
+    }
 }

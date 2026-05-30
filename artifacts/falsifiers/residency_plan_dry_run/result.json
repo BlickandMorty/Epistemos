@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "ba6f15e6fb08c772c5bbce4d303aff864f39e9c2",
+  "commit_sha": "89befafd1cc749a5ecf257b9bf5924a8126fa0db",
   "fixture_id": "residency_plan_dry_run_70b_shape_v1",
-  "timestamp_utc": "2026-05-30T10:37:35Z",
-  "result_digest": "sha256:e640c104fa83f1d3babb9e84ece757d0cf8cc9f3d9cca07134de721dd9d8e77e",
+  "timestamp_utc": "2026-05-30T12:26:09Z",
+  "result_digest": "sha256:31059f531230b74ad25e8f7d54115368c078b55419617cb07e5a9e656096a594",
   "measurements": {
     "active_runtime_bytes": {
       "value": 872415232,
@@ -54,6 +54,10 @@
       "unit": "bool"
     },
     "missing_rollback_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "overlapping_ranges_rejected": {
       "value": true,
       "unit": "bool"
     },
@@ -96,6 +100,11 @@
       "value": true,
       "unit": "bool"
     },
+    "overlapping_ranges_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "runtime_model_bytes_loaded": {
       "operator": "==",
       "value": 0,
@@ -113,6 +122,7 @@
     "deterministic_plan_address": true,
     "fit_for_dry_run": true,
     "missing_rollback_rejected": true,
+    "overlapping_ranges_rejected": true,
     "runtime_model_bytes_loaded": true,
     "sherry_and_leech_codec_names_present": true
   },

@@ -428,3 +428,38 @@ Remaining Eidos work is not branch salvage; it is forward wiring:
 - W-47 ChatCoordinator closed-citation emit gate;
 - W-48 Brain Panel "Retrieved by Eidos" surface;
 - W-51 ShadowBackedSemanticIndex over the current shadow backend.
+
+## Safe Build - ResidencyPlan Overlap Guard
+
+Status: **built in current tree; no heavy runtime test.**
+
+The safe 70B path now rejects overlapping model byte ranges before any mmap,
+MLX, Metal, KV, or generation path can run. This hardens the
+`WeightBlockManifest` -> `ResidencyPlan` gate:
+
+```text
+ResidencyPlanViolation::OverlappingByteRange
+```
+
+Why this matters: the 70B / SSD-resident ambition depends on treating model
+weights as exact UAS-addressed byte ranges. Two active blocks from the same
+source file must not overlap silently, even when their hashes differ, because
+that would double-count or alias the cold SSD body before the runtime ever has
+a chance to prove itself.
+
+Verification:
+
+```text
+cargo test --manifest-path agent_core/Cargo.toml uas::weight_block::tests --lib
+
+14 passed; 0 failed; 4142 filtered out
+```
+
+The dry-run falsifier now exposes this as the named axis:
+
+```text
+overlapping_ranges_rejected
+```
+
+and the 70B Lite preflight requires that axis before it can advance past the
+residency-plan rung.

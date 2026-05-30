@@ -441,7 +441,7 @@ These are the minimum axis keys each F-* artifact must cover in `measurements`, 
 | `F-Qwen3-8B-128K-GGUF-Route` | `model_identity_matches_gguf_target`, `model_context_window_tokens`, `average_d_kl_nats`, `peak_ram_gb`, `decode_tok_s`, `suite_wall_clock_min` |
 | `F-WBO-DriftLedger` | `finite_nonnegative_terms`, `envelope_bound`, `post_softmax_drift`, `missing_term_fail_closed` |
 | `F-ULP-Oracle` | `max_ulp`, `comparable_points_over_2ulp`, `stress_case_classification`, `wall_clock_seconds` |
-| `F-ResidencyPlan-DryRun` | `fit_for_dry_run`, `deterministic_plan_address`, `active_runtime_bytes`, `cold_mmap_ssd_bytes`, `runtime_model_bytes_loaded`, `missing_rollback_rejected`, `sherry_and_leech_codec_names_present` |
+| `F-ResidencyPlan-DryRun` | `fit_for_dry_run`, `deterministic_plan_address`, `active_runtime_bytes`, `cold_mmap_ssd_bytes`, `runtime_model_bytes_loaded`, `missing_rollback_rejected`, `overlapping_ranges_rejected`, `sherry_and_leech_codec_names_present` |
 | `F-ProviderReferenceManifest-DryRun` | `shape_fixture_written`, `manifest_valid`, `prompt_level_reference`, `does_not_advance_70b_reference_gate`, `row_root_path`, `digest_matches_sidecar`, `prompt_suite_bound`, `no_provider_call` |
 | `F-WeightBlockRangeHash-DryRun` | `bounded_range_hashed`, `range_len_bytes`, `over_limit_rejected_before_read`, `short_reader_rejected`, `known_hash_manifest_valid`, `no_model_file_touched` |
 | `F-70B-Local-Cocktail-Lite` | `d_kl_nats`, `decode_tok_s`, `ttft_seconds`, `resident_memory_gb`, `bottleneck_identified`, `weight_block_range_hash_dry_run_available` |
@@ -1508,9 +1508,9 @@ T12's F-ULP witness shape is the first specific instance of this general artifac
       },
       "then": {
         "properties": {
-          "measurements": { "required": ["fit_for_dry_run", "deterministic_plan_address", "active_runtime_bytes", "cold_mmap_ssd_bytes", "runtime_model_bytes_loaded", "missing_rollback_rejected", "sherry_and_leech_codec_names_present"] },
-          "acceptance_thresholds": { "required": ["fit_for_dry_run", "deterministic_plan_address", "active_runtime_bytes", "cold_mmap_ssd_bytes", "runtime_model_bytes_loaded", "missing_rollback_rejected", "sherry_and_leech_codec_names_present"] },
-          "pass_per_axis": { "required": ["fit_for_dry_run", "deterministic_plan_address", "active_runtime_bytes", "cold_mmap_ssd_bytes", "runtime_model_bytes_loaded", "missing_rollback_rejected", "sherry_and_leech_codec_names_present"] }
+          "measurements": { "required": ["fit_for_dry_run", "deterministic_plan_address", "active_runtime_bytes", "cold_mmap_ssd_bytes", "runtime_model_bytes_loaded", "missing_rollback_rejected", "overlapping_ranges_rejected", "sherry_and_leech_codec_names_present"] },
+          "acceptance_thresholds": { "required": ["fit_for_dry_run", "deterministic_plan_address", "active_runtime_bytes", "cold_mmap_ssd_bytes", "runtime_model_bytes_loaded", "missing_rollback_rejected", "overlapping_ranges_rejected", "sherry_and_leech_codec_names_present"] },
+          "pass_per_axis": { "required": ["fit_for_dry_run", "deterministic_plan_address", "active_runtime_bytes", "cold_mmap_ssd_bytes", "runtime_model_bytes_loaded", "missing_rollback_rejected", "overlapping_ranges_rejected", "sherry_and_leech_codec_names_present"] }
         }
       }
     },

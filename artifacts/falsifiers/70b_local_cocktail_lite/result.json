@@ -28,9 +28,9 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "ba6f15e6fb08c772c5bbce4d303aff864f39e9c2",
+  "commit_sha": "89befafd1cc749a5ecf257b9bf5924a8126fa0db",
   "fixture_id": "70b_cocktail_lite_preflight_v1",
-  "timestamp_utc": "2026-05-30T10:51:58Z",
+  "timestamp_utc": "2026-05-30T12:26:21Z",
   "result_digest": "sha256:334504cb95f4111f154788e6f8995e3983c420e7e6e5033b50277512a3af62ae",
   "measurements": {
     "active_assembly_artifact_available": {
