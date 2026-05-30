@@ -75,6 +75,11 @@ current `HEAD` or `origin/main`.
 merged; it records the opposite, namely that broad T6 code mining is deferred
 because the branch is old and modification-heavy.
 
+Dry-run merge detail is now tracked in
+`docs/audits/WORKTREE_SAFE_MERGE_DRY_RUN_2026_05_30.md`. Current result:
+`wrv-app` and `wrv-rust` need no merge; every other clean useful branch should
+be manually ported, not wholesale-merged.
+
 ## Dirty But Mostly Generated Churn
 
 Many old worktrees report 2955 dirty files, almost entirely tracked build
