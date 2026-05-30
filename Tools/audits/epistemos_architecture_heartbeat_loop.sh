@@ -269,11 +269,12 @@ run_autopilot() {
   echo "autopilot_prompt=$AUTOPILOT_PROMPT"
 
   set +e
-  codex exec \
+  codex \
     -C "$ROOT" \
     --add-dir "$ROOT/.." \
     --sandbox danger-full-access \
     --ask-for-approval never \
+    exec \
     --output-last-message "$run_dir/final.md" \
     - < "$AUTOPILOT_PROMPT" > "$run_dir/stdout.log" 2> "$run_dir/stderr.log"
   local status=$?
