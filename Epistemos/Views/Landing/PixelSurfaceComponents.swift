@@ -10,9 +10,14 @@ enum LandingCommandThemeTreatment: Equatable {
     case emberHybrid
 
     static func resolve(for theme: EpistemosTheme) -> Self {
+        if AppCustomTheme.isActive {
+            return .classicNative
+        }
         switch theme.themePair {
         case .platinumViolet:
             return .platinumBlock
+        case .custom:
+            return .classicNative
         case .classic:
             return .classicNative
         case .ember:
@@ -41,7 +46,21 @@ enum LandingCommandThemeTreatment: Equatable {
 // Residency: ResidencyTier::CurrentApp
 enum LandingCommandTypography {
     static func heroFontName(for theme: EpistemosTheme) -> String {
-        theme.displayFontName
+        if AppCustomTheme.isActive {
+            return AppDisplayTypography.storedHeadingFontOverride(level: 1)
+                ?? AppDisplayTypography.matrixDisplayFontName
+        }
+        switch theme.themePair {
+        case .classic:
+            return AppDisplayTypography.coralDisplayFontName
+        case .custom:
+            return AppDisplayTypography.storedHeadingFontOverride(level: 1)
+                ?? AppDisplayTypography.matrixDisplayFontName
+        case .platinumViolet:
+            return AppDisplayTypography.matrixDotsDisplayFontName
+        case .ember:
+            return theme.displayFontName
+        }
     }
 
     static func h2h3FontName(for theme: EpistemosTheme) -> String {
@@ -49,7 +68,7 @@ enum LandingCommandTypography {
     }
 
     static func panelTitleFont(size: CGFloat, theme: EpistemosTheme) -> Font {
-        let fontName = size >= 24 ? heroFontName(for: theme) : h2h3FontName(for: theme)
+        let fontName = size >= 24 ? theme.displayFontName : h2h3FontName(for: theme)
         return Font.custom(fontName, size: size)
     }
 

@@ -1279,26 +1279,40 @@ struct MarkdownTextView: View {
     @ViewBuilder
     private func renderHeading(level: Int, text: String) -> some View {
         let headingRole = AppHeadingRole.markdownRole(level: level)
-        let fontSize = MarkdownHeadingDisplay.noteHeadingFontSize(for: level, text: text)
-        let fontWeight = MarkdownHeadingDisplay.noteHeadingFontWeight(for: level)
+        let notesSpec = theme.notesMatchingHeadingSpec(level: level)
+        let rawFontSize = MarkdownHeadingDisplay.noteHeadingFontSize(for: level, text: text)
+        let fontSize = (1...3).contains(level)
+            ? (notesSpec?.size ?? rawFontSize) * theme.headingSizeMultiplier(level: level)
+            : rawFontSize
+        let fontWeight = notesSpec?.weight ?? MarkdownHeadingDisplay.noteHeadingFontWeight(for: level)
         let font: Font = {
+            if let notesSpec {
+                return Font.custom(
+                    notesSpec.fontName,
+                    size: AppDisplayTypography.displayFontSize(
+                        for: fontSize,
+                        isDark: theme.isDark
+                    )
+                )
+                .weight(notesSpec.weight)
+            }
             if (1...3).contains(level) {
                 // Theme-aware H1-H3 font. Classic now splits Matrix H1
                 // from Chonky H2/H3, matching the live note editor.
-                AppDisplayTypography.headingFont(
+                return AppDisplayTypography.headingFont(
                     size: fontSize,
                     weight: fontWeight,
                     theme: theme,
                     level: level
                 )
-            } else if headingRole != nil {
-                AppDisplayTypography.font(
+            } else if let _ = headingRole {
+                return AppDisplayTypography.font(
                     size: fontSize,
                     weight: fontWeight,
                     allowDisplayFont: false
                 )
             } else {
-                Font.system(size: fontSize, weight: fontWeight)
+                return Font.system(size: fontSize, weight: fontWeight)
             }
         }()
         let topPad = headingRole?.topPadding ?? 6

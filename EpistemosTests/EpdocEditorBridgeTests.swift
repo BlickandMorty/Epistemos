@@ -96,6 +96,19 @@ nonisolated struct EpdocEditorBridgeTests {
         }
     }
 
+    @Test("bundled font fallback covers OTF and TTF display fonts")
+    func bundledFontFallbackCoversDisplayFontLibrary() {
+        let fontNames = Set(EpdocEditorAssetResolver.bundledFontAssets.map(\.filename))
+
+        #expect(EpdocEditorAssetResolver.mimeType(for: "otf") == "font/otf")
+        #expect(fontNames.contains("MatrixTypeDisplay-Bold.otf"))
+        #expect(fontNames.contains("ReturnOfGanonReg.ttf"))
+        #expect(fontNames.contains("VTFMisterPixel.otf"))
+        #expect(fontNames.contains("AtlantisHeadline-Bold.otf"))
+        #expect(fontNames.contains("DisposableDroidBB-BoldItalic.ttf"))
+        #expect(fontNames.contains("CodersCrux.ttf"))
+    }
+
     @Test("document asset resolver accepts only flat package asset paths")
     func documentAssetResolverAcceptsOnlyFlatPackageAssetPaths() {
         #expect(EpdocEditorAssetResolver.documentAssetName(relativePath: "/assets/image-abc.png") == "image-abc.png")
@@ -455,13 +468,25 @@ nonisolated struct EpdocEditorBridgeTests {
         #expect(css.contains(#"src: url("/CoralPixels-Regular.ttf") format("truetype");"#))
         #expect(css.contains(#"font-family: "Retro Gaming";"#))
         #expect(css.contains(#"src: url("/RetroGaming.ttf") format("truetype");"#))
+        #expect(css.contains(#"font-family: "MatrixTypeDisplay-Bold";"#))
+        #expect(css.contains(#"src: url("/MatrixTypeDisplay-Bold.otf") format("opentype");"#))
+        #expect(css.contains(#"font-family: "MatrixDotsDemoRegular";"#))
+        #expect(css.contains(#"src: url("/MatrixDotsDemoRegular.ttf") format("truetype");"#))
+        #expect(css.contains(#"font-family: "ReturnOfGanonReg";"#))
+        #expect(css.contains(#"src: url("/VTFMisterPixel.otf") format("opentype");"#))
+        #expect(css.contains(#"font-family: "Coder's-Crux";"#))
         #expect(!css.contains("basis33"))
         #expect(webpack.contains(#"url === '/CoralPixels-Regular.ttf'"#))
         #expect(webpack.contains(#"url === '/RetroGaming.ttf'"#))
+        #expect(webpack.contains(#"url === '/MatrixTypeDisplay-Bold.otf'"#))
+        #expect(webpack.contains(#"url === '/MatrixDotsDemoRegular.ttf'"#))
+        #expect(webpack.contains(#"url === '/ReturnOfGanonReg.ttf'"#))
+        #expect(webpack.contains(#"url === '/VTFMisterPixel.otf'"#))
+        #expect(webpack.contains(#"url === '/CodersCrux.ttf'"#))
         #expect(!webpack.contains("basis33"),
                 "The WKWebView editor should route the theme display pair without restoring Basis33.")
-        #expect(bridge.contains(#"EpdocEditorAssetResolver.bundleFont(named: "CoralPixels-Regular", extension: "ttf")"#))
-        #expect(bridge.contains(#"EpdocEditorAssetResolver.bundleFont(named: "RetroGaming", extension: "ttf")"#))
+        #expect(bridge.contains("AppDisplayTypography.displayFontOptions.map"))
+        #expect(bridge.contains("EpdocEditorAssetResolver.bundledFontAsset(relativePath: url.path)"))
         #expect(!bridge.contains("basis33"))
         #expect(css.contains("--epdoc-h1-size: 59px;"),
                 "Prose H1 is scaled up for Coral's smaller apparent size.")
@@ -472,7 +497,8 @@ nonisolated struct EpdocEditorBridgeTests {
         #expect(css.contains(#"--epdoc-display-font: "MatrixTypeDisplay""#))
         #expect(css.contains(#"--epdoc-h2-font: "ChonkyPixels""#))
         #expect(css.contains(#"--epdoc-h3-font: "ChonkyPixels""#))
-        #expect(css.contains(".ProseMirror h1,\n.ProseMirror h2,\n.ProseMirror h3 {"))
+        #expect(css.contains("--epdoc-h1-font: var(--epdoc-display-font);"))
+        #expect(!css.contains(".ProseMirror h1,\n.ProseMirror h2,\n.ProseMirror h3 {"))
         #expect(!css.contains(".ProseMirror h4,\n.ProseMirror h5 {\n  font-family: var(--epdoc-display-font);"))
         #expect(css.contains("font-family: var(--epdoc-h1-font);"))
         #expect(css.contains("font-family: var(--epdoc-h2-font);"))

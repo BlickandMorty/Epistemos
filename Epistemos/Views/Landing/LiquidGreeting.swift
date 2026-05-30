@@ -68,8 +68,8 @@ enum LiquidGreetingTiming {
 // Both pairs render in the hero font + size — no separate smaller
 // font. The hero typewriter cycles: types pair 1, holds, backspaces,
 // types pair 2, holds, backspaces, repeats. Landing owns its own scoped
-// typography: Classic + Platinum use MatrixTypeDisplay for this hero,
-// while Ember keeps ColorBasic.
+// typography: Classic uses CoralPixels for this hero, Platinum uses
+// Matrix Dots, and Ember keeps ColorBasic.
 
 struct LiquidGreeting: View {
     /// Stacked hero pair — both lines render in the hero font + size.
@@ -115,9 +115,9 @@ struct LiquidGreeting: View {
 
     private var theme: EpistemosTheme { ui.theme }
 
-    /// Hero font for the two stacked lines. Uses the global theme
-    /// display face so Classic's Matrix typography is consistent with
-    /// note headings, graph chrome, and chat surfaces.
+    /// Hero font for the two stacked lines. Landing owns this face
+    /// independently from note headings so Classic can use CoralPixels
+    /// here while keeping Matrix/Chonky elsewhere.
     private var heroFont: Font {
         let baseSize: CGFloat = compact ? 22 : 44
         return Font.custom(LandingCommandTypography.heroFontName(for: theme), size: baseSize)
@@ -130,6 +130,14 @@ struct LiquidGreeting: View {
         Font.custom(LandingCommandTypography.heroFontName(for: theme), size: dynamicSearchFontSize)
             .weight(.heavy)
     }
+
+    private func landingHeroText(_ text: String, boxed: Bool) -> String {
+        if AppCustomTheme.isActive || [.classic, .platinumViolet].contains(theme.themePair) {
+            return text.uppercased()
+        }
+        return boxed ? theme.boxedLabelText(text) : theme.plainLabelText(text)
+    }
+
     private var dynamicSearchFontSize: CGFloat {
         let baseSize: CGFloat = compact ? 22 : 36
         let minSize: CGFloat = compact ? 14 : 18
@@ -221,14 +229,15 @@ struct LiquidGreeting: View {
     /// plain (no-box) glyph form via `plainLabelText` (uppercases the
     /// text so ColorBasic's A-Z glyphs render) and `line2` is rendered
     /// in the boxed form via `boxedLabelText` (lowercases so a-z
-    /// renders as white-on-black). Other themes pass through unchanged.
+    /// renders as white-on-black). Classic and Platinum uppercase both
+    /// lines so their landing greetings keep the intended display tone.
     private var stackedGreeting: some View {
         VStack(alignment: .center, spacing: compact ? 2 : 4) {
-            Text(theme.plainLabelText(line1))
+            Text(landingHeroText(line1, boxed: false))
                 .font(heroFont)
                 .foregroundStyle(greetingColor)
                 .lineLimit(1)
-            Text(theme.boxedLabelText(line2))
+            Text(landingHeroText(line2, boxed: true))
                 .font(heroFont)
                 .foregroundStyle(greetingColor)
                 .lineLimit(1)
