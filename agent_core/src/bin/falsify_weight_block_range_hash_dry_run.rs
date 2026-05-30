@@ -105,6 +105,7 @@ fn build_report(
         ),
         Err(WeightBlockManifestError::RangeHashLimitExceeded { .. })
     );
+    let over_limit_reader_position_unchanged = over_limit_reader.position() == 0;
     let mut short_reader = Cursor::new(vec![1_u8, 2, 3]);
     let short_reader_rejected = matches!(
         WeightBlockManifest::from_reader_range(
@@ -163,6 +164,13 @@ fn build_report(
         &mut pass_per_axis,
         "over_limit_rejected_before_read",
         over_limit_rejected,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "over_limit_reader_position_unchanged",
+        over_limit_reader_position_unchanged,
     );
     add_bool_axis(
         &mut measurements,
@@ -280,6 +288,12 @@ mod tests {
         assert_eq!(report.pass_per_axis.get("bounded_range_hashed"), Some(&true));
         assert_eq!(
             report.pass_per_axis.get("over_limit_rejected_before_read"),
+            Some(&true)
+        );
+        assert_eq!(
+            report
+                .pass_per_axis
+                .get("over_limit_reader_position_unchanged"),
             Some(&true)
         );
         assert_eq!(report.pass_per_axis.get("no_model_file_touched"), Some(&true));
