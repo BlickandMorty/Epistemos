@@ -170,6 +170,9 @@ impl ConstructionCard {
         validate_nonempty("witness", &witness)?;
         validate_nonempty("falsifier_id", &falsifier_id)?;
         validate_nonempty("rollback_reference", &rollback_reference)?;
+        for upstream in &upstream_falsifier_ids {
+            validate_nonempty("upstream_falsifier_id", upstream)?;
+        }
         if lift_charts.is_empty() {
             return Err(ConstructionCardError::MissingLiftChart);
         }
@@ -373,6 +376,7 @@ fn missing_field_error(field: &'static str) -> ConstructionCardError {
         "projection_packet" => ConstructionCardError::MissingProjectionPacket,
         "witness" => ConstructionCardError::MissingWitness,
         "falsifier_id" => ConstructionCardError::MissingFalsifier,
+        "upstream_falsifier_id" => ConstructionCardError::MissingFalsifier,
         "rollback_reference" => ConstructionCardError::MissingRollback,
         _ => ConstructionCardError::InvalidBudget,
     }
@@ -581,6 +585,39 @@ mod tests {
             controlled,
             ConstructionCardError::FieldContainsControlCharacter {
                 field: "projection_packet"
+            }
+        );
+    }
+
+    #[test]
+    fn construction_card_rejects_noncanonical_upstream_falsifier_ids() {
+        let err = ConstructionCard::new_with_upstreams(
+            "problem",
+            vec![WeightBlockIrChart::Scan],
+            "projection",
+            "witness",
+            ConstructionBudget {
+                hot_uma_bytes: 0,
+                warm_compressed_uma_bytes: 0,
+                cold_mmap_ssd_bytes: 0,
+                wbo_budget_nats: 0.0,
+                copy_budget: 0,
+            },
+            "F-Test",
+            vec!["F-Upstream\nInjected".to_string()],
+            "rollback",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            None,
+            10,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            ConstructionCardError::FieldContainsControlCharacter {
+                field: "upstream_falsifier_id"
             }
         );
     }
