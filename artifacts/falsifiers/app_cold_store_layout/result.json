@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "ca5831d40d7305cb762918c33a2d8c9b156036c4",
+  "commit_sha": "59436d8601401ed07347235a61f03849de811ab6",
   "fixture_id": "app_cold_store_layout_manifest_only_v1",
-  "timestamp_utc": "2026-05-31T17:40:59Z",
-  "result_digest": "sha256:16c87f478d405d07c8e0785472b4521b55d19cebb539b87516e868160f95734c",
+  "timestamp_utc": "2026-05-31T21:16:47Z",
+  "result_digest": "sha256:7113cbabde7c1e6b5b42ede130001a9bd1933e199b2400d38e5a210109d8a489",
   "measurements": {
     "closed_citation_validity": {
       "value": true,
@@ -81,11 +81,19 @@
       "value": true,
       "unit": "bool"
     },
+    "eidos_route_prior_task_signature_bound": {
+      "value": true,
+      "unit": "bool"
+    },
     "eidos_route_prior_unbound_weight_page_hint_rejected": {
       "value": true,
       "unit": "bool"
     },
     "eidos_route_prior_weight_page_hint_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_why_matched_visible": {
       "value": true,
       "unit": "bool"
     },
@@ -211,12 +219,22 @@
       "value": true,
       "unit": "bool"
     },
+    "eidos_route_prior_task_signature_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "eidos_route_prior_unbound_weight_page_hint_rejected": {
       "operator": "==",
       "value": true,
       "unit": "bool"
     },
     "eidos_route_prior_weight_page_hint_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_why_matched_visible": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -310,8 +328,10 @@
     "eidos_route_prior_closed_evidence_verified": true,
     "eidos_route_prior_missing_falsifier_rejected": true,
     "eidos_route_prior_neural_falsifier_bound": true,
+    "eidos_route_prior_task_signature_bound": true,
     "eidos_route_prior_unbound_weight_page_hint_rejected": true,
     "eidos_route_prior_weight_page_hint_required": true,
+    "eidos_route_prior_why_matched_visible": true,
     "failed_residency_plan_rejected": true,
     "hot_runway_bytes": true,
     "mas_research_status_rejected": true,
