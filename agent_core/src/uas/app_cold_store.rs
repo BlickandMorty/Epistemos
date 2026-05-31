@@ -16,6 +16,7 @@ use crate::uas::{
 
 const APP_COLD_STORE_LAYOUT_FALSIFIER_ID: &str = "F-AppColdStore-Layout";
 const PARAM_ROUTE_CARD_ADMISSION_FALSIFIER_ID: &str = "F-ParamRouteCard-Admission";
+const EIDOS_NEURAL_ROUTE_PRIOR_FALSIFIER_ID: &str = "F-Eidos-NeuralRoute-Prior";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -155,6 +156,12 @@ impl AppColdStoreRouteCard {
             return Err(AppColdStoreRouteCardError::MissingParamRouteCardAdmissionVerifier);
         }
         if let Some(prior) = &eidos_route_prior {
+            if !verifier_stack
+                .iter()
+                .any(|verifier| verifier == EIDOS_NEURAL_ROUTE_PRIOR_FALSIFIER_ID)
+            {
+                return Err(AppColdStoreRouteCardError::MissingEidosNeuralRoutePriorVerifier);
+            }
             validate_eidos_route_prior(&task_signature, prior)?;
         }
 
@@ -434,6 +441,7 @@ pub enum AppColdStoreRouteCardError {
     PlanRejected,
     MissingAppColdStoreLayoutVerifier,
     MissingParamRouteCardAdmissionVerifier,
+    MissingEidosNeuralRoutePriorVerifier,
     ProductBuildStatusMismatch,
     ProductBuildResidencyMismatch,
     WarmCacheRequiresDurableAtlas,
@@ -466,6 +474,10 @@ impl std::fmt::Display for AppColdStoreRouteCardError {
             Self::MissingParamRouteCardAdmissionVerifier => write!(
                 f,
                 "AppColdStore route cards must bind F-ParamRouteCard-Admission in verifier_stack"
+            ),
+            Self::MissingEidosNeuralRoutePriorVerifier => write!(
+                f,
+                "AppColdStore route cards with Eidos priors must bind F-Eidos-NeuralRoute-Prior in verifier_stack"
             ),
             Self::ProductBuildStatusMismatch => write!(
                 f,
@@ -531,6 +543,12 @@ mod tests {
             "F-AppColdStore-Layout".to_string(),
             "F-ParamRouteCard-Admission".to_string(),
         ]
+    }
+
+    fn route_prior_verifier_stack() -> Vec<String> {
+        let mut stack = verifier_stack();
+        stack.push("F-Eidos-NeuralRoute-Prior".to_string());
+        stack
     }
 
     fn block(
@@ -874,7 +892,7 @@ mod tests {
 
         let card = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
             "deep_research:neural_importance_atlas",
-            verifier_stack(),
+            route_prior_verifier_stack(),
             "rollback:raw-installed-snapshot",
             ProductBuild::Pro,
             ProStatus::ResearchCandidate,
@@ -924,6 +942,37 @@ mod tests {
     }
 
     #[test]
+    fn eidos_route_prior_requires_neural_route_prior_falsifier() {
+        let plan = fit_plan();
+        let prior = eidos_prior(
+            vec!["F-AppColdStore-Layout".to_string()],
+            vec!["adapter:research_synthesis".to_string()],
+            Vec::new(),
+            vec!["weight_page:controller".to_string()],
+            0.82,
+        )
+        .expect("valid Eidos prior should build");
+
+        let err = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+            "deep_research:neural_importance_atlas",
+            verifier_stack(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            Some(prior),
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            AppColdStoreRouteCardError::MissingEidosNeuralRoutePriorVerifier
+        );
+    }
+
+    #[test]
     fn eidos_route_prior_rejects_unbounded_confidence_and_empty_support() {
         let err = eidos_prior(Vec::new(), Vec::new(), Vec::new(), Vec::new(), 1.01).unwrap_err();
         assert!(matches!(
@@ -936,7 +985,7 @@ mod tests {
             .expect("Eidos prior may exist before AppColdStore support validation");
         let err = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
             "deep_research:neural_importance_atlas",
-            verifier_stack(),
+            route_prior_verifier_stack(),
             "rollback:raw-installed-snapshot",
             ProductBuild::Pro,
             ProStatus::ResearchCandidate,
@@ -971,7 +1020,7 @@ mod tests {
 
         let err = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
             "deep_research:neural_importance_atlas",
-            verifier_stack(),
+            route_prior_verifier_stack(),
             "rollback:raw-installed-snapshot",
             ProductBuild::Pro,
             ProStatus::ResearchCandidate,
@@ -1000,7 +1049,7 @@ mod tests {
 
         let nonfinite_err = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
             "deep_research:neural_importance_atlas",
-            verifier_stack(),
+            route_prior_verifier_stack(),
             "rollback:raw-installed-snapshot",
             ProductBuild::Pro,
             ProStatus::ResearchCandidate,
@@ -1029,7 +1078,7 @@ mod tests {
 
         let empty_why_err = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
             "deep_research:neural_importance_atlas",
-            verifier_stack(),
+            route_prior_verifier_stack(),
             "rollback:raw-installed-snapshot",
             ProductBuild::Pro,
             ProStatus::ResearchCandidate,
