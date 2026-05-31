@@ -12,6 +12,8 @@ use crate::uas::{
     UasAddress, UasKind, WeightBlockManifest, WeightBlockResidencyClass,
 };
 
+const APP_COLD_STORE_LAYOUT_FALSIFIER_ID: &str = "F-AppColdStore-Layout";
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AppColdStorePlacement {
@@ -103,6 +105,12 @@ impl AppColdStoreRouteCard {
         }
         for verifier in &verifier_stack {
             validate_nonempty("verifier_stack", verifier)?;
+        }
+        if !verifier_stack
+            .iter()
+            .any(|verifier| verifier == APP_COLD_STORE_LAYOUT_FALSIFIER_ID)
+        {
+            return Err(AppColdStoreRouteCardError::MissingAppColdStoreLayoutVerifier);
         }
 
         let residency_status = plan.effective_residency_tier;
@@ -309,6 +317,7 @@ pub enum AppColdStoreRouteCardError {
     FieldHasSurroundingWhitespace { field: &'static str },
     FieldContainsControlCharacter { field: &'static str },
     PlanRejected,
+    MissingAppColdStoreLayoutVerifier,
     ProductBuildStatusMismatch,
     ProductBuildResidencyMismatch,
     WarmCacheRequiresDurableAtlas,
@@ -329,6 +338,10 @@ impl std::fmt::Display for AppColdStoreRouteCardError {
                 write!(f, "{field} must not contain control characters")
             }
             Self::PlanRejected => write!(f, "residency plan must be FitForDryRun"),
+            Self::MissingAppColdStoreLayoutVerifier => write!(
+                f,
+                "AppColdStore route cards must bind F-AppColdStore-Layout in verifier_stack"
+            ),
             Self::ProductBuildStatusMismatch => write!(
                 f,
                 "AppColdStore route card product build, Pro status, and residency status are inconsistent"
@@ -477,6 +490,28 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(err, AppColdStoreRouteCardError::PlanRejected);
+    }
+
+    #[test]
+    fn app_cold_store_route_card_requires_layout_falsifier() {
+        let plan = fit_plan();
+
+        let err = AppColdStoreRouteCard::from_residency_plan(
+            "deep_research:neural_importance_atlas",
+            vec!["F-ParamRouteCard-Admission".to_string()],
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            AppColdStoreRouteCardError::MissingAppColdStoreLayoutVerifier
+        );
     }
 
     #[test]
