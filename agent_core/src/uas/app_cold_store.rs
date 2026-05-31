@@ -539,7 +539,6 @@ fn has_source_uri_payload(source_uri: &str, prefix: &str) -> bool {
 }
 
 fn local_source_uri_payload_is_safe(payload: &str) -> bool {
-    let payload = payload.trim_matches('/');
     if payload.is_empty() {
         return false;
     }
@@ -552,7 +551,11 @@ fn local_source_uri_payload_is_safe(payload: &str) -> bool {
     if decoded_payload.chars().any(|ch| ch == '?' || ch == '#') {
         return false;
     }
-    !decoded_payload
+    let payload = decoded_payload.trim_start_matches(|ch| ch == '/' || ch == '\\');
+    if payload.is_empty() || payload.ends_with('/') || payload.ends_with('\\') {
+        return false;
+    }
+    !payload
         .split(|ch| ch == '/' || ch == '\\')
         .any(|segment| segment.is_empty() || segment == "." || segment == "..")
 }
@@ -1408,6 +1411,61 @@ mod tests {
             "file:///models/cold-atlas/model.safetensors?profile=debug",
             "app-support://Models/coldstore/model.safetensors#mutable-ref",
             "app-group://Shared/coldstore/model%3Fname.safetensors",
+        ] {
+            let hot = block(
+                "hot-controller",
+                0,
+                512,
+                WeightBlockEncoding::DenseBf16,
+                WeightBlockResidencyClass::HotUma,
+                None,
+            );
+            let cold = WeightBlockManifest::from_known_hash_hex(
+                "local/cold-atlas-fixture",
+                source_uri,
+                2048,
+                4096,
+                blake3::hash(source_uri.as_bytes()).to_hex().as_str(),
+                1_779_000_000_000,
+                WeightBlockEncoding::Nf4,
+                WeightBlockResidencyClass::ColdMmapSsd,
+                WeightBlockIrChart::OpaqueWithWitness,
+                0.02,
+                "F-AppColdStore-Layout",
+                Some(rollback_reference()),
+            )
+            .expect("generic weight manifests may describe source URI candidates");
+            let budget = ResidencyBudget::new(GIB, 0, 8 * GIB, 0.25, 16).unwrap();
+            let plan = ResidencyPlan::evaluate([hot, cold], budget, 42);
+            assert_eq!(plan.status, ResidencyPlanStatus::FitForDryRun);
+
+            let err = AppColdStoreRouteCard::from_residency_plan(
+                "deep_research:neural_importance_atlas",
+                verifier_stack(),
+                "rollback:raw-installed-snapshot",
+                ProductBuild::Pro,
+                ProStatus::ResearchCandidate,
+                &plan,
+                "rebuild_warm_cache_from_durable_atlas",
+                99,
+            )
+            .unwrap_err();
+
+            assert_eq!(
+                err,
+                AppColdStoreRouteCardError::UnsupportedSourceUri {
+                    source_uri: source_uri.to_string()
+                }
+            );
+        }
+    }
+
+    #[test]
+    fn app_cold_store_route_card_rejects_trailing_source_uri_separators() {
+        for source_uri in [
+            "file:///models/cold-atlas/model.safetensors/",
+            "app-support://Models/coldstore/model.safetensors/",
+            "app-group://Shared/coldstore/model.safetensors\\",
         ] {
             let hot = block(
                 "hot-controller",
