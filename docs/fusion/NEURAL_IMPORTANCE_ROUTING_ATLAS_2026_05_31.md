@@ -31,6 +31,11 @@ Therefore the target architecture is a `NeuralImportanceAtlas`: a living map
 from task signatures to useful heads, MLP channels, weight blocks, LoRA rank
 slices, KV pages, adapters, experts, kernels, and verifier tools.
 
+Eidos is the front door into this atlas. Eidos should turn the user query and
+retrieved evidence into a typed `EidosRoutePrior`; the atlas should use that
+prior to choose neural support candidates. The model should not be asked to
+invent its own hidden parameter route.
+
 ## The law
 
 ### L10-Candidate: Counterfactual Utility Law
@@ -77,6 +82,11 @@ only because it prevents a false citation.
 | S-LoRA / LoRAX / PEFT Arrow | many adapters can be paged/routed; token-wise adapter routing is possible | Adapter bank as a ColdStore organ. |
 | X-LoRA / MoLoRA / LORAUTER | query/task-aware adapter composition | TaskSignature-to-adapter routing. |
 | TransformerLens / SAE Lens / Goodfire-style SAEs | activations can be decomposed into features/circuits | Feature/circuit priors, not product truth without ablation. |
+| Quest / SparQ / MInference | query-aware or dynamic sparse attention selects the cache/history pages worth fetching | Eidos/TaskSignature-conditioned KV and prompt-page lookup. |
+| LayerSkip | early exit and self-speculative decoding expose useful layer checkpoints | `EarlyExitCheckpoint` and `SelfSpeculativeCheckpoint` candidates. |
+| Mixture-of-Depths | dynamic token/layer compute budgets | `DepthBudgetGate` candidate under visible runtime policy. |
+| Mamba-2 / SSD | semiseparable state-space duality gives a cheap controller family | Helper SSM lane for route, interrupt, and memory decisions. |
+| Titans / test-time memory | neural memory can update during inference | Session-local memory lane only; never silent durable weight mutation. |
 
 ## Apple Silicon execution split
 
@@ -312,6 +322,52 @@ ActivationSketch {
   predicted_mlp_blocks
   predicted_kv_pages
   uncertainty
+}
+```
+
+### `EidosRoutePrior`
+
+Eidos-derived route hint. It can propose neural support families, but cannot
+admit them.
+
+```text
+EidosRoutePrior {
+  task_signature
+  evidence_ids
+  citation_need
+  domain_tags
+  contradiction_hints
+  likely_verifiers
+  likely_adapter_families
+  likely_kv_regions
+  likely_weight_page_families
+  confidence
+  why_matched
+}
+```
+
+### `DynamicComputeCheckpoint`
+
+Visible interruption points in the runtime. These are policy events, not
+hidden mid-kernel pauses.
+
+```text
+DynamicComputeCheckpoint {
+  checkpoint_kind:
+    early_exit
+    | self_speculative
+    | depth_budget
+    | kv_restore
+    | adapter_swap
+    | eidos_interrupt
+    | verifier_repair
+    | controller_ssm
+  trigger
+  active_units_before
+  active_units_after
+  verifier_reason
+  latency_budget_remaining
+  run_event_id
 }
 ```
 
@@ -570,6 +626,43 @@ Required comparisons:
 - contextual predictor set;
 - contextual + verifier-regret set.
 
+### F-Eidos-NeuralRoute-Prior
+
+Passes only if Eidos route priors improve neural support prediction versus
+non-Eidos baselines.
+
+Required comparisons:
+
+- random route prior;
+- task-label-only prior;
+- embedding-only prior;
+- Eidos evidence + `why_matched` prior;
+- Eidos evidence + verifier-regret prior.
+
+Required metrics:
+
+- adapter/KV/weight-page family recall;
+- verifier score;
+- citation validity;
+- active bytes;
+- latency;
+- fallback count;
+- visible route explanation quality.
+
+### F-DynamicCompute-Checkpoint
+
+Passes only if checkpointed execution improves quality/cost over fixed-depth
+execution and every checkpoint that affects output is visible in RunEventLog.
+
+Required comparisons:
+
+- fixed-depth baseline;
+- early-exit route;
+- self-speculative route;
+- depth-budget route;
+- Eidos-interrupt repair route;
+- helper-SSM controller route.
+
 ### F-ActiveSet-Utility
 
 Passes only if selected active sets improve task score per byte over dense or
@@ -685,6 +778,13 @@ Primary handles used for this doctrine:
 - `arXiv:2306.03078` SpQR — isolate quantization-sensitive outlier weights.
 - `arXiv:2312.12456` PowerInfer — hot/cold neuron locality.
 - Apple `LLM in a Flash` — windowing and row-column bundling for flash.
+- `arXiv:2406.10774` Quest — query-aware KV cache selection.
+- `arXiv:2312.04985` SparQ Attention — selective cached-history fetch.
+- `arXiv:2407.02490` MInference — dynamic sparse attention for long prefill.
+- `arXiv:2404.16710` LayerSkip / `facebookresearch/LayerSkip` — early exit and self-speculative decoding.
+- `arXiv:2404.02258` Mixture-of-Depths — token/layer-level dynamic compute allocation.
+- `arXiv:2405.21060` Mamba-2 / state-space duality — helper SSM controller lane.
+- `arXiv:2501.00663` Titans — test-time neural memory candidate.
 - Apple Core ML / MLComputeUnits — public CPU/GPU/ANE execution surface.
 - Apple Machine Learning Research `Deploying Transformers on the Apple Neural Engine` — ANE transformer layout/copy principles.
 - Apple MLX — unified-memory ML array/runtime lane for Apple Silicon.
