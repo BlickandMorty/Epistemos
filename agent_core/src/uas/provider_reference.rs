@@ -341,6 +341,7 @@ fn validate_stable_identity_field(
 }
 
 fn validate_row_root_path(path: &str) -> Result<(), ProviderReferenceManifestError> {
+    validate_manifest_artifact_path_field("artifact_ref", path)?;
     if has_dot_segment(path) {
         return Err(ProviderReferenceManifestError::ArtifactContainsDotSegment);
     }
@@ -351,6 +352,7 @@ fn validate_row_root_path(path: &str) -> Result<(), ProviderReferenceManifestErr
 }
 
 fn validate_prompt_suite_path(path: &str) -> Result<(), ProviderReferenceManifestError> {
+    validate_manifest_artifact_path_field("prompt_suite_artifact_ref", path)?;
     if has_dot_segment(path) {
         return Err(ProviderReferenceManifestError::ArtifactContainsDotSegment);
     }
@@ -358,6 +360,18 @@ fn validate_prompt_suite_path(path: &str) -> Result<(), ProviderReferenceManifes
         return Ok(());
     }
     Err(ProviderReferenceManifestError::PromptSuiteOutsideAllowedRoots)
+}
+
+fn validate_manifest_artifact_path_field(
+    field: &'static str,
+    value: &str,
+) -> Result<(), ProviderReferenceManifestError> {
+    if value.trim() != value {
+        return Err(
+            ProviderReferenceManifestError::ManifestFieldHasSurroundingWhitespace { field },
+        );
+    }
+    validate_stable_identity_field(field, value)
 }
 
 fn has_dot_segment(path: &str) -> bool {
@@ -557,6 +571,44 @@ mod tests {
             manifest.validate(),
             Err(ProviderReferenceManifestError::ArtifactOutsideRowRoot)
         );
+    }
+
+    #[test]
+    fn rejects_manifest_artifact_paths_with_unstable_identity_characters() {
+        for (field, value, expected) in [
+            (
+                "artifact_ref",
+                " artifacts/falsifiers/70b_local_cocktail_lite/local_reference.jsonl",
+                ProviderReferenceManifestError::ManifestFieldHasSurroundingWhitespace {
+                    field: "artifact_ref",
+                },
+            ),
+            (
+                "artifact_ref",
+                "artifacts/falsifiers/70b_local_cocktail_lite/local\nreference.jsonl",
+                ProviderReferenceManifestError::ManifestFieldContainsControlCharacter {
+                    field: "artifact_ref",
+                },
+            ),
+            (
+                "prompt_suite_artifact_ref",
+                "artifacts/falsifiers/kv_direct_gate/prompt|suite.json",
+                ProviderReferenceManifestError::ManifestFieldContainsPreimageDelimiter {
+                    field: "prompt_suite_artifact_ref",
+                },
+            ),
+        ] {
+            let mut manifest = local_manifest();
+            match field {
+                "artifact_ref" => manifest.artifact_ref = value.to_string(),
+                "prompt_suite_artifact_ref" => {
+                    manifest.prompt_suite_artifact_ref = value.to_string();
+                }
+                _ => unreachable!("test field is exhaustive"),
+            }
+
+            assert_eq!(manifest.validate(), Err(expected));
+        }
     }
 
     #[test]
