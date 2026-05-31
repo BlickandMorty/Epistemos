@@ -246,7 +246,7 @@ restarted from stale donor branches:
 | T22 Substrate Health | `SubstrateHealthPanel`, `EidosHealthRow`, `VaultRecallHealthRow`, `SystemGHealthRow`, `UasAcsHealthRow`, `ACSAdmissionHealthRow`, `FUlpHealthRow`, and falsifier rows exist with tests. Falsifier drill-down/product panel depth remains follow-up. |
 | T2 Agent/UI substrate | `AgentBlueprintSettingsView`, `AgentRunTimelineView`, and `AnswerPacketBadge` exist. End-to-end replay and real run-flow insertion remain unfinished. |
 | Runtime Router | `LocalPolicy`, `localPolicyTable`, and `modelPreferenceTable` exist in `RuntimeRouter`; `ConfidenceRouter.routeProfiles()` now adapts those profiles for LocalAgentDiagnostics and ActiveConstellation. Remaining work is live route decisions, replay, per-model behavior proof, and ActiveAssembly falsifier witness. |
-| T4 retrieval | `agent_core/src/retrieval/mod.rs` and vault trace/search code exist in current source. T4 donor still needs unique-value diffing before being declared fully absorbed. |
+| T4 retrieval | Closed as substrate/witness absorbed on 2026-05-31. Current source is stricter than `codex/t4-vault-2026-05-16`: `agent_core/src/storage/f_vault_recall_runner.rs` dedupes reported top paths, `agent_core/src/retrieval/mod.rs` dedupes Unicode canonical title variants for synthesis distinct-note checks, and `Epistemos/Sync/SearchIndexService.swift` dedupes normalized vault-recall signal terms before FTS. Focused guards: `run_row_reports_unique_paths_inside_top_n_window`, `synthesis_validation_dedupes_unicode_canonical_title_variants`, and `repeatedVaultRecallSignalTermsAreDeduped`. Product-level retrieval unification remains T21, not T4. |
 | Paperclip heartbeat scheduler | `PaperclipHeartbeatClock` records an immediate heartbeat and then sleeps for 120 seconds between ticks. It is wired from `AppBootstrap` outside XCTest. This is a liveness/scheduling hook only, not a WRV proof for unfinished architecture rows. |
 
 ## Checkpoint Evidence
@@ -272,7 +272,7 @@ source truth.
 
 | Item | Status now | Next action |
 |---|---|---|
-| T4 Vault retrieval donor | Partially absorbed. Current source has retrieval/vault trace material and newer T21/Eidos paths, but the May-16 donor may still contain unique scoring, tests, or trace policy. | Non-mutating diff against `codex/t4-vault-2026-05-16`; port only novel additive hunks. |
+| T4 Vault retrieval donor | Closed as absorbed/superseded by current head. Non-mutating inspection of `/Users/jojo/Downloads/Epistemos-t4-vault` found it lacks current `VaultRecallWiring` and would delete or weaken newer T21/Eidos/PageGather/health surfaces if merged broadly. The unique-value concern is covered by current runner, retrieval, and SearchIndex guards. | Do not mine this donor again unless a new failing T4 regression names a missing field. Continue with T21 retrieval contract unification. |
 | T6 UI/UX donor | Preservation-only donor. Current source has newer chat, landing, graph, syntax, artifact, settings, and AgentBlueprint surfaces. | Mine only small accessibility/audio/Halo/provenance-console polish. Do not restore old shells. |
 | T5 Lean custody | EML/IR substrate and docs are partially present. Lean toolchain and first proof PR remain deferred. | Vendor/verify Lean toolchain, then land one minimal schema-proof PR. |
 | T2 production route profiles | Closed for diagnostics/visibility in this checkpoint: LocalAgentDiagnostics and ActiveConstellation read the RuntimeRouter policy profiles instead of placeholder rows. | Continue into live route decisions, per-model policy badges, replay, and ActiveAssembly witness. |
@@ -288,16 +288,15 @@ ledger. Current next work should follow this order.
 
 | Priority | Wire | Current state | Build requirement |
 |---|---|---|---|
-| 1 | T4 unique-value check | Still unresolved donor question. | Prove absorbed or port one additive retrieval hunk/test. |
-| 2 | T21 retrieval contract unification | Eidos and VaultRecall both exist; PageGather trace metadata exists; flags are still separate in product shape. | Collapse Eidos/VaultRecall/PageGather behind the T21 contract after T4 check. |
-| 3 | Agent replay path | Timeline view exists; replay and run-flow insertion are incomplete. | Deterministic RunEventLog replay into visible AnswerPacket output. |
-| 4 | Per-model badges | Some badge surfaces exist and route profiles are policy-backed for diagnostics; behavior-level proof remains incomplete. | Bind `HONEST`/`EXPERIMENTAL`/`OFF` badges to runtime policy decisions and replay records. |
-| 5 | Runtime route policy behavior | Policy tables are visible; production dispatch proof still needs focused tests. | Prove `RuntimeRouter.route(_:)` consumes the same policy table under lane enable/disable and confidence gates. |
-| 6 | W-01/W-04/W-22 typed vault retrieval | Rust has UAS addresses and vault trace methods, but every retrieval consumer is not yet typed end-to-end. | `hybrid_search` consumers use/return typed `Vec<UasAddress>` where appropriate; PageGather escalates through vault retrieval. |
-| 7 | W-06 Tri-Fusion typed mutations | Not closed. | Graph/vault/agent mutations emit typed mutation envelopes and UAS-backed graph events. |
-| 8 | W-25/W-26 provenance and Cognitive DAG | Partial provenance source exists, UI depth remains. | Clickable SCOPE-Rex/SovereignGate provenance records and Cognitive DAG visualizer. |
-| 9 | T12 F-ULP -> EML witness | Substrate exists, production witness path incomplete. | EML certificates call F-ULP witness and carry result into ClaimLedger/provenance. |
-| 10 | T18B full admission gate | Tool-call/System G slices exist, but all durable paths are not proven gated. | Gate every mutation/tool/kernel-promotion path. Do this last with broad tests. |
+| 1 | T21 retrieval contract unification | Eidos and VaultRecall both exist; PageGather trace metadata exists; flags are still separate in product shape. T4 unique-value donor check is closed as absorbed/superseded by current-head guards. | Collapse Eidos/VaultRecall/PageGather behind the T21 contract without weakening current T4 unique-value guards. |
+| 2 | Agent replay path | Timeline view exists; replay and run-flow insertion are incomplete. | Deterministic RunEventLog replay into visible AnswerPacket output. |
+| 3 | Per-model badges | Some badge surfaces exist and route profiles are policy-backed for diagnostics; behavior-level proof remains incomplete. | Bind `HONEST`/`EXPERIMENTAL`/`OFF` badges to runtime policy decisions and replay records. |
+| 4 | Runtime route policy behavior | Policy tables are visible; production dispatch proof still needs focused tests. | Prove `RuntimeRouter.route(_:)` consumes the same policy table under lane enable/disable and confidence gates. |
+| 5 | W-01/W-04/W-22 typed vault retrieval | Rust has UAS addresses and vault trace methods, but every retrieval consumer is not yet typed end-to-end. | `hybrid_search` consumers use/return typed `Vec<UasAddress>` where appropriate; PageGather escalates through vault retrieval. |
+| 6 | W-06 Tri-Fusion typed mutations | Not closed. | Graph/vault/agent mutations emit typed mutation envelopes and UAS-backed graph events. |
+| 7 | W-25/W-26 provenance and Cognitive DAG | Partial provenance source exists, UI depth remains. | Clickable SCOPE-Rex/SovereignGate provenance records and Cognitive DAG visualizer. |
+| 8 | T12 F-ULP -> EML witness | Substrate exists, production witness path incomplete. | EML certificates call F-ULP witness and carry result into ClaimLedger/provenance. |
+| 9 | T18B full admission gate | Tool-call/System G slices exist, but all durable paths are not proven gated. | Gate every mutation/tool/kernel-promotion path. Do this last with broad tests. |
 
 ## Terminal Workcards Still Deferred Or Partially Open
 
@@ -370,19 +369,18 @@ and the current product truth in one executable path.
 
 1. Keep the repo/build green. If build is broken, fix it before new
    architecture work.
-2. T4 unique-value check against `codex/t4-vault-2026-05-16`.
-3. T21 retrieval contract unification over Eidos/VaultRecall/PageGather.
-4. Runtime route policy behavior under lane enable/disable and confidence gates.
-5. Agent replay path: RunEventLog -> AgentRunTimelineView -> AnswerPacket.
-6. Per-model runtime badges backed by policy decisions and replay records.
-7. Typed vault retrieval and PageGather escalation with UAS addresses.
-8. Tri-Fusion typed mutations and graph event contracts.
-9. Provenance/admission drill-down and Cognitive DAG visualizer.
-10. F-ULP -> EML witness emission.
-11. Lean ClaimLedger schema authority.
-12. Residency governor over WeightBlockManifest and ResidencyPlan dry-runs.
-13. Full SCOPE-Rex/SovereignGate admission gate across every durable mutation/tool/kernel path.
-14. Only then capability ceiling: KV-Direct, 128K, 70B, Metal/ANE kernels,
+2. T21 retrieval contract unification over Eidos/VaultRecall/PageGather.
+3. Runtime route policy behavior under lane enable/disable and confidence gates.
+4. Agent replay path: RunEventLog -> AgentRunTimelineView -> AnswerPacket.
+5. Per-model runtime badges backed by policy decisions and replay records.
+6. Typed vault retrieval and PageGather escalation with UAS addresses.
+7. Tri-Fusion typed mutations and graph event contracts.
+8. Provenance/admission drill-down and Cognitive DAG visualizer.
+9. F-ULP -> EML witness emission.
+10. Lean ClaimLedger schema authority.
+11. Residency governor over WeightBlockManifest and ResidencyPlan dry-runs.
+12. Full SCOPE-Rex/SovereignGate admission gate across every durable mutation/tool/kernel path.
+13. Only then capability ceiling: KV-Direct, 128K, 70B, Metal/ANE kernels,
     L_SE/autogenous kernel, active assembly, and measured runtime probes.
 
 Before any row can be marked "done," apply the end-to-end gate:
@@ -396,10 +394,6 @@ Before any row can be marked "done," apply the end-to-end gate:
 ## Resume Prompts
 
 Use these exact short prompts to continue without losing the architecture:
-
-```text
-Resume T4 unique-value check from UNFINISHED_ARCHITECTURE_AND_BEST_COMBO_MANIFEST_2026_05_30.
-```
 
 ```text
 Resume T21 retrieval contract unification from UNFINISHED_ARCHITECTURE_AND_BEST_COMBO_MANIFEST_2026_05_30.
