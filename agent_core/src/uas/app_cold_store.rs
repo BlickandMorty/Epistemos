@@ -203,6 +203,14 @@ impl AppColdStoreRouteCard {
         if plan.totals.active_runtime_bytes == 0 {
             return Err(AppColdStoreRouteCardError::MissingActiveRuntimeBytes);
         }
+        if let Some(prior) = &eidos_route_prior {
+            validate_eidos_route_prior_support_binding(
+                prior,
+                &durable_units,
+                &warm_cache_units,
+                &hot_runway_units,
+            )?;
+        }
 
         let totals = AppColdStoreRouteCardTotals {
             durable_atlas_bytes: plan.totals.cold_mmap_ssd_bytes,
@@ -451,6 +459,53 @@ fn validate_eidos_route_prior(
     Ok(())
 }
 
+fn validate_eidos_route_prior_support_binding(
+    prior: &EidosRoutePrior,
+    durable_units: &[AppColdStoreUnit],
+    warm_cache_units: &[AppColdStoreUnit],
+    hot_runway_units: &[AppColdStoreUnit],
+) -> Result<(), AppColdStoreRouteCardError> {
+    for support in &prior.likely_weight_page_families {
+        if !durable_units
+            .iter()
+            .chain(warm_cache_units.iter())
+            .chain(hot_runway_units.iter())
+            .any(|unit| route_prior_support_matches_unit(support, unit))
+        {
+            return Err(AppColdStoreRouteCardError::UnboundRoutePriorSupport {
+                support: support.clone(),
+            });
+        }
+    }
+    Ok(())
+}
+
+fn route_prior_support_matches_unit(support: &str, unit: &AppColdStoreUnit) -> bool {
+    let support = support.strip_prefix("weight_page:").unwrap_or(support);
+    let unit_address = unit.uas_address.to_string();
+    if let Some(address) = support.strip_prefix("uas:") {
+        return address == unit_address;
+    }
+    if let Some(source_uri) = support.strip_prefix("source:") {
+        return source_uri == unit.source_uri.as_str();
+    }
+    if let Some(model_id) = support.strip_prefix("model:") {
+        return model_id == unit.model_id.as_str();
+    }
+    if let Some(content_hash_hex) = support.strip_prefix("hash:") {
+        return content_hash_hex == unit.content_hash_hex.as_str();
+    }
+    if let Some(codec) = support.strip_prefix("codec:") {
+        return codec == unit.codec.as_str();
+    }
+
+    support == unit_address
+        || support == unit.source_uri.as_str()
+        || support == unit.model_id.as_str()
+        || support == unit.content_hash_hex.as_str()
+        || support == unit.codec.as_str()
+}
+
 fn validate_nonempty(field: &'static str, value: &str) -> Result<(), AppColdStoreRouteCardError> {
     if value.trim().is_empty() {
         return Err(missing_field_error(field));
@@ -570,6 +625,7 @@ pub enum AppColdStoreRouteCardError {
     MissingRoutePriorVerifier,
     MissingRoutePriorSupport,
     UnboundRoutePriorVerifier { verifier: String },
+    UnboundRoutePriorSupport { support: String },
     UnsupportedSourceUri { source_uri: String },
 }
 
@@ -658,6 +714,10 @@ impl std::fmt::Display for AppColdStoreRouteCardError {
                 f,
                 "EidosRoutePrior likely verifier is not bound in the AppColdStore route-card verifier stack: {verifier}"
             ),
+            Self::UnboundRoutePriorSupport { support } => write!(
+                f,
+                "EidosRoutePrior weight-page support hint is not bound to an AppColdStore route-card unit: {support}"
+            ),
             Self::UnsupportedSourceUri { source_uri } => write!(
                 f,
                 "AppColdStore route-card units require local app-owned or file-backed source URIs, got {source_uri}"
@@ -697,6 +757,10 @@ mod tests {
         let mut stack = verifier_stack();
         stack.push("F-Eidos-NeuralRoute-Prior".to_string());
         stack
+    }
+
+    fn cold_weight_page_source_hint() -> String {
+        "source:file:///models/cold-atlas/cold-weight-page.safetensors".to_string()
     }
 
     fn block(
@@ -1267,7 +1331,7 @@ mod tests {
             vec!["F-AppColdStore-Layout".to_string()],
             vec!["adapter:research_synthesis".to_string()],
             vec!["kv:neural_importance_intro".to_string()],
-            vec!["weight_page:controller".to_string()],
+            vec![cold_weight_page_source_hint()],
             0.82,
         )
         .expect("valid Eidos prior should build");
@@ -1299,7 +1363,7 @@ mod tests {
             vec!["F-AppColdStore-Layout".to_string()],
             Vec::new(),
             Vec::new(),
-            vec!["weight_page:controller".to_string()],
+            vec![cold_weight_page_source_hint()],
             0.7,
         )
         .expect("valid Eidos prior should build");
@@ -1330,7 +1394,7 @@ mod tests {
             vec!["F-Eidos-PostValidation-Repair".to_string()],
             vec!["adapter:research_synthesis".to_string()],
             Vec::new(),
-            vec!["weight_page:controller".to_string()],
+            vec![cold_weight_page_source_hint()],
             0.82,
         )
         .expect("valid Eidos prior should build");
@@ -1413,13 +1477,46 @@ mod tests {
     }
 
     #[test]
+    fn eidos_route_prior_weight_page_hint_must_bind_route_card_unit() {
+        let plan = fit_plan();
+        let prior = eidos_prior(
+            vec!["F-AppColdStore-Layout".to_string()],
+            vec!["adapter:research_synthesis".to_string()],
+            Vec::new(),
+            vec!["source:file:///models/cold-atlas/not-in-plan.safetensors".to_string()],
+            0.82,
+        )
+        .expect("source-shaped support hint is route-prior valid before card admission");
+
+        let err = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+            "deep_research:neural_importance_atlas",
+            route_prior_verifier_stack(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            Some(prior),
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            AppColdStoreRouteCardError::UnboundRoutePriorSupport {
+                support: "source:file:///models/cold-atlas/not-in-plan.safetensors".to_string()
+            }
+        );
+    }
+
+    #[test]
     fn eidos_route_prior_requires_likely_verifier_hint() {
         let plan = fit_plan();
         let prior = eidos_prior(
             Vec::new(),
             vec!["adapter:research_synthesis".to_string()],
             Vec::new(),
-            vec!["weight_page:controller".to_string()],
+            vec![cold_weight_page_source_hint()],
             0.82,
         )
         .expect("support-bearing Eidos prior is shape-valid before route-card admission");
@@ -1447,7 +1544,7 @@ mod tests {
             vec!["F-AppColdStore-Layout".to_string()],
             vec!["adapter:research_synthesis".to_string()],
             Vec::new(),
-            vec!["weight_page:controller".to_string()],
+            vec![cold_weight_page_source_hint()],
             0.82,
         )
         .expect("valid Eidos prior should build");
@@ -1478,7 +1575,7 @@ mod tests {
             vec!["F-AppColdStore-Layout".to_string()],
             vec!["adapter:research_synthesis".to_string()],
             Vec::new(),
-            vec!["weight_page:controller".to_string()],
+            vec![cold_weight_page_source_hint()],
             0.0,
         )
         .expect("zero is shape-valid before route-card admission");
@@ -1545,7 +1642,7 @@ mod tests {
             vec!["F-AppColdStore-Layout".to_string()],
             vec!["adapter:research_synthesis".to_string()],
             Vec::new(),
-            vec!["weight_page:controller".to_string()],
+            vec![cold_weight_page_source_hint()],
             0.64,
             vec!["Eidos matched task meaning without closed evidence".to_string()],
         )
@@ -1574,7 +1671,7 @@ mod tests {
             vec!["F-AppColdStore-Layout".to_string()],
             vec!["adapter:research_synthesis".to_string()],
             Vec::new(),
-            vec!["weight_page:controller".to_string()],
+            vec![cold_weight_page_source_hint()],
             0.82,
         )
         .expect("valid Eidos prior should build");
@@ -1603,7 +1700,7 @@ mod tests {
             vec!["F-AppColdStore-Layout".to_string()],
             vec!["adapter:research_synthesis".to_string()],
             Vec::new(),
-            vec!["weight_page:controller".to_string()],
+            vec![cold_weight_page_source_hint()],
             0.82,
         )
         .expect("valid Eidos prior should build");
@@ -1643,7 +1740,7 @@ mod tests {
             vec!["F-AppColdStore-Layout".to_string()],
             vec!["adapter:research_synthesis".to_string()],
             Vec::new(),
-            vec!["weight_page:controller".to_string()],
+            vec![cold_weight_page_source_hint()],
             0.82,
             vec!["Eidos matched cited vault evidence and route priors".to_string()],
         )
@@ -1658,7 +1755,7 @@ mod tests {
             vec!["F-AppColdStore-Layout".to_string()],
             vec!["adapter:research_synthesis".to_string()],
             Vec::new(),
-            vec!["weight_page:controller".to_string()],
+            vec![cold_weight_page_source_hint()],
             0.82,
             vec!["Eidos matched cited vault evidence and route priors".to_string()],
         )
