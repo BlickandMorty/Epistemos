@@ -5,6 +5,7 @@
 //! allocate model buffers, or run inference.
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 use crate::eidos::EidosRoutePrior;
 use crate::uas::{
@@ -132,8 +133,14 @@ impl AppColdStoreRouteCard {
         if verifier_stack.is_empty() {
             return Err(AppColdStoreRouteCardError::MissingVerifier);
         }
+        let mut seen_verifiers = HashSet::new();
         for verifier in &verifier_stack {
             validate_nonempty("verifier_stack", verifier)?;
+            if !seen_verifiers.insert(verifier.as_str()) {
+                return Err(AppColdStoreRouteCardError::DuplicateVerifier {
+                    verifier: verifier.clone(),
+                });
+            }
         }
         if !verifier_stack
             .iter()
@@ -426,6 +433,7 @@ pub enum AppColdStoreRouteCardError {
     ProductBuildResidencyMismatch,
     WarmCacheRequiresDurableAtlas,
     MissingDurableAtlas,
+    DuplicateVerifier { verifier: String },
     RoutePriorTaskMismatch,
     MissingRoutePriorEvidence,
     MissingRoutePriorSupport,
@@ -469,6 +477,9 @@ impl std::fmt::Display for AppColdStoreRouteCardError {
                 f,
                 "AppColdStore route cards require at least one durable atlas unit"
             ),
+            Self::DuplicateVerifier { verifier } => {
+                write!(f, "AppColdStore route-card verifier was duplicated: {verifier}")
+            }
             Self::RoutePriorTaskMismatch => write!(
                 f,
                 "EidosRoutePrior task_signature must match the AppColdStore route card task_signature"
@@ -730,6 +741,32 @@ mod tests {
         assert_eq!(
             err,
             AppColdStoreRouteCardError::MissingParamRouteCardAdmissionVerifier
+        );
+    }
+
+    #[test]
+    fn app_cold_store_route_card_rejects_duplicate_verifiers() {
+        let plan = fit_plan();
+        let mut duplicate_stack = verifier_stack();
+        duplicate_stack.push("F-AppColdStore-Layout".to_string());
+
+        let err = AppColdStoreRouteCard::from_residency_plan(
+            "deep_research:neural_importance_atlas",
+            duplicate_stack,
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            AppColdStoreRouteCardError::DuplicateVerifier {
+                verifier: "F-AppColdStore-Layout".to_string()
+            }
         );
     }
 
