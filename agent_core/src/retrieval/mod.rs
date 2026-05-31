@@ -397,11 +397,11 @@ pub struct ShadowExactVerificationHit {
 
 impl ShadowExactVerificationHit {
     pub fn has_visible_evidence(&self) -> bool {
-        !self.title.trim().is_empty()
+        !normalized_exact_text(&self.title).is_empty()
             || self
                 .snippet
                 .as_ref()
-                .is_some_and(|snippet| !snippet.trim().is_empty())
+                .is_some_and(|snippet| !normalized_exact_text(snippet).is_empty())
     }
 }
 
@@ -2238,6 +2238,24 @@ mod tests {
         assert!(!outcome.answer_allowed());
         assert!(violations.contains(&VaultContextViolation::ProvenanceHidden));
         assert!(violations.contains(&VaultContextViolation::ShadowExactEscalationRequired));
+    }
+
+    #[test]
+    fn shadow_exact_verification_rejects_markup_only_matching_evidence() {
+        let outcome = ShadowExactVerificationOutcome {
+            request: shadow_exact_request_with_target(),
+            hits: vec![shadow_exact_hit(
+                "dense-alpha",
+                " <b></b>\u{2026} ",
+                Some("<b></b>\u{2026}"),
+            )],
+        };
+
+        let violations = outcome.validate();
+        assert!(!outcome.answer_allowed());
+        assert!(violations.contains(&VaultContextViolation::ProvenanceHidden));
+        assert!(violations.contains(&VaultContextViolation::ShadowExactEscalationRequired));
+        assert!(outcome.visible_matching_hits().is_empty());
     }
 
     #[test]
