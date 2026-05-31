@@ -129,6 +129,7 @@ final class ChatCoordinator {
     let relativePath: String?
     let snippet: String
     let score: Double
+    let reasons: [String]
   }
 
   nonisolated static let allNotesMentionToken = "All Notes"
@@ -3769,7 +3770,10 @@ final class ChatCoordinator {
     )
     var candidatesByPageID: [String: VaultLookupFallbackCandidate] = [:]
     let resultLimit = max(limit, 1)
-    let searchLimit = resultLimit * 2
+    let searchLimit = vaultLookupFallbackCandidatePoolLimit(
+      resultLimit: resultLimit,
+      inventoryCount: manifest?.totalNoteCount
+    )
 
     for (phraseIndex, phrase) in phrases.enumerated() {
       let results = await searchFull(phrase, searchLimit)
@@ -3793,13 +3797,21 @@ final class ChatCoordinator {
         let entrySnippet = cleanedVaultSearchSnippet(entry?.snippet ?? "")
         let snippet = resultSnippet.isEmpty ? entrySnippet : resultSnippet
         let score = result.rank + Double((phrases.count - phraseIndex) * 100) - Double(offset)
+        let reasons = vaultLookupFallbackReasons(
+          phrase: phrase,
+          sourceRank: offset + 1,
+          title: title,
+          relativePath: entry?.relativePath,
+          snippet: snippet
+        )
 
         let candidate = VaultLookupFallbackCandidate(
           pageId: pageId,
           title: title,
           relativePath: entry?.relativePath,
           snippet: snippet,
-          score: score
+          score: score,
+          reasons: reasons
         )
 
         if let existing = candidatesByPageID[pageId], existing.score >= candidate.score {
@@ -3813,12 +3825,29 @@ final class ChatCoordinator {
       if $0.score != $1.score { return $0.score > $1.score }
       return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
     }
-    let selected = Array(ranked.prefix(resultLimit))
+    let contractSufficient = ranked.filter(vaultLookupFallbackCandidateIsContractSufficient)
+    let selected = Array(contractSufficient.prefix(resultLimit))
     let loadedTitles = uniquePreservingOrder(selected.map(\.title))
     let loadedIds = Set(selected.map(\.pageId))
     let displayQuery = phrases.first ?? query.trimmingCharacters(in: .whitespacesAndNewlines)
 
     guard !selected.isEmpty else {
+      if !ranked.isEmpty {
+        let hitLabel = ranked.count == 1 ? "hit" : "hits"
+        return VaultLookupFallbackResult(
+          answer: """
+          I found \(ranked.count) indexed vault \(hitLabel) for "\(displayQuery)", but none had title, path, or snippet evidence strong enough to satisfy the vault context contract.
+          """,
+          loadedNoteIds: [],
+          loadedNoteTitles: [],
+          vaultRecallTrace: indexedFallbackVaultRecallTrace(
+            query: displayQuery,
+            selected: [],
+            candidatePoolSize: ranked.count,
+            startedAt: nil
+          )
+        )
+      }
       return VaultLookupFallbackResult(
         answer: "I couldn't find any indexed vault notes matching \"\(displayQuery)\".",
         loadedNoteIds: [],
@@ -3843,6 +3872,9 @@ final class ChatCoordinator {
         pathSuffix = ""
       }
       lines.append("- **\(candidate.title)**\(pathSuffix)")
+      if !candidate.reasons.isEmpty {
+        lines.append("  Why: \(candidate.reasons.joined(separator: "; "))")
+      }
       if !candidate.snippet.isEmpty {
         lines.append("  \(candidate.snippet)")
       }
@@ -3859,6 +3891,90 @@ final class ChatCoordinator {
         startedAt: nil
       )
     )
+  }
+
+  private nonisolated static func vaultLookupFallbackReasons(
+    phrase: String,
+    sourceRank: Int,
+    title: String,
+    relativePath: String?,
+    snippet: String
+  ) -> [String] {
+    let trimmedPhrase = phrase.trimmingCharacters(in: .whitespacesAndNewlines)
+    let terms = vaultLookupFallbackEvidenceTerms(from: trimmedPhrase)
+    var reasons = ["Indexed vault search"]
+    if !trimmedPhrase.isEmpty {
+      reasons.append("Phrase \"\(trimmedPhrase)\"")
+    }
+    if sourceRank > 0 {
+      reasons.append("Source rank #\(sourceRank)")
+    }
+    if vaultLookupFallbackText(title, containsAny: terms) {
+      reasons.append("Title match")
+    }
+    if let relativePath,
+       vaultLookupFallbackText(relativePath, containsAny: terms) {
+      reasons.append("Path match")
+    }
+    if vaultLookupFallbackText(snippet, containsAny: terms) {
+      reasons.append("Snippet match")
+    }
+    return uniquePreservingOrder(reasons)
+  }
+
+  private nonisolated static func vaultLookupFallbackCandidateIsContractSufficient(
+    _ candidate: VaultLookupFallbackCandidate
+  ) -> Bool {
+    let evidenceReasons = ["Title match", "Path match", "Snippet match"]
+    return candidate.reasons.contains { evidenceReasons.contains($0) }
+  }
+
+  private nonisolated static let vaultLookupFallbackNonEvidenceTerms: Set<String> = [
+    "a", "an", "and", "are", "about", "called", "compare", "contain", "containing",
+    "contains", "draft", "essay", "explain", "find", "for", "in", "is", "it", "me",
+    "mention", "mentioned", "mentioning", "mentions", "my", "note", "notes", "of",
+    "on", "open", "or", "please", "reference", "referenced", "references",
+    "referencing", "review", "rewrite", "show", "summarize", "tell", "that", "the",
+    "this", "titled", "to", "vault", "what", "which", "with",
+  ]
+
+  private nonisolated static func vaultLookupFallbackEvidenceTerms(from phrase: String) -> [String] {
+    let normalized = normalizedSearchField(phrase)
+    let rawTerms = normalized.components(separatedBy: CharacterSet.alphanumerics.inverted)
+    return uniquePreservingOrder(rawTerms.compactMap { rawTerm in
+      let term = rawTerm.trimmingCharacters(in: .whitespacesAndNewlines)
+      guard !term.isEmpty,
+            !vaultLookupFallbackNonEvidenceTerms.contains(term)
+      else {
+        return nil
+      }
+      return term
+    })
+  }
+
+  private nonisolated static func vaultLookupFallbackText(
+    _ text: String,
+    containsAny terms: [String]
+  ) -> Bool {
+    guard !terms.isEmpty else { return false }
+    let normalized = normalizedSearchField(text)
+    let tokens = Set(
+      normalized
+        .components(separatedBy: CharacterSet.alphanumerics.inverted)
+        .filter { !$0.isEmpty }
+    )
+    return terms.contains { tokens.contains($0) }
+  }
+
+  private nonisolated static func vaultLookupFallbackCandidatePoolLimit(
+    resultLimit: Int,
+    inventoryCount: Int?
+  ) -> Int {
+    let requested = min(max(resultLimit * 8, 50), 200)
+    guard let inventoryCount, inventoryCount > 0 else {
+      return requested
+    }
+    return min(requested, max(inventoryCount, resultLimit))
   }
 
   nonisolated static func shouldUseIndexedVaultFallback(
