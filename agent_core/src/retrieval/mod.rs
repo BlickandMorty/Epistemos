@@ -868,13 +868,13 @@ impl VaultContextTrace {
         {
             let note_id = candidate.path.trim();
             if !note_id.is_empty() {
-                distinct.insert(note_id);
+                distinct.insert(note_id.to_lowercase());
                 continue;
             }
 
             let title = candidate.title.trim();
             if !title.is_empty() {
-                distinct.insert(title);
+                distinct.insert(title.to_lowercase());
             }
         }
         distinct.len()
@@ -1646,6 +1646,23 @@ mod tests {
     fn synthesis_validation_dedupes_repeated_selected_note_paths() {
         let mut trace = sufficient_trace();
         let mut duplicate = selected_candidate();
+        duplicate.rank = 2;
+        trace.candidates.push(duplicate);
+        trace.selected_count = 2;
+
+        assert_eq!(trace.selected_distinct_note_count(), 1);
+        assert!(trace
+            .validate_synthesis_min_distinct_notes(2)
+            .contains(&VaultContextViolation::SynthesisUnderCited));
+    }
+
+    #[test]
+    fn synthesis_validation_dedupes_selected_note_paths_case_insensitively() {
+        let mut trace = sufficient_trace();
+        trace.candidates[0].path = "Vault/Alpha.md".to_string();
+        let mut duplicate = selected_candidate();
+        duplicate.path = "vault/alpha.md".to_string();
+        duplicate.title = "Alpha duplicate".to_string();
         duplicate.rank = 2;
         trace.candidates.push(duplicate);
         trace.selected_count = 2;
