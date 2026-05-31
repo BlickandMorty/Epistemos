@@ -2334,15 +2334,12 @@ actor SearchIndexService {
 
     private nonisolated static func normalizedSearchTerms(_ raw: String) -> [String] {
         let capped = raw.count > 500 ? String(raw.prefix(500)) : raw
-        let terms = Array(
-            capped.lowercased()
-                .components(separatedBy: .alphanumerics.inverted)
-                .filter { $0.count >= 2 }
-                .map { $0.replacingOccurrences(of: "\"", with: "") }
-                .filter { !$0.isEmpty }
-                .prefix(20)
-        )
-        return vaultRecallSignalTerms(from: terms)
+        let terms = capped.lowercased()
+            .components(separatedBy: .alphanumerics.inverted)
+            .filter { $0.count >= 2 }
+            .map { $0.replacingOccurrences(of: "\"", with: "") }
+            .filter { !$0.isEmpty }
+        return uniqueSearchTerms(vaultRecallSignalTerms(from: terms), limit: 20)
     }
 
     private nonisolated static let vaultRecallBoilerplateTerms: Set<String> = [
@@ -2382,6 +2379,19 @@ actor SearchIndexService {
         guard terms.count > 1 else { return terms }
         let stripped = terms.filter { !vaultRecallBoilerplateTerms.contains($0) }
         return stripped.isEmpty ? terms : stripped
+    }
+
+    private nonisolated static func uniqueSearchTerms(_ terms: [String], limit: Int) -> [String] {
+        var seen = Set<String>()
+        var unique: [String] = []
+        unique.reserveCapacity(min(terms.count, limit))
+        for term in terms where seen.insert(term).inserted {
+            unique.append(term)
+            if unique.count == limit {
+                break
+            }
+        }
+        return unique
     }
 
     nonisolated static func sanitizeFTS5Query(_ raw: String) -> String {
