@@ -427,6 +427,120 @@ pub struct EidosCitationEnvelope {
     pub provenance: EidosProvenance,
 }
 
+/// How strongly the downstream route is expected to need closed citations.
+/// This is a route-prior hint only; it does not admit an answer or tool route.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EidosCitationNeed {
+    None,
+    Optional,
+    Required,
+}
+
+/// Eidos-derived route hint for NeuralImportance / ActiveAssembly planning.
+///
+/// The object is deliberately non-executing: it carries evidence IDs,
+/// task/claim hints, likely verifier or substrate families, and confidence.
+/// It does not contain model bytes, active units, admission proof, or runtime
+/// authority. Build through [`EidosRoutePrior::from_packet`] so evidence IDs
+/// remain inside the packet's closed citation universe.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct EidosRoutePrior {
+    pub task_signature: String,
+    pub evidence_ids: Vec<EidosChunkId>,
+    pub citation_need: EidosCitationNeed,
+    pub domain_tags: Vec<String>,
+    pub contradiction_hints: Vec<String>,
+    pub likely_verifiers: Vec<String>,
+    pub likely_adapter_families: Vec<String>,
+    pub likely_kv_regions: Vec<String>,
+    pub likely_weight_page_families: Vec<String>,
+    pub confidence: f32,
+    pub why_matched: Vec<String>,
+}
+
+impl EidosRoutePrior {
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_packet(
+        packet: &EidosContextPacket,
+        task_signature: impl Into<String>,
+        evidence_ids: Vec<EidosChunkId>,
+        citation_need: EidosCitationNeed,
+        domain_tags: Vec<String>,
+        contradiction_hints: Vec<String>,
+        likely_verifiers: Vec<String>,
+        likely_adapter_families: Vec<String>,
+        likely_kv_regions: Vec<String>,
+        likely_weight_page_families: Vec<String>,
+        confidence: f32,
+        why_matched: Vec<String>,
+    ) -> Result<Self, EidosRoutePriorError> {
+        let task_signature = task_signature.into();
+        validate_route_prior_text("task_signature", &task_signature)?;
+        if !confidence.is_finite() || !(0.0..=1.0).contains(&confidence) {
+            return Err(EidosRoutePriorError::InvalidConfidence(confidence));
+        }
+        if why_matched.is_empty() {
+            return Err(EidosRoutePriorError::EmptyField {
+                field: "why_matched",
+            });
+        }
+
+        for evidence_id in &evidence_ids {
+            if !packet.hits.iter().any(|hit| hit.source_id == *evidence_id) {
+                return Err(EidosRoutePriorError::EvidenceOutsidePacket(
+                    evidence_id.clone(),
+                ));
+            }
+        }
+
+        validate_route_prior_list("domain_tags", &domain_tags)?;
+        validate_route_prior_list("contradiction_hints", &contradiction_hints)?;
+        validate_route_prior_list("likely_verifiers", &likely_verifiers)?;
+        validate_route_prior_list("likely_adapter_families", &likely_adapter_families)?;
+        validate_route_prior_list("likely_kv_regions", &likely_kv_regions)?;
+        validate_route_prior_list("likely_weight_page_families", &likely_weight_page_families)?;
+        validate_route_prior_list("why_matched", &why_matched)?;
+
+        Ok(Self {
+            task_signature,
+            evidence_ids,
+            citation_need,
+            domain_tags,
+            contradiction_hints,
+            likely_verifiers,
+            likely_adapter_families,
+            likely_kv_regions,
+            likely_weight_page_families,
+            confidence,
+            why_matched,
+        })
+    }
+}
+
+fn validate_route_prior_list(
+    field: &'static str,
+    values: &[String],
+) -> Result<(), EidosRoutePriorError> {
+    for value in values {
+        validate_route_prior_text(field, value)?;
+    }
+    Ok(())
+}
+
+fn validate_route_prior_text(field: &'static str, value: &str) -> Result<(), EidosRoutePriorError> {
+    if value.trim().is_empty() {
+        return Err(EidosRoutePriorError::EmptyField { field });
+    }
+    if value.trim() != value {
+        return Err(EidosRoutePriorError::FieldHasSurroundingWhitespace { field });
+    }
+    if value.chars().any(char::is_control) {
+        return Err(EidosRoutePriorError::FieldContainsControlCharacter { field });
+    }
+    Ok(())
+}
+
 /// `Serialize` is derived for the future Swift bridge (W-46/W-47).
 /// External tagging (the serde default) is used because internal
 /// tagging can't serialize tuple-newtype variants like
@@ -450,6 +564,24 @@ pub enum CitationError {
         packet: EidosIndexManifestId,
         citation: EidosIndexManifestId,
     },
+}
+
+#[derive(Debug, Error, PartialEq)]
+pub enum EidosRoutePriorError {
+    #[error("route-prior evidence id was not present in the sealed Eidos packet: {0:?}")]
+    EvidenceOutsidePacket(EidosChunkId),
+
+    #[error("{field} is required for an Eidos route prior")]
+    EmptyField { field: &'static str },
+
+    #[error("{field} must not contain leading or trailing whitespace")]
+    FieldHasSurroundingWhitespace { field: &'static str },
+
+    #[error("{field} must not contain control characters")]
+    FieldContainsControlCharacter { field: &'static str },
+
+    #[error("route-prior confidence must be finite and in [0, 1], got {0}")]
+    InvalidConfidence(f32),
 }
 
 // ---------------------------------------------------------------------------
@@ -904,6 +1036,85 @@ mod tests {
         let json = serde_json::to_string(&packet).expect("serialize");
         let back: EidosContextPacket = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(back, packet);
+    }
+
+    #[test]
+    fn eidos_route_prior_rejects_forged_evidence_id() {
+        let packet = sample_packet();
+
+        let err = EidosRoutePrior::from_packet(
+            &packet,
+            "deep_research:tropical_optimization",
+            vec![chunk_id("chunk-1"), chunk_id("forged-chunk")],
+            EidosCitationNeed::Required,
+            vec!["math".to_string()],
+            vec!["possible source conflict".to_string()],
+            vec!["citation_checker".to_string()],
+            vec!["math_adapter".to_string()],
+            vec!["kv:math-history".to_string()],
+            vec!["weights:proof-family".to_string()],
+            0.75,
+            vec!["chunk-1 matched by lexical evidence".to_string()],
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            EidosRoutePriorError::EvidenceOutsidePacket(chunk_id("forged-chunk"))
+        );
+    }
+
+    #[test]
+    fn eidos_route_prior_roundtrips_with_closed_evidence() {
+        let packet = sample_packet();
+
+        let prior = EidosRoutePrior::from_packet(
+            &packet,
+            "deep_research:tropical_optimization",
+            vec![chunk_id("chunk-1"), chunk_id("chunk-2")],
+            EidosCitationNeed::Required,
+            vec!["math".to_string(), "optimization".to_string()],
+            vec!["possible source conflict".to_string()],
+            vec!["citation_checker".to_string(), "schema_checker".to_string()],
+            vec!["math_adapter".to_string()],
+            vec!["kv:math-history".to_string()],
+            vec!["weights:proof-family".to_string()],
+            0.75,
+            vec!["chunks matched by lexical evidence".to_string()],
+        )
+        .expect("closed packet evidence should produce a route prior");
+
+        let json = serde_json::to_string(&prior).unwrap();
+        let back: EidosRoutePrior = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, prior);
+        assert_eq!(
+            back.evidence_ids,
+            vec![chunk_id("chunk-1"), chunk_id("chunk-2")]
+        );
+        assert_eq!(back.citation_need, EidosCitationNeed::Required);
+    }
+
+    #[test]
+    fn eidos_route_prior_rejects_nan_confidence() {
+        let packet = sample_packet();
+
+        let err = EidosRoutePrior::from_packet(
+            &packet,
+            "deep_research:tropical_optimization",
+            vec![chunk_id("chunk-1")],
+            EidosCitationNeed::Required,
+            vec!["math".to_string()],
+            vec![],
+            vec!["citation_checker".to_string()],
+            vec!["math_adapter".to_string()],
+            vec!["kv:math-history".to_string()],
+            vec!["weights:proof-family".to_string()],
+            f32::NAN,
+            vec!["chunk-1 matched by lexical evidence".to_string()],
+        )
+        .unwrap_err();
+
+        assert!(matches!(err, EidosRoutePriorError::InvalidConfidence(v) if v.is_nan()));
     }
 
     #[test]
