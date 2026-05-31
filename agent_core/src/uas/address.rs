@@ -149,7 +149,11 @@ mod serde_blake3_hash {
 
     pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Hash, D::Error> {
         let hex = String::deserialize(d)?;
-        Hash::from_hex(&hex).map_err(serde::de::Error::custom)
+        let hash = Hash::from_hex(&hex).map_err(serde::de::Error::custom)?;
+        if hash.to_hex().as_str() != hex {
+            return Err(serde::de::Error::custom("noncanonical BLAKE3 hex"));
+        }
+        Ok(hash)
     }
 }
 
@@ -171,6 +175,18 @@ mod tests {
         let json = serde_json::to_string(&addr).expect("serialize must succeed");
         let parsed: UasAddress = serde_json::from_str(&json).expect("deserialize must succeed");
         assert_eq!(addr, parsed);
+    }
+
+    #[test]
+    fn serde_json_rejects_noncanonical_uppercase_hash() {
+        let addr = UasAddress::new(UasKind::VaultNote, b"hello-uas", 1_234_567_890);
+        let mut json = serde_json::to_value(&addr).expect("serialize must succeed");
+        let uppercase_hash = addr.hash.to_hex().to_string().to_uppercase();
+        json["hash"] = serde_json::Value::String(uppercase_hash);
+
+        let err = serde_json::from_value::<UasAddress>(json).unwrap_err();
+
+        assert!(err.to_string().contains("noncanonical BLAKE3 hex"));
     }
 
     #[test]
