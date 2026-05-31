@@ -6,11 +6,14 @@
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::fs::File;
+use std::io::Read;
 use std::path::Path;
 
 const ROW_ROOT: &str = "artifacts/falsifiers/70b_local_cocktail_lite/";
 const KV_PROMPT_SUITE_ROOT: &str = "artifacts/falsifiers/kv_direct_gate/";
 const MIN_PROMPT_LEVEL_PROMPTS: u32 = 50;
+const REFERENCE_DIGEST_CHUNK_BYTES: usize = 64 * 1024;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -471,13 +474,28 @@ fn validate_file_digest(
     if !canonical_path.starts_with(&canonical_base) {
         return Err(ReplayFileError::EscapesBaseDir);
     }
-    let bytes = std::fs::read(path).map_err(|_| ReplayFileError::Missing)?;
-    let actual = format!("sha256:{}", hex_lower(&Sha256::digest(&bytes)));
+    let mut file = File::open(canonical_path).map_err(|_| ReplayFileError::Missing)?;
+    let actual = sha256_digest_reader(&mut file)?;
     if actual == expected_sha256 {
         Ok(())
     } else {
         Err(ReplayFileError::DigestMismatch)
     }
+}
+
+fn sha256_digest_reader<R: Read>(reader: &mut R) -> Result<String, ReplayFileError> {
+    let mut hasher = Sha256::new();
+    let mut buffer = [0_u8; REFERENCE_DIGEST_CHUNK_BYTES];
+    loop {
+        let count = reader
+            .read(&mut buffer)
+            .map_err(|_| ReplayFileError::Missing)?;
+        if count == 0 {
+            break;
+        }
+        hasher.update(&buffer[..count]);
+    }
+    Ok(format!("sha256:{}", hex_lower(&hasher.finalize())))
 }
 
 fn hex_lower(bytes: &[u8]) -> String {
@@ -801,6 +819,38 @@ mod tests {
             manifest.validate_replay_files_at(temp.path()),
             Err(ProviderReferenceManifestError::PromptSuiteFileMissing)
         );
+    }
+
+    #[test]
+    fn replay_file_digest_streams_incremental_reader() {
+        struct SevenByteReader {
+            bytes: Vec<u8>,
+            position: usize,
+        }
+
+        impl std::io::Read for SevenByteReader {
+            fn read(&mut self, out: &mut [u8]) -> std::io::Result<usize> {
+                if self.position >= self.bytes.len() {
+                    return Ok(0);
+                }
+                let take = 7.min(out.len()).min(self.bytes.len() - self.position);
+                out[..take].copy_from_slice(&self.bytes[self.position..self.position + take]);
+                self.position += take;
+                Ok(take)
+            }
+        }
+
+        let bytes: Vec<u8> = (0..150_000).map(|i| (i % 251) as u8).collect();
+        let mut reader = SevenByteReader {
+            bytes: bytes.clone(),
+            position: 0,
+        };
+        let expected = format!("sha256:{}", hex_lower(&Sha256::digest(&bytes)));
+
+        let actual = sha256_digest_reader(&mut reader).unwrap();
+
+        assert_eq!(actual, expected);
+        assert_eq!(reader.position, bytes.len());
     }
 
     #[cfg(unix)]
