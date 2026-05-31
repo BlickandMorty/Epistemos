@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::sync::Mutex;
 
 use async_trait::async_trait;
@@ -651,8 +651,20 @@ impl VaultStore {
     }
 
     fn resolve_path(&self, relative: &str) -> Result<PathBuf, VaultError> {
-        let sanitized = relative.trim_start_matches('/').replace("..", "");
-        let absolute = self.vault_root.join(&sanitized);
+        let normalized = relative
+            .trim_start_matches(|ch| ch == '/' || ch == '\\')
+            .replace('\\', "/");
+        let mut safe_relative = PathBuf::new();
+        for component in Path::new(&normalized).components() {
+            match component {
+                Component::Normal(segment) => safe_relative.push(segment),
+                Component::CurDir => {}
+                Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
+                    return Err(VaultError::PathTraversal(relative.to_string()));
+                }
+            }
+        }
+        let absolute = self.vault_root.join(&safe_relative);
         if !absolute.starts_with(&self.vault_root) {
             return Err(VaultError::PathTraversal(relative.to_string()));
         }
@@ -1866,6 +1878,27 @@ mod tests {
         assert!(
             !first.excerpt.starts_with("preface preface"),
             "excerpt should not be the unrelated leading paragraph"
+        );
+    }
+
+    #[tokio::test]
+    async fn vault_write_rejects_parent_directory_path_without_silent_rewrite() {
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
+
+        let err = store
+            .write("safe/../outside.md", "escape attempt", None, false)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(
+            err,
+            VaultError::PathTraversal(path) if path == "safe/../outside.md"
+        ));
+        assert!(
+            !vault_root.path().join("safe/outside.md").exists(),
+            "parent traversal must not be silently rewritten as a different in-vault path"
         );
     }
 
