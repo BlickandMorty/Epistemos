@@ -491,7 +491,49 @@ fn validate_app_cold_store_source_uri(source_uri: &str) -> Result<(), AppColdSto
 fn has_source_uri_payload(source_uri: &str, prefix: &str) -> bool {
     source_uri
         .strip_prefix(prefix)
-        .is_some_and(|payload| !payload.trim_matches('/').is_empty())
+        .is_some_and(local_source_uri_payload_is_safe)
+}
+
+fn local_source_uri_payload_is_safe(payload: &str) -> bool {
+    let payload = payload.trim_matches('/');
+    if payload.is_empty() {
+        return false;
+    }
+    let Some(decoded_payload) = percent_decode_uri_payload(payload) else {
+        return false;
+    };
+    !decoded_payload
+        .split(|ch| ch == '/' || ch == '\\')
+        .any(|segment| segment == "." || segment == "..")
+}
+
+fn percent_decode_uri_payload(value: &str) -> Option<String> {
+    let bytes = value.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+
+    while index < bytes.len() {
+        if bytes[index] == b'%' {
+            let high = bytes.get(index + 1).copied().and_then(hex_nibble)?;
+            let low = bytes.get(index + 2).copied().and_then(hex_nibble)?;
+            decoded.push((high << 4) | low);
+            index += 3;
+        } else {
+            decoded.push(bytes[index]);
+            index += 1;
+        }
+    }
+
+    String::from_utf8(decoded).ok()
+}
+
+fn hex_nibble(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
 }
 
 fn missing_field_error(field: &'static str) -> AppColdStoreRouteCardError {
@@ -1134,6 +1176,61 @@ mod tests {
                 source_uri: "app-support://".to_string()
             }
         );
+    }
+
+    #[test]
+    fn app_cold_store_route_card_rejects_parent_directory_source_uri_segments() {
+        for source_uri in [
+            "file:///models/cold-atlas/../outside/model.safetensors",
+            "app-support://Models/coldstore/../outside/model.safetensors",
+            "app-group://Shared/coldstore/%2e%2e/outside/model.safetensors",
+        ] {
+            let hot = block(
+                "hot-controller",
+                0,
+                512,
+                WeightBlockEncoding::DenseBf16,
+                WeightBlockResidencyClass::HotUma,
+                None,
+            );
+            let cold = WeightBlockManifest::from_known_hash_hex(
+                "local/cold-atlas-fixture",
+                source_uri,
+                2048,
+                4096,
+                blake3::hash(source_uri.as_bytes()).to_hex().as_str(),
+                1_779_000_000_000,
+                WeightBlockEncoding::Nf4,
+                WeightBlockResidencyClass::ColdMmapSsd,
+                WeightBlockIrChart::OpaqueWithWitness,
+                0.02,
+                "F-AppColdStore-Layout",
+                Some(rollback_reference()),
+            )
+            .expect("generic weight manifests may describe source URI candidates");
+            let budget = ResidencyBudget::new(GIB, 0, 8 * GIB, 0.25, 16).unwrap();
+            let plan = ResidencyPlan::evaluate([hot, cold], budget, 42);
+            assert_eq!(plan.status, ResidencyPlanStatus::FitForDryRun);
+
+            let err = AppColdStoreRouteCard::from_residency_plan(
+                "deep_research:neural_importance_atlas",
+                verifier_stack(),
+                "rollback:raw-installed-snapshot",
+                ProductBuild::Pro,
+                ProStatus::ResearchCandidate,
+                &plan,
+                "rebuild_warm_cache_from_durable_atlas",
+                99,
+            )
+            .unwrap_err();
+
+            assert_eq!(
+                err,
+                AppColdStoreRouteCardError::UnsupportedSourceUri {
+                    source_uri: source_uri.to_string()
+                }
+            );
+        }
     }
 
     #[test]
