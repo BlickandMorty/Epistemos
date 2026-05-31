@@ -195,10 +195,26 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "total_addressed_bytes",
+        card.totals.total_addressed_bytes,
+        1,
+        "bytes",
+    );
+    add_count_min_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "planned_active_runtime_bytes",
         card.totals.active_runtime_bytes,
         1,
         "bytes",
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "cold_bytes_excluded_from_active_runtime",
+        card.totals.active_runtime_bytes < card.totals.total_addressed_bytes,
     );
     add_count_eq_axis(
         &mut measurements,
@@ -477,6 +493,23 @@ mod tests {
         assert!(report.durable_bytes > 0);
         assert!(report.warm_bytes > 0);
         assert!(report.hot_bytes > 0);
+        assert_eq!(
+            report
+                .artifact
+                .measurements
+                .get("total_addressed_bytes")
+                .map(|measurement| &measurement.value),
+            Some(&serde_json::Value::Number(serde_json::Number::from(
+                report.durable_bytes + report.warm_bytes + report.hot_bytes
+            )))
+        );
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("cold_bytes_excluded_from_active_runtime"),
+            Some(&true)
+        );
         assert_eq!(
             report
                 .artifact

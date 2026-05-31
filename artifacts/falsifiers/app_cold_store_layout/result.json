@@ -28,12 +28,16 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "7d59ec7cf483d0a542c965ebc075d7294a80d42a",
+  "commit_sha": "257c5c5a6bcceb19f676ec861590a3c8e21f038d",
   "fixture_id": "app_cold_store_layout_manifest_only_v1",
-  "timestamp_utc": "2026-05-31T06:20:01Z",
-  "result_digest": "sha256:fcafb9cc636935e5a6c680053b2136494d011b41963381df41380cc14f7e2432",
+  "timestamp_utc": "2026-05-31T07:22:05Z",
+  "result_digest": "sha256:6b938b965e4d4353784cf02f53da62b37941f434a4e70343ff7154ae6799990b",
   "measurements": {
     "closed_citation_validity_not_applicable": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_bytes_excluded_from_active_runtime": {
       "value": true,
       "unit": "bool"
     },
@@ -93,6 +97,10 @@
       "value": 0,
       "unit": "bytes"
     },
+    "total_addressed_bytes": {
+      "value": 4864,
+      "unit": "bytes"
+    },
     "warm_cache_bytes": {
       "value": 256,
       "unit": "bytes"
@@ -108,6 +116,11 @@
   },
   "acceptance_thresholds": {
     "closed_citation_validity_not_applicable": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_bytes_excluded_from_active_runtime": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -182,6 +195,11 @@
       "value": 0,
       "unit": "bytes"
     },
+    "total_addressed_bytes": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes"
+    },
     "warm_cache_bytes": {
       "operator": ">=",
       "value": 1,
@@ -200,6 +218,7 @@
   },
   "pass_per_axis": {
     "closed_citation_validity_not_applicable": true,
+    "cold_bytes_excluded_from_active_runtime": true,
     "dry_run_copy_count": true,
     "dry_run_ssd_read_bytes": true,
     "durable_atlas_bytes": true,
@@ -214,6 +233,7 @@
     "route_card_constructed": true,
     "runtime_model_bytes_loaded": true,
     "runtime_model_peak_uma_bytes": true,
+    "total_addressed_bytes": true,
     "warm_cache_bytes": true,
     "warm_cache_rebuildable": true,
     "witness_completeness_percent": true
