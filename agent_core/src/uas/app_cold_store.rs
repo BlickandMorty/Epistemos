@@ -422,8 +422,7 @@ fn validate_eidos_route_prior(
     if prior.evidence_ids.is_empty() {
         return Err(AppColdStoreRouteCardError::MissingRoutePriorEvidence);
     }
-    if prior.likely_verifiers.is_empty()
-        && prior.likely_adapter_families.is_empty()
+    if prior.likely_adapter_families.is_empty()
         && prior.likely_kv_regions.is_empty()
         && prior.likely_weight_page_families.is_empty()
     {
@@ -569,7 +568,7 @@ impl std::fmt::Display for AppColdStoreRouteCardError {
             ),
             Self::MissingRoutePriorSupport => write!(
                 f,
-                "EidosRoutePrior must carry at least one verifier, adapter, KV, or weight-page support hint"
+                "EidosRoutePrior must carry at least one adapter, KV, or weight-page support hint"
             ),
             Self::UnboundRoutePriorVerifier { verifier } => write!(
                 f,
@@ -1079,6 +1078,34 @@ mod tests {
                 verifier: "F-Eidos-PostValidation-Repair".to_string()
             }
         );
+    }
+
+    #[test]
+    fn eidos_route_prior_requires_routeable_neural_support_hint() {
+        let plan = fit_plan();
+        let prior = eidos_prior(
+            vec!["F-AppColdStore-Layout".to_string()],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            0.82,
+        )
+        .expect("verifier-only Eidos prior is shape-valid before route-card admission");
+
+        let err = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+            "deep_research:neural_importance_atlas",
+            route_prior_verifier_stack(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            Some(prior),
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(err, AppColdStoreRouteCardError::MissingRoutePriorSupport);
     }
 
     #[test]
