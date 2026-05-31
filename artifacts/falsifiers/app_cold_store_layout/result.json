@@ -28,9 +28,9 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "1a7e4318c612a52c31b8c72619407848d367e4e7",
+  "commit_sha": "81e59ecd4ba4a053feffd7441c9d5a2c992cd8db",
   "fixture_id": "app_cold_store_layout_manifest_only_v1",
-  "timestamp_utc": "2026-05-31T09:15:46Z",
+  "timestamp_utc": "2026-05-31T09:51:11Z",
   "result_digest": "sha256:e448a740cadfca0ac2a6aaee1b2b34c45c64ed78bd9ef1cfa265f913cdca6502",
   "measurements": {
     "closed_citation_validity": {
