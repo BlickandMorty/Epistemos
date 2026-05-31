@@ -404,6 +404,28 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "eidos_route_prior_task_signature_bound",
+        card.eidos_route_prior
+            .as_ref()
+            .is_some_and(|prior| prior.task_signature == card.task_signature),
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "eidos_route_prior_why_matched_visible",
+        card.eidos_route_prior.as_ref().is_some_and(|prior| {
+            !prior.why_matched.is_empty()
+                && prior
+                    .why_matched
+                    .iter()
+                    .all(|reason| !reason.trim().is_empty())
+        }),
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "eidos_route_prior_neural_falsifier_bound",
         card.verifier_stack
             .iter()
@@ -871,6 +893,20 @@ mod tests {
                 .artifact
                 .pass_per_axis
                 .get("eidos_route_prior_closed_evidence_verified"),
+            Some(&true)
+        );
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("eidos_route_prior_task_signature_bound"),
+            Some(&true)
+        );
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("eidos_route_prior_why_matched_visible"),
             Some(&true)
         );
         assert_eq!(
