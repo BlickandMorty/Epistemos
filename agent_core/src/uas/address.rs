@@ -112,6 +112,9 @@ impl FromStr for UasAddress {
 
         let hash = Hash::from_hex(hex_part)
             .map_err(|_| UasAddressParseError::BadHash(hex_part.to_string()))?;
+        if hash.to_hex().as_str() != hex_part {
+            return Err(UasAddressParseError::BadHash(hex_part.to_string()));
+        }
 
         let created_at_ms = ms_part
             .parse::<u64>()
@@ -223,6 +226,19 @@ mod tests {
         let s = "vault_note:not-a-hash@0";
         let err = UasAddress::from_str(s).unwrap_err();
         assert!(matches!(err, UasAddressParseError::BadHash(_)));
+    }
+
+    #[test]
+    fn noncanonical_uppercase_hash_surfaces_typed_error() {
+        let uppercase_hex = blake3::hash(b"hello-uas")
+            .to_hex()
+            .to_string()
+            .to_uppercase();
+        let s = format!("vault_note:{uppercase_hex}@0");
+
+        let err = UasAddress::from_str(&s).unwrap_err();
+
+        assert_eq!(err, UasAddressParseError::BadHash(uppercase_hex));
     }
 
     #[test]
