@@ -162,7 +162,7 @@ impl AppColdStoreRouteCard {
             {
                 return Err(AppColdStoreRouteCardError::MissingEidosNeuralRoutePriorVerifier);
             }
-            validate_eidos_route_prior(&task_signature, prior)?;
+            validate_eidos_route_prior(&task_signature, &verifier_stack, prior)?;
         }
 
         let residency_status = plan.effective_residency_tier;
@@ -384,6 +384,7 @@ fn validate_build_status(
 
 fn validate_eidos_route_prior(
     task_signature: &str,
+    verifier_stack: &[String],
     prior: &EidosRoutePrior,
 ) -> Result<(), AppColdStoreRouteCardError> {
     prior
@@ -403,6 +404,13 @@ fn validate_eidos_route_prior(
         && prior.likely_weight_page_families.is_empty()
     {
         return Err(AppColdStoreRouteCardError::MissingRoutePriorSupport);
+    }
+    for verifier in &prior.likely_verifiers {
+        if !verifier_stack.iter().any(|bound| bound == verifier) {
+            return Err(AppColdStoreRouteCardError::UnboundRoutePriorVerifier {
+                verifier: verifier.clone(),
+            });
+        }
     }
     Ok(())
 }
@@ -451,6 +459,7 @@ pub enum AppColdStoreRouteCardError {
     InvalidRoutePriorShape { reason: String },
     MissingRoutePriorEvidence,
     MissingRoutePriorSupport,
+    UnboundRoutePriorVerifier { verifier: String },
 }
 
 impl std::fmt::Display for AppColdStoreRouteCardError {
@@ -513,6 +522,10 @@ impl std::fmt::Display for AppColdStoreRouteCardError {
             Self::MissingRoutePriorSupport => write!(
                 f,
                 "EidosRoutePrior must carry at least one verifier, adapter, KV, or weight-page support hint"
+            ),
+            Self::UnboundRoutePriorVerifier { verifier } => write!(
+                f,
+                "EidosRoutePrior likely verifier is not bound in the AppColdStore route-card verifier stack: {verifier}"
             ),
         }
     }
@@ -938,6 +951,39 @@ mod tests {
         assert_eq!(
             err,
             AppColdStoreRouteCardError::MissingParamRouteCardAdmissionVerifier
+        );
+    }
+
+    #[test]
+    fn eidos_route_prior_likely_verifiers_must_be_bound_by_route_card() {
+        let plan = fit_plan();
+        let prior = eidos_prior(
+            vec!["F-Eidos-PostValidation-Repair".to_string()],
+            vec!["adapter:research_synthesis".to_string()],
+            Vec::new(),
+            vec!["weight_page:controller".to_string()],
+            0.82,
+        )
+        .expect("valid Eidos prior should build");
+
+        let err = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+            "deep_research:neural_importance_atlas",
+            route_prior_verifier_stack(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            Some(prior),
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            AppColdStoreRouteCardError::UnboundRoutePriorVerifier {
+                verifier: "F-Eidos-PostValidation-Repair".to_string()
+            }
         );
     }
 
