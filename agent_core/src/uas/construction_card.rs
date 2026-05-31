@@ -184,6 +184,12 @@ impl ConstructionCard {
         {
             return Err(ConstructionCardError::ProductBuildStatusMismatch);
         }
+        if product_build == ProductBuild::Pro
+            && pro_status == ProStatus::Live
+            && residency_status == ResidencyTier::CapabilityCeiling
+        {
+            return Err(ConstructionCardError::ProductBuildStatusMismatch);
+        }
         if product_build == ProductBuild::Mas && !residency_status.ships_to_mas() {
             return Err(ConstructionCardError::ProductBuildResidencyMismatch);
         }
@@ -335,7 +341,7 @@ impl std::fmt::Display for ConstructionCardError {
             Self::InvalidBudget => write!(f, "construction budget is invalid"),
             Self::ProductBuildStatusMismatch => write!(
                 f,
-                "MAS build construction cards cannot carry Pro research, vault-preserved, or omega status"
+                "construction card product build, Pro status, and residency status are inconsistent"
             ),
             Self::ProductBuildResidencyMismatch => write!(
                 f,
@@ -673,6 +679,35 @@ mod tests {
 
             assert_eq!(err, ConstructionCardError::ProductBuildResidencyMismatch);
         }
+    }
+
+    #[test]
+    fn construction_card_rejects_live_status_on_capability_ceiling_residency() {
+        let budget = ConstructionBudget {
+            hot_uma_bytes: 0,
+            warm_compressed_uma_bytes: 0,
+            cold_mmap_ssd_bytes: 0,
+            wbo_budget_nats: 0.0,
+            copy_budget: 0,
+        };
+
+        let err = ConstructionCard::new(
+            "problem",
+            vec![WeightBlockIrChart::Scan],
+            "projection",
+            "witness",
+            budget,
+            "F-Test",
+            "rollback",
+            ProductBuild::Pro,
+            ProStatus::Live,
+            ResidencyTier::CapabilityCeiling,
+            None,
+            10,
+        )
+        .unwrap_err();
+
+        assert_eq!(err, ConstructionCardError::ProductBuildStatusMismatch);
     }
 
     #[test]
