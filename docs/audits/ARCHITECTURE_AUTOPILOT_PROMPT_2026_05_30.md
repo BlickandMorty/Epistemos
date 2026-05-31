@@ -67,6 +67,36 @@ Current naming/build lock:
   evidence validity, active bytes, and visible proof before any local-frontier
   claim is allowed.
 
+Claude-ledger scope lock:
+
+- The long Claude Phase 1 / Phase 2 / T25+ ledger is canon baseline, not final
+  source truth. Always verify current code and current docs before declaring a
+  row open, closed, wired, or obsolete.
+- Nothing from the original Phase 1 / Phase 2 / T25+ ambition is dropped.
+  Reconcile every row as one of: current code already wired, port one additive
+  donor hunk/test, preserve as Pro Research / Pro Vault-Preserved / Pro Omega,
+  or explicitly blocked with the missing falsifier/gate.
+- Phase 1 leftovers remain in scope: T4 vault retrieval unique-value check,
+  T6 UI/UX donor mining, T5 Lean custody, T2 routeProfiles,
+  ToolCallingPlan additive variant, T23B dedupe, and T12 eml_ir vs
+  fulp_oracle consolidation.
+- Phase 2 wiring remains in scope: T10 Eidos -> QueryRuntime, T21 VaultRecall
+  -> MeaningAnchorService, T17B lattice/WBO oplog accounting, T18B
+  SCOPE-Rex/SovereignGate admission, T12 F-ULP witness emission, T11 System G
+  -> LocalAgentLoop, T21 capstone unification, T2 RunTimelineView, and W-11
+  through W-18 dispatch hooks.
+- T25+ / future rows remain in scope as gated work: T14 UAS addressing, T22
+  falsifier panel, T22B vault retrieval / Brain Panel closed citations, T27
+  visible product behavior, T10B, T13, T15, T16, T19, T20, T24, T25, and T26.
+- Auxiliary branches remain preservation/donor references only:
+  `release-stabilization/runtime-hardening`, `runtime-input-audit`,
+  `runtime-memory-hardening`, `feature/knowledge-fusion-v1`, and run-b/c/d/e/f
+  style branches. Audit surgically; never wholesale merge.
+- The 70B cocktail remains core canon but unproven. Safe path only:
+  WeightBlockManifest -> ResidencyPlan -> non-executing witnesses ->
+  crash-safe harness -> measured runtime probe. No heavy runtime probe from
+  this loop.
+
 Hard safety rules:
 
 - Do not touch the paused font/typography bundle unless the user explicitly
