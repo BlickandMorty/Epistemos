@@ -507,6 +507,7 @@ impl EidosRoutePrior {
 
     pub fn validate_shape(&self) -> Result<(), EidosRoutePriorError> {
         validate_route_prior_text("task_signature", &self.task_signature)?;
+        validate_route_prior_text("manifest_id", self.manifest_id.as_str())?;
         if !self.confidence.is_finite() || !(0.0..=1.0).contains(&self.confidence) {
             return Err(EidosRoutePriorError::InvalidConfidence(self.confidence));
         }
@@ -521,6 +522,7 @@ impl EidosRoutePrior {
 
         let mut seen_evidence_ids = HashSet::new();
         for evidence_id in &self.evidence_ids {
+            validate_route_prior_text("evidence_ids", evidence_id.as_str())?;
             if !seen_evidence_ids.insert(evidence_id) {
                 return Err(EidosRoutePriorError::DuplicateEvidenceId(
                     evidence_id.clone(),
@@ -1233,6 +1235,58 @@ mod tests {
                 field: "likely_kv_regions",
                 value: "kv:math-history".to_string()
             }
+        );
+    }
+
+    #[test]
+    fn eidos_route_prior_shape_rejects_deserialized_empty_manifest_id() {
+        let json = r#"{
+            "task_signature": "deep_research:tropical_optimization",
+            "manifest_id": "",
+            "evidence_ids": ["chunk-1"],
+            "citation_need": "required",
+            "domain_tags": ["math"],
+            "contradiction_hints": [],
+            "likely_verifiers": ["citation_checker"],
+            "likely_adapter_families": ["math_adapter"],
+            "likely_kv_regions": ["kv:math-history"],
+            "likely_weight_page_families": ["weights:proof-family"],
+            "confidence": 0.75,
+            "why_matched": ["chunk-1 matched by lexical evidence"]
+        }"#;
+        let prior: EidosRoutePrior = serde_json::from_str(json).unwrap();
+
+        assert_eq!(
+            prior.validate_shape(),
+            Err(EidosRoutePriorError::EmptyField {
+                field: "manifest_id"
+            })
+        );
+    }
+
+    #[test]
+    fn eidos_route_prior_shape_rejects_deserialized_empty_evidence_id() {
+        let json = r#"{
+            "task_signature": "deep_research:tropical_optimization",
+            "manifest_id": "manifest-A",
+            "evidence_ids": [""],
+            "citation_need": "required",
+            "domain_tags": ["math"],
+            "contradiction_hints": [],
+            "likely_verifiers": ["citation_checker"],
+            "likely_adapter_families": ["math_adapter"],
+            "likely_kv_regions": ["kv:math-history"],
+            "likely_weight_page_families": ["weights:proof-family"],
+            "confidence": 0.75,
+            "why_matched": ["chunk-1 matched by lexical evidence"]
+        }"#;
+        let prior: EidosRoutePrior = serde_json::from_str(json).unwrap();
+
+        assert_eq!(
+            prior.validate_shape(),
+            Err(EidosRoutePriorError::EmptyField {
+                field: "evidence_ids"
+            })
         );
     }
 
