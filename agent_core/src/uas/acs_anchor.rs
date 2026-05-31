@@ -39,6 +39,7 @@ pub struct AcsAnchorPlaneProjection<'a> {
     pub residency: ResidencyTier,
     pub source_hash: Option<&'a str>,
     pub active_packet_id: Option<&'a str>,
+    pub compatibility_edge: Option<&'a str>,
 }
 
 impl AcsAnchor {
@@ -83,6 +84,7 @@ impl AcsAnchor {
             residency: self.residency,
             source_hash: self.source_hash.as_deref(),
             active_packet_id: self.active_packet_id.as_deref(),
+            compatibility_edge: self.compatibility_edge.as_deref(),
         }
     }
 }
@@ -234,5 +236,22 @@ mod tests {
         assert_eq!(projection.residency, ResidencyTier::VerifiedFloor);
         assert_eq!(projection.source_hash, Some("blake3:abc"));
         assert_eq!(projection.active_packet_id, Some("packet-1"));
+        assert_eq!(projection.compatibility_edge, None);
+    }
+
+    #[test]
+    fn plane_projection_preserves_compatibility_edge_without_allocation() {
+        let mut anchor = AcsAnchor::new(
+            "claim-1",
+            "E1",
+            RuntimePlane::Verification,
+            ResidencyTier::VerifiedFloor,
+            0.7,
+        );
+        anchor.compatibility_edge = Some("edge-1".to_string());
+
+        let projection = anchor.project_to_plane();
+
+        assert_eq!(projection.compatibility_edge, Some("edge-1"));
     }
 }

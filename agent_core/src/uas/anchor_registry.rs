@@ -84,12 +84,18 @@ mod tests {
             0.8,
         );
         anchor.source_hash = Some("blake3:abc".to_string());
+        anchor.compatibility_edge = Some("edge-1".to_string());
         let mut projection_source = anchor.clone();
         projection_source.source_hash = Some("blake3:changed".to_string());
+        let mut compatibility_source = anchor.clone();
+        compatibility_source.compatibility_edge = Some("edge-2".to_string());
         registry.insert(anchor);
 
         assert!(registry
             .lookup_via_projection(projection_source.project_to_plane())
+            .is_none());
+        assert!(registry
+            .lookup_via_projection(compatibility_source.project_to_plane())
             .is_none());
     }
 
