@@ -871,14 +871,7 @@ impl VaultContextTrace {
             .iter()
             .filter(|candidate| candidate.selected)
         {
-            let title_key = {
-                let title = candidate.title.trim();
-                if title.is_empty() {
-                    None
-                } else {
-                    Some(title.to_lowercase())
-                }
-            };
+            let title_key = normalized_title_identity_key(&candidate.title);
             let note_id = candidate.path.trim();
             if !note_id.is_empty() {
                 path_keys.insert(note_id.to_lowercase());
@@ -1226,6 +1219,15 @@ fn normalized_exact_text(value: &str) -> String {
         }
     }
     normalized.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn normalized_title_identity_key(value: &str) -> Option<String> {
+    let normalized = normalized_exact_text(value);
+    if normalized.is_empty() {
+        None
+    } else {
+        Some(normalized.to_lowercase())
+    }
 }
 
 fn shadow_exact_hit_matches_target(
@@ -1718,6 +1720,24 @@ mod tests {
         let mut trace = sufficient_trace();
         trace.candidates[0].path.clear();
         trace.candidates[0].title = "Vault Recall Alpha".to_string();
+        let mut duplicate = selected_candidate();
+        duplicate.path.clear();
+        duplicate.title = "vault recall alpha".to_string();
+        duplicate.rank = 2;
+        trace.candidates.push(duplicate);
+        trace.selected_count = 2;
+
+        assert_eq!(trace.selected_distinct_note_count(), 1);
+        assert!(trace
+            .validate_synthesis_min_distinct_notes(2)
+            .contains(&VaultContextViolation::SynthesisUnderCited));
+    }
+
+    #[test]
+    fn synthesis_validation_dedupes_title_only_candidates_with_whitespace_variants() {
+        let mut trace = sufficient_trace();
+        trace.candidates[0].path.clear();
+        trace.candidates[0].title = "Vault   Recall\nAlpha".to_string();
         let mut duplicate = selected_candidate();
         duplicate.path.clear();
         duplicate.title = "vault recall alpha".to_string();
