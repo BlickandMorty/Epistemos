@@ -22,7 +22,7 @@ to stable build rules that agents can apply before editing.
 Epistemos is:
 
 ```text
-one substrate, three motions, five authority fields, visible proof
+one substrate, two builds, three motions, five planes, visible proof
 ```
 
 Definitions:
@@ -30,9 +30,132 @@ Definitions:
 | Term | Canonical meaning | Agent check |
 |---|---|---|
 | One substrate | UAS + OAS + AcsAnchor coordinate layer + ColdStore/ResidencyGovernor + ActiveAssembly + WBO/LatticeBudget + SCOPE-Rex/SovereignGate + Eidos + AnswerPacket. | Do not build a detached app, agent, memory, search, proof, or model stack. Plug into the substrate. |
+| Two builds | MAS is the App Store-safe public floor. Pro is the direct-distribution power build with internal status bands. | Do not invent Research, Vault, or Omega as separate app builds. |
 | Three motions | Lift/Ingest, Project/Compress/Recall, Mutate/Promote. | Name which motion the change implements. |
-| Five authority fields | RuntimePlane, ResidencyTier, WBO/error budget, WitnessRef/proof, RouteProfile/dispatch route. UAS address is the identity that carries them. | New durable objects must declare these fields or an explicit exemption. |
+| Five planes | State, Episodic, Assembly, Controller, Verification. | Do not mix user state, retrieval events, active support, routing decisions, and proof artifacts without plane labels. |
 | Visible proof | User-visible evidence, route, admission, run event, claim label, and rollback where relevant. | A hidden green status is not enough. Surface WRV: Wired, Reachable, Visible, Verified. |
+
+Required architecture sentence:
+
+```text
+Epistemos is a local cognitive substrate where every meaningful object has an address, plane, budget, status, and witness; MAS ships the safe floor, Pro contains the gated/research/vault/omega ladder, and no claim promotes without visible proof.
+```
+
+## Build / Tier Lock
+
+Epistemos has exactly **two distributable builds**:
+
+1. **MAS Build** - App Store-safe, conservative, local-first, witnessed, no hidden research runtime.
+2. **Pro Build** - direct-distribution power build containing multiple internal capability tiers.
+
+There is no separate Research build and no separate Vault build. Research,
+Vault, Omega, heavy runtime, future substrate work, old ambitious mechanisms,
+and speculative theorems are internal Pro statuses, not additional app builds.
+
+| Build/status | Meaning |
+|---|---|
+| MAS | Public safe floor. |
+| Pro Live | Advanced feature is implemented, visible, tested, and safe for Pro users. |
+| Pro Gated | Implemented or partial, but behind explicit opt-in, rollback, warning, or local policy check. |
+| Pro Research | Promising/runnable/document-backed research candidate; requires falsifier evidence before promotion. |
+| Pro Vault-Preserved | Old ambition, failed branch, speculative theorem, or future mechanism preserved without runtime authority. |
+| Pro Omega | Deepest experimental/private substrate work; never silently enabled, never MAS-bound, always witnessed and reversible. |
+
+## Original Hope / Genesis Architecture
+
+The early grand-unification, kernel, lattice, EML, and physics-style language
+is the founding intuition, not a product claim. It says data should not be dead
+files, intelligence should not be a chatbot wrapper, memory should not be a
+pile of unrelated documents, and the computer should behave like a governed
+cognitive organism. Current Epistemos preserves that ambition by translating it
+into buildable organs: UAS/OAS, ColdStore, ActiveAssembly, Eidos,
+SCOPE-Rex/SovereignGate, RuntimeRouter/System G, WBO/LatticeBudget,
+AnswerPacket, ClaimGraph, RunEventLog, MutationEnvelope, and
+Lean/schema/falsifier witnesses. Physics language, grand-unification language,
+and model-internals ambition remain VaultPreserved or Pro Research lineage
+until a named proof, falsifier, benchmark, or implementation promotes them.
+
+## Nested Architecture Tree
+
+Use this tree when a term feels like it might be another top-level system. Most
+terms are nested organs, mechanisms, candidates, or witnesses, not new roots.
+
+```text
+Epistemos
+├─ Distributable builds
+│  ├─ MAS Build
+│  │  └─ public safe floor: local-first, witnessed, App Store-safe
+│  └─ Pro Build
+│     ├─ Pro Live
+│     ├─ Pro Gated
+│     ├─ Pro Research
+│     ├─ Pro Vault-Preserved
+│     └─ Pro Omega
+├─ Motions
+│  ├─ Lift / Ingest
+│  ├─ Project / Compress / Recall
+│  └─ Mutate / Promote
+├─ Runtime planes
+│  ├─ State
+│  ├─ Episodic
+│  ├─ Assembly
+│  ├─ Controller
+│  └─ Verification
+├─ Identity and meaning
+│  ├─ UAS: address / identity fabric
+│  ├─ OAS: semantic object state over addresses
+│  └─ AcsAnchor: anchored coordinate / provenance object
+├─ Residency and awakening
+│  ├─ ColdStore: dormant notes, vectors, KV pages, weights, adapters, graph islands
+│  ├─ ResidencyGovernor: leases, copy-count, mmap safety, eviction, quarantine
+│  └─ ActiveAssembly: minimal waking support set
+├─ Evidence and truth
+│  ├─ VaultRecall / Halo / Shadow candidates
+│  ├─ Eidos pre-validation and closed citation universe
+│  ├─ Eidos post-validation against output and tool claims
+│  ├─ ClaimGraph / ClaimKind / VRM labels
+│  └─ SCOPE-Rex validity checks
+├─ Governance and execution
+│  ├─ SovereignGate permissions
+│  ├─ RuntimeRouter / RouteProfile
+│  ├─ System G / AgentRuntime
+│  └─ Executors: local model, MLX, Apple Intelligence, tool, kernel, explicit provider
+├─ Accounting and projection
+│  ├─ WBO / LatticeBudget
+│  ├─ ShadowProjection
+│  ├─ Primitive IR stack: EML, Geometry, Info, Scan, Operator, Tropical
+│  └─ Falsifier / Lean / benchmark witnesses
+└─ Visible proof
+   ├─ RunEventLog
+   ├─ MutationEnvelope
+   ├─ AnswerPacket
+   ├─ Provenance Console / Substrate Health
+   └─ rollback / replay handle
+```
+
+## Letter And Status Grammar
+
+| Prefix / label | Meaning |
+|---|---|
+| `E` | Foundational theorem or theorem candidate. |
+| `H` | Helios operational claim; translate into concrete organs before product work. |
+| `PCF` | Parameter Connectome Family claim/candidate. |
+| `F` | Falsifier, witness, benchmark, or proof artifact. |
+| `W` | Wiring row for product-visible work. |
+| `L` | Law or invariant. |
+| `D` | Deferred direct-distribution capability. |
+
+| Status | Meaning |
+|---|---|
+| Live | Implemented, reachable, visible, and tested enough for its declared build. |
+| Partial | Real substrate exists, but caller chain, visibility, or verification is incomplete. |
+| Gated | Implemented or partial, but blocked by opt-in, rollback, warning, policy, or falsifier. |
+| Candidate / ResearchCandidate | Accepted shape awaiting falsifier or product caller proof. |
+| VaultPreserved | Preserved ambition, branch, theorem, or mechanism with no runtime authority. |
+| Blocked | Known blocker prevents promotion. |
+| TargetOnly | Architecture target only; no shipped behavior claim. |
+| Superseded | Old name/mechanism replaced by a cleaner current organ. |
+| Deprecated | Old path should not receive new work except compatibility removal/migration. |
 
 ## Current Work Split
 
@@ -87,12 +210,13 @@ When older docs say "Helios does X", translate it before editing:
 | UAS | Identity fabric for notes, graph nodes, claims, tool results, agent events, KV pages, model components, proofs, and projections. | UasAddress, UasKind, Ontological Address Space as semantic layer on top. | Do not call EML, MLX, or the vault the identity primitive. |
 | OAS | Semantic meaning/state over UAS addresses. | Ontological Address Space, semantic object state. | Do not use OAS as a second identity system detached from UAS. |
 | RuntimePlane | Authority separation for State, Episodic, Assembly, Controller, Verification. | Five-plane runtime. | Do not mix model state, user notes, tool actions, and proofs without plane labels. |
-| ResidencyTier | Where an object lives and what may claim it. | CurrentApp, VerifiedFloor, CapabilityCeiling, Research/Vault. | Do not promote research artifacts into product UI as shipped behavior. |
+| ProductBuild | Which distributable build may expose the feature. | MAS, Pro. | Do not turn Research, Vault, Omega, or heavy runtime into separate app builds. |
+| ProStatus / ResidencyStatus | What authority/status band the object occupies. | Pro Live, Pro Gated, Pro Research, Pro Vault-Preserved, Pro Omega, Blocked, TargetOnly, Superseded; CurrentApp, VerifiedFloor, CapabilityCeiling when the question is residency/proof maturity. | Do not promote research artifacts into product UI as shipped behavior. |
 | WBO / LatticeBudget | Error, compression, quantization, semantic, and numeric drift accounting. | Lattice/WBO, T_W/T_K/T_R/T_Q/T_S/T_SE/T_num. | Do not make lattice replace UAS, ColdStore, or AcsAnchor. |
 | AcsAnchor / Anchored Cognitive Substrate | Existing coordinate/provenance anchor layer carried by UAS objects. | AcsAnchor, AcsAnchorRegistry, F-ACS-AnchorLookup, legacy UAS-ACS docs. | Do not reinterpret existing AcsAnchor source as cold storage; migrate deliberately if needed. |
 | KuramotoSync / ResonanceSync | Research-tier phase/coherence candidate for coordinating firing subsets. | Legacy ACS/Kuramoto wording, Kuramoto cellular resonance, acs_meta_layer, sparse substrate candidates. | Do not productize it or use it as the product residency layer without falsifiers. |
 | ColdStore / Cold Residency Layer | Active Cold Storage idea: dormant-but-addressable cognitive material that stays cold until selected. | SSD/disk pages, note atoms, vector pages, KV pages, adapters, weight blocks, parameter anchors, graph islands. | Do not abbreviate this as ACS; do not confuse it with AcsAnchor, admission, or ActiveAssembly. |
-| ResidencyGovernor | Policy that decides leases, residency tiers, residency plans, copy-count limits, page/mmap safety, eviction, defer, or quarantine. | ResidencyTier, ResidencyLease, ResidencyPlan, WeightBlockManifest. | Do not call this ACS; make live residency claims only after falsifiers pass. |
+| ResidencyGovernor | Policy that decides leases, residency status, residency plans, copy-count limits, page/mmap safety, eviction, defer, or quarantine. | ResidencyStatus, ResidencyLease, ResidencyPlan, WeightBlockManifest. | Do not call this ACS; make live residency claims only after falsifiers pass. |
 | SCOPE-Rex / SovereignGate | Governance and admission layer. Produces allow/warn/defer/quarantine/reject verdicts and proofs. | SCOPE-Rex Admission, SovereignGate, AdmissionGate, SCOPERexAdmissionProof. | Do not call admission "ACS"; do not let tool calls or durable changes bypass witness records. |
 | Eidos | Evidence gate and closed-citation contract. It validates which retrieved evidence may be cited and shapes agent-consumable evidence packets. | eidos.query, citation universe, closed citation, Eidos card. | Do not reduce Eidos to a generic search bar or create AgentCitation as a separate authority. |
 | VaultRecall | Candidate retrieval contract over the user's vault. | vault.search, knowledge.recall, retrieval trace, RRF/BM25, future semantic/HNSW/Metal rerank. | Do not let agents browse the filesystem first for vault notes. App/vault retrieval comes first; Finder/file search is fallback or explicit-path only. |
@@ -199,7 +323,8 @@ Before editing, answer these in the commit message, test name, or handoff:
 | Organ | Which registry organ is being changed. |
 | Identity | UAS address pattern or explicit UAS exemption. |
 | Plane | RuntimePlane affected. |
-| Residency | CurrentApp, VerifiedFloor, CapabilityCeiling, Research/Vault, or exemption. |
+| ProductBuild | MAS, Pro, or explicit non-product/no-build exemption. |
+| ProStatus / ResidencyStatus | Live, Gated, ResearchCandidate, VaultPreserved, Omega, Blocked, TargetOnly, Superseded, CurrentApp, VerifiedFloor, CapabilityCeiling, or exemption. |
 | Error budget | WBO/LatticeBudget term or reason no approximation is introduced. |
 | Witness | RunEventLog, MutationEnvelope, ClaimGraph, falsifier artifact, test, or proof. |
 | Admission | SCOPE-Rex/SovereignGate verdict path or reason no admission applies. |

@@ -5,6 +5,12 @@
 **Living-doc rules:**
 - Update this file in place — never branch a parallel "v2." There is one living index; the old version is `git log`.
 - Update the **Current State** block (§6) on every wave close.
+- Updated **2026-05-31** · Two-build lock: Epistemos has exactly two
+  distributable builds, **MAS** and **Pro**. MAS is the App Store-safe public
+  floor. Pro is the direct-distribution power build containing internal status
+  bands: Pro Live, Pro Gated, Pro Research, Pro Vault-Preserved, and Pro
+  Omega. Research, Vault, Omega, heavy runtime, and future substrate work are
+  Pro statuses, not separate app builds.
 - Updated **2026-05-31** · Namespace checkpoint: `ACS` is no longer a
   shorthand for Active Cold Storage. Use `ColdStore` / `Cold Residency Layer`
   for dormant SSD/mmap/KV/weight/note residency; keep `AcsAnchor` for the
@@ -18,7 +24,7 @@
   Cognitive DAG visualizer, Tri-Fusion typed note mutations, and the System G
   test-isolation/focused-warning fixes. Post-Wave-4 closeouts also retired
   W-49/W-53 ship hardening and Agent Capability Truth. The provenance/residency
-  detail slice closes the compact AnswerPacket UAS / ACS anchor / plane /
+  detail slice closes the compact AnswerPacket UAS / AcsAnchor / plane /
   residency UI gap. `RESUME ACS ANCHOR HARNESS` is now complete as a full
   N=1000 four-stage witness, `F-ULP-Oracle` now has a full Metal
   `morphOracleFp16` primary hardware artifact, `F-ControllerKernelPack` now has
@@ -87,14 +93,37 @@
 
 Epistemos is a **local cognitive substrate**, not "an app that runs a local model." The local model is the *mouth*; the substrate is everything that decides what part of memory, which runtime, what evidence, what schema, what proof, and what permission path the model is allowed to use before anything becomes an answer or an action. **MLX is one runtime lane**, not the architecture — it can be enabled, disabled, replaced, or paired with GGUF / llama.cpp / cloud / Apple Intelligence. The substrate is the routing, residency, schemas, admission gates, proofs, and visible verification *around* those executors.
 
+Required architecture sentence: **Epistemos is a local cognitive substrate
+where every meaningful object has an address, plane, budget, status, and
+witness; MAS ships the safe floor, Pro contains the gated/research/vault/omega
+ladder, and no claim promotes without visible proof.**
+
+### Original Hope / Genesis Architecture
+
+The early grand-unification, kernel, lattice, EML, and physics-style language
+is preserved as the founding intuition: data should not be dead files,
+intelligence should not be a chatbot wrapper, memory should not be a pile of
+unrelated documents, and the computer should behave like a governed cognitive
+organism. The current architecture perfects that ambition by translating it
+into buildable organs: UAS/OAS, ColdStore, ActiveAssembly, Eidos,
+SCOPE-Rex/SovereignGate, RuntimeRouter/System G, WBO/LatticeBudget,
+AnswerPacket, ClaimGraph, RunEventLog, MutationEnvelope, and
+Lean/schema/falsifier witnesses. Physics language remains inspiration or
+VaultPreserved research lineage unless a local proof, falsifier, or measured
+implementation promotes the claim.
+
 ## 2 · The architecture in one rule (the Substrate Motion Invariant)
 
 Every meaningful Epistemos object is **one substrate object** carrying:
 1. `UasAddress` — stable identity
-2. `RuntimePlane` — State · Episodic · Assembly · Controller · Verification
-3. `ResidencyTier` — CurrentApp · VerifiedFloor · CapabilityCeiling
-4. `LatticeBudget` — WBO error account (if approximate)
-5. **Witness** — `RunEventLog` / `AnswerPacket` / `ClaimGraph` / `WboLedgerEntry` / falsifier artifact / Lean proof
+2. `ProductBuild` — MAS · Pro
+3. `ProStatus` / `ResidencyStatus` — Live · Gated · ResearchCandidate ·
+   VaultPreserved · Omega · Blocked · TargetOnly · Superseded, plus
+   CurrentApp · VerifiedFloor · CapabilityCeiling where the question is
+   residency/proof maturity rather than distribution
+4. `RuntimePlane` — State · Episodic · Assembly · Controller · Verification
+5. `LatticeBudget` — WBO error account (if approximate)
+6. **Witness** — `RunEventLog` / `AnswerPacket` / `ClaimGraph` / `WboLedgerEntry` / falsifier artifact / Lean proof
 
 Every operation is exactly one of **three motions**:
 
@@ -110,18 +139,18 @@ There is no fourth motion. "Activate a model slice" is a Lift at finer granulari
 
 10 rows, finest at bottom. Every PR must answer *"which row does this touch?"* Overclaim = reframe.
 
-| Row | What is addressed | Status today | Tier |
+| Row | What is addressed | Status today | Build/status |
 |---|---|---|---|
-| 1 | Whole-model call | LIVE | T1 |
-| 2 | Output schema (grammar, JSONSchema, AnswerPacket) | LIVE partial | T1 |
-| 3 | KV cache page (zero-copy across Swift/Rust/MLX/Metal) | substrate shipped, harness pending | T1 gate |
-| 4 | Weight-bit layout (Sherry/Leech VQ, ternary, NF4) | research / promotion candidate | T2/3 |
-| 5 | Adapter delta (LoRA / DoRA / Titans-MAC / L_SE) | research | T3 |
-| 6 | MoE expert | model-internal; substrate observes/chooses lane | T1 when model provides |
-| 7 | Active assembly (model + KV + context + adapter + tool + kernel cross-cut) | research target | T3 |
-| 8 | Attention head / **SSM state (the language router gate)** | research target | T3 |
-| 9 | Parameter anchor (rank-one component address) | research target | T3 |
-| 10 | Cross-layer attribution circuit | research target | T3 / Vault |
+| 1 | Whole-model call | LIVE | MAS / Pro Live |
+| 2 | Output schema (grammar, JSONSchema, AnswerPacket) | LIVE partial | MAS / Pro Live |
+| 3 | KV cache page (zero-copy across Swift/Rust/MLX/Metal) | substrate shipped, harness pending | Pro Gated |
+| 4 | Weight-bit layout (Sherry/Leech VQ, ternary, NF4) | research / promotion candidate | Pro Research |
+| 5 | Adapter delta (LoRA / DoRA / Titans-MAC / L_SE) | research | Pro Research; Pro Gated only after rollback/eval gate |
+| 6 | MoE expert | model-internal; substrate observes/chooses lane | MAS or Pro Live only when provider/runtime exposes it honestly |
+| 7 | Active assembly (model + KV + context + adapter + tool + kernel cross-cut) | research target | Pro Research |
+| 8 | Attention head / **SSM state (the language router gate)** | research target | Pro Research |
+| 9 | Parameter anchor (rank-one component address) | research target | Pro Vault-Preserved / Pro Research |
+| 10 | Cross-layer attribution circuit | research target | Pro Vault-Preserved / Pro Omega |
 
 Endgame: substrate addresses **cognitive circuits**, not whole models. Each release pushes granularity one row finer. Full canon: `docs/fusion/ADDRESSABLE_NEURAL_SUBSTRATE_CANON_2026_05_24.md` + `docs/fusion/SHADOW_PROJECTION_AND_RESEARCH_CONSTRUCTION_2026_05_24.md` §12.
 
@@ -145,6 +174,30 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
 - **PCF-1..10** Parameter Connectome Family (Goodfire VPD/SPD lineage)
 - **E8 (candidate)** Erdős Lift-and-Project Optimality
 - **E9 (candidate)** Shadow-Witness Closure
+
+### Letter and status grammar
+
+| Prefix / label | Meaning |
+|---|---|
+| `E` | Foundational theorem or theorem candidate. |
+| `H` | Helios operational claim; translate to concrete organs before product work. |
+| `PCF` | Parameter Connectome Family claim/candidate. |
+| `F` | Falsifier, witness, benchmark, or proof artifact. |
+| `W` | Wiring row: product-visible work that must become reachable and visible. |
+| `L` | Law or invariant. |
+| `D` | Deferred direct-distribution capability. |
+
+| Status | Meaning |
+|---|---|
+| Live | Implemented, reachable, visible, and tested enough for its declared build. |
+| Partial | Real substrate exists, but caller chain, visibility, or verification is incomplete. |
+| Gated | Implemented or partial, but blocked by explicit opt-in, rollback, warning, policy, or falsifier gate. |
+| Candidate / ResearchCandidate | Accepted shape awaiting falsifier or product caller proof. |
+| VaultPreserved | Preserved ambition, branch, theorem, or mechanism with no runtime authority. |
+| Blocked | Known blocker prevents promotion. |
+| TargetOnly | Architecture target only; no shipped behavior claim. |
+| Superseded | Old name/mechanism replaced by a cleaner current organ. |
+| Deprecated | Old path should not receive new work except compatibility removal/migration. |
 
 ## 6 · CURRENT STATE (2026-05-27 — Wave 4 checkpoint + closeouts)
 
