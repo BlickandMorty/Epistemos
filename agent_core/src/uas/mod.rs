@@ -42,7 +42,7 @@ pub use acs_anchor::{AcsAnchor, AcsAnchorPlaneProjection};
 pub use address::{UasAddress, UasAddressParseError};
 pub use anchor_registry::AcsAnchorRegistry;
 pub use construction_card::{
-    ConstructionBudget, ConstructionCard, ConstructionCardError, ConstructionTier,
+    ConstructionBudget, ConstructionCard, ConstructionCardError, ProStatus, ProductBuild,
 };
 pub use five_planes::{RuntimePlane, FIVE_RUNTIME_PLANES};
 pub use kind::UasKind;
