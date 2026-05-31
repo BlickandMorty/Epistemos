@@ -64,6 +64,9 @@ pub struct AppColdStoreRouteCardTotals {
     pub total_addressed_bytes: u64,
     pub active_runtime_bytes: u64,
     pub runtime_model_bytes_loaded: u64,
+    pub dry_run_copy_count: u64,
+    pub runtime_model_peak_uma_bytes: u64,
+    pub dry_run_ssd_read_bytes: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -204,6 +207,9 @@ impl AppColdStoreRouteCard {
             total_addressed_bytes: plan.totals.total_addressed_bytes,
             active_runtime_bytes: plan.totals.active_runtime_bytes,
             runtime_model_bytes_loaded: 0,
+            dry_run_copy_count: 0,
+            runtime_model_peak_uma_bytes: 0,
+            dry_run_ssd_read_bytes: 0,
         };
         let residency_plan_address = Some(plan.plan_address.clone());
         let card_address = Self::address(
@@ -266,13 +272,16 @@ impl AppColdStoreRouteCard {
         push_unit_preimages(&mut preimage, "warm", warm_cache_units);
         push_unit_preimages(&mut preimage, "hot", hot_runway_units);
         preimage.push_str(&format!(
-            "{}:{}:{}:{}:{}:{}\n",
+            "{}:{}:{}:{}:{}:{}:{}:{}:{}\n",
             totals.durable_atlas_bytes,
             totals.warm_cache_bytes,
             totals.hot_runway_bytes,
             totals.total_addressed_bytes,
             totals.active_runtime_bytes,
-            totals.runtime_model_bytes_loaded
+            totals.runtime_model_bytes_loaded,
+            totals.dry_run_copy_count,
+            totals.runtime_model_peak_uma_bytes,
+            totals.dry_run_ssd_read_bytes
         ));
         for verifier in verifier_stack {
             preimage.push_str(verifier);
@@ -762,6 +771,9 @@ mod tests {
         assert_eq!(card.totals.warm_cache_bytes, 256);
         assert_eq!(card.totals.durable_atlas_bytes, 4096);
         assert_eq!(card.totals.runtime_model_bytes_loaded, 0);
+        assert_eq!(card.totals.dry_run_copy_count, 0);
+        assert_eq!(card.totals.runtime_model_peak_uma_bytes, 0);
+        assert_eq!(card.totals.dry_run_ssd_read_bytes, 0);
         assert!(card
             .warm_cache_units
             .iter()
