@@ -338,12 +338,48 @@ fn execute_provider_policy_route(
 fn validate_provider_policy_for_system_g(
     provider_policy: &ProviderPolicy,
 ) -> Result<(), SystemGRuntimeError> {
-    if let ProviderPolicy::LocalMlx { model_id } = provider_policy {
-        if model_id.trim().is_empty() {
-            return Err(SystemGRuntimeError::InvalidProviderPolicy(
-                "LocalMlx model_id is required".to_string(),
-            ));
+    match provider_policy {
+        ProviderPolicy::LocalMlx { model_id } => {
+            validate_provider_policy_field("LocalMlx model_id", model_id)?;
         }
+        ProviderPolicy::AnthropicMessages { model } => {
+            validate_provider_policy_field("AnthropicMessages model", model)?;
+        }
+        ProviderPolicy::OpenAIResponses { model } => {
+            validate_provider_policy_field("OpenAIResponses model", model)?;
+        }
+        ProviderPolicy::OpenAICompatible { base_url, model } => {
+            validate_provider_policy_field("OpenAICompatible base_url", base_url)?;
+            validate_provider_policy_field("OpenAICompatible model", model)?;
+        }
+        ProviderPolicy::Mcp { server_id } => {
+            validate_provider_policy_field("MCP server_id", server_id)?;
+        }
+        ProviderPolicy::ProCli { command, .. } => {
+            validate_provider_policy_field("ProCli command", command)?;
+        }
+    }
+    Ok(())
+}
+
+fn validate_provider_policy_field(
+    label: &'static str,
+    value: &str,
+) -> Result<(), SystemGRuntimeError> {
+    if value.trim().is_empty() {
+        return Err(SystemGRuntimeError::InvalidProviderPolicy(format!(
+            "{label} is required"
+        )));
+    }
+    if value.trim() != value {
+        return Err(SystemGRuntimeError::InvalidProviderPolicy(format!(
+            "{label} must not contain leading or trailing whitespace"
+        )));
+    }
+    if value.chars().any(char::is_control) {
+        return Err(SystemGRuntimeError::InvalidProviderPolicy(format!(
+            "{label} must not contain control characters"
+        )));
     }
     Ok(())
 }
@@ -673,6 +709,53 @@ mod tests {
             registry_stats_full().2,
             dispatched_before,
             "invalid provider policy must not bump the lifetime counter"
+        );
+    }
+
+    #[test]
+    fn start_run_with_provider_policy_rejects_blank_unsupported_route_fields_without_dispatch() {
+        let _guard = test_registry_lock();
+        reset_for_test();
+        let dispatched_before = registry_stats_full().2;
+        let cases = [
+            ProviderPolicy::AnthropicMessages { model: " ".into() },
+            ProviderPolicy::OpenAIResponses { model: "\t".into() },
+            ProviderPolicy::OpenAICompatible {
+                base_url: "https://example.invalid/v1".into(),
+                model: "".into(),
+            },
+            ProviderPolicy::OpenAICompatible {
+                base_url: " ".into(),
+                model: "qwen-compatible".into(),
+            },
+            ProviderPolicy::Mcp {
+                server_id: "".into(),
+            },
+            ProviderPolicy::ProCli {
+                adapter: super::super::blueprint::CliAdapter::Codex,
+                command: " ".into(),
+            },
+        ];
+
+        for provider_policy in cases {
+            let provider_json = serde_json::to_string(&provider_policy).expect("provider encode");
+            let err = start_run_with_provider_policy(&good_mission_json(), &provider_json)
+                .expect_err("blank provider route field must reject before dispatch");
+
+            assert!(
+                matches!(err, SystemGRuntimeError::InvalidProviderPolicy(_)),
+                "expected InvalidProviderPolicy for {provider_policy:?}, got {err:?}"
+            );
+        }
+        assert_eq!(
+            registry_stats(),
+            (0, 0),
+            "invalid provider route fields must not insert runs"
+        );
+        assert_eq!(
+            registry_stats_full().2,
+            dispatched_before,
+            "invalid provider route fields must not bump the lifetime counter"
         );
     }
 
