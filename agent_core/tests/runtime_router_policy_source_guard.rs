@@ -6,8 +6,12 @@
 
 const RUNTIME_EXECUTOR_SOURCE: &str =
     include_str!("../../Epistemos/Engine/RuntimeExecutor.swift");
+const CONFIDENCE_ROUTER_SOURCE: &str =
+    include_str!("../../Epistemos/LocalAgent/ConfidenceRouter.swift");
 const RUNTIME_ROUTER_SOURCE: &str =
     include_str!("../../Epistemos/LocalAgent/RuntimeRouter.swift");
+const INFERENCE_ROUTE_PROFILES_SOURCE: &str =
+    include_str!("../../Epistemos/State/InferenceState+RouteProfiles.swift");
 
 #[test]
 fn mission_packet_carries_policy_inputs() {
@@ -55,4 +59,20 @@ fn runtime_router_gates_local_lanes_with_policy_table() {
             "RuntimeRouter route path must include policy-table snippet `{snippet}`"
         );
     }
+}
+
+#[test]
+fn diagnostics_route_profiles_delegate_to_runtime_router_table() {
+    assert!(
+        CONFIDENCE_ROUTER_SOURCE.contains("RuntimeRouter.defaultRouteProfiles().map"),
+        "ConfidenceRouter.routeProfiles must adapt RuntimeRouter.defaultRouteProfiles instead of a placeholder table"
+    );
+    assert!(
+        INFERENCE_ROUTE_PROFILES_SOURCE.contains("RuntimeRouter.defaultRouteProfiles()"),
+        "InferenceState.routeProfiles must delegate to RuntimeRouter.defaultRouteProfiles"
+    );
+    assert!(
+        !CONFIDENCE_ROUTER_SOURCE.contains("static func routeProfiles() -> [RouteProfile] {\n        []\n    }"),
+        "ConfidenceRouter.routeProfiles must not regress to the old empty placeholder"
+    );
 }
