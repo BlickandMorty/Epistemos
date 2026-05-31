@@ -178,6 +178,7 @@ impl AppColdStoreRouteCard {
         let mut warm_cache_units = Vec::new();
         let mut hot_runway_units = Vec::new();
         for block in &plan.blocks {
+            validate_app_cold_store_source_uri(&block.source_uri)?;
             match block.residency_class {
                 WeightBlockResidencyClass::ColdMmapSsd => durable_units.push(
                     AppColdStoreUnit::from_block(block, AppColdStorePlacement::DurableAtlas),
@@ -475,6 +476,18 @@ fn validate_cache_rebuild_policy(policy: &str) -> Result<(), AppColdStoreRouteCa
     Ok(())
 }
 
+fn validate_app_cold_store_source_uri(source_uri: &str) -> Result<(), AppColdStoreRouteCardError> {
+    if source_uri.starts_with("file://")
+        || source_uri.starts_with("app-support://")
+        || source_uri.starts_with("app-group://")
+    {
+        return Ok(());
+    }
+    Err(AppColdStoreRouteCardError::UnsupportedSourceUri {
+        source_uri: source_uri.to_string(),
+    })
+}
+
 fn missing_field_error(field: &'static str) -> AppColdStoreRouteCardError {
     match field {
         "task_signature" => AppColdStoreRouteCardError::MissingTaskSignature,
@@ -512,6 +525,7 @@ pub enum AppColdStoreRouteCardError {
     MissingRoutePriorVerifier,
     MissingRoutePriorSupport,
     UnboundRoutePriorVerifier { verifier: String },
+    UnsupportedSourceUri { source_uri: String },
 }
 
 impl std::fmt::Display for AppColdStoreRouteCardError {
@@ -598,6 +612,10 @@ impl std::fmt::Display for AppColdStoreRouteCardError {
             Self::UnboundRoutePriorVerifier { verifier } => write!(
                 f,
                 "EidosRoutePrior likely verifier is not bound in the AppColdStore route-card verifier stack: {verifier}"
+            ),
+            Self::UnsupportedSourceUri { source_uri } => write!(
+                f,
+                "AppColdStore route-card units require local app-owned or file-backed source URIs, got {source_uri}"
             ),
         }
     }
@@ -1013,6 +1031,55 @@ mod tests {
     }
 
     #[test]
+    fn app_cold_store_route_card_rejects_network_backed_durable_sources() {
+        let hot = block(
+            "hot-controller",
+            0,
+            512,
+            WeightBlockEncoding::DenseBf16,
+            WeightBlockResidencyClass::HotUma,
+            None,
+        );
+        let cold = WeightBlockManifest::from_known_hash_hex(
+            "local/cold-atlas-fixture",
+            "https://example.invalid/model.safetensors",
+            2048,
+            4096,
+            blake3::hash(b"network-backed-cold-page").to_hex().as_str(),
+            1_779_000_000_000,
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            WeightBlockIrChart::OpaqueWithWitness,
+            0.02,
+            "F-AppColdStore-Layout",
+            Some(rollback_reference()),
+        )
+        .expect("generic weight manifests may describe external source URIs");
+        let budget = ResidencyBudget::new(GIB, 0, 8 * GIB, 0.25, 16).unwrap();
+        let plan = ResidencyPlan::evaluate([hot, cold], budget, 42);
+        assert_eq!(plan.status, ResidencyPlanStatus::FitForDryRun);
+
+        let err = AppColdStoreRouteCard::from_residency_plan(
+            "deep_research:neural_importance_atlas",
+            verifier_stack(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            AppColdStoreRouteCardError::UnsupportedSourceUri {
+                source_uri: "https://example.invalid/model.safetensors".to_string()
+            }
+        );
+    }
+
+    #[test]
     fn app_cold_store_route_card_rejects_durable_only_plan_without_active_bytes() {
         let cold = block(
             "durable-only-weight-page",
@@ -1269,7 +1336,7 @@ mod tests {
             Vec::new(),
             0.5,
         )
-            .expect("Eidos prior may exist before AppColdStore support validation");
+        .expect("Eidos prior may exist before AppColdStore support validation");
         let err = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
             "deep_research:neural_importance_atlas",
             route_prior_verifier_stack(),
