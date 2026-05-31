@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "257c5c5a6bcceb19f676ec861590a3c8e21f038d",
+  "commit_sha": "e46aeec323036966cf677bddcdd593f1263dba14",
   "fixture_id": "app_cold_store_layout_manifest_only_v1",
-  "timestamp_utc": "2026-05-31T07:22:05Z",
-  "result_digest": "sha256:6b938b965e4d4353784cf02f53da62b37941f434a4e70343ff7154ae6799990b",
+  "timestamp_utc": "2026-05-31T07:32:00Z",
+  "result_digest": "sha256:6e76fdfa815677049b0d0c51c6d50040f7677110f0ca04f8d0b6afb582b2a3be",
   "measurements": {
     "closed_citation_validity_not_applicable": {
       "value": true,
@@ -54,6 +54,22 @@
       "unit": "bytes"
     },
     "durable_warm_hot_tiers_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_bound_to_card": {
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_closed_evidence_verified": {
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_missing_falsifier_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_neural_falsifier_bound": {
       "value": true,
       "unit": "bool"
     },
@@ -145,6 +161,26 @@
       "value": true,
       "unit": "bool"
     },
+    "eidos_route_prior_bound_to_card": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_closed_evidence_verified": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_missing_falsifier_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_neural_falsifier_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "failed_residency_plan_rejected": {
       "operator": "==",
       "value": true,
@@ -223,6 +259,10 @@
     "dry_run_ssd_read_bytes": true,
     "durable_atlas_bytes": true,
     "durable_warm_hot_tiers_present": true,
+    "eidos_route_prior_bound_to_card": true,
+    "eidos_route_prior_closed_evidence_verified": true,
+    "eidos_route_prior_missing_falsifier_rejected": true,
+    "eidos_route_prior_neural_falsifier_bound": true,
     "failed_residency_plan_rejected": true,
     "hot_runway_bytes": true,
     "mas_research_status_rejected": true,

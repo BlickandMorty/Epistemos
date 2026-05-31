@@ -7,6 +7,11 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
+use agent_core::eidos::{
+    EidosChunkId, EidosCitation, EidosCitationNeed, EidosContextPacket, EidosDocumentId, EidosHit,
+    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode, EidosRoutePrior,
+    EidosScoreComponents, EidosSourceKind, EidosSpan,
+};
 use agent_core::falsifier_artifacts::{
     current_commit_sha, now_utc_rfc3339, write_artifact, AcceptanceThreshold, ArtifactBuilder,
     ArtifactKind, FallbackTier, Measurement,
@@ -19,9 +24,11 @@ use agent_core::uas::{
 
 const FALSIFIER_ID: &str = "F-AppColdStore-Layout";
 const PARAM_ROUTE_CARD_ADMISSION_FALSIFIER_ID: &str = "F-ParamRouteCard-Admission";
+const EIDOS_NEURAL_ROUTE_PRIOR_FALSIFIER_ID: &str = "F-Eidos-NeuralRoute-Prior";
 const FIXTURE_ID: &str = "app_cold_store_layout_manifest_only_v1";
 const COMMAND: &str = "Tools/falsifiers/f_app_cold_store_layout.sh";
 const RESULT: &str = "artifacts/falsifiers/app_cold_store_layout/result.json";
+const TASK_SIGNATURE: &str = "deep_research:app_cold_store_layout";
 
 fn main() -> std::process::ExitCode {
     let report = match build_report() {
@@ -73,14 +80,27 @@ struct AppColdStoreLayoutReport {
 
 fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>> {
     let plan = fit_plan()?;
-    let card = AppColdStoreRouteCard::from_residency_plan(
-        "deep_research:app_cold_store_layout",
-        route_card_verifier_stack(),
+    let eidos_packet = eidos_context_packet()?;
+    let eidos_prior = eidos_route_prior(&eidos_packet)?;
+    let first_evidence_id = eidos_prior
+        .evidence_ids
+        .first()
+        .cloned()
+        .ok_or("EidosRoutePrior fixture must carry closed evidence")?;
+    let eidos_citation = EidosCitation {
+        source_id: first_evidence_id,
+        manifest_id: eidos_prior.manifest_id.clone(),
+    };
+    let closed_evidence_verified = eidos_packet.validate_citation(&eidos_citation).is_ok();
+    let card = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+        TASK_SIGNATURE,
+        route_card_verifier_stack_with_eidos_prior(),
         "rollback:raw-installed-snapshot",
         ProductBuild::Pro,
         ProStatus::ResearchCandidate,
         &plan,
         "rebuild_warm_cache_from_durable_atlas",
+        Some(eidos_prior.clone()),
         1_779_000_000_000,
     )?;
     let rejected = ResidencyPlan::evaluate(
@@ -89,7 +109,7 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         1_779_000_000_000,
     );
     let plan_rejected_before_card = AppColdStoreRouteCard::from_residency_plan(
-        "deep_research:app_cold_store_layout",
+        TASK_SIGNATURE,
         route_card_verifier_stack(),
         "rollback:raw-installed-snapshot",
         ProductBuild::Pro,
@@ -101,7 +121,7 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
     .unwrap_err()
         == AppColdStoreRouteCardError::PlanRejected;
     let mas_research_rejected = AppColdStoreRouteCard::from_residency_plan(
-        "deep_research:app_cold_store_layout",
+        TASK_SIGNATURE,
         route_card_verifier_stack(),
         "rollback:raw-installed-snapshot",
         ProductBuild::Mas,
@@ -112,6 +132,20 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
     )
     .unwrap_err()
         == AppColdStoreRouteCardError::ProductBuildStatusMismatch;
+    let missing_eidos_route_prior_falsifier_rejected =
+        AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+            TASK_SIGNATURE,
+            route_card_verifier_stack(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            Some(eidos_prior),
+            1_779_000_000_000,
+        )
+        .unwrap_err()
+            == AppColdStoreRouteCardError::MissingEidosNeuralRoutePriorVerifier;
 
     let mut measurements = BTreeMap::new();
     let mut thresholds = BTreeMap::new();
@@ -254,6 +288,36 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "eidos_route_prior_bound_to_card",
+        card.eidos_route_prior.is_some(),
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "eidos_route_prior_closed_evidence_verified",
+        closed_evidence_verified,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "eidos_route_prior_neural_falsifier_bound",
+        card.verifier_stack
+            .iter()
+            .any(|verifier| verifier == EIDOS_NEURAL_ROUTE_PRIOR_FALSIFIER_ID),
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "eidos_route_prior_missing_falsifier_rejected",
+        missing_eidos_route_prior_falsifier_rejected,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "param_route_card_admission_verifier_bound",
         card.verifier_stack
             .iter()
@@ -347,6 +411,60 @@ fn route_card_verifier_stack() -> Vec<String> {
         FALSIFIER_ID.to_string(),
         PARAM_ROUTE_CARD_ADMISSION_FALSIFIER_ID.to_string(),
     ]
+}
+
+fn route_card_verifier_stack_with_eidos_prior() -> Vec<String> {
+    let mut stack = route_card_verifier_stack();
+    stack.push(EIDOS_NEURAL_ROUTE_PRIOR_FALSIFIER_ID.to_string());
+    stack
+}
+
+fn eidos_context_packet() -> Result<EidosContextPacket, Box<dyn std::error::Error>> {
+    let manifest_id = EidosIndexManifestId::new("manifest:app-cold-store-layout")?;
+    Ok(EidosContextPacket {
+        query: EidosQuery::new("app cold store layout", EidosRetrievalMode::Hybrid, 4),
+        manifest_id: manifest_id.clone(),
+        hits: vec![EidosHit {
+            source_id: EidosChunkId::new("vault://note/app-cold-store-layout")?,
+            document_id: EidosDocumentId::new("vault://note/app-cold-store-layout-doc")?,
+            kind: EidosSourceKind::Note,
+            span: Some(EidosSpan {
+                byte_start: 0,
+                byte_end: 64,
+            }),
+            confidence: 0.84,
+            score: EidosScoreComponents {
+                lexical: 0.46,
+                semantic: 0.34,
+                recency: 0.04,
+                graph: 0.0,
+            },
+            provenance: EidosProvenance {
+                manifest_id,
+                mode: EidosRetrievalMode::Hybrid,
+                retrieved_at_unix_ms: 1_779_000_000_000,
+            },
+        }],
+    })
+}
+
+fn eidos_route_prior(
+    packet: &EidosContextPacket,
+) -> Result<EidosRoutePrior, Box<dyn std::error::Error>> {
+    Ok(EidosRoutePrior::from_packet(
+        packet,
+        TASK_SIGNATURE,
+        vec![EidosChunkId::new("vault://note/app-cold-store-layout")?],
+        EidosCitationNeed::Required,
+        vec!["local_reasoning".to_string(), "cold_store".to_string()],
+        vec!["requires_manifest_only_scope_guard".to_string()],
+        vec![FALSIFIER_ID.to_string()],
+        vec!["adapter:layout_planner".to_string()],
+        vec!["kv:layout_manifest_only".to_string()],
+        vec!["weight_page:durable_atlas_fixture".to_string()],
+        0.84,
+        vec!["Eidos matched closed evidence for AppColdStore route-card planning".to_string()],
+    )?)
 }
 
 fn manifest(
@@ -540,6 +658,34 @@ mod tests {
                 .artifact
                 .pass_per_axis
                 .get("closed_citation_validity_not_applicable"),
+            Some(&true)
+        );
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("eidos_route_prior_bound_to_card"),
+            Some(&true)
+        );
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("eidos_route_prior_closed_evidence_verified"),
+            Some(&true)
+        );
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("eidos_route_prior_neural_falsifier_bound"),
+            Some(&true)
+        );
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("eidos_route_prior_missing_falsifier_rejected"),
             Some(&true)
         );
         assert_eq!(
