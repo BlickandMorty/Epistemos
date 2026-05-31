@@ -375,6 +375,9 @@ fn validate_eidos_route_prior(
     if prior.task_signature != task_signature {
         return Err(AppColdStoreRouteCardError::RoutePriorTaskMismatch);
     }
+    if prior.evidence_ids.is_empty() {
+        return Err(AppColdStoreRouteCardError::MissingRoutePriorEvidence);
+    }
     if prior.likely_verifiers.is_empty()
         && prior.likely_adapter_families.is_empty()
         && prior.likely_kv_regions.is_empty()
@@ -424,6 +427,7 @@ pub enum AppColdStoreRouteCardError {
     WarmCacheRequiresDurableAtlas,
     MissingDurableAtlas,
     RoutePriorTaskMismatch,
+    MissingRoutePriorEvidence,
     MissingRoutePriorSupport,
 }
 
@@ -468,6 +472,10 @@ impl std::fmt::Display for AppColdStoreRouteCardError {
             Self::RoutePriorTaskMismatch => write!(
                 f,
                 "EidosRoutePrior task_signature must match the AppColdStore route card task_signature"
+            ),
+            Self::MissingRoutePriorEvidence => write!(
+                f,
+                "EidosRoutePrior must carry at least one closed evidence id for AppColdStore route-card admission"
             ),
             Self::MissingRoutePriorSupport => write!(
                 f,
@@ -892,5 +900,41 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(err, AppColdStoreRouteCardError::MissingRoutePriorSupport);
+    }
+
+    #[test]
+    fn eidos_route_prior_must_carry_closed_evidence_for_app_cold_store_card() {
+        let plan = fit_plan();
+        let packet = eidos_packet();
+        let prior = EidosRoutePrior::from_packet(
+            &packet,
+            "deep_research:neural_importance_atlas",
+            Vec::new(),
+            EidosCitationNeed::Optional,
+            vec!["local_reasoning".to_string()],
+            Vec::new(),
+            vec!["F-AppColdStore-Layout".to_string()],
+            vec!["adapter:research_synthesis".to_string()],
+            Vec::new(),
+            vec!["weight_page:controller".to_string()],
+            0.64,
+            vec!["Eidos matched task meaning without closed evidence".to_string()],
+        )
+        .expect("Eidos can form optional-citation priors before route-card admission");
+
+        let err = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+            "deep_research:neural_importance_atlas",
+            verifier_stack(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            Some(prior),
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(err, AppColdStoreRouteCardError::MissingRoutePriorEvidence);
     }
 }
