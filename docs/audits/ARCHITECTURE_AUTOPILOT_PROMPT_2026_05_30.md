@@ -21,6 +21,9 @@ Hard safety rules:
 - Do not touch the paused font/typography bundle unless the user explicitly
   resumes font work. In particular, do not edit, stage, commit, or "fix" the
   dirty font files or missing `ka1.ttf`.
+- Do not edit, stage, commit, or "fix"
+  `artifacts/lattice-coordinate-explainer/index.html` unless the user
+  explicitly resumes lattice explainer artifact work.
 - Do not run 70B, 128K, full Metal witness, mmap/SSD stress, live MLX/GGUF
   heavy probes, Xcode/full-app tests, or commands likely to pressure memory.
 - Do not delete worktrees, sibling Epistemos folders, `~/Epistemos-RETRO/`,
