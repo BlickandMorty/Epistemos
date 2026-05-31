@@ -379,6 +379,11 @@ fn validate_eidos_route_prior(
     task_signature: &str,
     prior: &EidosRoutePrior,
 ) -> Result<(), AppColdStoreRouteCardError> {
+    prior
+        .validate_shape()
+        .map_err(|error| AppColdStoreRouteCardError::InvalidRoutePriorShape {
+            reason: error.to_string(),
+        })?;
     if prior.task_signature != task_signature {
         return Err(AppColdStoreRouteCardError::RoutePriorTaskMismatch);
     }
@@ -435,6 +440,7 @@ pub enum AppColdStoreRouteCardError {
     MissingDurableAtlas,
     DuplicateVerifier { verifier: String },
     RoutePriorTaskMismatch,
+    InvalidRoutePriorShape { reason: String },
     MissingRoutePriorEvidence,
     MissingRoutePriorSupport,
 }
@@ -483,6 +489,10 @@ impl std::fmt::Display for AppColdStoreRouteCardError {
             Self::RoutePriorTaskMismatch => write!(
                 f,
                 "EidosRoutePrior task_signature must match the AppColdStore route card task_signature"
+            ),
+            Self::InvalidRoutePriorShape { reason } => write!(
+                f,
+                "EidosRoutePrior failed route-card shape validation: {reason}"
             ),
             Self::MissingRoutePriorEvidence => write!(
                 f,
@@ -973,5 +983,67 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(err, AppColdStoreRouteCardError::MissingRoutePriorEvidence);
+    }
+
+    #[test]
+    fn app_cold_store_route_card_revalidates_mutated_eidos_route_prior_shape() {
+        let plan = fit_plan();
+        let mut nonfinite_prior = eidos_prior(
+            vec!["F-AppColdStore-Layout".to_string()],
+            vec!["adapter:research_synthesis".to_string()],
+            Vec::new(),
+            vec!["weight_page:controller".to_string()],
+            0.82,
+        )
+        .expect("valid Eidos prior should build");
+        nonfinite_prior.confidence = f32::NAN;
+
+        let nonfinite_err = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+            "deep_research:neural_importance_atlas",
+            verifier_stack(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            Some(nonfinite_prior),
+            99,
+        )
+        .unwrap_err();
+
+        assert!(matches!(
+            nonfinite_err,
+            AppColdStoreRouteCardError::InvalidRoutePriorShape { ref reason }
+                if reason.contains("confidence")
+        ));
+
+        let mut empty_why_prior = eidos_prior(
+            vec!["F-AppColdStore-Layout".to_string()],
+            vec!["adapter:research_synthesis".to_string()],
+            Vec::new(),
+            vec!["weight_page:controller".to_string()],
+            0.82,
+        )
+        .expect("valid Eidos prior should build");
+        empty_why_prior.why_matched.clear();
+
+        let empty_why_err = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+            "deep_research:neural_importance_atlas",
+            verifier_stack(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            Some(empty_why_prior),
+            99,
+        )
+        .unwrap_err();
+
+        assert!(matches!(
+            empty_why_err,
+            AppColdStoreRouteCardError::InvalidRoutePriorShape { ref reason }
+                if reason.contains("why_matched")
+        ));
     }
 }
