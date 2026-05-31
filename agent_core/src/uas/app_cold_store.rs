@@ -6,6 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::eidos::EidosRoutePrior;
 use crate::uas::{
     construction_card::{pro_status_preimage, product_build_preimage},
     ByteRange, ProStatus, ProductBuild, ResidencyPlan, ResidencyPlanStatus, ResidencyTier,
@@ -77,6 +78,8 @@ pub struct AppColdStoreRouteCard {
     pub residency_status: ResidencyTier,
     pub residency_plan_address: Option<UasAddress>,
     pub cache_rebuild_policy: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub eidos_route_prior: Option<EidosRoutePrior>,
 }
 
 impl AppColdStoreRouteCard {
@@ -89,6 +92,31 @@ impl AppColdStoreRouteCard {
         pro_status: ProStatus,
         plan: &ResidencyPlan,
         cache_rebuild_policy: impl Into<String>,
+        created_at_ms: u64,
+    ) -> Result<Self, AppColdStoreRouteCardError> {
+        Self::from_residency_plan_with_eidos_prior(
+            task_signature,
+            verifier_stack,
+            rollback_reference,
+            product_build,
+            pro_status,
+            plan,
+            cache_rebuild_policy,
+            None,
+            created_at_ms,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_residency_plan_with_eidos_prior(
+        task_signature: impl Into<String>,
+        verifier_stack: Vec<String>,
+        rollback_reference: impl Into<String>,
+        product_build: ProductBuild,
+        pro_status: ProStatus,
+        plan: &ResidencyPlan,
+        cache_rebuild_policy: impl Into<String>,
+        eidos_route_prior: Option<EidosRoutePrior>,
         created_at_ms: u64,
     ) -> Result<Self, AppColdStoreRouteCardError> {
         if plan.status != ResidencyPlanStatus::FitForDryRun {
@@ -118,6 +146,9 @@ impl AppColdStoreRouteCard {
             .any(|verifier| verifier == PARAM_ROUTE_CARD_ADMISSION_FALSIFIER_ID)
         {
             return Err(AppColdStoreRouteCardError::MissingParamRouteCardAdmissionVerifier);
+        }
+        if let Some(prior) = &eidos_route_prior {
+            validate_eidos_route_prior(&task_signature, prior)?;
         }
 
         let residency_status = plan.effective_residency_tier;
@@ -171,6 +202,7 @@ impl AppColdStoreRouteCard {
             residency_status,
             residency_plan_address.as_ref(),
             &cache_rebuild_policy,
+            eidos_route_prior.as_ref(),
             created_at_ms,
         );
 
@@ -188,6 +220,7 @@ impl AppColdStoreRouteCard {
             residency_status,
             residency_plan_address,
             cache_rebuild_policy,
+            eidos_route_prior,
         })
     }
 
@@ -205,6 +238,7 @@ impl AppColdStoreRouteCard {
         residency_status: ResidencyTier,
         residency_plan_address: Option<&UasAddress>,
         cache_rebuild_policy: &str,
+        eidos_route_prior: Option<&EidosRoutePrior>,
         created_at_ms: u64,
     ) -> UasAddress {
         let mut preimage = String::new();
@@ -240,11 +274,53 @@ impl AppColdStoreRouteCard {
         }
         preimage.push('\n');
         preimage.push_str(cache_rebuild_policy);
+        preimage.push('\n');
+        push_eidos_route_prior_preimage(&mut preimage, eidos_route_prior);
         UasAddress::new(
             UasKind::Other("app_cold_store_route_card".to_string()),
             preimage.as_bytes(),
             created_at_ms,
         )
+    }
+}
+
+fn push_eidos_route_prior_preimage(preimage: &mut String, prior: Option<&EidosRoutePrior>) {
+    let Some(prior) = prior else {
+        preimage.push_str("eidos_route_prior:none\n");
+        return;
+    };
+
+    preimage.push_str("eidos_route_prior:v1\n");
+    preimage.push_str(&prior.task_signature);
+    preimage.push('\n');
+    preimage.push_str(prior.manifest_id.as_str());
+    preimage.push('\n');
+    for evidence_id in &prior.evidence_ids {
+        preimage.push_str(evidence_id.as_str());
+        preimage.push('\n');
+    }
+    preimage.push_str(match prior.citation_need {
+        crate::eidos::EidosCitationNeed::None => "citation:none",
+        crate::eidos::EidosCitationNeed::Optional => "citation:optional",
+        crate::eidos::EidosCitationNeed::Required => "citation:required",
+    });
+    preimage.push('\n');
+    push_prior_list_preimage(preimage, "domain", &prior.domain_tags);
+    push_prior_list_preimage(preimage, "contradiction", &prior.contradiction_hints);
+    push_prior_list_preimage(preimage, "verifier", &prior.likely_verifiers);
+    push_prior_list_preimage(preimage, "adapter", &prior.likely_adapter_families);
+    push_prior_list_preimage(preimage, "kv", &prior.likely_kv_regions);
+    push_prior_list_preimage(preimage, "weight", &prior.likely_weight_page_families);
+    preimage.push_str(&format!("confidence_bits:{}\n", prior.confidence.to_bits()));
+    push_prior_list_preimage(preimage, "why", &prior.why_matched);
+}
+
+fn push_prior_list_preimage(preimage: &mut String, label: &str, values: &[String]) {
+    preimage.push_str(label);
+    preimage.push('\n');
+    for value in values {
+        preimage.push_str(value);
+        preimage.push('\n');
     }
 }
 
@@ -292,6 +368,23 @@ fn validate_build_status(
     Ok(())
 }
 
+fn validate_eidos_route_prior(
+    task_signature: &str,
+    prior: &EidosRoutePrior,
+) -> Result<(), AppColdStoreRouteCardError> {
+    if prior.task_signature != task_signature {
+        return Err(AppColdStoreRouteCardError::RoutePriorTaskMismatch);
+    }
+    if prior.likely_verifiers.is_empty()
+        && prior.likely_adapter_families.is_empty()
+        && prior.likely_kv_regions.is_empty()
+        && prior.likely_weight_page_families.is_empty()
+    {
+        return Err(AppColdStoreRouteCardError::MissingRoutePriorSupport);
+    }
+    Ok(())
+}
+
 fn validate_nonempty(field: &'static str, value: &str) -> Result<(), AppColdStoreRouteCardError> {
     if value.trim().is_empty() {
         return Err(missing_field_error(field));
@@ -330,6 +423,8 @@ pub enum AppColdStoreRouteCardError {
     ProductBuildResidencyMismatch,
     WarmCacheRequiresDurableAtlas,
     MissingDurableAtlas,
+    RoutePriorTaskMismatch,
+    MissingRoutePriorSupport,
 }
 
 impl std::fmt::Display for AppColdStoreRouteCardError {
@@ -370,6 +465,14 @@ impl std::fmt::Display for AppColdStoreRouteCardError {
                 f,
                 "AppColdStore route cards require at least one durable atlas unit"
             ),
+            Self::RoutePriorTaskMismatch => write!(
+                f,
+                "EidosRoutePrior task_signature must match the AppColdStore route card task_signature"
+            ),
+            Self::MissingRoutePriorSupport => write!(
+                f,
+                "EidosRoutePrior must carry at least one verifier, adapter, KV, or weight-page support hint"
+            ),
         }
     }
 }
@@ -379,6 +482,11 @@ impl std::error::Error for AppColdStoreRouteCardError {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::eidos::{
+        EidosChunkId, EidosCitationNeed, EidosContextPacket, EidosDocumentId, EidosHit,
+        EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode,
+        EidosScoreComponents, EidosSourceKind, EidosSpan,
+    };
     use crate::uas::{
         ProStatus, ProductBuild, ResidencyBudget, ResidencyPlan, ResidencyPlanStatus,
         ResidencyTier, UasAddress, UasKind, WeightBlockEncoding, WeightBlockIrChart,
@@ -453,6 +561,68 @@ mod tests {
 
         assert_eq!(plan.status, ResidencyPlanStatus::FitForDryRun);
         plan
+    }
+
+    fn eidos_chunk_id(raw: &str) -> EidosChunkId {
+        EidosChunkId::new(raw).expect("fixture chunk id should be non-empty")
+    }
+
+    fn eidos_document_id(raw: &str) -> EidosDocumentId {
+        EidosDocumentId::new(raw).expect("fixture document id should be non-empty")
+    }
+
+    fn eidos_packet() -> EidosContextPacket {
+        let manifest_id =
+            EidosIndexManifestId::new("manifest:neural-importance").expect("manifest id");
+        EidosContextPacket {
+            query: EidosQuery::new("neural importance atlas", EidosRetrievalMode::Hybrid, 4),
+            manifest_id: manifest_id.clone(),
+            hits: vec![EidosHit {
+                source_id: eidos_chunk_id("vault://note/neural-importance"),
+                document_id: eidos_document_id("vault://note/neural-importance-doc"),
+                kind: EidosSourceKind::Note,
+                span: Some(EidosSpan {
+                    byte_start: 0,
+                    byte_end: 32,
+                }),
+                confidence: 0.82,
+                score: EidosScoreComponents {
+                    lexical: 0.42,
+                    semantic: 0.35,
+                    recency: 0.05,
+                    graph: 0.0,
+                },
+                provenance: EidosProvenance {
+                    manifest_id,
+                    mode: EidosRetrievalMode::Hybrid,
+                    retrieved_at_unix_ms: 1_779_000_000_000,
+                },
+            }],
+        }
+    }
+
+    fn eidos_prior(
+        likely_verifiers: Vec<String>,
+        likely_adapter_families: Vec<String>,
+        likely_kv_regions: Vec<String>,
+        likely_weight_page_families: Vec<String>,
+        confidence: f32,
+    ) -> Result<EidosRoutePrior, crate::eidos::EidosRoutePriorError> {
+        let packet = eidos_packet();
+        EidosRoutePrior::from_packet(
+            &packet,
+            "deep_research:neural_importance_atlas",
+            vec![eidos_chunk_id("vault://note/neural-importance")],
+            EidosCitationNeed::Required,
+            vec!["local_reasoning".to_string()],
+            vec!["citation_required".to_string()],
+            likely_verifiers,
+            likely_adapter_families,
+            likely_kv_regions,
+            likely_weight_page_families,
+            confidence,
+            vec!["Eidos matched cited vault evidence and route priors".to_string()],
+        )
     }
 
     #[test]
@@ -633,5 +803,94 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(err, AppColdStoreRouteCardError::MissingDurableAtlas);
+    }
+
+    #[test]
+    fn eidos_route_prior_binds_to_card_without_waking_model_bytes() {
+        let plan = fit_plan();
+        let prior = eidos_prior(
+            vec!["F-AppColdStore-Layout".to_string()],
+            vec!["adapter:research_synthesis".to_string()],
+            vec!["kv:neural_importance_intro".to_string()],
+            vec!["weight_page:controller".to_string()],
+            0.82,
+        )
+        .expect("valid Eidos prior should build");
+
+        let card = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+            "deep_research:neural_importance_atlas",
+            verifier_stack(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            Some(prior.clone()),
+            99,
+        )
+        .expect("fit dry-run plan plus admitted verifier stack should produce a card");
+
+        assert_eq!(card.eidos_route_prior.as_ref(), Some(&prior));
+        assert_eq!(card.totals.runtime_model_bytes_loaded, 0);
+        assert_eq!(card.durable_units.len(), 1);
+        assert_eq!(card.warm_cache_units.len(), 1);
+        assert_eq!(card.hot_runway_units.len(), 1);
+    }
+
+    #[test]
+    fn eidos_route_prior_does_not_bypass_param_route_card_admission() {
+        let plan = fit_plan();
+        let prior = eidos_prior(
+            vec!["F-AppColdStore-Layout".to_string()],
+            Vec::new(),
+            Vec::new(),
+            vec!["weight_page:controller".to_string()],
+            0.7,
+        )
+        .expect("valid Eidos prior should build");
+
+        let err = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+            "deep_research:neural_importance_atlas",
+            vec!["F-AppColdStore-Layout".to_string()],
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            Some(prior),
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            AppColdStoreRouteCardError::MissingParamRouteCardAdmissionVerifier
+        );
+    }
+
+    #[test]
+    fn eidos_route_prior_rejects_unbounded_confidence_and_empty_support() {
+        let err = eidos_prior(Vec::new(), Vec::new(), Vec::new(), Vec::new(), 1.01).unwrap_err();
+        assert!(matches!(
+            err,
+            crate::eidos::EidosRoutePriorError::InvalidConfidence(v) if v == 1.01
+        ));
+
+        let plan = fit_plan();
+        let prior = eidos_prior(Vec::new(), Vec::new(), Vec::new(), Vec::new(), 0.5)
+            .expect("Eidos prior may exist before AppColdStore support validation");
+        let err = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+            "deep_research:neural_importance_atlas",
+            verifier_stack(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            Some(prior),
+            99,
+        )
+        .unwrap_err();
+        assert_eq!(err, AppColdStoreRouteCardError::MissingRoutePriorSupport);
     }
 }
