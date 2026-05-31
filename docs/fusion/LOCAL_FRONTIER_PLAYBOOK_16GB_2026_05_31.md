@@ -72,6 +72,55 @@ ActiveAssembly is waking-set selection. Eidos is evidence/citation validation.
 RuntimeRouter/System G executes under policy. Primitive IRs and falsifiers
 verify the pieces. The model is one executor inside the substrate.
 
+## Eidos-To-Neural Routing
+
+The next local-machine breakthrough path is not a model choosing its own
+weights. It is the app using Eidos to understand the task and evidence first,
+then using that typed context to query the NeuralImportanceAtlas.
+
+```text
+EidosContextPacket
+  -> EidosRoutePrior
+  -> TaskSignatureEmbedding
+  -> NeuralImportanceAtlas lookup
+  -> ParamRouteCard / AppColdStoreRouteCard
+  -> ActiveAssembly support set
+```
+
+This lets note/search intelligence participate in model-state routing:
+
+- a citation-heavy question should wake Eidos/VaultRecall, citation verifier,
+  relevant note/KV pages, and evidence-oriented adapter slices before generic
+  reasoning;
+- a code task should wake code/test verifiers, repo evidence, code adapters,
+  and tool routes;
+- a math/proof task should wake EML/Primitive-IR/proof witnesses and numeric
+  falsifiers;
+- a long-context synthesis should wake query-aware KV pages and PageGather
+  lanes before pushing more prompt text into the model.
+
+The bridge is a route-prior mechanism, not authority. The neural route is
+admitted only when UAS addresses, active bytes, rollback, verifier stack,
+ProductBuild, ProStatus, and visible witness are bound.
+
+## Dynamic Compute Checkpoints
+
+Dynamic pause/resume belongs at explicit checkpoints:
+
+- `EarlyExitCheckpoint`;
+- `SelfSpeculativeCheckpoint`;
+- `DepthBudgetGate`;
+- `KVRestoreCheckpoint`;
+- `AdapterSwapCheckpoint`;
+- `EidosInterruptCheckpoint`;
+- `VerifierRepairCheckpoint`;
+- `ControllerSSMCheckpoint`.
+
+These checkpoints are Pro Research until a falsifier shows they improve
+quality/cost over fixed-depth execution and that their effect is visible in
+RunEventLog and AnswerPacket. They are not permission to silently stop inside a
+kernel, mutate weights, or hide extra retries from the user.
+
 ## Target Envelope
 
 These are candidate targets for the first serious M2 Pro 16 GB harness. They

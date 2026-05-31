@@ -19,6 +19,8 @@ Start by reading and obeying:
 9. `docs/fusion/FRONTIER_LOCAL_REASONING_16GB_ARCHITECTURE_2026_05_31.md`
 10. `docs/fusion/NEURAL_IMPORTANCE_ROUTING_ATLAS_2026_05_31.md`
 11. `docs/fusion/LOCAL_FRONTIER_PLAYBOOK_16GB_2026_05_31.md`
+12. `docs/fusion/EIDOS_NEURAL_IMPORTANCE_BRIDGE_2026_05_31.md`
+13. `docs/audits/FULL_ARCHITECTURE_CONTINUATION_PROMPT_2026_05_31.md`
 
 Current naming/build lock:
 
@@ -49,6 +51,16 @@ Current naming/build lock:
   blocks, kernels, ANE scout heads, and verifiers. Use the
   Counterfactual Utility Law as a planning heuristic, but require falsifiers
   before promotion.
+- Eidos can feed NeuralImportanceAtlas, but it must not become a hidden model
+  self-router. Eidos supplies evidence hits, task meaning, `why_matched`,
+  citation need, contradiction hints, and route priors; UAS/AppColdStore binds
+  candidate neural units; ActiveAssembly selects the support set; SCOPE-Rex /
+  SovereignGate admits the route; RunEventLog and AnswerPacket expose it.
+- Dynamic compute ideas are allowed only as explicit checkpoints:
+  early-exit, self-speculative, depth-budget, KV-restore, adapter-swap,
+  Eidos-interrupt, verifier-repair, or controller-SSM checkpoints. Do not
+  silently interrupt a matmul or mutate model state. Every checkpoint that
+  affects an output must become a RunEventLog event.
 - The 16 GB playbook promotion rule is A/B/C/D: a full Epistemos route must
   beat raw local, conventional RAG, and memory-optimized baselines on quality,
   evidence validity, active bytes, and visible proof before any local-frontier
@@ -98,6 +110,8 @@ Preferred unattended work order:
    - ResidencyPlan / WeightBlockManifest dry-run guardrails.
    - AppColdStore / NeuralImportanceAtlas scaffolds only when they are
      non-executing, manifest-only, and falsifier-shaped.
+   - Eidos/NeuralImportance bridge work only when it is typed as a route-prior
+     or route-card surface and cannot wake model bytes without admission.
    - measurement-floor or playbook harness work that records active bytes,
      copy count, peak UMA, SSD reads, citation validity, and witness completeness.
 3. Prefer verified code over docs. If no code is safe, update the salvage docs
