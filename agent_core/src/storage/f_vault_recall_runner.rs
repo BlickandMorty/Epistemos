@@ -29,7 +29,7 @@ use serde::Serialize;
 
 use crate::storage::f_vault_recall_50_fixture::{FVaultRecallCategory, FVaultRecallRow};
 use crate::storage::retrieval_trace::{EvidenceStrength, RetrievalTrace};
-use crate::storage::vault::{VaultBackend, VaultError};
+use crate::storage::vault::{SearchResult, VaultBackend, VaultError};
 
 /// Outcome of running one fixture row against a backend.
 ///
@@ -103,11 +103,7 @@ pub async fn run_row(
         .hybrid_search_with_trace(row.query, row.top_n, &[])
         .await?;
 
-    let top_paths: Vec<String> = results
-        .iter()
-        .take(row.top_n)
-        .map(|r| r.path.clone())
-        .collect();
+    let top_paths = unique_top_paths(&results, row.top_n);
 
     let mut expected_seen = Vec::new();
     let mut expected_missed = Vec::new();
@@ -153,6 +149,21 @@ pub async fn run_row(
         },
         trace,
     ))
+}
+
+fn unique_top_paths(results: &[SearchResult], top_n: usize) -> Vec<String> {
+    let mut seen = std::collections::HashSet::with_capacity(top_n.min(results.len()));
+    let mut paths = Vec::with_capacity(top_n.min(results.len()));
+    for result in results.iter().take(top_n) {
+        let path = result.path.trim();
+        if path.is_empty() {
+            continue;
+        }
+        if seen.insert(path.to_lowercase()) {
+            paths.push(path.to_string());
+        }
+    }
+    paths
 }
 
 /// Run every row in `fixture` against the backend, in order. Returns a
@@ -319,7 +330,58 @@ pub fn summarize(outcomes: &[FVaultRecallRowOutcome]) -> FVaultRecallSummary {
 mod tests {
     use super::*;
     use crate::storage::f_vault_recall_50_fixture::{FVaultRecallCategory, FVaultRecallRow};
-    use crate::storage::vault::VaultStore;
+    use crate::storage::vault::{SearchResult, VaultStore};
+
+    struct DuplicatePathBackend {
+        results: Vec<SearchResult>,
+    }
+
+    #[async_trait::async_trait]
+    impl VaultBackend for DuplicatePathBackend {
+        async fn hybrid_search(
+            &self,
+            _query: &str,
+            _limit: usize,
+            _tag_filter: &[String],
+        ) -> Result<Vec<SearchResult>, VaultError> {
+            Ok(self.results.clone())
+        }
+
+        async fn read(&self, path: &str) -> Result<String, VaultError> {
+            Ok(format!("content for {path}"))
+        }
+
+        async fn write(
+            &self,
+            _path: &str,
+            _content: &str,
+            _tags: Option<&[String]>,
+            _overwrite: bool,
+        ) -> Result<(), VaultError> {
+            Ok(())
+        }
+
+        async fn list(&self, _path_prefix: &str) -> Result<Vec<String>, VaultError> {
+            Ok(Vec::new())
+        }
+
+        async fn exists(&self, _path: &str) -> Result<bool, VaultError> {
+            Ok(false)
+        }
+
+        async fn delete(&self, _path: &str) -> Result<bool, VaultError> {
+            Ok(false)
+        }
+    }
+
+    fn search_result(path: &str, score: f64) -> SearchResult {
+        SearchResult {
+            path: path.to_string(),
+            excerpt: format!("excerpt for {path}"),
+            score,
+            tags: Vec::new(),
+        }
+    }
 
     /// Build a row inline and run it through `run_row` against a vault
     /// seeded with the expected note. Asserts the pass case: outcome
@@ -380,6 +442,32 @@ mod tests {
             "verdict_line should start with PASS: {:?}",
             outcome.verdict_line()
         );
+    }
+
+    #[tokio::test]
+    async fn run_row_reports_unique_paths_inside_top_n_window() {
+        let backend = DuplicatePathBackend {
+            results: vec![
+                search_result("notes/expected.md", 4.0),
+                search_result("notes/expected.md", 3.9),
+                search_result("notes/forbidden.md", 3.8),
+            ],
+        };
+        let row = FVaultRecallRow {
+            query: "needle",
+            expected_paths: &["notes/expected.md"],
+            forbidden_paths: &["notes/forbidden.md"],
+            category: FVaultRecallCategory::SignalOnly,
+            top_n: 2,
+            note: "duplicate-path top-N regression",
+        };
+
+        let (outcome, _trace) = run_row(&backend, &row).await.expect("run_row");
+
+        assert_eq!(outcome.top_paths, vec!["notes/expected.md"]);
+        assert!(outcome.passed);
+        assert_eq!(outcome.expected_seen, vec!["notes/expected.md"]);
+        assert!(outcome.forbidden_present.is_empty());
     }
 
     /// Failure-mode test: when the expected note is NOT in the vault,
