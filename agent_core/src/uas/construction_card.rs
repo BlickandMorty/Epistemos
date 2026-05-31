@@ -176,6 +176,14 @@ impl ConstructionCard {
         if !is_valid_wbo_budget_nats(budget.wbo_budget_nats) {
             return Err(ConstructionCardError::InvalidBudget);
         }
+        if product_build == ProductBuild::Mas
+            && matches!(
+                pro_status,
+                ProStatus::ResearchCandidate | ProStatus::VaultPreserved | ProStatus::Omega
+            )
+        {
+            return Err(ConstructionCardError::ProductBuildStatusMismatch);
+        }
         let card_address = Self::address(
             &problem_card,
             &lift_charts,
@@ -301,6 +309,7 @@ pub enum ConstructionCardError {
     FieldHasSurroundingWhitespace { field: &'static str },
     FieldContainsControlCharacter { field: &'static str },
     InvalidBudget,
+    ProductBuildStatusMismatch,
     PlanRejected,
 }
 
@@ -320,6 +329,10 @@ impl std::fmt::Display for ConstructionCardError {
                 write!(f, "{field} must not contain control characters")
             }
             Self::InvalidBudget => write!(f, "construction budget is invalid"),
+            Self::ProductBuildStatusMismatch => write!(
+                f,
+                "MAS build construction cards cannot carry Pro research, vault-preserved, or omega status"
+            ),
             Self::PlanRejected => write!(f, "residency plan must be FitForDryRun"),
         }
     }
@@ -583,6 +596,41 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(err, ConstructionCardError::InvalidBudget);
+    }
+
+    #[test]
+    fn construction_card_rejects_mas_research_vault_or_omega_status() {
+        let budget = ConstructionBudget {
+            hot_uma_bytes: 0,
+            warm_compressed_uma_bytes: 0,
+            cold_mmap_ssd_bytes: 0,
+            wbo_budget_nats: 0.0,
+            copy_budget: 0,
+        };
+
+        for pro_status in [
+            ProStatus::ResearchCandidate,
+            ProStatus::VaultPreserved,
+            ProStatus::Omega,
+        ] {
+            let err = ConstructionCard::new(
+                "problem",
+                vec![WeightBlockIrChart::Scan],
+                "projection",
+                "witness",
+                budget.clone(),
+                "F-Test",
+                "rollback",
+                ProductBuild::Mas,
+                pro_status,
+                ResidencyTier::CapabilityCeiling,
+                None,
+                10,
+            )
+            .unwrap_err();
+
+            assert_eq!(err, ConstructionCardError::ProductBuildStatusMismatch);
+        }
     }
 
     #[test]
