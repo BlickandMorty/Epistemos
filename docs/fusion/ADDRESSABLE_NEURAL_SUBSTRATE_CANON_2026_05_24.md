@@ -164,18 +164,18 @@ Hardening landed with the first witness:
 
 This ladder is canon for how precise an agent may be when it says Epistemos "addresses the model." Builders must name the exact row they touch.
 
-| Granularity | What the substrate addresses | Status today | Tier |
+| Granularity | What the substrate addresses | Status today | Build/status |
 |---|---|---|---|
-| Whole-model call | model identity: MLX, GGUF, Apple Intelligence, cloud executor, local SSM lane | live default | Tier 1 |
-| Output schema | allowed shapes emitted by the model: JSON schema, tool grammar, AnswerPacket schema | partial | Tier 1 |
-| KV cache page | short-term model memory addressed as hot/warm/cold page | substrate exists; harness pending | Tier 1 gate |
-| Weight-bit layout | Sherry/Leech, ternary, NF4, dense residual island | research / promotion candidate | Tier 2/3 |
-| Adapter delta | LoRA/DoRA/Titans-MAC/L_SE specialization over base model | research | Tier 3 |
-| MoE expert | expert route inside a model that already ships MoE | model-internal; substrate observes/chooses model lane | Tier 1 when model provides it |
-| Active assembly | cross-cutting slice of model + KV + context + adapters + tools + kernels | research target | Tier 3 |
-| Attention head / SSM state | specific attention-head, QK slice, or recurrent scan-state region | research target | Tier 3 |
-| Parameter anchor | stable parameter subset or rank-one component address | research target | Tier 3 |
-| Cross-layer circuit | attribution circuit spanning multiple layers/components | research target | Tier 3 / Vault |
+| Whole-model call | model identity: MLX, GGUF, Apple Intelligence, explicit provider, local SSM lane | live default | MAS / Pro Live |
+| Output schema | allowed shapes emitted by the model: JSON schema, tool grammar, AnswerPacket schema | partial | MAS / Pro Live |
+| KV cache page | short-term model memory addressed as hot/warm/cold page | substrate exists; harness pending | Pro Gated |
+| Weight-bit layout | Sherry/Leech, ternary, NF4, dense residual island | research / promotion candidate | Pro Research |
+| Adapter delta | LoRA/DoRA/Titans-MAC/L_SE specialization over base model | research | Pro Research; Pro Gated only after rollback/eval gate |
+| MoE expert | expert route inside a model that already ships MoE | model-internal; substrate observes/chooses model lane | MAS or Pro Live only when provider/runtime exposes it honestly |
+| Active assembly | cross-cutting slice of model + KV + context + adapters + tools + kernels | research target | Pro Research |
+| Attention head / SSM state | specific attention-head, QK slice, or recurrent scan-state region | research target | Pro Research |
+| Parameter anchor | stable parameter subset or rank-one component address | research target | Pro Vault-Preserved / Pro Research |
+| Cross-layer circuit | attribution circuit spanning multiple layers/components | research target | Pro Vault-Preserved / Pro Omega |
 
 Do not claim a finer row than the code actually touches. If a PR routes a whole model, call it whole-model routing. If a PR pages KV, call it KV-page routing. If a PR manipulates rank-one components or circuits, it belongs in research until the matching falsifier passes.
 
@@ -274,7 +274,7 @@ This target architecture is canonical, but runtime activation is gated:
 | `F-Sparse-Runtime-Split` | selected sparse/active assembly reproduces dense execution within bounded drift | neural assembly routing works |
 | `F-KV-Direct-Gate` | SSD/mmap/residual KV path matches full hot KV reference | L3 SSD Oracle works |
 | `F-UAS-CopyCount` | no hidden tensor copies across Swift/Rust/Metal/MLX hot paths | zero-copy substrate works |
-| `F-UAS-ACS-MmapResidency` | deterministic file-backed mmap bytes round-trip through UAS address, residency lease, and ACS projection lookup | UAS/ACS residency is a real file-backed substrate slice |
+| `F-UAS-ACS-MmapResidency` | deterministic file-backed mmap bytes round-trip through UAS address, residency lease, and AcsAnchor projection lookup | Legacy-named witness proving one file-backed UAS + AcsAnchor/ColdStore-style residency slice |
 | `F-WeightBlockRangeHash-DryRun` | explicit model byte ranges can be fingerprinted within a caller-provided bound and fail closed | future large-model manifests cannot hash/load huge ranges accidentally |
 | `F-ResidencyPlan-DryRun` | active model-shaped weight blocks fit memory/WBO/rollback budgets before runtime | large-model probes are pre-gated instead of crash-first |
 | `F-ActiveAssembly-Minimal` | selected support is small but sufficient | active routing is useful |

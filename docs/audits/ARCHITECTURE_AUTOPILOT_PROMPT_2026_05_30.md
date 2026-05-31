@@ -15,6 +15,16 @@ Start by reading and obeying:
 5. `docs/audits/AGENT_MANAGEABLE_ARCHITECTURE_CANON_2026_05_30.md`
 6. `docs/audits/ACS_NAMESPACE_RECONCILIATION_2026_05_30.md`
 7. `docs/audits/NEXT_SESSION_WORKTREE_SALVAGE_PROMPT_2026_05_30.md`
+8. `docs/audits/NAMESPACE_AND_ARCHITECTURE_CLARITY_AUDIT_2026_05_31.md`
+
+Current naming/build lock:
+
+- Epistemos has two distributable builds: MAS and Pro. Research, Vault, Omega,
+  heavy runtime, and future substrate work are Pro status bands, not app
+  builds.
+- Use ProductBuild plus ProStatus/ResidencyStatus in new architecture claims.
+- Use ColdStore for Active Cold Storage. Keep AcsAnchor for anchored
+  coordinate/provenance. Use SCOPE-Rex/SovereignGate for admission/verdicts.
 
 Hard safety rules:
 
@@ -44,7 +54,7 @@ Preferred unattended work order:
    - T21/Eidos/VaultRecall/PageGather retrieval unification;
    - RuntimeRouter policy behavior;
    - System G guarded route surfaces that do not launch inference;
-   - ACS/UAS pure Rust read surfaces;
+   - AcsAnchor/UAS pure Rust read surfaces;
    - ResidencyPlan / WeightBlockManifest dry-run guardrails.
 3. Prefer verified code over docs. If no code is safe, update the salvage docs
    with exact reasons.

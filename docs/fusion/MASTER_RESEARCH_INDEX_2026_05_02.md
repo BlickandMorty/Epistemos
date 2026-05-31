@@ -356,7 +356,9 @@ ProductBuild plus ProStatus/ResidencyStatus.
 - `EpistemosTests/SearchIndexServiceFusionTests.swift` - real file-backed DB fusion integration tests.
 - `EpistemosTests/QueryRuntimeTests.swift` - QueryRuntime consumer guard tests.
 
-**Tier:** Core by default when flag-off; Pro/Research/dev-dogfood when `EPISTEMOS_RRF_FUSION_V1=1` until Phase 6 runtime dogfood flips defaults.
+**Build/status:** MAS by default when flag-off; Pro Gated / Pro Research /
+dev-dogfood when `EPISTEMOS_RRF_FUSION_V1=1` until Phase 6 runtime dogfood
+flips defaults.
 
 **Search aliases:** RRF, fused search, cross-index fusion, Search Fusion Health, readable blocks, universal projection, Epdoc slash, at-mention autocomplete, block-link autocomplete, one SQL query, `EPISTEMOS_RRF_FUSION_V1`.
 
@@ -365,8 +367,9 @@ ProductBuild plus ProStatus/ResidencyStatus.
 
 **Donor research:** `/Users/jojo/Downloads/Kimi_Agent_Deterministic AI Deep Dive/scope_rex_final_architecture.md` (definitive architecture, 31 research dimensions).
 
-### ACS five-layer recursion
-**Canonical:** doctrine Annex A.4 (Cell → Tissue → Organ → Organism → Ecosystem with tier mapping).
+### Legacy ACS five-layer recursion
+**Historical canonical source:** doctrine Annex A.4 (Cell → Tissue → Organ → Organism → Ecosystem with tier mapping).
+**Current namespace status:** superseded for active naming by `docs/audits/ACS_NAMESPACE_RECONCILIATION_2026_05_30.md`. Do not use ACS for Active Cold Storage or admission in new work. Map legacy recursion/coherence language to KuramotoSync / ResonanceSync when it means phase/coherence research, to AcsAnchor when it means anchored coordinate/provenance, and to SCOPE-Rex/SovereignGate when it means admission.
 **Donor research:** `/Users/jojo/Downloads/Kimi_Agent_Deterministic AI Deep Dive/acs_meta_layer.md`.
 
 ---

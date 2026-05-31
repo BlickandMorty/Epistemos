@@ -17,6 +17,9 @@ and audit files before changing anything:
 5. docs/audits/KV_DIRECT_MODEL_CONTEXT_INVENTORY_2026_05_28.json
 6. docs/audits/UNFINISHED_ARCHITECTURE_AND_BEST_COMBO_MANIFEST_2026_05_30.md
 7. docs/audits/ARCHITECTURE_NO_GAP_BUILD_ORDER_2026_05_28.md
+8. docs/audits/AGENT_MANAGEABLE_ARCHITECTURE_CANON_2026_05_30.md
+9. docs/audits/ACS_NAMESPACE_RECONCILIATION_2026_05_30.md
+10. docs/audits/NAMESPACE_AND_ARCHITECTURE_CLARITY_AUDIT_2026_05_31.md
 
 Current safe checkpoint:
 
@@ -74,8 +77,8 @@ Suggested next work, in order:
    - ResidencyPlan / WeightBlockManifest guardrails.
    - local model bridge provenance and failure honesty.
    - System G guarded routes that do not launch heavy inference.
-   - ACS/UAS read surfaces that are pure Rust and testable with focused cargo
-     unit tests.
+   - AcsAnchor/UAS read surfaces that are pure Rust and testable with focused
+     cargo unit tests.
 6. If no code is safe to port, update the salvage docs with exact reasons and
    leave the repo clean.
 7. Run only lightweight verification:

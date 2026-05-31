@@ -17,6 +17,15 @@ register defines the stable organ names and adapter rules so future agents do
 not invent parallel authorities such as detached AgentSearch, AgentMemory, or
 AgentCitation.
 
+Build/tier companion: Epistemos has exactly two distributable builds, MAS and
+Pro. MAS is the safe public floor. Pro contains internal bands: Pro Live, Pro
+Gated, Pro Research, Pro Vault-Preserved, and Pro Omega. Research, Vault,
+Omega, heavy runtime, and future substrate work are Pro statuses, not separate
+app builds.
+
+Final naming audit companion:
+`docs/audits/NAMESPACE_AND_ARCHITECTURE_CLARITY_AUDIT_2026_05_31.md`.
+
 Namespace companion: read
 `docs/audits/ACS_NAMESPACE_RECONCILIATION_2026_05_30.md`. From this point
 forward, Active Cold Storage is named ColdStore or Cold Residency Layer, not
@@ -65,7 +74,8 @@ signal, but every scheduled run must obey this covenant:
    ActiveAssembly,
    KV-Direct, 70B, lattice/WBO, EML/F-ULP, Lean, or autogenous-kernel work, run
    the relevant No-Orphan check: addressed unit, UAS address, plane, residency,
-   WBO/error policy, witness, falsifier, tier, rollback.
+   WBO/error policy, witness, falsifier, ProductBuild,
+   ProStatus/ResidencyStatus, rollback.
 5. Leave a durable result: commit, focused verification, and either a green
    WRV row or an explicit skip reason.
 
