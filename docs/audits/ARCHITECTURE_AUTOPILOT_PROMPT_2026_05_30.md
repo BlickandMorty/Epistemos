@@ -104,9 +104,12 @@ Preferred unattended work order:
    bundle, inspect them before editing and avoid clobbering them.
 2. If the user has asked for worktree preservation/extraction, follow
    `docs/audits/WORKTREE_PRESERVATION_EXTRACTION_PROMPT_2026_05_31.md`: audit
-   exactly one preserved donor, use non-mutating diffs first, port at most one
-   useful additive hunk/test/doc row, and never delete or wholesale merge any
-   worktree.
+   at most one preserved donor for the current cycle, use non-mutating diffs
+   first, port at most one useful additive hunk/test/doc row, and never delete
+   or wholesale merge any worktree. This is not a new forever lane: donor
+   mining is subordinate to the main architecture loop and must return to the
+   best-combo/current-head build order after the bounded extraction or skip
+   proof.
 3. Pick one safe current-head surface from the best-combo manifest:
    - T4 unique-value check;
    - T21/Eidos/VaultRecall/PageGather retrieval unification;
