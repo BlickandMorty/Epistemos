@@ -72,10 +72,25 @@ Claude-ledger scope lock:
 - The long Claude Phase 1 / Phase 2 / T25+ ledger is canon baseline, not final
   source truth. Always verify current code and current docs before declaring a
   row open, closed, wired, or obsolete.
+- Treat the pasted ledger as a full-scope map, not a suggestion list. The loop
+  may pick only one small work unit per run, but the recursive backlog must
+  continue to cover the whole architecture. Do not narrow the mission to the
+  most recent hunk, donor, or research phrase.
+- Every loop must match or exceed the ledger's architectural intent. It must
+  never regress by deleting nuance, flattening UAS/OAS/ColdStore/Eidos/System G
+  into a generic chatbot path, replacing user-visible proof with status-only
+  docs, or accepting a weaker donor version over stricter current code.
 - Nothing from the original Phase 1 / Phase 2 / T25+ ambition is dropped.
   Reconcile every row as one of: current code already wired, port one additive
   donor hunk/test, preserve as Pro Research / Pro Vault-Preserved / Pro Omega,
   or explicitly blocked with the missing falsifier/gate.
+- A row counts as "wired" only with source path, caller/reachability proof,
+  focused test or runtime guard, and user-visible surface/witness when the row
+  is product-facing. Otherwise mark it substrate-only, scaffold-only,
+  research-only, or blocked.
+- If a row is not completed in the current run, preserve the next cursor and
+  explain what remains. Do not close a row because nearby code, names, or docs
+  exist.
 - Phase 1 leftovers remain in scope: T4 vault retrieval unique-value check,
   T6 UI/UX donor mining, T5 Lean custody, T2 routeProfiles,
   ToolCallingPlan additive variant, T23B dedupe, and T12 eml_ir vs
