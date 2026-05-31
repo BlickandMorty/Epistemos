@@ -18,6 +18,7 @@ Start by reading and obeying:
 8. `docs/audits/NAMESPACE_AND_ARCHITECTURE_CLARITY_AUDIT_2026_05_31.md`
 9. `docs/fusion/FRONTIER_LOCAL_REASONING_16GB_ARCHITECTURE_2026_05_31.md`
 10. `docs/fusion/NEURAL_IMPORTANCE_ROUTING_ATLAS_2026_05_31.md`
+11. `docs/fusion/LOCAL_FRONTIER_PLAYBOOK_16GB_2026_05_31.md`
 
 Current naming/build lock:
 
@@ -30,6 +31,14 @@ Current naming/build lock:
 - The 16 GB local-reasoning target is: cold trillion, hot five billion,
   active minimum. This is a candidate architecture direction, not a shipped
   local-frontier claim.
+- Ambition lock: do not assume the local frontier direction is impossible just
+  because ordinary dense-resident models do not fit. Preserve the hypothesis
+  that UAS-addressed SSD/AppColdStore bytes can become a much larger
+  addressable cognitive atlas than hot RAM, including per-layer, per-block,
+  adapter, KV, and future parameter-component selection. Rigor lock: UAS makes
+  those bytes addressable and routable, not RAM-latency; every promotion must
+  be earned by layout, prewarm, cache reuse, active-byte accounting, repair
+  loops, and falsifiers.
 - AppColdStore is the app-owned substrate storage direction: durable model
   atlas, packed weight pages, adapter banks, KV seeds, route cards, and cache
   manifests belong under Epistemos-managed Application Support / App Group
@@ -40,6 +49,10 @@ Current naming/build lock:
   blocks, kernels, ANE scout heads, and verifiers. Use the
   Counterfactual Utility Law as a planning heuristic, but require falsifiers
   before promotion.
+- The 16 GB playbook promotion rule is A/B/C/D: a full Epistemos route must
+  beat raw local, conventional RAG, and memory-optimized baselines on quality,
+  evidence validity, active bytes, and visible proof before any local-frontier
+  claim is allowed.
 
 Hard safety rules:
 
@@ -85,6 +98,8 @@ Preferred unattended work order:
    - ResidencyPlan / WeightBlockManifest dry-run guardrails.
    - AppColdStore / NeuralImportanceAtlas scaffolds only when they are
      non-executing, manifest-only, and falsifier-shaped.
+   - measurement-floor or playbook harness work that records active bytes,
+     copy count, peak UMA, SSD reads, citation validity, and witness completeness.
 3. Prefer verified code over docs. If no code is safe, update the salvage docs
    with exact reasons.
 4. Run only lightweight verification:

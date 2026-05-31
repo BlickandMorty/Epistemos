@@ -1,0 +1,140 @@
+{
+  "falsifier_id": "F-AppColdStore-Layout",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_app_cold_store_layout.sh",
+  "command_digest": "sha256:8dc2d6037534eab28fc034d0cfdb424681d0eefcad30c679950ed2740a4728a2",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "e97fea07b4924ad31e48cb334e8c1dd426835448",
+  "fixture_id": "app_cold_store_layout_manifest_only_v1",
+  "timestamp_utc": "2026-05-31T03:57:44Z",
+  "result_digest": "sha256:4df0da031e927981f982e54238776332c69b7db5c276369b3db7844cb7b17a8e",
+  "measurements": {
+    "durable_atlas_bytes": {
+      "value": 4096,
+      "unit": "bytes"
+    },
+    "durable_warm_hot_tiers_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "failed_residency_plan_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hot_runway_bytes": {
+      "value": 512,
+      "unit": "bytes"
+    },
+    "mas_research_status_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_card_constructed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "warm_cache_bytes": {
+      "value": 256,
+      "unit": "bytes"
+    },
+    "warm_cache_rebuildable": {
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "acceptance_thresholds": {
+    "durable_atlas_bytes": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes"
+    },
+    "durable_warm_hot_tiers_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "failed_residency_plan_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hot_runway_bytes": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes"
+    },
+    "mas_research_status_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_card_constructed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "warm_cache_bytes": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes"
+    },
+    "warm_cache_rebuildable": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "durable_atlas_bytes": true,
+    "durable_warm_hot_tiers_present": true,
+    "failed_residency_plan_rejected": true,
+    "hot_runway_bytes": true,
+    "mas_research_status_rejected": true,
+    "route_card_constructed": true,
+    "runtime_model_bytes_loaded": true,
+    "warm_cache_bytes": true,
+    "warm_cache_rebuildable": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "manifest-only AppColdStore route card; no mmap, no cache warm, no model byte load, no inference"
+    }
+  ],
+  "notes": "Validates AppColdStore route-card layout over a passed ResidencyPlan; not a runtime or storage-speed proof."
+}
