@@ -133,6 +133,31 @@ struct RuntimeRouterTests {
         }
     }
 
+    @Test("privacy-sensitive request ignores enabled stub when all executable local lanes are disabled")
+    func privacySensitiveIgnoresEnabledStubLane() {
+        let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
+        for local in [RuntimeLane.mlx, .gguf, .appleIntelligence] {
+            router.setLaneEnabled(local, false)
+        }
+        defer {
+            for local in [RuntimeLane.mlx, .gguf, .appleIntelligence] {
+                router.setLaneEnabled(local, true)
+            }
+        }
+        let packet = MissionPacket(
+            uasAddress: "uas:test:privacy-stub",
+            role: .reasoning,
+            objective: "Sensitive query.",
+            privacySensitive: true
+        )
+        let verdict = router.route(packet)
+        if case .reject(let reason) = verdict {
+            #expect(reason == .privacySensitiveNoLocal)
+        } else {
+            Issue.record("expected .reject, got \(verdict)")
+        }
+    }
+
     @Test("metrics ring is bounded to the documented capacity")
     func metricsRingIsBoundedToDocumentedCapacity() {
         let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
