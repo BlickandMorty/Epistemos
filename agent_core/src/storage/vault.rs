@@ -335,6 +335,7 @@ pub trait VaultBackend: Send + Sync {
         for result in &results {
             let mut candidate = RetrievalCandidate::new(result.path.clone(), result.score)
                 .with_uas_address(result.projected_uas_address())
+                .with_selection_reason("matched by default vault lexical result")
                 .with_signal(RetrievalSignalScore::new(
                     RetrievalSignal::Lexical,
                     result.score,
@@ -1688,6 +1689,24 @@ mod tests {
                 "default trace candidates must carry typed VaultNote UAS addresses"
             );
         }
+    }
+
+    #[tokio::test]
+    async fn default_hybrid_search_with_trace_records_visible_selection_reasons() {
+        let backend = DefaultTraceBackend;
+
+        let (_results, trace) = backend
+            .hybrid_search_with_trace("residency governance", 2, &[])
+            .await
+            .expect("default trace");
+
+        assert!(
+            trace
+                .candidates
+                .iter()
+                .all(|candidate| !candidate.selection_reason.trim().is_empty()),
+            "default T21 traces must explain why each retained vault candidate was selected"
+        );
     }
 
     /// T21 Fix C contract test (2026-05-18): `hybrid_search` MUST NOT clamp
