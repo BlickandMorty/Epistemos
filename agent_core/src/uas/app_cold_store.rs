@@ -130,6 +130,9 @@ impl AppColdStoreRouteCard {
         if !warm_cache_units.is_empty() && durable_units.is_empty() {
             return Err(AppColdStoreRouteCardError::WarmCacheRequiresDurableAtlas);
         }
+        if durable_units.is_empty() {
+            return Err(AppColdStoreRouteCardError::MissingDurableAtlas);
+        }
 
         let totals = AppColdStoreRouteCardTotals {
             durable_atlas_bytes: plan.totals.cold_mmap_ssd_bytes,
@@ -309,6 +312,7 @@ pub enum AppColdStoreRouteCardError {
     ProductBuildStatusMismatch,
     ProductBuildResidencyMismatch,
     WarmCacheRequiresDurableAtlas,
+    MissingDurableAtlas,
 }
 
 impl std::fmt::Display for AppColdStoreRouteCardError {
@@ -336,6 +340,10 @@ impl std::fmt::Display for AppColdStoreRouteCardError {
             Self::WarmCacheRequiresDurableAtlas => write!(
                 f,
                 "AppColdStore warm cache units require at least one durable atlas unit"
+            ),
+            Self::MissingDurableAtlas => write!(
+                f,
+                "AppColdStore route cards require at least one durable atlas unit"
             ),
         }
     }
@@ -520,5 +528,34 @@ mod tests {
             err,
             AppColdStoreRouteCardError::WarmCacheRequiresDurableAtlas
         );
+    }
+
+    #[test]
+    fn app_cold_store_route_card_rejects_hot_runway_without_durable_atlas() {
+        let hot = block(
+            "hot-controller-only",
+            0,
+            512,
+            WeightBlockEncoding::DenseBf16,
+            WeightBlockResidencyClass::HotUma,
+            None,
+        );
+        let budget = ResidencyBudget::new(GIB, 0, 0, 0.25, 16).unwrap();
+        let plan = ResidencyPlan::evaluate([hot], budget, 42);
+        assert_eq!(plan.status, ResidencyPlanStatus::FitForDryRun);
+
+        let err = AppColdStoreRouteCard::from_residency_plan(
+            "deep_research:neural_importance_atlas",
+            vec!["F-AppColdStore-Layout".to_string()],
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(err, AppColdStoreRouteCardError::MissingDurableAtlas);
     }
 }
