@@ -182,9 +182,16 @@ fn title_query_candidates(query: &str) -> HashSet<String> {
     candidates
 }
 
-fn title_match_score(query_titles: &HashSet<String>, title_keys: &HashSet<String>) -> Option<f64> {
+fn title_match_score(
+    query_titles: &HashSet<String>,
+    title_keys: &HashSet<String>,
+    allow_partial: bool,
+) -> Option<f64> {
     if !query_titles.is_disjoint(title_keys) {
         return Some(12.0);
+    }
+    if !allow_partial {
+        return None;
     }
 
     let mut best: Option<f64> = None;
@@ -1002,6 +1009,7 @@ impl VaultStore {
         if query_titles.is_empty() || limit == 0 {
             return Ok(Vec::new());
         }
+        let allow_partial_title_match = quoted_segments(query).is_empty();
 
         let mut paths = Vec::new();
         Self::walk_dir(&self.vault_root, &self.vault_root, &mut paths)?;
@@ -1020,7 +1028,9 @@ impl VaultStore {
             }
 
             let title_keys = Self::title_keys_for_note(&path, &content);
-            let Some(score) = title_match_score(&query_titles, &title_keys) else {
+            let Some(score) =
+                title_match_score(&query_titles, &title_keys, allow_partial_title_match)
+            else {
                 continue;
             };
             results.push(SearchResult {
@@ -1840,6 +1850,38 @@ mod tests {
                 .any(|note| note.contains("Path/title fallback retained")),
             "trace must disclose partial path/title fallback: {:?}",
             trace.notes
+        );
+    }
+
+    #[tokio::test]
+    async fn hybrid_search_quoted_phrase_rejects_partial_title_overlap() {
+        use super::VaultBackend;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
+
+        store
+            .write(
+                "notes/design_general_system.md",
+                "design middle system terms are deliberately non-adjacent",
+                None,
+                false,
+            )
+            .await
+            .expect("write decoy note");
+        store.reload_index().expect("reload index");
+
+        let (results, _trace) = store
+            .hybrid_search_with_trace("\"design system\"", 5, &[])
+            .await
+            .expect("hybrid_search_with_trace");
+
+        assert!(
+            results
+                .iter()
+                .all(|result| result.path != "notes/design_general_system.md"),
+            "quoted phrase lookup must not promote partial title/path overlap: {:?}",
+            results
         );
     }
 
