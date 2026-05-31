@@ -148,6 +148,20 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         )
         .unwrap_err()
             == AppColdStoreRouteCardError::MissingEidosNeuralRoutePriorVerifier;
+    let adapter_kv_only_route_prior_rejected =
+        AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+            TASK_SIGNATURE,
+            route_card_verifier_stack_with_eidos_prior(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            Some(adapter_kv_only_eidos_route_prior(&eidos_packet)?),
+            1_779_000_000_000,
+        )
+        .unwrap_err()
+            == AppColdStoreRouteCardError::MissingRoutePriorSupport;
     let unsupported_cache_rebuild_policy_rejected = AppColdStoreRouteCard::from_residency_plan(
         TASK_SIGNATURE,
         route_card_verifier_stack(),
@@ -362,6 +376,13 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "eidos_route_prior_weight_page_hint_required",
+        adapter_kv_only_route_prior_rejected,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "unsupported_cache_rebuild_policy_rejected",
         unsupported_cache_rebuild_policy_rejected,
     );
@@ -522,6 +543,25 @@ fn eidos_route_prior(
         vec!["weight_page:durable_atlas_fixture".to_string()],
         0.84,
         vec!["Eidos matched closed evidence for AppColdStore route-card planning".to_string()],
+    )?)
+}
+
+fn adapter_kv_only_eidos_route_prior(
+    packet: &EidosContextPacket,
+) -> Result<EidosRoutePrior, Box<dyn std::error::Error>> {
+    Ok(EidosRoutePrior::from_packet(
+        packet,
+        TASK_SIGNATURE,
+        vec![EidosChunkId::new("vault://note/app-cold-store-layout")?],
+        EidosCitationNeed::Required,
+        vec!["local_reasoning".to_string(), "cold_store".to_string()],
+        vec!["requires_manifest_only_scope_guard".to_string()],
+        vec![FALSIFIER_ID.to_string()],
+        vec!["adapter:layout_planner".to_string()],
+        vec!["kv:layout_manifest_only".to_string()],
+        Vec::new(),
+        0.84,
+        vec!["Eidos matched adapter and KV priors without weight-page support".to_string()],
     )?)
 }
 
@@ -748,6 +788,13 @@ mod tests {
                 .artifact
                 .pass_per_axis
                 .get("eidos_route_prior_missing_falsifier_rejected"),
+            Some(&true)
+        );
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("eidos_route_prior_weight_page_hint_required"),
             Some(&true)
         );
         assert_eq!(

@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "81e59ecd4ba4a053feffd7441c9d5a2c992cd8db",
+  "commit_sha": "95cc65c21dde1e9b810e0fe1ef46303e1bf2fcea",
   "fixture_id": "app_cold_store_layout_manifest_only_v1",
-  "timestamp_utc": "2026-05-31T09:51:11Z",
-  "result_digest": "sha256:e448a740cadfca0ac2a6aaee1b2b34c45c64ed78bd9ef1cfa265f913cdca6502",
+  "timestamp_utc": "2026-05-31T16:15:35Z",
+  "result_digest": "sha256:e907bd84f0b132a57a5ecf5006ceaa9a0daede4772884f8cc6e86f61b1504a75",
   "measurements": {
     "closed_citation_validity": {
       "value": true,
@@ -74,6 +74,10 @@
       "unit": "bool"
     },
     "eidos_route_prior_neural_falsifier_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_weight_page_hint_required": {
       "value": true,
       "unit": "bool"
     },
@@ -194,6 +198,11 @@
       "value": true,
       "unit": "bool"
     },
+    "eidos_route_prior_weight_page_hint_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "failed_residency_plan_rejected": {
       "operator": "==",
       "value": true,
@@ -282,6 +291,7 @@
     "eidos_route_prior_closed_evidence_verified": true,
     "eidos_route_prior_missing_falsifier_rejected": true,
     "eidos_route_prior_neural_falsifier_bound": true,
+    "eidos_route_prior_weight_page_hint_required": true,
     "failed_residency_plan_rejected": true,
     "hot_runway_bytes": true,
     "mas_research_status_rejected": true,
