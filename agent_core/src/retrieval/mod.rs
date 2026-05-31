@@ -1679,6 +1679,24 @@ mod tests {
     }
 
     #[test]
+    fn synthesis_validation_dedupes_selected_note_titles_case_insensitively_when_path_missing() {
+        let mut trace = sufficient_trace();
+        trace.candidates[0].path.clear();
+        trace.candidates[0].title = "Vault Recall Alpha".to_string();
+        let mut duplicate = selected_candidate();
+        duplicate.path.clear();
+        duplicate.title = "vault recall alpha".to_string();
+        duplicate.rank = 2;
+        trace.candidates.push(duplicate);
+        trace.selected_count = 2;
+
+        assert_eq!(trace.selected_distinct_note_count(), 1);
+        assert!(trace
+            .validate_synthesis_min_distinct_notes(2)
+            .contains(&VaultContextViolation::SynthesisUnderCited));
+    }
+
+    #[test]
     fn adversarial_margin_validation_flags_ambiguous_top_candidates() {
         let mut trace = sufficient_trace();
         let mut distractor = selected_candidate();
