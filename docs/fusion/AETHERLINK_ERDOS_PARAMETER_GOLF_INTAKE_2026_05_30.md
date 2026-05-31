@@ -2,7 +2,7 @@
 state: candidate_intake
 created_on: 2026-05-30
 purpose: Fold the 2026 Erdos unit-distance breakthrough, the small GitHub reproduction ecosystem, and OpenAI Parameter Golf into the Epistemos/AetherLink construction doctrine without overclaiming speculative aerospace physics.
-priority: Use Erdos as a lift/search/project doctrine and Parameter Golf as the runnable compression/search doctrine for the no-compromise UAS/ACS large-model route.
+priority: Use Erdos as a lift/search/project doctrine and Parameter Golf as the runnable compression/search doctrine for the no-compromise UAS/ColdStore/AcsAnchor large-model route.
 ---
 
 # AetherLink Erdos / Parameter Golf Intake - 2026-05-30
@@ -170,14 +170,15 @@ Project back into a small executable surface.
 Carry the witness and the rollback path.
 ```
 
-## 3. What This Means For The 70B / ACS / UAS Ambition
+## 3. What This Means For The 70B / ColdStore / UAS Ambition
 
 The user's core target remains:
 
 ```text
-Use SSD as cold model substrate, UMA as hot active assembly, and ACS as the
-admission governor so a 16 GB Mac can operate on larger-than-RAM models by
-activating only a witnessed working set.
+Use SSD as ColdStore, UMA as hot active assembly, UAS/AcsAnchor for address and
+provenance, and SCOPE-Rex/SovereignGate as the admission governor so a 16 GB
+Mac can operate on larger-than-RAM models by activating only a witnessed
+working set.
 ```
 
 Erdos gives the chart doctrine. Parameter Golf gives the scoring discipline.

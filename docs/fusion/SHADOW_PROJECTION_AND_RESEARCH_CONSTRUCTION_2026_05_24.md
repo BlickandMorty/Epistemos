@@ -57,9 +57,12 @@ Local source floor:
 
 1. a stable `UasAddress`
 2. a `RuntimePlane` placement: State, Episodic, Assembly, Controller, Verification
-3. a `ResidencyTier`: current memory / SSD / secure / research tier
-4. an optional `LatticeBudget` / WBO error account if approximate
-5. a witness surface: `RunEventLog`, `AnswerPacket`, `ClaimGraph`, `WboLedgerEntry`, falsifier artifact, or Lean proof
+3. a `ProductBuild`: MAS or Pro
+4. a `ProStatus` / `ResidencyStatus`: Live, Gated, ResearchCandidate,
+   VaultPreserved, Omega, CurrentApp, VerifiedFloor, CapabilityCeiling, or
+   explicit exemption
+5. an optional `LatticeBudget` / WBO error account if approximate
+6. a witness surface: `RunEventLog`, `AnswerPacket`, `ClaimGraph`, `WboLedgerEntry`, falsifier artifact, or Lean proof
 
 Every operation on that object is exactly one of three motions:
 
@@ -140,35 +143,41 @@ Status: **candidate**. Do not treat it as production until T28 and W-Lift-N land
 | **W-Lift-N** | One W-row per production surface that consumes or exposes a shadow projection. | PR body cites caller, visible surface, falsifier |
 | **F-Erdos-Lift-Optimality** | Lift/project route beats surface-native baseline across representative tasks. | M2 Pro artifact bundle, reproducible |
 
-## 5. Manageable tier system
+## 5. Two-build system and Pro internal ladder
 
-The existing canon keeps five lanes and three tiers. For build agents, use this simpler operational gate:
+Active build planning has exactly two distributable builds. MAS is the safe
+public floor. Pro contains the advanced internal status ladder. Research and
+Vault are not separate app builds.
 
-| Builder tier | Ships where | Allowed by default | Examples | Promotion requirement |
+| Build/status | Ships where | Allowed by default | Examples | Promotion requirement |
 |---|---|---|---|---|
-| **Tier 1 — Production-equivalent** | MAS / core app | ON only when behavior is mathematically equivalent or already product behavior | UAS address metadata, WBO ledger, AnswerPacket badge, verified KV-Direct if bit-equivalent, Lattice/WBO accounting | WRV green + falsifier PASS or parity proof |
-| **Tier 2 — Flagged performance** | Pro or bundled MAS flag, default OFF | OFF by default; user opts in | BitNet b1.58 bundled model, T-MAC ternary path, sparse ternary GEMM, experimental Metal kernels, power-user local model modes | local bench + rollback + honest HealthRow chip |
-| **Tier 3 — Research construction** | Research / worktree / private harness | never silently product | T26 L_SE, ShadowProjection<T>, Research Construction Engine, conjecture mode, active-rank-one runtime, auto-adapter mutation | falsifier spec + artifact + user approval |
-| **Vault / Preserved** | docs or branch only | no runtime | speculative kernels, failed constructions, unverified theorem candidates, retired worktrees | re-promotion codeword + new falsifier |
+| **MAS** | MAS build | ON only when behavior is equivalent, safe, visible, and tested | UAS address metadata, WBO ledger, AnswerPacket badge, verified Eidos/VaultRecall surfaces | WRV green + falsifier PASS or parity proof |
+| **Pro Live** | Pro build | ON for Pro when verified and visible | Pro-only tools with policy, provenance, and rollback | focused tests + visible route/admission evidence |
+| **Pro Gated** | Pro build | OFF by default; user opts in | BitNet b1.58 bundled model, T-MAC ternary path, sparse ternary GEMM, experimental Metal kernels, power-user local model modes | local bench + rollback + honest HealthRow chip |
+| **Pro Research** | Pro/private harness | never silently product | T26 L_SE, ShadowProjection<T>, Research Construction Engine, conjecture mode, active-rank-one runtime, auto-adapter mutation | falsifier spec + artifact + user approval |
+| **Pro Vault-Preserved** | docs or branch archive | no runtime authority | speculative kernels, failed constructions, unverified theorem candidates, retired worktrees | re-promotion codeword + new falsifier |
+| **Pro Omega** | private experimental Pro band | never MAS-bound, never silent | 70B cocktail, model-internals routing, private kernel experiments | crash-safe harness + explicit opt-in + reversible witness |
 
-No agent may promote Tier 2 or Tier 3 work by citing Erdős or Parameter Golf alone. External results license a candidate workstream; local falsifiers promote it.
+No agent may promote Pro Gated, Pro Research, Pro Vault-Preserved, or Pro
+Omega work by citing Erdős or Parameter Golf alone. External results license a
+candidate workstream; local falsifiers promote it.
 
 ## 6. Obvious wins backlog
 
 These W-PERF rows are the builder-facing section. Each should become a PR, terminal task, or worktree item only with WRV and falsifiers.
 
-| ID | Win | Build target | Tier now | Falsifier / gate |
+| ID | Win | Build target | Build/status now | Falsifier / gate |
 |---|---|---|---|---|
-| **W-PERF-1** | Active Assembly as the main performance lever | Production caller before chat / agent / proof work wakes only the smallest support set. | Tier 1 candidate | `F-ActiveAssembly-Minimal` |
-| **W-PERF-2** | Sherry/Leech lattice VQ + ternary path | Promote research quantization into a flagged model route only after local quality and copy-count gates. | Tier 2 candidate | `F-UAS-CopyCount`, perplexity/quality rollback |
-| **W-PERF-3** | KV-Direct as canonical zero-copy lift | Treat Swift/Rust/Metal/MLX KV movement as one projection with a bit-equivalence gate. | Tier 1 if equivalent, else Tier 2 | `F-KV-Direct-Gate` |
-| **W-PERF-4** | RRF k=60 as a ShadowProjection | Collapse bespoke retrieval surfaces into one typed projection contract. | Tier 1 | `F-VaultRecall-50`, `F-Eidos-Bridge-RoundTrip` |
-| **W-PERF-5** | IR stack as chart atlas | Keep EML, Geometry, Scan, Tropical, Operator, Info; add explicit lift/project operators instead of parallel drift. | Tier 3 → Tier 2 per kernel | `F-ULP-Oracle`, `F-SemiseparableBlockScan-Correctness`, kernel parity |
-| **W-PERF-6** | Counterexample-driven hardening | Research Construction Engine searches for failures in W/F/T claims before shipping. | Tier 3 | falsifier artifact must improve or quarantine |
-| **W-PERF-7** | Proof-sized AnswerPackets | Store claim + construction + citations + proof/falsifier status; avoid bloated trace replay. | Tier 1 | AnswerPacket UI + RunEventLog replay |
-| **W-PERF-8** | L_SE self-evolving adapter lane | Auto-specialization is small adapter deltas, not base model mutation. | Tier 3 | WBO drift, rollback, user approval |
-| **W-PERF-9** | PageGather sketch → residual → exact | Retrieval primitive for vault and long context; reduce disk read amplification. | Tier 2 candidate | `F-PageGather-M2Pro` |
-| **W-PERF-10** | Mamba / SSM as Scan-IR shadow | SSM scan state, KV state, and Active Assembly state share the lift/project surface. | Tier 2/3 | `F-SemiseparableBlockScan-Correctness` |
+| **W-PERF-1** | Active Assembly as the main performance lever | Production caller before chat / agent / proof work wakes only the smallest support set. | MAS/Pro Live candidate only after caller proof | `F-ActiveAssembly-Minimal` |
+| **W-PERF-2** | Sherry/Leech lattice VQ + ternary path | Promote research quantization into a flagged model route only after local quality and copy-count gates. | Pro Gated candidate | `F-UAS-CopyCount`, perplexity/quality rollback |
+| **W-PERF-3** | KV-Direct as canonical zero-copy lift | Treat Swift/Rust/Metal/MLX KV movement as one projection with a bit-equivalence gate. | Pro Gated until equivalent; MAS only if bit-equivalent and safe | `F-KV-Direct-Gate` |
+| **W-PERF-4** | RRF k=60 as a ShadowProjection | Collapse bespoke retrieval surfaces into one typed projection contract. | MAS / Pro Live when visible and verified | `F-VaultRecall-50`, `F-Eidos-Bridge-RoundTrip` |
+| **W-PERF-5** | IR stack as chart atlas | Keep EML, Geometry, Scan, Tropical, Operator, Info; add explicit lift/project operators instead of parallel drift. | Pro Research -> Pro Gated per kernel | `F-ULP-Oracle`, `F-SemiseparableBlockScan-Correctness`, kernel parity |
+| **W-PERF-6** | Counterexample-driven hardening | Research Construction Engine searches for failures in W/F/T claims before shipping. | Pro Research | falsifier artifact must improve or quarantine |
+| **W-PERF-7** | Proof-sized AnswerPackets | Store claim + construction + citations + proof/falsifier status; avoid bloated trace replay. | MAS / Pro Live | AnswerPacket UI + RunEventLog replay |
+| **W-PERF-8** | L_SE self-evolving adapter lane | Auto-specialization is small adapter deltas, not base model mutation. | Pro Research | WBO drift, rollback, user approval |
+| **W-PERF-9** | PageGather sketch → residual → exact | Retrieval primitive for vault and long context; reduce disk read amplification. | Pro Gated candidate | `F-PageGather-M2Pro` |
+| **W-PERF-10** | Mamba / SSM as Scan-IR shadow | SSM scan state, KV state, and Active Assembly state share the lift/project surface. | Pro Research / Pro Gated | `F-SemiseparableBlockScan-Correctness` |
 | **W-PERF-11** | Compounding performance loop | W-PERF-2 shrinks weights; W-PERF-1 wakes less; W-PERF-3 preserves KV headroom; W-PERF-6 repairs failures. | orchestration | `F-Erdos-Lift-Optimality` |
 
 ## 7. Research Construction Engine
@@ -271,18 +280,18 @@ A canon clarification asked by the user 2026-05-24 and locked here so future age
 
 The substrate addresses the LLM at progressively finer granularity over the release ladder. Today is whole-model; the endgame is component-level. Both stay honest by carrying the same Substrate Motion Invariant (Lift / Project / Mutate) at every granularity.
 
-| Granularity | What the substrate addresses | Status today | Tier |
+| Granularity | What the substrate addresses | Status today | Build/status |
 |---|---|---|---|
-| **Whole-model call** | An LLM identity (Qwen 3 8B / GPT-4o / Claude / Apple Intelligence) routed by `RuntimeRouter` (T1) | LIVE (whole-model dispatch is the default) | Tier 1 |
-| **Output schema** | The token stream — what shapes are emitted-allowed | LIVE via `LocalToolGrammar` when `MLXStructured + CMLXStructured + JSONSchema` resolve | Tier 1 (partial) |
-| **KV cache pages** | The model's short-term memory — addressable, mmap'd, zero-copy across Swift/Rust/MLX/Metal | SUBSTRATE SHIPPED via `agent_core/src/scope_rex/kv/direct_gate.rs` + `Epistemos/Shaders/kv_direct_gate.metal`; harness pending (F-KV-Direct-Gate) | Tier 1 |
-| **Weight quantization** | Bit-layout of weights — Sherry-Leech VQ, ternary b1.58, NF4 | PARTIAL (research-tier; Parameter-Golf-licensed promotion to Tier-1 candidate per §6 W-PERF-2) | Tier 3 → Tier 1 candidate |
-| **Adapter / LoRA delta** | Which task-specialized delta is applied on top of base weights | PARTIAL (L_SE = T26, research-deferred D-06; Erdős licenses bounded exploration per §4) | Tier 3 → Tier 2 license |
-| **MoE expert** | Which expert handles a token (when the model is MoE) | DELEGATED — the *model* implements MoE routing; the substrate chooses which MoE model the call goes to | Tier 1 (model-internal) |
-| **Active assembly across all of the above** | The thin slice of model + KV + adapter + context + tools awake for this query | RESEARCH (PCF-5 Active Rank-One Execution candidate; Active Assembly Selector in `agent_core/src/research/active_assembly`) | Tier 3 candidate |
-| **Attention head / SSM state** | Specific `W_QK^h` decomposition slice **or** a recurrent scan-state region used as a language-router gate (the "SSM that calls neurons per pass" the user described as the original no-compromise mechanism) | RESEARCH (PCF-2 QkEdgeAnchor + Goodfire VPD lineage revalidated 2026-05-07; SSM-router target in `ADDRESSABLE_NEURAL_SUBSTRATE_CANON_2026_05_24.md` §2A row 8 + §3 five-plane execution path) | Tier 3 |
-| **Parameter anchor** | A frozen-during-call subset of parameters | RESEARCH (PCF-1 ParamAnchor) | Tier 3 |
-| **Cross-layer attribution circuit** | A traced computational subgraph spanning layers | RESEARCH (PCF-3 ParamAttributionGraph) | Tier 3 |
+| **Whole-model call** | An LLM identity (Qwen 3 8B / explicit provider / Claude / Apple Intelligence) routed by `RuntimeRouter` (T1) | LIVE (whole-model dispatch is the default) | MAS / Pro Live |
+| **Output schema** | The token stream — what shapes are emitted-allowed | LIVE via `LocalToolGrammar` when `MLXStructured + CMLXStructured + JSONSchema` resolve | MAS / Pro Live partial |
+| **KV cache pages** | The model's short-term memory — addressable, mmap'd, zero-copy across Swift/Rust/MLX/Metal | SUBSTRATE SHIPPED via `agent_core/src/scope_rex/kv/direct_gate.rs` + `Epistemos/Shaders/kv_direct_gate.metal`; harness pending (F-KV-Direct-Gate) | Pro Gated |
+| **Weight quantization** | Bit-layout of weights — Sherry-Leech VQ, ternary b1.58, NF4 | PARTIAL (Pro Research; Parameter-Golf-licensed promotion to Pro Gated candidate per §6 W-PERF-2) | Pro Research -> Pro Gated candidate |
+| **Adapter / LoRA delta** | Which task-specialized delta is applied on top of base weights | PARTIAL (L_SE = T26, research-deferred D-06; Erdős licenses bounded exploration per §4) | Pro Research -> Pro Gated license |
+| **MoE expert** | Which expert handles a token (when the model is MoE) | DELEGATED — the *model* implements MoE routing; the substrate chooses which MoE model the call goes to | MAS / Pro Live when exposed honestly |
+| **Active assembly across all of the above** | The thin slice of model + KV + adapter + context + tools awake for this query | RESEARCH (PCF-5 Active Rank-One Execution candidate; Active Assembly Selector in `agent_core/src/research/active_assembly`) | Pro Research candidate |
+| **Attention head / SSM state** | Specific `W_QK^h` decomposition slice **or** a recurrent scan-state region used as a language-router gate (the "SSM that calls neurons per pass" the user described as the original no-compromise mechanism) | RESEARCH (PCF-2 QkEdgeAnchor + Goodfire VPD lineage revalidated 2026-05-07; SSM-router target in `ADDRESSABLE_NEURAL_SUBSTRATE_CANON_2026_05_24.md` §2A row 8 + §3 five-plane execution path) | Pro Research |
+| **Parameter anchor** | A frozen-during-call subset of parameters | RESEARCH (PCF-1 ParamAnchor) | Pro Research / Pro Vault-Preserved |
+| **Cross-layer attribution circuit** | A traced computational subgraph spanning layers | RESEARCH (PCF-3 ParamAttributionGraph) | Pro Research / Pro Omega |
 
 **The endgame language** for what the substrate becomes:
 

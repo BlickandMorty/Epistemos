@@ -18,7 +18,9 @@
   behavior `SCOPE-Rex Admission`, `SovereignGate`, or `AdmissionGate`; and
   translate Helios as lineage, not as a product-spine step. Current authority:
   `docs/audits/ACS_NAMESPACE_RECONCILIATION_2026_05_30.md` and
-  `docs/audits/AGENT_MANAGEABLE_ARCHITECTURE_CANON_2026_05_30.md`.
+  `docs/audits/AGENT_MANAGEABLE_ARCHITECTURE_CANON_2026_05_30.md`. Final
+  active-doc audit:
+  `docs/audits/NAMESPACE_AND_ARCHITECTURE_CLARITY_AUDIT_2026_05_31.md`.
 - Updated **2026-05-27** · Wave 4 checkpoint: PRs `#121`-`#127` are on
   `main`, including typed UAS retrieval/claims, PageGather escalation traces,
   Cognitive DAG visualizer, Tri-Fusion typed note mutations, and the System G
