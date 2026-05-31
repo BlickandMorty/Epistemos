@@ -9,6 +9,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
+use super::run_event_log::{RunEventEntry, RunEventLog};
 use crate::uas::construction_card::{pro_status_preimage, product_build_preimage};
 use crate::uas::{ProStatus, ProductBuild, UasAddress, UasKind};
 
@@ -58,6 +59,37 @@ pub struct DynamicComputeCheckpoint {
 }
 
 impl DynamicComputeCheckpoint {
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_visible_run_event(
+        checkpoint_kind: DynamicComputeCheckpointKind,
+        trigger: impl Into<String>,
+        active_units_before: Vec<UasAddress>,
+        active_units_after: Vec<UasAddress>,
+        verifier_reason: impl Into<String>,
+        latency_budget_remaining_ms: u64,
+        run_event_log: &RunEventLog,
+        run_event_ordinal: u64,
+        verifier_stack: Vec<String>,
+        product_build: ProductBuild,
+        pro_status: ProStatus,
+        created_at_ms: u64,
+    ) -> Result<Self, DynamicComputeCheckpointError> {
+        validate_visible_run_event(run_event_log, run_event_ordinal)?;
+        Self::new(
+            checkpoint_kind,
+            trigger,
+            active_units_before,
+            active_units_after,
+            verifier_reason,
+            latency_budget_remaining_ms,
+            format!("run_event_log:{run_event_ordinal}"),
+            verifier_stack,
+            product_build,
+            pro_status,
+            created_at_ms,
+        )
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         checkpoint_kind: DynamicComputeCheckpointKind,
@@ -217,6 +249,31 @@ fn validate_run_event_id(run_event_id: &str) -> Result<(), DynamicComputeCheckpo
     Ok(())
 }
 
+fn validate_visible_run_event(
+    run_event_log: &RunEventLog,
+    ordinal: u64,
+) -> Result<(), DynamicComputeCheckpointError> {
+    let Ok(index) = usize::try_from(ordinal) else {
+        return Err(DynamicComputeCheckpointError::MissingRunEventLogOrdinal { ordinal });
+    };
+    let Some(entry) = run_event_log.entries().get(index) else {
+        return Err(DynamicComputeCheckpointError::MissingRunEventLogOrdinal { ordinal });
+    };
+    let actual = entry.ordinal();
+    if actual != ordinal {
+        return Err(DynamicComputeCheckpointError::RunEventLogOrdinalMismatch {
+            requested: ordinal,
+            actual,
+        });
+    }
+    match entry {
+        RunEventEntry::Event { .. } => Ok(()),
+        RunEventEntry::SealedMutation { .. } | RunEventEntry::LedgerSnapshot { .. } => {
+            Err(DynamicComputeCheckpointError::RunEventLogOrdinalIsNotEvent { ordinal })
+        }
+    }
+}
+
 fn validate_units(
     field: &'static str,
     units: &[UasAddress],
@@ -300,6 +357,16 @@ pub enum DynamicComputeCheckpointError {
     InvalidRunEventId {
         run_event_id: String,
     },
+    MissingRunEventLogOrdinal {
+        ordinal: u64,
+    },
+    RunEventLogOrdinalIsNotEvent {
+        ordinal: u64,
+    },
+    RunEventLogOrdinalMismatch {
+        requested: u64,
+        actual: u64,
+    },
     ProductBuildStatusMismatch,
 }
 
@@ -331,6 +398,18 @@ impl std::fmt::Display for DynamicComputeCheckpointError {
                 f,
                 "dynamic checkpoints must bind a concrete RunEventLog ordinal as run_event_log:<ordinal>, got {run_event_id}"
             ),
+            Self::MissingRunEventLogOrdinal { ordinal } => write!(
+                f,
+                "dynamic checkpoint run_event_log:{ordinal} does not exist in the bound RunEventLog"
+            ),
+            Self::RunEventLogOrdinalIsNotEvent { ordinal } => write!(
+                f,
+                "dynamic checkpoint run_event_log:{ordinal} must refer to an AgentEvent row"
+            ),
+            Self::RunEventLogOrdinalMismatch { requested, actual } => write!(
+                f,
+                "dynamic checkpoint requested run_event_log:{requested}, but the entry carried ordinal {actual}"
+            ),
             Self::ProductBuildStatusMismatch => write!(
                 f,
                 "dynamic checkpoint ProductBuild and ProStatus are inconsistent"
@@ -344,6 +423,8 @@ impl std::error::Error for DynamicComputeCheckpointError {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agent_runtime_v2::{AgentEvent, RunEventLog};
+    use crate::cognitive_dag::node::Hash;
 
     fn unit(label: &[u8]) -> UasAddress {
         UasAddress::new(UasKind::ModelComponent, label, 7)
@@ -543,6 +624,89 @@ mod tests {
         assert_eq!(
             err,
             DynamicComputeCheckpointError::ProductBuildStatusMismatch
+        );
+    }
+
+    #[test]
+    fn checkpoint_can_bind_a_concrete_run_event_log_ordinal() {
+        let mut log = RunEventLog::new();
+        let ordinal = log.append_event(AgentEvent::ReasoningDelta {
+            text: "Eidos interrupt visible before answer emission".to_string(),
+        });
+
+        let checkpoint = DynamicComputeCheckpoint::from_visible_run_event(
+            DynamicComputeCheckpointKind::EidosInterrupt,
+            "missing closed citation evidence",
+            vec![unit(b"controller")],
+            vec![unit(b"controller"), unit(b"citation-kv-page")],
+            "Eidos requested evidence repair before answer emission",
+            2_500,
+            &log,
+            ordinal,
+            verifier_stack(),
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            99,
+        )
+        .expect("concrete log event ordinal should bind");
+
+        assert_eq!(checkpoint.run_event_id, "run_event_log:0");
+        assert_eq!(
+            checkpoint.checkpoint_kind,
+            DynamicComputeCheckpointKind::EidosInterrupt
+        );
+    }
+
+    #[test]
+    fn checkpoint_rejects_missing_visible_run_event_log_ordinal() {
+        let log = RunEventLog::new();
+
+        let err = DynamicComputeCheckpoint::from_visible_run_event(
+            DynamicComputeCheckpointKind::VerifierRepair,
+            "citation verifier failed",
+            vec![unit(b"before")],
+            vec![unit(b"after")],
+            "bounded verifier repair must be visible",
+            1_000,
+            &log,
+            0,
+            verifier_stack(),
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            DynamicComputeCheckpointError::MissingRunEventLogOrdinal { ordinal: 0 }
+        );
+    }
+
+    #[test]
+    fn checkpoint_rejects_non_event_run_event_log_ordinals() {
+        let mut log = RunEventLog::new();
+        let ordinal = log.append_sealed_mutation(Hash::from_bytes([7; 32]), Default::default());
+
+        let err = DynamicComputeCheckpoint::from_visible_run_event(
+            DynamicComputeCheckpointKind::AdapterSwap,
+            "adapter family switch",
+            vec![unit(b"before")],
+            vec![unit(b"after")],
+            "adapter swap must bind an AgentEvent row, not only a mutation row",
+            1_000,
+            &log,
+            ordinal,
+            verifier_stack(),
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            DynamicComputeCheckpointError::RunEventLogOrdinalIsNotEvent { ordinal }
         );
     }
 }
