@@ -28,12 +28,12 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "00fde52fc34b18609d497c1beb6b0771d43915f5",
+  "commit_sha": "b132b28d96831530bedee397b0f6f6a8d2a33a78",
   "fixture_id": "app_cold_store_layout_manifest_only_v1",
-  "timestamp_utc": "2026-05-31T07:44:42Z",
-  "result_digest": "sha256:4063b4b4a5ca76a59dc10ce802f0edaea936c9148e768074bc97c022aa011f71",
+  "timestamp_utc": "2026-05-31T08:44:12Z",
+  "result_digest": "sha256:f67f741fb10a017c1f8c3b083465d6afda52d8de892837d8a9f97bf8ed7d1ee3",
   "measurements": {
-    "closed_citation_validity_not_applicable": {
+    "closed_citation_validity": {
       "value": true,
       "unit": "bool"
     },
@@ -135,7 +135,7 @@
     }
   },
   "acceptance_thresholds": {
-    "closed_citation_validity_not_applicable": {
+    "closed_citation_validity": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -262,7 +262,7 @@
     }
   },
   "pass_per_axis": {
-    "closed_citation_validity_not_applicable": true,
+    "closed_citation_validity": true,
     "cold_bytes_excluded_from_active_runtime": true,
     "dry_run_copy_count": true,
     "dry_run_ssd_read_bytes": true,
