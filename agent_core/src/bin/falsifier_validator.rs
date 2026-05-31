@@ -49,6 +49,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-UAS-ZeroCopy-Spine",
     "F-UAS-ACS-MmapResidency",
     "F-ResidencyPlan-DryRun",
+    "F-AppColdStore-Layout",
     "F-ProviderReferenceManifest-DryRun",
     "F-WeightBlockRangeHash-DryRun",
     "F-ACS-AnchorLookup",

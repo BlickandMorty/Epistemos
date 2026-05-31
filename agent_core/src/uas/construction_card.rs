@@ -290,14 +290,14 @@ impl ConstructionCard {
     }
 }
 
-fn product_build_preimage(product_build: &ProductBuild) -> &'static str {
+pub(crate) fn product_build_preimage(product_build: &ProductBuild) -> &'static str {
     match product_build {
         ProductBuild::Mas => "mas",
         ProductBuild::Pro => "pro",
     }
 }
 
-fn pro_status_preimage(pro_status: &ProStatus) -> &'static str {
+pub(crate) fn pro_status_preimage(pro_status: &ProStatus) -> &'static str {
     match pro_status {
         ProStatus::Live => "live",
         ProStatus::Gated => "gated",

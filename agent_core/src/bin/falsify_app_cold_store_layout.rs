@@ -1,0 +1,398 @@
+//! `falsify_app_cold_store_layout` — non-executing AppColdStore layout gate.
+//!
+//! This proves only the manifest layer: a passed `ResidencyPlan` can be mapped
+//! into durable atlas, regenerable warm cache, and hot runway route-card rows
+//! without loading model bytes or claiming runtime inference.
+
+use std::collections::BTreeMap;
+use std::path::PathBuf;
+
+use agent_core::falsifier_artifacts::{
+    current_commit_sha, now_utc_rfc3339, write_artifact, AcceptanceThreshold, ArtifactBuilder,
+    ArtifactKind, FallbackTier, Measurement,
+};
+use agent_core::uas::{
+    AppColdStoreRouteCard, AppColdStoreRouteCardError, ProStatus, ProductBuild, ResidencyBudget,
+    ResidencyPlan, ResidencyPlanStatus, UasAddress, UasKind, WeightBlockEncoding,
+    WeightBlockIrChart, WeightBlockManifest, WeightBlockResidencyClass,
+};
+
+const FALSIFIER_ID: &str = "F-AppColdStore-Layout";
+const FIXTURE_ID: &str = "app_cold_store_layout_manifest_only_v1";
+const COMMAND: &str = "Tools/falsifiers/f_app_cold_store_layout.sh";
+const RESULT: &str = "artifacts/falsifiers/app_cold_store_layout/result.json";
+
+fn main() -> std::process::ExitCode {
+    let report = match build_report() {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("failed to build {FALSIFIER_ID}: {error}");
+            return std::process::ExitCode::from(2);
+        }
+    };
+    let path = PathBuf::from(RESULT);
+    if let Some(parent) = path.parent() {
+        if let Err(error) = std::fs::create_dir_all(parent) {
+            eprintln!("failed to create artifact directory: {error}");
+            return std::process::ExitCode::from(2);
+        }
+    }
+    let mut file = match std::fs::File::create(&path) {
+        Ok(file) => file,
+        Err(error) => {
+            eprintln!("failed to open artifact: {error}");
+            return std::process::ExitCode::from(2);
+        }
+    };
+    if let Err(error) = write_artifact(&mut file, &report.artifact) {
+        eprintln!("failed to write artifact: {error}");
+        return std::process::ExitCode::from(2);
+    }
+    println!(
+        "{FALSIFIER_ID}: overall_pass={} durable={} warm={} hot={} artifact={}",
+        report.artifact.overall_pass,
+        report.durable_bytes,
+        report.warm_bytes,
+        report.hot_bytes,
+        RESULT
+    );
+    if report.artifact.overall_pass {
+        std::process::ExitCode::SUCCESS
+    } else {
+        std::process::ExitCode::from(1)
+    }
+}
+
+struct AppColdStoreLayoutReport {
+    artifact: agent_core::falsifier_artifacts::FalsifierArtifact,
+    durable_bytes: u64,
+    warm_bytes: u64,
+    hot_bytes: u64,
+}
+
+fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>> {
+    let plan = fit_plan()?;
+    let card = AppColdStoreRouteCard::from_residency_plan(
+        "deep_research:app_cold_store_layout",
+        vec![FALSIFIER_ID.to_string()],
+        "rollback:raw-installed-snapshot",
+        ProductBuild::Pro,
+        ProStatus::ResearchCandidate,
+        &plan,
+        "rebuild_warm_cache_from_durable_atlas",
+        1_779_000_000_000,
+    )?;
+    let rejected = ResidencyPlan::evaluate(
+        Vec::<WeightBlockManifest>::new(),
+        ResidencyBudget::new(1024, 1024, 1024, 0.25, 16)?,
+        1_779_000_000_000,
+    );
+    let plan_rejected_before_card = AppColdStoreRouteCard::from_residency_plan(
+        "deep_research:app_cold_store_layout",
+        vec![FALSIFIER_ID.to_string()],
+        "rollback:raw-installed-snapshot",
+        ProductBuild::Pro,
+        ProStatus::ResearchCandidate,
+        &rejected,
+        "rebuild_warm_cache_from_durable_atlas",
+        1_779_000_000_000,
+    )
+    .unwrap_err()
+        == AppColdStoreRouteCardError::PlanRejected;
+    let mas_research_rejected = AppColdStoreRouteCard::from_residency_plan(
+        "deep_research:app_cold_store_layout",
+        vec![FALSIFIER_ID.to_string()],
+        "rollback:raw-installed-snapshot",
+        ProductBuild::Mas,
+        ProStatus::ResearchCandidate,
+        &plan,
+        "rebuild_warm_cache_from_durable_atlas",
+        1_779_000_000_000,
+    )
+    .unwrap_err()
+        == AppColdStoreRouteCardError::ProductBuildStatusMismatch;
+
+    let mut measurements = BTreeMap::new();
+    let mut thresholds = BTreeMap::new();
+    let mut pass_per_axis = BTreeMap::new();
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "route_card_constructed",
+        card.residency_plan_address.as_ref() == Some(&plan.plan_address),
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "durable_warm_hot_tiers_present",
+        card.durable_units.len() == 1
+            && card.warm_cache_units.len() == 1
+            && card.hot_runway_units.len() == 1,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "warm_cache_rebuildable",
+        card.warm_cache_units
+            .iter()
+            .all(|unit| unit.rebuildable_from_durable),
+    );
+    add_count_eq_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "runtime_model_bytes_loaded",
+        card.totals.runtime_model_bytes_loaded,
+        0,
+        "bytes",
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "failed_residency_plan_rejected",
+        plan_rejected_before_card,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "mas_research_status_rejected",
+        mas_research_rejected,
+    );
+    add_count_min_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "durable_atlas_bytes",
+        card.totals.durable_atlas_bytes,
+        1,
+        "bytes",
+    );
+    add_count_min_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "warm_cache_bytes",
+        card.totals.warm_cache_bytes,
+        1,
+        "bytes",
+    );
+    add_count_min_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "hot_runway_bytes",
+        card.totals.hot_runway_bytes,
+        1,
+        "bytes",
+    );
+
+    Ok(AppColdStoreLayoutReport {
+        durable_bytes: card.totals.durable_atlas_bytes,
+        warm_bytes: card.totals.warm_cache_bytes,
+        hot_bytes: card.totals.hot_runway_bytes,
+        artifact: ArtifactBuilder {
+            falsifier_id: FALSIFIER_ID.to_string(),
+            artifact_kind: ArtifactKind::PrimaryWitness,
+            command: COMMAND.to_string(),
+            commit_sha: current_commit_sha(),
+            fixture_id: FIXTURE_ID.to_string(),
+            measurements,
+            acceptance_thresholds: thresholds,
+            pass_per_axis,
+            fallback_tier: FallbackTier::Primary,
+            anomalies: vec![serde_json::json!({
+                "kind": "scope_guard",
+                "detail": "manifest-only AppColdStore route card; no mmap, no cache warm, no model byte load, no inference"
+            })],
+            notes: "Validates AppColdStore route-card layout over a passed ResidencyPlan; not a runtime or storage-speed proof.".to_string(),
+            timestamp_utc: now_utc_rfc3339(),
+        }
+        .build(),
+    })
+}
+
+fn fit_plan() -> Result<ResidencyPlan, Box<dyn std::error::Error>> {
+    let rollback = UasAddress::new(UasKind::ModelComponent, b"dense-reference", 7);
+    let hot = manifest(
+        "hot-controller-page",
+        0,
+        512,
+        WeightBlockEncoding::DenseBf16,
+        WeightBlockResidencyClass::HotUma,
+        None,
+    )?;
+    let warm = manifest(
+        "warm-adapter-page",
+        1024,
+        256,
+        WeightBlockEncoding::Sherry125,
+        WeightBlockResidencyClass::WarmCompressedUma,
+        Some(rollback.clone()),
+    )?;
+    let cold = manifest(
+        "durable-weight-page",
+        2048,
+        4096,
+        WeightBlockEncoding::Nf4,
+        WeightBlockResidencyClass::ColdMmapSsd,
+        Some(rollback),
+    )?;
+    let budget = ResidencyBudget::new(4096, 4096, 8192, 0.25, 16)?;
+    let plan = ResidencyPlan::evaluate([cold, hot, warm], budget, 1_779_000_000_000);
+    if plan.status != ResidencyPlanStatus::FitForDryRun {
+        return Err("fixture residency plan must fit".into());
+    }
+    Ok(plan)
+}
+
+fn manifest(
+    label: &str,
+    byte_start: u64,
+    byte_len: u64,
+    encoding: WeightBlockEncoding,
+    residency_class: WeightBlockResidencyClass,
+    rollback_reference: Option<UasAddress>,
+) -> Result<WeightBlockManifest, Box<dyn std::error::Error>> {
+    let hash = blake3::hash(label.as_bytes());
+    Ok(WeightBlockManifest::from_known_hash_hex(
+        "local/app-cold-store-fixture",
+        format!("app-support://Epistemos/Models/coldstore/{label}.epwp"),
+        byte_start,
+        byte_len,
+        hash.to_hex().as_str(),
+        1_779_000_000_000,
+        encoding,
+        residency_class,
+        WeightBlockIrChart::OpaqueWithWitness,
+        0.02,
+        FALSIFIER_ID,
+        rollback_reference,
+    )?)
+}
+
+fn add_bool_axis(
+    measurements: &mut BTreeMap<String, Measurement>,
+    thresholds: &mut BTreeMap<String, AcceptanceThreshold>,
+    pass_per_axis: &mut BTreeMap<String, bool>,
+    axis: &str,
+    passed: bool,
+) {
+    measurements.insert(
+        axis.to_string(),
+        Measurement {
+            value: serde_json::Value::Bool(passed),
+            unit: "bool".to_string(),
+        },
+    );
+    thresholds.insert(
+        axis.to_string(),
+        AcceptanceThreshold {
+            operator: "==".to_string(),
+            value: serde_json::Value::Bool(true),
+            unit: "bool".to_string(),
+        },
+    );
+    pass_per_axis.insert(axis.to_string(), passed);
+}
+
+fn add_count_eq_axis(
+    measurements: &mut BTreeMap<String, Measurement>,
+    thresholds: &mut BTreeMap<String, AcceptanceThreshold>,
+    pass_per_axis: &mut BTreeMap<String, bool>,
+    axis: &str,
+    value: u64,
+    expected: u64,
+    unit: &str,
+) {
+    add_count_axis(
+        measurements,
+        thresholds,
+        pass_per_axis,
+        axis,
+        value,
+        "==",
+        expected,
+        value == expected,
+        unit,
+    );
+}
+
+fn add_count_min_axis(
+    measurements: &mut BTreeMap<String, Measurement>,
+    thresholds: &mut BTreeMap<String, AcceptanceThreshold>,
+    pass_per_axis: &mut BTreeMap<String, bool>,
+    axis: &str,
+    value: u64,
+    min: u64,
+    unit: &str,
+) {
+    add_count_axis(
+        measurements,
+        thresholds,
+        pass_per_axis,
+        axis,
+        value,
+        ">=",
+        min,
+        value >= min,
+        unit,
+    );
+}
+
+#[allow(clippy::too_many_arguments)]
+fn add_count_axis(
+    measurements: &mut BTreeMap<String, Measurement>,
+    thresholds: &mut BTreeMap<String, AcceptanceThreshold>,
+    pass_per_axis: &mut BTreeMap<String, bool>,
+    axis: &str,
+    value: u64,
+    op: &str,
+    threshold: u64,
+    passed: bool,
+    unit: &str,
+) {
+    measurements.insert(
+        axis.to_string(),
+        Measurement {
+            value: serde_json::Value::Number(serde_json::Number::from(value)),
+            unit: unit.to_string(),
+        },
+    );
+    thresholds.insert(
+        axis.to_string(),
+        AcceptanceThreshold {
+            operator: op.to_string(),
+            value: serde_json::Value::Number(serde_json::Number::from(threshold)),
+            unit: unit.to_string(),
+        },
+    );
+    pass_per_axis.insert(axis.to_string(), passed);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn app_cold_store_layout_report_is_manifest_only_and_green() {
+        let report = build_report().unwrap();
+
+        assert!(report.artifact.overall_pass);
+        assert_eq!(report.artifact.falsifier_id, FALSIFIER_ID);
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("runtime_model_bytes_loaded"),
+            Some(&true)
+        );
+        assert!(report.durable_bytes > 0);
+        assert!(report.warm_bytes > 0);
+        assert!(report.hot_bytes > 0);
+    }
+}
