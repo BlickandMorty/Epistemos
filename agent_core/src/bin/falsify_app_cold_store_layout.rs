@@ -220,6 +220,28 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         == AppColdStoreRouteCardError::UnsupportedCacheRebuildPolicy {
             policy: UNSUPPORTED_CACHE_REBUILD_POLICY_FIXTURE.to_string(),
         };
+    let mut percent_encoded_leading_source_uri_separator_rejected = true;
+    for source_uri in [
+        "file:///%2fEpistemos/Models/coldstore/durable-weight-page.epwp",
+        "app-support://%2fEpistemos/Models/coldstore/durable-weight-page.epwp",
+        "app-group://%5cEpistemos/Models/coldstore/durable-weight-page.epwp",
+    ] {
+        percent_encoded_leading_source_uri_separator_rejected &=
+            AppColdStoreRouteCard::from_residency_plan(
+                TASK_SIGNATURE,
+                route_card_verifier_stack(),
+                "rollback:raw-installed-snapshot",
+                ProductBuild::Pro,
+                ProStatus::ResearchCandidate,
+                &plan_with_cold_source_uri(source_uri)?,
+                "rebuild_warm_cache_from_durable_atlas",
+                1_779_000_000_000,
+            )
+            .unwrap_err()
+                == AppColdStoreRouteCardError::UnsupportedSourceUri {
+                    source_uri: source_uri.to_string(),
+                };
+    }
     let durable_only_plan = ResidencyPlan::evaluate(
         [manifest(
             "durable-only-weight-page",
@@ -470,6 +492,13 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "percent_encoded_leading_source_uri_separator_rejected",
+        percent_encoded_leading_source_uri_separator_rejected,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "durable_only_plan_without_active_bytes_rejected",
         durable_only_without_active_bytes_rejected,
     );
@@ -682,6 +711,41 @@ fn broad_weight_page_eidos_route_prior(
         0.84,
         vec!["Eidos matched a broad family hint that still needs unit binding".to_string()],
     )?)
+}
+
+fn plan_with_cold_source_uri(
+    source_uri: &str,
+) -> Result<ResidencyPlan, Box<dyn std::error::Error>> {
+    let rollback = UasAddress::new(UasKind::ModelComponent, b"dense-reference", 7);
+    let hot = manifest(
+        "hot-controller-page",
+        0,
+        512,
+        WeightBlockEncoding::DenseBf16,
+        WeightBlockResidencyClass::HotUma,
+        None,
+    )?;
+    let hash = blake3::hash(source_uri.as_bytes());
+    let cold = WeightBlockManifest::from_known_hash_hex(
+        "local/app-cold-store-fixture",
+        source_uri,
+        2048,
+        4096,
+        hash.to_hex().as_str(),
+        1_779_000_000_000,
+        WeightBlockEncoding::Nf4,
+        WeightBlockResidencyClass::ColdMmapSsd,
+        WeightBlockIrChart::OpaqueWithWitness,
+        0.02,
+        FALSIFIER_ID,
+        Some(rollback),
+    )?;
+    let budget = ResidencyBudget::new(4096, 0, 8192, 0.25, 16)?;
+    let plan = ResidencyPlan::evaluate([cold, hot], budget, 1_779_000_000_000);
+    if plan.status != ResidencyPlanStatus::FitForDryRun {
+        return Err("fixture residency plan must fit before source-uri validation".into());
+    }
+    Ok(plan)
 }
 
 fn manifest(
@@ -935,6 +999,13 @@ mod tests {
                 .artifact
                 .pass_per_axis
                 .get("unsupported_cache_rebuild_policy_rejected"),
+            Some(&true)
+        );
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("percent_encoded_leading_source_uri_separator_rejected"),
             Some(&true)
         );
         assert_eq!(

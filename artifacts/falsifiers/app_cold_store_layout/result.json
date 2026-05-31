@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "59436d8601401ed07347235a61f03849de811ab6",
+  "commit_sha": "9efd57792f4b08794a7e7679205df8457e0f01f0",
   "fixture_id": "app_cold_store_layout_manifest_only_v1",
-  "timestamp_utc": "2026-05-31T21:16:47Z",
-  "result_digest": "sha256:7113cbabde7c1e6b5b42ede130001a9bd1933e199b2400d38e5a210109d8a489",
+  "timestamp_utc": "2026-05-31T22:25:31Z",
+  "result_digest": "sha256:60ec73efa1db0d441c6851aafc16803a0c7b3337e01671f7aec0aa1c28f71acd",
   "measurements": {
     "closed_citation_validity": {
       "value": true,
@@ -110,6 +110,10 @@
       "unit": "bool"
     },
     "param_route_card_admission_verifier_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "percent_encoded_leading_source_uri_separator_rejected": {
       "value": true,
       "unit": "bool"
     },
@@ -259,6 +263,11 @@
       "value": true,
       "unit": "bool"
     },
+    "percent_encoded_leading_source_uri_separator_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "planned_active_runtime_bytes": {
       "operator": ">=",
       "value": 1,
@@ -336,6 +345,7 @@
     "hot_runway_bytes": true,
     "mas_research_status_rejected": true,
     "param_route_card_admission_verifier_bound": true,
+    "percent_encoded_leading_source_uri_separator_rejected": true,
     "planned_active_runtime_bytes": true,
     "product_build_pro_research_status_bound": true,
     "rollback_reference_bound": true,
