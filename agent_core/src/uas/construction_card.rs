@@ -184,6 +184,9 @@ impl ConstructionCard {
         {
             return Err(ConstructionCardError::ProductBuildStatusMismatch);
         }
+        if product_build == ProductBuild::Mas && !residency_status.ships_to_mas() {
+            return Err(ConstructionCardError::ProductBuildResidencyMismatch);
+        }
         let card_address = Self::address(
             &problem_card,
             &lift_charts,
@@ -310,6 +313,7 @@ pub enum ConstructionCardError {
     FieldContainsControlCharacter { field: &'static str },
     InvalidBudget,
     ProductBuildStatusMismatch,
+    ProductBuildResidencyMismatch,
     PlanRejected,
 }
 
@@ -332,6 +336,10 @@ impl std::fmt::Display for ConstructionCardError {
             Self::ProductBuildStatusMismatch => write!(
                 f,
                 "MAS build construction cards cannot carry Pro research, vault-preserved, or omega status"
+            ),
+            Self::ProductBuildResidencyMismatch => write!(
+                f,
+                "MAS build construction cards cannot carry non-current-app residency status"
             ),
             Self::PlanRejected => write!(f, "residency plan must be FitForDryRun"),
         }
@@ -630,6 +638,40 @@ mod tests {
             .unwrap_err();
 
             assert_eq!(err, ConstructionCardError::ProductBuildStatusMismatch);
+        }
+    }
+
+    #[test]
+    fn construction_card_rejects_mas_non_current_app_residency() {
+        let budget = ConstructionBudget {
+            hot_uma_bytes: 0,
+            warm_compressed_uma_bytes: 0,
+            cold_mmap_ssd_bytes: 0,
+            wbo_budget_nats: 0.0,
+            copy_budget: 0,
+        };
+
+        for residency_status in [
+            ResidencyTier::VerifiedFloor,
+            ResidencyTier::CapabilityCeiling,
+        ] {
+            let err = ConstructionCard::new(
+                "problem",
+                vec![WeightBlockIrChart::Scan],
+                "projection",
+                "witness",
+                budget.clone(),
+                "F-Test",
+                "rollback",
+                ProductBuild::Mas,
+                ProStatus::Live,
+                residency_status,
+                None,
+                10,
+            )
+            .unwrap_err();
+
+            assert_eq!(err, ConstructionCardError::ProductBuildResidencyMismatch);
         }
     }
 
