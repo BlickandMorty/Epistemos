@@ -11,6 +11,7 @@
 //!    replay is possible: same manifest + same query → byte-equal packet.
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use thiserror::Error;
 
 // ---------------------------------------------------------------------------
@@ -486,7 +487,13 @@ impl EidosRoutePrior {
             });
         }
 
+        let mut seen_evidence_ids = HashSet::new();
         for evidence_id in &evidence_ids {
+            if !seen_evidence_ids.insert(evidence_id) {
+                return Err(EidosRoutePriorError::DuplicateEvidenceId(
+                    evidence_id.clone(),
+                ));
+            }
             if !packet.hits.iter().any(|hit| hit.source_id == *evidence_id) {
                 return Err(EidosRoutePriorError::EvidenceOutsidePacket(
                     evidence_id.clone(),
@@ -570,6 +577,9 @@ pub enum CitationError {
 pub enum EidosRoutePriorError {
     #[error("route-prior evidence id was not present in the sealed Eidos packet: {0:?}")]
     EvidenceOutsidePacket(EidosChunkId),
+
+    #[error("route-prior evidence id was duplicated: {0:?}")]
+    DuplicateEvidenceId(EidosChunkId),
 
     #[error("{field} is required for an Eidos route prior")]
     EmptyField { field: &'static str },
@@ -1061,6 +1071,32 @@ mod tests {
         assert_eq!(
             err,
             EidosRoutePriorError::EvidenceOutsidePacket(chunk_id("forged-chunk"))
+        );
+    }
+
+    #[test]
+    fn eidos_route_prior_rejects_duplicate_evidence_id() {
+        let packet = sample_packet();
+
+        let err = EidosRoutePrior::from_packet(
+            &packet,
+            "deep_research:tropical_optimization",
+            vec![chunk_id("chunk-1"), chunk_id("chunk-1")],
+            EidosCitationNeed::Required,
+            vec!["math".to_string()],
+            vec!["possible source conflict".to_string()],
+            vec!["citation_checker".to_string()],
+            vec!["math_adapter".to_string()],
+            vec!["kv:math-history".to_string()],
+            vec!["weights:proof-family".to_string()],
+            0.75,
+            vec!["chunk-1 matched by lexical evidence".to_string()],
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            EidosRoutePriorError::DuplicateEvidenceId(chunk_id("chunk-1"))
         );
     }
 
