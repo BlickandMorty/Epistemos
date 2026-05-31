@@ -252,7 +252,7 @@ final class UIState {
 
     // MARK: - Theme
 
-    static let themePairDefaultsKey = "epistemos.theme.pair"
+    nonisolated static let themePairDefaultsKey = "epistemos.theme.pair"
 
     private var isNormalizingLandingGreetingLibrary = false
 

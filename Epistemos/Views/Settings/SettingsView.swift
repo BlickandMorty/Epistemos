@@ -3995,7 +3995,7 @@ private extension Color {
 
 private extension UInt32 {
     var clampedToByte: UInt32 {
-        min(max(self, 0), 255)
+        Swift.min(Swift.max(self, 0), 255)
     }
 }
 

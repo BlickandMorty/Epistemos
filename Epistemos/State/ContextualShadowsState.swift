@@ -50,10 +50,10 @@ final class ContextualShadowsState {
 
     /// Minimum query length per AMBIENT_RECALL_WIRING_PLAN R3 — avoids
     /// recall noise on quick acks ("ok", "hi") in the chat composer.
-    static let minimumQueryLength: Int = 6
+    nonisolated static let minimumQueryLength: Int = 6
 
     /// Default top-K shown in each tab. Plan §2.5 — top-5 related notes.
-    static let defaultTopK: Int = 5
+    nonisolated static let defaultTopK: Int = 5
 
     /// UserDefaults-backed product gate. The environment variable can
     /// still pin the surface on for CI/schemes; the persisted setting keeps
@@ -147,7 +147,8 @@ final class ContextualShadowsState {
     /// `currentResults` runs on @MainActor.
     func requestRecall(
         snapshot: RecallContextSnapshot,
-        instantRecall: InstantRecallService
+        instantRecall: InstantRecallService,
+        searchIndexService: SearchIndexService? = nil
     ) {
         pendingTask?.cancel()
         pendingTask = nil
@@ -173,7 +174,7 @@ final class ContextualShadowsState {
 
         if let shadowSearch {
             let domains = Self.shadowDomains(for: snapshot.kind)
-            pendingTask = Task { [weak self, shadowSearch] in
+            pendingTask = Task { [weak self, shadowSearch, searchIndexService, instantRecall] in
                 async let first = shadowSearch.searchReportingErrors(
                     text: queryText,
                     domain: domains.first,
@@ -188,34 +189,55 @@ final class ContextualShadowsState {
                 let secondOutcome = await second
                 let raw = firstOutcome.hits + secondOutcome.hits
                 let errorMessage = firstOutcome.errorMessage ?? secondOutcome.errorMessage
+                let shadowHits = Self.convert(raw: raw, originId: originId)
+
+                if shadowHits.isEmpty {
+                    let fallbackHits = await Self.appSearchFallbackHits(
+                        queryText: queryText,
+                        originId: originId,
+                        instantRecall: instantRecall,
+                        searchIndexService: searchIndexService
+                    )
+
+                    await MainActor.run {
+                        guard let self else { return }
+                        guard !Task.isCancelled else { return }
+                        if fallbackHits.isEmpty, let errorMessage {
+                            self.currentResults = []
+                            self.lastErrorMessage = errorMessage
+                            self.isPanelVisible = true
+                            return
+                        }
+                        self.lastErrorMessage = nil
+                        self.currentResults = fallbackHits
+                        self.isPanelVisible = !fallbackHits.isEmpty
+                    }
+                    return
+                }
 
                 await MainActor.run {
                     guard let self else { return }
                     guard !Task.isCancelled else { return }
-                    let hits = Self.convert(raw: raw, originId: originId)
-                    if hits.isEmpty, let errorMessage {
+                    if shadowHits.isEmpty, let errorMessage {
                         self.currentResults = []
                         self.lastErrorMessage = errorMessage
                         self.isPanelVisible = true
                         return
                     }
                     self.lastErrorMessage = nil
-                    self.currentResults = hits
-                    self.isPanelVisible = !hits.isEmpty
+                    self.currentResults = shadowHits
+                    self.isPanelVisible = !shadowHits.isEmpty
                 }
             }
             return
         }
 
-        pendingTask = Task { [weak self, weak instantRecall] in
-            guard let instantRecall else { return }
-
-            // searchAsync internally hops to a detached utility task for the
-            // FFI call. We await its result here; the await suspension is
-            // cancellation-aware so a cancelled task short-circuits below.
-            let raw = await instantRecall.searchAsync(
-                query: queryText,
-                topK: Self.defaultTopK
+        pendingTask = Task { [weak self, instantRecall, searchIndexService] in
+            let hits = await Self.appSearchFallbackHits(
+                queryText: queryText,
+                originId: originId,
+                instantRecall: instantRecall,
+                searchIndexService: searchIndexService
             )
 
             // Re-enter MainActor for the published mutation. Drop the result
@@ -224,11 +246,6 @@ final class ContextualShadowsState {
             await MainActor.run {
                 guard let self else { return }
                 guard !Task.isCancelled else { return }
-                let hits = Self.convert(
-                    raw: raw,
-                    resultKind: .note,
-                    originId: originId
-                )
                 self.lastErrorMessage = nil
                 self.currentResults = hits
                 self.isPanelVisible = !hits.isEmpty
@@ -312,6 +329,73 @@ final class ContextualShadowsState {
         convert(raw: raw, resultKind: kind, originId: originId)
     }
 
+    nonisolated static func convert(
+        raw: [SearchResult],
+        originId: UUID
+    ) -> [RecallHit] {
+        let originString = originId.uuidString
+        return raw.enumerated().compactMap { index, result -> RecallHit? in
+            guard result.pageId != originString else { return nil }
+            let title = result.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            let snippet = cleanSearchSnippet(result.snippet)
+            let score = searchIndexSimilarity(rank: result.rank, index: index)
+            return RecallHit(
+                id: result.pageId,
+                title: title.isEmpty ? "Untitled" : String(title.prefix(80)),
+                snippet: snippet,
+                kind: .note,
+                similarity: score,
+                source: "vault-search"
+            )
+        }
+    }
+
+    nonisolated private static func appSearchFallbackHits(
+        queryText: String,
+        originId: UUID,
+        instantRecall: InstantRecallService,
+        searchIndexService: SearchIndexService?
+    ) async -> [RecallHit] {
+        if let searchIndexService {
+            let started = Date()
+            do {
+                let results = try await searchIndexService.searchAsync(
+                    query: queryText,
+                    limit: Self.defaultTopK
+                )
+                let latencyMs = Date().timeIntervalSince(started) * 1000
+                let trace = SearchIndexService.vaultRecallTrace(
+                    query: queryText,
+                    limit: Self.defaultTopK,
+                    results: results
+                )
+                VaultRecallBridge.recordProductionTrace(trace, latencyMs: latencyMs)
+
+                let hits = Self.convert(raw: results, originId: originId)
+                if !hits.isEmpty {
+                    return hits
+                }
+            } catch {
+                log.warning(
+                    "Contextual Shadows vault-search fallback failed: \(String(describing: error), privacy: .public)"
+                )
+            }
+        }
+
+        // searchAsync internally hops to a detached utility task for the
+        // FFI call. We await its result here; the await suspension is
+        // cancellation-aware so a cancelled task short-circuits in the caller.
+        let raw = await instantRecall.searchAsync(
+            query: queryText,
+            topK: Self.defaultTopK
+        )
+        return Self.convert(
+            raw: raw,
+            resultKind: .note,
+            originId: originId
+        )
+    }
+
     /// Best-effort title extraction — prefer the first markdown heading,
     /// otherwise fall back to the first non-empty line trimmed.
     nonisolated private static func makeTitle(from text: String) -> String {
@@ -335,6 +419,27 @@ final class ContextualShadowsState {
             .replacingOccurrences(of: "  ", with: " ")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return String(collapsed.prefix(160))
+    }
+
+    nonisolated private static func cleanSearchSnippet(_ snippet: String) -> String {
+        let cleaned = snippet
+            .replacingOccurrences(of: "<b>", with: "")
+            .replacingOccurrences(of: "</b>", with: "")
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "  ", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return String(cleaned.prefix(160))
+    }
+
+    nonisolated private static func searchIndexSimilarity(rank: Double, index: Int) -> Float {
+        let rankScore: Double
+        if rank.isFinite {
+            rankScore = 1.0 / (1.0 + max(0.0, abs(rank)))
+        } else {
+            rankScore = 1.0 / Double(index + 2)
+        }
+        let positionScore = 1.0 / Double(index + 1)
+        return Float(min(1.0, max(0.05, max(rankScore, positionScore))))
     }
 
     nonisolated private static func shadowDomains(for kind: RecallContextKind) -> (first: ShadowDomain, second: ShadowDomain) {
