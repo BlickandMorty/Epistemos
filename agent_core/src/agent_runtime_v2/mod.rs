@@ -45,6 +45,7 @@ pub mod blueprint;
 pub mod budget;
 pub mod capability;
 pub mod compose;
+pub mod dynamic_checkpoint;
 pub mod envelope;
 pub mod event;
 pub mod fixtures;
@@ -65,6 +66,10 @@ pub use blueprint::{
 pub use budget::{BudgetDebit, BudgetError, BudgetGate, BudgetLedger, BudgetSpec, BudgetTerm};
 pub use capability::{AgentRuntimeV2Capability, CapabilityError, MacaroonCapability};
 pub use compose::{ParaSeq, ParaSeqFeedback, ParaSeqOutput};
+pub use dynamic_checkpoint::{
+    DynamicComputeCheckpoint, DynamicComputeCheckpointError, DynamicComputeCheckpointKind,
+    DYNAMIC_COMPUTE_CHECKPOINT_FALSIFIER_ID,
+};
 pub use envelope::{MutationEnvelope, MutationWriter, SealError, Sealer};
 pub use event::{AgentEvent, AgentEventErrorKind};
 pub use mission::{MissionPacket, MissionPromptError, ToolCall, ToolCallError};
