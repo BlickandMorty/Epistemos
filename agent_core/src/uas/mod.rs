@@ -1,13 +1,13 @@
-//! UAS — Unified Active Substrate.
+//! UAS - Unified Address Space.
 //!
-//! Source:
-//! - `docs/CODEX_DEEP_INVESTIGATION_PROMPT_2026_05_16.md` §4.G hierarchy LOCK
-//!   (BODY layer: "identity != residency; every artifact addressable independent
-//!   of where it lives").
-//! - Canonical doctrine: `docs/fusion/UAS_ACS_CANONICAL_ARCHITECTURE_2026_05_16.md`
-//!   §1 umbrella name LOCK + §2 hierarchy LOCK + §5 register rows #1 / #2 / #3.
-//! - Phase B blueprint: `docs/audits/UAS_ACS_PHASE_B_BLUEPRINT_2026_05_17.md` §2.1
-//!   iters 21-26.
+//! UAS is the identity/address fabric. Cold residency belongs to ColdStore /
+//! ResidencyGovernor, while `AcsAnchor` remains the anchored coordinate and
+//! provenance object.
+//!
+//! Current source:
+//! - `docs/audits/ACS_NAMESPACE_RECONCILIATION_2026_05_30.md`.
+//! - `docs/audits/AGENT_MANAGEABLE_ARCHITECTURE_CANON_2026_05_30.md`.
+//! - `docs/audits/NAMESPACE_AND_ARCHITECTURE_CLARITY_AUDIT_2026_05_31.md`.
 //!
 //! # Phase B.G.B1 status
 //!
@@ -20,10 +20,10 @@
 //! | 25 | SCOPE-Rex witness emission round-trip test | pending |
 //! | 26 | push beat + git-show signature verification | pending |
 //!
-//! Every UAS-addressed artifact (vault note · graph node · KV page · model
-//! component · agent trace · tool result · AnswerPacket · TriFusionBlock)
+//! Every UAS-addressed artifact (vault note, graph node, KV page, model
+//! component, agent trace, tool result, AnswerPacket, TriFusionBlock)
 //! carries a `UasAddress` that lookup resolves regardless of residency (RAM
-//! hot · RAM warm · SSD cold · cloud).
+//! hot, RAM warm, SSD cold, or gated provider route).
 
 pub mod acs_anchor;
 pub mod address;
