@@ -136,6 +136,18 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
     )
     .unwrap_err()
         == AppColdStoreRouteCardError::ProductBuildStatusMismatch;
+    let pro_live_capability_ceiling_rejected = AppColdStoreRouteCard::from_residency_plan(
+        TASK_SIGNATURE,
+        route_card_verifier_stack(),
+        "rollback:raw-installed-snapshot",
+        ProductBuild::Pro,
+        ProStatus::Live,
+        &plan,
+        "rebuild_warm_cache_from_durable_atlas",
+        1_779_000_000_000,
+    )
+    .unwrap_err()
+        == AppColdStoreRouteCardError::ProductBuildStatusMismatch;
     let missing_eidos_route_prior_falsifier_rejected =
         AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
             TASK_SIGNATURE,
@@ -321,6 +333,13 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         &mut pass_per_axis,
         "mas_research_status_rejected",
         mas_research_rejected,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "pro_live_capability_ceiling_rejected",
+        pro_live_capability_ceiling_rejected,
     );
     add_count_min_axis(
         &mut measurements,
@@ -1027,6 +1046,13 @@ mod tests {
                 .artifact
                 .pass_per_axis
                 .get("param_route_card_admission_verifier_bound"),
+            Some(&true)
+        );
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("pro_live_capability_ceiling_rejected"),
             Some(&true)
         );
         assert_eq!(
