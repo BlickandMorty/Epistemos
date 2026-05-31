@@ -521,7 +521,7 @@ fn validate_cache_rebuild_policy(policy: &str) -> Result<(), AppColdStoreRouteCa
 }
 
 fn validate_app_cold_store_source_uri(source_uri: &str) -> Result<(), AppColdStoreRouteCardError> {
-    if has_source_uri_payload(source_uri, "file://")
+    if has_source_uri_payload(source_uri, "file:///")
         || has_source_uri_payload(source_uri, "app-support://")
         || has_source_uri_payload(source_uri, "app-group://")
     {
@@ -1187,6 +1187,60 @@ mod tests {
                 source_uri: "https://example.invalid/model.safetensors".to_string()
             }
         );
+    }
+
+    #[test]
+    fn app_cold_store_route_card_rejects_host_or_relative_file_source_uris() {
+        for source_uri in [
+            "file://remote-host/models/cold-atlas/model.safetensors",
+            "file://model.safetensors",
+        ] {
+            let hot = block(
+                "hot-controller",
+                0,
+                512,
+                WeightBlockEncoding::DenseBf16,
+                WeightBlockResidencyClass::HotUma,
+                None,
+            );
+            let cold = WeightBlockManifest::from_known_hash_hex(
+                "local/cold-atlas-fixture",
+                source_uri,
+                2048,
+                4096,
+                blake3::hash(source_uri.as_bytes()).to_hex().as_str(),
+                1_779_000_000_000,
+                WeightBlockEncoding::Nf4,
+                WeightBlockResidencyClass::ColdMmapSsd,
+                WeightBlockIrChart::OpaqueWithWitness,
+                0.02,
+                "F-AppColdStore-Layout",
+                Some(rollback_reference()),
+            )
+            .expect("generic weight manifests may describe source URI candidates");
+            let budget = ResidencyBudget::new(GIB, 0, 8 * GIB, 0.25, 16).unwrap();
+            let plan = ResidencyPlan::evaluate([hot, cold], budget, 42);
+            assert_eq!(plan.status, ResidencyPlanStatus::FitForDryRun);
+
+            let err = AppColdStoreRouteCard::from_residency_plan(
+                "deep_research:neural_importance_atlas",
+                verifier_stack(),
+                "rollback:raw-installed-snapshot",
+                ProductBuild::Pro,
+                ProStatus::ResearchCandidate,
+                &plan,
+                "rebuild_warm_cache_from_durable_atlas",
+                99,
+            )
+            .unwrap_err();
+
+            assert_eq!(
+                err,
+                AppColdStoreRouteCardError::UnsupportedSourceUri {
+                    source_uri: source_uri.to_string()
+                }
+            );
+        }
     }
 
     #[test]
