@@ -13,6 +13,7 @@ use crate::uas::{
 };
 
 const APP_COLD_STORE_LAYOUT_FALSIFIER_ID: &str = "F-AppColdStore-Layout";
+const PARAM_ROUTE_CARD_ADMISSION_FALSIFIER_ID: &str = "F-ParamRouteCard-Admission";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -111,6 +112,12 @@ impl AppColdStoreRouteCard {
             .any(|verifier| verifier == APP_COLD_STORE_LAYOUT_FALSIFIER_ID)
         {
             return Err(AppColdStoreRouteCardError::MissingAppColdStoreLayoutVerifier);
+        }
+        if !verifier_stack
+            .iter()
+            .any(|verifier| verifier == PARAM_ROUTE_CARD_ADMISSION_FALSIFIER_ID)
+        {
+            return Err(AppColdStoreRouteCardError::MissingParamRouteCardAdmissionVerifier);
         }
 
         let residency_status = plan.effective_residency_tier;
@@ -318,6 +325,7 @@ pub enum AppColdStoreRouteCardError {
     FieldContainsControlCharacter { field: &'static str },
     PlanRejected,
     MissingAppColdStoreLayoutVerifier,
+    MissingParamRouteCardAdmissionVerifier,
     ProductBuildStatusMismatch,
     ProductBuildResidencyMismatch,
     WarmCacheRequiresDurableAtlas,
@@ -341,6 +349,10 @@ impl std::fmt::Display for AppColdStoreRouteCardError {
             Self::MissingAppColdStoreLayoutVerifier => write!(
                 f,
                 "AppColdStore route cards must bind F-AppColdStore-Layout in verifier_stack"
+            ),
+            Self::MissingParamRouteCardAdmissionVerifier => write!(
+                f,
+                "AppColdStore route cards must bind F-ParamRouteCard-Admission in verifier_stack"
             ),
             Self::ProductBuildStatusMismatch => write!(
                 f,
@@ -375,6 +387,13 @@ mod tests {
 
     fn rollback_reference() -> UasAddress {
         UasAddress::new(UasKind::ModelComponent, b"dense-reference", 7)
+    }
+
+    fn verifier_stack() -> Vec<String> {
+        vec![
+            "F-AppColdStore-Layout".to_string(),
+            "F-ParamRouteCard-Admission".to_string(),
+        ]
     }
 
     fn block(
@@ -442,7 +461,7 @@ mod tests {
 
         let card = AppColdStoreRouteCard::from_residency_plan(
             "deep_research:neural_importance_atlas",
-            vec!["F-AppColdStore-Layout".to_string()],
+            verifier_stack(),
             "rollback:raw-installed-snapshot",
             ProductBuild::Pro,
             ProStatus::ResearchCandidate,
@@ -479,7 +498,7 @@ mod tests {
 
         let err = AppColdStoreRouteCard::from_residency_plan(
             "deep_research:neural_importance_atlas",
-            vec!["F-AppColdStore-Layout".to_string()],
+            verifier_stack(),
             "rollback:raw-installed-snapshot",
             ProductBuild::Pro,
             ProStatus::ResearchCandidate,
@@ -515,12 +534,34 @@ mod tests {
     }
 
     #[test]
-    fn app_cold_store_route_card_keeps_research_status_out_of_mas() {
+    fn app_cold_store_route_card_requires_param_route_card_admission_falsifier() {
         let plan = fit_plan();
 
         let err = AppColdStoreRouteCard::from_residency_plan(
             "deep_research:neural_importance_atlas",
             vec!["F-AppColdStore-Layout".to_string()],
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            AppColdStoreRouteCardError::MissingParamRouteCardAdmissionVerifier
+        );
+    }
+
+    #[test]
+    fn app_cold_store_route_card_keeps_research_status_out_of_mas() {
+        let plan = fit_plan();
+
+        let err = AppColdStoreRouteCard::from_residency_plan(
+            "deep_research:neural_importance_atlas",
+            verifier_stack(),
             "rollback:raw-installed-snapshot",
             ProductBuild::Mas,
             ProStatus::ResearchCandidate,
@@ -549,7 +590,7 @@ mod tests {
 
         let err = AppColdStoreRouteCard::from_residency_plan(
             "deep_research:neural_importance_atlas",
-            vec!["F-AppColdStore-Layout".to_string()],
+            verifier_stack(),
             "rollback:raw-installed-snapshot",
             ProductBuild::Pro,
             ProStatus::ResearchCandidate,
@@ -581,7 +622,7 @@ mod tests {
 
         let err = AppColdStoreRouteCard::from_residency_plan(
             "deep_research:neural_importance_atlas",
-            vec!["F-AppColdStore-Layout".to_string()],
+            verifier_stack(),
             "rollback:raw-installed-snapshot",
             ProductBuild::Pro,
             ProStatus::ResearchCandidate,

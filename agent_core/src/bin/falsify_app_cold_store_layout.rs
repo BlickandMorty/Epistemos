@@ -18,6 +18,7 @@ use agent_core::uas::{
 };
 
 const FALSIFIER_ID: &str = "F-AppColdStore-Layout";
+const PARAM_ROUTE_CARD_ADMISSION_FALSIFIER_ID: &str = "F-ParamRouteCard-Admission";
 const FIXTURE_ID: &str = "app_cold_store_layout_manifest_only_v1";
 const COMMAND: &str = "Tools/falsifiers/f_app_cold_store_layout.sh";
 const RESULT: &str = "artifacts/falsifiers/app_cold_store_layout/result.json";
@@ -74,7 +75,7 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
     let plan = fit_plan()?;
     let card = AppColdStoreRouteCard::from_residency_plan(
         "deep_research:app_cold_store_layout",
-        vec![FALSIFIER_ID.to_string()],
+        route_card_verifier_stack(),
         "rollback:raw-installed-snapshot",
         ProductBuild::Pro,
         ProStatus::ResearchCandidate,
@@ -89,7 +90,7 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
     );
     let plan_rejected_before_card = AppColdStoreRouteCard::from_residency_plan(
         "deep_research:app_cold_store_layout",
-        vec![FALSIFIER_ID.to_string()],
+        route_card_verifier_stack(),
         "rollback:raw-installed-snapshot",
         ProductBuild::Pro,
         ProStatus::ResearchCandidate,
@@ -101,7 +102,7 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         == AppColdStoreRouteCardError::PlanRejected;
     let mas_research_rejected = AppColdStoreRouteCard::from_residency_plan(
         "deep_research:app_cold_store_layout",
-        vec![FALSIFIER_ID.to_string()],
+        route_card_verifier_stack(),
         "rollback:raw-installed-snapshot",
         ProductBuild::Mas,
         ProStatus::ResearchCandidate,
@@ -300,6 +301,13 @@ fn fit_plan() -> Result<ResidencyPlan, Box<dyn std::error::Error>> {
         return Err("fixture residency plan must fit".into());
     }
     Ok(plan)
+}
+
+fn route_card_verifier_stack() -> Vec<String> {
+    vec![
+        FALSIFIER_ID.to_string(),
+        PARAM_ROUTE_CARD_ADMISSION_FALSIFIER_ID.to_string(),
+    ]
 }
 
 fn manifest(
