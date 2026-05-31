@@ -5,6 +5,7 @@
 //! trace to prove candidate-pool breadth, signal health, confidence, MMR
 //! diversity, and user-visible provenance.
 
+use deunicode::deunicode;
 use serde::{Deserialize, Serialize};
 
 pub const VAULT_CONTEXT_MIN_CANDIDATE_POOL: usize = 50;
@@ -1223,11 +1224,41 @@ fn normalized_exact_text(value: &str) -> String {
 
 fn normalized_title_identity_key(value: &str) -> Option<String> {
     let normalized = normalized_exact_text(value);
-    if normalized.is_empty() {
+    let mut without_combining_marks = String::with_capacity(normalized.len());
+    for ch in normalized.chars() {
+        if is_combining_mark(ch) {
+            continue;
+        }
+        without_combining_marks.push(ch);
+    }
+    let folded = deunicode(&without_combining_marks);
+    let ascii_key: String = folded
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch.is_ascii_whitespace() {
+                ch.to_ascii_lowercase()
+            } else {
+                ' '
+            }
+        })
+        .collect();
+    let key = ascii_key.split_whitespace().collect::<Vec<_>>().join(" ");
+    if key.is_empty() {
         None
     } else {
-        Some(normalized.to_lowercase())
+        Some(key)
     }
+}
+
+fn is_combining_mark(ch: char) -> bool {
+    matches!(
+        ch as u32,
+        0x0300..=0x036F
+            | 0x1AB0..=0x1AFF
+            | 0x1DC0..=0x1DFF
+            | 0x20D0..=0x20FF
+            | 0xFE20..=0xFE2F
+    )
 }
 
 fn shadow_exact_hit_matches_target(
@@ -1795,6 +1826,24 @@ mod tests {
         let mut duplicate = selected_candidate();
         duplicate.path.clear();
         duplicate.title = "vault recall alpha".to_string();
+        duplicate.rank = 2;
+        trace.candidates.push(duplicate);
+        trace.selected_count = 2;
+
+        assert_eq!(trace.selected_distinct_note_count(), 1);
+        assert!(trace
+            .validate_synthesis_min_distinct_notes(2)
+            .contains(&VaultContextViolation::SynthesisUnderCited));
+    }
+
+    #[test]
+    fn synthesis_validation_dedupes_unicode_canonical_title_variants() {
+        let mut trace = sufficient_trace();
+        trace.candidates[0].path = "Research/Resume Filter.md".to_string();
+        trace.candidates[0].title = "Résumé Filter".to_string();
+        let mut duplicate = selected_candidate();
+        duplicate.path.clear();
+        duplicate.title = "Re\u{301}sume\u{301} Filter".to_string();
         duplicate.rank = 2;
         trace.candidates.push(duplicate);
         trace.selected_count = 2;
