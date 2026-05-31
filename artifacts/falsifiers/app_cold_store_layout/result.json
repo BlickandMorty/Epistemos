@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "291bbcf5100676b46568881907f929e9360b6d1e",
+  "commit_sha": "7d59ec7cf483d0a542c965ebc075d7294a80d42a",
   "fixture_id": "app_cold_store_layout_manifest_only_v1",
-  "timestamp_utc": "2026-05-31T04:46:15Z",
-  "result_digest": "sha256:9ed51dc7210b9d951947fd0e14592b0af78537a2211f23b755437ef62384710e",
+  "timestamp_utc": "2026-05-31T06:20:01Z",
+  "result_digest": "sha256:fcafb9cc636935e5a6c680053b2136494d011b41963381df41380cc14f7e2432",
   "measurements": {
     "closed_citation_validity_not_applicable": {
       "value": true,
@@ -65,9 +65,21 @@
       "value": true,
       "unit": "bool"
     },
+    "param_route_card_admission_verifier_bound": {
+      "value": true,
+      "unit": "bool"
+    },
     "planned_active_runtime_bytes": {
       "value": 768,
       "unit": "bytes"
+    },
+    "product_build_pro_research_status_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_reference_bound": {
+      "value": true,
+      "unit": "bool"
     },
     "route_card_constructed": {
       "value": true,
@@ -135,10 +147,25 @@
       "value": true,
       "unit": "bool"
     },
+    "param_route_card_admission_verifier_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "planned_active_runtime_bytes": {
       "operator": ">=",
       "value": 1,
       "unit": "bytes"
+    },
+    "product_build_pro_research_status_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_reference_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
     },
     "route_card_constructed": {
       "operator": "==",
@@ -180,7 +207,10 @@
     "failed_residency_plan_rejected": true,
     "hot_runway_bytes": true,
     "mas_research_status_rejected": true,
+    "param_route_card_admission_verifier_bound": true,
     "planned_active_runtime_bytes": true,
+    "product_build_pro_research_status_bound": true,
+    "rollback_reference_bound": true,
     "route_card_constructed": true,
     "runtime_model_bytes_loaded": true,
     "runtime_model_peak_uma_bytes": true,

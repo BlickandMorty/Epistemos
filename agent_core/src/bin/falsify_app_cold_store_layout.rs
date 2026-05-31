@@ -234,6 +234,29 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         "closed_citation_validity_not_applicable",
         true,
     );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "param_route_card_admission_verifier_bound",
+        card.verifier_stack
+            .iter()
+            .any(|verifier| verifier == PARAM_ROUTE_CARD_ADMISSION_FALSIFIER_ID),
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "product_build_pro_research_status_bound",
+        card.product_build == ProductBuild::Pro && card.pro_status == ProStatus::ResearchCandidate,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "rollback_reference_bound",
+        !card.rollback_reference.trim().is_empty(),
+    );
     add_count_eq_axis(
         &mut measurements,
         &mut thresholds,
@@ -465,10 +488,7 @@ mod tests {
             )))
         );
         assert_eq!(
-            report
-                .artifact
-                .pass_per_axis
-                .get("dry_run_copy_count"),
+            report.artifact.pass_per_axis.get("dry_run_copy_count"),
             Some(&true)
         );
         assert_eq!(
@@ -479,10 +499,7 @@ mod tests {
             Some(&true)
         );
         assert_eq!(
-            report
-                .artifact
-                .pass_per_axis
-                .get("dry_run_ssd_read_bytes"),
+            report.artifact.pass_per_axis.get("dry_run_ssd_read_bytes"),
             Some(&true)
         );
         assert_eq!(
@@ -490,6 +507,27 @@ mod tests {
                 .artifact
                 .pass_per_axis
                 .get("closed_citation_validity_not_applicable"),
+            Some(&true)
+        );
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("param_route_card_admission_verifier_bound"),
+            Some(&true)
+        );
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("product_build_pro_research_status_bound"),
+            Some(&true)
+        );
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("rollback_reference_bound"),
             Some(&true)
         );
         assert_eq!(
