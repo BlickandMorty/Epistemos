@@ -529,8 +529,15 @@ fn validate_route_prior_list(
     field: &'static str,
     values: &[String],
 ) -> Result<(), EidosRoutePriorError> {
+    let mut seen = HashSet::new();
     for value in values {
         validate_route_prior_text(field, value)?;
+        if !seen.insert(value.as_str()) {
+            return Err(EidosRoutePriorError::DuplicateRouteHint {
+                field,
+                value: value.clone(),
+            });
+        }
     }
     Ok(())
 }
@@ -589,6 +596,9 @@ pub enum EidosRoutePriorError {
 
     #[error("{field} must not contain control characters")]
     FieldContainsControlCharacter { field: &'static str },
+
+    #[error("route-prior {field} value was duplicated: {value}")]
+    DuplicateRouteHint { field: &'static str, value: String },
 
     #[error("route-prior confidence must be finite and in [0, 1], got {0}")]
     InvalidConfidence(f32),
@@ -1151,6 +1161,35 @@ mod tests {
         .unwrap_err();
 
         assert!(matches!(err, EidosRoutePriorError::InvalidConfidence(v) if v.is_nan()));
+    }
+
+    #[test]
+    fn eidos_route_prior_rejects_duplicate_route_hints() {
+        let packet = sample_packet();
+
+        let err = EidosRoutePrior::from_packet(
+            &packet,
+            "deep_research:tropical_optimization",
+            vec![chunk_id("chunk-1")],
+            EidosCitationNeed::Required,
+            vec!["math".to_string()],
+            vec![],
+            vec!["citation_checker".to_string()],
+            vec!["math_adapter".to_string()],
+            vec!["kv:math-history".to_string(), "kv:math-history".to_string()],
+            vec!["weights:proof-family".to_string()],
+            0.75,
+            vec!["chunk-1 matched by lexical evidence".to_string()],
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            EidosRoutePriorError::DuplicateRouteHint {
+                field: "likely_kv_regions",
+                value: "kv:math-history".to_string()
+            }
+        );
     }
 
     #[test]
