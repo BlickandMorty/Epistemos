@@ -308,7 +308,7 @@ impl ShadowResidualDecodeHit {
     pub fn has_visible_summary(&self) -> bool {
         self.summary
             .as_ref()
-            .is_some_and(|summary| !summary.trim().is_empty())
+            .is_some_and(|summary| !normalized_exact_text(summary).is_empty())
     }
 }
 
@@ -2641,6 +2641,17 @@ mod tests {
         assert!(exact
             .exact_queries()
             .contains(&"Residual compressed body summary".to_string()));
+    }
+
+    #[test]
+    fn shadow_residual_decode_hit_rejects_markup_only_summary() {
+        let hit = shadow_residual_hit(
+            "dense-alpha",
+            "Vault Recall Alpha",
+            Some("<b></b>\u{2026}"),
+        );
+
+        assert!(!hit.has_visible_summary());
     }
 
     #[test]
