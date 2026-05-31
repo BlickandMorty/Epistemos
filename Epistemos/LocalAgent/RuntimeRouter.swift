@@ -580,12 +580,13 @@ public final class RuntimeRouter {
         }
 
         // Privacy-sensitive requests must not escalate to a networked
-        // (cloud) lane. If every local lane is disabled, reject honestly.
+        // (cloud) lane. If every executable local lane is disabled,
+        // reject honestly; `.stub` is in-process but cannot execute.
         if packet.privacySensitive {
-            let allLocalDisabled = preferredChain
-                .filter { $0.isLocal }
-                .allSatisfy { !isLaneEnabled($0) }
-            if allLocalDisabled {
+            let hasEnabledExecutableLocalLane = preferredChain.contains { lane in
+                lane.isLocal && lane != .stub && isLaneEnabled(lane)
+            }
+            if !hasEnabledExecutableLocalLane {
                 return recordReject(role: packet.role, reason: .privacySensitiveNoLocal)
             }
         }
