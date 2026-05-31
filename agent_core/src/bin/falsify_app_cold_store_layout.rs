@@ -297,8 +297,8 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
-        "closed_citation_validity_not_applicable",
-        true,
+        "closed_citation_validity",
+        closed_evidence_verified,
     );
     add_bool_axis(
         &mut measurements,
@@ -680,9 +680,13 @@ mod tests {
             report
                 .artifact
                 .pass_per_axis
-                .get("closed_citation_validity_not_applicable"),
+                .get("closed_citation_validity"),
             Some(&true)
         );
+        assert!(!report
+            .artifact
+            .pass_per_axis
+            .contains_key("closed_citation_validity_not_applicable"));
         assert_eq!(
             report
                 .artifact
