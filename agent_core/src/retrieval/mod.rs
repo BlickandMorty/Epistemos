@@ -330,10 +330,13 @@ impl ShadowResidualDecodeOutcome {
                 if let Some(summary) = self
                     .matching_hits_for_target(&target)
                     .into_iter()
-                    .filter(|hit| hit.has_visible_summary())
-                    .find_map(|hit| hit.summary.as_deref())
-                    .map(bounded_exact_snippet)
-                    .filter(|summary| !summary.is_empty())
+                    .filter_map(|hit| {
+                        hit.summary
+                            .as_deref()
+                            .map(bounded_exact_snippet)
+                            .filter(|summary| !summary.is_empty())
+                    })
+                    .next()
                 {
                     target.snippet = Some(summary);
                 }
@@ -2663,6 +2666,39 @@ mod tests {
             request: residual,
             hits: vec![
                 shadow_residual_hit("dense-alpha", "Vault Recall Alpha", Some("   ")),
+                shadow_residual_hit(
+                    "Dense Alpha",
+                    "Vault Recall Alpha",
+                    Some("later visible residual summary"),
+                ),
+            ],
+        };
+
+        let exact = outcome.exact_escalation_request();
+
+        assert_eq!(
+            exact.targets[0].snippet.as_deref(),
+            Some("later visible residual summary")
+        );
+    }
+
+    #[test]
+    fn shadow_residual_decode_outcome_skips_markup_only_matching_summaries() {
+        let residual = ShadowResidualDecodeRequest {
+            query: "vault recall alpha".to_string(),
+            reasons: vec![ShadowExactEscalationReason::DenseOnly],
+            targets: vec![ShadowExactEscalationTarget {
+                doc_id: "dense-alpha".to_string(),
+                title: "Vault Recall Alpha".to_string(),
+                source: ShadowFirstSource::Dense,
+                score: 0.04,
+                snippet: Some("sketch snippet".to_string()),
+            }],
+        };
+        let outcome = ShadowResidualDecodeOutcome {
+            request: residual,
+            hits: vec![
+                shadow_residual_hit("dense-alpha", "Vault Recall Alpha", Some("<b></b>\u{2026}")),
                 shadow_residual_hit(
                     "Dense Alpha",
                     "Vault Recall Alpha",
