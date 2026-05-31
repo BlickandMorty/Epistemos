@@ -72,6 +72,67 @@ struct RuntimeRouterTests {
         #expect(router.metrics.tally(for: .mlx).accepts >= 1)
     }
 
+    @Test("local policy table gates MLX/GGUF before cloud fallback")
+    func localPolicyTableGatesLocalLanesBeforeCloudFallback() {
+        guard let policy = RuntimeRouter.localPolicyTable[.code] else {
+            Issue.record("code role must have a local policy row")
+            return
+        }
+        let cases: [(MissionPacket, RouteVerdict.EscalationReason)] = [
+            (
+                MissionPacket(
+                    uasAddress: "uas:test:policy-confidence",
+                    role: .code,
+                    objective: "Refactor the foo function.",
+                    requiresTools: true,
+                    classificationConfidence: policy.minimumConfidence - 0.01
+                ),
+                .classificationUncertain
+            ),
+            (
+                MissionPacket(
+                    uasAddress: "uas:test:policy-complexity",
+                    role: .code,
+                    objective: "Refactor the foo function.",
+                    requiresTools: true,
+                    estimatedComplexity: policy.maximumComplexity + 0.01
+                ),
+                .taskTooComplex
+            ),
+            (
+                MissionPacket(
+                    uasAddress: "uas:test:policy-tools",
+                    role: .code,
+                    objective: "Refactor the foo function.",
+                    requiresTools: true,
+                    toolCountEstimate: policy.maximumToolCount + 1
+                ),
+                .tooManyToolCalls
+            ),
+        ]
+
+        for (packet, reason) in cases {
+            let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
+            router._testResetMetrics()
+            let verdict = router.route(packet)
+
+            if case .accept(let lane, _) = verdict {
+                #expect(lane == .cloud(provider: "claude"), "policy-gated code request should fall through to Claude; got \(lane.stableID)")
+            } else {
+                Issue.record("expected .accept on cloud fallback, got \(verdict)")
+            }
+
+            #expect(router.metrics.tally(for: .mlx).escalations == 1)
+            #expect(router.metrics.tally(for: .gguf).escalations == 1)
+            #expect(router.metrics.tally(for: .cloud(provider: "claude")).accepts == 1)
+
+            let localEscalationReasons = router.metrics.ring
+                .filter { $0.lane == .mlx || $0.lane == .gguf }
+                .compactMap(\.detail)
+            #expect(localEscalationReasons == [reason.rawValue, reason.rawValue])
+        }
+    }
+
     @Test("flipping MLX off escalates to GGUF — honest log, not silent fallback")
     func mlxFlippedOffEscalatesHonestly() {
         let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)

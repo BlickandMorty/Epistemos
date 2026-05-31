@@ -241,6 +241,9 @@ nonisolated public struct MissionPacket: Sendable, Equatable, Hashable, Codable,
     public let requiresVision: Bool
     public let requiresGrammar: Bool
     public let privacySensitive: Bool
+    public let classificationConfidence: Double?
+    public let estimatedComplexity: Double?
+    public let toolCountEstimate: Int?
     /// Optional caller-supplied lane preference. The router treats
     /// this as a hint; honors it only if the lane is enabled and
     /// its capability surface satisfies the rest of the demands.
@@ -257,6 +260,9 @@ nonisolated public struct MissionPacket: Sendable, Equatable, Hashable, Codable,
         requiresVision: Bool = false,
         requiresGrammar: Bool = false,
         privacySensitive: Bool = false,
+        classificationConfidence: Double? = nil,
+        estimatedComplexity: Double? = nil,
+        toolCountEstimate: Int? = nil,
         preferredLane: RuntimeLane? = nil
     ) {
         self.id = id
@@ -269,6 +275,9 @@ nonisolated public struct MissionPacket: Sendable, Equatable, Hashable, Codable,
         self.requiresVision = requiresVision
         self.requiresGrammar = requiresGrammar
         self.privacySensitive = privacySensitive
+        self.classificationConfidence = classificationConfidence
+        self.estimatedComplexity = estimatedComplexity
+        self.toolCountEstimate = toolCountEstimate
         self.preferredLane = preferredLane
     }
 }
@@ -296,6 +305,9 @@ nonisolated public enum RouteVerdict: Sendable, Equatable, Hashable, Codable {
         case residencyTierExceeded = "residency_tier_exceeded"
         case privacyPolicyMismatch = "privacy_policy_mismatch"
         case capabilityMissing = "capability_missing"
+        case classificationUncertain = "classification_uncertain"
+        case taskTooComplex = "task_too_complex"
+        case tooManyToolCalls = "too_many_tool_calls"
 
         public var displayName: String {
             switch self {
@@ -306,6 +318,9 @@ nonisolated public enum RouteVerdict: Sendable, Equatable, Hashable, Codable {
             case .residencyTierExceeded: return "Residency tier exceeded"
             case .privacyPolicyMismatch: return "Privacy policy mismatch"
             case .capabilityMissing: return "Capability missing"
+            case .classificationUncertain: return "Classification uncertain"
+            case .taskTooComplex: return "Task too complex"
+            case .tooManyToolCalls: return "Too many tool calls"
             }
         }
     }

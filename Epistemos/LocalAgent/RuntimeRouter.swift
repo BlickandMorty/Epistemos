@@ -612,6 +612,16 @@ public final class RuntimeRouter {
                 continue
             }
 
+            if let policyReason = localPolicyEscalationReason(for: packet, lane: lane) {
+                let escalation = RouteVerdict.escalate(
+                    from: lane,
+                    to: nextLane(after: lane, in: preferredChain) ?? lane,
+                    reason: policyReason
+                )
+                recordEscalation(escalation, role: packet.role)
+                continue
+            }
+
             if let executor = lanes[lane] {
                 let verdict = executor.canHandle(packet)
                 switch verdict {
@@ -684,6 +694,37 @@ public final class RuntimeRouter {
         metrics = snapshot
         Self.log.error("RuntimeRouter reject role=\(role.rawValue) reason=\(reason.rawValue)")
         return verdict
+    }
+
+    private func localPolicyEscalationReason(
+        for packet: MissionPacket,
+        lane: RuntimeLane
+    ) -> RouteVerdict.EscalationReason? {
+        switch lane {
+        case .mlx, .gguf:
+            break
+        case .appleIntelligence, .cloud(_), .stub:
+            return nil
+        }
+
+        let policy = Self.localPolicyTable[packet.role] ?? Self.defaultLocalPolicy(for: packet.role)
+
+        if let classificationConfidence = packet.classificationConfidence,
+           !classificationConfidence.isFinite || classificationConfidence < policy.minimumConfidence {
+            return .classificationUncertain
+        }
+
+        if let estimatedComplexity = packet.estimatedComplexity,
+           !estimatedComplexity.isFinite || estimatedComplexity > policy.maximumComplexity {
+            return .taskTooComplex
+        }
+
+        if let toolCountEstimate = packet.toolCountEstimate,
+           toolCountEstimate > policy.maximumToolCount {
+            return .tooManyToolCalls
+        }
+
+        return nil
     }
 
     private func nextLane(after lane: RuntimeLane, in chain: [RuntimeLane]) -> RuntimeLane? {
