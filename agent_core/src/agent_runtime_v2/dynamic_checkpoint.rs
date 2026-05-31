@@ -204,7 +204,12 @@ fn validate_run_event_id(run_event_id: &str) -> Result<(), DynamicComputeCheckpo
             run_event_id: run_event_id.to_string(),
         });
     };
-    if ordinal.is_empty() || ordinal.parse::<u64>().is_err() {
+    let Ok(parsed) = ordinal.parse::<u64>() else {
+        return Err(DynamicComputeCheckpointError::InvalidRunEventId {
+            run_event_id: run_event_id.to_string(),
+        });
+    };
+    if parsed.to_string() != ordinal {
         return Err(DynamicComputeCheckpointError::InvalidRunEventId {
             run_event_id: run_event_id.to_string(),
         });
@@ -441,6 +446,31 @@ mod tests {
                 }
             );
         }
+    }
+
+    #[test]
+    fn checkpoint_rejects_noncanonical_run_event_ordinals() {
+        let err = DynamicComputeCheckpoint::new(
+            DynamicComputeCheckpointKind::VerifierRepair,
+            "citation verifier failed",
+            vec![unit(b"before")],
+            vec![unit(b"after")],
+            "bounded verifier repair must bind one canonical event ordinal",
+            1_000,
+            "run_event_log:00042",
+            verifier_stack(),
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            DynamicComputeCheckpointError::InvalidRunEventId {
+                run_event_id: "run_event_log:00042".to_string()
+            }
+        );
     }
 
     #[test]
