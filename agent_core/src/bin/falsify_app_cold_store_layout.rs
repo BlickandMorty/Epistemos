@@ -162,6 +162,34 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         == AppColdStoreRouteCardError::UnsupportedCacheRebuildPolicy {
             policy: UNSUPPORTED_CACHE_REBUILD_POLICY_FIXTURE.to_string(),
         };
+    let durable_only_plan = ResidencyPlan::evaluate(
+        [manifest(
+            "durable-only-weight-page",
+            4096,
+            4096,
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            Some(UasAddress::new(
+                UasKind::ModelComponent,
+                b"durable-only-dense-reference",
+                1_779_000_000_000,
+            )),
+        )?],
+        ResidencyBudget::new(0, 0, 8192, 0.25, 16)?,
+        1_779_000_000_000,
+    );
+    let durable_only_without_active_bytes_rejected = AppColdStoreRouteCard::from_residency_plan(
+        TASK_SIGNATURE,
+        route_card_verifier_stack(),
+        "rollback:raw-installed-snapshot",
+        ProductBuild::Pro,
+        ProStatus::ResearchCandidate,
+        &durable_only_plan,
+        "rebuild_warm_cache_from_durable_atlas",
+        1_779_000_000_000,
+    )
+    .unwrap_err()
+        == AppColdStoreRouteCardError::MissingActiveRuntimeBytes;
 
     let mut measurements = BTreeMap::new();
     let mut thresholds = BTreeMap::new();
@@ -336,6 +364,13 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         &mut pass_per_axis,
         "unsupported_cache_rebuild_policy_rejected",
         unsupported_cache_rebuild_policy_rejected,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "durable_only_plan_without_active_bytes_rejected",
+        durable_only_without_active_bytes_rejected,
     );
     add_bool_axis(
         &mut measurements,
@@ -720,6 +755,13 @@ mod tests {
                 .artifact
                 .pass_per_axis
                 .get("unsupported_cache_rebuild_policy_rejected"),
+            Some(&true)
+        );
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("durable_only_plan_without_active_bytes_rejected"),
             Some(&true)
         );
         assert_eq!(
