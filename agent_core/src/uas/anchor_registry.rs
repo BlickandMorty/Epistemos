@@ -21,6 +21,9 @@ impl AcsAnchorRegistry {
     }
 
     pub fn insert(&mut self, anchor: AcsAnchor) -> Option<AcsAnchor> {
+        if !anchor.is_well_formed() {
+            return None;
+        }
         self.anchors.insert(anchor.anchor_id.clone(), anchor)
     }
 
@@ -88,5 +91,29 @@ mod tests {
         assert!(registry
             .lookup_via_projection(projection_source.project_to_plane())
             .is_none());
+    }
+
+    #[test]
+    fn malformed_anchor_insert_does_not_become_reachable() {
+        let mut registry = AcsAnchorRegistry::with_capacity(1);
+        let valid = AcsAnchor::new(
+            "claim-1",
+            "E1",
+            RuntimePlane::Episodic,
+            ResidencyTier::VerifiedFloor,
+            0.8,
+        );
+        let malformed = AcsAnchor::new(
+            "claim-1",
+            "X9",
+            RuntimePlane::Episodic,
+            ResidencyTier::VerifiedFloor,
+            0.8,
+        );
+
+        registry.insert(valid.clone());
+        registry.insert(malformed);
+
+        assert_eq!(registry.lookup("claim-1"), Some(&valid));
     }
 }
