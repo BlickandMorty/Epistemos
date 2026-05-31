@@ -69,6 +69,9 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-ActiveAssembly-Minimal",
     "F-Sparse-Runtime-Split",
     "F-Eidos-Bridge-RoundTrip",
+    "F-Eidos-NeuralRoute-Prior",
+    "F-ParamRouteCard-Admission",
+    "F-DynamicCompute-Checkpoint",
     "F-Capability-Ceiling-Evaluation-Kernel",
     "F-Architecture-Pending-Work-Guard",
 ];
@@ -325,4 +328,23 @@ fn axis_set(v: Option<&serde_json::Value>) -> std::collections::BTreeSet<String>
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CANONICAL_FALSIFIER_IDS;
+
+    #[test]
+    fn canonical_route_falsifier_ids_are_accepted() {
+        for id in [
+            "F-Eidos-NeuralRoute-Prior",
+            "F-ParamRouteCard-Admission",
+            "F-DynamicCompute-Checkpoint",
+        ] {
+            assert!(
+                CANONICAL_FALSIFIER_IDS.contains(&id),
+                "{id} should be accepted by the stub validator"
+            );
+        }
+    }
 }
