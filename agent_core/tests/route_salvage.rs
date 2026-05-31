@@ -56,6 +56,19 @@ impl LlmClassifier for NullClassifier {
     }
 }
 
+struct PanicClassifier;
+
+#[async_trait]
+impl LlmClassifier for PanicClassifier {
+    async fn classify(
+        &self,
+        _capture_text: &str,
+        _allowed_paths: &[String],
+    ) -> Result<VariantBOutput, ClassifierError> {
+        panic!("invalid route input must not reach the runtime ladder");
+    }
+}
+
 struct StaticExtractor(Vec<Concept>);
 
 #[async_trait]
@@ -112,6 +125,22 @@ fn route_input() -> RouteInput {
         }],
         recent_captures: Vec::new(),
     }
+}
+
+#[tokio::test]
+async fn invalid_route_input_defers_before_runtime_ladder() {
+    let mut input = route_input();
+    input.capture_text = "   ".to_string();
+    let mut ctx = null_ctx();
+    ctx.classifier = Arc::new(PanicClassifier);
+
+    let decision = route_capture(&input, &ctx).await;
+
+    assert_eq!(decision.action, Action::Defer);
+    assert_eq!(decision.folder_path.as_deref(), Some("_inbox/review/"));
+    assert!(decision.reasoning_trace.contains("invalid_route_input"));
+    assert!(decision.reasoning_trace.contains("capture_text"));
+    assert_eq!(decision.alternative_paths.len(), 1);
 }
 
 fn null_ctx() -> RouteCtx {
