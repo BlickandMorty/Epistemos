@@ -42,11 +42,11 @@ These are findings the deep-scan surfaced that **contradict or sharpen** earlier
 
 1. **Lift / Ingest** — surface to substrate.
 2. **Project / Compress / Recall** — substrate to useful surface.
-3. **Mutate / Promote** — substrate to substrate, under ACS + witness + rollback.
+3. **Mutate / Promote** — substrate to substrate, under SCOPE-Rex/SovereignGate + witness + rollback.
 
 **Status discipline.** The addendum is `state: candidate`. It does **not** silently promote L8, E8, E9, `ShadowProjection<H,L>`, T28, W-Lift-N, or `F-Erdos-Lift-Optimality` to canon. Agents must treat those as candidate work until local falsifiers and WRV caller chains exist.
 
-**Agent rule.** Any Phase 2+ PR that invokes "unified cognitive substrate," "lattice," "shadow projection," "auto fine-tuning," "best neuron group," or "Research Construction Engine" must cite the addendum and include a No-Orphan check: motion, UAS address, plane, residency, WBO/error policy, witness, falsifier, tier, rollback.
+**Agent rule.** Any Phase 2+ PR that invokes "unified cognitive substrate," "lattice," "shadow projection," "auto fine-tuning," "best neuron group," or "Research Construction Engine" must cite the addendum and include a No-Orphan check: motion, UAS address, plane, ProductBuild, ProStatus/ResidencyStatus, WBO/error policy, witness, falsifier, rollback.
 
 **Public-research rule.** Any Phase 2+ PR that cites Parameter Golf, the Erdős unit-distance result, EML forks, arXiv papers, GitHub PRs/forks, or forum-derived ideas must also cite the online intake source and classify each source by credibility rank. Public code is mined for motifs, never raw-merged, unless a separate vendor/setup PR is explicitly approved.
 
@@ -60,7 +60,7 @@ These are findings the deep-scan surfaced that **contradict or sharpen** earlier
 
 > Epistemos turns a dense model into an addressable neural substrate. An SSM/state router selects active assemblies of layers, rank-one components, KV pages, adapters, residual islands, and kernels; the residency governor pages only that working set into UMA; verification proves the selected path preserves dense/reference behavior within a budget.
 
-**Canonical distinction.** This is canon as the target architecture and vocabulary. It is **not** a production claim until the falsifiers pass: `F-Sparse-Runtime-Split`, `F-KV-Direct-Gate`, `F-UAS-CopyCount`, `F-UAS-ACS-MmapResidency`, `F-ActiveAssembly-Minimal`, `F-ULP-Oracle`, `F-Agent-Local-Model-Runtime-Bridge`, and `F-70B-Local-Cocktail`. Current nuance: `F-UAS-ACS-MmapResidency` proves file-backed UAS/ACS residency for one deterministic mmap slice; it does not prove live MLX generation or 70B local inference.
+**Canonical distinction.** This is canon as the target architecture and vocabulary. It is **not** a production claim until the falsifiers pass: `F-Sparse-Runtime-Split`, `F-KV-Direct-Gate`, `F-UAS-CopyCount`, `F-UAS-ACS-MmapResidency`, `F-ActiveAssembly-Minimal`, `F-ULP-Oracle`, `F-Agent-Local-Model-Runtime-Bridge`, and `F-70B-Local-Cocktail`. Current nuance: `F-UAS-ACS-MmapResidency` is a legacy-named witness that proves file-backed UAS plus AcsAnchor/ColdStore-style residency for one deterministic mmap slice; it does not prove live MLX generation or 70B local inference.
 
 **Agent rule.** Any Phase 2+ PR touching local inference, model routing, ActiveAssembly, KV/cache residency, adapters, EML kernels, or "large local model" claims must cite this source and include a Neural Substrate check: addressed unit, UAS address, plane, residency, router, dense/reference verifier, falsifier, and rollback.
 
@@ -77,7 +77,7 @@ These are findings the deep-scan surfaced that **contradict or sharpen** earlier
 **Why it exists.** The AetherLink kit sharpens the existing doctrine into a
 proof-carrying coordinate-state runtime: models propose, the runtime verifies,
 and the ledger remembers. This is canon-aligned with Helios / SCOPE-Rex /
-System G / ACS / UAS, but it is an intake addendum, not a new product route.
+System G / AcsAnchor / UAS, but it is an intake addendum, not a new product route.
 
 **Large-model impact.** AetherLink's Ontological Address Space language adds
 the missing large-model bridge artifact: a `WeightBlockManifest` /
@@ -111,7 +111,7 @@ Golf for the reproducible compression/search discipline.
 **Canonical build implication.** Do not launch more heavy 128K/70B probes until
 the non-executing planner layer exists: bounded `WeightBlockManifest` range
 hash -> `ResidencyPlan` -> `LargeModelConstructionCard` -> local
-budget/falsifier gate. This keeps the no-compromise 70B/UAS/ACS ambition alive
+budget/falsifier gate. This keeps the no-compromise 70B/UAS/ColdStore ambition alive
 without crashing the laptop.
 
 **First planner witness.** `F-ResidencyPlan-DryRun` now emits
@@ -143,9 +143,10 @@ The 70B preflight consumes the range-hash artifact as
 exists.
 
 **Agent rule.** Any Phase 2+ PR or terminal invoking Erdos, Parameter Golf,
-Research Construction Engine, ShadowProjection, OAS, ACS, or the 70B local
+Research Construction Engine, ShadowProjection, OAS, ColdStore, AcsAnchor, or the 70B local
 cocktail must include a Construction check: ProblemCard, LiftChart,
-ProjectionPacket, Witness, Budget, Falsifier, Rollback, and Tier.
+ProjectionPacket, Witness, Budget, Falsifier, Rollback, ProductBuild, and
+ProStatus/ResidencyStatus.
 
 ---
 
@@ -228,6 +229,59 @@ the actual organ names.
 
 ---
 
+## 0G. 2026-05-31 Build/Tier Supersession — MAS + Pro With Internal Pro Bands
+
+**Builder-facing source:** `docs/audits/AGENT_MANAGEABLE_ARCHITECTURE_CANON_2026_05_30.md`.
+
+**Correction.** Epistemos has exactly two distributable builds:
+
+1. **MAS Build** - App Store-safe public floor.
+2. **Pro Build** - direct-distribution power build.
+
+There is no separate Research build and no separate Vault build. Research,
+Vault, Omega, heavy runtime, future substrate work, old ambitious mechanisms,
+and speculative theorems are internal Pro statuses, not app builds.
+
+**Pro internal status bands.**
+
+| Pro status | Meaning |
+|---|---|
+| Pro Live | Advanced feature is implemented, visible, tested, and safe for Pro users. |
+| Pro Gated | Implemented or partial, behind explicit opt-in, rollback, warning, or policy. |
+| Pro Research | Promising/runnable/document-backed; requires falsifier evidence before promotion. |
+| Pro Vault-Preserved | Preserved ambition, branch, theorem, or mechanism with no runtime authority. |
+| Pro Omega | Deepest private experimental substrate work; never silently enabled, never MAS-bound, always witnessed and reversible. |
+
+**Supersession rule.** New docs should not describe "five lanes, three tiers"
+as the distributable architecture. Use "two builds plus Pro internal tier
+ladder." Historical branch text can keep older names when describing what the
+branch was called at the time, but active planning must declare ProductBuild
+and ProStatus/ResidencyStatus.
+
+**Nested map.**
+
+```text
+Epistemos
+  -> MAS Build: public safe floor
+  -> Pro Build
+     -> Pro Live
+     -> Pro Gated
+     -> Pro Research
+     -> Pro Vault-Preserved
+     -> Pro Omega
+  -> substrate organs
+     -> UAS/OAS/AcsAnchor
+     -> ColdStore/ResidencyGovernor
+     -> ActiveAssembly
+     -> Eidos/VaultRecall/Halo/Shadow
+     -> SCOPE-Rex/SovereignGate
+     -> RuntimeRouter/System G
+     -> WBO/LatticeBudget/Primitive IR
+     -> RunEventLog/MutationEnvelope/AnswerPacket
+```
+
+---
+
 ## 1. Truth-Router and Authority Order
 
 **Authority hierarchy (when sources disagree):**
@@ -274,8 +328,14 @@ TypedArtifact → MutationEnvelope → RunEventLog / AgentEvent / GraphEvent →
 - `worktree:agent-a0550f9c/epistemos-shadow/src/honest_handle.rs` lines 73-100 — `Arc::into_raw` discipline + `panic::catch_unwind(AssertUnwindSafe(...))` panic safety
 - `worktree:agent-a0550f9c/Epistemos/Engine/RustShadowFFIClient.swift` (clean 321-line consumer; but legacy line 39 still bound — see H7)
 
-### Three-tier ship model
-**Canonical:** doctrine §3 + §5. `Core` (App Store) + `Pro` (Developer ID + Notarization) + `Research` (Developer ID + private framework loading). Confirmed locked by user 2026-05-02.
+### Two-build ship model
+**Supersedes older three-tier wording.** Active planning uses exactly two
+distributable builds: `MAS` (App Store-safe public floor) and `Pro`
+(Developer ID / direct distribution). Research, Vault, Omega, heavy runtime,
+and private framework loading are internal Pro statuses or gates, not separate
+app builds. Older branch/docs may still say `Core`/`Pro`/`Research` when they
+describe the state of that historical branch; new work must declare
+ProductBuild plus ProStatus/ResidencyStatus.
 
 ### WRV doctrine (Wired + Reachable + Visible + Verified)
 **Status:** staged in `docs/fusion/CANON_GAPS_AND_ADDENDA_2026_05_02.md` C1. Not yet in doctrine. Mentioned across `docs/audits/MASTER_HARDENING_WIRING_AUDIT.md` ("init-time gate GREEN; 4k-line runtime fluidity unproven") and `docs/fusion/KIMI_FUSION_REVIEW_2026_04_30.md` ("recommended first three slices").

@@ -405,14 +405,14 @@
 <!-- ============ STAMP ============ -->
 <div class="stamp">
   <span>Epistemos · Architecture Synthesis</span>
-  <span>v2026.05.26 · Post-Wave-2 Living Index Mirror</span>
+  <span>v2026.05.30 · Clean Nested Architecture Map</span>
 </div>
 
 <!-- ============ TITLE ============ -->
 <h1>Epistemos: A Typed Coordinate Substrate for Local Cognition</h1>
 
 <p class="lede">
-A unified address space, a five-plane formalism, a closed-citation retrieval contract, a verdict-bearing admission gate, and a witness-replayable runtime — running locally on M2-class Apple Silicon. This document is the paper-style synthesis of the architecture. The operational source of truth is <code>docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md</code>; this HTML mirrors it, expands the diagrams, and preserves the deeper research nuance.
+A unified address space, a semantic object layer, cold residency, active support selection, closed-citation retrieval, continuous governance, routed execution, and witness-replayable output — running locally first on M2-class Apple Silicon. This document is the paper-style synthesis of the architecture. The operational source of truth is <code>docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md</code> plus the 2026-05-30 namespace patch; this HTML mirrors them, expands the diagrams, and preserves the deeper research nuance.
 </p>
 
 <div class="meta-row">
@@ -424,14 +424,15 @@ A unified address space, a five-plane formalism, a closed-citation retrieval con
 
 <!-- ============ INDEX ============ -->
 <nav class="toc">
-  <div class="toc-head">Index <span class="updated">Checkpointed 2026-05-26</span></div>
+  <div class="toc-head">Index <span class="updated">Checkpointed 2026-05-30</span></div>
   <div class="toc-meta">
-    Mirrors <code style="font-family:var(--mono); font-size:10px; padding:1px 4px;">docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md</code> · 34 core theorems + 2 candidates · 53 W-rows · T0–T27 · 17 falsifiers + 1 candidate · 26 deferred items · 13 terminals
+    Mirrors <code style="font-family:var(--mono); font-size:10px; padding:1px 4px;">docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md</code> and the namespace/build cleanup · one substrate · two builds · three motions · five planes · visible proof
   </div>
   <ul class="toc-grid">
     <li><a href="#living-index"><span class="num">00</span>Living Index handoff</a></li>
     <li><a href="#thesis"><span class="num">01</span>The thesis</a></li>
     <li><a href="#brain-frame"><span class="num">01A</span>Lattice brain</a></li>
+    <li><a href="#clean-map"><span class="num">01B</span>Clean nested map</a></li>
     <li><a href="#layman"><span class="num">02</span>Layman explanation</a></li>
     <li><a href="#spine"><span class="num">03</span>Nine-layer spine</a></li>
     <li><a href="#active-assembly"><span class="num">03A</span>Active Assembly</a></li>
@@ -449,7 +450,7 @@ A unified address space, a five-plane formalism, a closed-citation retrieval con
     <li><a href="#laws"><span class="num">04</span>Seven laws + candidate L8</a></li>
     <li><a href="#invariant"><span class="num">05</span>No-orphan invariant</a></li>
     <li><a href="#planes"><span class="num">06</span>Five planes</a></li>
-    <li><a href="#lanes"><span class="num">07</span>Five lanes, three tiers</a></li>
+    <li><a href="#lanes"><span class="num">07</span>Two builds + Pro tier ladder</a></li>
     <li><a href="#filetree"><span class="num">08</span>Typed file structure</a></li>
     <li><a href="#theorems-e"><span class="num">09</span>Foundational Seven (E1–E7)</a></li>
     <li><a href="#theorems-h"><span class="num">10</span>Helios Operational (H1–H17)</a></li>
@@ -523,7 +524,7 @@ The unifying primitive is the substrate address, not the model and not a single 
     <tr><td>Minimal active compute</td><td>Active Assembly wakes the smallest sufficient lattice slice: note atoms, graph islands, vector/KV pages, tool state, adapters, kernels.</td><td>Storage and compute collapse toward compressed active subsets instead of whole-vault scans or giant prompt stuffing.</td></tr>
     <tr><td>Model-brain addressing</td><td>Whole model → output schema → KV page → weight layout → adapter delta → MoE expert → active assembly → SSM/head state → parameter anchor → circuit.</td><td>The app stops merely calling a model and starts routing into typed cognitive components with explicit measurement boundaries.</td></tr>
     <tr><td>Primitive geometry</td><td>EML / Geometry / Info / Scan / Operator / Tropical IR provide lawful transforms between points.</td><td>"Understanding" becomes lower projection loss, better coordinates, and verified transforms, not just fluent text.</td></tr>
-    <tr><td>Self-improving substrate</td><td>Run traces become supervised, preference, adapter-routing, and fast-memory deltas only after ACS/WBO/rollback gates.</td><td>The system learns from use while preserving a stable base model and visible demotion path.</td></tr>
+    <tr><td>Self-improving substrate</td><td>Run traces become supervised, preference, adapter-routing, and fast-memory deltas only after SCOPE-Rex/WBO/rollback gates.</td><td>The system learns from use while preserving a stable base model and visible demotion path.</td></tr>
   </tbody>
 </table>
 
@@ -532,7 +533,8 @@ The unifying primitive is the substrate address, not the model and not a single 
   <tbody>
     <tr><td><code>UasAddress</code></td><td><code>{ kind, payload_id, version, parent? }</code></td><td>Stable identity across notes, graph nodes, KV pages, adapter deltas, tool outputs, proofs, and model-state handles.</td></tr>
     <tr><td><code>RuntimePlane</code></td><td>State · Episodic · Assembly · Controller · Verification</td><td>Prevents UI, retrieval, action, and proof artifacts from pretending to be the same kind of authority.</td></tr>
-    <tr><td><code>ResidencyTier</code></td><td>CurrentApp · VerifiedFloor · CapabilityCeiling</td><td>Lets the same coordinate move between RAM, disk, model cache, research harness, or verified floor without changing identity.</td></tr>
+    <tr><td><code>ProductBuild</code></td><td>MAS · Pro</td><td>Names which distributable build may expose the feature. Research and Vault are not builds.</td></tr>
+    <tr><td><code>ProStatus / ResidencyStatus</code></td><td>Live · Gated · ResearchCandidate · VaultPreserved · Omega · CurrentApp · VerifiedFloor · CapabilityCeiling</td><td>Separates product availability, proof maturity, and runtime residency without changing identity.</td></tr>
     <tr><td><code>PrimitiveKind</code></td><td>Raw · Vector · EML · Geometry · Info · Scan · Operator · Tropical · Proof</td><td>Names which geometry is allowed to transform the point.</td></tr>
     <tr><td><code>ProjectionMap</code></td><td>Lift / Ingest · Project / Compress / Recall · Mutate / Promote</td><td>There are only three legal motions; every route must declare which one it is performing.</td></tr>
     <tr><td><code>LatticeBudget</code></td><td>WBO residual, compression loss, approximation class, drift delta</td><td>Approximation is not hidden. Compression, sketching, adapter promotion, and projection all pay an error account.</td></tr>
@@ -673,6 +675,118 @@ The unifying primitive is the substrate address, not the model and not a single 
   <strong>Design rule.</strong> Do not say "the LLM remembers." The substrate remembers. Do not say "the LLM understands geometry." The primitive lattice owns geometry. A good run improves coordinates, reduces projection loss, pays WBO honestly, and leaves a witness.
 </div>
 
+<!-- ============ §1B Clean Nested Map ============ -->
+<h2 id="clean-map">01B · Clean nested architecture map — spine, organs, mechanisms, candidates</h2>
+<p class="lede">
+The architecture stops feeling chaotic when the names are kept at four levels. The <strong>spine</strong> is what happens in order. The <strong>organs</strong> own durable responsibilities. The <strong>mechanisms</strong> are implementation choices inside an organ. The <strong>candidates</strong> are preserved research ideas that cannot become product behavior until falsifiers and visible wiring prove them.
+</p>
+
+<div class="note">
+  <strong>Namespace lock.</strong> Do not abbreviate Active Cold Storage as ACS. Use <code>ColdStore</code> or <code>Cold Residency Layer</code>. Keep <code>AcsAnchor</code> for the existing anchored coordinate/provenance object. Rename legacy ACS/Kuramoto language forward to <code>KuramotoSync</code> or <code>ResonanceSync</code>. Use <code>SCOPE-Rex Admission</code>, <code>SovereignGate</code>, or <code>AdmissionGate</code> for allow/warn/defer/quarantine/reject behavior.
+</div>
+
+<div class="note">
+  <strong>Build lock.</strong> Epistemos has two distributable builds: MAS and Pro. MAS is the App Store-safe public floor. Pro is the direct-distribution power build. Research, Vault, Omega, heavy runtime, future substrate work, and speculative theorems are internal Pro status bands, not separate app builds.
+</div>
+
+<h3>Nested tree view</h3>
+<div class="file">Epistemos
+├─ Builds
+│  ├─ MAS Build
+│  │  └─ public safe floor · local-first · witnessed · App Store-safe
+│  └─ Pro Build
+│     ├─ Pro Live
+│     ├─ Pro Gated
+│     ├─ Pro Research
+│     ├─ Pro Vault-Preserved
+│     └─ Pro Omega
+├─ Motions
+│  ├─ Lift / Ingest
+│  ├─ Project / Compress / Recall
+│  └─ Mutate / Promote
+├─ Runtime planes
+│  ├─ State
+│  ├─ Episodic
+│  ├─ Assembly
+│  ├─ Controller
+│  └─ Verification
+├─ Identity and meaning
+│  ├─ UAS: address / identity fabric
+│  ├─ OAS: semantic state over addresses
+│  └─ AcsAnchor: anchored coordinate / provenance object
+├─ Residency and awakening
+│  ├─ ColdStore: dormant notes, vectors, KV pages, weights, adapters, graph islands
+│  ├─ ResidencyGovernor: leases, copy-count, mmap safety, eviction, quarantine
+│  └─ ActiveAssembly: minimal waking support set
+├─ Evidence and truth
+│  ├─ VaultRecall / Halo / Shadow candidates
+│  ├─ Eidos pre-validation and closed citation universe
+│  ├─ Eidos post-validation against output and tool claims
+│  ├─ ClaimGraph / ClaimKind / VRM labels
+│  └─ SCOPE-Rex validity checks
+├─ Governance and execution
+│  ├─ SovereignGate permissions
+│  ├─ RuntimeRouter / RouteProfile
+│  ├─ System G / AgentRuntime
+│  └─ Executors: local model, MLX, Apple Intelligence, tool, kernel, explicit provider
+├─ Accounting and projection
+│  ├─ WBO / LatticeBudget
+│  ├─ ShadowProjection
+│  ├─ Primitive IR stack: EML, Geometry, Info, Scan, Operator, Tropical
+│  └─ Falsifier / Lean / benchmark witnesses
+└─ Visible proof
+   ├─ RunEventLog
+   ├─ MutationEnvelope
+   ├─ AnswerPacket
+   ├─ Provenance Console / Substrate Health
+   └─ rollback / replay handle</div>
+
+<h3>The mission spine</h3>
+<table>
+  <thead><tr><th>Pass</th><th>Clean verb</th><th>Organ</th><th>What it owns</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Intent</td><td>CognitivePacket / MissionPacket</td><td>Task class, allowed claim kinds, privacy, budget, deadline, output schema, and tool scope.</td></tr>
+    <tr><td>2</td><td>Address</td><td>OAS / UAS</td><td>What exists, what it means, where it lives, and which stable address names it.</td></tr>
+    <tr><td>3</td><td>Awaken</td><td>ColdStore / ResidencyGovernor</td><td>Dormant notes, vector pages, KV pages, adapters, model byte ranges, and graph islands surface as candidates without waking everything.</td></tr>
+    <tr><td>4</td><td>Assemble</td><td>ActiveAssembly</td><td>The minimal waking set: evidence, graph neighborhood, tools, model state, kernels, adapters, and runtime support.</td></tr>
+    <tr><td>5</td><td>Verify</td><td>Eidos pre-validation</td><td>Evidence relevance, closed citations, missing context, contradiction hints, and retrieval trace quality before execution.</td></tr>
+    <tr><td>6</td><td>Govern</td><td>SCOPE-Rex / SovereignGate</td><td>Mission, route, provider, cloud, file, shell, tool, memory, and mutation policy. This wraps the whole run, not only the end.</td></tr>
+    <tr><td>7</td><td>Execute</td><td>RuntimeRouter / Executor / System G</td><td>Local MLX, Apple Intelligence, Rust tool, Metal kernel, deterministic rule, or explicit gated provider route.</td></tr>
+    <tr><td>8</td><td>Verify</td><td>Eidos post-validation + SCOPE-Rex</td><td>Did the output cite real evidence? Did the tool result support the claim? Is any mutation still admitted?</td></tr>
+    <tr><td>9</td><td>Witness</td><td>RunEventLog / AnswerPacket</td><td>Visible answer, route, evidence, uncertainty, provider, denied actions, accepted writes, rollback, and replay handle.</td></tr>
+  </tbody>
+</table>
+
+<h3>Organ registry</h3>
+<table>
+  <thead><tr><th>Organ</th><th>Nested mechanisms</th><th>Research/candidate edge</th></tr></thead>
+  <tbody>
+    <tr><td>UAS / OAS</td><td>UasAddress, UasKind, floor state, source hash, byte range, lineage, AcsAnchor coordinate/provenance.</td><td>AletheiaFS / sidecar cognitive filesystem.</td></tr>
+    <tr><td>ColdStore</td><td>ResidencyPlan, WeightBlockManifest, mmap range hashes, hot/warm/cold residency, leases, copy-count budget.</td><td>70B local cocktail, KV-Direct, L3 SSD Oracle, Sherry/Leech VQ, ternary/NF4 route.</td></tr>
+    <tr><td>ActiveAssembly</td><td>Gate3, PacketRouter1bit, InterruptScore, PageGather, active support set, tool/kernel/model support.</td><td>KuramotoSync / ResonanceSync, Parameter Connectome, rank-one component routing.</td></tr>
+    <tr><td>Eidos / Recall</td><td>VaultRecall, hybrid lexical/path/title/paragraph search, RRF, closed citation ids, why_matched trace.</td><td>ShadowBackedSemanticIndex, HNSW/usearch, structural analogy search, F-Erdos-Lift-Optimality.</td></tr>
+    <tr><td>Lattice / WBO</td><td>LatticeBudget, WBO residuals, projection loss, numeric drift, semantic drift, rollback account.</td><td>ShadowProjection&lt;H,L&gt;, Parameter Golf-style local tournaments, IR fusion.</td></tr>
+    <tr><td>SCOPE-Rex / SovereignGate</td><td>ClaimKind, ClaimLedger, admission verdict, capability proof, destructive-action gate, mutation policy.</td><td>Lean schema authority, proof-carrying execution, continuous mission governance.</td></tr>
+    <tr><td>RuntimeRouter / System G</td><td>RouteProfile, ExecutorEvent, cancellation, Tokio task graph, local model route, Apple route, tool route, kernel route.</td><td>ExecutorTrait, local/cloud/provider comparison, Research Construction Engine executor lane.</td></tr>
+    <tr><td>Witness surface</td><td>RunEventLog, MutationEnvelope, AnswerPacket, Provenance Console, WRV status, replay and rollback.</td><td>Proof-sized outputs, ConstructionGraph, negative evidence reuse.</td></tr>
+  </tbody>
+</table>
+
+<h3>Where Helios lands</h3>
+<p>
+Helios is not a tenth spine step. It is the substrate-runtime research lineage underneath the organs: memory hierarchy, WBO/lattice doctrine, kernels, SCOPE-Rex lineage, model tracks, and scanner language. Product docs should translate "Helios" into the concrete organ being used: ColdStore for residency, WBO for error accounting, SCOPE-Rex for verification, RuntimeRouter for execution, Eidos for evidence, or Metal kernels for measured compute.
+</p>
+
+<table>
+  <thead><tr><th>If a doc says...</th><th>Translate to...</th><th>Product rule</th></tr></thead>
+  <tbody>
+    <tr><td>Helios memory hierarchy</td><td>ColdStore / ResidencyGovernor / WBO</td><td>Only claim live behavior after dry-run and crash-safe falsifiers pass.</td></tr>
+    <tr><td>Helios kernels</td><td>RuntimeRouter / Metal / primitive IR kernels</td><td>Target-only until CPU reference, Metal witness, and product caller chain exist.</td></tr>
+    <tr><td>Helios theorem or WBO result</td><td>LatticeBudget / ClaimLedger / falsifier artifact</td><td>Keep theorem state visible: proven, empirical, engineering bet, candidate, or blocked.</td></tr>
+    <tr><td>Helios model brain</td><td>Addressable neural substrate / Parameter Connectome / ActiveAssembly</td><td>Do not claim arbitrary neuron control; claim addressed components only when implemented.</td></tr>
+  </tbody>
+</table>
+
 <!-- ============ §2 Layman ============ -->
 <h2 id="layman">02 · Layman explanation</h2>
 <div class="split">
@@ -709,21 +823,21 @@ The unifying primitive is the substrate address, not the model and not a single 
     <g transform="translate(180,20)">
       <g><rect class="layer-rect" width="600" height="42" rx="6"/><text class="layer-num" x="14" y="17">L9</text><text class="layer-name" x="48" y="17">User Surface</text><text class="layer-desc" x="48" y="32">Chat · Settings chip-strips · Provenance Console · Halo</text></g>
       <line class="arrow" x1="300" y1="42" x2="300" y2="54"/>
-      <g transform="translate(0,54)"><rect class="layer-rect" width="600" height="42" rx="6"/><text class="layer-num" x="14" y="17">L8</text><text class="layer-name" x="48" y="17">Witness</text><text class="layer-desc" x="48" y="32">EML-IR · F-ULP oracle · Lattice/WBO ledger · falsifier register</text></g>
+      <g transform="translate(0,54)"><rect class="layer-rect" width="600" height="42" rx="6"/><text class="layer-num" x="14" y="17">L8</text><text class="layer-name" x="48" y="17">Witness</text><text class="layer-desc" x="48" y="32">RunEventLog · AnswerPacket · Provenance Console · rollback</text></g>
       <line class="arrow" x1="300" y1="96" x2="300" y2="108"/>
-      <g transform="translate(0,108)"><rect class="layer-rect" width="600" height="42" rx="6"/><text class="layer-num" x="14" y="17">L7</text><text class="layer-name" x="48" y="17">Retrieval</text><text class="layer-desc" x="48" y="32">Eidos closed-citation · VaultRecall · AnswerPacket</text></g>
+      <g transform="translate(0,108)"><rect class="layer-rect" width="600" height="42" rx="6"/><text class="layer-num" x="14" y="17">L7</text><text class="layer-name" x="48" y="17">Evidence</text><text class="layer-desc" x="48" y="32">Eidos pre/post validation · VaultRecall · closed citations</text></g>
       <line class="arrow" x1="300" y1="150" x2="300" y2="162"/>
-      <g transform="translate(0,162)"><rect class="layer-rect" width="600" height="42" rx="6"/><text class="layer-num" x="14" y="17">L6</text><text class="layer-name" x="48" y="17">Governed Dispatch (System G)</text><text class="layer-desc" x="48" y="32">MissionPacket → AgentEvent → RunEventLog → AnswerPacket</text></g>
+      <g transform="translate(0,162)"><rect class="layer-rect" width="600" height="42" rx="6"/><text class="layer-num" x="14" y="17">L6</text><text class="layer-name" x="48" y="17">Governed Dispatch (System G)</text><text class="layer-desc" x="48" y="32">MissionPacket → ExecutorEvent → AgentEvent → RunEventLog</text></g>
       <line class="arrow" x1="300" y1="204" x2="300" y2="216"/>
-      <g transform="translate(0,216)"><rect class="layer-rect" width="600" height="42" rx="6"/><text class="layer-num" x="14" y="17">L5</text><text class="layer-name" x="48" y="17">ACS Admission</text><text class="layer-desc" x="48" y="32">allow · warn · defer · quarantine · reject + signed proof</text></g>
+      <g transform="translate(0,216)"><rect class="layer-rect" width="600" height="42" rx="6"/><text class="layer-num" x="14" y="17">L5</text><text class="layer-name" x="48" y="17">SCOPE-Rex / SovereignGate</text><text class="layer-desc" x="48" y="32">continuous mission, route, tool, cloud, file, and mutation governance</text></g>
       <line class="arrow" x1="300" y1="258" x2="300" y2="270"/>
-      <g transform="translate(0,270)"><rect class="layer-rect" width="600" height="42" rx="6"/><text class="layer-num" x="14" y="17">L4</text><text class="layer-name" x="48" y="17">Runtime Router</text><text class="layer-desc" x="48" y="32">MLX · llama · cloud · variant ladder (escalation logged)</text></g>
+      <g transform="translate(0,270)"><rect class="layer-rect" width="600" height="42" rx="6"/><text class="layer-num" x="14" y="17">L4</text><text class="layer-name" x="48" y="17">RuntimeRouter / Executor</text><text class="layer-desc" x="48" y="32">local MLX · Apple Intelligence · Rust tool · Metal kernel · explicit provider</text></g>
       <line class="arrow" x1="300" y1="312" x2="300" y2="324"/>
-      <g transform="translate(0,324)"><rect class="layer-rect" width="600" height="42" rx="6"/><text class="layer-num" x="14" y="17">L3</text><text class="layer-name" x="48" y="17">Active Assembly</text><text class="layer-desc" x="48" y="32">Selector pulls only relevant packets — Active-Support in code</text></g>
+      <g transform="translate(0,324)"><rect class="layer-rect" width="600" height="42" rx="6"/><text class="layer-num" x="14" y="17">L3</text><text class="layer-name" x="48" y="17">ActiveAssembly</text><text class="layer-desc" x="48" y="32">Selector wakes the minimal support set from evidence, memory, tools, model state</text></g>
       <line class="arrow" x1="300" y1="366" x2="300" y2="378"/>
-      <g transform="translate(0,378)"><rect class="layer-rect" width="600" height="42" rx="6"/><text class="layer-num" x="14" y="17">L2</text><text class="layer-name" x="48" y="17">Lattice / WBO</text><text class="layer-desc" x="48" y="32">Every compression pays into a Wyner-Ziv error ledger</text></g>
+      <g transform="translate(0,378)"><rect class="layer-rect" width="600" height="42" rx="6"/><text class="layer-num" x="14" y="17">L2</text><text class="layer-name" x="48" y="17">ColdStore / Lattice / WBO</text><text class="layer-desc" x="48" y="32">Dormant residency plus error budget for compression and projection</text></g>
       <line class="arrow" x1="300" y1="420" x2="300" y2="432"/>
-      <g transform="translate(0,432)"><rect class="layer-rect" width="600" height="42" rx="6"/><text class="layer-num" x="14" y="17">L1</text><text class="layer-name" x="48" y="17">UAS — Unified Address Space</text><text class="layer-desc" x="48" y="32">Every object has a stable address regardless of residency</text></g>
+      <g transform="translate(0,432)"><rect class="layer-rect" width="600" height="42" rx="6"/><text class="layer-num" x="14" y="17">L1</text><text class="layer-name" x="48" y="17">OAS / UAS / AcsAnchor</text><text class="layer-desc" x="48" y="32">Semantic object state, stable identity, and coordinate/provenance anchors</text></g>
     </g>
 
     <g transform="translate(20,20)">
@@ -752,7 +866,7 @@ The unifying primitive is the substrate address, not the model and not a single 
       <text class="side" x="0" y="466">1</text>
     </g>
   </svg>
-  <figcaption>FIG 01 — Nine layers, coordinates flow upward. L9 can only be honest if L1–L8 honor the no-orphan invariant.</figcaption>
+  <figcaption>FIG 01 — Nine layers, coordinates flow upward. The page names organs, not slogans: UAS/OAS identifies, ColdStore keeps dormant state cold, Eidos verifies evidence, SCOPE-Rex/SovereignGate governs, and AnswerPacket witnesses.</figcaption>
 </figure>
 
 <!-- ============ §3A Active Assembly ============ -->
@@ -909,7 +1023,7 @@ This is where the "auto-routing neuron" idea lands in rigorous terms. A future P
 
 <div class="split">
   <div class="split-tag tech">CURRENT</div>
-  <div class="split-body">Model routing exists, but several RouteProfile tables are still placeholder or partial. Local MLX can run, but the full Active Assembly → ACS → AnswerPacket route is not yet the default live path.</div>
+  <div class="split-body">Model routing exists, but several RouteProfile tables are still placeholder or partial. Local MLX can run, but the full ActiveAssembly → ColdStore/ResidencyGovernor → SCOPE-Rex/SovereignGate → AnswerPacket route is not yet the default live path.</div>
 </div>
 <div class="split">
   <div class="split-tag tech">FUTURE</div>
@@ -919,7 +1033,7 @@ This is where the "auto-routing neuron" idea lands in rigorous terms. A future P
 <!-- ============ §3C Evolving Kernel ============ -->
 <h2 id="evolving-kernel">03C · Evolving kernel — L_SE without destabilizing the base</h2>
 <p class="lede">
-The self-evolving kernel is not "the app rewrites itself whenever it feels like it." It is a quarantined adaptation lane. Surprise, drift, or repeated failure can propose a small adapter delta, but ACS must admit it, WBO must budget it, and the witness layer must be able to replay or roll it back.
+The self-evolving kernel is not "the app rewrites itself whenever it feels like it." It is a quarantined adaptation lane. Surprise, drift, or repeated failure can propose a small adapter delta, but SCOPE-Rex/SovereignGate must admit it, WBO must budget it, and the witness layer must be able to replay or roll it back.
 </p>
 
 <figure>
@@ -953,7 +1067,7 @@ The self-evolving kernel is not "the app rewrites itself whenever it feels like 
     </g>
     <g transform="translate(408,82)">
       <rect class="se-hot" x="0" y="0" width="150" height="64"/>
-      <text class="se-label" x="18" y="26">ACS gate</text>
+      <text class="se-label" x="18" y="26">SCOPE gate</text>
       <text class="se-small" x="18" y="46">admit / reject</text>
     </g>
     <g transform="translate(598,82)">
@@ -1005,12 +1119,12 @@ The future-tier work is not a junk drawer. It is the ceiling ladder: kernels and
     <tr><td>PacketRouter1bit</td><td>Extremely cheap packet dispatch / route test for substrate events.</td><td><span class="tag tier3">Research</span></td><td><span class="tag todo">dispatch proof pending</span></td></tr>
     <tr><td>KV-Direct Gate</td><td>Residual-first KV reconstruction so SSD/RAM behave like one memory fabric.</td><td><span class="tag tier3">Research</span></td><td><span class="tag gated">Qwen3-8B @ 128k harness pending</span></td></tr>
     <tr><td>F-UAS-CopyCount</td><td>Proves the hot path is truly zero-copy across Swift/Rust/Metal/MLX/KV/HNSW.</td><td><span class="tag tier1">MAS floor</span></td><td><span class="tag todo">new Terminal G falsifier</span></td></tr>
-    <tr><td>F-ACS-AnchorLookup</td><td>Proves every claim resolves to an ACS anchor fast enough for live UI/runtime use.</td><td><span class="tag tier1">MAS floor</span></td><td><span class="tag todo">new Terminal G falsifier</span></td></tr>
+    <tr><td>F-ACS-AnchorLookup</td><td>Proves every claim resolves to an AcsAnchor fast enough for live UI/runtime use.</td><td><span class="tag tier1">MAS floor</span></td><td><span class="tag todo">new Terminal G falsifier</span></td></tr>
   </tbody>
 </table>
 
 <div class="note">
-  <strong>No-compromise inclusion rule.</strong> MAS work builds the honest floor; Pro work preserves high-power tools and direct-distribution capability; Research work preserves HELIOS V6.2, 70B cocktail, L_SE, per-IR Lean proofs, and circuit/parameter-connectome claims. Nothing is deleted because it is not shippable today. It is either live, gated, target-only, or Vault-preserved with an explicit re-promotion codeword.
+  <strong>No-compromise inclusion rule.</strong> MAS work builds the honest floor. Pro preserves high-power tools, direct-distribution capability, research candidates, vault-preserved ambition, and omega substrate work. Nothing is deleted because it is not shippable today. It is classified as MAS, Pro Live, Pro Gated, Pro Research, Pro Vault-Preserved, or Pro Omega with a witness and promotion gate.
 </div>
 
 <!-- ============ §3E Continual Learning ============ -->
@@ -1019,7 +1133,7 @@ The future-tier work is not a junk drawer. It is the ceiling ladder: kernels and
 The self-learning path is a governed online-adaptation pipeline, not a magical "the model improves itself" claim. Epistemos records every interaction as typed supervision: prompt context, active lattice coordinates, retrieved evidence, tool calls, accepted edits, rejected edits, verifier failures, latency, WBO residuals, and final AnswerPacket status. Those traces can be distilled into SFT examples, preference pairs, KTO/DPO-style corrections, adapter-routing labels, and hard negative retrieval examples.
 </p>
 <p>
-The base checkpoint remains immutable. Learning attaches versioned deltas: LoRA / QLoRA rank adapters, DoRA magnitude-direction adapters, KTO or DPO preference heads, MoLoRA / AdaFuse expert routes, retrieval re-rankers, and eventually L_SE or Titans-MAC fast-memory modules. Each delta is a substrate object with a UAS address, parent checkpoint hash, training-set hash, rank/quantization metadata, evaluation card, drift ledger entry, rollback pointer, and ACS admission verdict.
+The base checkpoint remains immutable. Learning attaches versioned deltas: LoRA / QLoRA rank adapters, DoRA magnitude-direction adapters, KTO or DPO preference heads, MoLoRA / AdaFuse expert routes, retrieval re-rankers, and eventually L_SE or Titans-MAC fast-memory modules. Each delta is a substrate object with a UAS address, parent checkpoint hash, training-set hash, rank/quantization metadata, evaluation card, drift ledger entry, rollback pointer, and SCOPE-Rex/SovereignGate admission verdict.
 </p>
 <p>
 In the target architecture, using the app becomes a local data engine. Good behavior creates positive examples; corrections create contrastive pairs; failed citations create retrieval negatives; tool failures create repair obligations; repeated domain work creates adapter specialization. Promotion is never silent. A candidate adapter must beat the frozen baseline on local evals, preserve canary behavior, stay within WBO drift limits, and remain demotable by versioned registry rollback.
@@ -1082,7 +1196,7 @@ In the target architecture, using the app becomes a local data engine. Good beha
     </g>
     <g transform="translate(530,220)">
       <rect class="cl-soft" width="150" height="62"/>
-      <text class="cl-label" x="16" y="25">ACS + WBO</text>
+      <text class="cl-label" x="16" y="25">Gate + WBO</text>
       <text class="cl-small" x="16" y="45">admit / rollback</text>
     </g>
     <g transform="translate(730,220)">
@@ -1114,7 +1228,7 @@ In the target architecture, using the app becomes a local data engine. Good beha
     <tr><td>Preference alignment</td><td>KTO / DPO-style objective over corrections, accepted edits, ratings, failed citations, and tool repair outcomes.</td><td>The model shifts toward the user's accepted behavior without mutating the base checkpoint.</td><td><span class="tag gated">Pro/direct only until sandbox-safe trainer exists</span></td></tr>
     <tr><td>Adapter routing</td><td>MoLoRA / AdaFuse / AdapterRouter chooses deltas by task, domain, active lattice region, and token-level route score.</td><td>Multiple small experts compose instead of one bloated global persona adapter.</td><td><span class="tag partial">scaffold preserved · Python subprocess gated in MAS</span></td></tr>
     <tr><td>Fast memory</td><td>Titans-MAC / SEAL / L_SE candidate lane with bounded write policy and demotion rules.</td><td>Research-tier fast-weight or memory module for repeated local domains.</td><td><span class="tag research">must pass rollback + drift gates</span></td></tr>
-    <tr><td>Promotion gate</td><td>ACS verdict, WBO drift budget, canary suite, eval card, BLAKE3 artifact hash, adapter-registry rollback pointer.</td><td>Only measured deltas become selectable in live inference.</td><td><span class="tag todo">falsifier and UI witness pending</span></td></tr>
+    <tr><td>Promotion gate</td><td>SCOPE-Rex/SovereignGate verdict, WBO drift budget, canary suite, eval card, BLAKE3 artifact hash, adapter-registry rollback pointer.</td><td>Only measured deltas become selectable in live inference.</td><td><span class="tag todo">falsifier and UI witness pending</span></td></tr>
   </tbody>
 </table>
 
@@ -1180,7 +1294,7 @@ Community terms for this layer are verifier-guided decoding, self-refinement, co
   <thead><tr><th>Repair domain</th><th>Verifier floor</th><th>Visible output</th><th>Status</th></tr></thead>
   <tbody>
     <tr><td>Closed-citation answers</td><td>Eidos / VaultRecall trace must cite real vault evidence.</td><td>AnswerPacket citation badges in chat.</td><td><span class="tag todo">Phase 2 W-46.1 / W-21.1</span></td></tr>
-    <tr><td>Agent actions</td><td>ACS admission + capability + mutation envelope.</td><td>RunTimeline + replayable MutationEnvelope.</td><td><span class="tag partial">System G substrate · full path pending</span></td></tr>
+    <tr><td>Agent actions</td><td>SCOPE-Rex/SovereignGate admission + capability + mutation envelope.</td><td>RunTimeline + replayable MutationEnvelope.</td><td><span class="tag partial">System G substrate · full path pending</span></td></tr>
     <tr><td>Math / numeric kernels</td><td>F-ULP + Lean obligation when formalizable.</td><td>Certificate / falsifier record / proof obligation.</td><td><span class="tag partial">T5 Lean green · vendor pending</span></td></tr>
     <tr><td>Training deltas</td><td>WBO drift + rollback + adapter version gate.</td><td>Adapter promotion/demotion ledger.</td><td><span class="tag research">T26 / Pro lane</span></td></tr>
   </tbody>
@@ -1249,13 +1363,13 @@ This table is the anti-loss ledger. A research family is not preserved by being 
 <table>
   <thead><tr><th>Feature family</th><th>Canonical doc family</th><th>User-visible feature</th><th>Substrate primitives</th><th>Status / lane</th></tr></thead>
   <tbody>
-    <tr><td>Unified coordinate substrate</td><td><code>UNIFIED_ACTIVE_SUBSTRATE_CANON</code> · <code>CANONICAL_CHRONICLE</code> · fusion index</td><td>Every object can be inspected as address, plane, residency, WBO, witness.</td><td>UAS · RuntimePlane · ResidencyTier · WRV · No-orphan lint</td><td><span class="tag partial">substrate partial · UI panel pending</span></td></tr>
+    <tr><td>Unified coordinate substrate</td><td><code>UNIFIED_ACTIVE_SUBSTRATE_CANON</code> · <code>CANONICAL_CHRONICLE</code> · fusion index</td><td>Every object can be inspected as address, plane, build/status, WBO, witness.</td><td>UAS · RuntimePlane · ProductBuild · ProStatus/ResidencyStatus · WRV · No-orphan lint</td><td><span class="tag partial">substrate partial · UI panel pending</span></td></tr>
     <tr><td>Pixels/numbers/vectors as coordinates</td><td>HELIOS V5/V6 · Primitive IR stack · lattice/WBO docs</td><td>Visual inspector that shows a note, image, vector, graph node, and proof as different projections of one artifact.</td><td>Geometry-IR · Info-IR · EML-IR · Scan-IR · UAS address</td><td><span class="tag todo">new product view</span></td></tr>
     <tr><td>AI research construction engine</td><td>OpenAI unit-distance milestone · <code>eml_universal_operator.md</code> · HELIOS theorem hunts</td><td>ProblemCard workspace that searches for constructions, counterexamples, proof sketches, kernels, and architecture simplifications.</td><td>ClaimGraph · ActiveAssembly · ConstructionGraph · Lean/Falsifier stack · AnswerPacket</td><td><span class="tag research">new no-compromise product lane</span></td></tr>
     <tr><td>Active Assembly / waking set</td><td>T3 salvage · May16 archeology · V6.2 intake</td><td>Before chat/agent runs, show the exact support set the system woke up.</td><td>ActiveAssemblyPacket · PageGather · WBO support budget</td><td><span class="tag todo">W-04 / W-05 Phase 2</span></td></tr>
-    <tr><td>Auto-routing / model brain support</td><td>PCF theorem canon · Goodfire/VPD/SPD research · routeProfiles backlog</td><td>RouteProfile panel: model, adapters, support set, memory tier, proof obligation.</td><td>Parameter Connectome · AdapterRouter · ACS · RouteProfile</td><td><span class="tag partial">routing scaffold · profiles pending</span></td></tr>
+    <tr><td>Auto-routing / model brain support</td><td>PCF theorem canon · Goodfire/VPD/SPD research · routeProfiles backlog</td><td>RouteProfile panel: model, adapters, support set, memory tier, proof obligation.</td><td>Parameter Connectome · AdapterRouter · ColdStore · RouteProfile</td><td><span class="tag partial">routing scaffold · profiles pending</span></td></tr>
     <tr><td>Continual learning from use</td><td><code>TRAINING_TRACKS</code> · <code>OMEGA_DEEP_RESEARCH_PROMPT</code> · <code>PROGRESS</code> · <code>PHASE_S_AUDIT</code></td><td>Nightly local learning report: what was learned, which adapter changed, how to rollback.</td><td>RunEventLog · ODIA · QLoRA/DoRA · KTO · MoLoRA · AdapterRegistry</td><td><span class="tag gated">Pro/direct first · MAS honest refusal</span></td></tr>
-    <tr><td>L_SE self-evolving kernel</td><td>HELIOS V6.1 §1.12–§1.13 · T26</td><td>Research panel for surprise updates, drift demotion, and adapter promotion gates.</td><td>Titans-MAC · SEAL-DoRA · WBO drift · ACS admission</td><td><span class="tag research">research-deferred</span></td></tr>
+    <tr><td>L_SE self-evolving kernel</td><td>HELIOS V6.1 §1.12–§1.13 · T26</td><td>Research panel for surprise updates, drift demotion, and adapter promotion gates.</td><td>Titans-MAC · SEAL-DoRA · WBO drift · SCOPE-Rex admission</td><td><span class="tag research">research-deferred</span></td></tr>
     <tr><td>Self-proving math</td><td>T5 blocker ledger · Primitive IR doctrine · HELIOS theorem hunts</td><td>Math lab with EML tree, Lean certificate, ULP falsifier, or open proof obligation.</td><td>EML/Tropical/Scan/Operator/Info/Geometry IR · Lean · ClaimLedger</td><td><span class="tag partial">Lean green · vendor/product surface pending</span></td></tr>
     <tr><td>Verified agent execution</td><td>T11 System G · SCOPE-Rex · AgentBlueprint docs</td><td>Agent run timeline that shows MissionPacket → approval → mutation → AnswerPacket.</td><td>MissionPacket · AgentEvent · MutationEnvelope · RunEventLog · AnswerPacket</td><td><span class="tag todo">full path Phase 2</span></td></tr>
     <tr><td>Closed-citation reasoning</td><td>T10 Eidos · T21 VaultRecall · F-VaultRecall-50</td><td>Chat answer badges showing exactly which real vault files were loaded and cited.</td><td>EidosRetriever · VaultBackend trace · AnswerPacket citations</td><td><span class="tag todo">real vault binding pending</span></td></tr>
@@ -1440,7 +1554,7 @@ The simplification is one invariant, not fewer ambitions. Epistemos treats every
   <tbody>
     <tr><td><strong>Lift / Ingest</strong></td><td>surface → substrate</td><td>Raw material becomes an addressable substrate object.</td><td>note bytes · pixels · prompt · model output · local trace</td><td>UAS address · source hash · plane</td></tr>
     <tr><td><strong>Project / Compress / Recall</strong></td><td>substrate → surface</td><td>The object becomes cheaper, smaller, visible, or usable in a specific chart.</td><td>vault hit · Eidos citation · graph neighborhood · MLX context · Metal buffer · EML term</td><td>ShadowProjection · WBO budget · citation/proof</td></tr>
-    <tr><td><strong>Mutate / Promote</strong></td><td>substrate → substrate</td><td>Durable state changes, learns, adapts, or promotes into stronger authority.</td><td>adapter update · ACS tool action · kernel promotion · falsifier PASS · Lean certificate</td><td>MutationEnvelope · ACS verdict · rollback</td></tr>
+    <tr><td><strong>Mutate / Promote</strong></td><td>substrate → substrate</td><td>Durable state changes, learns, adapts, or promotes into stronger authority.</td><td>adapter update · governed tool action · kernel promotion · falsifier PASS · Lean certificate</td><td>MutationEnvelope · SCOPE-Rex/SovereignGate verdict · rollback</td></tr>
   </tbody>
 </table>
 
@@ -1452,7 +1566,7 @@ The simplification is one invariant, not fewer ambitions. Epistemos treats every
     <tr><td>Goal</td><td>more unit-distance pairs</td><td>lower bits-per-byte loss</td><td>more cognition per byte, token, copy, watt, and witness</td></tr>
     <tr><td>Move</td><td>change coordinate system through number theory</td><td>quantize, tie, recur, adapt, tokenize, fuse</td><td>choose the cheapest verified chart and route</td></tr>
     <tr><td>Primitive</td><td>construction + projection</td><td>active/compressed component</td><td>UAS object + ShadowProjection + WBO</td></tr>
-    <tr><td>Promotion</td><td>external mathematical checking</td><td>leaderboard reproduction and comparison</td><td>ACS · falsifier · Lean/test · AnswerPacket</td></tr>
+    <tr><td>Promotion</td><td>external mathematical checking</td><td>leaderboard reproduction and comparison</td><td>SCOPE-Rex/SovereignGate · falsifier · Lean/test · AnswerPacket</td></tr>
   </tbody>
 </table>
 
@@ -1474,14 +1588,16 @@ The simplification is one invariant, not fewer ambitions. Epistemos treats every
   </tbody>
 </table>
 
-<h3>Manageable tiers</h3>
+<h3>Two builds, Pro internal tier ladder</h3>
 <table>
-  <thead><tr><th>Tier</th><th>Ships where</th><th>Rule</th><th>Examples</th></tr></thead>
+  <thead><tr><th>Build / status</th><th>Ships where</th><th>Rule</th><th>Examples</th></tr></thead>
   <tbody>
-    <tr><td>Tier 1 · Production-equivalent</td><td>MAS / core app</td><td>ON only when behavior is equivalent or already product behavior.</td><td>UAS metadata · WBO ledger · AnswerPacket badge · KV-Direct if bit-equivalent</td></tr>
-    <tr><td>Tier 2 · Flagged performance</td><td>Pro or bundled MAS flag</td><td>OFF by default; user opts in; rollback required.</td><td>BitNet b1.58 · T-MAC · sparse ternary GEMM · experimental Metal kernels</td></tr>
-    <tr><td>Tier 3 · Research construction</td><td>research worktree / private harness</td><td>never silently product; needs falsifier and user approval.</td><td>T26 L_SE · Research Construction Engine · conjecture mode · active-rank-one runtime</td></tr>
-    <tr><td>Vault · Preserved</td><td>docs or branch only</td><td>kept for future promotion; no runtime authority.</td><td>failed constructions · speculative kernels · unverified theorem candidates</td></tr>
+    <tr><td>MAS</td><td>MAS build</td><td>Public safe floor: App Store-safe, local-first, witnessed, no hidden research runtime.</td><td>UAS metadata · WBO ledger · AnswerPacket badge · Eidos evidence surface when verified.</td></tr>
+    <tr><td>Pro Live</td><td>Pro build</td><td>Advanced feature is implemented, visible, tested, and safe for Pro users.</td><td>Pro-only tools with visible policy and rollback.</td></tr>
+    <tr><td>Pro Gated</td><td>Pro build</td><td>Implemented or partial, behind explicit opt-in, rollback, warning, or policy.</td><td>BitNet b1.58 · T-MAC · sparse ternary GEMM · experimental Metal kernels.</td></tr>
+    <tr><td>Pro Research</td><td>Pro build / private harness</td><td>Runnable or document-backed candidate awaiting falsifier evidence before promotion.</td><td>T26 L_SE · Research Construction Engine · conjecture mode · active-rank-one runtime.</td></tr>
+    <tr><td>Pro Vault-Preserved</td><td>Pro docs/branch archive</td><td>Preserved ambition with no runtime authority.</td><td>Failed constructions · speculative kernels · unverified theorem candidates.</td></tr>
+    <tr><td>Pro Omega</td><td>Pro private experimental band</td><td>Deep substrate experiments; never silently enabled, never MAS-bound, always witnessed and reversible.</td><td>70B cocktail, model-internals routing, private kernel experiments after crash-safe gates.</td></tr>
   </tbody>
 </table>
 
@@ -1530,7 +1646,7 @@ The original no-compromise target is stronger than RAG, MoE, or subquadratic att
     <tr><td>2 · Active assembly</td><td>Gate3 / PacketRouter1bit / connectome anchors select model and memory components.</td><td>F-ActiveAssembly-Minimal</td></tr>
     <tr><td>3 · Residency</td><td>RAM/SSD governor pages hot weights, KV pages, and residual deltas into UMA.</td><td>F-KV-Direct-Gate + F-UAS-CopyCount</td></tr>
     <tr><td>4 · Execute</td><td>custom kernels and MLX/GGUF/cloud/Apple lanes execute the selected route.</td><td>dense/reference comparison</td></tr>
-    <tr><td>5 · Witness</td><td>AnswerPacket records route, citations, claims, ACS verdict, WBO budget, rollback.</td><td>RunEventLog replay + falsifier artifact</td></tr>
+    <tr><td>5 · Witness</td><td>AnswerPacket records route, citations, claims, admission verdict, WBO budget, rollback.</td><td>RunEventLog replay + falsifier artifact</td></tr>
   </tbody>
 </table>
 
@@ -1554,7 +1670,7 @@ The original no-compromise target is stronger than RAG, MoE, or subquadratic att
 <!-- ============ §3L Online Research Intake ============ -->
 <h2 id="online-intake">03L · Online research intake — public work becomes local doctrine only through falsifiers</h2>
 <p class="lede">
-The no-compromise rule is not to ignore public research. It is to absorb it without losing the architecture's spine. External papers, GitHub records, forks, PRs, and forum discoveries enter Epistemos as motifs first, then become W/P/T/F work only after they are mapped to UAS, WBO, ACS, witnesses, tiers, and rollback.
+The no-compromise rule is not to ignore public research. It is to absorb it without losing the architecture's spine. External papers, GitHub records, forks, PRs, and forum discoveries enter Epistemos as motifs first, then become W/P/T/F work only after they are mapped to UAS, ColdStore or AcsAnchor when relevant, WBO, admission, witnesses, tiers, and rollback.
 </p>
 
 <div class="note">
@@ -1596,12 +1712,12 @@ The no-compromise rule is not to ignore public research. It is to absorb it with
 </table>
 
 <div class="note">
-  <strong>Compression of language.</strong> The architecture can be spoken as one thing without losing the details: one substrate object, three motions, five authority fields, one promotion loop. "Going in" is Lift/Ingest. "Retrieval or compression" is Project/Compress/Recall. "State changing as you use it" is Mutate/Promote. UAS, WBO, ACS, EML, Active Assembly, Lean, AnswerPacket, and Research Construction stay intact as the fields and witnesses that make those motions safe.
+  <strong>Compression of language.</strong> The architecture can be spoken as one thing without losing the details: one substrate object, three motions, five authority fields, one promotion loop. "Going in" is Lift/Ingest. "Retrieval or compression" is Project/Compress/Recall. "State changing as you use it" is Mutate/Promote. UAS, OAS, AcsAnchor, ColdStore, WBO, EML, ActiveAssembly, Eidos, SCOPE-Rex, SovereignGate, Lean, AnswerPacket, and Research Construction stay intact as the fields and witnesses that make those motions safe.
 </div>
 
 <!-- ============ §4 Seven Laws ============ -->
 <h2 id="laws">04 · Seven laws + candidate L8</h2>
-<p>Every research branch in the corpus passes through these laws. A branch that violates one is preserved as Vault-tier speculation, not promoted. A branch that satisfies the seven current laws becomes substrate. Candidate L8 is shown separately because the Erdős synthesis is promising, but still needs local falsifiers before canon promotion.</p>
+<p>Every research branch in the corpus passes through these laws. A branch that violates one is preserved as Pro Vault-Preserved speculation, not promoted. A branch that satisfies the seven current laws becomes substrate. Candidate L8 is shown separately because the Erdős synthesis is promising, but still needs local falsifiers before canon promotion.</p>
 <table>
   <thead><tr><th>#</th><th>Law</th><th>Statement</th></tr></thead>
   <tbody>
@@ -1624,7 +1740,7 @@ The no-compromise rule is not to ignore public research. It is to absorb it with
   <tbody>
     <tr><td>UAS address</td><td><code>UasAddress { kind, payload_id }</code></td><td>Stable identity across residency moves</td></tr>
     <tr><td>Plane placement</td><td><code>RuntimePlane::{State, Episodic, Assembly, Controller, Verification}</code></td><td>What the object is <em>for</em></td></tr>
-    <tr><td>Residency tier</td><td><code>ResidencyTier::{CurrentApp, VerifiedFloor, CapabilityCeiling}</code></td><td>Where it actually lives today vs target</td></tr>
+    <tr><td>Build/status</td><td><code>ProductBuild::{MAS, Pro}</code> + <code>ProStatus</code> / <code>ResidencyStatus</code></td><td>Where it may ship, what authority band it has, and where it actually lives today vs target</td></tr>
     <tr><td>Lattice budget</td><td><code>Option&lt;LatticeBudget&gt;</code></td><td>WBO accounting if approximate</td></tr>
     <tr><td>WRV status</td><td><code>{Wired, Reachable, Visible, Verified}</code></td><td>Honest status for product-facing surfaces</td></tr>
   </tbody>
@@ -1639,41 +1755,68 @@ The no-compromise rule is not to ignore public research. It is to absorb it with
     <tr><td><strong>State</strong></td><td>Raw values: pixels, tensors, note bytes, KV pages</td><td><code>Tensor</code>, <code>NoteBody</code>, <code>KvPage</code></td></tr>
     <tr><td><strong>Episodic</strong></td><td>Events: vault searches, recall hits, run timeline entries</td><td><code>RunEventLog</code>, <code>VaultRecallTrace</code></td></tr>
     <tr><td><strong>Assembly</strong></td><td>Active selection: which support set is awake right now</td><td><code>ActiveAssemblyPacket</code>, <code>Selector</code></td></tr>
-    <tr><td><strong>Controller</strong></td><td>Routing decisions, ACS admission verdicts, capability proofs</td><td><code>ACSAdmissionVerdict</code>, <code>SCOPERexAdmissionProof</code></td></tr>
+    <tr><td><strong>Controller</strong></td><td>Routing decisions, SCOPE-Rex/SovereignGate admission verdicts, capability proofs</td><td><code>AdmissionVerdict</code>, <code>SCOPERexAdmissionProof</code></td></tr>
     <tr><td><strong>Verification</strong></td><td>Proofs, falsifier artifacts, theorem-label witnesses</td><td><code>WboLedgerEntry</code>, <code>FalsifierArtifact</code></td></tr>
   </tbody>
 </table>
 
-<!-- ============ §7 Five Lanes, Three Tiers ============ -->
-<h2 id="lanes">07 · Five lanes, three tiers</h2>
-<p>Distribution geometry. Lane × Tier determines whether a feature ships, how it ships, and whether it can be flipped on at runtime.</p>
+<!-- ============ §7 Two Builds + Pro Tier Ladder ============ -->
+<h2 id="lanes">07 · Two builds + Pro tier ladder</h2>
+<p>Distribution geometry. Epistemos has exactly two distributable builds. MAS ships the safe public floor. Pro contains internal status bands for live, gated, research, vault-preserved, and omega work. Research and Vault are not separate builds.</p>
 <div class="twocol">
   <div>
-    <h4>Five lanes (distribution)</h4>
+    <h4>Two builds</h4>
     <table>
       <tbody>
-        <tr><td>L1</td><td>MAS — App Store ship</td></tr>
-        <tr><td>L2</td><td>Pro — Direct distribution</td></tr>
-        <tr><td>L3</td><td>Research — Helios / Omega gates</td></tr>
-        <tr><td>L4</td><td>Infrastructure / Reserved</td></tr>
-        <tr><td>L5</td><td>Vault — preserved-speculation only</td></tr>
+        <tr><td>MAS Build</td><td>App Store-safe, conservative, local-first, witnessed, no hidden research runtime.</td></tr>
+        <tr><td>Pro Build</td><td>Direct-distribution power build with internal status bands.</td></tr>
       </tbody>
     </table>
   </div>
   <div>
-    <h4>Three tiers (runtime activation)</h4>
+    <h4>Pro internal ladder</h4>
     <table>
       <tbody>
-        <tr><td>Tier 1</td><td>ULP-equivalent — ON by default <span class="tag tier1">MAS</span></td></tr>
-        <tr><td>Tier 2</td><td>Model-file-changing — bundled, default OFF <span class="tag tier2">PRO</span></td></tr>
-        <tr><td>Tier 3</td><td>Runtime-mutating — never in MAS <span class="tag tier3">RESEARCH</span></td></tr>
+        <tr><td>Pro Live</td><td>Implemented, visible, tested, and safe for Pro users.</td></tr>
+        <tr><td>Pro Gated</td><td>Behind explicit opt-in, rollback, warning, or policy.</td></tr>
+        <tr><td>Pro Research</td><td>Runnable or document-backed, awaiting falsifier.</td></tr>
+        <tr><td>Pro Vault-Preserved</td><td>Preserved ambition with no runtime authority.</td></tr>
+        <tr><td>Pro Omega</td><td>Deepest private experimental substrate work; witnessed and reversible.</td></tr>
       </tbody>
     </table>
   </div>
 </div>
 <p class="lede" style="margin-top:8px;">
-Lock phrase: <em class="k">One substrate, three motions, five authority fields, visible proof.</em>
+Lock phrase: <em class="k">One substrate, two builds, three motions, five planes, visible proof.</em>
 </p>
+
+<h3>Letter grammar</h3>
+<table>
+  <thead><tr><th>Prefix</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td>E</td><td>Foundational theorem or theorem candidate.</td></tr>
+    <tr><td>H</td><td>Helios operational claim; translate to a concrete organ before product work.</td></tr>
+    <tr><td>PCF</td><td>Parameter Connectome Family.</td></tr>
+    <tr><td>F</td><td>Falsifier, witness, benchmark, or proof artifact.</td></tr>
+    <tr><td>W</td><td>Wiring/product-visible work row.</td></tr>
+    <tr><td>L</td><td>Law or invariant.</td></tr>
+    <tr><td>D</td><td>Deferred direct-distribution capability.</td></tr>
+  </tbody>
+</table>
+
+<h3>What is proven vs gated</h3>
+<table>
+  <thead><tr><th>Status</th><th>Meaning</th><th>Promotion rule</th></tr></thead>
+  <tbody>
+    <tr><td>Proven</td><td>Formal proof or passing invariant-backed implementation.</td><td>May be cited as proof only within the proven scope.</td></tr>
+    <tr><td>EV</td><td>Evidence-verified by source, log, benchmark, artifact, or measured run.</td><td>May support product claims only when caller chain and visible surface exist.</td></tr>
+    <tr><td>EB</td><td>Engineering bet.</td><td>Useful direction, not a proof; needs falsifier before promotion.</td></tr>
+    <tr><td>Candidate</td><td>Accepted shape awaiting falsifier or product caller proof.</td><td>Keep named, scoped, and blocked from shipped claims.</td></tr>
+    <tr><td>Gated</td><td>Blocked from promotion until a named gate passes.</td><td>Gate, rollback, and user-visible status are required.</td></tr>
+    <tr><td>VaultPreserved</td><td>Preserved ambition, no runtime authority.</td><td>May guide future work but cannot drive live behavior.</td></tr>
+    <tr><td>Superseded</td><td>Old mechanism replaced by a cleaner current organ.</td><td>Keep historical note; route new work through the current organ.</td></tr>
+  </tbody>
+</table>
 
 <!-- ============ §8 Typed file structure ============ -->
 <h2 id="filetree">08 · Typed file structure</h2>
@@ -1692,8 +1835,8 @@ Lock phrase: <em class="k">One substrate, three motions, five authority fields, 
 <span class="cm">// L4 · Router</span>
 <span class="kw">pub mod</span> routing         <span class="cm">// deterministic → embedding → small LLM → mid LLM → cloud</span>
 
-<span class="cm">// L5 · ACS Admission</span>
-<span class="kw">pub mod</span> acs_admission   <span class="cm">// Input · Verdict · RiskVector · Policy · AuditRecord</span>
+<span class="cm">// L5 · SCOPE-Rex Admission (legacy module name)</span>
+<span class="kw">pub mod</span> acs_admission   <span class="cm">// transitional path: Input · Verdict · RiskVector · Policy · AuditRecord</span>
 
 <span class="cm">// L6 · System G — governed dispatch</span>
 <span class="kw">pub mod</span> agent_runtime_v2  <span class="cm">// MissionPacket → AgentEvent → RunEventLog → AnswerPacket</span>
@@ -1704,7 +1847,7 @@ Lock phrase: <em class="k">One substrate, three motions, five authority fields, 
 <span class="kw">pub mod</span> retrieval       <span class="cm">// hybrid_search + RRF k=60 + Vault Context Contract</span>
 
 <span class="cm">// L8 · Witness</span>
-<span class="kw">pub mod</span> research::eml               <span class="cm">// EML-IR canonical module · 6 primitive IR family · Tier 3</span>
+<span class="kw">pub mod</span> research::eml               <span class="cm">// EML-IR canonical module · 6 primitive IR family · Pro Research</span>
 <span class="kw">pub mod</span> research::fulp_oracle       <span class="cm">// ULP ≤ 2 fp16 in [0.5, 2.0] over 412k+2k points</span>
 <span class="kw">pub mod</span> provenance::ledger          <span class="cm">// ClaimLedger + retraction propagation</span>
 </div>
@@ -1788,7 +1931,7 @@ Lock phrase: <em class="k">One substrate, three motions, five authority fields, 
     <tr><td>T0</td><td>Cognitive substrate floor</td><td><span class="tag ok">Done</span></td><td><span class="tag tier1">L1</span></td></tr>
     <tr><td>T1</td><td>Tri-Fusion</td><td><span class="tag ok">Merged + docs</span></td><td><span class="tag tier1">L1</span></td></tr>
     <tr><td>T2</td><td>Local Agent (per-model grammars + AgentBlueprint)</td><td><span class="tag partial">~75%</span></td><td><span class="tag tier1">L1</span></td></tr>
-    <tr><td>T3</td><td>UAS-ACS</td><td><span class="tag ok">Merged + docs</span></td><td><span class="tag tier1">L1</span></td></tr>
+    <tr><td>T3</td><td>UAS / AcsAnchor / ColdStore naming bridge</td><td><span class="tag ok">Merged + docs</span></td><td><span class="tag tier1">L1</span></td></tr>
     <tr><td>T4</td><td>Vault Recall</td><td><span class="tag partial">~85%</span></td><td><span class="tag tier1">L1</span></td></tr>
     <tr><td>T5</td><td>EML / Tropical / Scan / Operator / Info / Geometry IR</td><td><span class="tag ok">Merged (6 IRs)</span></td><td><span class="tag tier3">L3</span></td></tr>
     <tr><td>T6</td><td>UI/UX recursive audit</td><td><span class="tag partial">~50%</span></td><td><span class="tag tier1">L1</span></td></tr>
@@ -1807,7 +1950,7 @@ Lock phrase: <em class="k">One substrate, three motions, five authority fields, 
     <tr><td>T17</td><td>Cognitive Weight Class Enforcement (W1-W4)</td><td><span class="tag todo">Pending</span></td><td><span class="tag tier1">L1</span></td></tr>
     <tr><td>T17B</td><td>Lattice WBO Register</td><td><span class="tag ok">Merged</span></td><td><span class="tag tier1">L1</span></td></tr>
     <tr><td>T18</td><td>Residency Governor (full)</td><td><span class="tag todo">Pending</span></td><td><span class="tag tier1">L1</span></td></tr>
-    <tr><td>T18B</td><td>ACS Admission Field</td><td><span class="tag ok">Merged</span></td><td><span class="tag tier1">L1</span></td></tr>
+    <tr><td>T18B</td><td>SCOPE-Rex Admission Field</td><td><span class="tag ok">Merged</span></td><td><span class="tag tier1">L1</span></td></tr>
     <tr><td>T19</td><td>Halo V1 + Eidos Control Vectors</td><td><span class="tag todo">Pending</span></td><td><span class="tag tier1">L1</span></td></tr>
     <tr><td>T20</td><td>Variant Ladder Generalization</td><td><span class="tag todo">Pending</span></td><td><span class="tag tier1">L1</span></td></tr>
     <tr><td>T21</td><td>Vault Recall Contract</td><td><span class="tag ok">Merged</span></td><td><span class="tag tier1">L1</span></td></tr>
@@ -1816,7 +1959,7 @@ Lock phrase: <em class="k">One substrate, three motions, five authority fields, 
     <tr><td>T23</td><td>F-70B Local Cocktail research harness</td><td><span class="tag research">Research</span></td><td><span class="tag tier3">L3</span></td></tr>
     <tr><td>T23B</td><td>M2 Pro Falsifier Handbook</td><td><span class="tag ok">Merged</span></td><td><span class="tag tier1">L1</span></td></tr>
     <tr><td>T24</td><td>Lean ClaimLedger Schema Authority</td><td><span class="tag research">Research</span></td><td><span class="tag tier3">L3</span></td></tr>
-    <tr><td>T25</td><td>ACS Naming Reconciliation</td><td><span class="tag ok">Doctrine lint live</span></td><td><span class="tag tier1">L1</span></td></tr>
+    <tr><td>T25</td><td>ACS / ColdStore namespace reconciliation</td><td><span class="tag ok">Doctrine lint live</span></td><td><span class="tag tier1">L1</span></td></tr>
     <tr><td>T26</td><td>L_SE Self-Evolving Adapter Lane</td><td><span class="tag research">Research-deferred</span></td><td><span class="tag tier3">L3</span></td></tr>
     <tr><td>T27</td><td>WRV Product Surfacing (umbrella of W-rows)</td><td><span class="tag partial">~5%</span></td><td><span class="tag tier1">L1</span></td></tr>
   </tbody>
@@ -1839,7 +1982,7 @@ Lock phrase: <em class="k">One substrate, three motions, five authority fields, 
     <tr><td>W-07</td><td>EML observatory health row</td><td><span class="tag todo">Not-started</span></td></tr>
     <tr><td>W-08</td><td>EML potential in ConfidenceRouter</td><td><span class="tag todo">Not-started</span></td></tr>
     <tr><td>W-09</td><td>Scan-IR ↔ SemiseparableBlockScan harness</td><td><span class="tag todo">Not-started</span></td></tr>
-    <tr><td>W-10</td><td>UAS-ACS substrate health row</td><td><span class="tag partial">Visible, production-gated</span></td></tr>
+    <tr><td>W-10</td><td>UAS / AcsAnchor / ColdStore substrate health row</td><td><span class="tag partial">Visible, production-gated</span></td></tr>
   </tbody>
 </table>
 
@@ -1875,10 +2018,10 @@ Lock phrase: <em class="k">One substrate, three motions, five authority fields, 
   <thead><tr><th>ID</th><th>Title</th><th>Status</th></tr></thead>
   <tbody>
     <tr><td>W-24</td><td>DAG node carries UasAddress + AcsAnchor</td><td><span class="tag todo">Not-started</span></td></tr>
-    <tr><td>W-25</td><td>Provenance Console ACS-anchor column</td><td><span class="tag todo">Not-started</span></td></tr>
+    <tr><td>W-25</td><td>Provenance Console AcsAnchor column</td><td><span class="tag todo">Not-started</span></td></tr>
     <tr><td>W-26</td><td>Cognitive DAG visualizer</td><td><span class="tag todo">Not-started</span></td></tr>
     <tr><td>W-27</td><td>AnswerPacket badge per chat row</td><td><span class="tag ok">B-prime badge live</span></td></tr>
-    <tr><td>W-28</td><td>ResidencyTier indicator</td><td><span class="tag todo">Not-started</span></td></tr>
+    <tr><td>W-28</td><td>ProductBuild / ProStatus / ResidencyStatus indicator</td><td><span class="tag todo">Not-started</span></td></tr>
   </tbody>
 </table>
 
@@ -1924,8 +2067,8 @@ Lock phrase: <em class="k">One substrate, three motions, five authority fields, 
     <tr><td>W-49 <em>(Eidos)</em></td><td>eidos</td><td>LedgerBackedClaimEvidence</td><td><span class="tag ok">Rust shipped</span></td></tr>
     <tr><td>W-50 <em>(Eidos)</em></td><td>eidos</td><td>DagBackedGraphNeighborhood</td><td><span class="tag todo">Not-started</span></td></tr>
     <tr><td>W-51 <em>(Eidos)</em></td><td>eidos</td><td>ShadowBackedSemanticIndex (HNSW)</td><td><span class="tag todo">Not-started</span></td></tr>
-    <tr><td>W-46 <em>(T09 ACS)</em></td><td>ACS</td><td>ACSRunEventLogSink adapter</td><td><span class="tag ok">Adapter live</span></td></tr>
-    <tr><td>W-47 <em>(T09 ACS)</em></td><td>ACS</td><td>SCOPERexAdmissionProof</td><td><span class="tag ok">Proof live</span></td></tr>
+    <tr><td>W-46 <em>(T09 admission)</em></td><td>admission</td><td>ACSRunEventLogSink legacy adapter</td><td><span class="tag ok">Adapter live</span></td></tr>
+    <tr><td>W-47 <em>(T09 admission)</em></td><td>admission</td><td>SCOPERexAdmissionProof</td><td><span class="tag ok">Proof live</span></td></tr>
     <tr><td>W-48 <em>(T09 drift)</em></td><td>security</td><td>omega-mcp/pty.rs env-leak hardening</td><td><span class="tag ok">Shipped (PR #45)</span></td></tr>
     <tr><td>W-49 <em>(T09 drift)</em></td><td>ship</td><td>IMessageDriverService #if !EPISTEMOS_APP_STORE guard</td><td><span class="tag todo">Not-started</span></td></tr>
     <tr><td>W-50 <em>(T09 drift)</em></td><td>doctrine</td><td>MemoryTier enum vs prompt-deck canon divergence</td><td><span class="tag todo">Not-started</span></td></tr>
@@ -1976,7 +2119,7 @@ Lock phrase: <em class="k">One substrate, three motions, five authority fields, 
     <tr><td>Hyperdynamic repair loop</td><td>RunEventLog · verifier floors · AnswerPacket repair obligations</td><td><span class="tag partial">Pattern defined · per-domain wiring pending</span></td><td><span class="tag tier1">1</span></td></tr>
     <tr><td>EML-IR + 5 sibling IRs</td><td><code>agent_core/src/research/{eml,tropical,scan,operator,info,geometry}</code></td><td><span class="tag research">Research · T5 ledger says EML lives in <code>eml/</code>, not duplicate <code>eml_ir/</code></span></td><td><span class="tag tier3">3</span></td></tr>
     <tr><td>Lean schema authority</td><td><code>lean/Epistemos</code> · T5 blocker ledger · ClaimLedger target</td><td><span class="tag partial">Lake build green · eml-lean vendor pending</span></td><td><span class="tag tier3">3</span></td></tr>
-    <tr><td>ACS Admission</td><td><code>agent_core/src/acs_admission</code></td><td><span class="tag ok">Shipped (gate pending)</span></td><td><span class="tag tier1">1</span></td></tr>
+    <tr><td>SCOPE-Rex Admission</td><td><code>agent_core/src/acs_admission</code> legacy path</td><td><span class="tag ok">Shipped (full gate coverage pending)</span></td><td><span class="tag tier1">1</span></td></tr>
     <tr><td>Eidos closed-citation</td><td><code>agent_core/src/eidos</code> · 217 tests</td><td><span class="tag partial">Rust live · Swift bridge pending</span></td><td><span class="tag tier1">1</span></td></tr>
     <tr><td>VaultRecall contract (T21)</td><td><code>Epistemos/Sync/RRFFusionQuery.swift</code> + Vault Context Contract</td><td><span class="tag partial">ChatCoordinator pending</span></td><td><span class="tag tier1">1</span></td></tr>
     <tr><td>AnswerPacket emission + sink</td><td><code>Epistemos/.../AnswerPacketEmitter</code></td><td><span class="tag ok">Shipped</span></td><td><span class="tag tier1">1</span></td></tr>
