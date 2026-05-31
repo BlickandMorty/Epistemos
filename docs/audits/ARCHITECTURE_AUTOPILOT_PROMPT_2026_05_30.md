@@ -21,6 +21,7 @@ Start by reading and obeying:
 11. `docs/fusion/LOCAL_FRONTIER_PLAYBOOK_16GB_2026_05_31.md`
 12. `docs/fusion/EIDOS_NEURAL_IMPORTANCE_BRIDGE_2026_05_31.md`
 13. `docs/audits/FULL_ARCHITECTURE_CONTINUATION_PROMPT_2026_05_31.md`
+14. `docs/audits/WORKTREE_PRESERVATION_EXTRACTION_PROMPT_2026_05_31.md`
 
 Current naming/build lock:
 
@@ -101,7 +102,12 @@ Preferred unattended work order:
 
 1. If the current repo has new uncommitted changes outside the paused font
    bundle, inspect them before editing and avoid clobbering them.
-2. Pick one safe current-head surface from the best-combo manifest:
+2. If the user has asked for worktree preservation/extraction, follow
+   `docs/audits/WORKTREE_PRESERVATION_EXTRACTION_PROMPT_2026_05_31.md`: audit
+   exactly one preserved donor, use non-mutating diffs first, port at most one
+   useful additive hunk/test/doc row, and never delete or wholesale merge any
+   worktree.
+3. Pick one safe current-head surface from the best-combo manifest:
    - T4 unique-value check;
    - T21/Eidos/VaultRecall/PageGather retrieval unification;
    - RuntimeRouter policy behavior;
@@ -114,14 +120,14 @@ Preferred unattended work order:
      or route-card surface and cannot wake model bytes without admission.
    - measurement-floor or playbook harness work that records active bytes,
      copy count, peak UMA, SSD reads, citation validity, and witness completeness.
-3. Prefer verified code over docs. If no code is safe, update the salvage docs
+4. Prefer verified code over docs. If no code is safe, update the salvage docs
    with exact reasons.
-4. Run only lightweight verification:
+5. Run only lightweight verification:
    - `git diff --check`;
    - focused cargo tests for touched Rust modules only;
    - focused Swift source guards only when Xcode is blocked by the paused font
      bundle.
-5. Commit the checkpoint before ending. Do not stage paused font files.
+6. Commit the checkpoint before ending. Do not stage paused font files.
 
 End with: what was inspected, what was changed or skipped, what verification
 ran, commit hash, and what the next loop should attempt.
