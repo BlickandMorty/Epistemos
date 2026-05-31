@@ -16,6 +16,8 @@ Start by reading and obeying:
 6. `docs/audits/ACS_NAMESPACE_RECONCILIATION_2026_05_30.md`
 7. `docs/audits/NEXT_SESSION_WORKTREE_SALVAGE_PROMPT_2026_05_30.md`
 8. `docs/audits/NAMESPACE_AND_ARCHITECTURE_CLARITY_AUDIT_2026_05_31.md`
+9. `docs/fusion/FRONTIER_LOCAL_REASONING_16GB_ARCHITECTURE_2026_05_31.md`
+10. `docs/fusion/NEURAL_IMPORTANCE_ROUTING_ATLAS_2026_05_31.md`
 
 Current naming/build lock:
 
@@ -25,6 +27,19 @@ Current naming/build lock:
 - Use ProductBuild plus ProStatus/ResidencyStatus in new architecture claims.
 - Use ColdStore for Active Cold Storage. Keep AcsAnchor for anchored
   coordinate/provenance. Use SCOPE-Rex/SovereignGate for admission/verdicts.
+- The 16 GB local-reasoning target is: cold trillion, hot five billion,
+  active minimum. This is a candidate architecture direction, not a shipped
+  local-frontier claim.
+- AppColdStore is the app-owned substrate storage direction: durable model
+  atlas, packed weight pages, adapter banks, KV seeds, route cards, and cache
+  manifests belong under Epistemos-managed Application Support / App Group
+  storage, with purgeable Caches only for regenerable warm packs. SwiftData
+  stores manifests/provenance, not giant blobs.
+- NeuralImportanceAtlas is the candidate route-selection layer: choose the
+  smallest verified support set across evidence, KV pages, adapters, weight
+  blocks, kernels, ANE scout heads, and verifiers. Use the
+  Counterfactual Utility Law as a planning heuristic, but require falsifiers
+  before promotion.
 
 Hard safety rules:
 
@@ -51,6 +66,11 @@ Hard safety rules:
   architecture name from prose.
 - EML is an elementary-function/proof chart inside the Primitive IR stack, not
   UAS, ColdStore, Eidos, RuntimeRouter, or a general product/intelligence proof.
+- Do not claim SSD equals RAM, comfortable 70B/128K on 16 GB, live 1T local
+  model execution, arbitrary ANE kernels, or "better than MoE" unless the named
+  falsifier passes. Relevant gates include `F-AppColdStore-Layout`,
+  `F-AppleSilicon-RouteSplit`, `F-KV-Direct-Gate`,
+  `F-Qwen3-8B-128K-GGUF-Route`, and dense/reference rollback checks.
 
 Preferred unattended work order:
 
@@ -63,6 +83,8 @@ Preferred unattended work order:
    - System G guarded route surfaces that do not launch inference;
    - AcsAnchor/UAS pure Rust read surfaces;
    - ResidencyPlan / WeightBlockManifest dry-run guardrails.
+   - AppColdStore / NeuralImportanceAtlas scaffolds only when they are
+     non-executing, manifest-only, and falsifier-shaped.
 3. Prefer verified code over docs. If no code is safe, update the salvage docs
    with exact reasons.
 4. Run only lightweight verification:
