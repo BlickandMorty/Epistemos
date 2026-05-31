@@ -3,7 +3,7 @@ state: candidate_intake
 created_on: 2026-05-30
 source_kit: /Users/jojo/Downloads/AETHERLINK_APPLICATION_KIT_FULL/AETHERLINK_APPLICATION_PROJECT
 purpose: Fold the AetherLink / OAS / AletheiaFS research kit into Epistemos without diluting the current large-model capability-ceiling route or promoting aerospace/speculative claims into product canon.
-priority: preserve the 70B-class UAS/ACS residency ambition; use AetherLink as a proof-carrying runtime lens, not as a replacement roadmap.
+priority: preserve the 70B-class UAS/ColdStore residency ambition; use AetherLink as a proof-carrying runtime lens, not as a replacement roadmap.
 ---
 
 # AetherLink / OAS Canon Intake - 2026-05-30
@@ -31,7 +31,7 @@ substrate work. The current Epistemos priority remains:
 
 ```text
 large model capability ceiling
-  = UAS/ACS mmap residency
+  = UAS/ColdStore mmap residency
   + weight/KV/component addresses
   + active assembly routing
   + lattice / ternary / NF4 compression
@@ -68,7 +68,7 @@ Load-bearing files:
 | `formal/AetherLink.lean` | proof-obligation skeleton |
 
 Do not vendor these into app targets yet. Mine motifs, then reimplement through
-Epistemos's existing UAS / ACS / AnswerPacket / SCOPE-Rex surfaces.
+Epistemos's existing UAS / ColdStore / AcsAnchor / AnswerPacket / SCOPE-Rex surfaces.
 
 Light local smoke, 2026-05-30:
 
@@ -90,7 +90,7 @@ on every metric."
 
 | AetherLink / OAS term | Epistemos home | Status |
 |---|---|---|
-| Ontological Address Space / OAS | UAS address + SCOPE-Rex state + ACS admission proof | canon-aligned target |
+| Ontological Address Space / OAS | UAS address + SCOPE-Rex state + SCOPE-Rex/SovereignGate admission proof | canon-aligned target |
 | AletheiaFS sidecar | Vault / Live Files / UAS index sidecar over normal files | Research Construction candidate |
 | AetherPacket | AnswerPacket / ClaimKind / RunEventLog packet specialization | candidate ABI |
 | Control certificate | Proof-carrying AnswerPacket / verifier report | candidate ABI |
@@ -109,7 +109,7 @@ addressable neural substrate:
 ```text
 SSD cold model bytes
   -> UAS WeightBlockAddress / KvPageAddress / ModelComponentAddress
-  -> ACS admission and residency lease
+  -> ColdStore residency lease + SCOPE-Rex/SovereignGate admission
   -> active assembly selector
   -> lattice / ternary / NF4 decode route
   -> dense/reference drift check
@@ -156,7 +156,7 @@ Fine-tuning is useful, but it is not the bridge.
 | Layer | Owned by runtime | Learned / tuned model may help |
 |---|---:|---:|
 | file hashes, byte ranges, model-weight manifests | yes | no |
-| UAS addresses and ACS admission | yes | no |
+| UAS addresses and SCOPE-Rex/SovereignGate admission | yes | no |
 | schema validation and packet shape | yes | no |
 | state contracts and memory commits | yes | no |
 | claim extraction / labels / summaries | maybe | yes |

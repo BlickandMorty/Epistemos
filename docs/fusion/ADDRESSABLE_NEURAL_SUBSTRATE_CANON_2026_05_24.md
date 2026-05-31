@@ -40,7 +40,7 @@ MissionPacket
   + ResidencyPlan
   + KernelRoute
   + Claim/AnswerPacket schema
-  + ACS admission proof
+  + SCOPE-Rex/SovereignGate admission proof
   + falsifier budget
 ```
 
@@ -54,7 +54,7 @@ The LLM remains present, but it is no longer the sole reasoning engine. It is on
 - EML / Geometry / Scan / Operator / Info IR
 - Metal kernels
 - vault / graph / vector memory
-- ACS + WBO + AnswerPacket verification
+- SCOPE-Rex/SovereignGate + WBO + AnswerPacket verification
 
 ## 1A. AetherLink / OAS sharpening
 
@@ -66,8 +66,9 @@ replacement for UAS. It is the semantic/control layer on top of UAS:
 UAS = where the addressed bytes/state live.
 OAS = what the addressed thing means, what floor state it starts in, and what
       contract may promote it.
-ACS = whether the thing may become resident / active / committed.
-SCOPE-Rex = whether the claim or state transition is witnessed and allowed.
+ColdStore / ResidencyGovernor = whether the thing may become resident or active.
+SCOPE-Rex / SovereignGate = whether the claim, route, or state transition is
+      witnessed, permitted, and allowed to commit.
 ```
 
 This matters for the large-model route because "SSD holds the model" is not
