@@ -486,6 +486,9 @@ impl EidosRoutePrior {
                 field: "why_matched",
             });
         }
+        if citation_need == EidosCitationNeed::Required && evidence_ids.is_empty() {
+            return Err(EidosRoutePriorError::RequiredCitationsWithoutEvidence);
+        }
 
         let mut seen_evidence_ids = HashSet::new();
         for evidence_id in &evidence_ids {
@@ -587,6 +590,9 @@ pub enum EidosRoutePriorError {
 
     #[error("route-prior evidence id was duplicated: {0:?}")]
     DuplicateEvidenceId(EidosChunkId),
+
+    #[error("route-prior required citations but carried no closed Eidos evidence ids")]
+    RequiredCitationsWithoutEvidence,
 
     #[error("{field} is required for an Eidos route prior")]
     EmptyField { field: &'static str },
@@ -1108,6 +1114,29 @@ mod tests {
             err,
             EidosRoutePriorError::DuplicateEvidenceId(chunk_id("chunk-1"))
         );
+    }
+
+    #[test]
+    fn eidos_route_prior_rejects_required_citations_without_evidence() {
+        let packet = sample_packet();
+
+        let err = EidosRoutePrior::from_packet(
+            &packet,
+            "deep_research:tropical_optimization",
+            vec![],
+            EidosCitationNeed::Required,
+            vec!["math".to_string()],
+            vec![],
+            vec!["citation_checker".to_string()],
+            vec!["math_adapter".to_string()],
+            vec!["kv:math-history".to_string()],
+            vec!["weights:proof-family".to_string()],
+            0.75,
+            vec!["query requires closed citations".to_string()],
+        )
+        .unwrap_err();
+
+        assert_eq!(err, EidosRoutePriorError::RequiredCitationsWithoutEvidence);
     }
 
     #[test]
