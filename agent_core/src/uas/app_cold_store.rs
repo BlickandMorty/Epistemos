@@ -125,6 +125,7 @@ impl AppColdStoreRouteCard {
         if plan.status != ResidencyPlanStatus::FitForDryRun {
             return Err(AppColdStoreRouteCardError::PlanRejected);
         }
+        validate_residency_plan_snapshot(plan)?;
 
         let task_signature = task_signature.into();
         let rollback_reference = rollback_reference.into();
@@ -388,6 +389,20 @@ fn validate_build_status(
     Ok(())
 }
 
+fn validate_residency_plan_snapshot(
+    plan: &ResidencyPlan,
+) -> Result<(), AppColdStoreRouteCardError> {
+    let recomputed = ResidencyPlan::evaluate(
+        plan.blocks.clone(),
+        plan.budget.clone(),
+        plan.plan_address.created_at_ms,
+    );
+    if recomputed != *plan {
+        return Err(AppColdStoreRouteCardError::PlanShapeDrift);
+    }
+    Ok(())
+}
+
 fn validate_eidos_route_prior(
     task_signature: &str,
     verifier_stack: &[String],
@@ -463,6 +478,7 @@ pub enum AppColdStoreRouteCardError {
     FieldContainsControlCharacter { field: &'static str },
     UnsupportedCacheRebuildPolicy { policy: String },
     PlanRejected,
+    PlanShapeDrift,
     MissingAppColdStoreLayoutVerifier,
     MissingParamRouteCardAdmissionVerifier,
     MissingEidosNeuralRoutePriorVerifier,
@@ -496,6 +512,10 @@ impl std::fmt::Display for AppColdStoreRouteCardError {
                 write!(f, "{field} must not contain control characters")
             }
             Self::PlanRejected => write!(f, "residency plan must be FitForDryRun"),
+            Self::PlanShapeDrift => write!(
+                f,
+                "residency plan fields no longer match the verified dry-run snapshot"
+            ),
             Self::MissingAppColdStoreLayoutVerifier => write!(
                 f,
                 "AppColdStore route cards must bind F-AppColdStore-Layout in verifier_stack"
@@ -759,6 +779,27 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(err, AppColdStoreRouteCardError::PlanRejected);
+    }
+
+    #[test]
+    fn app_cold_store_route_card_rejects_mutated_residency_plan_snapshot() {
+        let mut plan = fit_plan();
+        plan.blocks[0].content_hash_hex = blake3::hash(b"tampered-after-plan").to_hex().to_string();
+        assert_eq!(plan.status, ResidencyPlanStatus::FitForDryRun);
+
+        let err = AppColdStoreRouteCard::from_residency_plan(
+            "deep_research:neural_importance_atlas",
+            verifier_stack(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(err, AppColdStoreRouteCardError::PlanShapeDrift);
     }
 
     #[test]
