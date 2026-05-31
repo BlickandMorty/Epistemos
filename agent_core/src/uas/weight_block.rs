@@ -507,6 +507,9 @@ pub enum ResidencyPlanViolation {
         address: String,
         actual_kind: String,
     },
+    EmptyByteRange {
+        address: String,
+    },
     ResidencyTierMismatch {
         address: String,
         expected_tier: String,
@@ -630,6 +633,11 @@ impl ResidencyPlan {
             }
             if !seen_addresses.insert(address.clone()) {
                 violations.push(ResidencyPlanViolation::DuplicateUasAddress {
+                    address: address.clone(),
+                });
+            }
+            if block.byte_range.len == 0 {
+                violations.push(ResidencyPlanViolation::EmptyByteRange {
                     address: address.clone(),
                 });
             }
@@ -2156,6 +2164,28 @@ mod tests {
                     if counter == "byte_range_end_exclusive"
             )
         }));
+    }
+
+    #[test]
+    fn residency_plan_rejects_publicly_mutated_empty_byte_range() {
+        let mut block = manifest(
+            "mutated-empty-range",
+            0,
+            b"dense-hot-block",
+            WeightBlockEncoding::DenseBf16,
+            WeightBlockResidencyClass::HotUma,
+            None,
+        );
+        block.byte_range.len = 0;
+        let budget = ResidencyBudget::new(1024, 1024, 4096, 0.10, 16).unwrap();
+
+        let plan = ResidencyPlan::evaluate([block], budget, 42);
+
+        assert_eq!(plan.status, ResidencyPlanStatus::RejectedBeforeRuntime);
+        assert!(plan
+            .violations
+            .iter()
+            .any(|v| { matches!(v, ResidencyPlanViolation::EmptyByteRange { .. }) }));
     }
 
     #[test]
