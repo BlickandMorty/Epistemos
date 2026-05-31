@@ -1699,6 +1699,24 @@ mod tests {
     }
 
     #[test]
+    fn synthesis_validation_counts_same_title_different_paths_as_distinct_notes() {
+        let mut trace = sufficient_trace();
+        trace.candidates[0].path = "Research/Vault Recall Alpha.md".to_string();
+        trace.candidates[0].title = "Vault Recall Alpha".to_string();
+        let mut second = selected_candidate();
+        second.path = "Archive/Vault Recall Alpha.md".to_string();
+        second.title = "Vault Recall Alpha".to_string();
+        second.rank = 2;
+        trace.candidates.push(second);
+        trace.selected_count = 2;
+
+        assert_eq!(trace.selected_distinct_note_count(), 2);
+        assert!(!trace
+            .validate_synthesis_min_distinct_notes(2)
+            .contains(&VaultContextViolation::SynthesisUnderCited));
+    }
+
+    #[test]
     fn synthesis_validation_dedupes_selected_note_paths_case_insensitively() {
         let mut trace = sufficient_trace();
         trace.candidates[0].path = "Vault/Alpha.md".to_string();
