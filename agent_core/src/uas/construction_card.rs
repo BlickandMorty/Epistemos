@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::uas::{
     weight_block::{is_valid_wbo_budget_nats, weight_block_ir_chart_preimage},
-    ResidencyPlan, ResidencyPlanStatus, UasAddress, UasKind, WeightBlockIrChart,
+    ResidencyPlan, ResidencyPlanStatus, ResidencyTier, UasAddress, UasKind, WeightBlockIrChart,
 };
 
 const RANGE_HASH_FALSIFIER_ID: &str = "F-WeightBlockRangeHash-DryRun";
@@ -16,11 +16,22 @@ const RESIDENCY_PLAN_FALSIFIER_ID: &str = "F-ResidencyPlan-DryRun";
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ConstructionTier {
+pub enum ProductBuild {
     Mas,
     Pro,
-    Vault,
-    ResearchConstruction,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProStatus {
+    Live,
+    Gated,
+    ResearchCandidate,
+    VaultPreserved,
+    Omega,
+    Blocked,
+    TargetOnly,
+    Superseded,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -56,7 +67,9 @@ pub struct ConstructionCard {
     #[serde(default)]
     pub upstream_falsifier_ids: Vec<String>,
     pub rollback_reference: String,
-    pub tier: ConstructionTier,
+    pub product_build: ProductBuild,
+    pub pro_status: ProStatus,
+    pub residency_status: ResidencyTier,
     pub residency_plan_address: Option<UasAddress>,
 }
 
@@ -68,7 +81,8 @@ impl ConstructionCard {
         witness: impl Into<String>,
         falsifier_id: impl Into<String>,
         rollback_reference: impl Into<String>,
-        tier: ConstructionTier,
+        product_build: ProductBuild,
+        pro_status: ProStatus,
         plan: &ResidencyPlan,
         copy_budget: u64,
         created_at_ms: u64,
@@ -90,7 +104,9 @@ impl ConstructionCard {
                 RESIDENCY_PLAN_FALSIFIER_ID.to_string(),
             ],
             rollback_reference,
-            tier,
+            product_build,
+            pro_status,
+            plan.effective_residency_tier,
             Some(plan.plan_address.clone()),
             created_at_ms,
         )
@@ -105,7 +121,9 @@ impl ConstructionCard {
         budget: ConstructionBudget,
         falsifier_id: impl Into<String>,
         rollback_reference: impl Into<String>,
-        tier: ConstructionTier,
+        product_build: ProductBuild,
+        pro_status: ProStatus,
+        residency_status: ResidencyTier,
         residency_plan_address: Option<UasAddress>,
         created_at_ms: u64,
     ) -> Result<Self, ConstructionCardError> {
@@ -118,7 +136,9 @@ impl ConstructionCard {
             falsifier_id,
             Vec::new(),
             rollback_reference,
-            tier,
+            product_build,
+            pro_status,
+            residency_status,
             residency_plan_address,
             created_at_ms,
         )
@@ -134,7 +154,9 @@ impl ConstructionCard {
         falsifier_id: impl Into<String>,
         upstream_falsifier_ids: Vec<String>,
         rollback_reference: impl Into<String>,
-        tier: ConstructionTier,
+        product_build: ProductBuild,
+        pro_status: ProStatus,
+        residency_status: ResidencyTier,
         residency_plan_address: Option<UasAddress>,
         created_at_ms: u64,
     ) -> Result<Self, ConstructionCardError> {
@@ -163,7 +185,9 @@ impl ConstructionCard {
             &falsifier_id,
             &upstream_falsifier_ids,
             &rollback_reference,
-            &tier,
+            &product_build,
+            &pro_status,
+            residency_status,
             residency_plan_address.as_ref(),
             created_at_ms,
         );
@@ -178,7 +202,9 @@ impl ConstructionCard {
             falsifier_id,
             upstream_falsifier_ids,
             rollback_reference,
-            tier,
+            product_build,
+            pro_status,
+            residency_status,
             residency_plan_address,
         })
     }
@@ -193,7 +219,9 @@ impl ConstructionCard {
         falsifier_id: &str,
         upstream_falsifier_ids: &[String],
         rollback_reference: &str,
-        tier: &ConstructionTier,
+        product_build: &ProductBuild,
+        pro_status: &ProStatus,
+        residency_status: ResidencyTier,
         residency_plan_address: Option<&UasAddress>,
         created_at_ms: u64,
     ) -> UasAddress {
@@ -225,7 +253,11 @@ impl ConstructionCard {
         }
         preimage.push_str(rollback_reference);
         preimage.push('\n');
-        preimage.push_str(construction_tier_preimage(tier));
+        preimage.push_str(product_build_preimage(product_build));
+        preimage.push('\n');
+        preimage.push_str(pro_status_preimage(pro_status));
+        preimage.push('\n');
+        preimage.push_str(residency_status.wire_tag());
         preimage.push('\n');
         if let Some(address) = residency_plan_address {
             preimage.push_str(&address.to_string());
@@ -238,12 +270,23 @@ impl ConstructionCard {
     }
 }
 
-fn construction_tier_preimage(tier: &ConstructionTier) -> &'static str {
-    match tier {
-        ConstructionTier::Mas => "mas",
-        ConstructionTier::Pro => "pro",
-        ConstructionTier::Vault => "vault",
-        ConstructionTier::ResearchConstruction => "research_construction",
+fn product_build_preimage(product_build: &ProductBuild) -> &'static str {
+    match product_build {
+        ProductBuild::Mas => "mas",
+        ProductBuild::Pro => "pro",
+    }
+}
+
+fn pro_status_preimage(pro_status: &ProStatus) -> &'static str {
+    match pro_status {
+        ProStatus::Live => "live",
+        ProStatus::Gated => "gated",
+        ProStatus::ResearchCandidate => "research_candidate",
+        ProStatus::VaultPreserved => "vault_preserved",
+        ProStatus::Omega => "omega",
+        ProStatus::Blocked => "blocked",
+        ProStatus::TargetOnly => "target_only",
+        ProStatus::Superseded => "superseded",
     }
 }
 
@@ -376,7 +419,8 @@ mod tests {
             "F-ResidencyPlan-DryRun/result.json",
             "F-ResidencyPlan-DryRun",
             "dense_reference_path",
-            ConstructionTier::ResearchConstruction,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
             &plan,
             0,
             10,
@@ -384,6 +428,9 @@ mod tests {
         .unwrap();
 
         assert_eq!(card.residency_plan_address, Some(plan.plan_address));
+        assert_eq!(card.product_build, ProductBuild::Pro);
+        assert_eq!(card.pro_status, ProStatus::ResearchCandidate);
+        assert_eq!(card.residency_status, ResidencyTier::CapabilityCeiling);
         assert_eq!(
             card.upstream_falsifier_ids,
             vec![
@@ -418,7 +465,8 @@ mod tests {
             "witness",
             "F-Test",
             "rollback",
-            ConstructionTier::ResearchConstruction,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
             &rejected,
             0,
             10,
@@ -444,7 +492,9 @@ mod tests {
             },
             "F-Test",
             "rollback",
-            ConstructionTier::ResearchConstruction,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
             None,
             10,
         )
@@ -471,7 +521,9 @@ mod tests {
             budget.clone(),
             "F-Test",
             "rollback",
-            ConstructionTier::ResearchConstruction,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
             None,
             10,
         )
@@ -484,7 +536,9 @@ mod tests {
             budget,
             "F-Test",
             "rollback",
-            ConstructionTier::ResearchConstruction,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
             None,
             10,
         )
@@ -520,7 +574,9 @@ mod tests {
             },
             "F-Test",
             "rollback",
-            ConstructionTier::ResearchConstruction,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
             None,
             10,
         )
@@ -547,7 +603,9 @@ mod tests {
             budget,
             "F-Test",
             "rollback",
-            ConstructionTier::ResearchConstruction,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
             None,
             10,
         )
@@ -561,7 +619,9 @@ mod tests {
             "1:2:3:10:4\n",
             "F-Test\n",
             "rollback\n",
-            "research_construction\n"
+            "pro\n",
+            "research_candidate\n",
+            "capability_ceiling\n"
         );
         let expected = UasAddress::new(
             UasKind::Other("construction_card".to_string()),
