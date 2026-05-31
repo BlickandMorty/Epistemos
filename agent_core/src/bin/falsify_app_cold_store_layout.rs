@@ -181,6 +181,31 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
                 support: "source:app-support://Epistemos/Models/coldstore/not-in-plan.epwp"
                     .to_string(),
             };
+    let mut broad_route_prior_support_rejected = true;
+    for broad_hint in [
+        "weight_page:model:local/app-cold-store-fixture",
+        "weight_page:codec:nf4-ssd-oracle",
+    ] {
+        broad_route_prior_support_rejected &=
+            AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+                TASK_SIGNATURE,
+                route_card_verifier_stack_with_eidos_prior(),
+                "rollback:raw-installed-snapshot",
+                ProductBuild::Pro,
+                ProStatus::ResearchCandidate,
+                &plan,
+                "rebuild_warm_cache_from_durable_atlas",
+                Some(broad_weight_page_eidos_route_prior(
+                    &eidos_packet,
+                    broad_hint,
+                )?),
+                1_779_000_000_000,
+            )
+            .unwrap_err()
+                == AppColdStoreRouteCardError::UnboundRoutePriorSupport {
+                    support: broad_hint.to_string(),
+                };
+    }
     let unsupported_cache_rebuild_policy_rejected = AppColdStoreRouteCard::from_residency_plan(
         TASK_SIGNATURE,
         route_card_verifier_stack(),
@@ -409,6 +434,13 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "eidos_route_prior_broad_weight_page_hint_rejected",
+        broad_route_prior_support_rejected,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "unsupported_cache_rebuild_policy_rejected",
         unsupported_cache_rebuild_policy_rejected,
     );
@@ -607,6 +639,26 @@ fn unbound_weight_page_eidos_route_prior(
         vec!["source:app-support://Epistemos/Models/coldstore/not-in-plan.epwp".to_string()],
         0.84,
         vec!["Eidos matched closed evidence but proposed an unplanned weight page".to_string()],
+    )?)
+}
+
+fn broad_weight_page_eidos_route_prior(
+    packet: &EidosContextPacket,
+    broad_hint: &str,
+) -> Result<EidosRoutePrior, Box<dyn std::error::Error>> {
+    Ok(EidosRoutePrior::from_packet(
+        packet,
+        TASK_SIGNATURE,
+        vec![EidosChunkId::new("vault://note/app-cold-store-layout")?],
+        EidosCitationNeed::Required,
+        vec!["local_reasoning".to_string(), "cold_store".to_string()],
+        vec!["requires_manifest_only_scope_guard".to_string()],
+        vec![FALSIFIER_ID.to_string()],
+        vec!["adapter:layout_planner".to_string()],
+        vec!["kv:layout_manifest_only".to_string()],
+        vec![broad_hint.to_string()],
+        0.84,
+        vec!["Eidos matched a broad family hint that still needs unit binding".to_string()],
     )?)
 }
 
@@ -847,6 +899,13 @@ mod tests {
                 .artifact
                 .pass_per_axis
                 .get("unsupported_cache_rebuild_policy_rejected"),
+            Some(&true)
+        );
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("eidos_route_prior_broad_weight_page_hint_rejected"),
             Some(&true)
         );
         assert_eq!(

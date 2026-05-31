@@ -489,21 +489,13 @@ fn route_prior_support_matches_unit(support: &str, unit: &AppColdStoreUnit) -> b
     if let Some(source_uri) = support.strip_prefix("source:") {
         return source_uri == unit.source_uri.as_str();
     }
-    if let Some(model_id) = support.strip_prefix("model:") {
-        return model_id == unit.model_id.as_str();
-    }
     if let Some(content_hash_hex) = support.strip_prefix("hash:") {
         return content_hash_hex == unit.content_hash_hex.as_str();
-    }
-    if let Some(codec) = support.strip_prefix("codec:") {
-        return codec == unit.codec.as_str();
     }
 
     support == unit_address
         || support == unit.source_uri.as_str()
-        || support == unit.model_id.as_str()
         || support == unit.content_hash_hex.as_str()
-        || support == unit.codec.as_str()
 }
 
 fn validate_nonempty(field: &'static str, value: &str) -> Result<(), AppColdStoreRouteCardError> {
@@ -1565,6 +1557,45 @@ mod tests {
                 support: "source:file:///models/cold-atlas/not-in-plan.safetensors".to_string()
             }
         );
+    }
+
+    #[test]
+    fn eidos_route_prior_weight_page_hint_must_bind_specific_route_card_unit() {
+        let plan = fit_plan();
+
+        for broad_hint in [
+            "weight_page:model:local/cold-atlas-fixture",
+            "weight_page:codec:nf4-ssd-oracle",
+        ] {
+            let prior = eidos_prior(
+                vec!["F-AppColdStore-Layout".to_string()],
+                vec!["adapter:research_synthesis".to_string()],
+                Vec::new(),
+                vec![broad_hint.to_string()],
+                0.82,
+            )
+            .expect("broad support hints are route-prior valid before card admission");
+
+            let err = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+                "deep_research:neural_importance_atlas",
+                route_prior_verifier_stack(),
+                "rollback:raw-installed-snapshot",
+                ProductBuild::Pro,
+                ProStatus::ResearchCandidate,
+                &plan,
+                "rebuild_warm_cache_from_durable_atlas",
+                Some(prior),
+                99,
+            )
+            .unwrap_err();
+
+            assert_eq!(
+                err,
+                AppColdStoreRouteCardError::UnboundRoutePriorSupport {
+                    support: broad_hint.to_string()
+                }
+            );
+        }
     }
 
     #[test]
