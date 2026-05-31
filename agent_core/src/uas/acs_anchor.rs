@@ -68,6 +68,9 @@ impl AcsAnchor {
     pub fn is_well_formed(&self) -> bool {
         is_valid_anchor_id(&self.anchor_id)
             && self.is_foundational_theorem_anchor()
+            && is_valid_optional_projection_field(self.source_hash.as_deref())
+            && is_valid_optional_projection_field(self.active_packet_id.as_deref())
+            && is_valid_optional_projection_field(self.compatibility_edge.as_deref())
             && self.salience.is_finite()
             && (0.0..=1.0).contains(&self.salience)
     }
@@ -90,6 +93,16 @@ fn is_valid_anchor_id(value: &str) -> bool {
         && !value
             .chars()
             .any(|ch| ch.is_control() || ch.is_whitespace() || matches!(ch, '|' | '@'))
+}
+
+fn is_valid_optional_projection_field(value: Option<&str>) -> bool {
+    value.is_none_or(|field| {
+        !field.is_empty()
+            && field.trim() == field
+            && !field
+                .chars()
+                .any(|ch| ch.is_control() || ch.is_whitespace() || matches!(ch, '|' | '@'))
+    })
 }
 
 #[cfg(test)]
@@ -133,6 +146,32 @@ mod tests {
             assert!(
                 !anchor.is_well_formed(),
                 "malformed anchor_id {anchor_id:?} must not pass the UAS/AcsAnchor read guard"
+            );
+        }
+    }
+
+    #[test]
+    fn malformed_optional_projection_fields_fail_closed() {
+        for (source_hash, active_packet_id, compatibility_edge) in [
+            (Some(""), Some("packet-1"), Some("edge-1")),
+            (Some("blake3:abc\n"), Some("packet-1"), Some("edge-1")),
+            (Some("blake3:abc"), Some("packet|1"), Some("edge-1")),
+            (Some("blake3:abc"), Some("packet-1"), Some("edge@1")),
+        ] {
+            let mut anchor = AcsAnchor::new(
+                "claim-1",
+                "E1",
+                RuntimePlane::Episodic,
+                ResidencyTier::VerifiedFloor,
+                0.7,
+            );
+            anchor.source_hash = source_hash.map(str::to_string);
+            anchor.active_packet_id = active_packet_id.map(str::to_string);
+            anchor.compatibility_edge = compatibility_edge.map(str::to_string);
+
+            assert!(
+                !anchor.is_well_formed(),
+                "malformed optional AcsAnchor provenance fields must fail closed"
             );
         }
     }
