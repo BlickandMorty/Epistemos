@@ -29,6 +29,8 @@ const FIXTURE_ID: &str = "app_cold_store_layout_manifest_only_v1";
 const COMMAND: &str = "Tools/falsifiers/f_app_cold_store_layout.sh";
 const RESULT: &str = "artifacts/falsifiers/app_cold_store_layout/result.json";
 const TASK_SIGNATURE: &str = "deep_research:app_cold_store_layout";
+const UNSUPPORTED_CACHE_REBUILD_POLICY_FIXTURE: &str =
+    "trust_existing_warm_cache_without_durable_rebuild";
 
 fn main() -> std::process::ExitCode {
     let report = match build_report() {
@@ -146,6 +148,20 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         )
         .unwrap_err()
             == AppColdStoreRouteCardError::MissingEidosNeuralRoutePriorVerifier;
+    let unsupported_cache_rebuild_policy_rejected = AppColdStoreRouteCard::from_residency_plan(
+        TASK_SIGNATURE,
+        route_card_verifier_stack(),
+        "rollback:raw-installed-snapshot",
+        ProductBuild::Pro,
+        ProStatus::ResearchCandidate,
+        &plan,
+        UNSUPPORTED_CACHE_REBUILD_POLICY_FIXTURE,
+        1_779_000_000_000,
+    )
+    .unwrap_err()
+        == AppColdStoreRouteCardError::UnsupportedCacheRebuildPolicy {
+            policy: UNSUPPORTED_CACHE_REBUILD_POLICY_FIXTURE.to_string(),
+        };
 
     let mut measurements = BTreeMap::new();
     let mut thresholds = BTreeMap::new();
@@ -313,6 +329,13 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         &mut pass_per_axis,
         "eidos_route_prior_missing_falsifier_rejected",
         missing_eidos_route_prior_falsifier_rejected,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "unsupported_cache_rebuild_policy_rejected",
+        unsupported_cache_rebuild_policy_rejected,
     );
     add_bool_axis(
         &mut measurements,
@@ -686,6 +709,13 @@ mod tests {
                 .artifact
                 .pass_per_axis
                 .get("eidos_route_prior_missing_falsifier_rejected"),
+            Some(&true)
+        );
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("unsupported_cache_rebuild_policy_rejected"),
             Some(&true)
         );
         assert_eq!(

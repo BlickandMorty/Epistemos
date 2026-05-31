@@ -17,6 +17,7 @@ use crate::uas::{
 const APP_COLD_STORE_LAYOUT_FALSIFIER_ID: &str = "F-AppColdStore-Layout";
 const PARAM_ROUTE_CARD_ADMISSION_FALSIFIER_ID: &str = "F-ParamRouteCard-Admission";
 const EIDOS_NEURAL_ROUTE_PRIOR_FALSIFIER_ID: &str = "F-Eidos-NeuralRoute-Prior";
+const REBUILD_WARM_CACHE_FROM_DURABLE_ATLAS: &str = "rebuild_warm_cache_from_durable_atlas";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -131,6 +132,7 @@ impl AppColdStoreRouteCard {
         validate_nonempty("task_signature", &task_signature)?;
         validate_nonempty("rollback_reference", &rollback_reference)?;
         validate_nonempty("cache_rebuild_policy", &cache_rebuild_policy)?;
+        validate_cache_rebuild_policy(&cache_rebuild_policy)?;
         if verifier_stack.is_empty() {
             return Err(AppColdStoreRouteCardError::MissingVerifier);
         }
@@ -432,6 +434,15 @@ fn validate_nonempty(field: &'static str, value: &str) -> Result<(), AppColdStor
     Ok(())
 }
 
+fn validate_cache_rebuild_policy(policy: &str) -> Result<(), AppColdStoreRouteCardError> {
+    if policy != REBUILD_WARM_CACHE_FROM_DURABLE_ATLAS {
+        return Err(AppColdStoreRouteCardError::UnsupportedCacheRebuildPolicy {
+            policy: policy.to_string(),
+        });
+    }
+    Ok(())
+}
+
 fn missing_field_error(field: &'static str) -> AppColdStoreRouteCardError {
     match field {
         "task_signature" => AppColdStoreRouteCardError::MissingTaskSignature,
@@ -450,6 +461,7 @@ pub enum AppColdStoreRouteCardError {
     MissingCacheRebuildPolicy,
     FieldHasSurroundingWhitespace { field: &'static str },
     FieldContainsControlCharacter { field: &'static str },
+    UnsupportedCacheRebuildPolicy { policy: String },
     PlanRejected,
     MissingAppColdStoreLayoutVerifier,
     MissingParamRouteCardAdmissionVerifier,
@@ -473,6 +485,10 @@ impl std::fmt::Display for AppColdStoreRouteCardError {
             Self::MissingVerifier => write!(f, "at least one verifier is required"),
             Self::MissingRollback => write!(f, "rollback_reference is required"),
             Self::MissingCacheRebuildPolicy => write!(f, "cache_rebuild_policy is required"),
+            Self::UnsupportedCacheRebuildPolicy { policy } => write!(
+                f,
+                "AppColdStore route-card cache rebuild policy is unsupported: {policy}"
+            ),
             Self::FieldHasSurroundingWhitespace { field } => {
                 write!(f, "{field} must not contain leading or trailing whitespace")
             }
@@ -811,6 +827,31 @@ mod tests {
             err,
             AppColdStoreRouteCardError::DuplicateVerifier {
                 verifier: "F-AppColdStore-Layout".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn app_cold_store_route_card_rejects_unknown_cache_rebuild_policy() {
+        let plan = fit_plan();
+        let policy = "trust_existing_warm_cache_without_durable_rebuild";
+
+        let err = AppColdStoreRouteCard::from_residency_plan(
+            "deep_research:neural_importance_atlas",
+            verifier_stack(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            policy,
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            AppColdStoreRouteCardError::UnsupportedCacheRebuildPolicy {
+                policy: policy.to_string()
             }
         );
     }
