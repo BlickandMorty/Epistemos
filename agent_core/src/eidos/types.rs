@@ -444,10 +444,12 @@ pub enum EidosCitationNeed {
 /// task/claim hints, likely verifier or substrate families, and confidence.
 /// It does not contain model bytes, active units, admission proof, or runtime
 /// authority. Build through [`EidosRoutePrior::from_packet`] so evidence IDs
-/// remain inside the packet's closed citation universe.
+/// remain inside the packet's closed citation universe and the prior stays
+/// bound to the source Eidos manifest.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct EidosRoutePrior {
     pub task_signature: String,
+    pub manifest_id: EidosIndexManifestId,
     pub evidence_ids: Vec<EidosChunkId>,
     pub citation_need: EidosCitationNeed,
     pub domain_tags: Vec<String>,
@@ -514,6 +516,7 @@ impl EidosRoutePrior {
 
         Ok(Self {
             task_signature,
+            manifest_id: packet.manifest_id.clone(),
             evidence_ids,
             citation_need,
             domain_tags,
@@ -1162,6 +1165,7 @@ mod tests {
         let json = serde_json::to_string(&prior).unwrap();
         let back: EidosRoutePrior = serde_json::from_str(&json).unwrap();
         assert_eq!(back, prior);
+        assert_eq!(back.manifest_id, packet.manifest_id);
         assert_eq!(
             back.evidence_ids,
             vec![chunk_id("chunk-1"), chunk_id("chunk-2")]
