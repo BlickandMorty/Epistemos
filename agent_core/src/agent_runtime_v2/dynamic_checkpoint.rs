@@ -79,6 +79,7 @@ impl DynamicComputeCheckpoint {
         validate_text("trigger", &trigger)?;
         validate_text("verifier_reason", &verifier_reason)?;
         validate_text("run_event_id", &run_event_id)?;
+        validate_run_event_id(&run_event_id)?;
         validate_units("active_units_before", &active_units_before)?;
         validate_units("active_units_after", &active_units_after)?;
         validate_verifier_stack(&verifier_stack)?;
@@ -197,6 +198,20 @@ fn validate_text(field: &'static str, value: &str) -> Result<(), DynamicComputeC
     Ok(())
 }
 
+fn validate_run_event_id(run_event_id: &str) -> Result<(), DynamicComputeCheckpointError> {
+    let Some(ordinal) = run_event_id.strip_prefix("run_event_log:") else {
+        return Err(DynamicComputeCheckpointError::InvalidRunEventId {
+            run_event_id: run_event_id.to_string(),
+        });
+    };
+    if ordinal.is_empty() || ordinal.parse::<u64>().is_err() {
+        return Err(DynamicComputeCheckpointError::InvalidRunEventId {
+            run_event_id: run_event_id.to_string(),
+        });
+    }
+    Ok(())
+}
+
 fn validate_units(
     field: &'static str,
     units: &[UasAddress],
@@ -277,6 +292,9 @@ pub enum DynamicComputeCheckpointError {
         verifier: String,
     },
     MissingDynamicCheckpointFalsifier,
+    InvalidRunEventId {
+        run_event_id: String,
+    },
     ProductBuildStatusMismatch,
 }
 
@@ -303,6 +321,10 @@ impl std::fmt::Display for DynamicComputeCheckpointError {
             Self::MissingDynamicCheckpointFalsifier => write!(
                 f,
                 "dynamic checkpoints must bind F-DynamicCompute-Checkpoint in verifier_stack"
+            ),
+            Self::InvalidRunEventId { run_event_id } => write!(
+                f,
+                "dynamic checkpoints must bind a concrete RunEventLog ordinal as run_event_log:<ordinal>, got {run_event_id}"
             ),
             Self::ProductBuildStatusMismatch => write!(
                 f,
@@ -387,6 +409,38 @@ mod tests {
                 field: "run_event_id"
             }
         );
+    }
+
+    #[test]
+    fn checkpoint_rejects_unbound_run_event_ids() {
+        for run_event_id in [
+            "status-row:42",
+            "run_event_log:",
+            "run_event_log:latest",
+            "run_event_log:42/extra",
+        ] {
+            let err = DynamicComputeCheckpoint::new(
+                DynamicComputeCheckpointKind::VerifierRepair,
+                "citation verifier failed",
+                vec![unit(b"before")],
+                vec![unit(b"after")],
+                "bounded verifier repair must be visible",
+                1_000,
+                run_event_id,
+                verifier_stack(),
+                ProductBuild::Pro,
+                ProStatus::ResearchCandidate,
+                99,
+            )
+            .unwrap_err();
+
+            assert_eq!(
+                err,
+                DynamicComputeCheckpointError::InvalidRunEventId {
+                    run_event_id: run_event_id.to_string()
+                }
+            );
+        }
     }
 
     #[test]
