@@ -254,6 +254,28 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
                     source_uri: source_uri.to_string(),
                 };
     }
+    let mut percent_encoded_internal_source_uri_separator_rejected = true;
+    for source_uri in [
+        "file:///Epistemos%2fModels/coldstore/durable-weight-page.epwp",
+        "app-support://Epistemos%2fModels/coldstore/durable-weight-page.epwp",
+        "app-group://Shared%5ccoldstore/durable-weight-page.epwp",
+    ] {
+        percent_encoded_internal_source_uri_separator_rejected &=
+            AppColdStoreRouteCard::from_residency_plan(
+                TASK_SIGNATURE,
+                route_card_verifier_stack(),
+                "rollback:raw-installed-snapshot",
+                ProductBuild::Pro,
+                ProStatus::ResearchCandidate,
+                &plan_with_cold_source_uri(source_uri)?,
+                "rebuild_warm_cache_from_durable_atlas",
+                1_779_000_000_000,
+            )
+            .unwrap_err()
+                == AppColdStoreRouteCardError::UnsupportedSourceUri {
+                    source_uri: source_uri.to_string(),
+                };
+    }
     let durable_only_plan = ResidencyPlan::evaluate(
         [manifest(
             "durable-only-weight-page",
@@ -513,6 +535,13 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         &mut pass_per_axis,
         "percent_encoded_leading_source_uri_separator_rejected",
         percent_encoded_leading_source_uri_separator_rejected,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "percent_encoded_internal_source_uri_separator_rejected",
+        percent_encoded_internal_source_uri_separator_rejected,
     );
     add_bool_axis(
         &mut measurements,
@@ -1025,6 +1054,13 @@ mod tests {
                 .artifact
                 .pass_per_axis
                 .get("percent_encoded_leading_source_uri_separator_rejected"),
+            Some(&true)
+        );
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("percent_encoded_internal_source_uri_separator_rejected"),
             Some(&true)
         );
         assert_eq!(
