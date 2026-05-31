@@ -28,6 +28,7 @@
 pub mod acs_anchor;
 pub mod address;
 pub mod anchor_registry;
+pub mod app_cold_store;
 pub mod construction_card;
 pub mod copy_counter;
 pub mod five_planes;
@@ -41,6 +42,10 @@ pub mod witness;
 pub use acs_anchor::{AcsAnchor, AcsAnchorPlaneProjection};
 pub use address::{UasAddress, UasAddressParseError};
 pub use anchor_registry::AcsAnchorRegistry;
+pub use app_cold_store::{
+    AppColdStorePlacement, AppColdStoreRouteCard, AppColdStoreRouteCardError,
+    AppColdStoreRouteCardTotals, AppColdStoreUnit,
+};
 pub use construction_card::{
     ConstructionBudget, ConstructionCard, ConstructionCardError, ProStatus, ProductBuild,
 };

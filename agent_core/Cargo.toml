@@ -123,6 +123,10 @@ name = "falsify_residency_plan_dry_run"
 path = "src/bin/falsify_residency_plan_dry_run.rs"
 
 [[bin]]
+name = "falsify_app_cold_store_layout"
+path = "src/bin/falsify_app_cold_store_layout.rs"
+
+[[bin]]
 name = "falsify_provider_reference_manifest_dry_run"
 path = "src/bin/falsify_provider_reference_manifest_dry_run.rs"
 
