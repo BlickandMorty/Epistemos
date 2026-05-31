@@ -28,11 +28,23 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "e97fea07b4924ad31e48cb334e8c1dd426835448",
+  "commit_sha": "291bbcf5100676b46568881907f929e9360b6d1e",
   "fixture_id": "app_cold_store_layout_manifest_only_v1",
-  "timestamp_utc": "2026-05-31T03:57:44Z",
-  "result_digest": "sha256:4df0da031e927981f982e54238776332c69b7db5c276369b3db7844cb7b17a8e",
+  "timestamp_utc": "2026-05-31T04:46:15Z",
+  "result_digest": "sha256:9ed51dc7210b9d951947fd0e14592b0af78537a2211f23b755437ef62384710e",
   "measurements": {
+    "closed_citation_validity_not_applicable": {
+      "value": true,
+      "unit": "bool"
+    },
+    "dry_run_copy_count": {
+      "value": 0,
+      "unit": "copies"
+    },
+    "dry_run_ssd_read_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
     "durable_atlas_bytes": {
       "value": 4096,
       "unit": "bytes"
@@ -53,11 +65,19 @@
       "value": true,
       "unit": "bool"
     },
+    "planned_active_runtime_bytes": {
+      "value": 768,
+      "unit": "bytes"
+    },
     "route_card_constructed": {
       "value": true,
       "unit": "bool"
     },
     "runtime_model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_model_peak_uma_bytes": {
       "value": 0,
       "unit": "bytes"
     },
@@ -68,9 +88,28 @@
     "warm_cache_rebuildable": {
       "value": true,
       "unit": "bool"
+    },
+    "witness_completeness_percent": {
+      "value": 100,
+      "unit": "percent"
     }
   },
   "acceptance_thresholds": {
+    "closed_citation_validity_not_applicable": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "dry_run_copy_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "copies"
+    },
+    "dry_run_ssd_read_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
     "durable_atlas_bytes": {
       "operator": ">=",
       "value": 1,
@@ -96,12 +135,22 @@
       "value": true,
       "unit": "bool"
     },
+    "planned_active_runtime_bytes": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes"
+    },
     "route_card_constructed": {
       "operator": "==",
       "value": true,
       "unit": "bool"
     },
     "runtime_model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_model_peak_uma_bytes": {
       "operator": "==",
       "value": 0,
       "unit": "bytes"
@@ -115,18 +164,29 @@
       "operator": "==",
       "value": true,
       "unit": "bool"
+    },
+    "witness_completeness_percent": {
+      "operator": "==",
+      "value": 100,
+      "unit": "percent"
     }
   },
   "pass_per_axis": {
+    "closed_citation_validity_not_applicable": true,
+    "dry_run_copy_count": true,
+    "dry_run_ssd_read_bytes": true,
     "durable_atlas_bytes": true,
     "durable_warm_hot_tiers_present": true,
     "failed_residency_plan_rejected": true,
     "hot_runway_bytes": true,
     "mas_research_status_rejected": true,
+    "planned_active_runtime_bytes": true,
     "route_card_constructed": true,
     "runtime_model_bytes_loaded": true,
+    "runtime_model_peak_uma_bytes": true,
     "warm_cache_bytes": true,
-    "warm_cache_rebuildable": true
+    "warm_cache_rebuildable": true,
+    "witness_completeness_percent": true
   },
   "overall_pass": true,
   "fallback_tier": "Primary",

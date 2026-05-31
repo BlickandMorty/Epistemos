@@ -190,6 +190,58 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         1,
         "bytes",
     );
+    add_count_min_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "planned_active_runtime_bytes",
+        card.totals.active_runtime_bytes,
+        1,
+        "bytes",
+    );
+    add_count_eq_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "dry_run_copy_count",
+        0,
+        0,
+        "copies",
+    );
+    add_count_eq_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "runtime_model_peak_uma_bytes",
+        0,
+        0,
+        "bytes",
+    );
+    add_count_eq_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "dry_run_ssd_read_bytes",
+        0,
+        0,
+        "bytes",
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "closed_citation_validity_not_applicable",
+        true,
+    );
+    add_count_eq_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "witness_completeness_percent",
+        100,
+        100,
+        "percent",
+    );
 
     Ok(AppColdStoreLayoutReport {
         durable_bytes: card.totals.durable_atlas_bytes,
@@ -394,5 +446,50 @@ mod tests {
         assert!(report.durable_bytes > 0);
         assert!(report.warm_bytes > 0);
         assert!(report.hot_bytes > 0);
+        assert_eq!(
+            report
+                .artifact
+                .measurements
+                .get("planned_active_runtime_bytes")
+                .map(|measurement| &measurement.value),
+            Some(&serde_json::Value::Number(serde_json::Number::from(
+                report.warm_bytes + report.hot_bytes
+            )))
+        );
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("dry_run_copy_count"),
+            Some(&true)
+        );
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("runtime_model_peak_uma_bytes"),
+            Some(&true)
+        );
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("dry_run_ssd_read_bytes"),
+            Some(&true)
+        );
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("closed_citation_validity_not_applicable"),
+            Some(&true)
+        );
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("witness_completeness_percent"),
+            Some(&true)
+        );
     }
 }
