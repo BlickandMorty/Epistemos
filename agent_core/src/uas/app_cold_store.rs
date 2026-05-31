@@ -413,6 +413,9 @@ fn validate_eidos_route_prior(
         .map_err(|error| AppColdStoreRouteCardError::InvalidRoutePriorShape {
             reason: error.to_string(),
         })?;
+    if prior.confidence <= 0.0 {
+        return Err(AppColdStoreRouteCardError::RoutePriorConfidenceTooLow);
+    }
     if prior.task_signature != task_signature {
         return Err(AppColdStoreRouteCardError::RoutePriorTaskMismatch);
     }
@@ -489,6 +492,7 @@ pub enum AppColdStoreRouteCardError {
     DuplicateVerifier { verifier: String },
     RoutePriorTaskMismatch,
     InvalidRoutePriorShape { reason: String },
+    RoutePriorConfidenceTooLow,
     MissingRoutePriorEvidence,
     MissingRoutePriorSupport,
     UnboundRoutePriorVerifier { verifier: String },
@@ -554,6 +558,10 @@ impl std::fmt::Display for AppColdStoreRouteCardError {
             Self::InvalidRoutePriorShape { reason } => write!(
                 f,
                 "EidosRoutePrior failed route-card shape validation: {reason}"
+            ),
+            Self::RoutePriorConfidenceTooLow => write!(
+                f,
+                "EidosRoutePrior confidence must be positive for AppColdStore route-card admission"
             ),
             Self::MissingRoutePriorEvidence => write!(
                 f,
@@ -1102,6 +1110,34 @@ mod tests {
             err,
             AppColdStoreRouteCardError::MissingEidosNeuralRoutePriorVerifier
         );
+    }
+
+    #[test]
+    fn eidos_route_prior_with_zero_confidence_cannot_admit_route_card() {
+        let plan = fit_plan();
+        let prior = eidos_prior(
+            vec!["F-AppColdStore-Layout".to_string()],
+            vec!["adapter:research_synthesis".to_string()],
+            Vec::new(),
+            vec!["weight_page:controller".to_string()],
+            0.0,
+        )
+        .expect("zero is shape-valid before route-card admission");
+
+        let err = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+            "deep_research:neural_importance_atlas",
+            route_prior_verifier_stack(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            Some(prior),
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(err, AppColdStoreRouteCardError::RoutePriorConfidenceTooLow);
     }
 
     #[test]
