@@ -280,6 +280,31 @@ Epistemos
      -> RunEventLog/MutationEnvelope/AnswerPacket
 ```
 
+## 0H. 2026-05-31 Research / AI Intake Discipline
+
+**Builder-facing source:** `docs/audits/AGENT_MANAGEABLE_ARCHITECTURE_CANON_2026_05_30.md`.
+
+**Correction.** Generated syntheses, donor docs, papers, forum claims, and
+research metaphors are useful intake, but they are not architecture authority by
+themselves. Agents must extract implementation motifs into existing organs:
+
+| Research motif | Route through |
+|---|---|
+| semantic search, source grounding, reranking, citations | Eidos / VaultRecall / Halo / Shadow |
+| retry logic, tool persistence, self-correction | System G / RuntimeRouter / RunEventLog / AnswerPacket |
+| adapters, KV pages, experts, rank-one components, model internals | Parameter Connectome / ColdStore with UAS, WBO, verifier, rollback |
+| EML or primitive math | Primitive IR chart work with Lean/schema/falsifier witnesses |
+| unverifiable terms or broad metaphors | Pro Research or Pro Vault-Preserved until sourced and falsified |
+
+**EML lock.** EML is one elementary-function/proof chart inside the Primitive
+IR stack. It is not the substrate identity primitive, not the retrieval engine,
+not a runtime router, and not a product proof of physics or intelligence.
+
+**Agent rule.** Before turning research into code, declare the organ, motion,
+ProductBuild, ProStatus/ResidencyStatus, witness, source/falsifier, and
+rollback. If the source was not verified from local code/logs or a primary
+source, mark it as intake/unverified.
+
 ---
 
 ## 1. Truth-Router and Authority Order

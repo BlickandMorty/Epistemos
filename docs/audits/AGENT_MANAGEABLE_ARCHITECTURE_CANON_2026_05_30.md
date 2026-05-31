@@ -75,6 +75,38 @@ Lean/schema/falsifier witnesses. Physics language, grand-unification language,
 and model-internals ambition remain VaultPreserved or Pro Research lineage
 until a named proof, falsifier, benchmark, or implementation promotes them.
 
+## Research Intake And Tech Extraction
+
+When a user, model, donor branch, or external document introduces a promising
+AI/research idea, agents must extract the buildable mechanism without letting
+the prose mint a new top-level architecture.
+
+| Intake pattern | Extract as | Do not do |
+|---|---|---|
+| Search, semantic recall, reranking, citations, source grounding | Eidos / VaultRecall / Halo / Shadow work with structured hits, `why_matched`, citations, backend status, and falsifiers. | Do not create a parallel `AgentSearch`, `AgentEvidence`, or file-first vault search authority. |
+| Retry logic, self-correction, tool persistence, agent loops | System G / RuntimeRouter / RunEventLog / AnswerPacket behavior with visible retries, exits, and policy gates. | Do not revive Hermes subprocess branding or hidden agent memory. |
+| Model-internal mechanisms, adapters, rank-one components, experts, KV pages | Parameter Connectome and ColdStore candidates with UAS addresses, residency plans, WBO, dense/reference checks, and rollback. | Do not claim product model surgery or live 70B/128K behavior from prose. |
+| Primitive math, EML, Geometry/Scan/Info/Operator/Tropical ideas | Primitive IR chart work, Lean/schema/falsifier witnesses, or Research Construction candidates. | Do not call EML the whole substrate, the whole AI stack, or a physics/product proof. |
+| Public papers, forum claims, generated syntheses, or pasted research | Source-verified motif, Pro Research candidate, or Pro Vault-Preserved note. | Do not promote paper names, unverifiable terms, or generated vocabulary into shipped features. |
+
+Minimum extraction checklist:
+
+1. Name the existing organ that owns the idea.
+2. Classify `ProductBuild` and `ProStatus/ResidencyStatus`.
+3. Separate implementation motif from unverifiable explanatory language.
+4. Add or cite a witness path: test, falsifier, source, benchmark, RunEventLog,
+   AnswerPacket, or rollback.
+5. Keep source claims honest. If a paper/repo/API was not verified locally or
+   from a primary source in this session, mark it as intake/unverified rather
+   than fact.
+
+EML-specific guard: EML is an elementary-function/proof chart in the Primitive
+IR stack. It can support expression lowering, certificates, and numerical
+witnesses. It is not UAS, not ColdStore, not Eidos, not RuntimeRouter, and not
+a complete theory of intelligence. Any "one primitive" research synthesis must
+be translated into a Pro Research / Pro Vault-Preserved candidate until a local
+source, falsifier, and caller chain prove otherwise.
+
 ## Nested Architecture Tree
 
 Use this tree when a term feels like it might be another top-level system. Most

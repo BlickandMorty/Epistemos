@@ -242,7 +242,7 @@ EML is critical but not the whole ontology.
 
 Correct statement:
 
-> **EML is the formal elementary-function/proof chart inside the substrate. UAS is the address space. PCF/connectome is the neural-component atlas. WBO is the error ledger. ACS is the admission gate. ShadowProjection is the lift/project contract.**
+> **EML is the formal elementary-function/proof chart inside the substrate. UAS is the address space. PCF/connectome is the neural-component atlas. WBO is the error ledger. SCOPE-Rex/SovereignGate is the admission layer. ColdStore/ResidencyGovernor owns cold residency. AcsAnchor owns anchored coordinate/provenance. ShadowProjection is the lift/project contract.**
 
 EML can certify:
 

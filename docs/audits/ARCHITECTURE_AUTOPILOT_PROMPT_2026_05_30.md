@@ -44,6 +44,13 @@ Hard safety rules:
   product claims. Preserve WRV: Wired, Reachable, Visible, Verified.
 - If a donor would remove stricter current truth-floor fields, skip it and
   record why.
+- When mining pasted research, donor docs, papers, or generated syntheses,
+  extract only the buildable mechanism. Map it to an existing organ
+  (Eidos/VaultRecall, System G, RuntimeRouter, ColdStore, Primitive IR,
+  SCOPE-Rex/SovereignGate, AnswerPacket, etc.) and do not mint a new top-level
+  architecture name from prose.
+- EML is an elementary-function/proof chart inside the Primitive IR stack, not
+  UAS, ColdStore, Eidos, RuntimeRouter, or a general product/intelligence proof.
 
 Preferred unattended work order:
 
