@@ -25,7 +25,7 @@ It does **not** say:
 - every object is literally an EML tree
 - the Erdős result proves Epistemos is correct
 - Parameter Golf proves ternary or Sherry/Leech VQ is production-safe on the user's M2 Pro
-- research-tier ideas can skip WRV, falsifiers, ACS admission, or App Store lane rules
+- research-tier ideas can skip WRV, falsifiers, SCOPE-Rex/SovereignGate admission, or App Store lane rules
 
 It does say:
 
@@ -67,9 +67,9 @@ Every operation on that object is exactly one of three motions:
 |---|---|---|---|---|
 | **Lift / Ingest** | surface → substrate | Put raw material into the unified substrate. | note bytes → note object; image pixels → tile/vector object; user prompt → `ProblemCard`; model output → `AnswerPacket`; local trace → `RunEventLog` | UAS address + source hash + plane |
 | **Project / Compress / Recall** | substrate → surface | Make the object cheaper, smaller, or visible in a specific chart. | vault recall; Eidos citation; graph neighborhood; MLX context pack; Metal buffer; EML term; proof badge; UI row | `ShadowProjection` + WBO budget + citation/proof |
-| **Mutate / Promote** | substrate → substrate | Change durable state or promote a candidate into stronger authority. | adapter update; ACS-approved tool action; kernel promotion; falsifier PASS; Lean certificate; nightly research result | `MutationEnvelope` + ACS verdict + rollback |
+| **Mutate / Promote** | substrate → substrate | Change durable state or promote a candidate into stronger authority. | adapter update; SCOPE-Rex/SovereignGate-approved tool action; kernel promotion; falsifier PASS; Lean certificate; nightly research result | `MutationEnvelope` + SCOPE-Rex/SovereignGate verdict + rollback |
 
-This is the simplest language that preserves the original DNA. It keeps UAS, ACS, EML, WBO, Active Assembly, KV-Direct, Lean, AnswerPacket, and Research Construction, but stops treating them as separate moving parts.
+This is the simplest language that preserves the original DNA. It keeps UAS, AcsAnchor, ColdStore, EML, WBO, ActiveAssembly, KV-Direct, Lean, AnswerPacket, and Research Construction, but stops treating them as separate moving parts.
 
 ## 1A. Addressable Neural Substrate target
 
@@ -84,7 +84,7 @@ Builder translation:
 - **State plane**: SSM / hybrid-SSM semantic router decides whether normal decode, attention, retrieval, tools, adapter, connectome lookup, or dense fallback is needed.
 - **Assembly plane**: Gate3 / PacketRouter1bit / connectome anchors select the active neural assembly.
 - **Episodic plane**: vault, graph, KV pages, theorem witnesses, tool traces, and claim ledgers provide exact support.
-- **Controller plane**: ACS admits the route, tool calls, mutation, kernel promotion, and fallback.
+- **Controller plane**: SCOPE-Rex/SovereignGate admits the route, tool calls, mutation, kernel promotion, and fallback.
 - **Verification plane**: WBO, AnswerPacket, ClaimKind, RunEventLog, falsifiers, and Lean/EML proofs check drift.
 
 This is canon as the target architecture and vocabulary. It is not a shipped capability until `F-Sparse-Runtime-Split`, `F-KV-Direct-Gate`, `F-UAS-CopyCount`, `F-ActiveAssembly-Minimal`, `F-ULP-Oracle`, and `F-70B-Local-Cocktail` pass.
@@ -97,7 +97,7 @@ This is canon as the target architecture and vocabulary. It is not a shipped cap
 | Goal | maximize unit-distance pairs | minimize bits-per-byte loss | maximize useful cognition per byte, per token, per witness |
 | Winning move | import algebraic number theory into geometry | search architectures, recurrence, quantization, tokenizers, TTT | choose the best coordinate chart and route |
 | Local primitive | `ShadowProjection<H,L>` | active/compressed model component | UAS object with projection + WBO |
-| Human role | verify and refine the construction | reproduce, compare, and rank submissions | ACS + falsifier + Lean / tests promote only checked wins |
+| Human role | verify and refine the construction | reproduce, compare, and rank submissions | SCOPE-Rex/SovereignGate + falsifier + Lean / tests promote only checked wins |
 
 The no-compromise claim is not "Erdős proves the app." The claim is:
 
@@ -206,7 +206,7 @@ Append these to `docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md` in the next prompt
 | B — VaultRecall + AnswerPacket | Surface lift coordinate, not just source text; RRF becomes one projection operator. |
 | C — System G | Add `conjecture` MissionPacket only after real MissionPacket path is stable. Include `construction_space_radius`. |
 | D — WRV panel | Add Construction Engine activity, Active Assembly hit ratio, WBO consumed, projection status. |
-| E — ACS gate | Verdicts include `lift_allowed`, `lift_denied`, `lift_quarantined`. |
+| E — SCOPE-Rex/SovereignGate gate | Verdicts include `lift_allowed`, `lift_denied`, `lift_quarantined`. |
 | F — falsifiers | Add candidate `F-Erdos-Lift-Optimality`; run counterexample loop between passes. |
 | G — T14 UAS no-orphan | Canonical home for `ShadowProjection<H,L>` and source-coordinate fields. |
 | **H — Research Construction Engine** | New worktree: `ProblemCard → ConstructionGraph → verifier → AnswerPacket → promotion`. |

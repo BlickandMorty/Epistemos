@@ -5,6 +5,14 @@
 **Living-doc rules:**
 - Update this file in place — never branch a parallel "v2." There is one living index; the old version is `git log`.
 - Update the **Current State** block (§6) on every wave close.
+- Updated **2026-05-31** · Namespace checkpoint: `ACS` is no longer a
+  shorthand for Active Cold Storage. Use `ColdStore` / `Cold Residency Layer`
+  for dormant SSD/mmap/KV/weight/note residency; keep `AcsAnchor` for the
+  existing anchored coordinate/provenance object; call admission/verdict
+  behavior `SCOPE-Rex Admission`, `SovereignGate`, or `AdmissionGate`; and
+  translate Helios as lineage, not as a product-spine step. Current authority:
+  `docs/audits/ACS_NAMESPACE_RECONCILIATION_2026_05_30.md` and
+  `docs/audits/AGENT_MANAGEABLE_ARCHITECTURE_CANON_2026_05_30.md`.
 - Updated **2026-05-27** · Wave 4 checkpoint: PRs `#121`-`#127` are on
   `main`, including typed UAS retrieval/claims, PageGather escalation traces,
   Cognitive DAG visualizer, Tri-Fusion typed note mutations, and the System G
@@ -18,7 +26,7 @@
   honest 256 MB Metal failure report plus locality, scheduler-side
   block-sorted, dense-restore, and packetized scheduled mitigation witnesses,
   not a false green. Capability Ceiling model gating was hardened on
-  2026-05-27: power-user mode now preserves the 70B / ACS / UAS research
+  2026-05-27: power-user mode now preserves the 70B / ColdStore / UAS research
   posture but does not lower the dense 36B MLX memory gate before
   `F-70B-Local-Cocktail` or an equivalent SSD/RAM composition artifact passes.
   See `docs/audits/CAPABILITY_CEILING_MODEL_GATE_2026_05_27.md`.
@@ -35,7 +43,7 @@
   next bottleneck `repair_qwen3_8b_128k_gguf_metal_stall`.
   `F-UAS-CopyCount` and `F-ACS-AnchorLookup` are now schema-normalized primary
   witnesses. `F-UAS-ACS-MmapResidency` is now a primary witness for a 16 MiB
-  file-backed mmap KV-page slice with UAS address round-trip, ACS projection
+  file-backed mmap KV-page slice with UAS address round-trip, AcsAnchor projection
   lookup, residency lease round-trip, checksum proof, invalid-offset rejection,
   and zero tracked hot-path copies; it is not a live MLX, KV-Direct, or 70B
   proof. `F-PageGather-Packetized-Caller` is a fallback witness proving Vault
@@ -71,7 +79,7 @@
   `unmapped_architecture_gap_count=0`; the human mirror is
   `docs/audits/ARCHITECTURE_NO_GAP_BUILD_ORDER_2026_05_28.md`. Read
   `docs/audits/CAPABILITY_CEILING_EVALUATION_KERNEL_2026_05_28.md` before any
-  70B / ACS / UAS runtime loop.
+  70B / ColdStore / UAS runtime loop.
 
 ---
 
@@ -94,7 +102,7 @@ Every operation is exactly one of **three motions**:
 |---|---|---|---|
 | **Lift / Ingest** | surface → substrate | put raw material in (note bytes, pixels, prompts, model output, traces) | UAS + source hash + plane |
 | **Project / Compress / Recall** | substrate → surface | make object cheaper, smaller, or visible (vault recall, citation, UI row) | ShadowProjection + WBO + citation/proof |
-| **Mutate / Promote** | substrate → substrate | change durable state or promote candidate to authority | MutationEnvelope + ACS verdict + rollback |
+| **Mutate / Promote** | substrate → substrate | change durable state or promote candidate to authority | MutationEnvelope + SCOPE-Rex/SovereignGate verdict + rollback |
 
 There is no fourth motion. "Activate a model slice" is a Lift at finer granularity (see §3).
 
@@ -142,16 +150,16 @@ Endgame: substrate addresses **cognitive circuits**, not whole models. Each rele
 
 ### Wired and on main
 - 40+ pre-2026-05-23 PRs · 18 from the 2026-05-23 sanitization session · 5 from the 2026-05-24 doctrine session · **14 Phase-2 merge-wave PRs (#66-#79, including #73 index refresh and the direct #76 hotfix `77c7efe9ea`)** · **Wave 3/4 substrate PRs #121-#127**.
-- Substrate carcass: ~70% baseline per chronicle audit, advanced by real Eidos bridge, System G seam, ACS production gate, T14 UAS bridge, Verified Floor chip gate, Runtime Router, Hyperdynamic Loop, B-prime chat provenance, Round-2 falsifier artifacts, typed UAS retrieval/claims, PageGather escalation traces, Cognitive DAG visualizer, Tri-Fusion typed note mutations, focused test-warning cleanup, W-49/W-53 hardener closeout, Agent Capability Truth closeout, and the compact AnswerPacket provenance/residency detail path. **Post-Wave-4 LEGENDARY estimate: ~42/53 strictly wired, ~49/53 strict+meaningful partial, ~96% substrate floor.** Full recount: `docs/audits/LEGENDARY_POST_WAVE4_ROLLUP_2026_05_27.md`.
+- Substrate carcass: ~70% baseline per chronicle audit, advanced by real Eidos bridge, System G seam, SCOPE-Rex/SovereignGate production gate, T14 UAS bridge, Verified Floor chip gate, Runtime Router, Hyperdynamic Loop, B-prime chat provenance, Round-2 falsifier artifacts, typed UAS retrieval/claims, PageGather escalation traces, Cognitive DAG visualizer, Tri-Fusion typed note mutations, focused test-warning cleanup, W-49/W-53 hardener closeout, Agent Capability Truth closeout, and the compact AnswerPacket provenance/residency detail path. **Post-Wave-4 LEGENDARY estimate: ~42/53 strictly wired, ~49/53 strict+meaningful partial, ~96% substrate floor.** Full recount: `docs/audits/LEGENDARY_POST_WAVE4_ROLLUP_2026_05_27.md`.
 - 13+ stash recovery tags pushed to origin (`refs/tags/recovery/stash-N-*`) plus Wave-2 recovery tags for PR #74, PR #79, and the B-prime uncommitted follow-up stash.
-- W-rows wired: **about 42/53 strict, about 49/53 strict+partial** after Wave 4 plus W-49/W-53, Agent Capability Truth, and Provenance / Residency Detail closeouts. Known advances: Eidos real bridge/citation gate (#66), System G real seam (#67), falsifier harnesses (#68/#74), Substrate Health/docs/unified panel work (#69/#77), VaultRecall visibility salvage (#70/#79), T14 No-Orphan bridge (#71), ACS production gate (#72), Verified Floor truth gate (#78), Hyperdynamic Schema Loop (#75), Runtime Router (#76), typed UAS retrieval and ClaimLedger addresses (#121), PageGather vault escalation trace (#122), Cognitive DAG visualizer (#123), Tri-Fusion typed note mutations (#124), test-isolation/warning cleanup (#125/#127), W-49/W-53 source guards (`docs/audits/POST_WAVE4_W49_W53_HARDENER_CLOSEOUT_2026_05_27.md`), Agent Capability Truth source guards (`docs/audits/POST_WAVE4_AGENT_CAPABILITY_TRUTH_CLOSEOUT_2026_05_27.md`), and AnswerPacket substrate detail guards (`docs/audits/POST_WAVE4_PROVENANCE_RESIDENCY_DETAIL_2026_05_27.md`).
+- W-rows wired: **about 42/53 strict, about 49/53 strict+partial** after Wave 4 plus W-49/W-53, Agent Capability Truth, and Provenance / Residency Detail closeouts. Known advances: Eidos real bridge/citation gate (#66), System G real seam (#67), falsifier harnesses (#68/#74), Substrate Health/docs/unified panel work (#69/#77), VaultRecall visibility salvage (#70/#79), T14 No-Orphan bridge (#71), SCOPE-Rex/SovereignGate production gate (#72; legacy module name `acs_admission`), Verified Floor truth gate (#78), Hyperdynamic Schema Loop (#75), Runtime Router (#76), typed UAS retrieval and ClaimLedger addresses (#121), PageGather vault escalation trace (#122), Cognitive DAG visualizer (#123), Tri-Fusion typed note mutations (#124), test-isolation/warning cleanup (#125/#127), W-49/W-53 source guards (`docs/audits/POST_WAVE4_W49_W53_HARDENER_CLOSEOUT_2026_05_27.md`), Agent Capability Truth source guards (`docs/audits/POST_WAVE4_AGENT_CAPABILITY_TRUTH_CLOSEOUT_2026_05_27.md`), and AnswerPacket substrate detail guards (`docs/audits/POST_WAVE4_PROVENANCE_RESIDENCY_DETAIL_2026_05_27.md`).
 - Falsifier artifacts on main: **10 normalized witness artifact files** plus
   PageGather Metal side reports (`metal_failure_result.json` and
   `locality_probe_result.json`).
   - Schema-normalized primary witnesses: `F-VaultRecall-50`, `F-ULP-Oracle`, `F-Eidos-Bridge-RoundTrip`, `F-ACS-Anchor-Addressing` (full N=1000 four-stage harness), `F-HyperdynamicLoop-Bounded`.
   - Schema-normalized fallback/CPU witnesses: `F-PageGather-M2Pro`, `F-UAS-ZeroCopy-Spine` — PageGather's Metal/Swift hot-path dense throughput gate is still pending. `F-ControllerKernelPack` has advanced from preflight to a full Metal primary artifact. `F-PageGather-M2Pro` has a 2026-05-27 Metal preflight dispatch/equivalence guard, a 256 MB Metal failure report proving the current dense shader is correct but too slow, a locality probe, a Rust/Swift trace contract for the block-sorted schedule, a Metal dense destination-position contract, and a new packetized scheduled witness showing `(logical_position, value)` packet output at `0.729x` STREAM for 256 MB and `0.752x` STREAM for 512 MB with `0` sampled violations; dense restore remains too slow (`0.092x` / `0.058x` STREAM) and is not green. `F-ULP-Oracle` has also advanced from preflight to a full Metal primary artifact.
   - Former legacy-shape measured PASS artifacts now schema-normalized primary witnesses: `F-UAS-CopyCount`, `F-ACS-AnchorLookup`.
-  - New file-backed residency primary witness: `F-UAS-ACS-MmapResidency` proves a deterministic 16 MiB mmap-backed KV-page slice can be addressed by UAS, leased through `ResidencyLease`, and recovered through ACS projection lookup with zero tracked hot-path copies. It does not green-light live MLX generation, residual-patched KV spill, or 70B local inference.
+  - New file-backed residency primary witness: `F-UAS-ACS-MmapResidency` proves a deterministic 16 MiB mmap-backed KV-page slice can be addressed by UAS, leased through `ResidencyLease`, and recovered through AcsAnchor projection lookup with zero tracked hot-path copies. It does not green-light live MLX generation, residual-patched KV spill, or 70B local inference.
   - New caller-path fallback witness: `F-PageGather-Packetized-Caller` proves `VaultStore::hybrid_search_with_trace` consumes packetized retained-score PageGather output and defers dense restore; dense `F-PageGather-M2Pro` remains red.
   - New candidate/fallback route: `F-Qwen3-8B-128K-GGUF-Route` tracks the separate `unsloth/Qwen3-8B-128K-GGUF` lane as a schema-valid failure report; it can become a fallback witness only after local GGUF file, 128K metadata, runner, paired logits, and live metrics exist, and it never flips the canonical MLX KV gate.
   - New runtime witness: `F-ActiveAssembly-Minimal` is a schema-normalized primary synthetic packet-graph artifact (`N=1024`, `Q=100`) with `0` output-bound violations, `0.0021` cost ratio, `0.0322` firing ratio, and `117.709 us` p99 wall time; live model packet routing remains separately unmeasured.
@@ -195,14 +203,14 @@ for the exact current commit.
 - `Tools/falsifiers/f_kv_direct_gate.sh` now emits and validates `artifacts/falsifiers/kv_direct_gate/result.json` as a schema-valid red harness contract: Tier-1 Rust direct/reference QK equality passes over 1,000 traces, the prompt-suite manifest passes shape checks, and the gate now accepts real model/logit/metrics/spill inputs through explicit env vars. It also guards model identity separately from context: current identity is canonical (`Qwen/Qwen3-8B-MLX-4bit`), but model-context support is red at `40960 < 128000`, so live Qwen3-8B / 128K / SSD-spill axes remain red until both a canonical 128K-capable model/config and the measurement artifacts exist locally.
 - The KV spill trace parser now rejects noncanonical route labels. Prompt-cache reload remains useful plumbing evidence, but cannot flip `F-KV-Direct-Gate` even with low D_KL unless the trace proves the residual-patched mmap/NF4 SSD-spill oracle.
 - `Tools/falsifiers/f_sparse_runtime_split.sh` now emits and validates `artifacts/falsifiers/sparse_runtime_split/result.json` as a schema-valid primary synthetic sparse/runtime witness: `0.0` average KL over 1000 prompts, `0.0176` active assembly ratio, `0.0067` cost ratio, and EML/Geometry/Scan/Operator chart labels. This is substrate evidence, not a live 70B sparse runtime.
-- `Tools/falsifiers/f_70b_local_cocktail_lite.sh` now emits and validates `artifacts/falsifiers/70b_local_cocktail_lite/result.json` as a schema-valid red preflight. Expected exit is non-zero while sentinel quality/latency axes fail; the artifact names the current 70B bottleneck instead of allowing dense MLX to impersonate the ACS/UAS cocktail.
+- `Tools/falsifiers/f_70b_local_cocktail_lite.sh` now emits and validates `artifacts/falsifiers/70b_local_cocktail_lite/result.json` as a schema-valid red preflight. Expected exit is non-zero while sentinel quality/latency axes fail; the artifact names the current 70B bottleneck instead of allowing dense MLX to impersonate the ColdStore/UAS cocktail.
 - `Tools/falsifiers/f_agent_local_model_runtime_bridge.sh` now emits and validates `artifacts/falsifiers/agent_local_model_runtime_bridge/result.json` as a schema-valid primary witness for the guarded local-model bridge slice. It proves the local catalog/runtime surfaces exist, the Rust LocalAgent adapter can produce a typed local MLX dispatch plan, Rust System G emits a local-model handoff for provider-aware LocalMlx runs, Swift consumes that handoff through the registered local client, and the retained live prompt-suite artifact records local-model AnswerPacket provenance. Its current bottleneck is `ready_for_capability_ceiling_recheck`; 128K KV and 70B/UAS routes remain separately gated.
 - `xcodebuild -quiet -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/EpistemosTriFusionTypedMutationGate build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""` passed for the Wave-4 checkpoint; rerun a fresh build after this artifact slice before tagging.
 - Focused Metal witness test passed after the ControllerKernelPack artifact slice: `./scripts/xcodebuild_epistemos.sh ... test -only-testing:EpistemosTests/MetalWitnessGatesTests` ran 3 Swift Testing tests successfully.
 - Focused graph/editor guard passed after the lost-work restoration: `GraphPerformanceTests`, `GraphPhysicsSettingsAuditTests`, and `HTMLWorkspaceSourceGuardTests` all passed.
 - Latest pushed checkpoint before this artifact slice: `checkpoint/post-wave4-metal-witness-preflight-2026-05-27`.
 
-**Capability Ceiling note:** Dense MLX and ACS/UAS are separate routes. Dense
+**Capability Ceiling note:** Dense MLX and ColdStore/UAS are separate routes. Dense
 36B remains gated at 32 GB + explicit opt-in. The desired 16 GB / 70B-class
 path is not deleted; it is gated by `F-70B-Local-Cocktail`,
 `F-KV-Direct-Gate`, `F-UAS-CopyCount`, PageGather caller-path packet
@@ -230,9 +238,9 @@ Full prompts: `docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md`. **Wave 1 = foundati
 | **B** | done (partial scope) | Vault Recall trace + chat citation files | #70 salvaged badges/cards/blocker docs; UI integration in B′ | 2 |
 | **C** | done | System G full path | merged in #67; test-isolation fix in #125 | 3 |
 | **D** | done (partial scope) | Substrate Health Panel unification | #69/#70/#71/#72 advanced rows; row expansion in D′ | 2 |
-| **E** | done | ACS Admission production gate | merged in #72; ACS anchor-addressing D-27 full harness completed by `docs/audits/ACS_ANCHOR_HARNESS_FULL_2026_05_27.md` | 3 |
+| **E** | done | SCOPE-Rex/SovereignGate admission production gate | merged in #72; ACS anchor-addressing D-27 full harness completed by `docs/audits/ACS_ANCHOR_HARNESS_FULL_2026_05_27.md`; legacy module name remains `acs_admission` | 3 |
 | **F** | done | ≥ 5 falsifiers PASS on M2 Pro | merged in #68; 7 artifacts now on main after #71; round 2 in F′ | 4 |
-| **UAS-Typed** | done | Typed UAS retrieval + ClaimLedger/ACS anchor address fields | merged in #121 | 4 |
+| **UAS-Typed** | done | Typed UAS retrieval + ClaimLedger/AcsAnchor address fields | merged in #121 | 4 |
 | **PageGather** | done | Vault escalation trace + no LIMIT-first-note fallback | merged in #122 | 4 |
 | **Cognitive DAG** | done | Live Graph panel for NodeKind/EdgeKind counts without render-loop work | merged in #123 | 4 |
 | **Tri-Fusion** | done | Model-authored note edits as typed reversible `MutationEnvelope` operations | merged in #124 | 4 |
