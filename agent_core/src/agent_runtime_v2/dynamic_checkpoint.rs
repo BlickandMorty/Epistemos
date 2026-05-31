@@ -91,7 +91,7 @@ impl DynamicComputeCheckpoint {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    fn new(
         checkpoint_kind: DynamicComputeCheckpointKind,
         trigger: impl Into<String>,
         active_units_before: Vec<UasAddress>,
