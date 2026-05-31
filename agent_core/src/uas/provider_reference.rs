@@ -88,6 +88,9 @@ impl ProviderReferenceManifest {
         validate_file_digest(base_dir, &self.artifact_ref, &self.artifact_sha256).map_err(
             |error| match error {
                 ReplayFileError::Missing => ProviderReferenceManifestError::ArtifactFileMissing,
+                ReplayFileError::NotRegular => {
+                    ProviderReferenceManifestError::ArtifactFileNotRegular
+                }
                 ReplayFileError::DigestMismatch => {
                     ProviderReferenceManifestError::ArtifactDigestMismatch
                 }
@@ -100,6 +103,9 @@ impl ProviderReferenceManifest {
         )
         .map_err(|error| match error {
             ReplayFileError::Missing => ProviderReferenceManifestError::PromptSuiteFileMissing,
+            ReplayFileError::NotRegular => {
+                ProviderReferenceManifestError::PromptSuiteFileNotRegular
+            }
             ReplayFileError::DigestMismatch => {
                 ProviderReferenceManifestError::PromptSuiteDigestMismatch
             }
@@ -199,6 +205,8 @@ pub enum ProviderReferenceManifestError {
     MissingHostedReceiptDigest,
     ArtifactFileMissing,
     PromptSuiteFileMissing,
+    ArtifactFileNotRegular,
+    PromptSuiteFileNotRegular,
     ArtifactDigestMismatch,
     PromptSuiteDigestMismatch,
 }
@@ -286,6 +294,15 @@ impl std::fmt::Display for ProviderReferenceManifestError {
             }
             Self::PromptSuiteFileMissing => {
                 write!(f, "provider reference prompt-suite file is missing")
+            }
+            Self::ArtifactFileNotRegular => {
+                write!(f, "provider reference artifact must be a regular file")
+            }
+            Self::PromptSuiteFileNotRegular => {
+                write!(
+                    f,
+                    "provider reference prompt-suite artifact must be a regular file"
+                )
             }
             Self::ArtifactDigestMismatch => {
                 write!(f, "provider reference artifact digest mismatch")
@@ -396,6 +413,7 @@ fn validate_sha256(value: &str) -> Result<(), ProviderReferenceManifestError> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ReplayFileError {
     Missing,
+    NotRegular,
     DigestMismatch,
 }
 
@@ -405,6 +423,10 @@ fn validate_file_digest(
     expected_sha256: &str,
 ) -> Result<(), ReplayFileError> {
     let path = base_dir.join(artifact_ref);
+    let metadata = std::fs::symlink_metadata(&path).map_err(|_| ReplayFileError::Missing)?;
+    if !metadata.file_type().is_file() {
+        return Err(ReplayFileError::NotRegular);
+    }
     let bytes = std::fs::read(path).map_err(|_| ReplayFileError::Missing)?;
     let actual = format!("sha256:{}", hex_lower(&Sha256::digest(&bytes)));
     if actual == expected_sha256 {
@@ -716,6 +738,35 @@ mod tests {
         assert_eq!(
             manifest.validate_replay_files_at(temp.path()),
             Err(ProviderReferenceManifestError::PromptSuiteFileMissing)
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn replay_file_validation_rejects_symlink_escape_under_row_root() {
+        let temp = tempfile::tempdir().unwrap();
+        let outside_path = temp.path().join("outside-reference.jsonl");
+        let outside_bytes = b"{\"logits_digest\":\"outside-row-root\"}\n";
+        std::fs::write(&outside_path, outside_bytes).unwrap();
+
+        let mut manifest = local_manifest();
+        manifest.artifact_ref =
+            "artifacts/falsifiers/70b_local_cocktail_lite/local_reference.jsonl".to_string();
+        manifest.prompt_suite_artifact_ref =
+            "artifacts/falsifiers/kv_direct_gate/prompt_suite.json".to_string();
+        let reference_path = temp.path().join(&manifest.artifact_ref);
+        let suite_path = temp.path().join(&manifest.prompt_suite_artifact_ref);
+        std::fs::create_dir_all(reference_path.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(suite_path.parent().unwrap()).unwrap();
+        std::os::unix::fs::symlink(&outside_path, &reference_path).unwrap();
+        let suite_bytes = b"{\"suite\":\"prompt-suite\"}\n";
+        std::fs::write(&suite_path, suite_bytes).unwrap();
+        manifest.artifact_sha256 = crate::falsifier_artifacts::sha256_hex(outside_bytes);
+        manifest.prompt_suite_artifact_sha256 = crate::falsifier_artifacts::sha256_hex(suite_bytes);
+
+        assert_eq!(
+            manifest.validate_replay_files_at(temp.path()),
+            Err(ProviderReferenceManifestError::ArtifactFileNotRegular)
         );
     }
 }
