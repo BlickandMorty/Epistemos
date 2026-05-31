@@ -495,10 +495,16 @@ impl EidosRoutePrior {
         prior.validate_shape()?;
 
         for evidence_id in &prior.evidence_ids {
-            if !packet.hits.iter().any(|hit| hit.source_id == *evidence_id) {
+            let Some(hit) = packet.hits.iter().find(|hit| hit.source_id == *evidence_id) else {
                 return Err(EidosRoutePriorError::EvidenceOutsidePacket(
                     evidence_id.clone(),
                 ));
+            };
+            if hit.provenance.manifest_id != packet.manifest_id {
+                return Err(EidosRoutePriorError::PacketProvenanceManifestMismatch {
+                    packet: packet.manifest_id.clone(),
+                    hit: hit.provenance.manifest_id.clone(),
+                });
             }
         }
 
@@ -603,6 +609,14 @@ pub enum CitationError {
 pub enum EidosRoutePriorError {
     #[error("route-prior evidence id was not present in the sealed Eidos packet: {0:?}")]
     EvidenceOutsidePacket(EidosChunkId),
+
+    #[error(
+        "route-prior evidence hit provenance referenced manifest {hit:?}, outside packet manifest {packet:?}"
+    )]
+    PacketProvenanceManifestMismatch {
+        packet: EidosIndexManifestId,
+        hit: EidosIndexManifestId,
+    },
 
     #[error("route-prior evidence id was duplicated: {0:?}")]
     DuplicateEvidenceId(EidosChunkId),
@@ -1103,6 +1117,42 @@ mod tests {
         assert_eq!(
             err,
             EidosRoutePriorError::EvidenceOutsidePacket(chunk_id("forged-chunk"))
+        );
+    }
+
+    #[test]
+    fn eidos_route_prior_rejects_cross_manifest_hit_provenance() {
+        let packet_manifest = manifest_id("manifest-A");
+        let mut hit = sample_hit("chunk-1", &packet_manifest);
+        hit.provenance.manifest_id = manifest_id("manifest-B");
+        let packet = EidosContextPacket {
+            query: EidosQuery::new("tropical optimization", EidosRetrievalMode::Lexical, 8),
+            manifest_id: packet_manifest.clone(),
+            hits: vec![hit],
+        };
+
+        let err = EidosRoutePrior::from_packet(
+            &packet,
+            "deep_research:tropical_optimization",
+            vec![chunk_id("chunk-1")],
+            EidosCitationNeed::Required,
+            vec!["math".to_string()],
+            vec!["possible source conflict".to_string()],
+            vec!["citation_checker".to_string()],
+            vec!["math_adapter".to_string()],
+            vec!["kv:math-history".to_string()],
+            vec!["weights:proof-family".to_string()],
+            0.75,
+            vec!["chunk-1 matched by lexical evidence".to_string()],
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            EidosRoutePriorError::PacketProvenanceManifestMismatch {
+                packet: packet_manifest,
+                hit: manifest_id("manifest-B"),
+            }
         );
     }
 
