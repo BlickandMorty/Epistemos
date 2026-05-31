@@ -202,6 +202,7 @@ pub enum ProviderReferenceManifestError {
     ArtifactOutsideRowRoot,
     PromptSuiteOutsideAllowedRoots,
     ArtifactContainsDotSegment,
+    ArtifactPathMissingFileName,
     InvalidSha256,
     LocalReferenceSentData,
     LocalReferenceCarriesHostedReceiptDigest,
@@ -270,6 +271,12 @@ impl std::fmt::Display for ProviderReferenceManifestError {
             ),
             Self::ArtifactContainsDotSegment => {
                 write!(f, "provider reference artifact path contains a dot segment")
+            }
+            Self::ArtifactPathMissingFileName => {
+                write!(
+                    f,
+                    "provider reference artifact path must name a replay file"
+                )
             }
             Self::InvalidSha256 => write!(
                 f,
@@ -383,6 +390,9 @@ fn validate_row_root_path(path: &str) -> Result<(), ProviderReferenceManifestErr
     if !path.starts_with(ROW_ROOT) {
         return Err(ProviderReferenceManifestError::ArtifactOutsideRowRoot);
     }
+    if !has_file_name(path) {
+        return Err(ProviderReferenceManifestError::ArtifactPathMissingFileName);
+    }
     Ok(())
 }
 
@@ -392,6 +402,9 @@ fn validate_prompt_suite_path(path: &str) -> Result<(), ProviderReferenceManifes
         return Err(ProviderReferenceManifestError::ArtifactContainsDotSegment);
     }
     if path.starts_with(ROW_ROOT) || path.starts_with(KV_PROMPT_SUITE_ROOT) {
+        if !has_file_name(path) {
+            return Err(ProviderReferenceManifestError::ArtifactPathMissingFileName);
+        }
         return Ok(());
     }
     Err(ProviderReferenceManifestError::PromptSuiteOutsideAllowedRoots)
@@ -411,6 +424,13 @@ fn validate_manifest_artifact_path_field(
 
 fn has_dot_segment(path: &str) -> bool {
     path.split('/').any(|part| part == "." || part == "..")
+}
+
+fn has_file_name(path: &str) -> bool {
+    match path.rsplit('/').next() {
+        Some(file_name) => !file_name.is_empty(),
+        None => false,
+    }
 }
 
 fn validate_sha256(value: &str) -> Result<(), ProviderReferenceManifestError> {
@@ -616,6 +636,24 @@ mod tests {
         assert_eq!(
             manifest.validate(),
             Err(ProviderReferenceManifestError::ArtifactOutsideRowRoot)
+        );
+    }
+
+    #[test]
+    fn rejects_artifact_roots_without_file_names() {
+        let mut manifest = local_manifest();
+        manifest.artifact_ref = ROW_ROOT.to_string();
+        assert_eq!(
+            manifest.validate(),
+            Err(ProviderReferenceManifestError::ArtifactPathMissingFileName)
+        );
+
+        manifest.artifact_ref =
+            "artifacts/falsifiers/70b_local_cocktail_lite/local_reference.jsonl".to_string();
+        manifest.prompt_suite_artifact_ref = KV_PROMPT_SUITE_ROOT.to_string();
+        assert_eq!(
+            manifest.validate(),
+            Err(ProviderReferenceManifestError::ArtifactPathMissingFileName)
         );
     }
 
