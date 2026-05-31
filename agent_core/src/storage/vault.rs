@@ -2036,6 +2036,61 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn hybrid_search_original_title_query_prefers_canonical_note_over_distractor() {
+        use super::VaultBackend;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
+
+        store
+            .write(
+                "some essays/My Autobiography.md",
+                "I grew up around projects, school, and personal systems.",
+                None,
+                false,
+            )
+            .await
+            .expect("write canonical note");
+        store
+            .write(
+                "zz_adversarial/My Autobiography - distractor.md",
+                "This is a recently-created distractor for title lookup. It is not the original note.",
+                Some(&["f-vaultrecall-distractor".to_string()]),
+                false,
+            )
+            .await
+            .expect("write distractor note");
+        store.reload_index().expect("reload index");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace("original note titled My Autobiography", 5, &[])
+            .await
+            .expect("hybrid_search_with_trace");
+
+        assert_eq!(
+            results.first().map(|result| result.path.as_str()),
+            Some("some essays/My Autobiography.md"),
+            "exact title fallback should beat the title-shaped distractor"
+        );
+        assert!(
+            !results
+                .iter()
+                .take(1)
+                .any(|result| result.path.contains("distractor")),
+            "the first retained result must not be the adversarial title distractor: {:?}",
+            results
+        );
+        assert!(
+            trace
+                .notes
+                .iter()
+                .any(|note| note.contains("Path/title fallback retained")),
+            "trace must disclose that title fallback resolved the original-note query: {:?}",
+            trace.notes
+        );
+    }
+
+    #[tokio::test]
     async fn hybrid_search_resolves_frontmatter_alias_when_body_omits_query_terms() {
         use super::VaultBackend;
         let vault_root = tempfile::tempdir().expect("temp vault");
