@@ -88,6 +88,28 @@ not erase latency. Promotion requires:
 - RunEventLog and AnswerPacket visibility;
 - falsifier artifacts.
 
+## Concurrency, Isolation, And Crash-Safety Lock
+
+Performance is architecture, but optimization must preserve Swift 6 actor
+isolation, Rust/FFI safety, and machine stability.
+
+- Swift UI state remains `@MainActor @Observable`.
+- Heavy work leaves the main actor only through typed snapshots, Sendable value
+  packets, dedicated actors, detached utility tasks, Rust/Tokio workers, or
+  MLX/Metal lanes with explicit ownership.
+- `nonisolated(unsafe)` is a narrow compatibility escape hatch for known
+  AppKit/FFI edges. It is not a general performance tool.
+- MLX/GGUF/model/KV state must use a serialized executor, dedicated thread, or
+  route-specific actor when the underlying object is not safely Sendable.
+- Hot paths must declare caller actor, worker actor/thread, cancellation,
+  debounce/coalescing, backpressure, copy-count expectation, and witness
+  visibility when user output is affected.
+- Kernel-panic-class unsafe testing is Pro Research/Omega only. Any probe that
+  could panic macOS, wedge GPU/Metal, overpressure UMA, thrash mmap/SSD, corrupt
+  a live model/KV store, or destabilize the machine must stay behind a
+  crash-safe falsifier harness with dry-run witnesses and rollback. Do not run
+  those probes from ordinary app work or the unattended loop.
+
 ## Eidos Neural Importance Bridge
 
 Eidos can feed NeuralImportanceAtlas, but it must not become a hidden model

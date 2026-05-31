@@ -67,6 +67,35 @@ Current naming/build lock:
   evidence validity, active bytes, and visible proof before any local-frontier
   claim is allowed.
 
+Concurrency / isolation / unsafe lock:
+
+- Performance is architecture, but concurrency speedups must preserve Swift 6
+  actor isolation and Rust/FFI safety. Do not "optimize" by bypassing
+  isolation, sprinkling `nonisolated(unsafe)`, sharing non-Sendable model
+  state, or moving UI/SwiftData objects across actors.
+- Swift UI state remains `@MainActor @Observable`. Heavy work must leave the
+  main actor through typed snapshots, Sendable value packets, dedicated actors,
+  detached utility tasks, Rust/Tokio workers, or MLX/Metal lanes with explicit
+  ownership.
+- `nonisolated(unsafe)` is a narrow compatibility escape hatch for known
+  AppKit/FFI edges already justified by comments and tests; it is not a
+  general architecture primitive. New unsafe escapes require a source path,
+  race explanation, fallback, and focused test or source guard.
+- MLX/GGUF/model state must use a serialized executor, dedicated thread, or
+  route-specific actor when the underlying object is not safely Sendable.
+  Never pass live model/KV/buffer handles across random tasks just to improve
+  throughput.
+- Hot paths must declare their isolation boundary: caller actor, worker actor
+  or thread, cancellation behavior, debounce/coalescing policy, backpressure,
+  copy-count expectation, and RunEventLog/AnswerPacket visibility when the
+  route affects user output.
+- Kernel-panic-class unsafe testing is not product canon. Anything that could
+  panic macOS, wedge GPU/Metal, overpressure UMA, thrash mmap/SSD, corrupt a
+  live model/KV store, or destabilize the machine belongs to a Pro
+  Research/Omega crash-safety harness only. The unattended loop may add
+  non-executing witnesses, source guards, dry-run manifests, and rollback docs
+  for those lanes, but must not run hazardous probes.
+
 Claude-ledger scope lock:
 
 - The long Claude Phase 1 / Phase 2 / T25+ ledger is canon baseline, not final
