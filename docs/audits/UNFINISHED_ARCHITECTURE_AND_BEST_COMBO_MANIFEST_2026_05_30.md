@@ -27,6 +27,12 @@ AdmissionGate. Existing source paths containing `acs_admission` are
 transitional naming debt, not permission to reuse ACS for admission in new docs
 or UI.
 
+Helios companion rule: Helios is the substrate-runtime research lineage, not a
+product-spine step. When older docs say "Helios does X", translate it into the
+actual organ before editing: UAS/OAS, ColdStore/ResidencyGovernor, WBO,
+RuntimeRouter, System G, Eidos/VaultRecall, SCOPE-Rex, SovereignGate,
+RunEventLog, or AnswerPacket.
+
 ## Non-Negotiables
 
 1. WRV remains the floor: Wired, Reachable, Visible, Verified.
@@ -75,6 +81,7 @@ The old ledgers mix several namespaces. They must stay separate.
 | Namespace | Meaning | Canon anchor |
 |---|---|---|
 | Broad substrate tracks `T0`-`T18` | Original product/research feature map: Sovereign, Hermes, Simulation, Local Model, Halo, Graph, UX, Multi-Agent, Ternary/Research, ANE, Live File Compiler, Cognitive Weight, Variant Ladder. | `docs/fusion/SUBSTRATE_TRACK_REGISTER_2026_05_03.md` |
+| Helios lineage | Umbrella research/runtime substrate lineage. It preserves vocabulary and mechanisms, but product claims must translate it into concrete organs before shipping. | `docs/audits/AGENT_MANAGEABLE_ARCHITECTURE_CANON_2026_05_30.md` |
 | Phase-1 May-16 branches `T1`-`T9` | Salvage branches from the May-16 archeology pass. Some were cherry-picked; some remain donor-only. | Phase C / salvage docs |
 | Phase-2 terminal workcards `T09`-`T27` | The no-compromise workcard set: Eidos, System G, UAS/OAS, Lattice/WBO, ColdStore, AcsAnchor, VaultRecall, F-70B, Lean, WRV surfacing. Older decks may say ACS; inspect context: AcsAnchor/Anchored Cognitive Substrate, legacy ACS/Kuramoto research now named KuramotoSync/ResonanceSync, or stale admission naming. | `docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md` |
 | W-rows | Cross-terminal production wires. These decide whether substrate is actually used by app behavior. | `docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md` |

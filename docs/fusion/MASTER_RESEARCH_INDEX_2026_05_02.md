@@ -197,6 +197,37 @@ this namespace patch for future naming.
 
 ---
 
+## 0F. 2026-05-30 Namespace Patch — Helios As Lineage, Not A Spine Step
+
+**Builder-facing source:** `docs/audits/AGENT_MANAGEABLE_ARCHITECTURE_CANON_2026_05_30.md`.
+
+**Correction.** Helios is the substrate-runtime research lineage underneath
+Epistemos, not an operational step in the live product spine. The operational
+spine remains:
+
+```text
+Intent -> Address -> Awaken -> Assemble -> Verify -> Govern -> Execute -> Verify -> Witness
+```
+
+When a doc says "Helios does X", agents must translate it into the concrete
+organ before editing or claiming progress:
+
+| Legacy/umbrella phrasing | Concrete organ |
+|---|---|
+| Helios memory hierarchy | ColdStore / ResidencyGovernor / WBO |
+| Helios kernels | RuntimeRouter-owned Metal/kernel routes and ActiveAssembly mechanisms |
+| Helios WBO / lattice doctrine | LatticeBudget / compression accounting |
+| Helios SCOPE-Rex lineage | SCOPE-Rex verifier / ClaimGraph / WitnessedState |
+| Helios model tracks | local model runtime candidates behind gates |
+| Helios scanner language | AetherLink / OAS candidate language |
+
+**Agent rule.** Do not add a product step called Helios. Product truth should
+name the concrete wired organ, caller chain, gate, test/falsifier, and visible
+surface. Helios can remain the research umbrella only if the product claim uses
+the actual organ names.
+
+---
+
 ## 1. Truth-Router and Authority Order
 
 **Authority hierarchy (when sources disagree):**

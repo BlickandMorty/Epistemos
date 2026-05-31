@@ -48,6 +48,38 @@ completion. It must still leave code, focused verification, commit evidence,
 and an honest next-row cursor. Other agents must check loop status before
 touching Rust/substrate files.
 
+## Lineage And Umbrella Terms
+
+These names preserve research history, but they are not operational steps in
+the product spine. New work should translate them into concrete organs before
+claiming progress.
+
+| Term | Canonical role | Translate to concrete organs |
+|---|---|---|
+| Epistemos | The app and cognitive operating system. | Product UI, local vault, chat/editor/graph surfaces, governed runtime. |
+| Helios | Substrate-runtime research lineage underneath Epistemos. | ColdStore/ResidencyGovernor, WBO/LatticeBudget, RuntimeRouter kernels, SCOPE-Rex lineage, local model candidates, AetherLink/OAS candidate language. |
+| System G | Governed agent execution path. | MissionPacket, AgentEvent, ExecutorTrait, LocalAgentLoop, RunEventLog, AnswerPacket. |
+| SCOPE-Rex | Verifier/state-validity nervous system. | ClaimGraph, WitnessedState, ClaimKind, SCOPERexAdmissionProof, validity checks. |
+| SovereignGate | User-impacting permission gate. | Local/cloud/tool/shell/file/write/destructive-action admission and user confirmation. |
+| Hermes | Prompt/tool lineage only, unless explicitly referring to the simulation snake. | HermesPromptCompatibility; do not revive old Hermes subprocess/UI overlay. |
+
+Helios is not a step in:
+
+```text
+Intent -> Address -> Awaken -> Assemble -> Verify -> Govern -> Execute -> Verify -> Witness
+```
+
+When older docs say "Helios does X", translate it before editing:
+
+| Older phrasing | New organ name |
+|---|---|
+| Helios resolves memory | UAS/OAS + ColdStore + ResidencyPlan |
+| Helios verifies claims | SCOPE-Rex + ClaimLedger/ClaimGraph |
+| Helios routes execution | RuntimeRouter + System G |
+| Helios gathers evidence | Eidos + VaultRecall |
+| Helios compresses state | WBO/LatticeBudget + ShadowProjection |
+| Helios runs kernels | RuntimeRouter-owned Metal/kernel route |
+
 ## Canonical Organ Registry
 
 | Organ | Role | Allowed aliases or sublayers | Forbidden drift |
@@ -81,6 +113,20 @@ touching Rust/substrate files.
 | Parameter Connectome | Future object family stored inside ColdStore for model mechanisms. | ParamAnchor, QKEdgeAnchor, rank-one components, SPD/VPD/SAE motifs. | Do not productize model-internal claims without falsifier and rollback; do not call it ACS by itself. |
 | Research Construction Engine | ProblemCard to ConstructionGraph to falsifier/proof. | ShadowProjection, ConstructionCard, LeanProofObligation. | Do not move ahead of measured runtime gates except as candidate artifacts. |
 | HermesPromptCompatibility | Prompt/function-call format compatibility for Hermes-trained local models. | Hermes parity. | Do not revive Hermes Agent subprocess/UI overlay. That is dead. |
+
+## Namespace Smell List
+
+Treat these as naming bugs unless the local source context proves a deliberate
+legacy reference:
+
+| Smell | Correct direction |
+|---|---|
+| `ACS` used for cold residency, mmap/SSD/KV spill, or active storage | Use `ColdStore` / `Cold Residency Layer`. |
+| `ACS admission`, `ACS gate`, or `ACS verdict` in new code/docs | Use `SCOPE-Rex Admission`, `SovereignGate`, or `AdmissionGate`. |
+| `Helios` used as a product feature or spine step | Name the concrete organ: Eidos, RuntimeRouter, ColdStore, WBO, SCOPE-Rex, System G, etc. |
+| `Hermes` used as the agent runtime | Use `System G` / `AgentRuntime`; keep `HermesPromptCompatibility` only for model prompt format parity. |
+| `Lattice` used as identity, storage, or proof by itself | Use UAS for identity, ColdStore for residency, WBO/LatticeBudget for error accounting, and a falsifier/witness for proof. |
+| `Eidos` used as only citation formatting | Eidos must include retrieval/evidence selection plus closed-citation validation. |
 
 ## Adapter Rules
 
