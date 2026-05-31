@@ -863,24 +863,36 @@ impl VaultContextTrace {
     }
 
     pub fn selected_distinct_note_count(&self) -> usize {
-        let mut distinct = std::collections::BTreeSet::new();
+        let mut path_keys = std::collections::BTreeSet::new();
+        let mut path_backed_titles = std::collections::BTreeSet::new();
+        let mut title_only_keys = std::collections::BTreeSet::new();
         for candidate in self
             .candidates
             .iter()
             .filter(|candidate| candidate.selected)
         {
+            let title_key = {
+                let title = candidate.title.trim();
+                if title.is_empty() {
+                    None
+                } else {
+                    Some(title.to_lowercase())
+                }
+            };
             let note_id = candidate.path.trim();
             if !note_id.is_empty() {
-                distinct.insert(note_id.to_lowercase());
+                path_keys.insert(note_id.to_lowercase());
+                if let Some(title_key) = title_key {
+                    path_backed_titles.insert(title_key);
+                }
                 continue;
             }
 
-            let title = candidate.title.trim();
-            if !title.is_empty() {
-                distinct.insert(title.to_lowercase());
+            if let Some(title_key) = title_key {
+                title_only_keys.insert(title_key);
             }
         }
-        distinct.len()
+        path_keys.len() + title_only_keys.difference(&path_backed_titles).count()
     }
 
     pub fn validate_synthesis_min_distinct_notes(
@@ -1705,6 +1717,24 @@ mod tests {
     fn synthesis_validation_dedupes_selected_note_titles_case_insensitively_when_path_missing() {
         let mut trace = sufficient_trace();
         trace.candidates[0].path.clear();
+        trace.candidates[0].title = "Vault Recall Alpha".to_string();
+        let mut duplicate = selected_candidate();
+        duplicate.path.clear();
+        duplicate.title = "vault recall alpha".to_string();
+        duplicate.rank = 2;
+        trace.candidates.push(duplicate);
+        trace.selected_count = 2;
+
+        assert_eq!(trace.selected_distinct_note_count(), 1);
+        assert!(trace
+            .validate_synthesis_min_distinct_notes(2)
+            .contains(&VaultContextViolation::SynthesisUnderCited));
+    }
+
+    #[test]
+    fn synthesis_validation_dedupes_title_only_candidate_against_path_backed_title() {
+        let mut trace = sufficient_trace();
+        trace.candidates[0].path = "Research/Vault Recall Alpha.md".to_string();
         trace.candidates[0].title = "Vault Recall Alpha".to_string();
         let mut duplicate = selected_candidate();
         duplicate.path.clear();
