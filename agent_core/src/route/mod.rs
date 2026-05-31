@@ -275,6 +275,13 @@ impl EmbeddingProvider for NoOpEmbedder {
 }
 
 pub async fn route_capture(input: &RouteInput, ctx: &RouteCtx) -> RouteDecision {
+    if let Err(error) = input.validate() {
+        return RouteDecision::defer(
+            format!("invalid_route_input: {error}"),
+            review_alternatives(input),
+        );
+    }
+
     if let Some(decision) =
         variant_a::try_centroid(&input.capture_text, &ctx.folders, &ctx.embedder).await
     {
@@ -310,7 +317,14 @@ pub async fn route_capture(input: &RouteInput, ctx: &RouteCtx) -> RouteDecision 
         }
     }
 
-    let alternatives = input
+    RouteDecision::defer(
+        "low_confidence_after_three_variants",
+        review_alternatives(input),
+    )
+}
+
+fn review_alternatives(input: &RouteInput) -> Vec<AlternativePath> {
+    input
         .vault_tree
         .iter()
         .take(3)
@@ -318,8 +332,7 @@ pub async fn route_capture(input: &RouteInput, ctx: &RouteCtx) -> RouteDecision 
             path: entry.path.clone(),
             score: 0.0,
         })
-        .collect();
-    RouteDecision::defer("low_confidence_after_three_variants", alternatives)
+        .collect()
 }
 
 fn truncate_chars(value: String, max_chars: usize) -> String {
