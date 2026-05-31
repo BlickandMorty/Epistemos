@@ -1510,6 +1510,41 @@ mod tests {
     }
 
     #[test]
+    fn eidos_route_prior_can_bind_weight_page_hint_by_uas_prefix() {
+        let plan = fit_plan();
+        let cold_address = plan
+            .blocks
+            .iter()
+            .find(|block| block.residency_class == WeightBlockResidencyClass::ColdMmapSsd)
+            .expect("fixture carries a durable cold page")
+            .uas_address
+            .to_string();
+        let prior = eidos_prior(
+            vec!["F-AppColdStore-Layout".to_string()],
+            vec!["adapter:research_synthesis".to_string()],
+            Vec::new(),
+            vec![format!("weight_page:uas:{cold_address}")],
+            0.82,
+        )
+        .expect("UAS-prefixed support hint is route-prior valid before card admission");
+
+        let card = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+            "deep_research:neural_importance_atlas",
+            route_prior_verifier_stack(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            Some(prior),
+            99,
+        )
+        .expect("UAS-prefixed support hint should bind the durable AppColdStore unit");
+
+        assert_eq!(card.durable_units[0].uas_address.to_string(), cold_address);
+    }
+
+    #[test]
     fn eidos_route_prior_requires_likely_verifier_hint() {
         let plan = fit_plan();
         let prior = eidos_prior(
