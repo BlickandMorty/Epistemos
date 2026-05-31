@@ -101,6 +101,9 @@ impl FromStr for UasAddress {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (kind_part, rest) = s.split_once(':').ok_or(UasAddressParseError::BadShape)?;
         let (hex_part, ms_part) = rest.split_once('@').ok_or(UasAddressParseError::BadShape)?;
+        if rest.contains(':') {
+            return Err(UasAddressParseError::BadShape);
+        }
 
         // UasKind::from_wire_tag is total — unknown valid tags deserialize to
         // UasKind::Other(tag.to_string()). BadKind is reserved for kind
@@ -133,7 +136,7 @@ fn is_valid_kind_wire_tag(tag: &str) -> bool {
         && tag.trim() == tag
         && !tag
             .chars()
-            .any(|ch| ch.is_control() || ch.is_whitespace() || matches!(ch, '|' | '@'))
+            .any(|ch| ch.is_control() || ch.is_whitespace() || matches!(ch, ':' | '|' | '@'))
 }
 
 mod serde_blake3_hash {
@@ -219,6 +222,14 @@ mod tests {
             let err = UasAddress::from_str(&s).unwrap_err();
             assert_eq!(err, UasAddressParseError::BadKind(kind.to_string()));
         }
+    }
+
+    #[test]
+    fn extra_kind_delimiter_surfaces_bad_shape_before_hash_parse() {
+        let fake_hex: String = std::iter::repeat('a').take(64).collect();
+        let s = format!("future:variant:{}@0", fake_hex);
+        let err = UasAddress::from_str(&s).unwrap_err();
+        assert_eq!(err, UasAddressParseError::BadShape);
     }
 
     #[test]
