@@ -331,8 +331,12 @@ fn push_eidos_route_prior_preimage(preimage: &mut String, prior: Option<&EidosRo
 
 fn push_prior_list_preimage(preimage: &mut String, label: &str, values: &[String]) {
     preimage.push_str(label);
+    preimage.push(':');
+    preimage.push_str(&values.len().to_string());
     preimage.push('\n');
     for value in values {
+        preimage.push_str(&value.len().to_string());
+        preimage.push(':');
         preimage.push_str(value);
         preimage.push('\n');
     }
@@ -1140,5 +1144,71 @@ mod tests {
             AppColdStoreRouteCardError::InvalidRoutePriorShape { ref reason }
                 if reason.contains("why_matched")
         ));
+    }
+
+    #[test]
+    fn eidos_route_prior_card_address_separates_prior_list_fields() {
+        let plan = fit_plan();
+        let packet = eidos_packet();
+        let domain_prior = EidosRoutePrior::from_packet(
+            &packet,
+            "deep_research:neural_importance_atlas",
+            vec![eidos_chunk_id("vault://note/neural-importance")],
+            EidosCitationNeed::Required,
+            vec!["contradiction".to_string()],
+            Vec::new(),
+            vec!["F-AppColdStore-Layout".to_string()],
+            vec!["adapter:research_synthesis".to_string()],
+            Vec::new(),
+            vec!["weight_page:controller".to_string()],
+            0.82,
+            vec!["Eidos matched cited vault evidence and route priors".to_string()],
+        )
+        .expect("domain prior should build");
+        let contradiction_prior = EidosRoutePrior::from_packet(
+            &packet,
+            "deep_research:neural_importance_atlas",
+            vec![eidos_chunk_id("vault://note/neural-importance")],
+            EidosCitationNeed::Required,
+            Vec::new(),
+            vec!["contradiction".to_string()],
+            vec!["F-AppColdStore-Layout".to_string()],
+            vec!["adapter:research_synthesis".to_string()],
+            Vec::new(),
+            vec!["weight_page:controller".to_string()],
+            0.82,
+            vec!["Eidos matched cited vault evidence and route priors".to_string()],
+        )
+        .expect("contradiction prior should build");
+
+        let domain_card = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+            "deep_research:neural_importance_atlas",
+            route_prior_verifier_stack(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            Some(domain_prior),
+            99,
+        )
+        .expect("domain route prior should be admitted to the manifest card");
+        let contradiction_card = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+            "deep_research:neural_importance_atlas",
+            route_prior_verifier_stack(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            Some(contradiction_prior),
+            99,
+        )
+        .expect("contradiction route prior should be admitted to the manifest card");
+
+        assert_ne!(
+            domain_card.card_address, contradiction_card.card_address,
+            "route-card identity must bind which Eidos prior field carried a hint"
+        );
     }
 }
