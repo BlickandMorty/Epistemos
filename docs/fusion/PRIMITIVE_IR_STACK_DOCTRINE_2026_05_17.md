@@ -17,6 +17,15 @@ lands iter-7. §7 audit-of-audit + Phase B branch plan lands iter-8.
 source (paper · arXiv id · line / section). §5.0 of the driver
 prompt is the discipline.
 
+**2026-05-31 status lock:** this doctrine names the target Primitive IR stack.
+It does not mean all six IRs are product-wired, Lean-certified, or reachable
+from user workflows today. EML is one chart for elementary-function structure;
+Geometry, Scan, Info, Operator, and Tropical are co-equal charts for their
+domains. UAS remains the identity fabric, ColdStore/ResidencyGovernor owns
+residency, Eidos owns evidence, and SCOPE-Rex/SovereignGate owns admission.
+Research intake should extract algorithms, schemas, falsifiers, and source
+leads into this chart atlas, not mint new top-level organs from prose.
+
 ---
 
 ## §1. Mission — kernel-grade IR is the moat under the moat

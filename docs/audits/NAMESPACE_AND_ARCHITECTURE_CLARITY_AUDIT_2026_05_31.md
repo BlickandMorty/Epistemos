@@ -54,6 +54,26 @@ There is no separate Research build and no separate Vault build. Research,
 Vault, Omega, heavy runtime, and future substrate work are Pro status bands:
 Pro Live, Pro Gated, Pro Research, Pro Vault-Preserved, and Pro Omega.
 
+## Research / AI Intake Contract
+
+The current audit extends the namespace cleanup to research and AI idea intake:
+agents may mine pasted syntheses, donor docs, papers, and branches for
+implementation motifs, but prose does not create architecture authority.
+
+| Source language | Active extraction target |
+|---|---|
+| semantic search, retrieval, citations, reranking, source grounding | Eidos / VaultRecall / Halo / Shadow with structured hits, `why_matched`, backend status, and citation witnesses |
+| retries, self-improvement, persistent tool execution, agent loops | System G / RuntimeRouter / RunEventLog / AnswerPacket with visible retries and policy gates |
+| adapters, KV pages, experts, rank-one/model components | Parameter Connectome / ColdStore candidates with UAS addresses, WBO, residency plan, dense/reference verifier, rollback |
+| EML, Geometry, Scan, Info, Operator, Tropical, primitive math | Primitive IR chart work with Lean/schema/falsifier witnesses |
+| generated terms, forum claims, unverified papers/repos, physics-style metaphors | Pro Research or Pro Vault-Preserved intake until source, falsifier, and caller chain exist |
+
+EML remains one elementary-function/proof chart inside the Primitive IR stack.
+It is not UAS, not ColdStore, not Eidos, not RuntimeRouter, and not a general
+proof of intelligence or physics. Any "single primitive" synthesis should be
+translated into a scoped research candidate and kept out of product claims until
+there is primary-source evidence plus local falsifier or implementation proof.
+
 ## Active Docs Audited
 
 These files were treated as current agent-read or product-planning surfaces:
@@ -71,6 +91,11 @@ These files were treated as current agent-read or product-planning surfaces:
 - `docs/fusion/AETHERLINK_OAS_CANON_INTAKE_2026_05_30.md`
 - `docs/fusion/AETHERLINK_ERDOS_PARAMETER_GOLF_INTAKE_2026_05_30.md`
 - `docs/fusion/SHADOW_PROJECTION_AND_RESEARCH_CONSTRUCTION_2026_05_24.md`
+- `docs/fusion/ADDRESSABLE_NEURAL_SUBSTRATE_CANON_2026_05_24.md`
+- `docs/fusion/EML_INTEGRATION_DOCTRINE_2026_05_17.md`
+- `docs/fusion/PRIMITIVE_IR_STACK_DOCTRINE_2026_05_17.md`
+- `docs/audits/EML_AUDIT_2026_05_17.md`
+- `docs/audits/EML_IR_AUDIT_2026_05_17.md`
 
 ## What Was Normalized
 
@@ -88,6 +113,12 @@ These files were treated as current agent-read or product-planning surfaces:
   witnesses.
 - Updated autopilot and salvage prompts so unattended workers inherit the
   two-build and namespace contract before choosing work.
+- Corrected the active neural-substrate canon so admission is
+  `SCOPE-Rex/SovereignGate`, cold residency is `ColdStore/ResidencyGovernor`,
+  and anchored coordinate/provenance is `AcsAnchor`.
+- Added a research/AI intake contract so future agents extract buildable
+  mechanisms into existing organs instead of promoting generated terminology,
+  donor prose, or physics-style metaphors into product architecture.
 
 ## Remaining Hits And Classification
 
@@ -126,6 +157,7 @@ Current active-doc results are intentional only:
 | `ACS admission`, `ACS gate`, `ACS verdict` | Intentional forbidden-smell row that tells agents not to use these names. |
 | `Do not abbreviate Active Cold Storage as ACS` | Intentional namespace guard. |
 | `Tier 1 raw research, docs/ Tier 2 distilled` | Historical corpus-search wording in the Codex Manifesto row, not build-tier architecture. |
+| `No-compromise reading of "EML is everything"` | Intentional fenced section; the surrounding text says EML is a chart, not the whole ontology. |
 
 ## Historical Hits Intentionally Preserved
 
@@ -144,6 +176,34 @@ they preserve what old branches/docs said at the time:
 Rule for agents: historical names are evidence, not active naming permission.
 Translate them through `AGENT_MANAGEABLE_ARCHITECTURE_CANON_2026_05_30.md`
 before editing code or making product claims.
+
+## Tech / AI Drift Audit Result
+
+Targeted audit terms included:
+
+```text
+EML is everything
+EML for everything
+universal primitive
+Grand Unified
+physics is solved
+consciousness is
+PCop
+QBL
+VDM
+Red Quotient
+Quotient Descent
+RuVector
+1.1 MB seed
+infinite memory
+zero forgetting
+```
+
+Active agent-facing docs now either avoid these phrases, fence them as
+forbidden/legacy/research-only, or route them through Pro Research /
+Pro Vault-Preserved status. Broad historical research corpus hits remain, but
+they are not active naming permission and should be mined only for mechanisms,
+tests, or source leads.
 
 ## Future-Agent Guard
 
