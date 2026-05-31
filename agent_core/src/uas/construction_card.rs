@@ -5,6 +5,7 @@
 //! falsifier -> rollback. It is intentionally metadata-only.
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 use crate::uas::{
     weight_block::{is_valid_wbo_budget_nats, weight_block_ir_chart_preimage},
@@ -170,8 +171,14 @@ impl ConstructionCard {
         validate_nonempty("witness", &witness)?;
         validate_nonempty("falsifier_id", &falsifier_id)?;
         validate_nonempty("rollback_reference", &rollback_reference)?;
+        let mut seen_upstreams = HashSet::new();
         for upstream in &upstream_falsifier_ids {
             validate_nonempty("upstream_falsifier_id", upstream)?;
+            if !seen_upstreams.insert(upstream.as_str()) {
+                return Err(ConstructionCardError::DuplicateUpstreamFalsifier {
+                    falsifier_id: upstream.clone(),
+                });
+            }
         }
         if lift_charts.is_empty() {
             return Err(ConstructionCardError::MissingLiftChart);
@@ -323,6 +330,7 @@ pub enum ConstructionCardError {
     InvalidBudget,
     ProductBuildStatusMismatch,
     ProductBuildResidencyMismatch,
+    DuplicateUpstreamFalsifier { falsifier_id: String },
     PlanRejected,
 }
 
@@ -350,6 +358,12 @@ impl std::fmt::Display for ConstructionCardError {
                 f,
                 "MAS build construction cards cannot carry non-current-app residency status"
             ),
+            Self::DuplicateUpstreamFalsifier { falsifier_id } => {
+                write!(
+                    f,
+                    "construction card upstream falsifier was duplicated: {falsifier_id}"
+                )
+            }
             Self::PlanRejected => write!(f, "residency plan must be FitForDryRun"),
         }
     }
@@ -618,6 +632,42 @@ mod tests {
             err,
             ConstructionCardError::FieldContainsControlCharacter {
                 field: "upstream_falsifier_id"
+            }
+        );
+    }
+
+    #[test]
+    fn construction_card_rejects_duplicate_upstream_falsifier_ids() {
+        let err = ConstructionCard::new_with_upstreams(
+            "problem",
+            vec![WeightBlockIrChart::Scan],
+            "projection",
+            "witness",
+            ConstructionBudget {
+                hot_uma_bytes: 0,
+                warm_compressed_uma_bytes: 0,
+                cold_mmap_ssd_bytes: 0,
+                wbo_budget_nats: 0.0,
+                copy_budget: 0,
+            },
+            "F-Test",
+            vec![
+                "F-WeightBlockRangeHash-DryRun".to_string(),
+                "F-WeightBlockRangeHash-DryRun".to_string(),
+            ],
+            "rollback",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            None,
+            10,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            ConstructionCardError::DuplicateUpstreamFalsifier {
+                falsifier_id: "F-WeightBlockRangeHash-DryRun".to_string()
             }
         );
     }
