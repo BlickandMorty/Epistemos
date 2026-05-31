@@ -97,11 +97,16 @@ fn is_valid_anchor_id(value: &str) -> bool {
 
 fn is_valid_optional_projection_field(value: Option<&str>) -> bool {
     value.is_none_or(|field| {
-        !field.is_empty()
-            && field.trim() == field
-            && !field
+        if field.is_empty()
+            || field.trim() != field
+            || field
                 .chars()
-                .any(|ch| ch.is_control() || ch.is_whitespace() || matches!(ch, '|' | '@'))
+                .any(|ch| ch.is_control() || ch.is_whitespace() || matches!(ch, '|'))
+        {
+            return false;
+        }
+
+        !field.contains('@') || field.parse::<crate::uas::UasAddress>().is_ok()
     })
 }
 
@@ -174,6 +179,39 @@ mod tests {
                 "malformed optional AcsAnchor provenance fields must fail closed"
             );
         }
+    }
+
+    #[test]
+    fn optional_projection_fields_accept_uas_wire_addresses() {
+        let kv_address =
+            crate::uas::UasAddress::new(crate::uas::UasKind::KvPage, b"kv-page", 7).to_string();
+        let model_component_address = crate::uas::UasAddress::new(
+            crate::uas::UasKind::ModelComponent,
+            kv_address.as_bytes(),
+            7,
+        )
+        .to_string();
+        let mut anchor = AcsAnchor::new(
+            "claim-1",
+            "E1",
+            RuntimePlane::Episodic,
+            ResidencyTier::VerifiedFloor,
+            0.7,
+        );
+        anchor.source_hash = Some(kv_address.clone());
+        anchor.active_packet_id = Some("packet-1".to_string());
+        anchor.compatibility_edge = Some(model_component_address.clone());
+
+        assert!(
+            anchor.is_well_formed(),
+            "AcsAnchor provenance fields must accept UAS wire addresses used by the mmap residency witness"
+        );
+        let projection = anchor.project_to_plane();
+        assert_eq!(projection.source_hash, Some(kv_address.as_str()));
+        assert_eq!(
+            anchor.compatibility_edge.as_deref(),
+            Some(model_component_address.as_str())
+        );
     }
 
     #[test]
