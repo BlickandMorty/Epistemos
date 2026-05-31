@@ -4,6 +4,7 @@
 //! AcsAnchor remains the anchored coordinate/provenance object.
 
 const UAS_MOD_SOURCE: &str = include_str!("../src/uas/mod.rs");
+const AGENT_RUNTIME_V2_MOD_SOURCE: &str = include_str!("../src/agent_runtime_v2/mod.rs");
 
 #[test]
 fn uas_module_header_uses_current_address_space_namespace() {
@@ -22,5 +23,21 @@ fn uas_module_header_uses_current_address_space_namespace() {
     assert!(
         UAS_MOD_SOURCE.contains("AcsAnchor"),
         "UAS docs should preserve AcsAnchor as anchored coordinate/provenance"
+    );
+}
+
+#[test]
+fn agent_runtime_v2_header_uses_mas_pro_status_grammar() {
+    assert!(
+        AGENT_RUNTIME_V2_MOD_SOURCE.contains("## Build/status behaviour"),
+        "System G docs should describe MAS/Pro build and ProStatus behaviour"
+    );
+    assert!(
+        AGENT_RUNTIME_V2_MOD_SOURCE.contains("Pro Research status"),
+        "System G docs should keep Research as a Pro status, not a separate build"
+    );
+    assert!(
+        !AGENT_RUNTIME_V2_MOD_SOURCE.contains("## Tier behaviour"),
+        "System G docs must not describe current build policy as tier behaviour"
     );
 }
