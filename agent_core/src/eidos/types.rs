@@ -478,44 +478,8 @@ impl EidosRoutePrior {
         confidence: f32,
         why_matched: Vec<String>,
     ) -> Result<Self, EidosRoutePriorError> {
-        let task_signature = task_signature.into();
-        validate_route_prior_text("task_signature", &task_signature)?;
-        if !confidence.is_finite() || !(0.0..=1.0).contains(&confidence) {
-            return Err(EidosRoutePriorError::InvalidConfidence(confidence));
-        }
-        if why_matched.is_empty() {
-            return Err(EidosRoutePriorError::EmptyField {
-                field: "why_matched",
-            });
-        }
-        if citation_need == EidosCitationNeed::Required && evidence_ids.is_empty() {
-            return Err(EidosRoutePriorError::RequiredCitationsWithoutEvidence);
-        }
-
-        let mut seen_evidence_ids = HashSet::new();
-        for evidence_id in &evidence_ids {
-            if !seen_evidence_ids.insert(evidence_id) {
-                return Err(EidosRoutePriorError::DuplicateEvidenceId(
-                    evidence_id.clone(),
-                ));
-            }
-            if !packet.hits.iter().any(|hit| hit.source_id == *evidence_id) {
-                return Err(EidosRoutePriorError::EvidenceOutsidePacket(
-                    evidence_id.clone(),
-                ));
-            }
-        }
-
-        validate_route_prior_list("domain_tags", &domain_tags)?;
-        validate_route_prior_list("contradiction_hints", &contradiction_hints)?;
-        validate_route_prior_list("likely_verifiers", &likely_verifiers)?;
-        validate_route_prior_list("likely_adapter_families", &likely_adapter_families)?;
-        validate_route_prior_list("likely_kv_regions", &likely_kv_regions)?;
-        validate_route_prior_list("likely_weight_page_families", &likely_weight_page_families)?;
-        validate_route_prior_list("why_matched", &why_matched)?;
-
-        Ok(Self {
-            task_signature,
+        let prior = Self {
+            task_signature: task_signature.into(),
             manifest_id: packet.manifest_id.clone(),
             evidence_ids,
             citation_need,
@@ -527,7 +491,54 @@ impl EidosRoutePrior {
             likely_weight_page_families,
             confidence,
             why_matched,
-        })
+        };
+        prior.validate_shape()?;
+
+        for evidence_id in &prior.evidence_ids {
+            if !packet.hits.iter().any(|hit| hit.source_id == *evidence_id) {
+                return Err(EidosRoutePriorError::EvidenceOutsidePacket(
+                    evidence_id.clone(),
+                ));
+            }
+        }
+
+        Ok(prior)
+    }
+
+    pub fn validate_shape(&self) -> Result<(), EidosRoutePriorError> {
+        validate_route_prior_text("task_signature", &self.task_signature)?;
+        if !self.confidence.is_finite() || !(0.0..=1.0).contains(&self.confidence) {
+            return Err(EidosRoutePriorError::InvalidConfidence(self.confidence));
+        }
+        if self.why_matched.is_empty() {
+            return Err(EidosRoutePriorError::EmptyField {
+                field: "why_matched",
+            });
+        }
+        if self.citation_need == EidosCitationNeed::Required && self.evidence_ids.is_empty() {
+            return Err(EidosRoutePriorError::RequiredCitationsWithoutEvidence);
+        }
+
+        let mut seen_evidence_ids = HashSet::new();
+        for evidence_id in &self.evidence_ids {
+            if !seen_evidence_ids.insert(evidence_id) {
+                return Err(EidosRoutePriorError::DuplicateEvidenceId(
+                    evidence_id.clone(),
+                ));
+            }
+        }
+        validate_route_prior_list("domain_tags", &self.domain_tags)?;
+        validate_route_prior_list("contradiction_hints", &self.contradiction_hints)?;
+        validate_route_prior_list("likely_verifiers", &self.likely_verifiers)?;
+        validate_route_prior_list("likely_adapter_families", &self.likely_adapter_families)?;
+        validate_route_prior_list("likely_kv_regions", &self.likely_kv_regions)?;
+        validate_route_prior_list(
+            "likely_weight_page_families",
+            &self.likely_weight_page_families,
+        )?;
+        validate_route_prior_list("why_matched", &self.why_matched)?;
+
+        Ok(())
     }
 }
 
