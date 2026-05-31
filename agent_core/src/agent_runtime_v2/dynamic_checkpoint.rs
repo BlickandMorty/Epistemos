@@ -328,6 +328,9 @@ fn validate_build_status(
     {
         return Err(DynamicComputeCheckpointError::ProductBuildStatusMismatch);
     }
+    if product_build == &ProductBuild::Pro && pro_status == &ProStatus::Live {
+        return Err(DynamicComputeCheckpointError::ProductBuildStatusMismatch);
+    }
     Ok(())
 }
 
@@ -617,6 +620,29 @@ mod tests {
             verifier_stack(),
             ProductBuild::Mas,
             ProStatus::ResearchCandidate,
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            DynamicComputeCheckpointError::ProductBuildStatusMismatch
+        );
+    }
+
+    #[test]
+    fn checkpoint_keeps_manifest_only_dynamic_compute_out_of_pro_live() {
+        let err = DynamicComputeCheckpoint::new(
+            DynamicComputeCheckpointKind::DepthBudget,
+            "depth budget changed the route plan",
+            vec![unit(b"before")],
+            vec![unit(b"after")],
+            "dynamic compute checkpoints stay Pro Research or Pro Gated until the route has live product proof",
+            1_000,
+            "run_event_log:9",
+            verifier_stack(),
+            ProductBuild::Pro,
+            ProStatus::Live,
             99,
         )
         .unwrap_err();
