@@ -1274,6 +1274,7 @@ struct ChatInputBar: View {
         guard contextualShadows.isEnabled else { return }
         guard let bootstrap = AppBootstrap.shared else { return }
         let instantRecall = bootstrap.instantRecallService
+        let searchIndexService = bootstrap.vaultSync.searchService
         let originId = chat.activeChatId.flatMap(UUID.init(uuidString:)) ?? UUID()
         let state = contextualShadows
         recallDebounceBox.task = Task { @MainActor in
@@ -1284,7 +1285,11 @@ struct ChatInputBar: View {
                 kind: .chat,
                 originId: originId
             )
-            state.requestRecall(snapshot: snapshot, instantRecall: instantRecall)
+            state.requestRecall(
+                snapshot: snapshot,
+                instantRecall: instantRecall,
+                searchIndexService: searchIndexService
+            )
         }
     }
 

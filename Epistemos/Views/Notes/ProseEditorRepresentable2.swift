@@ -1086,6 +1086,7 @@ extension ProseEditorRepresentable2 {
             let state = bootstrap.contextualShadowsState
             guard state.isEnabled else { return }
             let instantRecall = bootstrap.instantRecallService
+            let searchIndexService = bootstrap.vaultSync.searchService
             let pageId = currentPageId
             // Use a deterministic UUID derived from the page id when possible
             // so recall results filter the originating note out (plan §5
@@ -1105,7 +1106,11 @@ extension ProseEditorRepresentable2 {
                     kind: .note,
                     originId: originId
                 )
-                state.requestRecall(snapshot: snapshot, instantRecall: instantRecall)
+                state.requestRecall(
+                    snapshot: snapshot,
+                    instantRecall: instantRecall,
+                    searchIndexService: searchIndexService
+                )
             }
         }
 

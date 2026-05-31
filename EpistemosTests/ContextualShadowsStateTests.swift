@@ -243,6 +243,48 @@ struct ContextualShadowsStateTests {
         #expect(state.isPanelVisible)
     }
 
+    @MainActor
+    @Test("empty Shadow results fall back to app vault search and auto-surface")
+    func emptyShadowFallsBackToAppVaultSearch() async throws {
+        let state = ContextualShadowsState(isEnabledOverride: true)
+        let recall = InstantRecallService()
+        let shadow = ContextualShadowsMockSearch(resultsByDomain: [
+            .notes: [],
+            .chats: [],
+        ])
+        state.configureShadowSearch(shadow)
+
+        let databaseURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("contextual-shadows-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("search.sqlite")
+        let searchIndex = try SearchIndexService(databaseURL: databaseURL)
+        try searchIndex.upsert(
+            id: "vault-note-autobiography",
+            title: "My Autobiography",
+            body: "A note about autobiographical memory, local recall, and meaning anchors.",
+            tags: "memoir recall",
+            updatedAt: .now
+        )
+
+        let snapshot = RecallContextSnapshot(
+            text: "autobiographical memory meaning anchors",
+            kind: .chat,
+            originId: UUID()
+        )
+        state.requestRecall(
+            snapshot: snapshot,
+            instantRecall: recall,
+            searchIndexService: searchIndex
+        )
+
+        await Self.waitForResults(state, expectedCount: 1)
+        #expect(shadow.callCount == 2)
+        #expect(state.currentResults.first?.id == "vault-note-autobiography")
+        #expect(state.currentResults.first?.title == "My Autobiography")
+        #expect(state.currentResults.first?.source == "vault-search")
+        #expect(state.isPanelVisible)
+    }
+
     @Test("convert falls back to the first non-empty line when no heading exists")
     func convertFirstLineFallback() {
         let raw: [InstantRecallResult] = [
@@ -292,11 +334,13 @@ struct ContextualShadowsStateTests {
 
         #expect(chatInputBar.contains("@Environment(ContextualShadowsState.self)"))
         #expect(chatInputBar.contains("scheduleContextualShadowsRecall(for:"))
+        #expect(chatInputBar.contains("searchIndexService: searchIndexService"))
         #expect(chatInputBar.contains("ContextualShadowsPanel(onOpen: openContextualShadowHit)"))
         #expect(chatInputBar.contains("ContextualShadowsButton()"))
 
         #expect(proseBridge.contains("scheduleContextualShadowsRecall(newText)"))
-        #expect(proseBridge.contains("state.requestRecall(snapshot: snapshot, instantRecall: instantRecall)"))
+        #expect(proseBridge.contains("state.requestRecall("))
+        #expect(proseBridge.contains("searchIndexService: searchIndexService"))
     }
 
     @Test("Contextual Shadows V0 prefers Shadow search without mounting the V1 Halo controller")
@@ -309,6 +353,10 @@ struct ContextualShadowsStateTests {
                 "The approved V0 route should prefer the Shadow backend when AppBootstrap configures it.")
         #expect(stateSource.contains("searchReportingErrors("),
                 "The mounted V0 route must not hide Shadow backend failures as empty recall.")
+        #expect(stateSource.contains("SearchIndexService"),
+                "A cold/empty Shadow route must fall back to the app-owned vault search index before going silent.")
+        #expect(stateSource.contains("VaultRecallBridge.recordProductionTrace"),
+                "The app-search fallback should leave VaultRecall metrics/provenance for the visible recall surface.")
         #expect(stateSource.contains("shadowDomains(for: snapshot.kind)"),
                 "Any typing surface should search both note and chat Shadow domains so Halo suggestions are not surface-fragmented.")
         #expect(stateSource.contains("self.isPanelVisible = !hits.isEmpty"),

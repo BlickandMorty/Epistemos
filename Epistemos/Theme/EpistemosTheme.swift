@@ -1617,11 +1617,11 @@ enum AppHeadingRole: Sendable {
             ?? fontSize
         switch self {
         case .pageTitle, .h1, .chatTitle:
-            AppDisplayTypography.font(name: fontName, size: resolvedSize, weight: .heavy)
+            return AppDisplayTypography.font(name: fontName, size: resolvedSize, weight: .heavy)
         case .h2, .h3:
-            AppDisplayTypography.font(name: fontName, size: resolvedSize, weight: .semibold)
+            return AppDisplayTypography.font(name: fontName, size: resolvedSize, weight: .semibold)
         case .section:
-            AppDisplayTypography.font(size: resolvedSize, allowDisplayFont: false)
+            return AppDisplayTypography.font(size: resolvedSize, allowDisplayFont: false)
         }
     }
 

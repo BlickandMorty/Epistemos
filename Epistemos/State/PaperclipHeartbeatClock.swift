@@ -27,8 +27,8 @@ actor PaperclipHeartbeatClock {
 
     init(
         store: PaperclipStateStore,
-        agentId: String = Self.defaultAgentId,
-        interval: Duration = Self.defaultInterval
+        agentId: String = PaperclipHeartbeatClock.defaultAgentId,
+        interval: Duration = PaperclipHeartbeatClock.defaultInterval
     ) {
         self.store = store
         self.agentId = agentId

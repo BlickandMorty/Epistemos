@@ -1442,6 +1442,7 @@ struct LandingView: View {
         guard contextualShadows.isEnabled else { return }
         guard let bootstrap = AppBootstrap.shared else { return }
         let instantRecall = bootstrap.instantRecallService
+        let searchIndexService = bootstrap.vaultSync.searchService
         let originId = chat.activeChatId.flatMap(UUID.init(uuidString:)) ?? UUID()
         let state = contextualShadows
         landingRecallDebounceBox.task = Task { @MainActor in
@@ -1452,7 +1453,11 @@ struct LandingView: View {
                 kind: .chat,
                 originId: originId
             )
-            state.requestRecall(snapshot: snapshot, instantRecall: instantRecall)
+            state.requestRecall(
+                snapshot: snapshot,
+                instantRecall: instantRecall,
+                searchIndexService: searchIndexService
+            )
         }
     }
 
