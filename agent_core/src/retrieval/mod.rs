@@ -1186,10 +1186,33 @@ fn bounded_exact_snippet(value: &str) -> String {
 }
 
 fn normalized_exact_text(value: &str) -> String {
-    let normalized = value
-        .replace("<b>", "")
-        .replace("</b>", "")
-        .replace('\u{2026}', " ");
+    let mut normalized = String::with_capacity(value.len());
+    let mut chars = value.chars();
+    while let Some(ch) = chars.next() {
+        if ch == '<' {
+            let mut raw_tag = String::from("<");
+            let mut compact_tag = String::new();
+            let mut closed = false;
+            for tag_ch in chars.by_ref() {
+                raw_tag.push(tag_ch);
+                if tag_ch == '>' {
+                    closed = true;
+                    break;
+                }
+                if !tag_ch.is_whitespace() {
+                    compact_tag.push(tag_ch.to_ascii_lowercase());
+                }
+            }
+            if closed && (compact_tag == "b" || compact_tag == "/b") {
+                continue;
+            }
+            normalized.push_str(&raw_tag);
+        } else if ch == '\u{2026}' {
+            normalized.push(' ');
+        } else {
+            normalized.push(ch);
+        }
+    }
     normalized.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
@@ -2277,6 +2300,24 @@ mod tests {
     }
 
     #[test]
+    fn shadow_exact_verification_rejects_case_variant_markup_only_evidence() {
+        let outcome = ShadowExactVerificationOutcome {
+            request: shadow_exact_request_with_target(),
+            hits: vec![shadow_exact_hit(
+                "dense-alpha",
+                "<B> </ B>",
+                Some("< B ></ b >\u{2026}"),
+            )],
+        };
+
+        let violations = outcome.validate();
+        assert!(!outcome.answer_allowed());
+        assert!(violations.contains(&VaultContextViolation::ProvenanceHidden));
+        assert!(violations.contains(&VaultContextViolation::ShadowExactEscalationRequired));
+        assert!(outcome.visible_matching_hits().is_empty());
+    }
+
+    #[test]
     fn shadow_exact_verification_stays_blocked_when_escalation_unavailable() {
         let mut request = shadow_exact_request_with_target();
         request
@@ -2681,11 +2722,7 @@ mod tests {
 
     #[test]
     fn shadow_residual_decode_hit_rejects_markup_only_summary() {
-        let hit = shadow_residual_hit(
-            "dense-alpha",
-            "Vault Recall Alpha",
-            Some("<b></b>\u{2026}"),
-        );
+        let hit = shadow_residual_hit("dense-alpha", "Vault Recall Alpha", Some("<b></b>\u{2026}"));
 
         assert!(!hit.has_visible_summary());
     }
