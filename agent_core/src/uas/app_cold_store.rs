@@ -199,6 +199,9 @@ impl AppColdStoreRouteCard {
         if durable_units.is_empty() {
             return Err(AppColdStoreRouteCardError::MissingDurableAtlas);
         }
+        if plan.totals.active_runtime_bytes == 0 {
+            return Err(AppColdStoreRouteCardError::MissingActiveRuntimeBytes);
+        }
 
         let totals = AppColdStoreRouteCardTotals {
             durable_atlas_bytes: plan.totals.cold_mmap_ssd_bytes,
@@ -493,6 +496,7 @@ pub enum AppColdStoreRouteCardError {
     MissingAppColdStoreLayoutVerifier,
     MissingParamRouteCardAdmissionVerifier,
     MissingEidosNeuralRoutePriorVerifier,
+    MissingActiveRuntimeBytes,
     ProductBuildStatusMismatch,
     ProductBuildResidencyMismatch,
     WarmCacheRequiresDurableAtlas,
@@ -555,6 +559,10 @@ impl std::fmt::Display for AppColdStoreRouteCardError {
             Self::MissingDurableAtlas => write!(
                 f,
                 "AppColdStore route cards require at least one durable atlas unit"
+            ),
+            Self::MissingActiveRuntimeBytes => write!(
+                f,
+                "AppColdStore route cards require a non-zero active runtime byte plan"
             ),
             Self::DuplicateVerifier { verifier } => {
                 write!(f, "AppColdStore route-card verifier was duplicated: {verifier}")
@@ -994,6 +1002,36 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(err, AppColdStoreRouteCardError::MissingDurableAtlas);
+    }
+
+    #[test]
+    fn app_cold_store_route_card_rejects_durable_only_plan_without_active_bytes() {
+        let cold = block(
+            "durable-only-weight-page",
+            0,
+            4096,
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            Some(rollback_reference()),
+        );
+        let budget = ResidencyBudget::new(0, 0, 8 * GIB, 0.25, 16).unwrap();
+        let plan = ResidencyPlan::evaluate([cold], budget, 42);
+        assert_eq!(plan.status, ResidencyPlanStatus::FitForDryRun);
+        assert_eq!(plan.totals.active_runtime_bytes, 0);
+
+        let err = AppColdStoreRouteCard::from_residency_plan(
+            "deep_research:neural_importance_atlas",
+            verifier_stack(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(err, AppColdStoreRouteCardError::MissingActiveRuntimeBytes);
     }
 
     #[test]
