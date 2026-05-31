@@ -271,7 +271,7 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         &mut thresholds,
         &mut pass_per_axis,
         "dry_run_copy_count",
-        0,
+        card.totals.dry_run_copy_count,
         0,
         "copies",
     );
@@ -280,7 +280,7 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         &mut thresholds,
         &mut pass_per_axis,
         "runtime_model_peak_uma_bytes",
-        0,
+        card.totals.runtime_model_peak_uma_bytes,
         0,
         "bytes",
     );
@@ -289,7 +289,7 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         &mut thresholds,
         &mut pass_per_axis,
         "dry_run_ssd_read_bytes",
-        0,
+        card.totals.dry_run_ssd_read_bytes,
         0,
         "bytes",
     );
