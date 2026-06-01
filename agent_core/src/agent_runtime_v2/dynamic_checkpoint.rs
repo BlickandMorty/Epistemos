@@ -857,6 +857,33 @@ mod tests {
     }
 
     #[test]
+    fn checkpoint_rejects_ledger_snapshot_run_event_log_ordinals() {
+        let mut log = RunEventLog::new();
+        let ordinal = log.append_ledger_snapshot(Default::default());
+
+        let err = DynamicComputeCheckpoint::from_visible_run_event(
+            DynamicComputeCheckpointKind::DepthBudget,
+            "depth budget changed the route plan",
+            vec![unit(b"before")],
+            vec![unit(b"after")],
+            "dynamic compute checkpoints must bind AgentEvent rows, not ledger snapshots",
+            1_000,
+            &log,
+            ordinal,
+            verifier_stack(),
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            DynamicComputeCheckpointError::RunEventLogOrdinalIsNotEvent { ordinal }
+        );
+    }
+
+    #[test]
     fn checkpoint_rejects_terminal_run_event_log_ordinals() {
         let mut log = RunEventLog::new();
         let ordinal = log.append_event(AgentEvent::stop(
