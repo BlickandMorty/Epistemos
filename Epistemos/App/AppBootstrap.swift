@@ -2323,10 +2323,17 @@ final class AppBootstrap {
         self._ghostBrainCoauthor = GhostBrainCoauthor(graphStore: graphState.store, agentMemory: agentGraphMemory)
         orchestratorState.agentGraphMemory = agentGraphMemory
 
-        // Instant recall now hydrates on first real recall use instead of
-        // rebuilding its vault index during idle launch.
+        // Instant recall has a warm idle path so the first typed sentence does
+        // not pay vault hydration. The actual rebuild still runs off-main.
         instantRecallService.configureInitialSnapshotProvider { [self] in
             snapshotInstantRecallNotes()
+        }
+        if !Self.isRunningTests {
+            Task { @MainActor [instantRecallService, contextualShadowsState] in
+                try? await Task.sleep(for: .milliseconds(1_600))
+                guard contextualShadowsState.isEnabled else { return }
+                instantRecallService.prewarmForAmbientRecall()
+            }
         }
 
         // Body-file migration runs off-main to avoid launch hitching.

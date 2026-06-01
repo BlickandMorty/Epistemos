@@ -14,24 +14,31 @@ struct ContextualShadowsButton: View {
     @Environment(ContextualShadowsState.self) private var state
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    var scopeKind: RecallContextKind?
+    var scopeID: String?
+
+    private var payload: ContextualShadowsState.RecallPayload {
+        state.payload(kind: scopeKind, originDocId: scopeID)
+    }
+
     var body: some View {
         Group {
-            if state.isEnabled, state.hasPanelPayload {
+            if state.isEnabled, payload.hasPanelPayload {
                 Button {
-                    state.openPanel()
+                    state.openPanel(kind: scopeKind, originDocId: scopeID)
                 } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: state.lastErrorMessage == nil ? "sparkles" : "exclamationmark.triangle")
+                        Image(systemName: payload.errorMessage == nil ? "sparkles" : "exclamationmark.triangle")
                             .font(.system(size: 10, weight: .semibold))
-                        if state.lastErrorMessage == nil {
-                            Text("\(state.currentResults.count)")
+                        if payload.errorMessage == nil {
+                            Text("\(payload.results.count)")
                                 .font(.system(size: 10, weight: .semibold))
                                 .monospacedDigit()
                         }
                     }
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
-                    .foregroundStyle(state.lastErrorMessage == nil ? Color(nsColor: .tertiaryLabelColor) : Color.orange)
+                    .foregroundStyle(payload.errorMessage == nil ? Color(nsColor: .tertiaryLabelColor) : Color.orange)
                     .background(
                         Capsule(style: .continuous)
                             .fill(Color(nsColor: .quaternaryLabelColor).opacity(0.4))
@@ -39,16 +46,16 @@ struct ContextualShadowsButton: View {
                     .contentShape(Capsule(style: .continuous))
                 }
                 .buttonStyle(.plain)
-                .help(state.lastErrorMessage ?? "Show \(state.currentResults.count) related from your vault")
+                .help(payload.errorMessage ?? "Show \(payload.results.count) related from your vault")
                 .accessibilityLabel(
-                    state.lastErrorMessage == nil
-                        ? "Show \(state.currentResults.count) related items from your vault"
+                    payload.errorMessage == nil
+                        ? "Show \(payload.results.count) related items from your vault"
                         : "Show contextual shadows error"
                 )
                 .transition(reduceMotion ? .identity : .opacity)
             }
         }
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.15), value: state.currentResults.count)
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.15), value: state.lastErrorMessage)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.15), value: payload.results.count)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.15), value: payload.errorMessage)
     }
 }

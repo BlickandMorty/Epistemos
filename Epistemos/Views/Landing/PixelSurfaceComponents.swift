@@ -14,14 +14,8 @@ enum LandingCommandThemeTreatment: Equatable {
             return .classicNative
         }
         switch theme.themePair {
-        case .platinumViolet:
+        case .platinumViolet, .classic, .custom, .ember:
             return .platinumBlock
-        case .custom:
-            return .classicNative
-        case .classic:
-            return .classicNative
-        case .ember:
-            return .emberHybrid
         }
     }
 
@@ -57,7 +51,7 @@ enum LandingCommandTypography {
             return AppDisplayTypography.storedHeadingFontOverride(level: 1)
                 ?? AppDisplayTypography.matrixDisplayFontName
         case .platinumViolet:
-            return AppDisplayTypography.matrixDotsDisplayFontName
+            return AppDisplayTypography.matrixDisplayFontName
         case .ember:
             return theme.displayFontName
         }
@@ -108,7 +102,19 @@ struct PixelPanelBackground: View {
 
     var body: some View {
         ZStack(alignment: .top) {
+            Rectangle()
+                .fill(.regularMaterial)
             Self.panelSurface(for: theme)
+                .opacity(theme.isDark ? 0.88 : 0.92)
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(theme.isDark ? 0.06 : 0.34),
+                    Color.white.opacity(theme.isDark ? 0.02 : 0.10),
+                    Color.clear,
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
             Rectangle()
                 .fill(theme.resolved.accent.color)
                 .frame(height: 3)
@@ -116,20 +122,70 @@ struct PixelPanelBackground: View {
     }
 
     static func panelSurface(for theme: EpistemosTheme) -> Color {
-        solidSurface(for: theme, fraction: theme.isDark ? 0.04 : 0.045)
+        tunedSurface(for: theme, role: .panel)
     }
 
     static func actionSurface(for theme: EpistemosTheme) -> Color {
-        solidSurface(for: theme, fraction: theme.isDark ? 0.05 : 0.08)
+        tunedSurface(for: theme, role: .action)
     }
 
     static func actionHoverSurface(for theme: EpistemosTheme) -> Color {
-        solidSurface(for: theme, fraction: theme.isDark ? 0.085 : 0.13)
+        tunedSurface(for: theme, role: .hover)
     }
 
-    private static func solidSurface(for theme: EpistemosTheme, fraction: CGFloat) -> Color {
+    private enum SurfaceRole {
+        case panel
+        case action
+        case hover
+
+        var darkenFraction: CGFloat {
+            switch self {
+            case .panel: 0.10
+            case .action: 0.14
+            case .hover: 0.08
+            }
+        }
+
+        var customLightenFraction: CGFloat {
+            switch self {
+            case .panel: 0.18
+            case .action: 0.12
+            case .hover: 0.24
+            }
+        }
+    }
+
+    private static func tunedSurface(for theme: EpistemosTheme, role: SurfaceRole) -> Color {
+        if theme.isDark {
+            return blendedSurface(for: theme, fraction: role.darkenFraction, target: .black)
+        }
+
+        switch theme.themePair {
+        case .platinumViolet:
+            switch role {
+            case .panel: return Color.white.opacity(0.98)
+            case .action: return Color(hex: 0xF6F7FB).opacity(0.97)
+            case .hover: return Color.white
+            }
+        case .classic:
+            switch role {
+            case .panel: return Color(hex: 0xECEEF2).opacity(0.98)
+            case .action: return Color(hex: 0xE4E7EC).opacity(0.98)
+            case .hover: return Color(hex: 0xF3F5F8).opacity(0.98)
+            }
+        case .ember:
+            switch role {
+            case .panel: return Color(hex: 0xD6B07A).opacity(0.98)
+            case .action: return Color(hex: 0xC99A62).opacity(0.98)
+            case .hover: return Color(hex: 0xE1BE88).opacity(0.98)
+            }
+        case .custom:
+            return blendedSurface(for: theme, fraction: role.customLightenFraction, target: .white)
+        }
+    }
+
+    private static func blendedSurface(for theme: EpistemosTheme, fraction: CGFloat, target: NSColor) -> Color {
         let base = theme.resolved.background.nsColor.usingColorSpace(.sRGB) ?? theme.resolved.background.nsColor
-        let target = theme.isDark ? NSColor.white : NSColor.black
         return Color(nsColor: base.blended(withFraction: fraction, of: target) ?? base)
     }
 }
@@ -150,17 +206,26 @@ private struct PixelPanelModifier: ViewModifier {
     }
 
     private func platinumPixelPanel(_ content: Content) -> some View {
-        content
+        let panelSurface = surface ?? PixelPanelBackground.panelSurface(for: theme)
+        return content
             .background {
-                if let surface {
-                    ZStack(alignment: .top) {
-                        surface
-                        Rectangle()
-                            .fill(theme.resolved.accent.color)
-                            .frame(height: 3)
-                    }
-                } else {
-                    PixelPanelBackground(theme: theme)
+                ZStack(alignment: .top) {
+                    Rectangle()
+                        .fill(.regularMaterial)
+                    panelSurface
+                        .opacity(theme.isDark ? 0.88 : 0.92)
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(theme.isDark ? 0.06 : 0.30),
+                            Color.white.opacity(theme.isDark ? 0.02 : 0.08),
+                            Color.clear,
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    Rectangle()
+                        .fill(theme.resolved.accent.color.opacity(theme.isDark ? 0.84 : 0.74))
+                        .frame(height: 3)
                 }
             }
             .clipShape(Rectangle())
@@ -168,6 +233,13 @@ private struct PixelPanelModifier: ViewModifier {
                 Rectangle()
                     .stroke(pixelPanelStrokeColor(for: theme), lineWidth: pixelPanelStrokeWidth(for: theme))
             }
+            .compositingGroup()
+            .shadow(
+                color: theme.resolved.accent.color.opacity(theme.isDark ? 0.10 : 0.08),
+                radius: theme.isDark ? 12 : 16,
+                x: 0,
+                y: theme.isDark ? 8 : 10
+            )
             .shadow(
                 color: Color.black.opacity(theme.isDark ? 0.28 : 0.18),
                 radius: 0,
@@ -672,6 +744,34 @@ struct PixelLandingCommandTile: View {
         .padding(.horizontal, treatment == .classicNative ? 12 : 10)
         .padding(.vertical, 8)
         .fixedSize(horizontal: true, vertical: false)
+        .background {
+            if treatment == .platinumBlock, isLit {
+                ZStack(alignment: .top) {
+                    Rectangle()
+                        .fill(.regularMaterial)
+                    PixelPanelBackground.actionSurface(for: theme)
+                        .opacity(theme.isDark ? 0.88 : 0.92)
+                    accent.opacity(theme.isDark ? 0.12 : 0.08)
+                    Rectangle()
+                        .fill(accent.opacity(theme.isDark ? 0.62 : 0.44))
+                        .frame(height: 3)
+                }
+            }
+        }
+        .overlay {
+            if treatment == .platinumBlock, isLit {
+                Rectangle()
+                    .stroke(theme.textPrimary.opacity(theme.isDark ? 0.22 : 0.30), lineWidth: 1)
+            }
+        }
+        .shadow(
+            color: treatment == .platinumBlock && isLit
+                ? Color.black.opacity(theme.isDark ? 0.24 : 0.14)
+                : Color.clear,
+            radius: 0,
+            x: treatment == .platinumBlock && isLit ? 3 : 0,
+            y: treatment == .platinumBlock && isLit ? 3 : 0
+        )
     }
 
     @ViewBuilder

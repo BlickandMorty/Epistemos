@@ -46,14 +46,36 @@ final class ContextualShadowsState {
         }
     }
 
+    nonisolated struct RecallPayload: Equatable, Sendable {
+        let results: [RecallHit]
+        let queryText: String
+        let errorMessage: String?
+
+        static let empty = RecallPayload(results: [], queryText: "", errorMessage: nil)
+
+        var hasPanelPayload: Bool {
+            !results.isEmpty || errorMessage != nil
+        }
+    }
+
     // MARK: - Constants
 
     /// Minimum query length per AMBIENT_RECALL_WIRING_PLAN R3 — avoids
     /// recall noise on quick acks ("ok", "hi") in the chat composer.
     nonisolated static let minimumQueryLength: Int = 6
 
-    /// Default top-K shown in each tab. Plan §2.5 — top-5 related notes.
-    nonisolated static let defaultTopK: Int = 5
+    /// Default recall payload shown across typing surfaces. This intentionally
+    /// exceeds the old top-5 so the panel can behave like a real related
+    /// thoughts surface instead of repeating the same short list.
+    nonisolated static let defaultTopK: Int = 12
+
+    /// Backend request limit before cross-channel dedupe/ranking.
+    nonisolated private static let backendSearchLimit: Int = 16
+
+    /// Explicit title lookups need a wider first pass than ambient semantic
+    /// recall. Otherwise a generated "look-for-a-note..." artifact can appear
+    /// in the first few FTS rows while the real title sits farther down.
+    nonisolated private static let explicitTitleSearchLimit: Int = 80
 
     /// UserDefaults-backed product gate. The environment variable can
     /// still pin the surface on for CI/schemes; the persisted setting keeps
@@ -66,6 +88,11 @@ final class ContextualShadowsState {
 
     /// Top-K results from the most recently completed recall query.
     var currentResults: [RecallHit] = []
+
+    /// Query window used for the latest live recall request. Exposed so the
+    /// panel can show that it is tracking the current sentence/topic, not a
+    /// stale note-wide snapshot.
+    private(set) var lastQueryText: String = ""
 
     /// Recoverable backend error from the mounted Shadow route. Kept separate
     /// from `currentResults` so a broken Shadow index does not masquerade as
@@ -98,6 +125,11 @@ final class ContextualShadowsState {
 
     private let isEnabledOverride: Bool?
     private var shadowSearch: (any ShadowSearchServicing)?
+    private var scopedPayloads: [String: RecallPayload] = [:]
+    private var scopedPanelVisibility: [String: Bool] = [:]
+    private var scopedPendingTasks: [String: Task<Void, Never>] = [:]
+    private(set) var latestScopeKey: String?
+    private(set) var recallCancellationCount: UInt = 0
     private(set) var haloSearchRevision: Int = 0
 
     var haloSearchService: (any ShadowSearchServicing)? {
@@ -107,6 +139,28 @@ final class ContextualShadowsState {
 
     var hasPanelPayload: Bool {
         !currentResults.isEmpty || lastErrorMessage != nil
+    }
+
+    func hasPanelPayload(kind: RecallContextKind? = nil, originDocId: String? = nil) -> Bool {
+        payload(kind: kind, originDocId: originDocId).hasPanelPayload
+    }
+
+    func payload(kind: RecallContextKind? = nil, originDocId: String? = nil) -> RecallPayload {
+        guard let scopeKey = Self.scopeKey(kind: kind, originDocId: originDocId) else {
+            return RecallPayload(
+                results: currentResults,
+                queryText: lastQueryText,
+                errorMessage: lastErrorMessage
+            )
+        }
+        return scopedPayloads[scopeKey] ?? .empty
+    }
+
+    func isPanelVisible(kind: RecallContextKind? = nil, originDocId: String? = nil) -> Bool {
+        guard let scopeKey = Self.scopeKey(kind: kind, originDocId: originDocId) else {
+            return isPanelVisible
+        }
+        return scopedPanelVisibility[scopeKey] == true
     }
 
     nonisolated private static let log = Logger(
@@ -139,8 +193,10 @@ final class ContextualShadowsState {
     // MARK: - Recall request
 
     /// Schedule an off-MainActor recall query for the supplied snapshot.
-    /// Cancels any in-flight task before launching a new one (backpressure
-    /// per plan §7 — never queue, always supersede).
+    /// Cancels any in-flight task for the same surface before launching a new
+    /// one (backpressure per plan §7 — never queue, always supersede). Other
+    /// open notes/chats keep their own recall payload instead of inheriting or
+    /// cancelling the caller's current query.
     ///
     /// Prefers the configured Shadow backend when available; otherwise falls
     /// back to `InstantRecallService.searchAsync`. Only the final assignment to
@@ -150,9 +206,6 @@ final class ContextualShadowsState {
         instantRecall: InstantRecallService,
         searchIndexService: SearchIndexService? = nil
     ) {
-        pendingTask?.cancel()
-        pendingTask = nil
-
         // Flag-gated: when V0 is OFF, clear any visible stale snapshot and
         // schedule no work. UI guards on `isEnabled` separately so this is a
         // belt-and-braces guarantee.
@@ -161,56 +214,80 @@ final class ContextualShadowsState {
             return
         }
 
+        let originDocId = snapshot.originDocId
+        let scopeKey = Self.scopeKey(kind: snapshot.kind, originDocId: originDocId)
+        latestScopeKey = scopeKey
+        cancelPendingTask(scopeKey: scopeKey)
+
         // Minimum query length keeps the chat composer quiet during quick
         // acks; the note composer also benefits from skipping very short
         // partial words.
-        let queryText = snapshot.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let queryText = Self.recallQuery(from: snapshot.text)
         guard queryText.count >= Self.minimumQueryLength else {
-            clearResults()
+            clearResults(scopeKey: scopeKey)
             return
         }
 
-        let originId = snapshot.originId
+        lastQueryText = queryText
 
         if let shadowSearch {
             let domains = Self.shadowDomains(for: snapshot.kind)
-            pendingTask = Task { [weak self, shadowSearch, searchIndexService, instantRecall] in
+            let task = Task { [weak self, shadowSearch, searchIndexService, instantRecall] in
                 async let first = shadowSearch.searchReportingErrors(
                     text: queryText,
                     domain: domains.first,
-                    limit: Self.defaultTopK
+                    limit: Self.backendSearchLimit
                 )
                 async let second = shadowSearch.searchReportingErrors(
                     text: queryText,
                     domain: domains.second,
-                    limit: Self.defaultTopK
+                    limit: Self.backendSearchLimit
                 )
                 let firstOutcome = await first
                 let secondOutcome = await second
                 let raw = firstOutcome.hits + secondOutcome.hits
                 let errorMessage = firstOutcome.errorMessage ?? secondOutcome.errorMessage
-                let shadowHits = Self.convert(raw: raw, originId: originId)
+                let shadowHits = Self.convert(raw: raw, originDocId: originDocId)
 
-                if shadowHits.isEmpty {
-                    let fallbackHits = await Self.appSearchFallbackHits(
+                let fallbackHits: [RecallHit]
+                if shadowHits.count < Self.defaultTopK {
+                    fallbackHits = await Self.appSearchFallbackHits(
                         queryText: queryText,
-                        originId: originId,
+                        originDocId: originDocId,
                         instantRecall: instantRecall,
                         searchIndexService: searchIndexService
                     )
+                } else {
+                    fallbackHits = []
+                }
 
+                let mergedHits = Self.rankedUniqueHits(
+                    shadowHits + fallbackHits,
+                    limit: Self.defaultTopK,
+                    queryText: queryText
+                )
+
+                if mergedHits.isEmpty {
                     await MainActor.run {
                         guard let self else { return }
                         guard !Task.isCancelled else { return }
-                        if fallbackHits.isEmpty, let errorMessage {
-                            self.currentResults = []
-                            self.lastErrorMessage = errorMessage
-                            self.isPanelVisible = true
+                        if let errorMessage {
+                            self.publishPayload(
+                                scopeKey: scopeKey,
+                                queryText: queryText,
+                                results: [],
+                                errorMessage: errorMessage,
+                                isVisible: true
+                            )
                             return
                         }
-                        self.lastErrorMessage = nil
-                        self.currentResults = fallbackHits
-                        self.isPanelVisible = !fallbackHits.isEmpty
+                        self.publishPayload(
+                            scopeKey: scopeKey,
+                            queryText: queryText,
+                            results: [],
+                            errorMessage: nil,
+                            isVisible: false
+                        )
                     }
                     return
                 }
@@ -218,24 +295,23 @@ final class ContextualShadowsState {
                 await MainActor.run {
                     guard let self else { return }
                     guard !Task.isCancelled else { return }
-                    if shadowHits.isEmpty, let errorMessage {
-                        self.currentResults = []
-                        self.lastErrorMessage = errorMessage
-                        self.isPanelVisible = true
-                        return
-                    }
-                    self.lastErrorMessage = nil
-                    self.currentResults = shadowHits
-                    self.isPanelVisible = !shadowHits.isEmpty
+                    self.publishPayload(
+                        scopeKey: scopeKey,
+                        queryText: queryText,
+                        results: mergedHits,
+                        errorMessage: nil,
+                        isVisible: true
+                    )
                 }
             }
+            storePendingTask(task, scopeKey: scopeKey)
             return
         }
 
-        pendingTask = Task { [weak self, instantRecall, searchIndexService] in
+        let task = Task { [weak self, instantRecall, searchIndexService] in
             let hits = await Self.appSearchFallbackHits(
                 queryText: queryText,
-                originId: originId,
+                originDocId: originDocId,
                 instantRecall: instantRecall,
                 searchIndexService: searchIndexService
             )
@@ -246,11 +322,16 @@ final class ContextualShadowsState {
             await MainActor.run {
                 guard let self else { return }
                 guard !Task.isCancelled else { return }
-                self.lastErrorMessage = nil
-                self.currentResults = hits
-                self.isPanelVisible = !hits.isEmpty
+                self.publishPayload(
+                    scopeKey: scopeKey,
+                    queryText: queryText,
+                    results: hits,
+                    errorMessage: nil,
+                    isVisible: !hits.isEmpty
+                )
             }
         }
+        storePendingTask(task, scopeKey: scopeKey)
     }
 
     // MARK: - Panel visibility
@@ -262,18 +343,125 @@ final class ContextualShadowsState {
         isPanelVisible = true
     }
 
+    func openPanel(kind: RecallContextKind?, originDocId: String?) {
+        guard isEnabled else { return }
+        guard let scopeKey = Self.scopeKey(kind: kind, originDocId: originDocId) else {
+            openPanel()
+            return
+        }
+        scopedPanelVisibility[scopeKey] = true
+        latestScopeKey = scopeKey
+    }
+
     /// Close the panel and clear `currentResults` (memory hygiene per plan
     /// §8.7 — closing the panel must release its result snapshot).
     func closePanel() {
         isPanelVisible = false
         currentResults = []
         lastErrorMessage = nil
+        lastQueryText = ""
+        latestScopeKey = nil
+        scopedPayloads.removeAll(keepingCapacity: true)
+        scopedPanelVisibility.removeAll(keepingCapacity: true)
+        cancelAllScopedPendingTasks()
     }
 
     private func clearResults() {
         isPanelVisible = false
         currentResults = []
         lastErrorMessage = nil
+        lastQueryText = ""
+        latestScopeKey = nil
+        scopedPayloads.removeAll(keepingCapacity: true)
+        scopedPanelVisibility.removeAll(keepingCapacity: true)
+        cancelAllScopedPendingTasks()
+    }
+
+    func closePanel(kind: RecallContextKind?, originDocId: String?) {
+        guard let scopeKey = Self.scopeKey(kind: kind, originDocId: originDocId) else {
+            closePanel()
+            return
+        }
+        scopedPanelVisibility[scopeKey] = false
+        scopedPayloads[scopeKey] = .empty
+        if latestScopeKey == scopeKey {
+            currentResults = []
+            lastErrorMessage = nil
+            lastQueryText = ""
+            isPanelVisible = false
+        }
+    }
+
+    private func cancelPendingTask(scopeKey: String?) {
+        guard let scopeKey else {
+            if pendingTask != nil {
+                recallCancellationCount &+= 1
+            }
+            pendingTask?.cancel()
+            pendingTask = nil
+            return
+        }
+        if scopedPendingTasks[scopeKey] != nil {
+            recallCancellationCount &+= 1
+        }
+        scopedPendingTasks[scopeKey]?.cancel()
+        scopedPendingTasks[scopeKey] = nil
+    }
+
+    private func storePendingTask(_ task: Task<Void, Never>, scopeKey: String?) {
+        guard let scopeKey else {
+            pendingTask = task
+            return
+        }
+        scopedPendingTasks[scopeKey] = task
+        pendingTask = task
+    }
+
+    private func cancelAllScopedPendingTasks() {
+        pendingTask?.cancel()
+        pendingTask = nil
+        for task in scopedPendingTasks.values {
+            task.cancel()
+        }
+        scopedPendingTasks.removeAll(keepingCapacity: true)
+    }
+
+    private func clearResults(scopeKey: String?) {
+        guard let scopeKey else {
+            clearResults()
+            return
+        }
+        scopedPayloads[scopeKey] = .empty
+        scopedPanelVisibility[scopeKey] = false
+        if latestScopeKey == scopeKey {
+            currentResults = []
+            lastErrorMessage = nil
+            lastQueryText = ""
+            isPanelVisible = false
+        }
+    }
+
+    private func publishPayload(
+        scopeKey: String?,
+        queryText: String,
+        results: [RecallHit],
+        errorMessage: String?,
+        isVisible: Bool
+    ) {
+        currentResults = results
+        lastQueryText = queryText
+        lastErrorMessage = errorMessage
+        isPanelVisible = isVisible
+        latestScopeKey = scopeKey
+
+        guard let scopeKey else { return }
+        scopedPayloads[scopeKey] = RecallPayload(
+            results: results,
+            queryText: queryText,
+            errorMessage: errorMessage
+        )
+        scopedPanelVisibility[scopeKey] = isVisible
+        scopedPendingTasks[scopeKey] = nil
     }
 
     // MARK: - Conversion
@@ -287,9 +475,16 @@ final class ContextualShadowsState {
         resultKind: RecallContextKind,
         originId: UUID
     ) -> [RecallHit] {
-        let originString = originId.uuidString
+        convert(raw: raw, resultKind: resultKind, originDocId: originId.uuidString)
+    }
+
+    nonisolated static func convert(
+        raw: [InstantRecallResult],
+        resultKind: RecallContextKind,
+        originDocId: String
+    ) -> [RecallHit] {
         return raw.compactMap { result -> RecallHit? in
-            guard result.id != originString else { return nil }
+            guard result.id != originDocId else { return nil }
             let snippet = makeSnippet(from: result.text)
             let title = makeTitle(from: result.text)
             return RecallHit(
@@ -307,9 +502,15 @@ final class ContextualShadowsState {
         raw: [ShadowHit],
         originId: UUID
     ) -> [RecallHit] {
-        let originString = originId.uuidString
+        convert(raw: raw, originDocId: originId.uuidString)
+    }
+
+    nonisolated static func convert(
+        raw: [ShadowHit],
+        originDocId: String
+    ) -> [RecallHit] {
         return raw.compactMap { hit -> RecallHit? in
-            guard hit.id != originString else { return nil }
+            guard hit.id != originDocId else { return nil }
             return RecallHit(
                 id: hit.id,
                 title: hit.title,
@@ -333,9 +534,15 @@ final class ContextualShadowsState {
         raw: [SearchResult],
         originId: UUID
     ) -> [RecallHit] {
-        let originString = originId.uuidString
+        convert(raw: raw, originDocId: originId.uuidString)
+    }
+
+    nonisolated static func convert(
+        raw: [SearchResult],
+        originDocId: String
+    ) -> [RecallHit] {
         return raw.enumerated().compactMap { index, result -> RecallHit? in
-            guard result.pageId != originString else { return nil }
+            guard result.pageId != originDocId else { return nil }
             let title = result.title.trimmingCharacters(in: .whitespacesAndNewlines)
             let snippet = cleanSearchSnippet(result.snippet)
             let score = searchIndexSimilarity(rank: result.rank, index: index)
@@ -352,28 +559,44 @@ final class ContextualShadowsState {
 
     nonisolated private static func appSearchFallbackHits(
         queryText: String,
-        originId: UUID,
+        originDocId: String,
         instantRecall: InstantRecallService,
         searchIndexService: SearchIndexService?
     ) async -> [RecallHit] {
         if let searchIndexService {
             let started = Date()
             do {
-                let results = try await searchIndexService.searchAsync(
-                    query: queryText,
-                    limit: Self.defaultTopK
+                let titleIntent = explicitTitleIntent(from: queryText)
+                let searchQueries = explicitTitleSearchQueries(
+                    titleIntent: titleIntent,
+                    queryText: queryText
                 )
+                let searchLimit = titleIntent == nil
+                    ? Self.backendSearchLimit
+                    : max(Self.backendSearchLimit, Self.explicitTitleSearchLimit)
+                var results: [SearchResult] = []
+                for query in searchQueries {
+                    let queryResults = try await searchIndexService.searchAsync(
+                        query: query,
+                        limit: searchLimit
+                    )
+                    results.append(contentsOf: queryResults)
+                }
                 let latencyMs = Date().timeIntervalSince(started) * 1000
                 let trace = SearchIndexService.vaultRecallTrace(
                     query: queryText,
-                    limit: Self.defaultTopK,
+                    limit: Self.backendSearchLimit,
                     results: results
                 )
                 VaultRecallBridge.recordProductionTrace(trace, latencyMs: latencyMs)
 
-                let hits = Self.convert(raw: results, originId: originId)
+                let hits = Self.convert(raw: results, originDocId: originDocId)
                 if !hits.isEmpty {
-                    return hits
+                    return Self.rankedUniqueHits(
+                        hits,
+                        limit: Self.defaultTopK,
+                        queryText: queryText
+                    )
                 }
             } catch {
                 log.warning(
@@ -385,15 +608,249 @@ final class ContextualShadowsState {
         // searchAsync internally hops to a detached utility task for the
         // FFI call. We await its result here; the await suspension is
         // cancellation-aware so a cancelled task short-circuits in the caller.
-        let raw = await instantRecall.searchAsync(
-            query: queryText,
-            topK: Self.defaultTopK
+        let titleIntent = explicitTitleIntent(from: queryText)
+        let searchQueries = explicitTitleSearchQueries(
+            titleIntent: titleIntent,
+            queryText: queryText
         )
-        return Self.convert(
+        let searchLimit = titleIntent == nil
+            ? Self.backendSearchLimit
+            : max(Self.backendSearchLimit, Self.explicitTitleSearchLimit)
+        var raw: [InstantRecallResult] = []
+        for query in searchQueries {
+            let queryResults = await instantRecall.searchAsync(
+                query: query,
+                topK: searchLimit
+            )
+            raw.append(contentsOf: queryResults)
+        }
+        let hits = Self.convert(
             raw: raw,
             resultKind: .note,
-            originId: originId
+            originDocId: originDocId
         )
+        return Self.rankedUniqueHits(
+            hits,
+            limit: Self.defaultTopK,
+            queryText: queryText
+        )
+    }
+
+    /// Build a compact semantic query from the live typed text. Full-note
+    /// queries make older paragraphs dominate; this keeps recall attached to
+    /// the sentence/topic the user is actively writing.
+    nonisolated static func recallQuery(from text: String) -> String {
+        let normalized = text
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let compactNormalized = normalized
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !compactNormalized.isEmpty else { return "" }
+
+        let tail = String(normalized.suffix(1_800))
+        let paragraphWindow = currentRecallParagraph(from: tail)
+        let sentencePieces = paragraphWindow
+            .split(whereSeparator: { ".?!;".contains($0) })
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        let sentenceWindow = sentencePieces
+            .suffix(3)
+            .joined(separator: ". ")
+        let baseWindow = sentenceWindow.isEmpty ? String(paragraphWindow.suffix(900)) : sentenceWindow
+        let titleIntent = explicitTitleIntent(from: compactNormalized)
+        let baseTerms = Set(
+            normalizedRecallField([titleIntent, baseWindow].compactMap { $0 }.joined(separator: " "))
+                .split(separator: " ")
+                .map(String.init)
+        )
+        let keywordValues = rankedKeywords(from: paragraphWindow, limit: 14)
+            .filter { !baseTerms.contains($0) }
+        let keywords = keywordValues.isEmpty ? nil : keywordValues.joined(separator: " ")
+        let combined = [titleIntent, baseWindow, keywords]
+            .compactMap { $0 }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return String(combined.prefix(1_000))
+    }
+
+    nonisolated private static func currentRecallParagraph(from text: String) -> String {
+        let normalized = text
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+        let paragraphSeparated = normalized
+            .replacingOccurrences(
+                of: "\\n\\s*\\n",
+                with: "\u{0}",
+                options: .regularExpression
+            )
+        let paragraphs = paragraphSeparated
+            .components(separatedBy: "\u{0}")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return paragraphs.last ?? normalized
+    }
+
+    nonisolated private static func explicitTitleIntent(from text: String) -> String? {
+        let patterns = [
+            #/(?i)\b(?:go\s+to|open|find|use|read|show|look\s+for|check)\s+(?:the\s+|my\s+)?notes?\s+(?:titled|called)\s+["“]?(.+?)["”]?(?=\s+(?:in\s+(?:my\s+)?(?:notes|vault)|and|then|please|summarize|rewrite|analyze|compare|review|explain|tell|show|use)\b|[?.!,]|$)/#,
+            #/(?i)\b(?:titled|called)\s+["“]?(.+?)["”]?(?=\s+(?:in\s+(?:my\s+)?(?:notes|vault)|and|then|please|summarize|rewrite|analyze|compare|review|explain|tell|show|use)\b|[?.!,]|$)/#,
+            #/(?i)\b(?:go\s+to|open|find|use|read|show|look\s+for|check)\s+(?:the\s+|my\s+)?notes?\s+(.+?)(?=\s+(?:in\s+(?:my\s+)?(?:notes|vault)|and|then|please|summarize|rewrite|analyze|compare|review|explain|tell|show|use)\b|[?.!,]|$)/#,
+        ]
+
+        for pattern in patterns {
+            if let match = text.firstMatch(of: pattern) {
+                let title = String(match.output.1)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .trimmingCharacters(in: CharacterSet(charactersIn: "\"'“”‘’"))
+                if !title.isEmpty {
+                    return title
+                }
+            }
+        }
+        return nil
+    }
+
+    nonisolated private static func explicitTitleSearchQueries(
+        titleIntent: String?,
+        queryText: String
+    ) -> [String] {
+        uniquePreservingOrder([titleIntent, queryText].compactMap { candidate in
+            let trimmed = candidate?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            return trimmed.isEmpty ? nil : trimmed
+        })
+    }
+
+    nonisolated private static func uniquePreservingOrder(_ values: [String]) -> [String] {
+        var seen: Set<String> = []
+        var ordered: [String] = []
+        ordered.reserveCapacity(values.count)
+        for value in values {
+            let normalized = normalizedRecallField(value)
+            guard !normalized.isEmpty, !seen.contains(normalized) else { continue }
+            seen.insert(normalized)
+            ordered.append(value)
+        }
+        return ordered
+    }
+
+    nonisolated private static func rankedKeywords(from text: String, limit: Int) -> [String] {
+        var counts: [String: Int] = [:]
+        var firstSeen: [String: Int] = [:]
+        let tokens = text
+            .lowercased()
+            .split { !$0.isLetter && !$0.isNumber }
+            .map(String.init)
+        for (index, token) in tokens.enumerated() {
+            guard token.count >= 3, !recallStopWords.contains(token) else { continue }
+            counts[token, default: 0] += 1
+            if firstSeen[token] == nil {
+                firstSeen[token] = index
+            }
+        }
+        let rankedTokens: [String] = counts.keys.sorted { lhs, rhs in
+            let leftCount = counts[lhs, default: 0]
+            let rightCount = counts[rhs, default: 0]
+            if leftCount != rightCount { return leftCount > rightCount }
+            return firstSeen[lhs, default: Int.max] < firstSeen[rhs, default: Int.max]
+        }
+        return Array(rankedTokens.prefix(limit))
+    }
+
+    nonisolated private static let recallStopWords: Set<String> = [
+        "the", "and", "for", "that", "this", "with", "from", "have", "has",
+        "had", "was", "were", "are", "you", "your", "but", "not", "can",
+        "could", "would", "should", "about", "into", "when", "then", "than",
+        "they", "them", "there", "their", "what", "why", "how", "just",
+        "like", "really", "because", "while", "also", "more", "most"
+    ]
+
+    nonisolated private static func rankedUniqueHits(
+        _ hits: [RecallHit],
+        limit: Int,
+        queryText: String? = nil
+    ) -> [RecallHit] {
+        var bestByID: [String: RecallHit] = [:]
+        for hit in hits {
+            let key = "\(hit.kind.rawValue):\(hit.id)"
+            guard let existing = bestByID[key] else {
+                bestByID[key] = hit
+                continue
+            }
+            if hit.similarity > existing.similarity {
+                bestByID[key] = hit
+            }
+        }
+        let normalizedTitleIntent = queryText
+            .flatMap { explicitTitleIntent(from: $0) }
+            .map(normalizedRecallField)
+            .flatMap { $0.isEmpty ? nil : $0 }
+        return bestByID.values
+            .sorted {
+                let lhsScore = recallRankingScore($0, normalizedTitleIntent: normalizedTitleIntent)
+                let rhsScore = recallRankingScore($1, normalizedTitleIntent: normalizedTitleIntent)
+                if lhsScore != rhsScore {
+                    return lhsScore > rhsScore
+                }
+                return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+            }
+            .prefix(limit)
+            .map { $0 }
+    }
+
+    nonisolated private static func recallRankingScore(
+        _ hit: RecallHit,
+        normalizedTitleIntent: String?
+    ) -> Float {
+        guard let normalizedTitleIntent, !normalizedTitleIntent.isEmpty else {
+            return hit.similarity
+        }
+        let normalizedTitle = normalizedRecallField(hit.title)
+        guard !normalizedTitle.isEmpty else { return hit.similarity }
+        let titleLooksLikeLookupCommand = recallTitleLooksLikeLookupCommand(normalizedTitle)
+
+        if normalizedTitle == normalizedTitleIntent {
+            return hit.similarity + 4.0
+        }
+        if normalizedTitle.contains(normalizedTitleIntent) {
+            return hit.similarity + (titleLooksLikeLookupCommand ? 0.35 : 3.0)
+        }
+        let titleTokens = Set(normalizedTitle.split(separator: " ").map(String.init))
+        let intentTokens = normalizedTitleIntent
+            .split(separator: " ")
+            .map(String.init)
+            .filter { !$0.isEmpty }
+        guard !intentTokens.isEmpty else { return hit.similarity }
+        let overlap = intentTokens.reduce(0) { partial, token in
+            partial + (titleTokens.contains(token) ? 1 : 0)
+        }
+        if overlap == intentTokens.count {
+            return hit.similarity + (titleLooksLikeLookupCommand ? 0.20 : 2.0)
+        }
+        let commandPenalty: Float = titleLooksLikeLookupCommand ? 0.35 : 0
+        return hit.similarity + Float(overlap) * 0.25 - commandPenalty
+    }
+
+    nonisolated private static func normalizedRecallField(_ value: String) -> String {
+        value
+            .lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
+
+    nonisolated private static func recallTitleLooksLikeLookupCommand(_ normalizedTitle: String) -> Bool {
+        normalizedTitle.hasPrefix("look for ")
+            || normalizedTitle.hasPrefix("find ")
+            || normalizedTitle.hasPrefix("open ")
+            || normalizedTitle.hasPrefix("read ")
+            || normalizedTitle.contains(" note titled ")
+            || normalizedTitle.contains(" note called ")
+            || normalizedTitle.contains("notes titled")
+            || normalizedTitle.contains("notes called")
     }
 
     /// Best-effort title extraction — prefer the first markdown heading,
@@ -458,5 +915,13 @@ final class ContextualShadowsState {
         case .chats:
             return .chat
         }
+    }
+
+    nonisolated static func scopeKey(kind: RecallContextKind?, originDocId: String?) -> String? {
+        guard let kind,
+              let originDocId = originDocId?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !originDocId.isEmpty
+        else { return nil }
+        return "\(kind.rawValue):\(originDocId)"
     }
 }
