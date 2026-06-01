@@ -122,6 +122,9 @@ impl DynamicComputeCheckpoint {
         let mut verifier_stack = verifier_stack;
         active_units_before.sort_by_key(ToString::to_string);
         active_units_after.sort_by_key(ToString::to_string);
+        if active_units_before == active_units_after {
+            return Err(DynamicComputeCheckpointError::ActiveUnitsUnchanged);
+        }
         verifier_stack.sort();
 
         let checkpoint_address = Self::address(
@@ -373,6 +376,7 @@ pub enum DynamicComputeCheckpointError {
         requested: u64,
         actual: u64,
     },
+    ActiveUnitsUnchanged,
     ProductBuildStatusMismatch,
 }
 
@@ -419,6 +423,10 @@ impl std::fmt::Display for DynamicComputeCheckpointError {
             Self::RunEventLogOrdinalMismatch { requested, actual } => write!(
                 f,
                 "dynamic checkpoint requested run_event_log:{requested}, but the entry carried ordinal {actual}"
+            ),
+            Self::ActiveUnitsUnchanged => write!(
+                f,
+                "dynamic checkpoint active unit sets must change when the checkpoint affects a route"
             ),
             Self::ProductBuildStatusMismatch => write!(
                 f,
@@ -654,6 +662,27 @@ mod tests {
                 address: duplicate.to_string()
             }
         );
+    }
+
+    #[test]
+    fn checkpoint_rejects_unchanged_active_unit_sets() {
+        let unchanged = unit(b"unchanged-unit");
+        let err = DynamicComputeCheckpoint::new(
+            DynamicComputeCheckpointKind::DepthBudget,
+            "depth budget check reached",
+            vec![unchanged.clone()],
+            vec![unchanged],
+            "route-affecting checkpoints must declare the support-set delta",
+            1_000,
+            "run_event_log:8",
+            verifier_stack(),
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(err, DynamicComputeCheckpointError::ActiveUnitsUnchanged);
     }
 
     #[test]

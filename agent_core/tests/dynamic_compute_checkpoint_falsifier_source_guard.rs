@@ -25,8 +25,9 @@ fn dynamic_compute_checkpoint_falsifier_files_exist() {
 #[test]
 fn dynamic_compute_checkpoint_falsifier_stays_manifest_only() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let source = std::fs::read_to_string(root.join("src/bin/falsify_dynamic_compute_checkpoint.rs"))
-        .expect("falsifier source should be readable");
+    let source =
+        std::fs::read_to_string(root.join("src/bin/falsify_dynamic_compute_checkpoint.rs"))
+            .expect("falsifier source should be readable");
 
     for snippet in [
         "F-DynamicCompute-Checkpoint",
@@ -34,6 +35,7 @@ fn dynamic_compute_checkpoint_falsifier_stays_manifest_only() {
         "runtime_model_bytes_loaded",
         "dry_run_ssd_read_bytes",
         "visible_run_event_ordinal_bound",
+        "unchanged_active_unit_sets_rejected",
         "no mmap, no cache warm, no model byte load, no inference",
     ] {
         assert!(
