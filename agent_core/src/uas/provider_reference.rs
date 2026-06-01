@@ -209,6 +209,7 @@ pub enum ProviderReferenceManifestError {
     PromptSuiteOutsideAllowedRoots,
     PromptSuiteReusesArtifactRef,
     ArtifactContainsDotSegment,
+    ArtifactContainsBackslash,
     ArtifactPathMissingFileName,
     InvalidSha256,
     LocalReferenceSentData,
@@ -282,6 +283,12 @@ impl std::fmt::Display for ProviderReferenceManifestError {
             ),
             Self::ArtifactContainsDotSegment => {
                 write!(f, "provider reference artifact path contains a dot segment")
+            }
+            Self::ArtifactContainsBackslash => {
+                write!(
+                    f,
+                    "provider reference artifact path must use forward slash separators"
+                )
             }
             Self::ArtifactPathMissingFileName => {
                 write!(
@@ -430,7 +437,11 @@ fn validate_manifest_artifact_path_field(
             ProviderReferenceManifestError::ManifestFieldHasSurroundingWhitespace { field },
         );
     }
-    validate_stable_identity_field(field, value)
+    validate_stable_identity_field(field, value)?;
+    if value.contains('\\') {
+        return Err(ProviderReferenceManifestError::ArtifactContainsBackslash);
+    }
+    Ok(())
 }
 
 fn has_dot_segment(path: &str) -> bool {
@@ -730,6 +741,34 @@ mod tests {
             }
 
             assert_eq!(manifest.validate(), Err(expected));
+        }
+    }
+
+    #[test]
+    fn rejects_manifest_artifact_paths_with_backslash_separators() {
+        for (field, value) in [
+            (
+                "artifact_ref",
+                "artifacts/falsifiers/70b_local_cocktail_lite/local\\reference.jsonl",
+            ),
+            (
+                "prompt_suite_artifact_ref",
+                "artifacts/falsifiers/kv_direct_gate/prompt\\suite.json",
+            ),
+        ] {
+            let mut manifest = local_manifest();
+            match field {
+                "artifact_ref" => manifest.artifact_ref = value.to_string(),
+                "prompt_suite_artifact_ref" => {
+                    manifest.prompt_suite_artifact_ref = value.to_string();
+                }
+                _ => unreachable!("test field is exhaustive"),
+            }
+
+            assert_eq!(
+                manifest.validate(),
+                Err(ProviderReferenceManifestError::ArtifactContainsBackslash)
+            );
         }
     }
 
