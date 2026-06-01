@@ -900,6 +900,24 @@ mod tests {
         likely_weight_page_families: Vec<String>,
         confidence: f32,
     ) -> Result<EidosRoutePrior, crate::eidos::EidosRoutePriorError> {
+        eidos_prior_with_why(
+            likely_verifiers,
+            likely_adapter_families,
+            likely_kv_regions,
+            likely_weight_page_families,
+            confidence,
+            vec!["Eidos matched cited vault evidence and route priors".to_string()],
+        )
+    }
+
+    fn eidos_prior_with_why(
+        likely_verifiers: Vec<String>,
+        likely_adapter_families: Vec<String>,
+        likely_kv_regions: Vec<String>,
+        likely_weight_page_families: Vec<String>,
+        confidence: f32,
+        why_matched: Vec<String>,
+    ) -> Result<EidosRoutePrior, crate::eidos::EidosRoutePriorError> {
         let packet = eidos_packet();
         EidosRoutePrior::from_packet(
             &packet,
@@ -913,7 +931,7 @@ mod tests {
             likely_kv_regions,
             likely_weight_page_families,
             confidence,
-            vec!["Eidos matched cited vault evidence and route priors".to_string()],
+            why_matched,
         )
     }
 
@@ -2390,6 +2408,59 @@ mod tests {
         assert_ne!(
             domain_card.card_address, contradiction_card.card_address,
             "route-card identity must bind which Eidos prior field carried a hint"
+        );
+    }
+
+    #[test]
+    fn eidos_route_prior_card_address_binds_why_matched() {
+        let plan = fit_plan();
+        let first_prior = eidos_prior_with_why(
+            vec!["F-AppColdStore-Layout".to_string()],
+            vec!["adapter:research_synthesis".to_string()],
+            Vec::new(),
+            vec![cold_weight_page_source_hint()],
+            0.82,
+            vec!["Eidos matched closed citation evidence".to_string()],
+        )
+        .expect("first route prior should build");
+        let second_prior = eidos_prior_with_why(
+            vec!["F-AppColdStore-Layout".to_string()],
+            vec!["adapter:research_synthesis".to_string()],
+            Vec::new(),
+            vec![cold_weight_page_source_hint()],
+            0.82,
+            vec!["Eidos found a contradiction hint for the same support".to_string()],
+        )
+        .expect("second route prior should build");
+
+        let first_card = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+            "deep_research:neural_importance_atlas",
+            route_prior_verifier_stack(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            Some(first_prior),
+            99,
+        )
+        .expect("first route prior should be admitted to the manifest card");
+        let second_card = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+            "deep_research:neural_importance_atlas",
+            route_prior_verifier_stack(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            Some(second_prior),
+            99,
+        )
+        .expect("second route prior should be admitted to the manifest card");
+
+        assert_ne!(
+            first_card.card_address, second_card.card_address,
+            "route-card identity must bind Eidos why_matched so route priors stay explainable"
         );
     }
 }
