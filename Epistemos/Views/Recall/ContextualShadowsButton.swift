@@ -31,7 +31,7 @@ struct ContextualShadowsButton: View {
                         Image(systemName: payload.errorMessage == nil ? "sparkles" : "exclamationmark.triangle")
                             .font(.system(size: 10, weight: .semibold))
                         if payload.errorMessage == nil {
-                            Text("\(payload.results.count)")
+                            Text(payload.isSearching ? "..." : "\(payload.results.count)")
                                 .font(.system(size: 10, weight: .semibold))
                                 .monospacedDigit()
                         }
@@ -46,16 +46,33 @@ struct ContextualShadowsButton: View {
                     .contentShape(Capsule(style: .continuous))
                 }
                 .buttonStyle(.plain)
-                .help(payload.errorMessage ?? "Show \(payload.results.count) related from your vault")
-                .accessibilityLabel(
-                    payload.errorMessage == nil
-                        ? "Show \(payload.results.count) related items from your vault"
-                        : "Show contextual shadows error"
-                )
+                .help(helpText)
+                .accessibilityLabel(accessibilityText)
                 .transition(reduceMotion ? .identity : .opacity)
             }
         }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.15), value: payload.results.count)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.15), value: payload.errorMessage)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.15), value: payload.isSearching)
+    }
+
+    private var helpText: String {
+        if let errorMessage = payload.errorMessage {
+            return errorMessage
+        }
+        if payload.isSearching {
+            return "Searching related items"
+        }
+        return "Show \(payload.results.count) related from your vault"
+    }
+
+    private var accessibilityText: String {
+        if payload.isSearching {
+            return "Searching related items from your vault"
+        }
+        if payload.errorMessage != nil {
+            return "Show contextual shadows error"
+        }
+        return "Show \(payload.results.count) related items from your vault"
     }
 }

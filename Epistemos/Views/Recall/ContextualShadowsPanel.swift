@@ -263,6 +263,8 @@ struct ContextualShadowsPanel: View {
         let hits = activeHits
         if hits.isEmpty, let error = payload.errorMessage {
             unavailableContent(error)
+        } else if hits.isEmpty, payload.isSearching {
+            searchingContent
         } else if hits.isEmpty {
             emptyContent
         } else if isWorkspaceMode {
@@ -426,6 +428,17 @@ struct ContextualShadowsPanel: View {
                 .font(.system(size: 11, weight: .medium, design: .rounded))
                 .foregroundStyle(theme.textTertiary)
             Spacer()
+        }
+        .frame(maxWidth: .infinity, minHeight: 96)
+    }
+
+    private var searchingContent: some View {
+        VStack(spacing: 8) {
+            ProgressView()
+                .controlSize(.small)
+            Text("Searching current text")
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .foregroundStyle(theme.textTertiary)
         }
         .frame(maxWidth: .infinity, minHeight: 96)
     }
