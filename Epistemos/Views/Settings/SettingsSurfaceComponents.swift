@@ -110,15 +110,15 @@ struct SettingsAppleCardChrome: ViewModifier {
             .overlay {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .stroke(
-                        theme.border.opacity(theme.isDark ? 0.24 : 0.30),
-                        lineWidth: theme.isDark ? 0.6 : 0.8
+                        theme.border.opacity(theme.isDark ? 0.18 : 0.22),
+                        lineWidth: theme.isDark ? 0.55 : 0.65
                     )
             }
             .shadow(
-                color: Color.black.opacity(theme.isDark ? 0.24 : 0.10),
-                radius: theme.isDark ? 14 : 18,
+                color: Color.black.opacity(theme.isDark ? 0.08 : 0.02),
+                radius: theme.isDark ? 7 : 4,
                 x: 0,
-                y: theme.isDark ? 7 : 9
+                y: theme.isDark ? 3 : 1
             )
     }
 }

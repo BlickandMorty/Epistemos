@@ -1035,21 +1035,11 @@ struct LandingView: View {
 
         var body: some View {
             content()
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 5)
                 .frame(minHeight: 34)
-                .background(Rectangle().fill(accent.opacity(theme.isDark ? 0.08 : 0.05)))
-                .pixelPanel(theme: theme, surface: PixelPanelBackground.actionSurface(for: theme))
-                .overlay {
-                    Rectangle()
-                        .stroke(accent.opacity(theme.isDark ? 0.18 : 0.22), lineWidth: 1)
-                }
-                .shadow(
-                    color: Color.black.opacity(theme.isDark ? 0.20 : 0.12),
-                    radius: 0,
-                    x: 3,
-                    y: 3
-                )
+                .foregroundStyle(theme.textSecondary.opacity(theme.isDark ? 0.86 : 0.78))
+                .contentShape(Rectangle())
         }
     }
 
@@ -1061,40 +1051,30 @@ struct LandingView: View {
         let isActive: Bool
 
         var body: some View {
-            HStack(spacing: 7) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(accent.opacity(isActive ? 0.18 : 0.10))
-                    Image(systemName: systemImage)
-                        .font(.system(size: 11, weight: .semibold))
-                        .symbolRenderingMode(.monochrome)
-                        .foregroundStyle(accent)
-                }
-                .frame(width: 20, height: 20)
+            HStack(spacing: 6) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 12, weight: .semibold))
+                    .symbolRenderingMode(.monochrome)
+                    .foregroundStyle(accent.opacity(isActive ? 1 : 0.86))
+                    .frame(width: 16, height: 16)
 
                 Text(title)
-                    .font(.system(size: 11.5, weight: .semibold))
-                    .foregroundStyle(theme.textPrimary.opacity(theme.isDark ? 0.90 : 0.82))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(theme.textPrimary.opacity(isActive ? 0.92 : (theme.isDark ? 0.78 : 0.68)))
                     .lineLimit(1)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 6)
             .frame(minHeight: 34)
-            .background {
-                Rectangle()
-                    .fill(accent.opacity(isActive ? (theme.isDark ? 0.12 : 0.08) : 0.001))
+            .overlay(alignment: .bottom) {
+                if isActive {
+                    Rectangle()
+                        .fill(accent.opacity(theme.isDark ? 0.62 : 0.48))
+                        .frame(height: 1)
+                        .padding(.horizontal, 4)
+                }
             }
-            .pixelPanel(theme: theme, surface: PixelPanelBackground.actionSurface(for: theme))
-            .overlay {
-                Rectangle()
-                    .stroke(accent.opacity(isActive ? 0.30 : 0.18), lineWidth: 1)
-            }
-            .shadow(
-                color: Color.black.opacity(theme.isDark ? 0.20 : 0.12),
-                radius: 0,
-                x: 3,
-                y: 3
-            )
+            .contentShape(Rectangle())
         }
     }
 
@@ -1141,8 +1121,12 @@ struct LandingView: View {
                     .accessibilityHint(landingSearchAttachmentHint)
 
                     if landingSearchText.isEmpty {
-                        PixelPanelTitle(text: "Search", theme: theme, size: 27)
-                            .padding(.top, 1)
+                        Text(ComposerAttachmentEntryHints.mainChatPlaceholder + "  Auto-routes when your prompt needs tools or a longer run.")
+                            .font(.system(size: 20, weight: .regular, design: .rounded))
+                            .foregroundStyle(theme.textSecondary.opacity(theme.isDark ? 0.34 : 0.28))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .padding(.top, ChatComposerInputMetrics.placeholderTopPadding)
                             .padding(.leading, ChatComposerInputMetrics.horizontalInset)
                             .allowsHitTesting(false)
                             .accessibilityHidden(true)
