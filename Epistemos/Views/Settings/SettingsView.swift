@@ -3422,7 +3422,7 @@ private struct AppearanceDetailContainer: View {
     private var appearanceForm: some View {
         Form {
             AppearanceThemePairSection(ui: ui, theme: theme)
-            if ui.activePair == .custom {
+            if ui.themeMode == .custom && ui.activePair == .custom {
                 AppearanceCustomThemeSection(ui: ui)
             }
             AppearanceTypographySection(ui: ui)
@@ -3922,7 +3922,12 @@ private struct AppearanceCustomThemeSection: View {
 
     private func colorBinding(slot: AppCustomThemeColorSlot, isDark: Bool) -> Binding<Color> {
         Binding(
-            get: { Color(hex: AppCustomTheme.hex(for: slot, isDark: isDark)) },
+            get: {
+                let hex = slot == .noteSurface
+                    ? AppCustomTheme.noteSurfaceHex(isDark: isDark)
+                    : AppCustomTheme.hex(for: slot, isDark: isDark)
+                return Color(hex: hex)
+            },
             set: { color in
                 guard let hex = color.rgbHex else { return }
                 AppCustomTheme.setHex(hex, for: slot, isDark: isDark)
@@ -4115,7 +4120,7 @@ private struct AppearanceTypographySection: View {
                 }
             }
 
-            if ui.activePair == .custom {
+            if ui.themeMode == .custom && ui.activePair == .custom {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         VStack(alignment: .leading, spacing: 3) {
