@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "889535e4ad31f38dd724f7d86a58a010a8a5fa14",
+  "commit_sha": "28d11e73b2b48f7be94c36402647b9115b7c6d96",
   "fixture_id": "dynamic_compute_checkpoint_manifest_only_v1",
-  "timestamp_utc": "2026-06-01T19:56:14Z",
-  "result_digest": "sha256:26d947e5b3e6e8114ef0bd4873b81a8f05e5fd598215e81f9308706b9b17afd7",
+  "timestamp_utc": "2026-06-01T20:53:51Z",
+  "result_digest": "sha256:e14f420e69d23a33fff73e17f6697faa01267c95ba42834d0930d029284bfef6",
   "measurements": {
     "active_units_before_after_bound": {
       "value": true,
@@ -88,6 +88,10 @@
     "runtime_model_peak_uma_bytes": {
       "value": 0,
       "unit": "bytes"
+    },
+    "unchanged_active_unit_sets_rejected": {
+      "value": true,
+      "unit": "bool"
     },
     "visible_run_event_ordinal_bound": {
       "value": true,
@@ -169,6 +173,11 @@
       "value": 0,
       "unit": "bytes"
     },
+    "unchanged_active_unit_sets_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "visible_run_event_ordinal_bound": {
       "operator": "==",
       "value": true,
@@ -195,6 +204,7 @@
     "product_build_pro_research_status_bound": true,
     "runtime_model_bytes_loaded": true,
     "runtime_model_peak_uma_bytes": true,
+    "unchanged_active_unit_sets_rejected": true,
     "visible_run_event_ordinal_bound": true,
     "witness_completeness_percent": true
   },

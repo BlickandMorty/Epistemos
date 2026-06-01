@@ -225,6 +225,26 @@ fn build_report() -> Result<DynamicComputeCheckpointReport, Box<dyn std::error::
             }
     };
 
+    let unchanged_active_unit_sets_rejected = {
+        let unchanged = unit(b"unchanged-unit");
+        DynamicComputeCheckpoint::from_visible_run_event(
+            DynamicComputeCheckpointKind::DepthBudget,
+            "depth budget check reached",
+            vec![unchanged.clone()],
+            vec![unchanged],
+            "route-affecting checkpoints must declare the support-set delta",
+            1_000,
+            &log,
+            ordinal,
+            verifier_stack(),
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            1_779_000_000_000,
+        )
+        .unwrap_err()
+            == DynamicComputeCheckpointError::ActiveUnitsUnchanged
+    };
+
     let mut measurements = BTreeMap::new();
     let mut thresholds = BTreeMap::new();
     let mut pass_per_axis = BTreeMap::new();
@@ -313,6 +333,13 @@ fn build_report() -> Result<DynamicComputeCheckpointReport, Box<dyn std::error::
         &mut pass_per_axis,
         "duplicate_active_unit_rejected",
         duplicate_active_unit_rejected,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "unchanged_active_unit_sets_rejected",
+        unchanged_active_unit_sets_rejected,
     );
     add_count_eq_axis(
         &mut measurements,
