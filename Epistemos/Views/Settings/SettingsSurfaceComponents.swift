@@ -26,22 +26,22 @@ struct SettingsThemedBlurBackdrop: View {
         func baseOpacity(isDark: Bool) -> Double {
             switch self {
             case .page:
-                isDark ? 0.72 : 0.66
+                isDark ? 0.74 : 0.70
             case .sidebar:
-                isDark ? 0.78 : 0.72
+                isDark ? 0.80 : 0.76
             case .card:
-                isDark ? 0.84 : 0.80
+                isDark ? 0.76 : 0.82
             }
         }
 
         func materialOpacity(isDark: Bool) -> Double {
             switch self {
             case .page:
-                isDark ? 0.40 : 0.34
+                isDark ? 0.30 : 0.22
             case .sidebar:
-                isDark ? 0.46 : 0.38
+                isDark ? 0.34 : 0.26
             case .card:
-                isDark ? 0.52 : 0.46
+                isDark ? 0.28 : 0.18
             }
         }
 
@@ -71,7 +71,7 @@ struct SettingsThemedBlurBackdrop: View {
 
     private var surfaceColor: Color {
         role == .card
-            ? PixelPanelBackground.panelSurface(for: theme)
+            ? theme.resolved.card.color
             : theme.resolved.background.color
     }
 
@@ -110,8 +110,8 @@ struct SettingsAppleCardChrome: ViewModifier {
             .overlay {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .stroke(
-                        theme.border.opacity(theme.isDark ? 0.18 : 0.22),
-                        lineWidth: theme.isDark ? 0.55 : 0.65
+                        theme.border.opacity(theme.isDark ? 0.16 : 0.14),
+                        lineWidth: theme.isDark ? 0.5 : 0.55
                     )
             }
     }
@@ -200,21 +200,21 @@ struct SettingsPixelGlyphBadge: View {
 
     var body: some View {
         ZStack {
+            RoundedRectangle(cornerRadius: max(6, size * 0.24), style: .continuous)
+                .fill(resolvedTint.opacity(theme.isDark ? 0.16 : 0.12))
+            RoundedRectangle(cornerRadius: max(6, size * 0.24), style: .continuous)
+                .stroke(resolvedTint.opacity(theme.isDark ? 0.22 : 0.18), lineWidth: 0.55)
+
             Image(systemName: systemImage)
                 .font(.system(size: size * 0.70, weight: .semibold))
                 .symbolRenderingMode(.monochrome)
                 .foregroundStyle(resolvedTint)
 
-            VStack(spacing: 0) {
-                HStack(spacing: 0) {
-                    pixel(opacity: 0.34)
-                    Spacer(minLength: 0)
-                    pixel(opacity: 0.58)
-                }
+            HStack {
                 Spacer(minLength: 0)
-                HStack(spacing: 0) {
+                VStack {
                     Spacer(minLength: 0)
-                    pixel(opacity: 0.42)
+                    pixel(opacity: 0.34)
                 }
             }
         }
