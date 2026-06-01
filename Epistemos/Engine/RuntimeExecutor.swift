@@ -334,12 +334,14 @@ nonisolated public enum RouteVerdict: Sendable, Equatable, Hashable, Codable {
         case noLaneAvailable = "no_lane_available"
         case allLanesDisabled = "all_lanes_disabled"
         case privacySensitiveNoLocal = "privacy_sensitive_no_local"
+        case invalidPolicyInput = "invalid_policy_input"
 
         public var displayName: String {
             switch self {
             case .noLaneAvailable: return "No lane available"
             case .allLanesDisabled: return "All lanes disabled"
             case .privacySensitiveNoLocal: return "Privacy-sensitive · no local lane"
+            case .invalidPolicyInput: return "Invalid policy input"
             }
         }
     }

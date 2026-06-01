@@ -101,8 +101,11 @@ fn runtime_router_consumes_policy_context_window_floor() {
 fn runtime_router_rejects_malformed_policy_hints_before_local_acceptance() {
     for snippet in [
         "case invalidPolicyInput = \"invalid_policy_input\"",
-        "classificationConfidence < 0.0 || classificationConfidence > 1.0",
-        "estimatedComplexity < 0.0 || estimatedComplexity > 1.0",
+        "private func invalidPolicyRejectReason(for packet: MissionPacket) -> RouteVerdict.RejectReason?",
+        "if let rejectReason = invalidPolicyRejectReason(for: packet)",
+        "return recordReject(role: packet.role, reason: rejectReason)",
+        "!Self.isUnitInterval(classificationConfidence)",
+        "!Self.isUnitInterval(estimatedComplexity)",
         "toolCountEstimate < 0",
         "estimatedInputTokens < 0",
         "return .invalidPolicyInput",

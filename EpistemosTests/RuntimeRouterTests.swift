@@ -133,6 +133,65 @@ struct RuntimeRouterTests {
         }
     }
 
+    @Test("malformed policy hints reject before any fallback lane accepts")
+    func malformedPolicyHintsRejectBeforeFallback() {
+        let cases: [(String, MissionPacket)] = [
+            (
+                "nan-confidence",
+                MissionPacket(
+                    uasAddress: "uas:test:invalid-confidence",
+                    role: .code,
+                    objective: "Refactor this.",
+                    classificationConfidence: Double.nan
+                )
+            ),
+            (
+                "infinite-complexity",
+                MissionPacket(
+                    uasAddress: "uas:test:invalid-complexity",
+                    role: .code,
+                    objective: "Refactor this.",
+                    estimatedComplexity: Double.infinity
+                )
+            ),
+            (
+                "negative-tool-count",
+                MissionPacket(
+                    uasAddress: "uas:test:invalid-tool-count",
+                    role: .code,
+                    objective: "Refactor this.",
+                    toolCountEstimate: -1
+                )
+            ),
+            (
+                "negative-input-tokens",
+                MissionPacket(
+                    uasAddress: "uas:test:invalid-input-tokens",
+                    role: .code,
+                    objective: "Refactor this.",
+                    estimatedInputTokens: -1
+                )
+            ),
+        ]
+
+        for (label, packet) in cases {
+            let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
+            router._testResetMetrics()
+            let verdict = router.route(packet)
+
+            if case .reject(let reason) = verdict {
+                #expect(reason == .invalidPolicyInput, "\(label) should reject as invalid policy input")
+            } else {
+                Issue.record("\(label) expected .reject, got \(verdict)")
+            }
+
+            #expect(router.metrics.ring.count == 1, "\(label) should record one reject event")
+            #expect(router.metrics.ring.first?.kind == .reject)
+            #expect(router.metrics.ring.first?.detail == RouteVerdict.RejectReason.invalidPolicyInput.rawValue)
+            #expect(router.metrics.tally(for: .cloud(provider: "claude")).accepts == 0)
+        }
+    }
+
     @Test("estimated input tokens gate small-context lanes before fallback")
     func estimatedInputTokensGateSmallContextLane() {
         let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
