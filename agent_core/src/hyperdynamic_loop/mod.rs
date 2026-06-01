@@ -11,7 +11,7 @@
 //! This module ships the *generic* runner. The three concrete loops live
 //! alongside in submodules:
 //! - `schema_repair`     — JSONSchema validate → repair prompt with field list
-//! - `admission_repair`  — ACS verdict `defer`/`quarantine` → repair with policy hint
+//! - `admission_repair`  — SCOPE-Rex verdict `defer`/`quarantine` → repair with policy hint
 //! - `witness_repair`    — EML / F-ULP witness fails → repair with constraint
 //!
 //! The substrate motion is **Mutate / Promote** (raw model output → typed
