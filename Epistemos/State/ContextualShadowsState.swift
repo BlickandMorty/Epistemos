@@ -862,33 +862,47 @@ final class ContextualShadowsState {
         _ hit: RecallHit,
         normalizedTitleIntent: String?
     ) -> Float {
+        let noteFirstBoost = recallKindBoost(hit)
         guard let normalizedTitleIntent, !normalizedTitleIntent.isEmpty else {
-            return hit.similarity
+            return hit.similarity + noteFirstBoost
         }
         let normalizedTitle = normalizedRecallField(hit.title)
-        guard !normalizedTitle.isEmpty else { return hit.similarity }
+        guard !normalizedTitle.isEmpty else { return hit.similarity + noteFirstBoost }
         let titleLooksLikeLookupCommand = recallTitleLooksLikeLookupCommand(normalizedTitle)
 
         if normalizedTitle == normalizedTitleIntent {
-            return hit.similarity + 4.0
+            return hit.similarity + noteFirstBoost + 4.0
         }
         if normalizedTitle.contains(normalizedTitleIntent) {
-            return hit.similarity + (titleLooksLikeLookupCommand ? 0.35 : 3.0)
+            return hit.similarity + noteFirstBoost + (titleLooksLikeLookupCommand ? 0.35 : 3.0)
         }
         let titleTokens = Set(normalizedTitle.split(separator: " ").map(String.init))
         let intentTokens = normalizedTitleIntent
             .split(separator: " ")
             .map(String.init)
             .filter { !$0.isEmpty }
-        guard !intentTokens.isEmpty else { return hit.similarity }
+        guard !intentTokens.isEmpty else { return hit.similarity + noteFirstBoost }
         let overlap = intentTokens.reduce(0) { partial, token in
             partial + (titleTokens.contains(token) ? 1 : 0)
         }
         if overlap == intentTokens.count {
-            return hit.similarity + (titleLooksLikeLookupCommand ? 0.20 : 2.0)
+            return hit.similarity + noteFirstBoost + (titleLooksLikeLookupCommand ? 0.20 : 2.0)
         }
         let commandPenalty: Float = titleLooksLikeLookupCommand ? 0.35 : 0
-        return hit.similarity + Float(overlap) * 0.25 - commandPenalty
+        return hit.similarity + noteFirstBoost + Float(overlap) * 0.25 - commandPenalty
+    }
+
+    /// Ambient recall is mostly a note-finding affordance even when typed
+    /// inside chat. Keep chats available as useful session memory, but prefer
+    /// vault notes on near-ties so old conversation text does not pin the
+    /// visible list while the user is trying to find related notes.
+    nonisolated private static func recallKindBoost(_ hit: RecallHit) -> Float {
+        switch hit.kind {
+        case .note:
+            return 0.08
+        case .chat:
+            return 0
+        }
     }
 
     nonisolated private static func normalizedRecallField(_ value: String) -> String {
@@ -961,7 +975,7 @@ final class ContextualShadowsState {
         case .note:
             return (.notes, .chats)
         case .chat:
-            return (.chats, .notes)
+            return (.notes, .chats)
         }
     }
 
