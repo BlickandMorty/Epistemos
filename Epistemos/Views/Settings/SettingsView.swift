@@ -48,6 +48,7 @@ enum SettingsViewDestructiveActionSovereignGate {
 struct SettingsView: View {
     @Environment(UIState.self) private var ui
     @State private var selection: SettingsSection? = .general
+    @State private var settingsSearchQuery = ""
     /// Single source of truth for the Authority & Installs panel in this
     /// settings window. Owned here so the store survives view redraws while
     /// the user navigates between sidebar rows. Uses the file-backed
@@ -299,26 +300,86 @@ struct SettingsView: View {
                 "Research-only HELIOS scaffold; v1 runtime controls are deferred."
             }
         }
+
+        var searchKeywords: [String] {
+            switch self {
+            case .general:
+                ["session", "workspace", "restore", "reset", "retention", "privacy", "data"]
+            case .ambientFrequencies:
+                ["audio", "sound", "frequency", "frequencies", "wav", "ambient", "binaural", "music"]
+            case .channels:
+                ["slack", "webhook", "matrix", "email", "sms", "outbound", "route"]
+            case .cognitive:
+                ["reasoning", "profile", "temperature", "route", "local", "cloud"]
+            case .inference:
+                ["model", "provider", "runtime", "mlx", "qwen", "generation", "tokens"]
+            case .knowledgeFusion:
+                ["training", "adapter", "feedback", "fusion", "ingest", "experimental"]
+            case .modelVaults:
+                ["model vault", "profile", "isolation", "memory", "per-model"]
+            case .iMessageDriver:
+                ["imessage", "messages", "driver", "contact", "pairing"]
+            case .skills:
+                ["skills", "manifest", "activation", "plugin", "tools"]
+            case .agent:
+                ["agent", "tools", "permissions", "authority", "overseer", "system g", "runtime"]
+            case .agentControl:
+                ["agent", "tools", "approval", "limits", "sessions"]
+            case .authority:
+                ["authority", "permission", "allow", "ask", "deny", "install"]
+            case .overseer:
+                ["overseer", "mask", "audit", "route", "trace"]
+            case .landing:
+                ["landing", "greeting", "quick capture", "home", "welcome", "agents"]
+            case .appearance:
+                ["theme", "custom", "font", "graph", "platinum", "classic", "dark", "color"]
+            case .vault:
+                ["vault", "folder", "sync", "path", "index", "retrieval", "notes"]
+            case .privacy:
+                ["privacy", "local", "cloud", "app privacy", "permissions", "security"]
+            case .provenance:
+                ["provenance", "event", "run", "mutation", "audit", "console"]
+            case .substrateHealth:
+                ["substrate", "health", "falsifier", "wrv", "eidos", "search", "runtime"]
+            case .experimentalFeatures:
+                ["flags", "experiments", "gates", "feature", "defaults"]
+            case .heliosV5:
+                ["helios", "research", "scaffold", "deferred"]
+            }
+        }
     }
 
     var body: some View {
         NavigationSplitView {
-            List(selection: $selection) {
-                ForEach(SettingsCategory.orderedCases) { category in
-                    let sections = SettingsSection.visibleSections
-                        .filter { $0.category == category }
-                    if !sections.isEmpty {
-                        Section(category.rawValue) {
-                            ForEach(sections) { section in
-                                SettingsSidebarRow(section: section)
+            VStack(spacing: 0) {
+                SettingsSearchField(text: $settingsSearchQuery)
+                    .padding(.horizontal, 10)
+                    .padding(.top, 10)
+                    .padding(.bottom, 8)
+
+                List(selection: $selection) {
+                    ForEach(SettingsCategory.orderedCases) { category in
+                        let sections = sidebarSections(in: category)
+                        if !sections.isEmpty {
+                            Section(category.rawValue) {
+                                ForEach(sections) { section in
+                                    SettingsSidebarRow(
+                                        section: section,
+                                        searchQuery: normalizedSettingsSearchQuery
+                                    )
                                     .tag(section)
+                                }
                             }
                         }
                     }
+
+                    if !normalizedSettingsSearchQuery.isEmpty && filteredVisibleSections.isEmpty {
+                        SettingsSearchEmptyRow(query: settingsSearchQuery)
+                    }
                 }
+                .listStyle(.sidebar)
+                .scrollContentBackground(.hidden)
             }
-            .listStyle(.sidebar)
-            .scrollContentBackground(.hidden)
             .background {
                 SettingsSidebarBackdrop(theme: ui.theme)
                     .ignoresSafeArea()
@@ -349,6 +410,9 @@ struct SettingsView: View {
                 selection = safeSelection
             }
         }
+        .onChange(of: settingsSearchQuery) { _, _ in
+            normalizeSelectionForVisibleSearchResults()
+        }
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button(action: toggleSidebar) {
@@ -360,6 +424,35 @@ struct SettingsView: View {
                 .accessibilityLabel("Toggle sidebar")
             }
         }
+    }
+
+    private var normalizedSettingsSearchQuery: String {
+        settingsSearchQuery
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+    }
+
+    private var filteredVisibleSections: [SettingsSection] {
+        let query = normalizedSettingsSearchQuery
+        guard !query.isEmpty else {
+            return SettingsSection.visibleSections
+        }
+        return SettingsSection.visibleSections.filter { section in
+            section.matchesSettingsSearch(query)
+        }
+    }
+
+    private func sidebarSections(in category: SettingsCategory) -> [SettingsSection] {
+        filteredVisibleSections.filter { $0.category == category }
+    }
+
+    private func normalizeSelectionForVisibleSearchResults() {
+        guard !normalizedSettingsSearchQuery.isEmpty else { return }
+        let safeSelection = SettingsSection.safeDetailSelection(for: selection)
+        if let safeSelection, filteredVisibleSections.contains(safeSelection) {
+            return
+        }
+        selection = filteredVisibleSections.first ?? safeSelection ?? .general
     }
 
     private var settingsDetail: some View {
@@ -419,19 +512,101 @@ struct SettingsView: View {
     }
 }
 
-private struct SettingsSidebarRow: View {
+private extension SettingsView.SettingsSection {
+    func matchesSettingsSearch(_ query: String) -> Bool {
+        guard !query.isEmpty else { return true }
+        let haystack = ([rawValue, rowDescription, category.rawValue] + searchKeywords)
+            .joined(separator: " ")
+            .lowercased()
+        let tokens = query
+            .split(whereSeparator: { $0.isWhitespace || $0 == "," || $0 == "/" })
+            .map(String.init)
+        guard !tokens.isEmpty else { return true }
+        return tokens.allSatisfy { haystack.localizedStandardContains($0) }
+    }
+}
+
+private struct SettingsSearchField: View {
     @Environment(UIState.self) private var ui
-    let section: SettingsView.SettingsSection
+    @Binding var text: String
     private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            SettingsPixelGlyphBadge(systemImage: section.icon, theme: theme, tint: theme.textSecondary, size: 18)
-                .frame(width: 18, height: 18)
-                .padding(.top, 2)
+        HStack(spacing: 7) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.secondary)
+
+            TextField("Search Settings", text: $text)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13, weight: .regular))
+
+            if !text.isEmpty {
+                Button {
+                    text = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear settings search")
+            }
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 7)
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(theme.resolved.card.color.opacity(theme.isDark ? 0.62 : 0.76))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(theme.border.opacity(theme.isDark ? 0.22 : 0.18), lineWidth: 0.6)
+        }
+        .accessibilityElement(children: .contain)
+    }
+}
+
+private struct SettingsSearchEmptyRow: View {
+    let query: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("No Settings Found")
+                    .font(.footnote.weight(.medium))
+                Text(query.trimmingCharacters(in: .whitespacesAndNewlines))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .padding(.vertical, 8)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct SettingsSidebarRow: View {
+    @Environment(UIState.self) private var ui
+    let section: SettingsView.SettingsSection
+    let searchQuery: String
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 9) {
+            SettingsPixelGlyphBadge(
+                systemImage: section.icon,
+                theme: theme,
+                tint: iconTint,
+                size: 24
+            )
+            .frame(width: 24, height: 24)
             VStack(alignment: .leading, spacing: 2) {
                 Text(section.rawValue)
                     .font(.footnote.weight(.medium))
+                    .lineLimit(1)
                 Text(section.rowDescription)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -439,7 +614,16 @@ private struct SettingsSidebarRow: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, 4)
+    }
+
+    private var iconTint: Color {
+        if searchQuery.isEmpty {
+            return theme.resolved.accent.color
+        }
+        return section.matchesSettingsSearch(searchQuery)
+            ? theme.resolved.accent.color
+            : theme.textSecondary
     }
 }
 
