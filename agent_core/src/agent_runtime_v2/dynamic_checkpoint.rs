@@ -9,7 +9,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
-use super::run_event_log::{RunEventEntry, RunEventLog};
+use super::run_event_log::{LogValidationError, RunEventEntry, RunEventLog};
 use crate::uas::construction_card::{pro_status_preimage, product_build_preimage};
 use crate::uas::{ProStatus, ProductBuild, UasAddress, UasKind};
 
@@ -258,6 +258,20 @@ fn validate_visible_run_event(
     run_event_log: &RunEventLog,
     ordinal: u64,
 ) -> Result<(), DynamicComputeCheckpointError> {
+    if let Err(error) = run_event_log.validate_ordinal_density() {
+        let LogValidationError::OrdinalMismatch {
+            position,
+            expected,
+            actual,
+        } = error;
+        return Err(
+            DynamicComputeCheckpointError::RunEventLogOrdinalDensityInvalid {
+                position,
+                expected,
+                actual,
+            },
+        );
+    }
     let Ok(index) = usize::try_from(ordinal) else {
         return Err(DynamicComputeCheckpointError::MissingRunEventLogOrdinal { ordinal });
     };
@@ -376,6 +390,11 @@ pub enum DynamicComputeCheckpointError {
         requested: u64,
         actual: u64,
     },
+    RunEventLogOrdinalDensityInvalid {
+        position: usize,
+        expected: u64,
+        actual: u64,
+    },
     ActiveUnitsUnchanged,
     ProductBuildStatusMismatch,
 }
@@ -423,6 +442,14 @@ impl std::fmt::Display for DynamicComputeCheckpointError {
             Self::RunEventLogOrdinalMismatch { requested, actual } => write!(
                 f,
                 "dynamic checkpoint requested run_event_log:{requested}, but the entry carried ordinal {actual}"
+            ),
+            Self::RunEventLogOrdinalDensityInvalid {
+                position,
+                expected,
+                actual,
+            } => write!(
+                f,
+                "dynamic checkpoint RunEventLog ordinal density failed at position {position}: expected {expected}, got {actual}"
             ),
             Self::ActiveUnitsUnchanged => write!(
                 f,
@@ -938,6 +965,57 @@ mod tests {
         assert_eq!(
             err,
             DynamicComputeCheckpointError::RunEventLogOrdinalIsTerminalEvent { ordinal }
+        );
+    }
+
+    #[test]
+    fn checkpoint_rejects_corrupt_run_event_log_even_when_target_event_exists() {
+        let log: RunEventLog = serde_json::from_str(
+            r#"{
+                "entries": [
+                    {
+                        "kind": "event",
+                        "ordinal": 0,
+                        "event": {
+                            "event_type": "reasoning_delta",
+                            "text": "visible checkpoint row"
+                        }
+                    },
+                    {
+                        "kind": "event",
+                        "ordinal": 99,
+                        "event": {
+                            "event_type": "final_text",
+                            "text": "corrupt ordinal gap"
+                        }
+                    }
+                ]
+            }"#,
+        )
+        .expect("corrupt imported log should deserialize before density validation");
+
+        let result = DynamicComputeCheckpoint::from_visible_run_event(
+            DynamicComputeCheckpointKind::EidosInterrupt,
+            "missing closed citation evidence",
+            vec![unit(b"controller")],
+            vec![unit(b"controller"), unit(b"citation-kv-page")],
+            "checkpoint binding must reject a corrupt imported RunEventLog",
+            2_500,
+            &log,
+            0,
+            verifier_stack(),
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            99,
+        );
+
+        assert_eq!(
+            result.unwrap_err(),
+            DynamicComputeCheckpointError::RunEventLogOrdinalDensityInvalid {
+                position: 1,
+                expected: 1,
+                actual: 99,
+            }
         );
     }
 }

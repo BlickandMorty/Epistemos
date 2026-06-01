@@ -36,6 +36,7 @@ fn dynamic_compute_checkpoint_falsifier_stays_manifest_only() {
         "dry_run_ssd_read_bytes",
         "visible_run_event_ordinal_bound",
         "unchanged_active_unit_sets_rejected",
+        "corrupt_run_event_log_rejected",
         "no mmap, no cache warm, no model byte load, no inference",
     ] {
         assert!(
