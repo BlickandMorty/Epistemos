@@ -28,6 +28,31 @@ fn uas_module_header_uses_current_address_space_namespace() {
 }
 
 #[test]
+fn uas_module_phase_status_matches_landed_floor_modules() {
+    for stale_row in [
+        "| 23 | `residency_tier.rs` (§4.G three-tier shipping policy) | pending |",
+        "| 24 | `ResidencyLease` (TTL + drop semantics) | pending |",
+        "| 25 | SCOPE-Rex witness emission round-trip test | pending |",
+    ] {
+        assert!(
+            !UAS_MOD_SOURCE.contains(stale_row),
+            "UAS module status table must not mark landed floor work as pending: {stale_row}"
+        );
+    }
+
+    for landed_row in [
+        "| 23 | `residency_tier.rs` (§4.G three-tier shipping policy) | landed |",
+        "| 24 | `ResidencyLease` (TTL + drop semantics) | landed |",
+        "| 25 | SCOPE-Rex witness emission round-trip test | landed |",
+    ] {
+        assert!(
+            UAS_MOD_SOURCE.contains(landed_row),
+            "UAS module status table should reflect current source truth: {landed_row}"
+        );
+    }
+}
+
+#[test]
 fn agent_runtime_v2_header_uses_mas_pro_status_grammar() {
     assert!(
         AGENT_RUNTIME_V2_MOD_SOURCE.contains("## Build/status behaviour"),

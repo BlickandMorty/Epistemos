@@ -15,9 +15,9 @@
 //! |---|---|---|
 //! | 21 | `UasAddress` + `UasKind` placeholder | landed |
 //! | 22 | `UasKind` full variant set (T1 review pending) | this iter |
-//! | 23 | `residency_tier.rs` (§4.G three-tier shipping policy) | pending |
-//! | 24 | `ResidencyLease` (TTL + drop semantics) | pending |
-//! | 25 | SCOPE-Rex witness emission round-trip test | pending |
+//! | 23 | `residency_tier.rs` (§4.G three-tier shipping policy) | landed |
+//! | 24 | `ResidencyLease` (TTL + drop semantics) | landed |
+//! | 25 | SCOPE-Rex witness emission round-trip test | landed |
 //! | 26 | push beat + git-show signature verification | pending |
 //!
 //! Every UAS-addressed artifact (vault note, graph node, KV page, model
