@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import WebKit
 
@@ -132,6 +133,19 @@ struct WebKitCodeEditorView: NSViewRepresentable {
                 text: text,
                 language: language,
                 theme: theme.isDark ? "dark" : "light",
+                backgroundColor: MarkdownPreviewSurfaceStyle
+                    .solidFlatBackgroundNSColor(for: theme)
+                    .cssColorString,
+                foregroundColor: theme.resolved.foreground.nsColor.cssColorString,
+                mutedColor: theme.resolved.mutedForeground.nsColor.cssColorString,
+                lineColor: theme.resolved.glassBorder.nsColor.cssColorString,
+                gutterColor: MarkdownPreviewSurfaceStyle
+                    .solidFlatBackgroundNSColor(for: theme)
+                    .cssColorString,
+                selectionColor: theme.resolved.accent.nsColor.cssColorString(opacity: theme.isDark ? 0.28 : 0.22),
+                cursorLineColor: theme.resolved.accent.nsColor.cssColorString(opacity: theme.isDark ? 0.10 : 0.08),
+                accentColor: theme.resolved.accent.nsColor.cssColorString,
+                caretColor: theme.resolved.accent.nsColor.cssColorString,
                 fontSize: max(8, min(fontSize, 32)),
                 wrapLines: wrapLines
             )
@@ -236,12 +250,39 @@ private struct WebKitCodeEditorState: Equatable, Encodable {
     let text: String
     let language: String
     let theme: String
+    let backgroundColor: String
+    let foregroundColor: String
+    let mutedColor: String
+    let lineColor: String
+    let gutterColor: String
+    let selectionColor: String
+    let cursorLineColor: String
+    let accentColor: String
+    let caretColor: String
     let fontSize: Double
     let wrapLines: Bool
 
     var jsonString: String? {
         guard let data = try? JSONEncoder().encode(self) else { return nil }
         return String(data: data, encoding: .utf8)
+    }
+}
+
+private extension NSColor {
+    var cssColorString: String {
+        cssColorString(opacity: nil)
+    }
+
+    func cssColorString(opacity overrideOpacity: CGFloat?) -> String {
+        let color = usingColorSpace(.sRGB) ?? self
+        let red = Int((color.redComponent * 255).rounded())
+        let green = Int((color.greenComponent * 255).rounded())
+        let blue = Int((color.blueComponent * 255).rounded())
+        let alpha = overrideOpacity ?? color.alphaComponent
+        if alpha >= 0.999 {
+            return String(format: "#%02X%02X%02X", red, green, blue)
+        }
+        return String(format: "rgba(%d, %d, %d, %.3f)", red, green, blue, alpha)
     }
 }
 
@@ -636,6 +677,21 @@ nonisolated enum WebKitCodeEditorDocument {
             setState(state) {
               document.documentElement.dataset.theme = state.theme || 'light';
               document.documentElement.dataset.language = state.language || 'plain';
+              const rootStyle = document.documentElement.style;
+              const setVar = (name, value) => {
+                if (value) rootStyle.setProperty(name, value);
+              };
+              setVar('--bg', state.backgroundColor);
+              setVar('--fg', state.foregroundColor);
+              setVar('--muted', state.mutedColor);
+              setVar('--line', state.lineColor);
+              setVar('--gutter', state.gutterColor);
+              setVar('--selection', state.selectionColor);
+              setVar('--cursor-line', state.cursorLineColor);
+              setVar('--keyword', state.accentColor);
+              setVar('--type', state.accentColor);
+              setVar('--property', state.accentColor);
+              source.style.caretColor = state.caretColor || '#2f6df6';
               source.style.fontSize = `${state.fontSize || 15}px`;
               gutter.style.fontSize = `${Math.max(10, (state.fontSize || 15) - 3)}px`;
               source.classList.toggle('wrap', !!state.wrapLines);
