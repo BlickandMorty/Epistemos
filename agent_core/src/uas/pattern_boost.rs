@@ -12,6 +12,16 @@ use crate::uas::{
     ByteRange, ProStatus, ProductBuild, ResidencyTier, UasAddress, UasKind,
 };
 
+const COMPUTE_RESUME_LEASE_COMPATIBILITY_FALSIFIER_ID: &str = "F-ComputeResumeLease-Compatibility";
+const PARAM_ROUTE_CARD_ADMISSION_FALSIFIER_ID: &str = "F-ParamRouteCard-Admission";
+const RESIDENCY_PATTERNBOOST_NO_HIDDEN_AUTHORITY_FALSIFIER_ID: &str =
+    "F-ResidencyPatternBoost-NoHiddenAuthority";
+const REQUIRED_PATTERNBOOST_VERIFIER_LANES: [&str; 3] = [
+    COMPUTE_RESUME_LEASE_COMPATIBILITY_FALSIFIER_ID,
+    PARAM_ROUTE_CARD_ADMISSION_FALSIFIER_ID,
+    RESIDENCY_PATTERNBOOST_NO_HIDDEN_AUTHORITY_FALSIFIER_ID,
+];
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AssemblyPageRun {
     pub source_uri: String,
@@ -130,6 +140,7 @@ impl UasAssemblyGenome {
             selected_verifier_lanes,
             UasAssemblyGenomeError::MissingVerifierLane,
         )?;
+        validate_required_verifier_lanes(&selected_verifier_lanes)?;
         let codec_plan = canonicalize_strings(
             "codec_plan",
             codec_plan,
@@ -336,6 +347,9 @@ pub enum UasAssemblyGenomeError {
         field: &'static str,
         actual_kind: String,
     },
+    MissingRequiredVerifierLane {
+        verifier: &'static str,
+    },
     GenomeAddressMismatch,
 }
 
@@ -379,6 +393,10 @@ impl std::fmt::Display for UasAssemblyGenomeError {
             Self::InvalidUasKind { field, actual_kind } => {
                 write!(f, "{field} contains unsupported UAS kind {actual_kind}")
             }
+            Self::MissingRequiredVerifierLane { verifier } => write!(
+                f,
+                "selected_verifier_lanes must include required PatternBoost guardrail {verifier}"
+            ),
             Self::GenomeAddressMismatch => write!(
                 f,
                 "genome_address no longer matches the deterministic genome preimage"
@@ -511,6 +529,15 @@ fn canonicalize_strings(
     Ok(values)
 }
 
+fn validate_required_verifier_lanes(values: &[String]) -> Result<(), UasAssemblyGenomeError> {
+    for required in REQUIRED_PATTERNBOOST_VERIFIER_LANES {
+        if !values.iter().any(|value| value == required) {
+            return Err(UasAssemblyGenomeError::MissingRequiredVerifierLane { verifier: required });
+        }
+    }
+    Ok(())
+}
+
 fn canonicalize_page_runs(
     mut page_runs: Vec<AssemblyPageRun>,
 ) -> Result<Vec<AssemblyPageRun>, UasAssemblyGenomeError> {
@@ -613,6 +640,15 @@ mod tests {
             .expect("page run fixture should be valid")
     }
 
+    fn verifier_lanes(extra: &[&str]) -> Vec<String> {
+        let mut lanes: Vec<String> = REQUIRED_PATTERNBOOST_VERIFIER_LANES
+            .iter()
+            .map(|lane| lane.to_string())
+            .collect();
+        lanes.extend(extra.iter().map(|lane| lane.to_string()));
+        lanes
+    }
+
     fn genome_with_order(
         weights: Vec<UasAddress>,
         kv: Vec<UasAddress>,
@@ -662,8 +698,10 @@ mod tests {
                 addr(UasKind::VaultNote, b"evidence-a"),
             ],
             vec![
-                "F-ParamRouteCard-Admission".to_string(),
                 "F-Eidos".to_string(),
+                "F-ParamRouteCard-Admission".to_string(),
+                "F-ComputeResumeLease-Compatibility".to_string(),
+                "F-ResidencyPatternBoost-NoHiddenAuthority".to_string(),
             ],
             vec![page_run("b", 128), page_run("a", 0)],
             42,
@@ -682,8 +720,10 @@ mod tests {
                 addr(UasKind::VaultNote, b"evidence-b"),
             ],
             vec![
+                "F-ComputeResumeLease-Compatibility".to_string(),
                 "F-Eidos".to_string(),
                 "F-ParamRouteCard-Admission".to_string(),
+                "F-ResidencyPatternBoost-NoHiddenAuthority".to_string(),
             ],
             vec![page_run("a", 0), page_run("b", 128)],
             42,
@@ -710,7 +750,7 @@ mod tests {
             Vec::new(),
             Vec::new(),
             Vec::new(),
-            vec!["F-ParamRouteCard-Admission".to_string()],
+            verifier_lanes(&[]),
             "query_aware_sparse_attention_v0",
             "depth_budget_gate_shadow_v0",
             vec![page_run("a", 0)],
@@ -739,7 +779,7 @@ mod tests {
             Vec::new(),
             Vec::new(),
             Vec::new(),
-            vec!["F-ParamRouteCard-Admission".to_string()],
+            verifier_lanes(&[]),
             "query_aware_sparse_attention_v0",
             "depth_budget_gate_shadow_v0",
             vec![page_run("a", 0)],
@@ -768,7 +808,7 @@ mod tests {
             Vec::new(),
             Vec::new(),
             Vec::new(),
-            vec!["F-ParamRouteCard-Admission".to_string()],
+            verifier_lanes(&[]),
             "query_aware_sparse_attention_v0",
             "depth_budget_gate_shadow_v0",
             vec![page_run("a", 0)],
@@ -788,12 +828,49 @@ mod tests {
     }
 
     #[test]
+    fn uas_assembly_genome_rejects_missing_patternboost_guardrail_verifier() {
+        let err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            vec![
+                "F-ComputeResumeLease-Compatibility".to_string(),
+                "F-ParamRouteCard-Admission".to_string(),
+            ],
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            UasAssemblyGenomeError::MissingRequiredVerifierLane {
+                verifier: "F-ResidencyPatternBoost-NoHiddenAuthority"
+            }
+        );
+    }
+
+    #[test]
     fn uas_assembly_genome_address_binds_transport_page_runs() {
         let mut genome = genome_with_order(
             vec![addr(UasKind::ModelComponent, b"weight-a")],
             Vec::new(),
             Vec::new(),
-            vec!["F-ParamRouteCard-Admission".to_string()],
+            verifier_lanes(&[]),
             vec![page_run("a", 0)],
             42,
         );
