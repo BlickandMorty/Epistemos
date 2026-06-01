@@ -142,6 +142,9 @@ nonisolated public struct PageGatherEscalationTrace: Codable, Hashable, Sendable
     public let deferredFalsifier: String
     public let scheduleClass: PageGatherScheduleClass?
     public let localityBlockElements: Int?
+    public let packetizedCallerConsumed: Bool
+    public let packetsEmitted: Int
+    public let denseRestoreDeferred: Bool
 
     enum CodingKeys: String, CodingKey {
         case status
@@ -152,6 +155,9 @@ nonisolated public struct PageGatherEscalationTrace: Codable, Hashable, Sendable
         case deferredFalsifier = "deferred_falsifier"
         case scheduleClass = "schedule_class"
         case localityBlockElements = "locality_block_elements"
+        case packetizedCallerConsumed = "packetized_caller_consumed"
+        case packetsEmitted = "packets_emitted"
+        case denseRestoreDeferred = "dense_restore_deferred"
     }
 
     public init(
@@ -162,7 +168,10 @@ nonisolated public struct PageGatherEscalationTrace: Codable, Hashable, Sendable
         candidatesRetained: Int,
         deferredFalsifier: String = "F-PageGather-Scatter",
         scheduleClass: PageGatherScheduleClass? = .blockSorted,
-        localityBlockElements: Int? = PageGatherEscalationTrace.defaultLocalityBlockElements
+        localityBlockElements: Int? = PageGatherEscalationTrace.defaultLocalityBlockElements,
+        packetizedCallerConsumed: Bool = false,
+        packetsEmitted: Int = 0,
+        denseRestoreDeferred: Bool = false
     ) {
         self.status = status
         self.measurementStatus = measurementStatus
@@ -172,6 +181,24 @@ nonisolated public struct PageGatherEscalationTrace: Codable, Hashable, Sendable
         self.deferredFalsifier = deferredFalsifier
         self.scheduleClass = scheduleClass
         self.localityBlockElements = localityBlockElements
+        self.packetizedCallerConsumed = packetizedCallerConsumed
+        self.packetsEmitted = packetsEmitted
+        self.denseRestoreDeferred = denseRestoreDeferred
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        status = try container.decode(PageGatherEscalationStatus.self, forKey: .status)
+        measurementStatus = try container.decode(PageGatherMeasurementStatus.self, forKey: .measurementStatus)
+        source = try container.decode(String.self, forKey: .source)
+        candidatePoolSize = try container.decode(Int.self, forKey: .candidatePoolSize)
+        candidatesRetained = try container.decode(Int.self, forKey: .candidatesRetained)
+        deferredFalsifier = try container.decode(String.self, forKey: .deferredFalsifier)
+        scheduleClass = try container.decodeIfPresent(PageGatherScheduleClass.self, forKey: .scheduleClass)
+        localityBlockElements = try container.decodeIfPresent(Int.self, forKey: .localityBlockElements)
+        packetizedCallerConsumed = try container.decodeIfPresent(Bool.self, forKey: .packetizedCallerConsumed) ?? false
+        packetsEmitted = try container.decodeIfPresent(Int.self, forKey: .packetsEmitted) ?? 0
+        denseRestoreDeferred = try container.decodeIfPresent(Bool.self, forKey: .denseRestoreDeferred) ?? false
     }
 
     public var scheduleLabel: String? {
