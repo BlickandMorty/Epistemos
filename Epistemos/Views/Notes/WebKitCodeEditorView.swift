@@ -8,8 +8,9 @@ nonisolated enum WebKitCodeEditorBridge {
 
 nonisolated enum WebKitCodeEditorPolicy {
     static let maxRenderedGutterLines = 20_000
-    static let maxSyntaxHighlightCharacters = 250_000
+    static let maxSyntaxHighlightCharacters = 120_000
     static let changeDebounceMilliseconds = 120
+    static let highlightDebounceMilliseconds = 80
 }
 
 struct WebKitCodeEditorSelectionRequest: Equatable {
@@ -27,6 +28,7 @@ struct WebKitCodeEditorView: NSViewRepresentable {
     var theme: EpistemosTheme
     var fontSize: Double
     var wrapLines: Bool
+    var showLineNumbers: Bool
     var selectionRequest: WebKitCodeEditorSelectionRequest?
 
     func makeCoordinator() -> Coordinator {
@@ -69,6 +71,7 @@ struct WebKitCodeEditorView: NSViewRepresentable {
             theme: theme,
             fontSize: fontSize,
             wrapLines: wrapLines,
+            showLineNumbers: showLineNumbers,
             selectionRequest: selectionRequest
         )
     }
@@ -127,6 +130,7 @@ struct WebKitCodeEditorView: NSViewRepresentable {
             theme: EpistemosTheme,
             fontSize: Double,
             wrapLines: Bool,
+            showLineNumbers: Bool,
             selectionRequest: WebKitCodeEditorSelectionRequest?
         ) {
             let state = WebKitCodeEditorState(
@@ -147,7 +151,8 @@ struct WebKitCodeEditorView: NSViewRepresentable {
                 accentColor: theme.resolved.accent.nsColor.cssColorString,
                 caretColor: theme.resolved.accent.nsColor.cssColorString,
                 fontSize: max(8, min(fontSize, 32)),
-                wrapLines: wrapLines
+                wrapLines: wrapLines,
+                showLineNumbers: showLineNumbers
             )
             if hasLoadedEditor {
                 apply(state: state, to: webView)
@@ -261,6 +266,7 @@ private struct WebKitCodeEditorState: Equatable, Encodable {
     let caretColor: String
     let fontSize: Double
     let wrapLines: Bool
+    let showLineNumbers: Bool
 
     var jsonString: String? {
         guard let data = try? JSONEncoder().encode(self) else { return nil }
@@ -333,7 +339,10 @@ nonisolated enum WebKitCodeEditorDocument {
           overflow: hidden;
           background: var(--bg);
           color: var(--fg);
-          font-family: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+          font-family: "SFMono-Regular", "SF Mono", ui-monospace, Menlo, Monaco, Consolas, monospace;
+          font-size: 13px;
+          -webkit-font-smoothing: antialiased;
+          text-rendering: optimizeLegibility;
         }
 
         .shell {
@@ -342,6 +351,14 @@ nonisolated enum WebKitCodeEditorDocument {
           width: 100%;
           height: 100%;
           background: var(--bg);
+        }
+
+        body.hide-gutter .shell {
+          grid-template-columns: minmax(0, 1fr);
+        }
+
+        body.hide-gutter #gutter {
+          display: none;
         }
 
         #gutter {
@@ -390,6 +407,7 @@ nonisolated enum WebKitCodeEditorDocument {
           display: block;
           min-width: 100%;
           width: max-content;
+          box-sizing: border-box;
         }
 
         #highlight.wrap #highlight-code {
@@ -455,6 +473,15 @@ nonisolated enum WebKitCodeEditorDocument {
           -webkit-text-fill-color: var(--fg);
         }
 
+        body.editing #highlight {
+          visibility: hidden;
+        }
+
+        body.editing #source {
+          color: var(--fg);
+          -webkit-text-fill-color: var(--fg);
+        }
+
         #status {
           position: absolute;
           right: 12px;
@@ -487,8 +514,13 @@ nonisolated enum WebKitCodeEditorDocument {
           const maxRenderedGutterLines = \(WebKitCodeEditorPolicy.maxRenderedGutterLines);
           const maxSyntaxHighlightCharacters = \(WebKitCodeEditorPolicy.maxSyntaxHighlightCharacters);
           const changeDebounceMilliseconds = \(WebKitCodeEditorPolicy.changeDebounceMilliseconds);
+          const highlightDebounceMilliseconds = \(WebKitCodeEditorPolicy.highlightDebounceMilliseconds);
           let lastText = '';
           let sendTimer = 0;
+          let highlightTimer = 0;
+          let editingTimer = 0;
+          let lastRenderedLineCount = -1;
+          let viewportOverscanLines = 48;
 
           function lineCount(text) {
             if (!text) return 1;
@@ -573,6 +605,27 @@ nonisolated enum WebKitCodeEditorDocument {
             return [];
           }
 
+          function lineHeightPixels() {
+            const parsed = Number.parseFloat(window.getComputedStyle(source).lineHeight);
+            return Number.isFinite(parsed) && parsed > 0 ? parsed : Math.max(1, (Number.parseFloat(source.style.fontSize) || 13) * 1.45);
+          }
+
+          function visibleLineWindow(lines) {
+            if (source.classList.contains('wrap')) {
+              return { start: 0, end: lines.length, topPad: 0, bottomPad: 0 };
+            }
+            const lineHeight = lineHeightPixels();
+            const first = Math.max(0, Math.floor(source.scrollTop / lineHeight) - viewportOverscanLines);
+            const visibleCount = Math.ceil(source.clientHeight / lineHeight) + viewportOverscanLines * 2;
+            const end = Math.min(lines.length, first + Math.max(1, visibleCount));
+            return {
+              start: first,
+              end,
+              topPad: first * lineHeight,
+              bottomPad: Math.max(0, (lines.length - end) * lineHeight)
+            };
+          }
+
           function highlightLine(line, specs) {
             if (specs.length === 0) return escapeHTML(line) || '&#8203;';
             const spans = [];
@@ -613,15 +666,26 @@ nonisolated enum WebKitCodeEditorDocument {
               highlightCode.textContent = '';
               return;
             }
+            document.body.classList.remove('editing');
             const activeLine = cursorInfo().line;
             const specs = syntaxSpecs(languageMode());
             const lines = value.split('\\n');
-            highlightCode.innerHTML = lines.map((line, index) => {
-              const active = index + 1 === activeLine ? ' active' : '';
+            const windowInfo = visibleLineWindow(lines);
+            const renderedLines = lines.slice(windowInfo.start, windowInfo.end);
+            highlightCode.style.paddingTop = `${windowInfo.topPad}px`;
+            highlightCode.style.paddingBottom = `${windowInfo.bottomPad}px`;
+            highlightCode.innerHTML = renderedLines.map((line, index) => {
+              const lineNumber = windowInfo.start + index + 1;
+              const active = lineNumber === activeLine ? ' active' : '';
               return `<span class="line${active}">${highlightLine(line, specs)}</span>`;
             }).join('\\n');
             highlight.scrollTop = source.scrollTop;
             highlight.scrollLeft = source.scrollLeft;
+          }
+
+          function scheduleHighlight(delay = highlightDebounceMilliseconds) {
+            window.clearTimeout(highlightTimer);
+            highlightTimer = window.setTimeout(renderHighlight, delay);
           }
 
           function syncScroll() {
@@ -634,17 +698,29 @@ nonisolated enum WebKitCodeEditorDocument {
             window.webkit.messageHandlers.epistemosCodeEditor.postMessage(payload);
           }
 
-          function renderLines() {
+          function renderStatus(rebuildGutter = false) {
             const count = lineCount(source.value);
-            let lines = '';
-            const rendered = Math.min(count, maxRenderedGutterLines);
-            for (let i = 1; i <= rendered; i++) lines += i + '\\n';
-            if (count > rendered) lines += '...\\n';
-            gutter.textContent = lines;
+            if (rebuildGutter || count !== lastRenderedLineCount) {
+              let lines = '';
+              const rendered = Math.min(count, maxRenderedGutterLines);
+              for (let i = 1; i <= rendered; i++) lines += i + '\\n';
+              if (count > rendered) lines += '...\\n';
+              gutter.textContent = lines;
+              lastRenderedLineCount = count;
+            }
             const cursor = cursorInfo();
             status.textContent = `Line ${cursor.line}  Col ${cursor.column} · ${count} lines`;
-            renderHighlight();
             post({ kind: 'cursor', line: cursor.line, column: cursor.column });
+          }
+
+          function enterTypingMode() {
+            if (source.value.length > maxSyntaxHighlightCharacters) return;
+            document.body.classList.add('editing');
+            window.clearTimeout(editingTimer);
+            editingTimer = window.setTimeout(() => {
+              document.body.classList.remove('editing');
+              scheduleHighlight(0);
+            }, highlightDebounceMilliseconds + 40);
           }
 
           function scheduleChange() {
@@ -663,15 +739,27 @@ nonisolated enum WebKitCodeEditorDocument {
           }
 
           source.addEventListener('input', () => {
-            renderLines();
+            renderStatus(false);
+            enterTypingMode();
+            scheduleHighlight();
             scheduleChange();
           });
           source.addEventListener('scroll', () => {
             syncScroll();
+            scheduleHighlight(20);
           });
-          source.addEventListener('keyup', renderLines);
-          source.addEventListener('mouseup', renderLines);
-          source.addEventListener('select', renderLines);
+          source.addEventListener('keyup', () => {
+            renderStatus(false);
+            scheduleHighlight(40);
+          });
+          source.addEventListener('mouseup', () => {
+            renderStatus(false);
+            scheduleHighlight(20);
+          });
+          source.addEventListener('select', () => {
+            renderStatus(false);
+            scheduleHighlight(20);
+          });
 
           window.epistemosCodeEditor = {
             setState(state) {
@@ -697,12 +785,15 @@ nonisolated enum WebKitCodeEditorDocument {
               source.classList.toggle('wrap', !!state.wrapLines);
               highlight.classList.toggle('wrap', !!state.wrapLines);
               source.setAttribute('wrap', state.wrapLines ? 'soft' : 'off');
+              document.body.classList.toggle('hide-gutter', !state.showLineNumbers);
               if (source.value !== state.text) {
                 source.value = state.text || '';
                 lastText = source.value;
-                renderLines();
+                renderStatus(true);
+                scheduleHighlight(0);
               } else {
-                renderHighlight();
+                renderStatus(false);
+                scheduleHighlight(0);
               }
             },
             selectRange(location, length) {
@@ -710,7 +801,8 @@ nonisolated enum WebKitCodeEditorDocument {
               const end = Math.max(start, Math.min(source.value.length, start + length));
               source.focus();
               source.setSelectionRange(start, end);
-              renderLines();
+              renderStatus(false);
+              scheduleHighlight(0);
             }
           };
 
