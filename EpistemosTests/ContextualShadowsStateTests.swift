@@ -218,10 +218,54 @@ struct ContextualShadowsStateTests {
         #expect(shadow.callCount == 2)
         #expect(shadow.lastQuery == "durable shadow backend query")
         #expect(Set(shadow.domains) == Set([.chats, .notes]))
+        #expect(Array(shadow.domains.prefix(2)) == [.notes, .chats])
         #expect(state.currentResults.map(\.id).contains("shadow-note-1"))
         #expect(state.currentResults.map(\.id).contains("shadow-chat-1"))
         #expect(state.currentResults.allSatisfy { $0.source == "stub-shadow" })
         #expect(state.isPanelVisible)
+    }
+
+    @MainActor
+    @Test("chat recall is note-first when chat and note hits are near ties")
+    func chatRecallPrefersNoteHitsOverNearTieChatHits() async {
+        let state = ContextualShadowsState(isEnabledOverride: true)
+        let recall = InstantRecallService()
+        let noteHit = ShadowHit(
+            id: "near-tie-note",
+            title: "Related Note",
+            snippet: "Vault note about the active topic.",
+            score: 0.77,
+            domain: .notes,
+            source: "stub-shadow"
+        )
+        let chatHit = ShadowHit(
+            id: "near-tie-chat",
+            title: "Old Conversation",
+            snippet: "Prior chat text with a slightly higher raw score.",
+            score: 0.82,
+            domain: .chats,
+            source: "stub-shadow"
+        )
+        let shadow = ContextualShadowsMockSearch(resultsByDomain: [
+            .notes: [noteHit],
+            .chats: [chatHit],
+        ])
+        state.configureShadowSearch(shadow)
+
+        state.requestRecall(
+            snapshot: RecallContextSnapshot(
+                text: "moral responsibility and free will",
+                kind: .chat,
+                originId: UUID(),
+                originDocId: "main-chat-draft"
+            ),
+            instantRecall: recall
+        )
+
+        await Self.waitForResults(state, expectedCount: 2)
+        #expect(Array(shadow.domains.prefix(2)) == [.notes, .chats])
+        #expect(state.currentResults.first?.id == "near-tie-note")
+        #expect(state.currentResults.first?.kind == .note)
     }
 
     @MainActor
