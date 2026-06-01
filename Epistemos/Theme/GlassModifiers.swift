@@ -357,7 +357,6 @@ struct AssistantInsetChrome: ViewModifier {
                         endPoint: .bottomTrailing
                     )
                     .clipShape(shape)
-                    AssistantPixelCornerAccent(theme: theme, cornerRadius: cornerRadius)
                 }
             }
             .overlay {
@@ -375,55 +374,6 @@ struct AssistantInsetChrome: ViewModifier {
                     )
                     .padding(1.2)
             }
-    }
-}
-
-private struct AssistantPixelCornerAccent: View {
-    let theme: EpistemosTheme
-    let cornerRadius: CGFloat
-
-    var body: some View {
-        Canvas { context, size in
-            let width = max(size.width, 1)
-            let height = max(size.height, 1)
-            let thickness = max(2.0, min(3.0, min(width, height) * 0.008))
-            let inset = max(7, min(12, cornerRadius * 0.44))
-            let long = min(max(28, min(width, height) * 0.18), 46)
-            let step = thickness * 4
-            let inner = long * 0.44
-            let tint = theme.resolved.accent.color.opacity(theme.isDark ? 0.38 : 0.30)
-
-            func fill(_ rect: CGRect) {
-                context.fill(Path(rect.integral), with: .color(tint))
-            }
-
-            // Top-left
-            fill(CGRect(x: inset, y: inset, width: long, height: thickness))
-            fill(CGRect(x: inset, y: inset, width: thickness, height: long))
-            fill(CGRect(x: inset + step, y: inset + step, width: inner, height: thickness))
-            fill(CGRect(x: inset + step, y: inset + step, width: thickness, height: inner))
-
-            // Top-right
-            fill(CGRect(x: width - inset - long, y: inset, width: long, height: thickness))
-            fill(CGRect(x: width - inset - thickness, y: inset, width: thickness, height: long))
-            fill(CGRect(x: width - inset - step - inner, y: inset + step, width: inner, height: thickness))
-            fill(CGRect(x: width - inset - step - thickness, y: inset + step, width: thickness, height: inner))
-
-            // Bottom-left
-            fill(CGRect(x: inset, y: height - inset - thickness, width: long, height: thickness))
-            fill(CGRect(x: inset, y: height - inset - long, width: thickness, height: long))
-            fill(CGRect(x: inset + step, y: height - inset - step - thickness, width: inner, height: thickness))
-            fill(CGRect(x: inset + step, y: height - inset - step - inner, width: thickness, height: inner))
-
-            // Bottom-right
-            fill(CGRect(x: width - inset - long, y: height - inset - thickness, width: long, height: thickness))
-            fill(CGRect(x: width - inset - thickness, y: height - inset - long, width: thickness, height: long))
-            fill(CGRect(x: width - inset - step - inner, y: height - inset - step - thickness, width: inner, height: thickness))
-            fill(CGRect(x: width - inset - step - thickness, y: height - inset - step - inner, width: thickness, height: inner))
-        }
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
     }
 }
 
@@ -678,18 +628,18 @@ struct AssistantSendButton: View {
                 .foregroundStyle(iconColor)
                 .frame(width: metrics.sendButtonSize, height: metrics.sendButtonSize)
                 .background {
-                    Circle()
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
                         .fill(fillColor)
                         .overlay {
-                            Circle()
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
                                 .strokeBorder(borderColor, lineWidth: 0.6)
                         }
                 }
                 .shadow(
-                    color: .black.opacity(isEnabled || isProcessing ? (theme.isDark ? 0.26 : 0.12) : 0),
-                    radius: 10,
+                    color: .black.opacity(isEnabled || isProcessing ? (theme.isDark ? 0.12 : 0.06) : 0),
+                    radius: 4,
                     x: 0,
-                    y: 4
+                    y: 1
                 )
                 .scaleEffect(isHovered && (isEnabled || isProcessing) ? 1.02 : 1.0)
         }
@@ -738,64 +688,29 @@ struct AssistantComposerChrome: ViewModifier {
     }
 
     func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous)
-        let lightSurfaceTint = lightModeSurfaceTint ?? PixelPanelBackground.panelSurface(for: theme)
+        let shape = RoundedRectangle(cornerRadius: min(metrics.cornerRadius, 4), style: .continuous)
 
         content
             .background {
-                if prefersNativeAssistantGlass {
-                    shape
-                        .fill(.white.opacity(0.001))
-                        .glassEffect(.regular.interactive(), in: shape)
-                } else if theme.isDark {
-                    ZStack {
-                        shape.fill(.ultraThinMaterial)
-                        shape.fill(PixelPanelBackground.panelSurface(for: theme).opacity(0.58))
-                        shape.fill(.white.opacity(isActive ? 0.030 : 0.014))
-                    }
-                } else {
-                    ZStack {
-                        shape.fill(.regularMaterial)
-                        shape.fill(lightSurfaceTint.opacity(lightModeSurfaceTint == nil ? 0.58 : 0.48))
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(isActive ? 0.34 : 0.26),
-                                Color.white.opacity(0.10),
-                                Color.clear,
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                        .clipShape(shape)
-                    }
+                ZStack {
+                    shape.fill(theme.card.opacity(theme.isDark ? 0.60 : 0.74))
+                    shape.fill(theme.resolved.foreground.color.opacity(theme.isDark ? 0.030 : 0.018))
                 }
             }
             .overlay {
-                AssistantPixelCornerAccent(theme: theme, cornerRadius: metrics.cornerRadius)
-                    .opacity(isActive ? 1 : 0.82)
-            }
-            .overlay {
                 shape
                     .strokeBorder(
-                        theme.glassBorder.opacity(isActive ? 0.7 : 0.52),
-                        lineWidth: metrics.borderWidth
+                        theme.border.opacity(isActive ? 0.72 : 0.56),
+                        lineWidth: 0.8
                     )
-            }
-            .overlay {
-                shape
-                    .strokeBorder(
-                        .white.opacity(theme.isDark ? 0.06 : 0.18),
-                        lineWidth: 0.45
-                    )
-                    .padding(1.1)
             }
             .shadow(
-                color: .black.opacity(theme.isDark ? 0.20 : 0.10),
-                radius: metrics.shadowRadius + (isActive ? 3 : 0),
+                color: .black.opacity(theme.isDark ? 0.10 : 0.05),
+                radius: 6,
                 x: 0,
-                y: metrics.shadowYOffset
+                y: 2
             )
-            .scaleEffect(isActive ? 1.006 : 1.0)
+            .scaleEffect(isActive ? 1.002 : 1.0)
             .animation(.interpolatingSpring(stiffness: 260, damping: 24), value: isActive)
     }
 }
