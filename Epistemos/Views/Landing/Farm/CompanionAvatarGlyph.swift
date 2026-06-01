@@ -500,28 +500,45 @@ struct CompanionAvatarGlyph: View {
         case .none:
             return
         case .glasses:
-            for x in (leftEyeX - 1)...(leftEyeX + 4) {
-                fillCell(context: &context, rect: rect, x: x, y: eyeY - 1, color: palette.eyeBright)
-                fillCell(context: &context, rect: rect, x: x, y: eyeY + 3, color: palette.eyeBright)
-            }
-            for x in (rightEyeX - 1)...(rightEyeX + 4) {
-                fillCell(context: &context, rect: rect, x: x, y: eyeY - 1, color: palette.eyeBright)
-                fillCell(context: &context, rect: rect, x: x, y: eyeY + 3, color: palette.eyeBright)
-            }
-            for x in (leftEyeX + 4)..<rightEyeX {
+            drawPixelRectOutline(
+                context: &context,
+                rect: rect,
+                x: leftEyeX - 2,
+                y: eyeY - 2,
+                width: 8,
+                height: 7,
+                color: palette.eyeBright
+            )
+            drawPixelRectOutline(
+                context: &context,
+                rect: rect,
+                x: rightEyeX - 2,
+                y: eyeY - 2,
+                width: 8,
+                height: 7,
+                color: palette.eyeBright
+            )
+            for x in (leftEyeX + 6)..<rightEyeX {
                 fillCell(context: &context, rect: rect, x: x, y: eyeY + 1, color: palette.eyeBright)
             }
         case .mustache:
             let mid = bodyLeft + bodyWidth / 2
-            for col in -6...6 {
-                if abs(col) > 1 {
-                    fillCell(context: &context, rect: rect, x: mid + col, y: eyeY + 8 + abs(col) / 4, color: palette.eye)
+            for row in 0..<3 {
+                for col in -8...8 {
+                    let wing = abs(col)
+                    if wing > 1 && wing < 9 && row <= max(0, 2 - wing / 4) {
+                        fillCell(context: &context, rect: rect, x: mid + col, y: eyeY + 8 + row, color: palette.eye)
+                    }
                 }
             }
         case .hair:
-            for col in stride(from: 4, to: bodyWidth - 4, by: 4) {
+            for col in 3..<(bodyWidth - 3) {
                 fillCell(context: &context, rect: rect, x: bodyLeft + col, y: bodyTop + 1, color: palette.eye)
-                fillCell(context: &context, rect: rect, x: bodyLeft + col + 1, y: bodyTop + 2, color: palette.eye)
+            }
+            for col in stride(from: 5, to: bodyWidth - 5, by: 6) {
+                for width in 0..<3 {
+                    fillCell(context: &context, rect: rect, x: bodyLeft + col + width, y: bodyTop + 2, color: palette.eye)
+                }
             }
         case .headset:
             fillCell(context: &context, rect: rect, x: bodyLeft + 2, y: eyeY, color: palette.eyeBright)
@@ -553,19 +570,45 @@ struct CompanionAvatarGlyph: View {
             return
         case .nubs:
             for row in 0..<6 {
-                fillCell(context: &context, rect: rect, x: left - 3, y: top + height / 2 + row - 3, color: palette.body)
-                fillCell(context: &context, rect: rect, x: left + width + 2, y: top + height / 2 + row - 3, color: palette.body)
+                for col in 0..<3 {
+                    fillCell(context: &context, rect: rect, x: left - 4 + col, y: top + height / 2 + row - 3, color: palette.body)
+                    fillCell(context: &context, rect: rect, x: left + width + 1 + col, y: top + height / 2 + row - 3, color: palette.body)
+                }
             }
         case .side:
             for row in 0..<12 {
-                fillCell(context: &context, rect: rect, x: left - 3, y: top + 10 + row, color: palette.body)
-                fillCell(context: &context, rect: rect, x: left + width + 2, y: top + 10 + row, color: palette.body)
+                for col in 0..<3 {
+                    fillCell(context: &context, rect: rect, x: left - 4 + col, y: top + 10 + row, color: palette.body)
+                    fillCell(context: &context, rect: rect, x: left + width + 1 + col, y: top + 10 + row, color: palette.body)
+                }
             }
         case .wave:
             for row in 0..<10 {
-                fillCell(context: &context, rect: rect, x: left - 3, y: top + 11 + row, color: palette.body)
-                fillCell(context: &context, rect: rect, x: left + width + 2 + min(row / 3, 2), y: top + 7 + row + offset.rightLeg, color: palette.eyeBright)
+                for col in 0..<3 {
+                    fillCell(context: &context, rect: rect, x: left - 4 + col, y: top + 11 + row, color: palette.body)
+                    fillCell(context: &context, rect: rect, x: left + width + 1 + min(row / 3, 2) + col, y: top + 7 + row + offset.rightLeg, color: palette.eyeBright)
+                }
             }
+        }
+    }
+
+    private static func drawPixelRectOutline(
+        context: inout GraphicsContext,
+        rect: CGRect,
+        x: Int,
+        y: Int,
+        width: Int,
+        height: Int,
+        color: Color
+    ) {
+        guard width > 1, height > 1 else { return }
+        for col in 0..<width {
+            fillCell(context: &context, rect: rect, x: x + col, y: y, color: color)
+            fillCell(context: &context, rect: rect, x: x + col, y: y + height - 1, color: color)
+        }
+        for row in 1..<(height - 1) {
+            fillCell(context: &context, rect: rect, x: x, y: y + row, color: color)
+            fillCell(context: &context, rect: rect, x: x + width - 1, y: y + row, color: color)
         }
     }
 

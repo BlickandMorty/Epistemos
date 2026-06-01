@@ -228,6 +228,9 @@ struct WebKitCodeEditorView: NSViewRepresentable {
                 guard !isApplyingFromSwift,
                       let next = payload["text"] as? String else { return }
                 text.wrappedValue = next
+                if let applied = lastAppliedState {
+                    lastAppliedState = applied.replacingText(next)
+                }
                 if let lineCount = payload["lineCount"] as? Int {
                     totalLines.wrappedValue = max(1, lineCount)
                 }
@@ -271,6 +274,26 @@ private struct WebKitCodeEditorState: Equatable, Encodable {
     var jsonString: String? {
         guard let data = try? JSONEncoder().encode(self) else { return nil }
         return String(data: data, encoding: .utf8)
+    }
+
+    func replacingText(_ nextText: String) -> WebKitCodeEditorState {
+        WebKitCodeEditorState(
+            text: nextText,
+            language: language,
+            theme: theme,
+            backgroundColor: backgroundColor,
+            foregroundColor: foregroundColor,
+            mutedColor: mutedColor,
+            lineColor: lineColor,
+            gutterColor: gutterColor,
+            selectionColor: selectionColor,
+            cursorLineColor: cursorLineColor,
+            accentColor: accentColor,
+            caretColor: caretColor,
+            fontSize: fontSize,
+            wrapLines: wrapLines,
+            showLineNumbers: showLineNumbers
+        )
     }
 }
 
@@ -339,10 +362,10 @@ nonisolated enum WebKitCodeEditorDocument {
           overflow: hidden;
           background: var(--bg);
           color: var(--fg);
-          font-family: "SFMono-Regular", "SF Mono", ui-monospace, Menlo, Monaco, Consolas, monospace;
-          font-size: 13px;
-          -webkit-font-smoothing: antialiased;
-          text-rendering: optimizeLegibility;
+          font-family: Menlo, "SF Mono", "SFMono-Regular", ui-monospace, Monaco, Consolas, monospace;
+          font-size: 15px;
+          -webkit-font-smoothing: auto;
+          text-rendering: geometricPrecision;
         }
 
         .shell {
@@ -382,6 +405,7 @@ nonisolated enum WebKitCodeEditorDocument {
         }
 
         #highlight {
+          display: none;
           position: absolute;
           inset: 0;
           margin: 0;
@@ -444,8 +468,8 @@ nonisolated enum WebKitCodeEditorDocument {
           overflow-x: auto;
           overflow-y: auto;
           background: transparent;
-          color: transparent;
-          -webkit-text-fill-color: transparent;
+          color: var(--fg);
+          -webkit-text-fill-color: var(--fg);
           caret-color: #2f6df6;
           font: inherit;
           line-height: 1.45;
@@ -462,24 +486,6 @@ nonisolated enum WebKitCodeEditorDocument {
 
         #source::selection {
           background: var(--selection);
-        }
-
-        body.plain-source #highlight {
-          display: none;
-        }
-
-        body.plain-source #source {
-          color: var(--fg);
-          -webkit-text-fill-color: var(--fg);
-        }
-
-        body.editing #highlight {
-          visibility: hidden;
-        }
-
-        body.editing #source {
-          color: var(--fg);
-          -webkit-text-fill-color: var(--fg);
         }
 
         #status {
@@ -515,6 +521,7 @@ nonisolated enum WebKitCodeEditorDocument {
           const maxSyntaxHighlightCharacters = \(WebKitCodeEditorPolicy.maxSyntaxHighlightCharacters);
           const changeDebounceMilliseconds = \(WebKitCodeEditorPolicy.changeDebounceMilliseconds);
           const highlightDebounceMilliseconds = \(WebKitCodeEditorPolicy.highlightDebounceMilliseconds);
+          const typingSettleMilliseconds = Math.max(260, highlightDebounceMilliseconds * 4);
           let lastText = '';
           let sendTimer = 0;
           let highlightTimer = 0;
@@ -607,7 +614,7 @@ nonisolated enum WebKitCodeEditorDocument {
 
           function lineHeightPixels() {
             const parsed = Number.parseFloat(window.getComputedStyle(source).lineHeight);
-            return Number.isFinite(parsed) && parsed > 0 ? parsed : Math.max(1, (Number.parseFloat(source.style.fontSize) || 13) * 1.45);
+            return Number.isFinite(parsed) && parsed > 0 ? parsed : Math.max(1, (Number.parseFloat(source.style.fontSize) || 15) * 1.45);
           }
 
           function visibleLineWindow(lines) {
@@ -659,6 +666,7 @@ nonisolated enum WebKitCodeEditorDocument {
           }
 
           function renderHighlight() {
+            return;
             const value = source.value || '';
             const tooLarge = value.length > maxSyntaxHighlightCharacters;
             document.body.classList.toggle('plain-source', tooLarge);
@@ -685,7 +693,6 @@ nonisolated enum WebKitCodeEditorDocument {
 
           function scheduleHighlight(delay = highlightDebounceMilliseconds) {
             window.clearTimeout(highlightTimer);
-            highlightTimer = window.setTimeout(renderHighlight, delay);
           }
 
           function syncScroll() {
@@ -719,8 +726,7 @@ nonisolated enum WebKitCodeEditorDocument {
             window.clearTimeout(editingTimer);
             editingTimer = window.setTimeout(() => {
               document.body.classList.remove('editing');
-              scheduleHighlight(0);
-            }, highlightDebounceMilliseconds + 40);
+            }, typingSettleMilliseconds);
           }
 
           function scheduleChange() {
@@ -741,7 +747,6 @@ nonisolated enum WebKitCodeEditorDocument {
           source.addEventListener('input', () => {
             renderStatus(false);
             enterTypingMode();
-            scheduleHighlight();
             scheduleChange();
           });
           source.addEventListener('scroll', () => {
@@ -750,7 +755,6 @@ nonisolated enum WebKitCodeEditorDocument {
           });
           source.addEventListener('keyup', () => {
             renderStatus(false);
-            scheduleHighlight(40);
           });
           source.addEventListener('mouseup', () => {
             renderStatus(false);
@@ -793,7 +797,9 @@ nonisolated enum WebKitCodeEditorDocument {
                 scheduleHighlight(0);
               } else {
                 renderStatus(false);
-                scheduleHighlight(0);
+                if (!document.body.classList.contains('editing')) {
+                  scheduleHighlight(0);
+                }
               }
             },
             selectRange(location, length) {

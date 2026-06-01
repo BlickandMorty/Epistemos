@@ -120,6 +120,8 @@ struct CompanionCreationFlow: View {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 14))
                     .foregroundStyle(theme.textTertiary.opacity(0.7))
+                    .frame(width: 32, height: 32)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }
@@ -134,6 +136,9 @@ struct CompanionCreationFlow: View {
                     .buttonStyle(.plain)
                     .foregroundStyle(theme.textSecondary)
                     .font(.system(size: 12, weight: .medium))
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 32)
+                    .contentShape(Rectangle())
             }
             Spacer()
             if step < stepCount - 1 {
@@ -145,8 +150,8 @@ struct CompanionCreationFlow: View {
                         Image(systemName: "arrow.right")
                     }
                     .font(.system(size: 12, weight: .semibold))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 7)
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 34)
                     .background(theme.resolved.accent.color.opacity(canAdvance ? 0.15 : 0.06), in: Rectangle())
                     .foregroundStyle(canAdvance
                                      ? theme.resolved.accent.color
@@ -163,8 +168,8 @@ struct CompanionCreationFlow: View {
                         Text(isEditing ? "Save Agent" : "Create Agent")
                     }
                     .font(.system(size: 12, weight: .semibold))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 7)
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 34)
                     .background(theme.resolved.accent.color, in: Rectangle())
                     .foregroundStyle(.white)
                 }
@@ -255,6 +260,7 @@ struct CompanionCreationFlow: View {
                                 .lineLimit(2)
                         }
                         .frame(maxWidth: .infinity)
+                        .frame(minHeight: 94)
                         .padding(.vertical, 12)
                         .padding(.horizontal, 8)
                         .background(
@@ -270,6 +276,7 @@ struct CompanionCreationFlow: View {
                                         : theme.textTertiary.opacity(theme.isDark ? 0.16 : 0.22),
                                         lineWidth: theme.isDark ? 0.75 : 1)
                         )
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }
@@ -292,6 +299,8 @@ struct CompanionCreationFlow: View {
                                 .stroke(accentHex == preset.hex ? theme.textPrimary : theme.textTertiary.opacity(0.32), lineWidth: accentHex == preset.hex ? 1.5 : 0.75)
                         )
                         .accessibilityLabel(Text(preset.name))
+                        .frame(width: 30, height: 30)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
@@ -484,7 +493,7 @@ struct CompanionCreationFlow: View {
                                 .font(.system(size: 10, weight: .semibold, design: .monospaced))
                                 .lineLimit(1)
                                 .padding(.horizontal, 8)
-                                .padding(.vertical, 5)
+                                .frame(minHeight: 30)
                                 .background(
                                     isSelected
                                     ? selectedAccentColor.opacity(theme.isDark ? 0.22 : 0.16)
@@ -501,6 +510,7 @@ struct CompanionCreationFlow: View {
                                         )
                                 )
                                 .foregroundStyle(isSelected ? selectedAccentColor : theme.textSecondary)
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                     }
