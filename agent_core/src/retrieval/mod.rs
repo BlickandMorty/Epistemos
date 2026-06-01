@@ -1284,9 +1284,20 @@ fn shadow_residual_hit_matches_target(
 fn shadow_exact_identity_matches(left: &str, right: &str) -> bool {
     let left = normalized_exact_text(left);
     let right = normalized_exact_text(right);
-    !left.is_empty()
-        && !right.is_empty()
-        && (left.eq_ignore_ascii_case(&right) || left.to_lowercase() == right.to_lowercase())
+    if left.is_empty() || right.is_empty() {
+        return false;
+    }
+    if left.eq_ignore_ascii_case(&right) || left.to_lowercase() == right.to_lowercase() {
+        return true;
+    }
+
+    match (
+        normalized_title_identity_key(&left),
+        normalized_title_identity_key(&right),
+    ) {
+        (Some(left_key), Some(right_key)) => left_key == right_key,
+        _ => false,
+    }
 }
 
 fn finite_score(score: f64) -> f64 {
@@ -2351,6 +2362,25 @@ mod tests {
             hits: vec![shadow_exact_hit(
                 "CAFÉ-ALPHA",
                 "CAFÉ ALPHA",
+                Some("Exact body evidence."),
+            )],
+        };
+
+        assert!(outcome.answer_allowed());
+        assert_eq!(outcome.matching_hits().len(), 1);
+        assert_eq!(outcome.citable_visible_hits().len(), 1);
+    }
+
+    #[test]
+    fn shadow_exact_verification_matches_unicode_canonical_variants() {
+        let mut request = shadow_exact_request_with_target();
+        request.targets[0].doc_id = "resume-filter".to_string();
+        request.targets[0].title = "Résumé Filter".to_string();
+        let outcome = ShadowExactVerificationOutcome {
+            request,
+            hits: vec![shadow_exact_hit(
+                "different-doc",
+                "Re\u{301}sume\u{301} Filter",
                 Some("Exact body evidence."),
             )],
         };
