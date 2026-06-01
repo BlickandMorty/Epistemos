@@ -46,7 +46,7 @@ enum LandingCommandTypography {
         }
         switch theme.themePair {
         case .classic:
-            return AppDisplayTypography.coralDisplayFontName
+            return AppDisplayTypography.matrixDisplayFontName
         case .custom:
             return AppDisplayTypography.storedHeadingFontOverride(level: 1)
                 ?? AppDisplayTypography.matrixDisplayFontName

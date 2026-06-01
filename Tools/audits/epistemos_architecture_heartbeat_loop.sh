@@ -21,6 +21,7 @@ AUTOPILOT="${EPISTEMOS_ARCH_LOOP_AUTOPILOT:-0}"
 AUTOPILOT_PROMPT="${EPISTEMOS_ARCH_LOOP_AUTOPILOT_PROMPT:-$ROOT/docs/audits/ARCHITECTURE_AUTOPILOT_PROMPT_2026_05_30.md}"
 AUTOPILOT_LOG_DIR="$STATE_DIR/codex_runs"
 REFRESH_FALSIFIERS="${EPISTEMOS_ARCH_LOOP_REFRESH_FALSIFIERS:-0}"
+WORKER_STALE_SECONDS="${EPISTEMOS_ARCH_LOOP_STALE_WORKER_SECONDS:-1800}"
 
 usage() {
   cat <<'USAGE'
@@ -41,6 +42,7 @@ Environment used by start/tick when no persisted mode exists:
   EPISTEMOS_ARCH_LOOP_REFRESH_FALSIFIERS=0
   EPISTEMOS_ARCH_LOOP_AUTOPILOT=0
   EPISTEMOS_ARCH_LOOP_AUTOPILOT_PROMPT=docs/audits/ARCHITECTURE_AUTOPILOT_PROMPT_2026_05_30.md
+  EPISTEMOS_ARCH_LOOP_STALE_WORKER_SECONDS=1800
 
 The scheduler is a nonblocking supervisor. Each tick emits a heartbeat, reaps
 completed workers, and launches at most one Codex worker when autopilot is on.
@@ -112,6 +114,7 @@ load_mode_env() {
       autopilot) AUTOPILOT="$value" ;;
       autopilot_prompt) AUTOPILOT_PROMPT="$value" ;;
       refresh_falsifiers) REFRESH_FALSIFIERS="$value" ;;
+      worker_stale_seconds) WORKER_STALE_SECONDS="$value" ;;
     esac
   done < "$MODE_ENV_FILE"
 }
@@ -126,6 +129,7 @@ write_mode_env() {
     printf 'autopilot=%s\n' "$AUTOPILOT"
     printf 'autopilot_prompt=%s\n' "$AUTOPILOT_PROMPT"
     printf 'refresh_falsifiers=%s\n' "$REFRESH_FALSIFIERS"
+    printf 'worker_stale_seconds=%s\n' "$WORKER_STALE_SECONDS"
     printf 'scheduler_pid=%s\n' "$scheduler_pid"
     printf 'mode_written_at=%s\n' "$(utc_now)"
   } > "$MODE_ENV_FILE"
@@ -141,6 +145,7 @@ log_mode() {
   echo "autopilot=$AUTOPILOT"
   echo "autopilot_prompt=$AUTOPILOT_PROMPT"
   echo "refresh_falsifiers=$REFRESH_FALSIFIERS"
+  echo "worker_stale_seconds=$WORKER_STALE_SECONDS"
 }
 
 worker_elapsed_seconds() {
@@ -168,6 +173,59 @@ log_worker_sizes() {
   echo "worker_stdout_bytes=$(file_size "$run_dir/stdout.log")"
   echo "worker_stderr_bytes=$(file_size "$run_dir/stderr.log")"
   echo "worker_final_bytes=$(file_size "$run_dir/final.md")"
+}
+
+file_mtime_epoch() {
+  local path="$1"
+  [[ -f "$path" ]] || return 1
+  stat -f '%m' "$path" 2>/dev/null || stat -c '%Y' "$path" 2>/dev/null
+}
+
+iso_from_epoch() {
+  local epoch="$1"
+  date -u -r "$epoch" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null \
+    || date -u -d "@$epoch" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null \
+    || printf 'unknown'
+}
+
+worker_last_output_epoch() {
+  local run_dir="$1"
+  local file mtime latest=""
+  for file in "$run_dir/stdout.log" "$run_dir/stderr.log" "$run_dir/final.md"; do
+    [[ -s "$file" ]] || continue
+    mtime="$(file_mtime_epoch "$file" || true)"
+    [[ "$mtime" =~ ^[0-9]+$ ]] || continue
+    if [[ -z "$latest" || "$mtime" -gt "$latest" ]]; then
+      latest="$mtime"
+    fi
+  done
+  [[ -n "$latest" ]] || return 1
+  printf '%s\n' "$latest"
+}
+
+log_worker_progress() {
+  local run_dir="$1"
+  local last_output now idle elapsed
+  now="$(epoch_now)"
+  elapsed="$(worker_elapsed_seconds)"
+  echo "worker_stale_threshold_seconds=$WORKER_STALE_SECONDS"
+  last_output="$(worker_last_output_epoch "$run_dir" || true)"
+  if [[ -z "${last_output:-}" ]]; then
+    echo "worker_last_output_at=none"
+    echo "worker_output_idle_seconds=unknown"
+    echo "worker_progress_state=no_output_yet"
+    return 0
+  fi
+
+  idle="$((now - last_output))"
+  echo "worker_last_output_at=$(iso_from_epoch "$last_output")"
+  echo "worker_output_idle_seconds=$idle"
+  if [[ "$elapsed" =~ ^[0-9]+$ && "$idle" -ge "$WORKER_STALE_SECONDS" && "$elapsed" -ge "$WORKER_STALE_SECONDS" ]]; then
+    echo "worker_progress_state=stale_silent"
+    echo "worker_stale_hint=worker_not_killed_automatically_use_stop-worker_or_kill-worker_explicitly_if_restart_is_desired"
+  else
+    echo "worker_progress_state=recent_or_within_stale_window"
+  fi
 }
 
 log_git_dirty_summary() {
@@ -386,6 +444,7 @@ log_active_worker() {
   echo "worker_run_dir=${run_dir:-unknown}"
   if [[ -n "${run_dir:-}" ]]; then
     log_worker_sizes "$run_dir"
+    log_worker_progress "$run_dir"
   fi
   log_git_dirty_summary
 }
@@ -458,6 +517,7 @@ start_loop() {
   AUTOPILOT="${EPISTEMOS_ARCH_LOOP_AUTOPILOT:-$AUTOPILOT}"
   AUTOPILOT_PROMPT="${EPISTEMOS_ARCH_LOOP_AUTOPILOT_PROMPT:-$AUTOPILOT_PROMPT}"
   REFRESH_FALSIFIERS="${EPISTEMOS_ARCH_LOOP_REFRESH_FALSIFIERS:-$REFRESH_FALSIFIERS}"
+  WORKER_STALE_SECONDS="${EPISTEMOS_ARCH_LOOP_STALE_WORKER_SECONDS:-$WORKER_STALE_SECONDS}"
 
   if scheduler_is_running; then
     echo "architecture heartbeat loop already running pid=$(read_scheduler_pid)"
