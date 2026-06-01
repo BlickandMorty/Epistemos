@@ -103,7 +103,7 @@ enum ChatLayout {
     static let mainComposerMaxWidth: CGFloat = 860
     static let mainComposerHorizontalPadding: CGFloat = 10
     static let transcriptSpacing: CGFloat = 28
-    static let brainPanelWidth: CGFloat = 388
+    static let brainPanelWidth: CGFloat = 420
 }
 
 enum ChatStreamingDisplayPolicy {
@@ -763,10 +763,10 @@ private struct ChatBrainPanelView: View {
                         }
                     }
 
-                    // W-48 Terminal A 2026-05-23 — surfaces the most
-                    // recent Eidos retrieve. Honest backend chip
-                    // flips with EidosMetrics.shared.lastBackend.
-                    section(title: "RETRIEVED BY EIDOS", defaultExpanded: false) {
+                    // Evidence intake surfaces both Eidos and VaultRecall
+                    // so vault lookups do not look idle just because the
+                    // citation validator has not run on that launch.
+                    section(title: "EVIDENCE INTAKE", defaultExpanded: true) {
                         EidosRetrievedSection()
                     }
                 } else if !hasPendingContext {
@@ -816,14 +816,14 @@ private struct ChatBrainPanelView: View {
     ) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Text(label)
-                .font(.system(size: 11))
+                .font(.system(size: 11.5, weight: .semibold))
                 .foregroundStyle(theme.textTertiary)
-                .frame(width: 72, alignment: .leading)
+                .frame(width: 84, alignment: .leading)
             Text(value)
                 .font(
                     valueMonospaced
-                        ? .system(size: 11, design: .monospaced)
-                        : .system(size: 12)
+                        ? .system(size: 11.5, design: .monospaced)
+                        : .system(size: 12.5)
                 )
                 .foregroundStyle(theme.textPrimary)
                 .textSelection(.enabled)
@@ -835,7 +835,7 @@ private struct ChatBrainPanelView: View {
     @ViewBuilder
     private func bodyBlock(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 11, design: .monospaced))
+            .font(.system(size: 11.5, design: .monospaced))
             .foregroundStyle(theme.textSecondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .textSelection(.enabled)
@@ -867,7 +867,7 @@ private struct BrainPanelSection<Content: View>: View {
             } label: {
                 HStack {
                     Text(title)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: 10.5, weight: .semibold))
                         .tracking(0.8)
                         .foregroundStyle(theme.textTertiary)
                     Spacer()
@@ -884,7 +884,9 @@ private struct BrainPanelSection<Content: View>: View {
 
             if expanded {
                 content()
-                    .padding(.horizontal, 16)
+                    .padding(12)
+                    .assistantInsetChrome(theme: theme, cornerRadius: 14, isEmphasized: false)
+                    .padding(.horizontal, 12)
                     .padding(.top, 2)
                     .padding(.bottom, 12)
             }

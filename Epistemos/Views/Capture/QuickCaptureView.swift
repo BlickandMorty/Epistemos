@@ -198,11 +198,18 @@ struct QuickCaptureView: View {
                 .font(.body)
                 .scrollContentBackground(.hidden)
                 .padding(12)
-                .background(
+                .background {
+                    ZStack {
+                        Rectangle()
+                            .fill(.regularMaterial)
+                        Rectangle()
+                            .fill(PixelPanelBackground.actionSurface(for: theme).opacity(theme.isDark ? 0.76 : 0.82))
+                    }
+                }
+                .overlay {
                     Rectangle()
-                        .fill(theme.muted.opacity(theme.isDark ? 0.36 : 0.48))
-                        .overlay(Rectangle().stroke(theme.textTertiary.opacity(0.26), lineWidth: 1))
-                )
+                        .stroke(theme.textTertiary.opacity(theme.isDark ? 0.28 : 0.34), lineWidth: 1)
+                }
                 .focused($isTextFieldFocused)
                 .frame(maxHeight: .infinity)
                 .overlay(alignment: .topLeading) {
@@ -278,12 +285,20 @@ struct QuickCaptureView: View {
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .background(
+                    .background {
+                        ZStack {
+                            Rectangle()
+                                .fill(.regularMaterial)
+                            Rectangle()
+                                .fill(audioRecorder.isRecording
+                                      ? Color.red.opacity(0.16)
+                                      : PixelPanelBackground.actionSurface(for: theme).opacity(0.84))
+                        }
+                    }
+                    .overlay {
                         Rectangle()
-                            .fill(audioRecorder.isRecording
-                                  ? Color.red.opacity(0.15)
-                                  : Color.secondary.opacity(0.2))
-                    )
+                            .stroke(theme.border.opacity(theme.isDark ? 0.24 : 0.34), lineWidth: 1)
+                    }
                 }
                 .buttonStyle(.plain)
                 .disabled(isProcessing || isTranscribing)
@@ -303,12 +318,20 @@ struct QuickCaptureView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .background(
+                    .background {
+                        ZStack {
+                            Rectangle()
+                                .fill(.regularMaterial)
+                            Rectangle()
+                                .fill(captureText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                    ? Color.accentColor.opacity(0.30)
+                                    : Color.accentColor.opacity(0.92))
+                        }
+                    }
+                    .overlay {
                         Rectangle()
-                            .fill(captureText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                ? Color.accentColor.opacity(0.3)
-                                : Color.accentColor)
-                    )
+                            .stroke(Color.white.opacity(theme.isDark ? 0.10 : 0.22), lineWidth: 1)
+                    }
                     .foregroundStyle(.white)
                 }
                 .buttonStyle(.plain)

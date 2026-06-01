@@ -69,12 +69,18 @@ struct SettingsThemedBlurBackdrop: View {
     let theme: EpistemosTheme
     let role: Role
 
+    private var surfaceColor: Color {
+        role == .card
+            ? PixelPanelBackground.panelSurface(for: theme)
+            : theme.resolved.background.color
+    }
+
     var body: some View {
         RoundedRectangle(cornerRadius: role.cornerRadius, style: .continuous)
-            .fill(theme.resolved.background.color.opacity(role.baseOpacity(isDark: theme.isDark)))
+            .fill(surfaceColor.opacity(role.baseOpacity(isDark: theme.isDark)))
             .background {
                 RoundedRectangle(cornerRadius: role.cornerRadius, style: .continuous)
-                    .fill(theme.resolved.background.color.opacity(role.materialOpacity(isDark: theme.isDark)))
+                    .fill(surfaceColor.opacity(role.materialOpacity(isDark: theme.isDark)))
                     .background(.regularMaterial)
             }
             .overlay {
@@ -108,12 +114,37 @@ struct SettingsAppleCardChrome: ViewModifier {
                         lineWidth: theme.isDark ? 0.6 : 0.8
                     )
             }
+            .overlay(alignment: .topLeading) {
+                SettingsPanelPixelCorner(theme: theme)
+                    .padding(7)
+            }
+            .overlay(alignment: .bottomTrailing) {
+                SettingsPanelPixelCorner(theme: theme)
+                    .rotationEffect(.degrees(180))
+                    .padding(7)
+            }
             .shadow(
                 color: Color.black.opacity(theme.isDark ? 0.24 : 0.10),
                 radius: theme.isDark ? 14 : 18,
                 x: 0,
                 y: theme.isDark ? 7 : 9
             )
+    }
+}
+
+private struct SettingsPanelPixelCorner: View {
+    let theme: EpistemosTheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Rectangle()
+                .frame(width: 13, height: 2)
+            Rectangle()
+                .frame(width: 2, height: 13)
+        }
+        .foregroundStyle(theme.resolved.accent.color.opacity(theme.isDark ? 0.22 : 0.16))
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 

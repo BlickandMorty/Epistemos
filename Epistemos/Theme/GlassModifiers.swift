@@ -335,26 +335,76 @@ struct AssistantInsetChrome: ViewModifier {
     let isEmphasized: Bool
 
     func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         content
             .background {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(theme.isDark ? theme.muted.opacity(isEmphasized ? 0.82 : 0.64) : theme.muted.opacity(isEmphasized ? 0.72 : 0.54))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .strokeBorder(
-                                theme.glassBorder.opacity(isEmphasized ? 0.9 : 0.68),
-                                lineWidth: 0.6
-                            )
-                    }
-                    .overlay {
-                        RoundedRectangle(cornerRadius: max(cornerRadius - 3, 0), style: .continuous)
-                            .strokeBorder(
-                                .white.opacity(theme.isDark ? (isEmphasized ? 0.08 : 0.05) : (isEmphasized ? 0.34 : 0.22)),
-                                lineWidth: 0.5
-                            )
-                            .padding(1.2)
-                    }
+                ZStack(alignment: .topLeading) {
+                    shape.fill(theme.isDark ? .ultraThinMaterial : .regularMaterial)
+                    shape.fill(
+                        theme.muted.opacity(
+                            theme.isDark
+                                ? (isEmphasized ? 0.76 : 0.58)
+                                : (isEmphasized ? 0.68 : 0.50)
+                        )
+                    )
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(theme.isDark ? 0.05 : 0.24),
+                            Color.white.opacity(theme.isDark ? 0.015 : 0.07),
+                            Color.clear,
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .clipShape(shape)
+                    AssistantPixelCornerAccent(theme: theme, cornerRadius: cornerRadius)
+                }
             }
+            .overlay {
+                shape
+                    .strokeBorder(
+                        theme.glassBorder.opacity(isEmphasized ? 0.9 : 0.68),
+                        lineWidth: 0.6
+                    )
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: max(cornerRadius - 3, 0), style: .continuous)
+                    .strokeBorder(
+                        .white.opacity(theme.isDark ? (isEmphasized ? 0.08 : 0.05) : (isEmphasized ? 0.34 : 0.22)),
+                        lineWidth: 0.5
+                    )
+                    .padding(1.2)
+            }
+    }
+}
+
+private struct AssistantPixelCornerAccent: View {
+    let theme: EpistemosTheme
+    let cornerRadius: CGFloat
+
+    var body: some View {
+        ZStack {
+            corner
+                .padding(7)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            corner
+                .rotationEffect(.degrees(180))
+                .padding(7)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private var corner: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Rectangle()
+                .frame(width: 15, height: 2)
+            Rectangle()
+                .frame(width: 2, height: 15)
+        }
+        .foregroundStyle(theme.resolved.accent.color.opacity(theme.isDark ? 0.22 : 0.18))
     }
 }
 
@@ -689,6 +739,10 @@ struct AssistantComposerChrome: ViewModifier {
                         shape.fill(lightSurfaceTint.opacity(lightModeSurfaceTint == nil ? 0.16 : 0.94))
                     }
                 }
+            }
+            .overlay(alignment: .topLeading) {
+                AssistantPixelCornerAccent(theme: theme, cornerRadius: metrics.cornerRadius)
+                    .opacity(isActive ? 1 : 0.72)
             }
             .overlay {
                 shape
