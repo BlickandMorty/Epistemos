@@ -821,8 +821,7 @@ struct ChatInputBar: View {
         .assistantComposerChrome(
             theme: theme,
             metrics: composerMetrics,
-            isActive: composerIsActive,
-            lightModeSurfaceTint: theme.resolved.background.color
+            isActive: composerIsActive
         )
         .overlay(alignment: .topLeading) {
             if showMentionDropdown {

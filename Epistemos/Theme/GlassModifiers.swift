@@ -383,28 +383,47 @@ private struct AssistantPixelCornerAccent: View {
     let cornerRadius: CGFloat
 
     var body: some View {
-        ZStack {
-            corner
-                .padding(7)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            corner
-                .rotationEffect(.degrees(180))
-                .padding(7)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+        Canvas { context, size in
+            let width = max(size.width, 1)
+            let height = max(size.height, 1)
+            let thickness = max(2.0, min(3.0, min(width, height) * 0.008))
+            let inset = max(7, min(12, cornerRadius * 0.44))
+            let long = min(max(28, min(width, height) * 0.18), 46)
+            let step = thickness * 4
+            let inner = long * 0.44
+            let tint = theme.resolved.accent.color.opacity(theme.isDark ? 0.38 : 0.30)
+
+            func fill(_ rect: CGRect) {
+                context.fill(Path(rect.integral), with: .color(tint))
+            }
+
+            // Top-left
+            fill(CGRect(x: inset, y: inset, width: long, height: thickness))
+            fill(CGRect(x: inset, y: inset, width: thickness, height: long))
+            fill(CGRect(x: inset + step, y: inset + step, width: inner, height: thickness))
+            fill(CGRect(x: inset + step, y: inset + step, width: thickness, height: inner))
+
+            // Top-right
+            fill(CGRect(x: width - inset - long, y: inset, width: long, height: thickness))
+            fill(CGRect(x: width - inset - thickness, y: inset, width: thickness, height: long))
+            fill(CGRect(x: width - inset - step - inner, y: inset + step, width: inner, height: thickness))
+            fill(CGRect(x: width - inset - step - thickness, y: inset + step, width: thickness, height: inner))
+
+            // Bottom-left
+            fill(CGRect(x: inset, y: height - inset - thickness, width: long, height: thickness))
+            fill(CGRect(x: inset, y: height - inset - long, width: thickness, height: long))
+            fill(CGRect(x: inset + step, y: height - inset - step - thickness, width: inner, height: thickness))
+            fill(CGRect(x: inset + step, y: height - inset - step - inner, width: thickness, height: inner))
+
+            // Bottom-right
+            fill(CGRect(x: width - inset - long, y: height - inset - thickness, width: long, height: thickness))
+            fill(CGRect(x: width - inset - thickness, y: height - inset - long, width: thickness, height: long))
+            fill(CGRect(x: width - inset - step - inner, y: height - inset - step - thickness, width: inner, height: thickness))
+            fill(CGRect(x: width - inset - step - thickness, y: height - inset - step - inner, width: thickness, height: inner))
         }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .allowsHitTesting(false)
         .accessibilityHidden(true)
-    }
-
-    private var corner: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Rectangle()
-                .frame(width: 15, height: 2)
-            Rectangle()
-                .frame(width: 2, height: 15)
-        }
-        .foregroundStyle(theme.resolved.accent.color.opacity(theme.isDark ? 0.22 : 0.18))
     }
 }
 
@@ -720,7 +739,7 @@ struct AssistantComposerChrome: ViewModifier {
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous)
-        let lightSurfaceTint = lightModeSurfaceTint ?? theme.resolved.background.color
+        let lightSurfaceTint = lightModeSurfaceTint ?? PixelPanelBackground.panelSurface(for: theme)
 
         content
             .background {
@@ -731,18 +750,29 @@ struct AssistantComposerChrome: ViewModifier {
                 } else if theme.isDark {
                     ZStack {
                         shape.fill(.ultraThinMaterial)
-                        shape.fill(theme.resolved.background.color.opacity(0.58))
+                        shape.fill(PixelPanelBackground.panelSurface(for: theme).opacity(0.58))
+                        shape.fill(.white.opacity(isActive ? 0.030 : 0.014))
                     }
                 } else {
                     ZStack {
                         shape.fill(.regularMaterial)
-                        shape.fill(lightSurfaceTint.opacity(lightModeSurfaceTint == nil ? 0.16 : 0.94))
+                        shape.fill(lightSurfaceTint.opacity(lightModeSurfaceTint == nil ? 0.58 : 0.48))
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(isActive ? 0.34 : 0.26),
+                                Color.white.opacity(0.10),
+                                Color.clear,
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                        .clipShape(shape)
                     }
                 }
             }
-            .overlay(alignment: .topLeading) {
+            .overlay {
                 AssistantPixelCornerAccent(theme: theme, cornerRadius: metrics.cornerRadius)
-                    .opacity(isActive ? 1 : 0.72)
+                    .opacity(isActive ? 1 : 0.82)
             }
             .overlay {
                 shape
@@ -760,11 +790,13 @@ struct AssistantComposerChrome: ViewModifier {
                     .padding(1.1)
             }
             .shadow(
-                color: .black.opacity(theme.isDark ? 0.16 : 0.08),
-                radius: metrics.shadowRadius,
+                color: .black.opacity(theme.isDark ? 0.20 : 0.10),
+                radius: metrics.shadowRadius + (isActive ? 3 : 0),
                 x: 0,
                 y: metrics.shadowYOffset
             )
+            .scaleEffect(isActive ? 1.006 : 1.0)
+            .animation(.interpolatingSpring(stiffness: 260, damping: 24), value: isActive)
     }
 }
 
