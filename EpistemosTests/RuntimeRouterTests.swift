@@ -133,6 +133,33 @@ struct RuntimeRouterTests {
         }
     }
 
+    @Test("estimated input tokens gate small-context lanes before fallback")
+    func estimatedInputTokensGateSmallContextLane() {
+        let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)
+        router._testResetMetrics()
+        let appleContext = RuntimeRouter.defaultStubCapability(for: .appleIntelligence).contextWindow
+        let packet = MissionPacket(
+            uasAddress: "uas:test:policy-context-window",
+            role: .quick,
+            objective: "Summarize this context.",
+            estimatedInputTokens: appleContext + 1
+        )
+
+        let verdict = router.route(packet)
+
+        if case .accept(let lane, _) = verdict {
+            #expect(lane == .mlx, "quick request should skip Apple Intelligence and accept on MLX; got \(lane.stableID)")
+        } else {
+            Issue.record("expected .accept on MLX fallback, got \(verdict)")
+        }
+
+        #expect(router.metrics.tally(for: .appleIntelligence).escalations == 1)
+        let reasons = router.metrics.ring
+            .filter { $0.lane == .appleIntelligence }
+            .compactMap(\.detail)
+        #expect(reasons == [RouteVerdict.EscalationReason.contextWindowExceeded.rawValue])
+    }
+
     @Test("flipping MLX off escalates to GGUF — honest log, not silent fallback")
     func mlxFlippedOffEscalatesHonestly() {
         let router = RuntimeRouter(initialLanes: RuntimeRouter.defaultStubLanes(), persistsToUserDefaults: false)

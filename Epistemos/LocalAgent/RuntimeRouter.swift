@@ -851,6 +851,12 @@ nonisolated public struct StubRuntimeExecutor: RuntimeExecutor {
         if request.requiresVision && !capability.vision {
             return .escalate(from: id, to: id, reason: .visionUnsupported)
         }
+        if let estimatedInputTokens = request.estimatedInputTokens,
+           estimatedInputTokens > 0,
+           capability.contextWindow > 0,
+           estimatedInputTokens > capability.contextWindow {
+            return .escalate(from: id, to: id, reason: .contextWindowExceeded)
+        }
         if request.requiresGrammar && capability.toolCallMode == .none {
             return .escalate(from: id, to: id, reason: .toolCallGrammarUnsupported)
         }

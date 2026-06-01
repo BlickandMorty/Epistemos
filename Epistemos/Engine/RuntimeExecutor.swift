@@ -244,6 +244,7 @@ nonisolated public struct MissionPacket: Sendable, Equatable, Hashable, Codable,
     public let classificationConfidence: Double?
     public let estimatedComplexity: Double?
     public let toolCountEstimate: Int?
+    public let estimatedInputTokens: Int?
     /// Optional caller-supplied lane preference. The router treats
     /// this as a hint; honors it only if the lane is enabled and
     /// its capability surface satisfies the rest of the demands.
@@ -263,6 +264,7 @@ nonisolated public struct MissionPacket: Sendable, Equatable, Hashable, Codable,
         classificationConfidence: Double? = nil,
         estimatedComplexity: Double? = nil,
         toolCountEstimate: Int? = nil,
+        estimatedInputTokens: Int? = nil,
         preferredLane: RuntimeLane? = nil
     ) {
         self.id = id
@@ -278,6 +280,7 @@ nonisolated public struct MissionPacket: Sendable, Equatable, Hashable, Codable,
         self.classificationConfidence = classificationConfidence
         self.estimatedComplexity = estimatedComplexity
         self.toolCountEstimate = toolCountEstimate
+        self.estimatedInputTokens = estimatedInputTokens
         self.preferredLane = preferredLane
     }
 }

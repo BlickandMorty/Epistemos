@@ -19,6 +19,7 @@ fn mission_packet_carries_policy_inputs() {
         "public let classificationConfidence: Double?",
         "public let estimatedComplexity: Double?",
         "public let toolCountEstimate: Int?",
+        "public let estimatedInputTokens: Int?",
     ] {
         assert!(
             RUNTIME_EXECUTOR_SOURCE.contains(field),
@@ -33,10 +34,26 @@ fn route_verdict_exposes_policy_escalation_reasons() {
         "case classificationUncertain = \"classification_uncertain\"",
         "case taskTooComplex = \"task_too_complex\"",
         "case tooManyToolCalls = \"too_many_tool_calls\"",
+        "case contextWindowExceeded = \"context_window_exceeded\"",
     ] {
         assert!(
             RUNTIME_EXECUTOR_SOURCE.contains(reason),
             "RouteVerdict must expose policy escalation reason `{reason}`"
+        );
+    }
+}
+
+#[test]
+fn stub_executor_gates_estimated_context_against_lane_capability() {
+    for snippet in [
+        "estimatedInputTokens",
+        "capability.contextWindow",
+        "estimatedInputTokens > capability.contextWindow",
+        "return .escalate(from: id, to: id, reason: .contextWindowExceeded)",
+    ] {
+        assert!(
+            RUNTIME_ROUTER_SOURCE.contains(snippet),
+            "StubRuntimeExecutor must gate context-window routing with `{snippet}`"
         );
     }
 }
