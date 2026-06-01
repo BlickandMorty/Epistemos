@@ -621,6 +621,7 @@ private struct MiniChatInputBar: View {
     @Environment(TriageService.self) private var triage
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(InferenceState.self) private var inference
+    @Environment(ContextualShadowsState.self) private var contextualShadows
     @Environment(\.modelContext) private var modelContext
     @AppStorage("epistemos.miniChatOperatingMode")
     private var operatingModeRaw = EpistemosOperatingMode.fast.rawValue
@@ -638,6 +639,7 @@ private struct MiniChatInputBar: View {
     @State private var referencePopoverStyle: ComposerReferencePopoverStyle = .mention
     @State private var referenceSearch = ComposerReferenceSearchState()
     @State private var snapshotStore = MiniChatSnapshotStore()
+    @State private var recallDebounceBox = ChatRecallDebounceBox()
 
     let chatID: String
 
@@ -703,6 +705,10 @@ private struct MiniChatInputBar: View {
     }
     private var composerTextAreaHeight: CGFloat {
         max(ChatComposerInputMetrics.minHeight, composerHeight)
+    }
+
+    private var contextualRecallScopeID: String {
+        "mini-chat:\(chatID)"
     }
 
     private var miniChatThread: ChatThread? {
@@ -807,6 +813,8 @@ private struct MiniChatInputBar: View {
                         capability: composerCapability
                     )
 
+                    ContextualShadowsButton(scopeKind: .chat, scopeID: contextualRecallScopeID)
+
                     AssistantSendButton(
                         theme: theme,
                         isEnabled: canSend,
@@ -839,6 +847,7 @@ private struct MiniChatInputBar: View {
             sanitizeStoredOperatingMode()
         }
         .onDisappear {
+            recallDebounceBox.task?.cancel()
             cancelStream()
         }
         .onChange(of: inference.supportsThinkingOperatingMode) { _, _ in
@@ -864,6 +873,16 @@ private struct MiniChatInputBar: View {
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            ContextualShadowsPanel(
+                scopeKind: .chat,
+                scopeID: contextualRecallScopeID,
+                presentation: .chat,
+                onOpen: openContextualShadowHit
+            )
+            .padding(.trailing, 12)
+            .padding(.bottom, 50)
         }
     }
 
@@ -906,6 +925,7 @@ private struct MiniChatInputBar: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: composerTextAreaHeight, alignment: .topLeading)
         .onChange(of: text) { _, newVal in
+            scheduleContextualShadowsRecall(for: newVal)
             if let filter = ComposerReferenceHelpers.mentionFilter(in: newVal) {
                 referencePopoverStyle = .mention
                 mentionFilter = filter
@@ -921,6 +941,42 @@ private struct MiniChatInputBar: View {
         .onChange(of: mentionFilter) { _, newValue in
             updateMentionReferenceSearch(filter: newValue)
         }
+    }
+
+    private func scheduleContextualShadowsRecall(for snapshotText: String) {
+        recallDebounceBox.task?.cancel()
+        guard contextualShadows.isEnabled else { return }
+        guard let bootstrap = AppBootstrap.shared else { return }
+        let instantRecall = bootstrap.instantRecallService
+        let searchIndexService = bootstrap.vaultSync.searchService
+        let scopeID = contextualRecallScopeID
+        let originId = UUID(uuidString: chatID) ?? UUID()
+        let state = contextualShadows
+        recallDebounceBox.task = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(200))
+            guard !Task.isCancelled else { return }
+            let snapshot = RecallContextSnapshot(
+                text: snapshotText,
+                kind: .chat,
+                originId: originId,
+                originDocId: scopeID
+            )
+            state.requestRecall(
+                snapshot: snapshot,
+                instantRecall: instantRecall,
+                searchIndexService: searchIndexService
+            )
+        }
+    }
+
+    private func openContextualShadowHit(_ hit: ContextualShadowsState.RecallHit) {
+        switch hit.kind {
+        case .note:
+            NoteWindowManager.shared.open(pageId: hit.id)
+        case .chat:
+            MiniChatWindowController.shared.openChat(hit.id)
+        }
+        contextualShadows.closePanel(kind: .chat, originDocId: contextualRecallScopeID)
     }
 
     private func sanitizeStoredOperatingMode() {

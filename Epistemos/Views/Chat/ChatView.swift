@@ -885,7 +885,7 @@ private struct BrainPanelSection<Content: View>: View {
             if expanded {
                 content()
                     .padding(12)
-                    .assistantInsetChrome(theme: theme, cornerRadius: 14, isEmphasized: false)
+                    .brainPanelFlatCard(theme: theme)
                     .padding(.horizontal, 12)
                     .padding(.top, 2)
                     .padding(.bottom, 12)
@@ -896,5 +896,29 @@ private struct BrainPanelSection<Content: View>: View {
                 .fill(theme.border.opacity(0.35))
                 .frame(height: 0.5)
         }
+    }
+}
+
+private struct BrainPanelFlatCardModifier: ViewModifier {
+    let theme: EpistemosTheme
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 4, style: .continuous)
+        content
+            .background {
+                ZStack {
+                    shape.fill(theme.card.opacity(theme.isDark ? 0.58 : 0.72))
+                    shape.fill(theme.resolved.foreground.color.opacity(theme.isDark ? 0.022 : 0.012))
+                }
+            }
+            .overlay {
+                shape.strokeBorder(theme.border.opacity(theme.isDark ? 0.52 : 0.42), lineWidth: 0.75)
+            }
+    }
+}
+
+private extension View {
+    func brainPanelFlatCard(theme: EpistemosTheme) -> some View {
+        modifier(BrainPanelFlatCardModifier(theme: theme))
     }
 }

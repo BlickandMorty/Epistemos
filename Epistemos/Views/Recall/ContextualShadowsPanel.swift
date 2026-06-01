@@ -136,7 +136,7 @@ struct ContextualShadowsPanel: View {
             }
             .frame(width: isWorkspaceMode ? presentation.workspaceWidth : presentation.compactWidth)
             .frame(maxHeight: isWorkspaceMode ? 690 : presentation.maxPanelHeight)
-            .pixelPanel(theme: theme, surface: PixelPanelBackground.panelSurface(for: theme))
+            .recallPanelChrome(theme: theme)
             .shadow(color: .black.opacity(theme.isDark ? 0.26 : 0.16), radius: 10, x: 0, y: 6)
             .transition(reduceMotion ? .identity : .move(edge: .bottom).combined(with: .opacity))
             .onDisappear {
@@ -498,6 +498,43 @@ struct ContextualShadowsPanel: View {
 
     private static func key(for hit: ContextualShadowsState.RecallHit) -> String {
         "\(hit.kind.rawValue):\(hit.id)"
+    }
+}
+
+private struct RecallPanelChromeModifier: ViewModifier {
+    let theme: EpistemosTheme
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 6, style: .continuous)
+        content
+            .background {
+                ZStack(alignment: .top) {
+                    shape.fill(.regularMaterial)
+                    shape.fill(PixelPanelBackground.panelSurface(for: theme).opacity(theme.isDark ? 0.88 : 0.95))
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(theme.isDark ? 0.05 : 0.24),
+                            Color.clear,
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .clipShape(shape)
+                    Rectangle()
+                        .fill(theme.resolved.accent.color.opacity(theme.isDark ? 0.52 : 0.36))
+                        .frame(height: 2)
+                }
+            }
+            .clipShape(shape)
+            .overlay {
+                shape.strokeBorder(theme.border.opacity(theme.isDark ? 0.58 : 0.42), lineWidth: 0.8)
+            }
+    }
+}
+
+private extension View {
+    func recallPanelChrome(theme: EpistemosTheme) -> some View {
+        modifier(RecallPanelChromeModifier(theme: theme))
     }
 }
 
