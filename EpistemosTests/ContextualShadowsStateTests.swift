@@ -578,6 +578,28 @@ struct ContextualShadowsStateTests {
         #expect(miniChat.contains("contextualRecallScopeID"))
     }
 
+    @Test("Chat recall and evidence surfaces avoid native bracket frame chrome")
+    func chatRecallAndEvidenceAvoidNativeBracketFrameChrome() throws {
+        let chatInputBar = try repoText("Epistemos/Views/Chat/ChatInputBar.swift")
+        let eidosSection = try repoText("Epistemos/Views/Chat/EidosRetrievedSection.swift")
+
+        #expect(chatInputBar.contains("scrollView.focusRingType = .none"))
+        #expect(chatInputBar.contains("textView.focusRingType = .none"))
+        #expect(!eidosSection.contains("GroupBox("),
+                "Eidos/VaultRecall evidence should use Epistemos flat cards, not native macOS GroupBox frames.")
+        #expect(eidosSection.contains("evidenceMetricCard(title: \"Eidos\")"))
+        #expect(eidosSection.contains("evidenceMetricCard(title: \"VaultRecall\")"))
+    }
+
+    @Test("Landing instant recall gets roomier than note recall")
+    func landingInstantRecallGetsRoomierThanNoteRecall() throws {
+        let panelSource = try repoText("Epistemos/Views/Recall/ContextualShadowsPanel.swift")
+
+        #expect(panelSource.contains("case .landing: return 680"))
+        #expect(panelSource.contains("case .landing: return 480"))
+        #expect(panelSource.contains("case .note: return 390"))
+    }
+
     @Test("Contextual Shadows V0 prefers Shadow search without mounting the V1 Halo controller")
     func contextualShadowsCurrentBackendContract() throws {
         let stateSource = try repoText("Epistemos/State/ContextualShadowsState.swift")
@@ -601,6 +623,10 @@ struct ContextualShadowsStateTests {
                 "Contextual Shadows must query from the active typed sentence/topic, not the whole note body.")
         #expect(stateSource.contains("rankedUniqueHits("),
                 "Contextual Shadows must dedupe and rank cross-channel recall results.")
+        #expect(stateSource.contains("pendingTask = scopedPendingTasks.values.first"),
+                "Completed or closed scoped recall tasks must not leave stale global searching state behind.")
+        #expect(stateSource.contains("scopedPendingTasks[scopeKey]?.cancel()"),
+                "Closing a scoped recall panel must cancel that scoped search so it cannot reopen itself.")
         #expect(!stateSource.contains("HaloController"),
                 "The production-mounted V0 surface should not silently become the unmounted V1 Halo controller.")
     }
