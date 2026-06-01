@@ -1787,10 +1787,10 @@ struct CodeEditorView: View {
     @AppStorage("codeEditor.wrapLines") private var wrapLines = false
     // Minimap removed — outline navigator replaces it
     @AppStorage("codeEditor.showInvisibles") private var showInvisibles = false
-    // Default matches the prose editor's body font size so code notes
-    // share the same visual rhythm; users who previously bumped the
-    // size up or down keep their saved choice.
-    @AppStorage("codeEditor.fontSize") private var fontSize: Double = 13
+    // Keep the code surface at the native-editor scale by default. The
+    // WebKit editor owns rendering now, but code notes should still feel like
+    // a Mac code editor rather than a compact web preview panel.
+    @AppStorage("codeEditor.fontSize") private var fontSize: Double = 15
     @AppStorage("codeEditor.useSpaces") private var useSpaces = true
     @AppStorage("codeEditor.tabWidth") private var tabWidth = 4
     // Native CodeEditSourceEditor gutter. Default ON: this is the real
@@ -1799,7 +1799,6 @@ struct CodeEditorView: View {
     @AppStorage("epistemos.codeEditor.showFoldingRibbon") private var showFoldingRibbon = true
     @AppStorage("epistemos.codeEditor.showIndentationGuides") private var showIndentationGuides = true
     @AppStorage("epistemos.codeEditor.useNativeSourceEditorFallback") private var useNativeSourceEditorFallback = false
-    @AppStorage("epistemos.codeEditor.webKitPrimaryFontMigration20260601") private var didMigrateWebKitPrimaryFont = false
 
     private var usesWebKitEditor: Bool { true }
     
@@ -1952,15 +1951,9 @@ struct CodeEditorView: View {
             useNativeSourceEditorFallback = false
         }
 
-        // The old default was 15pt and made the code note surface feel unlike
-        // the compact HTML workspace editor. Keep explicit user choices, but
-        // migrate installs still sitting on the old default.
-        if !didMigrateWebKitPrimaryFont {
-            if abs(fontSize - 15) < 0.01 {
-                fontSize = 13
-            }
-            didMigrateWebKitPrimaryFont = true
-        }
+        // Preserve the user's saved code font. The WebKit editor path should
+        // inherit the native code editor's scale instead of silently compacting
+        // existing installs.
     }
 
     private func bindNoteChatContext(with text: String) {
@@ -2552,7 +2545,7 @@ struct CodeEditorView: View {
                 }
                 
                 Button {
-                    fontSize = 13
+                    fontSize = 15
                 } label: {
                     Label("Reset Font Size", systemImage: "arrow.counterclockwise")
                 }
