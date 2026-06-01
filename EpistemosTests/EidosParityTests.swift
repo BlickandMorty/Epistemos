@@ -29,6 +29,22 @@ private let canonicalParityPacketJson = """
 "provenance":{"manifest_id":"parity-snap","mode":"Lexical","retrieved_at_unix_ms":1700000000000}}]}
 """
 
+/// Mirror of Rust `EidosRoutePrior` serde output in agent_core/src/eidos/types.rs.
+private let canonicalRoutePriorJson = """
+{"task_signature":"citation-heavy-recall",\
+"manifest_id":"parity-snap",\
+"evidence_ids":["doc-1::lex"],\
+"citation_need":"required",\
+"domain_tags":["research"],\
+"contradiction_hints":["check-stale-claim"],\
+"likely_verifiers":["closed-citation"],\
+"likely_adapter_families":["none"],\
+"likely_kv_regions":["note-context"],\
+"likely_weight_page_families":["citation-router"],\
+"confidence":0.75,\
+"why_matched":["doc-1 matched lexical query"]}
+"""
+
 @Suite("Eidos cross-language parity (Rust ↔ Swift wire format)")
 struct EidosParityTests {
 
@@ -97,6 +113,25 @@ struct EidosParityTests {
         // into the canonical wire format.
         #expect(!canonicalParityPacketJson.contains("query_vector"))
         #expect(!canonicalParityPacketJson.contains("since_unix_ms"))
+    }
+
+    @Test("EidosRoutePrior decodes Rust route-prior wire shape")
+    func routePriorDecodesRustWireShape() throws {
+        let data = canonicalRoutePriorJson.data(using: .utf8)!
+        let prior = try JSONDecoder().decode(EidosRoutePrior.self, from: data)
+
+        #expect(prior.taskSignature == "citation-heavy-recall")
+        #expect(prior.manifestId.raw == "parity-snap")
+        #expect(prior.evidenceIds.map(\.raw) == ["doc-1::lex"])
+        #expect(prior.citationNeed == .required)
+        #expect(prior.domainTags == ["research"])
+        #expect(prior.contradictionHints == ["check-stale-claim"])
+        #expect(prior.likelyVerifiers == ["closed-citation"])
+        #expect(prior.likelyAdapterFamilies == ["none"])
+        #expect(prior.likelyKvRegions == ["note-context"])
+        #expect(prior.likelyWeightPageFamilies == ["citation-router"])
+        #expect(prior.confidence == 0.75)
+        #expect(prior.whyMatched == ["doc-1 matched lexical query"])
     }
 
     @Test("EidosRetrievalMode raw values match Rust serde output for all 9 variants")
