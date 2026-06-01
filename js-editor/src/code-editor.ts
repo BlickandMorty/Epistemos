@@ -10,7 +10,8 @@ import { json } from '@codemirror/lang-json';
 import { markdown } from '@codemirror/lang-markdown';
 import { python } from '@codemirror/lang-python';
 import { rust } from '@codemirror/lang-rust';
-import { bracketMatching, defaultHighlightStyle, foldGutter, foldKeymap, indentOnInput, StreamLanguage, syntaxHighlighting } from '@codemirror/language';
+import { tags as highlightTags } from '@lezer/highlight';
+import { bracketMatching, defaultHighlightStyle, foldGutter, foldKeymap, HighlightStyle, indentOnInput, StreamLanguage, syntaxHighlighting } from '@codemirror/language';
 import { swift } from '@codemirror/legacy-modes/mode/swift';
 import { lintKeymap } from '@codemirror/lint';
 import { highlightSelectionMatches, searchKeymap } from '@codemirror/search';
@@ -56,6 +57,16 @@ const languageCompartment = new Compartment();
 const themeCompartment = new Compartment();
 const wrapCompartment = new Compartment();
 const gutterCompartment = new Compartment();
+const epistemosHighlightStyle = HighlightStyle.define([
+  { tag: highlightTags.keyword, class: 'tok-keyword' },
+  { tag: [highlightTags.string, highlightTags.special(highlightTags.string)], class: 'tok-string' },
+  { tag: [highlightTags.comment, highlightTags.lineComment, highlightTags.blockComment], class: 'tok-comment' },
+  { tag: [highlightTags.number, highlightTags.integer, highlightTags.float, highlightTags.bool], class: 'tok-number' },
+  { tag: [highlightTags.typeName, highlightTags.className, highlightTags.namespace, highlightTags.atom], class: 'tok-typeName' },
+  { tag: [highlightTags.propertyName, highlightTags.attributeName], class: 'tok-propertyName' },
+  { tag: [highlightTags.variableName, highlightTags.definition(highlightTags.variableName)], class: 'tok-variableName' },
+  { tag: [highlightTags.punctuation, highlightTags.operator, highlightTags.derefOperator, highlightTags.compareOperator, highlightTags.logicOperator], class: 'tok-punctuation' },
+]);
 
 let view: EditorView | null = null;
 let lastState: CodeEditorState = {};
@@ -88,10 +99,12 @@ function themeExtension(state: CodeEditorState): Extension {
       fontSize: `${fontSize}px`,
     },
     '.cm-scroller': {
-      fontFamily: 'Menlo, "SF Mono", "SFMono-Regular", ui-monospace, Monaco, Consolas, monospace',
+      fontFamily: '"SF Mono", "SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas, monospace',
     },
     '.cm-content': {
       minHeight: '100%',
+      fontVariantLigatures: 'none',
+      fontFeatureSettings: '"liga" 0, "calt" 0',
     },
     '&.cm-focused': {
       outline: 'none',
@@ -104,7 +117,16 @@ function wrappingExtension(wrapLines: boolean | undefined): Extension {
 }
 
 function gutterExtension(showLineNumbers: boolean | undefined): Extension {
-  return showLineNumbers === false ? [] : [lineNumbers(), highlightActiveLineGutter(), foldGutter()];
+  return showLineNumbers === false
+    ? []
+    : [
+      lineNumbers(),
+      highlightActiveLineGutter(),
+      foldGutter({
+        openText: '⌄',
+        closedText: '›',
+      }),
+    ];
 }
 
 function setCSSVars(state: CodeEditorState) {
@@ -169,6 +191,7 @@ function baseExtensions(): Extension[] {
     dropCursor(),
     indentOnInput(),
     syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+    syntaxHighlighting(epistemosHighlightStyle),
     bracketMatching(),
     closeBrackets(),
     autocompletion(),

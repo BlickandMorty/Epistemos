@@ -141,23 +141,20 @@ struct WebKitCodeEditorView: NSViewRepresentable {
             showLineNumbers: Bool,
             selectionRequest: WebKitCodeEditorSelectionRequest?
         ) {
+            let palette = WebKitCodeEditorPalette(theme: theme)
             let state = WebKitCodeEditorState(
                 text: text,
                 language: language,
                 theme: theme.isDark ? "dark" : "light",
-                backgroundColor: MarkdownPreviewSurfaceStyle
-                    .solidFlatBackgroundNSColor(for: theme)
-                    .cssColorString,
-                foregroundColor: theme.resolved.foreground.nsColor.cssColorString,
-                mutedColor: theme.resolved.mutedForeground.nsColor.cssColorString,
-                lineColor: theme.resolved.glassBorder.nsColor.cssColorString,
-                gutterColor: MarkdownPreviewSurfaceStyle
-                    .solidFlatBackgroundNSColor(for: theme)
-                    .cssColorString,
-                selectionColor: theme.resolved.accent.nsColor.cssColorString(opacity: theme.isDark ? 0.28 : 0.22),
-                cursorLineColor: theme.resolved.accent.nsColor.cssColorString(opacity: theme.isDark ? 0.10 : 0.08),
-                accentColor: theme.resolved.accent.nsColor.cssColorString,
-                caretColor: theme.resolved.accent.nsColor.cssColorString,
+                backgroundColor: palette.background.cssColorString,
+                foregroundColor: palette.foreground.cssColorString,
+                mutedColor: palette.muted.cssColorString,
+                lineColor: palette.border.cssColorString,
+                gutterColor: palette.gutter.cssColorString,
+                selectionColor: palette.accent.cssColorString(opacity: theme.isDark ? 0.28 : 0.22),
+                cursorLineColor: palette.accent.cssColorString(opacity: theme.isDark ? 0.10 : 0.08),
+                accentColor: palette.accent.cssColorString,
+                caretColor: palette.accent.cssColorString,
                 fontSize: max(8, min(fontSize, 32)),
                 wrapLines: wrapLines,
                 showLineNumbers: showLineNumbers
@@ -306,6 +303,35 @@ private struct WebKitCodeEditorState: Equatable, Encodable {
     }
 }
 
+private struct WebKitCodeEditorPalette {
+    let background: NSColor
+    let gutter: NSColor
+    let foreground: NSColor
+    let muted: NSColor
+    let border: NSColor
+    let accent: NSColor
+
+    init(theme: EpistemosTheme) {
+        let surfaceTheme = theme.surfaceVariant(.other)
+        let base = MarkdownPreviewSurfaceStyle
+            .canvasNSColor(for: surfaceTheme)
+            .rgbSafeForCodeEditorTheme()
+            .withAlphaComponent(1.0)
+        let foreground = surfaceTheme.resolved.foreground.nsColor.rgbSafeForCodeEditorTheme()
+        let muted = surfaceTheme.resolved.mutedForeground.nsColor.rgbSafeForCodeEditorTheme()
+        let accent = surfaceTheme.resolved.accent.nsColor.rgbSafeForCodeEditorTheme()
+        let border = surfaceTheme.resolved.glassBorder.nsColor.rgbSafeForCodeEditorTheme()
+            .withAlphaComponent(surfaceTheme.isDark ? 0.58 : 0.42)
+
+        self.background = base
+        self.gutter = base.editorSidebarTint(isDark: surfaceTheme.isDark)
+        self.foreground = foreground
+        self.muted = muted
+        self.border = border
+        self.accent = accent
+    }
+}
+
 private extension NSColor {
     var cssColorString: String {
         cssColorString(opacity: nil)
@@ -321,6 +347,14 @@ private extension NSColor {
             return String(format: "#%02X%02X%02X", red, green, blue)
         }
         return String(format: "rgba(%d, %d, %d, %.3f)", red, green, blue, alpha)
+    }
+
+    func editorSidebarTint(isDark: Bool) -> NSColor {
+        let tintSource: NSColor = isDark ? .white : .black
+        let fraction: CGFloat = isDark ? 0.055 : 0.045
+        return (blended(withFraction: fraction, of: tintSource) ?? self)
+            .rgbSafeForCodeEditorTheme()
+            .withAlphaComponent(1.0)
     }
 }
 

@@ -9,9 +9,17 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
     var package: HTMLWorkspacePackage
     var safeAPIEnabled: Bool = false
     var previewTheme: HTMLWorkspacePreviewTheme? = nil
+    var themeGuardCSSOverride: String? = nil
+    var themeIdentity: String? = nil
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(package: package, safeAPIEnabled: safeAPIEnabled, previewTheme: previewTheme)
+        Coordinator(
+            package: package,
+            safeAPIEnabled: safeAPIEnabled,
+            previewTheme: previewTheme,
+            themeGuardCSSOverride: themeGuardCSSOverride,
+            themeIdentity: themeIdentity
+        )
     }
 
     func makeNSView(context: Context) -> WKWebView {
@@ -31,6 +39,7 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
         webView.navigationDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = false
         webView.allowsLinkPreview = false
+        webView.setValue(false, forKey: "drawsBackground")
         loadPreview(into: webView, context: context)
         return webView
     }
@@ -39,6 +48,8 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
         context.coordinator.package = package
         context.coordinator.safeAPIEnabled = safeAPIEnabled
         context.coordinator.previewTheme = previewTheme
+        context.coordinator.themeGuardCSSOverride = themeGuardCSSOverride
+        context.coordinator.themeIdentity = themeIdentity
         context.coordinator.syncSafeAPIHandler(for: webView)
         loadPreview(into: webView, context: context)
     }
@@ -48,7 +59,11 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
     }
 
     private func loadPreview(into webView: WKWebView, context: Context) {
-        let rendered = HTMLWorkspacePreviewDocument.render(package: package, theme: previewTheme)
+        let rendered = HTMLWorkspacePreviewDocument.render(
+            package: package,
+            theme: previewTheme,
+            themeGuardCSSOverride: themeGuardCSSOverride
+        )
         guard context.coordinator.lastRenderedHTML != rendered else { return }
         context.coordinator.lastRenderedHTML = rendered
         webView.loadHTMLString(rendered, baseURL: nil)
@@ -58,6 +73,8 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
         var package: HTMLWorkspacePackage
         var safeAPIEnabled: Bool
         var previewTheme: HTMLWorkspacePreviewTheme?
+        var themeGuardCSSOverride: String?
+        var themeIdentity: String?
         var lastRenderedHTML: String?
         var messageHandlerInstalled = false
         private let allowedNetworkSchemes: Set<String> = ["http", "https"]
@@ -65,11 +82,15 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
         init(
             package: HTMLWorkspacePackage,
             safeAPIEnabled: Bool,
-            previewTheme: HTMLWorkspacePreviewTheme?
+            previewTheme: HTMLWorkspacePreviewTheme?,
+            themeGuardCSSOverride: String?,
+            themeIdentity: String?
         ) {
             self.package = package
             self.safeAPIEnabled = safeAPIEnabled
             self.previewTheme = previewTheme
+            self.themeGuardCSSOverride = themeGuardCSSOverride
+            self.themeIdentity = themeIdentity
         }
 
         func webView(

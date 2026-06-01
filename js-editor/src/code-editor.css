@@ -25,15 +25,17 @@ html[data-theme="dark"] body {
   height: 100%;
   background: var(--epi-code-bg, #fbfbfb);
   color: var(--epi-code-fg, #202124);
-  font-family: Menlo, "SF Mono", "SFMono-Regular", ui-monospace, Monaco, Consolas, monospace;
-  -webkit-font-smoothing: auto;
-  text-rendering: geometricPrecision;
+  font-family: "SF Mono", "SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas, monospace;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-synthesis: none;
 }
 
 .cm-scroller {
   overflow: auto;
   font-family: inherit;
   line-height: 1.45;
+  scrollbar-color: color-mix(in srgb, var(--epi-code-muted, #8b929c) 45%, transparent) transparent;
 }
 
 .cm-content {
@@ -43,7 +45,7 @@ html[data-theme="dark"] body {
 }
 
 .cm-line {
-  padding: 0;
+  padding: 0 2px;
 }
 
 .cm-gutters {
@@ -51,15 +53,55 @@ html[data-theme="dark"] body {
   color: var(--epi-code-muted, #8b929c);
   border-right: 1px solid var(--epi-code-line, #eef0f3);
   font-variant-numeric: tabular-nums;
+  user-select: none;
 }
 
 .cm-lineNumbers .cm-gutterElement {
-  min-width: 38px;
-  padding: 0 10px 0 8px;
+  min-width: 42px;
+  padding: 0 12px 0 8px;
+  opacity: 0.84;
+}
+
+.cm-foldGutter {
+  min-width: 18px;
+  color: var(--epi-code-muted, #8b929c);
+}
+
+.cm-foldGutter .cm-gutterElement {
+  padding: 0 5px 0 2px;
+  opacity: 0.72;
+}
+
+.cm-foldGutter span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 13px;
+  color: var(--epi-code-muted, #8b929c);
+  transition: background-color 120ms ease, color 120ms ease, transform 120ms ease;
+}
+
+.cm-foldGutter .cm-gutterElement:hover span {
+  background: color-mix(in srgb, var(--epi-code-selection, rgba(46, 111, 246, 0.22)) 42%, transparent);
+  color: var(--epi-code-fg, #202124);
+}
+
+.cm-foldGutter .cm-gutterElement:active span {
+  transform: translateY(1px);
 }
 
 .cm-activeLine {
-  background: var(--epi-code-cursor-line, rgba(46, 111, 246, 0.08));
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--epi-code-keyword, #2f6df6) 24%, transparent) 0,
+      transparent 3px
+    ),
+    var(--epi-code-cursor-line, rgba(46, 111, 246, 0.08));
 }
 
 .cm-activeLineGutter {
@@ -74,6 +116,7 @@ html[data-theme="dark"] body {
 
 .cm-cursor {
   border-left-color: var(--epi-code-caret, #2f6df6);
+  border-left-width: 2px;
 }
 
 .cm-tooltip,
@@ -87,11 +130,42 @@ html[data-theme="dark"] body {
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
 }
 
+.cm-selectionMatch {
+  background: color-mix(in srgb, var(--epi-code-selection, rgba(46, 111, 246, 0.22)) 55%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--epi-code-keyword, #2f6df6) 38%, transparent);
+}
+
+.cm-searchMatch,
+.cm-searchMatch.cm-searchMatch-selected {
+  background: color-mix(in srgb, var(--epi-code-keyword, #2f6df6) 24%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--epi-code-keyword, #2f6df6) 50%, transparent);
+}
+
+.cm-matchingBracket {
+  background: color-mix(in srgb, var(--epi-code-keyword, #2f6df6) 20%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--epi-code-keyword, #2f6df6) 45%, transparent);
+}
+
+.cm-nonmatchingBracket {
+  background: rgba(255, 80, 80, 0.16);
+  outline: 1px solid rgba(255, 80, 80, 0.44);
+}
+
+.cm-foldPlaceholder {
+  background: color-mix(in srgb, var(--epi-code-gutter, #f7f8fa) 86%, var(--epi-code-fg, #202124) 14%);
+  color: var(--epi-code-muted, #8b929c);
+  border: 1px solid var(--epi-code-line, #eef0f3);
+  border-radius: 5px;
+  padding: 0 6px;
+  margin: 0 2px;
+  cursor: pointer;
+}
+
 .tok-keyword { color: var(--epi-code-keyword, #8a3ffc); font-weight: 650; }
 .tok-string { color: var(--epi-code-string, #c4492d); }
 .tok-comment { color: var(--epi-code-comment, #7a8594); font-style: italic; }
 .tok-number { color: var(--epi-code-number, #1f7a5f); }
 .tok-typeName { color: var(--epi-code-type, #0b66c3); }
 .tok-propertyName { color: var(--epi-code-property, #8b5a00); }
-.tok-variableName { color: var(--epi-code-fg, #202124); }
+.tok-variableName { color: var(--epi-code-variable, var(--epi-code-fg, #202124)); }
 .tok-punctuation { color: var(--epi-code-muted, #8b929c); }

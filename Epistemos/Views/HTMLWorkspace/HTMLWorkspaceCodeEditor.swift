@@ -5,6 +5,7 @@ struct HTMLWorkspaceCodeEditor: NSViewRepresentable {
     @Binding var text: String
     var isEditable: Bool = true
     var colorScheme: ColorScheme = .light
+    var theme: EpistemosTheme? = nil
 
     func makeCoordinator() -> Coordinator {
         Coordinator(text: $text)
@@ -60,10 +61,15 @@ struct HTMLWorkspaceCodeEditor: NSViewRepresentable {
         scrollView.horizontalScrollElasticity = .allowed
         scrollView.verticalScrollElasticity = .allowed
         let appearance = NSAppearance(named: colorScheme == .dark ? .darkAqua : .aqua)
+        let palette = HTMLWorkspaceCodeEditorPalette(theme: theme, colorScheme: colorScheme)
         scrollView.appearance = appearance
         scrollView.verticalRulerView = (scrollView.verticalRulerView as? LineNumberRulerView)
             ?? LineNumberRulerView(textView: textView)
         scrollView.verticalRulerView?.appearance = appearance
+        if let rulerView = scrollView.verticalRulerView as? LineNumberRulerView {
+            rulerView.labelColor = palette.gutterText
+            rulerView.backgroundColor = palette.gutterBackground
+        }
 
         textView.isRichText = false
         textView.importsGraphics = false
@@ -73,10 +79,10 @@ struct HTMLWorkspaceCodeEditor: NSViewRepresentable {
         textView.isEditable = isEditable
         textView.isSelectable = true
         textView.font = .monospacedSystemFont(ofSize: 12.5, weight: .regular)
-        textView.textColor = .labelColor
-        textView.insertionPointColor = .controlAccentColor
-        textView.backgroundColor = .clear
-        textView.drawsBackground = false
+        textView.textColor = palette.foreground
+        textView.insertionPointColor = palette.accent
+        textView.backgroundColor = palette.background
+        textView.drawsBackground = true
         textView.appearance = appearance
         textView.textContainerInset = NSSize(width: 14, height: 12)
         textView.isVerticallyResizable = true
@@ -167,6 +173,36 @@ struct HTMLWorkspaceCodeEditor: NSViewRepresentable {
     }
 }
 
+private struct HTMLWorkspaceCodeEditorPalette {
+    let background: NSColor
+    let gutterBackground: NSColor
+    let foreground: NSColor
+    let gutterText: NSColor
+    let accent: NSColor
+
+    init(theme: EpistemosTheme?, colorScheme: ColorScheme) {
+        let resolvedTheme = (theme ?? (colorScheme == .dark ? EpistemosTheme.oledSoft : EpistemosTheme.light))
+            .surfaceVariant(.other)
+        let base = MarkdownPreviewSurfaceStyle
+            .canvasNSColor(for: resolvedTheme)
+            .rgbSafeForCodeEditorTheme()
+            .withAlphaComponent(1.0)
+        let tintSource: NSColor = resolvedTheme.isDark ? .white : .black
+        let gutter = (base.blended(
+            withFraction: resolvedTheme.isDark ? 0.055 : 0.045,
+            of: tintSource
+        ) ?? base)
+            .rgbSafeForCodeEditorTheme()
+            .withAlphaComponent(1.0)
+
+        self.background = base
+        self.gutterBackground = gutter
+        self.foreground = resolvedTheme.resolved.foreground.nsColor.rgbSafeForCodeEditorTheme()
+        self.gutterText = resolvedTheme.resolved.mutedForeground.nsColor.rgbSafeForCodeEditorTheme()
+        self.accent = resolvedTheme.resolved.accent.nsColor.rgbSafeForCodeEditorTheme()
+    }
+}
+
 private final class LineNumberRulerView: NSRulerView {
     weak var textView: NSTextView? {
         didSet {
@@ -175,16 +211,23 @@ private final class LineNumberRulerView: NSRulerView {
         }
     }
 
+    var labelColor: NSColor = .secondaryLabelColor {
+        didSet { needsDisplay = true }
+    }
+    var backgroundColor: NSColor = .clear {
+        didSet { needsDisplay = true }
+    }
+
     private var lineStarts: [Int] = [0]
-    private let labelAttributes: [NSAttributedString.Key: Any] = {
+    private var labelAttributes: [NSAttributedString.Key: Any] {
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = .right
         return [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 10.5, weight: .regular),
-            .foregroundColor: NSColor.secondaryLabelColor,
+            .foregroundColor: labelColor,
             .paragraphStyle: paragraph,
         ]
-    }()
+    }
 
     init(textView: NSTextView) {
         super.init(scrollView: nil, orientation: .verticalRuler)
@@ -218,7 +261,7 @@ private final class LineNumberRulerView: NSRulerView {
             return
         }
 
-        NSColor.clear.setFill()
+        backgroundColor.setFill()
         rect.fill()
         layoutManager.ensureLayout(for: textContainer)
         if lineStarts.isEmpty {
