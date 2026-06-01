@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "7028f7a9642d5a5f62030345dd9ca633407d527b",
+  "commit_sha": "487937158c817dbacd5c40752560eec7ce47a311",
   "fixture_id": "app_cold_store_layout_manifest_only_v1",
-  "timestamp_utc": "2026-06-01T21:23:59Z",
-  "result_digest": "sha256:e54c6907f04d51b5bfa3561fc487a2bca7ee56518f0b85b7137d44bf73510122",
+  "timestamp_utc": "2026-06-01T21:44:59Z",
+  "result_digest": "sha256:6de11d0548c01927837d8eceb11b445d0559c8a735506f03749b4add275c009c",
   "measurements": {
     "closed_citation_validity": {
       "value": true,
@@ -154,6 +154,10 @@
       "unit": "bool"
     },
     "route_card_constructed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_card_units_uas_bound": {
       "value": true,
       "unit": "bool"
     },
@@ -346,6 +350,11 @@
       "value": true,
       "unit": "bool"
     },
+    "route_card_units_uas_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "runtime_model_bytes_loaded": {
       "operator": "==",
       "value": 0,
@@ -419,6 +428,7 @@
     "product_build_pro_research_status_bound": true,
     "rollback_reference_bound": true,
     "route_card_constructed": true,
+    "route_card_units_uas_bound": true,
     "runtime_model_bytes_loaded": true,
     "runtime_model_peak_uma_bytes": true,
     "total_addressed_bytes": true,
