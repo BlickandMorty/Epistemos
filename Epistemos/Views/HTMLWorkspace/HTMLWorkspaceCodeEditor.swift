@@ -37,6 +37,15 @@ struct HTMLWorkspaceCodeEditor: NSViewRepresentable {
         context.coordinator.attach(textView: textView, scrollView: scrollView)
     }
 
+    static func dismantleNSView(_ scrollView: NSScrollView, coordinator: Coordinator) {
+        if let textView = scrollView.documentView as? NSTextView {
+            textView.delegate = nil
+        }
+        coordinator.detach()
+        scrollView.verticalRulerView = nil
+        scrollView.documentView = nil
+    }
+
     private func configure(textView: NSTextView, scrollView: NSScrollView) {
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = true
@@ -102,7 +111,7 @@ struct HTMLWorkspaceCodeEditor: NSViewRepresentable {
             self.text = text
         }
 
-        deinit {
+        func detach() {
             if let observedContentView {
                 NotificationCenter.default.removeObserver(
                     self,
@@ -110,6 +119,11 @@ struct HTMLWorkspaceCodeEditor: NSViewRepresentable {
                     object: observedContentView
                 )
             }
+            observedContentView = nil
+            textView?.delegate = nil
+            textView = nil
+            rulerView?.textView = nil
+            rulerView = nil
         }
 
         func attach(textView: NSTextView, scrollView: NSScrollView) {

@@ -73,11 +73,7 @@ struct WebKitCodeEditorView: NSViewRepresentable {
     }
 
     static func dismantleNSView(_ webView: WKWebView, coordinator: Coordinator) {
-        webView.navigationDelegate = nil
-        webView.configuration.userContentController.removeScriptMessageHandler(
-            forName: WebKitCodeEditorBridge.messageHandlerName
-        )
-        coordinator.webView = nil
+        coordinator.detach(from: webView)
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
@@ -107,6 +103,20 @@ struct WebKitCodeEditorView: NSViewRepresentable {
 
         func loadEditor(into webView: WKWebView) {
             webView.loadHTMLString(WebKitCodeEditorDocument.html, baseURL: nil)
+        }
+
+        func detach(from webView: WKWebView) {
+            webView.stopLoading()
+            webView.navigationDelegate = nil
+            webView.configuration.userContentController.removeScriptMessageHandler(
+                forName: WebKitCodeEditorBridge.messageHandlerName
+            )
+            self.webView = nil
+            hasLoadedEditor = false
+            pendingState = nil
+            lastAppliedState = nil
+            lastSelectionRequestID = nil
+            isApplyingFromSwift = false
         }
 
         func update(
@@ -326,11 +336,23 @@ nonisolated enum WebKitCodeEditorDocument {
           font: inherit;
           tab-size: 4;
           white-space: pre;
+          word-break: normal;
+          overflow-wrap: normal;
         }
 
         #highlight.wrap {
           white-space: pre-wrap;
           overflow-wrap: anywhere;
+        }
+
+        #highlight-code {
+          display: block;
+          min-width: 100%;
+          width: max-content;
+        }
+
+        #highlight.wrap #highlight-code {
+          width: auto;
         }
 
         #highlight .line {
@@ -360,7 +382,8 @@ nonisolated enum WebKitCodeEditorDocument {
           outline: none;
           padding: 12px 18px 32px 18px;
           box-sizing: border-box;
-          overflow: auto;
+          overflow-x: auto;
+          overflow-y: auto;
           background: transparent;
           color: transparent;
           -webkit-text-fill-color: transparent;
@@ -369,6 +392,8 @@ nonisolated enum WebKitCodeEditorDocument {
           line-height: 1.45;
           tab-size: 4;
           white-space: pre;
+          word-break: normal;
+          overflow-wrap: normal;
         }
 
         #source.wrap {
@@ -407,7 +432,7 @@ nonisolated enum WebKitCodeEditorDocument {
         <pre id="gutter">1</pre>
         <section class="editor-wrap">
           <pre id="highlight" aria-hidden="true"><code id="highlight-code"></code></pre>
-          <textarea id="source" spellcheck="false" autocorrect="off" autocapitalize="off"></textarea>
+          <textarea id="source" spellcheck="false" autocorrect="off" autocapitalize="off" wrap="off"></textarea>
           <div id="status"></div>
         </section>
       </main>
@@ -615,6 +640,7 @@ nonisolated enum WebKitCodeEditorDocument {
               gutter.style.fontSize = `${Math.max(10, (state.fontSize || 15) - 3)}px`;
               source.classList.toggle('wrap', !!state.wrapLines);
               highlight.classList.toggle('wrap', !!state.wrapLines);
+              source.setAttribute('wrap', state.wrapLines ? 'soft' : 'off');
               if (source.value !== state.text) {
                 source.value = state.text || '';
                 lastText = source.value;
