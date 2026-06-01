@@ -157,7 +157,7 @@ final class ContextualShadowsState {
                 results: currentResults,
                 queryText: lastQueryText,
                 errorMessage: lastErrorMessage,
-                isSearching: false
+                isSearching: pendingTask != nil
             )
         }
         return scopedPayloads[scopeKey] ?? .empty
@@ -699,7 +699,13 @@ final class ContextualShadowsState {
             .suffix(2)
             .joined(separator: ". ")
         let baseWindow = sentenceWindow.isEmpty ? String(focusWindow.suffix(520)) : sentenceWindow
-        let titleIntent = explicitTitleIntent(from: compactNormalized)
+        // Keep explicit note-title lookup local to the active writing window.
+        // Pulling a "look for note titled ..." command from the whole note/chat
+        // makes later unrelated sentences keep recalling the old target.
+        let titleIntent = explicitTitleIntent(from: focusWindow)
+            ?? (normalizedRecallField(focusWindow) == normalizedRecallField(compactNormalized)
+                ? explicitTitleIntent(from: compactNormalized)
+                : nil)
         let baseTerms = Set(
             normalizedRecallField([titleIntent, baseWindow].compactMap { $0 }.joined(separator: " "))
                 .split(separator: " ")

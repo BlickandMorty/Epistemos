@@ -114,7 +114,7 @@ public struct EidosRetrievedSection: View {
         }
         .padding(.horizontal, 13)
         .padding(.vertical, 12)
-        .assistantInsetChrome(theme: theme, cornerRadius: 14, isEmphasized: true)
+        .eidosEvidenceCard(theme: theme, emphasized: true)
         .onAppear { refresh() }
         .onReceive(
             NotificationCenter.default.publisher(
@@ -261,6 +261,31 @@ private struct EidosEvidenceGroupBoxStyle: GroupBoxStyle {
             configuration.content
         }
         .padding(10)
-        .assistantInsetChrome(theme: theme, cornerRadius: 12, isEmphasized: false)
+        .eidosEvidenceCard(theme: theme, emphasized: false)
+    }
+}
+
+private struct EidosEvidenceCardModifier: ViewModifier {
+    let theme: EpistemosTheme
+    let emphasized: Bool
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 4, style: .continuous)
+        content
+            .background {
+                ZStack {
+                    shape.fill(theme.card.opacity(theme.isDark ? (emphasized ? 0.70 : 0.52) : (emphasized ? 0.82 : 0.66)))
+                    shape.fill(theme.resolved.foreground.color.opacity(theme.isDark ? 0.024 : 0.014))
+                }
+            }
+            .overlay {
+                shape.strokeBorder(theme.border.opacity(emphasized ? 0.60 : 0.42), lineWidth: 0.75)
+            }
+    }
+}
+
+private extension View {
+    func eidosEvidenceCard(theme: EpistemosTheme, emphasized: Bool) -> some View {
+        modifier(EidosEvidenceCardModifier(theme: theme, emphasized: emphasized))
     }
 }

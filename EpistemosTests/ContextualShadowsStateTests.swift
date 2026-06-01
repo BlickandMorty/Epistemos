@@ -521,6 +521,20 @@ struct ContextualShadowsStateTests {
         #expect(query.contains("look for a note titled All Things Must Go"))
     }
 
+    @Test("recallQuery does not carry stale title lookups into a new active line")
+    func recallQueryIgnoresOldExplicitTitleWhenTypingNewLine() {
+        let text = """
+        look for a note titled All Things Must Go
+        The previous lookup is done.
+
+        math is one of the hardest subjects but why is entropy an interesting topic
+        """
+        let query = ContextualShadowsState.recallQuery(from: text)
+        #expect(query.contains("entropy"))
+        #expect(query.contains("hardest subjects"))
+        #expect(!query.contains("All Things Must Go"))
+    }
+
     // MARK: - Fusion source guards
 
     @Test("Contextual Shadows V0 is the production-mounted recall surface")
@@ -550,6 +564,18 @@ struct ContextualShadowsStateTests {
         #expect(proseBridge.contains("contextualRecallText(fallback: snapshotText)"))
         #expect(!proseBridge.contains("trailingContext"),
                 "Note recall should not include text after the cursor; trailing note context can dominate the active sentence.")
+    }
+
+    @Test("Mini Chat mounts scoped Contextual Shadows recall")
+    func miniChatMountsScopedContextualShadowsRecall() throws {
+        let miniChat = try repoText("Epistemos/Views/MiniChat/MiniChatView.swift")
+
+        #expect(miniChat.contains("@Environment(ContextualShadowsState.self)"))
+        #expect(miniChat.contains("scheduleContextualShadowsRecall(for: newVal)"))
+        #expect(miniChat.contains("ContextualShadowsButton(scopeKind: .chat"))
+        #expect(miniChat.contains("ContextualShadowsPanel("))
+        #expect(miniChat.contains("searchIndexService: searchIndexService"))
+        #expect(miniChat.contains("contextualRecallScopeID"))
     }
 
     @Test("Contextual Shadows V0 prefers Shadow search without mounting the V1 Halo controller")
