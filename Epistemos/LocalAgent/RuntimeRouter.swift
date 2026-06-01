@@ -71,6 +71,7 @@ nonisolated struct RouteProfile: Sendable, Equatable, Identifiable {
     let minimumConfidence: Double
     let maximumComplexity: Double
     let maximumToolCount: Int
+    let minimumContextWindow: Int
     let idleUnloadDelaySeconds: Int
     let idleUnloadMode: String
 
@@ -85,7 +86,7 @@ nonisolated struct RouteProfile: Sendable, Equatable, Identifiable {
     var laneCount: Int { preferredLanes.count }
 
     var policySummary: String {
-        "conf \(formatted(minimumConfidence)) · complexity \(formatted(maximumComplexity)) · tools \(maximumToolCount)"
+        "conf \(formatted(minimumConfidence)) · complexity \(formatted(maximumComplexity)) · tools \(maximumToolCount) · ctx \(minimumContextWindow)"
     }
 
     var idleUnloadSummary: String {
@@ -336,6 +337,7 @@ public final class RuntimeRouter {
                 minimumConfidence: policy.minimumConfidence,
                 maximumComplexity: policy.maximumComplexity,
                 maximumToolCount: policy.maximumToolCount,
+                minimumContextWindow: policy.minimumContextWindow,
                 idleUnloadDelaySeconds: policy.idleUnloadDelaySeconds,
                 idleUnloadMode: policy.idleUnloadMode
             )
@@ -708,6 +710,11 @@ public final class RuntimeRouter {
         }
 
         let policy = Self.localPolicyTable[packet.role] ?? Self.defaultLocalPolicy(for: packet.role)
+
+        if let laneContextWindow = lanes[lane]?.capability.contextWindow,
+           laneContextWindow < policy.minimumContextWindow {
+            return .contextWindowExceeded
+        }
 
         if let classificationConfidence = packet.classificationConfidence {
             if !classificationConfidence.isFinite || classificationConfidence < 0.0 || classificationConfidence > 1.0 {

@@ -83,6 +83,21 @@ fn runtime_router_gates_local_lanes_with_policy_table() {
 }
 
 #[test]
+fn runtime_router_consumes_policy_context_window_floor() {
+    for snippet in [
+        "let minimumContextWindow: Int",
+        "minimumContextWindow: policy.minimumContextWindow",
+        "laneContextWindow < policy.minimumContextWindow",
+        "return .contextWindowExceeded",
+    ] {
+        assert!(
+            RUNTIME_ROUTER_SOURCE.contains(snippet),
+            "RuntimeRouter policy path must expose and consume minimumContextWindow snippet `{snippet}`"
+        );
+    }
+}
+
+#[test]
 fn runtime_router_rejects_malformed_policy_hints_before_local_acceptance() {
     for snippet in [
         "case invalidPolicyInput = \"invalid_policy_input\"",
