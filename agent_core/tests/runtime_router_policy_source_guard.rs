@@ -18,10 +18,12 @@ const INFERENCE_ROUTE_PROFILES_SOURCE: &str =
 #[test]
 fn mission_packet_carries_policy_inputs() {
     for field in [
+        "public let residencyCeiling: ResidencyTier",
         "public let classificationConfidence: Double?",
         "public let estimatedComplexity: Double?",
         "public let toolCountEstimate: Int?",
         "public let estimatedInputTokens: Int?",
+        "public let preferredLane: RuntimeLane?",
     ] {
         assert!(
             RUNTIME_EXECUTOR_SOURCE.contains(field),
@@ -37,12 +39,43 @@ fn route_verdict_exposes_policy_escalation_reasons() {
         "case taskTooComplex = \"task_too_complex\"",
         "case tooManyToolCalls = \"too_many_tool_calls\"",
         "case contextWindowExceeded = \"context_window_exceeded\"",
+        "case residencyTierExceeded = \"residency_tier_exceeded\"",
         "case privacyPolicyMismatch = \"privacy_policy_mismatch\"",
         "case privacySensitiveNoLocal = \"privacy_sensitive_no_local\"",
     ] {
         assert!(
             RUNTIME_EXECUTOR_SOURCE.contains(reason),
             "RouteVerdict must expose policy escalation reason `{reason}`"
+        );
+    }
+}
+
+#[test]
+fn runtime_router_treats_preferred_lane_as_a_governed_hint() {
+    for snippet in [
+        "if let preferred = packet.preferredLane",
+        "var chain = [preferred]",
+        "for lane in Self.defaultPreferredLanes(for: packet.role) where lane != preferred",
+        "chain.append(lane)",
+        "return chain",
+    ] {
+        assert!(
+            RUNTIME_ROUTER_SOURCE.contains(snippet),
+            "RuntimeRouter must build a governed preferred-lane chain with `{snippet}`"
+        );
+    }
+}
+
+#[test]
+fn runtime_router_keeps_residency_ceiling_from_current_app_lanes() {
+    for snippet in [
+        "request.residencyCeiling == .capabilityCeiling && capability.tier == .currentApp",
+        "return .escalate(from: id, to: id, reason: .residencyTierExceeded)",
+        "tier: .capabilityCeiling",
+    ] {
+        assert!(
+            RUNTIME_ROUTER_SOURCE.contains(snippet),
+            "RuntimeRouter must preserve the residency-ceiling guard with `{snippet}`"
         );
     }
 }
