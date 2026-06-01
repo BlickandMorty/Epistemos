@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "ab92b990fc8b66a328e7d1eb12c9027d15a93e07",
+  "commit_sha": "73e5f1b11e1b17646f73ee456dbaf9ec56f1785b",
   "fixture_id": "app_cold_store_layout_manifest_only_v1",
-  "timestamp_utc": "2026-06-01T00:46:57Z",
-  "result_digest": "sha256:5597012c1e6a8a0270c06d3204dabf6a2609285d1ec636c397d55cc86a577a3a",
+  "timestamp_utc": "2026-06-01T00:56:53Z",
+  "result_digest": "sha256:a597146460ef6d4ad7e77e83418901b2f6fbca3fdf90d215dc1e942b123c9b66",
   "measurements": {
     "closed_citation_validity": {
       "value": true,
@@ -73,6 +73,10 @@
       "value": true,
       "unit": "bool"
     },
+    "eidos_route_prior_hash_weight_page_hint_bound": {
+      "value": true,
+      "unit": "bool"
+    },
     "eidos_route_prior_missing_falsifier_rejected": {
       "value": true,
       "unit": "bool"
@@ -82,6 +86,10 @@
       "unit": "bool"
     },
     "eidos_route_prior_task_signature_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_uas_weight_page_hint_bound": {
       "value": true,
       "unit": "bool"
     },
@@ -225,6 +233,11 @@
       "value": true,
       "unit": "bool"
     },
+    "eidos_route_prior_hash_weight_page_hint_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "eidos_route_prior_missing_falsifier_rejected": {
       "operator": "==",
       "value": true,
@@ -236,6 +249,11 @@
       "unit": "bool"
     },
     "eidos_route_prior_task_signature_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_uas_weight_page_hint_bound": {
       "operator": "==",
       "value": true,
       "unit": "bool"
@@ -362,9 +380,11 @@
     "eidos_route_prior_bound_to_card": true,
     "eidos_route_prior_broad_weight_page_hint_rejected": true,
     "eidos_route_prior_closed_evidence_verified": true,
+    "eidos_route_prior_hash_weight_page_hint_bound": true,
     "eidos_route_prior_missing_falsifier_rejected": true,
     "eidos_route_prior_neural_falsifier_bound": true,
     "eidos_route_prior_task_signature_bound": true,
+    "eidos_route_prior_uas_weight_page_hint_bound": true,
     "eidos_route_prior_unbound_weight_page_hint_rejected": true,
     "eidos_route_prior_weight_page_hint_required": true,
     "eidos_route_prior_why_matched_visible": true,
