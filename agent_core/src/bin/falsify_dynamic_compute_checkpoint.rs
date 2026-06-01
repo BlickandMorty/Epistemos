@@ -244,6 +244,29 @@ fn build_report() -> Result<DynamicComputeCheckpointReport, Box<dyn std::error::
         .unwrap_err()
             == DynamicComputeCheckpointError::ActiveUnitsUnchanged
     };
+    let corrupt_run_event_log_rejected = {
+        let corrupt_log = corrupt_run_event_log()?;
+        DynamicComputeCheckpoint::from_visible_run_event(
+            DynamicComputeCheckpointKind::EidosInterrupt,
+            "missing closed citation evidence",
+            active_units_before(),
+            active_units_after(),
+            "checkpoint binding must reject a corrupt imported RunEventLog",
+            2_500,
+            &corrupt_log,
+            0,
+            verifier_stack(),
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            1_779_000_000_000,
+        )
+        .unwrap_err()
+            == DynamicComputeCheckpointError::RunEventLogOrdinalDensityInvalid {
+                position: 1,
+                expected: 1,
+                actual: 99,
+            }
+    };
 
     let mut measurements = BTreeMap::new();
     let mut thresholds = BTreeMap::new();
@@ -341,6 +364,13 @@ fn build_report() -> Result<DynamicComputeCheckpointReport, Box<dyn std::error::
         "unchanged_active_unit_sets_rejected",
         unchanged_active_unit_sets_rejected,
     );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "corrupt_run_event_log_rejected",
+        corrupt_run_event_log_rejected,
+    );
     add_count_eq_axis(
         &mut measurements,
         &mut thresholds,
@@ -432,4 +462,29 @@ fn unit(label: &[u8]) -> UasAddress {
 
 fn verifier_stack() -> Vec<String> {
     vec![DYNAMIC_COMPUTE_CHECKPOINT_FALSIFIER_ID.to_string()]
+}
+
+fn corrupt_run_event_log() -> Result<RunEventLog, serde_json::Error> {
+    serde_json::from_str(
+        r#"{
+            "entries": [
+                {
+                    "kind": "event",
+                    "ordinal": 0,
+                    "event": {
+                        "event_type": "reasoning_delta",
+                        "text": "visible checkpoint row"
+                    }
+                },
+                {
+                    "kind": "event",
+                    "ordinal": 99,
+                    "event": {
+                        "event_type": "final_text",
+                        "text": "corrupt ordinal gap"
+                    }
+                }
+            ]
+        }"#,
+    )
 }
