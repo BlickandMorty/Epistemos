@@ -207,10 +207,7 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
                 ProStatus::ResearchCandidate,
                 &plan,
                 "rebuild_warm_cache_from_durable_atlas",
-                Some(broad_weight_page_eidos_route_prior(
-                    &eidos_packet,
-                    broad_hint,
-                )?),
+                Some(weight_page_eidos_route_prior(&eidos_packet, broad_hint)?),
                 1_779_000_000_000,
             )
             .unwrap_err()
@@ -218,6 +215,41 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
                     support: broad_hint.to_string(),
                 };
     }
+    let cold_plan_block = plan
+        .blocks
+        .iter()
+        .find(|block| block.residency_class == WeightBlockResidencyClass::ColdMmapSsd)
+        .ok_or("fixture plan must carry a durable cold weight page")?;
+    let uas_bound_route_prior = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+        TASK_SIGNATURE,
+        route_card_verifier_stack_with_eidos_prior(),
+        "rollback:raw-installed-snapshot",
+        ProductBuild::Pro,
+        ProStatus::ResearchCandidate,
+        &plan,
+        "rebuild_warm_cache_from_durable_atlas",
+        Some(weight_page_eidos_route_prior(
+            &eidos_packet,
+            &format!("weight_page:uas:{}", cold_plan_block.uas_address),
+        )?),
+        1_779_000_000_000,
+    )
+    .is_ok();
+    let hash_bound_route_prior = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+        TASK_SIGNATURE,
+        route_card_verifier_stack_with_eidos_prior(),
+        "rollback:raw-installed-snapshot",
+        ProductBuild::Pro,
+        ProStatus::ResearchCandidate,
+        &plan,
+        "rebuild_warm_cache_from_durable_atlas",
+        Some(weight_page_eidos_route_prior(
+            &eidos_packet,
+            &format!("weight_page:hash:{}", cold_plan_block.content_hash_hex),
+        )?),
+        1_779_000_000_000,
+    )
+    .is_ok();
     let unsupported_cache_rebuild_policy_rejected = AppColdStoreRouteCard::from_residency_plan(
         TASK_SIGNATURE,
         route_card_verifier_stack(),
@@ -538,6 +570,20 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "eidos_route_prior_uas_weight_page_hint_bound",
+        uas_bound_route_prior,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "eidos_route_prior_hash_weight_page_hint_bound",
+        hash_bound_route_prior,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "unsupported_cache_rebuild_policy_rejected",
         unsupported_cache_rebuild_policy_rejected,
     );
@@ -760,9 +806,9 @@ fn unbound_weight_page_eidos_route_prior(
     )?)
 }
 
-fn broad_weight_page_eidos_route_prior(
+fn weight_page_eidos_route_prior(
     packet: &EidosContextPacket,
-    broad_hint: &str,
+    support_hint: &str,
 ) -> Result<EidosRoutePrior, Box<dyn std::error::Error>> {
     Ok(EidosRoutePrior::from_packet(
         packet,
@@ -774,9 +820,9 @@ fn broad_weight_page_eidos_route_prior(
         vec![FALSIFIER_ID.to_string()],
         vec!["adapter:layout_planner".to_string()],
         vec!["kv:layout_manifest_only".to_string()],
-        vec![broad_hint.to_string()],
+        vec![support_hint.to_string()],
         0.84,
-        vec!["Eidos matched a broad family hint that still needs unit binding".to_string()],
+        vec!["Eidos matched a weight-page hint that must bind a route-card unit".to_string()],
     )?)
 }
 
@@ -1085,6 +1131,20 @@ mod tests {
                 .artifact
                 .pass_per_axis
                 .get("eidos_route_prior_weight_page_hint_required"),
+            Some(&true)
+        );
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("eidos_route_prior_uas_weight_page_hint_bound"),
+            Some(&true)
+        );
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("eidos_route_prior_hash_weight_page_hint_bound"),
             Some(&true)
         );
         assert_eq!(
