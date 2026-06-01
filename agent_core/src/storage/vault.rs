@@ -138,6 +138,36 @@ fn suffix_after_marker(query: &str, markers: &[&str]) -> Vec<String> {
     suffixes
 }
 
+fn connect_synthesis_segments(query: &str) -> Vec<String> {
+    let parts: Vec<&str> = query.split_whitespace().collect();
+    let token_at = |part: &str| {
+        part.trim_matches(|ch: char| !ch.is_alphanumeric())
+            .to_lowercase()
+    };
+
+    let Some(connect_index) = parts.iter().position(|part| token_at(part) == "connect") else {
+        return Vec::new();
+    };
+    let Some(with_offset) = parts[connect_index + 1..]
+        .iter()
+        .position(|part| token_at(part) == "with")
+    else {
+        return Vec::new();
+    };
+    let with_index = connect_index + 1 + with_offset;
+
+    let mut segments = Vec::with_capacity(2);
+    for segment in [
+        parts[connect_index + 1..with_index].join(" "),
+        parts[with_index + 1..].join(" "),
+    ] {
+        if normalized_signal_terms(&segment).len() >= 2 {
+            segments.push(segment);
+        }
+    }
+    segments
+}
+
 fn stripped_title_prefix(query: &str) -> Option<String> {
     const PREFIX_WORDS: &[&str] = &[
         "pull", "find", "show", "get", "give", "tell", "list", "search", "look", "open", "read",
@@ -177,6 +207,9 @@ fn title_query_candidates(query: &str) -> HashSet<String> {
     }
     for suffix in suffix_after_marker(query, TOPIC_MARKERS) {
         insert_title_candidate(&mut candidates, &suffix);
+    }
+    for segment in connect_synthesis_segments(query) {
+        insert_title_candidate(&mut candidates, &segment);
     }
 
     candidates
@@ -2144,6 +2177,60 @@ mod tests {
                 .any(|candidate| candidate.path == "archive/private-draft.md"),
             "frontmatter alias hit should remain visible in trace candidates: {:?}",
             trace.candidates
+        );
+    }
+
+    #[tokio::test]
+    async fn hybrid_search_seeds_each_side_of_connect_synthesis_query() {
+        use super::VaultBackend;
+        let vault_root = tempfile::tempdir().expect("temp vault");
+        let store =
+            VaultStore::open(vault_root.path().to_str().expect("vault path")).expect("open vault");
+
+        store
+            .write(
+                "Old/me/project/reason for making the project.md",
+                "A body that intentionally omits the title words.",
+                None,
+                false,
+            )
+            .await
+            .expect("write left-side title target");
+        store
+            .write(
+                "Old/me/project/August dumping review.md",
+                "A second body that intentionally omits its title words.",
+                None,
+                false,
+            )
+            .await
+            .expect("write right-side title target");
+        store.reload_index().expect("reload index");
+
+        let (results, trace) = store
+            .hybrid_search_with_trace("connect reason making with august dumping", 5, &[])
+            .await
+            .expect("hybrid_search_with_trace");
+        let paths = results
+            .iter()
+            .map(|result| result.path.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(
+            paths.contains(&"Old/me/project/reason for making the project.md"),
+            "synthesis query should seed the left-side title; got {paths:?}"
+        );
+        assert!(
+            paths.contains(&"Old/me/project/August dumping review.md"),
+            "synthesis query should seed the right-side title; got {paths:?}"
+        );
+        assert!(
+            trace
+                .notes
+                .iter()
+                .any(|note| note.contains("Path/title fallback retained")),
+            "trace must disclose synthesis title fallback: {:?}",
+            trace.notes
         );
     }
 
