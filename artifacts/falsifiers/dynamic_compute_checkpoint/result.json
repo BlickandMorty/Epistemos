@@ -1,0 +1,210 @@
+{
+  "falsifier_id": "F-DynamicCompute-Checkpoint",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_dynamic_compute_checkpoint.sh",
+  "command_digest": "sha256:3436e7a81beab14a3600cd891a93c4763f121fb3a63e35f81947bf67a007598c",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "889535e4ad31f38dd724f7d86a58a010a8a5fa14",
+  "fixture_id": "dynamic_compute_checkpoint_manifest_only_v1",
+  "timestamp_utc": "2026-06-01T19:56:14Z",
+  "result_digest": "sha256:26d947e5b3e6e8114ef0bd4873b81a8f05e5fd598215e81f9308706b9b17afd7",
+  "measurements": {
+    "active_units_before_after_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "all_declared_checkpoint_kinds_constructed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "declared_checkpoint_kind_count": {
+      "value": 8,
+      "unit": "kinds"
+    },
+    "dry_run_ssd_read_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "duplicate_active_unit_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "dynamic_checkpoint_verifier_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_checkpoint_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_dynamic_checkpoint_falsifier_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_visible_event_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "non_event_run_event_ordinal_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "pro_live_checkpoint_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_build_pro_research_status_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_model_peak_uma_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "visible_run_event_ordinal_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "witness_completeness_percent": {
+      "value": 100,
+      "unit": "percent"
+    }
+  },
+  "acceptance_thresholds": {
+    "active_units_before_after_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "all_declared_checkpoint_kinds_constructed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "declared_checkpoint_kind_count": {
+      "operator": "==",
+      "value": 8,
+      "unit": "kinds"
+    },
+    "dry_run_ssd_read_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "duplicate_active_unit_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "dynamic_checkpoint_verifier_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_checkpoint_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_dynamic_checkpoint_falsifier_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "missing_visible_event_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "non_event_run_event_ordinal_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "pro_live_checkpoint_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_build_pro_research_status_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_model_peak_uma_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "visible_run_event_ordinal_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "witness_completeness_percent": {
+      "operator": "==",
+      "value": 100,
+      "unit": "percent"
+    }
+  },
+  "pass_per_axis": {
+    "active_units_before_after_bound": true,
+    "all_declared_checkpoint_kinds_constructed": true,
+    "declared_checkpoint_kind_count": true,
+    "dry_run_ssd_read_bytes": true,
+    "duplicate_active_unit_rejected": true,
+    "dynamic_checkpoint_verifier_bound": true,
+    "mas_checkpoint_rejected": true,
+    "missing_dynamic_checkpoint_falsifier_rejected": true,
+    "missing_visible_event_rejected": true,
+    "non_event_run_event_ordinal_rejected": true,
+    "pro_live_checkpoint_rejected": true,
+    "product_build_pro_research_status_bound": true,
+    "runtime_model_bytes_loaded": true,
+    "runtime_model_peak_uma_bytes": true,
+    "visible_run_event_ordinal_bound": true,
+    "witness_completeness_percent": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "manifest-only dynamic checkpoint witness; no mmap, no cache warm, no model byte load, no inference"
+    }
+  ],
+  "notes": "Validates DynamicComputeCheckpoint manifest admission over visible RunEventLog rows; not a runtime, kernel, or model-state proof."
+}
