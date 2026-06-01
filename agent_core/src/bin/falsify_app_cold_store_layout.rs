@@ -271,6 +271,21 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         1_779_000_000_000,
     )
     .is_ok();
+    let source_bound_route_prior = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+        TASK_SIGNATURE,
+        route_card_verifier_stack_with_eidos_prior(),
+        "rollback:raw-installed-snapshot",
+        ProductBuild::Pro,
+        ProStatus::ResearchCandidate,
+        &plan,
+        "rebuild_warm_cache_from_durable_atlas",
+        Some(weight_page_eidos_route_prior(
+            &eidos_packet,
+            DURABLE_WEIGHT_PAGE_SOURCE_HINT,
+        )?),
+        1_779_000_000_000,
+    )
+    .is_ok();
     let unsupported_cache_rebuild_policy_rejected = AppColdStoreRouteCard::from_residency_plan(
         TASK_SIGNATURE,
         route_card_verifier_stack(),
@@ -607,6 +622,13 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         &mut pass_per_axis,
         "eidos_route_prior_hash_weight_page_hint_bound",
         hash_bound_route_prior,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "eidos_route_prior_source_weight_page_hint_bound",
+        source_bound_route_prior,
     );
     add_bool_axis(
         &mut measurements,
@@ -1176,6 +1198,13 @@ mod tests {
                 .artifact
                 .pass_per_axis
                 .get("eidos_route_prior_hash_weight_page_hint_bound"),
+            Some(&true)
+        );
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("eidos_route_prior_source_weight_page_hint_bound"),
             Some(&true)
         );
         assert_eq!(
