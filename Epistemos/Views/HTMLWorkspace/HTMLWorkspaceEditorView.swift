@@ -14,6 +14,9 @@ struct HTMLWorkspaceEditorView: View {
     @State private var inspectorVisible = true
     @State private var isExportingPDF = false
     @State private var statusText: String?
+    @State private var sourceCursorLine = 1
+    @State private var sourceCursorColumn = 1
+    @State private var sourceTotalLines = 1
 
     init(package: Binding<HTMLWorkspacePackage>, theme: EpistemosTheme? = nil) {
         self._package = package
@@ -294,18 +297,35 @@ struct HTMLWorkspaceEditorView: View {
     private var sourceEditor: some View {
         switch selectedPane {
         case .html:
-            HTMLWorkspaceCodeEditor(text: $package.indexHTML, colorScheme: workspaceColorScheme, theme: workspaceTheme)
+            workspaceCodeMirrorEditor(text: $package.indexHTML, language: "html")
         case .css:
-            HTMLWorkspaceCodeEditor(text: $package.styleCSS, colorScheme: workspaceColorScheme, theme: workspaceTheme)
+            workspaceCodeMirrorEditor(text: $package.styleCSS, language: "css")
         case .js:
-            HTMLWorkspaceCodeEditor(text: $package.scriptJS, colorScheme: workspaceColorScheme, theme: workspaceTheme)
+            workspaceCodeMirrorEditor(text: $package.scriptJS, language: "javascript")
         case .data:
-            HTMLWorkspaceCodeEditor(text: $package.dataJSON, colorScheme: workspaceColorScheme, theme: workspaceTheme)
+            workspaceCodeMirrorEditor(text: $package.dataJSON, language: "json")
         case .dom:
             HTMLWorkspaceCodeEditor(text: .constant(domOutlineText), isEditable: false, colorScheme: workspaceColorScheme, theme: workspaceTheme)
         case .assets:
             HTMLWorkspaceCodeEditor(text: .constant(assetManifestText), isEditable: false, colorScheme: workspaceColorScheme, theme: workspaceTheme)
         }
+    }
+
+    private func workspaceCodeMirrorEditor(text: Binding<String>, language: String) -> some View {
+        WebKitCodeEditorView(
+            text: text,
+            cursorLine: $sourceCursorLine,
+            cursorColumn: $sourceCursorColumn,
+            totalLines: $sourceTotalLines,
+            language: language,
+            theme: workspaceTheme,
+            fontSize: 13.5,
+            wrapLines: false,
+            showLineNumbers: true,
+            selectionRequest: nil
+        )
+        .id("workspace-codemirror-\(selectedPane.rawValue)-\(workspaceThemeIdentity)")
+        .background(MarkdownPreviewSurfaceStyle.canvasBackground(for: workspaceTheme))
     }
 
     private var previewShell: some View {
