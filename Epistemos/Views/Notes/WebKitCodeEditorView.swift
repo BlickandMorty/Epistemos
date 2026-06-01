@@ -205,7 +205,8 @@ struct WebKitCodeEditorView: NSViewRepresentable {
             decidePolicyFor navigationAction: WKNavigationAction,
             decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
         ) {
-            if navigationAction.request.url?.scheme == "about" {
+            let scheme = navigationAction.request.url?.scheme
+            if scheme == "about" || scheme == epdocEditorURLScheme {
                 decisionHandler(.allow)
                 return
             }
