@@ -566,8 +566,7 @@ fn validate_app_cold_store_source_uri(
     source_uri: &str,
     placement: AppColdStorePlacement,
 ) -> Result<(), AppColdStoreRouteCardError> {
-    if has_source_uri_payload(source_uri, "file:///")
-        || has_source_uri_payload(source_uri, "app-support://")
+    if has_source_uri_payload(source_uri, "app-support://")
         || has_source_uri_payload(source_uri, "app-group://")
         || (placement == AppColdStorePlacement::WarmCache
             && has_source_uri_payload(source_uri, "app-cache://"))
@@ -810,7 +809,7 @@ impl std::fmt::Display for AppColdStoreRouteCardError {
             ),
             Self::UnsupportedSourceUri { source_uri } => write!(
                 f,
-                "AppColdStore route-card units require local app-owned or file-backed source URIs, got {source_uri}"
+                "AppColdStore route-card units require app-owned source URIs, got {source_uri}"
             ),
         }
     }
@@ -850,7 +849,8 @@ mod tests {
     }
 
     fn cold_weight_page_source_hint() -> String {
-        "weight_page:source:file:///models/cold-atlas/cold-weight-page.safetensors".to_string()
+        "weight_page:source:app-support://Models/coldstore/cold-weight-page.safetensors"
+            .to_string()
     }
 
     fn block(
@@ -864,7 +864,7 @@ mod tests {
         let hash = blake3::hash(label.as_bytes());
         WeightBlockManifest::from_known_hash_hex(
             "local/cold-atlas-fixture",
-            format!("file:///models/cold-atlas/{label}.safetensors"),
+            format!("app-support://Models/coldstore/{label}.safetensors"),
             byte_start,
             byte_len,
             hash.to_hex().as_str(),
@@ -1389,6 +1389,56 @@ mod tests {
                 }
             );
         }
+    }
+
+    #[test]
+    fn app_cold_store_route_card_rejects_arbitrary_file_source_uri() {
+        let source_uri = "file:///Users/shared/raw-model-snapshots/cold-weight-page.epwp";
+        let hot = block(
+            "hot-controller",
+            0,
+            512,
+            WeightBlockEncoding::DenseBf16,
+            WeightBlockResidencyClass::HotUma,
+            None,
+        );
+        let cold = WeightBlockManifest::from_known_hash_hex(
+            "local/cold-atlas-fixture",
+            source_uri,
+            2048,
+            4096,
+            blake3::hash(source_uri.as_bytes()).to_hex().as_str(),
+            1_779_000_000_000,
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            WeightBlockIrChart::OpaqueWithWitness,
+            0.02,
+            "F-AppColdStore-Layout",
+            Some(rollback_reference()),
+        )
+        .expect("generic weight manifests may describe raw file URI candidates");
+        let budget = ResidencyBudget::new(GIB, 0, 8 * GIB, 0.25, 16).unwrap();
+        let plan = ResidencyPlan::evaluate([hot, cold], budget, 42);
+        assert_eq!(plan.status, ResidencyPlanStatus::FitForDryRun);
+
+        let err = AppColdStoreRouteCard::from_residency_plan(
+            "deep_research:neural_importance_atlas",
+            verifier_stack(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            AppColdStoreRouteCardError::UnsupportedSourceUri {
+                source_uri: source_uri.to_string()
+            }
+        );
     }
 
     #[test]
@@ -2277,7 +2327,8 @@ mod tests {
             vec!["adapter:research_synthesis".to_string()],
             Vec::new(),
             vec![
-                "weight_page:source:file:///models/cold-atlas/not-in-plan.safetensors".to_string(),
+                "weight_page:source:app-support://Models/coldstore/not-in-plan.safetensors"
+                    .to_string(),
             ],
             0.82,
         )
@@ -2299,8 +2350,9 @@ mod tests {
         assert_eq!(
             err,
             AppColdStoreRouteCardError::UnboundRoutePriorSupport {
-                support: "weight_page:source:file:///models/cold-atlas/not-in-plan.safetensors"
-                    .to_string()
+                support:
+                    "weight_page:source:app-support://Models/coldstore/not-in-plan.safetensors"
+                        .to_string()
             }
         );
     }
@@ -2346,7 +2398,7 @@ mod tests {
 
     #[test]
     fn eidos_route_prior_source_hint_must_not_bind_multiple_route_card_units() {
-        let shared_source_uri = "file:///models/cold-atlas/shared-source.safetensors";
+        let shared_source_uri = "app-support://Models/coldstore/shared-source.safetensors";
         let hot = block(
             "hot-controller",
             0,
@@ -2424,7 +2476,7 @@ mod tests {
     #[test]
     fn eidos_route_prior_weight_page_hint_requires_explicit_binding_prefix() {
         let plan = fit_plan();
-        let raw_source_hint = "source:file:///models/cold-atlas/cold-weight-page.safetensors";
+        let raw_source_hint = "source:app-support://Models/coldstore/cold-weight-page.safetensors";
         let prior = eidos_prior(
             vec!["F-AppColdStore-Layout".to_string()],
             vec!["adapter:research_synthesis".to_string()],
