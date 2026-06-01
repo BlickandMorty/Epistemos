@@ -14,6 +14,7 @@
 // retrieve outcome verbatim from EidosMetrics, no recomputation).
 // **Tier:** Tier 1 (MAS).
 
+import AppKit
 import SwiftUI
 
 @MainActor
@@ -39,9 +40,9 @@ public struct EidosRetrievedSection: View {
                     .frame(width: 22)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Evidence Intake")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(AppDisplayTypography.headingFont(size: 13, weight: .semibold, theme: theme, level: 2))
                     Text("Eidos + VaultRecall")
-                        .font(.system(size: 12))
+                        .font(AppDisplayTypography.font(size: 12, allowDisplayFont: false))
                         .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 0)
@@ -56,7 +57,7 @@ public struct EidosRetrievedSection: View {
 
             if eidosSnapshot.lastQueryAt == nil, vaultSnapshot.lastQueryAt == nil {
                 Text("No evidence query has run yet for this launch.")
-                    .font(.system(size: 12))
+                    .font(AppDisplayTypography.font(size: 12, allowDisplayFont: false))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
@@ -77,7 +78,7 @@ public struct EidosRetrievedSection: View {
                         VStack(alignment: .leading, spacing: 6) {
                             metricRow(label: "Citation gate", value: "not invoked", valueTint: .orange)
                             Text("VaultRecall produced candidates. Eidos will show citations here when the answer path asks for closed evidence validation.")
-                                .font(.system(size: 11))
+                                .font(AppDisplayTypography.font(size: 11.5, allowDisplayFont: false))
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -231,14 +232,31 @@ public struct EidosRetrievedSection: View {
     private func metricRow(label: String, value: String, valueTint: Color? = nil) -> some View {
         HStack(spacing: 8) {
             Text(label)
-                .font(.system(size: 12))
+                .font(AppDisplayTypography.font(size: 12, allowDisplayFont: false))
                 .foregroundStyle(.secondary)
             Spacer(minLength: 0)
             Text(value)
-                .font(.system(size: 12, design: .monospaced))
+                .font(AppDisplayTypography.font(size: 12, allowDisplayFont: false))
                 .foregroundStyle(valueTint ?? .primary)
                 .lineLimit(1)
                 .truncationMode(.middle)
+                .textSelection(.enabled)
+            Button {
+                copyToPasteboard(value)
+            } label: {
+                Image(systemName: "doc.on.doc")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(theme.textTertiary.opacity(0.72))
+                    .frame(width: 16, height: 16)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Copy \(label)")
+        }
+        .contextMenu {
+            Button("Copy \(label)") {
+                copyToPasteboard(value)
+            }
         }
     }
 
@@ -248,13 +266,18 @@ public struct EidosRetrievedSection: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.system(size: 10.5, weight: .semibold))
+                .font(AppDisplayTypography.headingFont(size: 9.5, weight: .semibold, theme: theme, level: 2))
                 .tracking(0.5)
                 .foregroundStyle(theme.textTertiary)
             content()
         }
         .padding(10)
         .eidosEvidenceCard(theme: theme, emphasized: false)
+    }
+
+    private func copyToPasteboard(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 }
 
