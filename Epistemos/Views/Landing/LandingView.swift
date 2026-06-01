@@ -148,6 +148,12 @@ struct LandingView: View {
     private var showingLandingStageCommand: Bool {
         showingSearchPopover || activeLandingInlineCommand != nil
     }
+    private var landingRecallScopeID: String {
+        "landing:\(chat.activeChatId ?? "draft")"
+    }
+    private var landingRecallPayload: ContextualShadowsState.RecallPayload {
+        contextualShadows.payload(kind: .chat, originDocId: landingRecallScopeID)
+    }
     private var landingStageMinHeight: CGFloat {
         if showingSearchPopover {
             return landingToolsExpanded ? 330 : 250
@@ -161,7 +167,11 @@ struct LandingView: View {
         ComposerAttachmentEntryHints.landingPlaceholder
     }
     private var landingSearchPlaceholder: String {
-        "Ask Epistemos..."
+        if let name = AppBootstrap.shared?.companionState.activeAgentName,
+           !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "Ask \(name)..."
+        }
+        return "Ask Epistemos..."
     }
     private var ambientManifest: VaultManifest? {
         vaultSync.ambientManifest ?? AppBootstrap.shared?.ambientManifest
@@ -817,7 +827,8 @@ struct LandingView: View {
                         onCreate: presentFarmAgentCreate,
                         onOpenTrash: { farmShowingRestore = true },
                         onRequestEdit: presentFarmAgentEdit,
-                        onRequestDelete: { entry in farmDeleteTarget = entry }
+                        onRequestDelete: { entry in farmDeleteTarget = entry },
+                        onStartChat: startFarmAgentChat
                     )
                     .padding(.top, 24)
                     .padding(.trailing, 28)
@@ -983,9 +994,9 @@ struct LandingView: View {
                     }
                 }
 
-                if contextualShadows.isEnabled, !contextualShadows.currentResults.isEmpty {
+                if contextualShadows.isEnabled, landingRecallPayload.hasPanelPayload {
                     LandingStageToolShell(theme: theme, accent: theme.fontAccent) {
-                        ContextualShadowsButton()
+                        ContextualShadowsButton(scopeKind: .chat, scopeID: landingRecallScopeID)
                     }
                 } else {
                     Spacer(minLength: 0)
@@ -1027,22 +1038,17 @@ struct LandingView: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 7)
                 .frame(minHeight: 34)
-                .unifiedFrostedGlass(
-                    theme: theme,
-                    in: Capsule(),
-                    extraDarkenOnDark: true,
-                    interactive: true,
-                    nativeGlass: true
-                )
+                .background(Rectangle().fill(accent.opacity(theme.isDark ? 0.08 : 0.05)))
+                .pixelPanel(theme: theme, surface: PixelPanelBackground.actionSurface(for: theme))
                 .overlay {
-                    Capsule()
-                        .strokeBorder(accent.opacity(theme.isDark ? 0.12 : 0.16), lineWidth: 0.7)
+                    Rectangle()
+                        .stroke(accent.opacity(theme.isDark ? 0.18 : 0.22), lineWidth: 1)
                 }
                 .shadow(
-                    color: Color.black.opacity(theme.isDark ? 0.16 : 0.10),
-                    radius: theme.isDark ? 8 : 13,
-                    x: 0,
-                    y: 5
+                    color: Color.black.opacity(theme.isDark ? 0.20 : 0.12),
+                    radius: 0,
+                    x: 3,
+                    y: 3
                 )
         }
     }
@@ -1074,26 +1080,20 @@ struct LandingView: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
             .frame(minHeight: 34)
-            .unifiedFrostedGlass(
-                theme: theme,
-                in: Capsule(),
-                extraDarkenOnDark: true,
-                interactive: true,
-                nativeGlass: true
-            )
             .background {
-                Capsule()
-                    .fill(accent.opacity(isActive ? 0.11 : 0.001))
+                Rectangle()
+                    .fill(accent.opacity(isActive ? (theme.isDark ? 0.12 : 0.08) : 0.001))
             }
+            .pixelPanel(theme: theme, surface: PixelPanelBackground.actionSurface(for: theme))
             .overlay {
-                Capsule()
-                    .strokeBorder(accent.opacity(isActive ? 0.22 : 0.13), lineWidth: 0.7)
+                Rectangle()
+                    .stroke(accent.opacity(isActive ? 0.30 : 0.18), lineWidth: 1)
             }
             .shadow(
-                color: Color.black.opacity(theme.isDark ? 0.16 : 0.10),
-                radius: theme.isDark ? 8 : 13,
-                x: 0,
-                y: 5
+                color: Color.black.opacity(theme.isDark ? 0.20 : 0.12),
+                radius: 0,
+                x: 3,
+                y: 3
             )
         }
     }
@@ -1222,10 +1222,16 @@ struct LandingView: View {
                     .transition(.opacity)
                 }
             }
-            .overlay(alignment: .bottomTrailing) {
-                ContextualShadowsPanel(onOpen: openLandingContextualShadowHit)
-                    .padding(.trailing, 10)
-                    .padding(.bottom, 46)
+            .overlay(alignment: .topLeading) {
+                ContextualShadowsPanel(
+                    scopeKind: .chat,
+                    scopeID: landingRecallScopeID,
+                    presentation: .landing,
+                    onOpen: openLandingContextualShadowHit
+                )
+                    .padding(.leading, 42)
+                    .padding(.top, 74)
+                    .zIndex(20)
             }
         }
         .frame(maxWidth: .infinity)
@@ -1443,7 +1449,9 @@ struct LandingView: View {
         guard let bootstrap = AppBootstrap.shared else { return }
         let instantRecall = bootstrap.instantRecallService
         let searchIndexService = bootstrap.vaultSync.searchService
-        let originId = chat.activeChatId.flatMap(UUID.init(uuidString:)) ?? UUID()
+        let activeChatId = chat.activeChatId
+        let scopeID = landingRecallScopeID
+        let originId = activeChatId.flatMap(UUID.init(uuidString:)) ?? UUID()
         let state = contextualShadows
         landingRecallDebounceBox.task = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(200))
@@ -1451,7 +1459,8 @@ struct LandingView: View {
             let snapshot = RecallContextSnapshot(
                 text: snapshotText,
                 kind: .chat,
-                originId: originId
+                originId: originId,
+                originDocId: scopeID
             )
             state.requestRecall(
                 snapshot: snapshot,
@@ -1796,6 +1805,20 @@ struct LandingView: View {
         farmEditTarget = entry
     }
 
+    private func startFarmAgentChat(_ entry: CompanionRosterEntry) {
+        AppBootstrap.shared?.companionState.activate(entry.id)
+        if supportedOperatingModes.contains(.agent) {
+            selectedOperatingMode = .agent
+        }
+        applyLandingAgentRuntimePreference(for: entry)
+        selectedLandingSlashCommand = nil
+        if !showingSearchPopover {
+            landingSearchText = ""
+        }
+        HapticHelper.homeCommand(.agent)
+        activateLandingSearch(playHaptic: false)
+    }
+
     private func dismissFarmAgentEditor() {
         farmShowingCreate = false
         farmEditTarget = nil
@@ -1803,6 +1826,10 @@ struct LandingView: View {
 
     private func applyActiveLandingAgentRuntimePreference() {
         guard let entry = AppBootstrap.shared?.companionState.activeAgentEntry else { return }
+        applyLandingAgentRuntimePreference(for: entry)
+    }
+
+    private func applyLandingAgentRuntimePreference(for entry: CompanionRosterEntry) {
         switch entry.agentModelChoice {
         case .autoConstellation:
             return
@@ -2007,7 +2034,7 @@ struct LandingView: View {
         case .chat:
             MiniChatWindowController.shared.openChat(hit.id)
         }
-        contextualShadows.closePanel()
+        contextualShadows.closePanel(kind: .chat, originDocId: landingRecallScopeID)
     }
 
     private func updateLandingReferenceSearch(filter: String) {
@@ -2366,27 +2393,7 @@ struct LandingView: View {
     /// `onAppear` snaps `ui.homeContent` back to `.greeting` so the
     /// home window is in a known state before the next press.
     private func toggleGraphForCurrentLocation() {
-        switch graphState.graphViewLocation {
-        case .miniPanel:
-            // If the embedded graph somehow ended up visible, clear it
-            // first so the floating panel doesn't open on top of an
-            // already-visible embedded graph.
-            if ui.homeContent == .graph { ui.homeContent = .greeting }
-            HologramController.shared.toggle()
-        case .embedded:
-            // Ensure the floating panel is closed so it doesn't
-            // double-show the canvas behind the embedded version.
-            if HologramController.shared.isVisible {
-                HologramController.shared.hide()
-            }
-            withAnimation(
-                reduceMotion
-                    ? nil
-                    : .spring(response: 0.42, dampingFraction: 0.84, blendDuration: 0.1)
-            ) {
-                ui.homeContent = ui.homeContent == .graph ? .greeting : .graph
-            }
-        }
+        KnowledgeGraphShortcutDispatcher.toggle(reduceMotion: reduceMotion)
     }
 
     private func createAndOpenNote() {
