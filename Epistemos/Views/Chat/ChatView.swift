@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
@@ -708,16 +709,25 @@ private struct ChatBrainPanelView: View {
 
                     if !snapshot.allowedToolNames.isEmpty {
                         section(title: "TOOLS THIS TURN", defaultExpanded: false) {
-                            VStack(alignment: .leading, spacing: 4) {
+                            VStack(alignment: .leading, spacing: 5) {
                                 ForEach(snapshot.allowedToolNames, id: \.self) { tool in
-                                    HStack(spacing: 6) {
-                                        Text("▸")
-                                            .font(.system(size: 10, design: .monospaced))
+                                    HStack(spacing: 7) {
+                                        Image(systemName: "checkmark.circle")
+                                            .font(.system(size: 10, weight: .medium))
                                             .foregroundStyle(theme.textTertiary)
                                         Text(tool)
-                                            .font(.system(size: 11, design: .monospaced))
+                                            .font(panelBodyFont(size: 12))
                                             .foregroundStyle(theme.textSecondary)
                                             .textSelection(.enabled)
+                                            .lineLimit(1)
+                                            .truncationMode(.middle)
+                                        Spacer(minLength: 0)
+                                        copyButton(text: tool, label: "Copy tool name")
+                                    }
+                                    .contextMenu {
+                                        Button("Copy Tool Name") {
+                                            copyToPasteboard(tool)
+                                        }
                                     }
                                 }
                             }
@@ -772,12 +782,12 @@ private struct ChatBrainPanelView: View {
                 } else if !hasPendingContext {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("MODEL CONTEXT")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(panelHeadingFont(size: 9.5, level: 2))
                             .tracking(0.8)
                             .foregroundStyle(theme.textTertiary)
                             .padding(.top, 4)
                         Text("After you send, this shows the notes, files, tools, and routing for that turn. Use @ or attachments to preview context first.")
-                            .font(.system(size: 12))
+                            .font(panelBodyFont(size: 12))
                             .foregroundStyle(theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -816,29 +826,76 @@ private struct ChatBrainPanelView: View {
     ) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Text(label)
-                .font(.system(size: 11.5, weight: .semibold))
+                .font(panelBodyFont(size: 11.5, weight: .semibold))
                 .foregroundStyle(theme.textTertiary)
                 .frame(width: 84, alignment: .leading)
-            Text(value)
-                .font(
-                    valueMonospaced
-                        ? .system(size: 11.5, design: .monospaced)
-                        : .system(size: 12.5)
-                )
-                .foregroundStyle(theme.textPrimary)
-                .textSelection(.enabled)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(alignment: .top, spacing: 6) {
+                Text(value)
+                    .font(valueMonospaced ? panelMonoFont(size: 11.5) : panelBodyFont(size: 12.5))
+                    .foregroundStyle(theme.textPrimary)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                copyButton(text: value, label: "Copy \(label)")
+                    .padding(.top, 1)
+            }
+        }
+        .contextMenu {
+            Button("Copy \(label)") {
+                copyToPasteboard(value)
+            }
         }
     }
 
     @ViewBuilder
     private func bodyBlock(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 11.5, design: .monospaced))
-            .foregroundStyle(theme.textSecondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .textSelection(.enabled)
+        HStack(alignment: .top, spacing: 8) {
+            Text(text)
+                .font(panelBodyFont(size: 12.5))
+                .foregroundStyle(theme.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .textSelection(.enabled)
+            copyButton(text: text, label: "Copy text")
+                .padding(.top, 1)
+        }
+        .contextMenu {
+            Button("Copy Text") {
+                copyToPasteboard(text)
+            }
+        }
+    }
+
+    private func panelBodyFont(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        AppDisplayTypography.font(size: size, weight: weight, allowDisplayFont: false)
+    }
+
+    private func panelMonoFont(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        AppDisplayTypography.monoFont(size: size, weight: weight)
+    }
+
+    private func panelHeadingFont(size: CGFloat, level: Int) -> Font {
+        AppDisplayTypography.headingFont(size: size, weight: .semibold, theme: theme, level: level)
+    }
+
+    @ViewBuilder
+    private func copyButton(text: String, label: String) -> some View {
+        Button {
+            copyToPasteboard(text)
+        } label: {
+            Image(systemName: "doc.on.doc")
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundStyle(theme.textTertiary.opacity(0.76))
+                .frame(width: 18, height: 18)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(label)
+        .accessibilityLabel(label)
+    }
+
+    private func copyToPasteboard(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 }
 
@@ -867,7 +924,7 @@ private struct BrainPanelSection<Content: View>: View {
             } label: {
                 HStack {
                     Text(title)
-                        .font(.system(size: 10.5, weight: .semibold))
+                        .font(AppDisplayTypography.headingFont(size: 9.5, weight: .semibold, theme: theme, level: 2))
                         .tracking(0.8)
                         .foregroundStyle(theme.textTertiary)
                     Spacer()
