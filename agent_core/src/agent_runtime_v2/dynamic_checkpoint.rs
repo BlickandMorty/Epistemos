@@ -119,8 +119,10 @@ impl DynamicComputeCheckpoint {
 
         let mut active_units_before = active_units_before;
         let mut active_units_after = active_units_after;
+        let mut verifier_stack = verifier_stack;
         active_units_before.sort_by_key(ToString::to_string);
         active_units_after.sort_by_key(ToString::to_string);
+        verifier_stack.sort();
 
         let checkpoint_address = Self::address(
             checkpoint_kind,
@@ -573,6 +575,48 @@ mod tests {
             err,
             DynamicComputeCheckpointError::MissingDynamicCheckpointFalsifier
         );
+    }
+
+    #[test]
+    fn checkpoint_address_is_stable_for_verifier_stack_order() {
+        let mut first_stack = verifier_stack();
+        first_stack.push("F-AppColdStore-Layout".to_string());
+        let second_stack = vec![
+            "F-AppColdStore-Layout".to_string(),
+            DYNAMIC_COMPUTE_CHECKPOINT_FALSIFIER_ID.to_string(),
+        ];
+
+        let first = DynamicComputeCheckpoint::new(
+            DynamicComputeCheckpointKind::VerifierRepair,
+            "citation verifier failed",
+            vec![unit(b"before")],
+            vec![unit(b"after")],
+            "bounded verifier repair must be visible",
+            1_000,
+            "run_event_log:8",
+            first_stack,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            99,
+        )
+        .expect("first verifier stack order should build");
+        let second = DynamicComputeCheckpoint::new(
+            DynamicComputeCheckpointKind::VerifierRepair,
+            "citation verifier failed",
+            vec![unit(b"before")],
+            vec![unit(b"after")],
+            "bounded verifier repair must be visible",
+            1_000,
+            "run_event_log:8",
+            second_stack,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            99,
+        )
+        .expect("second verifier stack order should build");
+
+        assert_eq!(first.checkpoint_address, second.checkpoint_address);
+        assert_eq!(first.verifier_stack, second.verifier_stack);
     }
 
     #[test]
