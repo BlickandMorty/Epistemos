@@ -566,11 +566,14 @@ fn validate_app_cold_store_source_uri(
     source_uri: &str,
     placement: AppColdStorePlacement,
 ) -> Result<(), AppColdStoreRouteCardError> {
-    if has_source_uri_payload(source_uri, "app-support://")
-        || has_source_uri_payload(source_uri, "app-group://")
-        || (placement == AppColdStorePlacement::WarmCache
-            && has_source_uri_payload(source_uri, "app-cache://"))
-    {
+    let is_allowed = match placement {
+        AppColdStorePlacement::DurableAtlas | AppColdStorePlacement::HotRunway => {
+            has_source_uri_payload(source_uri, "app-support://")
+                || has_source_uri_payload(source_uri, "app-group://")
+        }
+        AppColdStorePlacement::WarmCache => has_source_uri_payload(source_uri, "app-cache://"),
+    };
+    if is_allowed {
         return Ok(());
     }
     Err(AppColdStoreRouteCardError::UnsupportedSourceUri {
@@ -849,8 +852,7 @@ mod tests {
     }
 
     fn cold_weight_page_source_hint() -> String {
-        "weight_page:source:app-support://Models/coldstore/cold-weight-page.safetensors"
-            .to_string()
+        "weight_page:source:app-support://Models/coldstore/cold-weight-page.safetensors".to_string()
     }
 
     fn block(
@@ -861,10 +863,30 @@ mod tests {
         residency_class: WeightBlockResidencyClass,
         rollback_reference: Option<UasAddress>,
     ) -> WeightBlockManifest {
+        block_with_source_uri(
+            label,
+            format!("app-support://Models/coldstore/{label}.safetensors"),
+            byte_start,
+            byte_len,
+            encoding,
+            residency_class,
+            rollback_reference,
+        )
+    }
+
+    fn block_with_source_uri(
+        label: &str,
+        source_uri: impl Into<String>,
+        byte_start: u64,
+        byte_len: u64,
+        encoding: WeightBlockEncoding,
+        residency_class: WeightBlockResidencyClass,
+        rollback_reference: Option<UasAddress>,
+    ) -> WeightBlockManifest {
         let hash = blake3::hash(label.as_bytes());
         WeightBlockManifest::from_known_hash_hex(
             "local/cold-atlas-fixture",
-            format!("app-support://Models/coldstore/{label}.safetensors"),
+            source_uri,
             byte_start,
             byte_len,
             hash.to_hex().as_str(),
@@ -888,8 +910,9 @@ mod tests {
             WeightBlockResidencyClass::HotUma,
             None,
         );
-        let warm = block(
+        let warm = block_with_source_uri(
             "warm-adapter",
+            "app-cache://coldstore_warm/decoded_pages/warm-adapter.epwp",
             1024,
             256,
             WeightBlockEncoding::Sherry125,
@@ -1229,8 +1252,9 @@ mod tests {
 
     #[test]
     fn app_cold_store_route_card_rejects_warm_cache_without_durable_atlas() {
-        let warm = block(
+        let warm = block_with_source_uri(
             "warm-adapter-only",
+            "app-cache://coldstore_warm/decoded_pages/warm-adapter-only.epwp",
             0,
             256,
             WeightBlockEncoding::Sherry125,
@@ -2045,6 +2069,57 @@ mod tests {
     }
 
     #[test]
+    fn warm_cache_units_reject_durable_app_support_source_uri() {
+        let hot = block(
+            "hot-controller",
+            0,
+            512,
+            WeightBlockEncoding::DenseBf16,
+            WeightBlockResidencyClass::HotUma,
+            None,
+        );
+        let warm = block(
+            "warm-cache-in-app-support",
+            1024,
+            256,
+            WeightBlockEncoding::Sherry125,
+            WeightBlockResidencyClass::WarmCompressedUma,
+            Some(rollback_reference()),
+        );
+        let cold = block(
+            "cold-weight-page",
+            2048,
+            4096,
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            Some(rollback_reference()),
+        );
+        let budget = ResidencyBudget::new(GIB, GIB, 8 * GIB, 0.25, 16).unwrap();
+        let plan = ResidencyPlan::evaluate([hot, warm, cold], budget, 42);
+        assert_eq!(plan.status, ResidencyPlanStatus::FitForDryRun);
+
+        let err = AppColdStoreRouteCard::from_residency_plan(
+            "deep_research:neural_importance_atlas",
+            verifier_stack(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            AppColdStoreRouteCardError::UnsupportedSourceUri {
+                source_uri: "app-support://Models/coldstore/warm-cache-in-app-support.safetensors"
+                    .to_string()
+            }
+        );
+    }
+
+    #[test]
     fn durable_atlas_units_reject_purgeable_app_cache_source_uri() {
         let hot = block(
             "hot-controller",
@@ -2130,8 +2205,9 @@ mod tests {
 
     #[test]
     fn app_cold_store_route_card_rejects_warm_active_plan_without_hot_runway() {
-        let warm = block(
+        let warm = block_with_source_uri(
             "warm-active-no-hot-runway",
+            "app-cache://coldstore_warm/decoded_pages/warm-active-no-hot-runway.epwp",
             0,
             256,
             WeightBlockEncoding::Sherry125,
