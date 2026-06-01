@@ -35,6 +35,8 @@ fn route_verdict_exposes_policy_escalation_reasons() {
         "case taskTooComplex = \"task_too_complex\"",
         "case tooManyToolCalls = \"too_many_tool_calls\"",
         "case contextWindowExceeded = \"context_window_exceeded\"",
+        "case privacyPolicyMismatch = \"privacy_policy_mismatch\"",
+        "case privacySensitiveNoLocal = \"privacy_sensitive_no_local\"",
     ] {
         assert!(
             RUNTIME_EXECUTOR_SOURCE.contains(reason),
@@ -74,6 +76,22 @@ fn runtime_router_gates_local_lanes_with_policy_table() {
         assert!(
             RUNTIME_ROUTER_SOURCE.contains(snippet),
             "RuntimeRouter route path must include policy-table snippet `{snippet}`"
+        );
+    }
+}
+
+#[test]
+fn runtime_router_keeps_privacy_sensitive_routes_off_cloud_lanes() {
+    for snippet in [
+        "if packet.privacySensitive",
+        "lane.isLocal && lane != .stub && isLaneEnabled(lane)",
+        "return recordReject(role: packet.role, reason: .privacySensitiveNoLocal)",
+        "if packet.privacySensitive && !lane.isLocal",
+        "reason: .privacyPolicyMismatch",
+    ] {
+        assert!(
+            RUNTIME_ROUTER_SOURCE.contains(snippet),
+            "RuntimeRouter route path must include privacy guard snippet `{snippet}`"
         );
     }
 }
