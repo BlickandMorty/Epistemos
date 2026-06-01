@@ -32,7 +32,7 @@ const TASK_SIGNATURE: &str = "deep_research:app_cold_store_layout";
 const UNSUPPORTED_CACHE_REBUILD_POLICY_FIXTURE: &str =
     "trust_existing_warm_cache_without_durable_rebuild";
 const DURABLE_WEIGHT_PAGE_SOURCE_HINT: &str =
-    "source:app-support://Epistemos/Models/coldstore/durable-weight-page.epwp";
+    "weight_page:source:app-support://Epistemos/Models/coldstore/durable-weight-page.epwp";
 
 fn main() -> std::process::ExitCode {
     let report = match build_report() {
@@ -190,8 +190,9 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         )
         .unwrap_err()
             == AppColdStoreRouteCardError::UnboundRoutePriorSupport {
-                support: "source:app-support://Epistemos/Models/coldstore/not-in-plan.epwp"
-                    .to_string(),
+                support:
+                    "weight_page:source:app-support://Epistemos/Models/coldstore/not-in-plan.epwp"
+                        .to_string(),
             };
     let mut broad_route_prior_support_rejected = true;
     for broad_hint in [
@@ -215,6 +216,26 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
                     support: broad_hint.to_string(),
                 };
     }
+    let raw_route_prior_support_rejected =
+        AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+            TASK_SIGNATURE,
+            route_card_verifier_stack_with_eidos_prior(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            Some(weight_page_eidos_route_prior(
+                &eidos_packet,
+                "source:app-support://Epistemos/Models/coldstore/durable-weight-page.epwp",
+            )?),
+            1_779_000_000_000,
+        )
+        .unwrap_err()
+            == AppColdStoreRouteCardError::UnboundRoutePriorSupport {
+                support: "source:app-support://Epistemos/Models/coldstore/durable-weight-page.epwp"
+                    .to_string(),
+            };
     let cold_plan_block = plan
         .blocks
         .iter()
@@ -570,6 +591,13 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "eidos_route_prior_raw_weight_page_hint_rejected",
+        raw_route_prior_support_rejected,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "eidos_route_prior_uas_weight_page_hint_bound",
         uas_bound_route_prior,
     );
@@ -800,7 +828,10 @@ fn unbound_weight_page_eidos_route_prior(
         vec![FALSIFIER_ID.to_string()],
         vec!["adapter:layout_planner".to_string()],
         vec!["kv:layout_manifest_only".to_string()],
-        vec!["source:app-support://Epistemos/Models/coldstore/not-in-plan.epwp".to_string()],
+        vec![
+            "weight_page:source:app-support://Epistemos/Models/coldstore/not-in-plan.epwp"
+                .to_string(),
+        ],
         0.84,
         vec!["Eidos matched closed evidence but proposed an unplanned weight page".to_string()],
     )?)
