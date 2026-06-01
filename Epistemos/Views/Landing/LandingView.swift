@@ -450,6 +450,8 @@ struct LandingView: View {
             welcomeBackSyncTask = nil
             showWelcomeBack = false
             presentedWelcomeBack = nil
+            showingSearchPopover = false
+            onLandingPopoverDisappear()
             landingSearchRevealTask?.cancel()
             landingSearchRevealTask = nil
             landingGreetingReturnTask?.cancel()

@@ -120,6 +120,9 @@ struct QuickCaptureView: View {
             }
             isTextFieldFocused = true
         }
+        .onDisappear {
+            cleanupTransientCaptureState()
+        }
     }
 
     #if DEBUG
@@ -217,7 +220,7 @@ struct QuickCaptureView: View {
                         Text("Capture a thought, meeting note, idea...")
                             .foregroundStyle(.tertiary)
                             .padding(.leading, 17)
-                            .padding(.top, 20)
+                            .padding(.top, 14)
                             .allowsHitTesting(false)
                     }
                 }
@@ -432,11 +435,20 @@ struct QuickCaptureView: View {
     }
 
     private func close(restoreHomeFocus: Bool = true) {
+        cleanupTransientCaptureState()
         isTextFieldFocused = false
         isPresented = false
         if restoreHomeFocus {
             HomeWindowInputFocus.restoreAfterOverlayDismiss()
         }
+    }
+
+    private func cleanupTransientCaptureState() {
+        if audioRecorder.isRecording {
+            _ = audioRecorder.stopRecording()
+        }
+        isTextFieldFocused = false
+        isTraceInspectorPresented = false
     }
 
     private func evidenceChip(text: String, icon: String, role: String) -> some View {
