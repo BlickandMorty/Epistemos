@@ -721,7 +721,7 @@ struct PixelLandingCommandTile: View {
             dormantCommandLabel
                 .opacity(isLit ? 1 : (treatment == .classicNative ? 0.78 : 0.62))
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 52, alignment: .leading)
+                .frame(minHeight: 56, alignment: .leading)
                 .contentShape(Rectangle())
                 .scaleEffect(PixelStepMotion.scale(for: pressFrame == 0 ? 3 : pressFrame))
                 .offset(y: PixelStepMotion.yOffset(for: pressFrame == 0 ? 3 : pressFrame))
@@ -740,10 +740,12 @@ struct PixelLandingCommandTile: View {
                 .opacity(isLit ? 1 : 0.82)
 
             dormantCommandTitle
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, treatment == .classicNative ? 12 : 10)
         .padding(.vertical, 8)
-        .fixedSize(horizontal: true, vertical: false)
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        .contentShape(Rectangle())
         .background {
             if treatment == .platinumBlock, isLit {
                 ZStack(alignment: .top) {
