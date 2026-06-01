@@ -511,11 +511,33 @@ fn route_prior_support_matches_unit(support: &str, unit: &AppColdStoreUnit) -> b
     if let Some(source_uri) = support.strip_prefix("source:") {
         return source_uri == unit.source_uri.as_str();
     }
+    if let Some(source_range) = support.strip_prefix("range:") {
+        return route_prior_source_range_matches_unit(source_range, unit);
+    }
     if let Some(content_hash_hex) = support.strip_prefix("hash:") {
         return content_hash_hex == unit.content_hash_hex.as_str();
     }
 
     false
+}
+
+fn route_prior_source_range_matches_unit(source_range: &str, unit: &AppColdStoreUnit) -> bool {
+    let Some((source_uri, range)) = source_range.split_once("#bytes=") else {
+        return false;
+    };
+    let Some((start, len)) = range.split_once('+') else {
+        return false;
+    };
+    let Ok(start) = start.parse::<u64>() else {
+        return false;
+    };
+    let Ok(len) = len.parse::<u64>() else {
+        return false;
+    };
+
+    source_uri == unit.source_uri.as_str()
+        && start == unit.byte_range.start
+        && len == unit.byte_range.len
 }
 
 fn validate_nonempty(field: &'static str, value: &str) -> Result<(), AppColdStoreRouteCardError> {
@@ -2501,6 +2523,46 @@ mod tests {
         .expect("hash-prefixed support hint should bind the durable AppColdStore unit");
 
         assert_eq!(card.durable_units[0].content_hash_hex, cold_hash);
+        assert_eq!(card.totals.runtime_model_bytes_loaded, 0);
+    }
+
+    #[test]
+    fn eidos_route_prior_can_bind_weight_page_hint_by_source_byte_range() {
+        let plan = fit_plan();
+        let cold = plan
+            .blocks
+            .iter()
+            .find(|block| block.residency_class == WeightBlockResidencyClass::ColdMmapSsd)
+            .expect("fixture carries a durable cold page");
+        let cold_source_uri = cold.source_uri.clone();
+        let cold_range = cold.byte_range;
+        let prior = eidos_prior(
+            vec!["F-AppColdStore-Layout".to_string()],
+            vec!["adapter:research_synthesis".to_string()],
+            Vec::new(),
+            vec![format!(
+                "weight_page:range:{}#bytes={}+{}",
+                cold_source_uri, cold_range.start, cold_range.len
+            )],
+            0.82,
+        )
+        .expect("source byte-range support hint is route-prior valid before card admission");
+
+        let card = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+            "deep_research:neural_importance_atlas",
+            route_prior_verifier_stack(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            Some(prior),
+            99,
+        )
+        .expect("source byte-range hint should bind the durable AppColdStore unit");
+
+        assert_eq!(card.durable_units[0].source_uri, cold_source_uri);
+        assert_eq!(card.durable_units[0].byte_range, cold_range);
         assert_eq!(card.totals.runtime_model_bytes_loaded, 0);
     }
 
