@@ -320,12 +320,7 @@ fn validate_build_status(
     product_build: &ProductBuild,
     pro_status: &ProStatus,
 ) -> Result<(), DynamicComputeCheckpointError> {
-    if product_build == &ProductBuild::Mas
-        && matches!(
-            pro_status,
-            ProStatus::ResearchCandidate | ProStatus::VaultPreserved | ProStatus::Omega
-        )
-    {
+    if product_build == &ProductBuild::Mas {
         return Err(DynamicComputeCheckpointError::ProductBuildStatusMismatch);
     }
     if product_build == &ProductBuild::Pro && pro_status == &ProStatus::Live {
@@ -620,6 +615,29 @@ mod tests {
             verifier_stack(),
             ProductBuild::Mas,
             ProStatus::ResearchCandidate,
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            DynamicComputeCheckpointError::ProductBuildStatusMismatch
+        );
+    }
+
+    #[test]
+    fn checkpoint_keeps_gated_dynamic_compute_out_of_mas() {
+        let err = DynamicComputeCheckpoint::new(
+            DynamicComputeCheckpointKind::KvRestore,
+            "restore candidate KV pages before generation",
+            vec![unit(b"controller")],
+            vec![unit(b"controller"), unit(b"kv-page")],
+            "KV restore checkpoints remain Pro-gated until runtime falsifiers pass",
+            1_000,
+            "run_event_log:9",
+            verifier_stack(),
+            ProductBuild::Mas,
+            ProStatus::Gated,
             99,
         )
         .unwrap_err();
