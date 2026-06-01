@@ -228,18 +228,15 @@ fn build_report() -> RouteReport {
         })
         .unwrap_or(false);
     let dry_run_preview_manifest_available = inputs.dry_run_manifest.is_some();
+    let dry_run_preview_decode_tokens = inputs
+        .dry_run_manifest
+        .as_ref()
+        .map(|manifest| manifest.decode_tokens_per_prompt)
+        .unwrap_or_default();
     let dry_run_preview_not_executed = inputs
         .dry_run_manifest
         .as_ref()
-        .map(|manifest| {
-            manifest.dry_run
-                && manifest.not_executed
-                && !manifest.falsifier_green_capable
-                && manifest.bench_json_not_written
-                && manifest.metrics_not_written
-                && manifest.context_window_tokens >= REQUIRED_CONTEXT_WINDOW_TOKENS
-                && manifest.would_require_heavy_env
-        })
+        .map(dry_run_preview_preserves_required_command_shape)
         .unwrap_or(false);
     let probe_ladder = summarize_probe_ladder(&inputs.probe_manifests);
     let next_bottleneck = choose_next_bottleneck(
@@ -396,6 +393,14 @@ fn build_report() -> RouteReport {
         &mut pass_per_axis,
         "dry_run_preview_not_executed",
         dry_run_preview_not_executed,
+    );
+    add_count_floor_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
+        "dry_run_preview_decode_tokens_per_prompt",
+        dry_run_preview_decode_tokens,
+        REQUIRED_DECODE_TOKENS_PER_PROMPT,
     );
     add_bool_measurement(
         &mut measurements,
@@ -755,7 +760,7 @@ fn build_report() -> RouteReport {
     if !dry_run_preview_not_executed {
         anomalies.push(serde_json::json!({
             "kind": "missing_safe_dry_run_preview",
-            "detail": "The GGUF route should retain a dry-run manifest that records the dangerous 128K command shape with not_executed=true, falsifier_green_capable=false, no metrics, and the heavy-run opt-in requirement before any live retry."
+            "detail": "The GGUF route should retain a dry-run manifest that records the dangerous 128K/256-decode command shape with not_executed=true, falsifier_green_capable=false, no metrics, and the heavy-run opt-in requirement before any live retry."
         }));
     }
     if probe_ladder.best_success_context_tokens > 0
@@ -1577,6 +1582,17 @@ fn infer_model_repo_id(path: &Path) -> String {
         })
 }
 
+fn dry_run_preview_preserves_required_command_shape(manifest: &BenchManifest) -> bool {
+    manifest.dry_run
+        && manifest.not_executed
+        && !manifest.falsifier_green_capable
+        && manifest.bench_json_not_written
+        && manifest.metrics_not_written
+        && manifest.context_window_tokens >= REQUIRED_CONTEXT_WINDOW_TOKENS
+        && manifest.decode_tokens_per_prompt >= REQUIRED_DECODE_TOKENS_PER_PROMPT
+        && manifest.would_require_heavy_env
+}
+
 fn choose_next_bottleneck(
     model_file_available: bool,
     model_identity_matches_target: bool,
@@ -2131,11 +2147,11 @@ mod tests {
         std::fs::write(
             &path,
             serde_json::to_vec(&serde_json::json!({
-                "command": ["llama-bench", "-p", "128000", "-n", "1", "-ctk", "f16", "-ctv", "f16", "-fa", "0", "-nkvo", "0"],
+                "command": ["llama-bench", "-p", "128000", "-n", "256", "-ctk", "f16", "-ctv", "f16", "-fa", "0", "-nkvo", "0"],
                 "exit_status": 0,
                 "timed_out": false,
                 "context_window_tokens": 128000,
-                "decode_tokens_per_prompt": 1,
+                "decode_tokens_per_prompt": 256,
                 "bench_json": "not_written",
                 "metrics": "not_written",
                 "dry_run": true,
@@ -2155,5 +2171,28 @@ mod tests {
         assert!(manifest.metrics_not_written);
         assert!(manifest.would_require_heavy_env);
         assert_eq!(manifest.context_window_tokens, 128_000);
+        assert!(dry_run_preview_preserves_required_command_shape(&manifest));
+    }
+
+    #[test]
+    fn dry_run_manifest_rejects_weakened_decode_shape() {
+        let manifest = BenchManifest {
+            exit_status: 0,
+            timed_out: false,
+            context_window_tokens: REQUIRED_CONTEXT_WINDOW_TOKENS,
+            decode_tokens_per_prompt: 1,
+            cache_type_k: "f16".into(),
+            cache_type_v: "f16".into(),
+            flash_attn: false,
+            no_kv_offload: false,
+            dry_run: true,
+            not_executed: true,
+            falsifier_green_capable: false,
+            bench_json_not_written: true,
+            metrics_not_written: true,
+            would_require_heavy_env: true,
+        };
+
+        assert!(!dry_run_preview_preserves_required_command_shape(&manifest));
     }
 }
