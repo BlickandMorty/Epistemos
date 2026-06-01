@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "ad2460a673b1bbd3473fc73e15dda221c9dcd609",
+  "commit_sha": "57965294d4494ec47c269aa22611ccd900650ce3",
   "fixture_id": "qwen3_8b_128k_gguf_candidate_route_v1",
-  "timestamp_utc": "2026-05-30T12:54:33Z",
-  "result_digest": "sha256:65bef36b6f8244a3c5905c29a9ec3f16d208cd55380afa2321b412f2074d29bb",
+  "timestamp_utc": "2026-06-01T14:55:10Z",
+  "result_digest": "sha256:68469185b76408c078a825fca2fa5749f19331541e7727f4e5b1686f664df1aa",
   "measurements": {
     "asset_plan_path": {
       "value": "artifacts/falsifiers/qwen3_8b_128k_gguf_route/asset_plan.json",
@@ -80,6 +80,10 @@
     "dry_run_manifest_path": {
       "value": "artifacts/falsifiers/qwen3_8b_128k_gguf_route/dry_run_128k_preview/manifest.json",
       "unit": "label"
+    },
+    "dry_run_preview_decode_tokens_per_prompt": {
+      "value": 256,
+      "unit": "count"
     },
     "dry_run_preview_manifest_available": {
       "value": true,
@@ -313,6 +317,11 @@
       "value": 256,
       "unit": "count"
     },
+    "dry_run_preview_decode_tokens_per_prompt": {
+      "operator": ">=",
+      "value": 256,
+      "unit": "count"
+    },
     "dry_run_preview_manifest_available": {
       "operator": "==",
       "value": true,
@@ -426,6 +435,7 @@
     "context_window_tokens": false,
     "decode_tok_s": true,
     "decode_tokens_per_prompt": true,
+    "dry_run_preview_decode_tokens_per_prompt": true,
     "dry_run_preview_manifest_available": true,
     "dry_run_preview_not_executed": true,
     "full_context_probe_context_tokens": true,
