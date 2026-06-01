@@ -10,6 +10,8 @@ const CONFIDENCE_ROUTER_SOURCE: &str =
     include_str!("../../Epistemos/LocalAgent/ConfidenceRouter.swift");
 const RUNTIME_ROUTER_SOURCE: &str =
     include_str!("../../Epistemos/LocalAgent/RuntimeRouter.swift");
+const RUNTIME_LANES_SECTION_SOURCE: &str =
+    include_str!("../../Epistemos/Views/Settings/RuntimeLanesSection.swift");
 const INFERENCE_ROUTE_PROFILES_SOURCE: &str =
     include_str!("../../Epistemos/State/InferenceState+RouteProfiles.swift");
 
@@ -94,6 +96,25 @@ fn runtime_router_keeps_privacy_sensitive_routes_off_cloud_lanes() {
             "RuntimeRouter route path must include privacy guard snippet `{snippet}`"
         );
     }
+}
+
+#[test]
+fn runtime_lane_settings_hide_internal_stub_lane() {
+    for snippet in [
+        "RuntimeLanesSection.userVisibleLanes()",
+        "public static func userVisibleLanes() -> [RuntimeLane]",
+        "RuntimeLane.knownLanes.filter { $0 != .stub }",
+        "is an internal \"no real executor present\" marker",
+    ] {
+        assert!(
+            RUNTIME_LANES_SECTION_SOURCE.contains(snippet),
+            "Runtime lane settings must hide the internal stub lane with `{snippet}`"
+        );
+    }
+    assert!(
+        RUNTIME_ROUTER_SOURCE.contains("snapshot.record(.init(role: role, lane: .stub, kind: .reject"),
+        "RuntimeRouter may still use .stub internally to group no-lane reject metrics"
+    );
 }
 
 #[test]
