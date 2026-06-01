@@ -2074,13 +2074,22 @@ struct CodeEditorView: View {
 
             Text("Ln \(cursorLine), Col \(cursorCol)")
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundStyle(ui.theme.resolved.mutedForeground.color.opacity(0.9))
+                .foregroundStyle(ui.theme.resolved.mutedForeground.color.opacity(0.92))
+                .lineLimit(1)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    ui.theme.resolved.foreground.color.opacity(ui.theme.isDark ? 0.07 : 0.045),
+                    in: Capsule()
+                )
 
             Button {
                 showSearchBar.toggle()
             } label: {
                 Image(systemName: showSearchBar ? "magnifyingglass.circle.fill" : "magnifyingglass")
                     .foregroundStyle(showSearchBar ? Color.accentColor : .secondary)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("Find")
@@ -2090,6 +2099,8 @@ struct CodeEditorView: View {
             } label: {
                 Image(systemName: "text.line.first.and.arrowtriangle.forward")
                     .foregroundStyle(.secondary)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("Go to line")

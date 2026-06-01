@@ -157,6 +157,7 @@ struct HTMLWorkspaceEditorView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(headerFill)
+        .tint(workspaceTheme.resolved.accent.color)
     }
 
     private var sourceShell: some View {
@@ -190,13 +191,13 @@ struct HTMLWorkspaceEditorView: View {
                         Spacer(minLength: 0)
                     }
                     .font(.system(size: 12, weight: selectedPane == pane ? .semibold : .regular))
-                    .foregroundStyle(selectedPane == pane ? .primary : .secondary)
+                    .foregroundStyle(selectedPane == pane ? workspaceTheme.resolved.accent.color : .secondary)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 7)
                     .background {
                         if selectedPane == pane {
                             RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .fill(Color.accentColor.opacity(0.16))
+                                .fill(workspaceTheme.resolved.accent.color.opacity(workspaceTheme.isDark ? 0.20 : 0.14))
                         }
                     }
                 }
@@ -242,8 +243,13 @@ struct HTMLWorkspaceEditorView: View {
             }
             Spacer(minLength: 12)
             Text(selectedPane.metricText(for: package))
-                .font(.caption.monospacedDigit())
+                .font(.caption2.monospacedDigit())
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(.quaternary, in: Capsule())
             Menu {
                 Section("Allowed Ops") {
                     ForEach(allowedOperations(for: selectedPane), id: \.self) { operation in
@@ -281,23 +287,24 @@ struct HTMLWorkspaceEditorView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(headerFill)
+        .tint(workspaceTheme.resolved.accent.color)
     }
 
     @ViewBuilder
     private var sourceEditor: some View {
         switch selectedPane {
         case .html:
-            HTMLWorkspaceCodeEditor(text: $package.indexHTML, colorScheme: workspaceColorScheme)
+            HTMLWorkspaceCodeEditor(text: $package.indexHTML, colorScheme: workspaceColorScheme, theme: workspaceTheme)
         case .css:
-            HTMLWorkspaceCodeEditor(text: $package.styleCSS, colorScheme: workspaceColorScheme)
+            HTMLWorkspaceCodeEditor(text: $package.styleCSS, colorScheme: workspaceColorScheme, theme: workspaceTheme)
         case .js:
-            HTMLWorkspaceCodeEditor(text: $package.scriptJS, colorScheme: workspaceColorScheme)
+            HTMLWorkspaceCodeEditor(text: $package.scriptJS, colorScheme: workspaceColorScheme, theme: workspaceTheme)
         case .data:
-            HTMLWorkspaceCodeEditor(text: $package.dataJSON, colorScheme: workspaceColorScheme)
+            HTMLWorkspaceCodeEditor(text: $package.dataJSON, colorScheme: workspaceColorScheme, theme: workspaceTheme)
         case .dom:
-            HTMLWorkspaceCodeEditor(text: .constant(domOutlineText), isEditable: false, colorScheme: workspaceColorScheme)
+            HTMLWorkspaceCodeEditor(text: .constant(domOutlineText), isEditable: false, colorScheme: workspaceColorScheme, theme: workspaceTheme)
         case .assets:
-            HTMLWorkspaceCodeEditor(text: .constant(assetManifestText), isEditable: false, colorScheme: workspaceColorScheme)
+            HTMLWorkspaceCodeEditor(text: .constant(assetManifestText), isEditable: false, colorScheme: workspaceColorScheme, theme: workspaceTheme)
         }
     }
 
@@ -306,7 +313,12 @@ struct HTMLWorkspaceEditorView: View {
             VStack(spacing: 0) {
                 previewHeader
                 Divider()
-                HTMLWorkspacePreviewView(package: previewPackage, previewTheme: previewTheme)
+                HTMLWorkspacePreviewView(
+                    package: previewPackage,
+                    previewTheme: previewTheme,
+                    themeGuardCSSOverride: previewThemeGuardCSS,
+                    themeIdentity: workspaceThemeIdentity
+                )
                     .id(previewRenderIdentity)
                     .frame(minWidth: 360)
             }
@@ -482,6 +494,66 @@ struct HTMLWorkspaceEditorView: View {
         workspaceTheme.isDark ? .dark : .light
     }
 
+    private var previewThemeGuardCSS: String {
+        let background = MarkdownPreviewSurfaceStyle
+            .canvasNSColor(for: workspaceTheme)
+            .rgbSafeForCodeEditorTheme()
+            .withAlphaComponent(1.0)
+            .htmlWorkspaceCSSColor
+        let foreground = workspaceTheme.resolved.foreground.nsColor
+            .rgbSafeForCodeEditorTheme()
+            .htmlWorkspaceCSSColor
+        let muted = workspaceTheme.resolved.mutedForeground.nsColor
+            .rgbSafeForCodeEditorTheme()
+            .htmlWorkspaceCSSColor
+        let card = workspaceTheme.resolved.card.nsColor
+            .rgbSafeForCodeEditorTheme()
+            .withAlphaComponent(1.0)
+            .htmlWorkspaceCSSColor
+        let border = workspaceTheme.resolved.glassBorder.nsColor
+            .rgbSafeForCodeEditorTheme()
+            .htmlWorkspaceCSSColor(opacity: workspaceTheme.isDark ? 0.48 : 0.32)
+        let accent = workspaceTheme.resolved.accent.nsColor
+            .rgbSafeForCodeEditorTheme()
+            .htmlWorkspaceCSSColor
+        let scheme = workspaceTheme.isDark ? "dark" : "light"
+
+        return """
+        :root {
+          color-scheme: \(scheme);
+          --epistemos-workspace-bg: \(background);
+          --epistemos-workspace-fg: \(foreground);
+          --epistemos-workspace-muted: \(muted);
+          --epistemos-workspace-card: \(card);
+          --epistemos-workspace-border: \(border);
+          --epistemos-workspace-accent: \(accent);
+          --epistemos-workspace-title-font: "MatrixTypeDisplay-Regular", "MatrixTypeDisplay", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+          --epistemos-workspace-heading-font: "ChonkyPixels", "MatrixTypeDisplay-Regular", "MatrixTypeDisplay", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+          --epistemos-workspace-body-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+        }
+
+        html[data-epistemos-theme] body,
+        html[data-epistemos-theme] main.workspace {
+          background: var(--epistemos-workspace-bg) !important;
+          color: var(--epistemos-workspace-fg) !important;
+        }
+
+        html[data-epistemos-theme] :is(.metric-card, [data-metrics] article, .card, section[data-card]) {
+          background: var(--epistemos-workspace-card);
+          border-color: var(--epistemos-workspace-border);
+        }
+        """
+    }
+
+    private var workspaceThemeIdentity: String {
+        [
+            previewTheme.rawValue,
+            MarkdownPreviewSurfaceStyle.canvasNSColor(for: workspaceTheme).htmlWorkspaceCSSColor,
+            workspaceTheme.resolved.foreground.nsColor.htmlWorkspaceCSSColor,
+            workspaceTheme.resolved.accent.nsColor.htmlWorkspaceCSSColor,
+        ].joined(separator: "|")
+    }
+
     private var panelFill: Color {
         workspaceTheme.card.opacity(workspaceTheme.isDark ? 0.78 : 0.94)
     }
@@ -491,7 +563,7 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private var previewRenderIdentity: String {
-        "\(previewPackage.manifest.id)-\(previewContentHash)-\(previewTheme.rawValue)"
+        "\(previewPackage.manifest.id)-\(previewContentHash)-\(workspaceThemeIdentity.hashValue)"
     }
 
     private var previewContentHash: String {
@@ -901,5 +973,23 @@ private enum HTMLWorkspaceSourcePane: String, CaseIterable, Identifiable {
     private static func counts(for source: String) -> String {
         let lines = max(1, source.split(separator: "\n", omittingEmptySubsequences: false).count)
         return "\(lines) lines / \(source.count) chars"
+    }
+}
+
+private extension NSColor {
+    var htmlWorkspaceCSSColor: String {
+        htmlWorkspaceCSSColor(opacity: nil)
+    }
+
+    func htmlWorkspaceCSSColor(opacity overrideOpacity: CGFloat?) -> String {
+        let color = usingColorSpace(.sRGB) ?? self
+        let red = Int((color.redComponent * 255).rounded())
+        let green = Int((color.greenComponent * 255).rounded())
+        let blue = Int((color.blueComponent * 255).rounded())
+        let alpha = overrideOpacity ?? color.alphaComponent
+        if alpha >= 0.999 {
+            return String(format: "#%02X%02X%02X", red, green, blue)
+        }
+        return String(format: "rgba(%d, %d, %d, %.3f)", red, green, blue, alpha)
     }
 }

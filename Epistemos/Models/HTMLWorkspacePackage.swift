@@ -617,11 +617,12 @@ extension HTMLWorkspacePackage {
 nonisolated public enum HTMLWorkspacePreviewDocument {
     public static func render(
         package: HTMLWorkspacePackage,
-        theme: HTMLWorkspacePreviewTheme? = nil
+        theme: HTMLWorkspacePreviewTheme? = nil,
+        themeGuardCSSOverride: String? = nil
     ) -> String {
         let csp = package.manifest.sandboxPolicy.contentSecurityPolicy
         let themeAttribute = theme.map { #" data-epistemos-theme="\#($0.rawValue)""# } ?? ""
-        let themeCSS = theme?.guardCSS ?? HTMLWorkspacePreviewTheme.defaultGuardCSS
+        let themeCSS = themeGuardCSSOverride ?? theme?.guardCSS ?? HTMLWorkspacePreviewTheme.defaultGuardCSS
         return """
         <!doctype html>
         <html\(themeAttribute)>
