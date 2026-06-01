@@ -63,6 +63,10 @@ struct CompanionAvatarGrammarSourceGuardTests {
             "CompanionLegStyle",
             "CompanionAntennaStyle",
             "CompanionEyeTreatment",
+            "CompanionHeadStyle",
+            "CompanionArmStyle",
+            "CompanionEyeShape",
+            "CompanionAccessoryStyle",
         ] {
             #expect(model.contains(token),
                     "CompanionBodyKind must be parameterized per Simulation DOCTRINE §5.1 via \(token)")
@@ -71,6 +75,8 @@ struct CompanionAvatarGrammarSourceGuardTests {
                 "Farm CompanionBodyKind must not offer Hermes Snake as a body choice")
         #expect(creationFlow.contains("CompanionBodyKind.creationPresets"),
                 "Creation must use the canonical Farm presets, not every persisted/legacy shape")
+        #expect(creationFlow.contains("bodyStyleControls"),
+                "Creation must expose granular head, arm, eye, and accessory controls")
         #expect(!creationFlow.contains("CompanionBodyKind.allCases"),
                 "Creation must not expose a fixed enum-all-cases body picker")
 
@@ -271,12 +277,22 @@ struct CompanionAvatarGrammarSourceGuardTests {
 
         #expect(farm.contains("onRequestEdit"),
                 "The AGENTS dock must expose an edit route")
+        #expect(farm.contains("onStartChat"),
+                "The AGENTS dock must expose a direct chat route")
         #expect(roaming.contains("Label(\"Edit\", systemImage: \"pencil\")"),
                 "Agent context menus must support editing existing provider/tool choices")
+        #expect(roaming.contains("Label(\"Chat with \\(entry.name)\", systemImage: \"message.fill\")"),
+                "Agent context menus must start a chat with the selected agent")
         #expect(landing.contains("farmEditTarget"),
                 "Landing must distinguish create from edit instead of overwriting active agents")
+        #expect(landing.contains("private func startFarmAgentChat"),
+                "Landing must focus the main composer when a user asks to chat with an agent")
+        #expect(landing.contains("selectedOperatingMode = .agent"),
+                "Direct agent chat should enter Agent mode when the current model route supports it")
         #expect(landing.contains("applyActiveLandingAgentRuntimePreference"),
                 "Submitting from Landing should apply the active agent's provider preference before routing")
+        #expect(landing.contains("applyLandingAgentRuntimePreference(for: entry)"),
+                "Direct agent chat should apply the selected AgentBlueprint route before the user submits")
     }
 
     @Test("Companion roaming phase math stays bounded for large absolute dates")
@@ -344,11 +360,15 @@ struct CompanionAvatarGrammarSourceGuardTests {
         #expect(CompanionBodyKind(rawValue: "block.tall.stubs.double.filled") == .blockTall)
         #expect(CompanionBodyKind(rawValue: "block.compact.none.single.filled") == .blockSignal)
         #expect(CompanionBodyKind(rawValue: "block.wide.stubs.double.filled") == .blockTwin)
+        #expect(CompanionBodyKind(rawValue: "block.compact.stubs.none.filled.crown.wave.visor.glasses")?.resolvedAccessoryStyle == .glasses)
+        #expect(CompanionBodyKind(rawValue: "sage.cap.side.bar.mustache")?.resolvedHeadStyle == .cap)
 
         #expect(CompanionBodyKind(rawValue: "block.bogus.stubs.none.filled") == nil)
         #expect(CompanionBodyKind(rawValue: "block.compact.bogus.none.filled") == nil)
         #expect(CompanionBodyKind(rawValue: "block.compact.stubs.bogus.filled") == nil)
         #expect(CompanionBodyKind(rawValue: "block.compact.stubs.none.bogus") == nil)
+        #expect(CompanionBodyKind(rawValue: "block.compact.stubs.none.filled.crown.wave.visor.bogus") == nil)
+        #expect(CompanionBodyKind(rawValue: "sage.cap.side.bogus.mustache") == nil)
         #expect(CompanionBodyKind(rawValue: "block.compact.stubs.none.filled.extra") == nil)
         #expect(CompanionBodyKind(rawValue: "hermesSnake") == nil)
     }

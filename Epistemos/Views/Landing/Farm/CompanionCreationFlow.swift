@@ -46,6 +46,38 @@ struct CompanionCreationFlow: View {
         ]
     }
 
+    private var selectedAccentColor: Color {
+        Self.color(fromHex: accentHex) ?? theme.resolved.accent.color
+    }
+
+    private var headStyleBinding: Binding<CompanionHeadStyle> {
+        Binding(
+            get: { bodyKind.resolvedHeadStyle },
+            set: { bodyKind = bodyKind.customized(headStyle: $0) }
+        )
+    }
+
+    private var armStyleBinding: Binding<CompanionArmStyle> {
+        Binding(
+            get: { bodyKind.resolvedArmStyle },
+            set: { bodyKind = bodyKind.customized(armStyle: $0) }
+        )
+    }
+
+    private var eyeShapeBinding: Binding<CompanionEyeShape> {
+        Binding(
+            get: { bodyKind.resolvedEyeShape },
+            set: { bodyKind = bodyKind.customized(eyeShape: $0) }
+        )
+    }
+
+    private var accessoryStyleBinding: Binding<CompanionAccessoryStyle> {
+        Binding(
+            get: { bodyKind.resolvedAccessoryStyle },
+            set: { bodyKind = bodyKind.customized(accessoryStyle: $0) }
+        )
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             stepHeader
@@ -171,10 +203,39 @@ struct CompanionCreationFlow: View {
     private var bodyStep: some View {
         VStack(alignment: .leading, spacing: 14) {
             stepTitle("Choose an agent body", subtitle: "Each grammar shapes the silhouette and animation vocabulary.")
+            HStack(alignment: .center, spacing: 16) {
+                CompanionAvatarGlyph(
+                    kind: bodyKind,
+                    accent: selectedAccentColor,
+                    phase: 0.65,
+                    state: .think,
+                    reduceMotionOverride: true
+                )
+                .frame(width: 76, height: 76)
+                .padding(10)
+                .background(PixelPanelBackground.actionSurface(for: theme), in: Rectangle())
+                .overlay(Rectangle().stroke(theme.textTertiary.opacity(theme.isDark ? 0.18 : 0.24), lineWidth: theme.isDark ? 0.75 : 1))
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(bodyKind.displayName)
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundStyle(theme.textPrimary)
+                    Text(bodyKind.hint)
+                        .font(.system(size: 11))
+                        .foregroundStyle(theme.textTertiary)
+                        .lineLimit(2)
+                    colorSwatches
+                }
+            }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 12)], spacing: 12) {
                 ForEach(CompanionBodyKind.creationPresets, id: \.self) { kind in
                     Button {
-                        bodyKind = kind
+                        bodyKind = kind.customized(
+                            headStyle: bodyKind.resolvedHeadStyle,
+                            armStyle: bodyKind.resolvedArmStyle,
+                            eyeShape: bodyKind.resolvedEyeShape,
+                            accessoryStyle: bodyKind.resolvedAccessoryStyle
+                        )
                     } label: {
                         VStack(spacing: 8) {
                             CompanionAvatarGlyph(
@@ -213,7 +274,40 @@ struct CompanionCreationFlow: View {
                     .buttonStyle(.plain)
                 }
             }
+            bodyStyleControls
         }
+    }
+
+    private var colorSwatches: some View {
+        HStack(spacing: 7) {
+            ForEach(AgentColorPreset.presets, id: \.self) { preset in
+                Button {
+                    accentHex = preset.hex
+                } label: {
+                    Rectangle()
+                        .fill(Self.color(fromHex: preset.hex) ?? theme.resolved.accent.color)
+                        .frame(width: 18, height: 18)
+                        .overlay(
+                            Rectangle()
+                                .stroke(accentHex == preset.hex ? theme.textPrimary : theme.textTertiary.opacity(0.32), lineWidth: accentHex == preset.hex ? 1.5 : 0.75)
+                        )
+                        .accessibilityLabel(Text(preset.name))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var bodyStyleControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            styleChipRow("Head", selection: headStyleBinding) { $0.displayName }
+            styleChipRow("Arms", selection: armStyleBinding) { $0.displayName }
+            styleChipRow("Eyes", selection: eyeShapeBinding) { $0.displayName }
+            styleChipRow("Gear", selection: accessoryStyleBinding) { $0.displayName }
+        }
+        .padding(10)
+        .background(PixelPanelBackground.actionSurface(for: theme), in: Rectangle())
+        .overlay(Rectangle().stroke(theme.textTertiary.opacity(theme.isDark ? 0.16 : 0.22), lineWidth: theme.isDark ? 0.75 : 1))
     }
 
     private var nameStep: some View {
@@ -367,6 +461,51 @@ struct CompanionCreationFlow: View {
                 .padding(.vertical, 7)
                 .background(PixelPanelBackground.actionSurface(for: theme), in: Rectangle())
                 .overlay(Rectangle().stroke(theme.textTertiary.opacity(theme.isDark ? 0.18 : 0.26), lineWidth: theme.isDark ? 0.75 : 1))
+        }
+    }
+
+    private func styleChipRow<Style>(
+        _ title: String,
+        selection: Binding<Style>,
+        label: @escaping (Style) -> String
+    ) -> some View where Style: CaseIterable & Hashable, Style.AllCases: RandomAccessCollection {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .foregroundStyle(theme.textTertiary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 7) {
+                    ForEach(Array(Style.allCases), id: \.self) { value in
+                        let isSelected = selection.wrappedValue == value
+                        Button {
+                            selection.wrappedValue = value
+                        } label: {
+                            Text(label(value))
+                                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                .lineLimit(1)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 5)
+                                .background(
+                                    isSelected
+                                    ? selectedAccentColor.opacity(theme.isDark ? 0.22 : 0.16)
+                                    : theme.textTertiary.opacity(theme.isDark ? 0.08 : 0.06),
+                                    in: Rectangle()
+                                )
+                                .overlay(
+                                    Rectangle()
+                                        .stroke(
+                                            isSelected
+                                            ? selectedAccentColor.opacity(theme.isDark ? 0.56 : 0.48)
+                                            : theme.textTertiary.opacity(theme.isDark ? 0.14 : 0.20),
+                                            lineWidth: theme.isDark ? 0.75 : 1
+                                        )
+                                )
+                                .foregroundStyle(isSelected ? selectedAccentColor : theme.textSecondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
         }
     }
 
@@ -546,5 +685,16 @@ struct CompanionCreationFlow: View {
             )
         }
         onDismiss()
+    }
+
+    private static func color(fromHex rawValue: String) -> Color? {
+        var cleaned = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        if cleaned.hasPrefix("#") {
+            cleaned.removeFirst()
+        }
+        guard cleaned.count == 6, let value = UInt32(cleaned, radix: 16) else {
+            return nil
+        }
+        return Color(hex: value)
     }
 }
