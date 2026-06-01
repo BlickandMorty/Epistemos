@@ -143,6 +143,9 @@ impl ProviderReferenceManifest {
         validate_sha256(&self.artifact_sha256)?;
         validate_prompt_suite_path(&self.prompt_suite_artifact_ref)?;
         validate_sha256(&self.prompt_suite_artifact_sha256)?;
+        if self.artifact_ref == self.prompt_suite_artifact_ref {
+            return Err(ProviderReferenceManifestError::PromptSuiteReusesArtifactRef);
+        }
         if let Some(hash) = &self.request_id_hash {
             validate_sha256(hash)?;
         }
@@ -204,6 +207,7 @@ pub enum ProviderReferenceManifestError {
     MissingPromptSuiteId,
     ArtifactOutsideRowRoot,
     PromptSuiteOutsideAllowedRoots,
+    PromptSuiteReusesArtifactRef,
     ArtifactContainsDotSegment,
     ArtifactPathMissingFileName,
     InvalidSha256,
@@ -271,6 +275,10 @@ impl std::fmt::Display for ProviderReferenceManifestError {
             Self::PromptSuiteOutsideAllowedRoots => write!(
                 f,
                 "provider reference prompt suite is outside allowed artifact roots"
+            ),
+            Self::PromptSuiteReusesArtifactRef => write!(
+                f,
+                "provider reference prompt suite must use a distinct retained replay artifact"
             ),
             Self::ArtifactContainsDotSegment => {
                 write!(f, "provider reference artifact path contains a dot segment")
@@ -672,6 +680,18 @@ mod tests {
         assert_eq!(
             manifest.validate(),
             Err(ProviderReferenceManifestError::ArtifactPathMissingFileName)
+        );
+    }
+
+    #[test]
+    fn rejects_prompt_suite_reusing_reference_artifact_path() {
+        let mut manifest = local_manifest();
+        manifest.prompt_suite_artifact_ref = manifest.artifact_ref.clone();
+        manifest.prompt_suite_artifact_sha256 = manifest.artifact_sha256.clone();
+
+        assert_eq!(
+            manifest.validate(),
+            Err(ProviderReferenceManifestError::PromptSuiteReusesArtifactRef)
         );
     }
 
