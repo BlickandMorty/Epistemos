@@ -322,10 +322,10 @@ fn validate_build_status(
     product_build: &ProductBuild,
     pro_status: &ProStatus,
 ) -> Result<(), DynamicComputeCheckpointError> {
-    if product_build == &ProductBuild::Mas {
+    if product_build != &ProductBuild::Pro {
         return Err(DynamicComputeCheckpointError::ProductBuildStatusMismatch);
     }
-    if product_build == &ProductBuild::Pro && pro_status == &ProStatus::Live {
+    if !matches!(pro_status, ProStatus::Gated | ProStatus::ResearchCandidate) {
         return Err(DynamicComputeCheckpointError::ProductBuildStatusMismatch);
     }
     Ok(())
@@ -713,6 +713,54 @@ mod tests {
             err,
             DynamicComputeCheckpointError::ProductBuildStatusMismatch
         );
+    }
+
+    #[test]
+    fn checkpoint_only_admits_pro_gated_or_research_candidate_status() {
+        for pro_status in [
+            ProStatus::VaultPreserved,
+            ProStatus::Omega,
+            ProStatus::Blocked,
+            ProStatus::TargetOnly,
+            ProStatus::Superseded,
+        ] {
+            let err = DynamicComputeCheckpoint::new(
+                DynamicComputeCheckpointKind::VerifierRepair,
+                "verifier repair changed the route plan",
+                vec![unit(b"before")],
+                vec![unit(b"after")],
+                "route-affecting checkpoints must stay in active gated or research status",
+                1_000,
+                "run_event_log:9",
+                verifier_stack(),
+                ProductBuild::Pro,
+                pro_status,
+                99,
+            )
+            .unwrap_err();
+
+            assert_eq!(
+                err,
+                DynamicComputeCheckpointError::ProductBuildStatusMismatch
+            );
+        }
+
+        for pro_status in [ProStatus::Gated, ProStatus::ResearchCandidate] {
+            DynamicComputeCheckpoint::new(
+                DynamicComputeCheckpointKind::VerifierRepair,
+                "verifier repair changed the route plan",
+                vec![unit(b"before")],
+                vec![unit(b"after")],
+                "route-affecting checkpoints must stay in active gated or research status",
+                1_000,
+                "run_event_log:9",
+                verifier_stack(),
+                ProductBuild::Pro,
+                pro_status,
+                99,
+            )
+            .expect("active Pro checkpoint status should be admitted");
+        }
     }
 
     #[test]
