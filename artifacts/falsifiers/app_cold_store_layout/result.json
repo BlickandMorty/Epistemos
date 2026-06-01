@@ -28,10 +28,10 @@
     "thermal_state_end": "unknown",
     "power_source": "unknown"
   },
-  "commit_sha": "7551ca17f80c10b688dd2147b1b8bac9f6c33a04",
+  "commit_sha": "ab92b990fc8b66a328e7d1eb12c9027d15a93e07",
   "fixture_id": "app_cold_store_layout_manifest_only_v1",
-  "timestamp_utc": "2026-05-31T23:11:12Z",
-  "result_digest": "sha256:a014993563c2e9ac5e4008fa3d10a42cac4352e433efbc6aba33785c11612833",
+  "timestamp_utc": "2026-06-01T00:46:57Z",
+  "result_digest": "sha256:5597012c1e6a8a0270c06d3204dabf6a2609285d1ec636c397d55cc86a577a3a",
   "measurements": {
     "closed_citation_validity": {
       "value": true,
@@ -154,6 +154,10 @@
       "unit": "bytes"
     },
     "unsupported_cache_rebuild_policy_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "warm_active_plan_without_hot_runway_rejected": {
       "value": true,
       "unit": "bool"
     },
@@ -326,6 +330,11 @@
       "value": true,
       "unit": "bool"
     },
+    "warm_active_plan_without_hot_runway_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
     "warm_cache_bytes": {
       "operator": ">=",
       "value": 1,
@@ -374,6 +383,7 @@
     "runtime_model_peak_uma_bytes": true,
     "total_addressed_bytes": true,
     "unsupported_cache_rebuild_policy_rejected": true,
+    "warm_active_plan_without_hot_runway_rejected": true,
     "warm_cache_bytes": true,
     "warm_cache_rebuildable": true,
     "witness_completeness_percent": true

@@ -203,6 +203,9 @@ impl AppColdStoreRouteCard {
         if plan.totals.active_runtime_bytes == 0 {
             return Err(AppColdStoreRouteCardError::MissingActiveRuntimeBytes);
         }
+        if hot_runway_units.is_empty() {
+            return Err(AppColdStoreRouteCardError::MissingHotRunway);
+        }
         if let Some(prior) = &eidos_route_prior {
             validate_eidos_route_prior_support_binding(
                 prior,
@@ -646,6 +649,7 @@ pub enum AppColdStoreRouteCardError {
     MissingParamRouteCardAdmissionVerifier,
     MissingEidosNeuralRoutePriorVerifier,
     MissingActiveRuntimeBytes,
+    MissingHotRunway,
     ProductBuildStatusMismatch,
     ProductBuildResidencyMismatch,
     WarmCacheRequiresDurableAtlas,
@@ -715,6 +719,10 @@ impl std::fmt::Display for AppColdStoreRouteCardError {
             Self::MissingActiveRuntimeBytes => write!(
                 f,
                 "AppColdStore route cards require a non-zero active runtime byte plan"
+            ),
+            Self::MissingHotRunway => write!(
+                f,
+                "AppColdStore route cards require at least one hot runway unit"
             ),
             Self::DuplicateVerifier { verifier } => {
                 write!(f, "AppColdStore route-card verifier was duplicated: {verifier}")
@@ -1867,6 +1875,45 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(err, AppColdStoreRouteCardError::MissingActiveRuntimeBytes);
+    }
+
+    #[test]
+    fn app_cold_store_route_card_rejects_warm_active_plan_without_hot_runway() {
+        let warm = block(
+            "warm-active-no-hot-runway",
+            0,
+            256,
+            WeightBlockEncoding::Sherry125,
+            WeightBlockResidencyClass::WarmCompressedUma,
+            Some(rollback_reference()),
+        );
+        let cold = block(
+            "durable-without-hot-runway",
+            1024,
+            4096,
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            Some(rollback_reference()),
+        );
+        let budget = ResidencyBudget::new(0, GIB, 8 * GIB, 0.25, 16).unwrap();
+        let plan = ResidencyPlan::evaluate([warm, cold], budget, 42);
+        assert_eq!(plan.status, ResidencyPlanStatus::FitForDryRun);
+        assert_eq!(plan.totals.hot_uma_bytes, 0);
+        assert!(plan.totals.active_runtime_bytes > 0);
+
+        let err = AppColdStoreRouteCard::from_residency_plan(
+            "deep_research:neural_importance_atlas",
+            verifier_stack(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(err, AppColdStoreRouteCardError::MissingHotRunway);
     }
 
     #[test]

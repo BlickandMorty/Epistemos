@@ -304,6 +304,18 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
     )
     .unwrap_err()
         == AppColdStoreRouteCardError::MissingActiveRuntimeBytes;
+    let warm_active_without_hot_runway_rejected = AppColdStoreRouteCard::from_residency_plan(
+        TASK_SIGNATURE,
+        route_card_verifier_stack(),
+        "rollback:raw-installed-snapshot",
+        ProductBuild::Pro,
+        ProStatus::ResearchCandidate,
+        &plan_without_hot_runway()?,
+        "rebuild_warm_cache_from_durable_atlas",
+        1_779_000_000_000,
+    )
+    .unwrap_err()
+        == AppColdStoreRouteCardError::MissingHotRunway;
 
     let mut measurements = BTreeMap::new();
     let mut thresholds = BTreeMap::new();
@@ -554,6 +566,13 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "warm_active_plan_without_hot_runway_rejected",
+        warm_active_without_hot_runway_rejected,
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "param_route_card_admission_verifier_bound",
         card.verifier_stack
             .iter()
@@ -792,6 +811,32 @@ fn plan_with_cold_source_uri(
     let plan = ResidencyPlan::evaluate([cold, hot], budget, 1_779_000_000_000);
     if plan.status != ResidencyPlanStatus::FitForDryRun {
         return Err("fixture residency plan must fit before source-uri validation".into());
+    }
+    Ok(plan)
+}
+
+fn plan_without_hot_runway() -> Result<ResidencyPlan, Box<dyn std::error::Error>> {
+    let rollback = UasAddress::new(UasKind::ModelComponent, b"dense-reference", 7);
+    let warm = manifest(
+        "warm-adapter-no-hot-runway",
+        1024,
+        256,
+        WeightBlockEncoding::Sherry125,
+        WeightBlockResidencyClass::WarmCompressedUma,
+        Some(rollback.clone()),
+    )?;
+    let cold = manifest(
+        "durable-weight-page-no-hot-runway",
+        2048,
+        4096,
+        WeightBlockEncoding::Nf4,
+        WeightBlockResidencyClass::ColdMmapSsd,
+        Some(rollback),
+    )?;
+    let budget = ResidencyBudget::new(0, 4096, 8192, 0.25, 16)?;
+    let plan = ResidencyPlan::evaluate([cold, warm], budget, 1_779_000_000_000);
+    if plan.status != ResidencyPlanStatus::FitForDryRun {
+        return Err("fixture no-hot-runway residency plan must fit before card validation".into());
     }
     Ok(plan)
 }
