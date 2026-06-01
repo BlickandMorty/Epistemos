@@ -581,6 +581,10 @@ public final class RuntimeRouter {
             return recordReject(role: packet.role, reason: .noLaneAvailable)
         }
 
+        if let rejectReason = invalidPolicyRejectReason(for: packet) {
+            return recordReject(role: packet.role, reason: rejectReason)
+        }
+
         // Privacy-sensitive requests must not escalate to a networked
         // (cloud) lane. If every executable local lane is disabled,
         // reject honestly; `.stub` is in-process but cannot execute.
@@ -711,44 +715,65 @@ public final class RuntimeRouter {
 
         let policy = Self.localPolicyTable[packet.role] ?? Self.defaultLocalPolicy(for: packet.role)
 
+        if Self.hasInvalidPolicyInput(packet) {
+            return .invalidPolicyInput
+        }
+
         if let laneContextWindow = lanes[lane]?.capability.contextWindow,
            laneContextWindow < policy.minimumContextWindow {
             return .contextWindowExceeded
         }
 
         if let classificationConfidence = packet.classificationConfidence {
-            if !classificationConfidence.isFinite || classificationConfidence < 0.0 || classificationConfidence > 1.0 {
-                return .invalidPolicyInput
-            }
             if classificationConfidence < policy.minimumConfidence {
                 return .classificationUncertain
             }
         }
 
         if let estimatedComplexity = packet.estimatedComplexity {
-            if !estimatedComplexity.isFinite || estimatedComplexity < 0.0 || estimatedComplexity > 1.0 {
-                return .invalidPolicyInput
-            }
             if estimatedComplexity > policy.maximumComplexity {
                 return .taskTooComplex
             }
         }
 
         if let toolCountEstimate = packet.toolCountEstimate {
-            if toolCountEstimate < 0 {
-                return .invalidPolicyInput
-            }
             if toolCountEstimate > policy.maximumToolCount {
                 return .tooManyToolCalls
             }
         }
 
-        if let estimatedInputTokens = packet.estimatedInputTokens,
-           estimatedInputTokens < 0 {
+        return nil
+    }
+
+    private func invalidPolicyRejectReason(for packet: MissionPacket) -> RouteVerdict.RejectReason? {
+        if Self.hasInvalidPolicyInput(packet) {
             return .invalidPolicyInput
         }
-
         return nil
+    }
+
+    nonisolated private static func hasInvalidPolicyInput(_ packet: MissionPacket) -> Bool {
+        if let classificationConfidence = packet.classificationConfidence,
+           !Self.isUnitInterval(classificationConfidence) {
+            return true
+        }
+        if let estimatedComplexity = packet.estimatedComplexity,
+           !Self.isUnitInterval(estimatedComplexity) {
+            return true
+        }
+        if let toolCountEstimate = packet.toolCountEstimate,
+           toolCountEstimate < 0 {
+            return true
+        }
+        if let estimatedInputTokens = packet.estimatedInputTokens,
+           estimatedInputTokens < 0 {
+            return true
+        }
+        return false
+    }
+
+    nonisolated private static func isUnitInterval(_ value: Double) -> Bool {
+        value.isFinite && value >= 0.0 && value <= 1.0
     }
 
     private func nextLane(after lane: RuntimeLane, in chain: [RuntimeLane]) -> RuntimeLane? {
