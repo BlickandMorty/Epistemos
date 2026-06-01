@@ -52,7 +52,10 @@ class BrotliTransferAssetsPlugin {
 module.exports = (_env, argv) => ({
   // WKWebView, NOT Node — disable Node-style polyfills.
   target: 'web',
-  entry: { editor: './src/index.ts' },
+  entry: {
+    editor: './src/index.ts',
+    'code-editor': './src/code-editor.ts',
+  },
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: '[name].js',
@@ -111,12 +114,20 @@ module.exports = (_env, argv) => ({
     ],
   },
   plugins: [
-    new MiniCssExtractPlugin({ filename: 'editor.css' }),
+    new MiniCssExtractPlugin({ filename: '[name].css' }),
     new HtmlWebpackPlugin({
       template: './src/editor.html',
       filename: 'editor.html',
+      chunks: ['editor'],
       inject: 'body',
       scriptLoading: 'blocking',              // WKWebView mounts deterministically
+    }),
+    new HtmlWebpackPlugin({
+      template: './src/code-editor.html',
+      filename: 'code-editor.html',
+      chunks: ['code-editor'],
+      inject: 'body',
+      scriptLoading: 'blocking',
     }),
     new CopyPlugin({
       patterns: [

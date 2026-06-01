@@ -45,6 +45,10 @@ struct WebKitCodeEditorView: NSViewRepresentable {
         configuration.websiteDataStore = WKWebsiteDataStore.nonPersistent()
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
+        configuration.setURLSchemeHandler(
+            EpdocEditorURLSchemeHandler(),
+            forURLScheme: epdocEditorURLScheme
+        )
         configuration.userContentController.add(
             context.coordinator,
             name: WebKitCodeEditorBridge.messageHandlerName
@@ -106,7 +110,11 @@ struct WebKitCodeEditorView: NSViewRepresentable {
         }
 
         func loadEditor(into webView: WKWebView) {
-            webView.loadHTMLString(WebKitCodeEditorDocument.html, baseURL: nil)
+            if let url = URL(string: "\(epdocEditorURLScheme):///code-editor.html") {
+                webView.load(URLRequest(url: url))
+            } else {
+                webView.loadHTMLString(WebKitCodeEditorDocument.html, baseURL: nil)
+            }
         }
 
         func detach(from webView: WKWebView) {

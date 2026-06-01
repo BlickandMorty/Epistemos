@@ -73,6 +73,20 @@ private struct SidebarDocumentItem: Identifiable, Equatable, Sendable {
     }
 }
 
+private struct SidebarHTMLWorkspaceItem: Identifiable, Equatable, Sendable {
+    let id: String
+    let title: String
+    let url: URL
+    let updatedAt: Date
+
+    nonisolated init(id: String, title: String, url: URL, updatedAt: Date) {
+        self.id = id
+        self.title = title
+        self.url = url
+        self.updatedAt = updatedAt
+    }
+}
+
 private struct SidebarFolderItem: Identifiable, Equatable {
     let id: String
     let name: String
@@ -697,6 +711,7 @@ struct NotesSidebar: View {
     @State private var cachedPageIdsByFolderId: [String: [String]] = [:]
     @State private var cachedIdeaItems: [SidebarIdeaItem] = []
     @State private var cachedDocumentItems: [SidebarDocumentItem] = []
+    @State private var cachedHTMLWorkspaceItems: [SidebarHTMLWorkspaceItem] = []
     @State private var cachedPinnedPageItems: [SidebarPageItem] = []
     @State private var cachedLoosePageItems: [SidebarPageItem] = []
     @State private var cachedCollectionFolderItems: [SidebarFolderItem] = []
@@ -711,6 +726,8 @@ struct NotesSidebar: View {
     @State private var cachedBodySearchQueryOrder: [String] = []
     @State private var epdocDocumentScanTask: Task<Void, Never>?
     @State private var epdocDocumentScanVaultURL: URL?
+    @State private var htmlWorkspaceDocumentScanTask: Task<Void, Never>?
+    @State private var htmlWorkspaceDocumentScanVaultURL: URL?
     @State private var hasDailyNotesFolder = false
     @State private var rebuildTask: Task<Void, Never>?
     @State private var bodySearchTask: Task<Void, Never>?
@@ -742,6 +759,7 @@ struct NotesSidebar: View {
 
     private func rebuildCache() {
         refreshEpdocDocuments(in: vaultSync.vaultURL)
+        refreshHTMLWorkspaceDocuments(in: vaultSync.vaultURL)
 
         let primaryPages = allPages.filter { page in
             Self.shouldDisplayInPrimaryTree(page)
@@ -912,6 +930,33 @@ struct NotesSidebar: View {
         }
     }
 
+    private func refreshHTMLWorkspaceDocuments(in vaultURL: URL?, force: Bool = false) {
+        guard let vaultURL else {
+            htmlWorkspaceDocumentScanTask?.cancel()
+            htmlWorkspaceDocumentScanTask = nil
+            htmlWorkspaceDocumentScanVaultURL = nil
+            cachedHTMLWorkspaceItems = []
+            return
+        }
+
+        guard force || htmlWorkspaceDocumentScanVaultURL != vaultURL else { return }
+
+        htmlWorkspaceDocumentScanTask?.cancel()
+        htmlWorkspaceDocumentScanVaultURL = vaultURL
+        htmlWorkspaceDocumentScanTask = Task { @MainActor in
+            let documents = await Task.detached(priority: .utility) {
+                Self.scanHTMLWorkspaceDocuments(in: vaultURL)
+            }.value
+
+            guard !Task.isCancelled,
+                  htmlWorkspaceDocumentScanVaultURL == vaultURL,
+                  vaultSync.vaultURL == vaultURL else {
+                return
+            }
+            cachedHTMLWorkspaceItems = documents
+        }
+    }
+
     private nonisolated static func scanEpdocDocuments(in vaultURL: URL?) -> [SidebarDocumentItem] {
         guard let vaultURL else { return [] }
         let fileManager = FileManager.default
@@ -943,10 +988,51 @@ struct NotesSidebar: View {
         }
     }
 
+    private nonisolated static func scanHTMLWorkspaceDocuments(in vaultURL: URL?) -> [SidebarHTMLWorkspaceItem] {
+        guard let vaultURL else { return [] }
+        let fileManager = FileManager.default
+        guard let enumerator = fileManager.enumerator(
+            at: vaultURL,
+            includingPropertiesForKeys: [.isDirectoryKey, .contentModificationDateKey],
+            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+        ) else {
+            return []
+        }
+
+        var documents: [SidebarHTMLWorkspaceItem] = []
+        for case let url as URL in enumerator where url.pathExtension == "htmlworkspace" {
+            let values = try? url.resourceValues(forKeys: [.contentModificationDateKey])
+            let updatedAt = values?.contentModificationDate ?? .distantPast
+            let title = htmlWorkspaceTitle(at: url) ?? url.deletingPathExtension().lastPathComponent
+            documents.append(
+                SidebarHTMLWorkspaceItem(
+                    id: url.path,
+                    title: title.isEmpty ? "Untitled HTML Workspace" : title,
+                    url: url,
+                    updatedAt: updatedAt
+                )
+            )
+        }
+        return documents.sorted {
+            if $0.updatedAt == $1.updatedAt { return $0.title < $1.title }
+            return $0.updatedAt > $1.updatedAt
+        }
+    }
+
     private nonisolated static func epdocTitle(at url: URL) -> String? {
         let manifestURL = url.appendingPathComponent(EpdocPackageEntry.manifest)
         guard let data = try? Data(contentsOf: manifestURL),
               let manifest = try? JSONDecoder.epdocCanonical.decode(EpdocManifest.self, from: data) else {
+            return nil
+        }
+        let title = manifest.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return title.isEmpty ? nil : title
+    }
+
+    private nonisolated static func htmlWorkspaceTitle(at url: URL) -> String? {
+        let manifestURL = url.appendingPathComponent(HTMLWorkspacePackageEntry.manifest)
+        guard let data = try? Data(contentsOf: manifestURL),
+              let manifest = try? JSONDecoder.epdocCanonical.decode(HTMLWorkspaceManifest.self, from: data) else {
             return nil
         }
         let title = manifest.title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1066,6 +1152,8 @@ struct NotesSidebar: View {
         .onDisappear {
             rebuildTask?.cancel()
             bodySearchTask?.cancel()
+            epdocDocumentScanTask?.cancel()
+            htmlWorkspaceDocumentScanTask?.cancel()
         }
     }
 
@@ -1229,6 +1317,13 @@ struct NotesSidebar: View {
             )
         }
 
+        if !cachedHTMLWorkspaceItems.isEmpty {
+            HTMLWorkspacesSection(
+                workspaces: cachedHTMLWorkspaceItems,
+                onAction: onAction
+            )
+        }
+
         // ── FILES SECTION ── loose pages not in any folder.
         let loose = cachedLoosePageItems
         VStack(alignment: .leading, spacing: 0) {
@@ -1352,6 +1447,7 @@ struct NotesSidebar: View {
             EditorActionsBar(
                 activePageId: currentSelectedPageId,
                 onNewDocument: { openNewEpdocDocument() },
+                onNewHTMLWorkspace: { openNewHTMLWorkspaceDocument() },
                 onNewPage: {
                     Task {
                         if let pageId = await vaultSync.createPage(title: "Untitled", allowVaultSelectionPrompt: true) {
@@ -2222,6 +2318,16 @@ struct NotesSidebar: View {
         }
     }
 
+    private func openNewHTMLWorkspaceDocument() {
+        do {
+            try NSDocumentController.shared.createUntitledHTMLWorkspaceDocument(in: vaultSync.vaultURL)
+            refreshHTMLWorkspaceDocuments(in: vaultSync.vaultURL, force: true)
+            scheduleDeferredRebuild(after: .milliseconds(250), source: "html workspace create")
+        } catch {
+            NSApplication.shared.presentError(error)
+        }
+    }
+
     private func getOrCreateTodayJournal() async {
         let today = Date.now
         let formatter = DateFormatter()
@@ -2713,6 +2819,32 @@ private struct DocumentsSection: View {
     }
 }
 
+private struct HTMLWorkspacesSection: View {
+    let workspaces: [SidebarHTMLWorkspaceItem]
+    let onAction: (SidebarAction) -> Void
+
+    @Environment(UIState.self) private var ui
+
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("HTML Workspaces")
+                .font(AppHeadingRole.section.font)
+                .foregroundStyle(theme.fontAccent)
+                .textCase(.uppercase)
+                .tracking(AppHeadingRole.section.tracking)
+                .padding(.horizontal, 14)
+                .padding(.top, 12)
+                .padding(.bottom, 2)
+
+            ForEach(workspaces) { workspace in
+                HTMLWorkspaceRow(item: workspace, onAction: onAction)
+            }
+        }
+    }
+}
+
 private struct DocumentRow: View {
     let item: SidebarDocumentItem
     let onAction: (SidebarAction) -> Void
@@ -2745,6 +2877,45 @@ private struct DocumentRow: View {
         .notesSidebarHoverTick(style: .file)
         .contextMenu {
             Button("Open Document") {
+                onAction(.openDocument(item.url))
+            }
+        }
+        .help(item.url.lastPathComponent)
+    }
+}
+
+private struct HTMLWorkspaceRow: View {
+    let item: SidebarHTMLWorkspaceItem
+    let onAction: (SidebarAction) -> Void
+
+    @Environment(UIState.self) private var ui
+
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
+
+    var body: some View {
+        Button {
+            onAction(.openDocument(item.url))
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "curlybraces.square")
+                    .font(.epCaption)
+                    .foregroundStyle(theme.mutedForeground.opacity(0.55))
+                    .frame(width: 14)
+                Text(item.title)
+                    .font(.epBody)
+                    .foregroundStyle(theme.resolved.foreground.color.opacity(0.82))
+                    .lineLimit(1)
+                Spacer()
+            }
+            .padding(.leading, 14)
+            .padding(.trailing, 10)
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .notesSidebarHoverTick(style: .file)
+        .contextMenu {
+            Button("Open HTML Workspace") {
                 onAction(.openDocument(item.url))
             }
         }
@@ -3143,6 +3314,7 @@ private struct NoVaultConnectedBanner: View {
 private struct EditorActionsBar: View {
     let activePageId: String?
     let onNewDocument: () -> Void
+    let onNewHTMLWorkspace: () -> Void
     let onNewPage: () -> Void
     let onNewFolder: () -> Void
     let onNewCollection: () -> Void
@@ -3170,6 +3342,12 @@ private struct EditorActionsBar: View {
                 tooltip: vaultSync.vaultURL == nil ? "Select Vault to Create Document" : "New Document (.epdoc)"
             ) {
                 onNewDocument()
+            }
+            SidebarIconButton(
+                icon: "curlybraces.square",
+                tooltip: vaultSync.vaultURL == nil ? "Select Vault to Create HTML Workspace" : "New HTML Workspace"
+            ) {
+                onNewHTMLWorkspace()
             }
             SidebarIconButton(
                 icon: "folder.badge.plus",
