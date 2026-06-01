@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 struct HTMLWorkspaceEditorView: View {
     @Binding var package: HTMLWorkspacePackage
+    let theme: EpistemosTheme?
     @Environment(\.colorScheme) private var colorScheme
     @State private var previewPackage: HTMLWorkspacePackage
     @State private var selectedPane: HTMLWorkspaceSourcePane = .html
@@ -14,8 +15,9 @@ struct HTMLWorkspaceEditorView: View {
     @State private var isExportingPDF = false
     @State private var statusText: String?
 
-    init(package: Binding<HTMLWorkspacePackage>) {
+    init(package: Binding<HTMLWorkspacePackage>, theme: EpistemosTheme? = nil) {
         self._package = package
+        self.theme = theme
         self._previewPackage = State(initialValue: package.wrappedValue)
     }
 
@@ -35,6 +37,7 @@ struct HTMLWorkspaceEditorView: View {
             previewUpdateTask?.cancel()
             previewUpdateTask = nil
         }
+        .background(workspaceTheme.resolved.background.color)
     }
 
     @ViewBuilder
@@ -59,6 +62,7 @@ struct HTMLWorkspaceEditorView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(package.manifest.title.isEmpty ? "HTML Workspace" : package.manifest.title)
                     .font(.headline)
+                    .foregroundStyle(workspaceTheme.resolved.foreground.color)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Text("\(contentHash.prefix(10)) / \(HTMLWorkspaceDOMOutline.nodeCount(in: package.indexHTML)) DOM")
@@ -152,6 +156,7 @@ struct HTMLWorkspaceEditorView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+        .background(headerFill)
     }
 
     private var sourceShell: some View {
@@ -201,7 +206,7 @@ struct HTMLWorkspaceEditorView: View {
             sourceRailStatus
         }
         .padding(8)
-        .background(.bar)
+        .background(panelFill)
     }
 
     private var sourceRailStatus: some View {
@@ -275,24 +280,24 @@ struct HTMLWorkspaceEditorView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(.bar)
+        .background(headerFill)
     }
 
     @ViewBuilder
     private var sourceEditor: some View {
         switch selectedPane {
         case .html:
-            HTMLWorkspaceCodeEditor(text: $package.indexHTML, colorScheme: colorScheme)
+            HTMLWorkspaceCodeEditor(text: $package.indexHTML, colorScheme: workspaceColorScheme)
         case .css:
-            HTMLWorkspaceCodeEditor(text: $package.styleCSS, colorScheme: colorScheme)
+            HTMLWorkspaceCodeEditor(text: $package.styleCSS, colorScheme: workspaceColorScheme)
         case .js:
-            HTMLWorkspaceCodeEditor(text: $package.scriptJS, colorScheme: colorScheme)
+            HTMLWorkspaceCodeEditor(text: $package.scriptJS, colorScheme: workspaceColorScheme)
         case .data:
-            HTMLWorkspaceCodeEditor(text: $package.dataJSON, colorScheme: colorScheme)
+            HTMLWorkspaceCodeEditor(text: $package.dataJSON, colorScheme: workspaceColorScheme)
         case .dom:
-            HTMLWorkspaceCodeEditor(text: .constant(domOutlineText), isEditable: false, colorScheme: colorScheme)
+            HTMLWorkspaceCodeEditor(text: .constant(domOutlineText), isEditable: false, colorScheme: workspaceColorScheme)
         case .assets:
-            HTMLWorkspaceCodeEditor(text: .constant(assetManifestText), isEditable: false, colorScheme: colorScheme)
+            HTMLWorkspaceCodeEditor(text: .constant(assetManifestText), isEditable: false, colorScheme: workspaceColorScheme)
         }
     }
 
@@ -332,7 +337,7 @@ struct HTMLWorkspaceEditorView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(.bar)
+        .background(headerFill)
     }
 
     private var consolePanel: some View {
@@ -370,7 +375,7 @@ struct HTMLWorkspaceEditorView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(.bar)
+        .background(panelFill)
     }
 
     private var inspectorPanel: some View {
@@ -400,7 +405,7 @@ struct HTMLWorkspaceEditorView: View {
             Spacer(minLength: 0)
         }
         .padding(12)
-        .background(.regularMaterial)
+        .background(panelFill)
     }
 
     private func inspectorRow(_ label: String, _ value: String) -> some View {
@@ -465,7 +470,24 @@ struct HTMLWorkspaceEditorView: View {
     }
 
     private var previewTheme: HTMLWorkspacePreviewTheme {
-        colorScheme == .dark ? .dark : .light
+        workspaceTheme.isDark ? .dark : .light
+    }
+
+    private var workspaceTheme: EpistemosTheme {
+        (theme ?? (colorScheme == .dark ? EpistemosTheme.oledSoft : EpistemosTheme.light))
+            .surfaceVariant(.other)
+    }
+
+    private var workspaceColorScheme: ColorScheme {
+        workspaceTheme.isDark ? .dark : .light
+    }
+
+    private var panelFill: Color {
+        workspaceTheme.card.opacity(workspaceTheme.isDark ? 0.78 : 0.94)
+    }
+
+    private var headerFill: Color {
+        workspaceTheme.resolved.background.color.opacity(workspaceTheme.isDark ? 0.68 : 0.90)
     }
 
     private var previewRenderIdentity: String {

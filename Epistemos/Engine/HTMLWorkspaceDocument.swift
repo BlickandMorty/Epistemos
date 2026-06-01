@@ -43,7 +43,7 @@ private struct HTMLWorkspaceDocumentRoot: View {
             HTMLWorkspaceDocumentThemedRoot(package: $package)
                 .withAppEnvironment(bootstrap)
         } else {
-            HTMLWorkspaceEditorView(package: $package)
+            HTMLWorkspaceEditorView(package: $package, theme: nil)
         }
     }
 }
@@ -54,7 +54,7 @@ private struct HTMLWorkspaceDocumentThemedRoot: View {
     @Binding var package: HTMLWorkspacePackage
 
     var body: some View {
-        HTMLWorkspaceEditorView(package: $package)
+        HTMLWorkspaceEditorView(package: $package, theme: ui.theme.surfaceVariant(.other))
             .preferredColorScheme(ui.preferredColorScheme)
     }
 }
