@@ -18,6 +18,7 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = WKWebsiteDataStore.nonPersistent()
         configuration.defaultWebpagePreferences.allowsContentJavaScript = true
+        configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
         if safeAPIEnabled && package.manifest.sandboxPolicy.allowAppBridge {
             configuration.userContentController.add(
                 context.coordinator,
@@ -29,6 +30,7 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = false
+        webView.allowsLinkPreview = false
         loadPreview(into: webView, context: context)
         return webView
     }
@@ -42,12 +44,7 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
     }
 
     static func dismantleNSView(_ webView: WKWebView, coordinator: Coordinator) {
-        webView.navigationDelegate = nil
-        if coordinator.messageHandlerInstalled {
-            webView.configuration.userContentController.removeScriptMessageHandler(
-                forName: HTMLWorkspaceSafeAPI.messageHandlerName
-            )
-        }
+        coordinator.detach(from: webView)
     }
 
     private func loadPreview(into webView: WKWebView, context: Context) {
@@ -110,6 +107,18 @@ struct HTMLWorkspacePreviewView: NSViewRepresentable {
                 )
                 messageHandlerInstalled = false
             }
+        }
+
+        func detach(from webView: WKWebView) {
+            webView.stopLoading()
+            webView.navigationDelegate = nil
+            if messageHandlerInstalled {
+                webView.configuration.userContentController.removeScriptMessageHandler(
+                    forName: HTMLWorkspaceSafeAPI.messageHandlerName
+                )
+                messageHandlerInstalled = false
+            }
+            lastRenderedHTML = nil
         }
 
         func userContentController(
