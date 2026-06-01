@@ -277,6 +277,75 @@ nonisolated public struct EidosCitationEnvelope: Codable, Hashable, Sendable {
     }
 }
 
+/// How strongly a downstream route is expected to need closed citations.
+/// Mirrors Rust `EidosCitationNeed`; this is a planning hint, not admission.
+nonisolated public enum EidosCitationNeed: String, Codable, Hashable, Sendable, CaseIterable {
+    case none
+    case optional
+    case required
+}
+
+/// Eidos-derived route hint for NeuralImportance / ActiveAssembly planning.
+/// Mirrors Rust `EidosRoutePrior`; it carries evidence and route-prior hints
+/// only, with no model bytes, admission proof, or runtime authority.
+nonisolated public struct EidosRoutePrior: Codable, Hashable, Sendable {
+    public let taskSignature: String
+    public let manifestId: EidosIndexManifestId
+    public let evidenceIds: [EidosChunkId]
+    public let citationNeed: EidosCitationNeed
+    public let domainTags: [String]
+    public let contradictionHints: [String]
+    public let likelyVerifiers: [String]
+    public let likelyAdapterFamilies: [String]
+    public let likelyKvRegions: [String]
+    public let likelyWeightPageFamilies: [String]
+    public let confidence: Float
+    public let whyMatched: [String]
+
+    public init(
+        taskSignature: String,
+        manifestId: EidosIndexManifestId,
+        evidenceIds: [EidosChunkId],
+        citationNeed: EidosCitationNeed,
+        domainTags: [String],
+        contradictionHints: [String],
+        likelyVerifiers: [String],
+        likelyAdapterFamilies: [String],
+        likelyKvRegions: [String],
+        likelyWeightPageFamilies: [String],
+        confidence: Float,
+        whyMatched: [String]
+    ) {
+        self.taskSignature = taskSignature
+        self.manifestId = manifestId
+        self.evidenceIds = evidenceIds
+        self.citationNeed = citationNeed
+        self.domainTags = domainTags
+        self.contradictionHints = contradictionHints
+        self.likelyVerifiers = likelyVerifiers
+        self.likelyAdapterFamilies = likelyAdapterFamilies
+        self.likelyKvRegions = likelyKvRegions
+        self.likelyWeightPageFamilies = likelyWeightPageFamilies
+        self.confidence = confidence
+        self.whyMatched = whyMatched
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case taskSignature = "task_signature"
+        case manifestId = "manifest_id"
+        case evidenceIds = "evidence_ids"
+        case citationNeed = "citation_need"
+        case domainTags = "domain_tags"
+        case contradictionHints = "contradiction_hints"
+        case likelyVerifiers = "likely_verifiers"
+        case likelyAdapterFamilies = "likely_adapter_families"
+        case likelyKvRegions = "likely_kv_regions"
+        case likelyWeightPageFamilies = "likely_weight_page_families"
+        case confidence
+        case whyMatched = "why_matched"
+    }
+}
+
 /// Snapshot descriptor. Live Files binding lands under W-row backlog.
 nonisolated public struct EidosIndexManifest: Codable, Hashable, Sendable {
     public let id: EidosIndexManifestId
