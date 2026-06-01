@@ -114,60 +114,12 @@ struct SettingsAppleCardChrome: ViewModifier {
                         lineWidth: theme.isDark ? 0.6 : 0.8
                     )
             }
-            .overlay {
-                SettingsPanelPixelCorner(theme: theme, cornerRadius: 8)
-            }
             .shadow(
                 color: Color.black.opacity(theme.isDark ? 0.24 : 0.10),
                 radius: theme.isDark ? 14 : 18,
                 x: 0,
                 y: theme.isDark ? 7 : 9
             )
-    }
-}
-
-private struct SettingsPanelPixelCorner: View {
-    let theme: EpistemosTheme
-    let cornerRadius: CGFloat
-
-    var body: some View {
-        Canvas { context, size in
-            let width = max(size.width, 1)
-            let height = max(size.height, 1)
-            let thickness: CGFloat = 2.5
-            let inset: CGFloat = 7
-            let long = min(max(26, min(width, height) * 0.18), 42)
-            let step = thickness * 4
-            let inner = long * 0.42
-            let tint = theme.resolved.accent.color.opacity(theme.isDark ? 0.36 : 0.28)
-
-            func fill(_ rect: CGRect) {
-                context.fill(Path(rect.integral), with: .color(tint))
-            }
-
-            fill(CGRect(x: inset, y: inset, width: long, height: thickness))
-            fill(CGRect(x: inset, y: inset, width: thickness, height: long))
-            fill(CGRect(x: inset + step, y: inset + step, width: inner, height: thickness))
-            fill(CGRect(x: inset + step, y: inset + step, width: thickness, height: inner))
-
-            fill(CGRect(x: width - inset - long, y: inset, width: long, height: thickness))
-            fill(CGRect(x: width - inset - thickness, y: inset, width: thickness, height: long))
-            fill(CGRect(x: width - inset - step - inner, y: inset + step, width: inner, height: thickness))
-            fill(CGRect(x: width - inset - step - thickness, y: inset + step, width: thickness, height: inner))
-
-            fill(CGRect(x: inset, y: height - inset - thickness, width: long, height: thickness))
-            fill(CGRect(x: inset, y: height - inset - long, width: thickness, height: long))
-            fill(CGRect(x: inset + step, y: height - inset - step - thickness, width: inner, height: thickness))
-            fill(CGRect(x: inset + step, y: height - inset - step - inner, width: thickness, height: inner))
-
-            fill(CGRect(x: width - inset - long, y: height - inset - thickness, width: long, height: thickness))
-            fill(CGRect(x: width - inset - thickness, y: height - inset - long, width: thickness, height: long))
-            fill(CGRect(x: width - inset - step - inner, y: height - inset - step - thickness, width: inner, height: thickness))
-            fill(CGRect(x: width - inset - step - thickness, y: height - inset - step - inner, width: thickness, height: inner))
-        }
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
     }
 }
 
