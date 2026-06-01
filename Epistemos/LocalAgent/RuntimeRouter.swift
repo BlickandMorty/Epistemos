@@ -709,19 +709,36 @@ public final class RuntimeRouter {
 
         let policy = Self.localPolicyTable[packet.role] ?? Self.defaultLocalPolicy(for: packet.role)
 
-        if let classificationConfidence = packet.classificationConfidence,
-           !classificationConfidence.isFinite || classificationConfidence < policy.minimumConfidence {
-            return .classificationUncertain
+        if let classificationConfidence = packet.classificationConfidence {
+            if !classificationConfidence.isFinite || classificationConfidence < 0.0 || classificationConfidence > 1.0 {
+                return .invalidPolicyInput
+            }
+            if classificationConfidence < policy.minimumConfidence {
+                return .classificationUncertain
+            }
         }
 
-        if let estimatedComplexity = packet.estimatedComplexity,
-           !estimatedComplexity.isFinite || estimatedComplexity > policy.maximumComplexity {
-            return .taskTooComplex
+        if let estimatedComplexity = packet.estimatedComplexity {
+            if !estimatedComplexity.isFinite || estimatedComplexity < 0.0 || estimatedComplexity > 1.0 {
+                return .invalidPolicyInput
+            }
+            if estimatedComplexity > policy.maximumComplexity {
+                return .taskTooComplex
+            }
         }
 
-        if let toolCountEstimate = packet.toolCountEstimate,
-           toolCountEstimate > policy.maximumToolCount {
-            return .tooManyToolCalls
+        if let toolCountEstimate = packet.toolCountEstimate {
+            if toolCountEstimate < 0 {
+                return .invalidPolicyInput
+            }
+            if toolCountEstimate > policy.maximumToolCount {
+                return .tooManyToolCalls
+            }
+        }
+
+        if let estimatedInputTokens = packet.estimatedInputTokens,
+           estimatedInputTokens < 0 {
+            return .invalidPolicyInput
         }
 
         return nil
@@ -848,6 +865,10 @@ nonisolated public struct StubRuntimeExecutor: RuntimeExecutor {
     public func canHandle(_ request: MissionPacket) -> RouteVerdict {
         // The stub knows nothing about model weights or context
         // length beyond what its capability surface advertises.
+        if let estimatedInputTokens = request.estimatedInputTokens,
+           estimatedInputTokens < 0 {
+            return .escalate(from: id, to: id, reason: .invalidPolicyInput)
+        }
         if request.requiresVision && !capability.vision {
             return .escalate(from: id, to: id, reason: .visionUnsupported)
         }

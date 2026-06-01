@@ -83,6 +83,23 @@ fn runtime_router_gates_local_lanes_with_policy_table() {
 }
 
 #[test]
+fn runtime_router_rejects_malformed_policy_hints_before_local_acceptance() {
+    for snippet in [
+        "case invalidPolicyInput = \"invalid_policy_input\"",
+        "classificationConfidence < 0.0 || classificationConfidence > 1.0",
+        "estimatedComplexity < 0.0 || estimatedComplexity > 1.0",
+        "toolCountEstimate < 0",
+        "estimatedInputTokens < 0",
+        "return .invalidPolicyInput",
+    ] {
+        assert!(
+            RUNTIME_ROUTER_SOURCE.contains(snippet) || RUNTIME_EXECUTOR_SOURCE.contains(snippet),
+            "RuntimeRouter must reject malformed policy hint snippet `{snippet}` before local acceptance"
+        );
+    }
+}
+
+#[test]
 fn runtime_router_keeps_privacy_sensitive_routes_off_cloud_lanes() {
     for snippet in [
         "if packet.privacySensitive",
