@@ -277,6 +277,58 @@ pub fn write_artifact<W: std::io::Write>(
     Ok(())
 }
 
+pub fn add_bool_axis(
+    measurements: &mut BTreeMap<String, Measurement>,
+    thresholds: &mut BTreeMap<String, AcceptanceThreshold>,
+    pass_per_axis: &mut BTreeMap<String, bool>,
+    name: &str,
+    passed: bool,
+) {
+    measurements.insert(
+        name.to_string(),
+        Measurement {
+            value: serde_json::Value::Bool(passed),
+            unit: "bool".to_string(),
+        },
+    );
+    thresholds.insert(
+        name.to_string(),
+        AcceptanceThreshold {
+            operator: "==".to_string(),
+            value: serde_json::Value::Bool(true),
+            unit: "bool".to_string(),
+        },
+    );
+    pass_per_axis.insert(name.to_string(), passed);
+}
+
+pub fn add_count_eq_axis(
+    measurements: &mut BTreeMap<String, Measurement>,
+    thresholds: &mut BTreeMap<String, AcceptanceThreshold>,
+    pass_per_axis: &mut BTreeMap<String, bool>,
+    name: &str,
+    actual: u64,
+    expected: u64,
+    unit: &str,
+) {
+    measurements.insert(
+        name.to_string(),
+        Measurement {
+            value: serde_json::Value::from(actual),
+            unit: unit.to_string(),
+        },
+    );
+    thresholds.insert(
+        name.to_string(),
+        AcceptanceThreshold {
+            operator: "==".to_string(),
+            value: serde_json::Value::from(expected),
+            unit: unit.to_string(),
+        },
+    );
+    pass_per_axis.insert(name.to_string(), actual == expected);
+}
+
 /// RFC 3339 UTC `Z` timestamp string.
 pub fn now_utc_rfc3339() -> String {
     chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string()
