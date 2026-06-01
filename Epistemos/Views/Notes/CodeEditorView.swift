@@ -1790,7 +1790,7 @@ struct CodeEditorView: View {
     // Default matches the prose editor's body font size so code notes
     // share the same visual rhythm; users who previously bumped the
     // size up or down keep their saved choice.
-    @AppStorage("codeEditor.fontSize") private var fontSize: Double = 15
+    @AppStorage("codeEditor.fontSize") private var fontSize: Double = 13
     @AppStorage("codeEditor.useSpaces") private var useSpaces = true
     @AppStorage("codeEditor.tabWidth") private var tabWidth = 4
     // Native CodeEditSourceEditor gutter. Default ON: this is the real
@@ -1799,8 +1799,9 @@ struct CodeEditorView: View {
     @AppStorage("epistemos.codeEditor.showFoldingRibbon") private var showFoldingRibbon = true
     @AppStorage("epistemos.codeEditor.showIndentationGuides") private var showIndentationGuides = true
     @AppStorage("epistemos.codeEditor.useNativeSourceEditorFallback") private var useNativeSourceEditorFallback = false
+    @AppStorage("epistemos.codeEditor.webKitPrimaryFontMigration20260601") private var didMigrateWebKitPrimaryFont = false
 
-    private var usesWebKitEditor: Bool { !useNativeSourceEditorFallback }
+    private var usesWebKitEditor: Bool { true }
     
     // MARK: - UI State
 
@@ -1844,10 +1845,10 @@ struct CodeEditorView: View {
     var body: some View {
         editorContent
             .onAppear {
+                normalizeCodeEditorPreferences()
                 ensureEditorCoordinator()
                 bindNoteChatContext(with: text)
                 showSemanticSidebar = false
-                scheduleOutlineRefresh(for: text, immediate: true)
                 applyGutterPreferences()
             }
             .onDisappear {
@@ -1866,8 +1867,13 @@ struct CodeEditorView: View {
                 semanticLookupTask?.cancel()
                 semanticStatusMessage = nil
                 semanticStatusIsLoading = false
+                if usesWebKitEditor {
+                    ensureContentDebouncer().enqueue(newText)
+                }
                 bindNoteChatContext(with: newText)
-                scheduleOutlineRefresh(for: newText)
+                if showOutlineNavigator {
+                    scheduleOutlineRefresh(for: newText)
+                }
             }
             .onChange(of: initialContent) { oldValue, newValue in
                 guard newValue != text else { return }
@@ -1875,7 +1881,9 @@ struct CodeEditorView: View {
                 text = newValue
                 totalLines = CodeEditorLineMetrics.lineCount(newValue)
                 bindNoteChatContext(with: newValue)
-                scheduleOutlineRefresh(for: newValue, immediate: true)
+                if showOutlineNavigator {
+                    scheduleOutlineRefresh(for: newValue, immediate: true)
+                }
             }
             .onChange(of: cursorLine) { _, newLine in
                 updateBreadcrumbs()
@@ -1908,6 +1916,14 @@ struct CodeEditorView: View {
             .onChange(of: searchCaseSensitive) { _, _ in
                 activeSearchRange = nil
             }
+            .onChange(of: showOutlineNavigator) { _, isVisible in
+                if isVisible {
+                    scheduleOutlineRefresh(for: text, immediate: true)
+                } else {
+                    outlineRefreshTask?.cancel()
+                    outlineItems = []
+                }
+            }
     }
 
     /// Pushes gutter visibility, theme tokens, and font into the AppKit
@@ -1927,6 +1943,26 @@ struct CodeEditorView: View {
         coordinator.applyLineGutterState(totalLines: totalLines, cursorLine: cursorLine)
     }
 
+    private func normalizeCodeEditorPreferences() {
+        // The CodeEditSourceEditor path remains compiled as an emergency
+        // fallback, but product code-file notes should always open on the
+        // WebKit editor surface. Self-heal older user defaults that kept the
+        // old native editor enabled.
+        if useNativeSourceEditorFallback {
+            useNativeSourceEditorFallback = false
+        }
+
+        // The old default was 15pt and made the code note surface feel unlike
+        // the compact HTML workspace editor. Keep explicit user choices, but
+        // migrate installs still sitting on the old default.
+        if !didMigrateWebKitPrimaryFont {
+            if abs(fontSize - 15) < 0.01 {
+                fontSize = 13
+            }
+            didMigrateWebKitPrimaryFont = true
+        }
+    }
+
     private func bindNoteChatContext(with text: String) {
         let capturedText = text
         let capturedGraphState = graphState
@@ -1940,12 +1976,9 @@ struct CodeEditorView: View {
     }
 
     private func ensureEditorCoordinator() {
+        let debouncer = ensureContentDebouncer()
+        guard !usesWebKitEditor else { return }
         guard sourceEditorCoordinator == nil else { return }
-        let debouncer = contentDebouncer ?? CodeEditorContentDebouncer { newText in
-            onContentChange?(newText)
-            updateSemanticContext(newText)
-        }
-        contentDebouncer = debouncer
 
         let coordinator = EpistemosEditorCoordinator(
             cursorLine: $cursorLine,
@@ -1957,6 +1990,19 @@ struct CodeEditorView: View {
         )
         coordinator.setLineGutterEnabled(false)
         sourceEditorCoordinator = coordinator
+    }
+
+    @discardableResult
+    private func ensureContentDebouncer() -> CodeEditorContentDebouncer {
+        if let contentDebouncer {
+            return contentDebouncer
+        }
+        let debouncer = CodeEditorContentDebouncer { newText in
+            onContentChange?(newText)
+            updateSemanticContext(newText)
+        }
+        contentDebouncer = debouncer
+        return debouncer
     }
     
     // MARK: - Outline Management
@@ -1989,7 +2035,7 @@ struct CodeEditorView: View {
     
     private var editorContent: some View {
         VStack(spacing: 8) {
-            breadcrumbBar
+            codeEditorTopBar
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -2013,6 +2059,73 @@ struct CodeEditorView: View {
             .padding(.horizontal, 12)
             .padding(.bottom, 12)
         }
+    }
+
+    private var codeEditorTopBar: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "chevron.left.forwardslash.chevron.right")
+                .foregroundStyle(ui.theme.resolved.accent.color)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(codeEditorDisplayName)
+                    .font(.system(size: 12.5, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(ui.theme.resolved.foreground.color)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text("\(CodeLanguage.displayName(for: language)) · \(totalLines) lines")
+                    .font(.system(size: 10.5, weight: .regular, design: .monospaced))
+                    .foregroundStyle(ui.theme.resolved.mutedForeground.color.opacity(0.85))
+            }
+
+            Spacer(minLength: 12)
+
+            Text("Ln \(cursorLine), Col \(cursorCol)")
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundStyle(ui.theme.resolved.mutedForeground.color.opacity(0.9))
+
+            Button {
+                showSearchBar.toggle()
+            } label: {
+                Image(systemName: showSearchBar ? "magnifyingglass.circle.fill" : "magnifyingglass")
+                    .foregroundStyle(showSearchBar ? Color.accentColor : .secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Find")
+
+            Button {
+                showGoToLineSheet = true
+            } label: {
+                Image(systemName: "text.line.first.and.arrowtriangle.forward")
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Go to line")
+
+            viewOptionsMenu
+            editorSettingsMenu
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(MarkdownPreviewSurfaceStyle.flatBackground(for: ui.theme.surfaceVariant(.other)))
+        .sheet(isPresented: $showGoToLineSheet) {
+            GoToLineSheet(
+                lineNumber: $goToLineNumber,
+                totalLines: totalLines,
+                onGoToLine: { line in
+                    goToLine(line: line)
+                    goToLineNumber = ""
+                    showGoToLineSheet = false
+                }
+            )
+        }
+    }
+
+    private var codeEditorDisplayName: String {
+        guard let filePath,
+              !filePath.isEmpty else {
+            return "Untitled Code"
+        }
+        return URL(fileURLWithPath: filePath).lastPathComponent
     }
     
     private func goToLine(line: Int) {
@@ -2137,6 +2250,7 @@ struct CodeEditorView: View {
                     theme: ui.theme,
                     fontSize: fontSize,
                     wrapLines: wrapLines,
+                    showLineNumbers: showLineGutter,
                     selectionRequest: webKitSelectionRequest
                 )
             } else {
@@ -2456,14 +2570,8 @@ struct CodeEditorView: View {
     private var viewOptionsMenu: some View {
         Menu {
             Section("View") {
-                Toggle("Native Editor Fallback", isOn: $useNativeSourceEditorFallback)
                 Toggle("Word Wrap", isOn: $wrapLines)
-                Toggle("Outline Navigator", isOn: $showOutlineNavigator)
-                Toggle("Show Invisibles", isOn: $showInvisibles)
                 Toggle("Show Line Numbers", isOn: $showLineGutter)
-                Toggle("Folding Arrows", isOn: $showFoldingRibbon)
-                    .disabled(!showLineGutter)
-                Toggle("Indent Guides", isOn: $showIndentationGuides)
             }
 
         } label: {
