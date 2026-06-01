@@ -105,6 +105,20 @@ struct HTMLWorkspaceCodeEditor: NSViewRepresentable {
         textView.isAutomaticTextReplacementEnabled = false
         textView.isAutomaticSpellingCorrectionEnabled = false
         textView.isContinuousSpellCheckingEnabled = false
+        applyPlainTextAttributes(to: textView, foreground: palette.foreground)
+    }
+
+    private func applyPlainTextAttributes(to textView: NSTextView, foreground: NSColor) {
+        let editorFont = NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)
+        let attributes: [NSAttributedString.Key: Any] = [
+            .foregroundColor: foreground,
+            .font: editorFont,
+        ]
+        textView.typingAttributes = attributes
+        let fullRange = NSRange(location: 0, length: (textView.string as NSString).length)
+        guard fullRange.length > 0 else { return }
+        textView.textStorage?.addAttributes(attributes, range: fullRange)
+        textView.layoutManager?.invalidateDisplay(forCharacterRange: fullRange)
     }
 
     final class Coordinator: NSObject, NSTextViewDelegate {
