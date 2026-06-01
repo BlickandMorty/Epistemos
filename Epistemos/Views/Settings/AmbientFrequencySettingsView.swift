@@ -476,7 +476,7 @@ struct AmbientFrequencySettingsView: View {
     }
 
     private func restartLivePlayerIfRunning() {
-        ambientPlayback.restartIfRunning(livePlaybackRequest)
+        scheduleLiveRestartIfRunning()
     }
 
     private func scheduleLiveRestartIfRunning() {
@@ -485,7 +485,7 @@ struct AmbientFrequencySettingsView: View {
         liveRestartTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 180_000_000)
             guard !Task.isCancelled else { return }
-            restartLivePlayerIfRunning()
+            ambientPlayback.restartIfRunning(livePlaybackRequest)
         }
     }
 

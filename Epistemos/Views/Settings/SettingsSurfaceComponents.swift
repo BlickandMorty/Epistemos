@@ -114,12 +114,6 @@ struct SettingsAppleCardChrome: ViewModifier {
                         lineWidth: theme.isDark ? 0.55 : 0.65
                     )
             }
-            .shadow(
-                color: Color.black.opacity(theme.isDark ? 0.08 : 0.02),
-                radius: theme.isDark ? 7 : 4,
-                x: 0,
-                y: theme.isDark ? 3 : 1
-            )
     }
 }
 

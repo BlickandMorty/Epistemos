@@ -82,6 +82,13 @@ struct AppKitPopoverAnchor<PopoverContent: View>: NSViewRepresentable {
         }
     }
 
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        coordinator.popover?.performClose(nil)
+        coordinator.popover = nil
+        coordinator.hostingController = nil
+        coordinator.isSynchronizingContentSize = false
+    }
+
     private static func syncContentSize(
         popover: NSPopover,
         hostingController: NSHostingController<PopoverContent>,
