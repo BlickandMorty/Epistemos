@@ -311,6 +311,7 @@ nonisolated public enum RouteVerdict: Sendable, Equatable, Hashable, Codable {
         case classificationUncertain = "classification_uncertain"
         case taskTooComplex = "task_too_complex"
         case tooManyToolCalls = "too_many_tool_calls"
+        case invalidPolicyInput = "invalid_policy_input"
 
         public var displayName: String {
             switch self {
@@ -324,6 +325,7 @@ nonisolated public enum RouteVerdict: Sendable, Equatable, Hashable, Codable {
             case .classificationUncertain: return "Classification uncertain"
             case .taskTooComplex: return "Task too complex"
             case .tooManyToolCalls: return "Too many tool calls"
+            case .invalidPolicyInput: return "Invalid policy input"
             }
         }
     }
