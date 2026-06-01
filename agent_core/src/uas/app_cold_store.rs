@@ -484,7 +484,9 @@ fn validate_eidos_route_prior_support_binding(
 }
 
 fn route_prior_support_matches_unit(support: &str, unit: &AppColdStoreUnit) -> bool {
-    let support = support.strip_prefix("weight_page:").unwrap_or(support);
+    let Some(support) = support.strip_prefix("weight_page:") else {
+        return false;
+    };
     let unit_address = unit.uas_address.to_string();
     if let Some(address) = support.strip_prefix("uas:") {
         return address == unit_address;
@@ -496,9 +498,7 @@ fn route_prior_support_matches_unit(support: &str, unit: &AppColdStoreUnit) -> b
         return content_hash_hex == unit.content_hash_hex.as_str();
     }
 
-    support == unit_address
-        || support == unit.source_uri.as_str()
-        || support == unit.content_hash_hex.as_str()
+    false
 }
 
 fn validate_nonempty(field: &'static str, value: &str) -> Result<(), AppColdStoreRouteCardError> {
@@ -801,7 +801,7 @@ mod tests {
     }
 
     fn cold_weight_page_source_hint() -> String {
-        "source:file:///models/cold-atlas/cold-weight-page.safetensors".to_string()
+        "weight_page:source:file:///models/cold-atlas/cold-weight-page.safetensors".to_string()
     }
 
     fn block(
@@ -2075,7 +2075,9 @@ mod tests {
             vec!["F-AppColdStore-Layout".to_string()],
             vec!["adapter:research_synthesis".to_string()],
             Vec::new(),
-            vec!["source:file:///models/cold-atlas/not-in-plan.safetensors".to_string()],
+            vec![
+                "weight_page:source:file:///models/cold-atlas/not-in-plan.safetensors".to_string(),
+            ],
             0.82,
         )
         .expect("source-shaped support hint is route-prior valid before card admission");
@@ -2096,7 +2098,8 @@ mod tests {
         assert_eq!(
             err,
             AppColdStoreRouteCardError::UnboundRoutePriorSupport {
-                support: "source:file:///models/cold-atlas/not-in-plan.safetensors".to_string()
+                support: "weight_page:source:file:///models/cold-atlas/not-in-plan.safetensors"
+                    .to_string()
             }
         );
     }
@@ -2138,6 +2141,40 @@ mod tests {
                 }
             );
         }
+    }
+
+    #[test]
+    fn eidos_route_prior_weight_page_hint_requires_explicit_binding_prefix() {
+        let plan = fit_plan();
+        let raw_source_hint = "source:file:///models/cold-atlas/cold-weight-page.safetensors";
+        let prior = eidos_prior(
+            vec!["F-AppColdStore-Layout".to_string()],
+            vec!["adapter:research_synthesis".to_string()],
+            Vec::new(),
+            vec![raw_source_hint.to_string()],
+            0.82,
+        )
+        .expect("raw support hint is route-prior valid before card admission");
+
+        let err = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+            "deep_research:neural_importance_atlas",
+            route_prior_verifier_stack(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            Some(prior),
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            AppColdStoreRouteCardError::UnboundRoutePriorSupport {
+                support: raw_source_hint.to_string()
+            }
+        );
     }
 
     #[test]
