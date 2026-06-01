@@ -195,11 +195,46 @@ private struct HTMLWorkspaceCodeEditorPalette {
             .rgbSafeForCodeEditorTheme()
             .withAlphaComponent(1.0)
 
+        let preferredForeground = resolvedTheme.resolved.foreground.nsColor.rgbSafeForCodeEditorTheme()
+        let preferredMuted = resolvedTheme.resolved.mutedForeground.nsColor.rgbSafeForCodeEditorTheme()
+
         self.background = base
         self.gutterBackground = gutter
-        self.foreground = resolvedTheme.resolved.foreground.nsColor.rgbSafeForCodeEditorTheme()
-        self.gutterText = resolvedTheme.resolved.mutedForeground.nsColor.rgbSafeForCodeEditorTheme()
+        self.foreground = Self.readable(preferredForeground, on: base, isDark: resolvedTheme.isDark)
+        self.gutterText = Self.readable(preferredMuted, on: gutter, isDark: resolvedTheme.isDark).withAlphaComponent(0.78)
         self.accent = resolvedTheme.resolved.accent.nsColor.rgbSafeForCodeEditorTheme()
+    }
+
+    private static func readable(_ preferred: NSColor, on background: NSColor, isDark: Bool) -> NSColor {
+        if preferred.contrastRatio(against: background) >= 4.5 {
+            return preferred
+        }
+        return (background.relativeLuminance < 0.46
+            ? NSColor(deviceWhite: 0.92, alpha: 1.0)
+            : NSColor(deviceWhite: 0.12, alpha: 1.0))
+            .rgbSafeForCodeEditorTheme()
+    }
+}
+
+private extension NSColor {
+    var relativeLuminance: CGFloat {
+        let color = usingColorSpace(.sRGB) ?? self
+        func channel(_ value: CGFloat) -> CGFloat {
+            value <= 0.03928
+                ? value / 12.92
+                : pow((value + 0.055) / 1.055, 2.4)
+        }
+        return (0.2126 * channel(color.redComponent))
+            + (0.7152 * channel(color.greenComponent))
+            + (0.0722 * channel(color.blueComponent))
+    }
+
+    func contrastRatio(against other: NSColor) -> CGFloat {
+        let first = relativeLuminance
+        let second = other.relativeLuminance
+        let lighter = max(first, second)
+        let darker = min(first, second)
+        return (lighter + 0.05) / (darker + 0.05)
     }
 }
 
@@ -215,7 +250,10 @@ private final class LineNumberRulerView: NSRulerView {
         didSet { needsDisplay = true }
     }
     var backgroundColor: NSColor = .clear {
-        didSet { needsDisplay = true }
+        didSet {
+            layer?.backgroundColor = backgroundColor.cgColor
+            needsDisplay = true
+        }
     }
 
     private var lineStarts: [Int] = [0]
@@ -236,6 +274,8 @@ private final class LineNumberRulerView: NSRulerView {
         self.ruleThickness = 46
         self.reservedThicknessForMarkers = 0
         self.reservedThicknessForAccessoryView = 0
+        self.wantsLayer = true
+        self.layer?.backgroundColor = backgroundColor.cgColor
         self.invalidateLineNumbers(rebuild: true)
     }
 
@@ -244,6 +284,8 @@ private final class LineNumberRulerView: NSRulerView {
         self.ruleThickness = 46
         self.reservedThicknessForMarkers = 0
         self.reservedThicknessForAccessoryView = 0
+        self.wantsLayer = true
+        self.layer?.backgroundColor = backgroundColor.cgColor
     }
 
     func invalidateLineNumbers(rebuild: Bool = false) {
@@ -289,6 +331,12 @@ private final class LineNumberRulerView: NSRulerView {
                 withAttributes: self.labelAttributes
             )
         }
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        backgroundColor.setFill()
+        dirtyRect.fill()
+        super.draw(dirtyRect)
     }
 
     private func rebuildLineStarts() {
