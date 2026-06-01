@@ -1471,6 +1471,7 @@ struct ChatComposerTextEditor: NSViewRepresentable {
     func makeNSView(context: Context) -> NSScrollView {
         let scrollView = NSScrollView(frame: .zero)
         scrollView.borderType = .noBorder
+        scrollView.focusRingType = .none
         scrollView.drawsBackground = false
         scrollView.hasHorizontalScroller = false
         scrollView.hasVerticalScroller = false
@@ -1493,6 +1494,7 @@ struct ChatComposerTextEditor: NSViewRepresentable {
         )
         textView.drawsBackground = false
         textView.backgroundColor = .clear
+        textView.focusRingType = .none
         textView.textContainerInset = NSSize(
             width: ChatComposerInputMetrics.horizontalInset,
             height: ChatComposerInputMetrics.verticalInset

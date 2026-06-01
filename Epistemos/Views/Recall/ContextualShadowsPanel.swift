@@ -18,7 +18,7 @@ enum ContextualShadowsPresentation: Equatable {
         switch self {
         case .note: return 390
         case .chat: return 520
-        case .landing: return 620
+        case .landing: return 680
         }
     }
 
@@ -34,7 +34,7 @@ enum ContextualShadowsPresentation: Equatable {
         switch self {
         case .note: return 530
         case .chat: return 610
-        case .landing: return 430
+        case .landing: return 540
         }
     }
 
@@ -42,7 +42,7 @@ enum ContextualShadowsPresentation: Equatable {
         switch self {
         case .note: return 200
         case .chat: return 260
-        case .landing: return 280
+        case .landing: return 320
         }
     }
 
@@ -50,7 +50,7 @@ enum ContextualShadowsPresentation: Equatable {
         switch self {
         case .note: return 430
         case .chat: return 500
-        case .landing: return 340
+        case .landing: return 480
         }
     }
 

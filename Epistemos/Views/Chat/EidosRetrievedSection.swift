@@ -61,7 +61,7 @@ public struct EidosRetrievedSection: View {
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 if eidosSnapshot.lastQueryAt != nil {
-                    GroupBox("Eidos") {
+                    evidenceMetricCard(title: "Eidos") {
                         VStack(alignment: .leading, spacing: 6) {
                             metricRow(label: "Citations", value: "\(eidosSnapshot.lastCitationCount)")
                             metricRow(label: "Last latency", value: eidosLatencyLabel)
@@ -72,10 +72,8 @@ public struct EidosRetrievedSection: View {
                         }
                         .padding(.top, 2)
                     }
-                    .font(.system(size: 11, weight: .semibold))
-                    .groupBoxStyle(EidosEvidenceGroupBoxStyle(theme: theme))
                 } else if vaultSnapshot.lastQueryAt != nil {
-                    GroupBox("Eidos") {
+                    evidenceMetricCard(title: "Eidos") {
                         VStack(alignment: .leading, spacing: 6) {
                             metricRow(label: "Citation gate", value: "not invoked", valueTint: .orange)
                             Text("VaultRecall produced candidates. Eidos will show citations here when the answer path asks for closed evidence validation.")
@@ -85,12 +83,10 @@ public struct EidosRetrievedSection: View {
                         }
                         .padding(.top, 2)
                     }
-                    .font(.system(size: 11, weight: .semibold))
-                    .groupBoxStyle(EidosEvidenceGroupBoxStyle(theme: theme))
                 }
 
                 if vaultSnapshot.lastQueryAt != nil {
-                    GroupBox("VaultRecall") {
+                    evidenceMetricCard(title: "VaultRecall") {
                         VStack(alignment: .leading, spacing: 6) {
                             metricRow(label: "Backend", value: vaultBackendLabel, valueTint: vaultTint)
                             metricRow(label: "Retained", value: "\(vaultSnapshot.lastCandidatesRetained)")
@@ -107,8 +103,6 @@ public struct EidosRetrievedSection: View {
                         }
                         .padding(.top, 2)
                     }
-                    .font(.system(size: 11, weight: .semibold))
-                    .groupBoxStyle(EidosEvidenceGroupBoxStyle(theme: theme))
                 }
             }
         }
@@ -247,18 +241,17 @@ public struct EidosRetrievedSection: View {
                 .truncationMode(.middle)
         }
     }
-}
 
-private struct EidosEvidenceGroupBoxStyle: GroupBoxStyle {
-    let theme: EpistemosTheme
-
-    func makeBody(configuration: Configuration) -> some View {
+    private func evidenceMetricCard<Content: View>(
+        title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            configuration.label
+            Text(title)
                 .font(.system(size: 10.5, weight: .semibold))
                 .tracking(0.5)
                 .foregroundStyle(theme.textTertiary)
-            configuration.content
+            content()
         }
         .padding(10)
         .eidosEvidenceCard(theme: theme, emphasized: false)

@@ -390,6 +390,9 @@ final class ContextualShadowsState {
             closePanel()
             return
         }
+        scopedPendingTasks[scopeKey]?.cancel()
+        scopedPendingTasks[scopeKey] = nil
+        pendingTask = scopedPendingTasks.values.first
         scopedPanelVisibility[scopeKey] = false
         scopedPayloads[scopeKey] = .empty
         if latestScopeKey == scopeKey {
@@ -474,9 +477,7 @@ final class ContextualShadowsState {
         )
         scopedPanelVisibility[scopeKey] = isVisible
         scopedPendingTasks[scopeKey] = nil
-        if pendingTask?.isCancelled == true {
-            pendingTask = nil
-        }
+        pendingTask = scopedPendingTasks.values.first
     }
 
     private func publishPendingPayload(scopeKey: String?, queryText: String) {
