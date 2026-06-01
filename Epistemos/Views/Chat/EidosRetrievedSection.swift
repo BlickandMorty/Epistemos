@@ -39,9 +39,9 @@ public struct EidosRetrievedSection: View {
                     .frame(width: 22)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Evidence Intake")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                     Text("Eidos + VaultRecall")
-                        .font(.system(size: 11))
+                        .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 0)
@@ -69,6 +69,19 @@ public struct EidosRetrievedSection: View {
                             if let err = eidosSnapshot.lastErrorDescription {
                                 metricRow(label: "Last error", value: err, valueTint: .red)
                             }
+                        }
+                        .padding(.top, 2)
+                    }
+                    .font(.system(size: 11, weight: .semibold))
+                    .groupBoxStyle(EidosEvidenceGroupBoxStyle(theme: theme))
+                } else if vaultSnapshot.lastQueryAt != nil {
+                    GroupBox("Eidos") {
+                        VStack(alignment: .leading, spacing: 6) {
+                            metricRow(label: "Citation gate", value: "not invoked", valueTint: .orange)
+                            Text("VaultRecall produced candidates. Eidos will show citations here when the answer path asks for closed evidence validation.")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                         .padding(.top, 2)
                     }
@@ -224,11 +237,11 @@ public struct EidosRetrievedSection: View {
     private func metricRow(label: String, value: String, valueTint: Color? = nil) -> some View {
         HStack(spacing: 8) {
             Text(label)
-                .font(.system(size: 11))
+                .font(.system(size: 12))
                 .foregroundStyle(.secondary)
             Spacer(minLength: 0)
             Text(value)
-                .font(.system(size: 11, design: .monospaced))
+                .font(.system(size: 12, design: .monospaced))
                 .foregroundStyle(valueTint ?? .primary)
                 .lineLimit(1)
                 .truncationMode(.middle)
