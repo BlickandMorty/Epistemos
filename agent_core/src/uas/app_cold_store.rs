@@ -149,6 +149,8 @@ impl AppColdStoreRouteCard {
                 });
             }
         }
+        let mut verifier_stack = verifier_stack;
+        verifier_stack.sort();
         if !verifier_stack
             .iter()
             .any(|verifier| verifier == APP_COLD_STORE_LAYOUT_FALSIFIER_ID)
@@ -1065,6 +1067,47 @@ mod tests {
             err,
             AppColdStoreRouteCardError::MissingParamRouteCardAdmissionVerifier
         );
+    }
+
+    #[test]
+    fn app_cold_store_route_card_address_is_stable_for_verifier_stack_order() {
+        let plan = fit_plan();
+        let first_stack = vec![
+            "F-AppColdStore-Layout".to_string(),
+            "F-ParamRouteCard-Admission".to_string(),
+            "F-Eidos-NeuralRoute-Prior".to_string(),
+        ];
+        let second_stack = vec![
+            "F-Eidos-NeuralRoute-Prior".to_string(),
+            "F-ParamRouteCard-Admission".to_string(),
+            "F-AppColdStore-Layout".to_string(),
+        ];
+
+        let first = AppColdStoreRouteCard::from_residency_plan(
+            "deep_research:neural_importance_atlas",
+            first_stack,
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            99,
+        )
+        .expect("first verifier stack order should build");
+        let second = AppColdStoreRouteCard::from_residency_plan(
+            "deep_research:neural_importance_atlas",
+            second_stack,
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            99,
+        )
+        .expect("second verifier stack order should build");
+
+        assert_eq!(first.card_address, second.card_address);
+        assert_eq!(first.verifier_stack, second.verifier_stack);
     }
 
     #[test]
