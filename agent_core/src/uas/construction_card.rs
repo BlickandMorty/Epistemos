@@ -91,6 +91,7 @@ impl ConstructionCard {
         if plan.status != ResidencyPlanStatus::FitForDryRun {
             return Err(ConstructionCardError::PlanRejected);
         }
+        validate_residency_plan_snapshot(plan)?;
         let lift_charts = unique_lift_charts(plan);
         let budget = ConstructionBudget::from_residency_plan(plan, copy_budget);
         Self::new_with_upstreams(
@@ -332,6 +333,7 @@ pub enum ConstructionCardError {
     ProductBuildResidencyMismatch,
     DuplicateUpstreamFalsifier { falsifier_id: String },
     PlanRejected,
+    PlanShapeDrift,
 }
 
 impl std::fmt::Display for ConstructionCardError {
@@ -365,6 +367,10 @@ impl std::fmt::Display for ConstructionCardError {
                 )
             }
             Self::PlanRejected => write!(f, "residency plan must be FitForDryRun"),
+            Self::PlanShapeDrift => write!(
+                f,
+                "residency plan fields no longer match the verified dry-run snapshot"
+            ),
         }
     }
 }
@@ -394,6 +400,18 @@ fn missing_field_error(field: &'static str) -> ConstructionCardError {
         "rollback_reference" => ConstructionCardError::MissingRollback,
         _ => ConstructionCardError::InvalidBudget,
     }
+}
+
+fn validate_residency_plan_snapshot(plan: &ResidencyPlan) -> Result<(), ConstructionCardError> {
+    let recomputed = ResidencyPlan::evaluate(
+        plan.blocks.clone(),
+        plan.budget.clone(),
+        plan.plan_address.created_at_ms,
+    );
+    if recomputed != *plan {
+        return Err(ConstructionCardError::PlanShapeDrift);
+    }
+    Ok(())
 }
 
 fn unique_lift_charts(plan: &ResidencyPlan) -> Vec<WeightBlockIrChart> {
@@ -519,6 +537,29 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(err, ConstructionCardError::PlanRejected);
+    }
+
+    #[test]
+    fn construction_card_revalidates_mutated_residency_plan_snapshot() {
+        let mut plan = fit_plan();
+        plan.blocks[0].content_hash_hex = blake3::hash(b"tampered-after-plan").to_hex().to_string();
+        assert_eq!(plan.status, ResidencyPlanStatus::FitForDryRun);
+
+        let err = ConstructionCard::from_residency_plan(
+            "fit 70b-shaped active set without runtime load",
+            "active_assembly_packet",
+            "F-ResidencyPlan-DryRun/result.json",
+            "F-ResidencyPlan-DryRun",
+            "dense_reference_path",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            0,
+            10,
+        )
+        .unwrap_err();
+
+        assert_eq!(err, ConstructionCardError::PlanShapeDrift);
     }
 
     #[test]
