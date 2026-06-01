@@ -325,10 +325,20 @@ private struct WebKitCodeEditorPalette {
 
         self.background = base
         self.gutter = base.editorSidebarTint(isDark: surfaceTheme.isDark)
-        self.foreground = foreground
-        self.muted = muted
+        self.foreground = Self.readable(foreground, on: base)
+        self.muted = Self.readable(muted, on: self.gutter).withAlphaComponent(0.80)
         self.border = border
         self.accent = accent
+    }
+
+    private static func readable(_ preferred: NSColor, on background: NSColor) -> NSColor {
+        if preferred.contrastRatio(against: background) >= 4.5 {
+            return preferred
+        }
+        return (background.relativeLuminance < 0.46
+            ? NSColor(deviceWhite: 0.92, alpha: 1.0)
+            : NSColor(deviceWhite: 0.12, alpha: 1.0))
+            .rgbSafeForCodeEditorTheme()
     }
 }
 
@@ -355,6 +365,26 @@ private extension NSColor {
         return (blended(withFraction: fraction, of: tintSource) ?? self)
             .rgbSafeForCodeEditorTheme()
             .withAlphaComponent(1.0)
+    }
+
+    var relativeLuminance: CGFloat {
+        let color = usingColorSpace(.sRGB) ?? self
+        func channel(_ value: CGFloat) -> CGFloat {
+            value <= 0.03928
+                ? value / 12.92
+                : pow((value + 0.055) / 1.055, 2.4)
+        }
+        return (0.2126 * channel(color.redComponent))
+            + (0.7152 * channel(color.greenComponent))
+            + (0.0722 * channel(color.blueComponent))
+    }
+
+    func contrastRatio(against other: NSColor) -> CGFloat {
+        let first = relativeLuminance
+        let second = other.relativeLuminance
+        let lighter = max(first, second)
+        let darker = min(first, second)
+        return (lighter + 0.05) / (darker + 0.05)
     }
 }
 
