@@ -471,15 +471,25 @@ fn validate_eidos_route_prior_support_binding(
     hot_runway_units: &[AppColdStoreUnit],
 ) -> Result<(), AppColdStoreRouteCardError> {
     for support in &prior.likely_weight_page_families {
-        if !durable_units
+        let matches = durable_units
             .iter()
             .chain(warm_cache_units.iter())
             .chain(hot_runway_units.iter())
-            .any(|unit| route_prior_support_matches_unit(support, unit))
-        {
-            return Err(AppColdStoreRouteCardError::UnboundRoutePriorSupport {
-                support: support.clone(),
-            });
+            .filter(|unit| route_prior_support_matches_unit(support, unit))
+            .count();
+        match matches {
+            0 => {
+                return Err(AppColdStoreRouteCardError::UnboundRoutePriorSupport {
+                    support: support.clone(),
+                });
+            }
+            1 => {}
+            matches => {
+                return Err(AppColdStoreRouteCardError::AmbiguousRoutePriorSupport {
+                    support: support.clone(),
+                    matches,
+                });
+            }
         }
     }
     Ok(())
@@ -665,6 +675,7 @@ pub enum AppColdStoreRouteCardError {
     MissingRoutePriorSupport,
     UnboundRoutePriorVerifier { verifier: String },
     UnboundRoutePriorSupport { support: String },
+    AmbiguousRoutePriorSupport { support: String, matches: usize },
     UnsupportedSourceUri { source_uri: String },
 }
 
@@ -760,6 +771,10 @@ impl std::fmt::Display for AppColdStoreRouteCardError {
             Self::UnboundRoutePriorSupport { support } => write!(
                 f,
                 "EidosRoutePrior weight-page support hint is not bound to an AppColdStore route-card unit: {support}"
+            ),
+            Self::AmbiguousRoutePriorSupport { support, matches } => write!(
+                f,
+                "EidosRoutePrior weight-page support hint must bind exactly one AppColdStore route-card unit, got {matches} matches for {support}"
             ),
             Self::UnsupportedSourceUri { source_uri } => write!(
                 f,
@@ -2184,6 +2199,83 @@ mod tests {
                 }
             );
         }
+    }
+
+    #[test]
+    fn eidos_route_prior_source_hint_must_not_bind_multiple_route_card_units() {
+        let shared_source_uri = "file:///models/cold-atlas/shared-source.safetensors";
+        let hot = block(
+            "hot-controller",
+            0,
+            512,
+            WeightBlockEncoding::DenseBf16,
+            WeightBlockResidencyClass::HotUma,
+            None,
+        );
+        let first_cold = WeightBlockManifest::from_known_hash_hex(
+            "local/cold-atlas-fixture",
+            shared_source_uri,
+            2048,
+            1024,
+            blake3::hash(b"first-shared-source-page").to_hex().as_str(),
+            1_779_000_000_000,
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            WeightBlockIrChart::OpaqueWithWitness,
+            0.02,
+            "F-AppColdStore-Layout",
+            Some(rollback_reference()),
+        )
+        .expect("first shared-source block should build");
+        let second_cold = WeightBlockManifest::from_known_hash_hex(
+            "local/cold-atlas-fixture",
+            shared_source_uri,
+            4096,
+            1024,
+            blake3::hash(b"second-shared-source-page").to_hex().as_str(),
+            1_779_000_000_000,
+            WeightBlockEncoding::Nf4,
+            WeightBlockResidencyClass::ColdMmapSsd,
+            WeightBlockIrChart::OpaqueWithWitness,
+            0.02,
+            "F-AppColdStore-Layout",
+            Some(rollback_reference()),
+        )
+        .expect("second shared-source block should build");
+        let budget = ResidencyBudget::new(GIB, 0, 8 * GIB, 0.25, 16).unwrap();
+        let plan = ResidencyPlan::evaluate([hot, first_cold, second_cold], budget, 42);
+        assert_eq!(plan.status, ResidencyPlanStatus::FitForDryRun);
+
+        let source_hint = format!("weight_page:source:{shared_source_uri}");
+        let prior = eidos_prior(
+            vec!["F-AppColdStore-Layout".to_string()],
+            vec!["adapter:research_synthesis".to_string()],
+            Vec::new(),
+            vec![source_hint.clone()],
+            0.82,
+        )
+        .expect("source-shaped support hint is route-prior valid before card admission");
+
+        let err = AppColdStoreRouteCard::from_residency_plan_with_eidos_prior(
+            "deep_research:neural_importance_atlas",
+            route_prior_verifier_stack(),
+            "rollback:raw-installed-snapshot",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            &plan,
+            "rebuild_warm_cache_from_durable_atlas",
+            Some(prior),
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            AppColdStoreRouteCardError::AmbiguousRoutePriorSupport {
+                support: source_hint,
+                matches: 2
+            }
+        );
     }
 
     #[test]
