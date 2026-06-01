@@ -269,6 +269,9 @@ fn validate_visible_run_event(
         });
     }
     match entry {
+        RunEventEntry::Event { event, .. } if event.is_terminal() => {
+            Err(DynamicComputeCheckpointError::RunEventLogOrdinalIsTerminalEvent { ordinal })
+        }
         RunEventEntry::Event { .. } => Ok(()),
         RunEventEntry::SealedMutation { .. } | RunEventEntry::LedgerSnapshot { .. } => {
             Err(DynamicComputeCheckpointError::RunEventLogOrdinalIsNotEvent { ordinal })
@@ -363,6 +366,9 @@ pub enum DynamicComputeCheckpointError {
     RunEventLogOrdinalIsNotEvent {
         ordinal: u64,
     },
+    RunEventLogOrdinalIsTerminalEvent {
+        ordinal: u64,
+    },
     RunEventLogOrdinalMismatch {
         requested: u64,
         actual: u64,
@@ -405,6 +411,10 @@ impl std::fmt::Display for DynamicComputeCheckpointError {
             Self::RunEventLogOrdinalIsNotEvent { ordinal } => write!(
                 f,
                 "dynamic checkpoint run_event_log:{ordinal} must refer to an AgentEvent row"
+            ),
+            Self::RunEventLogOrdinalIsTerminalEvent { ordinal } => write!(
+                f,
+                "dynamic checkpoint run_event_log:{ordinal} must refer to a non-terminal AgentEvent row"
             ),
             Self::RunEventLogOrdinalMismatch { requested, actual } => write!(
                 f,
@@ -843,6 +853,35 @@ mod tests {
         assert_eq!(
             err,
             DynamicComputeCheckpointError::RunEventLogOrdinalIsNotEvent { ordinal }
+        );
+    }
+
+    #[test]
+    fn checkpoint_rejects_terminal_run_event_log_ordinals() {
+        let mut log = RunEventLog::new();
+        let ordinal = log.append_event(AgentEvent::stop(
+            crate::agent_runtime_v2::StopReason::EndTurn,
+        ));
+
+        let err = DynamicComputeCheckpoint::from_visible_run_event(
+            DynamicComputeCheckpointKind::VerifierRepair,
+            "citation verifier failed",
+            vec![unit(b"before")],
+            vec![unit(b"after")],
+            "bounded verifier repair must be visible before terminal output",
+            1_000,
+            &log,
+            ordinal,
+            verifier_stack(),
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            99,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            DynamicComputeCheckpointError::RunEventLogOrdinalIsTerminalEvent { ordinal }
         );
     }
 }
