@@ -5,6 +5,7 @@
 
 const UAS_MOD_SOURCE: &str = include_str!("../src/uas/mod.rs");
 const AGENT_RUNTIME_V2_MOD_SOURCE: &str = include_str!("../src/agent_runtime_v2/mod.rs");
+const MISSION_RUN_SOURCE: &str = include_str!("../src/agent_runtime_v2/mission_run.rs");
 
 #[test]
 fn uas_module_header_uses_current_address_space_namespace() {
@@ -39,5 +40,17 @@ fn agent_runtime_v2_header_uses_mas_pro_status_grammar() {
     assert!(
         !AGENT_RUNTIME_V2_MOD_SOURCE.contains("## Tier behaviour"),
         "System G docs must not describe current build policy as tier behaviour"
+    );
+}
+
+#[test]
+fn mission_run_uses_scope_rex_admission_for_visible_denials() {
+    assert!(
+        MISSION_RUN_SOURCE.contains("requires SCOPE-Rex Admission"),
+        "MissionRun raw tool-call denial must use SCOPE-Rex Admission wording"
+    );
+    assert!(
+        !MISSION_RUN_SOURCE.contains("requires ACS admission"),
+        "MissionRun must not expose stale ACS admission wording in visible denial strings"
     );
 }

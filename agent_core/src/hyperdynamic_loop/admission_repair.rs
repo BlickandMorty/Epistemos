@@ -1,6 +1,6 @@
 //! `AdmissionRepairLoop` — consumes
 //! [`crate::acs_admission::ACSAdmissionVerdict`] to gate model drafts
-//! against the production ACS policy. Defer → repair with policy hint;
+//! against the production SCOPE-Rex Admission policy. Defer → repair with policy hint;
 //! Allow / AllowWithWarning → accept; Quarantine / Reject → terminal
 //! quarantine (per ACSAdmissionVerdict::is_terminal).
 
@@ -8,7 +8,7 @@ use crate::acs_admission::ACSAdmissionVerdict;
 
 use super::{HyperdynamicLoop, RepairVerdict};
 
-/// Outcome of one ACS admission call attached to whatever the
+/// Outcome of one SCOPE-Rex Admission call attached to whatever the
 /// underlying request was. The loop owns no knowledge of the request
 /// itself — only the verdict + diagnostic surface.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -41,7 +41,7 @@ impl AdmissionRepairLoop {
 
     fn hint(verdict: ACSAdmissionVerdict, reason: &str) -> String {
         format!(
-            "admission_repair: ACS verdict `{}` — {reason}. Tighten constraints \
+            "admission_repair: SCOPE-Rex verdict `{}` — {reason}. Tighten constraints \
              (lower risk axes, attach evidence) and retry.",
             verdict.code()
         )
@@ -67,7 +67,11 @@ impl HyperdynamicLoop for AdmissionRepairLoop {
             }),
             ACSAdmissionVerdict::Quarantine | ACSAdmissionVerdict::Reject => {
                 Ok(RepairVerdict::Quarantine {
-                    reason: format!("acs_terminal:{}: {}", draft.verdict.code(), draft.reason),
+                    reason: format!(
+                        "scope_rex_terminal:{}: {}",
+                        draft.verdict.code(),
+                        draft.reason
+                    ),
                 })
             }
         }
@@ -119,7 +123,7 @@ mod tests {
         match l.check(&d).unwrap() {
             RepairVerdict::Quarantine { reason } => {
                 assert!(
-                    reason.starts_with("acs_terminal:quarantine"),
+                    reason.starts_with("scope_rex_terminal:quarantine"),
                     "reason: {reason}"
                 );
                 assert!(reason.contains("egress_unsafe"), "reason: {reason}");
@@ -134,7 +138,7 @@ mod tests {
         let d = AdmissionDraft::new(ACSAdmissionVerdict::Reject, "policy_violation");
         match l.check(&d).unwrap() {
             RepairVerdict::Quarantine { reason } => {
-                assert!(reason.starts_with("acs_terminal:reject"));
+                assert!(reason.starts_with("scope_rex_terminal:reject"));
             }
             other => panic!("expected Quarantine, got {other:?}"),
         }
