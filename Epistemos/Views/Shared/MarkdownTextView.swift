@@ -678,6 +678,10 @@ enum MarkdownPreviewSurfaceStyle {
         if theme.followsSystemAppearance {
             return .textBackgroundColor
         }
+        if AppCustomTheme.isActive {
+            let noteSurface = AppCustomTheme.noteSurfaceHex(isDark: theme.presetResolved.isDark)
+            return EpistemosTheme.ResolvedColorToken.hex(noteSurface).nsColor
+        }
         return theme.resolved.background.nsColor
     }
 
@@ -708,7 +712,11 @@ enum MarkdownPreviewSurfaceStyle {
     }
 
     static func solidFlatBackgroundNSColor(for theme: EpistemosTheme) -> NSColor {
-        theme.resolved.card.nsColor.withAlphaComponent(1.0)
+        if AppCustomTheme.isActive {
+            let noteSurface = AppCustomTheme.noteSurfaceHex(isDark: theme.presetResolved.isDark)
+            return EpistemosTheme.ResolvedColorToken.hex(noteSurface).nsColor
+        }
+        return theme.resolved.card.nsColor.withAlphaComponent(1.0)
     }
 
     static func borderOpacity(isDark: Bool) -> Double {
@@ -1319,28 +1327,57 @@ struct MarkdownTextView: View {
         let color = MarkdownHeadingDisplay.foregroundColor(for: theme, level: level)
         let displayText = MarkdownHeadingDisplay.displayText(text, level: level, theme: theme)
 
-        inlineMarkdown(displayText, baseFontSize: fontSize)
-            .font(font)
-            .foregroundStyle(color)
-            .lineSpacing(level == 1 ? 4 : 2)
-            .markdownHeadingGlow(theme: theme, level: level) {
-                inlineMarkdown(displayText, baseFontSize: fontSize)
-                    .font(font)
-                    .foregroundStyle(color)
-                    .lineSpacing(level == 1 ? 4 : 2)
-            }
-            .asciiRippleOverlay(
-                text: rippleEnabled ? MarkdownRippleTextExtractor.displayText(from: displayText) : "",
-                font: font,
-                color: color,
-                shadowColor: MarkdownHeadingDisplay.previewSwiftUIShadowColor(for: theme, level: level),
-                shadowRadius: MarkdownHeadingDisplay.previewGlowRadius(for: level),
-                lineSpacing: level == 1 ? 4 : 2,
-                opacity: level == 1 ? 0.7 : 0.48,
-                enabled: rippleEnabled && rippleStyle.ripplesHeading(level: level)
-            )
-            .padding(.top, topPad)
-            .padding(.bottom, level == 1 ? 8 : 4)
+        if AppDisplayTypography.usesPlatinumGlyphFallback(theme: theme, level: level, allowDisplayFont: notesSpec == nil) {
+            let headingText = Text(AppDisplayTypography.platinumGlyphFallbackAttributedString(
+                displayText,
+                size: fontSize,
+                weight: fontWeight,
+                isDark: theme.isDark
+            ))
+            headingText
+                .foregroundStyle(color)
+                .lineSpacing(level == 1 ? 4 : 2)
+                .markdownHeadingGlow(theme: theme, level: level) {
+                    headingText
+                        .foregroundStyle(color)
+                        .lineSpacing(level == 1 ? 4 : 2)
+                }
+                .asciiRippleOverlay(
+                    text: rippleEnabled ? MarkdownRippleTextExtractor.displayText(from: displayText) : "",
+                    font: font,
+                    color: color,
+                    shadowColor: MarkdownHeadingDisplay.previewSwiftUIShadowColor(for: theme, level: level),
+                    shadowRadius: MarkdownHeadingDisplay.previewGlowRadius(for: level),
+                    lineSpacing: level == 1 ? 4 : 2,
+                    opacity: level == 1 ? 0.7 : 0.48,
+                    enabled: rippleEnabled && rippleStyle.ripplesHeading(level: level)
+                )
+                .padding(.top, topPad)
+                .padding(.bottom, level == 1 ? 8 : 4)
+        } else {
+            inlineMarkdown(displayText, baseFontSize: fontSize)
+                .font(font)
+                .foregroundStyle(color)
+                .lineSpacing(level == 1 ? 4 : 2)
+                .markdownHeadingGlow(theme: theme, level: level) {
+                    inlineMarkdown(displayText, baseFontSize: fontSize)
+                        .font(font)
+                        .foregroundStyle(color)
+                        .lineSpacing(level == 1 ? 4 : 2)
+                }
+                .asciiRippleOverlay(
+                    text: rippleEnabled ? MarkdownRippleTextExtractor.displayText(from: displayText) : "",
+                    font: font,
+                    color: color,
+                    shadowColor: MarkdownHeadingDisplay.previewSwiftUIShadowColor(for: theme, level: level),
+                    shadowRadius: MarkdownHeadingDisplay.previewGlowRadius(for: level),
+                    lineSpacing: level == 1 ? 4 : 2,
+                    opacity: level == 1 ? 0.7 : 0.48,
+                    enabled: rippleEnabled && rippleStyle.ripplesHeading(level: level)
+                )
+                .padding(.top, topPad)
+                .padding(.bottom, level == 1 ? 8 : 4)
+        }
     }
 
     // MARK: - Table Rendering

@@ -440,8 +440,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
                 ? AppDisplayTypography.matrixBoldDisplayFontName
                 : AppDisplayTypography.chonkyDisplayFontName
         case .platinumViolet:
-            level <= 1
-                ? AppDisplayTypography.matrixDotsDisplayFontName
+            (1...3).contains(level)
+                ? AppDisplayTypography.matrixBoldDisplayFontName
                 : AppDisplayTypography.matrixDisplayFontName
         case .ember:
             AppDisplayTypography.chonkyDisplayFontName
@@ -464,7 +464,10 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         let primary = AppDisplayTypography.cssFontFamilyName(
             forPostScriptName: headingFontName(level: level)
         )
-        return "\"\(primary)\", -apple-system, BlinkMacSystemFont, \"SF Pro Display\", system-ui, sans-serif"
+        let displayFallback = primary == AppDisplayTypography.matrixDotsDisplayFontName
+            ? ", \"\(AppDisplayTypography.cssFontFamilyName(forPostScriptName: AppDisplayTypography.matrixDisplayFontName))\""
+            : ""
+        return "\"\(primary)\"\(displayFallback), -apple-system, BlinkMacSystemFont, \"SF Pro Display\", system-ui, sans-serif"
     }
 
     /// Node-title font for the graph node inspector main heading.
@@ -472,14 +475,16 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     /// Classic now follows the H1 MatrixTypeDisplay-Bold face here too;
     /// RetroGaming remains registered only for older documents/assets
     /// that still reference it directly.
-    /// Platinum node titles mirror H1 and use Matrix Dots.
+    /// Platinum node titles mirror H1 on Matrix Type Bold. The old Matrix Dots
+    /// demo face remains registered only as a dormant asset because it
+    /// visibly stamps "DEMO FONT" in active text.
     nonisolated var nodeTitleFontName: String {
         if AppCustomTheme.isActive {
             return headingFontName
         }
         switch themePair {
         case .classic:        return AppDisplayTypography.matrixBoldDisplayFontName
-        case .platinumViolet: return AppDisplayTypography.matrixDotsDisplayFontName
+        case .platinumViolet: return AppDisplayTypography.matrixBoldDisplayFontName
         case .ember:          return AppDisplayTypography.chonkyDisplayFontName
         case .custom:         return headingFontName
         }
@@ -506,8 +511,8 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
     /// ColorBasic-Regular (not the H1-H3 RetroByte) so panel labels
     /// can switch to the BOXED glyph form by being lowercased before
     /// render. See `boxedLabelText(_:)`. Classic mirrors H1; Platinum
-    /// stays on MatrixTypeDisplay here so Matrix Dots is reserved for
-    /// the landing greeting, H1, and graph note titles.
+    /// stays on MatrixTypeDisplay here; Matrix Dots is reserved for
+    /// H1-style Platinum title surfaces with a Matrix Type glyph fallback.
     nonisolated var panelFontName: String {
         if AppCustomTheme.isActive {
             return headingFontName
@@ -1376,6 +1381,7 @@ enum AppCustomThemeColorSlot: String, CaseIterable, Identifiable, Sendable {
     case accent
     case heading
     case card
+    case noteSurface
     case chatSurface
     case userBubble
 
@@ -1388,6 +1394,7 @@ enum AppCustomThemeColorSlot: String, CaseIterable, Identifiable, Sendable {
         case .accent: "Accent"
         case .heading: "Headings"
         case .card: "Cards"
+        case .noteSurface: "Note Surface"
         case .chatSurface: "Chat Surface"
         case .userBubble: "User Bubble"
         }
@@ -1400,6 +1407,7 @@ enum AppCustomThemeColorSlot: String, CaseIterable, Identifiable, Sendable {
         case .accent: "Buttons, links, active states"
         case .heading: "Markdown and title emphasis"
         case .card: "Panels and raised surfaces"
+        case .noteSurface: "Editor canvas and note windows"
         case .chatSurface: "Conversation backdrop"
         case .userBubble: "Your message bubble"
         }
@@ -1409,13 +1417,38 @@ enum AppCustomThemeColorSlot: String, CaseIterable, Identifiable, Sendable {
         "epistemos.customTheme.\(rawValue)"
     }
 
-    nonisolated var fallbackHex: UInt32 {
+    nonisolated func defaultsKey(isDark: Bool) -> String {
+        "epistemos.customTheme.\(isDark ? "dark" : "light").\(rawValue)"
+    }
+
+    nonisolated func fallbackHex(isDark: Bool) -> UInt32 {
+        if isDark {
+            return darkFallbackHex
+        }
+        return lightFallbackHex
+    }
+
+    nonisolated private var lightFallbackHex: UInt32 {
+        switch self {
+        case .background: 0xF8F6FF
+        case .text: 0x161421
+        case .accent: 0x735CFF
+        case .heading: 0x3326A5
+        case .card: 0xFFFFFF
+        case .noteSurface: 0xFFFFFF
+        case .chatSurface: 0xF0EEF9
+        case .userBubble: 0xE4DFFF
+        }
+    }
+
+    nonisolated private var darkFallbackHex: UInt32 {
         switch self {
         case .background: 0x101014
         case .text: 0xF3F0FF
         case .accent: 0x9B7DFF
         case .heading: 0xFFFFFF
         case .card: 0x1C1C24
+        case .noteSurface: 0x1C1C24
         case .chatSurface: 0x141418
         case .userBubble: 0x35304E
         }
@@ -1433,16 +1466,50 @@ enum AppCustomTheme: Sendable {
 
     nonisolated static func hex(
         for slot: AppCustomThemeColorSlot,
+        isDark: Bool,
         defaults: UserDefaults = .standard
     ) -> UInt32 {
-        guard defaults.object(forKey: slot.defaultsKey) != nil else {
-            return slot.fallbackHex
+        let toneKey = slot.defaultsKey(isDark: isDark)
+        let key = defaults.object(forKey: toneKey) != nil ? toneKey : slot.defaultsKey
+        guard defaults.object(forKey: key) != nil else {
+            return slot.fallbackHex(isDark: isDark)
         }
-        let value = defaults.integer(forKey: slot.defaultsKey)
+        let value = defaults.integer(forKey: key)
         guard (0...0xFFFFFF).contains(value) else {
-            return slot.fallbackHex
+            return slot.fallbackHex(isDark: isDark)
         }
         return UInt32(value)
+    }
+
+    nonisolated static func hex(
+        for slot: AppCustomThemeColorSlot,
+        defaults: UserDefaults = .standard
+    ) -> UInt32 {
+        hex(for: slot, isDark: SystemAppearanceState.isDark(), defaults: defaults)
+    }
+
+    /// Dedicated note/editor surface token. When a user has older custom
+    /// settings from before this slot existed, keep the previous behavior by
+    /// inheriting the Cards value until Note Surface is explicitly set.
+    nonisolated static func noteSurfaceHex(
+        isDark: Bool,
+        defaults: UserDefaults = .standard
+    ) -> UInt32 {
+        let slot = AppCustomThemeColorSlot.noteSurface
+        if defaults.object(forKey: slot.defaultsKey(isDark: isDark)) != nil
+            || defaults.object(forKey: slot.defaultsKey) != nil {
+            return hex(for: slot, isDark: isDark, defaults: defaults)
+        }
+        return hex(for: .card, isDark: isDark, defaults: defaults)
+    }
+
+    nonisolated static func setHex(
+        _ hex: UInt32,
+        for slot: AppCustomThemeColorSlot,
+        isDark: Bool,
+        defaults: UserDefaults = .standard
+    ) {
+        defaults.set(Int(hex & 0xFFFFFF), forKey: slot.defaultsKey(isDark: isDark))
     }
 
     nonisolated static func setHex(
@@ -1450,12 +1517,14 @@ enum AppCustomTheme: Sendable {
         for slot: AppCustomThemeColorSlot,
         defaults: UserDefaults = .standard
     ) {
-        defaults.set(Int(hex & 0xFFFFFF), forKey: slot.defaultsKey)
+        setHex(hex, for: slot, isDark: SystemAppearanceState.isDark(), defaults: defaults)
     }
 
     nonisolated static func reset(defaults: UserDefaults = .standard) {
         for slot in AppCustomThemeColorSlot.allCases {
             defaults.removeObject(forKey: slot.defaultsKey)
+            defaults.removeObject(forKey: slot.defaultsKey(isDark: false))
+            defaults.removeObject(forKey: slot.defaultsKey(isDark: true))
         }
     }
 
@@ -1463,13 +1532,13 @@ enum AppCustomTheme: Sendable {
         isDark: Bool,
         defaults: UserDefaults = .standard
     ) -> EpistemosTheme.ResolvedTheme {
-        let background = hex(for: .background, defaults: defaults)
-        let text = hex(for: .text, defaults: defaults)
-        let accent = hex(for: .accent, defaults: defaults)
-        let heading = hex(for: .heading, defaults: defaults)
-        let card = hex(for: .card, defaults: defaults)
-        let chatSurface = hex(for: .chatSurface, defaults: defaults)
-        let userBubble = hex(for: .userBubble, defaults: defaults)
+        let background = hex(for: .background, isDark: isDark, defaults: defaults)
+        let text = hex(for: .text, isDark: isDark, defaults: defaults)
+        let accent = hex(for: .accent, isDark: isDark, defaults: defaults)
+        let heading = hex(for: .heading, isDark: isDark, defaults: defaults)
+        let card = hex(for: .card, isDark: isDark, defaults: defaults)
+        let chatSurface = hex(for: .chatSurface, isDark: isDark, defaults: defaults)
+        let userBubble = hex(for: .userBubble, isDark: isDark, defaults: defaults)
 
         return EpistemosTheme.ResolvedTheme(
             isDark: isDark,
@@ -1681,7 +1750,6 @@ enum AppDisplayTypography: Sendable {
     nonisolated static let displayFontOptions: [AppBundledDisplayFont] = [
         AppBundledDisplayFont(displayName: "Matrix Type", postScriptName: matrixDisplayFontName, resourceName: "MatrixtypeDisplay-9MyE5", resourceExtension: "ttf"),
         AppBundledDisplayFont(displayName: "Matrix Type Bold", postScriptName: matrixBoldDisplayFontName, resourceName: "MatrixTypeDisplay-Bold", resourceExtension: "otf"),
-        AppBundledDisplayFont(displayName: "Matrix Dots", postScriptName: matrixDotsDisplayFontName, resourceName: "MatrixDotsDemoRegular", resourceExtension: "ttf"),
         AppBundledDisplayFont(displayName: "Chonky Pixels", postScriptName: chonkyDisplayFontName, resourceName: "ChonkyPixels", resourceExtension: "ttf"),
         AppBundledDisplayFont(displayName: "Coral Pixels", postScriptName: coralDisplayFontName, resourceName: "CoralPixels-Regular", resourceExtension: "ttf"),
         AppBundledDisplayFont(displayName: "Retro Gaming", postScriptName: legacyDisplayFontName, resourceName: "RetroGaming", resourceExtension: "ttf"),
@@ -1871,10 +1939,8 @@ enum AppDisplayTypography: Sendable {
             }
         case .platinumViolet:
             switch role {
-            case .h1:
-                return matrixDotsDisplayFontName
-            default:
-                return matrixDisplayFontName
+            case .h1, .h2, .h3: return matrixBoldDisplayFontName
+            default:            return matrixDisplayFontName
             }
         case .ember:
             return chonkyDisplayFontName
@@ -2084,7 +2150,9 @@ enum AppDisplayTypography: Sendable {
     /// headings should instead use `theme.headingFontName(level:)`
     /// (Classic H1/H2/H3 → MatrixTypeDisplay-Bold,
     /// Ember H1/H2/H3 → ChonkyPixels,
-    /// Platinum H1 → Matrix Dots, Platinum H2/H3 → MatrixTypeDisplay)
+    /// Platinum H1/H2/H3 → MatrixTypeDisplay-Bold. Matrix Dots is a
+    /// dormant demo asset, not an active heading face, because it renders
+    /// a visible watermark.
     /// — matching the SwiftUI `MarkdownTextView` +
     /// `TaggedMarkdownTextView` chat heading paths that already go through
     /// `AppDisplayTypography.headingFont(size:weight:theme:)`.
@@ -2104,6 +2172,79 @@ enum AppDisplayTypography: Sendable {
             )
         } else {
             return regularUIFont(size: size, weight: weight)
+        }
+    }
+
+    nonisolated static func usesPlatinumGlyphFallback(
+        theme: EpistemosTheme,
+        level: Int,
+        allowDisplayFont: Bool = true
+    ) -> Bool {
+        _ = theme
+        _ = level
+        _ = allowDisplayFont
+        // Disabled until MatrixDotsDemoRegular is replaced by a licensed
+        // non-watermarked face. Active Platinum text now uses Matrix Type.
+        return false
+    }
+
+    nonisolated static func platinumGlyphFontName(for character: Character) -> String {
+        _ = character
+        return matrixDisplayFontName
+    }
+
+    nonisolated static func platinumGlyphFallbackAttributedString(
+        _ text: String,
+        size: CGFloat,
+        weight: Font.Weight = .heavy,
+        isDark: Bool? = nil
+    ) -> AttributedString {
+        let resolvedIsDark = isDark ?? SystemAppearanceState.isDark()
+        var output = AttributedString()
+        for character in text {
+            var run = AttributedString(String(character))
+            run.font = font(
+                name: platinumGlyphFontName(for: character),
+                size: size,
+                weight: weight,
+                isDark: resolvedIsDark
+            )
+            output.append(run)
+        }
+        return output
+    }
+
+    nonisolated static func platinumGlyphFallbackUIFont(
+        matching font: NSFont,
+        weight: NSFont.Weight
+    ) -> NSFont {
+        displayUIFont(name: matrixDisplayFontName, size: font.pointSize, weight: weight)
+    }
+
+    nonisolated static func applyPlatinumGlyphFallbackFonts(
+        to attributedString: NSMutableAttributedString,
+        range: NSRange,
+        fallbackFont: NSFont
+    ) {
+        guard range.location != NSNotFound,
+              range.location >= 0,
+              range.length > 0,
+              NSMaxRange(range) <= attributedString.length
+        else {
+            return
+        }
+        let text = (attributedString.string as NSString).substring(with: range)
+        var location = range.location
+        for character in text {
+            let glyphLength = String(character).utf16.count
+            if platinumGlyphFontName(for: character) == matrixDisplayFontName {
+                attributedString.addAttribute(
+                    .font,
+                    value: fallbackFont,
+                    range: NSRange(location: location, length: glyphLength)
+                )
+            }
+            location += glyphLength
         }
     }
 
@@ -2127,6 +2268,7 @@ enum AppDisplayTypography: Sendable {
             || font.fontName.contains(coralDisplayFontName)
             || font.fontName.contains(matrixDisplayFontName)
             || font.fontName.contains("MatrixTypeDisplay")
+            || font.fontName.contains(matrixDotsDisplayFontName)
             || font.fontName.contains(chonkyDisplayFontName)
     }
 
