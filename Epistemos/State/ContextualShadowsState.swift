@@ -50,11 +50,17 @@ final class ContextualShadowsState {
         let results: [RecallHit]
         let queryText: String
         let errorMessage: String?
+        let isSearching: Bool
 
-        static let empty = RecallPayload(results: [], queryText: "", errorMessage: nil)
+        static let empty = RecallPayload(
+            results: [],
+            queryText: "",
+            errorMessage: nil,
+            isSearching: false
+        )
 
         var hasPanelPayload: Bool {
-            !results.isEmpty || errorMessage != nil
+            !results.isEmpty || errorMessage != nil || isSearching
         }
     }
 
@@ -150,7 +156,8 @@ final class ContextualShadowsState {
             return RecallPayload(
                 results: currentResults,
                 queryText: lastQueryText,
-                errorMessage: lastErrorMessage
+                errorMessage: lastErrorMessage,
+                isSearching: false
             )
         }
         return scopedPayloads[scopeKey] ?? .empty
@@ -229,6 +236,7 @@ final class ContextualShadowsState {
         }
 
         lastQueryText = queryText
+        publishPendingPayload(scopeKey: scopeKey, queryText: queryText)
 
         if let shadowSearch {
             let domains = Self.shadowDomains(for: snapshot.kind)
@@ -454,14 +462,41 @@ final class ContextualShadowsState {
         isPanelVisible = isVisible
         latestScopeKey = scopeKey
 
-        guard let scopeKey else { return }
+        guard let scopeKey else {
+            pendingTask = nil
+            return
+        }
         scopedPayloads[scopeKey] = RecallPayload(
             results: results,
             queryText: queryText,
-            errorMessage: errorMessage
+            errorMessage: errorMessage,
+            isSearching: false
         )
         scopedPanelVisibility[scopeKey] = isVisible
         scopedPendingTasks[scopeKey] = nil
+        if pendingTask?.isCancelled == true {
+            pendingTask = nil
+        }
+    }
+
+    private func publishPendingPayload(scopeKey: String?, queryText: String) {
+        currentResults = []
+        lastQueryText = queryText
+        lastErrorMessage = nil
+        latestScopeKey = scopeKey
+
+        guard let scopeKey else {
+            return
+        }
+
+        let wasVisible = scopedPanelVisibility[scopeKey] == true
+        scopedPayloads[scopeKey] = RecallPayload(
+            results: [],
+            queryText: queryText,
+            errorMessage: nil,
+            isSearching: true
+        )
+        scopedPanelVisibility[scopeKey] = wasVisible
     }
 
     // MARK: - Conversion
@@ -649,24 +684,28 @@ final class ContextualShadowsState {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !compactNormalized.isEmpty else { return "" }
 
-        let tail = String(normalized.suffix(1_800))
+        let tail = String(normalized.suffix(1_200))
         let paragraphWindow = currentRecallParagraph(from: tail)
-        let sentencePieces = paragraphWindow
+        let activeLineWindow = currentRecallLine(from: paragraphWindow)
+        let focusWindow = normalizedRecallField(activeLineWindow).count >= Self.minimumQueryLength
+            ? activeLineWindow
+            : paragraphWindow
+        let sentencePieces = focusWindow
             .split(whereSeparator: { ".?!;".contains($0) })
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
 
         let sentenceWindow = sentencePieces
-            .suffix(3)
+            .suffix(2)
             .joined(separator: ". ")
-        let baseWindow = sentenceWindow.isEmpty ? String(paragraphWindow.suffix(900)) : sentenceWindow
+        let baseWindow = sentenceWindow.isEmpty ? String(focusWindow.suffix(520)) : sentenceWindow
         let titleIntent = explicitTitleIntent(from: compactNormalized)
         let baseTerms = Set(
             normalizedRecallField([titleIntent, baseWindow].compactMap { $0 }.joined(separator: " "))
                 .split(separator: " ")
                 .map(String.init)
         )
-        let keywordValues = rankedKeywords(from: paragraphWindow, limit: 14)
+        let keywordValues = rankedKeywords(from: baseWindow, limit: 10)
             .filter { !baseTerms.contains($0) }
         let keywords = keywordValues.isEmpty ? nil : keywordValues.joined(separator: " ")
         let combined = [titleIntent, baseWindow, keywords]
@@ -692,6 +731,17 @@ final class ContextualShadowsState {
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
         return paragraphs.last ?? normalized
+    }
+
+    nonisolated private static func currentRecallLine(from text: String) -> String {
+        let normalized = text
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+        let lines = normalized
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return lines.last ?? normalized.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     nonisolated private static func explicitTitleIntent(from text: String) -> String? {

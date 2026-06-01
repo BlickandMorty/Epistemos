@@ -380,6 +380,67 @@ struct ContextualShadowsStateTests {
         #expect(state.currentResults.first?.title == "All Things Must Go")
     }
 
+    @MainActor
+    @Test("new scoped recall clears stale results while the next query is pending")
+    func requestRecallPublishesPendingPayloadForCurrentText() async {
+        let state = ContextualShadowsState(isEnabledOverride: true)
+        let recall = InstantRecallService()
+        let firstHit = ShadowHit(
+            id: "old-related-note",
+            title: "Old Related Note",
+            snippet: "A completed result from the previous active sentence.",
+            score: 0.82,
+            domain: .notes,
+            source: "stub-shadow"
+        )
+        state.configureShadowSearch(ContextualShadowsMockSearch(resultsByDomain: [
+            .notes: [firstHit],
+            .chats: [],
+        ]))
+
+        let originId = UUID()
+        let originDocId = "note-a"
+        state.requestRecall(
+            snapshot: RecallContextSnapshot(
+                text: "previous active sentence about older recall",
+                kind: .note,
+                originId: originId,
+                originDocId: originDocId
+            ),
+            instantRecall: recall
+        )
+
+        await Self.waitForScopedPayload(
+            state,
+            kind: .note,
+            originDocId: originDocId,
+            expectedCount: 1
+        )
+        #expect(state.payload(kind: .note, originDocId: originDocId).results.first?.id == "old-related-note")
+
+        let slowShadow = ContextualShadowsMockSearch(
+            resultsByDomain: [.notes: [], .chats: []],
+            delayNanoseconds: 120_000_000
+        )
+        state.configureShadowSearch(slowShadow)
+        state.requestRecall(
+            snapshot: RecallContextSnapshot(
+                text: "fresh current sentence about entropy and moral responsibility",
+                kind: .note,
+                originId: originId,
+                originDocId: originDocId
+            ),
+            instantRecall: recall
+        )
+
+        let pending = state.payload(kind: .note, originDocId: originDocId)
+        #expect(pending.results.isEmpty)
+        #expect(pending.isSearching)
+        #expect(pending.queryText.contains("entropy"))
+        #expect(!pending.queryText.contains("previous active sentence"))
+        state.pendingTask?.cancel()
+    }
+
     @Test("convert falls back to the first non-empty line when no heading exists")
     func convertFirstLineFallback() {
         let raw: [InstantRecallResult] = [
@@ -437,6 +498,20 @@ struct ContextualShadowsStateTests {
         #expect(query.count <= 1_000)
     }
 
+    @Test("recallQuery follows the active line instead of the surrounding note")
+    func recallQueryUsesActiveLineOverSurroundingNoteContext() {
+        let text = """
+        # My Autobiography
+        This older context is about caretaking, gaming, and a long autobiographical essay.
+        moral responsibility and free will
+        """
+        let query = ContextualShadowsState.recallQuery(from: text)
+        #expect(query.contains("moral responsibility"))
+        #expect(query.contains("free will"))
+        #expect(!query.contains("My Autobiography"))
+        #expect(!query.contains("caretaking"))
+    }
+
     @Test("recallQuery prioritizes explicit note titles")
     func recallQueryPrioritizesExplicitNoteTitles() {
         let query = ContextualShadowsState.recallQuery(
@@ -472,6 +547,9 @@ struct ContextualShadowsStateTests {
         #expect(proseBridge.contains("scheduleContextualShadowsRecall(newText)"))
         #expect(proseBridge.contains("state.requestRecall("))
         #expect(proseBridge.contains("searchIndexService: searchIndexService"))
+        #expect(proseBridge.contains("contextualRecallText(fallback: snapshotText)"))
+        #expect(!proseBridge.contains("trailingContext"),
+                "Note recall should not include text after the cursor; trailing note context can dominate the active sentence.")
     }
 
     @Test("Contextual Shadows V0 prefers Shadow search without mounting the V1 Halo controller")
