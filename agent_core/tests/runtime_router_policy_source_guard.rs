@@ -19,6 +19,10 @@ const INFERENCE_ROUTE_PROFILES_SOURCE: &str =
 fn mission_packet_carries_policy_inputs() {
     for field in [
         "public let residencyCeiling: ResidencyTier",
+        "public let requiresTools: Bool",
+        "public let requiresVision: Bool",
+        "public let requiresGrammar: Bool",
+        "public let privacySensitive: Bool",
         "public let classificationConfidence: Double?",
         "public let estimatedComplexity: Double?",
         "public let toolCountEstimate: Int?",
@@ -39,6 +43,7 @@ fn route_verdict_exposes_policy_escalation_reasons() {
         "case taskTooComplex = \"task_too_complex\"",
         "case tooManyToolCalls = \"too_many_tool_calls\"",
         "case contextWindowExceeded = \"context_window_exceeded\"",
+        "case toolCallGrammarUnsupported = \"tool_call_grammar_unsupported\"",
         "case residencyTierExceeded = \"residency_tier_exceeded\"",
         "case privacyPolicyMismatch = \"privacy_policy_mismatch\"",
         "case privacySensitiveNoLocal = \"privacy_sensitive_no_local\"",
@@ -91,6 +96,20 @@ fn stub_executor_gates_estimated_context_against_lane_capability() {
         assert!(
             RUNTIME_ROUTER_SOURCE.contains(snippet),
             "StubRuntimeExecutor must gate context-window routing with `{snippet}`"
+        );
+    }
+}
+
+#[test]
+fn stub_executor_gates_tool_and_grammar_demands_against_lane_capability() {
+    for snippet in [
+        "if request.requiresGrammar && capability.toolCallMode == .none",
+        "return .escalate(from: id, to: id, reason: .toolCallGrammarUnsupported)",
+        "if request.requiresTools && capability.toolCallMode == .none",
+    ] {
+        assert!(
+            RUNTIME_ROUTER_SOURCE.contains(snippet),
+            "StubRuntimeExecutor must gate tool/grammar demands with `{snippet}`"
         );
     }
 }
