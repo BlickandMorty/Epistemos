@@ -3422,7 +3422,9 @@ private struct AppearanceDetailContainer: View {
     private var appearanceForm: some View {
         Form {
             AppearanceThemePairSection(ui: ui, theme: theme)
-            AppearanceCustomThemeSection(ui: ui)
+            if ui.activePair == .custom {
+                AppearanceCustomThemeSection(ui: ui)
+            }
             AppearanceTypographySection(ui: ui)
             AppearanceGraphNodeVisibilitySection()
             AppearanceGraphPerformanceSection()
@@ -3865,6 +3867,7 @@ private struct CustomThemeCinematicHalf: View {
 
 private struct AppearanceCustomThemeSection: View {
     let ui: UIState
+    @State private var editingDarkVariant = SystemAppearanceState.isDark()
 
     private let columns = [
         GridItem(.adaptive(minimum: 146), spacing: Spacing.sm, alignment: .top),
@@ -3876,31 +3879,31 @@ private struct AppearanceCustomThemeSection: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Custom theme")
                         .font(.caption.weight(.semibold))
-                    Text("Presets stay untouched. These colors and heading fonts apply only when the Custom theme is selected.")
+                    Text("Editing \(editingDarkVariant ? "dark" : "light") Custom. Preset themes stay locked.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button(ui.activePair == .custom ? "Selected" : "Use Custom") {
-                    ui.setPair(.custom)
-                    ui.setThemeMode(.custom)
-                    ui.refreshTypographySettings()
+                Picker("Variant", selection: $editingDarkVariant) {
+                    Text("Light").tag(false)
+                    Text("Dark").tag(true)
                 }
-                .controlSize(.small)
-                .disabled(ui.activePair == .custom)
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .frame(width: 124)
             }
 
             LazyVGrid(columns: columns, alignment: .leading, spacing: Spacing.sm) {
                 ForEach(AppCustomThemeColorSlot.allCases) { slot in
                     CustomThemeColorTile(
                         slot: slot,
-                        color: colorBinding(slot: slot)
+                        color: colorBinding(slot: slot, isDark: editingDarkVariant)
                     )
                 }
             }
 
             HStack {
-                CustomThemeLivePreview()
+                CustomThemeLivePreview(isDark: editingDarkVariant)
                     .frame(maxWidth: 260)
                 Spacer()
                 Button("Reset Custom Colors") {
@@ -3912,14 +3915,17 @@ private struct AppearanceCustomThemeSection: View {
         } header: {
             Text("Custom Appearance")
         }
+        .onAppear {
+            editingDarkVariant = ui.theme.presetResolved.isDark
+        }
     }
 
-    private func colorBinding(slot: AppCustomThemeColorSlot) -> Binding<Color> {
+    private func colorBinding(slot: AppCustomThemeColorSlot, isDark: Bool) -> Binding<Color> {
         Binding(
-            get: { Color(hex: AppCustomTheme.hex(for: slot)) },
+            get: { Color(hex: AppCustomTheme.hex(for: slot, isDark: isDark)) },
             set: { color in
                 guard let hex = color.rgbHex else { return }
-                AppCustomTheme.setHex(hex, for: slot)
+                AppCustomTheme.setHex(hex, for: slot, isDark: isDark)
                 ui.refreshTypographySettings()
             }
         )
@@ -3950,8 +3956,12 @@ private struct CustomThemeColorTile: View {
 }
 
 private struct CustomThemeLivePreview: View {
+    let isDark: Bool
+
     var body: some View {
-        let resolved = AppCustomTheme.resolved(isDark: false)
+        let resolved = AppCustomTheme.resolved(isDark: isDark)
+        let noteSurface = EpistemosTheme.ResolvedColorToken
+            .hex(AppCustomTheme.noteSurfaceHex(isDark: isDark))
         let fontName = AppDisplayTypography.storedHeadingFontOverride(level: 1)
             ?? AppDisplayTypography.matrixDisplayFontName
         return VStack(alignment: .leading, spacing: 8) {
@@ -3966,10 +3976,22 @@ private struct CustomThemeLivePreview: View {
                     .fill(resolved.foreground.color.opacity(0.28))
                     .frame(width: 72, height: 7)
             }
-            Text("Heading, text, panels, and chat stay together.")
+            Text("Heading, text, note surfaces, panels, and chat stay together.")
                 .font(.caption2)
                 .foregroundStyle(resolved.foreground.color.opacity(0.82))
                 .lineLimit(2)
+            HStack(spacing: 6) {
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(noteSurface.color)
+                    .frame(width: 52, height: 20)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .stroke(resolved.border.color.opacity(0.7), lineWidth: 1)
+                    )
+                Text(isDark ? "Dark note surface" : "Light note surface")
+                    .font(.caption2)
+                    .foregroundStyle(resolved.foreground.color.opacity(0.74))
+            }
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -4093,34 +4115,36 @@ private struct AppearanceTypographySection: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Heading Typography")
-                            .font(.caption.weight(.semibold))
-                        Text("Custom theme only. Preset themes keep their locked typography.")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+            if ui.activePair == .custom {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Heading Typography")
+                                .font(.caption.weight(.semibold))
+                            Text("Heading font and scale apply only to Custom.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Reset") {
+                            AppDisplayTypography.resetHeadingTypography()
+                            ui.refreshTypographySettings()
+                        }
+                        .controlSize(.small)
                     }
-                    Spacer()
-                    Button("Reset") {
-                        AppDisplayTypography.resetHeadingTypography()
-                        ui.refreshTypographySettings()
-                    }
-                    .controlSize(.small)
-                }
 
-                ForEach([1, 2, 3], id: \.self) { level in
-                    HeadingTypographyControlRow(
-                        level: level,
-                        fontSelection: headingFontBinding(level: level),
-                        sizeScale: headingSizeScaleBinding(level: level),
-                        previewFontName: selectedHeadingFontName(level: level),
-                        previewSize: previewSize(level: level)
-                    )
+                    ForEach([1, 2, 3], id: \.self) { level in
+                        HeadingTypographyControlRow(
+                            level: level,
+                            fontSelection: headingFontBinding(level: level),
+                            sizeScale: headingSizeScaleBinding(level: level),
+                            previewFontName: selectedHeadingFontName(level: level),
+                            previewSize: previewSize(level: level)
+                        )
+                    }
                 }
+                .padding(.top, 4)
             }
-            .padding(.top, 4)
         } header: {
             Text("Typography")
         }
