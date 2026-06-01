@@ -399,6 +399,13 @@ fn build_report() -> Result<AppColdStoreLayoutReport, Box<dyn std::error::Error>
         &mut measurements,
         &mut thresholds,
         &mut pass_per_axis,
+        "route_card_units_uas_bound",
+        route_card_units_uas_bound(&card),
+    );
+    add_bool_axis(
+        &mut measurements,
+        &mut thresholds,
+        &mut pass_per_axis,
         "durable_warm_hot_tiers_present",
         card.durable_units.len() == 1
             && card.warm_cache_units.len() == 1
@@ -757,6 +764,18 @@ fn fit_plan() -> Result<ResidencyPlan, Box<dyn std::error::Error>> {
     Ok(plan)
 }
 
+fn route_card_units_uas_bound(card: &AppColdStoreRouteCard) -> bool {
+    !card.durable_units.is_empty()
+        && !card.warm_cache_units.is_empty()
+        && !card.hot_runway_units.is_empty()
+        && card
+            .durable_units
+            .iter()
+            .chain(card.warm_cache_units.iter())
+            .chain(card.hot_runway_units.iter())
+            .all(|unit| unit.uas_address.kind == UasKind::ModelComponent)
+}
+
 fn route_card_verifier_stack() -> Vec<String> {
     vec![
         FALSIFIER_ID.to_string(),
@@ -1079,6 +1098,13 @@ mod tests {
                 .artifact
                 .pass_per_axis
                 .get("runtime_model_bytes_loaded"),
+            Some(&true)
+        );
+        assert_eq!(
+            report
+                .artifact
+                .pass_per_axis
+                .get("route_card_units_uas_bound"),
             Some(&true)
         );
         assert!(report.durable_bytes > 0);
