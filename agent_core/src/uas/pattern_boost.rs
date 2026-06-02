@@ -157,6 +157,12 @@ impl UasAssemblyGenome {
             selected_evidence_pages,
             UasAddressClass::EvidencePage,
         )?;
+        validate_unique_support_set(
+            &selected_weight_pages,
+            &selected_kv_pages,
+            &selected_adapter_slices,
+            &selected_evidence_pages,
+        )?;
         let selected_verifier_lanes = canonicalize_strings(
             "selected_verifier_lanes",
             selected_verifier_lanes,
@@ -668,6 +674,32 @@ fn validate_address_kind(
             field,
             actual_kind: address.kind.wire_tag().to_string(),
         });
+    }
+    Ok(())
+}
+
+fn validate_unique_support_set(
+    selected_weight_pages: &[UasAddress],
+    selected_kv_pages: &[UasAddress],
+    selected_adapter_slices: &[UasAddress],
+    selected_evidence_pages: &[UasAddress],
+) -> Result<(), UasAssemblyGenomeError> {
+    let total = selected_weight_pages.len()
+        + selected_kv_pages.len()
+        + selected_adapter_slices.len()
+        + selected_evidence_pages.len();
+    let mut seen = HashSet::with_capacity(total);
+    for address in selected_weight_pages
+        .iter()
+        .chain(selected_kv_pages)
+        .chain(selected_adapter_slices)
+        .chain(selected_evidence_pages)
+    {
+        if !seen.insert(address) {
+            return Err(UasAssemblyGenomeError::DuplicateAddress {
+                field: "selected_uas_support",
+            });
+        }
     }
     Ok(())
 }
@@ -1389,6 +1421,43 @@ mod tests {
             err,
             UasAssemblyGenomeError::MissingRequiredVerifierLane {
                 verifier: "F-ResidencyPatternBoost-NoHiddenAuthority"
+            }
+        );
+    }
+
+    #[test]
+    fn uas_assembly_genome_rejects_duplicate_support_across_categories() {
+        let reused_support = addr(UasKind::ModelComponent, b"weight-and-adapter");
+        let err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![reused_support.clone()],
+            Vec::new(),
+            vec![reused_support],
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            UasAssemblyGenomeError::DuplicateAddress {
+                field: "selected_uas_support"
             }
         );
     }
