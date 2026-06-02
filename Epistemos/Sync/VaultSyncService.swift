@@ -259,6 +259,14 @@ private struct VersionCaptureSnapshot: Sendable {
     let wordCount: Int
 }
 
+private final class VaultFileWatcherState {
+    var source: DispatchSourceFileSystemObject?
+    var fileDescriptor: Int32 = -1
+    var debounceTask: Task<Void, Never>?
+    let clock = ContinuousClock()
+    var ignoreUntil: ContinuousClock.Instant?
+}
+
 private let log = Logger(subsystem: "com.epistemos", category: "VaultSync")
 
 @MainActor
@@ -435,11 +443,8 @@ final class VaultSyncService {
     private var initialImportCompleted = false
 
     // MARK: - File Watching
-    private var fileWatcherSource: DispatchSourceFileSystemObject?
-    private var fileWatcherFD: Int32 = -1
-    private var fileWatchDebounceTask: Task<Void, Never>?
-    private let fileWatcherClock = ContinuousClock()
-    private var fileWatcherIgnoreUntil: ContinuousClock.Instant?
+    @ObservationIgnored
+    private let fileWatcherState = VaultFileWatcherState()
     private nonisolated static let recoverySnapshotLimit = 20
 
     private struct ResolvedVaultBookmark: Sendable {
@@ -3475,7 +3480,7 @@ final class VaultSyncService {
         (
             isWatching: isWatching,
             autoSaveActive: autoSaveTask != nil,
-            fileWatcherActive: fileWatcherSource != nil
+            fileWatcherActive: fileWatcherState.source != nil
         )
     }
 
@@ -3537,7 +3542,7 @@ final class VaultSyncService {
             log.warning("File watcher: failed to open vault directory for monitoring")
             return
         }
-        fileWatcherFD = fd
+        fileWatcherState.fileDescriptor = fd
 
         let source = DispatchSource.makeFileSystemObjectSource(
             fileDescriptor: fd,
@@ -3554,37 +3559,41 @@ final class VaultSyncService {
         }
 
         source.resume()
-        fileWatcherSource = source
+        fileWatcherState.source = source
         log.info("File watcher started for: \(url.lastPathComponent, privacy: .public)")
     }
 
     private func stopFileWatcher() {
-        fileWatchDebounceTask?.cancel()
-        fileWatchDebounceTask = nil
-        fileWatcherIgnoreUntil = nil
-        if let source = fileWatcherSource {
+        fileWatcherState.debounceTask?.cancel()
+        fileWatcherState.debounceTask = nil
+        fileWatcherState.ignoreUntil = nil
+        if let source = fileWatcherState.source {
             source.cancel()
-            fileWatcherSource = nil
-            fileWatcherFD = -1
+            fileWatcherState.source = nil
+            fileWatcherState.fileDescriptor = -1
         }
     }
 
     private func suppressFileWatcherForSelfOriginatedChange(window: Duration = .seconds(3)) {
         guard isWatching else { return }
-        let deadline = fileWatcherClock.now + window
-        if let existingDeadline = fileWatcherIgnoreUntil, existingDeadline > deadline {
+        let deadline = fileWatcherState.clock.now + window
+        if let existingDeadline = fileWatcherState.ignoreUntil, existingDeadline > deadline {
             return
         }
-        fileWatcherIgnoreUntil = deadline
+        fileWatcherState.ignoreUntil = deadline
+    }
+
+    func suppressNextFileWatcherChangeForSelfOriginatedWrite(window: Duration = .seconds(3)) {
+        suppressFileWatcherForSelfOriginatedChange(window: window)
     }
 
     private func shouldIgnoreFileWatcherChange() -> Bool {
-        guard let deadline = fileWatcherIgnoreUntil else { return false }
-        let now = fileWatcherClock.now
+        guard let deadline = fileWatcherState.ignoreUntil else { return false }
+        let now = fileWatcherState.clock.now
         if now < deadline {
             return true
         }
-        fileWatcherIgnoreUntil = nil
+        fileWatcherState.ignoreUntil = nil
         return false
     }
 
@@ -3592,7 +3601,7 @@ final class VaultSyncService {
     /// Waits 2 seconds after the last change before re-importing, so rapid
     /// saves (e.g. typing in an external editor) don't trigger 50 reimports.
     private func handleFileSystemChange() {
-        fileWatchDebounceTask?.cancel()
+        fileWatcherState.debounceTask?.cancel()
         // Capture what we need before detaching — avoids @MainActor inheritance
         // so the heavy vault import doesn't block the UI.
         let vaultURL = self.vaultURL
@@ -3600,7 +3609,7 @@ final class VaultSyncService {
         let searchService = self.searchService
         let shouldIgnore = shouldIgnoreFileWatcherChange()
 
-        fileWatchDebounceTask = Task.detached(priority: .utility) {
+        fileWatcherState.debounceTask = Task.detached(priority: .utility) {
             let log = Logger(subsystem: "com.epistemos", category: "VaultSync")
             guard await Self.sleepHandlingCancellation(
                 for: .seconds(2),

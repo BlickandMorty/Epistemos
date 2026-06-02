@@ -1941,9 +1941,17 @@ struct NotesSidebar: View {
             }
 
         case .openDocument(let url):
-            NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, error in
-                if let error {
+            if url.pathExtension == "htmlworkspace" {
+                do {
+                    try NSDocumentController.shared.openHTMLWorkspaceDocument(at: url)
+                } catch {
                     NSApplication.shared.presentError(error)
+                }
+            } else {
+                NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, error in
+                    if let error {
+                        NSApplication.shared.presentError(error)
+                    }
                 }
             }
 

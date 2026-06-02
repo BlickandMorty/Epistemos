@@ -603,15 +603,11 @@ private struct GraphHTMLWorkspaceDock: View {
         panel.canChooseFiles = true
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
-        NSDocumentController.shared.openDocument(withContentsOf: url, display: true) {
-            document, _, error in
-            if let error {
-                NSApplication.shared.presentError(error)
-                return
-            }
-            if let workspace = document as? HTMLWorkspaceDocument {
-                selectedWorkspaceID = workspace.package.manifest.id
-            }
+        do {
+            let workspace = try NSDocumentController.shared.openHTMLWorkspaceDocument(at: url)
+            selectedWorkspaceID = workspace.package.manifest.id
+        } catch {
+            NSApplication.shared.presentError(error)
         }
     }
 
