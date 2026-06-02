@@ -94,6 +94,12 @@ impl ConstructionCard {
         validate_residency_plan_snapshot(plan)?;
         let lift_charts = unique_lift_charts(plan);
         let budget = ConstructionBudget::from_residency_plan(plan, copy_budget);
+        let falsifier_id = falsifier_id.into();
+        let mut upstream_falsifier_ids = Vec::with_capacity(2);
+        upstream_falsifier_ids.push(RANGE_HASH_FALSIFIER_ID.to_string());
+        if falsifier_id != RESIDENCY_PLAN_FALSIFIER_ID {
+            upstream_falsifier_ids.push(RESIDENCY_PLAN_FALSIFIER_ID.to_string());
+        }
         Self::new_with_upstreams(
             problem_card,
             lift_charts,
@@ -101,10 +107,7 @@ impl ConstructionCard {
             witness,
             budget,
             falsifier_id,
-            vec![
-                RANGE_HASH_FALSIFIER_ID.to_string(),
-                RESIDENCY_PLAN_FALSIFIER_ID.to_string(),
-            ],
+            upstream_falsifier_ids,
             rollback_reference,
             product_build,
             pro_status,
@@ -175,6 +178,11 @@ impl ConstructionCard {
         let mut seen_upstreams = HashSet::new();
         for upstream in &upstream_falsifier_ids {
             validate_nonempty("upstream_falsifier_id", upstream)?;
+            if upstream == &falsifier_id {
+                return Err(ConstructionCardError::DuplicateUpstreamFalsifier {
+                    falsifier_id: upstream.clone(),
+                });
+            }
             if !seen_upstreams.insert(upstream.as_str()) {
                 return Err(ConstructionCardError::DuplicateUpstreamFalsifier {
                     falsifier_id: upstream.clone(),
@@ -496,10 +504,7 @@ mod tests {
         assert_eq!(card.residency_status, ResidencyTier::CapabilityCeiling);
         assert_eq!(
             card.upstream_falsifier_ids,
-            vec![
-                "F-WeightBlockRangeHash-DryRun".to_string(),
-                "F-ResidencyPlan-DryRun".to_string()
-            ]
+            vec!["F-WeightBlockRangeHash-DryRun".to_string()]
         );
         assert_eq!(card.budget.cold_mmap_ssd_bytes, 4);
         assert_eq!(
@@ -709,6 +714,39 @@ mod tests {
             err,
             ConstructionCardError::DuplicateUpstreamFalsifier {
                 falsifier_id: "F-WeightBlockRangeHash-DryRun".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn construction_card_rejects_primary_falsifier_reused_as_upstream() {
+        let err = ConstructionCard::new_with_upstreams(
+            "problem",
+            vec![WeightBlockIrChart::Scan],
+            "projection",
+            "witness",
+            ConstructionBudget {
+                hot_uma_bytes: 0,
+                warm_compressed_uma_bytes: 0,
+                cold_mmap_ssd_bytes: 0,
+                wbo_budget_nats: 0.0,
+                copy_budget: 0,
+            },
+            "F-Test",
+            vec!["F-Test".to_string()],
+            "rollback",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            None,
+            10,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            ConstructionCardError::DuplicateUpstreamFalsifier {
+                falsifier_id: "F-Test".to_string()
             }
         );
     }
