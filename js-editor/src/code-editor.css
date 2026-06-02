@@ -25,9 +25,9 @@ html[data-theme="dark"] body {
   height: 100%;
   background: var(--epi-code-bg, #fbfbfb);
   color: var(--epi-code-fg, #202124);
-  font-family: "SF Mono", "SFMono-Regular", Menlo, Monaco, ui-monospace, Consolas, monospace;
+  font-family: Menlo, Monaco, "SF Mono", "SFMono-Regular", ui-monospace, Consolas, monospace;
   font-weight: 500;
-  -webkit-font-smoothing: antialiased;
+  -webkit-font-smoothing: auto;
   text-rendering: optimizeLegibility;
   font-synthesis: none;
 }
@@ -61,12 +61,8 @@ html[data-theme="dark"] body {
 }
 
 html[data-theme="dark"] .cm-gutters {
-  border-right-color: color-mix(
-    in srgb,
-    var(--epi-code-bg, #140f0c) 72%,
-    var(--epi-code-keyword, #d08632) 18%,
-    var(--epi-code-fg, #f2eee8) 10%
-  ) !important;
+  border-right: 0 !important;
+  box-shadow: none !important;
 }
 
 .cm-lineNumbers .cm-gutterElement {

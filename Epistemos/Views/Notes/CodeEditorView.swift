@@ -2496,7 +2496,16 @@ struct CodeEditorView: View {
           color: var(--epistemos-workspace-fg) !important;
         }
 
-        html[data-epistemos-theme] body :is(p, li, span, small, strong, em, label, td, th, blockquote, pre, code, dd, dt, figcaption) {
+        html[data-epistemos-theme="dark"] body,
+        html[data-epistemos-theme="dark"] body :is(p, li, span, small, strong, em, label, td, th, blockquote, pre, code, dd, dt, figcaption, summary, legend) {
+          color: var(--epistemos-workspace-fg) !important;
+        }
+
+        html[data-epistemos-theme="dark"] body :is(.muted, .secondary, .subtle, .caption, .eyebrow, .meta, [data-muted]) {
+          color: var(--epistemos-workspace-muted) !important;
+        }
+
+        html[data-epistemos-theme="light"] body :is(p, li, span, small, strong, em, label, td, th, blockquote, pre, code, dd, dt, figcaption, summary, legend) {
           color: inherit;
         }
 

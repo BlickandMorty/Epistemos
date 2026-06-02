@@ -11,7 +11,7 @@ struct HTMLWorkspaceEditorView: View {
     @State private var layoutMode: HTMLWorkspaceLayoutMode = .split
     @State private var previewUpdateTask: Task<Void, Never>?
     @State private var consoleExpanded = false
-    @State private var inspectorVisible = true
+    @State private var inspectorVisible = false
     @State private var isExportingPDF = false
     @State private var statusText: String?
     @State private var sourceCursorLine = 1
@@ -91,22 +91,6 @@ struct HTMLWorkspaceEditorView: View {
             }
             .labelStyle(.iconOnly)
             .help("Save")
-
-            Button {
-                openMiniChatForCurrentPane()
-            } label: {
-                Label("MiniChat", systemImage: "bubble.left.and.text.bubble.right")
-            }
-            .labelStyle(.iconOnly)
-            .help("Open MiniChat for this workspace")
-
-            Button {
-                copyPatchContext(for: selectedPane)
-            } label: {
-                Label("Copy patch context", systemImage: "curlybraces.square")
-            }
-            .labelStyle(.iconOnly)
-            .help("Copy MiniChat patch context")
 
             Menu {
                 Button("Import HTML", systemImage: "tray.and.arrow.down") {
@@ -583,7 +567,16 @@ struct HTMLWorkspaceEditorView: View {
           color: var(--epistemos-workspace-fg) !important;
         }
 
-        html[data-epistemos-theme] body :is(p, li, span, small, strong, em, label, td, th, blockquote, pre, code, dd, dt, figcaption) {
+        html[data-epistemos-theme="dark"] body,
+        html[data-epistemos-theme="dark"] body :is(p, li, span, small, strong, em, label, td, th, blockquote, pre, code, dd, dt, figcaption, summary, legend) {
+          color: var(--epistemos-workspace-fg) !important;
+        }
+
+        html[data-epistemos-theme="dark"] body :is(.muted, .secondary, .subtle, .caption, .eyebrow, .meta, [data-muted]) {
+          color: var(--epistemos-workspace-muted) !important;
+        }
+
+        html[data-epistemos-theme="light"] body :is(p, li, span, small, strong, em, label, td, th, blockquote, pre, code, dd, dt, figcaption, summary, legend) {
           color: inherit;
         }
 

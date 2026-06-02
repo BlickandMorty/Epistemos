@@ -88,8 +88,10 @@ struct LiquidGreeting: View {
     /// single-line greeting.
     nonisolated static let restingGreeting = "\(greetingLine1) \(greetingLine2)"
 
-    @Environment(UIState.self) private var ui
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var theme: EpistemosTheme
+    var windowOccluded: Bool
+    var typewriterEnabled: Bool
     var compact: Bool = false
     @Binding var retractNow: Bool
     var onRetractComplete: (() -> Void)? = nil
@@ -112,8 +114,6 @@ struct LiquidGreeting: View {
     @State private var line2: String = ""
     @State private var searchReady: Bool = false
     @State private var cursorVisible: Bool = true
-
-    private var theme: EpistemosTheme { ui.theme }
 
     /// Hero font for the two stacked lines. Landing owns this face
     /// independently from note headings so Classic can keep Matrix Type
@@ -175,7 +175,7 @@ struct LiquidGreeting: View {
     }
 
     private var shouldAnimate: Bool {
-        !ui.windowOccluded && ui.landingGreetingTypewriterEnabled
+        !windowOccluded && typewriterEnabled
     }
 
     private var taskKey: String {

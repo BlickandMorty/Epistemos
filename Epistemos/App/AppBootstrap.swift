@@ -2748,7 +2748,16 @@ final class AppBootstrap {
     }
 
     private func refreshWelcomeBackSummary() async {
+        guard UserDefaults.standard.bool(forKey: "epistemos.enableLaunchWelcomeBackModelRefresh") else {
+            applyStoredWelcomeBackSummary()
+            return
+        }
+
         await workspaceSummaryService.generateSummaryNow()
+        applyStoredWelcomeBackSummary()
+    }
+
+    private func applyStoredWelcomeBackSummary() {
         let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
         do {
             if let ws = try modelContainer.mainContext.fetch(
