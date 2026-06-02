@@ -29,7 +29,7 @@ actor VaultLifecycleService {
         incomingFact: String,
         existingFacts: [VaultFactFFI]
     ) -> [ContradictionFFI] {
-        let contradictions = detectVaultContradictions(
+        let contradictions = detectVaultContradictionsLocal(
             incoming: incomingFact,
             existingFacts: existingFacts
         )
@@ -45,7 +45,7 @@ actor VaultLifecycleService {
     /// Called after agent sessions complete.
     func generateGraphForSession(sessionFolderPath: String) {
         do {
-            let graphJSON = try generateSessionGraph(sessionFolderPath: sessionFolderPath)
+            let graphJSON = try generateSessionGraphLocal(sessionFolderPath: sessionFolderPath)
             Self.log.info("Generated session graph (\(graphJSON.count) bytes) at \(sessionFolderPath)")
         } catch {
             Self.log.error("Failed to generate session graph: \(error.localizedDescription)")
@@ -56,7 +56,7 @@ actor VaultLifecycleService {
     /// Called by NightBrain during idle maintenance.
     func mergeVaultGraphs() {
         // List all session folders, generate graphs for any missing, then merge
-        let sessions = listSessionFolders(vaultPath: vaultPath)
+        let sessions = listSessionFoldersLocal(vaultPath: vaultPath)
         var generatedCount = 0
 
         for session in sessions {
@@ -86,7 +86,7 @@ actor VaultLifecycleService {
     /// Called by NightBrain for skills with sufficient trace data.
     func analyzeAndProposeEvolution(skillName: String) -> SkillEvolutionResult? {
         // Step 1: Analyze traces
-        guard let patternJSON = try? analyzeSkillTraces(
+        guard let patternJSON = try? analyzeSkillTracesLocal(
             vaultPath: vaultPath,
             skillName: skillName
         ) else {
@@ -109,7 +109,7 @@ actor VaultLifecycleService {
         }
 
         // Step 3: Propose mutation
-        guard let mutationJSON = try? proposeSkillMutation(
+        guard let mutationJSON = try? proposeSkillMutationHeuristic(
             skillContent: skillContent,
             tracePatternJson: patternJSON
         ), !mutationJSON.isEmpty else {
@@ -127,7 +127,7 @@ actor VaultLifecycleService {
     /// Run the full GEPA evolution pipeline across all registered skills.
     /// Returns proposals for skills that have improvement signals.
     func runEvolutionSweep() -> [SkillEvolutionResult] {
-        let skills = listRegisteredSkills(vaultPath: vaultPath)
+        let skills = listRegisteredSkillsLocal(vaultPath: vaultPath)
         var proposals: [SkillEvolutionResult] = []
 
         for skill in skills {
@@ -156,10 +156,40 @@ struct SkillEvolutionResult: Sendable {
 
 // MARK: - Swift Compatibility Bridge
 
-typealias VaultFactFFI = VaultFactFfi
-typealias ContradictionFFI = ContradictionFfi
-typealias SessionFolderInfoFFI = SessionFolderInfoFfi
-typealias SkillRegistryEntryFFI = SkillRegistryEntryFfi
+nonisolated struct VaultFactFFI: Equatable, Hashable, Sendable {
+    var filePath: String
+    var section: String
+    var content: String
+    var strength: Double
+    var lastAccessedEpoch: Double
+}
+
+nonisolated struct ContradictionFFI: Equatable, Hashable, Sendable {
+    var incomingFact: String
+    var existingFilePath: String
+    var existingSection: String
+    var existingContent: String
+    var conflictType: String
+    var confidence: Double
+}
+
+nonisolated struct SessionFolderInfoFFI: Equatable, Hashable, Sendable {
+    var sessionId: String
+    var model: String
+    var provider: String
+    var startedAtEpoch: Double
+    var status: String
+    var turnCount: UInt32
+    var folderPath: String
+}
+
+nonisolated struct SkillRegistryEntryFFI: Equatable, Hashable, Sendable {
+    var name: String
+    var description: String
+    var version: String
+    var useCount: UInt32
+    var successRate: Double
+}
 
 private nonisolated struct SessionFileMetadata: Decodable, Sendable {
     let id: String
@@ -457,11 +487,11 @@ nonisolated func generateSessionGraphLocal(sessionFolderPath: String) throws -> 
 }
 
 nonisolated func generate_session_graph(sessionFolder: String) throws -> String {
-    try generateSessionGraph(sessionFolderPath: sessionFolder)
+    try generateSessionGraphLocal(sessionFolderPath: sessionFolder)
 }
 
 nonisolated func merge_vault_graph(vaultPath: String) throws -> String {
-    let sessionInfos = listSessionFolders(vaultPath: vaultPath)
+    let sessionInfos = listSessionFoldersLocal(vaultPath: vaultPath)
     var mergedNodes: [String: GraphNodeData] = [:]
     var mergedEdges: [String: GraphEdgeData] = [:]
     var mergedCommunities: [Int: Set<String>] = [:]
@@ -473,7 +503,7 @@ nonisolated func merge_vault_graph(vaultPath: String) throws -> String {
         if let existing = try? String(contentsOf: graphURL, encoding: .utf8) {
             json = existing
         } else {
-            json = try generateSessionGraph(sessionFolderPath: session.folderPath)
+            json = try generateSessionGraphLocal(sessionFolderPath: session.folderPath)
         }
         guard let data = json.data(using: .utf8),
               let graph = try? decoder.decode(GraphData.self, from: data) else {
@@ -579,7 +609,7 @@ nonisolated func detectVaultContradictionsLocal(
 }
 
 nonisolated func analyzeSkillTracesLocal(vaultPath: String, skillName: String) throws -> String {
-    let sessions = listSessionFolders(vaultPath: vaultPath)
+    let sessions = listSessionFoldersLocal(vaultPath: vaultPath)
     var matchingEvents = 0
     var successCount = 0
     var failureOutputs: [String] = []
