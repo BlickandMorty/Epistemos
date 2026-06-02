@@ -580,7 +580,11 @@ fn is_runtime_route_id(route_id: &str) -> bool {
 
 fn is_shadow_or_dry_run_route_id(route_id: &str) -> bool {
     is_runtime_route_id(route_id)
-        && (route_id.starts_with("shadow_") || route_id.starts_with("dry_run_"))
+        && ["shadow_", "dry_run_"].iter().any(|prefix| {
+            route_id
+                .strip_prefix(prefix)
+                .is_some_and(|suffix| !suffix.is_empty())
+        })
 }
 
 fn validate_rollback_reference(rollback_ref: &str) -> Result<(), UasAssemblyGenomeError> {
@@ -1183,6 +1187,45 @@ mod tests {
                 route: "runtime_router:".to_string()
             }
         );
+    }
+
+    #[test]
+    fn uas_assembly_genome_rejects_empty_shadow_or_dry_run_route_payload() {
+        for runtime_route in ["runtime_router:shadow_", "runtime_router:dry_run_"] {
+            let err = UasAssemblyGenome::new(
+                "citation_heavy_research",
+                route_card_ref(),
+                runtime_route,
+                vec![addr(UasKind::ModelComponent, b"weight-a")],
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                verifier_lanes(&[]),
+                "query_aware_sparse_attention_v0",
+                "depth_budget_gate_shadow_v0",
+                vec![page_run("a", 0)],
+                vec!["nf4".to_string()],
+                vec!["kv:research-prefix".to_string()],
+                vec!["kv_restore_before_decode".to_string()],
+                "runtime_router:fallback_static_route",
+                "rollback:static_route_policy",
+                RUN_EVENT_LOG_SPAN_REF,
+                ANSWER_PACKET_CAVEAT_REF,
+                ProductBuild::Pro,
+                ProStatus::ResearchCandidate,
+                ResidencyTier::CapabilityCeiling,
+                42,
+            )
+            .unwrap_err();
+
+            assert_eq!(
+                err,
+                UasAssemblyGenomeError::UnsupportedRuntimeRouteAuthority {
+                    field: "runtime_route_id",
+                    route: runtime_route.to_string()
+                }
+            );
+        }
     }
 
     #[test]
