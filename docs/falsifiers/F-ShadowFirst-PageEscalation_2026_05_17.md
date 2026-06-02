@@ -9,6 +9,8 @@ target_phase: Phase B.G.B4
 target_rig: M2 Pro 16 GB
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # F-ShadowFirst-PageEscalation
 
 > Gate #4 in the §4.G falsifier ladder. **HeliosPage sketch → residual → exact-SSD escalation. KL/token stays
@@ -169,7 +171,7 @@ Per §4.G "No silent skips":
    - **Tier 3 — channel widening**: add a small bf16 "discriminator" channel that piggybacks on the sketch
      read and breaks ties cheaply without escalating to residual.
    - **Tier 4 — escalation-policy refactor**: switch from threshold-based to learned-policy (small classifier
-     deciding sketch-vs-residual-vs-exact per query). Out-of-scope for v1; flag as research-tier follow-up.
+     deciding sketch-vs-residual-vs-exact per query). Out-of-scope for v1; flag as Pro Research follow-up.
    - **Tier 5 — STALLED**: file STALLED row #8 / #41 in canonical-doctrine §5 + BLOCKER commit. Do not push.
 3. **Document the mitigation** on the source: `// F-ShadowFirst-PageEscalation: threshold tuned to 0.06 via
    sweep; see docs/falsifiers/F-ShadowFirst-PageEscalation_2026_05_17.md §6.`

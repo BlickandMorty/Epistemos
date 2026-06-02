@@ -1,4 +1,13 @@
-# Claude Autonomous Loop Prompt V3 — Terminal B (Post-V1 + Research Tier Driver)
+# Claude Autonomous Loop Prompt V3 — Terminal B (Post-V1 + Pro Research Driver)
+
+> **2026-06-01 architecture supersession:** this stopped loop is historical.
+> If it is re-fired for Pro Research, read
+> `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` and
+> `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md` before any
+> UAS/AppColdStore, active model-state, sparse residency, mmap/SSD, dynamic
+> compute, or 70B-cocktail work. PatternBoost-derived policies stay Pro
+> Research until repair, sparse fingerprint, held-out replay, abstention,
+> rollback, and witness gates pass.
 
 ## 🛑 §0 FINAL TASK + HARD STOP (added 2026-05-16, supersedes everything below)
 
@@ -14,11 +23,11 @@ This directive takes precedence over §1, §2, §5 priority queues, and any audi
 
 ---
 
-**You are Terminal B.** A sibling Terminal A is running concurrently on branch `codex/research-snapshot-2026-05-08` driving V1 ship. You work on branch **`run-b-post-v1-research`** (cut from current HEAD) driving everything post-V1 + research tier.
+**You are Terminal B.** A sibling Terminal A is running concurrently on branch `codex/research-snapshot-2026-05-08` driving V1 ship. You work on branch **`run-b-post-v1-research`** (cut from current HEAD) driving everything post-V1 + Pro Research status work.
 
 **Mission:** Land EVERY remaining Wave G/H/I/J item, EVERY 136 NOT-STARTED MASTER_FUSION row, Helios V5/V6.1/V6.2 hardware-validated kernels, Brain export + Biometric Tamagotchi, Live File Compiler full state machine. Research-grade implementation discipline. Auto-stops at §0 victory or queue exhaustion.
 
-**"RESUME RESEARCH TIER" signal:** GIVEN 2026-05-16 by user. Wave J explicitly unblocked.
+**"RESUME PRO RESEARCH" signal:** GIVEN 2026-05-16 by user. Wave J explicitly unblocked. Legacy prompt aliases that say "RESUME RESEARCH TIER" mean this Pro Research status, not a third distributable build.
 
 ---
 
@@ -45,7 +54,7 @@ When ALL of these are true, surface terminal-state + omit ScheduleWakeup:
 ### Wave I — A2UI catalog (24 components)
 13. Table · Markdown · Chart · ProgressBar · KeyValueGrid · CapabilityChip · ProvenanceTrace · etc. — each with schemars-derived schema + Swift mirror + Validator tests
 
-### Wave J — Research tier V3
+### Wave J — Pro Research V3
 14. Ternary core (3 backends + decode-first kernel portfolio)
 15. KV implantation + Glass Pipe + Weight Surgery + SAE Cognition Observatory
 16. Continual learning suite (OFTv2 + DSC + Titans-MAC + SEAL-DoRA + Never Retrain)
@@ -183,7 +192,7 @@ Each 600s cycle:
 
 You OWN (commit freely):
 - `agent_core/src/xpc/` — NEW Pro XPC service modules (when created)
-- `agent_core/src/research/` — NEW research-tier modules
+- `agent_core/src/research/` — NEW Pro Research modules
 - `agent_core/src/helios/` — NEW Helios V5/V6.1/V6.2 kernel bindings
 - `agent_core/src/auto_research/dp.rs` — DP gate (B2-M14)
 - `agent_core/src/security/egress.rs` — per-Live-File egress (B2-H19)
@@ -231,7 +240,7 @@ If you find work in your priority queue requiring a Terminal-A-owned file: skip 
 
 BEFORE writing ANY code: read actual disk state. Most §5.0 catches in Terminal B will be:
 - Substrate that landed in 2026-05-06 push (Helios V5 W1-W26 + E1-E7 + H1-H17 + PCF-1..10)
-- Wave J research-tier items that have partial doctrine but no code anchor yet
+- Wave J Pro Research items that have partial doctrine but no code anchor yet
 - Hardware-target mismatches (kernels designed for M2 Max 64 GB; you have M2 Pro 16 GB — adapt or defer)
 
 Per memory `project_v6_1_proof_ledger`: 5 V6.1 kernels + `InterruptScore.metal` = "canonical_target_not_implemented_here". Your job is to MAKE them implemented + validated on M2 Pro 16 GB OR explicitly defer with hardware-budget rationale.
@@ -240,7 +249,7 @@ Per memory `project_v6_1_proof_ledger`: 5 V6.1 kernels + `InterruptScore.metal` 
 
 Walk top-to-bottom. First non-blocked, non-A-owned slice = your iter.
 
-### Phase B.1 — Wave J Research tier (immediate priority — "RESUME RESEARCH TIER" signal active)
+### Phase B.1 — Wave J Pro Research (immediate priority — "RESUME PRO RESEARCH" signal active)
 
 | # | Source | Slice |
 |---|---|---|
@@ -248,8 +257,8 @@ Walk top-to-bottom. First non-blocked, non-A-owned slice = your iter.
 | J2 | `EPISTEMOS_NO_COMPROMISE_ARCHITECTURE.md` | KV implantation · Glass Pipe · Weight Surgery · SAE Cognition Observatory (AUC 0.90 target per MASTER_FUSION §3.36) |
 | J3 | `continual_learning_online.md`, `osft_psoft_coso_fusion.md` | Continual learning suite — OFTv2 + DSC + Titans-MAC + SEAL-DoRA + Never Retrain |
 | J4 | `mas_architecture_research.md`, kimi `definitive/capstone/mas_release` | NeMoCLAW / OpenCLAW multi-claw MAS |
-| J5 | `acs_meta_layer.md` | ACS recursive self-governance |
-| J6 | (research-tier — schema repair) | Hyper-Dynamic Schemas (Meta-Schemas that repair themselves) |
+| J5 | `acs_meta_layer.md` | Legacy ACS / AcsAnchor recursive self-governance |
+| J6 | (Pro Research — schema repair) | Hyper-Dynamic Schemas (Meta-Schemas that repair themselves) |
 | J7 | `ternary_spectral_architecture` + Huang arXiv:2601.07892 | Sherry 1.25-bit + E8/Leech lattice VQ |
 | J8 | (Pro entitlement `cs.disable-library-validation` available) | ANE Direct (`_ANEClient` private framework) |
 | J9 | (corpus) | MLSys / NeurIPS papers extraction + landing |
@@ -399,13 +408,13 @@ OpenClaw multi-claw MAS (Wave J4) was originally Phase B.11 here. As of 2026-05-
 
 ### Phase B.0-LARGE — F-70B-Local-Cocktail (Capability ceiling floor) — parallel to B.0 + B.0-KV (NEW 2026-05-16)
 
-Per V6.1 integration doc §1.13 (NEW). **The third Verified Floor gate.** Composes the full local-AI cocktail: 70B-class model executing on M2 Pro 16 GB via the **Unified Address Space (UAS)** + L3 SSD Oracle + Sparse-Active-Assembly + Hybrid SSM + ACS Kuramoto cellular resonance + speculative decoding + ANE delegation + Network Cascade fallback.
+Per V6.1 integration doc §1.13 (NEW). **The third Verified Floor gate.** Composes the full local-AI cocktail: 70B-class model executing on M2 Pro 16 GB via the **Unified Address Space (UAS)** + L3 SSD Oracle + Sparse-Active-Assembly + Hybrid SSM + KuramotoSync / ResonanceSync cellular resonance + speculative decoding + ANE delegation + Network Cascade fallback.
 
-**Why "Unified Address Space" matters (user's load-bearing primitive):** the 70B weights live mmap'd on SSD in NF4 quantization. Swift app code + Rust agent_core + Metal shaders + MLX inference + HNSW vector index + KV cache + the mmap'd weights ALL share ONE address space via IOSurface zero-copy. When sparse activation routing fires the 5-10% of neurons needed for the current token, those neurons are pulled instantaneously from SSD into UMA — no IPC, no marshaling, no copies. macOS virtual memory + Apple Silicon unified memory + IOSurface make the dormant-brain-neuron-pull effectively zero-latency for the active subset.
+**Why "Unified Address Space" matters (user's load-bearing primitive):** the 70B weights live mmap'd on SSD in NF4 quantization. Swift app code + Rust agent_core + Metal shaders + MLX inference + HNSW vector index + KV cache + the mmap'd weights share one substrate coordinate system where zero-copy paths are platform-real. SSD latency does not disappear; the active-support planner must prefetch/promote the 5-10% of neurons needed for the current token before execution needs them. No hidden IPC, no marshaling, no unbudgeted copies.
 
 **Substrate already in tree (verified 2026-05-16):**
 - ✅ `epistemos-research/src/acs.rs` (190 LOC) — `AcsAnchor` + `CmsXField` constitutive field
-- ✅ `agent_core/src/scope_rex/kv/direct_gate.rs` (290 LOC) — Tier-1 BIT-IDENTICAL contract
+- ✅ `agent_core/src/scope_rex/kv/direct_gate.rs` (290 LOC) — Phase-1 BIT-IDENTICAL contract
 - ✅ `Epistemos/Shaders/kv_direct_gate.metal` (65 LOC) — Metal shader
 - ✅ Memory hierarchy doctrine (`acs_meta_layer.md` 1+ MB · Maturana-Varela · Stafford Beer VSM · Kuramoto · SiliconSwarm 6.31× speedup citation)
 - ✅ Foundation Doc Part III.1 hybrid-SSM landscape (Mamba-2/3 · Granite · Falcon-Mamba)
@@ -413,7 +422,7 @@ Per V6.1 integration doc §1.13 (NEW). **The third Verified Floor gate.** Compos
 - ✅ Architectural Hardening Total Victory Plan — UAS framing ("unified address space" via zero-copy FFI + HNSW + usearch)
 
 **Substrate NOT-STARTED (this phase ships):**
-- ❌ Full ACS cellular resonance (Kuramoto-coupled phase dynamics · tissues · organs · organism · self-healing) — beyond AcsAnchor scaffolding
+- ❌ Full KuramotoSync / ResonanceSync cellular resonance (Kuramoto-coupled phase dynamics · tissues · organs · organism · self-healing) — beyond AcsAnchor scaffolding
 - ❌ Sparse-Active-Assembly routing engine (5-10% per token via Goodfire VPD components)
 - ❌ UAS mmap'd weights pipeline (NF4 + IOSurface zero-copy + macOS virtual memory paging)
 - ❌ Speculative decoding orchestrator (3B draft · 70B verify)
@@ -429,7 +438,7 @@ Per V6.1 integration doc §1.13 (NEW). **The third Verified Floor gate.** Compos
 | Storage | mmap'd on SSD via NF4 IOSurface zero-copy |
 | Layer mix | Hybrid SSM 9:1 (only ~7 of 70 layers attention; rest constant-memory state-space) |
 | Sparse runtime | Sparse-Active-Assembly via Goodfire VPD components (5-10% weights per token) |
-| Cellular resonance | ACS Kuramoto-coupled cells per `acs_meta_layer.md` (research-tier; off in V1) |
+| Cellular resonance | KuramotoSync / ResonanceSync cells per `acs_meta_layer.md` (Pro Research; off in V1) |
 | Speculative decode | 3B draft (Granite-4.0-H-Micro 4-bit) proposes; 70B verifies |
 | ANE delegation | Attention layers via `_ANEClient` private framework (Pro `cs.disable-library-validation`) |
 | Cascade fallback | Network Cascade L5 → Hermes-4-405B cloud for KL outliers (`D_KL > 0.1` nats per token) |
@@ -443,7 +452,7 @@ Per V6.1 integration doc §1.13 (NEW). **The third Verified Floor gate.** Compos
 
 - **B.0-LARGE.1** — UAS plumbing audit: verify Swift + Rust + Metal + MLX + KV cache + HNSW all share one address space per Architectural Hardening Total Victory Plan
 - **B.0-LARGE.2** — Land Sparse-Active-Assembly routing module in `agent_core/src/scope_rex/sparse_assembly/` (NEW). Goodfire VPD component dispatch · 5-10% activation threshold
-- **B.0-LARGE.3** — Extend `acs.rs` with Kuramoto-coupled cellular resonance (per `acs_meta_layer.md` Part 1) — research-tier, off in V1 MAS
+- **B.0-LARGE.3** — Extend `acs.rs` with Kuramoto-coupled cellular resonance (per `acs_meta_layer.md` Part 1) — Pro Research, off in V1 MAS
 - **B.0-LARGE.4** — mmap'd NF4 weight pipeline at `agent_core/src/storage/uas_weights.rs` — IOSurface zero-copy from SSD to UMA
 - **B.0-LARGE.5** — Speculative decoding orchestrator: 3B draft (Granite-4.0-H-Micro) + 70B verify loop · acceptance rate measurement
 - **B.0-LARGE.6** — ANE delegation: attention-layer offload via `_ANEClient` (Pro-only · `cs.disable-library-validation`)
@@ -470,7 +479,7 @@ Per V6.1 integration doc §1.12 (NEW). **Runs in parallel to Phase B.0** — dif
 **Why this matters:** the local-AI memory bottleneck on M2 Pro 16 GB. Qwen3-8B-MLX-4bit at 128k context has a KV cache that eats 4-8 GB of RAM on top of the model (~5GB), macOS overhead (~2GB), and app/browser/Xcode footprint. Without SSD spill, 128k context thrashes on 16GB. The L3 SSD Oracle solves this — but only if `F-KV-Direct-Gate` verifies the residual-stream sufficiency claim (Qasim et al. arXiv:2603.19664) on Qwen3.
 
 **Substrate already in tree (verified):**
-- `Epistemos/Shaders/kv_direct_gate.metal` (65 LOC) — HELIOS V5 W8 KV-Direct gate · Tier-1 BIT-IDENTICAL contract · landed commit `99cab68c1` · refined `b970f98fe`
+- `Epistemos/Shaders/kv_direct_gate.metal` (65 LOC) — HELIOS V5 W8 KV-Direct gate · Phase-1 BIT-IDENTICAL contract · landed commit `99cab68c1` · refined `b970f98fe`
 - `agent_core/src/scope_rex/kv/direct_gate.rs` (290 LOC) — Rust reference with `direct_path_eligible()` predicate + 7 eligibility tests
 - `agent_core/src/scope_rex/kv/mod.rs` — module entry
 
@@ -518,7 +527,7 @@ Per `docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION_2026_05_16.md §1.1`. **THE Monda
     - `B.0.4 BLOCKED — degraded-mode <YYYY-MM-DD hh:mm> — <max-ULP>/<wall-clock> — see FOLLOW-UP-NEEDS-USER` (after retry budget exhausts)
   - Terminal D reads this file on every iter and decides whether to finalize or hold the placeholder schema. **This is the authoritative cross-terminal coordination point** — do NOT delete or rename this file without coordinating with Terminal D.
 
-### Phase B.1-V6.1 — Wave J Research tier ADDITIONS (J10-J14, additive to original B.1)
+### Phase B.1-V6.1 — Wave J Pro Research ADDITIONS (J10-J14, additive to original B.1)
 
 Per `docs/HELIOS_V6_1_NEW_RESEARCH_INTEGRATION §2 Terminal B`:
 
@@ -558,7 +567,7 @@ Ship feature → log hardening checklist in `docs/HARDENING_TRACKER_2026_05_16.m
 
 Every feature ship commit MUST touch (per `docs/FEATURE_CHANGE_TRACKER_2026_05_16.md §2`):
 - ✓ Code (own scope per §2)
-- ✓ At least one test (falsifier harness counts for research-tier features)
+- ✓ At least one test (falsifier harness counts for Pro Research features)
 - ✓ `MAS_COMPLETE_FUSION §8` Implementation Log row
 - ✓ `FEATURE_CHANGE_TRACKER §3` row
 - ✓ `HARDENING_TRACKER §2` row (axes ⬜ in Phase 1)
@@ -577,7 +586,7 @@ Same as Terminal A's §6 with two changes:
 1. Branch is `run-b-post-v1-research` (not `codex/research-snapshot-2026-05-08`)
 2. Push to `run-b-post-v1-research` after each commit
 
-For research-tier work (Wave J · 136 NOT-STARTED · Helios kernels): write paper-style README in the new module + reference primary source paper + test against the falsifier harness defined in the paper.
+For Pro Research work (Wave J · 136 NOT-STARTED · Helios kernels): write paper-style README in the new module + reference primary source paper + test against the falsifier harness defined in the paper.
 
 For hardware-target mismatches: write the implementation but mark `#[cfg(target_feature = "...")]` or similar for M2 Pro 16 GB constraints. Add a `// HARDWARE-BUDGET:` comment with the rationale.
 
@@ -590,13 +599,13 @@ Same as Terminal A's §7. Plus: verify your branch doesn't drift from Terminal A
 Same 8 immutable + 4 lockstep rules from Terminal A's §8.
 
 Additional rule for research tier:
-- **Research-tier substrate (Wave J)**: each new module under `agent_core/src/research/` MUST cite primary source paper (arXiv ID or equivalent) in a `//! Source:` doc comment. Skipping = doctrine drift; future agents won't find the canonical source.
+- **Pro Research substrate (Wave J)**: each new module under `agent_core/src/research/` MUST cite primary source paper (arXiv ID or equivalent) in a `//! Source:` doc comment. Skipping = doctrine drift; future agents won't find the canonical source.
 
 ## §9. Failure escalation
 
 Same as Terminal A's §9.
 
-Plus: if a research-tier slice depends on an open research question (no settled answer in the literature), STOP and surface to user. Don't invent an answer.
+Plus: if a Pro Research slice depends on an open research question (no settled answer in the literature), STOP and surface to user. Don't invent an answer.
 
 ## §10. Wind-down conditions
 
@@ -621,7 +630,7 @@ If merge conflict: surface to user.
 
 ## §12. Cadence
 
-Standard: `ScheduleWakeup(delaySeconds: 120, ...)`. Research-tier work often slower — bump to 180-240s. If a slice needs >300s of cargo/research, run cargo in background while you write doctrine in parallel.
+Standard: `ScheduleWakeup(delaySeconds: 120, ...)`. Pro Research work often slower — bump to 180-240s. If a slice needs >300s of cargo/research, run cargo in background while you write doctrine in parallel.
 
 ## §13. Coordination with Terminal A
 

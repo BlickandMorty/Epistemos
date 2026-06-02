@@ -6,6 +6,8 @@ checkpoint_tag: checkpoint/pre-worktree-salvage-2026-05-30
 posture: no wholesale merge; port one surface at a time
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # Worktree Safe Merge Dry Run - 2026-05-30
 
 ## Checkpoint
@@ -97,7 +99,7 @@ Preserve-first:
 ```text
 T5 EML/IR
 T17b lattice/WBO
-T18b ACS admission
+T18B SCOPE-Rex admission + AcsAnchor link
 Terminal S hyperdynamic loop
 Terminal C System G
 Terminal T1 runtime router
@@ -213,7 +215,7 @@ Most useful next donor checks, in order:
    the donor; current `Epistemos/LocalAgent/RuntimeRouter.swift` is newer
    because it retains the agent capability badge truth surface and tests. Do
    not merge T1 wholesale.
-2. `Epistemos-wave4-uas-typed-retrieval` - UAS/ACS typed retrieval fields;
+2. `Epistemos-wave4-uas-typed-retrieval` - UAS/AcsAnchor typed retrieval fields;
    compare only after current UAS docs/tests name the missing field.
 3. `Epistemos-terminal-c` - System G full path; donor-only until a single
    missing event/run seam is named.

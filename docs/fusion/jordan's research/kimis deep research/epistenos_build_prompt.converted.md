@@ -3,6 +3,13 @@
 
 **Date:** 2026-05-04 | **Status:** Build-Ready Prompt | **Research Phases:** 9 | **Pages:** 180+ equivalent
 
+**2026-06-01 Epistemos canon note:** this Kimi prompt is reference material,
+not current Epistemos authority. Before using it for UAS/AppColdStore, active
+model-state, sparse residency, mmap/SSD, dynamic compute, or 70B-cocktail work,
+read `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` and
+`docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`. PatternBoost
+is an offline/idle Pro Research discovery lane, not hidden live route authority.
+
 ---
 
 ## SECTION 0: CONTEXT — What You Are Building

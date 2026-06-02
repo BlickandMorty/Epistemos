@@ -1,5 +1,7 @@
 # LEGENDARY Post-Wave-4 Roll-Up - 2026-05-27
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 Status: ground-truth checkpoint after Wave 4 and the post-merge audit pass.
 
 Base commit before the F-ULP Metal artifact slice: `c8c4b50f15`
@@ -173,7 +175,7 @@ The honest post-Wave-4 accounting is:
 
 - Strictly wired / product-visible enough to count: about `42/53`.
 - Meaningfully advanced but still honest-orange or partial: about `7/53`.
-- Still open / research-tier backlog: about `4/53`.
+- Still open / Pro Research backlog: about `4/53`.
 
 Percentages:
 
@@ -263,7 +265,7 @@ Wave 4 satisfies the No-Orphan check at the current floor:
 - Witness: RunEventLog, AnswerPacket, ClaimLedger, falsifier artifacts, and
   audit docs exist for the live motions.
 - Falsifier: 10 artifacts exist; 7+ are measured.
-- Tier: current-app vs verified-floor vs research-tier claims are separated.
+- Tier: current-app vs verified-floor vs Pro Research claims are separated.
 - Rollback: Tri-Fusion typed mutation path includes deterministic rollback for
   its first product operation.
 
@@ -358,7 +360,7 @@ gate is green:
      or dense kernel optimization, not green promotion.
    - `F-ControllerKernelPack` now has a full Metal primary artifact with all
      correctness, empty-contract, p50/p99, and sequence axes passing.
-   - Still remaining: full Metal/PageGather pass artifact. Keep it research-tier
+   - Still remaining: full Metal/PageGather pass artifact. Keep it Pro Research
      until real hardware measurements pass.
 3. `RESEARCH CONSTRUCTION`
    - Candidate-only research construction engine. Do not affect live product

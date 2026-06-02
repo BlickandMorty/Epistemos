@@ -1,10 +1,12 @@
-# Decision Needed — ACS Anchor Addressing Scope
+# Decision Needed - SCOPE-Rex Admission + AcsAnchor Addressing Scope
 
-Superseded by `docs/audits/DECISION_RESOLVED_ACS_ANCHOR_ADDRESSING_2026_05_24.md`. This file is preserved as the original ambiguity record; the resolved scope is Option 2, with canonical typed-anchor falsifier work deferred outside Terminal E.
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
+Superseded by `docs/audits/DECISION_RESOLVED_ACS_ANCHOR_ADDRESSING_2026_05_24.md`. This file is preserved as the original ambiguity record; the resolved scope is Option 2, with canonical typed-anchor falsifier work deferred outside Terminal E. Current naming reads the old ACS-admission lane as SCOPE-Rex/SovereignGate admission plus AcsAnchor addressing.
 
 ## Summary
 
-Terminal E wires ACS admission as a production gate, but cannot honestly claim `F-ACS-Anchor-Addressing` PASS on this branch.
+Terminal E wires SCOPE-Rex admission as a production gate, but cannot honestly claim `F-ACS-Anchor-Addressing` PASS on this branch.
 
 The canonical falsifier at `docs/falsifiers/F-ACS-Anchor-Addressing_2026_05_17.md` requires:
 
@@ -25,13 +27,13 @@ Those files are not present in this branch. `agent_core/src/research/acs/mod.rs`
 Pick one before claiming the falsifier:
 
 1. Import or re-land the T3 `AcsAnchor` / `AnchorRegistry` / `acs_anchor_addressing` harness into this branch, run the M2 Pro falsifier, and then update the Terminal E audit to PASS.
-2. Re-scope Terminal E acceptance so `F-ACS-Anchor-Addressing` is explicitly limited to the ACS admission proof/address boundary, while the canonical typed-anchor falsifier remains T3/Terminal G-owned.
+2. Re-scope Terminal E acceptance so `F-ACS-Anchor-Addressing` is explicitly limited to the SCOPE-Rex admission proof/address boundary, while the canonical typed-anchor falsifier remains T3/Terminal G-owned.
 
 ## Current Safe Claim
 
 Terminal E can claim:
 
-- W-46 Rust-wired: ACS verdicts fan into `RunEventLog`.
+- W-46 Rust-wired: SCOPE-Rex verdicts fan into `RunEventLog`.
 - W-47 partial-wired: `SCOPERexAdmissionProof { verdict, record_id, capability_signature }` exists, is carried on v2 tool handoffs, and forged signatures are rejected.
 - W-52 wired-source-guarded: `CSISafeguard` is called before distillation persistence, with source-order and low-CSI short-circuit tests added.
 - Rev-2 LLM-address granularity: Output schema for tool-call/proof admission and whole-model-call metadata for model-vault gating. No finer neural-substrate row is touched or claimed.

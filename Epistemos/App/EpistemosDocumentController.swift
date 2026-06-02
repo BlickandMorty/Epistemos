@@ -255,13 +255,25 @@ public extension NSDocumentController {
     @discardableResult
     func createUntitledHTMLWorkspaceDocument(in preferredDirectory: URL? = nil) throws -> NSDocument {
         let document = try makeUntitledDocument(ofType: "com.epistemos.html-workspace")
-        if let preferredDirectory,
-           let htmlWorkspace = document as? HTMLWorkspaceDocument {
-            try htmlWorkspace.persistInitialDocument(in: preferredDirectory)
-        }
         addDocument(document)
         document.makeWindowControllers()
         document.showWindows()
+        if let preferredDirectory,
+           let htmlWorkspace = document as? HTMLWorkspaceDocument {
+            do {
+                try htmlWorkspace.persistInitialDocument(in: preferredDirectory)
+            } catch {
+                Logger(
+                    subsystem: "com.epistemos",
+                    category: "EpistemosDocumentController"
+                )
+                .error(
+                    "HTML workspace opened unsaved after initial package persistence failed: \(error.localizedDescription, privacy: .public)"
+                )
+                document.updateChangeCount(.changeDone)
+                NSApplication.shared.presentError(error)
+            }
+        }
         return document
     }
 

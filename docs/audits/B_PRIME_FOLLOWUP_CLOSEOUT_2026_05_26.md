@@ -1,5 +1,7 @@
 # B-Prime Follow-up Closeout - 2026-05-26
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 Status: closed for current product recovery.
 
 Source surfaces:
@@ -22,7 +24,7 @@ PR must remain non-mergeable.
 | Eidos search-index mirroring | Live | `SearchIndexService.upsert`, `upsertPages`, and `rebuildFromSwiftData` call the Eidos mirror when a production vault index is open; `EpistemosTests/EidosBridgeProductionTests.swift` verifies `SearchIndexService` upsert feeds the real Eidos index. |
 | HTML Workspace/source guard | Live | `docs/audits/B_PRIME_HTML_WORKSPACE_SOURCE_GUARD_2026_05_26.md` and `EpistemosTests/HTMLWorkspaceSourceGuardTests.swift` guard the current HTML Workspace direction. |
 | Legacy diagram compatibility | Live | `docs/audits/B_PRIME_LEGACY_DIAGRAM_COMPATIBILITY_2026_05_26.md` records the safe recovery. Old `mermaid` schema blocks load as inert legacy source; active creation stays on HTML Workspace. |
-| UAS/ACS artifact gates | Live | `docs/audits/B_PRIME_UAS_ACS_ARTIFACT_GATES_2026_05_26.md` and `EpistemosTests/SubstrateHealthPanelTests.swift` guard artifact-backed settings rows. |
+| UAS/AcsAnchor artifact gates | Live | `docs/audits/B_PRIME_UAS_ACS_ARTIFACT_GATES_2026_05_26.md` and `EpistemosTests/SubstrateHealthPanelTests.swift` guard artifact-backed settings rows. |
 | Settings health-row nuance | Live | `docs/audits/B_PRIME_SETTINGS_HEALTH_SUPERSESSION_2026_05_26.md` records the recovered AnswerPacket `claimKindCounts` metric. |
 | Local-agent tool repair | No remaining donor delta | Filtered comparison against current `main` shows no remaining diff for `IncrementalToolCallDetector`, `LocalAgentLoop`, `ToolCallParser`, `ToolTierBridge`, or their related tests. |
 | Doctrine lint | Live | `agent_core/src/bin/epistemos_doctrine_lint.rs` already carries the T25 ACS naming reconciliation gate. |

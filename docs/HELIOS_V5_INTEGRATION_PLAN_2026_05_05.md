@@ -6,6 +6,8 @@ authority: held for explicit user/Codex sign-off + parallel-Claude engineering r
 companion-to: docs/CANONICAL_SWEEP_CLOSEOUT_2026_05_05.md, docs/CODEX_FULL_HANDOFF_2026_05_05.md
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # HELIOS V5 ↔ Epistemos Cognitive DAG — Integration Plan
 
 > **State: candidate.** Per the canon-hardening protocol installed
@@ -44,7 +46,7 @@ Per the v5 canon doc the user shared (the HELIOS v5 Final Canon, "Five lanes, th
 | **DOMINO grammar-constrained decoding** | **NOT IN MAIN.** `Epistemos/LocalAgent/LocalToolGrammar.swift` provides grammar-bound dispatch but is NOT the DOMINO-ICML-2024 reference implementation. |
 | **GBNF answer-packet grammar** | **NOT IN MAIN.** No `grammars/answer_packet.gbnf`. |
 | **Six-tier memory L0-L_SE active** | **PARTIALLY IN MAIN.** L0-L3 (working memory) + L7 (quarantine) per doctrine §A.3; L4-L5 (Pro) and L6 (Research opt-in) NOT yet wired. The HELIOS v3 KV-Direct gate is NOT in main. |
-| **5-lane discipline** | **3-TIER PARTIAL.** Existing Core/Pro/Research distribution profiles per doctrine §3 cover Lanes 1/2/3. Lane 4 (substrate-independent physical experiments) is NOT in main as a discipline. Lane 5 (speculative vault) ≈ existing `PRESERVED_RESEARCH_LEDGER.md` pattern. |
+| **5-lane discipline** | **3-TIER PARTIAL.** Existing Core/Pro / Pro Research distribution profiles per doctrine §3 cover Lanes 1/2/3. Lane 4 (substrate-independent physical experiments) is NOT in main as a discipline. Lane 5 (speculative vault) ≈ existing `PRESERVED_RESEARCH_LEDGER.md` pattern. |
 | **The 7-doc set + INDEX (DOC 0-7)** | **NOT IN MAIN.** No `LANE_1_SHIP_MAS.md` / `LANE_2_ENGINEERING_MAX.md` / etc. files exist in `docs/`. |
 
 **Net delta:** the substrate is much further along than the v5 canon implies. The actual delta to v5 is:
@@ -53,7 +55,7 @@ Per the v5 canon doc the user shared (the HELIOS v5 Final Canon, "Five lanes, th
 3. **Build out T8-T17** as new runtime invariants on top of the Cognitive DAG.
 4. **Write the Lean repo** (`epikernel-theorems` or rename to fit existing crate naming).
 5. **Build out the 20+ Metal kernels** as the precompiled MTLBinaryArchive set (most don't exist yet).
-6. **Promote SCOPE-Rex from Core-tier (τ+π+λ) to Pro-tier (+δ+ρ) and Research-tier (+κ+η).**
+6. **Promote SCOPE-Rex from Core-tier (τ+π+λ) to Pro-tier (+δ+ρ) and Pro Research (+κ+η).**
 7. **Adopt the 5-lane discipline + 7-doc set** as a new doctrine layer (per canon promotion protocol, this is itself a candidate brief).
 
 ---
@@ -114,7 +116,7 @@ The v5 canon's 5-lane structure already maps cleanly onto current Epistemos:
 |---|---|---|
 | **Lane 1 — SHIP / MAS** | Existing **Core / MAS distribution profile** per doctrine §3 + §1.7 ("App Store First — Infinite Hardening"). MAS_PRO_SOURCE_GUARD audit landed today. | NO new lane needed. v5's Lane 1 spec (no JIT, MTLBinaryArchive only, public CoreML, attenuated invariants) is already the canonical Core profile. ADD: AnswerPacket + GBNF + DOMINO as Core-shippable substrate. |
 | **Lane 2 — ENGINEERING-MAX / EpiKernel Cortex** | Existing **Pro distribution profile** per doctrine §3 (Developer ID + Notarization). | RENAME ONLY. The 20+ precompiled Metal kernels v5 enumerates (sheaf_laplacian_apply, hopfield_modern_update, hdc_vsa_*, etc.) become Pro-tier additions to existing `Epistemos/Shaders/`. |
-| **Lane 3 — RESEARCH-FRONTIER** | Existing **Research distribution profile** per doctrine §3 (Developer ID + private framework loading). The `_ANEClient` work in doctrine §A.11 IS Lane 3. | RENAME ONLY. v5's Lane 3 = existing Research tier + the JIT/`mx.fast.metal_kernel` permission. ADD: Lean 4 repo (`epikernel-theorems`). |
+| **Lane 3 — RESEARCH-FRONTIER** | Existing **Research distribution profile** per doctrine §3 (Developer ID + private framework loading). The `_ANEClient` work in doctrine §A.11 IS Lane 3. | RENAME ONLY. v5's Lane 3 = existing Pro Research + the JIT/`mx.fast.metal_kernel` permission. ADD: Lean 4 repo (`epikernel-theorems`). |
 | **Lane 4 — SUBSTRATE-INDEPENDENT (BZ + sandpile + Julia oracle)** | **NOT IN MAIN.** Genuinely new lane. | NEW lane. Per v5 §B.4, this is research-only, never product. The Julia oracle target (`helios-oracle/`) needs feature-flag isolation from `mas-build`. |
 | **Lane 5 — SPECULATIVE-PRESERVATION VAULT** | Existing `PRESERVED_RESEARCH_LEDGER.md` pattern in HELIOS v4 preservation package + `docs/_archive/` directory. | RENAME + EXTEND. Existing pattern has 4 demoted EML branches + 4 architectural overclaims; v5 adds T18-T35 + ANE/M5 Ultra/PEER preservation entries. |
 
@@ -156,7 +158,7 @@ Per the canon promotion protocol, this brief MUST queue explicit sign-off questi
 
 **Strategic (5):**
 
-1. **Adopt the 5-lane vocabulary in doctrine?** YES = §3 addendum + future docs use Lane 1/2/3 instead of Core/Pro/Research; NO = keep existing 3-tier vocabulary, treat v5's 5-lane structure as alternative naming only.
+1. **Adopt the 5-lane vocabulary in doctrine?** YES = §3 addendum + future docs use Lane 1/2/3 instead of Core/Pro / Pro Research; NO = keep existing 3-tier vocabulary, treat v5's 5-lane structure as alternative naming only.
 
 2. **Promote the 7-doc set + INDEX (DOC 0-7) into `docs/`?** Each is a substantial new doc; per the user's "feedback_doc_verbosity" memory ("Read EVERY associated research doc before touching a feature; token cost irrelevant"), the verbose 7-doc structure is doctrine-aligned. But it duplicates content already in existing docs (e.g. doctrine §3 already covers Lane 1/2/3). YES = create the 8 files; NO = keep existing doctrine + reference v5 inline.
 
@@ -248,7 +250,7 @@ The v5 §F roadmap is solid but needs to land WITHIN the existing canon promotio
 - Does NOT add code — every implementation slice in §7 lands as its own commit AFTER sign-off + after the per-deliverable acceptance threshold.
 - Does NOT consume the existing `state: candidate` queue (A1 redb, Static/Dynamic discriminator, B1-B3 phase work) — HELIOS v5 integration is a NEW candidate brief that joins the queue.
 - Does NOT touch the current branch's clippy debt (~126 issues) or the still-required CD-008 manual runtime smoke — those remain in the Codex Full Handoff queue.
-- Does NOT promote the v5 vocabulary (Lane 1/2/3/4/5) over the existing doctrine vocabulary (Core/Pro/Research) without explicit sign-off (sign-off question #1).
+- Does NOT promote the v5 vocabulary (Lane 1/2/3/4/5) over the existing doctrine vocabulary (Core/Pro / Pro Research) without explicit sign-off (sign-off question #1).
 - Does NOT pre-author Lean 4 statements — that's W3+ work after sign-off.
 
 ---

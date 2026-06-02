@@ -1,5 +1,7 @@
 # Settings Truth Floor Audit - 2026-05-25
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 Terminal: T0 - Verified Floor / Settings Truth
 
 Goal: Settings must not show a green substrate chip unless the row has both production wiring and a matching primary PASS witness/falsifier. A feature flag, metric counter, fixture trace, status mirror, fallback artifact, or test-only proof is not enough.
@@ -26,7 +28,7 @@ Every guarded row must pass:
 
 | Row | Classification | Green status on this branch | Witness / falsifier path | Truth state |
 |---|---|---:|---|---|
-| `ACSAdmissionHealthRow` | status-only | blocked | `docs/falsifiers/F-ACS-Anchor-Addressing_2026_05_17.md` | strict policy summary is readable; Settings has not observed a production ACS admission witness |
+| `ACSAdmissionHealthRow` | status-only | blocked | `docs/falsifiers/F-ACS-Anchor-Addressing_2026_05_17.md` | strict policy summary is readable; Settings has not observed a production SCOPE-Rex admission witness; row name remains legacy |
 | `APIKeysHealthRow` | status-only | blocked | `docs/falsifiers/F-ActiveAssembly-Minimal_2026_05_17.md` | credential presence is visible; no provider retention or tool-loop witness |
 | `ActiveConstellationRow` | status-only | blocked | `docs/falsifiers/F-ActiveAssembly-Minimal_2026_05_17.md` | model hot/warm/cold state is visible; route table is still not a production-green claim |
 | `AgentBlueprintSettingsView` | status-only | blocked | `docs/falsifiers/F-ActiveAssembly-Minimal_2026_05_17.md` | queues through Command Center; this page does not invoke System G directly |

@@ -1,5 +1,7 @@
 # Canonical Tier Alignment + Metal ULP Witness - 2026-05-27
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 Status: canonical check passed with one patchable drift found and fixed.
 
 Branch: `codex/canonical-metal-artifact-gates-2026-05-27`
@@ -18,15 +20,15 @@ Branch: `codex/canonical-metal-artifact-gates-2026-05-27`
 ## Canonical Verdict
 
 The recent Wave 4 / post-Wave 4 work is aligned with the full architecture
-when read through the MAS -> Vault -> Research tier split:
+when read through the current MAS/Pro status split:
 
 - MAS / CurrentApp: product-visible paths stay on local, typed, replayable
   surfaces. The open PR list remains preservation-only (`#81`, `#82`), not
   raw product work.
-- Vault / VerifiedFloor: Eidos, VaultRecall, typed UAS retrieval, ACS anchor
+- Pro Vault-Preserved / VerifiedFloor: Eidos, VaultRecall, typed UAS retrieval, AcsAnchor
   addressing, PageGather trace visibility, and AnswerPacket provenance are
   wired as witnessed substrate motions.
-- Research / CapabilityCeiling: PageGather and ControllerKernelPack hardware
+- Pro Research / CapabilityCeiling: PageGather and ControllerKernelPack hardware
   throughput gates remain orange/pending until their primary Metal artifacts
   exist. They are not silently promoted by compile or smoke tests.
 - Addressable neural substrate target: current work is still at the output

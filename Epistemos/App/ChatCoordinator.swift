@@ -1715,6 +1715,10 @@ final class ChatCoordinator {
     let isVaultBriefing = query == "[VAULT_BRIEFING]"
     chatState.isCurrentVaultBriefing = isVaultBriefing
     chatState.startStreaming()
+    let turnContextAttachments =
+      chatState.activeTurnContextAttachments.isEmpty
+      ? (chatState.messages.last(where: { $0.role == .user })?.contextAttachments ?? [])
+      : chatState.activeTurnContextAttachments
 
     // Phase R.5 parser hook — detect and persist consent phrases in
     // this user turn against any attached resource URI. Fire-and-forget
@@ -1722,7 +1726,7 @@ final class ChatCoordinator {
     // targeted mutating tools now consult these grants before execution.
     recordResourceGrantsFromUserTurn(
       statement: query,
-      attachments: chatState.pendingContextAttachments
+      attachments: turnContextAttachments
     )
 
     // Wire the reasoning side-channel so direct-cloud streams
@@ -1789,12 +1793,12 @@ final class ChatCoordinator {
         )
         chatState.recalculateContextEstimate()
         await self.seedLiveAttachmentSessionGrants(
-          from: chatState.pendingContextAttachments
+          from: turnContextAttachments
         )
 
         let hasExplicitContext = Self.queryContainsExplicitContext(
           query,
-          attachments: chatState.pendingContextAttachments
+          attachments: turnContextAttachments
         )
         let hasRequestedVaultLookup = Self.queryContainsExplicitNoteContext(query)
         let hasRequestedNoteWriteOperation = Self.queryContainsExplicitNoteWriteOperation(query)
@@ -1804,7 +1808,7 @@ final class ChatCoordinator {
         if hasVault, hasExplicitContext {
           let (ctx, cleaned) = await self.buildContextAttachments(
             query: query,
-            attachments: chatState.pendingContextAttachments,
+            attachments: turnContextAttachments,
             chatState: chatState
           )
           notesContext = ctx
@@ -1826,7 +1830,7 @@ final class ChatCoordinator {
         let userAttachments =
           chatState.messages.last(where: { $0.role == .user })?.attachments ?? []
         let hasAttachedUserContext =
-          !chatState.pendingContextAttachments.isEmpty || !userAttachments.isEmpty
+          !turnContextAttachments.isEmpty || !userAttachments.isEmpty
         let supportsVision = inferenceState.chatSurfaceSupportsVision(
           for: operatingMode
         )
@@ -1946,7 +1950,7 @@ final class ChatCoordinator {
               + (conversationHistory?.count ?? 0),
             operatingMode: operatingMode,
             hasExplicitContext: plannerHasExplicitContext,
-            attachmentCount: userAttachments.count + chatState.pendingContextAttachments.count,
+            attachmentCount: userAttachments.count + turnContextAttachments.count,
             notesContext: effectiveNotesContextWithWorkspace,
             conversationHistory: conversationHistory
           ),
@@ -1999,7 +2003,7 @@ final class ChatCoordinator {
           executionPlan: executionPlan,
           snapshotRouteContext: snapshotRouteContext,
           requestedSlashCommand: requestedSlashCommand,
-          contextAttachments: chatState.pendingContextAttachments,
+          contextAttachments: turnContextAttachments,
           loadedNoteTitles: chatState.loadedNoteTitles,
           requiredContextContract: requiredContextContract,
           slashContextSection: slashContextSection,
@@ -2173,8 +2177,7 @@ final class ChatCoordinator {
             chatState.loadedNoteIds = fallback.loadedNoteIds
             chatState.loadedNoteTitles = fallback.loadedNoteTitles
             chatState.currentVaultRecallTrace = fallback.vaultRecallTrace
-            chatState.appendLocalMessage(
-              role: .assistant,
+            chatState.appendCompletedLocalAssistantMessage(
               content: fallback.answer,
               loadedNoteTitles: fallback.loadedNoteTitles,
               vaultRecallTrace: fallback.vaultRecallTrace
@@ -3796,7 +3799,14 @@ final class ChatCoordinator {
         let resultSnippet = cleanedVaultSearchSnippet(result.snippet)
         let entrySnippet = cleanedVaultSearchSnippet(entry?.snippet ?? "")
         let snippet = resultSnippet.isEmpty ? entrySnippet : resultSnippet
-        let score = result.rank + Double((phrases.count - phraseIndex) * 100) - Double(offset)
+        let score = vaultLookupFallbackScore(
+          phrase: phrase,
+          phraseIndex: phraseIndex,
+          phraseCount: phrases.count,
+          sourceRank: offset + 1,
+          rawRank: result.rank,
+          title: title
+        )
         let reasons = vaultLookupFallbackReasons(
           phrase: phrase,
           sourceRank: offset + 1,
@@ -3861,24 +3871,22 @@ final class ChatCoordinator {
       )
     }
 
-    var lines = ["I found these indexed vault matches for \"\(displayQuery)\":"]
-    for candidate in selected {
-      let path = candidate.relativePath?
-        .trimmingCharacters(in: .whitespacesAndNewlines)
-      let pathSuffix: String
-      if let path, !path.isEmpty {
-        pathSuffix = " (`\(path)`)"
-      } else {
-        pathSuffix = ""
-      }
-      lines.append("- **\(candidate.title)**\(pathSuffix)")
-      if !candidate.reasons.isEmpty {
-        lines.append("  Why: \(candidate.reasons.joined(separator: "; "))")
-      }
-      if !candidate.snippet.isEmpty {
-        lines.append("  \(candidate.snippet)")
+    let matchLabel = selected.count == 1 ? "match" : "matches"
+    var lines = [
+      "I found \(selected.count) indexed vault \(matchLabel) for \"\(displayQuery)\"."
+    ]
+    if let best = selected.first {
+      lines.append("")
+      lines.append("Best match: **\(best.title)**")
+    }
+    if selected.count > 1 {
+      let remainingTitles = selected.dropFirst().map(\.title)
+      if !remainingTitles.isEmpty {
+        lines.append("Other likely matches: \(remainingTitles.joined(separator: ", ")).")
       }
     }
+    lines.append("")
+    lines.append("Open the vault provenance card for paths, match reasons, snippets, and the recall trace.")
 
     return VaultLookupFallbackResult(
       answer: lines.joined(separator: "\n"),
@@ -3909,6 +3917,10 @@ final class ChatCoordinator {
     if sourceRank > 0 {
       reasons.append("Source rank #\(sourceRank)")
     }
+    if normalizedSearchField(title) == normalizedSearchField(trimmedPhrase),
+       !trimmedPhrase.isEmpty {
+      reasons.append("Exact title match")
+    }
     if vaultLookupFallbackText(title, containsAny: terms) {
       reasons.append("Title match")
     }
@@ -3925,8 +3937,44 @@ final class ChatCoordinator {
   private nonisolated static func vaultLookupFallbackCandidateIsContractSufficient(
     _ candidate: VaultLookupFallbackCandidate
   ) -> Bool {
-    let evidenceReasons = ["Title match", "Path match", "Snippet match"]
+    let evidenceReasons = ["Exact title match", "Title match", "Path match", "Snippet match"]
     return candidate.reasons.contains { evidenceReasons.contains($0) }
+  }
+
+  private nonisolated static func vaultLookupFallbackScore(
+    phrase: String,
+    phraseIndex: Int,
+    phraseCount: Int,
+    sourceRank: Int,
+    rawRank: Double,
+    title: String
+  ) -> Double {
+    let normalizedPhrase = normalizedSearchField(phrase)
+    let normalizedTitle = normalizedSearchField(title)
+    var score = rawRank + Double((phraseCount - phraseIndex) * 100) - Double(sourceRank - 1)
+    guard !normalizedPhrase.isEmpty, !normalizedTitle.isEmpty else { return score }
+
+    if normalizedTitle == normalizedPhrase {
+      score += 10_000
+    } else if normalizedTitle.contains(normalizedPhrase) {
+      score += 6_000
+    } else {
+      let phraseTerms = Set(vaultLookupFallbackEvidenceTerms(from: phrase))
+      if !phraseTerms.isEmpty {
+        let titleTerms = Set(
+          normalizedTitle
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+        )
+        let overlap = phraseTerms.intersection(titleTerms).count
+        if overlap == phraseTerms.count {
+          score += 2_500
+        } else {
+          score += Double(overlap) * 250
+        }
+      }
+    }
+    return score
   }
 
   private nonisolated static let vaultLookupFallbackNonEvidenceTerms: Set<String> = [
@@ -4744,7 +4792,10 @@ final class ChatCoordinator {
     let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmedQuery.isEmpty else { return [] }
 
-    var phrases = [trimmedQuery]
+    var phrases: [String] = []
+    if let explicitTitle = explicitNoteReferenceTitle(in: trimmedQuery) {
+      phrases.append(explicitTitle)
+    }
     let patterns = [
       #/(?i)\b(?:essay|note|draft)\s+(?:on|about)\s+(.+?)(?=\s+(?:a\s+few|few|last|yesterday|today|this|please|summarize|rewrite|analyze|compare|review|explain|show|find|open|where)\b|[?.!,]|$)/#,
       #/(?i)\b(?:mention|mentions|mentioned|mentioning)\s+(.+?)(?=\s+(?:a\s+few|few|last|yesterday|today|this|please|summarize|rewrite|analyze|compare|review|explain|show|find|open)\b|[?.!,]|$)/#,
@@ -4762,9 +4813,7 @@ final class ChatCoordinator {
       }
     }
 
-    if let explicitTitle = explicitNoteReferenceTitle(in: trimmedQuery) {
-      phrases.append(explicitTitle)
-    }
+    phrases.append(trimmedQuery)
 
     return uniquePreservingOrder(phrases)
   }

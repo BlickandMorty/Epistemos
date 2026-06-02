@@ -6,6 +6,8 @@ purpose: Fold the AetherLink / OAS / AletheiaFS research kit into Epistemos with
 priority: preserve the 70B-class UAS/ColdStore residency ambition; use AetherLink as a proof-carrying runtime lens, not as a replacement roadmap.
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # AetherLink / OAS Canon Intake - 2026-05-30
 
 ## 0. Verdict
@@ -192,7 +194,7 @@ The following stay out of product claims and application copy:
 - gravitophoton propulsion
 - cosmological geodesic synchronizer
 - zero-copy spacetime interface
-- zero latency
+- zero-latency product claims
 - infinite precision
 - perfect optimal control
 - flight-critical readiness

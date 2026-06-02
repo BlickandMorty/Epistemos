@@ -4,6 +4,8 @@ created_on: 2026-05-19
 purpose: Continuity-of-knowledge doc — exactly what's still locked on the Quick Capture branch, what conditions must hold before we come back, and a step-by-step reconciliation playbook a future Claude/Codex can pick up cold.
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # Quick Capture — Future Reconciliation Plan
 
 ## Snapshot
@@ -105,7 +107,7 @@ Do NOT attempt reconciliation until ALL of the following are true:
 
 5. **`workspace/` salvaged first** (small standalone task before deep reconciliation — see below).
 6. **T17B's tier vocabulary canonical** — affects `format/`, `canon/`, and possibly `cache/` design choices.
-7. **T18B's ACS admission types canonical** — affects `effect/` (admission gate before mutation).
+7. **T18B's SCOPE-Rex admission types canonical** — affects `effect/` (admission gate before mutation; legacy code may still carry `acs_*` names).
 
 ## When you come back — the reconciliation playbook
 

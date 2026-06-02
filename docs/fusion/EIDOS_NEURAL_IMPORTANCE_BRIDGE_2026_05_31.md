@@ -43,6 +43,12 @@ This includes per-layer, per-block, per-head, adapter, KV-page, prompt-cache,
 and future parameter-component selection. The size of the cold atlas is not the
 same bottleneck as the size of the hot working set.
 
+2026-06-01 companion: also read
+`docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`. Eidos may propose
+route priors, but PatternBoost is the offline/idle discovery layer that breeds,
+repairs, fingerprints, archives, and distills candidate UAS assemblies before
+any route prior can become a live cold-route policy.
+
 ## Rigor Lock
 
 Do not claim SSD is RAM. UAS makes cold bytes addressable and comparable; it
@@ -159,6 +165,8 @@ These external projects are source handles, not product proof:
 | Mixture-of-Depths (`arXiv:2404.02258`) | Token/layer-level dynamic compute budgets. |
 | Mamba-2 / SSD (`arXiv:2405.21060`) | Semiseparable/SSM controller lane for cheap route and memory decisions. |
 | Titans (`arXiv:2501.00663`) | Test-time neural memory lane; keep as research until stability falsifiers pass. |
+| Axiom Axplorer / PatternBoost (`arXiv:2411.00566`, `AxiomMath/Axplorer`) | Offline construction search over candidate assemblies; use as the source motif for `ResidencyPatternBoost`, never as live route authority. |
+| Lattice Deduction Transformer (`arXiv:2605.08605`) | Formal-domain abstention: use only to justify `LatticeAbstentionGate` and verifier refusal, not broad reasoning claims. |
 
 Primary source anchors inspected for this bridge:
 
@@ -204,6 +212,12 @@ expressions; UAS remains the identity primitive.
 
 - Contextual + verifier-regret routing must beat random, magnitude-only, and
   static saliency baselines under the same memory budget.
+
+`F-Residency-PatternBoost`
+
+- Eidos-derived route priors may promote only after candidate assemblies pass
+  constraint repair, sparse fingerprint novelty, held-out replay, ablation,
+  LatticeAbstentionGate, rollback, and AnswerPacket visibility.
 
 `F-HotRent-Stability`
 

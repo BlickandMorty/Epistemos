@@ -1,5 +1,7 @@
 # Epistemos: Deep Analysis on Best Practices and the Custom Overpowered Approach
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 > **Index status**: CANONICAL-RESEARCH — Already canonical (codebase analysis cited in CLAUDE.md "Detailed Docs"); already in _consolidated.
 > Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/70_design_implementation/`.
 
@@ -13,7 +15,7 @@
 
 Most local AI apps fall into one of two traps. The first trap is wrapping Ollama in a pretty UI — a thin skin over someone else's inference engine, differentiated by nothing, competing on vibes. The second trap is building a cloud-only wrapper around OpenAI's API, which makes you a reseller of someone else's intelligence with zero moat. Epistemos does neither. It builds a *native inference engine* in the languages that Apple Silicon was designed to run (Swift, Rust, Metal), implements cutting-edge quantization research directly in GPU shaders, and treats cloud APIs as a genuine power extension rather than a crutch.
 
-The result is a system where local inference isn't a compromise — it's a *feature*. Privacy, zero latency, offline operation, no token costs. And when you want cloud, you get the real thing: Anthropic's Computer Use, native MCP, extended thinking, true agentic workflows. Not a downgraded local approximation, but the actual frontier capability.
+The result is a system where local inference isn't a compromise — it's a *feature*. Privacy, no network round-trip, offline operation, no token costs. And when you want cloud, you get the real thing: Anthropic's Computer Use, native MCP, extended thinking, true agentic workflows. Not a downgraded local approximation, but the actual frontier capability.
 
 This section explains why each major architectural decision matters and how they compound into something greater than the sum of their parts.
 

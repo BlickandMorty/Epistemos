@@ -1,5 +1,7 @@
 # V6.1 Acceptance Proofs — Wave-by-Wave Evidence (2026-05-16)
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 Single canonical proof-of-acceptance doc for everything Terminal B
 (branch `run-b-post-v1-research`) shipped this run. Reading this doc
 plus running the cited cargo invocations is sufficient to verify
@@ -90,7 +92,7 @@ open for a follow-up validation pass:
    fixture. The ULP-oracle substrate ships (`research::eml::ulp_oracle`)
    but the fixture-validation gate is a follow-up.
 
-4. **Wave J entries are research-tier** by definition. Substrate ships
+4. **Wave J entries are Pro Research** by definition. Substrate ships
    with paper-cited types + traits + round-trip + classifier tests, but
    none are validated against their original-paper performance numbers
    (e.g., OFTv2's claimed 10× training speedup vs original OFT is not

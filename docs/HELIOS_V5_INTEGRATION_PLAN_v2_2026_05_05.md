@@ -7,11 +7,22 @@ supersedes: docs/HELIOS_V5_INTEGRATION_PLAN_2026_05_05.md (v1)
 verified_floor: ac8c6d28 (pinned per v5.2 lock)
 lock_phrase: "Five lanes, three tiers, seven-plus-three-plus-seven, one Monday"
 choices_locked: Q1=C (full split per Gate Register), Q2=optimal-combination (Tier 1 ON + Tier 2 flagged OFF + Tier 3 never in MAS), Q3=C (aggregate B5 + per-slice WRV + per-slice rollback)
+current_architecture_supersession: "2026-05-31: current product grammar is two builds only (MAS, Pro). V5 lane/tier phrases are preserved as historical lock metadata; map Research/Vault work to Pro Research / Pro Vault-Preserved status."
 namespace_hardening: E1–E7 (Epistemos Core Theorems) + H1–H17 (Helios Operational Claims) + PCF-1…PCF-10 (Parameter Connectome Family) + W1–W26 (Work Slices) + L1–L5 (Lanes) + R0 (Raw Research Archive, append-only)
 companion_to: docs/CANONICAL_SWEEP_CLOSEOUT_2026_05_05.md, docs/CODEX_FULL_HANDOFF_2026_05_05.md
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # HELIOS V5 ↔ Epistemos Cognitive DAG — Integration Plan **v2**
+
+> **2026-05-31 naming supersession:** this document preserves the V5
+> lock ballot and original ambition. Do not use its lane/tier language
+> as current product grammar. Current distribution is **MAS** and
+> **Pro** only. Historical Lane 1 maps to MAS, Lane 2 maps to Pro
+> Live/Gated, Lane 3 maps to Pro Research, Lane 5 maps to Pro
+> Vault-Preserved, and runtime-mutating/Omega experiments map to Pro
+> Omega until falsifiers promote them.
 
 > **State: canon (architectural decisions) + candidate (implementation slices).**
 > The user's v5.2 definitive-lock ballot answered all 15 sign-off
@@ -42,7 +53,7 @@ companion_to: docs/CANONICAL_SWEEP_CLOSEOUT_2026_05_05.md, docs/CODEX_FULL_HANDO
 | Question (v1 §5) | v5.2 lock |
 |---|---|
 | Q1: Adopt the 5-lane vocabulary in doctrine? | **C — full split per Gate Register.** Lane 1 = MAS-add; Lane 2 = Pro-tier; Lane 3 = Research; Lane 4 = Reserved; Lane 5 = Vault. The 11th Lane Classifier `helios` is locked per v5.2 §F. |
-| Q2: How does MAS handle the v5 Tier-1/Tier-2 kernel upgrades? | **Optimal-combination — Tier 1 ON + Tier 2 flagged OFF + Tier 3 never in MAS.** Three-tier rule per v5.2 §3 (mathematically equivalent ON; bundled-but-defaults-OFF for model-file-changing kernels; runtime-mutating paths Vault-only). |
+| Q2: How does MAS handle the v5 Tier-1/Tier-2 kernel upgrades? | **Optimal-combination — Tier 1 ON + Tier 2 flagged OFF + Tier 3 never in MAS.** Historical three-tier rule per v5.2 §3 (mathematically equivalent ON; bundled-but-defaults-OFF for model-file-changing kernels; runtime-mutating paths now map to Pro Vault-Preserved / Pro Omega). |
 | Q3: How does CI enforce HELIOS invariants? | **C — aggregate B5 + per-slice WRV + per-slice rollback.** B5 = HELIOS theorem-invariant smoke; per-invariant sampling rates locked at 1/100 for T1–T17 EV theorems and 1/10 for T25–T34 CANDIDATE theorems per v5.2 §F. |
 
 ### Implemented since v1 (Codex continuation, observed in modified-file system reminders)
@@ -77,7 +88,7 @@ The 5-lane vocabulary (Lane 1 MAS-add / Lane 2 Pro-tier / Lane 3 Research / Lane
 | **Lane 4 — Reserved** | (no current analog) | **Unassigned at lock per v5.2 §F.** Reserved for substrate-independent Lane-4 / physical-experiment work if ever pursued. Not blocking. |
 | **Lane 5 — Vault** | existing `PRESERVED_RESEARCH_LEDGER` pattern + new vault-only build feature | HCache/KVCrush, ModelSurgery (PCF-6), Active Rank-One Runtime (PCF-5), Connectome Distillation (T34). Builds with `vault` Cargo feature; never ships outside Lane 5 distribution. |
 
-**Doctrine action:** `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md` §3 addendum names the 5-lane vocabulary as the canonical mapping over the existing Core/Pro/Research profiles. ~10 line addition. Held for sign-off as a discrete doctrine-merge slice.
+**Doctrine action:** `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md` §3 addendum originally named the 5-lane vocabulary over the older Core / Pro / Research profiles. Current supersession maps this to MAS / Pro / Pro Research / Pro Vault-Preserved statuses. Held for sign-off as a discrete doctrine-merge slice.
 
 ### Q2=optimal-combination: the Tier-1/Tier-2/Tier-3 MAS rule
 
@@ -178,7 +189,7 @@ The v5.2 §4 prescribes 26 W-slices each with file paths assuming `apps/Epistemo
 
 | W | Slice | Files (current layout) | CI | Tier | MAS impact |
 |---|---|---|---|---|---|
-| W1 | AnswerPacket emission | `agent_core/src/scope_rex/answer_packet.rs` (NEW) + `Epistemos/Bridge/StreamingDelegate.swift` (DELTA) + `Epistemos/Views/Chat/MessageRow.swift` label | B1+B2+B5 | Tier 1 | additive label, zero latency penalty |
+| W1 | AnswerPacket emission | `agent_core/src/scope_rex/answer_packet.rs` (NEW) + `Epistemos/Bridge/StreamingDelegate.swift` (DELTA) + `Epistemos/Views/Chat/MessageRow.swift` label | B1+B2+B5 | Tier 1 | additive label, benchmark-required latency impact |
 | W2 | ClaimKind 5-arm extension | `agent_core/src/provenance/ledger.rs` (extend Claim) + `agent_core/src/provenance/replay.rs` (extend ledger replay) + Swift mirror | B1+B2+B5 | Tier 1 | zero user-facing change |
 | W3 | VRM UI labels | `Epistemos/Views/Chat/VRMLabelView.swift` (NEW) + asset catalog | B1+snapshot | Tier 1 | additive UI element |
 | W4 | Residency Governor | `agent_core/src/scope_rex/residency.rs` (NEW pure function) + `Epistemos/Engine/ResonanceService.swift` (DELTA — extends existing λ residency tier classification) | B1+B2 | Tier 1 | zero — same eviction outcomes |
@@ -234,7 +245,7 @@ The v5.2 §4 prescribes 26 W-slices each with file paths assuming `apps/Epistemo
 | 9–10 | W17, W18, W19 (Lane 3) | T25–T34 falsifiers run; promote any that pass to EB |
 | 11 | W16 Pro-tier joint path | Pro-build matrix on M2 Max passes |
 | 12 | W26 §2.5.2 audit + TestFlight pre-flight | Apple TestFlight build accepted, no §2.5.2 flag |
-| Vault | W20, W21, W22 (separate cadence) | Vault builds with `vault` feature, no MAS dep |
+| Pro Vault-Preserved | W20, W21, W22 (separate cadence) | Pro Vault-Preserved artifacts use the legacy `vault` feature path; no MAS dependency |
 
 ---
 
@@ -294,7 +305,7 @@ Per v5.2 §2:
    - parameter faithfulness / minimality / mechanistic-faithfulness / simplicity objectives
    - `goodfire-ai/param-decomp` repo handle
 3. **Promotion gate:** if 6 of 8 specifics fail local verification, demote T26 (QK Edge Assembly) to DROP and rebuild the PCF claim list per v5.2 Caveats.
-4. If specifics verify, promote PCF-1 + PCF-2 substrate from CANDIDATE-with-warning to CANDIDATE-confirmed; PCF-5 + PCF-6 stay Vault-only regardless.
+4. If specifics verify, promote PCF-1 + PCF-2 substrate from CANDIDATE-with-warning to CANDIDATE-confirmed; PCF-5 + PCF-6 stay Pro Vault-Preserved regardless.
 
 ---
 
@@ -428,7 +439,7 @@ This v2 plan does NOT contain a "Cybenko MCSS erratum" sentence (the audit's Pat
 
 Per the canon promotion protocol (`docs/CANON_HARDENING_PROTOCOL_2026_05_05.md`), W1–W26 land as individual sign-off-gated slices with WRV proof + rollback procedure per slice. The 12-week calendar is advisory; the per-slice acceptance thresholds are ground truth.
 
-**MAS becomes the perfect build via the optimal combination** — Tier-1 ULP-equivalent kernel drop-ins ON, Tier-2 model-file-changing kernels bundled-but-default-OFF, Tier-3 runtime-mutating paths Vault-only. Per user audit Patch 4: **bundled alternate models and bundled Metal kernels are MAS-candidate-safe ONLY IF** enumerated during review, default OFF when behavior-changing, and covered by W26 §2.5.2 compliance audit. Runtime download or runtime executable generation remains banned from MAS. (Defensive phrasing per user audit; "definitely safe" language removed.)
+**Historical V5 MAS rule:** Tier-1 ULP-equivalent kernel drop-ins ON, Tier-2 model-file-changing kernels bundled-but-default-OFF, Tier-3 runtime-mutating paths Pro Vault-Preserved / Pro Omega. Current docs should phrase the same safety idea as MAS default, Pro Gated, and Pro Vault-Preserved / Pro Omega. Per user audit Patch 4: **bundled alternate models and bundled Metal kernels are MAS-candidate-safe ONLY IF** enumerated during review, default OFF when behavior-changing, and covered by W26 §2.5.2 compliance audit. Runtime download or runtime executable generation remains banned from MAS. (Defensive phrasing per user audit; "definitely safe" language removed.)
 
 *Lock sealed (conditionally, after namespace hardening). Verified Floor: `ac8c6d28`. Held for per-slice sign-off — but the architecture is decided.*
 

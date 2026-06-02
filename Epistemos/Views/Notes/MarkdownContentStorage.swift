@@ -304,6 +304,20 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                     theme.isDark ? 0.9 : 0.92)
             }
             attrStr.addAttributes(headingAttributes, range: range)
+            if AppDisplayTypography.usesPlatinumGlyphFallback(
+                theme: theme,
+                level: level,
+                allowDisplayFont: usesDisplayFont
+            ) {
+                AppDisplayTypography.applyPlatinumGlyphFallbackFonts(
+                    to: attrStr,
+                    range: range,
+                    fallbackFont: AppDisplayTypography.platinumGlyphFallbackUIFont(
+                        matching: headingFont,
+                        weight: weight
+                    )
+                )
+            }
 
             switch level {
             case 1:

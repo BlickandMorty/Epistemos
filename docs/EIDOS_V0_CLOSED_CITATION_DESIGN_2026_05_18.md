@@ -1,5 +1,7 @@
 # Eidos V0 — Closed-Citation Retrieval Design (2026-05-18)
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 **Branch:** `codex/t10-eidos-v0-2026-05-18`
 **Mission:** Build Eidos V0 as deterministic local search fusion and closed-citation retrieval for the current app. Eidos V0 makes vault / chat / agent retrieval **honest** before web augmentation, VPD, model training, or 70B work.
 
@@ -131,7 +133,7 @@ Per `docs/CODEX_AND_CLAUDE_TERMINAL_DISPATCH_2026_05_18.md` and the prompt-deck 
 | Eidos Plus (web augmentation, Metal re-ranker, llguidance) | Pro  | `not-implemented` | Out-of-scope per §1.2 above. Reserved for a later T-prompt.               | No Pro retrieval surface yet.                           | Defer until Eidos V0 is WRV in MAS + chat-layer enforcement is provable.                     | n/a — Pro slice not yet started.                     |
 | Hybrid mode default       | Pro  | `implemented`     | Same `HybridRetriever` as MAS, RRF k=60.                                  | Pro-tier callers do not yet exist.                      | After Agent Runtime v2 (T11) lands, wire its retrieval step through `HybridRetriever`.       | T11's agent loop cites only Eidos-emitted source_ids. |
 
-### 5.3 Research — Vault tier
+### 5.3 Pro Research / Pro Vault-Preserved
 
 | Lane / Surface           | Tier     | Status            | Evidence                                                          | Missing proof                                       | Next action                                                                          | Falsifier (M2 Pro pinned)                              |
 |--------------------------|----------|-------------------|-------------------------------------------------------------------|------------------------------------------------------|--------------------------------------------------------------------------------------|--------------------------------------------------------|

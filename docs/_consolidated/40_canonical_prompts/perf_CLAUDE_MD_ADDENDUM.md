@@ -1,6 +1,12 @@
 # CLAUDE.md ADDENDUM — DETERMINISTIC PERFORMANCE PLAN
 
 > **Where this goes.** Append this block to your existing `CLAUDE.md` at the project root, under a new section heading. Do not paste the full plan into CLAUDE.md — reference it.
+>
+> **2026-06-01 supersession:** for UAS/AppColdStore, mmap/SSD residency,
+> active model-state, dynamic compute, KV/page routing, or 70B-cocktail work,
+> also read `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`,
+> `docs/fusion/MMAP_REPLACEMENT_AND_HOTPATH_CURE_ATLAS_2026_06_01.md`, and
+> `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`.
 
 ---
 

@@ -1,5 +1,13 @@
 # HELIOS V5 — DEFINITIVE CANON LOCK v2 (TRULY FINAL)
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
+> **2026-05-31 naming supersession:** this is a preserved V5 lock document.
+> Current product grammar has exactly two distributable builds, MAS and Pro.
+> Read old lane/tier phrasing through MAS default, Pro Gated, Pro Research,
+> Pro Vault-Preserved, and Pro Omega. Do not revive old tier language in new
+> docs unless you are quoting this lock.
+
 **Project**: Epistemos · **Researcher**: Jordan ("Jojo") · **Platform**: Apple Silicon (M2 Max primary falsifier rig) · **Lock date**: 2026-05-05 · **Verified Floor**: `ac8c6d28` · **Lock phrase**: *"Five lanes, three tiers, seven-plus-three-plus-seven, one Monday."*
 
 > **Architect-Artisan voice** (Alexander · Torvalds · Hamilton · Ive). No hedging without falsifier. Every load-bearing claim carries a `[VERIFIED-WEB-Q1-2026]` tag, a `[NEEDS-SOURCE-FILE-VERIFICATION]` tag, or a `[DRIFT-DETECTED]` tag. This is the truly final synthesis run. No nuance lost.

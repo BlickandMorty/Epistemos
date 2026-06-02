@@ -1,6 +1,12 @@
 # EPISTEMOS DETERMINISTIC PERFORMANCE — CLAUDE CODE KICKOFF PROMPT
 
 > **What this is.** This is the prompt you paste into Claude Code (or Codex) to start Sprint 0 of the Epistemos Deterministic Performance Plan. Use it once per sprint, swapping the sprint number at the top.
+>
+> **2026-06-01 supersession:** for UAS/AppColdStore, mmap/SSD residency,
+> active model-state, dynamic compute, KV/page routing, or 70B-cocktail work,
+> also read `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`,
+> `docs/fusion/MMAP_REPLACEMENT_AND_HOTPATH_CURE_ATLAS_2026_06_01.md`, and
+> `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`.
 
 ---
 

@@ -5,6 +5,11 @@
 > **Working dir**: `/Users/jojo/Downloads/Epistemos/`.
 > **Today's date** at runtime: verify with `date` if session is resumed later.
 > **Goal**: complete the consolidation safely (copy-not-move), fill gaps in the fused views, then resume V1.5 coding work with the canonical operational queue.
+> **2026-06-01 supersession**: before using this prompt for UAS/AppColdStore,
+> active model-state, sparse residency, mmap/SSD, dynamic compute, or
+> 70B-cocktail work, read
+> `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` and
+> `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`.
 
 ---
 

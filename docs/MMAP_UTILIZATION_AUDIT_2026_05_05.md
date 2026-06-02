@@ -5,6 +5,8 @@ question: "is mmap utilizable through my app as well?" (user, 2026-05-05)
 companion_to: docs/fusion/EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md §2.2 invariant #1
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # Where mmap lives in Epistemos — 2026-05-05 audit
 
 > **Question answered:** the user asked whether `mmap` is utilized
@@ -78,18 +80,18 @@ that the CPU can read/write directly because all three engines share
 one physical RAM pool. It is the *cousin* of file mmap, not the same
 mechanism. Both are zero-copy.
 
-### 3. KV cache implantation via `MTLBuffer.contents()` (Research tier only)
+### 3. KV cache implantation via `MTLBuffer.contents()` (Pro Research only)
 
 **Purpose:** direct pointer access to weight/KV regions for activation
 steering, KV implantation, raw-memory inspection, weight surgery
 ("the Glass Ball").
 
-**Rule:** Research tier only (Annex A.10, A.11). Never in Core or
-Pro builds. Requires `cs.disable-library-validation` to load
+**Rule:** Pro Research only (Annex A.10, A.11). Never in MAS or
+Pro Live builds. Requires `cs.disable-library-validation` to load
 `AppleNeuralEngine.framework` dynamically; Apple does not grant this
 to App Store apps.
 
-**Tier impact:** Research only. Annex A.10 + A.11 cover the doctrine.
+**Build/status impact:** Pro Research only. Annex A.10 + A.11 cover the doctrine.
 
 ## Three drift hazards to watch
 
@@ -109,8 +111,8 @@ to App Store apps.
 
 - Doctrine §2.2 invariant #1 (zero-copy unified memory): `docs/fusion/EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`
 - Doctrine §6 forbidden list: "Copy hot-path tensors across CPU↔GPU↔ANE."
-- Annex A.10 (KV implantation + raw memory inspection — Research only)
-- Annex A.11 (ANE direct path — Research only)
+- Annex A.10 (KV implantation + raw memory inspection — Pro Research only)
+- Annex A.11 (ANE direct path — Pro Research only)
 - 2026-04-29 perf wave: CLAUDE.md "Wave 2026-04-29 perf additions" §`SearchIndexService.swift:204-228`
 - Arena memory pressure handling: `agent_core/src/shared_memory.rs::ShmPool`
 - ShmPool TTL eviction: `respond_to_memory_pressure(level: u8)` FFI in `agent_core/src/bridge.rs`
@@ -123,8 +125,8 @@ all derivative DBs, memmap2 for workspace search + Arena ring buffer,
 tantivy + usearch transitive use for the Shadow indices. The GPU
 parallel — UMA zero-copy via `MTLBuffer.storageModeShared` — is the
 canonical Apple Silicon pattern and lives in 37+ sites in
-`MetalRuntimeManager.swift`. The Research-tier `MTLBuffer.contents()`
-direct-pointer path is documented but explicitly OUT of Core/Pro.
+`MetalRuntimeManager.swift`. The Pro Research `MTLBuffer.contents()`
+direct-pointer path is documented but explicitly OUT of MAS/Pro Live.
 
 If a future slice introduces a new file format or a new GPU buffer
 class, this audit is the canonical decision tree for "where does

@@ -9,29 +9,29 @@ struct AnswerPacketBadge: View {
 
     private var sink: LatestAnswerPacketSink { LatestAnswerPacketSink.shared }
 
+    @ViewBuilder
     var body: some View {
-        let packet = answerPacketId.flatMap { sink.packet(for: $0) }
-        let kind = Self.claimKind(for: packet)
-        let confidence = packet.map { Self.confidence(for: $0) } ?? missingPacketConfidence
-        let substrateSummary = Self.substrateSummary(for: packet)
+        if let packet = answerPacketId.flatMap({ sink.packet(for: $0) }) {
+            let kind = Self.claimKind(for: packet)
+            let confidence = Self.confidence(for: packet)
+            let substrateSummary = Self.substrateSummary(for: packet)
 
-        HStack(spacing: 4) {
-            chip(text: kind.rawValue, icon: kind.iconName, tint: kind.tint)
-            chip(text: confidence.rawValue, icon: confidence.iconName, tint: confidence.tint)
-        }
-        .contentShape(Capsule())
-        .onTapGesture {
-            if packet != nil {
+            HStack(spacing: 4) {
+                chip(text: kind.rawValue, icon: kind.iconName, tint: kind.tint)
+                chip(text: confidence.rawValue, icon: confidence.iconName, tint: confidence.tint)
+            }
+            .contentShape(Capsule())
+            .onTapGesture {
                 showsSubstrateDetail = true
             }
+            .popover(isPresented: $showsSubstrateDetail, arrowEdge: .bottom) {
+                AnswerPacketSubstrateDetailPopover(packet: packet, theme: theme)
+                    .frame(width: 340)
+            }
+            .help(helpText(kind: kind, confidence: confidence, packet: packet, substrateSummary: substrateSummary))
+            .accessibilityLabel("Answer packet: \(kind.rawValue), \(confidence.rawValue)")
+            .accessibilityHint("Click for UAS address, ACS anchor, plane, and residency details")
         }
-        .popover(isPresented: $showsSubstrateDetail, arrowEdge: .bottom) {
-            AnswerPacketSubstrateDetailPopover(packet: packet, theme: theme)
-                .frame(width: 340)
-        }
-        .help(helpText(kind: kind, confidence: confidence, packet: packet, substrateSummary: substrateSummary))
-        .accessibilityLabel("Answer packet: \(kind.rawValue), \(confidence.rawValue)")
-        .accessibilityHint("Click for UAS address, ACS anchor, plane, and residency details")
     }
 
     static func claimKind(for packet: AnswerPacket?) -> AnswerPacketClaimKind {

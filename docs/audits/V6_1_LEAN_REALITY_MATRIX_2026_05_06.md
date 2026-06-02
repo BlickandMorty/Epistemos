@@ -5,6 +5,8 @@ scope: Epistemos V6.1 lean-canon implementation reality matrix
 verdict: GREEN_FOR_THIS_SLICE_NOT_RELEASE_READY
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # V6.1 Lean Reality Matrix - 2026-05-06
 
 This ledger records what is actually proven in the current Epistemos
@@ -88,7 +90,7 @@ the release audit; this is not a substitute for manual/runtime log review.
 | `PacketRouter1bit.metal` | Target only | Vault policy is encoded. No implemented canonical kernel has proven routing-quality loss <= 2% versus FP16 reference. |
 | `InterruptScore.metal` | Target only | The interrupt equation exists in research code. The always-on Metal kernel is not implemented yet. |
 | T35 at 128K | Not hardware-proven | `rho_max = 0.20` is encoded. Real RULER/passkey long-context runs are still required. |
-| T42 ConnectomeAlarm | Research/Vault target | Goodfire atlas status is public-confirmed for observability, but runtime prediction of interrupt traces remains unproven. |
+| T42 ConnectomeAlarm | Pro Research / Pro Vault-Preserved target | Goodfire atlas status is public-confirmed for observability, but runtime prediction of interrupt traces remains unproven. |
 | Donor-distilled student | Not trained | The Qwen3-8B to Granite-4-H-shape route is canonical. No student checkpoint exists in this repo yet. |
 
 ## Next Gates Before New-Repo V1

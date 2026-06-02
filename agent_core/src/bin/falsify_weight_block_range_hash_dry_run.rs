@@ -285,7 +285,10 @@ mod tests {
     fn report_is_bounded_and_green() {
         let report = super::build_report().unwrap();
         assert!(report.overall_pass);
-        assert_eq!(report.pass_per_axis.get("bounded_range_hashed"), Some(&true));
+        assert_eq!(
+            report.pass_per_axis.get("bounded_range_hashed"),
+            Some(&true)
+        );
         assert_eq!(
             report.pass_per_axis.get("over_limit_rejected_before_read"),
             Some(&true)
@@ -296,6 +299,9 @@ mod tests {
                 .get("over_limit_reader_position_unchanged"),
             Some(&true)
         );
-        assert_eq!(report.pass_per_axis.get("no_model_file_touched"), Some(&true));
+        assert_eq!(
+            report.pass_per_axis.get("no_model_file_touched"),
+            Some(&true)
+        );
     }
 }

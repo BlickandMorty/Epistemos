@@ -2,6 +2,12 @@
 
 > **Index status**: CANONICAL-RESEARCH — Deep research for optimal agent runtime fusion (Hermes + GoClaw + Phantom + OpenSwarm + ...); 20-file Epistemos agent inventory.
 > Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+>
+> **2026-06-01 supersession:** for local-inference, UAS/AppColdStore, active
+> model-state, sparse residency, mmap/SSD, dynamic compute, KV/page routing, or
+> 70B-cocktail research, also read
+> `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` and
+> `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`.
 
 
 ## Engineering the Optimal Agent Runtime from 8 Open-Source Projects

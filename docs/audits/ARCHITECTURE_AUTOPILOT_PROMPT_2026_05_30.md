@@ -21,7 +21,8 @@ Start by reading and obeying:
 11. `docs/fusion/LOCAL_FRONTIER_PLAYBOOK_16GB_2026_05_31.md`
 12. `docs/fusion/EIDOS_NEURAL_IMPORTANCE_BRIDGE_2026_05_31.md`
 13. `docs/audits/FULL_ARCHITECTURE_CONTINUATION_PROMPT_2026_05_31.md`
-14. `docs/audits/WORKTREE_PRESERVATION_EXTRACTION_PROMPT_2026_05_31.md`
+14. `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`
+15. `docs/audits/WORKTREE_PRESERVATION_EXTRACTION_PROMPT_2026_05_31.md`
 
 Current naming/build lock:
 
@@ -52,6 +53,12 @@ Current naming/build lock:
   blocks, kernels, ANE scout heads, and verifiers. Use the
   Counterfactual Utility Law as a planning heuristic, but require falsifiers
   before promotion.
+- Residency PatternBoost is the candidate offline/idle discovery layer:
+  search UAS assembly genomes, repair invalid candidates, sparsely fingerprint
+  them, archive held-out winners, and distill route/layout motifs before live
+  execution. It may seed a live scout only after held-out wins,
+  `ComputeResumeLease`, byte/transport proof, rollback, RunEventLog, and
+  AnswerPacket visibility.
 - Eidos can feed NeuralImportanceAtlas, but it must not become a hidden model
   self-router. Eidos supplies evidence hits, task meaning, `why_matched`,
   citation need, contradiction hints, and route priors; UAS/AppColdStore binds

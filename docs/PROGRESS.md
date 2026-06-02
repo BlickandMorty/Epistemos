@@ -317,14 +317,14 @@ R1 research confirmed: MLXLMCommon exposes `LogitProcessor` protocol with 3 hook
 **Wiring**: AppBootstrap creates `MLXConstrainedGenerator(inferenceService:)` and registers
 it via `constrainedDecoding.setGenerator()`. Active on every plan generation attempt.
 
-**Architecture** (3 tiers identified by research):
-- Tier 1: mlx-swift-structured (community package by @petrukha-ivan) — future upgrade path
-- Tier 2: Custom LogitProcessor (CURRENT — our implementation)
-- Tier 3: Python Outlines subprocess — fallback if needed
+**Architecture** (3 implementation options identified by research):
+- Option 1: mlx-swift-structured (community package by @petrukha-ivan) — future upgrade path
+- Option 2: Custom LogitProcessor (CURRENT — our implementation)
+- Option 3: Python Outlines subprocess — fallback if needed
 
 **Verification**: BUILD SUCCEEDED, graph-engine 2432/2432 untouched
 
-**Phase Ω11: COMPLETE** (Tier 2 implementation; Tier 1 upgrade deferred to when mlx-swift-structured repo is verified)
+**Phase Ω11: COMPLETE** (Option 2 implementation; Option 1 upgrade deferred to when mlx-swift-structured repo is verified)
 
 ### Session 6 (continued) — 2026-03-24 — Phase Ω12 (Dual-Brain Foundation)
 

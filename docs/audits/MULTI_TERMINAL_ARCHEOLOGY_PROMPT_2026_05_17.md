@@ -11,6 +11,12 @@ author: T3 — UAS-ACS Canonical Architecture session, post-handoff iter
 > Claude in that session will walk prior multi-terminal cycles + produce one per-terminal punch list per
 > cycle. Run it from a repo root that has `.git/` + `docs/` accessible.
 >
+> **2026-06-01 supersession:** when archeology touches UAS/AppColdStore, active
+> model-state, sparse residency, mmap/SSD, dynamic compute, or 70B-cocktail
+> work, include `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`
+> and `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md` in the
+> punch-list authority set.
+>
 > The prompt below references a reference doc that exists on the T3 branch:
 > `docs/audits/UAS_ACS_PER_TERMINAL_PUNCH_LIST_2026_05_17.md`. If that branch hasn't merged yet, the
 > Claude session can read the doc directly from `codex/t3-uasacs-2026-05-16`.

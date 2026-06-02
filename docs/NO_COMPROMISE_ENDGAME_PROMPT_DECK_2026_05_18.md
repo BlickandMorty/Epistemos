@@ -2,7 +2,7 @@
 state: no-compromise-endgame-prompt-deck
 created_on: 2026-05-18
 research_handoff_integrated_on: 2026-05-18
-purpose: No-loss prompt deck for the post-V6.1/V6.2 Epistemos endgame: Eidos V0, Agent Runtime v2, UAS/UASA, UAS-ACS, active assembly, five planes, lattice substrate, falsifier gates, and tier-specific build prompts.
+purpose: No-loss prompt deck for the post-V6.1/V6.2 Epistemos endgame: Eidos V0, Agent Runtime v2, UAS/UASA, UAS/AcsAnchor, active assembly, five planes, lattice substrate, falsifier gates, and build/status-specific prompts.
 authority:
   - docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md
   - docs/MASTER_FUSION_NO_COMPROMISE_2026_05_13.md
@@ -23,11 +23,11 @@ It becomes a **native macOS verifiable cognition substrate**: models are engines
 
 The stronger product class is still fair: a **sovereign cognitive computer**. But the builder-facing phrase is "verifiable cognition substrate" because it forces discipline: one spine, typed events, governed actions, visible proof.
 
-| Tier | Honest class | What it means |
+| Build / Status | Honest class | What it means |
 |---|---|---|
 | Core / MAS | Native knowledge operating layer | A Mac-native local memory, note, graph, retrieval, provenance, and agent shell that stays inside public APIs and App Store constraints. |
 | Pro | Personal agentic operating environment | Same substrate, plus bounded CLI/MCP/browser/tool execution, richer agent runtimes, Eidos, Agent Runtime v2, and visible governance. |
-| Research / Omega | Falsifiable substrate computer | The research instrument for UAS-ACS, five-plane runtime, lattice compression, KV-Direct, EML, SSM/attention interrupt logic, and the 70B local cocktail. |
+| Pro Research / Pro Omega | Falsifiable substrate computer | The research instrument for UAS/AcsAnchor, five-plane runtime, lattice compression, KV-Direct, EML, SSM/attention interrupt logic, and the 70B local cocktail. |
 
 The punchline: the app is the shell. The substrate is the computer.
 
@@ -39,26 +39,27 @@ That means a local-first cognitive workspace where notes, models, graph nodes, t
 
 These concepts must stay explicitly named in every future endgame plan.
 
-| Concept | Canonical meaning | Tier placement |
+| Concept | Canonical meaning | Build / status placement |
 |---|---|---|
 | Current product spine | `TypedArtifact -> MutationEnvelope -> RunEventLog / AgentEvent / GraphEvent -> UI projection`. Every meaningful action becomes typed before it becomes visible. | Core |
-| Product/research split | Epistemos product ships the useful spine; Helios/Vault preserve and falsify ceiling ideas. Research pressure is not product scope. | All tiers |
+| Product/research split | Epistemos product ships the useful spine; Pro Research / Pro Vault-Preserved preserve and falsify ceiling ideas. Research pressure is not MAS scope. | All builds/statuses |
 | Product status taxonomy | `current-wired`, `visible-working`, `visible-broken`, `hidden-working`, `hidden-dead`, `implemented-not-wired`, `feature-gated`, `scaffold-only`, `not-implemented`, `excluded-speculative`. | Mandatory audit language |
-| Five product lanes | MAS/current app, Pro/direct, Research, Infrastructure/reserved, Vault. Distribution/safety lanes; do not confuse with memory tiers. | All planning |
-| Three MAS tiers | Tier 1 ON by default, Tier 2 bundled/OFF by default, Tier 3 not MAS. This is separate from the five product lanes. | All release planning |
-| Five planes | State, Episodic, Assembly, Controller, Verification. Runtime organization from V6.2 and UAS-ACS. | V2 feature-gated / Research verification |
-| Three streams | MAS, Pro, Vault. Product organization in V6.2. | All tiers |
+| Product builds and Pro statuses | Exactly two distributable builds exist: MAS and Pro. Pro then carries internal statuses: Pro Live, Pro Gated, Pro Research, Pro Vault-Preserved, and Pro Omega. Infrastructure/R0 are audit categories, not product builds. | All planning |
+| Tool and memory stages | Numbered tiers are local algorithmic stages, tool profiles, or memory residency bands; they are not standalone app builds. | All release planning |
+| Five planes | State, Episodic, Assembly, Controller, Verification. Runtime organization from V6.2 and UAS/AcsAnchor. | V2 feature-gated / Pro Research verification |
+| Two builds + Pro statuses | MAS, Pro, plus internal Pro Live/Gated/Research/Vault-Preserved/Omega status labels. | All builds/statuses |
 | Lattice substrate | `LatticeCoder + TestTimeRegressor`, Sherry 3:4 / E8 / Leech, Wyner-Ziv, Babai/GPTQ, rate-distortion residency. | Research, with MAS-safe outputs only after gates |
-| Six/seven tier memory | L0 hot, L1 compressed residual, L2 shadow sketch, L3 SSD oracle, L4/L5 Engram/cascade/adapters, L_SE self-evolving, L7 quarantine. | Core L0-L3/L7, Pro L4-L5, Research L6/L_SE |
+| Six/seven residency bands | L0 hot, L1 compressed residual, L2 shadow sketch, L3 SSD oracle, L4/L5 Engram/cascade/adapters, L_SE self-evolving, L7 quarantine. These are memory/status bands, not product SKUs. | MAS-safe L0-L3/L7, Pro L4-L5, Pro Research L6/L_SE |
 | UAS / UASA | Unified Address Space / Unified Active Substrate address doctrine: artifact identity is independent of residency. Start as boring `UasAddress`, content hash, residency lease, provenance link. | Core metadata first, Research model/KV pages later |
-| ACS | Anchored/Autopoietic Cognitive Substrate as composition/admission law, not a single feature. ACS-L0 current event/governance, ACS-L1 agents/tool loops, ACS-L2 self-healing research. | L0 Core, L1 Pro, L2 Research |
+| AcsAnchor / SCOPE-Rex | AcsAnchor is anchored coordinate/provenance/residency. SCOPE-Rex / SovereignGate is admission/governance. Legacy ACS-L0/L1/L2 labels map to admission planes/statuses, not Active Cold Storage and not extra product builds. | L0 MAS, L1 Pro, L2 Pro Research |
 | Active Assembly Runtime | Sparse active-support runtime: only relevant notes, graph nodes, pages, components, tools, and memory packets wake. | Skeleton now; acceleration after falsifiers |
+| Residency PatternBoost | Offline/idle assembly-discovery lane: breed UAS assembly genomes, repair invalid candidates, fingerprint sparse motifs, archive held-out winners, and distill cold-route/layout policy patches. Not live authority until L20 gates pass. | Pro Research / Pro Vault-Preserved until falsifier evidence |
 | Eidos V0 | Deterministic local search fusion plus closed-citation retrieval against vault/.epdoc/graph/code/shadow/exact results. | Build now in Core |
 | Eidos form layer | Canonical form/schema layer for object identity: kind, stable ID, canonical name, mutation policy, witness policy, visibility, and proof/evidence status. Not metaphysics. | Build now as read-only substrate |
-| Eidos Plus | Deliberation, web augmentation, auto-research loops, Metal re-rankers. | Pro/Research after Eidos V0 |
-| Agent Runtime v2 | Typed, budgeted, witnessed, capability-gated executor. Public/internal name must be user-canon-safe; `Aegis` is only an optional alias, not a required rename. | Core bounded, Pro expanded, Research full |
+| Eidos Plus | Deliberation, web augmentation, auto-research loops, Metal re-rankers. | Pro / Pro Research after Eidos V0 |
+| Agent Runtime v2 | Typed, budgeted, witnessed, capability-gated executor. User-facing canon is `System G` / `Invader Agent`; code namespace is `agent_runtime_v2`; `Aegis` is rejected. | Core bounded, Pro expanded, Pro Research full |
 | EML / Operator IR | Arithmetic and symbolic lowering floor gated by F-ULP-Oracle and Lean schema authority. | Research first |
-| Attention as interrupt | SSM is the substrate, attention fires when `u_t` crosses need. | Core CPU score, Pro/Research kernels |
+| Attention as interrupt | SSM is the substrate, attention fires when `u_t` crosses need. | MAS CPU score, Pro / Pro Research kernels |
 | Vault Context Contract | Full-vault hybrid retrieval, RRF/MMR, loaded-source visibility, and zero "first N notes are representative" failures. | Highest product priority |
 | Falsifier-first doctrine | F-ULP, F-KV-Direct, F-70B-Cocktail, V6.2 six hardware falsifiers. | Research gates downstream claims |
 
@@ -69,12 +70,32 @@ The research handoff changes the deck in five ways:
 1. **Eidos moves earlier.** Eidos V0 is not a mythic companion or web-search dream. It is the product retrieval organ: local-first hybrid search, closed citations, visible source trace, and deterministic context assembly.
 2. **Vault recall outranks ceiling research.** F-VaultRecall-50 and the Vault Context Contract are the credibility gate. If the app cannot retrieve the right note, the 70B cocktail is a distraction.
 3. **UAS/UASA starts boring.** First build stable addresses, residency leases, content hashes, byte ranges, and provenance IDs for notes, .epdoc blocks, graph nodes, agent events, tool outputs, and retrieval hits. Model components and KV pages come later.
-4. **ACS is composition/admission.** Do not implement ACS as a hot kernel or a monolithic module. It sits above SCOPE-Rex and before durable mutation: allow, warn, defer, quarantine, reject.
+4. **AcsAnchor and SCOPE-Rex are distinct.** Do not implement ACS as a hot kernel or monolithic module. AcsAnchor anchors coordinates/provenance/residency; SCOPE-Rex / SovereignGate owns admission before durable mutation: allow, warn, defer, quarantine, reject.
 5. **Agent naming is LOCKED.** The user has explicitly rejected the `Aegis` name. Canonical name is `System G` / `Invader Agent`. Use neutral `agent_runtime_v2` in code paths. Hermes subprocess stays purged; Hermes prompt-format parity may remain only as compatibility.
+
+## 1.1B Residency PatternBoost delta - 2026-06-01
+
+The new PatternBoost/Axiom/Lattice intake changes local-inference planning in
+three ways:
+
+1. **Assembly discovery is offline/idle.** Candidate UAS assemblies may be
+   searched, repaired, fingerprinted, and replayed while the app is idle; they
+   do not silently become live routes.
+2. **The 70B cocktail becomes more plausible by reducing active choice error,**
+   not by pretending SSD is RAM. The system learns better page bundles, KV
+   regions, adapter families, verifier mixes, and prefetch motifs before the
+   hot path.
+3. **Lattice abstention is part of execution.** A formal/proof-like lane may
+   refuse or quarantine a discovered pattern when domain, verifier, budget, or
+   replay evidence is insufficient.
+
+Mandatory companion docs for this delta:
+`docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` and
+`docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`.
 
 Permanent operating rule:
 
-> No idea is lost. No idea is promoted by vibes. Every idea has a lane, a tier, a status, and either a falsifier or a preserved-speculation label.
+> No idea is lost. No idea is promoted by vibes. Every idea has a build/status, runtime plane, residency band when relevant, and either a falsifier or a preserved-speculation label.
 
 Runtime operating rule:
 
@@ -131,13 +152,13 @@ If delivery must split, build retrieval first because it fixes the user-facing v
 
 ## 3. Launch order
 
-1. **T09 Product Architecture Ledger**: classify what is current-wired, visible, scaffold, Pro-only, Research-only, Vault-only.
+1. **T09 Product Architecture Ledger**: classify what is current-wired, visible, scaffold, Pro-only, Pro Research, and Pro Vault-Preserved.
 2. **T21 Vault Recall Contract / F-VaultRecall-50**: close the retrieval wound before ceiling work.
 3. **T10 Eidos V0**: deterministic local search fusion + closed citations + source trace.
 4. **T10B Eidos Form Layer**: canonical object identity (read-only substrate slice).
 5. **T22B Brain Panel closed citations**: make retrieved sources visible; reject fake citation IDs.
 6. **T11 Agent Runtime v2 / System G**: neutral code namespace, governed executor, **`Aegis` is rejected by user direction — do not use it**.
-7. **T14/T17B/T18B**: UAS/UASA wiring, Lattice/WBO register, ACS admission field.
+7. **T14/T17B/T18B**: UAS/UASA wiring, Lattice/WBO register, SCOPE-Rex admission field + AcsAnchor link.
 8. **T18 Residency Governor + T22 Substrate Health Panel**.
 9. Launch falsifier gates as separate terminals: **T12 F-ULP**, **T13 F-KV-Direct**, **T23 F-70B-Cocktail**, **T23B M2 Pro Falsifier Handbook**.
 10. **T27 WRV product surfacing**: take the first 3 P0 rows from `docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md` and make them visible.
@@ -148,7 +169,7 @@ If `codex/t5-emlir-2026-05-16` is still iterating on `agent_core/src/research/op
 Merge gate (USER-AUTHORIZED — do not merge T-branches unilaterally):
 - T1-T9 `codex/t{N}-*-2026-05-16` branches are intentionally unmerged. Do not merge any of them without explicit Jojo authorization.
 - Most launch-order steps (T09, T10, T10B, T11, T17B, T18B, T22B, T23B, T12, T13, T23, T21) are **additive against current main** — they create new modules/docs and do not require T1-T9 merges to land. Run them in current main.
-- Launch-order steps that **DO require T-branch merges**: T14 Five-plane UAS-ACS wiring (needs T3), T18 Residency Governor full version (needs T3), T22 Substrate Health Panel full version (needs T2+T3+T4+T7), T27 WRV product surfacing (needs all relevant T-branches + the 45 W-rows). These wait for the merge phase.
+- Launch-order steps that **DO require T-branch merges**: T14 Five-plane UAS/AcsAnchor wiring (needs T3), T18 Residency Governor full version (needs T3), T22 Substrate Health Panel full version (needs T2+T3+T4+T7), T27 WRV product surfacing (needs all relevant T-branches + the 45 W-rows). These wait for the merge phase.
 - The merge phase is a separate user-authorized step. When Jojo authorizes it, follow `docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md` W-row priority order — not arbitrary branch order. The W-rows tell you which substrate must be present before each wiring lands.
 
 ## 4. Prompt deck
@@ -201,7 +222,7 @@ Acceptance:
 - The chat/model layer may cite only IDs returned in the Eidos context packet.
 - Add tests for exact note hit, `.epdoc` projection hit, code hit, graph hit, duplicate merge, fake citation rejection, empty vault, unicode query, and no-result defer.
 - Provide a Swift bridge facade in `Epistemos/Eidos/EidosBridge.swift`.
-- Write design doc with MAS/Pro/Research tier split and explicit "web augmentation later" line.
+- Write design doc with MAS / Pro / Pro Research status split and explicit "web augmentation later" line.
 
 ### T10B - Eidos Form Layer
 
@@ -280,20 +301,20 @@ Acceptance:
 - Measure D_KL, token match, peak resident memory, SSD read/write volume.
 - PASS threshold: average D_KL < 0.05 nats. If fail, produce pivot plan.
 
-### T14 - Five Plane UAS-ACS Wiring
+### T14 - Five Plane UAS/AcsAnchor Wiring
 
-Branch: `codex/t14-five-plane-uas-acs-2026-05-18`
+Branch: `codex/t14-five-plane-uas-acs-2026-05-18` (legacy branch name)
 
-Mission: Make the five-plane formalism and UAS/UASA substrate visible as typed, testable registers without shipping research-only ACS code in MAS.
+Mission: Make the five-plane formalism and UAS/UASA substrate visible as typed, testable registers without shipping Pro Research AcsAnchor code in MAS.
 
 Scope lock:
 - May touch: `agent_core/src/uas/` new or existing UAS lane, `agent_core/src/research/` tests, docs only.
-- Must not expose Research-only `acs.rs` to MAS.
+- Must not expose Pro Research `acs.rs` to MAS.
 
 Acceptance:
 - Define `UasAddress`, `UasKind`, `ResidencyLease`, `ByteRange`, `AddressableArtifact`, `ActiveAssemblyId`, `ActiveAssemblyPacket`, `AssemblyWitness`.
 - Define plane placement rules for State, Episodic, Assembly, Controller, Verification.
-- Every new UAS-ACS row gets a tier tag: V1, V1.x, V2, Research-only.
+- Every new UAS/AcsAnchor row gets a build/status tag: MAS, Pro, Pro Gated, Pro Research, or Pro Vault-Preserved.
 - Same artifact ID remains stable across residency transitions.
 - A packet can be built from Eidos hits and graph nodes.
 - Add linter/test that rejects untagged plane surfaces.
@@ -368,28 +389,28 @@ Mission: Implement the rate-distortion Residency Governor decision surface and a
 
 Scope lock:
 - May touch: `agent_core/src/resonance/lambda.rs`, new governor module, `Epistemos/Views/Settings/` diagnostics row.
-- Must not promote Pro/Research tiers into Core.
+- Must not promote Pro Research / Pro Vault-Preserved surfaces into MAS.
 
 Acceptance:
-- Governor input includes source size, task fidelity tolerance, reversibility, privacy class, and tier budget.
+- Governor input includes source size, task fidelity tolerance, reversibility, privacy class, and residency/status budget.
 - Core cannot emit L4-L6 except explicit quarantine L7.
-- Settings row shows tier counts and denied tier leaks.
+- Settings row shows residency/status counts and denied status leaks.
 
-### T18B - ACS Admission Field
+### T18B - SCOPE-Rex Admission Field + AcsAnchor Link
 
 Branch: `codex/t18b-acs-admission-field-2026-05-18`
 
-Mission: Wire ACS as an admission field above Helios/SCOPE-Rex, not a hot-path kernel. ACS decides whether an adaptation, write, tool action, active assembly promotion, or model-edit request may become durable.
+Mission: Wire SCOPE-Rex Admission / SovereignGate as the admission field, with AcsAnchor as the anchored coordinate/provenance layer, not a hot-path kernel. SCOPE-Rex decides whether an adaptation, write, tool action, active assembly promotion, or model-edit request may become durable.
 
 Scope lock:
-- May touch: `agent_core/src/acs_admission/` new, docs, tests.
+- May touch: `agent_core/src/acs_admission/` legacy path, docs, tests.
 - May not call cloud, mutate state directly, or alter inference.
 
 Acceptance:
-- Define `ACSAdmissionInput`, `ACSAdmissionVerdict`, `ACSRiskVector`, `ACSPolicy`, `ACSAuditRecord`.
+- Define legacy implementation types `ACSAdmissionInput`, `ACSAdmissionVerdict`, `ACSRiskVector`, `ACSPolicy`, `ACSAuditRecord`; docs/UI call the surface SCOPE-Rex Admission.
 - Verdicts: allow, allow-with-warning, defer, quarantine, reject.
 - Inputs include `MutationEnvelope`, `ActiveAssemblyPacket`, `AnswerPacket`, memory write request, tool/action request, kernel-promotion request, model-adaptation request.
-- No durable memory write or kernel promotion bypasses ACS admission in the tested path.
+- No durable memory write or kernel promotion bypasses SCOPE-Rex admission in the tested path.
 - All verdicts are logged.
 
 ### T19 - Halo V1 plus Eidos Control Vectors
@@ -449,7 +470,7 @@ Scope lock:
 - May not change backend behavior.
 
 Acceptance:
-- Shows agent runtime, model constellation, vault recall, EML floor, UAS-ACS, Cognitive DAG, provenance ledger, falsifier status.
+- Shows agent runtime, model constellation, vault recall, EML floor, UAS/AcsAnchor, Cognitive DAG, provenance ledger, falsifier status.
 - Missing subsystem degrades to "not wired" with source doc link.
 
 ### T22B - Brain Panel Closed Citations
@@ -574,4 +595,4 @@ That is the line. No compromise means the product can be beautiful and emotional
 
 Shortest builder commandment:
 
-> Preserve wide, build narrow. Current-app value first: product ledger, vault recall, Eidos V0, closed citations, one native governed agent, UAS/UASA metadata, lattice/WBO register, ACS admission, and M2 Pro falsifier handbook. Keep model surgery, active rank-one runtime, PCF runtime acceleration, and 70B execution Vault/Research-only until falsifiers pass.
+> Preserve wide, build narrow. Current-app value first: product ledger, vault recall, Eidos V0, closed citations, one native governed agent, UAS/UASA metadata, lattice/WBO register, SCOPE-Rex admission + AcsAnchor link, and M2 Pro falsifier handbook. Keep model surgery, active rank-one runtime, PCF runtime acceleration, and 70B execution Pro Vault-Preserved / Pro Research until falsifiers pass.

@@ -1,9 +1,13 @@
 # MAS Complete Fusion Implementation Plan — No Compromise (except POSTV1 exclusions)
+
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 **Date:** 2026-05-14
 **Scope:** Everything that gets done before / during V1 MAS submission EXCEPT explicit POSTV1 exclusions.
 **Includes:** All V1 ship gates · Wave A No-Compromise quality wins · Wave F XPC Mastery · Every remaining PATCHED PARTIAL / OPEN / DEFERRED audit item that ISN'T in POSTV1 exclusions · the 5-recursive-pass discipline.
-**Excludes (explicitly):** Wave B (V6.1 EML floor) · Wave C (V6.2 6 Metal kernels) · Wave D (Halo V1 6-state FSM + Eidos) · Wave E (SCOPE-Rex V2) · Wave G (Simulation v1.7+ full) · Wave H (UI/UX V2.6 advanced) · Wave I (A2UI 24 remaining components) · Wave J research tier · `POSTV1-EXCL-001`.
+**Excludes (explicitly):** Wave B (V6.1 EML floor) · Wave C (V6.2 6 Metal kernels) · Wave D (Halo V1 6-state FSM + Eidos) · Wave E (SCOPE-Rex V2) · Wave G (Simulation v1.7+ full) · Wave H (UI/UX V2.6 advanced) · Wave I (A2UI 24 remaining components) · Wave J Pro Research status work · `POSTV1-EXCL-001`.
 **Authority:** This doc sits at rank 3 of the authority chain (per `MASTER_FUSION_NO_COMPROMISE_2026_05_13.md` §2), right after `CLAUDE.md` + `MAS_FINAL_STRETCH_NO_NUANCE_LOST_2026_05_14.md`.
+**Current architecture supersession:** Current product grammar has exactly two distributable builds: `MAS` and `Pro`. Wave J / research / vault / omega language in this older plan maps to Pro statuses (`Pro Research`, `Pro Vault-Preserved`, `Pro Omega`), not separate builds. Numbered Variant Ladder tiers inside tool-routing sections are algorithmic escalation stages, not product SKUs. The append-only implementation log preserves historical branch language.
 
 ---
 
@@ -247,10 +251,10 @@ Codex executes these in priority order. They can run alongside Phase A; none req
 
 **Acceptance:**
 - `vault.search` dispatch in `agent_core/src/tools/registry.rs` walks `VariantLadder<I,O>` from `agent_core/src/variant_ladder/mod.rs`
-- Tier 1 (Tantivy lexical BM25) → Tier 2 (embedding semantic) → Tier 3 (RRF hybrid) → Tier 4 (LLM with grammar) → defer
+- Stage 1 (Tantivy lexical BM25) → Stage 2 (embedding semantic) → Stage 3 (RRF hybrid) → Stage 4 (LLM with grammar) → defer
 - `FLOOR_T1 ≥ 0.85`, `FLOOR_T2 ≥ 0.75`, `FLOOR_T3 ≥ 0.70` thresholds wired
 - `LadderLog` row writes to Provenance Console per call
-- Source-guard test pattern per doctrine §4.2 (happy-path Tier 1 exit + escalation gate proof)
+- Source-guard test pattern per doctrine §4.2 (happy-path Stage 1 exit + escalation gate proof)
 
 **Estimated:** 3-5 days. Highest-ROI no-compromise win.
 

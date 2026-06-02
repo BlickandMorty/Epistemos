@@ -26,6 +26,8 @@ Read this local canon first, in order:
 6. docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md
 7. docs/HERMES_AGENT_CORE_2_0_DESIGN_2026_05_15.md
 8. docs/fusion/research/quickcapture-addenda/OBSCURA_BROWSER_ADDENDUM.md
+9. docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md
+10. docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md
 
 Mission:
 Execute the Epistemos / Helios no-compromise substrate hardening pass without collapsing product, research, and Vault into one pile.
@@ -41,23 +43,28 @@ Permanent rules:
 2. Every meaningful action becomes a typed event before it becomes a UI effect.
 3. A feature is not real until it is Wired, Reachable, Visible, and Verified.
 4. Every item must be classified as current-wired, visible-working, visible-broken, hidden-working, hidden-dead, implemented-not-wired, feature-gated, scaffold-only, not-implemented, research-only, vault-only, or excluded-speculative.
-5. Preserve all research, but promote nothing by vibes. Every branch gets a lane, tier, status, gate, and falsifier or preserved-speculation label.
-6. Do not merge product lanes with memory tiers.
+5. Preserve all research, but promote nothing by vibes. Every branch gets a build/status, gate, and falsifier or preserved-speculation label.
+6. Do not merge distributable builds with runtime planes, memory residency bands, or Pro research statuses.
 7. Do not materialize reality until the question forces it.
 
 Preserve explicitly:
-- Five product lanes: MAS/current app, Pro/direct, Research, Infrastructure/reserved, Vault.
-- Three MAS tiers: Tier 1 ON by default, Tier 2 bundled/OFF by default, Tier 3 not MAS.
-- Six/seven memory tiers: L0 hot, L1 compressed residual, L2 shadow/sketch, L3 SSD Oracle, L4/L5 cascade/adapters, L_SE self-evolving, L7 quarantine.
+- Two distributable builds only: MAS/current App Store app and Pro/direct Developer-ID app.
+- Pro status ladder: Pro Live, Pro Gated, Pro Research, Pro Vault-Preserved, Pro Omega. Research, Vault, Omega, 70B, PCF runtime acceleration, model surgery, arbitrary runtime kernel birth, and future substrate work are Pro statuses, not separate builds.
+- Six/seven memory residency bands: L0 hot, L1 compressed residual, L2 shadow/sketch, L3 SSD Oracle, L4/L5 cascade/adapters, L_SE self-evolving, L7 quarantine.
 - UAS/UASA: stable address doctrine for notes, .epdoc blocks, graph nodes, events, tool results, retrieval chunks, memory pages, and future model components.
-- ACS: composition/admission law, not a hot kernel or monolithic feature.
+- AcsAnchor / Anchored Cognitive Substrate: address/residency anchoring and legacy ACS continuity. SCOPE-Rex / SovereignGate owns admission/governance. Do not call admission "ACS" in new docs.
 - Active Assembly Runtime: sparse execution doctrine; only the relevant slice wakes.
+- Residency PatternBoost: offline/idle assembly search over UAS assembly
+  genomes, constraint repair, sparse fingerprints, elite archives, lattice
+  abstention, ComputeResumeLease, and rollback-bounded route/layout patches.
+  It is Pro Research until L20 falsifiers pass and must not become hidden live
+  route authority.
 - Eidos V0: deterministic local search fusion and closed-citation retrieval.
 - Eidos form layer: canonical object identity, mutation policy, witness policy, visibility, proof/evidence status.
 - Lattice-Wyner-Ziv, LatticeCoder, TestTimeRegressor, WBO ledger, side-information decoding, Babai/GPTQ, Sherry, ShadowKV, QuIP/E8, residual/sketch compression.
 - SCOPE-Rex, SovereignGate, CapabilityBridge, AnswerPacket, ClaimKind, VRM, TypedArtifact, MutationEnvelope, RunEventLog, AgentEvent, GraphEvent.
 - Lean as schema/proof authority over time, not a hot-path runtime tax.
-- EML/EML-IR, F-ULP Oracle, KV-Direct, PageGather, SSM/attention-as-interrupt, Parameter Connectome, Gate3/ternary, 70B cocktail as gated Research/Vault work.
+- EML/EML-IR, F-ULP Oracle, KV-Direct, PageGather, SSM/attention-as-interrupt, Parameter Connectome, Gate3/ternary, 70B cocktail as gated Pro Research / Pro Vault-Preserved work.
 - Hermes naming distinction: purged Hermes agent subprocess stays dead; Hermes prompt-format parity may remain; simulation-character work is unrelated.
 - Agent naming is LOCKED. System G / Invader Agent is the user's canonical name. Aegis has been explicitly rejected by user direction — do not propose it, do not rename to it, do not retain it in code or docs. Code namespace is `agent_runtime_v2` when generic naming is needed.
 
@@ -70,12 +77,15 @@ Current priority order:
 6. One native governed research agent.
 7. UAS/UASA metadata.
 8. Lattice/WBO register.
-9. ACS admission field.
+9. SCOPE-Rex admission proof + AcsAnchor field.
 10. M2 Pro falsifier handbook.
 11. PageGather and UAS copy-count gates.
 12. KV-Direct and F-ULP gates.
 13. Pro CLI adapters only after native agents work.
-14. 70B cocktail only as Research/Vault falsifier.
+14. Residency PatternBoost dry-run artifacts only as Pro Research /
+    Pro Vault-Preserved until repair, replay, abstention, rollback, and witness
+    evidence pass.
+15. 70B cocktail only as Pro Research / Pro Vault-Preserved falsifier.
 
 Launch order (from docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md §3):
 1. T09 Product Architecture Ledger (anti-drift lock)
@@ -84,7 +94,7 @@ Launch order (from docs/NO_COMPROMISE_ENDGAME_PROMPT_DECK_2026_05_18.md §3):
 4. T10B Eidos Form Layer (read-only canonical schema)
 5. T22B Brain Panel closed citations (make retrieved sources visible)
 6. T11 Agent Runtime v2 / System G (neutral namespace; governed executor)
-7. T14 Five-plane UAS-ACS wiring + T17B Lattice/WBO Register + T18B ACS Admission Field
+7. T14 Five-plane UAS/AcsAnchor wiring + T17B Lattice/WBO Register + T18B SCOPE-Rex Admission Proof
 8. T18 Residency Governor + T22 Substrate Health Panel
 9. Falsifier gates as separate terminals: T12 F-ULP, T13 F-KV-Direct, T23 F-70B-Cocktail, T23B M2 Pro Falsifier Handbook
 10. T27 WRV product surfacing using W-rows in docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md
@@ -95,9 +105,9 @@ If T5 (codex/t5-emlir-2026-05-16) is still running on agent_core/src/research/op
 Merge gate (USER-AUTHORIZED — do not perform unilaterally):
 - T1-T9 codex/t{N}-*-2026-05-16 branches are intentionally NOT merged to main yet.
 - T5 is still running. Do not touch its branch, worktree, or scope-locked paths. Do not merge any T-branch until (a) T5 completes and (b) Jojo explicitly authorizes the merge.
-- The following launch-order steps are ADDITIVE against current main and DO NOT require T1-T9 merges: T09 (docs only), T10 (new agent_core/src/eidos/ + Epistemos/Eidos/), T10B (Eidos form layer types), T11 (new agent_core/src/agent_runtime_v2/), T17B (new lattice_wbo types + docs), T18B (new acs_admission types), T22B (Brain Panel citation surface), T23B (M2 Pro falsifier handbook docs), T12 F-ULP, T13 F-KV-Direct (research lane against existing kv_direct), T23 F-70B-Cocktail (docs + harness).
+- The following launch-order steps are ADDITIVE against current main and DO NOT require T1-T9 merges: T09 (docs only), T10 (new agent_core/src/eidos/ + Epistemos/Eidos/), T10B (Eidos form layer types), T11 (new agent_core/src/agent_runtime_v2/), T17B (new lattice_wbo types + docs), T18B (new SCOPE-Rex admission proof + AcsAnchor types), T22B (Brain Panel citation surface), T23B (M2 Pro falsifier handbook docs), T12 F-ULP, T13 F-KV-Direct (Pro Research lane against existing kv_direct), T23 F-70B-Cocktail (docs + harness).
 - T21 Vault Recall Contract uses the Fix-B/Fix-C approach already diagnosed in docs/audits/F_VAULT_RECALL_50_DIAGNOSIS_2026_05_16.md (set_conjunction_by_default + stopword filter + remove score clamp). It touches existing vault.rs but does NOT require T-branch merges.
-- The following steps DO depend on T-branch merges (especially T3 UAS-ACS, T4 vault, T1 tri-fusion): T14 Five-plane UAS-ACS wiring, T18 Residency Governor, T22 Substrate Health Panel (full version), T27 WRV product surfacing. These wait until after the merge phase.
+- The following steps DO depend on T-branch merges (especially T3 UAS/AcsAnchor, T4 vault, T1 tri-fusion): T14 Five-plane UAS/AcsAnchor wiring, T18 Residency Governor, T22 Substrate Health Panel (full version), T27 WRV product surfacing. These wait until after the merge phase.
 - When Jojo authorizes the merge phase, follow the W-row priority order in docs/audits/CROSS_TERMINAL_WIRING_BACKLOG_2026_05_17.md. Do not merge in arbitrary order.
 
 Do not build now as product:
@@ -124,7 +134,7 @@ If you code:
 
 If you write docs:
 - Preserve wide, build narrow.
-- Every table row needs lane, tier, status, evidence, missing proof, next action, and falsifier.
+- Every table row needs build/status, runtime plane where relevant, evidence, missing proof, next action, and falsifier.
 - Do not claim runtime proof from design docs alone.
 
 Best first task:
@@ -134,7 +144,7 @@ Forever-loop discipline (mandatory):
 This terminal is a forever loop. Invoke the `/loop` skill self-paced with your assigned T-prompt as the body. Per iteration: re-read acceptance bar → pick smallest canonical advancement → write code + test alongside → commit small → repeat 3-10 times → THEN batch narrow tests (never --workspace, never full xcodebuild if only Rust/docs touched) → green: continue; red: minimum fix → when acceptance bar met enter deep hardening only if truly super done → after hardening return to step 1, find the next no-compromise nuance. Acceptance bar is a floor, never a ceiling. Never exit. Full cadence + scope-lock + disk-pressure rules in docs/CODEX_AND_CLAUDE_TERMINAL_DISPATCH_2026_05_18.md §3.5.
 
 Shortest commandment:
-Preserve wide, build narrow. Current-app value first: product ledger, vault recall, Eidos V0, closed citations, one native governed agent (System G), UAS/UASA metadata, lattice/WBO register, ACS admission, and M2 Pro falsifier handbook. Keep model surgery, active rank-one runtime, PCF runtime acceleration, and 70B execution Vault/Research-only until falsifiers pass.
+Preserve wide, build narrow. Current-app value first: product ledger, vault recall, Eidos V0, closed citations, one native governed agent (System G), UAS/UASA metadata, lattice/WBO register, SCOPE-Rex admission proof, AcsAnchor fields, and M2 Pro falsifier handbook. Keep model surgery, active rank-one runtime, PCF runtime acceleration, and 70B execution Pro Vault-Preserved / Pro Research-only until falsifiers pass.
 
 The 7-law theorem cocktail (from prompt deck §5):
 1. Density law — Morph/EML approximates compact controller policies where the formal domain permits.
@@ -147,4 +157,3 @@ The 7-law theorem cocktail (from prompt deck §5):
 
 Every research branch must fit one of these seven laws or be classified preserved-speculation.
 ```
-

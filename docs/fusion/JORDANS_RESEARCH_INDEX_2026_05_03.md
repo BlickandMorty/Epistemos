@@ -1,5 +1,7 @@
 # Jordan's Research — Executive Adds Index — 2026-05-03
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 > **NEW DOC — created 2026-05-03.** Filename: `JORDANS_RESEARCH_INDEX_2026_05_03.md`. Companion to `MASTER_RESEARCH_INDEX_2026_05_02.md` (do not replace — this layers under it). Sister docs: `EPISTEMOS_RECONCEPTUALIZATION_2026_05_03.md`, `CODEX_TASK_CONTINUITY_HANDOFF_2026_05_03.md`, `CODEX_RECONCEPTUALIZATION_HANDOFF_AND_VERIFY_2026_05_03.md`.
 
 > **Purpose.** Jordan dropped a folder at `docs/fusion/jordan's research/` containing the executive-add research that drove the **substrate reconceptualization** of 2026-05-03. This index is the canonical pointer so future Codex / Claude / Kimi sessions cite these sources correctly and don't re-discover them. Read this doc before opening any of the contents — it tells you which file is load-bearing and which is reference.

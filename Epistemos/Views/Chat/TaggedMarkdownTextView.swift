@@ -810,16 +810,13 @@ struct TaggedMarkdownTextView: View {
         // uppercases Ember H1 only (notes-matching H2/H3 keep mixed case).
         let displayText = MarkdownHeadingDisplay.displayText(text, level: level, theme: theme)
 
-        taggedInlineMarkdown(
-            displayText,
-            baseFontSize: fontSize,
-            strongFont: font
-        )
-            .font(font)
-            // Synthetic bold for Ember H2 (heavy) / H3 (semibold) only.
-            // Other themes keep the font's intrinsic weight, matching
-            // pre-2026-05-19 rendering.
-            .modifier(NotesMatchingWeightModifier(weight: notesSpec?.weight))
+        if AppDisplayTypography.usesPlatinumGlyphFallback(theme: theme, level: level, allowDisplayFont: notesSpec == nil) {
+            Text(AppDisplayTypography.platinumGlyphFallbackAttributedString(
+                displayText,
+                size: fontSize,
+                weight: MarkdownHeadingDisplay.noteHeadingFontWeight(for: level),
+                isDark: theme.isDark
+            ))
             .foregroundStyle(color)
             .asciiRippleOverlay(
                 text: MarkdownRippleTextExtractor.displayText(from: displayText),
@@ -831,6 +828,29 @@ struct TaggedMarkdownTextView: View {
             )
             .padding(.top, topPad)
             .padding(.bottom, 2)
+        } else {
+            taggedInlineMarkdown(
+                displayText,
+                baseFontSize: fontSize,
+                strongFont: font
+            )
+                .font(font)
+                // Synthetic bold for Ember H2 (heavy) / H3 (semibold) only.
+                // Other themes keep the font's intrinsic weight, matching
+                // pre-2026-05-19 rendering.
+                .modifier(NotesMatchingWeightModifier(weight: notesSpec?.weight))
+                .foregroundStyle(color)
+                .asciiRippleOverlay(
+                    text: MarkdownRippleTextExtractor.displayText(from: displayText),
+                    font: font,
+                    color: color,
+                    shadowColor: MarkdownHeadingDisplay.swiftUIShadowColor(for: theme, level: level),
+                    shadowRadius: MarkdownHeadingDisplay.glowRadius(for: level),
+                    enabled: rippleStyle.ripplesHeading(level: level)
+                )
+                .padding(.top, topPad)
+                .padding(.bottom, 2)
+        }
     }
 
     // MARK: - List Helpers

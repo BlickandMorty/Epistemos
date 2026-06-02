@@ -19,6 +19,22 @@ Several items in this prompt became stale after later follow-up work:
 - `VaultSyncService` timers now restart when power mode returns to `.full`
 - `DualBrainRouter` only reports dual-brain active when a dedicated ANE backend is actually in use
 
+## ARCHITECTURE OVERRIDE — 2026-06-01
+
+Before acting on local-inference, UAS/AppColdStore, active model-state,
+KV/page routing, mmap/SSD residency, dynamic compute, or 70B-cocktail language
+in this older prompt, read:
+
+- `docs/EPISTEMOS_LIVING_INDEX_2026_05_24.md`
+- `docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md`
+- `docs/audits/FULL_ARCHITECTURE_CONTINUATION_PROMPT_2026_05_31.md`
+- `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`
+- `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`
+
+PatternBoost-derived route/layout policy is Pro Research only until repair,
+sparse fingerprint, held-out replay, LatticeAbstentionGate,
+ComputeResumeLease, rollback, and AnswerPacket witness evidence pass.
+
 ---
 
 You are the principal systems architect for **Epistemos** — a macOS-native cognitive exoskeleton PKM built on Swift 6 + Rust (UniFFI FFI) + Metal compute shaders. 137K lines Swift, 94K lines Rust, 370 Swift files, 99 Rust files, 115 test files.

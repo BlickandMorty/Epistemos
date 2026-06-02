@@ -6,8 +6,7 @@
 
 const RUST_RETRIEVAL_TRACE_SOURCE: &str = include_str!("../src/storage/retrieval_trace.rs");
 const SWIFT_QUERY_RUNTIME_SOURCE: &str = include_str!("../../Epistemos/Engine/QueryRuntime.swift");
-const SWIFT_EIDOS_WIRING_SOURCE: &str =
-    include_str!("../../Epistemos/Eidos/EidosWiring.swift");
+const SWIFT_EIDOS_WIRING_SOURCE: &str = include_str!("../../Epistemos/Eidos/EidosWiring.swift");
 const SWIFT_EIDOS_WIRING_TEST_SOURCE: &str =
     include_str!("../../EpistemosTests/EidosWiringTests.swift");
 const SWIFT_VAULT_RECALL_WIRING_SOURCE: &str =

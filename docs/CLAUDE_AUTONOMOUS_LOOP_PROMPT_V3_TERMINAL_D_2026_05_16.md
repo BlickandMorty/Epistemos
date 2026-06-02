@@ -1,5 +1,7 @@
 # Autonomous Loop V3 — Terminal D (Providers + Tools + MCP)
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 ## 🛑 §0 FINAL TASK + HARD STOP (added 2026-05-16, supersedes everything below)
 
 **STOP DIRECTIVE.** User has decided to close all 6 terminal loops. BEFORE doing anything else in this prompt:
@@ -278,7 +280,7 @@ After D.0 lands, all D.2 providers refactor as `Executor` impls. **This section 
 - **D.2.8 (NEW)** Granite-4.0-H-Micro → `LocalMlxExecutor::granite_h_micro` — **tool-use-reliable backbone routing for `ClaimKind::ToolCall`** per V6.1 routing rule (3B Apache 2.0 · ISO 42001 · top-tier on Berkeley Function-Calling Leaderboard v3 · MLX support confirmed)
 - **D.2.9 (NEW)** Qwen3-8B-MLX-4bit → `LocalMlxExecutor::qwen3_8b` — Lane-E "mouth" routing for prose
 - **D.2.10 (NEW)** Falcon-Mamba 7B → `LocalMlxExecutor::falcon_mamba` (Pro alternative)
-- **D.2.11 (NEW)** Mamba-3 → `LocalMlxExecutor::mamba3` (research-tier per arXiv:2603.15569)
+- **D.2.11 (NEW)** Mamba-3 → `LocalMlxExecutor::mamba3` (Pro Research per arXiv:2603.15569)
 - **D.2.12 (NEW)** Ollama HTTP → `OllamaHttpExecutor` (localhost:11434 OpenAI-compat)
 - **D.2.13 (NEW)** LM Studio HTTP → `LmStudioHttpExecutor` (localhost:1234 OpenAI-compat)
 

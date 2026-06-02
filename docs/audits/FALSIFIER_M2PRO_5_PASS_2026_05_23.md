@@ -1,5 +1,7 @@
 # Falsifier M2 Pro 5-PASS Audit — 2026-05-23
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 Phase 2 Terminal F deliverable. Per
 `docs/PHASE_2_TERMINAL_PROMPTS_2026_05_23.md` §Terminal F. Per
 `docs/LEGENDARY_ARCHITECTURE_NO_COMPROMISE_AUDIT_2026_05_23.md` outcome
@@ -88,19 +90,19 @@ rejects any other pin.
    negative-example catalog — deferred to the W-46
    `epistemos-shadow-validator`.
 
-## Tier classification (per LEGENDARY audit §6)
+## Build/status classification (per LEGENDARY audit §6, read through 2026-05-31 two-build grammar)
 
-- **Tier 1 (MAS measurement)**: The harnesses + artifacts + validator
+- **MAS-safe measurement**: The harnesses + artifacts + validator
   are MAS-shippable. They emit data only; no Pro-only or Research-only
   surface.
-- **Tier 3 (Research kernels NEVER MAS)**: The underlying *research*
+- **Pro Research kernels (never MAS by default)**: The underlying *research*
   Metal kernels (`morph_eval_reduced.metal`, `PageGather.metal`,
-  `ControllerKernelPack.metal`) are research-tier substrate that the
+  `ControllerKernelPack.metal`) are Pro Research substrate that the
   fallback witnesses honestly DO NOT exercise. The Metal gates remain
   pending W-41 (Apple-platform external work).
 
 The boundary: the harness measures the **CPU reference / in-process
-contract**. The Metal gate measures the **Tier 3 research kernel** vs
+contract**. The Metal gate measures the **Pro Research kernel** vs
 that reference. Today's witnesses cover the first half; the second half
 is gated on W-41.
 
@@ -184,7 +186,7 @@ for f in artifacts/falsifiers/*/result.json; do
 done
 ```
 
-## Tier 3 work explicitly NOT done here (preservation map)
+## Pro Research / Pro Vault-Preserved work explicitly NOT done here (preservation map)
 
 Per `MAS_FIRST_FOCUS_DOCTRINE_2026_05_03.md` + the legendary audit §6
 Pro/Research preservation table, the following remain **target-only**
@@ -192,7 +194,7 @@ in this PR:
 
 - 5 V6.1 Metal kernels (PageGather / SemiseparableBlockScan /
   LocalRecallIsland / ControllerKernelPack / PacketRouter1bit) — W-41.
-- F-70B-Cocktail composition study — W-43, Vault tier.
+- F-70B-Cocktail composition study — W-43, Pro Vault-Preserved.
 - F-KV-Direct-Gate harness — W-42, gated on Qwen3-8B MLX inference
   dispatch.
 - F-LocalRecallIsland-32K — needs Metal kernel + model runner.

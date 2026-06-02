@@ -12,6 +12,8 @@ sources:
 authority: this doc is the SINGLE master backlog post-merge. Drives the integration phase that follows each terminal's PR landing.
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # Cross-Terminal Wiring + User-Facing Surfacing Backlog — 2026-05-17
 
 > **What this doc is.** Every T-terminal had a strict scope lock. That isolation
@@ -40,7 +42,7 @@ Every row has 8 columns:
 - **Consumer**: where the wiring code lives.
 - **User Surface**: what becomes visible to the end user when this wiring lands (or "internal substrate" if not visible).
 - **Acceptance**: measurable criterion ("≤ X / ≥ Y / matches Z" — no "looks good").
-- **Priority**: P0 (user-blocking, ship-critical) · P1 (high-value user surface) · P2 (internal substrate) · P3 (research-tier, can defer).
+- **Priority**: P0 (user-blocking, ship-critical) · P1 (high-value user surface) · P2 (internal substrate) · P3 (Pro Research, can defer).
 - **Deps**: which OTHER W-NN rows must land first.
 - **Status**: NOT-STARTED · IN-FLIGHT · PARTIAL · DONE.
 
@@ -48,7 +50,7 @@ The §2-§6 tables are organized by **theme** (substrate-to-product, agent-to-va
 
 ## §2. Substrate-to-Product wirings (P0/P1 — the substrate must reach the running app)
 
-The biggest scope-lock cost was: T3 built UAS-ACS, T1 built Tri-Fusion, T7 built eml_integration, T5 started EML-IR — all of these are typed Rust modules with tests, but NOTHING in the user-facing app calls them yet. The product is identical to `86f0ec84f` from the user's perspective until these wirings land.
+The biggest scope-lock cost was: T3 built UAS/AcsAnchor, T1 built Tri-Fusion, T7 built eml_integration, T5 started EML-IR — all of these are typed Rust modules with tests, but NOTHING in the user-facing app calls them yet. The product is identical to `86f0ec84f` from the user's perspective until these wirings land.
 
 | ID | Source(s) | Consumer | User Surface | Acceptance | Priority | Deps | Status |
 |---|---|---|---|---|---|---|---|
@@ -61,7 +63,7 @@ The biggest scope-lock cost was: T3 built UAS-ACS, T1 built Tri-Fusion, T7 built
 | **W-07** | T7 (`agent_core/src/research/eml_integration/observatory.rs`) | Settings → Diagnostics → "EML energy live readout" row (T7 prompt §4.B B.2 already named this) | user sees live energy signal as a diagnostic; explains "why the model picked X" | new `EmlObservatoryHealthRow.swift`; reads observatory state via FFI; auto-refreshes 1 Hz | P2 | merge T7 | NOT-STARTED |
 | **W-08** | T7 (`eml_integration/potential.rs`) | `Epistemos/LocalAgent/ConfidenceRouter.swift` (router uses energy potential as a routing signal) | model selection is more accurate; user sees fewer "wrong model picked" outcomes | ConfidenceRouter reads `EmlPotential::compute(query)` before dispatching; A/B routing test shows ≥ 5% accuracy improvement on a fixture corpus | P2 | merge T2 + T7 | NOT-STARTED |
 | **W-09** | T5 (`agent_core/src/research/scan_ir/`) | T3's F-SemiseparableBlockScan harness (`agent_core/tests/ssd_block_scan_correctness.rs`) | none directly; tightens substrate floor for SSM/Mamba-2 work | T3's iter-53 test refactored to consume `ScanIR::SemiseparableBlock { ... }` from T5's lane; correctness held | P3 | merge T5 (Phase B3+ done) + T3 | NOT-STARTED |
-| **W-10** | T3 (UAS-ACS canonical doc + 12 falsifier docs) | Settings → Diagnostics → "UAS-ACS substrate health" row | user sees substrate health: which falsifiers PASS, which substrate-floor, which deferred | new `UasAcsHealthRow.swift`; reads falsifier statuses via FFI; clickable to per-gate detail; tied to `docs/falsifiers/` rows | P1 | merge T3 | NOT-STARTED |
+| **W-10** | T3 (UAS/AcsAnchor canonical doc + 12 falsifier docs) | Settings → Diagnostics → "UAS/AcsAnchor substrate health" row | user sees substrate health: which falsifiers PASS, which substrate-floor, which deferred | new `UasAcsHealthRow.swift`; reads falsifier statuses via FFI; clickable to per-gate detail; tied to `docs/falsifiers/` rows | P1 | merge T3 | NOT-STARTED |
 
 ## §3. Agent + Model wirings (P0 — local-agent excellence per §4.F)
 
@@ -110,12 +112,12 @@ The cognitive DAG and provenance ledger were extended by T3, but UI surfaces hav
 | ID | Source(s) | Consumer | User Surface | Acceptance | Priority | Deps | Status |
 |---|---|---|---|---|---|---|---|
 | **W-24** | T3/T14 (`UasAddress` + `AcsAnchor` types) | `agent_core/src/cognitive_dag/node.rs` (every DAG node carries a UasAddress + AcsAnchor) | DAG nodes inspectable in graph visualizer with theorem tag + residency tier | every NodeKind variant has an optional `uas: Option<UasAddress>` + `anchor: Option<AcsAnchor>` field plus plane/residency; serialization round-trip test | P1 | merge T3 | PASS-IN-BRANCH: Terminal G adds fields to all 10 NodeKind variants |
-| **W-25** | T3 (`AcsAnchor`) + Provenance Console | Provenance Console renders ACS anchor column | user sees theorem tag + plane coord + residency tier per provenance row | new ACS-anchor column in Provenance Console; sortable by theorem tag; clickable to per-anchor detail | P1 | W-03 + W-24 | PARTIAL-ACS-VERDICT-COLUMN (Terminal E adds an inline "ACS verdict" field to Provenance Console event rows; full AcsAnchor theorem tag / plane coord / residency tier sort + clickable detail remains pending W-24 anchor IDs) |
+| **W-25** | T3 (`AcsAnchor`) + Provenance Console | Provenance Console renders AcsAnchor column | user sees theorem tag + plane coord + residency tier per provenance row | new AcsAnchor column in Provenance Console; sortable by theorem tag; clickable to per-anchor detail | P1 | W-03 + W-24 | PARTIAL-ADMISSION-VERDICT-COLUMN (Terminal E adds an inline "SCOPE-Rex admission verdict" field to Provenance Console event rows; full AcsAnchor theorem tag / plane coord / residency tier sort + clickable detail remains pending W-24 anchor IDs) |
 | **W-26** | existing `agent_core/src/cognitive_dag/` (substrate already shipped) | new Cognitive DAG visualizer in `Epistemos/Views/Graph/` | user opens "Cognitive DAG" tab; sees live graph of NodeKinds + EdgeKinds with resonance walks | Cognitive Weight Class doctrine §4.1 tier discipline observed; nodes color-coded by NodeKind; edges by EdgeKind; resonance walk animation | P1 | merge T3 + T6 | NOT-STARTED |
 | **W-27** | T3 (`agent_core/src/scope_rex/answer_packet.rs`) + T2 (AnswerPacket emission) | chat-row Swift code surfaces AnswerPacket badge | user sees per-emission badge in every chat row: claim_kind (synthesis / empirical / mathematical / causal / speculative) + confidence (verified / plausible / speculative / blocked) | per-row badge; cross-link to AnswerPacket detail; tied to W-14 | P0 | W-14 + merge T2 + T3 + T6 | NOT-STARTED |
-| **W-28** | T3/T14 (`ResidencyTier` enum: Current App / Verified Floor / Capability Ceiling) | Settings + Cognitive Weight Class badges + DAG node colors | user sees which features are ship-claimed vs research-tier vs gated; honest doctrine | every research-tier feature has a ResidencyTier indicator; substrate-floor PASS badges; cargo `--features research` gate respected | P1 | merge T3 + T6 | PARTIAL: DAG metadata + live Settings plane-placement row; broader badges still pending |
-| **W-46** | T18B (`agent_core/src/acs_admission/`: `ACSAuditRecord`, `ACSAuditSink` trait + `InMemoryACSAuditSink`) | T11 `agent_core/src/agent_runtime_v2/` (`ACSRunEventLogSink` adapter that fans every ACS verdict into the existing `oplog::OpLog`) | none directly (substrate seam); enables W-25/W-27 (Provenance Console shows ACS verdicts inline with claims) | T18B publishes the `ACSAuditSink` trait + `InMemoryACSAuditSink` test fixture in `acs_admission/mod.rs`; T11 implements `ACSRunEventLogSink: ACSAuditSink` against the live RunEventLog; property test: every `admit_and_record` call appends one canonical `OpPayload::PropSet { key: ACS_AUDIT_RUN_EVENT_KEY, value: <ACSAuditRecord JSON> }` event; verdict ordering preserved per request_id | P1 | merge T11 + T18B; W-25 | RUST-WIRED (Terminal E exposes `agent_runtime_v2::acs_run_event_log_sink::ACSRunEventLogSink`, adds `ACSRunEventLogSink::admit_and_record`, and verifies tool-call admissions append ACS audit records via `r5_acs_tool_handoff`; existing R4 snapshot tests still pass) |
-| **W-47** | T18B (`SCOPERexAdmissionProof { verdict, record_id, capability_signature }`) | T11 agent_runtime_v2 + Provenance Console | user-visible "proof of admission" badge on every mutation/tool action that touched ACS | T18B publishes `SCOPERexAdmissionProof` shape with verdict + AuditRecordId + CapabilitySignature; T11 carries the proof on every cross-lane handoff; UI surface renders `verdict.code()` + clickable record_id that resolves via `resolve_acs_audit_record(&run_event_log, &record_id)`; forged signature property test: signature mutation rejected at proof boundary | P1 | merge T11 + T18B; W-46 | PARTIAL-WIRED (Terminal E adds `scope_rex::admission_proof::SCOPERexAdmissionProof { verdict, record_id, capability_signature }`, carries it on v2 tool handoffs, and verifies forged signature mutation rejection; clickable record_id UI detail remains pending) |
+| **W-28** | T3/T14 (`ResidencyTier` enum: Current App / Verified Floor / Capability Ceiling) | Settings + Cognitive Weight Class badges + DAG node colors | user sees which features are ship-claimed vs Pro Research vs gated; honest doctrine | every Pro Research feature has a ResidencyTier indicator; substrate-floor PASS badges; cargo `--features research` gate respected | P1 | merge T3 + T6 | PARTIAL: DAG metadata + live Settings plane-placement row; broader badges still pending |
+| **W-46** | T18B (`agent_core/src/acs_admission/`: `ACSAuditRecord`, `ACSAuditSink` trait + `InMemoryACSAuditSink`) | T11 `agent_core/src/agent_runtime_v2/` (`ACSRunEventLogSink` adapter that fans every SCOPE-Rex admission verdict into the existing `oplog::OpLog`) | none directly (substrate seam); enables W-25/W-27 (Provenance Console shows SCOPE-Rex admission verdicts inline with claims) | T18B publishes the `ACSAuditSink` trait + `InMemoryACSAuditSink` test fixture in `acs_admission/mod.rs`; T11 implements `ACSRunEventLogSink: ACSAuditSink` against the live RunEventLog; property test: every `admit_and_record` call appends one canonical `OpPayload::PropSet { key: ACS_AUDIT_RUN_EVENT_KEY, value: <ACSAuditRecord JSON> }` event; verdict ordering preserved per request_id | P1 | merge T11 + T18B; W-25 | RUST-WIRED (Terminal E exposes `agent_runtime_v2::acs_run_event_log_sink::ACSRunEventLogSink`, adds `ACSRunEventLogSink::admit_and_record`, and verifies tool-call admissions append ACS audit records via `r5_acs_tool_handoff`; existing R4 snapshot tests still pass) |
+| **W-47** | T18B (`SCOPERexAdmissionProof { verdict, record_id, capability_signature }`) | T11 agent_runtime_v2 + Provenance Console | user-visible "proof of admission" badge on every mutation/tool action that touched SCOPE-Rex admission | T18B publishes `SCOPERexAdmissionProof` shape with verdict + AuditRecordId + CapabilitySignature; T11 carries the proof on every cross-lane handoff; UI surface renders `verdict.code()` + clickable record_id that resolves via `resolve_acs_audit_record(&run_event_log, &record_id)`; forged signature property test: signature mutation rejected at proof boundary | P1 | merge T11 + T18B; W-46 | PARTIAL-WIRED (Terminal E adds `scope_rex::admission_proof::SCOPERexAdmissionProof { verdict, record_id, capability_signature }`, carries it on v2 tool handoffs, and verifies forged signature mutation rejection; clickable record_id UI detail remains pending) |
 
 ## §6. UI surface unification (P1 — T6 audited but didn't wire backend features TO UI)
 
@@ -123,7 +125,7 @@ T6 fixed 30+ UI bugs but explicitly stayed out of backend-to-UI wiring (per scop
 
 | ID | Source(s) | Consumer | User Surface | Acceptance | Priority | Deps | Status |
 |---|---|---|---|---|---|---|---|
-| **W-29** | T2 (AnswerPacketHealthRow exists) + T1 (Tri-Fusion emission) + T7 (EML observatory) | unified "Substrate Health" panel in Settings | user opens "Substrate Health" and sees: agent runtime status · model constellation · vault recall metrics · EML energy · UAS-ACS falsifiers · cognitive DAG counts · provenance ledger growth | new panel with 7+ health rows; auto-refresh; gracefully degrades if subsystem unavailable | P1 | most other W rows | NOT-STARTED |
+| **W-29** | T2 (AnswerPacketHealthRow exists) + T1 (Tri-Fusion emission) + T7 (EML observatory) | unified "Substrate Health" panel in Settings | user opens "Substrate Health" and sees: agent runtime status · model constellation · vault recall metrics · EML energy · UAS/AcsAnchor falsifiers · cognitive DAG counts · provenance ledger growth | new panel with 7+ health rows; auto-refresh; gracefully degrades if subsystem unavailable | P1 | most other W rows | NOT-STARTED |
 | **W-30** | All UI surfaces touched by T6 | Cognitive Weight Class badges per `COGNITIVE_WEIGHT_CLASS_DOCTRINE_2026_05_04.md` | user sees W1-W4 weight badges on every cognitive surface (light / medium / heavy / extreme) | every cognitive feature surfaces a W-tier badge; consistent visual language across Settings · Chat · Notes · Graph | P2 | merge T6 | NOT-STARTED |
 | **W-31** | T6 (Ambient Frequencies polish + audiophile upgrades) | Settings → Audio diagnostics surface | user sees export gain · master volume · live-player chain · A/V health | unified audio diagnostics panel; cross-link to UI_UX_AmbientFrequencies audit docs | P3 | merge T6 | NOT-STARTED |
 | **W-32** | per-feature feature flags (some have UserDefaults flags, no UI) | Settings → Experimental Features panel | user can flip experimental features without `defaults write` | EPISTEMOS_RRF_FUSION_V1, EPISTEMOS_GRAPH_INDEX_CHATS, epistemos.localAgent.powerUserMode, and any others get a unified Settings panel | P1 | none | NOT-STARTED |
@@ -142,18 +144,18 @@ T8 wrote the full Phase 0 doctrine but Phase B is gated. When the gate opens, th
 | **W-38** | T8 doctrine (Spotlight integration) | `Epistemos/Engine/SpotlightIndexer.swift` + `NoteEntitySpotlightIndexer.swift` | locked content NEVER appears in Spotlight | property test: deindex on lock toggle; CSSearchableItem + NoteEntity surfaces respect lock state | P3 | W-34 + merge T6 | NOT-STARTED |
 | **W-39** | T8 doctrine (recovery flow) | recovery-code printable view + Keychain rewrap | user can recover lock access if biometric fails / device replaced | recovery code ≥ 128 bits entropy; printable view; Keychain rewrap on success | P3 | W-34 | NOT-STARTED |
 
-## §8. Optional / Research-tier wirings (P3 — capability ceiling)
+## §8. Optional / Pro Research wirings (P3 — capability ceiling)
 
 These ARE useful but are gated on T3 Phase C / T5 Phase C / hardware validation. Include for completeness:
 
 | ID | Source(s) | Consumer | User Surface | Acceptance | Priority | Deps | Status |
 |---|---|---|---|---|---|---|---|
-| **W-40** | T5 (eml/ulp_oracle.rs partial) + T7 (`eval_real` runtime) | F-ULP-Oracle harness | research-tier; surfaces "arithmetic verification floor" in Diagnostics | T7 publishes `eval_real(point: f64) -> f64`; T3 wires into harness; max ULP ≤ 2 fp16 in [0.5, 2.0] over 412k+2k points in ≤ 90 s | P3 | merge T5 + T7 | NOT-STARTED |
+| **W-40** | T5 (eml/ulp_oracle.rs partial) + T7 (`eval_real` runtime) | F-ULP-Oracle harness | Pro Research; surfaces "arithmetic verification floor" in Diagnostics | T7 publishes `eval_real(point: f64) -> f64`; T3 wires into harness; max ULP ≤ 2 fp16 in [0.5, 2.0] over 412k+2k points in ≤ 90 s | P3 | merge T5 + T7 | NOT-STARTED |
 | **W-41** | Swift / Metal lane (5 .metal kernels deferred per T3 punch list §9) | live agent inference path | user gets actually-faster local inference once Metal kernels land (Mamba-2, page-gather, controller-pack, packet-router-1bit, local-recall-island, semiseparable-block-scan) | per-kernel Metal correctness vs CPU ref + per-kernel performance gate | P3 | T3 Phase C + Apple-platform external work | NOT-STARTED |
-| **W-42** | T3 (F-KV-Direct-Gate harness) + Swift integration test | live Qwen 3 8B at 128k context with SSD cold-spill | research-tier; demonstrates the V6.1 substrate's KV-Direct claim | peak RAM < 13 GB on 16 GB rig; D_KL/token < 0.08; decode ≥ 10 tok/s | P3 | merge T3; T3 Phase C | NOT-STARTED |
-| **W-43** | T3 (F-70B-Cocktail composition study) | research doc only | research-tier; ceiling falsifier per §4.G | composition harness runs end-to-end; primary bottleneck identified | P3 | W-41 + W-42 | NOT-STARTED |
-| **W-44** | T5/T14 (6 IR primitives: EML / Tropical / Scan / Operator / Info / Geometry) | hyperdynamic_schemas (T1) carries IR-typed expressions | research-tier; Tri-Fusion content fabric can carry IR-typed math natively | each IR has property tests; Tri-Fusion ABI accepts IR-typed expressions; example notebook demonstrating EML-IR → Lean cert | P3 | merge T1 + T5 (Phase B done) | PARTIAL: scan program WBO budget hook added; full six-IR ABI still pending |
-| **W-45** | T5 (per-IR Lean schema authority) | every typed schema in the app | research-tier; Lean proofs of major identities | Lean files compile; each IR has at least one identity proved | P3 | merge T5 (Phase C done) | NOT-STARTED |
+| **W-42** | T3 (F-KV-Direct-Gate harness) + Swift integration test | live Qwen 3 8B at 128k context with SSD cold-spill | Pro Research; demonstrates the V6.1 substrate's KV-Direct claim | peak RAM < 13 GB on 16 GB rig; D_KL/token < 0.08; decode ≥ 10 tok/s | P3 | merge T3; T3 Phase C | NOT-STARTED |
+| **W-43** | T3 (F-70B-Cocktail composition study) | research doc only | Pro Research; ceiling falsifier per §4.G | composition harness runs end-to-end; primary bottleneck identified | P3 | W-41 + W-42 | NOT-STARTED |
+| **W-44** | T5/T14 (6 IR primitives: EML / Tropical / Scan / Operator / Info / Geometry) | hyperdynamic_schemas (T1) carries IR-typed expressions | Pro Research; Tri-Fusion content fabric can carry IR-typed math natively | each IR has property tests; Tri-Fusion ABI accepts IR-typed expressions; example notebook demonstrating EML-IR → Lean cert | P3 | merge T1 + T5 (Phase B done) | PARTIAL: scan program WBO budget hook added; full six-IR ABI still pending |
+| **W-45** | T5 (per-IR Lean schema authority) | every typed schema in the app | Pro Research; Lean proofs of major identities | Lean files compile; each IR has at least one identity proved | P3 | merge T5 (Phase C done) | NOT-STARTED |
 | **W-46** | T23B (`docs/falsifiers/FALSIFIER_ARTIFACT_SCHEMA_2026_05_18.md` + validator shape doc) | future Rust/Python artifact validator harness | internal substrate; prevents loose logs from becoming falsifier witness artifacts | validator parses the single schema fragment, enforces cross-gate axis floors, proves falsifier enum/map alignment, checks artifact reference paths, checks canonical witness filenames with the WBO-only JSONL exception, rejects JSONL BOM prefixes and CRLF endings, checks JSONL final LF, rejects blank lines, checks row shape, row measurement object shape, row threshold object shape, row-side path smuggling, schema version, row falsifier identity, prompt IDs, token IDs, identity syntax, per-prompt token ordering, prompt-token-axis uniqueness, declared axes, row-local anomaly semantics, anomaly axes, indices, pass replay, unit consistency, and closed-object rows, checks threshold operator and unit token rules, checks homogeneous sample arrays, checks digest measurement shape, checks anomaly severity enums, checks blocking anomalies affect pass, checks anomaly axis/pass effects, enforces classified-null measurement semantics, rejects notes payload smuggling, checks notes inspection tokens, loads hardware mapping, verifies migration-note completeness, verifies the negative-catalog count, rejects negative examples, and fails replay-ineligible artifacts before any handbook row can promote | P3 | T23B docs; implementation owner TBD | NOT-STARTED |
 
 ## §9. User-facing surface inventory (the "this is what the user sees" list)
@@ -174,9 +176,9 @@ When the W-NN rows above land, here's the user-facing experience that emerges. T
 | **Local agent diagnostics** | W-17 | per-model load times, idle-unload events, schema-drift counter, hot-swap count |
 | **Model emission confidence** | W-18 | per-event confidence visible in timeline |
 | **EML energy live readout** | W-07 | Settings → Diagnostics → "EML energy live readout" row (T7's deliverable surfaced) |
-| **UAS-ACS substrate health** | W-10 + W-28 | Settings shows which falsifiers PASS, which substrate-floor, which deferred |
+| **UAS/AcsAnchor substrate health** | W-10 + W-28 | Settings shows which falsifiers PASS, which substrate-floor, which deferred |
 | **Cognitive DAG visualization** | W-26 | "Cognitive DAG" tab in Graph; live nodes + edges; resonance walks |
-| **Provenance Console ACS-anchor column** | W-03 + W-25 | claims sortable by theorem tag |
+| **Provenance Console AcsAnchor column** | W-03 + W-25 | claims sortable by theorem tag |
 | **Tri-Fusion structured-mutation cards in Epdoc** | W-06 | model-authored note edits appear as structured operations with provenance badge |
 | **Substrate Health unified panel** | W-29 | one Settings panel surfaces all subsystem health in one place |
 | **Cognitive Weight Class badges everywhere** | W-30 | W1-W4 badges on every cognitive surface |
@@ -221,7 +223,7 @@ Major dependency clusters (read top-to-bottom; later items wait for earlier):
                        │
                        ▼
               W-08+W-18 (EML→ConfidenceRouter; EML confidence in timeline)
-              W-25+W-26 (Provenance Console ACS column; Cognitive DAG visualizer)
+              W-25+W-26 (Provenance Console AcsAnchor column; Cognitive DAG visualizer)
               W-30 (Weight Class badges)
               W-32+W-33 (Experimental + Drift Monitor)
 
@@ -237,7 +239,7 @@ Major dependency clusters (read top-to-bottom; later items wait for earlier):
               W-35+W-36+W-37+W-38+W-39 (lock surfaces everywhere; recovery)
 
               ╔══════════════════════════════════════╗
-              ║  Research-tier (multi-week, gated)   ║
+              ║  Pro Research (multi-week, gated)   ║
               ╚══════════════════════════════════════╝
                        │
                        ▼
@@ -280,13 +282,13 @@ Land **P1 user-visible substrate wirings**:
 - W-01 UasAddress on vault notes
 - W-04 page-gather wired to vault retrieval
 - W-07 EML observatory health row
-- W-10 UAS-ACS substrate health row
+- W-10 UAS/AcsAnchor substrate health row
 - W-21 vault recall health row
 - W-22 vault returns Vec<UasAddress>
 - W-23 Vault Context Contract enforced everywhere
 - W-29 unified Substrate Health panel
 - W-32 Experimental Features panel
-- W-25+W-26+W-27 ACS column / DAG visualizer / AnswerPacket badge
+- W-25+W-26+W-27 AcsAnchor column / DAG visualizer / AnswerPacket badge
 - W-30 Weight Class badges
 
 Acceptance: user opens Settings → Diagnostics and sees ALL major substrate health surfaces in one place. The architecture is inspectable to the end user.
@@ -295,7 +297,7 @@ Acceptance: user opens Settings → Diagnostics and sees ALL major substrate hea
 
 Once T1 + T2 + T6 each have a landed PR, T8's gate auto-opens. T8's Phase B implementation begins per the T8 driver prompt. The W-34 through W-39 rows fire in T8's lane.
 
-### Phase θ — Internal / research-tier (month 2+)
+### Phase θ — Internal / Pro Research (month 2+)
 
 Land **P2 + P3 wirings** as bandwidth allows:
 - W-02 UasAddress in agent traces
@@ -304,7 +306,7 @@ Land **P2 + P3 wirings** as bandwidth allows:
 - W-08 EML potential in ConfidenceRouter
 - W-09 Scan-IR consumer
 - W-17+W-18 diagnostics + confidence in timeline
-- W-24+W-28 DAG node UAS/ACS + ResidencyTier indicator
+- W-24+W-28 DAG node UAS/AcsAnchor + ResidencyTier indicator
 - W-31 Audio diagnostics
 - W-33 Drift Monitor
 
@@ -371,7 +373,7 @@ This backlog **only exists because of scope-lock**. Each terminal individually s
 
 The wiring phase is what turns "47K LOC of compiling substrate" into "the substrate is the moat" — the museum-piece-bar promise from the deep-investigation prompt's Manifesto. **Don't merge and then walk away.** Land the merges, then immediately enter Phase ε. The substrate is only as visible as the user-facing surfaces that consume it.
 
-## T18B ACS Admission Field append — 2026-05-19
+## T18B SCOPE-Rex Admission Field + AcsAnchor Link Append — 2026-05-19
 
 W-46/W-47 doc-only refresh: T18B owns the L/M shape contracts in `docs/ACS_ADMISSION_FIELD_2026_05_18.md` (`ACSAuditSink trait shape`, `InMemoryACSAuditSink for testing`, and `SCOPERexAdmissionProof shape`). T11 owns RunEventLog wire in `agent_runtime_v2/`; do not implement that wire from T18B Phase 1.
 

@@ -2,6 +2,12 @@
 
 > **Index status**: CANONICAL-RESEARCH — Deep research prompt for Metal GPU SDF text labels with continuous radial blur-reveal + kinetic physics; 20-file read list.
 > Classified in [`docs/_INDEX.md §14`](_INDEX.md). Copy in `docs/_consolidated/20_canonical_research/`.
+>
+> **2026-06-01 supersession:** this prompt may mention zero-copy and graph hot
+> paths, but current zero-copy doctrine is scoped to computation, transport,
+> proof, and backend artifacts. Preserve intentional product/UI copies unless
+> a falsifier proves they are on a hot path. For route/residency work, read
+> `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`.
 
 
 ## Continuous Distance-Based Blur Reveal + Kinetic Physics Polish

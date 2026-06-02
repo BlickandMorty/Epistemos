@@ -5,6 +5,8 @@ scope: AetherLink kit intake plus Epistemos sibling worktree cleanup safety
 posture: preserve first; delete only after merged/clean/approved evidence
 ---
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 # AetherLink Kit And Worktree Canon Check - 2026-05-30
 
 ## AetherLink Kit
@@ -80,7 +82,7 @@ compared against current main/current working tree:
 | `/Users/jojo/Downloads/Epistemos-t4-vault` | VaultRecall, RRF, retrieval traces, Rust vault retrieval |
 | `/Users/jojo/Downloads/Epistemos-t5-emlir` | EML / Geometry / Info / Operator / IR research stack |
 | `/Users/jojo/Downloads/Epistemos-t17b-lattice-wbo-register` | lattice/WBO register path; directly relevant to weight lattice ambition |
-| `/Users/jojo/Downloads/Epistemos-t18b-acs-admission-field` | ACS admission field path |
+| `/Users/jojo/Downloads/Epistemos-t18b-acs-admission-field` | legacy path for SCOPE-Rex admission field + AcsAnchor link |
 | `/Users/jojo/Downloads/Epistemos-terminal-c` | System G run seam |
 | `/Users/jojo/Downloads/Epistemos-terminal-t1-runtime-router` | RuntimeExecutor / RuntimeRouter / local tool use |
 | `/Users/jojo/Downloads/Epistemos-wave4-page-gather-vault-escalation` | PageGather vault escalation trace |

@@ -26,6 +26,15 @@ app builds.
 Final naming audit companion:
 `docs/audits/NAMESPACE_AND_ARCHITECTURE_CLARITY_AUDIT_2026_05_31.md`.
 
+Residency discovery companion:
+`docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` and
+`docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`. From this
+point forward, any "best combo" route for UAS/AppColdStore, active model-state
+selection, sparse residency, or the 70B cocktail must classify whether it is a
+static hand-authored route or a PatternBoost-derived candidate assembly, and
+must keep the latter Pro Research until repair, sparse fingerprint, held-out
+replay, lattice abstention, rollback, and witness gates pass.
+
 Namespace companion: read
 `docs/audits/ACS_NAMESPACE_RECONCILIATION_2026_05_30.md`. From this point
 forward, Active Cold Storage is named ColdStore or Cold Residency Layer, not
@@ -55,7 +64,11 @@ RunEventLog, or AnswerPacket.
    the autogenous-kernel idea are retained, but they live behind falsifier and
    residency gates. They do not replace UAS, ColdStore, VaultRecall,
    Eidos, or provenance.
-6. A scheduler heartbeat is not proof of architecture progress. It is only a
+6. PatternBoost-derived residency policies are retained as a new Pro Research
+   discovery lane, not as live authority. They may propose better page bundles,
+   route motifs, verifier mixes, and cold-layout patches only through the L20
+   falsifier path.
+7. A scheduler heartbeat is not proof of architecture progress. It is only a
    liveness hook for future loop runners. A heartbeat-backed run may advance a
    row only when it leaves code, tests, artifact evidence, and an updated WRV
    claim trail.

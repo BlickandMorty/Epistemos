@@ -20,6 +20,8 @@ and audit files before changing anything:
 8. docs/audits/AGENT_MANAGEABLE_ARCHITECTURE_CANON_2026_05_30.md
 9. docs/audits/ACS_NAMESPACE_RECONCILIATION_2026_05_30.md
 10. docs/audits/NAMESPACE_AND_ARCHITECTURE_CLARITY_AUDIT_2026_05_31.md
+11. docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md
+12. docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md
 
 Current safe checkpoint:
 
@@ -33,6 +35,9 @@ Safety rules:
 - Do not run 70B, 128K, full Metal witness, mmap/SSD stress, live MLX/GGUF
   heavy probes, or any command likely to pressure memory until a crash-safe
   harness is explicitly implemented and approved.
+- Do not promote PatternBoost-derived route/layout policies from donor
+  worktrees without repair, sparse fingerprint, held-out replay, lattice
+  abstention, rollback, and witness evidence.
 - Do not delete any worktree or sibling Epistemos-like folder without explicit
   user approval.
 - Do not touch ~/Epistemos-RETRO/, src-tauri/, or ~/meta-analytical-pfc/.

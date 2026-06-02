@@ -70,7 +70,6 @@ final class HologramController {
 
         ensureOverlay()
         prepareOverlayForGlobalMode()
-        graphState?.startOverlayPhysicsCycle()
         // Always open full overlay. The mini-panel is still available
         // via the minimize button but auto-starting minimized is removed
         // per user request 2026-04-04.
@@ -82,7 +81,6 @@ final class HologramController {
         ensureConfiguredFromSharedBootstrap()
         ensureOverlay()
         prepareOverlayForGlobalMode()
-        graphState?.startOverlayPhysicsCycle()
         presentFullOverlay()
     }
 
@@ -99,7 +97,6 @@ final class HologramController {
             return
         }
         prepareOverlayForGlobalMode(centering: node.id)
-        graphState.startOverlayPhysicsCycle()
         presentFullOverlay()
     }
 
@@ -115,7 +112,6 @@ final class HologramController {
 
         ensureConfiguredFromSharedBootstrap()
         ensureOverlay(autoLoadGraph: false)
-        graphState?.startOverlayPhysicsCycle()
         presentFullOverlay()
 
         Task { @MainActor in

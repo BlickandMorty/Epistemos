@@ -1,5 +1,7 @@
 # Canonical Audit Log
 
+> **2026-06-01 current canon bridge (JUNE1-PATTERNBOOST-LOCK):** This file is preserved as a legacy, planning, research, or witness artifact. For active architecture, route Helios/UAS/ACS/mmap/KV-Direct/70B/NeuralImportance claims through `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md`, `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`, `docs/fusion/SEMANTIC_WORKING_SET_COMPILER_2026_06_01.md`, and `docs/fusion/COLDSTREAM_RESIDENCY_TRANSPORT_2026_06_01.md`. Legacy claims remain historical until promoted by falsifiers, AnswerPacket evidence, LatticeAbstentionGate, ComputeResumeLease, rollback, and the intentional-copy/zero-copy caveat.
+
 > **Status**: CANONICAL — living deep-drift audit (snapshot-based passes; resolved findings stay logged with resolution commit).
 > **Role**: Strategic audit of V1.5 backlog vs canonical doctrine. Checks every item against the four research corpora + plan tree + actual codebase. Findings are durable.
 > **Read with**: [`CRITIQUE_LOG.md`](CRITIQUE_LOG.md) (rolling per-commit auditor; tactical) + [`docs/plan/03_EXECUTION_MAP.md`](plan/03_EXECUTION_MAP.md) (per-item depth) + [`MASTER_BUILD_PLAN.md`](MASTER_BUILD_PLAN.md) (queue).

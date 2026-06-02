@@ -1,6 +1,13 @@
 # Codex Reconceptualization Handoff + Verify Ask — 2026-05-03
 
 > **For Codex.** Final-bow handoff after the substrate reconceptualization landed. **Two asks**: (1) integrate the new vision into the build sequence, (2) verify the plan is still coherent. Sister docs: `JORDANS_RESEARCH_INDEX_2026_05_03.md` (source map for the executive adds), `EPISTEMOS_RECONCEPTUALIZATION_2026_05_03.md` (the substrate vision), `CODEX_TASK_CONTINUITY_HANDOFF_2026_05_03.md` (catch-up on what shipped while the account changed).
+>
+> **2026-06-01 supersession:** this handoff is historical. Before applying it
+> to UAS/AppColdStore, active model-state, sparse residency, mmap/SSD, dynamic
+> compute, or 70B-cocktail work, read
+> `docs/fusion/RESIDENCY_PATTERNBOOST_DISCOVERY_2026_06_01.md` and
+> `docs/falsifiers/F-RESIDENCY-PATTERNBOOST-BUNDLE_2026_06_01.md`. PatternBoost
+> is an offline/idle Pro Research discovery lane, not live route authority.
 
 ---
 
