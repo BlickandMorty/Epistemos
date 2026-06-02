@@ -71,6 +71,7 @@ const CANONICAL_FALSIFIER_IDS: &[&str] = &[
     "F-Eidos-Bridge-RoundTrip",
     "F-Eidos-NeuralRoute-Prior",
     "F-ParamRouteCard-Admission",
+    "F-ResidencyPatternBoost-NoHiddenAuthority",
     "F-DynamicCompute-Checkpoint",
     "F-Capability-Ceiling-Evaluation-Kernel",
     "F-Architecture-Pending-Work-Guard",
@@ -339,6 +340,7 @@ mod tests {
         for id in [
             "F-Eidos-NeuralRoute-Prior",
             "F-ParamRouteCard-Admission",
+            "F-ResidencyPatternBoost-NoHiddenAuthority",
             "F-DynamicCompute-Checkpoint",
         ] {
             assert!(
