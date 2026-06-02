@@ -14,6 +14,7 @@ use crate::uas::{
 };
 
 const COMPUTE_RESUME_LEASE_COMPATIBILITY_FALSIFIER_ID: &str = "F-ComputeResumeLease-Compatibility";
+const LATTICE_ABSTENTION_GATE_SOUNDNESS_FALSIFIER_ID: &str = "F-LatticeAbstentionGate-Soundness";
 const NO_OFFLINE_ORACLE_LEAK_FALSIFIER_ID: &str = "F-NoOfflineOracleLeak";
 const PARAM_ROUTE_CARD_ADMISSION_FALSIFIER_ID: &str = "F-ParamRouteCard-Admission";
 const RESIDENCY_PATTERNBOOST_NO_HIDDEN_AUTHORITY_FALSIFIER_ID: &str =
@@ -23,8 +24,9 @@ const ANSWER_PACKET_CAVEAT_PREFIX: &str = "answer_packet_caveat:";
 const ROLLBACK_REF_PREFIX: &str = "rollback:";
 const RUN_EVENT_LOG_REF_PREFIX: &str = "run_event_log:";
 const RUNTIME_ROUTER_ROUTE_PREFIX: &str = "runtime_router:";
-const REQUIRED_PATTERNBOOST_VERIFIER_LANES: [&str; 4] = [
+const REQUIRED_PATTERNBOOST_VERIFIER_LANES: [&str; 5] = [
     COMPUTE_RESUME_LEASE_COMPATIBILITY_FALSIFIER_ID,
+    LATTICE_ABSTENTION_GATE_SOUNDNESS_FALSIFIER_ID,
     NO_OFFLINE_ORACLE_LEAK_FALSIFIER_ID,
     PARAM_ROUTE_CARD_ADMISSION_FALSIFIER_ID,
     RESIDENCY_PATTERNBOOST_NO_HIDDEN_AUTHORITY_FALSIFIER_ID,
@@ -926,6 +928,7 @@ mod tests {
                 "F-Eidos".to_string(),
                 "F-ParamRouteCard-Admission".to_string(),
                 "F-ComputeResumeLease-Compatibility".to_string(),
+                "F-LatticeAbstentionGate-Soundness".to_string(),
                 "F-NoOfflineOracleLeak".to_string(),
                 "F-ResidencyPatternBoost-NoHiddenAuthority".to_string(),
             ],
@@ -948,6 +951,7 @@ mod tests {
             vec![
                 "F-ComputeResumeLease-Compatibility".to_string(),
                 "F-Eidos".to_string(),
+                "F-LatticeAbstentionGate-Soundness".to_string(),
                 "F-NoOfflineOracleLeak".to_string(),
                 "F-ParamRouteCard-Admission".to_string(),
                 "F-ResidencyPatternBoost-NoHiddenAuthority".to_string(),
@@ -1397,6 +1401,7 @@ mod tests {
             Vec::new(),
             vec![
                 "F-ComputeResumeLease-Compatibility".to_string(),
+                "F-LatticeAbstentionGate-Soundness".to_string(),
                 "F-NoOfflineOracleLeak".to_string(),
                 "F-ParamRouteCard-Admission".to_string(),
             ],
@@ -1474,6 +1479,7 @@ mod tests {
             Vec::new(),
             vec![
                 "F-ComputeResumeLease-Compatibility".to_string(),
+                "F-LatticeAbstentionGate-Soundness".to_string(),
                 "F-ParamRouteCard-Admission".to_string(),
                 "F-ResidencyPatternBoost-NoHiddenAuthority".to_string(),
             ],
@@ -1498,6 +1504,47 @@ mod tests {
             err,
             UasAssemblyGenomeError::MissingRequiredVerifierLane {
                 verifier: "F-NoOfflineOracleLeak"
+            }
+        );
+    }
+
+    #[test]
+    fn uas_assembly_genome_rejects_missing_lattice_abstention_guardrail() {
+        let err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            vec![
+                "F-ComputeResumeLease-Compatibility".to_string(),
+                "F-NoOfflineOracleLeak".to_string(),
+                "F-ParamRouteCard-Admission".to_string(),
+                "F-ResidencyPatternBoost-NoHiddenAuthority".to_string(),
+            ],
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            UasAssemblyGenomeError::MissingRequiredVerifierLane {
+                verifier: "F-LatticeAbstentionGate-Soundness"
             }
         );
     }
