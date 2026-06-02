@@ -65,7 +65,7 @@ final class ContradictionDetectionService {
             }
             
             // Run contradiction detection through the shared vault bridge.
-            let ffiContradictions = detectVaultContradictions(
+            let ffiContradictions = detectVaultContradictionsLocal(
                 incoming: incomingText,
                 existingFacts: ffiFacts
             )
