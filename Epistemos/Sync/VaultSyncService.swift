@@ -3912,16 +3912,55 @@ final class VaultSyncService {
 
         // Index in Spotlight
         SpotlightIndexer.index(page)
-        page.lastSyncedBodyHash = SDPage.bodyHash(page.loadBody())
-        page.lastSyncedAt = .now
-        page.needsVaultSync = false
+        page.lastSyncedBodyHash = nil
+        page.lastSyncedAt = nil
+        page.needsVaultSync = true
+        do {
+            try context.save()
+        } catch {
+            Log.vault.error(
+                "Failed to mark new page dirty for vault export '\(title, privacy: .public)': \(error.localizedDescription, privacy: .public)"
+            )
+        }
 
         // Export to disk in background
         let pageId = failedPageId
         suppressFileWatcherForSelfOriginatedChange()
         Task { [weak self] in
             do {
-                _ = try await self?.exportPage(pageId: pageId, to: vaultURL)
+                guard let self,
+                      let exportResult = try await self.exportPage(pageId: pageId, to: vaultURL) else {
+                    return
+                }
+                await MainActor.run {
+                    let context = self.modelContainer.mainContext
+                    let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
+                    guard let page = self.fetchFirst(descriptor, in: context, label: "new page export tracking") else {
+                        return
+                    }
+                    let currentHash = SDPage.bodyHash(self.latestAvailableBody(for: page, pageId: pageId))
+                    guard currentHash == exportResult.bodyHash else {
+                        page.needsVaultSync = true
+                        do {
+                            try context.save()
+                        } catch {
+                            Log.vault.error(
+                                "Failed to retain dirty state after new page export hash mismatch: \(error.localizedDescription, privacy: .public)"
+                            )
+                        }
+                        return
+                    }
+                    page.lastSyncedBodyHash = currentHash
+                    page.lastSyncedAt = .now
+                    page.needsVaultSync = false
+                    do {
+                        try context.save()
+                    } catch {
+                        Log.vault.error(
+                            "Failed to save new page export tracking: \(error.localizedDescription, privacy: .public)"
+                        )
+                    }
+                }
             } catch {
                 log.error(
                     "Failed to export new page to disk: \(error.localizedDescription, privacy: .public)"
