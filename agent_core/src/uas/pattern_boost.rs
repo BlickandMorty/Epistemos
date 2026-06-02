@@ -14,17 +14,25 @@ use crate::uas::{
 };
 
 const COMPUTE_RESUME_LEASE_COMPATIBILITY_FALSIFIER_ID: &str = "F-ComputeResumeLease-Compatibility";
+const COLD_ROUTE_POLICY_PATCH_ROLLBACK_FALSIFIER_ID: &str = "F-ColdRoutePolicyPatch-Rollback";
 const LATTICE_ABSTENTION_GATE_SOUNDNESS_FALSIFIER_ID: &str = "F-LatticeAbstentionGate-Soundness";
 const NO_OFFLINE_ORACLE_LEAK_FALSIFIER_ID: &str = "F-NoOfflineOracleLeak";
 const PARAM_ROUTE_CARD_ADMISSION_FALSIFIER_ID: &str = "F-ParamRouteCard-Admission";
 const RESIDENCY_PATTERNBOOST_NO_HIDDEN_AUTHORITY_FALSIFIER_ID: &str =
     "F-ResidencyPatternBoost-NoHiddenAuthority";
+const ASSEMBLY_TOURNAMENT_TRACE_UAS_KIND: &str = "assembly_tournament_trace";
 const APP_COLD_STORE_ROUTE_CARD_UAS_KIND: &str = "app_cold_store_route_card";
+const COLD_ROUTE_POLICY_PATCH_UAS_KIND: &str = "cold_route_policy_patch";
 const ANSWER_PACKET_CAVEAT_PREFIX: &str = "answer_packet_caveat:";
+const BASELINE_METRICS_REF_PREFIX: &str = "metrics:";
+const EXPECTED_DELTA_REF_PREFIX: &str = "delta:";
+const HELD_OUT_METRICS_REF_PREFIX: &str = "held_out:";
+const KILL_SWITCH_REF_PREFIX: &str = "kill_switch:";
 const ROLLBACK_REF_PREFIX: &str = "rollback:";
 const RUN_EVENT_LOG_REF_PREFIX: &str = "run_event_log:";
 const RUNTIME_ROUTER_ROUTE_PREFIX: &str = "runtime_router:";
 const FALLBACK_ROUTE_ID_PREFIXES: [&str; 3] = ["baseline_", "fallback_", "static_"];
+const POLICY_PATCH_ROLLOUT_SCOPE_PREFIXES: [&str; 2] = ["shadow_", "dry_run_"];
 const REQUIRED_PATTERNBOOST_VERIFIER_LANES: [&str; 5] = [
     COMPUTE_RESUME_LEASE_COMPATIBILITY_FALSIFIER_ID,
     LATTICE_ABSTENTION_GATE_SOUNDNESS_FALSIFIER_ID,
@@ -364,6 +372,359 @@ impl UasAssemblyGenome {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ColdRoutePolicyPatch {
+    pub patch_address: UasAddress,
+    pub target_policy: String,
+    pub source_tournament: UasAddress,
+    pub baseline_metrics_ref: String,
+    pub expected_delta_ref: String,
+    pub held_out_metrics_ref: String,
+    pub rollout_scope: String,
+    pub kill_switch: String,
+    pub rollback_ref: String,
+    pub run_event_log_span_ref: String,
+    pub answer_packet_caveat_ref: String,
+    pub falsifier_id: String,
+    pub product_build: ProductBuild,
+    pub pro_status: ProStatus,
+    pub residency_status: ResidencyTier,
+}
+
+impl ColdRoutePolicyPatch {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        target_policy: impl Into<String>,
+        source_tournament: UasAddress,
+        baseline_metrics_ref: impl Into<String>,
+        expected_delta_ref: impl Into<String>,
+        held_out_metrics_ref: impl Into<String>,
+        rollout_scope: impl Into<String>,
+        kill_switch: impl Into<String>,
+        rollback_ref: impl Into<String>,
+        run_event_log_span_ref: impl Into<String>,
+        answer_packet_caveat_ref: impl Into<String>,
+        product_build: ProductBuild,
+        pro_status: ProStatus,
+        residency_status: ResidencyTier,
+        created_at_ms: u64,
+    ) -> Result<Self, ColdRoutePolicyPatchError> {
+        validate_patternboost_status(&product_build, &pro_status, residency_status)
+            .map_err(|_| ColdRoutePolicyPatchError::ProductBuildStatusMismatch)?;
+        validate_policy_patch_source_tournament(&source_tournament)?;
+
+        let target_policy = target_policy.into();
+        let baseline_metrics_ref = baseline_metrics_ref.into();
+        let expected_delta_ref = expected_delta_ref.into();
+        let held_out_metrics_ref = held_out_metrics_ref.into();
+        let rollout_scope = rollout_scope.into();
+        let kill_switch = kill_switch.into();
+        let rollback_ref = rollback_ref.into();
+        let run_event_log_span_ref = run_event_log_span_ref.into();
+        let answer_packet_caveat_ref = answer_packet_caveat_ref.into();
+
+        validate_patch_nonempty("target_policy", &target_policy)?;
+        validate_patch_nonempty("baseline_metrics_ref", &baseline_metrics_ref)?;
+        validate_patch_nonempty("expected_delta_ref", &expected_delta_ref)?;
+        validate_patch_nonempty("held_out_metrics_ref", &held_out_metrics_ref)?;
+        validate_patch_nonempty("rollout_scope", &rollout_scope)?;
+        validate_patch_nonempty("kill_switch", &kill_switch)?;
+        validate_patch_nonempty("rollback_ref", &rollback_ref)?;
+        validate_patch_nonempty("run_event_log_span_ref", &run_event_log_span_ref)?;
+        validate_patch_nonempty("answer_packet_caveat_ref", &answer_packet_caveat_ref)?;
+        validate_runtime_router_route("runtime_route_id", &target_policy).map_err(|_| {
+            ColdRoutePolicyPatchError::UnsupportedTargetPolicy {
+                target_policy: target_policy.clone(),
+            }
+        })?;
+        validate_policy_ref(
+            "baseline_metrics_ref",
+            &baseline_metrics_ref,
+            BASELINE_METRICS_REF_PREFIX,
+        )?;
+        validate_policy_ref(
+            "expected_delta_ref",
+            &expected_delta_ref,
+            EXPECTED_DELTA_REF_PREFIX,
+        )?;
+        validate_policy_ref(
+            "held_out_metrics_ref",
+            &held_out_metrics_ref,
+            HELD_OUT_METRICS_REF_PREFIX,
+        )?;
+        validate_rollout_scope(&rollout_scope)?;
+        validate_kill_switch(&kill_switch)?;
+        validate_rollback_reference(&rollback_ref).map_err(|_| {
+            ColdRoutePolicyPatchError::UnsupportedRollbackReference {
+                rollback_ref: rollback_ref.clone(),
+            }
+        })?;
+        validate_run_event_log_span_ref(&run_event_log_span_ref).map_err(|_| {
+            ColdRoutePolicyPatchError::UnsupportedRunEventLogSpanRef {
+                run_event_log_span_ref: run_event_log_span_ref.clone(),
+            }
+        })?;
+        validate_answer_packet_caveat_ref(&answer_packet_caveat_ref).map_err(|_| {
+            ColdRoutePolicyPatchError::UnsupportedAnswerPacketCaveatRef {
+                answer_packet_caveat_ref: answer_packet_caveat_ref.clone(),
+            }
+        })?;
+
+        let falsifier_id = COLD_ROUTE_POLICY_PATCH_ROLLBACK_FALSIFIER_ID.to_string();
+        let patch_address = Self::address(
+            &target_policy,
+            &source_tournament,
+            &baseline_metrics_ref,
+            &expected_delta_ref,
+            &held_out_metrics_ref,
+            &rollout_scope,
+            &kill_switch,
+            &rollback_ref,
+            &run_event_log_span_ref,
+            &answer_packet_caveat_ref,
+            &falsifier_id,
+            &product_build,
+            &pro_status,
+            residency_status,
+            created_at_ms,
+        );
+
+        Ok(Self {
+            patch_address,
+            target_policy,
+            source_tournament,
+            baseline_metrics_ref,
+            expected_delta_ref,
+            held_out_metrics_ref,
+            rollout_scope,
+            kill_switch,
+            rollback_ref,
+            run_event_log_span_ref,
+            answer_packet_caveat_ref,
+            falsifier_id,
+            product_build,
+            pro_status,
+            residency_status,
+        })
+    }
+
+    pub fn validate_shape(&self) -> Result<(), ColdRoutePolicyPatchError> {
+        let recomputed = Self::new(
+            self.target_policy.clone(),
+            self.source_tournament.clone(),
+            self.baseline_metrics_ref.clone(),
+            self.expected_delta_ref.clone(),
+            self.held_out_metrics_ref.clone(),
+            self.rollout_scope.clone(),
+            self.kill_switch.clone(),
+            self.rollback_ref.clone(),
+            self.run_event_log_span_ref.clone(),
+            self.answer_packet_caveat_ref.clone(),
+            self.product_build.clone(),
+            self.pro_status.clone(),
+            self.residency_status,
+            self.patch_address.created_at_ms,
+        )?;
+        if recomputed != *self {
+            return Err(ColdRoutePolicyPatchError::PatchAddressMismatch);
+        }
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn address(
+        target_policy: &str,
+        source_tournament: &UasAddress,
+        baseline_metrics_ref: &str,
+        expected_delta_ref: &str,
+        held_out_metrics_ref: &str,
+        rollout_scope: &str,
+        kill_switch: &str,
+        rollback_ref: &str,
+        run_event_log_span_ref: &str,
+        answer_packet_caveat_ref: &str,
+        falsifier_id: &str,
+        product_build: &ProductBuild,
+        pro_status: &ProStatus,
+        residency_status: ResidencyTier,
+        created_at_ms: u64,
+    ) -> UasAddress {
+        let mut preimage = String::new();
+        preimage.push_str("cold_route_policy_patch_v1\n");
+        push_string_preimage(&mut preimage, "target_policy", target_policy);
+        push_string_preimage(
+            &mut preimage,
+            "source_tournament",
+            &source_tournament.to_string(),
+        );
+        push_string_preimage(&mut preimage, "baseline_metrics_ref", baseline_metrics_ref);
+        push_string_preimage(&mut preimage, "expected_delta_ref", expected_delta_ref);
+        push_string_preimage(&mut preimage, "held_out_metrics_ref", held_out_metrics_ref);
+        push_string_preimage(&mut preimage, "rollout_scope", rollout_scope);
+        push_string_preimage(&mut preimage, "kill_switch", kill_switch);
+        push_string_preimage(&mut preimage, "rollback_ref", rollback_ref);
+        push_string_preimage(
+            &mut preimage,
+            "run_event_log_span_ref",
+            run_event_log_span_ref,
+        );
+        push_string_preimage(
+            &mut preimage,
+            "answer_packet_caveat_ref",
+            answer_packet_caveat_ref,
+        );
+        push_string_preimage(&mut preimage, "falsifier_id", falsifier_id);
+        push_string_preimage(
+            &mut preimage,
+            "product_build",
+            product_build_preimage(product_build),
+        );
+        push_string_preimage(&mut preimage, "pro_status", pro_status_preimage(pro_status));
+        push_string_preimage(
+            &mut preimage,
+            "residency_status",
+            residency_status.wire_tag(),
+        );
+
+        UasAddress::new(
+            UasKind::Other(COLD_ROUTE_POLICY_PATCH_UAS_KIND.to_string()),
+            preimage.as_bytes(),
+            created_at_ms,
+        )
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ColdRoutePolicyPatchError {
+    MissingTargetPolicy,
+    MissingBaselineMetrics,
+    MissingExpectedDelta,
+    MissingHeldOutMetrics,
+    MissingRolloutScope,
+    MissingKillSwitch,
+    MissingRollback,
+    MissingRunEventLogSpan,
+    MissingAnswerPacketCaveat,
+    FieldHasSurroundingWhitespace {
+        field: &'static str,
+    },
+    FieldContainsControlCharacter {
+        field: &'static str,
+    },
+    InvalidUasKind {
+        field: &'static str,
+        actual_kind: String,
+    },
+    ProductBuildStatusMismatch,
+    UnsupportedTargetPolicy {
+        target_policy: String,
+    },
+    UnsupportedBaselineMetricsRef {
+        baseline_metrics_ref: String,
+    },
+    UnsupportedExpectedDeltaRef {
+        expected_delta_ref: String,
+    },
+    UnsupportedHeldOutMetricsRef {
+        held_out_metrics_ref: String,
+    },
+    UnsupportedRolloutScope {
+        rollout_scope: String,
+    },
+    UnsupportedKillSwitch {
+        kill_switch: String,
+    },
+    UnsupportedRollbackReference {
+        rollback_ref: String,
+    },
+    UnsupportedRunEventLogSpanRef {
+        run_event_log_span_ref: String,
+    },
+    UnsupportedAnswerPacketCaveatRef {
+        answer_packet_caveat_ref: String,
+    },
+    PatchAddressMismatch,
+}
+
+impl std::fmt::Display for ColdRoutePolicyPatchError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::MissingTargetPolicy => write!(f, "target_policy is required"),
+            Self::MissingBaselineMetrics => write!(f, "baseline_metrics_ref is required"),
+            Self::MissingExpectedDelta => write!(f, "expected_delta_ref is required"),
+            Self::MissingHeldOutMetrics => write!(f, "held_out_metrics_ref is required"),
+            Self::MissingRolloutScope => write!(f, "rollout_scope is required"),
+            Self::MissingKillSwitch => write!(f, "kill_switch is required"),
+            Self::MissingRollback => write!(f, "rollback_ref is required"),
+            Self::MissingRunEventLogSpan => write!(f, "run_event_log_span_ref is required"),
+            Self::MissingAnswerPacketCaveat => write!(f, "answer_packet_caveat_ref is required"),
+            Self::FieldHasSurroundingWhitespace { field } => {
+                write!(f, "{field} must not contain leading or trailing whitespace")
+            }
+            Self::FieldContainsControlCharacter { field } => {
+                write!(f, "{field} must not contain control characters")
+            }
+            Self::InvalidUasKind { field, actual_kind } => {
+                write!(f, "{field} contains unsupported UAS kind {actual_kind}")
+            }
+            Self::ProductBuildStatusMismatch => write!(
+                f,
+                "ColdRoutePolicyPatch must stay Pro Research / capability-ceiling metadata"
+            ),
+            Self::UnsupportedTargetPolicy { target_policy } => write!(
+                f,
+                "target_policy must name a shadow or dry-run RuntimeRouter policy, got {target_policy}"
+            ),
+            Self::UnsupportedBaselineMetricsRef {
+                baseline_metrics_ref,
+            } => write!(
+                f,
+                "baseline_metrics_ref must name scoped baseline metrics, got {baseline_metrics_ref}"
+            ),
+            Self::UnsupportedExpectedDeltaRef { expected_delta_ref } => write!(
+                f,
+                "expected_delta_ref must name scoped expected delta metrics, got {expected_delta_ref}"
+            ),
+            Self::UnsupportedHeldOutMetricsRef {
+                held_out_metrics_ref,
+            } => write!(
+                f,
+                "held_out_metrics_ref must name scoped held-out metrics, got {held_out_metrics_ref}"
+            ),
+            Self::UnsupportedRolloutScope { rollout_scope } => write!(
+                f,
+                "rollout_scope must be shadow_ or dry_run_ scoped, got {rollout_scope}"
+            ),
+            Self::UnsupportedKillSwitch { kill_switch } => write!(
+                f,
+                "kill_switch must name an explicit kill_switch reference, got {kill_switch}"
+            ),
+            Self::UnsupportedRollbackReference { rollback_ref } => write!(
+                f,
+                "rollback_ref must name an explicit rollback artifact, got {rollback_ref}"
+            ),
+            Self::UnsupportedRunEventLogSpanRef {
+                run_event_log_span_ref,
+            } => write!(
+                f,
+                "run_event_log_span_ref must name a visible RunEventLog span, got {run_event_log_span_ref}"
+            ),
+            Self::UnsupportedAnswerPacketCaveatRef {
+                answer_packet_caveat_ref,
+            } => write!(
+                f,
+                "answer_packet_caveat_ref must name a visible AnswerPacket caveat, got {answer_packet_caveat_ref}"
+            ),
+            Self::PatchAddressMismatch => write!(
+                f,
+                "patch_address no longer matches the deterministic policy patch preimage"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for ColdRoutePolicyPatchError {}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum UasAssemblyGenomeError {
     MissingMissionFamily,
@@ -634,6 +995,101 @@ fn validate_answer_packet_caveat_ref(
     }
     Err(UasAssemblyGenomeError::UnsupportedAnswerPacketCaveatRef {
         answer_packet_caveat_ref: answer_packet_caveat_ref.to_string(),
+    })
+}
+
+fn validate_policy_patch_source_tournament(
+    source_tournament: &UasAddress,
+) -> Result<(), ColdRoutePolicyPatchError> {
+    if matches!(
+        &source_tournament.kind,
+        UasKind::Other(tag) if tag == ASSEMBLY_TOURNAMENT_TRACE_UAS_KIND
+    ) {
+        return Ok(());
+    }
+    Err(ColdRoutePolicyPatchError::InvalidUasKind {
+        field: "source_tournament",
+        actual_kind: source_tournament.kind.wire_tag().to_string(),
+    })
+}
+
+fn validate_patch_nonempty(
+    field: &'static str,
+    value: &str,
+) -> Result<(), ColdRoutePolicyPatchError> {
+    if value.trim().is_empty() {
+        return Err(missing_patch_field_error(field));
+    }
+    if value.trim() != value {
+        return Err(ColdRoutePolicyPatchError::FieldHasSurroundingWhitespace { field });
+    }
+    if value.chars().any(char::is_control) {
+        return Err(ColdRoutePolicyPatchError::FieldContainsControlCharacter { field });
+    }
+    Ok(())
+}
+
+fn missing_patch_field_error(field: &'static str) -> ColdRoutePolicyPatchError {
+    match field {
+        "target_policy" => ColdRoutePolicyPatchError::MissingTargetPolicy,
+        "baseline_metrics_ref" => ColdRoutePolicyPatchError::MissingBaselineMetrics,
+        "expected_delta_ref" => ColdRoutePolicyPatchError::MissingExpectedDelta,
+        "held_out_metrics_ref" => ColdRoutePolicyPatchError::MissingHeldOutMetrics,
+        "rollout_scope" => ColdRoutePolicyPatchError::MissingRolloutScope,
+        "kill_switch" => ColdRoutePolicyPatchError::MissingKillSwitch,
+        "rollback_ref" => ColdRoutePolicyPatchError::MissingRollback,
+        "run_event_log_span_ref" => ColdRoutePolicyPatchError::MissingRunEventLogSpan,
+        "answer_packet_caveat_ref" => ColdRoutePolicyPatchError::MissingAnswerPacketCaveat,
+        _ => ColdRoutePolicyPatchError::MissingTargetPolicy,
+    }
+}
+
+fn validate_policy_ref(
+    field: &'static str,
+    value: &str,
+    prefix: &str,
+) -> Result<(), ColdRoutePolicyPatchError> {
+    if value.strip_prefix(prefix).is_some_and(is_reference_payload) {
+        return Ok(());
+    }
+    Err(match field {
+        "baseline_metrics_ref" => ColdRoutePolicyPatchError::UnsupportedBaselineMetricsRef {
+            baseline_metrics_ref: value.to_string(),
+        },
+        "expected_delta_ref" => ColdRoutePolicyPatchError::UnsupportedExpectedDeltaRef {
+            expected_delta_ref: value.to_string(),
+        },
+        "held_out_metrics_ref" => ColdRoutePolicyPatchError::UnsupportedHeldOutMetricsRef {
+            held_out_metrics_ref: value.to_string(),
+        },
+        _ => ColdRoutePolicyPatchError::UnsupportedBaselineMetricsRef {
+            baseline_metrics_ref: value.to_string(),
+        },
+    })
+}
+
+fn validate_rollout_scope(rollout_scope: &str) -> Result<(), ColdRoutePolicyPatchError> {
+    if POLICY_PATCH_ROLLOUT_SCOPE_PREFIXES.iter().any(|prefix| {
+        rollout_scope
+            .strip_prefix(prefix)
+            .is_some_and(is_reference_payload)
+    }) {
+        return Ok(());
+    }
+    Err(ColdRoutePolicyPatchError::UnsupportedRolloutScope {
+        rollout_scope: rollout_scope.to_string(),
+    })
+}
+
+fn validate_kill_switch(kill_switch: &str) -> Result<(), ColdRoutePolicyPatchError> {
+    if kill_switch
+        .strip_prefix(KILL_SWITCH_REF_PREFIX)
+        .is_some_and(is_reference_payload)
+    {
+        return Ok(());
+    }
+    Err(ColdRoutePolicyPatchError::UnsupportedKillSwitch {
+        kill_switch: kill_switch.to_string(),
     })
 }
 
@@ -1686,6 +2142,155 @@ mod tests {
                 verifier: "F-LatticeAbstentionGate-Soundness"
             }
         );
+    }
+
+    fn tournament_trace_ref() -> UasAddress {
+        addr(
+            UasKind::Other("assembly_tournament_trace".to_string()),
+            b"tournament-trace",
+        )
+    }
+
+    fn cold_route_policy_patch_fixture() -> ColdRoutePolicyPatch {
+        ColdRoutePolicyPatch::new(
+            "runtime_router:shadow_patternboost_route",
+            tournament_trace_ref(),
+            "metrics:static_baseline",
+            "delta:held_out_route_win",
+            "held_out:mission_family_v1",
+            "shadow_policy_patch",
+            "kill_switch:patternboost_shadow_patch",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .expect("policy patch fixture should build")
+    }
+
+    #[test]
+    fn cold_route_policy_patch_is_shadow_scoped_and_round_trips() {
+        let patch = cold_route_policy_patch_fixture();
+
+        assert_eq!(
+            patch.target_policy,
+            "runtime_router:shadow_patternboost_route"
+        );
+        assert_eq!(patch.rollout_scope, "shadow_policy_patch");
+        assert_eq!(patch.kill_switch, "kill_switch:patternboost_shadow_patch");
+
+        let json = serde_json::to_string(&patch).expect("policy patch should serialize");
+        let parsed: ColdRoutePolicyPatch =
+            serde_json::from_str(&json).expect("policy patch should deserialize");
+        assert_eq!(parsed, patch);
+        parsed
+            .validate_shape()
+            .expect("round-tripped policy patch should validate");
+    }
+
+    #[test]
+    fn cold_route_policy_patch_rejects_live_policy_authority() {
+        let err = ColdRoutePolicyPatch::new(
+            "runtime_router:live_patternboost_policy",
+            tournament_trace_ref(),
+            "metrics:static_baseline",
+            "delta:held_out_route_win",
+            "held_out:mission_family_v1",
+            "shadow_policy_patch",
+            "kill_switch:patternboost_shadow_patch",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            ColdRoutePolicyPatchError::UnsupportedTargetPolicy {
+                target_policy: "runtime_router:live_patternboost_policy".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn cold_route_policy_patch_requires_kill_switch_and_rollback() {
+        let missing_kill_switch = ColdRoutePolicyPatch::new(
+            "runtime_router:shadow_patternboost_route",
+            tournament_trace_ref(),
+            "metrics:static_baseline",
+            "delta:held_out_route_win",
+            "held_out:mission_family_v1",
+            "shadow_policy_patch",
+            "",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            missing_kill_switch,
+            ColdRoutePolicyPatchError::MissingKillSwitch
+        );
+
+        let bad_rollback = ColdRoutePolicyPatch::new(
+            "runtime_router:shadow_patternboost_route",
+            tournament_trace_ref(),
+            "metrics:static_baseline",
+            "delta:held_out_route_win",
+            "held_out:mission_family_v1",
+            "shadow_policy_patch",
+            "kill_switch:patternboost_shadow_patch",
+            "patternboost:mutate_live_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            bad_rollback,
+            ColdRoutePolicyPatchError::UnsupportedRollbackReference {
+                rollback_ref: "patternboost:mutate_live_policy".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn cold_route_policy_patch_rejects_mas_or_live_promotion() {
+        let err = ColdRoutePolicyPatch::new(
+            "runtime_router:shadow_patternboost_route",
+            tournament_trace_ref(),
+            "metrics:static_baseline",
+            "delta:held_out_route_win",
+            "held_out:mission_family_v1",
+            "shadow_policy_patch",
+            "kill_switch:patternboost_shadow_patch",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Mas,
+            ProStatus::Live,
+            ResidencyTier::CurrentApp,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(err, ColdRoutePolicyPatchError::ProductBuildStatusMismatch);
     }
 
     #[test]
