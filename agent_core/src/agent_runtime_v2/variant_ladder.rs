@@ -279,7 +279,10 @@ mod tests {
         // PascalCase form; code() is the snake_case persistence
         // string. They MUST stay distinct so log dashboards and
         // RunEventLog rows can't collide.
-        assert_eq!(format!("{}", VariantTier::T1Deterministic), "T1Deterministic");
+        assert_eq!(
+            format!("{}", VariantTier::T1Deterministic),
+            "T1Deterministic"
+        );
         assert_eq!(format!("{}", VariantTier::T2Heuristic), "T2Heuristic");
         assert_eq!(format!("{}", VariantTier::T3LlmBound), "T3LlmBound");
         // Distinctness invariant — display_name and code() must
@@ -687,9 +690,13 @@ mod tests {
 
         // Runtime sanity for both variants.
         let e1 = VariantLadderError::EmptyTiers;
-        let _a = e1; let _b = e1; assert_eq!(e1, e1);
+        let _a = e1;
+        let _b = e1;
+        assert_eq!(e1, e1);
         let e2 = VariantLadderError::NonAscendingTiers;
-        let _a = e2; let _b = e2; assert_eq!(e2, e2);
+        let _a = e2;
+        let _b = e2;
+        assert_eq!(e2, e2);
     }
 
     #[test]
@@ -708,8 +715,7 @@ mod tests {
         ];
         for case in cases {
             match case {
-                VariantLadderError::EmptyTiers
-                | VariantLadderError::NonAscendingTiers => {}
+                VariantLadderError::EmptyTiers | VariantLadderError::NonAscendingTiers => {}
             }
         }
     }
@@ -748,7 +754,10 @@ mod tests {
         // → OutOfOrder, etc.) would silently change the printed form
         // and break grep-based audit dashboards. Pin both variants
         // exactly.
-        assert_eq!(format!("{:?}", VariantLadderError::EmptyTiers), "EmptyTiers");
+        assert_eq!(
+            format!("{:?}", VariantLadderError::EmptyTiers),
+            "EmptyTiers"
+        );
         assert_eq!(
             format!("{:?}", VariantLadderError::NonAscendingTiers),
             "NonAscendingTiers"
@@ -772,10 +781,7 @@ mod tests {
             tiers: vec![VariantTier::T3LlmBound, VariantTier::T1Deterministic],
             auto_promote: true,
         };
-        assert_eq!(
-            spec.validate(),
-            Err(VariantLadderError::NonAscendingTiers)
-        );
+        assert_eq!(spec.validate(), Err(VariantLadderError::NonAscendingTiers));
     }
 
     #[test]
@@ -899,7 +905,8 @@ mod tests {
             let serde_form = serde_json::to_string(&tier).expect("serialize");
             let expected = format!("\"{}\"", tier.code());
             assert_eq!(
-                serde_form, expected,
+                serde_form,
+                expected,
                 "tier {tier:?}: code() {:?} must byte-equal serde tag {serde_form:?}",
                 tier.code()
             );
@@ -1064,7 +1071,10 @@ mod tests {
 
         let mut diff_promote = base.clone();
         diff_promote.auto_promote = false;
-        assert_ne!(diff_promote, base, "auto_promote must participate in PartialEq");
+        assert_ne!(
+            diff_promote, base,
+            "auto_promote must participate in PartialEq"
+        );
 
         // Sanity preserved.
         assert_eq!(base.clone(), base);
@@ -1083,14 +1093,12 @@ mod tests {
             auto_promote: true,
         };
         let s = serde_json::to_string(&spec).expect("serialise");
-        let expected_keys_in_order = [
-            "\"tool_name\":",
-            "\"tiers\":",
-            "\"auto_promote\":",
-        ];
+        let expected_keys_in_order = ["\"tool_name\":", "\"tiers\":", "\"auto_promote\":"];
         let mut last_idx: Option<usize> = None;
         for key in expected_keys_in_order {
-            let pos = s.find(key).unwrap_or_else(|| panic!("key {key} not found in {s}"));
+            let pos = s
+                .find(key)
+                .unwrap_or_else(|| panic!("key {key} not found in {s}"));
             if let Some(prev) = last_idx {
                 assert!(
                     pos > prev,
@@ -1114,7 +1122,9 @@ mod tests {
             auto_promote: true,
         };
         let json = serde_json::to_value(&spec).expect("serialise");
-        let obj = json.as_object().expect("VariantLadderSpec serialises as JSON object");
+        let obj = json
+            .as_object()
+            .expect("VariantLadderSpec serialises as JSON object");
         for key in ["tool_name", "tiers", "auto_promote"] {
             assert!(
                 obj.contains_key(key),
@@ -1191,8 +1201,7 @@ mod tests {
                 auto_promote: false,
             };
             let s = serde_json::to_string(&spec).expect("serialise");
-            let back: VariantLadderSpec =
-                serde_json::from_str(&s).expect("deserialise");
+            let back: VariantLadderSpec = serde_json::from_str(&s).expect("deserialise");
             assert_eq!(back.tool_name, name, "tool_name must round-trip byte-equal");
             assert_eq!(back, spec);
         }

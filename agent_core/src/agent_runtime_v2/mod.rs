@@ -25,7 +25,7 @@
 //! 5. Tests: MAS cannot call CLI; malformed tool call rejected; denied
 //!    mutation does not write; AnswerPacket emitted.
 //!
-//! ## Tier behaviour (locked)
+//! ## Build/status behaviour (locked)
 //!
 //! - **MAS V1 (`AgentRuntimeV2Mode::Disabled`)** — v2 is gated off. The legacy
 //!   `agent_runtime::` paths remain active for App Store submission. v2 is
@@ -34,9 +34,9 @@
 //!   executor. Macaroon verification + WBO budget + `MutationEnvelope` all
 //!   active. Pro CLI adapters live in this mode through hardened
 //!   `Command::new` paths (see `agent_core/src/security.rs`).
-//! - **Research (`AgentRuntimeV2Mode::Subprocess`)** — gated subprocess
-//!   adapter path for Pro Research builds only. Must remain behind a Cargo
-//!   feature; never compiled into the MAS bundle.
+//! - **Pro Research status (`AgentRuntimeV2Mode::Subprocess`)** — gated
+//!   subprocess adapter path for Pro Research status only. Must remain behind
+//!   a Cargo feature; never compiled into the MAS bundle.
 
 pub mod acs_run_event_log_sink;
 pub mod adapters;
@@ -45,6 +45,7 @@ pub mod blueprint;
 pub mod budget;
 pub mod capability;
 pub mod compose;
+pub mod dynamic_checkpoint;
 pub mod envelope;
 pub mod event;
 pub mod fixtures;
@@ -65,6 +66,10 @@ pub use blueprint::{
 pub use budget::{BudgetDebit, BudgetError, BudgetGate, BudgetLedger, BudgetSpec, BudgetTerm};
 pub use capability::{AgentRuntimeV2Capability, CapabilityError, MacaroonCapability};
 pub use compose::{ParaSeq, ParaSeqFeedback, ParaSeqOutput};
+pub use dynamic_checkpoint::{
+    DynamicComputeCheckpoint, DynamicComputeCheckpointError, DynamicComputeCheckpointKind,
+    DYNAMIC_COMPUTE_CHECKPOINT_FALSIFIER_ID,
+};
 pub use envelope::{MutationEnvelope, MutationWriter, SealError, Sealer};
 pub use event::{AgentEvent, AgentEventErrorKind};
 pub use mission::{MissionPacket, MissionPromptError, ToolCall, ToolCallError};

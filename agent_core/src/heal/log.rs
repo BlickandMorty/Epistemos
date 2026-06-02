@@ -17,8 +17,11 @@ pub enum HealOutcome {
 }
 
 impl HealOutcome {
-    pub const ALL: [HealOutcome; 3] =
-        [HealOutcome::Recovered, HealOutcome::Abandoned, HealOutcome::Escalated];
+    pub const ALL: [HealOutcome; 3] = [
+        HealOutcome::Recovered,
+        HealOutcome::Abandoned,
+        HealOutcome::Escalated,
+    ];
 
     pub fn as_str(self) -> &'static str {
         match self {
@@ -414,12 +417,19 @@ mod tests {
     fn recurring_pattern_above_default_threshold_matches_constant() {
         // Cross-surface invariant: is_above_default_threshold() iff
         // is_above_threshold(DEFAULT_RECURRING_MIN_EVENTS).
-        for count in [0u32, 5, DEFAULT_RECURRING_MIN_EVENTS - 1, DEFAULT_RECURRING_MIN_EVENTS, DEFAULT_RECURRING_MIN_EVENTS + 5] {
+        for count in [
+            0u32,
+            5,
+            DEFAULT_RECURRING_MIN_EVENTS - 1,
+            DEFAULT_RECURRING_MIN_EVENTS,
+            DEFAULT_RECURRING_MIN_EVENTS + 5,
+        ] {
             let p = pattern(count);
             assert_eq!(
                 p.is_above_default_threshold(),
                 p.is_above_threshold(DEFAULT_RECURRING_MIN_EVENTS),
-                "count={}", count,
+                "count={}",
+                count,
             );
         }
     }

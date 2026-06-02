@@ -1,33 +1,108 @@
 {
+  "falsifier_id": "F-UAS-CopyCount",
   "schema_version": "2026-05-18.2",
-  "falsifier": "F-UAS-CopyCount",
-  "status": "PASS",
-  "hardware_floor": "M2 Pro 16 GB UMA",
-  "scope": "instrumented UAS shared-backing fixture; tensor-copy counter only",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_uas_copy_count.sh",
+  "command_digest": "sha256:64a543b6f8b4eddb357d9e4d769b1a44024ba8ae9df4683b38d1b67ff78643d5",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "ba6f15e6fb08c772c5bbce4d303aff864f39e9c2",
+  "fixture_id": "uas_copy_count_shared_backing_4096_f32_v2",
+  "timestamp_utc": "2026-05-28T04:34:45Z",
+  "result_digest": "sha256:832ec50241bcb9817e1e98313791a477758a5617a2bab00ea590152a405a610c",
   "measurements": {
-    "tensor_copy_count": 0,
-    "data_copy_bytes": 0,
-    "allocator_count_instrumented": 0,
-    "hops": [
-      "swift_shared_buffer",
-      "rust_slice_view",
-      "metal_shared_buffer",
-      "mlx_kv_view",
-      "hnsw_vector_view"
-    ]
+    "allocator_count_instrumented": {
+      "value": 0,
+      "unit": "allocations"
+    },
+    "data_copy_bytes": {
+      "value": 0,
+      "unit": "count"
+    },
+    "hot_path_hops": {
+      "value": [
+        "swift_shared_buffer",
+        "rust_slice_view",
+        "metal_shared_buffer",
+        "mlx_kv_view",
+        "hnsw_vector_view"
+      ],
+      "unit": "labels"
+    },
+    "metadata_copy_ledger": {
+      "value": true,
+      "unit": "bool"
+    },
+    "stack_label_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tensor_copy_count": {
+      "value": 0,
+      "unit": "count"
+    }
   },
   "acceptance_thresholds": {
-    "tensor_copy_count": 0,
-    "data_copy_bytes": 0
+    "data_copy_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    },
+    "metadata_copy_ledger": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "stack_label_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tensor_copy_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    }
   },
   "pass_per_axis": {
-    "tensor_copy_count": true,
     "data_copy_bytes": true,
     "metadata_copy_ledger": true,
-    "stack_label_coverage": true
+    "stack_label_coverage": true,
+    "tensor_copy_count": true
   },
-  "metadata_copy_ledger": [
-    "artifact JSON serialization happens after the measured hot path",
-    "payload allocation happens before copy_counter::with_tracking"
-  ]
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_limited_shared_backing_fixture",
+      "detail": "This proves the instrumented UAS shared-backing fixture, not the full MLX production generation loop."
+    },
+    {
+      "kind": "metadata_copy_ledger",
+      "detail": "Artifact JSON serialization happens after the measured hot path; payload allocation happens before copy_counter::with_tracking."
+    }
+  ],
+  "notes": "primary_witness; normalized from legacy artifact shape; instrumented shared-backing fixture with zero tensor/data copies after payload creation"
 }

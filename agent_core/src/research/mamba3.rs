@@ -62,11 +62,17 @@ impl C32 {
     }
 
     pub fn add(self, other: Self) -> Self {
-        Self { re: self.re + other.re, im: self.im + other.im }
+        Self {
+            re: self.re + other.re,
+            im: self.im + other.im,
+        }
     }
 
     pub fn sub(self, other: Self) -> Self {
-        Self { re: self.re - other.re, im: self.im - other.im }
+        Self {
+            re: self.re - other.re,
+            im: self.im - other.im,
+        }
     }
 
     pub fn mul(self, other: Self) -> Self {
@@ -77,7 +83,10 @@ impl C32 {
     }
 
     pub fn scale(self, s: f32) -> Self {
-        Self { re: self.re * s, im: self.im * s }
+        Self {
+            re: self.re * s,
+            im: self.im * s,
+        }
     }
 
     pub fn norm_sq(self) -> f32 {
@@ -90,7 +99,10 @@ impl C32 {
     }
 
     pub fn conj(self) -> Self {
-        Self { re: self.re, im: -self.im }
+        Self {
+            re: self.re,
+            im: -self.im,
+        }
     }
 
     /// `1 / self` for nonzero `self`. Returns `None` if `self == 0`.
@@ -99,7 +111,10 @@ impl C32 {
         if n == 0.0 {
             return None;
         }
-        Some(Self { re: self.re / n, im: -self.im / n })
+        Some(Self {
+            re: self.re / n,
+            im: -self.im / n,
+        })
     }
 
     /// Predicate: `re == 0.0 AND im == 0.0`.
@@ -137,7 +152,12 @@ impl C32 {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Mamba3Error {
-    LengthMismatch { a: usize, b: usize, c: usize, x: usize },
+    LengthMismatch {
+        a: usize,
+        b: usize,
+        c: usize,
+        x: usize,
+    },
     DiscretizationDivisionByZero,
 }
 
@@ -253,7 +273,10 @@ pub fn mamba3_scan_scalar(
         let out = c[i].mul(state);
         y.push(out.re);
     }
-    Ok(Mamba3ScanResult { y, final_state: state })
+    Ok(Mamba3ScanResult {
+        y,
+        final_state: state,
+    })
 }
 
 #[cfg(test)]
@@ -387,7 +410,10 @@ mod tests {
 
     #[test]
     fn result_roundtrips_through_serde_json() {
-        let r = Mamba3ScanResult { y: vec![1.0, 2.0], final_state: C32::new(0.5, -0.5) };
+        let r = Mamba3ScanResult {
+            y: vec![1.0, 2.0],
+            final_state: C32::new(0.5, -0.5),
+        };
         let json = serde_json::to_string(&r).unwrap();
         let back: Mamba3ScanResult = serde_json::from_str(&json).unwrap();
         assert_eq!(r, back);
@@ -531,7 +557,12 @@ mod tests {
     #[test]
     fn mamba3_error_cause_distinct() {
         let variants = [
-            Mamba3Error::LengthMismatch { a: 1, b: 2, c: 3, x: 4 },
+            Mamba3Error::LengthMismatch {
+                a: 1,
+                b: 2,
+                c: 3,
+                x: 4,
+            },
             Mamba3Error::DiscretizationDivisionByZero,
         ];
         let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
@@ -542,7 +573,12 @@ mod tests {
     fn mamba3_error_classifiers_partition() {
         // Cross-surface invariant: is_length_mismatch XOR is_discretization_div_zero.
         for e in [
-            Mamba3Error::LengthMismatch { a: 1, b: 2, c: 3, x: 4 },
+            Mamba3Error::LengthMismatch {
+                a: 1,
+                b: 2,
+                c: 3,
+                x: 4,
+            },
             Mamba3Error::DiscretizationDivisionByZero,
         ] {
             assert_ne!(e.is_length_mismatch(), e.is_discretization_div_zero());
@@ -551,10 +587,16 @@ mod tests {
 
     #[test]
     fn scan_result_len_and_is_empty_aligned() {
-        let empty = Mamba3ScanResult { y: vec![], final_state: C32::ZERO };
+        let empty = Mamba3ScanResult {
+            y: vec![],
+            final_state: C32::ZERO,
+        };
         assert!(empty.is_empty());
         assert_eq!(empty.len(), 0);
-        let full = Mamba3ScanResult { y: vec![1.0, 2.0, 3.0], final_state: C32::ONE };
+        let full = Mamba3ScanResult {
+            y: vec![1.0, 2.0, 3.0],
+            final_state: C32::ONE,
+        };
         assert!(!full.is_empty());
         assert_eq!(full.len(), 3);
     }
@@ -562,14 +604,20 @@ mod tests {
     #[test]
     fn scan_result_final_state_magnitude_matches_abs() {
         // Cross-surface: final_state_magnitude == final_state.abs().
-        let r = Mamba3ScanResult { y: vec![], final_state: C32::new(3.0, 4.0) };
+        let r = Mamba3ScanResult {
+            y: vec![],
+            final_state: C32::new(3.0, 4.0),
+        };
         assert!((r.final_state_magnitude() - 5.0).abs() < 1e-6);
         assert!((r.final_state_magnitude() - r.final_state.abs()).abs() < 1e-9);
     }
 
     #[test]
     fn scan_result_is_state_bounded_above_or_below_bound() {
-        let r = Mamba3ScanResult { y: vec![], final_state: C32::new(3.0, 4.0) };
+        let r = Mamba3ScanResult {
+            y: vec![],
+            final_state: C32::new(3.0, 4.0),
+        };
         assert!(r.is_state_bounded(10.0));
         assert!(r.is_state_bounded(5.0));
         assert!(!r.is_state_bounded(4.999));
@@ -599,11 +647,7 @@ mod tests {
             for im in &[-3.0_f32, 0.0, 1.5, 7.0] {
                 let a = C32::new(*re, *im);
                 let stable = verify_a_stability(a, 0.05, 1e-5).unwrap();
-                assert!(
-                    stable,
-                    "doctrine violation at a = ({}, {}i)",
-                    re, im
-                );
+                assert!(stable, "doctrine violation at a = ({}, {}i)", re, im);
             }
         }
     }

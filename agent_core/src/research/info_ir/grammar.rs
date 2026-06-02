@@ -116,17 +116,27 @@ impl fmt::Display for InfoExpr {
             write!(f, "]")
         }
         match self {
-            InfoExpr::LogPartition { family, natural_params } => {
+            InfoExpr::LogPartition {
+                family,
+                natural_params,
+            } => {
                 write!(f, "A_{}(", family)?;
                 fmt_params(f, natural_params)?;
                 write!(f, ")")
             }
-            InfoExpr::DualMap { family, natural_params } => {
+            InfoExpr::DualMap {
+                family,
+                natural_params,
+            } => {
                 write!(f, "∇A_{}(", family)?;
                 fmt_params(f, natural_params)?;
                 write!(f, ")")
             }
-            InfoExpr::KlProjection { family, p_params, q_params } => {
+            InfoExpr::KlProjection {
+                family,
+                p_params,
+                q_params,
+            } => {
                 write!(f, "KL_{}(", family)?;
                 fmt_params(f, p_params)?;
                 write!(f, " || ")?;
@@ -140,9 +150,18 @@ impl fmt::Display for InfoExpr {
 /// Construction-validation error.
 #[derive(Clone, Debug, PartialEq)]
 pub enum InfoExprError {
-    FamilyMalformed { family: ExpFamily },
-    ArityMismatch { family: ExpFamily, expected: usize, actual: usize },
-    NonFiniteParam { idx: usize, value: f64 },
+    FamilyMalformed {
+        family: ExpFamily,
+    },
+    ArityMismatch {
+        family: ExpFamily,
+        expected: usize,
+        actual: usize,
+    },
+    NonFiniteParam {
+        idx: usize,
+        value: f64,
+    },
 }
 
 impl InfoExpr {
@@ -160,10 +179,7 @@ impl InfoExpr {
     }
 
     /// Build a [`InfoExpr::DualMap`] with eager validation.
-    pub fn dual_map(
-        family: ExpFamily,
-        natural_params: Vec<f64>,
-    ) -> Result<Self, InfoExprError> {
+    pub fn dual_map(family: ExpFamily, natural_params: Vec<f64>) -> Result<Self, InfoExprError> {
         check_family_and_arity(&family, natural_params.len())?;
         check_finite(&natural_params)?;
         Ok(InfoExpr::DualMap {
@@ -203,12 +219,22 @@ impl InfoExpr {
     /// validate eagerly).
     pub fn validate(&self) -> Result<(), InfoExprError> {
         match self {
-            InfoExpr::LogPartition { family, natural_params }
-            | InfoExpr::DualMap { family, natural_params } => {
+            InfoExpr::LogPartition {
+                family,
+                natural_params,
+            }
+            | InfoExpr::DualMap {
+                family,
+                natural_params,
+            } => {
                 check_family_and_arity(family, natural_params.len())?;
                 check_finite(natural_params)
             }
-            InfoExpr::KlProjection { family, p_params, q_params } => {
+            InfoExpr::KlProjection {
+                family,
+                p_params,
+                q_params,
+            } => {
                 check_family_and_arity(family, p_params.len())?;
                 check_family_and_arity(family, q_params.len())?;
                 check_finite(p_params)?;
@@ -218,10 +244,7 @@ impl InfoExpr {
     }
 }
 
-fn check_family_and_arity(
-    family: &ExpFamily,
-    actual: usize,
-) -> Result<(), InfoExprError> {
+fn check_family_and_arity(family: &ExpFamily, actual: usize) -> Result<(), InfoExprError> {
     if !family.is_well_formed() {
         return Err(InfoExprError::FamilyMalformed {
             family: family.clone(),
@@ -264,7 +287,10 @@ mod tests {
 
     #[test]
     fn gaussian_arity_is_one() {
-        assert_eq!(ExpFamily::Gaussian { variance: 1.0 }.natural_param_arity(), 1);
+        assert_eq!(
+            ExpFamily::Gaussian { variance: 1.0 }.natural_param_arity(),
+            1
+        );
     }
 
     #[test]
@@ -288,57 +314,47 @@ mod tests {
 
     #[test]
     fn log_partition_arity_mismatch_rejected() {
-        let err =
-            InfoExpr::log_partition(ExpFamily::Bernoulli, vec![0.5, 1.0]).unwrap_err();
-        assert!(matches!(err, InfoExprError::ArityMismatch { expected: 1, actual: 2, .. }));
+        let err = InfoExpr::log_partition(ExpFamily::Bernoulli, vec![0.5, 1.0]).unwrap_err();
+        assert!(matches!(
+            err,
+            InfoExprError::ArityMismatch {
+                expected: 1,
+                actual: 2,
+                ..
+            }
+        ));
     }
 
     #[test]
     fn categorical_3_takes_2_params() {
-        let e = InfoExpr::log_partition(
-            ExpFamily::Categorical { k: 3 },
-            vec![0.1, -0.2],
-        )
-        .unwrap();
+        let e = InfoExpr::log_partition(ExpFamily::Categorical { k: 3 }, vec![0.1, -0.2]).unwrap();
         assert_eq!(*e.family(), ExpFamily::Categorical { k: 3 });
     }
 
     #[test]
     fn non_finite_param_rejected() {
-        let err =
-            InfoExpr::log_partition(ExpFamily::Bernoulli, vec![f64::NAN]).unwrap_err();
+        let err = InfoExpr::log_partition(ExpFamily::Bernoulli, vec![f64::NAN]).unwrap_err();
         assert!(matches!(err, InfoExprError::NonFiniteParam { .. }));
     }
 
     #[test]
     fn malformed_family_rejected() {
-        let err = InfoExpr::log_partition(ExpFamily::Categorical { k: 1 }, vec![])
-            .unwrap_err();
+        let err = InfoExpr::log_partition(ExpFamily::Categorical { k: 1 }, vec![]).unwrap_err();
         assert!(matches!(err, InfoExprError::FamilyMalformed { .. }));
     }
 
     #[test]
     fn dual_map_validates_like_log_partition() {
         assert!(InfoExpr::dual_map(ExpFamily::Bernoulli, vec![0.0]).is_ok());
-        assert!(
-            InfoExpr::dual_map(ExpFamily::Bernoulli, vec![0.0, 0.0]).is_err()
-        );
+        assert!(InfoExpr::dual_map(ExpFamily::Bernoulli, vec![0.0, 0.0]).is_err());
     }
 
     #[test]
     fn kl_projection_validates_both_sides() {
-        let ok = InfoExpr::kl_projection(
-            ExpFamily::Bernoulli,
-            vec![0.5],
-            vec![0.0],
-        );
+        let ok = InfoExpr::kl_projection(ExpFamily::Bernoulli, vec![0.5], vec![0.0]);
         assert!(ok.is_ok());
 
-        let err = InfoExpr::kl_projection(
-            ExpFamily::Bernoulli,
-            vec![0.5],
-            vec![0.0, 1.0],
-        );
+        let err = InfoExpr::kl_projection(ExpFamily::Bernoulli, vec![0.5], vec![0.0, 1.0]);
         assert!(err.is_err());
     }
 
@@ -384,19 +400,13 @@ mod tests {
 
     #[test]
     fn display_dual_map() {
-        let e = InfoExpr::dual_map(ExpFamily::Gaussian { variance: 1.0 }, vec![2.0])
-            .unwrap();
+        let e = InfoExpr::dual_map(ExpFamily::Gaussian { variance: 1.0 }, vec![2.0]).unwrap();
         assert_eq!(format!("{}", e), "∇A_Gaussian{σ²=1}([2])");
     }
 
     #[test]
     fn display_kl_projection() {
-        let e = InfoExpr::kl_projection(
-            ExpFamily::Bernoulli,
-            vec![0.5],
-            vec![0.0],
-        )
-        .unwrap();
+        let e = InfoExpr::kl_projection(ExpFamily::Bernoulli, vec![0.5], vec![0.0]).unwrap();
         assert_eq!(format!("{}", e), "KL_Bernoulli([0.5] || [0])");
     }
 
@@ -408,11 +418,8 @@ mod tests {
         let dm = InfoExpr::dual_map(ExpFamily::Bernoulli, vec![0.0]).unwrap();
         assert_eq!(*dm.family(), ExpFamily::Bernoulli);
 
-        let kl = InfoExpr::kl_projection(
-            ExpFamily::Categorical { k: 2 },
-            vec![0.1],
-            vec![0.2],
-        ).unwrap();
+        let kl =
+            InfoExpr::kl_projection(ExpFamily::Categorical { k: 2 }, vec![0.1], vec![0.2]).unwrap();
         assert_eq!(*kl.family(), ExpFamily::Categorical { k: 2 });
     }
 }

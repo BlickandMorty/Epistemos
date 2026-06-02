@@ -17,7 +17,6 @@ use crate::{
     },
 };
 
-use super::*;
 use super::admit::*;
 use super::audit_sink::*;
 use super::common::*;
@@ -29,6 +28,7 @@ use super::risk::*;
 use super::validation::*;
 use super::verdict::*;
 use super::wire::*;
+use super::*;
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]

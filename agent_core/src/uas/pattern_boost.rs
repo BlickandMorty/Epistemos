@@ -1,0 +1,2612 @@
+//! Dry-run assembly genomes for Residency PatternBoost.
+//!
+//! These records are metadata-only. They describe a candidate UAS-addressed
+//! assembly for offline/idle discovery, but they do not wake model bytes,
+//! mutate live routing policy, mmap files, or run inference.
+
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+
+use crate::uas::{
+    app_cold_store::app_cold_store_source_uri_is_app_owned,
+    construction_card::{pro_status_preimage, product_build_preimage},
+    ByteRange, ProStatus, ProductBuild, ResidencyTier, UasAddress, UasKind,
+};
+
+const COMPUTE_RESUME_LEASE_COMPATIBILITY_FALSIFIER_ID: &str = "F-ComputeResumeLease-Compatibility";
+const COLD_ROUTE_POLICY_PATCH_ROLLBACK_FALSIFIER_ID: &str = "F-ColdRoutePolicyPatch-Rollback";
+const LATTICE_ABSTENTION_GATE_SOUNDNESS_FALSIFIER_ID: &str = "F-LatticeAbstentionGate-Soundness";
+const NO_OFFLINE_ORACLE_LEAK_FALSIFIER_ID: &str = "F-NoOfflineOracleLeak";
+const PARAM_ROUTE_CARD_ADMISSION_FALSIFIER_ID: &str = "F-ParamRouteCard-Admission";
+const RESIDENCY_PATTERNBOOST_NO_HIDDEN_AUTHORITY_FALSIFIER_ID: &str =
+    "F-ResidencyPatternBoost-NoHiddenAuthority";
+const ASSEMBLY_TOURNAMENT_TRACE_UAS_KIND: &str = "assembly_tournament_trace";
+const APP_COLD_STORE_ROUTE_CARD_UAS_KIND: &str = "app_cold_store_route_card";
+const COLD_ROUTE_POLICY_PATCH_UAS_KIND: &str = "cold_route_policy_patch";
+const ANSWER_PACKET_CAVEAT_PREFIX: &str = "answer_packet_caveat:";
+const BASELINE_METRICS_REF_PREFIX: &str = "metrics:";
+const EXPECTED_DELTA_REF_PREFIX: &str = "delta:";
+const HELD_OUT_METRICS_REF_PREFIX: &str = "held_out:";
+const KILL_SWITCH_REF_PREFIX: &str = "kill_switch:";
+const ROLLBACK_REF_PREFIX: &str = "rollback:";
+const RUN_EVENT_LOG_REF_PREFIX: &str = "run_event_log:";
+const RUNTIME_ROUTER_ROUTE_PREFIX: &str = "runtime_router:";
+const FALLBACK_ROUTE_ID_PREFIXES: [&str; 3] = ["baseline_", "fallback_", "static_"];
+const POLICY_PATCH_ROLLOUT_SCOPE_PREFIXES: [&str; 2] = ["shadow_", "dry_run_"];
+const REQUIRED_PATTERNBOOST_VERIFIER_LANES: [&str; 5] = [
+    COMPUTE_RESUME_LEASE_COMPATIBILITY_FALSIFIER_ID,
+    LATTICE_ABSTENTION_GATE_SOUNDNESS_FALSIFIER_ID,
+    NO_OFFLINE_ORACLE_LEAK_FALSIFIER_ID,
+    PARAM_ROUTE_CARD_ADMISSION_FALSIFIER_ID,
+    RESIDENCY_PATTERNBOOST_NO_HIDDEN_AUTHORITY_FALSIFIER_ID,
+];
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AssemblyPageRun {
+    pub source_uri: String,
+    pub byte_range: ByteRange,
+}
+
+impl AssemblyPageRun {
+    pub fn new(
+        source_uri: impl Into<String>,
+        byte_start: u64,
+        byte_len: u64,
+    ) -> Result<Self, UasAssemblyGenomeError> {
+        let source_uri = source_uri.into();
+        let byte_range = ByteRange::new(byte_start, byte_len)
+            .map_err(|_| UasAssemblyGenomeError::InvalidPageRun)?;
+        Ok(Self {
+            source_uri,
+            byte_range,
+        })
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UasAssemblyGenome {
+    pub genome_address: UasAddress,
+    pub mission_family: String,
+    pub route_card_ref: UasAddress,
+    pub runtime_route_id: String,
+    pub selected_weight_pages: Vec<UasAddress>,
+    pub selected_kv_pages: Vec<UasAddress>,
+    pub selected_adapter_slices: Vec<UasAddress>,
+    pub selected_evidence_pages: Vec<UasAddress>,
+    pub selected_verifier_lanes: Vec<String>,
+    pub sparse_attention_pattern: String,
+    pub depth_policy: String,
+    pub transport_page_runs: Vec<AssemblyPageRun>,
+    pub codec_plan: Vec<String>,
+    pub cache_reuse_keys: Vec<String>,
+    pub pause_resume_points: Vec<String>,
+    pub fallback_route: String,
+    pub rollback_ref: String,
+    pub run_event_log_span_ref: String,
+    pub answer_packet_caveat_ref: String,
+    pub product_build: ProductBuild,
+    pub pro_status: ProStatus,
+    pub residency_status: ResidencyTier,
+}
+
+impl UasAssemblyGenome {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        mission_family: impl Into<String>,
+        route_card_ref: UasAddress,
+        runtime_route_id: impl Into<String>,
+        selected_weight_pages: Vec<UasAddress>,
+        selected_kv_pages: Vec<UasAddress>,
+        selected_adapter_slices: Vec<UasAddress>,
+        selected_evidence_pages: Vec<UasAddress>,
+        selected_verifier_lanes: Vec<String>,
+        sparse_attention_pattern: impl Into<String>,
+        depth_policy: impl Into<String>,
+        transport_page_runs: Vec<AssemblyPageRun>,
+        codec_plan: Vec<String>,
+        cache_reuse_keys: Vec<String>,
+        pause_resume_points: Vec<String>,
+        fallback_route: impl Into<String>,
+        rollback_ref: impl Into<String>,
+        run_event_log_span_ref: impl Into<String>,
+        answer_packet_caveat_ref: impl Into<String>,
+        product_build: ProductBuild,
+        pro_status: ProStatus,
+        residency_status: ResidencyTier,
+        created_at_ms: u64,
+    ) -> Result<Self, UasAssemblyGenomeError> {
+        validate_patternboost_status(&product_build, &pro_status, residency_status)?;
+        validate_route_card_ref(&route_card_ref)?;
+
+        let mission_family = mission_family.into();
+        let runtime_route_id = runtime_route_id.into();
+        let sparse_attention_pattern = sparse_attention_pattern.into();
+        let depth_policy = depth_policy.into();
+        let fallback_route = fallback_route.into();
+        let rollback_ref = rollback_ref.into();
+        let run_event_log_span_ref = run_event_log_span_ref.into();
+        let answer_packet_caveat_ref = answer_packet_caveat_ref.into();
+        validate_nonempty("mission_family", &mission_family)?;
+        validate_nonempty("runtime_route_id", &runtime_route_id)?;
+        validate_nonempty("sparse_attention_pattern", &sparse_attention_pattern)?;
+        validate_nonempty("depth_policy", &depth_policy)?;
+        validate_nonempty("fallback_route", &fallback_route)?;
+        validate_nonempty("rollback_ref", &rollback_ref)?;
+        validate_nonempty("run_event_log_span_ref", &run_event_log_span_ref)?;
+        validate_nonempty("answer_packet_caveat_ref", &answer_packet_caveat_ref)?;
+        validate_runtime_router_route("runtime_route_id", &runtime_route_id)?;
+        validate_runtime_router_route("fallback_route", &fallback_route)?;
+        validate_rollback_reference(&rollback_ref)?;
+        validate_run_event_log_span_ref(&run_event_log_span_ref)?;
+        validate_answer_packet_caveat_ref(&answer_packet_caveat_ref)?;
+
+        if selected_weight_pages.is_empty()
+            && selected_kv_pages.is_empty()
+            && selected_adapter_slices.is_empty()
+            && selected_evidence_pages.is_empty()
+        {
+            return Err(UasAssemblyGenomeError::MissingUasSupport);
+        }
+
+        let selected_weight_pages = canonicalize_addresses(
+            "selected_weight_pages",
+            selected_weight_pages,
+            UasAddressClass::WeightPage,
+        )?;
+        let selected_kv_pages = canonicalize_addresses(
+            "selected_kv_pages",
+            selected_kv_pages,
+            UasAddressClass::KvPage,
+        )?;
+        let selected_adapter_slices = canonicalize_addresses(
+            "selected_adapter_slices",
+            selected_adapter_slices,
+            UasAddressClass::AdapterSlice,
+        )?;
+        let selected_evidence_pages = canonicalize_addresses(
+            "selected_evidence_pages",
+            selected_evidence_pages,
+            UasAddressClass::EvidencePage,
+        )?;
+        validate_unique_support_set(
+            &selected_weight_pages,
+            &selected_kv_pages,
+            &selected_adapter_slices,
+            &selected_evidence_pages,
+        )?;
+        let selected_verifier_lanes = canonicalize_strings(
+            "selected_verifier_lanes",
+            selected_verifier_lanes,
+            UasAssemblyGenomeError::MissingVerifierLane,
+        )?;
+        validate_required_verifier_lanes(&selected_verifier_lanes)?;
+        let codec_plan = canonicalize_strings(
+            "codec_plan",
+            codec_plan,
+            UasAssemblyGenomeError::MissingCodecPlan,
+        )?;
+        let cache_reuse_keys = canonicalize_strings(
+            "cache_reuse_keys",
+            cache_reuse_keys,
+            UasAssemblyGenomeError::MissingCacheReuseKey,
+        )?;
+        let pause_resume_points = canonicalize_strings(
+            "pause_resume_points",
+            pause_resume_points,
+            UasAssemblyGenomeError::MissingPauseResumePoint,
+        )?;
+        let transport_page_runs = canonicalize_page_runs(transport_page_runs)?;
+
+        let genome_address = Self::address(
+            &mission_family,
+            &route_card_ref,
+            &runtime_route_id,
+            &selected_weight_pages,
+            &selected_kv_pages,
+            &selected_adapter_slices,
+            &selected_evidence_pages,
+            &selected_verifier_lanes,
+            &sparse_attention_pattern,
+            &depth_policy,
+            &transport_page_runs,
+            &codec_plan,
+            &cache_reuse_keys,
+            &pause_resume_points,
+            &fallback_route,
+            &rollback_ref,
+            &run_event_log_span_ref,
+            &answer_packet_caveat_ref,
+            &product_build,
+            &pro_status,
+            residency_status,
+            created_at_ms,
+        );
+
+        Ok(Self {
+            genome_address,
+            mission_family,
+            route_card_ref,
+            runtime_route_id,
+            selected_weight_pages,
+            selected_kv_pages,
+            selected_adapter_slices,
+            selected_evidence_pages,
+            selected_verifier_lanes,
+            sparse_attention_pattern,
+            depth_policy,
+            transport_page_runs,
+            codec_plan,
+            cache_reuse_keys,
+            pause_resume_points,
+            fallback_route,
+            rollback_ref,
+            run_event_log_span_ref,
+            answer_packet_caveat_ref,
+            product_build,
+            pro_status,
+            residency_status,
+        })
+    }
+
+    pub fn validate_shape(&self) -> Result<(), UasAssemblyGenomeError> {
+        let recomputed = Self::new(
+            self.mission_family.clone(),
+            self.route_card_ref.clone(),
+            self.runtime_route_id.clone(),
+            self.selected_weight_pages.clone(),
+            self.selected_kv_pages.clone(),
+            self.selected_adapter_slices.clone(),
+            self.selected_evidence_pages.clone(),
+            self.selected_verifier_lanes.clone(),
+            self.sparse_attention_pattern.clone(),
+            self.depth_policy.clone(),
+            self.transport_page_runs.clone(),
+            self.codec_plan.clone(),
+            self.cache_reuse_keys.clone(),
+            self.pause_resume_points.clone(),
+            self.fallback_route.clone(),
+            self.rollback_ref.clone(),
+            self.run_event_log_span_ref.clone(),
+            self.answer_packet_caveat_ref.clone(),
+            self.product_build.clone(),
+            self.pro_status.clone(),
+            self.residency_status,
+            self.genome_address.created_at_ms,
+        )?;
+        if recomputed != *self {
+            return Err(UasAssemblyGenomeError::GenomeAddressMismatch);
+        }
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn address(
+        mission_family: &str,
+        route_card_ref: &UasAddress,
+        runtime_route_id: &str,
+        selected_weight_pages: &[UasAddress],
+        selected_kv_pages: &[UasAddress],
+        selected_adapter_slices: &[UasAddress],
+        selected_evidence_pages: &[UasAddress],
+        selected_verifier_lanes: &[String],
+        sparse_attention_pattern: &str,
+        depth_policy: &str,
+        transport_page_runs: &[AssemblyPageRun],
+        codec_plan: &[String],
+        cache_reuse_keys: &[String],
+        pause_resume_points: &[String],
+        fallback_route: &str,
+        rollback_ref: &str,
+        run_event_log_span_ref: &str,
+        answer_packet_caveat_ref: &str,
+        product_build: &ProductBuild,
+        pro_status: &ProStatus,
+        residency_status: ResidencyTier,
+        created_at_ms: u64,
+    ) -> UasAddress {
+        let mut preimage = String::new();
+        preimage.push_str("uas_assembly_genome_v1\n");
+        push_string_preimage(&mut preimage, "mission_family", mission_family);
+        push_string_preimage(&mut preimage, "route_card_ref", &route_card_ref.to_string());
+        push_string_preimage(&mut preimage, "runtime_route_id", runtime_route_id);
+        push_address_list_preimage(
+            &mut preimage,
+            "selected_weight_pages",
+            selected_weight_pages,
+        );
+        push_address_list_preimage(&mut preimage, "selected_kv_pages", selected_kv_pages);
+        push_address_list_preimage(
+            &mut preimage,
+            "selected_adapter_slices",
+            selected_adapter_slices,
+        );
+        push_address_list_preimage(
+            &mut preimage,
+            "selected_evidence_pages",
+            selected_evidence_pages,
+        );
+        push_string_list_preimage(
+            &mut preimage,
+            "selected_verifier_lanes",
+            selected_verifier_lanes,
+        );
+        push_string_preimage(
+            &mut preimage,
+            "sparse_attention_pattern",
+            sparse_attention_pattern,
+        );
+        push_string_preimage(&mut preimage, "depth_policy", depth_policy);
+        push_page_run_preimage(&mut preimage, transport_page_runs);
+        push_string_list_preimage(&mut preimage, "codec_plan", codec_plan);
+        push_string_list_preimage(&mut preimage, "cache_reuse_keys", cache_reuse_keys);
+        push_string_list_preimage(&mut preimage, "pause_resume_points", pause_resume_points);
+        push_string_preimage(&mut preimage, "fallback_route", fallback_route);
+        push_string_preimage(&mut preimage, "rollback_ref", rollback_ref);
+        push_string_preimage(
+            &mut preimage,
+            "run_event_log_span_ref",
+            run_event_log_span_ref,
+        );
+        push_string_preimage(
+            &mut preimage,
+            "answer_packet_caveat_ref",
+            answer_packet_caveat_ref,
+        );
+        push_string_preimage(
+            &mut preimage,
+            "product_build",
+            product_build_preimage(product_build),
+        );
+        push_string_preimage(&mut preimage, "pro_status", pro_status_preimage(pro_status));
+        push_string_preimage(
+            &mut preimage,
+            "residency_status",
+            residency_status.wire_tag(),
+        );
+
+        UasAddress::new(
+            UasKind::Other("uas_assembly_genome".to_string()),
+            preimage.as_bytes(),
+            created_at_ms,
+        )
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ColdRoutePolicyPatch {
+    pub patch_address: UasAddress,
+    pub target_policy: String,
+    pub source_tournament: UasAddress,
+    pub baseline_metrics_ref: String,
+    pub expected_delta_ref: String,
+    pub held_out_metrics_ref: String,
+    pub rollout_scope: String,
+    pub kill_switch: String,
+    pub rollback_ref: String,
+    pub run_event_log_span_ref: String,
+    pub answer_packet_caveat_ref: String,
+    pub falsifier_id: String,
+    pub product_build: ProductBuild,
+    pub pro_status: ProStatus,
+    pub residency_status: ResidencyTier,
+}
+
+impl ColdRoutePolicyPatch {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        target_policy: impl Into<String>,
+        source_tournament: UasAddress,
+        baseline_metrics_ref: impl Into<String>,
+        expected_delta_ref: impl Into<String>,
+        held_out_metrics_ref: impl Into<String>,
+        rollout_scope: impl Into<String>,
+        kill_switch: impl Into<String>,
+        rollback_ref: impl Into<String>,
+        run_event_log_span_ref: impl Into<String>,
+        answer_packet_caveat_ref: impl Into<String>,
+        product_build: ProductBuild,
+        pro_status: ProStatus,
+        residency_status: ResidencyTier,
+        created_at_ms: u64,
+    ) -> Result<Self, ColdRoutePolicyPatchError> {
+        validate_patternboost_status(&product_build, &pro_status, residency_status)
+            .map_err(|_| ColdRoutePolicyPatchError::ProductBuildStatusMismatch)?;
+        validate_policy_patch_source_tournament(&source_tournament)?;
+
+        let target_policy = target_policy.into();
+        let baseline_metrics_ref = baseline_metrics_ref.into();
+        let expected_delta_ref = expected_delta_ref.into();
+        let held_out_metrics_ref = held_out_metrics_ref.into();
+        let rollout_scope = rollout_scope.into();
+        let kill_switch = kill_switch.into();
+        let rollback_ref = rollback_ref.into();
+        let run_event_log_span_ref = run_event_log_span_ref.into();
+        let answer_packet_caveat_ref = answer_packet_caveat_ref.into();
+
+        validate_patch_nonempty("target_policy", &target_policy)?;
+        validate_patch_nonempty("baseline_metrics_ref", &baseline_metrics_ref)?;
+        validate_patch_nonempty("expected_delta_ref", &expected_delta_ref)?;
+        validate_patch_nonempty("held_out_metrics_ref", &held_out_metrics_ref)?;
+        validate_patch_nonempty("rollout_scope", &rollout_scope)?;
+        validate_patch_nonempty("kill_switch", &kill_switch)?;
+        validate_patch_nonempty("rollback_ref", &rollback_ref)?;
+        validate_patch_nonempty("run_event_log_span_ref", &run_event_log_span_ref)?;
+        validate_patch_nonempty("answer_packet_caveat_ref", &answer_packet_caveat_ref)?;
+        validate_runtime_router_route("runtime_route_id", &target_policy).map_err(|_| {
+            ColdRoutePolicyPatchError::UnsupportedTargetPolicy {
+                target_policy: target_policy.clone(),
+            }
+        })?;
+        validate_policy_ref(
+            "baseline_metrics_ref",
+            &baseline_metrics_ref,
+            BASELINE_METRICS_REF_PREFIX,
+        )?;
+        validate_policy_ref(
+            "expected_delta_ref",
+            &expected_delta_ref,
+            EXPECTED_DELTA_REF_PREFIX,
+        )?;
+        validate_policy_ref(
+            "held_out_metrics_ref",
+            &held_out_metrics_ref,
+            HELD_OUT_METRICS_REF_PREFIX,
+        )?;
+        validate_rollout_scope(&rollout_scope)?;
+        validate_kill_switch(&kill_switch)?;
+        validate_rollback_reference(&rollback_ref).map_err(|_| {
+            ColdRoutePolicyPatchError::UnsupportedRollbackReference {
+                rollback_ref: rollback_ref.clone(),
+            }
+        })?;
+        validate_run_event_log_span_ref(&run_event_log_span_ref).map_err(|_| {
+            ColdRoutePolicyPatchError::UnsupportedRunEventLogSpanRef {
+                run_event_log_span_ref: run_event_log_span_ref.clone(),
+            }
+        })?;
+        validate_answer_packet_caveat_ref(&answer_packet_caveat_ref).map_err(|_| {
+            ColdRoutePolicyPatchError::UnsupportedAnswerPacketCaveatRef {
+                answer_packet_caveat_ref: answer_packet_caveat_ref.clone(),
+            }
+        })?;
+
+        let falsifier_id = COLD_ROUTE_POLICY_PATCH_ROLLBACK_FALSIFIER_ID.to_string();
+        let patch_address = Self::address(
+            &target_policy,
+            &source_tournament,
+            &baseline_metrics_ref,
+            &expected_delta_ref,
+            &held_out_metrics_ref,
+            &rollout_scope,
+            &kill_switch,
+            &rollback_ref,
+            &run_event_log_span_ref,
+            &answer_packet_caveat_ref,
+            &falsifier_id,
+            &product_build,
+            &pro_status,
+            residency_status,
+            created_at_ms,
+        );
+
+        Ok(Self {
+            patch_address,
+            target_policy,
+            source_tournament,
+            baseline_metrics_ref,
+            expected_delta_ref,
+            held_out_metrics_ref,
+            rollout_scope,
+            kill_switch,
+            rollback_ref,
+            run_event_log_span_ref,
+            answer_packet_caveat_ref,
+            falsifier_id,
+            product_build,
+            pro_status,
+            residency_status,
+        })
+    }
+
+    pub fn validate_shape(&self) -> Result<(), ColdRoutePolicyPatchError> {
+        let recomputed = Self::new(
+            self.target_policy.clone(),
+            self.source_tournament.clone(),
+            self.baseline_metrics_ref.clone(),
+            self.expected_delta_ref.clone(),
+            self.held_out_metrics_ref.clone(),
+            self.rollout_scope.clone(),
+            self.kill_switch.clone(),
+            self.rollback_ref.clone(),
+            self.run_event_log_span_ref.clone(),
+            self.answer_packet_caveat_ref.clone(),
+            self.product_build.clone(),
+            self.pro_status.clone(),
+            self.residency_status,
+            self.patch_address.created_at_ms,
+        )?;
+        if recomputed != *self {
+            return Err(ColdRoutePolicyPatchError::PatchAddressMismatch);
+        }
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn address(
+        target_policy: &str,
+        source_tournament: &UasAddress,
+        baseline_metrics_ref: &str,
+        expected_delta_ref: &str,
+        held_out_metrics_ref: &str,
+        rollout_scope: &str,
+        kill_switch: &str,
+        rollback_ref: &str,
+        run_event_log_span_ref: &str,
+        answer_packet_caveat_ref: &str,
+        falsifier_id: &str,
+        product_build: &ProductBuild,
+        pro_status: &ProStatus,
+        residency_status: ResidencyTier,
+        created_at_ms: u64,
+    ) -> UasAddress {
+        let mut preimage = String::new();
+        preimage.push_str("cold_route_policy_patch_v1\n");
+        push_string_preimage(&mut preimage, "target_policy", target_policy);
+        push_string_preimage(
+            &mut preimage,
+            "source_tournament",
+            &source_tournament.to_string(),
+        );
+        push_string_preimage(&mut preimage, "baseline_metrics_ref", baseline_metrics_ref);
+        push_string_preimage(&mut preimage, "expected_delta_ref", expected_delta_ref);
+        push_string_preimage(&mut preimage, "held_out_metrics_ref", held_out_metrics_ref);
+        push_string_preimage(&mut preimage, "rollout_scope", rollout_scope);
+        push_string_preimage(&mut preimage, "kill_switch", kill_switch);
+        push_string_preimage(&mut preimage, "rollback_ref", rollback_ref);
+        push_string_preimage(
+            &mut preimage,
+            "run_event_log_span_ref",
+            run_event_log_span_ref,
+        );
+        push_string_preimage(
+            &mut preimage,
+            "answer_packet_caveat_ref",
+            answer_packet_caveat_ref,
+        );
+        push_string_preimage(&mut preimage, "falsifier_id", falsifier_id);
+        push_string_preimage(
+            &mut preimage,
+            "product_build",
+            product_build_preimage(product_build),
+        );
+        push_string_preimage(&mut preimage, "pro_status", pro_status_preimage(pro_status));
+        push_string_preimage(
+            &mut preimage,
+            "residency_status",
+            residency_status.wire_tag(),
+        );
+
+        UasAddress::new(
+            UasKind::Other(COLD_ROUTE_POLICY_PATCH_UAS_KIND.to_string()),
+            preimage.as_bytes(),
+            created_at_ms,
+        )
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ColdRoutePolicyPatchError {
+    MissingTargetPolicy,
+    MissingBaselineMetrics,
+    MissingExpectedDelta,
+    MissingHeldOutMetrics,
+    MissingRolloutScope,
+    MissingKillSwitch,
+    MissingRollback,
+    MissingRunEventLogSpan,
+    MissingAnswerPacketCaveat,
+    FieldHasSurroundingWhitespace {
+        field: &'static str,
+    },
+    FieldContainsControlCharacter {
+        field: &'static str,
+    },
+    InvalidUasKind {
+        field: &'static str,
+        actual_kind: String,
+    },
+    ProductBuildStatusMismatch,
+    UnsupportedTargetPolicy {
+        target_policy: String,
+    },
+    UnsupportedBaselineMetricsRef {
+        baseline_metrics_ref: String,
+    },
+    UnsupportedExpectedDeltaRef {
+        expected_delta_ref: String,
+    },
+    UnsupportedHeldOutMetricsRef {
+        held_out_metrics_ref: String,
+    },
+    UnsupportedRolloutScope {
+        rollout_scope: String,
+    },
+    UnsupportedKillSwitch {
+        kill_switch: String,
+    },
+    UnsupportedRollbackReference {
+        rollback_ref: String,
+    },
+    UnsupportedRunEventLogSpanRef {
+        run_event_log_span_ref: String,
+    },
+    UnsupportedAnswerPacketCaveatRef {
+        answer_packet_caveat_ref: String,
+    },
+    PatchAddressMismatch,
+}
+
+impl std::fmt::Display for ColdRoutePolicyPatchError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::MissingTargetPolicy => write!(f, "target_policy is required"),
+            Self::MissingBaselineMetrics => write!(f, "baseline_metrics_ref is required"),
+            Self::MissingExpectedDelta => write!(f, "expected_delta_ref is required"),
+            Self::MissingHeldOutMetrics => write!(f, "held_out_metrics_ref is required"),
+            Self::MissingRolloutScope => write!(f, "rollout_scope is required"),
+            Self::MissingKillSwitch => write!(f, "kill_switch is required"),
+            Self::MissingRollback => write!(f, "rollback_ref is required"),
+            Self::MissingRunEventLogSpan => write!(f, "run_event_log_span_ref is required"),
+            Self::MissingAnswerPacketCaveat => write!(f, "answer_packet_caveat_ref is required"),
+            Self::FieldHasSurroundingWhitespace { field } => {
+                write!(f, "{field} must not contain leading or trailing whitespace")
+            }
+            Self::FieldContainsControlCharacter { field } => {
+                write!(f, "{field} must not contain control characters")
+            }
+            Self::InvalidUasKind { field, actual_kind } => {
+                write!(f, "{field} contains unsupported UAS kind {actual_kind}")
+            }
+            Self::ProductBuildStatusMismatch => write!(
+                f,
+                "ColdRoutePolicyPatch must stay Pro Research / capability-ceiling metadata"
+            ),
+            Self::UnsupportedTargetPolicy { target_policy } => write!(
+                f,
+                "target_policy must name a shadow or dry-run RuntimeRouter policy, got {target_policy}"
+            ),
+            Self::UnsupportedBaselineMetricsRef {
+                baseline_metrics_ref,
+            } => write!(
+                f,
+                "baseline_metrics_ref must name scoped baseline metrics, got {baseline_metrics_ref}"
+            ),
+            Self::UnsupportedExpectedDeltaRef { expected_delta_ref } => write!(
+                f,
+                "expected_delta_ref must name scoped expected delta metrics, got {expected_delta_ref}"
+            ),
+            Self::UnsupportedHeldOutMetricsRef {
+                held_out_metrics_ref,
+            } => write!(
+                f,
+                "held_out_metrics_ref must name scoped held-out metrics, got {held_out_metrics_ref}"
+            ),
+            Self::UnsupportedRolloutScope { rollout_scope } => write!(
+                f,
+                "rollout_scope must be shadow_ or dry_run_ scoped, got {rollout_scope}"
+            ),
+            Self::UnsupportedKillSwitch { kill_switch } => write!(
+                f,
+                "kill_switch must name an explicit kill_switch reference, got {kill_switch}"
+            ),
+            Self::UnsupportedRollbackReference { rollback_ref } => write!(
+                f,
+                "rollback_ref must name an explicit rollback artifact, got {rollback_ref}"
+            ),
+            Self::UnsupportedRunEventLogSpanRef {
+                run_event_log_span_ref,
+            } => write!(
+                f,
+                "run_event_log_span_ref must name a visible RunEventLog span, got {run_event_log_span_ref}"
+            ),
+            Self::UnsupportedAnswerPacketCaveatRef {
+                answer_packet_caveat_ref,
+            } => write!(
+                f,
+                "answer_packet_caveat_ref must name a visible AnswerPacket caveat, got {answer_packet_caveat_ref}"
+            ),
+            Self::PatchAddressMismatch => write!(
+                f,
+                "patch_address no longer matches the deterministic policy patch preimage"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for ColdRoutePolicyPatchError {}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum UasAssemblyGenomeError {
+    MissingMissionFamily,
+    MissingRuntimeRoute,
+    MissingUasSupport,
+    MissingVerifierLane,
+    MissingSparseAttentionPattern,
+    MissingDepthPolicy,
+    MissingTransportPageRun,
+    MissingCodecPlan,
+    MissingCacheReuseKey,
+    MissingPauseResumePoint,
+    MissingFallbackRoute,
+    MissingRollback,
+    MissingRunEventLogSpan,
+    MissingAnswerPacketCaveat,
+    FieldHasSurroundingWhitespace {
+        field: &'static str,
+    },
+    FieldContainsControlCharacter {
+        field: &'static str,
+    },
+    InvalidPageRun,
+    UnsupportedTransportPageRunSourceUri {
+        source_uri: String,
+    },
+    OverlappingTransportPageRun,
+    ProductBuildStatusMismatch,
+    UnsupportedRollbackReference {
+        rollback_ref: String,
+    },
+    UnsupportedRunEventLogSpanRef {
+        run_event_log_span_ref: String,
+    },
+    UnsupportedAnswerPacketCaveatRef {
+        answer_packet_caveat_ref: String,
+    },
+    UnsupportedRuntimeRouteAuthority {
+        field: &'static str,
+        route: String,
+    },
+    DuplicateAddress {
+        field: &'static str,
+    },
+    DuplicateString {
+        field: &'static str,
+    },
+    InvalidUasKind {
+        field: &'static str,
+        actual_kind: String,
+    },
+    MissingRequiredVerifierLane {
+        verifier: &'static str,
+    },
+    GenomeAddressMismatch,
+}
+
+impl std::fmt::Display for UasAssemblyGenomeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::MissingMissionFamily => write!(f, "mission_family is required"),
+            Self::MissingRuntimeRoute => write!(f, "runtime_route_id is required"),
+            Self::MissingUasSupport => write!(
+                f,
+                "at least one selected UAS support object is required"
+            ),
+            Self::MissingVerifierLane => write!(f, "selected_verifier_lanes is required"),
+            Self::MissingSparseAttentionPattern => {
+                write!(f, "sparse_attention_pattern is required")
+            }
+            Self::MissingDepthPolicy => write!(f, "depth_policy is required"),
+            Self::MissingTransportPageRun => write!(f, "transport_page_runs is required"),
+            Self::MissingCodecPlan => write!(f, "codec_plan is required"),
+            Self::MissingCacheReuseKey => write!(f, "cache_reuse_keys is required"),
+            Self::MissingPauseResumePoint => write!(f, "pause_resume_points is required"),
+            Self::MissingFallbackRoute => write!(f, "fallback_route is required"),
+            Self::MissingRollback => write!(f, "rollback_ref is required"),
+            Self::MissingRunEventLogSpan => write!(f, "run_event_log_span_ref is required"),
+            Self::MissingAnswerPacketCaveat => write!(f, "answer_packet_caveat_ref is required"),
+            Self::FieldHasSurroundingWhitespace { field } => {
+                write!(f, "{field} must not contain leading or trailing whitespace")
+            }
+            Self::FieldContainsControlCharacter { field } => {
+                write!(f, "{field} must not contain control characters")
+            }
+            Self::InvalidPageRun => write!(f, "transport page run is invalid"),
+            Self::UnsupportedTransportPageRunSourceUri { source_uri } => write!(
+                f,
+                "transport page run source must be app-owned ColdStore/AppColdStore storage, got {source_uri}"
+            ),
+            Self::OverlappingTransportPageRun => {
+                write!(f, "transport page runs must not overlap within a source")
+            }
+            Self::ProductBuildStatusMismatch => write!(
+                f,
+                "Residency PatternBoost genomes must stay Pro Research / capability-ceiling metadata"
+            ),
+            Self::UnsupportedRollbackReference { rollback_ref } => write!(
+                f,
+                "rollback_ref must name an explicit rollback artifact, got {rollback_ref}"
+            ),
+            Self::UnsupportedRunEventLogSpanRef {
+                run_event_log_span_ref,
+            } => write!(
+                f,
+                "run_event_log_span_ref must name a visible RunEventLog span, got {run_event_log_span_ref}"
+            ),
+            Self::UnsupportedAnswerPacketCaveatRef {
+                answer_packet_caveat_ref,
+            } => write!(
+                f,
+                "answer_packet_caveat_ref must name a visible AnswerPacket caveat, got {answer_packet_caveat_ref}"
+            ),
+            Self::UnsupportedRuntimeRouteAuthority { field, route } => write!(
+                f,
+                "{field} must route through RuntimeRouter, got {route}"
+            ),
+            Self::DuplicateAddress { field } => {
+                write!(f, "{field} must not contain duplicate UAS addresses")
+            }
+            Self::DuplicateString { field } => {
+                write!(f, "{field} must not contain duplicate values")
+            }
+            Self::InvalidUasKind { field, actual_kind } => {
+                write!(f, "{field} contains unsupported UAS kind {actual_kind}")
+            }
+            Self::MissingRequiredVerifierLane { verifier } => write!(
+                f,
+                "selected_verifier_lanes must include required PatternBoost guardrail {verifier}"
+            ),
+            Self::GenomeAddressMismatch => write!(
+                f,
+                "genome_address no longer matches the deterministic genome preimage"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for UasAssemblyGenomeError {}
+
+#[derive(Clone, Copy)]
+enum UasAddressClass {
+    WeightPage,
+    KvPage,
+    AdapterSlice,
+    EvidencePage,
+}
+
+fn validate_patternboost_status(
+    product_build: &ProductBuild,
+    pro_status: &ProStatus,
+    residency_status: ResidencyTier,
+) -> Result<(), UasAssemblyGenomeError> {
+    if product_build != &ProductBuild::Pro
+        || pro_status != &ProStatus::ResearchCandidate
+        || residency_status != ResidencyTier::CapabilityCeiling
+    {
+        return Err(UasAssemblyGenomeError::ProductBuildStatusMismatch);
+    }
+    Ok(())
+}
+
+fn validate_route_card_ref(route_card_ref: &UasAddress) -> Result<(), UasAssemblyGenomeError> {
+    if matches!(
+        &route_card_ref.kind,
+        UasKind::Other(tag) if tag == APP_COLD_STORE_ROUTE_CARD_UAS_KIND
+    ) {
+        return Ok(());
+    }
+    Err(UasAssemblyGenomeError::InvalidUasKind {
+        field: "route_card_ref",
+        actual_kind: route_card_ref.kind.wire_tag().to_string(),
+    })
+}
+
+fn validate_nonempty(field: &'static str, value: &str) -> Result<(), UasAssemblyGenomeError> {
+    if value.trim().is_empty() {
+        return Err(missing_field_error(field));
+    }
+    if value.trim() != value {
+        return Err(UasAssemblyGenomeError::FieldHasSurroundingWhitespace { field });
+    }
+    if value.chars().any(char::is_control) {
+        return Err(UasAssemblyGenomeError::FieldContainsControlCharacter { field });
+    }
+    Ok(())
+}
+
+fn validate_runtime_router_route(
+    field: &'static str,
+    route: &str,
+) -> Result<(), UasAssemblyGenomeError> {
+    if let Some(route_id) = route.strip_prefix(RUNTIME_ROUTER_ROUTE_PREFIX) {
+        let is_allowed = if field == "runtime_route_id" {
+            is_shadow_or_dry_run_route_id(route_id)
+        } else {
+            is_baseline_fallback_route_id(route_id)
+        };
+        if is_allowed {
+            return Ok(());
+        }
+    }
+    Err(UasAssemblyGenomeError::UnsupportedRuntimeRouteAuthority {
+        field,
+        route: route.to_string(),
+    })
+}
+
+fn is_runtime_route_id(route_id: &str) -> bool {
+    !route_id.is_empty()
+        && route_id
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.'))
+}
+
+fn is_shadow_or_dry_run_route_id(route_id: &str) -> bool {
+    is_runtime_route_id(route_id)
+        && ["shadow_", "dry_run_"].iter().any(|prefix| {
+            route_id
+                .strip_prefix(prefix)
+                .is_some_and(|suffix| !suffix.is_empty())
+        })
+}
+
+fn is_baseline_fallback_route_id(route_id: &str) -> bool {
+    is_runtime_route_id(route_id)
+        && FALLBACK_ROUTE_ID_PREFIXES.iter().any(|prefix| {
+            route_id
+                .strip_prefix(prefix)
+                .is_some_and(|suffix| !suffix.is_empty())
+        })
+}
+
+fn validate_rollback_reference(rollback_ref: &str) -> Result<(), UasAssemblyGenomeError> {
+    if rollback_ref
+        .strip_prefix(ROLLBACK_REF_PREFIX)
+        .is_some_and(is_reference_payload)
+    {
+        return Ok(());
+    }
+    Err(UasAssemblyGenomeError::UnsupportedRollbackReference {
+        rollback_ref: rollback_ref.to_string(),
+    })
+}
+
+fn validate_run_event_log_span_ref(
+    run_event_log_span_ref: &str,
+) -> Result<(), UasAssemblyGenomeError> {
+    if run_event_log_span_ref
+        .strip_prefix(RUN_EVENT_LOG_REF_PREFIX)
+        .is_some_and(is_reference_payload)
+    {
+        return Ok(());
+    }
+    Err(UasAssemblyGenomeError::UnsupportedRunEventLogSpanRef {
+        run_event_log_span_ref: run_event_log_span_ref.to_string(),
+    })
+}
+
+fn validate_answer_packet_caveat_ref(
+    answer_packet_caveat_ref: &str,
+) -> Result<(), UasAssemblyGenomeError> {
+    if answer_packet_caveat_ref
+        .strip_prefix(ANSWER_PACKET_CAVEAT_PREFIX)
+        .is_some_and(is_reference_payload)
+    {
+        return Ok(());
+    }
+    Err(UasAssemblyGenomeError::UnsupportedAnswerPacketCaveatRef {
+        answer_packet_caveat_ref: answer_packet_caveat_ref.to_string(),
+    })
+}
+
+fn validate_policy_patch_source_tournament(
+    source_tournament: &UasAddress,
+) -> Result<(), ColdRoutePolicyPatchError> {
+    if matches!(
+        &source_tournament.kind,
+        UasKind::Other(tag) if tag == ASSEMBLY_TOURNAMENT_TRACE_UAS_KIND
+    ) {
+        return Ok(());
+    }
+    Err(ColdRoutePolicyPatchError::InvalidUasKind {
+        field: "source_tournament",
+        actual_kind: source_tournament.kind.wire_tag().to_string(),
+    })
+}
+
+fn validate_patch_nonempty(
+    field: &'static str,
+    value: &str,
+) -> Result<(), ColdRoutePolicyPatchError> {
+    if value.trim().is_empty() {
+        return Err(missing_patch_field_error(field));
+    }
+    if value.trim() != value {
+        return Err(ColdRoutePolicyPatchError::FieldHasSurroundingWhitespace { field });
+    }
+    if value.chars().any(char::is_control) {
+        return Err(ColdRoutePolicyPatchError::FieldContainsControlCharacter { field });
+    }
+    Ok(())
+}
+
+fn missing_patch_field_error(field: &'static str) -> ColdRoutePolicyPatchError {
+    match field {
+        "target_policy" => ColdRoutePolicyPatchError::MissingTargetPolicy,
+        "baseline_metrics_ref" => ColdRoutePolicyPatchError::MissingBaselineMetrics,
+        "expected_delta_ref" => ColdRoutePolicyPatchError::MissingExpectedDelta,
+        "held_out_metrics_ref" => ColdRoutePolicyPatchError::MissingHeldOutMetrics,
+        "rollout_scope" => ColdRoutePolicyPatchError::MissingRolloutScope,
+        "kill_switch" => ColdRoutePolicyPatchError::MissingKillSwitch,
+        "rollback_ref" => ColdRoutePolicyPatchError::MissingRollback,
+        "run_event_log_span_ref" => ColdRoutePolicyPatchError::MissingRunEventLogSpan,
+        "answer_packet_caveat_ref" => ColdRoutePolicyPatchError::MissingAnswerPacketCaveat,
+        _ => ColdRoutePolicyPatchError::MissingTargetPolicy,
+    }
+}
+
+fn validate_policy_ref(
+    field: &'static str,
+    value: &str,
+    prefix: &str,
+) -> Result<(), ColdRoutePolicyPatchError> {
+    if value.strip_prefix(prefix).is_some_and(is_reference_payload) {
+        return Ok(());
+    }
+    Err(match field {
+        "baseline_metrics_ref" => ColdRoutePolicyPatchError::UnsupportedBaselineMetricsRef {
+            baseline_metrics_ref: value.to_string(),
+        },
+        "expected_delta_ref" => ColdRoutePolicyPatchError::UnsupportedExpectedDeltaRef {
+            expected_delta_ref: value.to_string(),
+        },
+        "held_out_metrics_ref" => ColdRoutePolicyPatchError::UnsupportedHeldOutMetricsRef {
+            held_out_metrics_ref: value.to_string(),
+        },
+        _ => ColdRoutePolicyPatchError::UnsupportedBaselineMetricsRef {
+            baseline_metrics_ref: value.to_string(),
+        },
+    })
+}
+
+fn validate_rollout_scope(rollout_scope: &str) -> Result<(), ColdRoutePolicyPatchError> {
+    if POLICY_PATCH_ROLLOUT_SCOPE_PREFIXES.iter().any(|prefix| {
+        rollout_scope
+            .strip_prefix(prefix)
+            .is_some_and(is_reference_payload)
+    }) {
+        return Ok(());
+    }
+    Err(ColdRoutePolicyPatchError::UnsupportedRolloutScope {
+        rollout_scope: rollout_scope.to_string(),
+    })
+}
+
+fn validate_kill_switch(kill_switch: &str) -> Result<(), ColdRoutePolicyPatchError> {
+    if kill_switch
+        .strip_prefix(KILL_SWITCH_REF_PREFIX)
+        .is_some_and(is_reference_payload)
+    {
+        return Ok(());
+    }
+    Err(ColdRoutePolicyPatchError::UnsupportedKillSwitch {
+        kill_switch: kill_switch.to_string(),
+    })
+}
+
+fn is_reference_payload(payload: &str) -> bool {
+    !payload.is_empty()
+        && payload
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.'))
+}
+
+fn missing_field_error(field: &'static str) -> UasAssemblyGenomeError {
+    match field {
+        "mission_family" => UasAssemblyGenomeError::MissingMissionFamily,
+        "runtime_route_id" => UasAssemblyGenomeError::MissingRuntimeRoute,
+        "sparse_attention_pattern" => UasAssemblyGenomeError::MissingSparseAttentionPattern,
+        "depth_policy" => UasAssemblyGenomeError::MissingDepthPolicy,
+        "fallback_route" => UasAssemblyGenomeError::MissingFallbackRoute,
+        "rollback_ref" => UasAssemblyGenomeError::MissingRollback,
+        "run_event_log_span_ref" => UasAssemblyGenomeError::MissingRunEventLogSpan,
+        "answer_packet_caveat_ref" => UasAssemblyGenomeError::MissingAnswerPacketCaveat,
+        "transport_page_run_source_uri" => UasAssemblyGenomeError::MissingTransportPageRun,
+        _ => UasAssemblyGenomeError::MissingUasSupport,
+    }
+}
+
+fn canonicalize_addresses(
+    field: &'static str,
+    mut addresses: Vec<UasAddress>,
+    address_class: UasAddressClass,
+) -> Result<Vec<UasAddress>, UasAssemblyGenomeError> {
+    for address in &addresses {
+        validate_address_kind(field, address, address_class)?;
+    }
+    addresses.sort_by_key(|address| address.to_string());
+    let mut seen = HashSet::new();
+    for address in &addresses {
+        if !seen.insert(address.to_string()) {
+            return Err(UasAssemblyGenomeError::DuplicateAddress { field });
+        }
+    }
+    Ok(addresses)
+}
+
+fn validate_address_kind(
+    field: &'static str,
+    address: &UasAddress,
+    address_class: UasAddressClass,
+) -> Result<(), UasAssemblyGenomeError> {
+    let valid = match address_class {
+        UasAddressClass::WeightPage => matches!(address.kind, UasKind::ModelComponent),
+        UasAddressClass::KvPage => matches!(address.kind, UasKind::KvPage),
+        UasAddressClass::AdapterSlice => match &address.kind {
+            UasKind::ModelComponent => true,
+            UasKind::Other(tag) => tag == "adapter_slice",
+            _ => false,
+        },
+        UasAddressClass::EvidencePage => matches!(
+            address.kind,
+            UasKind::VaultNote | UasKind::GraphNode | UasKind::Claim
+        ),
+    };
+    if !valid {
+        return Err(UasAssemblyGenomeError::InvalidUasKind {
+            field,
+            actual_kind: address.kind.wire_tag().to_string(),
+        });
+    }
+    Ok(())
+}
+
+fn validate_unique_support_set(
+    selected_weight_pages: &[UasAddress],
+    selected_kv_pages: &[UasAddress],
+    selected_adapter_slices: &[UasAddress],
+    selected_evidence_pages: &[UasAddress],
+) -> Result<(), UasAssemblyGenomeError> {
+    let total = selected_weight_pages.len()
+        + selected_kv_pages.len()
+        + selected_adapter_slices.len()
+        + selected_evidence_pages.len();
+    let mut seen = HashSet::with_capacity(total);
+    for address in selected_weight_pages
+        .iter()
+        .chain(selected_kv_pages)
+        .chain(selected_adapter_slices)
+        .chain(selected_evidence_pages)
+    {
+        if !seen.insert(address) {
+            return Err(UasAssemblyGenomeError::DuplicateAddress {
+                field: "selected_uas_support",
+            });
+        }
+    }
+    Ok(())
+}
+
+fn canonicalize_strings(
+    field: &'static str,
+    mut values: Vec<String>,
+    missing_error: UasAssemblyGenomeError,
+) -> Result<Vec<String>, UasAssemblyGenomeError> {
+    if values.is_empty() {
+        return Err(missing_error);
+    }
+    for value in &values {
+        if value.trim().is_empty() {
+            return Err(missing_error.clone());
+        }
+        if value.trim() != value {
+            return Err(UasAssemblyGenomeError::FieldHasSurroundingWhitespace { field });
+        }
+        if value.chars().any(char::is_control) {
+            return Err(UasAssemblyGenomeError::FieldContainsControlCharacter { field });
+        }
+    }
+    values.sort();
+    let mut seen = HashSet::new();
+    for value in &values {
+        if !seen.insert(value.as_str()) {
+            return Err(UasAssemblyGenomeError::DuplicateString { field });
+        }
+    }
+    Ok(values)
+}
+
+fn validate_required_verifier_lanes(values: &[String]) -> Result<(), UasAssemblyGenomeError> {
+    for required in REQUIRED_PATTERNBOOST_VERIFIER_LANES {
+        if !values.iter().any(|value| value == required) {
+            return Err(UasAssemblyGenomeError::MissingRequiredVerifierLane { verifier: required });
+        }
+    }
+    Ok(())
+}
+
+fn canonicalize_page_runs(
+    mut page_runs: Vec<AssemblyPageRun>,
+) -> Result<Vec<AssemblyPageRun>, UasAssemblyGenomeError> {
+    if page_runs.is_empty() {
+        return Err(UasAssemblyGenomeError::MissingTransportPageRun);
+    }
+    for page_run in &page_runs {
+        validate_nonempty("transport_page_run_source_uri", &page_run.source_uri)?;
+        if !app_cold_store_source_uri_is_app_owned(&page_run.source_uri) {
+            return Err(
+                UasAssemblyGenomeError::UnsupportedTransportPageRunSourceUri {
+                    source_uri: page_run.source_uri.clone(),
+                },
+            );
+        }
+        if page_run.byte_range.len == 0
+            || page_run
+                .byte_range
+                .start
+                .checked_add(page_run.byte_range.len)
+                .is_none()
+        {
+            return Err(UasAssemblyGenomeError::InvalidPageRun);
+        }
+    }
+    page_runs.sort_by(|left, right| {
+        left.source_uri
+            .cmp(&right.source_uri)
+            .then(left.byte_range.start.cmp(&right.byte_range.start))
+            .then(left.byte_range.len.cmp(&right.byte_range.len))
+    });
+    let mut seen = HashSet::new();
+    for page_run in &page_runs {
+        let key = format!(
+            "{}:{}:{}",
+            page_run.source_uri, page_run.byte_range.start, page_run.byte_range.len
+        );
+        if !seen.insert(key) {
+            return Err(UasAssemblyGenomeError::DuplicateString {
+                field: "transport_page_runs",
+            });
+        }
+    }
+    for pair in page_runs.windows(2) {
+        let left = &pair[0];
+        let right = &pair[1];
+        if left.source_uri == right.source_uri
+            && right.byte_range.start < left.byte_range.end_exclusive()
+        {
+            return Err(UasAssemblyGenomeError::OverlappingTransportPageRun);
+        }
+    }
+    Ok(page_runs)
+}
+
+fn push_string_preimage(preimage: &mut String, label: &str, value: &str) {
+    preimage.push_str(label);
+    preimage.push(':');
+    preimage.push_str(&value.len().to_string());
+    preimage.push(':');
+    preimage.push_str(value);
+    preimage.push('\n');
+}
+
+fn push_string_list_preimage(preimage: &mut String, label: &str, values: &[String]) {
+    preimage.push_str(label);
+    preimage.push(':');
+    preimage.push_str(&values.len().to_string());
+    preimage.push('\n');
+    for value in values {
+        push_string_preimage(preimage, "item", value);
+    }
+}
+
+fn push_address_list_preimage(preimage: &mut String, label: &str, values: &[UasAddress]) {
+    preimage.push_str(label);
+    preimage.push(':');
+    preimage.push_str(&values.len().to_string());
+    preimage.push('\n');
+    for value in values {
+        push_string_preimage(preimage, "address", &value.to_string());
+    }
+}
+
+fn push_page_run_preimage(preimage: &mut String, page_runs: &[AssemblyPageRun]) {
+    preimage.push_str("transport_page_runs:");
+    preimage.push_str(&page_runs.len().to_string());
+    preimage.push('\n');
+    for page_run in page_runs {
+        push_string_preimage(preimage, "source_uri", &page_run.source_uri);
+        preimage.push_str("range:");
+        preimage.push_str(&page_run.byte_range.start.to_string());
+        preimage.push(':');
+        preimage.push_str(&page_run.byte_range.len.to_string());
+        preimage.push('\n');
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const ANSWER_PACKET_CAVEAT_REF: &str = "answer_packet_caveat:patternboost-dry-run-only";
+    const RUN_EVENT_LOG_SPAN_REF: &str = "run_event_log:patternboost-shadow-span";
+
+    fn addr(kind: UasKind, label: &[u8]) -> UasAddress {
+        UasAddress::new(kind, label, 7)
+    }
+
+    fn route_card_ref() -> UasAddress {
+        addr(
+            UasKind::Other("app_cold_store_route_card".to_string()),
+            b"route-card",
+        )
+    }
+
+    fn page_run(label: &str, start: u64) -> AssemblyPageRun {
+        AssemblyPageRun::new(format!("app-support://coldstore/{label}.epwp"), start, 128)
+            .expect("page run fixture should be valid")
+    }
+
+    fn verifier_lanes(extra: &[&str]) -> Vec<String> {
+        let mut lanes: Vec<String> = REQUIRED_PATTERNBOOST_VERIFIER_LANES
+            .iter()
+            .map(|lane| lane.to_string())
+            .collect();
+        lanes.extend(extra.iter().map(|lane| lane.to_string()));
+        lanes
+    }
+
+    fn genome_with_order(
+        weights: Vec<UasAddress>,
+        kv: Vec<UasAddress>,
+        evidence: Vec<UasAddress>,
+        verifier_lanes: Vec<String>,
+        page_runs: Vec<AssemblyPageRun>,
+        created_at_ms: u64,
+    ) -> UasAssemblyGenome {
+        UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            weights,
+            kv,
+            vec![addr(UasKind::ModelComponent, b"adapter-citation")],
+            evidence,
+            verifier_lanes,
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            page_runs,
+            vec!["nf4".to_string(), "dense_bf16".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            created_at_ms,
+        )
+        .expect("genome fixture should build")
+    }
+
+    #[test]
+    fn uas_assembly_genome_digest_is_order_stable_and_round_trips() {
+        let a = genome_with_order(
+            vec![
+                addr(UasKind::ModelComponent, b"weight-b"),
+                addr(UasKind::ModelComponent, b"weight-a"),
+            ],
+            vec![
+                addr(UasKind::KvPage, b"kv-b"),
+                addr(UasKind::KvPage, b"kv-a"),
+            ],
+            vec![
+                addr(UasKind::VaultNote, b"evidence-b"),
+                addr(UasKind::VaultNote, b"evidence-a"),
+            ],
+            vec![
+                "F-Eidos".to_string(),
+                "F-ParamRouteCard-Admission".to_string(),
+                "F-ComputeResumeLease-Compatibility".to_string(),
+                "F-LatticeAbstentionGate-Soundness".to_string(),
+                "F-NoOfflineOracleLeak".to_string(),
+                "F-ResidencyPatternBoost-NoHiddenAuthority".to_string(),
+            ],
+            vec![page_run("b", 128), page_run("a", 0)],
+            42,
+        );
+        let b = genome_with_order(
+            vec![
+                addr(UasKind::ModelComponent, b"weight-a"),
+                addr(UasKind::ModelComponent, b"weight-b"),
+            ],
+            vec![
+                addr(UasKind::KvPage, b"kv-a"),
+                addr(UasKind::KvPage, b"kv-b"),
+            ],
+            vec![
+                addr(UasKind::VaultNote, b"evidence-a"),
+                addr(UasKind::VaultNote, b"evidence-b"),
+            ],
+            vec![
+                "F-ComputeResumeLease-Compatibility".to_string(),
+                "F-Eidos".to_string(),
+                "F-LatticeAbstentionGate-Soundness".to_string(),
+                "F-NoOfflineOracleLeak".to_string(),
+                "F-ParamRouteCard-Admission".to_string(),
+                "F-ResidencyPatternBoost-NoHiddenAuthority".to_string(),
+            ],
+            vec![page_run("a", 0), page_run("b", 128)],
+            42,
+        );
+
+        assert_eq!(a.genome_address, b.genome_address);
+
+        let json = serde_json::to_string(&a).expect("genome should serialize");
+        let parsed: UasAssemblyGenome =
+            serde_json::from_str(&json).expect("genome should deserialize");
+        assert_eq!(parsed, a);
+        parsed
+            .validate_shape()
+            .expect("round-tripped genome should validate");
+    }
+
+    #[test]
+    fn uas_assembly_genome_rejects_missing_uas_support() {
+        let err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(err, UasAssemblyGenomeError::MissingUasSupport);
+    }
+
+    #[test]
+    fn uas_assembly_genome_rejects_missing_runtime_identity() {
+        let err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(err, UasAssemblyGenomeError::MissingRuntimeRoute);
+    }
+
+    #[test]
+    fn uas_assembly_genome_rejects_direct_runtime_authority() {
+        let runtime_route_err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "patternboost:direct_live_policy",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            runtime_route_err,
+            UasAssemblyGenomeError::UnsupportedRuntimeRouteAuthority {
+                field: "runtime_route_id",
+                route: "patternboost:direct_live_policy".to_string()
+            }
+        );
+
+        let fallback_err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "patternboost:override_static_route",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            fallback_err,
+            UasAssemblyGenomeError::UnsupportedRuntimeRouteAuthority {
+                field: "fallback_route",
+                route: "patternboost:override_static_route".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn uas_assembly_genome_rejects_unscoped_runtime_router_route() {
+        let runtime_route_err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            runtime_route_err,
+            UasAssemblyGenomeError::UnsupportedRuntimeRouteAuthority {
+                field: "runtime_route_id",
+                route: "runtime_router:".to_string()
+            }
+        );
+
+        let fallback_err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            fallback_err,
+            UasAssemblyGenomeError::UnsupportedRuntimeRouteAuthority {
+                field: "fallback_route",
+                route: "runtime_router:".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn uas_assembly_genome_rejects_empty_shadow_or_dry_run_route_payload() {
+        for runtime_route in ["runtime_router:shadow_", "runtime_router:dry_run_"] {
+            let err = UasAssemblyGenome::new(
+                "citation_heavy_research",
+                route_card_ref(),
+                runtime_route,
+                vec![addr(UasKind::ModelComponent, b"weight-a")],
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                verifier_lanes(&[]),
+                "query_aware_sparse_attention_v0",
+                "depth_budget_gate_shadow_v0",
+                vec![page_run("a", 0)],
+                vec!["nf4".to_string()],
+                vec!["kv:research-prefix".to_string()],
+                vec!["kv_restore_before_decode".to_string()],
+                "runtime_router:fallback_static_route",
+                "rollback:static_route_policy",
+                RUN_EVENT_LOG_SPAN_REF,
+                ANSWER_PACKET_CAVEAT_REF,
+                ProductBuild::Pro,
+                ProStatus::ResearchCandidate,
+                ResidencyTier::CapabilityCeiling,
+                42,
+            )
+            .unwrap_err();
+
+            assert_eq!(
+                err,
+                UasAssemblyGenomeError::UnsupportedRuntimeRouteAuthority {
+                    field: "runtime_route_id",
+                    route: runtime_route.to_string()
+                }
+            );
+        }
+    }
+
+    #[test]
+    fn uas_assembly_genome_rejects_live_candidate_runtime_route() {
+        let runtime_route = "runtime_router:live_patternboost_policy";
+        let err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            runtime_route,
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            UasAssemblyGenomeError::UnsupportedRuntimeRouteAuthority {
+                field: "runtime_route_id",
+                route: runtime_route.to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn uas_assembly_genome_rejects_live_candidate_fallback_route() {
+        let fallback_route = "runtime_router:live_patternboost_policy";
+        let err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            fallback_route,
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            UasAssemblyGenomeError::UnsupportedRuntimeRouteAuthority {
+                field: "fallback_route",
+                route: fallback_route.to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn uas_assembly_genome_rejects_runtime_router_route_with_blank_payload_prefix() {
+        let runtime_route = "runtime_router: shadow_patternboost_route";
+        let runtime_route_err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            runtime_route,
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            runtime_route_err,
+            UasAssemblyGenomeError::UnsupportedRuntimeRouteAuthority {
+                field: "runtime_route_id",
+                route: runtime_route.to_string()
+            }
+        );
+
+        let fallback_route = "runtime_router: fallback_static_route";
+        let fallback_err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            fallback_route,
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            fallback_err,
+            UasAssemblyGenomeError::UnsupportedRuntimeRouteAuthority {
+                field: "fallback_route",
+                route: fallback_route.to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn uas_assembly_genome_rejects_nested_runtime_authority_payloads() {
+        let runtime_route = "runtime_router:patternboost:direct_live_policy";
+        let runtime_route_err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            runtime_route,
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            runtime_route_err,
+            UasAssemblyGenomeError::UnsupportedRuntimeRouteAuthority {
+                field: "runtime_route_id",
+                route: runtime_route.to_string()
+            }
+        );
+
+        let fallback_route = "runtime_router:patternboost:override_static_route";
+        let fallback_err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            fallback_route,
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            fallback_err,
+            UasAssemblyGenomeError::UnsupportedRuntimeRouteAuthority {
+                field: "fallback_route",
+                route: fallback_route.to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn uas_assembly_genome_requires_route_card_reference_identity() {
+        let err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            addr(UasKind::VaultNote, b"not-a-route-card"),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            UasAssemblyGenomeError::InvalidUasKind {
+                field: "route_card_ref",
+                actual_kind: "vault_note".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn uas_assembly_genome_rejects_live_or_mas_promotion() {
+        let err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Mas,
+            ProStatus::Live,
+            ResidencyTier::CurrentApp,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(err, UasAssemblyGenomeError::ProductBuildStatusMismatch);
+    }
+
+    #[test]
+    fn uas_assembly_genome_rejects_missing_patternboost_guardrail_verifier() {
+        let err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            vec![
+                "F-ComputeResumeLease-Compatibility".to_string(),
+                "F-LatticeAbstentionGate-Soundness".to_string(),
+                "F-NoOfflineOracleLeak".to_string(),
+                "F-ParamRouteCard-Admission".to_string(),
+            ],
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            UasAssemblyGenomeError::MissingRequiredVerifierLane {
+                verifier: "F-ResidencyPatternBoost-NoHiddenAuthority"
+            }
+        );
+    }
+
+    #[test]
+    fn uas_assembly_genome_rejects_duplicate_support_across_categories() {
+        let reused_support = addr(UasKind::ModelComponent, b"weight-and-adapter");
+        let err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![reused_support.clone()],
+            Vec::new(),
+            vec![reused_support],
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            UasAssemblyGenomeError::DuplicateAddress {
+                field: "selected_uas_support"
+            }
+        );
+    }
+
+    #[test]
+    fn uas_assembly_genome_rejects_missing_no_offline_oracle_leak_guardrail() {
+        let err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            vec![
+                "F-ComputeResumeLease-Compatibility".to_string(),
+                "F-LatticeAbstentionGate-Soundness".to_string(),
+                "F-ParamRouteCard-Admission".to_string(),
+                "F-ResidencyPatternBoost-NoHiddenAuthority".to_string(),
+            ],
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            UasAssemblyGenomeError::MissingRequiredVerifierLane {
+                verifier: "F-NoOfflineOracleLeak"
+            }
+        );
+    }
+
+    #[test]
+    fn uas_assembly_genome_rejects_missing_lattice_abstention_guardrail() {
+        let err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            vec![
+                "F-ComputeResumeLease-Compatibility".to_string(),
+                "F-NoOfflineOracleLeak".to_string(),
+                "F-ParamRouteCard-Admission".to_string(),
+                "F-ResidencyPatternBoost-NoHiddenAuthority".to_string(),
+            ],
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            UasAssemblyGenomeError::MissingRequiredVerifierLane {
+                verifier: "F-LatticeAbstentionGate-Soundness"
+            }
+        );
+    }
+
+    fn tournament_trace_ref() -> UasAddress {
+        addr(
+            UasKind::Other("assembly_tournament_trace".to_string()),
+            b"tournament-trace",
+        )
+    }
+
+    fn cold_route_policy_patch_fixture() -> ColdRoutePolicyPatch {
+        ColdRoutePolicyPatch::new(
+            "runtime_router:shadow_patternboost_route",
+            tournament_trace_ref(),
+            "metrics:static_baseline",
+            "delta:held_out_route_win",
+            "held_out:mission_family_v1",
+            "shadow_policy_patch",
+            "kill_switch:patternboost_shadow_patch",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .expect("policy patch fixture should build")
+    }
+
+    #[test]
+    fn cold_route_policy_patch_is_shadow_scoped_and_round_trips() {
+        let patch = cold_route_policy_patch_fixture();
+
+        assert_eq!(
+            patch.target_policy,
+            "runtime_router:shadow_patternboost_route"
+        );
+        assert_eq!(patch.rollout_scope, "shadow_policy_patch");
+        assert_eq!(patch.kill_switch, "kill_switch:patternboost_shadow_patch");
+
+        let json = serde_json::to_string(&patch).expect("policy patch should serialize");
+        let parsed: ColdRoutePolicyPatch =
+            serde_json::from_str(&json).expect("policy patch should deserialize");
+        assert_eq!(parsed, patch);
+        parsed
+            .validate_shape()
+            .expect("round-tripped policy patch should validate");
+    }
+
+    #[test]
+    fn cold_route_policy_patch_rejects_live_policy_authority() {
+        let err = ColdRoutePolicyPatch::new(
+            "runtime_router:live_patternboost_policy",
+            tournament_trace_ref(),
+            "metrics:static_baseline",
+            "delta:held_out_route_win",
+            "held_out:mission_family_v1",
+            "shadow_policy_patch",
+            "kill_switch:patternboost_shadow_patch",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            ColdRoutePolicyPatchError::UnsupportedTargetPolicy {
+                target_policy: "runtime_router:live_patternboost_policy".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn cold_route_policy_patch_requires_kill_switch_and_rollback() {
+        let missing_kill_switch = ColdRoutePolicyPatch::new(
+            "runtime_router:shadow_patternboost_route",
+            tournament_trace_ref(),
+            "metrics:static_baseline",
+            "delta:held_out_route_win",
+            "held_out:mission_family_v1",
+            "shadow_policy_patch",
+            "",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            missing_kill_switch,
+            ColdRoutePolicyPatchError::MissingKillSwitch
+        );
+
+        let bad_rollback = ColdRoutePolicyPatch::new(
+            "runtime_router:shadow_patternboost_route",
+            tournament_trace_ref(),
+            "metrics:static_baseline",
+            "delta:held_out_route_win",
+            "held_out:mission_family_v1",
+            "shadow_policy_patch",
+            "kill_switch:patternboost_shadow_patch",
+            "patternboost:mutate_live_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            bad_rollback,
+            ColdRoutePolicyPatchError::UnsupportedRollbackReference {
+                rollback_ref: "patternboost:mutate_live_policy".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn cold_route_policy_patch_rejects_mas_or_live_promotion() {
+        let err = ColdRoutePolicyPatch::new(
+            "runtime_router:shadow_patternboost_route",
+            tournament_trace_ref(),
+            "metrics:static_baseline",
+            "delta:held_out_route_win",
+            "held_out:mission_family_v1",
+            "shadow_policy_patch",
+            "kill_switch:patternboost_shadow_patch",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Mas,
+            ProStatus::Live,
+            ResidencyTier::CurrentApp,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(err, ColdRoutePolicyPatchError::ProductBuildStatusMismatch);
+    }
+
+    #[test]
+    fn uas_assembly_genome_rejects_unscoped_rollback_reference() {
+        let err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "patternboost:mutate_live_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            UasAssemblyGenomeError::UnsupportedRollbackReference {
+                rollback_ref: "patternboost:mutate_live_policy".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn uas_assembly_genome_requires_visible_witness_refs() {
+        let run_event_err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            "patternboost:hidden-span",
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            run_event_err,
+            UasAssemblyGenomeError::UnsupportedRunEventLogSpanRef {
+                run_event_log_span_ref: "patternboost:hidden-span".to_string()
+            }
+        );
+
+        let answer_packet_err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            "answer_packet:hidden-caveat",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            answer_packet_err,
+            UasAssemblyGenomeError::UnsupportedAnswerPacketCaveatRef {
+                answer_packet_caveat_ref: "answer_packet:hidden-caveat".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn uas_assembly_genome_rejects_nested_authority_witness_payloads() {
+        let rollback_err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:patternboost:mutate_live_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            rollback_err,
+            UasAssemblyGenomeError::UnsupportedRollbackReference {
+                rollback_ref: "rollback:patternboost:mutate_live_policy".to_string()
+            }
+        );
+
+        let run_event_err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            "run_event_log:patternboost:hidden-span",
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            run_event_err,
+            UasAssemblyGenomeError::UnsupportedRunEventLogSpanRef {
+                run_event_log_span_ref: "run_event_log:patternboost:hidden-span".to_string()
+            }
+        );
+
+        let answer_packet_err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            "answer_packet_caveat:patternboost:hidden-caveat",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            answer_packet_err,
+            UasAssemblyGenomeError::UnsupportedAnswerPacketCaveatRef {
+                answer_packet_caveat_ref: "answer_packet_caveat:patternboost:hidden-caveat"
+                    .to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn uas_assembly_genome_rejects_network_transport_page_runs() {
+        let source_uri = "https://example.invalid/coldstore/weight-a.epwp";
+        let err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![AssemblyPageRun::new(source_uri, 0, 128)
+                .expect("URI policy is validated at genome admission")],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            UasAssemblyGenomeError::UnsupportedTransportPageRunSourceUri {
+                source_uri: source_uri.to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn uas_assembly_genome_rejects_overlapping_transport_page_runs() {
+        let err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![
+                AssemblyPageRun::new("app-support://coldstore/shared.epwp", 0, 128)
+                    .expect("page run fixture should be valid"),
+                AssemblyPageRun::new("app-support://coldstore/shared.epwp", 64, 128)
+                    .expect("page run fixture should be valid"),
+            ],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(err, UasAssemblyGenomeError::OverlappingTransportPageRun);
+    }
+
+    #[test]
+    fn uas_assembly_genome_address_binds_transport_page_runs() {
+        let mut genome = genome_with_order(
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            vec![page_run("a", 0)],
+            42,
+        );
+        genome.transport_page_runs[0].byte_range =
+            ByteRange::new(0, 256).expect("mutated byte range should be valid");
+
+        let err = genome.validate_shape().unwrap_err();
+
+        assert_eq!(err, UasAssemblyGenomeError::GenomeAddressMismatch);
+    }
+
+    #[test]
+    fn uas_assembly_genome_address_binds_visible_witness_refs() {
+        let mut genome = genome_with_order(
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            vec![page_run("a", 0)],
+            42,
+        );
+        genome.run_event_log_span_ref = "run_event_log:changed-shadow-span".to_string();
+
+        let err = genome.validate_shape().unwrap_err();
+
+        assert_eq!(err, UasAssemblyGenomeError::GenomeAddressMismatch);
+    }
+}

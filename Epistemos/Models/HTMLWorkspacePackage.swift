@@ -15,6 +15,16 @@ nonisolated public enum HTMLWorkspacePackageEntry {
 nonisolated public enum HTMLWorkspacePackageLimits {
     public static let maxConsoleErrors = 48
     public static let maxSnapshots = 16
+    public static let maxManifestBytes = 256 * 1024
+    public static let maxIndexHTMLBytes = 2 * 1024 * 1024
+    public static let maxStyleCSSBytes = 2 * 1024 * 1024
+    public static let maxScriptJSBytes = 2 * 1024 * 1024
+    public static let maxDataJSONBytes = 4 * 1024 * 1024
+    public static let maxAssetCount = 256
+    public static let maxAssetBytes = 25 * 1024 * 1024
+    public static let maxAssetsTotalBytes = 150 * 1024 * 1024
+    public static let maxSnapshotBytes = 2 * 1024 * 1024
+    public static let maxSnapshotsTotalBytes = 32 * 1024 * 1024
 }
 
 nonisolated public enum HTMLWorkspacePreviewTheme: String, Sendable, Hashable {
@@ -79,14 +89,48 @@ nonisolated public enum HTMLWorkspacePreviewTheme: String, Sendable, Hashable {
         """
         html[data-epistemos-theme],
         html[data-epistemos-theme] body {
-          background: var(--epistemos-workspace-bg);
-          color: var(--epistemos-workspace-fg);
+          background: var(--epistemos-workspace-bg) !important;
+          color: var(--epistemos-workspace-fg) !important;
+        }
+
+        html[data-epistemos-theme] body :is(main, section, article, aside, header, footer, div, p, li, td, th, blockquote, figcaption, small, span, strong, em) {
+          color: inherit;
+        }
+
+        html[data-epistemos-theme="dark"] body :is(main, section, article, aside, header, footer, div, p, li, td, th, blockquote, figcaption, label, small, span, strong, em, b, i, code, pre, dd, dt, summary, caption, output, button) {
+          color: var(--epistemos-workspace-fg) !important;
+        }
+
+        html[data-epistemos-theme="dark"] body :is(.muted, .subtitle, .subtle, .secondary, .meta, .caption, [class*="muted"], [class*="secondary"], [class*="subtle"], [class*="meta"], small, figcaption, caption, td:first-child, th:first-child) {
+          color: color-mix(in srgb, var(--epistemos-workspace-fg) 84%, transparent) !important;
+        }
+
+        html[data-epistemos-theme] body :is(hr, .rule, .divider) {
+          border-color: var(--epistemos-workspace-border);
+          background-color: var(--epistemos-workspace-border);
+        }
+
+        html[data-epistemos-theme] body :is(a) {
+          color: var(--epistemos-workspace-accent);
+        }
+
+        html[data-epistemos-theme="dark"] body :is(a, a:visited, a span, a small, a strong, a em) {
+          color: var(--epistemos-workspace-accent) !important;
+        }
+
+        html[data-epistemos-theme="dark"] body ::placeholder {
+          color: color-mix(in srgb, var(--epistemos-workspace-fg) 70%, transparent) !important;
         }
 
         html[data-epistemos-theme] body :is(h1, h2, .workspace-title, [data-display-title]) {
           font-family: var(--epistemos-workspace-title-font);
           font-weight: 400;
           font-synthesis: none;
+          color: var(--epistemos-workspace-fg);
+        }
+
+        html[data-epistemos-theme] body :is(h3, h4, h5, h6) {
+          color: var(--epistemos-workspace-fg);
         }
 
         html[data-epistemos-theme] .metric-card strong,
@@ -97,6 +141,11 @@ nonisolated public enum HTMLWorkspacePreviewTheme: String, Sendable, Hashable {
           font-weight: 400;
           font-synthesis: none;
           font-variant-numeric: tabular-nums;
+        }
+
+        html[data-epistemos-theme] :is(.metric-card, [data-metrics] article, .card, section[data-card]) {
+          background: var(--epistemos-workspace-card);
+          border-color: var(--epistemos-workspace-border);
         }
         """
     }
@@ -298,6 +347,14 @@ nonisolated public struct HTMLWorkspacePackage: Sendable, Hashable {
         self.consoleErrors = consoleErrors
     }
 
+    public var isStarterTemplateContent: Bool {
+        let starter = Self.defaultPackage()
+        return indexHTML == starter.indexHTML
+            && styleCSS == starter.styleCSS
+            && scriptJS == starter.scriptJS
+            && dataJSON == starter.dataJSON
+    }
+
     public static func defaultPackage(title: String = "Untitled HTML Workspace") -> HTMLWorkspacePackage {
         let now = Int64(Date().timeIntervalSince1970 * 1000)
         let manifest = HTMLWorkspaceManifest(
@@ -443,6 +500,7 @@ nonisolated public enum HTMLWorkspacePackageError: Error, CustomStringConvertibl
     case malformedConsoleErrors(underlying: Error)
     case invalidPackagePath(name: String)
     case invalidStyleRule(reason: String)
+    case packageLimitExceeded(reason: String)
 
     public var description: String {
         switch self {
@@ -464,6 +522,8 @@ nonisolated public enum HTMLWorkspacePackageError: Error, CustomStringConvertibl
             return "HTMLWorkspacePackage: invalid package path \(name)"
         case .invalidStyleRule(let reason):
             return "HTMLWorkspacePackage: invalid style rule - \(reason)"
+        case .packageLimitExceeded(let reason):
+            return "HTMLWorkspacePackage: package limit exceeded - \(reason)"
         }
     }
 }
@@ -471,31 +531,62 @@ nonisolated public enum HTMLWorkspacePackageError: Error, CustomStringConvertibl
 extension HTMLWorkspacePackage {
     nonisolated public func makeFileWrapper(jsonEncoder: JSONEncoder = .epdocCanonical) throws -> FileWrapper {
         var topLevel: [String: FileWrapper] = [:]
+        let manifestData = try jsonEncoder.encode(manifest)
+        let indexHTMLData = Data(indexHTML.utf8)
+        let styleCSSData = Data(styleCSS.utf8)
+        let scriptJSData = Data(scriptJS.utf8)
+        let dataJSONData = Data(dataJSON.utf8)
+
+        try Self.validateDataSize(
+            manifestData,
+            maxBytes: HTMLWorkspacePackageLimits.maxManifestBytes,
+            name: HTMLWorkspacePackageEntry.manifest
+        )
+        try Self.validateTextPayloads(
+            indexHTMLData: indexHTMLData,
+            styleCSSData: styleCSSData,
+            scriptJSData: scriptJSData,
+            dataJSONData: dataJSONData
+        )
+        try Self.validateAssets(assets)
+        try Self.validateSnapshots(snapshots)
 
         topLevel[HTMLWorkspacePackageEntry.manifest] = FileWrapper(
-            regularFileWithContents: try jsonEncoder.encode(manifest)
+            regularFileWithContents: manifestData
         )
         topLevel[HTMLWorkspacePackageEntry.indexHTML] = FileWrapper(
-            regularFileWithContents: Data(indexHTML.utf8)
+            regularFileWithContents: indexHTMLData
         )
         topLevel[HTMLWorkspacePackageEntry.styleCSS] = FileWrapper(
-            regularFileWithContents: Data(styleCSS.utf8)
+            regularFileWithContents: styleCSSData
         )
         topLevel[HTMLWorkspacePackageEntry.scriptJS] = FileWrapper(
-            regularFileWithContents: Data(scriptJS.utf8)
+            regularFileWithContents: scriptJSData
         )
         topLevel[HTMLWorkspacePackageEntry.dataJSON] = FileWrapper(
-            regularFileWithContents: Data(dataJSON.utf8)
+            regularFileWithContents: dataJSONData
         )
 
         if !assets.isEmpty {
             topLevel[HTMLWorkspacePackageEntry.assets] = FileWrapper(
-                directoryWithFileWrappers: try Self.fileWrappers(from: assets)
+                directoryWithFileWrappers: try Self.fileWrappers(
+                    from: assets,
+                    folderName: HTMLWorkspacePackageEntry.assets,
+                    maxCount: HTMLWorkspacePackageLimits.maxAssetCount,
+                    maxFileBytes: HTMLWorkspacePackageLimits.maxAssetBytes,
+                    maxTotalBytes: HTMLWorkspacePackageLimits.maxAssetsTotalBytes
+                )
             )
         }
         if !snapshots.isEmpty {
             topLevel[HTMLWorkspacePackageEntry.snapshots] = FileWrapper(
-                directoryWithFileWrappers: try Self.fileWrappers(from: snapshots)
+                directoryWithFileWrappers: try Self.fileWrappers(
+                    from: snapshots,
+                    folderName: HTMLWorkspacePackageEntry.snapshots,
+                    maxCount: HTMLWorkspacePackageLimits.maxSnapshots,
+                    maxFileBytes: HTMLWorkspacePackageLimits.maxSnapshotBytes,
+                    maxTotalBytes: HTMLWorkspacePackageLimits.maxSnapshotsTotalBytes
+                )
             )
         }
         if !consoleErrors.isEmpty {
@@ -518,6 +609,11 @@ extension HTMLWorkspacePackage {
               let manifestData = manifestWrapper.regularFileContents else {
             throw HTMLWorkspacePackageError.missingManifest
         }
+        try Self.validateDataSize(
+            manifestData,
+            maxBytes: HTMLWorkspacePackageLimits.maxManifestBytes,
+            name: HTMLWorkspacePackageEntry.manifest
+        )
 
         let manifest: HTMLWorkspaceManifest
         do {
@@ -536,33 +632,85 @@ extension HTMLWorkspacePackage {
 
         self.init(
             manifest: manifest,
-            indexHTML: try Self.string(from: indexData, name: HTMLWorkspacePackageEntry.indexHTML),
-            styleCSS: try Self.optionalString(from: children[HTMLWorkspacePackageEntry.styleCSS], name: HTMLWorkspacePackageEntry.styleCSS),
+            indexHTML: try Self.string(
+                from: indexData,
+                name: HTMLWorkspacePackageEntry.indexHTML,
+                maxBytes: HTMLWorkspacePackageLimits.maxIndexHTMLBytes
+            ),
+            styleCSS: try Self.optionalString(
+                from: children[HTMLWorkspacePackageEntry.styleCSS],
+                name: HTMLWorkspacePackageEntry.styleCSS,
+                maxBytes: HTMLWorkspacePackageLimits.maxStyleCSSBytes
+            ),
             scriptJS: try Self.scriptString(from: children),
-            dataJSON: try Self.optionalString(from: children[HTMLWorkspacePackageEntry.dataJSON], name: HTMLWorkspacePackageEntry.dataJSON).nonEmptyJSONFallback,
-            assets: try Self.readChildren(from: children[HTMLWorkspacePackageEntry.assets]),
-            snapshots: try Self.readChildren(from: children[HTMLWorkspacePackageEntry.snapshots]),
+            dataJSON: try Self.optionalString(
+                from: children[HTMLWorkspacePackageEntry.dataJSON],
+                name: HTMLWorkspacePackageEntry.dataJSON,
+                maxBytes: HTMLWorkspacePackageLimits.maxDataJSONBytes
+            ).nonEmptyJSONFallback,
+            assets: try Self.readChildren(
+                from: children[HTMLWorkspacePackageEntry.assets],
+                folderName: HTMLWorkspacePackageEntry.assets,
+                maxCount: HTMLWorkspacePackageLimits.maxAssetCount,
+                maxFileBytes: HTMLWorkspacePackageLimits.maxAssetBytes,
+                maxTotalBytes: HTMLWorkspacePackageLimits.maxAssetsTotalBytes
+            ),
+            snapshots: try Self.readChildren(
+                from: children[HTMLWorkspacePackageEntry.snapshots],
+                folderName: HTMLWorkspacePackageEntry.snapshots,
+                maxCount: HTMLWorkspacePackageLimits.maxSnapshots,
+                maxFileBytes: HTMLWorkspacePackageLimits.maxSnapshotBytes,
+                maxTotalBytes: HTMLWorkspacePackageLimits.maxSnapshotsTotalBytes
+            ),
             consoleErrors: try Self.readConsoleErrors(from: children[HTMLWorkspacePackageEntry.consoleErrors], jsonDecoder: jsonDecoder)
         )
     }
 
-    nonisolated private static func fileWrappers(from files: [String: Data]) throws -> [String: FileWrapper] {
+    nonisolated private static func fileWrappers(
+        from files: [String: Data],
+        folderName: String,
+        maxCount: Int,
+        maxFileBytes: Int,
+        maxTotalBytes: Int
+    ) throws -> [String: FileWrapper] {
+        try validateFileCollection(
+            files,
+            folderName: folderName,
+            maxCount: maxCount,
+            maxFileBytes: maxFileBytes,
+            maxTotalBytes: maxTotalBytes
+        )
         var wrappers: [String: FileWrapper] = [:]
         for (name, data) in files {
-            try validatePackageFileName(name)
             wrappers[name] = FileWrapper(regularFileWithContents: data)
         }
         return wrappers
     }
 
-    nonisolated private static func readChildren(from wrapper: FileWrapper?) throws -> [String: Data] {
+    nonisolated private static func readChildren(
+        from wrapper: FileWrapper?,
+        folderName: String,
+        maxCount: Int,
+        maxFileBytes: Int,
+        maxTotalBytes: Int
+    ) throws -> [String: Data] {
         guard let wrapper, wrapper.isDirectory, let children = wrapper.fileWrappers else { return [:] }
+        guard children.count <= maxCount else {
+            throw HTMLWorkspacePackageError.packageLimitExceeded(reason: "\(folderName) count \(children.count) exceeds \(maxCount)")
+        }
         var result: [String: Data] = [:]
+        var totalBytes = 0
         for (name, child) in children {
             try validatePackageFileName(name)
-            if let data = child.regularFileContents {
-                result[name] = data
+            guard child.isRegularFile, let data = child.regularFileContents else {
+                throw HTMLWorkspacePackageError.invalidPackagePath(name: "\(folderName)/\(name)")
             }
+            try validateDataSize(data, maxBytes: maxFileBytes, name: "\(folderName)/\(name)")
+            totalBytes += data.count
+            guard totalBytes <= maxTotalBytes else {
+                throw HTMLWorkspacePackageError.packageLimitExceeded(reason: "\(folderName) total \(totalBytes) bytes exceeds \(maxTotalBytes)")
+            }
+            result[name] = data
         }
         return result
     }
@@ -582,33 +730,104 @@ extension HTMLWorkspacePackage {
 
     nonisolated private static func scriptString(from children: [String: FileWrapper]) throws -> String {
         if let wrapper = children[HTMLWorkspacePackageEntry.scriptJS] {
-            return try optionalString(from: wrapper, name: HTMLWorkspacePackageEntry.scriptJS)
+            return try optionalString(
+                from: wrapper,
+                name: HTMLWorkspacePackageEntry.scriptJS,
+                maxBytes: HTMLWorkspacePackageLimits.maxScriptJSBytes
+            )
         }
         return try optionalString(
             from: children[HTMLWorkspacePackageEntry.legacyScriptJS],
-            name: HTMLWorkspacePackageEntry.legacyScriptJS
+            name: HTMLWorkspacePackageEntry.legacyScriptJS,
+            maxBytes: HTMLWorkspacePackageLimits.maxScriptJSBytes
         )
     }
 
-    nonisolated private static func optionalString(from wrapper: FileWrapper?, name: String) throws -> String {
+    nonisolated private static func optionalString(
+        from wrapper: FileWrapper?,
+        name: String,
+        maxBytes: Int
+    ) throws -> String {
         guard let data = wrapper?.regularFileContents else { return "" }
-        return try string(from: data, name: name)
+        return try string(from: data, name: name, maxBytes: maxBytes)
     }
 
-    nonisolated private static func string(from data: Data, name: String) throws -> String {
+    nonisolated private static func string(from data: Data, name: String, maxBytes: Int) throws -> String {
+        try validateDataSize(data, maxBytes: maxBytes, name: name)
         guard let value = String(data: data, encoding: .utf8) else {
             throw HTMLWorkspacePackageError.malformedTextFile(name: name)
         }
         return value
     }
 
+    nonisolated static func validateAssets(_ files: [String: Data]) throws {
+        try validateFileCollection(
+            files,
+            folderName: HTMLWorkspacePackageEntry.assets,
+            maxCount: HTMLWorkspacePackageLimits.maxAssetCount,
+            maxFileBytes: HTMLWorkspacePackageLimits.maxAssetBytes,
+            maxTotalBytes: HTMLWorkspacePackageLimits.maxAssetsTotalBytes
+        )
+    }
+
+    nonisolated static func validateSnapshots(_ files: [String: Data]) throws {
+        try validateFileCollection(
+            files,
+            folderName: HTMLWorkspacePackageEntry.snapshots,
+            maxCount: HTMLWorkspacePackageLimits.maxSnapshots,
+            maxFileBytes: HTMLWorkspacePackageLimits.maxSnapshotBytes,
+            maxTotalBytes: HTMLWorkspacePackageLimits.maxSnapshotsTotalBytes
+        )
+    }
+
+    nonisolated private static func validateTextPayloads(
+        indexHTMLData: Data,
+        styleCSSData: Data,
+        scriptJSData: Data,
+        dataJSONData: Data
+    ) throws {
+        try validateDataSize(indexHTMLData, maxBytes: HTMLWorkspacePackageLimits.maxIndexHTMLBytes, name: HTMLWorkspacePackageEntry.indexHTML)
+        try validateDataSize(styleCSSData, maxBytes: HTMLWorkspacePackageLimits.maxStyleCSSBytes, name: HTMLWorkspacePackageEntry.styleCSS)
+        try validateDataSize(scriptJSData, maxBytes: HTMLWorkspacePackageLimits.maxScriptJSBytes, name: HTMLWorkspacePackageEntry.scriptJS)
+        try validateDataSize(dataJSONData, maxBytes: HTMLWorkspacePackageLimits.maxDataJSONBytes, name: HTMLWorkspacePackageEntry.dataJSON)
+    }
+
+    nonisolated private static func validateFileCollection(
+        _ files: [String: Data],
+        folderName: String,
+        maxCount: Int,
+        maxFileBytes: Int,
+        maxTotalBytes: Int
+    ) throws {
+        guard files.count <= maxCount else {
+            throw HTMLWorkspacePackageError.packageLimitExceeded(reason: "\(folderName) count \(files.count) exceeds \(maxCount)")
+        }
+        var totalBytes = 0
+        for (name, data) in files {
+            try validatePackageFileName(name)
+            try validateDataSize(data, maxBytes: maxFileBytes, name: "\(folderName)/\(name)")
+            totalBytes += data.count
+            guard totalBytes <= maxTotalBytes else {
+                throw HTMLWorkspacePackageError.packageLimitExceeded(reason: "\(folderName) total \(totalBytes) bytes exceeds \(maxTotalBytes)")
+            }
+        }
+    }
+
+    nonisolated private static func validateDataSize(_ data: Data, maxBytes: Int, name: String) throws {
+        guard data.count <= maxBytes else {
+            throw HTMLWorkspacePackageError.packageLimitExceeded(reason: "\(name) is \(data.count) bytes, max \(maxBytes)")
+        }
+    }
+
     nonisolated public static func validatePackageFileName(_ name: String) throws {
         guard !name.isEmpty,
               name != ".",
               name != "..",
+              !name.hasPrefix("."),
               !name.contains("/"),
               !name.contains("\\"),
-              !name.contains("\0") else {
+              !name.contains("\0"),
+              !name.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else {
             throw HTMLWorkspacePackageError.invalidPackagePath(name: name)
         }
     }
@@ -617,11 +836,12 @@ extension HTMLWorkspacePackage {
 nonisolated public enum HTMLWorkspacePreviewDocument {
     public static func render(
         package: HTMLWorkspacePackage,
-        theme: HTMLWorkspacePreviewTheme? = nil
+        theme: HTMLWorkspacePreviewTheme? = nil,
+        themeGuardCSSOverride: String? = nil
     ) -> String {
         let csp = package.manifest.sandboxPolicy.contentSecurityPolicy
         let themeAttribute = theme.map { #" data-epistemos-theme="\#($0.rawValue)""# } ?? ""
-        let themeCSS = theme?.guardCSS ?? HTMLWorkspacePreviewTheme.defaultGuardCSS
+        let themeCSS = themeGuardCSSOverride ?? theme?.guardCSS ?? HTMLWorkspacePreviewTheme.defaultGuardCSS
         return """
         <!doctype html>
         <html\(themeAttribute)>
@@ -850,10 +1070,12 @@ nonisolated public enum HTMLWorkspacePatchApplier {
         case .addAsset(let asset):
             try HTMLWorkspacePackage.validatePackageFileName(asset.name)
             updated.assets[asset.name] = asset.data
+            try HTMLWorkspacePackage.validateAssets(updated.assets)
         case .captureSnapshot(let name):
             try HTMLWorkspacePackage.validatePackageFileName(name)
             updated.snapshots[name] = Data(HTMLWorkspacePreviewDocument.render(package: updated).utf8)
             updated.snapshots = boundedSnapshots(updated.snapshots)
+            try HTMLWorkspacePackage.validateSnapshots(updated.snapshots)
         case .recordConsoleError(let error):
             updated.consoleErrors.append(error)
             updated.consoleErrors = Array(updated.consoleErrors.suffix(HTMLWorkspacePackageLimits.maxConsoleErrors))

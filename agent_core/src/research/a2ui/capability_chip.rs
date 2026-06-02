@@ -93,11 +93,14 @@ mod tests {
 
     #[test]
     fn three_distinct_tiers() {
-        let s: std::collections::HashSet<_> =
-            [CapabilityTier::Free, CapabilityTier::Pro, CapabilityTier::Research]
-                .iter()
-                .copied()
-                .collect();
+        let s: std::collections::HashSet<_> = [
+            CapabilityTier::Free,
+            CapabilityTier::Pro,
+            CapabilityTier::Research,
+        ]
+        .iter()
+        .copied()
+        .collect();
         assert_eq!(s.len(), 3);
     }
 
@@ -115,7 +118,10 @@ mod tests {
             tier: CapabilityTier::Free,
             enabled: true,
         };
-        assert_eq!(c.validate().unwrap_err(), CapabilityChipError::EmptyCapabilityName);
+        assert_eq!(
+            c.validate().unwrap_err(),
+            CapabilityChipError::EmptyCapabilityName
+        );
     }
 
     #[test]

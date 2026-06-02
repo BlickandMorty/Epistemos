@@ -1,0 +1,18 @@
+{
+  "schema_version": "provider_reference_manifest.v1",
+  "model_id": "shape-only-70b-reference-fixture",
+  "reference_kind": "local_fp16_replay",
+  "evidence_scope": "shape_only_fixture",
+  "artifact_ref": "artifacts/falsifiers/70b_local_cocktail_lite/provider_reference_manifest_dry_run/shape_only_reference.jsonl",
+  "artifact_sha256": "sha256:dc2bfbc33478b441417ed282c259deb5de3fd05bcbf403618e9fc274af699a79",
+  "prompt_suite_id": "shape_only_provider_reference_prompt_suite_v1",
+  "prompt_suite_artifact_ref": "artifacts/falsifiers/70b_local_cocktail_lite/provider_reference_manifest_dry_run/shape_only_prompt_suite.json",
+  "prompt_suite_artifact_sha256": "sha256:5892577b40c971665b0a251e1472d6f40d8f165ca6e1266f7fc15efd10e522a1",
+  "request_id_hash": null,
+  "redaction_digest": null,
+  "data_sent_class": "local_only",
+  "retention_claim": "local_file_only",
+  "replay_allowed": true,
+  "prompt_count": 1,
+  "notes": "shape-only retained fixture; not fp16/provider evidence"
+}

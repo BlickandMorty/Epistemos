@@ -9,7 +9,19 @@
 }
 
 @font-face {
+  font-family: "CoralPixels-Regular";
+  src: url("/CoralPixels-Regular.ttf") format("truetype");
+  font-display: swap;
+}
+
+@font-face {
   font-family: "Retro Gaming";
+  src: url("/RetroGaming.ttf") format("truetype");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "RetroGaming";
   src: url("/RetroGaming.ttf") format("truetype");
   font-display: swap;
 }
@@ -26,13 +38,52 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "MatrixTypeDisplay-Regular";
+  src: url("/MatrixtypeDisplay-9MyE5.ttf") format("truetype");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "MatrixTypeDisplay-Bold";
+  src: url("/MatrixTypeDisplay-Bold.otf") format("opentype");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "MatrixDotsDemoRegular";
+  src: url("/MatrixDotsDemoRegular.ttf") format("truetype");
+  font-display: swap;
+}
+
+@font-face { font-family: "ReturnOfGanonReg"; src: url("/ReturnOfGanonReg.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Charybdis"; src: url("/Charybdis.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "VTFMisterPixel"; src: url("/VTFMisterPixel.otf") format("opentype"); font-display: swap; }
+@font-face { font-family: "VTFMisterPixel-Tools"; src: url("/VTFMisterPixel-Tools.otf") format("opentype"); font-display: swap; }
+@font-face { font-family: "AtlantisHeadline-Bold"; src: url("/AtlantisHeadline-Bold.otf") format("opentype"); font-display: swap; }
+@font-face { font-family: "AtlantisText-Regular"; src: url("/AtlantisText-Regular.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "AtlantisText-Bold"; src: url("/AtlantisText-Bold.otf") format("opentype"); font-display: swap; }
+@font-face { font-family: "Atlantis-RegularSmallCaps"; src: url("/Atlantis-RegularSmallCaps.otf") format("opentype"); font-display: swap; }
+@font-face { font-family: "LunchtimeDoublySoReg"; src: url("/LunchtimeDoublySoReg.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "DisposableDroidBB"; src: url("/DisposableDroidBB.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "DisposableDroidBB-Bold"; src: url("/DisposableDroidBB-Bold.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "DisposableDroidBB-Italic"; src: url("/DisposableDroidBB-Italic.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "DisposableDroidBB-BoldItalic"; src: url("/DisposableDroidBB-BoldItalic.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "EXEPixelPerfect"; src: url("/EXEPixelPerfect.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Delicatus"; src: url("/Delicatus.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "LEDDisplay7"; src: url("/LEDDisplay7.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "GNF"; src: url("/GNF.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "Coder's-Crux"; src: url("/CodersCrux.ttf") format("truetype"); font-display: swap; }
+
 :root {
   --epdoc-page-padding: 34px 56px 64px;
   --epdoc-content-max-width: 820px;
-  /* Swift injects --epdoc-display-font per theme (Classic → Retro Gaming,
-   * Platinum → MatrixTypeDisplay, Ember → ChonkyPixels). This default is
-   * a fallback used only if the Swift theme injection fails to run. */
-  --epdoc-display-font: "Retro Gaming", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  /* Swift injects --epdoc-display-font and per-level heading fonts.
+   * These defaults are fallbacks used only if theme injection fails. */
+  --epdoc-display-font: "MatrixTypeDisplay", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  --epdoc-h1-font: var(--epdoc-display-font);
+  --epdoc-h2-font: "ChonkyPixels", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  --epdoc-h3-font: "ChonkyPixels", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
   --epdoc-h1-size: 59px;
   --epdoc-h2-size: 31px;
   --epdoc-h3-size: 19px;
@@ -75,7 +126,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --epdoc-display-font: "Retro Gaming", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+    --epdoc-display-font: "MatrixTypeDisplay", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
     --epdoc-text-color: #f5f5f7;
     --epdoc-bg: transparent;
     --epdoc-muted: #a1a1aa;
@@ -131,13 +182,8 @@ html, body {
   margin-top: 0.75em;
 }
 
-.ProseMirror h1,
-.ProseMirror h2,
-.ProseMirror h3 {
-  font-family: var(--epdoc-display-font);
-}
-
 .ProseMirror h1 {
+  font-family: var(--epdoc-h1-font);
   font-size: var(--epdoc-h1-size);
   font-weight: 700;
   line-height: 1.08;
@@ -146,6 +192,7 @@ html, body {
 }
 
 .ProseMirror h2 {
+  font-family: var(--epdoc-h2-font);
   font-size: var(--epdoc-h2-size);
   font-weight: 800;
   line-height: 1.18;
@@ -153,7 +200,7 @@ html, body {
   letter-spacing: 0;
 }
 
-.ProseMirror h3 { font-size: var(--epdoc-h3-size); font-weight: 600; margin-top: 1.2em; }
+.ProseMirror h3 { font-family: var(--epdoc-h3-font); font-size: var(--epdoc-h3-size); font-weight: 600; margin-top: 1.2em; }
 .ProseMirror h4 { font-size: 1.1em; font-weight: 600; }
 .ProseMirror h5 { font-size: 1.0em; font-weight: 600; text-transform: uppercase; letter-spacing: 0; }
 .ProseMirror h6 { font-size: 0.9em; font-weight: 600; color: var(--epdoc-muted); }

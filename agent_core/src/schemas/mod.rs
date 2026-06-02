@@ -129,7 +129,9 @@ pub fn validate_epistemos_payload(
     // Pre-flight: surface a clear error if `schema_rev` is missing or
     // not a string, before serde's "missing field" message kicks in
     // (which is far less actionable for an end-user).
-    let rev_value = value.get("schema_rev").ok_or(SchemaValidationError::MissingSchemaRev)?;
+    let rev_value = value
+        .get("schema_rev")
+        .ok_or(SchemaValidationError::MissingSchemaRev)?;
     let rev_str = rev_value
         .as_str()
         .ok_or(SchemaValidationError::SchemaRevNotString)?;
@@ -189,10 +191,7 @@ pub enum SchemaValidationError {
     #[error("deserialization failed: {0}")]
     Deserialize(String),
     #[error("field `{field}` has value `{value}` which does not match the 12-char lowercase-alphanumeric id pattern `^[a-z0-9]{{12}}$`")]
-    InvalidIdPattern {
-        field: &'static str,
-        value: String,
-    },
+    InvalidIdPattern { field: &'static str, value: String },
 }
 
 // ---------------------------------------------------------------------
@@ -534,7 +533,10 @@ mod tests {
         let mut v = good_soul_json();
         v["schema_rev"] = Value::String("epistemos.soul.v999".to_string());
         let err = validate_epistemos_payload(&v).expect_err("must reject unknown rev");
-        assert!(matches!(err, SchemaValidationError::UnknownSchemaRev { .. }));
+        assert!(matches!(
+            err,
+            SchemaValidationError::UnknownSchemaRev { .. }
+        ));
     }
 
     #[test]
@@ -570,36 +572,55 @@ mod tests {
 
         // Accept: exactly 12 chars, lowercase alphanumeric.
         assert!(validate_id("test", "abcdef012345").is_ok());
-        assert!(validate_id("test", "000000000000").is_ok(),
-                "all digits is valid");
-        assert!(validate_id("test", "abcdefghijkl").is_ok(),
-                "all lowercase letters is valid");
+        assert!(
+            validate_id("test", "000000000000").is_ok(),
+            "all digits is valid"
+        );
+        assert!(
+            validate_id("test", "abcdefghijkl").is_ok(),
+            "all lowercase letters is valid"
+        );
 
         // Reject: wrong length.
-        assert!(validate_id("test", "abcdef01234").is_err(),
-                "11 chars must reject (one too short)");
-        assert!(validate_id("test", "abcdef0123456").is_err(),
-                "13 chars must reject (one too long)");
-        assert!(validate_id("test", "").is_err(),
-                "empty string must reject");
+        assert!(
+            validate_id("test", "abcdef01234").is_err(),
+            "11 chars must reject (one too short)"
+        );
+        assert!(
+            validate_id("test", "abcdef0123456").is_err(),
+            "13 chars must reject (one too long)"
+        );
+        assert!(validate_id("test", "").is_err(), "empty string must reject");
 
         // Reject: wrong character class.
-        assert!(validate_id("test", "ABCDEF012345").is_err(),
-                "uppercase must reject ([a-z0-9] only)");
-        assert!(validate_id("test", "abc-def01234").is_err(),
-                "hyphen must reject");
-        assert!(validate_id("test", "abc_def01234").is_err(),
-                "underscore must reject");
-        assert!(validate_id("test", "abc def01234").is_err(),
-                "space must reject");
+        assert!(
+            validate_id("test", "ABCDEF012345").is_err(),
+            "uppercase must reject ([a-z0-9] only)"
+        );
+        assert!(
+            validate_id("test", "abc-def01234").is_err(),
+            "hyphen must reject"
+        );
+        assert!(
+            validate_id("test", "abc_def01234").is_err(),
+            "underscore must reject"
+        );
+        assert!(
+            validate_id("test", "abc def01234").is_err(),
+            "space must reject"
+        );
 
         // Confirm `ID_PATTERN_STR` is anchored — partial-match strings
         // would silently leak through if the `^...$` anchors were
         // dropped.
-        assert!(validate_id("test", "prefix_abcdef012345").is_err(),
-                "prefixed valid 12-char substring must reject");
-        assert!(validate_id("test", "abcdef012345_suffix").is_err(),
-                "suffixed valid 12-char substring must reject");
+        assert!(
+            validate_id("test", "prefix_abcdef012345").is_err(),
+            "prefixed valid 12-char substring must reject"
+        );
+        assert!(
+            validate_id("test", "abcdef012345_suffix").is_err(),
+            "suffixed valid 12-char substring must reject"
+        );
     }
 
     #[test]
@@ -658,7 +679,9 @@ mod tests {
             } else {
                 panic!("expected code body");
             }
-            assert!(s.requires_capabilities.contains(&SkillCapability::VaultRead));
+            assert!(s
+                .requires_capabilities
+                .contains(&SkillCapability::VaultRead));
         } else {
             panic!("expected Skill variant");
         }
@@ -683,8 +706,8 @@ mod tests {
             },
             "created_at": "2026-05-15T00:00:00Z"
         });
-        let err = validate_epistemos_payload(&missing_type)
-            .expect_err("inputs[i] must have `type`");
+        let err =
+            validate_epistemos_payload(&missing_type).expect_err("inputs[i] must have `type`");
         assert!(
             matches!(err, SchemaValidationError::Deserialize(_)),
             "missing `type` must surface as Deserialize, got: {err:?}"
@@ -703,8 +726,8 @@ mod tests {
             },
             "created_at": "2026-05-15T00:00:00Z"
         });
-        let err = validate_epistemos_payload(&missing_name)
-            .expect_err("inputs[i] must have `name`");
+        let err =
+            validate_epistemos_payload(&missing_name).expect_err("inputs[i] must have `name`");
         assert!(matches!(err, SchemaValidationError::Deserialize(_)));
 
         // Well-formed input — with an extra field — round-trips losslessly.
@@ -848,8 +871,7 @@ mod tests {
             // matches the canonical literal.
             let encoded = serde_json::to_string(&rev).expect("encode rev");
             assert_eq!(encoded, format!("\"{canonical}\""));
-            let decoded: EpistemosSchemaRev =
-                serde_json::from_str(&encoded).expect("decode rev");
+            let decoded: EpistemosSchemaRev = serde_json::from_str(&encoded).expect("decode rev");
             assert_eq!(decoded, rev);
         }
 

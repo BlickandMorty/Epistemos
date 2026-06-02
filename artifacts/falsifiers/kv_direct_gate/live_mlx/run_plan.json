@@ -1,0 +1,11 @@
+{
+  "allow_full_suite": false,
+  "context_window_tokens": 512,
+  "decode_tokens_per_prompt": 1,
+  "model_path": "/Users/jojo/Library/Application Support/Epistemos/Models/text/hub/models--Qwen--Qwen3-8B-MLX-4bit/snapshots/383413e909f3bc5303ce195ebbdf0339c5a1a2a3",
+  "output_dir": "/Users/jojo/Downloads/Epistemos/artifacts/falsifiers/kv_direct_gate/live_mlx",
+  "prompt_count": 1,
+  "prompt_suite": "/Users/jojo/Downloads/Epistemos/artifacts/falsifiers/kv_direct_gate/prompt_suite.json",
+  "test_route": "prompt_cache_reload",
+  "will_satisfy_shape_floor": false
+}

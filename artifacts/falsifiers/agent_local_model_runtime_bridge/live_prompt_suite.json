@@ -1,0 +1,14 @@
+{
+  "answer_packet_id" : "system-g-local-m-live-system-g-local-278488D1-8B51-4CAC-BF45-9B483489253B",
+  "answerpacket_local_model_provenance_seen" : true,
+  "elapsed_ms" : 2435,
+  "generated_at_unix_ms" : 1780063041555,
+  "mission_id" : "m-live-system-g-local-278488D1-8B51-4CAC-BF45-9B483489253B",
+  "model_id" : "Qwen/Qwen3-8B-MLX-4bit",
+  "overall_pass" : true,
+  "prompt_count" : 1,
+  "run_id" : "75856f01-b705-45ca-97b4-34e409bc391c",
+  "system_g_local_model_handoff_seen" : true,
+  "token_chunk_count" : 10,
+  "total_output_chars" : 41
+}

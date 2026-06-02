@@ -135,7 +135,11 @@ enum UtilityPanel: String, CaseIterable {
     }
 
     var maximumSize: NSSize? {
-        nil
+        switch self {
+        case .notes: NSSize(width: 520, height: 720)
+        case .omega: nil
+        case .settings: NSSize(width: 1040, height: 760)
+        }
     }
 
     var usesFullWindow: Bool { false }
@@ -329,10 +333,11 @@ final class UtilityWindowManager {
         if let bootstrap = AppBootstrap.shared {
             let view = contentView(for: kind, bootstrap: bootstrap)
             let host = NSHostingView(rootView: view)
-            // Notes has an unbounded tree and must not let SwiftUI content
-            // become the panel's minimum size. The other utilities keep their
-            // source-list minimum sizing.
-            if kind == .notes {
+            // Notes and Settings both contain long, scrollable source-list
+            // surfaces. Do not let SwiftUI's full content height become the
+            // NSPanel minimum size; the explicit UtilityPanel min/default
+            // sizes are the window contract.
+            if kind == .notes || kind == .settings {
                 host.sizingOptions = []
             } else {
                 host.sizingOptions = .minSize

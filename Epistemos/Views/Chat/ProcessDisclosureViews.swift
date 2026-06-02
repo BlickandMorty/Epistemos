@@ -2,6 +2,7 @@ import SwiftUI
 
 enum ProcessDisclosureTone {
     case tool
+    case evidence
     case thinking
     case write
     case success
@@ -12,6 +13,8 @@ enum ProcessDisclosureTone {
         switch self {
         case .tool:
             return theme.resolved.accent.color
+        case .evidence:
+            return theme.isDark ? Color(red: 0.42, green: 0.86, blue: 0.72) : Color(red: 0.00, green: 0.50, blue: 0.42)
         case .thinking:
             return theme.isDark ? Color(red: 0.76, green: 0.68, blue: 0.98) : Color(red: 0.42, green: 0.32, blue: 0.76)
         case .write:

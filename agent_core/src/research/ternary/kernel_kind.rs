@@ -89,7 +89,10 @@ impl TernaryKernelKind {
     }
 
     pub const fn is_on_decode_hot_path(self) -> bool {
-        matches!(self.priority(), DecodePriority::Critical | DecodePriority::Conditional)
+        matches!(
+            self.priority(),
+            DecodePriority::Critical | DecodePriority::Conditional
+        )
     }
 
     /// Reverse lookup for [`Self::code`]. `None` for unknown codes.
@@ -213,13 +216,22 @@ mod tests {
 
     #[test]
     fn conditional_kernels_are_steering_and_activation_tap() {
-        assert_eq!(TernaryKernelKind::Steering.priority(), DecodePriority::Conditional);
-        assert_eq!(TernaryKernelKind::ActivationTap.priority(), DecodePriority::Conditional);
+        assert_eq!(
+            TernaryKernelKind::Steering.priority(),
+            DecodePriority::Conditional
+        );
+        assert_eq!(
+            TernaryKernelKind::ActivationTap.priority(),
+            DecodePriority::Conditional
+        );
     }
 
     #[test]
     fn kv_fingerprint_is_non_decode() {
-        assert_eq!(TernaryKernelKind::KvFingerprint.priority(), DecodePriority::NonDecode);
+        assert_eq!(
+            TernaryKernelKind::KvFingerprint.priority(),
+            DecodePriority::NonDecode
+        );
     }
 
     #[test]

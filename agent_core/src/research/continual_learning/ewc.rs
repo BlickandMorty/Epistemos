@@ -57,10 +57,7 @@ pub enum EwcError {
     /// `lambda` was negative. EWC's λ must be ≥ 0 (0 disables the term).
     NegativeLambda { lambda: f32 },
     /// `gradient_out.len()` did not match `current_params.len()`.
-    GradientOutLengthMismatch {
-        current_len: usize,
-        out_len: usize,
-    },
+    GradientOutLengthMismatch { current_len: usize, out_len: usize },
 }
 
 impl EwcError {
@@ -112,7 +109,9 @@ impl EwcAnchor {
 
 fn validate_anchor(anchor: &EwcAnchor, current_len: usize) -> Result<(), EwcError> {
     if anchor.lambda < 0.0 {
-        return Err(EwcError::NegativeLambda { lambda: anchor.lambda });
+        return Err(EwcError::NegativeLambda {
+            lambda: anchor.lambda,
+        });
     }
     if anchor.anchor_params.len() != current_len {
         return Err(EwcError::ParamLengthMismatch {
@@ -196,10 +195,13 @@ impl FisherInfo {
     /// Maximum diagonal value (most-protected parameter's Fisher).
     /// Returns `None` if the diagonal is empty.
     pub fn max(&self) -> Option<f32> {
-        self.diagonal.iter().copied().fold(None, |acc, v| match acc {
-            None => Some(v),
-            Some(a) => Some(if v > a { v } else { a }),
-        })
+        self.diagonal
+            .iter()
+            .copied()
+            .fold(None, |acc, v| match acc {
+                None => Some(v),
+                Some(a) => Some(if v > a { v } else { a }),
+            })
     }
 
     /// Arithmetic mean of the diagonal. Returns `None` on empty.
@@ -221,10 +223,13 @@ impl FisherInfo {
 
     /// Minimum diagonal value. Returns `None` on empty.
     pub fn min(&self) -> Option<f32> {
-        self.diagonal.iter().copied().fold(None, |acc, v| match acc {
-            None => Some(v),
-            Some(a) => Some(if v < a { v } else { a }),
-        })
+        self.diagonal
+            .iter()
+            .copied()
+            .fold(None, |acc, v| match acc {
+                None => Some(v),
+                Some(a) => Some(if v < a { v } else { a }),
+            })
     }
 
     /// Sum of the diagonal. Useful for normalization (e.g.
@@ -332,7 +337,10 @@ mod tests {
         let err = ewc_penalty(&[1.0], &a).unwrap_err();
         assert_eq!(
             err,
-            EwcError::ParamLengthMismatch { anchor_len: 2, current_len: 1 }
+            EwcError::ParamLengthMismatch {
+                anchor_len: 2,
+                current_len: 1
+            }
         );
     }
 
@@ -342,7 +350,10 @@ mod tests {
         let err = ewc_penalty(&[1.0, 1.0], &a).unwrap_err();
         assert_eq!(
             err,
-            EwcError::FisherLengthMismatch { fisher_len: 1, anchor_len: 2 }
+            EwcError::FisherLengthMismatch {
+                fisher_len: 1,
+                anchor_len: 2
+            }
         );
     }
 
@@ -357,11 +368,13 @@ mod tests {
     fn gradient_out_length_mismatch_errors() {
         let a = anchor(vec![0.0, 0.0], vec![1.0, 1.0], 1.0);
         let mut grad = vec![0.0_f32];
-        let err =
-            ewc_gradient_contribution(&[1.0, 1.0], &a, &mut grad).unwrap_err();
+        let err = ewc_gradient_contribution(&[1.0, 1.0], &a, &mut grad).unwrap_err();
         assert_eq!(
             err,
-            EwcError::GradientOutLengthMismatch { current_len: 2, out_len: 1 }
+            EwcError::GradientOutLengthMismatch {
+                current_len: 2,
+                out_len: 1
+            }
         );
     }
 
@@ -392,7 +405,7 @@ mod tests {
         let a1 = anchor(vec![0.0, 0.0], vec![1.0, 1.0], 2.0);
         let a2 = anchor(vec![0.0, 0.0], vec![1.0, 1.0], 2.0);
         let current = vec![1.0, 1.0]; // distance² per param = 1
-        // Each anchor contributes 0.5 * 2 * (1*1 + 1*1) = 2. Total 4.
+                                      // Each anchor contributes 0.5 * 2 * (1*1 + 1*1) = 2. Total 4.
         let total = multi_anchor_penalty(&current, &[a1, a2]).unwrap();
         assert!((total - 4.0).abs() < 1e-6);
     }
@@ -429,7 +442,9 @@ mod tests {
 
     #[test]
     fn fisher_max_returns_largest() {
-        let f = FisherInfo { diagonal: vec![0.5, 2.0, 1.5] };
+        let f = FisherInfo {
+            diagonal: vec![0.5, 2.0, 1.5],
+        };
         assert!((f.max().unwrap() - 2.0).abs() < 1e-6);
     }
 
@@ -441,7 +456,9 @@ mod tests {
 
     #[test]
     fn fisher_mean_arithmetic_average() {
-        let f = FisherInfo { diagonal: vec![1.0, 2.0, 3.0, 4.0] };
+        let f = FisherInfo {
+            diagonal: vec![1.0, 2.0, 3.0, 4.0],
+        };
         assert!((f.mean().unwrap() - 2.5).abs() < 1e-6);
     }
 
@@ -453,7 +470,9 @@ mod tests {
 
     #[test]
     fn fisher_count_above_threshold() {
-        let f = FisherInfo { diagonal: vec![0.1, 0.5, 1.0, 2.0, 3.0] };
+        let f = FisherInfo {
+            diagonal: vec![0.1, 0.5, 1.0, 2.0, 3.0],
+        };
         assert_eq!(f.count_above(1.0), 3); // 1.0, 2.0, 3.0
         assert_eq!(f.count_above(2.0), 2); // 2.0, 3.0
         assert_eq!(f.count_above(10.0), 0);
@@ -471,10 +490,19 @@ mod tests {
     #[test]
     fn error_cause_distinct_per_variant() {
         let variants = [
-            EwcError::ParamLengthMismatch { anchor_len: 1, current_len: 2 },
-            EwcError::FisherLengthMismatch { fisher_len: 1, anchor_len: 2 },
+            EwcError::ParamLengthMismatch {
+                anchor_len: 1,
+                current_len: 2,
+            },
+            EwcError::FisherLengthMismatch {
+                fisher_len: 1,
+                anchor_len: 2,
+            },
             EwcError::NegativeLambda { lambda: -1.0 },
-            EwcError::GradientOutLengthMismatch { current_len: 1, out_len: 2 },
+            EwcError::GradientOutLengthMismatch {
+                current_len: 1,
+                out_len: 2,
+            },
         ];
         let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
         assert_eq!(causes.len(), 4);
@@ -483,17 +511,29 @@ mod tests {
     #[test]
     fn error_classifiers_partition() {
         let variants = [
-            EwcError::ParamLengthMismatch { anchor_len: 1, current_len: 2 },
-            EwcError::FisherLengthMismatch { fisher_len: 1, anchor_len: 2 },
+            EwcError::ParamLengthMismatch {
+                anchor_len: 1,
+                current_len: 2,
+            },
+            EwcError::FisherLengthMismatch {
+                fisher_len: 1,
+                anchor_len: 2,
+            },
             EwcError::NegativeLambda { lambda: -1.0 },
-            EwcError::GradientOutLengthMismatch { current_len: 1, out_len: 2 },
+            EwcError::GradientOutLengthMismatch {
+                current_len: 1,
+                out_len: 2,
+            },
         ];
         // Cross-surface invariant: is_length_error XOR is_hyperparam_error.
         for e in variants {
             assert_ne!(e.is_length_error(), e.is_hyperparam_error());
         }
         assert_eq!(variants.iter().filter(|e| e.is_length_error()).count(), 3);
-        assert_eq!(variants.iter().filter(|e| e.is_hyperparam_error()).count(), 1);
+        assert_eq!(
+            variants.iter().filter(|e| e.is_hyperparam_error()).count(),
+            1
+        );
     }
 
     #[test]
@@ -515,7 +555,9 @@ mod tests {
 
     #[test]
     fn fisher_min_returns_smallest() {
-        let f = FisherInfo { diagonal: vec![2.0, 0.5, 1.5] };
+        let f = FisherInfo {
+            diagonal: vec![2.0, 0.5, 1.5],
+        };
         assert!((f.min().unwrap() - 0.5).abs() < 1e-6);
     }
 
@@ -530,7 +572,11 @@ mod tests {
         // Cross-surface invariant: max ≥ mean ≥ min for non-empty Fisher
         // diagonals with non-negative entries (the only physically
         // meaningful case).
-        for diag in [vec![1.0_f32, 2.0, 3.0, 4.0], vec![0.5], vec![10.0, 0.1, 5.0]] {
+        for diag in [
+            vec![1.0_f32, 2.0, 3.0, 4.0],
+            vec![0.5],
+            vec![10.0, 0.1, 5.0],
+        ] {
             let f = FisherInfo { diagonal: diag };
             assert!(f.max().unwrap() >= f.mean().unwrap());
             assert!(f.mean().unwrap() >= f.min().unwrap());
@@ -540,7 +586,9 @@ mod tests {
     #[test]
     fn fisher_sum_consistent_with_mean() {
         // Cross-surface invariant: sum = mean × len for non-empty.
-        let f = FisherInfo { diagonal: vec![1.0, 2.0, 3.0, 4.0] };
+        let f = FisherInfo {
+            diagonal: vec![1.0, 2.0, 3.0, 4.0],
+        };
         assert!((f.sum() - f.mean().unwrap() * f.len() as f32).abs() < 1e-6);
     }
 
@@ -549,7 +597,9 @@ mod tests {
         let empty = FisherInfo { diagonal: vec![] };
         assert!(empty.is_empty());
         assert_eq!(empty.len(), 0);
-        let full = FisherInfo { diagonal: vec![1.0; 5] };
+        let full = FisherInfo {
+            diagonal: vec![1.0; 5],
+        };
         assert!(!full.is_empty());
         assert_eq!(full.len(), 5);
     }

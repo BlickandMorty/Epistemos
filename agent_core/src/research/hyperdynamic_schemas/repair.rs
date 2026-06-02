@@ -73,11 +73,17 @@ pub struct FieldSchema {
 
 impl FieldSchema {
     pub fn strict(t: FieldType) -> Self {
-        Self { allowed_types: vec![t], required: true }
+        Self {
+            allowed_types: vec![t],
+            required: true,
+        }
     }
 
     pub fn optional(t: FieldType) -> Self {
-        Self { allowed_types: vec![t], required: false }
+        Self {
+            allowed_types: vec![t],
+            required: false,
+        }
     }
 
     fn accepts(&self, t: FieldType) -> bool {
@@ -105,7 +111,9 @@ pub struct Schema {
 
 impl Schema {
     pub fn new() -> Self {
-        Self { fields: BTreeMap::new() }
+        Self {
+            fields: BTreeMap::new(),
+        }
     }
 
     pub fn with(mut self, name: &str, schema: FieldSchema) -> Self {
@@ -188,8 +196,11 @@ pub enum RepairPolicy {
 }
 
 impl RepairPolicy {
-    pub const ALL: [RepairPolicy; 3] =
-        [RepairPolicy::NoRepair, RepairPolicy::Conservative, RepairPolicy::Permissive];
+    pub const ALL: [RepairPolicy; 3] = [
+        RepairPolicy::NoRepair,
+        RepairPolicy::Conservative,
+        RepairPolicy::Permissive,
+    ];
 
     pub const fn code(self) -> &'static str {
         match self {
@@ -235,18 +246,13 @@ pub enum SchemaError {
 
 /// Validate a value (as a flat `BTreeMap<String, Value>`) against the
 /// schema. Returns all errors found (does not stop at the first).
-pub fn validate_value(
-    schema: &Schema,
-    value: &BTreeMap<String, Value>,
-) -> Vec<ValidationError> {
+pub fn validate_value(schema: &Schema, value: &BTreeMap<String, Value>) -> Vec<ValidationError> {
     let mut errors = Vec::new();
     for (name, fs) in &schema.fields {
         match value.get(name) {
             None => {
                 if fs.required {
-                    errors.push(ValidationError::MissingRequiredField {
-                        name: name.clone(),
-                    });
+                    errors.push(ValidationError::MissingRequiredField { name: name.clone() });
                 }
             }
             Some(v) => {
@@ -291,11 +297,14 @@ pub fn repair_schema(
         return Err(SchemaError::NoErrorsToRepair);
     }
     if policy == RepairPolicy::NoRepair {
-        return Ok((schema.clone(), RepairReport {
-            widened_types: vec![],
-            added_optional_fields: vec![],
-            downgraded_required: vec![],
-        }));
+        return Ok((
+            schema.clone(),
+            RepairReport {
+                widened_types: vec![],
+                added_optional_fields: vec![],
+                downgraded_required: vec![],
+            },
+        ));
     }
     let mut new_schema = schema.clone();
     let mut report = RepairReport {
@@ -316,10 +325,9 @@ pub fn repair_schema(
             }
             ValidationError::UnknownField { name, actual } => {
                 if !new_schema.fields.contains_key(name) {
-                    new_schema.fields.insert(
-                        name.clone(),
-                        FieldSchema::optional(*actual),
-                    );
+                    new_schema
+                        .fields
+                        .insert(name.clone(), FieldSchema::optional(*actual));
                     report.added_optional_fields.push((name.clone(), *actual));
                 }
             }
@@ -343,7 +351,10 @@ mod tests {
     use super::*;
 
     fn value(pairs: &[(&str, Value)]) -> BTreeMap<String, Value> {
-        pairs.iter().map(|(k, v)| ((*k).to_string(), v.clone())).collect()
+        pairs
+            .iter()
+            .map(|(k, v)| ((*k).to_string(), v.clone()))
+            .collect()
     }
 
     #[test]
@@ -367,7 +378,11 @@ mod tests {
         let errs = validate_value(&s, &v);
         assert_eq!(errs.len(), 1);
         match &errs[0] {
-            ValidationError::TypeMismatch { name, expected, actual } => {
+            ValidationError::TypeMismatch {
+                name,
+                expected,
+                actual,
+            } => {
                 assert_eq!(name, "age");
                 assert_eq!(expected, &vec![FieldType::Integer]);
                 assert_eq!(*actual, FieldType::Float);
@@ -383,7 +398,9 @@ mod tests {
         let errs = validate_value(&s, &v);
         assert_eq!(
             errs,
-            vec![ValidationError::MissingRequiredField { name: "name".to_string() }]
+            vec![ValidationError::MissingRequiredField {
+                name: "name".to_string()
+            }]
         );
     }
 
@@ -412,7 +429,10 @@ mod tests {
         let errs = validate_value(&s, &v);
         let (s2, report) = repair_schema(&s, &errs, RepairPolicy::Conservative).unwrap();
         assert!(validate_value(&s2, &v).is_empty());
-        assert_eq!(report.widened_types, vec![("age".to_string(), FieldType::Float)]);
+        assert_eq!(
+            report.widened_types,
+            vec![("age".to_string(), FieldType::Float)]
+        );
     }
 
     #[test]
@@ -428,7 +448,10 @@ mod tests {
     #[test]
     fn conservative_repair_adds_optional_field() {
         let s = Schema::new().with("age", FieldSchema::strict(FieldType::Integer));
-        let v = value(&[("age", Value::Integer(1)), ("nickname", Value::String("ace".into()))]);
+        let v = value(&[
+            ("age", Value::Integer(1)),
+            ("nickname", Value::String("ace".into())),
+        ]);
         let errs = validate_value(&s, &v);
         let (s2, report) = repair_schema(&s, &errs, RepairPolicy::Conservative).unwrap();
         assert!(validate_value(&s2, &v).is_empty());
@@ -523,13 +546,20 @@ mod tests {
                 expected: vec![FieldType::Integer],
                 actual: FieldType::String,
             },
-            ValidationError::UnknownField { name: "c".into(), actual: FieldType::Bool },
+            ValidationError::UnknownField {
+                name: "c".into(),
+                actual: FieldType::Bool,
+            },
         ];
         let kinds: std::collections::HashSet<_> = variants.iter().map(|e| e.kind()).collect();
         assert_eq!(kinds.len(), 3);
         // Cross-surface invariant: 3-way classifier partition.
         for e in &variants {
-            let trio = [e.is_missing_required(), e.is_type_mismatch(), e.is_unknown_field()];
+            let trio = [
+                e.is_missing_required(),
+                e.is_type_mismatch(),
+                e.is_unknown_field(),
+            ];
             assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", e);
         }
         // field_name extracts correctly.
@@ -596,7 +626,8 @@ mod tests {
         let s = Schema::new();
         assert!(s.is_empty());
         assert_eq!(s.field_count(), 0);
-        let s = s.with("a", FieldSchema::strict(FieldType::Integer))
+        let s = s
+            .with("a", FieldSchema::strict(FieldType::Integer))
             .with("b", FieldSchema::optional(FieldType::String));
         assert!(!s.is_empty());
         assert_eq!(s.field_count(), 2);
@@ -626,7 +657,10 @@ mod tests {
         // Cross-surface: an active policy with applicable errors
         // yields a non-empty report.
         let s = Schema::new().with("age", FieldSchema::strict(FieldType::Integer));
-        let v = value(&[("age", Value::Float(1.5)), ("nick", Value::String("a".into()))]);
+        let v = value(&[
+            ("age", Value::Float(1.5)),
+            ("nick", Value::String("a".into())),
+        ]);
         let errs = validate_value(&s, &v);
         let (_, report) = repair_schema(&s, &errs, RepairPolicy::Conservative).unwrap();
         assert!(!report.is_empty());

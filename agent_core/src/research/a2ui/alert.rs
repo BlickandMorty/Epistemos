@@ -139,7 +139,10 @@ mod tests {
     use super::*;
 
     fn action(k: &str) -> AlertAction {
-        AlertAction { key: k.into(), label: k.into() }
+        AlertAction {
+            key: k.into(),
+            label: k.into(),
+        }
     }
 
     #[test]
@@ -183,7 +186,10 @@ mod tests {
             body: "y".into(),
             actions: vec![action("")],
         };
-        assert!(matches!(a.validate().unwrap_err(), AlertError::EmptyActionKey { .. }));
+        assert!(matches!(
+            a.validate().unwrap_err(),
+            AlertError::EmptyActionKey { .. }
+        ));
     }
 
     #[test]

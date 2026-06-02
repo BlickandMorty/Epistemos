@@ -132,11 +132,7 @@ impl EidosRetriever for InMemorySemanticIndex {
         &self.manifest_id
     }
 
-    fn retrieve(
-        &self,
-        query: &EidosQuery,
-        retrieved_at_unix_ms: u64,
-    ) -> EidosContextPacket {
+    fn retrieve(&self, query: &EidosQuery, retrieved_at_unix_ms: u64) -> EidosContextPacket {
         // Semantic retrieval is gated on a query vector. Missing vector,
         // dimension mismatch, or zero-norm query → deterministic empty
         // packet (no panic, no implicit fallback to lexical).
@@ -234,9 +230,12 @@ mod tests {
         // values are 1.0 for the matching axis and 0.0 elsewhere, so
         // ranking is unambiguous and the closed-citation contract is
         // trivially verifiable.
-        idx.insert(doc("x"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note).unwrap();
-        idx.insert(doc("y"), vec![0.0, 1.0, 0.0], EidosSourceKind::Note).unwrap();
-        idx.insert(doc("z"), vec![0.0, 0.0, 1.0], EidosSourceKind::Note).unwrap();
+        idx.insert(doc("x"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
+        idx.insert(doc("y"), vec![0.0, 1.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
+        idx.insert(doc("z"), vec![0.0, 0.0, 1.0], EidosSourceKind::Note)
+            .unwrap();
         idx
     }
 
@@ -251,12 +250,8 @@ mod tests {
     #[test]
     fn dimension_mismatch_on_query_returns_empty_packet() {
         let idx = build_3d();
-        let query = EidosQuery::with_vector(
-            "wrong dim",
-            EidosRetrievalMode::Semantic,
-            8,
-            vec![1.0, 0.0],
-        );
+        let query =
+            EidosQuery::with_vector("wrong dim", EidosRetrievalMode::Semantic, 8, vec![1.0, 0.0]);
         let packet = idx.retrieve(&query, 1_700_000_000_000);
         assert!(packet.hits.is_empty());
     }
@@ -264,12 +259,8 @@ mod tests {
     #[test]
     fn zero_norm_query_returns_empty_packet() {
         let idx = build_3d();
-        let query = EidosQuery::with_vector(
-            "zero",
-            EidosRetrievalMode::Semantic,
-            8,
-            vec![0.0, 0.0, 0.0],
-        );
+        let query =
+            EidosQuery::with_vector("zero", EidosRetrievalMode::Semantic, 8, vec![0.0, 0.0, 0.0]);
         let packet = idx.retrieve(&query, 1_700_000_000_000);
         assert!(packet.hits.is_empty());
     }
@@ -284,12 +275,8 @@ mod tests {
         // needs to be unambiguous — empty Some-vector and None must
         // behave identically.
         let idx = build_3d();
-        let query = EidosQuery::with_vector(
-            "doesn't matter",
-            EidosRetrievalMode::Semantic,
-            8,
-            vec![],
-        );
+        let query =
+            EidosQuery::with_vector("doesn't matter", EidosRetrievalMode::Semantic, 8, vec![]);
         let packet = idx.retrieve(&query, 1_700_000_000_000);
         assert!(
             packet.hits.is_empty(),
@@ -332,12 +319,8 @@ mod tests {
             8,
             vec![0.0, 1.0, 0.0],
         );
-        let q_empty_text = EidosQuery::with_vector(
-            "",
-            EidosRetrievalMode::Semantic,
-            8,
-            vec![0.0, 1.0, 0.0],
-        );
+        let q_empty_text =
+            EidosQuery::with_vector("", EidosRetrievalMode::Semantic, 8, vec![0.0, 1.0, 0.0]);
 
         let p_text = idx.retrieve(&q_text, 1_700_000_000_000);
         let p_empty = idx.retrieve(&q_empty_text, 1_700_000_000_000);
@@ -396,10 +379,26 @@ mod tests {
         let sqrt3_over_2 = (3.0_f32).sqrt() / 2.0;
 
         let mut idx = InMemorySemanticIndex::new(manifest(), 3);
-        idx.insert(doc("d0"),  vec![1.0, 0.0, 0.0],          EidosSourceKind::Note).unwrap();
-        idx.insert(doc("d30"), vec![sqrt3_over_2, 0.5, 0.0], EidosSourceKind::Note).unwrap();
-        idx.insert(doc("d45"), vec![FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.0], EidosSourceKind::Note).unwrap();
-        idx.insert(doc("d60"), vec![0.5, sqrt3_over_2, 0.0], EidosSourceKind::Note).unwrap();
+        idx.insert(doc("d0"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
+        idx.insert(
+            doc("d30"),
+            vec![sqrt3_over_2, 0.5, 0.0],
+            EidosSourceKind::Note,
+        )
+        .unwrap();
+        idx.insert(
+            doc("d45"),
+            vec![FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.0],
+            EidosSourceKind::Note,
+        )
+        .unwrap();
+        idx.insert(
+            doc("d60"),
+            vec![0.5, sqrt3_over_2, 0.0],
+            EidosSourceKind::Note,
+        )
+        .unwrap();
 
         let q = EidosQuery::with_vector(
             "angles",
@@ -415,7 +414,7 @@ mod tests {
             .collect();
 
         let expectations: &[(&str, f32)] = &[
-            ("d0",  1.0),
+            ("d0", 1.0),
             ("d30", sqrt3_over_2),
             ("d45", FRAC_1_SQRT_2),
             ("d60", 0.5),
@@ -455,12 +454,8 @@ mod tests {
     fn deterministic_replay_byte_equal() {
         let a = build_3d();
         let b = build_3d();
-        let q = EidosQuery::with_vector(
-            "same",
-            EidosRetrievalMode::Semantic,
-            8,
-            vec![0.5, 0.5, 0.5],
-        );
+        let q =
+            EidosQuery::with_vector("same", EidosRetrievalMode::Semantic, 8, vec![0.5, 0.5, 0.5]);
         let pa = a.retrieve(&q, 1_700_000_000_000);
         let pb = b.retrieve(&q, 1_700_000_000_000);
         assert_eq!(pa, pb);
@@ -471,8 +466,10 @@ mod tests {
         // Two parallel documents (same direction → same cosine) — the
         // alphabetically smaller source_id wins.
         let mut idx = InMemorySemanticIndex::new(manifest(), 2);
-        idx.insert(doc("a"), vec![1.0, 1.0], EidosSourceKind::Note).unwrap();
-        idx.insert(doc("b"), vec![1.0, 1.0], EidosSourceKind::Note).unwrap();
+        idx.insert(doc("a"), vec![1.0, 1.0], EidosSourceKind::Note)
+            .unwrap();
+        idx.insert(doc("b"), vec![1.0, 1.0], EidosSourceKind::Note)
+            .unwrap();
         let q = EidosQuery::with_vector("tie", EidosRetrievalMode::Semantic, 8, vec![1.0, 0.0]);
         let packet = idx.retrieve(&q, 1_700_000_000_000);
         let ids: Vec<&str> = packet.hits.iter().map(|h| h.source_id.as_str()).collect();
@@ -482,8 +479,10 @@ mod tests {
     #[test]
     fn anti_correlated_documents_are_filtered() {
         let mut idx = InMemorySemanticIndex::new(manifest(), 2);
-        idx.insert(doc("pos"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
-        idx.insert(doc("neg"), vec![-1.0, 0.0], EidosSourceKind::Note).unwrap();
+        idx.insert(doc("pos"), vec![1.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
+        idx.insert(doc("neg"), vec![-1.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
         let q = EidosQuery::with_vector("seek", EidosRetrievalMode::Semantic, 8, vec![1.0, 0.0]);
         let packet = idx.retrieve(&q, 1_700_000_000_000);
         let ids: Vec<&str> = packet.hits.iter().map(|h| h.source_id.as_str()).collect();
@@ -539,8 +538,10 @@ mod tests {
     #[test]
     fn reinserting_same_document_id_replaces_vector() {
         let mut idx = InMemorySemanticIndex::new(manifest(), 2);
-        idx.insert(doc("d"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
-        idx.insert(doc("d"), vec![0.0, 1.0], EidosSourceKind::Note).unwrap();
+        idx.insert(doc("d"), vec![1.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
+        idx.insert(doc("d"), vec![0.0, 1.0], EidosSourceKind::Note)
+            .unwrap();
         let q = EidosQuery::with_vector("aim y", EidosRetrievalMode::Semantic, 8, vec![0.0, 1.0]);
         let packet = idx.retrieve(&q, 0);
         assert_eq!(packet.hits.len(), 1);

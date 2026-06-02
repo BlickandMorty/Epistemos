@@ -45,7 +45,12 @@ fn lease_lifecycle_emits_witness_at_every_state_change() {
     });
 
     // 3. Migrate
-    let migrated = ResidencyLease::new(lease.address.clone(), ResidencyTier::VerifiedFloor, 100, 100);
+    let migrated = ResidencyLease::new(
+        lease.address.clone(),
+        ResidencyTier::VerifiedFloor,
+        100,
+        100,
+    );
     witness.record(WitnessEvent::AddressMigrated {
         address: lease.address.clone(),
         from_tier: ResidencyTier::CurrentApp,
@@ -69,7 +74,11 @@ fn lease_lifecycle_emits_witness_at_every_state_change() {
     });
 
     let snapshot = witness.snapshot();
-    assert_eq!(snapshot.len(), 5, "five state changes → five witness events");
+    assert_eq!(
+        snapshot.len(),
+        5,
+        "five state changes → five witness events"
+    );
 
     // The order must be preserved.
     assert!(matches!(snapshot[0], WitnessEvent::LeaseGranted { .. }));
@@ -92,10 +101,14 @@ fn uas_address_lookup_invariant_across_residency() {
     // the lease at the time.
     let _lease_current = ResidencyLease::new(addr.clone(), ResidencyTier::CurrentApp, 0, 100);
     let _lease_verified = ResidencyLease::new(addr.clone(), ResidencyTier::VerifiedFloor, 100, 100);
-    let _lease_research = ResidencyLease::new(addr.clone(), ResidencyTier::CapabilityCeiling, 200, 100);
+    let _lease_research =
+        ResidencyLease::new(addr.clone(), ResidencyTier::CapabilityCeiling, 200, 100);
 
     let parsed = UasAddress::from_str(&wire).expect("wire format must round-trip");
-    assert_eq!(addr, parsed, "UasAddress identity is independent of residency tier (§4.G UAS LOCK)");
+    assert_eq!(
+        addr, parsed,
+        "UasAddress identity is independent of residency tier (§4.G UAS LOCK)"
+    );
 }
 
 /// The §4.G G.B1 serialization-round-trip property: serde JSON preserves

@@ -85,9 +85,7 @@ fn fp16_round(v: f64) -> f32 {
 /// `(x, y)` pairs from `[2⁻⁸, 2⁸] × [2⁻⁸, 2⁸]` (compressed range vs
 /// the production `2¹⁵` for wall-clock budget). Returns the report;
 /// caller checks `all_within_bar`.
-pub fn run_smoke_oracle(
-    tolerance: UlpToleranceFp16,
-) -> Result<UlpOracleReport, UlpOracleError> {
+pub fn run_smoke_oracle(tolerance: UlpToleranceFp16) -> Result<UlpOracleReport, UlpOracleError> {
     let n = SMOKE_SAMPLE_COUNT;
     if n == 0 {
         return Err(UlpOracleError::EmptySample);
@@ -182,7 +180,11 @@ mod tests {
         // Substrate floor uses f32 stand-in for fp16; should be well
         // within 2 ULP for the compressed [2^-8, 2^8] range.
         let r = run_smoke_oracle(UlpToleranceFp16::SHIPPING_BAR).unwrap();
-        assert!(r.all_within_bar, "max_ulp={} mean_ulp={}", r.max_ulp_error, r.mean_ulp_error);
+        assert!(
+            r.all_within_bar,
+            "max_ulp={} mean_ulp={}",
+            r.max_ulp_error, r.mean_ulp_error
+        );
     }
 
     #[test]

@@ -276,7 +276,10 @@ mod tests {
     #[test]
     fn single_oscillator_drifts_at_intrinsic_freq() {
         let mut net = KuramotoNetwork {
-            oscillators: vec![KuramotoOscillator { phase: 0.0, intrinsic_freq: 1.0 }],
+            oscillators: vec![KuramotoOscillator {
+                phase: 0.0,
+                intrinsic_freq: 1.0,
+            }],
             coupling: 5.0,
         };
         kuramoto_step(&mut net, 0.1).unwrap();
@@ -287,8 +290,14 @@ mod tests {
     fn identical_phases_at_zero_coupling_drift_independently() {
         let mut net = KuramotoNetwork {
             oscillators: vec![
-                KuramotoOscillator { phase: 0.0, intrinsic_freq: 1.0 },
-                KuramotoOscillator { phase: 0.0, intrinsic_freq: 2.0 },
+                KuramotoOscillator {
+                    phase: 0.0,
+                    intrinsic_freq: 1.0,
+                },
+                KuramotoOscillator {
+                    phase: 0.0,
+                    intrinsic_freq: 2.0,
+                },
             ],
             coupling: 0.0,
         };
@@ -303,9 +312,18 @@ mod tests {
     fn order_parameter_one_for_aligned_phases() {
         let net = KuramotoNetwork {
             oscillators: vec![
-                KuramotoOscillator { phase: 1.5, intrinsic_freq: 0.0 },
-                KuramotoOscillator { phase: 1.5, intrinsic_freq: 0.0 },
-                KuramotoOscillator { phase: 1.5, intrinsic_freq: 0.0 },
+                KuramotoOscillator {
+                    phase: 1.5,
+                    intrinsic_freq: 0.0,
+                },
+                KuramotoOscillator {
+                    phase: 1.5,
+                    intrinsic_freq: 0.0,
+                },
+                KuramotoOscillator {
+                    phase: 1.5,
+                    intrinsic_freq: 0.0,
+                },
             ],
             coupling: 0.0,
         };
@@ -329,7 +347,12 @@ mod tests {
             kuramoto_step(&mut net, 0.01).unwrap();
         }
         let r_final = order_parameter(&net).unwrap().r;
-        assert!(r_final > r_initial + 0.5, "r_initial={}, r_final={}", r_initial, r_final);
+        assert!(
+            r_final > r_initial + 0.5,
+            "r_initial={}, r_final={}",
+            r_initial,
+            r_final
+        );
     }
 
     #[test]
@@ -347,8 +370,14 @@ mod tests {
     fn order_parameter_psi_matches_mean_phase_for_aligned() {
         let net = KuramotoNetwork {
             oscillators: vec![
-                KuramotoOscillator { phase: 0.7, intrinsic_freq: 0.0 },
-                KuramotoOscillator { phase: 0.7, intrinsic_freq: 0.0 },
+                KuramotoOscillator {
+                    phase: 0.7,
+                    intrinsic_freq: 0.0,
+                },
+                KuramotoOscillator {
+                    phase: 0.7,
+                    intrinsic_freq: 0.0,
+                },
             ],
             coupling: 0.0,
         };
@@ -360,9 +389,18 @@ mod tests {
     fn negative_coupling_disperses_phases() {
         let net0 = KuramotoNetwork {
             oscillators: vec![
-                KuramotoOscillator { phase: 0.0, intrinsic_freq: 0.0 },
-                KuramotoOscillator { phase: 0.1, intrinsic_freq: 0.0 },
-                KuramotoOscillator { phase: -0.1, intrinsic_freq: 0.0 },
+                KuramotoOscillator {
+                    phase: 0.0,
+                    intrinsic_freq: 0.0,
+                },
+                KuramotoOscillator {
+                    phase: 0.1,
+                    intrinsic_freq: 0.0,
+                },
+                KuramotoOscillator {
+                    phase: -0.1,
+                    intrinsic_freq: 0.0,
+                },
             ],
             coupling: -3.0,
         };
@@ -372,7 +410,12 @@ mod tests {
             kuramoto_step(&mut net, 0.01).unwrap();
         }
         let r_final = order_parameter(&net).unwrap().r;
-        assert!(r_final < r_initial, "r_initial={}, r_final={}", r_initial, r_final);
+        assert!(
+            r_final < r_initial,
+            "r_initial={}, r_final={}",
+            r_initial,
+            r_final
+        );
     }
 
     #[test]
@@ -385,7 +428,10 @@ mod tests {
 
     #[test]
     fn order_parameter_empty_errors() {
-        let net = KuramotoNetwork { oscillators: vec![], coupling: 0.0 };
+        let net = KuramotoNetwork {
+            oscillators: vec![],
+            coupling: 0.0,
+        };
         let err = order_parameter(&net).unwrap_err();
         assert_eq!(err, KuramotoError::EmptyNetwork);
     }
@@ -393,7 +439,10 @@ mod tests {
     #[test]
     fn coupling_sum_self_term_is_zero_so_self_doesnt_inflate_order() {
         let mut net = KuramotoNetwork {
-            oscillators: vec![KuramotoOscillator { phase: 1.0, intrinsic_freq: 0.0 }],
+            oscillators: vec![KuramotoOscillator {
+                phase: 1.0,
+                intrinsic_freq: 0.0,
+            }],
             coupling: 100.0,
         };
         let p_before = net.oscillators[0].phase;
@@ -440,8 +489,7 @@ mod tests {
         assert!(
             outcome.reached_target,
             "should sync; final_r = {}, steps = {}",
-            outcome.final_r,
-            outcome.steps_taken
+            outcome.final_r, outcome.steps_taken
         );
         assert!(outcome.final_r >= 0.99);
     }
@@ -451,8 +499,14 @@ mod tests {
         // Phases all equal → r = 1.0 immediately.
         let mut net = KuramotoNetwork {
             oscillators: vec![
-                KuramotoOscillator { phase: 0.0, intrinsic_freq: 0.0 },
-                KuramotoOscillator { phase: 0.0, intrinsic_freq: 0.0 },
+                KuramotoOscillator {
+                    phase: 0.0,
+                    intrinsic_freq: 0.0,
+                },
+                KuramotoOscillator {
+                    phase: 0.0,
+                    intrinsic_freq: 0.0,
+                },
             ],
             coupling: 0.0,
         };
@@ -513,7 +567,10 @@ mod tests {
     fn order_parameter_is_fully_synced_at_r_one() {
         let op = OrderParameter { r: 1.0, psi: 0.5 };
         assert!(op.is_fully_synced(1e-6));
-        let near = OrderParameter { r: 0.9999, psi: 0.5 };
+        let near = OrderParameter {
+            r: 0.9999,
+            psi: 0.5,
+        };
         assert!(near.is_fully_synced(0.001));
         let far = OrderParameter { r: 0.7, psi: 0.5 };
         assert!(!far.is_fully_synced(0.001));
@@ -542,7 +599,10 @@ mod tests {
 
     #[test]
     fn network_n_oscillators_and_is_empty_aligned() {
-        let empty = KuramotoNetwork { oscillators: vec![], coupling: 0.0 };
+        let empty = KuramotoNetwork {
+            oscillators: vec![],
+            coupling: 0.0,
+        };
         assert!(empty.is_empty());
         assert_eq!(empty.n_oscillators(), 0);
         let net = uniform_network(5, 1.0, 0.0);
@@ -552,7 +612,10 @@ mod tests {
 
     #[test]
     fn mean_intrinsic_freq_none_on_empty() {
-        let empty = KuramotoNetwork { oscillators: vec![], coupling: 0.0 };
+        let empty = KuramotoNetwork {
+            oscillators: vec![],
+            coupling: 0.0,
+        };
         assert_eq!(empty.mean_intrinsic_freq(), None);
     }
 
@@ -560,9 +623,18 @@ mod tests {
     fn mean_intrinsic_freq_arithmetic() {
         let net = KuramotoNetwork {
             oscillators: vec![
-                KuramotoOscillator { phase: 0.0, intrinsic_freq: 1.0 },
-                KuramotoOscillator { phase: 0.0, intrinsic_freq: 2.0 },
-                KuramotoOscillator { phase: 0.0, intrinsic_freq: 3.0 },
+                KuramotoOscillator {
+                    phase: 0.0,
+                    intrinsic_freq: 1.0,
+                },
+                KuramotoOscillator {
+                    phase: 0.0,
+                    intrinsic_freq: 2.0,
+                },
+                KuramotoOscillator {
+                    phase: 0.0,
+                    intrinsic_freq: 3.0,
+                },
             ],
             coupling: 0.0,
         };
@@ -572,20 +644,36 @@ mod tests {
     #[test]
     fn sync_outcome_is_converged_matches_reached_target() {
         // Cross-surface invariant: is_converged iff reached_target.
-        let conv = SyncOutcome { final_r: 0.99, steps_taken: 50, reached_target: true };
+        let conv = SyncOutcome {
+            final_r: 0.99,
+            steps_taken: 50,
+            reached_target: true,
+        };
         assert!(conv.is_converged());
-        let timeout = SyncOutcome { final_r: 0.3, steps_taken: 100, reached_target: false };
+        let timeout = SyncOutcome {
+            final_r: 0.3,
+            steps_taken: 100,
+            reached_target: false,
+        };
         assert!(!timeout.is_converged());
     }
 
     #[test]
     fn sync_outcome_budget_used_arithmetic() {
-        let outcome = SyncOutcome { final_r: 0.99, steps_taken: 75, reached_target: true };
+        let outcome = SyncOutcome {
+            final_r: 0.99,
+            steps_taken: 75,
+            reached_target: true,
+        };
         assert!((outcome.budget_used(100).unwrap() - 0.75).abs() < 1e-6);
         // Zero max → undefined.
         assert_eq!(outcome.budget_used(0), None);
         // Steps == max → 1.0.
-        let timeout = SyncOutcome { final_r: 0.3, steps_taken: 100, reached_target: false };
+        let timeout = SyncOutcome {
+            final_r: 0.3,
+            steps_taken: 100,
+            reached_target: false,
+        };
         assert!((timeout.budget_used(100).unwrap() - 1.0).abs() < 1e-6);
     }
 }

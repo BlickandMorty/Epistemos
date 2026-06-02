@@ -103,12 +103,61 @@ name = "falsify_page_gather"
 path = "src/bin/falsify_page_gather.rs"
 
 [[bin]]
+name = "falsify_page_gather_packetized_caller"
+path = "src/bin/falsify_page_gather_packetized_caller.rs"
+
+[[bin]]
 name = "falsify_controller_kernel_pack"
 path = "src/bin/falsify_controller_kernel_pack.rs"
 
 [[bin]]
 name = "falsify_uas_zero_copy_spine"
 path = "src/bin/falsify_uas_zero_copy_spine.rs"
+
+[[bin]]
+name = "falsify_uas_acs_mmap_residency"
+path = "src/bin/falsify_uas_acs_mmap_residency.rs"
+
+[[bin]]
+name = "falsify_residency_plan_dry_run"
+path = "src/bin/falsify_residency_plan_dry_run.rs"
+
+[[bin]]
+name = "falsify_app_cold_store_layout"
+path = "src/bin/falsify_app_cold_store_layout.rs"
+
+[[bin]]
+name = "falsify_residency_patternboost_no_hidden_authority"
+path = "src/bin/falsify_residency_patternboost_no_hidden_authority.rs"
+
+[[bin]]
+name = "falsify_provider_reference_manifest_dry_run"
+path = "src/bin/falsify_provider_reference_manifest_dry_run.rs"
+
+[[bin]]
+name = "falsify_weight_block_range_hash_dry_run"
+path = "src/bin/falsify_weight_block_range_hash_dry_run.rs"
+
+[[bin]]
+name = "falsify_kv_direct_gate"
+path = "src/bin/falsify_kv_direct_gate.rs"
+
+[[bin]]
+name = "falsify_qwen3_8b_128k_gguf_route"
+path = "src/bin/falsify_qwen3_8b_128k_gguf_route.rs"
+
+[[bin]]
+name = "kv_direct_prompt_suite"
+path = "src/bin/kv_direct_prompt_suite.rs"
+
+[[bin]]
+name = "falsify_active_assembly_minimal"
+path = "src/bin/falsify_active_assembly_minimal.rs"
+required-features = ["research"]
+
+[[bin]]
+name = "falsify_sparse_runtime_split"
+path = "src/bin/falsify_sparse_runtime_split.rs"
 
 [[bin]]
 name = "falsify_vault_recall"
@@ -129,6 +178,18 @@ path = "src/bin/falsify_eidos_bridge_round_trip.rs"
 [[bin]]
 name = "falsify_acs_anchor_addressing"
 path = "src/bin/falsify_acs_anchor_addressing.rs"
+
+[[bin]]
+name = "falsify_70b_local_cocktail_lite"
+path = "src/bin/falsify_70b_local_cocktail_lite.rs"
+
+[[bin]]
+name = "falsify_agent_local_model_runtime_bridge"
+path = "src/bin/falsify_agent_local_model_runtime_bridge.rs"
+
+[[bin]]
+name = "capability_ceiling_evaluation_kernel"
+path = "src/bin/capability_ceiling_evaluation_kernel.rs"
 
 [[bin]]
 name = "falsifier_validator"

@@ -33,8 +33,14 @@ pub async fn seed_canonical_synthetic_vault(store: &VaultStore) {
         // Row 1 ChattyPrefix forbidden decoys — chatter-laden but no
         // residency-governance signal terms.
         ("ui/hermes_branding.md", "ui branding hermes design feel"),
-        ("ui/character_dna_specs.md", "character dna design specs visual"),
-        ("user_hardware.md", "user hardware specifications M2 Pro 16 GB"),
+        (
+            "ui/character_dna_specs.md",
+            "character dna design specs visual",
+        ),
+        (
+            "user_hardware.md",
+            "user hardware specifications M2 Pro 16 GB",
+        ),
         // Rows 2 (SignalOnly) + 5 (Paraphrase) — shared doc.
         // Content has mamba/ssm/cache (Row 2 passes via AND-conjunction)
         // but explicitly NOT "state-space-model" or "caching" (so
@@ -137,10 +143,7 @@ pub async fn seed_canonical_synthetic_vault(store: &VaultStore) {
         // Row 23 (pure-CJK) expected — two CJK tokens with whitespace
         // between so they tokenize distinctly. 缓存 = cache, 架构 =
         // architecture.
-        (
-            "notes/pure_chinese.md",
-            "缓存 架构 缓存 架构 笔记 notes",
-        ),
+        ("notes/pure_chinese.md", "缓存 架构 缓存 架构 笔记 notes"),
         // Row 23 forbidden — Latin equivalent only; AND on CJK
         // tokens cannot match.
         (

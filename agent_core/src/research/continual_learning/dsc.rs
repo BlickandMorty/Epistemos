@@ -49,11 +49,19 @@ pub enum DscError {
     ZeroDim,
     ZeroRankLimit,
     /// Gradient length did not match `subspace.dim`.
-    GradientLengthMismatch { dim: usize, actual: usize },
+    GradientLengthMismatch {
+        dim: usize,
+        actual: usize,
+    },
     /// `out.len()` did not match `subspace.dim`.
-    OutLengthMismatch { dim: usize, out_len: usize },
+    OutLengthMismatch {
+        dim: usize,
+        out_len: usize,
+    },
     /// Non-positive threshold for `update_with_gradient`.
-    NonPositiveThreshold { threshold: f32 },
+    NonPositiveThreshold {
+        threshold: f32,
+    },
 }
 
 impl DscError {
@@ -73,9 +81,7 @@ impl DscError {
     pub const fn is_config_error(&self) -> bool {
         matches!(
             self,
-            DscError::ZeroDim
-                | DscError::ZeroRankLimit
-                | DscError::NonPositiveThreshold { .. }
+            DscError::ZeroDim | DscError::ZeroRankLimit | DscError::NonPositiveThreshold { .. }
         )
     }
 
@@ -141,10 +147,7 @@ impl OrthogonalSubspace {
             }
             for (j, bj) in self.basis.iter().enumerate().skip(i + 1) {
                 if dot(bi, bj).abs() >= tol {
-                    return Err(DscError::GradientLengthMismatch {
-                        dim: i,
-                        actual: j,
-                    });
+                    return Err(DscError::GradientLengthMismatch { dim: i, actual: j });
                 }
             }
         }
@@ -484,7 +487,9 @@ mod tests {
         let mut s = OrthogonalSubspace::new(3, 2).unwrap();
         update_with_gradient(&mut s, &[1.0, 0.0, 0.0], 1e-3).unwrap();
         let inv_sqrt_2 = 1.0_f32 / 2.0_f32.sqrt();
-        let a = s.gradient_alignment(&[inv_sqrt_2, inv_sqrt_2, 0.0]).unwrap();
+        let a = s
+            .gradient_alignment(&[inv_sqrt_2, inv_sqrt_2, 0.0])
+            .unwrap();
         assert!((a - 0.5).abs() < 1e-5);
     }
 

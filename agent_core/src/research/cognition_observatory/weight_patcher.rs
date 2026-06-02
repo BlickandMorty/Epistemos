@@ -74,7 +74,10 @@ impl WeightTarget {
 
     /// True for the 3 MLP / SwiGLU projections (Gate, Up, Down).
     pub const fn is_mlp(self) -> bool {
-        matches!(self, WeightTarget::Gate | WeightTarget::Up | WeightTarget::Down)
+        matches!(
+            self,
+            WeightTarget::Gate | WeightTarget::Up | WeightTarget::Down
+        )
     }
 
     /// True for the 2 vocab-boundary tensors (Embed, LmHead). Patching
@@ -133,7 +136,12 @@ pub enum WeightPatchError {
     TargetNotPresent { layer: usize, target: WeightTarget },
     /// `delta.len()` (or `snapshot.weights.len()`) did not match the
     /// target tensor's element count.
-    ShapeMismatch { layer: usize, target: WeightTarget, expected: usize, actual: usize },
+    ShapeMismatch {
+        layer: usize,
+        target: WeightTarget,
+        expected: usize,
+        actual: usize,
+    },
     /// Snapshot referenced a (layer, target) that doesn't match the
     /// destination weight tensor's shape.
     SnapshotTargetMismatch {
@@ -149,7 +157,11 @@ pub trait WeightPatcher {
 
     fn weight_len(&self, layer: usize, target: WeightTarget) -> Result<usize, WeightPatchError>;
 
-    fn snapshot(&self, layer: usize, target: WeightTarget) -> Result<WeightSnapshot, WeightPatchError>;
+    fn snapshot(
+        &self,
+        layer: usize,
+        target: WeightTarget,
+    ) -> Result<WeightSnapshot, WeightPatchError>;
 
     fn apply_patch(&mut self, patch: &WeightPatch) -> Result<(), WeightPatchError>;
 
@@ -202,7 +214,11 @@ impl WeightPatcher for MockWeightPatcher {
         }
     }
 
-    fn snapshot(&self, layer: usize, target: WeightTarget) -> Result<WeightSnapshot, WeightPatchError> {
+    fn snapshot(
+        &self,
+        layer: usize,
+        target: WeightTarget,
+    ) -> Result<WeightSnapshot, WeightPatchError> {
         if layer >= self.layers.len() {
             return Err(WeightPatchError::LayerOutOfRange {
                 layer,
@@ -213,7 +229,11 @@ impl WeightPatcher for MockWeightPatcher {
             .get(&target)
             .ok_or(WeightPatchError::TargetNotPresent { layer, target })?
             .clone();
-        Ok(WeightSnapshot { layer, target, weights })
+        Ok(WeightSnapshot {
+            layer,
+            target,
+            weights,
+        })
     }
 
     fn apply_patch(&mut self, patch: &WeightPatch) -> Result<(), WeightPatchError> {
@@ -223,12 +243,12 @@ impl WeightPatcher for MockWeightPatcher {
                 layer_count: self.layers.len(),
             });
         }
-        let weights = self.layers[patch.layer]
-            .get_mut(&patch.target)
-            .ok_or(WeightPatchError::TargetNotPresent {
+        let weights = self.layers[patch.layer].get_mut(&patch.target).ok_or(
+            WeightPatchError::TargetNotPresent {
                 layer: patch.layer,
                 target: patch.target,
-            })?;
+            },
+        )?;
         if weights.len() != patch.delta.len() {
             return Err(WeightPatchError::ShapeMismatch {
                 layer: patch.layer,
@@ -361,7 +381,10 @@ mod tests {
         let err = p.apply_patch(&patch).unwrap_err();
         assert_eq!(
             err,
-            WeightPatchError::LayerOutOfRange { layer: 99, layer_count: 2 }
+            WeightPatchError::LayerOutOfRange {
+                layer: 99,
+                layer_count: 2
+            }
         );
     }
 
@@ -399,7 +422,10 @@ mod tests {
         let err = p.apply_patch(&patch).unwrap_err();
         assert_eq!(
             err,
-            WeightPatchError::TargetNotPresent { layer: 0, target: WeightTarget::LmHead }
+            WeightPatchError::TargetNotPresent {
+                layer: 0,
+                target: WeightTarget::LmHead
+            }
         );
     }
 
@@ -451,7 +477,12 @@ mod tests {
 
     #[test]
     fn classifier_attention_includes_qkvo_only() {
-        let attn = [WeightTarget::QProj, WeightTarget::KProj, WeightTarget::VProj, WeightTarget::OProj];
+        let attn = [
+            WeightTarget::QProj,
+            WeightTarget::KProj,
+            WeightTarget::VProj,
+            WeightTarget::OProj,
+        ];
         for t in WeightTarget::ALL.iter() {
             assert_eq!(t.is_attention(), attn.contains(t));
         }

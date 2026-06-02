@@ -57,9 +57,7 @@ pub use autopoiesis::{
     check_operational_closure, AutopoiesisError, ComponentId, OperationalClosureVerdict,
     ProductionEdge, ProductionNetwork,
 };
-pub use governance::{
-    validate_dispatch, AcsDispatchError, AcsPrimitive, AcsScale,
-};
+pub use governance::{validate_dispatch, AcsDispatchError, AcsPrimitive, AcsScale};
 pub use kuramoto::{
     kuramoto_step, order_parameter, KuramotoError, KuramotoNetwork, KuramotoOscillator,
     OrderParameter,

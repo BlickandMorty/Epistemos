@@ -678,6 +678,10 @@ enum MarkdownPreviewSurfaceStyle {
         if theme.followsSystemAppearance {
             return .textBackgroundColor
         }
+        if AppCustomTheme.isActive {
+            let noteSurface = AppCustomTheme.noteSurfaceHex(isDark: theme.presetResolved.isDark)
+            return EpistemosTheme.ResolvedColorToken.hex(noteSurface).nsColor
+        }
         return theme.resolved.background.nsColor
     }
 
@@ -708,7 +712,11 @@ enum MarkdownPreviewSurfaceStyle {
     }
 
     static func solidFlatBackgroundNSColor(for theme: EpistemosTheme) -> NSColor {
-        theme.resolved.card.nsColor.withAlphaComponent(1.0)
+        if AppCustomTheme.isActive {
+            let noteSurface = AppCustomTheme.noteSurfaceHex(isDark: theme.presetResolved.isDark)
+            return EpistemosTheme.ResolvedColorToken.hex(noteSurface).nsColor
+        }
+        return theme.resolved.card.nsColor.withAlphaComponent(1.0)
     }
 
     static func borderOpacity(isDark: Bool) -> Double {
@@ -1279,54 +1287,97 @@ struct MarkdownTextView: View {
     @ViewBuilder
     private func renderHeading(level: Int, text: String) -> some View {
         let headingRole = AppHeadingRole.markdownRole(level: level)
-        let fontSize = MarkdownHeadingDisplay.noteHeadingFontSize(for: level, text: text)
-        let fontWeight = MarkdownHeadingDisplay.noteHeadingFontWeight(for: level)
+        let notesSpec = theme.notesMatchingHeadingSpec(level: level)
+        let rawFontSize = MarkdownHeadingDisplay.noteHeadingFontSize(for: level, text: text)
+        let fontSize = (1...3).contains(level)
+            ? (notesSpec?.size ?? rawFontSize) * theme.headingSizeMultiplier(level: level)
+            : rawFontSize
+        let fontWeight = notesSpec?.weight ?? MarkdownHeadingDisplay.noteHeadingFontWeight(for: level)
         let font: Font = {
+            if let notesSpec {
+                return Font.custom(
+                    notesSpec.fontName,
+                    size: AppDisplayTypography.displayFontSize(
+                        for: fontSize,
+                        isDark: theme.isDark
+                    )
+                )
+                .weight(notesSpec.weight)
+            }
             if (1...3).contains(level) {
                 // Theme-aware H1-H3 font. Classic now splits Matrix H1
                 // from Chonky H2/H3, matching the live note editor.
-                AppDisplayTypography.headingFont(
+                return AppDisplayTypography.headingFont(
                     size: fontSize,
                     weight: fontWeight,
                     theme: theme,
                     level: level
                 )
-            } else if headingRole != nil {
-                AppDisplayTypography.font(
+            } else if let _ = headingRole {
+                return AppDisplayTypography.font(
                     size: fontSize,
                     weight: fontWeight,
                     allowDisplayFont: false
                 )
             } else {
-                Font.system(size: fontSize, weight: fontWeight)
+                return Font.system(size: fontSize, weight: fontWeight)
             }
         }()
         let topPad = headingRole?.topPadding ?? 6
         let color = MarkdownHeadingDisplay.foregroundColor(for: theme, level: level)
         let displayText = MarkdownHeadingDisplay.displayText(text, level: level, theme: theme)
 
-        inlineMarkdown(displayText, baseFontSize: fontSize)
-            .font(font)
-            .foregroundStyle(color)
-            .lineSpacing(level == 1 ? 4 : 2)
-            .markdownHeadingGlow(theme: theme, level: level) {
-                inlineMarkdown(displayText, baseFontSize: fontSize)
-                    .font(font)
-                    .foregroundStyle(color)
-                    .lineSpacing(level == 1 ? 4 : 2)
-            }
-            .asciiRippleOverlay(
-                text: rippleEnabled ? MarkdownRippleTextExtractor.displayText(from: displayText) : "",
-                font: font,
-                color: color,
-                shadowColor: MarkdownHeadingDisplay.previewSwiftUIShadowColor(for: theme, level: level),
-                shadowRadius: MarkdownHeadingDisplay.previewGlowRadius(for: level),
-                lineSpacing: level == 1 ? 4 : 2,
-                opacity: level == 1 ? 0.7 : 0.48,
-                enabled: rippleEnabled && rippleStyle.ripplesHeading(level: level)
-            )
-            .padding(.top, topPad)
-            .padding(.bottom, level == 1 ? 8 : 4)
+        if AppDisplayTypography.usesPlatinumGlyphFallback(theme: theme, level: level, allowDisplayFont: notesSpec == nil) {
+            let headingText = Text(AppDisplayTypography.platinumGlyphFallbackAttributedString(
+                displayText,
+                size: fontSize,
+                weight: fontWeight,
+                isDark: theme.isDark
+            ))
+            headingText
+                .foregroundStyle(color)
+                .lineSpacing(level == 1 ? 4 : 2)
+                .markdownHeadingGlow(theme: theme, level: level) {
+                    headingText
+                        .foregroundStyle(color)
+                        .lineSpacing(level == 1 ? 4 : 2)
+                }
+                .asciiRippleOverlay(
+                    text: rippleEnabled ? MarkdownRippleTextExtractor.displayText(from: displayText) : "",
+                    font: font,
+                    color: color,
+                    shadowColor: MarkdownHeadingDisplay.previewSwiftUIShadowColor(for: theme, level: level),
+                    shadowRadius: MarkdownHeadingDisplay.previewGlowRadius(for: level),
+                    lineSpacing: level == 1 ? 4 : 2,
+                    opacity: level == 1 ? 0.7 : 0.48,
+                    enabled: rippleEnabled && rippleStyle.ripplesHeading(level: level)
+                )
+                .padding(.top, topPad)
+                .padding(.bottom, level == 1 ? 8 : 4)
+        } else {
+            inlineMarkdown(displayText, baseFontSize: fontSize)
+                .font(font)
+                .foregroundStyle(color)
+                .lineSpacing(level == 1 ? 4 : 2)
+                .markdownHeadingGlow(theme: theme, level: level) {
+                    inlineMarkdown(displayText, baseFontSize: fontSize)
+                        .font(font)
+                        .foregroundStyle(color)
+                        .lineSpacing(level == 1 ? 4 : 2)
+                }
+                .asciiRippleOverlay(
+                    text: rippleEnabled ? MarkdownRippleTextExtractor.displayText(from: displayText) : "",
+                    font: font,
+                    color: color,
+                    shadowColor: MarkdownHeadingDisplay.previewSwiftUIShadowColor(for: theme, level: level),
+                    shadowRadius: MarkdownHeadingDisplay.previewGlowRadius(for: level),
+                    lineSpacing: level == 1 ? 4 : 2,
+                    opacity: level == 1 ? 0.7 : 0.48,
+                    enabled: rippleEnabled && rippleStyle.ripplesHeading(level: level)
+                )
+                .padding(.top, topPad)
+                .padding(.bottom, level == 1 ? 8 : 4)
+        }
     }
 
     // MARK: - Table Rendering

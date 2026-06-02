@@ -1,0 +1,14 @@
+{
+  "attempt": "qwen3_8b_128k_prompt_cache_reload_shard_000_000_prefill512",
+  "completed_prompt_count": 0,
+  "context_window_tokens": 128000,
+  "decode_tokens_per_prompt": 256,
+  "failure_class": "first_prompt_prefill_no_row",
+  "failure_message": "Stopped after about 14 minutes with 0 completed prompt rows under prefill_step_size=512. The earlier prefill_step_size=2048 attempt aborted with a Metal interactivity command-buffer failure.",
+  "prefill_step_size": 512,
+  "prompt_offset": 0,
+  "prompt_count": 1,
+  "route": "prompt_cache_reload",
+  "status": "failed",
+  "witness_note": "The first one-prompt 128K shard did not emit reference/test logits. Next repair should target the MLX 128K prefill runner/runtime path before rerunning this shard."
+}

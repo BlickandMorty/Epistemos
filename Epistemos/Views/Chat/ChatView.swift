@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
@@ -103,7 +104,7 @@ enum ChatLayout {
     static let mainComposerMaxWidth: CGFloat = 860
     static let mainComposerHorizontalPadding: CGFloat = 10
     static let transcriptSpacing: CGFloat = 28
-    static let brainPanelWidth: CGFloat = 388
+    static let brainPanelWidth: CGFloat = 420
 }
 
 enum ChatStreamingDisplayPolicy {
@@ -562,35 +563,38 @@ private struct StreamingIndicator: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            // ChatGPT-style inline thinking panel — shown above the
-            // streaming response whenever we have either an active
-            // thinking phase OR captured thinking text from this turn.
-            // Collapses into a "Thought for Ns" chip as soon as the
-            // first answer token arrives, persists until the turn
-            // finalizes into a ChatMessage.
-            if expectsThinkingUI || chat.isThinkingActive || !chat.streamingThinking.isEmpty {
-                ThinkingPopoverView(
-                    thinkingContent: chat.streamingThinking,
-                    isThinkingActive: expectsThinkingUI || chat.isThinkingActive,
-                    thinkingStartedAt: chat.thinkingStartedAt,
-                    thinkingEndedAt: chat.thinkingEndedAt
+            if ChatStreamingDisplayPolicy.showsLiveResponseText, !visibleStreamingText.isEmpty {
+                AssistantInlineTranscriptView(
+                    rawContent: chat.streamingText,
+                    displayContent: visibleStreamingText + (chat.isStreaming ? " ▍" : ""),
+                    contentBlocks: chat.pendingContentBlocks,
+                    persistedThinking: chat.streamingThinking,
+                    thinkingDurationSeconds: nil,
+                    isStreaming: chat.isStreaming,
+                    theme: theme
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
-            }
-
-            ToolExecutionPreviewList(
-                blocks: chat.pendingContentBlocks,
-                isStreaming: chat.isStreaming
-            )
-
-            if ChatStreamingDisplayPolicy.showsLiveResponseText, !visibleStreamingText.isEmpty {
-                TaggedMarkdownTextView(
-                    content: visibleStreamingText + (chat.isStreaming ? " ▍" : ""),
+            } else if expectsThinkingUI || chat.isThinkingActive || !chat.streamingThinking.isEmpty || !chat.pendingContentBlocks.isEmpty {
+                AssistantInlineTranscriptView(
+                    rawContent: chat.streamingText,
+                    displayContent: "",
+                    contentBlocks: chat.pendingContentBlocks,
+                    persistedThinking: chat.streamingThinking,
+                    thinkingDurationSeconds: nil,
+                    isStreaming: chat.isStreaming,
                     theme: theme
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else if !chat.isStreaming, !finalStreamingText.isEmpty {
-                TaggedMarkdownTextView(content: finalStreamingText, theme: theme)
+                AssistantInlineTranscriptView(
+                    rawContent: chat.streamingText,
+                    displayContent: finalStreamingText,
+                    contentBlocks: chat.pendingContentBlocks,
+                    persistedThinking: chat.streamingThinking,
+                    thinkingDurationSeconds: nil,
+                    isStreaming: false,
+                    theme: theme
+                )
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else if pipeline.isProcessing && !chat.isStreaming && !chat.isAgentExecuting {
                 HStack(spacing: Spacing.sm) {
@@ -705,16 +709,25 @@ private struct ChatBrainPanelView: View {
 
                     if !snapshot.allowedToolNames.isEmpty {
                         section(title: "TOOLS THIS TURN", defaultExpanded: false) {
-                            VStack(alignment: .leading, spacing: 4) {
+                            VStack(alignment: .leading, spacing: 5) {
                                 ForEach(snapshot.allowedToolNames, id: \.self) { tool in
-                                    HStack(spacing: 6) {
-                                        Text("▸")
-                                            .font(.system(size: 10, design: .monospaced))
+                                    HStack(spacing: 7) {
+                                        Image(systemName: "checkmark.circle")
+                                            .font(.system(size: 10, weight: .medium))
                                             .foregroundStyle(theme.textTertiary)
                                         Text(tool)
-                                            .font(.system(size: 11, design: .monospaced))
+                                            .font(panelBodyFont(size: 12))
                                             .foregroundStyle(theme.textSecondary)
                                             .textSelection(.enabled)
+                                            .lineLimit(1)
+                                            .truncationMode(.middle)
+                                        Spacer(minLength: 0)
+                                        copyButton(text: tool, label: "Copy tool name")
+                                    }
+                                    .contextMenu {
+                                        Button("Copy Tool Name") {
+                                            copyToPasteboard(tool)
+                                        }
                                     }
                                 }
                             }
@@ -760,21 +773,21 @@ private struct ChatBrainPanelView: View {
                         }
                     }
 
-                    // W-48 Terminal A 2026-05-23 — surfaces the most
-                    // recent Eidos retrieve. Honest backend chip
-                    // flips with EidosMetrics.shared.lastBackend.
-                    section(title: "RETRIEVED BY EIDOS", defaultExpanded: false) {
+                    // Evidence intake surfaces both Eidos and VaultRecall
+                    // so vault lookups do not look idle just because the
+                    // citation validator has not run on that launch.
+                    section(title: "EVIDENCE INTAKE", defaultExpanded: true) {
                         EidosRetrievedSection()
                     }
                 } else if !hasPendingContext {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("MODEL CONTEXT")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(panelHeadingFont(size: 9.5, level: 2))
                             .tracking(0.8)
                             .foregroundStyle(theme.textTertiary)
                             .padding(.top, 4)
                         Text("After you send, this shows the notes, files, tools, and routing for that turn. Use @ or attachments to preview context first.")
-                            .font(.system(size: 12))
+                            .font(panelBodyFont(size: 12))
                             .foregroundStyle(theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -813,29 +826,76 @@ private struct ChatBrainPanelView: View {
     ) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Text(label)
-                .font(.system(size: 11))
+                .font(panelBodyFont(size: 11.5, weight: .semibold))
                 .foregroundStyle(theme.textTertiary)
-                .frame(width: 72, alignment: .leading)
-            Text(value)
-                .font(
-                    valueMonospaced
-                        ? .system(size: 11, design: .monospaced)
-                        : .system(size: 12)
-                )
-                .foregroundStyle(theme.textPrimary)
-                .textSelection(.enabled)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(width: 84, alignment: .leading)
+            HStack(alignment: .top, spacing: 6) {
+                Text(value)
+                    .font(valueMonospaced ? panelMonoFont(size: 11.5) : panelBodyFont(size: 12.5))
+                    .foregroundStyle(theme.textPrimary)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                copyButton(text: value, label: "Copy \(label)")
+                    .padding(.top, 1)
+            }
+        }
+        .contextMenu {
+            Button("Copy \(label)") {
+                copyToPasteboard(value)
+            }
         }
     }
 
     @ViewBuilder
     private func bodyBlock(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 11, design: .monospaced))
-            .foregroundStyle(theme.textSecondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .textSelection(.enabled)
+        HStack(alignment: .top, spacing: 8) {
+            Text(text)
+                .font(panelBodyFont(size: 12.5))
+                .foregroundStyle(theme.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .textSelection(.enabled)
+            copyButton(text: text, label: "Copy text")
+                .padding(.top, 1)
+        }
+        .contextMenu {
+            Button("Copy Text") {
+                copyToPasteboard(text)
+            }
+        }
+    }
+
+    private func panelBodyFont(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        AppDisplayTypography.font(size: size, weight: weight, allowDisplayFont: false)
+    }
+
+    private func panelMonoFont(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        AppDisplayTypography.monoFont(size: size, weight: weight)
+    }
+
+    private func panelHeadingFont(size: CGFloat, level: Int) -> Font {
+        AppDisplayTypography.headingFont(size: size, weight: .semibold, theme: theme, level: level)
+    }
+
+    @ViewBuilder
+    private func copyButton(text: String, label: String) -> some View {
+        Button {
+            copyToPasteboard(text)
+        } label: {
+            Image(systemName: "doc.on.doc")
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundStyle(theme.textTertiary.opacity(0.76))
+                .frame(width: 18, height: 18)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(label)
+        .accessibilityLabel(label)
+    }
+
+    private func copyToPasteboard(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 }
 
@@ -864,7 +924,7 @@ private struct BrainPanelSection<Content: View>: View {
             } label: {
                 HStack {
                     Text(title)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(AppDisplayTypography.headingFont(size: 9.5, weight: .semibold, theme: theme, level: 2))
                         .tracking(0.8)
                         .foregroundStyle(theme.textTertiary)
                     Spacer()
@@ -881,7 +941,9 @@ private struct BrainPanelSection<Content: View>: View {
 
             if expanded {
                 content()
-                    .padding(.horizontal, 16)
+                    .padding(12)
+                    .brainPanelFlatCard(theme: theme)
+                    .padding(.horizontal, 12)
                     .padding(.top, 2)
                     .padding(.bottom, 12)
             }
@@ -891,5 +953,29 @@ private struct BrainPanelSection<Content: View>: View {
                 .fill(theme.border.opacity(0.35))
                 .frame(height: 0.5)
         }
+    }
+}
+
+private struct BrainPanelFlatCardModifier: ViewModifier {
+    let theme: EpistemosTheme
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 4, style: .continuous)
+        content
+            .background {
+                ZStack {
+                    shape.fill(theme.card.opacity(theme.isDark ? 0.58 : 0.72))
+                    shape.fill(theme.resolved.foreground.color.opacity(theme.isDark ? 0.022 : 0.012))
+                }
+            }
+            .overlay {
+                shape.strokeBorder(theme.border.opacity(theme.isDark ? 0.52 : 0.42), lineWidth: 0.75)
+            }
+    }
+}
+
+private extension View {
+    func brainPanelFlatCard(theme: EpistemosTheme) -> some View {
+        modifier(BrainPanelFlatCardModifier(theme: theme))
     }
 }

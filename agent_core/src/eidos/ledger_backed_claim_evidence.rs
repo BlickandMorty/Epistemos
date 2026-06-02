@@ -33,8 +33,8 @@ use super::claim_evidence::EvidenceStance;
 use super::retriever::EidosRetriever;
 use super::types::{
     is_blank_query_text, EidosChunkId, EidosContextPacket, EidosDocumentId, EidosHit,
-    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode,
-    EidosScoreComponents, EidosSourceKind,
+    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode, EidosScoreComponents,
+    EidosSourceKind,
 };
 use crate::provenance::ledger::{ClaimLedger, ClaimStatus};
 use crate::provenance::replay::LedgerSnapshot;
@@ -77,11 +77,7 @@ impl EidosRetriever for LedgerBackedClaimEvidence {
         &self.manifest_id
     }
 
-    fn retrieve(
-        &self,
-        query: &EidosQuery,
-        retrieved_at_unix_ms: u64,
-    ) -> EidosContextPacket {
+    fn retrieve(&self, query: &EidosQuery, retrieved_at_unix_ms: u64) -> EidosContextPacket {
         if is_blank_query_text(&query.text) || query.top_k == 0 {
             return empty_packet(query, &self.manifest_id);
         }
@@ -250,7 +246,8 @@ mod tests {
     fn retracted_evidence_is_filtered_from_closed_set() {
         let mut led = build_ledger();
         // Retract ev-2 — must drop out of the closed-citation set.
-        led.retract_evidence(&EvidenceId("ev-2".to_string())).unwrap();
+        led.retract_evidence(&EvidenceId("ev-2".to_string()))
+            .unwrap();
 
         let r = LedgerBackedClaimEvidence::from_ledger(&led, manifest());
         let q = EidosQuery::new(
@@ -268,10 +265,8 @@ mod tests {
 
         // ev-2 citation now rejected by the closed-citation contract.
         let forged = EidosCitation {
-            source_id: EidosChunkId::new(
-                "ev-2::claim::claim:tropical-is-convex::supports",
-            )
-            .unwrap(),
+            source_id: EidosChunkId::new("ev-2::claim::claim:tropical-is-convex::supports")
+                .unwrap(),
             manifest_id: packet.manifest_id.clone(),
         };
         assert!(packet.validate_citation(&forged).is_err());
@@ -338,10 +333,12 @@ mod tests {
         );
         let packet = r.retrieve(&q, 1_700_000_000_000);
         let ids: Vec<&str> = packet.hits.iter().map(|h| h.source_id.as_str()).collect();
-        assert_eq!(ids.len(), 2, "snapshot must not see post-construction state");
-        assert!(!ids
-            .iter()
-            .any(|id| id.starts_with("ev-3::")));
+        assert_eq!(
+            ids.len(),
+            2,
+            "snapshot must not see post-construction state"
+        );
+        assert!(!ids.iter().any(|id| id.starts_with("ev-3::")));
     }
 
     #[test]
@@ -363,10 +360,8 @@ mod tests {
         }
         // Stance-spoofing rejected.
         let spoofed = EidosCitation {
-            source_id: EidosChunkId::new(
-                "ev-1::claim::claim:tropical-is-convex::contradicts",
-            )
-            .unwrap(),
+            source_id: EidosChunkId::new("ev-1::claim::claim:tropical-is-convex::contradicts")
+                .unwrap(),
             manifest_id: packet.manifest_id.clone(),
         };
         assert!(packet.validate_citation(&spoofed).is_err());
@@ -418,8 +413,12 @@ mod tests {
     #[test]
     fn invisible_only_query_defers() {
         let mut led = ClaimLedger::new();
-        led.commit_evidence(Evidence::new(EvidenceId("ev-invisible".to_string()), "src", 0))
-            .unwrap();
+        led.commit_evidence(Evidence::new(
+            EvidenceId("ev-invisible".to_string()),
+            "src",
+            0,
+        ))
+        .unwrap();
         led.commit_claim(
             Claim::new(ClaimId("\u{200B}".to_string()), "invisible claim", 0),
             vec![],
@@ -447,7 +446,10 @@ mod tests {
             EidosRetrievalMode::ClaimEvidence,
             16,
         );
-        assert_eq!(a.retrieve(&q, 1_700_000_000_000), b.retrieve(&q, 1_700_000_000_000));
+        assert_eq!(
+            a.retrieve(&q, 1_700_000_000_000),
+            b.retrieve(&q, 1_700_000_000_000)
+        );
     }
 
     /// End-to-end documentation of how a retraction in the source
@@ -469,10 +471,7 @@ mod tests {
             16,
         );
         let packet_a = a.retrieve(&q, 1_700_000_000_000);
-        let ev2_id = EidosChunkId::new(
-            "ev-2::claim::claim:tropical-is-convex::supports",
-        )
-        .unwrap();
+        let ev2_id = EidosChunkId::new("ev-2::claim::claim:tropical-is-convex::supports").unwrap();
         let ev2_cite_a = EidosCitation {
             source_id: ev2_id.clone(),
             manifest_id: packet_a.manifest_id.clone(),
@@ -481,7 +480,8 @@ mod tests {
         assert_eq!(packet_a.validate_citation(&ev2_cite_a), Ok(()));
 
         // Retract ev-2 in the source ledger.
-        led.retract_evidence(&EvidenceId("ev-2".to_string())).unwrap();
+        led.retract_evidence(&EvidenceId("ev-2".to_string()))
+            .unwrap();
 
         // Snapshot 2 (post-retraction).
         let b = LedgerBackedClaimEvidence::from_ledger(&led, manifest());
@@ -500,10 +500,8 @@ mod tests {
         // upstream retraction — the chat layer's decision to refuse a
         // NEW answer doesn't retroactively invalidate the OLD one.
         let ev2_cite_a_again = EidosCitation {
-            source_id: EidosChunkId::new(
-                "ev-2::claim::claim:tropical-is-convex::supports",
-            )
-            .unwrap(),
+            source_id: EidosChunkId::new("ev-2::claim::claim:tropical-is-convex::supports")
+                .unwrap(),
             manifest_id: packet_a.manifest_id.clone(),
         };
         assert_eq!(packet_a.validate_citation(&ev2_cite_a_again), Ok(()));

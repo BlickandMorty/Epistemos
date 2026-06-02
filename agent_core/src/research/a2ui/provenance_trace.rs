@@ -147,7 +147,10 @@ mod tests {
         let p = ProvenanceTraceProps {
             steps: vec![step("", "x", 0.9)],
         };
-        assert!(matches!(p.validate().unwrap_err(), ProvenanceTraceError::EmptyClaimId { .. }));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            ProvenanceTraceError::EmptyClaimId { .. }
+        ));
     }
 
     #[test]
@@ -155,7 +158,10 @@ mod tests {
         let p = ProvenanceTraceProps {
             steps: vec![step("c", "", 0.9)],
         };
-        assert!(matches!(p.validate().unwrap_err(), ProvenanceTraceError::EmptyEvidenceUri { .. }));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            ProvenanceTraceError::EmptyEvidenceUri { .. }
+        ));
     }
 
     #[test]
@@ -163,7 +169,10 @@ mod tests {
         let p = ProvenanceTraceProps {
             steps: vec![step("c", "x", 1.5)],
         };
-        assert!(matches!(p.validate().unwrap_err(), ProvenanceTraceError::ConfidenceOutOfRange { .. }));
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            ProvenanceTraceError::ConfidenceOutOfRange { .. }
+        ));
     }
 
     #[test]
@@ -184,7 +193,10 @@ mod tests {
             ProvenanceTraceError::EmptySteps,
             ProvenanceTraceError::EmptyClaimId { index: 0 },
             ProvenanceTraceError::EmptyEvidenceUri { index: 0 },
-            ProvenanceTraceError::ConfidenceOutOfRange { index: 0, value: 1.5 },
+            ProvenanceTraceError::ConfidenceOutOfRange {
+                index: 0,
+                value: 1.5,
+            },
         ];
         let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
         assert_eq!(causes.len(), 4);
@@ -196,14 +208,20 @@ mod tests {
             ProvenanceTraceError::EmptySteps,
             ProvenanceTraceError::EmptyClaimId { index: 0 },
             ProvenanceTraceError::EmptyEvidenceUri { index: 0 },
-            ProvenanceTraceError::ConfidenceOutOfRange { index: 0, value: 1.5 },
+            ProvenanceTraceError::ConfidenceOutOfRange {
+                index: 0,
+                value: 1.5,
+            },
         ];
         // Cross-surface invariant: is_step_error XOR is_confidence_error.
         for e in variants {
             assert_ne!(e.is_step_error(), e.is_confidence_error());
         }
         assert_eq!(variants.iter().filter(|e| e.is_step_error()).count(), 3);
-        assert_eq!(variants.iter().filter(|e| e.is_confidence_error()).count(), 1);
+        assert_eq!(
+            variants.iter().filter(|e| e.is_confidence_error()).count(),
+            1
+        );
     }
 
     #[test]
@@ -223,7 +241,11 @@ mod tests {
     #[test]
     fn mean_confidence_arithmetic() {
         let p = ProvenanceTraceProps {
-            steps: vec![step("a", "u", 0.9), step("b", "u", 0.7), step("c", "u", 0.5)],
+            steps: vec![
+                step("a", "u", 0.9),
+                step("b", "u", 0.7),
+                step("c", "u", 0.5),
+            ],
         };
         assert!((p.mean_confidence().unwrap() - 0.7).abs() < 1e-6);
     }
@@ -231,7 +253,11 @@ mod tests {
     #[test]
     fn min_confidence_picks_smallest() {
         let p = ProvenanceTraceProps {
-            steps: vec![step("a", "u", 0.9), step("b", "u", 0.3), step("c", "u", 0.7)],
+            steps: vec![
+                step("a", "u", 0.9),
+                step("b", "u", 0.3),
+                step("c", "u", 0.7),
+            ],
         };
         assert!((p.min_confidence().unwrap() - 0.3).abs() < 1e-6);
     }
@@ -247,7 +273,9 @@ mod tests {
 
     #[test]
     fn is_valid_matches_validate_ok() {
-        let good = ProvenanceTraceProps { steps: vec![step("c", "x", 0.8)] };
+        let good = ProvenanceTraceProps {
+            steps: vec![step("c", "x", 0.8)],
+        };
         assert_eq!(good.is_valid(), good.validate().is_ok());
         assert!(good.is_valid());
     }

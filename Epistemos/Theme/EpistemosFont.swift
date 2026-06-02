@@ -26,6 +26,8 @@ enum EpistemosFont {
     /// / `headingFontName` / `panelFontName` getters return the
     /// PostScript name not the file basename:
     ///   MatrixtypeDisplay-9MyE5.ttf → PSName "MatrixTypeDisplay-Regular"
+    ///   MatrixTypeDisplay-Bold.otf  → PSName "MatrixTypeDisplay-Bold"
+    ///   MatrixDotsDemoRegular.ttf   → PSName "MatrixDotsDemoRegular"
     ///   RetroByte.ttf               → PSName "RetroByte"
     ///   Dotemp-8bit2.ttf            → PSName "DotempDemo-8bit"
     ///   ChonkyPixels.ttf            → PSName "ChonkyPixels"
@@ -43,9 +45,31 @@ enum EpistemosFont {
 
         // Per-theme display faces (2026-05-13)
         registerFont(named: "MatrixtypeDisplay-9MyE5", extension: "ttf")
+        registerFont(named: "MatrixTypeDisplay-Bold", extension: "otf")
+        registerFont(named: "MatrixDotsDemoRegular", extension: "ttf")
         registerFont(named: "RetroByte", extension: "ttf")
         registerFont(named: "Dotemp-8bit2", extension: "ttf")
         registerFont(named: "ChonkyPixels", extension: "ttf")
+
+        // User display font library (validated via fontTools, 2026-05-30)
+        registerFont(named: "ReturnOfGanonReg", extension: "ttf")
+        registerFont(named: "Charybdis", extension: "ttf")
+        registerFont(named: "VTFMisterPixel", extension: "otf")
+        registerFont(named: "VTFMisterPixel-Tools", extension: "otf")
+        registerFont(named: "AtlantisHeadline-Bold", extension: "otf")
+        registerFont(named: "AtlantisText-Regular", extension: "ttf")
+        registerFont(named: "AtlantisText-Bold", extension: "otf")
+        registerFont(named: "Atlantis-RegularSmallCaps", extension: "otf")
+        registerFont(named: "LunchtimeDoublySoReg", extension: "ttf")
+        registerFont(named: "DisposableDroidBB", extension: "ttf")
+        registerFont(named: "DisposableDroidBB-Bold", extension: "ttf")
+        registerFont(named: "DisposableDroidBB-Italic", extension: "ttf")
+        registerFont(named: "DisposableDroidBB-BoldItalic", extension: "ttf")
+        registerFont(named: "EXEPixelPerfect", extension: "ttf")
+        registerFont(named: "Delicatus", extension: "ttf")
+        registerFont(named: "LEDDisplay7", extension: "ttf")
+        registerFont(named: "GNF", extension: "ttf")
+        registerFont(named: "CodersCrux", extension: "ttf")
 
         registerClaudeReferenceFontsIfAvailable()
     }

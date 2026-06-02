@@ -10,11 +10,10 @@ use agent_core::bridge::acs_admission_strict_policy_summary_json;
 
 #[test]
 fn acs_admission_strict_policy_summary_json_returns_canonical_shape() {
-    let raw = acs_admission_strict_policy_summary_json()
-        .expect("FFI must not error on a status read");
+    let raw =
+        acs_admission_strict_policy_summary_json().expect("FFI must not error on a status read");
 
-    let value: serde_json::Value = serde_json::from_str(&raw)
-        .expect("summary JSON must decode");
+    let value: serde_json::Value = serde_json::from_str(&raw).expect("summary JSON must decode");
     assert!(value.is_object());
 
     let policy_id = value

@@ -38,8 +38,17 @@ pub struct Rwkv7ScanResult {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Rwkv7Error {
-    LengthMismatch { w: usize, k: usize, v: usize, r: usize },
-    NonFiniteInput { which: &'static str, index: usize, value: f32 },
+    LengthMismatch {
+        w: usize,
+        k: usize,
+        v: usize,
+        r: usize,
+    },
+    NonFiniteInput {
+        which: &'static str,
+        index: usize,
+        value: f32,
+    },
 }
 
 impl Rwkv7Error {
@@ -111,7 +120,11 @@ pub fn sigmoid(x: f32) -> f32 {
 fn validate_finite(slice: &[f32], which: &'static str) -> Result<(), Rwkv7Error> {
     for (i, &v) in slice.iter().enumerate() {
         if !v.is_finite() {
-            return Err(Rwkv7Error::NonFiniteInput { which, index: i, value: v });
+            return Err(Rwkv7Error::NonFiniteInput {
+                which,
+                index: i,
+                value: v,
+            });
         }
     }
     Ok(())
@@ -187,7 +200,10 @@ pub fn rwkv7_scan_scalar(
         let gate = sigmoid(r[i]);
         y.push(gate * (alpha * state + beta * v[i]));
     }
-    Ok(Rwkv7ScanResult { y, final_state: state })
+    Ok(Rwkv7ScanResult {
+        y,
+        final_state: state,
+    })
 }
 
 #[cfg(test)]
@@ -215,23 +231,15 @@ mod tests {
 
     #[test]
     fn length_mismatch_errors() {
-        let err = rwkv7_scan_scalar(&[1.0], &[1.0, 2.0], &[1.0], &[1.0], 1.0, 0.0, 0.0)
-            .unwrap_err();
+        let err =
+            rwkv7_scan_scalar(&[1.0], &[1.0, 2.0], &[1.0], &[1.0], 1.0, 0.0, 0.0).unwrap_err();
         assert!(matches!(err, Rwkv7Error::LengthMismatch { .. }));
     }
 
     #[test]
     fn non_finite_w_rejected() {
-        let err = rwkv7_scan_scalar(
-            &[f32::NAN],
-            &[1.0],
-            &[1.0],
-            &[1.0],
-            1.0,
-            0.0,
-            0.0,
-        )
-        .unwrap_err();
+        let err =
+            rwkv7_scan_scalar(&[f32::NAN], &[1.0], &[1.0], &[1.0], 1.0, 0.0, 0.0).unwrap_err();
         match err {
             Rwkv7Error::NonFiniteInput { which, .. } => assert_eq!(which, "w"),
             other => panic!("expected NonFiniteInput w, got {:?}", other),
@@ -243,16 +251,8 @@ mod tests {
         // w=1, k=1, v=1, r=0 (gate=0.5), alpha=1, beta=0
         // state[t] = state + 1
         // y[t] = 0.5 * state[t]
-        let result = rwkv7_scan_scalar(
-            &[1.0; 3],
-            &[1.0; 3],
-            &[1.0; 3],
-            &[0.0; 3],
-            1.0,
-            0.0,
-            0.0,
-        )
-        .unwrap();
+        let result =
+            rwkv7_scan_scalar(&[1.0; 3], &[1.0; 3], &[1.0; 3], &[0.0; 3], 1.0, 0.0, 0.0).unwrap();
         // states: 1, 2, 3 → y: 0.5, 1.0, 1.5
         assert!(approx(result.y[0], 0.5, 1e-6));
         assert!(approx(result.y[1], 1.0, 1e-6));
@@ -281,31 +281,13 @@ mod tests {
 
     #[test]
     fn negative_r_gate_near_zero_suppresses_output() {
-        let result = rwkv7_scan_scalar(
-            &[1.0],
-            &[1.0],
-            &[10.0],
-            &[-20.0],
-            1.0,
-            0.0,
-            0.0,
-        )
-        .unwrap();
+        let result = rwkv7_scan_scalar(&[1.0], &[1.0], &[10.0], &[-20.0], 1.0, 0.0, 0.0).unwrap();
         assert!(result.y[0].abs() < 1e-6);
     }
 
     #[test]
     fn beta_term_adds_bare_value_contribution() {
-        let result = rwkv7_scan_scalar(
-            &[0.0],
-            &[0.0],
-            &[5.0],
-            &[100.0],
-            0.0,
-            1.0,
-            0.0,
-        )
-        .unwrap();
+        let result = rwkv7_scan_scalar(&[0.0], &[0.0], &[5.0], &[100.0], 0.0, 1.0, 0.0).unwrap();
         // gate ≈ 1, alpha=0, beta=1 → y = 1.0 * (0 + 1.0 * 5.0) = 5.0
         assert!(approx(result.y[0], 5.0, 1e-3));
     }
@@ -339,7 +321,10 @@ mod tests {
 
     #[test]
     fn result_roundtrips_through_serde_json() {
-        let r = Rwkv7ScanResult { y: vec![1.0, 2.0], final_state: 3.0 };
+        let r = Rwkv7ScanResult {
+            y: vec![1.0, 2.0],
+            final_state: 3.0,
+        };
         let json = serde_json::to_string(&r).unwrap();
         let back: Rwkv7ScanResult = serde_json::from_str(&json).unwrap();
         assert_eq!(r, back);
@@ -408,11 +393,7 @@ mod tests {
     #[test]
     fn steady_state_negative_decay_correct() {
         // state* = 1.0 / (1 - (-0.5)) = 1.0 / 1.5
-        assert!(approx(
-            steady_state(-0.5, 1.0).unwrap(),
-            1.0 / 1.5,
-            1e-6
-        ));
+        assert!(approx(steady_state(-0.5, 1.0).unwrap(), 1.0 / 1.5, 1e-6));
     }
 
     #[test]
@@ -432,8 +413,17 @@ mod tests {
     #[test]
     fn error_cause_distinct() {
         let variants = [
-            Rwkv7Error::LengthMismatch { w: 1, k: 2, v: 3, r: 4 },
-            Rwkv7Error::NonFiniteInput { which: "w", index: 0, value: f32::NAN },
+            Rwkv7Error::LengthMismatch {
+                w: 1,
+                k: 2,
+                v: 3,
+                r: 4,
+            },
+            Rwkv7Error::NonFiniteInput {
+                which: "w",
+                index: 0,
+                value: f32::NAN,
+            },
         ];
         let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
         assert_eq!(causes.len(), 2);
@@ -443,8 +433,17 @@ mod tests {
     fn error_classifiers_partition() {
         // Cross-surface invariant: is_length_mismatch XOR is_non_finite_input.
         for e in [
-            Rwkv7Error::LengthMismatch { w: 1, k: 2, v: 3, r: 4 },
-            Rwkv7Error::NonFiniteInput { which: "w", index: 0, value: f32::NAN },
+            Rwkv7Error::LengthMismatch {
+                w: 1,
+                k: 2,
+                v: 3,
+                r: 4,
+            },
+            Rwkv7Error::NonFiniteInput {
+                which: "w",
+                index: 0,
+                value: f32::NAN,
+            },
         ] {
             assert_ne!(e.is_length_mismatch(), e.is_non_finite_input());
         }
@@ -453,11 +452,22 @@ mod tests {
     #[test]
     fn error_which_field_extracts_for_non_finite() {
         assert_eq!(
-            Rwkv7Error::NonFiniteInput { which: "v", index: 3, value: f32::NAN }.which_field(),
+            Rwkv7Error::NonFiniteInput {
+                which: "v",
+                index: 3,
+                value: f32::NAN
+            }
+            .which_field(),
             Some("v"),
         );
         assert_eq!(
-            Rwkv7Error::LengthMismatch { w: 1, k: 2, v: 3, r: 4 }.which_field(),
+            Rwkv7Error::LengthMismatch {
+                w: 1,
+                k: 2,
+                v: 3,
+                r: 4
+            }
+            .which_field(),
             None,
         );
     }
@@ -466,39 +476,54 @@ mod tests {
     fn error_which_field_aligned_with_real_scan_failures() {
         // Cross-surface: actual scan errors carry which_field matching
         // the offending slice.
-        let err = rwkv7_scan_scalar(&[1.0], &[f32::NAN], &[1.0], &[1.0], 1.0, 0.0, 0.0)
-            .unwrap_err();
+        let err =
+            rwkv7_scan_scalar(&[1.0], &[f32::NAN], &[1.0], &[1.0], 1.0, 0.0, 0.0).unwrap_err();
         assert_eq!(err.which_field(), Some("k"));
-        let err = rwkv7_scan_scalar(&[1.0], &[1.0], &[f32::INFINITY], &[1.0], 1.0, 0.0, 0.0)
-            .unwrap_err();
+        let err =
+            rwkv7_scan_scalar(&[1.0], &[1.0], &[f32::INFINITY], &[1.0], 1.0, 0.0, 0.0).unwrap_err();
         assert_eq!(err.which_field(), Some("v"));
-        let err = rwkv7_scan_scalar(&[1.0], &[1.0], &[1.0], &[f32::NAN], 1.0, 0.0, 0.0)
-            .unwrap_err();
+        let err =
+            rwkv7_scan_scalar(&[1.0], &[1.0], &[1.0], &[f32::NAN], 1.0, 0.0, 0.0).unwrap_err();
         assert_eq!(err.which_field(), Some("r"));
     }
 
     #[test]
     fn scan_result_len_and_is_empty_aligned() {
-        let empty = Rwkv7ScanResult { y: vec![], final_state: 0.0 };
+        let empty = Rwkv7ScanResult {
+            y: vec![],
+            final_state: 0.0,
+        };
         assert!(empty.is_empty());
         assert_eq!(empty.len(), 0);
-        let full = Rwkv7ScanResult { y: vec![1.0, 2.0], final_state: 3.0 };
+        let full = Rwkv7ScanResult {
+            y: vec![1.0, 2.0],
+            final_state: 3.0,
+        };
         assert!(!full.is_empty());
         assert_eq!(full.len(), 2);
     }
 
     #[test]
     fn scan_result_final_state_magnitude_is_abs() {
-        let pos = Rwkv7ScanResult { y: vec![], final_state: 5.0 };
+        let pos = Rwkv7ScanResult {
+            y: vec![],
+            final_state: 5.0,
+        };
         assert!((pos.final_state_magnitude() - 5.0).abs() < 1e-9);
-        let neg = Rwkv7ScanResult { y: vec![], final_state: -7.5 };
+        let neg = Rwkv7ScanResult {
+            y: vec![],
+            final_state: -7.5,
+        };
         assert!((neg.final_state_magnitude() - 7.5).abs() < 1e-9);
     }
 
     #[test]
     fn scan_result_is_state_bounded_with_negative_state() {
         // Cross-surface: is_state_bounded uses absolute value.
-        let r = Rwkv7ScanResult { y: vec![], final_state: -3.0 };
+        let r = Rwkv7ScanResult {
+            y: vec![],
+            final_state: -3.0,
+        };
         assert!(r.is_state_bounded(5.0));
         assert!(r.is_state_bounded(3.0));
         assert!(!r.is_state_bounded(2.99));

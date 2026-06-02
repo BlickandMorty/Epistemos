@@ -12,7 +12,7 @@ phase2_terminal_f_artifact: artifacts/falsifiers/page_gather/result.json
 phase2_terminal_f_harness: agent_core/src/bin/falsify_page_gather.rs
 phase2_terminal_f_caveat: CPU scatter benchmark over 16/64/256 MB working sets via `helios::page_gather::gather` (not the Metal scatter kernel). The artifact records CPU-bound sustained GB/s; this is NOT the 70%-of-STREAM-on-Metal bar. Full gate requires Metal kernel + STREAM-on-Metal triad baseline (W-41).
 phase2_terminal_f_audit_doc: docs/audits/FALSIFIER_M2PRO_5_PASS_2026_05_23.md
-metal_preflight_status: runtime dispatch/equivalence smoke test added in EpistemosTests/MetalWitnessGatesTests.swift; 2026-05-27 256 MB sustained witness failed the primary bandwidth ratio and is recorded at artifacts/falsifiers/page_gather/metal_failure_result.json
+metal_preflight_status: runtime dispatch/equivalence smoke test added in EpistemosTests/MetalWitnessGatesTests.swift; 2026-05-27 256 MB sustained witness failed the primary bandwidth ratio and is recorded at artifacts/falsifiers/page_gather/metal_failure_result.json; packetized scheduled PageGather now crosses the 0.70x STREAM mitigation floor at 256/512 MB in artifacts/falsifiers/page_gather/locality_probe_result.json, and F-PageGather-Packetized-Caller proves one Vault retrieval trace consumes packets before dense restore; dense restore remains pending
 ---
 
 # F-PageGather-M2Pro
@@ -161,38 +161,54 @@ orange/pending until a mitigation run clears the full 256/512/1024 MB gate.
 
 ### §4.2 2026-05-27 locality probe evidence
 
-The same Swift harness now supports a diagnostic locality probe:
+The same Swift harness now supports a diagnostic locality probe and a
+packetized scheduled mitigation witness:
 
 ```text
-swift Tools/metal-witness-gates/page-gather-metal-artifact.swift --probe-locality --working-sets-mb 256 --window-seconds 5 --trials 3 --warmup-iterations 3 --write-artifact
+swift Tools/metal-witness-gates/page-gather-metal-artifact.swift --probe-locality --working-sets-mb 256,512 --window-seconds 2 --trials 2 --warmup-iterations 1 --write-artifact
 ```
 
 Result: **diagnostic failure report**, recorded at
 `artifacts/falsifiers/page_gather/locality_probe_result.json`.
 
-The primary gate still fails, and `F-PageGather-M2Pro` stays pending. The probe
-is useful because it separates "the shader can never be fast" from "the
-scheduler must make the memory walk local enough":
+The primary dense-restore gate still fails, and `F-PageGather-M2Pro` stays
+pending. The probe is useful because it now separates four different facts:
 
-- STREAM triad median: about `229 GB/s`.
-- Sequential gather median: about `172 GB/s` (`0.751x` STREAM; below the
-  `0.95x` gather bar).
-- Full random scatter median: about `15 GB/s` (`0.066x` STREAM; still the
-  failure stressor).
-- Local-window scatter median: about `247 GB/s` (`1.08x` STREAM), with `0`
-  sampled violations.
-- Block-sorted scatter median: about `168 GB/s` (`0.734x` STREAM), with `0`
-  sampled violations.
+| Axis | 256 MB ratio vs STREAM | 512 MB ratio vs STREAM | Correctness |
+|---|---:|---:|---:|
+| Sequential gather | `0.704x` | `0.725x` | `0` sampled violations |
+| Full random scatter stressor | `0.069x` | `0.043x` | `0` sampled violations |
+| Local-window scatter | `1.001x` | `1.038x` | `0` sampled violations |
+| Dense block-sorted scheduled restore | `0.092x` | `0.058x` | `0` sampled violations |
+| **Packetized scheduled PageGather** | **`0.729x`** | **`0.752x`** | **`0` sampled violations** |
 
-The block-sorted candidate is the product-relevant lead because it preserves
-full source coverage while improving traversal locality. The scheduler-side
-contract now exists in `agent_core::helios::block_sorted_schedule` and
-`gather_block_sorted`, with trace metadata mirrored into Vault Recall surfaces.
-The Metal path now accepts the same schedule/output contract through
-`pageGatherScatterScheduled`, but the first noncanonical smoke probe measured
-only `0.3556x` STREAM for block-sorted scheduled scatter at 16 MB, with `0`
-correctness violations. That is a useful witness, not a pass: the full
-`256/512/1024 MB` canonical gate still has to pass before promotion.
+The packetized scheduled kernel emits:
+
+```text
+packetValues[i] = source[execution_indices[i]]
+packetLogicalPositions[i] = logical_positions[i]
+```
+
+This is the lean PageGather motion: recall is emitted as a compact packet stream
+with witness coordinates, and dense logical-order restore is paid only by a
+downstream projection that truly needs dense order. The result crosses the
+`0.70x` mitigation floor at both M2 Pro working-set sizes named by the shader
+budget (`256` and `512` MB), but it does **not** erase the dense-restore failure.
+The product UI must therefore continue to show PageGather as orange/pending
+until the caller path consumes packetized output or the dense restore path is
+optimized and re-measured.
+
+2026-05-27 caller-path update: `agent_core::helios::gather_packetized`,
+`gather_block_sorted_packetized`, and `restore_packets` now encode the packet
+contract on the Rust side. This does not flip the primary gate green; it removes
+one orphan by giving product code a typed way to keep PageGather packetized
+through retrieval and pay dense restore lazily.
+
+2026-05-28 caller-path fallback witness:
+`F-PageGather-Packetized-Caller` proves
+`VaultStore::hybrid_search_with_trace` consumes retained-score PageGather
+packets and defers dense restore. This moves one product-adjacent retrieval
+surface onto the packetized path while leaving dense `F-PageGather-M2Pro` red.
 
 ## §5. Measurement methodology
 

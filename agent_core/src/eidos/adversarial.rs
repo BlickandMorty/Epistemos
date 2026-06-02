@@ -78,11 +78,8 @@ pub const ADVERSARIAL_QUERY_FIXTURE_LABELS: &[&str] = &[
     "near-duplicate-paragraph-tie",
 ];
 
-pub const ADVERSARIAL_QUERY_FIXTURE_QUERY_TEXTS: &[&str] = &[
-    "tropcial",
-    "tropical",
-    "near duplicate paragraph",
-];
+pub const ADVERSARIAL_QUERY_FIXTURE_QUERY_TEXTS: &[&str] =
+    &["tropcial", "tropical", "near duplicate paragraph"];
 
 pub const ADVERSARIAL_QUERY_FIXTURE_KINDS: &[AdversarialQueryFixtureKind] = &[
     AdversarialQueryFixtureKind::TypoTransposition,
@@ -193,8 +190,7 @@ pub fn adversarial_query_fixture_kind_tokens() -> &'static [&'static str] {
     ADVERSARIAL_QUERY_FIXTURE_LABELS
 }
 
-pub fn adversarial_query_fixture_expected_outcomes(
-) -> &'static [AdversarialQueryExpectedOutcome] {
+pub fn adversarial_query_fixture_expected_outcomes() -> &'static [AdversarialQueryExpectedOutcome] {
     ADVERSARIAL_QUERY_FIXTURE_EXPECTED_OUTCOMES
 }
 
@@ -230,8 +226,8 @@ pub fn adversarial_query_fixture_token_smuggling_label_count() -> usize {
     ADVERSARIAL_QUERY_FIXTURE_TOKEN_SMUGGLING_INPUT_LABELS.len()
 }
 
-pub fn adversarial_query_fixture_token_smuggling_cases(
-) -> &'static [(&'static str, &'static str)] {
+pub fn adversarial_query_fixture_token_smuggling_cases() -> &'static [(&'static str, &'static str)]
+{
     ADVERSARIAL_QUERY_FIXTURE_TOKEN_SMUGGLING_CASES
 }
 
@@ -262,7 +258,11 @@ pub fn adversarial_query_fixture_token_smuggling_labels_match_inputs() -> bool {
     adversarial_query_fixture_token_smuggling_input_labels()
         .iter()
         .copied()
-        .zip(adversarial_query_fixture_token_smuggling_inputs().iter().copied())
+        .zip(
+            adversarial_query_fixture_token_smuggling_inputs()
+                .iter()
+                .copied(),
+        )
         .eq([
             ("empty", ""),
             ("whitespace", "   "),
@@ -276,12 +276,14 @@ pub fn adversarial_query_fixture_token_smuggling_cases_match_label_and_input_sli
     adversarial_query_fixture_token_smuggling_cases()
         .iter()
         .copied()
-        .eq(
-            adversarial_query_fixture_token_smuggling_input_labels()
-                .iter()
-                .copied()
-                .zip(adversarial_query_fixture_token_smuggling_inputs().iter().copied()),
-        )
+        .eq(adversarial_query_fixture_token_smuggling_input_labels()
+            .iter()
+            .copied()
+            .zip(
+                adversarial_query_fixture_token_smuggling_inputs()
+                    .iter()
+                    .copied(),
+            ))
 }
 
 pub fn adversarial_query_fixture_token_smuggling_case_labels_are_ascii_lowercase() -> bool {
@@ -334,9 +336,7 @@ pub fn adversarial_query_fixture_catalog_expected_outcomes_match_fixture_rows() 
         && ADVERSARIAL_QUERY_FIXTURE_EXPECTED_OUTCOMES
             .iter()
             .zip(ADVERSARIAL_QUERY_FIXTURES.iter())
-            .all(|(expected_outcome, fixture)| {
-                *expected_outcome == fixture.expected_outcome
-            })
+            .all(|(expected_outcome, fixture)| *expected_outcome == fixture.expected_outcome)
 }
 
 pub fn adversarial_query_fixture_catalog_expected_outcome_tokens_match_outcomes() -> bool {
@@ -451,11 +451,11 @@ pub fn adversarial_query_fixture_token_smuggling_surface_is_complete() -> bool {
             .iter()
             .copied()
             .enumerate()
-            .all(|(index, case)| adversarial_query_fixture_token_smuggling_case_at(index)
-                == Some(case))
-        && (0..adversarial_query_fixture_token_smuggling_input_count()).all(|index| {
-            adversarial_query_fixture_token_smuggling_case_at(index).is_some()
-        })
+            .all(|(index, case)| {
+                adversarial_query_fixture_token_smuggling_case_at(index) == Some(case)
+            })
+        && (0..adversarial_query_fixture_token_smuggling_input_count())
+            .all(|index| adversarial_query_fixture_token_smuggling_case_at(index).is_some())
         && adversarial_query_fixture_token_smuggling_case_at(
             adversarial_query_fixture_token_smuggling_input_count(),
         )
@@ -495,27 +495,30 @@ pub fn adversarial_query_fixture_kind_tokens_match_fixture_labels() -> bool {
             .all(|(kind, fixture)| kind.token() == fixture.label)
 }
 
-pub fn adversarial_query_fixture_expected_outcome_tokens_are_ascii_lowercase_kebab_case(
-) -> bool {
+pub fn adversarial_query_fixture_expected_outcome_tokens_are_ascii_lowercase_kebab_case() -> bool {
     ADVERSARIAL_QUERY_FIXTURE_EXPECTED_OUTCOMES
         .iter()
         .all(|outcome| is_ascii_lowercase_kebab_case(outcome.token()))
 }
 
 pub fn adversarial_query_fixture_query_texts_are_nonempty_trimmed_and_control_free() -> bool {
-    ADVERSARIAL_QUERY_FIXTURE_QUERY_TEXTS.iter().all(|query_text| {
-        !query_text.is_empty()
-            && query_text.trim() == *query_text
-            && !query_text.chars().any(char::is_control)
-    })
+    ADVERSARIAL_QUERY_FIXTURE_QUERY_TEXTS
+        .iter()
+        .all(|query_text| {
+            !query_text.is_empty()
+                && query_text.trim() == *query_text
+                && !query_text.chars().any(char::is_control)
+        })
 }
 
 pub fn adversarial_query_fixture_descriptions_are_trimmed_and_control_free() -> bool {
-    ADVERSARIAL_QUERY_FIXTURE_DESCRIPTIONS.iter().all(|description| {
-        !description.is_empty()
-            && description.trim() == *description
-            && !description.chars().any(char::is_control)
-    })
+    ADVERSARIAL_QUERY_FIXTURE_DESCRIPTIONS
+        .iter()
+        .all(|description| {
+            !description.is_empty()
+                && description.trim() == *description
+                && !description.chars().any(char::is_control)
+        })
 }
 
 pub fn adversarial_query_fixture_catalog_static_surface_is_wire_safe() -> bool {

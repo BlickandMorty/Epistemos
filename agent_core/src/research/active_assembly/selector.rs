@@ -62,7 +62,11 @@ pub struct MarginAnchoredGreedyPull {
 
 impl Default for MarginAnchoredGreedyPull {
     fn default() -> Self {
-        Self { k_promote_per_round: 4, cost_weight: 1.0, depth_budget: 8 }
+        Self {
+            k_promote_per_round: 4,
+            cost_weight: 1.0,
+            depth_budget: 8,
+        }
     }
 }
 
@@ -145,8 +149,14 @@ mod tests {
             } else {
                 vec![PacketId(i - 1), PacketId(i - 2)]
             };
-            g.add(Packet::new(PacketId(i), i as u64, (i * 2) as u64, ((i % 16) + 1) as u8, preds))
-                .unwrap();
+            g.add(Packet::new(
+                PacketId(i),
+                i as u64,
+                (i * 2) as u64,
+                ((i % 16) + 1) as u8,
+                preds,
+            ))
+            .unwrap();
         }
         g
     }
@@ -181,7 +191,11 @@ mod tests {
 
     #[test]
     fn anchor_score_higher_for_closer_pattern() {
-        let s = MarginAnchoredGreedyPull { k_promote_per_round: 1, cost_weight: 0.0, depth_budget: 1 };
+        let s = MarginAnchoredGreedyPull {
+            k_promote_per_round: 1,
+            cost_weight: 0.0,
+            depth_budget: 1,
+        };
         let p_match = Packet::new(PacketId(0), 0xFFFF_FFFF_FFFF_FFFF, 0, 1, vec![]);
         let p_miss = Packet::new(PacketId(1), 0x0000_0000_0000_0000, 0, 1, vec![]);
         let query = 0xFFFF_FFFF_FFFF_FFFF;
@@ -193,7 +207,11 @@ mod tests {
         let cheap = Packet::new(PacketId(0), 0, 0, 1, vec![]);
         let expensive = Packet::new(PacketId(1), 0, 0, 16, vec![]);
         // Same pattern; cost_weight > 0 should make expensive worse.
-        let s = MarginAnchoredGreedyPull { k_promote_per_round: 1, cost_weight: 1.0, depth_budget: 1 };
+        let s = MarginAnchoredGreedyPull {
+            k_promote_per_round: 1,
+            cost_weight: 1.0,
+            depth_budget: 1,
+        };
         assert!(s.anchor_score(0, &cheap) > s.anchor_score(0, &expensive));
     }
 
@@ -201,7 +219,11 @@ mod tests {
     fn depth_budget_caps_iterations() {
         // With depth_budget = 0, only the sink is active.
         let g = graph_n(10);
-        let s = MarginAnchoredGreedyPull { k_promote_per_round: 4, cost_weight: 1.0, depth_budget: 0 };
+        let s = MarginAnchoredGreedyPull {
+            k_promote_per_round: 4,
+            cost_weight: 1.0,
+            depth_budget: 0,
+        };
         let active = s.select(&g, PacketId(9), 0).unwrap();
         assert_eq!(active.len(), 1);
         assert!(active.contains(&PacketId(9)));
@@ -211,7 +233,11 @@ mod tests {
     fn k_promote_caps_per_round() {
         // With k_promote_per_round = 1, each round adds at most 1 packet.
         let g = graph_n(20);
-        let s = MarginAnchoredGreedyPull { k_promote_per_round: 1, cost_weight: 1.0, depth_budget: 100 };
+        let s = MarginAnchoredGreedyPull {
+            k_promote_per_round: 1,
+            cost_weight: 1.0,
+            depth_budget: 100,
+        };
         let active = s.select(&g, PacketId(19), 0).unwrap();
         // Sink + at most depth_budget added = at most 101. Actually depth
         // walks predecessors which form a 2-fanin DAG; growth is bounded.

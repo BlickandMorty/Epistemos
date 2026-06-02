@@ -34,43 +34,49 @@ struct Stash17LandingWaveCloseoutTests {
         #expect(closeout.contains("No stash was popped, dropped, checked out, or bulk-applied."))
         #expect(closeout.contains("closed for current product UI recovery"))
         #expect(closeout.contains("no longer an active recovery queue item"))
+        #expect(closeout.contains("Landing Wave source files are now retired from live product source."))
         #expect(ledger.contains("`stash@{17}` - parallel landing wave session"))
         #expect(ledger.contains("historical landing/session UI donor reference"))
-        #expect(recoveryStatus.contains("Landing Wave source files and Session Intelligence source: restored in `#87`"))
+        #expect(recoveryStatus.contains("Landing Wave source files from `#87` are now retired"))
         #expect(recoveryStatus.contains("closed by `docs/audits/STASH17_LANDING_WAVE_CLOSEOUT_2026_05_26.md`"))
         #expect(livingIndex.contains("`stash@{17}` Landing Wave / Session Intelligence recovery is closed"))
+        #expect(livingIndex.contains("Landing Wave source family is retired from live product source"))
         #expect(!ledger.contains("1. `stash@{17}` - landing wave UI and missing Wave view files."))
     }
 
-    @Test("current landing wave and session intelligence files remain present")
-    func currentLandingWaveAndSessionIntelligenceFilesRemainPresent() {
-        let requiredFiles = [
+    @Test("current landing wave donor files stay retired while session intelligence remains")
+    func currentLandingWaveDonorFilesStayRetiredWhileSessionIntelligenceRemains() {
+        let retiredFiles = [
             "Epistemos/Views/Landing/Wave/LandingWaveDesign.swift",
             "Epistemos/Views/Landing/Wave/LandingWaveMetalView.swift",
             "Epistemos/Views/Landing/Wave/LandingWaveOverlay.swift",
             "Epistemos/Views/Landing/Wave/LandingWaveRenderer.swift",
             "Epistemos/Views/Landing/Wave/LandingWaveSearchBar.swift",
             "Epistemos/Views/Landing/Wave/LandingWaveChoreography.swift",
-            "Epistemos/Views/Landing/SessionIntelligenceOverlay.swift",
+            "Epistemos/Views/Landing/Wave/LandingWaveGlyphAtlas.swift",
+            "Epistemos/Views/Landing/Wave/LandingWaveHaptics.swift",
+            "Epistemos/Views/Landing/Wave/LandingWavePerformancePolicy.swift",
         ]
 
-        for path in requiredFiles {
-            #expect(repoFileExists(path), "\(path) should remain on current main")
+        for path in retiredFiles {
+            #expect(!repoFileExists(path), "\(path) should stay retired from current product source")
         }
+
+        #expect(repoFileExists("Epistemos/Views/Landing/SessionIntelligenceOverlay.swift"))
     }
 
     @Test("current landing surface keeps newer fused route")
     func currentLandingSurfaceKeepsNewerFusedRoute() throws {
         let landing = try loadMirroredSourceTextFile("Epistemos/Views/Landing/LandingView.swift")
-        let overlay = try loadMirroredSourceTextFile("Epistemos/Views/Landing/Wave/LandingWaveOverlay.swift")
-        let renderer = try loadMirroredSourceTextFile("Epistemos/Views/Landing/Wave/LandingWaveRenderer.swift")
 
         #expect(landing.contains("MainChatSubmissionRouter.submit("))
         #expect(landing.contains("ChatBrainPickerMenu("))
         #expect(landing.contains("SlashCommandPopover("))
         #expect(landing.contains("AmbientFrequencyPlaybackState"))
         #expect(landing.contains("LandingFarmView("))
-        #expect(overlay.contains("LandingWaveMetalView("))
-        #expect(renderer.contains("LandingWaveChoreography.makeSequence"))
+        #expect(landing.contains("landingSearchInlineStage"))
+        #expect(landing.contains("ContextualShadowsButton()"))
+        #expect(!landing.contains("LandingWaveOverlay("))
+        #expect(!landing.contains("LandingWaveHaptics.fireBeat"))
     }
 }

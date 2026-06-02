@@ -117,9 +117,7 @@ pub enum FalsifierFailure {
     },
     /// `packet.validate_citation` *accepted* a fabricated source_id — the
     /// closed-citation contract is broken in this retriever's packets.
-    FakeCitationAccepted {
-        retriever_mode: EidosRetrievalMode,
-    },
+    FakeCitationAccepted { retriever_mode: EidosRetrievalMode },
     /// Hit confidence is outside `[0.0, 1.0]`. Confidence is a normalized
     /// score and the Brain Panel + chat-layer ranking assumes the unit
     /// interval. Anything outside is a contract violation.
@@ -280,21 +278,35 @@ mod tests {
 
         // --- Lexical
         let mut lex = InMemoryLexicalIndex::new(manifest());
-        lex.insert(doc("note-a"), "tropical convex optimization", EidosSourceKind::Note).unwrap();
-        lex.insert(doc("note-b"), "tropical geometry primer", EidosSourceKind::Note).unwrap();
+        lex.insert(
+            doc("note-a"),
+            "tropical convex optimization",
+            EidosSourceKind::Note,
+        )
+        .unwrap();
+        lex.insert(
+            doc("note-b"),
+            "tropical geometry primer",
+            EidosSourceKind::Note,
+        )
+        .unwrap();
         retrievers.push(Box::new(lex));
 
         // --- Semantic
         let mut sem = InMemorySemanticIndex::new(manifest(), 3);
-        sem.insert(doc("note-a"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note).unwrap();
-        sem.insert(doc("note-c"), vec![0.0, 1.0, 0.0], EidosSourceKind::Note).unwrap();
+        sem.insert(doc("note-a"), vec![1.0, 0.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
+        sem.insert(doc("note-c"), vec![0.0, 1.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
         retrievers.push(Box::new(sem));
 
         // --- Hybrid (RRF k=60 fusion of two new retrievers sharing manifest)
         let mut lex2 = InMemoryLexicalIndex::new(manifest());
-        lex2.insert(doc("note-a"), "alpha tropical", EidosSourceKind::Note).unwrap();
+        lex2.insert(doc("note-a"), "alpha tropical", EidosSourceKind::Note)
+            .unwrap();
         let mut sem2 = InMemorySemanticIndex::new(manifest(), 2);
-        sem2.insert(doc("note-a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+        sem2.insert(doc("note-a"), vec![1.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
         let hybrid = HybridRetriever::new(lex2, sem2).unwrap();
         retrievers.push(Box::new(hybrid));
 
@@ -326,7 +338,12 @@ mod tests {
 
         // --- Recency
         let mut recency = InMemoryRecencyIndex::new(manifest());
-        recency.insert(doc("note-a"), "tropical alpha", 1_700_000_000_000, EidosSourceKind::Note);
+        recency.insert(
+            doc("note-a"),
+            "tropical alpha",
+            1_700_000_000_000,
+            EidosSourceKind::Note,
+        );
         recency.insert(
             doc("note-b"),
             "tropical beta",
@@ -337,7 +354,8 @@ mod tests {
 
         // --- ProvenanceVerified wrapping a fresh Lexical retriever
         let mut lex3 = InMemoryLexicalIndex::new(manifest());
-        lex3.insert(doc("note-a"), "tropical verified", EidosSourceKind::Note).unwrap();
+        lex3.insert(doc("note-a"), "tropical verified", EidosSourceKind::Note)
+            .unwrap();
         let mut pv = ProvenanceVerifiedRetriever::new(lex3);
         pv.admit(EidosChunkId::new("note-a::lex").unwrap());
         retrievers.push(Box::new(pv));
@@ -345,9 +363,13 @@ mod tests {
         // --- HybridRetrieverN (3-way fusion: lex + sem + recency, all
         //     sharing the fixture manifest)
         let mut lex_n = InMemoryLexicalIndex::new(manifest());
-        lex_n.insert(doc("note-a"), "tropical hybrid_n", EidosSourceKind::Note).unwrap();
+        lex_n
+            .insert(doc("note-a"), "tropical hybrid_n", EidosSourceKind::Note)
+            .unwrap();
         let mut sem_n = InMemorySemanticIndex::new(manifest(), 2);
-        sem_n.insert(doc("note-a"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+        sem_n
+            .insert(doc("note-a"), vec![1.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
         let mut recency_n = InMemoryRecencyIndex::new(manifest());
         recency_n.insert(
             doc("note-a"),
@@ -428,7 +450,11 @@ mod tests {
             // Graph seed
             EidosQuery::new("hub", EidosRetrievalMode::GraphNeighborhood, 8),
             // Claim id
-            EidosQuery::new("claim:tropical-convex", EidosRetrievalMode::ClaimEvidence, 8),
+            EidosQuery::new(
+                "claim:tropical-convex",
+                EidosRetrievalMode::ClaimEvidence,
+                8,
+            ),
             // Empty text — meaningful for Recency, defers everyone else
             EidosQuery::new("", EidosRetrievalMode::Recency, 8),
         ]
@@ -438,9 +464,8 @@ mod tests {
     fn f_eidos_closed_citation_falsifier_passes_for_canonical_fixture() {
         let retrievers = build_fixture_corpus();
         let queries = fixture_queries();
-        let witness =
-            f_eidos_closed_citation_falsifier(&retrievers, &queries, 1_700_000_000_000)
-                .expect("F-Eidos-ClosedCitation must pass on canonical fixture");
+        let witness = f_eidos_closed_citation_falsifier(&retrievers, &queries, 1_700_000_000_000)
+            .expect("F-Eidos-ClosedCitation must pass on canonical fixture");
 
         // Witness counts are deterministic and exact. 12 retrievers now
         // that HybridRetrieverN + LedgerBackedClaimEvidence + the
@@ -572,10 +597,7 @@ mod tests {
                 crate::eidos::types::EidosContextPacket {
                     query: query.clone(),
                     manifest_id: self.manifest.clone(),
-                    hits: vec![
-                        make_hit("zero::lex", 0.0),
-                        make_hit("one::lex", 1.0),
-                    ],
+                    hits: vec![make_hit("zero::lex", 0.0), make_hit("one::lex", 1.0)],
                 }
             }
         }
@@ -583,10 +605,8 @@ mod tests {
             manifest: manifest(),
         })];
         let queries = vec![EidosQuery::new("any", EidosRetrievalMode::Lexical, 8)];
-        let witness =
-            f_eidos_closed_citation_falsifier(&retrievers, &queries, 0).expect(
-                "confidence 0.0 and 1.0 must BOTH pass the inclusive [0,1] check",
-            );
+        let witness = f_eidos_closed_citation_falsifier(&retrievers, &queries, 0)
+            .expect("confidence 0.0 and 1.0 must BOTH pass the inclusive [0,1] check");
         assert_eq!(witness.retrievers_checked, 1);
         // Both hits reached the validation surface (didn't fall out
         // earlier as e.g. manifest mismatch).
@@ -662,11 +682,10 @@ mod tests {
         }
 
         let calls = Arc::new(AtomicUsize::new(0));
-        let retrievers: Vec<Box<dyn EidosRetriever>> =
-            vec![Box::new(QueryCountingRetriever {
-                manifest: manifest(),
-                calls: calls.clone(),
-            })];
+        let retrievers: Vec<Box<dyn EidosRetriever>> = vec![Box::new(QueryCountingRetriever {
+            manifest: manifest(),
+            calls: calls.clone(),
+        })];
         let queries = vec![
             EidosQuery::new("q0", EidosRetrievalMode::Lexical, 8),
             EidosQuery::new("q1", EidosRetrievalMode::Lexical, 8),
@@ -849,9 +868,21 @@ mod tests {
         assert_eq!(witness.queries_per_retriever, 4);
         // Direct invocation count — independent confirmation that
         // the witness numbers track real retrieve() calls.
-        assert_eq!(c0.load(Ordering::SeqCst), 4, "retriever 0 must be called exactly once per query");
-        assert_eq!(c1.load(Ordering::SeqCst), 4, "retriever 1 must be called exactly once per query");
-        assert_eq!(c2.load(Ordering::SeqCst), 4, "retriever 2 must be called exactly once per query");
+        assert_eq!(
+            c0.load(Ordering::SeqCst),
+            4,
+            "retriever 0 must be called exactly once per query"
+        );
+        assert_eq!(
+            c1.load(Ordering::SeqCst),
+            4,
+            "retriever 1 must be called exactly once per query"
+        );
+        assert_eq!(
+            c2.load(Ordering::SeqCst),
+            4,
+            "retriever 2 must be called exactly once per query"
+        );
     }
 
     #[test]
@@ -1045,7 +1076,7 @@ mod tests {
             vec![
                 Box::new(good_lex),
                 Box::new(good_sem),
-                Box::new(liar_lex), // position 2 — first bad
+                Box::new(liar_lex),  // position 2 — first bad
                 Box::new(liar_code), // position 3 — also bad
                 Box::new(good_recency),
             ]
@@ -1053,12 +1084,10 @@ mod tests {
         let queries = vec![EidosQuery::new("ok", EidosRetrievalMode::Lexical, 8)];
 
         // First run: position-2 liar must surface, NOT position-3.
-        let err1 = f_eidos_closed_citation_falsifier(&build(), &queries, 1_700_000_000_000)
-            .unwrap_err();
+        let err1 =
+            f_eidos_closed_citation_falsifier(&build(), &queries, 1_700_000_000_000).unwrap_err();
         match &err1 {
-            FalsifierFailure::HitProvenanceModeMismatch {
-                retriever_mode, ..
-            } => {
+            FalsifierFailure::HitProvenanceModeMismatch { retriever_mode, .. } => {
                 assert_eq!(
                     *retriever_mode,
                     EidosRetrievalMode::Lexical,
@@ -1069,8 +1098,8 @@ mod tests {
         }
 
         // Second run: byte-equal error. Pins early-exit determinism.
-        let err2 = f_eidos_closed_citation_falsifier(&build(), &queries, 1_700_000_000_000)
-            .unwrap_err();
+        let err2 =
+            f_eidos_closed_citation_falsifier(&build(), &queries, 1_700_000_000_000).unwrap_err();
         assert_eq!(err1, err2, "early-exit failure drifted across runs");
 
         // JSON byte-equal too — catches a future serialize order tweak.
@@ -1083,8 +1112,10 @@ mod tests {
     fn falsifier_witness_counts_are_exact_not_estimates() {
         let retrievers = build_fixture_corpus();
         let queries = fixture_queries();
-        let w1 = f_eidos_closed_citation_falsifier(&retrievers, &queries, 1_700_000_000_000).unwrap();
-        let w2 = f_eidos_closed_citation_falsifier(&retrievers, &queries, 1_700_000_000_000).unwrap();
+        let w1 =
+            f_eidos_closed_citation_falsifier(&retrievers, &queries, 1_700_000_000_000).unwrap();
+        let w2 =
+            f_eidos_closed_citation_falsifier(&retrievers, &queries, 1_700_000_000_000).unwrap();
         assert_eq!(w1, w2);
     }
 
@@ -1156,10 +1187,12 @@ mod tests {
             f_eidos_closed_citation_falsifier(&retrievers, &queries, 1_700_000_000_000).unwrap();
         let w_t1 =
             f_eidos_closed_citation_falsifier(&retrievers, &queries, 1_900_000_000_000).unwrap();
-        let w_zero =
-            f_eidos_closed_citation_falsifier(&retrievers, &queries, 0).unwrap();
+        let w_zero = f_eidos_closed_citation_falsifier(&retrievers, &queries, 0).unwrap();
         let w_max = f_eidos_closed_citation_falsifier(&retrievers, &queries, u64::MAX).unwrap();
-        assert_eq!(w_t0, w_t1, "witness drifted across 200B-ms apart timestamps");
+        assert_eq!(
+            w_t0, w_t1,
+            "witness drifted across 200B-ms apart timestamps"
+        );
         assert_eq!(w_t0, w_zero, "witness drifted between t=now and t=0");
         assert_eq!(w_t0, w_max, "witness drifted between t=now and t=u64::MAX");
 
@@ -1181,12 +1214,9 @@ mod tests {
         // the nested PV-over-Hybrid_N construction path — against any
         // future state-leak or order-of-Vec-push regression.
         let queries = fixture_queries();
-        let baseline = f_eidos_closed_citation_falsifier(
-            &build_fixture_corpus(),
-            &queries,
-            1_700_000_000_000,
-        )
-        .unwrap();
+        let baseline =
+            f_eidos_closed_citation_falsifier(&build_fixture_corpus(), &queries, 1_700_000_000_000)
+                .unwrap();
         // Sanity-pin the canonical witness counts so a drift in the
         // fixture surface surfaces here too, not just at the round-trip
         // boundary.
@@ -1488,8 +1518,7 @@ mod tests {
         // side exactly these bytes for a `FakeCitationAccepted` failure.
         // If the wire shape drifts, decode breaks here before it breaks
         // at the FFI seam.
-        let pinned =
-            r#"{"variant":"FakeCitationAccepted","retriever_mode":"Hybrid"}"#;
+        let pinned = r#"{"variant":"FakeCitationAccepted","retriever_mode":"Hybrid"}"#;
         let f: FalsifierFailure = serde_json::from_str(pinned).unwrap();
         match f {
             FalsifierFailure::FakeCitationAccepted { retriever_mode } => {
@@ -1564,10 +1593,7 @@ mod tests {
         ];
         for (value, expected) in cases {
             let actual = serde_json::to_string(&value).unwrap();
-            assert_eq!(
-                actual, expected,
-                "byte-shape drift on variant {value:?}",
-            );
+            assert_eq!(actual, expected, "byte-shape drift on variant {value:?}",);
             // Round-trip the pinned bytes the other way too — decode
             // back to the same value. Catches asymmetric drift where
             // serialize moved but deserialize lags.

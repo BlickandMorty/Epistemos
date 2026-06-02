@@ -160,8 +160,15 @@ mod tests {
     use super::*;
 
     fn ok_snapshot() -> BrainSnapshot {
-        BrainSnapshot::new("qwen3-8b", "0xdead", "0xbeef", "0xcafe", "0xf00d", 1_700_000_000)
-            .unwrap()
+        BrainSnapshot::new(
+            "qwen3-8b",
+            "0xdead",
+            "0xbeef",
+            "0xcafe",
+            "0xf00d",
+            1_700_000_000,
+        )
+        .unwrap()
     }
 
     #[test]
@@ -216,7 +223,15 @@ mod tests {
     #[test]
     fn distinct_timestamps_distinguish_snapshots() {
         let s1 = ok_snapshot();
-        let s2 = BrainSnapshot::new(&s1.model_id, &s1.dag_merkle_root, &s1.claim_ledger_hash, &s1.skill_registry_hash, &s1.vault_state_hash, s1.timestamp_unix_ms + 1).unwrap();
+        let s2 = BrainSnapshot::new(
+            &s1.model_id,
+            &s1.dag_merkle_root,
+            &s1.claim_ledger_hash,
+            &s1.skill_registry_hash,
+            &s1.vault_state_hash,
+            s1.timestamp_unix_ms + 1,
+        )
+        .unwrap();
         assert_ne!(s1, s2);
     }
 
@@ -297,7 +312,10 @@ mod tests {
     fn error_field_matches_variant() {
         assert_eq!(BrainExportError::EmptyModelId.field(), "model_id");
         assert_eq!(BrainExportError::EmptyMerkleRoot.field(), "dag_merkle_root");
-        assert_eq!(BrainExportError::UnsupportedSchemaVersion.field(), "schema_version");
+        assert_eq!(
+            BrainExportError::UnsupportedSchemaVersion.field(),
+            "schema_version"
+        );
     }
 
     #[test]

@@ -2,7 +2,7 @@
 falsifier: F-UAS-CopyCount
 created_on: 2026-05-24
 hardware_floor: M2 Pro 16 GB UMA
-status: PASS
+status: PASS - SCHEMA NORMALIZED 2026-05-28
 artifact: artifacts/falsifiers/uas_copy_count/result.json
 ---
 
@@ -10,12 +10,13 @@ artifact: artifacts/falsifiers/uas_copy_count/result.json
 
 ## Result
 
-PASS on one measured run.
+PASS on one measured run. The artifact is now in the shared
+`FalsifierArtifact` schema shape and validates with `falsifier_validator`.
 
 Command:
 
 ```bash
-cargo +stable run --manifest-path agent_core/Cargo.toml --bin uas_copy_count
+Tools/falsifiers/f_uas_copy_count.sh
 ```
 
 Measured artifact:
@@ -24,6 +25,8 @@ Measured artifact:
 - `data_copy_bytes`: 0
 - hot-path labels: Swift shared buffer, Rust slice view, Metal shared buffer,
   MLX KV view, HNSW vector view
+- `artifact_kind`: `primary_witness`
+- `fallback_tier`: `Primary`
 
 ## Scope Note
 

@@ -17,7 +17,6 @@ use crate::{
     },
 };
 
-use super::*;
 use super::admit::*;
 use super::audit_sink::*;
 use super::common::*;
@@ -29,6 +28,7 @@ use super::risk::*;
 use super::validation::*;
 use super::verdict::*;
 use super::wire::*;
+use super::*;
 
 /// Risk thresholds for policy verdict selection.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
@@ -74,7 +74,10 @@ impl<'de> Deserialize<'de> for ACSRiskThresholds {
     }
 }
 
-pub(crate) fn require_threshold_field<E>(value: &serde_json::Value, field: &'static str) -> Result<(), E>
+pub(crate) fn require_threshold_field<E>(
+    value: &serde_json::Value,
+    field: &'static str,
+) -> Result<(), E>
 where
     E: serde::de::Error,
 {
@@ -252,7 +255,9 @@ where
     Ok(())
 }
 
-pub(crate) fn require_capability_rule_capability_envelope<E>(value: &serde_json::Value) -> Result<(), E>
+pub(crate) fn require_capability_rule_capability_envelope<E>(
+    value: &serde_json::Value,
+) -> Result<(), E>
 where
     E: serde::de::Error,
 {
@@ -356,24 +361,27 @@ pub(crate) struct CapabilityShadowFieldNames {
     pub(crate) generic_capability: &'static str,
 }
 
-pub(crate) const REQUIRED_CAPABILITY_SHADOW_FIELDS: CapabilityShadowFieldNames = CapabilityShadowFieldNames {
-    vault_path_shadow_path: "required_capabilities.vault_path.shadow_path",
-    vault_path_shadow_verb: "required_capabilities.vault_path.shadow_verb",
-    network_host_shadow_host: "required_capabilities.network_host.shadow_host",
-    biometric_session_shadow_ttl_secs: "required_capabilities.biometric_session.shadow_ttl_secs",
-    other_shadow_name: "required_capabilities.other.shadow_name",
-    generic_capability: "required_capabilities.capability",
-};
+pub(crate) const REQUIRED_CAPABILITY_SHADOW_FIELDS: CapabilityShadowFieldNames =
+    CapabilityShadowFieldNames {
+        vault_path_shadow_path: "required_capabilities.vault_path.shadow_path",
+        vault_path_shadow_verb: "required_capabilities.vault_path.shadow_verb",
+        network_host_shadow_host: "required_capabilities.network_host.shadow_host",
+        biometric_session_shadow_ttl_secs:
+            "required_capabilities.biometric_session.shadow_ttl_secs",
+        other_shadow_name: "required_capabilities.other.shadow_name",
+        generic_capability: "required_capabilities.capability",
+    };
 
-pub(crate) const GRANTED_CAPABILITY_SHADOW_FIELDS: CapabilityShadowFieldNames = CapabilityShadowFieldNames {
-    vault_path_shadow_path: "admission_input.granted_capabilities.vault_path.shadow_path",
-    vault_path_shadow_verb: "admission_input.granted_capabilities.vault_path.shadow_verb",
-    network_host_shadow_host: "admission_input.granted_capabilities.network_host.shadow_host",
-    biometric_session_shadow_ttl_secs:
-        "admission_input.granted_capabilities.biometric_session.shadow_ttl_secs",
-    other_shadow_name: "admission_input.granted_capabilities.other.shadow_name",
-    generic_capability: "admission_input.granted_capabilities.capability",
-};
+pub(crate) const GRANTED_CAPABILITY_SHADOW_FIELDS: CapabilityShadowFieldNames =
+    CapabilityShadowFieldNames {
+        vault_path_shadow_path: "admission_input.granted_capabilities.vault_path.shadow_path",
+        vault_path_shadow_verb: "admission_input.granted_capabilities.vault_path.shadow_verb",
+        network_host_shadow_host: "admission_input.granted_capabilities.network_host.shadow_host",
+        biometric_session_shadow_ttl_secs:
+            "admission_input.granted_capabilities.biometric_session.shadow_ttl_secs",
+        other_shadow_name: "admission_input.granted_capabilities.other.shadow_name",
+        generic_capability: "admission_input.granted_capabilities.capability",
+    };
 
 pub(crate) fn capability_value_shadow_field(
     kind: &str,
@@ -572,7 +580,9 @@ where
     }
 }
 
-pub(crate) fn require_operation_threshold_rule_known_fields<E>(value: &serde_json::Value) -> Result<(), E>
+pub(crate) fn require_operation_threshold_rule_known_fields<E>(
+    value: &serde_json::Value,
+) -> Result<(), E>
 where
     E: serde::de::Error,
 {
@@ -1000,4 +1010,3 @@ impl ACSPolicyError {
         }
     }
 }
-

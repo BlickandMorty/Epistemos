@@ -1,0 +1,354 @@
+{
+  "falsifier_id": "F-Agent-Local-Model-Runtime-Bridge",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_agent_local_model_runtime_bridge.sh",
+  "command_digest": "sha256:723e47f9787418547726e5db043fcd597cf12c6bf697cd169d3771a5e2e211b0",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "fb7f8bf32bc67271641dc8ddab4a4c1ec066fab3",
+  "fixture_id": "agent_local_model_runtime_bridge_source_audit_v1",
+  "timestamp_utc": "2026-05-30T12:59:41Z",
+  "result_digest": "sha256:46a74a5184a0f106622567db212e17d0d8bf4676b6543d875e54c9b185dc02b5",
+  "measurements": {
+    "agent_blueprint_source": {
+      "value": {
+        "path": "agent_core/src/agent_runtime_v2/blueprint.rs",
+        "exists": true,
+        "bytes": 97344
+      },
+      "unit": "object"
+    },
+    "app_bootstrap_local_client_registered": {
+      "value": true,
+      "unit": "bool"
+    },
+    "app_bootstrap_source": {
+      "value": {
+        "path": "Epistemos/App/AppBootstrap.swift",
+        "exists": true,
+        "bytes": 165647
+      },
+      "unit": "object"
+    },
+    "dense_36b_gate_preserved": {
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_swift_handoff_test_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "gguf_runtime_client_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_agent_local_model_prompt_suite_passed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_local_model_answerpacket_provenance_wired": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_prompt_suite_result_path": {
+      "value": "artifacts/falsifiers/agent_local_model_runtime_bridge/live_prompt_suite.json",
+      "unit": "label"
+    },
+    "live_prompt_suite_summary": {
+      "value": {
+        "path": "artifacts/falsifiers/agent_local_model_runtime_bridge/live_prompt_suite.json",
+        "exists": true,
+        "overall_pass": true,
+        "prompt_count": 1,
+        "token_chunk_count": 10,
+        "total_output_chars": 41,
+        "system_g_local_model_handoff_seen": true,
+        "answerpacket_local_model_provenance_seen": true,
+        "model_id_present": true
+      },
+      "unit": "object"
+    },
+    "local_agent_adapter_dispatch_wired": {
+      "value": true,
+      "unit": "bool"
+    },
+    "local_agent_adapter_not_scaffold": {
+      "value": true,
+      "unit": "bool"
+    },
+    "local_agent_adapter_source": {
+      "value": {
+        "path": "agent_core/src/agent_runtime_v2/adapters/local_agent.rs",
+        "exists": true,
+        "bytes": 97191
+      },
+      "unit": "object"
+    },
+    "local_gguf_client_source": {
+      "value": {
+        "path": "Epistemos/Engine/LocalGGUFClient.swift",
+        "exists": true,
+        "bytes": 53483
+      },
+      "unit": "object"
+    },
+    "local_model_catalog_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "local_model_infrastructure_source": {
+      "value": {
+        "path": "Epistemos/Engine/LocalModelInfrastructure.swift",
+        "exists": true,
+        "bytes": 105143
+      },
+      "unit": "object"
+    },
+    "mlx_inference_service_source": {
+      "value": {
+        "path": "Epistemos/Engine/MLXInferenceService.swift",
+        "exists": true,
+        "bytes": 106362
+      },
+      "unit": "object"
+    },
+    "mlx_runtime_client_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "next_bottleneck": {
+      "value": "ready_for_capability_ceiling_recheck",
+      "unit": "label"
+    },
+    "provider_policy_local_mlx_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "qwen3_floor_fallback_preserved": {
+      "value": true,
+      "unit": "bool"
+    },
+    "real_system_g_seam_source": {
+      "value": {
+        "path": "Epistemos/SystemG/RealSystemGRunSeam.swift",
+        "exists": true,
+        "bytes": 16972
+      },
+      "unit": "object"
+    },
+    "rust_local_mlx_handoff_wired": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rust_v1_dispatch_still_synthetic_but_provider_route_not_synthetic": {
+      "value": true,
+      "unit": "bool"
+    },
+    "source_files_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "swift_local_model_handoff_consumed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "swift_local_model_handoff_event_wired": {
+      "value": true,
+      "unit": "bool"
+    },
+    "swift_system_g_seam_source": {
+      "value": {
+        "path": "Epistemos/SystemG/SystemGRunSeam.swift",
+        "exists": true,
+        "bytes": 15465
+      },
+      "unit": "object"
+    },
+    "system_g_event_seam_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "system_g_local_model_provider_dispatch_wired": {
+      "value": true,
+      "unit": "bool"
+    },
+    "system_g_run_seam_tests_source": {
+      "value": {
+        "path": "EpistemosTests/SystemGRunSeamTests.swift",
+        "exists": true,
+        "bytes": 22205
+      },
+      "unit": "object"
+    },
+    "system_g_runtime_source": {
+      "value": {
+        "path": "agent_core/src/agent_runtime_v2/system_g_runtime.rs",
+        "exists": true,
+        "bytes": 43493
+      },
+      "unit": "object"
+    }
+  },
+  "acceptance_thresholds": {
+    "app_bootstrap_local_client_registered": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "dense_36b_gate_preserved": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "focused_swift_handoff_test_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "gguf_runtime_client_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_agent_local_model_prompt_suite_passed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_local_model_answerpacket_provenance_wired": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "local_agent_adapter_dispatch_wired": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "local_agent_adapter_not_scaffold": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "local_model_catalog_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mlx_runtime_client_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "provider_policy_local_mlx_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "qwen3_floor_fallback_preserved": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rust_local_mlx_handoff_wired": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rust_v1_dispatch_still_synthetic_but_provider_route_not_synthetic": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "source_files_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "swift_local_model_handoff_consumed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "swift_local_model_handoff_event_wired": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "system_g_event_seam_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "system_g_local_model_provider_dispatch_wired": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    }
+  },
+  "pass_per_axis": {
+    "app_bootstrap_local_client_registered": true,
+    "dense_36b_gate_preserved": true,
+    "focused_swift_handoff_test_present": true,
+    "gguf_runtime_client_available": true,
+    "live_agent_local_model_prompt_suite_passed": true,
+    "live_local_model_answerpacket_provenance_wired": true,
+    "local_agent_adapter_dispatch_wired": true,
+    "local_agent_adapter_not_scaffold": true,
+    "local_model_catalog_available": true,
+    "mlx_runtime_client_available": true,
+    "provider_policy_local_mlx_available": true,
+    "qwen3_floor_fallback_preserved": true,
+    "rust_local_mlx_handoff_wired": true,
+    "rust_v1_dispatch_still_synthetic_but_provider_route_not_synthetic": true,
+    "source_files_present": true,
+    "swift_local_model_handoff_consumed": true,
+    "swift_local_model_handoff_event_wired": true,
+    "system_g_event_seam_available": true,
+    "system_g_local_model_provider_dispatch_wired": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "system_g_dispatch_synthetic",
+      "detail": "System G currently echoes the mission prompt through a deterministic V1 seam. That is a valid witness seam, not live local-model generation."
+    },
+    {
+      "kind": "rust_local_mlx_handoff_wired",
+      "detail": "Rust System G accepts ProviderPolicy::LocalMlx and terminates the Rust leg with local_model_handoff instead of falsely pretending Rust owns Swift/MLX generation."
+    },
+    {
+      "kind": "swift_local_model_handoff_consumed",
+      "detail": "Swift consumes local_model_handoff and streams through the registered local client, then emits local-model AnswerPacket provenance."
+    },
+    {
+      "kind": "next_bottleneck",
+      "detail": "ready_for_capability_ceiling_recheck"
+    }
+  ],
+  "notes": "local_model_agent_bridge_witness; next_bottleneck=ready_for_capability_ceiling_recheck; local catalog and runtime clients are present, Rust ProviderPolicy::LocalMlx now emits a local_model_handoff, and Swift consumes that handoff through the registered local client. Do not promote the architecture until the live prompt suite artifact proves real local-model generation on this machine."
+}

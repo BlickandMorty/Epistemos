@@ -18,8 +18,7 @@ use sha2::{Digest, Sha256};
 
 use super::breaker::{BreakerState, CircuitBreaker};
 use super::{
-    HealthCheck, Status, Tool, ToolCache, ToolCtx, ToolResult, Tracer,
-    SchemaValidator, VariantId,
+    HealthCheck, SchemaValidator, Status, Tool, ToolCache, ToolCtx, ToolResult, Tracer, VariantId,
 };
 
 /// Run a tool through its variant ladder per plan §3.2.
@@ -41,11 +40,7 @@ use super::{
 /// (tool, variant); evicted on any tool-error event. The runner is
 /// responsible for emitting that eviction signal — every "continue"
 /// path calls ctx.health.evict(tool.name()).await before advancing.
-pub async fn run_with_variants(
-    tool: &dyn Tool,
-    ctx: &ToolCtx,
-    input: Value,
-) -> ToolResult {
+pub async fn run_with_variants(tool: &dyn Tool, ctx: &ToolCtx, input: Value) -> ToolResult {
     if let Some(cached) = ctx.cache.get(tool.name(), &input).await {
         ctx.tracer.record_cache_hit(tool.name());
         return cached;
@@ -151,8 +146,8 @@ pub struct JsonSchemaValidator;
 
 impl SchemaValidator for JsonSchemaValidator {
     fn validate(&self, schema: &Value, value: &Value) -> Result<(), String> {
-        let validator = jsonschema::validator_for(schema)
-            .map_err(|e| format!("schema compile failed: {e}"))?;
+        let validator =
+            jsonschema::validator_for(schema).map_err(|e| format!("schema compile failed: {e}"))?;
         if let Err(err) = validator.validate(value) {
             return Err(format!("at {}: {}", err.instance_path, err));
         }
@@ -395,7 +390,11 @@ mod tests {
         let ctx = default_ctx(Duration::from_millis(800));
         let r = run_with_variants(&tool, &ctx, json!({})).await;
         assert_eq!(r.meta.status, Status::Ok);
-        assert_eq!(r.meta.variant_used, VariantId::B, "A failed schema, B succeeded");
+        assert_eq!(
+            r.meta.variant_used,
+            VariantId::B,
+            "A failed schema, B succeeded"
+        );
     }
 
     #[tokio::test]
@@ -416,7 +415,10 @@ mod tests {
         partial.meta.status = Status::Partial;
         partial.meta.confidence = Some(0.5);
         let tool = programmed(
-            vec![partial, ToolResult::ok(VariantId::B, 10, json!({"value": 2}))],
+            vec![
+                partial,
+                ToolResult::ok(VariantId::B, 10, json!({"value": 2})),
+            ],
             vec![VariantId::A, VariantId::B],
         );
         let ctx = default_ctx(Duration::from_millis(800));
@@ -469,14 +471,24 @@ mod tests {
         struct SlowTool;
         #[async_trait]
         impl Tool for SlowTool {
-            fn name(&self) -> &'static str { "test.slow" }
-            fn input_schema(&self) -> &'static Value { schema_anything() }
-            fn output_schema(&self) -> &'static Value { schema_object_with_value() }
-            fn variants(&self) -> &[VariantId] { &[VariantId::A] }
+            fn name(&self) -> &'static str {
+                "test.slow"
+            }
+            fn input_schema(&self) -> &'static Value {
+                schema_anything()
+            }
+            fn output_schema(&self) -> &'static Value {
+                schema_object_with_value()
+            }
+            fn variants(&self) -> &[VariantId] {
+                &[VariantId::A]
+            }
             fn profile(&self) -> super::super::Profile {
                 super::super::Profile::AppStoreSafe
             }
-            fn small_model_safe(&self) -> bool { true }
+            fn small_model_safe(&self) -> bool {
+                true
+            }
             async fn invoke(&self, _: &ToolCtx, v: VariantId, _: Value) -> ToolResult {
                 tokio::time::sleep(Duration::from_millis(500)).await;
                 ToolResult::ok(v, 500, json!({"value": 1}))
@@ -610,7 +622,9 @@ mod tests {
         }
         #[async_trait]
         impl HealthCheck for CountingHealth {
-            async fn is_available(&self, _: &str, _: VariantId) -> bool { true }
+            async fn is_available(&self, _: &str, _: VariantId) -> bool {
+                true
+            }
             async fn evict(&self, tool: &str) {
                 *self.evict_count.lock().unwrap() += 1;
                 self.evicted.lock().unwrap().push(tool.to_string());
@@ -642,8 +656,15 @@ mod tests {
         assert_eq!(r.meta.variant_used, VariantId::B);
         // Schema violation on A must have triggered evict.
         let count = *evict_count.lock().unwrap();
-        assert!(count >= 1, "expected at least 1 evict from schema violation, got {}", count);
-        assert!(evicted.lock().unwrap().contains(&"test.programmable".to_string()));
+        assert!(
+            count >= 1,
+            "expected at least 1 evict from schema violation, got {}",
+            count
+        );
+        assert!(evicted
+            .lock()
+            .unwrap()
+            .contains(&"test.programmable".to_string()));
     }
 
     #[tokio::test]
@@ -652,7 +673,9 @@ mod tests {
         struct CountingHealth(Arc<Mutex<u32>>);
         #[async_trait]
         impl HealthCheck for CountingHealth {
-            async fn is_available(&self, _: &str, _: VariantId) -> bool { true }
+            async fn is_available(&self, _: &str, _: VariantId) -> bool {
+                true
+            }
             async fn evict(&self, _tool: &str) {
                 *self.0.lock().unwrap() += 1;
             }

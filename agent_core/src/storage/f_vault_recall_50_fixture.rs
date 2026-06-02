@@ -11102,10 +11102,8 @@ mod tests {
     /// Adversarial) are populated in follow-on iters.
     #[test]
     fn fixture_covers_chatty_prefix_and_signal_only_categories() {
-        let categories: std::collections::HashSet<_> = load_canonical()
-            .iter()
-            .map(|row| row.category)
-            .collect();
+        let categories: std::collections::HashSet<_> =
+            load_canonical().iter().map(|row| row.category).collect();
         assert!(
             categories.contains(&FVaultRecallCategory::ChattyPrefix),
             "fixture must cover ChattyPrefix (the canonical 1:15 PM bug class)"

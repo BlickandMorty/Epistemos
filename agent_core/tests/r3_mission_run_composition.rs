@@ -47,10 +47,7 @@ fn debit_tokens(tokens: u64) -> BudgetDebit {
 /// blueprint id + budget spec.
 #[test]
 fn mission_run_new_starts_empty_and_carries_blueprint_id_and_spec() {
-    let run = MissionRun::new(
-        AgentBlueprintId("blueprint-fresh".into()),
-        tight_spec(),
-    );
+    let run = MissionRun::new(AgentBlueprintId("blueprint-fresh".into()), tight_spec());
     assert_eq!(run.ledger(), BudgetLedger::default());
     assert_eq!(run.budget_spec(), tight_spec());
     assert_eq!(run.blueprint_id().0, "blueprint-fresh");
@@ -63,16 +60,16 @@ fn mission_run_new_starts_empty_and_carries_blueprint_id_and_spec() {
 /// mutations stack the ledger correctly.
 #[test]
 fn mission_run_gate_success_appends_both_entries_in_order_and_updates_ledger() {
-    let mut run = MissionRun::new(
-        AgentBlueprintId("blueprint-success".into()),
-        tight_spec(),
-    );
+    let mut run = MissionRun::new(AgentBlueprintId("blueprint-success".into()), tight_spec());
 
     let (sealed_ord, snapshot_ord) = run
         .gate_and_record_sealed_mutation(cap(), debit_tokens(30))
         .expect("first mutation within budget");
     assert_eq!(sealed_ord, 0, "first sealed mutation ordinal");
-    assert_eq!(snapshot_ord, 1, "ledger snapshot immediately follows sealed mutation");
+    assert_eq!(
+        snapshot_ord, 1,
+        "ledger snapshot immediately follows sealed mutation"
+    );
     assert_eq!(run.ledger().tokens_used, 30);
 
     let (sealed_ord_2, snapshot_ord_2) = run
@@ -93,10 +90,7 @@ fn mission_run_gate_success_appends_both_entries_in_order_and_updates_ledger() {
 /// or vice versa.
 #[test]
 fn mission_run_gate_rejection_writes_nothing_and_does_not_mutate_ledger() {
-    let mut run = MissionRun::new(
-        AgentBlueprintId("blueprint-reject".into()),
-        tight_spec(),
-    );
+    let mut run = MissionRun::new(AgentBlueprintId("blueprint-reject".into()), tight_spec());
 
     // Land one successful mutation so the log + ledger have known state.
     run.gate_and_record_sealed_mutation(cap(), debit_tokens(80))
@@ -128,12 +122,13 @@ fn mission_run_gate_rejection_writes_nothing_and_does_not_mutate_ledger() {
 /// (events are not budget-controlled — only sealed mutations are).
 #[test]
 fn mission_run_record_event_appends_without_touching_budget() {
-    let mut run = MissionRun::new(
-        AgentBlueprintId("blueprint-events".into()),
-        tight_spec(),
-    );
-    let o0 = run.record_event(AgentEvent::ReasoningDelta { text: "think".into() });
-    let o1 = run.record_event(AgentEvent::FinalText { text: "answer".into() });
+    let mut run = MissionRun::new(AgentBlueprintId("blueprint-events".into()), tight_spec());
+    let o0 = run.record_event(AgentEvent::ReasoningDelta {
+        text: "think".into(),
+    });
+    let o1 = run.record_event(AgentEvent::FinalText {
+        text: "answer".into(),
+    });
     assert_eq!((o0, o1), (0, 1));
     assert_eq!(run.ledger(), BudgetLedger::default(), "events do not debit");
     let (events, sealed, snapshots) = run.run_event_log().entry_count_by_kind();
@@ -145,15 +140,18 @@ fn mission_run_record_event_appends_without_touching_budget() {
 /// the log's root hash at the moment of finalization.
 #[test]
 fn mission_run_finalize_emits_answer_packet_reflecting_accumulated_state() {
-    let mut run = MissionRun::new(
-        AgentBlueprintId("blueprint-finalize".into()),
-        tight_spec(),
-    );
-    run.record_event(AgentEvent::ReasoningDelta { text: "think".into() });
-    run.record_event(AgentEvent::FinalText { text: "answer-body".into() });
+    let mut run = MissionRun::new(AgentBlueprintId("blueprint-finalize".into()), tight_spec());
+    run.record_event(AgentEvent::ReasoningDelta {
+        text: "think".into(),
+    });
+    run.record_event(AgentEvent::FinalText {
+        text: "answer-body".into(),
+    });
     run.gate_and_record_sealed_mutation(cap(), debit_tokens(25))
         .expect("within budget");
-    run.record_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+    run.record_event(AgentEvent::Stop {
+        reason: StopReason::EndTurn,
+    });
 
     let ledger_at_finalize = run.ledger();
     let root_at_finalize = run.run_event_log().root_hash();
@@ -182,19 +180,12 @@ fn mission_run_finalize_emits_answer_packet_reflecting_accumulated_state() {
 /// non-negotiable at the composition seam.
 #[test]
 fn mission_run_finalize_with_thinking_carries_thinking_digest_verbatim() {
-    let mut run = MissionRun::new(
-        AgentBlueprintId("blueprint-thinking".into()),
-        tight_spec(),
-    );
+    let mut run = MissionRun::new(AgentBlueprintId("blueprint-thinking".into()), tight_spec());
     run.record_event(AgentEvent::FinalText { text: "x".into() });
     let thinking = Hash::from_bytes([0xCD; 32]);
 
-    let packet = run.finalize_with_thinking(
-        "x".to_string(),
-        Vec::new(),
-        StopReason::EndTurn,
-        thinking,
-    );
+    let packet =
+        run.finalize_with_thinking("x".to_string(), Vec::new(), StopReason::EndTurn, thinking);
     assert_eq!(
         packet.thinking_digest, thinking,
         "thinking_digest MUST flow through finalize_with_thinking verbatim"

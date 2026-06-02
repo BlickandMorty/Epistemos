@@ -115,7 +115,11 @@ pub enum ResidualIslandError {
     RowCountMismatch { expected: usize, actual: usize },
     /// An `entries[(col, _)]` pair referenced a column outside
     /// `0..input.len()`.
-    ColumnOutOfRange { row_index: usize, col: usize, input_len: usize },
+    ColumnOutOfRange {
+        row_index: usize,
+        col: usize,
+        input_len: usize,
+    },
     /// The underlying ternary GEMV rejected the call. Forwarded
     /// verbatim so the control room sees the original cause.
     Gemv(GemvError),
@@ -176,8 +180,7 @@ mod tests {
     use crate::research::ternary::trit::Trit;
 
     fn block(trits: &[Trit], scale: f32) -> GemvBlock {
-        let nonzero_count =
-            trits.iter().filter(|&&t| t != Trit::Zero).count() as u8;
+        let nonzero_count = trits.iter().filter(|&&t| t != Trit::Zero).count() as u8;
         GemvBlock {
             packed: pack_trits_u32(trits).unwrap(),
             scale,
@@ -227,7 +230,9 @@ mod tests {
     fn combined_sums_ternary_and_dense() {
         let weights = single_row_pos_at_zero();
         let island = ResidualIsland {
-            rows: vec![ResidualIslandRow { entries: vec![(2, 1.5)] }],
+            rows: vec![ResidualIslandRow {
+                entries: vec![(2, 1.5)],
+            }],
         };
         let mut input = vec![0.0_f32; GEMV_BLOCK_TRITS];
         input[0] = 4.0;
@@ -243,11 +248,13 @@ mod tests {
         let island = ResidualIsland::empty(2);
         let input = vec![0.0_f32; GEMV_BLOCK_TRITS];
         let mut output = vec![0.0_f32];
-        let err =
-            fused_gemv_residual(&weights, &input, &island, &mut output).unwrap_err();
+        let err = fused_gemv_residual(&weights, &input, &island, &mut output).unwrap_err();
         assert_eq!(
             err,
-            ResidualIslandError::RowCountMismatch { expected: 1, actual: 2 }
+            ResidualIslandError::RowCountMismatch {
+                expected: 1,
+                actual: 2
+            }
         );
     }
 
@@ -255,12 +262,13 @@ mod tests {
     fn column_out_of_range_errors() {
         let weights = single_row_pos_at_zero();
         let island = ResidualIsland {
-            rows: vec![ResidualIslandRow { entries: vec![(99, 1.0)] }],
+            rows: vec![ResidualIslandRow {
+                entries: vec![(99, 1.0)],
+            }],
         };
         let input = vec![0.0_f32; GEMV_BLOCK_TRITS];
         let mut output = vec![0.0_f32];
-        let err =
-            fused_gemv_residual(&weights, &input, &island, &mut output).unwrap_err();
+        let err = fused_gemv_residual(&weights, &input, &island, &mut output).unwrap_err();
         assert_eq!(
             err,
             ResidualIslandError::ColumnOutOfRange {
@@ -277,14 +285,9 @@ mod tests {
         let island = ResidualIsland::empty(1);
         let short_input = vec![0.0_f32; GEMV_BLOCK_TRITS - 1];
         let mut output = vec![0.0_f32];
-        let err =
-            fused_gemv_residual(&weights, &short_input, &island, &mut output)
-                .unwrap_err();
+        let err = fused_gemv_residual(&weights, &short_input, &island, &mut output).unwrap_err();
         match err {
-            ResidualIslandError::Gemv(GemvError::InputColMismatch {
-                expected,
-                actual,
-            }) => {
+            ResidualIslandError::Gemv(GemvError::InputColMismatch { expected, actual }) => {
                 assert_eq!(expected, GEMV_BLOCK_TRITS);
                 assert_eq!(actual, GEMV_BLOCK_TRITS - 1);
             }
@@ -301,8 +304,12 @@ mod tests {
         let weights = vec![vec![block(&trits_a, 1.0)], vec![block(&trits_b, 1.0)]];
         let island = ResidualIsland {
             rows: vec![
-                ResidualIslandRow { entries: vec![(1, 0.5)] },
-                ResidualIslandRow { entries: vec![(2, -1.0)] },
+                ResidualIslandRow {
+                    entries: vec![(1, 0.5)],
+                },
+                ResidualIslandRow {
+                    entries: vec![(2, -1.0)],
+                },
             ],
         };
         let mut input = vec![0.0_f32; GEMV_BLOCK_TRITS];

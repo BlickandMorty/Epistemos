@@ -20,7 +20,7 @@ pub fn input_schema() -> &'static Value {
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Natural language search query",
+                    "description": "Natural language search query, exact title, alias, metadata phrase, vault-relative path, or Finder path inside the vault",
                     "minLength": 1
                 },
                 "limit": {

@@ -82,7 +82,11 @@ pub fn encode_sherry_3_4(group: &[f32; SHERRY_GROUP_SIZE]) -> Result<Sherry34Blo
             Trit::Neg
         };
     }
-    let scale = if count == 0 { 0.0 } else { sum_abs / (count as f32) };
+    let scale = if count == 0 {
+        0.0
+    } else {
+        sum_abs / (count as f32)
+    };
     Ok(Sherry34Block {
         zero_slot: zero_slot as u8,
         signs,
@@ -93,7 +97,9 @@ pub fn encode_sherry_3_4(group: &[f32; SHERRY_GROUP_SIZE]) -> Result<Sherry34Blo
 /// Decode a Sherry 3:4 block back into a `[f32; 4]` (lossy reconstruction).
 pub fn decode_sherry_3_4(block: &Sherry34Block) -> Result<[f32; SHERRY_GROUP_SIZE], SherryError> {
     if block.zero_slot as usize >= SHERRY_GROUP_SIZE {
-        return Err(SherryError::ZeroSlotOutOfRange { zero_slot: block.zero_slot });
+        return Err(SherryError::ZeroSlotOutOfRange {
+            zero_slot: block.zero_slot,
+        });
     }
     let z = block.zero_slot as usize;
     if block.signs[z] != Trit::Zero {
@@ -231,7 +237,10 @@ mod tests {
         let err = decode_sherry_3_4(&b).unwrap_err();
         assert_eq!(
             err,
-            SherryError::ZeroSlotNotZeroed { zero_slot: 0, actual: Trit::Pos }
+            SherryError::ZeroSlotNotZeroed {
+                zero_slot: 0,
+                actual: Trit::Pos
+            }
         );
     }
 

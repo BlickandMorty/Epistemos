@@ -28,8 +28,8 @@ use super::hybrid::RRF_K_DEFAULT;
 use super::retriever::EidosRetriever;
 use super::types::{
     is_blank_query_text, EidosChunkId, EidosContextPacket, EidosDocumentId, EidosHit,
-    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode,
-    EidosScoreComponents, EidosSourceKind, EidosSpan,
+    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode, EidosScoreComponents,
+    EidosSourceKind, EidosSpan,
 };
 
 #[derive(Debug, thiserror::Error, PartialEq)]
@@ -90,9 +90,7 @@ impl HybridRetrieverN {
     /// [`HybridNConstructionError::EmptyRetrievers`] if the list is empty
     /// or [`HybridNConstructionError::ManifestMismatch`] on the first
     /// retriever whose manifest_id differs from index 0's.
-    pub fn new(
-        inner: Vec<Box<dyn EidosRetriever>>,
-    ) -> Result<Self, HybridNConstructionError> {
+    pub fn new(inner: Vec<Box<dyn EidosRetriever>>) -> Result<Self, HybridNConstructionError> {
         let first = inner
             .first()
             .ok_or(HybridNConstructionError::EmptyRetrievers)?;
@@ -137,11 +135,7 @@ impl EidosRetriever for HybridRetrieverN {
         &self.manifest_id
     }
 
-    fn retrieve(
-        &self,
-        query: &EidosQuery,
-        retrieved_at_unix_ms: u64,
-    ) -> EidosContextPacket {
+    fn retrieve(&self, query: &EidosQuery, retrieved_at_unix_ms: u64) -> EidosContextPacket {
         if is_blank_query_text(&query.text) || query.top_k == 0 {
             return EidosContextPacket {
                 query: query.clone(),
@@ -158,15 +152,15 @@ impl EidosRetriever for HybridRetrieverN {
             let packet = inner.retrieve(query, retrieved_at_unix_ms);
             for (rank, hit) in packet.hits.iter().enumerate() {
                 let rrf_contribution = 1.0 / (k + (rank + 1) as f32);
-                let entry = acc.entry(hit.document_id.clone()).or_insert_with(|| {
-                    NAccumulator {
+                let entry = acc
+                    .entry(hit.document_id.clone())
+                    .or_insert_with(|| NAccumulator {
                         document_id: hit.document_id.clone(),
                         kind: hit.kind,
                         span: hit.span,
                         score: EidosScoreComponents::default(),
                         rrf: 0.0,
-                    }
-                });
+                    });
                 entry.rrf += rrf_contribution;
                 if entry.span.is_none() {
                     entry.span = hit.span;
@@ -264,11 +258,7 @@ mod tests {
             &self.manifest_id
         }
 
-        fn retrieve(
-            &self,
-            query: &EidosQuery,
-            retrieved_at_unix_ms: u64,
-        ) -> EidosContextPacket {
+        fn retrieve(&self, query: &EidosQuery, retrieved_at_unix_ms: u64) -> EidosContextPacket {
             EidosContextPacket {
                 query: query.clone(),
                 manifest_id: self.manifest_id.clone(),
@@ -342,15 +332,19 @@ mod tests {
 
     fn build_lex() -> InMemoryLexicalIndex {
         let mut lex = InMemoryLexicalIndex::new(manifest());
-        lex.insert(doc("trio"), "alpha tropical", EidosSourceKind::Note).unwrap();
-        lex.insert(doc("lex-only"), "tropical", EidosSourceKind::Note).unwrap();
+        lex.insert(doc("trio"), "alpha tropical", EidosSourceKind::Note)
+            .unwrap();
+        lex.insert(doc("lex-only"), "tropical", EidosSourceKind::Note)
+            .unwrap();
         lex
     }
 
     fn build_sem() -> InMemorySemanticIndex {
         let mut sem = InMemorySemanticIndex::new(manifest(), 2);
-        sem.insert(doc("trio"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
-        sem.insert(doc("sem-only"), vec![0.9, 0.1], EidosSourceKind::Note).unwrap();
+        sem.insert(doc("trio"), vec![1.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
+        sem.insert(doc("sem-only"), vec![0.9, 0.1], EidosSourceKind::Note)
+            .unwrap();
         sem
     }
 
@@ -407,7 +401,8 @@ mod tests {
         // doc — guaranteeing rank-1 in all four.
         let build = || -> Box<dyn EidosRetriever> {
             let mut lex = InMemoryLexicalIndex::new(manifest());
-            lex.insert(doc("trio"), "tropical", EidosSourceKind::Note).unwrap();
+            lex.insert(doc("trio"), "tropical", EidosSourceKind::Note)
+                .unwrap();
             Box::new(lex)
         };
         let h = HybridRetrieverN::new(vec![build(), build(), build(), build()]).unwrap();
@@ -447,26 +442,19 @@ mod tests {
         // saturation requires rank-1 in EVERY inner, not just
         // presence.)
         let mut lex = InMemoryLexicalIndex::new(manifest());
-        lex.insert(doc("trio"), "tropical", EidosSourceKind::Note).unwrap();
+        lex.insert(doc("trio"), "tropical", EidosSourceKind::Note)
+            .unwrap();
         let mut sem = InMemorySemanticIndex::new(manifest(), 2);
-        sem.insert(doc("trio"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+        sem.insert(doc("trio"), vec![1.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
         let mut recency = InMemoryRecencyIndex::new(manifest());
         recency.insert(doc("trio"), "tropical", T0, EidosSourceKind::Note);
 
-        let h = HybridRetrieverN::new(vec![
-            Box::new(lex),
-            Box::new(sem),
-            Box::new(recency),
-        ])
-        .unwrap();
+        let h =
+            HybridRetrieverN::new(vec![Box::new(lex), Box::new(sem), Box::new(recency)]).unwrap();
         assert_eq!(h.inner_len(), 3);
 
-        let q = EidosQuery::with_vector(
-            "tropical",
-            EidosRetrievalMode::Hybrid,
-            16,
-            vec![1.0, 0.0],
-        );
+        let q = EidosQuery::with_vector("tropical", EidosRetrievalMode::Hybrid, 16, vec![1.0, 0.0]);
         let packet = h.retrieve(&q, T0);
         assert_eq!(packet.hits.len(), 1, "exactly one doc (trio) survived");
         let trio_hit = &packet.hits[0];
@@ -548,12 +536,7 @@ mod tests {
         let inner_lex = build_lex();
         let inner_sem = build_sem();
         let inner_recency = build_recency();
-        let q = EidosQuery::with_vector(
-            "tropical",
-            EidosRetrievalMode::Hybrid,
-            16,
-            vec![1.0, 0.0],
-        );
+        let q = EidosQuery::with_vector("tropical", EidosRetrievalMode::Hybrid, 16, vec![1.0, 0.0]);
 
         let lex_pkt = inner_lex.retrieve(&q, T0);
         let sem_pkt = inner_sem.retrieve(&q, T0);
@@ -747,7 +730,9 @@ mod tests {
             let inner_lex = inner_scores
                 .get(hit.document_id.as_str())
                 .copied()
-                .unwrap_or_else(|| panic!("fused doc {} not in inner packet", hit.document_id.as_str()));
+                .unwrap_or_else(|| {
+                    panic!("fused doc {} not in inner packet", hit.document_id.as_str())
+                });
             assert!(
                 (hit.score.lexical - inner_lex).abs() < 1e-6,
                 "score.lexical pass-through drift on {}: fused {} vs inner {}",
@@ -846,22 +831,30 @@ mod tests {
         // With k=60: 61/62 ≈ 0.9839
         // Different by ~0.067 — far exceeding f32 epsilon.
         let mut lex_a = InMemoryLexicalIndex::new(manifest());
-        lex_a.insert(doc("rank-1"), "x", EidosSourceKind::Note).unwrap();
-        lex_a.insert(doc("rank-2"), "x", EidosSourceKind::Note).unwrap();
+        lex_a
+            .insert(doc("rank-1"), "x", EidosSourceKind::Note)
+            .unwrap();
+        lex_a
+            .insert(doc("rank-2"), "x", EidosSourceKind::Note)
+            .unwrap();
         // Lex sort is `(score desc, source_id asc)`; both docs have
         // identical lex_score (1/(1+1)=0.5), so order is by source_id.
         // "rank-1" sorts before "rank-2" alphabetically (per source_id).
 
-        let h_default =
-            HybridRetrieverN::new(vec![Box::new(lex_a)]).unwrap();
+        let h_default = HybridRetrieverN::new(vec![Box::new(lex_a)]).unwrap();
         let q = EidosQuery::new("x", EidosRetrievalMode::Hybrid, 8);
         let p_default = h_default.retrieve(&q, T0);
 
         let mut lex_b = InMemoryLexicalIndex::new(manifest());
-        lex_b.insert(doc("rank-1"), "x", EidosSourceKind::Note).unwrap();
-        lex_b.insert(doc("rank-2"), "x", EidosSourceKind::Note).unwrap();
-        let h_small_k =
-            HybridRetrieverN::new(vec![Box::new(lex_b)]).unwrap().with_k(10);
+        lex_b
+            .insert(doc("rank-1"), "x", EidosSourceKind::Note)
+            .unwrap();
+        lex_b
+            .insert(doc("rank-2"), "x", EidosSourceKind::Note)
+            .unwrap();
+        let h_small_k = HybridRetrieverN::new(vec![Box::new(lex_b)])
+            .unwrap()
+            .with_k(10);
         let p_small_k = h_small_k.retrieve(&q, T0);
 
         // Top hit (rank-1 in both retrievers) saturates to 1.0
@@ -907,7 +900,9 @@ mod tests {
         // Build N=4 inner retrievers where only the first holds the
         // doc (3 empty Lex stand-ins). Single-mode rank-1 case.
         let mut lex_a = InMemoryLexicalIndex::new(manifest());
-        lex_a.insert(doc("only-lex"), "match", EidosSourceKind::Note).unwrap();
+        lex_a
+            .insert(doc("only-lex"), "match", EidosSourceKind::Note)
+            .unwrap();
         let lex_empty_1 = InMemoryLexicalIndex::new(manifest());
         let lex_empty_2 = InMemoryLexicalIndex::new(manifest());
         let lex_empty_3 = InMemoryLexicalIndex::new(manifest());
@@ -955,25 +950,17 @@ mod tests {
         // present-modes" rather than "fixed N") would silently shift
         // this point.
         let mut lex = InMemoryLexicalIndex::new(manifest());
-        lex.insert(doc("only-lex"), "tropical", EidosSourceKind::Note).unwrap();
+        lex.insert(doc("only-lex"), "tropical", EidosSourceKind::Note)
+            .unwrap();
         // Empty Sem + Recency — "only-lex" appears in Lex only.
         let sem = InMemorySemanticIndex::new(manifest(), 1);
         let recency = InMemoryRecencyIndex::new(manifest());
 
-        let h = HybridRetrieverN::new(vec![
-            Box::new(lex),
-            Box::new(sem),
-            Box::new(recency),
-        ])
-        .unwrap();
+        let h =
+            HybridRetrieverN::new(vec![Box::new(lex), Box::new(sem), Box::new(recency)]).unwrap();
         assert_eq!(h.inner_len(), 3);
 
-        let q = EidosQuery::with_vector(
-            "tropical",
-            EidosRetrievalMode::Hybrid,
-            8,
-            vec![1.0],
-        );
+        let q = EidosQuery::with_vector("tropical", EidosRetrievalMode::Hybrid, 8, vec![1.0]);
         let packet = h.retrieve(&q, T0);
         assert_eq!(packet.hits.len(), 1);
         let confidence = packet.hits[0].confidence;
@@ -1034,24 +1021,17 @@ mod tests {
         // RRF, distinct doc_ids. Alphabetic asc must order ["a-doc",
         // "z-doc"].
         let mut lex = InMemoryLexicalIndex::new(manifest());
-        lex.insert(doc("z-doc"), "needle", EidosSourceKind::Note).unwrap();
+        lex.insert(doc("z-doc"), "needle", EidosSourceKind::Note)
+            .unwrap();
         let mut sem = InMemorySemanticIndex::new(manifest(), 2);
-        sem.insert(doc("a-doc"), vec![1.0, 0.0], EidosSourceKind::Note).unwrap();
+        sem.insert(doc("a-doc"), vec![1.0, 0.0], EidosSourceKind::Note)
+            .unwrap();
 
         let h = HybridRetrieverN::new(vec![Box::new(lex), Box::new(sem)]).unwrap();
-        let q = EidosQuery::with_vector(
-            "needle",
-            EidosRetrievalMode::Hybrid,
-            8,
-            vec![1.0, 0.0],
-        );
+        let q = EidosQuery::with_vector("needle", EidosRetrievalMode::Hybrid, 8, vec![1.0, 0.0]);
         let packet = h.retrieve(&q, T0);
 
-        let order: Vec<&str> = packet
-            .hits
-            .iter()
-            .map(|h| h.document_id.as_str())
-            .collect();
+        let order: Vec<&str> = packet.hits.iter().map(|h| h.document_id.as_str()).collect();
         assert_eq!(
             order,
             vec!["a-doc", "z-doc"],

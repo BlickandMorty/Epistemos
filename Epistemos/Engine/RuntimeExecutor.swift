@@ -241,6 +241,10 @@ nonisolated public struct MissionPacket: Sendable, Equatable, Hashable, Codable,
     public let requiresVision: Bool
     public let requiresGrammar: Bool
     public let privacySensitive: Bool
+    public let classificationConfidence: Double?
+    public let estimatedComplexity: Double?
+    public let toolCountEstimate: Int?
+    public let estimatedInputTokens: Int?
     /// Optional caller-supplied lane preference. The router treats
     /// this as a hint; honors it only if the lane is enabled and
     /// its capability surface satisfies the rest of the demands.
@@ -257,6 +261,10 @@ nonisolated public struct MissionPacket: Sendable, Equatable, Hashable, Codable,
         requiresVision: Bool = false,
         requiresGrammar: Bool = false,
         privacySensitive: Bool = false,
+        classificationConfidence: Double? = nil,
+        estimatedComplexity: Double? = nil,
+        toolCountEstimate: Int? = nil,
+        estimatedInputTokens: Int? = nil,
         preferredLane: RuntimeLane? = nil
     ) {
         self.id = id
@@ -269,6 +277,10 @@ nonisolated public struct MissionPacket: Sendable, Equatable, Hashable, Codable,
         self.requiresVision = requiresVision
         self.requiresGrammar = requiresGrammar
         self.privacySensitive = privacySensitive
+        self.classificationConfidence = classificationConfidence
+        self.estimatedComplexity = estimatedComplexity
+        self.toolCountEstimate = toolCountEstimate
+        self.estimatedInputTokens = estimatedInputTokens
         self.preferredLane = preferredLane
     }
 }
@@ -296,6 +308,10 @@ nonisolated public enum RouteVerdict: Sendable, Equatable, Hashable, Codable {
         case residencyTierExceeded = "residency_tier_exceeded"
         case privacyPolicyMismatch = "privacy_policy_mismatch"
         case capabilityMissing = "capability_missing"
+        case classificationUncertain = "classification_uncertain"
+        case taskTooComplex = "task_too_complex"
+        case tooManyToolCalls = "too_many_tool_calls"
+        case invalidPolicyInput = "invalid_policy_input"
 
         public var displayName: String {
             switch self {
@@ -306,6 +322,10 @@ nonisolated public enum RouteVerdict: Sendable, Equatable, Hashable, Codable {
             case .residencyTierExceeded: return "Residency tier exceeded"
             case .privacyPolicyMismatch: return "Privacy policy mismatch"
             case .capabilityMissing: return "Capability missing"
+            case .classificationUncertain: return "Classification uncertain"
+            case .taskTooComplex: return "Task too complex"
+            case .tooManyToolCalls: return "Too many tool calls"
+            case .invalidPolicyInput: return "Invalid policy input"
             }
         }
     }
@@ -314,12 +334,14 @@ nonisolated public enum RouteVerdict: Sendable, Equatable, Hashable, Codable {
         case noLaneAvailable = "no_lane_available"
         case allLanesDisabled = "all_lanes_disabled"
         case privacySensitiveNoLocal = "privacy_sensitive_no_local"
+        case invalidPolicyInput = "invalid_policy_input"
 
         public var displayName: String {
             switch self {
             case .noLaneAvailable: return "No lane available"
             case .allLanesDisabled: return "All lanes disabled"
             case .privacySensitiveNoLocal: return "Privacy-sensitive · no local lane"
+            case .invalidPolicyInput: return "Invalid policy input"
             }
         }
     }

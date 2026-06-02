@@ -35,7 +35,12 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SsdScanError {
-    LengthMismatch { a: usize, b: usize, c: usize, x: usize },
+    LengthMismatch {
+        a: usize,
+        b: usize,
+        c: usize,
+        x: usize,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -68,7 +73,10 @@ pub fn ssd_scan_scalar(
         state = a[i] * state + b[i] * x[i];
         y.push(c[i] * state);
     }
-    Ok(SsdScanResult { y, final_state: state })
+    Ok(SsdScanResult {
+        y,
+        final_state: state,
+    })
 }
 
 /// Verify the per-step decay invariant `|a[t]| < 1 - tol` for every t.
@@ -158,7 +166,10 @@ pub fn ssd_block_scan_scalar(
         y.extend_from_slice(&block.y);
         i = end;
     }
-    Ok(SsdScanResult { y, final_state: state })
+    Ok(SsdScanResult {
+        y,
+        final_state: state,
+    })
 }
 
 #[cfg(test)]
@@ -217,9 +228,13 @@ mod tests {
         let x: Vec<f32> = (0..16).map(|i| (i as f32) + 1.0).collect();
         let baseline = ssd_scan_scalar(&a, &b, &c, &x, 0.0).unwrap();
         for &block_size in &[1, 2, 4, 8, 16, 32] {
-            let blocked =
-                ssd_block_scan_scalar(&a, &b, &c, &x, 0.0, block_size).unwrap();
-            assert_eq!(blocked.y.len(), baseline.y.len(), "len mismatch block={}", block_size);
+            let blocked = ssd_block_scan_scalar(&a, &b, &c, &x, 0.0, block_size).unwrap();
+            assert_eq!(
+                blocked.y.len(),
+                baseline.y.len(),
+                "len mismatch block={}",
+                block_size
+            );
             for i in 0..baseline.y.len() {
                 assert!(
                     (blocked.y[i] - baseline.y[i]).abs() < 1e-5,
@@ -270,7 +285,10 @@ mod tests {
 
     #[test]
     fn result_serializes_through_serde_json() {
-        let r = SsdScanResult { y: vec![1.0, 2.0, 3.0], final_state: 4.0 };
+        let r = SsdScanResult {
+            y: vec![1.0, 2.0, 3.0],
+            final_state: 4.0,
+        };
         let json = serde_json::to_string(&r).unwrap();
         let back: SsdScanResult = serde_json::from_str(&json).unwrap();
         assert_eq!(r, back);
@@ -354,16 +372,28 @@ mod tests {
     fn compare_scans_includes_final_state_diff() {
         // y vectors identical but final_state differs → diff comes
         // from the state comparison.
-        let r_ref = SsdScanResult { y: vec![1.0, 2.0], final_state: 0.5 };
-        let r_pert = SsdScanResult { y: vec![1.0, 2.0], final_state: 0.8 };
+        let r_ref = SsdScanResult {
+            y: vec![1.0, 2.0],
+            final_state: 0.5,
+        };
+        let r_pert = SsdScanResult {
+            y: vec![1.0, 2.0],
+            final_state: 0.8,
+        };
         let diff = compare_scans(&r_ref, &r_pert).unwrap();
         assert!((diff - 0.3).abs() < 1e-6);
     }
 
     #[test]
     fn compare_scans_length_mismatch_returns_none() {
-        let r1 = SsdScanResult { y: vec![1.0, 2.0], final_state: 0.0 };
-        let r2 = SsdScanResult { y: vec![1.0, 2.0, 3.0], final_state: 0.0 };
+        let r1 = SsdScanResult {
+            y: vec![1.0, 2.0],
+            final_state: 0.0,
+        };
+        let r2 = SsdScanResult {
+            y: vec![1.0, 2.0, 3.0],
+            final_state: 0.0,
+        };
         assert!(compare_scans(&r1, &r2).is_none());
     }
 
@@ -380,6 +410,10 @@ mod tests {
         let r_ref = ssd_scan_scalar(&a, &b, &c, &x, 0.0).unwrap();
         let r_block = ssd_block_scan_scalar(&a, &b, &c, &x, 0.0, 4).unwrap();
         let diff = compare_scans(&r_ref, &r_block).unwrap();
-        assert!(diff < 1e-3, "diff={} exceeds Helios §6 acceptance bar", diff);
+        assert!(
+            diff < 1e-3,
+            "diff={} exceeds Helios §6 acceptance bar",
+            diff
+        );
     }
 }

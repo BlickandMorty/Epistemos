@@ -20,7 +20,7 @@ public struct ShadowSearchHealthRow: View {
             row(
                 label: "Shadow backend",
                 symbol: snapshot.isDegraded ? "exclamationmark.triangle.fill" : "magnifyingglass.circle.fill",
-                ok: !snapshot.isDegraded,
+                state: backendState,
                 detail: backendDetail
             )
             VerifiedFloorChipStrip(
@@ -35,13 +35,13 @@ public struct ShadowSearchHealthRow: View {
             row(
                 label: "Last search",
                 symbol: "clock",
-                ok: !snapshot.isDegraded && snapshot.totalSearches > 0,
+                state: lastSearchState,
                 detail: lastSearchDetail
             )
             row(
                 label: "Failure budget",
                 symbol: "waveform.path.ecg",
-                ok: snapshot.consecutiveFailures == 0,
+                state: failureBudgetState,
                 detail: failureDetail
             )
         }
@@ -101,6 +101,19 @@ public struct ShadowSearchHealthRow: View {
         return "\(streak) consecutive / \(total) total\(suffix)"
     }
 
+    private var backendState: SubstrateHealthSignalState {
+        snapshot.isDegraded ? .blocked : .pass
+    }
+
+    private var lastSearchState: SubstrateHealthSignalState {
+        if snapshot.isDegraded { return .blocked }
+        return snapshot.totalSearches > 0 ? .pass : .partial
+    }
+
+    private var failureBudgetState: SubstrateHealthSignalState {
+        snapshot.consecutiveFailures == 0 ? .pass : .blocked
+    }
+
     private func formatLatency(_ ms: Double) -> String {
         if ms < 1.0 {
             return String(format: "%.2f ms", ms)
@@ -120,7 +133,7 @@ public struct ShadowSearchHealthRow: View {
     }
 
     @ViewBuilder
-    private func row(label: String, symbol: String, ok: Bool, detail: String) -> some View {
+    private func row(label: String, symbol: String, state: SubstrateHealthSignalState, detail: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: symbol)
                 .symbolRenderingMode(.hierarchical)
@@ -136,8 +149,8 @@ public struct ShadowSearchHealthRow: View {
                     .truncationMode(.middle)
             }
             Spacer()
-            Image(systemName: ok ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .foregroundStyle(ok ? AnyShapeStyle(Color.green) : AnyShapeStyle(Color.red))
+            Image(systemName: state.symbol)
+                .foregroundStyle(state.tint)
                 .font(.system(size: 16))
         }
         .padding(.horizontal, 12)

@@ -1,0 +1,468 @@
+{
+  "falsifier_id": "F-KV-Direct-Gate",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "failure_report",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_kv_direct_gate.sh",
+  "command_digest": "sha256:111506f0c5ace2a58f660f66f5ea15edc8332cf8d38d0c959c4c46e45b67c24b",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "ba6f15e6fb08c772c5bbce4d303aff864f39e9c2",
+  "fixture_id": "kv_direct_tier1_plus_live_contract_v1",
+  "timestamp_utc": "2026-05-29T13:23:45Z",
+  "result_digest": "sha256:2eeeda81759ea656d14ffac7fae076a12a0c169232281a67fcf66bfb94b1b5db",
+  "measurements": {
+    "average_d_kl_nats": {
+      "value": 0.004118051852610116,
+      "unit": "nats"
+    },
+    "canonical_model_repo_id": {
+      "value": "Qwen/Qwen3-8B-MLX-4bit",
+      "unit": "label"
+    },
+    "context_window_tokens": {
+      "value": 512,
+      "unit": "count"
+    },
+    "decode_tok_s": {
+      "value": 0.3861365274354122,
+      "unit": "tokens_per_second"
+    },
+    "decode_tokens_per_prompt": {
+      "value": 1,
+      "unit": "count"
+    },
+    "harness_wall_clock_seconds": {
+      "value": 0.097623708,
+      "unit": "seconds"
+    },
+    "live_harness_contract_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_harness_mode": {
+      "value": "fixture_logits",
+      "unit": "label"
+    },
+    "live_metrics_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "live_prompt_count": {
+      "value": 1,
+      "unit": "count"
+    },
+    "logits_path_env": {
+      "value": "unset",
+      "unit": "label"
+    },
+    "metrics_path_env": {
+      "value": "artifacts/falsifiers/kv_direct_gate/live_mlx_smoke_qwen3_8b/metrics.json",
+      "unit": "label"
+    },
+    "metrics_spill_labeling": {
+      "value": false,
+      "unit": "bool"
+    },
+    "model_assets_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_context_supports_required_context": {
+      "value": false,
+      "unit": "bool"
+    },
+    "model_context_window_tokens": {
+      "value": 40960,
+      "unit": "count"
+    },
+    "model_identity_matches_canonical": {
+      "value": true,
+      "unit": "bool"
+    },
+    "model_path_env": {
+      "value": "/Users/jojo/Library/Application Support/Epistemos/Models/text/hub/models--Qwen--Qwen3-8B-MLX-4bit/snapshots/383413e909f3bc5303ce195ebbdf0339c5a1a2a3",
+      "unit": "label"
+    },
+    "peak_ram_gb": {
+      "value": 3.276242944,
+      "unit": "GB"
+    },
+    "prompt_suite_balanced_family_coverage": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_suite_manifest_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_suite_min_context_tokens": {
+      "value": 128000,
+      "unit": "count"
+    },
+    "prompt_suite_min_decode_tokens_per_prompt": {
+      "value": 256,
+      "unit": "count"
+    },
+    "prompt_suite_path_env": {
+      "value": "/Users/jojo/Downloads/Epistemos/artifacts/falsifiers/kv_direct_gate/prompt_suite.json",
+      "unit": "label"
+    },
+    "prompt_suite_prompt_count": {
+      "value": 100,
+      "unit": "count"
+    },
+    "reference_logits_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "reference_logits_path_env": {
+      "value": "artifacts/falsifiers/kv_direct_gate/live_mlx_smoke_qwen3_8b/reference_logits.json",
+      "unit": "label"
+    },
+    "resolved_model_asset_path": {
+      "value": "/Users/jojo/Library/Application Support/Epistemos/Models/text/hub/models--Qwen--Qwen3-8B-MLX-4bit/snapshots/383413e909f3bc5303ce195ebbdf0339c5a1a2a3",
+      "unit": "label"
+    },
+    "resolved_model_context_source": {
+      "value": "declared_config_context",
+      "unit": "label"
+    },
+    "resolved_model_repo_id": {
+      "value": "Qwen/Qwen3-8B-MLX-4bit",
+      "unit": "label"
+    },
+    "resolved_model_rope_scaling": {
+      "value": "none",
+      "unit": "label"
+    },
+    "resolved_model_type": {
+      "value": "qwen3",
+      "unit": "label"
+    },
+    "resolved_prompt_suite_path": {
+      "value": "/Users/jojo/Downloads/Epistemos/artifacts/falsifiers/kv_direct_gate/prompt_suite.json",
+      "unit": "label"
+    },
+    "spill_labeling": {
+      "value": false,
+      "unit": "bool"
+    },
+    "spill_trace_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "spill_trace_cold_kv_bytes": {
+      "value": 0,
+      "unit": "count"
+    },
+    "spill_trace_mmap_backed": {
+      "value": false,
+      "unit": "bool"
+    },
+    "spill_trace_path_env": {
+      "value": "artifacts/falsifiers/kv_direct_gate/live_mlx_smoke_qwen3_8b/spill_trace.json",
+      "unit": "label"
+    },
+    "spill_trace_quantized_storage": {
+      "value": false,
+      "unit": "bool"
+    },
+    "spill_trace_residual_patch_applied": {
+      "value": false,
+      "unit": "bool"
+    },
+    "spill_trace_route": {
+      "value": "prompt_cache_reload",
+      "unit": "label"
+    },
+    "spill_trace_route_is_canonical": {
+      "value": false,
+      "unit": "bool"
+    },
+    "spill_trace_ssd_spill_labeled": {
+      "value": false,
+      "unit": "bool"
+    },
+    "suite_wall_clock_min": {
+      "value": 0.1010209972167407,
+      "unit": "minutes"
+    },
+    "test_logits_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "test_logits_path_env": {
+      "value": "artifacts/falsifiers/kv_direct_gate/live_mlx_smoke_qwen3_8b/test_logits.json",
+      "unit": "label"
+    },
+    "tier1_dispatch_contract": {
+      "value": true,
+      "unit": "bool"
+    },
+    "tier1_qk_equality_violations": {
+      "value": 0,
+      "unit": "count"
+    },
+    "trace_count": {
+      "value": 1000,
+      "unit": "traces"
+    }
+  },
+  "acceptance_thresholds": {
+    "average_d_kl_nats": {
+      "operator": "<",
+      "value": 0.05,
+      "unit": "nats"
+    },
+    "context_window_tokens": {
+      "operator": ">=",
+      "value": 128000,
+      "unit": "count"
+    },
+    "decode_tok_s": {
+      "operator": ">=",
+      "value": 10.0,
+      "unit": "tokens_per_second"
+    },
+    "decode_tokens_per_prompt": {
+      "operator": ">=",
+      "value": 256,
+      "unit": "count"
+    },
+    "live_harness_contract_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_metrics_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "live_prompt_count": {
+      "operator": ">=",
+      "value": 100,
+      "unit": "count"
+    },
+    "metrics_spill_labeling": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_assets_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_context_supports_required_context": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "model_context_window_tokens": {
+      "operator": ">=",
+      "value": 128000,
+      "unit": "count"
+    },
+    "model_identity_matches_canonical": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "peak_ram_gb": {
+      "operator": "<",
+      "value": 13.0,
+      "unit": "GB"
+    },
+    "prompt_suite_balanced_family_coverage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_suite_manifest_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "prompt_suite_min_context_tokens": {
+      "operator": ">=",
+      "value": 128000,
+      "unit": "count"
+    },
+    "prompt_suite_min_decode_tokens_per_prompt": {
+      "operator": ">=",
+      "value": 256,
+      "unit": "count"
+    },
+    "prompt_suite_prompt_count": {
+      "operator": ">=",
+      "value": 100,
+      "unit": "count"
+    },
+    "reference_logits_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "spill_labeling": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "spill_trace_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "spill_trace_cold_kv_bytes": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "count"
+    },
+    "spill_trace_mmap_backed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "spill_trace_quantized_storage": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "spill_trace_residual_patch_applied": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "spill_trace_route_is_canonical": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "spill_trace_ssd_spill_labeled": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "suite_wall_clock_min": {
+      "operator": "<=",
+      "value": 30.0,
+      "unit": "minutes"
+    },
+    "test_logits_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tier1_dispatch_contract": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "tier1_qk_equality_violations": {
+      "operator": "==",
+      "value": 0,
+      "unit": "count"
+    }
+  },
+  "pass_per_axis": {
+    "average_d_kl_nats": true,
+    "context_window_tokens": false,
+    "decode_tok_s": false,
+    "decode_tokens_per_prompt": false,
+    "live_harness_contract_present": true,
+    "live_metrics_available": true,
+    "live_prompt_count": false,
+    "metrics_spill_labeling": false,
+    "model_assets_available": true,
+    "model_context_supports_required_context": false,
+    "model_context_window_tokens": false,
+    "model_identity_matches_canonical": true,
+    "peak_ram_gb": true,
+    "prompt_suite_balanced_family_coverage": true,
+    "prompt_suite_manifest_available": true,
+    "prompt_suite_min_context_tokens": true,
+    "prompt_suite_min_decode_tokens_per_prompt": true,
+    "prompt_suite_prompt_count": true,
+    "reference_logits_available": true,
+    "spill_labeling": false,
+    "spill_trace_available": true,
+    "spill_trace_cold_kv_bytes": false,
+    "spill_trace_mmap_backed": false,
+    "spill_trace_quantized_storage": false,
+    "spill_trace_residual_patch_applied": false,
+    "spill_trace_route_is_canonical": false,
+    "spill_trace_ssd_spill_labeled": false,
+    "suite_wall_clock_min": true,
+    "test_logits_available": true,
+    "tier1_dispatch_contract": true,
+    "tier1_qk_equality_violations": true
+  },
+  "overall_pass": false,
+  "fallback_tier": "Fail",
+  "anomalies": [
+    {
+      "kind": "partial_substrate_only",
+      "detail": "Tier-1 Rust KV-Direct equality is measured, but this is not the 128K Qwen3-8B SSD-spill gate."
+    },
+    {
+      "kind": "model_context_window_too_small",
+      "detail": "Resolved model context window is 40960 tokens; F-KV-Direct-Gate requires at least 128000. Do not rerun the 128K suite until the model asset or rope/context config honestly supports it."
+    },
+    {
+      "kind": "noncanonical_spill_route",
+      "detail": "Spill trace route must be `residual_patched_mmap_nf4_ssd_spill`; prompt-cache reload, KV-quantized, and full-KV traces cannot satisfy F-KV-Direct-Gate."
+    },
+    {
+      "kind": "missing_residual_patch_witness",
+      "detail": "Spill trace must explicitly set residual_patch_applied=true for the residual-sufficiency oracle."
+    },
+    {
+      "kind": "missing_mmap_witness",
+      "detail": "Spill trace must explicitly prove mmap-backed cold KV storage."
+    },
+    {
+      "kind": "missing_nf4_or_quantized_storage_witness",
+      "detail": "Spill trace must label NF4 or equivalent quantized cold KV storage."
+    },
+    {
+      "kind": "missing_cold_kv_byte_count",
+      "detail": "Spill trace must include cold_kv_bytes/ssd_spill_bytes/mmap_bytes greater than zero."
+    },
+    {
+      "kind": "insufficient_prompt_fixture",
+      "detail": "Live fixture has 1 prompts; F-KV-Direct-Gate requires at least 100 prompts."
+    },
+    {
+      "kind": "insufficient_context_window",
+      "detail": "Metrics report 512 context tokens; F-KV-Direct-Gate requires at least 128000."
+    },
+    {
+      "kind": "insufficient_decode_tokens",
+      "detail": "Metrics report 1 decode tokens per prompt; F-KV-Direct-Gate requires at least 256."
+    }
+  ],
+  "notes": "preflight_failure_report; Tier-1 Rust equality contract measured over 1000 traces; live harness contract accepts EPISTEMOS_KV_DIRECT_MODEL_PATH, EPISTEMOS_KV_DIRECT_LOGITS_PATH or paired EPISTEMOS_KV_DIRECT_REFERENCE_LOGITS/EPISTEMOS_KV_DIRECT_TEST_LOGITS, EPISTEMOS_KV_DIRECT_METRICS_PATH, EPISTEMOS_KV_DIRECT_SPILL_TRACE, and optional EPISTEMOS_KV_DIRECT_PROMPT_SUITE; no product KV-Direct claim unless all live axes pass, including >=100 prompts, >=128000 context tokens, and >=256 decode tokens per prompt"
+}

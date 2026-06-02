@@ -140,8 +140,9 @@ final class WorkspaceSummaryService {
         }
     }
 
-    /// Per-window summary using Apple Intelligence (fast, short context, ideal for one-sentence summaries).
-    /// Falls back to TriageService if Apple Intelligence is unavailable.
+    /// Per-window summary uses deterministic extraction. Passive workspace
+    /// refreshes run during launch/window restore, so they must not warm
+    /// FoundationModels or any selected model before explicit user intent.
     func generatePerWindowSummaries() async -> [(title: String, summary: String)] {
         let liveDocuments = AppBootstrap.shared?.workspaceService.captureSnapshot().liveDocuments ?? []
         guard !liveDocuments.isEmpty else { return [] }
@@ -156,31 +157,10 @@ final class WorkspaceSummaryService {
                 results.append((title: document.title, summary: "Empty note"))
                 continue
             }
-            let snippet = String(sourceText.prefix(1_200))
-            let prompt = "Summarize the intent and key content of this live \(document.source) in one sentence:\n\n\(snippet)"
-
-            do {
-                // Prefer Apple Intelligence for per-window summaries (fast, low-latency)
-                let summary = try await AppleIntelligenceService.shared.generate(
-                    prompt: prompt,
-                    systemPrompt: "You are a concise document summarizer. One sentence only."
-                )
-                results.append((title: document.title, summary: Self.sanitizedSummaryText(from: summary) ?? "Could not summarize"))
-            } catch {
-                // Fallback to triage (Qwen) if Apple Intelligence unavailable
-                do {
-                    let summary = try await triageService.generate(
-                        prompt: prompt,
-                        systemPrompt: "You are a concise document summarizer. One sentence only.",
-                        operation: .summarize,
-                        contentLength: snippet.count,
-                        query: "per-window summary"
-                    )
-                    results.append((title: document.title, summary: Self.sanitizedSummaryText(from: summary) ?? "Could not summarize"))
-                } catch {
-                    results.append((title: document.title, summary: "Could not summarize"))
-                }
-            }
+            results.append((
+                title: document.title,
+                summary: Self.extractiveWindowSummary(from: sourceText, source: document.source)
+            ))
         }
         return results
     }
@@ -294,6 +274,25 @@ final class WorkspaceSummaryService {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !visible.isEmpty else { return nil }
         return visible
+    }
+
+    private nonisolated static func extractiveWindowSummary(from raw: String, source: String) -> String {
+        let collapsed = raw
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        guard !collapsed.isEmpty else { return "Empty \(source)" }
+
+        let sentenceEnd = collapsed.firstIndex { ".!?".contains($0) }
+        let firstSentence: String
+        if let sentenceEnd {
+            firstSentence = String(collapsed[...sentenceEnd])
+        } else {
+            firstSentence = String(collapsed.prefix(180))
+        }
+        let clipped = String(firstSentence.prefix(220)).trimmingCharacters(in: .whitespacesAndNewlines)
+        return clipped.isEmpty ? "Active \(source)" : clipped
     }
 
     private func storeSummary(_ text: String) {

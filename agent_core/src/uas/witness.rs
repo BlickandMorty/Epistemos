@@ -94,7 +94,10 @@ impl CollectingWitness {
 
     /// Returns a snapshot of every event recorded so far, in order.
     pub fn snapshot(&self) -> Vec<WitnessEvent> {
-        self.events.lock().unwrap_or_else(|e| e.into_inner()).clone()
+        self.events
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 
     /// Returns the number of recorded events.
@@ -177,7 +180,9 @@ mod tests {
         let snap = w.snapshot();
         assert_eq!(snap.len(), 1);
         match &snap[0] {
-            WitnessEvent::AddressMigrated { from_tier, to_tier, .. } => {
+            WitnessEvent::AddressMigrated {
+                from_tier, to_tier, ..
+            } => {
                 assert_eq!(*from_tier, ResidencyTier::CapabilityCeiling);
                 assert_eq!(*to_tier, ResidencyTier::VerifiedFloor);
             }
@@ -194,11 +199,33 @@ mod tests {
         // be revised before the new event lands.
         let addr = sample_address();
         let events = [
-            WitnessEvent::LeaseGranted { address: addr.clone(), tier: ResidencyTier::CurrentApp, granted_at_ms: 0, ttl_ms: 0 },
-            WitnessEvent::LeaseRefreshed { address: addr.clone(), tier: ResidencyTier::CurrentApp, new_granted_at_ms: 0 },
-            WitnessEvent::LeaseExpired { address: addr.clone(), tier: ResidencyTier::CurrentApp, expired_at_ms: 0 },
-            WitnessEvent::LeaseReleased { address: addr.clone(), tier: ResidencyTier::CurrentApp, released_at_ms: 0 },
-            WitnessEvent::AddressMigrated { address: addr, from_tier: ResidencyTier::CurrentApp, to_tier: ResidencyTier::VerifiedFloor, migrated_at_ms: 0 },
+            WitnessEvent::LeaseGranted {
+                address: addr.clone(),
+                tier: ResidencyTier::CurrentApp,
+                granted_at_ms: 0,
+                ttl_ms: 0,
+            },
+            WitnessEvent::LeaseRefreshed {
+                address: addr.clone(),
+                tier: ResidencyTier::CurrentApp,
+                new_granted_at_ms: 0,
+            },
+            WitnessEvent::LeaseExpired {
+                address: addr.clone(),
+                tier: ResidencyTier::CurrentApp,
+                expired_at_ms: 0,
+            },
+            WitnessEvent::LeaseReleased {
+                address: addr.clone(),
+                tier: ResidencyTier::CurrentApp,
+                released_at_ms: 0,
+            },
+            WitnessEvent::AddressMigrated {
+                address: addr,
+                from_tier: ResidencyTier::CurrentApp,
+                to_tier: ResidencyTier::VerifiedFloor,
+                migrated_at_ms: 0,
+            },
         ];
         assert_eq!(events.len(), 5, "five-event LOCK — adding a 6th event requires canonical doctrine §5 row #1 acceptance revision");
     }

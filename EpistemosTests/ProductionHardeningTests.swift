@@ -1001,6 +1001,22 @@ struct AuditHardeningRegressionTests {
         #expect(source.contains("Self.backgroundLog.error(\"Failed to prune APFS safety snapshots"))
     }
 
+    @Test("Vault file watcher implementation state stays out of Observation")
+    func vaultFileWatcherImplementationStateStaysOutOfObservation() throws {
+        let source = try loadProductionHardeningRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
+        let documentController = try loadProductionHardeningRepoTextFile("Epistemos/App/EpistemosDocumentController.swift")
+        let watchingRange = try #require(source.range(of: "// MARK: - File Watching"))
+        let recoveryRange = try #require(source.range(of: "private nonisolated static let recoverySnapshotLimit"))
+        let watchingState = source[watchingRange.lowerBound..<recoveryRange.lowerBound]
+
+        #expect(source.contains("private final class VaultFileWatcherState"))
+        #expect(watchingState.contains("@ObservationIgnored\n    private let fileWatcherState = VaultFileWatcherState()"))
+        #expect(!watchingState.contains("private var fileWatcherIgnoreUntil"))
+        #expect(!watchingState.contains("private var fileWatchDebounceTask"))
+        #expect(source.contains("func suppressNextFileWatcherChangeForSelfOriginatedWrite"))
+        #expect(documentController.contains("suppressNextFileWatcherChangeForSelfOriginatedWrite()"))
+    }
+
     @Test("vault destructive UI flows use async off-main snapshot switching")
     func vaultDestructiveUIFlowsUseAsyncSnapshotSwitching() throws {
         let vaultSync = try loadProductionHardeningRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
@@ -1211,6 +1227,10 @@ struct AuditHardeningRegressionTests {
         #expect(!vaultSync.contains("context.rollback()"))
         #expect(vaultSync.contains("context.delete(page)"))
         #expect(vaultSync.contains("NoteFileStorage.deleteBody(pageId: failedPageId)"))
+        #expect(vaultSync.contains("page.lastSyncedBodyHash = nil"))
+        #expect(vaultSync.contains("page.needsVaultSync = true"))
+        #expect(vaultSync.contains("new page export tracking"))
+        #expect(vaultSync.contains("page.needsVaultSync = false"))
         #expect(vaultReturnNil.lowerBound > vaultSaveFailure.lowerBound)
         #expect(!journal.contains("context.rollback()"))
         #expect(journal.contains("let originalBody = await SDPage.loadBodyAsyncFromPrimitives("))

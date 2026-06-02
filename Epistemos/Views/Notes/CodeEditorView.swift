@@ -968,6 +968,29 @@ nonisolated enum CodeLanguage {
     }
 }
 
+private enum CodeEditorLivePreviewKind: String {
+    case html
+    case css
+    case javascript
+    case json
+    case other
+
+    init(language: String) {
+        switch language.lowercased() {
+        case "html":
+            self = .html
+        case "css":
+            self = .css
+        case "javascript", "typescript":
+            self = .javascript
+        case "json":
+            self = .json
+        default:
+            self = .other
+        }
+    }
+}
+
 // MARK: - CodeEditorView (SwiftUI)
 
 // NOTE: NSTextStorage path was reverted — CodeEditSourceEditor's internal MultiStorageDelegate
@@ -1787,9 +1810,9 @@ struct CodeEditorView: View {
     @AppStorage("codeEditor.wrapLines") private var wrapLines = false
     // Minimap removed — outline navigator replaces it
     @AppStorage("codeEditor.showInvisibles") private var showInvisibles = false
-    // Default matches the prose editor's body font size so code notes
-    // share the same visual rhythm; users who previously bumped the
-    // size up or down keep their saved choice.
+    // Keep the code surface at the native-editor scale by default. The
+    // WebKit editor owns rendering now, but code notes should still feel like
+    // a Mac code editor rather than a compact web preview panel.
     @AppStorage("codeEditor.fontSize") private var fontSize: Double = 15
     @AppStorage("codeEditor.useSpaces") private var useSpaces = true
     @AppStorage("codeEditor.tabWidth") private var tabWidth = 4
@@ -1800,7 +1823,7 @@ struct CodeEditorView: View {
     @AppStorage("epistemos.codeEditor.showIndentationGuides") private var showIndentationGuides = true
     @AppStorage("epistemos.codeEditor.useNativeSourceEditorFallback") private var useNativeSourceEditorFallback = false
 
-    private var usesWebKitEditor: Bool { !useNativeSourceEditorFallback }
+    private var usesWebKitEditor: Bool { true }
     
     // MARK: - UI State
 
@@ -1815,6 +1838,9 @@ struct CodeEditorView: View {
     @State private var semanticStatusMessage: String?
     @State private var semanticStatusIsError = false
     @State private var semanticStatusIsLoading = false
+    @State private var showLivePreview = false
+    @State private var livePreviewText = ""
+    @State private var livePreviewTask: Task<Void, Never>?
     
     // MARK: - Outline Navigation (Xcode-style)
     @State private var outlineItems: [OutlineItem] = []
@@ -1844,16 +1870,19 @@ struct CodeEditorView: View {
     var body: some View {
         editorContent
             .onAppear {
+                normalizeCodeEditorPreferences()
                 ensureEditorCoordinator()
                 bindNoteChatContext(with: text)
                 showSemanticSidebar = false
-                scheduleOutlineRefresh(for: text, immediate: true)
+                livePreviewText = text
                 applyGutterPreferences()
             }
             .onDisappear {
                 outlineRefreshTask?.cancel()
                 semanticRefreshTask?.cancel()
                 semanticLookupTask?.cancel()
+                livePreviewTask?.cancel()
+                livePreviewTask = nil
                 contentDebouncer?.detach()
                 contentDebouncer = nil
                 codeContextBridge?.cancelPendingWork()
@@ -1866,8 +1895,16 @@ struct CodeEditorView: View {
                 semanticLookupTask?.cancel()
                 semanticStatusMessage = nil
                 semanticStatusIsLoading = false
+                if usesWebKitEditor {
+                    ensureContentDebouncer().enqueue(newText)
+                }
                 bindNoteChatContext(with: newText)
-                scheduleOutlineRefresh(for: newText)
+                if showOutlineNavigator {
+                    scheduleOutlineRefresh(for: newText)
+                }
+                if showLivePreview {
+                    scheduleLivePreviewUpdate(for: newText)
+                }
             }
             .onChange(of: initialContent) { oldValue, newValue in
                 guard newValue != text else { return }
@@ -1875,7 +1912,9 @@ struct CodeEditorView: View {
                 text = newValue
                 totalLines = CodeEditorLineMetrics.lineCount(newValue)
                 bindNoteChatContext(with: newValue)
-                scheduleOutlineRefresh(for: newValue, immediate: true)
+                if showOutlineNavigator {
+                    scheduleOutlineRefresh(for: newValue, immediate: true)
+                }
             }
             .onChange(of: cursorLine) { _, newLine in
                 updateBreadcrumbs()
@@ -1902,11 +1941,27 @@ struct CodeEditorView: View {
                 activeSearchRange = nil
                 webKitSelectionRequest = nil
             }
+            .onChange(of: showLivePreview) { _, enabled in
+                if enabled {
+                    livePreviewText = text
+                } else {
+                    livePreviewTask?.cancel()
+                    livePreviewTask = nil
+                }
+            }
             .onChange(of: searchQuery) { _, _ in
                 activeSearchRange = nil
             }
             .onChange(of: searchCaseSensitive) { _, _ in
                 activeSearchRange = nil
+            }
+            .onChange(of: showOutlineNavigator) { _, isVisible in
+                if isVisible {
+                    scheduleOutlineRefresh(for: text, immediate: true)
+                } else {
+                    outlineRefreshTask?.cancel()
+                    outlineItems = []
+                }
             }
     }
 
@@ -1927,6 +1982,20 @@ struct CodeEditorView: View {
         coordinator.applyLineGutterState(totalLines: totalLines, cursorLine: cursorLine)
     }
 
+    private func normalizeCodeEditorPreferences() {
+        // The CodeEditSourceEditor path remains compiled as an emergency
+        // fallback, but product code-file notes should always open on the
+        // WebKit editor surface. Self-heal older user defaults that kept the
+        // old native editor enabled.
+        if useNativeSourceEditorFallback {
+            useNativeSourceEditorFallback = false
+        }
+
+        // Preserve the user's saved code font. The WebKit editor path should
+        // inherit the native code editor's scale instead of silently compacting
+        // existing installs.
+    }
+
     private func bindNoteChatContext(with text: String) {
         let capturedText = text
         let capturedGraphState = graphState
@@ -1940,12 +2009,9 @@ struct CodeEditorView: View {
     }
 
     private func ensureEditorCoordinator() {
+        let debouncer = ensureContentDebouncer()
+        guard !usesWebKitEditor else { return }
         guard sourceEditorCoordinator == nil else { return }
-        let debouncer = contentDebouncer ?? CodeEditorContentDebouncer { newText in
-            onContentChange?(newText)
-            updateSemanticContext(newText)
-        }
-        contentDebouncer = debouncer
 
         let coordinator = EpistemosEditorCoordinator(
             cursorLine: $cursorLine,
@@ -1957,6 +2023,19 @@ struct CodeEditorView: View {
         )
         coordinator.setLineGutterEnabled(false)
         sourceEditorCoordinator = coordinator
+    }
+
+    @discardableResult
+    private func ensureContentDebouncer() -> CodeEditorContentDebouncer {
+        if let contentDebouncer {
+            return contentDebouncer
+        }
+        let debouncer = CodeEditorContentDebouncer { newText in
+            onContentChange?(newText)
+            updateSemanticContext(newText)
+        }
+        contentDebouncer = debouncer
+        return debouncer
     }
     
     // MARK: - Outline Management
@@ -1989,7 +2068,7 @@ struct CodeEditorView: View {
     
     private var editorContent: some View {
         VStack(spacing: 8) {
-            breadcrumbBar
+            codeEditorTopBar
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -2013,6 +2092,98 @@ struct CodeEditorView: View {
             .padding(.horizontal, 12)
             .padding(.bottom, 12)
         }
+    }
+
+    private var codeEditorTopBar: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "chevron.left.forwardslash.chevron.right")
+                .foregroundStyle(ui.theme.resolved.accent.color)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(codeEditorDisplayName)
+                    .font(.system(size: 12.5, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(ui.theme.resolved.foreground.color)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text("\(CodeLanguage.displayName(for: language)) · \(totalLines) lines")
+                    .font(.system(size: 10.5, weight: .regular, design: .monospaced))
+                    .foregroundStyle(ui.theme.resolved.mutedForeground.color.opacity(0.85))
+            }
+
+            Spacer(minLength: 12)
+
+            Text("Ln \(cursorLine), Col \(cursorCol)")
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundStyle(ui.theme.resolved.mutedForeground.color.opacity(0.92))
+                .lineLimit(1)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    ui.theme.resolved.foreground.color.opacity(ui.theme.isDark ? 0.07 : 0.045),
+                    in: Capsule()
+                )
+
+            Button {
+                withAnimation(reduceMotion ? nil : .snappy(duration: 0.22)) {
+                    showLivePreview.toggle()
+                }
+            } label: {
+                Image(systemName: showLivePreview ? "play.rectangle.fill" : "play.rectangle")
+                    .foregroundStyle(showLivePreview ? Color.accentColor : .secondary)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!isLivePreviewCapable)
+            .help(livePreviewHelpText)
+
+            Button {
+                showSearchBar.toggle()
+            } label: {
+                Image(systemName: showSearchBar ? "magnifyingglass.circle.fill" : "magnifyingglass")
+                    .foregroundStyle(showSearchBar ? Color.accentColor : .secondary)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Find")
+
+            Button {
+                showGoToLineSheet = true
+            } label: {
+                Image(systemName: "text.line.first.and.arrowtriangle.forward")
+                    .foregroundStyle(.secondary)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Go to line")
+
+            viewOptionsMenu
+            editorSettingsMenu
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(MarkdownPreviewSurfaceStyle.flatBackground(for: ui.theme.surfaceVariant(.other)))
+        .sheet(isPresented: $showGoToLineSheet) {
+            GoToLineSheet(
+                lineNumber: $goToLineNumber,
+                totalLines: totalLines,
+                onGoToLine: { line in
+                    goToLine(line: line)
+                    goToLineNumber = ""
+                    showGoToLineSheet = false
+                }
+            )
+        }
+    }
+
+    private var codeEditorDisplayName: String {
+        guard let filePath,
+              !filePath.isEmpty else {
+            return "Untitled Code"
+        }
+        return URL(fileURLWithPath: filePath).lastPathComponent
     }
     
     private func goToLine(line: Int) {
@@ -2127,36 +2298,15 @@ struct CodeEditorView: View {
     
     private var editorWithSearch: some View {
         ZStack(alignment: .top) {
-            if usesWebKitEditor {
-                WebKitCodeEditorView(
-                    text: $text,
-                    cursorLine: $cursorLine,
-                    cursorColumn: $cursorCol,
-                    totalLines: $totalLines,
-                    language: language,
-                    theme: ui.theme,
-                    fontSize: fontSize,
-                    wrapLines: wrapLines,
-                    selectionRequest: webKitSelectionRequest
-                )
-            } else {
-                SourceEditor(
-                    $text,
-                    language: codeEditLanguage,
-                    configuration: editorConfiguration,
-                    state: $editorState,
-                    coordinators: sourceEditorCoordinator.map { [$0] } ?? []
-                )
-                // Wave 4.5 / Patch 6a — SUPERSEDED by W9.6 canonical
-                // (`Epistemos/Engine/SwiftTreeSitterLiveHighlighter.swift`).
-                // Per `epistemos_code_verdict.md` §1, live syntax stays in
-                // Swift via direct C bindings to tree-sitter, NOT through
-                // CodeEditSourceEditor's HighlightProviding protocol. The
-                // W9.6 canonical highlighter binds tree_sitter_<lang>() C
-                // symbols via @_silgen_name to CodeLanguagesContainer, no
-                // FFI hop, no Sendable mismatch. Removed the
-                // SyntaxCoreHighlightProvider class + its test as dead
-                // code on 2026-04-26 (audit agent verdict OBSOLETE).
+            HStack(spacing: showLivePreview ? 10 : 0) {
+                codeEditorSurface
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                if showLivePreview, isLivePreviewCapable {
+                    codeLivePreview
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
             }
 
             searchBarOverlay
@@ -2165,6 +2315,365 @@ struct CodeEditorView: View {
             semanticLSPStatusOverlay
         }
         .background(NoteWorkspaceSurfaceStyle.canvasBackground(for: ui.theme))
+    }
+
+    @ViewBuilder
+    private var codeEditorSurface: some View {
+        if usesWebKitEditor {
+            WebKitCodeEditorView(
+                text: $text,
+                cursorLine: $cursorLine,
+                cursorColumn: $cursorCol,
+                totalLines: $totalLines,
+                language: language,
+                theme: ui.theme,
+                fontSize: fontSize,
+                wrapLines: wrapLines,
+                showLineNumbers: showLineGutter,
+                selectionRequest: webKitSelectionRequest
+            )
+        } else {
+            SourceEditor(
+                $text,
+                language: codeEditLanguage,
+                configuration: editorConfiguration,
+                state: $editorState,
+                coordinators: sourceEditorCoordinator.map { [$0] } ?? []
+            )
+            // Wave 4.5 / Patch 6a — SUPERSEDED by W9.6 canonical
+            // (`Epistemos/Engine/SwiftTreeSitterLiveHighlighter.swift`).
+            // Per `epistemos_code_verdict.md` §1, live syntax stays in
+            // Swift via direct C bindings to tree-sitter, NOT through
+            // CodeEditSourceEditor's HighlightProviding protocol. The
+            // W9.6 canonical highlighter binds tree_sitter_<lang>() C
+            // symbols via @_silgen_name to CodeLanguagesContainer, no
+            // FFI hop, no Sendable mismatch. Removed the
+            // SyntaxCoreHighlightProvider class + its test as dead
+            // code on 2026-04-26 (audit agent verdict OBSOLETE).
+        }
+    }
+
+    private var codeLivePreview: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Image(systemName: "play.rectangle")
+                    .foregroundStyle(ui.theme.resolved.accent.color)
+                Text("Live Preview")
+                    .font(.system(size: 12.5, weight: .semibold))
+                Text(CodeLanguage.displayName(for: language))
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                Text("sandboxed")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(MarkdownPreviewSurfaceStyle.flatBackground(for: ui.theme.surfaceVariant(.other)))
+
+            Divider()
+
+            HTMLWorkspacePreviewView(
+                package: livePreviewPackage,
+                previewTheme: ui.theme.isDark ? .dark : .light,
+                themeGuardCSSOverride: livePreviewThemeGuardCSS,
+                themeIdentity: livePreviewIdentity
+            )
+            .id(livePreviewIdentity)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Color(nsColor: .separatorColor).opacity(0.35), lineWidth: 0.5)
+        )
+    }
+
+    private var isLivePreviewCapable: Bool {
+        switch livePreviewLanguageKind {
+        case .html, .css, .javascript, .json:
+            return true
+        case .other:
+            return false
+        }
+    }
+
+    private var livePreviewHelpText: String {
+        isLivePreviewCapable
+            ? "Toggle live preview"
+            : "Live preview is available for HTML, CSS, JavaScript, and JSON code notes."
+    }
+
+    private var livePreviewIdentity: String {
+        [
+            livePreviewLanguageKind.rawValue,
+            String(livePreviewText.hashValue),
+            ui.theme.isDark ? "dark" : "light",
+            ui.theme.resolved.accent.nsColor.codePreviewCSSColor,
+        ].joined(separator: "|")
+    }
+
+    private var livePreviewPackage: HTMLWorkspacePackage {
+        var package = HTMLWorkspacePackage.defaultPackage(title: "\(codeEditorDisplayName) Preview")
+        let text = livePreviewText
+        switch livePreviewLanguageKind {
+        case .html:
+            package.indexHTML = text.isEmpty ? livePreviewEmptyHTML : text
+            package.styleCSS = livePreviewBaseCSS
+            package.scriptJS = ""
+            package.dataJSON = "{}"
+        case .css:
+            package.indexHTML = livePreviewCSSHostHTML
+            package.styleCSS = livePreviewBaseCSS + "\n\n" + text
+            package.scriptJS = ""
+            package.dataJSON = "{}"
+        case .javascript:
+            package.indexHTML = livePreviewJavaScriptHostHTML
+            package.styleCSS = livePreviewBaseCSS
+            package.scriptJS = livePreviewConsoleShim + "\n\n" + text.escapingClosingScriptTag()
+            package.dataJSON = "{}"
+        case .json:
+            package.indexHTML = livePreviewJSONHostHTML
+            package.styleCSS = livePreviewBaseCSS
+            package.scriptJS = livePreviewJSONScript(json: text)
+            package.dataJSON = text
+        case .other:
+            package.indexHTML = livePreviewUnsupportedHTML
+            package.styleCSS = livePreviewBaseCSS
+            package.scriptJS = ""
+            package.dataJSON = "{}"
+        }
+        return package
+    }
+
+    private var livePreviewLanguageKind: CodeEditorLivePreviewKind {
+        CodeEditorLivePreviewKind(language: language)
+    }
+
+    private var livePreviewThemeGuardCSS: String {
+        let surfaceTheme = ui.theme.surfaceVariant(.other)
+        let background = MarkdownPreviewSurfaceStyle
+            .canvasNSColor(for: surfaceTheme)
+            .rgbSafeForCodeEditorTheme()
+            .withAlphaComponent(1.0)
+            .codePreviewCSSColor
+        let foreground = surfaceTheme.resolved.foreground.nsColor
+            .rgbSafeForCodeEditorTheme()
+            .codePreviewCSSColor
+        let muted = surfaceTheme.resolved.mutedForeground.nsColor
+            .rgbSafeForCodeEditorTheme()
+            .codePreviewCSSColor
+        let card = surfaceTheme.resolved.card.nsColor
+            .rgbSafeForCodeEditorTheme()
+            .withAlphaComponent(1.0)
+            .codePreviewCSSColor
+        let border = surfaceTheme.resolved.glassBorder.nsColor
+            .rgbSafeForCodeEditorTheme()
+            .codePreviewCSSColor(opacity: surfaceTheme.isDark ? 0.48 : 0.32)
+        let accent = surfaceTheme.resolved.accent.nsColor
+            .rgbSafeForCodeEditorTheme()
+            .codePreviewCSSColor
+        let scheme = surfaceTheme.isDark ? "dark" : "light"
+
+        return """
+        :root {
+          color-scheme: \(scheme);
+          --epistemos-workspace-bg: \(background);
+          --epistemos-workspace-fg: \(foreground);
+          --epistemos-workspace-muted: \(muted);
+          --epistemos-workspace-card: \(card);
+          --epistemos-workspace-border: \(border);
+          --epistemos-workspace-accent: \(accent);
+          --epistemos-workspace-title-font: "MatrixTypeDisplay-Regular", "MatrixTypeDisplay", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+          --epistemos-workspace-heading-font: "ChonkyPixels", "MatrixTypeDisplay-Regular", "MatrixTypeDisplay", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+          --epistemos-workspace-body-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+        }
+
+        html[data-epistemos-theme],
+        html[data-epistemos-theme] body,
+        html[data-epistemos-theme] main.workspace {
+          background: var(--epistemos-workspace-bg) !important;
+          color: var(--epistemos-workspace-fg) !important;
+        }
+
+        html[data-epistemos-theme="dark"] body,
+        html[data-epistemos-theme="dark"] body :is(p, li, span, small, strong, em, label, td, th, blockquote, pre, code, dd, dt, figcaption, summary, legend) {
+          color: var(--epistemos-workspace-fg) !important;
+        }
+
+        html[data-epistemos-theme="dark"] body :is(.muted, .secondary, .subtle, .caption, .eyebrow, .meta, [data-muted]) {
+          color: var(--epistemos-workspace-muted) !important;
+        }
+
+        html[data-epistemos-theme="light"] body :is(p, li, span, small, strong, em, label, td, th, blockquote, pre, code, dd, dt, figcaption, summary, legend) {
+          color: inherit;
+        }
+
+        html[data-epistemos-theme] body :is(h1, h2, h3, h4, h5, h6) {
+          color: var(--epistemos-workspace-fg) !important;
+        }
+
+        html[data-epistemos-theme] body a {
+          color: var(--epistemos-workspace-accent) !important;
+        }
+
+        html[data-epistemos-theme] body :is(hr, table, th, td, fieldset, input, textarea, select, button) {
+          border-color: var(--epistemos-workspace-border) !important;
+        }
+
+        html[data-epistemos-theme] body :is(input, textarea, select, button) {
+          background: var(--epistemos-workspace-card) !important;
+          color: var(--epistemos-workspace-fg) !important;
+        }
+
+        html[data-epistemos-theme] :is(.metric-card, [data-metrics] article, .card, section[data-card], .preview-card) {
+          background: var(--epistemos-workspace-card);
+          border-color: var(--epistemos-workspace-border);
+        }
+        """
+    }
+
+    private var livePreviewBaseCSS: String {
+        """
+        body {
+          min-height: 100vh;
+          margin: 0;
+          background: var(--epistemos-workspace-bg);
+          color: var(--epistemos-workspace-fg);
+          font: 15px/1.55 var(--epistemos-workspace-body-font);
+        }
+
+        .workspace {
+          width: min(780px, calc(100vw - 48px));
+          margin: 0 auto;
+          padding: 42px 24px;
+        }
+
+        .preview-card {
+          border: 1px solid var(--epistemos-workspace-border);
+          border-radius: 14px;
+          padding: 18px;
+          box-shadow: 0 18px 50px rgba(0, 0, 0, 0.10);
+        }
+
+        h1, h2 {
+          font-family: var(--epistemos-workspace-heading-font);
+          line-height: 1.05;
+        }
+
+        pre, code, textarea {
+          font-family: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+        }
+        """
+    }
+
+    private var livePreviewEmptyHTML: String {
+        """
+        <main class="workspace">
+          <section class="preview-card">
+            <h1>Empty HTML</h1>
+            <p>Type HTML in the editor to render it here.</p>
+          </section>
+        </main>
+        """
+    }
+
+    private var livePreviewCSSHostHTML: String {
+        """
+        <main class="workspace">
+          <section class="preview-card">
+            <h1>CSS Preview</h1>
+            <p>This host document lets the current stylesheet render against real text, cards, buttons, and lists.</p>
+            <button type="button">Button</button>
+            <ul>
+              <li>Layout sample</li>
+              <li>Color sample</li>
+              <li>Typography sample</li>
+            </ul>
+          </section>
+        </main>
+        """
+    }
+
+    private var livePreviewJavaScriptHostHTML: String {
+        """
+        <main class="workspace">
+          <section class="preview-card">
+            <h1>JavaScript Preview</h1>
+            <p>Console output and DOM changes appear below.</p>
+            <div id="app"></div>
+            <pre id="epistemos-run-log"></pre>
+          </section>
+        </main>
+        """
+    }
+
+    private var livePreviewJSONHostHTML: String {
+        """
+        <main class="workspace">
+          <section class="preview-card">
+            <h1>JSON Preview</h1>
+            <pre id="epistemos-json-output"></pre>
+          </section>
+        </main>
+        """
+    }
+
+    private var livePreviewUnsupportedHTML: String {
+        """
+        <main class="workspace">
+          <section class="preview-card">
+            <h1>No Preview</h1>
+            <p>This language does not have a runnable preview yet.</p>
+          </section>
+        </main>
+        """
+    }
+
+    private var livePreviewConsoleShim: String {
+        """
+        (() => {
+          const logNode = document.getElementById('epistemos-run-log');
+          const write = (level, values) => {
+            if (!logNode) return;
+            const line = values.map(value => {
+              try { return typeof value === 'string' ? value : JSON.stringify(value, null, 2); }
+              catch { return String(value); }
+            }).join(' ');
+            logNode.textContent += `[${level}] ${line}\\n`;
+          };
+          ['log', 'info', 'warn', 'error'].forEach(level => {
+            const original = console[level].bind(console);
+            console[level] = (...values) => {
+              original(...values);
+              write(level, values);
+            };
+          });
+        })();
+        """
+    }
+
+    private func livePreviewJSONScript(json: String) -> String {
+        """
+        (() => {
+          const target = document.getElementById('epistemos-json-output');
+          try {
+            const parsed = JSON.parse(document.getElementById('workspace-data')?.textContent || '{}');
+            target.textContent = JSON.stringify(parsed, null, 2);
+          } catch (error) {
+            target.textContent = "Invalid JSON\\n\\n" + \(json.debugDescription);
+          }
+        })();
+        """
+    }
+
+    private func scheduleLivePreviewUpdate(for content: String) {
+        livePreviewTask?.cancel()
+        livePreviewTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(260))
+            guard !Task.isCancelled else { return }
+            livePreviewText = content
+        }
     }
     
     @ViewBuilder
@@ -2438,7 +2947,7 @@ struct CodeEditorView: View {
                 }
                 
                 Button {
-                    fontSize = 13
+                    fontSize = 15
                 } label: {
                     Label("Reset Font Size", systemImage: "arrow.counterclockwise")
                 }
@@ -2456,14 +2965,8 @@ struct CodeEditorView: View {
     private var viewOptionsMenu: some View {
         Menu {
             Section("View") {
-                Toggle("Native Editor Fallback", isOn: $useNativeSourceEditorFallback)
                 Toggle("Word Wrap", isOn: $wrapLines)
-                Toggle("Outline Navigator", isOn: $showOutlineNavigator)
-                Toggle("Show Invisibles", isOn: $showInvisibles)
                 Toggle("Show Line Numbers", isOn: $showLineGutter)
-                Toggle("Folding Arrows", isOn: $showFoldingRibbon)
-                    .disabled(!showLineGutter)
-                Toggle("Indent Guides", isOn: $showIndentationGuides)
             }
 
         } label: {
@@ -5073,5 +5576,29 @@ struct TabButton: View {
             .cornerRadius(6)
         }
         .buttonStyle(.plain)
+    }
+}
+
+private extension String {
+    func escapingClosingScriptTag() -> String {
+        replacingOccurrences(of: "</script", with: "<\\/script", options: [.caseInsensitive])
+    }
+}
+
+private extension NSColor {
+    var codePreviewCSSColor: String {
+        codePreviewCSSColor(opacity: nil)
+    }
+
+    func codePreviewCSSColor(opacity overrideOpacity: CGFloat?) -> String {
+        let color = usingColorSpace(.sRGB) ?? self
+        let red = Int((color.redComponent * 255).rounded())
+        let green = Int((color.greenComponent * 255).rounded())
+        let blue = Int((color.blueComponent * 255).rounded())
+        let alpha = overrideOpacity ?? color.alphaComponent
+        if alpha >= 0.999 {
+            return String(format: "#%02X%02X%02X", red, green, blue)
+        }
+        return String(format: "rgba(%d, %d, %d, %.3f)", red, green, blue, alpha)
     }
 }

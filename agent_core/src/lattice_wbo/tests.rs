@@ -1,14 +1,14 @@
 //! Shared test helpers and submodule declarations for the lattice_wbo register.
 
 #[allow(unused_imports)]
-pub(super) use super::*;
-#[allow(unused_imports)]
 pub(super) use super::verifier::{
     contains_any_falsifier_hook, contains_falsifier_hook, f_hooks_in, falsifier_hooks_are_owned,
     is_falsifier_hook_boundary, validate_nonnegative_finite,
 };
 #[allow(unused_imports)]
 pub(super) use super::wire::{deserialize_explicit_public_option, ExplicitPublicOption};
+#[allow(unused_imports)]
+pub(super) use super::*;
 
 #[allow(unused_imports)]
 pub(super) use serde::Deserialize;
@@ -40,14 +40,10 @@ pub(super) fn measured_probe_budget(
     let mut contributions = Vec::with_capacity(coder.canonical_wbo_terms().len());
     for term in coder.canonical_wbo_terms() {
         contributions.push(
-            LatticeErrorContribution::new(
-                *term,
-                format!("measured probe {}", term.code()),
-                0.0,
-            )
-            .expect("canonical measured probe contribution should be valid")
-            .with_measured(0.0)
-            .expect("canonical measured probe measurement should be valid"),
+            LatticeErrorContribution::new(*term, format!("measured probe {}", term.code()), 0.0)
+                .expect("canonical measured probe contribution should be valid")
+                .with_measured(0.0)
+                .expect("canonical measured probe measurement should be valid"),
         );
     }
     LatticeBudget::new(

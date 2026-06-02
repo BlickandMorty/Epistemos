@@ -34,8 +34,11 @@ pub enum LayerPlacement {
 }
 
 impl LayerPlacement {
-    pub const ALL: [LayerPlacement; 3] =
-        [LayerPlacement::Ane, LayerPlacement::Gpu, LayerPlacement::Cpu];
+    pub const ALL: [LayerPlacement; 3] = [
+        LayerPlacement::Ane,
+        LayerPlacement::Gpu,
+        LayerPlacement::Cpu,
+    ];
 
     pub const fn code(self) -> &'static str {
         match self {
@@ -234,7 +237,9 @@ impl NanoTrainingRecipe {
         sorted.sort_by_key(|l| l.layer_index);
         for (expected, l) in sorted.iter().enumerate() {
             if !seen.insert(l.layer_index) {
-                return Err(RecipeError::DuplicateLayerIndex { index: l.layer_index });
+                return Err(RecipeError::DuplicateLayerIndex {
+                    index: l.layer_index,
+                });
             }
             if l.layer_index != expected {
                 return Err(RecipeError::NonContiguousLayerIndex {
@@ -243,7 +248,9 @@ impl NanoTrainingRecipe {
                 });
             }
             if l.placement == LayerPlacement::Ane && l.quant == QuantSpec::Int4 {
-                return Err(RecipeError::AneWithInt4 { layer_index: l.layer_index });
+                return Err(RecipeError::AneWithInt4 {
+                    layer_index: l.layer_index,
+                });
             }
         }
         Ok(())
@@ -334,26 +341,32 @@ mod tests {
     use super::*;
 
     fn spec(idx: usize, p: LayerPlacement, q: QuantSpec) -> LayerSpec {
-        LayerSpec { layer_index: idx, placement: p, quant: q }
+        LayerSpec {
+            layer_index: idx,
+            placement: p,
+            quant: q,
+        }
     }
 
     #[test]
     fn three_distinct_placements() {
-        let s: std::collections::HashSet<_> =
-            [LayerPlacement::Ane, LayerPlacement::Gpu, LayerPlacement::Cpu]
-                .iter()
-                .copied()
-                .collect();
+        let s: std::collections::HashSet<_> = [
+            LayerPlacement::Ane,
+            LayerPlacement::Gpu,
+            LayerPlacement::Cpu,
+        ]
+        .iter()
+        .copied()
+        .collect();
         assert_eq!(s.len(), 3);
     }
 
     #[test]
     fn three_distinct_quant_specs() {
-        let s: std::collections::HashSet<_> =
-            [QuantSpec::Fp16, QuantSpec::Int8, QuantSpec::Int4]
-                .iter()
-                .copied()
-                .collect();
+        let s: std::collections::HashSet<_> = [QuantSpec::Fp16, QuantSpec::Int8, QuantSpec::Int4]
+            .iter()
+            .copied()
+            .collect();
         assert_eq!(s.len(), 3);
     }
 
@@ -412,7 +425,10 @@ mod tests {
         let err = r.validate().unwrap_err();
         assert_eq!(
             err,
-            RecipeError::NonContiguousLayerIndex { expected: 1, actual: 2 }
+            RecipeError::NonContiguousLayerIndex {
+                expected: 1,
+                actual: 2
+            }
         );
     }
 
@@ -461,7 +477,10 @@ mod tests {
             layers: vec![spec(0, LayerPlacement::Gpu, QuantSpec::Fp16)],
         };
         let err = r.validate().unwrap_err();
-        assert_eq!(err, RecipeError::NonPositiveLearningRate { stage: 2, lr: 0.0 });
+        assert_eq!(
+            err,
+            RecipeError::NonPositiveLearningRate { stage: 2, lr: 0.0 }
+        );
     }
 
     #[test]
@@ -631,7 +650,11 @@ mod tests {
 
     #[test]
     fn placement_counts_serde_roundtrip() {
-        let c = PlacementCounts { ane: 1, gpu: 2, cpu: 3 };
+        let c = PlacementCounts {
+            ane: 1,
+            gpu: 2,
+            cpu: 3,
+        };
         let json = serde_json::to_string(&c).unwrap();
         let back: PlacementCounts = serde_json::from_str(&json).unwrap();
         assert_eq!(c, back);
@@ -639,7 +662,11 @@ mod tests {
 
     #[test]
     fn quant_counts_serde_roundtrip() {
-        let c = QuantCounts { fp16: 1, int8: 2, int4: 3 };
+        let c = QuantCounts {
+            fp16: 1,
+            int8: 2,
+            int4: 3,
+        };
         let json = serde_json::to_string(&c).unwrap();
         let back: QuantCounts = serde_json::from_str(&json).unwrap();
         assert_eq!(c, back);
@@ -698,7 +725,10 @@ mod tests {
     fn recipe_error_cause_distinct_per_variant() {
         let variants = [
             RecipeError::EmptyLayers,
-            RecipeError::NonContiguousLayerIndex { expected: 0, actual: 1 },
+            RecipeError::NonContiguousLayerIndex {
+                expected: 0,
+                actual: 1,
+            },
             RecipeError::DuplicateLayerIndex { index: 0 },
             RecipeError::AneWithInt4 { layer_index: 0 },
             RecipeError::NonPositiveLearningRate { stage: 1, lr: 0.0 },
@@ -711,7 +741,10 @@ mod tests {
     fn recipe_error_3way_classifier_partition() {
         let variants = [
             RecipeError::EmptyLayers,
-            RecipeError::NonContiguousLayerIndex { expected: 0, actual: 1 },
+            RecipeError::NonContiguousLayerIndex {
+                expected: 0,
+                actual: 1,
+            },
             RecipeError::DuplicateLayerIndex { index: 0 },
             RecipeError::AneWithInt4 { layer_index: 0 },
             RecipeError::NonPositiveLearningRate { stage: 1, lr: 0.0 },
@@ -725,16 +758,32 @@ mod tests {
             ];
             assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", e);
         }
-        assert_eq!(variants.iter().filter(|e| e.is_layer_index_error()).count(), 3);
-        assert_eq!(variants.iter().filter(|e| e.is_placement_quant_error()).count(), 1);
-        assert_eq!(variants.iter().filter(|e| e.is_hyperparam_error()).count(), 1);
+        assert_eq!(
+            variants.iter().filter(|e| e.is_layer_index_error()).count(),
+            3
+        );
+        assert_eq!(
+            variants
+                .iter()
+                .filter(|e| e.is_placement_quant_error())
+                .count(),
+            1
+        );
+        assert_eq!(
+            variants.iter().filter(|e| e.is_hyperparam_error()).count(),
+            1
+        );
     }
 
     #[test]
     fn recipe_error_layer_index_extracts_when_present() {
         assert_eq!(RecipeError::EmptyLayers.layer_index(), None);
         assert_eq!(
-            RecipeError::NonContiguousLayerIndex { expected: 1, actual: 5 }.layer_index(),
+            RecipeError::NonContiguousLayerIndex {
+                expected: 1,
+                actual: 5
+            }
+            .layer_index(),
             Some(5),
         );
         assert_eq!(

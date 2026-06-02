@@ -15,7 +15,7 @@ gates that should be revisited. No code changed; this is observation.
 | Rank | Gate site | Doctrine alignment | Likely impact on user |
 |------|-----------|---------------------|------------------------|
 | 1 | `LocalToolGrammar.supportsStructuredToolCalling` (`.swift:147-153`) | NEEDS-RUNTIME-PROBE | If `canImport(CMLXStructured)` is false at runtime, EVERY local model gets `supportsAgentMode = false`. UI shows agent mode unavailable for all local models. |
-| 2 | `primaryAgentModelMinHostRAMGB` (`LocalModelInfrastructure.swift:1046` = 32) | STALE — assumes dense-4bit | Hard-codes 36B-class agent models off on 16 GB hosts. V6.1 ternary + KV-Direct + sparse-active doctrine claims should lower this. **`primaryAgentModelMinHostRAMGB_powerUser = 16`** exists (line 1066) — toggle path is in place. |
+| 2 | `primaryAgentModelMinHostRAMGB` (`LocalModelInfrastructure.swift` = 32) | HONEST DENSE-PATH GATE | Keeps dense 36B-class MLX agent models off on 16 GB hosts. V6.1/V6.2 ternary + KV-Direct + sparse-active + EML/Geometry/Scan IR doctrine remains the Capability Ceiling route, but the dense gate must not drop until `F-70B-Local-Cocktail` or an equivalent SSD/RAM composition falsifier passes. |
 | 3 | `canActAsAgent` switch in `InferenceState.swift:420` | DOCTRINALLY-HONEST (per RCA-LOCAL-AGENT-GRAMMAR-001) | Excludes Gemma 3/4 and Mistral families because they emit malformed `<tool_call>` XML. Honest at the model level. Re-enable path documented in the comment (lines 434-438). |
 | 4 | `hasConfiguredCloudAccess` in `InferenceState.swift:4643` | HONEST-BUT-INVISIBLE | Cloud picks silently route to local when API key missing OR Focus mode `forceLocalModelsOnly` is set. The fallback is correct; the UX is the issue — user can't see WHY cloud isn't selectable. |
 | 5 | `ConfidenceRouter.hasCapableLocalAgentModel` (`.swift:299`) | DERIVED — composes 1+3 | Combines `LocalToolGrammar.supportsLocalAgentLoop` and `canActAsAgent`. Will be correct if upstream gates are correct. |
@@ -45,17 +45,17 @@ links the `MLXStructured` product from `mlx-swift-structured`, but:
 **Next action**: Runtime probe — add a `#if DEBUG` log at app startup printing `LocalToolGrammar.supportsStructuredToolCalling` to confirm whether this gate is firing true or false in the actual build. **If false → root cause of "i still cant use higher models".**
 
 ### G2. `primaryAgentModelMinHostRAMGB`
-**File**: `Epistemos/Engine/LocalModelInfrastructure.swift:1046, 1066, 1075`
+**File**: `Epistemos/Engine/LocalModelInfrastructure.swift`
 
 ```swift
 nonisolated static let primaryAgentModelMinHostRAMGB: Int = 32
-nonisolated static let primaryAgentModelMinHostRAMGB_powerUser: Int = 16
+nonisolated static let primaryAgentModelMinHostRAMGB_powerUser: Int = 32
 nonisolated static func minRAMForPrimaryAgentModel(isPowerUser: Bool) -> Int {
     return isPowerUser ? primaryAgentModelMinHostRAMGB_powerUser : primaryAgentModelMinHostRAMGB
 }
 ```
 
-**Issue**: `32` is derived from dense-4bit arithmetic (`36B × 0.5 GB ≈ 18 GB resident`). Does NOT account for V6.1 substrate primitives:
+**Issue**: `32` is derived from dense-4bit arithmetic (`36B × 0.5 GB ≈ 18 GB resident`). That is correct for the current dense MLX path. It does NOT prove the no-compromise substrate ceiling has failed; it only says the current route is not yet the ACS/UAS cocktail.
 
 | Substrate primitive | Effect on 36B resident | Doctrine source |
 |---------------------|------------------------|------------------|
@@ -63,10 +63,11 @@ nonisolated static func minRAMForPrimaryAgentModel(isPowerUser: Bool) -> Int {
 | Sherry/Leech lattice VQ | Sub-4bit-dense equivalent | `agent_core/src/research/sherry_lattice/` (1,582 LOC) |
 | KV-Direct memory-arch floor | Eliminates per-token KV cache growth | V6.1 falsifier #2 + `agent_core/src/kv_direct/` |
 | Sparse-active assembly | MoE-aware loading of only active experts | V6.1 Five-Plane Assembly + MASTER_FUSION §3.x |
+| EML / Geometry / Scan IR | Turns eligible kernels, layers, and transforms into typed charts instead of opaque blobs | `docs/fusion/ADDRESSABLE_NEURAL_SUBSTRATE_CANON_2026_05_24.md` §6 |
 
-**Power-User path already exists** (`primaryAgentModelMinHostRAMGB_powerUser = 16`) — that's the door. What's missing is the Settings toggle that flips `isPowerUser` to true and an HONEST capability badge (EXPERIMENTAL / OFF) so the user understands the OOM tradeoff.
+**2026-05-27 correction**: Power-user mode is now a Capability Ceiling posture, not a memory bypass. It keeps research controls visible but **does not lower the 36B dense memory gate**. The 16 GB route must be reopened through `F-70B-Local-Cocktail`, `F-KV-Direct-Gate`, `F-UAS-CopyCount`, PageGather packetized caller-path consumption, active assembly, and a real local artifact.
 
-**Next action**: Surface "Advanced / Power-User mode" toggle in Settings → Inference. When ON, gate becomes `primaryAgentModelMinHostRAMGB_powerUser = 16`, model picker shows 36B models, and the badge reads `EXPERIMENTAL — V6.1 substrate; may OOM under load`.
+**Next action**: Keep Settings honest and build the substrate path. When the cocktail passes, add a new model-route class for SSD/RAM addressable execution instead of mutating the dense MLX gate.
 
 ### G3. `canActAsAgent` switch
 **File**: `Epistemos/State/InferenceState.swift:420-462`
@@ -114,10 +115,10 @@ That Codex sub-mission has not landed an audit doc on main yet. This file (`MODE
 ## Recommended next actions (in priority order)
 
 1. **Runtime probe (safe-auto-fix)** — add `#if DEBUG` startup log of `LocalToolGrammar.supportsStructuredToolCalling`, `cloudProviderValidationStates`, and `LocalHardwareCapabilitySnapshot.current`. Confirms G1 + G4 behaviour in the live app target. Single-file edit, no behaviour change.
-2. **Power-User Settings toggle (destructive, needs sign-off)** — add `@AppStorage("epistemos.inference.powerUserMode") var isPowerUser` + Settings row + use `LocalTextModelID.minRAMForPrimaryAgentModel(isPowerUser:)` in the gate site. Unlocks G2's 16 GB path.
+2. **Capability Ceiling model gate (safe-auto-fix)** — keep power-user mode visible, but do not let it lower the dense 36B RAM gate. Unlock the 16 GB path only through a separate SSD/RAM addressable-substrate route with a passing artifact.
 3. **Cloud-key affordance (destructive, needs sign-off)** — make `hasConfiguredCloudAccess = false` produce an inline picker notice with a "Set up keys" button, not a silent fallback.
 4. **Family-specific tool-call grammars (multi-week)** — wire Gemma's function-call-JSON grammar + Mistral's [INST] convention. Will let G3 re-include those families.
-5. **Ternary inference wiring (multi-week)** — make V6.1's ternary claim runtime reality, not just doctrine. Will let G2 honestly drop to 16 GB without the EXPERIMENTAL badge.
+5. **Ternary + ACS/UAS inference wiring (multi-week)** — make V6.1/V6.2's ternary, KV-Direct, PageGather, Active Assembly, and EML/Geometry/Scan IR claims runtime reality. This is what can honestly open the 16 GB / 70B-class Capability Ceiling path.
 
 ## File map cross-reference
 

@@ -1,0 +1,450 @@
+{
+  "falsifier_id": "F-AppColdStore-Layout",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_app_cold_store_layout.sh",
+  "command_digest": "sha256:8dc2d6037534eab28fc034d0cfdb424681d0eefcad30c679950ed2740a4728a2",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "487937158c817dbacd5c40752560eec7ce47a311",
+  "fixture_id": "app_cold_store_layout_manifest_only_v1",
+  "timestamp_utc": "2026-06-01T21:44:59Z",
+  "result_digest": "sha256:6de11d0548c01927837d8eceb11b445d0559c8a735506f03749b4add275c009c",
+  "measurements": {
+    "closed_citation_validity": {
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_bytes_excluded_from_active_runtime": {
+      "value": true,
+      "unit": "bool"
+    },
+    "dry_run_copy_count": {
+      "value": 0,
+      "unit": "copies"
+    },
+    "dry_run_ssd_read_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "durable_atlas_bytes": {
+      "value": 4096,
+      "unit": "bytes"
+    },
+    "durable_only_plan_without_active_bytes_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "durable_warm_hot_tiers_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_bound_to_card": {
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_broad_weight_page_hint_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_closed_evidence_verified": {
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_hash_weight_page_hint_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_missing_falsifier_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_neural_falsifier_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_raw_weight_page_hint_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_source_weight_page_hint_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_task_signature_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_uas_weight_page_hint_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_unbound_weight_page_hint_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_weight_page_hint_required": {
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_why_matched_visible": {
+      "value": true,
+      "unit": "bool"
+    },
+    "failed_residency_plan_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "hot_runway_bytes": {
+      "value": 512,
+      "unit": "bytes"
+    },
+    "mas_research_status_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "param_route_card_admission_verifier_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "percent_encoded_internal_source_uri_separator_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "percent_encoded_leading_source_uri_separator_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "planned_active_runtime_bytes": {
+      "value": 768,
+      "unit": "bytes"
+    },
+    "pro_live_capability_ceiling_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "product_build_pro_research_status_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_reference_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_card_constructed": {
+      "value": true,
+      "unit": "bool"
+    },
+    "route_card_units_uas_bound": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_model_bytes_loaded": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_model_peak_uma_bytes": {
+      "value": 0,
+      "unit": "bytes"
+    },
+    "total_addressed_bytes": {
+      "value": 4864,
+      "unit": "bytes"
+    },
+    "unsupported_cache_rebuild_policy_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "warm_active_plan_without_hot_runway_rejected": {
+      "value": true,
+      "unit": "bool"
+    },
+    "warm_cache_bytes": {
+      "value": 256,
+      "unit": "bytes"
+    },
+    "warm_cache_rebuildable": {
+      "value": true,
+      "unit": "bool"
+    },
+    "witness_completeness_percent": {
+      "value": 100,
+      "unit": "percent"
+    }
+  },
+  "acceptance_thresholds": {
+    "closed_citation_validity": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "cold_bytes_excluded_from_active_runtime": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "dry_run_copy_count": {
+      "operator": "==",
+      "value": 0,
+      "unit": "copies"
+    },
+    "dry_run_ssd_read_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "durable_atlas_bytes": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes"
+    },
+    "durable_only_plan_without_active_bytes_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "durable_warm_hot_tiers_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_bound_to_card": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_broad_weight_page_hint_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_closed_evidence_verified": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_hash_weight_page_hint_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_missing_falsifier_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_neural_falsifier_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_raw_weight_page_hint_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_source_weight_page_hint_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_task_signature_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_uas_weight_page_hint_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_unbound_weight_page_hint_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_weight_page_hint_required": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "eidos_route_prior_why_matched_visible": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "failed_residency_plan_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "hot_runway_bytes": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes"
+    },
+    "mas_research_status_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "param_route_card_admission_verifier_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "percent_encoded_internal_source_uri_separator_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "percent_encoded_leading_source_uri_separator_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "planned_active_runtime_bytes": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes"
+    },
+    "pro_live_capability_ceiling_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "product_build_pro_research_status_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "rollback_reference_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_card_constructed": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "route_card_units_uas_bound": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_model_bytes_loaded": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "runtime_model_peak_uma_bytes": {
+      "operator": "==",
+      "value": 0,
+      "unit": "bytes"
+    },
+    "total_addressed_bytes": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes"
+    },
+    "unsupported_cache_rebuild_policy_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "warm_active_plan_without_hot_runway_rejected": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "warm_cache_bytes": {
+      "operator": ">=",
+      "value": 1,
+      "unit": "bytes"
+    },
+    "warm_cache_rebuildable": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "witness_completeness_percent": {
+      "operator": "==",
+      "value": 100,
+      "unit": "percent"
+    }
+  },
+  "pass_per_axis": {
+    "closed_citation_validity": true,
+    "cold_bytes_excluded_from_active_runtime": true,
+    "dry_run_copy_count": true,
+    "dry_run_ssd_read_bytes": true,
+    "durable_atlas_bytes": true,
+    "durable_only_plan_without_active_bytes_rejected": true,
+    "durable_warm_hot_tiers_present": true,
+    "eidos_route_prior_bound_to_card": true,
+    "eidos_route_prior_broad_weight_page_hint_rejected": true,
+    "eidos_route_prior_closed_evidence_verified": true,
+    "eidos_route_prior_hash_weight_page_hint_bound": true,
+    "eidos_route_prior_missing_falsifier_rejected": true,
+    "eidos_route_prior_neural_falsifier_bound": true,
+    "eidos_route_prior_raw_weight_page_hint_rejected": true,
+    "eidos_route_prior_source_weight_page_hint_bound": true,
+    "eidos_route_prior_task_signature_bound": true,
+    "eidos_route_prior_uas_weight_page_hint_bound": true,
+    "eidos_route_prior_unbound_weight_page_hint_rejected": true,
+    "eidos_route_prior_weight_page_hint_required": true,
+    "eidos_route_prior_why_matched_visible": true,
+    "failed_residency_plan_rejected": true,
+    "hot_runway_bytes": true,
+    "mas_research_status_rejected": true,
+    "param_route_card_admission_verifier_bound": true,
+    "percent_encoded_internal_source_uri_separator_rejected": true,
+    "percent_encoded_leading_source_uri_separator_rejected": true,
+    "planned_active_runtime_bytes": true,
+    "pro_live_capability_ceiling_rejected": true,
+    "product_build_pro_research_status_bound": true,
+    "rollback_reference_bound": true,
+    "route_card_constructed": true,
+    "route_card_units_uas_bound": true,
+    "runtime_model_bytes_loaded": true,
+    "runtime_model_peak_uma_bytes": true,
+    "total_addressed_bytes": true,
+    "unsupported_cache_rebuild_policy_rejected": true,
+    "warm_active_plan_without_hot_runway_rejected": true,
+    "warm_cache_bytes": true,
+    "warm_cache_rebuildable": true,
+    "witness_completeness_percent": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "scope_guard",
+      "detail": "manifest-only AppColdStore route card; no mmap, no cache warm, no model byte load, no inference"
+    }
+  ],
+  "notes": "Validates AppColdStore route-card layout over a passed ResidencyPlan; not a runtime or storage-speed proof."
+}

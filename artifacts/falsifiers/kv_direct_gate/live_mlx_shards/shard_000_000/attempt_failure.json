@@ -1,0 +1,13 @@
+{
+  "attempt": "qwen3_8b_128k_prompt_cache_reload_shard_000_000",
+  "completed_prompt_count": 0,
+  "context_window_tokens": 128000,
+  "decode_tokens_per_prompt": 256,
+  "failure_class": "metal_interactivity_abort",
+  "failure_message": "libc++abi: terminating due to uncaught exception of type std::runtime_error: [METAL] Command buffer execution failed: Impacting Interactivity (0000000e:kIOGPUCommandBufferCallbackErrorImpactingInteractivity)",
+  "prompt_offset": 0,
+  "prompt_count": 1,
+  "route": "prompt_cache_reload",
+  "status": "failed",
+  "witness_note": "The first one-prompt 128K shard did not emit reference/test logits. This is a runtime bottleneck witness only, not a KV-Direct pass."
+}

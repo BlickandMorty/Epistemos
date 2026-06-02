@@ -37,12 +37,26 @@ impl std::fmt::Display for AgentBlueprintId {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum ProviderPolicy {
-    LocalMlx { model_id: String },
-    AnthropicMessages { model: String },
-    OpenAIResponses { model: String },
-    OpenAICompatible { base_url: String, model: String },
-    Mcp { server_id: String },
-    ProCli { adapter: CliAdapter, command: String },
+    LocalMlx {
+        model_id: String,
+    },
+    AnthropicMessages {
+        model: String,
+    },
+    OpenAIResponses {
+        model: String,
+    },
+    OpenAICompatible {
+        base_url: String,
+        model: String,
+    },
+    Mcp {
+        server_id: String,
+    },
+    ProCli {
+        adapter: CliAdapter,
+        command: String,
+    },
 }
 
 /// Pro-only CLI adapter family. The named binary is launched only
@@ -133,10 +147,7 @@ impl AgentBlueprint {
     /// "MAS cannot call CLI" invariant lives here: when `mode ==
     /// Disabled`, every provider is refused; when `mode ==
     /// IpcBounded`, `ProCli` is refused.
-    pub fn check_against_mode(
-        &self,
-        mode: AgentRuntimeV2Mode,
-    ) -> Result<(), BlueprintModeError> {
+    pub fn check_against_mode(&self, mode: AgentRuntimeV2Mode) -> Result<(), BlueprintModeError> {
         match (mode, &self.provider_policy) {
             (AgentRuntimeV2Mode::Disabled, _) => Err(BlueprintModeError::ModeDisabled),
             (AgentRuntimeV2Mode::IpcBounded, ProviderPolicy::ProCli { .. }) => {
@@ -206,7 +217,9 @@ mod tests {
         // Sanity: clones are equal.
         let bp = local_blueprint();
         assert_eq!(bp.clone(), bp);
-        let pp = ProviderPolicy::LocalMlx { model_id: "qwen3.5".into() };
+        let pp = ProviderPolicy::LocalMlx {
+            model_id: "qwen3.5".into(),
+        };
         assert_eq!(pp.clone(), pp);
     }
 
@@ -265,9 +278,13 @@ mod tests {
 
         // Runtime sanity.
         let a = CliAdapter::ClaudeCode;
-        let _x = a; let _y = a; assert_eq!(a, a);
+        let _x = a;
+        let _y = a;
+        assert_eq!(a, a);
         let e = BlueprintModeError::ModeDisabled;
-        let _x = e; let _y = e; assert_eq!(e, e);
+        let _x = e;
+        let _y = e;
+        assert_eq!(e, e);
     }
 
     #[test]
@@ -286,8 +303,7 @@ mod tests {
         ];
         for case in cases {
             match case {
-                BlueprintModeError::ModeDisabled
-                | BlueprintModeError::SubprocessNotAllowed => {}
+                BlueprintModeError::ModeDisabled | BlueprintModeError::SubprocessNotAllowed => {}
             }
         }
     }
@@ -320,7 +336,10 @@ mod tests {
         // of BlueprintModeError when surfacing mode-gate denials.
         // Pin both variants so a maintainer rename doesn't silently
         // change the printed form.
-        assert_eq!(format!("{:?}", BlueprintModeError::ModeDisabled), "ModeDisabled");
+        assert_eq!(
+            format!("{:?}", BlueprintModeError::ModeDisabled),
+            "ModeDisabled"
+        );
         assert_eq!(
             format!("{:?}", BlueprintModeError::SubprocessNotAllowed),
             "SubprocessNotAllowed"
@@ -336,14 +355,22 @@ mod tests {
         // behaviour first.
         let mas = AgentRuntimeV2Mode::Disabled;
         let providers = [
-            ProviderPolicy::LocalMlx { model_id: "qwen3.5".into() },
-            ProviderPolicy::AnthropicMessages { model: "claude-sonnet-4-6".into() },
-            ProviderPolicy::OpenAIResponses { model: "gpt-5".into() },
+            ProviderPolicy::LocalMlx {
+                model_id: "qwen3.5".into(),
+            },
+            ProviderPolicy::AnthropicMessages {
+                model: "claude-sonnet-4-6".into(),
+            },
+            ProviderPolicy::OpenAIResponses {
+                model: "gpt-5".into(),
+            },
             ProviderPolicy::OpenAICompatible {
                 base_url: "http://localhost:11434".into(),
                 model: "llama".into(),
             },
-            ProviderPolicy::Mcp { server_id: "mcp-vault".into() },
+            ProviderPolicy::Mcp {
+                server_id: "mcp-vault".into(),
+            },
             ProviderPolicy::ProCli {
                 adapter: CliAdapter::ClaudeCode,
                 command: "/usr/local/bin/claude".into(),
@@ -435,9 +462,20 @@ mod tests {
         // This pin enumerates ALL 18 (mode, provider, expected)
         // tuples and asserts each.
         let providers = [
-            ("LocalMlx", ProviderPolicy::LocalMlx { model_id: "m".into() }),
-            ("AnthropicMessages", ProviderPolicy::AnthropicMessages { model: "m".into() }),
-            ("OpenAIResponses", ProviderPolicy::OpenAIResponses { model: "m".into() }),
+            (
+                "LocalMlx",
+                ProviderPolicy::LocalMlx {
+                    model_id: "m".into(),
+                },
+            ),
+            (
+                "AnthropicMessages",
+                ProviderPolicy::AnthropicMessages { model: "m".into() },
+            ),
+            (
+                "OpenAIResponses",
+                ProviderPolicy::OpenAIResponses { model: "m".into() },
+            ),
             (
                 "OpenAICompatible",
                 ProviderPolicy::OpenAICompatible {
@@ -445,7 +483,12 @@ mod tests {
                     model: "m".into(),
                 },
             ),
-            ("Mcp", ProviderPolicy::Mcp { server_id: "s".into() }),
+            (
+                "Mcp",
+                ProviderPolicy::Mcp {
+                    server_id: "s".into(),
+                },
+            ),
             (
                 "ProCli",
                 ProviderPolicy::ProCli {
@@ -514,8 +557,7 @@ mod tests {
     }
 
     #[test]
-    fn aggregate_required_modes_holds_for_100_blueprint_batch_and_returns_ordered_set(
-    ) {
+    fn aggregate_required_modes_holds_for_100_blueprint_batch_and_returns_ordered_set() {
         // Phase 1 hardening MILESTONE iter-400 — scale + ordering pin
         // for the batch aggregator. Existing tests cover small fixtures
         // (0/1/3 blueprints). This pin scales to 100 blueprints
@@ -553,7 +595,10 @@ mod tests {
         let walk: Vec<AgentRuntimeV2Mode> = result1.iter().copied().collect();
         assert_eq!(
             walk,
-            vec![AgentRuntimeV2Mode::IpcBounded, AgentRuntimeV2Mode::Subprocess],
+            vec![
+                AgentRuntimeV2Mode::IpcBounded,
+                AgentRuntimeV2Mode::Subprocess
+            ],
             "BTreeSet must walk privilege-ascending"
         );
 
@@ -566,9 +611,11 @@ mod tests {
         let clis_only: Vec<_> = (0..50).map(|_| cli_blueprint()).collect();
         let half_a = AgentBlueprint::aggregate_required_modes(&locals_only);
         let half_b = AgentBlueprint::aggregate_required_modes(&clis_only);
-        let union: std::collections::BTreeSet<_> =
-            half_a.union(&half_b).copied().collect();
-        assert_eq!(union, result1, "union of halves must equal alternating result");
+        let union: std::collections::BTreeSet<_> = half_a.union(&half_b).copied().collect();
+        assert_eq!(
+            union, result1,
+            "union of halves must equal alternating result"
+        );
     }
 
     #[test]
@@ -654,12 +701,17 @@ mod tests {
         let make = |raw_id: &str| AgentBlueprint {
             id: AgentBlueprintId(raw_id.to_string()),
             display_name: "n".into(),
-            provider_policy: ProviderPolicy::LocalMlx { model_id: "m".into() },
+            provider_policy: ProviderPolicy::LocalMlx {
+                model_id: "m".into(),
+            },
             budget: BudgetSpec::default(),
             capability_root_hash: Hash::zero(),
         };
         // Empty id → "vault/agents/.json"
-        assert_eq!(make("").vault_persistence_path("vault"), "vault/agents/.json");
+        assert_eq!(
+            make("").vault_persistence_path("vault"),
+            "vault/agents/.json"
+        );
         // Slash in id → produces a deeper path
         assert_eq!(
             make("a/b").vault_persistence_path("vault"),
@@ -735,7 +787,9 @@ mod tests {
         let bp = AgentBlueprint {
             id: AgentBlueprintId(String::new()),
             display_name: "edge-empty-id".to_string(),
-            provider_policy: ProviderPolicy::LocalMlx { model_id: "m".into() },
+            provider_policy: ProviderPolicy::LocalMlx {
+                model_id: "m".into(),
+            },
             budget: BudgetSpec::default(),
             capability_root_hash: Hash::zero(),
         };
@@ -835,13 +889,19 @@ mod tests {
         assert!(!local_blueprint().is_subprocess_provider());
         // Cover the other in-process providers explicitly.
         for provider in [
-            ProviderPolicy::AnthropicMessages { model: "claude".into() },
-            ProviderPolicy::OpenAIResponses { model: "gpt".into() },
+            ProviderPolicy::AnthropicMessages {
+                model: "claude".into(),
+            },
+            ProviderPolicy::OpenAIResponses {
+                model: "gpt".into(),
+            },
             ProviderPolicy::OpenAICompatible {
                 base_url: "http://localhost".into(),
                 model: "llama".into(),
             },
-            ProviderPolicy::Mcp { server_id: "mcp".into() },
+            ProviderPolicy::Mcp {
+                server_id: "mcp".into(),
+            },
         ] {
             let bp = AgentBlueprint {
                 id: AgentBlueprintId("p".into()),
@@ -903,15 +963,21 @@ mod tests {
         // JSON contains exact "field":"value" substrings.
         let cases = [
             (
-                ProviderPolicy::LocalMlx { model_id: "qwen".into() },
+                ProviderPolicy::LocalMlx {
+                    model_id: "qwen".into(),
+                },
                 vec!["\"model_id\":\"qwen\""],
             ),
             (
-                ProviderPolicy::AnthropicMessages { model: "claude-sonnet".into() },
+                ProviderPolicy::AnthropicMessages {
+                    model: "claude-sonnet".into(),
+                },
                 vec!["\"model\":\"claude-sonnet\""],
             ),
             (
-                ProviderPolicy::OpenAIResponses { model: "gpt-5".into() },
+                ProviderPolicy::OpenAIResponses {
+                    model: "gpt-5".into(),
+                },
                 vec!["\"model\":\"gpt-5\""],
             ),
             (
@@ -919,13 +985,12 @@ mod tests {
                     base_url: "http://localhost".into(),
                     model: "llama".into(),
                 },
-                vec![
-                    "\"base_url\":\"http://localhost\"",
-                    "\"model\":\"llama\"",
-                ],
+                vec!["\"base_url\":\"http://localhost\"", "\"model\":\"llama\""],
             ),
             (
-                ProviderPolicy::Mcp { server_id: "vault-mcp".into() },
+                ProviderPolicy::Mcp {
+                    server_id: "vault-mcp".into(),
+                },
                 vec!["\"server_id\":\"vault-mcp\""],
             ),
             (
@@ -963,19 +1028,27 @@ mod tests {
         //   - OpenAICompatible { base_url: String, model: String }       → 2 named
         //   - Mcp { server_id: String }                                  → 1 named
         //   - ProCli { adapter: CliAdapter, command: String }            → 2 named
-        let p = ProviderPolicy::LocalMlx { model_id: "m".into() };
+        let p = ProviderPolicy::LocalMlx {
+            model_id: "m".into(),
+        };
         match p {
-            ProviderPolicy::LocalMlx { model_id } => { let _: String = model_id; }
+            ProviderPolicy::LocalMlx { model_id } => {
+                let _: String = model_id;
+            }
             _ => unreachable!(),
         }
         let p = ProviderPolicy::AnthropicMessages { model: "m".into() };
         match p {
-            ProviderPolicy::AnthropicMessages { model } => { let _: String = model; }
+            ProviderPolicy::AnthropicMessages { model } => {
+                let _: String = model;
+            }
             _ => unreachable!(),
         }
         let p = ProviderPolicy::OpenAIResponses { model: "m".into() };
         match p {
-            ProviderPolicy::OpenAIResponses { model } => { let _: String = model; }
+            ProviderPolicy::OpenAIResponses { model } => {
+                let _: String = model;
+            }
             _ => unreachable!(),
         }
         let p = ProviderPolicy::OpenAICompatible {
@@ -989,9 +1062,13 @@ mod tests {
             }
             _ => unreachable!(),
         }
-        let p = ProviderPolicy::Mcp { server_id: "s".into() };
+        let p = ProviderPolicy::Mcp {
+            server_id: "s".into(),
+        };
         match p {
-            ProviderPolicy::Mcp { server_id } => { let _: String = server_id; }
+            ProviderPolicy::Mcp { server_id } => {
+                let _: String = server_id;
+            }
             _ => unreachable!(),
         }
         let p = ProviderPolicy::ProCli {
@@ -1027,14 +1104,18 @@ mod tests {
         //   - serde kind discriminator + negative-serde pin updates
         //   - vault file migration path
         let variants = [
-            ProviderPolicy::LocalMlx { model_id: "m".into() },
+            ProviderPolicy::LocalMlx {
+                model_id: "m".into(),
+            },
             ProviderPolicy::AnthropicMessages { model: "c".into() },
             ProviderPolicy::OpenAIResponses { model: "g".into() },
             ProviderPolicy::OpenAICompatible {
                 base_url: "u".into(),
                 model: "m".into(),
             },
-            ProviderPolicy::Mcp { server_id: "s".into() },
+            ProviderPolicy::Mcp {
+                server_id: "s".into(),
+            },
             ProviderPolicy::ProCli {
                 adapter: CliAdapter::ClaudeCode,
                 command: "c".into(),
@@ -1062,7 +1143,9 @@ mod tests {
         // Pin all six variant kind strings to their snake_case form.
         let cases = [
             (
-                ProviderPolicy::LocalMlx { model_id: "m".into() },
+                ProviderPolicy::LocalMlx {
+                    model_id: "m".into(),
+                },
                 "local_mlx",
             ),
             (
@@ -1080,7 +1163,12 @@ mod tests {
                 },
                 "open_a_i_compatible",
             ),
-            (ProviderPolicy::Mcp { server_id: "s".into() }, "mcp"),
+            (
+                ProviderPolicy::Mcp {
+                    server_id: "s".into(),
+                },
+                "mcp",
+            ),
             (
                 ProviderPolicy::ProCli {
                     adapter: CliAdapter::ClaudeCode,
@@ -1095,10 +1183,7 @@ mod tests {
             // substring rather than full JSON pin because the
             // payload field ordering may shift.
             let needle = format!("\"kind\":\"{expected_kind}\"");
-            assert!(
-                s.contains(&needle),
-                "expected {needle} in {s}"
-            );
+            assert!(s.contains(&needle), "expected {needle} in {s}");
             // And round-trip must preserve the variant.
             let back: ProviderPolicy = serde_json::from_str(&s).expect("deserialise");
             assert_eq!(back, variant);
@@ -1110,7 +1195,9 @@ mod tests {
         let cases = [
             (
                 "LocalMlx",
-                ProviderPolicy::LocalMlx { model_id: "m".into() },
+                ProviderPolicy::LocalMlx {
+                    model_id: "m".into(),
+                },
             ),
             (
                 "AnthropicMessages",
@@ -1127,7 +1214,12 @@ mod tests {
                     model: "m".into(),
                 },
             ),
-            ("Mcp", ProviderPolicy::Mcp { server_id: "s".into() }),
+            (
+                "Mcp",
+                ProviderPolicy::Mcp {
+                    server_id: "s".into(),
+                },
+            ),
             (
                 "ProCli",
                 ProviderPolicy::ProCli {
@@ -1196,13 +1288,22 @@ mod tests {
         }
         // Positive sanity: every valid variant still round-trips.
         for (variant, expected_kind) in [
-            (ProviderPolicy::LocalMlx { model_id: "qwen".into() }, "local_mlx"),
             (
-                ProviderPolicy::AnthropicMessages { model: "claude-sonnet".into() },
+                ProviderPolicy::LocalMlx {
+                    model_id: "qwen".into(),
+                },
+                "local_mlx",
+            ),
+            (
+                ProviderPolicy::AnthropicMessages {
+                    model: "claude-sonnet".into(),
+                },
                 "anthropic_messages",
             ),
             (
-                ProviderPolicy::OpenAIResponses { model: "gpt".into() },
+                ProviderPolicy::OpenAIResponses {
+                    model: "gpt".into(),
+                },
                 "open_a_i_responses",
             ),
             (
@@ -1212,7 +1313,12 @@ mod tests {
                 },
                 "open_a_i_compatible",
             ),
-            (ProviderPolicy::Mcp { server_id: "s".into() }, "mcp"),
+            (
+                ProviderPolicy::Mcp {
+                    server_id: "s".into(),
+                },
+                "mcp",
+            ),
             (
                 ProviderPolicy::ProCli {
                     adapter: CliAdapter::ClaudeCode,
@@ -1338,7 +1444,9 @@ mod tests {
         // the same set of strings.
         let canonical = [
             (
-                ProviderPolicy::LocalMlx { model_id: "m".into() },
+                ProviderPolicy::LocalMlx {
+                    model_id: "m".into(),
+                },
                 "local_mlx",
             ),
             (
@@ -1356,7 +1464,12 @@ mod tests {
                 },
                 "open_a_i_compatible",
             ),
-            (ProviderPolicy::Mcp { server_id: "s".into() }, "mcp"),
+            (
+                ProviderPolicy::Mcp {
+                    server_id: "s".into(),
+                },
+                "mcp",
+            ),
             (
                 ProviderPolicy::ProCli {
                     adapter: CliAdapter::ClaudeCode,
@@ -1480,9 +1593,14 @@ mod tests {
         for variant in variants {
             let s = serde_json::to_string(&variant).expect("serialise");
             // Strip the outer JSON quotes.
-            let inner = s.strip_prefix('"').and_then(|x| x.strip_suffix('"'))
+            let inner = s
+                .strip_prefix('"')
+                .and_then(|x| x.strip_suffix('"'))
                 .expect("CliAdapter serialises to a JSON string");
-            assert!(!inner.is_empty(), "CliAdapter form must be non-empty for {variant:?}");
+            assert!(
+                !inner.is_empty(),
+                "CliAdapter form must be non-empty for {variant:?}"
+            );
             for ch in inner.chars() {
                 assert!(
                     ch.is_ascii_lowercase() || ch == '_',
@@ -1490,8 +1608,14 @@ mod tests {
                      snake_case; char {ch:?} violates [a-z_] charset"
                 );
             }
-            assert!(!inner.starts_with('_'), "CliAdapter form {inner:?} must not start with '_'");
-            assert!(!inner.ends_with('_'), "CliAdapter form {inner:?} must not end with '_'");
+            assert!(
+                !inner.starts_with('_'),
+                "CliAdapter form {inner:?} must not start with '_'"
+            );
+            assert!(
+                !inner.ends_with('_'),
+                "CliAdapter form {inner:?} must not end with '_'"
+            );
         }
     }
 
@@ -1518,12 +1642,22 @@ mod tests {
         //   - no leading / trailing underscore (no anchor underscore)
         // across all 6 ProviderPolicy variants.
         let variants = [
-            ProviderPolicy::LocalMlx { model_id: "m".into() },
+            ProviderPolicy::LocalMlx {
+                model_id: "m".into(),
+            },
             ProviderPolicy::AnthropicMessages { model: "m".into() },
             ProviderPolicy::OpenAIResponses { model: "m".into() },
-            ProviderPolicy::OpenAICompatible { base_url: "https://x".into(), model: "m".into() },
-            ProviderPolicy::Mcp { server_id: "s".into() },
-            ProviderPolicy::ProCli { adapter: CliAdapter::Codex, command: "c".into() },
+            ProviderPolicy::OpenAICompatible {
+                base_url: "https://x".into(),
+                model: "m".into(),
+            },
+            ProviderPolicy::Mcp {
+                server_id: "s".into(),
+            },
+            ProviderPolicy::ProCli {
+                adapter: CliAdapter::Codex,
+                command: "c".into(),
+            },
         ];
         for variant in variants {
             let s = serde_json::to_string(&variant).expect("serialise");
@@ -1532,7 +1666,10 @@ mod tests {
                 .get("kind")
                 .and_then(|v| v.as_str())
                 .expect("kind field missing");
-            assert!(!kind.is_empty(), "ProviderPolicy kind tag must be non-empty for {variant:?}");
+            assert!(
+                !kind.is_empty(),
+                "ProviderPolicy kind tag must be non-empty for {variant:?}"
+            );
             for ch in kind.chars() {
                 assert!(
                     ch.is_ascii_lowercase() || ch == '_',
@@ -1540,8 +1677,14 @@ mod tests {
                      snake_case; char {ch:?} violates [a-z_] charset"
                 );
             }
-            assert!(!kind.starts_with('_'), "ProviderPolicy kind {kind:?} must not start with '_'");
-            assert!(!kind.ends_with('_'), "ProviderPolicy kind {kind:?} must not end with '_'");
+            assert!(
+                !kind.starts_with('_'),
+                "ProviderPolicy kind {kind:?} must not start with '_'"
+            );
+            assert!(
+                !kind.ends_with('_'),
+                "ProviderPolicy kind {kind:?} must not end with '_'"
+            );
         }
     }
 
@@ -1583,7 +1726,10 @@ mod tests {
         for raw in cases {
             let id = AgentBlueprintId(raw.to_string());
             let display = format!("{id}");
-            assert_eq!(display, raw, "blueprint id Display must write inner string verbatim");
+            assert_eq!(
+                display, raw,
+                "blueprint id Display must write inner string verbatim"
+            );
         }
     }
 
@@ -1773,14 +1919,20 @@ mod tests {
         // display_name
         let mut diff_name = base.clone();
         diff_name.display_name = "different name".into();
-        assert_ne!(base, diff_name, "display_name must be identity-load-bearing");
+        assert_ne!(
+            base, diff_name,
+            "display_name must be identity-load-bearing"
+        );
 
         // provider_policy
         let mut diff_provider = base.clone();
         diff_provider.provider_policy = ProviderPolicy::AnthropicMessages {
             model: "claude-sonnet-4-6".into(),
         };
-        assert_ne!(base, diff_provider, "provider_policy must be identity-load-bearing");
+        assert_ne!(
+            base, diff_provider,
+            "provider_policy must be identity-load-bearing"
+        );
 
         // budget
         let mut diff_budget = base.clone();
@@ -1878,8 +2030,7 @@ mod tests {
         for id in adversarial {
             let bid = AgentBlueprintId(id.to_string());
             let s = serde_json::to_string(&bid).expect("serialise");
-            let back: AgentBlueprintId =
-                serde_json::from_str(&s).expect("deserialise");
+            let back: AgentBlueprintId = serde_json::from_str(&s).expect("deserialise");
             assert_eq!(back.0, id, "blueprint_id inner string must round-trip");
             assert_eq!(back, bid);
         }
@@ -1907,14 +2058,18 @@ mod tests {
             let bp = AgentBlueprint {
                 id: AgentBlueprintId("json-edge".into()),
                 display_name: name.to_string(),
-                provider_policy: ProviderPolicy::LocalMlx { model_id: "m".into() },
+                provider_policy: ProviderPolicy::LocalMlx {
+                    model_id: "m".into(),
+                },
                 budget: BudgetSpec::default(),
                 capability_root_hash: Hash::zero(),
             };
             let s = serde_json::to_string(&bp).expect("serialise");
-            let back: AgentBlueprint =
-                serde_json::from_str(&s).expect("deserialise");
-            assert_eq!(back.display_name, name, "display_name must round-trip byte-equal");
+            let back: AgentBlueprint = serde_json::from_str(&s).expect("deserialise");
+            assert_eq!(
+                back.display_name, name,
+                "display_name must round-trip byte-equal"
+            );
             assert_eq!(back, bp);
         }
     }
@@ -2030,14 +2185,23 @@ mod tests {
         // #[serde(rename)] drift breaks deserialisation for a single
         // variant (e.g., OpenAICompatible's optional headers field).
         let variants = [
-            ("LocalMlx", ProviderPolicy::LocalMlx { model_id: "qwen3.5-8b".into() }),
+            (
+                "LocalMlx",
+                ProviderPolicy::LocalMlx {
+                    model_id: "qwen3.5-8b".into(),
+                },
+            ),
             (
                 "AnthropicMessages",
-                ProviderPolicy::AnthropicMessages { model: "claude-sonnet-4-6".into() },
+                ProviderPolicy::AnthropicMessages {
+                    model: "claude-sonnet-4-6".into(),
+                },
             ),
             (
                 "OpenAIResponses",
-                ProviderPolicy::OpenAIResponses { model: "gpt-5".into() },
+                ProviderPolicy::OpenAIResponses {
+                    model: "gpt-5".into(),
+                },
             ),
             (
                 "OpenAICompatible",
@@ -2046,7 +2210,12 @@ mod tests {
                     model: "any".into(),
                 },
             ),
-            ("Mcp", ProviderPolicy::Mcp { server_id: "mcp-vault".into() }),
+            (
+                "Mcp",
+                ProviderPolicy::Mcp {
+                    server_id: "mcp-vault".into(),
+                },
+            ),
             (
                 "ProCli",
                 ProviderPolicy::ProCli {
@@ -2064,12 +2233,10 @@ mod tests {
                 budget: BudgetSpec::new(1_000, 60_000, 5, 0),
                 capability_root_hash: Hash::zero(),
             };
-            let s = serde_json::to_string(&bp).unwrap_or_else(|e| {
-                panic!("variant {tag}: serialise failed: {e}")
-            });
-            let back: AgentBlueprint = serde_json::from_str(&s).unwrap_or_else(|e| {
-                panic!("variant {tag}: deserialise failed: {e}, json = {s}")
-            });
+            let s = serde_json::to_string(&bp)
+                .unwrap_or_else(|e| panic!("variant {tag}: serialise failed: {e}"));
+            let back: AgentBlueprint = serde_json::from_str(&s)
+                .unwrap_or_else(|e| panic!("variant {tag}: deserialise failed: {e}, json = {s}"));
             assert_eq!(back, bp, "variant {tag} must round-trip byte-equal");
         }
     }
@@ -2094,9 +2261,7 @@ mod tests {
         let bp = local_blueprint();
         let s = serde_json::to_string(&bp).expect("serialise");
         // Manually inject a stray field into the JSON.
-        let augmented = s
-            .trim_end_matches('}')
-            .to_string()
+        let augmented = s.trim_end_matches('}').to_string()
             + r#","future_research_field":"some-experimental-value"}"#;
         let parsed: AgentBlueprint =
             serde_json::from_str(&augmented).expect("unknown field tolerated");
@@ -2104,12 +2269,10 @@ mod tests {
         assert_eq!(parsed, bp);
         // Also exercise an unknown field at a NESTED position
         // (inside provider_policy). Same forward-compat contract.
-        let nested_augmented = serde_json::to_string(&bp)
-            .unwrap()
-            .replace(
-                "\"local_mlx\"",
-                "\"local_mlx\",\"future_tuning_knob\":\"x\"",
-            );
+        let nested_augmented = serde_json::to_string(&bp).unwrap().replace(
+            "\"local_mlx\"",
+            "\"local_mlx\",\"future_tuning_knob\":\"x\"",
+        );
         let parsed_nested: AgentBlueprint =
             serde_json::from_str(&nested_augmented).expect("nested unknown field tolerated");
         assert_eq!(parsed_nested, bp);
@@ -2120,7 +2283,13 @@ mod tests {
         let bp = local_blueprint();
         let value = serde_json::to_value(&bp).expect("serialise blueprint");
         let obj = value.as_object().expect("blueprint object");
-        for missing in ["id", "display_name", "provider_policy", "budget", "capability_root_hash"] {
+        for missing in [
+            "id",
+            "display_name",
+            "provider_policy",
+            "budget",
+            "capability_root_hash",
+        ] {
             let mut tampered = obj.clone();
             tampered.remove(missing);
             let parsed: Result<AgentBlueprint, _> =
@@ -2160,7 +2329,9 @@ mod tests {
         ];
         let mut last_idx: Option<usize> = None;
         for key in expected_keys_in_order {
-            let pos = s.find(key).unwrap_or_else(|| panic!("key {key} not found in {s}"));
+            let pos = s
+                .find(key)
+                .unwrap_or_else(|| panic!("key {key} not found in {s}"));
             if let Some(prev) = last_idx {
                 assert!(
                     pos > prev,
@@ -2181,8 +2352,16 @@ mod tests {
         // review rather than breaking on-disk reads silently.
         let bp = local_blueprint();
         let json = serde_json::to_value(&bp).expect("serialize");
-        let obj = json.as_object().expect("blueprint serialises as JSON object");
-        for key in ["id", "display_name", "provider_policy", "budget", "capability_root_hash"] {
+        let obj = json
+            .as_object()
+            .expect("blueprint serialises as JSON object");
+        for key in [
+            "id",
+            "display_name",
+            "provider_policy",
+            "budget",
+            "capability_root_hash",
+        ] {
             assert!(
                 obj.contains_key(key),
                 "missing top-level key {key:?} in {json:?}",

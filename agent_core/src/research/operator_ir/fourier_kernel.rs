@@ -30,8 +30,7 @@ pub fn dft(x: &[f64]) -> Vec<(f64, f64)> {
         let mut re = 0.0_f64;
         let mut im = 0.0_f64;
         for (j, xj) in x.iter().enumerate() {
-            let arg = -2.0 * std::f64::consts::PI * (k as f64) * (j as f64)
-                / (n as f64);
+            let arg = -2.0 * std::f64::consts::PI * (k as f64) * (j as f64) / (n as f64);
             re += xj * arg.cos();
             im += xj * arg.sin();
         }
@@ -50,8 +49,7 @@ pub fn idft_real(spec: &[(f64, f64)]) -> Vec<f64> {
     for j in 0..n {
         let mut re = 0.0_f64;
         for (k, &(sr, si)) in spec.iter().enumerate() {
-            let arg = 2.0 * std::f64::consts::PI * (k as f64) * (j as f64)
-                / (n as f64);
+            let arg = 2.0 * std::f64::consts::PI * (k as f64) * (j as f64) / (n as f64);
             // (sr + i si) * (cos + i sin) → real part = sr*cos - si*sin
             re += sr * arg.cos() - si * arg.sin();
         }
@@ -83,8 +81,7 @@ mod tests {
     use super::*;
 
     fn approx_vec(a: &[f64], b: &[f64], tol: f64) -> bool {
-        a.len() == b.len()
-            && a.iter().zip(b.iter()).all(|(x, y)| (x - y).abs() < tol)
+        a.len() == b.len() && a.iter().zip(b.iter()).all(|(x, y)| (x - y).abs() < tol)
     }
 
     #[test]
@@ -117,7 +114,8 @@ mod tests {
         assert!(
             approx_vec(&x, &recovered, 1e-9),
             "round trip: input {:?} recovered {:?}",
-            x, recovered
+            x,
+            recovered
         );
     }
 

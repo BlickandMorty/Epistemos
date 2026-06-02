@@ -81,7 +81,7 @@ Return external evidence as structured artifacts and provenance, not graph or Re
         "\n\nIf the answer is already in the conversation context, attached note text, or other provided material, answer directly without calling a tool.\n\
 After receiving a <tool_response>, summarize it for the user unless the response clearly says it failed or more information is still required.\n\
 Never repeat the same tool call when the previous <tool_response> already gave you the needed information.\n\
-For vault notes, never guess a filesystem path from a title. Use vault.search first and then vault.read with the returned vault-relative path.\n\
+For vault notes, never guess a filesystem path from a title. Use eidos.query first to select citable vault evidence, then vault.read with the returned vault-relative path when full note text is needed. Use vault.search only if eidos.query is unavailable.\n\
 For vault note creation or updates, use vault.write with a human-readable vault-relative .md path and the full markdown content.\n\
 If the user gives a note title but not a path, choose a vault-relative .md path that matches the requested title.\n\
 If asked to create or update a note and then read it back, call vault.write first and then vault.read on that same exact note path.\n\

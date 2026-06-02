@@ -48,6 +48,18 @@ final class CompanionModel {
     /// Optional brief persona description that augments the
     /// system prompt when this companion is active.
     var personaPrompt: String?
+    /// Optional AgentBlueprint model/provider route. Nil means the
+    /// canonical auto constellation should pick the runtime.
+    var agentModelRoutingID: String?
+    /// Display label captured at creation time so old agents still show
+    /// a useful route label if a model is later unavailable.
+    var agentModelDisplayName: String?
+    /// Newline-separated tool names selected for this landing agent.
+    var agentToolNamesRaw: String?
+    /// AgentBlueprint scope raw value.
+    var agentScopeRaw: String?
+    /// AgentBlueprint approval raw value.
+    var agentApprovalModeRaw: String?
 
     init(
         id: String = UUID().uuidString,
@@ -57,6 +69,10 @@ final class CompanionModel {
         accentHex: String = "#7BA8E0",
         loraAdapterPath: String? = nil,
         personaPrompt: String? = nil,
+        agentModelChoice: AgentBlueprintModelChoice = .autoConstellation,
+        agentToolNames: [String] = [],
+        agentScope: AgentBlueprintScope = .currentVault,
+        agentApprovalMode: AgentBlueprintApprovalMode = .approveOncePerSession,
         createdAt: Date = .now
     ) {
         self.id = id
@@ -66,6 +82,11 @@ final class CompanionModel {
         self.accentHex = accentHex
         self.loraAdapterPath = loraAdapterPath
         self.personaPrompt = personaPrompt
+        self.agentModelRoutingID = agentModelChoice.routingID
+        self.agentModelDisplayName = agentModelChoice.displayName
+        self.agentToolNamesRaw = Self.encodeToolNames(agentToolNames)
+        self.agentScopeRaw = agentScope.rawValue
+        self.agentApprovalModeRaw = agentApprovalMode.rawValue
         self.createdAt = createdAt
         self.lastInteractedAt = createdAt
         self.archivedAt = nil
@@ -79,12 +100,87 @@ final class CompanionModel {
         set { bodyKindRaw = newValue.rawValue }
     }
 
+    var agentModelChoice: AgentBlueprintModelChoice {
+        get {
+            Self.modelChoice(
+                routingID: agentModelRoutingID,
+                displayName: agentModelDisplayName
+            )
+        }
+        set {
+            agentModelRoutingID = newValue.routingID
+            agentModelDisplayName = newValue.displayName
+        }
+    }
+
+    var agentToolNames: [String] {
+        get { Self.decodeToolNames(agentToolNamesRaw) }
+        set { agentToolNamesRaw = Self.encodeToolNames(newValue) }
+    }
+
+    var agentScope: AgentBlueprintScope {
+        get { AgentBlueprintScope(rawValue: agentScopeRaw ?? "") ?? .currentVault }
+        set { agentScopeRaw = newValue.rawValue }
+    }
+
+    var agentApprovalMode: AgentBlueprintApprovalMode {
+        get {
+            AgentBlueprintApprovalMode(rawValue: agentApprovalModeRaw ?? "") ?? .approveOncePerSession
+        }
+        set { agentApprovalModeRaw = newValue.rawValue }
+    }
+
     var isArchived: Bool { archivedAt != nil }
+
+    private static func modelChoice(
+        routingID: String?,
+        displayName: String?
+    ) -> AgentBlueprintModelChoice {
+        guard let routingID, !routingID.isEmpty else { return .autoConstellation }
+        if routingID == AgentBlueprintModelChoice.autoConstellation.routingID {
+            return .autoConstellation
+        }
+        if routingID == AgentBlueprintModelChoice.appleIntelligence.routingID || routingID == "apple" {
+            return .appleIntelligence
+        }
+        if routingID.hasPrefix("local:") {
+            let modelID = String(routingID.dropFirst("local:".count))
+            let label = displayName ?? LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
+            return .local(modelID: modelID, displayName: label)
+        }
+        if routingID.hasPrefix("cloud:") {
+            let providerRaw = String(routingID.dropFirst("cloud:".count))
+            let label = displayName
+                ?? CloudModelProvider(rawValue: providerRaw)?.displayName
+                ?? providerRaw
+            return .cloud(provider: providerRaw, displayName: label)
+        }
+        return .autoConstellation
+    }
+
+    private static func encodeToolNames(_ names: [String]) -> String? {
+        let normalized = Array(Set(
+            names
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+        ))
+        .sorted()
+        guard !normalized.isEmpty else { return nil }
+        return normalized.joined(separator: "\n")
+    }
+
+    private static func decodeToolNames(_ rawValue: String?) -> [String] {
+        guard let rawValue else { return [] }
+        return rawValue
+            .split(separator: "\n", omittingEmptySubsequences: true)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
 
     /// FNV-1a-ish lightweight hash for the identity seed. Fine for
     /// cosmetic determinism — not a security primitive. Replace with
     /// BLAKE3 if/when DAG node hashing lands (Phase 8).
-    private static func computeIdentityHash(id: String, bodyKindRaw: String, name: String) -> String {
+    static func computeIdentityHash(id: String, bodyKindRaw: String, name: String) -> String {
         let combined = "\(id):\(bodyKindRaw):\(name)"
         var hash: UInt64 = 0xcbf29ce484222325
         for byte in combined.utf8 {
@@ -126,39 +222,125 @@ nonisolated enum CompanionEyeTreatment: String, Codable, Sendable, CaseIterable 
     case filled
 }
 
+nonisolated enum CompanionHeadStyle: String, Codable, Sendable, CaseIterable {
+    case plain
+    case cap
+    case crown
+    case visor
+
+    var displayName: String {
+        switch self {
+        case .plain: "Plain"
+        case .cap: "Cap"
+        case .crown: "Crown"
+        case .visor: "Visor"
+        }
+    }
+}
+
+nonisolated enum CompanionArmStyle: String, Codable, Sendable, CaseIterable {
+    case none
+    case nubs
+    case side
+    case wave
+
+    var displayName: String {
+        switch self {
+        case .none: "None"
+        case .nubs: "Nubs"
+        case .side: "Side"
+        case .wave: "Wave"
+        }
+    }
+}
+
+nonisolated enum CompanionEyeShape: String, Codable, Sendable, CaseIterable {
+    case square
+    case dot
+    case bar
+    case visor
+
+    var displayName: String {
+        switch self {
+        case .square: "Square"
+        case .dot: "Dot"
+        case .bar: "Bar"
+        case .visor: "Visor"
+        }
+    }
+}
+
+nonisolated enum CompanionAccessoryStyle: String, Codable, Sendable, CaseIterable {
+    case none
+    case glasses
+    case mustache
+    case hair
+    case headset
+
+    var displayName: String {
+        switch self {
+        case .none: "None"
+        case .glasses: "Glasses"
+        case .mustache: "Mustache"
+        case .hair: "Hair"
+        case .headset: "Headset"
+        }
+    }
+}
+
 nonisolated struct CompanionBodyKind: RawRepresentable, Codable, Sendable, Hashable {
     let family: CompanionBodyFamily
     let blockAspect: CompanionBlockAspect?
     let legStyle: CompanionLegStyle?
     let antennaStyle: CompanionAntennaStyle?
     let eyeTreatment: CompanionEyeTreatment?
+    let headStyle: CompanionHeadStyle?
+    let armStyle: CompanionArmStyle?
+    let eyeShape: CompanionEyeShape?
+    let accessoryStyle: CompanionAccessoryStyle?
 
     private init(
         family: CompanionBodyFamily,
         blockAspect: CompanionBlockAspect? = nil,
         legStyle: CompanionLegStyle? = nil,
         antennaStyle: CompanionAntennaStyle? = nil,
-        eyeTreatment: CompanionEyeTreatment? = nil
+        eyeTreatment: CompanionEyeTreatment? = nil,
+        headStyle: CompanionHeadStyle? = nil,
+        armStyle: CompanionArmStyle? = nil,
+        eyeShape: CompanionEyeShape? = nil,
+        accessoryStyle: CompanionAccessoryStyle? = nil
     ) {
         self.family = family
         self.blockAspect = blockAspect
         self.legStyle = legStyle
         self.antennaStyle = antennaStyle
         self.eyeTreatment = eyeTreatment
+        self.headStyle = headStyle
+        self.armStyle = armStyle
+        self.eyeShape = eyeShape
+        self.accessoryStyle = accessoryStyle
     }
 
     static func block(
         aspect: CompanionBlockAspect,
         legs: CompanionLegStyle,
         antennae: CompanionAntennaStyle,
-        eyeTreatment: CompanionEyeTreatment
+        eyeTreatment: CompanionEyeTreatment,
+        headStyle: CompanionHeadStyle = .plain,
+        armStyle: CompanionArmStyle = .none,
+        eyeShape: CompanionEyeShape = .square,
+        accessoryStyle: CompanionAccessoryStyle = .none
     ) -> CompanionBodyKind {
         CompanionBodyKind(
             family: .block,
             blockAspect: aspect,
             legStyle: legs,
             antennaStyle: antennae,
-            eyeTreatment: eyeTreatment
+            eyeTreatment: eyeTreatment,
+            headStyle: headStyle,
+            armStyle: armStyle,
+            eyeShape: eyeShape,
+            accessoryStyle: accessoryStyle
         )
     }
 
@@ -232,36 +414,112 @@ nonisolated struct CompanionBodyKind: RawRepresentable, Codable, Sendable, Hasha
             self = .orb
         default:
             let parts = rawValue.split(separator: ".", omittingEmptySubsequences: false).map(String.init)
-            guard parts.count == 5,
-                  parts[0] == CompanionBodyFamily.block.rawValue,
-                  let aspect = CompanionBlockAspect(rawValue: parts[1]),
-                  let legs = CompanionLegStyle(rawValue: parts[2]),
-                  let antennae = CompanionAntennaStyle(rawValue: parts[3]),
-                  let eyes = CompanionEyeTreatment(rawValue: parts[4]) else {
+            guard let family = CompanionBodyFamily(rawValue: parts.first ?? "") else {
                 return nil
             }
-            self = .block(
-                aspect: aspect,
-                legs: legs,
-                antennae: antennae,
-                eyeTreatment: eyes
-            )
+            switch family {
+            case .block:
+                guard parts.count == 5 || parts.count == 9,
+                      let aspect = CompanionBlockAspect(rawValue: parts[1]),
+                      let legs = CompanionLegStyle(rawValue: parts[2]),
+                      let antennae = CompanionAntennaStyle(rawValue: parts[3]),
+                      let eyes = CompanionEyeTreatment(rawValue: parts[4]) else {
+                    return nil
+                }
+                if parts.count == 9 {
+                    guard let head = CompanionHeadStyle(rawValue: parts[5]),
+                          let arms = CompanionArmStyle(rawValue: parts[6]),
+                          let eyeShape = CompanionEyeShape(rawValue: parts[7]),
+                          let accessory = CompanionAccessoryStyle(rawValue: parts[8]) else {
+                        return nil
+                    }
+                    self = .block(
+                        aspect: aspect,
+                        legs: legs,
+                        antennae: antennae,
+                        eyeTreatment: eyes,
+                        headStyle: head,
+                        armStyle: arms,
+                        eyeShape: eyeShape,
+                        accessoryStyle: accessory
+                    )
+                } else {
+                    self = .block(
+                        aspect: aspect,
+                        legs: legs,
+                        antennae: antennae,
+                        eyeTreatment: eyes
+                    )
+                }
+            case .sage, .orb:
+                guard parts.count == 5,
+                      let head = CompanionHeadStyle(rawValue: parts[1]),
+                      let arms = CompanionArmStyle(rawValue: parts[2]),
+                      let eyeShape = CompanionEyeShape(rawValue: parts[3]),
+                      let accessory = CompanionAccessoryStyle(rawValue: parts[4]) else {
+                    return nil
+                }
+                self = CompanionBodyKind(
+                    family: family,
+                    headStyle: head,
+                    armStyle: arms,
+                    eyeShape: eyeShape,
+                    accessoryStyle: accessory
+                )
+            }
         }
     }
 
     var rawValue: String {
+        let head = resolvedHeadStyle
+        let arms = resolvedArmStyle
+        let eyeShape = resolvedEyeShape
+        let accessory = resolvedAccessoryStyle
         switch family {
         case .block:
             let aspect = blockAspect ?? .compact
             let legs = legStyle ?? .stubs
             let antennae = antennaStyle ?? .none
             let eyes = eyeTreatment ?? .filled
-            return "block.\(aspect.rawValue).\(legs.rawValue).\(antennae.rawValue).\(eyes.rawValue)"
+            return "block.\(aspect.rawValue).\(legs.rawValue).\(antennae.rawValue).\(eyes.rawValue).\(head.rawValue).\(arms.rawValue).\(eyeShape.rawValue).\(accessory.rawValue)"
         case .sage:
-            return CompanionBodyFamily.sage.rawValue
+            return rawFamilyValueWithCosmetics(family: .sage)
         case .orb:
-            return CompanionBodyFamily.orb.rawValue
+            return rawFamilyValueWithCosmetics(family: .orb)
         }
+    }
+
+    var resolvedHeadStyle: CompanionHeadStyle { headStyle ?? .plain }
+    var resolvedArmStyle: CompanionArmStyle { armStyle ?? .none }
+    var resolvedEyeShape: CompanionEyeShape { eyeShape ?? .square }
+    var resolvedAccessoryStyle: CompanionAccessoryStyle { accessoryStyle ?? .none }
+
+    func customized(
+        headStyle: CompanionHeadStyle? = nil,
+        armStyle: CompanionArmStyle? = nil,
+        eyeShape: CompanionEyeShape? = nil,
+        accessoryStyle: CompanionAccessoryStyle? = nil
+    ) -> CompanionBodyKind {
+        CompanionBodyKind(
+            family: family,
+            blockAspect: blockAspect,
+            legStyle: legStyle,
+            antennaStyle: antennaStyle,
+            eyeTreatment: eyeTreatment,
+            headStyle: headStyle ?? resolvedHeadStyle,
+            armStyle: armStyle ?? resolvedArmStyle,
+            eyeShape: eyeShape ?? resolvedEyeShape,
+            accessoryStyle: accessoryStyle ?? resolvedAccessoryStyle
+        )
+    }
+
+    private func rawFamilyValueWithCosmetics(family: CompanionBodyFamily) -> String {
+        let hasCustomCosmetics = resolvedHeadStyle != .plain
+            || resolvedArmStyle != .none
+            || resolvedEyeShape != .square
+            || resolvedAccessoryStyle != .none
+        guard hasCustomCosmetics else { return family.rawValue }
+        return "\(family.rawValue).\(resolvedHeadStyle.rawValue).\(resolvedArmStyle.rawValue).\(resolvedEyeShape.rawValue).\(resolvedAccessoryStyle.rawValue)"
     }
 
     init(from decoder: Decoder) throws {

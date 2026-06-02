@@ -136,9 +136,8 @@ fn lattice_coder_canonical_side_information_lists_are_dedup_and_canonical() {
 
     let register = include_str!("../../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
     assert!(
-        register.contains(
-            "`lattice_coder_canonical_side_information_lists_are_dedup_and_canonical`"
-        ),
+        register
+            .contains("`lattice_coder_canonical_side_information_lists_are_dedup_and_canonical`"),
         "register doc must cross-link codec side-info dedup invariant"
     );
 }
@@ -467,11 +466,9 @@ fn standalone_codecs_remain_term_scoped_without_product_residency() {
             "{coder:?} standalone rows still owe T_num"
         );
         assert!(
-            coder
-                .canonical_wbo_terms()
-                .iter()
-                .all(|term| term.is_semantic_wbo6()
-                    || *term == WboTermCode::NumericalPostCorrection),
+            coder.canonical_wbo_terms().iter().all(
+                |term| term.is_semantic_wbo6() || *term == WboTermCode::NumericalPostCorrection
+            ),
             "{coder:?} must stay term-scoped without hidden residency ownership"
         );
         assert!(
@@ -642,8 +639,7 @@ fn residency_primary_falsifiers_name_wbo_drift_ledger_for_every_tier() {
 
     let register = include_str!("../../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
     assert!(
-        register
-            .contains("`residency_primary_falsifiers_name_wbo_drift_ledger_for_every_tier`"),
+        register.contains("`residency_primary_falsifiers_name_wbo_drift_ledger_for_every_tier`"),
         "register doc must cross-link residency drift-ledger falsifier coverage"
     );
 }
@@ -853,8 +849,7 @@ fn residency_tier_side_information_witnesses_lead_with_primary_witness() {
 
     let register = include_str!("../../../../docs/LATTICE_WYNER_ZIV_WBO_REGISTER_2026_05_18.md");
     assert!(
-        register
-            .contains("`residency_tier_side_information_witnesses_lead_with_primary_witness`"),
+        register.contains("`residency_tier_side_information_witnesses_lead_with_primary_witness`"),
         "register doc must cross-link residency witness primary-first invariant"
     );
 }
@@ -923,8 +918,7 @@ fn residency_tier_catalog_distinguishes_required_and_secondary_active_support_bu
     for tier in ResidencyTier::ALL {
         assert_eq!(
             tier.allows_active_support_budget(),
-            tier.requires_active_support_budget()
-                || tier.allows_secondary_active_support_budget(),
+            tier.requires_active_support_budget() || tier.allows_secondary_active_support_budget(),
             "{} active-support budget allowance must be exhausted by required or secondary paths",
             tier.canonical_name()
         );
@@ -1051,9 +1045,9 @@ fn wbo_ledger_entry_new_for_tier_serializes_canonical_memory_tier_names() {
             tier.primary_side_information(),
             tier_probe_contributions(tier),
         );
-        let active_support = tier.allows_active_support_budget().then(|| {
-            ActiveSupportBudget::new(128, 4, 1024, SideInformationKind::ActiveSupport)
-        });
+        let active_support = tier
+            .allows_active_support_budget()
+            .then(|| ActiveSupportBudget::new(128, 4, 1024, SideInformationKind::ActiveSupport));
         let value = WboLedgerEntry::new_for_tier(
             tier,
             budget,

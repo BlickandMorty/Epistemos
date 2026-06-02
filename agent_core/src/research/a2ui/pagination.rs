@@ -52,7 +52,10 @@ impl PaginationProps {
             return Ok(());
         }
         if self.page >= count {
-            return Err(PaginationError::PageOutOfRange { page: self.page, page_count: count });
+            return Err(PaginationError::PageOutOfRange {
+                page: self.page,
+                page_count: count,
+            });
         }
         Ok(())
     }
@@ -87,44 +90,75 @@ mod tests {
 
     #[test]
     fn page_size_zero_rejected() {
-        let p = PaginationProps { page: 0, page_size: 0, total_items: 10 };
+        let p = PaginationProps {
+            page: 0,
+            page_size: 0,
+            total_items: 10,
+        };
         assert_eq!(p.validate().unwrap_err(), PaginationError::PageSizeZero);
     }
 
     #[test]
     fn valid_passes() {
-        let p = PaginationProps { page: 1, page_size: 10, total_items: 100 };
+        let p = PaginationProps {
+            page: 1,
+            page_size: 10,
+            total_items: 100,
+        };
         assert!(p.validate().is_ok());
     }
 
     #[test]
     fn page_count_ceiling() {
-        let p = PaginationProps { page: 0, page_size: 10, total_items: 25 };
+        let p = PaginationProps {
+            page: 0,
+            page_size: 10,
+            total_items: 25,
+        };
         assert_eq!(p.page_count(), 3);
     }
 
     #[test]
     fn page_count_exact() {
-        let p = PaginationProps { page: 0, page_size: 10, total_items: 100 };
+        let p = PaginationProps {
+            page: 0,
+            page_size: 10,
+            total_items: 100,
+        };
         assert_eq!(p.page_count(), 10);
     }
 
     #[test]
     fn page_out_of_range_rejected() {
-        let p = PaginationProps { page: 10, page_size: 10, total_items: 100 };
-        assert!(matches!(p.validate().unwrap_err(), PaginationError::PageOutOfRange { .. }));
+        let p = PaginationProps {
+            page: 10,
+            page_size: 10,
+            total_items: 100,
+        };
+        assert!(matches!(
+            p.validate().unwrap_err(),
+            PaginationError::PageOutOfRange { .. }
+        ));
     }
 
     #[test]
     fn empty_dataset_allows_page_zero() {
-        let p = PaginationProps { page: 0, page_size: 10, total_items: 0 };
+        let p = PaginationProps {
+            page: 0,
+            page_size: 10,
+            total_items: 0,
+        };
         assert_eq!(p.page_count(), 0);
         assert!(p.validate().is_ok());
     }
 
     #[test]
     fn serde_json_roundtrip() {
-        let p = PaginationProps { page: 0, page_size: 10, total_items: 100 };
+        let p = PaginationProps {
+            page: 0,
+            page_size: 10,
+            total_items: 100,
+        };
         let json = serde_json::to_string(&p).unwrap();
         let back: PaginationProps = serde_json::from_str(&json).unwrap();
         assert_eq!(p, back);
@@ -136,47 +170,83 @@ mod tests {
     fn error_cause_distinct() {
         assert_ne!(
             PaginationError::PageSizeZero.cause(),
-            PaginationError::PageOutOfRange { page: 1, page_count: 1 }.cause(),
+            PaginationError::PageOutOfRange {
+                page: 1,
+                page_count: 1
+            }
+            .cause(),
         );
     }
 
     #[test]
     fn is_empty_dataset_iff_page_count_zero() {
         // Cross-surface invariant.
-        let empty = PaginationProps { page: 0, page_size: 10, total_items: 0 };
+        let empty = PaginationProps {
+            page: 0,
+            page_size: 10,
+            total_items: 0,
+        };
         assert!(empty.is_empty_dataset());
         assert_eq!(empty.page_count(), 0);
 
-        let full = PaginationProps { page: 0, page_size: 10, total_items: 100 };
+        let full = PaginationProps {
+            page: 0,
+            page_size: 10,
+            total_items: 100,
+        };
         assert!(!full.is_empty_dataset());
         assert!(full.page_count() > 0);
     }
 
     #[test]
     fn is_first_page_when_page_zero() {
-        let p = PaginationProps { page: 0, page_size: 10, total_items: 100 };
+        let p = PaginationProps {
+            page: 0,
+            page_size: 10,
+            total_items: 100,
+        };
         assert!(p.is_first_page());
-        let p = PaginationProps { page: 1, page_size: 10, total_items: 100 };
+        let p = PaginationProps {
+            page: 1,
+            page_size: 10,
+            total_items: 100,
+        };
         assert!(!p.is_first_page());
     }
 
     #[test]
     fn is_last_page_at_final_index() {
-        let p = PaginationProps { page: 9, page_size: 10, total_items: 100 };
+        let p = PaginationProps {
+            page: 9,
+            page_size: 10,
+            total_items: 100,
+        };
         assert!(p.is_last_page());
-        let p = PaginationProps { page: 8, page_size: 10, total_items: 100 };
+        let p = PaginationProps {
+            page: 8,
+            page_size: 10,
+            total_items: 100,
+        };
         assert!(!p.is_last_page());
     }
 
     #[test]
     fn is_last_page_false_on_empty_dataset() {
-        let p = PaginationProps { page: 0, page_size: 10, total_items: 0 };
+        let p = PaginationProps {
+            page: 0,
+            page_size: 10,
+            total_items: 0,
+        };
         assert!(!p.is_last_page());
     }
 
     #[test]
     fn is_valid_matches_validate_ok() {
-        let good = PaginationProps { page: 0, page_size: 10, total_items: 100 };
+        let good = PaginationProps {
+            page: 0,
+            page_size: 10,
+            total_items: 100,
+        };
         assert_eq!(good.is_valid(), good.validate().is_ok());
         assert!(good.is_valid());
     }

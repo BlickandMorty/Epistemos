@@ -86,6 +86,12 @@ struct SearchIndexTests {
         #expect(tokenCount == 20)
     }
 
+    @Test("repeated vault recall signal terms are deduped")
+    func repeatedVaultRecallSignalTermsAreDeduped() {
+        let result = SearchIndexService.sanitizeFTS5Query("pull vault recall recall notes on recall")
+        #expect(result == "\"recall\"*")
+    }
+
     @Test("wildcard-only input produces empty result")
     func wildcardOnly() {
         let result = SearchIndexService.sanitizeFTS5Query("* ** ***")

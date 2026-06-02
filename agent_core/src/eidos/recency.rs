@@ -102,11 +102,7 @@ impl EidosRetriever for InMemoryRecencyIndex {
         &self.manifest_id
     }
 
-    fn retrieve(
-        &self,
-        query: &EidosQuery,
-        retrieved_at_unix_ms: u64,
-    ) -> EidosContextPacket {
+    fn retrieve(&self, query: &EidosQuery, retrieved_at_unix_ms: u64) -> EidosContextPacket {
         if query.top_k == 0 {
             return empty_packet(query, &self.manifest_id);
         }
@@ -145,9 +141,8 @@ impl EidosRetriever for InMemoryRecencyIndex {
             .into_iter()
             .take(top_k)
             .map(|doc| {
-                let chunk_id =
-                    EidosChunkId::new(format!("{}::recency", doc.document_id.as_str()))
-                        .expect("document_id non-empty by construction");
+                let chunk_id = EidosChunkId::new(format!("{}::recency", doc.document_id.as_str()))
+                    .expect("document_id non-empty by construction");
                 let recency_score = Self::score(retrieved_at_unix_ms, doc.created_at_unix_ms);
                 EidosHit {
                     source_id: chunk_id,
@@ -203,8 +198,18 @@ mod tests {
 
     fn build() -> InMemoryRecencyIndex {
         let mut idx = InMemoryRecencyIndex::new(manifest());
-        idx.insert(doc("week-old"), "alpha content", T0 - 7 * ONE_DAY_MS, EidosSourceKind::Note);
-        idx.insert(doc("yesterday"), "alpha gamma", T0 - ONE_DAY_MS, EidosSourceKind::Note);
+        idx.insert(
+            doc("week-old"),
+            "alpha content",
+            T0 - 7 * ONE_DAY_MS,
+            EidosSourceKind::Note,
+        );
+        idx.insert(
+            doc("yesterday"),
+            "alpha gamma",
+            T0 - ONE_DAY_MS,
+            EidosSourceKind::Note,
+        );
         idx.insert(doc("today"), "alpha beta", T0, EidosSourceKind::Note);
         idx
     }
@@ -219,11 +224,7 @@ mod tests {
         // ::recency, so the ordering tie-break doesn't change the headline.
         assert_eq!(
             ids,
-            vec![
-                "today::recency",
-                "yesterday::recency",
-                "week-old::recency",
-            ]
+            vec!["today::recency", "yesterday::recency", "week-old::recency",]
         );
     }
 
@@ -260,20 +261,26 @@ mod tests {
         // T0-7d ("tropical week"). Filter "tropical" → all 3 match;
         // recency desc → [now, paper, week].
         let mut idx = InMemoryRecencyIndex::new(manifest());
-        idx.insert(doc("paper"), "tropical paper", T0 - 2 * ONE_DAY_MS, EidosSourceKind::Note);
+        idx.insert(
+            doc("paper"),
+            "tropical paper",
+            T0 - 2 * ONE_DAY_MS,
+            EidosSourceKind::Note,
+        );
         idx.insert(doc("now"), "tropical now", T0, EidosSourceKind::Note);
-        idx.insert(doc("week"), "tropical week", T0 - 7 * ONE_DAY_MS, EidosSourceKind::Note);
+        idx.insert(
+            doc("week"),
+            "tropical week",
+            T0 - 7 * ONE_DAY_MS,
+            EidosSourceKind::Note,
+        );
         let q = EidosQuery::new("tropical", EidosRetrievalMode::Recency, 16);
         let packet = idx.retrieve(&q, T0);
 
         let ids: Vec<&str> = packet.hits.iter().map(|h| h.source_id.as_str()).collect();
         assert_eq!(
             ids,
-            vec![
-                "now::recency",
-                "paper::recency",
-                "week::recency",
-            ],
+            vec!["now::recency", "paper::recency", "week::recency",],
             "filter-then-rank: all 3 match 'tropical', survivors ordered created_at desc",
         );
     }
@@ -415,7 +422,12 @@ mod tests {
         // appears at recency 1.0 (we don't try to verify timestamps — that
         // is Provenance's job).
         let mut idx = InMemoryRecencyIndex::new(manifest());
-        idx.insert(doc("future"), "x", T0 + 10 * ONE_DAY_MS, EidosSourceKind::Note);
+        idx.insert(
+            doc("future"),
+            "x",
+            T0 + 10 * ONE_DAY_MS,
+            EidosSourceKind::Note,
+        );
         let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16);
         let packet = idx.retrieve(&q, T0);
         assert_eq!(packet.hits.len(), 1);
@@ -446,8 +458,8 @@ mod tests {
         //   age=9 days → 0.1
         //   age=99 days → 0.01
         let mut idx = InMemoryRecencyIndex::new(manifest());
-        idx.insert(doc("a"), "x", T0,                 EidosSourceKind::Note); // age 0
-        idx.insert(doc("b"), "x", T0 - ONE_DAY_MS,    EidosSourceKind::Note); // age 1
+        idx.insert(doc("a"), "x", T0, EidosSourceKind::Note); // age 0
+        idx.insert(doc("b"), "x", T0 - ONE_DAY_MS, EidosSourceKind::Note); // age 1
         idx.insert(doc("c"), "x", T0 - 2 * ONE_DAY_MS, EidosSourceKind::Note); // age 2
         idx.insert(doc("d"), "x", T0 - 9 * ONE_DAY_MS, EidosSourceKind::Note); // age 9
         idx.insert(doc("e"), "x", T0 - 99 * ONE_DAY_MS, EidosSourceKind::Note); // age 99
@@ -498,7 +510,12 @@ mod tests {
         //      with confidence still in-range for both.
         let mut idx = InMemoryRecencyIndex::new(manifest());
         idx.insert(doc("past"), "x", T0 - 5 * ONE_DAY_MS, EidosSourceKind::Note);
-        idx.insert(doc("future"), "x", T0 + 5 * ONE_DAY_MS, EidosSourceKind::Note);
+        idx.insert(
+            doc("future"),
+            "x",
+            T0 + 5 * ONE_DAY_MS,
+            EidosSourceKind::Note,
+        );
         idx.insert(doc("now"), "x", T0, EidosSourceKind::Note);
         let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16);
         let packet = idx.retrieve(&q, T0);
@@ -543,7 +560,12 @@ mod tests {
     #[test]
     fn unicode_filter_text_works() {
         let mut idx = InMemoryRecencyIndex::new(manifest());
-        idx.insert(doc("note-1"), "École polytechnique", T0, EidosSourceKind::Note);
+        idx.insert(
+            doc("note-1"),
+            "École polytechnique",
+            T0,
+            EidosSourceKind::Note,
+        );
         idx.insert(
             doc("note-2"),
             "Привет world",
@@ -561,8 +583,8 @@ mod tests {
         // Fixture has today, yesterday, week-old. since = T0 - 2*ONE_DAY
         // keeps today + yesterday, drops week-old.
         let idx = build();
-        let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16)
-            .with_since(T0 - 2 * ONE_DAY_MS);
+        let q =
+            EidosQuery::new("", EidosRetrievalMode::Recency, 16).with_since(T0 - 2 * ONE_DAY_MS);
         let packet = idx.retrieve(&q, T0);
         let ids: Vec<&str> = packet.hits.iter().map(|h| h.source_id.as_str()).collect();
         assert_eq!(ids, vec!["today::recency", "yesterday::recency"]);
@@ -580,8 +602,7 @@ mod tests {
         // type bound. The contract: no doc has created_at == u64::MAX,
         // so since=u64::MAX must yield an empty packet without panic.
         let idx = build();
-        let q =
-            EidosQuery::new("", EidosRetrievalMode::Recency, 16).with_since(u64::MAX);
+        let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16).with_since(u64::MAX);
         let packet = idx.retrieve(&q, T0);
         assert!(
             packet.hits.is_empty(),
@@ -593,8 +614,7 @@ mod tests {
     fn since_unix_ms_floor_in_the_future_returns_empty() {
         // since = T0 + 1 day. No document satisfies it.
         let idx = build();
-        let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16)
-            .with_since(T0 + ONE_DAY_MS);
+        let q = EidosQuery::new("", EidosRetrievalMode::Recency, 16).with_since(T0 + ONE_DAY_MS);
         let packet = idx.retrieve(&q, T0);
         assert!(packet.hits.is_empty());
     }
@@ -604,7 +624,12 @@ mod tests {
         // Substring "alpha" matches week-old only; since = T0 - 1*ONE_DAY
         // would otherwise admit today + yesterday. Combined: NO match.
         let mut idx = InMemoryRecencyIndex::new(manifest());
-        idx.insert(doc("week-old"), "alpha note", T0 - 7 * ONE_DAY_MS, EidosSourceKind::Note);
+        idx.insert(
+            doc("week-old"),
+            "alpha note",
+            T0 - 7 * ONE_DAY_MS,
+            EidosSourceKind::Note,
+        );
         idx.insert(doc("today"), "beta note", T0, EidosSourceKind::Note);
         let q = EidosQuery::new("alpha", EidosRetrievalMode::Recency, 16)
             .with_since(T0 - 2 * ONE_DAY_MS);
@@ -679,14 +704,16 @@ mod tests {
         // (mirrors iter 70's `Some(vec![]) ≡ None` semantic for
         // Semantic).
         let idx = build();
-        let q_zero =
-            EidosQuery::new("", EidosRetrievalMode::Recency, 16).with_since(0);
+        let q_zero = EidosQuery::new("", EidosRetrievalMode::Recency, 16).with_since(0);
         let q_none = EidosQuery::new("", EidosRetrievalMode::Recency, 16);
 
         let p_zero = idx.retrieve(&q_zero, T0);
         let p_none = idx.retrieve(&q_none, T0);
 
-        assert_eq!(p_zero.hits, p_none.hits, "since=0 hits must equal no-since hits");
+        assert_eq!(
+            p_zero.hits, p_none.hits,
+            "since=0 hits must equal no-since hits"
+        );
         assert_eq!(p_zero.manifest_id, p_none.manifest_id);
         // Sanity-pin the count so the assertion isn't trivially
         // satisfied by 0==0 if a future change broke retrieval

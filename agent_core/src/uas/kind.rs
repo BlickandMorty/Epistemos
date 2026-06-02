@@ -119,7 +119,11 @@ mod tests {
         for variant in &known {
             let tag = variant.wire_tag();
             let parsed = UasKind::from_wire_tag(&tag);
-            assert_eq!(*variant, parsed, "wire-tag round-trip failed for {:?}", variant);
+            assert_eq!(
+                *variant, parsed,
+                "wire-tag round-trip failed for {:?}",
+                variant
+            );
             assert!(variant.is_known());
         }
     }
@@ -127,7 +131,10 @@ mod tests {
     #[test]
     fn unknown_wire_tag_falls_back_to_other() {
         let parsed = UasKind::from_wire_tag("future_variant_not_yet_landed");
-        assert_eq!(parsed, UasKind::Other("future_variant_not_yet_landed".to_string()));
+        assert_eq!(
+            parsed,
+            UasKind::Other("future_variant_not_yet_landed".to_string())
+        );
         assert!(!parsed.is_known());
     }
 

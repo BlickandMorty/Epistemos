@@ -48,5 +48,5 @@ pub use document::{
 };
 pub use repair::{
     repair_schema, validate_value, FieldSchema, FieldType, RepairPolicy, RepairReport, Schema,
-    SchemaError, Value, ValidationError,
+    SchemaError, ValidationError, Value,
 };

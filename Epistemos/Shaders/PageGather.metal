@@ -83,6 +83,30 @@ kernel void pageGatherScatterScheduled(
     out[logicalPositions[gid]] = source[indices[gid]];
 }
 
+/// Packetized scheduled PageGather:
+/// `packetValues[i] = source[indices[i]]`;
+/// `packetLogicalPositions[i] = logicalPositions[i]`.
+///
+/// This is the lean witness-coordinate variant for page recall. It keeps
+/// block-sorted source locality and emits a compact packet stream instead of
+/// paying random destination writes immediately. Dense restore remains a
+/// separate, auditable projection step.
+kernel void pageGatherPacketizeScheduled(
+    device const float* source                 [[buffer(0)]],
+    device const uint*  indices                [[buffer(1)]],
+    device const uint*  logicalPositions       [[buffer(2)]],
+    device       float* packetValues           [[buffer(3)]],
+    device       uint*  packetLogicalPositions [[buffer(4)]],
+    constant     uint&  count                  [[buffer(5)]],
+    uint                gid                    [[thread_position_in_grid]]
+) {
+    if (gid >= count) {
+        return;
+    }
+    packetValues[gid] = source[indices[gid]];
+    packetLogicalPositions[gid] = logicalPositions[gid];
+}
+
 /// PageGather with per-element scale: `out[i] = source[indices[i]] * scales[i]`.
 ///
 /// Two-input variant for the BitNet b1.58 absmean codec where each

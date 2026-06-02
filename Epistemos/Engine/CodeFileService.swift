@@ -45,6 +45,7 @@ nonisolated public final class CodeFileService: @unchecked Sendable {
         case fileAlreadyExists(URL)
         case fileNotFound(URL)
         case sourceWriteFailed(underlying: Error)
+        case sourceVerificationFailed(URL)
         case sidecarWriteFailed(underlying: Error)
         case sidecarReadFailed(underlying: Error)
         case sidecarParseFailed(underlying: Error)
@@ -63,6 +64,8 @@ nonisolated public final class CodeFileService: @unchecked Sendable {
                 return "CodeFileService: file not found at \(url.path)"
             case let .sourceWriteFailed(error):
                 return "CodeFileService: failed to write source: \(error)"
+            case let .sourceVerificationFailed(url):
+                return "CodeFileService: source write verification failed at \(url.path)"
             case let .sidecarWriteFailed(error):
                 return "CodeFileService: failed to write sidecar: \(error)"
             case let .sidecarReadFailed(error):
@@ -153,6 +156,9 @@ nonisolated public final class CodeFileService: @unchecked Sendable {
         let bodyData = Data(resolvedBody.utf8)
         do {
             try bodyData.write(to: fileURL.url, options: .atomic)
+            try verifySourceWrite(bodyData, at: fileURL.url)
+        } catch let error as ServiceError {
+            throw error
         } catch {
             throw ServiceError.sourceWriteFailed(underlying: error)
         }
@@ -222,6 +228,9 @@ nonisolated public final class CodeFileService: @unchecked Sendable {
         let bodyData = Data(body.utf8)
         do {
             try bodyData.write(to: contained.url, options: .atomic)
+            try verifySourceWrite(bodyData, at: contained.url)
+        } catch let error as ServiceError {
+            throw error
         } catch {
             throw ServiceError.sourceWriteFailed(underlying: error)
         }
@@ -289,6 +298,18 @@ nonisolated public final class CodeFileService: @unchecked Sendable {
             try json.write(to: url, options: .atomic)
         } catch {
             throw ServiceError.sidecarWriteFailed(underlying: error)
+        }
+    }
+
+    private func verifySourceWrite(_ expected: Data, at url: URL) throws {
+        let written: Data
+        do {
+            written = try Data(contentsOf: url)
+        } catch {
+            throw ServiceError.sourceWriteFailed(underlying: error)
+        }
+        guard written == expected else {
+            throw ServiceError.sourceVerificationFailed(url)
         }
     }
 

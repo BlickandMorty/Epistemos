@@ -339,7 +339,8 @@ mod tests {
         assert_eq!(cap.macaroon().location, "DISTINCT-SESSION-LOCATION");
         // The root_key (2nd arg) lets verify succeed (since cap was
         // built with the same key that issued the macaroon).
-        cap.verify(&ctx_now_at(1_000)).expect("verify with correct key");
+        cap.verify(&ctx_now_at(1_000))
+            .expect("verify with correct key");
     }
 
     #[test]
@@ -416,7 +417,10 @@ mod tests {
             .verify(&ctx_now_at(2_000))
             .expect_err("verify must reject expired macaroon");
         assert!(
-            matches!(err, CapabilityError::Violated(CaveatViolation::Expired { .. })),
+            matches!(
+                err,
+                CapabilityError::Violated(CaveatViolation::Expired { .. })
+            ),
             "expected Violated(Expired), got {err:?}"
         );
     }
@@ -501,10 +505,7 @@ mod tests {
                 .verify(&ctx)
                 .expect_err(&format!("forged macaroon with {caveat:?} must reject"));
             assert!(
-                matches!(
-                    err,
-                    CapabilityError::Forged(VerifyError::SignatureMismatch)
-                ),
+                matches!(err, CapabilityError::Forged(VerifyError::SignatureMismatch)),
                 "expected Forged(SignatureMismatch) for caveat {caveat:?}, got {err:?}"
             );
         }
@@ -566,9 +567,7 @@ mod tests {
             let cap = MacaroonCapability::new(narrowed, key_a);
             let err = cap
                 .verify(&ctx)
-                .expect_err(&format!(
-                    "expired macaroon with {caveat:?} must reject"
-                ));
+                .expect_err(&format!("expired macaroon with {caveat:?} must reject"));
             assert!(
                 matches!(
                     err,
@@ -708,7 +707,8 @@ mod tests {
         // and a future expiry passes both legs.
         let m = issue_tool_macaroon(&root_key_a(), Some(10_000));
         let cap = MacaroonCapability::new(m, root_key_a());
-        cap.verify(&ctx_now_at(1_000)).expect("valid macaroon must verify");
+        cap.verify(&ctx_now_at(1_000))
+            .expect("valid macaroon must verify");
         assert!(matches!(cap.kind(), CapabilityKind::ToolInvoke(s) if s == "vault.read"));
         assert_eq!(cap.scope().0, "vault");
     }
@@ -930,8 +930,18 @@ mod tests {
 
         // Case (a) idempotent: two identical ToolNameEq caveats →
         // the second is a no-op. verify succeeds for matching tool.
-        let m_idem = restrict(&base, Caveat::ToolNameEq { name: "vault.read".into() });
-        let m_idem = restrict(&m_idem, Caveat::ToolNameEq { name: "vault.read".into() });
+        let m_idem = restrict(
+            &base,
+            Caveat::ToolNameEq {
+                name: "vault.read".into(),
+            },
+        );
+        let m_idem = restrict(
+            &m_idem,
+            Caveat::ToolNameEq {
+                name: "vault.read".into(),
+            },
+        );
         let cap_idem = MacaroonCapability::new(m_idem, key);
         cap_idem
             .verify(&RuntimeContext {
@@ -957,8 +967,18 @@ mod tests {
 
         // Case (b) incompatible: two different ToolNameEq caveats →
         // CaveatViolation::IncompatibleToolNames.
-        let m_incompat = restrict(&base, Caveat::ToolNameEq { name: "vault.read".into() });
-        let m_incompat = restrict(&m_incompat, Caveat::ToolNameEq { name: "vault.write".into() });
+        let m_incompat = restrict(
+            &base,
+            Caveat::ToolNameEq {
+                name: "vault.read".into(),
+            },
+        );
+        let m_incompat = restrict(
+            &m_incompat,
+            Caveat::ToolNameEq {
+                name: "vault.write".into(),
+            },
+        );
         let cap_incompat = MacaroonCapability::new(m_incompat, key);
         let err_incompat = cap_incompat
             .verify(&RuntimeContext {
@@ -997,8 +1017,18 @@ mod tests {
 
         // Case (a): "vault" parent + "vault/notes" child →
         // effective prefix is "vault/notes" (the tighter).
-        let m_a = restrict(&base, Caveat::ScopePrefix { prefix: "vault".into() });
-        let m_a = restrict(&m_a, Caveat::ScopePrefix { prefix: "vault/notes".into() });
+        let m_a = restrict(
+            &base,
+            Caveat::ScopePrefix {
+                prefix: "vault".into(),
+            },
+        );
+        let m_a = restrict(
+            &m_a,
+            Caveat::ScopePrefix {
+                prefix: "vault/notes".into(),
+            },
+        );
         let cap_a = MacaroonCapability::new(m_a, key);
         cap_a
             .verify(&RuntimeContext {
@@ -1027,8 +1057,18 @@ mod tests {
         // Case (b): swap order — "vault/notes" first, "vault" second.
         // The tighter ("vault/notes") was applied first and the wider
         // ("vault") doesn't override. effective stays "vault/notes".
-        let m_b = restrict(&base, Caveat::ScopePrefix { prefix: "vault/notes".into() });
-        let m_b = restrict(&m_b, Caveat::ScopePrefix { prefix: "vault".into() });
+        let m_b = restrict(
+            &base,
+            Caveat::ScopePrefix {
+                prefix: "vault/notes".into(),
+            },
+        );
+        let m_b = restrict(
+            &m_b,
+            Caveat::ScopePrefix {
+                prefix: "vault".into(),
+            },
+        );
         let cap_b = MacaroonCapability::new(m_b, key);
         let err_b = cap_b
             .verify(&RuntimeContext {
@@ -1045,8 +1085,18 @@ mod tests {
 
         // Case (c): unrelated prefixes ("vault/notes" + "vault/chats")
         // — neither extends the other. CaveatViolation::IncompatiblePrefixes.
-        let m_c = restrict(&base, Caveat::ScopePrefix { prefix: "vault/notes".into() });
-        let m_c = restrict(&m_c, Caveat::ScopePrefix { prefix: "vault/chats".into() });
+        let m_c = restrict(
+            &base,
+            Caveat::ScopePrefix {
+                prefix: "vault/notes".into(),
+            },
+        );
+        let m_c = restrict(
+            &m_c,
+            Caveat::ScopePrefix {
+                prefix: "vault/chats".into(),
+            },
+        );
         let cap_c = MacaroonCapability::new(m_c, key);
         let err_c = cap_c
             .verify(&RuntimeContext {
@@ -1100,7 +1150,10 @@ mod tests {
             .verify(&ctx_now_at(3_000))
             .expect_err("at tightest expiry must reject");
         match err {
-            CapabilityError::Violated(CaveatViolation::Expired { until_ts_ms, now_ms }) => {
+            CapabilityError::Violated(CaveatViolation::Expired {
+                until_ts_ms,
+                now_ms,
+            }) => {
                 assert_eq!(until_ts_ms, 3_000, "MIN expiry must be 3_000 (tightest)");
                 assert_eq!(now_ms, 3_000);
             }
@@ -1112,7 +1165,10 @@ mod tests {
             .expect_err("past all expiries must reject");
         assert!(matches!(
             err_past,
-            CapabilityError::Violated(CaveatViolation::Expired { until_ts_ms: 3_000, .. })
+            CapabilityError::Violated(CaveatViolation::Expired {
+                until_ts_ms: 3_000,
+                ..
+            })
         ));
 
         // Symmetric: swap caveat order (3_000 first, then 5_000).
@@ -1125,7 +1181,10 @@ mod tests {
             .expect_err("MIN composition must be order-independent");
         assert!(matches!(
             err_swap,
-            CapabilityError::Violated(CaveatViolation::Expired { until_ts_ms: 3_000, .. })
+            CapabilityError::Violated(CaveatViolation::Expired {
+                until_ts_ms: 3_000,
+                ..
+            })
         ));
     }
 
@@ -1140,11 +1199,17 @@ mod tests {
         let cap = MacaroonCapability::new(m, root_key_a());
 
         // now_ms = 4999 → still valid (one millisecond inside).
-        cap.verify(&ctx_now_at(4_999)).expect("just-before expiry is valid");
+        cap.verify(&ctx_now_at(4_999))
+            .expect("just-before expiry is valid");
         // now_ms = 5000 → EXACT boundary is rejected.
-        let err_at = cap.verify(&ctx_now_at(5_000)).expect_err("exact-expiry must reject");
+        let err_at = cap
+            .verify(&ctx_now_at(5_000))
+            .expect_err("exact-expiry must reject");
         assert!(
-            matches!(err_at, CapabilityError::Violated(CaveatViolation::Expired { .. })),
+            matches!(
+                err_at,
+                CapabilityError::Violated(CaveatViolation::Expired { .. })
+            ),
             "expected Violated(Expired) at exact boundary, got {err_at:?}"
         );
         // now_ms = 5001 → past, also rejected.
@@ -1173,7 +1238,9 @@ mod tests {
             Some(10_000),
             &key,
         );
-        let prefix = Caveat::ScopePrefix { prefix: "vault/notes".into() };
+        let prefix = Caveat::ScopePrefix {
+            prefix: "vault/notes".into(),
+        };
         let once = restrict(&base, prefix.clone());
         let twice = restrict(&once, prefix.clone());
         // Chain length grew with each restrict.
@@ -1287,7 +1354,10 @@ mod tests {
             Some(10_000),
             &key,
         );
-        assert_ne!(base.signature, diff_kind.signature, "base_kind must affect signature");
+        assert_ne!(
+            base.signature, diff_kind.signature,
+            "base_kind must affect signature"
+        );
         assert_ne!(base.capability_hash(), diff_kind.capability_hash());
 
         // base_scope diff.
@@ -1298,7 +1368,10 @@ mod tests {
             Some(10_000),
             &key,
         );
-        assert_ne!(base.signature, diff_scope.signature, "base_scope must affect signature");
+        assert_ne!(
+            base.signature, diff_scope.signature,
+            "base_scope must affect signature"
+        );
         assert_ne!(base.capability_hash(), diff_scope.capability_hash());
 
         // base_expiry_ms diff.
@@ -1309,7 +1382,10 @@ mod tests {
             Some(20_000), // 10_000 → 20_000
             &key,
         );
-        assert_ne!(base.signature, diff_expiry.signature, "base_expiry_ms must affect signature");
+        assert_ne!(
+            base.signature, diff_expiry.signature,
+            "base_expiry_ms must affect signature"
+        );
         assert_ne!(base.capability_hash(), diff_expiry.capability_hash());
 
         // None-vs-Some(0) expiry also differs.
@@ -1320,7 +1396,10 @@ mod tests {
             None,
             &key,
         );
-        assert_ne!(base.signature, no_expiry.signature, "expiry None vs Some(N) must affect signature");
+        assert_ne!(
+            base.signature, no_expiry.signature,
+            "expiry None vs Some(N) must affect signature"
+        );
     }
 
     #[test]
@@ -1349,8 +1428,7 @@ mod tests {
         let mut hasher = blake3::Hasher::new();
         hasher.update(b"epistemos-macaroon-cap-v1\n");
         hasher.update(&m.signature);
-        let expected =
-            crate::cognitive_dag::node::Hash::from_bytes(*hasher.finalize().as_bytes());
+        let expected = crate::cognitive_dag::node::Hash::from_bytes(*hasher.finalize().as_bytes());
         assert_eq!(
             m.capability_hash(),
             expected,
@@ -1489,8 +1567,12 @@ mod tests {
         // diff doesn't break HMAC validity, only identity.
         let cap_a = MacaroonCapability::new(m_session_a, key);
         let cap_b = MacaroonCapability::new(m_session_b, key);
-        cap_a.verify(&ctx_now_at(1_000)).expect("session A verifies");
-        cap_b.verify(&ctx_now_at(1_000)).expect("session B verifies");
+        cap_a
+            .verify(&ctx_now_at(1_000))
+            .expect("session A verifies");
+        cap_b
+            .verify(&ctx_now_at(1_000))
+            .expect("session B verifies");
     }
 
     #[test]
@@ -1587,7 +1669,10 @@ mod tests {
             &[],
             &key,
         );
-        assert_eq!(m.signature, recomputed, "round-trip through compute_signature");
+        assert_eq!(
+            m.signature, recomputed,
+            "round-trip through compute_signature"
+        );
     }
 
     #[test]
@@ -1607,8 +1692,18 @@ mod tests {
             Some(10_000),
             &key,
         );
-        let m1 = restrict(&m1, Caveat::ScopePrefix { prefix: "vault/notes".into() });
-        let m1 = restrict(&m1, Caveat::ToolNameEq { name: "vault.read".into() });
+        let m1 = restrict(
+            &m1,
+            Caveat::ScopePrefix {
+                prefix: "vault/notes".into(),
+            },
+        );
+        let m1 = restrict(
+            &m1,
+            Caveat::ToolNameEq {
+                name: "vault.read".into(),
+            },
+        );
 
         let m2 = issue(
             "stable-session",
@@ -1617,8 +1712,18 @@ mod tests {
             Some(10_000),
             &key,
         );
-        let m2 = restrict(&m2, Caveat::ScopePrefix { prefix: "vault/notes".into() });
-        let m2 = restrict(&m2, Caveat::ToolNameEq { name: "vault.read".into() });
+        let m2 = restrict(
+            &m2,
+            Caveat::ScopePrefix {
+                prefix: "vault/notes".into(),
+            },
+        );
+        let m2 = restrict(
+            &m2,
+            Caveat::ToolNameEq {
+                name: "vault.read".into(),
+            },
+        );
 
         assert_eq!(m1.signature, m2.signature, "signature must be reproducible");
         assert_eq!(
@@ -1666,7 +1771,9 @@ mod tests {
         let replayed_cap = MacaroonCapability::new(replayed.clone(), key);
         let ctx = ctx_now_at(1_000);
         original_cap.verify(&ctx).expect("original verifies");
-        replayed_cap.verify(&ctx).expect("json-replayed macaroon verifies");
+        replayed_cap
+            .verify(&ctx)
+            .expect("json-replayed macaroon verifies");
         assert_eq!(narrowed.signature, replayed.signature);
         assert_eq!(narrowed.capability_hash(), replayed.capability_hash());
 
@@ -1713,8 +1820,11 @@ mod tests {
 
         let file = tempfile::NamedTempFile::new().expect("temp capability file");
         let path = file.path().to_path_buf();
-        std::fs::write(&path, serde_json::to_vec(&narrowed).expect("serialise macaroon"))
-            .expect("write capability file");
+        std::fs::write(
+            &path,
+            serde_json::to_vec(&narrowed).expect("serialise macaroon"),
+        )
+        .expect("write capability file");
         let bytes = std::fs::read(&path).expect("read capability file");
         let replayed: Macaroon = serde_json::from_slice(&bytes).expect("deserialise macaroon");
 
@@ -1759,8 +1869,7 @@ mod tests {
             let base = issue_tool_macaroon(&key, Some(10_000));
             let narrowed = restrict(&base, caveat.clone());
             let json = serde_json::to_string(&narrowed).expect("serialise macaroon");
-            let replayed: Macaroon =
-                serde_json::from_str(&json).expect("deserialise macaroon");
+            let replayed: Macaroon = serde_json::from_str(&json).expect("deserialise macaroon");
 
             assert_eq!(
                 replayed.caveats,
@@ -1785,8 +1894,7 @@ mod tests {
             let base = issue_tool_macaroon(&key, Some(10_000));
             let narrowed = restrict(&base, caveat.clone());
             let json = serde_json::to_string(&narrowed).expect("serialise macaroon");
-            let replayed: Macaroon =
-                serde_json::from_str(&json).expect("deserialise macaroon");
+            let replayed: Macaroon = serde_json::from_str(&json).expect("deserialise macaroon");
 
             MacaroonCapability::new(replayed.clone(), key)
                 .verify(&ctx)
@@ -1825,8 +1933,7 @@ mod tests {
             let base = issue_tool_macaroon(&key, Some(1_000));
             let narrowed = restrict(&base, caveat.clone());
             let json = serde_json::to_string(&narrowed).expect("serialise macaroon");
-            let replayed: Macaroon =
-                serde_json::from_str(&json).expect("deserialise macaroon");
+            let replayed: Macaroon = serde_json::from_str(&json).expect("deserialise macaroon");
 
             assert_eq!(replayed.signature, narrowed.signature);
             assert_eq!(replayed.capability_hash(), narrowed.capability_hash());
@@ -1860,8 +1967,7 @@ mod tests {
             )
             .expect("write capability file");
             let bytes = std::fs::read(file.path()).expect("read capability file");
-            let replayed: Macaroon =
-                serde_json::from_slice(&bytes).expect("deserialise macaroon");
+            let replayed: Macaroon = serde_json::from_slice(&bytes).expect("deserialise macaroon");
 
             assert_eq!(replayed.caveats, vec![caveat.clone()]);
             assert_eq!(replayed.signature, narrowed.signature);
@@ -1897,7 +2003,12 @@ mod tests {
             Some(10_000),
             &root_key_a(),
         );
-        let m_a = restrict(&m_a, Caveat::ScopePrefix { prefix: "vault/notes".into() });
+        let m_a = restrict(
+            &m_a,
+            Caveat::ScopePrefix {
+                prefix: "vault/notes".into(),
+            },
+        );
 
         let m_b = issue(
             "same-session-id",
@@ -1906,7 +2017,12 @@ mod tests {
             Some(10_000),
             &root_key_b(),
         );
-        let m_b = restrict(&m_b, Caveat::ScopePrefix { prefix: "vault/notes".into() });
+        let m_b = restrict(
+            &m_b,
+            Caveat::ScopePrefix {
+                prefix: "vault/notes".into(),
+            },
+        );
 
         // Pre-condition: macaroons differ ONLY in signing root key.
         // All other surface state is byte-equal.
@@ -1946,7 +2062,9 @@ mod tests {
         // Path 1: delegate first, then restrict.
         let d_then_r = restrict(
             &delegate(&base),
-            Caveat::ScopePrefix { prefix: "vault/notes".into() },
+            Caveat::ScopePrefix {
+                prefix: "vault/notes".into(),
+            },
         );
         assert!(
             d_then_r.delegated,
@@ -1968,7 +2086,9 @@ mod tests {
         // the false-default.
         let r_then_d = delegate(&restrict(
             &base,
-            Caveat::ScopePrefix { prefix: "vault/notes".into() },
+            Caveat::ScopePrefix {
+                prefix: "vault/notes".into(),
+            },
         ));
         assert!(r_then_d.delegated);
 
@@ -1976,7 +2096,9 @@ mod tests {
         // false-default is preserved).
         let r_only = restrict(
             &base,
-            Caveat::ScopePrefix { prefix: "vault/notes".into() },
+            Caveat::ScopePrefix {
+                prefix: "vault/notes".into(),
+            },
         );
         assert!(!r_only.delegated, "restrict alone does NOT flip delegated");
     }
@@ -2007,7 +2129,9 @@ mod tests {
         assert_eq!(twice.signature, thrice.signature);
         // All still verify under the issuing key.
         let cap_thrice = MacaroonCapability::new(thrice, root_key_a());
-        cap_thrice.verify(&ctx_now_at(1_000)).expect("thrice-delegated verifies");
+        cap_thrice
+            .verify(&ctx_now_at(1_000))
+            .expect("thrice-delegated verifies");
     }
 
     #[test]
@@ -2028,7 +2152,9 @@ mod tests {
         let cap_base = MacaroonCapability::new(base, root_key_a());
         let cap_del = MacaroonCapability::new(delegated, root_key_a());
         cap_base.verify(&ctx_now_at(1_000)).expect("base verifies");
-        cap_del.verify(&ctx_now_at(1_000)).expect("delegated verifies");
+        cap_del
+            .verify(&ctx_now_at(1_000))
+            .expect("delegated verifies");
         // The v2 capability surface exposes the underlying macaroon
         // so audit can read the flag.
         assert!(cap_del.macaroon().delegated);
@@ -2070,11 +2196,20 @@ mod tests {
         // pin exercises canonical-bytes for each variant's serialise
         // path through the HMAC chain extension.
         let caveats = [
-            Caveat::ScopePrefix { prefix: "vault/notes".into() },
-            Caveat::ToolNameEq { name: "vault.read".into() },
+            Caveat::ScopePrefix {
+                prefix: "vault/notes".into(),
+            },
+            Caveat::ToolNameEq {
+                name: "vault.read".into(),
+            },
             Caveat::ExpiryAfter { until_ts_ms: 9_000 },
-            Caveat::AdditionalContext { key: "k".into(), value: "v".into() },
-            Caveat::ScopePrefix { prefix: "vault/notes/2026".into() },
+            Caveat::AdditionalContext {
+                key: "k".into(),
+                value: "v".into(),
+            },
+            Caveat::ScopePrefix {
+                prefix: "vault/notes/2026".into(),
+            },
         ];
 
         let mut prev_len = m.caveats.len();
@@ -2150,17 +2285,28 @@ mod tests {
         // Two orderings of the same two caveats:
         let a_first = restrict(
             &base,
-            Caveat::ScopePrefix { prefix: "vault/notes".into() },
+            Caveat::ScopePrefix {
+                prefix: "vault/notes".into(),
+            },
         );
-        let a_first = restrict(&a_first, Caveat::ToolNameEq { name: "vault.read".into() });
+        let a_first = restrict(
+            &a_first,
+            Caveat::ToolNameEq {
+                name: "vault.read".into(),
+            },
+        );
 
         let b_first = restrict(
             &base,
-            Caveat::ToolNameEq { name: "vault.read".into() },
+            Caveat::ToolNameEq {
+                name: "vault.read".into(),
+            },
         );
         let b_first = restrict(
             &b_first,
-            Caveat::ScopePrefix { prefix: "vault/notes".into() },
+            Caveat::ScopePrefix {
+                prefix: "vault/notes".into(),
+            },
         );
 
         // Caveats vectors look "the same set" but they're ordered:
@@ -2191,9 +2337,19 @@ mod tests {
         // three caveats must be satisfied at use time; violating any
         // one is enough to reject.
         let base = issue_tool_macaroon(&root_key_a(), Some(100_000));
-        let m = restrict(&base, Caveat::ScopePrefix { prefix: "vault/notes".into() });
+        let m = restrict(
+            &base,
+            Caveat::ScopePrefix {
+                prefix: "vault/notes".into(),
+            },
+        );
         let m = restrict(&m, Caveat::ExpiryAfter { until_ts_ms: 5_000 });
-        let m = restrict(&m, Caveat::ToolNameEq { name: "vault.read".into() });
+        let m = restrict(
+            &m,
+            Caveat::ToolNameEq {
+                name: "vault.read".into(),
+            },
+        );
         let cap = MacaroonCapability::new(m, root_key_a());
 
         // All three caveats satisfied → accept.
@@ -2206,23 +2362,36 @@ mod tests {
         cap.verify(&ok_ctx).expect("all caveats satisfied");
 
         // Wrong tool name → reject.
-        let bad_tool = RuntimeContext { tool_name: "vault.write".into(), ..ok_ctx.clone() };
-        let err = cap.verify(&bad_tool).expect_err("tool mismatch must reject");
+        let bad_tool = RuntimeContext {
+            tool_name: "vault.write".into(),
+            ..ok_ctx.clone()
+        };
+        let err = cap
+            .verify(&bad_tool)
+            .expect_err("tool mismatch must reject");
         assert!(matches!(
             err,
             CapabilityError::Violated(CaveatViolation::ToolMismatch { .. })
         ));
 
         // Wrong scope → reject.
-        let bad_scope = RuntimeContext { scope_path: "vault/chats/2026".into(), ..ok_ctx.clone() };
-        let err = cap.verify(&bad_scope).expect_err("scope mismatch must reject");
+        let bad_scope = RuntimeContext {
+            scope_path: "vault/chats/2026".into(),
+            ..ok_ctx.clone()
+        };
+        let err = cap
+            .verify(&bad_scope)
+            .expect_err("scope mismatch must reject");
         assert!(matches!(
             err,
             CapabilityError::Violated(CaveatViolation::ScopeOutOfBounds { .. })
         ));
 
         // Past expiry → reject.
-        let expired = RuntimeContext { now_ms: 6_000, ..ok_ctx.clone() };
+        let expired = RuntimeContext {
+            now_ms: 6_000,
+            ..ok_ctx.clone()
+        };
         let err = cap.verify(&expired).expect_err("expired must reject");
         assert!(matches!(
             err,
@@ -2247,7 +2416,12 @@ mod tests {
             None,
             &key,
         );
-        let m = restrict(&base, Caveat::ExpiryAfter { until_ts_ms: u64::MAX });
+        let m = restrict(
+            &base,
+            Caveat::ExpiryAfter {
+                until_ts_ms: u64::MAX,
+            },
+        );
         let cap = MacaroonCapability::new(m, key);
 
         // All realistic now_ms values verify successfully.
@@ -2334,7 +2508,10 @@ mod tests {
         // Empty key + non-empty value.
         let m = restrict(
             &base,
-            Caveat::AdditionalContext { key: "".into(), value: "v".into() },
+            Caveat::AdditionalContext {
+                key: "".into(),
+                value: "v".into(),
+            },
         );
         let cap = MacaroonCapability::new(m, key);
         let mut matching = BTreeMap::new();
@@ -2363,7 +2540,10 @@ mod tests {
         // Non-empty key + empty value (symmetric).
         let m_v = restrict(
             &base,
-            Caveat::AdditionalContext { key: "k".into(), value: "".into() },
+            Caveat::AdditionalContext {
+                key: "k".into(),
+                value: "".into(),
+            },
         );
         let cap_v = MacaroonCapability::new(m_v, key);
         let mut matching_v = BTreeMap::new();
@@ -2523,7 +2703,12 @@ mod tests {
             Some(10_000),
             &key,
         );
-        let narrowed = restrict(&base, Caveat::ScopePrefix { prefix: "vault/notes".into() });
+        let narrowed = restrict(
+            &base,
+            Caveat::ScopePrefix {
+                prefix: "vault/notes".into(),
+            },
+        );
         let cap = MacaroonCapability::new(narrowed, key);
 
         let mk_ctx = |scope_path: &str| RuntimeContext {
@@ -2597,8 +2782,12 @@ mod tests {
             &key,
         );
         let to_apply = [
-            Caveat::ScopePrefix { prefix: "vault/notes".into() },
-            Caveat::ToolNameEq { name: "vault.read".into() },
+            Caveat::ScopePrefix {
+                prefix: "vault/notes".into(),
+            },
+            Caveat::ToolNameEq {
+                name: "vault.read".into(),
+            },
             Caveat::ExpiryAfter { until_ts_ms: 9_000 },
         ];
 
@@ -2664,18 +2853,40 @@ mod tests {
         let base_caveats_len = base.caveats.len();
 
         let caveats = [
-            Caveat::ScopePrefix { prefix: "vault/notes".into() },
-            Caveat::ToolNameEq { name: "vault.read".into() },
+            Caveat::ScopePrefix {
+                prefix: "vault/notes".into(),
+            },
+            Caveat::ToolNameEq {
+                name: "vault.read".into(),
+            },
             Caveat::ExpiryAfter { until_ts_ms: 9_000 },
-            Caveat::AdditionalContext { key: "k".into(), value: "v".into() },
+            Caveat::AdditionalContext {
+                key: "k".into(),
+                value: "v".into(),
+            },
         ];
         for (i, caveat) in caveats.iter().enumerate() {
             let restricted = restrict(&base, caveat.clone());
-            assert_eq!(restricted.location, base_loc, "caveat {i}: location preserved");
-            assert_eq!(restricted.base_kind, base_kind, "caveat {i}: base_kind preserved");
-            assert_eq!(restricted.base_scope, base_scope, "caveat {i}: base_scope preserved");
-            assert_eq!(restricted.base_expiry_ms, base_expiry, "caveat {i}: base_expiry_ms preserved");
-            assert_eq!(restricted.delegated, base_delegated, "caveat {i}: delegated preserved");
+            assert_eq!(
+                restricted.location, base_loc,
+                "caveat {i}: location preserved"
+            );
+            assert_eq!(
+                restricted.base_kind, base_kind,
+                "caveat {i}: base_kind preserved"
+            );
+            assert_eq!(
+                restricted.base_scope, base_scope,
+                "caveat {i}: base_scope preserved"
+            );
+            assert_eq!(
+                restricted.base_expiry_ms, base_expiry,
+                "caveat {i}: base_expiry_ms preserved"
+            );
+            assert_eq!(
+                restricted.delegated, base_delegated,
+                "caveat {i}: delegated preserved"
+            );
             assert_eq!(
                 restricted.caveats.len(),
                 base_caveats_len + 1,
@@ -2724,7 +2935,10 @@ mod tests {
             .verify(&out_of_scope)
             .expect_err("out-of-scope use must be rejected");
         assert!(
-            matches!(err, CapabilityError::Violated(CaveatViolation::ScopeOutOfBounds { .. })),
+            matches!(
+                err,
+                CapabilityError::Violated(CaveatViolation::ScopeOutOfBounds { .. })
+            ),
             "expected Violated(ScopeOutOfBounds), got {err:?}"
         );
     }

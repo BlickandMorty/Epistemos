@@ -75,8 +75,14 @@ pub fn evaluate_scalar(expr: &InfoExpr) -> Result<f64, InfoEvalError> {
 /// Vector-valued evaluator for the dual map η = ∇A(θ).
 pub fn evaluate_dual_map(expr: &InfoExpr) -> Result<Vec<f64>, InfoEvalError> {
     match expr {
-        InfoExpr::DualMap { family, natural_params }
-        | InfoExpr::LogPartition { family, natural_params } => {
+        InfoExpr::DualMap {
+            family,
+            natural_params,
+        }
+        | InfoExpr::LogPartition {
+            family,
+            natural_params,
+        } => {
             // Dual-map is well-defined for both LogPartition and
             // DualMap nodes (they share the natural-params shape).
             let v = dual_map(family, natural_params);
@@ -165,7 +171,11 @@ pub fn js_from_probs(p: &[f64], q: &[f64]) -> f64 {
     if p.len() != q.len() || p.is_empty() {
         return f64::NAN;
     }
-    let m: Vec<f64> = p.iter().zip(q.iter()).map(|(pi, qi)| 0.5 * (pi + qi)).collect();
+    let m: Vec<f64> = p
+        .iter()
+        .zip(q.iter())
+        .map(|(pi, qi)| 0.5 * (pi + qi))
+        .collect();
     0.5 * kl_from_probs(p, &m) + 0.5 * kl_from_probs(q, &m)
 }
 
@@ -820,11 +830,7 @@ pub fn kl_geometric(p_p: f64, p_q: f64) -> f64 {
     if p_p.is_nan() || p_q.is_nan() {
         return f64::NAN;
     }
-    if !(0.0..1.0).contains(&p_p)
-        || !(0.0..1.0).contains(&p_q)
-        || p_p == 0.0
-        || p_q == 0.0
-    {
+    if !(0.0..1.0).contains(&p_p) || !(0.0..1.0).contains(&p_q) || p_p == 0.0 || p_q == 0.0 {
         return f64::NAN;
     }
     let log_ratio_p = (p_p / p_q).ln();
@@ -863,12 +869,7 @@ pub fn kl_geometric(p_p: f64, p_q: f64) -> f64 {
 /// "Elements of Information Theory" (2nd ed., 2006) §2.4
 /// eq. (2.28). 2×2 binary-binary specialization is the standard
 /// confusion-matrix MI.
-pub fn mutual_information_binary_2x2(
-    p_00: f64,
-    p_01: f64,
-    p_10: f64,
-    p_11: f64,
-) -> f64 {
+pub fn mutual_information_binary_2x2(p_00: f64, p_01: f64, p_10: f64, p_11: f64) -> f64 {
     let cells = [p_00, p_01, p_10, p_11];
     for &p in &cells {
         if p.is_nan() || p < 0.0 {
@@ -906,7 +907,11 @@ pub fn binary_chi_squared_divergence(p: f64, q: f64) -> f64 {
         return f64::NAN;
     }
     if q == 0.0 || q == 1.0 {
-        return if (p - q).abs() < 1e-12 { 0.0 } else { f64::INFINITY };
+        return if (p - q).abs() < 1e-12 {
+            0.0
+        } else {
+            f64::INFINITY
+        };
     }
     let diff = p - q;
     diff * diff / (q * (1.0 - q))
@@ -1639,12 +1644,7 @@ pub fn gaussian_kl_same_variance(mu_p: f64, mu_q: f64, sigma2: f64) -> f64 {
 /// gaussian_kl_full at swapped arguments; cf. Wainwright &
 /// Jordan, FnT in ML 1(1-2) 2008 §3.3 (exp-family Bregman
 /// symmetry).
-pub fn gaussian_jeffreys_divergence(
-    mu_p: f64,
-    sig2_p: f64,
-    mu_q: f64,
-    sig2_q: f64,
-) -> f64 {
+pub fn gaussian_jeffreys_divergence(mu_p: f64, sig2_p: f64, mu_q: f64, sig2_q: f64) -> f64 {
     if sig2_p.is_nan() || sig2_q.is_nan() {
         return f64::NAN;
     }
@@ -1679,12 +1679,7 @@ pub fn gaussian_jeffreys_divergence(
 /// Kailath, T., "The Divergence and Bhattacharyya Distance
 /// Measures in Signal Selection", IEEE Transactions on
 /// Communication Technology 15(1):52-60 (1967), eq. (8).
-pub fn gaussian_bhattacharyya_distance(
-    mu_p: f64,
-    sig2_p: f64,
-    mu_q: f64,
-    sig2_q: f64,
-) -> f64 {
+pub fn gaussian_bhattacharyya_distance(mu_p: f64, sig2_p: f64, mu_q: f64, sig2_q: f64) -> f64 {
     if sig2_p.is_nan() || sig2_q.is_nan() {
         return f64::NAN;
     }
@@ -1720,12 +1715,7 @@ pub fn gaussian_bhattacharyya_distance(
 /// Source. Hellinger distance for Gaussians: Pardo, L.,
 /// "Statistical Inference Based on Divergence Measures",
 /// Chapman & Hall / CRC (2005) §1.6 eq. (1.45).
-pub fn gaussian_hellinger_distance(
-    mu_p: f64,
-    sig2_p: f64,
-    mu_q: f64,
-    sig2_q: f64,
-) -> f64 {
+pub fn gaussian_hellinger_distance(mu_p: f64, sig2_p: f64, mu_q: f64, sig2_q: f64) -> f64 {
     if mu_p.is_nan() || mu_q.is_nan() || sig2_p.is_nan() || sig2_q.is_nan() {
         return f64::NAN;
     }
@@ -1965,11 +1955,7 @@ pub fn pareto_log_pdf(x: f64, alpha: f64, x_min: f64) -> f64 {
 /// Geometric Characterization of Chernoff Information",
 /// IEEE SPL 20(3) (2013) §III for related α-divergence
 /// closed forms.
-pub fn gaussian_chi_squared_same_variance(
-    mu_p: f64,
-    mu_q: f64,
-    sigma2: f64,
-) -> f64 {
+pub fn gaussian_chi_squared_same_variance(mu_p: f64, mu_q: f64, sigma2: f64) -> f64 {
     if mu_p.is_nan() || mu_q.is_nan() || sigma2.is_nan() {
         return f64::NAN;
     }
@@ -2005,11 +1991,7 @@ pub fn gaussian_chi_squared_same_variance(
 /// Inference Based on Divergence Measures" (Chapman & Hall / CRC,
 /// 2005) §1.6 eq. (1.45); same-variance collapse follows by
 /// setting `σ²_p = σ²_q`.
-pub fn gaussian_hellinger_squared_same_variance(
-    mu_p: f64,
-    mu_q: f64,
-    sigma2: f64,
-) -> f64 {
+pub fn gaussian_hellinger_squared_same_variance(mu_p: f64, mu_q: f64, sigma2: f64) -> f64 {
     if mu_p.is_nan() || mu_q.is_nan() || sigma2.is_nan() {
         return f64::NAN;
     }
@@ -2226,11 +2208,7 @@ pub fn symmetric_kl(family: &ExpFamily, theta_p: &[f64], theta_q: &[f64]) -> f64
 /// - **Gaussian**: returns NaN (continuous case differs).
 ///
 /// Iter-132 — companion to TV / Hellinger / KL distance family.
-pub fn chi_squared_divergence(
-    family: &ExpFamily,
-    theta_p: &[f64],
-    theta_q: &[f64],
-) -> f64 {
+pub fn chi_squared_divergence(family: &ExpFamily, theta_p: &[f64], theta_q: &[f64]) -> f64 {
     match family {
         ExpFamily::Bernoulli => {
             let p = sigmoid(theta_p[0]);
@@ -2271,11 +2249,7 @@ pub fn chi_squared_divergence(
 ///   or [`fisher_rao_distance`] instead.
 ///
 /// Iter-122 — proper metric, complements Hellinger / Fisher-Rao.
-pub fn total_variation_distance(
-    family: &ExpFamily,
-    theta_p: &[f64],
-    theta_q: &[f64],
-) -> f64 {
+pub fn total_variation_distance(family: &ExpFamily, theta_p: &[f64], theta_q: &[f64]) -> f64 {
     match family {
         ExpFamily::Bernoulli => {
             let p = sigmoid(theta_p[0]);
@@ -2516,8 +2490,7 @@ pub fn js_divergence(family: &ExpFamily, p: &[f64], q: &[f64]) -> f64 {
             let m_mean = 0.5 * (p_mean + q_mean);
             // Avoid log(0) at the boundary.
             let m_theta = (m_mean / (1.0 - m_mean)).ln();
-            0.5 * kl_divergence(family, p, &[m_theta])
-                + 0.5 * kl_divergence(family, q, &[m_theta])
+            0.5 * kl_divergence(family, p, &[m_theta]) + 0.5 * kl_divergence(family, q, &[m_theta])
         }
         ExpFamily::Categorical { k } => {
             // Mean params: p_i = exp(θ_i)/(1+Σexp(θ_j)) for non-pinned,
@@ -2534,13 +2507,9 @@ pub fn js_divergence(family: &ExpFamily, p: &[f64], q: &[f64]) -> f64 {
             let q_pinned = 1.0 - q_eta.iter().sum::<f64>();
             let m_pinned = 0.5 * (p_pinned + q_pinned);
             // Convert back: θ_i = log(η_i / m_pinned).
-            let m_theta: Vec<f64> = m_eta
-                .iter_mut()
-                .map(|e| (*e / m_pinned).ln())
-                .collect();
+            let m_theta: Vec<f64> = m_eta.iter_mut().map(|e| (*e / m_pinned).ln()).collect();
             let _ = k;
-            0.5 * kl_divergence(family, p, &m_theta)
-                + 0.5 * kl_divergence(family, q, &m_theta)
+            0.5 * kl_divergence(family, p, &m_theta) + 0.5 * kl_divergence(family, q, &m_theta)
         }
         ExpFamily::Gaussian { .. } => {
             // For fixed-variance Gaussians, the mixture of two
@@ -2551,8 +2520,7 @@ pub fn js_divergence(family: &ExpFamily, p: &[f64], q: &[f64]) -> f64 {
                 .zip(q.iter())
                 .map(|(pi, qi)| 0.5 * (pi + qi))
                 .collect();
-            0.5 * kl_divergence(family, p, &m_theta)
-                + 0.5 * kl_divergence(family, q, &m_theta)
+            0.5 * kl_divergence(family, p, &m_theta) + 0.5 * kl_divergence(family, q, &m_theta)
         }
     }
 }
@@ -2599,7 +2567,11 @@ mod tests {
 
     #[test]
     fn bernoulli_log_partition_at_zero_is_ln_two() {
-        assert!(approx(log_partition(&ExpFamily::Bernoulli, &[0.0]), 2.0_f64.ln(), 1e-12));
+        assert!(approx(
+            log_partition(&ExpFamily::Bernoulli, &[0.0]),
+            2.0_f64.ln(),
+            1e-12
+        ));
     }
 
     #[test]
@@ -2690,7 +2662,12 @@ mod tests {
         ];
         for p in &cases {
             let h_norm = normalized_entropy(p);
-            assert!(h_norm >= 0.0 && h_norm <= 1.0 + 1e-9, "out of range: {} for {:?}", h_norm, p);
+            assert!(
+                h_norm >= 0.0 && h_norm <= 1.0 + 1e-9,
+                "out of range: {} for {:?}",
+                h_norm,
+                p
+            );
         }
     }
 
@@ -3030,7 +3007,13 @@ mod tests {
         for q in [0.5_f64, 2.0, 3.0] {
             let s = tsallis_entropy_from_probs(&p, q);
             let expected = (1.0 - (n as f64).powf(1.0 - q)) / (q - 1.0);
-            assert!((s - expected).abs() < 1e-9, "q={}: S={} expected={}", q, s, expected);
+            assert!(
+                (s - expected).abs() < 1e-9,
+                "q={}: S={} expected={}",
+                q,
+                s,
+                expected
+            );
         }
     }
 
@@ -3295,7 +3278,12 @@ mod tests {
         //                              = ln(2) + ln(2/3).
         let v = kl_geometric(0.5, 0.25);
         let expected = 2.0_f64.ln() + (2.0_f64 / 3.0).ln();
-        assert!((v - expected).abs() < 1e-12, "got {} expected {}", v, expected);
+        assert!(
+            (v - expected).abs() < 1e-12,
+            "got {} expected {}",
+            v,
+            expected
+        );
     }
 
     #[test]
@@ -3330,14 +3318,16 @@ mod tests {
     #[test]
     fn gaussian_kl_same_variance_matches_full_form() {
         // Should be bit-equal to gaussian_kl_full when σ² is shared.
-        for (mu_p, mu_q, s) in [
-            (0.0_f64, 1.0, 1.0),
-            (2.0, -1.0, 4.0),
-            (-3.0, 3.0, 0.5),
-        ] {
+        for (mu_p, mu_q, s) in [(0.0_f64, 1.0, 1.0), (2.0, -1.0, 4.0), (-3.0, 3.0, 0.5)] {
             let same = gaussian_kl_same_variance(mu_p, mu_q, s);
             let full = gaussian_kl_full(mu_p, s, mu_q, s);
-            assert!((same - full).abs() < 1e-12, "(μ_p, μ_q, σ²) = ({}, {}, {})", mu_p, mu_q, s);
+            assert!(
+                (same - full).abs() < 1e-12,
+                "(μ_p, μ_q, σ²) = ({}, {}, {})",
+                mu_p,
+                mu_q,
+                s
+            );
         }
     }
 
@@ -3411,7 +3401,14 @@ mod tests {
         for (mp, sp, mq, sq) in [(0.0_f64, 1.0, 1.0, 2.0), (2.0, 4.0, -1.0, 1.0)] {
             let a = gaussian_jeffreys_divergence(mp, sp, mq, sq);
             let b = gaussian_jeffreys_divergence(mq, sq, mp, sp);
-            assert!((a - b).abs() < 1e-12, "(mp, sp, mq, sq) = ({}, {}, {}, {})", mp, sp, mq, sq);
+            assert!(
+                (a - b).abs() < 1e-12,
+                "(mp, sp, mq, sq) = ({}, {}, {}, {})",
+                mp,
+                sp,
+                mq,
+                sq
+            );
         }
     }
 
@@ -3616,12 +3613,7 @@ mod tests {
 
     #[test]
     fn binary_hellinger_bounded_in_zero_one() {
-        for (p, q) in [
-            (0.0_f64, 1.0),
-            (0.1, 0.9),
-            (0.3, 0.6),
-            (0.5, 0.5),
-        ] {
+        for (p, q) in [(0.0_f64, 1.0), (0.1, 0.9), (0.3, 0.6), (0.5, 0.5)] {
             let v = binary_hellinger_distance(p, q);
             assert!(v >= -1e-12 && v <= 1.0 + 1e-12, "H={}", v);
         }
@@ -4066,7 +4058,12 @@ mod tests {
         let tv = total_variation_from_probs(&p, &q);
         let bound = pinsker_kl_lower_bound(tv);
         let kl = kl_from_probs(&p, &q);
-        assert!(kl >= bound - 1e-9, "KL={} not ≥ Pinsker bound={}", kl, bound);
+        assert!(
+            kl >= bound - 1e-9,
+            "KL={} not ≥ Pinsker bound={}",
+            kl,
+            bound
+        );
     }
 
     // ── iter-272: chi_squared_from_probs ──────────────────────────
@@ -4254,7 +4251,13 @@ mod tests {
             let p = vec![1.0 / n as f64; n];
             let g = gini_impurity(&p);
             let expected = 1.0 - 1.0 / n as f64;
-            assert!((g - expected).abs() < 1e-12, "n={}: g={} exp={}", n, g, expected);
+            assert!(
+                (g - expected).abs() < 1e-12,
+                "n={}: g={} exp={}",
+                n,
+                g,
+                expected
+            );
         }
     }
 
@@ -4309,7 +4312,12 @@ mod tests {
         let renyi_half = renyi_divergence_from_probs(&p, &q, 0.5);
         let bc = bhattacharyya_coefficient(&p, &q);
         let expected = -2.0 * bc.ln();
-        assert!((renyi_half - expected).abs() < 1e-9, "{} vs {}", renyi_half, expected);
+        assert!(
+            (renyi_half - expected).abs() < 1e-9,
+            "{} vs {}",
+            renyi_half,
+            expected
+        );
     }
 
     // ── iter-314: hellinger_squared_from_probs ────────────────────
@@ -4430,7 +4438,10 @@ mod tests {
 
     #[test]
     fn is_valid_probability_vector_uniform() {
-        assert!(is_valid_probability_vector(&[0.25, 0.25, 0.25, 0.25], 1e-12));
+        assert!(is_valid_probability_vector(
+            &[0.25, 0.25, 0.25, 0.25],
+            1e-12
+        ));
     }
 
     #[test]
@@ -4544,10 +4555,7 @@ mod tests {
     fn mutual_information_independent_variables_is_zero() {
         // X and Y independent: joint = outer(p_x, p_y).
         // P(X=0)=0.5, P(X=1)=0.5; P(Y=0)=0.4, P(Y=1)=0.6.
-        let joint = vec![
-            vec![0.5 * 0.4, 0.5 * 0.6],
-            vec![0.5 * 0.4, 0.5 * 0.6],
-        ];
+        let joint = vec![vec![0.5 * 0.4, 0.5 * 0.6], vec![0.5 * 0.4, 0.5 * 0.6]];
         let mi = mutual_information(&joint);
         assert!(mi.abs() < 1e-12, "I = {} should be 0", mi);
     }
@@ -4556,10 +4564,7 @@ mod tests {
     fn mutual_information_perfectly_correlated_is_h_x() {
         // Y = X: joint is diagonal. I(X;Y) = H(X).
         // Uniform 2-state X: H = ln 2.
-        let joint = vec![
-            vec![0.5, 0.0],
-            vec![0.0, 0.5],
-        ];
+        let joint = vec![vec![0.5, 0.0], vec![0.0, 0.5]];
         let mi = mutual_information(&joint);
         assert!((mi - 2.0_f64.ln()).abs() < 1e-12);
     }
@@ -4664,7 +4669,11 @@ mod tests {
                     assert!(
                         (lp - p.ln()).abs() < 1e-12,
                         "log_pdf({}, {}, {}) = {} vs ln(pdf) = {}",
-                        x, mu, sigma2, lp, p.ln()
+                        x,
+                        mu,
+                        sigma2,
+                        lp,
+                        p.ln()
                     );
                 }
             }
@@ -4717,14 +4726,16 @@ mod tests {
     #[test]
     fn laplace_log_pdf_consistency_with_pdf() {
         // log(pdf(x)) ≡ log_pdf(x) at finite, positive pdf.
-        for (x, mu, b) in [
-            (0.0_f64, 0.0, 1.0),
-            (1.2, -0.3, 0.5),
-            (-2.0, 0.5, 2.0),
-        ] {
+        for (x, mu, b) in [(0.0_f64, 0.0, 1.0), (1.2, -0.3, 0.5), (-2.0, 0.5, 2.0)] {
             let lhs = laplace_pdf(x, mu, b).ln();
             let rhs = laplace_log_pdf(x, mu, b);
-            assert!((lhs - rhs).abs() < 1e-12, "x={}: lhs={} rhs={}", x, lhs, rhs);
+            assert!(
+                (lhs - rhs).abs() < 1e-12,
+                "x={}: lhs={} rhs={}",
+                x,
+                lhs,
+                rhs
+            );
         }
     }
 
@@ -4772,11 +4783,7 @@ mod tests {
     #[test]
     fn laplace_kl_same_scale_matches_closed_form() {
         // KL = z + exp(−z) − 1 with z = |μ_p − μ_q|/b.
-        for (mu_p, mu_q, b) in [
-            (0.0_f64, 1.0, 1.0),
-            (-0.5, 2.5, 0.75),
-            (3.0, 0.0, 2.0),
-        ] {
+        for (mu_p, mu_q, b) in [(0.0_f64, 1.0, 1.0), (-0.5, 2.5, 0.75), (3.0, 0.0, 2.0)] {
             let v = laplace_kl_same_scale(mu_p, mu_q, b);
             let z = (mu_p - mu_q).abs() / b;
             let expected = z + (-z).exp() - 1.0;
@@ -4788,11 +4795,7 @@ mod tests {
     fn laplace_kl_same_scale_symmetric_in_locations() {
         // |μ_p − μ_q| = |μ_q − μ_p| ⇒ KL(p ‖ q) ≡ KL(q ‖ p) at
         // the same scale.
-        for (mu_p, mu_q, b) in [
-            (0.0_f64, 1.0, 1.0),
-            (-0.5, 2.5, 0.75),
-            (3.0, 0.0, 2.0),
-        ] {
+        for (mu_p, mu_q, b) in [(0.0_f64, 1.0, 1.0), (-0.5, 2.5, 0.75), (3.0, 0.0, 2.0)] {
             let ab = laplace_kl_same_scale(mu_p, mu_q, b);
             let ba = laplace_kl_same_scale(mu_q, mu_p, b);
             assert!((ab - ba).abs() < 1e-12);
@@ -4808,8 +4811,14 @@ mod tests {
             (0.5, 0.5, 0.5),
         ] {
             let v = laplace_kl_same_scale(mu_p, mu_q, b);
-            assert!(v >= -1e-12, "(μ_p, μ_q, b) = ({}, {}, {}): KL={}",
-                mu_p, mu_q, b, v);
+            assert!(
+                v >= -1e-12,
+                "(μ_p, μ_q, b) = ({}, {}, {}): KL={}",
+                mu_p,
+                mu_q,
+                b,
+                v
+            );
         }
     }
 
@@ -4887,8 +4896,7 @@ mod tests {
         // J(p, q) ≡ KL(p ‖ q) + KL(q ‖ p) by definition.
         for (ap, aq) in [(0.5_f64, 1.0), (2.0, 3.0), (1.0, 4.0), (4.0, 1.0)] {
             let j = pareto_jeffreys_same_x_min(ap, aq);
-            let expected =
-                pareto_kl_same_x_min(ap, aq) + pareto_kl_same_x_min(aq, ap);
+            let expected = pareto_kl_same_x_min(ap, aq) + pareto_kl_same_x_min(aq, ap);
             assert!(
                 (j - expected).abs() < 1e-12,
                 "(α_p, α_q) = ({}, {}): J = {} expected {}",
@@ -5022,8 +5030,15 @@ mod tests {
             (2.0, 2.5, 0.0, 10.0),
         ] {
             let v = kl_uniform_general(ap, bp, aq, bq);
-            assert!(v >= -1e-12, "(ap, bp, aq, bq) = ({}, {}, {}, {}): KL={}",
-                ap, bp, aq, bq, v);
+            assert!(
+                v >= -1e-12,
+                "(ap, bp, aq, bq) = ({}, {}, {}, {}): KL={}",
+                ap,
+                bp,
+                aq,
+                bq,
+                v
+            );
         }
     }
 
@@ -5152,11 +5167,7 @@ mod tests {
     #[test]
     fn gaussian_chi_squared_same_variance_matches_closed_form() {
         // χ² = exp((μ_p − μ_q)² / σ²) − 1.
-        for (mu_p, mu_q, sig2) in [
-            (0.0_f64, 1.0, 1.0),
-            (-0.5, 2.5, 0.5),
-            (3.0, 0.0, 2.0),
-        ] {
+        for (mu_p, mu_q, sig2) in [(0.0_f64, 1.0, 1.0), (-0.5, 2.5, 0.5), (3.0, 0.0, 2.0)] {
             let v = gaussian_chi_squared_same_variance(mu_p, mu_q, sig2);
             let d = mu_p - mu_q;
             let expected = (d * d / sig2).exp() - 1.0;
@@ -5178,11 +5189,7 @@ mod tests {
     #[test]
     fn gaussian_chi_squared_same_variance_dominates_kl() {
         // KL(P ‖ Q) ≤ χ²(P ‖ Q) (Cover & Thomas §11.6 ordering).
-        for (mu_p, mu_q, sig2) in [
-            (0.0_f64, 1.0, 1.0),
-            (-0.5, 2.5, 0.5),
-            (3.0, 0.0, 2.0),
-        ] {
+        for (mu_p, mu_q, sig2) in [(0.0_f64, 1.0, 1.0), (-0.5, 2.5, 0.5), (3.0, 0.0, 2.0)] {
             let chi2 = gaussian_chi_squared_same_variance(mu_p, mu_q, sig2);
             let kl = gaussian_kl_same_variance(mu_p, mu_q, sig2);
             assert!(chi2 + 1e-12 >= kl, "χ² = {} should ≥ KL = {}", chi2, kl);
@@ -5209,11 +5216,7 @@ mod tests {
     #[test]
     fn gaussian_hellinger_squared_same_variance_matches_closed_form() {
         // H² = 1 − exp(−(μ_p − μ_q)² / (8σ²)).
-        for (mu_p, mu_q, sig2) in [
-            (0.0_f64, 1.0, 1.0),
-            (-0.5, 2.5, 0.5),
-            (3.0, 0.0, 2.0),
-        ] {
+        for (mu_p, mu_q, sig2) in [(0.0_f64, 1.0, 1.0), (-0.5, 2.5, 0.5), (3.0, 0.0, 2.0)] {
             let v = gaussian_hellinger_squared_same_variance(mu_p, mu_q, sig2);
             let d = mu_p - mu_q;
             let expected = 1.0 - (-(d * d) / (8.0 * sig2)).exp();
@@ -5233,11 +5236,7 @@ mod tests {
 
     #[test]
     fn gaussian_hellinger_squared_same_variance_matches_general_hellinger_squared() {
-        for (mu_p, mu_q, sig2) in [
-            (0.0_f64, 1.0, 1.0),
-            (-0.5, 2.5, 0.5),
-            (3.0, 0.0, 2.0),
-        ] {
+        for (mu_p, mu_q, sig2) in [(0.0_f64, 1.0, 1.0), (-0.5, 2.5, 0.5), (3.0, 0.0, 2.0)] {
             let fast = gaussian_hellinger_squared_same_variance(mu_p, mu_q, sig2);
             let h = gaussian_hellinger_distance(mu_p, sig2, mu_q, sig2);
             assert!((fast - h * h).abs() < 1e-12);
@@ -5297,7 +5296,8 @@ mod tests {
     fn chi_squared_self_is_zero() {
         let d = chi_squared_divergence(&ExpFamily::Bernoulli, &[0.5], &[0.5]);
         assert!(d.abs() < 1e-10);
-        let d_cat = chi_squared_divergence(&ExpFamily::Categorical { k: 3 }, &[0.0, 0.0], &[0.0, 0.0]);
+        let d_cat =
+            chi_squared_divergence(&ExpFamily::Categorical { k: 3 }, &[0.0, 0.0], &[0.0, 0.0]);
         assert!(d_cat.abs() < 1e-10);
     }
 
@@ -5311,11 +5311,7 @@ mod tests {
 
     #[test]
     fn chi_squared_gaussian_returns_nan() {
-        let d = chi_squared_divergence(
-            &ExpFamily::Gaussian { variance: 1.0 },
-            &[0.0],
-            &[1.0],
-        );
+        let d = chi_squared_divergence(&ExpFamily::Gaussian { variance: 1.0 }, &[0.0], &[1.0]);
         assert!(d.is_nan());
     }
 
@@ -5363,7 +5359,11 @@ mod tests {
     fn tv_distance_symmetric() {
         let cases = [
             (ExpFamily::Bernoulli, vec![1.0_f64], vec![-1.0]),
-            (ExpFamily::Categorical { k: 3 }, vec![0.5, -0.5], vec![1.0, 1.0]),
+            (
+                ExpFamily::Categorical { k: 3 },
+                vec![0.5, -0.5],
+                vec![1.0, 1.0],
+            ),
         ];
         for (fam, p, q) in cases {
             let pq = total_variation_distance(&fam, &p, &q);
@@ -5374,7 +5374,8 @@ mod tests {
 
     #[test]
     fn tv_distance_categorical_uniform_self_is_zero() {
-        let d = total_variation_distance(&ExpFamily::Categorical { k: 3 }, &[0.0, 0.0], &[0.0, 0.0]);
+        let d =
+            total_variation_distance(&ExpFamily::Categorical { k: 3 }, &[0.0, 0.0], &[0.0, 0.0]);
         assert!(d.abs() < 1e-12);
     }
 
@@ -5391,11 +5392,7 @@ mod tests {
 
     #[test]
     fn tv_distance_gaussian_returns_nan_for_now() {
-        let d = total_variation_distance(
-            &ExpFamily::Gaussian { variance: 1.0 },
-            &[0.0],
-            &[1.0],
-        );
+        let d = total_variation_distance(&ExpFamily::Gaussian { variance: 1.0 }, &[0.0], &[1.0]);
         assert!(d.is_nan());
     }
 
@@ -5419,13 +5416,23 @@ mod tests {
     fn hellinger_distance_symmetric() {
         let cases = [
             (ExpFamily::Bernoulli, vec![1.0_f64], vec![-1.0]),
-            (ExpFamily::Categorical { k: 3 }, vec![0.5, -0.5], vec![1.0, 1.0]),
+            (
+                ExpFamily::Categorical { k: 3 },
+                vec![0.5, -0.5],
+                vec![1.0, 1.0],
+            ),
             (ExpFamily::Gaussian { variance: 2.0 }, vec![0.7], vec![-1.3]),
         ];
         for (fam, p, q) in cases {
             let pq = hellinger_distance(&fam, &p, &q);
             let qp = hellinger_distance(&fam, &q, &p);
-            assert!((pq - qp).abs() < 1e-12, "{}: d(p,q)={}, d(q,p)={}", fam, pq, qp);
+            assert!(
+                (pq - qp).abs() < 1e-12,
+                "{}: d(p,q)={}, d(q,p)={}",
+                fam,
+                pq,
+                qp
+            );
         }
     }
 
@@ -5448,16 +5455,8 @@ mod tests {
     #[test]
     fn hellinger_distance_gaussian_grows_with_mean_difference() {
         // Larger Δμ → larger Hellinger.
-        let d_small = hellinger_distance(
-            &ExpFamily::Gaussian { variance: 1.0 },
-            &[0.0],
-            &[0.5],
-        );
-        let d_large = hellinger_distance(
-            &ExpFamily::Gaussian { variance: 1.0 },
-            &[0.0],
-            &[5.0],
-        );
+        let d_small = hellinger_distance(&ExpFamily::Gaussian { variance: 1.0 }, &[0.0], &[0.5]);
+        let d_large = hellinger_distance(&ExpFamily::Gaussian { variance: 1.0 }, &[0.0], &[5.0]);
         assert!(d_small < d_large);
         assert!(d_small > 0.0);
         assert!(d_large > 0.0);
@@ -5467,7 +5466,11 @@ mod tests {
     fn hellinger_distance_non_negative() {
         let cases = [
             (ExpFamily::Bernoulli, vec![1.0_f64], vec![0.5]),
-            (ExpFamily::Categorical { k: 4 }, vec![1.0, 2.0, -1.0], vec![0.0, 0.0, 0.0]),
+            (
+                ExpFamily::Categorical { k: 4 },
+                vec![1.0, 2.0, -1.0],
+                vec![0.0, 0.0, 0.0],
+            ),
             (ExpFamily::Gaussian { variance: 0.5 }, vec![-2.0], vec![3.0]),
         ];
         for (fam, p, q) in cases {
@@ -5496,7 +5499,11 @@ mod tests {
     fn fisher_rao_distance_symmetric() {
         let cases = [
             (ExpFamily::Bernoulli, vec![1.0_f64], vec![-1.0]),
-            (ExpFamily::Categorical { k: 3 }, vec![0.5, -0.5], vec![1.0, 1.0]),
+            (
+                ExpFamily::Categorical { k: 3 },
+                vec![0.5, -0.5],
+                vec![1.0, 1.0],
+            ),
             (ExpFamily::Gaussian { variance: 2.0 }, vec![0.7], vec![-1.3]),
         ];
         for (fam, p, q) in cases {
@@ -5504,7 +5511,10 @@ mod tests {
             let qp = fisher_rao_distance(&fam, &q, &p);
             assert!(
                 (pq - qp).abs() < 1e-12,
-                "{}: d(p,q) = {}, d(q,p) = {}", fam, pq, qp
+                "{}: d(p,q) = {}, d(q,p) = {}",
+                fam,
+                pq,
+                qp
             );
         }
     }
@@ -5552,7 +5562,11 @@ mod tests {
             let expected = sigma * (p - q).abs();
             assert!(
                 (d - expected).abs() < 1e-12,
-                "Gaussian d({}, {}) = {}, expected {}", p, q, d, expected
+                "Gaussian d({}, {}) = {}, expected {}",
+                p,
+                q,
+                d,
+                expected
             );
         }
     }
@@ -5580,7 +5594,10 @@ mod tests {
             let theta_back = mean_to_natural(&ExpFamily::Bernoulli, &eta);
             assert!(
                 (theta_back[0] - theta_orig).abs() < 1e-10,
-                "θ={} → η={:?} → θ_back={}", theta_orig, eta, theta_back[0]
+                "θ={} → η={:?} → θ_back={}",
+                theta_orig,
+                eta,
+                theta_back[0]
             );
         }
     }
@@ -5610,7 +5627,11 @@ mod tests {
             for (a, b) in theta_back.iter().zip(theta_orig.iter()) {
                 assert!(
                     (a - b).abs() < 1e-10,
-                    "k={} θ={:?} → η={:?} → θ_back={:?}", k, theta_orig, eta, theta_back
+                    "k={} θ={:?} → η={:?} → θ_back={:?}",
+                    k,
+                    theta_orig,
+                    eta,
+                    theta_back
                 );
             }
         }
@@ -5637,7 +5658,10 @@ mod tests {
                 assert!(
                     (theta_back[0] - theta_orig).abs() < 1e-12,
                     "variance={} θ={} → η={:?} → θ_back={}",
-                    variance, theta_orig, eta, theta_back[0]
+                    variance,
+                    theta_orig,
+                    eta,
+                    theta_back[0]
                 );
             }
         }
@@ -5679,7 +5703,13 @@ mod tests {
             for c in 0..3 {
                 assert!(
                     (i[r][c] - i[c][r]).abs() < 1e-12,
-                    "I[{}][{}] = {} != I[{}][{}] = {}", r, c, i[r][c], c, r, i[c][r]
+                    "I[{}][{}] = {} != I[{}][{}] = {}",
+                    r,
+                    c,
+                    i[r][c],
+                    c,
+                    r,
+                    i[c][r]
                 );
             }
         }
@@ -5704,7 +5734,14 @@ mod tests {
         ] {
             let i = fisher_information(&fam, &theta);
             let d = fam.natural_param_arity();
-            assert_eq!(i.len(), d, "{}: Fisher rows = {}, arity = {}", fam, i.len(), d);
+            assert_eq!(
+                i.len(),
+                d,
+                "{}: Fisher rows = {}, arity = {}",
+                fam,
+                i.len(),
+                d
+            );
             for row in &i {
                 assert_eq!(row.len(), d);
             }
@@ -5715,7 +5752,12 @@ mod tests {
     fn fisher_categorical_positive_semidefinite() {
         // I is the covariance of T(X), so I is PSD: x^T I x ≥ 0 for any x.
         let i = fisher_information(&ExpFamily::Categorical { k: 3 }, &[1.0, -1.0]);
-        for x in [vec![1.0_f64, 0.0], vec![0.0, 1.0], vec![1.0, 1.0], vec![1.0, -1.0]] {
+        for x in [
+            vec![1.0_f64, 0.0],
+            vec![0.0, 1.0],
+            vec![1.0, 1.0],
+            vec![1.0, -1.0],
+        ] {
             let mut q = 0.0;
             for r in 0..2 {
                 for c in 0..2 {
@@ -5747,10 +5789,7 @@ mod tests {
         for k in [2_usize, 3, 5, 10] {
             let theta = vec![0.0_f64; k - 1];
             let h = entropy(&ExpFamily::Categorical { k }, &theta);
-            assert!(
-                (h - (k as f64).ln()).abs() < 1e-12,
-                "k={}: H = {}", k, h
-            );
+            assert!((h - (k as f64).ln()).abs() < 1e-12, "k={}: H = {}", k, h);
         }
     }
 
@@ -5784,7 +5823,9 @@ mod tests {
             let kl = kl_divergence(&ExpFamily::Bernoulli, &p, &q);
             assert!(
                 (ce - (h + kl)).abs() < 1e-12,
-                "CE = {}; H + KL = {}", ce, h + kl
+                "CE = {}; H + KL = {}",
+                ce,
+                h + kl
             );
         }
     }
@@ -5809,18 +5850,18 @@ mod tests {
         let q = [-1.0];
         let js_pq = js_divergence(&ExpFamily::Bernoulli, &p, &q);
         let js_qp = js_divergence(&ExpFamily::Bernoulli, &q, &p);
-        assert!((js_pq - js_qp).abs() < 1e-12, "symmetry: {} != {}", js_pq, js_qp);
+        assert!(
+            (js_pq - js_qp).abs() < 1e-12,
+            "symmetry: {} != {}",
+            js_pq,
+            js_qp
+        );
     }
 
     #[test]
     fn js_divergence_non_negative_bernoulli() {
         // JS ≥ 0 across a moderate grid.
-        for (p, q) in [
-            (1.0_f64, 0.0),
-            (-1.0, 2.0),
-            (0.5, -0.5),
-            (3.0, -3.0),
-        ] {
+        for (p, q) in [(1.0_f64, 0.0), (-1.0, 2.0), (0.5, -0.5), (3.0, -3.0)] {
             let js = js_divergence(&ExpFamily::Bernoulli, &[p], &[q]);
             assert!(js >= -1e-10, "JS({}, {}) = {}", p, q, js);
         }
@@ -5877,8 +5918,7 @@ mod tests {
 
     #[test]
     fn evaluate_scalar_log_partition() {
-        let e =
-            InfoExpr::log_partition(ExpFamily::Bernoulli, vec![0.0]).unwrap();
+        let e = InfoExpr::log_partition(ExpFamily::Bernoulli, vec![0.0]).unwrap();
         assert!(approx(evaluate_scalar(&e).unwrap(), 2.0_f64.ln(), 1e-12));
     }
 
@@ -5892,14 +5932,11 @@ mod tests {
 
     #[test]
     fn evaluate_scalar_kl() {
-        let e =
-            InfoExpr::kl_projection(ExpFamily::Bernoulli, vec![1.0], vec![0.0])
-                .unwrap();
+        let e = InfoExpr::kl_projection(ExpFamily::Bernoulli, vec![1.0], vec![0.0]).unwrap();
         // KL(1.0, 0.0) on Bernoulli:
         // A(1) = ln(1 + e), A(0) = ln(2), η(0) = 0.5,
         // KL = ln(1+e) - ln(2) - 0.5 * 1.0
-        let expected =
-            (1.0_f64.exp() + 1.0).ln() - 2.0_f64.ln() - 0.5 * 1.0;
+        let expected = (1.0_f64.exp() + 1.0).ln() - 2.0_f64.ln() - 0.5 * 1.0;
         assert!(approx(evaluate_scalar(&e).unwrap(), expected, 1e-12));
     }
 }

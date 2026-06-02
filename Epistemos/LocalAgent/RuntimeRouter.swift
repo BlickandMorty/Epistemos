@@ -71,6 +71,7 @@ nonisolated struct RouteProfile: Sendable, Equatable, Identifiable {
     let minimumConfidence: Double
     let maximumComplexity: Double
     let maximumToolCount: Int
+    let minimumContextWindow: Int
     let idleUnloadDelaySeconds: Int
     let idleUnloadMode: String
 
@@ -85,7 +86,7 @@ nonisolated struct RouteProfile: Sendable, Equatable, Identifiable {
     var laneCount: Int { preferredLanes.count }
 
     var policySummary: String {
-        "conf \(formatted(minimumConfidence)) · complexity \(formatted(maximumComplexity)) · tools \(maximumToolCount)"
+        "conf \(formatted(minimumConfidence)) · complexity \(formatted(maximumComplexity)) · tools \(maximumToolCount) · ctx \(minimumContextWindow)"
     }
 
     var idleUnloadSummary: String {
@@ -336,6 +337,7 @@ public final class RuntimeRouter {
                 minimumConfidence: policy.minimumConfidence,
                 maximumComplexity: policy.maximumComplexity,
                 maximumToolCount: policy.maximumToolCount,
+                minimumContextWindow: policy.minimumContextWindow,
                 idleUnloadDelaySeconds: policy.idleUnloadDelaySeconds,
                 idleUnloadMode: policy.idleUnloadMode
             )
@@ -579,13 +581,18 @@ public final class RuntimeRouter {
             return recordReject(role: packet.role, reason: .noLaneAvailable)
         }
 
+        if let rejectReason = invalidPolicyRejectReason(for: packet) {
+            return recordReject(role: packet.role, reason: rejectReason)
+        }
+
         // Privacy-sensitive requests must not escalate to a networked
-        // (cloud) lane. If every local lane is disabled, reject honestly.
+        // (cloud) lane. If every executable local lane is disabled,
+        // reject honestly; `.stub` is in-process but cannot execute.
         if packet.privacySensitive {
-            let allLocalDisabled = preferredChain
-                .filter { $0.isLocal }
-                .allSatisfy { !isLaneEnabled($0) }
-            if allLocalDisabled {
+            let hasEnabledExecutableLocalLane = preferredChain.contains { lane in
+                lane.isLocal && lane != .stub && isLaneEnabled(lane)
+            }
+            if !hasEnabledExecutableLocalLane {
                 return recordReject(role: packet.role, reason: .privacySensitiveNoLocal)
             }
         }
@@ -606,6 +613,16 @@ public final class RuntimeRouter {
                     from: lane,
                     to: nextLane(after: lane, in: preferredChain) ?? lane,
                     reason: .laneDisabled
+                )
+                recordEscalation(escalation, role: packet.role)
+                continue
+            }
+
+            if let policyReason = localPolicyEscalationReason(for: packet, lane: lane) {
+                let escalation = RouteVerdict.escalate(
+                    from: lane,
+                    to: nextLane(after: lane, in: preferredChain) ?? lane,
+                    reason: policyReason
                 )
                 recordEscalation(escalation, role: packet.role)
                 continue
@@ -683,6 +700,80 @@ public final class RuntimeRouter {
         metrics = snapshot
         Self.log.error("RuntimeRouter reject role=\(role.rawValue) reason=\(reason.rawValue)")
         return verdict
+    }
+
+    private func localPolicyEscalationReason(
+        for packet: MissionPacket,
+        lane: RuntimeLane
+    ) -> RouteVerdict.EscalationReason? {
+        switch lane {
+        case .mlx, .gguf:
+            break
+        case .appleIntelligence, .cloud(_), .stub:
+            return nil
+        }
+
+        let policy = Self.localPolicyTable[packet.role] ?? Self.defaultLocalPolicy(for: packet.role)
+
+        if Self.hasInvalidPolicyInput(packet) {
+            return .invalidPolicyInput
+        }
+
+        if let laneContextWindow = lanes[lane]?.capability.contextWindow,
+           laneContextWindow < policy.minimumContextWindow {
+            return .contextWindowExceeded
+        }
+
+        if let classificationConfidence = packet.classificationConfidence {
+            if classificationConfidence < policy.minimumConfidence {
+                return .classificationUncertain
+            }
+        }
+
+        if let estimatedComplexity = packet.estimatedComplexity {
+            if estimatedComplexity > policy.maximumComplexity {
+                return .taskTooComplex
+            }
+        }
+
+        if let toolCountEstimate = packet.toolCountEstimate {
+            if toolCountEstimate > policy.maximumToolCount {
+                return .tooManyToolCalls
+            }
+        }
+
+        return nil
+    }
+
+    private func invalidPolicyRejectReason(for packet: MissionPacket) -> RouteVerdict.RejectReason? {
+        if Self.hasInvalidPolicyInput(packet) {
+            return .invalidPolicyInput
+        }
+        return nil
+    }
+
+    nonisolated private static func hasInvalidPolicyInput(_ packet: MissionPacket) -> Bool {
+        if let classificationConfidence = packet.classificationConfidence,
+           !Self.isUnitInterval(classificationConfidence) {
+            return true
+        }
+        if let estimatedComplexity = packet.estimatedComplexity,
+           !Self.isUnitInterval(estimatedComplexity) {
+            return true
+        }
+        if let toolCountEstimate = packet.toolCountEstimate,
+           toolCountEstimate < 0 {
+            return true
+        }
+        if let estimatedInputTokens = packet.estimatedInputTokens,
+           estimatedInputTokens < 0 {
+            return true
+        }
+        return false
+    }
+
+    nonisolated private static func isUnitInterval(_ value: Double) -> Bool {
+        value.isFinite && value >= 0.0 && value <= 1.0
     }
 
     private func nextLane(after lane: RuntimeLane, in chain: [RuntimeLane]) -> RuntimeLane? {
@@ -806,8 +897,18 @@ nonisolated public struct StubRuntimeExecutor: RuntimeExecutor {
     public func canHandle(_ request: MissionPacket) -> RouteVerdict {
         // The stub knows nothing about model weights or context
         // length beyond what its capability surface advertises.
+        if let estimatedInputTokens = request.estimatedInputTokens,
+           estimatedInputTokens < 0 {
+            return .escalate(from: id, to: id, reason: .invalidPolicyInput)
+        }
         if request.requiresVision && !capability.vision {
             return .escalate(from: id, to: id, reason: .visionUnsupported)
+        }
+        if let estimatedInputTokens = request.estimatedInputTokens,
+           estimatedInputTokens > 0,
+           capability.contextWindow > 0,
+           estimatedInputTokens > capability.contextWindow {
+            return .escalate(from: id, to: id, reason: .contextWindowExceeded)
         }
         if request.requiresGrammar && capability.toolCallMode == .none {
             return .escalate(from: id, to: id, reason: .toolCallGrammarUnsupported)

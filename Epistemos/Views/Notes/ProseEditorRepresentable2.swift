@@ -1012,7 +1012,7 @@ extension ProseEditorRepresentable2 {
 
         private func showHaloPanel() {
             guard let controller = haloController,
-                  controller.state.isPanelOpen,
+                  controller.state.isPanelOpen || controller.state.isRecoverableError,
                   let panelController = haloPanelController,
                   let scrollView,
                   let window = scrollView.window else { return }
@@ -1086,6 +1086,7 @@ extension ProseEditorRepresentable2 {
             let state = bootstrap.contextualShadowsState
             guard state.isEnabled else { return }
             let instantRecall = bootstrap.instantRecallService
+            let searchIndexService = bootstrap.vaultSync.searchService
             let pageId = currentPageId
             // Use a deterministic UUID derived from the page id when possible
             // so recall results filter the originating note out (plan §5
@@ -1096,17 +1097,37 @@ extension ProseEditorRepresentable2 {
             recallDebounceTask = Task { @MainActor [weak self] in
                 try? await Task.sleep(for: .milliseconds(200))
                 guard !Task.isCancelled, let self else { return }
-                // Re-read the live snapshot text — the user may have typed
-                // more during the debounce window. Falls back to the
-                // captured value if the textView has gone away.
-                let liveText = self.textView?.string ?? snapshotText
+                // Re-read the live text around the cursor — the user may have
+                // typed more during the debounce window. A cursor-local window
+                // prevents older paragraphs from pinning recall to the same
+                // stale note list.
+                let liveText = self.contextualRecallText(fallback: snapshotText)
                 let snapshot = RecallContextSnapshot(
                     text: liveText,
                     kind: .note,
-                    originId: originId
+                    originId: originId,
+                    originDocId: pageId
                 )
-                state.requestRecall(snapshot: snapshot, instantRecall: instantRecall)
+                state.requestRecall(
+                    snapshot: snapshot,
+                    instantRecall: instantRecall,
+                    searchIndexService: searchIndexService
+                )
             }
+        }
+
+        private func contextualRecallText(fallback: String) -> String {
+            guard let textView else { return fallback }
+            let string = textView.string as NSString
+            guard string.length > 0 else { return fallback }
+
+            let selectedRange = textView.selectedRange()
+            let selectedEnd = min(max(0, selectedRange.location + selectedRange.length), string.length)
+            let leadingContext = 700
+            let start = max(0, selectedEnd - leadingContext)
+            let end = selectedEnd
+            guard end > start else { return fallback }
+            return string.substring(with: NSRange(location: start, length: end - start))
         }
 
         func textViewDidChangeSelection(_ notification: Notification) {

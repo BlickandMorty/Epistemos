@@ -80,9 +80,11 @@ struct LandingView: View {
     private static let log = Logger(subsystem: "com.epistemos", category: "LandingView")
 
     @Environment(UIState.self) private var ui
+    @Environment(NotesUIState.self) private var notesUI
     @Environment(ChatState.self) private var chat
     @Environment(InferenceState.self) private var inference
     @Environment(OrchestratorState.self) private var orchestrator
+    @Environment(AgentCommandCenterState.self) private var agentCommandCenter
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(WorkspaceService.self) private var workspaceService
     @Environment(DailyBriefState.self) private var dailyBrief
@@ -104,6 +106,7 @@ struct LandingView: View {
     /// Each is nil when not presented; non-nil triggers a `.sheet`
     /// modifier on the body.
     @State private var farmShowingCreate: Bool = false
+    @State private var farmEditTarget: CompanionRosterEntry? = nil
     @State private var farmDeleteTarget: CompanionRosterEntry? = nil
     @State private var farmShowingRestore: Bool = false
 
@@ -137,6 +140,7 @@ struct LandingView: View {
     @State private var landingGreetingReturnFrame = 4
     @State private var landingGreetingReturnTask: Task<Void, Never>?
     @State private var activeLandingInlineCommand: LandingInlineCommand?
+    @State private var showingNewCodeFileSheet = false
     private var theme: EpistemosTheme { ui.theme.surfaceVariant(.landing) }
     private var landingInlineCommandSurfaceTheme: EpistemosTheme {
         LandingCommandThemeTreatment.resolve(for: theme).chromeTheme(for: theme)
@@ -145,6 +149,12 @@ struct LandingView: View {
     private var showingOverlay: Bool { showingBrief || showWelcomeBack }
     private var showingLandingStageCommand: Bool {
         showingSearchPopover || activeLandingInlineCommand != nil
+    }
+    private var landingRecallScopeID: String {
+        "landing:\(chat.activeChatId ?? "draft")"
+    }
+    private var landingRecallPayload: ContextualShadowsState.RecallPayload {
+        contextualShadows.payload(kind: .chat, originDocId: landingRecallScopeID)
     }
     private var landingStageMinHeight: CGFloat {
         if showingSearchPopover {
@@ -159,7 +169,11 @@ struct LandingView: View {
         ComposerAttachmentEntryHints.landingPlaceholder
     }
     private var landingSearchPlaceholder: String {
-        "Ask Epistemos..."
+        if let name = AppBootstrap.shared?.companionState.activeAgentName,
+           !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "Ask \(name)..."
+        }
+        return "Ask Epistemos..."
     }
     private var ambientManifest: VaultManifest? {
         vaultSync.ambientManifest ?? AppBootstrap.shared?.ambientManifest
@@ -344,17 +358,20 @@ struct LandingView: View {
                 .zIndex(2.5)
             }
 
-            if farmShowingCreate, let bootstrap = AppBootstrap.shared {
+            if (farmShowingCreate || farmEditTarget != nil), let bootstrap = AppBootstrap.shared {
                 Color.clear
                     .ignoresSafeArea()
                     .contentShape(Rectangle())
-                    .onTapGesture { farmShowingCreate = false }
+                    .onTapGesture { dismissFarmAgentEditor() }
                     .zIndex(3.5)
 
                 CompanionCreationFlow(
                     companionState: bootstrap.companionState,
                     theme: theme,
-                    onDismiss: { farmShowingCreate = false }
+                    editingEntry: farmEditTarget,
+                    availableBrains: agentCommandCenter.availableBrains,
+                    availableTools: agentCommandCenter.availableTools,
+                    onDismiss: dismissFarmAgentEditor
                 )
                 .transition(.opacity)
                 .zIndex(4)
@@ -435,6 +452,8 @@ struct LandingView: View {
             welcomeBackSyncTask = nil
             showWelcomeBack = false
             presentedWelcomeBack = nil
+            showingSearchPopover = false
+            onLandingPopoverDisappear()
             landingSearchRevealTask?.cancel()
             landingSearchRevealTask = nil
             landingGreetingReturnTask?.cancel()
@@ -537,6 +556,11 @@ struct LandingView: View {
                 )
             }
         }
+        .sheet(isPresented: $showingNewCodeFileSheet) {
+            CodeFileCreationSheet(theme: theme) { request in
+                createAndOpenCodeFile(request)
+            }
+        }
     }
 
     private var landingBackdrop: some View {
@@ -622,6 +646,9 @@ struct LandingView: View {
     private var landingGreetingStage: some View {
         ZStack {
             LiquidGreeting(
+                theme: theme,
+                windowOccluded: ui.windowOccluded,
+                typewriterEnabled: ui.landingGreetingTypewriterEnabled,
                 retractNow: .constant(false),
                 searchMode: showingLandingStageCommand,
                 searchText: ""
@@ -788,6 +815,25 @@ struct LandingView: View {
                 action: createAndOpenDocument
             )
             PixelLandingCommandTile(
+                title: "new code",
+                shortcut: "\u{2325}\u{2318}C",
+                glyph: .document,
+                theme: theme,
+                accent: Color(hex: 0x8C7AF5),
+                haptic: .document
+            ) {
+                showingNewCodeFileSheet = true
+            }
+            PixelLandingCommandTile(
+                title: "html workspace",
+                shortcut: "\u{2325}\u{2318}H",
+                glyph: .workspace,
+                theme: theme,
+                accent: Color(hex: 0xB37A3F),
+                haptic: .workspace,
+                action: createAndOpenHTMLWorkspace
+            )
+            PixelLandingCommandTile(
                 title: graphState.graphViewLocation == .embedded ? "home graph" : "graph",
                 shortcut: "\u{2318}G",
                 glyph: .graph,
@@ -809,9 +855,11 @@ struct LandingView: View {
                         companionState: bootstrap.companionState,
                         theme: theme,
                         isAnimationActive: false,
-                        onCreate: { farmShowingCreate = true },
+                        onCreate: presentFarmAgentCreate,
                         onOpenTrash: { farmShowingRestore = true },
-                        onRequestDelete: { entry in farmDeleteTarget = entry }
+                        onRequestEdit: presentFarmAgentEdit,
+                        onRequestDelete: { entry in farmDeleteTarget = entry },
+                        onStartChat: startFarmAgentChat
                     )
                     .padding(.top, 24)
                     .padding(.trailing, 28)
@@ -977,9 +1025,9 @@ struct LandingView: View {
                     }
                 }
 
-                if contextualShadows.isEnabled, !contextualShadows.currentResults.isEmpty {
+                if contextualShadows.isEnabled, landingRecallPayload.hasPanelPayload {
                     LandingStageToolShell(theme: theme, accent: theme.fontAccent) {
-                        ContextualShadowsButton()
+                        ContextualShadowsButton(scopeKind: .chat, scopeID: landingRecallScopeID)
                     }
                 } else {
                     Spacer(minLength: 0)
@@ -1018,26 +1066,11 @@ struct LandingView: View {
 
         var body: some View {
             content()
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 5)
                 .frame(minHeight: 34)
-                .unifiedFrostedGlass(
-                    theme: theme,
-                    in: Capsule(),
-                    extraDarkenOnDark: true,
-                    interactive: true,
-                    nativeGlass: true
-                )
-                .overlay {
-                    Capsule()
-                        .strokeBorder(accent.opacity(theme.isDark ? 0.12 : 0.16), lineWidth: 0.7)
-                }
-                .shadow(
-                    color: Color.black.opacity(theme.isDark ? 0.16 : 0.10),
-                    radius: theme.isDark ? 8 : 13,
-                    x: 0,
-                    y: 5
-                )
+                .foregroundStyle(theme.textSecondary.opacity(theme.isDark ? 0.86 : 0.78))
+                .contentShape(Rectangle())
         }
     }
 
@@ -1049,46 +1082,30 @@ struct LandingView: View {
         let isActive: Bool
 
         var body: some View {
-            HStack(spacing: 7) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
-                        .fill(accent.opacity(isActive ? 0.18 : 0.10))
-                    Image(systemName: systemImage)
-                        .font(.system(size: 11, weight: .semibold))
-                        .symbolRenderingMode(.monochrome)
-                        .foregroundStyle(accent)
-                }
-                .frame(width: 20, height: 20)
+            HStack(spacing: 6) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 12, weight: .semibold))
+                    .symbolRenderingMode(.monochrome)
+                    .foregroundStyle(accent.opacity(isActive ? 1 : 0.86))
+                    .frame(width: 16, height: 16)
 
                 Text(title)
-                    .font(.system(size: 11.5, weight: .semibold))
-                    .foregroundStyle(theme.textPrimary.opacity(theme.isDark ? 0.90 : 0.82))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(theme.textPrimary.opacity(isActive ? 0.92 : (theme.isDark ? 0.78 : 0.68)))
                     .lineLimit(1)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 6)
             .frame(minHeight: 34)
-            .unifiedFrostedGlass(
-                theme: theme,
-                in: Capsule(),
-                extraDarkenOnDark: true,
-                interactive: true,
-                nativeGlass: true
-            )
-            .background {
-                Capsule()
-                    .fill(accent.opacity(isActive ? 0.11 : 0.001))
+            .overlay(alignment: .bottom) {
+                if isActive {
+                    Rectangle()
+                        .fill(accent.opacity(theme.isDark ? 0.62 : 0.48))
+                        .frame(height: 1)
+                        .padding(.horizontal, 4)
+                }
             }
-            .overlay {
-                Capsule()
-                    .strokeBorder(accent.opacity(isActive ? 0.22 : 0.13), lineWidth: 0.7)
-            }
-            .shadow(
-                color: Color.black.opacity(theme.isDark ? 0.16 : 0.10),
-                radius: theme.isDark ? 8 : 13,
-                x: 0,
-                y: 5
-            )
+            .contentShape(Rectangle())
         }
     }
 
@@ -1135,8 +1152,12 @@ struct LandingView: View {
                     .accessibilityHint(landingSearchAttachmentHint)
 
                     if landingSearchText.isEmpty {
-                        PixelPanelTitle(text: "Search", theme: theme, size: 27)
-                            .padding(.top, 1)
+                        Text(ComposerAttachmentEntryHints.mainChatPlaceholder + "  Auto-routes when your prompt needs tools or a longer run.")
+                            .font(.system(size: 20, weight: .regular, design: .rounded))
+                            .foregroundStyle(theme.textSecondary.opacity(theme.isDark ? 0.34 : 0.28))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .padding(.top, ChatComposerInputMetrics.placeholderTopPadding)
                             .padding(.leading, ChatComposerInputMetrics.horizontalInset)
                             .allowsHitTesting(false)
                             .accessibilityHidden(true)
@@ -1216,10 +1237,16 @@ struct LandingView: View {
                     .transition(.opacity)
                 }
             }
-            .overlay(alignment: .bottomTrailing) {
-                ContextualShadowsPanel(onOpen: openLandingContextualShadowHit)
-                    .padding(.trailing, 10)
-                    .padding(.bottom, 46)
+            .overlay(alignment: .topLeading) {
+                ContextualShadowsPanel(
+                    scopeKind: .chat,
+                    scopeID: landingRecallScopeID,
+                    presentation: .landing,
+                    onOpen: openLandingContextualShadowHit
+                )
+                    .padding(.leading, 42)
+                    .padding(.top, 74)
+                    .zIndex(20)
             }
         }
         .frame(maxWidth: .infinity)
@@ -1436,7 +1463,10 @@ struct LandingView: View {
         guard contextualShadows.isEnabled else { return }
         guard let bootstrap = AppBootstrap.shared else { return }
         let instantRecall = bootstrap.instantRecallService
-        let originId = chat.activeChatId.flatMap(UUID.init(uuidString:)) ?? UUID()
+        let searchIndexService = bootstrap.vaultSync.searchService
+        let activeChatId = chat.activeChatId
+        let scopeID = landingRecallScopeID
+        let originId = activeChatId.flatMap(UUID.init(uuidString:)) ?? UUID()
         let state = contextualShadows
         landingRecallDebounceBox.task = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(200))
@@ -1444,9 +1474,14 @@ struct LandingView: View {
             let snapshot = RecallContextSnapshot(
                 text: snapshotText,
                 kind: .chat,
-                originId: originId
+                originId: originId,
+                originDocId: scopeID
             )
-            state.requestRecall(snapshot: snapshot, instantRecall: instantRecall)
+            state.requestRecall(
+                snapshot: snapshot,
+                instantRecall: instantRecall,
+                searchIndexService: searchIndexService
+            )
         }
     }
 
@@ -1764,6 +1799,7 @@ struct LandingView: View {
             chat.addContextAttachment(attachment)
         }
         chat.queuePendingSlashCommand(slashCommand)
+        applyActiveLandingAgentRuntimePreference()
         ui.setActivePanel(.home)
         MainChatSubmissionRouter.submit(
             trimmed,
@@ -1772,6 +1808,63 @@ struct LandingView: View {
             orchestrator: orchestrator,
             inference: inference
         )
+    }
+
+    private func presentFarmAgentCreate() {
+        farmEditTarget = nil
+        farmShowingCreate = true
+    }
+
+    private func presentFarmAgentEdit(_ entry: CompanionRosterEntry) {
+        farmShowingCreate = false
+        farmEditTarget = entry
+    }
+
+    private func startFarmAgentChat(_ entry: CompanionRosterEntry) {
+        AppBootstrap.shared?.companionState.activate(entry.id)
+        if supportedOperatingModes.contains(.agent) {
+            selectedOperatingMode = .agent
+        }
+        applyLandingAgentRuntimePreference(for: entry)
+        selectedLandingSlashCommand = nil
+        if !showingSearchPopover {
+            landingSearchText = ""
+        }
+        HapticHelper.homeCommand(.agent)
+        activateLandingSearch(playHaptic: false)
+    }
+
+    private func dismissFarmAgentEditor() {
+        farmShowingCreate = false
+        farmEditTarget = nil
+    }
+
+    private func applyActiveLandingAgentRuntimePreference() {
+        guard let entry = AppBootstrap.shared?.companionState.activeAgentEntry else { return }
+        applyLandingAgentRuntimePreference(for: entry)
+    }
+
+    private func applyLandingAgentRuntimePreference(for entry: CompanionRosterEntry) {
+        switch entry.agentModelChoice {
+        case .autoConstellation:
+            return
+        case .local(let modelID, _):
+            inference.setPreferredChatModelSelection(.localMLX(modelID))
+        case .cloud(let providerRaw, _):
+            guard let provider = CloudModelProvider(rawValue: providerRaw) else { return }
+            if let model = preferredLandingCloudModel(for: provider) {
+                inference.setPreferredChatModelSelection(.cloud(model))
+            } else {
+                inference.setActiveAIProvider(AIProviderSelection(cloudProvider: provider))
+            }
+        case .appleIntelligence:
+            inference.setPreferredChatModelSelection(.appleIntelligence)
+        }
+    }
+
+    private func preferredLandingCloudModel(for provider: CloudModelProvider) -> CloudTextModelID? {
+        let models = CloudTextModelID.models(for: provider)
+        return models.first { $0.supportedOperatingModes.contains(.agent) } ?? models.first
     }
 
     private func sanitizeStoredOperatingMode() {
@@ -1956,7 +2049,7 @@ struct LandingView: View {
         case .chat:
             MiniChatWindowController.shared.openChat(hit.id)
         }
-        contextualShadows.closePanel()
+        contextualShadows.closePanel(kind: .chat, originDocId: landingRecallScopeID)
     }
 
     private func updateLandingReferenceSearch(filter: String) {
@@ -2315,27 +2408,7 @@ struct LandingView: View {
     /// `onAppear` snaps `ui.homeContent` back to `.greeting` so the
     /// home window is in a known state before the next press.
     private func toggleGraphForCurrentLocation() {
-        switch graphState.graphViewLocation {
-        case .miniPanel:
-            // If the embedded graph somehow ended up visible, clear it
-            // first so the floating panel doesn't open on top of an
-            // already-visible embedded graph.
-            if ui.homeContent == .graph { ui.homeContent = .greeting }
-            HologramController.shared.toggle()
-        case .embedded:
-            // Ensure the floating panel is closed so it doesn't
-            // double-show the canvas behind the embedded version.
-            if HologramController.shared.isVisible {
-                HologramController.shared.hide()
-            }
-            withAnimation(
-                reduceMotion
-                    ? nil
-                    : .spring(response: 0.42, dampingFraction: 0.84, blendDuration: 0.1)
-            ) {
-                ui.homeContent = ui.homeContent == .graph ? .greeting : .graph
-            }
-        }
+        KnowledgeGraphShortcutDispatcher.toggle(reduceMotion: reduceMotion)
     }
 
     private func createAndOpenNote() {
@@ -2349,6 +2422,36 @@ struct LandingView: View {
     private func createAndOpenDocument() {
         do {
             try NSDocumentController.shared.createUntitledEpdocDocument(in: vaultSync.vaultURL)
+        } catch {
+            NSApplication.shared.presentError(error)
+        }
+    }
+
+    private func createAndOpenHTMLWorkspace() {
+        guard vaultSync.vaultURL != nil else {
+            VaultConnectionActions.selectVaultFolder(notesUI: notesUI, vaultSync: vaultSync)
+            return
+        }
+        do {
+            try NSDocumentController.shared.createUntitledHTMLWorkspaceDocument(in: vaultSync.vaultURL)
+        } catch {
+            NSApplication.shared.presentError(error)
+        }
+    }
+
+    private func createAndOpenCodeFile(_ request: CodeFileCreationRequest) {
+        guard let vaultURL = vaultSync.vaultURL else {
+            VaultConnectionActions.selectVaultFolder(notesUI: notesUI, vaultSync: vaultSync)
+            return
+        }
+        do {
+            let pageId = try CodeFileCreationController.createPage(
+                request: request,
+                vaultURL: vaultURL,
+                modelContext: modelContext,
+                graphState: graphState
+            )
+            NoteWindowManager.shared.open(pageId: pageId)
         } catch {
             NSApplication.shared.presentError(error)
         }

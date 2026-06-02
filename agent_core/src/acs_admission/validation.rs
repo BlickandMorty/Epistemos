@@ -17,7 +17,6 @@ use crate::{
     },
 };
 
-use super::*;
 use super::admit::*;
 use super::audit_sink::*;
 use super::common::*;
@@ -29,6 +28,7 @@ use super::requests::*;
 use super::risk::*;
 use super::verdict::*;
 use super::wire::*;
+use super::*;
 
 pub(crate) fn validate_answer_packet(packet: &AnswerPacket) -> Result<(), ACSAdmissionInputError> {
     require_non_empty(&packet.id.0, "answer_packet.id")?;
@@ -279,7 +279,10 @@ pub(crate) fn is_active_answer_claim(claim: &Claim) -> bool {
     claim.status == ClaimStatus::Active
 }
 
-pub(crate) fn require_finite_signal(value: f32, field: &'static str) -> Result<(), ACSAdmissionInputError> {
+pub(crate) fn require_finite_signal(
+    value: f32,
+    field: &'static str,
+) -> Result<(), ACSAdmissionInputError> {
     if value.is_finite() {
         Ok(())
     } else {
@@ -299,7 +302,9 @@ pub(crate) fn require_normalized_signal(
     }
 }
 
-pub(crate) fn validate_mutation_envelope(envelope: &MutationEnvelope) -> Result<(), ACSAdmissionInputError> {
+pub(crate) fn validate_mutation_envelope(
+    envelope: &MutationEnvelope,
+) -> Result<(), ACSAdmissionInputError> {
     require_non_empty(&envelope.mutation_id, "mutation_envelope.mutation_id")?;
     require_optional_non_empty(envelope.run_id.as_deref(), "mutation_envelope.run_id")?;
     require_optional_non_empty(
@@ -406,7 +411,9 @@ pub(crate) fn validate_mutation_touched_artifacts(
     Ok(())
 }
 
-pub(crate) fn validate_mutation_touched_blocks(blocks: &[BlockRef]) -> Result<(), ACSAdmissionInputError> {
+pub(crate) fn validate_mutation_touched_blocks(
+    blocks: &[BlockRef],
+) -> Result<(), ACSAdmissionInputError> {
     for (idx, block) in blocks.iter().enumerate() {
         require_non_empty(
             &block.artifact_id,

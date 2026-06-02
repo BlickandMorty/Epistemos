@@ -1,0 +1,226 @@
+{
+  "falsifier_id": "F-Sparse-Runtime-Split",
+  "schema_version": "2026-05-18.2",
+  "artifact_kind": "primary_witness",
+  "hardware_pin": {
+    "machine": "M2 Pro 14-inch 2023",
+    "cpu": "12-core CPU",
+    "gpu": "19-core GPU",
+    "unified_memory_gb": 16,
+    "memory_bandwidth_gb_s": 200
+  },
+  "command": "Tools/falsifiers/f_sparse_runtime_split.sh",
+  "command_digest": "sha256:e866217006e70c0cc2947ac17a9fc7804aa97d14dc92c63e67bf38a0df303502",
+  "runner_environment": {
+    "cwd": "repo_root",
+    "shell": "zsh",
+    "env_policy": "script_owned",
+    "locale": "C",
+    "timezone": "UTC",
+    "os_build": "Darwin 25 (macOS 26 family)",
+    "toolchain_identity": {
+      "xcodebuild": "not_used",
+      "swift": "not_used",
+      "rustc": "rustc (agent_core 0.1.0)",
+      "python": "not_used"
+    },
+    "thermal_state_start": "unknown",
+    "thermal_state_end": "unknown",
+    "power_source": "unknown"
+  },
+  "commit_sha": "ba6f15e6fb08c772c5bbce4d303aff864f39e9c2",
+  "fixture_id": "synthetic_sparse_runtime_split_1000_prompts_v1",
+  "timestamp_utc": "2026-05-28T06:06:41Z",
+  "result_digest": "sha256:a4579b4915e495759240f658384a521ebc7dec075f9bdd82950a0b576ac33747",
+  "measurements": {
+    "active_assembly_ratio": {
+      "value": 0.017578125,
+      "unit": "ratio"
+    },
+    "assembly_count": {
+      "value": 512,
+      "unit": "count"
+    },
+    "average_d_kl_nats": {
+      "value": 0.0,
+      "unit": "nats"
+    },
+    "average_selected_assemblies": {
+      "value": 9.0,
+      "unit": "assemblies"
+    },
+    "cost_ratio": {
+      "value": 0.006658832745789268,
+      "unit": "ratio"
+    },
+    "coverage_manifest": {
+      "value": "synthetic active_weights, layer_groups, kv_page_labels, kernel_routes, EML/Geometry/Scan/Operator chart rows",
+      "unit": "label"
+    },
+    "eml_chart_coverage_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "geometry_chart_coverage_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "harness_wall_clock_seconds": {
+      "value": 0.026159375,
+      "unit": "seconds"
+    },
+    "mas_safe_in_process_contract": {
+      "value": true,
+      "unit": "bool"
+    },
+    "max_d_kl_nats": {
+      "value": 0.0,
+      "unit": "nats"
+    },
+    "operator_chart_coverage_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "p95_d_kl_nats": {
+      "value": 0.0,
+      "unit": "nats"
+    },
+    "prompt_count": {
+      "value": 1000,
+      "unit": "count"
+    },
+    "residency_split_labeled": {
+      "value": true,
+      "unit": "bool"
+    },
+    "runtime_scope": {
+      "value": "synthetic_sparse_split_not_live_70b",
+      "unit": "label"
+    },
+    "scan_chart_coverage_available": {
+      "value": true,
+      "unit": "bool"
+    },
+    "synthetic_sparse_runtime_present": {
+      "value": true,
+      "unit": "bool"
+    },
+    "top1_match_ratio": {
+      "value": 1.0,
+      "unit": "ratio"
+    },
+    "wall_us_p99": {
+      "value": 27.166999999999998,
+      "unit": "microseconds"
+    }
+  },
+  "acceptance_thresholds": {
+    "active_assembly_ratio": {
+      "operator": "<",
+      "value": 0.4,
+      "unit": "ratio"
+    },
+    "assembly_count": {
+      "operator": "==",
+      "value": 512,
+      "unit": "count"
+    },
+    "average_d_kl_nats": {
+      "operator": "<=",
+      "value": 0.05,
+      "unit": "nats"
+    },
+    "cost_ratio": {
+      "operator": "<",
+      "value": 0.4,
+      "unit": "ratio"
+    },
+    "eml_chart_coverage_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "geometry_chart_coverage_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "mas_safe_in_process_contract": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "max_d_kl_nats": {
+      "operator": "<=",
+      "value": 0.1,
+      "unit": "nats"
+    },
+    "operator_chart_coverage_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "p95_d_kl_nats": {
+      "operator": "<=",
+      "value": 0.05,
+      "unit": "nats"
+    },
+    "prompt_count": {
+      "operator": "==",
+      "value": 1000,
+      "unit": "count"
+    },
+    "residency_split_labeled": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "scan_chart_coverage_available": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "synthetic_sparse_runtime_present": {
+      "operator": "==",
+      "value": true,
+      "unit": "bool"
+    },
+    "top1_match_ratio": {
+      "operator": ">=",
+      "value": 0.99,
+      "unit": "ratio"
+    },
+    "wall_us_p99": {
+      "operator": "<",
+      "value": 10000.0,
+      "unit": "microseconds"
+    }
+  },
+  "pass_per_axis": {
+    "active_assembly_ratio": true,
+    "assembly_count": true,
+    "average_d_kl_nats": true,
+    "cost_ratio": true,
+    "eml_chart_coverage_available": true,
+    "geometry_chart_coverage_available": true,
+    "mas_safe_in_process_contract": true,
+    "max_d_kl_nats": true,
+    "operator_chart_coverage_available": true,
+    "p95_d_kl_nats": true,
+    "prompt_count": true,
+    "residency_split_labeled": true,
+    "scan_chart_coverage_available": true,
+    "synthetic_sparse_runtime_present": true,
+    "top1_match_ratio": true,
+    "wall_us_p99": true
+  },
+  "overall_pass": true,
+  "fallback_tier": "Primary",
+  "anomalies": [
+    {
+      "kind": "synthetic_sparse_runtime_scope",
+      "detail": "This proves bounded sparse/reference mechanics and chart coverage on a deterministic fixture; it is not a live 70B sparse runtime or KV-spill proof."
+    }
+  ],
+  "notes": "sparse_runtime_split_synthetic_primary; selected sparse assemblies reproduce dense/reference logits within bounded drift over 1000 prompts; MAS-safe in-process contract; live 70B runtime remains gated by F-70B-Local-Cocktail-Lite"
+}

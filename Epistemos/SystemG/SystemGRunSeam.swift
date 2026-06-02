@@ -82,6 +82,7 @@ nonisolated enum SystemGAgentEvent: Codable, Hashable, Sendable {
     case toolStart(turnId: String, toolName: String, argsJson: String)
     case toolEnd(turnId: String, toolName: String, ok: Bool, outputJson: String)
     case tokenChunk(turnId: String, text: String)
+    case localModelHandoff(turnId: String, modelID: String, providerPolicyJSON: String)
     case complete(turnId: String, answerPacketId: String)
     case failed(turnId: String, error: String)
 
@@ -94,6 +95,7 @@ var turnId: String {
         case .toolStart(let t, _, _):    return t
         case .toolEnd(let t, _, _, _):   return t
         case .tokenChunk(let t, _):      return t
+        case .localModelHandoff(let t, _, _): return t
         case .complete(let t, _):        return t
         case .failed(let t, _):          return t
         }
@@ -113,6 +115,7 @@ var isTerminal: Bool {
         case toolStart  = "tool_start"
         case toolEnd    = "tool_end"
         case tokenChunk = "token_chunk"
+        case localModelHandoff = "local_model_handoff"
         case complete
         case failed
     }
@@ -126,6 +129,8 @@ var isTerminal: Bool {
         case ok
         case outputJson     = "output_json"
         case text
+        case modelID        = "model_id"
+        case providerPolicyJSON = "provider_policy_json"
         case answerPacketId = "answer_packet_id"
         case error
     }
@@ -157,6 +162,12 @@ var isTerminal: Bool {
             self = .tokenChunk(
                 turnId: turnId,
                 text: try c.decode(String.self, forKey: .text)
+            )
+        case .localModelHandoff:
+            self = .localModelHandoff(
+                turnId: turnId,
+                modelID: try c.decode(String.self, forKey: .modelID),
+                providerPolicyJSON: try c.decode(String.self, forKey: .providerPolicyJSON)
             )
         case .complete:
             self = .complete(
@@ -193,6 +204,11 @@ var isTerminal: Bool {
             try c.encode(Kind.tokenChunk, forKey: .kind)
             try c.encode(turnId, forKey: .turnId)
             try c.encode(text, forKey: .text)
+        case .localModelHandoff(let turnId, let modelID, let providerPolicyJSON):
+            try c.encode(Kind.localModelHandoff, forKey: .kind)
+            try c.encode(turnId, forKey: .turnId)
+            try c.encode(modelID, forKey: .modelID)
+            try c.encode(providerPolicyJSON, forKey: .providerPolicyJSON)
         case .complete(let turnId, let answerPacketId):
             try c.encode(Kind.complete, forKey: .kind)
             try c.encode(turnId, forKey: .turnId)

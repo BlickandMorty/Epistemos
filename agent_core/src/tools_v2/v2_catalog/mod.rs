@@ -40,6 +40,7 @@ pub mod communication_imessage_contacts;
 pub mod communication_send_message;
 pub mod discovery_mcp_discover;
 pub mod discovery_model_catalog;
+pub mod eidos_query;
 pub mod file_patch;
 pub mod file_read;
 pub mod file_search;
@@ -100,6 +101,7 @@ mod tests {
             super::vault_search::SPEC,
             super::vault_read::SPEC,
             super::vault_write::SPEC,
+            super::eidos_query::SPEC,
             super::workspace_search::SPEC,
             super::graph_neighbors::SPEC,
             super::chunk_reduce::SPEC,
@@ -195,6 +197,10 @@ mod tests {
             (
                 super::vault_write::SPEC.name,
                 (super::vault_write::SPEC.input_schema)(),
+            ),
+            (
+                super::eidos_query::SPEC.name,
+                (super::eidos_query::SPEC.input_schema)(),
             ),
             (
                 super::workspace_search::SPEC.name,
@@ -477,6 +483,7 @@ mod tests {
             super::vault_search::SPEC,
             super::vault_read::SPEC,
             super::vault_write::SPEC,
+            super::eidos_query::SPEC,
             super::workspace_search::SPEC,
             super::graph_neighbors::SPEC,
             super::chunk_reduce::SPEC,

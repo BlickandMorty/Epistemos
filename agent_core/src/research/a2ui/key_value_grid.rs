@@ -74,13 +74,9 @@ impl KeyValueGridProps {
     /// Cross-surface invariant: in a valid grid, every key returns a
     /// unique value (no double-counts).
     pub fn lookup(&self, key: &str) -> Option<&str> {
-        self.entries.iter().find_map(|(k, v)| {
-            if k == key {
-                Some(v.as_str())
-            } else {
-                None
-            }
-        })
+        self.entries
+            .iter()
+            .find_map(|(k, v)| if k == key { Some(v.as_str()) } else { None })
     }
 }
 
@@ -107,7 +103,10 @@ mod tests {
         let g = KeyValueGridProps {
             entries: vec![("".into(), "1".into())],
         };
-        assert_eq!(g.validate().unwrap_err(), KeyValueGridError::EmptyKey { index: 0 });
+        assert_eq!(
+            g.validate().unwrap_err(),
+            KeyValueGridError::EmptyKey { index: 0 }
+        );
     }
 
     #[test]
@@ -115,7 +114,10 @@ mod tests {
         let g = KeyValueGridProps {
             entries: vec![("a".into(), "1".into()), ("a".into(), "2".into())],
         };
-        assert_eq!(g.validate().unwrap_err(), KeyValueGridError::DuplicateKey { key: "a".into() });
+        assert_eq!(
+            g.validate().unwrap_err(),
+            KeyValueGridError::DuplicateKey { key: "a".into() }
+        );
     }
 
     #[test]
@@ -164,10 +166,7 @@ mod tests {
     #[test]
     fn lookup_returns_value_for_existing_key() {
         let g = KeyValueGridProps {
-            entries: vec![
-                ("name".into(), "alice".into()),
-                ("age".into(), "30".into()),
-            ],
+            entries: vec![("name".into(), "alice".into()), ("age".into(), "30".into())],
         };
         assert_eq!(g.lookup("name"), Some("alice"));
         assert_eq!(g.lookup("age"), Some("30"));

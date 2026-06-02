@@ -68,7 +68,9 @@ impl AttentionSpectrum {
                 return Err(AttentionSinkError::NotSortedDescending { at: i });
             }
         }
-        Ok(Self { eigenvalues_descending: values })
+        Ok(Self {
+            eigenvalues_descending: values,
+        })
     }
 
     pub fn len(&self) -> usize {
@@ -100,7 +102,10 @@ impl AttentionSpectrum {
 
     /// Smallest eigenvalue (last index because sorted descending).
     pub fn min(&self) -> f64 {
-        *self.eigenvalues_descending.last().expect("non-empty by invariant")
+        *self
+            .eigenvalues_descending
+            .last()
+            .expect("non-empty by invariant")
     }
 
     /// Sum of all eigenvalues. The spectral trace / total attention
@@ -410,7 +415,10 @@ mod tests {
     fn error_cause_distinct_per_variant() {
         let variants = [
             AttentionSinkError::EmptySpectrum,
-            AttentionSinkError::NegativeEigenvalue { index: 0, value: -1.0 },
+            AttentionSinkError::NegativeEigenvalue {
+                index: 0,
+                value: -1.0,
+            },
             AttentionSinkError::NonFiniteEigenvalue { index: 0 },
             AttentionSinkError::NotSortedDescending { at: 1 },
             AttentionSinkError::DominanceOutOfRange { value: 0.0 },
@@ -423,7 +431,10 @@ mod tests {
     fn error_classifiers_partition_variants() {
         let variants = [
             AttentionSinkError::EmptySpectrum,
-            AttentionSinkError::NegativeEigenvalue { index: 0, value: -1.0 },
+            AttentionSinkError::NegativeEigenvalue {
+                index: 0,
+                value: -1.0,
+            },
             AttentionSinkError::NonFiniteEigenvalue { index: 0 },
             AttentionSinkError::NotSortedDescending { at: 1 },
             AttentionSinkError::DominanceOutOfRange { value: 0.0 },

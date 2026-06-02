@@ -104,12 +104,18 @@ impl ChartProps {
         }
         for (i, &v) in self.x_values.iter().enumerate() {
             if !v.is_finite() {
-                return Err(ChartError::NonFiniteValue { index: i, axis: "x" });
+                return Err(ChartError::NonFiniteValue {
+                    index: i,
+                    axis: "x",
+                });
             }
         }
         for (i, &v) in self.y_values.iter().enumerate() {
             if !v.is_finite() {
-                return Err(ChartError::NonFiniteValue { index: i, axis: "y" });
+                return Err(ChartError::NonFiniteValue {
+                    index: i,
+                    axis: "y",
+                });
             }
         }
         Ok(())
@@ -132,11 +138,15 @@ mod tests {
 
     #[test]
     fn four_distinct_kinds() {
-        let s: std::collections::HashSet<_> =
-            [ChartKind::Line, ChartKind::Bar, ChartKind::Scatter, ChartKind::Area]
-                .iter()
-                .copied()
-                .collect();
+        let s: std::collections::HashSet<_> = [
+            ChartKind::Line,
+            ChartKind::Bar,
+            ChartKind::Scatter,
+            ChartKind::Area,
+        ]
+        .iter()
+        .copied()
+        .collect();
         assert_eq!(s.len(), 4);
     }
 
@@ -173,7 +183,10 @@ mod tests {
             x_label: "x".into(),
             y_label: "y".into(),
         };
-        assert_eq!(c.validate().unwrap_err(), ChartError::LengthMismatch { x: 1, y: 2 });
+        assert_eq!(
+            c.validate().unwrap_err(),
+            ChartError::LengthMismatch { x: 1, y: 2 }
+        );
     }
 
     #[test]
@@ -185,7 +198,10 @@ mod tests {
             x_label: "x".into(),
             y_label: "y".into(),
         };
-        assert!(matches!(c.validate().unwrap_err(), ChartError::NonFiniteValue { axis: "x", .. }));
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            ChartError::NonFiniteValue { axis: "x", .. }
+        ));
     }
 
     #[test]
@@ -229,7 +245,10 @@ mod tests {
         let variants = [
             ChartError::LengthMismatch { x: 1, y: 2 },
             ChartError::EmptyData,
-            ChartError::NonFiniteValue { index: 0, axis: "x" },
+            ChartError::NonFiniteValue {
+                index: 0,
+                axis: "x",
+            },
         ];
         let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
         assert_eq!(causes.len(), 3);
@@ -238,14 +257,15 @@ mod tests {
     #[test]
     fn error_axis_extracts_for_non_finite() {
         assert_eq!(
-            ChartError::NonFiniteValue { index: 0, axis: "y" }.axis(),
+            ChartError::NonFiniteValue {
+                index: 0,
+                axis: "y"
+            }
+            .axis(),
             Some("y"),
         );
         assert_eq!(ChartError::EmptyData.axis(), None);
-        assert_eq!(
-            ChartError::LengthMismatch { x: 1, y: 2 }.axis(),
-            None,
-        );
+        assert_eq!(ChartError::LengthMismatch { x: 1, y: 2 }.axis(), None,);
     }
 
     #[test]

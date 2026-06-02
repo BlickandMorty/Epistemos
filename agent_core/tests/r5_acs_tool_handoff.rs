@@ -98,14 +98,14 @@ fn forged_signature_property_rejects_mutation_at_proof_boundary() {
 }
 
 #[test]
-fn raw_tool_call_event_is_not_recorded_without_acs_admission() {
+fn raw_tool_call_event_is_not_recorded_without_scope_rex_admission() {
     let mut run = MissionRun::new(AgentBlueprintId("blueprint-raw-tool".into()), budget_spec());
     let ordinal = run.record_event(AgentEvent::ToolCall { call: tool_call() });
 
     assert_eq!(ordinal, 0);
     assert!(
         run.run_event_log().find_tool_calls().is_empty(),
-        "raw ToolCall rows must not bypass ACS admission"
+        "raw ToolCall rows must not bypass SCOPE-Rex Admission"
     );
     match &run.run_event_log().entries()[0] {
         RunEventEntry::Event {
@@ -113,14 +113,14 @@ fn raw_tool_call_event_is_not_recorded_without_acs_admission() {
             ..
         } => {
             assert_eq!(kind.code(), "capability_denied");
-            assert!(message.contains("requires ACS admission"));
+            assert!(message.contains("requires SCOPE-Rex Admission"));
         }
         other => panic!("expected capability-denied error row, got {other:?}"),
     }
 }
 
 #[test]
-fn acs_blocked_tool_call_records_verdict_but_does_not_append_tool_event() {
+fn scope_rex_blocked_tool_call_records_verdict_but_does_not_append_tool_event() {
     let mut run = MissionRun::new(
         AgentBlueprintId("blueprint-acs-block".into()),
         budget_spec(),
@@ -134,7 +134,7 @@ fn acs_blocked_tool_call_records_verdict_but_does_not_append_tool_event() {
 
     let err = run
         .admit_and_record_tool_call(call, &sink, &policy, 1_700_000_000_050, &key)
-        .expect_err("policy is not valid yet, so ACS blocks the call");
+        .expect_err("policy is not valid yet, so SCOPE-Rex blocks the call");
     match err {
         ToolCallAdmissionError::Blocked {
             verdict, reason, ..
@@ -142,7 +142,7 @@ fn acs_blocked_tool_call_records_verdict_but_does_not_append_tool_event() {
             assert_eq!(verdict, ACSAdmissionVerdict::Reject);
             assert_eq!(reason, "policy_not_yet_valid");
         }
-        other => panic!("expected blocked ACS verdict, got {other:?}"),
+        other => panic!("expected blocked SCOPE-Rex verdict, got {other:?}"),
     }
     let records = snapshot_acs_audit_records(&audit_log).expect("blocked verdict is still audited");
     assert_eq!(records.len(), 1);

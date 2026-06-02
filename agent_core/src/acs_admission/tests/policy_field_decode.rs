@@ -3,7 +3,6 @@
 use serde::{Deserialize, Serialize};
 
 use super::*;
-use crate::acs_admission::*;
 use crate::acs_admission::admit::*;
 use crate::acs_admission::audit_sink::*;
 use crate::acs_admission::common::*;
@@ -16,6 +15,7 @@ use crate::acs_admission::risk::*;
 use crate::acs_admission::validation::*;
 use crate::acs_admission::verdict::*;
 use crate::acs_admission::wire::*;
+use crate::acs_admission::*;
 use crate::{
     artifacts::ArtifactRef,
     effect::receipt::{Capability, SigningKey},
@@ -285,8 +285,8 @@ fn acs_admission_shadow_capability_envelope_field_names_malformed_policy_field()
 
 #[test]
 fn acs_admission_shadow_policy_field_is_rejected_on_decode() {
-    let mut value = serde_json::to_value(ACSPolicy::strict("policy-shadow", 1_000))
-        .expect("policy encodes");
+    let mut value =
+        serde_json::to_value(ACSPolicy::strict("policy-shadow", 1_000)).expect("policy encodes");
     value["shadow_valid_until_ms"] = serde_json::json!(i64::MAX);
 
     let decoded = serde_json::from_value::<ACSPolicy>(value);
@@ -1249,4 +1249,3 @@ fn acs_admission_answer_packet_rejects_boundary_spaced_claim_id() {
 
     assert!(serde_json::from_value::<ACSAdmissionPayload>(value).is_err());
 }
-

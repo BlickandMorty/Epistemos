@@ -14,22 +14,31 @@ struct ContextualShadowsButton: View {
     @Environment(ContextualShadowsState.self) private var state
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    var scopeKind: RecallContextKind?
+    var scopeID: String?
+
+    private var payload: ContextualShadowsState.RecallPayload {
+        state.payload(kind: scopeKind, originDocId: scopeID)
+    }
+
     var body: some View {
         Group {
-            if state.isEnabled, !state.currentResults.isEmpty {
+            if state.isEnabled, payload.hasPanelPayload {
                 Button {
-                    state.openPanel()
+                    state.openPanel(kind: scopeKind, originDocId: scopeID)
                 } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: "sparkles")
+                        Image(systemName: payload.errorMessage == nil ? "sparkles" : "exclamationmark.triangle")
                             .font(.system(size: 10, weight: .semibold))
-                        Text("\(state.currentResults.count)")
-                            .font(.system(size: 10, weight: .semibold))
-                            .monospacedDigit()
+                        if payload.errorMessage == nil {
+                            Text(payload.isSearching ? "..." : "\(payload.results.count)")
+                                .font(.system(size: 10, weight: .semibold))
+                                .monospacedDigit()
+                        }
                     }
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
-                    .foregroundStyle(Color(nsColor: .tertiaryLabelColor))
+                    .foregroundStyle(payload.errorMessage == nil ? Color(nsColor: .tertiaryLabelColor) : Color.orange)
                     .background(
                         Capsule(style: .continuous)
                             .fill(Color(nsColor: .quaternaryLabelColor).opacity(0.4))
@@ -37,11 +46,33 @@ struct ContextualShadowsButton: View {
                     .contentShape(Capsule(style: .continuous))
                 }
                 .buttonStyle(.plain)
-                .help("Show \(state.currentResults.count) related from your vault")
-                .accessibilityLabel("Show \(state.currentResults.count) related items from your vault")
+                .help(helpText)
+                .accessibilityLabel(accessibilityText)
                 .transition(reduceMotion ? .identity : .opacity)
             }
         }
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.15), value: state.currentResults.count)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.15), value: payload.results.count)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.15), value: payload.errorMessage)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.15), value: payload.isSearching)
+    }
+
+    private var helpText: String {
+        if let errorMessage = payload.errorMessage {
+            return errorMessage
+        }
+        if payload.isSearching {
+            return "Searching related items"
+        }
+        return "Show \(payload.results.count) related from your vault"
+    }
+
+    private var accessibilityText: String {
+        if payload.isSearching {
+            return "Searching related items from your vault"
+        }
+        if payload.errorMessage != nil {
+            return "Show contextual shadows error"
+        }
+        return "Show \(payload.results.count) related items from your vault"
     }
 }

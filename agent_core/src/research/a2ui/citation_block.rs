@@ -102,7 +102,11 @@ mod tests {
     use super::*;
 
     fn cit(uri: &str, q: &str) -> Citation {
-        Citation { source_uri: uri.into(), title: "t".into(), quote: q.into() }
+        Citation {
+            source_uri: uri.into(),
+            title: "t".into(),
+            quote: q.into(),
+        }
     }
 
     #[test]
@@ -113,25 +117,39 @@ mod tests {
 
     #[test]
     fn valid_passes() {
-        let c = CitationBlockProps { citations: vec![cit("x://y", "quote")] };
+        let c = CitationBlockProps {
+            citations: vec![cit("x://y", "quote")],
+        };
         assert!(c.validate().is_ok());
     }
 
     #[test]
     fn missing_uri_rejected() {
-        let c = CitationBlockProps { citations: vec![cit("", "q")] };
-        assert!(matches!(c.validate().unwrap_err(), CitationBlockError::MissingSourceUri { .. }));
+        let c = CitationBlockProps {
+            citations: vec![cit("", "q")],
+        };
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            CitationBlockError::MissingSourceUri { .. }
+        ));
     }
 
     #[test]
     fn empty_quote_rejected() {
-        let c = CitationBlockProps { citations: vec![cit("x", "")] };
-        assert!(matches!(c.validate().unwrap_err(), CitationBlockError::EmptyQuote { .. }));
+        let c = CitationBlockProps {
+            citations: vec![cit("x", "")],
+        };
+        assert!(matches!(
+            c.validate().unwrap_err(),
+            CitationBlockError::EmptyQuote { .. }
+        ));
     }
 
     #[test]
     fn serde_json_roundtrip() {
-        let c = CitationBlockProps { citations: vec![cit("x", "q")] };
+        let c = CitationBlockProps {
+            citations: vec![cit("x", "q")],
+        };
         let json = serde_json::to_string(&c).unwrap();
         let back: CitationBlockProps = serde_json::from_str(&json).unwrap();
         assert_eq!(c, back);
@@ -167,7 +185,11 @@ mod tests {
     fn citation_has_title_aligned_with_field() {
         let titled = cit("x://y", "q"); // helper hardcodes "t" as title
         assert!(titled.has_title());
-        let untitled = Citation { source_uri: "x".into(), title: String::new(), quote: "q".into() };
+        let untitled = Citation {
+            source_uri: "x".into(),
+            title: String::new(),
+            quote: "q".into(),
+        };
         assert!(!untitled.has_title());
     }
 
@@ -184,7 +206,11 @@ mod tests {
         let c = CitationBlockProps {
             citations: vec![
                 cit("a", "q1"), // has title "t"
-                Citation { source_uri: "b".into(), title: String::new(), quote: "q2".into() },
+                Citation {
+                    source_uri: "b".into(),
+                    title: String::new(),
+                    quote: "q2".into(),
+                },
                 cit("c", "q3"), // has title
             ],
         };
@@ -193,7 +219,9 @@ mod tests {
 
     #[test]
     fn is_valid_matches_validate_ok() {
-        let good = CitationBlockProps { citations: vec![cit("x", "q")] };
+        let good = CitationBlockProps {
+            citations: vec![cit("x", "q")],
+        };
         assert_eq!(good.is_valid(), good.validate().is_ok());
         assert!(good.is_valid());
     }

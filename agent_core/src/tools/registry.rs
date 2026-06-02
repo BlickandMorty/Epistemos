@@ -353,6 +353,8 @@ pub const LEGACY_TO_V2_ALIASES: &[(&str, &str)] = &[
     ("list_files", "file.list"),
     ("move_file", "file.move"),
     ("todo", "system.todo"),
+    ("eidos_query", "eidos.query"),
+    ("eidos_search", "eidos.query"),
     ("vault_recall", "knowledge.recall"),
     ("contradiction_check", "knowledge.contradiction_check"),
     ("analyzecontradiction", "knowledge.contradiction_check"),
@@ -1009,6 +1011,7 @@ impl ToolRegistry {
             // Vault reads
             "vault_search",
             "vault_read",
+            "eidos_query",
             "vault_recall",
             "pkm_graph_neighbors",
             "graph_query",
@@ -1635,10 +1638,20 @@ impl ToolRegistry {
 
     fn register_phase_two_knowledge(&mut self) {
         use crate::tools::knowledge::{
-            contradiction_check_schema, evidence_score_schema, neural_recall_schema,
-            vault_recall_schema, ContradictionCheckHandler, EvidenceScoreHandler,
-            NeuralRecallHandler, VaultRecallHandler,
+            contradiction_check_schema, eidos_query_schema, evidence_score_schema,
+            neural_recall_schema, vault_recall_schema, ContradictionCheckHandler,
+            EidosQueryHandler, EvidenceScoreHandler, NeuralRecallHandler, VaultRecallHandler,
         };
+
+        let eidos = eidos_query_schema();
+        self.register(RegisteredTool {
+            name: eidos.name,
+            description: eidos.description,
+            parameters: eidos.parameters,
+            handler: Box::new(EidosQueryHandler::new(Arc::clone(&self.vault))),
+            risk_level: RiskLevel::ReadOnly,
+            tier: ToolTier::Agent,
+        });
 
         let vr = vault_recall_schema();
         self.register(RegisteredTool {
@@ -1907,12 +1920,13 @@ impl ToolRegistry {
             name: "vault_search".to_string(),
             description: "Hybrid semantic and keyword search across the personal knowledge vault. \
                 Use this first when the user names or describes a note but you do not yet have \
-                its exact vault-relative path."
+                its exact vault-relative path. Accepts natural sentences, exact titles, aliases, \
+                tags, vault-relative paths, and Finder-copied absolute paths inside the vault."
                 .to_string(),
             parameters: json!({
                 "type": "object",
                 "properties": {
-                    "query": { "type": "string", "description": "Natural language search query" },
+                    "query": { "type": "string", "description": "Natural language search query, exact note title, alias, metadata phrase, vault-relative path, or Finder path inside the vault" },
                     "limit": {
                         "type": "integer",
                         "description": "Maximum results to return",
@@ -1962,7 +1976,8 @@ impl ToolRegistry {
                 Returns paths sorted alphabetically (not by relevance). \
                 IF YOU WANT NOTES ABOUT A TOPIC or relevance-ranked results, USE vault.search INSTEAD — \
                 list_notes is only for browsing a known folder structure. \
-                Pass `query` to auto-route this call to vault.search for convenience."
+                Pass `query` to auto-route this call to vault.search for convenience. If `path` \
+                is not a real folder, this tool retries it as a vault.search query before giving up."
                 .to_string(),
             parameters: json!({
                 "type": "object",
@@ -2704,8 +2719,7 @@ impl ToolHandler for VaultSearchHandler {
             .get("query")
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("query required".to_string()))?;
-        let limit = (input.get("limit").and_then(Value::as_u64).unwrap_or(5) as usize)
-            .clamp(1, 20);
+        let limit = (input.get("limit").and_then(Value::as_u64).unwrap_or(5) as usize).clamp(1, 20);
         let tags: Vec<String> = input
             .get("tags")
             .and_then(Value::as_array)
@@ -2724,8 +2738,8 @@ impl ToolHandler for VaultSearchHandler {
             tags,
             backend: self.vault.clone(),
         };
-        let ladder = build_vault_search_ladder()
-            .map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
+        let ladder =
+            build_vault_search_ladder().map_err(|e| ToolError::ExecutionFailed(e.to_string()))?;
 
         let walk = ladder.resolve_walk(&ladder_input).await;
 
@@ -2735,8 +2749,8 @@ impl ToolHandler for VaultSearchHandler {
         // Provenance Console. `LadderAttempt` now derives Serialize
         // (added in B.1 5/N) so the attempts vec serializes directly
         // via serde — no manual JSON construction needed.
-        let attempts_json = serde_json::to_string(&walk.attempts)
-            .unwrap_or_else(|_| "[]".to_string());
+        let attempts_json =
+            serde_json::to_string(&walk.attempts).unwrap_or_else(|_| "[]".to_string());
         let resolved_variant = walk
             .resolution
             .as_ref()
@@ -2794,6 +2808,67 @@ struct VaultReadHandler {
     vault: Arc<dyn VaultBackend>,
 }
 
+fn normalized_read_recovery_terms(value: &str) -> Vec<String> {
+    value
+        .split(|ch: char| !ch.is_alphanumeric())
+        .map(str::trim)
+        .filter(|term| !term.is_empty())
+        .map(str::to_lowercase)
+        .collect()
+}
+
+fn normalized_read_recovery_key(value: &str) -> String {
+    normalized_read_recovery_terms(value).join(" ")
+}
+
+fn vault_read_recovery_queries(path: &str) -> Vec<String> {
+    let mut queries = Vec::new();
+    let mut push = |value: &str| {
+        let trimmed = value
+            .trim()
+            .trim_matches(|ch| matches!(ch, '"' | '\'' | '`' | '<' | '>'));
+        if trimmed.is_empty() {
+            return;
+        }
+        if !queries.iter().any(|existing| existing == trimmed) {
+            queries.push(trimmed.to_string());
+        }
+    };
+
+    push(path);
+    if let Some(stem) = std::path::Path::new(path)
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+    {
+        push(stem);
+    }
+    queries
+}
+
+fn vault_read_recovery_is_confident(
+    requested_path: &str,
+    result: &crate::storage::vault::SearchResult,
+) -> bool {
+    if result.score >= 12.0 {
+        return true;
+    }
+
+    let requested_keys: HashSet<String> = vault_read_recovery_queries(requested_path)
+        .into_iter()
+        .map(|query| normalized_read_recovery_key(&query))
+        .filter(|key| !key.is_empty())
+        .collect();
+    if requested_keys.is_empty() {
+        return false;
+    }
+
+    let result_stem = std::path::Path::new(&result.path)
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or(&result.path);
+    requested_keys.contains(&normalized_read_recovery_key(result_stem))
+}
+
 #[async_trait]
 impl ToolHandler for VaultReadHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
@@ -2801,7 +2876,69 @@ impl ToolHandler for VaultReadHandler {
             .get("path")
             .and_then(Value::as_str)
             .ok_or_else(|| ToolError::InvalidArguments("path required".to_string()))?;
-        self.vault.read(path).await.map_err(map_vault_error)
+        match self.vault.read(path).await {
+            Ok(content) => Ok(content),
+            Err(VaultError::NotFound(_)) => {
+                let mut recovery_results = Vec::new();
+                for query in vault_read_recovery_queries(path) {
+                    let mut results = self
+                        .vault
+                        .hybrid_search(&query, 3, &[])
+                        .await
+                        .map_err(map_vault_error)?;
+                    recovery_results.append(&mut results);
+                }
+                recovery_results.sort_by(|lhs, rhs| {
+                    rhs.score
+                        .partial_cmp(&lhs.score)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                        .then_with(|| lhs.path.cmp(&rhs.path))
+                });
+                recovery_results.dedup_by(|lhs, rhs| lhs.path == rhs.path);
+
+                if let Some(result) = recovery_results
+                    .first()
+                    .filter(|result| vault_read_recovery_is_confident(path, result))
+                {
+                    let content = self
+                        .vault
+                        .read(&result.path)
+                        .await
+                        .map_err(map_vault_error)?;
+                    return Ok(format!(
+                        "Auto-routed missing vault.read path `{path}` through vault.search and read `{}`.\n\n{}",
+                        result.path, content
+                    ));
+                }
+
+                if recovery_results.is_empty() {
+                    return Ok(format!(
+                        "No vault note exists at `{path}`. Retried through vault.search, but no recovery candidates matched. \
+                         Use vault.search with a natural-language query, exact title, alias, or Finder path inside the vault."
+                    ));
+                }
+
+                let suggestions = recovery_results
+                    .iter()
+                    .take(3)
+                    .enumerate()
+                    .map(|(index, result)| {
+                        format!(
+                            "{}. **{}** (score: {:.2})\n{}",
+                            index + 1,
+                            result.path,
+                            result.score,
+                            result.excerpt
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n\n");
+                Ok(format!(
+                    "No vault note exists at `{path}`. Retried through vault.search, but no single exact path/title recovery was safe to auto-read. Candidate notes:\n\n{suggestions}"
+                ))
+            }
+            Err(error) => Err(map_vault_error(error)),
+        }
     }
 }
 
@@ -2888,7 +3025,47 @@ impl ToolHandler for VaultListHandler {
         entries.dedup();
 
         if entries.is_empty() {
-            return Ok(format!("No notes found under `{path_prefix}`."));
+            // Small local models often pass a note title as `path` instead
+            // of `query` (for example `path: "My Autobiography"`). Treat an
+            // empty folder listing as a relevance-search retry before
+            // returning nothing so the agent stays in the vault stack instead
+            // of falling through to broad file.search.
+            if path_prefix != "." {
+                let fallback_limit = limit.clamp(1, 20);
+                let results = self
+                    .vault
+                    .hybrid_search(path_prefix, fallback_limit, &[])
+                    .await
+                    .map_err(map_vault_error)?;
+                if !results.is_empty() {
+                    let header = format!(
+                        "No folder matched `{path_prefix}`. Auto-routed to vault.search for relevance. \
+                         Returned {} result{}:",
+                        results.len(),
+                        if results.len() == 1 { "" } else { "s" }
+                    );
+                    let body = results
+                        .iter()
+                        .enumerate()
+                        .map(|(index, result)| {
+                            format!(
+                                "{}. **{}** (score: {:.2})\n{}",
+                                index + 1,
+                                result.path,
+                                result.score,
+                                result.excerpt
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n\n");
+                    return Ok(format!("{header}\n\n{body}"));
+                }
+            }
+
+            return Ok(format!(
+                "No notes found under `{path_prefix}`. If `{path_prefix}` is a title or topic, \
+                 call vault.search with it as `query`."
+            ));
         }
 
         let total = entries.len();
@@ -3339,6 +3516,59 @@ mod tier_tests {
         }
     }
 
+    struct TitleFallbackVault;
+
+    #[async_trait]
+    impl VaultBackend for TitleFallbackVault {
+        async fn hybrid_search(
+            &self,
+            query: &str,
+            _limit: usize,
+            _tag_filter: &[String],
+        ) -> Result<Vec<SearchResult>, VaultError> {
+            if query == "My Autobiography" {
+                Ok(vec![SearchResult {
+                    path: "some essays/My Autobiography.md".to_string(),
+                    excerpt: "I grew up around projects, school, and personal systems.".to_string(),
+                    score: 8.0,
+                    tags: Vec::new(),
+                }])
+            } else {
+                Ok(Vec::new())
+            }
+        }
+
+        async fn read(&self, path: &str) -> Result<String, VaultError> {
+            if path == "some essays/My Autobiography.md" {
+                Ok("I grew up around projects, school, and personal systems.".to_string())
+            } else {
+                Err(VaultError::NotFound(path.to_string()))
+            }
+        }
+
+        async fn write(
+            &self,
+            _path: &str,
+            _content: &str,
+            _tags: Option<&[String]>,
+            _append: bool,
+        ) -> Result<(), VaultError> {
+            Ok(())
+        }
+
+        async fn list(&self, _path_prefix: &str) -> Result<Vec<String>, VaultError> {
+            Ok(Vec::new())
+        }
+
+        async fn exists(&self, _path: &str) -> Result<bool, VaultError> {
+            Ok(false)
+        }
+
+        async fn delete(&self, _path: &str) -> Result<bool, VaultError> {
+            Ok(false)
+        }
+    }
+
     fn build_registry(tier: ToolTier) -> ToolRegistry {
         ToolRegistry::with_tier(
             Arc::new(NullVault::default()),
@@ -3436,6 +3666,10 @@ mod tier_tests {
             names.contains(&"knowledge.recall".to_string()),
             "chat_lite must expose knowledge.recall"
         );
+        assert!(
+            names.contains(&"eidos.query".to_string()),
+            "chat_lite must expose eidos.query as the agent-facing evidence selector"
+        );
         assert!(names.contains(&"think".to_string()));
         assert!(names.contains(&"file.read".to_string()));
         assert!(names.contains(&"web.fetch".to_string()));
@@ -3529,6 +3763,8 @@ mod tier_tests {
         );
         assert_eq!(v2_name_for_legacy("vault_search"), Some("vault.search"));
         assert_eq!(legacy_name_for_v2("vault.search"), Some("vault_search"));
+        assert_eq!(v2_name_for_legacy("eidos_query"), Some("eidos.query"));
+        assert_eq!(legacy_name_for_v2("eidos.query"), Some("eidos_query"));
         assert_eq!(v2_name_for_legacy("read_file"), Some("file.read"));
         assert_eq!(legacy_name_for_v2("file.read"), Some("read_file"));
         assert_eq!(
@@ -3547,6 +3783,26 @@ mod tier_tests {
             .expect("dotted v2 vault.read must route through the current registry");
 
         assert_eq!(result, "");
+    }
+
+    #[tokio::test]
+    async fn execute_v2_routes_eidos_query_through_vault_trace_backend() {
+        let registry = build_registry(ToolTier::ChatLite);
+        let result = registry
+            .execute_v2(
+                "eidos.query",
+                &serde_json::json!({ "query": "missing note" }),
+            )
+            .await
+            .expect("dotted v2 eidos.query must route through the current registry");
+        let parsed: Value = serde_json::from_str(&result).expect("eidos.query returns JSON");
+
+        assert_eq!(parsed["tool"], serde_json::json!("eidos.query"));
+        assert_eq!(parsed["mode"], serde_json::json!("hybrid"));
+        assert_eq!(
+            parsed["backend_status"],
+            serde_json::json!("production_lexical_path_title_paragraph_trace_semantic_pending")
+        );
     }
 
     #[test]
@@ -3569,6 +3825,7 @@ mod tier_tests {
             "research.search_papers",
             "file.read",
             "file.search",
+            "eidos.query",
             "knowledge.recall",
             "knowledge.evidence_score",
             "graph.neighbors",
@@ -3590,6 +3847,8 @@ mod tier_tests {
             "searchpapers",
             "read_file",
             "search_files",
+            "eidos_query",
+            "eidos_search",
             "vault_recall",
             "scoreevidence",
             "pkm_graph_neighbors",
@@ -3607,6 +3866,7 @@ mod tier_tests {
         let names = registry.allowed_tool_names();
 
         assert!(names.contains(&"vault.search".to_string()));
+        assert!(names.contains(&"eidos.query".to_string()));
         assert!(names.contains(&"file.read".to_string()));
         assert!(names.contains(&"vault.list".to_string()));
         assert!(names.contains(&"note.create".to_string()));
@@ -3614,6 +3874,7 @@ mod tier_tests {
         assert!(names.contains(&"citation.save".to_string()));
         assert!(names.contains(&"research.search_papers".to_string()));
         assert!(!names.contains(&"vault_search".to_string()));
+        assert!(!names.contains(&"eidos_query".to_string()));
         assert!(!names.contains(&"read_file".to_string()));
         assert!(!names.contains(&"list_notes".to_string()));
     }
@@ -3721,6 +3982,67 @@ mod tier_tests {
             "list_notes with `query` must surface the auto-route disclaimer so the agent \
              knows the call took the vault.search path (relevance), not the alphabetical \
              path; got: {result}"
+        );
+    }
+
+    #[tokio::test]
+    async fn list_notes_retries_path_as_vault_search_when_folder_is_missing() {
+        // Local-model recovery path: if the agent accidentally puts a
+        // note title in `path`, `vault.list` should retry through the
+        // relevance stack before returning an empty folder listing.
+        let registry = ToolRegistry::with_tier(
+            Arc::new(TitleFallbackVault),
+            true,
+            None::<std::path::PathBuf>,
+            ToolTier::Agent,
+        );
+
+        let result = registry
+            .execute_v2(
+                "vault.list",
+                &serde_json::json!({ "path": "My Autobiography", "limit": 5 }),
+            )
+            .await
+            .expect("vault.list path fallback should execute");
+
+        assert!(
+            result.contains("Auto-routed to vault.search"),
+            "vault.list should disclose the relevance retry; got: {result}"
+        );
+        assert!(
+            result.contains("some essays/My Autobiography.md"),
+            "vault.list path fallback should surface the vault.search hit; got: {result}"
+        );
+    }
+
+    #[tokio::test]
+    async fn vault_read_retries_missing_title_through_vault_search() {
+        // Local-model recovery path: if the agent calls vault.read with
+        // a title instead of the canonical vault-relative path, read can
+        // recover through vault.search when the returned title match is
+        // exact enough to auto-read.
+        let registry = ToolRegistry::with_tier(
+            Arc::new(TitleFallbackVault),
+            true,
+            None::<std::path::PathBuf>,
+            ToolTier::Agent,
+        );
+
+        let result = registry
+            .execute_v2(
+                "vault.read",
+                &serde_json::json!({ "path": "My Autobiography" }),
+            )
+            .await
+            .expect("vault.read title fallback should execute");
+
+        assert!(
+            result.contains("Auto-routed missing vault.read path"),
+            "vault.read should disclose the recovery search; got: {result}"
+        );
+        assert!(
+            result.contains("I grew up around projects"),
+            "vault.read should return the recovered note body; got: {result}"
         );
     }
 

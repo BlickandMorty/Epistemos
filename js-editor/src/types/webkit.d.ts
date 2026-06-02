@@ -18,6 +18,8 @@ interface WebKitMessageHandlers {
    * `EpdocDocument`. See `Epistemos/Engine/EpdocEditorBridge.swift`.
    */
   epdoc: WebKitMessageHandler;
+  /** Code-note editor bridge registered by WebKitCodeEditorView.swift. */
+  epistemosCodeEditor?: WebKitMessageHandler;
 }
 
 interface WebKit {
@@ -37,5 +39,9 @@ interface Window {
     insertSlashChoice(blockType: string): void;
     dismissBubbleMenu(): void;
     runCommand(name: string, ...args: unknown[]): boolean;
+  };
+  epistemosCodeEditor?: {
+    setState(state: unknown): void;
+    selectRange(location: number, length: number): void;
   };
 }

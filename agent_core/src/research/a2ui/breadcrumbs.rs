@@ -126,21 +126,32 @@ mod tests {
     #[test]
     fn valid_passes() {
         let b = BreadcrumbsProps {
-            items: vec![item("Home", Some("/")), item("Notes", Some("/notes")), item("Current", None)],
+            items: vec![
+                item("Home", Some("/")),
+                item("Notes", Some("/notes")),
+                item("Current", None),
+            ],
         };
         assert!(b.validate().is_ok());
     }
 
     #[test]
     fn single_item_no_link_passes() {
-        let b = BreadcrumbsProps { items: vec![item("Only", None)] };
+        let b = BreadcrumbsProps {
+            items: vec![item("Only", None)],
+        };
         assert!(b.validate().is_ok());
     }
 
     #[test]
     fn empty_label_rejected() {
-        let b = BreadcrumbsProps { items: vec![item("", None)] };
-        assert!(matches!(b.validate().unwrap_err(), BreadcrumbsError::EmptyLabel { .. }));
+        let b = BreadcrumbsProps {
+            items: vec![item("", None)],
+        };
+        assert!(matches!(
+            b.validate().unwrap_err(),
+            BreadcrumbsError::EmptyLabel { .. }
+        ));
     }
 
     #[test]
@@ -148,7 +159,10 @@ mod tests {
         let b = BreadcrumbsProps {
             items: vec![item("Home", Some("/")), item("Current", Some("/c"))],
         };
-        assert_eq!(b.validate().unwrap_err(), BreadcrumbsError::LastItemMustNotLink);
+        assert_eq!(
+            b.validate().unwrap_err(),
+            BreadcrumbsError::LastItemMustNotLink
+        );
     }
 
     #[test]

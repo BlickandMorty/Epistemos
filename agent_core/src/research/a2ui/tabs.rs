@@ -102,12 +102,18 @@ mod tests {
     use super::*;
 
     fn pane(k: &str, l: &str) -> TabPane {
-        TabPane { key: k.into(), label: l.into() }
+        TabPane {
+            key: k.into(),
+            label: l.into(),
+        }
     }
 
     #[test]
     fn no_panes_rejected() {
-        let t = TabsProps { panes: vec![], active_key: String::new() };
+        let t = TabsProps {
+            panes: vec![],
+            active_key: String::new(),
+        };
         assert_eq!(t.validate().unwrap_err(), TabsError::NoPanes);
     }
 
@@ -135,7 +141,10 @@ mod tests {
             panes: vec![pane("", "X")],
             active_key: String::new(),
         };
-        assert!(matches!(t.validate().unwrap_err(), TabsError::EmptyKey { .. }));
+        assert!(matches!(
+            t.validate().unwrap_err(),
+            TabsError::EmptyKey { .. }
+        ));
     }
 
     #[test]
@@ -149,7 +158,10 @@ mod tests {
 
     #[test]
     fn serde_json_roundtrip() {
-        let t = TabsProps { panes: vec![pane("a", "A")], active_key: "a".into() };
+        let t = TabsProps {
+            panes: vec![pane("a", "A")],
+            active_key: "a".into(),
+        };
         let json = serde_json::to_string(&t).unwrap();
         let back: TabsProps = serde_json::from_str(&json).unwrap();
         assert_eq!(t, back);
@@ -182,7 +194,10 @@ mod tests {
             assert_ne!(e.is_pane_error(), e.is_active_key_error());
         }
         assert_eq!(variants.iter().filter(|e| e.is_pane_error()).count(), 3);
-        assert_eq!(variants.iter().filter(|e| e.is_active_key_error()).count(), 1);
+        assert_eq!(
+            variants.iter().filter(|e| e.is_active_key_error()).count(),
+            1
+        );
     }
 
     #[test]

@@ -81,8 +81,15 @@ impl TransitionGuard {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TransitionError {
-    IllegalTransition { from: LiveFileState, to: LiveFileState },
-    GuardFailed { from: LiveFileState, to: LiveFileState, guard: TransitionGuard },
+    IllegalTransition {
+        from: LiveFileState,
+        to: LiveFileState,
+    },
+    GuardFailed {
+        from: LiveFileState,
+        to: LiveFileState,
+        guard: TransitionGuard,
+    },
     RevokedIsTerminal,
 }
 
@@ -208,7 +215,10 @@ mod tests {
     fn guard_codes_stable() {
         assert_eq!(TransitionGuard::None.code(), "none");
         assert_eq!(TransitionGuard::SignatureValid.code(), "g1_signature_valid");
-        assert_eq!(TransitionGuard::EligibilityGreen.code(), "g2_eligibility_green");
+        assert_eq!(
+            TransitionGuard::EligibilityGreen.code(),
+            "g2_eligibility_green"
+        );
         assert_eq!(TransitionGuard::RunnerAdmitted.code(), "g3_runner_admitted");
         assert_eq!(TransitionGuard::UserAck.code(), "g4_user_ack");
     }
@@ -286,16 +296,42 @@ mod tests {
 
     #[test]
     fn any_state_to_revoked_requires_user_ack() {
-        for &state in &[Static, LiveCandidate, Compiled, Eligible, Running, Paused, Completed, Quarantined, Suspended] {
+        for &state in &[
+            Static,
+            LiveCandidate,
+            Compiled,
+            Eligible,
+            Running,
+            Paused,
+            Completed,
+            Quarantined,
+            Suspended,
+        ] {
             let err = attempt_transition(state, Revoked, false).unwrap_err();
-            assert!(matches!(err, TransitionError::GuardFailed { guard: TransitionGuard::UserAck, .. }));
+            assert!(matches!(
+                err,
+                TransitionError::GuardFailed {
+                    guard: TransitionGuard::UserAck,
+                    ..
+                }
+            ));
             assert!(attempt_transition(state, Revoked, true).is_ok());
         }
     }
 
     #[test]
     fn revoked_is_terminal_no_outbound() {
-        for &to in &[Static, LiveCandidate, Compiled, Eligible, Running, Paused, Completed, Quarantined, Suspended] {
+        for &to in &[
+            Static,
+            LiveCandidate,
+            Compiled,
+            Eligible,
+            Running,
+            Paused,
+            Completed,
+            Quarantined,
+            Suspended,
+        ] {
             let err = attempt_transition(Revoked, to, true).unwrap_err();
             assert_eq!(err, TransitionError::RevokedIsTerminal);
         }
@@ -306,7 +342,10 @@ mod tests {
         let err = attempt_transition(Static, Running, true).unwrap_err();
         assert_eq!(
             err,
-            TransitionError::IllegalTransition { from: Static, to: Running }
+            TransitionError::IllegalTransition {
+                from: Static,
+                to: Running
+            }
         );
     }
 
@@ -422,7 +461,10 @@ mod tests {
 
     #[test]
     fn transition_error_classifiers_partition() {
-        let illegal = TransitionError::IllegalTransition { from: Static, to: Running };
+        let illegal = TransitionError::IllegalTransition {
+            from: Static,
+            to: Running,
+        };
         let failed = TransitionError::GuardFailed {
             from: LiveCandidate,
             to: Compiled,
@@ -432,7 +474,11 @@ mod tests {
         // Cross-surface invariant: exactly one of the three predicates
         // is true for any TransitionError variant.
         for e in [illegal, failed, terminal] {
-            let trio = [e.is_illegal_edge(), e.is_guard_failed(), e.is_terminal_source()];
+            let trio = [
+                e.is_illegal_edge(),
+                e.is_guard_failed(),
+                e.is_terminal_source(),
+            ];
             assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", e);
         }
     }

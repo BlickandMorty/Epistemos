@@ -66,9 +66,7 @@ impl KoopmanConsequence {
             KoopmanConsequence::PillarIvUnification => {
                 "agent_core/src/research/test_time_regression.rs"
             }
-            KoopmanConsequence::Wbo6QuantizationBound => {
-                "agent_core/src/research/koopman.rs"
-            }
+            KoopmanConsequence::Wbo6QuantizationBound => "agent_core/src/research/koopman.rs",
             KoopmanConsequence::AttentionSinksSpectral => {
                 "agent_core/src/research/attention_sinks.rs"
             }
@@ -176,7 +174,10 @@ pub fn is_well_conditioned(magnitudes: &[f32], threshold: f32) -> Result<bool, K
 /// `κ_p(V) · ‖E‖_p` of some eigenvalue λ of A.
 ///
 /// Returns the bound; caller verifies actual `|λ̂ − λ| ≤ bound`.
-pub fn bauer_fike_bound(condition_number: f32, perturbation_norm: f32) -> Result<f32, KoopmanError> {
+pub fn bauer_fike_bound(
+    condition_number: f32,
+    perturbation_norm: f32,
+) -> Result<f32, KoopmanError> {
     if condition_number <= 0.0 {
         return Err(KoopmanError::NonPositiveConditionNumber {
             kappa: condition_number,
@@ -262,17 +263,28 @@ mod tests {
 
     #[test]
     fn four_distinct_consequences() {
-        let s: std::collections::HashSet<_> =
-            KoopmanConsequence::ALL.iter().copied().collect();
+        let s: std::collections::HashSet<_> = KoopmanConsequence::ALL.iter().copied().collect();
         assert_eq!(s.len(), 4);
     }
 
     #[test]
     fn consequence_codes_stable() {
-        assert_eq!(KoopmanConsequence::PillarIvUnification.code(), "pillar_iv_unification");
-        assert_eq!(KoopmanConsequence::Wbo6QuantizationBound.code(), "wbo6_quant_bauer_fike");
-        assert_eq!(KoopmanConsequence::AttentionSinksSpectral.code(), "attention_sinks_spectral");
-        assert_eq!(KoopmanConsequence::TitansStreamingDmd.code(), "titans_streaming_dmd");
+        assert_eq!(
+            KoopmanConsequence::PillarIvUnification.code(),
+            "pillar_iv_unification"
+        );
+        assert_eq!(
+            KoopmanConsequence::Wbo6QuantizationBound.code(),
+            "wbo6_quant_bauer_fike"
+        );
+        assert_eq!(
+            KoopmanConsequence::AttentionSinksSpectral.code(),
+            "attention_sinks_spectral"
+        );
+        assert_eq!(
+            KoopmanConsequence::TitansStreamingDmd.code(),
+            "titans_streaming_dmd"
+        );
     }
 
     #[test]
@@ -314,13 +326,19 @@ mod tests {
         let err = bauer_fike_bound(0.0, 0.1).unwrap_err();
         assert_eq!(err, KoopmanError::NonPositiveConditionNumber { kappa: 0.0 });
         let err = bauer_fike_bound(-1.0, 0.1).unwrap_err();
-        assert_eq!(err, KoopmanError::NonPositiveConditionNumber { kappa: -1.0 });
+        assert_eq!(
+            err,
+            KoopmanError::NonPositiveConditionNumber { kappa: -1.0 }
+        );
     }
 
     #[test]
     fn negative_perturbation_norm_rejected() {
         let err = bauer_fike_bound(1.0, -0.1).unwrap_err();
-        assert_eq!(err, KoopmanError::NonPositivePerturbationNorm { norm: -0.1 });
+        assert_eq!(
+            err,
+            KoopmanError::NonPositivePerturbationNorm { norm: -0.1 }
+        );
     }
 
     #[test]
@@ -471,8 +489,14 @@ mod tests {
             KoopmanError::NonPositiveConditionNumber { kappa: 0.0 },
             KoopmanError::NonPositivePerturbationNorm { norm: 0.0 },
             KoopmanError::EmptySpectrum,
-            KoopmanError::NonFiniteMagnitude { index: 0, value: f32::NAN },
-            KoopmanError::NegativeMagnitude { index: 0, value: -1.0 },
+            KoopmanError::NonFiniteMagnitude {
+                index: 0,
+                value: f32::NAN,
+            },
+            KoopmanError::NegativeMagnitude {
+                index: 0,
+                value: -1.0,
+            },
             KoopmanError::SingularMatrix { min_magnitude: 0.0 },
         ];
         let causes: std::collections::HashSet<_> = variants.iter().map(|e| e.cause()).collect();
@@ -485,8 +509,14 @@ mod tests {
             KoopmanError::NonPositiveConditionNumber { kappa: 0.0 },
             KoopmanError::NonPositivePerturbationNorm { norm: 0.0 },
             KoopmanError::EmptySpectrum,
-            KoopmanError::NonFiniteMagnitude { index: 0, value: f32::NAN },
-            KoopmanError::NegativeMagnitude { index: 0, value: -1.0 },
+            KoopmanError::NonFiniteMagnitude {
+                index: 0,
+                value: f32::NAN,
+            },
+            KoopmanError::NegativeMagnitude {
+                index: 0,
+                value: -1.0,
+            },
             KoopmanError::SingularMatrix { min_magnitude: 0.0 },
         ];
         // Cross-surface invariant: is_bound_param_error XOR is_spectrum_error.
@@ -494,7 +524,10 @@ mod tests {
             assert_ne!(e.is_bound_param_error(), e.is_spectrum_error());
         }
         // 2 bound-param errors + 4 spectrum errors.
-        assert_eq!(variants.iter().filter(|e| e.is_bound_param_error()).count(), 2);
+        assert_eq!(
+            variants.iter().filter(|e| e.is_bound_param_error()).count(),
+            2
+        );
         assert_eq!(variants.iter().filter(|e| e.is_spectrum_error()).count(), 4);
     }
 
@@ -532,7 +565,12 @@ mod tests {
         let mags = vec![0.5_f32, 1.0, 1.5, 2.0]; // κ = 4.0
         let kappa = condition_number_normal(&mags).unwrap();
         for &t in &[1.0_f32, 3.0, 4.0, 4.5, 10.0] {
-            assert_eq!(is_well_conditioned(&mags, t).unwrap(), kappa <= t, "t={}", t);
+            assert_eq!(
+                is_well_conditioned(&mags, t).unwrap(),
+                kappa <= t,
+                "t={}",
+                t
+            );
         }
     }
 

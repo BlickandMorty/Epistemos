@@ -36,8 +36,6 @@ pub mod sketch_topk;
 pub use escalation_policy::{
     EscalationError, EscalationPolicy, EscalationThresholds, EscalationVerdict,
 };
-pub use helios_page::{
-    ExactCodec, ExactPageHandle, HeliosPage, HeliosPageError, ResidualBlock,
-};
+pub use helios_page::{ExactCodec, ExactPageHandle, HeliosPage, HeliosPageError, ResidualBlock};
 pub use residual_rescore::{residual_rescore, ResidualRescoreError};
 pub use sketch_topk::{int8_inner_product, sketch_top_k, SketchTopKError};

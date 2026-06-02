@@ -67,7 +67,10 @@ pub enum AugmentError {
     /// Score-to-potential encoding rejected (negative, non-finite,
     /// or eml-operator-rejected). Carries the index and inner error
     /// for actionable diagnosis.
-    Potential { index: usize, source: EmlPotentialError },
+    Potential {
+        index: usize,
+        source: EmlPotentialError,
+    },
     /// The augmented observations failed the AUC precondition
     /// (empty / single-class / non-finite). Forwarded from sae.
     Auc(SaeAucError),
@@ -82,9 +85,7 @@ impl From<SaeAucError> for AugmentError {
 /// Augment every observation with its EML potential. Preserves order,
 /// label, and count. Errors on first invalid score with index for
 /// diagnostic.
-pub fn augment(
-    observations: &[LabeledScore],
-) -> Result<Vec<AugmentedObservation>, AugmentError> {
+pub fn augment(observations: &[LabeledScore]) -> Result<Vec<AugmentedObservation>, AugmentError> {
     let mut out = Vec::with_capacity(observations.len());
     for (i, obs) in observations.iter().enumerate() {
         let potential = EmlPotential::from_score(obs.score as f64)
@@ -203,9 +204,7 @@ impl fmt::Display for AugmentedSummary {
 
 /// Compute the aggregate summary across the augmented observations.
 /// Single-pass over the input; O(n) time, O(1) extra space.
-pub fn summarize(
-    observations: &[LabeledScore],
-) -> Result<AugmentedSummary, AugmentError> {
+pub fn summarize(observations: &[LabeledScore]) -> Result<AugmentedSummary, AugmentError> {
     let augmented = augment(observations)?;
     let count = augmented.len();
     if count == 0 {
@@ -250,7 +249,10 @@ mod tests {
     use super::*;
 
     fn obs(score: f32, is_hallucination: bool) -> LabeledScore {
-        LabeledScore { score, is_hallucination }
+        LabeledScore {
+            score,
+            is_hallucination,
+        }
     }
 
     fn approx(a: f32, b: f32, tol: f32) -> bool {
@@ -287,7 +289,11 @@ mod tests {
         let v = vec![obs(0.01, true), obs(0.5, false), obs(1.0, true)];
         let out = augment(&v).unwrap();
         for a in &out {
-            assert!(a.potential.value() > 1.0, "potential {} ≤ 1.0", a.potential.value());
+            assert!(
+                a.potential.value() > 1.0,
+                "potential {} ≤ 1.0",
+                a.potential.value()
+            );
         }
     }
 
@@ -300,11 +306,18 @@ mod tests {
 
     #[test]
     fn augment_monotone_in_raw_score() {
-        let v = vec![obs(0.1, true), obs(0.3, false), obs(0.5, true), obs(0.9, false)];
+        let v = vec![
+            obs(0.1, true),
+            obs(0.3, false),
+            obs(0.5, true),
+            obs(0.9, false),
+        ];
         let out = augment(&v).unwrap();
         // Sort by raw score, check potentials are also sorted.
-        let mut pairs: Vec<(f32, f64)> =
-            out.iter().map(|a| (a.raw_score, a.potential.value())).collect();
+        let mut pairs: Vec<(f32, f64)> = out
+            .iter()
+            .map(|a| (a.raw_score, a.potential.value()))
+            .collect();
         pairs.sort_by(|x, y| x.0.partial_cmp(&y.0).unwrap());
         for w in pairs.windows(2) {
             assert!(w[0].1 < w[1].1, "non-monotone: {:?}", pairs);
@@ -369,8 +382,12 @@ mod tests {
         ];
         let raw_auc = auc_roc(&v).unwrap();
         let aug_auc = auc_on_augmented(&v).unwrap();
-        assert!(approx(raw_auc, aug_auc, 1e-5),
-            "raw_auc={} aug_auc={}", raw_auc, aug_auc);
+        assert!(
+            approx(raw_auc, aug_auc, 1e-5),
+            "raw_auc={} aug_auc={}",
+            raw_auc,
+            aug_auc
+        );
     }
 
     #[test]
@@ -401,13 +418,19 @@ mod tests {
     fn auc_on_augmented_propagates_single_class_error() {
         let v = vec![obs(0.1, true), obs(0.5, true)];
         let err = auc_on_augmented(&v).unwrap_err();
-        assert!(matches!(err, AugmentError::Auc(SaeAucError::SingleClass { .. })));
+        assert!(matches!(
+            err,
+            AugmentError::Auc(SaeAucError::SingleClass { .. })
+        ));
     }
 
     #[test]
     fn auc_on_augmented_propagates_empty_error() {
         let err = auc_on_augmented(&[]).unwrap_err();
-        assert!(matches!(err, AugmentError::Auc(SaeAucError::EmptyObservations)));
+        assert!(matches!(
+            err,
+            AugmentError::Auc(SaeAucError::EmptyObservations)
+        ));
     }
 
     #[test]
@@ -445,7 +468,10 @@ mod tests {
     #[test]
     fn summarize_counts_match_class_balance() {
         let v = vec![
-            obs(0.1, false), obs(0.2, true), obs(0.3, true), obs(0.4, false),
+            obs(0.1, false),
+            obs(0.2, true),
+            obs(0.3, true),
+            obs(0.4, false),
         ];
         let s = summarize(&v).unwrap();
         assert_eq!(s.count, 4);
@@ -503,7 +529,12 @@ mod tests {
         // Sorted-ascending scores produce sorted-ascending potentials
         // (proved by potential::tests::monotone_in_score_across_grid).
         // So summarize's min is the first observation's potential.
-        let v = vec![obs(0.1, true), obs(0.5, false), obs(2.0, true), obs(5.0, false)];
+        let v = vec![
+            obs(0.1, true),
+            obs(0.5, false),
+            obs(2.0, true),
+            obs(5.0, false),
+        ];
         let s = summarize(&v).unwrap();
         let augmented = augment(&v).unwrap();
         let expected_min = augmented[0].potential.value();
@@ -558,14 +589,21 @@ mod tests {
     fn is_empty_equivalent_to_count_zero_across_grid() {
         // Cross-surface invariant: is_empty() ≡ (count == 0).
         for n in 0..5 {
-            let observations: Vec<LabeledScore> =
-                (0..n).map(|i| obs(0.1 + (i as f32) * 0.2, i % 2 == 0)).collect();
+            let observations: Vec<LabeledScore> = (0..n)
+                .map(|i| obs(0.1 + (i as f32) * 0.2, i % 2 == 0))
+                .collect();
             // Need at least one positive + one negative for summarize
             // to succeed via auc_on_augmented... but summarize itself
             // accepts single-class. Skip the auc-pin; just check is_empty.
             let s = summarize(&observations).unwrap();
-            assert_eq!(s.is_empty(), s.count == 0,
-                "n={}: is_empty={}, count={}", n, s.is_empty(), s.count);
+            assert_eq!(
+                s.is_empty(),
+                s.count == 0,
+                "n={}: is_empty={}, count={}",
+                n,
+                s.is_empty(),
+                s.count
+            );
         }
     }
 
@@ -592,8 +630,7 @@ mod tests {
     fn display_includes_struct_name_for_grep_friendliness() {
         let s = summarize(&[obs(0.5, true)]).unwrap();
         let out = format!("{}", s);
-        assert!(out.starts_with("AugmentedSummary {"),
-            "display: {}", out);
+        assert!(out.starts_with("AugmentedSummary {"), "display: {}", out);
     }
 
     #[test]
@@ -610,8 +647,11 @@ mod tests {
         let out = format!("{}", s);
         // s=0.0 produces potential value 1.0 exactly → min/max/mean all
         // equal 1.000 in 3-decimal precision.
-        assert!(out.contains("potential: 1.000-1.000 (mean 1.000)"),
-            "display: {}", out);
+        assert!(
+            out.contains("potential: 1.000-1.000 (mean 1.000)"),
+            "display: {}",
+            out
+        );
     }
 
     // ── has_both_classes tests (iter 23) ─────────────────────────────────────
@@ -659,7 +699,10 @@ mod tests {
         let s_single = summarize(&single).unwrap();
         assert!(!s_single.has_both_classes());
         let err = auc_on_augmented(&single).unwrap_err();
-        assert!(matches!(err, AugmentError::Auc(SaeAucError::SingleClass { .. })));
+        assert!(matches!(
+            err,
+            AugmentError::Auc(SaeAucError::SingleClass { .. })
+        ));
     }
 
     // ── serde roundtrip tests (iter 15) ──────────────────────────────────────
@@ -692,10 +735,20 @@ mod tests {
         let back: AugmentedSummary = serde_json::from_str(&json).unwrap();
         assert_eq!(s, back);
         // Spot-check canonical field names.
-        for field in &["count", "positives", "negatives",
-                       "min_potential", "max_potential", "mean_potential"] {
-            assert!(json.contains(&format!("\"{}\"", field)),
-                "field '{}' missing from JSON: {}", field, json);
+        for field in &[
+            "count",
+            "positives",
+            "negatives",
+            "min_potential",
+            "max_potential",
+            "mean_potential",
+        ] {
+            assert!(
+                json.contains(&format!("\"{}\"", field)),
+                "field '{}' missing from JSON: {}",
+                field,
+                json
+            );
         }
     }
 

@@ -307,7 +307,10 @@ mod tests {
                 BudgetLedger::default(),
                 &log,
             );
-            assert_eq!(packet.stop_reason, reason, "stop_reason must pass through verbatim");
+            assert_eq!(
+                packet.stop_reason, reason,
+                "stop_reason must pass through verbatim"
+            );
         }
     }
 
@@ -317,17 +320,26 @@ mod tests {
         // append events to the log, emit the packet, and assert the
         // stop reason + witness root are present and consistent.
         let mut log = RunEventLog::new();
-        log.append_event(AgentEvent::ReasoningDelta { text: "think".into() });
-        log.append_event(AgentEvent::FinalText { text: "the answer".into() });
+        log.append_event(AgentEvent::ReasoningDelta {
+            text: "think".into(),
+        });
+        log.append_event(AgentEvent::FinalText {
+            text: "the answer".into(),
+        });
         log.append_sealed_mutation(
             Hash::from_bytes([3u8; 32]),
-            BudgetDebit { tokens: 25, ..Default::default() },
+            BudgetDebit {
+                tokens: 25,
+                ..Default::default()
+            },
         );
         log.append_ledger_snapshot(BudgetLedger {
             tokens_used: 25,
             ..Default::default()
         });
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
 
         let packet = AnswerPacket::emit(
             AgentBlueprintId("research-assistant".to_string()),
@@ -365,10 +377,9 @@ mod tests {
             Hash::from_bytes([0xFF; 32]),
             Hash::from_bytes([7u8; 32]),
             Hash::from_bytes([
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-                0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
-                0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
-                0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20,
+                0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
+                0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C,
+                0x1D, 0x1E, 0x1F, 0x20,
             ]),
             Hash::from_bytes([0x80; 32]),
         ];
@@ -382,7 +393,10 @@ mod tests {
                 &log,
                 h,
             );
-            assert_eq!(packet.thinking_digest, h, "thinking_digest must be passed through verbatim for {h:?}");
+            assert_eq!(
+                packet.thinking_digest, h,
+                "thinking_digest must be passed through verbatim for {h:?}"
+            );
         }
     }
 
@@ -398,7 +412,9 @@ mod tests {
         // replay parity for runs without thinking content.
         let mut log = RunEventLog::new();
         log.append_event(AgentEvent::FinalText { text: "x".into() });
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
 
         let blueprint = AgentBlueprintId("emit-equiv".to_string());
         let citations = vec![Citation {
@@ -495,13 +511,7 @@ mod tests {
 
         // emit_with_thinking (7 args).
         let p2 = AnswerPacket::emit_with_thinking(
-            blueprint,
-            final_text,
-            citations,
-            stop,
-            ledger,
-            &log,
-            thinking,
+            blueprint, final_text, citations, stop, ledger, &log, thinking,
         );
         assert_eq!(p2.thinking_digest, Hash::from_bytes([0xAB; 32]));
         // Other 6 fields identical to emit() output.
@@ -538,7 +548,9 @@ mod tests {
     #[test]
     fn answer_packet_witness_root_changes_when_log_changes() {
         let mut log_a = RunEventLog::new();
-        log_a.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log_a.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
         let p_a = AnswerPacket::emit(
             AgentBlueprintId("a".into()),
             "x".into(),
@@ -549,8 +561,12 @@ mod tests {
         );
 
         let mut log_b = RunEventLog::new();
-        log_b.append_event(AgentEvent::ReasoningDelta { text: "extra".into() });
-        log_b.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log_b.append_event(AgentEvent::ReasoningDelta {
+            text: "extra".into(),
+        });
+        log_b.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
         let p_b = AnswerPacket::emit(
             AgentBlueprintId("a".into()),
             "x".into(),
@@ -595,8 +611,12 @@ mod tests {
 
         // 3. AgentEvent stream → RunEventLog.
         let mut log = RunEventLog::new();
-        log.append_event(AgentEvent::ReasoningDelta { text: "考えている...".into() });
-        log.append_event(AgentEvent::FinalText { text: "回答: 42 ✓".into() });
+        log.append_event(AgentEvent::ReasoningDelta {
+            text: "考えている...".into(),
+        });
+        log.append_event(AgentEvent::FinalText {
+            text: "回答: 42 ✓".into(),
+        });
 
         // ParaOutput carries thinking bytes that flow into the packet.
         let thinking = b"<thinking>full canonical flow pin</thinking>".to_vec();
@@ -630,7 +650,9 @@ mod tests {
             memory_bytes_used: 1024,
         };
         log.append_ledger_snapshot(ledger);
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
 
         let root_at_emit = log.root_hash();
 
@@ -776,7 +798,10 @@ mod tests {
 
         let blueprint = AgentBlueprintId("nonzero-diverge".to_string());
         let citations = vec![Citation::from_tuple("v/p.md", "L1")];
-        let ledger = BudgetLedger { tokens_used: 7, ..Default::default() };
+        let ledger = BudgetLedger {
+            tokens_used: 7,
+            ..Default::default()
+        };
 
         let via_emit = AnswerPacket::emit(
             blueprint.clone(),
@@ -882,9 +907,18 @@ mod tests {
         // tokens is present and equals 42.
         assert!(display.contains("tokens=42"));
         // The other 4 axes' values are NOT in the Display output.
-        assert!(!display.contains("9999"), "wall_used_ms must not appear in {display}");
-        assert!(!display.contains("12345"), "subprocess_used_ms must not appear in {display}");
-        assert!(!display.contains("1000000"), "memory_bytes_used must not appear in {display}");
+        assert!(
+            !display.contains("9999"),
+            "wall_used_ms must not appear in {display}"
+        );
+        assert!(
+            !display.contains("12345"),
+            "subprocess_used_ms must not appear in {display}"
+        );
+        assert!(
+            !display.contains("1000000"),
+            "memory_bytes_used must not appear in {display}"
+        );
         // tool_calls_used=7 is also omitted; but "tokens=42" might
         // contain the digit "7" only if it appears in 42 — it doesn't.
         // The 4 omitted axes use distinct large values so any
@@ -1014,7 +1048,10 @@ mod tests {
                 "x".into(),
                 vec![],
                 StopReason::EndTurn,
-                BudgetLedger { tokens_used: tokens, ..Default::default() },
+                BudgetLedger {
+                    tokens_used: tokens,
+                    ..Default::default()
+                },
                 &log,
             );
             let display = format!("{packet}");
@@ -1039,10 +1076,7 @@ mod tests {
         for n in [0usize, 1, 3, 10, 256, 257, 1_000] {
             let mut cites = Vec::with_capacity(n);
             for i in 0..n {
-                cites.push(Citation::from_tuple(
-                    format!("s{i}"),
-                    format!("l{i}"),
-                ));
+                cites.push(Citation::from_tuple(format!("s{i}"), format!("l{i}")));
             }
             let packet = AnswerPacket::emit(
                 AgentBlueprintId("a".into()),
@@ -1081,7 +1115,10 @@ mod tests {
             "x".into(),
             vec![Citation::from_tuple("s", "l")],
             StopReason::EndTurn,
-            BudgetLedger { tokens_used: 42, ..Default::default() },
+            BudgetLedger {
+                tokens_used: 42,
+                ..Default::default()
+            },
             &log,
         );
         let display = format!("{packet}");
@@ -1115,10 +1152,14 @@ mod tests {
             &log,
         );
         let display = format!("{packet}");
-        assert!(display.starts_with("AnswerPacket{"),
-            "Display must start with literal 'AnswerPacket{{', got: {display}");
-        assert!(display.ends_with('}'),
-            "Display must end with literal '}}', got: {display}");
+        assert!(
+            display.starts_with("AnswerPacket{"),
+            "Display must start with literal 'AnswerPacket{{', got: {display}"
+        );
+        assert!(
+            display.ends_with('}'),
+            "Display must end with literal '}}', got: {display}"
+        );
     }
 
     #[test]
@@ -1146,8 +1187,10 @@ mod tests {
             &log,
         );
         let display = format!("{packet}");
-        assert!(display.contains(r#"agent "with quotes" \ and backslash"#),
-            "blueprint_id special chars must appear verbatim, got {display}");
+        assert!(
+            display.contains(r#"agent "with quotes" \ and backslash"#),
+            "blueprint_id special chars must appear verbatim, got {display}"
+        );
     }
 
     #[test]
@@ -1218,7 +1261,9 @@ mod tests {
             locator: "L42".into(),
         };
         let json = serde_json::to_value(&c).expect("serialise");
-        let obj = json.as_object().expect("Citation serialises as JSON object");
+        let obj = json
+            .as_object()
+            .expect("Citation serialises as JSON object");
         for key in ["source", "locator"] {
             assert!(
                 obj.contains_key(key),
@@ -1241,7 +1286,9 @@ mod tests {
             locator: "L42".into(),
         };
         let value = serde_json::to_value(&c).expect("serialise");
-        let obj = value.as_object().expect("Citation serialises as JSON object");
+        let obj = value
+            .as_object()
+            .expect("Citation serialises as JSON object");
         for missing in ["source", "locator"] {
             let mut tampered = obj.clone();
             tampered.remove(missing);
@@ -1290,10 +1337,7 @@ mod tests {
             "vault/notes/2026/may/a.md @ L42-L57"
         );
         // Empty separator just concatenates.
-        assert_eq!(
-            c.as_display_string(""),
-            "vault/notes/2026/may/a.mdL42-L57"
-        );
+        assert_eq!(c.as_display_string(""), "vault/notes/2026/may/a.mdL42-L57");
     }
 
     #[test]
@@ -1359,8 +1403,7 @@ mod tests {
         let mut augmented = String::with_capacity(s.len() + 40);
         augmented.push_str(&s[..last_brace]);
         augmented.push_str(r#","confidence":0.95}"#);
-        let parsed: Citation =
-            serde_json::from_str(&augmented).expect("unknown field tolerated");
+        let parsed: Citation = serde_json::from_str(&augmented).expect("unknown field tolerated");
         assert_eq!(parsed, c);
     }
 
@@ -1380,19 +1423,12 @@ mod tests {
                 r#"vault/notes/"quoted-name".md"#,
                 r#"L1-L10 {"selector": "h1"}"#,
             ),
-            Citation::from_tuple(
-                "vault\\windows\\style.md",
-                "L42\twith\ttabs",
-            ),
-            Citation::from_tuple(
-                "vault/path\nwith\nnewlines.md",
-                "L1\x01control\x02char",
-            ),
+            Citation::from_tuple("vault\\windows\\style.md", "L42\twith\ttabs"),
+            Citation::from_tuple("vault/path\nwith\nnewlines.md", "L1\x01control\x02char"),
         ];
         for case in adversarial {
             let s = serde_json::to_string(&case).expect("serialise");
-            let back: Citation =
-                serde_json::from_str(&s).expect("deserialise");
+            let back: Citation = serde_json::from_str(&s).expect("deserialise");
             assert_eq!(back, case, "citation must round-trip JSON-special chars");
         }
     }
@@ -1448,8 +1484,10 @@ mod tests {
         for sep in [":", " @ ", "  --  "] {
             let display = c.as_display_string(sep);
             let expected = format!("DISTINCT-SOURCE{sep}DISTINCT-LOCATOR");
-            assert_eq!(display, expected,
-                "as_display_string must equal source<sep>locator with sep={sep:?}");
+            assert_eq!(
+                display, expected,
+                "as_display_string must equal source<sep>locator with sep={sep:?}"
+            );
         }
         // Empty separator: source immediately followed by locator.
         assert_eq!(c.as_display_string(""), "DISTINCT-SOURCEDISTINCT-LOCATOR");
@@ -1465,10 +1503,7 @@ mod tests {
         //
         // A future "let me JSON-escape the display string for log
         // safety" refactor would silently change the output appearance.
-        let c = Citation::from_tuple(
-            r#"vault/notes/"name".md"#,
-            r#"L42 {"selector": "h1"}"#,
-        );
+        let c = Citation::from_tuple(r#"vault/notes/"name".md"#, r#"L42 {"selector": "h1"}"#);
         let display = c.as_display_string(":");
         // Quotes and braces appear RAW (no JSON-escape).
         assert!(
@@ -1483,10 +1518,7 @@ mod tests {
         assert!(display.contains(":"));
 
         // Backslash + newline.
-        let c2 = Citation::from_tuple(
-            "vault\\windows\\path.md",
-            "L1\nL2",
-        );
+        let c2 = Citation::from_tuple("vault\\windows\\path.md", "L1\nL2");
         let display2 = c2.as_display_string(" @ ");
         assert!(display2.contains("vault\\windows\\path.md"));
         assert!(display2.contains("L1\nL2"));
@@ -1554,7 +1586,10 @@ mod tests {
         assert_eq!(empty_locator.as_display_string(""), "vault/notes/x.md");
 
         // Both empty — separator stands alone.
-        let both_empty = Citation { source: "".into(), locator: "".into() };
+        let both_empty = Citation {
+            source: "".into(),
+            locator: "".into(),
+        };
         assert_eq!(both_empty.as_display_string(":"), ":");
         assert_eq!(both_empty.as_display_string(""), "");
     }
@@ -1837,7 +1872,10 @@ mod tests {
             "x".into(),
             vec![],
             StopReason::EndTurn,
-            BudgetLedger { tokens_used: 250, ..Default::default() },
+            BudgetLedger {
+                tokens_used: 250,
+                ..Default::default()
+            },
             &log,
         );
         let spec = BudgetSpec::new(1_000, 0, 0, 0);
@@ -1891,7 +1929,10 @@ mod tests {
             "x".into(),
             vec![],
             StopReason::EndTurn,
-            BudgetLedger { tokens_used: 0, ..Default::default() },
+            BudgetLedger {
+                tokens_used: 0,
+                ..Default::default()
+            },
             &log,
         );
         let spec_bounded = BudgetSpec::new(500, 0, 0, 0);
@@ -1903,7 +1944,10 @@ mod tests {
             "x".into(),
             vec![],
             StopReason::EndTurn,
-            BudgetLedger { tokens_used: 500, ..Default::default() },
+            BudgetLedger {
+                tokens_used: 500,
+                ..Default::default()
+            },
             &log,
         );
         let r1 = exact_cap.token_usage_ratio(&spec_bounded).expect("bounded");
@@ -1944,7 +1988,7 @@ mod tests {
         // swap type-compatible and silent. Pin via DISTINCT identifiable
         // values per field.
         let c = Citation::from_tuple(
-            /*source=*/  "DISTINCT-SOURCE-PATH",
+            /*source=*/ "DISTINCT-SOURCE-PATH",
             /*locator=*/ "DISTINCT-LOCATOR-RANGE",
         );
         assert_eq!(c.source, "DISTINCT-SOURCE-PATH");
@@ -2115,7 +2159,10 @@ mod tests {
         // future re-categorisation that shifts variants between
         // buckets surfaces at PR review.
         assert_eq!(bucket_clean, 1, "expected 1 clean variant (EndTurn)");
-        assert_eq!(bucket_neither, 2, "expected 2 neither variants (ToolUse, MaxTokens)");
+        assert_eq!(
+            bucket_neither, 2,
+            "expected 2 neither variants (ToolUse, MaxTokens)"
+        );
         assert_eq!(bucket_error, 4, "expected 4 error variants");
     }
 
@@ -2362,7 +2409,9 @@ mod tests {
 
         // Now mutate the log — the packet's stored root must NOT
         // change, even though log.root_hash() now differs.
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
         let root_after_mutation = log.root_hash();
         assert_ne!(
             root_at_emit, root_after_mutation,
@@ -2409,7 +2458,9 @@ mod tests {
             memory_bytes_used: 4_096,
         };
         let snapshot_ord = log.append_ledger_snapshot(final_ledger);
-        log.append_event(AgentEvent::Stop { reason: StopReason::EndTurn });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::EndTurn,
+        });
 
         let packet = AnswerPacket::emit(
             AgentBlueprintId("a".into()),
@@ -2580,15 +2631,23 @@ mod tests {
         // Helper: clone base then mutate one field.
         let mut diff_blueprint = base.clone();
         diff_blueprint.blueprint_id = AgentBlueprintId("OTHER".into());
-        assert_ne!(diff_blueprint, base, "blueprint_id must participate in PartialEq");
+        assert_ne!(
+            diff_blueprint, base,
+            "blueprint_id must participate in PartialEq"
+        );
 
         let mut diff_text = base.clone();
         diff_text.final_text.push_str("X");
         assert_ne!(diff_text, base, "final_text must participate in PartialEq");
 
         let mut diff_citations = base.clone();
-        diff_citations.citations.push(Citation::from_tuple("x", "y"));
-        assert_ne!(diff_citations, base, "citations must participate in PartialEq");
+        diff_citations
+            .citations
+            .push(Citation::from_tuple("x", "y"));
+        assert_ne!(
+            diff_citations, base,
+            "citations must participate in PartialEq"
+        );
 
         let mut diff_stop = base.clone();
         diff_stop.stop_reason = StopReason::Refusal;
@@ -2596,15 +2655,24 @@ mod tests {
 
         let mut diff_ledger = base.clone();
         diff_ledger.final_ledger.tokens_used += 1;
-        assert_ne!(diff_ledger, base, "final_ledger must participate in PartialEq");
+        assert_ne!(
+            diff_ledger, base,
+            "final_ledger must participate in PartialEq"
+        );
 
         let mut diff_root = base.clone();
         diff_root.run_event_log_root = Hash::from_bytes([99u8; 32]);
-        assert_ne!(diff_root, base, "run_event_log_root must participate in PartialEq");
+        assert_ne!(
+            diff_root, base,
+            "run_event_log_root must participate in PartialEq"
+        );
 
         let mut diff_thinking = base.clone();
         diff_thinking.thinking_digest = Hash::zero();
-        assert_ne!(diff_thinking, base, "thinking_digest must participate in PartialEq");
+        assert_ne!(
+            diff_thinking, base,
+            "thinking_digest must participate in PartialEq"
+        );
 
         // Sanity preserved: an unmodified clone still equals base.
         let same = base.clone();
@@ -2628,17 +2696,30 @@ mod tests {
         // surfaces here as a back!=packet inequality.
         let mut log = RunEventLog::new();
         log.append_event(AgentEvent::ReasoningDelta { text: "r".into() });
-        log.append_event(AgentEvent::FinalText { text: "answer".into() });
-        log.append_event(AgentEvent::Stop { reason: StopReason::BudgetExhausted });
+        log.append_event(AgentEvent::FinalText {
+            text: "answer".into(),
+        });
+        log.append_event(AgentEvent::Stop {
+            reason: StopReason::BudgetExhausted,
+        });
 
         let thinking = Hash::from_bytes([7u8; 32]);
         let packet = AnswerPacket::emit_with_thinking(
             AgentBlueprintId("adversarial".into()),
             "answer body".into(),
             vec![
-                Citation { source: "s1".into(), locator: "l1".into() },
-                Citation { source: "s2".into(), locator: "l2".into() },
-                Citation { source: "s3".into(), locator: "l3".into() },
+                Citation {
+                    source: "s1".into(),
+                    locator: "l1".into(),
+                },
+                Citation {
+                    source: "s2".into(),
+                    locator: "l2".into(),
+                },
+                Citation {
+                    source: "s3".into(),
+                    locator: "l3".into(),
+                },
             ],
             StopReason::BudgetExhausted,
             BudgetLedger {
@@ -2699,9 +2780,11 @@ mod tests {
                 &log,
             );
             let s = serde_json::to_string(&packet).expect("serialise");
-            let back: AnswerPacket =
-                serde_json::from_str(&s).expect("deserialise");
-            assert_eq!(back.final_text, text, "final_text must round-trip byte-equal");
+            let back: AnswerPacket = serde_json::from_str(&s).expect("deserialise");
+            assert_eq!(
+                back.final_text, text,
+                "final_text must round-trip byte-equal"
+            );
             assert_eq!(back, packet);
         }
     }
@@ -2770,9 +2853,7 @@ mod tests {
             &log,
         );
         let s = serde_json::to_string(&base).expect("serialise");
-        let augmented = s
-            .trim_end_matches('}')
-            .to_string()
+        let augmented = s.trim_end_matches('}').to_string()
             + r#","future_replay_field":"some-experimental-value"}"#;
         let parsed: AnswerPacket =
             serde_json::from_str(&augmented).expect("unknown field tolerated");
@@ -2812,7 +2893,9 @@ mod tests {
         ];
         let mut last_idx: Option<usize> = None;
         for key in expected_keys_in_order {
-            let pos = s.find(key).unwrap_or_else(|| panic!("key {key} not found in {s}"));
+            let pos = s
+                .find(key)
+                .unwrap_or_else(|| panic!("key {key} not found in {s}"));
             if let Some(prev) = last_idx {
                 assert!(
                     pos > prev,
@@ -2841,7 +2924,9 @@ mod tests {
             &log,
         );
         let json = serde_json::to_value(&packet).expect("serialise");
-        let obj = json.as_object().expect("AnswerPacket serialises as JSON object");
+        let obj = json
+            .as_object()
+            .expect("AnswerPacket serialises as JSON object");
         for key in [
             "blueprint_id",
             "final_text",
@@ -2877,7 +2962,9 @@ mod tests {
             &log,
         );
         let value = serde_json::to_value(&packet).expect("serialise");
-        let obj = value.as_object().expect("AnswerPacket serialises as JSON object");
+        let obj = value
+            .as_object()
+            .expect("AnswerPacket serialises as JSON object");
         for missing in [
             "blueprint_id",
             "final_text",
@@ -2939,7 +3026,9 @@ mod tests {
         // derivations and especially that the supplied digest passes
         // through unmodified.
         let mut log = RunEventLog::new();
-        log.append_event(AgentEvent::ReasoningDelta { text: "think".into() });
+        log.append_event(AgentEvent::ReasoningDelta {
+            text: "think".into(),
+        });
         let captured_root = log.root_hash();
 
         let bid = AgentBlueprintId("emit-thinking-pin".into());

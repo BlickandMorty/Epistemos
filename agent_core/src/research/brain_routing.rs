@@ -81,11 +81,23 @@ impl ProductMode {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SinkhornError {
-    NotSquare { rows: usize, cols: usize },
+    NotSquare {
+        rows: usize,
+        cols: usize,
+    },
     EmptyMatrix,
-    NonPositiveEntry { row: usize, col: usize, value: f32 },
-    NonPositiveTolerance { tol: f32 },
-    NotConverged { max_iter: usize, final_residual: f32 },
+    NonPositiveEntry {
+        row: usize,
+        col: usize,
+        value: f32,
+    },
+    NonPositiveTolerance {
+        tol: f32,
+    },
+    NotConverged {
+        max_iter: usize,
+        final_residual: f32,
+    },
 }
 
 impl SinkhornError {
@@ -205,11 +217,18 @@ pub fn sinkhorn_project(
     }
     for (i, row) in matrix.iter().enumerate() {
         if row.len() != n {
-            return Err(SinkhornError::NotSquare { rows: n, cols: row.len() });
+            return Err(SinkhornError::NotSquare {
+                rows: n,
+                cols: row.len(),
+            });
         }
         for (j, &v) in row.iter().enumerate() {
             if v <= 0.0 {
-                return Err(SinkhornError::NonPositiveEntry { row: i, col: j, value: v });
+                return Err(SinkhornError::NonPositiveEntry {
+                    row: i,
+                    col: j,
+                    value: v,
+                });
             }
         }
     }
@@ -306,7 +325,11 @@ mod tests {
         let err = sinkhorn_project(&m, 100, 1e-6).unwrap_err();
         assert_eq!(
             err,
-            SinkhornError::NonPositiveEntry { row: 0, col: 1, value: 0.0 }
+            SinkhornError::NonPositiveEntry {
+                row: 0,
+                col: 1,
+                value: 0.0
+            }
         );
     }
 
@@ -410,24 +433,45 @@ mod tests {
         let variants = [
             SinkhornError::NotSquare { rows: 2, cols: 3 },
             SinkhornError::EmptyMatrix,
-            SinkhornError::NonPositiveEntry { row: 0, col: 0, value: 0.0 },
+            SinkhornError::NonPositiveEntry {
+                row: 0,
+                col: 0,
+                value: 0.0,
+            },
             SinkhornError::NonPositiveTolerance { tol: 0.0 },
-            SinkhornError::NotConverged { max_iter: 100, final_residual: 0.5 },
+            SinkhornError::NotConverged {
+                max_iter: 100,
+                final_residual: 0.5,
+            },
         ];
         // Cross-surface invariant: exactly one of the 3 predicates is true.
         for e in variants {
-            let trio = [e.is_input_error(), e.is_config_error(), e.is_convergence_failure()];
+            let trio = [
+                e.is_input_error(),
+                e.is_config_error(),
+                e.is_convergence_failure(),
+            ];
             assert_eq!(trio.iter().filter(|t| **t).count(), 1, "{:?}", e);
         }
         // Spot check: 3 input errors + 1 config + 1 convergence.
         assert_eq!(variants.iter().filter(|e| e.is_input_error()).count(), 3);
         assert_eq!(variants.iter().filter(|e| e.is_config_error()).count(), 1);
-        assert_eq!(variants.iter().filter(|e| e.is_convergence_failure()).count(), 1);
+        assert_eq!(
+            variants
+                .iter()
+                .filter(|e| e.is_convergence_failure())
+                .count(),
+            1
+        );
     }
 
     #[test]
     fn result_dim_matches_matrix_size() {
-        let m = vec![vec![1.0_f32, 1.0, 1.0], vec![1.0, 1.0, 1.0], vec![1.0, 1.0, 1.0]];
+        let m = vec![
+            vec![1.0_f32, 1.0, 1.0],
+            vec![1.0, 1.0, 1.0],
+            vec![1.0, 1.0, 1.0],
+        ];
         let r = sinkhorn_project(&m, 100, 1e-6).unwrap();
         assert_eq!(r.dim(), 3);
     }
@@ -495,10 +539,7 @@ mod tests {
         // Permutation has one 1 per row/col; sinkhorn should preserve.
         // Use small positive ε to satisfy positivity check.
         let eps = 1e-6_f32;
-        let m = vec![
-            vec![1.0 - eps, eps],
-            vec![eps, 1.0 - eps],
-        ];
+        let m = vec![vec![1.0 - eps, eps], vec![eps, 1.0 - eps]];
         let r = sinkhorn_project(&m, 100, 1e-6).unwrap();
         // After Sinkhorn it stays near the original perm.
         assert!(r.doubly_stochastic[0][0] > 0.95);

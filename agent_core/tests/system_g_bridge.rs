@@ -17,11 +17,9 @@ use agent_core::bridge::system_g_runtime_status_json;
 
 #[test]
 fn system_g_runtime_status_json_returns_well_formed_status() {
-    let raw = system_g_runtime_status_json()
-        .expect("FFI must not error on a snapshot read");
+    let raw = system_g_runtime_status_json().expect("FFI must not error on a snapshot read");
 
-    let value: serde_json::Value = serde_json::from_str(&raw)
-        .expect("status JSON must decode");
+    let value: serde_json::Value = serde_json::from_str(&raw).expect("status JSON must decode");
     assert!(value.is_object(), "status must be a JSON object");
 
     let mode_str = value
@@ -53,8 +51,14 @@ fn system_g_runtime_status_json_returns_well_formed_status() {
     #[cfg(feature = "pro-build")]
     {
         assert_eq!(mode_str, "ipc_bounded", "Pro build defaults to IpcBounded");
-        assert!(allows_execution, "Pro IpcBounded permits in-process execution");
-        assert!(!allows_subprocess, "Pro IpcBounded must not enable subprocess by default");
+        assert!(
+            allows_execution,
+            "Pro IpcBounded permits in-process execution"
+        );
+        assert!(
+            !allows_subprocess,
+            "Pro IpcBounded must not enable subprocess by default"
+        );
     }
 
     let build_tier = value
@@ -71,7 +75,10 @@ fn system_g_runtime_status_json_returns_well_formed_status() {
 fn mas_default_is_disabled() {
     // Pin the canon's MAS default at the substrate layer so the FFI
     // contract cannot drift without a substrate change being noticed.
-    assert_eq!(AgentRuntimeV2Mode::mas_default(), AgentRuntimeV2Mode::Disabled);
+    assert_eq!(
+        AgentRuntimeV2Mode::mas_default(),
+        AgentRuntimeV2Mode::Disabled
+    );
     assert!(!AgentRuntimeV2Mode::mas_default().allows_execution());
     assert!(!AgentRuntimeV2Mode::mas_default().allows_subprocess());
 }

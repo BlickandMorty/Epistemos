@@ -17,7 +17,6 @@ use crate::{
     },
 };
 
-use super::*;
 use super::audit_sink::*;
 use super::common::*;
 use super::decision::*;
@@ -29,6 +28,7 @@ use super::risk::*;
 use super::validation::*;
 use super::verdict::*;
 use super::wire::*;
+use super::*;
 
 pub fn admit_and_log(
     input: &ACSAdmissionInput,

@@ -29,8 +29,8 @@ use std::collections::BTreeMap;
 use super::retriever::EidosRetriever;
 use super::types::{
     is_blank_query_text, EidosChunkId, EidosContextPacket, EidosDocumentId, EidosHit,
-    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode,
-    EidosScoreComponents, EidosSourceKind,
+    EidosIndexManifestId, EidosProvenance, EidosQuery, EidosRetrievalMode, EidosScoreComponents,
+    EidosSourceKind,
 };
 
 /// Whether a piece of evidence supports or contradicts a claim. Mirrors the
@@ -108,11 +108,7 @@ impl EidosRetriever for InMemoryClaimEvidence {
         &self.manifest_id
     }
 
-    fn retrieve(
-        &self,
-        query: &EidosQuery,
-        retrieved_at_unix_ms: u64,
-    ) -> EidosContextPacket {
+    fn retrieve(&self, query: &EidosQuery, retrieved_at_unix_ms: u64) -> EidosContextPacket {
         if is_blank_query_text(&query.text) || query.top_k == 0 {
             return empty_packet(query, &self.manifest_id);
         }
@@ -220,7 +216,11 @@ mod tests {
     #[test]
     fn claim_with_supporting_evidence_returned() {
         let idx = build();
-        let q = EidosQuery::new("claim:tropical-is-convex", EidosRetrievalMode::ClaimEvidence, 16);
+        let q = EidosQuery::new(
+            "claim:tropical-is-convex",
+            EidosRetrievalMode::ClaimEvidence,
+            16,
+        );
         let packet = idx.retrieve(&q, 1_700_000_000_000);
         assert_eq!(packet.hits.len(), 3);
         let ids: Vec<&str> = packet.hits.iter().map(|h| h.source_id.as_str()).collect();
@@ -237,7 +237,11 @@ mod tests {
     #[test]
     fn missing_claim_returns_empty_packet() {
         let idx = build();
-        let q = EidosQuery::new("claim:never-registered", EidosRetrievalMode::ClaimEvidence, 8);
+        let q = EidosQuery::new(
+            "claim:never-registered",
+            EidosRetrievalMode::ClaimEvidence,
+            8,
+        );
         let packet = idx.retrieve(&q, 1_700_000_000_000);
         assert!(packet.hits.is_empty());
     }
@@ -245,7 +249,11 @@ mod tests {
     #[test]
     fn closed_citation_contract_holds_and_rejects_stance_spoofing() {
         let idx = build();
-        let q = EidosQuery::new("claim:tropical-is-convex", EidosRetrievalMode::ClaimEvidence, 16);
+        let q = EidosQuery::new(
+            "claim:tropical-is-convex",
+            EidosRetrievalMode::ClaimEvidence,
+            16,
+        );
         let packet = idx.retrieve(&q, 1_700_000_000_000);
         for hit in &packet.hits {
             let cite = EidosCitation {
@@ -257,10 +265,8 @@ mod tests {
         // note-001 supports the claim. A citation claiming it CONTRADICTS
         // is a forged stance and is rejected by the closed-citation contract.
         let stance_spoofed = EidosCitation {
-            source_id: EidosChunkId::new(
-                "note-001::claim::claim:tropical-is-convex::contradicts",
-            )
-            .unwrap(),
+            source_id: EidosChunkId::new("note-001::claim::claim:tropical-is-convex::contradicts")
+                .unwrap(),
             manifest_id: packet.manifest_id.clone(),
         };
         assert!(packet.validate_citation(&stance_spoofed).is_err());
@@ -311,7 +317,11 @@ mod tests {
     #[test]
     fn top_k_zero_returns_empty_packet() {
         let idx = build();
-        let q = EidosQuery::new("claim:tropical-is-convex", EidosRetrievalMode::ClaimEvidence, 0);
+        let q = EidosQuery::new(
+            "claim:tropical-is-convex",
+            EidosRetrievalMode::ClaimEvidence,
+            0,
+        );
         let packet = idx.retrieve(&q, 1_700_000_000_000);
         assert!(packet.hits.is_empty());
     }
@@ -319,7 +329,11 @@ mod tests {
     #[test]
     fn top_k_truncates_evidence() {
         let idx = build();
-        let q = EidosQuery::new("claim:tropical-is-convex", EidosRetrievalMode::ClaimEvidence, 2);
+        let q = EidosQuery::new(
+            "claim:tropical-is-convex",
+            EidosRetrievalMode::ClaimEvidence,
+            2,
+        );
         let packet = idx.retrieve(&q, 1_700_000_000_000);
         assert_eq!(packet.hits.len(), 2);
         // Truncation preserves document_id-ascending order.
@@ -337,7 +351,11 @@ mod tests {
     fn replay_byte_equal_for_pinned_clock() {
         let a = build();
         let b = build();
-        let q = EidosQuery::new("claim:tropical-is-convex", EidosRetrievalMode::ClaimEvidence, 8);
+        let q = EidosQuery::new(
+            "claim:tropical-is-convex",
+            EidosRetrievalMode::ClaimEvidence,
+            8,
+        );
         let pa = a.retrieve(&q, 1_700_000_000_000);
         let pb = b.retrieve(&q, 1_700_000_000_000);
         assert_eq!(pa, pb);
@@ -412,10 +430,7 @@ mod tests {
         // "contradicts" < "supports" lexicographically.
         assert_eq!(
             ids,
-            vec![
-                "doc::claim::c::contradicts",
-                "doc::claim::c::supports",
-            ]
+            vec!["doc::claim::c::contradicts", "doc::claim::c::supports",]
         );
     }
 }

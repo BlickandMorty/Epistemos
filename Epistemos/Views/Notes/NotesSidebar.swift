@@ -73,6 +73,20 @@ private struct SidebarDocumentItem: Identifiable, Equatable, Sendable {
     }
 }
 
+private struct SidebarHTMLWorkspaceItem: Identifiable, Equatable, Sendable {
+    let id: String
+    let title: String
+    let url: URL
+    let updatedAt: Date
+
+    nonisolated init(id: String, title: String, url: URL, updatedAt: Date) {
+        self.id = id
+        self.title = title
+        self.url = url
+        self.updatedAt = updatedAt
+    }
+}
+
 private struct SidebarFolderItem: Identifiable, Equatable {
     let id: String
     let name: String
@@ -672,6 +686,8 @@ struct NotesSidebar: View {
     @State private var bodySearchResults: [SidebarPageItem] = []
     @State private var pendingDeletePage: SidebarPageItem?
     @State private var pendingDeleteFolder: SidebarFolderItem?
+    @State private var showingNewCodeFileSheet = false
+    @State private var creationStatusText: String?
     // W9.13 — daily-note quick-glance sheet. Toggled by the "Today"
     // button in the bottom bar. Shows DailyNoteView with the
     // currently selected day plus the FSRS due-review section.
@@ -697,6 +713,7 @@ struct NotesSidebar: View {
     @State private var cachedPageIdsByFolderId: [String: [String]] = [:]
     @State private var cachedIdeaItems: [SidebarIdeaItem] = []
     @State private var cachedDocumentItems: [SidebarDocumentItem] = []
+    @State private var cachedHTMLWorkspaceItems: [SidebarHTMLWorkspaceItem] = []
     @State private var cachedPinnedPageItems: [SidebarPageItem] = []
     @State private var cachedLoosePageItems: [SidebarPageItem] = []
     @State private var cachedCollectionFolderItems: [SidebarFolderItem] = []
@@ -711,6 +728,8 @@ struct NotesSidebar: View {
     @State private var cachedBodySearchQueryOrder: [String] = []
     @State private var epdocDocumentScanTask: Task<Void, Never>?
     @State private var epdocDocumentScanVaultURL: URL?
+    @State private var htmlWorkspaceDocumentScanTask: Task<Void, Never>?
+    @State private var htmlWorkspaceDocumentScanVaultURL: URL?
     @State private var hasDailyNotesFolder = false
     @State private var rebuildTask: Task<Void, Never>?
     @State private var bodySearchTask: Task<Void, Never>?
@@ -742,6 +761,7 @@ struct NotesSidebar: View {
 
     private func rebuildCache() {
         refreshEpdocDocuments(in: vaultSync.vaultURL)
+        refreshHTMLWorkspaceDocuments(in: vaultSync.vaultURL)
 
         let primaryPages = allPages.filter { page in
             Self.shouldDisplayInPrimaryTree(page)
@@ -912,6 +932,33 @@ struct NotesSidebar: View {
         }
     }
 
+    private func refreshHTMLWorkspaceDocuments(in vaultURL: URL?, force: Bool = false) {
+        guard let vaultURL else {
+            htmlWorkspaceDocumentScanTask?.cancel()
+            htmlWorkspaceDocumentScanTask = nil
+            htmlWorkspaceDocumentScanVaultURL = nil
+            cachedHTMLWorkspaceItems = []
+            return
+        }
+
+        guard force || htmlWorkspaceDocumentScanVaultURL != vaultURL else { return }
+
+        htmlWorkspaceDocumentScanTask?.cancel()
+        htmlWorkspaceDocumentScanVaultURL = vaultURL
+        htmlWorkspaceDocumentScanTask = Task { @MainActor in
+            let documents = await Task.detached(priority: .utility) {
+                Self.scanHTMLWorkspaceDocuments(in: vaultURL)
+            }.value
+
+            guard !Task.isCancelled,
+                  htmlWorkspaceDocumentScanVaultURL == vaultURL,
+                  vaultSync.vaultURL == vaultURL else {
+                return
+            }
+            cachedHTMLWorkspaceItems = documents
+        }
+    }
+
     private nonisolated static func scanEpdocDocuments(in vaultURL: URL?) -> [SidebarDocumentItem] {
         guard let vaultURL else { return [] }
         let fileManager = FileManager.default
@@ -943,10 +990,51 @@ struct NotesSidebar: View {
         }
     }
 
+    private nonisolated static func scanHTMLWorkspaceDocuments(in vaultURL: URL?) -> [SidebarHTMLWorkspaceItem] {
+        guard let vaultURL else { return [] }
+        let fileManager = FileManager.default
+        guard let enumerator = fileManager.enumerator(
+            at: vaultURL,
+            includingPropertiesForKeys: [.isDirectoryKey, .contentModificationDateKey],
+            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+        ) else {
+            return []
+        }
+
+        var documents: [SidebarHTMLWorkspaceItem] = []
+        for case let url as URL in enumerator where url.pathExtension == "htmlworkspace" {
+            let values = try? url.resourceValues(forKeys: [.contentModificationDateKey])
+            let updatedAt = values?.contentModificationDate ?? .distantPast
+            let title = htmlWorkspaceTitle(at: url) ?? url.deletingPathExtension().lastPathComponent
+            documents.append(
+                SidebarHTMLWorkspaceItem(
+                    id: url.path,
+                    title: title.isEmpty ? "Untitled HTML Workspace" : title,
+                    url: url,
+                    updatedAt: updatedAt
+                )
+            )
+        }
+        return documents.sorted {
+            if $0.updatedAt == $1.updatedAt { return $0.title < $1.title }
+            return $0.updatedAt > $1.updatedAt
+        }
+    }
+
     private nonisolated static func epdocTitle(at url: URL) -> String? {
         let manifestURL = url.appendingPathComponent(EpdocPackageEntry.manifest)
         guard let data = try? Data(contentsOf: manifestURL),
               let manifest = try? JSONDecoder.epdocCanonical.decode(EpdocManifest.self, from: data) else {
+            return nil
+        }
+        let title = manifest.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return title.isEmpty ? nil : title
+    }
+
+    private nonisolated static func htmlWorkspaceTitle(at url: URL) -> String? {
+        let manifestURL = url.appendingPathComponent(HTMLWorkspacePackageEntry.manifest)
+        guard let data = try? Data(contentsOf: manifestURL),
+              let manifest = try? JSONDecoder.epdocCanonical.decode(HTMLWorkspaceManifest.self, from: data) else {
             return nil
         }
         let title = manifest.title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1063,9 +1151,16 @@ struct NotesSidebar: View {
             refreshTitleSearchResults(query: newValue)
             if newValue.isEmpty { bodySearchResults = [] }
         }
+        .sheet(isPresented: $showingNewCodeFileSheet) {
+            CodeFileCreationSheet(theme: theme) { request in
+                createCodeFile(request)
+            }
+        }
         .onDisappear {
             rebuildTask?.cancel()
             bodySearchTask?.cancel()
+            epdocDocumentScanTask?.cancel()
+            htmlWorkspaceDocumentScanTask?.cancel()
         }
     }
 
@@ -1229,6 +1324,13 @@ struct NotesSidebar: View {
             )
         }
 
+        if !cachedHTMLWorkspaceItems.isEmpty {
+            HTMLWorkspacesSection(
+                workspaces: cachedHTMLWorkspaceItems,
+                onAction: onAction
+            )
+        }
+
         // ── FILES SECTION ── loose pages not in any folder.
         let loose = cachedLoosePageItems
         VStack(alignment: .leading, spacing: 0) {
@@ -1352,6 +1454,8 @@ struct NotesSidebar: View {
             EditorActionsBar(
                 activePageId: currentSelectedPageId,
                 onNewDocument: { openNewEpdocDocument() },
+                onNewHTMLWorkspace: { openNewHTMLWorkspaceDocument() },
+                onNewCodeFile: { showingNewCodeFileSheet = true },
                 onNewPage: {
                     Task {
                         if let pageId = await vaultSync.createPage(title: "Untitled", allowVaultSelectionPrompt: true) {
@@ -1941,9 +2045,17 @@ struct NotesSidebar: View {
             }
 
         case .openDocument(let url):
-            NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, error in
-                if let error {
+            if url.pathExtension == "htmlworkspace" {
+                do {
+                    try NSDocumentController.shared.openHTMLWorkspaceDocument(at: url)
+                } catch {
                     NSApplication.shared.presentError(error)
+                }
+            } else {
+                NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, error in
+                    if let error {
+                        NSApplication.shared.presentError(error)
+                    }
                 }
             }
 
@@ -2218,6 +2330,46 @@ struct NotesSidebar: View {
             refreshEpdocDocuments(in: vaultSync.vaultURL, force: true)
             scheduleDeferredRebuild(after: .milliseconds(250), source: "epdoc create")
         } catch {
+            NSApplication.shared.presentError(error)
+        }
+    }
+
+    private func openNewHTMLWorkspaceDocument() {
+        guard vaultSync.vaultURL != nil else {
+            creationStatusText = "Select a vault before creating an HTML workspace."
+            VaultConnectionActions.selectVaultFolder(notesUI: notesUI, vaultSync: vaultSync)
+            return
+        }
+        do {
+            try NSDocumentController.shared.createUntitledHTMLWorkspaceDocument(in: vaultSync.vaultURL)
+            creationStatusText = "HTML workspace created"
+            refreshHTMLWorkspaceDocuments(in: vaultSync.vaultURL, force: true)
+            scheduleDeferredRebuild(after: .milliseconds(250), source: "html workspace create")
+        } catch {
+            creationStatusText = "HTML workspace failed"
+            NSApplication.shared.presentError(error)
+        }
+    }
+
+    private func createCodeFile(_ request: CodeFileCreationRequest) {
+        guard let vaultURL = vaultSync.vaultURL else {
+            creationStatusText = "Select a vault before creating code."
+            VaultConnectionActions.selectVaultFolder(notesUI: notesUI, vaultSync: vaultSync)
+            return
+        }
+
+        do {
+            let pageId = try CodeFileCreationController.createPage(
+                request: request,
+                vaultURL: vaultURL,
+                modelContext: modelContext,
+                graphState: graphState
+            )
+            creationStatusText = "Code file created"
+            setNeedsRebuild()
+            openInEditor(pageId)
+        } catch {
+            creationStatusText = "Code file failed"
             NSApplication.shared.presentError(error)
         }
     }
@@ -2713,6 +2865,32 @@ private struct DocumentsSection: View {
     }
 }
 
+private struct HTMLWorkspacesSection: View {
+    let workspaces: [SidebarHTMLWorkspaceItem]
+    let onAction: (SidebarAction) -> Void
+
+    @Environment(UIState.self) private var ui
+
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("HTML Workspaces")
+                .font(AppHeadingRole.section.font)
+                .foregroundStyle(theme.fontAccent)
+                .textCase(.uppercase)
+                .tracking(AppHeadingRole.section.tracking)
+                .padding(.horizontal, 14)
+                .padding(.top, 12)
+                .padding(.bottom, 2)
+
+            ForEach(workspaces) { workspace in
+                HTMLWorkspaceRow(item: workspace, onAction: onAction)
+            }
+        }
+    }
+}
+
 private struct DocumentRow: View {
     let item: SidebarDocumentItem
     let onAction: (SidebarAction) -> Void
@@ -2745,6 +2923,45 @@ private struct DocumentRow: View {
         .notesSidebarHoverTick(style: .file)
         .contextMenu {
             Button("Open Document") {
+                onAction(.openDocument(item.url))
+            }
+        }
+        .help(item.url.lastPathComponent)
+    }
+}
+
+private struct HTMLWorkspaceRow: View {
+    let item: SidebarHTMLWorkspaceItem
+    let onAction: (SidebarAction) -> Void
+
+    @Environment(UIState.self) private var ui
+
+    private var theme: EpistemosTheme { ui.theme.surfaceVariant(.other) }
+
+    var body: some View {
+        Button {
+            onAction(.openDocument(item.url))
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "curlybraces.square")
+                    .font(.epCaption)
+                    .foregroundStyle(theme.mutedForeground.opacity(0.55))
+                    .frame(width: 14)
+                Text(item.title)
+                    .font(.epBody)
+                    .foregroundStyle(theme.resolved.foreground.color.opacity(0.82))
+                    .lineLimit(1)
+                Spacer()
+            }
+            .padding(.leading, 14)
+            .padding(.trailing, 10)
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .notesSidebarHoverTick(style: .file)
+        .contextMenu {
+            Button("Open HTML Workspace") {
                 onAction(.openDocument(item.url))
             }
         }
@@ -3143,6 +3360,8 @@ private struct NoVaultConnectedBanner: View {
 private struct EditorActionsBar: View {
     let activePageId: String?
     let onNewDocument: () -> Void
+    let onNewHTMLWorkspace: () -> Void
+    let onNewCodeFile: () -> Void
     let onNewPage: () -> Void
     let onNewFolder: () -> Void
     let onNewCollection: () -> Void
@@ -3170,6 +3389,18 @@ private struct EditorActionsBar: View {
                 tooltip: vaultSync.vaultURL == nil ? "Select Vault to Create Document" : "New Document (.epdoc)"
             ) {
                 onNewDocument()
+            }
+            SidebarIconButton(
+                icon: "curlybraces.square",
+                tooltip: vaultSync.vaultURL == nil ? "Select Vault to Create HTML Workspace" : "New HTML Workspace"
+            ) {
+                onNewHTMLWorkspace()
+            }
+            SidebarIconButton(
+                icon: "chevron.left.forwardslash.chevron.right",
+                tooltip: vaultSync.vaultURL == nil ? "Select Vault to Create Code File" : "New Code File"
+            ) {
+                onNewCodeFile()
             }
             SidebarIconButton(
                 icon: "folder.badge.plus",
@@ -3324,6 +3555,200 @@ private struct VaultConnectionButton: View {
         guard vaultSync.vaultURL?.standardizedFileURL == vaultURL.standardizedFileURL else { return }
 
         VaultConnectionActions.disconnect(notesUI: notesUI, vaultSync: vaultSync)
+    }
+}
+
+struct CodeFileCreationRequest: Equatable {
+    var name: String
+    var kind: CodeArtifactKind
+    var relativeDirectory: String = CodeFileCreationController.defaultDirectory
+}
+
+enum CodeFileCreationController {
+    static let defaultDirectory = "Code"
+
+    @MainActor
+    static func createPage(
+        request: CodeFileCreationRequest,
+        vaultURL: URL,
+        modelContext: ModelContext,
+        graphState: GraphState?
+    ) throws -> String {
+        let kind = request.kind
+        let directory = sanitizedRelativeDirectory(request.relativeDirectory)
+        let baseName = uniqueBaseName(
+            rawName: request.name,
+            kind: kind,
+            vaultURL: vaultURL,
+            relativeDirectory: directory
+        )
+        let service = CodeFileService(vaultRoot: vaultURL)
+        let fileURL = try service.createCodeFile(
+            relativeDirectory: directory,
+            name: baseName,
+            kind: kind,
+            provenance: CodeProvenance(producer: .human)
+        )
+        let body = (try? String(contentsOf: fileURL, encoding: .utf8))
+            ?? kind.newFileTemplate(name: baseName)
+        let page = SDPage(title: fileURL.deletingPathExtension().lastPathComponent, emoji: "⌘")
+        page.format = "code"
+        page.filePath = fileURL.standardizedFileURL.path
+        page.subfolder = directory.isEmpty ? nil : directory
+        page.saveBody(body)
+        page.wordCount = body.split(whereSeparator: \.isWhitespace).count
+        page.lastSyncedBodyHash = SDPage.bodyHash(body)
+        page.lastSyncedAt = .now
+        page.needsVaultSync = false
+
+        modelContext.insert(page)
+        do {
+            try modelContext.save()
+            graphState?.needsRefresh = true
+            return page.id
+        } catch {
+            modelContext.delete(page)
+            rollbackCreatedFile(fileURL, vaultURL: vaultURL)
+            NoteFileStorage.deleteBody(pageId: page.id)
+            throw error
+        }
+    }
+
+    static func displayName(for request: CodeFileCreationRequest) -> String {
+        let base = sanitizedBaseName(request.name, kind: request.kind)
+        return "\(base).\(request.kind.primaryExtension)"
+    }
+
+    private static func sanitizedBaseName(_ rawName: String, kind: CodeArtifactKind) -> String {
+        var value = rawName
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: "\\", with: "-")
+            .replacingOccurrences(of: ":", with: "-")
+        let suffix = ".\(kind.primaryExtension)"
+        if value.lowercased().hasSuffix(suffix.lowercased()) {
+            value.removeLast(suffix.count)
+        }
+        value = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? "Untitled" : value
+    }
+
+    private static func sanitizedRelativeDirectory(_ rawDirectory: String) -> String {
+        rawDirectory
+            .split(separator: "/")
+            .map { component in
+                String(component)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .replacingOccurrences(of: "\\", with: "-")
+                    .replacingOccurrences(of: ":", with: "-")
+            }
+            .filter { !$0.isEmpty && $0 != "." && $0 != ".." }
+            .joined(separator: "/")
+    }
+
+    private static func uniqueBaseName(
+        rawName: String,
+        kind: CodeArtifactKind,
+        vaultURL: URL,
+        relativeDirectory: String
+    ) -> String {
+        let base = sanitizedBaseName(rawName, kind: kind)
+        let directoryURL = relativeDirectory.isEmpty
+            ? vaultURL
+            : vaultURL.appendingPathComponent(relativeDirectory, isDirectory: true)
+        let fileManager = FileManager.default
+        var candidate = base
+        var index = 2
+        while fileManager.fileExists(
+            atPath: directoryURL.appendingPathComponent("\(candidate).\(kind.primaryExtension)").path
+        ) {
+            candidate = "\(base) \(index)"
+            index += 1
+        }
+        return candidate
+    }
+
+    private static func rollbackCreatedFile(_ fileURL: URL, vaultURL: URL) {
+        let fileManager = FileManager.default
+        try? fileManager.removeItem(at: fileURL)
+        let vaultPath = vaultURL.standardizedFileURL.path
+        let filePath = fileURL.standardizedFileURL.path
+        let prefix = vaultPath.hasSuffix("/") ? vaultPath : "\(vaultPath)/"
+        guard filePath.hasPrefix(prefix) else { return }
+        let relativePath = String(filePath.dropFirst(prefix.count))
+        let sidecar = CodeSidecarPath.sidecarURL(
+            forVaultRoot: vaultURL,
+            vaultRelativePath: relativePath
+        )
+        try? fileManager.removeItem(at: sidecar)
+    }
+}
+
+struct CodeFileCreationSheet: View {
+    let theme: EpistemosTheme
+    let onCreate: (CodeFileCreationRequest) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var fileName = "Untitled"
+    @State private var selectedKind: CodeArtifactKind = .swift
+    @State private var relativeDirectory = CodeFileCreationController.defaultDirectory
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 10) {
+                Image(systemName: "chevron.left.forwardslash.chevron.right")
+                    .foregroundStyle(theme.resolved.accent.color)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("New Code File")
+                        .font(.headline)
+                    Text(CodeFileCreationController.displayName(
+                        for: CodeFileCreationRequest(
+                            name: fileName,
+                            kind: selectedKind,
+                            relativeDirectory: relativeDirectory
+                        )
+                    ))
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                TextField("File name", text: $fileName)
+                    .textFieldStyle(.roundedBorder)
+                Picker("Language", selection: $selectedKind) {
+                    ForEach(CodeArtifactKind.allCases, id: \.self) { kind in
+                        Text(kind.displayName).tag(kind)
+                    }
+                }
+                .pickerStyle(.menu)
+                TextField("Folder", text: $relativeDirectory)
+                    .textFieldStyle(.roundedBorder)
+                    .help("Vault-relative folder. Use Code for the default code workspace.")
+            }
+
+            HStack {
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Spacer()
+                Button("Create") {
+                    onCreate(
+                        CodeFileCreationRequest(
+                            name: fileName,
+                            kind: selectedKind,
+                            relativeDirectory: relativeDirectory
+                        )
+                    )
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(fileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding(20)
+        .frame(width: 420)
+        .background(MarkdownPreviewSurfaceStyle.flatBackground(for: theme))
     }
 }
 

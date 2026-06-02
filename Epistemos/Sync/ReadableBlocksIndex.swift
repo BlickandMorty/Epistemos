@@ -284,6 +284,14 @@ nonisolated public enum ReadableBlocksIndex {
         """)
     }
 
+    /// Rebuild the external-content FTS index from `readable_blocks`.
+    /// Use after repairing a missing `readable_blocks_fts` table in a
+    /// database whose migration ledger already says the base migration ran.
+    public static func rebuildFTSIndexIfAvailable(in db: Database) throws {
+        guard try tableExists("readable_blocks_fts", in: db) else { return }
+        try db.execute(sql: "INSERT INTO readable_blocks_fts(readable_blocks_fts) VALUES ('rebuild')")
+    }
+
     // MARK: Writer surface
 
     /// Insert one row. Caller is expected to have called

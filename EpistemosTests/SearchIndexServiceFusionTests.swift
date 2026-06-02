@@ -194,6 +194,57 @@ struct SearchIndexServiceFusionTests {
         )
     }
 
+    @Test("Startup repairs missing readable_blocks_fts and rebuilds existing rows")
+    func startupRepairsMissingReadableBlocksFTSAndRebuildsRows() throws {
+        let databaseURL = makeDatabaseURL()
+        let now = Date()
+        do {
+            let original = try SearchIndexService(databaseURL: databaseURL)
+            try original.upsert(
+                id: "repair-page",
+                title: "Repair Page",
+                body: "page body intentionally lacks the readable-only token",
+                tags: "",
+                updatedAt: now
+            )
+            let readableBlock = ReadableBlock(
+                artifactID: "repair-page",
+                artifactKind: .document,
+                blockID: "repair-page#readable",
+                blockKind: .paragraph,
+                titlePath: "Repair Page",
+                body: "readablesentinel",
+                updatedAt: ReadableBlock.iso8601(now),
+                vaultID: "test-vault"
+            )
+            try original.databaseWriter().write { db in
+                try ReadableBlocksIndex.insert(readableBlock, in: db)
+                try db.execute(sql: "DROP TABLE IF EXISTS readable_blocks_fts")
+                let missing = try Bool.fetchOne(
+                    db,
+                    sql: "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'readable_blocks_fts')"
+                ) ?? false
+                #expect(!missing)
+            }
+        }
+
+        let repaired = try SearchIndexService(databaseURL: databaseURL)
+        let hasReadableFTS = try repaired.databaseWriter().write { db in
+            try Bool.fetchOne(
+                db,
+                sql: "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'readable_blocks_fts')"
+            ) ?? false
+        }
+        #expect(hasReadableFTS)
+
+        let results = try repaired.fusedSearch(
+            query: "readablesentinel",
+            weights: FusionWeights(maxResults: 5),
+            now: now
+        )
+        #expect(results.map(\.parentDocID).contains("repair-page"))
+    }
+
     // MARK: - 1. Single-source query
 
     @Test("Single-source query: page-level term returns the matching page first")
@@ -403,6 +454,8 @@ struct SearchIndexServiceFusionTests {
     func emptyQueryReturnsEmpty() throws {
         let (service, _) = try makeService()
         let now = Date()
+        SearchFusionMetrics.shared.reset()
+        defer { SearchFusionMetrics.shared.reset() }
         try seedDoc(
             id: "p",
             title: "anything",
@@ -418,6 +471,33 @@ struct SearchIndexServiceFusionTests {
         let whitespace = try service.fusedSearch(query: "   ", weights: .default, now: now)
         #expect(whitespace.isEmpty,
                 "whitespace-only query must short-circuit; got \(whitespace.count)")
+    }
+
+    @Test("Empty fused search clears stale SearchFusionMetrics hits")
+    func emptyFusedSearchClearsStaleMetricsHits() throws {
+        let (service, _) = try makeService()
+        let now = Date()
+        SearchFusionMetrics.shared.reset()
+        defer { SearchFusionMetrics.shared.reset() }
+        try seedDoc(
+            id: "p",
+            title: "anything",
+            body: "anything",
+            updatedAt: now,
+            in: service
+        )
+
+        let hit = try service.fusedSearch(query: "anything", weights: .default, now: now)
+        #expect(!hit.isEmpty)
+        #expect(!SearchFusionMetrics.shared.snapshot().hitsBySource.isEmpty)
+
+        let blank = try service.fusedSearch(query: "   ", weights: .default, now: now)
+
+        let snapshot = SearchFusionMetrics.shared.snapshot()
+        #expect(blank.isEmpty)
+        #expect(snapshot.hitsBySource.isEmpty)
+        #expect(snapshot.sampleCount == 2)
+        #expect(snapshot.totalQueries == 2)
     }
 
     // MARK: - 7. Snippet projection
@@ -982,6 +1062,8 @@ struct SearchIndexServiceFusionTests {
     func invalidFusedSearchAsyncInputsDoNotRecordAgentEvents() async throws {
         let sink = SearchIndexAgentEventSink()
         let (service, _) = try makeService(recordingTo: sink)
+        SearchFusionMetrics.shared.reset()
+        defer { SearchFusionMetrics.shared.reset() }
 
         _ = try await service.fusedSearchAsync(query: "", weights: .default, now: Date())
         _ = try await service.fusedSearchAsync(query: "   \n\t  ", weights: .default, now: Date())
@@ -1062,6 +1144,8 @@ struct SearchIndexServiceFusionTests {
     func invalidFusedSearchSyncInputsDoNotRecordAgentEvents() throws {
         let capture = SearchIndexAgentEventCapture()
         let (service, _) = try makeService(recordingSyncTo: capture)
+        SearchFusionMetrics.shared.reset()
+        defer { SearchFusionMetrics.shared.reset() }
 
         _ = try service.fusedSearch(query: "", weights: .default, now: Date())
         _ = try service.fusedSearch(query: "   \n\t  ", weights: .default, now: Date())

@@ -125,6 +125,9 @@ struct ChatInputBar: View {
     }
     private let composerMetrics = AssistantComposerMetrics.mainChat
     private let placeholderText = ComposerAttachmentEntryHints.mainChatPlaceholder + "  Auto-routes when your prompt needs tools or a longer run."
+    private var contextualRecallScopeID: String {
+        chat.activeChatId ?? "main-chat-draft"
+    }
 
     /// Capability the pill should display right now. During a streaming /
     /// agent turn, chat.currentCapability (set by ChatCoordinator from live
@@ -805,7 +808,7 @@ struct ChatInputBar: View {
                         )
                     }
 
-                    ContextualShadowsButton()
+                    ContextualShadowsButton(scopeKind: .chat, scopeID: contextualRecallScopeID)
 
                     sendButton
                 }
@@ -818,8 +821,7 @@ struct ChatInputBar: View {
         .assistantComposerChrome(
             theme: theme,
             metrics: composerMetrics,
-            isActive: composerIsActive,
-            lightModeSurfaceTint: theme.resolved.background.color
+            isActive: composerIsActive
         )
         .overlay(alignment: .topLeading) {
             if showMentionDropdown {
@@ -840,7 +842,12 @@ struct ChatInputBar: View {
             }
         }
         .overlay(alignment: .bottomTrailing) {
-            ContextualShadowsPanel(onOpen: openContextualShadowHit)
+            ContextualShadowsPanel(
+                scopeKind: .chat,
+                scopeID: contextualRecallScopeID,
+                presentation: .chat,
+                onOpen: openContextualShadowHit
+            )
                 .padding(.trailing, 12)
                 .padding(.bottom, 48)
         }
@@ -1246,7 +1253,7 @@ struct ChatInputBar: View {
         case .chat:
             MiniChatWindowController.shared.openChat(hit.id)
         }
-        contextualShadows.closePanel()
+        contextualShadows.closePanel(kind: .chat, originDocId: contextualRecallScopeID)
     }
 
     private func updateMentionReferenceSearch(filter: String) {
@@ -1274,7 +1281,10 @@ struct ChatInputBar: View {
         guard contextualShadows.isEnabled else { return }
         guard let bootstrap = AppBootstrap.shared else { return }
         let instantRecall = bootstrap.instantRecallService
-        let originId = chat.activeChatId.flatMap(UUID.init(uuidString:)) ?? UUID()
+        let searchIndexService = bootstrap.vaultSync.searchService
+        let activeChatId = chat.activeChatId
+        let scopeID = contextualRecallScopeID
+        let originId = activeChatId.flatMap(UUID.init(uuidString:)) ?? UUID()
         let state = contextualShadows
         recallDebounceBox.task = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(200))
@@ -1282,9 +1292,14 @@ struct ChatInputBar: View {
             let snapshot = RecallContextSnapshot(
                 text: snapshotText,
                 kind: .chat,
-                originId: originId
+                originId: originId,
+                originDocId: scopeID
             )
-            state.requestRecall(snapshot: snapshot, instantRecall: instantRecall)
+            state.requestRecall(
+                snapshot: snapshot,
+                instantRecall: instantRecall,
+                searchIndexService: searchIndexService
+            )
         }
     }
 
@@ -1456,6 +1471,7 @@ struct ChatComposerTextEditor: NSViewRepresentable {
     func makeNSView(context: Context) -> NSScrollView {
         let scrollView = NSScrollView(frame: .zero)
         scrollView.borderType = .noBorder
+        scrollView.focusRingType = .none
         scrollView.drawsBackground = false
         scrollView.hasHorizontalScroller = false
         scrollView.hasVerticalScroller = false
@@ -1478,6 +1494,7 @@ struct ChatComposerTextEditor: NSViewRepresentable {
         )
         textView.drawsBackground = false
         textView.backgroundColor = .clear
+        textView.focusRingType = .none
         textView.textContainerInset = NSSize(
             width: ChatComposerInputMetrics.horizontalInset,
             height: ChatComposerInputMetrics.verticalInset

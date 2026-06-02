@@ -763,10 +763,10 @@ struct TaggedMarkdownTextView: View {
         // chat H2/H3 mirror the Tiptap notes editor's size + weight, on
         // Ember's intrinsic heading face (ChonkyPixels).
         let notesSpec = theme.notesMatchingHeadingSpec(level: level)
-        // Per-theme H1-H3 size multiplier (Classic + Platinum shrink 15 % to
-        // visually match Ember; Ember stays on 1.0). Applied to both the
-        // canonical AppHeadingRole sizes and the notes-spec override.
-        let multiplier = (1...3).contains(level) ? theme.headingSizeMultiplier : 1.0
+        // Per-theme H1-H3 size multiplier. Classic H2/H3 intentionally
+        // stay on Ember Tan's notes size, while Classic H1 and Platinum
+        // keep the Matrix shrink.
+        let multiplier = (1...3).contains(level) ? theme.headingSizeMultiplier(level: level) : 1.0
         let effectiveBaseSize = (notesSpec?.size ?? baseFontSize) * multiplier
         let fontSize = MarkdownHeadingDisplay.fontSize(
             for: level,
