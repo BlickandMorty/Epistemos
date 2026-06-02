@@ -17,6 +17,7 @@ const COMPUTE_RESUME_LEASE_COMPATIBILITY_FALSIFIER_ID: &str = "F-ComputeResumeLe
 const PARAM_ROUTE_CARD_ADMISSION_FALSIFIER_ID: &str = "F-ParamRouteCard-Admission";
 const RESIDENCY_PATTERNBOOST_NO_HIDDEN_AUTHORITY_FALSIFIER_ID: &str =
     "F-ResidencyPatternBoost-NoHiddenAuthority";
+const APP_COLD_STORE_ROUTE_CARD_UAS_KIND: &str = "app_cold_store_route_card";
 const REQUIRED_PATTERNBOOST_VERIFIER_LANES: [&str; 3] = [
     COMPUTE_RESUME_LEASE_COMPATIBILITY_FALSIFIER_ID,
     PARAM_ROUTE_CARD_ADMISSION_FALSIFIER_ID,
@@ -94,6 +95,7 @@ impl UasAssemblyGenome {
         created_at_ms: u64,
     ) -> Result<Self, UasAssemblyGenomeError> {
         validate_patternboost_status(&product_build, &pro_status, residency_status)?;
+        validate_route_card_ref(&route_card_ref)?;
 
         let mission_family = mission_family.into();
         let runtime_route_id = runtime_route_id.into();
@@ -435,6 +437,19 @@ fn validate_patternboost_status(
         return Err(UasAssemblyGenomeError::ProductBuildStatusMismatch);
     }
     Ok(())
+}
+
+fn validate_route_card_ref(route_card_ref: &UasAddress) -> Result<(), UasAssemblyGenomeError> {
+    if matches!(
+        &route_card_ref.kind,
+        UasKind::Other(tag) if tag == APP_COLD_STORE_ROUTE_CARD_UAS_KIND
+    ) {
+        return Ok(());
+    }
+    Err(UasAssemblyGenomeError::InvalidUasKind {
+        field: "route_card_ref",
+        actual_kind: route_card_ref.kind.wire_tag().to_string(),
+    })
 }
 
 fn validate_nonempty(field: &'static str, value: &str) -> Result<(), UasAssemblyGenomeError> {
@@ -811,6 +826,41 @@ mod tests {
         .unwrap_err();
 
         assert_eq!(err, UasAssemblyGenomeError::MissingRuntimeRoute);
+    }
+
+    #[test]
+    fn uas_assembly_genome_requires_route_card_reference_identity() {
+        let err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            addr(UasKind::VaultNote, b"not-a-route-card"),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            err,
+            UasAssemblyGenomeError::InvalidUasKind {
+                field: "route_card_ref",
+                actual_kind: "vault_note".to_string()
+            }
+        );
     }
 
     #[test]
