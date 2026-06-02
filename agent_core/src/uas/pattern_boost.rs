@@ -586,9 +586,7 @@ fn is_shadow_or_dry_run_route_id(route_id: &str) -> bool {
 fn validate_rollback_reference(rollback_ref: &str) -> Result<(), UasAssemblyGenomeError> {
     if rollback_ref
         .strip_prefix(ROLLBACK_REF_PREFIX)
-        .is_some_and(|artifact_id| {
-            !artifact_id.is_empty() && !artifact_id.chars().any(char::is_whitespace)
-        })
+        .is_some_and(is_reference_payload)
     {
         return Ok(());
     }
@@ -626,7 +624,10 @@ fn validate_answer_packet_caveat_ref(
 }
 
 fn is_reference_payload(payload: &str) -> bool {
-    !payload.is_empty() && !payload.chars().any(char::is_whitespace)
+    !payload.is_empty()
+        && payload
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.'))
 }
 
 fn missing_field_error(field: &'static str) -> UasAssemblyGenomeError {
@@ -1697,6 +1698,109 @@ mod tests {
             answer_packet_err,
             UasAssemblyGenomeError::UnsupportedAnswerPacketCaveatRef {
                 answer_packet_caveat_ref: "answer_packet:hidden-caveat".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn uas_assembly_genome_rejects_nested_authority_witness_payloads() {
+        let rollback_err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:patternboost:mutate_live_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            rollback_err,
+            UasAssemblyGenomeError::UnsupportedRollbackReference {
+                rollback_ref: "rollback:patternboost:mutate_live_policy".to_string()
+            }
+        );
+
+        let run_event_err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            "run_event_log:patternboost:hidden-span",
+            ANSWER_PACKET_CAVEAT_REF,
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            run_event_err,
+            UasAssemblyGenomeError::UnsupportedRunEventLogSpanRef {
+                run_event_log_span_ref: "run_event_log:patternboost:hidden-span".to_string()
+            }
+        );
+
+        let answer_packet_err = UasAssemblyGenome::new(
+            "citation_heavy_research",
+            route_card_ref(),
+            "runtime_router:shadow_patternboost_route",
+            vec![addr(UasKind::ModelComponent, b"weight-a")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            verifier_lanes(&[]),
+            "query_aware_sparse_attention_v0",
+            "depth_budget_gate_shadow_v0",
+            vec![page_run("a", 0)],
+            vec!["nf4".to_string()],
+            vec!["kv:research-prefix".to_string()],
+            vec!["kv_restore_before_decode".to_string()],
+            "runtime_router:fallback_static_route",
+            "rollback:static_route_policy",
+            RUN_EVENT_LOG_SPAN_REF,
+            "answer_packet_caveat:patternboost:hidden-caveat",
+            ProductBuild::Pro,
+            ProStatus::ResearchCandidate,
+            ResidencyTier::CapabilityCeiling,
+            42,
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            answer_packet_err,
+            UasAssemblyGenomeError::UnsupportedAnswerPacketCaveatRef {
+                answer_packet_caveat_ref: "answer_packet_caveat:patternboost:hidden-caveat"
+                    .to_string()
             }
         );
     }
